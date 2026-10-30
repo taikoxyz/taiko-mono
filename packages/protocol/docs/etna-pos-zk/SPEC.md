@@ -183,7 +183,7 @@ The bound leaves headroom within the 130,044 bytes one blob carries: compressing
 <details>
 <summary>Details: why power cannot overflow</summary>
 
-- **Power cannot overflow**: TAIKO has a fixed total supply of 10\^27 base units, and deployment requires vp_unit ≥ ⌈10\^27 / MAX⌉ = 867,361,738, so the power of all entries together never exceeds MAX and registration cannot trigger an overflow; the check in step 4 is only a backstop. If TAIKO supply ever increases, choose vp_unit for the new supply and deploy a new configuration first.
+- **Power cannot overflow**: TAIKO has a fixed total supply of 10\^27 base units, and deployment requires vp_unit ≥ ⌈10\^27 / MAX⌉ = 867,361,738, so the power of all entries together never exceeds MAX and registration cannot trigger an overflow; the check in step 4 is only a backstop. **[COMM-4.3-8a]** If TAIKO supply ever increases, choose vp_unit for the new supply and deploy a new configuration first.
 
 </details>
 
@@ -614,7 +614,7 @@ Use U=3,600 and choose L independently (suggested 900), with approximately 4 s b
 7. **[LIMIT-12-7]** **No rotation power-change limit.** Each term directly selects the top n_max by stake, with no takeover bound or guaranteed DAO reaction window; continuously assess the actual committee's less-than-1/3 Byzantine-power assumption (4.3).
 8. **[LIMIT-12-8]** **Refunds depend on settlement and the post-confirmation evidence window.** An exit must first be covered by a landed committee, then confirmed, then wait the full withdrawalDelay. If the Inbox cannot recover or must be replaced, unblocking exits still needs a governance upgrade (4.1).
 9. **[LIMIT-12-9]** **The switch from Unzen is not included yet.** To keep the spec small and easy to discuss, it deliberately leaves out the switch from Unzen to Etna for now; that will be added later, and section 10's startup flow and the starting point used in the text (block 0, committee 0 and the grid origin of 6.1) will be adjusted then. Bridge wiring comes with the switch: L2→L1 messages already work through SignalService checkpoints, but how the existing Bridge, vaults and L2 SignalService connect (including the L2 SignalService reading L1 state from EIP-4788) is not yet specified.
-10. **[LIMIT-12-10]** **The upgrade activation mechanism is not fully designed yet.** Section 10.1 specifies stopping and settling through H, new rules from H + 1, in-flight job isolation and historical-replay boundaries. Authentication of the plan, exact height-scoped on-chain image acceptance and switch/failure paths are still to be designed and will be added later; this is not an available fallback. L1 hard forks are a separate, external deadline: forks that only append header fields are absorbed by the decoding rule in 3.3, while forks that change existing fields or the state commitment (for example EIP-7864's binary trie, which invalidates every MPT witness) need the client and guest upgrades and the new image registrations done before the fork activates on L1, on L1's schedule rather than at an L2 height.
+10. **[LIMIT-12-10]** **The upgrade activation mechanism is not fully designed yet.** Section 10.1 specifies stopping and settling through H, new rules from H + 1, in-flight job isolation and historical-replay boundaries. Authentication of the plan, exact height-scoped on-chain image acceptance and switch/failure paths are still to be designed and will be added later; this is not an available fallback. **[LIMIT-12-10a]** L1 hard forks are a separate, external deadline: forks that only append header fields are absorbed by the decoding rule in 3.3, while forks that change existing fields or the state commitment (for example EIP-7864's binary trie, which invalidates every MPT witness) need the client and guest upgrades and the new image registrations done before the fork activates on L1, on L1's schedule rather than at an L2 height.
 11. **[LIMIT-12-11]** **Registry capacity.** There are 4096 slots in total; filling them locks 4096 × `minStake`, plus L1 transaction costs, and new registrations are blocked while they are full. Registration occupies a slot before activation, and entries that are not selected also retain their slots until exit and withdrawal. Higher-stake newcomers can therefore be excluded without the occupier controlling committee voting power. Competitive or expiring admission remains an open design choice; any reclamation must preserve historical snapshot proofs and the settlement condition on collateral withdrawal.
 12. **[LIMIT-12-12]** **No automatic gradual-offline handling.** The protocol does not reduce power for low participation, so offline members can keep their stake ranking; removal depends on owner exit, replacement by other eligible stake, DAO responsibility forfeiture with forced exit (4.4), or post-stall governance recovery.
 13. **[LIMIT-12-13]** **secp256k1eth is new.** The key type was added only in CometBFT v0.40.0, with one later fix to its signature format, so it is less battle-tested than Ed25519; support in external signers and HSM/KMS must be confirmed separately. CometBFT does not batch-verify it. [Etna Acceptance and Launch Checklist](ACCEPTANCE.md) requires pinned versions, cross-implementation vectors, signer/HSM/KMS compatibility and n = 128 measurements; a negligible cost impact must not be assumed before testing.
@@ -679,6 +679,7 @@ AccountWitness  = [address, nonce, balance, storageRoot, codeHash, accountProof,
   Prove exactly in order: anchor [268, 270, 271, 281]; forced entry [base,base+1], base=keccak256(abi.encode(i,280));
   // [ENC-A-26]
   registry snapshot [R, cp(i), cp(i) + 1], plus cp(i + 1) if i + 1 < length, where cp(i) = keccak256(R) + 2i
+  // [ENC-A-26a]
   // accountProof and each storage proof are exactly the ordered MPT path from the root to the leaf (or to the node proving absence), with no extra nodes;
   // value uses minimal big-endian encoding (0 is the empty string) and equals the proven value; the account fields match the account RLP in the proof
 // [ENC-A-27]
@@ -742,6 +743,7 @@ setNode     = keccak256(abi.encode("ETNA_SET_NODE", l2ChainId, k, left, right)) 
 // [ENC-A-42]
 record      = keccak256(abi.encode("ETNA_COMMITTEE_V1", l2ChainId, targetEpoch, cutoffL1Block,
                 checkpointIndex, setRoot, totalPower))
+// [ENC-A-42a]
 k           = targetEpoch + 1
 ```
 
@@ -781,6 +783,7 @@ ckAddr   = keccak256(uint256_be(ckX) || uint256_be(ckY))[12:]
 // The 0x04 uncompressed prefix is not hashed. Require nonzero matching PoP recovery.
 // Store ckPrefix/ckX only. slashDoubleSign(bondId,voteA,voteB) derives Y from that stored key.
 
+// [ENC-A-49a]
 registerDigest  = keccak256(0x1901 || domainSeparator ||
                     keccak256(abi.encode(keccak256("Register(address owner)"), owner)))
 domainSeparator = EIP-712 domain: name "EtnaStakingRegistry", version "1", chainId = L1 chain id, verifyingContract = registry

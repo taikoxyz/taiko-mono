@@ -6,601 +6,606 @@
 
 ## Index
 
-| ID            | Type       | Title                                                                             | Section | Vectors                              |
-| ------------- | ---------- | --------------------------------------------------------------------------------- | ------- | ------------------------------------ |
-| MODEL-1-1     | rule       | Proof completeness: every valid block within EL and 3.4 size limits is provable   | 1       | [1](vectors/1.md#model-1-1)          |
-| MODEL-1-2     | rule       | Proof completeness covers every grid segment of K blocks within one landing       | 1       | [1](vectors/1.md#model-1-2)          |
-| MODEL-1-3     | rule       | land, saveForcedInclusion and the registry are unaffected by pause                | 1       | [1](vectors/1.md#model-1-3)          |
-| COMP-2-1      | rule       | Validator: registry stake, consensus key, stock CometBFT, checkpoint-trust gate   | 2       | [2](vectors/2.md#comp-2-1)           |
-| COMP-2-2      | rule       | Full node: CometBFT, ABCI app and alethia-reth with no signing key                | 2       | [2](vectors/2.md#comp-2-2)           |
-| COMP-2-3      | rule       | Lander: permissionless batch builder and land caller, no protocol reward          | 2       | [2](vectors/2.md#comp-2-3)           |
-| COMP-2-4      | rule       | Prover: produces two proofs per batch                                             | 2       | [2](vectors/2.md#comp-2-4)           |
-| COMP-2-5      | rule       | EtnaInbox: genesis parameters, land, checkpoints, FI queue and recovery           | 2       | [2](vectors/2.md#comp-2-5)           |
-| COMP-2-6      | rule       | EtnaStakingRegistry: stake, exits, slashing, forfeiture and checkpoints           | 2       | [2](vectors/2.md#comp-2-6)           |
-| COMP-2-7      | rule       | SignalService: stores checkpoints for bridge message verification                 | 2       | [2](vectors/2.md#comp-2-7)           |
-| CONS-3.1-1    | rule       | Stock CometBFT v0.40.0; stock proposer, timeout, lock and BlockID behavior        | 3.1     | [3.1](vectors/3.1.md#cons-31-1)      |
-| CONS-3.1-2    | rule       | Proposer selection, timeouts, locking and BlockID use stock behavior; not forked  | 3.1     | [3.1](vectors/3.1.md#cons-31-2)      |
-| CONS-3.1-3    | rule       | Consensus key format: secp256k1eth, keccak256, 65-byte low-s signature, address   | 3.1     | [3.1](vectors/3.1.md#cons-31-3)      |
-| CONS-3.1-4    | rule       | chain_id and chainDomain construction, exactly 48 ASCII bytes, recomputed by all  | 3.1     | [3.1](vectors/3.1.md#cons-31-4)      |
-| CONS-3.1-5    | rule       | Domain separation by generation and deployment; same height is not a double sign  | 3.1     | [3.1](vectors/3.1.md#cons-31-5)      |
-| CONS-3.1-6    | rule       | Mempool nop; user transactions arrive over EL devp2p into the proposer's txpool   | 3.1     | [3.1](vectors/3.1.md#cons-31-6)      |
-| CONS-3.1-7    | rule       | CometBFT height equals EL block number; Data.Txs holds one envelope               | 3.1     | [3.1](vectors/3.1.md#cons-31-7)      |
-| CONS-3.1-8    | rule       | ABCI responses: app_hash and fixed ExecTxResult fields                            | 3.1     | [3.1](vectors/3.1.md#cons-31-8)      |
-| CONS-3.1-9    | rule       | App and rules version, immutable consensus params, node-local trust metadata      | 3.1     | [3.1](vectors/3.1.md#cons-31-9)      |
-| CONS-3.1-10   | rule       | CometBFT evidence is not punished by the app; double-sign slashing only on L1     | 3.1     | [3.1](vectors/3.1.md#cons-31-10)     |
-| CONS-3.1-11   | rule       | Pinned alethia-reth feature set and engine API methods used to drive it           | 3.1     | [3.1](vectors/3.1.md#cons-31-11)     |
-| CONS-3.1-12   | rule       | Pinned ZK Gas rules; L2_BLOCK_ZK_GAS_LIMIT independent of EVM gas                 | 3.1     | [3.1](vectors/3.1.md#cons-31-12)     |
-| CONS-3.1-13   | rule       | Candidate-build discard: full rollback; discarded transactions pay nothing        | 3.1     | [3.1](vectors/3.1.md#cons-31-13)     |
-| CONS-3.1-14   | rule       | Pool-only policy; FI at position 0 is never skipped for remembered overflows      | 3.1     | [3.1](vectors/3.1.md#cons-31-14)     |
-| CONS-3.1-15   | rule       | Committed block: every listed transaction executes; none may be silently dropped  | 3.1     | [3.1](vectors/3.1.md#cons-31-15)     |
-| CONS-3.1-16   | rule       | EVM revert/OOG included and charged; no zk-gas-to-charged-gas conversion          | 3.1     | [3.1](vectors/3.1.md#cons-31-16)     |
-| CONS-3.1-17   | rule       | eth_call/eth_estimateGas: full block zk budget and explicit zk-limit errors       | 3.1     | [3.1](vectors/3.1.md#cons-31-17)     |
-| CONS-3.2-1    | rule       | Header determinism: all fields except beneficiary derive from chain state         | 3.2     | [3.2](vectors/3.2.md#cons-32-1)      |
-| CONS-3.2-2    | rule       | number and parentHash: height and hash of the committed parent                    | 3.2     | [3.2](vectors/3.2.md#cons-32-2)      |
-| CONS-3.2-3    | rule       | timestamp: max(parent.timestamp + 1, floor(BFT time), anchor.timestamp)           | 3.2     | [3.2](vectors/3.2.md#cons-32-3)      |
-| CONS-3.2-4    | rule       | beneficiary: proposer choice, not checked; fees paid at L2 execution              | 3.2     | [3.2](vectors/3.2.md#cons-32-4)      |
-| CONS-3.2-5    | rule       | extraData: 13 bytes, 100 percent base-fee share, generation and anchor number     | 3.2     | [3.2](vectors/3.2.md#cons-32-5)      |
-| CONS-3.2-6    | rule       | parentBeaconBlockRoot: anchor L1 stateRoot written into EIP-4788                  | 3.2     | [3.2](vectors/3.2.md#cons-32-6)      |
-| CONS-3.2-7    | rule       | gasLimit: chain constant L2_BLOCK_GAS_LIMIT                                       | 3.2     | [3.2](vectors/3.2.md#cons-32-7)      |
-| CONS-3.2-8    | rule       | baseFeePerGas: 0.025 gwei at block 1, EIP-4396 adjustment with clamps             | 3.2     | [3.2](vectors/3.2.md#cons-32-8)      |
-| CONS-3.2-9    | rule       | mixHash: parent difficulty and height with the Unzen formula                      | 3.2     | [3.2](vectors/3.2.md#cons-32-9)      |
-| CONS-3.2-10   | rule       | Other header fields: empty withdrawals, zero blob gas, empty requests and ommers  | 3.2     | [3.2](vectors/3.2.md#cons-32-10)     |
-| CONS-3.2-11   | rule       | difficulty accumulates only included transactions' zk gas                         | 3.2     | [3.2](vectors/3.2.md#cons-32-11)     |
-| CONS-3.2-12   | rule       | Block-start system processing is not rolled back with an aborted transaction      | 3.2     | [3.2](vectors/3.2.md#cons-32-12)     |
-| CONS-3.3-1    | rule       | Every block has an anchor, carried as a witness or inherited from the parent      | 3.3     | [3.3](vectors/3.3.md#cons-33-1)      |
-| CONS-3.3-2    | rule       | Anchor witness presence: required on generation start and anchor moves            | 3.3     | [3.3](vectors/3.3.md#cons-33-2)      |
-| CONS-3.3-3    | rule       | Anchor witness proves recoveryGeneration, lastCheckpoint and FI queue bounds      | 3.3     | [3.3](vectors/3.3.md#cons-33-3)      |
-| CONS-3.3-4    | rule       | Proposer anchor choice; a retained proposal keeps its original anchor             | 3.3     | [3.3](vectors/3.3.md#cons-33-4)      |
-| CONS-3.3-5    | rule       | ProcessProposal anchor checks; later finality cannot expire a proposal            | 3.3     | [3.3](vectors/3.3.md#cons-33-5)      |
-| CONS-3.3-6    | rule       | rawL1Header: RLP bounds and four positional fields; other items uninterpreted     | 3.3     | [3.3](vectors/3.3.md#cons-33-6)      |
-| CONS-3.3-7    | rule       | Header identity is keccak256 of raw bytes; canonical hash check and outcomes      | 3.3     | [3.3](vectors/3.3.md#cons-33-7)      |
-| CONS-3.4-1    | rule       | ProcessProposal and FinalizeBlock apply the same deterministic rules in order     | 3.4     | [3.4](vectors/3.4.md#cons-34-1)      |
-| CONS-3.4-2    | rule       | Height is parent plus one and parentHash links to the parent                      | 3.4     | [3.4](vectors/3.4.md#cons-34-2)      |
-| CONS-3.4-3    | rule       | Anchor witness presence follows 3.3 and the witness verifies                      | 3.4     | [3.4](vectors/3.4.md#cons-34-3)      |
-| CONS-3.4-4    | rule       | Anchor does not regress below the parent anchor or the generation's L1 origin     | 3.4     | [3.4](vectors/3.4.md#cons-34-4)      |
-| CONS-3.4-5    | rule       | Generation: recomputed chain_id matches; larger supersedes, smaller rejects       | 3.4     | [3.4](vectors/3.4.md#cons-34-5)      |
-| CONS-3.4-6    | rule       | Back-pressure: height minus proven checkpoint height at most U                    | 3.4     | [3.4](vectors/3.4.md#cons-34-6)      |
-| CONS-3.4-7    | rule       | Committee witness at S(t) with proofs under S(t)'s anchor root                    | 3.4     | [3.4](vectors/3.4.md#cons-34-7)      |
-| CONS-3.4-8    | rule       | Header matches 3.2 field by field and anchor freshness within maxAnchorAge        | 3.4     | [3.4](vectors/3.4.md#cons-34-8)      |
-| CONS-3.4-9    | rule       | Forced inclusion rules of section 7 apply                                         | 3.4     | [3.4](vectors/3.4.md#cons-34-9)      |
-| CONS-3.4-10   | rule       | newPayload VALID and final body exactly the retained transactions                 | 3.4     | [3.4](vectors/3.4.md#cons-34-10)     |
-| CONS-3.4-11   | rule       | Every listed transaction executes; over-limit or overflow invalidates the block   | 3.4     | [3.4](vectors/3.4.md#cons-34-11)     |
-| CONS-3.4-12   | rule       | Freshness depends only on candidate and parent, not on advancing L1 finality      | 3.4     | [3.4](vectors/3.4.md#cons-34-12)     |
-| CONS-3.4-13   | rule       | Block size bound: 124,000-byte envelope block item, checked in both paths         | 3.4     | [3.4](vectors/3.4.md#cons-34-13)     |
-| CONS-3.4-14   | rule       | A decided block violating the size bound makes honest nodes halt for safety       | 3.4     | [3.4](vectors/3.4.md#cons-34-14)     |
-| CONS-3.4-15   | rule       | No usable finalized anchor: L2 pauses until one is usable                         | 3.4     | [3.4](vectors/3.4.md#cons-34-15)     |
-| CONS-3.4-16   | rule       | Anchor-change checkpoint check: height and local-chain hash; mismatch rejects     | 3.4     | [3.4](vectors/3.4.md#cons-34-16)     |
-| STAKE-4.1-1   | rule       | register requires amount >= minStake                                              | 4.1     | [4.1](vectors/4.1.md#stake-41-1)     |
-| STAKE-4.1-2   | rule       | Activation is delayed; msg.sender becomes owner                                   | 4.1     | [4.1](vectors/4.1.md#stake-41-2)     |
-| STAKE-4.1-3   | rule       | exitEffectiveL1 starts at 2^48-1; requestExit guard                               | 4.1     | [4.1](vectors/4.1.md#stake-41-3)     |
-| STAKE-4.1-4   | rule       | A key can be registered only once, keyed by ckAddr                                | 4.1     | [4.1](vectors/4.1.md#stake-41-4)     |
-| STAKE-4.1-5   | rule       | Registry stores only ckPrefix and ckX; ckY is derived                             | 4.1     | [4.1](vectors/4.1.md#stake-41-5)     |
-| STAKE-4.1-6   | rule       | publicKey is exactly 33 canonical SEC1 compressed bytes                           | 4.1     | [4.1](vectors/4.1.md#stake-41-6)     |
-| STAKE-4.1-7   | rule       | Textual, uncompressed, hybrid and trailing keys are rejected                      | 4.1     | [4.1](vectors/4.1.md#stake-41-7)     |
-| STAKE-4.1-8   | rule       | Decompression, point, parity and recompression checks                             | 4.1     | [4.1](vectors/4.1.md#stake-41-8)     |
-| STAKE-4.1-9   | rule       | Registration failure creates no entry and consumes no key                         | 4.1     | [4.1](vectors/4.1.md#stake-41-9)     |
-| STAKE-4.1-10  | rule       | ckAddr hashes decoded coordinates, not the compressed key                         | 4.1     | [4.1](vectors/4.1.md#stake-41-10)    |
-| STAKE-4.1-11  | rule       | popSig format and recovery to ckAddr                                              | 4.1     | [4.1](vectors/4.1.md#stake-41-11)    |
-| STAKE-4.1-12  | rule       | Registration digest binds L1 chain id, registry and sender                        | 4.1     | [4.1](vectors/4.1.md#stake-41-12)    |
-| STAKE-4.1-13  | rule       | There are 4096 slots and the bond id is the slot                                  | 4.1     | [4.1](vectors/4.1.md#stake-41-13)    |
-| STAKE-4.1-14  | rule       | Withdrawn slots are reused from a free list first                                 | 4.1     | [4.1](vectors/4.1.md#stake-41-14)    |
-| STAKE-4.1-15  | rule       | topUp is owner-only and has six admission checks                                  | 4.1     | [4.1](vectors/4.1.md#stake-41-15)    |
-| STAKE-4.1-16  | rule       | topUp records pending funds and rejects overflow                                  | 4.1     | [4.1](vectors/4.1.md#stake-41-16)    |
-| STAKE-4.1-17  | rule       | Pending funds are not stake, tree entries or voting power                         | 4.1     | [4.1](vectors/4.1.md#stake-41-17)    |
-| STAKE-4.1-18  | rule       | activateTopUp moves ready pending funds into effStake                             | 4.1     | [4.1](vectors/4.1.md#stake-41-18)    |
-| STAKE-4.1-19  | rule       | Maturity alone does not activate; no historical rewrite                           | 4.1     | [4.1](vectors/4.1.md#stake-41-19)    |
-| STAKE-4.1-20  | rule       | After exit, no top-ups and pending funds leave by withdrawal                      | 4.1     | [4.1](vectors/4.1.md#stake-41-20)    |
-| STAKE-4.1-21  | rule       | All principal backs the key, including evidence and forfeiture                    | 4.1     | [4.1](vectors/4.1.md#stake-41-21)    |
-| STAKE-4.1-22  | rule       | Top-up and activation work before Inbox initialization                            | 4.1     | [4.1](vectors/4.1.md#stake-41-22)    |
-| STAKE-4.1-23  | rule       | requestExit is owner-only; effect takes the later delay                           | 4.1     | [4.1](vectors/4.1.md#stake-41-23)    |
-| STAKE-4.1-24  | rule       | requestExit needs no exit set; exitEffectiveL1 only moves earlier                 | 4.1     | [4.1](vectors/4.1.md#stake-41-24)    |
-| STAKE-4.1-25  | rule       | exitEffectiveL1 is eligibility, not the evidence clock                            | 4.1     | [4.1](vectors/4.1.md#stake-41-25)    |
-| STAKE-4.1-26  | rule       | confirmExit conditions, first-call record and idempotence                         | 4.1     | [4.1](vectors/4.1.md#stake-41-26)    |
-| STAKE-4.1-27  | rule       | withdraw conditions and the two balance branches                                  | 4.1     | [4.1](vectors/4.1.md#stake-41-27)    |
-| STAKE-4.1-28  | rule       | Withdrawal cleanup preserves the lifetime forfeiture flag                         | 4.1     | [4.1](vectors/4.1.md#stake-41-28)    |
-| STAKE-4.1-29  | rule       | activeCommitteeSnapshot never decreases; no re-check                              | 4.1     | [4.1](vectors/4.1.md#stake-41-29)    |
-| STAKE-4.1-30  | rule       | Owner is immutable; keys cannot rotate in place                                   | 4.1     | [4.1](vectors/4.1.md#stake-41-30)    |
-| STAKE-4.1-31  | rule       | slashDoubleSign is permissionless; vote tuple; fixed domain                       | 4.1     | [4.1](vectors/4.1.md#stake-41-31)    |
-| STAKE-4.1-32  | rule       | Double-sign evidence predicate, generation and scope                              | 4.1     | [4.1](vectors/4.1.md#stake-41-32)    |
-| STAKE-4.1-33  | rule       | Registry derives ckY and verifies both signatures                                 | 4.1     | [4.1](vectors/4.1.md#stake-41-33)    |
-| STAKE-4.1-34  | rule       | Slash admission, principal zeroing, exit, bounty and sink                         | 4.1     | [4.1](vectors/4.1.md#stake-41-34)    |
-| STAKE-4.1-35  | rule       | Membership is not proven; lower-height re-sign is not double                      | 4.1     | [4.1](vectors/4.1.md#stake-41-35)    |
-| STAKE-4.1-36  | rule       | Every L1 block changing an entry ends with a checkpoint                           | 4.1     | [4.1](vectors/4.1.md#stake-41-36)    |
-| STAKE-4.1-37  | rule       | Inbox proxy address is fixed and checked at initialization                        | 4.1     | [4.1](vectors/4.1.md#stake-41-37)    |
-| STAKE-4.1-38  | rule       | Before init, exit/slash/forfeit fail but registration works                       | 4.1     | [4.1](vectors/4.1.md#stake-41-38)    |
-| STAKE-4.1-39  | rule       | Exclusion recovery can move exitEffectiveL1 to recoverySnapshot                   | 4.1     | [4.1](vectors/4.1.md#stake-41-39)    |
-| STAKE-4.2-1   | rule       | L and L1_0 are fixed at Inbox initialization                                      | 4.2     | [4.2](vectors/4.2.md#stake-42-1)     |
-| STAKE-4.2-2   | rule       | Epoch t starts at H(t)=1+t\*L; block h maps to floor((h-1)/L)                     | 4.2     | [4.2](vectors/4.2.md#stake-42-2)     |
-| STAKE-4.2-3   | rule       | Epochs follow L2 height only; maxAnchorAge bounds anchors                         | 4.2     | [4.2](vectors/4.2.md#stake-42-3)     |
-| COMM-4.3-1    | rule       | One selection rule serves committee 0, rotation and recovery                      | 4.3     | [4.3](vectors/4.3.md#comm-43-1)      |
-| COMM-4.3-2    | rule       | Verify complete entries and root at the snapshot checkpoint                       | 4.3     | [4.3](vectors/4.3.md#comm-43-2)      |
-| COMM-4.3-3    | rule       | Eligibility: activeFromL1 <= snapshot < exit and stake floor                      | 4.3     | [4.3](vectors/4.3.md#comm-43-3)      |
-| COMM-4.3-4    | rule       | Two eligible entries sharing a key make the state invalid                         | 4.3     | [4.3](vectors/4.3.md#comm-43-4)      |
-| COMM-4.3-5    | rule       | Released slots are zero, ineligible and ignored                                   | 4.3     | [4.3](vectors/4.3.md#comm-43-5)      |
-| COMM-4.3-6    | rule       | Sort by effStake, break ties by set key, take n_max                               | 4.3     | [4.3](vectors/4.3.md#comm-43-6)      |
-| COMM-4.3-7    | rule       | assignedPower = floor(effStake / vp_unit)                                         | 4.3     | [4.3](vectors/4.3.md#comm-43-7)      |
-| COMM-4.3-8    | rule       | Committee encoding, totals and rejection constraints                              | 4.3     | [4.3](vectors/4.3.md#comm-43-8)      |
-| COMM-4.3-9    | rule       | Committee 0: genesisCutoff snapshot, epoch 0, record hash                         | 4.3     | [4.3](vectors/4.3.md#comm-43-9)      |
-| COMM-4.3-10   | rule       | Rotation uses S(t)=H(t)-2 and D(t)=H(t)-3                                         | 4.3     | [4.3](vectors/4.3.md#comm-43-10)     |
-| COMM-4.3-11   | rule       | Rotation snapshot is the later of D(t)'s anchor and origin                        | 4.3     | [4.3](vectors/4.3.md#comm-43-11)     |
-| COMM-4.3-12   | rule       | Proofs use S(t)'s own anchor root and latest checkpoint                           | 4.3     | [4.3](vectors/4.3.md#comm-43-12)     |
-| COMM-4.3-13   | rule       | Rotation updates take effect at H(t); targetEpoch=t                               | 4.3     | [4.3](vectors/4.3.md#comm-43-13)     |
-| COMM-4.3-14   | rule       | Recovery applies the rule at R and only R's snapshot                              | 4.3     | [4.3](vectors/4.3.md#comm-43-14)     |
-| COMM-4.3-15   | rule       | Recovery target epoch, immediate effect, pending discard                          | 4.3     | [4.3](vectors/4.3.md#comm-43-15)     |
-| COMM-4.3-16   | rule       | Authenticated L1 state fixes membership; no takeover limits                       | 4.3     | [4.3](vectors/4.3.md#comm-43-16)     |
-| COMM-4.3-17   | rule       | activationDelay scope and only activated increments count                         | 4.3     | [4.3](vectors/4.3.md#comm-43-17)     |
-| FORF-4.4-1    | rule       | forfeit is registry-owner-only and post-initialization                            | 4.4     | [4.4](vectors/4.4.md#forf-44-1)      |
-| FORF-4.4-2    | rule       | entryKey = keccak256(abi.encode(ckPrefix, ckX))                                   | 4.4     | [4.4](vectors/4.4.md#forf-44-2)      |
-| FORF-4.4-3    | rule       | Authorization binds deployment/parameters; incident identity                      | 4.4     | [4.4](vectors/4.4.md#forf-44-3)      |
-| FORF-4.4-4    | rule       | Five execution checks for forfeit                                                 | 4.4     | [4.4](vectors/4.4.md#forf-44-4)      |
-| FORF-4.4-5    | rule       | Exits stay punishable until withdrawal; membership not needed                     | 4.4     | [4.4](vectors/4.4.md#forf-44-5)      |
-| FORF-4.4-6    | rule       | validUntil is an absolute L1 Unix timestamp                                       | 4.4     | [4.4](vectors/4.4.md#forf-44-6)      |
-| FORF-4.4-7    | rule       | Penalty = ceil(balance\*forfeitBps/10000), 0 < bps <= 10000                       | 4.4     | [4.4](vectors/4.4.md#forf-44-7)      |
-| FORF-4.4-8    | rule       | Deduct effStake then pendingTopUp; clear the ready block                          | 4.4     | [4.4](vectors/4.4.md#forf-44-8)      |
-| FORF-4.4-9    | rule       | The whole penalty goes to slashSink, with no bounty                               | 4.4     | [4.4](vectors/4.4.md#forf-44-9)      |
-| FORF-4.4-10   | rule       | Post-authorization deposits are included; no history                              | 4.4     | [4.4](vectors/4.4.md#forf-44-10)     |
-| FORF-4.4-11   | rule       | Same transaction sets the flag, exit and checkpoint                               | 4.4     | [4.4](vectors/4.4.md#forf-44-11)     |
-| FORF-4.4-12   | rule       | Lifetime flag cannot be reset; entryKey stops slot reuse                          | 4.4     | [4.4](vectors/4.4.md#forf-44-12)     |
-| FORF-4.4-13   | rule       | Forfeiture affects only subsequent snapshots                                      | 4.4     | [4.4](vectors/4.4.md#forf-44-13)     |
-| FORF-4.4-14   | rule       | Remaining principal follows withdrawal; confirmation stands                       | 4.4     | [4.4](vectors/4.4.md#forf-44-14)     |
-| FORF-4.4-15   | rule       | Double-sign may empty the entry; forfeit then fails on zero                       | 4.4     | [4.4](vectors/4.4.md#forf-44-15)     |
-| FORF-4.4-16   | rule       | No nonce, revocation, queue, hold or extra delay                                  | 4.4     | [4.4](vectors/4.4.md#forf-44-16)     |
-| FORF-4.4-17   | rule       | Unexecuted authorization survives DAO change; expiry reverts                      | 4.4     | [4.4](vectors/4.4.md#forf-44-17)     |
-| FORF-4.4-18   | rule       | Landing, generation change and recover do not invalidate                          | 4.4     | [4.4](vectors/4.4.md#forf-44-18)     |
-| FORF-4.4-19   | rule       | Atomic ordering, reentrancy rejection and event fields                            | 4.4     | [4.4](vectors/4.4.md#forf-44-19)     |
-| FORF-4.4-20   | rule       | Forfeit must precede lawful withdrawal; withdrawn funds unrecoverable             | 4.4     | [4.4](vectors/4.4.md#forf-44-20)     |
-| DATA-5.1-1    | rule       | Envelope = 0x06 \|\| rlp([block, anchor, committee, forced])                      | 5.1     | [5.1](vectors/5.1.md#data-51-1)      |
-| DATA-5.1-2    | rule       | The CometBFT header's data_hash commits to the envelope                           | 5.1     | [5.1](vectors/5.1.md#data-51-2)      |
-| DATA-5.1-3    | rule       | The envelope never goes to L1                                                     | 5.1     | [5.1](vectors/5.1.md#data-51-3)      |
-| DATA-5.2-1    | rule       | Each batch uses 1-6 blobs                                                         | 5.2     | [5.2](vectors/5.2.md#data-52-1)      |
-| DATA-5.2-2    | rule       | Blob encoding: <=130,044 bytes, full non-final, zero padding                      | 5.2     | [5.2](vectors/5.2.md#data-52-2)      |
-| DATA-5.2-3    | rule       | Payload = 0x06 \|\| zlib(rlp([executionBlock, ...]))                              | 5.2     | [5.2](vectors/5.2.md#data-52-3)      |
-| DATA-5.2-4    | rule       | Transactions are RLP byte strings of EIP-2718 encodings                           | 5.2     | [5.2](vectors/5.2.md#data-52-4)      |
-| DATA-5.2-5    | rule       | One zlib stream, no dictionary, 64 MiB / 22,020,096 B limits                      | 5.2     | [5.2](vectors/5.2.md#data-52-5)      |
-| DATA-5.2-6    | rule       | All payload encodings are canonical and round-trip                                | 5.2     | [5.2](vectors/5.2.md#data-52-6)      |
-| DATA-5.2-7    | rule       | Blocks are contiguous, hash-linked and end at the checkpoint                      | 5.2     | [5.2](vectors/5.2.md#data-52-7)      |
-| DATA-5.2-8    | rule       | Private proof inputs: unpublished data and guest equality                         | 5.2     | [5.2](vectors/5.2.md#data-52-8)      |
-| DATA-5.2-9    | rule       | DA recovery: archived blobs plus starting state suffice                           | 5.2     | [5.2](vectors/5.2.md#data-52-9)      |
-| DATA-5.3-1    | rule       | Reconstruction uses only public inputs                                            | 5.3     | [5.3](vectors/5.3.md#data-53-1)      |
-| DATA-5.3-2    | rule       | A source-available program and public inputs are required                         | 5.3     | [5.3](vectors/5.3.md#data-53-2)      |
-| DATA-5.3-3    | rule       | Starting material: genesis state/code, hashes, ids, L1_0                          | 5.3     | [5.3](vectors/5.3.md#data-53-3)      |
-| DATA-5.3-4    | rule       | The program recomputes and matches the authenticated start                        | 5.3     | [5.3](vectors/5.3.md#data-53-4)      |
-| DATA-5.3-5    | rule       | Verify versioned hashes and (p,h] blobs in landing order                          | 5.3     | [5.3](vectors/5.3.md#data-53-5)      |
-| DATA-5.3-6    | rule       | Execute only (c,h]; check prefix, h hash/stateRoot and cursor                     | 5.3     | [5.3](vectors/5.3.md#data-53-6)      |
-| DATA-5.3-7    | rule       | History selection uses authenticated generations/origins                          | 5.3     | [5.3](vectors/5.3.md#data-53-7)      |
-| DATA-5.3-8    | rule       | Reject missing material/versions; never skip or use RPC                           | 5.3     | [5.3](vectors/5.3.md#data-53-8)      |
-| DATA-5.3-9    | rule       | Archive authentication; private history is separate                               | 5.3     | [5.3](vectors/5.3.md#data-53-9)      |
-| LAND-6.1-1    | rule       | land is permissionless and nonpayable                                             | 6.1     | [6.1](vectors/6.1.md#land-61-1)      |
-| LAND-6.1-2    | rule       | Proofs and blobs cover all of (p,h], origin p to terminal h                       | 6.1     | [6.1](vectors/6.1.md#land-61-2)      |
-| LAND-6.1-3    | rule       | c is read atomically at execution; only suffix (c,h] settles                      | 6.1     | [6.1](vectors/6.1.md#land-61-3)      |
-| LAND-6.1-4    | rule       | Concurrent landing that advances c does not invalidate the transaction            | 6.1     | [6.1](vectors/6.1.md#land-61-4)      |
-| LAND-6.1-5    | rule       | Landings end only at grid points: multiples of K from Etna block 0                | 6.1     | [6.1](vectors/6.1.md#land-61-5)      |
-| LAND-6.1-6    | rule       | Check list: range/grid/origin, leaves, FI head, reference/blobs, proofs           | 6.1     | [6.1](vectors/6.1.md#land-61-6)      |
-| LAND-6.1-7    | rule       | Leaves are exactly those of the grid points in (p,h)                              | 6.1     | [6.1](vectors/6.1.md#land-61-7)      |
-| LAND-6.1-8    | rule       | The leaf at c matches the current checkpoint record                               | 6.1     | [6.1](vectors/6.1.md#land-61-8)      |
-| LAND-6.1-9    | rule       | Atomic update: checkpoint, snapshot, FI head, slot 285, SignalService             | 6.1     | [6.1](vectors/6.1.md#land-61-9)      |
-| LAND-6.1-10   | rule       | Reference Solidity lists every check; the checks are normative                    | 6.1     | [6.1](vectors/6.1.md#land-61-10)     |
-| LAND-6.1-11   | rule       | All checks precede any state change                                               | 6.1     | [6.1](vectors/6.1.md#land-61-11)     |
-| LAND-6.1-12   | rule       | The leaf checks precede proof verification                                        | 6.1     | [6.1](vectors/6.1.md#land-61-12)     |
-| LAND-6.1-13   | rule       | Interface: land signature, LandInput's eight fields, K, cutLeaf/cutHash           | 6.1     | [6.1](vectors/6.1.md#land-61-13)     |
-| PROOF-6.2-1   | rule       | The verifier is an Inbox immutable                                                | 6.2     | [6.2](vectors/6.2.md#proof-62-1)     |
-| PROOF-6.2-2   | rule       | land only calls verifyProof and does not check the implementation                 | 6.2     | [6.2](vectors/6.2.md#proof-62-2)     |
-| PROOF-6.2-3   | rule       | Production must use the same ZkRequiredVerifier as mainnet (Unzen)                | 6.2     | [6.2](vectors/6.2.md#proof-62-3)     |
-| PROOF-6.2-4   | rule       | Exactly two sub-proofs, at least one ZK, hence two guests                         | 6.2     | [6.2](vectors/6.2.md#proof-62-4)     |
-| PROOF-6.2-5   | rule       | Verifier address, code hash and image set pinned in the manifest                  | 6.2     | [6.2](vectors/6.2.md#proof-62-5)     |
-| PROOF-6.2-6   | rule       | Backend failure fallback; settlement stops if none can be assembled               | 6.2     | [6.2](vectors/6.2.md#proof-62-6)     |
-| PROOF-6.2-7   | rule       | Withdrawals use land's SignalService checkpoint directly                          | 6.2     | [6.2](vectors/6.2.md#proof-62-7)     |
-| PROOF-6.2-8   | rule       | parentHeight/parentHash and headBefore are taken at proof origin p                | 6.2     | [6.2](vectors/6.2.md#proof-62-8)     |
-| PROOF-6.2-9   | rule       | Both sub-proofs authenticate the same statement, including cutHash                | 6.2     | [6.2](vectors/6.2.md#proof-62-9)     |
-| PROOF-6.2-10  | rule       | The proof stays valid when p is not the latest checkpoint at execution            | 6.2     | [6.2](vectors/6.2.md#proof-62-10)    |
-| PROOF-6.2-11  | rule       | Inbox and registry storage holds under authenticated L1 roots                     | 6.2     | [6.2](vectors/6.2.md#proof-62-11)    |
-| PROOF-6.2-12  | rule       | Derive signing and pending committees via 4.3 with authenticated inputs           | 6.2     | [6.2](vectors/6.2.md#proof-62-12)    |
-| PROOF-6.2-13  | rule       | Ordinary path: parentHash to D(t), at most L+2 historical headers                 | 6.2     | [6.2](vectors/6.2.md#proof-62-13)    |
-| PROOF-6.2-14  | rule       | Every proof authenticates the fixed origin record; recovery also c and R          | 6.2     | [6.2](vectors/6.2.md#proof-62-14)    |
-| PROOF-6.2-15  | rule       | Comet headers link by last_block_id; first header has empty last_block_id         | 6.2     | [6.2](vectors/6.2.md#proof-62-15)    |
-| PROOF-6.2-16  | rule       | Every block's commit signatures and schedule are verified                         | 6.2     | [6.2](vectors/6.2.md#proof-62-16)    |
-| PROOF-6.2-17  | rule       | Commit: >2/3 power, distinct signers, secp256k1eth, generation chain_id           | 6.2     | [6.2](vectors/6.2.md#proof-62-17)    |
-| PROOF-6.2-18  | rule       | validators_hash and next_validators_hash match the activation schedule            | 6.2     | [6.2](vectors/6.2.md#proof-62-18)    |
-| PROOF-6.2-19  | rule       | A numeric epoch alone cannot authorize a committee                                | 6.2     | [6.2](vectors/6.2.md#proof-62-19)    |
-| PROOF-6.2-20  | rule       | Envelopes match data_hash; witnesses satisfy sections 3 and 7                     | 6.2     | [6.2](vectors/6.2.md#proof-62-20)    |
-| PROOF-6.2-21  | rule       | Execution runs from parentHash to the last block, equal to the payload            | 6.2     | [6.2](vectors/6.2.md#proof-62-21)    |
-| PROOF-6.2-22  | rule       | Nodes, EL and both guests share pinned zk-gas rules and validate the full list    | 6.2     | [6.2](vectors/6.2.md#proof-62-22)    |
-| PROOF-6.2-23  | rule       | Do not prove a shorter prefix of an over-limit payload                            | 6.2     | [6.2](vectors/6.2.md#proof-62-23)    |
-| PROOF-6.2-24  | rule       | FI entries [headBefore, headAfter) are consumed exactly and in order              | 6.2     | [6.2](vectors/6.2.md#proof-62-24)    |
-| PROOF-6.2-25  | rule       | Eligibility of the raw bytes follows 7.2 and the same vectors                     | 6.2     | [6.2](vectors/6.2.md#proof-62-25)    |
-| PROOF-6.2-26  | rule       | Skip reproduces alethia's singleton build result: an empty block                  | 6.2     | [6.2](vectors/6.2.md#proof-62-26)    |
-| PROOF-6.2-27  | rule       | An empty singleton result caused by the zk limit is included                      | 6.2     | [6.2](vectors/6.2.md#proof-62-27)    |
-| PROOF-6.2-28  | rule       | Discarded trial work counts in the proof; no final difficulty or fees             | 6.2     | [6.2](vectors/6.2.md#proof-62-28)    |
-| PROOF-6.2-29  | rule       | Each block has extraData[0] = 100                                                 | 6.2     | [6.2](vectors/6.2.md#proof-62-29)    |
-| PROOF-6.2-30  | rule       | activeCommitteeSnapshot is the selection snapshot governing lastHeight            | 6.2     | [6.2](vectors/6.2.md#proof-62-30)    |
-| PROOF-6.2-31  | rule       | Pending committees, terminal anchor and reference block are not substitutes       | 6.2     | [6.2](vectors/6.2.md#proof-62-31)    |
-| PROOF-6.2-32  | rule       | Old pending updates never activate after recovery; report R                       | 6.2     | [6.2](vectors/6.2.md#proof-62-32)    |
-| PROOF-6.2-33  | rule       | Anchors and every other L1 root lie on the chain ending at the reference block    | 6.2     | [6.2](vectors/6.2.md#proof-62-33)    |
-| PROOF-6.2-34  | rule       | Headers decoded per 3.3; links compare keccak256 of raw bytes with parentHash     | 6.2     | [6.2](vectors/6.2.md#proof-62-34)    |
-| PROOF-6.2-35  | rule       | 4096 canonical elements per blob; KZG commitment bound to blobHashes[i]           | 6.2     | [6.2](vectors/6.2.md#proof-62-35)    |
-| PROOF-6.2-36  | rule       | Guest may recompute C or verify a KZG proof of equivalence                        | 6.2     | [6.2](vectors/6.2.md#proof-62-36)    |
-| PROOF-6.2-37  | rule       | Blob payload = blobs decoded in index order per 5.2 with all 5.2 rules            | 6.2     | [6.2](vectors/6.2.md#proof-62-37)    |
-| PROOF-6.2-38  | rule       | The statement's blobHashes hash is computed from the same list                    | 6.2     | [6.2](vectors/6.2.md#proof-62-38)    |
-| PROOF-6.2-39  | rule       | Cuts cover p through h continuously without duplicates or omissions               | 6.2     | [6.2](vectors/6.2.md#proof-62-39)    |
-| PROOF-6.2-40  | rule       | First EL/Comet hashes and FI cursor match the authenticated origin                | 6.2     | [6.2](vectors/6.2.md#proof-62-40)    |
-| PROOF-6.2-41  | rule       | Later cuts come from the real header and execution/consumption results            | 6.2     | [6.2](vectors/6.2.md#proof-62-41)    |
-| PROOF-6.2-42  | rule       | Last cut equals lastBlockHash, lastCometHash and forcedInclusionHeadAfter         | 6.2     | [6.2](vectors/6.2.md#proof-62-42)    |
-| PROOF-6.2-43  | rule       | p,h are grid points; cutHash over every grid point uses appendix A                | 6.2     | [6.2](vectors/6.2.md#proof-62-43)    |
-| PROOF-6.2-44  | rule       | Cuts not authenticated by execution must not be accepted                          | 6.2     | [6.2](vectors/6.2.md#proof-62-44)    |
-| PROOF-6.2-45  | rule       | Every block in (p,h] satisfies anchor, commit, committee, FI and EL rules         | 6.2     | [6.2](vectors/6.2.md#proof-62-45)    |
-| PROOF-6.2-46  | rule       | Origin p is authenticated by its slot 285 record, not verified on its own         | 6.2     | [6.2](vectors/6.2.md#proof-62-46)    |
-| PROOF-6.2-47  | rule       | Inherited anchor: guest verifies its raw header and Inbox proofs against p+1      | 6.2     | [6.2](vectors/6.2.md#proof-62-47)    |
-| BATCH-6.3-1   | rule       | A batch is cut only at grid points and may cross epochs                           | 6.3     | [6.3](vectors/6.3.md#batch-63-1)     |
-| BATCH-6.3-2   | rule       | Handover heights unrelated to the grid; recovery start is always a grid point     | 6.3     | [6.3](vectors/6.3.md#batch-63-2)     |
-| BATCH-6.3-3   | rule       | Use the actual schedule rather than avoiding a problematic cut                    | 6.3     | [6.3](vectors/6.3.md#batch-63-3)     |
-| BATCH-6.3-4   | rule       | l1ReferenceBlockNumber may be any recent L1 block                                 | 6.3     | [6.3](vectors/6.3.md#batch-63-4)     |
-| BATCH-6.3-5   | rule       | After a long outage old anchors must still be authenticated within budget         | 6.3     | [6.3](vectors/6.3.md#batch-63-5)     |
-| BATCH-6.3-6   | rule       | Reference-header chain bound: 131,072 headers (~18 days at 12 s)                  | 6.3     | [6.3](vectors/6.3.md#batch-63-6)     |
-| BATCH-6.3-7   | rule       | Beyond the bound: only governance recovery (<=U), restart from R                  | 6.3     | [6.3](vectors/6.3.md#batch-63-7)     |
-| BATCH-6.3-8   | rule       | Prove from an authenticated, retained historical checkpoint p                     | 6.3     | [6.3](vectors/6.3.md#batch-63-8)     |
-| BATCH-6.3-9   | rule       | p cannot precede the generation start; the proof cannot span generations          | 6.3     | [6.3](vectors/6.3.md#batch-63-9)     |
-| BATCH-6.3-10  | rule       | Concurrent landing: the transaction stays valid whenever p <= c < h               | 6.3     | [6.3](vectors/6.3.md#batch-63-10)    |
-| BATCH-6.3-11  | rule       | If c >= h the target is already settled and work can be cancelled                 | 6.3     | [6.3](vectors/6.3.md#batch-63-11)    |
-| BATCH-6.3-12  | rule       | Expiry, rule/image changes or generation transition can invalidate a job          | 6.3     | [6.3](vectors/6.3.md#batch-63-12)    |
-| BATCH-6.3-13  | rule       | Signed jobs must not be rewritten to bypass those boundaries                      | 6.3     | [6.3](vectors/6.3.md#batch-63-13)    |
-| BATCH-6.3-14  | rule       | Copying cannot change proven content; no landing reward; submitter irrelevant     | 6.3     | [6.3](vectors/6.3.md#batch-63-14)    |
-| BACKP-6.4-1   | rule       | L2 height cannot exceed anchor-proven lastCheckpoint.height + U                   | 6.4     | [6.4](vectors/6.4.md#backp-64-1)     |
-| BACKP-6.4-2   | rule       | U is a config-hash parameter: K <= U <= 65,536, multiple of K                     | 6.4     | [6.4](vectors/6.4.md#backp-64-2)     |
-| BACKP-6.4-3   | rule       | U is a circuit breaker for settlement failure, not normal pacing                  | 6.4     | [6.4](vectors/6.4.md#backp-64-3)     |
-| BACKP-6.4-4   | rule       | The target deployment uses U = 3,600                                              | 6.4     | [6.4](vectors/6.4.md#backp-64-4)     |
-| BACKP-6.4-5   | rule       | 4 s blocks and <=20 min between landings are targets, not validity rules          | 6.4     | [6.4](vectors/6.4.md#backp-64-5)     |
-| BACKP-6.4-6   | rule       | U and the epoch length L do not constrain each other                              | 6.4     | [6.4](vectors/6.4.md#backp-64-6)     |
-| BACKP-6.4-7   | rule       | A landing stall permits at most U further blocks                                  | 6.4     | [6.4](vectors/6.4.md#backp-64-7)     |
-| BACKP-6.4-8   | rule       | L1 inclusion alone does not release the pause                                     | 6.4     | [6.4](vectors/6.4.md#backp-64-8)     |
-| BACKP-6.4-9   | rule       | U is fixed at deployment, not overridable by local node configuration             | 6.4     | [6.4](vectors/6.4.md#backp-64-9)     |
-| BACKP-6.4-10  | rule       | Anchor-based accounting never undercounts unsettled blocks                        | 6.4     | [6.4](vectors/6.4.md#backp-64-10)    |
-| BACKP-6.4-11  | rule       | Exception: section 8 verifier-failure rollback accounting                         | 6.4     | [6.4](vectors/6.4.md#backp-64-11)    |
-| BACKP-6.4-12  | rule       | L1 finality lag brings the pause forward; never authorizes exceeding U            | 6.4     | [6.4](vectors/6.4.md#backp-64-12)    |
-| BACKP-6.4-13  | rule       | Raising U raises max discard; recovery discards only unsettleable blocks + K-1    | 6.4     | [6.4](vectors/6.4.md#backp-64-13)    |
-| BACKP-6.4-14  | rule       | Publish L and its nominal epoch duration; not a wall-clock guarantee              | 6.4     | [6.4](vectors/6.4.md#backp-64-14)    |
-| BACKP-6.4-15  | rule       | Acceptance gate before using the target configuration                             | 6.4     | [6.4](vectors/6.4.md#backp-64-15)    |
-| BACKP-6.4-16  | rule       | Do not omit latest-checkpoint checks, non-finalized anchors, remove a proof...    | 6.4     | [6.4](vectors/6.4.md#backp-64-16)    |
-| FI-7.1-1      | rule       | saveForcedInclusion: 8,192-byte cap, fee formula, overpayment refund              | 7.1     | [7.1](vectors/7.1.md#fi-71-1)        |
-| FI-7.1-2      | rule       | Entry stores only keccak256(tx), L1 timestamp and block number                    | 7.1     | [7.1](vectors/7.1.md#fi-71-2)        |
-| FI-7.1-3      | rule       | Enqueue event: index, raw bytes, fee in wei; encoding unchecked                   | 7.1     | [7.1](vectors/7.1.md#fi-71-3)        |
-| FI-7.1-4      | rule       | Enqueue fee is protocol revenue kept in the Inbox                                 | 7.1     | [7.1](vectors/7.1.md#fi-71-4)        |
-| FI-7.1-5      | rule       | Fee buys admission only: no refund, recharge or lander payment                    | 7.1     | [7.1](vectors/7.1.md#fi-71-5)        |
-| FI-7.1-6      | rule       | Historical charges only in enqueue events; not recovery inputs                    | 7.1     | [7.1](vectors/7.1.md#fi-71-6)        |
-| FI-7.1-7      | rule       | Reverted submission neither enqueues nor charges                                  | 7.1     | [7.1](vectors/7.1.md#fi-71-7)        |
-| FI-7.1-8      | rule       | protocolFeeRecipient: nonzero DAO treasury, published in manifest                 | 7.1     | [7.1](vectors/7.1.md#fi-71-8)        |
-| FI-7.1-9      | rule       | Only saveForcedInclusion accepts ETH; other entry points reject it                | 7.1     | [7.1](vectors/7.1.md#fi-71-9)        |
-| FI-7.1-10     | rule       | sweepProtocolFees: permissionless, entire balance, failure reverts                | 7.1     | [7.1](vectors/7.1.md#fi-71-10)       |
-| FI-7.1-11     | rule       | Force-sent ETH is swept with the FI fees                                          | 7.1     | [7.1](vectors/7.1.md#fi-71-11)       |
-| FI-7.1-12     | rule       | Neither saveForcedInclusion nor land pays the treasury                            | 7.1     | [7.1](vectors/7.1.md#fi-71-12)       |
-| FI-7.1-13     | rule       | Sweeping is independent of queue head/landing; changes no FI state                | 7.1     | [7.1](vectors/7.1.md#fi-71-13)       |
-| FI-7.2-1      | rule       | Cursor c; at most one entry per block, only the queue head                        | 7.2     | [7.2](vectors/7.2.md#fi-72-1)        |
-| FI-7.2-2      | rule       | Per-block anchor and witness requirement                                          | 7.2     | [7.2](vectors/7.2.md#fi-72-2)        |
-| FI-7.2-3      | rule       | Due condition; entries never expire                                               | 7.2     | [7.2](vectors/7.2.md#fi-72-3)        |
-| FI-7.2-4      | rule       | Eligible transaction predicate over raw bytes                                     | 7.2     | [7.2](vectors/7.2.md#fi-72-4)        |
-| FI-7.2-5      | rule       | Case: included at position 0                                                      | 7.2     | [7.2](vectors/7.2.md#fi-72-5)        |
-| FI-7.2-6      | rule       | Case: not included, not due                                                       | 7.2     | [7.2](vectors/7.2.md#fi-72-6)        |
-| FI-7.2-7      | rule       | Case: skipped, raw bytes ineligible                                               | 7.2     | [7.2](vectors/7.2.md#fi-72-7)        |
-| FI-7.2-8      | rule       | Case: skippable only on empty singleton build                                     | 7.2     | [7.2](vectors/7.2.md#fi-72-8)        |
-| FI-7.2-9      | rule       | Given-list build: deterministic two outcomes                                      | 7.2     | [7.2](vectors/7.2.md#fi-72-9)        |
-| FI-7.2-10     | rule       | Invalid when due and neither included nor legally skipped                         | 7.2     | [7.2](vectors/7.2.md#fi-72-10)       |
-| FI-7.2-11     | rule       | Witness raw bytes and hash                                                        | 7.2     | [7.2](vectors/7.2.md#fi-72-11)       |
-| FI-7.2-12     | rule       | Proposer fetch obligation via eth_getLogs                                         | 7.2     | [7.2](vectors/7.2.md#fi-72-12)       |
-| FI-7.2-13     | rule       | Blanked entries                                                                   | 7.2     | [7.2](vectors/7.2.md#fi-72-13)       |
-| FI-7.3-1      | rule       | Due queue-head entry must be included or legally skipped; no age deletion         | 7.3     | [7.3](vectors/7.3.md#fi-73-1)        |
-| FI-7.3-2      | rule       | block.timestamp ≥ entry.timestamp + delay + maxAnchorAge implies due              | 7.3     | [7.3](vectors/7.3.md#fi-73-2)        |
-| FI-7.3-3      | rule       | Senders must hold a balance of gasLimit × maxFeePerGas                            | 7.3     | [7.3](vectors/7.3.md#fi-73-3)        |
-| FI-7.3-4      | rule       | At most one entry per block; fee rises linearly with queue length                 | 7.3     | [7.3](vectors/7.3.md#fi-73-4)        |
-| FI-7.3-5      | rule       | No share of successful landings lets an attacker recover F                        | 7.3     | [7.3](vectors/7.3.md#fi-73-5)        |
-| RECOV-8-1     | rule       | Liveness pause loses no blocks                                                    | 8       | [8](vectors/8.md#recov-8-1)          |
-| RECOV-8-2     | rule       | Governance recovery discards the suffix above c                                   | 8       | [8](vectors/8.md#recov-8-2)          |
-| RECOV-8-3     | rule       | Liveness pause: process runs, auto-resumes, loses no blocks                       | 8       | [8](vectors/8.md#recov-8-3)          |
-| RECOV-8-4     | rule       | Liveness-pause causes: stale anchor, back-pressure, witness, bytes                | 8       | [8](vectors/8.md#recov-8-4)          |
-| RECOV-8-5     | rule       | Lagging or unreachable local L1 node is a liveness pause                          | 8       | [8](vectors/8.md#recov-8-5)          |
-| RECOV-8-6     | rule       | Unparseable canonical anchor header: reject, retry, upgrade                       | 8       | [8](vectors/8.md#recov-8-6)          |
-| RECOV-8-7     | rule       | ABCI: never return error; Query/snapshots return codes or empty                   | 8       | [8](vectors/8.md#recov-8-7)          |
-| RECOV-8-8     | rule       | ProcessProposal returns only ACCEPT or REJECT                                     | 8       | [8](vectors/8.md#recov-8-8)          |
-| RECOV-8-9     | rule       | PrepareProposal stays within max_tx_bytes                                         | 8       | [8](vectors/8.md#recov-8-9)          |
-| RECOV-8-10    | rule       | Pause or overflow: placeholder, rejected, next round                              | 8       | [8](vectors/8.md#recov-8-10)         |
-| RECOV-8-11    | rule       | InitChain returns only app_hash; Commit retain_height 0                           | 8       | [8](vectors/8.md#recov-8-11)         |
-| RECOV-8-12    | rule       | Safety halt: process exits; manual investigation                                  | 8       | [8](vectors/8.md#recov-8-12)         |
-| RECOV-8-13    | rule       | Safety-halt causes: invalid block, fork evidence, EL build refusal                | 8       | [8](vectors/8.md#recov-8-13)         |
-| RECOV-8-14    | rule       | Superseded generation: chain cannot advance; restart under new one                | 8       | [8](vectors/8.md#recov-8-14)         |
-| RECOV-8-15    | rule       | Superseded anchor: reject proposal, revoke checkpoint trust                       | 8       | [8](vectors/8.md#recov-8-15)         |
-| RECOV-8-16    | rule       | Superseded decided block or trust-check mismatch is a safety halt                 | 8       | [8](vectors/8.md#recov-8-16)         |
-| RECOV-8-17    | rule       | Derivation failure rejects S(t) and may persistently halt production              | 8       | [8](vectors/8.md#recov-8-17)         |
-| RECOV-8-18    | rule       | Do not locally scale, add members or skip rotation                                | 8       | [8](vectors/8.md#recov-8-18)         |
-| RECOV-8-19    | rule       | Recovery may reselect from new R snapshot; candidates still needed                | 8       | [8](vectors/8.md#recov-8-19)         |
-| RECOV-8-20    | rule       | ≥1/3 offline: consensus halts; no auto replacement or power cut                   | 8       | [8](vectors/8.md#recov-8-20)         |
-| RECOV-8-21    | rule       | Quorum restore: returning members, else governance recovery                       | 8       | [8](vectors/8.md#recov-8-21)         |
-| RECOV-8-22    | rule       | Withdrawals during a halt follow 4.1                                              | 8       | [8](vectors/8.md#recov-8-22)         |
-| RECOV-8-23    | rule       | Settlement stall: at most U more blocks, then back-pressure                       | 8       | [8](vectors/8.md#recov-8-23)         |
-| RECOV-8-24    | rule       | Bad landing corrupts checkpoint; ordinary recovery cannot repair                  | 8       | [8](vectors/8.md#recov-8-24)         |
-| RECOV-8-25    | rule       | Contain losses: pause SignalService, Bridge, QuotaManager limits                  | 8       | [8](vectors/8.md#recov-8-25)         |
-| RECOV-8-26    | rule       | Rollback ships in the DAO upgrade that replaces the verifier                      | 8       | [8](vectors/8.md#recov-8-26)         |
-| RECOV-8-27    | rule       | Rollback restores checkpoint, FI head, snapshot; voids later records              | 8       | [8](vectors/8.md#recov-8-27)         |
-| RECOV-8-28    | rule       | Last trusted landing precedes the first bad one; else initial values              | 8       | [8](vectors/8.md#recov-8-28)         |
-| RECOV-8-29    | rule       | Registry re-checks exit confirmations against restored snapshot                   | 8       | [8](vectors/8.md#recov-8-29)         |
-| RECOV-8-30    | rule       | Do not compare confirmation L1 block numbers                                      | 8       | [8](vectors/8.md#recov-8-30)         |
-| RECOV-8-31    | rule       | Rollback preserves and increments recoveryNonce; no historical nonce              | 8       | [8](vectors/8.md#recov-8-31)         |
-| RECOV-8-32    | rule       | Rollback does not change the generation                                           | 8       | [8](vectors/8.md#recov-8-32)         |
-| RECOV-8-33    | rule       | Recovery above restored c: generation starts high, no landing works               | 8       | [8](vectors/8.md#recov-8-33)         |
-| RECOV-8-34    | rule       | After rollback, recover again from the restored c                                 | 8       | [8](vectors/8.md#recov-8-34)         |
-| RECOV-8-35    | rule       | Withdrawn bridge funds and stake cannot be recovered                              | 8       | [8](vectors/8.md#recov-8-35)         |
-| RECOV-8-36    | rule       | L2 fees paid to proposers are unaffected                                          | 8       | [8](vectors/8.md#recov-8-36)         |
-| RECOV-8-37    | rule       | Recover call signature and its six parameters                                     | 8       | [8](vectors/8.md#recov-8-37)         |
-| RECOV-8-38    | rule       | List formats: exclusions sorted by bondId; fiToClear increasing                   | 8       | [8](vectors/8.md#recov-8-38)         |
-| RECOV-8-39    | rule       | Validate all lists and state before the transition, in one transaction            | 8       | [8](vectors/8.md#recov-8-39)         |
-| RECOV-8-40    | rule       | Excluded entry must match entryKey and be unreleased; else reject all             | 8       | [8](vectors/8.md#recov-8-40)         |
-| RECOV-8-41    | rule       | Exclusion sets exitEffectiveL1=min(existing,R); no forfeiture                     | 8       | [8](vectors/8.md#recov-8-41)         |
-| RECOV-8-42    | rule       | Independent forfeiture and double-sign evidence remain available                  | 8       | [8](vectors/8.md#recov-8-42)         |
-| RECOV-8-43    | rule       | Each fiToClear index must still be in [head,tail)                                 | 8       | [8](vectors/8.md#recov-8-43)         |
-| RECOV-8-44    | rule       | Blank txHash to keccak256(""), keep timestamp and enqueue block                   | 8       | [8](vectors/8.md#recov-8-44)         |
-| RECOV-8-45    | rule       | Blanking is for unprovable content only; unlisted entries survive                 | 8       | [8](vectors/8.md#recov-8-45)         |
-| RECOV-8-46    | rule       | Admission fees neither refunded nor recharged; no lander paid                     | 8       | [8](vectors/8.md#recov-8-46)         |
-| RECOV-8-47    | rule       | Increment generation (uint48), write origin, emit details and lists               | 8       | [8](vectors/8.md#recov-8-47)         |
-| RECOV-8-48    | rule       | Preserve checkpoint c's landing record and FI head                                | 8       | [8](vectors/8.md#recov-8-48)         |
-| RECOV-8-49    | rule       | Recovery must not advance the snapshot early; only a landing does                 | 8       | [8](vectors/8.md#recov-8-49)         |
-| RECOV-8-50    | rule       | Confirmed exits are unaffected                                                    | 8       | [8](vectors/8.md#recov-8-50)         |
-| RECOV-8-51    | rule       | Rebuild EL from c; reselect committee from R under 4.3                            | 8       | [8](vectors/8.md#recov-8-51)         |
-| RECOV-8-52    | rule       | Excluded entries are ineligible; other active candidates may enter                | 8       | [8](vectors/8.md#recov-8-52)         |
-| RECOV-8-53    | rule       | Discard old pending updates; resume switches/H+2 globally                         | 8       | [8](vectors/8.md#recov-8-53)         |
-| RECOV-8-54    | rule       | No signing for the new generation before 8.2 authentication                       | 8       | [8](vectors/8.md#recov-8-54)         |
-| RECOV-8-55    | rule       | Nodes/guests authenticate R's snapshot, not governance weights                    | 8       | [8](vectors/8.md#recov-8-55)         |
-| RECOV-8-56    | rule       | Discard only the unsettled suffix above c                                         | 8       | [8](vectors/8.md#recov-8-56)         |
-| RECOV-8-57    | rule       | Users resubmit discarded transactions; their fees are void                        | 8       | [8](vectors/8.md#recov-8-57)         |
-| RECOV-8-58    | rule       | Do not rewind the settled prefix                                                  | 8       | [8](vectors/8.md#recov-8-58)         |
-| RECOV-8.1-1   | rule       | Only the DAO authorizes recovery, exclusion and FI blanking                       | 8.1     | [8.1](vectors/8.1.md#recov-81-1)     |
-| RECOV-8.1-2   | rule       | Bridge/SignalService pauses cannot recover paid funds or stake                    | 8.1     | [8.1](vectors/8.1.md#recov-81-2)     |
-| RECOV-8.1-3   | rule       | recover has no time threshold; shortest stall is the DAO path delay               | 8.1     | [8.1](vectors/8.1.md#recov-81-3)     |
-| RECOV-8.1-4   | rule       | expectedC fixed at authorization; a later landing makes it unexecutable           | 8.1     | [8.1](vectors/8.1.md#recov-81-4)     |
-| RECOV-8.1-5   | rule       | Slow progress, low TPS, FI delay or missed target never justify recover           | 8.1     | [8.1](vectors/8.1.md#recov-81-5)     |
-| RECOV-8.1-6   | rule       | DAO settles to the last provable grid point before authorizing                    | 8.1     | [8.1](vectors/8.1.md#recov-81-6)     |
-| RECOV-8.1-7   | rule       | Pre-checks: intended set, 2/3 online, <1/3, history, matching landing             | 8.1     | [8.1](vectors/8.1.md#recov-81-7)     |
-| RECOV-8.1-8   | rule       | Mismatch means verifier failure: roll back first, then recover                    | 8.1     | [8.1](vectors/8.1.md#recov-81-8)     |
-| RECOV-8.1-9   | rule       | Economic review: estimate committee, reassess the snapshot after R                | 8.1     | [8.1](vectors/8.1.md#recov-81-9)     |
-| RECOV-8.1-10  | rule       | Shortfall or expired valuation: alert, disclose, replenish, no veto               | 8.1     | [8.1](vectors/8.1.md#recov-81-10)    |
-| RECOV-8.1-11  | rule       | recover neither executes nor cancels forfeiture; does not wait for it             | 8.1     | [8.1](vectors/8.1.md#recov-81-11)    |
-| RECOV-8.1-12  | rule       | Resumed production does not erase responsibility under 4.4                        | 8.1     | [8.1](vectors/8.1.md#recov-81-12)    |
-| RECOV-8.2-1   | rule       | Signer keeps separate HRS state per chain_id; persists before returning           | 8.2     | [8.2](vectors/8.2.md#recov-82-1)     |
-| RECOV-8.2-2   | rule       | No copy of the key may sign outside that state                                    | 8.2     | [8.2](vectors/8.2.md#recov-82-2)     |
-| RECOV-8.2-3   | rule       | Lost or uncertain HRS state: stop signing; deletion restores nothing              | 8.2     | [8.2](vectors/8.2.md#recov-82-3)     |
-| RECOV-8.2-4   | rule       | Sign for a new generation only after authenticating the recovery                  | 8.2     | [8.2](vectors/8.2.md#recov-82-4)     |
-| RECOV-8.2-5   | rule       | New generation HRS starts at c+1; old-generation requests are refused             | 8.2     | [8.2](vectors/8.2.md#recov-82-5)     |
-| RECOV-8.2-6   | rule       | Generations use different signing domains; not double signs                       | 8.2     | [8.2](vectors/8.2.md#recov-82-6)     |
-| RECOV-8.3-1   | rule       | Caller: only the Inbox owner (the DAO) may call recover                           | 8.3     | [8.3](vectors/8.3.md#recov-83-1)     |
-| RECOV-8.3-2   | rule       | recover and invalidateRecoveryNonce require Inbox initialization                  | 8.3     | [8.3](vectors/8.3.md#recov-83-2)     |
-| RECOV-8.3-3   | rule       | At execution: three expected values must match; timestamp ≤ validUntil            | 8.3     | [8.3](vectors/8.3.md#recov-83-3)     |
-| RECOV-8.3-4   | rule       | validUntil is an absolute L1 Unix timestamp fixed at authorization                | 8.3     | [8.3](vectors/8.3.md#recov-83-4)     |
-| RECOV-8.3-5   | rule       | Inbox stores only a monotonic uint256 recoveryNonce; no queue                     | 8.3     | [8.3](vectors/8.3.md#recov-83-5)     |
-| RECOV-8.3-6   | rule       | Inbox does not distinguish DAO authorization paths                                | 8.3     | [8.3](vectors/8.3.md#recov-83-6)     |
-| RECOV-8.3-7   | rule       | Authorization or queueing does not freeze landing                                 | 8.3     | [8.3](vectors/8.3.md#recov-83-7)     |
-| RECOV-8.3-8   | rule       | Replay: increment recoveryNonce on successful recover                             | 8.3     | [8.3](vectors/8.3.md#recov-83-8)     |
-| RECOV-8.3-9   | rule       | Only owner may invalidate; match and increment voids authorizations               | 8.3     | [8.3](vectors/8.3.md#recov-83-9)     |
-| RECOV-8.3-10  | rule       | Verifier-failure rollback preserves and increments the nonce                      | 8.3     | [8.3](vectors/8.3.md#recov-83-10)    |
-| RECOV-8.3-11  | rule       | No path may restore an older nonce or wrap it                                     | 8.3     | [8.3](vectors/8.3.md#recov-83-11)    |
-| RECOV-8.3-12  | rule       | Landing changes c; recovery changes generation; it never decreases                | 8.3     | [8.3](vectors/8.3.md#recov-83-12)    |
-| RECOV-8.3-13  | rule       | A rollback to an old c cannot revive old authorizations                           | 8.3     | [8.3](vectors/8.3.md#recov-83-13)    |
-| RECOV-8.3-14  | rule       | Every retry passes all checks; changed parameters need fresh auth                 | 8.3     | [8.3](vectors/8.3.md#recov-83-14)    |
-| RECOV-8.3-15  | rule       | Recovery nonce is independent of the 4.4 entryKey forfeiture flag                 | 8.3     | [8.3](vectors/8.3.md#recov-83-15)    |
-| RECOV-8.3-16  | rule       | Atomicity: all effects in one call; failure reverts everything                    | 8.3     | [8.3](vectors/8.3.md#recov-83-16)    |
-| RECOV-8.3-17  | rule       | Exclusion and FI blanking exist only inside recover                               | 8.3     | [8.3](vectors/8.3.md#recov-83-17)    |
-| RECOV-8.3-18  | rule       | Atomicity does not restrict exits, slashing or 4.4 forfeiture                     | 8.3     | [8.3](vectors/8.3.md#recov-83-18)    |
-| RECOV-8.3-19  | rule       | Reject cross-function reentrancy during recovery                                  | 8.3     | [8.3](vectors/8.3.md#recov-83-19)    |
-| RECOV-8.4-1   | rule       | Recovery uses stock CometBFT with no added authorizer or snapshot service         | 8.4     | [8.4](vectors/8.4.md#recov-84-1)     |
-| RECOV-8.4-2   | rule       | c is the fixed origin; R executed recover; nodes authenticate both                | 8.4     | [8.4](vectors/8.4.md#recov-84-2)     |
-| RECOV-8.4-3   | rule       | Slot 290 stores (c, R.number, R.timestamp) per generation; genesis 0              | 8.4     | [8.4](vectors/8.4.md#recov-84-3)     |
-| RECOV-8.4-4   | rule       | Each origin record is written once, never overwritten or deleted                  | 8.4     | [8.4](vectors/8.4.md#recov-84-4)     |
-| RECOV-8.4-5   | rule       | Missing record rejected; defaults and latest checkpoint not substitutes           | 8.4     | [8.4](vectors/8.4.md#recov-84-5)     |
-| RECOV-8.4-6   | rule       | generationStartHeight and recoverySnapshot read slot 290, no caches               | 8.4     | [8.4](vectors/8.4.md#recov-84-6)     |
-| RECOV-8.4-7   | rule       | New genesis: new chain_id, initial_height=c+1, genesis_time=R.timestamp           | 8.4     | [8.4](vectors/8.4.md#recov-84-7)     |
-| RECOV-8.4-8   | rule       | EL state must match c's authenticated EL hash and stateRoot                       | 8.4     | [8.4](vectors/8.4.md#recov-84-8)     |
-| RECOV-8.4-9   | rule       | Genesis validators from the 4.3 R snapshot (targetEpoch=floor(c/L))               | 8.4     | [8.4](vectors/8.4.md#recov-84-9)     |
-| RECOV-8.4-10  | rule       | First block: empty LastBlockID/LastCommit; c's Comet hash boundary-only           | 8.4     | [8.4](vectors/8.4.md#recov-84-10)    |
-| RECOV-8.4-11  | rule       | FI cursor starts at the authenticated origin head                                 | 8.4     | [8.4](vectors/8.4.md#recov-84-11)    |
-| RECOV-8.4-12  | rule       | First block carries a finalized anchor witness no earlier than R                  | 8.4     | [8.4](vectors/8.4.md#recov-84-12)    |
-| RECOV-8.4-13  | rule       | Every anchor and L1 root is no earlier than R                                     | 8.4     | [8.4](vectors/8.4.md#recov-84-13)    |
-| RECOV-8.4-14  | rule       | Joining nodes replay from fixed genesis and match EL and Comet hashes             | 8.4     | [8.4](vectors/8.4.md#recov-84-14)    |
-| RECOV-8.4-15  | rule       | The latest checkpoint is never a new genesis for the same domain                  | 8.4     | [8.4](vectors/8.4.md#recov-84-15)    |
-| SYNC-9-1      | rule       | Cold sync revalidates an anchor witness against the node's own L1 node and 3.4    | 9       | [9](vectors/9.md#sync-9-1)           |
-| SYNC-9-2      | rule       | Own L1 node lag, unreachable or timeout only waits; halt only on contradiction    | 9       | [9](vectors/9.md#sync-9-2)           |
-| SYNC-9-3      | rule       | Checkpoint fence: proven lastCheckpoint.hash passed to the EL as finalized        | 9       | [9](vectors/9.md#sync-9-3)           |
-| SYNC-9-4      | rule       | Startup and signer sessions start untrusted; authenticate latest checkpoint       | 9       | [9](vectors/9.md#sync-9-4)           |
-| SYNC-9-5      | rule       | Trust requires an exact match of EL and CometBFT hashes at that height            | 9       | [9](vectors/9.md#sync-9-5)           |
-| SYNC-9-6      | rule       | After trust, every anchor change checks the new lastCheckpoint per 3.4            | 9       | [9](vectors/9.md#sync-9-6)           |
-| SYNC-9-7      | rule       | Missing data leaves the node untrusted; contradictions and malformed data halt    | 9       | [9](vectors/9.md#sync-9-7)           |
-| SYNC-9-8      | rule       | A canonical-hash-matching header that fails to parse needs an upgrade, no halt    | 9       | [9](vectors/9.md#sync-9-8)           |
-| SYNC-9-9      | rule       | A recovery origin is distinct from the latest trust target; replay under 8.4      | 9       | [9](vectors/9.md#sync-9-9)           |
-| SYNC-9-10     | rule       | Every validator signature requires the app to confirm that the node is trusted    | 9       | [9](vectors/9.md#sync-9-10)          |
-| SYNC-9-11     | rule       | Untrusted, timeout or superseded: no signature, no local fallback                 | 9       | [9](vectors/9.md#sync-9-11)          |
-| SYNC-9-12     | rule       | Supervisor restarts CometBFT once trust returns after a trust/timeout refusal     | 9       | [9](vectors/9.md#sync-9-12)          |
-| SYNC-9-13     | rule       | Signer follows stock rules and persists each signature before broadcast           | 9       | [9](vectors/9.md#sync-9-13)          |
-| SYNC-9-14     | rule       | Restart needs no operator and resets no state; listed cases excluded              | 9       | [9](vectors/9.md#sync-9-14)          |
-| SYNC-9-15     | rule       | Bridges and public RPC must read the app's trust status, not catching_up          | 9       | [9](vectors/9.md#sync-9-15)          |
-| SYNC-9-16     | rule       | Node requirements: L1 headers to L1_0, eth_getProof history and FI logs           | 9       | [9](vectors/9.md#sync-9-16)          |
-| SYNC-9.1-1    | rule       | Complete CometBFT recovery and proving require the listed original material       | 9.1     | [9.1](vectors/9.1.md#sync-91-1)      |
-| SYNC-9.1-2    | rule       | Archives must retain them; blobs or an EL snapshot alone are insufficient         | 9.1     | [9.1](vectors/9.1.md#sync-91-2)      |
-| SYNC-9.1-3    | rule       | Private keys are not historical archive data; signing state follows 8.2           | 9.1     | [9.1](vectors/9.1.md#sync-91-3)      |
-| SYNC-9.1-4    | rule       | Recovery authenticates origin, c hashes, R snapshot, then reselects under 4.3     | 9.1     | [9.1](vectors/9.1.md#sync-91-4)      |
-| SYNC-9.1-5    | rule       | Subsequent current and pending committees follow authenticated switches           | 9.1     | [9.1](vectors/9.1.md#sync-91-5)      |
-| SYNC-9.1-6    | rule       | Missing material leaves the node untrusted; contradictions halt under section 9   | 9.1     | [9.1](vectors/9.1.md#sync-91-6)      |
-| SYNC-9.1-7    | rule       | Anyone may submit verifiable same-round conflicting votes directly to L1          | 9.1     | [9.1](vectors/9.1.md#sync-91-7)      |
-| SYNC-9.1-8    | rule       | Retention and submission are independent of the local pool block/hour limits      | 9.1     | [9.1](vectors/9.1.md#sync-91-8)      |
-| SYNC-9.1-9    | rule       | Retention does not guarantee observation of every conflicting vote                | 9.1     | [9.1](vectors/9.1.md#sync-91-9)      |
-| SYNC-9.1-10   | rule       | Different BlockIDs across rounds are not automatically double signing             | 9.1     | [9.1](vectors/9.1.md#sync-91-10)     |
-| START-10-1    | rule       | Step 1: deploy the Inbox proxy, the registry with that proxy fixed, register      | 10      | [10](vectors/10.md#start-10-1)       |
-| START-10-2    | rule       | Step 2: pick a past genesisCutoff; committee 0 record hash and config hash        | 10      | [10](vectors/10.md#start-10-2)       |
-| START-10-3    | rule       | Step 3: install EIP-4788 and EIP-2935 in the L2 genesis; base-fee share 100       | 10      | [10](vectors/10.md#start-10-3)       |
-| START-10-4    | rule       | Step 4: compute block 0's hash and stateRoot with the EL                          | 10      | [10](vectors/10.md#start-10-4)       |
-| START-10-5    | rule       | Step 5: SignalService, Inbox initialization fields, treasury, recovery state      | 10      | [10](vectors/10.md#start-10-5)       |
-| START-10-6    | rule       | Step 6: CometBFT genesis and the guarded signer/CometBFT startup                  | 10      | [10](vectors/10.md#start-10-6)       |
-| START-10-7    | rule       | Deployment constraints: L at least 3 and L+1 below 2^48                           | 10      | [10](vectors/10.md#start-10-7)       |
-| START-10-8    | rule       | genesisCutoff in the past and not before the first registry checkpoint            | 10      | [10](vectors/10.md#start-10-8)       |
-| START-10-9    | rule       | forcedInclusionDelay above 0; maxAnchorAge at least 1152 s                        | 10      | [10](vectors/10.md#start-10-9)       |
-| START-10-10   | rule       | K at most U at most 65,536; U a multiple of K; target U=3,600                     | 10      | [10](vectors/10.md#start-10-10)      |
-| START-10-11   | rule       | L1_0 below 2^48 and 1 at most n_max at most 4096                                  | 10      | [10](vectors/10.md#start-10-11)      |
-| START-10-12   | rule       | vp_unit at least 867,361,738 and s_min at least vp_unit                           | 10      | [10](vectors/10.md#start-10-12)      |
-| START-10-13   | rule       | Use positive activation and exit delays                                           | 10      | [10](vectors/10.md#start-10-13)      |
-| START-10-14   | rule       | Deployment, nodes and guests check the same configuration                         | 10      | [10](vectors/10.md#start-10-14)      |
-| START-10-15   | rule       | Appendix A's chain_id is exactly 48 ASCII bytes                                   | 10      | [10](vectors/10.md#start-10-15)      |
-| START-10-16   | rule       | Wrong immutables need a new Inbox/genesis; the registry must be repointed         | 10      | [10](vectors/10.md#start-10-16)      |
-| START-10-17   | rule       | Old signing state is not reset                                                    | 10      | [10](vectors/10.md#start-10-17)      |
-| START-10-18   | rule       | Pin maxBatchBlocks at least K (at least one grid segment)                         | 10      | [10](vectors/10.md#start-10-18)      |
-| START-10-19   | rule       | Do not claim readiness before the launch gate passes                              | 10      | [10](vectors/10.md#start-10-19)      |
-| START-10-20   | rule       | Initial genesis: chain_id, height 1, L1_0 time, committee 0, app_state            | 10      | [10](vectors/10.md#start-10-20)      |
-| START-10-21   | rule       | Fixed consensus params: block bytes/gas, evidence limits, no update authority     | 10      | [10](vectors/10.md#start-10-21)      |
-| START-10-22   | rule       | Initial state: anchor L1_0, FI cursor 0, checkpoint (0, genesis hash)             | 10      | [10](vectors/10.md#start-10-22)      |
-| START-10-23   | rule       | The generator writes an empty parameter-update authority                          | 10      | [10](vectors/10.md#start-10-23)      |
-| START-10-24   | rule       | In-place migration unsupported; no state deletion to bypass version checks        | 10      | [10](vectors/10.md#start-10-24)      |
-| START-10.1-1  | rule       | Upgrades stop production and settle before switching rules; no zero-downtime      | 10.1    | [10.1](vectors/10.1.md#start-101-1)  |
-| START-10.1-2  | rule       | Operational restarts that preserve rules retain same-domain signer state          | 10.1    | [10.1](vectors/10.1.md#start-101-2)  |
-| START-10.1-3  | rule       | Section 10 immutables need a new Inbox/genesis; 10.1 cannot bypass them           | 10.1    | [10.1](vectors/10.1.md#start-101-3)  |
-| START-10.1-4  | rule       | Upgrade plan binds deployment, generation, H, clients, images, verifier ranges    | 10.1    | [10.1](vectors/10.1.md#start-101-4)  |
-| START-10.1-5  | rule       | Plan authenticated through the DAO/timelock, enforced in nodes and L1             | 10.1    | [10.1](vectors/10.1.md#start-101-5)  |
-| START-10.1-6  | rule       | Registering a new image alone is not a protocol upgrade                           | 10.1    | [10.1](vectors/10.1.md#start-101-6)  |
-| START-10.1-7  | rule       | Coordinate signers to stop above H while retaining all HRS state                  | 10.1    | [10.1](vectors/10.1.md#start-101-7)  |
-| START-10.1-8  | rule       | Settle through H under old rules; authenticate its checkpoint before H+1          | 10.1    | [10.1](vectors/10.1.md#start-101-8)  |
-| START-10.1-9  | rule       | The plan must take effect before signing crosses the boundary                     | 10.1    | [10.1](vectors/10.1.md#start-101-9)  |
-| START-10.1-10 | rule       | Above H: do not erase state or move the boundary; replan or use section 8         | 10.1    | [10.1](vectors/10.1.md#start-101-10) |
-| START-10.1-11 | rule       | Isolate in-flight jobs by deployment, generation, version, height range           | 10.1    | [10.1](vectors/10.1.md#start-101-11) |
-| START-10.1-12 | rule       | Old jobs settle or are invalidated, never rewritten into a new version            | 10.1    | [10.1](vectors/10.1.md#start-101-12) |
-| START-10.1-13 | rule       | Retain old material for replay; no old-rules-only image above H                   | 10.1    | [10.1](vectors/10.1.md#start-101-13) |
-| START-10.1-14 | rule       | New images must not implicitly change history through H                           | 10.1    | [10.1](vectors/10.1.md#start-101-14) |
-| START-10.1-15 | rule       | Define and test acceptance ranges, switching transaction and rollback plan        | 10.1    | [10.1](vectors/10.1.md#start-101-15) |
-| PARAM-11-1    | rule       | Node-splitting parameters come only from L1 or the client; local config cannot    | 11      | [11](vectors/11.md#param-11-1)       |
-| PARAM-11-2    | rule       | Table values are references only; deployment follows L1 and section 10            | 11      | [11](vectors/11.md#param-11-2)       |
-| PARAM-11-3    | rule       | assignedPower is computed under 4.3, not from node-local configuration            | 11      | [11](vectors/11.md#param-11-3)       |
-| PARAM-11-4    | rule       | L and genesisCutoff: L chosen independently of U; reference values                | 11      | [11](vectors/11.md#param-11-4)       |
-| PARAM-11-5    | rule       | forcedInclusionDelay above 0; maxAnchorAge at least 1152 s and above finality     | 11      | [11](vectors/11.md#param-11-5)       |
-| PARAM-11-6    | rule       | maxBatchBlocks at least K and calldata-bounded; fee/threshold above 0             | 11      | [11](vectors/11.md#param-11-6)       |
-| PARAM-11-7    | rule       | vp_unit, s_min, n_max: direct power; vp_unit at least 867,361,738                 | 11      | [11](vectors/11.md#param-11-7)       |
-| PARAM-11-8    | rule       | U: K at most U at most 65,536, multiple of K; target 3,600                        | 11      | [11](vectors/11.md#param-11-8)       |
-| PARAM-11-9    | rule       | K: 1 to 6; K worst-case blocks provable in one landing two proofs                 | 11      | [11](vectors/11.md#param-11-9)       |
-| PARAM-11-10   | rule       | EL/zk-gas parameter changes need a coordinated client upgrade                     | 11      | [11](vectors/11.md#param-11-10)      |
-| PARAM-11-11   | rule       | Registry immutables: withdrawalDelay, slashBountyBps, slashSink, l2ChainId        | 11      | [11](vectors/11.md#param-11-11)      |
-| PARAM-11-12   | rule       | forfeitBps: 0 to 10000; proceeds to slashSink; no extra delay                     | 11      | [11](vectors/11.md#param-11-12)      |
-| PARAM-11-13   | rule       | Activation, exit, withdrawal and top-up readiness use L1 block numbers            | 11      | [11](vectors/11.md#param-11-13)      |
-| PARAM-11-14   | rule       | Authorization deadlines use L1 block.timestamp in Unix seconds                    | 11      | [11](vectors/11.md#param-11-14)      |
-| PARAM-11-15   | rule       | Evaluate withdrawalDelay against the fastest lawful withdrawal path               | 11      | [11](vectors/11.md#param-11-15)      |
-| PARAM-11-16   | rule       | Publish and exercise the response budget; no reaction time guaranteed             | 11      | [11](vectors/11.md#param-11-16)      |
-| LIMIT-12-1    | limitation | No wall-clock FI deadline; maxAnchorAge bounds only anchor age                    | 12      | [12](vectors/12.md)                  |
-| LIMIT-12-2    | limitation | Offline quorum relies on DAO recovery; a halted chain does not replace members    | 12      | [12](vectors/12.md)                  |
-| LIMIT-12-3    | limitation | Double-sign slashing is same-round only; cross-round amnesia is not covered       | 12      | [12](vectors/12.md)                  |
-| LIMIT-12-4    | limitation | Operations depend on DAO funding; landing has no protocol revenue                 | 12      | [12](vectors/12.md)                  |
-| LIMIT-12-5    | limitation | Dependence on L1 finality; production pauses without a finalized anchor           | 12      | [12](vectors/12.md)                  |
-| LIMIT-12-6    | limitation | Empty committee; recovery cannot create quorum from nothing                       | 12      | [12](vectors/12.md)                  |
-| LIMIT-12-7    | limitation | No rotation power-change limit; the top n_max by stake is selected                | 12      | [12](vectors/12.md)                  |
-| LIMIT-12-8    | limitation | Refunds depend on settlement and the post-confirmation evidence window            | 12      | [12](vectors/12.md)                  |
-| LIMIT-12-9    | limitation | The switch from Unzen is not included yet                                         | 12      | [12](vectors/12.md)                  |
-| LIMIT-12-10   | limitation | The upgrade activation mechanism is not fully designed yet                        | 12      | [12](vectors/12.md)                  |
-| LIMIT-12-11   | limitation | Registry capacity: 4096 slots, each locking minStake                              | 12      | [12](vectors/12.md)                  |
-| LIMIT-12-12   | limitation | No automatic gradual-offline handling; power is not reduced                       | 12      | [12](vectors/12.md)                  |
-| LIMIT-12-13   | limitation | secp256k1eth is new; added only in CometBFT v0.40.0                               | 12      | [12](vectors/12.md)                  |
-| LIMIT-12-14   | limitation | Registration admission bounds; the vp_unit bound only prevents overflow           | 12      | [12](vectors/12.md)                  |
-| LIMIT-12-15   | limitation | Private consensus-history availability; blobs only reconstruct the settled EL     | 12      | [12](vectors/12.md)                  |
-| LIMIT-12-16   | limitation | Overlapping proofs provide short-landing protection, pending acceptance           | 12      | [12](vectors/12.md)                  |
-| LIMIT-12-17   | limitation | Resource and latency figures await validation                                     | 12      | [12](vectors/12.md)                  |
-| LIMIT-12-18   | limitation | Economic security and discretionary forfeiture; 1/3 can halt consensus            | 12      | [12](vectors/12.md)                  |
-| ENC-A-1       | rule       | APP_VERSION=1, versioned domain tags V1, envelope/payload prefix 0x06             | A       | [A](vectors/A.md#enc-a-1)            |
-| ENC-A-2       | rule       | Config is seven words (224 bytes); CommitteeRecord has five fields                | A       | [A](vectors/A.md#enc-a-2)            |
-| ENC-A-3       | rule       | Slot 285 holds three words                                                        | A       | [A](vectors/A.md#enc-a-3)            |
-| ENC-A-4       | rule       | Acceptance binds to the config; client or image changes activate no rules         | A       | [A](vectors/A.md#enc-a-4)            |
-| ENC-A-5       | rule       | Protocol hashes: abi.encode; right-zero-padded bytes32 tags; two excepted lists   | A       | [A](vectors/A.md#enc-a-5)            |
-| ENC-A-6       | rule       | chainDomain: keccak256 over V1 tag, L1/L2 chain ids, inbox, generation            | A       | [A](vectors/A.md#enc-a-6)            |
-| ENC-A-7       | rule       | chain_id: "etna-" plus unpadded base64url of chainDomain, 48 bytes                | A       | [A](vectors/A.md#enc-a-7)            |
-| ENC-A-8       | rule       | chain_id: RFC 4648 section 5 alphabet, canonical zero pad bits, no padding        | A       | [A](vectors/A.md#enc-a-8)            |
-| ENC-A-9       | rule       | inbox is the EtnaInbox proxy; generation starts at 0, never wraps or decreases    | A       | [A](vectors/A.md#enc-a-9)            |
-| ENC-A-10      | rule       | extraData: 0x64 \|\| uint48_be(generation) \|\| uint48_be(anchorNumber), 13 bytes | A       | [A](vectors/A.md#enc-a-10)           |
-| ENC-A-11      | rule       | envelope: 0x06 \|\| rlp([block, anchor, committee, forced])                       | A       | [A](vectors/A.md#enc-a-11)           |
-| ENC-A-12      | rule       | block: [elHeader, [tx, ...]]; tx is its EIP-2718 RLP byte string                  | A       | [A](vectors/A.md#enc-a-12)           |
-| ENC-A-13      | rule       | anchor: [] or [[rawL1Header, inboxWitness]]; rawL1Header is raw RLP bytes         | A       | [A](vectors/A.md#enc-a-13)           |
-| ENC-A-14      | rule       | committee: [] or [[record, registryWitness, [entry, ...]]]                        | A       | [A](vectors/A.md#enc-a-14)           |
-| ENC-A-15      | rule       | forced: [] or [[index, entryWitness, tx]]; tx hash must match when nonempty       | A       | [A](vectors/A.md#enc-a-15)           |
-| ENC-A-16      | rule       | Strict decoding: exactly 0x06 plus one RLP list; no trailing bytes                | A       | [A](vectors/A.md#enc-a-16)           |
-| ENC-A-17      | rule       | Strict decoding: exact list items; minimal integers, zero as empty string         | A       | [A](vectors/A.md#enc-a-17)           |
-| ENC-A-18      | rule       | Strict decoding: fixed lengths for hashes, stateRoots, slots, addresses           | A       | [A](vectors/A.md#enc-a-18)           |
-| ENC-A-19      | rule       | Strict decoding: field types; RegistryEntry.ckX keeps its 32-byte zeros           | A       | [A](vectors/A.md#enc-a-19)           |
-| ENC-A-20      | rule       | Strict decoding: minimal storage values and RLP prefixes; zeroed released slots   | A       | [A](vectors/A.md#enc-a-20)           |
-| ENC-A-21      | rule       | Strict decoding: witness address is the Inbox or the registry as specified        | A       | [A](vectors/A.md#enc-a-21)           |
-| ENC-A-22      | rule       | Strict decoding: committee witness under the block's anchor stateRoot             | A       | [A](vectors/A.md#enc-a-22)           |
-| ENC-A-23      | rule       | payload: 0x06 \|\| zlib(rlp([rlp([elHeader, [tx, ...]]), ...]))                   | A       | [A](vectors/A.md#enc-a-23)           |
-| ENC-A-24      | rule       | AccountWitness: seven fields, with [slot, value, proof] entries                   | A       | [A](vectors/A.md#enc-a-24)           |
-| ENC-A-25      | rule       | Witness slot order: anchor [268, 270, 271, 281]; forced [base, base+1]            | A       | [A](vectors/A.md#enc-a-25)           |
-| ENC-A-26      | rule       | Committee witness: registry slots R, cp(i), cp(i)+1, cp(i+1) when present         | A       | [A](vectors/A.md#enc-a-26)           |
-| ENC-A-27      | rule       | CommitteeRecord: five fields in order, targetEpoch to totalPower                  | A       | [A](vectors/A.md#enc-a-27)           |
-| ENC-A-28      | rule       | RegistryEntry: ckPrefix, ckX, effStake, activeFromL1, exitEffectiveL1             | A       | [A](vectors/A.md#enc-a-28)           |
-| ENC-A-29      | rule       | cutLeaf(x): four-word preimage at L2 height x                                     | A       | [A](vectors/A.md#enc-a-29)           |
-| ENC-A-30      | rule       | cutHash: keccak256 over V1 tag, generation, p, h, packed cut leaves               | A       | [A](vectors/A.md#enc-a-30)           |
-| ENC-A-31      | rule       | cutHash leaves: grid points strictly between p and h, in height order             | A       | [A](vectors/A.md#enc-a-31)           |
-| ENC-A-32      | rule       | cutHash: empty leaf list hashed as keccak256("") when h = p + K                   | A       | [A](vectors/A.md#enc-a-32)           |
-| ENC-A-33      | rule       | land: p and h multiples of K, exact leaf count, c >= h rejected                   | A       | [A](vectors/A.md#enc-a-33)           |
-| ENC-A-34      | rule       | land overlap: leaves[(c-p)/K - 1] equals cutLeaf(c) from slot 285                 | A       | [A](vectors/A.md#enc-a-34)           |
-| ENC-A-35      | rule       | statement: keccak256(abi.encode(...)) over the landing inputs                     | A       | [A](vectors/A.md#enc-a-35)           |
-| ENC-A-36      | rule       | committeeConfigHash: 7-word, 224-byte ETNA_PARENT_ANCHOR_V1 preimage              | A       | [A](vectors/A.md#enc-a-36)           |
-| ENC-A-37      | rule       | regLeaf: ETNA_REG_ENTRY_V1 preimage of the registry entry fields                  | A       | [A](vectors/A.md#enc-a-37)           |
-| ENC-A-38      | rule       | entriesRoot: power-of-two zero padding; keccak256(left \|\| right) nodes          | A       | [A](vectors/A.md#enc-a-38)           |
-| ENC-A-39      | rule       | setKey: ETNA_SET_KEY_V1 preimage of l2ChainId, ckPrefix, ckX                      | A       | [A](vectors/A.md#enc-a-39)           |
-| ENC-A-40      | rule       | setLeaf: ETNA_SET_LEAF_V1 preimage with k, i and assignedPower                    | A       | [A](vectors/A.md#enc-a-40)           |
-| ENC-A-41      | rule       | setNode: ETNA_SET_NODE preimage; odd last node promoted unchanged                 | A       | [A](vectors/A.md#enc-a-41)           |
-| ENC-A-42      | rule       | record: ETNA_COMMITTEE_V1 preimage of the five committee fields                   | A       | [A](vectors/A.md#enc-a-42)           |
-| ENC-A-43      | rule       | voteSignBytes: uvarint(len(cv)) \|\| cv, as CometBFT VoteSignBytes                | A       | [A](vectors/A.md#enc-a-43)           |
-| ENC-A-44      | rule       | cv: Protobuf fields for type, height, round, blockId, timestamp, chainId          | A       | [A](vectors/A.md#enc-a-44)           |
-| ENC-A-45      | rule       | cv: fields in [] omitted when zero or empty; len is a uvarint prefix              | A       | [A](vectors/A.md#enc-a-45)           |
-| ENC-A-46      | rule       | signer: ecrecover over keccak256(voteSignBytes); 65-byte R\|\|S\|\|V              | A       | [A](vectors/A.md#enc-a-46)           |
-| ENC-A-47      | rule       | publicKey: exactly 33 raw bytes, ckPrefix (0x02/0x03) \|\| uint256_be(ckX)        | A       | [A](vectors/A.md#enc-a-47)           |
-| ENC-A-48      | rule       | publicKey decode: reject noncanonical input, do not reduce coordinates            | A       | [A](vectors/A.md#enc-a-48)           |
-| ENC-A-49      | rule       | ckAddr: keccak256(uint256_be(ckX) \|\| uint256_be(ckY))[12:]                      | A       | [A](vectors/A.md#enc-a-49)           |
-| ENC-A-50      | rule       | popSig: exactly 65 bytes R \|\| S \|\| V; V in {0,1}, 0 < R < n, 0 < S <= n/2     | A       | [A](vectors/A.md#enc-a-50)           |
-| ENC-A-51      | rule       | Exclusions sorted strictly by bondId                                              | A       | [A](vectors/A.md#enc-a-51)           |
-| ENC-A-52      | rule       | invalidateRecoveryNonce is Inbox-owner only                                       | A       | [A](vectors/A.md#enc-a-52)           |
-| ENC-A-53      | rule       | recoveryNonce and validUntil types                                                | A       | [A](vectors/A.md#enc-a-53)           |
-| ENC-A-54      | rule       | Registry forfeit interface                                                        | A       | [A](vectors/A.md#enc-a-54)           |
-| ENC-A-55      | rule       | forfeit is registry-owner-only, once per lifetime entryKey, no revocation         | A       | [A](vectors/A.md#enc-a-55)           |
-| STOR-B-1      | rule       | Slot 258: initialization status 3 after initialization; not in anchor witness     | B       | [B](vectors/B.md#stor-b-1)           |
-| STOR-B-2      | rule       | Slots 268/269: recoveryGeneration and committeeConfigHash                         | B       | [B](vectors/B.md#stor-b-2)           |
-| STOR-B-3      | rule       | Slots 270/271: lastCheckpoint height and hash                                     | B       | [B](vectors/B.md#stor-b-3)           |
-| STOR-B-4      | rule       | Slots 272/273/274: packed genesis word, genesis hash, genesis stateRoot           | B       | [B](vectors/B.md#stor-b-4)           |
-| STOR-B-5      | rule       | Slots 278/279: committee-0 record hash and genesisCutoff                          | B       | [B](vectors/B.md#stor-b-5)           |
-| STOR-B-6      | rule       | Slots 280/281: FI queue entries, two words each, and head/tail                    | B       | [B](vectors/B.md#stor-b-6)           |
-| STOR-B-7      | rule       | Slot 282: forcedInclusionDelay and maxAnchorAge, in seconds                       | B       | [B](vectors/B.md#stor-b-7)           |
-| STOR-B-8      | rule       | Slots 283/284: 283 reserved; 284 activeCommitteeSnapshot at genesisCutoff         | B       | [B](vectors/B.md#stor-b-8)           |
-| STOR-B-9      | rule       | Slot 285: landing record, three words per height, initialization and retention    | B       | [B](vectors/B.md#stor-b-9)           |
-| STOR-B-10     | rule       | Slots 286/287: reserved, no reads, writes or reuse                                | B       | [B](vectors/B.md#stor-b-10)          |
-| STOR-B-11     | rule       | Slot 288: reserved, no reads, writes or reuse                                     | B       | [B](vectors/B.md#stor-b-11)          |
-| STOR-B-12     | rule       | Slot 289: reserved, no reads, writes or reuse                                     | B       | [B](vectors/B.md#stor-b-12)          |
-| STOR-B-13     | rule       | Slot 290: per-generation origin, three consecutive uint256 words                  | B       | [B](vectors/B.md#stor-b-13)          |
-| STOR-B-14     | rule       | Slot 291: reserved, no reads, writes or reuse                                     | B       | [B](vectors/B.md#stor-b-14)          |
-| STOR-B-15     | rule       | Slot 292: recoveryNonce starts at 0, monotone, not in anchor witnesses            | B       | [B](vectors/B.md#stor-b-15)          |
-| STOR-B-16     | rule       | Verify latest checkpoint, slot 285 record and slot 290 as stated                  | B       | [B](vectors/B.md#stor-b-16)          |
-| STOR-B-17     | rule       | Reserved slots 283, 286-289 and 291 are neither read nor written                  | B       | [B](vectors/B.md#stor-b-17)          |
-| STOR-B-18     | rule       | Inbox stores only the recovery authorization nonce; no queue or scheduling        | B       | [B](vectors/B.md#stor-b-18)          |
-| STOR-B-19     | rule       | Other layouts are neither decoded nor migrated in place                           | B       | [B](vectors/B.md#stor-b-19)          |
-| STOR-B-20     | rule       | Registry uses ERC-7201 namespace taiko.etna.registry with base slot R             | B       | [B](vectors/B.md#stor-b-20)          |
-| STOR-B-21     | rule       | Nodes read only checkpoints at R and entries at R+1, with word layouts            | B       | [B](vectors/B.md#stor-b-21)          |
-| STOR-B-22     | rule       | exitEffectiveL1 = 2^48 - 1 means no exit is set                                   | B       | [B](vectors/B.md#stor-b-22)          |
-| STOR-B-23     | rule       | Packed fields laid out in listed order from the least-significant bit             | B       | [B](vectors/B.md#stor-b-23)          |
-| STOR-B-24     | rule       | ckPrefix 8 bits, every other packed field 48 bits, unused high bits zero          | B       | [B](vectors/B.md#stor-b-24)          |
-| STOR-B-25     | rule       | Writing a value wider than its packed field reverts                               | B       | [B](vectors/B.md#stor-b-25)          |
-| STOR-B-26     | rule       | Exit confirmations: separate namespace, 0 means not confirmed                     | B       | [B](vectors/B.md#stor-b-26)          |
-| STOR-B-27     | rule       | No entry layout, no regLeaf/entriesRoot, no checkpoint; clear on release          | B       | [B](vectors/B.md#stor-b-27)          |
-| STOR-B-28     | rule       | Owner namespace written at registration, cleared on slot release                  | B       | [B](vectors/B.md#stor-b-28)          |
-| STOR-B-29     | rule       | Owners stay out of entriesRoot; nodes do not read the owner mapping               | B       | [B](vectors/B.md#stor-b-29)          |
-| STOR-B-30     | rule       | Top-ups: mapping by bondId, pendingTopUp at element, readyAtL1 next word          | B       | [B](vectors/B.md#stor-b-30)          |
-| STOR-B-31     | rule       | Top-up words are cleared on slot release                                          | B       | [B](vectors/B.md#stor-b-31)          |
-| STOR-B-32     | rule       | Forfeitures: bytes32 entryKey to bool, initially false, 0/1, never cleared        | B       | [B](vectors/B.md#stor-b-32)          |
-| STOR-B-33     | rule       | Neither namespace enters regLeaf/entriesRoot or is read by nodes or guests        | B       | [B](vectors/B.md#stor-b-33)          |
-| STOR-B-34     | rule       | Preserve forfeiture flags through verifier-failure rollback                       | B       | [B](vectors/B.md#stor-b-34)          |
-| COST-C-1      | assumption | DAO funds operations: validators, proving, landing, history, on-call              | C       | [C](vectors/C.md)                    |
-| COST-C-2      | assumption | Landing has no protocol revenue; the budget covers all landing and proving costs  | C       | [C](vectors/C.md)                    |
-| COST-C-3      | assumption | Funding grants no exclusive landing permission                                    | C       | [C](vectors/C.md)                    |
-| COST-C-4      | assumption | Landers get no FI fees; funding is not paid per FI entry or by FI fee value       | C       | [C](vectors/C.md)                    |
-| COST-C-5      | assumption | Compensation must not be a per-landing bounty; fund named operators               | C       | [C](vectors/C.md)                    |
-| COST-C-6      | assumption | Fund the measured worst case for 4 s blocks and 20 min landings                   | C       | [C](vectors/C.md)                    |
-| COST-C-7      | assumption | A proposer pays no net fee for any load in its own blocks                         | C       | [C](vectors/C.md)                    |
-| COST-C-8      | assumption | Without zk-to-charged-gas conversion, zk-heavy load can use the zk-gas limit      | C       | [C](vectors/C.md)                    |
-| COST-C-9      | assumption | Data worst case is every block filled with incompressible data                    | C       | [C](vectors/C.md)                    |
-| COST-C-10     | assumption | Landings: six blobs, grid-ending, 900/m per hour, K-dependent counts              | C       | [C](vectors/C.md)                    |
-| COST-C-11     | assumption | Whatever K is, that is 3 blobs per L1 slot                                        | C       | [C](vectors/C.md)                    |
-| COST-C-12     | assumption | Fund the sustained worst case in proving, blob and landing budgets                | C       | [C](vectors/C.md)                    |
+| ID            | Type       | Title                                                                                                                                          | Section | Vectors                              |
+| ------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------------------------------------ |
+| MODEL-1-1     | rule       | Proof completeness: every valid block within EL and 3.4 size limits is provable                                                                | 1       | [1](vectors/1.md#model-1-1)          |
+| MODEL-1-2     | rule       | Proof completeness covers every grid segment of K blocks within one landing                                                                    | 1       | [1](vectors/1.md#model-1-2)          |
+| MODEL-1-3     | rule       | land, saveForcedInclusion and the registry are unaffected by pause                                                                             | 1       | [1](vectors/1.md#model-1-3)          |
+| COMP-2-1      | rule       | Validator: registry stake, consensus key, stock CometBFT, checkpoint-trust gate                                                                | 2       | [2](vectors/2.md#comp-2-1)           |
+| COMP-2-2      | rule       | Full node: CometBFT, ABCI app and alethia-reth with no signing key                                                                             | 2       | [2](vectors/2.md#comp-2-2)           |
+| COMP-2-3      | rule       | Lander: permissionless batch builder and land caller, no protocol reward                                                                       | 2       | [2](vectors/2.md#comp-2-3)           |
+| COMP-2-4      | rule       | Prover: produces two proofs per batch                                                                                                          | 2       | [2](vectors/2.md#comp-2-4)           |
+| COMP-2-5      | rule       | EtnaInbox: genesis parameters, land, checkpoints, FI queue and recovery                                                                        | 2       | [2](vectors/2.md#comp-2-5)           |
+| COMP-2-6      | rule       | EtnaStakingRegistry: stake, exits, slashing, forfeiture and checkpoints                                                                        | 2       | [2](vectors/2.md#comp-2-6)           |
+| COMP-2-7      | rule       | SignalService: stores checkpoints for bridge message verification                                                                              | 2       | [2](vectors/2.md#comp-2-7)           |
+| CONS-3.1-1    | rule       | Stock CometBFT v0.40.0; stock proposer, timeout, lock and BlockID behavior                                                                     | 3.1     | [3.1](vectors/3.1.md#cons-31-1)      |
+| CONS-3.1-2    | rule       | Proposer selection, timeouts, locking and BlockID use stock behavior; not forked                                                               | 3.1     | [3.1](vectors/3.1.md#cons-31-2)      |
+| CONS-3.1-3    | rule       | Consensus key format: secp256k1eth, keccak256, 65-byte low-s signature, address                                                                | 3.1     | [3.1](vectors/3.1.md#cons-31-3)      |
+| CONS-3.1-4    | rule       | chain_id and chainDomain construction, exactly 48 ASCII bytes, recomputed by all                                                               | 3.1     | [3.1](vectors/3.1.md#cons-31-4)      |
+| CONS-3.1-5    | rule       | Domain separation by generation and deployment; same height is not a double sign                                                               | 3.1     | [3.1](vectors/3.1.md#cons-31-5)      |
+| CONS-3.1-6    | rule       | Mempool nop; user transactions arrive over EL devp2p into the proposer's txpool                                                                | 3.1     | [3.1](vectors/3.1.md#cons-31-6)      |
+| CONS-3.1-7    | rule       | CometBFT height equals EL block number; Data.Txs holds one envelope                                                                            | 3.1     | [3.1](vectors/3.1.md#cons-31-7)      |
+| CONS-3.1-8    | rule       | ABCI responses: app_hash and fixed ExecTxResult fields                                                                                         | 3.1     | [3.1](vectors/3.1.md#cons-31-8)      |
+| CONS-3.1-9    | rule       | App and rules version, immutable consensus params, node-local trust metadata                                                                   | 3.1     | [3.1](vectors/3.1.md#cons-31-9)      |
+| CONS-3.1-10   | rule       | CometBFT evidence is not punished by the app; double-sign slashing only on L1                                                                  | 3.1     | [3.1](vectors/3.1.md#cons-31-10)     |
+| CONS-3.1-11   | rule       | Pinned alethia-reth feature set and engine API methods used to drive it                                                                        | 3.1     | [3.1](vectors/3.1.md#cons-31-11)     |
+| CONS-3.1-12   | rule       | Pinned ZK Gas rules; L2_BLOCK_ZK_GAS_LIMIT independent of EVM gas                                                                              | 3.1     | [3.1](vectors/3.1.md#cons-31-12)     |
+| CONS-3.1-13   | rule       | Candidate-build discard: full rollback; discarded transactions pay nothing                                                                     | 3.1     | [3.1](vectors/3.1.md#cons-31-13)     |
+| CONS-3.1-14   | rule       | Pool-only policy; FI at position 0 is never skipped for remembered overflows                                                                   | 3.1     | [3.1](vectors/3.1.md#cons-31-14)     |
+| CONS-3.1-15   | rule       | Committed block: every listed transaction executes; none may be silently dropped                                                               | 3.1     | [3.1](vectors/3.1.md#cons-31-15)     |
+| CONS-3.1-16   | rule       | EVM revert/OOG included and charged; no zk-gas-to-charged-gas conversion                                                                       | 3.1     | [3.1](vectors/3.1.md#cons-31-16)     |
+| CONS-3.1-17   | rule       | eth_call/eth_estimateGas: full block zk budget and explicit zk-limit errors                                                                    | 3.1     | [3.1](vectors/3.1.md#cons-31-17)     |
+| CONS-3.2-1    | rule       | Header determinism: all fields except beneficiary derive from chain state                                                                      | 3.2     | [3.2](vectors/3.2.md#cons-32-1)      |
+| CONS-3.2-2    | rule       | number and parentHash: height and hash of the committed parent                                                                                 | 3.2     | [3.2](vectors/3.2.md#cons-32-2)      |
+| CONS-3.2-3    | rule       | timestamp: max(parent.timestamp + 1, floor(BFT time), anchor.timestamp)                                                                        | 3.2     | [3.2](vectors/3.2.md#cons-32-3)      |
+| CONS-3.2-4    | rule       | beneficiary: proposer choice, not checked; fees paid at L2 execution                                                                           | 3.2     | [3.2](vectors/3.2.md#cons-32-4)      |
+| CONS-3.2-5    | rule       | extraData: 13 bytes, 100 percent base-fee share, generation and anchor number                                                                  | 3.2     | [3.2](vectors/3.2.md#cons-32-5)      |
+| CONS-3.2-6    | rule       | parentBeaconBlockRoot: anchor L1 stateRoot written into EIP-4788                                                                               | 3.2     | [3.2](vectors/3.2.md#cons-32-6)      |
+| CONS-3.2-7    | rule       | gasLimit: chain constant L2_BLOCK_GAS_LIMIT                                                                                                    | 3.2     | [3.2](vectors/3.2.md#cons-32-7)      |
+| CONS-3.2-8    | rule       | baseFeePerGas: 0.025 gwei at block 1, EIP-4396 adjustment with clamps                                                                          | 3.2     | [3.2](vectors/3.2.md#cons-32-8)      |
+| CONS-3.2-9    | rule       | mixHash: parent difficulty and height with the Unzen formula                                                                                   | 3.2     | [3.2](vectors/3.2.md#cons-32-9)      |
+| CONS-3.2-10   | rule       | Other header fields: empty withdrawals, zero blob gas, empty requests and ommers                                                               | 3.2     | [3.2](vectors/3.2.md#cons-32-10)     |
+| CONS-3.2-11   | rule       | difficulty accumulates only included transactions' zk gas                                                                                      | 3.2     | [3.2](vectors/3.2.md#cons-32-11)     |
+| CONS-3.2-12   | rule       | Block-start system processing is not rolled back with an aborted transaction                                                                   | 3.2     | [3.2](vectors/3.2.md#cons-32-12)     |
+| CONS-3.3-1    | rule       | Every block has an anchor, carried as a witness or inherited from the parent                                                                   | 3.3     | [3.3](vectors/3.3.md#cons-33-1)      |
+| CONS-3.3-2    | rule       | Anchor witness presence: required on generation start and anchor moves                                                                         | 3.3     | [3.3](vectors/3.3.md#cons-33-2)      |
+| CONS-3.3-3    | rule       | Anchor witness proves recoveryGeneration, lastCheckpoint and FI queue bounds                                                                   | 3.3     | [3.3](vectors/3.3.md#cons-33-3)      |
+| CONS-3.3-4    | rule       | Proposer anchor choice; a retained proposal keeps its original anchor                                                                          | 3.3     | [3.3](vectors/3.3.md#cons-33-4)      |
+| CONS-3.3-5    | rule       | ProcessProposal anchor checks; later finality cannot expire a proposal                                                                         | 3.3     | [3.3](vectors/3.3.md#cons-33-5)      |
+| CONS-3.3-6    | rule       | rawL1Header: RLP bounds and four positional fields; other items uninterpreted                                                                  | 3.3     | [3.3](vectors/3.3.md#cons-33-6)      |
+| CONS-3.3-7    | rule       | Header identity is keccak256 of raw bytes; canonical hash check and outcomes                                                                   | 3.3     | [3.3](vectors/3.3.md#cons-33-7)      |
+| CONS-3.4-1    | rule       | ProcessProposal and FinalizeBlock apply the same deterministic rules in order                                                                  | 3.4     | [3.4](vectors/3.4.md#cons-34-1)      |
+| CONS-3.4-2    | rule       | Height is parent plus one and parentHash links to the parent                                                                                   | 3.4     | [3.4](vectors/3.4.md#cons-34-2)      |
+| CONS-3.4-3    | rule       | Anchor witness presence follows 3.3 and the witness verifies                                                                                   | 3.4     | [3.4](vectors/3.4.md#cons-34-3)      |
+| CONS-3.4-4    | rule       | Anchor does not regress below the parent anchor or the generation's L1 origin                                                                  | 3.4     | [3.4](vectors/3.4.md#cons-34-4)      |
+| CONS-3.4-5    | rule       | Generation: recomputed chain_id matches; larger supersedes, smaller rejects                                                                    | 3.4     | [3.4](vectors/3.4.md#cons-34-5)      |
+| CONS-3.4-6    | rule       | Back-pressure: height minus proven checkpoint height at most U                                                                                 | 3.4     | [3.4](vectors/3.4.md#cons-34-6)      |
+| CONS-3.4-7    | rule       | Committee witness at S(t) with proofs under S(t)'s anchor root                                                                                 | 3.4     | [3.4](vectors/3.4.md#cons-34-7)      |
+| CONS-3.4-8    | rule       | Header matches 3.2 field by field and anchor freshness within maxAnchorAge                                                                     | 3.4     | [3.4](vectors/3.4.md#cons-34-8)      |
+| CONS-3.4-9    | rule       | Forced inclusion rules of section 7 apply                                                                                                      | 3.4     | [3.4](vectors/3.4.md#cons-34-9)      |
+| CONS-3.4-10   | rule       | newPayload VALID and final body exactly the retained transactions                                                                              | 3.4     | [3.4](vectors/3.4.md#cons-34-10)     |
+| CONS-3.4-11   | rule       | Every listed transaction executes; over-limit or overflow invalidates the block                                                                | 3.4     | [3.4](vectors/3.4.md#cons-34-11)     |
+| CONS-3.4-12   | rule       | Freshness depends only on candidate and parent, not on advancing L1 finality                                                                   | 3.4     | [3.4](vectors/3.4.md#cons-34-12)     |
+| CONS-3.4-13   | rule       | Block size bound: 124,000-byte envelope block item, checked in both paths                                                                      | 3.4     | [3.4](vectors/3.4.md#cons-34-13)     |
+| CONS-3.4-14   | rule       | A decided block violating the size bound makes honest nodes halt for safety                                                                    | 3.4     | [3.4](vectors/3.4.md#cons-34-14)     |
+| CONS-3.4-15   | rule       | No usable finalized anchor: L2 pauses until one is usable                                                                                      | 3.4     | [3.4](vectors/3.4.md#cons-34-15)     |
+| CONS-3.4-16   | rule       | Anchor-change checkpoint check: height and local-chain hash; mismatch rejects                                                                  | 3.4     | [3.4](vectors/3.4.md#cons-34-16)     |
+| STAKE-4.1-1   | rule       | register requires amount >= minStake                                                                                                           | 4.1     | [4.1](vectors/4.1.md#stake-41-1)     |
+| STAKE-4.1-2   | rule       | Activation is delayed; msg.sender becomes owner                                                                                                | 4.1     | [4.1](vectors/4.1.md#stake-41-2)     |
+| STAKE-4.1-3   | rule       | exitEffectiveL1 starts at 2^48-1; requestExit guard                                                                                            | 4.1     | [4.1](vectors/4.1.md#stake-41-3)     |
+| STAKE-4.1-4   | rule       | A key can be registered only once, keyed by ckAddr                                                                                             | 4.1     | [4.1](vectors/4.1.md#stake-41-4)     |
+| STAKE-4.1-5   | rule       | Registry stores only ckPrefix and ckX; ckY is derived                                                                                          | 4.1     | [4.1](vectors/4.1.md#stake-41-5)     |
+| STAKE-4.1-6   | rule       | publicKey is exactly 33 canonical SEC1 compressed bytes                                                                                        | 4.1     | [4.1](vectors/4.1.md#stake-41-6)     |
+| STAKE-4.1-7   | rule       | Textual, uncompressed, hybrid and trailing keys are rejected                                                                                   | 4.1     | [4.1](vectors/4.1.md#stake-41-7)     |
+| STAKE-4.1-8   | rule       | Decompression, point, parity and recompression checks                                                                                          | 4.1     | [4.1](vectors/4.1.md#stake-41-8)     |
+| STAKE-4.1-9   | rule       | Registration failure creates no entry and consumes no key                                                                                      | 4.1     | [4.1](vectors/4.1.md#stake-41-9)     |
+| STAKE-4.1-10  | rule       | ckAddr hashes decoded coordinates, not the compressed key                                                                                      | 4.1     | [4.1](vectors/4.1.md#stake-41-10)    |
+| STAKE-4.1-11  | rule       | popSig format and recovery to ckAddr                                                                                                           | 4.1     | [4.1](vectors/4.1.md#stake-41-11)    |
+| STAKE-4.1-12  | rule       | Registration digest binds L1 chain id, registry and sender                                                                                     | 4.1     | [4.1](vectors/4.1.md#stake-41-12)    |
+| STAKE-4.1-13  | rule       | There are 4096 slots and the bond id is the slot                                                                                               | 4.1     | [4.1](vectors/4.1.md#stake-41-13)    |
+| STAKE-4.1-14  | rule       | Withdrawn slots are reused from a free list first                                                                                              | 4.1     | [4.1](vectors/4.1.md#stake-41-14)    |
+| STAKE-4.1-15  | rule       | topUp is owner-only and has six admission checks                                                                                               | 4.1     | [4.1](vectors/4.1.md#stake-41-15)    |
+| STAKE-4.1-16  | rule       | topUp records pending funds and rejects overflow                                                                                               | 4.1     | [4.1](vectors/4.1.md#stake-41-16)    |
+| STAKE-4.1-17  | rule       | Pending funds are not stake, tree entries or voting power                                                                                      | 4.1     | [4.1](vectors/4.1.md#stake-41-17)    |
+| STAKE-4.1-18  | rule       | activateTopUp moves ready pending funds into effStake                                                                                          | 4.1     | [4.1](vectors/4.1.md#stake-41-18)    |
+| STAKE-4.1-19  | rule       | Maturity alone does not activate; no historical rewrite                                                                                        | 4.1     | [4.1](vectors/4.1.md#stake-41-19)    |
+| STAKE-4.1-20  | rule       | After exit, no top-ups and pending funds leave by withdrawal                                                                                   | 4.1     | [4.1](vectors/4.1.md#stake-41-20)    |
+| STAKE-4.1-21  | rule       | All principal backs the key, including evidence and forfeiture                                                                                 | 4.1     | [4.1](vectors/4.1.md#stake-41-21)    |
+| STAKE-4.1-22  | rule       | Top-up and activation work before Inbox initialization                                                                                         | 4.1     | [4.1](vectors/4.1.md#stake-41-22)    |
+| STAKE-4.1-23  | rule       | requestExit is owner-only; effect takes the later delay                                                                                        | 4.1     | [4.1](vectors/4.1.md#stake-41-23)    |
+| STAKE-4.1-24  | rule       | requestExit needs no exit set; exitEffectiveL1 only moves earlier                                                                              | 4.1     | [4.1](vectors/4.1.md#stake-41-24)    |
+| STAKE-4.1-25  | rule       | exitEffectiveL1 is eligibility, not the evidence clock                                                                                         | 4.1     | [4.1](vectors/4.1.md#stake-41-25)    |
+| STAKE-4.1-26  | rule       | confirmExit conditions, first-call record and idempotence                                                                                      | 4.1     | [4.1](vectors/4.1.md#stake-41-26)    |
+| STAKE-4.1-27  | rule       | withdraw conditions and the two balance branches                                                                                               | 4.1     | [4.1](vectors/4.1.md#stake-41-27)    |
+| STAKE-4.1-28  | rule       | Withdrawal cleanup preserves the lifetime forfeiture flag                                                                                      | 4.1     | [4.1](vectors/4.1.md#stake-41-28)    |
+| STAKE-4.1-29  | rule       | activeCommitteeSnapshot never decreases; no re-check                                                                                           | 4.1     | [4.1](vectors/4.1.md#stake-41-29)    |
+| STAKE-4.1-30  | rule       | Owner is immutable; keys cannot rotate in place                                                                                                | 4.1     | [4.1](vectors/4.1.md#stake-41-30)    |
+| STAKE-4.1-31  | rule       | slashDoubleSign is permissionless; vote tuple; fixed domain                                                                                    | 4.1     | [4.1](vectors/4.1.md#stake-41-31)    |
+| STAKE-4.1-32  | rule       | Double-sign evidence predicate, generation and scope                                                                                           | 4.1     | [4.1](vectors/4.1.md#stake-41-32)    |
+| STAKE-4.1-33  | rule       | Registry derives ckY and verifies both signatures                                                                                              | 4.1     | [4.1](vectors/4.1.md#stake-41-33)    |
+| STAKE-4.1-34  | rule       | Slash admission, principal zeroing, exit, bounty and sink                                                                                      | 4.1     | [4.1](vectors/4.1.md#stake-41-34)    |
+| STAKE-4.1-35  | rule       | Membership is not proven; lower-height re-sign is not double                                                                                   | 4.1     | [4.1](vectors/4.1.md#stake-41-35)    |
+| STAKE-4.1-36  | rule       | Every L1 block changing an entry ends with a checkpoint                                                                                        | 4.1     | [4.1](vectors/4.1.md#stake-41-36)    |
+| STAKE-4.1-37  | rule       | Inbox proxy address is fixed and checked at initialization                                                                                     | 4.1     | [4.1](vectors/4.1.md#stake-41-37)    |
+| STAKE-4.1-38  | rule       | Before init, exit/slash/forfeit fail but registration works                                                                                    | 4.1     | [4.1](vectors/4.1.md#stake-41-38)    |
+| STAKE-4.1-39  | rule       | Exclusion recovery can move exitEffectiveL1 to recoverySnapshot                                                                                | 4.1     | [4.1](vectors/4.1.md#stake-41-39)    |
+| STAKE-4.2-1   | rule       | L and L1_0 are fixed at Inbox initialization                                                                                                   | 4.2     | [4.2](vectors/4.2.md#stake-42-1)     |
+| STAKE-4.2-2   | rule       | Epoch t starts at H(t)=1+t\*L; block h maps to floor((h-1)/L)                                                                                  | 4.2     | [4.2](vectors/4.2.md#stake-42-2)     |
+| STAKE-4.2-3   | rule       | Epochs follow L2 height only; maxAnchorAge bounds anchors                                                                                      | 4.2     | [4.2](vectors/4.2.md#stake-42-3)     |
+| COMM-4.3-1    | rule       | One selection rule serves committee 0, rotation and recovery                                                                                   | 4.3     | [4.3](vectors/4.3.md#comm-43-1)      |
+| COMM-4.3-2    | rule       | Verify complete entries and root at the snapshot checkpoint                                                                                    | 4.3     | [4.3](vectors/4.3.md#comm-43-2)      |
+| COMM-4.3-3    | rule       | Eligibility: activeFromL1 <= snapshot < exit and stake floor                                                                                   | 4.3     | [4.3](vectors/4.3.md#comm-43-3)      |
+| COMM-4.3-4    | rule       | Two eligible entries sharing a key make the state invalid                                                                                      | 4.3     | [4.3](vectors/4.3.md#comm-43-4)      |
+| COMM-4.3-5    | rule       | Released slots are zero, ineligible and ignored                                                                                                | 4.3     | [4.3](vectors/4.3.md#comm-43-5)      |
+| COMM-4.3-6    | rule       | Sort by effStake, break ties by set key, take n_max                                                                                            | 4.3     | [4.3](vectors/4.3.md#comm-43-6)      |
+| COMM-4.3-7    | rule       | assignedPower = floor(effStake / vp_unit)                                                                                                      | 4.3     | [4.3](vectors/4.3.md#comm-43-7)      |
+| COMM-4.3-8    | rule       | Committee encoding, totals and rejection constraints                                                                                           | 4.3     | [4.3](vectors/4.3.md#comm-43-8)      |
+| COMM-4.3-8a   | rule       | If TAIKO supply increases, choose vp_unit for the new supply and deploy a new configuration first                                              | 4.3     | [4.3](vectors/4.3.md#comm-43-8a)     |
+| COMM-4.3-9    | rule       | Committee 0: genesisCutoff snapshot, epoch 0, record hash                                                                                      | 4.3     | [4.3](vectors/4.3.md#comm-43-9)      |
+| COMM-4.3-10   | rule       | Rotation uses S(t)=H(t)-2 and D(t)=H(t)-3                                                                                                      | 4.3     | [4.3](vectors/4.3.md#comm-43-10)     |
+| COMM-4.3-11   | rule       | Rotation snapshot is the later of D(t)'s anchor and origin                                                                                     | 4.3     | [4.3](vectors/4.3.md#comm-43-11)     |
+| COMM-4.3-12   | rule       | Proofs use S(t)'s own anchor root and latest checkpoint                                                                                        | 4.3     | [4.3](vectors/4.3.md#comm-43-12)     |
+| COMM-4.3-13   | rule       | Rotation updates take effect at H(t); targetEpoch=t                                                                                            | 4.3     | [4.3](vectors/4.3.md#comm-43-13)     |
+| COMM-4.3-14   | rule       | Recovery applies the rule at R and only R's snapshot                                                                                           | 4.3     | [4.3](vectors/4.3.md#comm-43-14)     |
+| COMM-4.3-15   | rule       | Recovery target epoch, immediate effect, pending discard                                                                                       | 4.3     | [4.3](vectors/4.3.md#comm-43-15)     |
+| COMM-4.3-16   | rule       | Authenticated L1 state fixes membership; no takeover limits                                                                                    | 4.3     | [4.3](vectors/4.3.md#comm-43-16)     |
+| COMM-4.3-17   | rule       | activationDelay scope and only activated increments count                                                                                      | 4.3     | [4.3](vectors/4.3.md#comm-43-17)     |
+| FORF-4.4-1    | rule       | forfeit is registry-owner-only and post-initialization                                                                                         | 4.4     | [4.4](vectors/4.4.md#forf-44-1)      |
+| FORF-4.4-2    | rule       | entryKey = keccak256(abi.encode(ckPrefix, ckX))                                                                                                | 4.4     | [4.4](vectors/4.4.md#forf-44-2)      |
+| FORF-4.4-3    | rule       | Authorization binds deployment/parameters; incident identity                                                                                   | 4.4     | [4.4](vectors/4.4.md#forf-44-3)      |
+| FORF-4.4-4    | rule       | Five execution checks for forfeit                                                                                                              | 4.4     | [4.4](vectors/4.4.md#forf-44-4)      |
+| FORF-4.4-5    | rule       | Exits stay punishable until withdrawal; membership not needed                                                                                  | 4.4     | [4.4](vectors/4.4.md#forf-44-5)      |
+| FORF-4.4-6    | rule       | validUntil is an absolute L1 Unix timestamp                                                                                                    | 4.4     | [4.4](vectors/4.4.md#forf-44-6)      |
+| FORF-4.4-7    | rule       | Penalty = ceil(balance\*forfeitBps/10000), 0 < bps <= 10000                                                                                    | 4.4     | [4.4](vectors/4.4.md#forf-44-7)      |
+| FORF-4.4-8    | rule       | Deduct effStake then pendingTopUp; clear the ready block                                                                                       | 4.4     | [4.4](vectors/4.4.md#forf-44-8)      |
+| FORF-4.4-9    | rule       | The whole penalty goes to slashSink, with no bounty                                                                                            | 4.4     | [4.4](vectors/4.4.md#forf-44-9)      |
+| FORF-4.4-10   | rule       | Post-authorization deposits are included; no history                                                                                           | 4.4     | [4.4](vectors/4.4.md#forf-44-10)     |
+| FORF-4.4-11   | rule       | Same transaction sets the flag, exit and checkpoint                                                                                            | 4.4     | [4.4](vectors/4.4.md#forf-44-11)     |
+| FORF-4.4-12   | rule       | Lifetime flag cannot be reset; entryKey stops slot reuse                                                                                       | 4.4     | [4.4](vectors/4.4.md#forf-44-12)     |
+| FORF-4.4-13   | rule       | Forfeiture affects only subsequent snapshots                                                                                                   | 4.4     | [4.4](vectors/4.4.md#forf-44-13)     |
+| FORF-4.4-14   | rule       | Remaining principal follows withdrawal; confirmation stands                                                                                    | 4.4     | [4.4](vectors/4.4.md#forf-44-14)     |
+| FORF-4.4-15   | rule       | Double-sign may empty the entry; forfeit then fails on zero                                                                                    | 4.4     | [4.4](vectors/4.4.md#forf-44-15)     |
+| FORF-4.4-16   | rule       | No nonce, revocation, queue, hold or extra delay                                                                                               | 4.4     | [4.4](vectors/4.4.md#forf-44-16)     |
+| FORF-4.4-17   | rule       | Unexecuted authorization survives DAO change; expiry reverts                                                                                   | 4.4     | [4.4](vectors/4.4.md#forf-44-17)     |
+| FORF-4.4-18   | rule       | Landing, generation change and recover do not invalidate                                                                                       | 4.4     | [4.4](vectors/4.4.md#forf-44-18)     |
+| FORF-4.4-19   | rule       | Atomic ordering, reentrancy rejection and event fields                                                                                         | 4.4     | [4.4](vectors/4.4.md#forf-44-19)     |
+| FORF-4.4-20   | rule       | Forfeit must precede lawful withdrawal; withdrawn funds unrecoverable                                                                          | 4.4     | [4.4](vectors/4.4.md#forf-44-20)     |
+| DATA-5.1-1    | rule       | Envelope = 0x06 \|\| rlp([block, anchor, committee, forced])                                                                                   | 5.1     | [5.1](vectors/5.1.md#data-51-1)      |
+| DATA-5.1-2    | rule       | The CometBFT header's data_hash commits to the envelope                                                                                        | 5.1     | [5.1](vectors/5.1.md#data-51-2)      |
+| DATA-5.1-3    | rule       | The envelope never goes to L1                                                                                                                  | 5.1     | [5.1](vectors/5.1.md#data-51-3)      |
+| DATA-5.2-1    | rule       | Each batch uses 1-6 blobs                                                                                                                      | 5.2     | [5.2](vectors/5.2.md#data-52-1)      |
+| DATA-5.2-2    | rule       | Blob encoding: <=130,044 bytes, full non-final, zero padding                                                                                   | 5.2     | [5.2](vectors/5.2.md#data-52-2)      |
+| DATA-5.2-3    | rule       | Payload = 0x06 \|\| zlib(rlp([executionBlock, ...]))                                                                                           | 5.2     | [5.2](vectors/5.2.md#data-52-3)      |
+| DATA-5.2-4    | rule       | Transactions are RLP byte strings of EIP-2718 encodings                                                                                        | 5.2     | [5.2](vectors/5.2.md#data-52-4)      |
+| DATA-5.2-5    | rule       | One zlib stream, no dictionary, 64 MiB / 22,020,096 B limits                                                                                   | 5.2     | [5.2](vectors/5.2.md#data-52-5)      |
+| DATA-5.2-6    | rule       | All payload encodings are canonical and round-trip                                                                                             | 5.2     | [5.2](vectors/5.2.md#data-52-6)      |
+| DATA-5.2-7    | rule       | Blocks are contiguous, hash-linked and end at the checkpoint                                                                                   | 5.2     | [5.2](vectors/5.2.md#data-52-7)      |
+| DATA-5.2-8    | rule       | Private proof inputs: unpublished data and guest equality                                                                                      | 5.2     | [5.2](vectors/5.2.md#data-52-8)      |
+| DATA-5.2-9    | rule       | DA recovery: archived blobs plus starting state suffice                                                                                        | 5.2     | [5.2](vectors/5.2.md#data-52-9)      |
+| DATA-5.3-1    | rule       | Reconstruction uses only public inputs                                                                                                         | 5.3     | [5.3](vectors/5.3.md#data-53-1)      |
+| DATA-5.3-2    | rule       | A source-available program and public inputs are required                                                                                      | 5.3     | [5.3](vectors/5.3.md#data-53-2)      |
+| DATA-5.3-3    | rule       | Starting material: genesis state/code, hashes, ids, L1_0                                                                                       | 5.3     | [5.3](vectors/5.3.md#data-53-3)      |
+| DATA-5.3-4    | rule       | The program recomputes and matches the authenticated start                                                                                     | 5.3     | [5.3](vectors/5.3.md#data-53-4)      |
+| DATA-5.3-5    | rule       | Verify versioned hashes and (p,h] blobs in landing order                                                                                       | 5.3     | [5.3](vectors/5.3.md#data-53-5)      |
+| DATA-5.3-6    | rule       | Execute only (c,h]; check prefix, h hash/stateRoot and cursor                                                                                  | 5.3     | [5.3](vectors/5.3.md#data-53-6)      |
+| DATA-5.3-7    | rule       | History selection uses authenticated generations/origins                                                                                       | 5.3     | [5.3](vectors/5.3.md#data-53-7)      |
+| DATA-5.3-8    | rule       | Reject missing material/versions; never skip or use RPC                                                                                        | 5.3     | [5.3](vectors/5.3.md#data-53-8)      |
+| DATA-5.3-9    | rule       | Archive authentication; private history is separate                                                                                            | 5.3     | [5.3](vectors/5.3.md#data-53-9)      |
+| LAND-6.1-1    | rule       | land is permissionless and nonpayable                                                                                                          | 6.1     | [6.1](vectors/6.1.md#land-61-1)      |
+| LAND-6.1-2    | rule       | Proofs and blobs cover all of (p,h], origin p to terminal h                                                                                    | 6.1     | [6.1](vectors/6.1.md#land-61-2)      |
+| LAND-6.1-3    | rule       | c is read atomically at execution; only suffix (c,h] settles                                                                                   | 6.1     | [6.1](vectors/6.1.md#land-61-3)      |
+| LAND-6.1-4    | rule       | Concurrent landing that advances c does not invalidate the transaction                                                                         | 6.1     | [6.1](vectors/6.1.md#land-61-4)      |
+| LAND-6.1-5    | rule       | Landings end only at grid points: multiples of K from Etna block 0                                                                             | 6.1     | [6.1](vectors/6.1.md#land-61-5)      |
+| LAND-6.1-6    | rule       | Check list: range/grid/origin, leaves, FI head, reference/blobs, proofs                                                                        | 6.1     | [6.1](vectors/6.1.md#land-61-6)      |
+| LAND-6.1-7    | rule       | Leaves are exactly those of the grid points in (p,h)                                                                                           | 6.1     | [6.1](vectors/6.1.md#land-61-7)      |
+| LAND-6.1-8    | rule       | The leaf at c matches the current checkpoint record                                                                                            | 6.1     | [6.1](vectors/6.1.md#land-61-8)      |
+| LAND-6.1-9    | rule       | Atomic update: checkpoint, snapshot, FI head, slot 285, SignalService                                                                          | 6.1     | [6.1](vectors/6.1.md#land-61-9)      |
+| LAND-6.1-10   | rule       | Reference Solidity lists every check; the checks are normative                                                                                 | 6.1     | [6.1](vectors/6.1.md#land-61-10)     |
+| LAND-6.1-11   | rule       | All checks precede any state change                                                                                                            | 6.1     | [6.1](vectors/6.1.md#land-61-11)     |
+| LAND-6.1-12   | rule       | The leaf checks precede proof verification                                                                                                     | 6.1     | [6.1](vectors/6.1.md#land-61-12)     |
+| LAND-6.1-13   | rule       | Interface: land signature, LandInput's eight fields, K, cutLeaf/cutHash                                                                        | 6.1     | [6.1](vectors/6.1.md#land-61-13)     |
+| PROOF-6.2-1   | rule       | The verifier is an Inbox immutable                                                                                                             | 6.2     | [6.2](vectors/6.2.md#proof-62-1)     |
+| PROOF-6.2-2   | rule       | land only calls verifyProof and does not check the implementation                                                                              | 6.2     | [6.2](vectors/6.2.md#proof-62-2)     |
+| PROOF-6.2-3   | rule       | Production must use the same ZkRequiredVerifier as mainnet (Unzen)                                                                             | 6.2     | [6.2](vectors/6.2.md#proof-62-3)     |
+| PROOF-6.2-4   | rule       | Exactly two sub-proofs, at least one ZK, hence two guests                                                                                      | 6.2     | [6.2](vectors/6.2.md#proof-62-4)     |
+| PROOF-6.2-5   | rule       | Verifier address, code hash and image set pinned in the manifest                                                                               | 6.2     | [6.2](vectors/6.2.md#proof-62-5)     |
+| PROOF-6.2-6   | rule       | Backend failure fallback; settlement stops if none can be assembled                                                                            | 6.2     | [6.2](vectors/6.2.md#proof-62-6)     |
+| PROOF-6.2-7   | rule       | Withdrawals use land's SignalService checkpoint directly                                                                                       | 6.2     | [6.2](vectors/6.2.md#proof-62-7)     |
+| PROOF-6.2-8   | rule       | parentHeight/parentHash and headBefore are taken at proof origin p                                                                             | 6.2     | [6.2](vectors/6.2.md#proof-62-8)     |
+| PROOF-6.2-9   | rule       | Both sub-proofs authenticate the same statement, including cutHash                                                                             | 6.2     | [6.2](vectors/6.2.md#proof-62-9)     |
+| PROOF-6.2-10  | rule       | The proof stays valid when p is not the latest checkpoint at execution                                                                         | 6.2     | [6.2](vectors/6.2.md#proof-62-10)    |
+| PROOF-6.2-11  | rule       | Inbox and registry storage holds under authenticated L1 roots                                                                                  | 6.2     | [6.2](vectors/6.2.md#proof-62-11)    |
+| PROOF-6.2-12  | rule       | Derive signing and pending committees via 4.3 with authenticated inputs                                                                        | 6.2     | [6.2](vectors/6.2.md#proof-62-12)    |
+| PROOF-6.2-13  | rule       | Ordinary path: parentHash to D(t), at most L+2 historical headers                                                                              | 6.2     | [6.2](vectors/6.2.md#proof-62-13)    |
+| PROOF-6.2-14  | rule       | Every proof authenticates the fixed origin record; recovery also c and R                                                                       | 6.2     | [6.2](vectors/6.2.md#proof-62-14)    |
+| PROOF-6.2-15  | rule       | Comet headers link by last_block_id; first header has empty last_block_id                                                                      | 6.2     | [6.2](vectors/6.2.md#proof-62-15)    |
+| PROOF-6.2-16  | rule       | Every block's commit signatures and schedule are verified                                                                                      | 6.2     | [6.2](vectors/6.2.md#proof-62-16)    |
+| PROOF-6.2-17  | rule       | Commit: >2/3 power, distinct signers, secp256k1eth, generation chain_id                                                                        | 6.2     | [6.2](vectors/6.2.md#proof-62-17)    |
+| PROOF-6.2-18  | rule       | validators_hash and next_validators_hash match the activation schedule                                                                         | 6.2     | [6.2](vectors/6.2.md#proof-62-18)    |
+| PROOF-6.2-19  | rule       | A numeric epoch alone cannot authorize a committee                                                                                             | 6.2     | [6.2](vectors/6.2.md#proof-62-19)    |
+| PROOF-6.2-20  | rule       | Envelopes match data_hash; witnesses satisfy sections 3 and 7                                                                                  | 6.2     | [6.2](vectors/6.2.md#proof-62-20)    |
+| PROOF-6.2-21  | rule       | Execution runs from parentHash to the last block, equal to the payload                                                                         | 6.2     | [6.2](vectors/6.2.md#proof-62-21)    |
+| PROOF-6.2-22  | rule       | Nodes, EL and both guests share pinned zk-gas rules and validate the full list                                                                 | 6.2     | [6.2](vectors/6.2.md#proof-62-22)    |
+| PROOF-6.2-23  | rule       | Do not prove a shorter prefix of an over-limit payload                                                                                         | 6.2     | [6.2](vectors/6.2.md#proof-62-23)    |
+| PROOF-6.2-24  | rule       | FI entries [headBefore, headAfter) are consumed exactly and in order                                                                           | 6.2     | [6.2](vectors/6.2.md#proof-62-24)    |
+| PROOF-6.2-25  | rule       | Eligibility of the raw bytes follows 7.2 and the same vectors                                                                                  | 6.2     | [6.2](vectors/6.2.md#proof-62-25)    |
+| PROOF-6.2-26  | rule       | Skip reproduces alethia's singleton build result: an empty block                                                                               | 6.2     | [6.2](vectors/6.2.md#proof-62-26)    |
+| PROOF-6.2-27  | rule       | An empty singleton result caused by the zk limit is included                                                                                   | 6.2     | [6.2](vectors/6.2.md#proof-62-27)    |
+| PROOF-6.2-28  | rule       | Discarded trial work counts in the proof; no final difficulty or fees                                                                          | 6.2     | [6.2](vectors/6.2.md#proof-62-28)    |
+| PROOF-6.2-29  | rule       | Each block has extraData[0] = 100                                                                                                              | 6.2     | [6.2](vectors/6.2.md#proof-62-29)    |
+| PROOF-6.2-30  | rule       | activeCommitteeSnapshot is the selection snapshot governing lastHeight                                                                         | 6.2     | [6.2](vectors/6.2.md#proof-62-30)    |
+| PROOF-6.2-31  | rule       | Pending committees, terminal anchor and reference block are not substitutes                                                                    | 6.2     | [6.2](vectors/6.2.md#proof-62-31)    |
+| PROOF-6.2-32  | rule       | Old pending updates never activate after recovery; report R                                                                                    | 6.2     | [6.2](vectors/6.2.md#proof-62-32)    |
+| PROOF-6.2-33  | rule       | Anchors and every other L1 root lie on the chain ending at the reference block                                                                 | 6.2     | [6.2](vectors/6.2.md#proof-62-33)    |
+| PROOF-6.2-34  | rule       | Headers decoded per 3.3; links compare keccak256 of raw bytes with parentHash                                                                  | 6.2     | [6.2](vectors/6.2.md#proof-62-34)    |
+| PROOF-6.2-35  | rule       | 4096 canonical elements per blob; KZG commitment bound to blobHashes[i]                                                                        | 6.2     | [6.2](vectors/6.2.md#proof-62-35)    |
+| PROOF-6.2-36  | rule       | Guest may recompute C or verify a KZG proof of equivalence                                                                                     | 6.2     | [6.2](vectors/6.2.md#proof-62-36)    |
+| PROOF-6.2-37  | rule       | Blob payload = blobs decoded in index order per 5.2 with all 5.2 rules                                                                         | 6.2     | [6.2](vectors/6.2.md#proof-62-37)    |
+| PROOF-6.2-38  | rule       | The statement's blobHashes hash is computed from the same list                                                                                 | 6.2     | [6.2](vectors/6.2.md#proof-62-38)    |
+| PROOF-6.2-39  | rule       | Cuts cover p through h continuously without duplicates or omissions                                                                            | 6.2     | [6.2](vectors/6.2.md#proof-62-39)    |
+| PROOF-6.2-40  | rule       | First EL/Comet hashes and FI cursor match the authenticated origin                                                                             | 6.2     | [6.2](vectors/6.2.md#proof-62-40)    |
+| PROOF-6.2-41  | rule       | Later cuts come from the real header and execution/consumption results                                                                         | 6.2     | [6.2](vectors/6.2.md#proof-62-41)    |
+| PROOF-6.2-42  | rule       | Last cut equals lastBlockHash, lastCometHash and forcedInclusionHeadAfter                                                                      | 6.2     | [6.2](vectors/6.2.md#proof-62-42)    |
+| PROOF-6.2-43  | rule       | p,h are grid points; cutHash over every grid point uses appendix A                                                                             | 6.2     | [6.2](vectors/6.2.md#proof-62-43)    |
+| PROOF-6.2-44  | rule       | Cuts not authenticated by execution must not be accepted                                                                                       | 6.2     | [6.2](vectors/6.2.md#proof-62-44)    |
+| PROOF-6.2-45  | rule       | Every block in (p,h] satisfies anchor, commit, committee, FI and EL rules                                                                      | 6.2     | [6.2](vectors/6.2.md#proof-62-45)    |
+| PROOF-6.2-46  | rule       | Origin p is authenticated by its slot 285 record, not verified on its own                                                                      | 6.2     | [6.2](vectors/6.2.md#proof-62-46)    |
+| PROOF-6.2-47  | rule       | Inherited anchor: guest verifies its raw header and Inbox proofs against p+1                                                                   | 6.2     | [6.2](vectors/6.2.md#proof-62-47)    |
+| BATCH-6.3-1   | rule       | A batch is cut only at grid points and may cross epochs                                                                                        | 6.3     | [6.3](vectors/6.3.md#batch-63-1)     |
+| BATCH-6.3-2   | rule       | Handover heights unrelated to the grid; recovery start is always a grid point                                                                  | 6.3     | [6.3](vectors/6.3.md#batch-63-2)     |
+| BATCH-6.3-3   | rule       | Use the actual schedule rather than avoiding a problematic cut                                                                                 | 6.3     | [6.3](vectors/6.3.md#batch-63-3)     |
+| BATCH-6.3-4   | rule       | l1ReferenceBlockNumber may be any recent L1 block                                                                                              | 6.3     | [6.3](vectors/6.3.md#batch-63-4)     |
+| BATCH-6.3-5   | rule       | After a long outage old anchors must still be authenticated within budget                                                                      | 6.3     | [6.3](vectors/6.3.md#batch-63-5)     |
+| BATCH-6.3-6   | rule       | Reference-header chain bound: 131,072 headers (~18 days at 12 s)                                                                               | 6.3     | [6.3](vectors/6.3.md#batch-63-6)     |
+| BATCH-6.3-7   | rule       | Beyond the bound: only governance recovery (<=U), restart from R                                                                               | 6.3     | [6.3](vectors/6.3.md#batch-63-7)     |
+| BATCH-6.3-8   | rule       | Prove from an authenticated, retained historical checkpoint p                                                                                  | 6.3     | [6.3](vectors/6.3.md#batch-63-8)     |
+| BATCH-6.3-9   | rule       | p cannot precede the generation start; the proof cannot span generations                                                                       | 6.3     | [6.3](vectors/6.3.md#batch-63-9)     |
+| BATCH-6.3-10  | rule       | Concurrent landing: the transaction stays valid whenever p <= c < h                                                                            | 6.3     | [6.3](vectors/6.3.md#batch-63-10)    |
+| BATCH-6.3-11  | rule       | If c >= h the target is already settled and work can be cancelled                                                                              | 6.3     | [6.3](vectors/6.3.md#batch-63-11)    |
+| BATCH-6.3-12  | rule       | Expiry, rule/image changes or generation transition can invalidate a job                                                                       | 6.3     | [6.3](vectors/6.3.md#batch-63-12)    |
+| BATCH-6.3-13  | rule       | Signed jobs must not be rewritten to bypass those boundaries                                                                                   | 6.3     | [6.3](vectors/6.3.md#batch-63-13)    |
+| BATCH-6.3-14  | rule       | Copying cannot change proven content; no landing reward; submitter irrelevant                                                                  | 6.3     | [6.3](vectors/6.3.md#batch-63-14)    |
+| BACKP-6.4-1   | rule       | L2 height cannot exceed anchor-proven lastCheckpoint.height + U                                                                                | 6.4     | [6.4](vectors/6.4.md#backp-64-1)     |
+| BACKP-6.4-2   | rule       | U is a config-hash parameter: K <= U <= 65,536, multiple of K                                                                                  | 6.4     | [6.4](vectors/6.4.md#backp-64-2)     |
+| BACKP-6.4-3   | rule       | U is a circuit breaker for settlement failure, not normal pacing                                                                               | 6.4     | [6.4](vectors/6.4.md#backp-64-3)     |
+| BACKP-6.4-4   | rule       | The target deployment uses U = 3,600                                                                                                           | 6.4     | [6.4](vectors/6.4.md#backp-64-4)     |
+| BACKP-6.4-5   | rule       | 4 s blocks and <=20 min between landings are targets, not validity rules                                                                       | 6.4     | [6.4](vectors/6.4.md#backp-64-5)     |
+| BACKP-6.4-6   | rule       | U and the epoch length L do not constrain each other                                                                                           | 6.4     | [6.4](vectors/6.4.md#backp-64-6)     |
+| BACKP-6.4-7   | rule       | A landing stall permits at most U further blocks                                                                                               | 6.4     | [6.4](vectors/6.4.md#backp-64-7)     |
+| BACKP-6.4-8   | rule       | L1 inclusion alone does not release the pause                                                                                                  | 6.4     | [6.4](vectors/6.4.md#backp-64-8)     |
+| BACKP-6.4-9   | rule       | U is fixed at deployment, not overridable by local node configuration                                                                          | 6.4     | [6.4](vectors/6.4.md#backp-64-9)     |
+| BACKP-6.4-10  | rule       | Anchor-based accounting never undercounts unsettled blocks                                                                                     | 6.4     | [6.4](vectors/6.4.md#backp-64-10)    |
+| BACKP-6.4-11  | rule       | Exception: section 8 verifier-failure rollback accounting                                                                                      | 6.4     | [6.4](vectors/6.4.md#backp-64-11)    |
+| BACKP-6.4-12  | rule       | L1 finality lag brings the pause forward; never authorizes exceeding U                                                                         | 6.4     | [6.4](vectors/6.4.md#backp-64-12)    |
+| BACKP-6.4-13  | rule       | Raising U raises max discard; recovery discards only unsettleable blocks + K-1                                                                 | 6.4     | [6.4](vectors/6.4.md#backp-64-13)    |
+| BACKP-6.4-14  | rule       | Publish L and its nominal epoch duration; not a wall-clock guarantee                                                                           | 6.4     | [6.4](vectors/6.4.md#backp-64-14)    |
+| BACKP-6.4-15  | rule       | Acceptance gate before using the target configuration                                                                                          | 6.4     | [6.4](vectors/6.4.md#backp-64-15)    |
+| BACKP-6.4-16  | rule       | Do not omit latest-checkpoint checks, non-finalized anchors, remove a proof...                                                                 | 6.4     | [6.4](vectors/6.4.md#backp-64-16)    |
+| FI-7.1-1      | rule       | saveForcedInclusion: 8,192-byte cap, fee formula, overpayment refund                                                                           | 7.1     | [7.1](vectors/7.1.md#fi-71-1)        |
+| FI-7.1-2      | rule       | Entry stores only keccak256(tx), L1 timestamp and block number                                                                                 | 7.1     | [7.1](vectors/7.1.md#fi-71-2)        |
+| FI-7.1-3      | rule       | Enqueue event: index, raw bytes, fee in wei; encoding unchecked                                                                                | 7.1     | [7.1](vectors/7.1.md#fi-71-3)        |
+| FI-7.1-4      | rule       | Enqueue fee is protocol revenue kept in the Inbox                                                                                              | 7.1     | [7.1](vectors/7.1.md#fi-71-4)        |
+| FI-7.1-5      | rule       | Fee buys admission only: no refund, recharge or lander payment                                                                                 | 7.1     | [7.1](vectors/7.1.md#fi-71-5)        |
+| FI-7.1-6      | rule       | Historical charges only in enqueue events; not recovery inputs                                                                                 | 7.1     | [7.1](vectors/7.1.md#fi-71-6)        |
+| FI-7.1-7      | rule       | Reverted submission neither enqueues nor charges                                                                                               | 7.1     | [7.1](vectors/7.1.md#fi-71-7)        |
+| FI-7.1-8      | rule       | protocolFeeRecipient: nonzero DAO treasury, published in manifest                                                                              | 7.1     | [7.1](vectors/7.1.md#fi-71-8)        |
+| FI-7.1-9      | rule       | Only saveForcedInclusion accepts ETH; other entry points reject it                                                                             | 7.1     | [7.1](vectors/7.1.md#fi-71-9)        |
+| FI-7.1-10     | rule       | sweepProtocolFees: permissionless, entire balance, failure reverts                                                                             | 7.1     | [7.1](vectors/7.1.md#fi-71-10)       |
+| FI-7.1-11     | rule       | Force-sent ETH is swept with the FI fees                                                                                                       | 7.1     | [7.1](vectors/7.1.md#fi-71-11)       |
+| FI-7.1-12     | rule       | Neither saveForcedInclusion nor land pays the treasury                                                                                         | 7.1     | [7.1](vectors/7.1.md#fi-71-12)       |
+| FI-7.1-13     | rule       | Sweeping is independent of queue head/landing; changes no FI state                                                                             | 7.1     | [7.1](vectors/7.1.md#fi-71-13)       |
+| FI-7.2-1      | rule       | Cursor c; at most one entry per block, only the queue head                                                                                     | 7.2     | [7.2](vectors/7.2.md#fi-72-1)        |
+| FI-7.2-2      | rule       | Per-block anchor and witness requirement                                                                                                       | 7.2     | [7.2](vectors/7.2.md#fi-72-2)        |
+| FI-7.2-3      | rule       | Due condition; entries never expire                                                                                                            | 7.2     | [7.2](vectors/7.2.md#fi-72-3)        |
+| FI-7.2-4      | rule       | Eligible transaction predicate over raw bytes                                                                                                  | 7.2     | [7.2](vectors/7.2.md#fi-72-4)        |
+| FI-7.2-5      | rule       | Case: included at position 0                                                                                                                   | 7.2     | [7.2](vectors/7.2.md#fi-72-5)        |
+| FI-7.2-6      | rule       | Case: not included, not due                                                                                                                    | 7.2     | [7.2](vectors/7.2.md#fi-72-6)        |
+| FI-7.2-7      | rule       | Case: skipped, raw bytes ineligible                                                                                                            | 7.2     | [7.2](vectors/7.2.md#fi-72-7)        |
+| FI-7.2-8      | rule       | Case: skippable only on empty singleton build                                                                                                  | 7.2     | [7.2](vectors/7.2.md#fi-72-8)        |
+| FI-7.2-9      | rule       | Given-list build: deterministic two outcomes                                                                                                   | 7.2     | [7.2](vectors/7.2.md#fi-72-9)        |
+| FI-7.2-10     | rule       | Invalid when due and neither included nor legally skipped                                                                                      | 7.2     | [7.2](vectors/7.2.md#fi-72-10)       |
+| FI-7.2-11     | rule       | Witness raw bytes and hash                                                                                                                     | 7.2     | [7.2](vectors/7.2.md#fi-72-11)       |
+| FI-7.2-12     | rule       | Proposer fetch obligation via eth_getLogs                                                                                                      | 7.2     | [7.2](vectors/7.2.md#fi-72-12)       |
+| FI-7.2-13     | rule       | Blanked entries                                                                                                                                | 7.2     | [7.2](vectors/7.2.md#fi-72-13)       |
+| FI-7.3-1      | rule       | Due queue-head entry must be included or legally skipped; no age deletion                                                                      | 7.3     | [7.3](vectors/7.3.md#fi-73-1)        |
+| FI-7.3-2      | rule       | block.timestamp ≥ entry.timestamp + delay + maxAnchorAge implies due                                                                           | 7.3     | [7.3](vectors/7.3.md#fi-73-2)        |
+| FI-7.3-3      | rule       | Senders must hold a balance of gasLimit × maxFeePerGas                                                                                         | 7.3     | [7.3](vectors/7.3.md#fi-73-3)        |
+| FI-7.3-4      | rule       | At most one entry per block; fee rises linearly with queue length                                                                              | 7.3     | [7.3](vectors/7.3.md#fi-73-4)        |
+| FI-7.3-5      | rule       | No share of successful landings lets an attacker recover F                                                                                     | 7.3     | [7.3](vectors/7.3.md#fi-73-5)        |
+| RECOV-8-1     | rule       | Liveness pause loses no blocks                                                                                                                 | 8       | [8](vectors/8.md#recov-8-1)          |
+| RECOV-8-2     | rule       | Governance recovery discards the suffix above c                                                                                                | 8       | [8](vectors/8.md#recov-8-2)          |
+| RECOV-8-3     | rule       | Liveness pause: process runs, auto-resumes, loses no blocks                                                                                    | 8       | [8](vectors/8.md#recov-8-3)          |
+| RECOV-8-4     | rule       | Liveness-pause causes: stale anchor, back-pressure, witness, bytes                                                                             | 8       | [8](vectors/8.md#recov-8-4)          |
+| RECOV-8-5     | rule       | Lagging or unreachable local L1 node is a liveness pause                                                                                       | 8       | [8](vectors/8.md#recov-8-5)          |
+| RECOV-8-6     | rule       | Unparseable canonical anchor header: reject, retry, upgrade                                                                                    | 8       | [8](vectors/8.md#recov-8-6)          |
+| RECOV-8-7     | rule       | ABCI: never return error; Query/snapshots return codes or empty                                                                                | 8       | [8](vectors/8.md#recov-8-7)          |
+| RECOV-8-8     | rule       | ProcessProposal returns only ACCEPT or REJECT                                                                                                  | 8       | [8](vectors/8.md#recov-8-8)          |
+| RECOV-8-9     | rule       | PrepareProposal stays within max_tx_bytes                                                                                                      | 8       | [8](vectors/8.md#recov-8-9)          |
+| RECOV-8-10    | rule       | Pause or overflow: placeholder, rejected, next round                                                                                           | 8       | [8](vectors/8.md#recov-8-10)         |
+| RECOV-8-11    | rule       | InitChain returns only app_hash; Commit retain_height 0                                                                                        | 8       | [8](vectors/8.md#recov-8-11)         |
+| RECOV-8-12    | rule       | Safety halt: process exits; manual investigation                                                                                               | 8       | [8](vectors/8.md#recov-8-12)         |
+| RECOV-8-13    | rule       | Safety-halt causes: invalid block, fork evidence, EL build refusal                                                                             | 8       | [8](vectors/8.md#recov-8-13)         |
+| RECOV-8-14    | rule       | Superseded generation: chain cannot advance; restart under new one                                                                             | 8       | [8](vectors/8.md#recov-8-14)         |
+| RECOV-8-15    | rule       | Superseded anchor: reject proposal, revoke checkpoint trust                                                                                    | 8       | [8](vectors/8.md#recov-8-15)         |
+| RECOV-8-16    | rule       | Superseded decided block or trust-check mismatch is a safety halt                                                                              | 8       | [8](vectors/8.md#recov-8-16)         |
+| RECOV-8-17    | rule       | Derivation failure rejects S(t) and may persistently halt production                                                                           | 8       | [8](vectors/8.md#recov-8-17)         |
+| RECOV-8-18    | rule       | Do not locally scale, add members or skip rotation                                                                                             | 8       | [8](vectors/8.md#recov-8-18)         |
+| RECOV-8-19    | rule       | Recovery may reselect from new R snapshot; candidates still needed                                                                             | 8       | [8](vectors/8.md#recov-8-19)         |
+| RECOV-8-20    | rule       | ≥1/3 offline: consensus halts; no auto replacement or power cut                                                                                | 8       | [8](vectors/8.md#recov-8-20)         |
+| RECOV-8-21    | rule       | Quorum restore: returning members, else governance recovery                                                                                    | 8       | [8](vectors/8.md#recov-8-21)         |
+| RECOV-8-22    | rule       | Withdrawals during a halt follow 4.1                                                                                                           | 8       | [8](vectors/8.md#recov-8-22)         |
+| RECOV-8-23    | rule       | Settlement stall: at most U more blocks, then back-pressure                                                                                    | 8       | [8](vectors/8.md#recov-8-23)         |
+| RECOV-8-24    | rule       | Bad landing corrupts checkpoint; ordinary recovery cannot repair                                                                               | 8       | [8](vectors/8.md#recov-8-24)         |
+| RECOV-8-25    | rule       | Contain losses: pause SignalService, Bridge, QuotaManager limits                                                                               | 8       | [8](vectors/8.md#recov-8-25)         |
+| RECOV-8-26    | rule       | Rollback ships in the DAO upgrade that replaces the verifier                                                                                   | 8       | [8](vectors/8.md#recov-8-26)         |
+| RECOV-8-27    | rule       | Rollback restores checkpoint, FI head, snapshot; voids later records                                                                           | 8       | [8](vectors/8.md#recov-8-27)         |
+| RECOV-8-28    | rule       | Last trusted landing precedes the first bad one; else initial values                                                                           | 8       | [8](vectors/8.md#recov-8-28)         |
+| RECOV-8-29    | rule       | Registry re-checks exit confirmations against restored snapshot                                                                                | 8       | [8](vectors/8.md#recov-8-29)         |
+| RECOV-8-30    | rule       | Do not compare confirmation L1 block numbers                                                                                                   | 8       | [8](vectors/8.md#recov-8-30)         |
+| RECOV-8-31    | rule       | Rollback preserves and increments recoveryNonce; no historical nonce                                                                           | 8       | [8](vectors/8.md#recov-8-31)         |
+| RECOV-8-32    | rule       | Rollback does not change the generation                                                                                                        | 8       | [8](vectors/8.md#recov-8-32)         |
+| RECOV-8-33    | rule       | Recovery above restored c: generation starts high, no landing works                                                                            | 8       | [8](vectors/8.md#recov-8-33)         |
+| RECOV-8-34    | rule       | After rollback, recover again from the restored c                                                                                              | 8       | [8](vectors/8.md#recov-8-34)         |
+| RECOV-8-35    | rule       | Withdrawn bridge funds and stake cannot be recovered                                                                                           | 8       | [8](vectors/8.md#recov-8-35)         |
+| RECOV-8-36    | rule       | L2 fees paid to proposers are unaffected                                                                                                       | 8       | [8](vectors/8.md#recov-8-36)         |
+| RECOV-8-37    | rule       | Recover call signature and its six parameters                                                                                                  | 8       | [8](vectors/8.md#recov-8-37)         |
+| RECOV-8-38    | rule       | List formats: exclusions sorted by bondId; fiToClear increasing                                                                                | 8       | [8](vectors/8.md#recov-8-38)         |
+| RECOV-8-39    | rule       | Validate all lists and state before the transition, in one transaction                                                                         | 8       | [8](vectors/8.md#recov-8-39)         |
+| RECOV-8-40    | rule       | Excluded entry must match entryKey and be unreleased; else reject all                                                                          | 8       | [8](vectors/8.md#recov-8-40)         |
+| RECOV-8-41    | rule       | Exclusion sets exitEffectiveL1=min(existing,R); no forfeiture                                                                                  | 8       | [8](vectors/8.md#recov-8-41)         |
+| RECOV-8-42    | rule       | Independent forfeiture and double-sign evidence remain available                                                                               | 8       | [8](vectors/8.md#recov-8-42)         |
+| RECOV-8-43    | rule       | Each fiToClear index must still be in [head,tail)                                                                                              | 8       | [8](vectors/8.md#recov-8-43)         |
+| RECOV-8-44    | rule       | Blank txHash to keccak256(""), keep timestamp and enqueue block                                                                                | 8       | [8](vectors/8.md#recov-8-44)         |
+| RECOV-8-45    | rule       | Blanking is for unprovable content only; unlisted entries survive                                                                              | 8       | [8](vectors/8.md#recov-8-45)         |
+| RECOV-8-46    | rule       | Admission fees neither refunded nor recharged; no lander paid                                                                                  | 8       | [8](vectors/8.md#recov-8-46)         |
+| RECOV-8-47    | rule       | Increment generation (uint48), write origin, emit details and lists                                                                            | 8       | [8](vectors/8.md#recov-8-47)         |
+| RECOV-8-48    | rule       | Preserve checkpoint c's landing record and FI head                                                                                             | 8       | [8](vectors/8.md#recov-8-48)         |
+| RECOV-8-49    | rule       | Recovery must not advance the snapshot early; only a landing does                                                                              | 8       | [8](vectors/8.md#recov-8-49)         |
+| RECOV-8-50    | rule       | Confirmed exits are unaffected                                                                                                                 | 8       | [8](vectors/8.md#recov-8-50)         |
+| RECOV-8-51    | rule       | Rebuild EL from c; reselect committee from R under 4.3                                                                                         | 8       | [8](vectors/8.md#recov-8-51)         |
+| RECOV-8-52    | rule       | Excluded entries are ineligible; other active candidates may enter                                                                             | 8       | [8](vectors/8.md#recov-8-52)         |
+| RECOV-8-53    | rule       | Discard old pending updates; resume switches/H+2 globally                                                                                      | 8       | [8](vectors/8.md#recov-8-53)         |
+| RECOV-8-54    | rule       | No signing for the new generation before 8.2 authentication                                                                                    | 8       | [8](vectors/8.md#recov-8-54)         |
+| RECOV-8-55    | rule       | Nodes/guests authenticate R's snapshot, not governance weights                                                                                 | 8       | [8](vectors/8.md#recov-8-55)         |
+| RECOV-8-56    | rule       | Discard only the unsettled suffix above c                                                                                                      | 8       | [8](vectors/8.md#recov-8-56)         |
+| RECOV-8-57    | rule       | Users resubmit discarded transactions; their fees are void                                                                                     | 8       | [8](vectors/8.md#recov-8-57)         |
+| RECOV-8-58    | rule       | Do not rewind the settled prefix                                                                                                               | 8       | [8](vectors/8.md#recov-8-58)         |
+| RECOV-8.1-1   | rule       | Only the DAO authorizes recovery, exclusion and FI blanking                                                                                    | 8.1     | [8.1](vectors/8.1.md#recov-81-1)     |
+| RECOV-8.1-2   | rule       | Bridge/SignalService pauses cannot recover paid funds or stake                                                                                 | 8.1     | [8.1](vectors/8.1.md#recov-81-2)     |
+| RECOV-8.1-3   | rule       | recover has no time threshold; shortest stall is the DAO path delay                                                                            | 8.1     | [8.1](vectors/8.1.md#recov-81-3)     |
+| RECOV-8.1-4   | rule       | expectedC fixed at authorization; a later landing makes it unexecutable                                                                        | 8.1     | [8.1](vectors/8.1.md#recov-81-4)     |
+| RECOV-8.1-5   | rule       | Slow progress, low TPS, FI delay or missed target never justify recover                                                                        | 8.1     | [8.1](vectors/8.1.md#recov-81-5)     |
+| RECOV-8.1-6   | rule       | DAO settles to the last provable grid point before authorizing                                                                                 | 8.1     | [8.1](vectors/8.1.md#recov-81-6)     |
+| RECOV-8.1-7   | rule       | Pre-checks: intended set, 2/3 online, <1/3, history, matching landing                                                                          | 8.1     | [8.1](vectors/8.1.md#recov-81-7)     |
+| RECOV-8.1-8   | rule       | Mismatch means verifier failure: roll back first, then recover                                                                                 | 8.1     | [8.1](vectors/8.1.md#recov-81-8)     |
+| RECOV-8.1-9   | rule       | Economic review: estimate committee, reassess the snapshot after R                                                                             | 8.1     | [8.1](vectors/8.1.md#recov-81-9)     |
+| RECOV-8.1-10  | rule       | Shortfall or expired valuation: alert, disclose, replenish, no veto                                                                            | 8.1     | [8.1](vectors/8.1.md#recov-81-10)    |
+| RECOV-8.1-11  | rule       | recover neither executes nor cancels forfeiture; does not wait for it                                                                          | 8.1     | [8.1](vectors/8.1.md#recov-81-11)    |
+| RECOV-8.1-12  | rule       | Resumed production does not erase responsibility under 4.4                                                                                     | 8.1     | [8.1](vectors/8.1.md#recov-81-12)    |
+| RECOV-8.2-1   | rule       | Signer keeps separate HRS state per chain_id; persists before returning                                                                        | 8.2     | [8.2](vectors/8.2.md#recov-82-1)     |
+| RECOV-8.2-2   | rule       | No copy of the key may sign outside that state                                                                                                 | 8.2     | [8.2](vectors/8.2.md#recov-82-2)     |
+| RECOV-8.2-3   | rule       | Lost or uncertain HRS state: stop signing; deletion restores nothing                                                                           | 8.2     | [8.2](vectors/8.2.md#recov-82-3)     |
+| RECOV-8.2-4   | rule       | Sign for a new generation only after authenticating the recovery                                                                               | 8.2     | [8.2](vectors/8.2.md#recov-82-4)     |
+| RECOV-8.2-5   | rule       | New generation HRS starts at c+1; old-generation requests are refused                                                                          | 8.2     | [8.2](vectors/8.2.md#recov-82-5)     |
+| RECOV-8.2-6   | rule       | Generations use different signing domains; not double signs                                                                                    | 8.2     | [8.2](vectors/8.2.md#recov-82-6)     |
+| RECOV-8.3-1   | rule       | Caller: only the Inbox owner (the DAO) may call recover                                                                                        | 8.3     | [8.3](vectors/8.3.md#recov-83-1)     |
+| RECOV-8.3-2   | rule       | recover and invalidateRecoveryNonce require Inbox initialization                                                                               | 8.3     | [8.3](vectors/8.3.md#recov-83-2)     |
+| RECOV-8.3-3   | rule       | At execution: three expected values must match; timestamp ≤ validUntil                                                                         | 8.3     | [8.3](vectors/8.3.md#recov-83-3)     |
+| RECOV-8.3-4   | rule       | validUntil is an absolute L1 Unix timestamp fixed at authorization                                                                             | 8.3     | [8.3](vectors/8.3.md#recov-83-4)     |
+| RECOV-8.3-5   | rule       | Inbox stores only a monotonic uint256 recoveryNonce; no queue                                                                                  | 8.3     | [8.3](vectors/8.3.md#recov-83-5)     |
+| RECOV-8.3-6   | rule       | Inbox does not distinguish DAO authorization paths                                                                                             | 8.3     | [8.3](vectors/8.3.md#recov-83-6)     |
+| RECOV-8.3-7   | rule       | Authorization or queueing does not freeze landing                                                                                              | 8.3     | [8.3](vectors/8.3.md#recov-83-7)     |
+| RECOV-8.3-8   | rule       | Replay: increment recoveryNonce on successful recover                                                                                          | 8.3     | [8.3](vectors/8.3.md#recov-83-8)     |
+| RECOV-8.3-9   | rule       | Only owner may invalidate; match and increment voids authorizations                                                                            | 8.3     | [8.3](vectors/8.3.md#recov-83-9)     |
+| RECOV-8.3-10  | rule       | Verifier-failure rollback preserves and increments the nonce                                                                                   | 8.3     | [8.3](vectors/8.3.md#recov-83-10)    |
+| RECOV-8.3-11  | rule       | No path may restore an older nonce or wrap it                                                                                                  | 8.3     | [8.3](vectors/8.3.md#recov-83-11)    |
+| RECOV-8.3-12  | rule       | Landing changes c; recovery changes generation; it never decreases                                                                             | 8.3     | [8.3](vectors/8.3.md#recov-83-12)    |
+| RECOV-8.3-13  | rule       | A rollback to an old c cannot revive old authorizations                                                                                        | 8.3     | [8.3](vectors/8.3.md#recov-83-13)    |
+| RECOV-8.3-14  | rule       | Every retry passes all checks; changed parameters need fresh auth                                                                              | 8.3     | [8.3](vectors/8.3.md#recov-83-14)    |
+| RECOV-8.3-15  | rule       | Recovery nonce is independent of the 4.4 entryKey forfeiture flag                                                                              | 8.3     | [8.3](vectors/8.3.md#recov-83-15)    |
+| RECOV-8.3-16  | rule       | Atomicity: all effects in one call; failure reverts everything                                                                                 | 8.3     | [8.3](vectors/8.3.md#recov-83-16)    |
+| RECOV-8.3-17  | rule       | Exclusion and FI blanking exist only inside recover                                                                                            | 8.3     | [8.3](vectors/8.3.md#recov-83-17)    |
+| RECOV-8.3-18  | rule       | Atomicity does not restrict exits, slashing or 4.4 forfeiture                                                                                  | 8.3     | [8.3](vectors/8.3.md#recov-83-18)    |
+| RECOV-8.3-19  | rule       | Reject cross-function reentrancy during recovery                                                                                               | 8.3     | [8.3](vectors/8.3.md#recov-83-19)    |
+| RECOV-8.4-1   | rule       | Recovery uses stock CometBFT with no added authorizer or snapshot service                                                                      | 8.4     | [8.4](vectors/8.4.md#recov-84-1)     |
+| RECOV-8.4-2   | rule       | c is the fixed origin; R executed recover; nodes authenticate both                                                                             | 8.4     | [8.4](vectors/8.4.md#recov-84-2)     |
+| RECOV-8.4-3   | rule       | Slot 290 stores (c, R.number, R.timestamp) per generation; genesis 0                                                                           | 8.4     | [8.4](vectors/8.4.md#recov-84-3)     |
+| RECOV-8.4-4   | rule       | Each origin record is written once, never overwritten or deleted                                                                               | 8.4     | [8.4](vectors/8.4.md#recov-84-4)     |
+| RECOV-8.4-5   | rule       | Missing record rejected; defaults and latest checkpoint not substitutes                                                                        | 8.4     | [8.4](vectors/8.4.md#recov-84-5)     |
+| RECOV-8.4-6   | rule       | generationStartHeight and recoverySnapshot read slot 290, no caches                                                                            | 8.4     | [8.4](vectors/8.4.md#recov-84-6)     |
+| RECOV-8.4-7   | rule       | New genesis: new chain_id, initial_height=c+1, genesis_time=R.timestamp                                                                        | 8.4     | [8.4](vectors/8.4.md#recov-84-7)     |
+| RECOV-8.4-8   | rule       | EL state must match c's authenticated EL hash and stateRoot                                                                                    | 8.4     | [8.4](vectors/8.4.md#recov-84-8)     |
+| RECOV-8.4-9   | rule       | Genesis validators from the 4.3 R snapshot (targetEpoch=floor(c/L))                                                                            | 8.4     | [8.4](vectors/8.4.md#recov-84-9)     |
+| RECOV-8.4-10  | rule       | First block: empty LastBlockID/LastCommit; c's Comet hash boundary-only                                                                        | 8.4     | [8.4](vectors/8.4.md#recov-84-10)    |
+| RECOV-8.4-11  | rule       | FI cursor starts at the authenticated origin head                                                                                              | 8.4     | [8.4](vectors/8.4.md#recov-84-11)    |
+| RECOV-8.4-12  | rule       | First block carries a finalized anchor witness no earlier than R                                                                               | 8.4     | [8.4](vectors/8.4.md#recov-84-12)    |
+| RECOV-8.4-13  | rule       | Every anchor and L1 root is no earlier than R                                                                                                  | 8.4     | [8.4](vectors/8.4.md#recov-84-13)    |
+| RECOV-8.4-14  | rule       | Joining nodes replay from fixed genesis and match EL and Comet hashes                                                                          | 8.4     | [8.4](vectors/8.4.md#recov-84-14)    |
+| RECOV-8.4-15  | rule       | The latest checkpoint is never a new genesis for the same domain                                                                               | 8.4     | [8.4](vectors/8.4.md#recov-84-15)    |
+| SYNC-9-1      | rule       | Cold sync revalidates an anchor witness against the node's own L1 node and 3.4                                                                 | 9       | [9](vectors/9.md#sync-9-1)           |
+| SYNC-9-2      | rule       | Own L1 node lag, unreachable or timeout only waits; halt only on contradiction                                                                 | 9       | [9](vectors/9.md#sync-9-2)           |
+| SYNC-9-3      | rule       | Checkpoint fence: proven lastCheckpoint.hash passed to the EL as finalized                                                                     | 9       | [9](vectors/9.md#sync-9-3)           |
+| SYNC-9-4      | rule       | Startup and signer sessions start untrusted; authenticate latest checkpoint                                                                    | 9       | [9](vectors/9.md#sync-9-4)           |
+| SYNC-9-5      | rule       | Trust requires an exact match of EL and CometBFT hashes at that height                                                                         | 9       | [9](vectors/9.md#sync-9-5)           |
+| SYNC-9-6      | rule       | After trust, every anchor change checks the new lastCheckpoint per 3.4                                                                         | 9       | [9](vectors/9.md#sync-9-6)           |
+| SYNC-9-7      | rule       | Missing data leaves the node untrusted; contradictions and malformed data halt                                                                 | 9       | [9](vectors/9.md#sync-9-7)           |
+| SYNC-9-8      | rule       | A canonical-hash-matching header that fails to parse needs an upgrade, no halt                                                                 | 9       | [9](vectors/9.md#sync-9-8)           |
+| SYNC-9-9      | rule       | A recovery origin is distinct from the latest trust target; replay under 8.4                                                                   | 9       | [9](vectors/9.md#sync-9-9)           |
+| SYNC-9-10     | rule       | Every validator signature requires the app to confirm that the node is trusted                                                                 | 9       | [9](vectors/9.md#sync-9-10)          |
+| SYNC-9-11     | rule       | Untrusted, timeout or superseded: no signature, no local fallback                                                                              | 9       | [9](vectors/9.md#sync-9-11)          |
+| SYNC-9-12     | rule       | Supervisor restarts CometBFT once trust returns after a trust/timeout refusal                                                                  | 9       | [9](vectors/9.md#sync-9-12)          |
+| SYNC-9-13     | rule       | Signer follows stock rules and persists each signature before broadcast                                                                        | 9       | [9](vectors/9.md#sync-9-13)          |
+| SYNC-9-14     | rule       | Restart needs no operator and resets no state; listed cases excluded                                                                           | 9       | [9](vectors/9.md#sync-9-14)          |
+| SYNC-9-15     | rule       | Bridges and public RPC must read the app's trust status, not catching_up                                                                       | 9       | [9](vectors/9.md#sync-9-15)          |
+| SYNC-9-16     | rule       | Node requirements: L1 headers to L1_0, eth_getProof history and FI logs                                                                        | 9       | [9](vectors/9.md#sync-9-16)          |
+| SYNC-9.1-1    | rule       | Complete CometBFT recovery and proving require the listed original material                                                                    | 9.1     | [9.1](vectors/9.1.md#sync-91-1)      |
+| SYNC-9.1-2    | rule       | Archives must retain them; blobs or an EL snapshot alone are insufficient                                                                      | 9.1     | [9.1](vectors/9.1.md#sync-91-2)      |
+| SYNC-9.1-3    | rule       | Private keys are not historical archive data; signing state follows 8.2                                                                        | 9.1     | [9.1](vectors/9.1.md#sync-91-3)      |
+| SYNC-9.1-4    | rule       | Recovery authenticates origin, c hashes, R snapshot, then reselects under 4.3                                                                  | 9.1     | [9.1](vectors/9.1.md#sync-91-4)      |
+| SYNC-9.1-5    | rule       | Subsequent current and pending committees follow authenticated switches                                                                        | 9.1     | [9.1](vectors/9.1.md#sync-91-5)      |
+| SYNC-9.1-6    | rule       | Missing material leaves the node untrusted; contradictions halt under section 9                                                                | 9.1     | [9.1](vectors/9.1.md#sync-91-6)      |
+| SYNC-9.1-7    | rule       | Anyone may submit verifiable same-round conflicting votes directly to L1                                                                       | 9.1     | [9.1](vectors/9.1.md#sync-91-7)      |
+| SYNC-9.1-8    | rule       | Retention and submission are independent of the local pool block/hour limits                                                                   | 9.1     | [9.1](vectors/9.1.md#sync-91-8)      |
+| SYNC-9.1-9    | limitation | Retention does not guarantee observation of every conflicting vote                                                                             | 9.1     | [9.1](vectors/9.1.md#sync-91-9)      |
+| SYNC-9.1-10   | rule       | Different BlockIDs across rounds are not automatically double signing                                                                          | 9.1     | [9.1](vectors/9.1.md#sync-91-10)     |
+| START-10-1    | rule       | Step 1: deploy the Inbox proxy, the registry with that proxy fixed, register                                                                   | 10      | [10](vectors/10.md#start-10-1)       |
+| START-10-2    | rule       | Step 2: pick a past genesisCutoff; committee 0 record hash and config hash                                                                     | 10      | [10](vectors/10.md#start-10-2)       |
+| START-10-3    | rule       | Step 3: install EIP-4788 and EIP-2935 in the L2 genesis; base-fee share 100                                                                    | 10      | [10](vectors/10.md#start-10-3)       |
+| START-10-4    | rule       | Step 4: compute block 0's hash and stateRoot with the EL                                                                                       | 10      | [10](vectors/10.md#start-10-4)       |
+| START-10-5    | rule       | Step 5: SignalService, Inbox initialization fields, treasury, recovery state                                                                   | 10      | [10](vectors/10.md#start-10-5)       |
+| START-10-6    | rule       | Step 6: CometBFT genesis and the guarded signer/CometBFT startup                                                                               | 10      | [10](vectors/10.md#start-10-6)       |
+| START-10-7    | rule       | Deployment constraints: L at least 3 and L+1 below 2^48                                                                                        | 10      | [10](vectors/10.md#start-10-7)       |
+| START-10-8    | rule       | genesisCutoff in the past and not before the first registry checkpoint                                                                         | 10      | [10](vectors/10.md#start-10-8)       |
+| START-10-9    | rule       | forcedInclusionDelay above 0; maxAnchorAge at least 1152 s                                                                                     | 10      | [10](vectors/10.md#start-10-9)       |
+| START-10-10   | rule       | K at most U at most 65,536; U a multiple of K; target U=3,600                                                                                  | 10      | [10](vectors/10.md#start-10-10)      |
+| START-10-11   | rule       | L1_0 below 2^48 and 1 at most n_max at most 4096                                                                                               | 10      | [10](vectors/10.md#start-10-11)      |
+| START-10-12   | rule       | vp_unit at least 867,361,738 and s_min at least vp_unit                                                                                        | 10      | [10](vectors/10.md#start-10-12)      |
+| START-10-13   | rule       | Use positive activation and exit delays                                                                                                        | 10      | [10](vectors/10.md#start-10-13)      |
+| START-10-14   | rule       | Deployment, nodes and guests check the same configuration                                                                                      | 10      | [10](vectors/10.md#start-10-14)      |
+| START-10-15   | rule       | Appendix A's chain_id is exactly 48 ASCII bytes                                                                                                | 10      | [10](vectors/10.md#start-10-15)      |
+| START-10-16   | rule       | Wrong immutables need a new Inbox/genesis; the registry must be repointed                                                                      | 10      | [10](vectors/10.md#start-10-16)      |
+| START-10-17   | rule       | Old signing state is not reset                                                                                                                 | 10      | [10](vectors/10.md#start-10-17)      |
+| START-10-18   | rule       | Pin maxBatchBlocks at least K (at least one grid segment)                                                                                      | 10      | [10](vectors/10.md#start-10-18)      |
+| START-10-19   | rule       | Do not claim readiness before the launch gate passes                                                                                           | 10      | [10](vectors/10.md#start-10-19)      |
+| START-10-20   | rule       | Initial genesis: chain_id, height 1, L1_0 time, committee 0, app_state                                                                         | 10      | [10](vectors/10.md#start-10-20)      |
+| START-10-21   | rule       | Fixed consensus params: block bytes/gas, evidence limits, no update authority                                                                  | 10      | [10](vectors/10.md#start-10-21)      |
+| START-10-22   | rule       | Initial state: anchor L1_0, FI cursor 0, checkpoint (0, genesis hash)                                                                          | 10      | [10](vectors/10.md#start-10-22)      |
+| START-10-23   | rule       | The generator writes an empty parameter-update authority                                                                                       | 10      | [10](vectors/10.md#start-10-23)      |
+| START-10-24   | rule       | In-place migration unsupported; no state deletion to bypass version checks                                                                     | 10      | [10](vectors/10.md#start-10-24)      |
+| START-10.1-1  | rule       | Upgrades stop production and settle before switching rules; no zero-downtime                                                                   | 10.1    | [10.1](vectors/10.1.md#start-101-1)  |
+| START-10.1-2  | rule       | Operational restarts that preserve rules retain same-domain signer state                                                                       | 10.1    | [10.1](vectors/10.1.md#start-101-2)  |
+| START-10.1-3  | rule       | Section 10 immutables need a new Inbox/genesis; 10.1 cannot bypass them                                                                        | 10.1    | [10.1](vectors/10.1.md#start-101-3)  |
+| START-10.1-4  | rule       | Upgrade plan binds deployment, generation, H, clients, images, verifier ranges                                                                 | 10.1    | [10.1](vectors/10.1.md#start-101-4)  |
+| START-10.1-5  | rule       | Plan authenticated through the DAO/timelock, enforced in nodes and L1                                                                          | 10.1    | [10.1](vectors/10.1.md#start-101-5)  |
+| START-10.1-6  | rule       | Registering a new image alone is not a protocol upgrade                                                                                        | 10.1    | [10.1](vectors/10.1.md#start-101-6)  |
+| START-10.1-7  | rule       | Coordinate signers to stop above H while retaining all HRS state                                                                               | 10.1    | [10.1](vectors/10.1.md#start-101-7)  |
+| START-10.1-8  | rule       | Settle through H under old rules; authenticate its checkpoint before H+1                                                                       | 10.1    | [10.1](vectors/10.1.md#start-101-8)  |
+| START-10.1-9  | rule       | The plan must take effect before signing crosses the boundary                                                                                  | 10.1    | [10.1](vectors/10.1.md#start-101-9)  |
+| START-10.1-10 | rule       | Above H: do not erase state or move the boundary; replan or use section 8                                                                      | 10.1    | [10.1](vectors/10.1.md#start-101-10) |
+| START-10.1-11 | rule       | Isolate in-flight jobs by deployment, generation, version, height range                                                                        | 10.1    | [10.1](vectors/10.1.md#start-101-11) |
+| START-10.1-12 | rule       | Old jobs settle or are invalidated, never rewritten into a new version                                                                         | 10.1    | [10.1](vectors/10.1.md#start-101-12) |
+| START-10.1-13 | rule       | Retain old material for replay; no old-rules-only image above H                                                                                | 10.1    | [10.1](vectors/10.1.md#start-101-13) |
+| START-10.1-14 | rule       | New images must not implicitly change history through H                                                                                        | 10.1    | [10.1](vectors/10.1.md#start-101-14) |
+| START-10.1-15 | rule       | Define and test acceptance ranges, switching transaction and rollback plan                                                                     | 10.1    | [10.1](vectors/10.1.md#start-101-15) |
+| PARAM-11-1    | rule       | Node-splitting parameters come only from L1 or the client; local config cannot                                                                 | 11      | [11](vectors/11.md#param-11-1)       |
+| PARAM-11-2    | rule       | Table values are references only; deployment follows L1 and section 10                                                                         | 11      | [11](vectors/11.md#param-11-2)       |
+| PARAM-11-3    | rule       | assignedPower is computed under 4.3, not from node-local configuration                                                                         | 11      | [11](vectors/11.md#param-11-3)       |
+| PARAM-11-4    | rule       | L and genesisCutoff: L chosen independently of U; reference values                                                                             | 11      | [11](vectors/11.md#param-11-4)       |
+| PARAM-11-5    | rule       | forcedInclusionDelay above 0; maxAnchorAge at least 1152 s and above finality                                                                  | 11      | [11](vectors/11.md#param-11-5)       |
+| PARAM-11-6    | rule       | maxBatchBlocks at least K and calldata-bounded; fee/threshold above 0                                                                          | 11      | [11](vectors/11.md#param-11-6)       |
+| PARAM-11-7    | rule       | vp_unit, s_min, n_max: direct power; vp_unit at least 867,361,738                                                                              | 11      | [11](vectors/11.md#param-11-7)       |
+| PARAM-11-8    | rule       | U: K at most U at most 65,536, multiple of K; target 3,600                                                                                     | 11      | [11](vectors/11.md#param-11-8)       |
+| PARAM-11-9    | rule       | K: 1 to 6; K worst-case blocks provable in one landing two proofs                                                                              | 11      | [11](vectors/11.md#param-11-9)       |
+| PARAM-11-10   | rule       | EL/zk-gas parameter changes need a coordinated client upgrade                                                                                  | 11      | [11](vectors/11.md#param-11-10)      |
+| PARAM-11-11   | rule       | Registry immutables: withdrawalDelay, slashBountyBps, slashSink, l2ChainId                                                                     | 11      | [11](vectors/11.md#param-11-11)      |
+| PARAM-11-12   | rule       | forfeitBps: 0 to 10000; proceeds to slashSink; no extra delay                                                                                  | 11      | [11](vectors/11.md#param-11-12)      |
+| PARAM-11-13   | rule       | Activation, exit, withdrawal and top-up readiness use L1 block numbers                                                                         | 11      | [11](vectors/11.md#param-11-13)      |
+| PARAM-11-14   | rule       | Authorization deadlines use L1 block.timestamp in Unix seconds                                                                                 | 11      | [11](vectors/11.md#param-11-14)      |
+| PARAM-11-15   | rule       | Evaluate withdrawalDelay against the fastest lawful withdrawal path                                                                            | 11      | [11](vectors/11.md#param-11-15)      |
+| PARAM-11-16   | rule       | Publish and exercise the response budget; no reaction time guaranteed                                                                          | 11      | [11](vectors/11.md#param-11-16)      |
+| LIMIT-12-1    | limitation | No wall-clock FI deadline; maxAnchorAge bounds only anchor age                                                                                 | 12      | [12](vectors/12.md)                  |
+| LIMIT-12-2    | limitation | Offline quorum relies on DAO recovery; a halted chain does not replace members                                                                 | 12      | [12](vectors/12.md)                  |
+| LIMIT-12-3    | limitation | Double-sign slashing is same-round only; cross-round amnesia is not covered                                                                    | 12      | [12](vectors/12.md)                  |
+| LIMIT-12-4    | limitation | Operations depend on DAO funding; landing has no protocol revenue                                                                              | 12      | [12](vectors/12.md)                  |
+| LIMIT-12-5    | limitation | Dependence on L1 finality; production pauses without a finalized anchor                                                                        | 12      | [12](vectors/12.md)                  |
+| LIMIT-12-6    | limitation | Empty committee; recovery cannot create quorum from nothing                                                                                    | 12      | [12](vectors/12.md)                  |
+| LIMIT-12-7    | limitation | No rotation power-change limit; the top n_max by stake is selected                                                                             | 12      | [12](vectors/12.md)                  |
+| LIMIT-12-8    | limitation | Refunds depend on settlement and the post-confirmation evidence window                                                                         | 12      | [12](vectors/12.md)                  |
+| LIMIT-12-9    | limitation | The switch from Unzen is not included yet                                                                                                      | 12      | [12](vectors/12.md)                  |
+| LIMIT-12-10   | limitation | The upgrade activation mechanism is not fully designed yet                                                                                     | 12      | [12](vectors/12.md)                  |
+| LIMIT-12-10a  | rule       | L1 forks that change existing fields or the state commitment need client and guest upgrades and image registrations before they activate on L1 | 12      | [12](vectors/12.md#limit-12-10a)     |
+| LIMIT-12-11   | limitation | Registry capacity: 4096 slots, each locking minStake                                                                                           | 12      | [12](vectors/12.md)                  |
+| LIMIT-12-12   | limitation | No automatic gradual-offline handling; power is not reduced                                                                                    | 12      | [12](vectors/12.md)                  |
+| LIMIT-12-13   | limitation | secp256k1eth is new; added only in CometBFT v0.40.0                                                                                            | 12      | [12](vectors/12.md)                  |
+| LIMIT-12-14   | limitation | Registration admission bounds; the vp_unit bound only prevents overflow                                                                        | 12      | [12](vectors/12.md)                  |
+| LIMIT-12-15   | limitation | Private consensus-history availability; blobs only reconstruct the settled EL                                                                  | 12      | [12](vectors/12.md)                  |
+| LIMIT-12-16   | limitation | Overlapping proofs provide short-landing protection, pending acceptance                                                                        | 12      | [12](vectors/12.md)                  |
+| LIMIT-12-17   | limitation | Resource and latency figures await validation                                                                                                  | 12      | [12](vectors/12.md)                  |
+| LIMIT-12-18   | limitation | Economic security and discretionary forfeiture; 1/3 can halt consensus                                                                         | 12      | [12](vectors/12.md)                  |
+| ENC-A-1       | rule       | APP_VERSION=1, versioned domain tags V1, envelope/payload prefix 0x06                                                                          | A       | [A](vectors/A.md#enc-a-1)            |
+| ENC-A-2       | rule       | Config is seven words (224 bytes); CommitteeRecord has five fields                                                                             | A       | [A](vectors/A.md#enc-a-2)            |
+| ENC-A-3       | rule       | Slot 285 holds three words                                                                                                                     | A       | [A](vectors/A.md#enc-a-3)            |
+| ENC-A-4       | rule       | Acceptance binds to the config; client or image changes activate no rules                                                                      | A       | [A](vectors/A.md#enc-a-4)            |
+| ENC-A-5       | rule       | Protocol hashes: abi.encode; right-zero-padded bytes32 tags; two excepted lists                                                                | A       | [A](vectors/A.md#enc-a-5)            |
+| ENC-A-6       | rule       | chainDomain: keccak256 over V1 tag, L1/L2 chain ids, inbox, generation                                                                         | A       | [A](vectors/A.md#enc-a-6)            |
+| ENC-A-7       | rule       | chain_id: "etna-" plus unpadded base64url of chainDomain, 48 bytes                                                                             | A       | [A](vectors/A.md#enc-a-7)            |
+| ENC-A-8       | rule       | chain_id: RFC 4648 section 5 alphabet, canonical zero pad bits, no padding                                                                     | A       | [A](vectors/A.md#enc-a-8)            |
+| ENC-A-9       | rule       | inbox is the EtnaInbox proxy; generation starts at 0, never wraps or decreases                                                                 | A       | [A](vectors/A.md#enc-a-9)            |
+| ENC-A-10      | rule       | extraData: 0x64 \|\| uint48_be(generation) \|\| uint48_be(anchorNumber), 13 bytes                                                              | A       | [A](vectors/A.md#enc-a-10)           |
+| ENC-A-11      | rule       | envelope: 0x06 \|\| rlp([block, anchor, committee, forced])                                                                                    | A       | [A](vectors/A.md#enc-a-11)           |
+| ENC-A-12      | rule       | block: [elHeader, [tx, ...]]; tx is its EIP-2718 RLP byte string                                                                               | A       | [A](vectors/A.md#enc-a-12)           |
+| ENC-A-13      | rule       | anchor: [] or [[rawL1Header, inboxWitness]]; rawL1Header is raw RLP bytes                                                                      | A       | [A](vectors/A.md#enc-a-13)           |
+| ENC-A-14      | rule       | committee: [] or [[record, registryWitness, [entry, ...]]]                                                                                     | A       | [A](vectors/A.md#enc-a-14)           |
+| ENC-A-15      | rule       | forced: [] or [[index, entryWitness, tx]]; tx hash must match when nonempty                                                                    | A       | [A](vectors/A.md#enc-a-15)           |
+| ENC-A-16      | rule       | Strict decoding: exactly 0x06 plus one RLP list; no trailing bytes                                                                             | A       | [A](vectors/A.md#enc-a-16)           |
+| ENC-A-17      | rule       | Strict decoding: exact list items; minimal integers, zero as empty string                                                                      | A       | [A](vectors/A.md#enc-a-17)           |
+| ENC-A-18      | rule       | Strict decoding: fixed lengths for hashes, stateRoots, slots, addresses                                                                        | A       | [A](vectors/A.md#enc-a-18)           |
+| ENC-A-19      | rule       | Strict decoding: field types; RegistryEntry.ckX keeps its 32-byte zeros                                                                        | A       | [A](vectors/A.md#enc-a-19)           |
+| ENC-A-20      | rule       | Strict decoding: minimal storage values and RLP prefixes; zeroed released slots                                                                | A       | [A](vectors/A.md#enc-a-20)           |
+| ENC-A-21      | rule       | Strict decoding: witness address is the Inbox or the registry as specified                                                                     | A       | [A](vectors/A.md#enc-a-21)           |
+| ENC-A-22      | rule       | Strict decoding: committee witness under the block's anchor stateRoot                                                                          | A       | [A](vectors/A.md#enc-a-22)           |
+| ENC-A-23      | rule       | payload: 0x06 \|\| zlib(rlp([rlp([elHeader, [tx, ...]]), ...]))                                                                                | A       | [A](vectors/A.md#enc-a-23)           |
+| ENC-A-24      | rule       | AccountWitness: seven fields, with [slot, value, proof] entries                                                                                | A       | [A](vectors/A.md#enc-a-24)           |
+| ENC-A-25      | rule       | Witness slot order: anchor [268, 270, 271, 281]; forced [base, base+1]                                                                         | A       | [A](vectors/A.md#enc-a-25)           |
+| ENC-A-26      | rule       | Committee witness: registry slots R, cp(i), cp(i)+1, cp(i+1) when present                                                                      | A       | [A](vectors/A.md#enc-a-26)           |
+| ENC-A-26a     | rule       | Witness proofs: exact ordered MPT paths, minimal values equal to the proven values, matching account fields                                    | A       | [A](vectors/A.md#enc-a-26a)          |
+| ENC-A-27      | rule       | CommitteeRecord: five fields in order, targetEpoch to totalPower                                                                               | A       | [A](vectors/A.md#enc-a-27)           |
+| ENC-A-28      | rule       | RegistryEntry: ckPrefix, ckX, effStake, activeFromL1, exitEffectiveL1                                                                          | A       | [A](vectors/A.md#enc-a-28)           |
+| ENC-A-29      | rule       | cutLeaf(x): four-word preimage at L2 height x                                                                                                  | A       | [A](vectors/A.md#enc-a-29)           |
+| ENC-A-30      | rule       | cutHash: keccak256 over V1 tag, generation, p, h, packed cut leaves                                                                            | A       | [A](vectors/A.md#enc-a-30)           |
+| ENC-A-31      | rule       | cutHash leaves: grid points strictly between p and h, in height order                                                                          | A       | [A](vectors/A.md#enc-a-31)           |
+| ENC-A-32      | rule       | cutHash: empty leaf list hashed as keccak256("") when h = p + K                                                                                | A       | [A](vectors/A.md#enc-a-32)           |
+| ENC-A-33      | rule       | land: p and h multiples of K, exact leaf count, c >= h rejected                                                                                | A       | [A](vectors/A.md#enc-a-33)           |
+| ENC-A-34      | rule       | land overlap: leaves[(c-p)/K - 1] equals cutLeaf(c) from slot 285                                                                              | A       | [A](vectors/A.md#enc-a-34)           |
+| ENC-A-35      | rule       | statement: keccak256(abi.encode(...)) over the landing inputs                                                                                  | A       | [A](vectors/A.md#enc-a-35)           |
+| ENC-A-36      | rule       | committeeConfigHash: 7-word, 224-byte ETNA_PARENT_ANCHOR_V1 preimage                                                                           | A       | [A](vectors/A.md#enc-a-36)           |
+| ENC-A-37      | rule       | regLeaf: ETNA_REG_ENTRY_V1 preimage of the registry entry fields                                                                               | A       | [A](vectors/A.md#enc-a-37)           |
+| ENC-A-38      | rule       | entriesRoot: power-of-two zero padding; keccak256(left \|\| right) nodes                                                                       | A       | [A](vectors/A.md#enc-a-38)           |
+| ENC-A-39      | rule       | setKey: ETNA_SET_KEY_V1 preimage of l2ChainId, ckPrefix, ckX                                                                                   | A       | [A](vectors/A.md#enc-a-39)           |
+| ENC-A-40      | rule       | setLeaf: ETNA_SET_LEAF_V1 preimage with k, i and assignedPower                                                                                 | A       | [A](vectors/A.md#enc-a-40)           |
+| ENC-A-41      | rule       | setNode: ETNA_SET_NODE preimage; odd last node promoted unchanged                                                                              | A       | [A](vectors/A.md#enc-a-41)           |
+| ENC-A-42      | rule       | record: ETNA_COMMITTEE_V1 preimage of the five committee fields                                                                                | A       | [A](vectors/A.md#enc-a-42)           |
+| ENC-A-42a     | rule       | k = targetEpoch + 1                                                                                                                            | A       | [A](vectors/A.md#enc-a-42a)          |
+| ENC-A-43      | rule       | voteSignBytes: uvarint(len(cv)) \|\| cv, as CometBFT VoteSignBytes                                                                             | A       | [A](vectors/A.md#enc-a-43)           |
+| ENC-A-44      | rule       | cv: Protobuf fields for type, height, round, blockId, timestamp, chainId                                                                       | A       | [A](vectors/A.md#enc-a-44)           |
+| ENC-A-45      | rule       | cv: fields in [] omitted when zero or empty; len is a uvarint prefix                                                                           | A       | [A](vectors/A.md#enc-a-45)           |
+| ENC-A-46      | rule       | signer: ecrecover over keccak256(voteSignBytes); 65-byte R\|\|S\|\|V                                                                           | A       | [A](vectors/A.md#enc-a-46)           |
+| ENC-A-47      | rule       | publicKey: exactly 33 raw bytes, ckPrefix (0x02/0x03) \|\| uint256_be(ckX)                                                                     | A       | [A](vectors/A.md#enc-a-47)           |
+| ENC-A-48      | rule       | publicKey decode: reject noncanonical input, do not reduce coordinates                                                                         | A       | [A](vectors/A.md#enc-a-48)           |
+| ENC-A-49      | rule       | ckAddr: keccak256(uint256_be(ckX) \|\| uint256_be(ckY))[12:]                                                                                   | A       | [A](vectors/A.md#enc-a-49)           |
+| ENC-A-49a     | rule       | registerDigest: EIP-712 Register(address owner) under the EtnaStakingRegistry domain                                                           | A       | [A](vectors/A.md#enc-a-49a)          |
+| ENC-A-50      | rule       | popSig: exactly 65 bytes R \|\| S \|\| V; V in {0,1}, 0 < R < n, 0 < S <= n/2                                                                  | A       | [A](vectors/A.md#enc-a-50)           |
+| ENC-A-51      | rule       | Exclusions sorted strictly by bondId                                                                                                           | A       | [A](vectors/A.md#enc-a-51)           |
+| ENC-A-52      | rule       | invalidateRecoveryNonce is Inbox-owner only                                                                                                    | A       | [A](vectors/A.md#enc-a-52)           |
+| ENC-A-53      | rule       | recoveryNonce and validUntil types                                                                                                             | A       | [A](vectors/A.md#enc-a-53)           |
+| ENC-A-54      | rule       | Registry forfeit interface                                                                                                                     | A       | [A](vectors/A.md#enc-a-54)           |
+| ENC-A-55      | rule       | forfeit is registry-owner-only, once per lifetime entryKey, no revocation                                                                      | A       | [A](vectors/A.md#enc-a-55)           |
+| STOR-B-1      | rule       | Slot 258: initialization status 3 after initialization; not in anchor witness                                                                  | B       | [B](vectors/B.md#stor-b-1)           |
+| STOR-B-2      | rule       | Slots 268/269: recoveryGeneration and committeeConfigHash                                                                                      | B       | [B](vectors/B.md#stor-b-2)           |
+| STOR-B-3      | rule       | Slots 270/271: lastCheckpoint height and hash                                                                                                  | B       | [B](vectors/B.md#stor-b-3)           |
+| STOR-B-4      | rule       | Slots 272/273/274: packed genesis word, genesis hash, genesis stateRoot                                                                        | B       | [B](vectors/B.md#stor-b-4)           |
+| STOR-B-5      | rule       | Slots 278/279: committee-0 record hash and genesisCutoff                                                                                       | B       | [B](vectors/B.md#stor-b-5)           |
+| STOR-B-6      | rule       | Slots 280/281: FI queue entries, two words each, and head/tail                                                                                 | B       | [B](vectors/B.md#stor-b-6)           |
+| STOR-B-7      | rule       | Slot 282: forcedInclusionDelay and maxAnchorAge, in seconds                                                                                    | B       | [B](vectors/B.md#stor-b-7)           |
+| STOR-B-8      | rule       | Slots 283/284: 283 reserved; 284 activeCommitteeSnapshot at genesisCutoff                                                                      | B       | [B](vectors/B.md#stor-b-8)           |
+| STOR-B-9      | rule       | Slot 285: landing record, three words per height, initialization and retention                                                                 | B       | [B](vectors/B.md#stor-b-9)           |
+| STOR-B-10     | rule       | Slots 286/287: reserved, no reads, writes or reuse                                                                                             | B       | [B](vectors/B.md#stor-b-10)          |
+| STOR-B-11     | rule       | Slot 288: reserved, no reads, writes or reuse                                                                                                  | B       | [B](vectors/B.md#stor-b-11)          |
+| STOR-B-12     | rule       | Slot 289: reserved, no reads, writes or reuse                                                                                                  | B       | [B](vectors/B.md#stor-b-12)          |
+| STOR-B-13     | rule       | Slot 290: per-generation origin, three consecutive uint256 words                                                                               | B       | [B](vectors/B.md#stor-b-13)          |
+| STOR-B-14     | rule       | Slot 291: reserved, no reads, writes or reuse                                                                                                  | B       | [B](vectors/B.md#stor-b-14)          |
+| STOR-B-15     | rule       | Slot 292: recoveryNonce starts at 0, monotone, not in anchor witnesses                                                                         | B       | [B](vectors/B.md#stor-b-15)          |
+| STOR-B-16     | rule       | Verify latest checkpoint, slot 285 record and slot 290 as stated                                                                               | B       | [B](vectors/B.md#stor-b-16)          |
+| STOR-B-17     | rule       | Reserved slots 283, 286-289 and 291 are neither read nor written                                                                               | B       | [B](vectors/B.md#stor-b-17)          |
+| STOR-B-18     | rule       | Inbox stores only the recovery authorization nonce; no queue or scheduling                                                                     | B       | [B](vectors/B.md#stor-b-18)          |
+| STOR-B-19     | rule       | Other layouts are neither decoded nor migrated in place                                                                                        | B       | [B](vectors/B.md#stor-b-19)          |
+| STOR-B-20     | rule       | Registry uses ERC-7201 namespace taiko.etna.registry with base slot R                                                                          | B       | [B](vectors/B.md#stor-b-20)          |
+| STOR-B-21     | rule       | Nodes read only checkpoints at R and entries at R+1, with word layouts                                                                         | B       | [B](vectors/B.md#stor-b-21)          |
+| STOR-B-22     | rule       | exitEffectiveL1 = 2^48 - 1 means no exit is set                                                                                                | B       | [B](vectors/B.md#stor-b-22)          |
+| STOR-B-23     | rule       | Packed fields laid out in listed order from the least-significant bit                                                                          | B       | [B](vectors/B.md#stor-b-23)          |
+| STOR-B-24     | rule       | ckPrefix 8 bits, every other packed field 48 bits, unused high bits zero                                                                       | B       | [B](vectors/B.md#stor-b-24)          |
+| STOR-B-25     | rule       | Writing a value wider than its packed field reverts                                                                                            | B       | [B](vectors/B.md#stor-b-25)          |
+| STOR-B-26     | rule       | Exit confirmations: separate namespace, 0 means not confirmed                                                                                  | B       | [B](vectors/B.md#stor-b-26)          |
+| STOR-B-27     | rule       | No entry layout, no regLeaf/entriesRoot, no checkpoint; clear on release                                                                       | B       | [B](vectors/B.md#stor-b-27)          |
+| STOR-B-28     | rule       | Owner namespace written at registration, cleared on slot release                                                                               | B       | [B](vectors/B.md#stor-b-28)          |
+| STOR-B-29     | rule       | Owners stay out of entriesRoot; nodes do not read the owner mapping                                                                            | B       | [B](vectors/B.md#stor-b-29)          |
+| STOR-B-30     | rule       | Top-ups: mapping by bondId, pendingTopUp at element, readyAtL1 next word                                                                       | B       | [B](vectors/B.md#stor-b-30)          |
+| STOR-B-31     | rule       | Top-up words are cleared on slot release                                                                                                       | B       | [B](vectors/B.md#stor-b-31)          |
+| STOR-B-32     | rule       | Forfeitures: bytes32 entryKey to bool, initially false, 0/1, never cleared                                                                     | B       | [B](vectors/B.md#stor-b-32)          |
+| STOR-B-33     | rule       | Neither namespace enters regLeaf/entriesRoot or is read by nodes or guests                                                                     | B       | [B](vectors/B.md#stor-b-33)          |
+| STOR-B-34     | rule       | Preserve forfeiture flags through verifier-failure rollback                                                                                    | B       | [B](vectors/B.md#stor-b-34)          |
+| COST-C-1      | assumption | DAO funds operations: validators, proving, landing, history, on-call                                                                           | C       | [C](vectors/C.md)                    |
+| COST-C-2      | assumption | Landing has no protocol revenue; the budget covers all landing and proving costs                                                               | C       | [C](vectors/C.md)                    |
+| COST-C-3      | assumption | Funding grants no exclusive landing permission                                                                                                 | C       | [C](vectors/C.md)                    |
+| COST-C-4      | assumption | Landers get no FI fees; funding is not paid per FI entry or by FI fee value                                                                    | C       | [C](vectors/C.md)                    |
+| COST-C-5      | rule       | Compensation must not be a per-landing bounty; fund named operators                                                                            | C       | [C](vectors/C.md#cost-c-5)           |
+| COST-C-6      | assumption | Fund the measured worst case for 4 s blocks and 20 min landings                                                                                | C       | [C](vectors/C.md)                    |
+| COST-C-7      | assumption | A proposer pays no net fee for any load in its own blocks                                                                                      | C       | [C](vectors/C.md)                    |
+| COST-C-8      | assumption | Without zk-to-charged-gas conversion, zk-heavy load can use the zk-gas limit                                                                   | C       | [C](vectors/C.md)                    |
+| COST-C-9      | assumption | Data worst case is every block filled with incompressible data                                                                                 | C       | [C](vectors/C.md)                    |
+| COST-C-10     | assumption | Landings: six blobs, grid-ending, 900/m per hour, K-dependent counts                                                                           | C       | [C](vectors/C.md)                    |
+| COST-C-11     | assumption | Whatever K is, that is 3 blobs per L1 slot                                                                                                     | C       | [C](vectors/C.md)                    |
+| COST-C-12     | assumption | Fund the sustained worst case in proving, blob and landing budgets                                                                             | C       | [C](vectors/C.md)                    |
 
 ## Coverage
 
@@ -611,32 +616,32 @@
 | 3.1     | 17  | 95      | 7                |
 | 3.2     | 12  | 51      | 4                |
 | 3.3     | 7   | 38      | 4                |
-| 3.4     | 16  | 75      | 7                |
-| 4.1     | 39  | 149     | 6                |
+| 3.4     | 16  | 76      | 6                |
+| 4.1     | 39  | 151     | 6                |
 | 4.2     | 3   | 12      | 2                |
-| 4.3     | 17  | 64      | 5                |
-| 4.4     | 20  | 75      | 4                |
+| 4.3     | 18  | 67      | 5                |
+| 4.4     | 20  | 76      | 3                |
 | 5.1     | 3   | 10      | 2                |
 | 5.2     | 9   | 31      | 4                |
 | 5.3     | 9   | 26      | 4                |
-| 6.1     | 13  | 52      | 5                |
-| 6.2     | 47  | 173     | 14               |
+| 6.1     | 13  | 52      | 4                |
+| 6.2     | 47  | 174     | 14               |
 | 6.3     | 14  | 50      | 3                |
-| 6.4     | 16  | 60      | 5                |
+| 6.4     | 16  | 60      | 4                |
 | 7.1     | 13  | 47      | 6                |
-| 7.2     | 13  | 63      | 12               |
+| 7.2     | 13  | 64      | 10               |
 | 7.3     | 5   | 20      | 5                |
 | 8       | 58  | 152     | 10               |
 | 8.1     | 12  | 35      | 7                |
 | 8.2     | 6   | 17      | 4                |
-| 8.3     | 19  | 47      | 7                |
-| 8.4     | 15  | 38      | 7                |
+| 8.3     | 19  | 48      | 7                |
+| 8.4     | 15  | 38      | 6                |
 | 9       | 16  | 75      | 7                |
-| 9.1     | 10  | 33      | 5                |
-| 10      | 24  | 96      | 6                |
+| 9.1     | 10  | 31      | 5                |
+| 10      | 24  | 96      | 5                |
 | 10.1    | 15  | 45      | 7                |
 | 11      | 16  | 64      | 7                |
-| 12      | 18  | 0       | 7                |
-| A       | 55  | 278     | 5                |
+| 12      | 19  | 3       | 7                |
+| A       | 58  | 289     | 5                |
 | B       | 34  | 127     | 5                |
-| C       | 12  | 27      | 5                |
+| C       | 12  | 28      | 5                |

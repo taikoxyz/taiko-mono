@@ -32,18 +32,26 @@ A review comment like "section 7.2 has a problem" cannot be resolved, tested or 
 
 **An ID means "this statement is precise and citable". Whether it binds is recorded separately**, in the `Type` column of `INDEX.md`. Not everything worth citing is a rule: section 12 lists limitations and Appendix C lists assumptions, and both deserve a stable reference even though nothing conforms to them.
 
-| Type         | Binds   | Where                                              | Vectors                                                                        |
-| ------------ | ------- | -------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `rule`       | **yes** | numbered sections, Appendices A and B              | required                                                                       |
-| `limitation` | no      | 12. Known limitations and open items               | none — nothing conforms to a limit                                             |
-| `assumption` | no      | Appendix C. Operating funding and cost assumptions | none — an assumption is falsified by measurement, not by an implementation     |
-| `retired`    | n/a     | a deleted rule's row, kept in `INDEX.md`           | none — nothing to conform to; the row exists so a stale citation fails visibly |
+| Type         | Binds   | Where                                                                                       | Vectors                                                                        |
+| ------------ | ------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `rule`       | **yes** | numbered sections, Appendices A and B, and the operating requirement COST-C-5 in Appendix C | required                                                                       |
+| `limitation` | no      | 12. Known limitations and open items, and limits stated elsewhere (SYNC-9.1-9)              | none — nothing conforms to a limit                                             |
+| `assumption` | no      | Appendix C. Operating funding and cost assumptions                                          | none — an assumption is falsified by measurement, not by an implementation     |
+| `retired`    | n/a     | a deleted rule's row, kept in `INDEX.md`                                                    | none — nothing to conform to; the row exists so a stale citation fails visibly |
 
-A statement with **no** ID is explanatory, contextual, or guidance. The un-numbered guidance in 7.2 ("an FI transaction should set `maxFeePerGas` to at least 1 gwei") is advice; nothing conforms or fails against it.
+A statement with **no** ID is explanatory, contextual, or guidance. Explanation, reasons and advice that sit inside an ID's text (see [How far an ID extends](#how-far-an-id-extends)) are part of that ID but impose nothing on their own; for example, 7.2's "an FI transaction should set `maxFeePerGas` to at least 1 gwei" is advice inside FI-7.2-4. Vectors test the requirements.
+
+**A rule can also be an assumption.** MODEL-1-1 and MODEL-1-2 (proof completeness) appear in section 1 among the security assumptions, and they also state what every deployment must provide. They are typed `rule`: they bind implementations and deployments, and ACCEPTANCE.md's resource and proving gates check them. The protocol cannot enforce them at run time, which is why section 1 also lists them as assumptions.
 
 **Scope.** This distinction applies to sections that have been annotated. Text that is un-numbered because its section has not been converted yet keeps its original normative status — do not read an un-annotated requirement as guidance. Annotate the section before relying on the ID/guidance split, and list the sentences you deliberately leave without an ID in that section's _Normativity boundary_ note.
 
 Why a type column and not an RFC-2119 keyword convention: repeating MUST/MUST NOT through prose written to be read would hurt readability without adding precision. The real problem was never a missing "must" — it was that **binding and non-binding statements are indistinguishable**. A citation handle plus a declared type fixes that, is greppable (`[FI-7.2-`), and leaves the prose alone.
+
+## How far an ID extends
+
+- **Inline marker** `**[ID]**`: the ID covers the text from the marker to the next marker or the end of the line it sits on, whichever comes first. In `SPEC.md` every bullet, numbered item, paragraph and table row is one line, so a marker at the start of a bullet covers the whole bullet unless a later marker on the same line starts another ID.
+- **`// [ID]` line** in a definition block: the ID covers the statement that follows it, from the next line to the next blank line or the next `// [ID]` line. A definition that continues over several lines, such as `committeeConfigHash` or `statement`, is covered as a whole.
+- A sentence is **un-numbered** only if no ID covers it under these two rules. The _Normativity boundary_ tables in `review/` list only such sentences.
 
 ## Normative content inside definition blocks
 
@@ -59,7 +67,7 @@ For such a line the ID goes on a **preceding comment line**, never by editing th
 The governed line is unchanged. Rules for this mode (`code-before`):
 
 - The statement carrying the ID is the **full line, including its original indentation**, and that exact line must occur once in the file. A partial match puts the marker in the wrong place.
-- The marker is inserted as a new line `<indent>// [ID]` immediately above it, using the target line's indentation.
+- The marker is inserted as a new line `<indent>// [ID]` immediately above it, using the target line's indentation. It covers that line and the lines after it, up to the next blank line or the next marker (see [How far an ID extends](#how-far-an-id-extends)).
 - One ID per line. Do not place IDs in example or illustrative blocks - only in definition blocks whose lines state requirements.
 - A fenced block that carries no IDs remains non-normative.
 

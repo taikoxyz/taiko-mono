@@ -9,9 +9,10 @@ Checks:
               prettier hook owns whitespace, so a byte-exact comparison would fail by design
   2. markers  IDs are unique, in document order, and contiguous per section; an ID inserted with a
               suffix letter (FI-7.2-3a) attaches to its parent number, and a gap left by a retired
-              ID is allowed when INDEX.md marks that ID retired
-  3. index    every marker has exactly one INDEX.md row and every live row has a marker; types are
-              rule, limitation, assumption or retired
+              ID is allowed when INDEX.md marks that ID retired; INDEX.md's section is the section
+              the marker sits in, so a rule that moves keeps its ID
+  3. index    every marker has exactly one INDEX.md row (a duplicate row fails) and every live row
+              has a marker; types are rule, limitation, assumption or retired
   4. assets   every section has a vectors and a review file; every live rule ID has a vector
               heading; no vector heading names an unknown ID
   5. links    relative links and #fragments resolve, and markdown tables have consistent columns
@@ -101,15 +102,36 @@ def split_cells(line):
 
 
 def load_index():
-    rows = {}
+    rows, dups = {}, []
     for line in open(INDEX).read().split(NL):
         if not line.startswith("|"):
             continue
         cells = split_cells(line)
         if len(cells) < 5 or not re.fullmatch(ID, cells[0]):
             continue
+        if cells[0] in rows:
+            dups.append(cells[0])
+            continue
         rows[cells[0]] = {"type": cells[1], "section": cells[3]}
-    return rows
+    return rows, dups
+
+
+SECTION = re.compile("^#{2,3} (?:Appendix ([A-C])[^A-Za-z0-9]|([0-9]+(?:[.][0-9]+)?)[.]? )", re.M)
+
+
+def section_finder(text):
+    """Return a function mapping a SPEC.md offset to the section that contains it."""
+    starts = [(m.start(), m.group(1) or m.group(2)) for m in SECTION.finditer(text)]
+
+    def at(pos):
+        sec = None
+        for start, name in starts:
+            if start > pos:
+                break
+            sec = name
+        return sec
+
+    return at
 
 
 def slug(h):
@@ -145,7 +167,8 @@ def main():
     ap.add_argument("--base", default=None, help="revision to compare SPEC.md against for the purity check (the commit before IDs were attached, or the revision you are editing from). Omit to skip purity: it is a migration check, not an invariant.")
     args = ap.parse_args()
     text = open(SPEC).read()
-    index = load_index()
+    index, dup_rows = load_index()
+    section_at = section_finder(text)
     bad = 0
 
     # 1. purity
@@ -183,19 +206,25 @@ def main():
     still = sorted(retired & set(ids))
     if still:
         msgs.append("markers: %d retired ID(s) still carry a marker, e.g. %s" % (len(still), still[:3]))
-    for i in ids:
+    # A rule that moves keeps its ID, so the section in its ID is a citation, not a location:
+    # INDEX.md must name the section the marker actually sits in.
+    located = {}
+    for pos, i in found:
+        located[i] = section_at(pos)
         if i in index and index[i]["type"] not in LIVE:
             msgs.append("markers: %s has INDEX type %s but carries a marker" % (i, index[i]["type"]))
-        if i in index and index[i]["section"] != i.split("-")[1]:
-            msgs.append("markers: %s is in section %s but INDEX says %s" % (i, i.split("-")[1], index[i]["section"]))
+        if i in index and index[i]["section"] != located[i]:
+            msgs.append("markers: %s sits in section %s but INDEX says %s" % (i, located[i], index[i]["section"]))
     by = {}
     for pos, i in found:
-        by.setdefault(i.split("-")[1], []).append((pos, parse_id(i)))
+        # numbering and order are per ID namespace; a moved rule is outside its namespace's
+        # run of the document, so it is checked for numbering but not for position
+        by.setdefault(i.split("-")[1], []).append((pos, parse_id(i), located[i] == i.split("-")[1]))
     for sec in sorted(by):
-        seq = [p for _, p in by[sec]]
+        seq = [p for _, p, home in by[sec] if home]
         if seq != sorted(seq):
             msgs.append("markers: section %s is not in document order" % sec)
-        numbers = {p[0] for _, p in by[sec]}
+        numbers = {p[0] for _, p, _home in by[sec]}
         gaps = {parse_id(i)[0] for i in retired if i.split("-")[1] == sec}
         missing = sorted(set(range(1, max(numbers) + 1)) - numbers - gaps)
         if missing:
@@ -204,6 +233,8 @@ def main():
 
     # 3. index
     msgs = []
+    if dup_rows:
+        msgs.append("index: %d duplicate INDEX row(s), e.g. %s" % (len(dup_rows), sorted(set(dup_rows))[:3]))
     bad_types = {i: v["type"] for i, v in index.items() if v["type"] not in LIVE + ("retired",)}
     if bad_types:
         msgs.append("index: unknown type(s): %s" % list(bad_types.items())[:3])

@@ -1,0 +1,32 @@
+name: Etna rule references
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "packages/protocol/docs/etna-pos-zk/**"
+      - ".github/workflows/protocol--etna-rules.yml"
+  push:
+    branches: [main]
+    paths:
+      - "packages/protocol/docs/etna-pos-zk/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: etna-rules-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Check rule references
+        run: python3 packages/protocol/docs/etna-pos-zk/rules/tools/check.py

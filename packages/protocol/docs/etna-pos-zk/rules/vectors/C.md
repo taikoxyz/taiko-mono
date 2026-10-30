@@ -1,6 +1,6 @@
 # C — falsification record
 
-**Non-normative.** Rule text lives in [SPEC.md](../../SPEC.md). Appendix C states operating requirements and cost reasoning, and declares itself not a validity rule: "This appendix states operating requirements, not validity rules." Under [../README.md](../README.md#what-an-id-means-a-citation-handle-plus-a-type) these IDs have type `assumption`, so **this file has no accept/reject vectors**: nothing conforms to an assumption and no block or landing can violate one. An assumption is falsified by a **measurement**, not by an implementation.
+**Non-normative.** Rule text lives in [SPEC.md](../../SPEC.md). Appendix C states operating requirements and cost reasoning, and declares itself not a validity rule: "This appendix states operating requirements, not validity rules." Under [../README.md](../README.md#what-an-id-means-a-citation-handle-plus-a-type) these IDs have type `assumption`, so **this file has no accept/reject vectors** except for COST-C-5, an operating requirement typed `rule`: nothing conforms to an assumption and no block or landing can violate one. An assumption is falsified by a **measurement**, not by an implementation.
 
 Each entry therefore records what would count as evidence for the assumption and which measurement would falsify it. A falsified assumption is a finding for the spec owner — it changes a budget or a target, not the validity of a block. Cases are labelled `.a`, `.b`, `...` but are not accept/reject cases.
 
@@ -35,10 +35,11 @@ Each entry therefore records what would count as evidence for the assumption and
 
 ## COST-C-5
 
-| Case | Measurement                                                                                    | Reading                                                                                                                   |
-| ---- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| 5.a  | disbursement records: is any payment keyed to the address that submitted a landing transaction | falsifies if a per-landing bounty paid to the submitting address exists                                                   |
-| 5.b  | copy test: a third party reproduces a public blob transaction and lands it                     | falsifies if the copy cannot land or if the landing binds a recipient; supports if the submitter is unidentified on chain |
+| Vector     | Setup                                                                                           | Expected                                                                                                   |
+| ---------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| 5.a accept | DAO compensation for landing funds named operators, or attributes the work off chain            | conforms                                                                                                   |
+| 5.b reject | the DAO pays a per-landing bounty to the address that submitted the landing transaction         | violates COST-C-5                                                                                          |
+| 5.c accept | a third party copies a public blob transaction and lands it; nothing on chain names a recipient | consistent with COST-C-5's premise ("land binds no recipient and a public blob transaction can be copied") |
 
 ## COST-C-6
 

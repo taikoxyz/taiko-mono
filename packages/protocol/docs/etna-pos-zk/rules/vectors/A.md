@@ -2,7 +2,7 @@
 
 **Non-normative.** Rule text lives in [SPEC.md](../../SPEC.md). This file states only what the text states: each vector either follows directly from a numbered statement, or reports that a requirement was violated. Where the text states a requirement but **not the consequence of violating it**, the vector says "violates ENC-A-N" and does not name an outcome. Anything undetermined has no vector; it is listed under "Not covered" and raised in [review/A.md](../review/A.md).
 
-`accept` means the described encoding satisfies the rule cited. `reject` means a stated requirement is violated. Appendix A states one consequence: ENC-A-16's "any violation makes the proposal invalid". Rows for ENC-A-17–ENC-A-22 identify the strict-decoding violation but do not restate that consequence; rows elsewhere say "violates ENC-A-N" where the text states no consequence. Where a definition spans several lines, the marker and the ID sit above its first line, and the ID cites the whole definition.
+`accept` means the described encoding satisfies the rule cited. `reject` means a stated requirement is violated. Appendix A states one consequence: ENC-A-16's "any violation makes the proposal invalid". It covers the envelope grammar (ENC-A-11–ENC-A-15) and the strict-decoding conditions (ENC-A-16–ENC-A-22), so those reject rows say "proposal invalid (ENC-A-16)". Rows elsewhere say "violates ENC-A-N" where the text states no consequence. Where a definition spans several lines, the marker and the ID sit above its first line, and the ID cites the whole definition (see [../README.md](../README.md#how-far-an-id-extends)).
 
 **Scope note.** Appendix A's grammar — `chainDomain`, `chain_id`, `extraData`, the envelope and payload layouts, `AccountWitness`, `cutLeaf`, `cutHash`, `statement`, `committeeConfigHash`, `regLeaf`, `entriesRoot`, `setKey`/`setLeaf`/`setNode`/`record`, `voteSignBytes`, registration and the `recover` interface — sits inside four fenced blocks (SPEC.md 635–811). Under the `code-before` exception in [../README.md](../README.md), ENC-A-6–ENC-A-50 mark the definition lines (ENC-A-51–ENC-A-55 are a separate supplement); each marker is a new `// [ID]` line above an unchanged governed line. Lines in those blocks that carry no ID remain uncited. The form question (whether to restructure the blocks into prose or tables) is still [Q-A-1](../review/A.md#q-a-1).
 
@@ -64,10 +64,11 @@ _The sentence's scope is "until the upgrade mechanism is complete" (10.1). What 
 | 5.d accept | the blob hash list and the cut leaf list are hashed with `abi.encodePacked`                                       | stated exceptions                                                                                       |
 | 5.e reject | a protocol hash uses `abi.encodePacked` where the rule requires `abi.encode`                                      | violates ENC-A-5                                                                                        |
 | 5.f reject | a domain tag is left-padded with zeros                                                                            | violates ENC-A-5 ("right-zero-padded")                                                                  |
-| 5.g reject | an `entriesRoot` inner node is keccak256(abi.encode(left, right))                                                 | violates ENC-A-5 ("plain concatenation")                                                                |
 | 5.h reject | the blob hash list is hashed as keccak256(abi.encode(blobHashes))                                                 | violates ENC-A-5                                                                                        |
 | 5.i reject | the cut leaf list is hashed with `abi.encode`                                                                     | violates ENC-A-5                                                                                        |
 | 5.j reject | a domain tag is encoded as a dynamic string (offset, length, data)                                                | violates ENC-A-5; the fenced preimages write some tags as bare literals — [Q-A-2](../review/A.md#q-a-2) |
+
+_`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` followed by `right`, so it is not a separate reject case for the `entriesRoot` exception._
 
 ## ENC-A-6
 
@@ -124,57 +125,58 @@ _The sentence's scope is "until the upgrade mechanism is complete" (10.1). What 
 
 ## ENC-A-11
 
-| Vector      | Setup                                                                | Expected                                                  |
-| ----------- | -------------------------------------------------------------------- | --------------------------------------------------------- |
-| 11.a accept | `0x06` followed by one RLP list `[block, anchor, committee, forced]` | matches                                                   |
-| 11.b reject | prefix is `0x07`                                                     | violates ENC-A-11 (`0x06`)                                |
-| 11.c reject | `0x06` is followed by a bare RLP byte string                         | violates ENC-A-11 (RLP list)                              |
-| 11.d reject | list order is `[block, committee, anchor, forced]`                   | violates ENC-A-11 (named order)                           |
-| 11.e reject | two RLP lists follow `0x06`                                          | violates ENC-A-11 (one list); trailing bytes are ENC-A-16 |
+| Vector      | Setup                                                                | Expected                                                                               |
+| ----------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| 11.a accept | `0x06` followed by one RLP list `[block, anchor, committee, forced]` | matches                                                                                |
+| 11.b reject | prefix is `0x07`                                                     | violates ENC-A-11 (`0x06`); proposal invalid (ENC-A-16)                                |
+| 11.c reject | `0x06` is followed by a bare RLP byte string                         | violates ENC-A-11 (RLP list); proposal invalid (ENC-A-16)                              |
+| 11.d reject | list order is `[block, committee, anchor, forced]`                   | violates ENC-A-11 (named order); proposal invalid (ENC-A-16)                           |
+| 11.e reject | two RLP lists follow `0x06`                                          | violates ENC-A-11 (one list); trailing bytes are ENC-A-16; proposal invalid (ENC-A-16) |
 
 ## ENC-A-12
 
-| Vector      | Setup                                                                   | Expected                                  |
-| ----------- | ----------------------------------------------------------------------- | ----------------------------------------- |
-| 12.a accept | `block = [elHeader, [tx, ...]]`; each transaction is an RLP byte string | matches                                   |
-| 12.b accept | a legacy transaction is included as an RLP byte string                  | stated ("legacy included")                |
-| 12.c reject | a transaction is encoded as an RLP list of its fields                   | violates ENC-A-12 (byte string)           |
-| 12.d reject | a typed transaction has its EIP-2718 type byte stripped                 | violates ENC-A-12 (its EIP-2718 encoding) |
-| 12.e reject | `block` has three items, or its second item is not a list               | violates ENC-A-12                         |
+| Vector      | Setup                                                                   | Expected                                                               |
+| ----------- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| 12.a accept | `block = [elHeader, [tx, ...]]`; each transaction is an RLP byte string | matches                                                                |
+| 12.b accept | a legacy transaction is included as an RLP byte string                  | stated ("legacy included")                                             |
+| 12.c reject | a transaction is encoded as an RLP list of its fields                   | violates ENC-A-12 (byte string); proposal invalid (ENC-A-16)           |
+| 12.d reject | a typed transaction has its EIP-2718 type byte stripped                 | violates ENC-A-12 (its EIP-2718 encoding); proposal invalid (ENC-A-16) |
+| 12.e reject | `block` has three items, or its second item is not a list               | violates ENC-A-12; proposal invalid (ENC-A-16)                         |
 
 ## ENC-A-13
 
-| Vector      | Setup                                                                                               | Expected                                      |
-| ----------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| 13.a accept | `anchor = []`                                                                                       | empty is allowed                              |
-| 13.b accept | `anchor = [[rawL1Header, inboxWitness]]`; `rawL1Header` is a byte string of the L1 header's raw RLP | matches                                       |
-| 13.c reject | `anchor = [rawL1Header, inboxWitness]` (one nesting level missing)                                  | violates ENC-A-13 (one item holding the pair) |
-| 13.d reject | `anchor` holds two entries                                                                          | violates ENC-A-13 (empty or one item)         |
-| 13.e reject | `rawL1Header` is a structured list rather than a byte string                                        | violates ENC-A-13                             |
-| 13.f reject | `rawL1Header` is re-encoded rather than the L1 header's raw RLP                                     | violates ENC-A-13 ("raw RLP")                 |
+| Vector      | Setup                                                                                               | Expected                                                                   |
+| ----------- | --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| 13.a accept | `anchor = []`                                                                                       | empty is allowed                                                           |
+| 13.b accept | `anchor = [[rawL1Header, inboxWitness]]`; `rawL1Header` is a byte string of the L1 header's raw RLP | matches                                                                    |
+| 13.c reject | `anchor = [rawL1Header, inboxWitness]` (one nesting level missing)                                  | violates ENC-A-13 (one item holding the pair); proposal invalid (ENC-A-16) |
+| 13.d reject | `anchor` holds two entries                                                                          | violates ENC-A-13 (empty or one item); proposal invalid (ENC-A-16)         |
+| 13.e reject | `rawL1Header` is a structured list rather than a byte string                                        | violates ENC-A-13; proposal invalid (ENC-A-16)                             |
+| 13.f reject | `rawL1Header` is re-encoded rather than the L1 header's raw RLP                                     | violates ENC-A-13 ("raw RLP"); proposal invalid (ENC-A-16)                 |
 
 ## ENC-A-14
 
-| Vector      | Setup                                                          | Expected                           |
-| ----------- | -------------------------------------------------------------- | ---------------------------------- |
-| 14.a accept | `committee = []`                                               | empty is allowed                   |
-| 14.b accept | `[[record, registryWitness, [entry, ...]]]`                    | matches                            |
-| 14.c reject | `[record, registryWitness, [entry, ...]]` (outer list missing) | violates ENC-A-14                  |
-| 14.d reject | two committee entries                                          | violates ENC-A-14 (empty or one)   |
-| 14.e reject | order is `[registryWitness, record, [entry, ...]]`             | violates ENC-A-14 (order)          |
-| 14.f reject | the third item is one entry rather than a list of entries      | violates ENC-A-14 (`[entry, ...]`) |
+| Vector      | Setup                                                          | Expected                                                        |
+| ----------- | -------------------------------------------------------------- | --------------------------------------------------------------- |
+| 14.a accept | `committee = []`                                               | empty is allowed                                                |
+| 14.b accept | `[[record, registryWitness, [entry, ...]]]`                    | matches                                                         |
+| 14.c reject | `[record, registryWitness, [entry, ...]]` (outer list missing) | violates ENC-A-14; proposal invalid (ENC-A-16)                  |
+| 14.d reject | two committee entries                                          | violates ENC-A-14 (empty or one); proposal invalid (ENC-A-16)   |
+| 14.e reject | order is `[registryWitness, record, [entry, ...]]`             | violates ENC-A-14 (order); proposal invalid (ENC-A-16)          |
+| 14.f reject | the third item is one entry rather than a list of entries      | violates ENC-A-14 (`[entry, ...]`); proposal invalid (ENC-A-16) |
 
 ## ENC-A-15
 
-| Vector      | Setup                                                    | Expected                                  |
-| ----------- | -------------------------------------------------------- | ----------------------------------------- |
-| 15.a accept | `forced = []`                                            | empty is allowed                          |
-| 15.b accept | `[[index, entryWitness, tx]]` with `tx` empty            | "tx may be empty"                         |
-| 15.c accept | `tx` nonempty and its hash equals the entry's hash       | matches                                   |
-| 15.d reject | `tx` nonempty and its hash differs from the entry's hash | violates ENC-A-15 ("its hash must match") |
-| 15.e reject | a skip carries an empty `tx`                             | violates ENC-A-15 ("required for skips")  |
-| 15.f reject | two forced entries                                       | violates ENC-A-15 (empty or one)          |
-| 15.g reject | order is `[index, tx, entryWitness]`                     | violates ENC-A-15 (order)                 |
+| Vector      | Setup                                                                                                                             | Expected                                                                            |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| 15.a accept | `forced = []`                                                                                                                     | empty is allowed                                                                    |
+| 15.b accept | `[[index, entryWitness, tx]]` with `tx` empty                                                                                     | "tx may be empty"                                                                   |
+| 15.c accept | `tx` nonempty and its hash equals the entry's hash                                                                                | matches                                                                             |
+| 15.d reject | `tx` nonempty and its hash differs from the entry's hash                                                                          | violates ENC-A-15 ("its hash must match"); proposal invalid (ENC-A-16)              |
+| 15.e reject | a skip of an entry whose submission was nonempty carries an empty `tx`                                                            | violates ENC-A-15 ("required for skips") and FI-7.2-11; proposal invalid (ENC-A-16) |
+| 15.h accept | a skip of an entry whose `txHash` is `keccak256("")` (an empty submission, or an entry blanked by recovery) carries an empty `tx` | conforms: the empty string is that entry's raw bytes (FI-7.2-11, FI-7.2-13)         |
+| 15.f reject | two forced entries                                                                                                                | violates ENC-A-15 (empty or one); proposal invalid (ENC-A-16)                       |
+| 15.g reject | order is `[index, tx, entryWitness]`                                                                                              | violates ENC-A-15 (order); proposal invalid (ENC-A-16)                              |
 
 ## ENC-A-16
 
@@ -187,66 +189,66 @@ _The sentence's scope is "until the upgrade mechanism is complete" (10.1). What 
 
 ## ENC-A-17
 
-| Vector      | Setup                                                                                                                 | Expected                                  |
-| ----------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| 17.a accept | every list has exactly the named items; anchor, committee and forced are empty or hold one item; integers are minimal | matches                                   |
-| 17.b reject | `block` carries three items                                                                                           | violates ENC-A-17                         |
-| 17.c reject | `anchor` carries two items                                                                                            | violates ENC-A-17                         |
-| 17.d reject | integer 5 is encoded as the two-byte string `0x00 0x05`                                                               | violates ENC-A-17 (leading zero)          |
-| 17.e reject | integer 0 is encoded as `0x00`                                                                                        | violates ENC-A-17 (0 is the empty string) |
-| 17.f accept | integer 0 is encoded as the empty string (`0x80`)                                                                     | matches                                   |
-| 17.g reject | a list carries an item beyond the named items                                                                         | violates ENC-A-17                         |
+| Vector      | Setup                                                                                                                 | Expected                                                               |
+| ----------- | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| 17.a accept | every list has exactly the named items; anchor, committee and forced are empty or hold one item; integers are minimal | matches                                                                |
+| 17.b reject | `block` carries three items                                                                                           | violates ENC-A-17; proposal invalid (ENC-A-16)                         |
+| 17.c reject | `anchor` carries two items                                                                                            | violates ENC-A-17; proposal invalid (ENC-A-16)                         |
+| 17.d reject | integer 5 is encoded as the two-byte string `0x00 0x05`                                                               | violates ENC-A-17 (leading zero); proposal invalid (ENC-A-16)          |
+| 17.e reject | integer 0 is encoded as `0x00`                                                                                        | violates ENC-A-17 (0 is the empty string); proposal invalid (ENC-A-16) |
+| 17.f accept | integer 0 is encoded as the empty string (`0x80`)                                                                     | matches                                                                |
+| 17.g reject | a list carries an item beyond the named items                                                                         | violates ENC-A-17; proposal invalid (ENC-A-16)                         |
 
 ## ENC-A-18
 
-| Vector      | Setup                                                                  | Expected          |
-| ----------- | ---------------------------------------------------------------------- | ----------------- |
-| 18.a accept | hashes and stateRoots are 32 bytes, slots 32 bytes, addresses 20 bytes | matches           |
-| 18.b reject | a hash or stateRoot is 31 or 33 bytes                                  | violates ENC-A-18 |
-| 18.c reject | an address is 19 or 21 bytes                                           | violates ENC-A-18 |
-| 18.d reject | a slot key is 33 bytes                                                 | violates ENC-A-18 |
-| 18.e reject | an unknown field or an extra item is appended                          | violates ENC-A-18 |
+| Vector      | Setup                                                                  | Expected                                       |
+| ----------- | ---------------------------------------------------------------------- | ---------------------------------------------- |
+| 18.a accept | hashes and stateRoots are 32 bytes, slots 32 bytes, addresses 20 bytes | matches                                        |
+| 18.b reject | a hash or stateRoot is 31 or 33 bytes                                  | violates ENC-A-18; proposal invalid (ENC-A-16) |
+| 18.c reject | an address is 19 or 21 bytes                                           | violates ENC-A-18; proposal invalid (ENC-A-16) |
+| 18.d reject | a slot key is 33 bytes                                                 | violates ENC-A-18; proposal invalid (ENC-A-16) |
+| 18.e reject | an unknown field or an extra item is appended                          | violates ENC-A-18; proposal invalid (ENC-A-16) |
 
 ## ENC-A-19
 
-| Vector      | Setup                                                                                                                                                        | Expected                                     |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------- |
-| 19.a accept | hashes, stateRoots and slots are 32-byte strings; addresses 20-byte strings; `ckX` is 32 bytes with leading zeros; `ckPrefix` and other numbers are integers | matches                                      |
-| 19.b reject | `RegistryEntry.ckX` is 31 bytes because a leading zero was stripped                                                                                          | violates ENC-A-19 ("leading zeros kept")     |
-| 19.c reject | `ckPrefix` is encoded as a 32-byte string                                                                                                                    | violates ENC-A-19 (integer)                  |
-| 19.d reject | a slot key is encoded as an integer with leading zeros stripped                                                                                              | violates ENC-A-19 (slot is a 32-byte string) |
-| 19.e accept | `ckX` is 32 bytes beginning with one or more zero bytes                                                                                                      | leading zeros are kept                       |
+| Vector      | Setup                                                                                                                                                        | Expected                                                                  |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| 19.a accept | hashes, stateRoots and slots are 32-byte strings; addresses 20-byte strings; `ckX` is 32 bytes with leading zeros; `ckPrefix` and other numbers are integers | matches                                                                   |
+| 19.b reject | `RegistryEntry.ckX` is 31 bytes because a leading zero was stripped                                                                                          | violates ENC-A-19 ("leading zeros kept"); proposal invalid (ENC-A-16)     |
+| 19.c reject | `ckPrefix` is encoded as a 32-byte string                                                                                                                    | violates ENC-A-19 (integer); proposal invalid (ENC-A-16)                  |
+| 19.d reject | a slot key is encoded as an integer with leading zeros stripped                                                                                              | violates ENC-A-19 (slot is a 32-byte string); proposal invalid (ENC-A-16) |
+| 19.e accept | `ckX` is 32 bytes beginning with one or more zero bytes                                                                                                      | leading zeros are kept                                                    |
 
 ## ENC-A-20
 
-| Vector      | Setup                                                                                     | Expected                                    |
-| ----------- | ----------------------------------------------------------------------------------------- | ------------------------------------------- |
-| 20.a accept | storage value 0 is the empty string; nonzero values are minimal; RLP prefixes are minimal | matches                                     |
-| 20.b reject | storage value 5 is encoded as `0x00 0x05`                                                 | violates ENC-A-20 (leading zero)            |
-| 20.c reject | a 2-byte string uses the long form `0xb8 0x02 ...`                                        | violates ENC-A-20 (prefix not minimal)      |
-| 20.d reject | the single byte `0x05` is encoded as `0x81 0x05`                                          | violates ENC-A-20 (prefix not minimal)      |
-| 20.e reject | a released slot's entry has a nonzero field                                               | violates ENC-A-20                           |
-| 20.f accept | a released slot's entry has all-zero fields                                               | matches                                     |
-| 20.g accept | a slot whose value is a hash uses minimal integer encoding, stripping leading zero bytes  | stated ("including slots that hold hashes") |
+| Vector      | Setup                                                                                     | Expected                                                            |
+| ----------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| 20.a accept | storage value 0 is the empty string; nonzero values are minimal; RLP prefixes are minimal | matches                                                             |
+| 20.b reject | storage value 5 is encoded as `0x00 0x05`                                                 | violates ENC-A-20 (leading zero); proposal invalid (ENC-A-16)       |
+| 20.c reject | a 2-byte string uses the long form `0xb8 0x02 ...`                                        | violates ENC-A-20 (prefix not minimal); proposal invalid (ENC-A-16) |
+| 20.d reject | the single byte `0x05` is encoded as `0x81 0x05`                                          | violates ENC-A-20 (prefix not minimal); proposal invalid (ENC-A-16) |
+| 20.e reject | a released slot's entry has a nonzero field                                               | violates ENC-A-20; proposal invalid (ENC-A-16)                      |
+| 20.f accept | a released slot's entry has all-zero fields                                               | matches                                                             |
+| 20.g accept | a slot whose value is a hash uses minimal integer encoding, stripping leading zero bytes  | stated ("including slots that hold hashes")                         |
 
 ## ENC-A-21
 
-| Vector      | Setup                                                                                                               | Expected                                         |
-| ----------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| 21.a accept | anchor witness address is the Inbox; forced witness address is the Inbox; committee witness address is the registry | matches                                          |
-| 21.b reject | anchor witness address is the registry                                                                              | violates ENC-A-21                                |
-| 21.c reject | committee witness address is the Inbox                                                                              | violates ENC-A-21                                |
-| 21.d reject | forced witness address is an unrelated contract                                                                     | violates ENC-A-21                                |
-| 21.e reject | anchor and committee witnesses share the same address                                                               | violates ENC-A-21 (different expected contracts) |
+| Vector      | Setup                                                                                                               | Expected                                                                      |
+| ----------- | ------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| 21.a accept | anchor witness address is the Inbox; forced witness address is the Inbox; committee witness address is the registry | matches                                                                       |
+| 21.b reject | anchor witness address is the registry                                                                              | violates ENC-A-21; proposal invalid (ENC-A-16)                                |
+| 21.c reject | committee witness address is the Inbox                                                                              | violates ENC-A-21; proposal invalid (ENC-A-16)                                |
+| 21.d reject | forced witness address is an unrelated contract                                                                     | violates ENC-A-21; proposal invalid (ENC-A-16)                                |
+| 21.e reject | anchor and committee witnesses share the same address                                                               | violates ENC-A-21 (different expected contracts); proposal invalid (ENC-A-16) |
 
 ## ENC-A-22
 
-| Vector      | Setup                                                                                         | Expected           |
-| ----------- | --------------------------------------------------------------------------------------------- | ------------------ |
-| 22.a accept | committee-witness account and storage proofs are verified under this block's anchor stateRoot | matches            |
-| 22.b accept | the anchor was inherited rather than newly included; its stateRoot is still used              | "new or inherited" |
-| 22.c reject | the committee witness is verified under the parent L2 block's stateRoot                       | violates ENC-A-22  |
-| 22.d reject | the committee witness is verified under another block's anchor stateRoot                      | violates ENC-A-22  |
+| Vector      | Setup                                                                                         | Expected                                       |
+| ----------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| 22.a accept | committee-witness account and storage proofs are verified under this block's anchor stateRoot | matches                                        |
+| 22.b accept | the anchor was inherited rather than newly included; its stateRoot is still used              | "new or inherited"                             |
+| 22.c reject | the committee witness is verified under the parent L2 block's stateRoot                       | violates ENC-A-22; proposal invalid (ENC-A-16) |
+| 22.d reject | the committee witness is verified under another block's anchor stateRoot                      | violates ENC-A-22; proposal invalid (ENC-A-16) |
 
 ## ENC-A-23
 
@@ -290,6 +292,16 @@ _The sentence's scope is "until the upgrade mechanism is complete" (10.1). What 
 | 26.e reject | `cp(i + 1)` is included when `i + 1 >= length`                                                             | violates ENC-A-26                  |
 | 26.f reject | order is `[R, cp(i) + 1, cp(i), cp(i + 1)]`                                                                | violates ENC-A-26 (listed order)   |
 
+## ENC-A-26a
+
+| Vector       | Setup                                                                                                  | Expected                                           |
+| ------------ | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------- |
+| 26a.a accept | `accountProof` and each storage proof are exactly the ordered MPT path from the root to the leaf       | matches                                            |
+| 26a.b accept | a storage proof ends at the node that proves the slot is absent                                        | matches ("or to the node proving absence")         |
+| 26a.c reject | a proof carries an extra node beyond that path                                                         | violates ENC-A-26a ("no extra nodes")              |
+| 26a.d reject | a proven value is written with leading zero bytes, or 0 is not the empty string                        | violates ENC-A-26a ("minimal big-endian encoding") |
+| 26a.e reject | the value differs from the proven value, or an account field differs from the account RLP in the proof | violates ENC-A-26a                                 |
+
 ## ENC-A-27
 
 | Vector      | Setup                                                                                          | Expected                  |
@@ -311,23 +323,24 @@ _The sentence's scope is "until the upgrade mechanism is complete" (10.1). What 
 
 ## ENC-A-29
 
-| Vector      | Setup                                                                                      | Expected                            |
-| ----------- | ------------------------------------------------------------------------------------------ | ----------------------------------- |
-| 29.a accept | `keccak256(abi.encode(uint256(x), blockHash(x), cometHash(x), forcedHead(x)))`, four words | matches                             |
-| 29.b reject | three or five words                                                                        | violates ENC-A-29                   |
-| 29.c reject | order is `(blockHash(x), uint256(x), ...)`                                                 | violates ENC-A-29                   |
-| 29.d reject | blockHash, cometHash or forcedHead is taken at a height other than `x`                     | violates ENC-A-29 (all at height x) |
-| 29.e reject | the preimage uses `abi.encodePacked`                                                       | violates ENC-A-29 and ENC-A-5       |
+| Vector      | Setup                                                                                      | Expected                                             |
+| ----------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------- |
+| 29.a accept | `keccak256(abi.encode(uint256(x), blockHash(x), cometHash(x), forcedHead(x)))`, four words | matches                                              |
+| 29.b reject | three or five words                                                                        | violates ENC-A-29                                    |
+| 29.c reject | order is `(blockHash(x), uint256(x), ...)`                                                 | violates ENC-A-29                                    |
+| 29.d reject | blockHash, cometHash or forcedHead is taken at a height other than `x`                     | violates ENC-A-29 (all at height x)                  |
+| 29.e reject | `x` or `forcedHead(x)` is encoded in fewer than 32 bytes (for example packed as uint48)    | violates ENC-A-29 (`uint256(x)`, four 32-byte words) |
 
 ## ENC-A-30
 
-| Vector      | Setup                                                                                                                        | Expected          |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| 30.a accept | preimage is `bytes32("ETNA_LAND_CUTS_V1")`, `uint256(generation)`, `uint256(p)`, `uint256(h)`, then the packed cut-leaf list | matches           |
-| 30.b reject | the tag is `ETNA_LAND_CUTS_V2`                                                                                               | violates ENC-A-30 |
-| 30.c reject | generation, `p` or `h` is omitted or reordered                                                                               | violates ENC-A-30 |
-| 30.d reject | the leaf list is hashed with `abi.encode` rather than `abi.encodePacked`                                                     | violates ENC-A-30 |
-| 30.e reject | the outer preimage uses `abi.encodePacked`                                                                                   | violates ENC-A-30 |
+| Vector      | Setup                                                                                                                                                             | Expected                           |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| 30.a accept | preimage is `bytes32("ETNA_LAND_CUTS_V1")`, `uint256(generation)`, `uint256(p)`, `uint256(h)`, then `keccak256(abi.encodePacked(cut leaves))`: five 32-byte words | matches                            |
+| 30.b reject | the tag is `ETNA_LAND_CUTS_V2`                                                                                                                                    | violates ENC-A-30                  |
+| 30.c reject | generation, `p` or `h` is omitted or reordered                                                                                                                    | violates ENC-A-30                  |
+| 30.d reject | the leaf list is hashed with `abi.encode` rather than `abi.encodePacked`                                                                                          | violates ENC-A-30                  |
+| 30.e reject | generation, `p` or `h` is encoded in fewer than 32 bytes (for example packed as uint48)                                                                           | violates ENC-A-30 (`uint256(...)`) |
+| 30.f reject | the fifth word is the packed cut-leaf list itself, not its `keccak256`                                                                                            | violates ENC-A-30                  |
 
 ## ENC-A-31
 
@@ -391,14 +404,12 @@ _The sentence's scope is "until the upgrade mechanism is complete" (10.1). What 
 
 ## ENC-A-37
 
-| Vector      | Setup                                                                                                   | Expected                  |
-| ----------- | ------------------------------------------------------------------------------------------------------- | ------------------------- |
-| 37.a accept | `keccak256(abi.encode("ETNA_REG_ENTRY_V1", j, ckPrefix, ckX, effStake, activeFromL1, exitEffectiveL1))` | matches                   |
-| 37.b reject | tag is `ETNA_REG_ENTRY_V2`                                                                              | violates ENC-A-37         |
-| 37.c reject | `j` or `exitEffectiveL1` is omitted                                                                     | violates ENC-A-37         |
-| 37.d reject | `ckX` precedes `ckPrefix`                                                                               | violates ENC-A-37 (order) |
-
-_Whether the bare `"ETNA_REG_ENTRY_V1"` literal is a padded `bytes32` word or a dynamic string is [Q-A-2](../review/A.md#q-a-2)._
+| Vector      | Setup                                                                                                   | Expected                                                                                                                                  |
+| ----------- | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| 37.a accept | `keccak256(abi.encode("ETNA_REG_ENTRY_V1", j, ckPrefix, ckX, effStake, activeFromL1, exitEffectiveL1))` | matches the text as written; whether the bare tag is a padded `bytes32` word or a dynamic string is pending [Q-A-2](../review/A.md#q-a-2) |
+| 37.b reject | tag is `ETNA_REG_ENTRY_V2`                                                                              | violates ENC-A-37                                                                                                                         |
+| 37.c reject | `j` or `exitEffectiveL1` is omitted                                                                     | violates ENC-A-37                                                                                                                         |
+| 37.d reject | `ckX` precedes `ckPrefix`                                                                               | violates ENC-A-37 (order)                                                                                                                 |
 
 ## ENC-A-38
 
@@ -406,49 +417,57 @@ _Whether the bare `"ETNA_REG_ENTRY_V1"` literal is a padded `bytes32` word or a 
 | ----------- | ------------------------------------------------------------------------------------------- | ----------------------------------- |
 | 38.a accept | leaves zero-padded to a power of two; inner nodes `keccak256(left concatenated with right)` | matches                             |
 | 38.b reject | padding to a count that is not a power of two                                               | violates ENC-A-38                   |
-| 38.c reject | inner node is `keccak256(abi.encode(left, right))`                                          | violates ENC-A-38                   |
 | 38.d accept | one entry: the root is that leaf                                                            | stated ("one entry gives its leaf") |
 | 38.e accept | no entries: the root is 0                                                                   | stated ("none gives 0")             |
 | 38.f reject | no entries but the root is `keccak256("")`                                                  | violates ENC-A-38                   |
 | 38.g reject | zero padding uses a nonzero value                                                           | violates ENC-A-38                   |
 
+_`abi.encode(left, right)` of two `bytes32` words equals their plain concatenation, so it is not a separate reject case._
+
 ## ENC-A-39
 
-| Vector      | Setup                                                                | Expected                  |
-| ----------- | -------------------------------------------------------------------- | ------------------------- |
-| 39.a accept | `keccak256(abi.encode("ETNA_SET_KEY_V1", l2ChainId, ckPrefix, ckX))` | matches                   |
-| 39.b reject | tag is `ETNA_SET_KEY_V2`                                             | violates ENC-A-39         |
-| 39.c reject | `l2ChainId` or `ckX` is omitted                                      | violates ENC-A-39         |
-| 39.d reject | `ckX` precedes `ckPrefix`                                            | violates ENC-A-39 (order) |
+| Vector      | Setup                                                                | Expected                                                                                                                                  |
+| ----------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| 39.a accept | `keccak256(abi.encode("ETNA_SET_KEY_V1", l2ChainId, ckPrefix, ckX))` | matches the text as written; whether the bare tag is a padded `bytes32` word or a dynamic string is pending [Q-A-2](../review/A.md#q-a-2) |
+| 39.b reject | tag is `ETNA_SET_KEY_V2`                                             | violates ENC-A-39                                                                                                                         |
+| 39.c reject | `l2ChainId` or `ckX` is omitted                                      | violates ENC-A-39                                                                                                                         |
+| 39.d reject | `ckX` precedes `ckPrefix`                                            | violates ENC-A-39 (order)                                                                                                                 |
 
 ## ENC-A-40
 
-| Vector      | Setup                                                                                                | Expected                  |
-| ----------- | ---------------------------------------------------------------------------------------------------- | ------------------------- |
-| 40.a accept | `keccak256(abi.encode("ETNA_SET_LEAF_V1", l2ChainId, k, i, ckPrefix, ckX, effStake, assignedPower))` | matches                   |
-| 40.b reject | `k`, `i` or `assignedPower` is omitted                                                               | violates ENC-A-40         |
-| 40.c reject | `i` precedes `k`                                                                                     | violates ENC-A-40 (order) |
-| 40.d reject | tag is `ETNA_SET_LEAF_V2`                                                                            | violates ENC-A-40         |
+| Vector      | Setup                                                                                                | Expected                                                                                                                                  |
+| ----------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| 40.a accept | `keccak256(abi.encode("ETNA_SET_LEAF_V1", l2ChainId, k, i, ckPrefix, ckX, effStake, assignedPower))` | matches the text as written; whether the bare tag is a padded `bytes32` word or a dynamic string is pending [Q-A-2](../review/A.md#q-a-2) |
+| 40.b reject | `k`, `i` or `assignedPower` is omitted                                                               | violates ENC-A-40                                                                                                                         |
+| 40.c reject | `i` precedes `k`                                                                                     | violates ENC-A-40 (order)                                                                                                                 |
+| 40.d reject | tag is `ETNA_SET_LEAF_V2`                                                                            | violates ENC-A-40                                                                                                                         |
 
 ## ENC-A-41
 
-| Vector      | Setup                                                                | Expected                                                                                |
-| ----------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| 41.a accept | `keccak256(abi.encode("ETNA_SET_NODE", l2ChainId, k, left, right))`  | matches                                                                                 |
-| 41.b accept | an odd last node is promoted unchanged (no hash with a zero sibling) | stated                                                                                  |
-| 41.c reject | an odd last node is hashed with a zero right child                   | violates ENC-A-41                                                                       |
-| 41.d reject | `left` and `right` are swapped                                       | violates ENC-A-41 (order)                                                               |
-| 41.e reject | `k` is omitted                                                       | violates ENC-A-41                                                                       |
-| 41.f reject | the tag is written `ETNA_SET_NODE_V1`                                | violates ENC-A-41 (tag as written); versioning question — [Q-A-2](../review/A.md#q-a-2) |
+| Vector      | Setup                                                                | Expected                                                                                                                                  |
+| ----------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| 41.a accept | `keccak256(abi.encode("ETNA_SET_NODE", l2ChainId, k, left, right))`  | matches the text as written; whether the bare tag is a padded `bytes32` word or a dynamic string is pending [Q-A-2](../review/A.md#q-a-2) |
+| 41.b accept | an odd last node is promoted unchanged (no hash with a zero sibling) | stated                                                                                                                                    |
+| 41.c reject | an odd last node is hashed with a zero right child                   | violates ENC-A-41                                                                                                                         |
+| 41.d reject | `left` and `right` are swapped                                       | violates ENC-A-41 (order)                                                                                                                 |
+| 41.e reject | `k` is omitted                                                       | violates ENC-A-41                                                                                                                         |
+| 41.f reject | the tag is written `ETNA_SET_NODE_V1`                                | violates ENC-A-41 (tag as written); versioning question — [Q-A-2](../review/A.md#q-a-2)                                                   |
 
 ## ENC-A-42
 
-| Vector      | Setup                                                                                                                     | Expected                  |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
-| 42.a accept | `keccak256(abi.encode("ETNA_COMMITTEE_V1", l2ChainId, targetEpoch, cutoffL1Block, checkpointIndex, setRoot, totalPower))` | matches                   |
-| 42.b reject | tag is `ETNA_COMMITTEE_V2`                                                                                                | violates ENC-A-42         |
-| 42.c reject | `checkpointIndex` or `totalPower` is omitted                                                                              | violates ENC-A-42         |
-| 42.d reject | `cutoffL1Block` precedes `targetEpoch`                                                                                    | violates ENC-A-42 (order) |
+| Vector      | Setup                                                                                                                     | Expected                                                                                                                                  |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| 42.a accept | `keccak256(abi.encode("ETNA_COMMITTEE_V1", l2ChainId, targetEpoch, cutoffL1Block, checkpointIndex, setRoot, totalPower))` | matches the text as written; whether the bare tag is a padded `bytes32` word or a dynamic string is pending [Q-A-2](../review/A.md#q-a-2) |
+| 42.b reject | tag is `ETNA_COMMITTEE_V2`                                                                                                | violates ENC-A-42                                                                                                                         |
+| 42.c reject | `checkpointIndex` or `totalPower` is omitted                                                                              | violates ENC-A-42                                                                                                                         |
+| 42.d reject | `cutoffL1Block` precedes `targetEpoch`                                                                                    | violates ENC-A-42 (order)                                                                                                                 |
+
+## ENC-A-42a
+
+| Vector       | Setup                                                                           | Expected           |
+| ------------ | ------------------------------------------------------------------------------- | ------------------ |
+| 42a.a accept | the committee for `targetEpoch = t` uses `k = t + 1` in `setLeaf` and `setNode` | matches            |
+| 42a.b reject | `k = targetEpoch`                                                               | violates ENC-A-42a |
 
 ## ENC-A-43
 
@@ -519,6 +538,15 @@ _Whether the bare `"ETNA_REG_ENTRY_V1"` literal is a padded `bytes32` word or a 
 | 49.d reject | bytes `[0:20]` are used instead of `[12:]`                          | violates ENC-A-49                |
 | 49.e reject | `ckX` and `ckY` are concatenated in reverse order                   | violates ENC-A-49 (order)        |
 
+## ENC-A-49a
+
+| Vector       | Setup                                                                                                                                                                                                                                                   | Expected           |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| 49a.a accept | `registerDigest = keccak256(0x1901 ‖ domainSeparator ‖ keccak256(abi.encode(keccak256("Register(address owner)"), owner)))`; the EIP-712 domain is name "EtnaStakingRegistry", version "1", chainId = the L1 chain id, verifyingContract = the registry | matches            |
+| 49a.b reject | the domain uses the L2 chain id                                                                                                                                                                                                                         | violates ENC-A-49a |
+| 49a.c reject | `verifyingContract` is the Inbox                                                                                                                                                                                                                        | violates ENC-A-49a |
+| 49a.d reject | the struct hash omits `owner` or uses another type string                                                                                                                                                                                               | violates ENC-A-49a |
+
 ## ENC-A-50
 
 | Vector      | Setup                                                                 | Expected          |
@@ -560,12 +588,12 @@ _Whether the bare `"ETNA_REG_ENTRY_V1"` literal is a padded `bytes32` word or a 
 
 ## ENC-A-55
 
-| Vector      | Setup                                                                                        | Expected                                                                              |
-| ----------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| 55.a accept | the registry owner forfeits a `bondId`/`entryKey` once, then never again for that `entryKey` | conforms                                                                              |
-| 55.b reject | the DAO's execution address calls `forfeit` while the registry owner is a different address  | violates ENC-A-55 (registry-owner-only) - see [review Q4.4-1](../review/4.4.md#q44-1) |
-| 55.c reject | a second `forfeit` for the same lifetime `entryKey`                                          | violates ENC-A-55 (once per lifetime entryKey)                                        |
-| 55.d reject | any call that attempts to revoke or reset a forfeiture via a nonce                           | violates ENC-A-55 (no forfeiture nonce or revocation)                                 |
+| Vector      | Setup                                                                                        | Expected                                                                                                                       |
+| ----------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| 55.a accept | the registry owner forfeits a `bondId`/`entryKey` once, then never again for that `entryKey` | conforms                                                                                                                       |
+| 55.b reject | the DAO's execution address calls `forfeit` while the registry owner is a different address  | violates ENC-A-55 (registry-owner-only); FORF-4.4-1 names one caller, "the registry owner, the DAO's actual execution address" |
+| 55.c reject | a second `forfeit` for the same lifetime `entryKey`                                          | violates ENC-A-55 (once per lifetime entryKey)                                                                                 |
+| 55.d reject | any call that attempts to revoke or reset a forfeiture via a nonce                           | violates ENC-A-55 (no forfeiture nonce or revocation)                                                                          |
 
 ## Not covered
 
@@ -574,7 +602,7 @@ Everything below is a question, not a vector. Each has an entry in [review/A.md]
 | Rule                        | Gap                                                                                                                                  | Question                      |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
 | ENC-A-6 to ENC-A-55         | whether the now-citable blocks should still be restructured into prose or tables                                                     | [Q-A-1](../review/A.md#q-a-1) |
-| ENC-A-30, ENC-A-36–ENC-A-42 | whether a bare tag literal is a padded `bytes32` word or a dynamic string, and whether `ETNA_SET_NODE` is deliberately unversioned   | [Q-A-2](../review/A.md#q-a-2) |
+| ENC-A-37, ENC-A-39–ENC-A-42 | whether a bare tag literal is a padded `bytes32` word or a dynamic string, and whether `ETNA_SET_NODE` is deliberately unversioned   | [Q-A-2](../review/A.md#q-a-2) |
 | ENC-A-4                     | what in the seven-word config binds guest-image and verifier acceptance                                                              | [Q-A-3](../review/A.md#q-a-3) |
 | ENC-A-24, ENC-A-25          | whether an out-of-order, extra or missing witness slot list makes a witness invalid; the order is now stated, the consequence is not | [Q-A-4](../review/A.md#q-a-4) |
 | Shared vectors              | the obligation itself is un-numbered and has no owner                                                                                | [Q-A-5](../review/A.md#q-a-5) |

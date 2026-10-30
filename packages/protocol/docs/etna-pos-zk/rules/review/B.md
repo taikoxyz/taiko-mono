@@ -6,12 +6,9 @@
 
 Under the convention in [../README.md](../README.md), a statement with an ID is precise and citable, and its type is recorded in `INDEX.md`. These statements in Appendix B carry no ID, deliberately:
 
-| Sentence                                                                                                       | Why it has no ID                                                                                               | Verdict proposed                           |
-| -------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| "Slot 284 serves exit confirmation; 285 retains the history needed for overlapping proofs and reconstruction." | rationale for why 284 and 285 are special; the requirements themselves are the table rows (STOR-B-8, STOR-B-9) | keep un-numbered                           |
-| "Validate the concrete layout, including slot 290, through layout checks and shared vectors."                  | a delivery obligation on the artifact set, not a layout property; no type fits and nothing conforms to it      | keep un-numbered — see [Q-A-5](A.md#q-a-5) |
-| "Validate these namespaces and Inbox slot 292 with shared layout vectors."                                     | same                                                                                                           | keep un-numbered — see [Q-A-5](A.md#q-a-5) |
-| the table header row "EtnaInbox slot / Content"                                                                | column headings, not a statement                                                                               | keep un-numbered                           |
+| Sentence                                        | Why it has no ID                 | Verdict proposed |
+| ----------------------------------------------- | -------------------------------- | ---------------- |
+| the table header row "EtnaInbox slot / Content" | column headings, not a statement | keep un-numbered |
 
 ## Q-B-1
 
