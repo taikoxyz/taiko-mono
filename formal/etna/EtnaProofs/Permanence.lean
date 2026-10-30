@@ -61,4 +61,15 @@ theorem ordinary_trace_signals_prefix {w t : World} (trace : OrdinaryTrace w t) 
   | refl => exact List.prefix_refl _
   | step _ change ordinary ih => exact ih.trans (ordinary_step_signals_prefix change ordinary)
 
+/-- A block whose valid anchor shows the lastCheckpoint of World `u`: along every later ordinary
+trace, the checkpoint the anchor proves stays the same retained record, and the block stays
+within U of the later lastCheckpoint (6.4). -/
+theorem anchored_checkpoint_stays {r : BlockValidity.Rules} {p : BlockValidity.Header}
+    {b : BlockValidity.Block} {u t : World} (valid : BlockValidity.AnchorValid r p b)
+    (shows : b.header.anchor.checkpointHeight = u.inbox.checkpoint.height) (trace : OrdinaryTrace u t) :
+    b.header.height - t.inbox.checkpoint.height ≤ r.unsettled ∧
+      recordAt t.inbox b.header.anchor.checkpointHeight = recordAt u.inbox b.header.anchor.checkpointHeight :=
+  ⟨anchored_unsettled_bound valid (Nat.le_of_eq shows) trace,
+    ordinary_trace_preserves_settled_records trace _ (Nat.le_of_eq shows)⟩
+
 end Etna.Design.ProtocolState
