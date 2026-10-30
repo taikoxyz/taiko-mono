@@ -25,6 +25,7 @@ import EtnaProofs.SigningPrefix
 import EtnaProofs.SigningBridge
 import EtnaProofs.BackPressure
 import EtnaProofs.Permanence
+import EtnaProofs.RoundSafety
 import EtnaProofs.Lifecycle
 import EtnaProofs.Contracts
 import EtnaProofs.Derived

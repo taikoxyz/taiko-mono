@@ -13287,6 +13287,31 @@
         "EN-c36e4d0d76a728b6"
       ],
       "scope": "Decoded specification result under its explicit hypotheses; no production ABI, byte-layout, cryptographic or DAO-attribution conformance is implied."
+    },
+    {
+      "module": "EtnaProofs.RoundSafety",
+      "declaration": "Etna.Design.Consensus.same_round_agreement",
+      "type": "∀ {c : Etna.Design.Consensus.Context} {signature : Etna.Design.Consensus.Vote → Prop} {h round : Nat} {honest : Etna.Design.Hash → Bool}, (∀ m ∈ (Etna.Design.Consensus.activeAt c h).members, honest m.key = true → ¬ Etna.Statements.Equivocates c signature h round m.key) → 3*Etna.Design.Committee.totalPower c.unit ((Etna.Design.Consensus.activeAt c h).members.filter fun m => !honest m.key) < Etna.Design.Committee.totalPower c.unit (Etna.Design.Consensus.activeAt c h).members → ∀ {a b : Nat} {votesA votesB : List Etna.Design.Consensus.Vote}, Etna.Design.Consensus.CommitValid c signature h round a votesA → Etna.Design.Consensus.CommitValid c signature h round b votesB → a = b",
+      "assumptions": [
+        "Decoded consensus votes and an abstract signature relation; CometBFT's locking rules are not modelled."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-c36e4d0d76a728b6", "EN-b82d63337df901b4"],
+      "scope": "Decoded specification result under its explicit hypotheses; no production ABI, byte-layout, cryptographic or DAO-attribution conformance is implied."
+    },
+    {
+      "module": "EtnaProofs.RoundSafety",
+      "declaration": "Etna.Design.Consensus.height_agreement",
+      "type": "∀ {c : Etna.Design.Consensus.Context} {signature : Etna.Design.Consensus.Vote → Prop} {violates honest : Etna.Design.Hash → Bool}, Etna.Design.Consensus.CrossRoundAccountable c signature violates → ∀ (h : Nat), (∀ (round : Nat), ∀ m ∈ (Etna.Design.Consensus.activeAt c h).members, honest m.key = true → ¬ Etna.Statements.Equivocates c signature h round m.key) → (∀ m ∈ (Etna.Design.Consensus.activeAt c h).members, honest m.key = true → violates m.key = false) → 3*Etna.Design.Committee.totalPower c.unit ((Etna.Design.Consensus.activeAt c h).members.filter fun m => !honest m.key) < Etna.Design.Committee.totalPower c.unit (Etna.Design.Consensus.activeAt c h).members → ∀ (ra rb a b : Nat) (votesA votesB : List Etna.Design.Consensus.Vote), Etna.Design.Consensus.CommitValid c signature h ra a votesA → Etna.Design.Consensus.CommitValid c signature h rb b votesB → a = b",
+      "assumptions": [
+        "Decoded consensus votes and an abstract signature relation; CometBFT's locking rules are not modelled.",
+        "CometBFT's cross-round accountability for its locking rules is the explicit hypothesis CrossRoundAccountable; cross-round faults are not slashable (4.1, section 12 item 3)."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-c36e4d0d76a728b6", "EN-b82d63337df901b4"],
+      "scope": "Decoded specification result under its explicit hypotheses; no production ABI, byte-layout, cryptographic or DAO-attribution conformance is implied."
     }
   ]
 }
