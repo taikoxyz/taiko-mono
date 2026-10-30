@@ -238,8 +238,10 @@ def forfeitCases : List Scenario := [
     [later 1 (.invalidateRecoveryNonce true 0)] (spec := some "spec L208"),
   registryOnly "registry.hw.forfeit-deposit-after-authorization" (forfeitNow 0 1) topUpSetup
     (spec := some "spec L206"),
-  registryOnly "registry.hw.top-up-rejected-after-forfeit" (later 1 (.topUp 1 0 7 true)) [forfeitNow 0 1]
-    (spec := some "spec L149"),
+  -- Forfeited once the entry is active (block 20), so only the forced exit rejects the top-up
+  -- that `registry.hw.top-up-owner` accepts.
+  registryOnly "registry.hw.top-up-rejected-after-forfeit" (later 1 (.topUp 1 0 7 true))
+    [atBlock 20 (.forfeit true 0 1 7 (limit256-1) true)] (spec := some "spec L149"),
   registryOnly "registry.hw.activation-rejected-after-forfeit" (atBlock 30 (.activateTopUp 9 0))
     (topUpSetup ++ [forfeitNow 0 1]) (spec := some "spec L149"),
   registryOnly "registry.hw.pending-only-withdraw-owner" (withdrawWhenDue 0 1 1)

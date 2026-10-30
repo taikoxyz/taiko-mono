@@ -129,6 +129,31 @@ class GeneratorTests(unittest.TestCase):
                 self.assertEqual(sorted(v), sorted({'id', 'family', 'source', 'setup', 'call', 'expect'}
                                                    | ({'spec'} if handwritten else set())), v['id'])
 
+    def vectors(self, family):
+        return json.loads(self.first[f'{family}.json'])['vectors']
+
+    def test_uninitialized_inbox_has_no_checkpoint_hash(self):
+        """Before init the Inbox stores no checkpoint: slot 271 is zero, as in the contracts."""
+        seen = 0
+        for family in ('recover', 'registry'):
+            for v in self.vectors(family):
+                inbox = v['expect']['observable'].get('inbox')
+                if not v['setup']['deployment']['initialized'] and inbox is not None:
+                    seen += 1
+                    self.assertEqual((inbox['checkpointHeight'], inbox['checkpointHash']), (0, 0), v['id'])
+        self.assertGreater(seen, 0)
+
+    def test_top_up_after_forfeit_is_rejected_by_the_forfeiture(self):
+        """The entry is already active when the forfeiture forces its exit, so the top-up that
+        `registry.hw.top-up-owner` shows is accepted fails only because of the forfeiture."""
+        v = next(v for v in self.vectors('registry') if v['id'] == 'registry.hw.top-up-rejected-after-forfeit')
+        forfeit = v['setup']['calls'][-1]
+        bond = v['expect']['observable']['registry']['bonds'][0]
+        self.assertEqual(forfeit['fn'], 'forfeit')
+        self.assertGreaterEqual(forfeit['block'], bond['activeFrom'])
+        self.assertGreater(v['call']['block'], forfeit['block'])
+        self.assertTrue(v['expect']['revert'])
+
     def test_client_vectors_are_well_formed(self):
         for family in CLIENT_FAMILIES:
             document = json.loads(self.first[f'{family}.json'])

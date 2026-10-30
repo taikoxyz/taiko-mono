@@ -81,13 +81,15 @@ def registry0 (d : Deploy) : RegistryHistory.State :=
 atom is 0). The two commitment hashes are not observed. -/
 def adapters : ProtocolState.Adapters := ⟨fun _ => 0, fun _ => 0, ⟨blankHash, 0⟩⟩
 
-/-- The Inbox right after `init` (`Deployment.Genesis`), or an uninitialized one. -/
+/-- The Inbox right after `init` (`Deployment.Genesis`), or an uninitialized one, which stores
+no checkpoint yet (slot 271 is zero until `init`). -/
 def inbox0 (d : Deploy) : State :=
   let origin : Origin := if d.initialized then ⟨0, initAt, timestampOf initAt⟩ else ⟨0, 0, 0⟩
   let genesis : Checkpoint := ⟨0, elAtom 0 0, 0, 0, 0, 0⟩
   { domain := deployment, committeeConfig := 0, gridK := landGrid, generation := 0, recoveryNonce := d.recoveryNonce, origin := origin,
     origins := if d.initialized then [(0, origin)] else [],
-    checkpoint := genesis, records := if d.initialized then [genesis] else [],
+    checkpoint := if d.initialized then genesis else ⟨0, 0, 0, 0, 0, 0⟩,
+    records := if d.initialized then [genesis] else [],
     head := 0, tail := 0, snapshot := if d.initialized then registeredAt else 0,
     ethBalance := 0, feeAdmissions := 0, forcedETH := 0, swept := 0,
     signals := if d.initialized then [⟨0, elAtom 0 0, rootAtom 0 0⟩] else [],

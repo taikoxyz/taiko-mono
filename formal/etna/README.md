@@ -654,7 +654,7 @@ namespace (for example `EtnaModel/Deployment.lean` and `EtnaProofs/Deployment.le
 - 313 source clauses: 77 partial, 233 deferred, 3 design-pending; 22 narrow claims.
 - 568 binding rule IDs: 141 partial, 7 partial through a reviewed override, 416 deferred, 4
   design-pending; 21 limitations and 11 assumptions, none partial.
-- 197 Python mutation/regression tests, plus kernel-replayed Lean regression modules.
+- 199 Python mutation/regression tests, plus kernel-replayed Lean regression modules.
 - Current vectors: 414 Inbox/registry and 340 client rule vectors, run by the contracts
   (404 agree, 10 known divergences) and the Rust client (339 agree, 1 known divergence).
 

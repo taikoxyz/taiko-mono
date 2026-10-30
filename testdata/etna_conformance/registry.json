@@ -8483,10 +8483,10 @@
         "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
         "callCount": 1,
         "calls": [
-          {"block": 12, "timestamp": 1700000144, "fn": "forfeit", "args": {"owner": true, "bondId": 0, "entryKey": 1, "incidentId": 7, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "externalOK": true}}
+          {"block": 20, "timestamp": 1700000240, "fn": "forfeit", "args": {"owner": true, "bondId": 0, "entryKey": 1, "incidentId": 7, "validUntil": "115792089237316195423570985008687907853269984665640564039457584007913129639935", "externalOK": true}}
         ]
       },
-      "call": {"block": 13, "timestamp": 1700000156, "fn": "topUp", "args": {"caller": 1, "bondId": 0, "amount": 7, "transferOK": true}},
+      "call": {"block": 21, "timestamp": 1700000252, "fn": "topUp", "args": {"caller": 1, "bondId": 0, "amount": 7, "transferOK": true}},
       "expect": {
         "revert": true,
         "result": {},
@@ -8496,15 +8496,15 @@
             "freeCount": 0,
             "stakeHeld": 9,
             "checkpointCount": 2,
-            "lastCheckpointBlock": 12,
+            "lastCheckpointBlock": 20,
             "lastCheckpointCount": 1,
             "checkpoints": [
-              {"block": 12, "entries": [{"activeFrom": 20, "exitAt": 12, "key": 1, "stake": 9}]},
+              {"block": 20, "entries": [{"activeFrom": 20, "exitAt": 20, "key": 1, "stake": 9}]},
               {"block": 10, "entries": [{"activeFrom": 20, "exitAt": 281474976710655, "key": 1, "stake": 10}]}
             ],
             "forfeitedKeys": [1],
             "bonds": [
-              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 12, "id": 0, "key": 1, "owner": 1, "pendingTopUp": 0, "stake": 9, "topUpReadyAtL1": 0}
+              {"activeFrom": 20, "confirmedAt": 0, "exitAt": 20, "id": 0, "key": 1, "owner": 1, "pendingTopUp": 0, "stake": 9, "topUpReadyAtL1": 0}
             ]
           }
         }

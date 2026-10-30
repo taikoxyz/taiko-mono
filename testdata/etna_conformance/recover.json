@@ -4812,7 +4812,7 @@
         "observable": {
           "inbox": {
             "checkpointHeight": 0,
-            "checkpointHash": 10000,
+            "checkpointHash": 0,
             "generation": 0,
             "recoveryNonce": 0,
             "head": 0,
@@ -4861,7 +4861,7 @@
         "observable": {
           "inbox": {
             "checkpointHeight": 0,
-            "checkpointHash": 10000,
+            "checkpointHash": 0,
             "generation": 0,
             "recoveryNonce": 0,
             "head": 0,
