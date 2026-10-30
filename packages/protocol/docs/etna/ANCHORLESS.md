@@ -28,7 +28,7 @@ Security does not come from the key, which is public. It comes from three rules:
 | `parentBeaconBlockRoot` | `0x0` (from Unzen on)                              | execution state root of the L1 block at the final derived `anchorBlockNumber`; never zero for non-genesis blocks |
 | `extraData`             | 7 bytes `[basefeeSharingPctg(1) \| proposalId(6)]` | 13 bytes `[basefeeSharingPctg(1) \| generation(6) \| anchorBlockNumber(6)]`, both numbers big-endian `uint48`    |
 
-Every other header field is unchanged.
+This design changes no other header field; [SPEC.md 3.2](SPEC.md#32-block-header) defines the full Etna header.
 
 Etna block production follows the PoS + ZK specification, so bytes 0..6 of `extraData` follow [SPEC.md 3.2](SPEC.md#32-block-header): byte 0 is always 100 and bytes 1..6 hold the recovery generation. This design adds the anchor commitment: `parentBeaconBlockRoot` and bytes 7..12.
 
