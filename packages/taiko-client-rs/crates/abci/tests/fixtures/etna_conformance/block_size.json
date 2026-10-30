@@ -1,0 +1,109 @@
+{
+  "schema": "etna-client-conformance-1",
+  "family": "block_size",
+  "generator": "formal/etna: lake exe etna-vectors --write testdata/etna_conformance",
+  "provenance": {"formalCommit": "4ec05bbe27bad6c65c6425fc508cae304deb343a"},
+  "vectorCount": 14,
+  "vectors": [
+    {
+      "id": "block_size.bytes1000.incompressible",
+      "family": "block_size",
+      "source": "generated",
+      "input": {"blockBytes": 1000, "content": "incompressible"},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_size.bytes1000.zeros",
+      "family": "block_size",
+      "source": "generated",
+      "input": {"blockBytes": 1000, "content": "zeros"},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_size.bytes123999.incompressible",
+      "family": "block_size",
+      "source": "generated",
+      "input": {"blockBytes": 123999, "content": "incompressible"},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_size.bytes123999.zeros",
+      "family": "block_size",
+      "source": "generated",
+      "input": {"blockBytes": 123999, "content": "zeros"},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_size.bytes124000.incompressible",
+      "family": "block_size",
+      "source": "generated",
+      "input": {"blockBytes": 124000, "content": "incompressible"},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_size.bytes124000.zeros",
+      "family": "block_size",
+      "source": "generated",
+      "input": {"blockBytes": 124000, "content": "zeros"},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_size.bytes124001.incompressible",
+      "family": "block_size",
+      "source": "generated",
+      "input": {"blockBytes": 124001, "content": "incompressible"},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_size.bytes124001.zeros",
+      "family": "block_size",
+      "source": "generated",
+      "input": {"blockBytes": 124001, "content": "zeros"},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_size.bytes200000.incompressible",
+      "family": "block_size",
+      "source": "generated",
+      "input": {"blockBytes": 200000, "content": "incompressible"},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_size.bytes200000.zeros",
+      "family": "block_size",
+      "source": "generated",
+      "input": {"blockBytes": 200000, "content": "zeros"},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_size.bytes780000.incompressible",
+      "family": "block_size",
+      "source": "generated",
+      "input": {"blockBytes": 780000, "content": "incompressible"},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_size.bytes780000.zeros",
+      "family": "block_size",
+      "source": "generated",
+      "input": {"blockBytes": 780000, "content": "zeros"},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_size.hw.compressible-block-over-bound",
+      "family": "block_size",
+      "source": "handwritten",
+      "spec": "spec L118",
+      "input": {"blockBytes": 500000, "content": "zeros"},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_size.hw.six-blob-block-over-bound",
+      "family": "block_size",
+      "source": "handwritten",
+      "spec": "spec L118",
+      "input": {"blockBytes": 700000, "content": "incompressible"},
+      "expect": {"valid": false}
+    }
+  ]
+}

@@ -1,0 +1,666 @@
+{
+  "schema": "etna-client-conformance-1",
+  "family": "block_rules",
+  "generator": "formal/etna: lake exe etna-vectors --write testdata/etna_conformance",
+  "provenance": {"formalCommit": "4ec05bbe27bad6c65c6425fc508cae304deb343a"},
+  "vectorCount": 92,
+  "vectors": [
+    {
+      "id": "block_rules.height.parent4.block3",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "height", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 111, "anchorTimestamp": 1699999500}, "block": {"height": 3, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 0, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.height.parent4.block4",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "height", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 111, "anchorTimestamp": 1699999500}, "block": {"height": 4, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 0, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.height.parent4.block5",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "height", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 111, "anchorTimestamp": 1699999500}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 0, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.height.parent4.block6",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "height", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 111, "anchorTimestamp": 1699999500}, "block": {"height": 6, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 0, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.height.parent0.block1",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "height", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 0, "timestamp": 1700000000, "anchor": 111, "anchorTimestamp": 1699999500}, "block": {"height": 1, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 0, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.height.parent0.block2",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "height", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 0, "timestamp": 1700000000, "anchor": 111, "anchorTimestamp": 1699999500}, "block": {"height": 2, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 0, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.timestamp.bft-behind.anchor-old.derived",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1699999995, "timestamp": 1700000001, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699996400, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.timestamp.bft-behind.anchor-old.plus1",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1699999995, "timestamp": 1700000002, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699996400, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.timestamp.bft-behind.anchor-old.minus1",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1699999995, "timestamp": 1700000000, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699996400, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.timestamp.bft-behind.anchor-at-parent-plus-1.derived",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1699999995, "timestamp": 1700000001, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1700000001, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.timestamp.bft-behind.anchor-at-parent-plus-1.plus1",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1699999995, "timestamp": 1700000002, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1700000001, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.timestamp.bft-behind.anchor-at-parent-plus-1.minus1",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1699999995, "timestamp": 1700000000, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1700000001, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.timestamp.bft-behind.anchor-at-ten.derived",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1699999995, "timestamp": 1700000010, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1700000010, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.timestamp.bft-behind.anchor-at-ten.plus1",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1699999995, "timestamp": 1700000011, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1700000010, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.timestamp.bft-behind.anchor-at-ten.minus1",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1699999995, "timestamp": 1700000009, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1700000010, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.timestamp.bft-behind.anchor-ahead.derived",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1699999995, "timestamp": 1700000020, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1700000020, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.timestamp.bft-behind.anchor-ahead.plus1",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1699999995, "timestamp": 1700000021, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1700000020, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.timestamp.bft-behind.anchor-ahead.minus1",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1699999995, "timestamp": 1700000019, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1700000020, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.timestamp.bft-at-parent-plus-1.anchor-old.derived",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000001, "timestamp": 1700000001, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699996400, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.timestamp.bft-at-parent-plus-1.anchor-old.plus1",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000001, "timestamp": 1700000002, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699996400, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.timestamp.bft-at-parent-plus-1.anchor-old.minus1",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000001, "timestamp": 1700000000, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699996400, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.timestamp.bft-at-parent-plus-1.anchor-at-parent-plus-1.derived",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000001, "timestamp": 1700000001, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1700000001, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.timestamp.bft-at-parent-plus-1.anchor-at-parent-plus-1.plus1",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000001, "timestamp": 1700000002, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1700000001, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.timestamp.bft-at-parent-plus-1.anchor-at-parent-plus-1.minus1",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000001, "timestamp": 1700000000, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1700000001, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.timestamp.bft-at-parent-plus-1.anchor-at-ten.derived",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000001, "timestamp": 1700000010, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1700000010, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.timestamp.bft-at-parent-plus-1.anchor-at-ten.plus1",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000001, "timestamp": 1700000011, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1700000010, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.timestamp.bft-at-parent-plus-1.anchor-at-ten.minus1",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000001, "timestamp": 1700000009, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1700000010, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.timestamp.bft-at-parent-plus-1.anchor-ahead.derived",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000001, "timestamp": 1700000020, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1700000020, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.timestamp.bft-at-parent-plus-1.anchor-ahead.plus1",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000001, "timestamp": 1700000021, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1700000020, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.timestamp.bft-at-parent-plus-1.anchor-ahead.minus1",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000001, "timestamp": 1700000019, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1700000020, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.timestamp.bft-ahead.anchor-old.derived",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000010, "timestamp": 1700000010, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699996400, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.timestamp.bft-ahead.anchor-old.plus1",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000010, "timestamp": 1700000011, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699996400, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.timestamp.bft-ahead.anchor-old.minus1",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000010, "timestamp": 1700000009, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699996400, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.timestamp.bft-ahead.anchor-at-parent-plus-1.derived",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000010, "timestamp": 1700000010, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1700000001, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.timestamp.bft-ahead.anchor-at-parent-plus-1.plus1",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000010, "timestamp": 1700000011, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1700000001, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.timestamp.bft-ahead.anchor-at-parent-plus-1.minus1",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000010, "timestamp": 1700000009, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1700000001, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.timestamp.bft-ahead.anchor-at-ten.derived",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000010, "timestamp": 1700000010, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1700000010, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.timestamp.bft-ahead.anchor-at-ten.plus1",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000010, "timestamp": 1700000011, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1700000010, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.timestamp.bft-ahead.anchor-at-ten.minus1",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000010, "timestamp": 1700000009, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1700000010, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.timestamp.bft-ahead.anchor-ahead.derived",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000010, "timestamp": 1700000020, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1700000020, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.timestamp.bft-ahead.anchor-ahead.plus1",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000010, "timestamp": 1700000021, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1700000020, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.timestamp.bft-ahead.anchor-ahead.minus1",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000010, "timestamp": 1700000019, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1700000020, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.anchor.parent100.anchor99",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "anchor", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 100, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 99, "timestamp": 1699999500, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.anchor.parent100.anchor100",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "anchor", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 100, "anchorTimestamp": 1699999500}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 100, "timestamp": 1699999500, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.anchor.parent100.anchor101",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "anchor", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 100, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 101, "timestamp": 1699999500, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.anchor.parent110.anchor109",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "anchor", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 109, "timestamp": 1699999500, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.anchor.parent110.anchor110",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "anchor", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999500}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 110, "timestamp": 1699999500, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.anchor.parent110.anchor111",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "anchor", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.anchor.parent110.anchor99",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "anchor", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 99, "timestamp": 1699999500, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.anchor.parent110.anchor100",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "anchor", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 100, "timestamp": 1699999500, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.anchor.parent110.anchor101",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "anchor", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 101, "timestamp": 1699999500, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.freshness.max1152.age1153",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "freshness", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 1152, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699998851, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.freshness.max1152.age1152",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "freshness", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 1152, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699998852, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.freshness.max1152.age1151",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "freshness", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 1152, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699998853, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.freshness.max1152.age0",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "freshness", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 1152, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1700000004, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.freshness.max7200.age7201",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "freshness", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699992803, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.freshness.max7200.age7200",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "freshness", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699992804, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.freshness.max7200.age7199",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "freshness", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699992805, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.freshness.max7200.age0",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "freshness", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1700000004, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.back-pressure.u6.checkpoint13",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "backPressure", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 19, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 20, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 13, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.back-pressure.u6.checkpoint14",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "backPressure", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 19, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 20, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 14, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.back-pressure.u6.checkpoint15",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "backPressure", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 19, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 20, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 15, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.back-pressure.u6.checkpoint20",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "backPressure", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 19, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 20, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 20, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.back-pressure.u6.checkpoint22",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "backPressure", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 19, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 20, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 22, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.back-pressure.u1.checkpoint18",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "backPressure", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 1, "parent": {"height": 19, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 20, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 18, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.back-pressure.u1.checkpoint19",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "backPressure", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 1, "parent": {"height": 19, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 20, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 19, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.back-pressure.u1.checkpoint20",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "backPressure", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 1, "parent": {"height": 19, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 20, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 20, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.back-pressure.u1.checkpoint22",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "backPressure", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 1, "parent": {"height": 19, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 20, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 22, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.generation.chain0.extra0.inbox0",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "generation", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.generation.chain0.extra0.inbox1",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "generation", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 2, "generation": 1}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.generation.chain0.extra1.inbox0",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "generation", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 1}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.generation.chain0.extra1.inbox1",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "generation", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 1}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 2, "generation": 1}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.generation.chain1.extra0.inbox0",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "generation", "chainGeneration": 1, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.generation.chain1.extra0.inbox1",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "generation", "chainGeneration": 1, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 2, "generation": 1}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.generation.chain1.extra1.inbox0",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "generation", "chainGeneration": 1, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 1}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.generation.chain1.extra1.inbox1",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "generation", "chainGeneration": 1, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 1}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 2, "generation": 1}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.fee-share.0",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "feeShare", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 0, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.fee-share.50",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "feeShare", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 50, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.fee-share.100",
+      "family": "block_rules",
+      "source": "generated",
+      "input": {"rule": "feeShare", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.hw.fee-share-is-100",
+      "family": "block_rules",
+      "source": "handwritten",
+      "spec": "spec L79",
+      "input": {"rule": "feeShare", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.hw.anchor-at-origin-in-a-later-epoch",
+      "family": "block_rules",
+      "source": "handwritten",
+      "spec": "spec L173",
+      "input": {"rule": "anchor", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 24, "timestamp": 1700000000, "anchor": 100, "anchorTimestamp": 1699999000}, "block": {"height": 25, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 101, "timestamp": 1699999500, "checkpointHeight": 20, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.hw.inherited-origin-anchor-in-a-later-epoch",
+      "family": "block_rules",
+      "source": "handwritten",
+      "spec": "spec L173",
+      "input": {"rule": "anchor", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 34, "timestamp": 1700000000, "anchor": 100, "anchorTimestamp": 1699999500}, "block": {"height": 35, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 100, "timestamp": 1699999500, "checkpointHeight": 30, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.hw.anchor-below-origin",
+      "family": "block_rules",
+      "source": "handwritten",
+      "spec": "spec L106",
+      "input": {"rule": "anchor", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 99, "anchorTimestamp": 1699999500}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 99, "timestamp": 1699999500, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.hw.anchor-max-uint48",
+      "family": "block_rules",
+      "source": "handwritten",
+      "spec": "spec L79",
+      "input": {"rule": "anchor", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 281474976710655, "timestamp": 1699999500, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.hw.anchor-2pow48",
+      "family": "block_rules",
+      "source": "handwritten",
+      "spec": "spec L79",
+      "input": {"rule": "anchor", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 281474976710656, "timestamp": 1699999500, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.hw.superseded-chain",
+      "family": "block_rules",
+      "source": "handwritten",
+      "spec": "spec L107",
+      "input": {"rule": "generation", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 2, "generation": 1}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.hw.inbox-behind-chain",
+      "family": "block_rules",
+      "source": "handwritten",
+      "spec": "spec L107",
+      "input": {"rule": "generation", "chainGeneration": 1, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 1}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.hw.back-pressure-at-u",
+      "family": "block_rules",
+      "source": "handwritten",
+      "spec": "spec L108",
+      "input": {"rule": "backPressure", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 19, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 20, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 14, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.hw.freshness-at-max-age",
+      "family": "block_rules",
+      "source": "handwritten",
+      "spec": "spec L110",
+      "input": {"rule": "freshness", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699992804, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.hw.timestamp-strictly-increases",
+      "family": "block_rules",
+      "source": "handwritten",
+      "spec": "spec L77",
+      "input": {"rule": "timestamp", "chainGeneration": 0, "epochLen": 10, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 4, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 5, "bftTime": 1700000000, "timestamp": 1700000000, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999990, "checkpointHeight": 2, "generation": 0}},
+      "expect": {"valid": false}
+    },
+    {
+      "id": "block_rules.hw.height-max-uint48",
+      "family": "block_rules",
+      "source": "handwritten",
+      "spec": "spec L287",
+      "input": {"rule": "height", "chainGeneration": 0, "epochLen": 140737488355328, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 281474976710654, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 281474976710655, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 281474976710653, "generation": 0}},
+      "expect": {"valid": true}
+    },
+    {
+      "id": "block_rules.hw.height-2pow48",
+      "family": "block_rules",
+      "source": "handwritten",
+      "spec": "spec L287",
+      "input": {"rule": "height", "chainGeneration": 0, "epochLen": 140737488355328, "origin": 100, "maxAnchorAge": 7200, "unsettled": 6, "parent": {"height": 281474976710655, "timestamp": 1700000000, "anchor": 110, "anchorTimestamp": 1699999000}, "block": {"height": 281474976710656, "bftTime": 1700000004, "timestamp": 1700000004, "feeShare": 100, "generation": 0}, "anchor": {"number": 111, "timestamp": 1699999500, "checkpointHeight": 281474976710654, "generation": 0}},
+      "expect": {"valid": false}
+    }
+  ]
+}
