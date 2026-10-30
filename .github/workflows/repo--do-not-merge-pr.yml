@@ -8,6 +8,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   check_label:
     if: github.event.pull_request.draft == false
@@ -15,7 +18,7 @@ jobs:
     steps:
       - name: Check for "option.do-not-merge" label
         id: check_label
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const labels = context.payload.pull_request.labels.map(label => label.name);

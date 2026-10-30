@@ -64,10 +64,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
         with:
           toolchain: 1.95.0
 
@@ -81,7 +83,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Ensure native build tools
         shell: bash
@@ -112,13 +116,13 @@ jobs:
           echo "LIBCLANG_PATH=$(llvm-config --libdir)" >> "$GITHUB_ENV"
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
         with:
           toolchain: 1.95.0
           components: clippy
 
       - name: Setup Rust cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           cache-on-failure: true
           # Lint keeps its own key instead of consuming the Tests one: clippy's
@@ -134,13 +138,13 @@ jobs:
       # Deliberately after rust-cache: keeping the pinned nightly out of the
       # cache key means bumping it doesn't invalidate the lint cache.
       - name: Install Rust nightly toolchain
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
         with:
           toolchain: nightly-2025-09-27
           components: rustfmt
 
       - name: Setup just
-        uses: extractions/setup-just@v4
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
         with:
           just-version: 1.5.0
 
@@ -161,7 +165,9 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Ensure native build tools
         shell: bash
@@ -212,12 +218,12 @@ jobs:
           fi
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
         with:
           toolchain: 1.95.0
 
       - name: Setup Rust cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           cache-on-failure: true
           shared-key: "taiko-client-rs"
@@ -228,14 +234,16 @@ jobs:
 
       # The protocol crate's subscription-source unit test spawns a local anvil.
       - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
+        uses: foundry-rs/foundry-toolchain@dba66c27052e63476d886f22216e119ba7e615bf # v1.9.2
 
       - name: Setup just
-        uses: extractions/setup-just@v4
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
         with:
           just-version: 1.5.0
 
-      - uses: taiki-e/install-action@nextest
+      - uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 # v2.87.32
+        with:
+          tool: nextest
 
       - name: Run unit tests
         working-directory: packages/taiko-client-rs
@@ -248,7 +256,9 @@ jobs:
     timeout-minutes: 50
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Ensure native build tools
         shell: bash
@@ -331,12 +341,12 @@ jobs:
           docker-compose version
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
         with:
           toolchain: 1.95.0
 
       - name: Setup Rust cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           cache-on-failure: true
           shared-key: "taiko-client-rs"
@@ -345,23 +355,23 @@ jobs:
             packages/taiko-client-rs -> target
 
       - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
+        uses: foundry-rs/foundry-toolchain@dba66c27052e63476d886f22216e119ba7e615bf # v1.9.2
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 9
           run_install: false
 
       - name: Install Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22.23.4"
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Setup just
-        uses: extractions/setup-just@v4
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
         with:
           just-version: 1.5.0
 
@@ -369,7 +379,9 @@ jobs:
         working-directory: packages/taiko-client-rs
         run: just check-features
 
-      - uses: taiki-e/install-action@nextest
+      - uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 # v2.87.32
+        with:
+          tool: nextest
 
       # Deploy the PR's own protocol contracts: a second checkout pinned to `main`
       # would test different contracts on every re-run and never exercise a PR
