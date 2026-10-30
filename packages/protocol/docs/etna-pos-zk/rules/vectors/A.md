@@ -56,17 +56,17 @@ _The sentence's scope is "until the upgrade mechanism is complete" (10.1). What 
 
 ## ENC-A-5
 
-| Vector     | Setup                                                                                                             | Expected                                                                                                |
-| ---------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| 5.a accept | `cutHash`, `statement` and `chainDomain` preimages are `abi.encode(...)`                                          | matches                                                                                                 |
-| 5.b accept | a domain tag is its ASCII bytes followed by zero bytes to 32 (for example `ETNA_LAND_CUTS_V1` plus 15 zero bytes) | matches "right-zero-padded `bytes32` ASCII"                                                             |
-| 5.c accept | an `entriesRoot` inner node is keccak256(left concatenated with right)                                            | stated exception                                                                                        |
-| 5.d accept | the blob hash list and the cut leaf list are hashed with `abi.encodePacked`                                       | stated exceptions                                                                                       |
-| 5.e reject | a protocol hash uses `abi.encodePacked` where the rule requires `abi.encode`                                      | violates ENC-A-5                                                                                        |
-| 5.f reject | a domain tag is left-padded with zeros                                                                            | violates ENC-A-5 ("right-zero-padded")                                                                  |
-| 5.h reject | the blob hash list is hashed as keccak256(abi.encode(blobHashes))                                                 | violates ENC-A-5                                                                                        |
-| 5.i reject | the cut leaf list is hashed with `abi.encode`                                                                     | violates ENC-A-5                                                                                        |
-| 5.j reject | a domain tag is encoded as a dynamic string (offset, length, data)                                                | violates ENC-A-5; the fenced preimages write some tags as bare literals — [Q-A-2](../review/A.md#q-a-2) |
+| Vector      | Setup                                                                                                             | Expected                                                                                                                  |
+| ----------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| 5.a accept  | `cutHash`, `statement` and `chainDomain` preimages are `abi.encode(...)`                                          | matches                                                                                                                   |
+| 5.b accept  | a domain tag is its ASCII bytes followed by zero bytes to 32 (for example `ETNA_LAND_CUTS_V1` plus 15 zero bytes) | matches "right-zero-padded `bytes32` ASCII"                                                                               |
+| 5.c accept  | an `entriesRoot` inner node is keccak256(left concatenated with right)                                            | stated exception                                                                                                          |
+| 5.d accept  | the blob hash list and the cut leaf list are hashed with `abi.encodePacked`                                       | stated exceptions                                                                                                         |
+| 5.e reject  | a protocol hash uses `abi.encodePacked` where the rule requires `abi.encode`                                      | violates ENC-A-5                                                                                                          |
+| 5.f reject  | a domain tag is left-padded with zeros                                                                            | violates ENC-A-5 ("right-zero-padded")                                                                                    |
+| 5.h reject  | the blob hash list is hashed as keccak256(abi.encode(blobHashes))                                                 | violates ENC-A-5                                                                                                          |
+| 5.i reject  | the cut leaf list is hashed with `abi.encode`                                                                     | violates ENC-A-5                                                                                                          |
+| 5.j pending | a disputed registry/committee hash preimage encodes its bare-literal domain tag as a dynamic string               | no conformance verdict until [Q-A-2](../review/A.md#q-a-2) is resolved: ENC-A-5 and the bare-literal definitions disagree |
 
 _`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` followed by `right`, so it is not a separate reject case for the `entriesRoot` exception._
 
@@ -404,12 +404,12 @@ _`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` fo
 
 ## ENC-A-37
 
-| Vector      | Setup                                                                                                   | Expected                                                                                                                                  |
-| ----------- | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| 37.a accept | `keccak256(abi.encode("ETNA_REG_ENTRY_V1", j, ckPrefix, ckX, effStake, activeFromL1, exitEffectiveL1))` | matches the text as written; whether the bare tag is a padded `bytes32` word or a dynamic string is pending [Q-A-2](../review/A.md#q-a-2) |
-| 37.b reject | tag is `ETNA_REG_ENTRY_V2`                                                                              | violates ENC-A-37                                                                                                                         |
-| 37.c reject | `j` or `exitEffectiveL1` is omitted                                                                     | violates ENC-A-37                                                                                                                         |
-| 37.d reject | `ckX` precedes `ckPrefix`                                                                               | violates ENC-A-37 (order)                                                                                                                 |
+| Vector       | Setup                                                                                                   | Expected                                                                                                                             |
+| ------------ | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| 37.a pending | `keccak256(abi.encode("ETNA_REG_ENTRY_V1", j, ckPrefix, ckX, effStake, activeFromL1, exitEffectiveL1))` | no conformance verdict; whether the bare tag is a padded `bytes32` word or a dynamic string is pending [Q-A-2](../review/A.md#q-a-2) |
+| 37.b reject  | tag is `ETNA_REG_ENTRY_V2`                                                                              | violates ENC-A-37                                                                                                                    |
+| 37.c reject  | `j` or `exitEffectiveL1` is omitted                                                                     | violates ENC-A-37                                                                                                                    |
+| 37.d reject  | `ckX` precedes `ckPrefix`                                                                               | violates ENC-A-37 (order)                                                                                                            |
 
 ## ENC-A-38
 
@@ -426,41 +426,41 @@ _`abi.encode(left, right)` of two `bytes32` words equals their plain concatenati
 
 ## ENC-A-39
 
-| Vector      | Setup                                                                | Expected                                                                                                                                  |
-| ----------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| 39.a accept | `keccak256(abi.encode("ETNA_SET_KEY_V1", l2ChainId, ckPrefix, ckX))` | matches the text as written; whether the bare tag is a padded `bytes32` word or a dynamic string is pending [Q-A-2](../review/A.md#q-a-2) |
-| 39.b reject | tag is `ETNA_SET_KEY_V2`                                             | violates ENC-A-39                                                                                                                         |
-| 39.c reject | `l2ChainId` or `ckX` is omitted                                      | violates ENC-A-39                                                                                                                         |
-| 39.d reject | `ckX` precedes `ckPrefix`                                            | violates ENC-A-39 (order)                                                                                                                 |
+| Vector       | Setup                                                                | Expected                                                                                                                             |
+| ------------ | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| 39.a pending | `keccak256(abi.encode("ETNA_SET_KEY_V1", l2ChainId, ckPrefix, ckX))` | no conformance verdict; whether the bare tag is a padded `bytes32` word or a dynamic string is pending [Q-A-2](../review/A.md#q-a-2) |
+| 39.b reject  | tag is `ETNA_SET_KEY_V2`                                             | violates ENC-A-39                                                                                                                    |
+| 39.c reject  | `l2ChainId` or `ckX` is omitted                                      | violates ENC-A-39                                                                                                                    |
+| 39.d reject  | `ckX` precedes `ckPrefix`                                            | violates ENC-A-39 (order)                                                                                                            |
 
 ## ENC-A-40
 
-| Vector      | Setup                                                                                                | Expected                                                                                                                                  |
-| ----------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| 40.a accept | `keccak256(abi.encode("ETNA_SET_LEAF_V1", l2ChainId, k, i, ckPrefix, ckX, effStake, assignedPower))` | matches the text as written; whether the bare tag is a padded `bytes32` word or a dynamic string is pending [Q-A-2](../review/A.md#q-a-2) |
-| 40.b reject | `k`, `i` or `assignedPower` is omitted                                                               | violates ENC-A-40                                                                                                                         |
-| 40.c reject | `i` precedes `k`                                                                                     | violates ENC-A-40 (order)                                                                                                                 |
-| 40.d reject | tag is `ETNA_SET_LEAF_V2`                                                                            | violates ENC-A-40                                                                                                                         |
+| Vector       | Setup                                                                                                | Expected                                                                                                                             |
+| ------------ | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| 40.a pending | `keccak256(abi.encode("ETNA_SET_LEAF_V1", l2ChainId, k, i, ckPrefix, ckX, effStake, assignedPower))` | no conformance verdict; whether the bare tag is a padded `bytes32` word or a dynamic string is pending [Q-A-2](../review/A.md#q-a-2) |
+| 40.b reject  | `k`, `i` or `assignedPower` is omitted                                                               | violates ENC-A-40                                                                                                                    |
+| 40.c reject  | `i` precedes `k`                                                                                     | violates ENC-A-40 (order)                                                                                                            |
+| 40.d reject  | tag is `ETNA_SET_LEAF_V2`                                                                            | violates ENC-A-40                                                                                                                    |
 
 ## ENC-A-41
 
-| Vector      | Setup                                                                | Expected                                                                                                                                  |
-| ----------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| 41.a accept | `keccak256(abi.encode("ETNA_SET_NODE", l2ChainId, k, left, right))`  | matches the text as written; whether the bare tag is a padded `bytes32` word or a dynamic string is pending [Q-A-2](../review/A.md#q-a-2) |
-| 41.b accept | an odd last node is promoted unchanged (no hash with a zero sibling) | stated                                                                                                                                    |
-| 41.c reject | an odd last node is hashed with a zero right child                   | violates ENC-A-41                                                                                                                         |
-| 41.d reject | `left` and `right` are swapped                                       | violates ENC-A-41 (order)                                                                                                                 |
-| 41.e reject | `k` is omitted                                                       | violates ENC-A-41                                                                                                                         |
-| 41.f reject | the tag is written `ETNA_SET_NODE_V1`                                | violates ENC-A-41 (tag as written); versioning question — [Q-A-2](../review/A.md#q-a-2)                                                   |
+| Vector       | Setup                                                                | Expected                                                                                                                             |
+| ------------ | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| 41.a pending | `keccak256(abi.encode("ETNA_SET_NODE", l2ChainId, k, left, right))`  | no conformance verdict; whether the bare tag is a padded `bytes32` word or a dynamic string is pending [Q-A-2](../review/A.md#q-a-2) |
+| 41.b accept  | an odd last node is promoted unchanged (no hash with a zero sibling) | stated                                                                                                                               |
+| 41.c reject  | an odd last node is hashed with a zero right child                   | violates ENC-A-41                                                                                                                    |
+| 41.d reject  | `left` and `right` are swapped                                       | violates ENC-A-41 (order)                                                                                                            |
+| 41.e reject  | `k` is omitted                                                       | violates ENC-A-41                                                                                                                    |
+| 41.f reject  | the tag is written `ETNA_SET_NODE_V1`                                | violates ENC-A-41 (tag as written); versioning question — [Q-A-2](../review/A.md#q-a-2)                                              |
 
 ## ENC-A-42
 
-| Vector      | Setup                                                                                                                     | Expected                                                                                                                                  |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| 42.a accept | `keccak256(abi.encode("ETNA_COMMITTEE_V1", l2ChainId, targetEpoch, cutoffL1Block, checkpointIndex, setRoot, totalPower))` | matches the text as written; whether the bare tag is a padded `bytes32` word or a dynamic string is pending [Q-A-2](../review/A.md#q-a-2) |
-| 42.b reject | tag is `ETNA_COMMITTEE_V2`                                                                                                | violates ENC-A-42                                                                                                                         |
-| 42.c reject | `checkpointIndex` or `totalPower` is omitted                                                                              | violates ENC-A-42                                                                                                                         |
-| 42.d reject | `cutoffL1Block` precedes `targetEpoch`                                                                                    | violates ENC-A-42 (order)                                                                                                                 |
+| Vector       | Setup                                                                                                                     | Expected                                                                                                                             |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| 42.a pending | `keccak256(abi.encode("ETNA_COMMITTEE_V1", l2ChainId, targetEpoch, cutoffL1Block, checkpointIndex, setRoot, totalPower))` | no conformance verdict; whether the bare tag is a padded `bytes32` word or a dynamic string is pending [Q-A-2](../review/A.md#q-a-2) |
+| 42.b reject  | tag is `ETNA_COMMITTEE_V2`                                                                                                | violates ENC-A-42                                                                                                                    |
+| 42.c reject  | `checkpointIndex` or `totalPower` is omitted                                                                              | violates ENC-A-42                                                                                                                    |
+| 42.d reject  | `cutoffL1Block` precedes `targetEpoch`                                                                                    | violates ENC-A-42 (order)                                                                                                            |
 
 ## ENC-A-42a
 
