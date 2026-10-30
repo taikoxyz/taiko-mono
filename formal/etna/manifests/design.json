@@ -13211,6 +13211,66 @@
       "role": "supporting",
       "sources": ["EN-1de188a398da3093"],
       "scope": "Decoded specification result under its explicit hypotheses; no production ABI, byte-layout, cryptographic or DAO-attribution conformance is implied."
+    },
+    {
+      "module": "EtnaProofs.Permanence",
+      "declaration": "Etna.Design.ProtocolState.OrdinaryTrace.trans",
+      "type": "∀ {a b c : Etna.Design.ProtocolState.World}, Etna.Design.ProtocolState.OrdinaryTrace a b → Etna.Design.ProtocolState.OrdinaryTrace b c → Etna.Design.ProtocolState.OrdinaryTrace a c",
+      "assumptions": [
+        "Decoded authenticated L1 clock; token transfers and EVM transaction journaling remain external."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-c36e4d0d76a728b6"],
+      "scope": "Decoded specification result under its explicit hypotheses; no production ABI, byte-layout, cryptographic or DAO-attribution conformance is implied."
+    },
+    {
+      "module": "EtnaProofs.Permanence",
+      "declaration": "Etna.Design.ProtocolState.ordinary_step_preserves_settled_records",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World}, Etna.Design.ProtocolState.Step w t → (∀ (trusted : Etna.Design.Checkpoint) (snapshot now : Nat), t ≠ Etna.Design.ProtocolState.applyRollback w trusted snapshot now) → ∀ (h : Nat), h ≤ w.inbox.checkpoint.height → Etna.Design.recordAt t.inbox h = Etna.Design.recordAt w.inbox h",
+      "assumptions": [
+        "Decoded authenticated L1 clock; token transfers and EVM transaction journaling remain external."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-c36e4d0d76a728b6", "EN-d7f8342dc8bb8e88"],
+      "scope": "Decoded specification result under its explicit hypotheses; no production ABI, byte-layout, cryptographic or DAO-attribution conformance is implied."
+    },
+    {
+      "module": "EtnaProofs.Permanence",
+      "declaration": "Etna.Design.ProtocolState.ordinary_trace_preserves_settled_records",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World}, Etna.Design.ProtocolState.OrdinaryTrace w t → ∀ (h : Nat), h ≤ w.inbox.checkpoint.height → Etna.Design.recordAt t.inbox h = Etna.Design.recordAt w.inbox h",
+      "assumptions": [
+        "Decoded authenticated L1 clock; token transfers and EVM transaction journaling remain external."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-c36e4d0d76a728b6", "EN-d7f8342dc8bb8e88"],
+      "scope": "Decoded specification result under its explicit hypotheses; no production ABI, byte-layout, cryptographic or DAO-attribution conformance is implied."
+    },
+    {
+      "module": "EtnaProofs.Permanence",
+      "declaration": "Etna.Design.ProtocolState.ordinary_step_signals_prefix",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World}, Etna.Design.ProtocolState.Step w t → (∀ (trusted : Etna.Design.Checkpoint) (snapshot now : Nat), t ≠ Etna.Design.ProtocolState.applyRollback w trusted snapshot now) → w.inbox.signals <+: t.inbox.signals",
+      "assumptions": [
+        "Decoded authenticated L1 clock; token transfers and EVM transaction journaling remain external."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-46ab93807fe14cda"],
+      "scope": "Decoded specification result under its explicit hypotheses; no production ABI, byte-layout, cryptographic or DAO-attribution conformance is implied."
+    },
+    {
+      "module": "EtnaProofs.Permanence",
+      "declaration": "Etna.Design.ProtocolState.ordinary_trace_signals_prefix",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World}, Etna.Design.ProtocolState.OrdinaryTrace w t → w.inbox.signals <+: t.inbox.signals",
+      "assumptions": [
+        "Decoded authenticated L1 clock; token transfers and EVM transaction journaling remain external."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-46ab93807fe14cda", "EN-c36e4d0d76a728b6"],
+      "scope": "Decoded specification result under its explicit hypotheses; no production ABI, byte-layout, cryptographic or DAO-attribution conformance is implied."
     }
   ]
 }

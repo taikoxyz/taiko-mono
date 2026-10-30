@@ -1,0 +1,64 @@
+import EtnaProofs.BackPressure
+
+/-! The settled prefix stays: along every trace without verifier-failure rollback, the records
+at or below the starting lastCheckpoint never change and SignalService checkpoints are only
+appended. Section 1 promises that nothing at or below a checkpoint is rolled back except by a
+DAO upgrade after verifier failure; this is that promise for every step other than that
+rollback. -/
+namespace Etna.Design.ProtocolState
+
+/-- Ordinary traces compose. -/
+theorem OrdinaryTrace.trans {a b c : World} (first : OrdinaryTrace a b) (second : OrdinaryTrace b c) :
+    OrdinaryTrace a c := by
+  induction second with
+  | refl => exact first
+  | step _ change ordinary ih => exact .step ih change ordinary
+
+/-- A step other than verifier-failure rollback keeps every record at or below its starting
+lastCheckpoint: a landing writes only above it, and no other transaction touches the records. -/
+theorem ordinary_step_preserves_settled_records {w t : World} (change : Step w t)
+    (ordinary : ∀ trusted snapshot now, t ≠ applyRollback w trusted snapshot now)
+    (h : Nat) (old : h ≤ w.inbox.checkpoint.height) : recordAt t.inbox h = recordAt w.inbox h := by
+  cases change with
+  | landing _ ok => exact Settlement.landing_preserves_old_records ok h old
+  | registration => rfl
+  | modification => rfl
+  | enqueue _ _ _ ok => unfold Forced.enqueue at ok; dsimp only at ok; split at ok <;> cases ok; rfl
+  | sweep _ ok => unfold Forced.sweep at ok; split at ok <;> cases ok; rfl
+  | recovery _ ok => obtain ⟨_,rfl⟩ := Recovery.recover_success ok; rfl
+  | invalidation _ ok => obtain ⟨_,rfl⟩ := Recovery.invalidation_success ok; rfl
+  | rollback trusted snapshot now => exact absurd rfl (ordinary trusted snapshot now)
+
+/-- The records at or below the starting lastCheckpoint never change along an ordinary trace. -/
+theorem ordinary_trace_preserves_settled_records {w t : World} (trace : OrdinaryTrace w t) (h : Nat)
+    (old : h ≤ w.inbox.checkpoint.height) : recordAt t.inbox h = recordAt w.inbox h := by
+  induction trace with
+  | refl => rfl
+  | step prior change ordinary ih =>
+    rw [ordinary_step_preserves_settled_records change ordinary h
+      (Nat.le_trans old (ordinary_trace_checkpoint_monotone prior)), ih]
+
+/-- A step other than verifier-failure rollback only appends SignalService checkpoints. -/
+theorem ordinary_step_signals_prefix {w t : World} (change : Step w t)
+    (ordinary : ∀ trusted snapshot now, t ≠ applyRollback w trusted snapshot now) :
+    w.inbox.signals <+: t.inbox.signals := by
+  cases change with
+  | landing _ ok => obtain ⟨_,rfl⟩ := land_success ok; exact List.prefix_append _ _
+  | registration => exact List.prefix_refl _
+  | modification => exact List.prefix_refl _
+  | enqueue _ _ _ ok =>
+    unfold Forced.enqueue at ok; dsimp only at ok; split at ok <;> cases ok; exact List.prefix_refl _
+  | sweep _ ok => unfold Forced.sweep at ok; split at ok <;> cases ok; exact List.prefix_refl _
+  | recovery _ ok => obtain ⟨_,rfl⟩ := Recovery.recover_success ok; exact List.prefix_refl _
+  | invalidation _ ok => obtain ⟨_,rfl⟩ := Recovery.invalidation_success ok; exact List.prefix_refl _
+  | rollback trusted snapshot now => exact absurd rfl (ordinary trusted snapshot now)
+
+/-- SignalService checkpoints are only appended along an ordinary trace, so every state root
+withdrawals could use stays available. -/
+theorem ordinary_trace_signals_prefix {w t : World} (trace : OrdinaryTrace w t) :
+    w.inbox.signals <+: t.inbox.signals := by
+  induction trace with
+  | refl => exact List.prefix_refl _
+  | step _ change ordinary ih => exact ih.trans (ordinary_step_signals_prefix change ordinary)
+
+end Etna.Design.ProtocolState
