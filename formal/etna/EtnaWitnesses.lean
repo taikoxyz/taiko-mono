@@ -20,6 +20,7 @@ import EtnaWitnesses.Counterexamples.SigningViewLag
 import EtnaWitnesses.Regressions.Accounting
 import EtnaWitnesses.Regressions.SigningEscrow
 import EtnaWitnesses.Regressions.Trajectory
+import EtnaWitnesses.Regressions.TrustedSnapshot
 
 /-! Etna witnesses: kernel-checked regression traces over concrete Worlds, the non-vacuity
 witness of the headline premises (`NonVacuity`) and scope counterexamples (`Counterexamples`):

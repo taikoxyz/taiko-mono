@@ -13312,6 +13312,42 @@
       "role": "property",
       "sources": ["EN-c36e4d0d76a728b6", "EN-b82d63337df901b4"],
       "scope": "Decoded specification result under its explicit hypotheses; no production ABI, byte-layout, cryptographic or DAO-attribution conformance is implied."
+    },
+    {
+      "module": "EtnaProofs.TrustedSnapshot",
+      "declaration": "Etna.Design.SigningEscrow.confirmed_key_absent_above_checkpoint",
+      "type": "∀ {initial w : Etna.Design.ProtocolState.World} {id c h : Nat} {cfg : Etna.Design.HistoricalContext.Parameters} {archive : List Nat} {ctx : Etna.Design.Consensus.Context}, Etna.Design.ProtocolState.Trace initial w → Etna.Design.ProtocolState.Core initial → initial.registry.nextId = 0 → id < w.registry.nextId → (w.registry.slots id).confirmedAt = some c → Etna.Design.SigningEscrow.Covered w → (w.registry.slots id).key ≠ 0 → (w.registry.slots id).exitAt ≠ Etna.Design.Staking.noExit → Etna.Design.HistoricalContext.build w.inbox w.registry cfg archive = some ctx → Etna.Design.SigningEscrow.SnapshotTrusted ctx w → w.inbox.checkpoint.height ≤ h → ∀ e ∈ (Etna.Design.Consensus.activeAt ctx h).members, e.key ≠ (w.registry.slots id).key",
+      "assumptions": [
+        "Slot 284 is trusted (SnapshotTrusted): not ahead of the cutoff of the committee active at lastCheckpoint, as section 8 requires of the verifier-failure rollback; authentication of the restored value and the DAO upgrade remain external."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-d04a236579cc9990", "EN-4651c537a506e6fd"],
+      "scope": "Decoded specification result under its explicit hypotheses; no production ABI, byte-layout, cryptographic or DAO-attribution conformance is implied."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.TrustedSnapshot",
+      "declaration": "Etna.Design.UntrustedRollback.untrusted_rollback_not_trusted",
+      "type": "¬ Etna.Design.SigningEscrow.SnapshotTrusted Etna.Design.UntrustedRollback.rulesD.consensus Etna.Design.UntrustedRollback.worldD",
+      "assumptions": [
+        "Concrete witness World of the untrusted-rollback counterexample."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-d04a236579cc9990"],
+      "scope": "Regression: the untrusted rollback (slot 284 = 1000, cutoff 12) violates SnapshotTrusted."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.TrustedSnapshot",
+      "declaration": "Etna.Design.UntrustedRollback.initialized_snapshot_trusted",
+      "type": "Etna.Design.SigningEscrow.SnapshotTrusted Etna.Design.UntrustedRollback.rulesD.consensus Etna.Design.NonVacuity.world0",
+      "assumptions": [
+        "Concrete initialized World of the non-vacuity deployment."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-d04a236579cc9990"],
+      "scope": "Regression: SnapshotTrusted is satisfiable; the initialized World's slot 284 equals the genesis cutoff."
     }
   ]
 }

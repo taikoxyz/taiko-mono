@@ -23,6 +23,7 @@ import EtnaModel.SigningEscrow
 import EtnaModel.SigningBridge
 import EtnaModel.BackPressure
 import EtnaModel.RoundSafety
+import EtnaModel.TrustedSnapshot
 
 /-! Etna model: the definitions, structures and transitions the claims and proofs are
 stated over. It holds no theorems except those listed in `scripts/check_imports.py`. -/
