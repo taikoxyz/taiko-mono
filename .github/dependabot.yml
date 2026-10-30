@@ -45,7 +45,10 @@ updates:
   # GitHub Actions
   # ---------------------------------------------------------------------------
   - package-ecosystem: "github-actions"
-    directory: "/"
+    # "/" covers .github/workflows; composite actions need their own directories.
+    directories:
+      - "/"
+      - "/.github/actions/*"
     schedule:
       interval: "monthly"
       day: "saturday"
