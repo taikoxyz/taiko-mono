@@ -1,13 +1,44 @@
-# Etna PoS + ZK design specification
+# Etna
 
-- [SPEC.md](SPEC.md): the design specification, sections 1–12 and appendices A–C.
-- [ACCEPTANCE.md](ACCEPTANCE.md): the acceptance and launch checklist.
+The Etna fork includes two designs, both in this directory:
 
-In Etna, a committee of TAIKO stakers produces blocks with stock CometBFT and
-finalizes them instantly; anyone can land a proven batch on L1, and funds on L1
-recognize only landed checkpoints. The target is Stage 0.
+- **Anchorless blocks**: L2 blocks carry no anchor transaction. Each block
+  header commits to its L1 anchor block instead: the anchor block's execution
+  state root in `parentBeaconBlockRoot` and its number in `extraData`.
+- **PoS + ZK**: a committee of TAIKO stakers produces blocks with stock CometBFT
+  and finalizes them instantly; anyone can land a proven batch on L1, and funds
+  on L1 recognize only landed checkpoints. The target is Stage 0.
 
-## Reading map
+| File                           | Contents                                                                          |
+| ------------------------------ | --------------------------------------------------------------------------------- |
+| [ANCHORLESS.md](ANCHORLESS.md) | The anchorless design: header, contract changes, fork and upgrade order           |
+| [SPEC.md](SPEC.md)             | The PoS + ZK design specification, sections 1–12 and appendices A–C               |
+| [ACCEPTANCE.md](ACCEPTANCE.md) | The acceptance and launch checklist for SPEC.md                                   |
+| [rules/](rules/README.md)      | Stable rule references for SPEC.md, with vectors and review questions             |
+| [CLAUDE.md](CLAUDE.md)         | Guidance for AI agents editing SPEC.md and rules/; `AGENTS.md` is a symlink to it |
+
+The derivation rules for anchorless blocks are in
+[Derivation.md](../Derivation.md#etna-blocks-without-an-anchor-transaction).
+
+## Anchorless design
+
+| Section                                                                                     | Covers                                                                  |
+| ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| [1. The anchor transaction before Etna](ANCHORLESS.md#1-the-anchor-transaction-before-etna) | What the anchor transaction does and the parts that exist only for it   |
+| [2. Header](ANCHORLESS.md#2-header)                                                         | `parentBeaconBlockRoot` and `extraData` from Etna on, inherited anchors |
+| [3. Recording through EIP-4788](ANCHORLESS.md#3-recording-through-eip-4788)                 | How the anchor state root is recorded on L2                             |
+| [4. Bridge verification](ANCHORLESS.md#4-bridge-verification)                               | `Anchor.getL1StateRoot` and `SignalServiceL2`                           |
+| [5. Liveness](ANCHORLESS.md#5-liveness)                                                     | Why recent roots are always available                                   |
+| [6. Why the state root](ANCHORLESS.md#6-why-the-state-root-rather-than-the-block-hash)      | State root versus block hash in the header                              |
+| [7. EIP-4788 and EIP-2935 on L2](ANCHORLESS.md#7-prerequisite-eip-4788-and-eip-2935-on-l2)  | Deploying the system contracts before the fork                          |
+| [8. Fork and migration](ANCHORLESS.md#8-fork-and-migration)                                 | Activation, the `anchorV4` gate, checkpoints and the upgrade order      |
+| [9. Changes by component](ANCHORLESS.md#9-changes-by-component)                             | Contracts, execution engines, clients, provers, relayer and other tools |
+| [10. Security considerations](ANCHORLESS.md#10-security-considerations)                     | Root authentication, proof checks and the fork boundary                 |
+| [11. Open questions](ANCHORLESS.md#11-open-questions)                                       | Fork scheduling and other consumers of the anchor transaction           |
+
+## PoS + ZK design
+
+### Reading map
 
 | Section                                                                                    | Covers                                                                           |
 | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
@@ -28,7 +59,7 @@ recognize only landed checkpoints. The target is Stage 0.
 | [Appendix C: Operating funding](SPEC.md#appendix-c-operating-funding-and-cost-assumptions) | DAO operating funding and worst-case cost assumptions                            |
 | [Acceptance and launch checklist](ACCEPTANCE.md)                                           | Resource, latency and recovery acceptance, shared vectors, launch gate           |
 
-## Key review points
+### Key review points
 
 - **Consensus and signing:** stock CometBFT v0.40.0 with secp256k1eth keys, a
   signing domain bound to the deployment and recovery generation, committee
