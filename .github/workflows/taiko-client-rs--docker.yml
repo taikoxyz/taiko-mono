@@ -5,11 +5,12 @@ permissions:
 
 on:
   push:
-    branches: [main]
+    branches: [main, feat/taiko-client-rs-abci]
     tags:
       - "taiko-alethia-client-rs-v*"
     paths:
       - "packages/taiko-client-rs/**"
+      - ".github/workflows/taiko-client-rs--docker.yml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -93,6 +94,22 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           outputs: type=image,name=${{ env.REGISTRY_IMAGE
             }},push-by-digest=true,name-canonical=true,push=true
+
+      # Reject mixed/wrong ELF architectures even when QEMU makes them runnable.
+      # Every matrix runner checks its just-built immutable image before its
+      # digest is eligible for the human-facing multiarch manifest/tag.
+      - name: Verify native runtime image
+        env:
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+          EXPECTED_PLATFORM: ${{ matrix.platform }}
+        run: |
+          image="${REGISTRY_IMAGE}@${IMAGE_DIGEST}"
+          docker run --rm --network none --platform "$EXPECTED_PLATFORM" "$image" --help
+          docker run --rm --network none --platform "$EXPECTED_PLATFORM" \
+            --env ETNA_EXPECTED_PLATFORM="$EXPECTED_PLATFORM" \
+            --entrypoint python3 \
+            -v "$GITHUB_WORKSPACE/packages/taiko-client-rs/tests:/app/tests:ro" \
+            "$image" /app/tests/runtime_image_test.py
 
       - name: Export digest
         run: |

@@ -13,34 +13,46 @@ rust-version.workspace = true
 # async
 tokio = { workspace = true }
 
+# ethereum
+alloy-primitives = { workspace = true }
+alloy-provider = { workspace = true }
+
 # cli
 clap = { workspace = true }
 
 # observability
-alloy-primitives = { workspace = true, default-features = false }
 async-trait = { workspace = true }
 axum = { workspace = true }
-metrics-exporter-prometheus = { version = "0.16", default-features = false }
 once_cell = { workspace = true }
 prometheus = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 # taiko
-driver = { path = "../../crates/driver" }
-proposer = { path = "../../crates/proposer" }
-protocol = { path = "../../crates/protocol" }
+abci = { path = "../../crates/abci" }
+lander = { path = "../../crates/lander" }
 rpc = { path = "../../crates/rpc" }
-whitelist-preconfirmation-driver = { path = "../../crates/whitelist-preconfirmation-driver" }
 
 # types
 thiserror = { workspace = true }
+toml = { workspace = true }
 url = { workspace = true }
 
 [dev-dependencies]
+alloy = { workspace = true, features = ["std", "sol-types", "contract", "providers", "rpc-types", "json-abi"] }
 alloy-consensus = { workspace = true }
-alloy-rpc-types-eth = { workspace = true }
+alloy-eips = { workspace = true }
+anyhow = { workspace = true }
+base64 = { workspace = true }
 http-body-util = { workspace = true }
 libc = "0.2"
-metrics = "0.24"
+prost = { workspace = true }
+protocol = { path = "../../crates/protocol", default-features = false }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+tempfile = { workspace = true }
+tendermint = { workspace = true }
+tendermint-proto = { workspace = true }
+test-harness = { path = "../../crates/test-harness" }
+tokio = { workspace = true, features = ["test-util"] }
 tower = { workspace = true }

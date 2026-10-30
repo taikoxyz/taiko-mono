@@ -1,6 +1,8 @@
 # Pass recipe arguments through as real positional args ($@) instead of a
 # space-joined string, so forwarded values keep their quoting (e.g.
-# `just test -E 'test(some_name)'` reaches nextest as two intact args).
+# `-E 'test(a) | test(b)'` reaches nextest as two intact args). Note that nextest
+# ORs an extra `-E` with a recipe's own `-E` filterset, while a bare test-name
+# filter (`just test restart`) is ANDed with it.
 set positional-arguments := true
 
 fmt_toolchain := "nightly-2025-09-27"
@@ -33,16 +35,71 @@ udeps:
   rustup toolchain install {{udeps_toolchain}} --profile minimal && \
   cargo +{{udeps_toolchain}} udeps --all-targets
 
+# The docker scenarios (`#[ignore = "docker"]`), one at a time; each boots its own
+# anvil + alethia-reth + CometBFT devnet. Needs a running docker daemon. This is the
+# pull-request tier: it leaves the slowest scenario (the L1 finality stall) to `test-full`.
+# Extra args are forwarded to nextest (e.g. `just test restart` runs one scenario).
 test *ARGS:
   ./tests/entrypoint.sh "$@"
 
-# Unit tests only (everything outside `tests/` dirs): no docker env, no contract
-# deploy — sub-minute feedback. The protocol pass also compiles and runs its tests
-# without default features so test-only feature leaks stay covered in CI.
-# Extra args are forwarded to nextest.
+# Every docker scenario, including the slow one `test` skips. CI runs it on main,
+# nightly and on manual dispatch; `verify` runs it locally. Extra args go to nextest.
+test-full *ARGS:
+  ./tests/entrypoint.sh --full "$@"
+
+# Fast tests: unit tests, CLI parser/process tests and abci's Etna conformance vectors
+# (crates/abci/tests/etna_conformance.rs), with no docker. Only those targets are built, so
+# the docker-only integration binaries stay out of this lane. Without
+# extra args, lander's lib tests run in one `cargo test` process instead of one process per
+# test: each process would otherwise rebuild the KZG trusted setup, which dominates their
+# time. The protocol pass also compiles and runs its tests without default features so
+# test-only feature leaks stay covered in CI; it has no filterset, so it also runs protocol's
+# (docker-free) integration binary. nextest skips doctests, so abci's (e.g. its
+# `compile_fail` checks) run in a last `cargo test --doc` pass. Extra args are forwarded to
+# nextest, which then runs lander's lib tests too.
 unit *ARGS:
-  cargo nextest run --workspace --exclude bindings --all-features -E '!kind(test)' "$@" && \
+  #!/usr/bin/env bash
+  set -euo pipefail
+  targets=(--workspace --exclude bindings --all-features --lib --bins --test native_cli --test etna_conformance)
+  if [[ $# -eq 0 ]]; then
+    cargo nextest run "${targets[@]}" -E '!(package(lander) & kind(lib))'
+    cargo test -p lander --all-features --lib
+  else
+    cargo nextest run "${targets[@]}" "$@"
+  fi
   cargo nextest run -p protocol --no-default-features "$@"
+  cargo test -p abci --doc
+
+# Four representative Docker scenarios for local iteration. Use `test` for subsets
+# or output arguments; this named tier deliberately accepts no extra filters.
+test-smoke:
+  ./tests/entrypoint.sh --smoke
+
+# Complete merge gate; smoke never substitutes for the full Docker suite.
+verify:
+  just signer-test && just supervisor-test && just fmt-check && just clippy && just unit && just check-lander-artifacts && just test-full
 
 gen_bindings:
   ./script/gen_bindings.sh
+
+# Regenerates the lander contract fixtures, the IEtnaInbox copy and the shared Etna vectors
+# (testdata/etna_vectors) from the pinned protocol revision in a temporary git worktree and fails
+# unless they equal the committed files. Needs a Foundry build of the fixtures' commit, pnpm,
+# python3 and network access for `pnpm install` (see script/check_lander_artifacts.sh).
+check-lander-artifacts:
+  ./script/check_lander_artifacts.sh
+
+# Official CometBFT FilePV signing helper, built for this host and pinned to Go 1.27.2.
+signer:
+  bash ./script/build_etna_signer.sh
+
+signer-test:
+  cd tools/etna-signer && go test -mod=readonly -race ./...
+
+# Lifecycle regression with real child processes and private observation sockets.
+supervisor-test:
+  python3 tests/supervisor_test.py
+
+# Build runtime-tools (repository-root context) or use the final client image before this smoke.
+runtime-image-test image platform:
+  docker run --rm --platform {{platform}} -e ETNA_EXPECTED_PLATFORM={{platform}} --network none --entrypoint python3 -v "$PWD/tests:/app/tests:ro" {{image}} /app/tests/runtime_image_test.py

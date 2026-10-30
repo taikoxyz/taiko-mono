@@ -2,20 +2,21 @@
 //!
 //! This module provides the main CLI structure and command dispatch logic.
 //! It parses command-line arguments using `clap` and routes to the appropriate
-//! subcommand handler (proposer, driver, or whitelist preconfirmation driver), which then runs
-//! until it finishes or the process receives SIGINT or SIGTERM.
+//! subcommand handler (`abci`, `abci-genesis`, `abci-committee-record` or `lander`), which then
+//! runs until it finishes or the process receives SIGINT or SIGTERM.
 
 use std::{future::Future, time::Duration};
 
-use crate::error::{CliError, Result};
+use crate::{
+    commands::{
+        abci::AbciSubCommand, abci_committee_record::AbciCommitteeRecordSubCommand,
+        abci_genesis::AbciGenesisSubCommand, lander::LanderSubCommand,
+    },
+    error::{CliError, Result},
+};
 use clap::{Parser, Subcommand};
 use tokio::runtime::{Builder, Runtime};
 use tracing::info;
-
-use crate::commands::{
-    driver::DriverSubCommand, proposer::ProposerSubCommand,
-    whitelist_preconfirmation_driver::WhitelistPreconfirmationDriverSubCommand,
-};
 
 /// Upper bound on how long runtime shutdown waits for in-flight tasks after the subcommand has
 /// returned or been stopped by a shutdown signal, so a stuck task cannot keep the process alive.
@@ -24,12 +25,14 @@ const RUNTIME_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(10);
 /// Subcommands for the CLI.
 #[derive(Debug, Clone, Subcommand)]
 pub enum Commands {
-    /// Run the proposer.
-    Proposer(Box<ProposerSubCommand>),
-    /// Run the driver.
-    Driver(Box<DriverSubCommand>),
-    /// Run the whitelist preconfirmation driver with whitelist P2P protocol.
-    WhitelistPreconfirmationDriver(Box<WhitelistPreconfirmationDriverSubCommand>),
+    /// Run the ABCI++ application of the Etna PoS chain for CometBFT.
+    Abci(Box<AbciSubCommand>),
+    /// Run the permissionless Etna lander with the dummy proof provider.
+    Lander(Box<LanderSubCommand>),
+    /// Write the CometBFT genesis.json of the Etna PoS chain from the L1 genesis record.
+    AbciGenesis(Box<AbciGenesisSubCommand>),
+    /// Compute the committeeRecordHash an Etna genesis takes for a genesis cutoff.
+    AbciCommitteeRecord(Box<AbciCommitteeRecordSubCommand>),
 }
 
 #[derive(Parser, Clone, Debug)]
@@ -45,9 +48,10 @@ impl Cli {
     /// Run the subcommand.
     pub fn run(self) -> Result<()> {
         match self.subcommand {
-            Commands::Proposer(proposer_cmd) => Self::run_until_shutdown(proposer_cmd.run()),
-            Commands::Driver(driver_cmd) => Self::run_until_shutdown(driver_cmd.run()),
-            Commands::WhitelistPreconfirmationDriver(cmd) => Self::run_until_shutdown(cmd.run()),
+            Commands::Abci(cmd) => Self::run_until_shutdown(cmd.run()),
+            Commands::Lander(cmd) => Self::run_until_shutdown(cmd.run()),
+            Commands::AbciGenesis(cmd) => Self::run_one_shot(cmd.run()),
+            Commands::AbciCommitteeRecord(cmd) => Self::run_one_shot(cmd.run()),
         }
     }
 
@@ -67,6 +71,25 @@ impl Cli {
     {
         let runtime = Self::tokio_runtime()?;
         let result = runtime.block_on(run_until_signal(fut, shutdown_signal()));
+        runtime.shutdown_timeout(RUNTIME_SHUTDOWN_TIMEOUT);
+        result
+    }
+
+    /// Run an output-producing command, reporting interruption as failure rather than
+    /// successful completion with a missing genesis file or committee report.
+    fn run_one_shot<F>(fut: F) -> Result<()>
+    where
+        F: Future<Output = Result<()>>,
+    {
+        let runtime = Self::tokio_runtime()?;
+        let shutdown = async {
+            let signal = shutdown_signal().await?;
+            Err(CliError::Runtime(std::io::Error::new(
+                std::io::ErrorKind::Interrupted,
+                format!("one-shot command interrupted by {signal}"),
+            )))
+        };
+        let result = runtime.block_on(run_until_signal(fut, shutdown));
         runtime.shutdown_timeout(RUNTIME_SHUTDOWN_TIMEOUT);
         result
     }
@@ -156,10 +179,10 @@ mod tests {
 
     #[tokio::test]
     async fn returns_subcommand_result_when_no_signal_arrives() {
-        let result =
-            run_until_signal(async { Err(CliError::InvalidL1EndpointConfig) }, pending()).await;
+        let failed = async { Err(CliError::Runtime(std::io::Error::other("boom"))) };
+        let result = run_until_signal(failed, pending()).await;
 
-        assert!(matches!(result, Err(CliError::InvalidL1EndpointConfig)));
+        assert!(matches!(result, Err(CliError::Runtime(_))));
     }
 
     #[tokio::test]

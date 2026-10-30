@@ -36,8 +36,9 @@ regexes = [
   # Committed to contracts/bindings by design (see struct.go GoldenTouchPrivKey).
   '''(0x)?92954368afd3caa1f3ce3ead0069c1af414054aefe1ef9aeacc1bf426222ce38''',
 
-  # Unit-test fixture key in whitelist-preconfirmation-driver: exists only to
-  # assert the key is redacted from Debug output (network_config_debug_does_not_include_raw_key).
+  # Unit-test fixture key of taiko-client-rs's removed whitelist-preconfirmation-driver
+  # crate; it stays in git history, which the push and weekly scans walk. It existed only
+  # to assert the key is redacted from Debug output (network_config_debug_does_not_include_raw_key).
   '''(0x)?1875af8dad47674dd6897fb7bcdc1ba872144914082e02dace98dcf2ba16aa8d''',
 
   # Go type reference, not a value — the default generic-api-key rule matches the identifier.
@@ -94,3 +95,27 @@ regexes = ['''^[a-fA-F0-9]{64}$''']
 paths = [
   '''^packages/protocol/docs/preconfirmation-v2/.*''',
 ]
+
+# Etna vectors: public keccak digests and the 33-byte compressed secp256k1 public keys
+# (0x02/0x03 + 64 hex) of fixed test scalars. Narrowed like the entry above: generic-api-key
+# only, and only bare hex of exactly those two shapes, in these generated vector files.
+# Entries match by path and value, not by commit, so they survive rebases and squash merges.
+[[allowlists]]
+description = "Etna vectors: public hashes and compressed public keys"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexes = ['''^(0x)?(0[23])?[a-fA-F0-9]{64}$''']
+paths = [
+  '''^testdata/etna_vectors/vectors\.json$''',
+  '''^packages/taiko-client-rs/crates/abci/testdata/(v1-vectors|comet-wire)\.json$''',
+]
+
+# The public CometBFT chain ID of the lander's consensus test chain (`taiko-etna-<id>-g<n>`),
+# which older commits pass as a string literal. It names a test chain; it is not a key.
+# generic-api-key only, and only that exact shape, in this one file.
+[[allowlists]]
+description = "Etna test CometBFT chain ID"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexes = ['''^taiko-etna-[0-9]+-g[0-9]+$''']
+paths = ['''^packages/taiko-client-rs/crates/lander/src/test_utils/consensus_mpt\.rs$''']

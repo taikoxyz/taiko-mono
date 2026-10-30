@@ -20,23 +20,17 @@ to F9 transaction-field cases, not malformed network framing. Only F9 cases reco
 `engine_decodable`; other families make no engine-decoding claim. Tests exercise forced-source cardinality
 separately because it is proposal metadata, not part of the manifest payload.
 
-## Local driver/engine verification
+## Consumers
 
-From packages/taiko-client-rs, run:
+Two unit-test suites read `manifest_cases.json`; neither needs Docker or a running node:
 
-    bash script/test_derivation_parity.sh
+- Go: `packages/taiko-client/driver/chain_syncer/event/derivation/source_manifest_vectors_test.go`.
+  From `packages/taiko-client`, run
+  `go test ./driver/chain_syncer/event/derivation -run TestManifestVectors`.
+- Rust: `packages/taiko-client-rs/crates/protocol/src/shasta/manifest_vectors.rs`, whose
+  `f9_engine_encoding_oracle` checks each F9 `engine_decodable` claim against alethia-reth's
+  transaction-list decoder. From `packages/taiko-client-rs`, run
+  `cargo nextest run -p protocol manifest_vectors` (also part of `just unit`).
 
-This builds the Go driver and uses the existing Docker harness's two reth nodes.
-Both drivers consume the same L1 proposals and sidecars. The test compares pinned
-block hashes, ordered transaction bytes and successful anchor receipts, then submits
-a subsequent normal proposal. Proposal metadata is generated from the current test
-chain before inserting malformed encodings so metadata fallback cannot mask the bug.
-
-The explicitly selected test fails if its Go binary is unavailable. Ordinary Rust
-test runs leave it ignored because it additionally needs Go. The script refuses to
-reuse running harness containers. TAIKO_GO_DRIVER_BIN and DERIVATION_PARITY_CASES
-can select an existing binary and a comma-separated case sequence for failure controls.
-The signed control and forced-source counterexample share a nonce-zero transaction.
-Run `signed_control` at most once and after every `forced_type2_parity_2` case;
-invalid custom ordering is rejected before either driver starts.
-Use only local disposable test chains.
+No end-to-end driver/engine parity run remains: the script that compared the Go and Rust
+drivers over the Docker harness was removed together with the Rust client's Shasta paths.

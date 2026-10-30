@@ -16,6 +16,24 @@ pub enum ProtocolError {
     /// Invalid payload format
     #[error("invalid payload format: {0}")]
     InvalidPayload(String),
+
+    /// A number does not fit the 6-byte big-endian `uint48` field of the Etna `extraData`.
+    #[error("Etna extraData field {field} value {value} does not fit in uint48")]
+    EtnaExtraDataFieldOverflow {
+        /// Name of the overflowing field (`proposal_id` or `anchor_block_number`).
+        field: &'static str,
+        /// Rejected value.
+        value: u64,
+    },
+
+    /// A non-genesis Etna block's `extraData` is not exactly 13 bytes long.
+    #[error("Etna block {block_number} has {length}-byte extraData, expected 13 bytes")]
+    InvalidEtnaExtraDataLength {
+        /// Number of the block whose `extraData` was decoded.
+        block_number: u64,
+        /// Length of the rejected `extraData`.
+        length: usize,
+    },
 }
 
 /// Result type alias for fork configuration lookups.

@@ -1,32 +1,52 @@
-//! Shared test utilities for Taiko workspace integration tests.
+//! Docker devnet harness for the Etna PoS `abci` app.
 //!
-//! This crate provides common utilities used across multiple test crates:
+//! [`Devnet::start`] boots one throw-away devnet per test: an anvil L1, one alethia-reth EL and
+//! one CometBFT node per validator (docker containers on a private network, host ports chosen by
+//! docker), and one in-process `abci` app per validator that its CometBFT node reaches through
+//! `host.docker.internal`; each app runs on its own OS thread and tokio runtime, so a test can
+//! stop it completely and start it again ([`Devnet::app_stop`], [`Devnet::app_start`]). Controlled
+//! shutdown uses [`Devnet::node_stop`]: Comet first, then the app, with bounded forced reaping.
+//! An app-only crash does not guarantee that CometBFT's shutdown finishes. Before
+//! the apps start it plants an initialized Inbox and a staking registry into anvil with
+//! [`Planter`] and builds the CometBFT genesis from that L1 state with `abci::build_genesis`. A
+//! background fake lander advances only `lastCheckpoint` behind the chain; autonomous committee
+//! activation needs no publication, while paused settlement still exercises back-pressure.
+//! Scenarios plant calldata forced inclusion entries with their admission events
+//! ([`Planter::plant_forced_transaction`]).
 //!
-//! ## Core Utilities
-//! - [`ShastaEnv`]: Test environment with L1/L2 providers and contract addresses.
-//! - [`BeaconStubServer`]: A stub beacon server for tests.
+//! Awaiting [`Devnet::stop`] stops each Comet/app pair before removing every container. Dropping
+//! a [`Devnet`] force-cleans the owned resources. Both remove the containers and network and
+//! delete the temporary directories. Dropping it without a successful
+//! [`Devnet::stop`] (a scenario that panics or returns an error) first prints each app's halt
+//! reason and the tail of every container's log, as does a failed [`Devnet::wait_for_height`].
 
-use std::sync::OnceLock;
+mod anvil;
+mod app;
+mod boot;
+mod cleanup;
+mod cometbft;
+mod consensus;
+mod devnet;
+mod docker;
+pub mod genesis;
+mod keys;
+mod l1;
+mod l2;
+mod lander;
+mod planter;
+mod signer;
+mod wait;
 
-use tracing_subscriber::EnvFilter;
+pub use anvil::StandaloneAnvil;
+pub use cometbft::{CmtClient, CmtStatus, CmtValidator};
+pub use consensus::ContractConsensus;
+pub use devnet::{Devnet, DevnetSpec, init_tracing};
+pub use genesis::{EtnaGenesis, StandaloneReth};
+pub use keys::{NodeKey, ValidatorKey, node_keys, validator_keys};
+pub use l1::{anvil_request, block_number, finalized_number, mine_l1_blocks, set_interval_mining};
+pub use l2::{DEV_KEY, anchor_of, dev_signer, extra_data_of, send_transfer, sign_transfer};
+pub use planter::{InboxValues, NextBlock, PlantedEntry, Planter, registry_entry};
+pub use wait::{Fatal, wait_until};
 
-mod beacon_stub;
-mod helper;
-pub mod shasta;
-
-pub use beacon_stub::BeaconStubServer;
-pub use helper::mine_l1_block;
-pub use shasta::{env::ShastaEnv, helpers::verify_anchor_block};
-
-/// Initialise tracing for tests using a single global subscriber.
-///
-/// The `default_filter` is used when the `RUST_LOG` environment variable is not set.
-pub(crate) fn init_tracing(default_filter: &str) {
-    static INIT: OnceLock<()> = OnceLock::new();
-
-    INIT.get_or_init(|| {
-        let env_filter =
-            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(default_filter));
-        let _ = tracing_subscriber::fmt().with_env_filter(env_filter).try_init();
-    });
-}
+/// Explicitly unavailable EL for tests that must never require execution evidence.
+pub mod unavailable_engine;

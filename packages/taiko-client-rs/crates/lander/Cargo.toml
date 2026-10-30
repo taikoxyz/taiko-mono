@@ -1,0 +1,45 @@
+[package]
+name = "lander"
+version.workspace = true
+description = "Permissionless Etna batch landing and dummy proof integration"
+edition.workspace = true
+publish = false
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+abci = { path = "../abci" }
+alloy = { workspace = true, features = ["std", "sol-types", "contract", "providers", "rpc-types", "signer-local"] }
+alloy-consensus = { workspace = true, features = ["k256"] }
+alloy-eips = { workspace = true, features = ["std", "serde", "kzg"] }
+alloy-primitives = { workspace = true, features = ["std", "serde", "rlp"] }
+alloy-provider = { workspace = true }
+alloy-rlp = { workspace = true, features = ["std", "derive"] }
+alloy-rpc-types = { workspace = true }
+async-trait = { workspace = true }
+base64 = { workspace = true }
+flate2 = { workspace = true }
+futures = { workspace = true }
+libz-sys = { workspace = true }
+prometheus = { workspace = true }
+prost = { workspace = true }
+protocol = { path = "../protocol", default-features = false }
+reqwest = { workspace = true, features = ["stream"] }
+rpc = { path = "../rpc" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+tendermint = { workspace = true }
+tendermint-proto = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+url = { workspace = true }
+
+[dev-dependencies]
+alloy-trie = { workspace = true, features = ["std", "ethereum"] }
+anyhow = { workspace = true }
+proptest = { workspace = true }
+tempfile = { workspace = true }
+test-harness = { path = "../test-harness" }
+tokio = { workspace = true, features = ["test-util"] }
