@@ -138,10 +138,6 @@ func updateProvingMetrics(proofType ProofType, requestAt time.Time, isAggregatio
 			metrics.ProverSGXAggregationGenerationTime.Set(generationTime)
 			metrics.ProverSGXAggregationGenerationTimeSum.Add(generationTime)
 			metrics.ProverSgxProofAggregationGeneratedCounter.Add(1)
-		case ProofTypeZKR0:
-			metrics.ProverR0AggregationGenerationTime.Set(generationTime)
-			metrics.ProverR0AggregationGenerationTimeSum.Add(generationTime)
-			metrics.ProverR0ProofAggregationGeneratedCounter.Add(1)
 		case ProofTypeZKSP1:
 			metrics.ProverSP1AggregationGenerationTime.Set(generationTime)
 			metrics.ProverSP1AggregationGenerationTimeSum.Add(generationTime)
@@ -161,10 +157,6 @@ func updateProvingMetrics(proofType ProofType, requestAt time.Time, isAggregatio
 			metrics.ProverSgxProofGenerationTime.Set(generationTime)
 			metrics.ProverSgxProofGenerationTimeSum.Add(generationTime)
 			metrics.ProverSgxProofGeneratedCounter.Add(1)
-		case ProofTypeZKR0:
-			metrics.ProverR0ProofGenerationTime.Set(generationTime)
-			metrics.ProverR0ProofGenerationTimeSum.Add(generationTime)
-			metrics.ProverR0ProofGeneratedCounter.Add(1)
 		case ProofTypeZKSP1:
 			metrics.ProverSP1ProofGenerationTime.Set(generationTime)
 			metrics.ProverSP1ProofGenerationTimeSum.Add(generationTime)

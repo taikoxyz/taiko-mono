@@ -17,23 +17,15 @@ func TestVerifierIDsByProofTypeUsesSGXRethVerifierID(t *testing.T) {
 }
 
 func TestEnabledProofTypes(t *testing.T) {
-	t.Run("default supports RISC0 and SP1", func(t *testing.T) {
+	t.Run("default supports SP1", func(t *testing.T) {
 		require.Equal(
 			t,
-			[]producer.ProofType{producer.ProofTypeZKR0, producer.ProofTypeZKSP1},
-			enabledProofTypes(false, false),
+			[]producer.ProofType{producer.ProofTypeZKSP1},
+			enabledProofTypes(false),
 		)
 	})
 
-	t.Run("force SGX replaces RISC0 and SP1 selection", func(t *testing.T) {
-		require.Equal(t, []producer.ProofType{producer.ProofTypeSgx}, enabledProofTypes(true, false))
-	})
-
-	t.Run("ZK-only takes precedence over force SGX", func(t *testing.T) {
-		require.Equal(
-			t,
-			[]producer.ProofType{producer.ProofTypeZKR0, producer.ProofTypeZKSP1},
-			enabledProofTypes(true, true),
-		)
+	t.Run("force SGX selects SGX", func(t *testing.T) {
+		require.Equal(t, []producer.ProofType{producer.ProofTypeSgx}, enabledProofTypes(true))
 	})
 }

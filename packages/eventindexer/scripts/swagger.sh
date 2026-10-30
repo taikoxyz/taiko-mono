@@ -1,3 +1,4 @@
-#/bin/sh
+#!/bin/sh
+set -eu
 
-swag init -g server.go -d pkg/http --parseDependency 
+go run github.com/swaggo/swag/cmd/swag init -g server.go -d pkg/http --parseDependency

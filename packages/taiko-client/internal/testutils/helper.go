@@ -262,8 +262,10 @@ func RandomPort() int {
 	return port
 }
 
-// AssembleAndSendTestTx assembles a test transaction, and sends it to the given node.
-func AssembleAndSendTestTx(
+// AssembleTestTx assembles and signs a test transaction without sending it.
+// Use it when the transaction goes straight into a derivation source manifest,
+// so the test does not depend on what other tests left in the L2 txpool.
+func AssembleTestTx(
 	client *rpc.EthClient,
 	key *ecdsa.PrivateKey,
 	nonce uint64,
@@ -276,7 +278,7 @@ func AssembleAndSendTestTx(
 		return nil, err
 	}
 
-	tx, err := auth.Signer(auth.From, types.NewTx(&types.DynamicFeeTx{
+	return auth.Signer(auth.From, types.NewTx(&types.DynamicFeeTx{
 		To:        to,
 		Nonce:     nonce,
 		Value:     value,
@@ -285,6 +287,18 @@ func AssembleAndSendTestTx(
 		Gas:       2_100_000,
 		Data:      data,
 	}))
+}
+
+// AssembleAndSendTestTx assembles a test transaction, and sends it to the given node.
+func AssembleAndSendTestTx(
+	client *rpc.EthClient,
+	key *ecdsa.PrivateKey,
+	nonce uint64,
+	to *common.Address,
+	value *big.Int,
+	data []byte,
+) (*types.Transaction, error) {
+	tx, err := AssembleTestTx(client, key, nonce, to, value, data)
 	if err != nil {
 		return nil, err
 	}

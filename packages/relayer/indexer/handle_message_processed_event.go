@@ -65,10 +65,9 @@ func (i *Indexer) handleMessageProcessedEvent(
 		return nil
 	}
 
-	// if the message is not status new, and we are iterating crawling past blocks,
-	// we also dont want to handle this event. it has already been handled.
+	// Crawl mode only reprocesses MessageSent events, so it skips all
+	// MessageProcessed events regardless of their status.
 	if i.watchMode == CrawlPastBlocks {
-		// we can return early, this message has been processed as expected.
 		return nil
 	}
 
