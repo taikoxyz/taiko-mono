@@ -53,11 +53,13 @@ jobs:
     # Explicit, so a future change to the gate (e.g. continue-on-error) can never let this job run unchecked.
     if: needs.gate.result == 'success'
     runs-on: ubuntu-latest
+    # Review-only: read the checkout, comment on the PR. No contents: write and no id-token: write,
+    # because the action is given this job's token below instead of minting a Claude App token
+    # (which always carries contents: write).
     permissions:
-      contents: write
+      contents: read
       pull-requests: write
-      issues: write
-      id-token: write
+      issues: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -68,47 +70,55 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Setup Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
-        with:
-          node-version: "22.23.4"
-
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@8041f1d17e0e7d2f2cfe35002962e9f26237c0bb # v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # SECURITY: use the job's least-privilege token rather than the Claude App token.
+          github_token: ${{ github.token }}
           track_progress: true
           prompt: |
-            Perform a comprehensive code review of the changes in this pull request.
+            Perform a code review of the changes in this pull request. This is a review only:
+            do not modify files, run builds or tests, commit, push, or open pull requests.
 
-            For protocol(smart contract) changes always start in the `packages/protocol` directory.
-            You MUST run `pnpm install --ignore-scripts` first for security (prevents malicious lifecycle scripts).
-            You MUST follow the development workflow described in CLAUDE.md.
-            You MUST make sure the tests are passing before creating a pull request.
-            You MUST open a draft pull request after creating a branch.
-            You MUST create a pull request after completing your task.
-            You can create pull requests using the `mcp__github__create_pull_request` tool.
+            Use `gh pr diff` and `gh pr view` to see the changes, and the Read, Grep and Glob tools to
+            inspect the surrounding code. For protocol (smart contract) changes, start in the
+            `packages/protocol` directory and read its CLAUDE.md for the conventions to review against.
 
-            Use top-level comments for the review. Leave out sections that have no relevance, for example if it is a documentation change testing may be irrelevant.
-            Be constructive and helpful in your feedback. Don't be overly polite or verbose, be direct.
-          # Tools for comprehensive PR review
+            Use top-level comments for the review and inline comments for specific lines. Leave out
+            sections that have no relevance, for example testing for a documentation-only change.
+            Be constructive and direct; don't be overly polite or verbose.
+          # Read-only review tools. No shell beyond the gh PR commands: anything that runs code from
+          # the PR (pnpm scripts, find -exec, ...) would run next to ANTHROPIC_API_KEY.
+          # Tag mode (track_progress) also grants edit and git commit/push tools; they are denied here,
+          # and any push left (the action's git-push wrapper) fails on the contents: read token.
+          # --setting-sources user: --allowedTools only adds approvals, and the action loads user,
+          # project and local settings by default. The repo's .claude/settings.json (restored from the
+          # PR base) allows go/forge/pnpm tests, git, rm and WebFetch, so project and local settings
+          # are excluded; user settings are the ones the action writes (enableAllProjectMcpServers only).
           claude_args: |
+            --setting-sources user
             --allowedTools "
+              Read,
+              Grep,
+              Glob,
               mcp__github_inline_comment__create_inline_comment,
               Bash(gh pr comment:*),
               Bash(gh pr diff:*),
               Bash(gh pr view:*),
-              Bash(pnpm install --ignore-scripts),
-              Bash(pnpm test:*),
-              Bash(pnpm fmt:sol),
-              Bash(pnpm snapshot:*),
-              Bash(pnpm compile:*),
-              Bash(pnpm layout:*),
-              Bash(cat *),
-              Bash(find *),
-              Bash(grep *),
-              Bash(ls *),
               WebFetch(domain:docs.anthropic.com)
+            "
+            --disallowedTools "
+              Edit,
+              MultiEdit,
+              Write,
+              NotebookEdit,
+              Bash(git add:*),
+              Bash(git commit:*),
+              Bash(git push:*),
+              Bash(git rm:*),
+              mcp__github_file_ops__commit_files,
+              mcp__github_file_ops__delete_files
             "
           use_sticky_comment: true
