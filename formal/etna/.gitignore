@@ -1,0 +1,6 @@
+.lake/
+.scratch/
+__pycache__/
+
+*.olean
+*.ilean

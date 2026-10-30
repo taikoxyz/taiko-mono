@@ -1,0 +1,783 @@
+{
+  "schema": "etna-client-conformance-1",
+  "family": "schedule",
+  "generator": "formal/etna: lake exe etna-vectors --write testdata/etna_conformance",
+  "contexts": [
+    {
+      "name": "rotation",
+      "epochLen": 3,
+      "originBlock": 100,
+      "genesisCutoff": 90,
+      "unit": 1000,
+      "minimum": 1000,
+      "nMax": 2,
+      "snapshots": [
+        {"block": 85, "entries": [{"key": 1, "stake": 5000, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 2, "stake": 3000, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 3, "stake": 3000, "activeFrom": 95, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 4, "stake": 3000, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}]},
+        {"block": 104, "entries": [{"key": 1, "stake": 5000, "activeFrom": 80, "exitAt": 108, "staleHeartbeat": false}, {"key": 2, "stake": 2000, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 3, "stake": 3000, "activeFrom": 95, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 4, "stake": 3000, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 5, "stake": 999, "activeFrom": 100, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 6, "stake": 1000, "activeFrom": 100, "exitAt": 281474976710655, "staleHeartbeat": false}]},
+        {"block": 110, "entries": [{"key": 0, "stake": 0, "activeFrom": 0, "exitAt": 0, "staleHeartbeat": false}, {"key": 2, "stake": 2000, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 3, "stake": 3000, "activeFrom": 95, "exitAt": 115, "staleHeartbeat": false}, {"key": 4, "stake": 3000, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 5, "stake": 999, "activeFrom": 100, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 6, "stake": 1000, "activeFrom": 100, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 7, "stake": 4000, "activeFrom": 114, "exitAt": 281474976710655, "staleHeartbeat": false}]},
+        {"block": 118, "entries": [{"key": 0, "stake": 0, "activeFrom": 0, "exitAt": 0, "staleHeartbeat": false}, {"key": 0, "stake": 0, "activeFrom": 0, "exitAt": 0, "staleHeartbeat": false}, {"key": 3, "stake": 3000, "activeFrom": 95, "exitAt": 115, "staleHeartbeat": false}, {"key": 4, "stake": 3000, "activeFrom": 80, "exitAt": 119, "staleHeartbeat": false}, {"key": 5, "stake": 999, "activeFrom": 100, "exitAt": 119, "staleHeartbeat": false}, {"key": 6, "stake": 1000, "activeFrom": 100, "exitAt": 119, "staleHeartbeat": false}, {"key": 7, "stake": 4000, "activeFrom": 114, "exitAt": 120, "staleHeartbeat": false}]}
+      ],
+      "archive": [100, 102, 104, 106, 108, 110, 112, 114, 116, 118, 120, 122, 124, 126, 128, 130, 132, 134, 136, 138, 140]
+    },
+    {
+      "name": "power",
+      "epochLen": 10,
+      "originBlock": 100,
+      "genesisCutoff": 90,
+      "unit": 1000,
+      "minimum": 2500,
+      "nMax": 128,
+      "snapshots": [
+        {"block": 85, "entries": [{"key": 1, "stake": 2499, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 2, "stake": 2500, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 3, "stake": 3999, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 4, "stake": 1000000, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}]},
+        {"block": 105, "entries": [{"key": 1, "stake": 2500, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 2, "stake": 2500, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 3, "stake": 3999, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 4, "stake": 1000000, "activeFrom": 80, "exitAt": 118, "staleHeartbeat": false}]}
+      ],
+      "archive": [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140]
+    },
+    {
+      "name": "genesis-uses-genesis-cutoff",
+      "epochLen": 4,
+      "originBlock": 100,
+      "genesisCutoff": 90,
+      "unit": 1000,
+      "minimum": 1000,
+      "nMax": 128,
+      "snapshots": [
+        {"block": 85, "entries": [{"key": 1, "stake": 5000, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 2, "stake": 4000, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}]},
+        {"block": 95, "entries": [{"key": 1, "stake": 5000, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 2, "stake": 4000, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 3, "stake": 6000, "activeFrom": 95, "exitAt": 281474976710655, "staleHeartbeat": false}]}
+      ],
+      "archive": [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111]
+    },
+    {
+      "name": "switch-uses-derivation-parent-anchor",
+      "epochLen": 5,
+      "originBlock": 100,
+      "genesisCutoff": 90,
+      "unit": 1000,
+      "minimum": 1000,
+      "nMax": 128,
+      "snapshots": [
+        {"block": 85, "entries": [{"key": 1, "stake": 5000, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 2, "stake": 4000, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}]},
+        {"block": 120, "entries": [{"key": 1, "stake": 5000, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 2, "stake": 4000, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 3, "stake": 6000, "activeFrom": 120, "exitAt": 281474976710655, "staleHeartbeat": false}]}
+      ],
+      "archive": [100, 100, 100, 100, 130, 130, 130, 130, 130, 130, 130, 130, 130]
+    },
+    {
+      "name": "duplicate-eligible-key",
+      "epochLen": 3,
+      "originBlock": 100,
+      "genesisCutoff": 90,
+      "unit": 1000,
+      "minimum": 1000,
+      "nMax": 128,
+      "snapshots": [
+        {"block": 85, "entries": [{"key": 1, "stake": 5000, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 2, "stake": 3000, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 2, "stake": 2000, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}]}
+      ],
+      "archive": [100, 102, 104, 106, 108, 110, 112, 114]
+    },
+    {
+      "name": "duplicate-key-one-exited",
+      "epochLen": 3,
+      "originBlock": 100,
+      "genesisCutoff": 90,
+      "unit": 1000,
+      "minimum": 1000,
+      "nMax": 128,
+      "snapshots": [
+        {"block": 85, "entries": [{"key": 1, "stake": 5000, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 2, "stake": 3000, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 2, "stake": 2000, "activeFrom": 80, "exitAt": 50, "staleHeartbeat": false}]}
+      ],
+      "archive": [100, 102, 104, 106, 108, 110, 112, 114]
+    },
+    {
+      "name": "stale-heartbeat",
+      "epochLen": 3,
+      "originBlock": 100,
+      "genesisCutoff": 90,
+      "unit": 1000,
+      "minimum": 1000,
+      "nMax": 128,
+      "snapshots": [
+        {"block": 85, "entries": [{"key": 1, "stake": 5000, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 2, "stake": 4000, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 3, "stake": 6000, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": true}]}
+      ],
+      "archive": [100, 102, 104, 106, 108, 110, 112, 114, 116, 118, 120, 122, 124, 126, 128, 130]
+    },
+    {
+      "name": "eligibility-boundaries",
+      "epochLen": 10,
+      "originBlock": 100,
+      "genesisCutoff": 90,
+      "unit": 1000,
+      "minimum": 1000,
+      "nMax": 128,
+      "snapshots": [
+        {"block": 85, "entries": [{"key": 1, "stake": 5000, "activeFrom": 90, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 2, "stake": 5000, "activeFrom": 91, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 3, "stake": 5000, "activeFrom": 80, "exitAt": 90, "staleHeartbeat": false}, {"key": 4, "stake": 5000, "activeFrom": 80, "exitAt": 91, "staleHeartbeat": false}, {"key": 5, "stake": 1000, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 6, "stake": 999, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}]}
+      ],
+      "archive": [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111]
+    },
+    {
+      "name": "n-max-tie-by-set-key",
+      "epochLen": 10,
+      "originBlock": 100,
+      "genesisCutoff": 90,
+      "unit": 1000,
+      "minimum": 1000,
+      "nMax": 1,
+      "snapshots": [
+        {"block": 85, "entries": [{"key": 2, "stake": 3000, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 1, "stake": 3000, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}]}
+      ],
+      "archive": [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111]
+    },
+    {
+      "name": "no-eligible-entry",
+      "epochLen": 10,
+      "originBlock": 100,
+      "genesisCutoff": 90,
+      "unit": 1000,
+      "minimum": 1000,
+      "nMax": 128,
+      "snapshots": [
+        {"block": 85, "entries": [{"key": 1, "stake": 5000, "activeFrom": 91, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 2, "stake": 999, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}]}
+      ],
+      "archive": [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111]
+    },
+    {
+      "name": "latest-checkpoint-at-cutoff",
+      "epochLen": 10,
+      "originBlock": 100,
+      "genesisCutoff": 90,
+      "unit": 1000,
+      "minimum": 1000,
+      "nMax": 128,
+      "snapshots": [
+        {"block": 90, "entries": [{"key": 1, "stake": 5000, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}]},
+        {"block": 91, "entries": [{"key": 1, "stake": 5000, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}, {"key": 2, "stake": 6000, "activeFrom": 80, "exitAt": 281474976710655, "staleHeartbeat": false}]}
+      ],
+      "archive": [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111]
+    }
+  ],
+  "vectorCount": 83,
+  "vectors": [
+    {
+      "id": "schedule.rotation.h1",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "rotation", "height": 1},
+      "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 3000, "power": 3}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.rotation.h2",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "rotation", "height": 2},
+      "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 3000, "power": 3}], "switchTarget": 1}
+    },
+    {
+      "id": "schedule.rotation.h3",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "rotation", "height": 3},
+      "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 3000, "power": 3}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.rotation.h4",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "rotation", "height": 4},
+      "expect": {"targetEpoch": 1, "cutoff": 102, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 3000, "power": 3}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.rotation.h5",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "rotation", "height": 5},
+      "expect": {"targetEpoch": 1, "cutoff": 102, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 3000, "power": 3}], "switchTarget": 2}
+    },
+    {
+      "id": "schedule.rotation.h6",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "rotation", "height": 6},
+      "expect": {"targetEpoch": 1, "cutoff": 102, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 3000, "power": 3}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.rotation.h7",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "rotation", "height": 7},
+      "expect": {"targetEpoch": 2, "cutoff": 108, "valid": true, "members": [{"key": 3, "stake": 3000, "power": 3}, {"key": 4, "stake": 3000, "power": 3}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.rotation.h8",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "rotation", "height": 8},
+      "expect": {"targetEpoch": 2, "cutoff": 108, "valid": true, "members": [{"key": 3, "stake": 3000, "power": 3}, {"key": 4, "stake": 3000, "power": 3}], "switchTarget": 3}
+    },
+    {
+      "id": "schedule.rotation.h9",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "rotation", "height": 9},
+      "expect": {"targetEpoch": 2, "cutoff": 108, "valid": true, "members": [{"key": 3, "stake": 3000, "power": 3}, {"key": 4, "stake": 3000, "power": 3}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.rotation.h10",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "rotation", "height": 10},
+      "expect": {"targetEpoch": 3, "cutoff": 114, "valid": true, "members": [{"key": 3, "stake": 3000, "power": 3}, {"key": 7, "stake": 4000, "power": 4}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.rotation.h11",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "rotation", "height": 11},
+      "expect": {"targetEpoch": 3, "cutoff": 114, "valid": true, "members": [{"key": 3, "stake": 3000, "power": 3}, {"key": 7, "stake": 4000, "power": 4}], "switchTarget": 4}
+    },
+    {
+      "id": "schedule.rotation.h12",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "rotation", "height": 12},
+      "expect": {"targetEpoch": 3, "cutoff": 114, "valid": true, "members": [{"key": 3, "stake": 3000, "power": 3}, {"key": 7, "stake": 4000, "power": 4}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.rotation.h13",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "rotation", "height": 13},
+      "expect": {"targetEpoch": 4, "cutoff": 120, "valid": false, "members": [], "switchTarget": null}
+    },
+    {
+      "id": "schedule.rotation.h14",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "rotation", "height": 14},
+      "expect": {"targetEpoch": 4, "cutoff": 120, "valid": false, "members": [], "switchTarget": 5}
+    },
+    {
+      "id": "schedule.rotation.h15",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "rotation", "height": 15},
+      "expect": {"targetEpoch": 4, "cutoff": 120, "valid": false, "members": [], "switchTarget": null}
+    },
+    {
+      "id": "schedule.rotation.h16",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "rotation", "height": 16},
+      "expect": {"targetEpoch": 5, "cutoff": 126, "valid": false, "members": [], "switchTarget": null}
+    },
+    {
+      "id": "schedule.power.h1",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "power", "height": 1},
+      "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 2, "stake": 2500, "power": 2}, {"key": 3, "stake": 3999, "power": 3}, {"key": 4, "stake": 1000000, "power": 1000}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.power.h2",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "power", "height": 2},
+      "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 2, "stake": 2500, "power": 2}, {"key": 3, "stake": 3999, "power": 3}, {"key": 4, "stake": 1000000, "power": 1000}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.power.h3",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "power", "height": 3},
+      "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 2, "stake": 2500, "power": 2}, {"key": 3, "stake": 3999, "power": 3}, {"key": 4, "stake": 1000000, "power": 1000}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.power.h4",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "power", "height": 4},
+      "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 2, "stake": 2500, "power": 2}, {"key": 3, "stake": 3999, "power": 3}, {"key": 4, "stake": 1000000, "power": 1000}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.power.h5",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "power", "height": 5},
+      "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 2, "stake": 2500, "power": 2}, {"key": 3, "stake": 3999, "power": 3}, {"key": 4, "stake": 1000000, "power": 1000}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.power.h6",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "power", "height": 6},
+      "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 2, "stake": 2500, "power": 2}, {"key": 3, "stake": 3999, "power": 3}, {"key": 4, "stake": 1000000, "power": 1000}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.power.h7",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "power", "height": 7},
+      "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 2, "stake": 2500, "power": 2}, {"key": 3, "stake": 3999, "power": 3}, {"key": 4, "stake": 1000000, "power": 1000}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.power.h8",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "power", "height": 8},
+      "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 2, "stake": 2500, "power": 2}, {"key": 3, "stake": 3999, "power": 3}, {"key": 4, "stake": 1000000, "power": 1000}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.power.h9",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "power", "height": 9},
+      "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 2, "stake": 2500, "power": 2}, {"key": 3, "stake": 3999, "power": 3}, {"key": 4, "stake": 1000000, "power": 1000}], "switchTarget": 1}
+    },
+    {
+      "id": "schedule.power.h10",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "power", "height": 10},
+      "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 2, "stake": 2500, "power": 2}, {"key": 3, "stake": 3999, "power": 3}, {"key": 4, "stake": 1000000, "power": 1000}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.power.h11",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "power", "height": 11},
+      "expect": {"targetEpoch": 1, "cutoff": 108, "valid": true, "members": [{"key": 1, "stake": 2500, "power": 2}, {"key": 2, "stake": 2500, "power": 2}, {"key": 3, "stake": 3999, "power": 3}, {"key": 4, "stake": 1000000, "power": 1000}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.power.h12",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "power", "height": 12},
+      "expect": {"targetEpoch": 1, "cutoff": 108, "valid": true, "members": [{"key": 1, "stake": 2500, "power": 2}, {"key": 2, "stake": 2500, "power": 2}, {"key": 3, "stake": 3999, "power": 3}, {"key": 4, "stake": 1000000, "power": 1000}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.power.h13",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "power", "height": 13},
+      "expect": {"targetEpoch": 1, "cutoff": 108, "valid": true, "members": [{"key": 1, "stake": 2500, "power": 2}, {"key": 2, "stake": 2500, "power": 2}, {"key": 3, "stake": 3999, "power": 3}, {"key": 4, "stake": 1000000, "power": 1000}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.power.h14",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "power", "height": 14},
+      "expect": {"targetEpoch": 1, "cutoff": 108, "valid": true, "members": [{"key": 1, "stake": 2500, "power": 2}, {"key": 2, "stake": 2500, "power": 2}, {"key": 3, "stake": 3999, "power": 3}, {"key": 4, "stake": 1000000, "power": 1000}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.power.h15",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "power", "height": 15},
+      "expect": {"targetEpoch": 1, "cutoff": 108, "valid": true, "members": [{"key": 1, "stake": 2500, "power": 2}, {"key": 2, "stake": 2500, "power": 2}, {"key": 3, "stake": 3999, "power": 3}, {"key": 4, "stake": 1000000, "power": 1000}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.power.h16",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "power", "height": 16},
+      "expect": {"targetEpoch": 1, "cutoff": 108, "valid": true, "members": [{"key": 1, "stake": 2500, "power": 2}, {"key": 2, "stake": 2500, "power": 2}, {"key": 3, "stake": 3999, "power": 3}, {"key": 4, "stake": 1000000, "power": 1000}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.power.h17",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "power", "height": 17},
+      "expect": {"targetEpoch": 1, "cutoff": 108, "valid": true, "members": [{"key": 1, "stake": 2500, "power": 2}, {"key": 2, "stake": 2500, "power": 2}, {"key": 3, "stake": 3999, "power": 3}, {"key": 4, "stake": 1000000, "power": 1000}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.power.h18",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "power", "height": 18},
+      "expect": {"targetEpoch": 1, "cutoff": 108, "valid": true, "members": [{"key": 1, "stake": 2500, "power": 2}, {"key": 2, "stake": 2500, "power": 2}, {"key": 3, "stake": 3999, "power": 3}, {"key": 4, "stake": 1000000, "power": 1000}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.power.h19",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "power", "height": 19},
+      "expect": {"targetEpoch": 1, "cutoff": 108, "valid": true, "members": [{"key": 1, "stake": 2500, "power": 2}, {"key": 2, "stake": 2500, "power": 2}, {"key": 3, "stake": 3999, "power": 3}, {"key": 4, "stake": 1000000, "power": 1000}], "switchTarget": 2}
+    },
+    {
+      "id": "schedule.power.h20",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "power", "height": 20},
+      "expect": {"targetEpoch": 1, "cutoff": 108, "valid": true, "members": [{"key": 1, "stake": 2500, "power": 2}, {"key": 2, "stake": 2500, "power": 2}, {"key": 3, "stake": 3999, "power": 3}, {"key": 4, "stake": 1000000, "power": 1000}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.power.h21",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "power", "height": 21},
+      "expect": {"targetEpoch": 2, "cutoff": 118, "valid": true, "members": [{"key": 1, "stake": 2500, "power": 2}, {"key": 2, "stake": 2500, "power": 2}, {"key": 3, "stake": 3999, "power": 3}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.power.h22",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "power", "height": 22},
+      "expect": {"targetEpoch": 2, "cutoff": 118, "valid": true, "members": [{"key": 1, "stake": 2500, "power": 2}, {"key": 2, "stake": 2500, "power": 2}, {"key": 3, "stake": 3999, "power": 3}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.power.h23",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "power", "height": 23},
+      "expect": {"targetEpoch": 2, "cutoff": 118, "valid": true, "members": [{"key": 1, "stake": 2500, "power": 2}, {"key": 2, "stake": 2500, "power": 2}, {"key": 3, "stake": 3999, "power": 3}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.power.h24",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "power", "height": 24},
+      "expect": {"targetEpoch": 2, "cutoff": 118, "valid": true, "members": [{"key": 1, "stake": 2500, "power": 2}, {"key": 2, "stake": 2500, "power": 2}, {"key": 3, "stake": 3999, "power": 3}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.power.h25",
+      "family": "schedule",
+      "source": "generated",
+      "input": {"context": "power", "height": 25},
+      "expect": {"targetEpoch": 2, "cutoff": 118, "valid": true, "members": [{"key": 1, "stake": 2500, "power": 2}, {"key": 2, "stake": 2500, "power": 2}, {"key": 3, "stake": 3999, "power": 3}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.hw.genesis-uses-genesis-cutoff.h1",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L190",
+      "input": {"context": "genesis-uses-genesis-cutoff", "height": 1},
+      "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.hw.genesis-uses-genesis-cutoff.h2",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L190",
+      "input": {"context": "genesis-uses-genesis-cutoff", "height": 2},
+      "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.hw.genesis-uses-genesis-cutoff.h3",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L190",
+      "input": {"context": "genesis-uses-genesis-cutoff", "height": 3},
+      "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}], "switchTarget": 1}
+    },
+    {
+      "id": "schedule.hw.genesis-uses-genesis-cutoff.h4",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L190",
+      "input": {"context": "genesis-uses-genesis-cutoff", "height": 4},
+      "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.hw.genesis-uses-genesis-cutoff.h5",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L190",
+      "input": {"context": "genesis-uses-genesis-cutoff", "height": 5},
+      "expect": {"targetEpoch": 1, "cutoff": 102, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.hw.genesis-uses-genesis-cutoff.h6",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L190",
+      "input": {"context": "genesis-uses-genesis-cutoff", "height": 6},
+      "expect": {"targetEpoch": 1, "cutoff": 102, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.hw.genesis-uses-genesis-cutoff.h7",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L190",
+      "input": {"context": "genesis-uses-genesis-cutoff", "height": 7},
+      "expect": {"targetEpoch": 1, "cutoff": 102, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": 2}
+    },
+    {
+      "id": "schedule.hw.genesis-uses-genesis-cutoff.h8",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L190",
+      "input": {"context": "genesis-uses-genesis-cutoff", "height": 8},
+      "expect": {"targetEpoch": 1, "cutoff": 102, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.hw.switch-uses-derivation-parent-anchor.h1",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L195",
+      "input": {"context": "switch-uses-derivation-parent-anchor", "height": 1},
+      "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.hw.switch-uses-derivation-parent-anchor.h2",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L195",
+      "input": {"context": "switch-uses-derivation-parent-anchor", "height": 2},
+      "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.hw.switch-uses-derivation-parent-anchor.h3",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L195",
+      "input": {"context": "switch-uses-derivation-parent-anchor", "height": 3},
+      "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.hw.switch-uses-derivation-parent-anchor.h4",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L195",
+      "input": {"context": "switch-uses-derivation-parent-anchor", "height": 4},
+      "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}], "switchTarget": 1}
+    },
+    {
+      "id": "schedule.hw.switch-uses-derivation-parent-anchor.h5",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L195",
+      "input": {"context": "switch-uses-derivation-parent-anchor", "height": 5},
+      "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.hw.switch-uses-derivation-parent-anchor.h6",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L195",
+      "input": {"context": "switch-uses-derivation-parent-anchor", "height": 6},
+      "expect": {"targetEpoch": 1, "cutoff": 100, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.hw.switch-uses-derivation-parent-anchor.h7",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L195",
+      "input": {"context": "switch-uses-derivation-parent-anchor", "height": 7},
+      "expect": {"targetEpoch": 1, "cutoff": 100, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.hw.switch-uses-derivation-parent-anchor.h8",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L195",
+      "input": {"context": "switch-uses-derivation-parent-anchor", "height": 8},
+      "expect": {"targetEpoch": 1, "cutoff": 100, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.hw.switch-uses-derivation-parent-anchor.h9",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L195",
+      "input": {"context": "switch-uses-derivation-parent-anchor", "height": 9},
+      "expect": {"targetEpoch": 1, "cutoff": 100, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}], "switchTarget": 2}
+    },
+    {
+      "id": "schedule.hw.switch-uses-derivation-parent-anchor.h10",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L195",
+      "input": {"context": "switch-uses-derivation-parent-anchor", "height": 10},
+      "expect": {"targetEpoch": 1, "cutoff": 100, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.hw.switch-uses-derivation-parent-anchor.h11",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L195",
+      "input": {"context": "switch-uses-derivation-parent-anchor", "height": 11},
+      "expect": {"targetEpoch": 2, "cutoff": 130, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.hw.switch-uses-derivation-parent-anchor.h12",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L195",
+      "input": {"context": "switch-uses-derivation-parent-anchor", "height": 12},
+      "expect": {"targetEpoch": 2, "cutoff": 130, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.hw.duplicate-eligible-key.h1",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L179",
+      "input": {"context": "duplicate-eligible-key", "height": 1},
+      "expect": {"targetEpoch": 0, "cutoff": 90, "valid": false, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 3000, "power": 3}, {"key": 2, "stake": 2000, "power": 2}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.hw.duplicate-eligible-key.h2",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L179",
+      "input": {"context": "duplicate-eligible-key", "height": 2},
+      "expect": {"targetEpoch": 0, "cutoff": 90, "valid": false, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 3000, "power": 3}, {"key": 2, "stake": 2000, "power": 2}], "switchTarget": 1}
+    },
+    {
+      "id": "schedule.hw.duplicate-eligible-key.h3",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L179",
+      "input": {"context": "duplicate-eligible-key", "height": 3},
+      "expect": {"targetEpoch": 0, "cutoff": 90, "valid": false, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 3000, "power": 3}, {"key": 2, "stake": 2000, "power": 2}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.hw.duplicate-eligible-key.h4",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L179",
+      "input": {"context": "duplicate-eligible-key", "height": 4},
+      "expect": {"targetEpoch": 1, "cutoff": 102, "valid": false, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 3000, "power": 3}, {"key": 2, "stake": 2000, "power": 2}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.hw.duplicate-key-one-exited.h1",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L179",
+      "input": {"context": "duplicate-key-one-exited", "height": 1},
+      "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 3000, "power": 3}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.hw.duplicate-key-one-exited.h4",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L179",
+      "input": {"context": "duplicate-key-one-exited", "height": 4},
+      "expect": {"targetEpoch": 1, "cutoff": 102, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 3000, "power": 3}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.hw.stale-heartbeat.h1",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L179",
+      "input": {"context": "stale-heartbeat", "height": 1},
+      "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.hw.stale-heartbeat.h2",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L179",
+      "input": {"context": "stale-heartbeat", "height": 2},
+      "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": 1}
+    },
+    {
+      "id": "schedule.hw.stale-heartbeat.h3",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L179",
+      "input": {"context": "stale-heartbeat", "height": 3},
+      "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.hw.stale-heartbeat.h4",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L179",
+      "input": {"context": "stale-heartbeat", "height": 4},
+      "expect": {"targetEpoch": 1, "cutoff": 102, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.hw.stale-heartbeat.h5",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L179",
+      "input": {"context": "stale-heartbeat", "height": 5},
+      "expect": {"targetEpoch": 1, "cutoff": 102, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": 2}
+    },
+    {
+      "id": "schedule.hw.stale-heartbeat.h6",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L179",
+      "input": {"context": "stale-heartbeat", "height": 6},
+      "expect": {"targetEpoch": 1, "cutoff": 102, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.hw.stale-heartbeat.h7",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L179",
+      "input": {"context": "stale-heartbeat", "height": 7},
+      "expect": {"targetEpoch": 2, "cutoff": 108, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.hw.stale-heartbeat.h8",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L179",
+      "input": {"context": "stale-heartbeat", "height": 8},
+      "expect": {"targetEpoch": 2, "cutoff": 108, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": 3}
+    },
+    {
+      "id": "schedule.hw.stale-heartbeat.h9",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L179",
+      "input": {"context": "stale-heartbeat", "height": 9},
+      "expect": {"targetEpoch": 2, "cutoff": 108, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.hw.stale-heartbeat.h10",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L179",
+      "input": {"context": "stale-heartbeat", "height": 10},
+      "expect": {"targetEpoch": 3, "cutoff": 114, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.hw.stale-heartbeat.h11",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L179",
+      "input": {"context": "stale-heartbeat", "height": 11},
+      "expect": {"targetEpoch": 3, "cutoff": 114, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": 4}
+    },
+    {
+      "id": "schedule.hw.stale-heartbeat.h12",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L179",
+      "input": {"context": "stale-heartbeat", "height": 12},
+      "expect": {"targetEpoch": 3, "cutoff": 114, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 2, "stake": 4000, "power": 4}, {"key": 3, "stake": 6000, "power": 6}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.hw.eligibility-boundaries.h1",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L179",
+      "input": {"context": "eligibility-boundaries", "height": 1},
+      "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}, {"key": 4, "stake": 5000, "power": 5}, {"key": 5, "stake": 1000, "power": 1}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.hw.n-max-tie-by-set-key.h1",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L180",
+      "input": {"context": "n-max-tie-by-set-key", "height": 1},
+      "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 3000, "power": 3}], "switchTarget": null}
+    },
+    {
+      "id": "schedule.hw.no-eligible-entry.h1",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L181",
+      "input": {"context": "no-eligible-entry", "height": 1},
+      "expect": {"targetEpoch": 0, "cutoff": 90, "valid": false, "members": [], "switchTarget": null}
+    },
+    {
+      "id": "schedule.hw.latest-checkpoint-at-cutoff.h1",
+      "family": "schedule",
+      "source": "handwritten",
+      "spec": "spec L178",
+      "input": {"context": "latest-checkpoint-at-cutoff", "height": 1},
+      "expect": {"targetEpoch": 0, "cutoff": 90, "valid": true, "members": [{"key": 1, "stake": 5000, "power": 5}], "switchTarget": null}
+    }
+  ]
+}

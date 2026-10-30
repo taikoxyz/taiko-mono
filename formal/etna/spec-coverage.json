@@ -1,0 +1,490 @@
+{
+  "schema_version": 4,
+  "scope": "conditional decoded specification property only",
+  "source": {
+    "path": "packages/protocol/docs/etna/SPEC.md",
+    "revision": "2026-10-30",
+    "commit": "b7ca989c8e343073daa628771102bdee7fe7101b",
+    "sha256": "1246b2b713975d6c5f9d3fceeec427af541796545b416eda7d25b7eed10f695f"
+  },
+  "boundaries": {
+    "context": "HistoricalContext derives origin, latest-at-cutoff registry entries and covered anchor lookups from typed inputs. RegistryHistory models lifetime identities and entry checkpoints; actual root/key-byte validation, authenticated signer-prefix/cutoff linkage, genesis provenance and evidence delivery remain external.",
+    "l1": "Real raw-header ancestry, canonicality/finality, storage/MPT parsing and authentication are external.",
+    "signature": "The signature relation authenticates decoded vote fields and key; actual low-s/ecrecover/sign-byte encoding is external. Full Comet lock/round safety is not derived here.",
+    "payload": "Envelope/tx0/raw/singleton bindings and full-range blob-to-payload equality are external named relations, not actual guest proofs.",
+    "el": "Complete deterministic EL execution, header/body fields and zk-gas semantics remain external relations.",
+    "hash": "Opaque/free hash terms, actual cryptographic separation and canonical encodings remain external.",
+    "journal": "ProtocolState composes decoded landing/registry/FI/recovery/rollback transactions under nondecreasing L1 time and structural initial invariants. EVM atomicity, trusted rollback target/snapshot, authenticated DAO-owner calls and node trust remain external; irreversible payouts are not restored.",
+    "deployment": "Stored initialized L, genesisCutoff, K, maxAnchorAge and forcedInclusionDelay, the committee-0 and config commitments, and their authenticated ghost openings: the 4-field config opening (vp_unit, s_min, n_max, U), which the config commitment hashes as seven ABI words together with the domain tag, l2ChainId and registry, and the committee-0 record; plus the World's fixed hash adapters. Every modeled transition preserves them and no transaction input chooses them. Opening authentication and real hash/preimage separation are explicit external assumptions (the representable_opening_unique premise; Premises.hashSeparation for the deployment's own commitment), not proven by a free Rules field.",
+    "accounting": "Logical TAIKO principal over allocated slots and successful nominal receipt values; ReleasedZero is required initially and proved from empty lifecycle states. ERC20 custody equality additionally requires exact incoming/outgoing transfers, atomic failure and an initial endowment matching liabilities. ETH fees are separate. No fee-on-transfer, rebase or token callback implementation is verified.",
+    "signing": "ObservedCall contains the actual existing Signer.sign result and decoded message/key/signature bindings. TrustedPrefix authenticates a typed own-finalized view and matching replay, EngineRequest states the producer refinement. Real adapters/engine enforcement remain external. A confirmation must causally precede that view and be included in the common replay/source; global L1 freshness does not follow from ready/trusted. Cached returns, unrestricted rollback and continuous positive collateral are separate."
+  },
+  "design_pending": [
+    "EN-fac3b57a8c83d321",
+    "EN-d419a126b4a3b7a6",
+    "EN-e2026d5eb187cc87"
+  ],
+  "claims": [
+    {
+      "id": "DV-01",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "Along a decoded valid chain the block at position i has height p + i + 1, so heights are consecutive from the proof origin p and the terminal height is p plus the block count; every parent hash is the preceding header's EL hash, starting from the proof origin; and only the generation's first block has an empty Comet LastBlockID.",
+      "assumptions": ["context", "hash"],
+      "evidence": {
+        "EN-d8189cd72ebd5832": [
+          "Etna.Design.BlockValidity.chain_last_block_ids"
+        ],
+        "EN-a80aee38ffc500c7": [
+          "Etna.Design.BlockValidity.chain_height",
+          "Etna.Design.BlockValidity.chain_parent_hashes",
+          "Etna.Design.Derived.chain_heights_consecutive"
+        ],
+        "EN-be2a860da03d44e4": [
+          "Etna.Design.BlockValidity.chain_height",
+          "Etna.Design.BlockValidity.chain_parent_hashes",
+          "Etna.Design.Derived.chain_heights_consecutive"
+        ]
+      }
+    },
+    {
+      "id": "DV-02",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "Along a decoded valid chain anchors never decrease and stay between the generation origin block and the reference block, each equal to the authenticated anchor history, and EL timestamps strictly increase within the anchor-age bound.",
+      "assumptions": ["l1", "context", "el"],
+      "evidence": {
+        "EN-f5b810144f31f649": [
+          "Etna.Design.BlockValidity.chain_timestamps_increase"
+        ],
+        "EN-92bc135177c41240": [
+          "Etna.Design.BlockValidity.chain_anchor_window"
+        ],
+        "EN-ced8c7aa78799681": [
+          "Etna.Design.BlockValidity.chain_timestamps_increase"
+        ]
+      }
+    },
+    {
+      "id": "DV-04",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "Strict >2/3 quorum intersection: two valid decoded commits at one height and round share selected signers with more than 1/3 of active power, and conflicting blocks yield same-deployment, same-generation double-sign evidence.",
+      "assumptions": ["context", "signature", "hash"],
+      "evidence": {
+        "EN-3ec993c77d0c5804": [
+          "Etna.Design.Accountability.conflicting_commits_overlap"
+        ],
+        "EN-af33164a1858c781": [
+          "Etna.Design.Accountability.conflicting_commits_double_sign",
+          "Etna.Design.Accountability.conflicting_commits_overlap"
+        ]
+      }
+    },
+    {
+      "id": "DV-05",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "Every switch block of a decoded valid chain carries a committee witness that uses the D(t) cutoff and the switch block's anchor root with an accepted election, and is exactly the committee active at S(t)+2.",
+      "assumptions": ["context", "l1"],
+      "evidence": {
+        "EN-99e8a56e96bcba34": [
+          "Etna.Design.Derived.chain_switch_witnesses_activate"
+        ],
+        "EN-97a85deb922765e1": [
+          "Etna.Design.Derived.chain_switch_witnesses_activate"
+        ],
+        "EN-179bc07a1f6d0129": [
+          "Etna.Design.Derived.chain_switch_witnesses_activate"
+        ]
+      }
+    },
+    {
+      "id": "DV-06",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "Along a full decoded valid chain the FI cursor advances by zero or one at every block, so each block consumes at most one forced-inclusion entry.",
+      "assumptions": ["l1", "payload", "el"],
+      "evidence": {
+        "EN-2e7fa6e510a4d3cb": ["Etna.Design.BlockValidity.chain_cursor_steps"],
+        "EN-043c32870af8d13f": ["Etna.Design.BlockValidity.chain_cursor_steps"],
+        "EN-adcd3a47969dbd68": ["Etna.Design.BlockValidity.chain_cursor_steps"]
+      }
+    },
+    {
+      "id": "DV-07",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "The decoded valid chain constructs a continuous endpoint-bound certified cut table.",
+      "assumptions": ["context", "payload", "el", "hash"],
+      "evidence": {
+        "EN-adcd3a47969dbd68": ["Etna.Design.Settlement.chain_certified"]
+      }
+    },
+    {
+      "id": "DV-08",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "An accepted overlapping landing attaches to its execution-time frontier on that same valid chain.",
+      "assumptions": ["context", "payload", "el", "hash"],
+      "evidence": {
+        "EN-3ec993c77d0c5804": [
+          "Etna.Design.Settlement.accepted_frontier_from_valid_chain"
+        ],
+        "EN-976a8c89163f509a": [
+          "Etna.Design.Settlement.accepted_frontier_from_valid_chain"
+        ],
+        "EN-adcd3a47969dbd68": [
+          "Etna.Design.Settlement.accepted_frontier_from_valid_chain"
+        ]
+      }
+    },
+    {
+      "id": "DV-09",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "Checkpoint, FI head, SignalService state root and active snapshot come from one terminal block; slot 284 is nondecreasing along certified landings within a generation and across a recovery (given the old snapshot is below R), not across rollback or uncertified landings.",
+      "assumptions": ["context", "payload", "el", "hash", "journal"],
+      "evidence": {
+        "EN-5d5828fcdce5ab2a": [
+          "Etna.Design.ProtocolState.snapshot_monotone_across_recovery",
+          "Etna.Design.Settlement.accepted_snapshot_monotone",
+          "Etna.Design.Settlement.accepted_snapshot_monotone_from",
+          "Etna.Design.Settlement.accepted_terminal_from_valid_chain",
+          "Etna.Design.Settlement.certified_trace_snapshot_monotone"
+        ],
+        "EN-7319b105593c8c53": [
+          "Etna.Design.ProtocolState.snapshot_monotone_across_recovery",
+          "Etna.Design.Settlement.accepted_snapshot_monotone_from",
+          "Etna.Design.Settlement.certified_trace_snapshot_monotone"
+        ],
+        "EN-179bc07a1f6d0129": [
+          "Etna.Design.ProtocolState.snapshot_monotone_across_recovery",
+          "Etna.Design.Settlement.accepted_snapshot_monotone",
+          "Etna.Design.Settlement.accepted_snapshot_monotone_from",
+          "Etna.Design.Settlement.certified_trace_snapshot_monotone"
+        ],
+        "EN-976a8c89163f509a": [
+          "Etna.Design.Settlement.accepted_terminal_from_valid_chain"
+        ],
+        "EN-adcd3a47969dbd68": [
+          "Etna.Design.Settlement.accepted_terminal_from_valid_chain"
+        ]
+      }
+    },
+    {
+      "id": "DV-10",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "Every ordinary landing trace preserves current-record consistency, grid and unique historical heights without overwriting or removing old records.",
+      "assumptions": ["journal"],
+      "evidence": {
+        "EN-ea1733d82f160469": [
+          "Etna.Design.Settlement.trace_preserves_old_records",
+          "Etna.Design.Settlement.trace_preserves_state"
+        ],
+        "EN-976a8c89163f509a": [
+          "Etna.Design.Settlement.trace_preserves_old_records",
+          "Etna.Design.Settlement.trace_preserves_state"
+        ]
+      }
+    },
+    {
+      "id": "HS-01",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "Along any registry trace a used key stays used and can never register again, and the registry's slash bounty never changes; along any protocol trace an initialized Inbox stays initialized. Two conflicting valid decoded commits at one height and round let anyone slash, under the registry's own verifier and the stored occupant key, every live staked bond of a signer common to both, zeroing its stake; this assumes the registry verifier accepts each vote of the two commits that the consensus signature relation accepts.",
+      "assumptions": ["context", "signature"],
+      "evidence": {
+        "EN-ffb6d8f886ed245e": [
+          "Etna.Design.Derived.conflicting_commits_slashable"
+        ],
+        "EN-405f21d19d6bc681": [
+          "Etna.Design.Derived.conflicting_commits_slashable"
+        ],
+        "EN-aee6e06c2b0041ee": [
+          "Etna.Design.RegistryHistory.trace_forbids_lifetime_reuse",
+          "Etna.Design.RegistryHistory.trace_never_releases_key"
+        ],
+        "EN-056492c07d9386c9": [
+          "Etna.Design.RegistryHistory.trace_preserves_slash_bounty"
+        ],
+        "EN-25553fea06dda239": [
+          "Etna.Design.Lifecycle.trace_keeps_inbox_initialized"
+        ],
+        "EN-b82d63337df901b4": [
+          "Etna.Design.Derived.conflicting_commits_slashable"
+        ],
+        "EN-1922bc4f51f2158c": [
+          "Etna.Design.Derived.conflicting_commits_slashable"
+        ],
+        "EN-b88b6b1e1d0a93b8": [
+          "Etna.Design.Derived.conflicting_commits_slashable"
+        ]
+      }
+    },
+    {
+      "id": "HS-02",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "Registry traces keep checkpoints strictly ordered by L1 block, so a block has at most one checkpoint; the snapshot read at a cutoff is the latest checkpoint at or before it; and snapshots for cutoffs before the current L1 block never change afterwards.",
+      "assumptions": ["context", "l1"],
+      "evidence": {
+        "EN-9ac7403cd8147312": [
+          "Etna.Design.RegistryHistory.later_trace_preserves_snapshot",
+          "Etna.Design.RegistryHistory.snapshot_is_latest"
+        ],
+        "EN-e11112a7ad1b77fd": [
+          "Etna.Design.RegistryHistory.later_trace_preserves_snapshot",
+          "Etna.Design.RegistryHistory.snapshot_is_latest",
+          "Etna.Design.RegistryHistory.trace_preserves_registry"
+        ]
+      }
+    },
+    {
+      "id": "HS-03",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "A history context built from typed origin and registry inputs reads each committee snapshot as the latest registry checkpoint at or before its cutoff and each covered height's anchor from the authenticated archive; raw root and header authentication are external.",
+      "assumptions": ["context", "l1"],
+      "evidence": {
+        "EN-2474bdce909c86f9": [
+          "Etna.Design.HistoricalContext.covered_context_header"
+        ],
+        "EN-99e8a56e96bcba34": [
+          "Etna.Design.HistoricalContext.context_uses_latest_snapshot"
+        ],
+        "EN-9ac7403cd8147312": [
+          "Etna.Design.HistoricalContext.context_uses_latest_snapshot"
+        ],
+        "EN-e11112a7ad1b77fd": [
+          "Etna.Design.HistoricalContext.context_uses_latest_snapshot"
+        ]
+      }
+    },
+    {
+      "id": "HS-04",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "Combined traces preserve structural inbox/registry/FI-index invariants; this is not authentic execution or economic safety.",
+      "assumptions": ["context", "journal"],
+      "evidence": {
+        "EN-f3138a4a28d8137f": [
+          "Etna.Design.ProtocolState.step_preserves_core",
+          "Etna.Design.ProtocolState.trace_preserves_core"
+        ],
+        "EN-aee6e06c2b0041ee": [
+          "Etna.Design.ProtocolState.step_preserves_core",
+          "Etna.Design.ProtocolState.trace_preserves_core"
+        ],
+        "EN-471ef75c3d545157": [
+          "Etna.Design.ProtocolState.step_preserves_core",
+          "Etna.Design.ProtocolState.trace_preserves_core"
+        ],
+        "EN-eb5074ad77d4a985": [
+          "Etna.Design.ProtocolState.step_preserves_core",
+          "Etna.Design.ProtocolState.trace_preserves_core"
+        ],
+        "EN-d04a236579cc9990": [
+          "Etna.Design.ProtocolState.step_preserves_core",
+          "Etna.Design.ProtocolState.trace_preserves_core"
+        ],
+        "EN-976a8c89163f509a": [
+          "Etna.Design.ProtocolState.step_preserves_core",
+          "Etna.Design.ProtocolState.trace_preserves_core"
+        ],
+        "EN-e11112a7ad1b77fd": [
+          "Etna.Design.ProtocolState.step_preserves_core",
+          "Etna.Design.ProtocolState.trace_preserves_core"
+        ]
+      }
+    },
+    {
+      "id": "HS-05",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "Exceptional rollback, like every modeled transition, never lowers the generation and only appends to the origin archive.",
+      "assumptions": ["context", "journal"],
+      "evidence": {
+        "EN-8ae0f0fcf4c9861c": [
+          "Etna.Design.ProtocolState.trace_keeps_origin_archive"
+        ],
+        "EN-3f7463f0f1df5094": [
+          "Etna.Design.ProtocolState.trace_generation_monotone"
+        ],
+        "EN-7319b105593c8c53": [
+          "Etna.Design.ProtocolState.trace_generation_monotone"
+        ]
+      }
+    },
+    {
+      "id": "HS-06",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "An accepted landing of a decoded valid batch, with its context built by the deployment construction, stores the snapshot cutoff that the history derives for the terminal height; the same theorem restates the construction's config opening, committee 0's opening and both commitment equations under the World's fixed adapters. Source roots, opening authentication and hash separation remain external.",
+      "assumptions": ["context", "l1", "payload", "el", "hash", "deployment"],
+      "evidence": {
+        "EN-5d5828fcdce5ab2a": [
+          "Etna.Design.Deployment.accepted_deployed_snapshot",
+          "Etna.Design.ProtocolState.accepted_snapshot_from_history"
+        ],
+        "EN-2474bdce909c86f9": [
+          "Etna.Design.ProtocolState.accepted_snapshot_from_history"
+        ],
+        "EN-99e8a56e96bcba34": [
+          "Etna.Design.Deployment.accepted_deployed_snapshot",
+          "Etna.Design.ProtocolState.accepted_snapshot_from_history"
+        ],
+        "EN-869d67b6135d6bd0": [
+          "Etna.Design.Deployment.accepted_deployed_snapshot"
+        ],
+        "EN-9ac7403cd8147312": [
+          "Etna.Design.ProtocolState.accepted_snapshot_from_history"
+        ]
+      }
+    },
+    {
+      "id": "HS-07",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "Every ProtocolState trace preserves the deployment immutables (domain, K, L, genesisCutoff, maxAnchorAge, forcedInclusionDelay, maxBatchBlocks, the forced-inclusion fee and threshold, protocolFeeRecipient, the committee-0 and config commitments and their ghost openings), the registry immutables (minimum stake, activation/exit/withdrawal delays, slash bounty, signature adapter), the hash adapters and the recovery constants, and keeps the §10 Inbox and registry constraints holding once they hold. From the §10 step 5 initial state, whose committee 0 is the genesis-cutoff election over a registry checkpoint at or before genesisCutoff, every trace keeps the core invariants, Inbox initialization and committee 0's registry snapshot, and certified landings under the generation-0 context keep slot 284 at or above genesisCutoff and fitting the built context.",
+      "assumptions": ["context", "hash", "deployment"],
+      "evidence": {
+        "EN-056492c07d9386c9": [
+          "Etna.Design.Deployment.trace_preserves_registry_constraints",
+          "Etna.Design.ProtocolState.trace_preserves_immutables"
+        ],
+        "EN-5eddee49ec804220": [
+          "Etna.Design.Deployment.trace_preserves_constraints",
+          "Etna.Design.ProtocolState.trace_preserves_immutables"
+        ],
+        "EN-3a067849123ef674": [
+          "Etna.Design.Deployment.trace_preserves_constraints"
+        ],
+        "EN-8ae0f0fcf4c9861c": [
+          "Etna.Design.Deployment.trace_preserves_constraints"
+        ],
+        "EN-a18ead0048bf2b66": [
+          "Etna.Design.Deployment.genesis_snapshot_monotone",
+          "Etna.Design.Deployment.genesis_trace_invariants"
+        ],
+        "EN-66e4688eba764b2e": [
+          "Etna.Design.ProtocolState.trace_preserves_immutables"
+        ]
+      }
+    },
+    {
+      "id": "DV-17",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "The recovery authorization nonce never decreases along any decoded whole-machine trace; once consumed, an authorization cannot revive in any future state, including after verifier rollback.",
+      "assumptions": ["journal", "deployment"],
+      "evidence": {
+        "EN-3f7463f0f1df5094": [
+          "Etna.Design.ProtocolState.trace_nonce_monotone",
+          "Etna.Design.ProtocolState.consumed_authorization_never_revives"
+        ]
+      }
+    },
+    {
+      "id": "DV-18",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "A successful responsibility-forfeiture lifetime flag is never cleared by later registry operations, recovery exclusions or confirmation rollback.",
+      "assumptions": ["journal", "context"],
+      "evidence": {
+        "EN-61545df98f0ad68f": [
+          "Etna.Design.RegistryHistory.future_trace_never_clears_forfeiture"
+        ]
+      }
+    },
+    {
+      "id": "DV-19",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "Every original protocol trace lifts to an observer that records accepted deposit inputs and actual staking payout results. Given initially zero principal in released slots, initial held TAIKO plus cumulative deposits equals final held effective and pending principal plus withdrawals, slash bounty and slash/forfeit sink payouts. Failed-call stutters have zero flow; recovery and rollback do not recreate payments.",
+      "assumptions": ["accounting", "journal"],
+      "evidence": {
+        "EN-3ce5781807da58ba": [
+          "Etna.Design.Accounting.protocol_trajectory_conservation"
+        ],
+        "EN-ab1db15120198ccd": [
+          "Etna.Design.Accounting.protocol_trajectory_conservation"
+        ],
+        "EN-fb39b71e9b4c760c": [
+          "Etna.Design.Accounting.protocol_trajectory_conservation"
+        ],
+        "EN-fd0557c2630191c6": [
+          "Etna.Design.Accounting.protocol_trajectory_conservation"
+        ],
+        "EN-1922bc4f51f2158c": [
+          "Etna.Design.Accounting.protocol_trajectory_conservation"
+        ],
+        "EN-bf78b9d3bc888c6c": [
+          "Etna.Design.Accounting.protocol_trajectory_conservation"
+        ]
+      }
+    },
+    {
+      "id": "DV-20",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "Starting with no future-dated confirmations, retained confirmation clocks never exceed the current L1 block along original traces. An initially unconfirmed trajectory cannot backdate new confirmations; actual withdrawal requires its recorded confirmation plus the full fixed delay. Coverage by the current snapshot additionally requires the explicit SnapshotTrace discipline, including rollback rechecks; no evidence delivery deadline is proved.",
+      "assumptions": ["context", "journal"],
+      "evidence": {
+        "EN-4651c537a506e6fd": [
+          "Etna.Design.SigningEscrow.trace_clocked",
+          "Etna.Design.SigningEscrow.trace_confirmation_lower_bound",
+          "Etna.Design.SigningEscrow.trace_withdrawal_window"
+        ],
+        "EN-fd0557c2630191c6": [
+          "Etna.Design.SigningEscrow.trace_withdrawal_lower_bound",
+          "Etna.Design.SigningEscrow.trace_withdrawal_window"
+        ],
+        "EN-d04a236579cc9990": ["Etna.Design.SigningEscrow.trace_covered"]
+      }
+    },
+    {
+      "id": "DV-21",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "From a structurally well-formed zero-slot initial world, each nonzero lifetime key with finite effective exit E remains ineligible in typed historical registry selections at every cutoff at least E through all later protocol steps, including withdrawal, slot reuse, recovery and rollback. A built committee excludes a confirmed key when its cutoff is at least the covered confirmation-state snapshot; authentic fresh signer-prefix/cutoff and real signing-event linkage remain explicit external obligations.",
+      "assumptions": ["context", "l1", "journal", "signature"],
+      "evidence": {
+        "EN-e11112a7ad1b77fd": [
+          "Etna.Design.SigningEscrow.unallocated_effective_exit_excluded_forever"
+        ],
+        "EN-4651c537a506e6fd": [
+          "Etna.Design.SigningEscrow.confirmed_key_absent_later_cutoff"
+        ],
+        "EN-d7e07b7ea27ed4a3": [
+          "Etna.Design.SigningEscrow.confirmed_key_absent_later_cutoff"
+        ]
+      }
+    },
+    {
+      "id": "DV-22",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "A successful fresh stock-signer call bound to the actual next-height member request on a typed trusted prefix that causally follows and includes an exit confirmation derives its selection-cutoff bound from actual accepted snapshot provenance, prefix replay and selector monotonicity. The returned signature/log entry is bound to its decoded request and the confirmed lifetime key is excluded. Producer/adapter refinement and confirmation-view inclusion remain explicit; own-finalized view does not imply global freshness.",
+      "assumptions": ["context", "l1", "signature", "journal", "signing"],
+      "evidence": {
+        "EN-4651c537a506e6fd": [
+          "Etna.Design.SigningBridge.fresh_signing_connection"
+        ],
+        "EN-9ee888f78091a2fe": [
+          "Etna.Design.SigningBridge.fresh_signing_connection"
+        ],
+        "EN-2b238db781615e6e": [
+          "Etna.Design.SigningBridge.fresh_signing_connection"
+        ]
+      }
+    }
+  ],
+  "acceptance_source": {
+    "path": "packages/protocol/docs/etna/ACCEPTANCE.md",
+    "revision": "2026-10-29",
+    "commit": "39ebefbf33a2702b750e0fb0db7d2a40ff8e8480",
+    "sha256": "876f89892acc91508fd322b4df676a0eb19550b39c9a43490376b4a3b4863c60"
+  }
+}

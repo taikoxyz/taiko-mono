@@ -1,0 +1,22 @@
+name = "etna"
+version = "0.2.0"
+defaultTargets = ["EtnaModel", "EtnaStatements", "EtnaProofs", "EtnaWitnesses", "EtnaVectors"]
+
+[[lean_lib]]
+name = "EtnaModel"
+
+[[lean_lib]]
+name = "EtnaStatements"
+
+[[lean_lib]]
+name = "EtnaProofs"
+
+[[lean_lib]]
+name = "EtnaWitnesses"
+
+[[lean_lib]]
+name = "EtnaVectors"
+
+[[lean_exe]]
+name = "etna-vectors"
+root = "EtnaVectors.Main"

@@ -1,0 +1,91 @@
+name: Etna formal verification
+
+on:
+  pull_request:
+    paths:
+      - "formal/etna/**"
+      - "testdata/etna_conformance/**"
+      - "packages/protocol/docs/etna/SPEC.md"
+      - "packages/protocol/docs/etna/ACCEPTANCE.md"
+      - "packages/protocol/docs/etna/rules/INDEX.md"
+      - ".github/workflows/formal--etna.yml"
+  push:
+    branches: [main]
+    paths:
+      - "formal/etna/**"
+      - "testdata/etna_conformance/**"
+      - "packages/protocol/docs/etna/SPEC.md"
+      - "packages/protocol/docs/etna/ACCEPTANCE.md"
+      - "packages/protocol/docs/etna/rules/INDEX.md"
+      - ".github/workflows/formal--etna.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: etna-formal-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  etna-formal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: formal/etna
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      # Before any Lean/Lake runs: no build-time code, foreign imports or extra targets.
+      - name: Lint Lean sources and package configuration
+        run: python3 scripts/lint_sources.py
+      # Model/Statements hold no proofs; imports only point down Witnesses -> Proofs -> Statements -> Model.
+      - name: Check the library import graph
+        run: python3 scripts/check_imports.py
+      - name: Install exact Lean toolchain
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          etna_tools="${RUNNER_TEMP}/etna-lean"
+          mkdir -p "$etna_tools"
+          gh release download v4.35.0-rc4 --repo leanprover/lean4 \
+            --pattern lean-4.35.0-rc4-linux.tar.zst --dir "$etna_tools"
+          echo "e78e14c54c39a145945833cfcdb219458d650c210847a90dcef8fa8ff05ab51a  $etna_tools/lean-4.35.0-rc4-linux.tar.zst" | sha256sum -c -
+          tar --zstd -xf "$etna_tools/lean-4.35.0-rc4-linux.tar.zst" -C "$etna_tools"
+          echo "$etna_tools/lean-4.35.0-rc4-linux/bin" >> "$GITHUB_PATH"
+      - name: Build
+        run: lake build
+      - name: Require an unmodified tree after build
+        run: |
+          dirty="$(git status --porcelain --untracked-files=all -- .)"
+          if [ -n "$dirty" ]; then
+            printf '%s\n' "$dirty"
+            echo "::error::lake build modified or created non-ignored files"
+            exit 1
+          fi
+      # The committed behavioral vectors (consumed by the Etna contracts and the Rust client) are a
+      # fresh generator run: no missing, extra or stale file. The audit repeats this check.
+      - name: Check the conformance vectors are fresh
+        run: python3 scripts/check_vectors.py
+      # Exact manifest types and roles, library contents, the headline claims (Etna.Proofs.claims and
+      # H1-H3 typed exactly by their claims, standard axioms only, every premise field read by a
+      # headline proof) and a fresh kernel replay. check_spec_coverage.py checks the clause inventory
+      # and rule_coverage.py the rule-ID view of it, traceability reports (not the verification result),
+      # for consistency.
+      - name: Audit
+        run: |
+          python3 scripts/generate_artifacts.py
+          python3 scripts/generate_artifacts.py --check
+          python3 scripts/check_spec_coverage.py
+          python3 scripts/rule_coverage.py --check
+          python3 scripts/audit_proofs.py
+      - name: Run mutation and regression tests
+        run: python3 -m unittest discover -s tests -v
+      - name: Require an unmodified tree after audit and tests
+        run: |
+          dirty="$(git status --porcelain --untracked-files=all -- .)"
+          if [ -n "$dirty" ]; then
+            printf '%s\n' "$dirty"
+            echo "::error::the audit or tests modified or created non-ignored files"
+            exit 1
+          fi

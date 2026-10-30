@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "scope": "Reviewed Etna declarations that make a name, written inside their namespace, resolve to them instead of an existing outer declaration or alias. The audit fails on any unlisted or stale pair.",
+  "entries": [
+    {
+      "declaration": "Etna.Design.BlockValidity.Block.singleton",
+      "shadows": "singleton",
+      "reason": "Block field holding the forced-inclusion singleton result; Init's Singleton.singleton is never meant inside namespace Block."
+    },
+    {
+      "declaration": "Etna.Design.Forced.Singleton",
+      "shadows": "Singleton",
+      "reason": "Forced-inclusion singleton execution outcome type; Forced theorems and manifest types intentionally mean this type, not Init's Singleton class."
+    },
+    {
+      "declaration": "Etna.Design.ProtocolState.Step.rollback",
+      "shadows": "Etna.Design.ProtocolState.rollback",
+      "reason": "Step constructor for the rollback transition, whose effect is the rollback function it shadows only inside namespace Step."
+    },
+    {
+      "declaration": "Etna.Design.ProtocolState.SoundStep.rollback",
+      "shadows": "Etna.Design.ProtocolState.rollback",
+      "reason": "SoundStep constructor for a rollback under a sound environment, whose effect is the rollback function it shadows only inside namespace SoundStep."
+    },
+    {
+      "declaration": "Etna.Design.ProtocolState.land",
+      "shadows": "Etna.Design.land",
+      "reason": "World-level landing wrapper; ProtocolState always writes Etna.Design.land in full when it means the inbox-level transition."
+    },
+    {
+      "declaration": "Etna.Design.RegistryHistory.Snapshot.entries",
+      "shadows": "Etna.Design.RegistryHistory.entries",
+      "reason": "Snapshot field storing recorded entries; the State-level entries function is distinct and only shadowed inside namespace Snapshot."
+    },
+    {
+      "declaration": "Etna.Design.RegistryHistory.State",
+      "shadows": "Etna.Design.State",
+      "reason": "Registry history state machine; RegistryHistory statements intentionally mean this State and write the inbox state as Etna.Design.State in full."
+    },
+    {
+      "declaration": "Etna.Design.Signal.hash",
+      "shadows": "hash",
+      "reason": "SignalService checkpoint hash field; Hashable.hash is never meant inside namespace Signal."
+    },
+    {
+      "declaration": "Etna.Design.Signer.State",
+      "shadows": "Etna.Design.State",
+      "reason": "Durable signer high-water-mark state; Signer statements intentionally mean this State, not the inbox State."
+    },
+    {
+      "declaration": "Etna.Design.Signer.instDecidableEqState",
+      "shadows": "Etna.Design.instDecidableEqState",
+      "reason": "Derived DecidableEq instance for Signer.State; instances are found by type class resolution, not by this name."
+    },
+    {
+      "declaration": "Etna.Design.Signer.instReprState",
+      "shadows": "Etna.Design.instReprState",
+      "reason": "Derived Repr instance for Signer.State; instances are found by type class resolution, not by this name."
+    }
+  ]
+}
