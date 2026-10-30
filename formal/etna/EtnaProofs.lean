@@ -23,6 +23,7 @@ import EtnaProofs.Accounting
 import EtnaProofs.SigningEscrow
 import EtnaProofs.SigningPrefix
 import EtnaProofs.SigningBridge
+import EtnaProofs.BackPressure
 import EtnaProofs.Lifecycle
 import EtnaProofs.Contracts
 import EtnaProofs.Derived

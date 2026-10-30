@@ -7,6 +7,7 @@ on:
       - "testdata/etna_conformance/**"
       - "packages/protocol/docs/etna/SPEC.md"
       - "packages/protocol/docs/etna/ACCEPTANCE.md"
+      - "packages/protocol/docs/etna/rules/INDEX.md"
       - ".github/workflows/formal--etna.yml"
   push:
     branches: [main]
@@ -15,6 +16,7 @@ on:
       - "testdata/etna_conformance/**"
       - "packages/protocol/docs/etna/SPEC.md"
       - "packages/protocol/docs/etna/ACCEPTANCE.md"
+      - "packages/protocol/docs/etna/rules/INDEX.md"
       - ".github/workflows/formal--etna.yml"
   workflow_dispatch:
 
@@ -67,13 +69,15 @@ jobs:
         run: python3 scripts/check_vectors.py
       # Exact manifest types and roles, library contents, the headline claims (Etna.Proofs.claims and
       # H1-H3 typed exactly by their claims, standard axioms only, every premise field read by a
-      # headline proof) and a fresh kernel replay. check_spec_coverage.py checks the clause inventory,
-      # a traceability report (not the verification result), for consistency.
+      # headline proof) and a fresh kernel replay. check_spec_coverage.py checks the clause inventory
+      # and rule_coverage.py the rule-ID view of it, traceability reports (not the verification result),
+      # for consistency.
       - name: Audit
         run: |
           python3 scripts/generate_artifacts.py
           python3 scripts/generate_artifacts.py --check
           python3 scripts/check_spec_coverage.py
+          python3 scripts/rule_coverage.py --check
           python3 scripts/audit_proofs.py
       - name: Run mutation and regression tests
         run: python3 -m unittest discover -s tests -v

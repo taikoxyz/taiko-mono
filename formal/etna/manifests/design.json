@@ -13147,6 +13147,70 @@
         "EN-2b238db781615e6e"
       ],
       "scope": "Positive typed-prefix/actual-signing nonvacuity from a genuine initialized deployment, valid ordinary rotation, exit/withdrawal and next-height engine requests. Computable fixture adapters bind all message fields and key but do not implement real canonical bytes/crypto/EL/L1 authentication."
+    },
+    {
+      "module": "EtnaProofs.BackPressure",
+      "declaration": "Etna.Design.ProtocolState.ordinary_step_checkpoint_monotone",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World}, Etna.Design.ProtocolState.Step w t → (∀ (trusted : Etna.Design.Checkpoint) (snapshot now : Nat), t ≠ Etna.Design.ProtocolState.applyRollback w trusted snapshot now) → w.inbox.checkpoint.height ≤ t.inbox.checkpoint.height",
+      "assumptions": [
+        "Decoded authenticated L1 clock; token transfers and EVM transaction journaling remain external."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-1de188a398da3093"],
+      "scope": "Decoded specification result under its explicit hypotheses; no production ABI, byte-layout, cryptographic or DAO-attribution conformance is implied."
+    },
+    {
+      "module": "EtnaProofs.BackPressure",
+      "declaration": "Etna.Design.ProtocolState.ordinary_trace_checkpoint_monotone",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World}, Etna.Design.ProtocolState.OrdinaryTrace w t → w.inbox.checkpoint.height ≤ t.inbox.checkpoint.height",
+      "assumptions": [
+        "Decoded authenticated L1 clock; token transfers and EVM transaction journaling remain external."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-1de188a398da3093"],
+      "scope": "Decoded specification result under its explicit hypotheses; no production ABI, byte-layout, cryptographic or DAO-attribution conformance is implied."
+    },
+    {
+      "module": "EtnaProofs.BackPressure",
+      "declaration": "Etna.Design.ProtocolState.anchored_count_not_undercounted",
+      "type": "∀ {b : Etna.Design.BlockValidity.Block} {w t : Etna.Design.ProtocolState.World}, b.header.anchor.checkpointHeight ≤ w.inbox.checkpoint.height → Etna.Design.ProtocolState.OrdinaryTrace w t → b.header.height - t.inbox.checkpoint.height ≤ b.header.height - b.header.anchor.checkpointHeight",
+      "assumptions": [
+        "The anchor's checkpointHeight is at most the lastCheckpoint height of World w, the L1 state the anchor shows; authentication of real anchors (L1 headers, MPT storage proofs) remains external."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-1de188a398da3093"],
+      "scope": "Decoded specification result under its explicit hypotheses; no production ABI, byte-layout, cryptographic or DAO-attribution conformance is implied."
+    },
+    {
+      "module": "EtnaProofs.BackPressure",
+      "declaration": "Etna.Design.ProtocolState.anchored_unsettled_bound",
+      "type": "∀ {r : Etna.Design.BlockValidity.Rules} {p : Etna.Design.BlockValidity.Header} {b : Etna.Design.BlockValidity.Block} {w t : Etna.Design.ProtocolState.World}, Etna.Design.BlockValidity.AnchorValid r p b → b.header.anchor.checkpointHeight ≤ w.inbox.checkpoint.height → Etna.Design.ProtocolState.OrdinaryTrace w t → b.header.height - t.inbox.checkpoint.height ≤ r.unsettled",
+      "assumptions": [
+        "The anchor's checkpointHeight is at most the lastCheckpoint height of World w, the L1 state the anchor shows; authentication of real anchors (L1 headers, MPT storage proofs) remains external."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [
+        "EN-8d1801078c3862d8",
+        "EN-b8d78ca3f1f77e84",
+        "EN-1de188a398da3093"
+      ],
+      "scope": "Decoded specification result under its explicit hypotheses; no production ABI, byte-layout, cryptographic or DAO-attribution conformance is implied."
+    },
+    {
+      "module": "EtnaProofs.BackPressure",
+      "declaration": "Etna.Design.ProtocolState.rollback_restores_trusted_checkpoint",
+      "type": "∀ (w : Etna.Design.ProtocolState.World) (trusted : Etna.Design.Checkpoint) (snapshot now : Nat), (Etna.Design.ProtocolState.applyRollback w trusted snapshot now).inbox.checkpoint = trusted",
+      "assumptions": [
+        "Decoded rollback transformer; the DAO upgrade that runs it and the provenance of the trusted record remain external."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-1de188a398da3093"],
+      "scope": "Decoded specification result under its explicit hypotheses; no production ABI, byte-layout, cryptographic or DAO-attribution conformance is implied."
     }
   ]
 }

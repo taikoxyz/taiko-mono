@@ -20,7 +20,8 @@ conformance vectors below.
 The clause inventory (311 source clauses), the theorem roles and the 22 narrow claims in
 `spec-coverage.json` are a **traceability report, not the verification result**. They record
 which spec clauses some theorem speaks to, and CI keeps them consistent. A clause marked
-partial is not proved.
+partial is not proved. [`reports/rule-coverage.md`](reports/rule-coverage.md) keys the same
+evidence by the stable rule IDs of `packages/protocol/docs/etna/rules/INDEX.md`.
 
 ## The headline theorems
 
@@ -330,6 +331,26 @@ does not guarantee timely evidence delivery or governance action. See
 [signing/escrow analysis](reports/signing-escrow-analysis.md) for precise statements and checked
 counterexamples.
 
+## Back-pressure accounting
+
+`EtnaProofs/BackPressure.lean` proves 6.4's accounting along `OrdinaryTrace`, the traces whose
+steps are original `Step`s other than verifier-failure rollback (6.4's stated exception):
+
+- `ordinary_trace_checkpoint_monotone`: lastCheckpoint.height never decreases. A landing
+  advances it; registration, registry edits, FI enqueue and sweep, recovery and nonce
+  invalidation leave it unchanged.
+- `anchored_count_not_undercounted`: if a block's anchor shows the checkpoint of an earlier
+  World, the block's height above any later lastCheckpoint is at most its height above the
+  anchor's checkpoint.
+- `anchored_unsettled_bound`: with a valid anchor (3.4 rule 5 is a conjunct of `AnchorValid`),
+  the block is at most U blocks above every later lastCheckpoint, so a landing stall permits at
+  most U further blocks.
+- `rollback_restores_trusted_checkpoint`: the exception; rollback makes the trusted retained
+  record lastCheckpoint, which may be lower.
+
+That the anchor shows the checkpoint of a World on the trace is an explicit hypothesis, not a
+premise: real anchor authentication (L1 headers and storage proofs) stays outside the model.
+
 ## Registry, recovery and capital alignment
 
 Top-ups have separate pending principal and a ready L1 block. Deposit and maturity do not
@@ -468,7 +489,9 @@ CI (`.github/workflows/formal--etna.yml`) runs, in order:
    the ignored `.scratch/generated`; `--check` verifies deterministic rendering only.
 6. `scripts/check_spec_coverage.py`: the traceability report's consistency (every claim edge is
    a manifest edge to a partial clause, roles, the pinned spec revision); prints the clause
-   statuses.
+   statuses. `scripts/rule_coverage.py --check` then checks the rule-ID view: the raw-byte pins of
+   `SPEC.md` (markers included) and `rules/INDEX.md`, one row per live INDEX ID, the reviewed
+   overrides in `rule-coverage.json` and a fresh `reports/rule-coverage.md`.
 7. `scripts/audit_proofs.py`, whose logic is `scripts/EtnaAudit.lean`, compiled separately so
    model code cannot change it: the checks below, transitive axioms, `leanchecker --fresh` over
    every library, and a replay of `tests/*.lean` with zero diagnostics.
@@ -479,7 +502,7 @@ What the audit checks, each with its documented limit:
 
 - **Headline.** `Etna.Proofs.claims` and the three headline theorems have exactly their claim
   types and only the standard axioms.
-- **Exact types.** Each of the 894 manifest entries carries a full expected type, parsed as one
+- **Exact types.** Each of the 899 manifest entries carries a full expected type, parsed as one
   term (no `by`, `sorry` or `%`-elaborators) and compared with the kernel's. The manifest is a
   reviewed artifact; the gate does not compare it with prose.
 - **Rule P** (needed for the `property` role). The statement is quantified, and every conjunct,
@@ -560,16 +583,19 @@ namespace (for example `EtnaModel/Deployment.lean` and `EtnaProofs/Deployment.le
   the model and nothing imports it; the lint lets only its plain string literals contain `{`,
   and the audit admits its root `main` as the one declaration outside `Etna`.
 - `manifests/design.json`: the theorem contracts; `manifests/shadowing-allowlist.json`.
-- `spec-coverage.json`: the 22 narrow claims (traceability).
+- `spec-coverage.json`: the 22 narrow claims (traceability). `rule-coverage.json`: the raw
+  pins and reviewed overrides of the rule-ID view.
 - `scripts/`, `tests/`: the gate and its tests. `reports/`: review history. `legacy/v9`:
   historical V9 material outside the build.
 
 ## Numbers
 
-- 894 theorem contracts: 154 property, 3 constant, 410 supporting, 327 regression.
-- 154 property derivation chains, checked against the live proof terms.
-- 311 source clauses: 73 partial, 235 deferred, 3 design-pending; 22 narrow claims.
-- 172 Python mutation/regression tests, plus kernel-replayed Lean regression modules.
+- 899 theorem contracts: 157 property, 3 constant, 412 supporting, 327 regression.
+- 157 property derivation chains, checked against the live proof terms.
+- 311 source clauses: 76 partial, 232 deferred, 3 design-pending; 22 narrow claims.
+- 568 binding rule IDs: 216 partial, 7 partial through a reviewed override, 341 deferred, 4
+  design-pending; 19 limitations and 11 assumptions, none partial.
+- 184 Python mutation/regression tests, plus kernel-replayed Lean regression modules.
 - Current vectors: 414 Inbox/registry and 340 client rule vectors. Historical production
   comparisons: 334 contracts (6 divergences) and 340 client (1 divergence).
 
@@ -581,5 +607,6 @@ theorem (or a closed constant) speaks to the clause, not that the clause is prov
 [Review corrections](reports/review-corrections.md) records every correction pass, ending with
 the headline-theorem restructure; [history/state results](reports/history-state-verification.md),
 [first-batch results](reports/first-batch-verification.md) and
-[design findings](reports/design-findings.md) are historical. Old report counts and line-number
+[design findings](reports/design-findings.md) are historical. [Rule coverage](reports/rule-coverage.md)
+is generated. Old report counts and line-number
 source IDs describe their original revisions.
