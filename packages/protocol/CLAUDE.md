@@ -255,3 +255,25 @@ For upgradeable contracts:
 ---
 
 **Note**: For monorepo-wide guidance, see root `/CLAUDE.md`
+
+## Etna
+
+`contracts/layer1/etna/README.md` maps the Etna contracts to the Etna specification and lists the
+choices the spec leaves open. Run from `packages/protocol`:
+
+```bash
+# Every Etna suite: unit, integration, gas, vector and invariant (64-run default)
+pnpm test:l1 --match-contract 'Etna|LibEntriesTree|LibEtnaKeys|LibCometVote'
+# Invariant campaigns at 256 runs (each suite sets depth 50)
+FOUNDRY_INVARIANT_RUNS=256 pnpm test:l1 --match-contract 'Etna.*Invariant'
+# L2 genesis builder
+pnpm test:l2 --match-contract EtnaGenesisTest
+python3 -m unittest discover -s test/layer2/core -p 'test_etna_genesis.py'
+# Shared vectors: structural tests, then regeneration (needs cast, Go and pnpm)
+python3 -m unittest discover -s ../../testdata/etna_vectors -p 'test_vectors.py'
+(cd ../.. && python3 testdata/etna_vectors/generate.py)
+```
+
+Regeneration is deterministic: a second run must give identical bytes. taiko-client-rs pins
+`testdata/etna_vectors` by hash and builds `test/layer1/etna/EtnaInboxTestBase.sol` for its
+lander artifacts, so keep `MockLandProofVerifier` there with its name and setters.

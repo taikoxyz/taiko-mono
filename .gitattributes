@@ -1,3 +1,6 @@
 # Auto-generated files - always use local branch version during merges
 packages/protocol/gas-reports/* merge=ours
 packages/protocol/layout/* merge=ours
+
+# Storage layout comments intentionally retain the generator's column padding.
+packages/protocol/contracts/**/*_Layout.sol whitespace=-blank-at-eol
