@@ -1,9 +1,11 @@
 import EtnaModel.SigningEscrow
 
 /-! Section 8 "Verifier failure": the rollback must restore slot 284 to the value the last
-trusted landing wrote, or the initialization value. A trusted landing writes exactly the
-selection cutoff of the committee active at its checkpoint, so a trusted snapshot is never
-ahead of that cutoff. An untrusted rollback can break this. -/
+trusted landing wrote, or the initialization value. `SnapshotTrusted` is the condition the
+confirmed-key exclusion needs: slot 284 is not ahead of the cutoff of the committee active at
+lastCheckpoint in a given context. The model does not prove that the spec's duty implies it,
+since after a rollback the context is rebuilt from the restored World. An untrusted rollback
+can break it. -/
 namespace Etna.Design.SigningEscrow
 open ProtocolState
 

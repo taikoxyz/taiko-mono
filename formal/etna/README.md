@@ -200,8 +200,10 @@ The audit fails if any field is read by no headline proof.
 - **What happens after verifier failure.** Without `verifierSound` nothing is claimed
   (`NoVerifierSoundness` shows the premise is needed). The containment of §8 (pausing, the
   rollback upgrade restoring the last trusted values) is not proved: the model's rollback step takes any retained record and any
-  slot-284 snapshot. `confirmed_key_absent_above_checkpoint` covers accountability after a
-  rollback only under the explicit condition `SnapshotTrusted`.
+  slot-284 snapshot. `confirmed_key_absent_above_checkpoint` excludes a confirmed key from the
+  committees active at or above lastCheckpoint only under the explicit condition
+  `SnapshotTrusted`, on the World where the exit is confirmed; it says nothing about later
+  Worlds, withdrawals, commits or slashing, and no theorem shows a restore satisfies it.
 - **A wall-clock FI deadline.** H3 gives none, and §1 says the design gives none either
   (spec L15). H3 does not claim the maxAnchorAge bound of 7.3 (spec L465).
 - **Real cryptography, MPT, KZG and the EL.** Hashes are opaque numbers. Signatures, storage
@@ -227,10 +229,12 @@ The audit fails if any field is read by no headline proof.
   conflicting commits are then unslashable. Even `snapshot < now` is too weak, since a later
   rollback can restore an untrusted value below its own block. A premise that protects H2 must
   be the spec's duty (spec L487): the restored snapshot is a value a retained landing or the
-  initialization wrote. `SnapshotTrusted` states the part of that duty the proof needs (slot 284
-  is not ahead of the cutoff of the committee active at lastCheckpoint) as an explicit condition
-  of `confirmed_key_absent_above_checkpoint`, not as a premise; the regressions show the
-  untrusted rollback's World violates it and the initialized World satisfies it.
+  initialization wrote. `SnapshotTrusted` (slot 284 is not ahead of the cutoff of the committee
+  active at lastCheckpoint) is the condition `confirmed_key_absent_above_checkpoint` needs, as
+  an explicit hypothesis rather than a premise. The model does not prove that the spec's duty
+  implies it: after a rollback the context is rebuilt from the restored World. The regressions
+  show the untrusted rollback's World violates it, and an ordinary confirming World satisfies it
+  together with every other hypothesis of that theorem.
 
 ## Witnesses
 
@@ -361,27 +365,31 @@ steps are original `Step`s other than verifier-failure rollback (6.4's stated ex
 That the anchor shows the checkpoint of a World on the trace is an explicit hypothesis, not a
 premise: real anchor authentication (L1 headers and storage proofs) stays outside the model.
 
-## Settled prefix, round agreement and rollback accountability
+## Settled prefix, round agreement and a trusted slot 284
 
 These results add no premise and change no headline theorem; each new assumption is an explicit
 hypothesis of its own theorem.
 
 - **Settled prefix** (`EtnaProofs/Permanence.lean`): along every `OrdinaryTrace`, records at or
   below the starting lastCheckpoint never change and SignalService checkpoints are only
-  appended. `anchored_checkpoint_stays`: the checkpoint a valid anchor shows stays the same
-  retained record later, and the block stays within U of the later lastCheckpoint.
+  appended. `anchored_checkpoint_stays`: the record at the checkpoint height a valid anchor
+  shows is unchanged later, and the block stays within U of the later lastCheckpoint.
 - **Agreement across rounds** (`EtnaProofs/RoundSafety.lean`): `same_round_agreement` restates
   H2's finality argument for any consensus context. `height_agreement` extends it to every
   round at a height under `CrossRoundAccountable`, a predicate stating CometBFT's cross-round
   accountability for its locking rules: if the members that sign conflicting precommits in some
   round or break the locking rules hold less than 1/3 of the power, all valid commits at that
-  height are for the same block. Cross-round faults stay unslashable.
-- **Accountability after rollback** (`EtnaProofs/TrustedSnapshot.lean`): under
-  `SnapshotTrusted` (slot 284 is not ahead of the cutoff of the committee active at
-  lastCheckpoint, which a trusted landing or initialization writes exactly), a key whose exit
-  was confirmed is absent from every committee active at or above lastCheckpoint.
-  `EtnaWitnesses/Regressions/TrustedSnapshot.lean` shows the untrusted rollback's World
-  violates the condition and the initialized World satisfies it.
+  height are for the same block. The theorem adds no slashing: automatic double-sign slashing
+  compares one round only (§1 "Slashing scope", spec L18).
+- **A trusted slot 284** (`EtnaProofs/TrustedSnapshot.lean`): under `SnapshotTrusted` (slot 284
+  is not ahead of the cutoff of the committee active at lastCheckpoint), a key whose exit was
+  confirmed is absent from every committee that the context built on the same World activates
+  at or above lastCheckpoint. Section 8 requires the rollback to restore the last trusted
+  landing's value; the model does not prove that this implies the condition, and the theorem
+  says nothing about later Worlds, withdrawals, commits or slashing.
+  `EtnaWitnesses/Regressions/TrustedSnapshot.lean` shows the untrusted rollback's World violates
+  the condition, and that on an ordinary run from the initialized deployment the confirming
+  World, with the context built on it, satisfies every hypothesis of the theorem.
 
 ## Registry, recovery and capital alignment
 

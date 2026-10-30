@@ -3,8 +3,8 @@ import EtnaProofs.BackPressure
 /-! The settled prefix stays: along every trace without verifier-failure rollback, the records
 at or below the starting lastCheckpoint never change and SignalService checkpoints are only
 appended. Section 1 promises that nothing at or below a checkpoint is rolled back except by a
-DAO upgrade after verifier failure; this is that promise for every step other than that
-rollback. -/
+DAO upgrade after verifier failure; this is the Inbox side of that promise for every step other
+than that rollback. -/
 namespace Etna.Design.ProtocolState
 
 /-- A step other than verifier-failure rollback keeps every record at or below its starting
@@ -55,7 +55,7 @@ theorem ordinary_trace_signals_prefix {w t : World} (trace : OrdinaryTrace w t) 
   | step _ change ordinary ih => exact ih.trans (ordinary_step_signals_prefix change ordinary)
 
 /-- A block whose valid anchor shows the lastCheckpoint of World `u`: along every later ordinary
-trace, the checkpoint the anchor proves stays the same retained record, and the block stays
+trace, the record at the checkpoint height the anchor shows is unchanged, and the block stays
 within U of the later lastCheckpoint (6.4). -/
 theorem anchored_checkpoint_stays {r : BlockValidity.Rules} {p : BlockValidity.Header}
     {b : BlockValidity.Block} {u t : World} (valid : BlockValidity.AnchorValid r p b)

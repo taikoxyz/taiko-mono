@@ -13304,9 +13304,10 @@
     {
       "module": "EtnaProofs.TrustedSnapshot",
       "declaration": "Etna.Design.SigningEscrow.confirmed_key_absent_above_checkpoint",
-      "type": "∀ {initial w : Etna.Design.ProtocolState.World} {id c h : Nat} {cfg : Etna.Design.HistoricalContext.Parameters} {archive : List Nat} {ctx : Etna.Design.Consensus.Context}, Etna.Design.ProtocolState.Trace initial w → Etna.Design.ProtocolState.Core initial → initial.registry.nextId = 0 → id < w.registry.nextId → (w.registry.slots id).confirmedAt = some c → Etna.Design.SigningEscrow.Covered w → (w.registry.slots id).key ≠ 0 → (w.registry.slots id).exitAt ≠ Etna.Design.Staking.noExit → Etna.Design.HistoricalContext.build w.inbox w.registry cfg archive = some ctx → Etna.Design.SigningEscrow.SnapshotTrusted ctx w → w.inbox.checkpoint.height ≤ h → ∀ e ∈ (Etna.Design.Consensus.activeAt ctx h).members, e.key ≠ (w.registry.slots id).key",
+      "type": "∀ {initial w : Etna.Design.ProtocolState.World} {id c h : Nat} {cfg : Etna.Design.HistoricalContext.Parameters} {archive : List Nat} {ctx : Etna.Design.Consensus.Context}, Etna.Design.ProtocolState.Trace initial w → Etna.Design.ProtocolState.Core initial → Etna.Design.SigningEscrow.KeysWellFormed initial.registry → Etna.Design.SigningEscrow.ExitVisible initial.registry → id < w.registry.nextId → (w.registry.slots id).confirmedAt = some c → Etna.Design.SigningEscrow.Covered w → (w.registry.slots id).key ≠ 0 → (w.registry.slots id).exitAt ≠ Etna.Design.Staking.noExit → Etna.Design.HistoricalContext.build w.inbox w.registry cfg archive = some ctx → Etna.Design.SigningEscrow.SnapshotTrusted ctx w → w.inbox.checkpoint.height ≤ h → ∀ e ∈ (Etna.Design.Consensus.activeAt ctx h).members, e.key ≠ (w.registry.slots id).key",
       "assumptions": [
-        "Slot 284 is trusted (SnapshotTrusted): not ahead of the cutoff of the committee active at lastCheckpoint, as section 8 requires of the verifier-failure rollback; authentication of the restored value and the DAO upgrade remain external."
+        "Slot 284 is trusted (SnapshotTrusted): not ahead of the cutoff of the committee active at lastCheckpoint, as section 8 requires of the verifier-failure rollback; the model does not prove that a restored value satisfies it, and authentication of the restored value and the DAO upgrade remain external.",
+        "The exit is covered (Covered w), the trace starts from a registry with unique keys and visible exits, and the context is built on the same World w; nothing is claimed about later Worlds, withdrawals, commits or slashing."
       ],
       "bridge_level": "spec-proved",
       "role": "property",
@@ -13315,7 +13316,7 @@
     },
     {
       "module": "EtnaWitnesses.Regressions.TrustedSnapshot",
-      "declaration": "Etna.Design.UntrustedRollback.untrusted_rollback_not_trusted",
+      "declaration": "Etna.Design.TrustedSnapshotRegression.untrusted_rollback_not_trusted",
       "type": "¬ Etna.Design.SigningEscrow.SnapshotTrusted Etna.Design.UntrustedRollback.rulesD.consensus Etna.Design.UntrustedRollback.worldD",
       "assumptions": [
         "Concrete witness World of the untrusted-rollback counterexample."
@@ -13327,15 +13328,15 @@
     },
     {
       "module": "EtnaWitnesses.Regressions.TrustedSnapshot",
-      "declaration": "Etna.Design.UntrustedRollback.initialized_snapshot_trusted",
-      "type": "Etna.Design.SigningEscrow.SnapshotTrusted Etna.Design.UntrustedRollback.rulesD.consensus Etna.Design.NonVacuity.world0",
+      "declaration": "Etna.Design.TrustedSnapshotRegression.confirmed_exit_trusted_snapshot",
+      "type": "Etna.Design.HistoricalContext.build Etna.Design.HistoricalEscrow.worldD.inbox Etna.Design.HistoricalEscrow.worldD.registry Etna.Design.TrustedSnapshotRegression.confirmingParameters Etna.Design.HistoricalEscrow.archive = some Etna.Design.TrustedSnapshotRegression.confirmingContext ∧ (Etna.Design.HistoricalEscrow.worldD.registry.slots 0).key = 7 ∧ (Etna.Design.HistoricalEscrow.worldD.registry.slots 0).confirmedAt = some 29 ∧ Etna.Design.SigningEscrow.Covered Etna.Design.HistoricalEscrow.worldD ∧ Etna.Design.SigningEscrow.SnapshotTrusted Etna.Design.TrustedSnapshotRegression.confirmingContext Etna.Design.HistoricalEscrow.worldD ∧ ∀ (h : Nat), Etna.Design.HistoricalEscrow.worldD.inbox.checkpoint.height ≤ h → ∀ e ∈ (Etna.Design.Consensus.activeAt Etna.Design.TrustedSnapshotRegression.confirmingContext h).members, e.key ≠ 7",
       "assumptions": [
-        "Concrete initialized World of the non-vacuity deployment."
+        "Concrete ordinary run of HistoricalEscrow from the initialized deployment; the context is built on the confirming World."
       ],
       "bridge_level": "spec-proved",
       "role": "regression",
-      "sources": ["EN-d04a236579cc9990"],
-      "scope": "Regression: SnapshotTrusted is satisfiable; the initialized World's slot 284 equals the genesis cutoff."
+      "sources": ["EN-d04a236579cc9990", "EN-4651c537a506e6fd"],
+      "scope": "Regression: every hypothesis of confirmed_key_absent_above_checkpoint holds together on a confirming World with its own built context."
     }
   ]
 }
