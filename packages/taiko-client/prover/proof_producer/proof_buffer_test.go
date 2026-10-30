@@ -167,3 +167,41 @@ func TestProofBuffer_DuplicateWhenFull(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, b.Len())
 }
+
+func TestProofBuffer_MarkAggregatingIfNotRejectsEmptyBuffer(t *testing.T) {
+	buffer := NewProofBuffer(5)
+
+	require.False(t, buffer.MarkAggregatingIfNot())
+	require.False(t, buffer.IsAggregating())
+}
+
+func TestProofBuffer_MarkAggregatingIfNotAfterConcurrentClear(t *testing.T) {
+	buffer := NewProofBuffer(5)
+	_, err := buffer.Write(&ProofResponse{BatchID: big.NewInt(11)})
+	require.NoError(t, err)
+	require.True(t, buffer.MarkAggregatingIfNot())
+
+	observedLength := make(chan int, 1)
+	cleared := make(chan struct{})
+	marked := make(chan bool, 1)
+	go func() {
+		// Pause a new aggregation request after its nonempty check.
+		observedLength <- buffer.Len()
+		<-cleared
+		marked <- buffer.MarkAggregatingIfNot()
+	}()
+
+	require.Equal(t, 1, <-observedLength)
+	// The previous batch completes before the new request can mark the buffer.
+	require.Equal(t, 1, buffer.ClearItems(11))
+	close(cleared)
+
+	require.False(t, <-marked)
+	require.False(t, buffer.IsAggregating())
+
+	// Rejecting the stale request must leave the next batch able to aggregate.
+	_, err = buffer.Write(&ProofResponse{BatchID: big.NewInt(12)})
+	require.NoError(t, err)
+	require.True(t, buffer.MarkAggregatingIfNot())
+	require.False(t, buffer.MarkAggregatingIfNot())
+}

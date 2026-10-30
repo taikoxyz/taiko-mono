@@ -19,6 +19,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.comment.id }}
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   openrouter-review:
     # Opt-in only: runs when a trusted, human author comments `@review` on a PR.
@@ -47,7 +50,7 @@ jobs:
       # No checkout / setup-node: github-script runs on the runner's Node and
       # the diff is fetched via the API, so a repo checkout is unnecessary.
       - name: Run OpenRouter Code Review
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           OPENROUTER_DEFAULT_MODEL: ${{ vars.OPENROUTER_DEFAULT_MODEL }}

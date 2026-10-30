@@ -41,8 +41,13 @@ Event sync startup must use checkpoint resume head or local `head_l1_origin` rec
     `Latest`. A client's explicit pre-finality response—geth's `finalized block not found` error or
     reth's `null` finalized-block result—is the only fresh-devnet exception before the chain has
     produced its first finalized block.
-  - Scanner reconnect probes finalized state once. If that probe fails, replay rewinds to the
-    original finalized-safe startup anchor instead of blocking the disconnected scanner forever.
+  - Scanner reconnect reads only the finalized L1 header (never finalized state, so a state
+    backfill cannot wedge it) and restarts from `min(last_seen - 1, finalized)`. An RPC failure,
+    or a missing finalized block after L1 has reported one (geth clears it while repairing its
+    head after an unclean restart), keeps the reconnect in backoff retry, because the scanner
+    needs L1 to restart anyway. Only a chain that has not finalized any block yet rewinds to the
+    original startup anchor. Rewinding on a transient failure would replay every proposal since
+    startup, possibly days, with preconfirmation ingress closed.
 - Failure mode if broken:
   - Starting from `Latest` or another unsafe point can include local-only preconf chain state and skip required historical event replay.
   - Replacing an unreadable finalized-state boundary with an unfinalized resume proposal can skip

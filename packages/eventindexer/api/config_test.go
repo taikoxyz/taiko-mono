@@ -39,7 +39,6 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, "dbpass", c.DatabasePassword)
 		assert.Equal(t, "dbname", c.DatabaseName)
 		assert.Equal(t, "dbhost", c.DatabaseHost)
-		assert.Equal(t, "rpcUrl", c.RPCUrl)
 		assert.Equal(t, uint64(1000), c.HTTPPort)
 		assert.Equal(t, uint64(1001), c.MetricsHTTPPort)
 		assert.Equal(t, uint64(10), c.DatabaseMaxIdleConns)
@@ -56,7 +55,6 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"--" + flags.DatabasePassword.Name, "dbpass",
 		"--" + flags.DatabaseHost.Name, "dbhost",
 		"--" + flags.DatabaseName.Name, "dbname",
-		"--" + flags.APIRPCUrl.Name, "rpcUrl",
 		"--" + flags.HTTPPort.Name, httpPort,
 		"--" + flags.MetricsHTTPPort.Name, metricsHttpPort,
 		"--" + flags.CORSOrigins.Name, corsOrigins,
