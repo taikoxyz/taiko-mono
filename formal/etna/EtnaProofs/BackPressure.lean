@@ -6,10 +6,34 @@ within U of every later lastCheckpoint, along every trace without verifier-failu
 Rollback, the stated exception, restores the trusted record as lastCheckpoint. -/
 namespace Etna.Design.ProtocolState
 
+/-- Every ordinary step is an original step with the same premises. -/
+theorem ordinary_step_is_step {w t : World} (change : OrdinaryStep w t) : Step w t := by
+  cases change with
+  | landing time ok => exact .landing time ok
+  | registration time ok => exact .registration time ok
+  | modification time callable ok => exact .modification time callable ok
+  | enqueue time blockRange timestampRange ok => exact .enqueue time blockRange timestampRange ok
+  | sweep time ok => exact .sweep time ok
+  | recovery time ok => exact .recovery time ok
+  | invalidation time ok => exact .invalidation time ok
+
+/-- Every original step is an ordinary step or a verifier-failure rollback: `OrdinaryStep`
+leaves out exactly the rollback operation. -/
+theorem step_ordinary_or_rollback {w t : World} (change : Step w t) :
+    OrdinaryStep w t ∨ ∃ trusted snapshot now, t = applyRollback w trusted snapshot now := by
+  cases change with
+  | landing time ok => exact .inl (.landing time ok)
+  | registration time ok => exact .inl (.registration time ok)
+  | modification time callable ok => exact .inl (.modification time callable ok)
+  | enqueue time blockRange timestampRange ok => exact .inl (.enqueue time blockRange timestampRange ok)
+  | sweep time ok => exact .inl (.sweep time ok)
+  | recovery time ok => exact .inl (.recovery time ok)
+  | invalidation time ok => exact .inl (.invalidation time ok)
+  | rollback trusted snapshot now => exact .inr ⟨trusted,snapshot,now,rfl⟩
+
 /-- No original step other than verifier-failure rollback lowers lastCheckpoint: a landing
 advances it, and every other transaction leaves it unchanged. -/
-theorem ordinary_step_checkpoint_monotone {w t : World} (change : Step w t)
-    (ordinary : ∀ trusted snapshot now, t ≠ applyRollback w trusted snapshot now) :
+theorem ordinary_step_checkpoint_monotone {w t : World} (change : OrdinaryStep w t) :
     w.inbox.checkpoint.height ≤ t.inbox.checkpoint.height := by
   cases change with
   | landing _ ok => exact Nat.le_of_lt (land_extends_checkpoint ok).1
@@ -19,14 +43,13 @@ theorem ordinary_step_checkpoint_monotone {w t : World} (change : Step w t)
   | sweep _ ok => unfold Forced.sweep at ok; split at ok <;> cases ok; exact Nat.le_refl _
   | recovery _ ok => obtain ⟨_,rfl⟩ := Recovery.recover_success ok; exact Nat.le_refl _
   | invalidation _ ok => obtain ⟨_,rfl⟩ := Recovery.invalidation_success ok; exact Nat.le_refl _
-  | rollback trusted snapshot now => exact absurd rfl (ordinary trusted snapshot now)
 
 /-- lastCheckpoint.height never decreases along a trace without verifier-failure rollback. -/
 theorem ordinary_trace_checkpoint_monotone {w t : World} (trace : OrdinaryTrace w t) :
     w.inbox.checkpoint.height ≤ t.inbox.checkpoint.height := by
   induction trace with
   | refl => exact Nat.le_refl _
-  | step _ change ordinary ih => exact Nat.le_trans ih (ordinary_step_checkpoint_monotone change ordinary)
+  | step _ change ih => exact Nat.le_trans ih (ordinary_step_checkpoint_monotone change)
 
 /-- 6.4 "never undercounts": if a block's anchor shows the checkpoint of World `w`, then for
 every later World `t` without an intervening verifier-failure rollback, the block's height

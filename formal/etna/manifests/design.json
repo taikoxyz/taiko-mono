@@ -13156,7 +13156,7 @@
     {
       "module": "EtnaProofs.BackPressure",
       "declaration": "Etna.Design.ProtocolState.ordinary_step_checkpoint_monotone",
-      "type": "∀ {w t : Etna.Design.ProtocolState.World}, Etna.Design.ProtocolState.Step w t → (∀ (trusted : Etna.Design.Checkpoint) (snapshot now : Nat), t ≠ Etna.Design.ProtocolState.applyRollback w trusted snapshot now) → w.inbox.checkpoint.height ≤ t.inbox.checkpoint.height",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World}, Etna.Design.ProtocolState.OrdinaryStep w t → w.inbox.checkpoint.height ≤ t.inbox.checkpoint.height",
       "assumptions": [
         "Decoded authenticated L1 clock; token transfers and EVM transaction journaling remain external."
       ],
@@ -13220,7 +13220,7 @@
     {
       "module": "EtnaProofs.Permanence",
       "declaration": "Etna.Design.ProtocolState.ordinary_step_preserves_settled_records",
-      "type": "∀ {w t : Etna.Design.ProtocolState.World}, Etna.Design.ProtocolState.Step w t → (∀ (trusted : Etna.Design.Checkpoint) (snapshot now : Nat), t ≠ Etna.Design.ProtocolState.applyRollback w trusted snapshot now) → ∀ (h : Nat), h ≤ w.inbox.checkpoint.height → Etna.Design.recordAt t.inbox h = Etna.Design.recordAt w.inbox h",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World}, Etna.Design.ProtocolState.OrdinaryStep w t → ∀ (h : Nat), h ≤ w.inbox.checkpoint.height → Etna.Design.recordAt t.inbox h = Etna.Design.recordAt w.inbox h",
       "assumptions": [
         "Decoded authenticated L1 clock; token transfers and EVM transaction journaling remain external."
       ],
@@ -13244,7 +13244,7 @@
     {
       "module": "EtnaProofs.Permanence",
       "declaration": "Etna.Design.ProtocolState.ordinary_step_signals_prefix",
-      "type": "∀ {w t : Etna.Design.ProtocolState.World}, Etna.Design.ProtocolState.Step w t → (∀ (trusted : Etna.Design.Checkpoint) (snapshot now : Nat), t ≠ Etna.Design.ProtocolState.applyRollback w trusted snapshot now) → w.inbox.signals <+: t.inbox.signals",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World}, Etna.Design.ProtocolState.OrdinaryStep w t → w.inbox.signals <+: t.inbox.signals",
       "assumptions": [
         "Decoded authenticated L1 clock; token transfers and EVM transaction journaling remain external."
       ],
@@ -13342,6 +13342,42 @@
       "role": "regression",
       "sources": ["EN-d04a236579cc9990", "EN-4651c537a506e6fd"],
       "scope": "Regression: every hypothesis of confirmed_key_absent_above_checkpoint holds together on a confirming World with its own built context."
+    },
+    {
+      "module": "EtnaProofs.BackPressure",
+      "declaration": "Etna.Design.ProtocolState.ordinary_step_is_step",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World}, Etna.Design.ProtocolState.OrdinaryStep w t → Etna.Design.ProtocolState.Step w t",
+      "assumptions": [
+        "Decoded authenticated L1 clock; token transfers and EVM transaction journaling remain external."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-1de188a398da3093"],
+      "scope": "Decoded specification result under its explicit hypotheses; no production ABI, byte-layout, cryptographic or DAO-attribution conformance is implied."
+    },
+    {
+      "module": "EtnaProofs.BackPressure",
+      "declaration": "Etna.Design.ProtocolState.step_ordinary_or_rollback",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World}, Etna.Design.ProtocolState.Step w t → Etna.Design.ProtocolState.OrdinaryStep w t ∨ ∃ trusted snapshot now, t = Etna.Design.ProtocolState.applyRollback w trusted snapshot now",
+      "assumptions": [
+        "Decoded authenticated L1 clock; token transfers and EVM transaction journaling remain external."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-1de188a398da3093", "EN-d04a236579cc9990"],
+      "scope": "Decoded specification result under its explicit hypotheses; no production ABI, byte-layout, cryptographic or DAO-attribution conformance is implied."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.OrdinaryTrace",
+      "declaration": "Etna.Design.OrdinaryTraceRegression.invalidation_is_ordinary",
+      "type": "Etna.Design.ProtocolState.OrdinaryTrace Etna.Design.NonVacuity.world0 Etna.Design.OrdinaryTraceRegression.invalidated ∧ Etna.Design.OrdinaryTraceRegression.invalidated = Etna.Design.ProtocolState.applyRollback Etna.Design.NonVacuity.world0 Etna.Design.NonVacuity.world0.inbox.checkpoint Etna.Design.NonVacuity.world0.inbox.snapshot Etna.Design.NonVacuity.world0.l1Block",
+      "assumptions": [
+        "Concrete initialized World of the non-vacuity deployment; the owner invalidates the current recovery nonce."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-3f7463f0f1df5094", "EN-1de188a398da3093"],
+      "scope": "Regression: an owner nonce invalidation whose result equals a no-op rollback is still an ordinary step, so the settled-prefix and back-pressure theorems cover it."
     }
   ]
 }

@@ -349,7 +349,12 @@ counterexamples.
 ## Back-pressure accounting
 
 `EtnaProofs/BackPressure.lean` proves 6.4's accounting along `OrdinaryTrace`, the traces whose
-steps are original `Step`s other than verifier-failure rollback (6.4's stated exception):
+steps are original `Step`s other than verifier-failure rollback (6.4's stated exception). Its
+edges are `OrdinaryStep`s, which repeat every `Step` constructor except rollback with the same
+premises (`ordinary_step_is_step`, `step_ordinary_or_rollback`). An operation is left out for
+what it is, not for its result: an owner nonce invalidation whose result equals a rollback that
+keeps the current checkpoint and snapshot is still ordinary
+(`OrdinaryTraceRegression.invalidation_is_ordinary`).
 
 - `ordinary_trace_checkpoint_monotone`: lastCheckpoint.height never decreases. A landing
   advances it; registration, registry edits, FI enqueue and sweep, recovery and nonce
@@ -643,7 +648,7 @@ namespace (for example `EtnaModel/Deployment.lean` and `EtnaProofs/Deployment.le
 
 ## Numbers
 
-- 909 theorem contracts: 163 property, 3 constant, 414 supporting, 329 regression.
+- 912 theorem contracts: 163 property, 3 constant, 416 supporting, 330 regression.
 - 163 property derivation chains, checked against the live proof terms.
 - 313 source clauses: 77 partial, 233 deferred, 3 design-pending; 22 narrow claims.
 - 568 binding rule IDs: 141 partial, 7 partial through a reviewed override, 416 deferred, 4
