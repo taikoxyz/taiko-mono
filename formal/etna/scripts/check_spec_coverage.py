@@ -16,8 +16,9 @@ checks each `property`/`supporting` role both ways against the kernel type and p
 
 The authorities are the in-repo SPEC.md and ACCEPTANCE.md, independently pinned in
 spec-coverage.json by source path, reviewed Git commit, revision date and SHA-256.
-No editor-export manifest is needed. Any edit to either document fails this check
-until the clause links are reviewed against the new text and its pin is updated.
+No editor-export manifest is needed. Any edit to either document's text fails this check
+until the clause links are reviewed against the new text and its pin is updated. The pin
+and the clauses cover the text with rule-reference markers removed (strip_markers).
 
 Every theorem cites at least one clause, except the reviewed plumbing in UNSOURCED, which
 cites none: it is audited like any theorem but is the obligation of no clause.
@@ -67,6 +68,19 @@ def digest(data):
 
 def normalized(text):
     return ' '.join(text.split())
+
+
+# Rule-reference markers (packages/protocol/docs/etna-pos-zk/rules/README.md) are citation
+# handles, not clause text: an inline `**[FI-7.2-1]** ` prefix, or a `// [ENC-A-6]` line above
+# a definition-block line. They are removed before the pin is checked and clauses are read,
+# so adding or moving a marker changes neither a clause identity nor a `spec L…` line number.
+MARKER_ID = r'[A-Z][A-Z0-9]*-[0-9.ABC]+-[0-9]+[a-z]?'
+INLINE_MARKER = re.compile(r'\*\*\['+MARKER_ID+r'\]\*\* ?')
+CODE_MARKER_LINE = re.compile(r'^[ \t]*// \['+MARKER_ID+r'\][ \t]*\n', re.M)
+
+
+def strip_markers(text):
+    return INLINE_MARKER.sub('', CODE_MARKER_LINE.sub('', text))
 
 
 def clauses(text, language):
@@ -137,12 +151,12 @@ def source_rows(root=ROOT, repo=REPO):
             raise ValueError(f'the {label} source requires a full Git commit')
         if not re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}', source.get('revision', '')):
             raise ValueError(f'the {label} source requires an ISO revision date')
-        data = (repo/path).read_bytes()
-        if digest(data) != source.get('sha256'):
+        text = strip_markers((repo/path).read_bytes().decode())
+        if digest(text.encode()) != source.get('sha256'):
             raise ValueError(f'{label} digest mismatch: {path} differs from the reviewed revision '
                              f'{source["revision"]} ({source["commit"]}); review the clause links '
                              'against the new text, then update its pin in spec-coverage.json')
-        rows = clauses(data.decode(), language)
+        rows = clauses(text, language)
         for row in rows:
             row.update(path=path, source_commit=source['commit'])
         result.extend(rows)

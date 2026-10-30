@@ -2,10 +2,12 @@
 
 This package is a Lean 4 model of the Etna specification and the proofs about it. The
 specification is [`packages/protocol/docs/etna-pos-zk/SPEC.md`](../../packages/protocol/docs/etna-pos-zk/SPEC.md)
-at commit `39ebefbf33a2702b750e0fb0db7d2a40ff8e8480` (2026-10-29). Both it and
+at commit `90db8d05419db010512bcd6a8ae0ab01b97fe249` (2026-10-30). Both it and
 [`ACCEPTANCE.md`](../../packages/protocol/docs/etna-pos-zk/ACCEPTANCE.md) are independently
-pinned by path, revision, source commit and SHA-256 in `spec-coverage.json`. A spec line written `spec L…`
-is a line of that file. Any edit to the spec fails the coverage check until the clause links are
+pinned by path, revision, source commit and SHA-256 in `spec-coverage.json`. The pin and the clauses
+cover the text with the rule-reference markers removed (`**[ID]**` prefixes and `// [ID]` lines, see
+[`rules/README.md`](../../packages/protocol/docs/etna-pos-zk/rules/README.md)); that text has the same
+lines as the 2026-10-29 revision, so a spec line written `spec L…` is a line of it. Any edit to the spec fails the coverage check until the clause links are
 reviewed against the new text and the pin is updated.
 
 **The result is three headline theorems**, fund safety, accountable finality and

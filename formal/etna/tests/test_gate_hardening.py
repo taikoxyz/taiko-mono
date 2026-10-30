@@ -840,9 +840,9 @@ class CoverageRoleTests(unittest.TestCase):
             source = repo/COVERAGE.SPEC_PATH
             text = source.read_text()+'\nAudit duplicate clause.\n\nAudit duplicate clause.\n'
             source.write_text(text)
-            spec['source']['sha256'] = COVERAGE.digest(source.read_bytes())
+            spec['source']['sha256'] = COVERAGE.digest(COVERAGE.strip_markers(text).encode())
             (root/'spec-coverage.json').write_text(json.dumps(spec))
-            duplicate = [r for r in COVERAGE.clauses(text, 'en') if r['summary']=='Audit duplicate clause.']
+            duplicate = [r for r in COVERAGE.clauses(COVERAGE.strip_markers(text), 'en') if r['summary']=='Audit duplicate clause.']
             self.assertEqual(len(duplicate), 2)
             manifest = json.loads((root/'manifests/design.json').read_text())
             manifest['theorems'][0]['sources'].append(duplicate[-1]['id'])

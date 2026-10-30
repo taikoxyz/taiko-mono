@@ -24,9 +24,9 @@ class PinnedSourceTests(unittest.TestCase):
             shutil.copytree(coverage.REPO/directory, repo/directory)
             value = {
                 'source': {
-                    'path': directory+'/SPEC.md', 'revision': '2026-10-29',
-                    'commit': '39ebefbf33a2702b750e0fb0db7d2a40ff8e8480',
-                    'sha256': '8fe38cbd0acb08e0ec838ac064de198e2c32494d9ca2f71b4d0f773804cf37d5',
+                    'path': directory+'/SPEC.md', 'revision': '2026-10-30',
+                    'commit': '90db8d05419db010512bcd6a8ae0ab01b97fe249',
+                    'sha256': 'f6c9f0a38f60e008b127e68100996fb21e25cd67ec4b116fa298cad60cdb76a5',
                 },
                 'acceptance_source': {
                     'path': directory+'/ACCEPTANCE.md', 'revision': '2026-10-29',

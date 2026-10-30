@@ -44,6 +44,14 @@ class EvidencePackageTests(unittest.TestCase):
         self.assertNotEqual(coverage.clauses('- Rule A','en')[0]['id'],
                             coverage.clauses('- Rule B','en')[0]['id'])
 
+    def test_rule_reference_markers_are_not_clause_text(self):
+        marked = '- **[FI-7.2-1]** Rule A\n```txt\n// [ENC-A-6]\nx = 1\n```\n'
+        plain = '- Rule A\n```txt\nx = 1\n```\n'
+        stripped = coverage.strip_markers(marked)
+        self.assertEqual(stripped, plain)
+        self.assertEqual([(r['id'], r['start_line']) for r in coverage.clauses(stripped,'en')],
+                         [(r['id'], r['start_line']) for r in coverage.clauses(plain,'en')])
+
     def test_generated_inventory_fingerprints_both_authorities(self):
         import subprocess
         with tempfile.TemporaryDirectory() as tmp:
@@ -52,7 +60,7 @@ class EvidencePackageTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             hashes = json.loads((Path(tmp)/'coverage.json').read_text())['source_sha256']
             self.assertEqual(hashes['packages/protocol/docs/etna-pos-zk/SPEC.md'],
-                             '8fe38cbd0acb08e0ec838ac064de198e2c32494d9ca2f71b4d0f773804cf37d5')
+                             'a079ea510d85077697d4ca731202fe4717efcf7612dd6619a0838cbfaab97210')
             self.assertEqual(hashes['packages/protocol/docs/etna-pos-zk/ACCEPTANCE.md'],
                              '876f89892acc91508fd322b4df676a0eb19550b39c9a43490376b4a3b4863c60')
             self.assertNotIn('packages/protocol/docs/etna-pos-zk/sources/manifest.json', hashes)
