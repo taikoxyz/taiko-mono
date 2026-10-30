@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>09 &mdash; Censorship and the bridge · Etna PoS + ZK engineer&rsquo;s course</title>
+<link rel="stylesheet" href="course.css"></head><body>
+<div class="layout">
+<aside class="side">
+<span class="brand">Etna PoS + ZK</span>
+<span class="sub">engineer&rsquo;s course</span>
+<div class="grp">Lessons</div>
+<ol>
+<li><a href="index.html">Contents</a></li>
+<li><a href="01-what-is-etna.html">1. What Etna PoS + ZK is</a></li>
+<li><a href="02-life-of-a-transaction.html">2. Life of a transaction</a></li>
+<li><a href="03-consensus.html">3. How the chain agrees</a></li>
+<li><a href="04-staking-and-epochs.html">4. Stake, validators, epochs</a></li>
+<li><a href="05-the-proof.html">5. What the proof proves</a></li>
+<li><a href="06-data-and-proof-together.html">6. Data first, proof binds</a></li>
+<li><a href="07-timing.html">7. Two seconds, thirty minutes</a></li>
+<li><a href="08-when-things-go-wrong.html">8. When things go wrong</a></li>
+<li><a href="09-censorship-and-the-bridge.html" class="active">9. Censorship and the bridge</a></li>
+<li><a href="10-economics.html">10. Who pays, who earns</a></li>
+<li><a href="11-forced-inclusion.html">11. Forced inclusion</a></li>
+</ol>
+<div class="grp">Reference</div>
+<ol>
+<li><a href="glossary.html">Glossary</a></li>
+<li><a href="limitations.html">Limitations</a></li>
+</ol>
+<div class="grp">Authoritative</div>
+<ol>
+<li><a class="ext" href="../spec/index.html">Specification &rarr;</a></li>
+</ol>
+</aside>
+<div class="content">
+<main>
+<h1>Censorship and the bridge</h1>
+<p class="muted">This lesson establishes two things. The first is the honest inclusion statement: data that
+reaches Ethereum carries a proof-enforced obligation that is not a latency guarantee, data that never reaches
+Ethereum carries no obligation at all, and the protocol has no remedy against an adversary that can keep data
+off L1 or isolate a user from every honest proposer. The second is the bridge path: how a cross-chain message
+is authenticated against an L1-accepted checkpoint, which contracts keep their addresses and are upgraded in
+place, and what an integrator should check before releasing value. The inclusion mechanism is stated here in
+outline, in the terms this page needs. This is a design
+description; nothing here is implemented, measured, audited or deployed.</p>
+
+<h2>The idea</h2>
+<p>Start with the uncomfortable half. If your transaction&rsquo;s data reaches L1, the protocol makes it
+available to everyone and starts one narrow <strong>inclusion obligation</strong>: after the record&rsquo;s
+due point, a batch that lands must advance a settlement frontier past it by resolving the record &mdash; dead first and unconditionally, when the record&rsquo;s own deadline
+has passed at the anchored view, decided from its own stored block number; otherwise, while the
+record is live, the walk reads its transactions in the record&rsquo;s own order and each one either
+runs or is set aside at its turn, and a live record all of whose transactions are set aside is void &mdash;
+and that duty is checked inside the proof, never as a condition on accepting a batch. It is
+<strong>not a latency guarantee</strong>: a transaction can be set aside and a record can be discharged
+without being executed, a settlement stall can let it age out, and arrivals beyond the drain make waits
+unbounded. What
+remains absent is different: there is no <strong>general inclusion list</strong>, so no queue of arbitrary
+transactions, no
+escrow, no refund and no L1 entry point can force an <em>unpublished</em> transaction into L2 or start a
+withdrawal.</p>
+<p>A settlement stall is not an inclusion remedy either. The stall resolution can clear it &mdash; a DAO-queued entry, a stored deadline, one execution by any account, resuming settlement above the checkpoint without erasing the range &mdash; but it is no remedy for exclusion: it reads no inclusion state and includes nothing. A settlement stall halts the chain until it runs, value at or below the last accepted checkpoint still exits on Ethereum alone through a withdrawal root that <code>k</code> distinct backend families attest, and nothing obliges governance to act. The obligation binds a batch that lands, so none of it operates while settlement is stopped, and none of it makes unpublished data includable.</p>
+<p>For data that never reaches L1, resistance is statistical. Proposer selection is weighted random: a
+coalition with less than one third of the voting power is selected for fewer than one third of slots in
+expectation, so a transaction that reaches honest validators is included by the first honest proposer
+with room for it. That is an expectation over windows, not a bound on any particular window. The schedule
+is also a public deterministic function, so the slot in which a target transaction would be included can be
+computed in advance and bought or coerced, and no rule prices, detects or penalises that. Worse, an adversary that can
+cut a user off from <em>every</em> honest proposer &mdash; or that can censor L1 inclusion itself &mdash;
+can keep the data off L1 and so exclude that user indefinitely; and because a withdrawal is begun by an L2
+transaction, the same adversary can prevent the user from starting a withdrawal at all. The protocol
+offers no remedy against that. Publishing the data yourself changes this in one direction only: it starts
+the proof-enforced obligation, which binds a producer that lands batches but cannot reach data that never
+reaches L1, and it still creates no latency guarantee. That is the whole statement; anything softer would be
+inaccurate.</p>
+<p>The second half is the bridge. A cross-chain message is authenticated against an L1
+<strong>checkpoint</strong> that the settlement Inbox writes when a batch lands with its data and its
+proof. The SignalService, the Bridge and the three vaults keep the addresses they have today, on both
+chains, and are upgraded in place rather than replaced, because live message state, cached proofs and
+the immutable checkpoint-writer links are all keyed to those exact addresses.</p>
+<p class="small">Where this is specified: <a href="../spec/02-consensus.html#CONS-06">CONS-06</a>.</p>
+
+<h2>Slots and checkpoints</h2>
+<figure>
+<svg viewBox="0 0 960 520" role="img" aria-label="Top: weighted proposer slots with a below-one-third coalition. Bottom: the bridge message path from L2 signal to L1 checkpoint and release">
+<defs> <marker id="arr9" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"> <path d="M0,0 L7,3 L0,6 z" fill="#0969da"/></marker></defs>
+<rect x="20" y="16" width="920" height="212" rx="8" fill="#ffffff" stroke="#d8dee4"/> <text x="36" y="42" fill="#24292f" font-size="13">Inclusion: weighted slots for unpublished data; a proof-enforced duty for published data</text> <rect x="56"  y="60" width="60" height="46" rx="6" fill="#ffebe9" stroke="#5c2630"/> <text x="86"  y="88" fill="#cf222e" font-size="13" text-anchor="middle">C</text>
+<rect x="124" y="60" width="60" height="46" rx="6" fill="#e6f4ea" stroke="#2c5a3a"/> <text x="154" y="88" fill="#1a7f37" font-size="13" text-anchor="middle">H</text> <rect x="192" y="60" width="60" height="46" rx="6" fill="#e6f4ea" stroke="#2c5a3a"/> <text x="222" y="88" fill="#1a7f37" font-size="13" text-anchor="middle">H</text> <rect x="260" y="60" width="60" height="46" rx="6" fill="#e6f4ea" stroke="#2c5a3a"/>
+<text x="290" y="88" fill="#1a7f37" font-size="13" text-anchor="middle">H</text> <rect x="328" y="60" width="60" height="46" rx="6" fill="#ffebe9" stroke="#5c2630"/> <text x="358" y="88" fill="#cf222e" font-size="13" text-anchor="middle">C</text> <rect x="396" y="60" width="60" height="46" rx="6" fill="#e6f4ea" stroke="#2c5a3a"/> <text x="426" y="88" fill="#1a7f37" font-size="13" text-anchor="middle">H</text>
+<rect x="464" y="60" width="60" height="46" rx="6" fill="#e6f4ea" stroke="#2c5a3a"/> <text x="494" y="88" fill="#1a7f37" font-size="13" text-anchor="middle">H</text> <rect x="532" y="60" width="60" height="46" rx="6" fill="#e6f4ea" stroke="#2c5a3a"/> <text x="562" y="88" fill="#1a7f37" font-size="13" text-anchor="middle">H</text> <rect x="600" y="60" width="60" height="46" rx="6" fill="#e6f4ea" stroke="#2c5a3a"/>
+<text x="630" y="88" fill="#1a7f37" font-size="13" text-anchor="middle">H</text> <rect x="668" y="60" width="60" height="46" rx="6" fill="#ffebe9" stroke="#5c2630"/> <text x="698" y="88" fill="#cf222e" font-size="13" text-anchor="middle">C</text> <rect x="736" y="60" width="60" height="46" rx="6" fill="#e6f4ea" stroke="#2c5a3a"/> <text x="766" y="88" fill="#1a7f37" font-size="13" text-anchor="middle">H</text>
+<rect x="804" y="60" width="60" height="46" rx="6" fill="#e6f4ea" stroke="#2c5a3a"/> <text x="834" y="88" fill="#1a7f37" font-size="13" text-anchor="middle">H</text> <path d="M46 150 H400" stroke="#0969da" stroke-width="1.4" stroke-dasharray="5 5" marker-end="url(#arr9)"/> <text x="46" y="140" fill="#24292f" font-size="10">target transaction</text> <text x="420" y="154" fill="#1a7f37" font-size="10">first honest proposer with room includes it</text>
+<text x="36" y="182" fill="#59636e" font-size="11">H = honest slot. C = an illustrative coalition slot; the worked example uses a 299 / 900 &asymp; 33.2% share, below one third.</text> <text x="36" y="200" fill="#59636e" font-size="11">Expected wait for a slot that is not the coalition&rsquo;s: 1 / (1 &minus; p) &le; 1.5 slots.</text> <text x="36" y="220" fill="#9a6700" font-size="11">Selection is public: the coalition can identify, and buy or coerce, the exact slot a target would use.</text> <rect x="20" y="244" width="920" height="266" rx="8" fill="#ffffff" stroke="#d8dee4"/>
+<text x="36" y="270" fill="#24292f" font-size="13">The bridge: one message path, anchored on an L1 checkpoint</text> <rect x="36"  y="292" width="140" height="70" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="48" y="314" fill="#24292f" font-size="11">L2 Bridge call</text> <text x="48" y="332" fill="#59636e" font-size="10">message + signal</text>
+<text x="48" y="350" fill="#59636e" font-size="10">status: NEW</text> <rect x="192" y="292" width="140" height="70" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="204" y="314" fill="#24292f" font-size="11">SignalService slot</text> <text x="204" y="332" fill="#59636e" font-size="10">keccak256(&ldquo;SIGNAL&rdquo;,</text>
+<text x="204" y="350" fill="#59636e" font-size="10">chainId, app, signal)</text> <rect x="348" y="292" width="140" height="70" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="360" y="314" fill="#24292f" font-size="11">L2 state root</text> <text x="360" y="332" fill="#59636e" font-size="10">the signal is inside</text>
+<text x="360" y="350" fill="#59636e" font-size="10">a certified block</text> <rect x="504" y="292" width="140" height="70" rx="8" fill="#e6f4ea" stroke="#2c5a3a"/> <text x="516" y="314" fill="#24292f" font-size="11">land(data, proof)</text> <text x="516" y="332" fill="#59636e" font-size="10">one L1 transaction</text>
+<text x="516" y="350" fill="#1a7f37" font-size="10">data carried, or published earlier</text> <rect x="660" y="292" width="140" height="70" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="672" y="314" fill="#24292f" font-size="11">L1 checkpoint</text> <text x="672" y="332" fill="#59636e" font-size="10">{blockNumber,</text>
+<text x="672" y="350" fill="#59636e" font-size="10">stateRoot, blockHash}</text> <rect x="816" y="292" width="116" height="70" rx="8" fill="#f6f8fa" stroke="#d8dee4"/> <text x="828" y="314" fill="#24292f" font-size="11">MPT proof</text> <text x="828" y="332" fill="#59636e" font-size="10">against that</text>
+<text x="828" y="350" fill="#59636e" font-size="10">state root</text> <path d="M176 327 H188" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr9)"/> <path d="M332 327 H344" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr9)"/> <path d="M488 327 H500" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr9)"/>
+<path d="M644 327 H656" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr9)"/> <path d="M800 327 H812" stroke="#0969da" stroke-width="1.4" marker-end="url(#arr9)"/> <text x="36" y="392" fill="#59636e" font-size="11">Verification resolves the checkpoint by L2 block number, requires checkpoint.stateRoot == proof.rootHash, then verifies an MPT proof</text> <text x="36" y="410" fill="#59636e" font-size="11">for the remote SignalService account and the SIGNAL-derived slot. The Inbox&rsquo;s own record adds epoch, setRoot, dataCommitment and the accepting L1 block.</text>
+<text x="36" y="428" fill="#59636e" font-size="11">A withdrawal needs a withdrawal root: k attestations from k distinct backend families over an accepted checkpoint &mdash; no new L2 block, no quorum.</text> <text x="36" y="444" fill="#59636e" font-size="11">Then WITHDRAWAL_DELAY runs from the root record&rsquo;s l1BlockNumber, and no unexpired veto may stand.</text> <text x="36" y="462" fill="#1a7f37" font-size="11">Preserved addresses &mdash; they do not move: L1 SignalService, Bridge, ERC20Vault, ERC721Vault, ERC1155Vault;</text> <text x="36" y="480" fill="#1a7f37" font-size="11">L2 Bridge, ERC20Vault, ERC721Vault, ERC1155Vault, SignalService, Anchor. Upgraded in place, never replaced.</text> <text x="36" y="502" fill="#cf222e" font-size="11">Published data: a proof-enforced obligation to advance the settlement frontier past it &mdash; not a latency guarantee, and no remedy for data that never reaches L1.</text>
+</svg>
+<figcaption>The top panel shows the statistical resistance unpublished data has and the duty published data
+carries; the bottom panel shows the only path by which a cross-chain message becomes trustworthy.</figcaption>
+</figure>
+
+<h2>How it works</h2>
+
+<h3>Censorship, in five sentences</h3>
+<ol>
+<li>Publish your transaction&rsquo;s data to L1 and one rule starts: after the record&rsquo;s inclusion
+delay, every batch that lands must advance a settlement frontier past it by resolving it &mdash; dead first and unconditionally, when the record&rsquo;s own deadline has
+passed at the anchored view, decided from its own stored block number; otherwise, while the record
+is live, it is void if it is over its size bound, if its own bytes contain a transaction that cannot
+execute, or if every one of its transactions is set aside at its turn; otherwise it is executed, its
+transactions read in the record&rsquo;s own order and each one running or being set aside at its turn &mdash;
+and the proof checks it. The record is the forced-data record; there is no flag, no escrow and no fee.</li>
+<li>There is no general inclusion list either: no queue, no escrow, no fee, and no way to force an
+unpublished transaction into L2.</li>
+<li>The per-block duty is order and non-omission only: a block never takes a later record&rsquo;s forced
+transaction ahead of an earlier one, and must carry a forceable forced transaction when its own remaining
+gas covers it, and a block that contains a transaction of a forced record once a higher-index transaction of that same record has already appeared in the executed payload of the range is invalid, on the same footing as one that had room to carry a demanded transaction and omitted it. The duty is scoped to the transaction&rsquo;s turn: the no-room set-aside turns on the remaining
+gas, at that turn, of the block in which the turn lies, and a later block&rsquo;s room neither rescues nor
+condemns a transaction whose turn has passed. There is no per-block count and no per-block gas quota, and no new slashable offence: the
+rejected proof is the whole enforcement.</li>
+<li>Proposer selection is weighted by committed stake and is a pure public function, so a coalition
+holding less than one third of the voting power proposes fewer than one third of slots in expectation
+&mdash; an expectation over windows, not a bound on any particular window. Because the schedule is
+public and deterministic, the slot in which a target transaction would be included is computable in
+advance, and buying or coercing that single slot is possible and cheap; no rule prices, detects or
+penalises it. For published data the proof-enforced obligation described above applies on top of it.</li>
+<li>A network-level adversary able to isolate a user from every honest proposer &mdash; or to censor L1
+inclusion itself &mdash; can keep the data off L1 and so exclude that user&rsquo;s transactions
+indefinitely, and can therefore also prevent the user from starting a withdrawal. The obligation begins at
+publication, so it offers no remedy here. This is a disclosed limitation, not an oversight.</li>
+</ol>
+<p>What remains is real but conditional, in two different ways. For unpublished data: if a transaction
+reaches honest validators and an honest proposer has room for it, it is included, and
+&ldquo;room&rdquo; is a behavioural premise, not a protocol rule. For published data: the proof-enforced
+obligation binds a producer that lands batches, and it bounds exclusion
+per unit of the censor&rsquo;s L1 spending rather than by time. Any interface that claims a latency
+guarantee, that the obligation reaches <em>unpublished</em> data, or that an L1 escape hatch exists for
+arbitrary transactions, is wrong. A settlement stall changes none of that: the stall resolution clears a settlement stall but includes nothing, no rule of the inclusion mechanism operates while no batch lands, and there is still no remedy against isolation.</p>
+
+<h3>How a message is authenticated</h3>
+<p>A cross-chain message is a signal inside L2 state, and L2 state is authenticated by the checkpoint
+of an accepted batch. The steps are fixed:</p>
+<ol>
+<li><strong>The signal is placed in L2 state.</strong> The SignalService stores it at
+<code>keccak256(abi.encodePacked("SIGNAL", chainId, app, signal))</code>. The chain id is inside the
+slot, so a signal for one chain does not verify on another.</li>
+<li><strong>A batch containing that state is accepted on L1.</strong> The Inbox&rsquo;s
+<code>land(data, proof)</code> verifies the proof and only then writes, in the same transaction, the
+preserved SignalService checkpoint for the batch&rsquo;s head block and the Inbox&rsquo;s own richer
+record. The SignalService record keeps exactly its existing three fields
+<code>{blockNumber, stateRoot, blockHash}</code> under the same version key and the same slot
+derivation; the Inbox record carries <code>epoch</code>, <code>setRoot</code>,
+<code>dataCommitment</code> and the accepting L1 block number.</li>
+<li><strong>A verifier resolves the checkpoint by L2 block number</strong> and requires
+<code>checkpoint.stateRoot == proof.rootHash</code>, then verifies a Merkle&ndash;Patricia proof for the
+remote SignalService account and the <code>SIGNAL</code>-derived slot against that root.</li>
+<li><strong>The receiving Bridge processes the message once.</strong> The message hash is
+<code>keccak256(abi.encode("TAIKO_MESSAGE", message))</code> with the source and destination chain ids
+inside the struct; per-message status is <code>NEW / RETRIABLE / DONE / FAILED / RECALLED</code>, and a
+message that is <code>DONE</code>, <code>FAILED</code> or <code>RECALLED</code> cannot be processed
+again; the failure signal is <code>msgHash ^ 3</code>
+.</li>
+<li><strong>A withdrawal waits for a withdrawal root, then for its delay.</strong> No value leaves on
+anything weaker than L1 acceptance, and the release is proven against a <strong>withdrawal root</strong>:
+<code>k</code> attestations of an already-accepted checkpoint&rsquo;s statement from <code>k</code> distinct
+registered backend families, each verified on L1, one verification per attestation. Forming a root needs no
+new L2 block, no settlement progress, no quorum and no permission &mdash; any account may carry the
+attestations, and the latest accepted checkpoint is attestable while the chain is halted. The root&rsquo;s
+state root must cover the signal, and an ordinary checkpoint that is not a withdrawal root anchors no
+release. <code>WITHDRAWAL_DELAY</code> &mdash; derived from the whole settlement pipeline and not yet
+measured &mdash; runs from the root checkpoint record&rsquo;s own <code>l1BlockNumber</code>, never from the
+attestation transaction, and an unexpired, rule-triggered <strong>withdrawal veto</strong> can add up to
+<code>T_VETO</code>, delaying but never cancelling a proven withdrawal. Where the claim depends on an L1
+fact that can still be reorganized, the transaction must additionally be at the configured Ethereum finality
+depth. An L1&rarr;L2 release requires the Anchor to
+have observed the deposit at that same finality depth, never at inclusion depth.</li>
+</ol>
+<p>Nothing else authenticates a message: not a committee certificate, not a data-availability
+certificate, not an off-chain store, not a private witness, and not an operator.</p>
+<p>The <code>k&minus;1</code> further attestations are not derivable from L1 state. Producing each one is
+off-chain proving work that needs the recorded certificate, the checkpoint&rsquo;s data and the pre-state
+witness; the proving share funds that work through the Inbox ledger, best-effort and never gating a
+submission. The exit therefore depends on a <strong>funded proving market</strong> and on the data still
+being retrievable: if fewer than <code>k</code> families operate, if nobody is paid to produce the proofs, or
+if the data has aged out of every archive, no root forms and the release condition is never met. That is a
+stated assumption, not a guarantee &mdash; the price of proving the exit instead of trusting a committee.</p>
+<p class="small">Where this is specified: <a href="../spec/04-l1-integration.html#MSG-01">MSG-01</a> and
+<a href="../spec/03-membership-staking.html#MEM-15">MEM-15</a>.</p>
+
+<h3>Which contracts keep their addresses, and why</h3>
+<p>The preserved surfaces are <strong>SignalService, Bridge, ERC20Vault, ERC721Vault and
+ERC1155Vault</strong>, together with the settlement Inbox and the L2 Anchor, which are also upgraded in
+place. No replacement deployment is made for any of them, and no new address is introduced into any
+interface a user or peer contract resolves.</p>
+<table>
+<thead><tr><th>Chain</th><th>Contract</th><th>Preserved proxy address</th></tr></thead>
+<tbody>
+<tr><td>L1 mainnet</td><td>SignalService</td><td><code>0x9e0a24964e5397B566c1ed39258e21aB5E35C77C</code></td></tr>
+<tr><td>L1 mainnet</td><td>Bridge</td><td><code>0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC</code></td></tr>
+<tr><td>L1 mainnet</td><td>ERC20Vault</td><td><code>0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab</code></td></tr>
+<tr><td>L1 mainnet</td><td>ERC721Vault</td><td><code>0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa</code></td></tr>
+<tr><td>L1 mainnet</td><td>ERC1155Vault</td><td><code>0xaf145913EA4a56BE22E120ED9C24589659881702</code></td></tr>
+<tr><td>L1 mainnet</td><td>Inbox (settlement, upgraded in place)</td><td><code>0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f</code></td></tr>
+<tr><td>L2 mainnet</td><td>Anchor</td><td><code>0x1670000000000000000000000000000000010001</code></td></tr>
+<tr><td>L2 mainnet</td><td>Bridge</td><td><code>0x1670000000000000000000000000000000000001</code></td></tr>
+<tr><td>L2 mainnet</td><td>ERC20Vault</td><td><code>0x1670000000000000000000000000000000000002</code></td></tr>
+<tr><td>L2 mainnet</td><td>ERC721Vault</td><td><code>0x1670000000000000000000000000000000000003</code></td></tr>
+<tr><td>L2 mainnet</td><td>ERC1155Vault</td><td><code>0x1670000000000000000000000000000000000004</code></td></tr>
+<tr><td>L2 mainnet</td><td>SignalService</td><td><code>0x1670000000000000000000000000000000000005</code></td></tr>
+</tbody></table>
+<p class="small">These addresses are as recorded in the repository and its deployment logs; they were
+not chain-verified as part of the design work.</p>
+<p>The addresses cannot move without breaking things that are keyed to them. The Bridge&rsquo;s
+<code>nextMessageId</code> and per-message status, the vaults&rsquo; deposit maps, and every cached
+received-signal entry and cached proof are stored at these addresses. Both checkpoint-writer links are
+wired to them and remain wired: on L1 the SignalService&rsquo;s authorized writer is the Inbox, and on
+L2 it is the Anchor. The Anchor&rsquo;s block-hash map must keep answering <code>getBlockHash</code>
+for historical heights. Replacing a proxy would strand live message state, break the writer link so
+that the preserved SignalService could never be checkpointed again, and duplicate bridge state across
+two contracts.</p>
+<p class="small">Where this is specified: <a href="../spec/08-migration-upgrades.html#MIG-06">MIG-06</a>.</p>
+
+<h3>Before trusting a cross-chain message</h3>
+<p>An integrator should not treat &ldquo;the relayer said so&rdquo; as evidence. The checks that
+actually matter are on-chain:</p>
+<ol>
+<li>Resolve the checkpoint for the claimed L2 block number in the L1 SignalService, and confirm it was
+written by a successful <code>land(data, proof)</code> for that height.</li>
+<li>Confirm <code>checkpoint.stateRoot == proof.rootHash</code>, and that the Merkle&ndash;Patricia
+proof is for the remote SignalService account and the correct <code>SIGNAL</code> slot.</li>
+<li>Read the Inbox&rsquo;s own record alongside the SignalService record &mdash; same
+<code>blockHash</code> and <code>stateRoot</code> &mdash; if the claim depends on which consensus and
+which data produced that root; the three-field SignalService record alone does not carry
+<code>epoch</code>, <code>setRoot</code> or <code>dataCommitment</code>.</li>
+<li>Check the chain ids inside the message and the signal slot, and the message status: a message that
+is <code>DONE</code>, <code>FAILED</code> or <code>RECALLED</code> is finished.</li>
+<li>Confirm a <strong>withdrawal root</strong> exists for the height &mdash; attestations from
+<code>k</code> distinct backend families, one verification each &mdash; and not merely a checkpoint: an
+ordinary checkpoint anchors no release. Check that <code>WITHDRAWAL_DELAY</code> has run from the root
+checkpoint record&rsquo;s <code>l1BlockNumber</code>, that no veto is unexpired, and wait for Ethereum
+finality if the claim depends on an L1 fact that can still be reorganized.</li>
+<li>Check the basis of the claim: accepted data and proof, and a funded proving market that produced the
+<code>k&minus;1</code> further attestations from data that is still retrievable &mdash; not a committee
+certificate, data-availability certificate, off-chain store or operator promise.</li>
+</ol>
+
+<h2>Worked example</h2>
+<table>
+<thead><tr><th>Item</th><th>Arithmetic or source</th><th>Result</th><th>Tag</th></tr></thead>
+<tbody>
+<tr><td>Coalition slot share at 299 of 900</td><td>299 / 900</td><td>&asymp; 33.2%, below one third</td><td><span class="chip">derived</span></td></tr>
+<tr><td>Expected wait for a non-coalition slot</td><td>1 / (1 &minus; 0.332)</td><td>&asymp; 1.5 slots, about 3 s at the 2 s cadence</td><td><span class="chip">derived</span></td></tr>
+<tr><td>Chance the coalition leads ten slots in a row</td><td>0.332<sup>10</sup></td><td>&asymp; 1.6 &times; 10<sup>&minus;5</sup></td><td><span class="chip">derived</span></td></tr>
+<tr><td>Ethereum finality after acceptance</td><td>2 epochs &times; 32 slots &times; 12 s</td><td>&asymp; 12.8 min</td><td><span class="chip">sourced depth</span> <span class="chip">derived</span></td></tr>
+<tr><td><code>WITHDRAWAL_DELAY</code></td><td>whole settlement pipeline, formula only</td><td>value not yet measured</td><td><span class="chip">unmeasured</span></td></tr>
+</tbody></table>
+<p><strong>A withdrawal, end to end.</strong> A user calls the L2 Bridge; the message gets status
+<code>NEW</code> and its hash is <code>keccak256(abi.encode("TAIKO_MESSAGE", message))</code>. The
+signal sits at its <code>SIGNAL</code>-derived slot in L2 state. When a batch containing that state
+lands, the accepting transaction writes the checkpoint. A <strong>withdrawal root</strong> then forms over
+that accepted checkpoint&rsquo;s statement: <code>k</code> attestations from <code>k</code> distinct backend
+families, each verified on L1, carried permissionlessly by anyone and produced by provers paid, best-effort,
+from the proving share. The L1 verifier resolves the root&rsquo;s checkpoint state root, matches it to the
+message&rsquo;s Merkle&ndash;Patricia proof for the SignalService account and slot. From there the value can
+leave once <code>WITHDRAWAL_DELAY</code> has run from the root record&rsquo;s <code>l1BlockNumber</code>, no
+veto is unexpired, and any required Ethereum finality is reached. The bridge does not know or care which
+proposer included the L2 block; it cares that the state root the root attests covers the signal.</p>
+
+<h2>What this gives you</h2>
+<ul>
+<li>An honest inclusion statement you can build a risk model on: a proof-enforced obligation over published
+data that is not a latency guarantee, no general inclusion list, and for unpublished data only statistical
+resistance bounded by the selection share, with a named isolation failure.</li>
+<li>A message authentication path anchored on L1-accepted data and proof, whose value release needs a
+withdrawal root that <code>k</code> distinct backend families attest, with replay protection, domain
+separation and per-message status.</li>
+<li>Stable integration points: the same SignalService, Bridge and vault addresses on both chains, and
+unchanged slot and message encodings.</li>
+<li>A concrete checklist for deciding when a cross-chain message is trustworthy.</li>
+</ul>
+
+<h2>What it does not give you</h2>
+<ul>
+<li>A general inclusion list, or any L1 path to force an <em>unpublished</em> transaction into L2 or to
+start a withdrawal. Nothing changes this: the obligation begins at publication, and the stall resolution
+clears a stall rather than including a censored transaction, so there is no later event that includes one.</li>
+<li>A promise that a published record is included at, before or by any particular height: a transaction can
+be set aside at its turn, a record can be discharged as dead by its own deadline, decided from its own stored block number, or
+as void while it is live, instead of included, and the obligation bounds the
+censor&rsquo;s L1 spending rather than the user&rsquo;s wait. A transaction set aside may become runnable
+later through the sender&rsquo;s own further transactions or through a credit from any account &mdash; a
+credit can only ever enable a transaction, never set one aside, and where a credit lands relative to a turn
+is the producer&rsquo;s ordering decision &mdash; and re-publication is the remedy.</li>
+<li>Any remedy against an adversary that can isolate a user from every honest proposer, or that can
+censor L1 inclusion itself: if the data never reaches L1, exclusion can be indefinite.</li>
+<li>Protection against slot-buying: selection is predictable and no rule prices or penalises it.</li>
+<li>Early exit for unsettled value: a withdrawal whose signal is above the last accepted checkpoint
+still needs a later accepted batch, and v1 has no other path to it; a signal at or below the checkpoint
+stays executable on Ethereum alone, but only once a withdrawal root of <code>k</code> distinct-family
+attestations forms over it, funded by a proving market that can produce the <code>k&minus;1</code> further
+proofs from data that is still retrievable.</li>
+<li>Confidence in the recorded addresses beyond the record: they were not chain-verified in the design
+work.</li>
+</ul>
+
+<h2>Check yourself</h2>
+<details><summary>A coalition holds 25% of the stake. Can it keep one specific transaction out forever?</summary>
+<p>By selection alone, no: it proposes fewer than 25% of slots in expectation, so the first honest
+proposer with room includes the transaction. If the data reaches L1, the coalition must also deal with the
+proof-enforced obligation: while the record is live it cannot settle
+past it, and it must run every transaction that can run at its turn &mdash; only a transaction that cannot
+run there may be set aside &mdash; so keeping the record out means letting it age out to dead without settling, showing it void while
+it is live, or halting its own frontier. Re-publication starts a fresh record, so the
+censor&rsquo;s cost is roughly one L1 publication per deadline window. But if the coalition can also keep the data off L1 &mdash; by cutting the
+user off from every honest proposer at the network level, or by censoring L1 inclusion of the publication
+&mdash; then yes, indefinitely, including preventing a withdrawal from being started, and the protocol has no
+remedy. The obligation is per unit of L1 spending, not a latency bound, and the stall resolution changes none of that.</p></details>
+<details><summary>What is the minimum evidence that an L2&rarr;L1 message may be released?</summary>
+<p>A checkpoint written by a successful <code>land(data, proof)</code> whose state root covers the
+signal, a <strong>withdrawal root</strong> over it &mdash; <code>k</code> attestations from <code>k</code>
+distinct backend families, each verified on L1, for which a funded proving market must produce the
+<code>k&minus;1</code> further proofs from data that is still retrievable &mdash; a matching
+Merkle&ndash;Patricia proof for the remote SignalService account and the <code>SIGNAL</code> slot, correct
+chain ids, the message not already finished, the withdrawal delay elapsed since the <em>root</em>
+checkpoint record&rsquo;s <code>l1BlockNumber</code>, no unexpired veto, and Ethereum finality if the claim
+depends on an L1 fact that can still be reorganized.</p></details>
+<details><summary>Why not deploy a fresh Bridge at a new address after an upgrade?</summary>
+<p>Because live state is keyed to the existing address: message ids and statuses, vault deposit maps,
+cached received signals and cached proofs, the signal slot derivation, resolver results, and both
+immutable checkpoint-writer links. A replacement would strand that state, break checkpointing for the
+preserved SignalService, and duplicate bridge state.</p></details>
+
+<div class="card">
+<h3>Assumptions</h3>
+<ul>
+<li>Fewer than one third of each epoch&rsquo;s voting power is malicious, so proposer slots are shared
+in proportion to stake in expectation.</li>
+<li>For unpublished data, an honest proposer with room includes a transaction that reached it; no rule
+requires this, it is a behavioural premise.</li>
+<li>Users can reach honest proposers at the network level; under isolation this lesson&rsquo;s resistance
+statement does not apply and there is no remedy.</li>
+<li>Ethereum includes transactions and finalizes them; L2 consumes only Ethereum-final L1 facts.</li>
+<li>Somebody publishes a censored transaction&rsquo;s data while an observer holds it; publication starts
+the obligation described in this lesson, so the protocol has no remedy only if the data is never published.</li>
+<li>At least one honest or rational producer lands batches, and arrivals of livable records stay within the
+drain the obligation can force; otherwise the deadline is an exit and waits grow without bound.</li>
+<li>Somebody retains accepted batch data and blob sidecars for the retrieval window.</li>
+<li>A funded proving market produces the <code>k&minus;1</code> further attestation proofs a withdrawal
+root needs, from data and a witness that are still retrievable; if it does not, no root forms and the exit
+waits indefinitely.</li>
+<li>Preserved addresses are taken from the repository and deployment logs and were not chain-verified
+here.</li>
+</ul>
+</div>
+
+<p class="small"><a href="08-when-things-go-wrong.html">&larr; Previous: When things go wrong</a>
+&middot; <a href="10-economics.html">Next: Economics &rarr;</a></p>
+</main>
+<footer class="site"><p>Etna PoS + ZK engineer&rsquo;s course · the authoritative rules are in the <a href="../spec/index.html">specification</a>.</p></footer>
+</div><!-- /content -->
+</div><!-- /layout -->
+</body></html>
