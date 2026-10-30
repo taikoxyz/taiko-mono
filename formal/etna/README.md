@@ -427,7 +427,8 @@ they prove neither acquisition cost, irreversible loss nor timely governance res
 
 The generator emits schema 2 for the Inbox/registry families (including top-up, forfeiture and
 nonce cases) and schema `etna-client-conformance-1` for the client-rule families. Both
-implementation PRs run these vectors, from a copy stamped with formal commit `4ec05bbe2`.
+implementation PRs run these vectors from stamped copies: the contracts from formal commit
+`2d06eeb66`, the client from `4ec05bbe2` (its families have not changed since).
 
 `lake exe etna-vectors --write <dir> --random <seed> [--count <n>]` writes opt-in random
 vectors (`random-land.json`, `random-forced.json`) for differential testing: random call
@@ -445,14 +446,14 @@ to run them. Each implementation keeps its own copy, stamped with the formal com
 generated at, and its own list of known divergences next to its harness, so an implementation
 change never needs a generator change.
 
-**Contract conformance (#22286 at `050a917c1`).** 414 vectors in four families: forced 114,
+**Contract conformance (#22286 at `a15ca613c`).** 414 vectors in four families: forced 114,
 land 98, recover 70, registry 132. The Foundry harness
 `packages/protocol/test/layer1/etna/conformance/EtnaConformance.t.sol` deploys `EtnaInbox` and
 `EtnaStakingRegistry` per vector, replays the setup, and compares the call's revert decision,
 results and resulting state (the Inbox, the SignalService checkpoints and the whole registry,
 down to every checkpoint's entries root). Verifier-failure rollback is not a contract call, so
-the harness writes the model's rollback into the appendix-B slots as a fixture. 404 vectors
-agree; ten are known divergences listed in the harness, each with its recorded contract
+the harness writes the model's rollback into the appendix-B slots as a fixture. 406 vectors
+agree; eight are known divergences listed in the harness, each with its recorded contract
 behaviour:
 
 1. Free-slot reuse order: the model reuses the oldest freed slot, the contract the most recent.
@@ -466,9 +467,11 @@ behaviour:
 5. Slashing an entry whose effective stake a forfeiture already zeroed: the entry is unchanged,
    the model writes no checkpoint, and `slashDoubleSign` writes one repeating the previous count
    and root (`forfeit` skips it). The spec does not say.
-6. Recovery and nonce invalidation before `init` (two vectors): a model artifact. The model's
-   uninitialized Inbox already holds the genesis checkpoint hash, while the contract's slot 271
-   is zero until `init`; both reject the call.
+
+The first run also found two generator mistakes, since fixed: an uninitialized Inbox carried the
+genesis checkpoint hash (slot 271 is zero until `init`), and
+`registry.hw.top-up-rejected-after-forfeit` forfeited before the entry was active, so it did not
+test the forfeiture.
 
 Out of reach of these vectors: the guest and node rules for FI due and skip and for U
 back-pressure, reentrancy, the initialization inputs, reference blocks 257 to 8,191 blocks old
@@ -656,7 +659,7 @@ namespace (for example `EtnaModel/Deployment.lean` and `EtnaProofs/Deployment.le
   design-pending; 21 limitations and 11 assumptions, none partial.
 - 199 Python mutation/regression tests, plus kernel-replayed Lean regression modules.
 - Current vectors: 414 Inbox/registry and 340 client rule vectors, run by the contracts
-  (404 agree, 10 known divergences) and the Rust client (339 agree, 1 known divergence).
+  (406 agree, 8 known divergences) and the Rust client (339 agree, 1 known divergence).
 
 The clause counts and the claims are traceability: "partial" means some induction-derived
 theorem (or a closed constant) speaks to the clause, not that the clause is proved.
