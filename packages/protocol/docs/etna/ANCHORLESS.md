@@ -2,7 +2,7 @@
 
 From the Etna fork on, L2 blocks carry no anchor transaction. Each block header commits to its L1 anchor block instead: the anchor block's execution state root in `parentBeaconBlockRoot` and its number in `extraData`. The standard EIP-4788 pre-execution call records the root on L2, and L2 contracts verify L1 storage proofs against it. No Taiko-specific system call or execution hook is added and every header field stays within Ethereum's limits, so the only Taiko-specific execution rule left is header validation.
 
-This document gives the design, the contract changes and the activation order. The derivation rules are in [Derivation.md](../Derivation.md#etna-blocks-without-an-anchor-transaction).
+This document gives the design, the contract changes and the activation order. Etna block production and validation follow [SPEC.md section 3](SPEC.md#3-consensus-and-blocks); the header encoding is also recorded in [Derivation.md](../Derivation.md#pre-execution-block-header).
 
 ## 1. The anchor transaction before Etna
 
@@ -26,9 +26,11 @@ Security does not come from the key, which is public. It comes from three rules:
 | Field                   | Before Etna                                        | From Etna on                                                                                                     |
 | ----------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `parentBeaconBlockRoot` | `0x0` (from Unzen on)                              | execution state root of the L1 block at the final derived `anchorBlockNumber`; never zero for non-genesis blocks |
-| `extraData`             | 7 bytes `[basefeeSharingPctg(1) \| proposalId(6)]` | 13 bytes `[basefeeSharingPctg(1) \| proposalId(6) \| anchorBlockNumber(6)]`, both numbers big-endian `uint48`    |
+| `extraData`             | 7 bytes `[basefeeSharingPctg(1) \| proposalId(6)]` | 13 bytes `[basefeeSharingPctg(1) \| generation(6) \| anchorBlockNumber(6)]`, both numbers big-endian `uint48`    |
 
-Every other header field is unchanged.
+This design changes no other header field; [SPEC.md 3.2](SPEC.md#32-block-header) defines the full Etna header.
+
+Etna block production follows the PoS + ZK specification, so bytes 0..6 of `extraData` follow [SPEC.md 3.2](SPEC.md#32-block-header): byte 0 is always 100 and bytes 1..6 hold the recovery generation. This design adds the anchor commitment: `parentBeaconBlockRoot` and bytes 7..12.
 
 - **Execution engine rule**: from the fork on, a non-genesis block must have a non-zero `parentBeaconBlockRoot` and exactly 13 bytes of `extraData`.
 - **Derivation and prover rule**: the root must be the state root of the L1 block at the derived `anchorBlockNumber`, and bytes 7..12 of `extraData` must encode that number. Provers authenticate the anchor block's header through the parent-hash chain of the L1 headers they are given; before Etna they apply the same check to the anchor calldata.
@@ -43,7 +45,7 @@ Other derivation changes at the fork:
 - Transactions from the golden touch address are ordinary transactions.
 - The 1,000,000 gas reserve applies only before the fork.
 
-The proposal format and metadata validation are unchanged.
+The proposal and manifest descriptions in this document and `Derivation.md` describe the earlier proposal-based flow and await a separate rewrite. Etna block production and metadata validation follow [SPEC.md section 3](SPEC.md#3-consensus-and-blocks).
 
 ## 3. Recording through EIP-4788
 

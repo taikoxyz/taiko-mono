@@ -17,8 +17,9 @@ The Etna fork includes two designs, both in this directory:
 | [rules/](rules/README.md)      | Stable rule references for SPEC.md, with vectors and review questions             |
 | [CLAUDE.md](CLAUDE.md)         | Guidance for AI agents editing SPEC.md and rules/; `AGENTS.md` is a symlink to it |
 
-The derivation rules for anchorless blocks are in
-[Derivation.md](../Derivation.md#etna-blocks-without-an-anchor-transaction).
+The Etna block-production and validation rules are in
+[SPEC.md section 3](SPEC.md#3-consensus-and-blocks). Its header encoding is also recorded in
+[Derivation.md](../Derivation.md#pre-execution-block-header).
 
 ## Anchorless design
 
@@ -53,7 +54,7 @@ The derivation rules for anchorless blocks are in
 | [9. Sync and weak subjectivity](SPEC.md#9-sync-and-weak-subjectivity)                      | L1 checkpoint trust, guarded signing and consensus-history availability          |
 | [10. Startup and deployment](SPEC.md#10-startup-and-deployment)                            | Genesis, deployment constraints and upgrade boundaries                           |
 | [11. Parameters](SPEC.md#11-parameters)                                                    | Parameter sources, constraints and reference values                              |
-| [12. Known limitations and open items](SPEC.md#12-known-limitations-and-open-items)        | All 18 limitations and open items                                                |
+| [12. Known limitations and open items](SPEC.md#12-known-limitations-and-open-items)        | All 20 limitations and open items                                                |
 | [Appendix A: Encodings](SPEC.md#appendix-a-encodings)                                      | Domains, encodings, ABI and reference examples                                   |
 | [Appendix B: L1 storage layout](SPEC.md#appendix-b-l1-storage-layout)                      | Inbox and registry slots, packing and namespaces                                 |
 | [Appendix C: Operating funding](SPEC.md#appendix-c-operating-funding-and-cost-assumptions) | DAO operating funding and worst-case cost assumptions                            |
