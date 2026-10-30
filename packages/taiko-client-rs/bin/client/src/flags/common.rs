@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 use alloy_primitives::Address;
 use clap::Parser;
+use protocol::shasta::set_devnet_etna_override;
 use rpc::SubscriptionSource;
 use tracing::Level;
 use url::Url;
@@ -84,14 +85,15 @@ pub struct CommonArgs {
         help = "Address to bind Prometheus metrics server"
     )]
     pub metrics_addr: String,
-    /// Override Unzen fork time for Taiko internal devnet (timestamp).
+    /// Etna activation time for the Taiko internal devnet; unset means Etna never activates and
+    /// `0` activates it at genesis, mirroring alethia-reth's `--devnet-etna-timestamp`.
     #[clap(
-        long = "devnet-unzen-timestamp",
-        env = "DEVNET_UNZEN_TIMESTAMP",
-        default_value_t = 0,
-        help = "Override Unzen fork time for Taiko internal devnet (timestamp). Must match the value passed to alethia-reth's --devnet-unzen-timestamp. Defaults to 0."
+        long = "devnet-etna-timestamp",
+        env = "DEVNET_ETNA_TIMESTAMP",
+        value_name = "TIMESTAMP",
+        help = "Activate the Etna fork on the Taiko internal devnet at this Unix timestamp. Must match the value passed to alethia-reth's --devnet-etna-timestamp. Unset means Etna never activates; 0 activates it at genesis. Ignored on other chains; startup fails on the devnet chain id with a genesis other than the canonical devnet one, where alethia-reth ignores its flag."
     )]
-    pub devnet_unzen_timestamp: u64,
+    pub devnet_etna_timestamp: Option<u64>,
 }
 
 impl CommonArgs {
@@ -101,6 +103,16 @@ impl CommonArgs {
             (Some(url), None) => Ok(SubscriptionSource::Http(url.clone())),
             (None, Some(url)) => Ok(SubscriptionSource::Ws(url.clone())),
             _ => Err(CliError::InvalidL1EndpointConfig),
+        }
+    }
+
+    /// Install the devnet fork-time overrides before any fork lookup runs.
+    ///
+    /// Only the devnet Etna time is configurable (the devnet activates Unzen at genesis); it is
+    /// installed only when set, so an unset flag keeps Etna unscheduled.
+    pub fn apply_devnet_fork_overrides(&self) {
+        if let Some(timestamp) = self.devnet_etna_timestamp {
+            set_devnet_etna_override(timestamp);
         }
     }
 
@@ -196,7 +208,7 @@ mod tests {
             metrics_enabled: false,
             metrics_port: 9090,
             metrics_addr: "0.0.0.0".to_string(),
-            devnet_unzen_timestamp: 0,
+            devnet_etna_timestamp: None,
         };
 
         assert!(matches!(args.l1_provider_source(), Err(CliError::InvalidL1EndpointConfig)));
@@ -237,31 +249,58 @@ mod tests {
         assert!(matches!(args.l1_provider_source(), Err(CliError::InvalidL1EndpointConfig)));
     }
 
+    /// The devnet activates Unzen at genesis in the chainspec, so the old override flag is gone
+    /// and passing it fails startup instead of being silently ignored.
     #[test]
-    fn parses_devnet_unzen_timestamp_flag() {
+    fn rejects_removed_devnet_unzen_timestamp_flag() {
         let _lock = ENV_LOCK.lock().expect("env lock poisoned");
         let _clear = clear_l1_env();
-        let _clear_dut = EnvGuard::unset("DEVNET_UNZEN_TIMESTAMP");
         let mut argv: Vec<&'static str> = required_args().to_vec();
         argv.extend(["--l1.http", "http://localhost:8545"]);
-        argv.extend(["--devnet-unzen-timestamp", "12345"]);
+        argv.extend(["--devnet-unzen-timestamp", "5"]);
 
-        let args =
-            CommonArgs::try_parse_from(argv).expect("devnet unzen timestamp flag should parse");
+        let err = CommonArgs::try_parse_from(argv).expect_err("removed flag must be rejected");
 
-        assert_eq!(args.devnet_unzen_timestamp, 12345);
+        assert_eq!(err.kind(), clap::error::ErrorKind::UnknownArgument);
     }
 
     #[test]
-    fn devnet_unzen_timestamp_defaults_to_zero() {
+    fn devnet_etna_timestamp_defaults_to_never() {
         let _lock = ENV_LOCK.lock().expect("env lock poisoned");
         let _clear = clear_l1_env();
-        let _clear_dut = EnvGuard::unset("DEVNET_UNZEN_TIMESTAMP");
+        let _clear_det = EnvGuard::unset("DEVNET_ETNA_TIMESTAMP");
         let mut argv: Vec<&'static str> = required_args().to_vec();
         argv.extend(["--l1.http", "http://localhost:8545"]);
 
         let args = CommonArgs::try_parse_from(argv).expect("default parse should succeed");
 
-        assert_eq!(args.devnet_unzen_timestamp, 0);
+        assert_eq!(args.devnet_etna_timestamp, None);
+    }
+
+    #[test]
+    fn devnet_etna_timestamp_flag_preserves_zero() {
+        let _lock = ENV_LOCK.lock().expect("env lock poisoned");
+        let _clear = clear_l1_env();
+        let _clear_det = EnvGuard::unset("DEVNET_ETNA_TIMESTAMP");
+        let mut argv: Vec<&'static str> = required_args().to_vec();
+        argv.extend(["--l1.http", "http://localhost:8545"]);
+        argv.extend(["--devnet-etna-timestamp", "0"]);
+
+        let args = CommonArgs::try_parse_from(argv).expect("devnet etna timestamp should parse");
+
+        assert_eq!(args.devnet_etna_timestamp, Some(0), "0 activates Etna at genesis");
+    }
+
+    #[test]
+    fn parses_devnet_etna_timestamp_from_env() {
+        let _lock = ENV_LOCK.lock().expect("env lock poisoned");
+        let _clear = clear_l1_env();
+        let _env = EnvGuard::set("DEVNET_ETNA_TIMESTAMP", "300");
+        let mut argv: Vec<&'static str> = required_args().to_vec();
+        argv.extend(["--l1.http", "http://localhost:8545"]);
+
+        let args = CommonArgs::try_parse_from(argv).expect("env-backed args should parse");
+
+        assert_eq!(args.devnet_etna_timestamp, Some(300));
     }
 }

@@ -9,7 +9,7 @@ use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{B256, Bloom, FixedBytes, U256};
 use alloy_provider::Provider;
-use alloy_rpc_types::SyncStatus;
+use alloy_rpc_types::{Header as RpcHeader, SyncStatus};
 use alloy_rpc_types_engine::ExecutionPayloadV1;
 use alloy_signer::SignerSync;
 use alloy_signer_local::PrivateKeySigner;
@@ -103,6 +103,9 @@ pub(crate) struct WhitelistApiService {
     rpc: Client,
     /// Chain ID for signature domain separation.
     chain_id: u64,
+    /// Etna activation timestamp of the chain, resolved once at startup (`None` while Etna is
+    /// not scheduled); decides the fork rules a build request is validated against.
+    etna_fork_timestamp: Option<u64>,
     /// Standard secp256k1 signer for block signing.
     signer: PrivateKeySigner,
     /// Beacon client used to derive current epoch values for EOS requests.
@@ -132,6 +135,8 @@ pub(crate) struct WhitelistApiServiceParams {
     pub(crate) rpc: Client,
     /// Chain ID used for signing and payload hashing.
     pub(crate) chain_id: u64,
+    /// Etna activation timestamp of the chain (`None` while Etna is not scheduled).
+    pub(crate) etna_fork_timestamp: Option<u64>,
     /// Signer used for block signing operations.
     pub(crate) signer: PrivateKeySigner,
     /// Beacon client used for epoch calculations.
@@ -151,6 +156,7 @@ impl WhitelistApiService {
             event_syncer,
             rpc,
             chain_id,
+            etna_fork_timestamp,
             signer,
             beacon_client,
             operator_set,
@@ -163,6 +169,7 @@ impl WhitelistApiService {
             event_syncer,
             rpc,
             chain_id,
+            etna_fork_timestamp,
             signer,
             beacon_client,
             operator_set,

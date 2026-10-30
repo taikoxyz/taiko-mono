@@ -30,7 +30,8 @@ pub(crate) struct WhitelistExecutionPayloadEnvelope {
     pub end_of_sequencing: Option<bool>,
     /// Forced-inclusion marker (present only when true).
     pub is_forced_inclusion: Option<bool>,
-    /// Optional parent beacon block root.
+    /// Parent beacon block root: an Etna block's nonzero anchor root, `None` before Etna. The
+    /// wire always carries a 32-byte slot; an all-zero slot decodes to `None`.
     pub parent_beacon_block_root: Option<B256>,
     /// Optional hash-relevant header difficulty for post-Unzen blocks.
     /// When `Some`, the encoder emits a 32-byte big-endian slot after
@@ -396,6 +397,34 @@ mod tests {
         assert_eq!(decoded.execution_payload.block_hash, envelope.execution_payload.block_hash);
         assert_eq!(decoded.execution_payload.block_number, envelope.execution_payload.block_number);
         assert_eq!(decoded.signature, envelope.signature);
+    }
+
+    #[test]
+    fn response_roundtrips_an_etna_root_without_header_difficulty() {
+        // An empty Etna block: nonzero root, difficulty 0 (no slot), empty tx list.
+        let mut envelope = sample_envelope();
+        envelope.parent_beacon_block_root = Some(B256::from([0x5au8; 32]));
+        envelope.header_difficulty = None;
+
+        let encoded = encode_unsafe_response_message(&envelope).expect("response encoding");
+        let decoded = decode_unsafe_response_message(&encoded).expect("response decoding");
+
+        assert_eq!(decoded.parent_beacon_block_root, envelope.parent_beacon_block_root);
+        assert_eq!(decoded.header_difficulty, None);
+        assert_eq!(encode_envelope_ssz(&decoded), encode_envelope_ssz(&envelope));
+    }
+
+    #[test]
+    fn decode_maps_an_all_zero_root_slot_to_none() {
+        let mut envelope = sample_envelope();
+        envelope.parent_beacon_block_root = Some(B256::ZERO);
+        let zero = decode_envelope_ssz(&encode_envelope_ssz(&envelope)).expect("decode zero root");
+        assert_eq!(zero.parent_beacon_block_root, None);
+
+        envelope.parent_beacon_block_root = None;
+        let absent =
+            decode_envelope_ssz(&encode_envelope_ssz(&envelope)).expect("decode absent root");
+        assert_eq!(absent.parent_beacon_block_root, None);
     }
 
     #[test]

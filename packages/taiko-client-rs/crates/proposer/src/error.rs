@@ -6,7 +6,7 @@ use alloy::{
 };
 use alloy_eips::eip2718::Eip2718Error;
 use base_tx_manager::TxManagerError;
-use protocol::shasta::ProtocolError;
+use protocol::shasta::{ProtocolError, error::ForkConfigError};
 use rpc::RpcClientError;
 use std::result::Result as StdResult;
 use thiserror::Error;
@@ -79,6 +79,16 @@ pub enum ProposerError {
     ProposalTransactionReverted {
         /// Hash of the reverted proposal transaction.
         tx_hash: B256,
+    },
+
+    /// The Etna activation time of the proposer's chain cannot be resolved.
+    #[error("cannot resolve the Etna fork schedule of chain {chain_id}")]
+    EtnaScheduleUnresolved {
+        /// Chain id whose fork schedule was consulted.
+        chain_id: u64,
+        /// Underlying fork-configuration error.
+        #[source]
+        source: ForkConfigError,
     },
 
     /// Anchor constructor not initialized (engine mode disabled).

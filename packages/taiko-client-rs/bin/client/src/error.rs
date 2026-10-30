@@ -96,3 +96,82 @@ pub enum CliError {
 /// This type alias simplifies function signatures throughout the CLI binary
 /// by using [`CliError`] as the default error type.
 pub type Result<T> = std::result::Result<T, CliError>;
+
+impl CliError {
+    /// Render the error for an operator: its message, then each underlying cause on its own
+    /// line.
+    ///
+    /// A cause is skipped when the message before it already contains its text, since most
+    /// wrappers embed their source in their own message. The messages carry the remediation
+    /// hints (e.g. for `--devnet-etna-timestamp`), which the derived `Debug` output omits.
+    pub fn report(&self) -> String {
+        let mut report = self.to_string();
+        let mut previous = report.clone();
+        let mut source = std::error::Error::source(self);
+        while let Some(cause) = source {
+            let message = cause.to_string();
+            if !previous.contains(&message) {
+                report.push_str("\n  caused by: ");
+                report.push_str(&message);
+            }
+            previous = message;
+            source = cause.source();
+        }
+        report
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::CliError;
+    use driver::{
+        DriverError,
+        derivation::DerivationError,
+        sync::{SyncError, error::EngineSubmissionError},
+    };
+    use protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID;
+    use rpc::{
+        RpcClientError,
+        client::{EtnaScheduleHead, check_etna_schedule_for_head},
+    };
+
+    #[test]
+    fn report_shows_the_schedule_hint_once() {
+        let head = EtnaScheduleHead {
+            number: 5,
+            timestamp: 1_000,
+            parent_beacon_block_root: None,
+            extra_data_len: 7,
+        };
+        let mismatch =
+            check_etna_schedule_for_head(TAIKO_DEVNET_CHAIN_ID, Some(1_000), head).unwrap_err();
+        let report = CliError::from(DriverError::Rpc(mismatch)).report();
+
+        assert!(report.starts_with("rpc error: L2 head block 5"), "{report}");
+        assert_eq!(report.matches("--devnet-etna-timestamp").count(), 1, "{report}");
+        assert!(!report.contains("caused by"), "{report}");
+    }
+
+    #[test]
+    fn report_lists_causes_the_message_leaves_out() {
+        let err = DriverError::Sync(SyncError::Derivation(DerivationError::Engine(
+            EngineSubmissionError::InvalidBlock(7, "bad state root".to_string()),
+        )));
+        let report = CliError::from(err).report();
+
+        assert_eq!(
+            report,
+            "derivation failed\n  caused by: execution engine rejected block 7: bad state root"
+        );
+        assert!(!report.contains("RpcClientError"), "{report}");
+    }
+
+    #[test]
+    fn report_keeps_a_plain_message() {
+        assert_eq!(
+            CliError::from(RpcClientError::Provider("missing L2 latest block".to_string()))
+                .report(),
+            "provider error: missing L2 latest block"
+        );
+    }
+}

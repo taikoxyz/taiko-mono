@@ -35,6 +35,8 @@ pub(crate) struct WhitelistPreconfirmationImporterParams {
     pub(crate) rpc: Client,
     /// Chain id used for preconfirmation signature domain separation.
     pub(crate) chain_id: u64,
+    /// Etna activation timestamp of the chain (`None` while Etna is not scheduled).
+    pub(crate) etna_fork_timestamp: Option<u64>,
     /// Command channel used to publish P2P requests/responses.
     pub(crate) network_command_tx: mpsc::Sender<NetworkCommand>,
     /// Shared driver state (recent envelopes, EOS markers, last reported L2 head).
@@ -56,6 +58,9 @@ pub(crate) struct WhitelistPreconfirmationImporter {
     rpc: Client,
     /// Chain id used for preconfirmation signature domain separation.
     chain_id: u64,
+    /// Etna activation timestamp of the chain, resolved once at startup (`None` while Etna is
+    /// not scheduled); decides the fork rules an inbound envelope is validated against.
+    etna_fork_timestamp: Option<u64>,
     /// Shared driver state (recent envelopes, EOS markers, last reported L2 head).
     state: SharedPreconfState,
     /// Beacon client used for EOS epoch validation.
@@ -76,7 +81,8 @@ pub(crate) struct WhitelistPreconfirmationImporter {
     /// further RPC re-checks (WLP-INV-002/003). Re-confirm this put-only guarantee if the
     /// alethia-reth pin is bumped.
     head_origin_written: bool,
-    /// Shasta anchor contract address used to validate the first transaction.
+    /// Shasta anchor contract address used to validate the first transaction of pre-Etna
+    /// payloads.
     anchor_address: Address,
 }
 
@@ -87,6 +93,7 @@ impl WhitelistPreconfirmationImporter {
             event_syncer,
             rpc,
             chain_id,
+            etna_fork_timestamp,
             network_command_tx,
             state,
             beacon_client,
@@ -97,6 +104,7 @@ impl WhitelistPreconfirmationImporter {
             event_syncer,
             rpc,
             chain_id,
+            etna_fork_timestamp,
             state,
             beacon_client,
             cache: EnvelopeCache::with_capacity(PENDING_ENVELOPE_CAPACITY),
