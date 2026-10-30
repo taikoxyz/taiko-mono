@@ -21,7 +21,9 @@ The clause inventory (311 source clauses), the theorem roles and the 22 narrow c
 `spec-coverage.json` are a **traceability report, not the verification result**. They record
 which spec clauses some theorem speaks to, and CI keeps them consistent. A clause marked
 partial is not proved. [`reports/rule-coverage.md`](reports/rule-coverage.md) keys the same
-evidence by the stable rule IDs of `packages/protocol/docs/etna/rules/INDEX.md`.
+evidence by the stable rule IDs of `packages/protocol/docs/etna/rules/INDEX.md`; where several
+rule IDs share one cited clause, a reviewed narrowing keeps only the rules some theorem
+statement speaks to.
 
 ## The headline theorems
 
@@ -182,19 +184,24 @@ The audit fails if any field is read by no headline proof.
 
 - **Liveness.** No claim says a block, a landing or a due FI entry ever happens (§1 "Liveness",
   spec L14).
-- **Cross-round safety.** H2 compares commits at one height and one round only. Commits at
-  different rounds of one height are not compared, and CometBFT's locking rules are not
-  modelled (§1 "Slashing scope", spec L18: automatic double-sign slashing compares the same round; DAO forfeiture is separate).
-- **Checkpoint permanence.** No claim says a landed checkpoint stays. Governance recovery
-  discards the blocks above the checkpoint, and the model's verifier-failure rollback may return
-  to any retained record. H1 holds across both; §1's "nothing at or below a checkpoint can be
-  rolled back except by a DAO upgrade" (spec L13) is a governance promise, not a theorem.
+- **Cross-round safety.** H2 compares commits at one height and one round only. CometBFT's
+  locking rules are not modelled. `height_agreement` extends agreement to every round of a
+  height only under the explicit hypothesis `CrossRoundAccountable` (CometBFT's cross-round
+  accountability), which the model does not prove; cross-round faults are not slashable
+  (§1 "Slashing scope", spec L18: automatic double-sign slashing compares the same round; DAO forfeiture is separate).
+- **Checkpoint permanence across rollback.** Along traces without verifier-failure rollback,
+  the records at or below the starting checkpoint never change and SignalService checkpoints
+  are only appended (`ordinary_trace_preserves_settled_records`, `ordinary_trace_signals_prefix`);
+  governance recovery keeps the settled prefix. The model's verifier-failure rollback may return
+  to any retained record, and H1 holds across it; that a DAO upgrade is the only such exception
+  (spec L13) is a governance promise, not a theorem.
 - **The bridge.** H1 ends at SignalService state roots. That the Bridge pays only against them
   (storage proofs, QuotaManager, pausing) is not modelled.
 - **What happens after verifier failure.** Without `verifierSound` nothing is claimed
   (`NoVerifierSoundness` shows the premise is needed). The containment of §8 (pausing, the
   rollback upgrade restoring the last trusted values) is not proved: the model's rollback step takes any retained record and any
-  slot-284 snapshot.
+  slot-284 snapshot. `confirmed_key_absent_above_checkpoint` covers accountability after a
+  rollback only under the explicit condition `SnapshotTrusted`.
 - **A wall-clock FI deadline.** H3 gives none, and §1 says the design gives none either
   (spec L15). H3 does not claim the maxAnchorAge bound of 7.3 (spec L465).
 - **Real cryptography, MPT, KZG and the EL.** Hashes are opaque numbers. Signatures, storage
@@ -220,7 +227,10 @@ The audit fails if any field is read by no headline proof.
   conflicting commits are then unslashable. Even `snapshot < now` is too weak, since a later
   rollback can restore an untrusted value below its own block. A premise that protects H2 must
   be the spec's duty (spec L487): the restored snapshot is a value a retained landing or the
-  initialization wrote.
+  initialization wrote. `SnapshotTrusted` states the part of that duty the proof needs (slot 284
+  is not ahead of the cutoff of the committee active at lastCheckpoint) as an explicit condition
+  of `confirmed_key_absent_above_checkpoint`, not as a premise; the regressions show the
+  untrusted rollback's World violates it and the initialized World satisfies it.
 
 ## Witnesses
 
@@ -351,6 +361,28 @@ steps are original `Step`s other than verifier-failure rollback (6.4's stated ex
 That the anchor shows the checkpoint of a World on the trace is an explicit hypothesis, not a
 premise: real anchor authentication (L1 headers and storage proofs) stays outside the model.
 
+## Settled prefix, round agreement and rollback accountability
+
+These results add no premise and change no headline theorem; each new assumption is an explicit
+hypothesis of its own theorem.
+
+- **Settled prefix** (`EtnaProofs/Permanence.lean`): along every `OrdinaryTrace`, records at or
+  below the starting lastCheckpoint never change and SignalService checkpoints are only
+  appended. `anchored_checkpoint_stays`: the checkpoint a valid anchor shows stays the same
+  retained record later, and the block stays within U of the later lastCheckpoint.
+- **Agreement across rounds** (`EtnaProofs/RoundSafety.lean`): `same_round_agreement` restates
+  H2's finality argument for any consensus context. `height_agreement` extends it to every
+  round at a height under `CrossRoundAccountable`, a predicate stating CometBFT's cross-round
+  accountability for its locking rules: if the members that sign conflicting precommits in some
+  round or break the locking rules hold less than 1/3 of the power, all valid commits at that
+  height are for the same block. Cross-round faults stay unslashable.
+- **Accountability after rollback** (`EtnaProofs/TrustedSnapshot.lean`): under
+  `SnapshotTrusted` (slot 284 is not ahead of the cutoff of the committee active at
+  lastCheckpoint, which a trusted landing or initialization writes exactly), a key whose exit
+  was confirmed is absent from every committee active at or above lastCheckpoint.
+  `EtnaWitnesses/Regressions/TrustedSnapshot.lean` shows the untrusted rollback's World
+  violates the condition and the initialized World satisfies it.
+
 ## Registry, recovery and capital alignment
 
 Top-ups have separate pending principal and a ready L1 block. Deposit and maturity do not
@@ -381,6 +413,13 @@ The current generator emits schema 2 for the Inbox/registry families, including 
 forfeiture and nonce cases; the client-family schema remains unchanged. Current vectors
 require downstream harness adoption and have not been run against production implementations
 in this update. The recorded implementation comparisons below are historical.
+
+`lake exe etna-vectors --write <dir> --random <seed> [--count <n>]` writes opt-in random
+vectors (`random-land.json`, `random-forced.json`) for differential testing: random call
+sequences whose setups are always accepted and whose final call is unconstrained, decided by the
+same model transitions. Landings in their setups can skip grid points, so they reach cases the
+enumerated families do not, such as a parent grid point with no record. They are not committed
+and CI does not check them; the default output is unchanged.
 
 The vectors in `testdata/etna_conformance/` are generated from the model (`EtnaVectors`) and
 record only what it decides on concrete inputs; that directory's README has the schema and how
@@ -584,18 +623,18 @@ namespace (for example `EtnaModel/Deployment.lean` and `EtnaProofs/Deployment.le
   and the audit admits its root `main` as the one declaration outside `Etna`.
 - `manifests/design.json`: the theorem contracts; `manifests/shadowing-allowlist.json`.
 - `spec-coverage.json`: the 22 narrow claims (traceability). `rule-coverage.json`: the raw
-  pins and reviewed overrides of the rule-ID view.
+  pins, reviewed overrides and reviewed narrowings (35 shared clauses) of the rule-ID view.
 - `scripts/`, `tests/`: the gate and its tests. `reports/`: review history. `legacy/v9`:
   historical V9 material outside the build.
 
 ## Numbers
 
-- 899 theorem contracts: 157 property, 3 constant, 412 supporting, 327 regression.
-- 157 property derivation chains, checked against the live proof terms.
-- 311 source clauses: 76 partial, 232 deferred, 3 design-pending; 22 narrow claims.
-- 568 binding rule IDs: 216 partial, 7 partial through a reviewed override, 341 deferred, 4
+- 909 theorem contracts: 163 property, 3 constant, 414 supporting, 329 regression.
+- 163 property derivation chains, checked against the live proof terms.
+- 311 source clauses: 77 partial, 231 deferred, 3 design-pending; 22 narrow claims.
+- 568 binding rule IDs: 141 partial, 7 partial through a reviewed override, 416 deferred, 4
   design-pending; 19 limitations and 11 assumptions, none partial.
-- 184 Python mutation/regression tests, plus kernel-replayed Lean regression modules.
+- 191 Python mutation/regression tests, plus kernel-replayed Lean regression modules.
 - Current vectors: 414 Inbox/registry and 340 client rule vectors. Historical production
   comparisons: 334 contracts (6 divergences) and 340 client (1 divergence).
 
