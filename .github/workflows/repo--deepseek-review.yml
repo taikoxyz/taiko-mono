@@ -17,6 +17,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.comment.id || github.event.pull_request.number }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   deepseek-review:
     # Run automatically on non-draft PRs from the base repo, or when a trusted
@@ -48,13 +51,13 @@ jobs:
       issues: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22.23.4"
 
@@ -72,7 +75,7 @@ jobs:
 
       - name: Run DeepSeek Code Review
         id: review
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           DEEPSEEK_MODEL: ${{ vars.DEEPSEEK_MODEL }}
@@ -94,13 +97,19 @@ jobs:
 
             const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-            // Model + token budget are configurable via repo variables.
-            // NOTE: deepseek-v4-pro is a reasoning model — reasoning tokens
-            // count against max_tokens, so a small budget (e.g. 4096) can be
-            // fully consumed before any visible content is produced, yielding
-            // an empty review. Default high (65536) to leave room for output.
-            const model = process.env.DEEPSEEK_MODEL || 'deepseek-v4-pro';
+            // DEEPSEEK_MODEL pins a model; when unset, discover the latest
+            // stable Pro from the API instead of pinning a generation here.
+            // Pro reasoning tokens count against max_tokens. A small budget
+            // (e.g. 4096) can run out before any visible content is produced.
+            // Default high (65536) to leave room for the review.
+            let model = (process.env.DEEPSEEK_MODEL || '').trim();
             const maxTokens = intFromEnv('DEEPSEEK_MAX_TOKENS', 8192 * 8);
+
+            // Capacity limits mean no complete review is possible. Report a
+            // skip for those; configuration and service errors still fail.
+            class ReviewCapacityError extends Error {}
+            const contextLimit = /context_length_exceeded|maximum context length|context window|context length.{0,80}(?:exceed|limit)|(?:prompt|input).{0,80}too (?:long|large)|too many tokens/i;
+            let reviewedSha;
 
             // Sticky comment, matched on a hidden marker with the visible
             // header as a fallback so comments posted before the marker
@@ -110,8 +119,8 @@ jobs:
             const triggerInfo = context.eventName === 'pull_request'
               ? 'Automatically triggered on PR update'
               : 'Triggered by `@deepseek` comment';
-            const footer = `*${triggerInfo} • model: \`${model}\`*`;
-            const compose = (text) => `${MARKER}\n${HEADER}\n\n${text}\n\n---\n${footer}`;
+            const footer = () => `*${triggerInfo} • model: \`${model || 'auto (latest Pro)'}\`*`;
+            const compose = (text) => `${MARKER}\n${HEADER}\n\n${text}\n\n---\n${footer()}`;
 
             // GitHub issue-comment bodies are capped at 65536 chars; stay under.
             const MAX_COMMENT = 65000;
@@ -155,6 +164,18 @@ jobs:
               }
             }
 
+            // A slow run must not replace the review of a newer PR head,
+            // including when the slow run ends by reporting a capacity skip.
+            async function isOvertaken() {
+              const { data: latest } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+              if (latest.head.sha === reviewedSha) return false;
+              core.notice(
+                `Reviewed ${reviewedSha.slice(0, 8)} but the PR now points at ${latest.head.sha.slice(0, 8)}; `
+                + 'discarding this review so the newer run\'s stands.'
+              );
+              return true;
+            }
+
             // The key check, the PR/diff fetch, the model call and the comment
             // post can all fail; wrap them in one try so any failure is reported
             // as a visible comment instead of crashing the job silently.
@@ -170,17 +191,14 @@ jobs:
               // PR holds right now, not the commit that triggered this run, so
               // this is the only honest record of what was reviewed - and what
               // the post-time staleness check compares against.
-              const reviewedSha = pr.data.head.sha;
+              reviewedSha = pr.data.head.sha;
 
-              // Truncate the diff if too large. deepseek-v4-pro has a large
-              // context window, so default high and allow overriding via a repo
-              // variable. Declared here because the files-API fallback below
-              // stops assembling once it has this much.
+              // Review the entire diff or explicitly skip it. The limit is
+              // measured in characters and can be overridden via a repo variable.
               const MAX_DIFF = intFromEnv('DEEPSEEK_MAX_DIFF', 2000000);
 
-              // The diff media type refuses PRs over 20000 diff lines with a
-              // 406, so fall back to reassembling the diff from the files API,
-              // which returns the same per-file patches page by page.
+              // GitHub refuses oversized diffs with 406. A files-API fallback
+              // can omit patches, so it cannot guarantee a complete review.
               async function fetchDiff() {
                 try {
                   const diffResponse = await github.request({
@@ -193,29 +211,9 @@ jobs:
                     : JSON.stringify(diffResponse.data);
                 } catch (err) {
                   if (err.status !== 406) throw err;
-                  core.warning('Diff too large for the diff media type; rebuilding it from the files API.');
-                  const files = await github.paginate(github.rest.pulls.listFiles, {
-                    owner, repo, pull_number: prNumber, per_page: 100
-                  });
-                  // Assembled with a running cap rather than joined whole:
-                  // the PRs that land here are the huge ones, and everything
-                  // past MAX_DIFF is about to be cut anyway.
-                  const parts = [];
-                  let size = 0;
-                  for (const f of files) {
-                    const from = f.previous_filename || f.filename;
-                    const header = `diff --git a/${from} b/${f.filename}\n`
-                      + `--- ${f.status === 'added' ? '/dev/null' : 'a/' + from}\n`
-                      + `+++ ${f.status === 'removed' ? '/dev/null' : 'b/' + f.filename}`;
-                    // Binary and very large files come back without a patch.
-                    const part = f.patch
-                      ? `${header}\n${f.patch}`
-                      : `${header}\n(patch omitted: ${f.status}, +${f.additions}/-${f.deletions})`;
-                    parts.push(part);
-                    size += part.length + 1;
-                    if (size > MAX_DIFF) break;
-                  }
-                  return parts.join('\n');
+                  throw new ReviewCapacityError(
+                    'The changes are too large for GitHub to return a complete diff (HTTP 406).'
+                  );
                 }
               }
 
@@ -225,9 +223,37 @@ jobs:
                 return 'No diff to review.';
               }
 
-              const truncatedDiff = diffText.length > MAX_DIFF
-                ? diffText.substring(0, MAX_DIFF) + '\n\n... (diff truncated)'
-                : diffText;
+              if (diffText.length > MAX_DIFF) {
+                throw new ReviewCapacityError(
+                  `The diff contains ${diffText.length} characters, exceeding the review limit of ${MAX_DIFF} `
+                  + '(configured by `DEEPSEEK_MAX_DIFF`).'
+                );
+              }
+
+              if (!model) {
+                try {
+                  // Only use IDs the API advertises. A stable alias, if one
+                  // becomes available, takes precedence over versioned IDs.
+                  const response = await fetch('https://api.deepseek.com/v1/models', {
+                    headers: { Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}` },
+                    signal: AbortSignal.timeout(15000)
+                  });
+                  if (!response.ok) throw new Error(`Models API returned HTTP ${response.status}`);
+                  const payload = await response.json();
+                  const ids = payload.data.map(entry => entry.id).filter(id => typeof id === 'string');
+                  model = ids.includes('deepseek-pro')
+                    ? 'deepseek-pro'
+                    : ids.filter(id => /^deepseek-v\d+(?:\.\d+)*-pro$/.test(id))
+                      .sort((a, b) => b.localeCompare(a, 'en', { numeric: true }))[0];
+                  if (!model) throw new Error('Models API did not list a stable Pro model');
+                  core.info(`Auto-selected DeepSeek review model: ${model}`);
+                } catch (err) {
+                  // Discovery is best-effort: keep reviews working during a
+                  // models-endpoint outage, and never fall back to Flash.
+                  model = 'deepseek-v4-pro';
+                  core.warning(`Could not discover the latest Pro model: ${err.message}; falling back to ${model}.`);
+                }
+              }
 
               // Build the prompt
               const systemPrompt = `You are a senior software engineer performing a code review on the Taiko monorepo.
@@ -266,7 +292,7 @@ jobs:
 
             **Diff:**
             \`\`\`diff
-            ${truncatedDiff}
+            ${diffText}
             \`\`\`
 
             Review this PR thoroughly. Be direct - flag only real issues.`;
@@ -311,7 +337,7 @@ jobs:
                   );
                 };
                 const overallTimer = setTimeout(
-                  () => controller.abort(new Error(`DeepSeek review exceeded its ${TOTAL_BUDGET_MS / 60000}-minute budget`)),
+                  () => controller.abort(new ReviewCapacityError(`DeepSeek could not complete the review within its ${TOTAL_BUDGET_MS / 60000}-minute budget. No complete review was produced.`)),
                   Math.max(deadline - Date.now(), 1)
                 );
 
@@ -344,10 +370,17 @@ jobs:
                   if (!response.ok) {
                     const raw = await response.text();
                     let detail = raw.slice(0, 300);
+                    let code = '';
                     try {
                       const parsed = JSON.parse(raw);
                       detail = (parsed && parsed.error && parsed.error.message) || detail;
+                      code = (parsed && parsed.error && parsed.error.code) || '';
                     } catch (_) { /* non-JSON body */ }
+                    if (response.status === 413 || (
+                      [400, 422].includes(response.status) && contextLimit.test(`${code} ${detail}`)
+                    )) {
+                      throw new ReviewCapacityError(`DeepSeek could not fit the changes in its context: ${detail}`);
+                    }
                     const err = new Error(`DeepSeek API error (${response.status}): ${detail || 'no body'}`);
                     err.status = response.status;
                     throw err;
@@ -381,7 +414,11 @@ jobs:
                     let event;
                     try { event = JSON.parse(payload); } catch (_) { return; }
                     if (event.error) {
-                      throw new Error(`DeepSeek stream error: ${event.error.message || JSON.stringify(event.error)}`);
+                      const detail = event.error.message || JSON.stringify(event.error);
+                      if (contextLimit.test(`${event.error.code || ''} ${detail}`)) {
+                        throw new ReviewCapacityError(`DeepSeek could not fit the changes in its context: ${detail}`);
+                      }
+                      throw new Error(`DeepSeek stream error: ${detail}`);
                     }
                     const choice = event.choices && event.choices[0];
                     if (choice) {
@@ -419,6 +456,11 @@ jobs:
                   }
 
                   return { reviewText: content.trim(), finishReason, usage };
+                } catch (err) {
+                  // Body readers can replace the abort reason with a generic
+                  // AbortError; preserve whether the total budget was exhausted.
+                  if (controller.signal.aborted) throw controller.signal.reason;
+                  throw err;
                 } finally {
                   if (stallTimer) clearTimeout(stallTimer);
                   clearTimeout(overallTimer);
@@ -443,6 +485,12 @@ jobs:
                 attemptsMade = attempt;
                 try {
                   ({ reviewText, finishReason, usage } = await requestReview());
+                  if (finishReason === 'length') {
+                    throw new ReviewCapacityError(
+                      `DeepSeek exhausted its ${maxTokens}-token output budget before completing the review `
+                      + '(finish_reason: `length`). Any partial output was discarded.'
+                    );
+                  }
                   lastError = null;
                   if (reviewText) break;
                   core.warning(
@@ -450,6 +498,7 @@ jobs:
                     + `(model=${model}, finish_reason=${finishReason}, usage=${usage}).`
                   );
                 } catch (err) {
+                  if (err instanceof ReviewCapacityError) throw err;
                   lastError = err;
                   if (includeUsage && err.status === 400 && /stream_options/i.test(err.message)) {
                     includeUsage = false;
@@ -474,18 +523,7 @@ jobs:
               // an empty-content diagnostic that misattributes the cause.
               if (lastError) throw lastError;
 
-              // Splitting the concurrency groups let a comment-triggered review
-              // and a push-triggered one run at once, and posting deletes what
-              // came before - so the slower run could bury the newer review with
-              // one of an older diff. Actions offers no lock, so the ordering is
-              // enforced here: a run whose diff is no longer the PR's head has
-              // been overtaken, and neither posts nor deletes.
-              const { data: latest } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
-              if (latest.head.sha !== reviewedSha) {
-                core.notice(
-                  `Reviewed ${reviewedSha.slice(0, 8)} but the PR now points at ${latest.head.sha.slice(0, 8)}; `
-                  + 'discarding this review so the newer run\'s stands.'
-                );
+              if (await isOvertaken()) {
                 return { success: false, skipped: 'overtaken', reviewedSha };
               }
 
@@ -499,7 +537,20 @@ jobs:
 
               return { success: !!reviewText, reviewLength: reviewText.length, finishReason };
             } catch (err) {
-              // Always surface failures on the PR; still fail the job.
+              if (err instanceof ReviewCapacityError) {
+                if (await isOvertaken()) {
+                  return { success: false, skipped: 'overtaken', reviewedSha };
+                }
+                const message = '⚠️ **Review failed: changes exceed DeepSeek review capacity.**\n\n'
+                  + `${err.message}\n\n`
+                  + 'CI will not fail for this review capacity limit. '
+                  + 'No complete code review was performed. Please review these changes manually.';
+                core.notice(message);
+                await core.summary.addHeading('DeepSeek review failed (non-blocking)').addRaw(message).write();
+                await upsert(message);
+                return { success: false, skipped: 'capacity', reviewedSha };
+              }
+              // Always surface other failures on the PR; still fail the job.
               try {
                 await upsert(`⚠️ Review failed: ${err.message}`);
               } catch (e) {
