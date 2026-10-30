@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Guidance for AI agents working on the Etna PoS + ZK specification in this directory.
+Guidance for AI agents working on the Etna PoS + ZK specification (`SPEC.md`) and its `rules/` in this directory. The anchorless design in `ANCHORLESS.md` carries no rule IDs and is not covered by this file.
 
 **Authority: [`rules/README.md`](rules/README.md) defines the convention.** This file is the operator checklist; if the two disagree, `rules/README.md` governs. Read it before your first edit.
 
@@ -37,6 +37,7 @@ It must print **ALL CHECKS PASSED**. The checks are: **purity** (stripping every
 | `rules/review/<section>.md`  | undetermined questions; owner decides; deleted when a decision lands |
 | `rules/tools/check.py`       | the checks above                                                     |
 | `ACCEPTANCE.md`              | resource, recovery, shared-vector and launch acceptance              |
+| `ANCHORLESS.md`              | the anchorless design; no rule IDs, not checked by `check.py`        |
 
 ## Adding a section
 

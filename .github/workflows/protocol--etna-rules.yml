@@ -4,12 +4,12 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
-      - "packages/protocol/docs/etna-pos-zk/**"
+      - "packages/protocol/docs/etna/**"
       - ".github/workflows/protocol--etna-rules.yml"
   push:
     branches: [main]
     paths:
-      - "packages/protocol/docs/etna-pos-zk/**"
+      - "packages/protocol/docs/etna/**"
 
 permissions:
   contents: read
@@ -29,4 +29,4 @@ jobs:
           persist-credentials: false
 
       - name: Check rule references
-        run: python3 packages/protocol/docs/etna-pos-zk/rules/tools/check.py
+        run: python3 packages/protocol/docs/etna/rules/tools/check.py
