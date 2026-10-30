@@ -17,8 +17,9 @@ The Etna fork includes two designs, both in this directory:
 | [rules/](rules/README.md)      | Stable rule references for SPEC.md, with vectors and review questions             |
 | [CLAUDE.md](CLAUDE.md)         | Guidance for AI agents editing SPEC.md and rules/; `AGENTS.md` is a symlink to it |
 
-The derivation rules for anchorless blocks are in
-[Derivation.md](../Derivation.md#etna-blocks-without-an-anchor-transaction).
+The Etna block-production and validation rules are in
+[SPEC.md section 3](SPEC.md#3-consensus-and-blocks). Its header encoding is also recorded in
+[Derivation.md](../Derivation.md#pre-execution-block-header).
 
 ## Anchorless design
 
