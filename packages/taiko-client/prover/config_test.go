@@ -67,40 +67,6 @@ func (s *ProverTestSuite) TestProverConfigShastaOnlySurface() {
 	}))
 }
 
-func TestNewConfigFromCliContextMaxRisc0ProofProposalDistance(t *testing.T) {
-	t.Run("uses default value", func(t *testing.T) {
-		cfg := newTestConfigFromCLI(t)
-
-		require.Equal(t, uint64(30), cfg.MaxRisc0ProofProposalDistance)
-	})
-
-	t.Run("uses flag value", func(t *testing.T) {
-		cfg := newTestConfigFromCLI(t, "--"+flags.MaxRisc0ProofProposalDistance.Name, "12")
-
-		require.Equal(t, uint64(12), cfg.MaxRisc0ProofProposalDistance)
-	})
-
-	t.Run("rejects removed legacy flag", func(t *testing.T) {
-		err := runTestConfigFromCLI(t, "--prover.maxZKProofProposalDistance", "13")
-
-		require.ErrorContains(t, err, "flag provided but not defined")
-	})
-}
-
-func TestNewConfigFromCliContextForceSP1Proof(t *testing.T) {
-	t.Run("uses default value", func(t *testing.T) {
-		cfg := newTestConfigFromCLI(t)
-
-		require.False(t, cfg.ForceSP1Proof)
-	})
-
-	t.Run("uses flag value", func(t *testing.T) {
-		cfg := newTestConfigFromCLI(t, "--"+flags.ForceSP1Proof.Name)
-
-		require.True(t, cfg.ForceSP1Proof)
-	})
-}
-
 func TestNewConfigFromCliContextForceSGXProof(t *testing.T) {
 	t.Run("uses default value", func(t *testing.T) {
 		cfg := newTestConfigFromCLI(t)
@@ -115,21 +81,31 @@ func TestNewConfigFromCliContextForceSGXProof(t *testing.T) {
 	})
 }
 
-func TestNewConfigFromCliContextZkOnlyProofs(t *testing.T) {
+func TestNewConfigFromCliContextSGXRethCompanionProof(t *testing.T) {
 	t.Run("uses default value", func(t *testing.T) {
 		cfg := newTestConfigFromCLI(t)
 
-		require.False(t, cfg.ZkOnlyProofs)
+		require.False(t, cfg.SGXRethCompanionProof)
 	})
 
-	t.Run("uses flag value with the shared raiko host", func(t *testing.T) {
-		cfg := newTestConfigFromCLI(
+	t.Run("uses flag value", func(t *testing.T) {
+		cfg := newTestConfigFromCLI(t, "--"+flags.SGXRethCompanionProof.Name)
+
+		require.True(t, cfg.SGXRethCompanionProof)
+	})
+
+	t.Run("rejects force sgx proof", func(t *testing.T) {
+		err := runTestConfigFromCLI(
 			t,
-			"--"+flags.ZkOnlyProofs.Name,
+			"--"+flags.SGXRethCompanionProof.Name,
+			"--"+flags.ForceSGXProof.Name,
 		)
 
-		require.True(t, cfg.ZkOnlyProofs)
-		require.Equal(t, "http://raiko.host", cfg.RaikoHostEndpoint)
+		require.ErrorContains(
+			t,
+			err,
+			"--"+flags.SGXRethCompanionProof.Name+" cannot be combined with --"+flags.ForceSGXProof.Name,
+		)
 	})
 }
 
@@ -219,14 +195,9 @@ func runTestConfigFromCLIWithConfig(t *testing.T, cfg **Config, extraArgs ...str
 		&cli.StringFlag{Name: flags.TaikoAnchorAddress.Name},
 		&cli.StringFlag{Name: flags.L1ProverPrivKey.Name},
 		&cli.StringFlag{Name: flags.JWTSecret.Name},
-		&cli.Uint64Flag{
-			Name:    flags.MaxRisc0ProofProposalDistance.Name,
-			Aliases: flags.MaxRisc0ProofProposalDistance.Aliases,
-			Value:   flags.MaxRisc0ProofProposalDistance.Value,
-		},
-		&cli.BoolFlag{Name: flags.ForceSP1Proof.Name},
+		&cli.Uint64Flag{Name: flags.ZKVMBatchSize.Name, Value: flags.ZKVMBatchSize.Value},
 		&cli.BoolFlag{Name: flags.ForceSGXProof.Name},
-		&cli.BoolFlag{Name: flags.ZkOnlyProofs.Name},
+		&cli.BoolFlag{Name: flags.SGXRethCompanionProof.Name},
 		&cli.StringFlag{Name: flags.RaikoHostEndpoint.Name},
 	}
 
@@ -237,7 +208,7 @@ func runTestConfigFromCLIWithConfig(t *testing.T, cfg **Config, extraArgs ...str
 	}
 
 	args := []string{
-		"TestNewConfigFromCliContextMaxRisc0ProofProposalDistance",
+		"TestNewConfigFromCliContext",
 		"--" + flags.L1WSEndpoint.Name, "http://localhost:8545",
 		"--" + flags.L2WSEndpoint.Name, "http://localhost:9545",
 		"--" + flags.InboxAddress.Name, common.HexToAddress("0x00000000000000000000000000000000000000aa").Hex(),

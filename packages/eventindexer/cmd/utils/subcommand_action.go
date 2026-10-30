@@ -8,7 +8,7 @@ import (
 
 	"log/slog"
 
-	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/metrics"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/metrics"
 	"github.com/urfave/cli/v2"
 )
 
@@ -28,7 +28,7 @@ func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 			return err
 		}
 
-		slog.Info("Starting Taiko relayer application", "name", app.Name())
+		slog.Info("Starting NFT indexer application", "name", app.Name())
 
 		if err := app.Start(); err != nil {
 			slog.Error("Starting application error", "name", app.Name(), "error", err)
@@ -59,7 +59,18 @@ func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 			syscall.SIGTERM,
 			syscall.SIGQUIT,
 		}...)
-		<-quitCh
+		defer signal.Stop(quitCh)
+
+		var fatalErrors <-chan error
+		if source, ok := app.(interface{ FatalErrors() <-chan error }); ok {
+			fatalErrors = source.FatalErrors()
+		}
+
+		select {
+		case <-quitCh:
+		case err := <-fatalErrors:
+			return err
+		}
 
 		return nil
 	}

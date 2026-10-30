@@ -41,8 +41,10 @@ Rules:
 - An existing finalized header whose state is temporarily unavailable keeps beacon/event startup
   in retry; `Latest` compatibility is limited to a client-specific pre-first-finality response
   (geth's explicit error or reth's `null` finalized-block result).
-- A scanner reconnect only probes finalized state once; on failure it rewinds to the original
-  finalized-safe startup anchor so replay remains conservative without wedging reconnection.
+- A scanner reconnect reads only the finalized L1 header and restarts from
+  `min(last_seen - 1, finalized)`. RPC failures, and a finalized block that disappears after L1
+  reported one, are retried with backoff. Only a chain that has never finalized rewinds to the
+  original startup anchor.
 - Batch-to-last-block mapping plus anchor metadata determines scanner start point.
 
 ## Confirmed-Sync Readiness And Ingress Gate

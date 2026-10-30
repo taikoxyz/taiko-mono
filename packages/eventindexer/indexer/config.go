@@ -1,7 +1,6 @@
 package indexer
 
 import (
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/urfave/cli/v2"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -23,19 +22,13 @@ type Config struct {
 	DatabaseMaxConnLifetime uint64
 	RPCUrl                  string
 	MetricsHTTPPort         uint64
-	ETHClientTimeout        uint64
-	ShastaInboxAddress      common.Address
-	BridgeAddress           common.Address
 	BlockBatchSize          uint64
-	SubscriptionBackoff     uint64
 	SyncMode                SyncMode
 	IndexNFTs               bool
-	IndexERC20s             bool
 
 	// AllowUnclaimedBalanceReplay lets the indexer start even when
-	// UnclaimedBalanceReplayRisk reports that this restart may double count once.
+	// UnclaimedNFTReplayRisk reports that this restart may double count once.
 	AllowUnclaimedBalanceReplay bool
-	Layer                       string
 	OpenDBFunc                  func() (db.DB, error)
 }
 
@@ -46,14 +39,12 @@ func (c *Config) validate() error {
 		return eventindexer.ErrInvalidMode
 	}
 
-	switch c.Layer {
-	case Layer1, Layer2:
-	default:
-		return eventindexer.ErrInvalidLayer
+	if !c.IndexNFTs {
+		return eventindexer.ErrNFTIndexingDisabled
 	}
 
-	if c.Layer == Layer1 && c.ShastaInboxAddress == ZeroAddress {
-		return eventindexer.ErrNoShastaInboxAddress
+	if c.BlockBatchSize == 0 {
+		return eventindexer.ErrInvalidBlockBatchSize
 	}
 
 	return nil
@@ -70,17 +61,11 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		DatabaseMaxOpenConns:        c.Uint64(flags.DatabaseMaxOpenConns.Name),
 		DatabaseMaxConnLifetime:     c.Uint64(flags.DatabaseConnMaxLifetime.Name),
 		MetricsHTTPPort:             c.Uint64(flags.MetricsHTTPPort.Name),
-		ETHClientTimeout:            c.Uint64(flags.ETHClientTimeout.Name),
-		ShastaInboxAddress:          common.HexToAddress(c.String(flags.ShastaInboxAddress.Name)),
-		BridgeAddress:               common.HexToAddress(c.String(flags.BridgeAddress.Name)),
 		BlockBatchSize:              c.Uint64(flags.BlockBatchSize.Name),
-		SubscriptionBackoff:         c.Uint64(flags.SubscriptionBackoff.Name),
 		RPCUrl:                      c.String(flags.IndexerRPCUrl.Name),
 		SyncMode:                    SyncMode(c.String(flags.SyncMode.Name)),
 		IndexNFTs:                   c.Bool(flags.IndexNFTs.Name),
 		AllowUnclaimedBalanceReplay: c.Bool(flags.AllowUnclaimedBalanceReplay.Name),
-		IndexERC20s:                 c.Bool(flags.IndexERC20s.Name),
-		Layer:                       c.String(flags.Layer.Name),
 		OpenDBFunc: func() (db.DB, error) {
 			return db.OpenDBConnection(db.DBConnectionOpts{
 				Name:            c.String(flags.DatabaseUsername.Name),
