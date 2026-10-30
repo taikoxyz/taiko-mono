@@ -2,7 +2,7 @@
   "schema": "etna-conformance-2",
   "family": "land",
   "generator": "formal/etna: lake exe etna-vectors --write testdata/etna_conformance",
-  "provenance": {"formalCommit": "4ec05bbe27bad6c65c6425fc508cae304deb343a"},
+  "provenance": {"formalCommit": "2d06eeb663eb436ba5a6c63552665caab8e13b85"},
   "constants": {
     "gridInterval": 6,
     "registeredAt": 10,

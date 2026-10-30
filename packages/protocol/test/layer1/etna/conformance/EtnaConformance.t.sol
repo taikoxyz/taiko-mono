@@ -385,7 +385,7 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
                 _pair(3, 22)
             );
         } else if (family == keccak256("recover")) {
-            known_ = new KnownDivergence[](4);
+            known_ = new KnownDivergence[](2);
             known_[0] = _reverts(
                 "recover.hw.exclusion-at-block-2pow48-minus1",
                 "RECOV-8-41, STAKE-4.1-39, STOR-B-22",
@@ -402,25 +402,6 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
                 "but names no range. The model bounds it only by 2^256; the contract by 2^48 "
                 "(ValueOverflow), so a recovery at timestamp 2^48 reverts.",
                 IEtnaInbox.ValueOverflow.selector
-            );
-            known_[2] = _observes(
-                "recover.hw.recover-before-initialization",
-                "START-10-5, STOR-B-3",
-                "Model artifact: before init the model's Inbox already holds the genesis "
-                "checkpoint hash (atom 10000), with no record, signal or origin; the proxy still "
-                "runs EtnaInboxBootstrap, and slot 271 stays zero until init writes it. Both "
-                "reject the call.",
-                _one("inbox.checkpointHash"),
-                _one(0)
-            );
-            known_[3] = _observes(
-                "recover.hw.invalidation-before-initialization",
-                "START-10-5, STOR-B-3",
-                "Model artifact: as in recover-before-initialization, the model's uninitialized "
-                "Inbox holds the genesis checkpoint hash and slot 271 is zero. Both reject the "
-                "call.",
-                _one("inbox.checkpointHash"),
-                _one(0)
             );
         }
     }
