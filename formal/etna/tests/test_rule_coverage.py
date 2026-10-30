@@ -96,13 +96,22 @@ class RuleCoverageTests(unittest.TestCase):
     def test_narrowing_must_be_a_proper_subset(self):
         def everything(config):
             config['narrow']['EN-b8d78ca3f1f77e84'] = [f'BACKP-6.4-{n}' for n in range(1, 9)]
-        with self.assertRaisesRegex(ValueError, 'proper nonempty subset'):
+        with self.assertRaisesRegex(ValueError, 'proper subset'):
             self.rows(edit_config=everything)
 
         def outsider(config):
             config['narrow']['EN-b8d78ca3f1f77e84'] = ['BACKP-6.4-1', 'BACKP-6.4-10']
-        with self.assertRaisesRegex(ValueError, 'proper nonempty subset'):
+        with self.assertRaisesRegex(ValueError, 'proper subset'):
             self.rows(edit_config=outsider)
+
+    def test_empty_narrowing_defers_every_rule(self):
+        """An empty list says the clause's theorems address none of its rule IDs."""
+        def edit(config):
+            config['narrow']['EN-b8d78ca3f1f77e84'] = []
+        rows = {r['rule']: r for r in self.rows(edit_config=edit)}
+        for n in range(1, 9):
+            self.assertEqual(rows[f'BACKP-6.4-{n}']['status'], 'deferred')
+            self.assertEqual(rows[f'BACKP-6.4-{n}']['theorems'], [])
 
     def test_narrowed_rules_lose_their_theorems(self):
         rows = {r['rule']: r for r in self.rows()}

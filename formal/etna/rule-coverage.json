@@ -44,6 +44,78 @@
   },
   "narrow": {
     "EN-b8d78ca3f1f77e84": ["BACKP-6.4-1", "BACKP-6.4-7"],
-    "EN-1de188a398da3093": ["BACKP-6.4-10", "BACKP-6.4-11", "BACKP-6.4-12"]
+    "EN-1de188a398da3093": ["BACKP-6.4-10", "BACKP-6.4-11", "BACKP-6.4-12"],
+    "EN-043c32870af8d13f": ["PROOF-6.2-24", "PROOF-6.2-25", "PROOF-6.2-26"],
+    "EN-1ee6db9f8ebb8410": ["FI-7.3-1"],
+    "EN-21344f248d35b379": ["FORF-4.4-16"],
+    "EN-2474bdce909c86f9": ["PROOF-6.2-33"],
+    "EN-25553fea06dda239": ["STAKE-4.1-38"],
+    "EN-2b238db781615e6e": ["SYNC-9-10", "SYNC-9-11", "SYNC-9-12", "SYNC-9-13"],
+    "EN-3a067849123ef674": [
+      "START-10-7",
+      "START-10-8",
+      "START-10-9",
+      "START-10-10",
+      "START-10-11",
+      "START-10-12",
+      "START-10-13",
+      "START-10-14"
+    ],
+    "EN-3ce5781807da58ba": [],
+    "EN-3f7463f0f1df5094": [
+      "RECOV-8.3-8",
+      "RECOV-8.3-9",
+      "RECOV-8.3-10",
+      "RECOV-8.3-11",
+      "RECOV-8.3-12",
+      "RECOV-8.3-13",
+      "RECOV-8.3-14"
+    ],
+    "EN-40d009e622ee97d2": ["ENC-A-29", "ENC-A-30", "ENC-A-32", "ENC-A-35"],
+    "EN-4856837d14522ac8": ["ENC-A-1"],
+    "EN-61545df98f0ad68f": ["FORF-4.4-12"],
+    "EN-6478ed58606b3c3b": ["RECOV-8.2-1"],
+    "EN-7319b105593c8c53": ["RECOV-8-47", "RECOV-8-48", "RECOV-8-49"],
+    "EN-869d67b6135d6bd0": ["ENC-A-36", "ENC-A-42"],
+    "EN-8ae0f0fcf4c9861c": ["RECOV-8.4-3", "RECOV-8.4-4"],
+    "EN-8e5f0457d17b70bc": ["RECOV-8.3-3", "RECOV-8.3-5"],
+    "EN-992ca84f0e185f57": ["RECOV-8.2-5"],
+    "EN-99e8a56e96bcba34": [
+      "PROOF-6.2-12",
+      "PROOF-6.2-13",
+      "PROOF-6.2-14",
+      "PROOF-6.2-16"
+    ],
+    "EN-9ee888f78091a2fe": ["SYNC-9-4", "SYNC-9-5", "SYNC-9-6", "SYNC-9-9"],
+    "EN-a291bb263ea08b0c": ["RECOV-8-41"],
+    "EN-a491543db0b4b272": ["STOR-B-23"],
+    "EN-ab1db15120198ccd": ["STAKE-4.1-16"],
+    "EN-adcd3a47969dbd68": [
+      "PROOF-6.2-39",
+      "PROOF-6.2-40",
+      "PROOF-6.2-41",
+      "PROOF-6.2-42",
+      "PROOF-6.2-43",
+      "PROOF-6.2-44",
+      "PROOF-6.2-45",
+      "PROOF-6.2-46"
+    ],
+    "EN-aee6e06c2b0041ee": ["STAKE-4.1-4"],
+    "EN-d04a236579cc9990": [
+      "RECOV-8-26",
+      "RECOV-8-27",
+      "RECOV-8-28",
+      "RECOV-8-29",
+      "RECOV-8-30",
+      "RECOV-8-31",
+      "RECOV-8-35"
+    ],
+    "EN-d7f8342dc8bb8e88": ["RECOV-8-56", "RECOV-8-58"],
+    "EN-d8189cd72ebd5832": ["RECOV-8.4-10"],
+    "EN-e3a825ec5265a857": ["RECOV-8.3-19"],
+    "EN-e83bfb4c2586fe1b": ["RECOV-8-44", "RECOV-8-45"],
+    "EN-eb5074ad77d4a985": ["FI-7.1-1", "FI-7.1-4", "FI-7.1-5"],
+    "EN-f3138a4a28d8137f": ["FI-7.1-9", "FI-7.1-10", "FI-7.1-11", "FI-7.1-13"],
+    "EN-fb39b71e9b4c760c": ["STAKE-4.1-20", "STAKE-4.1-21"]
   }
 }
