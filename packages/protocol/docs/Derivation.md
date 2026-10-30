@@ -375,7 +375,7 @@ The anchor transaction executes a carefully orchestrated sequence of operations:
 
 ## Etna: Blocks Without an Anchor Transaction
 
-Etna replaces the anchor transaction with header commitments to the L1 anchor block's number and execution state root. EIP-4788 records the root. The proposal format and metadata validation rules stay the same.
+Etna replaces the anchor transaction with header commitments to the L1 anchor block's number and execution state root. EIP-4788 records the root. The proposal format and metadata validation rules stay the same. The design, the contract changes and the activation order are in [the Etna anchorless design](./etna-anchorless/DESIGN.md).
 
 - A block's transactions come from `metadata.transactions` as before, but nothing is prepended and no position is reserved, so the first transaction is treated like every other one. A default source manifest yields a block without transactions.
 - Transactions from the golden touch address are ordinary transactions, with ordinary balance, fee and refund handling.

@@ -6,6 +6,9 @@ on:
     - cron: "0 0 * * 0" # Run weekly at 00:00 UTC
   workflow_dispatch: # Allow running manually
 
+permissions:
+  contents: read
+
 jobs:
   cleanup-old-releases:
     runs-on: ubuntu-latest
@@ -20,7 +23,9 @@ jobs:
 
     steps:
       # Check out the repo to access release-please-config.json
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Clean up old releases
         shell: bash
