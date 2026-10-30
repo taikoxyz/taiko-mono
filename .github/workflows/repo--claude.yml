@@ -84,7 +84,7 @@ jobs:
 
             Use `gh pr diff` and `gh pr view` to see the changes, and the Read, Grep and Glob tools to
             inspect the surrounding code. For protocol (smart contract) changes, start in the
-            `packages/protocol` directory and follow the conventions in its CLAUDE.md.
+            `packages/protocol` directory and read its CLAUDE.md for the conventions to review against.
 
             Use top-level comments for the review and inline comments for specific lines. Leave out
             sections that have no relevance, for example testing for a documentation-only change.
@@ -93,7 +93,12 @@ jobs:
           # the PR (pnpm scripts, find -exec, ...) would run next to ANTHROPIC_API_KEY.
           # Tag mode (track_progress) also grants edit and git commit/push tools; they are denied here,
           # and any push left (the action's git-push wrapper) fails on the contents: read token.
+          # --setting-sources user: --allowedTools only adds approvals, and the action loads user,
+          # project and local settings by default. The repo's .claude/settings.json (restored from the
+          # PR base) allows go/forge/pnpm tests, git, rm and WebFetch, so project and local settings
+          # are excluded; user settings are the ones the action writes (enableAllProjectMcpServers only).
           claude_args: |
+            --setting-sources user
             --allowedTools "
               Read,
               Grep,
