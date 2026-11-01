@@ -1,3 +1,4 @@
+import EtnaModel.ActualQueue
 import EtnaModel.Anchorless
 import EtnaModel.Locking
 import EtnaModel.TrustState

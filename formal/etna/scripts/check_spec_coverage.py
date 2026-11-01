@@ -45,6 +45,8 @@ PARTIAL_ROLES = {'property', 'constant'}
 SCOPE = 'conditional decoded specification property only'
 # Theorems that back no clause (each must cite none): modelling plumbing, not a spec obligation.
 UNSOURCED = {
+    'Etna.Design.ActualQueue.transactions_trace': 'Timestamped journal projection to original protocol calls; modelling correspondence only',
+    'Etna.Design.ActualQueue.canonical_journal': 'Compatible time annotation lifts unchanged canonical run_trace to a journal; modelling correspondence only',
     'Etna.Design.CanonicalHistory.run_trace': 'Canonical-history projection to original protocol transitions; modelling correspondence only, no specification clause',
     'Etna.Design.CanonicalHistory.run_statements': 'Submission-annotated canonical-history projection to original Statements.Run; modelling correspondence only, no specification clause',
     'Etna.Design.ProtocolState.trace_entered': 'The reentrancy flag never changes along a trace (it is never set); '

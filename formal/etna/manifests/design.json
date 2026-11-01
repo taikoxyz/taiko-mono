@@ -16070,6 +16070,417 @@
       "role": "regression",
       "sources": ["ANCHORLESS-6f651d8e580ae691"],
       "scope": "Deliberately colliding ideal slot adapter admits distinct app requests at the same proof/cache slot; this demonstrates why the general isolation theorems require derived-slot separation."
+    },
+    {
+      "module": "EtnaProofs.ActualQueue",
+      "declaration": "Etna.Design.ActualQueue.transactions_trace",
+      "type": "∀ {time : Nat → Nat} {initial w : Etna.Design.ProtocolState.World}\n  {states : List Etna.Design.ProtocolState.World},\n  Etna.Design.ActualQueue.Transactions time initial states w → Etna.Design.ProtocolState.Trace initial w",
+      "assumptions": [
+        "Original initialized decoded L1 transaction history; enqueue timestamp equals the monotone L1 block clock. EVM atomicity and L1 canonicality/finality are ideal boundaries.",
+        "An authenticated anchor opens the exact end-of-block prefix of one ordered journal, with all later transactions strictly after its block and exact timestamp/tail fields. Guest originBlock binds the current Inbox origin; recovery exclusion is derived.",
+        "Local storage openings expose membership in that same snapshot. Actual raw and position-zero byte strings determine hash, size and canonical-parser flags; a deterministic parent/header-context singleton interface fixes the execution result. Real MPT/crypto/parser/EL implementation correctness remains external. No wall-clock liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [],
+      "scope": "Projection of semantic-time journals to exact original protocol transitions; modelling correspondence only."
+    },
+    {
+      "module": "EtnaProofs.ActualQueue",
+      "declaration": "Etna.Design.ActualQueue.canonical_journal",
+      "type": "∀ {time : Nat → Nat} {initial w : Etna.Design.ProtocolState.World}\n  {archive : List Nat} (run : Etna.Design.CanonicalHistory.Run initial w archive),\n  Etna.Design.ActualQueue.TraceTime time (Etna.Design.CanonicalHistory.run_trace run) → ∃ states, Etna.Design.ActualQueue.Transactions time initial states w",
+      "assumptions": [
+        "Original initialized decoded L1 transaction history; enqueue timestamp equals the monotone L1 block clock. EVM atomicity and L1 canonicality/finality are ideal boundaries.",
+        "An authenticated anchor opens the exact end-of-block prefix of one ordered journal, with all later transactions strictly after its block and exact timestamp/tail fields. Guest originBlock binds the current Inbox origin; recovery exclusion is derived.",
+        "Local storage openings expose membership in that same snapshot. Actual raw and position-zero byte strings determine hash, size and canonical-parser flags; a deterministic parent/header-context singleton interface fixes the execution result. Real MPT/crypto/parser/EL implementation correctness remains external. No wall-clock liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [],
+      "scope": "Compatible timestamp annotation on the unchanged canonical run_trace produces an ordered semantic journal; modelling correspondence only."
+    },
+    {
+      "module": "EtnaProofs.ActualQueue",
+      "declaration": "Etna.Design.ActualQueue.history_queue_timed",
+      "type": "∀ {time : Nat → Nat} {initial w : Etna.Design.ProtocolState.World}\n  {states : List Etna.Design.ProtocolState.World} {hash root : Etna.Design.Hash},\n  Etna.Design.Deployment.Genesis initial hash root →\n    Etna.Design.ActualQueue.Transactions time initial states w → Etna.Design.AnchorHonesty.QueueTimed time w",
+      "assumptions": [
+        "Original initialized decoded L1 transaction history; enqueue timestamp equals the monotone L1 block clock. EVM atomicity and L1 canonicality/finality are ideal boundaries.",
+        "An authenticated anchor opens the exact end-of-block prefix of one ordered journal, with all later transactions strictly after its block and exact timestamp/tail fields. Guest originBlock binds the current Inbox origin; recovery exclusion is derived.",
+        "Local storage openings expose membership in that same snapshot. Actual raw and position-zero byte strings determine hash, size and canonical-parser flags; a deterministic parent/header-context singleton interface fixes the execution result. Real MPT/crypto/parser/EL implementation correctness remains external. No wall-clock liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-eb5074ad77d4a985", "EN-b69a24b78429ebe4"],
+      "scope": "Induction derives enqueue-block timestamps from empty genesis; recovery blanking and rollback preserve metadata."
+    },
+    {
+      "module": "EtnaProofs.ActualQueue",
+      "declaration": "Etna.Design.ActualQueue.end_block_covers",
+      "type": "∀ {time : Nat → Nat} {initial w : Etna.Design.ProtocolState.World}\n  {states : List Etna.Design.ProtocolState.World} {hash root : Etna.Design.Hash}\n  {anchor : Etna.Design.BlockValidity.Anchor},\n  Etna.Design.Deployment.Genesis initial hash root →\n    ∀ (cut : Etna.Design.ActualQueue.EndBlock time initial w states anchor),\n      Etna.Design.AnchorHonesty.AnchorCovers time w anchor",
+      "assumptions": [
+        "Original initialized decoded L1 transaction history; enqueue timestamp equals the monotone L1 block clock. EVM atomicity and L1 canonicality/finality are ideal boundaries.",
+        "An authenticated anchor opens the exact end-of-block prefix of one ordered journal, with all later transactions strictly after its block and exact timestamp/tail fields. Guest originBlock binds the current Inbox origin; recovery exclusion is derived.",
+        "Local storage openings expose membership in that same snapshot. Actual raw and position-zero byte strings determine hash, size and canonical-parser flags; a deterministic parent/header-context singleton interface fixes the execution result. Real MPT/crypto/parser/EL implementation correctness remains external. No wall-clock liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-136c3f345da4a399"],
+      "scope": "Actual end-block tail covers current queue entries admitted no later than the anchor; strict suffix ordering includes every same-block transaction."
+    },
+    {
+      "module": "EtnaProofs.ActualQueue",
+      "declaration": "Etna.Design.ActualQueue.end_block_entry_current",
+      "type": "∀ {time : Nat → Nat} {initial w : Etna.Design.ProtocolState.World}\n  {states : List Etna.Design.ProtocolState.World} {anchor : Etna.Design.BlockValidity.Anchor}\n  (cut : Etna.Design.ActualQueue.EndBlock time initial w states anchor),\n  w.inbox.origin.l1Block ≤ anchor.number →\n    ∀ {j : Nat} {entry : Etna.Design.Forced.Entry}, (j, entry) ∈ cut.snapshot.queue → (j, entry) ∈ w.queue",
+      "assumptions": [
+        "Original initialized decoded L1 transaction history; enqueue timestamp equals the monotone L1 block clock. EVM atomicity and L1 canonicality/finality are ideal boundaries.",
+        "An authenticated anchor opens the exact end-of-block prefix of one ordered journal, with all later transactions strictly after its block and exact timestamp/tail fields. Guest originBlock binds the current Inbox origin; recovery exclusion is derived.",
+        "Local storage openings expose membership in that same snapshot. Actual raw and position-zero byte strings determine hash, size and canonical-parser flags; a deterministic parent/header-context singleton interface fixes the execution result. Real MPT/crypto/parser/EL implementation correctness remains external. No wall-clock liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-136c3f345da4a399", "EN-b69a24b78429ebe4"],
+      "scope": "Current Inbox origin at or before the anchor excludes all later recovery steps and preserves the exact opened stored entry across the historical suffix."
+    },
+    {
+      "module": "EtnaProofs.ActualQueue",
+      "declaration": "Etna.Design.ActualQueue.local_block_service",
+      "type": "∀ {time : Nat → Nat} {initial w : Etna.Design.ProtocolState.World}\n  {states : List Etna.Design.ProtocolState.World} {hash root : Etna.Design.Hash} {r : Etna.Design.BlockValidity.Rules}\n  {p : Etna.Design.BlockValidity.Header} {b : Etna.Design.BlockValidity.Block}\n  {primitive : Etna.Design.ActualQueue.Primitives},\n  Etna.Design.Deployment.Genesis initial hash root →\n    Etna.Design.ActualQueue.Transactions time initial states w →\n      Etna.Design.ActualQueue.OriginMatches r w →\n        Etna.Design.ActualQueue.Openings primitive time initial w states r →\n          Etna.Design.BlockValidity.Valid r p b → Etna.Statements.ServesQueue w r p b",
+      "assumptions": [
+        "Original initialized decoded L1 transaction history; enqueue timestamp equals the monotone L1 block clock. EVM atomicity and L1 canonicality/finality are ideal boundaries.",
+        "An authenticated anchor opens the exact end-of-block prefix of one ordered journal, with all later transactions strictly after its block and exact timestamp/tail fields. Guest originBlock binds the current Inbox origin; recovery exclusion is derived.",
+        "Local storage openings expose membership in that same snapshot. Actual raw and position-zero byte strings determine hash, size and canonical-parser flags; a deterministic parent/header-context singleton interface fixes the execution result. Real MPT/crypto/parser/EL implementation correctness remains external. No wall-clock liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-136c3f345da4a399", "EN-7fdd2e21c46727ee"],
+      "scope": "Every valid local block serves its own parent-cursor entry using actual end-block storage; submitted landings are unnecessary."
+    },
+    {
+      "module": "EtnaProofs.ActualQueue",
+      "declaration": "Etna.Design.ActualQueue.local_chain_service",
+      "type": "∀ {time : Nat → Nat} {initial w : Etna.Design.ProtocolState.World}\n  {states : List Etna.Design.ProtocolState.World} {hash root : Etna.Design.Hash} {r : Etna.Design.BlockValidity.Rules}\n  {p : Etna.Design.BlockValidity.Header} {bs : List Etna.Design.BlockValidity.Block}\n  {primitive : Etna.Design.ActualQueue.Primitives},\n  Etna.Design.Deployment.Genesis initial hash root →\n    Etna.Design.ActualQueue.Transactions time initial states w →\n      Etna.Design.AnchorHonesty.ClockMonotone time →\n        0 < r.forcedDelay →\n          Etna.Design.ActualQueue.OriginMatches r w →\n            Etna.Design.ActualQueue.Anchors time initial w states r →\n              Etna.Design.ActualQueue.Openings primitive time initial w states r →\n                Etna.Design.BlockValidity.Chain r p bs →\n                  ∀ (x : Etna.Design.BlockValidity.Header × Etna.Design.BlockValidity.Block),\n                    x ∈ Etna.Statements.pairs p bs →\n                      Etna.Statements.ServesQueue w r x.fst x.snd ∧\n                        ∀ (entry : Etna.Design.Forced.Entry),\n                          (x.fst.cursor, entry) ∈ w.queue →\n                            entry.timestamp + r.forcedDelay + r.maxAnchorAge ≤ x.snd.header.timestamp →\n                              x.snd.header.cursor = x.fst.cursor + 1",
+      "assumptions": [
+        "Original initialized decoded L1 transaction history; enqueue timestamp equals the monotone L1 block clock. EVM atomicity and L1 canonicality/finality are ideal boundaries.",
+        "An authenticated anchor opens the exact end-of-block prefix of one ordered journal, with all later transactions strictly after its block and exact timestamp/tail fields. Guest originBlock binds the current Inbox origin; recovery exclusion is derived.",
+        "Local storage openings expose membership in that same snapshot. Actual raw and position-zero byte strings determine hash, size and canonical-parser flags; a deterministic parent/header-context singleton interface fixes the execution result. Real MPT/crypto/parser/EL implementation correctness remains external. No wall-clock liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-1ee6db9f8ebb8410"],
+      "scope": "Existing inclusive block-time bound composed with derived queue timing/tails and current-queue storage for every block in a local chain. Not repeated L1-head consumption."
+    },
+    {
+      "module": "EtnaProofs.ActualQueue",
+      "declaration": "Etna.Design.ActualQueue.opened_advance_action",
+      "type": "∀ {primitive : Etna.Design.ActualQueue.Primitives}\n  {p : Etna.Design.BlockValidity.Header} {b : Etna.Design.BlockValidity.Block} {wit : Etna.Design.Forced.Witness}\n  {raw : Etna.Design.ActualQueue.Bytes} {first : Option Etna.Design.ActualQueue.Bytes} {delay : Nat},\n  Etna.Design.ActualQueue.PayloadFields primitive p b wit raw first →\n    Etna.Design.Forced.step p.cursor b.header.anchor.tail b.header.anchor.timestamp delay (Option.some wit)\n          b.singleton =\n        Etna.Design.Forced.Result.accepted (p.cursor + 1) →\n      Etna.Design.ActualQueue.ByteAction primitive p b wit.stored raw first",
+      "assumptions": [
+        "Original initialized decoded L1 transaction history; enqueue timestamp equals the monotone L1 block clock. EVM atomicity and L1 canonicality/finality are ideal boundaries.",
+        "An authenticated anchor opens the exact end-of-block prefix of one ordered journal, with all later transactions strictly after its block and exact timestamp/tail fields. Guest originBlock binds the current Inbox origin; recovery exclusion is derived.",
+        "Local storage openings expose membership in that same snapshot. Actual raw and position-zero byte strings determine hash, size and canonical-parser flags; a deterministic parent/header-context singleton interface fixes the execution result. Real MPT/crypto/parser/EL implementation correctness remains external. No wall-clock liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "EN-a0d7e057533c65e9",
+        "EN-ece14be2916f0686",
+        "EN-e47ed8b1032eaf71",
+        "EN-3a4063c2936a95e5"
+      ],
+      "scope": "An accepted advance and explicit raw/tx0/hash/parser/singleton bindings derive actual inclusion or a legal invalid/empty skip."
+    },
+    {
+      "module": "EtnaProofs.ActualQueue",
+      "declaration": "Etna.Design.ActualQueue.local_chain_byte_service",
+      "type": "∀ {time : Nat → Nat} {initial w : Etna.Design.ProtocolState.World}\n  {states : List Etna.Design.ProtocolState.World} {hash root : Etna.Design.Hash} {r : Etna.Design.BlockValidity.Rules}\n  {p : Etna.Design.BlockValidity.Header} {bs : List Etna.Design.BlockValidity.Block}\n  {primitive : Etna.Design.ActualQueue.Primitives},\n  Etna.Design.Deployment.Genesis initial hash root →\n    Etna.Design.ActualQueue.Transactions time initial states w →\n      Etna.Design.AnchorHonesty.ClockMonotone time →\n        0 < r.forcedDelay →\n          Etna.Design.ActualQueue.OriginMatches r w →\n            Etna.Design.ActualQueue.Anchors time initial w states r →\n              Etna.Design.ActualQueue.Openings primitive time initial w states r →\n                Etna.Design.BlockValidity.Chain r p bs →\n                  ∀ (x : Etna.Design.BlockValidity.Header × Etna.Design.BlockValidity.Block),\n                    x ∈ Etna.Statements.pairs p bs →\n                      ∀ (entry : Etna.Design.Forced.Entry),\n                        (x.fst.cursor, entry) ∈ w.queue →\n                          entry.timestamp + r.forcedDelay + r.maxAnchorAge ≤ x.snd.header.timestamp →\n                            x.snd.header.cursor = x.fst.cursor + 1 ∧\n                              ∃ wit raw first,\n                                x.snd.forced = Option.some wit ∧\n                                  wit.index = x.fst.cursor ∧\n                                    wit.stored = entry ∧\n                                      Etna.Design.ActualQueue.PayloadFields primitive x.fst x.snd wit raw first ∧\n                                        Etna.Design.ActualQueue.ByteAction primitive x.fst x.snd entry raw first",
+      "assumptions": [
+        "Original initialized decoded L1 transaction history; enqueue timestamp equals the monotone L1 block clock. EVM atomicity and L1 canonicality/finality are ideal boundaries.",
+        "An authenticated anchor opens the exact end-of-block prefix of one ordered journal, with all later transactions strictly after its block and exact timestamp/tail fields. Guest originBlock binds the current Inbox origin; recovery exclusion is derived.",
+        "Local storage openings expose membership in that same snapshot. Actual raw and position-zero byte strings determine hash, size and canonical-parser flags; a deterministic parent/header-context singleton interface fixes the execution result. Real MPT/crypto/parser/EL implementation correctness remains external. No wall-clock liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-1ee6db9f8ebb8410", "EN-7fdd2e21c46727ee"],
+      "scope": "Full local-chain composition derives actual byte-level inclusion or legal skip for the current local-cursor entry at or beyond enqueueTime+delay+maxAge, including equality; no submission assumption."
+    },
+    {
+      "module": "EtnaProofs.ActualQueue",
+      "declaration": "Etna.Design.ActualQueue.eligible_nonempty_forbids_skip",
+      "type": "∀ {primitive : Etna.Design.ActualQueue.Primitives}\n  {snapshot : Etna.Design.ProtocolState.World} {p : Etna.Design.BlockValidity.Header}\n  {b : Etna.Design.BlockValidity.Block} {wit : Etna.Design.Forced.Witness} {delay : Nat},\n  Etna.Design.ActualQueue.WitnessOpening primitive snapshot p b wit →\n    p.cursor < b.header.anchor.tail →\n      wit.stored.timestamp + delay ≤ b.header.anchor.timestamp →\n        wit.canonical = Bool.true →\n          b.singleton = Etna.Design.Forced.Singleton.completedRetained →\n            ¬(wit.firstHash = Option.some wit.stored.txHash ∧ wit.firstCanonical = Bool.true ∧ wit.firstBytes ≤ 8192) →\n              Etna.Design.Forced.step p.cursor b.header.anchor.tail b.header.anchor.timestamp delay (Option.some wit)\n                  b.singleton =\n                Etna.Design.Forced.Result.rejected",
+      "assumptions": [
+        "Original initialized decoded L1 transaction history; enqueue timestamp equals the monotone L1 block clock. EVM atomicity and L1 canonicality/finality are ideal boundaries.",
+        "An authenticated anchor opens the exact end-of-block prefix of one ordered journal, with all later transactions strictly after its block and exact timestamp/tail fields. Guest originBlock binds the current Inbox origin; recovery exclusion is derived.",
+        "Local storage openings expose membership in that same snapshot. Actual raw and position-zero byte strings determine hash, size and canonical-parser flags; a deterministic parent/header-context singleton interface fixes the execution result. Real MPT/crypto/parser/EL implementation correctness remains external. No wall-clock liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-e47ed8b1032eaf71"],
+      "scope": "Due eligible transaction omitted from tx0 with retained deterministic singleton is rejected; timeout is not treated as empty."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.ActualQueue",
+      "declaration": "Etna.Design.ActualQueueRegression.actual_history",
+      "type": "Etna.Design.ActualQueue.Transactions id Etna.Design.NonVacuity.world0\n  Etna.Design.ActualQueueRegression.journal Etna.Design.ActualQueueRegression.twice",
+      "assumptions": [
+        "Original initialized decoded L1 transaction history; enqueue timestamp equals the monotone L1 block clock. EVM atomicity and L1 canonicality/finality are ideal boundaries.",
+        "An authenticated anchor opens the exact end-of-block prefix of one ordered journal, with all later transactions strictly after its block and exact timestamp/tail fields. Guest originBlock binds the current Inbox origin; recovery exclusion is derived.",
+        "Local storage openings expose membership in that same snapshot. Actual raw and position-zero byte strings determine hash, size and canonical-parser flags; a deterministic parent/header-context singleton interface fixes the execution result. Real MPT/crypto/parser/EL implementation correctness remains external. No wall-clock liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-eb5074ad77d4a985"],
+      "scope": "Concrete kernel witness: actual history. Same-block/local-cursor and recovery fixtures use actual accepted original calls, explicit byte openings and genuine due entries."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.ActualQueue",
+      "declaration": "Etna.Design.ActualQueueRegression.actual_chain",
+      "type": "∀ (mode : Etna.Design.ActualQueueRegression.Mode),\n  Etna.Design.BlockValidity.Chain (Etna.Design.ActualQueueRegression.localRules mode)\n    Etna.Design.NonVacuity.genesisHeader\n    [Etna.Design.ActualQueueRegression.firstBlock mode, Etna.Design.ActualQueueRegression.secondBlock mode]",
+      "assumptions": [
+        "Original initialized decoded L1 transaction history; enqueue timestamp equals the monotone L1 block clock. EVM atomicity and L1 canonicality/finality are ideal boundaries.",
+        "An authenticated anchor opens the exact end-of-block prefix of one ordered journal, with all later transactions strictly after its block and exact timestamp/tail fields. Guest originBlock binds the current Inbox origin; recovery exclusion is derived.",
+        "Local storage openings expose membership in that same snapshot. Actual raw and position-zero byte strings determine hash, size and canonical-parser flags; a deterministic parent/header-context singleton interface fixes the execution result. Real MPT/crypto/parser/EL implementation correctness remains external. No wall-clock liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-7fdd2e21c46727ee", "EN-1ee6db9f8ebb8410"],
+      "scope": "Concrete kernel witness: actual chain. Same-block/local-cursor and recovery fixtures use actual accepted original calls, explicit byte openings and genuine due entries."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.ActualQueue",
+      "declaration": "Etna.Design.ActualQueueRegression.actual_anchors",
+      "type": "∀ (mode : Etna.Design.ActualQueueRegression.Mode),\n  Etna.Design.ActualQueue.Anchors id Etna.Design.NonVacuity.world0 Etna.Design.ActualQueueRegression.twice\n    Etna.Design.ActualQueueRegression.journal (Etna.Design.ActualQueueRegression.localRules mode)",
+      "assumptions": [
+        "Original initialized decoded L1 transaction history; enqueue timestamp equals the monotone L1 block clock. EVM atomicity and L1 canonicality/finality are ideal boundaries.",
+        "An authenticated anchor opens the exact end-of-block prefix of one ordered journal, with all later transactions strictly after its block and exact timestamp/tail fields. Guest originBlock binds the current Inbox origin; recovery exclusion is derived.",
+        "Local storage openings expose membership in that same snapshot. Actual raw and position-zero byte strings determine hash, size and canonical-parser flags; a deterministic parent/header-context singleton interface fixes the execution result. Real MPT/crypto/parser/EL implementation correctness remains external. No wall-clock liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-7fdd2e21c46727ee", "EN-1ee6db9f8ebb8410"],
+      "scope": "Concrete kernel witness: actual anchors. Same-block/local-cursor and recovery fixtures use actual accepted original calls, explicit byte openings and genuine due entries."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.ActualQueue",
+      "declaration": "Etna.Design.ActualQueueRegression.actual_openings",
+      "type": "∀ (mode : Etna.Design.ActualQueueRegression.Mode),\n  Etna.Design.ActualQueue.Openings (Etna.Design.ActualQueueRegression.primitive mode) id Etna.Design.NonVacuity.world0\n    Etna.Design.ActualQueueRegression.twice Etna.Design.ActualQueueRegression.journal\n    (Etna.Design.ActualQueueRegression.localRules mode)",
+      "assumptions": [
+        "Original initialized decoded L1 transaction history; enqueue timestamp equals the monotone L1 block clock. EVM atomicity and L1 canonicality/finality are ideal boundaries.",
+        "An authenticated anchor opens the exact end-of-block prefix of one ordered journal, with all later transactions strictly after its block and exact timestamp/tail fields. Guest originBlock binds the current Inbox origin; recovery exclusion is derived.",
+        "Local storage openings expose membership in that same snapshot. Actual raw and position-zero byte strings determine hash, size and canonical-parser flags; a deterministic parent/header-context singleton interface fixes the execution result. Real MPT/crypto/parser/EL implementation correctness remains external. No wall-clock liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-7fdd2e21c46727ee", "EN-1ee6db9f8ebb8410"],
+      "scope": "Concrete kernel witness: actual openings. Same-block/local-cursor and recovery fixtures use actual accepted original calls, explicit byte openings and genuine due entries."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.ActualQueue",
+      "declaration": "Etna.Design.ActualQueueRegression.local_exact_service",
+      "type": "∀ (mode : Etna.Design.ActualQueueRegression.Mode),\n  Etna.Design.ActualQueueRegression.twice.inbox.head = 0 ∧\n    (1, Etna.Design.NonVacuity.entry0) ∈ Etna.Design.ActualQueueRegression.twice.queue ∧\n      (Etna.Design.ActualQueueRegression.secondBlock mode).header.timestamp =\n          Etna.Design.NonVacuity.entry0.timestamp + (Etna.Design.ActualQueueRegression.localRules mode).forcedDelay +\n            (Etna.Design.ActualQueueRegression.localRules mode).maxAnchorAge ∧\n        (Etna.Design.ActualQueueRegression.secondBlock mode).anchorWitness = Bool.false ∧\n          (Etna.Design.ActualQueueRegression.secondBlock mode).header.cursor =\n              (Etna.Design.ActualQueueRegression.firstBlock mode).header.cursor + 1 ∧\n            Etna.Statements.ServesQueue Etna.Design.ActualQueueRegression.twice\n              (Etna.Design.ActualQueueRegression.localRules mode)\n              (Etna.Design.ActualQueueRegression.firstBlock mode).header\n              (Etna.Design.ActualQueueRegression.secondBlock mode)",
+      "assumptions": [
+        "Original initialized decoded L1 transaction history; enqueue timestamp equals the monotone L1 block clock. EVM atomicity and L1 canonicality/finality are ideal boundaries.",
+        "An authenticated anchor opens the exact end-of-block prefix of one ordered journal, with all later transactions strictly after its block and exact timestamp/tail fields. Guest originBlock binds the current Inbox origin; recovery exclusion is derived.",
+        "Local storage openings expose membership in that same snapshot. Actual raw and position-zero byte strings determine hash, size and canonical-parser flags; a deterministic parent/header-context singleton interface fixes the execution result. Real MPT/crypto/parser/EL implementation correctness remains external. No wall-clock liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-7fdd2e21c46727ee", "EN-1ee6db9f8ebb8410"],
+      "scope": "Concrete kernel witness: local exact service. Same-block/local-cursor and recovery fixtures use actual accepted original calls, explicit byte openings and genuine due entries."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.ActualQueue",
+      "declaration": "Etna.Design.ActualQueueRegression.exact_deadline_nonvacuous",
+      "type": "∃ (w : Etna.Design.ProtocolState.World) (entry : Etna.Design.Forced.Entry)\n    (p : Etna.Design.BlockValidity.Header) (b : Etna.Design.BlockValidity.Block)\n    (r : Etna.Design.BlockValidity.Rules),\n    (p.cursor,entry) ∈ w.queue ∧ Etna.Design.BlockValidity.Valid r p b ∧\n    b.header.timestamp = entry.timestamp+r.forcedDelay+r.maxAnchorAge ∧ b.header.cursor = p.cursor+1",
+      "assumptions": [
+        "Original initialized decoded L1 transaction history; enqueue timestamp equals the monotone L1 block clock. EVM atomicity and L1 canonicality/finality are ideal boundaries.",
+        "An authenticated anchor opens the exact end-of-block prefix of one ordered journal, with all later transactions strictly after its block and exact timestamp/tail fields. Guest originBlock binds the current Inbox origin; recovery exclusion is derived.",
+        "Local storage openings expose membership in that same snapshot. Actual raw and position-zero byte strings determine hash, size and canonical-parser flags; a deterministic parent/header-context singleton interface fixes the execution result. Real MPT/crypto/parser/EL implementation correctness remains external. No wall-clock liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-7fdd2e21c46727ee", "EN-1ee6db9f8ebb8410"],
+      "scope": "Concrete kernel witness: exact deadline nonvacuous. Same-block/local-cursor and recovery fixtures use actual accepted original calls, explicit byte openings and genuine due entries."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.ActualQueue",
+      "declaration": "Etna.Design.ActualQueueRegression.local_byte_actions",
+      "type": "∀ (mode : Etna.Design.ActualQueueRegression.Mode),\n  ∃ wit raw first,\n    (Etna.Design.ActualQueueRegression.secondBlock mode).forced = Option.some wit ∧\n      wit.stored = Etna.Design.NonVacuity.entry0 ∧\n        Etna.Design.ActualQueue.PayloadFields (Etna.Design.ActualQueueRegression.primitive mode)\n            (Etna.Design.ActualQueueRegression.firstBlock mode).header\n            (Etna.Design.ActualQueueRegression.secondBlock mode) wit raw first ∧\n          Etna.Design.ActualQueue.ByteAction (Etna.Design.ActualQueueRegression.primitive mode)\n            (Etna.Design.ActualQueueRegression.firstBlock mode).header\n            (Etna.Design.ActualQueueRegression.secondBlock mode) Etna.Design.NonVacuity.entry0 raw first",
+      "assumptions": [
+        "Original initialized decoded L1 transaction history; enqueue timestamp equals the monotone L1 block clock. EVM atomicity and L1 canonicality/finality are ideal boundaries.",
+        "An authenticated anchor opens the exact end-of-block prefix of one ordered journal, with all later transactions strictly after its block and exact timestamp/tail fields. Guest originBlock binds the current Inbox origin; recovery exclusion is derived.",
+        "Local storage openings expose membership in that same snapshot. Actual raw and position-zero byte strings determine hash, size and canonical-parser flags; a deterministic parent/header-context singleton interface fixes the execution result. Real MPT/crypto/parser/EL implementation correctness remains external. No wall-clock liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-7fdd2e21c46727ee", "EN-1ee6db9f8ebb8410"],
+      "scope": "Concrete kernel witness: local byte actions. Same-block/local-cursor and recovery fixtures use actual accepted original calls, explicit byte openings and genuine due entries."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.ActualQueue",
+      "declaration": "Etna.Design.ActualQueueRegression.canonical_admissions",
+      "type": "Etna.Design.CanonicalHistory.Run Etna.Design.NonVacuity.world0\n    Etna.Design.ActualQueueRegression.twice [] ∧\n  ∃ states,\n    Etna.Design.ActualQueue.Transactions id Etna.Design.NonVacuity.world0 states Etna.Design.ActualQueueRegression.twice",
+      "assumptions": [
+        "Original initialized decoded L1 transaction history; enqueue timestamp equals the monotone L1 block clock. EVM atomicity and L1 canonicality/finality are ideal boundaries.",
+        "An authenticated anchor opens the exact end-of-block prefix of one ordered journal, with all later transactions strictly after its block and exact timestamp/tail fields. Guest originBlock binds the current Inbox origin; recovery exclusion is derived.",
+        "Local storage openings expose membership in that same snapshot. Actual raw and position-zero byte strings determine hash, size and canonical-parser flags; a deterministic parent/header-context singleton interface fixes the execution result. Real MPT/crypto/parser/EL implementation correctness remains external. No wall-clock liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-eb5074ad77d4a985"],
+      "scope": "Concrete kernel witness: canonical admissions. Same-block/local-cursor and recovery fixtures use actual accepted original calls, explicit byte openings and genuine due entries."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.ActualQueue",
+      "declaration": "Etna.Design.ActualQueueRegression.nonempty_skip_rejected",
+      "type": "Etna.Design.Forced.step 0 2 75 60\n    (Option.some\n      { index := 0, stored := Etna.Design.NonVacuity.entry0, storageAuthenticated := Bool.true, rawHash := 50,\n        rawBytes := 1, canonical := Bool.true, firstHash := Option.none, firstCanonical := Bool.false,\n        firstBytes := 0 })\n    Etna.Design.Forced.Singleton.completedRetained =\n  Etna.Design.Forced.Result.rejected",
+      "assumptions": [
+        "Original initialized decoded L1 transaction history; enqueue timestamp equals the monotone L1 block clock. EVM atomicity and L1 canonicality/finality are ideal boundaries.",
+        "An authenticated anchor opens the exact end-of-block prefix of one ordered journal, with all later transactions strictly after its block and exact timestamp/tail fields. Guest originBlock binds the current Inbox origin; recovery exclusion is derived.",
+        "Local storage openings expose membership in that same snapshot. Actual raw and position-zero byte strings determine hash, size and canonical-parser flags; a deterministic parent/header-context singleton interface fixes the execution result. Real MPT/crypto/parser/EL implementation correctness remains external. No wall-clock liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-7fdd2e21c46727ee", "EN-1ee6db9f8ebb8410"],
+      "scope": "Concrete kernel witness: nonempty skip rejected. Same-block/local-cursor and recovery fixtures use actual accepted original calls, explicit byte openings and genuine due entries."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.ActualQueue",
+      "declaration": "Etna.Design.ActualQueueRegression.incomplete_same_block_cut_rejected",
+      "type": "¬∀ (state : Etna.Design.ProtocolState.World),\n    state ∈ [Etna.Design.ActualQueueRegression.twice] → 15 < state.l1Block",
+      "assumptions": [
+        "Original initialized decoded L1 transaction history; enqueue timestamp equals the monotone L1 block clock. EVM atomicity and L1 canonicality/finality are ideal boundaries.",
+        "An authenticated anchor opens the exact end-of-block prefix of one ordered journal, with all later transactions strictly after its block and exact timestamp/tail fields. Guest originBlock binds the current Inbox origin; recovery exclusion is derived.",
+        "Local storage openings expose membership in that same snapshot. Actual raw and position-zero byte strings determine hash, size and canonical-parser flags; a deterministic parent/header-context singleton interface fixes the execution result. Real MPT/crypto/parser/EL implementation correctness remains external. No wall-clock liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-136c3f345da4a399"],
+      "scope": "Concrete kernel witness: incomplete same block cut rejected. Same-block/local-cursor and recovery fixtures use actual accepted original calls, explicit byte openings and genuine due entries."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.ActualQueue",
+      "declaration": "Etna.Design.ActualQueueRegression.recovered_history",
+      "type": "Etna.Design.ActualQueue.Transactions id\n  Etna.Design.NonVacuity.world0 Etna.Design.ActualQueueRegression.recoveredJournal\n  Etna.Design.ForcedPoisonResubmit.worldAgain",
+      "assumptions": [
+        "Original initialized decoded L1 transaction history; enqueue timestamp equals the monotone L1 block clock. EVM atomicity and L1 canonicality/finality are ideal boundaries.",
+        "An authenticated anchor opens the exact end-of-block prefix of one ordered journal, with all later transactions strictly after its block and exact timestamp/tail fields. Guest originBlock binds the current Inbox origin; recovery exclusion is derived.",
+        "Local storage openings expose membership in that same snapshot. Actual raw and position-zero byte strings determine hash, size and canonical-parser flags; a deterministic parent/header-context singleton interface fixes the execution result. Real MPT/crypto/parser/EL implementation correctness remains external. No wall-clock liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-b69a24b78429ebe4",
+        "EN-eb5074ad77d4a985",
+        "EN-1ee6db9f8ebb8410"
+      ],
+      "scope": "Concrete kernel witness: recovered history. Same-block/local-cursor and recovery fixtures use actual accepted original calls, explicit byte openings and genuine due entries."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.ActualQueue",
+      "declaration": "Etna.Design.ActualQueueRegression.recovery_and_resubmission",
+      "type": "Etna.Design.AnchorHonesty.QueueTimed id\n    Etna.Design.ForcedPoisonResubmit.worldAgain ∧\n  (0, Etna.Design.ActualQueueRegression.cleared) ∈ Etna.Design.ForcedPoisonResubmit.worldAgain.queue ∧\n    (1, Etna.Design.ForcedPoisonResubmit.again) ∈ Etna.Design.ForcedPoisonResubmit.worldAgain.queue ∧\n      Etna.Design.ActualQueueRegression.cleared.timestamp = Etna.Design.ForcedPoisonResubmit.poison.timestamp ∧\n        Etna.Design.ActualQueueRegression.cleared.l1Block = Etna.Design.ForcedPoisonResubmit.poison.l1Block ∧\n          Etna.Design.ForcedPoisonResubmit.again.txHash = Etna.Design.ForcedPoisonResubmit.poison.txHash ∧\n            ¬Etna.Design.ForcedPoisonResubmit.worldAgain.inbox.origin.l1Block ≤ 15",
+      "assumptions": [
+        "Original initialized decoded L1 transaction history; enqueue timestamp equals the monotone L1 block clock. EVM atomicity and L1 canonicality/finality are ideal boundaries.",
+        "An authenticated anchor opens the exact end-of-block prefix of one ordered journal, with all later transactions strictly after its block and exact timestamp/tail fields. Guest originBlock binds the current Inbox origin; recovery exclusion is derived.",
+        "Local storage openings expose membership in that same snapshot. Actual raw and position-zero byte strings determine hash, size and canonical-parser flags; a deterministic parent/header-context singleton interface fixes the execution result. Real MPT/crypto/parser/EL implementation correctness remains external. No wall-clock liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-b69a24b78429ebe4",
+        "EN-eb5074ad77d4a985",
+        "EN-1ee6db9f8ebb8410"
+      ],
+      "scope": "Concrete kernel witness: recovery and resubmission. Same-block/local-cursor and recovery fixtures use actual accepted original calls, explicit byte openings and genuine due entries."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.ActualQueue",
+      "declaration": "Etna.Design.ActualQueueRegression.recovered_chain",
+      "type": "Etna.Design.BlockValidity.Chain\n  Etna.Design.ActualQueueRegression.recoveredRules Etna.Design.NonVacuity.genesisHeader\n  [Etna.Design.ActualQueueRegression.blankBlock, Etna.Design.ActualQueueRegression.againBlock]",
+      "assumptions": [
+        "Original initialized decoded L1 transaction history; enqueue timestamp equals the monotone L1 block clock. EVM atomicity and L1 canonicality/finality are ideal boundaries.",
+        "An authenticated anchor opens the exact end-of-block prefix of one ordered journal, with all later transactions strictly after its block and exact timestamp/tail fields. Guest originBlock binds the current Inbox origin; recovery exclusion is derived.",
+        "Local storage openings expose membership in that same snapshot. Actual raw and position-zero byte strings determine hash, size and canonical-parser flags; a deterministic parent/header-context singleton interface fixes the execution result. Real MPT/crypto/parser/EL implementation correctness remains external. No wall-clock liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-b69a24b78429ebe4",
+        "EN-eb5074ad77d4a985",
+        "EN-1ee6db9f8ebb8410"
+      ],
+      "scope": "Concrete kernel witness: recovered chain. Same-block/local-cursor and recovery fixtures use actual accepted original calls, explicit byte openings and genuine due entries."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.ActualQueue",
+      "declaration": "Etna.Design.ActualQueueRegression.recovered_anchors",
+      "type": "Etna.Design.ActualQueue.Anchors id Etna.Design.NonVacuity.world0\n  Etna.Design.ForcedPoisonResubmit.worldAgain Etna.Design.ActualQueueRegression.recoveredJournal\n  Etna.Design.ActualQueueRegression.recoveredRules",
+      "assumptions": [
+        "Original initialized decoded L1 transaction history; enqueue timestamp equals the monotone L1 block clock. EVM atomicity and L1 canonicality/finality are ideal boundaries.",
+        "An authenticated anchor opens the exact end-of-block prefix of one ordered journal, with all later transactions strictly after its block and exact timestamp/tail fields. Guest originBlock binds the current Inbox origin; recovery exclusion is derived.",
+        "Local storage openings expose membership in that same snapshot. Actual raw and position-zero byte strings determine hash, size and canonical-parser flags; a deterministic parent/header-context singleton interface fixes the execution result. Real MPT/crypto/parser/EL implementation correctness remains external. No wall-clock liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-b69a24b78429ebe4",
+        "EN-eb5074ad77d4a985",
+        "EN-1ee6db9f8ebb8410"
+      ],
+      "scope": "Concrete kernel witness: recovered anchors. Same-block/local-cursor and recovery fixtures use actual accepted original calls, explicit byte openings and genuine due entries."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.ActualQueue",
+      "declaration": "Etna.Design.ActualQueueRegression.recovered_openings",
+      "type": "Etna.Design.ActualQueue.Openings\n  Etna.Design.ActualQueueRegression.recoveredPrimitive id Etna.Design.NonVacuity.world0\n  Etna.Design.ForcedPoisonResubmit.worldAgain Etna.Design.ActualQueueRegression.recoveredJournal\n  Etna.Design.ActualQueueRegression.recoveredRules",
+      "assumptions": [
+        "Original initialized decoded L1 transaction history; enqueue timestamp equals the monotone L1 block clock. EVM atomicity and L1 canonicality/finality are ideal boundaries.",
+        "An authenticated anchor opens the exact end-of-block prefix of one ordered journal, with all later transactions strictly after its block and exact timestamp/tail fields. Guest originBlock binds the current Inbox origin; recovery exclusion is derived.",
+        "Local storage openings expose membership in that same snapshot. Actual raw and position-zero byte strings determine hash, size and canonical-parser flags; a deterministic parent/header-context singleton interface fixes the execution result. Real MPT/crypto/parser/EL implementation correctness remains external. No wall-clock liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-b69a24b78429ebe4",
+        "EN-eb5074ad77d4a985",
+        "EN-1ee6db9f8ebb8410"
+      ],
+      "scope": "Concrete kernel witness: recovered openings. Same-block/local-cursor and recovery fixtures use actual accepted original calls, explicit byte openings and genuine due entries."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.ActualQueue",
+      "declaration": "Etna.Design.ActualQueueRegression.recovered_exact_service",
+      "type": "Etna.Design.ForcedPoisonResubmit.worldAgain.inbox.head = 0 ∧\n  Etna.Design.ActualQueueRegression.blankBlock.header.cursor = 1 ∧\n    Etna.Design.ActualQueueRegression.againBlock.header.timestamp =\n        Etna.Design.ForcedPoisonResubmit.again.timestamp +\n            Etna.Design.ActualQueueRegression.recoveredRules.forcedDelay +\n          Etna.Design.ActualQueueRegression.recoveredRules.maxAnchorAge ∧\n      Etna.Design.ActualQueueRegression.againBlock.header.cursor =\n          Etna.Design.ActualQueueRegression.blankBlock.header.cursor + 1 ∧\n        Etna.Statements.ServesQueue Etna.Design.ForcedPoisonResubmit.worldAgain\n          Etna.Design.ActualQueueRegression.recoveredRules Etna.Design.ActualQueueRegression.blankBlock.header\n          Etna.Design.ActualQueueRegression.againBlock",
+      "assumptions": [
+        "Original initialized decoded L1 transaction history; enqueue timestamp equals the monotone L1 block clock. EVM atomicity and L1 canonicality/finality are ideal boundaries.",
+        "An authenticated anchor opens the exact end-of-block prefix of one ordered journal, with all later transactions strictly after its block and exact timestamp/tail fields. Guest originBlock binds the current Inbox origin; recovery exclusion is derived.",
+        "Local storage openings expose membership in that same snapshot. Actual raw and position-zero byte strings determine hash, size and canonical-parser flags; a deterministic parent/header-context singleton interface fixes the execution result. Real MPT/crypto/parser/EL implementation correctness remains external. No wall-clock liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-b69a24b78429ebe4",
+        "EN-eb5074ad77d4a985",
+        "EN-1ee6db9f8ebb8410"
+      ],
+      "scope": "Concrete kernel witness: recovered exact service. Same-block/local-cursor and recovery fixtures use actual accepted original calls, explicit byte openings and genuine due entries."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.ActualQueue",
+      "declaration": "Etna.Design.ActualQueueRegression.recovered_byte_actions",
+      "type": "(∃ wit raw first,\n    Etna.Design.ActualQueue.PayloadFields Etna.Design.ActualQueueRegression.recoveredPrimitive\n        Etna.Design.NonVacuity.genesisHeader Etna.Design.ActualQueueRegression.blankBlock wit raw first ∧\n      Etna.Design.ActualQueue.ByteAction Etna.Design.ActualQueueRegression.recoveredPrimitive\n        Etna.Design.NonVacuity.genesisHeader Etna.Design.ActualQueueRegression.blankBlock\n        Etna.Design.ActualQueueRegression.cleared raw first) ∧\n  ∃ wit raw first,\n    Etna.Design.ActualQueue.PayloadFields Etna.Design.ActualQueueRegression.recoveredPrimitive\n        Etna.Design.ActualQueueRegression.blankBlock.header Etna.Design.ActualQueueRegression.againBlock wit raw first ∧\n      Etna.Design.ActualQueue.ByteAction Etna.Design.ActualQueueRegression.recoveredPrimitive\n        Etna.Design.ActualQueueRegression.blankBlock.header Etna.Design.ActualQueueRegression.againBlock\n        Etna.Design.ForcedPoisonResubmit.again raw first",
+      "assumptions": [
+        "Original initialized decoded L1 transaction history; enqueue timestamp equals the monotone L1 block clock. EVM atomicity and L1 canonicality/finality are ideal boundaries.",
+        "An authenticated anchor opens the exact end-of-block prefix of one ordered journal, with all later transactions strictly after its block and exact timestamp/tail fields. Guest originBlock binds the current Inbox origin; recovery exclusion is derived.",
+        "Local storage openings expose membership in that same snapshot. Actual raw and position-zero byte strings determine hash, size and canonical-parser flags; a deterministic parent/header-context singleton interface fixes the execution result. Real MPT/crypto/parser/EL implementation correctness remains external. No wall-clock liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-b69a24b78429ebe4",
+        "EN-eb5074ad77d4a985",
+        "EN-1ee6db9f8ebb8410"
+      ],
+      "scope": "Concrete kernel witness: recovered byte actions. Same-block/local-cursor and recovery fixtures use actual accepted original calls, explicit byte openings and genuine due entries."
     }
   ]
 }

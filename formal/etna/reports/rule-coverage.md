@@ -12,7 +12,7 @@ other rules of that clause are `deferred`.
 
 | Type       | Count | partial | partial-via | deferred | design-pending |
 | ---------- | ----: | ------: | ----------: | -------: | -------------: |
-| rule       |   568 |     148 |           7 |      409 |              4 |
+| rule       |   568 |     149 |           7 |      408 |              4 |
 | limitation |    21 |       1 |           0 |       19 |              1 |
 | assumption |    11 |       0 |           0 |       11 |              0 |
 
@@ -27,7 +27,7 @@ other rules of that clause are `deferred`.
 | STAKE  |    42 |      18 |           0 |       24 |              0 |
 | START  |    39 |       9 |           0 |       27 |              3 |
 | STOR   |    34 |       2 |           0 |       32 |              0 |
-| FI     |    31 |      12 |           0 |       19 |              0 |
+| FI     |    31 |      13 |           0 |       18 |              0 |
 | SYNC   |    25 |      10 |           0 |       15 |              0 |
 | DATA   |    21 |       1 |           0 |       20 |              0 |
 | FORF   |    20 |       6 |           0 |       14 |              0 |
@@ -298,11 +298,11 @@ other rules of that clause are `deferred`.
 | BACKP-6.4-14  | rule       | deferred       | EN-1de188a398da3093                       |      6 |                                                                                                              |
 | BACKP-6.4-15  | rule       | deferred       | EN-cbbdfbb2b889af8b                       |      2 |                                                                                                              |
 | BACKP-6.4-16  | rule       | deferred       | EN-cbbdfbb2b889af8b                       |      2 |                                                                                                              |
-| FI-7.1-1      | rule       | partial        | EN-eb5074ad77d4a985                       |      7 | `step_preserves_core`, `trace_preserves_core`                                                                |
+| FI-7.1-1      | rule       | partial        | EN-eb5074ad77d4a985                       |      7 | `history_queue_timed`, `step_preserves_core`, `trace_preserves_core`                                         |
 | FI-7.1-2      | rule       | deferred       | EN-eb5074ad77d4a985                       |      7 |                                                                                                              |
 | FI-7.1-3      | rule       | deferred       | EN-eb5074ad77d4a985                       |      7 |                                                                                                              |
-| FI-7.1-4      | rule       | partial        | EN-eb5074ad77d4a985                       |      7 | `step_preserves_core`, `trace_preserves_core`                                                                |
-| FI-7.1-5      | rule       | partial        | EN-eb5074ad77d4a985                       |      7 | `step_preserves_core`, `trace_preserves_core`                                                                |
+| FI-7.1-4      | rule       | partial        | EN-eb5074ad77d4a985                       |      7 | `history_queue_timed`, `step_preserves_core`, `trace_preserves_core`                                         |
+| FI-7.1-5      | rule       | partial        | EN-eb5074ad77d4a985                       |      7 | `history_queue_timed`, `step_preserves_core`, `trace_preserves_core`                                         |
 | FI-7.1-6      | rule       | deferred       | EN-eb5074ad77d4a985                       |      7 |                                                                                                              |
 | FI-7.1-7      | rule       | deferred       | EN-eb5074ad77d4a985                       |      7 |                                                                                                              |
 | FI-7.1-8      | rule       | deferred       | EN-f3138a4a28d8137f                       |      6 |                                                                                                              |
@@ -312,7 +312,7 @@ other rules of that clause are `deferred`.
 | FI-7.1-12     | rule       | deferred       | EN-f3138a4a28d8137f                       |      6 |                                                                                                              |
 | FI-7.1-13     | rule       | partial        | EN-f3138a4a28d8137f                       |      6 | `step_preserves_core`, `trace_preserves_core`, `head_advances_only_in_landings`                              |
 | FI-7.2-1      | rule       | partial        | EN-2e7fa6e510a4d3cb                       |      1 | `chain_cursor_steps`, `forced_inclusion_integrity`, `trace_record_cursors_monotone`                          |
-| FI-7.2-2      | rule       | deferred       | EN-136c3f345da4a399                       |      1 |                                                                                                              |
+| FI-7.2-2      | rule       | partial        | EN-136c3f345da4a399                       |      1 | `end_block_covers`, `end_block_entry_current`, `local_block_service`                                         |
 | FI-7.2-3      | rule       | deferred       | EN-6f5b8a710969bc1c                       |      1 |                                                                                                              |
 | FI-7.2-4      | rule       | deferred       | EN-7b9c76b4ef6a5f1a                       |      1 |                                                                                                              |
 | FI-7.2-5      | rule       | deferred       | EN-a0d7e057533c65e9                       |      1 |                                                                                                              |
@@ -320,12 +320,12 @@ other rules of that clause are `deferred`.
 | FI-7.2-7      | rule       | deferred       | EN-ece14be2916f0686                       |      1 |                                                                                                              |
 | FI-7.2-8      | rule       | deferred       | EN-e47ed8b1032eaf71                       |      1 |                                                                                                              |
 | FI-7.2-9      | rule       | deferred       | EN-993cfbfb83f01331                       |      1 |                                                                                                              |
-| FI-7.2-10     | rule       | partial        | EN-7fdd2e21c46727ee                       |      1 | `forced_inclusion_integrity`                                                                                 |
+| FI-7.2-10     | rule       | partial        | EN-7fdd2e21c46727ee                       |      1 | `local_block_service`, `local_chain_byte_service`, `forced_inclusion_integrity`                              |
 | FI-7.2-11     | rule       | deferred       | EN-3a4063c2936a95e5                       |      1 |                                                                                                              |
 | FI-7.2-12     | rule       | deferred       | EN-6f578cc8820e9ad2                       |      1 |                                                                                                              |
-| FI-7.2-13     | rule       | partial        | EN-b69a24b78429ebe4                       |      1 | `forced_inclusion_integrity`                                                                                 |
-| FI-7.3-1      | rule       | partial        | EN-1ee6db9f8ebb8410                       |      2 | `forced_inclusion_integrity`, `honest_anchor_chain_sees_due`                                                 |
-| FI-7.3-2      | rule       | partial        | EN-1ee6db9f8ebb8410                       |      2 | `forced_inclusion_integrity`, `honest_anchor_chain_sees_due`                                                 |
+| FI-7.2-13     | rule       | partial        | EN-b69a24b78429ebe4                       |      1 | `end_block_entry_current`, `history_queue_timed`, `forced_inclusion_integrity`                               |
+| FI-7.3-1      | rule       | partial        | EN-1ee6db9f8ebb8410                       |      2 | `local_chain_byte_service`, `local_chain_service`, `forced_inclusion_integrity` +1                           |
+| FI-7.3-2      | rule       | partial        | EN-1ee6db9f8ebb8410                       |      2 | `local_chain_byte_service`, `local_chain_service`, `forced_inclusion_integrity` +1                           |
 | FI-7.3-3      | rule       | deferred       | EN-332fe10acb3ea4eb                       |      2 |                                                                                                              |
 | FI-7.3-4      | rule       | deferred       | EN-332fe10acb3ea4eb                       |      2 |                                                                                                              |
 | FI-7.3-5      | rule       | deferred       | EN-8a1777585a369a1c                       |      1 |                                                                                                              |

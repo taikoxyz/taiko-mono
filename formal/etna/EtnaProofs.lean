@@ -1,3 +1,4 @@
+import EtnaProofs.ActualQueue
 import EtnaProofs.Anchorless
 import EtnaProofs.Locking
 import EtnaProofs.TrustState
