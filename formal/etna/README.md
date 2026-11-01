@@ -61,9 +61,10 @@ are stated in `EtnaStatements/Claims.lean` (copied verbatim below) with these te
   configuration and the environment's relations, for some anchor archive and some reference
   block: the definition is existential over both. "Valid" in a claim always means valid under
   such rules, and so under the environment's relations as they are. `Premises` constrains some
-  of them (signatures, the anchor and FI witnesses, EL execution, the header hash) and leaves
-  `historyAuthenticated`, `committeeAuthenticated`, `payloadValid` and `batchPayloadValid`
-  unconstrained: a block is valid under whatever those relations accept, and the theorems hold
+  of them (signatures, FI witnesses below an accepted anchor's tail, EL execution, the header
+  hash) and leaves `anchorAuthenticated` (which anchors are accepted), the forced-witness flags
+  and `singleton` result, `historyAuthenticated`, `committeeAuthenticated`, `payloadValid` and
+  `batchPayloadValid` unconstrained: a block is valid under whatever those relations accept, and the theorems hold
   for every choice of them.
 
 ### H1, fund safety
@@ -160,7 +161,7 @@ The statement has three parts.
 Part (b) covers only blocks inside landed segments, and it does not claim the maxAnchorAge bound
 of 7.3 (spec L465). It judges "pending" and "due" against each block anchor's own tail and
 timestamp. `AnchorValid` checks the anchor's Inbox fields only through the environment's
-`anchorAuthenticated`, and no premise constrains which anchors that relation accepts
+`anchorAuthenticated`, and no premise requires an accepted anchor to report the Inbox's actual tail and timestamp
 (`authenticatedInputs` uses it only as an antecedent and binds FI witnesses, not anchor fields),
 so part (b) holds relative to the tail and timestamp an accepted anchor reports: the
 `AnchorTail` counterexample passes a due entry under an anchor that understates the tail. That
@@ -215,8 +216,9 @@ both responsibilities; the classification changes no field or claim type.
   committees active at or above lastCheckpoint only under the explicit condition
   `SnapshotTrusted`, on the World where the exit is confirmed; it says nothing about later
   Worlds, withdrawals, commits or slashing, and no theorem shows a restore satisfies it.
-- **Anchor honesty.** Nothing proves that an accepted anchor shows the Inbox's actual head,
-  tail, checkpoint and generation; H3's part (b) is relative to what it reports (`AnchorTail`).
+- **Anchor honesty.** Nothing proves that an accepted anchor reports the Inbox's actual tail
+  and its L1 block's timestamp (`AnchorValid` itself checks the generation and bounds the
+  checkpoint height by U); H3's part (b) is relative to what it reports (`AnchorTail`).
 - **Reentrancy.** The model's reentrancy flag `entered` is never set, so no theorem speaks to
   cross-function reentrancy during recovery (RECOV-8.3-19 is deferred); the contracts' own tests
   are the only evidence.
@@ -317,7 +319,7 @@ it), with the chain-of-custody property at every World.
   for that anchor, and by inspection of the premises nothing but the environment's
   `anchorAuthenticated` rules it out (the witness is a concrete instance, not a run under the
   premises). H3's part (b) is therefore relative to the tail an accepted anchor reports; a premise or an
-  implementation obligation that accepted anchors show the Inbox's actual head and tail closes it.
+  implementation obligation that accepted anchors report the Inbox's actual tail and timestamp closes it.
 - **`StaleDaoAuthorization` (repaired).** The old model allowed an authorization voided by
   a landing to revive after rollback. The current model increments the _current_ nonce on
   rollback, recover and explicit invalidation, and checks that nonce plus expiry on execution.

@@ -18,7 +18,8 @@ non-trivial one:
   exactly one representable opening (`Premises.hashSeparation`).
 - the L1 is one fixed history: an anchor is authenticated exactly when it is that history's
   block at its number (Inbox checkpoint, generation and FI tail as they were then), and an FI
-  witness exactly when it shows the entry L1 stores at its index, below the anchor's tail.
+  witness exactly when it shows the entry L1 stores at its index, below the anchor's tail. No
+  premise requires the anchor half; this environment provides it anyway (see `AnchorTail`).
 - a vote is signed exactly when it is one of the three precommits the one validator cast (key 7,
   one per height), and the registry verifier accepts exactly those votes' evidence. Nobody else
   holds a key, and key 7 never signs two blocks at one height, so H2's finality hypothesis holds

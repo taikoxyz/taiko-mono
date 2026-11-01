@@ -162,7 +162,7 @@ Along a run, the head passes an entry only through blocks that include or legall
 The third part constrains only the blocks inside landed segments; blocks that are never landed
 are not covered. It judges "pending" and "due" against each block anchor's own tail and
 timestamp: `AnchorValid` checks the anchor's Inbox fields only through the environment's
-`anchorAuthenticated`, and no premise constrains which anchors that relation accepts
+`anchorAuthenticated`, and no premise requires an accepted anchor to report the Inbox's actual tail and timestamp
 (`InputsAuthenticated` uses it only as an antecedent), so the third part holds relative to the
 tail and timestamp an accepted anchor reports (`AnchorTail.understated_tail_passes_due_entry`).
 That accepted anchors show the Inbox's actual queue is an implementation obligation outside the

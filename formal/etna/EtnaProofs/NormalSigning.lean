@@ -129,7 +129,9 @@ theorem source_retains_checkpoint {confirmed view : World} {p : TrustedPrefix vi
   ordinary_trace_preserves_settled_records (source_ordinary source) _ (Nat.le_refl _)
 
 /-- Replay inclusion or actual normal recovery derives coverage by the current selector.
-No selected-cutoff inequality is assumed; a recovery source may predate the fixed origin. -/
+No selected-cutoff inequality is assumed; a recovery source may predate the fixed origin. A
+trusted prefix whose snapshot source is `normalRecovery` carries that constructor's numeric
+bound, `s.snapshot < ctx.originBlock`. -/
 theorem confirmation_source_bound {confirmed view : World} (p : TrustedPrefix view)
     (source : ConfirmationSource confirmed view p)
     (below : confirmed.inbox.snapshot < confirmed.l1Block)

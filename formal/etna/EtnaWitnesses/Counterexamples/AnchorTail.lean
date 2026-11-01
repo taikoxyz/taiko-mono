@@ -3,7 +3,7 @@ import EtnaWitnesses.NonVacuity.Premises
 /-! Scope counterexample: H3's queue service (`ServesQueue`) judges a due queue-head entry
 against the block anchor's own `tail` and `timestamp`. `AnchorValid` checks the anchor's Inbox
 fields only through the environment's `anchorAuthenticated`, and, by inspection of `Premises`,
-no premise constrains which anchors that relation accepts: `InputsAuthenticated` uses it only as
+no premise requires an accepted anchor to report the Inbox's actual tail and timestamp: `InputsAuthenticated` uses it only as
 an antecedent and binds only FI witnesses whose index is below the anchor's tail. So H3's third
 part holds relative to the tail and timestamp an accepted anchor reports. This is a concrete
 instance, not a run under the premises.
@@ -24,7 +24,7 @@ The non-vacuity environment's adapter accepts its own L1 anchor of block 15 (tai
 the same anchor with tail 0: there the adapter, not a premise, rules the understated tail out.
 Closing the gap needs
 a premise, or an implementation obligation, that every accepted anchor shows the Inbox's
-actual head, tail, checkpoint and generation at its L1 block. -/
+actual tail, and its L1 block's timestamp. -/
 namespace Etna.Design.AnchorTail
 
 /-- An anchor that reports the Inbox's actual tail after L1 block 15, at timestamp 200 so that

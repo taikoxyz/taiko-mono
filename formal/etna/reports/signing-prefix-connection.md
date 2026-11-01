@@ -26,6 +26,8 @@ accepted source batch + matching checkpoint on the replay
   -> a bound engine request / successful observed signing call uses a different key
 ```
 
+These theorems take snapshot coverage (`Covered`: every retained confirmation has exitAt at most slot 284) as an input; `NormalSigning.run_covered` derives it along a normal run.
+
 The cutoff order comes from the actual selector, fixed origin and monotone archive, including the initial-to-ordinary and recovery-to-ordinary handovers. `SameSigningHistory` supplies common selection coordinates and anchor lookups, without requiring whole registry functions to be equal. The additional `extendedArchive` source and `SigningPrefix.extended_archive_cutoff` prove transport when future headers are appended to a covered old archive, even as registry history advances. They do not authenticate a replaced archive or transport across a fork. There is no input hypothesis of selected-cutoff >= stored snapshot, key exclusion, a live bond or positive collateral. Snapshot provenance, real prefix inclusion, initial structural invariants and producer/adapter behavior remain explicit inputs.
 
 The general event theorem permits genuine initialized registries with established lifetime-key and exit-history invariants. Its zero-slot corollary derives these invariants from the configured initial lifecycle. The positive witness instantiates the general theorem from the actual non-vacuity `Deployment.Genesis`, through ordinary rotation, confirmation and withdrawal, with a complete trusted prefix and a fresh key-8 precommit at height 13. Computable decoded adapter fixtures also cover the three signing phases; they do not implement real canonical sign bytes or cryptography.

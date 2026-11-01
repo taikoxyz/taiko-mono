@@ -627,3 +627,11 @@ Validation: 115-job build, 944 exact contracts (178 property, 3 constant, 416 su
 regression), 178 property derivation chains, 13 Lean regression modules, 756 fresh vectors,
 313 clauses (76 partial, 234 deferred, 3 design-pending), 568 rules (140 partial, 7 via, 417
 deferred, 4 design-pending) and the full Python suite.
+
+A follow-up review of `3ce94e0e3` found no Critical defects and one stale sentence: the README's
+`Built` paragraph still listed the anchor among the relations `Premises` constrains. It now
+lists `anchorAuthenticated`, the forced-witness flags and `singleton` as unconstrained; the
+non-vacuity witness, the three `SigningBridge` manifest entries that take `Covered`,
+`signing-prefix-connection.md` and the `confirmation_source_bound` docstring are aligned, and
+"no premise requires an accepted anchor to report the actual tail and timestamp" replaces the
+broader wording. The same gate sequence passed.

@@ -8828,8 +8828,8 @@
       "declaration": "Etna.Proofs.landing_consumes_queue",
       "type": "∀ {env : Statements.Environment} {w0 w : Design.ProtocolState.World} {s : Design.State}\n    {i : Design.LandInput} {leaves : List Design.Leaf} {e : Design.LandingEnv}\n    (premises : Statements.Premises w0 env) (run : Statements.Run env w0 w)\n    (submitted : env.submits w i leaves e) (ok : Design.land w.inbox i leaves e = some s),\n    ∃ r q bs, Statements.Built env w r ∧ Statements.Links r w.inbox.checkpoint s.checkpoint i.lastStateRoot q bs ∧\n      q.cursor = w.inbox.head ∧\n      (∀ j, w.inbox.head ≤ j → j < s.head → ∃ x ∈ Statements.pairs q bs, x.1.cursor = j ∧ x.2.header.cursor = j+1) ∧\n      ∀ x ∈ Statements.pairs q bs, Statements.ServesQueue w r x.1 x.2",
       "assumptions": [
-        "Etna.Statements.Premises: genesis (the initialized World), verifierSound (two proofs, one sound backend that approves only certified statements), hashSeparation (the stored config commitment's only uint256 opening) and authenticatedInputs (an authenticated FI witness under an authenticated anchor from the current generation's origin L1 block up to, not including, the landing's block shows the World's queue entry); headerHashes, headerSeparation and signatureAgreement are unused here",
-        "runs whose landings the environment submits (Statements.Run); real proof-backend soundness, FI-witness storage proofs below an accepted anchor's tail and Keccak are premises, not proved; which anchors env.anchorAuthenticated accepts is unconstrained, so pending and due are judged against the tail and timestamp an accepted anchor reports (AnchorTail)",
+        "Etna.Statements.Premises: genesis (the initialized World), verifierSound (two proofs, one sound backend that approves only certified statements), hashSeparation (the stored config commitment's only uint256 opening) and authenticatedInputs (an authenticated FI witness for an index below the anchor's tail, under an authenticated anchor from the current generation's origin L1 block up to, not including, the landing's block shows the World's queue entry); headerHashes, headerSeparation and signatureAgreement are unused here",
+        "runs whose landings the environment submits (Statements.Run); real proof-backend soundness, FI-witness storage proofs below an accepted anchor's tail and Keccak are premises, not proved; no premise requires an accepted anchor to report the actual tail and timestamp, so pending and due are judged against the tail and timestamp an accepted anchor reports (AnchorTail)",
         "only the blocks of each landed segment are constrained: liveness (that a due entry is ever landed), the maxAnchorAge bound on inclusion delay, raw-transaction canonicality and the EL's given-list build (Forced.step's named witness and singleton inputs) are not claimed"
       ],
       "bridge_level": "spec-proved",
@@ -8847,8 +8847,8 @@
       "declaration": "Etna.Proofs.forced_inclusion_integrity",
       "type": "Etna.Statements.ForcedInclusionIntegrity",
       "assumptions": [
-        "Etna.Statements.Premises: genesis (the initialized World), verifierSound (two proofs, one sound backend that approves only certified statements), hashSeparation (the stored config commitment's only uint256 opening) and authenticatedInputs (an authenticated FI witness under an authenticated anchor from the current generation's origin L1 block up to, not including, the landing's block shows the World's queue entry); headerHashes, headerSeparation and signatureAgreement are unused here",
-        "the queue and FI-head parts hold along every ProtocolState.Trace from the initialized World; the consumption part ranges over runs whose landings the environment submits (Statements.Run); real proof-backend soundness, FI-witness storage proofs below an accepted anchor's tail and Keccak are premises, not proved; which anchors env.anchorAuthenticated accepts is unconstrained, so pending and due are judged against the tail and timestamp an accepted anchor reports (AnchorTail)",
+        "Etna.Statements.Premises: genesis (the initialized World), verifierSound (two proofs, one sound backend that approves only certified statements), hashSeparation (the stored config commitment's only uint256 opening) and authenticatedInputs (an authenticated FI witness for an index below the anchor's tail, under an authenticated anchor from the current generation's origin L1 block up to, not including, the landing's block shows the World's queue entry); headerHashes, headerSeparation and signatureAgreement are unused here",
+        "the queue and FI-head parts hold along every ProtocolState.Trace from the initialized World; the consumption part ranges over runs whose landings the environment submits (Statements.Run); real proof-backend soundness, FI-witness storage proofs below an accepted anchor's tail and Keccak are premises, not proved; no premise requires an accepted anchor to report the actual tail and timestamp, so pending and due are judged against the tail and timestamp an accepted anchor reports (AnchorTail)",
         "only the blocks of each landed segment are constrained: liveness (that a due entry is ever landed), the maxAnchorAge bound on inclusion delay, raw-transaction canonicality and the EL's given-list build (Forced.step's named witness and singleton inputs) are not claimed"
       ],
       "bridge_level": "spec-proved",
@@ -9156,7 +9156,7 @@
         "EN-7fdd2e21c46727ee",
         "EN-1ee6db9f8ebb8410"
       ],
-      "scope": "Scope counterexample, not a failure of H1-H3: H3's queue service is relative to the tail and timestamp an accepted anchor reports. With an anchor that understates the tail, a block that keeps the FI cursor at a due queue-head entry passes Forced.step with no witness and serves the queue, while the honest tail requires consumption; InputsAuthenticated constrains no witness for that anchor, and by inspection no premise constrains which anchors env.anchorAuthenticated accepts. A concrete instance, not a run under the premises."
+      "scope": "Scope counterexample, not a failure of H1-H3: H3's queue service is relative to the tail and timestamp an accepted anchor reports. With an anchor that understates the tail, a block that keeps the FI cursor at a due queue-head entry passes Forced.step with no witness and serves the queue, while the honest tail requires consumption; InputsAuthenticated constrains no witness for that anchor, and by inspection no premise requires an accepted anchor to report the actual tail and timestamp. A concrete instance, not a run under the premises."
     },
     {
       "declaration": "Etna.Design.Capital.blocking_power_bounds",
@@ -12495,7 +12495,7 @@
         "EN-9ee888f78091a2fe",
         "EN-2b238db781615e6e"
       ],
-      "scope": "Supplemental decoded signer/prefix property under explicit actual function results, snapshot provenance, fixed configuration, chain/header inclusion and faithful producer/encoding/key adapters. Cutoff inequalities are derived. Own-finalized view freshness relative to newer confirmation and production enforcement are not derived from trust booleans. No continuous collateral or unrestricted rollback/session claim."
+      "scope": "Supplemental decoded signer/prefix property under explicit actual function results, snapshot provenance, fixed configuration, chain/header inclusion and faithful producer/encoding/key adapters. Cutoff inequalities are derived; snapshot coverage (Covered) is an input, which NormalSigning.run_covered derives along a normal run. Own-finalized view freshness relative to newer confirmation and production enforcement are not derived from trust booleans. No continuous collateral or unrestricted rollback/session claim."
     },
     {
       "declaration": "Etna.Design.SigningBridge.event_excludes_visible_key",
@@ -12512,7 +12512,7 @@
         "EN-9ee888f78091a2fe",
         "EN-2b238db781615e6e"
       ],
-      "scope": "Supplemental decoded signer/prefix property under explicit actual function results, snapshot provenance, fixed configuration, chain/header inclusion and faithful producer/encoding/key adapters. Cutoff inequalities are derived. Own-finalized view freshness relative to newer confirmation and production enforcement are not derived from trust booleans. No continuous collateral or unrestricted rollback/session claim."
+      "scope": "Supplemental decoded signer/prefix property under explicit actual function results, snapshot provenance, fixed configuration, chain/header inclusion and faithful producer/encoding/key adapters. Cutoff inequalities are derived; snapshot coverage (Covered) is an input, which NormalSigning.run_covered derives along a normal run. Own-finalized view freshness relative to newer confirmation and production enforcement are not derived from trust booleans. No continuous collateral or unrestricted rollback/session claim."
     },
     {
       "declaration": "Etna.Design.SigningBridge.fresh_return_binds_message",
@@ -12542,7 +12542,7 @@
         "EN-9ee888f78091a2fe",
         "EN-2b238db781615e6e"
       ],
-      "scope": "Supplemental decoded signer/prefix property under explicit actual function results, snapshot provenance, fixed configuration, chain/header inclusion and faithful producer/encoding/key adapters. Cutoff inequalities are derived. Own-finalized view freshness relative to newer confirmation and production enforcement are not derived from trust booleans. No continuous collateral or unrestricted rollback/session claim."
+      "scope": "Supplemental decoded signer/prefix property under explicit actual function results, snapshot provenance, fixed configuration, chain/header inclusion and faithful producer/encoding/key adapters. Cutoff inequalities are derived; snapshot coverage (Covered) is an input, which NormalSigning.run_covered derives along a normal run. Own-finalized view freshness relative to newer confirmation and production enforcement are not derived from trust booleans. No continuous collateral or unrestricted rollback/session claim."
     },
     {
       "declaration": "Etna.Design.SigningBridge.genesis_snapshot_source",
