@@ -27,6 +27,8 @@ import EtnaProofs.BackPressure
 import EtnaProofs.Permanence
 import EtnaProofs.RoundSafety
 import EtnaProofs.TrustedSnapshot
+import EtnaProofs.TrustedRollback
+import EtnaProofs.SlashedExclusion
 import EtnaProofs.NormalSigning
 import EtnaProofs.Lifecycle
 import EtnaProofs.Contracts
@@ -35,6 +37,7 @@ import EtnaProofs.Headline.AccountableFinality
 import EtnaProofs.Headline.ChainOfCustody
 import EtnaProofs.Headline.FundSafety
 import EtnaProofs.Headline.ForcedInclusion
+import EtnaProofs.Headline.AnchoredQueue
 import EtnaProofs.Headline.Claims
 
 /-! Etna proofs: the theorems about `EtnaModel`, including the pins in `EtnaProofs.Contracts`. -/

@@ -635,3 +635,40 @@ non-vacuity witness, the three `SigningBridge` manifest entries that take `Cover
 `signing-prefix-connection.md` and the `confirmation_source_bound` docstring are aligned, and
 "no premise requires an accepted anchor to report the actual tail and timestamp" replaces the
 broader wording. The same gate sequence passed.
+
+## 2026-11-01: anchor honesty, trusted rollback and slashed exclusion
+
+Three gaps from the security inventory are now theorems. The seven premises, H1-H3 and every
+existing contract are unchanged; each new assumption is an explicit hypothesis of its own
+theorem.
+
+- **Anchor honesty and 7.3's bound.** `EtnaModel/AnchorHonesty.lean` states anchor honesty: an
+  L1 clock that never runs backwards, queue entries that carry their enqueue block's timestamp,
+  and accepted anchors that report their own block's timestamp and count every entry enqueued
+  at or before it. `honest_anchor_chain_sees_due` (property) proves 7.3's block-time bound
+  (spec L465) for every block of a valid chain, so FI-7.3-2 is partial and the narrowing of its
+  clause is removed. `honest_anchor_queue_service` (supporting, as `landing_consumes_queue`:
+  its conclusion names the landed chain) gives H3's part (b) against the actual queue.
+  `AnchorHonestyRegression` shows the hypotheses hold with the premises and exclude the
+  `AnchorTail` anchor for every clock.
+- **Trusted rollback.** `trusted_rollback_snapshot_trusted` proves that a rollback restoring
+  the checkpoint and slot 284 a trusted landing wrote keeps slot 284 equal to the active cutoff
+  at the restored checkpoint, within that landing's generation and for contexts whose anchor
+  archive agrees below the checkpoint. A trusted landing is one whose certificate is the
+  statement computed under rules the deployment builds; later landings may be forged.
+  `initial_rollback_snapshot_trusted` covers the initialization values, and
+  `trusted_rollback_excludes_confirmed_keys` composes the first with the registry recheck and
+  `confirmed_key_absent_above_checkpoint`. A rollback across a governance recovery is not
+  covered. `TrustedRollbackRegression` runs it on the non-vacuity run.
+- **Slashed exclusion.** `slashed_key_absent_from_later_committees` proves §12 item 19's
+  window: after a successful double-sign slash at L1 block b, the entry has no principal and its
+  key is absent from every committee selected at a cutoff at or after b, also after slot reuse.
+  LIMIT-12-19 becomes partial. `SlashedExclusionRegression` runs it on a real slash.
+- **Traceability.** Three claims (DV-24 to DV-26) record the property edges. Docstrings that said
+  the trusted restore was unproved (`TrustedSnapshot`, `UntrustedRollback`) and the H3 and
+  `AnchorTail` notes now point to the new theorems.
+
+Validation: 953 exact contracts (183 property, 3 constant, 417 supporting, 350 regression), 183
+property derivation chains, 13 Lean regression modules, 313 clauses (77 partial, 233 deferred,
+3 design-pending), 568 rules (141 partial, 7 via, 416 deferred, 4 design-pending) and one
+partial limitation.

@@ -24,7 +24,9 @@ The non-vacuity environment's adapter accepts its own L1 anchor of block 15 (tai
 the same anchor with tail 0: there the adapter, not a premise, rules the understated tail out.
 Closing the gap needs
 a premise, or an implementation obligation, that every accepted anchor shows the Inbox's
-actual tail, and its L1 block's timestamp. -/
+actual tail, and its L1 block's timestamp. `AnchorHonesty` states that obligation as explicit
+hypotheses of `Etna.Proofs.honest_anchor_queue_service`; `AnchorHonestyRegression` shows this
+anchor violates them for every clock. -/
 namespace Etna.Design.AnchorTail
 
 /-- An anchor that reports the Inbox's actual tail after L1 block 15, at timestamp 200 so that

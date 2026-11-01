@@ -167,7 +167,10 @@ timestamp: `AnchorValid` checks the anchor's Inbox fields only through the envir
 tail and timestamp an accepted anchor reports (`AnchorTail.understated_tail_passes_due_entry`).
 That accepted anchors show the Inbox's actual queue is an implementation obligation outside the
 premises. It does not claim L465's maxAnchorAge bound (7.3: any valid block with
-block.timestamp ≥ entry.timestamp + forcedInclusionDelay + maxAnchorAge sees the entry as due). -/
+block.timestamp ≥ entry.timestamp + forcedInclusionDelay + maxAnchorAge sees the entry as due).
+With that obligation as explicit hypotheses, not premises, `Etna.Proofs.honest_anchor_queue_service`
+proves the third part against the actual queue and `Etna.Proofs.honest_anchor_chain_sees_due` the
+bound. -/
 def ForcedInclusionIntegrity : Prop :=
   ∀ (env : Environment) (w0 : ProtocolState.World), Premises w0 env →
     (∀ w t, ProtocolState.Trace w0 w → ProtocolState.Step w t →

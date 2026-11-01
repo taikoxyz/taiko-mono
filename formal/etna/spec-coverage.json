@@ -508,6 +508,64 @@
           "Etna.Design.NormalSigning.initialized_fresh_signing_connection"
         ]
       }
+    },
+    {
+      "id": "DV-24",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "Under explicit anchor honesty (an L1 clock that never runs backwards, queue entries carrying their enqueue block's timestamp, accepted anchors reporting their own block's timestamp and counting every entry enqueued at or before it) and a positive FI delay, every block of a valid chain with block.timestamp >= entry.timestamp + forcedInclusionDelay + maxAnchorAge sees the queue entry at its parent's cursor as due: its anchor shows the entry pending and its delay elapsed (7.3's block-time bound). Under the headline premises, the supporting honest_anchor_queue_service then has every landed block consume it. Anchor authentication itself remains a guest obligation; no wall-clock deadline is claimed.",
+      "assumptions": [
+        "l1",
+        "payload",
+        "el",
+        "hash",
+        "journal",
+        "deployment"
+      ],
+      "evidence": {
+        "EN-1ee6db9f8ebb8410": [
+          "Etna.Proofs.honest_anchor_chain_sees_due"
+        ]
+      }
+    },
+    {
+      "id": "DV-25",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "A verifier-failure rollback that restores the checkpoint and slot 284 a trusted landing wrote, within that landing's generation, keeps slot 284 equal to the cutoff of the committee active at the restored lastCheckpoint, for every context built from an anchor archive that agrees with the landing's below that checkpoint; restoring the initialization values keeps it at most that cutoff. With the registry's recheck against the restored snapshot, every confirmed exit's key is then absent from every committee active at or above the restored checkpoint. Only the restored landing is trusted; later landings may be forged.",
+      "assumptions": [
+        "context",
+        "journal",
+        "signing",
+        "deployment"
+      ],
+      "evidence": {
+        "EN-d04a236579cc9990": [
+          "Etna.Design.SigningEscrow.initial_rollback_snapshot_trusted",
+          "Etna.Design.SigningEscrow.trusted_rollback_excludes_confirmed_keys",
+          "Etna.Design.SigningEscrow.trusted_rollback_snapshot_trusted"
+        ]
+      }
+    },
+    {
+      "id": "DV-26",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "After a successful double-sign slash at L1 block b, the entry has no principal and its key is absent from every committee selected at a cutoff at or after b, in every later World and also after its slot is released and reused. Committees selected before the slash keep the member's power (section 12 item 19).",
+      "assumptions": [
+        "context",
+        "signature",
+        "journal",
+        "signing"
+      ],
+      "evidence": {
+        "EN-95f0590cf84239d4": [
+          "Etna.Design.SigningEscrow.slashed_key_absent_from_later_committees"
+        ],
+        "EN-1922bc4f51f2158c": [
+          "Etna.Design.SigningEscrow.slashed_key_absent_from_later_committees"
+        ]
+      }
     }
   ],
   "acceptance_source": {

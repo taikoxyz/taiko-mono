@@ -25,7 +25,7 @@ and if key 7 signs two blocks at height 1, round 0, both commits are valid. For 
 H2's accountability conjunct concludes `Slashable`: every live staked bond with the key loses its
 stake. Here no bond holds key 7 any more and a slash of its old slot fails with any evidence, so
 that conclusion constrains nothing. H2's accountability bites only if rollbacks restore trusted
-snapshots. The registry's withdrawal delay here is 1 block; a realistic withdrawalDelay only
+snapshots (`SigningEscrow.trusted_rollback_excludes_confirmed_keys` proves the exclusion then). The registry's withdrawal delay here is 1 block; a realistic withdrawalDelay only
 postpones the escape: the bond stays slashable until the delay ends, then withdraws the same way. -/
 namespace Etna.Design.UntrustedRollback
 open Etna.Statements NonVacuity

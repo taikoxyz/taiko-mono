@@ -5,8 +5,8 @@ import EtnaProofs.SigningEscrow
 cutoff of the committee active at lastCheckpoint, a key whose exit was confirmed is absent from
 every committee the context built on the same World activates at or above lastCheckpoint. The
 theorem speaks about that World only: it says nothing about later Worlds, withdrawals, commits or
-slashing, and it does not prove that a trusted restore satisfies the condition.
-`UntrustedRollback` shows the conclusion fails after an untrusted rollback. -/
+slashing. `UntrustedRollback` shows the conclusion fails after an untrusted rollback;
+`EtnaProofs.TrustedRollback` shows a rollback done as section 8 says satisfies the condition. -/
 namespace Etna.Design.SigningEscrow
 open ProtocolState
 

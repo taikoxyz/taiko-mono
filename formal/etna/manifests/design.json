@@ -8843,6 +8843,31 @@
       "scope": "Supporting (Rule P: the chain conjunct names only the existential segment): a submitted landing the Inbox accepts on a World a run reaches settles blocks valid under rules Deployment.build derives on that World, from the current checkpoint (cursor = head) to the new one; each entry in [head, new head) is stepped by one of those blocks, every block advances the cursor only through a Forced.step inclusion or legal skip whose witness shows the World's own queue entry, and every block consumes an entry its anchor shows pending and due; whether an accepted anchor shows the Inbox's actual queue is not claimed (AnchorTail)."
     },
     {
+      "module": "EtnaProofs.Headline.AnchoredQueue",
+      "declaration": "Etna.Proofs.honest_anchor_chain_sees_due",
+      "type": "∀ {r : Etna.Design.BlockValidity.Rules} {q : Etna.Design.BlockValidity.Header} {bs : List Etna.Design.BlockValidity.Block} {w : Etna.Design.ProtocolState.World} {time : Nat → Nat}, Etna.Design.BlockValidity.Chain r q bs → 0 < r.forcedDelay → Etna.Design.AnchorHonesty.ClockMonotone time → Etna.Design.AnchorHonesty.QueueTimed time w → (∀ (A : Etna.Design.BlockValidity.Anchor), r.anchorAuthenticated A = Bool.true → Etna.Design.AnchorHonesty.AnchorCovers time w A) → ∀ (x : Etna.Design.BlockValidity.Header × Etna.Design.BlockValidity.Block), x ∈ Etna.Statements.pairs q bs → ∀ (entry : Etna.Design.Forced.Entry), (x.fst.cursor, entry) ∈ w.queue → entry.timestamp + r.forcedDelay + r.maxAnchorAge ≤ x.snd.header.timestamp → x.fst.cursor < x.snd.header.anchor.tail ∧ entry.timestamp + r.forcedDelay ≤ x.snd.header.anchor.timestamp",
+      "assumptions": [
+        "Explicit anchor honesty, not a premise: an L1 clock that never runs backwards, queue entries that carry their enqueue block's L1 timestamp, and accepted anchors that report their own block's timestamp and count every entry enqueued at or before that block (AnchorHonesty.AnchorCovers); real L1 header and storage authentication of anchors remains a guest obligation."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-1ee6db9f8ebb8410"],
+      "scope": "7.3's block-time bound for every block of a valid chain under rules with a positive FI delay: block.timestamp >= entry.timestamp + forcedInclusionDelay + maxAnchorAge implies the block's anchor shows the parent-cursor entry pending and due. Not a wall-clock deadline; whether the block then consumes the entry is honest_anchor_queue_service."
+    },
+    {
+      "module": "EtnaProofs.Headline.AnchoredQueue",
+      "declaration": "Etna.Proofs.honest_anchor_queue_service",
+      "type": "∀ {env : Etna.Statements.Environment} {w0 w : Etna.Design.ProtocolState.World} {s : Etna.Design.State} {i : Etna.Design.LandInput} {leaves : List Etna.Design.Leaf} {e : Etna.Design.LandingEnv} {time : Nat → Nat}, Etna.Statements.Premises w0 env → Etna.Design.AnchorHonesty.ClockMonotone time → Etna.Statements.Run env w0 w → env.submits w i leaves e → Etna.Design.land w.inbox i leaves e = Option.some s → Etna.Design.AnchorHonesty.QueueTimed time w → (∀ (A : Etna.Design.BlockValidity.Anchor), env.anchorAuthenticated A = Bool.true → Etna.Design.AnchorHonesty.AnchorCovers time w A) → ∃ r q bs, Etna.Statements.Built env w r ∧ Etna.Statements.Links r w.inbox.checkpoint s.checkpoint i.lastStateRoot q bs ∧ q.cursor = w.inbox.head ∧ (∀ (j : Nat), w.inbox.head ≤ j → j < s.head → ∃ x, x ∈ Etna.Statements.pairs q bs ∧ x.fst.cursor = j ∧ x.snd.header.cursor = j + 1) ∧ ∀ (x : Etna.Design.BlockValidity.Header × Etna.Design.BlockValidity.Block), x ∈ Etna.Statements.pairs q bs → Etna.Statements.ServesQueue w r x.fst x.snd ∧ (∀ (entry : Etna.Design.Forced.Entry), (x.fst.cursor, entry) ∈ w.queue → entry.timestamp + r.forcedDelay ≤ x.snd.header.anchor.timestamp → x.snd.header.cursor = x.fst.cursor + 1) ∧ ∀ (entry : Etna.Design.Forced.Entry), (x.fst.cursor, entry) ∈ w.queue → entry.timestamp + r.forcedDelay + r.maxAnchorAge ≤ x.snd.header.timestamp → x.snd.header.cursor = x.fst.cursor + 1",
+      "assumptions": [
+        "The seven headline premises (Premises w0 env), as H3.",
+        "Explicit anchor honesty, not a premise: an L1 clock that never runs backwards, queue entries of the landing World that carry their enqueue block's L1 timestamp, and accepted anchors that report their own block's timestamp and count every entry enqueued at or before that block (AnchorHonesty.AnchorCovers). Real L1 header and storage authentication of anchors remains a guest obligation."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-9e8e4c90054257e9", "EN-7fdd2e21c46727ee", "EN-1ee6db9f8ebb8410"],
+      "scope": "H3's third part against the Inbox's actual queue: a landed block consumes the queue-head entry once it is due by the anchor's time, and 7.3's block-time bound holds (block.timestamp >= entry.timestamp + forcedInclusionDelay + maxAnchorAge implies it is consumed). Blocks in landed segments only; no wall-clock deadline and no liveness."
+    },
+    {
       "module": "EtnaProofs.Headline.ForcedInclusion",
       "declaration": "Etna.Proofs.forced_inclusion_integrity",
       "type": "Etna.Statements.ForcedInclusionIntegrity",
@@ -9157,6 +9182,42 @@
         "EN-1ee6db9f8ebb8410"
       ],
       "scope": "Scope counterexample, not a failure of H1-H3: H3's queue service is relative to the tail and timestamp an accepted anchor reports. With an anchor that understates the tail, a block that keeps the FI cursor at a due queue-head entry passes Forced.step with no witness and serves the queue, while the honest tail requires consumption; InputsAuthenticated constrains no witness for that anchor, and by inspection no premise requires an accepted anchor to report the actual tail and timestamp. A concrete instance, not a run under the premises."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.AnchorHonesty",
+      "declaration": "Etna.Design.AnchorHonestyRegression.honest_anchor_hypotheses_hold",
+      "type": "Etna.Statements.Premises Etna.Design.NonVacuity.world0 Etna.Design.NonVacuity.env ∧ Etna.Design.AnchorHonesty.ClockMonotone id ∧ (∀ (w : Etna.Design.ProtocolState.World) (i : Etna.Design.LandInput) (leaves : List Etna.Design.Leaf) (e : Etna.Design.LandingEnv) (s : Etna.Design.State), Etna.Design.NonVacuity.env.submits w i leaves e → Etna.Design.land w.inbox i leaves e = Option.some s → Etna.Design.AnchorHonesty.QueueTimed id w ∧ ∀ (A : Etna.Design.BlockValidity.Anchor), Etna.Design.NonVacuity.env.anchorAuthenticated A = Bool.true → Etna.Design.AnchorHonesty.AnchorCovers id w A) ∧ Etna.Design.NonVacuity.env.anchorAuthenticated (Etna.Design.NonVacuity.l1Anchor 15) = Bool.true ∧ Etna.Design.AnchorHonesty.AnchorCovers id Etna.Design.NonVacuity.worldQ (Etna.Design.NonVacuity.l1Anchor 15) ∧ ¬Etna.Design.AnchorHonesty.AnchorCovers id Etna.Design.NonVacuity.worldQ { Etna.Design.NonVacuity.l1Anchor 15 with tail := 0 } ∧ ∀ (time : Nat → Nat), ¬Etna.Design.AnchorHonesty.AnchorCovers time Etna.Design.NonVacuity.worldQ Etna.Design.AnchorTail.understated",
+      "assumptions": [
+        "finite kernel-checked regression over concrete decidable adapters; not actual cryptography, proof backends or implementation conformance"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-1ee6db9f8ebb8410", "EN-db20f3f57ed32fc2"],
+      "scope": "Regression: the hypotheses of honest_anchor_queue_service hold with the premises in the non-vacuity deployment under the clock id, and exclude AnchorTail's understated anchor for every clock."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.TrustedRollback",
+      "declaration": "Etna.Design.TrustedRollbackRegression.trusted_rollback_keeps_snapshot",
+      "type": "Etna.Design.ProtocolState.Step Etna.Design.NonVacuity.world2 Etna.Design.TrustedRollbackRegression.restored ∧ Etna.Design.TrustedRollbackRegression.restored.inbox.checkpoint.height = 1 ∧ Etna.Design.NonVacuity.world2.inbox.checkpoint.height = 2 ∧ Etna.Design.SigningEscrow.SnapshotTrusted Etna.Design.TrustedRollbackRegression.restoredContext Etna.Design.TrustedRollbackRegression.restored ∧ Etna.Design.TrustedRollbackRegression.restored.inbox.snapshot = (Etna.Design.Consensus.activeAt Etna.Design.TrustedRollbackRegression.restoredContext Etna.Design.TrustedRollbackRegression.restored.inbox.checkpoint.height).cutoff ∧ (∀ (id c h : Nat), id < Etna.Design.TrustedRollbackRegression.restored.registry.nextId → (Etna.Design.TrustedRollbackRegression.restored.registry.slots id).confirmedAt = Option.some c → (Etna.Design.TrustedRollbackRegression.restored.registry.slots id).key ≠ 0 → (Etna.Design.TrustedRollbackRegression.restored.registry.slots id).exitAt ≠ Etna.Design.Staking.noExit → Etna.Design.TrustedRollbackRegression.landing1.checkpoint.height ≤ h → ∀ (m : Etna.Design.Committee.Entry), m ∈ (Etna.Design.Consensus.activeAt Etna.Design.TrustedRollbackRegression.restoredContext h).members → m.key ≠ (Etna.Design.TrustedRollbackRegression.restored.registry.slots id).key) ∧ Etna.Design.HistoricalContext.build Etna.Design.TrustedRollbackRegression.untrusted.inbox Etna.Design.TrustedRollbackRegression.untrusted.registry (Etna.Design.Deployment.parameters Etna.Design.TrustedRollbackRegression.untrusted.inbox Etna.Design.TrustedRollbackRegression.untrusted.inbox.configuration) Etna.Design.NonVacuity.archive0 = Option.some Etna.Design.TrustedRollbackRegression.untrustedContext ∧ ¬Etna.Design.SigningEscrow.SnapshotTrusted Etna.Design.TrustedRollbackRegression.untrustedContext Etna.Design.TrustedRollbackRegression.untrusted",
+      "assumptions": [
+        "finite kernel-checked regression over concrete decidable adapters; not actual cryptography, proof backends or implementation conformance"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-d04a236579cc9990"],
+      "scope": "Regression: on the non-vacuity run a rollback restoring the first landing's values is an actual step, satisfies every hypothesis of trusted_rollback_snapshot_trusted and trusted_rollback_excludes_confirmed_keys and keeps slot 284 trusted; a snapshot no landing wrote at the same checkpoint does not."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.SlashedExclusion",
+      "declaration": "Etna.Design.SlashedExclusionRegression.slashed_member_leaves_next_committee",
+      "type": "Etna.Design.NonVacuity.member9 ∈ (Etna.Design.Consensus.activeAt Etna.Design.SigningEscrowRegression.rules.consensus 1).members ∧ (Etna.Design.Consensus.activeAt Etna.Design.SigningEscrowRegression.rules.consensus 1).cutoff = 12 ∧ Etna.Design.HistoricalContext.build Etna.Design.SigningEscrowRegression.afterBurn.inbox Etna.Design.SigningEscrowRegression.afterBurn.registry Etna.Design.SlashedExclusionRegression.laterParameters Etna.Design.SlashedExclusionRegression.laterArchive = Option.some Etna.Design.SlashedExclusionRegression.laterContext ∧ (Etna.Design.Consensus.activeAt Etna.Design.SlashedExclusionRegression.laterContext 11).cutoff = 16 ∧ (Etna.Design.SigningEscrowRegression.burned.slots 2).balance = 0 ∧ ∀ (m : Etna.Design.Committee.Entry), m ∈ (Etna.Design.Consensus.activeAt Etna.Design.SlashedExclusionRegression.laterContext 11).members → m.key ≠ 9",
+      "assumptions": [
+        "finite kernel-checked regression over concrete decidable adapters; not actual cryptography, proof backends or implementation conformance"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-95f0590cf84239d4"],
+      "scope": "Regression: a real slash of key 9 in L1 block 15 satisfies every hypothesis of slashed_key_absent_from_later_committees; the committee selected at cutoff 12 keeps key 9, the one selected at cutoff 16 excludes it."
     },
     {
       "declaration": "Etna.Design.Capital.blocking_power_bounds",
@@ -13336,6 +13397,57 @@
       "role": "property",
       "sources": ["EN-d04a236579cc9990", "EN-4651c537a506e6fd"],
       "scope": "Decoded specification result under its explicit hypotheses; no production ABI, byte-layout, cryptographic or DAO-attribution conformance is implied."
+    },
+    {
+      "module": "EtnaProofs.TrustedRollback",
+      "declaration": "Etna.Design.SigningEscrow.trusted_rollback_snapshot_trusted",
+      "type": "∀ {w1 w : Etna.Design.ProtocolState.World} {s : Etna.Design.State} {i : Etna.Design.LandInput} {leaves : List Etna.Design.Leaf} {e : Etna.Design.LandingEnv} {now : Nat} {cfg0 : Etna.Design.CommitteeConfig} {zero : Etna.Design.Committee.Record} {archive : List Nat} {template r : Etna.Design.BlockValidity.Rules} {p : Etna.Design.BlockValidity.Header} {bs : List Etna.Design.BlockValidity.Block} {blobs : List Etna.Design.Hash}, Etna.Design.land w1.inbox i leaves e = Option.some s → Etna.Design.Deployment.build (Etna.Statements.guestView w1 cfg0 zero) cfg0 archive template = Option.some r → e.certificate = Etna.Design.Settlement.statement r p bs blobs → Etna.Design.ProtocolState.Trace (Etna.Design.ProtocolState.landed w1 s e.blockNumber) w → w.inbox.generation = w1.inbox.generation → ∀ (cfg : Etna.Design.CommitteeConfig) (archive' : List Nat) (ctx : Etna.Design.Consensus.Context), (∀ (k : Nat), k < s.checkpoint.height → Etna.Design.HistoricalContext.anchorAt archive' k = Etna.Design.HistoricalContext.anchorAt archive k) → Etna.Design.HistoricalContext.build (Etna.Design.ProtocolState.applyRollback w s.checkpoint s.snapshot now).inbox (Etna.Design.ProtocolState.applyRollback w s.checkpoint s.snapshot now).registry (Etna.Design.Deployment.parameters (Etna.Design.ProtocolState.applyRollback w s.checkpoint s.snapshot now).inbox cfg) archive' = Option.some ctx → Etna.Design.SigningEscrow.SnapshotTrusted ctx (Etna.Design.ProtocolState.applyRollback w s.checkpoint s.snapshot now) ∧ (Etna.Design.ProtocolState.applyRollback w s.checkpoint s.snapshot now).inbox.snapshot = (Etna.Design.Consensus.activeAt ctx (Etna.Design.ProtocolState.applyRollback w s.checkpoint s.snapshot now).inbox.checkpoint.height).cutoff",
+      "assumptions": [
+        "The restored checkpoint and slot 284 are what a landing on World w1 wrote whose certificate is the statement computed under rules the deployment builds on a guest view of w1 from the given anchor archive (every Certifies landing has such rules); later landings may be forged, so verifierSound is not used.",
+        "No governance recovery runs between that landing and the rollback (same generation), and the restored World's context is built from an anchor archive that agrees with that landing's below the restored checkpoint; choosing the last trusted landing, authenticating the restored values and the DAO upgrade remain external."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-d04a236579cc9990"],
+      "scope": "Section 8's verifier-failure rollback restoring the last trusted landing's checkpoint and slot 284: slot 284 equals the cutoff of the committee active at the restored lastCheckpoint (SnapshotTrusted). Nothing about withdrawals paid, commits or slashing before the rollback."
+    },
+    {
+      "module": "EtnaProofs.TrustedRollback",
+      "declaration": "Etna.Design.SigningEscrow.initial_rollback_snapshot_trusted",
+      "type": "∀ {w0 w : Etna.Design.ProtocolState.World} {hash root : Etna.Design.Hash} {now : Nat}, Etna.Design.Deployment.Genesis w0 hash root → Etna.Design.ProtocolState.Trace w0 w → ∀ (cfg : Etna.Design.CommitteeConfig) (archive : List Nat) (ctx : Etna.Design.Consensus.Context), Etna.Design.HistoricalContext.build (Etna.Design.ProtocolState.applyRollback w w0.inbox.checkpoint w0.inbox.snapshot now).inbox (Etna.Design.ProtocolState.applyRollback w w0.inbox.checkpoint w0.inbox.snapshot now).registry (Etna.Design.Deployment.parameters (Etna.Design.ProtocolState.applyRollback w w0.inbox.checkpoint w0.inbox.snapshot now).inbox cfg) archive = Option.some ctx → Etna.Design.SigningEscrow.SnapshotTrusted ctx (Etna.Design.ProtocolState.applyRollback w w0.inbox.checkpoint w0.inbox.snapshot now)",
+      "assumptions": [
+        "The restored checkpoint and slot 284 are the initialization values of an initialized World (Deployment.Genesis) from which a protocol trace reaches the rollback; the context is built on the restored World from any anchor archive."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-d04a236579cc9990"],
+      "scope": "Section 8's rollback when there is no trusted landing: SnapshotTrusted holds on the restored World."
+    },
+    {
+      "module": "EtnaProofs.TrustedRollback",
+      "declaration": "Etna.Design.SigningEscrow.trusted_rollback_excludes_confirmed_keys",
+      "type": "∀ {initial w1 w : Etna.Design.ProtocolState.World} {s : Etna.Design.State} {i : Etna.Design.LandInput} {leaves : List Etna.Design.Leaf} {e : Etna.Design.LandingEnv} {now : Nat} {cfg0 : Etna.Design.CommitteeConfig} {zero : Etna.Design.Committee.Record} {archive : List Nat} {template r : Etna.Design.BlockValidity.Rules} {p : Etna.Design.BlockValidity.Header} {bs : List Etna.Design.BlockValidity.Block} {blobs : List Etna.Design.Hash}, Etna.Design.ProtocolState.Trace initial w1 → Etna.Design.ProtocolState.Core initial → Etna.Design.SigningEscrow.KeysWellFormed initial.registry → Etna.Design.SigningEscrow.ExitVisible initial.registry → w1.l1Block ≤ e.blockNumber → Etna.Design.land w1.inbox i leaves e = Option.some s → Etna.Design.Deployment.build (Etna.Statements.guestView w1 cfg0 zero) cfg0 archive template = Option.some r → e.certificate = Etna.Design.Settlement.statement r p bs blobs → Etna.Design.ProtocolState.Trace (Etna.Design.ProtocolState.landed w1 s e.blockNumber) w → w.inbox.generation = w1.inbox.generation → Etna.Design.ProtocolState.Step w (Etna.Design.ProtocolState.applyRollback w s.checkpoint s.snapshot now) → ∀ (cfg : Etna.Design.CommitteeConfig) (archive' : List Nat) (ctx : Etna.Design.Consensus.Context), (∀ (k : Nat), k < s.checkpoint.height → Etna.Design.HistoricalContext.anchorAt archive' k = Etna.Design.HistoricalContext.anchorAt archive k) → Etna.Design.HistoricalContext.build (Etna.Design.ProtocolState.applyRollback w s.checkpoint s.snapshot now).inbox (Etna.Design.ProtocolState.applyRollback w s.checkpoint s.snapshot now).registry (Etna.Design.Deployment.parameters (Etna.Design.ProtocolState.applyRollback w s.checkpoint s.snapshot now).inbox cfg) archive' = Option.some ctx → ∀ (id c h : Nat), id < (Etna.Design.ProtocolState.applyRollback w s.checkpoint s.snapshot now).registry.nextId → ((Etna.Design.ProtocolState.applyRollback w s.checkpoint s.snapshot now).registry.slots id).confirmedAt = Option.some c → ((Etna.Design.ProtocolState.applyRollback w s.checkpoint s.snapshot now).registry.slots id).key ≠ 0 → ((Etna.Design.ProtocolState.applyRollback w s.checkpoint s.snapshot now).registry.slots id).exitAt ≠ Etna.Design.Staking.noExit → s.checkpoint.height ≤ h → ∀ (m : Etna.Design.Committee.Entry), m ∈ (Etna.Design.Consensus.activeAt ctx h).members → m.key ≠ ((Etna.Design.ProtocolState.applyRollback w s.checkpoint s.snapshot now).registry.slots id).key",
+      "assumptions": [
+        "The restored checkpoint and slot 284 are what a landing on World w1 wrote whose certificate is the statement computed under rules the deployment builds on a guest view of w1 from the given anchor archive (every Certifies landing has such rules); later landings may be forged, so verifierSound is not used.",
+        "No governance recovery runs between that landing and the rollback (same generation), and the restored World's context is built from an anchor archive that agrees with that landing's below the restored checkpoint; choosing the last trusted landing, authenticating the restored values and the DAO upgrade remain external.",
+        "The trace starts from a registry with unique keys and visible exits, as in confirmed_key_absent_above_checkpoint, and the rollback is an actual protocol step."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-d04a236579cc9990", "EN-4651c537a506e6fd"],
+      "scope": "After a rollback done as section 8 says, every confirmed exit's key is absent from every committee active at or above the restored lastCheckpoint. Stake withdrawn before the rollback is not recovered, and nothing is claimed about commits or slashing."
+    },
+    {
+      "module": "EtnaProofs.SlashedExclusion",
+      "declaration": "Etna.Design.SigningEscrow.slashed_key_absent_from_later_committees",
+      "type": "∀ {initial w t : Etna.Design.ProtocolState.World} {id now : Nat} {a b : Etna.Design.Staking.Vote} {sigA sigB : Etna.Design.Hash} {s : Etna.Design.RegistryHistory.State} {cfg : Etna.Design.HistoricalContext.Parameters} {archive : List Nat} {ctx : Etna.Design.Consensus.Context} {h : Nat}, Etna.Design.ProtocolState.Trace initial w → Etna.Design.ProtocolState.Core initial → Etna.Design.SigningEscrow.KeysWellFormed initial.registry → Etna.Design.SigningEscrow.ExitVisible initial.registry → w.l1Block ≤ now → now < Etna.Design.Staking.noExit → Etna.Design.RegistryHistory.edit w.registry w.inbox id now (Etna.Design.RegistryHistory.Edit.slash a b sigA sigB) = Option.some s → (w.registry.slots id).key ≠ 0 → Etna.Design.ProtocolState.Trace (Etna.Design.ProtocolState.registered w s now) t → Etna.Design.HistoricalContext.build t.inbox t.registry cfg archive = Option.some ctx → now ≤ (Etna.Design.Consensus.activeAt ctx h).cutoff → (s.slots id).balance = 0 ∧ ∀ (m : Etna.Design.Committee.Entry), m ∈ (Etna.Design.Consensus.activeAt ctx h).members → m.key ≠ (w.registry.slots id).key",
+      "assumptions": [
+        "A successful double-sign slash at an L1 block below 2^48 - 1 on a trace from a registry with unique keys and visible exits; the context is any context built on a World reached after the slash."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-95f0590cf84239d4", "EN-1922bc4f51f2158c", "EN-d7e07b7ea27ed4a3"],
+      "scope": "Section 12 item 19's window: the slashed entry has no principal and its key is absent from every committee selected at a cutoff at or after the slashing block, also after slot reuse. Committees selected before the slash keep its power, which counts as Byzantine power under the less-than-1/3 bound."
     },
     {
       "module": "EtnaWitnesses.Regressions.TrustedSnapshot",

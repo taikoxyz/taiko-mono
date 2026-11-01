@@ -17,7 +17,7 @@ premise record, `Premises`. To trust the result, read the statements and the pre
 proofs. The package says nothing about the production contracts, client or guests beyond the
 conformance vectors below.
 
-The clause inventory (313 source clauses), the theorem roles and the 23 narrow claims in
+The clause inventory (313 source clauses), the theorem roles and the 26 narrow claims in
 `spec-coverage.json` are a **traceability report, not the verification result**. They record
 which spec clauses some theorem speaks to, and CI keeps them consistent. A clause marked
 partial is not proved. [`reports/rule-coverage.md`](reports/rule-coverage.md) keys the same
@@ -158,8 +158,8 @@ The statement has three parts.
   queue entry, and it consumes the entry at its parent's cursor whenever its anchor shows that
   entry pending and due.
 
-Part (b) covers only blocks inside landed segments, and it does not claim the maxAnchorAge bound
-of 7.3 (spec L465). It judges "pending" and "due" against each block anchor's own tail and
+Part (b) covers only blocks inside landed segments, and H3 does not claim the maxAnchorAge bound
+of 7.3 (spec L465; see the anchor-honesty theorems below). It judges "pending" and "due" against each block anchor's own tail and
 timestamp. `AnchorValid` checks the anchor's Inbox fields only through the environment's
 `anchorAuthenticated`, and no premise requires an accepted anchor to report the Inbox's actual tail and timestamp
 (`authenticatedInputs` uses it only as an antecedent and binds FI witnesses, not anchor fields),
@@ -168,6 +168,24 @@ so part (b) holds relative to the tail and timestamp an accepted anchor reports:
 accepted anchors show the Inbox's actual queue is an implementation obligation
 ([premise responsibilities](reports/premise-responsibilities.md)). Part (a) is about (index, entry) pairs staying present; that each index holds
 one entry is the separate queue invariant of `ProtocolState.Core`.
+
+Stating that obligation as explicit hypotheses closes the gap without changing `Premises` or
+H3. `EtnaModel/AnchorHonesty.lean` defines them: an L1 clock that never runs backwards, queue
+entries that record their enqueue block's timestamp, and accepted anchors that report their own
+block's timestamp and count every entry enqueued at or before that block. Under them,
+`EtnaProofs/Headline/AnchoredQueue.lean` proves:
+
+- `honest_anchor_chain_sees_due` (7.3's bound, spec L465): in every block of a valid chain
+  whose rules have a positive FI delay, take the entry at the parent's cursor. If the block's
+  timestamp is at least `entry.timestamp + forcedInclusionDelay + maxAnchorAge`, the anchor
+  shows that entry pending and due. This is a block-time implication, not a wall-clock deadline.
+- `honest_anchor_queue_service` (supporting, like `landing_consumes_queue`): with part (b)'s
+  conclusions, every landed block consumes the queue-head entry of the Inbox's actual queue once
+  it is due by the anchor's time, and in particular once the bound above holds.
+
+`AnchorHonestyRegression` shows the hypotheses hold together with the premises in the
+non-vacuity deployment and exclude `AnchorTail`'s anchor for every clock. Authenticating
+anchors stays a guest obligation.
 
 ## Premises
 
@@ -215,15 +233,19 @@ both responsibilities; the classification changes no field or claim type.
   slot-284 snapshot. `confirmed_key_absent_above_checkpoint` excludes a confirmed key from the
   committees active at or above lastCheckpoint only under the explicit condition
   `SnapshotTrusted`, on the World where the exit is confirmed; it says nothing about later
-  Worlds, withdrawals, commits or slashing, and no theorem shows a restore satisfies it.
+  Worlds, withdrawals, commits or slashing. A rollback done as §8 says satisfies it (see
+  "Rollback trust" below); pausing and loss containment are not modelled.
 - **Anchor honesty.** Nothing proves that an accepted anchor reports the Inbox's actual tail
   and its L1 block's timestamp (`AnchorValid` itself checks the generation and bounds the
-  checkpoint height by U); H3's part (b) is relative to what it reports (`AnchorTail`).
+  checkpoint height by U); H3's part (b) is relative to what it reports (`AnchorTail`). With
+  that honesty as explicit hypotheses, `honest_anchor_queue_service` gives part (b) against the
+  actual queue.
 - **Reentrancy.** The model's reentrancy flag `entered` is never set, so no theorem speaks to
   cross-function reentrancy during recovery (RECOV-8.3-19 is deferred); the contracts' own tests
   are the only evidence.
 - **A wall-clock FI deadline.** H3 gives none, and §1 says the design gives none either
-  (spec L15). H3 does not claim the maxAnchorAge bound of 7.3 (spec L465).
+  (spec L15). H3 does not claim the maxAnchorAge bound of 7.3 (spec L465);
+  `honest_anchor_chain_sees_due` proves it, as a block-time implication, under honest anchors.
 - **Real cryptography, MPT, KZG and the EL.** Hashes are opaque numbers. Signatures, storage
   proofs, blob decoding, payload decoding and EL execution are relations of `Environment`. The
   premises idealize some of them and leave others open: history and committee authentication
@@ -249,11 +271,23 @@ both responsibilities; the classification changes no field or claim type.
   be the spec's duty (spec L487): the restored snapshot is a value a retained landing or the
   initialization wrote. `SnapshotTrusted` (slot 284 is not ahead of the cutoff of the committee
   active at lastCheckpoint) is the condition `confirmed_key_absent_above_checkpoint` needs, as
-  an explicit hypothesis rather than a premise. The model does not prove that the spec's duty
-  implies it: after a rollback the context is rebuilt from the restored World. The regressions
-  show that where the untrusted rollback lets an exit be confirmed the condition fails and the
-  key stays active, and that an ordinary confirming World satisfies it together with every other
-  hypothesis of that theorem.
+  an explicit hypothesis rather than a premise. The spec's duty implies it
+  (`EtnaProofs/TrustedRollback.lean`): `trusted_rollback_snapshot_trusted` restores the
+  checkpoint and slot 284 that a trusted landing wrote, meaning one whose certificate is the
+  statement computed under rules the deployment builds (every `Certifies` landing qualifies; later
+  landings may be forged). Then slot 284 equals the cutoff of the committee active at the
+  restored lastCheckpoint, for every context whose anchor archive agrees with that landing's
+  below the checkpoint. It needs no recovery between that landing and the rollback (same
+  generation); a rollback across a recovery is not covered. `initial_rollback_snapshot_trusted`
+  covers restoring the initialization values. `trusted_rollback_excludes_confirmed_keys`
+  composes the first with the registry's recheck and the exclusion theorem: after such a
+  rollback every confirmed exit's key is absent from every committee active at or above the
+  restored checkpoint. Stake withdrawn before the rollback is not recovered (8.1, spec L498).
+  The regressions show that where the untrusted rollback lets an exit be confirmed the condition
+  fails and the key stays active, that an ordinary confirming World satisfies it together with
+  every other hypothesis of that theorem, and (`TrustedRollbackRegression`) that a rollback on
+  the non-vacuity run restoring the first landing's values satisfies every hypothesis of the new
+  theorems, while a snapshot no landing wrote at the same checkpoint does not.
 
 ## Witnesses
 
@@ -296,7 +330,7 @@ it), with the chain-of-custody property at every World.
   landing wrote. The exit of the committee's only validator is then confirmed and its stake
   withdrawn while the built rules still make it the whole committee; its conflicting commits are
   valid and unslashable. A realistic withdrawalDelay only postpones this. Fix: the rollback duty
-  above, stated as a premise if H2 is to cover rollbacks.
+  above; `trusted_rollback_excludes_confirmed_keys` proves it restores the exclusion.
 - **`RecoveryCapture`.** Four honest validators each hold 1/4 of the power, so a recovery
   authorization passes the modelled nonempty-set and concentration checks at authorization.
   A newcomer registers 9 TAIKO before execution and receives 9/13 (over 2/3) of the committee
@@ -320,6 +354,8 @@ it), with the chain-of-custody property at every World.
   `anchorAuthenticated` rules it out (the witness is a concrete instance, not a run under the
   premises). H3's part (b) is therefore relative to the tail an accepted anchor reports; a premise or an
   implementation obligation that accepted anchors report the Inbox's actual tail and timestamp closes it.
+  `honest_anchor_queue_service` proves part (b) against the actual queue with that obligation
+  as explicit hypotheses, which this anchor violates for every clock.
 - **`StaleDaoAuthorization` (repaired).** The old model allowed an authorization voided by
   a landing to revive after rollback. The current model increments the _current_ nonce on
   rollback, recover and explicit invalidation, and checks that nonce plus expiry on execution.
@@ -363,7 +399,12 @@ along a normal run. Appending future headers preserves covered historical cutoff
 encoding/key and L1/EL authentication remain adapter obligations.
 
 A fully slashed member can retain current fixed committee power, so continuous positive backing
-is false; the spec records this as section 12 item 19. A full typed lagging-view witness also freshly signs an old-height nil precommit after
+is false; the spec records this as section 12 item 19. `slashed_key_absent_from_later_committees`
+(`EtnaProofs/SlashedExclusion.lean`) bounds that window: after a successful double-sign slash at
+L1 block b the entry has no principal, and its key is absent from every committee selected at a
+cutoff at or after b, in every later World and after slot reuse. `SlashedExclusionRegression`
+runs it on a real slash: the committee selected at cutoff 12 keeps key 9, the one selected at
+cutoff 16 excludes it. A full typed lagging-view witness also freshly signs an old-height nil precommit after
 newer withdrawal: own-finalized trust does not imply current global checkpoint freshness.
 Causal confirmation-to-view ordering and either same-prefix inclusion or authentic retained
 normal-recovery history are explicit requirements, as
@@ -451,8 +492,9 @@ hypothesis of its own theorem.
   is not ahead of the cutoff of the committee active at lastCheckpoint), a key whose exit was
   confirmed is absent from every committee that the context built on the same World activates
   at or above lastCheckpoint. Section 8 requires the rollback to restore the last trusted
-  landing's value; the model does not prove that this implies the condition, and the theorem
-  says nothing about later Worlds, withdrawals, commits or slashing.
+  landing's value; `trusted_rollback_snapshot_trusted` proves this implies the condition within
+  that landing's generation (see "Rollback trust" above). The theorem says nothing about later
+  Worlds, withdrawals, commits or slashing.
   `EtnaWitnesses/Regressions/TrustedSnapshot.lean` shows that right after the untrusted rollback
   lets key 7's exit be confirmed, the context built on that World violates the condition and
   still activates key 7 above lastCheckpoint; and that on an ordinary run from the initialized
@@ -568,6 +610,9 @@ To trust the result, read:
   forced inclusion (7), recovery and rollback (8), the registry and its history (4.1), committee
   election and schedule (4.2-4.3), block validity and settlement (3, 6.2), and the deployment
   construction (`Deployment.build`, `Deployment.Genesis`).
+- The explicit hypotheses of the supplementary theorems: `EtnaModel/AnchorHonesty.lean` and the
+  hypothesis lists of the theorems in `EtnaProofs/Headline/AnchoredQueue.lean`,
+  `EtnaProofs/TrustedRollback.lean` and `EtnaProofs/SlashedExclusion.lean`.
 
 `EtnaProofs/` need not be read: the kernel checks it, and the audit checks the headline types
 and axioms. `EtnaWitnesses/` shows what the claims rule out and what they leave open.
@@ -626,7 +671,7 @@ What the audit checks, each with its documented limit:
 
 - **Headline.** `Etna.Proofs.claims` and the three headline theorems have exactly their claim
   types and only the standard axioms.
-- **Exact types.** Each of the 944 manifest entries carries a full expected type, parsed as one
+- **Exact types.** Each of the 953 manifest entries carries a full expected type, parsed as one
   term (no `by`, `sorry` or `%`-elaborators) and compared with the kernel's. The manifest is a
   reviewed artifact; the gate does not compare it with prose.
 - **Rule P** (needed for the `property` role). The statement is quantified, and every conjunct,
@@ -644,7 +689,7 @@ trace_preserves_immutables -> Trace.rec`, an induction that preserves the deploy
   induction the proof uses. Part (a′) does rest on a real induction: its rollback case needs
   `trace_record_cursors_monotone` (record cursors are monotone in record height along every
   trace), proved by induction on the trace. Part (b)'s theorem
-  (`landing_consumes_queue`) is `supporting` (Rule P fails), and part (a) is a per-step case
+  (`landing_consumes_queue`) is `supporting` (Rule P fails; so is `honest_anchor_queue_service`), and part (a) is a per-step case
   split, so what only part (a) speaks to (§1's "no deletion" sentence, 7.2 "Blanked entries",
   8 step 3) is partial through a conjunct that is not itself derived.
 - **Premise use.** Every `Premises` field is read by a headline proof or an Etna theorem it uses.
@@ -698,8 +743,8 @@ namespace (for example `EtnaModel/Deployment.lean` and `EtnaProofs/Deployment.le
 - `EtnaModel/`: definitions, structures, inductives and instances. No theorems.
 - `EtnaStatements/`: `Environment`, `Run`, `Premises` and the claims. No proofs.
 - `EtnaProofs/`: every theorem about the model, the pins in `Contracts.lean`, and
-  `Headline/` (namespace `Etna.Proofs`): the chain-of-custody invariant behind H1 and the
-  proofs of H1, H2, H3 and `claims`. `EtnaProofs/Deployment.lean` imports
+  `Headline/` (namespace `Etna.Proofs`): the chain-of-custody invariant behind H1, the
+  proofs of H1, H2, H3 and `claims`, and the anchor-honesty theorems (`AnchoredQueue.lean`). `EtnaProofs/Deployment.lean` imports
   `EtnaStatements.Premises` for `Representable`.
 - `EtnaWitnesses/`: `Regressions/` (concrete traces), `Headline/` (the H1 run),
   `NonVacuity/` (the premise witness) and `Counterexamples/` (seven scope counterexamples and the repaired nonce regression).
@@ -707,21 +752,21 @@ namespace (for example `EtnaModel/Deployment.lean` and `EtnaProofs/Deployment.le
   the model and nothing imports it; the lint lets only its plain string literals contain `{`,
   and the audit admits its root `main` as the one declaration outside `Etna`.
 - `manifests/design.json`: the theorem contracts; `manifests/shadowing-allowlist.json`.
-- `spec-coverage.json`: the 23 narrow claims (traceability). `rule-coverage.json`: the raw
-  pins, reviewed overrides and reviewed narrowings (34 shared clauses) of the rule-ID view.
+- `spec-coverage.json`: the 26 narrow claims (traceability). `rule-coverage.json`: the raw
+  pins, reviewed overrides and reviewed narrowings (33 shared clauses) of the rule-ID view.
 - `scripts/`, `tests/`: the gate and its tests. `reports/`: review history. `legacy/v9`:
   historical V9 material outside the build.
 
 ## Numbers
 
-- 944 theorem contracts: 178 property, 3 constant, 416 supporting, 347 regression. Fifteen of the
+- 953 theorem contracts: 183 property, 3 constant, 417 supporting, 350 regression. Fifteen of the
   property contracts, six of them from the normal-recovery composition, are projection,
   provenance, invariance or arithmetic helpers that cite no clause (`UNSOURCED` in
   `scripts/check_spec_coverage.py`).
-- 178 property derivation chains, checked against the live proof terms.
-- 313 source clauses: 76 partial, 234 deferred, 3 design-pending; 23 narrow claims.
-- 568 binding rule IDs: 140 partial, 7 partial through a reviewed override, 417 deferred, 4
-  design-pending; 21 limitations and 11 assumptions, none partial.
+- 183 property derivation chains, checked against the live proof terms.
+- 313 source clauses: 77 partial, 233 deferred, 3 design-pending; 26 narrow claims.
+- 568 binding rule IDs: 141 partial, 7 partial through a reviewed override, 416 deferred, 4
+  design-pending; 21 limitations (one, section 12 item 19, partial) and 11 assumptions.
 - 210 Python mutation/regression tests, plus kernel-replayed Lean regression modules.
 - Current vectors: 416 Inbox/registry and 340 client rule vectors. The contracts ran the 414 of
   `2d06eeb66` (406 agree, 8 known divergences) and the Rust client the 340 (339 agree, 1 known

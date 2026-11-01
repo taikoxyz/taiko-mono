@@ -12,8 +12,8 @@ other rules of that clause are `deferred`.
 
 | Type       | Count | partial | partial-via | deferred | design-pending |
 | ---------- | ----: | ------: | ----------: | -------: | -------------: |
-| rule       |   568 |     140 |           7 |      417 |              4 |
-| limitation |    21 |       0 |           0 |       20 |              1 |
+| rule       |   568 |     141 |           7 |      416 |              4 |
+| limitation |    21 |       1 |           0 |       19 |              1 |
 | assumption |    11 |       0 |           0 |       11 |              0 |
 
 ## Rules by family
@@ -27,7 +27,7 @@ other rules of that clause are `deferred`.
 | STAKE  |    42 |      18 |           0 |       24 |              0 |
 | START  |    39 |       9 |           0 |       27 |              3 |
 | STOR   |    34 |       2 |           0 |       32 |              0 |
-| FI     |    31 |      11 |           0 |       20 |              0 |
+| FI     |    31 |      12 |           0 |       19 |              0 |
 | SYNC   |    25 |       8 |           0 |       17 |              0 |
 | DATA   |    21 |       1 |           0 |       20 |              0 |
 | FORF   |    20 |       6 |           0 |       14 |              0 |
@@ -131,8 +131,8 @@ other rules of that clause are `deferred`.
 | STAKE-4.1-22  | rule       | deferred       | EN-fb39b71e9b4c760c                       |      3 |                                                                                                              |
 | STAKE-4.1-23  | rule       | deferred       | EN-9d61587bb0f5f183                       |      2 |                                                                                                              |
 | STAKE-4.1-24  | rule       | deferred       | EN-9d61587bb0f5f183                       |      2 |                                                                                                              |
-| STAKE-4.1-25  | rule       | partial        | EN-4651c537a506e6fd                       |      2 | `confirmed_key_excluded`, `fresh_signing_connection`, `initialized_fresh_signing_connection` +15             |
-| STAKE-4.1-26  | rule       | partial        | EN-4651c537a506e6fd                       |      2 | `confirmed_key_excluded`, `fresh_signing_connection`, `initialized_fresh_signing_connection` +15             |
+| STAKE-4.1-25  | rule       | partial        | EN-4651c537a506e6fd                       |      2 | `confirmed_key_excluded`, `fresh_signing_connection`, `initialized_fresh_signing_connection` +16             |
+| STAKE-4.1-26  | rule       | partial        | EN-4651c537a506e6fd                       |      2 | `confirmed_key_excluded`, `fresh_signing_connection`, `initialized_fresh_signing_connection` +16             |
 | STAKE-4.1-27  | rule       | partial        | EN-fd0557c2630191c6                       |      3 | `editEffect_conserves`, `future_trace_preserves_slot_good`, `protocol_conservation_from_empty` +12           |
 | STAKE-4.1-28  | rule       | partial        | EN-fd0557c2630191c6                       |      3 | `editEffect_conserves`, `future_trace_preserves_slot_good`, `protocol_conservation_from_empty` +12           |
 | STAKE-4.1-29  | rule       | partial        | EN-fd0557c2630191c6                       |      3 | `editEffect_conserves`, `future_trace_preserves_slot_good`, `protocol_conservation_from_empty` +12           |
@@ -140,7 +140,7 @@ other rules of that clause are `deferred`.
 | STAKE-4.1-31  | rule       | partial        | EN-405f21d19d6bc681                       |      1 | `conflicting_commits_slashable`                                                                              |
 | STAKE-4.1-32  | rule       | partial        | EN-b82d63337df901b4                       |      1 | `conflicting_commits_double_sign`, `height_agreement`, `same_round_agreement` +3                             |
 | STAKE-4.1-33  | rule       | partial        | EN-ffb6d8f886ed245e                       |      1 | `conflicting_commits_slashable`, `trace_preserves_verifier`                                                  |
-| STAKE-4.1-34  | rule       | partial        | EN-1922bc4f51f2158c                       |      1 | `editEffect_conserves`, `protocol_conservation_from_empty`, `protocol_trajectory_conservation` +6            |
+| STAKE-4.1-34  | rule       | partial        | EN-1922bc4f51f2158c                       |      1 | `editEffect_conserves`, `protocol_conservation_from_empty`, `protocol_trajectory_conservation` +7            |
 | STAKE-4.1-35  | rule       | deferred       | EN-c3f51f9d72eb6ec5                       |      1 |                                                                                                              |
 | STAKE-4.1-36  | rule       | partial        | EN-e11112a7ad1b77fd                       |      1 | `context_uses_latest_snapshot`, `step_preserves_core`, `trace_clock_monotone` +15                            |
 | STAKE-4.1-37  | rule       | deferred       | EN-25553fea06dda239                       |      3 |                                                                                                              |
@@ -151,9 +151,9 @@ other rules of that clause are `deferred`.
 | STAKE-4.2-3   | rule       | deferred       | EN-099338354875a8fb                       |      1 |                                                                                                              |
 | COMM-4.3-1    | rule       | deferred       | EN-287b470870b50710                       |      1 |                                                                                                              |
 | COMM-4.3-2    | rule       | partial        | EN-9ac7403cd8147312                       |      1 | `context_uses_latest_snapshot`, `accepted_snapshot_from_history`, `trace_preserves_old_snapshot` +2          |
-| COMM-4.3-3    | rule       | partial        | EN-d7e07b7ea27ed4a3                       |      3 | `confirmed_key_excluded`, `confirmed_key_absent_later_cutoff`, `confirmed_key_excluded_forever` +12          |
-| COMM-4.3-4    | rule       | partial        | EN-d7e07b7ea27ed4a3                       |      3 | `confirmed_key_excluded`, `confirmed_key_absent_later_cutoff`, `confirmed_key_excluded_forever` +12          |
-| COMM-4.3-5    | rule       | partial        | EN-d7e07b7ea27ed4a3                       |      3 | `confirmed_key_excluded`, `confirmed_key_absent_later_cutoff`, `confirmed_key_excluded_forever` +12          |
+| COMM-4.3-3    | rule       | partial        | EN-d7e07b7ea27ed4a3                       |      3 | `confirmed_key_excluded`, `confirmed_key_absent_later_cutoff`, `confirmed_key_excluded_forever` +13          |
+| COMM-4.3-4    | rule       | partial        | EN-d7e07b7ea27ed4a3                       |      3 | `confirmed_key_excluded`, `confirmed_key_absent_later_cutoff`, `confirmed_key_excluded_forever` +13          |
+| COMM-4.3-5    | rule       | partial        | EN-d7e07b7ea27ed4a3                       |      3 | `confirmed_key_excluded`, `confirmed_key_absent_later_cutoff`, `confirmed_key_excluded_forever` +13          |
 | COMM-4.3-6    | rule       | deferred       | EN-cb365b99df0cd062                       |      2 |                                                                                                              |
 | COMM-4.3-7    | rule       | deferred       | EN-cb365b99df0cd062                       |      2 |                                                                                                              |
 | COMM-4.3-8    | rule       | deferred       | EN-ce7f6fae93ef190f                       |      1 |                                                                                                              |
@@ -324,8 +324,8 @@ other rules of that clause are `deferred`.
 | FI-7.2-11     | rule       | deferred       | EN-3a4063c2936a95e5                       |      1 |                                                                                                              |
 | FI-7.2-12     | rule       | deferred       | EN-6f578cc8820e9ad2                       |      1 |                                                                                                              |
 | FI-7.2-13     | rule       | partial        | EN-b69a24b78429ebe4                       |      1 | `forced_inclusion_integrity`                                                                                 |
-| FI-7.3-1      | rule       | partial        | EN-1ee6db9f8ebb8410                       |      2 | `forced_inclusion_integrity`                                                                                 |
-| FI-7.3-2      | rule       | deferred       | EN-1ee6db9f8ebb8410                       |      2 |                                                                                                              |
+| FI-7.3-1      | rule       | partial        | EN-1ee6db9f8ebb8410                       |      2 | `forced_inclusion_integrity`, `honest_anchor_chain_sees_due`                                                 |
+| FI-7.3-2      | rule       | partial        | EN-1ee6db9f8ebb8410                       |      2 | `forced_inclusion_integrity`, `honest_anchor_chain_sees_due`                                                 |
 | FI-7.3-3      | rule       | deferred       | EN-332fe10acb3ea4eb                       |      2 |                                                                                                              |
 | FI-7.3-4      | rule       | deferred       | EN-332fe10acb3ea4eb                       |      2 |                                                                                                              |
 | FI-7.3-5      | rule       | deferred       | EN-8a1777585a369a1c                       |      1 |                                                                                                              |
@@ -354,16 +354,16 @@ other rules of that clause are `deferred`.
 | RECOV-8-23    | rule       | deferred       | EN-73955e550a82715b                       |      1 |                                                                                                              |
 | RECOV-8-24    | rule       | deferred       | EN-d04a236579cc9990                       |     13 |                                                                                                              |
 | RECOV-8-25    | rule       | deferred       | EN-d04a236579cc9990                       |     13 |                                                                                                              |
-| RECOV-8-26    | rule       | partial        | EN-d04a236579cc9990                       |     13 | `recheck_conserves`, `consumed_authorization_never_revives`, `rollback_inbox_valid` +10                      |
-| RECOV-8-27    | rule       | partial        | EN-d04a236579cc9990                       |     13 | `recheck_conserves`, `consumed_authorization_never_revives`, `rollback_inbox_valid` +10                      |
-| RECOV-8-28    | rule       | partial        | EN-d04a236579cc9990                       |     13 | `recheck_conserves`, `consumed_authorization_never_revives`, `rollback_inbox_valid` +10                      |
-| RECOV-8-29    | rule       | partial        | EN-d04a236579cc9990                       |     13 | `recheck_conserves`, `consumed_authorization_never_revives`, `rollback_inbox_valid` +10                      |
-| RECOV-8-30    | rule       | partial        | EN-d04a236579cc9990                       |     13 | `recheck_conserves`, `consumed_authorization_never_revives`, `rollback_inbox_valid` +10                      |
-| RECOV-8-31    | rule       | partial        | EN-d04a236579cc9990                       |     13 | `recheck_conserves`, `consumed_authorization_never_revives`, `rollback_inbox_valid` +10                      |
+| RECOV-8-26    | rule       | partial        | EN-d04a236579cc9990                       |     13 | `recheck_conserves`, `consumed_authorization_never_revives`, `rollback_inbox_valid` +13                      |
+| RECOV-8-27    | rule       | partial        | EN-d04a236579cc9990                       |     13 | `recheck_conserves`, `consumed_authorization_never_revives`, `rollback_inbox_valid` +13                      |
+| RECOV-8-28    | rule       | partial        | EN-d04a236579cc9990                       |     13 | `recheck_conserves`, `consumed_authorization_never_revives`, `rollback_inbox_valid` +13                      |
+| RECOV-8-29    | rule       | partial        | EN-d04a236579cc9990                       |     13 | `recheck_conserves`, `consumed_authorization_never_revives`, `rollback_inbox_valid` +13                      |
+| RECOV-8-30    | rule       | partial        | EN-d04a236579cc9990                       |     13 | `recheck_conserves`, `consumed_authorization_never_revives`, `rollback_inbox_valid` +13                      |
+| RECOV-8-31    | rule       | partial        | EN-d04a236579cc9990                       |     13 | `recheck_conserves`, `consumed_authorization_never_revives`, `rollback_inbox_valid` +13                      |
 | RECOV-8-32    | rule       | deferred       | EN-d04a236579cc9990                       |     13 |                                                                                                              |
 | RECOV-8-33    | rule       | deferred       | EN-d04a236579cc9990                       |     13 |                                                                                                              |
 | RECOV-8-34    | rule       | deferred       | EN-d04a236579cc9990                       |     13 |                                                                                                              |
-| RECOV-8-35    | rule       | partial        | EN-d04a236579cc9990                       |     13 | `recheck_conserves`, `consumed_authorization_never_revives`, `rollback_inbox_valid` +10                      |
+| RECOV-8-35    | rule       | partial        | EN-d04a236579cc9990                       |     13 | `recheck_conserves`, `consumed_authorization_never_revives`, `rollback_inbox_valid` +13                      |
 | RECOV-8-36    | rule       | deferred       | EN-d04a236579cc9990                       |     13 |                                                                                                              |
 | RECOV-8-37    | rule       | deferred       | EN-1045f23916b48c0e                       |      2 |                                                                                                              |
 | RECOV-8-38    | rule       | deferred       | EN-1045f23916b48c0e                       |      2 |                                                                                                              |
@@ -539,7 +539,7 @@ other rules of that clause are `deferred`.
 | LIMIT-12-16   | limitation | deferred       | EN-72760566fa614949                       |      1 |                                                                                                              |
 | LIMIT-12-17   | limitation | deferred       | EN-b743380dacb7f8f2                       |      1 |                                                                                                              |
 | LIMIT-12-18   | limitation | deferred       | EN-19741fe824208fdf                       |      1 |                                                                                                              |
-| LIMIT-12-19   | limitation | deferred       | EN-95f0590cf84239d4                       |      1 |                                                                                                              |
+| LIMIT-12-19   | limitation | partial        | EN-95f0590cf84239d4                       |      1 | `slashed_key_absent_from_later_committees`                                                                   |
 | LIMIT-12-20   | limitation | deferred       | EN-0b7dc528f6439e82                       |      1 |                                                                                                              |
 | ENC-A-1       | rule       | partial        | EN-4856837d14522ac8                       |      4 | `domain_tags_are_ascii`                                                                                      |
 | ENC-A-2       | rule       | deferred       | EN-4856837d14522ac8                       |      4 |                                                                                                              |
