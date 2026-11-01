@@ -243,11 +243,16 @@ both responsibilities; the classification changes no field or claim type.
   `SnapshotTrusted`, on the World where the exit is confirmed; it says nothing about later
   Worlds, withdrawals, commits or slashing. A rollback done as §8 says, using the source-history conditions below, satisfies it (see "Rollback trust" below); pausing and loss containment
   are not modelled.
-- **Anchor honesty.** Nothing proves that an accepted anchor reports the Inbox's actual tail
-  and its L1 block's timestamp (`AnchorValid` itself checks the generation and bounds the
-  checkpoint height by U); H3's part (b) is relative to what it reports (`AnchorTail`). With
-  that honesty as explicit hypotheses, `honest_anchor_queue_service` gives part (b) against the
-  actual queue.
+- **Anchor honesty.** In the original H3/free anchor predicate, nothing proves that an accepted
+  anchor reports the Inbox's actual tail and its L1 block's timestamp (`AnchorValid` itself
+  checks the generation and bounds the checkpoint height by U); H3's part (b) is relative to
+  what it reports (`AnchorTail`). With that honesty as explicit hypotheses,
+  `honest_anchor_queue_service` gives part (b) against the actual queue. The supplementary
+  `ActualQueue.history_queue_timed`, `ActualQueue.end_block_covers` and
+  `ActualQueue.local_chain_byte_service` derive semantic queue timing, end-block tail coverage
+  and local include/skip service from original timestamped transaction journals, end-block cuts
+  and raw authenticated openings, under their explicit clock and chain assumptions. Real L1
+  and storage authentication remain external.
 - **Reentrancy.** The model's reentrancy flag `entered` is never set, so no theorem speaks to
   cross-function reentrancy during recovery (RECOV-8.3-19 is deferred); the contracts' own tests
   are the only evidence.
