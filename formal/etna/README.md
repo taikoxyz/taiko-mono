@@ -158,7 +158,14 @@ The statement has three parts.
   entry pending and due.
 
 Part (b) covers only blocks inside landed segments, and it does not claim the maxAnchorAge bound
-of 7.3 (spec L465). Part (a) is about (index, entry) pairs staying present; that each index holds
+of 7.3 (spec L465). It judges "pending" and "due" against each block anchor's own tail and
+timestamp. `AnchorValid` checks the anchor's Inbox fields only through the environment's
+`anchorAuthenticated`, and no premise constrains which anchors that relation accepts
+(`authenticatedInputs` uses it only as an antecedent and binds FI witnesses, not anchor fields),
+so part (b) holds relative to the tail and timestamp an accepted anchor reports: the
+`AnchorTail` counterexample passes a due entry under an anchor that understates the tail. That
+accepted anchors show the Inbox's actual queue is an implementation obligation
+([premise responsibilities](reports/premise-responsibilities.md)). Part (a) is about (index, entry) pairs staying present; that each index holds
 one entry is the separate queue invariant of `ProtocolState.Core`.
 
 ## Premises
@@ -172,7 +179,7 @@ field.
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ---------- |
 | `genesis`             | `w0` is the World right after Inbox initialization (`Deployment.Genesis`), made with block 0's EL hash and stateRoot from `env.genesisHeader`, which has height 0, CometBFT hash 0 and FI cursor 0.                                                                                                                                                                                           | §10 steps 4-5 (spec L556-L557); Appendix B slot 285 (spec L777); 6.1 (spec L294); 7.2 (spec L426) | H1, H2, H3 |
 | `verifierSound`       | Two proofs, at least one sound: every proof pair the Inbox accepts contains a sound backend, and a sound backend approves a submitted landing only if its statement is `Certifies`, i.e. the statement of a batch valid under the rules `Deployment.build` derives from the guest's uint256 opening of the stored commitments. Equivalently: every submitted landing that lands is certified. | §1 "Funds" (spec L12); §1 "Upgrades and trust" (spec L16); §8 "Verifier failure" (spec L487)      | H1, H3     |
-| `authenticatedInputs` | For a submitted landing that lands, an authenticated FI witness under an authenticated anchor, from the current generation's origin L1 block up to the landing's block, shows the World's real queue entry.                                                                                                                                                                                   | 3.3 (spec L90); 7.2 (spec L427)                                                                   | H3         |
+| `authenticatedInputs` | For a submitted landing that lands, an authenticated FI witness for an index below the anchor's tail, under an authenticated anchor from the current generation's origin L1 block up to the landing's block, shows the World's real queue entry. It constrains no anchor field.                                                                                                               | 3.3 (spec L90); 7.2 (spec L427)                                                                   | H3         |
 | `hashSeparation`      | The stored committeeConfigHash has exactly one uint256 opening (`Representable`): the deployment's own configuration.                                                                                                                                                                                                                                                                         | 6.2 item 1 (spec L360)                                                                            | H1, H3     |
 | `headerHashes`        | An EL hash is the hash of the header it names: when the EL accepts a block on a parent, both EL hashes are `headerHash` of the decoded headers, and so is block 0's.                                                                                                                                                                                                                          | 3.4 rules 1 and 9 (spec L104, L112); 6.2 item 4 (spec L363)                                       | H1         |
 | `headerSeparation`    | Collision resistance, idealized: equal EL hashes mean equal height, stateRoot, timestamp and the whole decoded anchor.                                                                                                                                                                                                                                                                        | 3.2 (spec L72, L76-L80); 6.2 item 4 (spec L363)                                                   | H1         |
@@ -208,6 +215,11 @@ both responsibilities; the classification changes no field or claim type.
   committees active at or above lastCheckpoint only under the explicit condition
   `SnapshotTrusted`, on the World where the exit is confirmed; it says nothing about later
   Worlds, withdrawals, commits or slashing, and no theorem shows a restore satisfies it.
+- **Anchor honesty.** Nothing proves that an accepted anchor shows the Inbox's actual head,
+  tail, checkpoint and generation; H3's part (b) is relative to what it reports (`AnchorTail`).
+- **Reentrancy.** The model's reentrancy flag `entered` is never set, so no theorem speaks to
+  cross-function reentrancy during recovery (RECOV-8.3-19 is deferred); the contracts' own tests
+  are the only evidence.
 - **A wall-clock FI deadline.** H3 gives none, and §1 says the design gives none either
   (spec L15). H3 does not claim the maxAnchorAge bound of 7.3 (spec L465).
 - **Real cryptography, MPT, KZG and the EL.** Hashes are opaque numbers. Signatures, storage
@@ -271,7 +283,7 @@ it), with the chain-of-custody property at every World.
 
 ### Counterexamples
 
-`EtnaWitnesses/Counterexamples/` holds six scope counterexamples and the repaired
+`EtnaWitnesses/Counterexamples/` holds seven scope counterexamples and the repaired
 `StaleDaoAuthorization` regression. `RecoveryCapture` has its own deployment (n_max 5, four honest parties); the others use the non-vacuity deployment. These are not failures of H1-H3: they show what a premise carries or what remains outside the claims.
 
 - **`NoVerifierSoundness`.** If both proof backends accept a false statement, a checkpoint lands
@@ -299,6 +311,13 @@ it), with the chain-of-custody property at every World.
   can enqueue the same transaction again for the normal fee and stall the cursor again. The
   spec now records this as section 12 item 20, and §1 no longer says recovery handles such a
   transaction. A blocklist of blanked hashes would stop only a verbatim copy.
+- **`AnchorTail`.** Entry 0 is due at the head of the queue. Under an anchor that reports
+  tail 0, a block that keeps the cursor at 0 passes `Forced.step` with no witness and serves
+  the queue; under the honest tail 1 it does not. `InputsAuthenticated` constrains no witness
+  for that anchor, and by inspection of the premises nothing but the environment's
+  `anchorAuthenticated` rules it out (the witness is a concrete instance, not a run under the
+  premises). H3's part (b) is therefore relative to the tail an accepted anchor reports; a premise or an
+  implementation obligation that accepted anchors show the Inbox's actual head and tail closes it.
 - **`StaleDaoAuthorization` (repaired).** The old model allowed an authorization voided by
   a landing to revive after rollback. The current model increments the _current_ nonce on
   rollback, recover and explicit invalidation, and checks that nonce plus expiry on execution.
@@ -336,7 +355,9 @@ operations. None of these changes the headline premises.
 The typed `SigningBridge` now connects an actual successful `Signer.sign`, its exact decoded
 request and immutable key, a valid own-finalized prefix, and an included confirmation checkpoint.
 It derives the cutoff bound and binds a fresh signature/log append, with a genuine initialized
-positive witness. Appending future headers preserves covered historical cutoffs. Real producer,
+positive witness. Its exclusion results take snapshot coverage (`Covered`: every retained
+confirmation has exitAt at most slot 284) as an input; `NormalSigning.run_covered` derives it
+along a normal run. Appending future headers preserves covered historical cutoffs. Real producer,
 encoding/key and L1/EL authentication remain adapter obligations.
 
 A fully slashed member can retain current fixed committee power, so continuous positive backing
@@ -368,8 +389,15 @@ and actually signs height 23 with key 8 while retaining its previous signer log.
 historical committee stays key 8; key 7's EngineRequest is rejected for all phases/nil choices.
 A second initialized witness supplies a normal-recovery source before the first landing.
 
-The normal run retains explicit accepted-batch, deployment/history, prior-snapshot-source and
-reference contracts; it does not lift every unrestricted trace automatically. Initial key and
+"Normal" means only "without verifier-failure rollback": a recovery here is any accepted
+`recover` call, including one whose reselection a late registration captured
+(`RecoveryCapture`). No theorem lifts a headline `Run` to `NormalSigning.Run`. Under `Premises`,
+a submitted landing supplies `built`, `valid` and `binding` (`submitted_landing_certified`), but
+each landing's prior-snapshot source and reference bound, and the absence of rollback, are
+separate contracts; the regression fixtures are the only runs built here, and none lands after
+its recovery. `SnapshotSource.normalRecovery` names an actual recovery, but the bound it yields
+reads only its clock, time order, kept snapshot, generation and origin, that is
+`s.snapshot < ctx.originBlock` one generation above `before`. Initial key and
 exit-history invariants, actual authentication/request/key/persistence behavior and causal view
 coverage remain explicit. See [normal signing composition](reports/normal-signing-composition.md)
 and [premise responsibilities](reports/premise-responsibilities.md). Global freshness,
@@ -477,7 +505,9 @@ generated at, and its own list of known divergences next to its harness, so an i
 change never needs a generator change.
 
 **Contract conformance (#22286 at `a15ca613c`).** 414 vectors in four families: forced 114,
-land 98, recover 70, registry 132. The Foundry harness
+land 98, recover 70, registry 132. The generator now emits two more land vectors (a frontier leaf
+whose Comet hash differs from the slot-285 record, and two landings in one L1 block), so the
+committed land family has 100; the contracts' stamped copy predates them. The Foundry harness
 `packages/protocol/test/layer1/etna/conformance/EtnaConformance.t.sol` deploys `EtnaInbox` and
 `EtnaStakingRegistry` per vector, replays the setup, and compares the call's revert decision,
 results and resulting state (the Inbox, the SignalService checkpoints and the whole registry,
@@ -594,7 +624,7 @@ What the audit checks, each with its documented limit:
 
 - **Headline.** `Etna.Proofs.claims` and the three headline theorems have exactly their claim
   types and only the standard axioms.
-- **Exact types.** Each of the 943 manifest entries carries a full expected type, parsed as one
+- **Exact types.** Each of the 944 manifest entries carries a full expected type, parsed as one
   term (no `by`, `sorry` or `%`-elaborators) and compared with the kernel's. The manifest is a
   reviewed artifact; the gate does not compare it with prose.
 - **Rule P** (needed for the `property` role). The statement is quantified, and every conjunct,
@@ -654,8 +684,7 @@ Only Lean's standard library and Python's are needed. After a model change that 
 vectors, regenerate them with `lake exe etna-vectors --write ../../testdata/etna_conformance`
 (and refresh the contracts' and the client's copies as that directory's README describes). Generated
 `Audit.lean`, the full clause inventory and the audit results go to the ignored
-`.scratch/generated`. The approved design and implementation record for the normal-recovery
-signing extension are in `docs/superpowers/`.
+`.scratch/generated`. Execution plans are not tracked.
 
 ## Layout
 
@@ -671,26 +700,30 @@ namespace (for example `EtnaModel/Deployment.lean` and `EtnaProofs/Deployment.le
   proofs of H1, H2, H3 and `claims`. `EtnaProofs/Deployment.lean` imports
   `EtnaStatements.Premises` for `Representable`.
 - `EtnaWitnesses/`: `Regressions/` (concrete traces), `Headline/` (the H1 run),
-  `NonVacuity/` (the premise witness) and `Counterexamples/` (six scope counterexamples and the repaired nonce regression).
+  `NonVacuity/` (the premise witness) and `Counterexamples/` (seven scope counterexamples and the repaired nonce regression).
 - `EtnaVectors/`: the conformance-vector generator (`lake exe etna-vectors`). It imports only
   the model and nothing imports it; the lint lets only its plain string literals contain `{`,
   and the audit admits its root `main` as the one declaration outside `Etna`.
 - `manifests/design.json`: the theorem contracts; `manifests/shadowing-allowlist.json`.
 - `spec-coverage.json`: the 23 narrow claims (traceability). `rule-coverage.json`: the raw
-  pins, reviewed overrides and reviewed narrowings (35 shared clauses) of the rule-ID view.
+  pins, reviewed overrides and reviewed narrowings (34 shared clauses) of the rule-ID view.
 - `scripts/`, `tests/`: the gate and its tests. `reports/`: review history. `legacy/v9`:
   historical V9 material outside the build.
 
 ## Numbers
 
-- 943 theorem contracts: 178 property, 3 constant, 416 supporting, 346 regression.
+- 944 theorem contracts: 178 property, 3 constant, 416 supporting, 347 regression. Fifteen of the
+  property contracts, six of them from the normal-recovery composition, are projection,
+  provenance, invariance or arithmetic helpers that cite no clause (`UNSOURCED` in
+  `scripts/check_spec_coverage.py`).
 - 178 property derivation chains, checked against the live proof terms.
-- 313 source clauses: 77 partial, 233 deferred, 3 design-pending; 23 narrow claims.
-- 568 binding rule IDs: 141 partial, 7 partial through a reviewed override, 416 deferred, 4
+- 313 source clauses: 76 partial, 234 deferred, 3 design-pending; 23 narrow claims.
+- 568 binding rule IDs: 140 partial, 7 partial through a reviewed override, 417 deferred, 4
   design-pending; 21 limitations and 11 assumptions, none partial.
 - 210 Python mutation/regression tests, plus kernel-replayed Lean regression modules.
-- Current vectors: 414 Inbox/registry and 340 client rule vectors, run by the contracts
-  (406 agree, 8 known divergences) and the Rust client (339 agree, 1 known divergence).
+- Current vectors: 416 Inbox/registry and 340 client rule vectors. The contracts ran the 414 of
+  `2d06eeb66` (406 agree, 8 known divergences) and the Rust client the 340 (339 agree, 1 known
+  divergence).
 
 The clause counts and the claims are traceability: "partial" means some induction-derived
 theorem (or a closed constant) speaks to the clause, not that the clause is proved.

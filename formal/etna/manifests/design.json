@@ -8829,7 +8829,7 @@
       "type": "∀ {env : Statements.Environment} {w0 w : Design.ProtocolState.World} {s : Design.State}\n    {i : Design.LandInput} {leaves : List Design.Leaf} {e : Design.LandingEnv}\n    (premises : Statements.Premises w0 env) (run : Statements.Run env w0 w)\n    (submitted : env.submits w i leaves e) (ok : Design.land w.inbox i leaves e = some s),\n    ∃ r q bs, Statements.Built env w r ∧ Statements.Links r w.inbox.checkpoint s.checkpoint i.lastStateRoot q bs ∧\n      q.cursor = w.inbox.head ∧\n      (∀ j, w.inbox.head ≤ j → j < s.head → ∃ x ∈ Statements.pairs q bs, x.1.cursor = j ∧ x.2.header.cursor = j+1) ∧\n      ∀ x ∈ Statements.pairs q bs, Statements.ServesQueue w r x.1 x.2",
       "assumptions": [
         "Etna.Statements.Premises: genesis (the initialized World), verifierSound (two proofs, one sound backend that approves only certified statements), hashSeparation (the stored config commitment's only uint256 opening) and authenticatedInputs (an authenticated FI witness under an authenticated anchor from the current generation's origin L1 block up to, not including, the landing's block shows the World's queue entry); headerHashes, headerSeparation and signatureAgreement are unused here",
-        "runs whose landings the environment submits (Statements.Run); real proof-backend soundness, L1 storage-proof authentication and Keccak are premises, not proved",
+        "runs whose landings the environment submits (Statements.Run); real proof-backend soundness, FI-witness storage proofs below an accepted anchor's tail and Keccak are premises, not proved; which anchors env.anchorAuthenticated accepts is unconstrained, so pending and due are judged against the tail and timestamp an accepted anchor reports (AnchorTail)",
         "only the blocks of each landed segment are constrained: liveness (that a due entry is ever landed), the maxAnchorAge bound on inclusion delay, raw-transaction canonicality and the EL's given-list build (Forced.step's named witness and singleton inputs) are not claimed"
       ],
       "bridge_level": "spec-proved",
@@ -8840,7 +8840,7 @@
         "EN-043c32870af8d13f",
         "EN-136c3f345da4a399"
       ],
-      "scope": "Supporting (Rule P: the chain conjunct names only the existential segment): a submitted landing the Inbox accepts on a World a run reaches settles blocks valid under rules Deployment.build derives on that World, from the current checkpoint (cursor = head) to the new one; each entry in [head, new head) is stepped by one of those blocks, every block advances the cursor only through a Forced.step inclusion or legal skip whose witness shows the World's own queue entry, and every block consumes a pending entry that is due under its anchor."
+      "scope": "Supporting (Rule P: the chain conjunct names only the existential segment): a submitted landing the Inbox accepts on a World a run reaches settles blocks valid under rules Deployment.build derives on that World, from the current checkpoint (cursor = head) to the new one; each entry in [head, new head) is stepped by one of those blocks, every block advances the cursor only through a Forced.step inclusion or legal skip whose witness shows the World's own queue entry, and every block consumes an entry its anchor shows pending and due; whether an accepted anchor shows the Inbox's actual queue is not claimed (AnchorTail)."
     },
     {
       "module": "EtnaProofs.Headline.ForcedInclusion",
@@ -8848,7 +8848,7 @@
       "type": "Etna.Statements.ForcedInclusionIntegrity",
       "assumptions": [
         "Etna.Statements.Premises: genesis (the initialized World), verifierSound (two proofs, one sound backend that approves only certified statements), hashSeparation (the stored config commitment's only uint256 opening) and authenticatedInputs (an authenticated FI witness under an authenticated anchor from the current generation's origin L1 block up to, not including, the landing's block shows the World's queue entry); headerHashes, headerSeparation and signatureAgreement are unused here",
-        "the queue and FI-head parts hold along every ProtocolState.Trace from the initialized World; the consumption part ranges over runs whose landings the environment submits (Statements.Run); real proof-backend soundness, L1 storage-proof authentication and Keccak are premises, not proved",
+        "the queue and FI-head parts hold along every ProtocolState.Trace from the initialized World; the consumption part ranges over runs whose landings the environment submits (Statements.Run); real proof-backend soundness, FI-witness storage proofs below an accepted anchor's tail and Keccak are premises, not proved; which anchors env.anchorAuthenticated accepts is unconstrained, so pending and due are judged against the tail and timestamp an accepted anchor reports (AnchorTail)",
         "only the blocks of each landed segment are constrained: liveness (that a due entry is ever landed), the maxAnchorAge bound on inclusion delay, raw-transaction canonicality and the EL's given-list build (Forced.step's named witness and singleton inputs) are not claimed"
       ],
       "bridge_level": "spec-proved",
@@ -8862,7 +8862,7 @@
         "EN-b69a24b78429ebe4",
         "EN-e83bfb4c2586fe1b"
       ],
-      "scope": "Headline H3: along every protocol trace from the initialized World each step keeps every FI queue entry, except that a governance recovery blanks exactly the entries its fiToClear lists, and a step that does not advance lastCheckpoint never advances the FI head; along every run, each submitted landing settles blocks valid under rules Deployment.build derives on the World it lands on, from the current checkpoint (cursor = head) to the new one, and those blocks consume every entry in [head, new head) through Forced.step inclusions or legal skips whose witnesses show the World's own queue entries, and consume every pending due entry. Not claimed: liveness, the inclusion-delay bound or raw-transaction decoding."
+      "scope": "Headline H3: along every protocol trace from the initialized World each step keeps every FI queue entry, except that a governance recovery blanks exactly the entries its fiToClear lists, and a step that does not advance lastCheckpoint never advances the FI head; along every run, each submitted landing settles blocks valid under rules Deployment.build derives on the World it lands on, from the current checkpoint (cursor = head) to the new one, and those blocks consume every entry in [head, new head) through Forced.step inclusions or legal skips whose witnesses show the World's own queue entries, and consume every entry their anchor shows pending and due. Not claimed: that accepted anchors show the Inbox's actual queue; liveness, the inclusion-delay bound or raw-transaction decoding."
     },
     {
       "module": "EtnaProofs.Headline.Claims",
@@ -9139,6 +9139,24 @@
         "EN-0b7dc528f6439e82"
       ],
       "scope": "Scope counterexample, not a failure of H1-H3: open design issue: a blanked FI entry can be enqueued again. A recovery blanks FI entry 0, and the same transaction is enqueued again right after as entry 1, pending in the new generation; once due, an unprovable singleton build stalls the cursor on the copy as on the original, so blanking alone does not handle unprovable content."
+    },
+    {
+      "module": "EtnaWitnesses.Counterexamples.AnchorTail",
+      "declaration": "Etna.Design.AnchorTail.understated_tail_passes_due_entry",
+      "type": "(0,NonVacuity.entry0) ∈ NonVacuity.worldQ.queue ∧ NonVacuity.worldQ.inbox.head = 0 ∧\n    0 < NonVacuity.worldQ.inbox.tail ∧ understated.tail = 0 ∧ honest.tail = 1 ∧\n    (∀ (delay : Nat) (singleton : Forced.Singleton),\n      Forced.step NonVacuity.genesisHeader.cursor understated.tail understated.timestamp delay\n        (skipping understated).forced singleton = .accepted (skipping understated).header.cursor) ∧\n    (∀ r, Statements.ServesQueue NonVacuity.worldQ r NonVacuity.genesisHeader (skipping understated)) ∧\n    (∀ r : BlockValidity.Rules, r.forcedDelay ≤ 100 →\n      ¬ Statements.ServesQueue NonVacuity.worldQ r NonVacuity.genesisHeader (skipping honest)) ∧\n    (∀ wit : Forced.Witness, ¬ wit.index < understated.tail) ∧\n    NonVacuity.relations.anchorAuthenticated (NonVacuity.l1Anchor 15) = true ∧\n    NonVacuity.relations.anchorAuthenticated { NonVacuity.l1Anchor 15 with tail := 0 } = false",
+      "assumptions": [
+        "finite kernel-checked counterexample over concrete decidable adapters; not actual cryptography, proof backends or implementation conformance"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-9e8e4c90054257e9",
+        "EN-db20f3f57ed32fc2",
+        "EN-136c3f345da4a399",
+        "EN-7fdd2e21c46727ee",
+        "EN-1ee6db9f8ebb8410"
+      ],
+      "scope": "Scope counterexample, not a failure of H1-H3: H3's queue service is relative to the tail and timestamp an accepted anchor reports. With an anchor that understates the tail, a block that keeps the FI cursor at a due queue-head entry passes Forced.step with no witness and serves the queue, while the honest tail requires consumption; InputsAuthenticated constrains no witness for that anchor, and by inspection no premise constrains which anchors env.anchorAuthenticated accepts. A concrete instance, not a run under the premises."
     },
     {
       "declaration": "Etna.Design.Capital.blocking_power_bounds",
@@ -9711,7 +9729,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "property",
-      "sources": ["EN-3f7463f0f1df5094", "EN-e3a825ec5265a857"],
+      "sources": [],
       "scope": "Decoded specification result under its explicit hypotheses; no production ABI, byte-layout, cryptographic or DAO-attribution conformance is implied."
     },
     {
@@ -13536,7 +13554,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "property",
-      "sources": ["EN-9ee888f78091a2fe", "EN-2b238db781615e6e"],
+      "sources": ["EN-9ee888f78091a2fe"],
       "scope": "Conditional normal-protocol composition; actual ordinary transitions and successful signer calls. No production conformance, global freshness, rollback or continuous collateral claim."
     },
     {

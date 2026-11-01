@@ -11,7 +11,9 @@ operations. `Run`'s landings add actual batch/construction/snapshot provenance a
 reference bound. Other steps are original non-advancing `OrdinaryStep`s, so registration,
 request/confirm/withdraw, top-up/activation, slash/forfeit, FI enqueue/sweep, nonce invalidation
 and normal recovery remain available. Operation identity is preserved even when two different
-operations can have identical output states.
+operations can have identical output states. "Normal" means only "without verifier-failure
+rollback": a recovery here is any accepted `recover` call, including one whose reselection a late
+registration captured (`RecoveryCapture`).
 
 `EtnaProofs/NormalSigning.lean` proves:
 
@@ -19,8 +21,8 @@ operations can have identical output states.
 - `landing_snapshot_monotone`, `run_snapshot_trace`, `run_covered`: accepted provenance derives
   monotone snapshots and retained confirmation coverage along the complete normal run. Coverage
   is no longer a final-state assumption of the composed result.
-- `run_snapshot_below`: starting below the initialized L1 clock, every later stored snapshot
-  stays strictly below that clock. Normal recovery may execute in the same L1 block as a prior
+- `run_snapshot_below`: if the first World's snapshot is below its L1 clock, every later stored
+  snapshot stays strictly below the current L1 clock. Normal recovery may execute in the same L1 block as a prior
   transaction; no strict confirmation-to-recovery block gap is imposed.
 - `recovery_snapshot_source`: every successful normal recovery has a stored-snapshot source,
   including before the first landing, with its clock bound derived from the preceding run.
@@ -28,7 +30,9 @@ operations can have identical output states.
   give original ordinary causality and preserve the old complete checkpoint record.
 - `confirmation_source_bound`: the current next-height selector covers the confirmation's
   snapshot. Same-generation inclusion uses replay; recovery uses its actual R, original clock
-  ordering and the built context's generation/origin. No selected-cutoff inequality is an input.
+  ordering and the built context's generation/origin. No selected-cutoff inequality is an input;
+  a trusted prefix whose snapshot source is `normalRecovery` carries that constructor's numeric
+  bound (below).
 - `confirmed_key_excluded`: lifetime historical exclusion survives withdrawals, slot reuse and
   later original ordinary operations, and applies to the actual request committee.
 - `fresh_signing_connection`: the old checkpoint stays retained; a successful fresh call is
@@ -39,7 +43,11 @@ operations can have identical output states.
 
 The new `SnapshotSource.normalRecovery` constructor retains the actual successful recovery
 and state/context bindings. The existing `SigningBridge.source_snapshot_bound` proves its
-selector consequence. Existing source constructors, same-generation bridge and headline
+selector consequence, which reads only the clock, time order, kept snapshot, generation and
+origin fields: `s.snapshot < ctx.originBlock` one generation above `before`. The recovery call
+and kept checkpoint name the provenance, but no bound reads them, and `before` is not tied to a
+trace, so the constructor is that numeric bound with recovery provenance attached.
+`recovery_snapshot_source` derives it for an actual recovery at the end of a normal run. Existing source constructors, same-generation bridge and headline
 statement types remain unchanged.
 
 ## Initialized non-vacuity witness
@@ -73,7 +81,11 @@ explicit. The tests demonstrate inhabitation and binding, not production correct
 
 ## Limits and validation
 
-There is no universal lifting theorem from arbitrary accepted/proof-unsound traces to `Run`.
+No theorem lifts a headline `Run`, sound or not, to `NormalSigning.Run`. Under `Premises`, a
+submitted landing supplies `built`, `valid` and `binding` (`submitted_landing_certified`), but
+each landing's prior-snapshot source and reference bound, and the absence of rollback, are
+separate contracts; the regression fixtures are the only runs built here. No fixture lands after
+its recovery: `normalRecovery` is built but no run or trusted prefix consumes it.
 Actual landing provenance, archive authentication, initial key/history conditions and per-call
 producer/key/persistence behavior must be supplied by the implementation. The view must cover
 the particular confirmation; global catch-up/freshness, exceptional rollback, upstream Comet

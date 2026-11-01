@@ -24,6 +24,14 @@ def landFrom (p h : Nat) : CaseStep := fun w =>
   let s := w.inbox
   ⟨b, .land (chainInput s p h s.head s.snapshot b) (chainLeaves s p h) true 1 true⟩
 
+/-- Land (c, h] from p = c in the same L1 block as the previous call, consuming `consume`
+entries. -/
+def landSameBlock (h : Nat) (consume : Nat := 0) : CaseStep := fun w =>
+  let b := w.l1Block
+  let s := w.inbox
+  let c := s.checkpoint.height
+  ⟨b, .land (chainInput s c h (s.head+consume) s.snapshot b) (chainLeaves s c h) true 1 true⟩
+
 def landCase (label : String) (setup : List CaseStep) (call : CaseStep) (deploy : Deploy := {})
     (spec : Option String := none) : Scenario :=
   { label := label, spec := spec, deploy := deploy, setup := setup, call := call }
@@ -57,6 +65,7 @@ def leafGrid : List Scenario := [
   leafCase "frontier-word" fun s ls => ls.set 1 (.word (wordAtom s.generation 12)),
   leafCase "frontier-wrong-head" fun s ls => ls.set 1 (cutLeaf 12 ⟨elAtom 0 12, cometAtom 0 12, s.head+1⟩),
   leafCase "frontier-wrong-el-hash" fun s ls => ls.set 1 (cutLeaf 12 ⟨elAtom 0 12+1, cometAtom 0 12, s.head⟩),
+  leafCase "frontier-wrong-comet-hash" fun s ls => ls.set 1 (cutLeaf 12 ⟨elAtom 0 12, cometAtom 0 12+1, s.head⟩),
   leafCase "frontier-wrong-height" fun s ls => ls.set 1 (cutLeaf 6 ⟨elAtom 0 12, cometAtom 0 12, s.head⟩),
   leafCase "frontier-swapped" fun _ ls => ls.reverse,
   leafCase "interior-word" fun s ls => ls.set 0 (.word (wordAtom s.generation 6))]
@@ -92,7 +101,8 @@ def landHandwritten : List Scenario := [
   landCase "land.hw.record-parent-is-actual-checkpoint" landS1 (landFrom 0 18) (spec := some "spec L336"),
   landCase "land.hw.max-batch-blocks-6.one-segment" landS0 (landFrom 0 6) { maxBatchBlocks := 6 } (some "spec L288"),
   landCase "land.hw.max-batch-blocks-6.two-segments" landS0 (landFrom 0 12) { maxBatchBlocks := 6 } (some "spec L288"),
-  landCase "land.hw.inbox-does-not-enforce-unsettled-limit" [] (landFrom 0 18) { unsettled := 6 } (some "spec L396")]
+  landCase "land.hw.inbox-does-not-enforce-unsettled-limit" [] (landFrom 0 18) { unsettled := 6 } (some "spec L396"),
+  landCase "land.hw.two-landings-in-one-l1-block" (landS0 ++ [landTo 6 1]) (landSameBlock 12 1) (spec := some "spec L284")]
 
 def landScenarios : List Scenario := rangeGrid ++ headGrid ++ leafGrid ++ envGrid ++ landHandwritten
 

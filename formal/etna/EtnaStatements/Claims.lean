@@ -160,7 +160,13 @@ Inbox's head equals c at the checkpoint".
   (`ServesQueue`).
 Along a run, the head passes an entry only through blocks that include or legally skip it.
 The third part constrains only the blocks inside landed segments; blocks that are never landed
-are not covered. It does not claim L436's maxAnchorAge bound (7.3: any valid block with
+are not covered. It judges "pending" and "due" against each block anchor's own tail and
+timestamp: `AnchorValid` checks the anchor's Inbox fields only through the environment's
+`anchorAuthenticated`, and no premise constrains which anchors that relation accepts
+(`InputsAuthenticated` uses it only as an antecedent), so the third part holds relative to the
+tail and timestamp an accepted anchor reports (`AnchorTail.understated_tail_passes_due_entry`).
+That accepted anchors show the Inbox's actual queue is an implementation obligation outside the
+premises. It does not claim L465's maxAnchorAge bound (7.3: any valid block with
 block.timestamp ≥ entry.timestamp + forcedInclusionDelay + maxAnchorAge sees the entry as due). -/
 def ForcedInclusionIntegrity : Prop :=
   ∀ (env : Environment) (w0 : ProtocolState.World), Premises w0 env →

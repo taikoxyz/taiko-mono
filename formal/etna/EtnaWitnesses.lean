@@ -13,6 +13,7 @@ import EtnaWitnesses.Counterexamples.NoVerifierSoundness
 import EtnaWitnesses.Counterexamples.UntrustedRollback
 import EtnaWitnesses.Counterexamples.RecoveryCapture
 import EtnaWitnesses.Counterexamples.ForcedPoisonResubmit
+import EtnaWitnesses.Counterexamples.AnchorTail
 import EtnaWitnesses.Counterexamples.StaleDaoAuthorization
 import EtnaWitnesses.Counterexamples.HistoricalEscrow
 import EtnaWitnesses.Regressions.SigningBridge
@@ -26,4 +27,5 @@ import EtnaWitnesses.Regressions.OrdinaryTrace
 
 /-! Etna witnesses: kernel-checked regression traces over concrete Worlds, the non-vacuity
 witness of the headline premises (`NonVacuity`) and scope counterexamples (`Counterexamples`):
-runs that show what a premise or an open design issue leaves outside H1–H3. -/
+runs, or concrete instances, that show what a premise or an open design issue leaves outside
+H1–H3. -/

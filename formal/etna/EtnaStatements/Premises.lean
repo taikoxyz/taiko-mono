@@ -45,9 +45,9 @@ def VerifierSound (env : Environment) : Prop :=
     ∀ b w i leaves e s, sound b → env.submits w i leaves e → Etna.Design.land w.inbox i leaves e = some s →
       (b, true) ∈ e.proofs → Certifies env w e.certificate
 
-/-- The guests' L1 data agree with the Inbox's own state. For every submitted landing on World
-`w` that the Inbox accepts at L1 block `e.blockNumber`: under an authenticated anchor whose L1
-block lies in [`w.inbox.origin.l1Block`, `e.blockNumber`), that is, from the L1 block of the
+/-- The FI witnesses the guests use agree with the Inbox's queue. For every submitted landing
+on World `w` that the Inbox accepts at L1 block `e.blockNumber`: under an authenticated anchor
+whose L1 block lies in [`w.inbox.origin.l1Block`, `e.blockNumber`), that is, from the L1 block of the
 current generation's origin (slot 290: the recovery that started the generation, or
 initialization for generation 0) up to but not including the landing's block, an authenticated
 forced-inclusion witness for an index below the anchor's tail shows `w`'s queue entry at that
@@ -84,8 +84,10 @@ structure Premises (w0 : ProtocolState.World) (env : Environment) : Prop where
   /-- 3.3 (spec L90): the anchor witness "proves the Inbox's recoveryGeneration, lastCheckpoint
   (height, hash) and the forced inclusion queue's head and tail"; 7.2 (spec L427): a block with a
   pending head "must carry entry c's witness, a storage proof under A's stateRoot". See
-  `InputsAuthenticated`. -/
-  -- Responsibility: Mixed: external L1/crypto trust AND correct anchor/witness/root/value binding.
+  `InputsAuthenticated`. This field captures the FI witness part only: it does not constrain
+  the anchor's own fields, which are whatever `anchorAuthenticated` accepts (`AnchorTail`). -/
+  -- Responsibility: Mixed: external L1/crypto trust AND correct FI witness/root/value binding.
+  -- It constrains no anchor field; anchor authentication is `env.anchorAuthenticated`, outside these premises.
   authenticatedInputs : InputsAuthenticated env
   /-- 6.2 item 1 (spec L360): "committeeConfigHash opens per appendix A". Keccak separation for
   the config adapter: the stored committeeConfigHash has exactly one representable 7-word

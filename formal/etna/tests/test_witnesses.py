@@ -2,8 +2,8 @@
 
 `EtnaWitnesses/NonVacuity` shows the headline premise record is satisfiable by a run that
 lands, consumes a forced-inclusion entry and recovers, and that H2's finality hypothesis can
-hold; `EtnaWitnesses/Counterexamples` holds one concrete bad run per dropped premise or open
-design issue. Every module builds without warnings; every public theorem in them has a
+hold; `EtnaWitnesses/Counterexamples` holds one concrete bad run, or a concrete instance, per dropped
+premise or open design issue. Every module builds without warnings; every public theorem in them has a
 `regression` manifest entry (so none backs a proof claim or changes a clause's status) that
 passes the proof audit's exact-type and transitive-axiom checks; and probes pin the facts each
 module exists to show, so a weakened restatement of a theorem and its manifest entry still
@@ -28,7 +28,7 @@ def load(name, path):
 AUDIT = load('witnesses_audit', 'scripts/audit_proofs.py')
 
 COUNTEREXAMPLES = ['NoVerifierSoundness', 'UntrustedRollback', 'RecoveryCapture', 'ForcedPoisonResubmit',
-                   'StaleDaoAuthorization', 'HistoricalEscrow', 'SigningViewLag']
+                   'StaleDaoAuthorization', 'HistoricalEscrow', 'SigningViewLag', 'AnchorTail']
 MODULES = ['EtnaWitnesses.NonVacuity.Premises'] + [f'EtnaWitnesses.Counterexamples.{n}' for n in COUNTEREXAMPLES]
 EXPECTED = {
     'Etna.Design.NonVacuity.premises_satisfiable', 'Etna.Design.NonVacuity.finality_hypothesis_satisfiable',
@@ -37,6 +37,7 @@ EXPECTED = {
     'Etna.Design.UntrustedRollback.untrusted_snapshot_frees_committee_stake',
     'Etna.Design.RecoveryCapture.late_stake_captures_recovery_committee',
     'Etna.Design.ForcedPoisonResubmit.cleared_poison_resubmitted',
+    'Etna.Design.AnchorTail.understated_tail_passes_due_entry',
     'Etna.Design.StaleDaoAuthorization.stale_authorization_never_revives',
     'Etna.Design.StaleDaoAuthorization.stale_authorization_rejected_on_every_future',
     'Etna.Design.HistoricalEscrow.ordinary_exit_and_historical_validity',
@@ -116,6 +117,16 @@ example : ProtocolState.Trace NonVacuity.world0 worldAgain ∧ Blanks worldP wor
     ∃ j e, (j,e) ∈ worldAgain.queue ∧ e.txHash = poison.txHash ∧ worldAgain.inbox.head ≤ j ∧ j < worldAgain.inbox.tail := by
   obtain ⟨trace,blanks,_,_,again,same,head,tail,_⟩ := cleared_poison_resubmitted
   exact ⟨trace,blanks,_,_,again,same,head,tail⟩
+
+open Etna.Design Etna.Statements AnchorTail in
+/-- Anchor tail: a due queue-head entry stays pending while the understated anchor's block
+serves the queue, and the honest tail would require consuming it. -/
+example : (0,NonVacuity.entry0) ∈ NonVacuity.worldQ.queue ∧
+    (∀ r, ServesQueue NonVacuity.worldQ r NonVacuity.genesisHeader (skipping understated)) ∧
+    ∀ r : BlockValidity.Rules, r.forcedDelay ≤ 100 →
+      ¬ ServesQueue NonVacuity.worldQ r NonVacuity.genesisHeader (skipping honest) := by
+  obtain ⟨mem,_,_,_,_,_,serves,blocked,_⟩ := understated_tail_passes_due_entry
+  exact ⟨mem,serves,blocked⟩
 
 open Etna.Design Etna.Statements StaleDaoAuthorization in
 /-- Non-revival: the same restored checkpoint and generation still reject the old

@@ -12,7 +12,7 @@ other rules of that clause are `deferred`.
 
 | Type       | Count | partial | partial-via | deferred | design-pending |
 | ---------- | ----: | ------: | ----------: | -------: | -------------: |
-| rule       |   568 |     141 |           7 |      416 |              4 |
+| rule       |   568 |     140 |           7 |      417 |              4 |
 | limitation |    21 |       0 |           0 |       20 |              1 |
 | assumption |    11 |       0 |           0 |       11 |              0 |
 
@@ -20,7 +20,7 @@ other rules of that clause are `deferred`.
 
 | Family | Rules | partial | partial-via | deferred | design-pending |
 | ------ | ----: | ------: | ----------: | -------: | -------------: |
-| RECOV  |   110 |      30 |           0 |       80 |              0 |
+| RECOV  |   110 |      29 |           0 |       81 |              0 |
 | ENC    |    58 |       8 |           0 |       50 |              0 |
 | CONS   |    52 |       9 |           0 |       43 |              0 |
 | PROOF  |    47 |      23 |           0 |       24 |              0 |
@@ -412,18 +412,18 @@ other rules of that clause are `deferred`.
 | RECOV-8.3-5   | rule       | partial        | EN-8e5f0457d17b70bc                       |      7 | `consumed_authorization_never_revives`, `trace_nonce_monotone`                                               |
 | RECOV-8.3-6   | rule       | deferred       | EN-8e5f0457d17b70bc                       |      7 |                                                                                                              |
 | RECOV-8.3-7   | rule       | deferred       | EN-8e5f0457d17b70bc                       |      7 |                                                                                                              |
-| RECOV-8.3-8   | rule       | partial        | EN-3f7463f0f1df5094                       |      8 | `consumed_authorization_never_revives`, `trace_entered`, `trace_generation_monotone` +1                      |
-| RECOV-8.3-9   | rule       | partial        | EN-3f7463f0f1df5094                       |      8 | `consumed_authorization_never_revives`, `trace_entered`, `trace_generation_monotone` +1                      |
-| RECOV-8.3-10  | rule       | partial        | EN-3f7463f0f1df5094                       |      8 | `consumed_authorization_never_revives`, `trace_entered`, `trace_generation_monotone` +1                      |
-| RECOV-8.3-11  | rule       | partial        | EN-3f7463f0f1df5094                       |      8 | `consumed_authorization_never_revives`, `trace_entered`, `trace_generation_monotone` +1                      |
-| RECOV-8.3-12  | rule       | partial        | EN-3f7463f0f1df5094                       |      8 | `consumed_authorization_never_revives`, `trace_entered`, `trace_generation_monotone` +1                      |
-| RECOV-8.3-13  | rule       | partial        | EN-3f7463f0f1df5094                       |      8 | `consumed_authorization_never_revives`, `trace_entered`, `trace_generation_monotone` +1                      |
-| RECOV-8.3-14  | rule       | partial        | EN-3f7463f0f1df5094                       |      8 | `consumed_authorization_never_revives`, `trace_entered`, `trace_generation_monotone` +1                      |
+| RECOV-8.3-8   | rule       | partial        | EN-3f7463f0f1df5094                       |      8 | `consumed_authorization_never_revives`, `trace_generation_monotone`, `trace_nonce_monotone`                  |
+| RECOV-8.3-9   | rule       | partial        | EN-3f7463f0f1df5094                       |      8 | `consumed_authorization_never_revives`, `trace_generation_monotone`, `trace_nonce_monotone`                  |
+| RECOV-8.3-10  | rule       | partial        | EN-3f7463f0f1df5094                       |      8 | `consumed_authorization_never_revives`, `trace_generation_monotone`, `trace_nonce_monotone`                  |
+| RECOV-8.3-11  | rule       | partial        | EN-3f7463f0f1df5094                       |      8 | `consumed_authorization_never_revives`, `trace_generation_monotone`, `trace_nonce_monotone`                  |
+| RECOV-8.3-12  | rule       | partial        | EN-3f7463f0f1df5094                       |      8 | `consumed_authorization_never_revives`, `trace_generation_monotone`, `trace_nonce_monotone`                  |
+| RECOV-8.3-13  | rule       | partial        | EN-3f7463f0f1df5094                       |      8 | `consumed_authorization_never_revives`, `trace_generation_monotone`, `trace_nonce_monotone`                  |
+| RECOV-8.3-14  | rule       | partial        | EN-3f7463f0f1df5094                       |      8 | `consumed_authorization_never_revives`, `trace_generation_monotone`, `trace_nonce_monotone`                  |
 | RECOV-8.3-15  | rule       | deferred       | EN-3f7463f0f1df5094                       |      8 |                                                                                                              |
 | RECOV-8.3-16  | rule       | deferred       | EN-e3a825ec5265a857                       |      4 |                                                                                                              |
 | RECOV-8.3-17  | rule       | deferred       | EN-e3a825ec5265a857                       |      4 |                                                                                                              |
 | RECOV-8.3-18  | rule       | deferred       | EN-e3a825ec5265a857                       |      4 |                                                                                                              |
-| RECOV-8.3-19  | rule       | partial        | EN-e3a825ec5265a857                       |      4 | `trace_entered`                                                                                              |
+| RECOV-8.3-19  | rule       | deferred       | EN-e3a825ec5265a857                       |      4 |                                                                                                              |
 | RECOV-8.4-1   | rule       | deferred       | EN-814719191f797a7f                       |      2 |                                                                                                              |
 | RECOV-8.4-2   | rule       | deferred       | EN-814719191f797a7f                       |      2 |                                                                                                              |
 | RECOV-8.4-3   | rule       | partial        | EN-8ae0f0fcf4c9861c                       |      4 | `genesis_trace_invariants`, `trace_preserves_constraints`, `trace_keeps_inbox_initialized` +1                |
@@ -448,10 +448,10 @@ other rules of that clause are `deferred`.
 | SYNC-9-7      | rule       | deferred       | EN-9ee888f78091a2fe                       |      6 |                                                                                                              |
 | SYNC-9-8      | rule       | deferred       | EN-9ee888f78091a2fe                       |      6 |                                                                                                              |
 | SYNC-9-9      | rule       | partial        | EN-9ee888f78091a2fe                       |      6 | `confirmation_source_bound`, `fresh_signing_connection`, `initialized_fresh_signing_connection` +7           |
-| SYNC-9-10     | rule       | partial        | EN-2b238db781615e6e                       |      6 | `confirmation_source_bound`, `fresh_signing_connection`, `initialized_fresh_signing_connection` +5           |
-| SYNC-9-11     | rule       | partial        | EN-2b238db781615e6e                       |      6 | `confirmation_source_bound`, `fresh_signing_connection`, `initialized_fresh_signing_connection` +5           |
-| SYNC-9-12     | rule       | partial        | EN-2b238db781615e6e                       |      6 | `confirmation_source_bound`, `fresh_signing_connection`, `initialized_fresh_signing_connection` +5           |
-| SYNC-9-13     | rule       | partial        | EN-2b238db781615e6e                       |      6 | `confirmation_source_bound`, `fresh_signing_connection`, `initialized_fresh_signing_connection` +5           |
+| SYNC-9-10     | rule       | partial        | EN-2b238db781615e6e                       |      6 | `fresh_signing_connection`, `initialized_fresh_signing_connection`, `event_excludes_confirmed_key` +4        |
+| SYNC-9-11     | rule       | partial        | EN-2b238db781615e6e                       |      6 | `fresh_signing_connection`, `initialized_fresh_signing_connection`, `event_excludes_confirmed_key` +4        |
+| SYNC-9-12     | rule       | partial        | EN-2b238db781615e6e                       |      6 | `fresh_signing_connection`, `initialized_fresh_signing_connection`, `event_excludes_confirmed_key` +4        |
+| SYNC-9-13     | rule       | partial        | EN-2b238db781615e6e                       |      6 | `fresh_signing_connection`, `initialized_fresh_signing_connection`, `event_excludes_confirmed_key` +4        |
 | SYNC-9-14     | rule       | deferred       | EN-2b238db781615e6e                       |      6 |                                                                                                              |
 | SYNC-9-15     | rule       | deferred       | EN-2b238db781615e6e                       |      6 |                                                                                                              |
 | SYNC-9-16     | rule       | deferred       | EN-969b0b07790bb3ea                       |      1 |                                                                                                              |

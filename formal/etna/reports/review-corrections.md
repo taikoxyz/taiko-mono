@@ -589,3 +589,41 @@ The 31 added contracts comprise 15 properties and 16 initialized regressions. Al
 contract types remain unchanged. Six structural provenance/projection helpers cite no clause
 and are individually enumerated in UNSOURCED. Source/rule metadata checks are rerun after the
 minor attribution correction.
+
+## 2026-11-01: second review of the normal-recovery composition
+
+A read-only review of `ae9da93f6..c04cb734a`, together with the open findings of the review of
+`ae9da93f6`, found no Critical defects. Corrections:
+
+- **H3 and anchor authentication.** H3's queue service judges pending and due against each
+  block anchor's own tail and timestamp; `AnchorValid` checks the anchor's Inbox fields only
+  through `env.anchorAuthenticated`, which no premise constrains. The seven premises and H1-H3
+  are unchanged. The new scope counterexample `AnchorTail.understated_tail_passes_due_entry`
+  shows a block passing a due entry under an anchor that understates the tail, while the honest
+  tail requires consumption. The H3 docstring, the `authenticatedInputs` docstring and comment,
+  the H3 and `landing_consumes_queue` manifest prose, README and
+  `premise-responsibilities.md` (new section on environment relations no premise constrains)
+  now say so.
+- **Gate ownership.** `.github/CODEOWNERS` covers `/formal/**` and
+  `/testdata/etna_conformance/**`.
+- **`Covered`.** `SigningBridge.fresh_signing_connection` takes it as an input; its docstring
+  and README now say so, and that `NormalSigning.run_covered` derives it.
+- **Vectors.** `land.leaves.frontier-wrong-comet-hash` (reverts before proof verification) and
+  `land.hw.two-landings-in-one-l1-block` (accepted) cover two ACCEPTANCE section 3 cases; the
+  land family has 100 vectors.
+- **Planning documents.** The two `docs/superpowers/` files are removed; README and
+  `signing-prefix-connection.md` again say execution plans are not tracked.
+- **Wording.** `NormalSigning.Run` is not lifted from headline runs (under `Premises` a
+  submitted landing supplies `built`, `valid` and `binding`; the snapshot source, reference
+  bound and absence of rollback stay separate). `SnapshotSource.normalRecovery` yields only
+  `s.snapshot < ctx.originBlock`. "Normal" means without verifier-failure rollback. Stale
+  authority pins in two reports are updated.
+- **Citations.** `trace_entered` states only that the never-set reentrancy flag is unchanged,
+  so it cites no clause (`UNSOURCED`) and RECOV-8.3-19 becomes deferred.
+  `confirmation_source_bound` no longer cites the signing-gate clause of SYNC-9-10..13. DV-23
+  adds `confirmed_key_excluded` and states that rollback is excluded.
+
+Validation: 115-job build, 944 exact contracts (178 property, 3 constant, 416 supporting, 347
+regression), 178 property derivation chains, 13 Lean regression modules, 756 fresh vectors,
+313 clauses (76 partial, 234 deferred, 3 design-pending), 568 rules (140 partial, 7 via, 417
+deferred, 4 design-pending) and the full Python suite.

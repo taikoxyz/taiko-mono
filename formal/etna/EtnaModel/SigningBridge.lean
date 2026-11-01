@@ -83,8 +83,13 @@ inductive SnapshotSource (s : State) (ctx : Consensus.Context) : Prop
       (newGeneration : ctx.generation ≠ 0) (precedesOrigin : e.blockNumber ≤ ctx.originBlock)
       (checkpointKept : s.checkpoint = settled.checkpoint) (snapshotKept : s.snapshot = settled.snapshot) :
       SnapshotSource s ctx
-
-
+  /-- A recovery before the first landing of the new generation. The bound it yields
+  (`source_snapshot_bound`) reads only `time`, `clock`, `snapshotKept`, `generation` and
+  `originKept`, that is `s.snapshot < ctx.originBlock` for a context one generation above
+  `before`. `accepted` and `checkpointKept` name the recovery but no bound reads them, and
+  `before` is not tied to a particular trace, so this is that numeric bound with recovery
+  provenance attached. `NormalSigning.recovery_snapshot_source` derives it for an actual
+  recovery at the end of a normal run. -/
   | normalRecovery {before : ProtocolState.World} {result : Recovery.World} {a : Recovery.Request}
       {origin : Origin} {owner externalOK : Bool}
       (time : before.l1Block ≤ origin.l1Block)

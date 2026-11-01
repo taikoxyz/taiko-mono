@@ -12,11 +12,28 @@ None of the classifications below certify a backend, guest, client, signer or co
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `genesis`             | The selected L1 deployment/initialization data and genesis execution are authentic.                                                               | The actual initialized Inbox/registry equal `Deployment.Genesis`: correct genesis hashes/root, committee/config openings, fixed origin, snapshot, nonce, queue, fee state, immutable bounds and address/chain bindings. `Genesis` does not itself derive initial lifetime-key uniqueness, exit-history visibility or absence of confirmations; the initialized signing corollary names those additional initial-state facts explicitly. |
 | `verifierSound`       | Every accepted backend combination contains a sound backend. Its proof-system/cryptographic/attestation assumptions are external.                 | The sound backend's **guest** proves `Certifies` for the correct image and complete statement, opening the deployment commitments and binding real execution and blobs to the modeled batch. Proof-system soundness alone does not establish correct guest semantics. The contract is restricted to submitted accepted landings, as its definition states.                                                                              |
-| `authenticatedInputs` | L1 finality and the underlying header/hash/MPT authentication primitives are sound.                                                               | Accepted anchors and FI witnesses name the correct deployment, state root, index and stored value, with the required origin/reference interval and the World's actual queue. Authenticating a proof under an unrelated root is insufficient.                                                                                                                                                                                            |
+| `authenticatedInputs` | L1 finality and the underlying header/hash/MPT authentication primitives are sound.                                                               | An FI witness that `forcedAuthenticated` accepts under an accepted anchor, for an index below that anchor's tail, from the current generation's origin L1 block up to, not including, the landing's block, shows the World's actual queue entry at that index. Authenticating a proof under an unrelated root is insufficient. The field constrains no anchor field; see the next section.                                              |
 | `hashSeparation`      | Idealized collision/preimage separation: the stored config hash has a unique **representable uint256** opening.                                   | The real seven-word canonical encoding, complete chain/deployment identity and Keccak adapter match the stored commitment and ghost configuration. The field is not an injectivity theorem for unbounded natural numbers.                                                                                                                                                                                                               |
 | `headerHashes`        | Correct execution/header hashing can be delegated to the pinned EL and hash primitive.                                                            | `executionValid` accepts only when both parent/child hashes equal the hashes of their actual decoded headers; genesis has the same binding. Etna-specific execution and header changes, including zk gas, FI singleton execution and EIP-4788 processing, need conformance evidence.                                                                                                                                                    |
 | `headerSeparation`    | Idealized header-hash collision resistance.                                                                                                       | The full decoded anchor is authenticated consistently from the L1 block bound by the header. The actual EL header carries the anchor number and state root, not every decoded anchor field, so this field contains an authentication/refinement duty as well as hash trust.                                                                                                                                                             |
 | `signatureAgreement`  | Signature unforgeability and correct primitive implementations are external dependencies; this field itself states agreement, not unforgeability. | Every consensus-accepted vote in this deployment is accepted by the registry's signature verifier with the same key and evidence bytes: canonical encoding, secp256k1eth format, full domain, generation, height, round, phase and block id must agree. A real cross-implementation obligation, not an arbitrary trust boolean.                                                                                                         |
+
+## Environment relations no premise constrains
+
+`verifierSound` asks only that a landing be `Certifies`: valid under the rules `Deployment.build`
+derives from the environment's relations. Of those relations, a premise constrains
+`executionValid` (`headerHashes`), `forcedAuthenticated` for indices below an accepted anchor's
+tail (`authenticatedInputs`) and `signature` (`signatureAgreement`). The others are free: H1-H3
+hold for whatever they accept, and that they accept exactly what the spec requires is an
+implementation obligation of the guest, and of the node for the same checks.
+
+| Relation                             | What an implementation must establish                                                                                                                                                                                                                                                                                        |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `anchorAuthenticated`                | An accepted anchor shows the Inbox at its L1 block: recovery generation, lastCheckpoint height and hash, FI head and tail, and that block's timestamp and stateRoot (3.3; 6.2 item 8). H3's queue service is relative to the tail and timestamp an accepted anchor reports (`AnchorTail.understated_tail_passes_due_entry`). |
+| Forced witness flags and `singleton` | `storageAuthenticated`, `canonical`, the raw hash and length and the transaction-0 fields of a witness are computed from the actual bytes, and a block's `singleton` result is its actual single-transaction build (7.2). `forcedAuthenticated` binds only the index and stored entry.                                       |
+| `committeeAuthenticated`             | Switch-block registry proofs verify under the S(t) state root (3.4 rule 6; 4.3).                                                                                                                                                                                                                                             |
+| `payloadValid`, `batchPayloadValid`  | The envelope, data hash, FI transaction 0 and singleton build decode as sections 5 and 7.2 require, and the blobs carry exactly the batch's payload (6.2 item 9).                                                                                                                                                            |
+| `historyAuthenticated`               | The fixed origin, genesis schedule, historical registry and anchor lookups (6.2 items 1-2).                                                                                                                                                                                                                                  |
 
 The less-than-one-third Byzantine-power hypothesis is H2's explicit antecedent rather than an
 eighth `Premises` field. It concerns each relevant actual committee, including punished members
@@ -29,7 +46,9 @@ bootstrap and signing integration. The present work does not formalize upstream 
 
 ## Normal-run and recovery composition contracts
 
-`NormalSigning.Run` is a provenance refinement, not a new production machine. Its projection
+`NormalSigning.Run` is a provenance refinement, not a new production machine. "Normal" means
+only "without verifier-failure rollback": its recovery is any accepted `recover` call,
+including one whose reselection a late registration captured (`RecoveryCapture`). Its projection
 uses every original ordinary transaction kind. It leaves out verifier-failure rollback and
 requires each landing to carry:
 
@@ -40,14 +59,18 @@ requires each landing to carry:
 - the existing reference contract `activeCommitteeSnapshot <= l1ReferenceBlockNumber`.
 
 These witnesses must come from actual producer/guest/history behavior. `Built`, an accepting
-proof pair or a trusted boolean alone do not manufacture them. `Run` does not claim that every
-unrestricted `OrdinaryTrace` or headline `Run` can automatically be lifted to it. No selected
+proof pair or a trusted boolean alone do not manufacture them. No theorem lifts a headline `Run` to it: under `Premises` a submitted landing supplies the
+batch, construction and statement equality (`submitted_landing_certified`), but the prior-snapshot
+source, the reference bound and the absence of rollback are separate contracts. No selected
 cutoff bound, final confirmation coverage or key exclusion is an edge premise: the new
 proofs derive them from these provenance contracts and explicit initial conditions.
 
 `SnapshotSource.normalRecovery` additionally supports recovery before the first landing. It
 names an actual successful recovery, its L1 ordering and preserved checkpoint/snapshot, and
-binds the current context's generation and origin to that call. Its pre-recovery snapshot/clock
+binds the current context's generation and origin to that call. The bound it yields reads only
+the clock, time order, kept snapshot, generation and origin, that is `s.snapshot <
+ctx.originBlock` one generation above `before`; the recovery call and kept checkpoint name the
+provenance but no bound reads them, and `before` is not tied to a trace. Its pre-recovery snapshot/clock
 fact is derived by `NormalSigning.recovery_snapshot_source` from the preceding normal run and
 initialization, rather than being assumed as a committee cutoff inequality.
 

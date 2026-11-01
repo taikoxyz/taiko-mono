@@ -233,9 +233,10 @@ theorem genesis_snapshot_source {w : ProtocolState.World} {hash root : Hash} {cf
   exact .atFloor (init.2.2.2.2.2.2.2.1.trans floor.symm)
 
 /-- The assembled signing connection reads the real successful transition, binds a fresh
-returned signature and log entry to the exact message, and derives snapshot coverage and
-lifetime exclusion from its authenticated prefix. This is conditional on the adapter and
-engine refinements, not on Request.trusted alone. -/
+returned signature and log entry to the exact message, and derives lifetime exclusion from
+its authenticated prefix. Snapshot coverage (`SigningEscrow.Covered confirmed`) is an input
+here; `NormalSigning.run_covered` derives it along a normal run. This is conditional on the
+adapter and engine refinements, not on Request.trusted alone. -/
 theorem fresh_signing_connection {initial confirmed view : ProtocolState.World} {id c : Nat}
     (prior : ProtocolState.Trace initial confirmed) (core : ProtocolState.Core initial)
     (keys : SigningEscrow.KeysWellFormed initial.registry) (visible : SigningEscrow.ExitVisible initial.registry)

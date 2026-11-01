@@ -43,6 +43,8 @@ PARTIAL_ROLES = {'property', 'constant'}
 SCOPE = 'conditional decoded specification property only'
 # Theorems that back no clause (each must cite none): modelling plumbing, not a spec obligation.
 UNSOURCED = {
+    'Etna.Design.ProtocolState.trace_entered': 'The reentrancy flag never changes along a trace (it is never set); '
+                                               'no clause: recovery nonces and cross-function reentrancy are not stated',
     'Etna.Proofs.run_trace': 'Run ⊆ Trace: restates a run of the headline claims as a protocol trace; '
                              'an obligation of no clause (it used to cite the whole 6.1 land clause)',
     'Etna.Proofs.trace_run': 'Trace ⊆ Run for an environment that submits every landing land accepts on a '

@@ -3,13 +3,20 @@ import EtnaModel.BackPressure
 
 /-! Normal protocol provenance for exit/signing composition. Landings retain their actual
 batch and construction witnesses. Every other ordinary operation uses the original
-constructor; no verifier-failure rollback, cutoff conclusion or key exclusion is a field. -/
+constructor; no verifier-failure rollback, cutoff conclusion or key exclusion is a field.
+"Normal" means only "without verifier-failure rollback": a recovery here is any accepted
+`recover` call, including one whose reselection a late registration captured
+(`RecoveryCapture`). -/
 namespace Etna.Design.NormalSigning
 open ProtocolState SigningBridge
 
 /-- Ordinary runs whose accepted landings have a valid batch under the deployment's own
 construction and a source for the prior snapshot in that history. The reference bound is
-an explicit guest/history interface contract, also used by the existing SoundStep. -/
+an explicit guest/history interface contract, also used by the existing SoundStep.
+No theorem lifts a headline `Statements.Run` to this relation. Under `Premises`, a
+submitted landing supplies `built`, `valid` and `binding` (`submitted_landing_certified`),
+but `source`, `reference` and the absence of rollback are separate contracts; the
+regression fixtures are the only runs built here. -/
 inductive Run : World → World → Prop
   | refl (w : World) : Run w w
   | landing {first w : World} {s : State} {i : LandInput} {leaves : List Leaf} {e : LandingEnv}
