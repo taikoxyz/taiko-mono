@@ -8864,7 +8864,11 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["EN-9e8e4c90054257e9", "EN-7fdd2e21c46727ee", "EN-1ee6db9f8ebb8410"],
+      "sources": [
+        "EN-9e8e4c90054257e9",
+        "EN-7fdd2e21c46727ee",
+        "EN-1ee6db9f8ebb8410"
+      ],
       "scope": "H3's third part against the Inbox's actual queue: a landed block consumes the queue-head entry once it is due by the anchor's time, and 7.3's block-time bound holds (block.timestamp >= entry.timestamp + forcedInclusionDelay + maxAnchorAge implies it is consumed). Blocks in landed segments only; no wall-clock deadline and no liveness."
     },
     {
@@ -13459,7 +13463,11 @@
       ],
       "bridge_level": "spec-proved",
       "role": "property",
-      "sources": ["EN-95f0590cf84239d4", "EN-1922bc4f51f2158c", "EN-d7e07b7ea27ed4a3"],
+      "sources": [
+        "EN-95f0590cf84239d4",
+        "EN-1922bc4f51f2158c",
+        "EN-d7e07b7ea27ed4a3"
+      ],
       "scope": "Section 12 item 19's window: the slashed entry has no principal and its key is absent from every committee selected at a cutoff at or after the slashing block, also after slot reuse. Committees selected before the slash keep its power, which counts as Byzantine power under the less-than-1/3 bound."
     },
     {
@@ -14016,6 +14024,176 @@
         "EN-2b238db781615e6e"
       ],
       "scope": "Genuine initialized decoded ordinary rotation/recovery/exit/signing witness with retained history, actual transitions and fresh signer calls."
+    },
+    {
+      "module": "EtnaProofs.CanonicalHistory",
+      "declaration": "Etna.Design.CanonicalHistory.accepted_archive_covered",
+      "type": "∀ {w : Etna.Design.ProtocolState.World} {s : Etna.Design.State}\n  {i : Etna.Design.LandInput} {leaves : List Etna.Design.Leaf} {e : Etna.Design.LandingEnv}\n  {r : Etna.Design.BlockValidity.Rules} {archive : List Nat} {parent : Etna.Design.BlockValidity.Header}\n  {blocks : List Etna.Design.BlockValidity.Block} {blobs : List Etna.Design.Hash}\n  (accepted : Etna.Design.land w.inbox i leaves e = Option.some s)\n  (valid : Etna.Design.Settlement.BatchValid r parent blocks blobs)\n  (binding : e.certificate = Etna.Design.Settlement.statement r parent blocks blobs)\n  (headers :\n    ∀ (b : Etna.Design.BlockValidity.Block),\n      b ∈ blocks → archive[b.header.height]? = Option.some b.header.anchor.number),\n  s.checkpoint.height < archive.length",
+      "assumptions": [
+        "Actual accepted land call, a valid decoded batch and exact certificate binding.",
+        "Exact decoded header-height/archive-anchor bindings; raw header/hash/L1 authentication remains external."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-99e8a56e96bcba34", "EN-2474bdce909c86f9"],
+      "scope": "Actual accepted certificate-valid batch plus decoded header-height/archive bindings implies terminal stored checkpoint coverage. Raw header/hash/L1 authentication is an external adapter contract; no independent coverage field is assumed."
+    },
+    {
+      "module": "EtnaProofs.CanonicalHistory",
+      "declaration": "Etna.Design.CanonicalHistory.landing_reference_bound",
+      "type": "∀ {w : Etna.Design.ProtocolState.World} {s : Etna.Design.State}\n  {i : Etna.Design.LandInput} {leaves : List Etna.Design.Leaf} {e : Etna.Design.LandingEnv}\n  {r template : Etna.Design.BlockValidity.Rules} {archive : List Nat} {parent : Etna.Design.BlockValidity.Header}\n  {blocks : List Etna.Design.BlockValidity.Block} {blobs : List Etna.Design.Hash}\n  (accepted : Etna.Design.land w.inbox i leaves e = Option.some s)\n  (built : Etna.Design.Deployment.build w w.inbox.configuration archive template = Option.some r)\n  (binding : e.certificate = Etna.Design.Settlement.statement r parent blocks blobs)\n  (origin : w.inbox.origin.l1Block ≤ r.referenceNumber) (anchors : ∀ (a : Nat), a ∈ archive → a ≤ r.referenceNumber),\n  i.activeCommitteeSnapshot ≤ i.l1ReferenceBlockNumber",
+      "assumptions": [
+        "Actual accepted land call, deployment-built rules and exact certificate binding.",
+        "Raw origin and archive anchor numbers belong to the authenticated L1 chain ending at the proof reference; raw-header/MPT/hash verification remains external."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-5d5828fcdce5ab2a", "EN-2474bdce909c86f9"],
+      "scope": "The accepted statement output snapshot is at or below its own reference number, derived from deployment construction, certificate binding and raw origin/archive L1 ancestor bounds. No selected-cutoff inequality is assumed."
+    },
+    {
+      "module": "EtnaProofs.CanonicalHistory",
+      "declaration": "Etna.Design.CanonicalHistory.run_normal",
+      "type": "∀ {initial w : Etna.Design.ProtocolState.World} {archive : List Nat}\n  (run : Etna.Design.CanonicalHistory.Run initial w archive),\n  Etna.Design.NormalSigning.Run initial w",
+      "assumptions": [
+        "CanonicalHistory.Run: genuine initialization, actual accepted batch/recovery calls and original ordinary edits.",
+        "Canonical archive extension, exact accepted header bindings and raw origin/archive L1 reference ancestry; guest/EL/hash authentication remains external."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [
+        "EN-99e8a56e96bcba34",
+        "EN-5d5828fcdce5ab2a",
+        "EN-7319b105593c8c53"
+      ],
+      "scope": "General inductive lift from initialized raw canonical accepted history to NormalSigning.Run. Prior snapshot provenance and reference-output bounds are derived; normal recovery and all ordinary edits retain original calls. No unqualified old Statements.Run lift or production authentication claim."
+    },
+    {
+      "module": "EtnaProofs.CanonicalHistory",
+      "declaration": "Etna.Design.CanonicalHistory.prior_snapshot_source",
+      "type": "∀ {initial w : Etna.Design.ProtocolState.World}\n  {archive more : List Nat} {r template : Etna.Design.BlockValidity.Rules}\n  (run : Etna.Design.CanonicalHistory.Run initial w archive)\n  (built : Etna.Design.Deployment.build w w.inbox.configuration (archive ++ more) template = Option.some r),\n  Etna.Design.SigningBridge.SnapshotSource w.inbox r.consensus",
+      "assumptions": [
+        "CanonicalHistory.Run: genuine initialization, actual accepted batch/recovery calls and original ordinary edits.",
+        "Canonical archive extension, exact accepted header bindings and raw origin/archive L1 reference ancestry; guest/EL/hash authentication remains external."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [
+        "EN-99e8a56e96bcba34",
+        "EN-5d5828fcdce5ab2a",
+        "EN-7319b105593c8c53"
+      ],
+      "scope": "Derive the prior stored snapshot source for a deployment context over any extension of the same canonical archive, from the actual initialization, accepted landing or last normal recovery and intervening ordinary edits. No SnapshotSource field in the raw run."
+    },
+    {
+      "module": "EtnaProofs.CanonicalHistory",
+      "declaration": "Etna.Design.CanonicalHistory.run_trace",
+      "type": "∀ {initial w : Etna.Design.ProtocolState.World} {archive : List Nat}\n  (run : Etna.Design.CanonicalHistory.Run initial w archive),\n  Etna.Design.ProtocolState.Trace initial w",
+      "assumptions": [
+        "The raw canonical history and, for Statements.Run, its submission-only annotation; modelling correspondence only."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [],
+      "scope": "Modelling plumbing only: canonical histories project to the original protocol Trace, preserving original transition constructors and order. This projection backs no specification clause."
+    },
+    {
+      "module": "EtnaProofs.CanonicalHistory",
+      "declaration": "Etna.Design.CanonicalHistory.run_statements",
+      "type": "∀ {env : Etna.Statements.Environment}\n  {initial w : Etna.Design.ProtocolState.World} {archive : List Nat}\n  (run : Etna.Design.CanonicalHistory.Run initial w archive)\n  (submitted : Etna.Design.CanonicalHistory.Submitted env.submits run),\n  Etna.Statements.Run env initial w",
+      "assumptions": [
+        "The raw canonical history and, for Statements.Run, its submission-only annotation; modelling correspondence only."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [],
+      "scope": "Modelling plumbing only: the submission annotation projects canonical histories to the original Statements.Run, preserving original transition constructors and order. It adds no authentication or signing guarantee and backs no specification clause."
+    },
+    {
+      "module": "EtnaProofs.CanonicalHistory",
+      "declaration": "Etna.Design.CanonicalHistory.submitted_history_landing",
+      "type": "∀ {env : Etna.Statements.Environment}\n  {initial w : Etna.Design.ProtocolState.World} {archive : List Nat} {s : Etna.Design.State} {i : Etna.Design.LandInput}\n  {leaves : List Etna.Design.Leaf} {e : Etna.Design.LandingEnv} (premises : Etna.Statements.Premises initial env)\n  (prior : Etna.Statements.Run env initial w) (history : Etna.Design.CanonicalHistory.Run initial w archive)\n  (submitted : env.submits w i leaves e) (time : w.l1Block ≤ e.blockNumber)\n  (accepted : Etna.Design.land w.inbox i leaves e = Option.some s)\n  (authenticate :\n    ∀ (r : Etna.Design.BlockValidity.Rules) (parent : Etna.Design.BlockValidity.Header)\n      (blocks : List Etna.Design.BlockValidity.Block) (blobs : List Etna.Design.Hash),\n      Etna.Statements.Built env w r →\n        Etna.Design.Settlement.BatchValid r parent blocks blobs →\n          e.certificate = Etna.Design.Settlement.statement r parent blocks blobs →\n            ∃ more template,\n              Etna.Design.Deployment.build w w.inbox.configuration (archive ++ more) template = Option.some r ∧\n                (∀ (b : Etna.Design.BlockValidity.Block),\n                    b ∈ blocks → (archive ++ more)[b.header.height]? = Option.some b.header.anchor.number) ∧\n                  w.inbox.origin.l1Block ≤ r.referenceNumber ∧\n                    ∀ (a : Nat), a ∈ archive ++ more → a ≤ r.referenceNumber),\n  ∃ more,\n    Etna.Design.CanonicalHistory.Run initial (Etna.Design.ProtocolState.landed w s e.blockNumber) (archive ++ more)",
+      "assumptions": [
+        "The unchanged seven Premises and original Statements.Run/submitted_landing_certified interface.",
+        "Prior canonical history plus an explicit decoded adapter for canonical archive extension, actual header-index bindings and raw L1 reference ancestry; the old historyAuthenticated Boolean alone is insufficient."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-5d5828fcdce5ab2a", "EN-2474bdce909c86f9"],
+      "scope": "Use the unchanged submitted_landing_certified theorem to obtain a valid batch for one submitted accepted landing, then extend canonical history under the explicit decoded archive/header/reference authentication contract. No assumption about snapshot source, selected cutoff, coverage or key exclusion."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.CanonicalHistory",
+      "declaration": "Etna.Design.CanonicalHistoryRegression.prior_history",
+      "type": "Etna.Design.CanonicalHistory.Run Etna.Design.NonVacuity.world0 Etna.Design.NormalSigningRegression.view\n    Etna.Design.NormalSigningRegression.archive0",
+      "assumptions": [
+        "Closed decoded initialization/EL/history/signature fixtures; not a proof of production adapter correctness.",
+        "Original accepted calls and kernel-checked batch/signing witnesses; normal recovery only."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-5d5828fcdce5ab2a", "EN-7319b105593c8c53"],
+      "scope": "Closed initialized fixture through rotation, exit confirmation, withdrawal, second landing, actual recovery, reuse and same-block nonce invalidation, assembled entirely from original accepted operations."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.CanonicalHistory",
+      "declaration": "Etna.Design.CanonicalHistoryRegression.actual_recovery_source",
+      "type": "Etna.Design.SigningBridge.SnapshotSource Etna.Design.NormalSigningRegression.view.inbox\n    Etna.Design.NormalSigningRegression.rules1.consensus",
+      "assumptions": [
+        "Closed decoded initialization/EL/history/signature fixtures; not a proof of production adapter correctness.",
+        "Original accepted calls and kernel-checked batch/signing witnesses; normal recovery only."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-5d5828fcdce5ab2a", "EN-7319b105593c8c53"],
+      "scope": "Closed fixture explicitly constructs normalRecovery using the actual L1-40 recovery call and the preceding canonical-run clock bound; registry reuse and nonce invalidation preserve its stored fields."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.CanonicalHistory",
+      "declaration": "Etna.Design.CanonicalHistoryRegression.landing_accepted",
+      "type": "Etna.Design.land Etna.Design.NormalSigningRegression.view.inbox Etna.Design.CanonicalHistoryRegression.statement.input\n      Etna.Design.CanonicalHistoryRegression.leaves Etna.Design.CanonicalHistoryRegression.landing =\n    Option.some Etna.Design.CanonicalHistoryRegression.finish.inbox",
+      "assumptions": [
+        "Closed decoded initialization/EL/history/signature fixtures; not a proof of production adapter correctness.",
+        "Original accepted calls and kernel-checked batch/signing witnesses; normal recovery only."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-3ec993c77d0c5804", "EN-5d5828fcdce5ab2a"],
+      "scope": "Kernel-evaluated actual successful post-recovery land call at L1 49, committing generation-1 blocks 15–22 to the Inbox."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.CanonicalHistory",
+      "declaration": "Etna.Design.CanonicalHistoryRegression.complete_history",
+      "type": "Etna.Design.CanonicalHistory.Run Etna.Design.NonVacuity.world0 Etna.Design.CanonicalHistoryRegression.finish\n    Etna.Design.NormalSigningRegression.archive1",
+      "assumptions": [
+        "Closed decoded initialization/EL/history/signature fixtures; not a proof of production adapter correctness.",
+        "Original accepted calls and kernel-checked batch/signing witnesses; normal recovery only."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-3ec993c77d0c5804",
+        "EN-5d5828fcdce5ab2a",
+        "EN-7319b105593c8c53"
+      ],
+      "scope": "Closed initialized canonical history continues through the real recovery-generation landing to checkpoint 22. Its stronger normal-run source is derived from the actual recovery in prior_history."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.CanonicalHistory",
+      "declaration": "Etna.Design.CanonicalHistoryRegression.post_recovery_landing_signs",
+      "type": "Etna.Design.CanonicalHistory.Run Etna.Design.NonVacuity.world0 Etna.Design.CanonicalHistoryRegression.finish\n      Etna.Design.NormalSigningRegression.archive1 ∧\n    Etna.Design.NormalSigning.Run Etna.Design.NonVacuity.world0 Etna.Design.CanonicalHistoryRegression.finish ∧\n      Etna.Design.CanonicalHistoryRegression.finish.inbox.generation = 1 ∧\n        Etna.Design.CanonicalHistoryRegression.finish.inbox.checkpoint.height = 22 ∧\n          Etna.Design.SigningBridge.EngineRequest Etna.Design.CanonicalHistoryRegression.signingPrefix\n              Etna.Design.CanonicalHistoryRegression.event.device.key\n              Etna.Design.CanonicalHistoryRegression.event.message ∧\n            Etna.Design.CanonicalHistoryRegression.event.after.log ≠\n                Etna.Design.CanonicalHistoryRegression.event.device.state.log ∧\n              Etna.Design.CanonicalHistoryRegression.event.message.height = 23 ∧\n                Etna.Design.CanonicalHistoryRegression.event.device.key ≠ 7",
+      "assumptions": [
+        "Closed decoded initialization/EL/history/signature fixtures; not a proof of production adapter correctness.",
+        "Original accepted calls and kernel-checked batch/signing witnesses; normal recovery only."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-5d5828fcdce5ab2a",
+        "EN-6478ed58606b3c3b",
+        "EN-992ca84f0e185f57"
+      ],
+      "scope": "Closed initialized history with a real accepted generation-1 landing to checkpoint 22, followed by an actual fresh successful stock Signer.sign at height 23 satisfying the current engine request. Fixture key 8 differs from withdrawn key 7; real adapter enforcement remains external."
     }
   ]
 }
