@@ -84,6 +84,16 @@ inductive SnapshotSource (s : State) (ctx : Consensus.Context) : Prop
       (checkpointKept : s.checkpoint = settled.checkpoint) (snapshotKept : s.snapshot = settled.snapshot) :
       SnapshotSource s ctx
 
+
+  | normalRecovery {before : ProtocolState.World} {result : Recovery.World} {a : Recovery.Request}
+      {origin : Origin} {owner externalOK : Bool}
+      (time : before.l1Block ≤ origin.l1Block)
+      (accepted : Recovery.recover (ProtocolState.recoveryView before) a before.adapters.recovery origin owner externalOK = some result)
+      (clock : before.inbox.snapshot < before.l1Block)
+      (checkpointKept : s.checkpoint = before.inbox.checkpoint) (snapshotKept : s.snapshot = before.inbox.snapshot)
+      (generation : ctx.generation = before.inbox.generation+1) (originKept : ctx.originBlock = origin.l1Block) :
+      SnapshotSource s ctx
+
 def headerMatches (cp : Checkpoint) (h : BlockValidity.Header) : Prop :=
   h.height = cp.height ∧ h.elHash = cp.elHash ∧ h.cometHash = cp.cometHash ∧ h.cursor = cp.cursor
 

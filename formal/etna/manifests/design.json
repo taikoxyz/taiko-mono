@@ -13378,6 +13378,501 @@
       "role": "regression",
       "sources": ["EN-3f7463f0f1df5094", "EN-1de188a398da3093"],
       "scope": "Regression: an owner nonce invalidation whose result equals a no-op rollback is still an ordinary step, so the settled-prefix and back-pressure theorems cover it."
+    },
+    {
+      "module": "EtnaProofs.NormalSigning",
+      "declaration": "Etna.Design.NormalSigning.ordinary_append",
+      "type": "∀ {a b c : Etna.Design.ProtocolState.World},\n  Etna.Design.ProtocolState.OrdinaryTrace a b →\n    Etna.Design.ProtocolState.OrdinaryTrace b c → Etna.Design.ProtocolState.OrdinaryTrace a c",
+      "assumptions": [
+        "authentic decoded batch/history and request adapters; normal recovery only",
+        "explicit initial lifetime keys/history and confirmation coverage"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [],
+      "scope": "Conditional normal-protocol composition; actual ordinary transitions and successful signer calls. No production conformance, global freshness, rollback or continuous collateral claim."
+    },
+    {
+      "module": "EtnaProofs.NormalSigning",
+      "declaration": "Etna.Design.NormalSigning.ordinary_trace",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World},\n  Etna.Design.ProtocolState.OrdinaryTrace w t → Etna.Design.ProtocolState.Trace w t",
+      "assumptions": [
+        "authentic decoded batch/history and request adapters; normal recovery only",
+        "explicit initial lifetime keys/history and confirmation coverage"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [],
+      "scope": "Conditional normal-protocol composition; actual ordinary transitions and successful signer calls. No production conformance, global freshness, rollback or continuous collateral claim."
+    },
+    {
+      "module": "EtnaProofs.NormalSigning",
+      "declaration": "Etna.Design.NormalSigning.run_ordinary",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World},\n  Etna.Design.NormalSigning.Run w t → Etna.Design.ProtocolState.OrdinaryTrace w t",
+      "assumptions": [
+        "authentic decoded batch/history and request adapters; normal recovery only",
+        "explicit initial lifetime keys/history and confirmation coverage"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [],
+      "scope": "Conditional normal-protocol composition; actual ordinary transitions and successful signer calls. No production conformance, global freshness, rollback or continuous collateral claim."
+    },
+    {
+      "module": "EtnaProofs.NormalSigning",
+      "declaration": "Etna.Design.NormalSigning.run_trace",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World},\n  Etna.Design.NormalSigning.Run w t → Etna.Design.ProtocolState.Trace w t",
+      "assumptions": [
+        "authentic decoded batch/history and request adapters; normal recovery only",
+        "explicit initial lifetime keys/history and confirmation coverage"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [],
+      "scope": "Conditional normal-protocol composition; actual ordinary transitions and successful signer calls. No production conformance, global freshness, rollback or continuous collateral claim."
+    },
+    {
+      "module": "EtnaProofs.NormalSigning",
+      "declaration": "Etna.Design.NormalSigning.landing_snapshot_monotone",
+      "type": "∀ {w : Etna.Design.ProtocolState.World} {s : Etna.Design.State}\n  {i : Etna.Design.LandInput} {leaves : List Etna.Design.Leaf} {e : Etna.Design.LandingEnv}\n  {r template : Etna.Design.BlockValidity.Rules} {archive : List Nat} {parent : Etna.Design.BlockValidity.Header}\n  {blocks : List Etna.Design.BlockValidity.Block} {blobs : List Etna.Design.Hash},\n  Etna.Design.land w.inbox i leaves e = Option.some s →\n    Etna.Design.Deployment.build w w.inbox.configuration archive template = Option.some r →\n      Etna.Design.Settlement.BatchValid r parent blocks blobs →\n        e.certificate = Etna.Design.Settlement.statement r parent blocks blobs →\n          Etna.Design.SigningBridge.SnapshotSource w.inbox r.consensus → w.inbox.snapshot ≤ s.snapshot",
+      "assumptions": [
+        "authentic decoded batch/history and request adapters; normal recovery only",
+        "explicit initial lifetime keys/history and confirmation coverage"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [
+        "EN-5d5828fcdce5ab2a",
+        "EN-7319b105593c8c53",
+        "EN-179bc07a1f6d0129"
+      ],
+      "scope": "Conditional normal-protocol composition; actual ordinary transitions and successful signer calls. No production conformance, global freshness, rollback or continuous collateral claim."
+    },
+    {
+      "module": "EtnaProofs.NormalSigning",
+      "declaration": "Etna.Design.NormalSigning.run_snapshot_trace",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World},\n  Etna.Design.NormalSigning.Run w t → Etna.Design.SigningEscrow.SnapshotTrace w t",
+      "assumptions": [
+        "authentic decoded batch/history and request adapters; normal recovery only",
+        "explicit initial lifetime keys/history and confirmation coverage"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [],
+      "scope": "Conditional normal-protocol composition; actual ordinary transitions and successful signer calls. No production conformance, global freshness, rollback or continuous collateral claim."
+    },
+    {
+      "module": "EtnaProofs.NormalSigning",
+      "declaration": "Etna.Design.NormalSigning.run_covered",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World},\n  Etna.Design.NormalSigning.Run w t → Etna.Design.SigningEscrow.Covered w → Etna.Design.SigningEscrow.Covered t",
+      "assumptions": [
+        "authentic decoded batch/history and request adapters; normal recovery only",
+        "explicit initial lifetime keys/history and confirmation coverage"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-4651c537a506e6fd", "EN-d04a236579cc9990"],
+      "scope": "Conditional normal-protocol composition; actual ordinary transitions and successful signer calls. No production conformance, global freshness, rollback or continuous collateral claim."
+    },
+    {
+      "module": "EtnaProofs.NormalSigning",
+      "declaration": "Etna.Design.NormalSigning.run_snapshot_below",
+      "type": "∀ {w t : Etna.Design.ProtocolState.World},\n  Etna.Design.NormalSigning.Run w t → w.inbox.snapshot < w.l1Block → t.inbox.snapshot < t.l1Block",
+      "assumptions": [
+        "authentic decoded batch/history and request adapters; normal recovery only",
+        "explicit initial lifetime keys/history and confirmation coverage"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-5d5828fcdce5ab2a", "EN-7319b105593c8c53"],
+      "scope": "Conditional normal-protocol composition; actual ordinary transitions and successful signer calls. No production conformance, global freshness, rollback or continuous collateral claim."
+    },
+    {
+      "module": "EtnaProofs.NormalSigning",
+      "declaration": "Etna.Design.NormalSigning.recovery_snapshot_source",
+      "type": "∀ {initial before : Etna.Design.ProtocolState.World}\n  {result : Etna.Design.Recovery.World} {a : Etna.Design.Recovery.Request} {origin : Etna.Design.Origin}\n  {owner externalOK : Bool} {cfg : Etna.Design.HistoricalContext.Parameters} {archive : List Nat}\n  {ctx : Etna.Design.Consensus.Context},\n  Etna.Design.NormalSigning.Run initial before →\n    initial.inbox.snapshot < initial.l1Block →\n      before.l1Block ≤ origin.l1Block →\n        Etna.Design.Recovery.recover (Etna.Design.ProtocolState.recoveryView before) a before.adapters.recovery origin\n              owner externalOK =\n            Option.some result →\n          Etna.Design.HistoricalContext.build (Etna.Design.ProtocolState.recovered before a origin result).inbox\n                (Etna.Design.ProtocolState.recovered before a origin result).registry cfg archive =\n              Option.some ctx →\n            Etna.Design.SigningBridge.SnapshotSource (Etna.Design.ProtocolState.recovered before a origin result).inbox\n              ctx",
+      "assumptions": [
+        "authentic decoded history, execution, key and request adapters; normal recovery only",
+        "explicit initialized lifetime-key/history conditions; no production conformance claim"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-5d5828fcdce5ab2a", "EN-7319b105593c8c53"],
+      "scope": "Normal recovery snapshot provenance from actual accepted recovery and a derived normal-run clock bound, including before the first landing."
+    },
+    {
+      "module": "EtnaProofs.NormalSigning",
+      "declaration": "Etna.Design.NormalSigning.source_ordinary",
+      "type": "∀ {confirmed view : Etna.Design.ProtocolState.World}\n  {p : Etna.Design.SigningBridge.TrustedPrefix view},\n  Etna.Design.NormalSigning.ConfirmationSource confirmed view p → Etna.Design.ProtocolState.OrdinaryTrace confirmed view",
+      "assumptions": [
+        "authentic decoded batch/history and request adapters; normal recovery only",
+        "explicit initial lifetime keys/history and confirmation coverage"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [],
+      "scope": "Conditional normal-protocol composition; actual ordinary transitions and successful signer calls. No production conformance, global freshness, rollback or continuous collateral claim."
+    },
+    {
+      "module": "EtnaProofs.NormalSigning",
+      "declaration": "Etna.Design.NormalSigning.source_retains_checkpoint",
+      "type": "∀ {confirmed view : Etna.Design.ProtocolState.World}\n  {p : Etna.Design.SigningBridge.TrustedPrefix view},\n  Etna.Design.NormalSigning.ConfirmationSource confirmed view p →\n    Etna.Design.recordAt view.inbox confirmed.inbox.checkpoint.height =\n      Etna.Design.recordAt confirmed.inbox confirmed.inbox.checkpoint.height",
+      "assumptions": [
+        "authentic decoded batch/history and request adapters; normal recovery only",
+        "explicit initial lifetime keys/history and confirmation coverage"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-c36e4d0d76a728b6", "EN-d7f8342dc8bb8e88"],
+      "scope": "Conditional normal-protocol composition; actual ordinary transitions and successful signer calls. No production conformance, global freshness, rollback or continuous collateral claim."
+    },
+    {
+      "module": "EtnaProofs.NormalSigning",
+      "declaration": "Etna.Design.NormalSigning.confirmation_source_bound",
+      "type": "∀ {confirmed view : Etna.Design.ProtocolState.World}\n  (p : Etna.Design.SigningBridge.TrustedPrefix view),\n  Etna.Design.NormalSigning.ConfirmationSource confirmed view p →\n    confirmed.inbox.snapshot < confirmed.l1Block →\n      ∀ (message : Etna.Design.SigningBridge.SignMessage),\n        message.height = p.tip.height + 1 →\n          confirmed.inbox.snapshot ≤ (Etna.Design.Consensus.activeAt p.rules.consensus message.height).cutoff",
+      "assumptions": [
+        "authentic decoded batch/history and request adapters; normal recovery only",
+        "explicit initial lifetime keys/history and confirmation coverage"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-9ee888f78091a2fe", "EN-2b238db781615e6e"],
+      "scope": "Conditional normal-protocol composition; actual ordinary transitions and successful signer calls. No production conformance, global freshness, rollback or continuous collateral claim."
+    },
+    {
+      "module": "EtnaProofs.NormalSigning",
+      "declaration": "Etna.Design.NormalSigning.confirmed_key_excluded",
+      "type": "∀ {initial confirmed view : Etna.Design.ProtocolState.World}\n  {id c : Nat},\n  Etna.Design.NormalSigning.Run initial confirmed →\n    Etna.Design.ProtocolState.Core initial →\n      Etna.Design.SigningEscrow.KeysWellFormed initial.registry →\n        Etna.Design.SigningEscrow.ExitVisible initial.registry →\n          Etna.Design.SigningEscrow.Covered initial →\n            initial.inbox.snapshot < initial.l1Block →\n              ∀ (p : Etna.Design.SigningBridge.TrustedPrefix view),\n                Etna.Design.NormalSigning.ConfirmationSource confirmed view p →\n                  ∀ (message : Etna.Design.SigningBridge.SignMessage),\n                    message.height = p.tip.height + 1 →\n                      id < confirmed.registry.nextId →\n                        (confirmed.registry.slots id).confirmedAt = Option.some c →\n                          (confirmed.registry.slots id).key ≠ 0 →\n                            (confirmed.registry.slots id).exitAt ≠ Etna.Design.Staking.noExit →\n                              ∀ (entry : Etna.Design.Committee.Entry),\n                                entry ∈ (Etna.Design.Consensus.activeAt p.rules.consensus message.height).members →\n                                  entry.key ≠ (confirmed.registry.slots id).key",
+      "assumptions": [
+        "authentic decoded batch/history and request adapters; normal recovery only",
+        "explicit initial lifetime keys/history and confirmation coverage"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-4651c537a506e6fd", "EN-d7e07b7ea27ed4a3"],
+      "scope": "Conditional normal-protocol composition; actual ordinary transitions and successful signer calls. No production conformance, global freshness, rollback or continuous collateral claim."
+    },
+    {
+      "module": "EtnaProofs.NormalSigning",
+      "declaration": "Etna.Design.NormalSigning.fresh_signing_connection",
+      "type": "∀ {initial confirmed view : Etna.Design.ProtocolState.World}\n  {id c : Nat},\n  Etna.Design.NormalSigning.Run initial confirmed →\n    Etna.Design.ProtocolState.Core initial →\n      Etna.Design.SigningEscrow.KeysWellFormed initial.registry →\n        Etna.Design.SigningEscrow.ExitVisible initial.registry →\n          Etna.Design.SigningEscrow.Covered initial →\n            initial.inbox.snapshot < initial.l1Block →\n              ∀ (p : Etna.Design.SigningBridge.TrustedPrefix view),\n                Etna.Design.NormalSigning.ConfirmationSource confirmed view p →\n                  ∀ (call : Etna.Design.SigningBridge.ObservedCall p),\n                    Etna.Design.SigningBridge.EngineRequest p call.device.key call.message →\n                      call.after.log ≠ call.device.state.log →\n                        id < confirmed.registry.nextId →\n                          (confirmed.registry.slots id).confirmedAt = Option.some c →\n                            (confirmed.registry.slots id).key ≠ 0 →\n                              (confirmed.registry.slots id).exitAt ≠ Etna.Design.Staking.noExit →\n                                Etna.Design.recordAt view.inbox confirmed.inbox.checkpoint.height =\n                                    Etna.Design.recordAt confirmed.inbox confirmed.inbox.checkpoint.height ∧\n                                  call.device.state.ready = Bool.true ∧\n                                    call.request.trusted = Bool.true ∧\n                                      call.request.position.height = p.tip.height + 1 ∧\n                                        confirmed.inbox.snapshot ≤\n                                            (Etna.Design.Consensus.activeAt p.rules.consensus\n                                                call.request.position.height).cutoff ∧\n                                          call.returned = call.supplied ∧\n                                            call.after.log =\n                                                { generation := call.message.generation,\n                                                    position := call.request.position, bytes := call.request.bytes,\n                                                    signature := call.supplied } ::\n                                                  call.device.state.log ∧\n                                              call.device.key ≠ (confirmed.registry.slots id).key",
+      "assumptions": [
+        "authentic decoded batch/history and request adapters; normal recovery only",
+        "explicit initial lifetime keys/history and confirmation coverage"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Conditional normal-protocol composition; actual ordinary transitions and successful signer calls. No production conformance, global freshness, rollback or continuous collateral claim."
+    },
+    {
+      "module": "EtnaProofs.NormalSigning",
+      "declaration": "Etna.Design.NormalSigning.initialized_fresh_signing_connection",
+      "type": "∀\n  {initial confirmed view : Etna.Design.ProtocolState.World} {id c hash root : Nat},\n  Etna.Design.Deployment.Genesis initial hash root →\n    Etna.Design.NormalSigning.Run initial confirmed →\n      Etna.Design.SigningEscrow.KeysWellFormed initial.registry →\n        Etna.Design.SigningEscrow.ExitVisible initial.registry →\n          (∀ (id : Nat), (initial.registry.slots id).confirmedAt = Option.none) →\n            ∀ (p : Etna.Design.SigningBridge.TrustedPrefix view),\n              Etna.Design.NormalSigning.ConfirmationSource confirmed view p →\n                ∀ (call : Etna.Design.SigningBridge.ObservedCall p),\n                  Etna.Design.SigningBridge.EngineRequest p call.device.key call.message →\n                    call.after.log ≠ call.device.state.log →\n                      id < confirmed.registry.nextId →\n                        (confirmed.registry.slots id).confirmedAt = Option.some c →\n                          (confirmed.registry.slots id).key ≠ 0 →\n                            (confirmed.registry.slots id).exitAt ≠ Etna.Design.Staking.noExit →\n                              call.device.key ≠ (confirmed.registry.slots id).key",
+      "assumptions": [
+        "authentic decoded batch/history and request adapters; normal recovery only",
+        "explicit initial lifetime keys/history and confirmation coverage"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Conditional normal-protocol composition; actual ordinary transitions and successful signer calls. No production conformance, global freshness, rollback or continuous collateral claim."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.NormalSigning",
+      "declaration": "Etna.Design.NormalSigningRegression.confirmation_run",
+      "type": "Etna.Design.NormalSigning.Run Etna.Design.NonVacuity.world0\n  Etna.Design.HistoricalEscrow.worldD",
+      "assumptions": [
+        "authentic decoded history, execution, key and request adapters; normal recovery only",
+        "explicit initialized lifetime-key/history conditions; no production conformance claim"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Genuine initialized decoded ordinary rotation/recovery/exit/signing witness with retained history, actual transitions and fresh signer calls."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.NormalSigning",
+      "declaration": "Etna.Design.NormalSigningRegression.prior_source",
+      "type": "Etna.Design.SigningBridge.SnapshotSource\n  Etna.Design.NormalSigningRegression.preLandingWorld.inbox Etna.Design.NormalSigningRegression.rules0.consensus",
+      "assumptions": [
+        "authentic decoded history, execution, key and request adapters; normal recovery only",
+        "explicit initialized lifetime-key/history conditions; no production conformance claim"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Genuine initialized decoded ordinary rotation/recovery/exit/signing witness with retained history, actual transitions and fresh signer calls."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.NormalSigning",
+      "declaration": "Etna.Design.NormalSigningRegression.landing_batch",
+      "type": "Etna.Design.Settlement.BatchValid\n  Etna.Design.NormalSigningRegression.rules0 (Etna.Design.HistoricalEscrow.header 12)\n  Etna.Design.NormalSigningRegression.blocks0 [111]",
+      "assumptions": [
+        "authentic decoded history, execution, key and request adapters; normal recovery only",
+        "explicit initialized lifetime-key/history conditions; no production conformance claim"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Genuine initialized decoded ordinary rotation/recovery/exit/signing witness with retained history, actual transitions and fresh signer calls."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.NormalSigning",
+      "declaration": "Etna.Design.NormalSigningRegression.before_recovery_run",
+      "type": "Etna.Design.NormalSigning.Run Etna.Design.NonVacuity.world0\n  Etna.Design.NormalSigningRegression.landedWorld",
+      "assumptions": [
+        "authentic decoded history, execution, key and request adapters; normal recovery only",
+        "explicit initialized lifetime-key/history conditions; no production conformance claim"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Genuine initialized decoded ordinary rotation/recovery/exit/signing witness with retained history, actual transitions and fresh signer calls."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.NormalSigning",
+      "declaration": "Etna.Design.NormalSigningRegression.recovery_call",
+      "type": "Etna.Design.Recovery.recover\n    (Etna.Design.ProtocolState.recoveryView Etna.Design.NormalSigningRegression.landedWorld)\n    Etna.Design.NormalSigningRegression.recoveryRequest\n    Etna.Design.NormalSigningRegression.landedWorld.adapters.recovery Etna.Design.NormalSigningRegression.recoveryOrigin\n    Bool.true Bool.true =\n  Option.some Etna.Design.NormalSigningRegression.recoveryResult",
+      "assumptions": [
+        "authentic decoded history, execution, key and request adapters; normal recovery only",
+        "explicit initialized lifetime-key/history conditions; no production conformance claim"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Genuine initialized decoded ordinary rotation/recovery/exit/signing witness with retained history, actual transitions and fresh signer calls."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.NormalSigning",
+      "declaration": "Etna.Design.NormalSigningRegression.full_run",
+      "type": "Etna.Design.NormalSigning.Run Etna.Design.NonVacuity.world0\n  Etna.Design.NormalSigningRegression.view",
+      "assumptions": [
+        "authentic decoded history, execution, key and request adapters; normal recovery only",
+        "explicit initialized lifetime-key/history conditions; no production conformance claim"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Genuine initialized decoded ordinary rotation/recovery/exit/signing witness with retained history, actual transitions and fresh signer calls."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.NormalSigning",
+      "declaration": "Etna.Design.NormalSigningRegression.recovered_chain",
+      "type": "Etna.Design.BlockValidity.Chain\n  Etna.Design.NormalSigningRegression.rules1 (Etna.Design.NormalSigningRegression.header0 14)\n  Etna.Design.NormalSigningRegression.blocks1",
+      "assumptions": [
+        "authentic decoded history, execution, key and request adapters; normal recovery only",
+        "explicit initialized lifetime-key/history conditions; no production conformance claim"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Genuine initialized decoded ordinary rotation/recovery/exit/signing witness with retained history, actual transitions and fresh signer calls."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.NormalSigning",
+      "declaration": "Etna.Design.NormalSigningRegression.recovered_source",
+      "type": "Etna.Design.SigningBridge.SnapshotSource\n  Etna.Design.NormalSigningRegression.view.inbox Etna.Design.NormalSigningRegression.rules1.consensus",
+      "assumptions": [
+        "authentic decoded history, execution, key and request adapters; normal recovery only",
+        "explicit initialized lifetime-key/history conditions; no production conformance claim"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Genuine initialized decoded ordinary rotation/recovery/exit/signing witness with retained history, actual transitions and fresh signer calls."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.NormalSigning",
+      "declaration": "Etna.Design.NormalSigningRegression.confirmationSource",
+      "type": "Etna.Design.NormalSigning.ConfirmationSource\n  Etna.Design.HistoricalEscrow.worldD Etna.Design.NormalSigningRegression.view\n  Etna.Design.NormalSigningRegression.trustedPrefix",
+      "assumptions": [
+        "authentic decoded history, execution, key and request adapters; normal recovery only",
+        "explicit initialized lifetime-key/history conditions; no production conformance claim"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Genuine initialized decoded ordinary rotation/recovery/exit/signing witness with retained history, actual transitions and fresh signer calls."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.NormalSigning",
+      "declaration": "Etna.Design.NormalSigningRegression.engine_request",
+      "type": "∀ (phase : Etna.Design.SigningBridge.SignPhase) (nil : Bool),\n  Etna.Design.SigningBridge.EngineRequest Etna.Design.NormalSigningRegression.trustedPrefix\n    (Etna.Design.NormalSigningRegression.call phase nil).device.key\n    (Etna.Design.NormalSigningRegression.call phase nil).message",
+      "assumptions": [
+        "authentic decoded history, execution, key and request adapters; normal recovery only",
+        "explicit initialized lifetime-key/history conditions; no production conformance claim"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Genuine initialized decoded ordinary rotation/recovery/exit/signing witness with retained history, actual transitions and fresh signer calls."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.NormalSigning",
+      "declaration": "Etna.Design.NormalSigningRegression.call_fresh",
+      "type": "∀ (phase : Etna.Design.SigningBridge.SignPhase) (nil : Bool),\n  (Etna.Design.NormalSigningRegression.call phase nil).after.log ≠\n    (Etna.Design.NormalSigningRegression.call phase nil).device.state.log",
+      "assumptions": [
+        "authentic decoded history, execution, key and request adapters; normal recovery only",
+        "explicit initialized lifetime-key/history conditions; no production conformance claim"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Genuine initialized decoded ordinary rotation/recovery/exit/signing witness with retained history, actual transitions and fresh signer calls."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.NormalSigning",
+      "declaration": "Etna.Design.NormalSigningRegression.actual_event_excludes_old_key",
+      "type": "∀ (phase : Etna.Design.SigningBridge.SignPhase)\n  (nil : Bool),\n  (Etna.Design.NormalSigningRegression.call phase nil).device.key ≠\n    (Etna.Design.HistoricalEscrow.worldD.registry.slots 0).key",
+      "assumptions": [
+        "authentic decoded history, execution, key and request adapters; normal recovery only",
+        "explicit initialized lifetime-key/history conditions; no production conformance claim"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Genuine initialized decoded ordinary rotation/recovery/exit/signing witness with retained history, actual transitions and fresh signer calls."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.NormalSigning",
+      "declaration": "Etna.Design.NormalSigningRegression.recovery_fresh_signature",
+      "type": "∃ event : Etna.Design.SigningBridge.ObservedCall Etna.Design.NormalSigningRegression.trustedPrefix,\n  Etna.Design.SigningBridge.EngineRequest Etna.Design.NormalSigningRegression.trustedPrefix event.device.key\n      event.message ∧\n    event.after.log ≠ event.device.state.log ∧\n      event.message.generation = 1 ∧ event.message.height = 23 ∧ event.device.key ≠ 7",
+      "assumptions": [
+        "authentic decoded history, execution, key and request adapters; normal recovery only",
+        "explicit initialized lifetime-key/history conditions; no production conformance claim"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Genuine initialized decoded ordinary rotation/recovery/exit/signing witness with retained history, actual transitions and fresh signer calls."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.NormalSigning",
+      "declaration": "Etna.Design.NormalSigningRegression.recovery_before_first_landing_source",
+      "type": "Etna.Design.SigningBridge.SnapshotSource\n    Etna.Design.NormalSigningRegression.earlyWorld.inbox Etna.Design.NormalSigningRegression.earlyContext ∧\n  Etna.Design.NormalSigningRegression.earlyWorld.inbox.snapshot = 12 ∧\n    Etna.Design.Settlement.floor Etna.Design.NormalSigningRegression.earlyContext = 20",
+      "assumptions": [
+        "authentic decoded history, execution, key and request adapters; normal recovery only",
+        "explicit initialized lifetime-key/history conditions; no production conformance claim"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Genuine initialized decoded ordinary rotation/recovery/exit/signing witness with retained history, actual transitions and fresh signer calls."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.NormalSigning",
+      "declaration": "Etna.Design.NormalSigningRegression.recovery_rotation_boundaries",
+      "type": "Etna.Design.HistoricalEscrow.worldD.inbox.checkpoint.height =\n    12 ∧\n  Etna.Design.NormalSigningRegression.view.inbox.origin.height = 14 ∧\n    (Etna.Design.NormalSigningRegression.view.registry.slots 0).key = 9 ∧\n      Etna.Design.NormalSigningRegression.view.inbox.generation = 1 ∧\n        (Etna.Design.Consensus.activeAt Etna.Design.NormalSigningRegression.rules1.consensus 20).cutoff = 40 ∧\n          (Etna.Design.Consensus.activeAt Etna.Design.NormalSigningRegression.rules1.consensus 21).cutoff = 43 ∧\n            List.map Etna.Design.Committee.Entry.key\n                  (Etna.Design.Consensus.activeAt Etna.Design.NormalSigningRegression.rules1.consensus 23).members =\n                [8] ∧\n              Etna.Design.recordAt Etna.Design.NormalSigningRegression.view.inbox 12 =\n                Etna.Design.recordAt Etna.Design.HistoricalEscrow.worldD.inbox 12",
+      "assumptions": [
+        "authentic decoded history, execution, key and request adapters; normal recovery only",
+        "explicit initialized lifetime-key/history conditions; no production conformance claim"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Genuine initialized decoded ordinary rotation/recovery/exit/signing witness with retained history, actual transitions and fresh signer calls."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.NormalSigning",
+      "declaration": "Etna.Design.NormalSigningRegression.old_key_request_rejected",
+      "type": "∀ (phase : Etna.Design.SigningBridge.SignPhase)\n  (nil : Bool),\n  ¬Etna.Design.SigningBridge.EngineRequest Etna.Design.NormalSigningRegression.trustedPrefix 7\n      (Etna.Design.NormalSigningRegression.message phase nil)",
+      "assumptions": [
+        "authentic decoded history, execution, key and request adapters; normal recovery only",
+        "explicit initialized lifetime-key/history conditions; no production conformance claim"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-4651c537a506e6fd",
+        "EN-fd0557c2630191c6",
+        "EN-9ee888f78091a2fe",
+        "EN-2b238db781615e6e"
+      ],
+      "scope": "Genuine initialized decoded ordinary rotation/recovery/exit/signing witness with retained history, actual transitions and fresh signer calls."
     }
   ]
 }

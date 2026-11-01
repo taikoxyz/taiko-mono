@@ -59,6 +59,12 @@ UNSOURCED = {
     'Etna.Design.Accounting.trace_lift': 'Every original trace has an observer trace; modelling completeness only',
     'Etna.Design.SigningEscrow.snapshot_trace_projects': 'Snapshot-disciplined trace projects to the original machine; modelling correspondence only',
     'Etna.Design.SigningBridge.valid_chain_split': 'Concatenated valid-chain decomposition is modelling plumbing; it is not evidence for a spec clause',
+    'Etna.Design.NormalSigning.ordinary_append': 'Normal provenance composition/projection only; no specification clause is an obligation of this helper',
+    'Etna.Design.NormalSigning.ordinary_trace': 'Normal provenance composition/projection only; no specification clause is an obligation of this helper',
+    'Etna.Design.NormalSigning.run_ordinary': 'Normal provenance composition/projection only; no specification clause is an obligation of this helper',
+    'Etna.Design.NormalSigning.run_trace': 'Normal provenance composition/projection only; no specification clause is an obligation of this helper',
+    'Etna.Design.NormalSigning.run_snapshot_trace': 'Normal provenance composition/projection only; no specification clause is an obligation of this helper',
+    'Etna.Design.NormalSigning.source_ordinary': 'Normal provenance composition/projection only; no specification clause is an obligation of this helper',
 }
 
 

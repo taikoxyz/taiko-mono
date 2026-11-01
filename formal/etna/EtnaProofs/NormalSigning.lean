@@ -95,6 +95,24 @@ theorem run_snapshot_below {w t : World} (run : Run w t) (initial : w.inbox.snap
     rw [ordinary_nonlanding_snapshot change settled]
     exact Nat.lt_of_lt_of_le ih (step_clock_monotone (ordinary_step_is_step change))
 
+
+/-- Every successful normal recovery supplies a snapshot source, including before the first
+landing. Its clock fact is derived from the preceding run, and the source retains the actual
+checkpoint, generation and origin of that call. -/
+theorem recovery_snapshot_source {initial before : World} {result : Recovery.World}
+    {a : Recovery.Request} {origin : Origin} {owner externalOK : Bool}
+    {cfg : HistoricalContext.Parameters} {archive : List Nat} {ctx : Consensus.Context}
+    (prior : Run initial before) (below : initial.inbox.snapshot < initial.l1Block)
+    (time : before.l1Block ≤ origin.l1Block)
+    (accepted : Recovery.recover (recoveryView before) a before.adapters.recovery origin owner externalOK = some result)
+    (built : HistoricalContext.build (recovered before a origin result).inbox
+      (recovered before a origin result).registry cfg archive = some ctx) :
+    SnapshotSource (recovered before a origin result).inbox ctx := by
+  obtain ⟨_,rfl⟩ := Recovery.recover_success accepted
+  have context := (HistoricalContext.build_success built).2
+  exact .normalRecovery (before := before) time accepted (run_snapshot_below prior below) rfl rfl
+    (by rw [context]; rfl) (by rw [context]; rfl)
+
 /-- Both provenance alternatives establish actual ordinary causality to the signing view. -/
 theorem source_ordinary {confirmed view : World} {p : TrustedPrefix view}
     (source : ConfirmationSource confirmed view p) : OrdinaryTrace confirmed view := by

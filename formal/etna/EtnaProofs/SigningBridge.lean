@@ -103,6 +103,17 @@ theorem source_snapshot_bound {s : State} {ctx : Consensus.Context} {registry : 
       omega
     exact Nat.le_trans bound floor
 
+  | normalRecovery time _ clock _ snapshotKept generation originKept =>
+    obtain ⟨ready,context⟩ := HistoricalContext.build_success built
+    have genesis : ctx.genesisCutoff ≤ ctx.originBlock := by
+      rw [context]
+      exact ready.2.2.2.2.2.2.2
+    have floor : Settlement.floor ctx = ctx.originBlock := by simp [Settlement.floor,generation]
+    have bound := Settlement.floor_le_active ctx genesis h
+    rw [floor,originKept] at bound
+    rw [snapshotKept]
+    omega
+
 /-- The actual next-height request derives the stored snapshot bound; no cutoff bound is
 an input. Node authentication and request discipline remain the named typed inputs. -/
 theorem request_snapshot_bound {view : ProtocolState.World} (p : TrustedPrefix view) (m : SignMessage)
