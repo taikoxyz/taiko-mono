@@ -1,6 +1,6 @@
 # Actual signer, trusted prefix and exit snapshot connection
 
-Authority: SPEC.md/ACCEPTANCE.md at `39ebefbf33a2702b750e0fb0db7d2a40ff8e8480` (#22303). This extension updates the formal results of #22292. It changes no production signer, client, contract, specification or original headline premise. No superpowers design or implementation document is part of the patch.
+Authority: SPEC.md/ACCEPTANCE.md at `39ebefbf33a2702b750e0fb0db7d2a40ff8e8480` (#22303). This extension updates the formal results of #22292. It changes no production signer, client, contract, specification or original headline premise. The later normal-recovery composition is recorded in [normal signing composition](normal-signing-composition.md).
 
 ## What is now connected
 
@@ -38,7 +38,7 @@ SPEC 4.3, 8.2 and 9 require the authenticated origin/committee, exact checkpoint
 
 A stronger global post-withdrawal prohibition would need an additional condition such as authenticated catch-up covering the relevant confirmation checkpoint before new signing, with a defined freshness/revocation rule relating session authorization to newer L1 state. A wall-clock age bound alone needs an explicit bound on L1 finality/observation lag and on checkpoint propagation. This patch does not silently add such a signer veto.
 
-The current `IncludedCheckpoint` path locates the confirmation inside the replay from this generation's fixed origin. If a recovery starts above an older confirmation checkpoint, a retained-checkpoint ancestry or equivalent authenticated exit-coverage refinement must discharge that relation; this patch does not infer it from a trusted boolean or claim arbitrary cross-generation replay completeness. The recovery-floor source handles its stated temporal provenance conditions.
+The original `IncludedCheckpoint` path locates the confirmation inside the replay from this generation's fixed origin. The later `NormalSigning.ConfirmationSource` also carries a confirmation through an actual normal recovery and original ordinary paths, retaining its complete record even below the new origin. The normal-run theorem derives confirmation coverage and the recovery selector bound; actual authentication/refinement and causal view coverage remain explicit. This does not infer global freshness or arbitrary rollback safety from a trusted boolean. See [normal signing composition](normal-signing-composition.md).
 
 **Rollback needs authentic provenance and renewed trust.** The source must be the actual last-trusted landing (or initialization), with the specified confirmation recheck and the correct generation origin. An arbitrary numeric restored snapshot is insufficient. Existing sessions must be tied to the post-rollback canonical prefix; the design says node rollback rules ship with the upgrade but does not specify a complete session-token invalidation protocol here. No generic theorem covers unrestricted `applyRollback` inputs or an unrevalidated old session.
 

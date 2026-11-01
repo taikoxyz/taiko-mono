@@ -17,7 +17,7 @@ premise record, `Premises`. To trust the result, read the statements and the pre
 proofs. The package says nothing about the production contracts, client or guests beyond the
 conformance vectors below.
 
-The clause inventory (313 source clauses), the theorem roles and the 22 narrow claims in
+The clause inventory (313 source clauses), the theorem roles and the 23 narrow claims in
 `spec-coverage.json` are a **traceability report, not the verification result**. They record
 which spec clauses some theorem speaks to, and CI keeps them consistent. A clause marked
 partial is not proved. [`reports/rule-coverage.md`](reports/rule-coverage.md) keys the same
@@ -180,6 +180,10 @@ field.
 
 The audit fails if any field is read by no headline proof.
 
+[Premise responsibilities](reports/premise-responsibilities.md) classifies each field into
+external primitive/dependency trust and Etna-owned implementation contracts. Mixed fields retain
+both responsibilities; the classification changes no field or claim type.
+
 ## What is not covered
 
 - **Liveness.** No claim says a block, a landing or a due FI entry ever happens (§1 "Liveness",
@@ -338,13 +342,39 @@ encoding/key and L1/EL authentication remain adapter obligations.
 A fully slashed member can retain current fixed committee power, so continuous positive backing
 is false; the spec records this as section 12 item 19. A full typed lagging-view witness also freshly signs an old-height nil precommit after
 newer withdrawal: own-finalized trust does not imply current global checkpoint freshness.
-Causal confirmation-to-view ordering and same-prefix inclusion are explicit requirements, as
+Causal confirmation-to-view ordering and either same-prefix inclusion or authentic retained
+normal-recovery history are explicit requirements, as
 are post-rollback revalidation and actual producer enforcement. An available evidence period
 does not guarantee timely evidence delivery or governance action. See
 [the signer/prefix connection](reports/signing-prefix-connection.md),
 [trajectory assurance](reports/trajectory-assurance.md) and
 [signing/escrow analysis](reports/signing-escrow-analysis.md) for precise statements and checked
 counterexamples.
+
+## Normal rotation, recovery and actual signing
+
+`NormalSigning.fresh_signing_connection` derives confirmation coverage along a provenance-rich
+normal run and connects it to the actual next-height committee and successful fresh signer
+call. `ConfirmationSource` supports either exact replay inclusion or retained history through
+an actual normal recovery. Thus a confirmation checkpoint below the new fixed origin need not
+appear in that generation's replay. Original ordinary steps preserve the old complete record;
+actual recovery/L1 ordering derives the new selector's cutoff bound. Withdrawal and slot reuse
+do not revive the lifetime key. No desired cutoff inequality, live-bond or positive-collateral
+premise is added.
+
+The initialized witness confirms key 7 at checkpoint 12, withdraws it, lands through checkpoint
+14, recovers at L1 40, crosses a recovered-generation H+2 handover, reuses the old slot at L1 48
+and actually signs height 23 with key 8 while retaining its previous signer log. The selected
+historical committee stays key 8; key 7's EngineRequest is rejected for all phases/nil choices.
+A second initialized witness supplies a normal-recovery source before the first landing.
+
+The normal run retains explicit accepted-batch, deployment/history, prior-snapshot-source and
+reference contracts; it does not lift every unrestricted trace automatically. Initial key and
+exit-history invariants, actual authentication/request/key/persistence behavior and causal view
+coverage remain explicit. See [normal signing composition](reports/normal-signing-composition.md)
+and [premise responsibilities](reports/premise-responsibilities.md). Global freshness,
+verifier-failure rollback/session revalidation, upstream locking, continuous collateral and
+production implementation certification remain outside this extension.
 
 ## Back-pressure accounting
 
@@ -564,7 +594,7 @@ What the audit checks, each with its documented limit:
 
 - **Headline.** `Etna.Proofs.claims` and the three headline theorems have exactly their claim
   types and only the standard axioms.
-- **Exact types.** Each of the 899 manifest entries carries a full expected type, parsed as one
+- **Exact types.** Each of the 943 manifest entries carries a full expected type, parsed as one
   term (no `by`, `sorry` or `%`-elaborators) and compared with the kernel's. The manifest is a
   reviewed artifact; the gate does not compare it with prose.
 - **Rule P** (needed for the `property` role). The statement is quantified, and every conjunct,
@@ -624,7 +654,8 @@ Only Lean's standard library and Python's are needed. After a model change that 
 vectors, regenerate them with `lake exe etna-vectors --write ../../testdata/etna_conformance`
 (and refresh the contracts' and the client's copies as that directory's README describes). Generated
 `Audit.lean`, the full clause inventory and the audit results go to the ignored
-`.scratch/generated`. Execution plans are not tracked.
+`.scratch/generated`. The approved design and implementation record for the normal-recovery
+signing extension are in `docs/superpowers/`.
 
 ## Layout
 
@@ -645,19 +676,19 @@ namespace (for example `EtnaModel/Deployment.lean` and `EtnaProofs/Deployment.le
   the model and nothing imports it; the lint lets only its plain string literals contain `{`,
   and the audit admits its root `main` as the one declaration outside `Etna`.
 - `manifests/design.json`: the theorem contracts; `manifests/shadowing-allowlist.json`.
-- `spec-coverage.json`: the 22 narrow claims (traceability). `rule-coverage.json`: the raw
+- `spec-coverage.json`: the 23 narrow claims (traceability). `rule-coverage.json`: the raw
   pins, reviewed overrides and reviewed narrowings (35 shared clauses) of the rule-ID view.
 - `scripts/`, `tests/`: the gate and its tests. `reports/`: review history. `legacy/v9`:
   historical V9 material outside the build.
 
 ## Numbers
 
-- 912 theorem contracts: 163 property, 3 constant, 416 supporting, 330 regression.
-- 163 property derivation chains, checked against the live proof terms.
-- 313 source clauses: 77 partial, 233 deferred, 3 design-pending; 22 narrow claims.
+- 943 theorem contracts: 178 property, 3 constant, 416 supporting, 346 regression.
+- 178 property derivation chains, checked against the live proof terms.
+- 313 source clauses: 77 partial, 233 deferred, 3 design-pending; 23 narrow claims.
 - 568 binding rule IDs: 141 partial, 7 partial through a reviewed override, 416 deferred, 4
   design-pending; 21 limitations and 11 assumptions, none partial.
-- 199 Python mutation/regression tests, plus kernel-replayed Lean regression modules.
+- 210 Python mutation/regression tests, plus kernel-replayed Lean regression modules.
 - Current vectors: 414 Inbox/registry and 340 client rule vectors, run by the contracts
   (406 agree, 8 known divergences) and the Rust client (339 agree, 1 known divergence).
 

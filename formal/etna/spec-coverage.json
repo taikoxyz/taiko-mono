@@ -479,6 +479,34 @@
           "Etna.Design.SigningBridge.fresh_signing_connection"
         ]
       }
+    },
+    {
+      "id": "DV-23",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "Under explicit normal landing provenance and initial lifetime-key/history conditions, confirmation coverage and the next-height cutoff bound are derived. An actual trusted replay or successful normal-recovery history retains the confirmation checkpoint and excludes its lifetime key from the current request committee and fresh signer call, including after withdrawal and slot reuse. Real authentication, producer, key and persistence refinements remain external implementation contracts.",
+      "assumptions": [
+        "context",
+        "l1",
+        "signature",
+        "journal",
+        "signing",
+        "deployment"
+      ],
+      "evidence": {
+        "EN-4651c537a506e6fd": [
+          "Etna.Design.NormalSigning.fresh_signing_connection",
+          "Etna.Design.NormalSigning.initialized_fresh_signing_connection"
+        ],
+        "EN-9ee888f78091a2fe": [
+          "Etna.Design.NormalSigning.fresh_signing_connection",
+          "Etna.Design.NormalSigning.initialized_fresh_signing_connection"
+        ],
+        "EN-2b238db781615e6e": [
+          "Etna.Design.NormalSigning.fresh_signing_connection",
+          "Etna.Design.NormalSigning.initialized_fresh_signing_connection"
+        ]
+      }
     }
   ],
   "acceptance_source": {

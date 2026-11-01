@@ -4,7 +4,8 @@ import EtnaStatements.Environment
 Each field constrains the deployment's initialized World or the environment (the proof
 backends, the guests' L1 data, the hash and signature adapters). No field mentions the Inbox
 records, signals or queue progress the claims are about; the run itself is any sequence of
-protocol steps whose landings the environment submits (`Run`). -/
+protocol steps whose landings the environment submits (`Run`). Responsibility classification:
+`reports/premise-responsibilities.md` separates external trust from implementation contracts. -/
 namespace Etna.Statements
 open Etna.Design
 
@@ -72,21 +73,25 @@ structure Premises (w0 : ProtocolState.World) (env : Environment) : Prop where
   (Appendix B slot 285, spec L777: "Initialize block 0 with parent/generation/head=0, EL hash =
   genesis hash and Comet hash=0"; 6.1, spec L294: "block 0 stores the genesis hash; its Comet hash
   is 0") and FI cursor 0 (7.2, spec L426: "a cursor c ... initially 0"). -/
+  -- Responsibility: Deployment/interface contract over authentic initialization data; not a primitive trust axiom.
   genesis : Deployment.Genesis w0 env.genesisHeader.elHash env.genesisHeader.stateRoot ∧
     env.genesisHeader.height = 0 ∧ env.genesisHeader.cometHash = 0 ∧ env.genesisHeader.cursor = 0
   /-- §1 "Funds" (spec L12): "every landing needs two proofs, at least one of them ZK (6.2)"; §1
   "Upgrades and trust" (spec L16): "Verifier soundness ... is a separate assumption"; 8 (spec L487):
   "both proofs accepting a wrong result is outside the threat model". See `VerifierSound`. -/
+  -- Responsibility: Mixed: external backend soundness AND correct guest/image/statement semantics.
   verifierSound : VerifierSound env
   /-- 3.3 (spec L90): the anchor witness "proves the Inbox's recoveryGeneration, lastCheckpoint
   (height, hash) and the forced inclusion queue's head and tail"; 7.2 (spec L427): a block with a
   pending head "must carry entry c's witness, a storage proof under A's stateRoot". See
   `InputsAuthenticated`. -/
+  -- Responsibility: Mixed: external L1/crypto trust AND correct anchor/witness/root/value binding.
   authenticatedInputs : InputsAuthenticated env
   /-- 6.2 item 1 (spec L360): "committeeConfigHash opens per appendix A". Keccak separation for
   the config adapter: the stored committeeConfigHash has exactly one representable 7-word
   opening, the deployment's own configuration (the `separates` premise of
   `Deployment.opening_unique`, restricted to uint256 words so that it can hold at all). -/
+  -- Responsibility: Mixed: idealized hash separation AND canonical representable config encoding.
   hashSeparation : ∀ cfg, Representable cfg →
     w0.adapters.configHash (Deployment.words w0.inbox cfg) = w0.inbox.committeeConfig → cfg = w0.inbox.configuration
   /-- 3.4 rule 1 (spec L104): "height = parent + 1, and parentHash links to the parent"; rule 9 (EN
@@ -94,6 +99,7 @@ structure Premises (w0 : ProtocolState.World) (env : Environment) : Prop where
   to the last block's hash and stateRoot". An EL hash is the hash of the header it names: when the
   EL accepts block `b` on parent header `p`, both `p`'s and `b`'s EL hashes are `headerHash` of
   those decoded headers, and so is block 0's. -/
+  -- Responsibility: Execution/hash adapter contract, supported by a pinned external EL dependency.
   headerHashes : (∀ p b, env.executionValid p b = true →
       p.elHash = env.headerHash p ∧ b.header.elHash = env.headerHash b.header) ∧
     env.genesisHeader.elHash = env.headerHash env.genesisHeader
@@ -104,6 +110,7 @@ structure Premises (w0 : ProtocolState.World) (env : Environment) : Prop where
   (6.2 item 4, spec L363). The rest of the decoded anchor is read from that authenticated L1 block
   (3.3). Keccak collision resistance, idealized: equal EL hashes mean equal height, stateRoot,
   timestamp and anchor. -/
+  -- Responsibility: Mixed: header-hash separation AND authenticated full decoded-anchor agreement.
   headerSeparation : ∀ h₁ h₂, env.headerHash h₁ = env.headerHash h₂ →
     h₁.height = h₂.height ∧ h₁.stateRoot = h₂.stateRoot ∧ h₁.timestamp = h₂.timestamp ∧ h₁.anchor = h₂.anchor
   /-- 3.1 (spec L43): "L1 can therefore verify any vote directly with ecrecover (double-sign
@@ -111,6 +118,7 @@ structure Premises (w0 : ProtocolState.World) (env : Environment) : Prop where
   deployment's full L1/L2 chain ids, the Inbox proxy fixed in the registry and the votes' shared
   generation". The registry's signature check accepts every vote of this deployment that the
   consensus signature relation accepts, with the vote's own signature bytes `sig v`. -/
+  -- Responsibility: Consensus/registry signature-format agreement contract; unforgeability is separate.
   signatureAgreement : ∃ sig : Consensus.Vote → Hash, ∀ v, v.domain = w0.inbox.domain → env.signature v →
     w0.registry.verify v.key (Accountability.evidence v) (sig v) = true
 
