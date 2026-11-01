@@ -27,6 +27,7 @@ import EtnaProofs.BackPressure
 import EtnaProofs.Permanence
 import EtnaProofs.RoundSafety
 import EtnaProofs.TrustedSnapshot
+import EtnaProofs.NormalSigning
 import EtnaProofs.Lifecycle
 import EtnaProofs.Contracts
 import EtnaProofs.Derived
