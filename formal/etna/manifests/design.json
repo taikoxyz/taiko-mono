@@ -13471,7 +13471,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "property",
-      "sources": ["EN-4651c537a506e6fd", "EN-d04a236579cc9990"],
+      "sources": ["EN-4651c537a506e6fd"],
       "scope": "Conditional normal-protocol composition; actual ordinary transitions and successful signer calls. No production conformance, global freshness, rollback or continuous collateral claim."
     },
     {

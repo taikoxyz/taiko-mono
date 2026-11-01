@@ -572,3 +572,20 @@ Earlier sections describe their original revisions and retain historical counts/
   silent baseline; all 172 Python tests and 12 Lean regression modules passed.
 - Independent semantic review found no Critical/Important findings. Full central gate results
   are recorded in README; no production/spec changes or superpowers planning documents.
+
+## 2026-11-01: normal rotation/recovery signing composition
+
+A fresh read-only review of `ae9da93f6..47d079f76` found no Critical or Important defects in the
+normal-run provenance, recovery-aware confirmation transport, actual signer connection,
+initialized witnesses or premise classification. One minor source attribution was corrected:
+`NormalSigning.run_covered` excludes verifier-failure rollback, so it no longer cites that
+paragraph (`EN-d04a236579cc9990`). Its genuine exit-confirmation source is retained and the
+rule report is regenerated; no coverage totals change.
+
+Validation: clean 114-job Lean 4.35.0-rc4 build, 943 exact contracts, 178 property derivation
+chains, standard axioms only, fresh whole-kernel replay, unchanged seven-field headline use,
+13 silent Lean regression modules, fresh 754 vectors and all 210 Python tests (234.440 s).
+The 31 added contracts comprise 15 properties and 16 initialized regressions. All 912 prior
+contract types remain unchanged. Six structural provenance/projection helpers cite no clause
+and are individually enumerated in UNSOURCED. Source/rule metadata checks are rerun after the
+minor attribution correction.
