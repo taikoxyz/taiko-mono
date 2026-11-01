@@ -1,3 +1,4 @@
+import EtnaWitnesses.Regressions.TrustState
 import EtnaWitnesses.Regressions.CanonicalHistory
 import EtnaWitnesses.Regressions.Capital
 import EtnaWitnesses.Regressions.StakingAlignment

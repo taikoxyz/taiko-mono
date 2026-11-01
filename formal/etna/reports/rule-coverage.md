@@ -12,7 +12,7 @@ other rules of that clause are `deferred`.
 
 | Type       | Count | partial | partial-via | deferred | design-pending |
 | ---------- | ----: | ------: | ----------: | -------: | -------------: |
-| rule       |   568 |     141 |           7 |      416 |              4 |
+| rule       |   568 |     146 |           7 |      411 |              4 |
 | limitation |    21 |       1 |           0 |       19 |              1 |
 | assumption |    11 |       0 |           0 |       11 |              0 |
 
@@ -20,7 +20,7 @@ other rules of that clause are `deferred`.
 
 | Family | Rules | partial | partial-via | deferred | design-pending |
 | ------ | ----: | ------: | ----------: | -------: | -------------: |
-| RECOV  |   110 |      29 |           0 |       81 |              0 |
+| RECOV  |   110 |      32 |           0 |       78 |              0 |
 | ENC    |    58 |       8 |           0 |       50 |              0 |
 | CONS   |    52 |       9 |           0 |       43 |              0 |
 | PROOF  |    47 |      23 |           0 |       24 |              0 |
@@ -28,7 +28,7 @@ other rules of that clause are `deferred`.
 | START  |    39 |       9 |           0 |       27 |              3 |
 | STOR   |    34 |       2 |           0 |       32 |              0 |
 | FI     |    31 |      12 |           0 |       19 |              0 |
-| SYNC   |    25 |       8 |           0 |       17 |              0 |
+| SYNC   |    25 |      10 |           0 |       15 |              0 |
 | DATA   |    21 |       1 |           0 |       20 |              0 |
 | FORF   |    20 |       6 |           0 |       14 |              0 |
 | COMM   |    18 |       9 |           0 |        9 |              0 |
@@ -250,9 +250,9 @@ other rules of that clause are `deferred`.
 | PROOF-6.2-27  | rule       | deferred       | EN-043c32870af8d13f                       |      5 |                                                                                                              |
 | PROOF-6.2-28  | rule       | deferred       | EN-043c32870af8d13f                       |      5 |                                                                                                              |
 | PROOF-6.2-29  | rule       | deferred       | EN-ec88c406997bc27f                       |      1 |                                                                                                              |
-| PROOF-6.2-30  | rule       | partial        | EN-5d5828fcdce5ab2a                       |      3 | `landing_reference_bound`, `prior_snapshot_source`, `run_normal` +17                                         |
-| PROOF-6.2-31  | rule       | partial        | EN-5d5828fcdce5ab2a                       |      3 | `landing_reference_bound`, `prior_snapshot_source`, `run_normal` +17                                         |
-| PROOF-6.2-32  | rule       | partial        | EN-5d5828fcdce5ab2a                       |      3 | `landing_reference_bound`, `prior_snapshot_source`, `run_normal` +17                                         |
+| PROOF-6.2-30  | rule       | partial        | EN-5d5828fcdce5ab2a                       |      3 | `landing_reference_bound`, `prior_snapshot_source`, `run_normal` +18                                         |
+| PROOF-6.2-31  | rule       | partial        | EN-5d5828fcdce5ab2a                       |      3 | `landing_reference_bound`, `prior_snapshot_source`, `run_normal` +18                                         |
+| PROOF-6.2-32  | rule       | partial        | EN-5d5828fcdce5ab2a                       |      3 | `landing_reference_bound`, `prior_snapshot_source`, `run_normal` +18                                         |
 | PROOF-6.2-33  | rule       | partial        | EN-2474bdce909c86f9                       |      2 | `accepted_archive_covered`, `landing_reference_bound`, `submitted_history_landing` +7                        |
 | PROOF-6.2-34  | rule       | deferred       | EN-2474bdce909c86f9                       |      2 |                                                                                                              |
 | PROOF-6.2-35  | rule       | deferred       | EN-c7be000835ab6d0c                       |      2 |                                                                                                              |
@@ -342,9 +342,9 @@ other rules of that clause are `deferred`.
 | RECOV-8-11    | rule       | deferred       | EN-46a9131898bf1c38                       |      5 |                                                                                                              |
 | RECOV-8-12    | rule       | deferred       | EN-a2406d42db0822e2                       |      2 |                                                                                                              |
 | RECOV-8-13    | rule       | deferred       | EN-a2406d42db0822e2                       |      2 |                                                                                                              |
-| RECOV-8-14    | rule       | deferred       | EN-9f4dedd50d1598e8                       |      3 |                                                                                                              |
-| RECOV-8-15    | rule       | deferred       | EN-9f4dedd50d1598e8                       |      3 |                                                                                                              |
-| RECOV-8-16    | rule       | deferred       | EN-9f4dedd50d1598e8                       |      3 |                                                                                                              |
+| RECOV-8-14    | rule       | partial        | EN-9f4dedd50d1598e8                       |      3 | `superseded_rejects`                                                                                         |
+| RECOV-8-15    | rule       | partial        | EN-9f4dedd50d1598e8                       |      3 | `superseded_rejects`                                                                                         |
+| RECOV-8-16    | rule       | partial        | EN-9f4dedd50d1598e8                       |      3 | `superseded_rejects`                                                                                         |
 | RECOV-8-17    | rule       | deferred       | EN-a53b139daad86fce                       |      3 |                                                                                                              |
 | RECOV-8-18    | rule       | deferred       | EN-a53b139daad86fce                       |      3 |                                                                                                              |
 | RECOV-8-19    | rule       | deferred       | EN-a53b139daad86fce                       |      3 |                                                                                                              |
@@ -399,7 +399,7 @@ other rules of that clause are `deferred`.
 | RECOV-8.1-10  | rule       | deferred       | EN-c690cebcc3b33811                       |      4 |                                                                                                              |
 | RECOV-8.1-11  | rule       | deferred       | EN-c690cebcc3b33811                       |      4 |                                                                                                              |
 | RECOV-8.1-12  | rule       | deferred       | EN-c690cebcc3b33811                       |      4 |                                                                                                              |
-| RECOV-8.2-1   | rule       | partial        | EN-6478ed58606b3c3b                       |      3 | `retired_generation_never_revives`, `signer_trace_retirement`                                                |
+| RECOV-8.2-1   | rule       | partial        | EN-6478ed58606b3c3b                       |      3 | `retired_generation_never_revives`, `signer_trace_retirement`, `trace_keeps_log` +1                          |
 | RECOV-8.2-2   | rule       | deferred       | EN-6478ed58606b3c3b                       |      3 |                                                                                                              |
 | RECOV-8.2-3   | rule       | deferred       | EN-6478ed58606b3c3b                       |      3 |                                                                                                              |
 | RECOV-8.2-4   | rule       | deferred       | EN-992ca84f0e185f57                       |      3 |                                                                                                              |
@@ -439,15 +439,15 @@ other rules of that clause are `deferred`.
 | RECOV-8.4-13  | rule       | deferred       | EN-d8189cd72ebd5832                       |      4 |                                                                                                              |
 | RECOV-8.4-14  | rule       | deferred       | EN-e2949e7ac63b6514                       |      2 |                                                                                                              |
 | RECOV-8.4-15  | rule       | deferred       | EN-e2949e7ac63b6514                       |      2 |                                                                                                              |
-| SYNC-9-1      | rule       | deferred       | EN-9a03b957332fc15a                       |      2 |                                                                                                              |
-| SYNC-9-2      | rule       | deferred       | EN-9a03b957332fc15a                       |      2 |                                                                                                              |
+| SYNC-9-1      | rule       | partial        | EN-9a03b957332fc15a                       |      2 | `reachable_replayed`                                                                                         |
+| SYNC-9-2      | rule       | partial        | EN-9a03b957332fc15a                       |      2 | `reachable_replayed`                                                                                         |
 | SYNC-9-3      | rule       | deferred       | EN-5e38116b9d70c82a                       |      1 |                                                                                                              |
-| SYNC-9-4      | rule       | partial        | EN-9ee888f78091a2fe                       |      6 | `confirmation_source_bound`, `fresh_signing_connection`, `initialized_fresh_signing_connection` +7           |
-| SYNC-9-5      | rule       | partial        | EN-9ee888f78091a2fe                       |      6 | `confirmation_source_bound`, `fresh_signing_connection`, `initialized_fresh_signing_connection` +7           |
-| SYNC-9-6      | rule       | partial        | EN-9ee888f78091a2fe                       |      6 | `confirmation_source_bound`, `fresh_signing_connection`, `initialized_fresh_signing_connection` +7           |
+| SYNC-9-4      | rule       | partial        | EN-9ee888f78091a2fe                       |      6 | `confirmation_source_bound`, `fresh_signing_connection`, `initialized_fresh_signing_connection` +9           |
+| SYNC-9-5      | rule       | partial        | EN-9ee888f78091a2fe                       |      6 | `confirmation_source_bound`, `fresh_signing_connection`, `initialized_fresh_signing_connection` +9           |
+| SYNC-9-6      | rule       | partial        | EN-9ee888f78091a2fe                       |      6 | `confirmation_source_bound`, `fresh_signing_connection`, `initialized_fresh_signing_connection` +9           |
 | SYNC-9-7      | rule       | deferred       | EN-9ee888f78091a2fe                       |      6 |                                                                                                              |
 | SYNC-9-8      | rule       | deferred       | EN-9ee888f78091a2fe                       |      6 |                                                                                                              |
-| SYNC-9-9      | rule       | partial        | EN-9ee888f78091a2fe                       |      6 | `confirmation_source_bound`, `fresh_signing_connection`, `initialized_fresh_signing_connection` +7           |
+| SYNC-9-9      | rule       | partial        | EN-9ee888f78091a2fe                       |      6 | `confirmation_source_bound`, `fresh_signing_connection`, `initialized_fresh_signing_connection` +9           |
 | SYNC-9-10     | rule       | partial        | EN-2b238db781615e6e                       |      6 | `fresh_signing_connection`, `initialized_fresh_signing_connection`, `event_excludes_confirmed_key` +4        |
 | SYNC-9-11     | rule       | partial        | EN-2b238db781615e6e                       |      6 | `fresh_signing_connection`, `initialized_fresh_signing_connection`, `event_excludes_confirmed_key` +4        |
 | SYNC-9-12     | rule       | partial        | EN-2b238db781615e6e                       |      6 | `fresh_signing_connection`, `initialized_fresh_signing_connection`, `event_excludes_confirmed_key` +4        |

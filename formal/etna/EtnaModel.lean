@@ -1,3 +1,4 @@
+import EtnaModel.TrustState
 import EtnaModel.CanonicalHistory
 import EtnaModel.Capital
 import EtnaModel.Common

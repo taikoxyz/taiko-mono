@@ -14194,6 +14194,396 @@
         "EN-992ca84f0e185f57"
       ],
       "scope": "Closed initialized history with a real accepted generation-1 landing to checkpoint 22, followed by an actual fresh successful stock Signer.sign at height 23 satisfying the current engine request. Fixture key 8 differs from withdrawn key 7; real adapter enforcement remains external."
+    },
+    {
+      "module": "EtnaProofs.TrustState",
+      "declaration": "Etna.Design.TrustState.reachable_replayed",
+      "type": "∀ {deviceKey : Etna.Design.Hash}\n  {deviceEncode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash} {s : Etna.Design.TrustState.Node},\n  Etna.Design.TrustState.Reachable deviceKey deviceEncode s → Etna.Design.TrustState.Replayed s",
+      "assumptions": [
+        "Decoded own-finalized header/storage/origin/rules authentication and EL/cryptographic primitives are truthful external contracts, not newly proved.",
+        "Actual Signer.sign/openSession/switchDomain semantics with an authoritative durable log and exclusive immutable device key/encoder; no global L1 freshness assumption."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-9a03b957332fc15a"],
+      "scope": "Induction over the node event trace derives actual Chain and NodeValid checks for accumulated replay/live extension; raw finality/authentication/EL primitives remain inputs."
+    },
+    {
+      "module": "EtnaProofs.TrustState",
+      "declaration": "Etna.Design.TrustState.reachable_matches",
+      "type": "∀ {deviceKey : Etna.Design.Hash}\n  {deviceEncode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash} {s : Etna.Design.TrustState.Node},\n  Etna.Design.TrustState.Reachable deviceKey deviceEncode s →\n    s.trusted = Bool.true → Etna.Design.TrustState.MatchesTarget s",
+      "assumptions": [
+        "Decoded own-finalized header/storage/origin/rules authentication and EL/cryptographic primitives are truthful external contracts, not newly proved.",
+        "Actual Signer.sign/openSession/switchDomain semantics with an authoritative durable log and exclusive immutable device key/encoder; no global L1 freshness assumption."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-9ee888f78091a2fe"],
+      "scope": "Only exact-match promotion can grant trust: the current session target equals the authenticated checkpoint height, both hashes and FI cursor, with the active generation and archive coverage. No global newest-view guarantee."
+    },
+    {
+      "module": "EtnaProofs.TrustState",
+      "declaration": "Etna.Design.TrustState.canonical_trusted_prefix",
+      "type": "∀ {deviceKey : Etna.Design.Hash}\n  {deviceEncode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash} {s : Etna.Design.TrustState.Node}\n  {target : Etna.Design.TrustState.Target},\n  Etna.Design.TrustState.Reachable deviceKey deviceEncode s →\n    s.trusted = Bool.true →\n      s.target = Option.some target →\n        ∀ {initial : Etna.Design.ProtocolState.World} {old more : List Nat}\n          {template : Etna.Design.BlockValidity.Rules},\n          Etna.Design.CanonicalHistory.Run initial target.view old →\n            target.archive = old ++ more →\n              Etna.Design.Deployment.build target.view target.view.inbox.configuration target.archive template =\n                  Option.some target.rules →\n                (Etna.Design.BlockValidity.terminal (Etna.Design.BlockValidity.terminal target.origin s.replay)\n                        s.extension).height <\n                    target.archive.length →\n                  ∃ (p : Etna.Design.SigningBridge.TrustedPrefix target.view),\n                    p.origin = target.origin ∧ p.replay = s.replay ∧ p.extension = s.extension ∧ p.rules = target.rules",
+      "assumptions": [
+        "Decoded own-finalized header/storage/origin/rules authentication and EL/cryptographic primitives are truthful external contracts, not newly proved.",
+        "Actual Signer.sign/openSession/switchDomain semantics with an authoritative durable log and exclusive immutable device key/encoder; no global L1 freshness assumption."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-9ee888f78091a2fe", "EN-5d5828fcdce5ab2a"],
+      "scope": "Generally construct the existing TrustedPrefix from reachable trust and canonical Run/build provenance; SnapshotSource is derived with Task 1, not an input to Target/promotion. Complete extension archive coverage is explicit."
+    },
+    {
+      "module": "EtnaProofs.TrustState",
+      "declaration": "Etna.Design.TrustState.untrusted_cannot_sign",
+      "type": "∀ (s : Etna.Design.TrustState.Node)\n  (encode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash) (m : Etna.Design.SigningBridge.SignMessage)\n  (sig : Etna.Design.Hash) (persisted : Bool),\n  s.trusted = Bool.false → Etna.Design.TrustState.sign s encode m sig persisted = Option.none",
+      "assumptions": [
+        "Decoded own-finalized header/storage/origin/rules authentication and EL/cryptographic primitives are truthful external contracts, not newly proved.",
+        "Actual Signer.sign/openSession/switchDomain semantics with an authoritative durable log and exclusive immutable device key/encoder; no global L1 freshness assumption."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-2b238db781615e6e"],
+      "scope": "Actual Signer.sign rejects an untrusted app state for every phase, nil choice and supplied signature, including cached returns."
+    },
+    {
+      "module": "EtnaProofs.TrustState",
+      "declaration": "Etna.Design.TrustState.pending_restart_cannot_sign",
+      "type": "∀ (s : Etna.Design.TrustState.Node)\n  (encode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash) (m : Etna.Design.SigningBridge.SignMessage)\n  (sig : Etna.Design.Hash) (persisted : Bool),\n  s.restartNeeded = Bool.true → Etna.Design.TrustState.sign s encode m sig persisted = Option.none",
+      "assumptions": [
+        "Decoded own-finalized header/storage/origin/rules authentication and EL/cryptographic primitives are truthful external contracts, not newly proved.",
+        "Actual Signer.sign/openSession/switchDomain semantics with an authoritative durable log and exclusive immutable device key/encoder; no global L1 freshness assumption."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-2b238db781615e6e"],
+      "scope": "Actual Signer.sign stays closed while the supervisor owes a new session after timeout, even if app checkpoint trust has returned."
+    },
+    {
+      "module": "EtnaProofs.TrustState",
+      "declaration": "Etna.Design.TrustState.untrusted_cannot_serve",
+      "type": "∀ (s : Etna.Design.TrustState.Node),\n  s.trusted = Bool.false → Etna.Design.TrustState.serve s = Bool.false",
+      "assumptions": [
+        "Decoded own-finalized header/storage/origin/rules authentication and EL/cryptographic primitives are truthful external contracts, not newly proved.",
+        "Actual Signer.sign/openSession/switchDomain semantics with an authoritative durable log and exclusive immutable device key/encoder; no global L1 freshness assumption."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-2b238db781615e6e"],
+      "scope": "The app service readiness output is false while untrusted; external RPC consumers must consult it."
+    },
+    {
+      "module": "EtnaProofs.TrustState",
+      "declaration": "Etna.Design.TrustState.invalidations_close",
+      "type": "∀ (s : Etna.Design.TrustState.Node)\n  (target : Etna.Design.TrustState.Target) (persisted : Bool),\n  (Etna.Design.TrustState.close s).trusted = Bool.false ∧\n    (Etna.Design.TrustState.timeout s).trusted = Bool.false ∧\n      (Etna.Design.TrustState.restart s).trusted = Bool.false ∧\n        (Etna.Design.TrustState.restart s).target = Option.none ∧\n          (Etna.Design.TrustState.rollback s).trusted = Bool.false ∧\n            (Etna.Design.TrustState.rollback s).target = Option.none ∧\n              (Etna.Design.TrustState.observe s target).trusted = Bool.false ∧\n                (Etna.Design.TrustState.recover s target persisted).trusted = Bool.false",
+      "assumptions": [
+        "Decoded own-finalized header/storage/origin/rules authentication and EL/cryptographic primitives are truthful external contracts, not newly proved.",
+        "Actual Signer.sign/openSession/switchDomain semantics with an authoritative durable log and exclusive immutable device key/encoder; no global L1 freshness assumption."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-9ee888f78091a2fe", "EN-2b238db781615e6e"],
+      "scope": "Missing material, timeout, restart, rollback, target observation and recovery revoke grants. Restart/rollback also clear authenticated target, requiring a new observation; persistence is unaffected."
+    },
+    {
+      "module": "EtnaProofs.TrustState",
+      "declaration": "Etna.Design.TrustState.restart_has_no_target",
+      "type": "∀ (s : Etna.Design.TrustState.Node)\n  (target : Etna.Design.TrustState.Target), (Etna.Design.TrustState.restart s).target ≠ Option.some target",
+      "assumptions": [
+        "Decoded own-finalized header/storage/origin/rules authentication and EL/cryptographic primitives are truthful external contracts, not newly proved.",
+        "Actual Signer.sign/openSession/switchDomain semantics with an authoritative durable log and exclusive immutable device key/encoder; no global L1 freshness assumption."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-9ee888f78091a2fe"],
+      "scope": "A new signer session has no authenticated target, so the exact-match transition cannot reuse pre-restart authentication."
+    },
+    {
+      "module": "EtnaProofs.TrustState",
+      "declaration": "Etna.Design.TrustState.superseded_rejects",
+      "type": "∀ {deviceKey : Etna.Design.Hash}\n  {deviceEncode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash} {s : Etna.Design.TrustState.Node}\n  {target : Etna.Design.TrustState.Target},\n  Etna.Design.TrustState.Reachable deviceKey deviceEncode s →\n    s.target = Option.some target →\n      s.signer.activeGeneration < target.view.inbox.generation →\n        ∀ (encode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash)\n          (m : Etna.Design.SigningBridge.SignMessage) (sig : Etna.Design.Hash) (persisted : Bool),\n          Etna.Design.TrustState.sign s encode m sig persisted = Option.none",
+      "assumptions": [
+        "Decoded own-finalized header/storage/origin/rules authentication and EL/cryptographic primitives are truthful external contracts, not newly proved.",
+        "Actual Signer.sign/openSession/switchDomain semantics with an authoritative durable log and exclusive immutable device key/encoder; no global L1 freshness assumption."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-9f4dedd50d1598e8"],
+      "scope": "A reachable node with an authenticated newer Inbox generation cannot sign using its superseded active signer generation."
+    },
+    {
+      "module": "EtnaProofs.TrustState",
+      "declaration": "Etna.Design.TrustState.retired_generation_rejects",
+      "type": "∀ (s : Etna.Design.TrustState.Node)\n  (encode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash) (m : Etna.Design.SigningBridge.SignMessage)\n  (sig : Etna.Design.Hash) (persisted : Bool),\n  m.generation ∈ s.signer.retired → Etna.Design.TrustState.sign s encode m sig persisted = Option.none",
+      "assumptions": [
+        "Decoded own-finalized header/storage/origin/rules authentication and EL/cryptographic primitives are truthful external contracts, not newly proved.",
+        "Actual Signer.sign/openSession/switchDomain semantics with an authoritative durable log and exclusive immutable device key/encoder; no global L1 freshness assumption."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-992ca84f0e185f57"],
+      "scope": "Actual stock signing rejects a request for any generation recorded as retired."
+    },
+    {
+      "module": "EtnaProofs.TrustState",
+      "declaration": "Etna.Design.TrustState.cached_retry",
+      "type": "∀ (s : Etna.Design.TrustState.Node)\n  (encode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash) (m : Etna.Design.SigningBridge.SignMessage)\n  (old : Etna.Design.Signer.Signed) (sig : Etna.Design.Hash) (persisted : Bool),\n  Etna.Design.Signer.authorized s.signer\n        (Etna.Design.SigningBridge.messageRequest encode m (s.trusted && !s.restartNeeded)) =\n      Bool.true →\n    Etna.Design.Signer.latest s.signer m.generation = Option.some old →\n      old.position = { height := m.height, round := m.round, step := Etna.Design.SigningBridge.phaseStep m.phase } →\n        old.bytes = encode m →\n          Etna.Design.TrustState.sign s encode m sig persisted = Option.some (s.signer, old.signature)",
+      "assumptions": [
+        "Decoded own-finalized header/storage/origin/rules authentication and EL/cryptographic primitives are truthful external contracts, not newly proved.",
+        "Actual Signer.sign/openSession/switchDomain semantics with an authoritative durable log and exclusive immutable device key/encoder; no global L1 freshness assumption."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-2b238db781615e6e"],
+      "scope": "The actual stock cache returns identical saved bytes/signature at the same HRS under current session authorization; no new committee or next-height veto is imposed."
+    },
+    {
+      "module": "EtnaProofs.TrustState",
+      "declaration": "Etna.Design.TrustState.conflicting_retry_rejected",
+      "type": "∀ (s : Etna.Design.TrustState.Node)\n  (encode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash) (m : Etna.Design.SigningBridge.SignMessage)\n  (old : Etna.Design.Signer.Signed) (sig : Etna.Design.Hash) (persisted : Bool),\n  Etna.Design.Signer.latest s.signer m.generation = Option.some old →\n    old.position = { height := m.height, round := m.round, step := Etna.Design.SigningBridge.phaseStep m.phase } →\n      old.bytes ≠ encode m → Etna.Design.TrustState.sign s encode m sig persisted = Option.none",
+      "assumptions": [
+        "Decoded own-finalized header/storage/origin/rules authentication and EL/cryptographic primitives are truthful external contracts, not newly proved.",
+        "Actual Signer.sign/openSession/switchDomain semantics with an authoritative durable log and exclusive immutable device key/encoder; no global L1 freshness assumption."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-6478ed58606b3c3b"],
+      "scope": "A cached latest entry rejects different exact request bytes at its HRS under actual stock Signer.sign."
+    },
+    {
+      "module": "EtnaProofs.TrustState",
+      "declaration": "Etna.Design.TrustState.fresh_transition_uses_device",
+      "type": "∀ {deviceKey : Etna.Design.Hash}\n  {deviceEncode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash} {s t : Etna.Design.TrustState.Node},\n  Etna.Design.TrustState.Step deviceKey deviceEncode s t →\n    t.signer.log ≠ s.signer.log →\n      ∃ (m : Etna.Design.SigningBridge.SignMessage),\n        ∃ (sig : Etna.Design.Hash),\n          ∃ (out : Etna.Design.Hash),\n            ∃ (persisted : Bool),\n              Etna.Design.TrustState.sign s deviceEncode m sig persisted = Option.some (t.signer, out) ∧\n                Etna.Design.TrustState.EngineRequest s deviceKey m",
+      "assumptions": [
+        "Decoded own-finalized header/storage/origin/rules authentication and EL/cryptographic primitives are truthful external contracts, not newly proved.",
+        "Actual Signer.sign/openSession/switchDomain semantics with an authoritative durable log and exclusive immutable device key/encoder; no global L1 freshness assumption."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-2b238db781615e6e"],
+      "scope": "Every log-changing event uses the trace-fixed device key and encoder, and its logical precondition requires that same key at the replayed next height. A selected substitute key cannot justify a different physical device."
+    },
+    {
+      "module": "EtnaProofs.TrustState",
+      "declaration": "Etna.Design.TrustState.trace_keeps_log",
+      "type": "∀ {deviceKey : Etna.Design.Hash}\n  {deviceEncode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash} {s t : Etna.Design.TrustState.Node},\n  Etna.Design.TrustState.Trace deviceKey deviceEncode s t →\n    ∃ (extra : List Etna.Design.Signer.Signed), t.signer.log = extra ++ s.signer.log",
+      "assumptions": [
+        "Decoded own-finalized header/storage/origin/rules authentication and EL/cryptographic primitives are truthful external contracts, not newly proved.",
+        "Actual Signer.sign/openSession/switchDomain semantics with an authoritative durable log and exclusive immutable device key/encoder; no global L1 freshness assumption."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-6478ed58606b3c3b"],
+      "scope": "Induction over arbitrary app events shows the modeled authoritative signer log only grows, including restart, timeout, target change, recovery and rollback."
+    },
+    {
+      "module": "EtnaProofs.TrustState",
+      "declaration": "Etna.Design.TrustState.restart_conflicting_retry",
+      "type": "∀ (s t : Etna.Design.TrustState.Node)\n  (encode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash) (m : Etna.Design.SigningBridge.SignMessage)\n  (old : Etna.Design.Signer.Signed) (sig : Etna.Design.Hash) (persisted : Bool),\n  t.signer.log = (Etna.Design.TrustState.restart s).signer.log →\n    Etna.Design.Signer.latest s.signer m.generation = Option.some old →\n      old.position = { height := m.height, round := m.round, step := Etna.Design.SigningBridge.phaseStep m.phase } →\n        old.bytes ≠ encode m → Etna.Design.TrustState.sign t encode m sig persisted = Option.none",
+      "assumptions": [
+        "Decoded own-finalized header/storage/origin/rules authentication and EL/cryptographic primitives are truthful external contracts, not newly proved.",
+        "Actual Signer.sign/openSession/switchDomain semantics with an authoritative durable log and exclusive immutable device key/encoder; no global L1 freshness assumption."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-2b238db781615e6e"],
+      "scope": "When reauthentication and replay preserve the log, restart cannot make different bytes acceptable at the old cached HRS."
+    },
+    {
+      "module": "EtnaProofs.TrustState",
+      "declaration": "Etna.Design.TrustState.trace_protects_signed_position",
+      "type": "∀ {deviceKey : Etna.Design.Hash}\n  {deviceEncode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash} {s t : Etna.Design.TrustState.Node}\n  {old : Etna.Design.Signer.Signed},\n  Etna.Design.TrustState.Trace deviceKey deviceEncode s t →\n    Etna.Design.TrustState.Protected s old → Etna.Design.TrustState.Protected t old",
+      "assumptions": [
+        "Decoded own-finalized header/storage/origin/rules authentication and EL/cryptographic primitives are truthful external contracts, not newly proved.",
+        "Actual Signer.sign/openSession/switchDomain semantics with an authoritative durable log and exclusive immutable device key/encoder; no global L1 freshness assumption."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-6478ed58606b3c3b"],
+      "scope": "Induction over all app events preserves each signed position: the stock cache head remains byte-identical at that HRS or advances past it, including intervening fresh calls and recovery."
+    },
+    {
+      "module": "EtnaProofs.TrustState",
+      "declaration": "Etna.Design.TrustState.successful_call_protected",
+      "type": "∀ {s : Etna.Design.TrustState.Node}\n  {after : Etna.Design.Signer.State} {encode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash}\n  {m : Etna.Design.SigningBridge.SignMessage} {sig out : Etna.Design.Hash} {persisted : Bool},\n  Etna.Design.TrustState.sign s encode m sig persisted = Option.some (after, out) →\n    Etna.Design.TrustState.Protected\n      { target := s.target, replay := s.replay, extension := s.extension, trusted := s.trusted, signer := after,\n        restartNeeded := s.restartNeeded, halted := s.halted }\n      { generation := m.generation,\n        position := { height := m.height, round := m.round, step := Etna.Design.SigningBridge.phaseStep m.phase },\n        bytes := encode m, signature := out }",
+      "assumptions": [
+        "Decoded own-finalized header/storage/origin/rules authentication and EL/cryptographic primitives are truthful external contracts, not newly proved.",
+        "Actual Signer.sign/openSession/switchDomain semantics with an authoritative durable log and exclusive immutable device key/encoder; no global L1 freshness assumption."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-6478ed58606b3c3b"],
+      "scope": "A successful actual stock call, fresh or cached, establishes protection for its exact generation/HRS/request bytes."
+    },
+    {
+      "module": "EtnaProofs.TrustState",
+      "declaration": "Etna.Design.TrustState.protected_conflicting_call_rejected",
+      "type": "∀ {s : Etna.Design.TrustState.Node}\n  {old : Etna.Design.Signer.Signed},\n  Etna.Design.TrustState.Protected s old →\n    ∀ (encode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash) (m : Etna.Design.SigningBridge.SignMessage)\n      (sig : Etna.Design.Hash) (persisted : Bool),\n      m.generation = old.generation →\n        old.position = { height := m.height, round := m.round, step := Etna.Design.SigningBridge.phaseStep m.phase } →\n          old.bytes ≠ encode m → Etna.Design.TrustState.sign s encode m sig persisted = Option.none",
+      "assumptions": [
+        "Decoded own-finalized header/storage/origin/rules authentication and EL/cryptographic primitives are truthful external contracts, not newly proved.",
+        "Actual Signer.sign/openSession/switchDomain semantics with an authoritative durable log and exclusive immutable device key/encoder; no global L1 freshness assumption."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-6478ed58606b3c3b"],
+      "scope": "A protected signed position rejects conflicting bytes even after later signatures moved the cache head forward. Encoding injectivity, physical persistence and exclusive key authority remain external."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.TrustState",
+      "declaration": "Etna.Design.TrustStateRegression.partial_replay_waits",
+      "type": "∃ (midway : Etna.Design.TrustState.Node),\n  Etna.Design.TrustStateRegression.DeviceTrace Etna.Design.TrustStateRegression.cold midway ∧\n    midway.trusted = Bool.false ∧\n      midway.replay.length = 6 ∧\n        Etna.Design.TrustState.sign midway Etna.Design.SigningBridgeRegression.messageCode\n            (Etna.Design.SigningBridgeRegression.message Etna.Design.SigningBridge.SignPhase.precommitMsg Bool.true) 9\n            Bool.true =\n          Option.none",
+      "assumptions": [
+        "Kernel-checked closed decoded fixtures; canonical bytes/cryptography, raw L1 authentication, durability and physical key exclusivity remain external primitives."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-9ee888f78091a2fe", "EN-9a03b957332fc15a"],
+      "scope": "Closed trace authenticates a real target, waits for material and validates six replay blocks; it is still untrusted and cannot sign before matching the checkpoint."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.TrustState",
+      "declaration": "Etna.Design.TrustStateRegression.session0_reachable",
+      "type": "Etna.Design.TrustStateRegression.DeviceReachable\n  Etna.Design.TrustStateRegression.session0",
+      "assumptions": [
+        "Kernel-checked closed decoded fixtures; canonical bytes/cryptography, raw L1 authentication, durability and physical key exclusivity remain external primitives."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-9ee888f78091a2fe"],
+      "scope": "Closed authentication/replay/exact-match/session-open trace inhabits ready state from an actual authoritative signer fixture."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.TrustState",
+      "declaration": "Etna.Design.TrustStateRegression.all_phases_sign",
+      "type": "∀ (phase : Etna.Design.SigningBridge.SignPhase) (nil : Bool),\n  Etna.Design.TrustStateRegression.DeviceStep Etna.Design.TrustStateRegression.session0\n      (Etna.Design.TrustStateRegression.signed0 phase nil) ∧\n    Etna.Design.TrustState.sign Etna.Design.TrustStateRegression.session0 Etna.Design.TrustStateRegression.bytes0\n          (Etna.Design.TrustStateRegression.message0 phase nil)\n          (Etna.Design.TrustStateRegression.bytes0 (Etna.Design.TrustStateRegression.message0 phase nil) + 8)\n          Bool.true =\n        Option.some\n          ((Etna.Design.TrustStateRegression.signed0 phase nil).signer,\n            Etna.Design.TrustStateRegression.bytes0 (Etna.Design.TrustStateRegression.message0 phase nil) + 8) ∧\n      (Etna.Design.TrustStateRegression.signed0 phase nil).signer.log ≠\n        Etna.Design.TrustStateRegression.session0.signer.log",
+      "assumptions": [
+        "Kernel-checked closed decoded fixtures; canonical bytes/cryptography, raw L1 authentication, durability and physical key exclusivity remain external primitives."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-2b238db781615e6e"],
+      "scope": "Every proposal/prevote/precommit and nil/non-nil fixture choice traverses the actual sign event with the fixed key/encoder and a fresh durable entry."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.TrustState",
+      "declaration": "Etna.Design.TrustStateRegression.timeout_restart_retry",
+      "type": "∀ (phase : Etna.Design.SigningBridge.SignPhase) (nil : Bool),\n  Etna.Design.TrustStateRegression.DeviceTrace Etna.Design.TrustStateRegression.session0\n      (Etna.Design.TrustStateRegression.retrySession phase nil) ∧\n    Etna.Design.TrustState.sign (Etna.Design.TrustState.timeout (Etna.Design.TrustStateRegression.signed0 phase nil))\n          Etna.Design.TrustStateRegression.bytes0 (Etna.Design.TrustStateRegression.message0 phase nil) 999 Bool.false =\n        Option.none ∧\n      (Etna.Design.TrustState.restart\n              (Etna.Design.TrustState.timeout (Etna.Design.TrustStateRegression.signed0 phase nil))).target =\n          Option.none ∧\n        Etna.Design.TrustState.sign (Etna.Design.TrustStateRegression.retrySession phase nil)\n              Etna.Design.TrustStateRegression.bytes0 (Etna.Design.TrustStateRegression.message0 phase nil) 999\n              Bool.false =\n            Option.some\n              ((Etna.Design.TrustStateRegression.retrySession phase nil).signer,\n                Etna.Design.TrustStateRegression.bytes0 (Etna.Design.TrustStateRegression.message0 phase nil) + 8) ∧\n          Etna.Design.TrustStateRegression.DeviceStep (Etna.Design.TrustStateRegression.retrySession phase nil)\n              (Etna.Design.TrustStateRegression.retrySession phase nil) ∧\n            (Etna.Design.TrustStateRegression.retrySession phase nil).signer.log =\n              (Etna.Design.TrustStateRegression.signed0 phase nil).signer.log",
+      "assumptions": [
+        "Kernel-checked closed decoded fixtures; canonical bytes/cryptography, raw L1 authentication, durability and physical key exclusivity remain external primitives."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-2b238db781615e6e"],
+      "scope": "Actual timeout refuses cached requests; restart clears target, reauthentication/replay opens a new session, and WAL retry returns the original signature without a new write or producer veto."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.TrustState",
+      "declaration": "Etna.Design.TrustStateRegression.retained_next_round",
+      "type": "∃ (after : Etna.Design.TrustState.Node),\n  Etna.Design.TrustStateRegression.DeviceStep\n      (Etna.Design.TrustStateRegression.signed0 Etna.Design.SigningBridge.SignPhase.precommitMsg Bool.false) after ∧\n    after.signer.log.length = 2 ∧\n      Etna.Design.TrustState.sign\n          (Etna.Design.TrustState.close\n            (Etna.Design.TrustStateRegression.signed0 Etna.Design.SigningBridge.SignPhase.precommitMsg Bool.false))\n          Etna.Design.TrustStateRegression.bytes0\n          (have __src :=\n            Etna.Design.TrustStateRegression.message0 Etna.Design.SigningBridge.SignPhase.precommitMsg Bool.false;\n          { domain := __src.domain, generation := __src.generation, height := __src.height, round := 1,\n            phase := __src.phase, blockId := __src.blockId })\n          999 Bool.true =\n        Option.none",
+      "assumptions": [
+        "Kernel-checked closed decoded fixtures; canonical bytes/cryptography, raw L1 authentication, durability and physical key exclusivity remain external primitives."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-2b238db781615e6e"],
+      "scope": "A retained non-nil block in a later round creates a second actual HRS entry; the same message is refused while untrusted."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.TrustState",
+      "declaration": "Etna.Design.TrustStateRegression.target_advancement_revalidates",
+      "type": "Etna.Design.TrustStateRegression.DeviceTrace\n    (Etna.Design.TrustStateRegression.signed0 Etna.Design.SigningBridge.SignPhase.precommitMsg Bool.false)\n    Etna.Design.TrustStateRegression.advancedSession ∧\n  (Etna.Design.TrustState.observe\n          (Etna.Design.TrustStateRegression.signed0 Etna.Design.SigningBridge.SignPhase.precommitMsg Bool.false)\n          Etna.Design.TrustStateRegression.advancedTarget).trusted =\n      Bool.false ∧\n    Etna.Design.TrustStateRegression.target0.view.inbox.checkpoint.height = 12 ∧\n      Etna.Design.TrustStateRegression.advancedTarget.view.inbox.checkpoint.height = 14 ∧\n        Etna.Design.TrustStateRegression.advancedSession.trusted = Bool.true ∧\n          Etna.Design.TrustStateRegression.advancedSession.signer.log =\n            (Etna.Design.TrustStateRegression.signed0 Etna.Design.SigningBridge.SignPhase.precommitMsg\n                  Bool.false).signer.log",
+      "assumptions": [
+        "Kernel-checked closed decoded fixtures; canonical bytes/cryptography, raw L1 authentication, durability and physical key exclusivity remain external primitives."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-9ee888f78091a2fe"],
+      "scope": "Authenticated same-generation target advances from height 12 to 14 and revokes the old grant; replay matches the new target and retains the signed height-13 record."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.TrustState",
+      "declaration": "Etna.Design.TrustStateRegression.recovery_revalidates",
+      "type": "Etna.Design.TrustStateRegression.DeviceTrace\n    Etna.Design.TrustStateRegression.advancedSession Etna.Design.TrustStateRegression.recoveredSession ∧\n  (Etna.Design.TrustState.recover Etna.Design.TrustStateRegression.advancedSession\n          Etna.Design.TrustStateRegression.target1 Bool.true).trusted =\n      Bool.false ∧\n    Etna.Design.TrustStateRegression.recoveredSession.signer.activeGeneration = 1 ∧\n      0 ∈ Etna.Design.TrustStateRegression.recoveredSession.signer.retired ∧\n        Etna.Design.TrustStateRegression.recoveredSession.signer.log =\n            Etna.Design.TrustStateRegression.advancedSession.signer.log ∧\n          Etna.Design.TrustState.sign Etna.Design.TrustStateRegression.recoveredSession\n              Etna.Design.TrustStateRegression.bytes0\n              (Etna.Design.TrustStateRegression.message0 Etna.Design.SigningBridge.SignPhase.precommitMsg Bool.false)\n              999 Bool.true =\n            Option.none",
+      "assumptions": [
+        "Kernel-checked closed decoded fixtures; canonical bytes/cryptography, raw L1 authentication, durability and physical key exclusivity remain external primitives."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-992ca84f0e185f57"],
+      "scope": "Actual switchDomain retires generation 0 and preserves the old log; generation-1 origin/replay/match reopens and old-generation requests fail."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.TrustState",
+      "declaration": "Etna.Design.TrustStateRegression.canonical_provenance",
+      "type": "∀ {s : Etna.Design.TrustState.Node},\n  Etna.Design.TrustStateRegression.DeviceReachable s →\n    s.trusted = Bool.true →\n      s.target = Option.some Etna.Design.TrustStateRegression.target1 →\n        s.replay = Etna.Design.NormalSigningRegression.blocks1 →\n          s.extension = [] →\n            ∃ (p : Etna.Design.SigningBridge.TrustedPrefix Etna.Design.CanonicalHistoryRegression.finish),\n              p.origin = Etna.Design.TrustStateRegression.target1.origin ∧\n                p.replay = s.replay ∧\n                  p.extension = s.extension ∧ p.rules = Etna.Design.TrustStateRegression.target1.rules",
+      "assumptions": [
+        "Kernel-checked closed decoded fixtures; canonical bytes/cryptography, raw L1 authentication, durability and physical key exclusivity remain external primitives."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-9ee888f78091a2fe", "EN-5d5828fcdce5ab2a"],
+      "scope": "The general canonical source constructor is instantiated by Task 1 actual initialized recovery/accepted landing history; no source field is added to target or readiness."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.TrustState",
+      "declaration": "Etna.Design.TrustStateRegression.rollback_revalidates",
+      "type": "Etna.Design.ProtocolState.Step\n    Etna.Design.CanonicalHistoryRegression.finish Etna.Design.TrustStateRegression.rolledView ∧\n  Etna.Design.TrustStateRegression.DeviceTrace Etna.Design.TrustStateRegression.recoveredSession\n      (Etna.Design.TrustStateRegression.activate\n        (Etna.Design.TrustState.rollback Etna.Design.TrustStateRegression.recoveredSession)\n        Etna.Design.TrustStateRegression.rolledTarget []) ∧\n    (Etna.Design.TrustState.rollback Etna.Design.TrustStateRegression.recoveredSession).trusted = Bool.false ∧\n      (Etna.Design.TrustState.rollback Etna.Design.TrustStateRegression.recoveredSession).target = Option.none ∧\n        (Etna.Design.TrustStateRegression.activate\n                (Etna.Design.TrustState.rollback Etna.Design.TrustStateRegression.recoveredSession)\n                Etna.Design.TrustStateRegression.rolledTarget []).trusted =\n            Bool.true ∧\n          (Etna.Design.TrustStateRegression.activate\n                  (Etna.Design.TrustState.rollback Etna.Design.TrustStateRegression.recoveredSession)\n                  Etna.Design.TrustStateRegression.rolledTarget []).signer.log =\n            Etna.Design.TrustStateRegression.recoveredSession.signer.log",
+      "assumptions": [
+        "Kernel-checked closed decoded fixtures; canonical bytes/cryptography, raw L1 authentication, durability and physical key exclusivity remain external primitives."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-d04a236579cc9990", "EN-9ee888f78091a2fe"],
+      "scope": "Concrete actual protocol rollback restores checkpoint 14; app grant/authentication are revoked, then a new authenticated exact origin match reopens with HRS retained. Does not prove trustworthiness of arbitrary DAO rollback targets."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.TrustState",
+      "declaration": "Etna.Design.TrustStateRegression.historical_cache_has_no_new_engine_veto",
+      "type": "Etna.Design.TrustStateRegression.DeviceStep\n    Etna.Design.TrustStateRegression.advancedSession Etna.Design.TrustStateRegression.advancedSession ∧\n  Etna.Design.TrustState.sign Etna.Design.TrustStateRegression.advancedSession Etna.Design.TrustStateRegression.bytes0\n        (Etna.Design.TrustStateRegression.message0 Etna.Design.SigningBridge.SignPhase.precommitMsg Bool.false) 999\n        Bool.false =\n      Option.some\n        (Etna.Design.TrustStateRegression.advancedSession.signer,\n          Etna.Design.TrustStateRegression.bytes0\n              (Etna.Design.TrustStateRegression.message0 Etna.Design.SigningBridge.SignPhase.precommitMsg Bool.false) +\n            8) ∧\n    ¬Etna.Design.TrustState.EngineRequest Etna.Design.TrustStateRegression.advancedSession 8\n        (Etna.Design.TrustStateRegression.message0 Etna.Design.SigningBridge.SignPhase.precommitMsg Bool.false)",
+      "assumptions": [
+        "Kernel-checked closed decoded fixtures; canonical bytes/cryptography, raw L1 authentication, durability and physical key exclusivity remain external primitives."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-2b238db781615e6e"],
+      "scope": "At trusted checkpoint 14, actual cached height-13 bytes return even though the current fresh producer requires height 15. The fixed-device Step accepts the historical cache path."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.TrustState",
+      "declaration": "Etna.Design.TrustStateRegression.recovered_phases_sign",
+      "type": "∀ (phase : Etna.Design.SigningBridge.SignPhase) (nil : Bool),\n  ∃ (after : Etna.Design.Signer.State),\n    Etna.Design.TrustState.sign Etna.Design.TrustStateRegression.recoveredSession\n          Etna.Design.TrustStateRegression.bytes0 (Etna.Design.NormalSigningRegression.message phase nil) 888\n          Bool.true =\n        Option.some (after, 888) ∧\n      after.log =\n        { generation := 1, position := { height := 23, round := 0, step := Etna.Design.SigningBridge.phaseStep phase },\n            bytes := Etna.Design.TrustStateRegression.bytes0 (Etna.Design.NormalSigningRegression.message phase nil),\n            signature := 888 } ::\n          Etna.Design.TrustStateRegression.recoveredSession.signer.log",
+      "assumptions": [
+        "Kernel-checked closed decoded fixtures; canonical bytes/cryptography, raw L1 authentication, durability and physical key exclusivity remain external primitives."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-992ca84f0e185f57", "EN-2b238db781615e6e"],
+      "scope": "Every phase/nil fixture creates a fresh generation-1 HRS entry after recovery trust, while retaining generation-0 logs."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.TrustState",
+      "declaration": "Etna.Design.TrustStateRegression.stale_own_view_still_signs",
+      "type": "Etna.Design.TrustState.Reachable 7\n    Etna.Design.TrustStateRegression.bytes0 Etna.Design.TrustStateRegression.lagSession ∧\n  Etna.Design.TrustState.EngineRequest Etna.Design.TrustStateRegression.lagSession 7\n      Etna.Design.TrustStateRegression.lagMessage ∧\n    (Etna.Design.SigningViewLag.current.registry.slots 0).released = Bool.true ∧\n      Etna.Design.TrustStateRegression.lagTarget.view.l1Block < Etna.Design.SigningViewLag.current.l1Block ∧\n        ∃ (after : Etna.Design.Signer.State),\n          Etna.Design.TrustState.sign Etna.Design.TrustStateRegression.lagSession\n                Etna.Design.TrustStateRegression.bytes0 Etna.Design.TrustStateRegression.lagMessage 777 Bool.true =\n              Option.some (after, 777) ∧\n            after.log.length = Etna.Design.TrustStateRegression.lagSession.signer.log.length + 1",
+      "assumptions": [
+        "Kernel-checked closed decoded fixtures; canonical bytes/cryptography, raw L1 authentication, durability and physical key exclusivity remain external primitives."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-9ee888f78091a2fe", "EN-2b238db781615e6e"],
+      "scope": "Closed counterexample boundary: a reachable trusted lagging own-finalized view and validated extension permit a fresh higher-round nil vote after global withdrawal. No global freshness or absolute post-withdrawal no-sign claim."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.TrustState",
+      "declaration": "Etna.Design.TrustStateRegression.excluded_device_cannot_append",
+      "type": "∀ {after : Etna.Design.TrustState.Node},\n  Etna.Design.TrustState.Step 7 Etna.Design.TrustStateRegression.bytes0 Etna.Design.TrustStateRegression.session0\n      after →\n    after.signer.log = Etna.Design.TrustStateRegression.session0.signer.log",
+      "assumptions": [
+        "Kernel-checked closed decoded fixtures; canonical bytes/cryptography, raw L1 authentication, durability and physical key exclusivity remain external primitives."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-2b238db781615e6e"],
+      "scope": "Fixed physical key 7 cannot substitute selected key 8 to create a fresh signed entry in the trusted height-13 session."
     }
   ]
 }

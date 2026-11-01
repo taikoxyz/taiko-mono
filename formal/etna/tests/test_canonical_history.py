@@ -7,9 +7,9 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def combined_canonical():
+def combined_canonical(model_only=False):
     imports, bodies = [], []
-    for library in ('EtnaModel', 'EtnaProofs'):
+    for library in (('EtnaModel',) if model_only else ('EtnaModel', 'EtnaProofs')):
         lines = (ROOT/library/'CanonicalHistory.lean').read_text().splitlines()
         end = 0
         while end < len(lines) and lines[end].startswith('import '):
@@ -28,9 +28,27 @@ class CanonicalHistoryKernelTests(unittest.TestCase):
             return subprocess.run(['lake', 'env', 'lean', file.name], cwd=ROOT, capture_output=True, text=True)
 
     def rejected(self, old, new, source=None):
-        source = combined_canonical() if source is None else source
-        self.assertIn(old, source)
-        result = self.compile(source.replace(old, new, 1))
+        if source is None:
+            # Mutate corresponding explicit Run and implicit Submitted binders together.
+            def mutate(text):
+                self.assertIn(old, text)
+                text = text.replace(old, new)
+                if old.startswith('(') and old.endswith(')'):
+                    text = text.replace('{'+old[1:-1]+'}', '{'+new[1:-1]+'}')
+                return text
+            model = self.compile(mutate(combined_canonical(model_only=True)))
+            self.assertEqual(model.returncode, 0, model.stdout+model.stderr)
+            self.assertEqual(model.stdout+model.stderr, '')
+            original_model = combined_canonical(model_only=True)
+            model_body = original_model[original_model.index('namespace Etna.Design.CanonicalHistoryMutation'):]
+            source = combined_canonical()
+            self.assertEqual(source.count(model_body), 1)
+            # The proof layer, including all theorem hypothesis types, is unchanged.
+            source = source.replace(model_body, mutate(model_body), 1)
+        else:
+            self.assertIn(old, source)
+            source = source.replace(old, new, 1)
+        result = self.compile(source)
         output = result.stdout+result.stderr
         self.assertNotEqual(result.returncode, 0, 'real historical evidence must remain necessary')
         self.assertIn('error:', output)

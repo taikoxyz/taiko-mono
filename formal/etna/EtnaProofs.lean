@@ -1,3 +1,4 @@
+import EtnaProofs.TrustState
 import EtnaProofs.CanonicalHistory
 import EtnaProofs.Capital
 import EtnaStatements
