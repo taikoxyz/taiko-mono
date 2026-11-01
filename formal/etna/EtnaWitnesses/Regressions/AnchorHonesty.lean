@@ -6,7 +6,9 @@ counterexample. In the non-vacuity deployment, with L1 block n at time n, every 
 environment lands on has queue entries that record their enqueue block's time, and every anchor
 the environment accepts reports its block's time and an honest tail; the premises hold too.
 `AnchorTail`'s understated anchor violates the tail half for every clock, and so does the
-non-vacuity L1 anchor of block 15 with its tail lowered to 0. -/
+non-vacuity L1 anchor of block 15 with its tail lowered to 0. The deployment's FI delay is 60 s
+and its maxAnchorAge 1200 s, while the run's blocks and anchors stay below time 22, so no entry
+becomes due on this run and the theorems' due-entry conclusions hold vacuously here. -/
 namespace Etna.Design.AnchorHonestyRegression
 open Etna.Statements NonVacuity AnchorHonesty
 

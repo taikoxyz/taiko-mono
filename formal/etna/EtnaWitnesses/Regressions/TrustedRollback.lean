@@ -8,7 +8,9 @@ checkpoint and slot 284 that the first landing wrote. Every hypothesis of
 `trusted_rollback_snapshot_trusted` and `trusted_rollback_excludes_confirmed_keys` holds, the
 rollback is an actual protocol step, and on the context built on the restored World slot 284
 equals the active committee's cutoff at the restored checkpoint. Restoring the same checkpoint
-with a snapshot no landing wrote (1000) breaks `SnapshotTrusted` there. -/
+with a snapshot no landing wrote (1000) breaks `SnapshotTrusted` there. The run's registry has
+no exit and its later landing is honest, so the exclusion conclusion holds vacuously here and a
+forged later landing is not exercised. -/
 namespace Etna.Design.TrustedRollbackRegression
 open SigningEscrow NonVacuity
 
@@ -70,8 +72,8 @@ theorem trusted_rollback_keeps_snapshot :
   refine ⟨rollback,by decide +kernel,by decide +kernel,trusted.1,trusted.2,?_,?_,?_⟩
   · exact trusted_rollback_excludes_confirmed_keys before (Deployment.genesis_core premises.genesis.1)
       SigningBridgeRegression.initial_keys SigningBridgeRegression.initial_visible (by decide) steps_accepted.2.1
-      construction rfl later (by decide +kernel) rollback restored.inbox.configuration archive0 restoredContext
-      (fun _ _ => rfl) restored_built
+      construction rfl later rollback (.refl _) rfl rfl (by decide +kernel) restored.inbox.configuration archive0
+      restoredContext (fun _ _ => rfl) restored_built
   · unfold HistoricalContext.build
     exact ite_eq_left (by decide +kernel)
   · unfold SnapshotTrusted

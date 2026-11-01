@@ -15,8 +15,9 @@ timestamp and count every entry enqueued at or before it (`AnchorHonesty.AnchorC
 - every landed block consumes the queue-head entry of the Inbox's actual queue once the entry is
   due by the anchor's time, and so once that bound holds (`honest_anchor_queue_service`; 7.3,
   spec L465: "A due queue-head entry must be included or legally skipped").
-Nat arithmetic does not overflow, matching the spec's overflow-safe arithmetic. Like H3, this
-covers blocks in landed segments only and gives no wall-clock deadline (§12 item 1). -/
+Nat arithmetic does not overflow, matching the spec's overflow-safe arithmetic. The chain theorem
+covers any valid chain; `honest_anchor_queue_service`, like H3, covers blocks in landed segments
+only. Neither gives a wall-clock deadline (§12 item 1). -/
 namespace Etna.Proofs
 open Etna.Design Etna.Statements
 

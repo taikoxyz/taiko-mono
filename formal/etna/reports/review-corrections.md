@@ -668,7 +668,22 @@ theorem.
   the trusted restore was unproved (`TrustedSnapshot`, `UntrustedRollback`) and the H3 and
   `AnchorTail` notes now point to the new theorems.
 
-Validation: 953 exact contracts (183 property, 3 constant, 417 supporting, 350 regression), 183
+An independent review of this increment found no Critical defects and two Important ones. The
+docs said the trusted rollback restores the exclusion, but the theorem covered only
+confirmations on the restored World, while `UntrustedRollback` confirms after the rollback.
+`trusted_landing_values_stay_trusted` now carries the trust to every later World that still
+shows the landing's checkpoint and slot 284 in its generation, and
+`trusted_rollback_excludes_confirmed_keys` covers exits confirmed along a later
+`SnapshotTrace`. Four sentences dropped the same-generation qualifier; they now carry it, and
+the uncovered case (a recovery between the trusted landing and the rollback) is named. Minor
+fixes: the slash regression builds its later context on a World a fee sweep moves to L1 block
+16; the regressions disclose where their conclusions are vacuous (no due entry, no exit); the
+clock hypotheses are described as stand-ins for the missing L1 clock; DV-25 and DV-26 gain
+their remaining edges; the rule report's clause-level attribution is explained in README.
+Not done: regressions with a due FI entry under an honest anchor, and a rollback after a forged
+landing with a surviving confirmation.
+
+Validation: 954 exact contracts (184 property, 3 constant, 417 supporting, 350 regression), 184
 property derivation chains, 13 Lean regression modules, 313 clauses (77 partial, 233 deferred,
 3 design-pending), 568 rules (141 partial, 7 via, 416 deferred, 4 design-pending) and one
 partial limitation.

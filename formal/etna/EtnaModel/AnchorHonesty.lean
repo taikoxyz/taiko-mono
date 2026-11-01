@@ -5,7 +5,10 @@ anchor is an L1 block whose state it reads, and its witness "proves ... the forc
 queue's head and tail"; 3.2 (spec L77) and 3.4 rule 7 (spec L110) read the anchor's timestamp.
 These predicates state what an honest anchor reports about the Inbox's queue, against an L1
 clock `time` (L1 block n has timestamp `time n`). They are explicit hypotheses of their own
-theorems, not premises: no field of `Etna.Statements.Premises` mentions them. -/
+theorems, not premises: no field of `Etna.Statements.Premises` mentions them. `ClockMonotone` and
+`QueueTimed` stand in for the L1 clock the model's steps do not carry (`Step.enqueue` takes the
+entry's timestamp as an input; the contract records `block.timestamp`, 7.1). Only
+`AnchorCovers` is a guest obligation: accepted anchors must be authenticated L1 blocks. -/
 namespace Etna.Design.AnchorHonesty
 
 /-- An L1 clock: block numbers never run backwards in time. Real L1 timestamps strictly

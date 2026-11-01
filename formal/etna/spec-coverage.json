@@ -532,18 +532,21 @@
       "id": "DV-25",
       "status": "proved",
       "scope": "conditional decoded specification property only",
-      "description": "A verifier-failure rollback that restores the checkpoint and slot 284 a trusted landing wrote, within that landing's generation, keeps slot 284 equal to the cutoff of the committee active at the restored lastCheckpoint, for every context built from an anchor archive that agrees with the landing's below that checkpoint; restoring the initialization values keeps it at most that cutoff. With the registry's recheck against the restored snapshot, every confirmed exit's key is then absent from every committee active at or above the restored checkpoint. Only the restored landing is trusted; later landings may be forged.",
+      "description": "A verifier-failure rollback that restores the checkpoint and slot 284 a trusted landing wrote, within that landing's generation, keeps slot 284 equal to the cutoff of the committee active at the restored lastCheckpoint, for every context built from an anchor archive that agrees with the landing's below that checkpoint; restoring the initialization values keeps it at most that cutoff. This stays so on every later World that still shows those values in that generation, and with the registry's recheck against the restored snapshot, every confirmed exit's key, including exits confirmed after the rollback along snapshot-disciplined steps, is absent from every committee active at or above the restored checkpoint. Only the restored landing is trusted; later landings may be forged. A recovery between that landing and the rollback is not covered.",
       "assumptions": [
         "context",
         "journal",
-        "signing",
         "deployment"
       ],
       "evidence": {
         "EN-d04a236579cc9990": [
           "Etna.Design.SigningEscrow.initial_rollback_snapshot_trusted",
+          "Etna.Design.SigningEscrow.trusted_landing_values_stay_trusted",
           "Etna.Design.SigningEscrow.trusted_rollback_excludes_confirmed_keys",
           "Etna.Design.SigningEscrow.trusted_rollback_snapshot_trusted"
+        ],
+        "EN-4651c537a506e6fd": [
+          "Etna.Design.SigningEscrow.trusted_rollback_excludes_confirmed_keys"
         ]
       }
     },
@@ -551,18 +554,20 @@
       "id": "DV-26",
       "status": "proved",
       "scope": "conditional decoded specification property only",
-      "description": "After a successful double-sign slash at L1 block b, the entry has no principal and its key is absent from every committee selected at a cutoff at or after b, in every later World and also after its slot is released and reused. Committees selected before the slash keep the member's power (section 12 item 19).",
+      "description": "After a successful double-sign slash at L1 block b, the entry has no principal and its key is absent from every committee selected at a cutoff at or after b, in every later World and also after its slot is released and reused. Committees selected before the slash are not covered; they keep the member's power (section 12 item 19).",
       "assumptions": [
         "context",
         "signature",
-        "journal",
-        "signing"
+        "journal"
       ],
       "evidence": {
         "EN-95f0590cf84239d4": [
           "Etna.Design.SigningEscrow.slashed_key_absent_from_later_committees"
         ],
         "EN-1922bc4f51f2158c": [
+          "Etna.Design.SigningEscrow.slashed_key_absent_from_later_committees"
+        ],
+        "EN-d7e07b7ea27ed4a3": [
           "Etna.Design.SigningEscrow.slashed_key_absent_from_later_committees"
         ]
       }
