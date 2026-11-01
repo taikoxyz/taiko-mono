@@ -31,28 +31,48 @@ structure Node where
   signer : Signer.State
   restartNeeded : Bool
   halted : Bool
+  /-- Ideal durable own-L1 knowledge for this signer deployment. It must survive process
+  restart, rollback and uncertain domain-switch persistence. If this knowledge cannot be
+  restored authoritatively, service must stay closed; real persistence is not proved. -/
+  authenticatedGeneration : Nat := 0
 
-/-- Startup retains the authoritative stock signer state, but always closes its session. -/
+/-- Initial model history retains authoritative stock signer state and starts with its
+active generation known. In a continuing history, process startup is `restart`, which
+restores the independent durable generation watermark instead of resetting it. -/
 def startup (signer : Signer.State) : Node :=
-  ⟨none,[],[],false,{ signer with ready := false },false,false⟩
+  ⟨none,[],[],false,{ signer with ready := false },false,false,signer.activeGeneration⟩
 
 def close (s : Node) : Node :=
   { s with trusted := false, signer := { s.signer with ready := false } }
 
 def observe (s : Node) (target : Target) : Node :=
-  { close s with target := some target, replay := [], extension := [] }
+  { close s with
+    target := some target, replay := [], extension := []
+    authenticatedGeneration := if target.view.inbox.domain = s.signer.domain then
+      max s.authenticatedGeneration target.view.inbox.generation else s.authenticatedGeneration }
 
 def timeout (s : Node) : Node := { close s with restartNeeded := true }
 
-def restart (s : Node) : Node := startup s.signer
+def restart (s : Node) : Node :=
+  { startup s.signer with authenticatedGeneration := s.authenticatedGeneration }
 
 /-- An authorized rollback cannot reuse an old grant or rewind the signer log. The
 rollback's restored target must subsequently be authenticated and replayed again. -/
-def rollback (s : Node) : Node := startup s.signer
+def rollback (s : Node) : Node :=
+  { startup s.signer with authenticatedGeneration := s.authenticatedGeneration }
 
 def recover (s : Node) (target : Target) (persisted : Bool) : Node :=
   { observe s target with signer := (Signer.switchDomain s.signer target.view.inbox.domain
       target.view.inbox.generation (target.view.inbox.origin.height+1) true persisted) }
+
+/-- Session activation binds trust to the same deployment and refuses generations
+superseded by any prior authenticated observation, including before a restart. -/
+def canOpen (s : Node) : Bool :=
+  s.trusted && !s.restartNeeded &&
+    (match s.target with
+      | none => false
+      | some target => decide (target.view.inbox.domain = s.signer.domain)) &&
+    decide (s.authenticatedGeneration ≤ s.signer.activeGeneration)
 
 def nodes (target : Target) (blocks : List BlockValidity.Block) : Prop :=
   ∀ pair ∈ parentPairs target.origin blocks,
@@ -112,7 +132,9 @@ inductive Step (key : Hash) (encode : SignMessage → Hash) : Node → Node → 
       (running : s.halted = false)
       (exactMatch : headerMatches target.view.inbox.checkpoint (BlockValidity.terminal target.origin s.replay))
       (covered : (BlockValidity.terminal target.origin s.replay).height < target.archive.length)
-      (generation : target.view.inbox.generation = s.signer.activeGeneration) :
+      (generation : target.view.inbox.generation = s.signer.activeGeneration)
+      (deployment : target.view.inbox.domain = s.signer.domain)
+      (notSuperseded : s.authenticatedGeneration ≤ s.signer.activeGeneration) :
       Step key encode s { s with trusted := true }
   | missing (s : Node) : Step key encode s (close s)
   | timeoutEvent (s : Node) : Step key encode s (timeout s)
@@ -120,8 +142,10 @@ inductive Step (key : Hash) (encode : SignMessage → Hash) : Node → Node → 
   | rollbackEvent (s : Node) : Step key encode s (rollback s)
   | recovery (s : Node) (target : Target) (persisted : Bool) (running : s.halted = false) :
       Step key encode s (recover s target persisted)
+  /-- `authoritative` covers restoration of both HRS state and authenticated-generation
+  knowledge; uncertain restoration stays closed. No physical persistence is proved. -/
   | open (s : Node) (authoritative : Bool) :
-      Step key encode s { s with signer := Signer.openSession s.signer s.signer.activeGeneration (s.trusted && !s.restartNeeded) authoritative }
+      Step key encode s { s with signer := Signer.openSession s.signer s.signer.activeGeneration (canOpen s) authoritative }
   | signed {s : Node} (m : SignMessage)
       (signature returned : Hash) (persisted : Bool) (after : Signer.State)
       (result : sign s encode m signature persisted = some (after,returned))

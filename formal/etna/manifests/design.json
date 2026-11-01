@@ -14584,6 +14584,175 @@
       "role": "regression",
       "sources": ["EN-2b238db781615e6e"],
       "scope": "Fixed physical key 7 cannot substitute selected key 8 to create a fresh signed entry in the trusted height-13 session."
+    },
+    {
+      "module": "EtnaProofs.TrustState",
+      "declaration": "Etna.Design.TrustState.trusted_session_binding",
+      "type": "∀ {deviceKey : Etna.Design.Hash}\n  {deviceEncode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash} {s : Etna.Design.TrustState.Node},\n  Etna.Design.TrustState.Reachable deviceKey deviceEncode s →\n    s.trusted = Bool.true →\n      ∃ (target : Etna.Design.TrustState.Target),\n        s.target = Option.some target ∧\n          target.view.inbox.domain = s.signer.domain ∧ s.authenticatedGeneration ≤ s.signer.activeGeneration",
+      "assumptions": [
+        "Truthful decoded own-finalized authentication and fixed device deployment/key/encoder.",
+        "Authoritative ideal durability/restoration of both stock HRS state and authenticated-generation knowledge; actual process restart retains the prior floor, and uncertain restoration must keep the session closed. No production storage implementation or global L1 freshness is proved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-9ee888f78091a2fe", "EN-992ca84f0e185f57"],
+      "scope": "Reachable trust belongs to the device deployment and never grants an active generation below previously authenticated knowledge."
+    },
+    {
+      "module": "EtnaProofs.TrustState",
+      "declaration": "Etna.Design.TrustState.trace_keeps_deployment",
+      "type": "∀ {deviceKey : Etna.Design.Hash}\n  {deviceEncode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash} {s t : Etna.Design.TrustState.Node},\n  Etna.Design.TrustState.Trace deviceKey deviceEncode s t → t.signer.domain = s.signer.domain",
+      "assumptions": [
+        "Truthful decoded own-finalized authentication and fixed device deployment/key/encoder.",
+        "Authoritative ideal durability/restoration of both stock HRS state and authenticated-generation knowledge; actual process restart retains the prior floor, and uncertain restoration must keep the session closed. No production storage implementation or global L1 freshness is proved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-992ca84f0e185f57"],
+      "scope": "The modeled fixed signer deployment is unchanged by every node event, including startup/session continuation and generation recovery; separate deployment migration is outside this trace."
+    },
+    {
+      "module": "EtnaProofs.TrustState",
+      "declaration": "Etna.Design.TrustState.trace_generation_knowledge_monotone",
+      "type": "∀ {deviceKey : Etna.Design.Hash}\n  {deviceEncode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash} {s t : Etna.Design.TrustState.Node},\n  Etna.Design.TrustState.Trace deviceKey deviceEncode s t → s.authenticatedGeneration ≤ t.authenticatedGeneration",
+      "assumptions": [
+        "Truthful decoded own-finalized authentication and fixed device deployment/key/encoder.",
+        "Authoritative ideal durability/restoration of both stock HRS state and authenticated-generation knowledge; actual process restart retains the prior floor, and uncertain restoration must keep the session closed. No production storage implementation or global L1 freshness is proved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-9f4dedd50d1598e8", "EN-992ca84f0e185f57"],
+      "scope": "Previously authenticated same-deployment generation knowledge never decreases across any later node trace, including stale observations, restart, rollback and failed switch persistence. Durability/restoration of that knowledge is an explicit ideal primitive."
+    },
+    {
+      "module": "EtnaProofs.TrustState",
+      "declaration": "Etna.Design.TrustState.observation_records_generation",
+      "type": "∀ (s : Etna.Design.TrustState.Node)\n  (target : Etna.Design.TrustState.Target),\n  target.view.inbox.domain = s.signer.domain →\n    target.view.inbox.generation ≤ (Etna.Design.TrustState.observe s target).authenticatedGeneration",
+      "assumptions": [
+        "Truthful decoded own-finalized authentication and fixed device deployment/key/encoder.",
+        "Authoritative ideal durability/restoration of both stock HRS state and authenticated-generation knowledge; actual process restart retains the prior floor, and uncertain restoration must keep the session closed. No production storage implementation or global L1 freshness is proved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-9f4dedd50d1598e8", "EN-992ca84f0e185f57"],
+      "scope": "A same-deployment authenticated target raises the remembered generation floor at least to its generation. This is observed knowledge, not a global freshness premise."
+    },
+    {
+      "module": "EtnaProofs.TrustState",
+      "declaration": "Etna.Design.TrustState.recovery_records_generation",
+      "type": "∀ (s : Etna.Design.TrustState.Node)\n  (target : Etna.Design.TrustState.Target) (persisted : Bool),\n  target.view.inbox.domain = s.signer.domain →\n    target.view.inbox.generation ≤ (Etna.Design.TrustState.recover s target persisted).authenticatedGeneration",
+      "assumptions": [
+        "Truthful decoded own-finalized authentication and fixed device deployment/key/encoder.",
+        "Authoritative ideal durability/restoration of both stock HRS state and authenticated-generation knowledge; actual process restart retains the prior floor, and uncertain restoration must keep the session closed. No production storage implementation or global L1 freshness is proved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-992ca84f0e185f57"],
+      "scope": "Recovery authentication records the durable generation floor even if actual Signer.switchDomain persistence is uncertain. Knowledge durability is separate from the modeled HRS/domain write outcome."
+    },
+    {
+      "module": "EtnaProofs.TrustState",
+      "declaration": "Etna.Design.TrustState.below_authenticated_generation_rejects",
+      "type": "∀ {deviceKey : Etna.Design.Hash}\n  {deviceEncode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash} {s : Etna.Design.TrustState.Node},\n  Etna.Design.TrustState.Reachable deviceKey deviceEncode s →\n    ∀ (encode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash) (m : Etna.Design.SigningBridge.SignMessage)\n      (sig : Etna.Design.Hash) (persisted : Bool),\n      m.generation < s.authenticatedGeneration → Etna.Design.TrustState.sign s encode m sig persisted = Option.none",
+      "assumptions": [
+        "Truthful decoded own-finalized authentication and fixed device deployment/key/encoder.",
+        "Authoritative ideal durability/restoration of both stock HRS state and authenticated-generation knowledge; actual process restart retains the prior floor, and uncertain restoration must keep the session closed. No production storage implementation or global L1 freshness is proved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-9f4dedd50d1598e8", "EN-992ca84f0e185f57"],
+      "scope": "Every reachable node refuses actual fresh or cached signing requests below the highest authenticated generation, even after a stale target is selected."
+    },
+    {
+      "module": "EtnaProofs.TrustState",
+      "declaration": "Etna.Design.TrustState.authenticated_supersession_persists",
+      "type": "∀ {deviceKey : Etna.Design.Hash}\n  {deviceEncode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash} {s t : Etna.Design.TrustState.Node},\n  Etna.Design.TrustState.Reachable deviceKey deviceEncode s →\n    ∀ (target : Etna.Design.TrustState.Target),\n      s.halted = Bool.false →\n        target.view.inbox.domain = s.signer.domain →\n          Etna.Design.TrustState.Trace deviceKey deviceEncode (Etna.Design.TrustState.observe s target) t →\n            ∀ (encode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash)\n              (m : Etna.Design.SigningBridge.SignMessage) (sig : Etna.Design.Hash) (persisted : Bool),\n              m.generation < target.view.inbox.generation →\n                Etna.Design.TrustState.sign t encode m sig persisted = Option.none",
+      "assumptions": [
+        "Truthful decoded own-finalized authentication and fixed device deployment/key/encoder.",
+        "Authoritative ideal durability/restoration of both stock HRS state and authenticated-generation knowledge; actual process restart retains the prior floor, and uncertain restoration must keep the session closed. No production storage implementation or global L1 freshness is proved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-9f4dedd50d1598e8", "EN-992ca84f0e185f57"],
+      "scope": "From an actual same-deployment observation in a reachable node, arbitrary later traces cannot sign a generation lower than the observed one; no initially stale-view behavior is ruled out."
+    },
+    {
+      "module": "EtnaProofs.TrustState",
+      "declaration": "Etna.Design.TrustState.foreign_session_cannot_sign",
+      "type": "∀ (s : Etna.Design.TrustState.Node)\n  (target : Etna.Design.TrustState.Target),\n  s.target = Option.some target →\n    target.view.inbox.domain ≠ s.signer.domain →\n      ∀ (authoritative : Bool) (encode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash)\n        (m : Etna.Design.SigningBridge.SignMessage) (sig : Etna.Design.Hash) (persisted : Bool),\n        Etna.Design.TrustState.sign\n            { target := s.target, replay := s.replay, extension := s.extension, trusted := s.trusted,\n              signer :=\n                Etna.Design.Signer.openSession s.signer s.signer.activeGeneration (Etna.Design.TrustState.canOpen s)\n                  authoritative,\n              restartNeeded := s.restartNeeded, halted := s.halted,\n              authenticatedGeneration := s.authenticatedGeneration }\n            encode m sig persisted =\n          Option.none",
+      "assumptions": [
+        "Truthful decoded own-finalized authentication and fixed device deployment/key/encoder.",
+        "Authoritative ideal durability/restoration of both stock HRS state and authenticated-generation knowledge; actual process restart retains the prior floor, and uncertain restoration must keep the session closed. No production storage implementation or global L1 freshness is proved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-9ee888f78091a2fe", "EN-2b238db781615e6e"],
+      "scope": "Session activation checks target deployment before opening the actual stock signer; foreign trust cannot authorize fresh or cached requests. No fresh-committee veto is added to historical cache replies."
+    },
+    {
+      "module": "EtnaProofs.TrustState",
+      "declaration": "Etna.Design.TrustState.obsolete_session_cannot_sign",
+      "type": "∀ (s : Etna.Design.TrustState.Node),\n  s.signer.activeGeneration < s.authenticatedGeneration →\n    ∀ (authoritative : Bool) (encode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash)\n      (m : Etna.Design.SigningBridge.SignMessage) (sig : Etna.Design.Hash) (persisted : Bool),\n      Etna.Design.TrustState.sign\n          { target := s.target, replay := s.replay, extension := s.extension, trusted := s.trusted,\n            signer :=\n              Etna.Design.Signer.openSession s.signer s.signer.activeGeneration (Etna.Design.TrustState.canOpen s)\n                authoritative,\n            restartNeeded := s.restartNeeded, halted := s.halted, authenticatedGeneration := s.authenticatedGeneration }\n          encode m sig persisted =\n        Option.none",
+      "assumptions": [
+        "Truthful decoded own-finalized authentication and fixed device deployment/key/encoder.",
+        "Authoritative ideal durability/restoration of both stock HRS state and authenticated-generation knowledge; actual process restart retains the prior floor, and uncertain restoration must keep the session closed. No production storage implementation or global L1 freshness is proved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-9f4dedd50d1598e8", "EN-2b238db781615e6e"],
+      "scope": "Session activation refuses an active generation below durable authenticated knowledge, even for a directly supplied candidate grant; cached and fresh requests remain closed."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.TrustState",
+      "declaration": "Etna.Design.TrustStateRegression.foreign_deployment_cache_rejected",
+      "type": "Etna.Design.TrustStateRegression.foreignCandidate.signer.domain ≠\n    Etna.Design.TrustStateRegression.target0.view.inbox.domain ∧\n  ¬Etna.Design.TrustStateRegression.DeviceReachable Etna.Design.TrustStateRegression.foreignCandidate ∧\n    Etna.Design.TrustState.sign Etna.Design.TrustStateRegression.foreignCandidate\n        Etna.Design.TrustStateRegression.bytes0 Etna.Design.TrustStateRegression.foreignMessage 999 Bool.false =\n      Option.none",
+      "assumptions": [
+        "Truthful decoded own-finalized authentication and fixed device deployment/key/encoder.",
+        "Authoritative ideal durability/restoration of both stock HRS state and authenticated-generation knowledge; actual process restart retains the prior floor, and uncertain restoration must keep the session closed. No production storage implementation or global L1 freshness is proved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-9ee888f78091a2fe", "EN-2b238db781615e6e"],
+      "scope": "Concrete I1 rejection: Inbox-11 device with a persisted signature cannot acquire reachable trust from Inbox-10 target material, and actual session-open/cache-sign returns none with the fixed key and encoder."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.TrustState",
+      "declaration": "Etna.Design.TrustStateRegression.observed_supersession_rejects_old_material",
+      "type": "Etna.Design.TrustStateRegression.DeviceTrace\n    Etna.Design.TrustStateRegression.session0 Etna.Design.TrustStateRegression.supersededNode ∧\n  Etna.Design.TrustStateRegression.supersededNode.authenticatedGeneration = 1 ∧\n    ¬Etna.Design.TrustStateRegression.DeviceReachable Etna.Design.TrustStateRegression.obsoleteCandidate ∧\n      Etna.Design.TrustState.sign Etna.Design.TrustStateRegression.obsoleteCandidate\n          Etna.Design.TrustStateRegression.bytes0\n          (Etna.Design.TrustStateRegression.message0 Etna.Design.SigningBridge.SignPhase.precommitMsg Bool.false) 999\n          Bool.true =\n        Option.none",
+      "assumptions": [
+        "Truthful decoded own-finalized authentication and fixed device deployment/key/encoder.",
+        "Authoritative ideal durability/restoration of both stock HRS state and authenticated-generation knowledge; actual process restart retains the prior floor, and uncertain restoration must keep the session closed. No production storage implementation or global L1 freshness is proved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-9f4dedd50d1598e8", "EN-992ca84f0e185f57"],
+      "scope": "Concrete I2 rejection: an actual generation-1 observation followed by generation-0 reread cannot regain reachable old-generation trust, and actual signing refuses the raw activation candidate."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.TrustState",
+      "declaration": "Etna.Design.TrustStateRegression.supersession_survives_failed_recovery_and_restart",
+      "type": "Etna.Design.TrustStateRegression.DeviceTrace\n    (Etna.Design.TrustStateRegression.signed0 Etna.Design.SigningBridge.SignPhase.precommitMsg Bool.false)\n    Etna.Design.TrustStateRegression.afterStaleRead ∧\n  Etna.Design.TrustStateRegression.afterStaleRead.signer.activeGeneration = 0 ∧\n    Etna.Design.TrustStateRegression.afterStaleRead.authenticatedGeneration = 1 ∧\n      Etna.Design.TrustStateRegression.afterStaleRead.signer.log =\n          (Etna.Design.TrustStateRegression.signed0 Etna.Design.SigningBridge.SignPhase.precommitMsg\n                Bool.false).signer.log ∧\n        Etna.Design.TrustState.sign\n            (Etna.Design.TrustStateRegression.activate Etna.Design.TrustStateRegression.afterStaleRead\n              Etna.Design.TrustStateRegression.target0 Etna.Design.HistoricalEscrow.blocks)\n            Etna.Design.TrustStateRegression.bytes0\n            (Etna.Design.TrustStateRegression.message0 Etna.Design.SigningBridge.SignPhase.precommitMsg Bool.false) 999\n            Bool.false =\n          Option.none",
+      "assumptions": [
+        "Truthful decoded own-finalized authentication and fixed device deployment/key/encoder.",
+        "Authoritative ideal durability/restoration of both stock HRS state and authenticated-generation knowledge; actual process restart retains the prior floor, and uncertain restoration must keep the session closed. No production storage implementation or global L1 freshness is proved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-9f4dedd50d1598e8", "EN-992ca84f0e185f57"],
+      "scope": "Actual failed recovery installation, timeout, restart, rollback and stale reread retain generation-1 knowledge and the original HRS log; old-generation cached reply remains refused."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.TrustState",
+      "declaration": "Etna.Design.TrustStateRegression.all_later_old_generation_requests_rejected",
+      "type": "∀ {later : Etna.Design.TrustState.Node},\n  Etna.Design.TrustStateRegression.DeviceTrace Etna.Design.TrustStateRegression.supersededNode later →\n    ∀ (phase : Etna.Design.SigningBridge.SignPhase) (nil : Bool),\n      Etna.Design.TrustState.sign later Etna.Design.TrustStateRegression.bytes0\n          (Etna.Design.TrustStateRegression.message0 phase nil) 999 Bool.true =\n        Option.none",
+      "assumptions": [
+        "Truthful decoded own-finalized authentication and fixed device deployment/key/encoder.",
+        "Authoritative ideal durability/restoration of both stock HRS state and authenticated-generation knowledge; actual process restart retains the prior floor, and uncertain restoration must keep the session closed. No production storage implementation or global L1 freshness is proved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-9f4dedd50d1598e8", "EN-992ca84f0e185f57"],
+      "scope": "For arbitrary later fixture traces after the actual generation-1 observation, every old proposal/prevote/precommit and nil/non-nil request is refused."
     }
   ]
 }

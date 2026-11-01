@@ -36,8 +36,11 @@ class TrustStateKernelTests(unittest.TestCase):
         self.assertEqual(precheck.returncode, 0, precheck.stdout+precheck.stderr)
         self.assertEqual(precheck.stdout+precheck.stderr, '')
         source = combined()
-        self.assertEqual(source.count(old), 1)
-        result = self.compile(source.replace(old, new, 1))
+        body = model[model.index('namespace Etna.Design.TrustStateMutation'):]
+        self.assertEqual(source.count(body), 1)
+        # Proof hypotheses may intentionally repeat a guard; keep them all unchanged.
+        source = source.replace(body, body.replace(old, new, 1), 1)
+        result = self.compile(source)
         output = result.stdout+result.stderr
         self.assertNotEqual(result.returncode, 0, 'removing a real guard must break its proof')
         self.assertIn('error:', output)
@@ -75,16 +78,15 @@ class TrustStateKernelTests(unittest.TestCase):
                       'messageRequest encode m s.trusted) signature persisted')
 
     def test_target_change_revokes_prior_grant(self):
-        self.rejected('{ close s with target := some target, replay := [], extension := [] }',
-                      '{ s with target := some target, replay := [], extension := [] }')
+        self.rejected('{ close s with\n    target := some target', '{ s with\n    target := some target')
 
     def test_restart_requires_new_authentication(self):
-        self.rejected('def restart (s : Node) : Node := startup s.signer',
+        self.rejected('def restart (s : Node) : Node :=\n  { startup s.signer with authenticatedGeneration := s.authenticatedGeneration }',
                       'def restart (s : Node) : Node := { close s with restartNeeded := false }')
 
     def test_rollback_cannot_erase_hrs(self):
-        self.rejected('def rollback (s : Node) : Node := startup s.signer',
-                      'def rollback (s : Node) : Node := startup { s.signer with log := [] }')
+        self.rejected('def rollback (s : Node) : Node :=\n  { startup s.signer with authenticatedGeneration := s.authenticatedGeneration }',
+                      'def rollback (s : Node) : Node :=\n  { startup { s.signer with log := [] } with authenticatedGeneration := s.authenticatedGeneration }')
 
     def test_selected_key_cannot_replace_device_key(self):
         self.rejected('(freshProducer : after.log ≠ s.signer.log → EngineRequest s key m)',
@@ -93,3 +95,38 @@ class TrustStateKernelTests(unittest.TestCase):
     def test_encoder_cannot_be_replaced_per_call(self):
         self.rejected('(result : sign s encode m signature persisted = some (after,returned))',
                       '(result : sign s (fun _ => 0) m signature persisted = some (after,returned))')
+
+    def test_trust_promotion_requires_same_deployment(self):
+        self.rejected('(deployment : target.view.inbox.domain = s.signer.domain)', '(deployment : True)')
+
+    def test_session_open_requires_same_deployment(self):
+        self.rejected('| some target => decide (target.view.inbox.domain = s.signer.domain))',
+                      '| some target => decide (target.view.inbox.domain = target.view.inbox.domain))')
+
+    def test_trust_promotion_requires_known_generation(self):
+        self.rejected('(notSuperseded : s.authenticatedGeneration ≤ s.signer.activeGeneration)',
+                      '(notSuperseded : True)')
+
+    def test_session_open_cannot_ignore_supersession(self):
+        self.rejected('decide (s.authenticatedGeneration ≤ s.signer.activeGeneration)',
+                      'decide (s.signer.activeGeneration ≤ s.signer.activeGeneration)')
+
+    def test_observation_cannot_discard_newer_known_generation(self):
+        self.rejected('max s.authenticatedGeneration target.view.inbox.generation',
+                      'target.view.inbox.generation')
+
+    def test_observation_must_record_newer_generation(self):
+        self.rejected('max s.authenticatedGeneration target.view.inbox.generation',
+                      's.authenticatedGeneration')
+
+    def test_restart_preserves_authenticated_generation(self):
+        self.rejected('def restart (s : Node) : Node :=\n  { startup s.signer with authenticatedGeneration := s.authenticatedGeneration }',
+                      'def restart (s : Node) : Node := startup s.signer')
+
+    def test_rollback_preserves_authenticated_generation(self):
+        self.rejected('def rollback (s : Node) : Node :=\n  { startup s.signer with authenticatedGeneration := s.authenticatedGeneration }',
+                      'def rollback (s : Node) : Node := startup s.signer')
+
+    def test_failed_recovery_preserves_new_authentication(self):
+        self.rejected('target.view.inbox.generation (target.view.inbox.origin.height+1) true persisted) }',
+                      'target.view.inbox.generation (target.view.inbox.origin.height+1) true persisted), authenticatedGeneration := s.authenticatedGeneration }')

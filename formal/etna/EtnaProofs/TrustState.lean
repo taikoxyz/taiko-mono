@@ -19,6 +19,18 @@ private theorem signed_generation {s t : Signer.State} {r : Signer.Request}
     · split at ok <;> cases ok; rfl
   · contradiction
 
+private theorem signed_domain {s t : Signer.State} {r : Signer.Request}
+    {sig out : Hash} {persisted : Bool} (ok : Signer.sign s r sig persisted = some (t,out)) :
+    t.domain = s.domain := by
+  unfold Signer.sign at ok
+  split at ok
+  · split at ok
+    · split at ok
+      · split at ok <;> cases ok; rfl
+      · split at ok <;> cases ok; rfl
+    · split at ok <;> cases ok; rfl
+  · contradiction
+
 private theorem step_replayed {s t : Node} (step : Step deviceKey deviceEncode s t) (prior : Replayed s) : Replayed t := by
   cases step with
   | observeEvent target running =>
@@ -64,7 +76,7 @@ private theorem step_matches {s t : Node} (step : Step deviceKey deviceEncode s 
   | observeEvent => cases ready
   | progress more selected closed => exact False.elim (Bool.noConfusion (closed.symm.trans ready))
   | extend => exact prior ready
-  | matched selected running matched covered generation => exact ⟨_,selected,matched,covered,generation⟩
+  | matched selected running matched covered generation deployment notSuperseded => exact ⟨_,selected,matched,covered,generation⟩
   | missing => cases ready
   | timeoutEvent => cases ready
   | restartEvent => cases ready
@@ -330,5 +342,135 @@ theorem protected_conflicting_call_rejected {s : Node} {old : Signer.Signed}
     have lower : Signer.before current.position ⟨m.height,m.round,phaseStep m.phase⟩ = false :=
       position ▸ backwards
     simp [sign,Signer.sign,messageRequest,lookup,unequal,lower]
+
+private theorem step_binding {s t : Node} (event : Step deviceKey deviceEncode s t)
+    (prior : s.trusted = true → ∃ target, s.target = some target ∧
+      target.view.inbox.domain = s.signer.domain ∧ s.authenticatedGeneration ≤ s.signer.activeGeneration) :
+    t.trusted = true → ∃ target, t.target = some target ∧
+      target.view.inbox.domain = t.signer.domain ∧ t.authenticatedGeneration ≤ t.signer.activeGeneration := by
+  intro ready
+  cases event with
+  | observeEvent => cases ready
+  | progress more selected closed => exact False.elim (Bool.noConfusion (closed.symm.trans ready))
+  | extend => exact prior ready
+  | matched selected running matched covered generation deployment notSuperseded =>
+    exact ⟨_,selected,deployment,notSuperseded⟩
+  | missing => cases ready
+  | timeoutEvent => cases ready
+  | restartEvent => cases ready
+  | rollbackEvent => cases ready
+  | recovery => cases ready
+  | «open» => exact prior ready
+  | signed m sig out persisted after result producer =>
+    obtain ⟨target,selected,deployment,fence⟩ := prior ready
+    refine ⟨target,selected,deployment.trans (signed_domain result).symm,?_⟩
+    simpa only [signed_generation result] using fence
+  | contradiction => cases ready
+
+/-- Every reachable trust grant belongs to the fixed signer deployment, and its active
+generation has caught up with all same-deployment authenticated generation knowledge. -/
+theorem trusted_session_binding {s : Node} (run : Reachable deviceKey deviceEncode s)
+    (ready : s.trusted = true) : ∃ target, s.target = some target ∧
+      target.view.inbox.domain = s.signer.domain ∧ s.authenticatedGeneration ≤ s.signer.activeGeneration := by
+  obtain ⟨initial,trace⟩ := run
+  induction trace with
+  | refl => cases ready
+  | step prior event ih => exact step_binding event ih ready
+
+private theorem step_domain {s t : Node} (event : Step deviceKey deviceEncode s t) :
+    t.signer.domain = s.signer.domain := by
+  cases event with
+  | signed m sig out persisted after result => exact signed_domain result
+  | recovery => simp only [recover,Signer.switchDomain]; split <;> rfl
+  | _ => rfl
+
+/-- Startup/recovery/session events cannot change the device's deployment. -/
+theorem trace_keeps_deployment {s t : Node} (trace : Trace deviceKey deviceEncode s t) :
+    t.signer.domain = s.signer.domain := by
+  induction trace with
+  | refl => rfl
+  | step prior event ih => exact (step_domain event).trans ih
+
+private theorem step_knowledge {s t : Node} (event : Step deviceKey deviceEncode s t) :
+    s.authenticatedGeneration ≤ t.authenticatedGeneration := by
+  cases event with
+  | observeEvent => simp only [observe]; split <;> omega
+  | recovery => simp only [recover,observe]; split <;> omega
+  | _ => exact Nat.le_refl _
+
+/-- The ideal durable generation watermark never decreases, including across stale
+observations, restarts, rollback and failed domain-switch persistence. -/
+theorem trace_generation_knowledge_monotone {s t : Node} (trace : Trace deviceKey deviceEncode s t) :
+    s.authenticatedGeneration ≤ t.authenticatedGeneration := by
+  induction trace with
+  | refl => exact Nat.le_refl _
+  | step prior event ih => exact Nat.le_trans ih (step_knowledge event)
+
+/-- A same-deployment authenticated observation records its generation, independently
+of the selected checkpoint's age. No globally latest L1 view is assumed. -/
+theorem observation_records_generation (s : Node) (target : Target)
+    (deployment : target.view.inbox.domain = s.signer.domain) :
+    target.view.inbox.generation ≤ (observe s target).authenticatedGeneration := by
+  simp only [observe,deployment,ite_true]
+  exact Nat.le_max_right _ _
+
+/-- Authentication precedes the domain-switch persistence outcome. An uncertain switch
+cannot erase the newly authenticated generation watermark. This is an ideal durability
+obligation, separate from the modeled HRS write result and from implementation storage. -/
+theorem recovery_records_generation (s : Node) (target : Target) (persisted : Bool)
+    (deployment : target.view.inbox.domain = s.signer.domain) :
+    target.view.inbox.generation ≤ (recover s target persisted).authenticatedGeneration :=
+  observation_records_generation s target deployment
+
+/-- Once a generation has been authenticated, all lower-generation requests are refused
+by reachable states, even if a later observation selects older checkpoint material. -/
+theorem below_authenticated_generation_rejects {s : Node} (run : Reachable deviceKey deviceEncode s)
+    (encode : SignMessage → Hash) (m : SignMessage) (sig : Hash) (persisted : Bool)
+    (older : m.generation < s.authenticatedGeneration) : sign s encode m sig persisted = none := by
+  cases ready : s.trusted with
+  | false => exact untrusted_cannot_sign _ _ _ _ _ ready
+  | true =>
+    obtain ⟨_,_,_,fence⟩ := trusted_session_binding run ready
+    have different : m.generation ≠ s.signer.activeGeneration := by omega
+    simp [sign,Signer.sign,Signer.authorized,messageRequest,different]
+
+private theorem trace_append {s t u : Node} (a : Trace deviceKey deviceEncode s t)
+    (b : Trace deviceKey deviceEncode t u) : Trace deviceKey deviceEncode s u := by
+  induction b with
+  | refl => exact a
+  | step prior event ih => exact .step ih event
+
+/-- Previously observed supersession survives every later node event. This starts at an
+actual authenticated observation and quantifies over arbitrary later traces; it does not
+assume globally fresh L1 information at an initially stale node. -/
+theorem authenticated_supersession_persists {s t : Node} (run : Reachable deviceKey deviceEncode s)
+    (target : Target) (running : s.halted = false) (deployment : target.view.inbox.domain = s.signer.domain)
+    (later : Trace deviceKey deviceEncode (observe s target) t)
+    (encode : SignMessage → Hash) (m : SignMessage) (sig : Hash) (persisted : Bool)
+    (older : m.generation < target.view.inbox.generation) : sign t encode m sig persisted = none := by
+  obtain ⟨initial,prior⟩ := run
+  have reachable : Reachable deviceKey deviceEncode t :=
+    ⟨initial,trace_append (.step prior (.observeEvent s target running)) later⟩
+  have recorded := observation_records_generation s target deployment
+  have retained := trace_generation_knowledge_monotone later
+  exact below_authenticated_generation_rejects reachable encode m sig persisted (by omega)
+
+/-- Session activation independently rejects foreign-deployment trust before any fresh
+or cached call can reach the stock signer. Historical cache membership is unchanged. -/
+theorem foreign_session_cannot_sign (s : Node) (target : Target) (selected : s.target = some target)
+    (foreign : target.view.inbox.domain ≠ s.signer.domain) (authoritative : Bool)
+    (encode : SignMessage → Hash) (m : SignMessage) (sig : Hash) (persisted : Bool) :
+    sign { s with signer := Signer.openSession s.signer s.signer.activeGeneration (canOpen s) authoritative }
+      encode m sig persisted = none := by
+  simp [sign,Signer.sign,Signer.authorized,Signer.openSession,canOpen,selected,foreign]
+
+/-- Reopening with older material cannot discard durable supersession knowledge, even
+when the candidate grant is supplied directly rather than obtained from Reachable. -/
+theorem obsolete_session_cannot_sign (s : Node) (superseded : s.signer.activeGeneration < s.authenticatedGeneration)
+    (authoritative : Bool) (encode : SignMessage → Hash) (m : SignMessage) (sig : Hash) (persisted : Bool) :
+    sign { s with signer := Signer.openSession s.signer s.signer.activeGeneration (canOpen s) authoritative }
+      encode m sig persisted = none := by
+  have older : ¬s.authenticatedGeneration ≤ s.signer.activeGeneration := by omega
+  simp [sign,Signer.sign,Signer.authorized,Signer.openSession,canOpen,older]
 
 end Etna.Design.TrustState

@@ -35,7 +35,7 @@ def activate (s : TrustState.Node) (target : Target) (blocks : List BlockValidit
   let replayed := { observe s target with replay := blocks }
   let matched := { replayed with trusted := true }
   { matched with signer := (Signer.openSession matched.signer matched.signer.activeGeneration
-    (matched.trusted && !matched.restartNeeded) true) }
+    (canOpen matched) true) }
 
 private theorem trace_append {s t u : TrustState.Node}
     (a : DeviceTrace s t) (b : DeviceTrace t u) : DeviceTrace s u := by
@@ -48,11 +48,14 @@ private theorem activate_trace {key : Hash} {encode : SignMessage → Hash} (s :
     (valid : BlockValidity.Chain target.rules target.origin blocks) (accepted : nodes target blocks)
     (matched : headerMatches target.view.inbox.checkpoint (BlockValidity.terminal target.origin blocks))
     (covered : (BlockValidity.terminal target.origin blocks).height < target.archive.length)
-    (generation : target.view.inbox.generation = s.signer.activeGeneration) :
+    (generation : target.view.inbox.generation = s.signer.activeGeneration)
+    (deployment : target.view.inbox.domain = s.signer.domain)
+    (notSuperseded : s.authenticatedGeneration ≤ s.signer.activeGeneration) :
     TrustState.Trace key encode s (activate s target blocks) := by
   refine .step (.step (.step (.step (.refl _) (.observeEvent s target running))
     (.progress blocks rfl rfl running rfl valid accepted))
-    (.matched rfl running matched covered generation)) (.open _ true)
+    (.matched rfl running matched covered generation deployment
+      (by simp only [observe,close,deployment,ite_true,generation]; omega))) (.open _ true)
 
 def cold : TrustState.Node := startup SigningBridgeRegression.device.state
 def session0 : TrustState.Node := activate cold target0 HistoricalEscrow.blocks
@@ -79,7 +82,7 @@ theorem partial_replay_waits :
 theorem session0_reachable : DeviceReachable session0 :=
   ⟨SigningBridgeRegression.device.state,
     activate_trace cold target0 HistoricalEscrow.blocks rfl SigningBridgeRegression.trustedPrefix.replayValid replay0
-      (by unfold headerMatches; decide +kernel) (by decide +kernel) rfl⟩
+      (by unfold headerMatches; decide +kernel) (by decide +kernel) rfl rfl (by decide +kernel)⟩
 
 def message0 := SigningBridgeRegression.message
 def bytes0 := SigningBridgeRegression.messageCode
@@ -125,7 +128,7 @@ theorem timeout_restart_retry (phase : SignPhase) (nil : Bool) :
   · have first : DeviceTrace session0 (restart (timeout (signed0 phase nil))) :=
       .step (.step (.step (.refl _) (all_phases_sign phase nil).1) (.timeoutEvent _)) (.restartEvent _ rfl)
     have again := activate_trace (key := 8) (encode := bytes0) (restart (timeout (signed0 phase nil))) target0 HistoricalEscrow.blocks
-      rfl SigningBridgeRegression.trustedPrefix.replayValid replay0 (by unfold headerMatches; decide +kernel) (by decide +kernel) rfl
+      rfl SigningBridgeRegression.trustedPrefix.replayValid replay0 (by unfold headerMatches; decide +kernel) (by decide +kernel) rfl rfl (by exact Nat.le_refl 0)
     exact trace_append first again
   · exact .signed (message0 phase nil) 999 _ false _ cached (fun changed => False.elim (changed rfl))
 
@@ -180,7 +183,7 @@ theorem target_advancement_revalidates :
   refine ⟨activate_trace _ _ _ rfl
     (by unfold advancedTarget; decide +kernel)
     (by unfold nodes BlockValidity.NodeValid advancedTarget; decide +kernel)
-    (by unfold headerMatches; decide +kernel) (by decide +kernel) rfl,rfl,by decide +kernel,
+    (by unfold headerMatches; decide +kernel) (by decide +kernel) rfl rfl (by decide +kernel),rfl,by decide +kernel,
     by decide +kernel,rfl,rfl⟩
 
 def recoveredSession : TrustState.Node :=
@@ -199,7 +202,7 @@ theorem recovery_revalidates :
     .step (.refl _) (.recovery _ target1 true rfl)
   have again := activate_trace (key := 8) (encode := bytes0) (recover advancedSession target1 true) target1 NormalSigningRegression.blocks1
     rfl NormalSigningRegression.recovered_chain
-    (by unfold nodes BlockValidity.NodeValid target1 targetOfPrefix CanonicalHistoryRegression.signingPrefix; decide +kernel) (by unfold headerMatches; decide +kernel) (by decide +kernel) rfl
+    (by unfold nodes BlockValidity.NodeValid target1 targetOfPrefix CanonicalHistoryRegression.signingPrefix; decide +kernel) (by unfold headerMatches; decide +kernel) (by decide +kernel) rfl rfl (by decide +kernel)
   exact trace_append first again
 
 /-- The post-recovery source is supplied by the general canonical-history constructor,
@@ -242,7 +245,7 @@ theorem rollback_revalidates :
     (activate (rollback recoveredSession) rolledTarget []).signer.log = recoveredSession.signer.log := by
   refine ⟨.rollback _ _ 50 (by decide +kernel) (by decide +kernel) (by decide +kernel),?_,rfl,rfl,rfl,rfl⟩
   have again := activate_trace (key := 8) (encode := bytes0) (rollback recoveredSession) rolledTarget [] rfl True.intro
-    (by simp [nodes,parentPairs]) (by unfold headerMatches; decide +kernel) (by decide +kernel) rfl
+    (by simp [nodes,parentPairs]) (by unfold headerMatches; decide +kernel) (by decide +kernel) rfl rfl (by decide +kernel)
   have first : DeviceTrace recoveredSession (rollback recoveredSession) := .step (.refl _) (.rollbackEvent _)
   exact trace_append first again
 
@@ -305,7 +308,7 @@ theorem stale_own_view_still_signs :
       after.log.length = lagSession.signer.log.length+1 := by
   refine ⟨?_,?_,by decide +kernel,by decide +kernel,_,rfl,rfl⟩
   · refine ⟨SigningViewLag.closed,.step (activate_trace _ lagTarget [] rfl True.intro
-      (by simp [nodes,parentPairs]) (by unfold headerMatches; decide +kernel) (by decide +kernel) rfl) ?_⟩
+      (by simp [nodes,parentPairs]) (by unfold headerMatches; decide +kernel) (by decide +kernel) rfl rfl (by decide +kernel)) ?_⟩
     exact .extend SigningViewLag.localPrefix rfl rfl rfl
       (by unfold lagTarget; decide +kernel)
       (by unfold nodes BlockValidity.NodeValid lagTarget; decide +kernel)
@@ -327,5 +330,64 @@ theorem excluded_device_cannot_append {after : TrustState.Node}
   rw [h] at member
   have only : ∀ e ∈ (Consensus.activeAt target0.rules.consensus 13).members, e.key ≠ 7 := by decide +kernel
   exact only e member key
+
+def foreignDomain : Domain := { FirstBatch.deployment with inbox := FirstBatch.deployment.inbox+1 }
+def foreignMessage : SignMessage := { message0 .precommitMsg false with domain := foreignDomain }
+def foreignInitial : Signer.State :=
+  ⟨foreignDomain,0,1,[],false,[⟨0,⟨13,0,3⟩,bytes0 foreignMessage,888⟩]⟩
+def foreignCandidate : TrustState.Node := activate (startup foreignInitial) target0 HistoricalEscrow.blocks
+
+/-- I1 regression: other-deployment material cannot produce a reachable trust grant or
+open the cache of a signer with fixed key/encoder and an already persisted signature. -/
+theorem foreign_deployment_cache_rejected :
+    foreignCandidate.signer.domain ≠ target0.view.inbox.domain ∧
+    ¬ DeviceReachable foreignCandidate ∧
+    TrustState.sign foreignCandidate bytes0 foreignMessage 999 false = none := by
+  refine ⟨by decide +kernel,?_,foreign_session_cannot_sign _ target0 rfl (by decide +kernel) true _ _ _ _⟩
+  intro run
+  obtain ⟨target,selected,deployment,_⟩ := trusted_session_binding run rfl
+  have equal : target = target0 := Option.some.inj selected.symm
+  subst target
+  exact (show target0.view.inbox.domain ≠ foreignCandidate.signer.domain by decide +kernel) deployment
+
+def supersededNode : TrustState.Node := observe session0 target1
+def obsoleteCandidate : TrustState.Node := activate supersededNode target0 HistoricalEscrow.blocks
+
+/-- I2 regression: authenticating generation 1 and then rereading generation 0 never
+restores a reachable old-generation grant, nor does the actual session-open/sign path. -/
+theorem observed_supersession_rejects_old_material :
+    DeviceTrace session0 supersededNode ∧ supersededNode.authenticatedGeneration = 1 ∧
+    ¬ DeviceReachable obsoleteCandidate ∧
+    TrustState.sign obsoleteCandidate bytes0 (message0 .precommitMsg false) 999 true = none := by
+  refine ⟨.step (.refl _) (.observeEvent _ target1 rfl),rfl,?_,rfl⟩
+  intro run
+  obtain ⟨_,_,_,fence⟩ := trusted_session_binding run rfl
+  change 1 ≤ 0 at fence
+  omega
+
+/-- The failure flag concerns domain installation; authenticated generation knowledge
+is an independent ideal durable fact retained through timeout, restart and rollback. -/
+def failedRecovery : TrustState.Node := recover (signed0 .precommitMsg false) target1 false
+def afterSupersessionLifecycle : TrustState.Node := rollback (restart (timeout failedRecovery))
+def afterStaleRead : TrustState.Node := observe afterSupersessionLifecycle target0
+
+theorem supersession_survives_failed_recovery_and_restart :
+    DeviceTrace (signed0 .precommitMsg false) afterStaleRead ∧
+    afterStaleRead.signer.activeGeneration = 0 ∧ afterStaleRead.authenticatedGeneration = 1 ∧
+    afterStaleRead.signer.log = (signed0 .precommitMsg false).signer.log ∧
+    TrustState.sign (activate afterStaleRead target0 HistoricalEscrow.blocks)
+      bytes0 (message0 .precommitMsg false) 999 false = none := by
+  refine ⟨?_,rfl,rfl,rfl,rfl⟩
+  exact .step (.step (.step (.step (.step (.refl _)
+    (.recovery _ target1 false rfl)) (.timeoutEvent _)) (.restartEvent _ rfl))
+    (.rollbackEvent _)) (.observeEvent _ target0 rfl)
+
+/-- The irreversible refusal is about already authenticated knowledge: a valid trace
+with arbitrary later observations and lifecycle events still refuses every older phase. -/
+theorem all_later_old_generation_requests_rejected {later : TrustState.Node}
+    (trace : DeviceTrace supersededNode later) (phase : SignPhase) (nil : Bool) :
+    TrustState.sign later bytes0 (message0 phase nil) 999 true = none :=
+  authenticated_supersession_persists session0_reachable target1 rfl rfl trace
+    bytes0 (message0 phase nil) 999 true (by change 0 < 1; decide)
 
 end Etna.Design.TrustStateRegression
