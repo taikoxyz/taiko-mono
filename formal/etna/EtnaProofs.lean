@@ -1,3 +1,4 @@
+import EtnaProofs.UpgradeBoundary
 import EtnaProofs.Reconstruction
 import EtnaProofs.ActualQueue
 import EtnaProofs.Anchorless

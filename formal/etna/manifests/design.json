@@ -6995,7 +6995,7 @@
       "bridge_level": "spec-proved",
       "role": "property",
       "sources": ["EN-056492c07d9386c9"],
-      "scope": "Every registry trace keeps the deployment slashBountyBps; other immutables in the same row are not modeled."
+      "scope": "Every registry trace keeps deployment slashBountyBps. This theorem isolates that field; the registry also represents minStake, activation/exit/withdrawal delays and forfeitBps, with separate constraints and field-specific results. Raw slashSink/chain/Inbox-address validation remains outside this model."
     },
     {
       "module": "EtnaWitnesses.Regressions.SecondBatch",
@@ -17027,6 +17027,640 @@
       "role": "property",
       "sources": ["EN-e3dbc26926f4114a", "EN-a6671723c42b6f7d"],
       "scope": "The complete public entry point derives success from low-level authenticated starting-header/state/configuration checks and certified semantic trace composition; no unchecked Rebuilt snapshot is accepted at this entry point."
+    },
+    {
+      "module": "EtnaProofs.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundary.disabled_prepare",
+      "type": "∀ (s : Etna.Design.UpgradeBoundary.System)\n  (p : Etna.Design.UpgradeBoundary.Plan), Etna.Design.UpgradeBoundary.prepare Option.none s p = s",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-d419a126b4a3b7a6"],
+      "scope": "Supporting conditional boundary fact: disabled prepare. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaProofs.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundary.disabled_activate",
+      "type": "∀ (s : Etna.Design.UpgradeBoundary.System) (persisted : Bool),\n  Etna.Design.UpgradeBoundary.activate Option.none s persisted = s",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-d419a126b4a3b7a6"],
+      "scope": "Supporting conditional boundary fact: disabled activate. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaProofs.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundary.failed_switch_atomic",
+      "type": "∀ (authority : Option Etna.Design.UpgradeBoundary.Authority)\n  (s : Etna.Design.UpgradeBoundary.System), Etna.Design.UpgradeBoundary.activate authority s Bool.false = s",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-1c08d6a12a414c54"],
+      "scope": "Supporting conditional boundary fact: failed switch atomic. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaProofs.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundary.stopped_plan_fixed",
+      "type": "∀ (authority : Option Etna.Design.UpgradeBoundary.Authority)\n  (s : Etna.Design.UpgradeBoundary.System) (p old : Etna.Design.UpgradeBoundary.Plan),\n  s.staged = Option.some old → Etna.Design.UpgradeBoundary.prepare authority s p = s",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-d0feb40e3354690c"],
+      "scope": "Supporting conditional boundary fact: stopped plan fixed. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaProofs.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundary.registration_inert",
+      "type": "∀ (s : Etna.Design.UpgradeBoundary.System)\n  (v : Etna.Design.UpgradeBoundary.Version),\n  (Etna.Design.UpgradeBoundary.retainMaterial s v).world = s.world ∧\n    (Etna.Design.UpgradeBoundary.retainMaterial s v).schedule = s.schedule ∧\n      (Etna.Design.UpgradeBoundary.retainMaterial s v).staged = s.staged ∧\n        (Etna.Design.UpgradeBoundary.retainMaterial s v).node = s.node",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-fac3b57a8c83d321"],
+      "scope": "Supporting conditional boundary fact: registration inert. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaProofs.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundary.prepare_checked",
+      "type": "∀ (auth : Etna.Design.UpgradeBoundary.Authority)\n  (s : Etna.Design.UpgradeBoundary.System) (p : Etna.Design.UpgradeBoundary.Plan),\n  Etna.Design.UpgradeBoundary.prepare (Option.some auth) s p ≠ s →\n    s.staged = Option.none ∧\n      auth.plan p = Bool.true ∧\n        Etna.Design.UpgradeBoundary.planFits s p = Bool.true ∧\n          Etna.Design.UpgradeBoundary.prepare (Option.some auth) s p =\n            { world := s.world, node := s.node, schedule := s.schedule, material := s.material, jobs := s.jobs,\n              staged := Option.some p, produced := s.produced }",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-fac3b57a8c83d321"],
+      "scope": "Supporting conditional boundary fact: prepare checked. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaProofs.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundary.activation_cases",
+      "type": "∀ (authority : Option Etna.Design.UpgradeBoundary.Authority)\n  (s : Etna.Design.UpgradeBoundary.System) (persisted : Bool),\n  Etna.Design.UpgradeBoundary.activate authority s persisted = s ∨\n    ∃ auth p,\n      authority = Option.some auth ∧\n        s.staged = Option.some p ∧\n          Etna.Design.UpgradeBoundary.readyToSwitch auth s p = Bool.true ∧\n            Etna.Design.UpgradeBoundary.activate authority s persisted = Etna.Design.UpgradeBoundary.applySwitch s p",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-1c08d6a12a414c54"],
+      "scope": "Supporting conditional boundary fact: activation cases. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaProofs.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundary.switch_prerequisites",
+      "type": "∀ (auth : Etna.Design.UpgradeBoundary.Authority)\n  (s : Etna.Design.UpgradeBoundary.System) (p : Etna.Design.UpgradeBoundary.Plan),\n  Etna.Design.UpgradeBoundary.readyToSwitch auth s p = Bool.true →\n    auth.plan p = Bool.true ∧\n      Etna.Design.UpgradeBoundary.planFits s p = Bool.true ∧\n        auth.checkpoint s.world.inbox.domain s.world.inbox.checkpoint = Bool.true ∧\n          s.world.inbox.checkpoint.height = p.height ∧\n            ∀ (w : Etna.Design.UpgradeBoundary.Work), w ∈ s.jobs → w.status ≠ Etna.Design.UpgradeBoundary.Status.pending",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-1c08d6a12a414c54"],
+      "scope": "Supporting conditional boundary fact: switch prerequisites. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaProofs.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundary.plan_coordinates",
+      "type": "∀ (s : Etna.Design.UpgradeBoundary.System)\n  (p : Etna.Design.UpgradeBoundary.Plan),\n  Etna.Design.UpgradeBoundary.planFits s p = Bool.true →\n    p.domain = s.world.inbox.domain ∧\n      p.generation = s.world.inbox.generation ∧\n        s.node.signer.domain = p.domain ∧\n          s.node.signer.activeGeneration = p.generation ∧\n            p.previous = s.schedule.versionAt (p.height + 1) ∧\n              p.previous = s.schedule.versionAt p.height ∧\n                p.previous.grid = s.world.inbox.gridK ∧\n                  p.previous.config = s.world.inbox.committeeConfig ∧\n                    p.next.config = s.world.inbox.committeeConfig ∧\n                      Etna.Design.GridRange p.previous.grid ∧\n                        Etna.Design.GridRange p.next.grid ∧\n                          p.next.images ≠ [] ∧\n                            p.height % p.previous.grid = 0 ∧\n                              p.height % p.next.grid = 0 ∧\n                                p.next.grid ≤ s.world.inbox.configuration.unsettled ∧\n                                  s.world.inbox.configuration.unsettled % p.next.grid = 0 ∧\n                                    p.next.grid ≤ s.world.inbox.maxBatchBlocks ∧\n                                      s.world.inbox.checkpoint.height ≤ p.height ∧ s.produced ≤ p.height",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-fac3b57a8c83d321"],
+      "scope": "Supporting conditional boundary fact: plan coordinates. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaProofs.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundary.plan_no_prior_production",
+      "type": "∀ (s : Etna.Design.UpgradeBoundary.System)\n  (p : Etna.Design.UpgradeBoundary.Plan),\n  Etna.Design.UpgradeBoundary.planFits s p = Bool.true →\n    s.produced ≤ p.height ∧\n      ∀ (r : Etna.Design.Signer.Signed),\n        r ∈ s.node.signer.log → r.generation = s.world.inbox.generation → r.position.height ≤ p.height",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-d0feb40e3354690c"],
+      "scope": "Before staging/switching, represented current-generation log and produced-height evidence contain nothing above H. Retired generations are retained and exempt. This is one modeled device/history, not global-all-signer coordination."
+    },
+    {
+      "module": "EtnaProofs.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundary.historical_rules",
+      "type": "∀ (s : Etna.Design.UpgradeBoundary.Schedule) (height h : Nat)\n  (v : Etna.Design.UpgradeBoundary.Version),\n  h ≤ height → (Etna.Design.UpgradeBoundary.extendSchedule s height v).versionAt h = s.versionAt h",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-1c08d6a12a414c54"],
+      "scope": "Supporting conditional boundary fact: historical rules. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaProofs.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundary.new_rules",
+      "type": "∀ (s : Etna.Design.UpgradeBoundary.Schedule) (height h : Nat)\n  (v : Etna.Design.UpgradeBoundary.Version),\n  height < h → (Etna.Design.UpgradeBoundary.extendSchedule s height v).versionAt h = v",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-1c08d6a12a414c54"],
+      "scope": "Supporting conditional boundary fact: new rules. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaProofs.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundary.boundary_retained",
+      "type": "∀ (s : Etna.Design.UpgradeBoundary.Schedule) (height : Nat)\n  (v : Etna.Design.UpgradeBoundary.Version) (b : Nat),\n  b ∈ (Etna.Design.UpgradeBoundary.extendSchedule s height v).boundaries ↔ b ∈ s.boundaries ∨ b = height",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-1c08d6a12a414c54"],
+      "scope": "Supporting conditional boundary fact: boundary retained. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaProofs.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundary.batch_respects_boundaries",
+      "type": "∀ (s : Etna.Design.UpgradeBoundary.System)\n  (j : Etna.Design.UpgradeBoundary.Job),\n  Etna.Design.UpgradeBoundary.batchAllowed s j = Bool.true →\n    ∀ (b : Nat), b ∈ s.schedule.boundaries → j.last ≤ b ∨ b ≤ j.first",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-1c08d6a12a414c54"],
+      "scope": "Supporting conditional boundary fact: batch respects boundaries. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaProofs.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundary.batch_image_and_rules",
+      "type": "∀ (s : Etna.Design.UpgradeBoundary.System)\n  (j : Etna.Design.UpgradeBoundary.Job),\n  Etna.Design.UpgradeBoundary.batchAllowed s j = Bool.true →\n    j.deployment = s.world.inbox.domain ∧\n      j.generation = s.world.inbox.generation ∧\n        j.first < j.last ∧\n          j.version = s.schedule.versionAt (j.first + 1) ∧\n            j.version = s.schedule.versionAt j.last ∧\n              j.version.config = s.world.inbox.committeeConfig ∧\n                j.image ∈ j.version.images ∧ j.first % j.version.grid = 0 ∧ j.last % j.version.grid = 0",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-1c08d6a12a414c54"],
+      "scope": "Supporting conditional boundary fact: batch image and rules. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaProofs.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundary.batch_uniform_rules",
+      "type": "∀ (s : Etna.Design.UpgradeBoundary.System)\n  (j : Etna.Design.UpgradeBoundary.Job),\n  Etna.Design.UpgradeBoundary.batchAllowed s j = Bool.true →\n    ∀ (h : Nat), j.first < h → h ≤ j.last → s.schedule.versionAt h = j.version",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-1c08d6a12a414c54"],
+      "scope": "Every interior height uses the exact job version, even for an arbitrary prior schedule. Explicit recorded-boundary checking separately rejects crossing recurring rule IDs."
+    },
+    {
+      "module": "EtnaProofs.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundary.old_only_image_rejected",
+      "type": "∀ (s : Etna.Design.UpgradeBoundary.System)\n  (p : Etna.Design.UpgradeBoundary.Plan) (j : Etna.Design.UpgradeBoundary.Job),\n  p.height < j.last →\n    ¬j.image ∈ p.next.images →\n      Etna.Design.UpgradeBoundary.batchAllowed (Etna.Design.UpgradeBoundary.applySwitch s p) j = Bool.false",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-1c08d6a12a414c54"],
+      "scope": "Supporting conditional boundary fact: old only image rejected. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaProofs.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundary.switch_frame",
+      "type": "∀ (s : Etna.Design.UpgradeBoundary.System)\n  (p : Etna.Design.UpgradeBoundary.Plan),\n  ((Etna.Design.UpgradeBoundary.applySwitch s p).world =\n      have __src := s.world;\n      {\n        inbox :=\n          have __src := s.world.inbox;\n          { domain := __src.domain, committeeConfig := __src.committeeConfig, gridK := p.next.grid,\n            entered := __src.entered, generation := __src.generation, recoveryNonce := __src.recoveryNonce,\n            origin := __src.origin, origins := __src.origins, checkpoint := __src.checkpoint, records := __src.records,\n            head := __src.head, tail := __src.tail, snapshot := __src.snapshot, ethBalance := __src.ethBalance,\n            feeAdmissions := __src.feeAdmissions, forcedETH := __src.forcedETH, swept := __src.swept,\n            signals := __src.signals, epochLen := __src.epochLen, genesisCutoff := __src.genesisCutoff,\n            committeeZero := __src.committeeZero, configuration := __src.configuration,\n            committeeZeroRecord := __src.committeeZeroRecord, forcedDelay := __src.forcedDelay,\n            maxAnchorAge := __src.maxAnchorAge, maxBatchBlocks := __src.maxBatchBlocks, forcedFee := __src.forcedFee,\n            forcedThreshold := __src.forcedThreshold, protocolFeeRecipient := __src.protocolFeeRecipient },\n        registry := __src.registry, queue := __src.queue, schedule := __src.schedule, l1Block := __src.l1Block,\n        adapters := __src.adapters }) ∧\n    (Etna.Design.UpgradeBoundary.applySwitch s p).node = s.node ∧\n      (Etna.Design.UpgradeBoundary.applySwitch s p).jobs = s.jobs ∧\n        (Etna.Design.UpgradeBoundary.applySwitch s p).material = p.next :: s.material",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-13a640305956861b"],
+      "scope": "Supporting conditional boundary fact: switch frame. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaProofs.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundary.invalidate_identity",
+      "type": "∀ (s : Etna.Design.UpgradeBoundary.System) (index : Nat),\n  List.map Etna.Design.UpgradeBoundary.Work.job (Etna.Design.UpgradeBoundary.invalidate s index).jobs =\n    List.map Etna.Design.UpgradeBoundary.Work.job s.jobs",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-1c08d6a12a414c54"],
+      "scope": "Supporting conditional boundary fact: invalidate identity. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaProofs.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundary.settle_checked",
+      "type": "∀ (s t : Etna.Design.UpgradeBoundary.System) (index : Nat)\n  (i : Etna.Design.LandInput) (leaves : List Etna.Design.Leaf) (e : Etna.Design.LandingEnv),\n  Etna.Design.UpgradeBoundary.settle s index i leaves e = Option.some t →\n    ∃ w,\n      s.jobs[index]? = Option.some w ∧\n        w.status = Etna.Design.UpgradeBoundary.Status.pending ∧\n          Etna.Design.UpgradeBoundary.batchAllowed s w.job = Bool.true ∧\n            w.job.first = i.parentHeight ∧\n              w.job.last = i.lastHeight ∧\n                w.job.generation = e.certificate.generation ∧\n                  w.job.version.config = e.certificate.config ∧\n                    w.job.statement = e.certificate ∧\n                      s.world.l1Block ≤ e.blockNumber ∧\n                        Etna.Design.ProtocolState.land s.world i leaves e = Option.some t.world ∧\n                          Etna.Design.land s.world.inbox i leaves e = Option.some t.world.inbox ∧\n                            List.map Etna.Design.UpgradeBoundary.Work.job t.jobs =\n                              List.map Etna.Design.UpgradeBoundary.Work.job s.jobs",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-1c08d6a12a414c54"],
+      "scope": "Every successful job-gated settlement uses the original actual land, exact immutable statement/config/generation/range and permitted image, while changing only the job status. The returned World equals ProtocolState.land including e.blockNumber, under a nondecreasing L1 clock guard."
+    },
+    {
+      "module": "EtnaProofs.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundary.sign_uses_session",
+      "type": "∀ (s : Etna.Design.UpgradeBoundary.System)\n  (encode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash) (m : Etna.Design.SigningBridge.SignMessage)\n  (v : Etna.Design.UpgradeBoundary.Version) (signature : Etna.Design.Hash) (persisted : Bool)\n  (t : Etna.Design.Signer.State) (out : Etna.Design.Hash),\n  Etna.Design.UpgradeBoundary.sign s encode m v signature persisted = Option.some (t, out) →\n    Etna.Design.UpgradeBoundary.signingAllowed s encode m v = Bool.true ∧\n      Etna.Design.TrustState.sign s.node encode m signature persisted = Option.some (t, out)",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-d0feb40e3354690c"],
+      "scope": "Supporting conditional boundary fact: sign uses session. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaProofs.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundary.fresh_stops_at_boundary",
+      "type": "∀ (s : Etna.Design.UpgradeBoundary.System)\n  (encode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash) (m : Etna.Design.SigningBridge.SignMessage)\n  (v : Etna.Design.UpgradeBoundary.Version) (signature : Etna.Design.Hash) (persisted : Bool)\n  (t : Etna.Design.Signer.State) (out : Etna.Design.Hash) (p : Etna.Design.UpgradeBoundary.Plan),\n  s.staged = Option.some p →\n    Etna.Design.UpgradeBoundary.cached s encode m = Bool.false →\n      Etna.Design.UpgradeBoundary.sign s encode m v signature persisted = Option.some (t, out) → m.height ≤ p.height",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-1c08d6a12a414c54"],
+      "scope": "Supporting conditional boundary fact: fresh stops at boundary. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaProofs.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundary.signing_height_rules",
+      "type": "∀ (s : Etna.Design.UpgradeBoundary.System)\n  (encode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash) (m : Etna.Design.SigningBridge.SignMessage)\n  (v : Etna.Design.UpgradeBoundary.Version) (signature : Etna.Design.Hash) (persisted : Bool)\n  (t : Etna.Design.Signer.State) (out : Etna.Design.Hash),\n  Etna.Design.UpgradeBoundary.sign s encode m v signature persisted = Option.some (t, out) →\n    m.domain = s.world.inbox.domain ∧\n      m.generation = s.world.inbox.generation ∧ v = s.schedule.versionAt m.height ∧ v ∈ s.material",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-d0feb40e3354690c"],
+      "scope": "Supporting conditional boundary fact: signing height rules. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaProofs.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundary.cached_session_retry",
+      "type": "∀ (s : Etna.Design.UpgradeBoundary.System)\n  (encode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash) (m : Etna.Design.SigningBridge.SignMessage)\n  (v : Etna.Design.UpgradeBoundary.Version) (signature : Etna.Design.Hash) (persisted : Bool),\n  m.domain = s.world.inbox.domain ∧\n      m.generation = s.world.inbox.generation ∧ v = s.schedule.versionAt m.height ∧ v ∈ s.material →\n    Etna.Design.UpgradeBoundary.cached s encode m = Bool.true →\n      Etna.Design.UpgradeBoundary.sign s encode m v signature persisted =\n        Etna.Design.TrustState.sign s.node encode m signature persisted",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-d0feb40e3354690c"],
+      "scope": "Pre-call exact cached retry passes the boundary ceiling under historical height/material rules, while preserving every existing session/stock signer authorization check."
+    },
+    {
+      "module": "EtnaProofs.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundary.signing_log_retained",
+      "type": "∀ (s : Etna.Design.UpgradeBoundary.System)\n  (encode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash) (m : Etna.Design.SigningBridge.SignMessage)\n  (v : Etna.Design.UpgradeBoundary.Version) (signature : Etna.Design.Hash) (persisted : Bool)\n  (t : Etna.Design.Signer.State) (out : Etna.Design.Hash),\n  Etna.Design.UpgradeBoundary.sign s encode m v signature persisted = Option.some (t, out) →\n    ∃ extra, t.log = extra ++ s.node.signer.log",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-d0feb40e3354690c"],
+      "scope": "Supporting conditional boundary fact: signing log retained. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaProofs.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundary.signing_session_step",
+      "type": "∀ (s : Etna.Design.UpgradeBoundary.System) (key : Etna.Design.Hash)\n  (encode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash) (m : Etna.Design.SigningBridge.SignMessage)\n  (v : Etna.Design.UpgradeBoundary.Version) (signature out : Etna.Design.Hash) (persisted : Bool)\n  (t : Etna.Design.Signer.State),\n  Etna.Design.UpgradeBoundary.sign s encode m v signature persisted = Option.some (t, out) →\n    (t.log ≠ s.node.signer.log → Etna.Design.TrustState.EngineRequest s.node key m) →\n      Etna.Design.TrustState.Step key encode s.node\n        (have __src := s.node;\n        { target := __src.target, replay := __src.replay, extension := __src.extension, trusted := __src.trusted,\n          signer := t, restartNeeded := __src.restartNeeded, halted := __src.halted,\n          authenticatedGeneration := __src.authenticatedGeneration })",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-d0feb40e3354690c"],
+      "scope": "Every successful boundary-gated call constructs the original TrustState.Step under precisely its existing fresh-producer obligation; no alternate readiness path."
+    },
+    {
+      "module": "EtnaProofs.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundary.boundary_denial",
+      "type": "∀ (s : Etna.Design.UpgradeBoundary.System)\n  (encode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash) (m : Etna.Design.SigningBridge.SignMessage)\n  (v : Etna.Design.UpgradeBoundary.Version) (signature : Etna.Design.Hash) (persisted : Bool),\n  Etna.Design.UpgradeBoundary.signingAllowed s encode m v = Bool.false →\n    Etna.Design.UpgradeBoundary.sign s encode m v signature persisted = Option.none",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-1c08d6a12a414c54"],
+      "scope": "Supporting conditional boundary fact: boundary denial. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaProofs.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundary.trace_retains_history",
+      "type": "∀ (authority : Option Etna.Design.UpgradeBoundary.Authority)\n  (s t : Etna.Design.UpgradeBoundary.System),\n  Etna.Design.UpgradeBoundary.SwitchTrace authority s t →\n    t.node = s.node ∧\n      t.jobs = s.jobs ∧\n        t.world.inbox.records = s.world.inbox.records ∧\n          t.world.inbox.checkpoint = s.world.inbox.checkpoint ∧\n            (∀ (v : Etna.Design.UpgradeBoundary.Version), v ∈ s.material → v ∈ t.material) ∧\n              ∀ (h : Nat), h ≤ s.world.inbox.checkpoint.height → t.schedule.versionAt h = s.schedule.versionAt h",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [
+        "EN-13a640305956861b",
+        "EN-d0feb40e3354690c",
+        "EN-1c08d6a12a414c54"
+      ],
+      "scope": "Induction over prepare/activate-only transitions with fixed settlement history preserves exact node/session/HRS, immutable jobs, historical checkpoints, all replay material and the arbitrary rule history through the initial settled checkpoint. This limited switch trace excludes ordinary settlement/signing events; actual land and TrustState adapters are separate checked bridges."
+    },
+    {
+      "module": "EtnaProofs.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundary.trace_deployment_immutables",
+      "type": "∀ (authority : Option Etna.Design.UpgradeBoundary.Authority)\n  (s t : Etna.Design.UpgradeBoundary.System),\n  Etna.Design.UpgradeBoundary.SwitchTrace authority s t →\n    t.world.registry = s.world.registry ∧\n      (have __src := t.world.inbox;\n        { domain := __src.domain, committeeConfig := __src.committeeConfig, gridK := s.world.inbox.gridK,\n          entered := __src.entered, generation := __src.generation, recoveryNonce := __src.recoveryNonce,\n          origin := __src.origin, origins := __src.origins, checkpoint := __src.checkpoint, records := __src.records,\n          head := __src.head, tail := __src.tail, snapshot := __src.snapshot, ethBalance := __src.ethBalance,\n          feeAdmissions := __src.feeAdmissions, forcedETH := __src.forcedETH, swept := __src.swept,\n          signals := __src.signals, epochLen := __src.epochLen, genesisCutoff := __src.genesisCutoff,\n          committeeZero := __src.committeeZero, configuration := __src.configuration,\n          committeeZeroRecord := __src.committeeZeroRecord, forcedDelay := __src.forcedDelay,\n          maxAnchorAge := __src.maxAnchorAge, maxBatchBlocks := __src.maxBatchBlocks, forcedFee := __src.forcedFee,\n          forcedThreshold := __src.forcedThreshold, protocolFeeRecipient := __src.protocolFeeRecipient }) =\n        s.world.inbox",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-13a640305956861b"],
+      "scope": "Induction preserves the complete registry and every Inbox field except code-version K. Deployment immutables cannot change in place. This conditional machine is separate from the original fixed-version ProtocolState.Trace."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundaryRegression.switch_success",
+      "type": "Etna.Design.UpgradeBoundaryRegression.successfulBoundary",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-1c08d6a12a414c54"],
+      "scope": "Kernel witness: switch success. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundaryRegression.cached_old_rules",
+      "type": "Etna.Design.UpgradeBoundaryRegression.historicalRetry",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-d0feb40e3354690c"],
+      "scope": "Kernel witness: cached old rules. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundaryRegression.fresh_new_rules",
+      "type": "Etna.Design.UpgradeBoundary.sign\n      Etna.Design.UpgradeBoundaryRegression.switched Etna.Design.UpgradeBoundaryRegression.encode\n      (Etna.Design.UpgradeBoundaryRegression.message 3 1003) Etna.Design.UpgradeBoundaryRegression.newVersion 888\n      Bool.true =\n    Option.some\n      (have __src := Etna.Design.UpgradeBoundaryRegression.device;\n        { domain := __src.domain, activeGeneration := __src.activeGeneration, startHeight := __src.startHeight,\n          retired := __src.retired, ready := __src.ready,\n          log :=\n            { generation := 0, position := { height := 3, round := 0, step := 3 },\n                bytes :=\n                  Etna.Design.UpgradeBoundaryRegression.encode (Etna.Design.UpgradeBoundaryRegression.message 3 1003),\n                signature := 888 } ::\n              Etna.Design.UpgradeBoundaryRegression.device.log },\n        888) ∧\n  Etna.Design.UpgradeBoundary.sign Etna.Design.UpgradeBoundaryRegression.switched\n        Etna.Design.UpgradeBoundaryRegression.encode (Etna.Design.UpgradeBoundaryRegression.message 3 1003)\n        Etna.Design.UpgradeBoundaryRegression.oldVersion 888 Bool.true =\n      Option.none ∧\n    Etna.Design.UpgradeBoundary.sign Etna.Design.UpgradeBoundaryRegression.stopped\n        Etna.Design.UpgradeBoundaryRegression.encode (Etna.Design.UpgradeBoundaryRegression.message 3 1003)\n        Etna.Design.UpgradeBoundaryRegression.oldVersion 888 Bool.true =\n      Option.none",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-1c08d6a12a414c54"],
+      "scope": "Kernel witness: fresh new rules. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundaryRegression.conflicting_cached_bytes",
+      "type": "Etna.Design.UpgradeBoundary.sign\n    Etna.Design.UpgradeBoundaryRegression.switched Etna.Design.UpgradeBoundaryRegression.encode\n    (Etna.Design.UpgradeBoundaryRegression.message 2 9999) Etna.Design.UpgradeBoundaryRegression.oldVersion 888\n    Bool.true =\n  Option.none",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-d0feb40e3354690c"],
+      "scope": "Kernel witness: conflicting cached bytes. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundaryRegression.closed_trust_refuses",
+      "type": "Etna.Design.UpgradeBoundary.sign\n      (have __src := Etna.Design.UpgradeBoundaryRegression.switched;\n      { world := __src.world, node := Etna.Design.TrustState.close Etna.Design.UpgradeBoundaryRegression.switched.node,\n        schedule := __src.schedule, material := __src.material, jobs := __src.jobs, staged := __src.staged,\n        produced := __src.produced })\n      Etna.Design.UpgradeBoundaryRegression.encode (Etna.Design.UpgradeBoundaryRegression.message 2 1002)\n      Etna.Design.UpgradeBoundaryRegression.oldVersion 888 Bool.true =\n    Option.none ∧\n  Etna.Design.UpgradeBoundary.sign\n      (have __src := Etna.Design.UpgradeBoundaryRegression.switched;\n      { world := __src.world,\n        node := Etna.Design.TrustState.timeout Etna.Design.UpgradeBoundaryRegression.switched.node,\n        schedule := __src.schedule, material := __src.material, jobs := __src.jobs, staged := __src.staged,\n        produced := __src.produced })\n      Etna.Design.UpgradeBoundaryRegression.encode (Etna.Design.UpgradeBoundaryRegression.message 2 1002)\n      Etna.Design.UpgradeBoundaryRegression.oldVersion 888 Bool.true =\n    Option.none",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-1c08d6a12a414c54"],
+      "scope": "Kernel witness: closed trust refuses. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundaryRegression.prior_history_preserved",
+      "type": "Etna.Design.UpgradeBoundaryRegression.priorHistory",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-1c08d6a12a414c54"],
+      "scope": "Kernel witness: prior history preserved. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundaryRegression.repeated_rules_still_cross",
+      "type": "Etna.Design.UpgradeBoundary.noCrossing\n      { versionAt := fun x => Etna.Design.UpgradeBoundaryRegression.oldVersion, boundaries := [1] } 0 2 =\n    Bool.false ∧\n  Etna.Design.UpgradeBoundary.batchAllowed\n      (have __src := Etna.Design.UpgradeBoundaryRegression.initial;\n      { world := __src.world, node := __src.node,\n        schedule := { versionAt := fun x => Etna.Design.UpgradeBoundaryRegression.oldVersion, boundaries := [1] },\n        material := __src.material, jobs := __src.jobs, staged := __src.staged, produced := __src.produced })\n      Etna.Design.UpgradeBoundaryRegression.oldJob =\n    Bool.false",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-1c08d6a12a414c54"],
+      "scope": "Kernel witness: repeated rules still cross. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundaryRegression.jobs_and_old_only_image",
+      "type": "Etna.Design.UpgradeBoundary.batchAllowed\n      Etna.Design.UpgradeBoundaryRegression.switched\n      (have __src := Etna.Design.UpgradeBoundaryRegression.oldJob;\n      { deployment := __src.deployment, generation := __src.generation, first := 2, last := 4, version := __src.version,\n        image := __src.image, statement := __src.statement }) =\n    Bool.false ∧\n  Etna.Design.UpgradeBoundary.batchAllowed Etna.Design.UpgradeBoundaryRegression.switched\n        (have __src := Etna.Design.UpgradeBoundaryRegression.oldJob;\n        { deployment := __src.deployment, generation := __src.generation, first := 2, last := 4,\n          version := Etna.Design.UpgradeBoundaryRegression.newVersion, image := __src.image,\n          statement := __src.statement }) =\n      Bool.false ∧\n    Etna.Design.UpgradeBoundary.batchAllowed Etna.Design.UpgradeBoundaryRegression.switched\n          (have __src := Etna.Design.UpgradeBoundaryRegression.oldJob;\n          { deployment := __src.deployment, generation := __src.generation, first := 2, last := 4,\n            version := Etna.Design.UpgradeBoundaryRegression.newVersion, image := 22, statement := __src.statement }) =\n        Bool.true ∧\n      Etna.Design.UpgradeBoundary.batchAllowed Etna.Design.UpgradeBoundaryRegression.switched\n            (have __src := Etna.Design.UpgradeBoundaryRegression.oldJob;\n            { deployment := __src.deployment, generation := __src.generation, first := __src.first, last := 4,\n              version := Etna.Design.UpgradeBoundaryRegression.newVersion, image := 22,\n              statement := __src.statement }) =\n          Bool.false ∧\n        (Etna.Design.UpgradeBoundary.invalidate Etna.Design.UpgradeBoundaryRegression.stopped 0).jobs =\n          [{ job := Etna.Design.UpgradeBoundaryRegression.oldJob,\n              status := Etna.Design.UpgradeBoundary.Status.invalidated }]",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-1c08d6a12a414c54"],
+      "scope": "Kernel witness: jobs and old only image. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundaryRegression.unclosed_job_blocks",
+      "type": "(Etna.Design.UpgradeBoundary.activate\n        (Option.some Etna.Design.UpgradeBoundaryRegression.auth)\n        (have __src := Etna.Design.UpgradeBoundaryRegression.landed;\n        { world := __src.world, node := __src.node, schedule := __src.schedule, material := __src.material,\n          jobs :=\n            [{ job := Etna.Design.UpgradeBoundaryRegression.oldJob,\n                status := Etna.Design.UpgradeBoundary.Status.pending }],\n          staged := __src.staged, produced := __src.produced })\n        Bool.true).staged =\n    Option.some Etna.Design.UpgradeBoundaryRegression.upgrade ∧\n  (Etna.Design.UpgradeBoundary.activate (Option.some Etna.Design.UpgradeBoundaryRegression.auth)\n        (Etna.Design.UpgradeBoundary.invalidate\n          (have __src := Etna.Design.UpgradeBoundaryRegression.landed;\n          { world := __src.world, node := __src.node, schedule := __src.schedule, material := __src.material,\n            jobs :=\n              [{ job := Etna.Design.UpgradeBoundaryRegression.oldJob,\n                  status := Etna.Design.UpgradeBoundary.Status.pending }],\n            staged := __src.staged, produced := __src.produced })\n          0)\n        Bool.true).staged =\n    Option.none",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-1c08d6a12a414c54"],
+      "scope": "Kernel witness: unclosed job blocks. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundaryRegression.wrong_statement_rejected",
+      "type": "Etna.Design.UpgradeBoundary.settle\n    (have __src := Etna.Design.UpgradeBoundaryRegression.stopped;\n    { world := __src.world, node := __src.node, schedule := __src.schedule, material := __src.material,\n      jobs :=\n        [{\n            job :=\n              have __src := Etna.Design.UpgradeBoundaryRegression.oldJob;\n              { deployment := __src.deployment, generation := __src.generation, first := __src.first,\n                last := __src.last, version := __src.version, image := __src.image,\n                statement := Etna.Design.FirstBatch.publicStatement },\n            status := Etna.Design.UpgradeBoundary.Status.pending }],\n      staged := __src.staged, produced := __src.produced })\n    0 Etna.Design.ReconstructionRegression.statement2.input Etna.Design.ReconstructionRegression.firstCertificate.leaves\n    Etna.Design.ReconstructionRegression.environment2 =\n  Option.none",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-1c08d6a12a414c54"],
+      "scope": "Kernel witness: wrong statement rejected. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundaryRegression.disabled_and_failed",
+      "type": "(Etna.Design.UpgradeBoundary.prepare Option.none\n        (Etna.Design.UpgradeBoundary.retainMaterial Etna.Design.UpgradeBoundaryRegression.initial\n          Etna.Design.UpgradeBoundaryRegression.newVersion)\n        Etna.Design.UpgradeBoundaryRegression.upgrade).staged =\n    Option.none ∧\n  (Etna.Design.UpgradeBoundary.activate Option.none Etna.Design.UpgradeBoundaryRegression.landed Bool.true).staged =\n      Option.some Etna.Design.UpgradeBoundaryRegression.upgrade ∧\n    (Etna.Design.UpgradeBoundary.activate (Option.some Etna.Design.UpgradeBoundaryRegression.auth)\n                Etna.Design.UpgradeBoundaryRegression.landed Bool.false).node.signer.log =\n        [Etna.Design.UpgradeBoundaryRegression.logEntry] ∧\n      (Etna.Design.UpgradeBoundary.activate (Option.some Etna.Design.UpgradeBoundaryRegression.auth)\n            Etna.Design.UpgradeBoundaryRegression.stopped Bool.true).staged =\n        Option.some Etna.Design.UpgradeBoundaryRegression.upgrade",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-d419a126b4a3b7a6"],
+      "scope": "Kernel witness: disabled and failed. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundaryRegression.wrong_plan_auth_checkpoint",
+      "type": "(Etna.Design.UpgradeBoundary.prepare\n        (Option.some Etna.Design.UpgradeBoundaryRegression.auth) Etna.Design.UpgradeBoundaryRegression.initial\n        (have __src := Etna.Design.UpgradeBoundaryRegression.upgrade;\n        { domain := __src.domain, generation := __src.generation, height := 4, previous := __src.previous,\n          next := __src.next })).staged =\n    Option.none ∧\n  (Etna.Design.UpgradeBoundary.activate\n          (Option.some\n            (have __src := Etna.Design.UpgradeBoundaryRegression.auth;\n            { plan := __src.plan, checkpoint := fun x x_1 => Bool.false }))\n          Etna.Design.UpgradeBoundaryRegression.landed Bool.true).staged =\n      Option.some Etna.Design.UpgradeBoundaryRegression.upgrade ∧\n    (Etna.Design.UpgradeBoundary.activate\n          (Option.some\n            (have __src := Etna.Design.UpgradeBoundaryRegression.auth;\n            { plan := fun x => Bool.false, checkpoint := __src.checkpoint }))\n          Etna.Design.UpgradeBoundaryRegression.landed Bool.true).staged =\n      Option.some Etna.Design.UpgradeBoundaryRegression.upgrade",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-d0feb40e3354690c"],
+      "scope": "Kernel witness: wrong plan auth checkpoint. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundaryRegression.incompatible_grid_and_configuration",
+      "type": "Etna.Design.UpgradeBoundary.planFits\n      Etna.Design.UpgradeBoundaryRegression.initial\n      (have __src := Etna.Design.UpgradeBoundaryRegression.upgrade;\n      { domain := __src.domain, generation := __src.generation, height := 3, previous := __src.previous,\n        next := __src.next }) =\n    Bool.false ∧\n  Etna.Design.UpgradeBoundary.planFits Etna.Design.UpgradeBoundaryRegression.initial\n        (have __src := Etna.Design.UpgradeBoundaryRegression.upgrade;\n        { domain := __src.domain, generation := __src.generation, height := __src.height, previous := __src.previous,\n          next :=\n            have __src := Etna.Design.UpgradeBoundaryRegression.newVersion;\n            { client := __src.client, execution := __src.execution, config := __src.config, images := __src.images,\n              grid := 4 } }) =\n      Bool.false ∧\n    Etna.Design.UpgradeBoundary.planFits Etna.Design.UpgradeBoundaryRegression.initial\n          (have __src := Etna.Design.UpgradeBoundaryRegression.upgrade;\n          { domain := __src.domain, generation := __src.generation, height := __src.height, previous := __src.previous,\n            next :=\n              have __src := Etna.Design.UpgradeBoundaryRegression.newVersion;\n              { client := __src.client, execution := __src.execution, config := 999, images := __src.images,\n                grid := __src.grid } }) =\n        Bool.false ∧\n      Etna.Design.UpgradeBoundary.planFits\n          (have __src := Etna.Design.UpgradeBoundaryRegression.initial;\n          {\n            world :=\n              have __src := Etna.Design.UpgradeBoundaryRegression.initial.world;\n              {\n                inbox :=\n                  have __src := Etna.Design.UpgradeBoundaryRegression.initial.world.inbox;\n                  { domain := __src.domain, committeeConfig := __src.committeeConfig, gridK := __src.gridK,\n                    entered := __src.entered, generation := __src.generation, recoveryNonce := __src.recoveryNonce,\n                    origin := __src.origin, origins := __src.origins, checkpoint := __src.checkpoint,\n                    records := __src.records, head := __src.head, tail := __src.tail, snapshot := __src.snapshot,\n                    ethBalance := __src.ethBalance, feeAdmissions := __src.feeAdmissions, forcedETH := __src.forcedETH,\n                    swept := __src.swept, signals := __src.signals, epochLen := __src.epochLen,\n                    genesisCutoff := __src.genesisCutoff, committeeZero := __src.committeeZero,\n                    configuration := __src.configuration, committeeZeroRecord := __src.committeeZeroRecord,\n                    forcedDelay := __src.forcedDelay, maxAnchorAge := __src.maxAnchorAge, maxBatchBlocks := 1,\n                    forcedFee := __src.forcedFee, forcedThreshold := __src.forcedThreshold,\n                    protocolFeeRecipient := __src.protocolFeeRecipient },\n                registry := __src.registry, queue := __src.queue, schedule := __src.schedule, l1Block := __src.l1Block,\n                adapters := __src.adapters },\n            node := __src.node, schedule := __src.schedule, material := __src.material, jobs := __src.jobs,\n            staged := __src.staged, produced := __src.produced })\n          Etna.Design.UpgradeBoundaryRegression.upgrade =\n        Bool.false",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-fac3b57a8c83d321"],
+      "scope": "Kernel witness: incompatible grid and configuration. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundaryRegression.existing_above_boundary_refuses",
+      "type": "Etna.Design.UpgradeBoundary.planFits\n      (have __src := Etna.Design.UpgradeBoundaryRegression.initial;\n      { world := __src.world, node := __src.node, schedule := __src.schedule, material := __src.material,\n        jobs := __src.jobs, staged := __src.staged, produced := 3 })\n      Etna.Design.UpgradeBoundaryRegression.upgrade =\n    Bool.false ∧\n  Etna.Design.UpgradeBoundary.planFits\n      (have __src := Etna.Design.UpgradeBoundaryRegression.initial;\n      { world := __src.world,\n        node :=\n          have __src := Etna.Design.UpgradeBoundaryRegression.node;\n          { target := __src.target, replay := __src.replay, extension := __src.extension, trusted := __src.trusted,\n            signer :=\n              have __src := Etna.Design.UpgradeBoundaryRegression.device;\n              { domain := __src.domain, activeGeneration := __src.activeGeneration, startHeight := __src.startHeight,\n                retired := __src.retired, ready := __src.ready,\n                log :=\n                  [{ generation := 0, position := { height := 3, round := 0, step := 3 }, bytes := 0,\n                      signature := 0 }] },\n            restartNeeded := __src.restartNeeded, halted := __src.halted,\n            authenticatedGeneration := __src.authenticatedGeneration },\n        schedule := __src.schedule, material := __src.material, jobs := __src.jobs, staged := __src.staged,\n        produced := __src.produced })\n      Etna.Design.UpgradeBoundaryRegression.upgrade =\n    Bool.false",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-d0feb40e3354690c"],
+      "scope": "Kernel witness: existing above boundary refuses. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundaryRegression.retired_high_log_kept",
+      "type": "(Etna.Design.UpgradeBoundary.activate\n        (Option.some Etna.Design.UpgradeBoundaryRegression.nextAuth) Etna.Design.UpgradeBoundaryRegression.retiredHigh\n        Bool.true).staged =\n    Option.none ∧\n  (Etna.Design.UpgradeBoundary.activate (Option.some Etna.Design.UpgradeBoundaryRegression.nextAuth)\n              Etna.Design.UpgradeBoundaryRegression.retiredHigh Bool.true).node.signer.log =\n      [{ generation := 0, position := { height := 99, round := 0, step := 3 }, bytes := 123, signature := 456 }] ∧\n    (Etna.Design.UpgradeBoundary.activate (Option.some Etna.Design.UpgradeBoundaryRegression.nextAuth)\n              Etna.Design.UpgradeBoundaryRegression.retiredHigh Bool.true).node.signer.activeGeneration =\n      1",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-d0feb40e3354690c"],
+      "scope": "Kernel witness: retired high log kept. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.UpgradeBoundary",
+      "declaration": "Etna.Design.UpgradeBoundaryRegression.existing_session_composition",
+      "type": "Etna.Design.TrustStateRegression.DeviceReachable\n    Etna.Design.UpgradeBoundaryRegression.trustedSystem.node ∧\n  Etna.Design.UpgradeBoundary.sign Etna.Design.UpgradeBoundaryRegression.trustedSystem\n      Etna.Design.TrustStateRegression.bytes0\n      (Etna.Design.TrustStateRegression.message0 Etna.Design.SigningBridge.SignPhase.precommitMsg Bool.true)\n      Etna.Design.UpgradeBoundaryRegression.trustedVersion\n      (Etna.Design.TrustStateRegression.bytes0\n          (Etna.Design.TrustStateRegression.message0 Etna.Design.SigningBridge.SignPhase.precommitMsg Bool.true) +\n        8)\n      Bool.true =\n    Option.some\n      ((Etna.Design.TrustStateRegression.signed0 Etna.Design.SigningBridge.SignPhase.precommitMsg Bool.true).signer,\n        Etna.Design.TrustStateRegression.bytes0\n            (Etna.Design.TrustStateRegression.message0 Etna.Design.SigningBridge.SignPhase.precommitMsg Bool.true) +\n          8)",
+      "assumptions": [
+        "Conditional exact-plan DAO/timelock and current-checkpoint authentication are ideal supplied interfaces; the real SPEC10.1 activation mechanism remains undefined/unavailable. No off-chain manifest or image registration creates authority.",
+        "Original ideal TrustState/session and authoritative persistent HRS log, fixed SignMessage encoder, authenticated-generation watermark, and pre-call producer/rule adapter. Rule/image metadata is not a native vote field; no new domain/generation/app_version. No global all-signer stop theorem from a single represented device.",
+        "Atomic decoded switching/landing inputs; original verifier, deterministic EL, real image/codec/crypto/storage correctness and original replay-material availability remain external. K is code-version data, constrained by common-grid H and unchanged U/maxBatchBlocks; deployment immutables are preserved."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-d0feb40e3354690c"],
+      "scope": "Kernel witness: existing session composition. Decoded policy/range/session behavior only; not a production activation mechanism."
     }
   ]
 }

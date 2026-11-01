@@ -1,3 +1,4 @@
+import EtnaModel.UpgradeBoundary
 import EtnaModel.Reconstruction
 import EtnaModel.ActualQueue
 import EtnaModel.Anchorless

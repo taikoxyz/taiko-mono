@@ -20,7 +20,8 @@
     "signing": "ObservedCall contains the actual existing Signer.sign result and decoded message/key/signature bindings. TrustedPrefix authenticates a typed own-finalized view and matching replay, EngineRequest states the producer refinement. Real adapters/engine enforcement remain external. A confirmation must causally precede that view and be included in the common replay/source; global L1 freshness does not follow from ready/trusted. Cached returns, unrestricted rollback and continuous positive collateral are separate.",
     "anchorless": "Canonical L1 root-at-number ancestry and decoded storage-proof soundness, ideal EIP timestamp/root writes and getter behavior, identical builder/importer/prover pre-execution, and atomic authorized decoded upgrade transactions. Raw histories derive root/cache/namespace guarantees; MPT, EIP bytecode, crypto/encoding, deployment transport, legacy Bridge authorization and payouts remain external. The model has no stale proposal-flow production rule or production activation claim. A single fixed service slot adapter derives the slot from source chain/app/signal. Isolation requires explicit distinct derived slots; no unconditional finite-hash injectivity is assumed.",
     "actual_queue": "Timestamped original transaction journals and authenticated final states of L1 blocks, preserving all same-block calls. Queue timing and tail coverage are derived, and current-origin binding excludes later recovery for exact storage transport. Ideal hash/canonical-parser/deterministic singleton interfaces bind raw and position-zero bytes for local unlanded blocks; real L1/storage/crypto/EL implementations, wall-clock liveness and launch resource acceptance remain external.",
-    "reconstruction": "Public full EL header bytes, ordered EIP-2718 transaction bytes, canonical authenticated L1 records and complete starting state/code/configuration only. Fixed codecs/hashes/full-block EL semantics (including EIP-4788/2935 effects), truthful guest-rules domain, original-blob availability and finite compared-header collision exclusion are explicit external contracts. Actual accepted cut binding plus saved parent links derives overlap identity; no prefix agreement or reconstruction-success assumption. Ordinary recovery only; exceptional rollback needs an authenticated restart. No crypto/codec/EVM implementation, private Comet replay, arbitrary RPC snapshot, DA liveness or launch-resource claim."
+    "reconstruction": "Public full EL header bytes, ordered EIP-2718 transaction bytes, canonical authenticated L1 records and complete starting state/code/configuration only. Fixed codecs/hashes/full-block EL semantics (including EIP-4788/2935 effects), truthful guest-rules domain, original-blob availability and finite compared-header collision exclusion are explicit external contracts. Actual accepted cut binding plus saved parent links derives overlap identity; no prefix agreement or reconstruction-success assumption. Ordinary recovery only; exceptional rollback needs an authenticated restart. No crypto/codec/EVM implementation, private Comet replay, arbitrary RPC snapshot, DA liveness or launch-resource claim.",
+    "upgrade": "Conditional exact-plan/current-finalized-checkpoint authority, atomic switching transaction and original session/EL/guest/verifier adapters only. No production activation authority is constructed. Arbitrary previous height schedule and explicit boundaries, retained replay materials/jobs/HRS, common-grid code-K switch with unchanged deployment parameters. Single represented current-generation log and produced-height evidence are not global signer coordination. Historical cached retries use the original encoder/session; rule metadata is not a native vote field. Original fixed-version Trace remains separate."
   },
   "design_pending": [
     "EN-fac3b57a8c83d321",
@@ -669,6 +670,25 @@
           "Etna.Design.Reconstruction.overlap_backwards",
           "Etna.Design.Reconstruction.certified_result",
           "Etna.Design.Reconstruction.certified_trace_interval"
+        ]
+      }
+    },
+    {
+      "id": "DV-CONDITIONAL-UPGRADE",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "Given an explicitly supplied ideal authenticated policy, repeated preparation/activation preserves every deployment immutable, the full node/HRS state, old job identities, checkpoint history and prior rule schedule through the settled checkpoint. Missing authority disables activation. Actual land and TrustState signing wrappers separately enforce exact version/range/image/session guards. The undefined DAO/timelock activation construction, global signer coordination and implementation correctness remain pending/external.",
+      "assumptions": ["upgrade", "signing", "l1", "el"],
+      "evidence": {
+        "EN-13a640305956861b": [
+          "Etna.Design.UpgradeBoundary.trace_deployment_immutables",
+          "Etna.Design.UpgradeBoundary.trace_retains_history"
+        ],
+        "EN-d0feb40e3354690c": [
+          "Etna.Design.UpgradeBoundary.trace_retains_history"
+        ],
+        "EN-1c08d6a12a414c54": [
+          "Etna.Design.UpgradeBoundary.trace_retains_history"
         ]
       }
     }

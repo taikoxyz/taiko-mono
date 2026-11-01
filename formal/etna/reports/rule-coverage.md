@@ -12,7 +12,7 @@ other rules of that clause are `deferred`.
 
 | Type       | Count | partial | partial-via | deferred | design-pending |
 | ---------- | ----: | ------: | ----------: | -------: | -------------: |
-| rule       |   568 |     156 |           7 |      401 |              4 |
+| rule       |   568 |     162 |           7 |      395 |              4 |
 | limitation |    21 |       1 |           0 |       19 |              1 |
 | assumption |    11 |       0 |           0 |       11 |              0 |
 
@@ -25,7 +25,7 @@ other rules of that clause are `deferred`.
 | CONS   |    52 |      10 |           0 |       42 |              0 |
 | PROOF  |    47 |      23 |           0 |       24 |              0 |
 | STAKE  |    42 |      18 |           0 |       24 |              0 |
-| START  |    39 |       9 |           0 |       27 |              3 |
+| START  |    39 |      15 |           0 |       21 |              3 |
 | STOR   |    34 |       2 |           0 |       32 |              0 |
 | FI     |    31 |      13 |           0 |       18 |              0 |
 | SYNC   |    25 |      10 |           0 |       15 |              0 |
@@ -490,19 +490,19 @@ other rules of that clause are `deferred`.
 | START-10-23   | rule       | deferred       | EN-a6838413bd23a47f                       |      5 |                                                                                                              |
 | START-10-24   | rule       | deferred       | EN-a6838413bd23a47f                       |      5 |                                                                                                              |
 | START-10.1-1  | rule       | deferred       | EN-13a640305956861b                       |      3 |                                                                                                              |
-| START-10.1-2  | rule       | deferred       | EN-13a640305956861b                       |      3 |                                                                                                              |
-| START-10.1-3  | rule       | deferred       | EN-13a640305956861b                       |      3 |                                                                                                              |
+| START-10.1-2  | rule       | partial        | EN-13a640305956861b                       |      3 | `trace_deployment_immutables`, `trace_retains_history`                                                       |
+| START-10.1-3  | rule       | partial        | EN-13a640305956861b                       |      3 | `trace_deployment_immutables`, `trace_retains_history`                                                       |
 | START-10.1-4  | rule       | design-pending | EN-fac3b57a8c83d321                       |      3 |                                                                                                              |
 | START-10.1-5  | rule       | design-pending | EN-fac3b57a8c83d321                       |      3 |                                                                                                              |
 | START-10.1-6  | rule       | design-pending | EN-fac3b57a8c83d321                       |      3 |                                                                                                              |
-| START-10.1-7  | rule       | deferred       | EN-d0feb40e3354690c                       |      4 |                                                                                                              |
+| START-10.1-7  | rule       | partial        | EN-d0feb40e3354690c                       |      4 | `trace_retains_history`                                                                                      |
 | START-10.1-8  | rule       | deferred       | EN-d0feb40e3354690c                       |      4 |                                                                                                              |
 | START-10.1-9  | rule       | deferred       | EN-d0feb40e3354690c                       |      4 |                                                                                                              |
 | START-10.1-10 | rule       | deferred       | EN-d0feb40e3354690c                       |      4 |                                                                                                              |
 | START-10.1-11 | rule       | deferred       | EN-1c08d6a12a414c54                       |      5 |                                                                                                              |
-| START-10.1-12 | rule       | deferred       | EN-1c08d6a12a414c54                       |      5 |                                                                                                              |
-| START-10.1-13 | rule       | deferred       | EN-1c08d6a12a414c54                       |      5 |                                                                                                              |
-| START-10.1-14 | rule       | deferred       | EN-1c08d6a12a414c54                       |      5 |                                                                                                              |
+| START-10.1-12 | rule       | partial        | EN-1c08d6a12a414c54                       |      5 | `invalidate_identity`, `trace_retains_history`                                                               |
+| START-10.1-13 | rule       | partial        | EN-1c08d6a12a414c54                       |      5 | `invalidate_identity`, `trace_retains_history`                                                               |
+| START-10.1-14 | rule       | partial        | EN-1c08d6a12a414c54                       |      5 | `invalidate_identity`, `trace_retains_history`                                                               |
 | START-10.1-15 | rule       | deferred       | EN-1c08d6a12a414c54                       |      5 |                                                                                                              |
 | PARAM-11-1    | rule       | deferred       | EN-d753309e13d64470                       |      1 |                                                                                                              |
 | PARAM-11-2    | rule       | deferred       | EN-25a3f0fe9ca21aa3                       |      2 |                                                                                                              |

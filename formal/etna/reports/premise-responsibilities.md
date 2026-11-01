@@ -41,8 +41,11 @@ whose fixed voting power persists. Capital thresholds do not establish that ante
 
 Stock CometBFT's cross-round locking correctness may be adopted as a pinned dependency
 assumption, represented by `CrossRoundAccountable` in the supplemental height-agreement result.
-Etna must still establish deterministic committee/power updates and H+2 timing, exact generation
-bootstrap and signing integration. The present work does not formalize upstream locking.
+The separate `Locking.commit_agreement` derives design-level cross-round safety from
+pinned lower-level prevote/PoLC/lock rules; `shared_history_commitValid_agreement` also
+derives equal active committees from raw shared prefixes. Actual Comet implementation
+refinement, truthful event attribution and engine integration remain external. The fixed
+coupled markdown/paper proof reading is not a deployment option.
 
 ## Normal-run and recovery composition contracts
 
@@ -61,7 +64,12 @@ requires each landing to carry:
 These witnesses must come from actual producer/guest/history behavior. `Built`, an accepting
 proof pair or a trusted boolean alone do not manufacture them. No theorem lifts a headline `Run` to it: under `Premises` a submitted landing supplies the
 batch, construction and statement equality (`submitted_landing_certified`), but the prior-snapshot
-source, the reference bound and the absence of rollback are separate contracts. No selected
+source, the reference bound and the absence of rollback require stronger raw history inputs.
+`CanonicalHistory.run_normal` now derives normal provenance from initialized accepted calls,
+append-only decoded archive/header bindings and raw origin/reference bounds. Its
+`submitted_history_landing` bridge uses the original submitted-batch theorem, and its witness
+actually lands and signs after recovery. The old free `historyAuthenticated` predicate alone
+does not establish these inputs. No selected
 cutoff bound, final confirmation coverage or key exclusion is an edge premise: the new
 proofs derive them from these provenance contracts and explicit initial conditions.
 
@@ -96,6 +104,13 @@ authentication of these records are still archive/producer obligations.
 The result guarantees current next-height committee exclusion and the exact fresh signature/log
 binding under these contracts. It does not prohibit historical or stale-view signatures below a
 newer global checkpoint, guarantee continuous positive collateral, timely evidence delivery or
-DAO action, or certify verifier-failure rollback/session revalidation. Real two-proof resource
+DAO action, or certify production rollback/session implementations. The separate TrustState
+trace proves revalidation and durable-log behavior in an ideal session machine; its
+authenticated-generation watermark must be authoritatively restored independently of HRS.
+Cross-generation rollback needs a truly certified CanonicalHistory source/reference bound,
+stronger than the older same-generation source hypothesis. Target/headerMatches and replay
+prove decoded metadata properties, not physical EL-state availability or snapshot fetch
+success. Reconstruction separately assumes a complete authenticated starting state. See
+[design safety composition](design-safety-composition.md). Real two-proof resource
 acceptance and bridge/token execution remain independent implementation/launch obligations in
 `ACCEPTANCE.md`.

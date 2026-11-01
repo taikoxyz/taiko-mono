@@ -1,3 +1,4 @@
+import EtnaWitnesses.Regressions.UpgradeBoundary
 import EtnaWitnesses.Regressions.Reconstruction
 import EtnaWitnesses.Regressions.ActualQueue
 import EtnaWitnesses.Regressions.Anchorless

@@ -17,7 +17,8 @@ premise record, `Premises`. To trust the result, read the statements and the pre
 proofs. The package says nothing about the production contracts, client or guests beyond the
 conformance vectors below.
 
-The clause inventory (313 source clauses), the theorem roles and the 26 narrow claims in
+The clause inventory (405 source clauses: 313 SPEC/ACCEPTANCE plus 92 independently pinned
+ANCHORLESS clauses), the theorem roles and the 34 narrow claims in
 `spec-coverage.json` are a **traceability report, not the verification result**. They record
 which spec clauses some theorem speaks to, and CI keeps them consistent. A clause marked
 partial is not proved. [`reports/rule-coverage.md`](reports/rule-coverage.md) keys the same
@@ -465,15 +466,20 @@ A second initialized witness supplies a normal-recovery source before the first 
 (`RecoveryCapture`). No theorem lifts a headline `Run` to `NormalSigning.Run`. Under `Premises`,
 a submitted landing supplies `built`, `valid` and `binding` (`submitted_landing_certified`), but
 each landing's prior-snapshot source and reference bound, and the absence of rollback, are
-separate contracts; the regression fixtures are the only runs built here, and none lands after
-its recovery. `SnapshotSource.normalRecovery` names an actual recovery, but the bound it yields
+separate raw input contracts. `CanonicalHistory.run_normal` now derives the complete
+normal provenance from an initialized accepted history with authenticated archive/header and
+reference bindings. `submitted_history_landing` connects that history to the original submitted
+batch theorem without constraining the old free predicates. Its initialized witness lands
+generation-1 blocks 15–22 after recovery and actually signs height 23. `SnapshotSource.normalRecovery` names an actual recovery, but the bound it yields
 reads only its clock, time order, kept snapshot, generation and origin, that is
 `s.snapshot < ctx.originBlock` one generation above `before`. Initial key and
 exit-history invariants, actual authentication/request/key/persistence behavior and causal view
 coverage remain explicit. See [normal signing composition](reports/normal-signing-composition.md)
 and [premise responsibilities](reports/premise-responsibilities.md). Global freshness,
-verifier-failure rollback/session revalidation, upstream locking, continuous collateral and
-production implementation certification remain outside this extension.
+continuous collateral and production implementation certification remain outside these results.
+The separate TrustState, certified cross-generation rollback and Locking modules cover the
+design-level session, rollback and lower-level locking obligations described in
+[design safety composition](reports/design-safety-composition.md).
 
 ## Back-pressure accounting
 
@@ -669,9 +675,12 @@ Modelling choices a reviewer should know:
 
 - Hashes are opaque numbers. The World holds fixed hash adapters that no caller chooses, and
   every transition keeps them.
-- Every value the spec fixes at deployment (L, genesisCutoff, K, maxAnchorAge, the FI delay,
-  fee and threshold, maxBatchBlocks, protocolFeeRecipient, the registry's minimum stake, delays
-  bounty and forfeiture rate) is an immutable of the World, never a per-call input.
+- Deployment storage/configuration values (L, genesisCutoff, maxAnchorAge, FI delay, fee and
+  threshold, maxBatchBlocks, protocolFeeRecipient, registry minimum stake, delays, bounty and
+  forfeiture rate) are immutable, never per-call choices. The original fixed-version World
+  also keeps code constant K fixed. The separate conditional `UpgradeBoundary` model permits
+  a code-version K change at a common-grid H with compatible unchanged U/maxBatchBlocks;
+  this is not an original `ProtocolState.Trace` step or an available activation mechanism.
 - `Deployment.build` derives the rules from the World: it checks the config and committee-0
   openings against the stored commitments, recomputes committee 0 from registry history, and
   enforces the §10/§11 initialization constraints. The openings are ghost authenticated inputs,
@@ -800,22 +809,22 @@ namespace (for example `EtnaModel/Deployment.lean` and `EtnaProofs/Deployment.le
   the model and nothing imports it; the lint lets only its plain string literals contain `{`,
   and the audit admits its root `main` as the one declaration outside `Etna`.
 - `manifests/design.json`: the theorem contracts; `manifests/shadowing-allowlist.json`.
-- `spec-coverage.json`: the 26 narrow claims (traceability). `rule-coverage.json`: the raw
-  pins, reviewed overrides and reviewed narrowings (33 shared clauses) of the rule-ID view.
+- `spec-coverage.json`: the 34 narrow claims (traceability). `rule-coverage.json`: the raw
+  pins, reviewed overrides and reviewed narrowings (38 shared clauses) of the rule-ID view.
 - `scripts/`, `tests/`: the gate and its tests. `reports/`: review history. `legacy/v9`:
   historical V9 material outside the build.
 
 ## Numbers
 
-- 954 theorem contracts: 184 property, 3 constant, 417 supporting, 350 regression. Fifteen of the
-  property contracts, six of them from the normal-recovery composition, are projection,
-  provenance, invariance or arithmetic helpers that cite no clause (`UNSOURCED` in
-  `scripts/check_spec_coverage.py`).
-- 184 property derivation chains, checked against the live proof terms.
-- 313 source clauses: 77 partial, 233 deferred, 3 design-pending; 26 narrow claims.
-- 568 binding rule IDs: 141 partial, 7 partial through a reviewed override, 416 deferred, 4
-  design-pending; 21 limitations (one, section 12 item 19, partial) and 11 assumptions.
-- 210 Python mutation/regression tests, plus kernel-replayed Lean regression modules.
+- 1,216 theorem contracts: 248 property, 3 constant, 508 supporting, 457 regression.
+  All original 954 declaration/type pairs remain exact. Twenty-five exact named plumbing
+  contracts are UNSOURCED; no generic allowlist expansion is used.
+- 248 property derivation chains, checked against the live proof terms.
+- 405 source clauses: 101 partial, 301 deferred, 3 design-pending; 34 narrow claims.
+  The original 313 SPEC/ACCEPTANCE clauses remain identifiable beside the 92 ANCHORLESS clauses.
+- 600 SPEC/INDEX rule IDs, including 568 binding rules, 21 limitations and 11 assumptions.
+  ANCHORLESS has its own source IDs and is not folded into these rule IDs.
+- 377 Python mutation/regression tests and 21 kernel-replayed Lean regression modules.
 - Current vectors: 416 Inbox/registry and 340 client rule vectors. The contracts ran the 414 of
   `2d06eeb66` (406 agree, 8 known divergences) and the Rust client the 340 (339 agree, 1 known
   divergence).
@@ -843,3 +852,24 @@ origins and exactly-once state application. Fixed codec/crypto/full-block EL sem
 original-blob availability remain explicit external contracts; private consensus history
 is not an algorithm input. See [the verification report](reports/public-reconstruction-verification.md)
 for theorem scope, non-vacuous fixtures and semantic mutation evidence.
+
+## Conditional protocol upgrade boundaries
+
+`UpgradeBoundary` proves disabled activation without a supplied authority and conditional
+height/rule/image/job/session safety under an ideal exact-plan and current-checkpoint
+authenticator. It preserves arbitrary previous piecewise rule history through H, checks all
+interior heights and recorded boundaries even when rule IDs recur, retains old replay
+materials and immutable job identities, and uses actual `land` and `TrustState.sign` calls.
+Signing classifies fresh versus exact cached requests before persistence and keeps the
+original encoder, domain, generation and HRS log. A retired-generation high HRS is retained.
+Atomic switch failure leaves the entire prior state intact. Code-version K is distinguished
+from deployment immutables.
+
+The plan must be staged before represented current-generation production crosses H;
+activation requires the actual authenticated current checkpoint at H and closed old jobs.
+These are one modeled device/history and conditional policy guards, not global signer
+coordination or a DAO/timelock implementation. The three activation clauses remain
+**design-pending**. Per-switch preservation accepts an arbitrary prior schedule; the
+prepare/activate trace theorem keeps settlement history fixed, with settlement/signing
+proved through separate adapters. [Design safety composition](reports/design-safety-composition.md)
+maps all eight work items, witnesses, mutations and remaining primitive dependencies.
