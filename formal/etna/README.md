@@ -220,11 +220,12 @@ both responsibilities; the classification changes no field or claim type.
 
 - **Liveness.** No claim says a block, a landing or a due FI entry ever happens (§1 "Liveness",
   spec L14).
-- **Cross-round safety.** H2 compares commits at one height and one round only. CometBFT's
-  locking rules are not modelled. `height_agreement` extends agreement to every round of a
-  height only under the explicit hypothesis `CrossRoundAccountable` (CometBFT's cross-round
-  accountability), which the model does not prove; cross-round faults are not slashable
-  (§1 "Slashing scope", spec L18: automatic double-sign slashing compares the same round; DAO forfeiture is separate).
+- **Deployed CometBFT refinement.** H2 remains a same-round statement. The separate
+  `Locking.commitValid_agreement` now derives cross-round design safety from decoded
+  prevote/PoLC/lock transitions and weighted quorum intersection. Relating the actual engine,
+  signatures and nonnil commit decoding to that interface remains external. The original
+  `height_agreement`/`CrossRoundAccountable` contracts remain unchanged. Cross-round faults
+  do not acquire automatic slashing (§1 "Slashing scope", spec L18).
 - **Checkpoint permanence across rollback.** Along traces without verifier-failure rollback,
   the records at or below the starting checkpoint never change and SignalService checkpoints
   are only appended (`ordinary_trace_preserves_settled_records`, `ordinary_trace_signals_prefix`);
@@ -504,6 +505,26 @@ hypothesis of its own theorem.
   precommits in some round or break the locking rules at that height hold less than 1/3 of the
   power, all valid commits at that height are for the same block. The theorem adds no slashing: automatic double-sign slashing
   compares one round only (§1 "Slashing scope", spec L18).
+- **Derived locking safety** (`EtnaModel/Locking.lean`, `EtnaProofs/Locking.lean`):
+  `polc_after_commit` derives lock persistence by per-key round induction and excludes the
+  first later conflicting certificate by weighted honest quorum intersection.
+  `commitValid_agreement` applies this to actual Etna `activeAt` committees and arbitrary
+  commit rounds. Honest keys have monotone local round/phase histories; keys may occupy
+  different rounds concurrently, and phases or rounds may be skipped. The mode is a fixed
+  proof reading of CometBFT v0.40.0's
+  [markdown specification](https://github.com/cometbft/cometbft/blob/0880b4d378f347ab16e54ec677ff50d803f37d62/spec/consensus/consensus.md)
+  and [paper algorithm](https://github.com/cometbft/cometbft/blob/0880b4d378f347ab16e54ec677ff50d803f37d62/spec/consensus/consensus-paper/consensus.tex),
+  pinned to commit `0880b4d378f347ab16e54ec677ff50d803f37d62`, not a new deployment setting: markdown mode
+  requires locked-block prevotes and allows nil-PoLC unlock at precommit; paper mode permits
+  locked nil prevotes but retains locks on nil certificates. These permissions cannot be
+  freely combined. The proof accepts both coupled readings and models nil separately from
+  every block hash, including zero. Each actual commit needs its own nonnil event attribution;
+  decoded `CommitValid` alone is insufficient. `shared_history_commitValid_agreement`
+  derives committee equality from shared raw history/configuration in the same deployment,
+  generation and fixed origin. At H+2 it needs the first `t*epochLen-1` anchor entries;
+  recovery bootstrap needs none, but still needs registry history through the fixed origin.
+  Existing canonical recovery/landing history exercises this prefix bridge. Authentication
+  of actual header/MPT bytes and upstream implementation refinement remain external.
 - **A trusted slot 284** (`EtnaProofs/TrustedSnapshot.lean`): under `SnapshotTrusted` (slot 284
   is not ahead of the cutoff of the committee active at lastCheckpoint), a key whose exit was
   confirmed is absent from every committee that the context built on the same World activates

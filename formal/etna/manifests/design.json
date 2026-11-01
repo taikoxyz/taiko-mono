@@ -14753,6 +14753,304 @@
       "role": "regression",
       "sources": ["EN-9f4dedd50d1598e8", "EN-992ca84f0e185f57"],
       "scope": "For arbitrary later fixture traces after the actual generation-1 observation, every old proposal/prevote/precommit and nil/non-nil request is refused."
+    },
+    {
+      "module": "EtnaProofs.Locking",
+      "declaration": "Etna.Design.Locking.polc_unique",
+      "type": "∀ {unit : Nat} {members : List Etna.Design.Committee.Entry}\n  {honest : Etna.Design.Hash → Bool} {mode : Bool} {e : Etna.Design.Locking.Execution},\n  Etna.Design.Locking.HonestRules unit members honest mode e →\n    Etna.Design.Locking.Minority unit members honest →\n      ∀ {r : Nat} {a b : Etna.Design.Locking.Value},\n        Etna.Design.Locking.PoLC unit members e r a → Etna.Design.Locking.PoLC unit members e r b → a = b",
+      "assumptions": [
+        "Pinned CometBFT v0.40.0 decoded per-key round/phase normalization; one globally fixed coupled nil rule reading. Actual engine/signer execution refinement and delivery causality are not proved.",
+        "Honest-key authenticated event attribution and signature/encoding unforgeability are primitive; Byzantine power is strictly below one third of the fixed weighted committee. Actual CommitValid bridges additionally require nonnil attribution scoped to each concrete certificate.",
+        "Historical composition assumes the same authenticated deployment, generation, fixed origin and configuration plus the stated raw archive/registry agreement. Concrete header/hash/MPT authentication is external; no equality across governance recovery is claimed."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-0202dc133674a903"],
+      "scope": "Weighted same-round prevote-certificate uniqueness, including nil, from honest phase attribution and less than one-third Byzantine power. No signature implementation or slashing conclusion."
+    },
+    {
+      "module": "EtnaProofs.Locking",
+      "declaration": "Etna.Design.Locking.commit_has_polc",
+      "type": "∀ {unit : Nat} {members : List Etna.Design.Committee.Entry}\n  {honest : Etna.Design.Hash → Bool} {mode : Bool} {e : Etna.Design.Locking.Execution},\n  Etna.Design.Locking.HonestRules unit members honest mode e →\n    Etna.Design.Locking.Minority unit members honest →\n      ∀ {r b : Nat},\n        Etna.Design.Locking.Commit unit members e r b → Etna.Design.Locking.PoLC unit members e r (Option.some b)",
+      "assumptions": [
+        "Pinned CometBFT v0.40.0 decoded per-key round/phase normalization; one globally fixed coupled nil rule reading. Actual engine/signer execution refinement and delivery causality are not proved.",
+        "Honest-key authenticated event attribution and signature/encoding unforgeability are primitive; Byzantine power is strictly below one third of the fixed weighted committee. Actual CommitValid bridges additionally require nonnil attribution scoped to each concrete certificate.",
+        "Historical composition assumes the same authenticated deployment, generation, fixed origin and configuration plus the stated raw archive/registry agreement. Concrete header/hash/MPT authentication is external; no equality across governance recovery is claimed."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-0202dc133674a903"],
+      "scope": "Every modeled nonnil precommit quorum has a current-round PoLC because an honest quorum signer follows the lock-acquisition rule."
+    },
+    {
+      "module": "EtnaProofs.Locking",
+      "declaration": "Etna.Design.Locking.polc_after_commit",
+      "type": "∀ {unit : Nat} {members : List Etna.Design.Committee.Entry}\n  {honest : Etna.Design.Hash → Bool} {mode : Bool} {e : Etna.Design.Locking.Execution},\n  Etna.Design.Locking.HonestRules unit members honest mode e →\n    Etna.Design.Locking.Minority unit members honest →\n      ∀ {start a : Nat},\n        Etna.Design.Locking.Commit unit members e start a →\n          ∀ (r : Nat) (v : Etna.Design.Locking.Value),\n            start ≤ r → Etna.Design.Locking.PoLC unit members e r v → Etna.Design.Locking.Compatible mode a v",
+      "assumptions": [
+        "Pinned CometBFT v0.40.0 decoded per-key round/phase normalization; one globally fixed coupled nil rule reading. Actual engine/signer execution refinement and delivery causality are not proved.",
+        "Honest-key authenticated event attribution and signature/encoding unforgeability are primitive; Byzantine power is strictly below one third of the fixed weighted committee. Actual CommitValid bridges additionally require nonnil attribution scoped to each concrete certificate.",
+        "Historical composition assumes the same authenticated deployment, generation, fixed origin and configuration plus the stated raw archive/registry agreement. Concrete header/hash/MPT authentication is external; no equality across governance recovery is claimed."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-0202dc133674a903", "EN-c36e4d0d76a728b6"],
+      "scope": "Derives the lock-persistence invariant and minimal-round certificate exclusion from lower-level RoundStep transitions. Markdown mode excludes nil and conflicting nonnil PoLCs after a commit; paper mode permits nil PoLCs while excluding conflicting nonnil values. No cross-round accountability premise."
+    },
+    {
+      "module": "EtnaProofs.Locking",
+      "declaration": "Etna.Design.Locking.commit_agreement",
+      "type": "∀ {unit : Nat} {members : List Etna.Design.Committee.Entry}\n  {honest : Etna.Design.Hash → Bool} {mode : Bool} {e : Etna.Design.Locking.Execution},\n  Etna.Design.Locking.HonestRules unit members honest mode e →\n    Etna.Design.Locking.Minority unit members honest →\n      ∀ {ra rb a b : Nat},\n        Etna.Design.Locking.Commit unit members e ra a → Etna.Design.Locking.Commit unit members e rb b → a = b",
+      "assumptions": [
+        "Pinned CometBFT v0.40.0 decoded per-key round/phase normalization; one globally fixed coupled nil rule reading. Actual engine/signer execution refinement and delivery causality are not proved.",
+        "Honest-key authenticated event attribution and signature/encoding unforgeability are primitive; Byzantine power is strictly below one third of the fixed weighted committee. Actual CommitValid bridges additionally require nonnil attribution scoped to each concrete certificate.",
+        "Historical composition assumes the same authenticated deployment, generation, fixed origin and configuration plus the stated raw archive/registry agreement. Concrete header/hash/MPT authentication is external; no equality across governance recovery is claimed."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-c36e4d0d76a728b6"],
+      "scope": "All nonnil modeled quorum commits at one fixed height and committee agree, independently of rounds, under the derived locking rules and weighted Byzantine minority. No governance-spanning safety or cross-round slashing."
+    },
+    {
+      "module": "EtnaProofs.Locking",
+      "declaration": "Etna.Design.Locking.commitValid_bridge",
+      "type": "∀ {c : Etna.Design.Consensus.Context}\n  {signature : Etna.Design.Consensus.Vote → Prop} {h : Nat} {e : Etna.Design.Locking.Execution} {r b : Nat}\n  {votes : List Etna.Design.Consensus.Vote},\n  Etna.Design.Locking.CommitAttribution e r b votes →\n    Etna.Design.Consensus.CommitValid c signature h r b votes →\n      Etna.Design.Locking.Commit c.unit (Etna.Design.Consensus.activeAt c h).members e r b",
+      "assumptions": [
+        "Pinned CometBFT v0.40.0 decoded per-key round/phase normalization; one globally fixed coupled nil rule reading. Actual engine/signer execution refinement and delivery causality are not proved.",
+        "Honest-key authenticated event attribution and signature/encoding unforgeability are primitive; Byzantine power is strictly below one third of the fixed weighted committee. Actual CommitValid bridges additionally require nonnil attribution scoped to each concrete certificate.",
+        "Historical composition assumes the same authenticated deployment, generation, fixed origin and configuration plus the stated raw archive/registry agreement. Concrete header/hash/MPT authentication is external; no equality across governance recovery is claimed."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-af33164a1858c781"],
+      "scope": "Actual CommitValid weighted power at activeAt supplies the modeled commit quorum under per-concrete-certificate nonnil engine-event attribution. Decoded CommitValid alone does not distinguish nil."
+    },
+    {
+      "module": "EtnaProofs.Locking",
+      "declaration": "Etna.Design.Locking.commitValid_agreement",
+      "type": "∀ {c : Etna.Design.Consensus.Context}\n  {signature : Etna.Design.Consensus.Vote → Prop} {h : Nat} {honest : Etna.Design.Hash → Bool} {mode : Bool}\n  {e : Etna.Design.Locking.Execution},\n  Etna.Design.Locking.HonestRules c.unit (Etna.Design.Consensus.activeAt c h).members honest mode e →\n    Etna.Design.Locking.Minority c.unit (Etna.Design.Consensus.activeAt c h).members honest →\n      ∀ {ra rb a b : Nat} {votesA votesB : List Etna.Design.Consensus.Vote},\n        Etna.Design.Locking.CommitAttribution e ra a votesA →\n          Etna.Design.Locking.CommitAttribution e rb b votesB →\n            Etna.Design.Consensus.CommitValid c signature h ra a votesA →\n              Etna.Design.Consensus.CommitValid c signature h rb b votesB → a = b",
+      "assumptions": [
+        "Pinned CometBFT v0.40.0 decoded per-key round/phase normalization; one globally fixed coupled nil rule reading. Actual engine/signer execution refinement and delivery causality are not proved.",
+        "Honest-key authenticated event attribution and signature/encoding unforgeability are primitive; Byzantine power is strictly below one third of the fixed weighted committee. Actual CommitValid bridges additionally require nonnil attribution scoped to each concrete certificate.",
+        "Historical composition assumes the same authenticated deployment, generation, fixed origin and configuration plus the stated raw archive/registry agreement. Concrete header/hash/MPT authentication is external; no equality across governance recovery is claimed."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-c36e4d0d76a728b6", "EN-af33164a1858c781"],
+      "scope": "Actual CommitValid certificates agree at one activeAt committee in arbitrary rounds, using lower-level locking rules and separately scoped nonnil attribution for each concrete certificate. No CrossRoundAccountable premise; H1-H3 unchanged."
+    },
+    {
+      "module": "EtnaProofs.Locking",
+      "declaration": "Etna.Design.Locking.active_committee_prefix",
+      "type": "∀ {sa sb : Etna.Design.State}\n  {registryA registryB : Etna.Design.RegistryHistory.State} {cfg : Etna.Design.HistoricalContext.Parameters}\n  {common moreA moreB : List Nat} {h : Nat} {ca cb : Etna.Design.Consensus.Context},\n  Etna.Design.HistoricalContext.build sa registryA cfg (common ++ moreA) = Option.some ca →\n    Etna.Design.HistoricalContext.build sb registryB cfg (common ++ moreB) = Option.some cb →\n      Etna.Design.Locking.SameInstance sa sb →\n        Etna.Design.Locking.requiredPrefix sa cfg h ≤ common.length →\n          List.filter\n                (fun (cp : Etna.Design.RegistryHistory.Snapshot) =>\n                  Decidable.decide (cp.block ≤ Etna.Design.HistoricalContext.cutoff sa cfg common h))\n                registryA.history =\n              List.filter\n                (fun (cp : Etna.Design.RegistryHistory.Snapshot) =>\n                  Decidable.decide (cp.block ≤ Etna.Design.HistoricalContext.cutoff sa cfg common h))\n                registryB.history →\n            ca.domain = cb.domain ∧\n              ca.generation = cb.generation ∧\n                ca.unit = cb.unit ∧ Etna.Design.Consensus.activeAt ca h = Etna.Design.Consensus.activeAt cb h",
+      "assumptions": [
+        "Pinned CometBFT v0.40.0 decoded per-key round/phase normalization; one globally fixed coupled nil rule reading. Actual engine/signer execution refinement and delivery causality are not proved.",
+        "Honest-key authenticated event attribution and signature/encoding unforgeability are primitive; Byzantine power is strictly below one third of the fixed weighted committee. Actual CommitValid bridges additionally require nonnil attribution scoped to each concrete certificate.",
+        "Historical composition assumes the same authenticated deployment, generation, fixed origin and configuration plus the stated raw archive/registry agreement. Concrete header/hash/MPT authentication is external; no equality across governance recovery is claimed."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [
+        "EN-179bc07a1f6d0129",
+        "EN-29468a34f68ca4c6",
+        "EN-9ac7403cd8147312"
+      ],
+      "scope": "Same authenticated deployment/generation/fixed origin and configuration, a shared raw anchor-number prefix of requiredPrefix length, and equal raw registry histories filtered through the derived cutoff imply equal actual activeAt records. Build checks do not themselves authenticate bytes/MPT proofs. No equal-committee premise."
+    },
+    {
+      "module": "EtnaProofs.Locking",
+      "declaration": "Etna.Design.Locking.handover_prefix_length",
+      "type": "∀ (s : Etna.Design.State) (cfg : Etna.Design.HistoricalContext.Parameters)\n  (registry : Etna.Design.RegistryHistory.State) (archive : List Nat) (t : Nat),\n  0 < cfg.epochLen →\n    s.origin.height < t * cfg.epochLen - 1 →\n      Etna.Design.Locking.requiredPrefix s cfg (t * cfg.epochLen + 1) = t * cfg.epochLen - 1 ∧\n        Etna.Design.Consensus.activeAt (Etna.Design.HistoricalContext.derive s registry cfg archive)\n            (t * cfg.epochLen + 1) =\n          Etna.Design.Consensus.normal (Etna.Design.HistoricalContext.derive s registry cfg archive) t",
+      "assumptions": [
+        "Pinned CometBFT v0.40.0 decoded per-key round/phase normalization; one globally fixed coupled nil rule reading. Actual engine/signer execution refinement and delivery causality are not proved.",
+        "Honest-key authenticated event attribution and signature/encoding unforgeability are primitive; Byzantine power is strictly below one third of the fixed weighted committee. Actual CommitValid bridges additionally require nonnil attribution scoped to each concrete certificate.",
+        "Historical composition assumes the same authenticated deployment, generation, fixed origin and configuration plus the stated raw archive/registry agreement. Concrete header/hash/MPT authentication is external; no equality across governance recovery is claimed."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-179bc07a1f6d0129"],
+      "scope": "At S(t)+2=t*epochLen+1 after an occurred switch, activeAt is normal(t); archive entries through header t*epochLen-2, a count of t*epochLen-1, suffice. Registry history through the resulting cutoff is still needed."
+    },
+    {
+      "module": "EtnaProofs.Locking",
+      "declaration": "Etna.Design.Locking.recovery_bootstrap_prefix",
+      "type": "∀ (s : Etna.Design.State)\n  (cfg : Etna.Design.HistoricalContext.Parameters) (registry : Etna.Design.RegistryHistory.State) (archive : List Nat)\n  (h : Nat),\n  s.generation ≠ 0 →\n    (h - 1) / cfg.epochLen * cfg.epochLen - 1 ≤ s.origin.height →\n      Etna.Design.Locking.requiredPrefix s cfg h = 0 ∧\n        (Etna.Design.Consensus.activeAt (Etna.Design.HistoricalContext.derive s registry cfg archive) h).cutoff =\n          s.origin.l1Block",
+      "assumptions": [
+        "Pinned CometBFT v0.40.0 decoded per-key round/phase normalization; one globally fixed coupled nil rule reading. Actual engine/signer execution refinement and delivery causality are not proved.",
+        "Honest-key authenticated event attribution and signature/encoding unforgeability are primitive; Byzantine power is strictly below one third of the fixed weighted committee. Actual CommitValid bridges additionally require nonnil attribution scoped to each concrete certificate.",
+        "Historical composition assumes the same authenticated deployment, generation, fixed origin and configuration plus the stated raw archive/registry agreement. Concrete header/hash/MPT authentication is external; no equality across governance recovery is claimed."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-29468a34f68ca4c6"],
+      "scope": "Before an occurred switch in a recovery generation, no anchor archive entry is queried and activeAt uses the fixed recovery origin L1 block. Registry history at that origin remains necessary."
+    },
+    {
+      "module": "EtnaProofs.Locking",
+      "declaration": "Etna.Design.Locking.shared_history_commitValid_agreement",
+      "type": "∀ {sa sb : Etna.Design.State}\n  {registryA registryB : Etna.Design.RegistryHistory.State} {cfg : Etna.Design.HistoricalContext.Parameters}\n  {common moreA moreB : List Nat} {h : Nat} {ca cb : Etna.Design.Consensus.Context},\n  Etna.Design.HistoricalContext.build sa registryA cfg (common ++ moreA) = Option.some ca →\n    Etna.Design.HistoricalContext.build sb registryB cfg (common ++ moreB) = Option.some cb →\n      Etna.Design.Locking.SameInstance sa sb →\n        Etna.Design.Locking.requiredPrefix sa cfg h ≤ common.length →\n          List.filter\n                (fun (cp : Etna.Design.RegistryHistory.Snapshot) =>\n                  Decidable.decide (cp.block ≤ Etna.Design.HistoricalContext.cutoff sa cfg common h))\n                registryA.history =\n              List.filter\n                (fun (cp : Etna.Design.RegistryHistory.Snapshot) =>\n                  Decidable.decide (cp.block ≤ Etna.Design.HistoricalContext.cutoff sa cfg common h))\n                registryB.history →\n            ∀ {honest : Etna.Design.Hash → Bool} {mode : Bool} {e : Etna.Design.Locking.Execution}\n              {sigA sigB : Etna.Design.Consensus.Vote → Prop},\n              Etna.Design.Locking.HonestRules ca.unit (Etna.Design.Consensus.activeAt ca h).members honest mode e →\n                Etna.Design.Locking.Minority ca.unit (Etna.Design.Consensus.activeAt ca h).members honest →\n                  ∀ {ra rb a b : Nat} {votesA votesB : List Etna.Design.Consensus.Vote},\n                    Etna.Design.Locking.CommitAttribution e ra a votesA →\n                      Etna.Design.Locking.CommitAttribution e rb b votesB →\n                        Etna.Design.Consensus.CommitValid ca sigA h ra a votesA →\n                          Etna.Design.Consensus.CommitValid cb sigB h rb b votesB → a = b",
+      "assumptions": [
+        "Pinned CometBFT v0.40.0 decoded per-key round/phase normalization; one globally fixed coupled nil rule reading. Actual engine/signer execution refinement and delivery causality are not proved.",
+        "Honest-key authenticated event attribution and signature/encoding unforgeability are primitive; Byzantine power is strictly below one third of the fixed weighted committee. Actual CommitValid bridges additionally require nonnil attribution scoped to each concrete certificate.",
+        "Historical composition assumes the same authenticated deployment, generation, fixed origin and configuration plus the stated raw archive/registry agreement. Concrete header/hash/MPT authentication is external; no equality across governance recovery is claimed."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [
+        "EN-c36e4d0d76a728b6",
+        "EN-af33164a1858c781",
+        "EN-179bc07a1f6d0129",
+        "EN-29468a34f68ca4c6",
+        "EN-9ac7403cd8147312"
+      ],
+      "scope": "Composes raw same-instance history-derived committee equality with lower-level locking and actual CommitValid certificates from two separately built contexts. Excludes comparison of numerical heights across different recovery generations."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Locking",
+      "declaration": "Etna.Design.LockingRegression.multiround_execution",
+      "type": "Etna.Design.Locking.HonestRules 1\n  Etna.Design.LockingRegression.members Etna.Design.LockingRegression.honest Bool.true\n  Etna.Design.LockingRegression.execution",
+      "assumptions": [
+        "Pinned CometBFT v0.40.0 decoded per-key round/phase normalization; one globally fixed coupled nil rule reading. Actual engine/signer execution refinement and delivery causality are not proved.",
+        "Honest-key authenticated event attribution and signature/encoding unforgeability are primitive; Byzantine power is strictly below one third of the fixed weighted committee. Actual CommitValid bridges additionally require nonnil attribution scoped to each concrete certificate.",
+        "Historical composition assumes the same authenticated deployment, generation, fixed origin and configuration plus the stated raw archive/registry agreement. Concrete header/hash/MPT authentication is external; no equality across governance recovery is claimed."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-0202dc133674a903"],
+      "scope": "Four honest keys, conflicting B/10 and A/20 candidate PoLCs, withheld delivery, one A lock, a later nil certificate, and B commits in rounds 3 and 4 satisfy the actual markdown-mode lower-level rules."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Locking",
+      "declaration": "Etna.Design.LockingRegression.nil_certificate_unlocks",
+      "type": "Etna.Design.LockingRegression.execution.locks 1 2 =\n    Option.some (1, 20) ∧\n  Etna.Design.LockingRegression.execution.prevotes 1 2 (Option.some 20) ∧\n    Etna.Design.Locking.PoLC 1 Etna.Design.LockingRegression.members Etna.Design.LockingRegression.execution 2\n        Option.none ∧\n      Etna.Design.LockingRegression.execution.precommits 1 2 Option.none ∧\n        Etna.Design.LockingRegression.execution.locks 1 3 = Option.none",
+      "assumptions": [
+        "Pinned CometBFT v0.40.0 decoded per-key round/phase normalization; one globally fixed coupled nil rule reading. Actual engine/signer execution refinement and delivery causality are not proved.",
+        "Honest-key authenticated event attribution and signature/encoding unforgeability are primitive; Byzantine power is strictly below one third of the fixed weighted committee. Actual CommitValid bridges additionally require nonnil attribution scoped to each concrete certificate.",
+        "Historical composition assumes the same authenticated deployment, generation, fixed origin and configuration plus the stated raw archive/registry agreement. Concrete header/hash/MPT authentication is external; no equality across governance recovery is claimed."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-0202dc133674a903"],
+      "scope": "Key 1 prevotes its existing A lock at round 2, then a nil PoLC from keys 2/3/4 clears that lock at precommit; no backward same-round prevote."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Locking",
+      "declaration": "Etna.Design.LockingRegression.differing_round_commits",
+      "type": "Etna.Design.Locking.Commit 1\n    Etna.Design.LockingRegression.members Etna.Design.LockingRegression.execution 3 10 ∧\n  Etna.Design.Locking.Commit 1 Etna.Design.LockingRegression.members Etna.Design.LockingRegression.execution 4 10 ∧\n    Etna.Design.Locking.PoLC 1 Etna.Design.LockingRegression.members Etna.Design.LockingRegression.execution 0\n        (Option.some 10) ∧\n      Etna.Design.Locking.PoLC 1 Etna.Design.LockingRegression.members Etna.Design.LockingRegression.execution 1\n          (Option.some 20) ∧\n        10 ≠ 20",
+      "assumptions": [
+        "Pinned CometBFT v0.40.0 decoded per-key round/phase normalization; one globally fixed coupled nil rule reading. Actual engine/signer execution refinement and delivery causality are not proved.",
+        "Honest-key authenticated event attribution and signature/encoding unforgeability are primitive; Byzantine power is strictly below one third of the fixed weighted committee. Actual CommitValid bridges additionally require nonnil attribution scoped to each concrete certificate.",
+        "Historical composition assumes the same authenticated deployment, generation, fixed origin and configuration plus the stated raw archive/registry agreement. Concrete header/hash/MPT authentication is external; no equality across governance recovery is claimed."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-0202dc133674a903", "EN-c36e4d0d76a728b6"],
+      "scope": "Real modeled B commits at rounds 3 and 4 coexist with earlier conflicting candidate PoLCs B/0 and A/1, exercising genuine multi-round agreement."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Locking",
+      "declaration": "Etna.Design.LockingRegression.stale_certificate_rejected",
+      "type": "Etna.Design.Locking.PoLC 1\n    Etna.Design.LockingRegression.members Etna.Design.LockingRegression.execution 0 (Option.some 10) ∧\n  ¬Etna.Design.Locking.RoundStep Bool.true\n      (Etna.Design.Locking.PoLC 1 Etna.Design.LockingRegression.members Etna.Design.LockingRegression.execution) 2\n      (Option.some (1, 20)) Etna.Design.LockingRegression.staleAction (Option.some (2, 10))",
+      "assumptions": [
+        "Pinned CometBFT v0.40.0 decoded per-key round/phase normalization; one globally fixed coupled nil rule reading. Actual engine/signer execution refinement and delivery causality are not proved.",
+        "Honest-key authenticated event attribution and signature/encoding unforgeability are primitive; Byzantine power is strictly below one third of the fixed weighted committee. Actual CommitValid bridges additionally require nonnil attribution scoped to each concrete certificate.",
+        "Historical composition assumes the same authenticated deployment, generation, fixed origin and configuration plus the stated raw archive/registry agreement. Concrete header/hash/MPT authentication is external; no equality across governance recovery is claimed."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-0202dc133674a903"],
+      "scope": "An actual B/0 PoLC is rejected as an unlock justification for a later A/1 lock; the Python kernel mutation admits an all-honest fork when exactly this lower guard is removed."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Locking",
+      "declaration": "Etna.Design.LockingRegression.asynchronous_interleaving",
+      "type": "List.Pairwise\n    (fun (a b : Etna.Design.Hash × Nat × Nat) => a.fst = b.fst → 2 * a.snd.fst + a.snd.snd < 2 * b.snd.fst + b.snd.snd)\n    Etna.Design.LockingRegression.interleaving ∧\n  ¬List.Pairwise (fun (a b : Etna.Design.Hash × Nat × Nat) => a.snd.fst ≤ b.snd.fst)\n        Etna.Design.LockingRegression.interleaving ∧\n    Etna.Design.LockingRegression.execution.prevotes 1 3 (Option.some 10) ∧\n      Etna.Design.LockingRegression.execution.prevotes 2 2 Option.none",
+      "assumptions": [
+        "Pinned CometBFT v0.40.0 decoded per-key round/phase normalization; one globally fixed coupled nil rule reading. Actual engine/signer execution refinement and delivery causality are not proved.",
+        "Honest-key authenticated event attribution and signature/encoding unforgeability are primitive; Byzantine power is strictly below one third of the fixed weighted committee. Actual CommitValid bridges additionally require nonnil attribution scoped to each concrete certificate.",
+        "Historical composition assumes the same authenticated deployment, generation, fixed origin and configuration plus the stated raw archive/registry agreement. Concrete header/hash/MPT authentication is external; no equality across governance recovery is claimed."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-0202dc133674a903"],
+      "scope": "A concrete interleaving increases phase/round per key while decreasing network-wide round (key 1 round 3 before key 2 round 2); both votes belong to the valid execution. No network-global round monotonicity assumption."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Locking",
+      "declaration": "Etna.Design.LockingRegression.actual_shared_history_commits",
+      "type": "Etna.Design.Consensus.CommitValid\n    Etna.Design.LockingRegression.contextA Etna.Design.FirstBatch.auth 4 3 10\n    (Etna.Design.LockingRegression.votes 3 10) ∧\n  Etna.Design.Consensus.CommitValid Etna.Design.LockingRegression.contextB Etna.Design.FirstBatch.auth 4 4 10\n      (Etna.Design.LockingRegression.votes 4 10) ∧\n    Etna.Design.Locking.CommitAttribution Etna.Design.LockingRegression.execution 3 10\n        (Etna.Design.LockingRegression.votes 3 10) ∧\n      Etna.Design.Locking.CommitAttribution Etna.Design.LockingRegression.execution 4 10\n          (Etna.Design.LockingRegression.votes 4 10) ∧\n        Etna.Design.Consensus.activeAt Etna.Design.LockingRegression.contextA 4 =\n            Etna.Design.Consensus.activeAt Etna.Design.LockingRegression.contextB 4 ∧\n          10 = 10",
+      "assumptions": [
+        "Pinned CometBFT v0.40.0 decoded per-key round/phase normalization; one globally fixed coupled nil rule reading. Actual engine/signer execution refinement and delivery causality are not proved.",
+        "Honest-key authenticated event attribution and signature/encoding unforgeability are primitive; Byzantine power is strictly below one third of the fixed weighted committee. Actual CommitValid bridges additionally require nonnil attribution scoped to each concrete certificate.",
+        "Historical composition assumes the same authenticated deployment, generation, fixed origin and configuration plus the stated raw archive/registry agreement. Concrete header/hash/MPT authentication is external; no equality across governance recovery is claimed."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-af33164a1858c781",
+        "EN-179bc07a1f6d0129",
+        "EN-9ac7403cd8147312"
+      ],
+      "scope": "Actual CommitValid B certificates at rounds 3/4 use separately built height-4 contexts with different archive tails and a future registry checkpoint; the raw-prefix theorem derives equal committees and supplies composed agreement."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Locking",
+      "declaration": "Etna.Design.LockingRegression.nil_is_not_block_zero",
+      "type": "Etna.Design.Consensus.CommitValid\n    Etna.Design.LockingRegression.contextA Etna.Design.FirstBatch.auth 4 2 0 (Etna.Design.LockingRegression.votes 2 0) ∧\n  Etna.Design.LockingRegression.execution.precommits 1 2 Option.none ∧\n    ¬Etna.Design.Locking.CommitAttribution Etna.Design.LockingRegression.execution 2 0\n        (Etna.Design.LockingRegression.votes 2 0)",
+      "assumptions": [
+        "Pinned CometBFT v0.40.0 decoded per-key round/phase normalization; one globally fixed coupled nil rule reading. Actual engine/signer execution refinement and delivery causality are not proved.",
+        "Honest-key authenticated event attribution and signature/encoding unforgeability are primitive; Byzantine power is strictly below one third of the fixed weighted committee. Actual CommitValid bridges additionally require nonnil attribution scoped to each concrete certificate.",
+        "Historical composition assumes the same authenticated deployment, generation, fixed origin and configuration plus the stated raw archive/registry agreement. Concrete header/hash/MPT authentication is external; no equality across governance recovery is claimed."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-af33164a1858c781"],
+      "scope": "Decoded CommitValid accepts the fixture zero-valued vote list, but real nil engine precommits cannot satisfy its per-certificate nonnil some-0 attribution. This explicitly exposes the decoded nil-discrimination boundary rather than claiming it is proved."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Locking",
+      "declaration": "Etna.Design.LockingRegression.recovery_is_a_new_instance",
+      "type": "¬Etna.Design.Locking.SameInstance\n      Etna.Design.FirstBatch.inbox Etna.Design.LockingRegression.recoveryState ∧\n  Etna.Design.Locking.requiredPrefix Etna.Design.LockingRegression.recoveryState Etna.Design.LockingRegression.cfg 4 =\n      0 ∧\n    (Etna.Design.Consensus.activeAt Etna.Design.LockingRegression.recoveryContext 4).cutoff = 50 ∧\n      (Etna.Design.Consensus.activeAt Etna.Design.LockingRegression.recoveryContext 4).members ≠\n        (Etna.Design.Consensus.activeAt Etna.Design.LockingRegression.contextA 4).members",
+      "assumptions": [
+        "Pinned CometBFT v0.40.0 decoded per-key round/phase normalization; one globally fixed coupled nil rule reading. Actual engine/signer execution refinement and delivery causality are not proved.",
+        "Honest-key authenticated event attribution and signature/encoding unforgeability are primitive; Byzantine power is strictly below one third of the fixed weighted committee. Actual CommitValid bridges additionally require nonnil attribution scoped to each concrete certificate.",
+        "Historical composition assumes the same authenticated deployment, generation, fixed origin and configuration plus the stated raw archive/registry agreement. Concrete header/hash/MPT authentication is external; no equality across governance recovery is claimed."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-29468a34f68ca4c6"],
+      "scope": "At the same numerical height 4 a recovery generation bootstraps a different committee, has requiredPrefix=0 and is not the same authenticated instance."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Locking",
+      "declaration": "Etna.Design.LockingRegression.canonical_recovery_prefix",
+      "type": "Etna.Design.CanonicalHistory.Run Etna.Design.NonVacuity.world0\n    Etna.Design.CanonicalHistoryRegression.finish Etna.Design.NormalSigningRegression.archive1 ∧\n  Etna.Design.CanonicalHistoryRegression.finish.inbox.generation = 1 ∧\n    Etna.Design.Consensus.activeAt\n        (Etna.Design.HistoricalContext.derive Etna.Design.CanonicalHistoryRegression.finish.inbox\n          Etna.Design.CanonicalHistoryRegression.finish.registry\n          Etna.Design.CanonicalHistoryRegression.signingPrefix.cfg\n          (Etna.Design.NormalSigningRegression.archive1 ++ [50]))\n        23 =\n      Etna.Design.Consensus.activeAt\n        (Etna.Design.HistoricalContext.derive Etna.Design.CanonicalHistoryRegression.finish.inbox\n          Etna.Design.CanonicalHistoryRegression.finish.registry\n          Etna.Design.CanonicalHistoryRegression.signingPrefix.cfg\n          (Etna.Design.NormalSigningRegression.archive1 ++ [51]))\n        23",
+      "assumptions": [
+        "Pinned CometBFT v0.40.0 decoded per-key round/phase normalization; one globally fixed coupled nil rule reading. Actual engine/signer execution refinement and delivery causality are not proved.",
+        "Honest-key authenticated event attribution and signature/encoding unforgeability are primitive; Byzantine power is strictly below one third of the fixed weighted committee. Actual CommitValid bridges additionally require nonnil attribution scoped to each concrete certificate.",
+        "Historical composition assumes the same authenticated deployment, generation, fixed origin and configuration plus the stated raw archive/registry agreement. Concrete header/hash/MPT authentication is external; no equality across governance recovery is claimed."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-179bc07a1f6d0129",
+        "EN-29468a34f68ca4c6",
+        "EN-9ac7403cd8147312"
+      ],
+      "scope": "The existing initialized CanonicalHistory.Run includes actual recovery and accepted landing; distinct later anchor tails preserve its recovery-generation activeAt at height 23. Header-byte/MPT authentication remains primitive."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Locking",
+      "declaration": "Etna.Design.LockingRegression.paper_nil_retains_lock",
+      "type": "Etna.Design.Locking.HonestRules 1\n    Etna.Design.LockingRegression.members Etna.Design.LockingRegression.honest Bool.false\n    Etna.Design.LockingRegression.paperExecution ∧\n  Etna.Design.Locking.Commit 1 Etna.Design.LockingRegression.members Etna.Design.LockingRegression.paperExecution 0 10 ∧\n    Etna.Design.Locking.PoLC 1 Etna.Design.LockingRegression.members Etna.Design.LockingRegression.paperExecution 1\n        Option.none ∧\n      Etna.Design.LockingRegression.paperExecution.locks 1 2 = Option.some (0, 10)",
+      "assumptions": [
+        "Pinned CometBFT v0.40.0 decoded per-key round/phase normalization; one globally fixed coupled nil rule reading. Actual engine/signer execution refinement and delivery causality are not proved.",
+        "Honest-key authenticated event attribution and signature/encoding unforgeability are primitive; Byzantine power is strictly below one third of the fixed weighted committee. Actual CommitValid bridges additionally require nonnil attribution scoped to each concrete certificate.",
+        "Historical composition assumes the same authenticated deployment, generation, fixed origin and configuration plus the stated raw archive/registry agreement. Concrete header/hash/MPT authentication is external; no equality across governance recovery is claimed."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-0202dc133674a903"],
+      "scope": "An actual paper-mode nonnil commit at round 0 can be followed by a nil PoLC at round 1, while the round-0 nonnil lock is retained. Nil-prevote permission is never combined with markdown nil-unlock permission."
     }
   ]
 }

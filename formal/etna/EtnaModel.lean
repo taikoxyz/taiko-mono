@@ -1,3 +1,4 @@
+import EtnaModel.Locking
 import EtnaModel.TrustState
 import EtnaModel.CanonicalHistory
 import EtnaModel.Capital

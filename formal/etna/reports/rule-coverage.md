@@ -12,7 +12,7 @@ other rules of that clause are `deferred`.
 
 | Type       | Count | partial | partial-via | deferred | design-pending |
 | ---------- | ----: | ------: | ----------: | -------: | -------------: |
-| rule       |   568 |     146 |           7 |      411 |              4 |
+| rule       |   568 |     148 |           7 |      409 |              4 |
 | limitation |    21 |       1 |           0 |       19 |              1 |
 | assumption |    11 |       0 |           0 |       11 |              0 |
 
@@ -22,7 +22,7 @@ other rules of that clause are `deferred`.
 | ------ | ----: | ------: | ----------: | -------: | -------------: |
 | RECOV  |   110 |      32 |           0 |       78 |              0 |
 | ENC    |    58 |       8 |           0 |       50 |              0 |
-| CONS   |    52 |       9 |           0 |       43 |              0 |
+| CONS   |    52 |      10 |           0 |       42 |              0 |
 | PROOF  |    47 |      23 |           0 |       24 |              0 |
 | STAKE  |    42 |      18 |           0 |       24 |              0 |
 | START  |    39 |       9 |           0 |       27 |              3 |
@@ -31,7 +31,7 @@ other rules of that clause are `deferred`.
 | SYNC   |    25 |      10 |           0 |       15 |              0 |
 | DATA   |    21 |       1 |           0 |       20 |              0 |
 | FORF   |    20 |       6 |           0 |       14 |              0 |
-| COMM   |    18 |       9 |           0 |        9 |              0 |
+| COMM   |    18 |      10 |           0 |        8 |              0 |
 | BACKP  |    16 |       5 |           0 |       11 |              0 |
 | PARAM  |    16 |       2 |           0 |       14 |              0 |
 | BATCH  |    14 |       0 |           0 |       14 |              0 |
@@ -56,7 +56,7 @@ other rules of that clause are `deferred`.
 | COMP-2-6      | rule       | deferred       | EN-4613de999ada6024                       |      1 |                                                                                                              |
 | COMP-2-7      | rule       | deferred       | EN-fb792cd017f8f0e4                       |      1 |                                                                                                              |
 | CONS-3.1-1    | rule       | deferred       | EN-0202dc133674a903                       |      2 |                                                                                                              |
-| CONS-3.1-2    | rule       | deferred       | EN-0202dc133674a903                       |      2 |                                                                                                              |
+| CONS-3.1-2    | rule       | partial        | EN-0202dc133674a903                       |      2 | `commit_has_polc`, `polc_after_commit`, `polc_unique`                                                        |
 | CONS-3.1-3    | rule       | deferred       | EN-d06509b26862f948                       |      1 |                                                                                                              |
 | CONS-3.1-4    | rule       | deferred       | EN-009cc32f5d039070                       |      2 |                                                                                                              |
 | CONS-3.1-5    | rule       | deferred       | EN-009cc32f5d039070                       |      2 |                                                                                                              |
@@ -150,7 +150,7 @@ other rules of that clause are `deferred`.
 | STAKE-4.2-2   | rule       | deferred       | EN-ca64e776d3d2777f                       |      1 |                                                                                                              |
 | STAKE-4.2-3   | rule       | deferred       | EN-099338354875a8fb                       |      1 |                                                                                                              |
 | COMM-4.3-1    | rule       | deferred       | EN-287b470870b50710                       |      1 |                                                                                                              |
-| COMM-4.3-2    | rule       | partial        | EN-9ac7403cd8147312                       |      1 | `context_uses_latest_snapshot`, `accepted_snapshot_from_history`, `trace_preserves_old_snapshot` +2          |
+| COMM-4.3-2    | rule       | partial        | EN-9ac7403cd8147312                       |      1 | `context_uses_latest_snapshot`, `active_committee_prefix`, `shared_history_commitValid_agreement` +4         |
 | COMM-4.3-3    | rule       | partial        | EN-d7e07b7ea27ed4a3                       |      3 | `confirmed_key_excluded`, `confirmed_key_absent_later_cutoff`, `confirmed_key_excluded_forever` +13          |
 | COMM-4.3-4    | rule       | partial        | EN-d7e07b7ea27ed4a3                       |      3 | `confirmed_key_excluded`, `confirmed_key_absent_later_cutoff`, `confirmed_key_excluded_forever` +13          |
 | COMM-4.3-5    | rule       | partial        | EN-d7e07b7ea27ed4a3                       |      3 | `confirmed_key_excluded`, `confirmed_key_absent_later_cutoff`, `confirmed_key_excluded_forever` +13          |
@@ -159,11 +159,11 @@ other rules of that clause are `deferred`.
 | COMM-4.3-8    | rule       | deferred       | EN-ce7f6fae93ef190f                       |      1 |                                                                                                              |
 | COMM-4.3-8a   | rule       | partial        | EN-11492348071c320c                       |      1 | `min_unit_is_ceiling`, `supply_bounds_total_power`, `total_power_le_div`                                     |
 | COMM-4.3-9    | rule       | deferred       | EN-8d48930c4f886712                       |      1 |                                                                                                              |
-| COMM-4.3-10   | rule       | partial        | EN-179bc07a1f6d0129                       |      4 | `anchor_chain_from_origin`, `chain_switch_witnesses_activate`, `cutoff_bounded` +11                          |
-| COMM-4.3-11   | rule       | partial        | EN-179bc07a1f6d0129                       |      4 | `anchor_chain_from_origin`, `chain_switch_witnesses_activate`, `cutoff_bounded` +11                          |
-| COMM-4.3-12   | rule       | partial        | EN-179bc07a1f6d0129                       |      4 | `anchor_chain_from_origin`, `chain_switch_witnesses_activate`, `cutoff_bounded` +11                          |
-| COMM-4.3-13   | rule       | partial        | EN-179bc07a1f6d0129                       |      4 | `anchor_chain_from_origin`, `chain_switch_witnesses_activate`, `cutoff_bounded` +11                          |
-| COMM-4.3-14   | rule       | deferred       | EN-29468a34f68ca4c6                       |      2 |                                                                                                              |
+| COMM-4.3-10   | rule       | partial        | EN-179bc07a1f6d0129                       |      4 | `anchor_chain_from_origin`, `chain_switch_witnesses_activate`, `cutoff_bounded` +13                          |
+| COMM-4.3-11   | rule       | partial        | EN-179bc07a1f6d0129                       |      4 | `anchor_chain_from_origin`, `chain_switch_witnesses_activate`, `cutoff_bounded` +13                          |
+| COMM-4.3-12   | rule       | partial        | EN-179bc07a1f6d0129                       |      4 | `anchor_chain_from_origin`, `chain_switch_witnesses_activate`, `cutoff_bounded` +13                          |
+| COMM-4.3-13   | rule       | partial        | EN-179bc07a1f6d0129                       |      4 | `anchor_chain_from_origin`, `chain_switch_witnesses_activate`, `cutoff_bounded` +13                          |
+| COMM-4.3-14   | rule       | partial        | EN-29468a34f68ca4c6                       |      2 | `active_committee_prefix`, `shared_history_commitValid_agreement`                                            |
 | COMM-4.3-15   | rule       | deferred       | EN-29468a34f68ca4c6                       |      2 |                                                                                                              |
 | COMM-4.3-16   | rule       | deferred       | EN-5ec8aa5350d72d04                       |      2 |                                                                                                              |
 | COMM-4.3-17   | rule       | deferred       | EN-5ec8aa5350d72d04                       |      2 |                                                                                                              |
@@ -237,9 +237,9 @@ other rules of that clause are `deferred`.
 | PROOF-6.2-14  | rule       | partial        | EN-99e8a56e96bcba34                       |      5 | `accepted_archive_covered`, `prior_snapshot_source`, `run_normal` +4                                         |
 | PROOF-6.2-15  | rule       | deferred       | EN-99e8a56e96bcba34                       |      5 |                                                                                                              |
 | PROOF-6.2-16  | rule       | partial        | EN-99e8a56e96bcba34                       |      5 | `accepted_archive_covered`, `prior_snapshot_source`, `run_normal` +4                                         |
-| PROOF-6.2-17  | rule       | partial        | EN-af33164a1858c781                       |      3 | `conflicting_commits_double_sign`, `conflicting_commits_overlap`, `overlap_power` +2                         |
-| PROOF-6.2-18  | rule       | partial        | EN-af33164a1858c781                       |      3 | `conflicting_commits_double_sign`, `conflicting_commits_overlap`, `overlap_power` +2                         |
-| PROOF-6.2-19  | rule       | partial        | EN-af33164a1858c781                       |      3 | `conflicting_commits_double_sign`, `conflicting_commits_overlap`, `overlap_power` +2                         |
+| PROOF-6.2-17  | rule       | partial        | EN-af33164a1858c781                       |      3 | `conflicting_commits_double_sign`, `conflicting_commits_overlap`, `overlap_power` +4                         |
+| PROOF-6.2-18  | rule       | partial        | EN-af33164a1858c781                       |      3 | `conflicting_commits_double_sign`, `conflicting_commits_overlap`, `overlap_power` +4                         |
+| PROOF-6.2-19  | rule       | partial        | EN-af33164a1858c781                       |      3 | `conflicting_commits_double_sign`, `conflicting_commits_overlap`, `overlap_power` +4                         |
 | PROOF-6.2-20  | rule       | deferred       | EN-646d0894ab7865a6                       |      4 |                                                                                                              |
 | PROOF-6.2-21  | rule       | deferred       | EN-646d0894ab7865a6                       |      4 |                                                                                                              |
 | PROOF-6.2-22  | rule       | deferred       | EN-646d0894ab7865a6                       |      4 |                                                                                                              |
