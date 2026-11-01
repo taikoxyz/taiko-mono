@@ -2,6 +2,7 @@
 from pathlib import Path
 import subprocess
 import tempfile
+import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -150,3 +151,17 @@ class LockingKernelTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('error:', result.stdout+result.stderr)
         self.assertIn('1 ≤ 0', result.stdout+result.stderr)
+
+    def test_every_normalized_observation_is_an_actual_event(self):
+        original = (ROOT/'EtnaWitnesses/Regressions/Locking.lean').read_text().replace(
+            'Etna.Design.LockingRegression', 'Etna.Design.LockingObservationMutation')
+        changed = original.replace('(2,3,1)]', '(2,5,1)]', 1)
+        self.assertNotEqual(original, changed)
+        # Original pairwise/order checks and two named votes miss this nonexistent event.
+        old_checks = re.sub(r'theorem interleaving_all_actual .*?(?=\ndef cfg)', '', changed, flags=re.S)
+        self.silent(old_checks)
+        # The new unchanged quantified check covers the sixth observation too.
+        result = self.compile(changed)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('error:', result.stdout+result.stderr)
+        self.assertNotIn('Unknown identifier', result.stdout+result.stderr)

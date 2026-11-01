@@ -173,6 +173,11 @@ ordinary edits. No source, selected cutoff, confirmation coverage or key exclusi
 theorem run_normal {initial w : World} {archive : List Nat} (run : Run initial w archive) :
     NormalSigning.Run initial w := (run_invariants run).1
 
+/-- Raw canonical ancestry derives the stored snapshot's strict L1 clock bound. It
+is a source-history fact, and imposes no soundness obligation on a later adversarial trace. -/
+theorem run_snapshot_below {initial w : World} {archive : List Nat} (run : Run initial w archive) :
+    w.inbox.snapshot < w.l1Block := (run_invariants run).2.1
+
 /-- The prior stored snapshot comes from initialization, an actual accepted batch, or the
 actual last normal recovery; archive extension and ordinary edits preserve that provenance. -/
 theorem prior_snapshot_source {initial w : World} {archive more : List Nat}

@@ -19,3 +19,5 @@ example := LockingRegression.nil_is_not_block_zero
 example := LockingRegression.recovery_is_a_new_instance
 example := LockingRegression.canonical_recovery_prefix
 example := LockingRegression.paper_nil_retains_lock
+
+example := LockingRegression.interleaving_all_actual

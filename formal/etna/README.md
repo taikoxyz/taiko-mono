@@ -240,8 +240,7 @@ both responsibilities; the classification changes no field or claim type.
   step takes any retained record and any slot-284 snapshot. `confirmed_key_absent_above_checkpoint` excludes a confirmed key from the
   committees active at or above lastCheckpoint only under the explicit condition
   `SnapshotTrusted`, on the World where the exit is confirmed; it says nothing about later
-  Worlds, withdrawals, commits or slashing. A rollback done as §8 says, within the restored
-  landing's generation, satisfies it (see "Rollback trust" below); pausing and loss containment
+  Worlds, withdrawals, commits or slashing. A rollback done as §8 says, using the source-history conditions below, satisfies it (see "Rollback trust" below); pausing and loss containment
   are not modelled.
 - **Anchor honesty.** Nothing proves that an accepted anchor reports the Inbox's actual tail
   and its L1 block's timestamp (`AnchorValid` itself checks the generation and bounds the
@@ -292,17 +291,29 @@ both responsibilities; the classification changes no field or claim type.
   registry's recheck and the exclusion theorem: after such a rollback, and along later steps
   that never lower slot 284 except by rollback (`SnapshotTrace`), every confirmed exit's key,
   including exits confirmed after the rollback as in `UntrustedRollback`, is absent from every
-  committee active at or above the restored checkpoint. Not covered: a governance recovery
-  between the trusted landing and the rollback (spec L487 allows one above the restored
-  checkpoint; the restored snapshot is expected to stay at most the new generation's origin
-  block there, but that is not proved). Stake withdrawn before the rollback is not recovered
-  (8.1, spec L498).
+  committee active at or above the restored checkpoint.
+  `certified_values_trusted_across_recoveries` and `certified_rollback_excludes_confirmed_keys`
+  cover arbitrarily many later actual recoveries. They require a genuine `CanonicalHistory.Run`
+  for the trusted source, whose raw archive/reference facts derive snapshot < source L1 block;
+  the later `ProtocolState.Trace` may contain forged landings. Construction and certificate
+  equality alone are insufficient for this cross-generation result, as the concrete
+  `weak_source_lacks_reference_bound` regression shows. Initialization has a separate result.
+  `rollback_interval_rejects_landing` covers the whole interval while origin.height exceeds
+  the restored checkpoint and no new recovery has executed. The missing origin record prevents
+  constructing a node target there. Rollback closes session trust while preserving HRS, retired
+  domains and authenticated-generation knowledge. Stake withdrawn before rollback is not recovered
+  (8.1, spec L498); timely governance action and physical persistence remain outside the proof.
   The regressions show that where the untrusted rollback lets an exit be confirmed the condition
   fails and the key stays active, that an ordinary confirming World satisfies it together with
   every other hypothesis of that theorem, and (`TrustedRollbackRegression`) that a rollback on
   the non-vacuity run restoring the first landing's values satisfies every hypothesis of the new
   theorems, while a snapshot no landing wrote at the same checkpoint does not. That run has no
   exit and no forged landing, so the exclusion holds vacuously there.
+  `CrossGenerationRollbackRegression` adds a nonvacuous exit, forged snapshot confirmation,
+  two recoveries, rollback, new recovery, valid landing, reconfirmation and actual trust-revalidated
+  sign. A cleared exit cannot reconfirm under the restored snapshot; recovery preserves that
+  snapshot too, so the valid landing must advance it first. The restored and later contexts
+  exclude the exited key. These are decoded L1/crypto/EL fixtures, not adapter implementation proofs.
 
 ## Witnesses
 

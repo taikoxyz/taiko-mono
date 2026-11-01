@@ -15051,6 +15051,360 @@
       "role": "regression",
       "sources": ["EN-0202dc133674a903"],
       "scope": "An actual paper-mode nonnil commit at round 0 can be followed by a nil PoLC at round 1, while the round-0 nonnil lock is retained. Nil-prevote permission is never combined with markdown nil-unlock permission."
+    },
+    {
+      "module": "EtnaProofs.CanonicalHistory",
+      "declaration": "Etna.Design.CanonicalHistory.run_snapshot_below",
+      "type": "∀ {initial w : Etna.Design.ProtocolState.World} {archive : List Nat},\n  Etna.Design.CanonicalHistory.Run initial w archive → w.inbox.snapshot < w.l1Block",
+      "assumptions": [
+        "Decoded ideal L1/header/storage/crypto/EL truth; actual protocol and signer transition functions with fixed deployment/device boundaries.",
+        "Canonical source ancestry is required only where explicitly quantified. Later forged landings require no verifier soundness. Physical persistence, timely governance and reversal of irreversible payouts are outside scope."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-5d5828fcdce5ab2a", "EN-7319b105593c8c53"],
+      "scope": "Derives stored snapshot < source L1 clock from raw CanonicalHistory.Run, including valid accepted source batches and origin/archive reference bounds; no claim about an adversarial later trace."
+    },
+    {
+      "module": "EtnaProofs.TrustedRollback",
+      "declaration": "Etna.Design.SigningEscrow.later_generation_origin",
+      "type": "∀ {source u : Etna.Design.ProtocolState.World},\n  Etna.Design.ProtocolState.Trace source u →\n    source.inbox.generation < u.inbox.generation → source.l1Block ≤ u.inbox.origin.l1Block",
+      "assumptions": [
+        "Decoded ideal L1/header/storage/crypto/EL truth; actual protocol and signer transition functions with fixed deployment/device boundaries.",
+        "Canonical source ancestry is required only where explicitly quantified. Later forged landings require no verifier soundness. Physical persistence, timely governance and reversal of irreversible payouts are outside scope."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-7319b105593c8c53"],
+      "scope": "Induction over unrestricted actual ProtocolState.Trace: a strictly later generation was installed by recovery at a block no earlier than the source clock. Any number of later recoveries/forged landings is allowed."
+    },
+    {
+      "module": "EtnaProofs.TrustedRollback",
+      "declaration": "Etna.Design.SigningEscrow.certified_snapshot_below_later_origin",
+      "type": "∀\n  {initial source u : Etna.Design.ProtocolState.World} {archive : List Nat},\n  Etna.Design.CanonicalHistory.Run initial source archive →\n    Etna.Design.ProtocolState.Trace source u →\n      source.inbox.generation < u.inbox.generation → source.inbox.snapshot < u.inbox.origin.l1Block",
+      "assumptions": [
+        "Decoded ideal L1/header/storage/crypto/EL truth; actual protocol and signer transition functions with fixed deployment/device boundaries.",
+        "Canonical source ancestry is required only where explicitly quantified. Later forged landings require no verifier soundness. Physical persistence, timely governance and reversal of irreversible payouts are outside scope."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-d04a236579cc9990"],
+      "scope": "Combines canonical source snapshot/reference provenance with actual later recovery timing. Only the source prefix is certified; no verifierSound or CanonicalHistory.Run is imposed on the suffix."
+    },
+    {
+      "module": "EtnaProofs.TrustedRollback",
+      "declaration": "Etna.Design.SigningEscrow.certified_values_trusted_across_recoveries",
+      "type": "∀\n  {initial source u : Etna.Design.ProtocolState.World} {archive : List Nat},\n  Etna.Design.CanonicalHistory.Run initial source archive →\n    Etna.Design.ProtocolState.Trace source u →\n      source.inbox.generation < u.inbox.generation →\n        u.inbox.snapshot = source.inbox.snapshot →\n          u.inbox.checkpoint = source.inbox.checkpoint →\n            ∀ (cfg : Etna.Design.CommitteeConfig) (archive' : List Nat) (ctx : Etna.Design.Consensus.Context),\n              Etna.Design.HistoricalContext.build u.inbox u.registry (Etna.Design.Deployment.parameters u.inbox cfg)\n                    archive' =\n                  Option.some ctx →\n                Etna.Design.SigningEscrow.SnapshotTrusted ctx u ∧ u.inbox.checkpoint = source.inbox.checkpoint",
+      "assumptions": [
+        "Decoded ideal L1/header/storage/crypto/EL truth; actual protocol and signer transition functions with fixed deployment/device boundaries.",
+        "Canonical source ancestry is required only where explicitly quantified. Later forged landings require no verifier soundness. Physical persistence, timely governance and reversal of irreversible payouts are outside scope."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-d04a236579cc9990"],
+      "scope": "Exact canonical-source checkpoint/snapshot values on any strictly later-generation World satisfy SnapshotTrusted under its built context. The preserved recovery origin supplies a floor at every height; no old/new archive equality or governance-spanning locking agreement is assumed."
+    },
+    {
+      "module": "EtnaProofs.TrustedRollback",
+      "declaration": "Etna.Design.SigningEscrow.certified_rollback_excludes_confirmed_keys",
+      "type": "∀\n  {initial source w u : Etna.Design.ProtocolState.World} {archive : List Nat} {now : Nat},\n  Etna.Design.CanonicalHistory.Run initial source archive →\n    Etna.Design.ProtocolState.Core initial →\n      Etna.Design.SigningEscrow.KeysWellFormed initial.registry →\n        Etna.Design.SigningEscrow.ExitVisible initial.registry →\n          Etna.Design.ProtocolState.Trace source w →\n            Etna.Design.ProtocolState.Step w\n                (Etna.Design.ProtocolState.applyRollback w source.inbox.checkpoint source.inbox.snapshot now) →\n              Etna.Design.SigningEscrow.SnapshotTrace\n                  (Etna.Design.ProtocolState.applyRollback w source.inbox.checkpoint source.inbox.snapshot now) u →\n                source.inbox.generation < u.inbox.generation →\n                  u.inbox.snapshot = source.inbox.snapshot →\n                    u.inbox.checkpoint = source.inbox.checkpoint →\n                      ∀ (cfg : Etna.Design.CommitteeConfig) (archive' : List Nat) (ctx : Etna.Design.Consensus.Context),\n                        Etna.Design.HistoricalContext.build u.inbox u.registry\n                              (Etna.Design.Deployment.parameters u.inbox cfg) archive' =\n                            Option.some ctx →\n                          ∀ (id c h : Nat),\n                            id < u.registry.nextId →\n                              (u.registry.slots id).confirmedAt = Option.some c →\n                                (u.registry.slots id).key ≠ 0 →\n                                  (u.registry.slots id).exitAt ≠ Etna.Design.Staking.noExit →\n                                    source.inbox.checkpoint.height ≤ h →\n                                      ∀ (m : Etna.Design.Committee.Entry),\n                                        m ∈ (Etna.Design.Consensus.activeAt ctx h).members →\n                                          m.key ≠ (u.registry.slots id).key",
+      "assumptions": [
+        "Decoded ideal L1/header/storage/crypto/EL truth; actual protocol and signer transition functions with fixed deployment/device boundaries.",
+        "Canonical source ancestry is required only where explicitly quantified. Later forged landings require no verifier soundness. Physical persistence, timely governance and reversal of irreversible payouts are outside scope."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-d04a236579cc9990"],
+      "scope": "An actual checked rollback restores exact canonical source values; registry recheck plus SnapshotTrace covers retained and subsequently introduced confirmations while the later World still displays those values in a newer generation. Every confirmed key is excluded at/above restored checkpoint. No withdrawal reversal or unconditional future-world claim."
+    },
+    {
+      "module": "EtnaProofs.TrustedRollback",
+      "declaration": "Etna.Design.SigningEscrow.initial_values_stay_trusted",
+      "type": "∀ {initial u : Etna.Design.ProtocolState.World}\n  {hash root : Etna.Design.Hash},\n  Etna.Design.Deployment.Genesis initial hash root →\n    Etna.Design.ProtocolState.Trace initial u →\n      u.inbox.snapshot = initial.inbox.snapshot →\n        u.inbox.checkpoint = initial.inbox.checkpoint →\n          ∀ (cfg : Etna.Design.CommitteeConfig) (archive : List Nat) (ctx : Etna.Design.Consensus.Context),\n            Etna.Design.HistoricalContext.build u.inbox u.registry (Etna.Design.Deployment.parameters u.inbox cfg)\n                  archive =\n                Option.some ctx →\n              Etna.Design.SigningEscrow.SnapshotTrusted ctx u",
+      "assumptions": [
+        "Decoded ideal L1/header/storage/crypto/EL truth; actual protocol and signer transition functions with fixed deployment/device boundaries.",
+        "Canonical source ancestry is required only where explicitly quantified. Later forged landings require no verifier soundness. Physical persistence, timely governance and reversal of irreversible payouts are outside scope."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-d04a236579cc9990"],
+      "scope": "Exact initialization checkpoint/snapshot values remain trusted on any actually reached later World with a built historical context, including after recovery and post-rollback registry edits."
+    },
+    {
+      "module": "EtnaProofs.TrustedRollback",
+      "declaration": "Etna.Design.SigningEscrow.cleared_exit_cannot_reconfirm",
+      "type": "∀ (s : Etna.Design.State) (b : Etna.Design.Staking.Bond)\n  (restored now : Nat),\n  restored < b.exitAt →\n    s.snapshot = restored →\n      Etna.Design.Staking.confirmExit s (Etna.Design.Staking.rollbackBySnapshot restored b) now = Option.none",
+      "assumptions": [
+        "Decoded ideal L1/header/storage/crypto/EL truth; actual protocol and signer transition functions with fixed deployment/device boundaries.",
+        "Canonical source ancestry is required only where explicitly quantified. Later forged landings require no verifier soundness. Physical persistence, timely governance and reversal of irreversible payouts are outside scope."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-4651c537a506e6fd", "EN-d04a236579cc9990"],
+      "scope": "Actual confirmExit refuses an exit whose effective block exceeds the restored snapshot, including after rollback recheck. Recovery alone does not advance the stored snapshot."
+    },
+    {
+      "module": "EtnaProofs.TrustedRollback",
+      "declaration": "Etna.Design.SigningEscrow.rollback_origin_record_absent",
+      "type": "∀ (w : Etna.Design.ProtocolState.World)\n  (cp : Etna.Design.Checkpoint) (snapshot now : Nat),\n  cp.height < w.inbox.origin.height →\n    Etna.Design.recordAt (Etna.Design.ProtocolState.applyRollback w cp snapshot now).inbox w.inbox.origin.height =\n      Option.none",
+      "assumptions": [
+        "Decoded ideal L1/header/storage/crypto/EL truth; actual protocol and signer transition functions with fixed deployment/device boundaries.",
+        "Canonical source ancestry is required only where explicitly quantified. Later forged landings require no verifier soundness. Physical persistence, timely governance and reversal of irreversible payouts are outside scope."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-d04a236579cc9990"],
+      "scope": "Rollback filters every record above restored checkpoint, including a preserved generation origin above it; the current origin record is absent, not fabricated."
+    },
+    {
+      "module": "EtnaProofs.TrustedRollback",
+      "declaration": "Etna.Design.SigningEscrow.rollback_has_no_target",
+      "type": "∀ (w : Etna.Design.ProtocolState.World) (cp : Etna.Design.Checkpoint)\n  (snapshot now : Nat),\n  cp.height < w.inbox.origin.height →\n    ¬∃ (target : Etna.Design.TrustState.Target), target.view = Etna.Design.ProtocolState.applyRollback w cp snapshot now",
+      "assumptions": [
+        "Decoded ideal L1/header/storage/crypto/EL truth; actual protocol and signer transition functions with fixed deployment/device boundaries.",
+        "Canonical source ancestry is required only where explicitly quantified. Later forged landings require no verifier soundness. Physical persistence, timely governance and reversal of irreversible payouts are outside scope."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-d04a236579cc9990", "EN-9ee888f78091a2fe"],
+      "scope": "No TrustState.Target can authenticate the rolled World when its preserved origin record was pruned; this does not assert missing-data availability or model a production bootstrap adapter."
+    },
+    {
+      "module": "EtnaProofs.TrustedRollback",
+      "declaration": "Etna.Design.SigningEscrow.rollback_interval_rejects_landing",
+      "type": "∀ {w u : Etna.Design.ProtocolState.World}\n  {cp : Etna.Design.Checkpoint} {snapshot now : Nat},\n  cp.height < w.inbox.origin.height →\n    Etna.Design.ProtocolState.Trace (Etna.Design.ProtocolState.applyRollback w cp snapshot now) u →\n      u.inbox.generation = w.inbox.generation →\n        ∀ (i : Etna.Design.LandInput) (leaves : List Etna.Design.Leaf) (e : Etna.Design.LandingEnv),\n          Etna.Design.land u.inbox i leaves e = Option.none",
+      "assumptions": [
+        "Decoded ideal L1/header/storage/crypto/EL truth; actual protocol and signer transition functions with fixed deployment/device boundaries.",
+        "Canonical source ancestry is required only where explicitly quantified. Later forged landings require no verifier soundness. Physical persistence, timely governance and reversal of irreversible payouts are outside scope."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-d04a236579cc9990"],
+      "scope": "Across arbitrary subsequent actual steps that keep the generation, a rollback below origin retains only lower records and cannot land. Further rollbacks, registry/FI/nonce operations are included; successful recovery is the only way to leave this interval."
+    },
+    {
+      "module": "EtnaProofs.TrustedRollback",
+      "declaration": "Etna.Design.SigningEscrow.rollback_consumes_nonce",
+      "type": "∀ (s : Etna.Design.State) (cp : Etna.Design.Checkpoint)\n  (snapshot : Nat), (Etna.Design.Recovery.rollbackInbox s cp snapshot).recoveryNonce = s.recoveryNonce + 1",
+      "assumptions": [
+        "Decoded ideal L1/header/storage/crypto/EL truth; actual protocol and signer transition functions with fixed deployment/device boundaries.",
+        "Canonical source ancestry is required only where explicitly quantified. Later forged landings require no verifier soundness. Physical persistence, timely governance and reversal of irreversible payouts are outside scope."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-d04a236579cc9990", "EN-8e5f0457d17b70bc"],
+      "scope": "Rollback success transformer increments the current nonce, invalidating old authorization even at an otherwise matching generation/checkpoint. Checked execution separately requires NonceMutable."
+    },
+    {
+      "module": "EtnaProofs.TrustedRollback",
+      "declaration": "Etna.Design.SigningEscrow.rollback_retains_signer_authority",
+      "type": "∀ (node : Etna.Design.TrustState.Node)\n  (encode : Etna.Design.SigningBridge.SignMessage → Etna.Design.Hash) (message : Etna.Design.SigningBridge.SignMessage)\n  (signature : Etna.Design.Hash) (persisted : Bool),\n  (Etna.Design.TrustState.rollback node).signer.domain = node.signer.domain ∧\n    (Etna.Design.TrustState.rollback node).signer.activeGeneration = node.signer.activeGeneration ∧\n      (Etna.Design.TrustState.rollback node).signer.retired = node.signer.retired ∧\n        (Etna.Design.TrustState.rollback node).signer.log = node.signer.log ∧\n          (Etna.Design.TrustState.rollback node).authenticatedGeneration = node.authenticatedGeneration ∧\n            Etna.Design.TrustState.sign (Etna.Design.TrustState.rollback node) encode message signature persisted =\n              Option.none",
+      "assumptions": [
+        "Decoded ideal L1/header/storage/crypto/EL truth; actual protocol and signer transition functions with fixed deployment/device boundaries.",
+        "Canonical source ancestry is required only where explicitly quantified. Later forged landings require no verifier soundness. Physical persistence, timely governance and reversal of irreversible payouts are outside scope."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-d04a236579cc9990", "EN-992ca84f0e185f57"],
+      "scope": "Actual TrustState.rollback closes signing and preserves deployment, active/retired generations, HRS log and durable authenticated-generation watermark. Real physical persistence and exclusive key access remain external."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.CrossGenerationRollback",
+      "declaration": "Etna.Design.CrossGenerationRollbackRegression.certified_source",
+      "type": "Etna.Design.CanonicalHistory.Run\n  Etna.Design.NonVacuity.world0 Etna.Design.CrossGenerationRollbackRegression.sourceWorld\n  Etna.Design.HistoricalEscrow.archive",
+      "assumptions": [
+        "Decoded ideal L1/header/storage/crypto/EL truth; actual protocol and signer transition functions with fixed deployment/device boundaries.",
+        "Canonical source ancestry is required only where explicitly quantified. Later forged landings require no verifier soundness. Physical persistence, timely governance and reversal of irreversible payouts are outside scope."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-5d5828fcdce5ab2a"],
+      "scope": "Initialized raw canonical prefix includes real standby registration, exit and accepted valid height-1 batch with archive/header/reference binding; its snapshot is 12 and landing block 29."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.CrossGenerationRollback",
+      "declaration": "Etna.Design.CrossGenerationRollbackRegression.adversarial_suffix",
+      "type": "Etna.Design.ProtocolState.Trace\n  Etna.Design.CrossGenerationRollbackRegression.sourceWorld Etna.Design.CrossGenerationRollbackRegression.recovered2",
+      "assumptions": [
+        "Decoded ideal L1/header/storage/crypto/EL truth; actual protocol and signer transition functions with fixed deployment/device boundaries.",
+        "Canonical source ancestry is required only where explicitly quantified. Later forged landings require no verifier soundness. Physical persistence, timely governance and reversal of irreversible payouts are outside scope."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-d04a236579cc9990", "EN-7319b105593c8c53"],
+      "scope": "Actual unrestricted suffix accepts forged snapshot 1000 at checkpoint 2, confirms exit, then executes two real recoveries. No source certification or verifier soundness is asserted for this suffix."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.CrossGenerationRollback",
+      "declaration": "Etna.Design.CrossGenerationRollbackRegression.actual_rollback",
+      "type": "Etna.Design.ProtocolState.Step\n  Etna.Design.CrossGenerationRollbackRegression.recovered2 Etna.Design.CrossGenerationRollbackRegression.restoredWorld",
+      "assumptions": [
+        "Decoded ideal L1/header/storage/crypto/EL truth; actual protocol and signer transition functions with fixed deployment/device boundaries.",
+        "Canonical source ancestry is required only where explicitly quantified. Later forged landings require no verifier soundness. Physical persistence, timely governance and reversal of irreversible payouts are outside scope."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-d04a236579cc9990"],
+      "scope": "Real checked retained-record rollback at block 33 restores exact source checkpoint 1/snapshot 12 after two recoveries."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.CrossGenerationRollback",
+      "declaration": "Etna.Design.CrossGenerationRollbackRegression.rollback_rechecks_and_blocks",
+      "type": "Etna.Design.CrossGenerationRollbackRegression.forgedWorld.inbox.snapshot =\n    1000 ∧\n  Etna.Design.CrossGenerationRollbackRegression.forgedStatement.input.l1ReferenceBlockNumber <\n      Etna.Design.CrossGenerationRollbackRegression.forgedWorld.inbox.snapshot ∧\n    (Etna.Design.CrossGenerationRollbackRegression.confirmedWorld.registry.slots 0).confirmedAt = Option.some 30 ∧\n      Etna.Design.CrossGenerationRollbackRegression.restoredWorld.inbox.snapshot = 12 ∧\n        Etna.Design.CrossGenerationRollbackRegression.restoredWorld.inbox.generation = 2 ∧\n          Etna.Design.CrossGenerationRollbackRegression.restoredWorld.inbox.origin.height = 2 ∧\n            Etna.Design.CrossGenerationRollbackRegression.restoredWorld.inbox.checkpoint.height = 1 ∧\n              Etna.Design.CrossGenerationRollbackRegression.restoredWorld.inbox.recoveryNonce = 3 ∧\n                (Etna.Design.CrossGenerationRollbackRegression.restoredWorld.registry.slots 0).confirmedAt =\n                    Option.none ∧\n                  Etna.Design.Staking.confirmExit Etna.Design.CrossGenerationRollbackRegression.restoredWorld.inbox\n                        (Etna.Design.CrossGenerationRollbackRegression.restoredWorld.registry.slots 0) 34 =\n                      Option.none ∧\n                    Etna.Design.SigningEscrow.SnapshotTrusted\n                        Etna.Design.CrossGenerationRollbackRegression.restoredContext\n                        Etna.Design.CrossGenerationRollbackRegression.restoredWorld ∧\n                      ¬∃ (target : Etna.Design.TrustState.Target),\n                          target.view = Etna.Design.CrossGenerationRollbackRegression.restoredWorld",
+      "assumptions": [
+        "Decoded ideal L1/header/storage/crypto/EL truth; actual protocol and signer transition functions with fixed deployment/device boundaries.",
+        "Canonical source ancestry is required only where explicitly quantified. Later forged landings require no verifier soundness. Physical persistence, timely governance and reversal of irreversible payouts are outside scope."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-d04a236579cc9990",
+        "EN-4651c537a506e6fd",
+        "EN-9ee888f78091a2fe"
+      ],
+      "scope": "Concrete forged confirmation is cleared; generation 2/origin height 2 survive restoration to checkpoint 1, nonce becomes 3, immediate reconfirmation fails, restored snapshot is trusted and no target can authenticate the pruned origin record."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.CrossGenerationRollback",
+      "declaration": "Etna.Design.CrossGenerationRollbackRegression.until_new_recovery",
+      "type": "∀ {u : Etna.Design.ProtocolState.World},\n  Etna.Design.ProtocolState.Trace Etna.Design.CrossGenerationRollbackRegression.restoredWorld u →\n    u.inbox.generation = 2 →\n      ∀ (i : Etna.Design.LandInput) (leaves : List Etna.Design.Leaf) (e : Etna.Design.LandingEnv),\n        Etna.Design.land u.inbox i leaves e = Option.none",
+      "assumptions": [
+        "Decoded ideal L1/header/storage/crypto/EL truth; actual protocol and signer transition functions with fixed deployment/device boundaries.",
+        "Canonical source ancestry is required only where explicitly quantified. Later forged landings require no verifier soundness. Physical persistence, timely governance and reversal of irreversible payouts are outside scope."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-d04a236579cc9990"],
+      "scope": "Instantiates the whole-interval no-landing theorem on the actual forged-landing/two-recovery rollback fixture, for arbitrary same-generation suffixes."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.CrossGenerationRollback",
+      "declaration": "Etna.Design.CrossGenerationRollbackRegression.renewed_production",
+      "type": "Etna.Design.Recovery.recover\n      (Etna.Design.ProtocolState.recoveryView Etna.Design.CrossGenerationRollbackRegression.restoredWorld)\n      Etna.Design.CrossGenerationRollbackRegression.request3\n      Etna.Design.CrossGenerationRollbackRegression.restoredWorld.adapters.recovery\n      Etna.Design.CrossGenerationRollbackRegression.origin3 Bool.true Bool.true =\n    Option.some Etna.Design.CrossGenerationRollbackRegression.result3 ∧\n  Etna.Design.CrossGenerationRollbackRegression.recovered3.inbox.snapshot = 12 ∧\n    Etna.Design.Staking.confirmExit Etna.Design.CrossGenerationRollbackRegression.recovered3.inbox\n          (Etna.Design.CrossGenerationRollbackRegression.recovered3.registry.slots 0) 40 =\n        Option.none ∧\n      Etna.Design.Settlement.BatchValid Etna.Design.CrossGenerationRollbackRegression.newRules\n          (Etna.Design.HistoricalEscrow.header 1) [Etna.Design.CrossGenerationRollbackRegression.newBlock] [111] ∧\n        Etna.Design.land Etna.Design.CrossGenerationRollbackRegression.recovered3.inbox\n              Etna.Design.CrossGenerationRollbackRegression.newStatement.input\n              Etna.Design.CrossGenerationRollbackRegression.newLeaves\n              Etna.Design.CrossGenerationRollbackRegression.newEnv =\n            Option.some Etna.Design.CrossGenerationRollbackRegression.renewedWorld.inbox ∧\n          Etna.Design.CrossGenerationRollbackRegression.renewedWorld.inbox.snapshot = 40 ∧\n            (Etna.Design.CrossGenerationRollbackRegression.reconfirmedWorld.registry.slots 0).confirmedAt =\n              Option.some 42",
+      "assumptions": [
+        "Decoded ideal L1/header/storage/crypto/EL truth; actual protocol and signer transition functions with fixed deployment/device boundaries.",
+        "Canonical source ancestry is required only where explicitly quantified. Later forged landings require no verifier soundness. Physical persistence, timely governance and reversal of irreversible payouts are outside scope."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-d04a236579cc9990",
+        "EN-7319b105593c8c53",
+        "EN-5d5828fcdce5ab2a",
+        "EN-4651c537a506e6fd"
+      ],
+      "scope": "Real recovery installs generation 3 at restored checkpoint 1 and leaves snapshot 12; reconfirmation still fails. A real valid accepted landing advances snapshot to 40 and then the cleared exit confirms at block 42."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.CrossGenerationRollback",
+      "declaration": "Etna.Design.CrossGenerationRollbackRegression.renewed_trace",
+      "type": "Etna.Design.SigningEscrow.SnapshotTrace\n  Etna.Design.CrossGenerationRollbackRegression.restoredWorld\n  Etna.Design.CrossGenerationRollbackRegression.reconfirmedWorld",
+      "assumptions": [
+        "Decoded ideal L1/header/storage/crypto/EL truth; actual protocol and signer transition functions with fixed deployment/device boundaries.",
+        "Canonical source ancestry is required only where explicitly quantified. Later forged landings require no verifier soundness. Physical persistence, timely governance and reversal of irreversible payouts are outside scope."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-d04a236579cc9990", "EN-4651c537a506e6fd"],
+      "scope": "Actual snapshot-disciplined recovery/valid-landing/reconfirmation suffix from the restored World. No additional transition or outcome assumption is added."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.CrossGenerationRollback",
+      "declaration": "Etna.Design.CrossGenerationRollbackRegression.reconfirmed_key_excluded",
+      "type": "∀ (h : Nat),\n  Etna.Design.CrossGenerationRollbackRegression.reconfirmedWorld.inbox.checkpoint.height ≤ h →\n    ∀ (member : Etna.Design.Committee.Entry),\n      member ∈ (Etna.Design.Consensus.activeAt Etna.Design.CrossGenerationRollbackRegression.finalContext h).members →\n        member.key ≠ 7",
+      "assumptions": [
+        "Decoded ideal L1/header/storage/crypto/EL truth; actual protocol and signer transition functions with fixed deployment/device boundaries.",
+        "Canonical source ancestry is required only where explicitly quantified. Later forged landings require no verifier soundness. Physical persistence, timely governance and reversal of irreversible payouts are outside scope."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-d04a236579cc9990", "EN-4651c537a506e6fd"],
+      "scope": "The nonvacuous actual post-rollback confirmation excludes exited key 7 at every height at/above its later checkpoint, using real registry recheck, history, valid context and snapshot advancement."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.CrossGenerationRollback",
+      "declaration": "Etna.Design.CrossGenerationRollbackRegression.restored_key_excluded",
+      "type": "∀ (h : Nat)\n  (member : Etna.Design.Committee.Entry),\n  member ∈ (Etna.Design.Consensus.activeAt Etna.Design.CrossGenerationRollbackRegression.restoredContext h).members →\n    member.key ≠ 7",
+      "assumptions": [
+        "Decoded ideal L1/header/storage/crypto/EL truth; actual protocol and signer transition functions with fixed deployment/device boundaries.",
+        "Canonical source ancestry is required only where explicitly quantified. Later forged landings require no verifier soundness. Physical persistence, timely governance and reversal of irreversible payouts are outside scope."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-d04a236579cc9990"],
+      "scope": "The concrete restored context excludes key 7 at all heights from its visible historical exit and actual preserved recovery floor, despite its invalid confirmation having been cleared."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.CrossGenerationRollback",
+      "declaration": "Etna.Design.CrossGenerationRollbackRegression.initialization_restore",
+      "type": "Etna.Design.ProtocolState.Step\n    Etna.Design.CrossGenerationRollbackRegression.recovered2\n    (Etna.Design.ProtocolState.applyRollback Etna.Design.CrossGenerationRollbackRegression.recovered2\n      Etna.Design.NonVacuity.world0.inbox.checkpoint Etna.Design.NonVacuity.world0.inbox.snapshot 33) ∧\n  Etna.Design.SigningEscrow.SnapshotTrusted\n    (Etna.Design.HistoricalContext.derive\n      (Etna.Design.ProtocolState.applyRollback Etna.Design.CrossGenerationRollbackRegression.recovered2\n          Etna.Design.NonVacuity.world0.inbox.checkpoint Etna.Design.NonVacuity.world0.inbox.snapshot 33).inbox\n      (Etna.Design.ProtocolState.applyRollback Etna.Design.CrossGenerationRollbackRegression.recovered2\n          Etna.Design.NonVacuity.world0.inbox.checkpoint Etna.Design.NonVacuity.world0.inbox.snapshot 33).registry\n      (Etna.Design.Deployment.parameters Etna.Design.CrossGenerationRollbackRegression.recovered2.inbox\n        Etna.Design.CrossGenerationRollbackRegression.recovered2.inbox.configuration)\n      Etna.Design.HistoricalEscrow.archive)\n    (Etna.Design.ProtocolState.applyRollback Etna.Design.CrossGenerationRollbackRegression.recovered2\n      Etna.Design.NonVacuity.world0.inbox.checkpoint Etna.Design.NonVacuity.world0.inbox.snapshot 33)",
+      "assumptions": [
+        "Decoded ideal L1/header/storage/crypto/EL truth; actual protocol and signer transition functions with fixed deployment/device boundaries.",
+        "Canonical source ancestry is required only where explicitly quantified. Later forged landings require no verifier soundness. Physical persistence, timely governance and reversal of irreversible payouts are outside scope."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-d04a236579cc9990"],
+      "scope": "Actual retained block-zero rollback after two recoveries restores initialization values and satisfies the independent initialization trust theorem."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.CrossGenerationRollback",
+      "declaration": "Etna.Design.CrossGenerationRollbackRegression.trust_revalidated_sign",
+      "type": "Etna.Design.TrustState.Trace 8\n    Etna.Design.TrustStateRegression.bytes0 Etna.Design.CrossGenerationRollbackRegression.coldNode\n    Etna.Design.CrossGenerationRollbackRegression.newSigned ∧\n  Etna.Design.CrossGenerationRollbackRegression.rolledNode.trusted = Bool.false ∧\n    Etna.Design.CrossGenerationRollbackRegression.rolledNode.target = Option.none ∧\n      Etna.Design.CrossGenerationRollbackRegression.rolledNode.signer.log =\n          Etna.Design.CrossGenerationRollbackRegression.oldSigned.signer.log ∧\n        Etna.Design.CrossGenerationRollbackRegression.rolledNode.authenticatedGeneration = 2 ∧\n          Etna.Design.TrustState.sign Etna.Design.CrossGenerationRollbackRegression.rolledNode\n                Etna.Design.TrustStateRegression.bytes0 Etna.Design.CrossGenerationRollbackRegression.oldMessage 999\n                Bool.true =\n              Option.none ∧\n            Etna.Design.CrossGenerationRollbackRegression.newSession.authenticatedGeneration = 3 ∧\n              2 ∈ Etna.Design.CrossGenerationRollbackRegression.newSession.signer.retired ∧\n                Etna.Design.TrustState.sign Etna.Design.CrossGenerationRollbackRegression.newSession\n                      Etna.Design.TrustStateRegression.bytes0 Etna.Design.CrossGenerationRollbackRegression.oldMessage\n                      999 Bool.true =\n                    Option.none ∧\n                  Etna.Design.TrustState.sign Etna.Design.CrossGenerationRollbackRegression.newSession\n                        Etna.Design.TrustStateRegression.bytes0 Etna.Design.CrossGenerationRollbackRegression.newMessage\n                        888 Bool.true =\n                      Option.some (Etna.Design.CrossGenerationRollbackRegression.newSigned.signer, 888) ∧\n                    Etna.Design.CrossGenerationRollbackRegression.newSigned.signer.log.length =\n                      Etna.Design.CrossGenerationRollbackRegression.oldSigned.signer.log.length + 1",
+      "assumptions": [
+        "Decoded ideal L1/header/storage/crypto/EL truth; actual protocol and signer transition functions with fixed deployment/device boundaries.",
+        "Canonical source ancestry is required only where explicitly quantified. Later forged landings require no verifier soundness. Physical persistence, timely governance and reversal of irreversible payouts are outside scope."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-d04a236579cc9990",
+        "EN-992ca84f0e185f57",
+        "EN-9ee888f78091a2fe"
+      ],
+      "scope": "Actual immutable key-8/encoder trace authenticates a recovery origin, signs generation 2, rolls back retaining HRS/watermark while closed, switches to generation 3, replays the valid new landing, matches/opens and signs freshly. Old-generation cached request is rejected. No origin target is invented during the pruned-record interval."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.CrossGenerationRollback",
+      "declaration": "Etna.Design.CrossGenerationRollbackRegression.rollback_nonce_and_domain",
+      "type": "Etna.Design.Recovery.recover\n      (Etna.Design.ProtocolState.recoveryView Etna.Design.CrossGenerationRollbackRegression.restoredWorld)\n      (have __src := Etna.Design.CrossGenerationRollbackRegression.request3;\n      { generation := __src.generation, checkpoint := __src.checkpoint, exclusions := __src.exclusions,\n        fiToClear := __src.fiToClear, nonce := 2, validUntil := __src.validUntil })\n      Etna.Design.CrossGenerationRollbackRegression.restoredWorld.adapters.recovery\n      Etna.Design.CrossGenerationRollbackRegression.origin3 Bool.true Bool.true =\n    Option.none ∧\n  Etna.Design.Recovery.recover\n        (Etna.Design.ProtocolState.recoveryView Etna.Design.CrossGenerationRollbackRegression.recovered3)\n        Etna.Design.CrossGenerationRollbackRegression.request3\n        Etna.Design.CrossGenerationRollbackRegression.recovered3.adapters.recovery\n        Etna.Design.CrossGenerationRollbackRegression.origin3 Bool.true Bool.true =\n      Option.none ∧\n    Etna.Design.CrossGenerationRollbackRegression.restoredWorld.inbox.domain =\n        Etna.Design.CrossGenerationRollbackRegression.sourceWorld.inbox.domain ∧\n      Etna.Design.CrossGenerationRollbackRegression.restoredWorld.inbox.origins =\n          Etna.Design.CrossGenerationRollbackRegression.recovered2.inbox.origins ∧\n        Etna.Design.CrossGenerationRollbackRegression.newSigned.signer.domain =\n            Etna.Design.CrossGenerationRollbackRegression.oldSigned.signer.domain ∧\n          (Etna.Design.CrossGenerationRollbackRegression.reconfirmedWorld.registry.slots 0).balance =\n            (Etna.Design.CrossGenerationRollbackRegression.sourceWorld.registry.slots 0).balance",
+      "assumptions": [
+        "Decoded ideal L1/header/storage/crypto/EL truth; actual protocol and signer transition functions with fixed deployment/device boundaries.",
+        "Canonical source ancestry is required only where explicitly quantified. Later forged landings require no verifier soundness. Physical persistence, timely governance and reversal of irreversible payouts are outside scope."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "EN-d04a236579cc9990",
+        "EN-8e5f0457d17b70bc",
+        "EN-992ca84f0e185f57"
+      ],
+      "scope": "Old rollback nonce and consumed recovery authorization are rejected; deployment/origin archive persist, signer deployment is unchanged, and the exit principal is untouched. No already-paid money is restored."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.CrossGenerationRollback",
+      "declaration": "Etna.Design.CrossGenerationRollbackRegression.weak_source_lacks_reference_bound",
+      "type": "Etna.Design.Deployment.build\n      Etna.Design.HistoricalEscrow.worldB Etna.Design.HistoricalEscrow.worldB.inbox.configuration\n      Etna.Design.CrossGenerationRollbackRegression.futureArchive\n      (Etna.Design.HistoricalEscrow.fixture.template 28 2800) =\n    Option.some Etna.Design.CrossGenerationRollbackRegression.futureRules ∧\n  Etna.Design.CrossGenerationRollbackRegression.futureEnv.certificate =\n      Etna.Design.Settlement.statement Etna.Design.CrossGenerationRollbackRegression.futureRules\n        Etna.Design.NonVacuity.genesisHeader Etna.Design.HistoricalEscrow.blocks [111] ∧\n    Etna.Design.land Etna.Design.HistoricalEscrow.worldB.inbox\n          Etna.Design.CrossGenerationRollbackRegression.futureStatement.input Etna.Design.HistoricalEscrow.leaves\n          Etna.Design.CrossGenerationRollbackRegression.futureEnv =\n        Option.some\n          (Etna.Design.applyLanding Etna.Design.HistoricalEscrow.worldB.inbox\n            Etna.Design.CrossGenerationRollbackRegression.futureStatement.input) ∧\n      Etna.Design.CrossGenerationRollbackRegression.futureStatement.input.l1ReferenceBlockNumber <\n          Etna.Design.CrossGenerationRollbackRegression.futureStatement.input.activeCommitteeSnapshot ∧\n        Etna.Design.CrossGenerationRollbackRegression.futureEnv.blockNumber <\n          Etna.Design.CrossGenerationRollbackRegression.futureStatement.input.activeCommitteeSnapshot",
+      "assumptions": [
+        "Decoded ideal L1/header/storage/crypto/EL truth; actual protocol and signer transition functions with fixed deployment/device boundaries.",
+        "Canonical source ancestry is required only where explicitly quantified. Later forged landings require no verifier soundness. Physical persistence, timely governance and reversal of irreversible payouts are outside scope."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-5d5828fcdce5ab2a", "EN-d04a236579cc9990"],
+      "scope": "Scope counterexample: accepted call, Deployment.build and exact certificate construction permit snapshot 1000 above reference 28 and landing 29 when authenticated archive ancestry/batch certification are absent. Old same-generation contracts are preserved; they do not establish the new cross-generation source bound."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Locking",
+      "declaration": "Etna.Design.LockingRegression.interleaving_all_actual",
+      "type": "∀ (observation : Etna.Design.Hash × Nat × Nat),\n  observation ∈ Etna.Design.LockingRegression.interleaving →\n    (observation.snd.snd = 1 ∧\n        ∃ (value : Etna.Design.Locking.Value),\n          Etna.Design.LockingRegression.execution.prevotes observation.fst observation.snd.fst value) ∨\n      observation.snd.snd = 2 ∧\n        ∃ (value : Etna.Design.Locking.Value),\n          Etna.Design.LockingRegression.execution.precommits observation.fst observation.snd.fst value",
+      "assumptions": [
+        "Existing normalized per-key phase observations and Locking.execution only; causal delivery/emission order and a concrete network execution refinement are excluded."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-0202dc133674a903"],
+      "scope": "Every normalized observation in the existing six-element fixture is an actual prevote/precommit of the same execution. This adds no network emission/delivery causality: the nil-unlock observation precedes a quorum prevote observation."
     }
   ]
 }

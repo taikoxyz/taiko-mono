@@ -102,9 +102,9 @@ theorem stale_certificate_rejected :
   cases pair
   omega
 
-/-- A concrete asynchronous interleaving: key 1's round-3 vote appears before key 2's
-round-2 vote, while every key's own phase/round order increases. These observations
-belong to the same execution; certificates do not force simultaneous delivery. -/
+/-- Normalized observations: key 1's round-3 vote precedes key 2's round-2 vote,
+while each key's own phase/round order increases. This is not a causal delivery/emission
+trace: the nil unlock observation precedes one quorum prevote observation. -/
 def interleaving : List (Hash × Nat × Nat) := [(1,2,1),(1,2,2),(1,3,1),(2,2,1),(2,2,2),(2,3,1)]
 
 theorem asynchronous_interleaving :
@@ -113,6 +113,21 @@ theorem asynchronous_interleaving :
     execution.prevotes 1 3 (some 10) ∧ execution.prevotes 2 2 none := by
   unfold execution action
   decide +kernel
+
+/-- Every normalized observation is an actual event of the same execution. This
+checks all list members without adding any certificate-delivery causality assumption. -/
+theorem interleaving_all_actual : ∀ observation ∈ interleaving,
+    (observation.2.2 = 1 ∧ ∃ value, execution.prevotes observation.1 observation.2.1 value) ∨
+    (observation.2.2 = 2 ∧ ∃ value, execution.precommits observation.1 observation.2.1 value) := by
+  intro observation member
+  simp only [interleaving,List.mem_cons,List.not_mem_nil,or_false] at member
+  rcases member with rfl | rfl | rfl | rfl | rfl | rfl
+  · exact Or.inl ⟨rfl,some 20,rfl⟩
+  · exact Or.inr ⟨rfl,none,rfl⟩
+  · exact Or.inl ⟨rfl,some 10,rfl⟩
+  · exact Or.inl ⟨rfl,none,rfl⟩
+  · exact Or.inr ⟨rfl,none,rfl⟩
+  · exact Or.inl ⟨rfl,some 10,rfl⟩
 
 def cfg : HistoricalContext.Parameters := ⟨1,3,1,1,4⟩
 def registryA : RegistryHistory.State := { RegistryHistory.empty with history := [⟨1,members⟩] }

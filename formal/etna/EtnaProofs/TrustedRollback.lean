@@ -1,25 +1,19 @@
 import EtnaStatements.Premises
 import EtnaProofs.TrustedSnapshot
 import EtnaProofs.Deployment
+import EtnaProofs.CanonicalHistory
+import EtnaProofs.TrustState
 
-/-! The verifier-failure rollback of section 8, done as the spec says, keeps slot 284 trusted
-within the restored landing's generation.
-8 "Verifier failure" (spec L487): the Inbox restores lastCheckpoint, the FI head and
-activeCommitteeSnapshot "to the values written by the last trusted landing ... if there is
-none, restore the initialization values", and the registry re-checks every exit confirmation
-against the restored snapshot. The model's rollback step accepts any retained record and any
-snapshot (`UntrustedRollback`). Here the restored values are the ones a trusted landing wrote,
-that is a landing whose certificate is the statement computed under rules the deployment builds
-on a guest's view of its World (as every `Certifies` landing's is; 6.2 item 7, spec L366: the
-statement's activeCommitteeSnapshot is the selection snapshot of the committee governing its
-last height), or the initialization values. No governance recovery may run between that landing
-and the rollback. Spec L487 allows one above the restored checkpoint; there the restored
-snapshot is expected to stay at most the new generation's origin block, but that case is not
-proved here. Then slot 284 equals (or, for initialization, is at most) the
-cutoff of the committee active at the restored lastCheckpoint (`SnapshotTrusted`), and with the
-registry's recheck every confirmed exit's key is absent from every committee active at or above
-that checkpoint. Only the restored landing is assumed trusted: later landings may be forged, so
-`Premises.verifierSound` is not used. -/
+/-! Verifier-failure rollback of section 8 restores an exact trusted checkpoint/snapshot
+and rechecks confirmations. The original same-generation contracts below remain unchanged.
+The additional cross-generation contracts use CanonicalHistory.Run only for the source:
+its decoded valid batches and raw reference ancestry derive snapshot < source L1 clock.
+Arbitrary later actual protocol steps, including forged landings and any number of
+recoveries, put every later generation's origin at or above that clock. Their cutoff floor
+therefore covers the restored source snapshot without verifier soundness for that suffix.
+Rollback below the preserved origin also removes its record and forbids landing until a
+new actual recovery; session trust must then be revalidated. No irreversible payout,
+withdrawn stake, timely governance action or production persistence is recovered/proved. -/
 namespace Etna.Design.SigningEscrow
 open ProtocolState
 
@@ -246,5 +240,230 @@ theorem trusted_rollback_excludes_confirmed_keys {initial w1 w u : World} {s : S
   exact confirmed_key_absent_above_checkpoint prior core keys visible range confirmed
     (trace_covered after (rollback_covered w s.checkpoint s.snapshot now)) nonzero finite built trusted
     (checkpoint ▸ above)
+
+/-- A strictly later generation in any actual protocol trace was installed by recovery.
+Its origin block cannot precede the source's L1 clock; forged landings and additional
+recoveries require no verifier soundness. -/
+theorem later_generation_origin {source u : World} (trace : Trace source u)
+    (changed : source.inbox.generation < u.inbox.generation) :
+    source.l1Block ≤ u.inbox.origin.l1Block := by
+  induction trace with
+  | refl => omega
+  | @step w t prior change ih =>
+    cases change with
+    | landing _ ok => obtain ⟨_,rfl⟩ := land_success ok; exact ih changed
+    | registration => exact ih changed
+    | modification => exact ih changed
+    | enqueue _ _ _ ok =>
+      unfold Forced.enqueue at ok
+      dsimp only at ok
+      split at ok <;> cases ok
+      exact ih changed
+    | sweep _ ok =>
+      unfold Forced.sweep at ok
+      split at ok <;> cases ok
+      exact ih changed
+    | recovery time ok =>
+      have clock := trace_clock_monotone prior
+      obtain ⟨_,rfl⟩ := Recovery.recover_success ok
+      exact Nat.le_trans clock time
+    | invalidation _ ok => obtain ⟨_,rfl⟩ := Recovery.invalidation_success ok; exact ih changed
+    | rollback => exact ih changed
+
+/-- A genuinely canonical trusted source lies below every later actual recovery's
+origin. The source relation includes valid accepted batches, decoded header/archive
+binding and raw origin/reference bounds. The suffix is unrestricted ProtocolState.Trace. -/
+theorem certified_snapshot_below_later_origin {initial source u : World} {archive : List Nat}
+    (certified : CanonicalHistory.Run initial source archive) (suffix : Trace source u)
+    (changed : source.inbox.generation < u.inbox.generation) :
+    source.inbox.snapshot < u.inbox.origin.l1Block :=
+  Nat.lt_of_lt_of_le (CanonicalHistory.run_snapshot_below certified) (later_generation_origin suffix changed)
+
+private theorem recovery_cutoff_floor (s : State) (cfg : HistoricalContext.Parameters)
+    (archive : List Nat) (h : Nat) (generation : s.generation ≠ 0) :
+    s.origin.l1Block ≤ HistoricalContext.cutoff s cfg archive h := by
+  simp only [HistoricalContext.cutoff,generation,↓reduceIte]
+  split
+  · exact Nat.le_max_right _ _
+  · exact Nat.le_refl _
+
+/-- Restoring the exact checkpoint and snapshot of a canonical source is safe in every
+strictly later generation, even after arbitrarily many forged landings and recoveries.
+Unlike the old same-generation contract, no agreement with the old archive is needed:
+the preserved recovery origin supplies a floor at every height. -/
+theorem certified_values_trusted_across_recoveries {initial source u : World} {archive : List Nat}
+    (certified : CanonicalHistory.Run initial source archive) (suffix : Trace source u)
+    (changed : source.inbox.generation < u.inbox.generation)
+    (snapshot : u.inbox.snapshot = source.inbox.snapshot)
+    (checkpoint : u.inbox.checkpoint = source.inbox.checkpoint)
+    (cfg : CommitteeConfig) (archive' : List Nat) (ctx : Consensus.Context)
+    (built : HistoricalContext.build u.inbox u.registry (Deployment.parameters u.inbox cfg) archive' = some ctx) :
+    SnapshotTrusted ctx u ∧ u.inbox.checkpoint = source.inbox.checkpoint := by
+  obtain ⟨_,rfl⟩ := HistoricalContext.build_success built
+  refine ⟨?_,checkpoint⟩
+  unfold SnapshotTrusted
+  rw [HistoricalContext.derived_cutoff,snapshot]
+  exact Nat.le_trans (Nat.le_of_lt (certified_snapshot_below_later_origin certified suffix changed))
+    (recovery_cutoff_floor _ _ _ _ (by omega))
+
+/-- Registry recheck covers both retained confirmations and confirmations first made
+after rollback. The later confirming World still shows the exact source values; its
+suffix carries the existing snapshot discipline, not verifier soundness. -/
+theorem certified_rollback_excludes_confirmed_keys {initial source w u : World}
+    {archive : List Nat} {now : Nat}
+    (certified : CanonicalHistory.Run initial source archive)
+    (core : Core initial) (keys : KeysWellFormed initial.registry) (visible : ExitVisible initial.registry)
+    (later : Trace source w)
+    (rollback : Step w (applyRollback w source.inbox.checkpoint source.inbox.snapshot now))
+    (after : SnapshotTrace (applyRollback w source.inbox.checkpoint source.inbox.snapshot now) u)
+    (changed : source.inbox.generation < u.inbox.generation)
+    (snapshot : u.inbox.snapshot = source.inbox.snapshot) (checkpoint : u.inbox.checkpoint = source.inbox.checkpoint)
+    (cfg : CommitteeConfig) (archive' : List Nat) (ctx : Consensus.Context)
+    (built : HistoricalContext.build u.inbox u.registry (Deployment.parameters u.inbox cfg) archive' = some ctx) :
+    ∀ id c h, id < u.registry.nextId → (u.registry.slots id).confirmedAt = some c →
+      (u.registry.slots id).key ≠ 0 → (u.registry.slots id).exitAt ≠ Staking.noExit →
+      source.inbox.checkpoint.height ≤ h →
+      ∀ m ∈ (Consensus.activeAt ctx h).members, m.key ≠ (u.registry.slots id).key := by
+  intro id c h range confirmed nonzero finite above
+  have suffix := trace_join (.step later rollback) (snapshot_trace_projects after)
+  have trusted := (certified_values_trusted_across_recoveries certified suffix changed snapshot checkpoint cfg archive' ctx built).1
+  exact confirmed_key_absent_above_checkpoint (trace_join (CanonicalHistory.run_trace certified) suffix)
+    core keys visible range confirmed (trace_covered after (rollback_covered _ _ _ _)) nonzero finite built trusted
+    (checkpoint ▸ above)
+
+/-- Initialization is also a trusted source at any later confirming World, independently
+of whether a recovery happened. Only the exact initialized checkpoint/snapshot are restored. -/
+theorem initial_values_stay_trusted {initial u : World} {hash root : Hash}
+    (init : Deployment.Genesis initial hash root) (trace : Trace initial u)
+    (snapshot : u.inbox.snapshot = initial.inbox.snapshot)
+    (checkpoint : u.inbox.checkpoint = initial.inbox.checkpoint)
+    (cfg : CommitteeConfig) (archive : List Nat) (ctx : Consensus.Context)
+    (built : HistoricalContext.build u.inbox u.registry (Deployment.parameters u.inbox cfg) archive = some ctx) :
+    SnapshotTrusted ctx u := by
+  obtain ⟨ready,rfl⟩ := HistoricalContext.build_success built
+  have genesis := (trace_preserves_immutables trace).2.2.2.2.1
+  obtain ⟨_,cp,_,_,_,_,_,snap,_⟩ := init
+  unfold SnapshotTrusted
+  rw [HistoricalContext.derived_cutoff,checkpoint,cp]
+  change u.inbox.snapshot ≤ HistoricalContext.cutoff _ _ _ 0
+  rw [snapshot,snap,← genesis]
+  exact cutoff_at_zero _ _ _ ready.2.2.2.2.2.2.2
+
+/-- The actual confirmExit guard prevents an exit cleared by snapshot recheck from
+being reconfirmed before the snapshot advances to its effective exit block. -/
+theorem cleared_exit_cannot_reconfirm (s : State) (b : Staking.Bond) (restored now : Nat)
+    (cleared : restored < b.exitAt) (snapshot : s.snapshot = restored) :
+    Staking.confirmExit s (Staking.rollbackBySnapshot restored b) now = none := by
+  have same : (Staking.rollbackBySnapshot restored b).exitAt = b.exitAt := by
+    unfold Staking.rollbackBySnapshot
+    split <;> simp_all
+  unfold Staking.confirmExit
+  rw [ite_eq_right]
+  intro allowed
+  have covered := allowed.2.2.2.2
+  rw [same,snapshot] at covered
+  omega
+
+/-- Filtering rollback records removes an origin above the restored checkpoint. This
+also prevents fabricating a TrustState.Target for that World before a new recovery. -/
+theorem rollback_origin_record_absent (w : World) (cp : Checkpoint) (snapshot now : Nat)
+    (above : cp.height < w.inbox.origin.height) :
+    recordAt (applyRollback w cp snapshot now).inbox w.inbox.origin.height = none := by
+  apply List.find?_eq_none.mpr
+  intro record member
+  have bound := (Recovery.rollback_voids_later w.inbox cp snapshot).1 record member
+  simp only [beq_iff_eq]
+  omega
+
+theorem rollback_has_no_target (w : World) (cp : Checkpoint) (snapshot now : Nat)
+    (above : cp.height < w.inbox.origin.height) :
+    ¬ ∃ target : TrustState.Target, target.view = applyRollback w cp snapshot now := by
+  rintro ⟨target,equal⟩
+  obtain ⟨record,present,_⟩ := target.originRecord
+  rw [equal] at present
+  change recordAt (applyRollback w cp snapshot now).inbox w.inbox.origin.height = some record at present
+  rw [rollback_origin_record_absent w cp snapshot now above] at present
+  contradiction
+
+private theorem same_generation_gap {start u : World} (trace : Trace start u)
+    (same : u.inbox.generation = start.inbox.generation)
+    (gap : start.inbox.checkpoint.height < start.inbox.origin.height)
+    (records : ∀ cp ∈ start.inbox.records, cp.height < start.inbox.origin.height) :
+    u.inbox.checkpoint.height < u.inbox.origin.height ∧
+    ∀ cp ∈ u.inbox.records, cp.height < u.inbox.origin.height := by
+  induction trace with
+  | refl => exact ⟨gap,records⟩
+  | @step w t prior change ih =>
+    have before := trace_generation_monotone prior
+    have after := step_generation_monotone change
+    have prev : w.inbox.generation = start.inbox.generation := by omega
+    obtain ⟨gap',records'⟩ := ih prev
+    cases change with
+    | landing _ ok =>
+      have allowed := (land_success ok).1.1.1
+      have a := allowed.2.1
+      have b := allowed.2.2.1
+      omega
+    | registration => exact ⟨gap',records'⟩
+    | modification => exact ⟨gap',records'⟩
+    | enqueue _ _ _ ok =>
+      unfold Forced.enqueue at ok
+      dsimp only at ok
+      split at ok <;> cases ok
+      exact ⟨gap',records'⟩
+    | sweep _ ok =>
+      unfold Forced.sweep at ok
+      split at ok <;> cases ok
+      exact ⟨gap',records'⟩
+    | recovery _ ok =>
+      have generation := (Recovery.recovery_fixes_origin ok).1
+      simp only [recovered,recoveryView] at generation same
+      omega
+    | invalidation _ ok => obtain ⟨_,rfl⟩ := Recovery.invalidation_success ok; exact ⟨gap',records'⟩
+    | rollback cp snapshot now _ retained _ =>
+      refine ⟨records' cp (List.mem_of_find?_eq_some retained),?_⟩
+      intro record member
+      exact records' record (List.mem_filter.mp member).1
+
+private theorem origin_gap_rejects_landing (s : State) (i : LandInput) (leaves : List Leaf) (e : LandingEnv)
+    (gap : s.checkpoint.height < s.origin.height) : Etna.Design.land s i leaves e = none := by
+  apply ite_eq_right
+  intro accepted
+  have a := accepted.1.1.2.1
+  have b := accepted.1.1.2.2.1
+  omega
+
+/-- No successful landing is possible throughout the interval after a rollback below
+the preserved origin and before a subsequent actual recovery. Rollbacks in the interval
+can only choose retained records, all below that origin. Registry/FI/nonce edits are allowed. -/
+theorem rollback_interval_rejects_landing {w u : World} {cp : Checkpoint} {snapshot now : Nat}
+    (above : cp.height < w.inbox.origin.height)
+    (trace : Trace (applyRollback w cp snapshot now) u)
+    (same : u.inbox.generation = w.inbox.generation)
+    (i : LandInput) (leaves : List Leaf) (e : LandingEnv) :
+    Etna.Design.land u.inbox i leaves e = none := by
+  have initial : ∀ record ∈ (applyRollback w cp snapshot now).inbox.records,
+      record.height < (applyRollback w cp snapshot now).inbox.origin.height := by
+    intro record member
+    have bound := (Recovery.rollback_voids_later w.inbox cp snapshot).1 record member
+    exact Nat.lt_of_le_of_lt bound above
+  exact origin_gap_rejects_landing _ i leaves e (same_generation_gap trace same above initial).1
+
+/-- Every checked rollback invalidates every previously issued authorization at the
+same generation/checkpoint by consuming the nonce; it cannot rewind that authority. -/
+theorem rollback_consumes_nonce (s : State) (cp : Checkpoint) (snapshot : Nat) :
+    (Recovery.rollbackInbox s cp snapshot).recoveryNonce = s.recoveryNonce+1 := rfl
+
+/-- Checkpoint rollback is distinct from key authority: it closes session trust while
+retaining deployment, active/retired domains, durable HRS bytes and supersession knowledge. -/
+theorem rollback_retains_signer_authority (node : TrustState.Node) (encode : SigningBridge.SignMessage → Hash)
+    (message : SigningBridge.SignMessage) (signature : Hash) (persisted : Bool) :
+    (TrustState.rollback node).signer.domain = node.signer.domain ∧
+    (TrustState.rollback node).signer.activeGeneration = node.signer.activeGeneration ∧
+    (TrustState.rollback node).signer.retired = node.signer.retired ∧
+    (TrustState.rollback node).signer.log = node.signer.log ∧
+    (TrustState.rollback node).authenticatedGeneration = node.authenticatedGeneration ∧
+    TrustState.sign (TrustState.rollback node) encode message signature persisted = none := by
+  exact ⟨rfl,rfl,rfl,rfl,rfl,TrustState.untrusted_cannot_sign _ _ _ _ _ rfl⟩
 
 end Etna.Design.SigningEscrow
