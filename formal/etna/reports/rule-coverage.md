@@ -12,7 +12,7 @@ other rules of that clause are `deferred`.
 
 | Type       | Count | partial | partial-via | deferred | design-pending |
 | ---------- | ----: | ------: | ----------: | -------: | -------------: |
-| rule       |   568 |     149 |           7 |      408 |              4 |
+| rule       |   568 |     156 |           7 |      401 |              4 |
 | limitation |    21 |       1 |           0 |       19 |              1 |
 | assumption |    11 |       0 |           0 |       11 |              0 |
 
@@ -29,7 +29,7 @@ other rules of that clause are `deferred`.
 | STOR   |    34 |       2 |           0 |       32 |              0 |
 | FI     |    31 |      13 |           0 |       18 |              0 |
 | SYNC   |    25 |      10 |           0 |       15 |              0 |
-| DATA   |    21 |       1 |           0 |       20 |              0 |
+| DATA   |    21 |       8 |           0 |       13 |              0 |
 | FORF   |    20 |       6 |           0 |       14 |              0 |
 | COMM   |    18 |      10 |           0 |        8 |              0 |
 | BACKP  |    16 |       5 |           0 |       11 |              0 |
@@ -198,15 +198,15 @@ other rules of that clause are `deferred`.
 | DATA-5.2-6    | rule       | deferred       | EN-de0a8845be488d86                       |      1 |                                                                                                              |
 | DATA-5.2-7    | rule       | partial        | EN-be2a860da03d44e4                       |      1 | `chain_height`, `chain_parent_hashes`, `chain_heights_consecutive` +1                                        |
 | DATA-5.2-8    | rule       | deferred       | EN-3805d1eedc6b85d8                       |      1 |                                                                                                              |
-| DATA-5.2-9    | rule       | deferred       | EN-da7985670c04c5db                       |      1 |                                                                                                              |
+| DATA-5.2-9    | rule       | partial        | EN-da7985670c04c5db                       |      1 | `certified_success`, `certified_trace_success`, `projected_execution`                                        |
 | DATA-5.3-1    | rule       | deferred       | EN-5312312294dd0099                       |      2 |                                                                                                              |
 | DATA-5.3-2    | rule       | deferred       | EN-5312312294dd0099                       |      2 |                                                                                                              |
-| DATA-5.3-3    | rule       | deferred       | EN-e3dbc26926f4114a                       |      2 |                                                                                                              |
-| DATA-5.3-4    | rule       | deferred       | EN-e3dbc26926f4114a                       |      2 |                                                                                                              |
-| DATA-5.3-5    | rule       | deferred       | EN-a6671723c42b6f7d                       |      4 |                                                                                                              |
-| DATA-5.3-6    | rule       | deferred       | EN-a6671723c42b6f7d                       |      4 |                                                                                                              |
-| DATA-5.3-7    | rule       | deferred       | EN-a6671723c42b6f7d                       |      4 |                                                                                                              |
-| DATA-5.3-8    | rule       | deferred       | EN-a6671723c42b6f7d                       |      4 |                                                                                                              |
+| DATA-5.3-3    | rule       | partial        | EN-e3dbc26926f4114a                       |      2 | `checked_public_reconstruction`                                                                              |
+| DATA-5.3-4    | rule       | partial        | EN-e3dbc26926f4114a                       |      2 | `checked_public_reconstruction`                                                                              |
+| DATA-5.3-5    | rule       | partial        | EN-a6671723c42b6f7d                       |      4 | `certified_result`, `certified_success`, `certified_trace_interval` +7                                       |
+| DATA-5.3-6    | rule       | partial        | EN-a6671723c42b6f7d                       |      4 | `certified_result`, `certified_success`, `certified_trace_interval` +7                                       |
+| DATA-5.3-7    | rule       | partial        | EN-a6671723c42b6f7d                       |      4 | `certified_result`, `certified_success`, `certified_trace_interval` +7                                       |
+| DATA-5.3-8    | rule       | partial        | EN-a6671723c42b6f7d                       |      4 | `certified_result`, `certified_success`, `certified_trace_interval` +7                                       |
 | DATA-5.3-9    | rule       | deferred       | EN-a174dfa7511cbc12                       |      1 |                                                                                                              |
 | LAND-6.1-1    | rule       | deferred       | EN-f0ba7de0b6221621                       |      9 |                                                                                                              |
 | LAND-6.1-2    | rule       | partial-via    | EN-f0ba7de0b6221621 → EN-976a8c89163f509a |      9 | `step_preserves_core`, `trace_preserves_core`, `accepted_frontier_from_valid_chain` +7                       |

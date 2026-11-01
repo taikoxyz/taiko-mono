@@ -16481,6 +16481,552 @@
         "EN-1ee6db9f8ebb8410"
       ],
       "scope": "Concrete kernel witness: recovered byte actions. Same-block/local-cursor and recovery fixtures use actual accepted original calls, explicit byte openings and genuine due entries."
+    },
+    {
+      "module": "EtnaProofs.Reconstruction",
+      "declaration": "Etna.Design.Reconstruction.trace_unique",
+      "type": "∀ {el : Etna.Design.Reconstruction.Primitives}\n  {start : Etna.Design.Reconstruction.Rebuilt} {records : List Etna.Design.Reconstruction.Record}\n  {a b : Etna.Design.Reconstruction.Rebuilt},\n  Etna.Design.Reconstruction.reconstruct el start records = Option.some a →\n    Etna.Design.Reconstruction.reconstruct el start records = Option.some b → a = b",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-5312312294dd0099"],
+      "scope": "Fixed public inputs and deterministic public adapters have a unique result; not DA liveness or a concrete EL implementation proof."
+    },
+    {
+      "module": "EtnaProofs.Reconstruction",
+      "declaration": "Etna.Design.Reconstruction.execution_succeeds",
+      "type": "∀ {el : Etna.Design.Reconstruction.Primitives}\n  {p : Etna.Design.Reconstruction.Point} {state : Etna.Design.Reconstruction.Bytes}\n  {blocks : List Etna.Design.Reconstruction.PublicBlock} {out : Etna.Design.Reconstruction.Executed},\n  Etna.Design.Reconstruction.Execution el p state blocks out →\n    Etna.Design.Reconstruction.executeSuffix el p state blocks = Option.some out",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-a6671723c42b6f7d"],
+      "scope": "Blockwise full-EL semantic transitions derive successful suffix execution, including the complete header context."
+    },
+    {
+      "module": "EtnaProofs.Reconstruction",
+      "declaration": "Etna.Design.Reconstruction.execution_stored",
+      "type": "∀ {el : Etna.Design.Reconstruction.Primitives} {base : Nat}\n  {p : Etna.Design.Reconstruction.Point} {state : Etna.Design.Reconstruction.Bytes}\n  {archive : List (Nat × Etna.Design.Reconstruction.Bytes)} {blocks : List Etna.Design.Reconstruction.PublicBlock}\n  {out : Etna.Design.Reconstruction.Executed},\n  Etna.Design.Reconstruction.Stored el base p state archive →\n    Etna.Design.Reconstruction.Execution el p state blocks out →\n      Etna.Design.Reconstruction.Stored el base out.point out.state (out.headers.reverse ++ archive)",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-a6671723c42b6f7d"],
+      "scope": "New-suffix applications extend the saved linked public-header history from its authenticated starting image."
+    },
+    {
+      "module": "EtnaProofs.Reconstruction",
+      "declaration": "Etna.Design.Reconstruction.projected_execution",
+      "type": "∀ {el : Etna.Design.Reconstruction.Primitives}\n  (laws : Etna.Design.Reconstruction.ProjectionLaws el) {r : Etna.Design.BlockValidity.Rules}\n  {p : Etna.Design.BlockValidity.Header} {bs : List Etna.Design.BlockValidity.Block}\n  {state : Etna.Design.Reconstruction.Bytes},\n  Etna.Design.BlockValidity.Chain r p bs →\n    laws.guestRules r →\n      el.stateRoot state = p.stateRoot →\n        ∃ out,\n          Etna.Design.Reconstruction.Execution el { height := p.height, elHash := p.elHash } state\n              (List.map laws.project bs) out ∧\n            out.point =\n                { height := (Etna.Design.BlockValidity.terminal p bs).height,\n                  elHash := (Etna.Design.BlockValidity.terminal p bs).elHash } ∧\n              el.stateRoot out.state = (Etna.Design.BlockValidity.terminal p bs).stateRoot ∧\n                out.applied = List.map (fun b => b.header.height) bs",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-da7985670c04c5db", "EN-a6671723c42b6f7d"],
+      "scope": "Sound guest-rules membership plus byte/header/full-block EL laws construct a successful public suffix execution with exact terminal point/root and applied heights."
+    },
+    {
+      "module": "EtnaProofs.Reconstruction",
+      "declaration": "Etna.Design.Reconstruction.overlap_backwards",
+      "type": "∀ {el : Etna.Design.Reconstruction.Primitives}\n  (laws : Etna.Design.Reconstruction.ProjectionLaws el) {r : Etna.Design.BlockValidity.Rules}\n  {p : Etna.Design.BlockValidity.Header} {bs : List Etna.Design.BlockValidity.Block} {base : Nat}\n  {tip : Etna.Design.Reconstruction.Point} {state : Etna.Design.Reconstruction.Bytes}\n  {archive : List (Nat × Etna.Design.Reconstruction.Bytes)} {incoming : List Etna.Design.Reconstruction.Bytes},\n  Etna.Design.Reconstruction.Stored el base tip state archive →\n    Etna.Design.BlockValidity.Chain r p bs →\n      laws.guestRules r →\n        Etna.Design.Reconstruction.HeaderSeparation el (List.map Prod.snd archive) incoming →\n          (∀ (b : Etna.Design.BlockValidity.Block), b ∈ bs → (laws.project b).header ∈ incoming) →\n            base ≤ p.height →\n              (Etna.Design.BlockValidity.terminal p bs).height ≤ tip.height →\n                Option.map el.headerHash (List.lookup (Etna.Design.BlockValidity.terminal p bs).height archive) =\n                    Option.some (Etna.Design.BlockValidity.terminal p bs).elHash →\n                  Option.map el.headerHash (List.lookup p.height archive) = Option.some p.elHash ∧\n                    ∀ (b : Etna.Design.BlockValidity.Block),\n                      b ∈ bs →\n                        Option.map el.headerHash (List.lookup b.header.height archive) = Option.some b.header.elHash",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-a6671723c42b6f7d"],
+      "scope": "Backward induction from the accepted c hash and actual saved parent links derives every overlapping hash. Collision exclusion is restricted to compared saved/incoming canonical headers."
+    },
+    {
+      "module": "EtnaProofs.Reconstruction",
+      "declaration": "Etna.Design.Reconstruction.overlap_verified",
+      "type": "∀ {el : Etna.Design.Reconstruction.Primitives}\n  (laws : Etna.Design.Reconstruction.ProjectionLaws el) {r : Etna.Design.BlockValidity.Rules}\n  {p : Etna.Design.BlockValidity.Header} {bs : List Etna.Design.BlockValidity.Block}\n  {archive : List (Nat × Etna.Design.Reconstruction.Bytes)},\n  Etna.Design.BlockValidity.Chain r p bs →\n    laws.guestRules r →\n      (∀ (b : Etna.Design.BlockValidity.Block),\n          b ∈ bs → Option.map el.headerHash (List.lookup b.header.height archive) = Option.some b.header.elHash) →\n        Etna.Design.Reconstruction.verifyOverlap el archive { height := p.height, elHash := p.elHash }\n            (List.map laws.project bs) =\n          Option.some\n            { height := (Etna.Design.BlockValidity.terminal p bs).height,\n              elHash := (Etna.Design.BlockValidity.terminal p bs).elHash }",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-a6671723c42b6f7d"],
+      "scope": "Forward public overlap checking succeeds from derived per-header hash agreement and certified public parent links; no EL state is reapplied."
+    },
+    {
+      "module": "EtnaProofs.Reconstruction",
+      "declaration": "Etna.Design.Reconstruction.certified_success",
+      "type": "∀ {el : Etna.Design.Reconstruction.Primitives}\n  {laws : Etna.Design.Reconstruction.ProjectionLaws el} {s : Etna.Design.Reconstruction.Rebuilt}\n  {l : Etna.Design.Reconstruction.Landing} (cert : Etna.Design.Reconstruction.Certification el laws s l),\n  ∃ out,\n    Etna.Design.Reconstruction.Execution el { height := s.checkpoint.height, elHash := s.checkpoint.elHash } s.state\n        (List.map laws.project (List.drop (s.checkpoint.height - cert.parent.height) cert.blocks)) out ∧\n      Etna.Design.Reconstruction.reconstructLanding el s l = Option.some (Etna.Design.Reconstruction.finish s l out) ∧\n        Etna.Design.Reconstruction.step el s (Etna.Design.Reconstruction.Record.landing l) =\n            Option.some (Etna.Design.Reconstruction.finish s l out) ∧\n          out.point = { height := l.input.lastHeight, elHash := l.input.lastBlockHash } ∧\n            el.stateRoot out.state = l.input.lastStateRoot ∧\n              out.applied = List.range' (s.checkpoint.height + 1) (l.input.lastHeight - s.checkpoint.height) ∧\n                Etna.Design.Reconstruction.Stored el s.baseHeight out.point out.state (out.headers.reverse ++ s.archive)",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-da7985670c04c5db", "EN-a6671723c42b6f7d"],
+      "scope": "An actual accepted legacy landing, BatchValid/certificate binding, authenticated public records, available committed bytes and fixed sound codec/EL laws derive reconstruction success and the exact new suffix interval."
+    },
+    {
+      "module": "EtnaProofs.Reconstruction",
+      "declaration": "Etna.Design.Reconstruction.certified_trace_success",
+      "type": "∀ {el : Etna.Design.Reconstruction.Primitives}\n  {laws : Etna.Design.Reconstruction.ProjectionLaws el} {s t : Etna.Design.Reconstruction.Rebuilt}\n  {records : List Etna.Design.Reconstruction.Record},\n  Etna.Design.Reconstruction.ProjectionTrace el laws s records t →\n    Etna.Design.Reconstruction.reconstruct el s records = Option.some t",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-da7985670c04c5db", "EN-a6671723c42b6f7d"],
+      "scope": "Composition of genuine certified projections and authenticated ordinary recovery records derives successful reconstruction of a public stream, without an algorithm-output premise."
+    },
+    {
+      "module": "EtnaProofs.Reconstruction",
+      "declaration": "Etna.Design.Reconstruction.initialized_stored",
+      "type": "∀ {el : Etna.Design.Reconstruction.Primitives}\n  {a : Etna.Design.Reconstruction.Start} {header state : Etna.Design.Reconstruction.Bytes}\n  {s : Etna.Design.Reconstruction.Rebuilt},\n  Etna.Design.Reconstruction.initializeState el a header state = Option.some s →\n    Etna.Design.Reconstruction.Stored el s.baseHeight { height := s.checkpoint.height, elHash := s.checkpoint.elHash }\n        s.state s.archive ∧\n      s.checkpoint = a.checkpoint ∧ el.stateRoot s.state = a.stateRoot",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-e3dbc26926f4114a"],
+      "scope": "Checked initialization supplies a saved header/state history with the authenticated checkpoint and state-root commitment."
+    },
+    {
+      "module": "EtnaProofs.Reconstruction",
+      "declaration": "Etna.Design.Reconstruction.missing_original_rejected",
+      "type": "∀ (el : Etna.Design.Reconstruction.Primitives)\n  (s : Etna.Design.Reconstruction.Rebuilt) (l : Etna.Design.Reconstruction.Landing),\n  l.original = Option.none → Etna.Design.Reconstruction.reconstructLanding el s l = Option.none",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-a6671723c42b6f7d"],
+      "scope": "missing original rejected: explicit public reconstruction failure/frame guard; no implementation-level correctness claim."
+    },
+    {
+      "module": "EtnaProofs.Reconstruction",
+      "declaration": "Etna.Design.Reconstruction.unsupported_version_rejected",
+      "type": "∀ (el : Etna.Design.Reconstruction.Primitives)\n  (s : Etna.Design.Reconstruction.Rebuilt) (l : Etna.Design.Reconstruction.Landing),\n  l.version ≠ 6 → Etna.Design.Reconstruction.reconstructLanding el s l = Option.none",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-a6671723c42b6f7d"],
+      "scope": "unsupported version rejected: explicit public reconstruction failure/frame guard; no implementation-level correctness claim."
+    },
+    {
+      "module": "EtnaProofs.Reconstruction",
+      "declaration": "Etna.Design.Reconstruction.unauthenticated_record_rejected",
+      "type": "∀ (el : Etna.Design.Reconstruction.Primitives)\n  (s : Etna.Design.Reconstruction.Rebuilt) (r : Etna.Design.Reconstruction.Record),\n  el.authenticateRecord r = Bool.false → Etna.Design.Reconstruction.step el s r = Option.none",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-a6671723c42b6f7d"],
+      "scope": "unauthenticated record rejected: explicit public reconstruction failure/frame guard; no implementation-level correctness claim."
+    },
+    {
+      "module": "EtnaProofs.Reconstruction",
+      "declaration": "Etna.Design.Reconstruction.blob_mismatch_rejected",
+      "type": "∀ (el : Etna.Design.Reconstruction.Primitives)\n  (s : Etna.Design.Reconstruction.Rebuilt) (l : Etna.Design.Reconstruction.Landing)\n  (raw : List Etna.Design.Reconstruction.Bytes),\n  l.original = Option.some raw →\n    List.map el.versionedHash raw ≠ l.blobHashes → Etna.Design.Reconstruction.reconstructLanding el s l = Option.none",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-a6671723c42b6f7d"],
+      "scope": "blob mismatch rejected: explicit public reconstruction failure/frame guard; no implementation-level correctness claim."
+    },
+    {
+      "module": "EtnaProofs.Reconstruction",
+      "declaration": "Etna.Design.Reconstruction.broken_parent_rejected",
+      "type": "∀ (el : Etna.Design.Reconstruction.Primitives)\n  (p : Etna.Design.Reconstruction.Point) (b : Etna.Design.Reconstruction.PublicBlock)\n  (h : Etna.Design.Reconstruction.HeaderFields),\n  el.readHeader b.header = Option.some h →\n    h.parentHash ≠ p.elHash → Etna.Design.Reconstruction.nextPoint el p b = Option.none",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-be2a860da03d44e4"],
+      "scope": "broken parent rejected: explicit public reconstruction failure/frame guard; no implementation-level correctness claim."
+    },
+    {
+      "module": "EtnaProofs.Reconstruction",
+      "declaration": "Etna.Design.Reconstruction.overlap_head_checked",
+      "type": "∀ {el : Etna.Design.Reconstruction.Primitives}\n  {archive : List (Nat × Etna.Design.Reconstruction.Bytes)} {p q : Etna.Design.Reconstruction.Point}\n  {b : Etna.Design.Reconstruction.PublicBlock} {bs : List Etna.Design.Reconstruction.PublicBlock},\n  Etna.Design.Reconstruction.verifyOverlap el archive p (b :: bs) = Option.some q →\n    ∃ next,\n      Etna.Design.Reconstruction.nextPoint el p b = Option.some next ∧\n        Option.map el.headerHash (List.lookup next.height archive) = Option.some next.elHash",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-a6671723c42b6f7d"],
+      "scope": "overlap head checked: explicit public reconstruction failure/frame guard; no implementation-level correctness claim."
+    },
+    {
+      "module": "EtnaProofs.Reconstruction",
+      "declaration": "Etna.Design.Reconstruction.recovery_preserves_execution",
+      "type": "∀ {s t : Etna.Design.Reconstruction.Rebuilt}\n  {r : Etna.Design.Reconstruction.RecoveryRecord},\n  Etna.Design.Reconstruction.recover s r = Option.some t →\n    t.checkpoint = s.checkpoint ∧\n      t.state = s.state ∧\n        t.archive = s.archive ∧\n          t.applied = s.applied ∧\n            t.origin = r.nextOrigin ∧ t.origin.height = s.checkpoint.height ∧ t.generation = s.generation + 1",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-a6671723c42b6f7d"],
+      "scope": "recovery preserves execution: explicit public reconstruction failure/frame guard; no implementation-level correctness claim."
+    },
+    {
+      "module": "EtnaProofs.Reconstruction",
+      "declaration": "Etna.Design.Reconstruction.certified_exactly_once",
+      "type": "∀ {el : Etna.Design.Reconstruction.Primitives}\n  {laws : Etna.Design.Reconstruction.ProjectionLaws el} {s : Etna.Design.Reconstruction.Rebuilt}\n  {l : Etna.Design.Reconstruction.Landing} (cert : Etna.Design.Reconstruction.Certification el laws s l),\n  ∃ out,\n    Etna.Design.Reconstruction.reconstructLanding el s l = Option.some (Etna.Design.Reconstruction.finish s l out) ∧\n      out.applied.Nodup ∧ ∀ (h : Nat), h ∈ out.applied ↔ s.checkpoint.height < h ∧ h ≤ l.input.lastHeight",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-a6671723c42b6f7d"],
+      "scope": "Each certified landing applies precisely heights c<h<=target, with no duplicates. Exactly-once means EL state application, not overlap hash reads."
+    },
+    {
+      "module": "EtnaProofs.Reconstruction",
+      "declaration": "Etna.Design.Reconstruction.certified_result",
+      "type": "∀ {el : Etna.Design.Reconstruction.Primitives}\n  {laws : Etna.Design.Reconstruction.ProjectionLaws el} {s : Etna.Design.Reconstruction.Rebuilt}\n  {l : Etna.Design.Reconstruction.Landing} (cert : Etna.Design.Reconstruction.Certification el laws s l),\n  ∃ t,\n    Etna.Design.Reconstruction.step el s (Etna.Design.Reconstruction.Record.landing l) = Option.some t ∧\n      t.checkpoint = cert.after.checkpoint ∧\n        el.stateRoot t.state = l.input.lastStateRoot ∧\n          t.generation = s.generation ∧\n            t.origin = s.origin ∧\n              t.applied =\n                  s.applied ++ List.range' (s.checkpoint.height + 1) (l.input.lastHeight - s.checkpoint.height) ∧\n                Etna.Design.Reconstruction.Stored el t.baseHeight\n                  { height := t.checkpoint.height, elHash := t.checkpoint.elHash } t.state t.archive",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-a6671723c42b6f7d"],
+      "scope": "The actual returned public state has the certified terminal stateRoot and original Inbox checkpoint, including its authenticated Comet hash/cursor, plus retained linked header history."
+    },
+    {
+      "module": "EtnaProofs.Reconstruction",
+      "declaration": "Etna.Design.Reconstruction.actual_recovery_projection",
+      "type": "∀ {s : Etna.Design.Reconstruction.Rebuilt}\n  {before after : Etna.Design.Recovery.World} {request : Etna.Design.Recovery.Request}\n  {config : Etna.Design.Recovery.Config} {next : Etna.Design.Origin} {owner externalOK : Bool},\n  Etna.Design.Recovery.recover before request config next owner externalOK = Option.some after →\n    s.generation = before.inbox.generation ∧ s.origin = before.inbox.origin ∧ s.checkpoint = before.inbox.checkpoint →\n      ∀ (order : Nat),\n        s.order < order →\n          before.inbox.origin.l1Block ≤ next.l1Block →\n            ∀ (evidence : Etna.Design.Reconstruction.Bytes),\n              Etna.Design.Reconstruction.recover s\n                  { order := order, generation := before.inbox.generation, origin := before.inbox.origin,\n                    current := before.inbox.checkpoint, nextOrigin := next, l1Evidence := evidence } =\n                Option.some\n                  { generation := after.inbox.generation, origin := after.inbox.origin, checkpoint := s.checkpoint,\n                    baseHeight := s.baseHeight, state := s.state, archive := s.archive, applied := s.applied,\n                    order := order }",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-a6671723c42b6f7d"],
+      "scope": "Original accepted ordinary recovery supplies the public generation/origin update; canonical recovery L1 blocks may be equal."
+    },
+    {
+      "module": "EtnaProofs.Reconstruction",
+      "declaration": "Etna.Design.Reconstruction.wrong_recovery_origin_rejected",
+      "type": "∀ (s : Etna.Design.Reconstruction.Rebuilt)\n  (r : Etna.Design.Reconstruction.RecoveryRecord),\n  r.nextOrigin.height ≠ r.current.height → Etna.Design.Reconstruction.recover s r = Option.none",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-a6671723c42b6f7d"],
+      "scope": "wrong recovery origin rejected: explicit public reconstruction failure/frame guard; no implementation-level correctness claim."
+    },
+    {
+      "module": "EtnaProofs.Reconstruction",
+      "declaration": "Etna.Design.Reconstruction.wrong_generation_rejected",
+      "type": "∀ (el : Etna.Design.Reconstruction.Primitives)\n  (s : Etna.Design.Reconstruction.Rebuilt) (l : Etna.Design.Reconstruction.Landing),\n  s.generation ≠ l.generation → Etna.Design.Reconstruction.reconstructLanding el s l = Option.none",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-a6671723c42b6f7d"],
+      "scope": "wrong generation rejected: explicit public reconstruction failure/frame guard; no implementation-level correctness claim."
+    },
+    {
+      "module": "EtnaProofs.Reconstruction",
+      "declaration": "Etna.Design.Reconstruction.wrong_fixed_origin_rejected",
+      "type": "∀ (el : Etna.Design.Reconstruction.Primitives)\n  (s : Etna.Design.Reconstruction.Rebuilt) (l : Etna.Design.Reconstruction.Landing),\n  s.origin ≠ l.origin → Etna.Design.Reconstruction.reconstructLanding el s l = Option.none",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-a6671723c42b6f7d"],
+      "scope": "wrong fixed origin rejected: explicit public reconstruction failure/frame guard; no implementation-level correctness claim."
+    },
+    {
+      "module": "EtnaProofs.Reconstruction",
+      "declaration": "Etna.Design.Reconstruction.incomplete_range_rejected",
+      "type": "∀ (el : Etna.Design.Reconstruction.Primitives)\n  (s : Etna.Design.Reconstruction.Rebuilt) (l : Etna.Design.Reconstruction.Landing)\n  (raw : List Etna.Design.Reconstruction.Bytes) (blocks : List Etna.Design.Reconstruction.PublicBlock),\n  l.original = Option.some raw →\n    el.decodePayload l.version raw = Option.some blocks →\n      blocks.length ≠ l.input.lastHeight - l.input.parentHeight →\n        Etna.Design.Reconstruction.reconstructLanding el s l = Option.none",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-a6671723c42b6f7d"],
+      "scope": "incomplete range rejected: explicit public reconstruction failure/frame guard; no implementation-level correctness claim."
+    },
+    {
+      "module": "EtnaProofs.Reconstruction",
+      "declaration": "Etna.Design.Reconstruction.certified_trace_interval",
+      "type": "∀ {el : Etna.Design.Reconstruction.Primitives}\n  {laws : Etna.Design.Reconstruction.ProjectionLaws el} {s t : Etna.Design.Reconstruction.Rebuilt}\n  {records : List Etna.Design.Reconstruction.Record},\n  Etna.Design.Reconstruction.ProjectionTrace el laws s records t →\n    s.checkpoint.height ≤ t.checkpoint.height ∧\n      t.applied = s.applied ++ List.range' (s.checkpoint.height + 1) (t.checkpoint.height - s.checkpoint.height)",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-a6671723c42b6f7d"],
+      "scope": "Across overlapping landings and ordinary recoveries, state applications append exactly one contiguous interval from the starting execution frontier."
+    },
+    {
+      "module": "EtnaProofs.Reconstruction",
+      "declaration": "Etna.Design.Reconstruction.landing_result_checked",
+      "type": "∀ {el : Etna.Design.Reconstruction.Primitives}\n  {s t : Etna.Design.Reconstruction.Rebuilt} {l : Etna.Design.Reconstruction.Landing},\n  Etna.Design.Reconstruction.reconstructLanding el s l = Option.some t →\n    t.checkpoint = l.checkpoint ∧ el.stateRoot t.state = l.input.lastStateRoot",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["EN-a6671723c42b6f7d"],
+      "scope": "Any successful public landing returns the compared target checkpoint/state-root; this rejection property complements, rather than replaces, constructive certified completeness."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Reconstruction",
+      "declaration": "Etna.Design.ReconstructionRegression.authenticated_start",
+      "type": "Etna.Design.Reconstruction.initializeState\n    Etna.Design.ReconstructionRegression.el Etna.Design.ReconstructionRegression.start\n    (Etna.Design.ReconstructionRegression.headerBytes 0) (Etna.Design.ReconstructionRegression.stateImage 0) =\n  Option.some Etna.Design.ReconstructionRegression.initial",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-e3dbc26926f4114a"],
+      "scope": "Concrete kernel witness: authenticated start. Fixed finite adapters include explicit header system effects and nonempty original/recovery guest-rule domains with actual accepted certificates."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Reconstruction",
+      "declaration": "Etna.Design.ReconstructionRegression.overlap_succeeds",
+      "type": "Etna.Design.ReconstructionRegression.overlapResult =\n  Option.some Etna.Design.ReconstructionRegression.settled",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-a6671723c42b6f7d"],
+      "scope": "Concrete kernel witness: overlap succeeds. Fixed finite adapters include explicit header system effects and nonempty original/recovery guest-rule domains with actual accepted certificates."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Reconstruction",
+      "declaration": "Etna.Design.ReconstructionRegression.recovery_origin_succeeds",
+      "type": "Etna.Design.ReconstructionRegression.recoveredResult =\n  Option.some Etna.Design.ReconstructionRegression.recovered",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-a6671723c42b6f7d"],
+      "scope": "Concrete kernel witness: recovery origin succeeds. Fixed finite adapters include explicit header system effects and nonempty original/recovery guest-rule domains with actual accepted certificates."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Reconstruction",
+      "declaration": "Etna.Design.ReconstructionRegression.missing_rejected",
+      "type": "Etna.Design.ReconstructionRegression.missingResult = Option.none",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-a6671723c42b6f7d"],
+      "scope": "Concrete kernel witness: missing rejected. Fixed finite adapters include explicit header system effects and nonempty original/recovery guest-rule domains with actual accepted certificates."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Reconstruction",
+      "declaration": "Etna.Design.ReconstructionRegression.system_effects_and_once",
+      "type": "Etna.Design.ReconstructionRegression.settled.state =\n    [4, 24, 14, 3, 7] ∧\n  Etna.Design.ReconstructionRegression.settled.applied = [1, 2, 3, 4] ∧\n    Etna.Design.ReconstructionRegression.recovered.state = [6, 36, 26, 5, 7] ∧\n      Etna.Design.ReconstructionRegression.recovered.applied = [1, 2, 3, 4, 5, 6]",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-a6671723c42b6f7d"],
+      "scope": "Concrete kernel witness: system effects and once. Fixed finite adapters include explicit header system effects and nonempty original/recovery guest-rule domains with actual accepted certificates."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Reconstruction",
+      "declaration": "Etna.Design.ReconstructionRegression.competing_frontier",
+      "type": "Option.map Etna.Design.Reconstruction.Rebuilt.state\n      (Etna.Design.Reconstruction.reconstructLanding Etna.Design.ReconstructionRegression.el\n        Etna.Design.ReconstructionRegression.initial\n        (have __src := Etna.Design.ReconstructionRegression.second;\n        { order := __src.order, generation := __src.generation, origin := __src.origin,\n          current := Etna.Design.ReconstructionRegression.initial.checkpoint, parent := __src.parent,\n          input := __src.input, blobHashes := __src.blobHashes, version := __src.version, original := __src.original,\n          l1Evidence := __src.l1Evidence })) =\n    Option.some Etna.Design.ReconstructionRegression.settled.state ∧\n  Option.map Etna.Design.Reconstruction.Rebuilt.state\n        (Etna.Design.Reconstruction.reconstructLanding Etna.Design.ReconstructionRegression.el\n          Etna.Design.ReconstructionRegression.atTwo Etna.Design.ReconstructionRegression.second) =\n      Option.some Etna.Design.ReconstructionRegression.settled.state ∧\n    Option.map Etna.Design.Reconstruction.Rebuilt.applied\n        (Etna.Design.Reconstruction.reconstructLanding Etna.Design.ReconstructionRegression.el\n          Etna.Design.ReconstructionRegression.atTwo Etna.Design.ReconstructionRegression.second) =\n      Option.some [1, 2, 3, 4]",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-a6671723c42b6f7d"],
+      "scope": "Concrete kernel witness: competing frontier. Fixed finite adapters include explicit header system effects and nonempty original/recovery guest-rule domains with actual accepted certificates."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Reconstruction",
+      "declaration": "Etna.Design.ReconstructionRegression.inconsistent_material_rejected",
+      "type": "Etna.Design.Reconstruction.reconstructLanding\n      Etna.Design.ReconstructionRegression.el Etna.Design.ReconstructionRegression.atTwo\n      (have __src := Etna.Design.ReconstructionRegression.second;\n      { order := __src.order, generation := __src.generation, origin := __src.origin, current := __src.current,\n        parent := __src.parent, input := __src.input, blobHashes := __src.blobHashes, version := 7,\n        original := __src.original, l1Evidence := __src.l1Evidence }) =\n    Option.none ∧\n  Etna.Design.Reconstruction.reconstructLanding Etna.Design.ReconstructionRegression.el\n        Etna.Design.ReconstructionRegression.atTwo\n        (have __src := Etna.Design.ReconstructionRegression.second;\n        { order := __src.order, generation := __src.generation, origin := __src.origin, current := __src.current,\n          parent := __src.parent, input := __src.input, blobHashes := __src.blobHashes, version := __src.version,\n          original := Option.some [[3]], l1Evidence := __src.l1Evidence }) =\n      Option.none ∧\n    Etna.Design.Reconstruction.reconstructLanding Etna.Design.ReconstructionRegression.el\n          (have __src := Etna.Design.ReconstructionRegression.atTwo;\n          { generation := __src.generation, origin := __src.origin, checkpoint := __src.checkpoint,\n            baseHeight := __src.baseHeight, state := __src.state,\n            archive :=\n              [(2, Etna.Design.ReconstructionRegression.headerBytes 2),\n                (1, Etna.Design.ReconstructionRegression.headerBytes 9),\n                (0, Etna.Design.ReconstructionRegression.headerBytes 0)],\n            applied := __src.applied, order := __src.order })\n          Etna.Design.ReconstructionRegression.second =\n        Option.none ∧\n      Etna.Design.Reconstruction.reconstructLanding Etna.Design.ReconstructionRegression.el\n            Etna.Design.ReconstructionRegression.afterRecovery\n            (have __src := Etna.Design.ReconstructionRegression.third;\n            { order := __src.order, generation := __src.generation,\n              origin := Etna.Design.ReconstructionRegression.start.origin, current := __src.current,\n              parent := __src.parent, input := __src.input, blobHashes := __src.blobHashes, version := __src.version,\n              original := __src.original, l1Evidence := __src.l1Evidence }) =\n          Option.none ∧\n        Etna.Design.Reconstruction.reconstructLanding Etna.Design.ReconstructionRegression.el\n            Etna.Design.ReconstructionRegression.afterRecovery\n            (have __src := Etna.Design.ReconstructionRegression.third;\n            { order := __src.order, generation := 0, origin := __src.origin, current := __src.current,\n              parent := __src.parent, input := __src.input, blobHashes := __src.blobHashes, version := __src.version,\n              original := __src.original, l1Evidence := __src.l1Evidence }) =\n          Option.none",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-a6671723c42b6f7d"],
+      "scope": "Concrete kernel witness: inconsistent material rejected. Fixed finite adapters include explicit header system effects and nonempty original/recovery guest-rule domains with actual accepted certificates."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Reconstruction",
+      "declaration": "Etna.Design.ReconstructionRegression.incomplete_blocks_rejected",
+      "type": "Etna.Design.Reconstruction.reconstructLanding\n    (have __src := Etna.Design.ReconstructionRegression.el;\n    { configuration := __src.configuration, ruleVersion := __src.ruleVersion, readHeader := __src.readHeader,\n      headerHash := __src.headerHash, stateRoot := __src.stateRoot, versionedHash := __src.versionedHash,\n      decodePayload := fun x x_1 =>\n        Option.some\n          [Etna.Design.ReconstructionRegression.publicBlock 1, Etna.Design.ReconstructionRegression.publicBlock 2,\n            Etna.Design.ReconstructionRegression.publicBlock 3],\n      executeFullBlock := __src.executeFullBlock, authenticateStart := __src.authenticateStart,\n      authenticateRecord := __src.authenticateRecord })\n    Etna.Design.ReconstructionRegression.atTwo Etna.Design.ReconstructionRegression.second =\n  Option.none",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-a6671723c42b6f7d"],
+      "scope": "Concrete kernel witness: incomplete blocks rejected. Fixed finite adapters include explicit header system effects and nonempty original/recovery guest-rule domains with actual accepted certificates."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Reconstruction",
+      "declaration": "Etna.Design.ReconstructionRegression.actual_recovery",
+      "type": "Etna.Design.Recovery.recover\n    Etna.Design.ReconstructionRegression.recoveryWorld Etna.Design.ReconstructionRegression.recoveryRequest\n    Etna.Design.ReconstructionRegression.recoveryConfig Etna.Design.ReconstructionRegression.recovery.nextOrigin\n    Bool.true Bool.true =\n  Option.some Etna.Design.ReconstructionRegression.recoveryResult",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-a6671723c42b6f7d"],
+      "scope": "Concrete kernel witness: actual recovery. Fixed finite adapters include explicit header system effects and nonempty original/recovery guest-rule domains with actual accepted certificates."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Reconstruction",
+      "declaration": "Etna.Design.ReconstructionRegression.actual_certified_trace",
+      "type": "Etna.Design.Reconstruction.ProjectionTrace\n  Etna.Design.ReconstructionRegression.el Etna.Design.ReconstructionRegression.laws\n  Etna.Design.ReconstructionRegression.initial\n  [Etna.Design.Reconstruction.Record.landing Etna.Design.ReconstructionRegression.first,\n    Etna.Design.Reconstruction.Record.landing Etna.Design.ReconstructionRegression.second,\n    Etna.Design.Reconstruction.Record.recovery Etna.Design.ReconstructionRegression.recovery,\n    Etna.Design.Reconstruction.Record.landing Etna.Design.ReconstructionRegression.third]\n  Etna.Design.ReconstructionRegression.recovered",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-a6671723c42b6f7d"],
+      "scope": "Concrete kernel witness: actual certified trace. Fixed finite adapters include explicit header system effects and nonempty original/recovery guest-rule domains with actual accepted certificates."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Reconstruction",
+      "declaration": "Etna.Design.ReconstructionRegression.certified_reconstruction",
+      "type": "Etna.Design.Reconstruction.reconstructPublic\n    Etna.Design.ReconstructionRegression.el Etna.Design.ReconstructionRegression.start\n    (Etna.Design.ReconstructionRegression.headerBytes 0) (Etna.Design.ReconstructionRegression.stateImage 0)\n    [Etna.Design.Reconstruction.Record.landing Etna.Design.ReconstructionRegression.first,\n      Etna.Design.Reconstruction.Record.landing Etna.Design.ReconstructionRegression.second,\n      Etna.Design.Reconstruction.Record.recovery Etna.Design.ReconstructionRegression.recovery,\n      Etna.Design.Reconstruction.Record.landing Etna.Design.ReconstructionRegression.third] =\n  Option.some Etna.Design.ReconstructionRegression.recovered",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-a6671723c42b6f7d"],
+      "scope": "Concrete kernel witness: certified reconstruction. Fixed finite adapters include explicit header system effects and nonempty original/recovery guest-rule domains with actual accepted certificates."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Reconstruction",
+      "declaration": "Etna.Design.ReconstructionRegression.actual_suffix_only",
+      "type": "∃ out,\n  Etna.Design.Reconstruction.reconstructLanding Etna.Design.ReconstructionRegression.el\n        Etna.Design.ReconstructionRegression.atTwo Etna.Design.ReconstructionRegression.second =\n      Option.some\n        (Etna.Design.Reconstruction.finish Etna.Design.ReconstructionRegression.atTwo\n          Etna.Design.ReconstructionRegression.second out) ∧\n    out.applied.Nodup ∧ ∀ (h : Nat), h ∈ out.applied ↔ 2 < h ∧ h ≤ 4",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-a6671723c42b6f7d"],
+      "scope": "Concrete kernel witness: actual suffix only. Fixed finite adapters include explicit header system effects and nonempty original/recovery guest-rule domains with actual accepted certificates."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Reconstruction",
+      "declaration": "Etna.Design.ReconstructionRegression.same_block_recoveries",
+      "type": "Etna.Design.Recovery.recover\n      Etna.Design.ReconstructionRegression.recoveryWorld Etna.Design.ReconstructionRegression.recoveryRequest\n      Etna.Design.ReconstructionRegression.recoveryConfig Etna.Design.ReconstructionRegression.recovery.nextOrigin\n      Bool.true Bool.true =\n    Option.some Etna.Design.ReconstructionRegression.recoveryResult ∧\n  Etna.Design.Recovery.recover Etna.Design.ReconstructionRegression.recoveryResult\n        Etna.Design.ReconstructionRegression.repeatedRequest Etna.Design.ReconstructionRegression.recoveryConfig\n        Etna.Design.ReconstructionRegression.recovery.nextOrigin Bool.true Bool.true =\n      Option.some Etna.Design.ReconstructionRegression.repeatedWorld ∧\n    Etna.Design.ReconstructionRegression.repeatedWorld.inbox.generation = 2 ∧\n      Etna.Design.ReconstructionRegression.repeatedWorld.inbox.recoveryNonce = 2 ∧\n        Etna.Design.Reconstruction.reconstruct Etna.Design.ReconstructionRegression.el\n            Etna.Design.ReconstructionRegression.initial\n            [Etna.Design.Reconstruction.Record.landing Etna.Design.ReconstructionRegression.first,\n              Etna.Design.Reconstruction.Record.landing Etna.Design.ReconstructionRegression.second,\n              Etna.Design.Reconstruction.Record.recovery Etna.Design.ReconstructionRegression.recovery,\n              Etna.Design.Reconstruction.Record.recovery Etna.Design.ReconstructionRegression.repeatedRecovery] =\n          Option.some Etna.Design.ReconstructionRegression.afterRepeatedRecovery",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["EN-a6671723c42b6f7d"],
+      "scope": "Concrete kernel witness: two actual accepted recoveries in the same L1 block advance generation/nonce and public transaction order while preserving the exact reconstructed state. No strict L1 block increase is required."
+    },
+    {
+      "module": "EtnaProofs.Reconstruction",
+      "declaration": "Etna.Design.Reconstruction.checked_public_reconstruction",
+      "type": "∀ {el : Etna.Design.Reconstruction.Primitives}\n  {laws : Etna.Design.Reconstruction.ProjectionLaws el} {a : Etna.Design.Reconstruction.Start}\n  {header state : Etna.Design.Reconstruction.Bytes} {h : Etna.Design.Reconstruction.HeaderFields}\n  {records : List Etna.Design.Reconstruction.Record} {t : Etna.Design.Reconstruction.Rebuilt},\n  el.authenticateStart a = Bool.true →\n    el.readHeader header = Option.some h →\n      a.configuration = el.configuration ∧\n          a.ruleVersion = el.ruleVersion ∧\n            h.height = a.checkpoint.height ∧\n              el.headerHash header = a.checkpoint.elHash ∧\n                h.stateRoot = a.stateRoot ∧ el.stateRoot state = a.stateRoot →\n        Etna.Design.Reconstruction.ProjectionTrace el laws\n            { generation := a.generation, origin := a.origin, checkpoint := a.checkpoint, baseHeight := h.height,\n              state := state, archive := [(h.height, header)], applied := [], order := a.order }\n            records t →\n          Etna.Design.Reconstruction.reconstructPublic el a header state records = Option.some t",
+      "assumptions": [
+        "Canonical finalized L1 starting/landing/recovery records and authenticated complete starting state/code/configuration. Order is a canonical transaction ordinal, distinct from L1 block number. Real L1/MPT and state/hash commitments are external.",
+        "One fixed public header/blob decoder, versioned/header hashes and full-block deterministic EL primitive. ProjectionLaws binds actual certified private batches to complete public header bytes and ordered EIP-2718 bytes only for an explicit sound guest-rules domain. Full EL includes header-dependent EIP-4788/2935 pre-execution effects; no concrete codecs, KZG, cryptography or EVM implementation verification.",
+        "Availability of the original complete committed blob range and collision exclusion for only the finite saved/incoming public headers compared. Overlap identity is derived backward from the actual accepted c cut. Private certificate witnesses occur only in proofs; the algorithm never receives private Comet history/envelopes or L2 RPC state. Ordinary recovery is covered; exceptional rollback requires a separately authenticated restart. No unconditional availability/liveness or launch-resource acceptance."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["EN-e3dbc26926f4114a", "EN-a6671723c42b6f7d"],
+      "scope": "The complete public entry point derives success from low-level authenticated starting-header/state/configuration checks and certified semantic trace composition; no unchecked Rebuilt snapshot is accepted at this entry point."
     }
   ]
 }

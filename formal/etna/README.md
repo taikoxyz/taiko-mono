@@ -831,3 +831,15 @@ the headline-theorem restructure; [history/state results](reports/history-state-
 [design findings](reports/design-findings.md) are historical. [Rule coverage](reports/rule-coverage.md)
 is generated. Old report counts and line-number
 source IDs describe their original revisions.
+
+## Public settled EL reconstruction
+
+`Reconstruction` adds an executable public-input model and conditional reconstruction
+success proofs: full encoded EL headers and ordered transaction bytes, canonical L1
+landing/recovery records, and complete authenticated starting state. It derives overlap
+agreement backward from the accepted frontier cut, applies only the new suffix, and
+checks the returned EL state and public checkpoint. Trace proofs cover ordinary recovery
+origins and exactly-once state application. Fixed codec/crypto/full-block EL semantics and
+original-blob availability remain explicit external contracts; private consensus history
+is not an algorithm input. See [the verification report](reports/public-reconstruction-verification.md)
+for theorem scope, non-vacuous fixtures and semantic mutation evidence.
