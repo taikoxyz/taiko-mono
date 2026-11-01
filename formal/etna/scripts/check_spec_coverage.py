@@ -14,9 +14,9 @@ or not derived) and `regression` edges never do.
 The role text is not trusted: the proof audit (scripts/EtnaAudit.lean, checkContract)
 checks each `property`/`supporting` role both ways against the kernel type and proof term.
 
-The authorities are the in-repo SPEC.md and ACCEPTANCE.md, independently pinned in
+The authorities are the in-repo SPEC.md, ACCEPTANCE.md and ANCHORLESS.md, independently pinned in
 spec-coverage.json by source path, reviewed Git commit, revision date and SHA-256.
-No editor-export manifest is needed. Any edit to either document's text fails this check
+No editor-export manifest is needed. Any edit to an authority's text fails this check
 until the clause links are reviewed against the new text and its pin is updated. The pin
 and the clauses cover the text with rule-reference markers removed (strip_markers).
 
@@ -36,8 +36,10 @@ REPO = ROOT.parents[1]
 SPEC_DIR = 'packages/protocol/docs/etna'
 SPEC_PATH = SPEC_DIR+'/SPEC.md'
 ACCEPTANCE_PATH = SPEC_DIR+'/ACCEPTANCE.md'
+ANCHORLESS_PATH = SPEC_DIR+'/ANCHORLESS.md'
 SOURCE_INPUTS = (('source', 'spec', SPEC_PATH, 'en'),
-                 ('acceptance_source', 'acceptance', ACCEPTANCE_PATH, 'acceptance'))
+                 ('acceptance_source', 'acceptance', ACCEPTANCE_PATH, 'acceptance'),
+                 ('anchorless_source', 'anchorless', ANCHORLESS_PATH, 'anchorless'))
 ROLES = {'property', 'constant', 'supporting', 'regression'}
 PARTIAL_ROLES = {'property', 'constant'}
 SCOPE = 'conditional decoded specification property only'
@@ -154,7 +156,9 @@ def source_rows(root=ROOT, repo=REPO):
     spec = json.loads((root/'spec-coverage.json').read_text())
     result = []
     for key, label, path, language in SOURCE_INPUTS:
-        source = spec[key]
+        source = spec.get(key)
+        if not isinstance(source, dict):
+            raise ValueError(f'{label} reviewed source pin required')
         if source.get('path') != path:
             raise ValueError(f'the {label} source must be '+path)
         if not re.fullmatch(r'[0-9a-f]{40}', source.get('commit', '')):
@@ -264,7 +268,7 @@ def main():
     args = parser.parse_args()
     try:
         rows = inventory(args.root, args.repo)
-        print(f'Validated {len(rows)} source clauses of {SPEC_PATH} and {ACCEPTANCE_PATH}, explicit claim edges and roles; '+str(dict(Counter(r['status'] for r in rows))))
+        print(f'Validated {len(rows)} source clauses of {SPEC_PATH}, {ACCEPTANCE_PATH} and {ANCHORLESS_PATH}, explicit claim edges and roles; '+str(dict(Counter(r['status'] for r in rows))))
         return 0
     except (ValueError,KeyError,OSError,TypeError) as exc:
         print('spec coverage failed: '+str(exc),file=sys.stderr)

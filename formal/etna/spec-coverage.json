@@ -17,7 +17,8 @@
     "journal": "ProtocolState composes decoded landing/registry/FI/recovery/rollback transactions under nondecreasing L1 time and structural initial invariants. EVM atomicity, trusted rollback target/snapshot, authenticated DAO-owner calls and node trust remain external; irreversible payouts are not restored.",
     "deployment": "Stored initialized L, genesisCutoff, K, maxAnchorAge and forcedInclusionDelay, the committee-0 and config commitments, and their authenticated ghost openings: the 4-field config opening (vp_unit, s_min, n_max, U), which the config commitment hashes as seven ABI words together with the domain tag, l2ChainId and registry, and the committee-0 record; plus the World's fixed hash adapters. Every modeled transition preserves them and no transaction input chooses them. Opening authentication and real hash/preimage separation are explicit external assumptions (the representable_opening_unique premise; Premises.hashSeparation for the deployment's own commitment), not proven by a free Rules field.",
     "accounting": "Logical TAIKO principal over allocated slots and successful nominal receipt values; ReleasedZero is required initially and proved from empty lifecycle states. ERC20 custody equality additionally requires exact incoming/outgoing transfers, atomic failure and an initial endowment matching liabilities. ETH fees are separate. No fee-on-transfer, rebase or token callback implementation is verified.",
-    "signing": "ObservedCall contains the actual existing Signer.sign result and decoded message/key/signature bindings. TrustedPrefix authenticates a typed own-finalized view and matching replay, EngineRequest states the producer refinement. Real adapters/engine enforcement remain external. A confirmation must causally precede that view and be included in the common replay/source; global L1 freshness does not follow from ready/trusted. Cached returns, unrestricted rollback and continuous positive collateral are separate."
+    "signing": "ObservedCall contains the actual existing Signer.sign result and decoded message/key/signature bindings. TrustedPrefix authenticates a typed own-finalized view and matching replay, EngineRequest states the producer refinement. Real adapters/engine enforcement remain external. A confirmation must causally precede that view and be included in the common replay/source; global L1 freshness does not follow from ready/trusted. Cached returns, unrestricted rollback and continuous positive collateral are separate.",
+    "anchorless": "Canonical L1 root-at-number ancestry and decoded storage-proof soundness, ideal EIP timestamp/root writes and getter behavior, identical builder/importer/prover pre-execution, and atomic authorized decoded upgrade transactions. Raw histories derive root/cache/namespace guarantees; MPT, EIP bytecode, crypto/encoding, deployment transport, legacy Bridge authorization and payouts remain external. The model has no stale proposal-flow production rule or production activation claim. A single fixed service slot adapter derives the slot from source chain/app/signal. Isolation requires explicit distinct derived slots; no unconditional finite-hash injectivity is assumed."
   },
   "design_pending": [
     "EN-fac3b57a8c83d321",
@@ -514,18 +515,9 @@
       "status": "proved",
       "scope": "conditional decoded specification property only",
       "description": "Under explicit anchor honesty (an L1 clock that never runs backwards, queue entries carrying their enqueue block's timestamp, accepted anchors reporting their own block's timestamp and counting every entry enqueued at or before it) and a positive FI delay, every block of a valid chain with block.timestamp >= entry.timestamp + forcedInclusionDelay + maxAnchorAge sees the queue entry at its parent's cursor as due: its anchor shows the entry pending and its delay elapsed (7.3's block-time bound). Under the headline premises, the supporting honest_anchor_queue_service then has every landed block consume it. Anchor authentication itself remains a guest obligation; no wall-clock deadline is claimed.",
-      "assumptions": [
-        "l1",
-        "payload",
-        "el",
-        "hash",
-        "journal",
-        "deployment"
-      ],
+      "assumptions": ["l1", "payload", "el", "hash", "journal", "deployment"],
       "evidence": {
-        "EN-1ee6db9f8ebb8410": [
-          "Etna.Proofs.honest_anchor_chain_sees_due"
-        ]
+        "EN-1ee6db9f8ebb8410": ["Etna.Proofs.honest_anchor_chain_sees_due"]
       }
     },
     {
@@ -533,11 +525,7 @@
       "status": "proved",
       "scope": "conditional decoded specification property only",
       "description": "A verifier-failure rollback that restores the checkpoint and slot 284 a trusted landing wrote, within that landing's generation, keeps slot 284 equal to the cutoff of the committee active at the restored lastCheckpoint, for every context built from an anchor archive that agrees with the landing's below that checkpoint; restoring the initialization values keeps it at most that cutoff. This stays so on every later World that still shows those values in that generation, and with the registry's recheck against the restored snapshot, every confirmed exit's key, including exits confirmed after the rollback along snapshot-disciplined steps, is absent from every committee active at or above the restored checkpoint. Only the restored landing is trusted; later landings may be forged. A recovery between that landing and the rollback is not covered.",
-      "assumptions": [
-        "context",
-        "journal",
-        "deployment"
-      ],
+      "assumptions": ["context", "journal", "deployment"],
       "evidence": {
         "EN-d04a236579cc9990": [
           "Etna.Design.SigningEscrow.initial_rollback_snapshot_trusted",
@@ -555,11 +543,7 @@
       "status": "proved",
       "scope": "conditional decoded specification property only",
       "description": "After a successful double-sign slash at L1 block b, the entry has no principal and its key is absent from every committee selected at a cutoff at or after b, in every later World and also after its slot is released and reused. Committees selected before the slash are not covered; they keep the member's power (section 12 item 19).",
-      "assumptions": [
-        "context",
-        "signature",
-        "journal"
-      ],
+      "assumptions": ["context", "signature", "journal"],
       "evidence": {
         "EN-95f0590cf84239d4": [
           "Etna.Design.SigningEscrow.slashed_key_absent_from_later_committees"
@@ -571,6 +555,87 @@
           "Etna.Design.SigningEscrow.slashed_key_absent_from_later_committees"
         ]
       }
+    },
+    {
+      "id": "DV-ANCHORLESS-ROOT",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "Induction over canonical header/current-checkpoint writes binds each accepted resolver result to its exact numbered or timestamp source under the verifying fork mode, with ideal L1 root provenance.",
+      "assumptions": ["anchorless"],
+      "evidence": {
+        "ANCHORLESS-84a893e14fd14632": [
+          "Etna.Design.Anchorless.resolved_exact_source"
+        ],
+        "ANCHORLESS-098fcb11984a6715": [
+          "Etna.Design.Anchorless.resolved_exact_source"
+        ],
+        "ANCHORLESS-19b714580c334859": [
+          "Etna.Design.Anchorless.resolved_exact_source"
+        ]
+      }
+    },
+    {
+      "id": "DV-ANCHORLESS-AUTH",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "Reachable paired migration and raw canonical cache/proof history make accepted new-service fresh or empty proofs imply the requested source-chain/account/slot fact under ideal storage-proof soundness.",
+      "assumptions": ["anchorless"],
+      "evidence": {
+        "ANCHORLESS-19b714580c334859": [
+          "Etna.Design.Anchorless.authorization_sound"
+        ],
+        "ANCHORLESS-a5d7d6824045ca1c": [
+          "Etna.Design.Anchorless.authorization_sound"
+        ],
+        "ANCHORLESS-af7fdf5835d66866": [
+          "Etna.Design.Anchorless.authorization_sound"
+        ],
+        "ANCHORLESS-b7b8de64ca020aed": [
+          "Etna.Design.Anchorless.authorization_sound"
+        ]
+      }
+    },
+    {
+      "id": "DV-ANCHORLESS-CACHE",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "Current VERSION cached authorization retains a real prior successful proof receipt and canonical source state through later ring overwrites; flat legacy receipts are excluded.",
+      "assumptions": ["anchorless"],
+      "evidence": {
+        "ANCHORLESS-a5d7d6824045ca1c": [
+          "Etna.Design.Anchorless.cached_provenance"
+        ]
+      }
+    },
+    {
+      "id": "DV-ANCHORLESS-MIGRATION",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "Every reachable SignalServiceL2 installation has its Anchor provider and completed prerequisites, including prior image trust, under ideal atomic paired batches.",
+      "assumptions": ["anchorless"],
+      "evidence": {
+        "ANCHORLESS-b7b8de64ca020aed": [
+          "Etna.Design.Anchorless.migration_safety"
+        ],
+        "ANCHORLESS-0d46b13013d7e2f1": [
+          "Etna.Design.Anchorless.migration_safety"
+        ],
+        "ANCHORLESS-75bb106c4cec0ba4": [
+          "Etna.Design.Anchorless.migration_safety"
+        ]
+      }
+    },
+    {
+      "id": "DV-ANCHORLESS-SERVICE",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "Service-level requests bind source chain, app and signal through one fixed slot adapter; actual accepted request/root/cache histories derive the exact source-state fact for that request. Cross-request reuse isolation separately requires distinct derived slots.",
+      "assumptions": ["anchorless"],
+      "evidence": {
+        "ANCHORLESS-6f651d8e580ae691": [
+          "Etna.Design.Anchorless.service_authorization_sound"
+        ]
+      }
     }
   ],
   "acceptance_source": {
@@ -578,5 +643,11 @@
     "revision": "2026-10-29",
     "commit": "39ebefbf33a2702b750e0fb0db7d2a40ff8e8480",
     "sha256": "876f89892acc91508fd322b4df676a0eb19550b39c9a43490376b4a3b4863c60"
+  },
+  "anchorless_source": {
+    "path": "packages/protocol/docs/etna/ANCHORLESS.md",
+    "revision": "2026-10-30",
+    "commit": "b7ca989c8e343073daa628771102bdee7fe7101b",
+    "sha256": "cf2b44a570e737056cdad16afc57f48071985951d4a6cdae026a49494c14571d"
   }
 }

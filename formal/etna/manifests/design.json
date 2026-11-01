@@ -15405,6 +15405,671 @@
       "role": "regression",
       "sources": ["EN-0202dc133674a903"],
       "scope": "Every normalized observation in the existing six-element fixture is an actual prevote/precommit of the same execution. This adds no network emission/delivery causality: the nil-unlock observation precedes a quorum prevote observation."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.postfork_header",
+      "type": "∀ {l1 : Nat → Nat} {fork : Nat} {h : Etna.Design.Anchorless.Header},\n  Etna.Design.Anchorless.ValidHeader l1 fork h →\n    fork ≤ h.timestamp → h.root ≠ 0 ∧ h.extraBytes = 13 ∧ h.encodedNumber = h.anchorNumber ∧ h.root = l1 h.anchorNumber",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["ANCHORLESS-84a893e14fd14632", "ANCHORLESS-2b7179939cf816da"],
+      "scope": "Supporting exact postfork header predicate: nonzero root, length 13, encoded anchor number and canonical L1 root binding; neither raw header-byte decoding nor production EL refinement."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.prefork_header",
+      "type": "∀ {l1 : Nat → Nat} {fork : Nat} {h : Etna.Design.Anchorless.Header},\n  Etna.Design.Anchorless.ValidHeader l1 fork h → h.timestamp < fork → h.root = 0 ∧ h.extraBytes = 7",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["ANCHORLESS-42f2cf8d73265842"],
+      "scope": "Supporting pre-fork header rule: zero root and legacy seven-byte shape."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.postfork_checkpoints_frozen",
+      "type": "∀ {l1 : Nat → Nat} {fork : Nat}\n  {s t : Etna.Design.Anchorless.RootState},\n  Etna.Design.Anchorless.RootStep l1 fork s t → fork ≤ s.clock → t.checkpoints = s.checkpoints",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["ANCHORLESS-a5d7d6824045ca1c"],
+      "scope": "Every allowed postfork root step preserves current VERSION checkpoints; legacy bytes are independent."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.resolver_modes",
+      "type": "∀ (fork : Nat) (s : Etna.Design.Anchorless.RootState) (id : Nat),\n  Eq (Etna.Design.Anchorless.resolve fork s Bool.true id)\n    (ite (LT.lt s.clock fork)\n      (have __do_jp := fun root => ite (Ne root 0) (Option.some root) Option.none;\n      ite (LT.lt id Etna.Design.limit48) (Bind.bind (s.checkpoints id) fun root => __do_jp root)\n        (Bind.bind Option.none fun root => __do_jp root))\n      (have __do_jp := fun root => ite (Ne root 0) (Option.some root) Option.none;\n      ite (LE.le fork id) (Bind.bind (Etna.Design.Anchorless.beaconGet s.code s.ring id) fun root => __do_jp root)\n        (Bind.bind Option.none fun root => __do_jp root)))",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["ANCHORLESS-098fcb11984a6715", "ANCHORLESS-19b714580c334859"],
+      "scope": "Supporting exact mode equation. Verifying L2 time alone determines blockId meaning; the numeric domains need not be disjoint."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.resolved_canonical",
+      "type": "∀ {l1 : Nat → Nat} {fork : Nat} {s : Etna.Design.Anchorless.RootState}\n  {id root : Nat},\n  Etna.Design.Anchorless.RootRun l1 fork s →\n    Etna.Design.Anchorless.resolve fork s Bool.true id = Option.some root → ∃ number, root = l1 number",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["ANCHORLESS-84a893e14fd14632", "ANCHORLESS-098fcb11984a6715"],
+      "scope": "Induction over actual canonical header and checkpoint writes establishes a resolved root equals an ideal L1 root; EL shape checks alone are not authentication."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.resolved_exact_source",
+      "type": "∀ {l1 : Nat → Nat} {fork : Nat} {s : Etna.Design.Anchorless.RootState}\n  {id root : Nat},\n  Etna.Design.Anchorless.RootRun l1 fork s →\n    Etna.Design.Anchorless.resolve fork s Bool.true id = Option.some root →\n      root ≠ 0 ∧\n        (s.clock < fork ∧ id < Etna.Design.limit48 ∧ s.checkpoints id = Option.some root ∧ root = l1 id ∨\n          fork ≤ s.clock ∧\n            fork ≤ id ∧ s.ring (id % 8191) = Option.some { timestamp := id, root := root } ∧ ∃ number, root = l1 number)",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [
+        "ANCHORLESS-84a893e14fd14632",
+        "ANCHORLESS-098fcb11984a6715",
+        "ANCHORLESS-19b714580c334859"
+      ],
+      "scope": "Exact accepted source: numbered current checkpoint before the fork, exact timestamp/root ring pair afterwards, plus canonical L1 root binding. No caller root is trusted."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.postfork_timestamp_bound",
+      "type": "∀ {l1 : Nat → Nat} {fork : Nat}\n  {s : Etna.Design.Anchorless.RootState} {id root : Nat},\n  Etna.Design.Anchorless.RootRun l1 fork s →\n    fork ≤ s.clock → Etna.Design.Anchorless.resolve fork s Bool.true id = Option.some root → fork ≤ id ∧ id ≤ s.clock",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["ANCHORLESS-53b1e15875d0d402", "ANCHORLESS-098fcb11984a6715"],
+      "scope": "A postfork accepted timestamp is at least the configured fork and no later than the verifier clock; the upper bound follows from monotone writes, not a source getter future guard."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.missing_provider",
+      "type": "∀ (fork : Nat) (s : Etna.Design.Anchorless.RootState) (id : Nat),\n  Etna.Design.Anchorless.resolve fork s Bool.false id = Option.none",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["ANCHORLESS-b7b8de64ca020aed", "ANCHORLESS-67638bc15d187b29"],
+      "scope": "Supporting fail-closed resolver result for absent provider implementation/call failure."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.missing_code",
+      "type": "∀ (fork : Nat) (s : Etna.Design.Anchorless.RootState) (id : Nat),\n  fork ≤ s.clock → s.code = Bool.false → Etna.Design.Anchorless.resolve fork s Bool.true id = Option.none",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["ANCHORLESS-67638bc15d187b29"],
+      "scope": "Supporting fail-closed postfork lookup when EIP-4788 code is absent, even though canonical block execution may continue."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.zero_root_rejected",
+      "type": "∀ (fork : Nat) (s : Etna.Design.Anchorless.RootState) (id : Nat),\n  Etna.Design.Anchorless.resolve fork s Bool.true id ≠ Option.some 0",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["ANCHORLESS-098fcb11984a6715"],
+      "scope": "Supporting Anchor nonzero-root rejection. The underlying EIP getter may return zero."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.overwritten_unreadable",
+      "type": "∀ (ring : Etna.Design.Anchorless.Ring)\n  (h : Etna.Design.Anchorless.Header) (old : Nat),\n  old % 8191 = h.timestamp % 8191 →\n    h.timestamp ≠ old →\n      Etna.Design.Anchorless.beaconGet Bool.true (Etna.Design.Anchorless.write Bool.true ring h) old = Option.none",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["ANCHORLESS-53b1e15875d0d402"],
+      "scope": "Supporting actual same-slot overwrite invalidates a distinct old timestamp; no fixed-age TTL is modeled."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.untouched_readable",
+      "type": "∀ (ring : Etna.Design.Anchorless.Ring) (h : Etna.Design.Anchorless.Header)\n  (old root : Nat),\n  Etna.Design.Anchorless.beaconGet Bool.true ring old = Option.some root →\n    old % 8191 ≠ h.timestamp % 8191 →\n      Etna.Design.Anchorless.beaconGet Bool.true (Etna.Design.Anchorless.write Bool.true ring h) old = Option.some root",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["ANCHORLESS-53b1e15875d0d402"],
+      "scope": "Supporting a noncolliding write preserves an existing readable pair irrespective of its age."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.fork_gate",
+      "type": "∀ (fork : Nat), Etna.Design.Anchorless.anchorV4 fork fork Bool.true = Bool.false",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["ANCHORLESS-c2d21eedcc0a2926"],
+      "scope": "Supporting exact first-fork timestamp gate, even if the old ancestors guard passes."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.postfork_anchor_closed",
+      "type": "∀ (fork now : Nat) (ancestorsPass : Bool),\n  fork ≤ now → Etna.Design.Anchorless.anchorV4 fork now ancestorsPass = Bool.false",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["ANCHORLESS-c2d21eedcc0a2926"],
+      "scope": "Supporting anchorV4 rejection from the fork timestamp onward."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.proof_binding",
+      "type": "∀ {fork : Nat} {s : Etna.Design.Anchorless.RootState} {provider : Bool}\n  {domain : Etna.Design.Anchorless.SourceDomain} {verify : Etna.Design.Anchorless.HopProof → Bool} {slot : Nat}\n  {p : Etna.Design.Anchorless.HopProof},\n  Etna.Design.Anchorless.checkProof fork s provider domain verify slot p = Bool.true →\n    Etna.Design.Anchorless.resolve fork s provider p.blockId = Option.some p.root ∧\n      p.chain = domain.chain ∧ p.account = domain.signalService ∧ p.slot = slot ∧ verify p = Bool.true",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["ANCHORLESS-19b714580c334859"],
+      "scope": "Supporting exact rootHash/source-chain/SignalService-account/requested-slot checks, independent of the supplied proof coordinates."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.uncached_authorization",
+      "type": "∀ {l1 : Nat → Nat} {fork : Nat} {s : Etna.Design.Anchorless.RootState}\n  {domain : Etna.Design.Anchorless.SourceDomain} {verify : Etna.Design.Anchorless.HopProof → Bool}\n  {stored : Nat → Nat → Nat → Nat → Prop} {slot : Nat} {p : Etna.Design.Anchorless.HopProof},\n  Etna.Design.Anchorless.RootRun l1 fork s →\n    Etna.Design.Anchorless.StorageSound l1 verify stored →\n      Etna.Design.Anchorless.checkProof fork s Bool.true domain verify slot p = Bool.true →\n        ∃ number, p.root = l1 number ∧ stored number domain.chain domain.signalService slot",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["ANCHORLESS-84a893e14fd14632", "ANCHORLESS-19b714580c334859"],
+      "scope": "Canonical raw history plus ideal storage-proof soundness derives the requested source-domain fact for an accepted uncached proof, including its resolved root."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.cached_authorization",
+      "type": "∀ {l1 : Nat → Nat} {fork : Nat}\n  {domain : Etna.Design.Anchorless.SourceDomain} {verify : Etna.Design.Anchorless.HopProof → Bool}\n  {stored : Nat → Nat → Nat → Nat → Prop} {s : Etna.Design.Anchorless.RootState} {cache : Etna.Design.Anchorless.Cache},\n  Etna.Design.Anchorless.CacheRun l1 fork domain verify s cache →\n    Etna.Design.Anchorless.StorageSound l1 verify stored →\n      ∀ (slot : Nat),\n        Etna.Design.Anchorless.cached cache slot = Bool.true →\n          ∃ number, stored number domain.chain domain.signalService slot",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["ANCHORLESS-a5d7d6824045ca1c", "ANCHORLESS-af7fdf5835d66866"],
+      "scope": "Induction over actual successful proof and root-write history derives the cached current-namespace fact after expiry; arbitrary flat entries never enter this invariant."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.cached_provenance",
+      "type": "∀ {l1 : Nat → Nat} {fork : Nat}\n  {domain : Etna.Design.Anchorless.SourceDomain} {verify : Etna.Design.Anchorless.HopProof → Bool}\n  {s : Etna.Design.Anchorless.RootState} {cache : Etna.Design.Anchorless.Cache},\n  Etna.Design.Anchorless.CacheRun l1 fork domain verify s cache →\n    ∀ (slot : Nat),\n      Etna.Design.Anchorless.cached cache slot = Bool.true →\n        ∃ source p,\n          Etna.Design.Anchorless.RootRun l1 fork source ∧\n            Etna.Design.Anchorless.checkProof fork source Bool.true domain verify slot p = Bool.true",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["ANCHORLESS-a5d7d6824045ca1c"],
+      "scope": "Every current cached fact retains an actual earlier canonical state and successful proof receipt; current ring readability is unnecessary."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.flat_checkpoint_irrelevant",
+      "type": "∀ (fork : Nat) (s : Etna.Design.Anchorless.RootState)\n  (flat : Nat → Option Nat) (provider : Bool) (id : Nat),\n  Etna.Design.Anchorless.resolve fork\n      { clock := s.clock, code := s.code, ring := s.ring, checkpoints := s.checkpoints, flatCheckpoints := flat }\n      provider id =\n    Etna.Design.Anchorless.resolve fork s provider id",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["ANCHORLESS-af7fdf5835d66866"],
+      "scope": "Supporting exact equality: arbitrary old flat checkpoint bytes do not affect the new resolver before or after the timestamp fork."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.flat_cache_unreadable",
+      "type": "∀ (flat : List Nat) (slot : Nat),\n  Etna.Design.Anchorless.cached { flat := flat, current := [] } slot = Bool.false",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["ANCHORLESS-af7fdf5835d66866"],
+      "scope": "Supporting new VERSION cache starts empty regardless of physical old flat receipts; no byte-for-byte cache-preservation claim."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.failed_pair_anchor",
+      "type": "∀ (s : Etna.Design.Anchorless.Installation) (signalOK : Bool),\n  Etna.Design.Anchorless.pairedUpgrade s Bool.false signalOK = s",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["ANCHORLESS-b7b8de64ca020aed"],
+      "scope": "Supporting failed/missing Anchor upgrade or final timestamp probe returns the exact pre-batch installation."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.failed_pair_signal",
+      "type": "∀ (s : Etna.Design.Anchorless.Installation),\n  Etna.Design.Anchorless.pairedUpgrade s Bool.true Bool.false = s",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["ANCHORLESS-b7b8de64ca020aed"],
+      "scope": "Supporting failed SignalService upgrade returns the exact pre-batch installation."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.paired_atomic",
+      "type": "∀ (s : Etna.Design.Anchorless.Installation) (anchorOK signalOK : Bool),\n  Etna.Design.Anchorless.pairedUpgrade s anchorOK signalOK = s ∨\n    Etna.Design.Anchorless.pairedUpgrade s anchorOK signalOK =\n      { forkTime := s.forkTime, clock := s.clock, identicalCalls := s.identicalCalls, historyCode := s.historyCode,\n        beaconCode := s.beaconCode, dualReaders := s.dualReaders, images := s.images, anchor := Bool.true,\n        signal := Bool.true }",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["ANCHORLESS-b7b8de64ca020aed"],
+      "scope": "Supporting atomic decoded batch exposes only the prior installation or both upgraded proxies; real transaction atomicity is primitive."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.deployment_order",
+      "type": "∀ {fork : Nat} {s : Etna.Design.Anchorless.Installation},\n  Etna.Design.Anchorless.InstallRun fork s →\n    (s.historyCode = Bool.true → s.identicalCalls = Bool.true) ∧\n      (s.beaconCode = Bool.true → s.historyCode = Bool.true) ∧\n        (s.dualReaders = Bool.true → s.beaconCode = Bool.true) ∧ (s.images = Bool.true → s.dualReaders = Bool.true)",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [
+        "ANCHORLESS-75bb106c4cec0ba4",
+        "ANCHORLESS-2c0c956f6f384bd7",
+        "ANCHORLESS-4d4caa292b92fd27",
+        "ANCHORLESS-0d46b13013d7e2f1"
+      ],
+      "scope": "Induction over raw completed upgrade stages derives prerequisite ordering, including identical pre-execution readiness before deployment and dual readers before image trust."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.migration_safety",
+      "type": "∀ {fork : Nat} {s : Etna.Design.Anchorless.Installation},\n  Etna.Design.Anchorless.InstallRun fork s →\n    s.signal = Bool.true →\n      s.anchor = Bool.true ∧\n        s.identicalCalls = Bool.true ∧\n          s.historyCode = Bool.true ∧ s.beaconCode = Bool.true ∧ s.dualReaders = Bool.true ∧ s.images = Bool.true",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [
+        "ANCHORLESS-b7b8de64ca020aed",
+        "ANCHORLESS-0d46b13013d7e2f1",
+        "ANCHORLESS-75bb106c4cec0ba4"
+      ],
+      "scope": "Reachable upgraded SignalService has its Anchor provider and all recorded prerequisites. Images predate the proxy batch; failed attempts cannot expose an intermediate state."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.rollback_rejected",
+      "type": "∀ (s : Etna.Design.Anchorless.Installation),\n  s.signal = Bool.true → Etna.Design.Anchorless.rollbackFlat s = Option.none",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["ANCHORLESS-9270027d96955d2c"],
+      "scope": "Supporting explicit rejection of flat-implementation rollback after SignalServiceL2 installation."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.installation_fork",
+      "type": "∀ {fork : Nat} {s : Etna.Design.Anchorless.Installation},\n  Etna.Design.Anchorless.InstallRun fork s → s.forkTime = fork",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["ANCHORLESS-f2dea608f21f6207"],
+      "scope": "Induction over every raw lifecycle event preserves the stored Anchor fork parameter used directly by new-service authorization."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.upgrade_before_fork",
+      "type": "∀ (s : Etna.Design.Anchorless.Installation) (anchorOK signalOK : Bool),\n  Etna.Design.Anchorless.pairedUpgrade s anchorOK signalOK ≠ s → s.clock < s.forkTime",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["ANCHORLESS-b7b8de64ca020aed", "ANCHORLESS-f2dea608f21f6207"],
+      "scope": "Supporting successful atomic proxy replacement occurs strictly before its immutable fork timestamp."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.activation_consistent",
+      "type": "∀ {s : Etna.Design.Anchorless.Installation} {clientFork : Nat},\n  Etna.Design.Anchorless.activate s clientFork = Bool.true →\n    s.forkTime = clientFork ∧\n      s.forkTime ≤ s.clock ∧\n        s.anchor = Bool.true ∧\n          s.signal = Bool.true ∧\n            s.identicalCalls = Bool.true ∧\n              s.historyCode = Bool.true ∧ s.beaconCode = Bool.true ∧ s.dualReaders = Bool.true ∧ s.images = Bool.true",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["ANCHORLESS-f2dea608f21f6207", "ANCHORLESS-87ddaa5c25351fd7"],
+      "scope": "Supporting successful design readiness requires identical client/Anchor fork timestamps, reached time and all recorded prerequisites. No fork date or production activation is asserted."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.authorization_sound",
+      "type": "∀ {installation : Etna.Design.Anchorless.Installation} {l1 : Nat → Nat}\n  {fork : Nat} {s : Etna.Design.Anchorless.RootState} {cache : Etna.Design.Anchorless.Cache}\n  {domain : Etna.Design.Anchorless.SourceDomain} {verify : Etna.Design.Anchorless.HopProof → Bool}\n  {stored : Nat → Nat → Nat → Nat → Prop} {slot : Nat} {proof : Option Etna.Design.Anchorless.HopProof},\n  Etna.Design.Anchorless.InstallRun fork installation →\n    Etna.Design.Anchorless.CacheRun l1 fork domain verify s cache →\n      Etna.Design.Anchorless.StorageSound l1 verify stored →\n        Etna.Design.Anchorless.authorize installation s cache domain verify slot proof = Bool.true →\n          ∃ number, stored number domain.chain domain.signalService slot",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [
+        "ANCHORLESS-19b714580c334859",
+        "ANCHORLESS-a5d7d6824045ca1c",
+        "ANCHORLESS-af7fdf5835d66866",
+        "ANCHORLESS-b7b8de64ca020aed"
+      ],
+      "scope": "Composition of reachable paired migration, canonical root/cache history and ideal storage-proof soundness: either accepted new-service entry-point branch authorizes only its requested source-state fact. Legacy service and Bridge payouts excluded."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Anchorless",
+      "declaration": "Etna.Design.AnchorlessRegression.fork_boundary",
+      "type": "Etna.Design.Anchorless.RootRun Etna.Design.AnchorlessRegression.l1\n    Etna.Design.AnchorlessRegression.fork Etna.Design.AnchorlessRegression.active ∧\n  Etna.Design.Anchorless.resolve Etna.Design.AnchorlessRegression.fork Etna.Design.AnchorlessRegression.legacy Bool.true\n        7 =\n      Option.some 1007 ∧\n    Etna.Design.Anchorless.resolve Etna.Design.AnchorlessRegression.fork Etna.Design.AnchorlessRegression.active\n          Bool.true 7 =\n        Option.none ∧\n      Etna.Design.Anchorless.resolve Etna.Design.AnchorlessRegression.fork Etna.Design.AnchorlessRegression.active\n            Bool.true 100 =\n          Option.some 1007 ∧\n        Etna.Design.Anchorless.anchorV4 Etna.Design.AnchorlessRegression.fork 99 Bool.true = Bool.true ∧\n          Etna.Design.Anchorless.anchorV4 Etna.Design.AnchorlessRegression.fork 100 Bool.true = Bool.false",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["ANCHORLESS-098fcb11984a6715", "ANCHORLESS-c2d21eedcc0a2926"],
+      "scope": "Concrete canonical pre/postfork history, accepted old/new proofs and the first-block anchor gate."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Anchorless",
+      "declaration": "Etna.Design.AnchorlessRegression.overlapping_domains",
+      "type": "Etna.Design.Anchorless.resolve\n      Etna.Design.AnchorlessRegression.fork\n      (have __src := Etna.Design.AnchorlessRegression.legacy;\n      { clock := __src.clock, code := __src.code, ring := __src.ring, checkpoints := fun x => Option.some 1100,\n        flatCheckpoints := __src.flatCheckpoints })\n      Bool.true 100 =\n    Option.some 1100 ∧\n  Etna.Design.Anchorless.resolve Etna.Design.AnchorlessRegression.fork Etna.Design.AnchorlessRegression.active Bool.true\n      100 =\n    Option.some 1007",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["ANCHORLESS-19b714580c334859"],
+      "scope": "Concrete number/timestamp 100 overlap resolves by verifier time to different roots."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Anchorless",
+      "declaration": "Etna.Design.AnchorlessRegression.missing_system_contract",
+      "type": "Etna.Design.Anchorless.RootRun\n    Etna.Design.AnchorlessRegression.l1 Etna.Design.AnchorlessRegression.fork\n    (Etna.Design.Anchorless.execute Etna.Design.Anchorless.initialRoots Etna.Design.AnchorlessRegression.first) ∧\n  Etna.Design.Anchorless.resolve Etna.Design.AnchorlessRegression.fork\n        (Etna.Design.Anchorless.execute Etna.Design.Anchorless.initialRoots Etna.Design.AnchorlessRegression.first)\n        Bool.true 100 =\n      Option.none ∧\n    Etna.Design.Anchorless.resolve Etna.Design.AnchorlessRegression.fork Etna.Design.AnchorlessRegression.active\n          Bool.false 100 =\n        Option.none ∧\n      Etna.Design.Anchorless.initialRoots.ring 0 = Option.none",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["ANCHORLESS-67638bc15d187b29", "ANCHORLESS-53b1e15875d0d402"],
+      "scope": "Concrete valid postfork block with absent code silently writes nothing and fails lookup; absent provider and genesis no-write cases."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Anchorless",
+      "declaration": "Etna.Design.AnchorlessRegression.getter_and_anchor_filters",
+      "type": "Etna.Design.Anchorless.beaconGet Bool.true\n      (Etna.Design.Anchorless.execute Etna.Design.AnchorlessRegression.deployed\n          Etna.Design.AnchorlessRegression.early).ring\n      99 =\n    Option.some 0 ∧\n  Etna.Design.Anchorless.beaconGet Bool.true (fun x => Option.some { timestamp := 0, root := 1007 }) 0 = Option.none ∧\n    Etna.Design.Anchorless.resolve 99\n        (Etna.Design.Anchorless.execute Etna.Design.AnchorlessRegression.deployed\n          Etna.Design.AnchorlessRegression.early)\n        Bool.true 99 =\n      Option.none",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["ANCHORLESS-098fcb11984a6715", "ANCHORLESS-53b1e15875d0d402"],
+      "scope": "Concrete upstream zero-root return, timestamp-zero rejection, and separate Anchor nonzero rejection."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Anchorless",
+      "declaration": "Etna.Design.AnchorlessRegression.actual_overwrite",
+      "type": "Etna.Design.Anchorless.RootRun Etna.Design.AnchorlessRegression.l1\n    Etna.Design.AnchorlessRegression.fork Etna.Design.AnchorlessRegression.expired ∧\n  Etna.Design.Anchorless.resolve Etna.Design.AnchorlessRegression.fork Etna.Design.AnchorlessRegression.expired\n        Bool.true 100 =\n      Option.none ∧\n    Etna.Design.Anchorless.RootRun Etna.Design.AnchorlessRegression.l1 Etna.Design.AnchorlessRegression.fork\n        Etna.Design.AnchorlessRegression.retained ∧\n      Etna.Design.Anchorless.resolve Etna.Design.AnchorlessRegression.fork Etna.Design.AnchorlessRegression.retained\n            Bool.true 100 =\n          Option.some 1007 ∧\n        Etna.Design.Anchorless.resolve Etna.Design.AnchorlessRegression.fork Etna.Design.AnchorlessRegression.active\n            Bool.true 101 =\n          Option.none",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["ANCHORLESS-53b1e15875d0d402"],
+      "scope": "Concrete canonical collision at timestamp 100+8191 expires the old entry, whereas timestamp 9000 leaves it readable beyond the minimum retention interval; unwritten future lookup fails."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Anchorless",
+      "declaration": "Etna.Design.AnchorlessRegression.proof_domain_boundaries",
+      "type": "Etna.Design.Anchorless.checkProof\n      Etna.Design.AnchorlessRegression.fork Etna.Design.AnchorlessRegression.active Bool.true\n      Etna.Design.AnchorlessRegression.domain Etna.Design.AnchorlessRegression.verify 77\n      Etna.Design.AnchorlessRegression.proof =\n    Bool.true ∧\n  Etna.Design.Anchorless.checkProof Etna.Design.AnchorlessRegression.fork Etna.Design.AnchorlessRegression.active\n        Bool.true Etna.Design.AnchorlessRegression.domain (fun x => Bool.true) 77\n        (have __src := Etna.Design.AnchorlessRegression.proof;\n        { blockId := __src.blockId, root := 666, chain := __src.chain, account := __src.account, slot := __src.slot }) =\n      Bool.false ∧\n    Etna.Design.Anchorless.checkProof Etna.Design.AnchorlessRegression.fork Etna.Design.AnchorlessRegression.active\n          Bool.true Etna.Design.AnchorlessRegression.domain (fun x => Bool.true) 77\n          (have __src := Etna.Design.AnchorlessRegression.proof;\n          { blockId := __src.blockId, root := __src.root, chain := 2, account := __src.account, slot := __src.slot }) =\n        Bool.false ∧\n      Etna.Design.Anchorless.checkProof Etna.Design.AnchorlessRegression.fork Etna.Design.AnchorlessRegression.active\n            Bool.true Etna.Design.AnchorlessRegression.domain (fun x => Bool.true) 77\n            (have __src := Etna.Design.AnchorlessRegression.proof;\n            { blockId := __src.blockId, root := __src.root, chain := __src.chain, account := 43, slot := __src.slot }) =\n          Bool.false ∧\n        Etna.Design.Anchorless.checkProof Etna.Design.AnchorlessRegression.fork Etna.Design.AnchorlessRegression.active\n            Bool.true Etna.Design.AnchorlessRegression.domain (fun x => Bool.true) 77\n            (have __src := Etna.Design.AnchorlessRegression.proof;\n            { blockId := __src.blockId, root := __src.root, chain := __src.chain, account := __src.account,\n              slot := 78 }) =\n          Bool.false",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["ANCHORLESS-19b714580c334859"],
+      "scope": "Concrete valid proof plus independent wrong-root, wrong-chain, wrong-account and wrong-slot proofs against a permissive verifier."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Anchorless",
+      "declaration": "Etna.Design.AnchorlessRegression.cached_after_expiry",
+      "type": "Etna.Design.Anchorless.CacheRun\n    Etna.Design.AnchorlessRegression.l1 Etna.Design.AnchorlessRegression.fork Etna.Design.AnchorlessRegression.domain\n    Etna.Design.AnchorlessRegression.verify Etna.Design.AnchorlessRegression.expired\n    Etna.Design.AnchorlessRegression.received ∧\n  Etna.Design.Anchorless.resolve Etna.Design.AnchorlessRegression.fork Etna.Design.AnchorlessRegression.expired\n        Bool.true Etna.Design.AnchorlessRegression.proof.blockId =\n      Option.none ∧\n    Etna.Design.Anchorless.cached Etna.Design.AnchorlessRegression.received 77 = Bool.true ∧\n      Etna.Design.Anchorless.cached Etna.Design.AnchorlessRegression.received 999 = Bool.false",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["ANCHORLESS-a5d7d6824045ca1c", "ANCHORLESS-af7fdf5835d66866"],
+      "scope": "Concrete actual accepted proof followed by actual collision: empty cached authorization survives, arbitrary flat receipt does not."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Anchorless",
+      "declaration": "Etna.Design.AnchorlessRegression.namespace_separation",
+      "type": "Etna.Design.Anchorless.resolve\n      Etna.Design.AnchorlessRegression.fork\n      (have __src := Etna.Design.AnchorlessRegression.legacy;\n      { clock := __src.clock, code := __src.code, ring := __src.ring, checkpoints := fun x => Option.none,\n        flatCheckpoints := fun x => Option.some 666 })\n      Bool.true 7 =\n    Option.none ∧\n  Etna.Design.Anchorless.resolve Etna.Design.AnchorlessRegression.fork Etna.Design.AnchorlessRegression.active Bool.true\n        7 =\n      Option.none ∧\n    Etna.Design.Anchorless.cached { flat := [999], current := [] } 999 = Bool.false ∧\n      Etna.Design.Anchorless.proverCheckpoint (fun x => Option.none) (fun x => Option.some 666) 7 = Option.some 666 ∧\n        Etna.Design.Anchorless.proverCheckpoint (fun x => Option.some 1007) (fun x => Option.some 666) 7 =\n          Option.some 1007",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["ANCHORLESS-af7fdf5835d66866"],
+      "scope": "Concrete malicious old checkpoint/cache ignored before and after fork; separate prover reader uses VERSION first, flat only when absent."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Anchorless",
+      "declaration": "Etna.Design.AnchorlessRegression.paired_migration",
+      "type": "Etna.Design.Anchorless.InstallRun\n    Etna.Design.AnchorlessRegression.fork Etna.Design.AnchorlessRegression.installed ∧\n  Etna.Design.Anchorless.activate Etna.Design.AnchorlessRegression.live 100 = Bool.true ∧\n    Etna.Design.Anchorless.activate Etna.Design.AnchorlessRegression.live 101 = Bool.false ∧\n      Etna.Design.Anchorless.pairedUpgrade Etna.Design.AnchorlessRegression.prerequisites Bool.false Bool.true =\n          Etna.Design.AnchorlessRegression.prerequisites ∧\n        Etna.Design.Anchorless.pairedUpgrade Etna.Design.AnchorlessRegression.prerequisites Bool.true Bool.false =\n            Etna.Design.AnchorlessRegression.prerequisites ∧\n          (Etna.Design.Anchorless.pairedUpgrade\n                (have __src := Etna.Design.AnchorlessRegression.prerequisites;\n                { forkTime := __src.forkTime, clock := __src.clock, identicalCalls := __src.identicalCalls,\n                  historyCode := __src.historyCode, beaconCode := __src.beaconCode, dualReaders := __src.dualReaders,\n                  images := Bool.false, anchor := __src.anchor, signal := __src.signal })\n                Bool.true Bool.true =\n              have __src := Etna.Design.AnchorlessRegression.prerequisites;\n              { forkTime := __src.forkTime, clock := __src.clock, identicalCalls := __src.identicalCalls,\n                historyCode := __src.historyCode, beaconCode := __src.beaconCode, dualReaders := __src.dualReaders,\n                images := Bool.false, anchor := __src.anchor, signal := __src.signal }) ∧\n            Etna.Design.Anchorless.rollbackFlat Etna.Design.AnchorlessRegression.installed = Option.none ∧\n              Etna.Design.Anchorless.checkProof Etna.Design.AnchorlessRegression.fork\n                  Etna.Design.AnchorlessRegression.active Bool.false Etna.Design.AnchorlessRegression.domain\n                  Etna.Design.AnchorlessRegression.verify 77 Etna.Design.AnchorlessRegression.proof =\n                Bool.false",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "ANCHORLESS-b7b8de64ca020aed",
+        "ANCHORLESS-0d46b13013d7e2f1",
+        "ANCHORLESS-9270027d96955d2c",
+        "ANCHORLESS-f2dea608f21f6207"
+      ],
+      "scope": "Concrete complete stage history and successful activation, mismatched time, failed either proxy, absent images, prohibited rollback and missing provider rejection."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Anchorless",
+      "declaration": "Etna.Design.AnchorlessRegression.el_shape_insufficient",
+      "type": "({ first with root := 666 } : Etna.Design.Anchorless.Header).root ≠ 0 ∧\n    ({ first with root := 666 } : Etna.Design.Anchorless.Header).extraBytes = 13 ∧\n    ¬ Etna.Design.Anchorless.ValidHeader l1 fork { first with root := 666 } ∧\n    ¬ Etna.Design.Anchorless.ValidHeader l1 fork { first with encodedNumber := 8 }",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["ANCHORLESS-84a893e14fd14632", "ANCHORLESS-2b7179939cf816da"],
+      "scope": "Concrete forged nonzero root with correct length fails canonical number/root binding; mismatched encoded anchor also fails."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Anchorless",
+      "declaration": "Etna.Design.AnchorlessRegression.composed_authorization",
+      "type": "Etna.Design.Anchorless.authorize\n      Etna.Design.AnchorlessRegression.installed Etna.Design.AnchorlessRegression.active\n      { flat := [999], current := [] } Etna.Design.AnchorlessRegression.domain Etna.Design.AnchorlessRegression.verify\n      77 (Option.some Etna.Design.AnchorlessRegression.proof) =\n    Bool.true ∧\n  Etna.Design.Anchorless.authorize Etna.Design.AnchorlessRegression.installed Etna.Design.AnchorlessRegression.expired\n        Etna.Design.AnchorlessRegression.received Etna.Design.AnchorlessRegression.domain\n        Etna.Design.AnchorlessRegression.verify 77 Option.none =\n      Bool.true ∧\n    Etna.Design.Anchorless.authorize\n          (have __src := Etna.Design.AnchorlessRegression.prerequisites;\n          { forkTime := __src.forkTime, clock := __src.clock, identicalCalls := __src.identicalCalls,\n            historyCode := __src.historyCode, beaconCode := __src.beaconCode, dualReaders := __src.dualReaders,\n            images := __src.images, anchor := __src.anchor, signal := Bool.true })\n          Etna.Design.AnchorlessRegression.active { flat := [999], current := [] }\n          Etna.Design.AnchorlessRegression.domain Etna.Design.AnchorlessRegression.verify 77\n          (Option.some Etna.Design.AnchorlessRegression.proof) =\n        Bool.false ∧\n      Etna.Design.Anchorless.authorize\n          (have __src := Etna.Design.AnchorlessRegression.prerequisites;\n          { forkTime := __src.forkTime, clock := __src.clock, identicalCalls := __src.identicalCalls,\n            historyCode := __src.historyCode, beaconCode := __src.beaconCode, dualReaders := __src.dualReaders,\n            images := __src.images, anchor := __src.anchor, signal := Bool.true })\n          Etna.Design.AnchorlessRegression.active { flat := [999], current := [] }\n          Etna.Design.AnchorlessRegression.domain Etna.Design.AnchorlessRegression.verify 999 Option.none =\n        Bool.false",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": [
+        "ANCHORLESS-19b714580c334859",
+        "ANCHORLESS-a5d7d6824045ca1c",
+        "ANCHORLESS-b7b8de64ca020aed",
+        "ANCHORLESS-af7fdf5835d66866"
+      ],
+      "scope": "Concrete composed new-service proof and post-expiry empty-cache success; partial upgrade admits neither fresh proof nor stale flat cache."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Anchorless",
+      "declaration": "Etna.Design.AnchorlessRegression.scheduled_migration",
+      "type": "Etna.Design.Anchorless.InstallRun\n    Etna.Design.AnchorlessRegression.fork Etna.Design.AnchorlessRegression.live ∧\n  Etna.Design.AnchorlessRegression.live.forkTime = 100 ∧\n    Etna.Design.Anchorless.pairedUpgrade\n        (have __src := Etna.Design.AnchorlessRegression.prerequisites;\n        { forkTime := __src.forkTime, clock := 100, identicalCalls := __src.identicalCalls,\n          historyCode := __src.historyCode, beaconCode := __src.beaconCode, dualReaders := __src.dualReaders,\n          images := __src.images, anchor := __src.anchor, signal := __src.signal })\n        Bool.true Bool.true =\n      have __src := Etna.Design.AnchorlessRegression.prerequisites;\n      { forkTime := __src.forkTime, clock := 100, identicalCalls := __src.identicalCalls,\n        historyCode := __src.historyCode, beaconCode := __src.beaconCode, dualReaders := __src.dualReaders,\n        images := __src.images, anchor := __src.anchor, signal := __src.signal }",
+      "assumptions": [
+        "Ideal authenticated canonical L1 roots and decoded account/storage proof soundness; actual MPT/hash/byte encodings and arbitrary preconfirmed or future-invalid L2 states are excluded.",
+        "Ideal EIP-4788 pre-execution, timestamp/root ring semantics, identical EL calls and decoded transaction atomicity. Upgrade authority/transport, actual system bytecode, full clients/guests and Bridge payouts are not refined."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["ANCHORLESS-b7b8de64ca020aed", "ANCHORLESS-f2dea608f21f6207"],
+      "scope": "Concrete pre-fork batch, real lifecycle clock advance and immutable schedule at activation; a batch at the fork boundary reverts."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.service_proof_binding",
+      "type": "∀ {config : Etna.Design.Anchorless.ServiceConfig}\n  {installation : Etna.Design.Anchorless.Installation} {s : Etna.Design.Anchorless.RootState}\n  {cache : Etna.Design.Anchorless.Cache} {verify : Etna.Design.Anchorless.HopProof → Bool}\n  {request : Etna.Design.Anchorless.ServiceRequest} {p : Etna.Design.Anchorless.HopProof},\n  Etna.Design.Anchorless.serviceAuthorize config installation s cache verify request (Option.some p) = Bool.true →\n    request.sourceChain = config.domain.chain ∧\n      p.chain = request.sourceChain ∧\n        p.account = config.domain.signalService ∧ p.slot = config.slotOf request.sourceChain request.app request.signal",
+      "assumptions": [
+        "Ideal canonical L1 roots, decoded account/storage-proof soundness and ideal EL/atomic migration primitives as in the underlying raw-slot contracts.",
+        "One service-owned immutable slot adapter over source chain/app/signal; actual Keccak/ABI implementation remains external. Cross-request reuse rejection requires explicit unequal derived slots, not unconditional finite-hash injectivity. Bridge payout refinement is excluded."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["ANCHORLESS-6f651d8e580ae691"],
+      "scope": "Supporting explicit request source-chain, fixed SignalService account and app/signal-derived slot binding. One configuration-owned adapter is used; no per-request raw slot or encoder."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.service_authorization_sound",
+      "type": "∀ {config : Etna.Design.Anchorless.ServiceConfig}\n  {installation : Etna.Design.Anchorless.Installation} {l1 : Nat → Nat} {fork : Nat}\n  {s : Etna.Design.Anchorless.RootState} {cache : Etna.Design.Anchorless.Cache}\n  {verify : Etna.Design.Anchorless.HopProof → Bool} {stored : Nat → Nat → Nat → Nat → Prop}\n  {request : Etna.Design.Anchorless.ServiceRequest} {proof : Option Etna.Design.Anchorless.HopProof},\n  Etna.Design.Anchorless.InstallRun fork installation →\n    Etna.Design.Anchorless.ServiceRun config l1 fork verify s cache →\n      Etna.Design.Anchorless.StorageSound l1 verify stored →\n        Etna.Design.Anchorless.serviceAuthorize config installation s cache verify request proof = Bool.true →\n          request.sourceChain = config.domain.chain ∧\n            ∃ number,\n              stored number request.sourceChain config.domain.signalService\n                (config.slotOf request.sourceChain request.app request.signal)",
+      "assumptions": [
+        "Ideal canonical L1 roots, decoded account/storage-proof soundness and ideal EL/atomic migration primitives as in the underlying raw-slot contracts.",
+        "One service-owned immutable slot adapter over source chain/app/signal; actual Keccak/ABI implementation remains external. Cross-request reuse rejection requires explicit unequal derived slots, not unconditional finite-hash injectivity. Bridge payout refinement is excluded."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["ANCHORLESS-6f651d8e580ae691"],
+      "scope": "Fixed-adapter raw ServiceRun plus reachable immutable-fork installation and primitive storage soundness establish the requested source-chain/app/signal derived storage fact for either proof or cache authorization. Actual Keccak/ABI and Bridge payouts remain external."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.service_proof_isolation",
+      "type": "∀ (config : Etna.Design.Anchorless.ServiceConfig)\n  (installation : Etna.Design.Anchorless.Installation) (s : Etna.Design.Anchorless.RootState)\n  (cache : Etna.Design.Anchorless.Cache) (verify : Etna.Design.Anchorless.HopProof → Bool)\n  (old request : Etna.Design.Anchorless.ServiceRequest) (p : Etna.Design.Anchorless.HopProof),\n  p.slot = config.slotOf old.sourceChain old.app old.signal →\n    config.slotOf old.sourceChain old.app old.signal ≠ config.slotOf request.sourceChain request.app request.signal →\n      Etna.Design.Anchorless.serviceAuthorize config installation s cache verify request (Option.some p) = Bool.false",
+      "assumptions": [
+        "Ideal canonical L1 roots, decoded account/storage-proof soundness and ideal EL/atomic migration primitives as in the underlying raw-slot contracts.",
+        "One service-owned immutable slot adapter over source chain/app/signal; actual Keccak/ABI implementation remains external. Cross-request reuse rejection requires explicit unequal derived slots, not unconditional finite-hash injectivity. Bridge payout refinement is excluded."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["ANCHORLESS-6f651d8e580ae691"],
+      "scope": "An old proof cannot authorize a new app/signal request when their fixed derived slots differ. Coordinate inequality alone is not assumed to imply finite-hash injectivity."
+    },
+    {
+      "module": "EtnaProofs.Anchorless",
+      "declaration": "Etna.Design.Anchorless.service_cache_isolation",
+      "type": "∀ (config : Etna.Design.Anchorless.ServiceConfig)\n  (installation : Etna.Design.Anchorless.Installation) (s : Etna.Design.Anchorless.RootState)\n  (cache : Etna.Design.Anchorless.Cache) (verify : Etna.Design.Anchorless.HopProof → Bool)\n  (old request : Etna.Design.Anchorless.ServiceRequest),\n  Etna.Design.Anchorless.cached cache (config.slotOf request.sourceChain request.app request.signal) = Bool.false →\n    config.slotOf old.sourceChain old.app old.signal ≠ config.slotOf request.sourceChain request.app request.signal →\n      Etna.Design.Anchorless.serviceAuthorize config installation s\n          { flat := cache.flat, current := Etna.Design.Anchorless.requestSlot config old :: cache.current } verify\n          request Option.none =\n        Bool.false",
+      "assumptions": [
+        "Ideal canonical L1 roots, decoded account/storage-proof soundness and ideal EL/atomic migration primitives as in the underlying raw-slot contracts.",
+        "One service-owned immutable slot adapter over source chain/app/signal; actual Keccak/ABI implementation remains external. Cross-request reuse rejection requires explicit unequal derived slots, not unconditional finite-hash injectivity. Bridge payout refinement is excluded."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["ANCHORLESS-6f651d8e580ae691"],
+      "scope": "Adding an old request receipt cannot authorize a previously uncached different derived slot. An independently proven target receipt is excluded explicitly; separation is a hypothesis."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Anchorless",
+      "declaration": "Etna.Design.AnchorlessRegression.service_history",
+      "type": "Etna.Design.Anchorless.ServiceRun\n    Etna.Design.AnchorlessRegression.service Etna.Design.AnchorlessRegression.l1 Etna.Design.AnchorlessRegression.fork\n    Etna.Design.AnchorlessRegression.serviceVerify Etna.Design.AnchorlessRegression.expired\n    Etna.Design.AnchorlessRegression.serviceCache ∧\n  Etna.Design.Anchorless.serviceAuthorize Etna.Design.AnchorlessRegression.service\n      Etna.Design.AnchorlessRegression.installed Etna.Design.AnchorlessRegression.expired\n      Etna.Design.AnchorlessRegression.serviceCache Etna.Design.AnchorlessRegression.serviceVerify\n      Etna.Design.AnchorlessRegression.request Option.none =\n    Bool.true",
+      "assumptions": [
+        "Ideal canonical L1 roots, decoded account/storage-proof soundness and ideal EL/atomic migration primitives as in the underlying raw-slot contracts.",
+        "One service-owned immutable slot adapter over source chain/app/signal; actual Keccak/ABI implementation remains external. Cross-request reuse rejection requires explicit unequal derived slots, not unconditional finite-hash injectivity. Bridge payout refinement is excluded."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["ANCHORLESS-6f651d8e580ae691"],
+      "scope": "Concrete fixed-service request proof followed by actual ring overwrite; current empty-proof authorization survives."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Anchorless",
+      "declaration": "Etna.Design.AnchorlessRegression.service_request_boundaries",
+      "type": "Etna.Design.Anchorless.serviceAuthorize\n      Etna.Design.AnchorlessRegression.service Etna.Design.AnchorlessRegression.installed\n      Etna.Design.AnchorlessRegression.active { flat := [], current := [] }\n      Etna.Design.AnchorlessRegression.serviceVerify Etna.Design.AnchorlessRegression.request\n      (Option.some Etna.Design.AnchorlessRegression.serviceProof) =\n    Bool.true ∧\n  Etna.Design.Anchorless.serviceAuthorize Etna.Design.AnchorlessRegression.service\n        Etna.Design.AnchorlessRegression.installed Etna.Design.AnchorlessRegression.active\n        Etna.Design.AnchorlessRegression.serviceCache Etna.Design.AnchorlessRegression.serviceVerify\n        Etna.Design.AnchorlessRegression.appRequest (Option.some Etna.Design.AnchorlessRegression.serviceProof) =\n      Bool.false ∧\n    Etna.Design.Anchorless.serviceAuthorize Etna.Design.AnchorlessRegression.service\n          Etna.Design.AnchorlessRegression.installed Etna.Design.AnchorlessRegression.active\n          Etna.Design.AnchorlessRegression.serviceCache Etna.Design.AnchorlessRegression.serviceVerify\n          Etna.Design.AnchorlessRegression.signalRequest (Option.some Etna.Design.AnchorlessRegression.serviceProof) =\n        Bool.false ∧\n      Etna.Design.Anchorless.serviceAuthorize Etna.Design.AnchorlessRegression.service\n            Etna.Design.AnchorlessRegression.installed Etna.Design.AnchorlessRegression.active\n            Etna.Design.AnchorlessRegression.serviceCache Etna.Design.AnchorlessRegression.serviceVerify\n            Etna.Design.AnchorlessRegression.appRequest Option.none =\n          Bool.false ∧\n        Etna.Design.Anchorless.serviceAuthorize Etna.Design.AnchorlessRegression.service\n              Etna.Design.AnchorlessRegression.installed Etna.Design.AnchorlessRegression.active\n              Etna.Design.AnchorlessRegression.serviceCache Etna.Design.AnchorlessRegression.serviceVerify\n              Etna.Design.AnchorlessRegression.signalRequest Option.none =\n            Bool.false ∧\n          Etna.Design.Anchorless.serviceAuthorize Etna.Design.AnchorlessRegression.service\n                Etna.Design.AnchorlessRegression.installed Etna.Design.AnchorlessRegression.active\n                Etna.Design.AnchorlessRegression.serviceCache Etna.Design.AnchorlessRegression.serviceVerify\n                (have __src := Etna.Design.AnchorlessRegression.request;\n                { sourceChain := 2, app := __src.app, signal := __src.signal })\n                (Option.some Etna.Design.AnchorlessRegression.serviceProof) =\n              Bool.false ∧\n            Etna.Design.Anchorless.serviceAuthorize Etna.Design.AnchorlessRegression.service\n                  Etna.Design.AnchorlessRegression.installed Etna.Design.AnchorlessRegression.active\n                  Etna.Design.AnchorlessRegression.serviceCache Etna.Design.AnchorlessRegression.serviceVerify\n                  Etna.Design.AnchorlessRegression.appRequest\n                  (Option.some\n                    (have __src := Etna.Design.AnchorlessRegression.serviceProof;\n                    { blockId := __src.blockId, root := __src.root, chain := __src.chain, account := __src.account,\n                      slot :=\n                        Etna.Design.Anchorless.requestSlot Etna.Design.AnchorlessRegression.service\n                          Etna.Design.AnchorlessRegression.appRequest })) =\n                Bool.true ∧\n              Etna.Design.Anchorless.serviceAuthorize Etna.Design.AnchorlessRegression.service\n                  Etna.Design.AnchorlessRegression.installed Etna.Design.AnchorlessRegression.active\n                  Etna.Design.AnchorlessRegression.serviceCache Etna.Design.AnchorlessRegression.serviceVerify\n                  Etna.Design.AnchorlessRegression.signalRequest\n                  (Option.some\n                    (have __src := Etna.Design.AnchorlessRegression.serviceProof;\n                    { blockId := __src.blockId, root := __src.root, chain := __src.chain, account := __src.account,\n                      slot :=\n                        Etna.Design.Anchorless.requestSlot Etna.Design.AnchorlessRegression.service\n                          Etna.Design.AnchorlessRegression.signalRequest })) =\n                Bool.true",
+      "assumptions": [
+        "Ideal canonical L1 roots, decoded account/storage-proof soundness and ideal EL/atomic migration primitives as in the underlying raw-slot contracts.",
+        "One service-owned immutable slot adapter over source chain/app/signal; actual Keccak/ABI implementation remains external. Cross-request reuse rejection requires explicit unequal derived slots, not unconditional finite-hash injectivity. Bridge payout refinement is excluded."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["ANCHORLESS-6f651d8e580ae691"],
+      "scope": "Concrete changed-app, changed-signal and changed-chain old-proof rejection; old cached receipt does not authorize changed app/signal, while rebuilt matching proofs succeed."
+    },
+    {
+      "module": "EtnaWitnesses.Regressions.Anchorless",
+      "declaration": "Etna.Design.AnchorlessRegression.collision_scope",
+      "type": "Etna.Design.AnchorlessRegression.request ≠\n    Etna.Design.AnchorlessRegression.appRequest ∧\n  Etna.Design.Anchorless.serviceAuthorize\n        { domain := Etna.Design.AnchorlessRegression.domain, slotOf := fun x x_1 x_2 => 77 }\n        Etna.Design.AnchorlessRegression.installed Etna.Design.AnchorlessRegression.active\n        Etna.Design.AnchorlessRegression.received Etna.Design.AnchorlessRegression.verify\n        Etna.Design.AnchorlessRegression.appRequest (Option.some Etna.Design.AnchorlessRegression.proof) =\n      Bool.true ∧\n    Etna.Design.Anchorless.serviceAuthorize\n        { domain := Etna.Design.AnchorlessRegression.domain, slotOf := fun x x_1 x_2 => 77 }\n        Etna.Design.AnchorlessRegression.installed Etna.Design.AnchorlessRegression.expired\n        Etna.Design.AnchorlessRegression.received Etna.Design.AnchorlessRegression.verify\n        Etna.Design.AnchorlessRegression.appRequest Option.none =\n      Bool.true",
+      "assumptions": [
+        "Ideal canonical L1 roots, decoded account/storage-proof soundness and ideal EL/atomic migration primitives as in the underlying raw-slot contracts.",
+        "One service-owned immutable slot adapter over source chain/app/signal; actual Keccak/ABI implementation remains external. Cross-request reuse rejection requires explicit unequal derived slots, not unconditional finite-hash injectivity. Bridge payout refinement is excluded."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "regression",
+      "sources": ["ANCHORLESS-6f651d8e580ae691"],
+      "scope": "Deliberately colliding ideal slot adapter admits distinct app requests at the same proof/cache slot; this demonstrates why the general isolation theorems require derived-slot separation."
     }
   ]
 }

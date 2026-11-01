@@ -1,3 +1,4 @@
+import EtnaProofs.Anchorless
 import EtnaProofs.Locking
 import EtnaProofs.TrustState
 import EtnaProofs.CanonicalHistory

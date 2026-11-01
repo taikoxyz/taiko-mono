@@ -28,6 +28,11 @@ class PinnedSourceTests(unittest.TestCase):
                     'commit': 'b7ca989c8e343073daa628771102bdee7fe7101b',
                     'sha256': '1246b2b713975d6c5f9d3fceeec427af541796545b416eda7d25b7eed10f695f',
                 },
+                'anchorless_source': {
+                    'path': directory+'/ANCHORLESS.md', 'revision': '2026-10-30',
+                    'commit': 'b7ca989c8e343073daa628771102bdee7fe7101b',
+                    'sha256': 'cf2b44a570e737056cdad16afc57f48071985951d4a6cdae026a49494c14571d',
+                },
                 'acceptance_source': {
                     'path': directory+'/ACCEPTANCE.md', 'revision': '2026-10-29',
                     'commit': '39ebefbf33a2702b750e0fb0db7d2a40ff8e8480',
@@ -43,6 +48,36 @@ class PinnedSourceTests(unittest.TestCase):
         rows = self.check_sources()
         self.assertTrue(any(r['id'].startswith('EN-') for r in rows))
         self.assertTrue(any(r['id'].startswith('ACCEPTANCE-') for r in rows))
+
+    def test_anchorless_has_independent_exact_inventory(self):
+        rows = self.check_sources()
+        self.assertEqual(len([r for r in rows if r['language'] in ('en', 'acceptance')]), 313)
+        self.assertEqual(len([r for r in rows if r['language'] == 'anchorless']), 92)
+
+    def test_anchorless_edit_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, 'anchorless digest mismatch'):
+            self.check_sources(lambda repo, value:
+                (repo/'packages/protocol/docs/etna/ANCHORLESS.md').write_text('changed'))
+
+    def test_anchorless_pin_cannot_redirect_to_identical_bytes(self):
+        def redirect(repo, value):
+            shutil.copyfile(repo/value['anchorless_source']['path'], repo/'copied-anchorless.md')
+            value['anchorless_source']['path'] = 'copied-anchorless.md'
+        with self.assertRaisesRegex(ValueError, 'the anchorless source must be'):
+            self.check_sources(redirect)
+
+    def test_anchorless_pin_is_required(self):
+        with self.assertRaisesRegex(ValueError, 'anchorless reviewed source pin required'):
+            self.check_sources(lambda repo, value: value.pop('anchorless_source'))
+
+    def test_anchorless_pin_metadata_is_validated(self):
+        for field, bad, diagnostic in [('commit', 'abc', 'full Git commit'),
+                                      ('revision', 'yesterday', 'ISO revision date'),
+                                      ('sha256', 'xyz', 'digest mismatch')]:
+            with self.subTest(field=field), self.assertRaisesRegex(ValueError, diagnostic):
+                self.check_sources(lambda repo, value: value['anchorless_source'].update({field: bad}))
+        with self.assertRaisesRegex(ValueError, 'anchorless reviewed source pin required'):
+            self.check_sources(lambda repo, value: value.update(anchorless_source=[]))
 
     def test_spec_edit_is_rejected(self):
         with self.assertRaisesRegex(ValueError, 'spec digest mismatch'):

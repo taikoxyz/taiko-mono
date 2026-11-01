@@ -15,7 +15,9 @@ spec.loader.exec_module(coverage)
 class EvidencePackageTests(unittest.TestCase):
     def test_claim_pairs_have_reviewed_edges(self):
         rows = coverage.inventory()
-        self.assertEqual(len(rows),313)
+        self.assertEqual(len([r for r in rows if r['language'] in ('en', 'acceptance')]),313)
+        self.assertEqual(len([r for r in rows if r['language'] == 'anchorless']),92)
+        self.assertEqual(len(rows),405)
         # inventory() checks each explicit claim edge and its general-property role.
 
     def test_clause_ids_survive_line_insertion(self):
@@ -52,7 +54,7 @@ class EvidencePackageTests(unittest.TestCase):
         self.assertEqual([(r['id'], r['start_line']) for r in coverage.clauses(stripped,'en')],
                          [(r['id'], r['start_line']) for r in coverage.clauses(plain,'en')])
 
-    def test_generated_inventory_fingerprints_both_authorities(self):
+    def test_generated_inventory_fingerprints_all_authorities(self):
         import subprocess
         with tempfile.TemporaryDirectory() as tmp:
             result = subprocess.run(['python3', str(ROOT/'scripts/generate_artifacts.py'), '--out', tmp],
@@ -63,6 +65,8 @@ class EvidencePackageTests(unittest.TestCase):
                              '3957abeaf43d69d2b3fad937c5677b522305316388b9d47e099bef79a3da3a4b')
             self.assertEqual(hashes['packages/protocol/docs/etna/ACCEPTANCE.md'],
                              '876f89892acc91508fd322b4df676a0eb19550b39c9a43490376b4a3b4863c60')
+            self.assertEqual(hashes['packages/protocol/docs/etna/ANCHORLESS.md'],
+                             'cf2b44a570e737056cdad16afc57f48071985951d4a6cdae026a49494c14571d')
             self.assertNotIn('packages/protocol/docs/etna/sources/manifest.json', hashes)
 
     def test_generator_detects_stale_outputs(self):
