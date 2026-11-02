@@ -42,15 +42,15 @@ _Which seven words, and which five fields: [Q-A-1](../review/A.md#q-a-1)._
 
 _Which fields occupy the three words: [STOR-B-9](B.md#stor-b-9)._
 
-## ENC-A-4
+## ENC-A-4a
 
-| Vector     | Setup                                                                                                                | Expected                                 |
-| ---------- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
-| 4.a accept | Clients/images are prepared while the upgrade mechanism is incomplete                                                | preparation alone activates no new rules |
-| 4.b accept | The accepted image binds the authorized schedule and unchanged deployment config through the concrete 10.1 mechanism | requirement satisfied                    |
-| 4.c reject | The existing committeeConfigHash or unchanged statement is claimed to contain T without a defined binding            | violates ENC-A-4                         |
-| 4.d reject | Registering an image or changing software alone activates V2                                                         | violates ENC-A-4                         |
-| 4.e reject | A proof is accepted without binding its schedule to the authorized deployment                                        | violates ENC-A-4                         |
+| Vector      | Setup                                                                                                                | Expected                                 |
+| ----------- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| 4a.a accept | Clients/images are prepared without satisfying the 10.1 activation prerequisites                                     | preparation alone activates no new rules |
+| 4a.b accept | The accepted image binds the authorized schedule and unchanged deployment config through the concrete 10.1 mechanism | requirement satisfied                    |
+| 4a.c reject | The existing committeeConfigHash or unchanged statement is claimed to contain T without a defined binding            | violates ENC-A-4a                        |
+| 4a.d reject | Registering an image or changing software alone activates V2                                                         | violates ENC-A-4a                        |
+| 4a.e reject | A proof is accepted without binding its schedule to the authorized deployment                                        | violates ENC-A-4a                        |
 
 _The concrete artifact and proof/image binding remain open: [Q-A-3](../review/A.md#q-a-3) and [Q10.1-1](../review/10.1.md#q101-1)._
 
@@ -603,6 +603,6 @@ Everything below is a question, not a vector. Each has an entry in [review/A.md]
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
 | ENC-A-6 to ENC-A-55         | whether the now-citable blocks should still be restructured into prose or tables                                                     | [Q-A-1](../review/A.md#q-a-1) |
 | ENC-A-37, ENC-A-39–ENC-A-42 | whether a bare tag literal is a padded `bytes32` word or a dynamic string, and whether `ETNA_SET_NODE` is deliberately unversioned   | [Q-A-2](../review/A.md#q-a-2) |
-| ENC-A-4                     | what in the seven-word config binds guest-image and verifier acceptance                                                              | [Q-A-3](../review/A.md#q-a-3) |
+| ENC-A-4a                    | which authorized image/admission mechanism binds the upgrade schedule without assuming a commitment in committeeConfigHash           | [Q-A-3](../review/A.md#q-a-3) |
 | ENC-A-24, ENC-A-25          | whether an out-of-order, extra or missing witness slot list makes a witness invalid; the order is now stated, the consequence is not | [Q-A-4](../review/A.md#q-a-4) |
 | Shared vectors              | the obligation itself is un-numbered and has no owner                                                                                | [Q-A-5](../review/A.md#q-a-5) |

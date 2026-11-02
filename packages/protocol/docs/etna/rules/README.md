@@ -22,10 +22,13 @@ A review comment like "section 7.2 has a problem" cannot be resolved, tested or 
 - **section** is the section the rule lives in. It locates the reader; it is not the primary key.
 - **n** is a counter within the section.
 
-### Insertions, deletions, moves
+### Insertions, deletions, moves and semantic replacements
 
 - **Never renumber to make room.** Insert a suffix letter on the preceding ID: `FI-7.2-3a` sits between `FI-7.2-3` and `FI-7.2-4`.
 - A deleted rule's ID is **retired, never reused**; `INDEX.md` keeps the row marked `retired`, so a stale external reference fails visibly instead of pointing at a different rule.
+- A semantic replacement that changes the governed subject or reverses an existing requirement/consequence must retire the old ID and use the next unused suffix on the same number (for example `ENC-A-4` → `ENC-A-4a`). A stale citation must not silently acquire the opposite meaning. The retired index row names and links its replacement; never reuse a retired ID or suffix.
+- Keep the ID for wording corrections, added precision or compatible extensions that preserve existing requirements and outcomes. If an old accept/reject case changes outcome or the old statement is no longer true, use retirement and replacement instead. Review every affected vector; do not hide a semantic replacement by merely rewriting its expectations.
+- Amend the rule text first, then replace/insert markers in a separate single-writer pass that preserves that amended unmarked text. Update INDEX.md, vectors, review references and other citations together; run all non-purity checks.
 - If a rule moves to another section its ID stays intact and `INDEX.md` records the move. **An ID is a citation, not a coordinate.**
 
 ## What an ID means: a citation handle, plus a type

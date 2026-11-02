@@ -92,11 +92,14 @@ The Etna block-production and validation rules are in
   settlement rollback runs in the same DAO upgrade of the Inbox and registry that
   replaces the verifier.
 - **Timestamp upgrades:** compatible validity-rule revisions use each L2 block's
-  timestamp: V1 below T and V2 at or above T. Deploy schedule-aware clients, ELs
-  and guests and finalize schedule-aware-only proof admission before crossing T.
+  timestamp: old rule revision V1 below activation timestamp T and new revision
+  V2 at or above T (these are not encoding-domain tags). Deploy schedule-aware
+  clients, ELs and guests and finalize schedule-aware-only proof admission before
+  crossing T.
   Both guests may prove a batch spanning T with the original grid and cut checks;
-  pre-T history keeps its original rules. This route preserves K, signing domains
-  and fixed CometBFT parameters. Concrete authority/proof-binding and activation
+  pre-T history keeps its original rules. All exclusions in SPEC START-10.1-3
+  apply: K/grid, chain_id/signing domains, APP_VERSION, fixed CometBFT consensus
+  parameters and deployment immutables require separate transitions or migrations. Concrete authority/proof-binding and activation
   interfaces remain pending (10.1); the checklist includes their acceptance.
 - **Open design and acceptance:** the Unzen switch and bridge wiring (section 12
   item 9), concrete timestamp-upgrade activation interfaces (item 10),

@@ -44,9 +44,9 @@ Raised by: DeepSeek-V4.1-Flash (dantaik)
 
 **Which concrete artifact binds the schedule to image acceptance?**
 
-**Text.** ENC-A-4 leaves the seven-word committeeConfigHash and current statement layout unchanged; START-10.1-5 requires accepted images to bind the authorized schedule or authenticate a commitment also enforced by L1 verification.
+**Text.** ENC-A-4a leaves the seven-word committeeConfigHash and current statement layout unchanged; START-10.1-5 requires accepted images to bind the authorized schedule or authenticate a commitment also enforced by L1 verification.
 
-**Why it matters.** The design now states explicitly that the committee config does not contain T or image acceptance. A concrete schedule record, authority proof and image/admission binding are still needed; no encoding is added by this amendment. This is the appendix side of [Q10.1-1](10.1.md#q101-1).
+**Why it matters.** The design now states explicitly that the committee config does not contain T or image acceptance. A concrete upgrade-schedule record, authority proof and image/admission binding must satisfy START-10.1-5 without assuming a commitment in the seven-word committeeConfigHash or statement layout. This is the appendix side of [Q10.1-1](10.1.md#q101-1).
 
 **Would close it.** Specify the encoding and on-chain authority/admission interface, including deployment/generation and history binding, and add shared node/guest/contract vectors. A manifest alone is insufficient under START-10.1-5.
 
