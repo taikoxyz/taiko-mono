@@ -65,17 +65,18 @@ pub struct AppState {
     pub inbox: Address,
     /// The Etna genesis record verified at `InitChain`.
     pub genesis: GenesisRecord,
-    /// Last committed CometBFT height (== `parent.number`); `B*` right after `InitChain`.
+    /// Logical EL boundary (== `parent.number`); B* or c before the first generation commit.
     pub last_height: u64,
-    /// Exact Comet block ID supplied by FinalizeBlock; zero only at genesis.
+    /// Exact new-generation Comet block ID; zero before the first generation commit.
     pub last_comet_hash: B256,
     /// Summary of the last committed L2 block, the parent of the next height.
     pub parent: ParentInfo,
     /// The L1 anchor of the last committed block and the Inbox facts proven at it.
     pub anchor: AnchorState,
     /// The forced inclusion cursor `c(last_height)`: how many queue entries the chain's blocks
-    /// have consumed (0 at `InitChain`). The next block may consume only entry
-    /// `forced_cursor`. A required field: a state file without it is refused (no migration).
+    /// have consumed (0 at deployment, the retained landing cursor at recovery). The next block
+    /// may consume only entry `forced_cursor`. A required field: a state file without it is
+    /// refused (no migration).
     pub forced_cursor: u64,
     /// Authenticated active and pending committee records, keyed by their actual target epochs.
     pub committees: BTreeMap<u64, CommitteeState>,
@@ -90,6 +91,11 @@ impl AppState {
     /// The fixed global L2 boundary preceding this generation's first block.
     pub fn origin_height(&self) -> u64 {
         self.recovery.as_ref().map_or(self.genesis.genesis_height, |origin| origin.height)
+    }
+
+    /// Whether this generation has actually committed a new Comet block after its origin.
+    pub fn has_generation_commit(&self) -> bool {
+        self.last_height > self.origin_height()
     }
 
     /// Earliest L1 anchor/snapshot allowed for a block in this generation.
@@ -145,6 +151,9 @@ pub enum StoreError {
     /// Replaying a committed height produced a different Comet block ID.
     #[error("conflicting durable Comet block hash at height {0}")]
     CometConflict(u64),
+    /// An immutable recovery bootstrap already exists with different evidence.
+    #[error("conflicting immutable recovery bootstrap")]
+    BootstrapConflict,
     /// The state could not be serialized to JSON.
     #[error("cannot serialize the app state: {0}")]
     Encode(#[source] serde_json::Error),
@@ -263,6 +272,33 @@ impl Store {
     /// Atomically saves the complete verified committee sidecar before proposal signing.
     pub(crate) fn save_committee_witness(&self, bytes: &[u8]) -> Result<(), StoreError> {
         self.save_bytes(bytes, COMMITTEE_WITNESS_FILE, COMMITTEE_WITNESS_TMP_FILE)
+    }
+
+    /// Loads immutable bootstrap evidence; absence is never permission to reconstruct a saved
+    /// recovery.
+    pub(crate) fn load_recovery_bootstrap(
+        &self,
+    ) -> Result<Option<crate::recovery::RecoveryBootstrap>, StoreError> {
+        let path = self.dir.join("recovery-bootstrap.json");
+        match fs::read(&path) {
+            Ok(bytes) => serde_json::from_slice(&bytes)
+                .map(Some)
+                .map_err(|source| StoreError::Corrupt { path, source }),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
+            Err(source) => Err(StoreError::Io { op: "read", path, source }),
+        }
+    }
+
+    /// Saves authenticated bootstrap evidence before AppState, refusing conflicting retries.
+    pub(crate) fn save_recovery_bootstrap(
+        &self,
+        bootstrap: &crate::recovery::RecoveryBootstrap,
+    ) -> Result<(), StoreError> {
+        if let Some(existing) = self.load_recovery_bootstrap()? {
+            return if existing == *bootstrap { Ok(()) } else { Err(StoreError::BootstrapConflict) };
+        }
+        let bytes = serde_json::to_vec(bootstrap).map_err(StoreError::Encode)?;
+        self.save_bytes(&bytes, "recovery-bootstrap.json", "recovery-bootstrap.json.tmp")
     }
 
     /// Persists `s` atomically, replacing any previous state.

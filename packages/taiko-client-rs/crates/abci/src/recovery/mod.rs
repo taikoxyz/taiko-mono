@@ -2,12 +2,16 @@
 
 /// Nonmutating discovery and own-L1 reauthentication.
 mod fetch;
+/// Deterministic recovery genesis and historical bootstrap provenance.
+mod genesis;
 /// Versioned evidence and authenticated result types.
 mod types;
 /// Pure proof verification.
 mod verify;
 
 pub use fetch::{authenticate_recovery, check_recovery_canonicality};
+pub use genesis::build_recovery_genesis;
+pub(crate) use genesis::{RecoveryBootstrap, recovery_bootstrap, recovery_parent};
 pub use types::{RecoveryError, RecoveryOrigin, RecoveryWitness};
 pub use verify::verify_recovery_witness;
 
@@ -255,6 +259,24 @@ mod tests {
         ));
         let fetched = authenticate_recovery(&l1, &engine, &fx.params, 1).await.unwrap();
         assert_eq!(verify_recovery_witness(&fetched, &fx.params).unwrap(), origin);
+        let doc = build_recovery_genesis(&l1, &engine, &fx.params, 1).await.unwrap();
+        let mut request = fx.request.clone();
+        request.chain_id = doc.chain_id;
+        request.time = doc.genesis_time.parse().unwrap();
+        request.app_state_bytes = serde_json::to_vec(&doc.app_state).unwrap().into();
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = crate::App::new(
+            l1,
+            engine,
+            fx.params,
+            crate::Store::new(dir.path().into()),
+            crate::AppOptions::default(),
+        )
+        .unwrap();
+        app.handle(crate::wire::Request::InitChain(request)).await.unwrap();
+        assert_eq!(app.state().unwrap().origin_height(), 0);
+        assert_eq!(app.state().unwrap().anchor.number, 64);
+        assert_eq!(app.state().unwrap().generation, 1);
     }
 
     #[test]

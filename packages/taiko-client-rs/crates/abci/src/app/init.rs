@@ -1,4 +1,4 @@
-//! `InitChain`: verify the genesis witness against the node's own L1 and the EL,
+//! `InitChain`: authenticate deployment or recovery bootstrap against own L1 and the EL,
 //! then persist the initial [`AppState`].
 
 use crate::wire::{request, response};
@@ -6,11 +6,12 @@ use std::collections::BTreeMap;
 
 use alloy_consensus::Header;
 
-use super::{AbciError, App, app_hash, at_genesis, within};
+use super::{AbciError, App, app_hash, at_generation_origin, within};
 use crate::{
     engine::Engine,
     genesis::{
-        GenesisConsensusParams, decode_app_state, genesis_time, verify_committee, verify_context,
+        BootstrapWitness, GenesisConsensusParams, decode_bootstrap_state, genesis_time,
+        verify_committee, verify_context,
     },
     l1::{L1Source, is_final_canonical},
     rules::check_chain_id,
@@ -24,25 +25,25 @@ impl<L: L1Source, E: Engine> App<L, E> {
     ///
     /// CometBFT re-sends `InitChain` whenever the app reports height 0, i.e. after a restart
     /// before the first PoS block is committed. An app already holding a state answers only
-    /// while that state is still at the genesis anchor `B*`: the request is verified again and
-    /// must yield exactly the stored state, which is then answered as before without being
-    /// rewritten. A state past `B*`, or a request yielding another state, is
+    /// while that state is still at its generation origin (B* or c): the request is verified again
+    /// and must yield exactly the stored state, which is then answered as before without being
+    /// rewritten. A state past its origin, or a request yielding another state, is
     /// [`AbciError::AlreadyInitialized`]; a verification failure is reported as such.
     ///
     /// See [`App::verify_genesis`] for the checks; as they make sure the EL serves `B*`, a
     /// successful `InitChain` also counts as this process's EL reconcile (see [`App::info`]).
-    /// Answers the requested validators with `app_hash = H*`.
+    /// Answers with the authenticated origin EL hash: H* or ELHash(c).
     pub(super) async fn init_chain(
         &mut self,
         req: request::InitChain,
     ) -> Result<response::InitChain, AbciError> {
         let restart = match &self.state {
             None => false,
-            Some(state) if at_genesis(state) => true,
+            Some(state) if at_generation_origin(state) => true,
             Some(_) => return Err(AbciError::AlreadyInitialized),
         };
         let state = self.verify_genesis(&req).await?;
-        let genesis_hash = state.genesis.genesis_hash;
+        let origin_hash = state.parent.hash;
         if restart {
             if self.state.as_ref() != Some(&state) {
                 return Err(AbciError::AlreadyInitialized);
@@ -53,7 +54,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             tracing::info!(
                 chain_id = %state.chain_id,
                 genesis_height = state.genesis.genesis_height,
-                genesis_hash = %genesis_hash,
+                origin_hash = %origin_hash,
                 l1_0 = state.genesis.l1_0,
                 genesis_cutoff = state.genesis.genesis_cutoff,
                 validators = req.validators.len(),
@@ -68,12 +69,14 @@ impl<L: L1Source, E: Engine> App<L, E> {
         Ok(response::InitChain {
             consensus_params: None,
             validators: vec![],
-            app_hash: app_hash(genesis_hash),
+            app_hash: app_hash(origin_hash),
         })
     }
 
     /// Verifies an `InitChain` request and returns the state it starts.
     ///
+    /// Recovery evidence dispatches to `verify_recovery_genesis`; the following checks describe
+    /// unchanged generation-zero initialization.
     /// In order: decodes the `app_state` witness; requires the request's time to equal the
     /// initialization timestamp and its representable consensus parameters to be canonical;
     /// requires its L1 header to be final and
@@ -88,7 +91,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Persists the authenticated Inbox address. The state has `last = (B*,
     /// H*)` and forced inclusion cursor 0.
     async fn verify_genesis(&self, req: &request::InitChain) -> Result<AppState, AbciError> {
-        let w = decode_app_state(&req.app_state_bytes)?;
+        let w = match decode_bootstrap_state(&req.app_state_bytes)? {
+            BootstrapWitness::Initial(w) => w,
+            BootstrapWitness::Recovery(w) => return self.verify_recovery_genesis(req, &w).await,
+        };
         let params = &self.params;
         let l1_header = &w.l1_header;
         let expected = genesis_time(l1_header.timestamp())?;
@@ -144,6 +150,147 @@ impl<L: L1Source, E: Engine> App<L, E> {
             forced_cursor: 0,
             committees: BTreeMap::from([(Schedule::E0, committee)]),
         })
+    }
+
+    /// Independently authenticates fixed recovery evidence, historical anchor and local EL
+    /// boundary. The immutable sidecar is durable before callers can publish the corresponding
+    /// AppState.
+    async fn verify_recovery_genesis(
+        &self,
+        req: &request::InitChain,
+        w: &crate::RecoveryWitness,
+    ) -> Result<AppState, AbciError> {
+        use crate::recovery::verify_recovery_witness;
+        let origin = verify_recovery_witness(w, &self.params)?;
+        if w.finalized_header != w.recovery_header || w.finalized_inbox != w.recovery_inbox {
+            return Err(crate::RecoveryError::Invalid(
+                "recovery genesis must embed the canonical R observation".into(),
+            )
+            .into());
+        }
+        let expected = genesis_time(origin.l1_timestamp)?;
+        if req.time != expected {
+            return Err(AbciError::GenesisTimeMismatch { got: req.time, expected });
+        }
+        if req.consensus_params != GenesisConsensusParams::abci() {
+            return Err(AbciError::GenesisConsensusParamsMismatch);
+        }
+        check_chain_id(&req.chain_id, &self.params, origin.generation)?;
+        if req.initial_height.value() != origin.height + 1 {
+            return Err(AbciError::InitialHeight {
+                got: req.initial_height.value(),
+                expected: origin.height + 1,
+            });
+        }
+        check_validators(&req.validators, &origin.committee.members)?;
+        self.trust.begin_session();
+        let mut pause = super::FINALIZE_RETRY_INITIAL;
+        let bootstrap = loop {
+            match self.recovery_inputs(w).await {
+                Ok(bootstrap) => break bootstrap,
+                Err(error) if recovery_input_unavailable(&error) => {
+                    tracing::warn!(height = origin.height, %error, ?pause, "recovery initialization waits for authenticated history");
+                    tokio::time::sleep(pause).await;
+                    pause = (pause * 2).min(super::FINALIZE_RETRY_MAX);
+                }
+                Err(error) => return Err(super::trust::classify_trust_error(error)),
+            }
+        };
+        let (_, anchor) = bootstrap.verify(&self.params)?;
+        let genesis = crate::genesis::verify_deployment_context(
+            &w.genesis.l1_header,
+            &w.genesis.inbox,
+            &self.params,
+        )?
+        .genesis;
+        let state = AppState {
+            schema_version: 14,
+            app_version: super::APP_VERSION,
+            chain_id: req.chain_id.clone(),
+            generation: origin.generation,
+            inbox: self.params.inbox,
+            genesis,
+            last_height: origin.height,
+            last_comet_hash: alloy_primitives::B256::ZERO,
+            parent: crate::recovery::recovery_parent(w),
+            anchor,
+            forced_cursor: origin.forced_cursor,
+            committees: BTreeMap::from([(
+                origin.committee.record.target_epoch,
+                origin.committee.clone(),
+            )]),
+            recovery: Some(origin),
+        };
+        self.store.save_recovery_bootstrap(&bootstrap)?;
+        Ok(state)
+    }
+
+    /// One bounded recovery acquisition attempt; unavailable history is retried by InitChain.
+    async fn recovery_inputs(
+        &self,
+        w: &crate::RecoveryWitness,
+    ) -> Result<crate::recovery::RecoveryBootstrap, AbciError> {
+        within(
+            "recovery own-L1 authentication",
+            self.opts.l1_timeout,
+            crate::recovery::check_recovery_canonicality(self.l1(), &self.params, w),
+        )
+        .await?;
+        let bootstrap = match self.store.load_recovery_bootstrap()? {
+            Some(bootstrap) => {
+                let (retained, anchor) = bootstrap.verify(&self.params)?;
+                if retained != *w {
+                    return Err(AbciError::SafetyHalt(
+                        "recovery request differs from immutable bootstrap".into(),
+                    ));
+                }
+                let finalized = within(
+                    "recovery historical finality",
+                    self.opts.l1_timeout,
+                    self.l1.finalized_number(),
+                )
+                .await?;
+                if finalized < anchor.number {
+                    return Err(crate::RecoveryError::Unavailable(
+                        "historical recovery anchor is not final".into(),
+                    )
+                    .into());
+                }
+                if within(
+                    "recovery historical canonicality",
+                    self.opts.l1_timeout,
+                    self.l1.canonical_hash(anchor.number),
+                )
+                .await? !=
+                    anchor.hash
+                {
+                    return Err(AbciError::SafetyHalt("historical recovery anchor changed".into()));
+                }
+                bootstrap
+            }
+            None => {
+                within(
+                    "recovery historical anchor",
+                    self.opts.l1_timeout,
+                    crate::recovery::recovery_bootstrap(self.l1(), &self.params, w),
+                )
+                .await?
+            }
+        };
+        let header = self.el_header(w.el_header.number).await?;
+        if header != w.el_header {
+            return Err(AbciError::SafetyHalt(
+                "EL contradicts authenticated recovery origin".into(),
+            ));
+        }
+        if let Some(parent) = w.parent_headers.first() &&
+            self.el_header(parent.number).await? != *parent
+        {
+            return Err(AbciError::SafetyHalt(
+                "EL contradicts authenticated recovery parent".into(),
+            ));
+        }
+        Ok(bootstrap)
     }
 
     /// Makes sure the EL serves the genesis anchor `B*` with hash `H*` (syncing it over devp2p
@@ -219,5 +366,17 @@ fn check_validators(
     match genesis.keys().next() {
         Some(extra) => Err(mismatch(format!("validator {extra} is not a committee member"))),
         None => Ok(()),
+    }
+}
+
+/// Only acquisition failures may keep recovery InitChain pending on the same connection.
+fn recovery_input_unavailable(error: &AbciError) -> bool {
+    match error {
+        AbciError::Recovery(crate::RecoveryError::Unavailable(_)) |
+        AbciError::Timeout { .. } |
+        AbciError::ElBlockMissing(_) => true,
+        AbciError::Engine(error) => error.is_retryable(),
+        AbciError::L1(error) => !error.is_integrity_failure(),
+        _ => false,
     }
 }

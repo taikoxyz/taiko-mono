@@ -72,8 +72,9 @@ pub use envelope::{
     ForcedWitness, single_envelope,
 };
 pub use genesis::{
-    AppStateJson, CommitteeRecordError, GenesisCommitteeRecord, GenesisDoc, GenesisError,
-    GenesisValidator, GenesisWitness, build_committee_record, build_genesis, decode_app_state,
+    AppStateJson, BootstrapWitness, CommitteeRecordError, GenesisCommitteeRecord, GenesisDoc,
+    GenesisError, GenesisValidator, GenesisWitness, build_committee_record, build_genesis,
+    decode_app_state, decode_bootstrap_state,
 };
 pub use l1::{
     CommitteeL1Source, FetchError, L1Error, L1HeaderError, L1Source, RawL1Header, RpcL1Source,
@@ -81,7 +82,7 @@ pub use l1::{
 };
 pub use metrics::AbciMetrics;
 pub use recovery::{
-    RecoveryError, RecoveryOrigin, RecoveryWitness, authenticate_recovery,
+    RecoveryError, RecoveryOrigin, RecoveryWitness, authenticate_recovery, build_recovery_genesis,
     check_recovery_canonicality, verify_recovery_witness,
 };
 pub use rules::{ExpectedHeader, GenerationCheck, HeaderInputs, RuleViolation};

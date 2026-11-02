@@ -6,7 +6,9 @@ use tendermint::{
     block::Height,
 };
 
-use super::{APP_NAME, APP_VERSION, AbciError, App, app_hash, at_genesis, cometbft_height, within};
+use super::{
+    APP_NAME, APP_VERSION, AbciError, App, app_hash, at_generation_origin, cometbft_height, within,
+};
 use crate::{engine::Engine, l1::L1Source, store::AppState};
 
 /// Response code of a rejected `CheckTx` and of a failed `Query`.
@@ -20,8 +22,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Handles `Info`: the last committed height and its EL block hash.
     ///
     /// Reports 0 and an empty hash before `InitChain` and while the state is still at the
-    /// genesis anchor `B*` (no PoS block committed): CometBFT's store is then empty, and it only
-    /// accepts an app at height 0, to which it re-sends `InitChain`.
+    /// generation origin B* or c (no new-generation block committed): CometBFT's store is empty and
+    /// only accepts an app at height 0, to which it re-sends `InitChain`.
     ///
     /// With a state, the first `Info` after the process started (CometBFT's handshake) first
     /// reconciles the EL with it ([`App::reconcile_el`]), so the handshake replays on top of an
@@ -43,7 +45,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
                     self.reconcile_el(state).await?;
                     self.el_reconciled = true;
                 }
-                if at_genesis(state) {
+                if at_generation_origin(state) {
                     (Height::from(0u32), AppHash::default())
                 } else {
                     (cometbft_height(state.last_height), app_hash(state.parent.hash))

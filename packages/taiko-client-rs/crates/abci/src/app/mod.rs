@@ -184,6 +184,9 @@ pub enum AbciError {
     /// The genesis `app_state` does not decode or its authenticated facts do not verify.
     #[error(transparent)]
     Genesis(#[from] GenesisError),
+    /// Recovery evidence is unavailable, superseded, or invalid.
+    #[error(transparent)]
+    Recovery(crate::recovery::RecoveryError),
     /// The genesis L1 header is not final and canonical in the node's own L1 view.
     #[error("genesis L1 block {number} ({hash}) is not final and canonical in the own L1 view")]
     GenesisNotFinal {
@@ -207,8 +210,8 @@ pub enum AbciError {
         /// The Inbox's `recoveryGeneration` at `L1_0`.
         inbox: u64,
     },
-    /// The requested first consensus height is not 1 for this genesis-only chain.
-    #[error("initial_height {got} must be {expected} for a genesis-only chain")]
+    /// The first consensus height differs from the authenticated generation origin plus one.
+    #[error("initial_height {got} must be {expected} for this generation")]
     InitialHeight {
         /// The requested initial height.
         got: u64,
@@ -337,6 +340,16 @@ pub struct App<L: L1Source, E: Engine> {
     _trust_lifetime: trust::TrustLifetime,
 }
 
+impl From<crate::recovery::RecoveryError> for AbciError {
+    /// Unavailability stays retryable; authenticated recovery contradictions halt durably.
+    fn from(error: crate::recovery::RecoveryError) -> Self {
+        match error {
+            crate::recovery::RecoveryError::Unavailable(_) => Self::Recovery(error),
+            _ => Self::SafetyHalt(error.to_string()),
+        }
+    }
+}
+
 impl<L: L1Source, E: Engine> App<L, E> {
     /// Creates the app, validating `params` and loading any persisted state from `store`.
     ///
@@ -366,6 +379,35 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let state = store.load()?;
         if let Some(state) = &state {
             check_stored_state(state, &params)?;
+            if let Some(origin) = &state.recovery {
+                let evidence = store.load_recovery_bootstrap()?.ok_or_else(|| {
+                    AbciError::StoredState("missing immutable recovery bootstrap".into())
+                })?;
+                let (witness, anchor) = evidence.verify(&params)?;
+                let verified = crate::recovery::verify_recovery_witness(&witness, &params)?;
+                let genesis = crate::genesis::verify_deployment_context(
+                    &witness.genesis.l1_header,
+                    &witness.genesis.inbox,
+                    &params,
+                )?
+                .genesis;
+                if *origin != verified ||
+                    state.genesis != genesis ||
+                    (!state.has_generation_commit() &&
+                        (state.anchor != anchor ||
+                            state.parent != crate::recovery::recovery_parent(&witness) ||
+                            state.forced_cursor != origin.forced_cursor ||
+                            state.last_comet_hash != alloy_primitives::B256::ZERO))
+                {
+                    return Err(AbciError::StoredState(
+                        "recovery bootstrap contradicts stored state".into(),
+                    ));
+                }
+            } else if store.load_recovery_bootstrap()?.is_some() {
+                return Err(AbciError::StoredState(
+                    "recovery bootstrap beside generation-zero state".into(),
+                ));
+            }
         }
         let committee_cache = load_cached_committee(&store, state.as_ref(), &params);
         let trust = trust::TrustHandle::new(state.as_ref())?;
@@ -617,12 +659,12 @@ impl Verdicts {
     }
 }
 
-/// Whether `state` is still at genesis block 0: no PoS block has been committed yet.
+/// Whether no Comet block has been committed in this generation, including a nonzero origin.
 ///
 /// CometBFT re-sends `InitChain` whenever the app reports height 0, so `Info` reports 0 and
 /// `InitChain` is idempotent in this state.
-fn at_genesis(state: &AppState) -> bool {
-    state.last_height == 0
+fn at_generation_origin(state: &AppState) -> bool {
+    !state.has_generation_commit()
 }
 
 /// Rejects a persisted state that `params` or the state itself contradicts (see [`App::new`]).

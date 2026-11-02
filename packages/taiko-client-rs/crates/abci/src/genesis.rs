@@ -63,11 +63,54 @@ pub struct GenesisWitness {
     pub committee: CommitteeWitness,
 }
 
+/// Disjoint initialization evidence for the deployment or a governance-created generation.
+/// This startup-only public API carries the two witness types directly; it is never cached per
+/// block.
+#[allow(clippy::large_enum_variant)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum BootstrapWitness {
+    /// Original generation-zero RLP, retained byte-for-byte.
+    Initial(GenesisWitness),
+    /// Versioned recovery evidence prefixed by the disjoint byte `0x01`.
+    Recovery(crate::recovery::RecoveryWitness),
+}
+
+/// Decodes the shared JSON wrapper, rejecting unknown versions and trailing bytes.
+/// This verifies encoding only; InitChain authenticates the evidence independently.
+pub fn decode_bootstrap_state(bytes: &[u8]) -> Result<BootstrapWitness, GenesisError> {
+    let json: AppStateJson = serde_json::from_slice(bytes).map_err(GenesisError::Json)?;
+    let mut buf = json.witness.as_ref();
+    let witness = if buf.first() == Some(&1) {
+        buf = &buf[1..];
+        let recovery = crate::recovery::RecoveryWitness::decode(&mut buf)?;
+        if recovery.version != 1 {
+            return Err(GenesisError::UnsupportedRecovery("unsupported witness version".into()));
+        }
+        BootstrapWitness::Recovery(recovery)
+    } else {
+        BootstrapWitness::Initial(GenesisWitness::decode(&mut buf)?)
+    };
+    if !buf.is_empty() {
+        return Err(GenesisError::TrailingBytes(buf.len()));
+    }
+    Ok(witness)
+}
+
+impl From<&crate::recovery::RecoveryWitness> for AppStateJson {
+    /// Encodes the disjoint recovery discriminator followed by the unchanged witness RLP.
+    fn from(w: &crate::recovery::RecoveryWitness) -> Self {
+        let mut bytes = vec![1];
+        bytes.extend(alloy_rlp::encode(w));
+        Self { witness: bytes.into() }
+    }
+}
+
 /// The JSON shape of the genesis `app_state`: `{"witness": "0x<hex rlp(GenesisWitness)>"}`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppStateJson {
-    /// `rlp(GenesisWitness)`, serialized as a `0x`-prefixed hex string.
+    /// Legacy witness RLP or `0x01 || rlp(RecoveryWitness)`, encoded as a `0x`-prefixed hex
+    /// string.
     pub witness: Bytes,
 }
 
@@ -77,7 +120,7 @@ pub struct AppStateJson {
 /// [`GenesisError::TrailingBytes`]; the other variants come from [`build_genesis`].
 #[derive(Debug, thiserror::Error)]
 pub enum GenesisError {
-    /// Fresh deployments only; no governance recovery state can be synthesized.
+    /// Unsupported bootstrap encoding, or recovery evidence passed to the generation-zero path.
     #[error("unsupported recovery: {0}")]
     UnsupportedRecovery(String),
     /// The local committee parameters do not open the authenticated Inbox configuration.

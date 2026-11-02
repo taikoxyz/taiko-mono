@@ -16,17 +16,18 @@ use crate::types::Member;
 /// The CometBFT `genesis.json` of an Etna chain.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GenesisDoc {
-    /// RFC 3339 UTC time of L1 block `L1_0`, whole seconds (`YYYY-MM-DDTHH:MM:SSZ`).
+    /// RFC 3339 UTC time of `L1_0` (deployment) or R (recovery), whole seconds
+    /// (`YYYY-MM-DDTHH:MM:SSZ`).
     pub genesis_time: String,
     /// The 48-byte chain ID authenticating the complete deployment domain.
     pub chain_id: String,
-    /// The first consensus height, always `"1"`, as a decimal string.
+    /// First global consensus height: 1 for deployment, c+1 for recovery.
     pub initial_height: String,
     /// The consensus parameters ([`GenesisConsensusParams::etna`]).
     pub consensus_params: GenesisConsensusParams,
-    /// The `e_0` committee in set-key order.
+    /// Initial committee in set-key order, derived at genesis cutoff or recovery R.
     pub validators: Vec<GenesisValidator>,
-    /// The initial EL genesis hash H*, uppercase hex as required by stock Comet JSON.
+    /// Initial EL boundary hash H* or ELHash(c), uppercase hex for stock Comet JSON.
     pub app_hash: String,
     /// The genesis witness, embedded as the JSON object `{"witness": "0x<hex>"}`.
     pub app_state: AppStateJson,

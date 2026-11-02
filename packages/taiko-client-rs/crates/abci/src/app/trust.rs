@@ -340,7 +340,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// unavailability remains closed. Contradictions are fatal, independently of proposal halt.
     pub(crate) async fn refresh_trust(&mut self) -> Result<(), AbciError> {
         let mut snapshot = self.trust.snapshot();
-        if matches!(snapshot.phase, TrustPhase::Ready | TrustPhase::Halted) {
+        if snapshot.phase == TrustPhase::Halted ||
+            (snapshot.phase == TrustPhase::Ready &&
+                self.state.as_ref().is_none_or(|s| s.recovery.is_none()))
+        {
             return Ok(());
         }
         match self.try_trust(&mut snapshot).await.map_err(classify_trust_error) {
@@ -353,6 +356,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 }
             }
             Err(error) => {
+                if self.state.as_ref().is_some_and(|s| s.recovery.is_some()) {
+                    snapshot.trust_ready = false;
+                    snapshot.syncing = true;
+                    snapshot.phase = TrustPhase::Acquiring;
+                    snapshot.trusted_consensus_head = None;
+                }
                 snapshot.reason = Some(bounded_reason(error.to_string()));
                 self.trust.publish(snapshot);
             }
@@ -362,6 +371,45 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
     /// Acquires a fixed target, proves durable linkage, refreshes, then publishes Ready.
     async fn try_trust(&self, snapshot: &mut TrustSnapshot) -> Result<(), AbciError> {
+        if self.state.as_ref().is_some_and(|s| s.recovery.is_some()) {
+            let bootstrap = self.store.load_recovery_bootstrap()?.ok_or_else(|| {
+                AbciError::SafetyHalt("missing recovery bootstrap evidence".into())
+            })?;
+            let (witness, anchor) = bootstrap.verify(&self.params)?;
+            within(
+                "trust recovery origin",
+                self.opts.l1_timeout,
+                crate::recovery::check_recovery_canonicality(self.l1(), &self.params, &witness),
+            )
+            .await?;
+            if within(
+                "trust historical anchor finality",
+                self.opts.l1_timeout,
+                self.l1.finalized_number(),
+            )
+            .await? <
+                anchor.number
+            {
+                return Err(AbciError::TrustControl(
+                    "historical anchor is not final in own L1".into(),
+                ));
+            }
+            if within(
+                "trust historical anchor canonicality",
+                self.opts.l1_timeout,
+                self.l1.canonical_hash(anchor.number),
+            )
+            .await? !=
+                anchor.hash
+            {
+                return Err(AbciError::SafetyHalt("historical recovery anchor changed".into()));
+            }
+        }
+        // A ready session already authenticates its sequentially committed head. Recheck
+        // governance above without rescanning the entire settled prefix on every commit/tick.
+        if snapshot.phase == TrustPhase::Ready {
+            return Ok(());
+        }
         let target = match &snapshot.target {
             Some(target) => target.clone(),
             None => {
@@ -451,8 +499,24 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let el_hash = B256::from(storage.get(slots[1]).expect("verified exact slots"));
         let comet_hash = B256::from(storage.get(slots[2]).expect("verified exact slots"));
         let parent = word_u48(packed, 0);
+        let landing_generation = word_u48(packed, 48);
+        let retained_origin =
+            self.state.as_ref().and_then(|s| s.recovery.as_ref()).is_some_and(|origin| {
+                facts.recovery_generation == origin.generation &&
+                    facts.last_checkpoint_height == origin.height &&
+                    el_hash == origin.el_hash &&
+                    comet_hash == origin.comet_hash &&
+                    word_u48(packed, 96) == origin.forced_cursor &&
+                    landing_generation < origin.generation
+            });
+        if self.state.is_none() && landing_generation < facts.recovery_generation {
+            return Err(AbciError::TrustControl(
+                "recovery origin requires independently verified InitChain".into(),
+            ));
+        }
         if el_hash != facts.last_checkpoint_hash ||
-            word_u48(packed, 48) != facts.recovery_generation ||
+            (landing_generation != facts.recovery_generation && !retained_origin) ||
+            packed >> 144 != alloy_primitives::U256::ZERO ||
             word_u48(packed, 96) != facts.forced_inclusion_head ||
             (facts.last_checkpoint_height == 0 && (parent != 0 || !comet_hash.is_zero())) ||
             (facts.last_checkpoint_height > 0 &&
@@ -534,7 +598,17 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if state.last_height == target.height && state.parent.hash != target.hash {
             return Err(AbciError::SafetyHalt("durable checkpoint hash mismatch".into()));
         }
-        let committed_comet = if target.height == 0 {
+        if target.height < state.origin_height() {
+            return Err(AbciError::SafetyHalt("checkpoint precedes fixed generation origin".into()));
+        }
+        let committed_comet = if let Some(origin) = &state.recovery &&
+            target.height == origin.height
+        {
+            if target.hash != origin.el_hash {
+                return Err(AbciError::SafetyHalt("checkpoint contradicts retained origin".into()));
+            }
+            origin.comet_hash
+        } else if target.height == 0 {
             B256::ZERO
         } else if target.height == state.last_height {
             state.last_comet_hash
@@ -570,6 +644,15 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 return Err(AbciError::SafetyHalt(format!(
                     "committed checkpoint hash mismatch at {number}"
                 )));
+            }
+            if state.recovery.is_some() &&
+                number > state.origin_height() &&
+                crate::rules::decode_extra_data(&header.extra_data)
+                    .map_or(true, |(_, generation, _)| generation != state.generation)
+            {
+                return Err(AbciError::SafetyHalt(
+                    "old-generation header beyond recovery origin".into(),
+                ));
             }
             expected = header.parent_hash;
         }
@@ -627,12 +710,22 @@ fn bounded_reason(reason: String) -> String {
 
 /// Adapter integrity failures must have the same fatal boundary as successful-but-invalid
 /// proof/header values. Transport, missing history and unsupported-header capabilities remain
-/// retryable: lack of data cannot prove a contradiction. Keep this local to startup trust.
-fn classify_trust_error(error: AbciError) -> AbciError {
+/// retryable: lack of data cannot prove a contradiction. Shared with recovery initialization;
+/// legacy generation-zero initialization stays unchanged.
+pub(super) fn classify_trust_error(error: AbciError) -> AbciError {
     use crate::{engine::EngineError, store::StoreError};
     let integrity = match &error {
         AbciError::L1(error) => error.is_integrity_failure(),
-        AbciError::Store(StoreError::Corrupt { .. } | StoreError::CometConflict(_)) => true,
+        AbciError::Store(
+            StoreError::Corrupt { .. } |
+            StoreError::CometConflict(_) |
+            StoreError::BootstrapConflict,
+        ) => true,
+        AbciError::Recovery(
+            crate::RecoveryError::Invalid(_) |
+            crate::RecoveryError::Superseded { .. } |
+            crate::RecoveryError::ConfigMismatch { .. },
+        ) => true,
         AbciError::Engine(error) => matches!(
             error,
             EngineError::ErrorReply { code: -38100, .. } |
