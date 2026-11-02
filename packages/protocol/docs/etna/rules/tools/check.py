@@ -15,7 +15,8 @@ Checks:
               has a marker; types are rule, limitation, assumption or retired
   4. assets   every section has a vectors and a review file; every live rule ID has a vector
               heading; no vector heading names an unknown ID
-  5. links    relative links and #fragments resolve, and markdown tables have consistent columns
+  5. incorporation UPGRADES.md sections have live governing rule IDs and SPEC backlinks
+  6. links    relative links and #fragments resolve, and markdown tables have consistent columns
               (pipes inside inline code spans and escaped pipes are not separators)
 
 Exit code 0 only if every check passes.
@@ -139,6 +140,48 @@ def slug(h):
     return s.replace(" ", "-")
 
 
+def check_incorporation(spec, helper, index):
+    """Check the explicit exception for definitions incorporated under SPEC rules."""
+    # Examples cannot create sections or supply authority. Keep offsets/lines stable.
+    outside, fenced = [], False
+    for line in helper.splitlines():
+        if line.strip().startswith(("```", "~~~")):
+            fenced = not fenced
+            outside.append("")
+        else:
+            outside.append("" if fenced else line)
+    body = NL.join(outside)
+    sections = list(re.finditer(r"^## (.+)$", body, re.M))
+    mappings = re.compile(r"^<!-- governed-by: (" + ID + r") -->$", re.M)
+    msgs, seen, used = [], set(), 0
+    if not sections:
+        msgs.append("incorporation: UPGRADES.md has no governed sections")
+    for i, section in enumerate(sections):
+        title = section.group(1)
+        end = sections[i + 1].start() if i + 1 < len(sections) else len(body)
+        owners = mappings.findall(body[section.end():end])
+        used += len(owners)
+        if len(owners) != 1:
+            msgs.append("incorporation: %s needs exactly one governing ID" % title)
+            continue
+        rid = owners[0]
+        anchor = slug(title)
+        if anchor in seen:
+            msgs.append("incorporation: duplicate section anchor " + anchor)
+        seen.add(anchor)
+        if index.get(rid, {}).get("type") != "rule":
+            msgs.append("incorporation: %s is not a live rule" % rid)
+            continue
+        marker = "**[" + rid + "]** "
+        rule = re.search(re.escape(marker) + r"([^\n]*?)(?= \*\*\[[A-Z]|\n|$)", spec)
+        backlink = "UPGRADES.md#" + anchor
+        if not rule or not re.search(r"\]\(" + re.escape(backlink) + r"\)", rule.group(1)):
+            msgs.append("incorporation: %s needs owning-rule backlink to %s" % (rid, backlink))
+    if used != len(mappings.findall(body)):
+        msgs.append("incorporation: governing ID outside a section")
+    return msgs
+
+
 def columns(line):
     s = line.strip()
     if s.startswith("|"):
@@ -257,13 +300,18 @@ def main():
             msgs.append("assets: vector heading for unknown id " + i)
     bad += fail(msgs) if msgs else (print("ok   assets") or 0)
 
-    # 5. links and tables
+    # 5. explicitly incorporated upgrade definitions
+    upgrades = os.path.join(DOCS, "UPGRADES.md")
+    msgs = check_incorporation(text, open(upgrades).read(), index)
+    bad += fail(msgs) if msgs else (print("ok   incorporation (UPGRADES.md)") or 0)
+
+    # 6. links and tables
     msgs, cache = [], {}
     def headings(path):
         if path not in cache:
             cache[path] = {slug(m.group(2)) for m in re.finditer("^(#{1,6}) (.*)$", open(path).read(), flags=re.M)}
         return cache[path]
-    for f in glob.glob(os.path.join(RULES, "**", "*.md"), recursive=True) + [SPEC]:
+    for f in glob.glob(os.path.join(RULES, "**", "*.md"), recursive=True) + [SPEC, upgrades]:
         body = open(f).read()
         for m in re.finditer(RB + "[(]([^)]+)[)]", body):
             u = m.group(1).strip()

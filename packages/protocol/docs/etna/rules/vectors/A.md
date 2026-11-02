@@ -8,15 +8,15 @@
 
 ## ENC-A-1
 
-| Vector     | Setup                                                                                                                                | Expected                                           |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------- |
-| 1.a accept | envelope begins `0x06` followed by one RLP list; payload begins `0x06` followed by one zlib stream                                   | prefix is the stated one                           |
-| 1.b accept | every domain tag used in a hash preimage is a V1 tag (for example `ETNA_COMET_DOMAIN_V1`, `ETNA_LAND_CUTS_V1`, `TAIKO_ETNA_LAND_V1`) | consistent with "every versioned domain tag is V1" |
-| 1.c accept | the deployment exposes `APP_VERSION` 1 (CometBFT genesis, Info at height 0)                                                          | matches                                            |
-| 1.d reject | envelope begins `0x07`                                                                                                               | violates ENC-A-1                                   |
-| 1.e reject | payload begins `0x06` but the envelope begins `0x05`                                                                                 | violates ENC-A-1                                   |
-| 1.f reject | a hash preimage uses a V2 domain tag                                                                                                 | violates ENC-A-1                                   |
-| 1.g reject | the deployment reports `APP_VERSION` 2                                                                                               | violates ENC-A-1                                   |
+| Vector     | Setup                                                                                              | Expected                           |
+| ---------- | -------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| 1.a accept | envelope begins `0x06` followed by one RLP list; payload begins `0x06` followed by one zlib stream | prefix is the stated one           |
+| 1.b accept | V1 tags are used except `TAIKO_ETNA_LAND_V2` and `ETNA_UPGRADE_PLAN_V2`                            | matches ENC-A-1 version exceptions |
+| 1.c accept | the deployment exposes `APP_VERSION` 1 (CometBFT genesis, Info at height 0)                        | matches                            |
+| 1.d reject | envelope begins `0x07`                                                                             | violates ENC-A-1                   |
+| 1.e reject | payload begins `0x06` but the envelope begins `0x05`                                               | violates ENC-A-1                   |
+| 1.f reject | a landing statement uses V1, or an otherwise-V1 hash uses an unlisted V2 tag                       | violates ENC-A-1                   |
+| 1.g reject | the deployment reports `APP_VERSION` 2                                                             | violates ENC-A-1                   |
 
 ## ENC-A-2
 
@@ -44,15 +44,13 @@ _Which fields occupy the three words: [STOR-B-9](B.md#stor-b-9)._
 
 ## ENC-A-4
 
-| Vector     | Setup                                                                                          | Expected                                          |
-| ---------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| 4.a accept | a new guest image is registered without an authenticated upgrade plan                          | the rules applied at each height are unchanged    |
-| 4.b accept | clients are upgraded without an authenticated upgrade plan                                     | the rules applied at each height are unchanged    |
-| 4.c reject | a proof from an image outside the config and authenticated plan policy is accepted as settling | violates ENC-A-4 ("acceptance ... to the config") |
-| 4.d reject | registering an image alone changes the rules applied to later blocks                           | violates ENC-A-4                                  |
-| 4.e reject | changing client software alone changes the rules applied to later blocks                       | violates ENC-A-4                                  |
-
-_The authenticated plan and exact outer proof/policy binding are defined by 10.1 and UPGRADES.md; concrete artifact rollout remains subject to [Q-A-3](../review/A.md#q-a-3)._
+| Vector     | Setup                                                                                  | Expected                                       |
+| ---------- | -------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| 4.a accept | a new guest image is registered without an authenticated upgrade plan                  | the rules applied at each height are unchanged |
+| 4.b accept | clients are upgraded without an authenticated upgrade plan                             | the rules applied at each height are unchanged |
+| 4.c reject | a proof from an image outside the authenticated journal policy is accepted as settling | violates ENC-A-4; land rejects (START-10.1-13) |
+| 4.d reject | registering an image alone changes the rules applied to later blocks                   | violates ENC-A-4                               |
+| 4.e reject | changing client software alone changes the rules applied to later blocks               | violates ENC-A-4                               |
 
 ## ENC-A-5
 
@@ -384,13 +382,13 @@ _`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` fo
 
 ## ENC-A-35
 
-| Vector      | Setup                                                                                  | Expected                                |
-| ----------- | -------------------------------------------------------------------------------------- | --------------------------------------- |
-| 35.a accept | `keccak256(abi.encode(...))` with the 21 static ABI words of the definition, 672 bytes | matches                                 |
-| 35.b reject | the preimage has 20 or 22 words                                                        | violates ENC-A-35 (21 words, 672 bytes) |
-| 35.c reject | `TAIKO_ETNA_LAND_V1` is replaced by a V2 tag                                           | violates ENC-A-35 (and ENC-A-1)         |
-| 35.d reject | `blobHashes` are hashed with `abi.encode` instead of `abi.encodePacked`                | violates ENC-A-35                       |
-| 35.e reject | `l2ChainId` precedes `l1ChainId`                                                       | violates ENC-A-35 (field order)         |
+| Vector      | Setup                                                                                     | Expected                                |
+| ----------- | ----------------------------------------------------------------------------------------- | --------------------------------------- |
+| 35.a accept | `keccak256(abi.encode(...))` with the 22 static ABI words of the V2 definition, 704 bytes | matches                                 |
+| 35.b reject | the preimage has 21 or 23 words                                                           | violates ENC-A-35 (22 words, 704 bytes) |
+| 35.c reject | `TAIKO_ETNA_LAND_V2` is replaced by a V1 tag                                              | violates ENC-A-35 (and ENC-A-1)         |
+| 35.d reject | `blobHashes` are hashed with `abi.encode` instead of `abi.encodePacked`                   | violates ENC-A-35                       |
+| 35.e reject | `l2ChainId` precedes `l1ChainId`                                                          | violates ENC-A-35 (field order)         |
 
 ## ENC-A-36
 
@@ -603,6 +601,5 @@ Everything below is a question, not a vector. Each has an entry in [review/A.md]
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
 | ENC-A-6 to ENC-A-55         | whether the now-citable blocks should still be restructured into prose or tables                                                     | [Q-A-1](../review/A.md#q-a-1) |
 | ENC-A-37, ENC-A-39–ENC-A-42 | whether a bare tag literal is a padded `bytes32` word or a dynamic string, and whether `ETNA_SET_NODE` is deliberately unversioned   | [Q-A-2](../review/A.md#q-a-2) |
-| ENC-A-4                     | what in the seven-word config binds guest-image and verifier acceptance                                                              | [Q-A-3](../review/A.md#q-a-3) |
 | ENC-A-24, ENC-A-25          | whether an out-of-order, extra or missing witness slot list makes a witness invalid; the order is now stated, the consequence is not | [Q-A-4](../review/A.md#q-a-4) |
 | Shared vectors              | the obligation itself is un-numbered and has no owner                                                                                | [Q-A-5](../review/A.md#q-a-5) |

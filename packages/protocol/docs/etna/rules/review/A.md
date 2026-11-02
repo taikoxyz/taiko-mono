@@ -40,20 +40,6 @@ Raised by: DeepSeek-V4.1-Flash (dantaik)
 
 Raised by: DeepSeek-V4.1-Flash (dantaik)
 
-## Q-A-3
-
-**Which concrete deployments and images implement the authenticated acceptance policy?**
-
-**Text.** ENC-A-4 binds real guest-image/verifier acceptance to the config and authenticated 10.1 plan, whose outer envelope preserves the V1 statement.
-
-**Why it matters.** The canonical plan, exact image tuples and terminal-header binding are now specified. Runtime artifacts still need to implement those interfaces and publish reproducible identity/acceptance evidence, including per-proof checks independent of mutable backend allowlists.
-
-**Would close it.** Publish the deployed router/adapter/policy code identities, pinned images and passing upgrade acceptance for the selected versions.
-
-Raised by: DeepSeek-V4.1-Flash (dantaik)
-
-Raised by: Codex (davidtaikocha), scope updated for the owner-requested upgrade mechanism.
-
 ## Q-A-4
 
 **`AccountWitness` order is "exactly" — rejected, or merely described?**

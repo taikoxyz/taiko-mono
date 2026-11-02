@@ -2,7 +2,7 @@
 
 > **AI agents working in this directory: read [`../CLAUDE.md`](../CLAUDE.md) first, and run `python3 rules/tools/check.py --base <rev>` before committing.** `AGENTS.md` is a symlink to the same file. This README is the convention; `CLAUDE.md` is the operator checklist; where they disagree, this file governs.
 
-This directory adds **stable rule references** to [SPEC.md](../SPEC.md) so that review, discussion and verification can cite a rule instead of a paragraph. It changes no rule. Where this directory and SPEC.md disagree, **SPEC.md governs**.
+This directory adds **stable rule references** to [SPEC.md](../SPEC.md) so that review, discussion and verification can cite a rule instead of a paragraph. IDs alone change no rule; deliberate amendments are recorded in INDEX.md. Where this directory and SPEC.md disagree, **SPEC.md governs**.
 
 ## Why
 
@@ -39,7 +39,7 @@ A review comment like "section 7.2 has a problem" cannot be resolved, tested or 
 | `assumption` | no      | Appendix C. Operating funding and cost assumptions                                          | none — an assumption is falsified by measurement, not by an implementation     |
 | `retired`    | n/a     | a deleted rule's row, kept in `INDEX.md`                                                    | none — nothing to conform to; the row exists so a stale citation fails visibly |
 
-A statement with **no** ID is explanatory, contextual, or guidance. Explanation, reasons and advice that sit inside an ID's text (see [How far an ID extends](#how-far-an-id-extends)) are part of that ID but impose nothing on their own; for example, 7.2's "an FI transaction should set `maxFeePerGas` to at least 1 gwei" is advice inside FI-7.2-4. Vectors test the requirements.
+A statement with **no** ID is explanatory, contextual, or guidance, except explicitly incorporated definitions described below. Explanation, reasons and advice that sit inside an ID's text (see [How far an ID extends](#how-far-an-id-extends)) are part of that ID but impose nothing on their own; for example, 7.2's "an FI transaction should set `maxFeePerGas` to at least 1 gwei" is advice inside FI-7.2-4. Vectors test the requirements.
 
 **A rule can also be an assumption.** MODEL-1-1 and MODEL-1-2 (proof completeness) appear in section 1 among the security assumptions, and they also state what every deployment must provide. They are typed `rule`: they bind implementations and deployments, and ACCEPTANCE.md's resource and proving gates check them. The protocol cannot enforce them at run time, which is why section 1 also lists them as assumptions.
 
@@ -52,6 +52,12 @@ Why a type column and not an RFC-2119 keyword convention: repeating MUST/MUST NO
 - **Inline marker** `**[ID]**`: the ID covers the text from the marker to the next marker or the end of the line it sits on, whichever comes first. In `SPEC.md` every bullet, numbered item, paragraph and table row is one line, so a marker at the start of a bullet covers the whole bullet unless a later marker on the same line starts another ID.
 - **`// [ID]` line** in a definition block: the ID covers the statement that follows it, from the next line to the next blank line or the next `// [ID]` line. A definition that continues over several lines, such as `committeeConfigHash` or `statement`, is covered as a whole.
 - A sentence is **un-numbered** only if no ID covers it under these two rules. The _Normativity boundary_ tables in `review/` list only such sentences.
+
+## Incorporated upgrade definitions
+
+[UPGRADES.md](../UPGRADES.md) is an explicit exception to the unnumbered-text and unmarked-fence conventions. Each level-2 section has exactly one `<!-- governed-by: ID -->` line naming its live SPEC rule. That rule links directly to the section. The complete section, including its fenced definitions, is incorporated under that ID; it creates no independent ID namespace. SPEC.md takes precedence over UPGRADES.md; both take precedence over vectors and review notes. `check.py` checks coverage, live rule ownership, backlinks, links and tables for this file. New sections require the same mapping before they can be normative.
+
+A material amendment keeps a citation handle only with an explicit amendment-history entry in INDEX.md identifying prior semantics and revision. An unqualified old citation must not be assumed to describe the amended rule. Retirement plus a suffix ID remains available for deletion/replacement.
 
 ## Normative content inside definition blocks
 

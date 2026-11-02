@@ -4,6 +4,20 @@
 
 `Type` records whether a statement binds: `rule` binds; `limitation` and `assumption` do not - see [README](README.md#what-an-id-means-a-citation-handle-plus-a-type).
 
+## Material amendments
+
+These citation handles are **amended**, not unchanged historical requirements. For an external citation written against the prior revision, consult that revision before applying the current text. Prior semantics below refer to main revision `c050012b84f38ecf229ed620f2facf8510171d47`; the V2/refinement column also supersedes the first upgrade draft `aa4ce48fc730d1b02d8a9d826b2972b8927d6a1f`.
+
+| Citation                                            | Prior semantics                                                      | Current amendment                                                                                              |
+| --------------------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| START-10.1-1                                        | Upgrade stop/checkpoint workflow                                     | Ordinary EL timestamp fork; structural checkpoint; same-rule maintenance                                       |
+| START-10.1-11                                       | Batch must stay within one upgrade version                           | Mixed timestamp batches allowed; structural crossing forbidden                                                 |
+| START-10.1-12                                       | Old-version work invalidated at boundary                             | Original-range acceptance, subject to maintenance/global revocation                                            |
+| START-10.1-15                                       | Upgrade mechanism left open                                          | Required implemented activation mechanism and acceptance                                                       |
+| START-10.1-4/5/7/8/10/13                            | First draft plan/immutable T/hash-dependent activation/header parser | Explicit executor, safe T cancellation, preauthorization, L1 lag wait, V2 timestamp and independent revocation |
+| ENC-A-1/4/35                                        | V1 landing statement, no explicit terminal timestamp                 | V2, 22 words/704 bytes; images in journal, separate from config                                                |
+| CONS-3.1-9, START-10-5, PROOF-6.2-2/5/21, SYNC-9-14 | Fixed version/startup/proof/trust descriptions                       | Authenticated schedule, baseline identities, terminal timestamp proof and structural-only fence exception      |
+
 ## Index
 
 | ID            | Type       | Title                                                                                                                                          | Section | Vectors                              |
@@ -455,7 +469,7 @@
 | START-10.1-1  | rule       | Timestamp EL forks; structural checkpoint switch and downtime scope                                                                            | 10.1    | [10.1](vectors/10.1.md#start-101-1)  |
 | START-10.1-2  | rule       | Operational restart requires identical commitments and retained signer state                                                                   | 10.1    | [10.1](vectors/10.1.md#start-101-2)  |
 | START-10.1-3  | rule       | Immutable/domain/genesis changes remain separate migrations                                                                                    | 10.1    | [10.1](vectors/10.1.md#start-101-3)  |
-| START-10.1-4  | rule       | Canonical plan binds scope, T/H, structure, adapters and verifier policy                                                                       | 10.1    | [10.1](vectors/10.1.md#start-101-4)  |
+| START-10.1-4  | rule       | Canonical plan binds scope, T/H, structure, executor and verifier policy                                                                       | 10.1    | [10.1](vectors/10.1.md#start-101-4)  |
 | START-10.1-5  | rule       | Owner-authorized journal, lead bounds, grids and L1/node enforcement                                                                           | 10.1    | [10.1](vectors/10.1.md#start-101-5)  |
 | START-10.1-6  | rule       | Per-block timestamp selects EL rules; image registration is insufficient                                                                       | 10.1    | [10.1](vectors/10.1.md#start-101-6)  |
 | START-10.1-7  | rule       | Structural signer fence and refusal/safety consequences                                                                                        | 10.1    | [10.1](vectors/10.1.md#start-101-7)  |
@@ -464,7 +478,7 @@
 | START-10.1-10 | rule       | No retroactive boundaries; cancellation and recovery history                                                                                   | 10.1    | [10.1](vectors/10.1.md#start-101-10) |
 | START-10.1-11 | rule       | Mixed timestamp batches allowed; structural batches cannot cross H                                                                             | 10.1    | [10.1](vectors/10.1.md#start-101-11) |
 | START-10.1-12 | rule       | Range-scoped old jobs and explicit on-chain invalidation                                                                                       | 10.1    | [10.1](vectors/10.1.md#start-101-12) |
-| START-10.1-13 | rule       | Statement/header binding and exact verifier/image routing                                                                                      | 10.1    | [10.1](vectors/10.1.md#start-101-13) |
+| START-10.1-13 | rule       | V2 timestamp binding, exact proof policy and independent revocation                                                                            | 10.1    | [10.1](vectors/10.1.md#start-101-13) |
 | START-10.1-14 | rule       | Complete historical rules retained by both guests                                                                                              | 10.1    | [10.1](vectors/10.1.md#start-101-14) |
 | START-10.1-15 | rule       | Implementation and upgrade acceptance before use; no obsolete fallback                                                                         | 10.1    | [10.1](vectors/10.1.md#start-101-15) |
 | PARAM-11-1    | rule       | Node-splitting parameters come only from L1 or the client; local config cannot                                                                 | 11      | [11](vectors/11.md#param-11-1)       |
