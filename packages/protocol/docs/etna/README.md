@@ -63,7 +63,7 @@ The Etna block-production and validation rules are in
 
 ### Key review points
 
-- **Upgrades:** all validity changes publish T, run old rules through the first eligible checkpoint H at/after T, pause, settle H and explicitly activate new rules at H+1. Same-rule proof maintenance is separate. The on-chain plan journal, verifier routing and failure paths are specified in [UPGRADES.md](UPGRADES.md); runtime implementation and acceptance remain required.
+- **Upgrades:** supported validity changes publish T, run old rules through the first eligible checkpoint H at/after T, pause, settle H and explicitly activate new rules at H+1. Same-rule proof maintenance is separate; exceptional DAO implementation repairs require a separately specified procedure. The on-chain plan journal, verifier routing and failure paths are specified in [UPGRADES.md](UPGRADES.md); runtime implementation and acceptance remain required.
 - **Consensus and signing:** stock CometBFT v0.40.0 with secp256k1eth keys, a
   signing domain bound to the deployment and recovery generation, committee
   changes activated two heights after they are derived, and an external signer

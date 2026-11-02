@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 concurrency:
-  # PR updates supersede older checks; every push must check its own before/after delta.
+  # PRs compare with their merged base; main pushes compare with the previous main state.
   group: etna-rules-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
@@ -30,6 +30,9 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
+
+      - name: Install checker dependencies
+        run: python3 -m pip install -r packages/protocol/docs/etna/rules/tools/requirements.txt
 
       - name: Ensure comparison base is available
         env:

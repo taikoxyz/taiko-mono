@@ -65,6 +65,10 @@ class IncorporationTests(unittest.TestCase):
         )
         self.assertTrue(any("exactly one" in m for m in self.errors()))
 
+    def test_literal_backlink_does_not_supply_an_owning_rule_link(self):
+        self.spec = self.spec.replace("[One](UPGRADES.md#1-one)", "`[One](UPGRADES.md#1-one)`")
+        self.assertTrue(any("owning-rule backlink" in m for m in self.errors()))
+
     def test_mismatched_fence_cannot_hide_real_unmapped_section(self):
         self.helper += "\n```txt\n~~~\n```\n\n## 3. Unmapped\n\nA real requirement.\n"
         self.assertTrue(any("3. Unmapped needs exactly one" in m for m in self.errors()))
@@ -101,7 +105,7 @@ class AmendmentTests(unittest.TestCase):
         self.assertTrue(any("undeclared amendment START-10.1-1" in m for m in self.errors()))
 
     def test_duplicate_amendment_id(self):
-        self.table = self.table.replace("## Index", self.row + "\n## Index")
+        self.table = self.table.replace(self.row, self.row + self.row)
         self.assertTrue(any("duplicate amendment" in m for m in self.errors()))
 
     def test_unknown_amendment_id(self):
@@ -124,7 +128,7 @@ class CoverageTests(unittest.TestCase):
     def setUp(self):
         self.index = {"START-10.1-1": {"section": "10.1", "type": "rule"},
                       "START-10.1-4": {"section": "10.1", "type": "rule"}}
-        self.assets = {"10.1": ("## START-10.1-1\n| 1.a accept | A | Yes |\n| 1.b reject | B | No |\n", "## Q10.1-1\nQuestion.\n")}
+        self.assets = {"10.1": ("## START-10.1-1\n\n| Vector | Setup | Expected |\n| --- | --- | --- |\n| 1.a accept | A | Yes |\n| 1.b reject | B | No |\n", "## Q10.1-1\nQuestion.\n")}
         self.table = "## Coverage\n\n| Section | IDs | Vectors | Review questions |\n| --- | --- | --- | --- |\n| 10.1 | 2 | 2 | 1 |\n"
 
     def errors(self):
@@ -170,7 +174,7 @@ class AmendmentHistoryTests(unittest.TestCase):
             "| --- | --- | --- | --- |\n"
             "| TEST-1-1 | Original meaning. | Current meaning. | "
             + hashlib.blake2s(b"type: rule\nCurrent requirement.").hexdigest()
-            + " |\n\n## Index\n\n| TEST-1-1 | rule | Rule | 1 | Vectors |\n"
+            + " |\n\n## Index\n\n| ID | Type | Title | Section | Vectors |\n| --- | --- | --- | --- | --- |\n| TEST-1-1 | rule | Rule | 1 | Vectors |\n"
         )
 
     def errors(self, spec=None, table=None, index=None, baseline_table=None):
@@ -200,8 +204,8 @@ class AmendmentHistoryTests(unittest.TestCase):
         self.assertIn("amendments: rewritten prior meaning TEST-1-1", self.errors(table=current))
 
     def test_type_change_requires_declaration(self):
-        current = "## Index\n| TEST-1-1 | limitation | Rule | 1 | Vectors |\n"
-        before = "## Index\n| TEST-1-1 | rule | Rule | 1 | Vectors |\n"
+        current = "## Index\n\n| ID | Type | Title | Section | Vectors |\n| --- | --- | --- | --- | --- |\n| TEST-1-1 | limitation | Rule | 1 | Vectors |\n"
+        before = current.replace("limitation", "rule")
         index = {self.rid: {"type": "limitation", "section": "1"}}
         self.assertIn("amendments: undeclared amendment TEST-1-1",
                       self.errors(table=current, index=index, baseline_table=before))
@@ -261,7 +265,7 @@ class AmendmentHistoryTests(unittest.TestCase):
         intermediate = row.replace("Current meaning.", "Intermediate meaning.").replace(
             hashlib.blake2s(b"type: rule\nCurrent requirement.").hexdigest(),
             hashlib.blake2s(b"type: rule\nIntermediate requirement.").hexdigest())
-        baseline = self.append_snapshot(self.table).replace("## Index", intermediate + "\n\n## Index")
+        baseline = self.append_snapshot(self.table).replace(row + "\n\n## Index", row + "\n" + intermediate + "\n\n## Index")
         current = baseline.replace("Current meaning.", "Third meaning.", 1).replace(
             hashlib.blake2s(b"type: rule\nCurrent requirement.").hexdigest(),
             hashlib.blake2s(b"type: rule\nThird requirement.").hexdigest(), 1)
@@ -276,7 +280,7 @@ class AmendmentHistoryTests(unittest.TestCase):
 
     def test_repeated_declaration_with_a_fresh_duplicate_snapshot_is_valid(self):
         baseline, current, row = self.recurring_declaration()
-        current = current.replace("## Index", row + "\n\n## Index")
+        current = current.replace("\n\n## Index", "\n" + row + "\n\n## Index")
         self.assertEqual(self.errors(spec="**[TEST-1-1]** Third requirement.\n", table=current,
                                      baseline_table=baseline), [])
 
@@ -470,6 +474,10 @@ class AmendmentBaseCLIIntegrationTests(unittest.TestCase):
                    "See [question](../review/1.md#q1-1).\n")
         self.run_check("FAIL links: 1.md -> ../review/1.md#q1-1 (dead fragment)")
 
+    def test_missing_relative_image_is_a_broken_reference(self):
+        self.write("rules/review/1.md", "# Review\n\n![Diagram](MISSING.png)\n")
+        self.run_check("FAIL links: 1.md -> MISSING.png")
+
     def test_commented_link_is_not_a_live_broken_reference(self):
         self.write("rules/review/1.md", "# Review\n\n<!--\n[old link](MISSING.md)\n-->\n")
         self.run_check()
@@ -483,7 +491,7 @@ class AmendmentBaseCLIIntegrationTests(unittest.TestCase):
     def test_valid_header_separator_table_supplies_vector_coverage(self):
         self.write("rules/vectors/1.md", "## TEST-1-1\n\n## TEST-1-2\n\n"
                    "| Vector | Setup | Expected |\n| :--- | ---: | :---: |\n"
-                   "| 2.a accept | A `x|y` value | Conforms |\n"
+                   "| 2.a accept | A `x\\|y` value | Conforms |\n"
                    "| 2.b reject | A \\| value | Violates |\n")
         self.edit("rules/INDEX.md", "| 1 | 2 | 0 | 0 |", "| 1 | 2 | 2 | 0 |")
         self.run_check()
@@ -511,9 +519,9 @@ class AmendmentBaseCLIIntegrationTests(unittest.TestCase):
         self.supersede_declaration()
         self.append_history(self.history_row)
 
-    def test_backfilled_snapshot_has_typed_governed_git_provenance(self):
+    def test_draft_commit_backfill_is_not_a_base_snapshot(self):
         self.backfill_from_git()
-        self.run_check()
+        self.run_check("FAIL amendments: unsupported declaration snapshot TEST-1-2")
 
     def test_backfill_cannot_invent_a_different_prior_declaration(self):
         self.backfill_from_git()
@@ -532,12 +540,25 @@ class AmendmentBaseCLIIntegrationTests(unittest.TestCase):
         self.append_history(self.history_row + self.history_row)
         self.run_check("FAIL amendments: unsupported declaration snapshot TEST-1-2")
 
-    def test_uncommitted_head_supersession_is_verified_against_older_base(self):
+    def test_working_draft_supersession_needs_no_history(self):
         original_base = self.base
         self.add_historical_declaration()
         self.base = original_base
         self.supersede_declaration(commit=False)
-        self.append_history(self.history_row)
+        self.run_check()
+
+    def test_committed_draft_supersession_needs_no_history(self):
+        original_base = self.base
+        self.add_historical_declaration()
+        self.base = original_base
+        self.supersede_declaration()
+        self.run_check()
+
+    def test_unmerged_draft_declaration_can_be_removed(self):
+        original_base = self.base
+        self.add_historical_declaration()
+        self.base = original_base
+        self.edit("rules/INDEX.md", self.history_row, "")
         self.run_check()
 
     def test_unchanged_head_declaration_does_not_authorize_fake_working_history(self):
@@ -692,6 +713,104 @@ class AmendmentBaseCLIIntegrationTests(unittest.TestCase):
         self.git("checkout", self.base, "--", "etna")
         self.base = retired_base
         self.run_check("FAIL amendments: retired ID reused TEST-1-2")
+
+
+class MarkdownParserRegressions(unittest.TestCase):
+    def test_indented_fake_fence_cannot_hide_appendix_definition_in_comment(self):
+        spec = ("    ~~~\n\n<!--\n## Appendix A. Encodings\n\n```txt\n"
+                "// [ENC-A-1]\nvalue = 1\n```\n-->\n")
+        self.assertTrue(check.check_marker_placement(spec))
+        self.assertTrue(check.check_markdown_structure("SPEC.md", spec))
+
+    def test_indented_fake_fence_cannot_hide_landing_reference(self):
+        spec = ("## 6.1. Landing\n\n**[LAND-6.1-10]** Reference.\n\n"
+                "    ~~~\n\n<!--\n```solidity\nfunction land() {}\n```\n-->\n")
+        with self.assertRaises(ValueError):
+            check.governed_bodies(spec)
+
+    def test_hidden_first_amendment_section_cannot_override_visible_section(self):
+        digest = check.content_digest("Current.", "rule")
+        table = ("## Material amendments\n\n| ID | Prior meaning | Current amendment | Content digest |\n"
+                 "| --- | --- | --- | --- |\n| TEST-1-1 | Prior | Current | " + digest + " |\n")
+        text = "    ~~~\n\n<!--\n" + table + "-->\n\n" + table.replace(digest, "a" * 64)
+        errors = check.check_amendments("**[TEST-1-1]** Current.\n", text,
+                                       {"TEST-1-1": {"type": "rule"}})
+        self.assertIn("amendments: stale content digest TEST-1-1", errors)
+
+    def test_visible_duplicate_amendment_sections_are_rejected(self):
+        table = "## Material amendments\n\n| ID | Prior meaning | Current amendment | Content digest |\n| --- | --- | --- | --- |\n"
+        self.assertTrue(check.check_amendments("", table + "\n" + table, {}))
+
+    def test_leading_space_history_row_is_not_skipped(self):
+        text = ("## Amendment history\n\n | ID | Prior meaning | Current amendment | Content digest |\n"
+                " | --- | --- | --- | --- |\n | invented | Prior | Current | " + "a" * 64 + " |\n")
+        self.assertIn("amendments: unknown historical amendment invented",
+                      check.check_amendments("", text, {}))
+
+    def test_leading_space_index_row_is_live(self):
+        text = " | ID | Type | Title | Section | Vectors |\n | --- | --- | --- | --- | --- |\n | TEST-1-1 | rule | Title | 1 | Vectors |\n"
+        self.assertIn("TEST-1-1", check.parse_index(text)[0])
+
+    def test_reference_definitions_cannot_hide_normative_rules(self):
+        for name in ("SPEC.md", "UPGRADES.md"):
+            with self.subTest(name=name):
+                self.assertTrue(check.check_markdown_structure(name,
+                    '[hidden]: /url "**[TEST-1-1]** Hidden requirement."\n'))
+
+    def test_even_backslashes_do_not_escape_html(self):
+        self.assertTrue(check.check_markdown_structure("SPEC.md", "\\\\<script>\n"))
+
+    def test_autolink_backtick_cannot_open_a_code_span(self):
+        self.assertTrue(check.check_markdown_structure("SPEC.md", '<https://example.invalid/`> <script>hidden</script> `\n'))
+
+    def test_html_attribute_backtick_cannot_open_a_code_span(self):
+        self.assertTrue(check.check_markdown_structure("SPEC.md", '<br title="`"> <script>hidden</script> `\n'))
+
+    def test_noncanonical_rendered_marker_lookalikes_are_rejected(self):
+        for marker in (r"\**[TEST-1-1]**", "__[TEST-1-1]__", "**&#91;TEST-1-1&#93;**",
+                       r"**\[TEST-1-1\]**", "&#42;&#42;[TEST-1-1]&#42;&#42;"):
+            with self.subTest(marker=marker):
+                self.assertTrue(check.check_marker_placement(marker + " Hidden requirement.\n"))
+
+    def test_lazy_list_continuation_is_a_paragraph_continuation(self):
+        self.assertTrue(check.check_marker_placement("- **[TEST-1-1]** First requirement.\n  --- still same paragraph\n"))
+
+    def test_five_spaces_after_list_marker_are_code(self):
+        self.assertIn("placement: inline rule inside indented code TEST-1-1",
+                      check.check_marker_placement("-     **[TEST-1-1]** Hidden requirement.\n"))
+
+    def test_ordinary_comparison_text_is_not_html(self):
+        for text in ("a<b\n", "If x <y\n", "**[TEST-1-1]** If x <y, compare a<b.\n"):
+            with self.subTest(text=text):
+                self.assertEqual(check.check_markdown_structure("SPEC.md", text), [])
+
+    def test_thematic_break_after_table_or_list_is_not_setext(self):
+        for text in ("| A | B |\n| --- | --- |\n| X | Y |\n---\n", "- An item\n---\n"):
+            with self.subTest(text=text):
+                self.assertEqual(check.check_markdown_structure("SPEC.md", text), [])
+
+    def test_empty_amendment_or_history_row_reports_a_failure(self):
+        for heading in ("Material amendments", "Amendment history"):
+            with self.subTest(heading=heading):
+                text = ("## " + heading + "\n\n| ID | Prior meaning | Current amendment | Content digest |\n"
+                        "| --- | --- | --- | --- |\n|\n")
+                self.assertTrue(check.check_amendments("", text, {}, baseline_index_text=""))
+
+    def test_wrong_declaration_table_header_is_rejected(self):
+        for heading in ("Material amendments", "Amendment history"):
+            with self.subTest(heading=heading):
+                text = ("## " + heading + "\n\n| invented | Fake prior | Fake current | " + "a" * 64
+                        + " |\n| --- | --- | --- | --- |\n")
+                self.assertTrue(check.check_amendments("", text, {}))
+
+    def test_missing_dependencies_report_the_install_command(self):
+        result = subprocess.run([sys.executable, "-S", check.__file__], capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("pip install -r", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
+
+    def test_gfm_code_span_pipe_still_splits_cells(self):
+        self.assertEqual(check.split_cells("| A | `x|y` |"), ["A", "`x", "y`"])
 
 
 if __name__ == "__main__":

@@ -82,7 +82,7 @@ class MarkdownStructureTests(unittest.TestCase):
                 self.assertTrue(any("blockquote" in error for error in errors), errors)
 
     def test_supported_markup_and_literal_examples_remain_valid(self):
-        source = ("<details>\n<summary>Details</summary>\n\nVisible<br>prose.\n\n</details>\n"
+        source = ("<details>\n<summary>Details</summary>\n\nVisible<br>prose.\n\n</details>\n\n"
                   "Use `<pre>` and `<!--` as literals.\n\n```txt\n<div>\n> example\n<!--\n```\n")
         self.assertEqual(check.check_markdown_structure("SPEC.md", source), [])
 

@@ -562,7 +562,7 @@ _`abi.encode(left, right)` of two `bytes32` words equals their plain concatenati
 | Vector      | Setup                                                                | Expected                                             |
 | ----------- | -------------------------------------------------------------------- | ---------------------------------------------------- |
 | 51.a accept | canonical six-argument recover; exclusions sorted strictly by bondId | matches                                              |
-| 51.b reject | unsorted/duplicate exclusion IDs or dynamic/seventh upgrade argument | violates ENC-A-51; recover reverts (RECOV-8.3-16)    |
+| 51.b reject | unsorted/duplicate exclusion IDs                                     | violates ENC-A-51; recover reverts (RECOV-8.3-16)    |
 | 51.c accept | pending validity upgrade exists                                      | recover atomically stales it and clears trigger/seal |
 
 ## ENC-A-52
