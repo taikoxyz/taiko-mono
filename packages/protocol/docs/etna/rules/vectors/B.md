@@ -180,13 +180,14 @@
 
 ## STOR-B-21
 
-| Vector      | Claimed layout or data                                                                       | Expected                               |
-| ----------- | -------------------------------------------------------------------------------------------- | -------------------------------------- |
-| 21.a accept | checkpoint word 1 packs `l1Block` and `count`; word 2 is `entriesRoot`                       | matches                                |
-| 21.b accept | entry words: `ckX`, `effStake`, then packed `ckPrefix`, `activeFromL1` and `exitEffectiveL1` | matches                                |
-| 21.c reject | `entriesRoot` in checkpoint word 1                                                           | violates STOR-B-21                     |
-| 21.d reject | `ckX` in the third entry word                                                                | violates STOR-B-21                     |
-| 21.e reject | a node reads the top-ups or forfeitures namespace to derive a committee                      | violates STOR-B-21 ("only two things") |
+| Vector      | Claimed layout or data                                                                       | Expected                                      |
+| ----------- | -------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| 21.a accept | checkpoint word 1 packs `l1Block` and `count`; word 2 is `entriesRoot`                       | matches                                       |
+| 21.b accept | entry words: `ckX`, `effStake`, then packed `ckPrefix`, `activeFromL1` and `exitEffectiveL1` | matches                                       |
+| 21.c reject | `entriesRoot` in checkpoint word 1                                                           | violates STOR-B-21                            |
+| 21.d reject | `ckX` in the third entry word                                                                | violates STOR-B-21                            |
+| 21.e reject | a node reads the top-ups or forfeitures namespace to derive a committee                      | violates STOR-B-21 ("only two things")        |
+| 21.f reject | `entries` is indexed by bond id rather than slot number                                      | violates STOR-B-21 ("indexed by slot number") |
 
 ## STOR-B-22
 
