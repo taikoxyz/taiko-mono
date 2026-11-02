@@ -47,6 +47,24 @@ pub async fn authenticate_recovery<L: L1Source + ?Sized, E: Engine + ?Sized>(
     params: &ChainParams,
     generation: u64,
 ) -> Result<RecoveryWitness, RecoveryError> {
+    authenticate_recovery_with_headers(l1, params, generation, |height| el_header(engine, height))
+        .await
+}
+
+/// Authenticates recovery through read-only public execution headers instead of Engine access.
+/// The reader must return the requested header or a classified error; this function verifies
+/// the retained landing hash, ancestry and own-L1 finality exactly as the Engine entry point.
+pub async fn authenticate_recovery_with_headers<L, F, Fut>(
+    l1: &L,
+    params: &ChainParams,
+    generation: u64,
+    header: F,
+) -> Result<RecoveryWitness, RecoveryError>
+where
+    L: L1Source + ?Sized,
+    F: Fn(u64) -> Fut,
+    Fut: std::future::Future<Output = Result<Header, RecoveryError>>,
+{
     check_generation(generation)?;
     let finalized = l1.finalized_number().await?;
     let finalized_header = header_at(l1, finalized).await?;
@@ -124,9 +142,9 @@ pub async fn authenticate_recovery<L: L1Source + ?Sized, E: Engine + ?Sized>(
     )
     .await
     .map_err(fetch_error)?;
-    w.el_header = el_header(engine, c).await?;
+    w.el_header = header(c).await?;
     if c > 0 {
-        w.parent_headers.push(el_header(engine, c - 1).await?);
+        w.parent_headers.push(header(c - 1).await?);
     }
     check_recovery_canonicality(l1, params, &w).await?;
     Ok(w)

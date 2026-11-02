@@ -246,7 +246,17 @@ impl Runner {
         if self.out_of_gas.is_some_and(|streak| !streak.matches(&snapshot)) {
             self.out_of_gas = None;
         }
-        self.batches.validate_checkpoint(&snapshot).await?;
+        // A possibly broadcast transaction owns its nonce even while recovered Comet history
+        // is unavailable. Its canonical receipt/account reconciliation precedes new work.
+        let recovering_nonce = match &self.state {
+            JournalState::Pending { job, .. } | JournalState::Confirming { job, .. } => {
+                job.request.batch.snapshot.generation != snapshot.generation
+            }
+            _ => false,
+        };
+        if !recovering_nonce {
+            self.batches.validate_checkpoint(&snapshot).await?;
+        }
         tracing::debug!(
             landed_height = snapshot.checkpoint_height,
             l1_height = snapshot.l1_block_number,
@@ -678,7 +688,9 @@ impl Runner {
             ));
         }
         if receipt.success {
-            if U256::from(snapshot.checkpoint_height) < job.request.batch.input.lastHeight {
+            if snapshot.generation == job.request.batch.snapshot.generation &&
+                U256::from(snapshot.checkpoint_height) < job.request.batch.input.lastHeight
+            {
                 return Err(LanderError::Safety(
                     "successful canonical receipt did not advance the Inbox checkpoint".into(),
                 ));

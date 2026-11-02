@@ -1269,3 +1269,100 @@ async fn v1_overlap_identity_mutations_preserve_signed_journal_and_stop_broadcas
         assert!(fixture.control.lock().unwrap().broadcasts.is_empty());
     }
 }
+
+#[tokio::test]
+async fn recovery_reconciles_pending_nonce_before_new_comet_history() {
+    let fixture = Fixture::new();
+    let mut runner = fixture.runner();
+    for _ in 0..3 {
+        runner.step().await.unwrap();
+    }
+    let original = serde_json::to_vec(runner.state()).unwrap();
+    {
+        let mut c = fixture.control.lock().unwrap();
+        c.snapshot.generation = 1;
+        c.checkpoint_error = true;
+        c.known = true;
+    }
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
+    assert_eq!(serde_json::to_vec(runner.state()).unwrap(), original);
+    assert_eq!(fixture.control.lock().unwrap().signs, 1);
+}
+
+#[tokio::test]
+async fn recovery_settles_old_canonical_success_after_checkpoint_rollback() {
+    let fixture = Fixture::new();
+    let mut runner = fixture.runner();
+    for _ in 0..3 {
+        runner.step().await.unwrap();
+    }
+    let tx = pending_transaction(&runner);
+    fixture.mine(&tx, true);
+    {
+        let mut c = fixture.control.lock().unwrap();
+        c.snapshot.generation = 1;
+        c.snapshot.checkpoint_height = 0;
+        c.snapshot.l1_block_number = 31;
+    }
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Settled);
+}
+
+#[tokio::test]
+async fn recovery_preserves_each_journal_phase_and_single_sender_ownership() {
+    for steps in 1..=4 {
+        let fixture = Fixture::new();
+        let mut runner = fixture.runner();
+        for _ in 0..steps.min(3) {
+            runner.step().await.unwrap();
+        }
+        if steps == 4 {
+            let tx = pending_transaction(&runner);
+            fixture.mine(&tx, true);
+            runner.step().await.unwrap();
+        }
+        let original = serde_json::to_vec(runner.state()).unwrap();
+        assert!(Store::open(fixture.directory.path(), fixture.identity()).is_err());
+        drop(runner);
+        let mut runner = fixture.runner();
+        assert_eq!(serde_json::to_vec(runner.state()).unwrap(), original);
+        {
+            let mut c = fixture.control.lock().unwrap();
+            c.snapshot.generation = 2;
+            if steps == 4 {
+                c.canonical_receipt = B256::repeat_byte(31);
+            } else {
+                c.receipt = None;
+            }
+            c.nonce = NonceState { confirmed: 0, pending: 1 };
+        }
+        let outcome = runner.step().await.unwrap();
+        if steps <= 2 {
+            assert_eq!(outcome, StepOutcome::Rebuild);
+            assert!(matches!(runner.state(), JournalState::Idle));
+        } else {
+            if steps == 4 {
+                assert_eq!(outcome, StepOutcome::Progress);
+            }
+            assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
+            let restored_signed_bytes = pending_transaction(&runner).network_bytes;
+            let saved: JournalState = serde_json::from_slice(&original).unwrap();
+            let (original_job, original_tx) = match saved {
+                JournalState::Pending { job, transaction } |
+                JournalState::Confirming { job, transaction, .. } => (job, transaction),
+                _ => unreachable!(),
+            };
+            let original_signed_bytes = original_tx.network_bytes;
+            assert_eq!(restored_signed_bytes, original_signed_bytes);
+            let JournalState::Pending { job, .. } = runner.state() else {
+                panic!("nonce must remain owned")
+            };
+            assert_eq!(
+                serde_json::to_vec(job).unwrap(),
+                serde_json::to_vec(&original_job).unwrap()
+            );
+        }
+        assert_eq!(fixture.control.lock().unwrap().prepares, 1);
+        assert_eq!(fixture.control.lock().unwrap().signs, usize::from(steps > 1));
+    }
+}

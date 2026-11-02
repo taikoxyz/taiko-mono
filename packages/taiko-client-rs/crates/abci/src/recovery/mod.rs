@@ -9,7 +9,9 @@ mod types;
 /// Pure proof verification.
 mod verify;
 
-pub use fetch::{authenticate_recovery, check_recovery_canonicality};
+pub use fetch::{
+    authenticate_recovery, authenticate_recovery_with_headers, check_recovery_canonicality,
+};
 pub use genesis::build_recovery_genesis;
 pub(crate) use genesis::{RecoveryBootstrap, recovery_bootstrap, recovery_parent};
 pub use types::{RecoveryError, RecoveryOrigin, RecoveryWitness};
@@ -107,6 +109,38 @@ mod tests {
             check_recovery_canonicality(&l1, &fx.params, &w).await,
             Err(RecoveryError::Unavailable(_))
         ));
+    }
+
+    #[tokio::test]
+    async fn recovery_public_header_reader_matches_engine_and_checks_own_l1() {
+        let (fx, l1, _, w) = fixture(2, 6, 2);
+        let fetched = authenticate_recovery_with_headers(&l1, &fx.params, 2, |height| {
+            let result = if height == 6 {
+                Ok(w.el_header.clone())
+            } else if height == 5 {
+                Ok(w.parent_headers[0].clone())
+            } else {
+                Err(RecoveryError::Unavailable("missing header".into()))
+            };
+            async move { result }
+        })
+        .await
+        .unwrap();
+        assert_eq!(fetched, w);
+        let error = authenticate_recovery_with_headers(&l1, &fx.params, 2, |_| async {
+            Err(RecoveryError::Unavailable("missing EL state".into()))
+        })
+        .await
+        .unwrap_err();
+        assert!(matches!(error, RecoveryError::Unavailable(_)));
+        l1.set_finalized(99);
+        assert!(
+            authenticate_recovery_with_headers(&l1, &fx.params, 2, |_| async {
+                Ok(w.el_header.clone())
+            })
+            .await
+            .is_err()
+        );
     }
 
     #[tokio::test]

@@ -169,7 +169,7 @@ pub fn raw_block(block: &Block) -> RawBlock {
         evidence: Some(crate::native::EvidenceList { evidence: vec![] }),
         last_commit: block.last_commit.clone().map(Into::into),
     };
-    if block.header.height.value() == 1 {
+    if block.last_commit.is_none() {
         raw.last_commit = Some(Commit::default().into());
         raw.header.as_mut().unwrap().last_block_id =
             Some(tendermint_proto::v0_38::types::BlockId {

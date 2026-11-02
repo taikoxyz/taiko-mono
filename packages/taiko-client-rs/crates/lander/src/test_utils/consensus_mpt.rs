@@ -763,6 +763,8 @@ impl Fixture {
             l2_chain_id: params.l2_chain_id,
             inbox: params.inbox,
             registry: params.registry,
+            recovery: None,
+            recovery_witness: None,
             generation: 0,
             checkpoint_height: checkpoint,
             checkpoint_hash: headers[&checkpoint].hash_slow(),
@@ -804,8 +806,12 @@ impl Fixture {
 impl CometSource for Fixture {
     async fn status(&self) -> Result<CometStatus> {
         Ok(CometStatus {
-            chain_id: rules::chain_id_for(&self.params, 0).unwrap(),
-            height: *self.headers.last_key_value().unwrap().0,
+            chain_id: rules::chain_id_for(&self.params, self.snapshot.generation).unwrap(),
+            height: if self.snapshot.recovery.is_some() && self.blocks.is_empty() {
+                0
+            } else {
+                *self.headers.last_key_value().unwrap().0
+            },
         })
     }
     async fn block(&self, height: u64) -> Result<CertifiedBlock> {
@@ -1387,3 +1393,6 @@ fn authenticates_301_members_from_registry_proof_through_comet_certificate() {
         Err(ValidationError::Certificate(message)) if message.contains("insufficient commit power 200/301")
     ));
 }
+
+#[path = "recovery.rs"]
+pub(crate) mod recovery;

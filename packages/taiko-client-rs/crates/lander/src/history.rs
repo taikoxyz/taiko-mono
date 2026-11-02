@@ -32,6 +32,8 @@ pub struct HistoryInput<'a> {
     pub hash: B256,
     /// Generation authenticated by Inbox state.
     pub generation: u64,
+    /// Fixed recovery boundary; old headers at or below it belong to earlier generations.
+    pub recovery: Option<&'a abci::recovery::RecoveryOrigin>,
     /// Independently authenticated genesis schedule.
     pub schedule: &'a Schedule,
 }
@@ -83,6 +85,51 @@ pub fn requirements(height: u64, schedule: &Schedule) -> Result<HistoryRequireme
     Ok(HistoryRequirements { epochs, oldest })
 }
 
+/// Bounds starting derivation history to switches committed after the recovery origin.
+pub fn requirements_at_origin(
+    height: u64,
+    schedule: &Schedule,
+    origin: u64,
+) -> Result<HistoryRequirements> {
+    if origin == 0 {
+        return requirements(height, schedule);
+    }
+    if height < origin || schedule.epoch_len < 3 {
+        return Err(LanderError::Safety(
+            "checkpoint predates recovery origin or invalid schedule".into(),
+        ));
+    }
+    let future = height
+        .checked_add(2)
+        .ok_or_else(|| LanderError::Safety("checkpoint height overflow".into()))?;
+    let current = schedule
+        .active_committee_epoch(height.max(origin + 1), origin)
+        .ok_or_else(|| LanderError::Safety("invalid recovery committee height".into()))?;
+    let next = schedule
+        .active_committee_epoch(future, origin)
+        .ok_or_else(|| LanderError::Safety("invalid future recovery committee height".into()))?;
+    let mut epochs = vec![current];
+    if next != current && schedule.derivation_parent_height(next).is_some_and(|d| d <= height) {
+        epochs.push(next);
+    }
+    let mut oldest = height.saturating_sub(1);
+    for epoch in &epochs {
+        if *epoch != origin / schedule.epoch_len {
+            let d = schedule
+                .derivation_parent_height(*epoch)
+                .ok_or_else(|| LanderError::Safety("missing recovery derivation parent".into()))?;
+            if d < origin || d > height {
+                return Err(LanderError::Safety("invalid recovery derivation height".into()));
+            }
+            oldest = oldest.min(d);
+        }
+    }
+    if height - oldest >= MAX_EXECUTION_HISTORY_HEADERS {
+        return Err(LanderError::Capacity("execution history exceeds journal header budget".into()));
+    }
+    Ok(HistoryRequirements { epochs, oldest })
+}
+
 /// Authenticate exact descending execution links and derive every starting snapshot from them.
 ///
 /// Descendants of this checkpoint are deliberately absent: their committees require validated
@@ -91,7 +138,8 @@ pub fn verify(
     input: HistoryInput<'_>,
     headers: &[Header],
 ) -> Result<BTreeMap<u64, Option<Header>>> {
-    let required = requirements(input.height, input.schedule)?;
+    let origin = input.recovery.map_or(0, |r| r.height);
+    let required = requirements_at_origin(input.height, input.schedule, origin)?;
     let count = input.height - required.oldest + 1;
     if headers.len() as u64 != count {
         return Err(LanderError::Safety(format!(
@@ -104,6 +152,12 @@ pub fn verify(
     }
     for header in headers {
         check_header_capacity(header)?;
+        if input
+            .recovery
+            .is_some_and(|r| header.number == r.height && header.hash_slow() != r.el_hash)
+        {
+            return Err(LanderError::Safety("execution history contradicts recovery origin".into()));
+        }
     }
     for pair in headers.windows(2) {
         if pair[0].number.checked_sub(1) != Some(pair[1].number) ||
@@ -114,12 +168,12 @@ pub fn verify(
             ));
         }
     }
-    for header in headers.iter().filter(|h| h.number > 0) {
+    for header in headers.iter().filter(|h| h.number > origin) {
         let (sharing, generation, number) = rules::decode_extra_data(&header.extra_data)
             .map_err(|e| LanderError::Safety(e.to_string()))?;
         if sharing != rules::BASEFEE_SHARING_PCTG ||
             generation != input.generation ||
-            number < input.schedule.l1_0 ||
+            number < input.recovery.map_or(input.schedule.l1_0, |r| r.l1_number) ||
             header.parent_beacon_block_root.is_none_or(|r| r.is_zero())
         {
             return Err(LanderError::Safety(format!(
@@ -132,13 +186,32 @@ pub fn verify(
         .epochs
         .into_iter()
         .map(|epoch| {
-            let parent = input
-                .schedule
-                .derivation_parent_height(epoch)
-                .map(|d| headers[(input.height - d) as usize].clone());
+            let parent = if input.recovery.is_some_and(|r| epoch == r.committee.record.target_epoch)
+            {
+                None
+            } else {
+                input
+                    .schedule
+                    .derivation_parent_height(epoch)
+                    .map(|d| headers[(input.height - d) as usize].clone())
+            };
             Ok((epoch, parent))
         })
         .collect()
+}
+
+/// Uses R when the derivation parent is the retained recovery boundary, whose extraData is old.
+pub fn snapshot_number_at_origin(
+    parent: Option<&Header>,
+    schedule: &Schedule,
+    recovery: Option<&abci::recovery::RecoveryOrigin>,
+) -> Result<u64> {
+    if let Some(origin) = recovery &&
+        parent.is_none_or(|h| h.number == origin.height)
+    {
+        return Ok(origin.l1_number);
+    }
+    snapshot_number(parent, schedule)
 }
 
 /// Read the immutable derivation snapshot from a verified header, retaining genesis's exception.
@@ -189,6 +262,7 @@ mod tests {
             HistoryInput {
                 height: 15,
                 hash: headers[0].hash_slow(),
+                recovery: None,
                 generation: 0,
                 schedule: &schedule(),
             },

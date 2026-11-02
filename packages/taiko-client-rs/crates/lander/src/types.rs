@@ -69,7 +69,7 @@ impl Limits {
     }
 }
 
-/// One coherent Inbox snapshot: every storage getter is pinned to `l1_block_hash`.
+/// Current Inbox facts pinned to `l1_block_hash`, with separate finalized recovery evidence.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LandingSnapshot {
     /// L1 state block hash to which all Inbox reads are pinned.
@@ -86,6 +86,12 @@ pub struct LandingSnapshot {
     pub registry: Address,
     /// Recovery generation from the pinned Inbox state.
     pub generation: u64,
+    /// Independently verified fixed recovery origin; absent for generation zero.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recovery: Option<abci::recovery::RecoveryOrigin>,
+    /// Canonical RLP recovery evidence retained with the immutable proof request.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recovery_witness: Option<Bytes>,
     /// Latest landed L2 height.
     pub checkpoint_height: u64,
     /// Latest landed L2 hash.
@@ -110,12 +116,27 @@ pub struct LandingSnapshot {
     pub inbox_witness: AccountWitness,
 }
 
+impl LandingSnapshot {
+    /// Global boundary preceding the first block of this generation.
+    pub fn origin_height(&self) -> u64 {
+        self.recovery.as_ref().map_or(self.genesis.genesis_height, |r| r.height)
+    }
+    /// Retained historical Comet boundary, distinct from a new generation's empty LastCommit.
+    pub fn origin_comet_hash(&self) -> B256 {
+        self.recovery.as_ref().map_or(B256::ZERO, |r| r.comet_hash)
+    }
+    /// R-selected initial committee, independent of the old parent execution header.
+    pub fn initial_committee(&self) -> Option<&CommitteeState> {
+        self.recovery.as_ref().map(|r| &r.committee)
+    }
+}
+
 /// One independently derived committee's authenticated registry witness provenance.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CommitteeContext {
     /// Authenticated proving anchor whose number covers the derivation snapshot.
     pub anchor: AnchorState,
-    /// Authenticated execution derivation parent; absent only for explicit genesis cutoff.
+    /// Authenticated derivation parent; absent for the genesis cutoff or R initial committee.
     pub derivation_parent: Option<Header>,
     /// Registry proof and complete entries used to recompute this committee.
     #[serde(with = "rlp_serde")]
@@ -325,7 +346,11 @@ impl PreparedBatch {
             parent >= last ||
             !parent.is_multiple_of(GRID_INTERVAL) ||
             !last.is_multiple_of(GRID_INTERVAL) ||
-            self.snapshot.generation != 0 ||
+            self.snapshot.generation >= (1u64 << 48) ||
+            (self.snapshot.generation != 0 &&
+                (self.snapshot.recovery.is_none() ||
+                    self.snapshot.recovery_witness.is_none())) ||
+            self.snapshot.origin_height() > parent ||
             self.blocks.len() as u64 != last - parent
         {
             return Err(LanderError::Journal(
@@ -433,14 +458,45 @@ impl PreparedBatch {
             parent_height = header.number;
             parent_hash = header.hash_slow();
         }
-        let epoch = schedule.epoch_of(terminal.number);
-        let cutoff = if epoch == 0 {
+        let epoch = schedule
+            .active_committee_epoch(terminal.number, self.snapshot.origin_height())
+            .ok_or_else(invalid)?;
+        let cutoff = if let Some(origin) =
+            self.snapshot.recovery.as_ref().filter(|r| r.committee.record.target_epoch == epoch)
+        {
+            let committee = self
+                .committees
+                .iter()
+                .find(|c| c.record.target_epoch == epoch)
+                .ok_or_else(invalid)?;
+            let context = self
+                .committee_witnesses
+                .iter()
+                .find(|c| c.witness.record.target_epoch == epoch)
+                .ok_or_else(invalid)?;
+            if committee != &origin.committee ||
+                context.witness.record != committee.record ||
+                context.derivation_parent.is_some() ||
+                context.anchor.number != origin.l1_number
+            {
+                return Err(invalid());
+            }
+            let reference = self
+                .reference_headers
+                .iter()
+                .map(|raw| RawL1Header::from_raw(raw.clone()).map_err(|_| invalid()))
+                .collect::<Result<Vec<_>>>()?;
+            crate::batch::verify_reference_chain(&reference, std::slice::from_ref(&context.anchor))
+                .map_err(|_| invalid())?;
+            origin.l1_number
+        } else if epoch == 0 {
             schedule.genesis_cutoff
         } else {
             let derivation_height = schedule.derivation_parent_height(epoch).ok_or_else(invalid)?;
             let derivation = if derivation_height <= self.snapshot.checkpoint_height {
                 crate::history::verify(
                     crate::history::HistoryInput {
+                        recovery: self.snapshot.recovery.as_ref(),
                         height: self.snapshot.checkpoint_height,
                         hash: self.snapshot.checkpoint_hash,
                         generation: self.snapshot.generation,
@@ -474,11 +530,18 @@ impl PreparedBatch {
             {
                 return Err(invalid());
             }
-            let cutoff = crate::history::snapshot_number(Some(derivation), &schedule)
-                .map_err(|_| invalid())?;
-            let anchors = std::iter::once(self.parent_anchor.clone())
+            let cutoff = crate::history::snapshot_number_at_origin(
+                Some(derivation),
+                &schedule,
+                self.snapshot.recovery.as_ref(),
+            )
+            .map_err(|_| invalid())?;
+            let mut anchors = std::iter::once(self.parent_anchor.clone())
                 .chain(self.anchors.iter().cloned())
                 .collect::<Vec<_>>();
+            if self.snapshot.recovery.is_some() {
+                anchors.push(crate::batch::recovery_anchor(&self.snapshot).map_err(|_| invalid())?);
+            }
             let reference = self
                 .reference_headers
                 .iter()

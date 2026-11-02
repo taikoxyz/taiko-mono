@@ -31,6 +31,9 @@ fn public_rpc_and_wrapped_anchor_errors_never_render_endpoint_credentials() {
     .map(crate::l1::rpc_error)
     .collect::<Vec<_>>();
     errors.push(crate::l1::anchor_error(abci::l1::source::L1Error::Rpc(sensitive.into())));
+    errors.push(crate::l1::recovery_error(abci::recovery::RecoveryError::Unavailable(
+        sensitive.into(),
+    )));
     for error in errors {
         assert!(error.is_retryable());
         for secret in ["alice", "password", "private-key-path", "api_key", "secret"] {
@@ -173,6 +176,8 @@ fn snapshot(headers: &BTreeMap<u64, RawL1Header>) -> LandingSnapshot {
         l2_chain_id: 167001,
         inbox: params.inbox,
         registry: params.registry,
+        recovery: None,
+        recovery_witness: None,
         generation: 0,
         checkpoint_height: 0,
         checkpoint_hash: B256::repeat_byte(1),
@@ -791,5 +796,81 @@ async fn v1_deployment_identity_uses_real_pinned_boundaries_and_ignores_pause_an
             source.deployment(&fixture.snapshot).await,
             Err(LanderError::Configuration(_))
         ));
+    }
+}
+
+#[tokio::test]
+async fn recovery_rpc_parent_anchor_uses_r_not_old_header_extra_data() {
+    let f = crate::test_utils::consensus_mpt::recovery::fixture(6, 6, 12).await;
+    let expected = f.parent_anchor_override.clone().unwrap();
+    let witness = f.starting_inbox_witness(&expected).await.unwrap();
+    let l1 = rpc(move |request| match request["method"].as_str().unwrap() {
+        "eth_getBlockByNumber" => {
+            assert_eq!(request["params"][0], "0x14");
+            json_header(&witness.l1_header)
+        }
+        "debug_getRawHeader" => json!(witness.l1_header.raw()),
+        "eth_getProof" => {
+            let mut proof = witness.inbox.clone();
+            proof
+                .storage
+                .retain(|s| request["params"][1].as_array().unwrap().contains(&json!(s.slot)));
+            proof_json(&proof)
+        }
+        other => panic!("unexpected recovery L1 request: {other}"),
+    })
+    .await;
+    let source = RpcLandingSource::new(l1.provider.clone(), l1.provider.clone(), f.params.clone());
+    let parent = f.parent_header(&f.snapshot).await.unwrap();
+    let observed = source.parent_anchor(&f.snapshot, &parent).await.unwrap();
+    assert_eq!(observed, expected);
+    assert_eq!(observed.number, 20);
+    assert_ne!(parent.header.parent_beacon_block_root, Some(observed.state_root));
+    let mut later = parent;
+    later.header.number += 1;
+    assert!(matches!(source.parent_anchor(&f.snapshot, &later).await, Err(LanderError::Safety(_))));
+}
+
+#[tokio::test]
+async fn recovery_finality_waits_for_proven_generation_and_rejects_tampering() {
+    for (requested, tamper) in [(1, false), (2, false), (3, false), (2, true)] {
+        let f = crate::test_utils::consensus_mpt::recovery::fixture(6, 6, 12).await;
+        let witness =
+            f.starting_inbox_witness(f.parent_anchor_override.as_ref().unwrap()).await.unwrap();
+        let l1 = rpc(move |request| match request["method"].as_str().unwrap() {
+            "eth_getBlockByNumber" => json_header(&witness.l1_header),
+            "debug_getRawHeader" => json!(witness.l1_header.raw()),
+            "eth_getProof" => {
+                let mut proof = witness.inbox.clone();
+                proof
+                    .storage
+                    .retain(|s| request["params"][1].as_array().unwrap().contains(&json!(s.slot)));
+                if tamper {
+                    proof
+                        .storage
+                        .iter_mut()
+                        .find(|s| {
+                            s.slot ==
+                                abci::l1::layout::inbox::slot(
+                                    abci::l1::layout::inbox::RECOVERY_GENERATION,
+                                )
+                        })
+                        .unwrap()
+                        .value += U256::from(1);
+                }
+                proof_json(&proof)
+            }
+            other => panic!("unexpected finality request: {other}"),
+        })
+        .await;
+        let source = RpcLandingSource::new(l1.provider.clone(), l1.provider.clone(), f.params);
+        let result = source.recovery_finality(requested).await;
+        if tamper {
+            assert!(matches!(result, Err(LanderError::Safety(_))));
+        } else if requested != 2 {
+            assert!(matches!(result, Err(LanderError::Temporary(_))), "{result:?}");
+        } else {
+            result.unwrap();
+        }
     }
 }

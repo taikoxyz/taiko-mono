@@ -67,7 +67,7 @@ pub trait LandingSource: Send + Sync {
     async fn parent_header(&self, snapshot: &LandingSnapshot) -> Result<ParentContext>;
     /// Read an untrusted public execution header; the builder verifies checkpoint ancestry.
     async fn execution_header(&self, number: u64) -> Result<Header>;
-    /// Recover the exact historical anchor consumed by the checkpoint parent.
+    /// Recover the checkpoint's historical anchor, or R at the fixed recovery boundary.
     async fn parent_anchor(
         &self,
         snapshot: &LandingSnapshot,
@@ -125,6 +125,26 @@ impl RpcLandingSource {
             l2,
             params,
             head_proof_grace: HEAD_PROOF_GRACE,
+        }
+    }
+
+    /// Waits until own finalized L1 proves the snapshot's generation before origin discovery.
+    async fn recovery_finality(&self, generation: u64) -> Result<()> {
+        let finalized = self.anchors.finalized_number().await.map_err(anchor_error)?;
+        let anchor = self.anchor_at(finalized).await?;
+        if self.anchors.canonical_hash(finalized).await.map_err(anchor_error)? != anchor.hash {
+            return Err(LanderError::Temporary(
+                "finalized recovery observation changed; refresh L1 snapshot".into(),
+            ));
+        }
+        match anchor.inbox.recovery_generation.cmp(&generation) {
+            std::cmp::Ordering::Less => Err(LanderError::Temporary(format!(
+                "recovery generation {generation} is not finalized"
+            ))),
+            std::cmp::Ordering::Greater => Err(LanderError::Temporary(
+                "finalized recovery generation advanced; refresh L1 snapshot".into(),
+            )),
+            std::cmp::Ordering::Equal => Ok(()),
         }
     }
 
@@ -262,7 +282,34 @@ impl LandingSource for RpcLandingSource {
             {
                 continue;
             }
-            return decode_snapshot(raw, witness, l1_chain_id, l2_chain_id, &self.params);
+            let mut snapshot =
+                decode_snapshot(raw, witness, l1_chain_id, l2_chain_id, &self.params)?;
+            if snapshot.generation != 0 {
+                self.recovery_finality(snapshot.generation).await?;
+                let witness = abci::recovery::authenticate_recovery_with_headers(
+                    &self.anchors,
+                    &self.params,
+                    snapshot.generation,
+                    |height| async move {
+                        self.el_header(height).await.map_err(|error| {
+                            if error.is_retryable() {
+                                abci::recovery::RecoveryError::Unavailable(error.to_string())
+                            } else {
+                                abci::recovery::RecoveryError::Invalid(error.to_string())
+                            }
+                        })
+                    },
+                )
+                .await
+                .map_err(recovery_error)?;
+                snapshot.recovery = Some(
+                    abci::recovery::verify_recovery_witness(&witness, &self.params)
+                        .map_err(recovery_error)?,
+                );
+                snapshot.recovery_witness = Some(alloy_rlp::encode(&witness).into());
+            }
+            authenticate_snapshot(&snapshot, &self.params)?;
+            return Ok(snapshot);
         }
     }
 
@@ -299,7 +346,10 @@ impl LandingSource for RpcLandingSource {
         snapshot: &LandingSnapshot,
         parent: &ParentContext,
     ) -> Result<AnchorState> {
-        let number = if parent.header.number == 0 {
+        let at_recovery = snapshot.recovery.as_ref().filter(|r| parent.header.number == r.height);
+        let number = if let Some(origin) = at_recovery {
+            origin.l1_number
+        } else if parent.header.number == 0 {
             snapshot.genesis.l1_0
         } else {
             let (generation, anchor) = abci::rules::decode_extra_data(&parent.header.extra_data)
@@ -317,7 +367,8 @@ impl LandingSource for RpcLandingSource {
             anchor
         };
         let anchor = self.anchor_at(number).await?;
-        if parent.header.number != 0 &&
+        if at_recovery.is_none() &&
+            parent.header.number != 0 &&
             parent.header.parent_beacon_block_root != Some(anchor.state_root)
         {
             return Err(LanderError::Safety("EL checkpoint anchor root differs from L1".into()));
@@ -601,17 +652,14 @@ fn decode_snapshot(
     let generation = word_u48(word(inbox::RECOVERY_GENERATION), 0);
     if landing >> 144 != U256::ZERO ||
         head_tail >> 96 != U256::ZERO ||
-        generation != 0 ||
         !height.is_multiple_of(abci::GRID_INTERVAL) ||
         el_hash != B256::from(word(inbox::LAST_CHECKPOINT_HASH)) ||
-        word_u48(landing, 48) != generation ||
+        word_u48(landing, 48) > generation ||
         word_u48(landing, 96) != word_u48(head_tail, 0) ||
         (height == 0 && (word_u48(landing, 0) != 0 || !comet_hash.is_zero())) ||
         (height > 0 && (word_u48(landing, 0) >= height || comet_hash.is_zero()))
     {
-        return Err(LanderError::Safety(
-            "invalid checkpoint landing record or unsupported generation".into(),
-        ));
+        return Err(LanderError::Safety("invalid checkpoint landing record".into()));
     }
     Ok(LandingSnapshot {
         l1_block_hash: raw.hash(),
@@ -620,6 +668,8 @@ fn decode_snapshot(
         l2_chain_id,
         inbox: params.inbox,
         registry: params.registry,
+        recovery: None,
+        recovery_witness: None,
         generation: word_u64(word(inbox::RECOVERY_GENERATION), 0),
         checkpoint_height: word_u64(word(inbox::LAST_CHECKPOINT_HEIGHT), 0),
         checkpoint_hash: word(inbox::LAST_CHECKPOINT_HASH).into(),
@@ -684,19 +734,88 @@ fn project_witness(witness: &AccountWitness, slots: &[B256]) -> AccountWitness {
 
 /// Recompute the snapshot from its proof so no schedule/configuration field is an unchecked hint.
 pub fn authenticate_snapshot(snapshot: &LandingSnapshot, params: &ChainParams) -> Result<()> {
-    let verified = decode_snapshot(
+    let mut verified = decode_snapshot(
         snapshot.l1_header.clone(),
         snapshot.inbox_witness.clone(),
         snapshot.l1_chain_id,
         snapshot.l2_chain_id,
         params,
     )?;
+    match (&snapshot.recovery, &snapshot.recovery_witness) {
+        (None, None) if snapshot.generation == 0 => {}
+        (Some(origin), Some(bytes)) if snapshot.generation != 0 => {
+            use alloy_rlp::Decodable;
+            let mut remaining = bytes.as_ref();
+            let witness = abci::recovery::RecoveryWitness::decode(&mut remaining)
+                .map_err(|e| LanderError::Safety(format!("recovery evidence: {e}")))?;
+            if !remaining.is_empty() || alloy_rlp::encode(&witness).as_slice() != bytes.as_ref() {
+                return Err(LanderError::Safety("noncanonical recovery evidence".into()));
+            }
+            let authenticated = abci::recovery::verify_recovery_witness(&witness, params)
+                .map_err(recovery_error)?;
+            let (genesis, _, bootstrap) = verify_genesis_inbox(
+                witness.genesis.l1_header.state_root(),
+                &witness.genesis.inbox,
+                params.inbox,
+            )
+            .map_err(|e| LanderError::Safety(format!("recovery deployment: {e}")))?;
+            if genesis != snapshot.genesis ||
+                bootstrap != snapshot.genesis_committee_record_hash ||
+                &authenticated != origin ||
+                origin.generation != snapshot.generation ||
+                origin.height > snapshot.checkpoint_height ||
+                origin.l1_number > snapshot.l1_block_number ||
+                (origin.height == snapshot.checkpoint_height &&
+                    (origin.el_hash != snapshot.checkpoint_hash ||
+                        origin.comet_hash != snapshot.checkpoint_comet_hash ||
+                        origin.forced_cursor != snapshot.forced_inclusion_head))
+            {
+                return Err(LanderError::Safety(
+                    "snapshot contradicts authenticated recovery origin".into(),
+                ));
+            }
+            verified.recovery = Some(authenticated);
+            verified.recovery_witness = Some(bytes.clone());
+        }
+        _ => {
+            return Err(LanderError::Safety(
+                "generation requires matching recovery origin and evidence".into(),
+            ))
+        }
+    }
+    if snapshot.checkpoint_height > snapshot.origin_height() || snapshot.generation == 0 {
+        let packed = snapshot
+            .inbox_witness
+            .storage
+            .iter()
+            .find(|p| p.slot == inbox::landing_slots(verified.checkpoint_height)[0])
+            .expect("decoded landing slot")
+            .value;
+        if word_u48(packed, 48) != snapshot.generation {
+            return Err(LanderError::Safety(
+                "checkpoint landing belongs to another generation".into(),
+            ));
+        }
+    }
     if verified != *snapshot {
         return Err(LanderError::Safety(
             "snapshot fields contradict authenticated Inbox storage".into(),
         ));
     }
     Ok(())
+}
+
+/// Preserves recovery acquisition failures as retryable without trusting unauthenticated hints.
+fn recovery_error(error: abci::recovery::RecoveryError) -> LanderError {
+    match error {
+        abci::recovery::RecoveryError::Unavailable(_) => {
+            LanderError::Temporary("recovery evidence unavailable from L1 or EL".into())
+        }
+        abci::recovery::RecoveryError::ConfigMismatch { .. } => {
+            LanderError::Configuration(error.to_string())
+        }
+        _ => LanderError::Safety(error.to_string()),
+    }
 }
 
 /// An RPC failure has no authenticated contradiction and can safely be retried.

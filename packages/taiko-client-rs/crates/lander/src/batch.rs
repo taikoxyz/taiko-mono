@@ -31,7 +31,7 @@ use crate::{
     types::{
         CertifiedBlock, CommitteeContext, LandingSnapshot, Limits, PreparedBatch, SidecarMode,
     },
-    validate::{EnvelopeContext, verify_body, verify_commit, verify_envelope, verify_structure},
+    validate::{EnvelopeContext, verify_commit, verify_envelope},
 };
 
 /// Uncompressed published execution DA bytes prefix selection admits into one batch.
@@ -83,7 +83,7 @@ struct BatchStart {
     anchor: AnchorState,
     /// Full schedule/bootstrap/anchor-facts proof retained for the guest.
     inbox_witness: abci::AnchorWitness,
-    /// Certified checkpoint block, absent at genesis.
+    /// Certified checkpoint block, absent at the fixed generation origin.
     previous: Option<CertifiedBlock>,
     /// Exact minimal descending checkpoint-bound execution headers.
     history: Vec<alloy_consensus::Header>,
@@ -102,6 +102,8 @@ struct CheckpointIdentity {
     registry: Address,
     /// Recovery generation carried by the execution history and BFT chain id.
     generation: u64,
+    /// Fixed origin facts verified independently of current checkpoint progress.
+    recovery: Option<abci::recovery::RecoveryOrigin>,
     /// Exact settled execution height.
     height: u64,
     /// Exact settled execution hash binding every ancestry header.
@@ -125,6 +127,7 @@ impl CheckpointIdentity {
             inbox: snapshot.inbox,
             registry: snapshot.registry,
             generation: snapshot.generation,
+            recovery: snapshot.recovery.clone(),
             height: snapshot.checkpoint_height,
             hash: snapshot.checkpoint_hash,
             comet_hash: snapshot.checkpoint_comet_hash,
@@ -462,7 +465,20 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             return Ok(());
         }
         let schedule = Schedule::from_genesis(&snapshot.genesis);
-        let snapshot_number = history::snapshot_number(derivation_parent.as_ref(), &schedule)?;
+        let initial = snapshot.initial_committee().filter(|c| c.record.target_epoch == epoch);
+        let recovery_anchor =
+            if initial.is_some() { Some(recovery_anchor(snapshot)?) } else { None };
+        let anchor = recovery_anchor.as_ref().unwrap_or(anchor);
+        let snapshot_number =
+            if let Some(origin) = snapshot.recovery.as_ref().filter(|_| initial.is_some()) {
+                origin.l1_number
+            } else {
+                history::snapshot_number_at_origin(
+                    derivation_parent.as_ref(),
+                    &schedule,
+                    snapshot.recovery.as_ref(),
+                )?
+            };
         if anchor.number < snapshot_number {
             return Err(LanderError::Safety(
                 "committee proving root predates authenticated derivation snapshot".into(),
@@ -478,7 +494,10 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         )
         .map_err(|e| LanderError::Safety(e.to_string()))?;
         let hash = record_hash(self.params.l2_chain_id, &record);
-        if epoch == 0 && hash != snapshot.genesis_committee_record_hash {
+        if snapshot.recovery.is_none() &&
+            epoch == 0 &&
+            hash != snapshot.genesis_committee_record_hash
+        {
             return Err(LanderError::Safety(
                 "derived genesis committee differs from bootstrap".into(),
             ));
@@ -486,6 +505,11 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         let mut authenticated =
             AuthenticatedCommittee::new(abci::CommitteeState { record, members })
                 .map_err(|e| LanderError::Safety(e.to_string()))?;
+        if initial.is_some_and(|initial| initial != &authenticated.state) {
+            return Err(LanderError::Safety(
+                "initial committee differs from authenticated recovery".into(),
+            ));
+        }
         authenticated.provenance =
             Some(CommitteeContext { anchor: anchor.clone(), derivation_parent, witness });
         committees.insert(epoch, authenticated);
@@ -500,8 +524,15 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         schedule: &Schedule,
         committees: &mut BTreeMap<u64, AuthenticatedCommittee>,
     ) -> Result<Arc<BatchStart>> {
-        let required = history::requirements(snapshot.checkpoint_height, schedule)?;
+        let required = history::requirements_at_origin(
+            snapshot.checkpoint_height,
+            schedule,
+            snapshot.origin_height(),
+        )?;
         let identity = CheckpointIdentity::from_snapshot(snapshot);
+        if snapshot.recovery.is_some() {
+            self.check_proving_anchor_canonicality(&recovery_anchor(snapshot)?).await?;
+        }
         let mut retained = self.checkpoint_cache.lock().await;
         let cached = retained.take();
         let parent = self.l1.parent_header(snapshot).await?;
@@ -577,6 +608,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         }
         let derivations = history::verify(
             history::HistoryInput {
+                recovery: snapshot.recovery.as_ref(),
                 height: snapshot.checkpoint_height,
                 hash: snapshot.checkpoint_hash,
                 generation: snapshot.generation,
@@ -594,7 +626,11 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             )));
         }
         let anchor = self.l1.parent_anchor(snapshot, &parent).await?;
-        let embedded_number = if parent.header.number == 0 {
+        let at_origin = parent.header.number == snapshot.origin_height();
+        let embedded_number = if let Some(origin) = snapshot.recovery.as_ref().filter(|_| at_origin)
+        {
+            origin.l1_number
+        } else if parent.header.number == 0 {
             snapshot.genesis.l1_0
         } else {
             rules::decode_extra_data(&parent.header.extra_data)
@@ -602,7 +638,8 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 .2
         };
         if anchor.number != embedded_number ||
-            parent.header.number > 0 &&
+            !at_origin &&
+                parent.header.number > 0 &&
                 parent.header.parent_beacon_block_root != Some(anchor.state_root)
         {
             return Err(LanderError::Safety(
@@ -625,10 +662,12 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         for (epoch, derivation) in derivations {
             self.committee(snapshot, &anchor, epoch, derivation, committees).await?;
         }
-        if snapshot.checkpoint_height == 0 {
-            if snapshot.checkpoint_hash != snapshot.genesis.genesis_hash ||
-                parent.header.state_root != snapshot.genesis.genesis_state_root
-            {
+        if at_origin {
+            let (hash, root) = snapshot.recovery.as_ref().map_or(
+                (snapshot.genesis.genesis_hash, snapshot.genesis.genesis_state_root),
+                |r| (r.el_hash, r.state_root),
+            );
+            if snapshot.checkpoint_hash != hash || parent.header.state_root != root {
                 return Err(LanderError::Safety(
                     "genesis checkpoint hash/state root mismatch".into(),
                 ));
@@ -642,9 +681,14 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             });
         }
         let pair = self.comet.block(snapshot.checkpoint_height).await?;
-        let epoch = schedule.epoch_of(snapshot.checkpoint_height);
-        let envelope = verify_body(&pair, snapshot.checkpoint_height, parent.header.parent_hash)
-            .map_err(|e| LanderError::Safety(e.to_string()))?;
+        let epoch = committee_epoch(snapshot, schedule, snapshot.checkpoint_height)?;
+        let envelope = crate::validate::verify_body_at_origin(
+            &pair,
+            snapshot.checkpoint_height,
+            parent.header.parent_hash,
+            snapshot.origin_height(),
+        )
+        .map_err(|e| LanderError::Safety(e.to_string()))?;
         if B256::from_slice(pair.block.header.hash().as_bytes()) != snapshot.checkpoint_comet_hash {
             return Err(LanderError::Safety(
                 "checkpoint Comet hash contradicts retained landing".into(),
@@ -664,12 +708,14 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 .map_err(|e| LanderError::Configuration(e.to_string()))?,
         )
         .map_err(|e| LanderError::Safety(e.to_string()))?;
-        let next_epoch = schedule.epoch_of(
+        let next_epoch = committee_epoch(
+            snapshot,
+            schedule,
             snapshot
                 .checkpoint_height
                 .checked_add(1)
                 .ok_or_else(|| LanderError::Safety("checkpoint height overflow".into()))?,
-        );
+        )?;
         if pair.block.header.next_validators_hash != committees[&next_epoch].validators.hash() {
             return Err(LanderError::Safety("checkpoint next validator hash disagrees".into()));
         }
@@ -708,16 +754,22 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         }
         codec::check_message_limits(pair, &self.limits)?;
         let height = pair.block.header.height.value();
-        let epoch = schedule.epoch_of(height);
+        let epoch = committee_epoch(snapshot, schedule, height)?;
         if !committees.contains_key(&epoch) {
             return Err(LanderError::Safety(format!(
                 "missing authenticated signing committee {epoch}"
             )));
         }
-        let envelope = verify_structure(pair, state.previous.as_ref(), height, state.parent.hash)
-            .map_err(|e| LanderError::Safety(e.to_string()))?;
+        let envelope = crate::validate::verify_structure_at_origin(
+            pair,
+            state.previous.as_ref(),
+            height,
+            state.parent.hash,
+            snapshot.origin_height(),
+        )
+        .map_err(|e| LanderError::Safety(e.to_string()))?;
         if let (Some(last), Some(previous)) = (&pair.block.last_commit, state.previous.as_ref()) {
-            let prev_epoch = schedule.epoch_of(height - 1);
+            let prev_epoch = committee_epoch(snapshot, schedule, height - 1)?;
             verify_commit(last, &previous.block.header, &committees[&prev_epoch], &chain_id)
                 .map_err(|e| LanderError::Safety(e.to_string()))?;
         }
@@ -734,6 +786,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 parent: &state.parent,
                 parent_anchor: &state.anchor,
                 generation: snapshot.generation,
+                recovery: snapshot.recovery.as_ref(),
                 genesis: &snapshot.genesis,
                 params: &self.params,
                 forced_cursor: state.forced_cursor,
@@ -832,9 +885,11 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             });
             committees.entry(epoch).or_insert(committee);
         }
-        let next_epoch = schedule.epoch_of(
+        let next_epoch = committee_epoch(
+            snapshot,
+            schedule,
             height.checked_add(1).ok_or_else(|| LanderError::Safety("height overflow".into()))?,
-        );
+        )?;
         if !committees.contains_key(&next_epoch) {
             return Err(LanderError::Safety(format!(
                 "missing authenticated next committee {next_epoch}"
@@ -957,22 +1012,35 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
             .block
             .header;
         let parent_anchor = start.anchor.clone();
-        let consumed = std::iter::once(parent_anchor.clone())
+        let mut consumed = std::iter::once(parent_anchor.clone())
             .chain(anchors.iter().cloned())
             .collect::<Vec<_>>();
+        if snapshot.recovery.is_some() {
+            consumed.push(recovery_anchor(&snapshot)?);
+        }
         let headers = self.l1.reference(&snapshot, &consumed).await?;
         verify_reference_chain(&headers, &consumed)?;
         let reference = &headers[0];
         self.l1.validate_reference(&snapshot, reference.number(), reference.hash()).await?;
-        let active_epoch = schedule.epoch_of(last.number);
+        let active_epoch = committee_epoch(&snapshot, &schedule, last.number)?;
         let active_committee = committees.get(&active_epoch).ok_or_else(|| {
             LanderError::Safety(format!("missing active committee {active_epoch}"))
         })?;
         let provenance = active_committee.provenance.as_ref().ok_or_else(|| {
             LanderError::Safety(format!("missing active committee {active_epoch} provenance"))
         })?;
-        let active_snapshot =
-            history::snapshot_number(provenance.derivation_parent.as_ref(), &schedule)?;
+        let active_snapshot = if snapshot
+            .initial_committee()
+            .is_some_and(|c| c.record.target_epoch == active_epoch)
+        {
+            snapshot.recovery.as_ref().expect("initial recovery committee").l1_number
+        } else {
+            history::snapshot_number_at_origin(
+                provenance.derivation_parent.as_ref(),
+                &schedule,
+                snapshot.recovery.as_ref(),
+            )?
+        };
         if active_snapshot != active_committee.state.record.cutoff_l1_block ||
             active_snapshot > reference.number()
         {
@@ -1034,6 +1102,42 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
             },
         }))
     }
+}
+
+/// Selects the committee activated after this generation's origin on the unchanged epoch grid.
+fn committee_epoch(snapshot: &LandingSnapshot, schedule: &Schedule, height: u64) -> Result<u64> {
+    schedule.active_committee_epoch(height, snapshot.origin_height()).ok_or_else(|| {
+        LanderError::Safety("committee height does not follow generation origin".into())
+    })
+}
+
+/// Reconstructs R's proof-bound anchor for committee provenance and complete reference ancestry.
+pub(crate) fn recovery_anchor(snapshot: &LandingSnapshot) -> Result<AnchorState> {
+    use alloy_rlp::Decodable;
+    let bytes = snapshot
+        .recovery_witness
+        .as_ref()
+        .ok_or_else(|| LanderError::Safety("missing recovery evidence".into()))?;
+    let witness = abci::recovery::RecoveryWitness::decode(&mut bytes.as_ref())
+        .map_err(|e| LanderError::Safety(format!("recovery evidence: {e}")))?;
+    let mut inbox = witness.recovery_inbox;
+    let slots = abci::l1::layout::inbox::anchor_slots();
+    inbox.storage = slots
+        .iter()
+        .map(|slot| {
+            inbox
+                .storage
+                .iter()
+                .find(|p| p.slot == *slot)
+                .cloned()
+                .ok_or_else(|| LanderError::Safety("recovery anchor slot missing".into()))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    abci::l1::verify_anchor_witness(
+        &abci::AnchorWitness { l1_header: witness.recovery_header, inbox },
+        snapshot.inbox,
+    )
+    .map_err(|e| LanderError::Safety(format!("recovery anchor: {e}")))
 }
 
 /// Compresses `list` into a V6 payload on the blocking pool, keeping deflate off the async

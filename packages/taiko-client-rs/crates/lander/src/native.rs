@@ -256,20 +256,23 @@ pub struct Block {
     pub header: tendermint::block::Header,
     /// Original consensus transaction bytes, containing one private Etna envelope.
     pub data: Vec<Vec<u8>>,
-    /// Previous height's complete native certificate; absent at genesis.
+    /// Previous height's native certificate; absent at a generation's first consensus height.
     pub last_commit: Option<Commit>,
 }
 impl TryFrom<RawBlock> for Block {
     /// Invalid stock header or last certificate.
     type Error = String;
     /// Keeps evidence exclusively in the original witness rather than normalizing it.
+    /// Empty ancestry is structural here; origin-aware body verification authorizes its height.
     fn try_from(raw: RawBlock) -> Result<Self, Self::Error> {
         let header: tendermint::block::Header = raw
             .header
             .ok_or("missing block header")?
             .try_into()
             .map_err(|e: tendermint::Error| e.to_string())?;
-        let last_commit = if header.height.value() == 1 {
+        let last_commit = if header.height.value() == 1 ||
+            raw.last_commit.as_ref().is_none_or(|c| c == &RawCommit::from(Commit::default()))
+        {
             if raw.last_commit.as_ref().is_some_and(|c| c != &RawCommit::from(Commit::default())) {
                 return Err("nonempty genesis last commit".into());
             }

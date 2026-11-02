@@ -238,6 +238,7 @@ impl FixtureChain {
             let facts = verify_envelope(
                 envelope,
                 EnvelopeContext {
+                    recovery: None,
                     bft_time_secs: time,
                     proposer: pair.block.header.proposer_address,
                     committees: &self.committees,
@@ -313,6 +314,8 @@ impl FixtureChain {
             l2_chain_id: L2_CHAIN_ID,
             inbox: fixture.inbox,
             registry: fixture.registry,
+            recovery: None,
+            recovery_witness: None,
             generation: 0,
             checkpoint_height: checkpoint.height.to(),
             checkpoint_comet_hash: if checkpoint.height.is_zero() {

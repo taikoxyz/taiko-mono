@@ -197,6 +197,16 @@ pub fn verify_body(
     expected_height: u64,
     parent_el_hash: B256,
 ) -> Result<EtnaEnvelope, ValidationError> {
+    verify_body_at_origin(pair, expected_height, parent_el_hash, 0)
+}
+
+/// Checks body commitments and permits empty consensus ancestry only at the fixed origin + 1.
+pub fn verify_body_at_origin(
+    pair: &CertifiedBlock,
+    expected_height: u64,
+    parent_el_hash: B256,
+    origin_height: u64,
+) -> Result<EtnaEnvelope, ValidationError> {
     let block = &pair.block;
     if block.header.height.value() != expected_height {
         return Err(ValidationError::Certificate("requested block height mismatch".into()));
@@ -229,7 +239,7 @@ pub fn verify_body(
         return Err(ValidationError::Commitment("block part set"));
     }
     match &block.last_commit {
-        None if expected_height == 1 => {
+        None if origin_height.checked_add(1) == Some(expected_height) => {
             if block.header.last_commit_hash != Some(merkle(&[])) ||
                 block.header.last_block_id.is_some()
             {
@@ -270,9 +280,20 @@ pub fn verify_structure(
     expected_height: u64,
     parent_el_hash: B256,
 ) -> Result<EtnaEnvelope, ValidationError> {
-    let envelope = verify_body(pair, expected_height, parent_el_hash)?;
+    verify_structure_at_origin(pair, previous, expected_height, parent_el_hash, 0)
+}
+
+/// Verifies BFT ancestry with an empty LastCommit only at the authenticated generation start.
+pub fn verify_structure_at_origin(
+    pair: &CertifiedBlock,
+    previous: Option<&CertifiedBlock>,
+    expected_height: u64,
+    parent_el_hash: B256,
+    origin_height: u64,
+) -> Result<EtnaEnvelope, ValidationError> {
+    let envelope = verify_body_at_origin(pair, expected_height, parent_el_hash, origin_height)?;
     match (&pair.block.last_commit, previous) {
-        (None, None) if expected_height == 1 => {}
+        (None, None) if origin_height.checked_add(1) == Some(expected_height) => {}
         (Some(last), Some(previous)) if last.block_id == previous.commit.block_id => {}
         _ => {
             return Err(ValidationError::Commitment("missing or conflicting previous block/commit"))
@@ -296,6 +317,8 @@ pub struct EnvelopeContext<'a> {
     pub parent_anchor: &'a AnchorState,
     /// Authenticated recovery generation.
     pub generation: u64,
+    /// Fixed independently authenticated generation origin.
+    pub recovery: Option<&'a abci::recovery::RecoveryOrigin>,
     /// Authenticated genesis record of the Inbox: schedule, `maxAnchorAge` and forced inclusion
     /// delay.
     pub genesis: &'a GenesisRecord,
@@ -316,7 +339,7 @@ pub fn verify_envelope(
     context: EnvelopeContext<'_>,
 ) -> Result<BlockFacts, ValidationError> {
     let chain = ChainContext {
-        recovery: None,
+        recovery: context.recovery,
         genesis: context.genesis,
         generation: context.generation,
         parent: context.parent,
@@ -587,6 +610,7 @@ mod tests {
             |max_anchor_age| GenesisRecord { max_anchor_age, ..fixture.snapshot.genesis.clone() };
         let (fresh, stale) = (genesis(91), genesis(90));
         let context = |genesis| EnvelopeContext {
+            recovery: None,
             bft_time_secs: 101,
             proposer: fixture.blocks[&1].block.header.proposer_address,
             committees: &fixture.committees,
@@ -627,6 +651,7 @@ mod tests {
         let original = fixture.blocks[&1].block.header.proposer_address;
         let genesis = GenesisRecord { max_anchor_age: 7200, ..fixture.snapshot.genesis.clone() };
         let context = |proposer| EnvelopeContext {
+            recovery: None,
             bft_time_secs: 101,
             proposer,
             committees: &fixture.committees,
