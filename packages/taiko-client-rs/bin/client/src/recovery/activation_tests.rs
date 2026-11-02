@@ -858,6 +858,133 @@ async fn recovery_activation_private_sessions_fullnode_only_and_incarnation_fail
             requests.lock().unwrap().iter().filter(|op| op.as_str() == "begin_session").count(),
             usize::from(!validator)
         );
+        if validator {
+            let denial = app.join("signer-denial.json");
+            // New private app session before signer publication: clear old Ready, never rebind.
+            journal.phase = ActivationPhase::Trusted;
+            journal.progress = Some(ActivationProgress {
+                session_id: "boot:0".into(),
+                trusted: true,
+                committed_height: None,
+                trust_target_height: 12,
+                landed_height: 12,
+                finalized_l1_height: 110,
+            });
+            snapshot.lock().unwrap().session_id = "boot:1".into();
+            assert!(matches!(
+                crate::recovery::status::observation_round(
+                    &profile,
+                    &store,
+                    &plan,
+                    &source,
+                    &reader,
+                    &mut session,
+                    &mut journal
+                )
+                .await,
+                Err(RecoveryCommandError::Runtime(_))
+            ));
+            assert_eq!(session.as_deref(), Some("boot:0"));
+            assert_eq!(journal.phase, ActivationPhase::Running);
+            assert!(!journal.progress.as_ref().unwrap().trusted);
+            std::fs::write(&denial, b"{\"sequence\":0,\"session_id\":\"boot:1\"}").unwrap();
+            assert!(matches!(
+                crate::recovery::status::observation_round(
+                    &profile,
+                    &store,
+                    &plan,
+                    &source,
+                    &reader,
+                    &mut session,
+                    &mut journal
+                )
+                .await,
+                Err(RecoveryCommandError::Runtime(_))
+            ));
+            assert_eq!(session.as_deref(), Some("boot:1"));
+            assert!(journal.progress.is_none());
+            // Signer publication before the sampled app frame: remain closed on the old binding.
+            std::fs::write(&denial, b"{\"sequence\":0,\"session_id\":\"boot:2\"}").unwrap();
+            assert!(matches!(
+                crate::recovery::status::observation_round(
+                    &profile,
+                    &store,
+                    &plan,
+                    &source,
+                    &reader,
+                    &mut session,
+                    &mut journal
+                )
+                .await,
+                Err(RecoveryCommandError::Runtime(_))
+            ));
+            assert_eq!(session.as_deref(), Some("boot:1"));
+            snapshot.lock().unwrap().session_id = "boot:2".into();
+            assert!(matches!(
+                crate::recovery::status::observation_round(
+                    &profile,
+                    &store,
+                    &plan,
+                    &source,
+                    &reader,
+                    &mut session,
+                    &mut journal
+                )
+                .await,
+                Err(RecoveryCommandError::Runtime(_))
+            ));
+            assert_eq!(session.as_deref(), Some("boot:2"));
+            snapshot.lock().unwrap().session_id = "boot:1".into();
+            assert!(matches!(
+                crate::recovery::status::observation_round(
+                    &profile,
+                    &store,
+                    &plan,
+                    &source,
+                    &reader,
+                    &mut session,
+                    &mut journal
+                )
+                .await,
+                Err(RecoveryCommandError::SessionChanged)
+            ));
+            snapshot.lock().unwrap().session_id = "boot:2".into();
+            let original = snapshot.lock().unwrap().chain_id.clone();
+            snapshot.lock().unwrap().chain_id = Some("foreign".into());
+            assert!(matches!(
+                crate::recovery::status::observation_round(
+                    &profile,
+                    &store,
+                    &plan,
+                    &source,
+                    &reader,
+                    &mut session,
+                    &mut journal
+                )
+                .await,
+                Err(RecoveryCommandError::Invalid)
+            ));
+            snapshot.lock().unwrap().chain_id = original;
+        } else {
+            snapshot.lock().unwrap().session_id = "boot:2".into();
+            assert!(matches!(
+                crate::recovery::status::observation_round(
+                    &profile,
+                    &store,
+                    &plan,
+                    &source,
+                    &reader,
+                    &mut session,
+                    &mut journal
+                )
+                .await,
+                Err(RecoveryCommandError::SessionChanged)
+            ));
+        }
+        assert_eq!(
+            requests.lock().unwrap().iter().filter(|op| op.as_str() == "begin_session").count(),
+            usize::from(!validator)
+        );
         snapshot.lock().unwrap().session_id = "different-boot:0".into();
         assert!(matches!(
             crate::recovery::status::observation_round(
@@ -1066,3 +1193,128 @@ async fn recovery_activation_origin_state_rejects_mixed_anchor_and_cursor_before
         );
     }
 }
+
+#[tokio::test]
+async fn recovery_activation_repeated_generation_preserves_historical_supersession() {
+    use crate::recovery::activate::{activate_with, check_prior_halt};
+    use abci::recovery::supersession::{SUPERSESSION_FILE, SupersessionEvidence, digest};
+    let dir = tempfile::tempdir_in("/private/tmp").unwrap();
+    let first = Source::new();
+    let second = Source {
+        fixture: serde_json::from_str(include_str!("testdata/repeated.json")).unwrap(),
+        finalized: Mutex::new(std::iter::repeat_n(130, 1000).collect()),
+    };
+    let profile = native_profile(dir.path(), &first);
+    let root = dir.path().join("r");
+    let store = RecoveryStore::new(&root);
+    let plan1 =
+        prepare::prepare(&profile, 1, &root, &first, &ReadEngine::new(&first)).await.unwrap();
+    let mut old = initialized_state(&store, &plan1, &first).await;
+    for name in [abci::store::STATE_FILE, "recovery-bootstrap.json"] {
+        std::fs::remove_file(store.plan_dir(plan1.id()).join("app").join(name)).unwrap();
+    }
+    old.schema_version = 13;
+    old.generation = 0;
+    old.recovery = None;
+    old.chain_id = abci::rules::chain_id_for(&plan1.deployment.params().unwrap(), 0).unwrap();
+    let raw = serde_json::to_vec(&old).unwrap();
+    let fatal = b"authenticated supersession 0 to 1";
+    let evidence = SupersessionEvidence {
+        schema: 1,
+        chain_id: old.chain_id.clone(),
+        previous_generation: 0,
+        current_generation: 1,
+        inbox: old.inbox,
+        state_digest: digest(&raw),
+        fatal_digest: digest(fatal),
+    };
+    let sidecar = serde_json::to_vec(&evidence).unwrap();
+    let latch=serde_json::to_vec(&serde_json::json!({"schema":1,"kind":"expected-generation-supersession","chain_id":old.chain_id,"previous_generation":0,"current_generation":1,"evidence_digest":digest(&sidecar)})).unwrap();
+    let originals = [
+        (abci::store::STATE_FILE, raw),
+        ("fatal-evidence.txt", fatal.to_vec()),
+        (SUPERSESSION_FILE, sidecar),
+        ("validator-supervisor.halted", latch),
+    ];
+    for (name, bytes) in &originals {
+        std::fs::write(profile.app_data_dir.join(name), bytes).unwrap();
+    }
+    let plan2 =
+        prepare::prepare(&profile, 2, &root, &second, &ReadEngine::new(&second)).await.unwrap();
+    assert!(plan2.origin.l1_number > plan1.origin.l1_number);
+    assert_eq!(plan2.origin.height, plan1.origin.height);
+    for (attempt, plan, source) in [(0, &plan1, &first), (1, &plan2, &second)] {
+        let engine = ProbeEngine {
+            reader: ReadEngine::new(source),
+            built_on: Mutex::new(vec![]),
+            malformed: false,
+        };
+        let cancel = async {
+            tokio::time::timeout(std::time::Duration::from_secs(10), async {
+                loop {
+                    if std::fs::read_to_string(dir.path().join("children.log"))
+                        .unwrap_or_default()
+                        .matches("comet:start")
+                        .count() >
+                        attempt
+                    {
+                        break
+                    }
+                    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+                }
+            })
+            .await
+            .unwrap();
+        };
+        activate_with(profile.clone(), root.clone(), plan.id(), source, &engine, cancel)
+            .await
+            .unwrap();
+        assert_eq!(store.load_active().unwrap().unwrap().plan_id, plan.id());
+        for (name, bytes) in &originals {
+            assert_eq!(std::fs::read(profile.app_data_dir.join(name)).unwrap(), *bytes);
+        }
+    }
+    for negative in ["future", "domain", "generic", "tamper"] {
+        let mut changed = evidence.clone();
+        match negative {
+            "future" => changed.current_generation = 3,
+            "domain" => changed.chain_id = "foreign".into(),
+            "generic" => {
+                std::fs::write(
+                    profile.app_data_dir.join("validator-supervisor.halted"),
+                    "expected supersession",
+                )
+                .unwrap();
+            }
+            _ => {
+                std::fs::write(profile.app_data_dir.join("fatal-evidence.txt"), "changed").unwrap();
+            }
+        }
+        if ["future", "domain"].contains(&negative) {
+            let bytes = serde_json::to_vec(&changed).unwrap();
+            std::fs::write(profile.app_data_dir.join(SUPERSESSION_FILE), &bytes).unwrap();
+            let mut latch: serde_json::Value = serde_json::from_slice(&originals[3].1).unwrap();
+            latch["current_generation"] = changed.current_generation.into();
+            latch["chain_id"] = changed.chain_id.into();
+            latch["evidence_digest"] = digest(&bytes).into();
+            std::fs::write(
+                profile.app_data_dir.join("validator-supervisor.halted"),
+                latch.to_string(),
+            )
+            .unwrap();
+        }
+        assert!(
+            matches!(
+                check_prior_halt(&profile.app_data_dir, &plan2),
+                Err(RecoveryCommandError::Halted)
+            ),
+            "{negative}"
+        );
+        for (name, bytes) in &originals {
+            std::fs::write(profile.app_data_dir.join(name), bytes).unwrap();
+        }
+    }
+}
+
+#[path = "supervisor_activation_tests.rs"]
+mod supervisor_activation_tests;

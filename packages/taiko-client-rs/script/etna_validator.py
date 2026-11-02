@@ -356,8 +356,11 @@ class Supervisor:
         identity = {}
         if not self.container and "ETNA_COMET_UID" in os.environ:
             # The supported image keeps registered FilePV secrets inaccessible to Comet.
-            identity = dict(user=int(os.environ["ETNA_COMET_UID"]),
-                            group=int(os.environ["ETNA_COMET_GID"]), extra_groups=[])
+            uid, gid = int(os.environ["ETNA_COMET_UID"]), int(os.environ["ETNA_COMET_GID"])
+            # A same-identity unprivileged local runner cannot call setgroups. Preserve its
+            # existing identity; privileged/different-identity launches still drop all groups.
+            if os.geteuid() == 0 or uid != os.geteuid() or gid != os.getegid():
+                identity = dict(user=uid, group=gid, extra_groups=[])
         self.comet = subprocess.Popen(command, cwd=None if self.container else self.home,
                                       **identity, **self.child_options("ETNA_COMET_ENV_JSON"))
 

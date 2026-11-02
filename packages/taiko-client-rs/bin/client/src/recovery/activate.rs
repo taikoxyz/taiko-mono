@@ -329,6 +329,9 @@ struct SupersessionLatch {
 }
 /// Preserve every prior safety record; acknowledge only a hash-bound first-cause supersession
 /// after the caller independently authenticated the exact current plan against own finalized L1.
+/// Earlier sole-cause supersessions remain valid history across subsequent authenticated
+/// recoveries; the evidence must strictly advance its old domain without exceeding the current
+/// generation.
 pub(super) fn check_prior_halt(
     directory: &std::path::Path,
     plan: &super::plan::RecoveryPlan,
@@ -352,7 +355,7 @@ pub(super) fn check_prior_halt(
         let chain = rules::chain_id_for(&plan.deployment.params()?, evidence.previous_generation)
             .map_err(|_| RecoveryCommandError::Halted)?;
         if !evidence.validates(&state, &fatal_bytes) ||
-            evidence.current_generation != plan.origin.generation ||
+            evidence.current_generation > plan.origin.generation ||
             evidence.chain_id != chain ||
             evidence.inbox != plan.deployment.inbox
         {

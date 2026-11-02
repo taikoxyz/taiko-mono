@@ -229,14 +229,9 @@ pub(super) fn record_observation(
     session: &str,
     landing: &FinalizedLanding,
 ) -> Result<(), RecoveryCommandError> {
-    use super::status::{ActivationBlocker, ActivationPhase, ActivationProgress};
+    use super::status::{ActivationPhase, ActivationProgress};
     use abci::app::trust::{RecoveryTrustOrigin, TrustPhase};
-    // Invalidate previous live observations before interpreting any new response.
-    journal.phase = ActivationPhase::Running;
-    journal.blocker = Some(ActivationBlocker::WaitingForTrust);
-    if let Some(progress) = &mut journal.progress {
-        progress.trusted = false;
-    }
+    clear_observation(journal);
     if snapshot.schema_version != 2 || session.is_empty() || snapshot.session_id != session {
         return Err(RecoveryCommandError::Runtime("current private session"));
     }
@@ -311,6 +306,38 @@ pub(super) fn record_observation(
     Ok(())
 }
 
+/// Close historical readiness before checking an observation or a transitioning incarnation.
+fn clear_observation(journal: &mut ActivationJournal) {
+    journal.phase = ActivationPhase::Running;
+    journal.blocker = Some(ActivationBlocker::WaitingForTrust);
+    if let Some(progress) = &mut journal.progress {
+        progress.trusted = false;
+    }
+}
+
+/// Require the same app boot and a nondecreasing canonical session counter.
+/// A later signer session is only a candidate until its private incarnation also matches.
+fn check_incarnation(previous: &str, current: &str) -> Result<(), RecoveryCommandError> {
+    let parse = |session: &str| {
+        let (boot, counter) =
+            session.split_once(':').ok_or(RecoveryCommandError::SessionChanged)?;
+        if boot.is_empty() || counter.is_empty() || !counter.bytes().all(|b| b.is_ascii_digit()) {
+            return Err(RecoveryCommandError::SessionChanged)
+        }
+        let counter: u64 = counter.parse().map_err(|_| RecoveryCommandError::SessionChanged)?;
+        Ok((boot.to_owned(), counter))
+    };
+    let (previous_boot, previous_counter) = parse(previous)?;
+    let (boot, counter) = parse(current)?;
+    if boot != previous_boot ||
+        counter < previous_counter ||
+        (counter == previous_counter && current != previous)
+    {
+        return Err(RecoveryCommandError::SessionChanged)
+    }
+    Ok(())
+}
+
 /// Stay in the foreground after settlement, polling retained children even during slow L1 reads.
 pub(super) async fn monitor<L: abci::L1Source + ?Sized, E: Engine + ?Sized>(
     profile: &super::profile::RecoveryProfile,
@@ -339,6 +366,9 @@ pub(super) async fn monitor<L: abci::L1Source + ?Sized, E: Engine + ?Sized>(
                 }
             }
         };
+        if runtime.exited_role()?.is_some() {
+            return Err(RecoveryCommandError::ComponentExited)
+        }
         match observed {
             Ok(()) => {}
             Err(RecoveryCommandError::Runtime(_) | RecoveryCommandError::Missing(_)) => {
@@ -366,13 +396,16 @@ pub(super) async fn observation_round<L: abci::L1Source + ?Sized, E: Engine + ?S
     session: &mut Option<String>,
     journal: &mut super::status::ActivationJournal,
 ) -> Result<(), RecoveryCommandError> {
+    clear_observation(journal);
     let landing = finalized_landing(l1, plan).await?;
     let app = store.plan_dir(plan.id()).join("app");
     let control = app.join("checkpoint-trust.sock");
     let snapshot = super::status::private_snapshot(&control, false).await?;
+    // Validate exact identity without publishing readiness before incarnation correlation.
+    let mut checked = ActivationJournal::prepared(plan.id());
+    record_observation(plan, &mut checked, &snapshot, &snapshot.session_id, &landing)?;
+    check_incarnation(&snapshot.session_id, &snapshot.session_id)?;
     if session.is_none() {
-        // Validate the complete authenticated InitChain identity before any rearm request.
-        record_observation(plan, journal, &snapshot, &snapshot.session_id, &landing)?;
         if snapshot.generation.is_some_and(|g| g != plan.origin.generation) {
             return Err(RecoveryCommandError::Invalid)
         }
@@ -402,9 +435,21 @@ pub(super) async fn observation_round<L: abci::L1Source + ?Sized, E: Engine + ?S
         }
     }
     let expected = session.as_deref().ok_or(RecoveryCommandError::Runtime("private session"))?;
-    if snapshot.session_id != expected ||
-        (profile.signer.is_some() && signer_session(&app)? != expected)
-    {
+    check_incarnation(expected, &snapshot.session_id)?;
+    if profile.signer.is_some() {
+        // The owned supervisor may replace its signer after a refusal. The controller only
+        // observes the matching private incarnation; publication races remain closed waiting.
+        let signer = signer_session(&app)?;
+        check_incarnation(expected, &signer)?;
+        if signer != snapshot.session_id {
+            return Err(RecoveryCommandError::Runtime("guarded signer session publication"))
+        }
+        if snapshot.session_id != expected {
+            *session = Some(signer);
+            journal.progress = None;
+            return Err(RecoveryCommandError::Runtime("fresh guarded signer session"))
+        }
+    } else if snapshot.session_id != expected {
         return Err(RecoveryCommandError::SessionChanged)
     }
     if let Some(head) = snapshot.committed_head.as_ref().filter(|h| h.height > plan.origin.height) {
@@ -419,6 +464,16 @@ pub(super) async fn observation_round<L: abci::L1Source + ?Sized, E: Engine + ?S
                 return Err(RecoveryCommandError::Invalid)
             }
         }
+    }
+    // Slow L1/EL reads or atomic signer publication must not publish an old Ready snapshot.
+    let current = private_snapshot(&control, false).await?;
+    record_observation(plan, &mut checked, &current, &current.session_id, &landing)?;
+    check_incarnation(expected, &current.session_id)?;
+    if current.session_id != expected && profile.signer.is_none() {
+        return Err(RecoveryCommandError::SessionChanged)
+    }
+    if current != snapshot || (profile.signer.is_some() && signer_session(&app)? != expected) {
+        return Err(RecoveryCommandError::Runtime("private observation changed"))
     }
     record_observation(plan, journal, &snapshot, expected, &landing)
 }

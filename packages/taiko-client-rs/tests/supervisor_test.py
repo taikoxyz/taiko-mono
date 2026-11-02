@@ -701,6 +701,22 @@ class UnixSupervisorTests(SupervisorTests):
 
 
 class TypedSupersessionTests(unittest.TestCase):
+    def test_comet_identity_keeps_privileged_group_drop_and_same_uid_native_path(self):
+        spec = importlib.util.spec_from_file_location("etna_identity_supervisor", ROOT / "script/etna_validator.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        runtime = object.__new__(module.Supervisor)
+        runtime.container, runtime.home = None, Path("/private/runtime")
+        runtime.comet_command = ["/cometbft", "start"]
+        runtime.child_options = lambda _: {}
+        for current_uid, current_gid, uid, gid, expected in [
+                (501, 20, 501, 20, {}),
+                (0, 0, 10001, 10001, dict(user=10001, group=10001, extra_groups=[])),
+                (501, 20, 10001, 10001, dict(user=10001, group=10001, extra_groups=[]))]:
+            with self.subTest(current_uid=current_uid, uid=uid), patch.dict(os.environ, {"ETNA_COMET_UID":str(uid), "ETNA_COMET_GID":str(gid)}), patch.object(module.os, "geteuid", return_value=current_uid), patch.object(module.os, "getegid", return_value=current_gid), patch.object(module.subprocess, "Popen") as spawn:
+                runtime.start_comet()
+                self.assertEqual(spawn.call_args.kwargs, dict(cwd=runtime.home, **expected))
+
     def test_explicit_command_prefix_preserves_arguments_without_shell(self):
         spec = importlib.util.spec_from_file_location("etna_command_supervisor", ROOT / "script/etna_validator.py")
         module = importlib.util.module_from_spec(spec)
