@@ -42,6 +42,7 @@ prometheus = { workspace = true }
 tracing = { workspace = true }
 
 # types
+libc = "0.2"
 thiserror = { workspace = true }
 url = { workspace = true }
 

@@ -22,6 +22,7 @@ dependencies = [
  "flate2",
  "futures",
  "k256",
+ "libc",
  "once_cell",
  "prometheus",
  "proptest",

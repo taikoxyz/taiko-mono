@@ -22,6 +22,7 @@ head, which only Comet can reach; the supervisor then starts the signer and Come
 together as on a first start, and a refusal there recovers again once Ready.
 """
 import errno
+import fcntl
 import json
 import os
 from pathlib import Path
@@ -84,6 +85,13 @@ class Supervisor:
             raise ValueError("signer chain ID differs from Comet genesis")
         self.container = os.environ.get("ETNA_COMET_CONTAINER")  # host Docker test adapter
         self.transport = Path(address[7:]) if not self.container and address.startswith("unix://") else None
+        if self.transport is not None:
+            # Prepared bundles hash this exact safe relative transport; never rewrite config.
+            if not self.transport.is_absolute():
+                if address != "unix://run/signer.sock":
+                    raise ValueError("unsafe relative Unix signer transport")
+                self.transport = self.home / "run/signer.sock"
+            address = "unix://" + str(self.transport)
         address = os.environ.get("ETNA_SIGNER_ADDR", address)
         self.events = Path(os.environ.get("ETNA_DENIAL_FILE", str(self.store / "signer-denial.json")))
         self.latch = self.store / "validator-supervisor.halted"
@@ -102,6 +110,82 @@ class Supervisor:
         self.observed_loss = False
         self.was_ready = False
         self.awaiting = None  # last logged wait state of a recovery signer
+        self.owner_fds = []
+
+    def acquire_owner(self):
+        """Retain canonical sibling ownership, including inherited all-reservation barriers."""
+        parent = self.home.parent
+        metadata = parent.stat()
+        if (metadata.st_mode & 0o022 or metadata.st_uid not in (0, os.geteuid())):
+            raise ValueError("component ownership is busy; unsafe owner directory")
+        path = parent / ("." + self.home.name + ".etna-owner.lock")
+        descriptor = os.open(path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
+        retained = []
+        try:
+            opened, named = os.fstat(descriptor), path.lstat()
+            if (not stat.S_ISREG(opened.st_mode) or opened.st_mode & 0o077
+                    or opened.st_uid != os.geteuid() or opened.st_nlink != 1
+                    or (opened.st_dev, opened.st_ino) != (named.st_dev, named.st_ino)):
+                raise ValueError("component ownership is busy; unsafe owner inode")
+            holds, join = os.environ.get("ETNA_OWNER_FDS"), os.environ.get("ETNA_OWNER_JOIN")
+            if holds is None and join is None:
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                retained.append(descriptor)
+                descriptor = None
+            else:
+                if not holds or not join or len(holds.split(",")) > 64:
+                    raise ValueError("component ownership is busy; invalid owner grant")
+                role, selected = join.split(":")
+                selected = int(selected)
+                if role != "supervisor" or selected < 3:
+                    raise ValueError("component ownership is busy; wrong owner grant")
+                found = False
+                for value in holds.split(","):
+                    original = int(value)
+                    if original < 3:
+                        raise ValueError("component ownership is busy; invalid owner descriptor")
+                    duplicate = os.dup(original)
+                    retained.append(duplicate)
+                    item = os.fstat(duplicate)
+                    if (not stat.S_ISREG(item.st_mode) or item.st_mode & 0o077
+                            or item.st_uid != os.geteuid() or item.st_nlink != 1):
+                        raise ValueError("component ownership is busy; unsafe inherited inode")
+                    if original == selected:
+                        found = (item.st_dev, item.st_ino) == (opened.st_dev, opened.st_ino)
+                if not found:
+                    raise ValueError("component ownership is busy; mismatched owner grant")
+                try:
+                    fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except BlockingIOError:
+                    pass
+                else:
+                    raise ValueError("component ownership is busy; unheld owner grant")
+                fcntl.flock(selected, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            self.owner_fds = retained
+            retained = []
+        except BlockingIOError as error:
+            raise ValueError("component ownership is busy; stop external owner or surviving children") from error
+        finally:
+            if descriptor is not None:
+                os.close(descriptor)
+            for held in retained:
+                os.close(held)
+
+    def child_options(self):
+        """Stock descendants inherit hold-only locks, without participant join capabilities."""
+        environment = dict(os.environ)
+        environment.pop("ETNA_OWNER_FDS", None)
+        environment.pop("ETNA_OWNER_JOIN", None)
+        lifetime = environment.pop("ETNA_OWNER_LIFETIME_FD", None)
+        inherited = list(self.owner_fds)
+        if lifetime is not None:
+            descriptor = int(lifetime)
+            if descriptor < 3 or not stat.S_ISSOCK(os.fstat(descriptor).st_mode):
+                raise ValueError("invalid descendant lifetime descriptor")
+            inherited.append(descriptor)
+        # A terminal interrupt must reach the supervisor first, so it can stop/reap
+        # Comet before the signer. Separate sessions do not authorize group signaling.
+        return dict(pass_fds=tuple(inherited), env=environment, start_new_session=True)
 
     def observe(self):
         with socket.socket(socket.AF_UNIX) as peer:
@@ -233,7 +317,7 @@ class Supervisor:
         # file after both old children have been reaped; this is never signing state.
         self.events.unlink(missing_ok=True)
         self.last_event = None
-        self.signer = subprocess.Popen(self.signer_command + (["--await-trust"] if await_trust else []))
+        self.signer = subprocess.Popen(self.signer_command + (["--await-trust"] if await_trust else []), **self.child_options())
         self.pending = False
         self.session = None
         self.observed_loss = False
@@ -254,7 +338,8 @@ class Supervisor:
             # The supported image keeps registered FilePV secrets inaccessible to Comet.
             identity = dict(user=int(os.environ["ETNA_COMET_UID"]),
                             group=int(os.environ["ETNA_COMET_GID"]), extra_groups=[])
-        self.comet = subprocess.Popen(command, **identity)
+        self.comet = subprocess.Popen(command, cwd=None if self.container else self.home,
+                                      **identity, **self.child_options())
 
     def halt(self, reason):
         if not self.latch.exists():
@@ -381,6 +466,7 @@ class Supervisor:
             print(f"etna_supervisor_awaiting_trust: session={state[0]} phase={state[1]} reason={state[2]}", flush=True)
 
     def run(self):
+        self.acquire_owner()
         def shutdown(_signal, _frame):
             self.running = False
         signal.signal(signal.SIGTERM, shutdown)
@@ -393,6 +479,9 @@ class Supervisor:
                 time.sleep(.1)
         finally:
             self.stop()
+            for descriptor in self.owner_fds:
+                os.close(descriptor)
+            self.owner_fds = []
 
 
 if __name__ == "__main__":

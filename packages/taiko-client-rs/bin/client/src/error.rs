@@ -17,6 +17,9 @@ use thiserror::Error;
 /// - Metrics initialization errors
 #[derive(Debug, Error)]
 pub enum CliError {
+    /// Canonical writer ownership is held or cannot be established safely.
+    #[error(transparent)]
+    Ownership(#[from] abci::ownership::OwnershipError),
     /// Sanitized recovery operation failure, with no credential-bearing source chain.
     #[error(transparent)]
     Recovery(#[from] crate::recovery::RecoveryCommandError),

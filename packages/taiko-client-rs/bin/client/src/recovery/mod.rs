@@ -2,6 +2,7 @@
 
 pub mod plan;
 pub mod prepare;
+pub mod process;
 pub mod profile;
 pub mod status;
 pub mod store;

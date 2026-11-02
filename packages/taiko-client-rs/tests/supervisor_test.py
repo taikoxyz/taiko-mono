@@ -1,5 +1,6 @@
 """Real child-process supervision with a controlled private trust peer."""
 import importlib.util
+import fcntl
 import json
 import os
 from pathlib import Path
@@ -59,7 +60,7 @@ class SupervisorTests(unittest.TestCase):
                        ' with p.with_name("lifecycle").open("a") as out: out.write(event+"\\nsigner_stopped\\n")\n'
                        ' sys.exit(0)\n'
                        'signal.signal(signal.SIGTERM,stop)\n'
-                       'open(os.environ["SIGNERS"],"a").write(json.dumps(dict(pid=os.getpid(),argv=sys.argv[1:]))+"\\n")\ntime.sleep(60)'),
+                       'open(os.environ["SIGNERS"],"a").write(json.dumps(dict(pid=os.getpid(),argv=sys.argv[1:],owner_join=os.environ.get("ETNA_OWNER_JOIN"),owner_fds=os.environ.get("ETNA_OWNER_FDS"),owner_lifetime=os.environ.get("ETNA_OWNER_LIFETIME_FD")))+"\\n")\nwhile not Path(os.environ["COMET_PID"]).with_name("release_signer").exists(): time.sleep(.05)'),
         }.items():
             path = self.bin / name
             path.write_text("#!/usr/bin/env python3\n" + body + "\n")
@@ -73,7 +74,7 @@ class SupervisorTests(unittest.TestCase):
         self.env.update(self.identity_env)
         self.log = (self.root / "runtime.log").open("w+")
         self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")], env=self.env,
-                                     stdout=self.log, stderr=self.log)
+                                     stdout=self.log, stderr=self.log, start_new_session=True)
         try:
             # The recovery tests count signer incarnations, so wait for the first one too.
             self.wait(lambda: self.starts() == 1 and len(self.signers()) == 1)
@@ -88,7 +89,7 @@ class SupervisorTests(unittest.TestCase):
         (self.home / "config/config.toml").write_text('priv_validator_laddr = "tcp://127.0.0.1:26659"\n')
 
     def comet_body(self):
-        return 'from pathlib import Path\nimport os,time\np=Path(os.environ["STARTS"])\np.open("a").write("start\\n")\nPath(os.environ["COMET_PID"]).write_text(str(os.getpid()))\ntime.sleep(60)'
+        return 'from pathlib import Path\nimport os,time\np=Path(os.environ["STARTS"])\np.open("a").write("start\\n")\nPath(os.environ["COMET_PID"]).write_text(str(os.getpid()))\n\nwhile not Path(os.environ["COMET_PID"]).with_name("release_comet").exists(): time.sleep(.05)'
 
     def serve(self):
         while not self.done.is_set():
@@ -150,6 +151,95 @@ class SupervisorTests(unittest.TestCase):
         self.socket.close()
         self.log.close()
         self.tmp.cleanup()
+
+    def test_terminal_group_interrupt_stops_comet_before_signer(self):
+        self.assertEqual(os.getpgid(self.proc.pid), self.proc.pid)
+        os.killpg(self.proc.pid, signal.SIGINT)
+        self.assertEqual(self.proc.wait(timeout=5), 0)
+        lifecycle = self.root / "lifecycle"
+        self.assertTrue(lifecycle.exists(), "terminal SIGINT bypassed ordered supervisor stop")
+        self.assertEqual(lifecycle.read_text().splitlines()[-2:], ["comet_reaped", "signer_stopped"])
+
+    def test_inherited_scoped_grant_and_lifetime_reach_stock_children(self):
+        self.proc.terminate()
+        self.proc.wait(timeout=5)
+        lock_path = self.home.parent / ("." + self.home.name + ".etna-owner.lock")
+        owner = os.open(lock_path, os.O_RDWR)
+        fcntl.flock(owner, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        read_end, hold_end = socket.socketpair()
+        read_end.settimeout(.2)
+        environment = dict(self.env, ETNA_OWNER_FDS=str(owner),
+                           ETNA_OWNER_JOIN="supervisor:" + str(owner),
+                           ETNA_OWNER_LIFETIME_FD=str(hold_end.fileno()))
+        try:
+            self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")],
+                                         env=environment, pass_fds=(owner, hold_end.fileno()),
+                                         stdout=self.log, stderr=self.log)
+            hold_end.close()
+            os.close(owner)
+            owner = None
+            self.wait(lambda: self.starts() == 2 and len(self.signers()) == 2)
+            self.proc.kill()
+            self.proc.wait(timeout=5)
+            # Only descendants remain. A dropped supervisor must not manufacture EOF.
+            with self.assertRaises(socket.timeout):
+                read_end.recv(1)
+            self.assertEqual(self.signers()[-1]["owner_join"], None)
+            self.assertEqual(self.signers()[-1]["owner_fds"], None)
+            self.assertEqual(self.signers()[-1]["owner_lifetime"], None)
+        finally:
+            if owner is not None:
+                os.close(owner)
+            hold_end.close()
+            (self.root / "release_comet").touch()
+            (self.root / "release_signer").touch()
+            read_end.settimeout(3)
+            self.assertEqual(read_end.recv(1), b"")
+            read_end.close()
+
+    def test_sigkill_supervisor_retains_descendant_ownership(self):
+        self.proc.kill()
+        self.proc.wait(timeout=5)
+        owner_path = self.home.parent / ("." + self.home.name + ".etna-owner.lock")
+        with owner_path.open("r+") as owner:
+            try:
+                with self.assertRaises(BlockingIOError):
+                    fcntl.flock(owner, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                blocked = subprocess.run(["bash", str(ROOT / "script/start_etna_validator.sh")],
+                                         env=self.env, capture_output=True, timeout=3)
+                self.assertNotEqual(blocked.returncode, 0)
+                self.assertIn(b"ownership is busy", blocked.stderr)
+                self.assertEqual(self.starts(), 1)
+                # Even after Comet exits, the surviving signer keeps the same reservation.
+                (self.root / "release_comet").touch()
+                time.sleep(.2)
+                with self.assertRaises(BlockingIOError):
+                    fcntl.flock(owner, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                self.assertEqual(self.state.read_text(), "authoritative HRS")
+                self.assertEqual(self.key.read_text(), "existing key")
+            finally:
+                (self.root / "release_comet").touch()
+                (self.root / "release_signer").touch()
+            def unlocked():
+                try:
+                    fcntl.flock(owner, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    return True
+                except BlockingIOError:
+                    return False
+            self.wait(unlocked)
+
+    def test_duplicate_supervisor_refuses_live_owner(self):
+        other = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")],
+                                 env=self.env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            _, error = other.communicate(timeout=2)
+            self.assertNotEqual(other.returncode, 0)
+            self.assertIn(b"ownership is busy", error)
+            self.assertEqual(self.starts(), 1)
+        finally:
+            if other.poll() is None:
+                other.terminate()
+                other.communicate(timeout=5)
 
     def test_signer_timeout_recovers_even_if_app_stayed_ready(self):
         self.publish(1, self.session)
@@ -448,6 +538,26 @@ class UnixSupervisorTests(SupervisorTests):
         self.assertEqual(self.starts(), 1)
         self.assertEqual(self.state.read_text(), "authoritative HRS")
         self.assertEqual(self.key.read_text(), "existing key")
+
+    def test_unsafe_relative_transports_are_rejected_without_state_changes(self):
+        self.stop_supervisor()
+        latch = self.store / "validator-supervisor.halted"
+        latch.write_text("retained safety latch")
+        for address in ("../run/signer.sock", "run/../run/signer.sock", "outside/signer.sock", "run/nested/signer.sock"):
+            (self.home / "config/config.toml").write_text('priv_validator_laddr = "unix://' + address + '"\n')
+            self.assert_refused()
+            self.assertEqual(latch.read_text(), "retained safety latch")
+
+    def test_relative_prepared_transport_uses_home_cwd(self):
+        self.stop_supervisor()
+        (self.home / "config/config.toml").write_text('priv_validator_laddr = "unix://run/signer.sock"\n')
+        comet = self.bin / "cometbft"
+        comet.write_text("#!/usr/bin/env python3\nimport os\nassert os.getcwd() == " + repr(str(self.home.resolve())) + "\n" + self.comet_body())
+        self.restart_supervisor()
+        self.wait(lambda: self.starts() == 2)
+        signer_args = self.signers()[-1]["argv"]
+        self.assertEqual(signer_args[signer_args.index("--comet-signer-addr") + 1],
+                         "unix://" + str(self.transport.resolve()))
 
     def test_stale_socket_restart_retains_authority(self):
         self.stop_supervisor()

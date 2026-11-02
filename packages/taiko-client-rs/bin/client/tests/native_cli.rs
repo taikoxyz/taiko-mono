@@ -111,6 +111,7 @@ async fn unknown_configuration_is_rejected_without_rpc_or_output_replacement() {
 
 #[tokio::test]
 async fn proposer_requires_explicit_beneficiary_and_checks_l2_id_without_truncation() {
+    let data = tempfile::tempdir().unwrap();
     let endpoint = rpc("0x100028c59").await; // 2^32 + 167001, never the builtin devnet.
     let base = [
         "abci",
@@ -123,7 +124,7 @@ async fn proposer_requires_explicit_beneficiary_and_checks_l2_id_without_truncat
         "--jwt.secret",
         "/not-read",
         "--data-dir",
-        "/not-created",
+        data.path().to_str().unwrap(),
     ];
     let missing = run(&base).await;
     assert!(!missing.status.success());
@@ -148,7 +149,7 @@ async fn proposer_requires_explicit_beneficiary_and_checks_l2_id_without_truncat
         "--jwt.secret",
         "/not-read",
         "--data-dir",
-        "/not-created",
+        data.path().to_str().unwrap(),
         "--fee-recipient",
         "0x7777777777777777777777777777777777777777",
     ])
@@ -257,4 +258,140 @@ async fn recovery_rejects_zero_before_profile_or_network_and_redacts_private_inp
     assert!(!result.status.success());
     assert!(result.stdout.is_empty());
     assert!(!root.exists());
+}
+
+#[tokio::test]
+async fn recovery_app_refuses_external_owner_before_rpc() {
+    use std::{fs::OpenOptions, os::unix::fs::OpenOptionsExt};
+    let dir = tempfile::tempdir().unwrap();
+    let file = OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .read(true)
+        .write(true)
+        .mode(0o600)
+        .open(
+            abci::ownership::ComponentPaths::new(abci::ownership::ComponentRole::App, dir.path())
+                .unwrap()
+                .lock_path()
+                .unwrap(),
+        )
+        .unwrap();
+    file.try_lock().unwrap();
+    let output = run(&[
+        "abci",
+        "--l1.http",
+        "http://127.0.0.1:1",
+        "--l2.http",
+        "http://127.0.0.1:1",
+        "--l2.auth",
+        "http://127.0.0.1:1",
+        "--jwt.secret",
+        "/not-read",
+        "--data-dir",
+        dir.path().to_str().unwrap(),
+        "--fee-recipient",
+        "0x7777777777777777777777777777777777777777",
+    ])
+    .await;
+    assert!(!output.status.success());
+    assert!(stderr(&output).contains("ownership is busy"), "{}", stderr(&output));
+}
+
+#[tokio::test]
+async fn recovery_lander_refuses_external_owner_before_key_or_rpc() {
+    use abci::ownership::{ComponentLease, ComponentPaths, ComponentRole};
+    let root = tempfile::tempdir().unwrap();
+    let directory = root.path().join("lander");
+    std::fs::create_dir(&directory).unwrap();
+    let paths = ComponentPaths::new(ComponentRole::Lander, &directory).unwrap();
+    let _owner = ComponentLease::acquire(&paths, None).unwrap();
+    std::fs::write(directory.join("lander-state.json"), "immutable signed landing bytes").unwrap();
+    let output = run(&[
+        "lander",
+        "--l1.http",
+        "http://127.0.0.1:1",
+        "--l2.http",
+        "http://127.0.0.1:1",
+        "--l2.auth",
+        "http://127.0.0.1:1",
+        "--jwt.secret",
+        "/not-read",
+        "--comet.http",
+        "http://127.0.0.1:1",
+        "--signing-key",
+        "/not-read",
+        "--data-dir",
+        directory.to_str().unwrap(),
+        "--max-blocks",
+        "6",
+        "--max-blobs",
+        "6",
+        "--max-fee-per-gas",
+        "2",
+        "--max-priority-fee-per-gas",
+        "1",
+        "--max-fee-per-blob-gas",
+        "1",
+        "--sidecar",
+        "eip4844",
+    ])
+    .await;
+    assert!(!output.status.success());
+    assert!(stderr(&output).contains("ownership is busy"), "{}", stderr(&output));
+    assert_eq!(
+        std::fs::read_to_string(directory.join("lander-state.json")).unwrap(),
+        "immutable signed landing bytes"
+    );
+}
+
+#[tokio::test]
+async fn recovery_native_app_joins_only_its_matching_inherited_grant() {
+    use abci::ownership::{
+        ComponentLease, ComponentPaths, ComponentRole, OwnerGrant, acquire_activation,
+    };
+    use alloy_primitives::B256;
+    let root = tempfile::tempdir().unwrap();
+    let directory = root.path().join("app");
+    std::fs::create_dir(&directory).unwrap();
+    let activation = acquire_activation(root.path(), B256::ZERO).unwrap();
+    let paths = ComponentPaths::new(ComponentRole::App, &directory).unwrap();
+    let leases = [ComponentLease::acquire(&paths, None).unwrap()];
+    let grant = OwnerGrant::for_child(&activation, &leases, 0).unwrap();
+    let descriptors = grant.descriptors();
+    let mut command = Command::new(env!("CARGO_BIN_EXE_taiko-client"));
+    command.env_clear().envs(grant.environment()).args([
+        "abci",
+        "--l1.http",
+        "http://127.0.0.1:1",
+        "--l2.http",
+        "http://127.0.0.1:1",
+        "--l2.auth",
+        "http://127.0.0.1:1",
+        "--jwt.secret",
+        "/not-read",
+        "--data-dir",
+        directory.to_str().unwrap(),
+        "--fee-recipient",
+        "0x7777777777777777777777777777777777777777",
+    ]);
+    unsafe {
+        command.pre_exec(move || {
+            for fd in &descriptors {
+                if libc::fcntl(*fd, libc::F_SETFD, 0) == -1 {
+                    return Err(std::io::Error::last_os_error());
+                }
+            }
+            Ok(())
+        });
+    }
+    let output = command.output().await.unwrap();
+    assert!(!output.status.success());
+    assert!(
+        stderr(&output).contains("l2.http"),
+        "matching grant must reach RPC: {}",
+        stderr(&output)
+    );
+    assert!(!stderr(&output).contains("ownership is busy"));
+    assert!(ComponentLease::acquire(&paths, None).is_err());
 }

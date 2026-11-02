@@ -44,6 +44,10 @@ impl LanderSubCommand {
     /// checks precede the first invocation of the runner's signing or broadcasting boundary.
     pub async fn run(&self) -> Result<()> {
         let config = self.lander_flags.config()?;
+        let _ownership = abci::ownership::ComponentLease::standalone(
+            abci::ownership::ComponentRole::Lander,
+            &config.data_dir,
+        )?;
         init_logs(&self.observability_flags)?;
         LanderMetrics::init();
         init_metrics(&self.observability_flags)?;

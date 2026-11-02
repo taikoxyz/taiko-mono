@@ -39,6 +39,8 @@ pub mod key;
 pub mod l1;
 /// Prometheus metrics of the ABCI app.
 pub mod metrics;
+/// Canonical private process ownership shared by participating startup paths.
+pub mod ownership;
 /// Authenticated fixed governance-recovery origins.
 pub mod recovery;
 /// Header derivation and block-validity predicates.

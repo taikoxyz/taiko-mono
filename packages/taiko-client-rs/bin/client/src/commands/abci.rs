@@ -73,6 +73,10 @@ impl Subcommand for AbciSubCommand {
 
         let common = &self.common_flags;
         let flags = &self.abci_flags;
+        let _ownership = abci::ownership::ComponentLease::standalone(
+            abci::ownership::ComponentRole::App,
+            &flags.data_dir,
+        )?;
         let chain_id = l2_chain_id(&common.l2_http_endpoint).await?;
         let (mut params, expected_l1) = load_chain_params(chain_id, flags.chain_config.as_deref())?;
         super::bind_l1_chain_id(
