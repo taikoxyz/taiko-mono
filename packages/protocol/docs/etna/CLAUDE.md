@@ -33,6 +33,7 @@ It must print **ALL CHECKS PASSED**. The checks are: **purity** (stripping every
 | ---------------------------- | -------------------------------------------------------------------- |
 | `SPEC.md`                    | the specification - **the authority**                                |
 | `rules/INDEX.md`             | ID → type → title → section → vectors                                |
+| `rules/retirements.json`     | Structured replacement/deletion records for every retired ID         |
 | `rules/vectors/<section>.md` | determined, checkable consequences; feeds `ACCEPTANCE.md` §3         |
 | `rules/review/<section>.md`  | undetermined questions; owner decides; deleted when a decision lands |
 | `rules/tools/check.py`       | the checks above                                                     |

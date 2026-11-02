@@ -12,7 +12,8 @@ Checks:
               ID is allowed when INDEX.md marks that ID retired; INDEX.md's section is the section
               the marker sits in, so a rule that moves keeps its ID
   3. index    every marker has exactly one INDEX.md row (a duplicate row fails) and every live row
-              has a marker; types are rule, limitation, assumption or retired
+              has a marker; types are rule, limitation, assumption or retired; retirements.json
+              records every retired ID, with replacement chains ending at live IDs
   4. assets   every section has a vectors and a review file; every live rule ID has a vector
               heading; no vector heading names an unknown ID
   5. links    relative links and #fragments resolve, and markdown tables have consistent columns
@@ -20,13 +21,14 @@ Checks:
 
 Exit code 0 only if every check passes.
 """
-import argparse, glob, os, re, subprocess, sys
+import argparse, glob, json, os, re, subprocess, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 RULES = os.path.dirname(HERE)
 DOCS = os.path.dirname(RULES)
 SPEC = os.path.join(DOCS, "SPEC.md")
 INDEX = os.path.join(RULES, "INDEX.md")
+RETIREMENTS = os.path.join(RULES, "retirements.json")
 NL = chr(10)
 BT = chr(96)
 BS = chr(92)
@@ -112,13 +114,28 @@ def load_index():
         if cells[0] in rows:
             dups.append(cells[0])
             continue
-        replacement = re.match(r"^Retired: replaced by (" + ID + r")\b", cells[2])
-        rows[cells[0]] = {
-            "type": cells[1],
-            "section": cells[3],
-            "replacement": replacement.group(1) if replacement else None,
-        }
+        rows[cells[0]] = {"type": cells[1], "section": cells[3]}
     return rows, dups
+
+
+def load_retirements():
+    """Load mandatory structured retirement metadata, rejecting ambiguous JSON."""
+    def unique_object(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("duplicate retirement key " + key)
+            result[key] = value
+        return result
+
+    try:
+        with open(RETIREMENTS) as source:
+            records = json.load(source, object_pairs_hook=unique_object)
+        if not isinstance(records, dict):
+            raise ValueError("retirements must be a JSON object")
+        return records, []
+    except (OSError, ValueError) as error:
+        return {}, ["index: cannot read retirements.json: " + str(error)]
 
 
 SECTION = re.compile("^#{2,3} (?:Appendix ([A-C])[^A-Za-z0-9]|([0-9]+(?:[.][0-9]+)?)[.]? )", re.M)
@@ -213,13 +230,18 @@ def main():
         msgs.append("markers: %d retired ID(s) still carry a marker, e.g. %s" % (len(still), still[:3]))
     # Explicit replacements retain the original citation's document position, even if
     # a suffix sibling already exists (10 -> 10b must stay before unrelated 10a).
-    predecessor = {}
-    for old, row in index.items():
-        new = row["replacement"]
-        if not new:
+    replacements, retirement_errors = load_retirements()
+    msgs.extend(retirement_errors)
+    for old in sorted(retired - replacements.keys()):
+        msgs.append("index: missing retirement metadata for " + old)
+    for old in sorted(replacements.keys() - retired):
+        msgs.append("index: retirement metadata requires a retired INDEX row: " + old)
+    predecessor, successor = {}, {}
+    for old, new in replacements.items():
+        if old not in retired or new is None:
             continue
-        if row["type"] != "retired" or new not in index:
-            msgs.append("markers: invalid replacement %s -> %s (retired source and indexed target required)" % (old, new))
+        if not isinstance(new, str) or not re.fullmatch(ID, new) or new not in index:
+            msgs.append("markers: invalid replacement target for %s: %s" % (old, new))
         elif (old.rsplit("-", 1)[0] != new.rsplit("-", 1)[0]
               or parse_id(old)[0] != parse_id(new)[0]
               or parse_id(old) >= parse_id(new)):
@@ -228,6 +250,14 @@ def main():
             msgs.append("markers: replacement %s has multiple predecessors" % new)
         else:
             predecessor[new] = old
+            successor[old] = new
+
+    for old in successor:
+        terminal = old
+        while terminal in successor:
+            terminal = successor[terminal]
+        if index[terminal]["type"] not in LIVE:
+            msgs.append("markers: replacement chain from %s must terminate at a live ID, not %s" % (old, terminal))
 
     def position_id(rid):
         # Every accepted edge increases the suffix, so a predecessor chain is acyclic.

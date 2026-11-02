@@ -99,11 +99,12 @@ The Etna block-production and validation rules are in
   Both guests may prove a batch spanning T with the original grid and cut checks;
   pre-T history keeps its original rules. All exclusions in SPEC START-10.1-3
   apply, including the invariant timestamp/anchor/discovery rules used to select
-  a revision. Section 10.1 requires advance notice, irreversible preparation and
-  complete upgrade discovery through each candidate anchor; the checklist covers
-  authority/proof binding, request-scoped readiness and acceptance.
+  a revision. Section 10.1 requires one atomic authorization/preparation call
+  that enforces advance notice, followed by complete valid-record discovery
+  through each candidate anchor. Conformance precedes irreversible authorization;
+  request-scoped readiness and placeholder signatures have separate gates.
 - **Open design and acceptance:** the Unzen switch and bridge wiring (section 12
-  item 9), concrete timestamp-upgrade activation interfaces (item 10),
+  item 9), concrete authority/proof-binding interfaces (section 10.1),
   registration admission bounds (item 14)
   and deployment values for the capital target, reference price and forfeiture rate
   (item 18) remain to be pinned before launch. The value of K and the
