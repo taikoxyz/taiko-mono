@@ -282,6 +282,8 @@ pub(crate) enum EngineCall {
     NewPayload(B256),
     Forkchoice { head: B256, safe: B256, finalized: B256 },
     HeaderByNumber(u64),
+    FinalizedHeader,
+    HistoricalState(B256),
 }
 
 /// The scriptable state of a [`MockEngine`].
@@ -294,6 +296,10 @@ pub(crate) struct MockEngineState {
     pub(crate) pool: Vec<TxEnvelope>,
     /// Scripted pool selection answers.
     pub(crate) pool_script: VecDeque<Result<Vec<TxEnvelope>, EngineError>>,
+    /// Explicitly configured finalized boundary, absent when unknown.
+    pub(crate) finalized: Option<Header>,
+    /// Hashes for which the mock retains historical state, independent of headers.
+    pub(crate) historical_state: std::collections::BTreeSet<B256>,
     /// The canonical chain served by `header_by_number`.
     pub(crate) chain: BTreeMap<u64, Header>,
     /// Every block the EL holds, canonical or not, by hash.
@@ -521,6 +527,21 @@ impl Engine for MockEngine {
             state.canonicalize(&header);
         }
         Ok(verdict)
+    }
+
+    /// Reads the explicitly configured finalized boundary.
+    async fn finalized_header(&self) -> Result<Option<Header>, EngineError> {
+        self.pause().await;
+        let mut state = self.state();
+        state.calls.push(EngineCall::FinalizedHeader);
+        Ok(state.finalized.clone())
+    }
+    /// Checks explicit state availability, never inferring it merely from a header.
+    async fn historical_state_available(&self, hash: B256) -> Result<bool, EngineError> {
+        self.pause().await;
+        let mut state = self.state();
+        state.calls.push(EngineCall::HistoricalState(hash));
+        Ok(state.historical_state.contains(&hash))
     }
 
     /// Pops `header_script`, falling back to the canonical `chain`.

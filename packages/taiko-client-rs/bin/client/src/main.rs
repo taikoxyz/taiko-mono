@@ -7,6 +7,7 @@ pub mod commands;
 pub mod error;
 pub mod flags;
 pub mod metrics;
+pub mod recovery;
 
 fn main() {
     use clap::Parser;

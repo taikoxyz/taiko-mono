@@ -17,6 +17,9 @@ use thiserror::Error;
 /// - Metrics initialization errors
 #[derive(Debug, Error)]
 pub enum CliError {
+    /// Sanitized recovery operation failure, with no credential-bearing source chain.
+    #[error(transparent)]
+    Recovery(#[from] crate::recovery::RecoveryCommandError),
     /// A lander configuration, source, persistence or submission failure.
     #[error(transparent)]
     Lander(#[from] lander::LanderError),

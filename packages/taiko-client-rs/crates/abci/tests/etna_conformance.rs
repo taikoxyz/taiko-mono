@@ -821,6 +821,12 @@ impl Engine for SingletonEngine {
         Err(EngineError::BadReply("unexpected forkchoice".into()))
     }
 
+    async fn finalized_header(&self) -> Result<Option<Header>, EngineError> {
+        Err(EngineError::Setup("fixture has no finalized boundary".into()))
+    }
+    async fn historical_state_available(&self, _: B256) -> Result<bool, EngineError> {
+        Err(EngineError::Setup("fixture has no historical state".into()))
+    }
     async fn header_by_number(&self, _: u64) -> Result<Option<Header>, EngineError> {
         Err(EngineError::BadReply("unexpected header_by_number".into()))
     }

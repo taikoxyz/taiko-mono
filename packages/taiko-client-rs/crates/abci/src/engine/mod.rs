@@ -86,6 +86,14 @@ pub trait Engine: Send + Sync + 'static {
     /// The engine's canonical header at `number`, or `None` if it has none; checked to hash to
     /// the block hash the engine reports.
     async fn header_by_number(&self, number: u64) -> Result<Option<Header>, EngineError>;
+
+    /// Reads the hash-checked finalized EL header with a bounded deadline; never changes
+    /// forkchoice.
+    async fn finalized_header(&self) -> Result<Option<Header>, EngineError>;
+
+    /// Performs a bounded hash-pinned historical state read. A successful read is preliminary
+    /// evidence only, not proof that a stateful build will succeed. RPC failure remains an error.
+    async fn historical_state_available(&self, hash: B256) -> Result<bool, EngineError>;
 }
 
 /// Why an Engine API exchange or a payload conversion failed.

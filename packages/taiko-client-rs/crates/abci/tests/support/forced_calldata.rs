@@ -248,6 +248,12 @@ impl Engine for ObservedEngine {
     async fn forkchoice(&self, h: B256, s: B256, f: B256) -> Result<PayloadVerdict, EngineError> {
         self.inner.forkchoice(h, s, f).await
     }
+    async fn finalized_header(&self) -> Result<Option<Header>, EngineError> {
+        self.inner.finalized_header().await
+    }
+    async fn historical_state_available(&self, hash: B256) -> Result<bool, EngineError> {
+        self.inner.historical_state_available(hash).await
+    }
     async fn header_by_number(&self, n: u64) -> Result<Option<Header>, EngineError> {
         self.inner.header_by_number(n).await
     }

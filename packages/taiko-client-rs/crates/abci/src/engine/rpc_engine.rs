@@ -5,7 +5,8 @@ use std::{path::Path, time::Duration};
 
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy_consensus::{Header, TxEnvelope};
-use alloy_primitives::B256;
+use alloy_eips::{BlockId, BlockNumberOrTag};
+use alloy_primitives::{Address, B256};
 use alloy_provider::{
     Provider, RootProvider,
     transport::{RpcError, TransportError},
@@ -25,6 +26,14 @@ use url::Url;
 
 use super::{Engine, EngineError, PayloadVerdict, block_from_payload, payload_from_block};
 use crate::envelope::ExecutionBlock;
+
+/// Sanitizes public recovery reads while preserving malformed-response integrity failures.
+fn recovery_read_error(error: TransportError) -> EngineError {
+    match error {
+        RpcError::DeserError { .. } => EngineError::BadReply("malformed recovery EL read".into()),
+        _ => EngineError::Transport("recovery EL read unavailable".into()),
+    }
+}
 
 /// [`Engine`] over alethia-reth's JSON-RPC endpoints.
 #[derive(Clone, Debug)]
@@ -294,6 +303,54 @@ impl Engine for RpcEngine {
                 )
                 .map(|updated| verdict(updated.payload_status.status)),
         }
+    }
+
+    /// Reads the finalized boundary without sending any Engine API mutation.
+    async fn finalized_header(&self) -> Result<Option<Header>, EngineError> {
+        tokio::time::timeout(Duration::from_secs(10), async {
+            let Some(block) = self
+                .l2
+                .get_block_by_number(BlockNumberOrTag::Finalized)
+                .await
+                .map_err(recovery_read_error)?
+            else {
+                return Ok(None);
+            };
+            let (header, reported) = (block.header.inner, block.header.hash);
+            let computed = header.hash_slow();
+            if computed != reported {
+                return Err(EngineError::HeaderHashMismatch {
+                    number: header.number,
+                    reported,
+                    computed,
+                });
+            }
+            Ok(Some(header))
+        })
+        .await
+        .map_err(|_| EngineError::Transport("finalized EL header read deadline".into()))?
+    }
+
+    /// Checks hash-pinned historical state without building or changing forkchoice.
+    async fn historical_state_available(&self, hash: B256) -> Result<bool, EngineError> {
+        tokio::time::timeout(Duration::from_secs(10), async {
+            let Some(block) = self.l2.get_block_by_hash(hash).await.map_err(recovery_read_error)?
+            else {
+                return Ok(false);
+            };
+            let computed = block.header.inner.hash_slow();
+            if computed != hash || block.header.hash != hash {
+                return Err(EngineError::BlockHashMismatch { expected: hash, computed });
+            }
+            self.l2
+                .get_balance(Address::ZERO)
+                .block_id(BlockId::hash_canonical(hash))
+                .await
+                .map_err(recovery_read_error)?;
+            Ok(true)
+        })
+        .await
+        .map_err(|_| EngineError::Transport("historical EL state read deadline".into()))?
     }
 
     /// `eth_getBlockByNumber(number)` on the public endpoint; the header must hash to the reported
@@ -929,6 +986,34 @@ mod tests {
             matches!(err, Err(EngineError::HeaderHashMismatch { number: 1, reported, .. }) if reported == hash),
             "{err:?}"
         );
+    }
+
+    #[tokio::test]
+    async fn recovery_reads_finalized_and_historical_state_without_engine_writes() {
+        let block: Value = serde_json::from_str::<Value>(ANVIL).unwrap()["block"].clone();
+        let hash: B256 = serde_json::from_value(block["hash"].clone()).unwrap();
+        let m = mocked();
+        m.l2.push_success(&block);
+        assert_eq!(m.engine.finalized_header().await.unwrap().unwrap().hash_slow(), hash);
+        m.l2.push_success(&Value::Null);
+        assert_eq!(m.engine.finalized_header().await.unwrap(), None);
+        m.l2.push_success(&block);
+        m.l2.push_success(&"0x0");
+        assert!(m.engine.historical_state_available(hash).await.unwrap());
+        m.l2.push_success(&Value::Null);
+        assert!(!m.engine.historical_state_available(hash).await.unwrap());
+        m.l2.push_success(&block);
+        m.l2.push_failure_msg("private provider credential");
+        assert!(m.engine.historical_state_available(hash).await.is_err());
+        m.l2.push_success(&json!({"malformed":"credential-bearing upstream payload"}));
+        assert!(matches!(m.engine.finalized_header().await, Err(EngineError::BadReply(_))));
+        let mut bad = block;
+        bad["gasUsed"] = json!("0x5");
+        m.l2.push_success(&bad);
+        assert!(matches!(
+            m.engine.finalized_header().await,
+            Err(EngineError::HeaderHashMismatch { .. })
+        ));
     }
 
     /// An answer for another block than requested is refused, even though it is self-consistent.

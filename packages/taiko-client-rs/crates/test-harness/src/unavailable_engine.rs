@@ -40,6 +40,12 @@ impl Engine for UnavailableEngine {
     ) -> Result<PayloadVerdict, EngineError> {
         Err(unavailable())
     }
+    async fn finalized_header(&self) -> Result<Option<Header>, EngineError> {
+        Err(EngineError::Setup("fixture has no finalized boundary".into()))
+    }
+    async fn historical_state_available(&self, _: B256) -> Result<bool, EngineError> {
+        Err(EngineError::Setup("fixture has no historical state".into()))
+    }
     async fn header_by_number(&self, _number: u64) -> Result<Option<Header>, EngineError> {
         Err(unavailable())
     }
@@ -75,6 +81,12 @@ impl Engine for ProbeEngine {
     }
     async fn forkchoice(&self, _: B256, _: B256, _: B256) -> Result<PayloadVerdict, EngineError> {
         Err(unavailable())
+    }
+    async fn finalized_header(&self) -> Result<Option<Header>, EngineError> {
+        Err(EngineError::Setup("fixture has no finalized boundary".into()))
+    }
+    async fn historical_state_available(&self, _: B256) -> Result<bool, EngineError> {
+        Err(EngineError::Setup("fixture has no historical state".into()))
     }
     async fn header_by_number(&self, number: u64) -> Result<Option<Header>, EngineError> {
         Ok((number == self.parent.number).then(|| self.parent.clone()))

@@ -187,3 +187,74 @@ async fn explicit_l1_domain_mismatch_refuses_bootstrap_before_contract_reads() {
         assert_eq!(*endpoint.methods.lock().unwrap(), ["eth_chainId"]);
     }
 }
+
+#[tokio::test]
+async fn recovery_prepare_requires_explicit_target() {
+    let output =
+        run(&["abci-recover", "prepare", "--profile", "node.toml", "--root", "private"]).await;
+    assert!(!output.status.success());
+    assert!(stderr(&output).contains("--generation"), "{}", stderr(&output));
+    let output = run(&["abci-recover", "status", "--help"]).await;
+    assert!(output.status.success());
+}
+
+#[tokio::test]
+async fn recovery_rejects_zero_before_profile_or_network_and_redacts_private_input() {
+    let zero = run(&[
+        "abci-recover",
+        "prepare",
+        "--profile",
+        "/missing-private-profile",
+        "--generation",
+        "0",
+        "--root",
+        "/not-created",
+    ])
+    .await;
+    assert!(!zero.status.success());
+    assert!(stderr(&zero).contains("nonzero"), "{}", stderr(&zero));
+    let dir = tempfile::tempdir().unwrap();
+    let profile = dir.path().join("profile.toml");
+    std::fs::write(
+        &profile,
+        "l1_http = 'https://alice:password@example.test/secret-token'\nunknown = 'PRIVATE-KEY'\n",
+    )
+    .unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&profile, std::fs::Permissions::from_mode(0o600)).unwrap();
+    }
+    let root = dir.path().join("not-created");
+    let result = run(&[
+        "abci-recover",
+        "prepare",
+        "--profile",
+        profile.to_str().unwrap(),
+        "--generation",
+        "1",
+        "--root",
+        root.to_str().unwrap(),
+        "--json",
+    ])
+    .await;
+    assert!(!result.status.success());
+    assert!(result.stdout.is_empty());
+    assert!(!root.exists());
+    for secret in ["alice", "password", "secret-token", "PRIVATE-KEY"] {
+        assert!(!stderr(&result).contains(secret));
+    }
+    let result = run(&[
+        "abci-recover",
+        "status",
+        "--root",
+        root.to_str().unwrap(),
+        "--plan",
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "--json",
+    ])
+    .await;
+    assert!(!result.status.success());
+    assert!(result.stdout.is_empty());
+    assert!(!root.exists());
+}

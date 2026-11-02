@@ -7048,11 +7048,13 @@ name = "taiko-client"
 version = "2.3.0"
 dependencies = [
  "abci",
+ "alethia-reth-primitives",
  "alloy",
  "alloy-consensus",
  "alloy-eips",
  "alloy-primitives",
  "alloy-provider",
+ "alloy-rlp",
  "anyhow",
  "async-trait",
  "axum",
@@ -7066,6 +7068,7 @@ dependencies = [
  "prost 0.13.5",
  "protocol",
  "rpc",
+ "serde",
  "serde_json",
  "sha2 0.10.9",
  "tempfile",

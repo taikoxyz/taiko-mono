@@ -10,7 +10,8 @@ use std::{future::Future, time::Duration};
 use crate::{
     commands::{
         abci::AbciSubCommand, abci_committee_record::AbciCommitteeRecordSubCommand,
-        abci_genesis::AbciGenesisSubCommand, lander::LanderSubCommand,
+        abci_genesis::AbciGenesisSubCommand, abci_recover::AbciRecoverSubCommand,
+        lander::LanderSubCommand,
     },
     error::{CliError, Result},
 };
@@ -25,6 +26,8 @@ const RUNTIME_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(10);
 /// Subcommands for the CLI.
 #[derive(Debug, Clone, Subcommand)]
 pub enum Commands {
+    /// Prepare immutable recovery plans and inspect redacted operation status.
+    AbciRecover(Box<AbciRecoverSubCommand>),
     /// Run the ABCI++ application of the Etna PoS chain for CometBFT.
     Abci(Box<AbciSubCommand>),
     /// Run the permissionless Etna lander with the dummy proof provider.
@@ -48,6 +51,7 @@ impl Cli {
     /// Run the subcommand.
     pub fn run(self) -> Result<()> {
         match self.subcommand {
+            Commands::AbciRecover(cmd) => Self::run_one_shot(cmd.run()),
             Commands::Abci(cmd) => Self::run_until_shutdown(cmd.run()),
             Commands::Lander(cmd) => Self::run_until_shutdown(cmd.run()),
             Commands::AbciGenesis(cmd) => Self::run_one_shot(cmd.run()),
@@ -167,6 +171,36 @@ mod tests {
     };
 
     use super::*;
+
+    #[test]
+    fn recovery_prepare_requires_explicit_target() {
+        assert!(
+            Cli::try_parse_from([
+                "taiko-client",
+                "abci-recover",
+                "prepare",
+                "--profile",
+                "node.toml",
+                "--generation",
+                "1",
+                "--root",
+                "private"
+            ])
+            .is_ok()
+        );
+        assert!(
+            Cli::try_parse_from([
+                "taiko-client",
+                "abci-recover",
+                "prepare",
+                "--profile",
+                "node.toml",
+                "--root",
+                "private"
+            ])
+            .is_err()
+        );
+    }
 
     /// Sets its flag when dropped.
     struct SetOnDrop(Arc<AtomicBool>);
