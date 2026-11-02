@@ -78,7 +78,8 @@ The Etna block-production and validation rules are in
   inclusion fees stay in the Inbox, and anyone may sweep its ETH balance to the
   fixed DAO treasury. Landing earns no protocol reward.
 - **Staking and economic security:** delayed owner-funded top-ups reuse existing
-  entries. The launch checklist derives S_MIN_TOTAL from an independent capital
+  entries, and a full registry admits a newcomer who stakes more than the
+  smallest balance holding a slot, displacing that bond. The launch checklist derives S_MIN_TOTAL from an independent capital
   target and conservative price, while operating shortfalls trigger disclosure
   and replenishment without blocking recovery. The DAO may immediately forfeit a
   fixed fraction of remaining entry principal once and force exit; this has an
@@ -92,8 +93,7 @@ The Etna block-production and validation rules are in
   settlement rollback runs in the same DAO upgrade of the Inbox and registry that
   replaces the verifier.
 - **Open design and acceptance:** the Unzen switch and bridge wiring (section 12
-  item 9), upgrade activation (item 10), registration admission bounds (item 14)
-  and deployment values for the capital target, reference price and forfeiture rate
+  item 9), upgrade activation (item 10) and deployment values for the capital target, reference price and forfeiture rate
   (item 18) remain to be pinned before launch. The value of K and the
   proving capacity behind it (6.3, section 11) are set by the checklist's
   resource acceptance, as are the real-guest, signer, recovery and launch checks.
