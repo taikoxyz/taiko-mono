@@ -409,6 +409,159 @@ class AmendmentBaseCLIIntegrationTests(unittest.TestCase):
     def test_unchanged_external_base_passes(self):
         self.run_check()
 
+    def test_commented_index_rows_do_not_supply_live_identity(self):
+        self.edit("rules/INDEX.md", "| TEST-1-2 | rule | Requirement | 1 | Vectors |",
+                  "<!--\n| TEST-1-2 | rule | Requirement | 1 | Vectors |\n-->")
+        self.run_check("FAIL markers: 1 ID(s) with no INDEX row")
+
+    def test_commented_vector_heading_does_not_supply_coverage(self):
+        self.edit("rules/vectors/1.md", "## TEST-1-2", "<!--\n## TEST-1-2\n-->")
+        self.run_check("FAIL assets: no vector heading for TEST-1-2")
+
+    def test_commented_vector_and_question_do_not_inflate_counts(self):
+        self.write("rules/vectors/1.md", "## TEST-1-1\n\n## TEST-1-2\n\n<!--\n| 2.a accept | A | Yes |\n-->\n")
+        self.write("rules/review/1.md", "# Review\n\n<!--\n## Q1-1\nHidden question.\n-->\n")
+        self.run_check()
+
+    def test_commented_coverage_row_does_not_supply_counts(self):
+        self.edit("rules/INDEX.md", "| 1 | 2 | 0 | 0 |", "<!--\n| 1 | 2 | 0 | 0 |\n-->")
+        self.run_check("FAIL coverage: missing 1")
+
+    def test_commented_amendment_does_not_declare_changed_rule(self):
+        self.edit("SPEC.md", "Unchanged requirement.", "Changed requirement.")
+        row = ("<!--\n| TEST-1-2 | Original | Changed | "
+               "d4ffb28f42cc5c9c0261c7ee3a9b35a7c2227d88870996b8e0cac8d2d1693fb8 |\n-->\n")
+        self.edit("rules/INDEX.md", "\n## Coverage", row + "\n## Coverage")
+        self.run_check("FAIL amendments: undeclared amendment TEST-1-2")
+
+    def append_history(self, row):
+        self.edit("rules/INDEX.md", "\n## Coverage", "\n## Amendment history\n\n"
+                  "| ID | Prior meaning | Current amendment | Content digest |\n"
+                  "| --- | --- | --- | --- |\n" + row + "\n\n## Coverage")
+
+    def test_unknown_history_identity_fails_without_base_comparison(self):
+        self.append_history("| TEST-1-999 | Old | Fake | " + "a" * 64 + " |")
+        result = subprocess.run([sys.executable, str(self.docs / "rules/tools/check.py")],
+                                capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("FAIL amendments: unknown historical amendment TEST-1-999", result.stdout)
+
+    def test_fabricated_history_for_known_identity_is_not_a_base_snapshot(self):
+        self.append_history("| TEST-1-2 | Invented past | Invented claim | " + "a" * 64 + " |")
+        self.run_check("FAIL amendments: unsupported declaration snapshot TEST-1-2")
+
+    def test_malformed_historical_digest_is_rejected(self):
+        self.append_history("| TEST-1-2 | Old | Current | not-a-digest |")
+        self.run_check("FAIL amendments: malformed historical amendment TEST-1-2")
+
+    def test_malformed_historical_identity_cannot_be_silently_ignored(self):
+        self.append_history("| invented | Old | Current | " + "a" * 64 + " |")
+        self.run_check("FAIL amendments: unknown historical amendment invented")
+
+    def test_commented_history_cannot_preserve_changed_declaration(self):
+        self.add_historical_declaration()
+        self.edit("rules/INDEX.md", "Current meaning.", "Next meaning.")
+        self.append_history("<!--\n" + self.history_row + "-->")
+        self.run_check("FAIL amendments: missing declaration snapshot TEST-1-2")
+
+    def test_commented_question_is_not_a_resolvable_review_fragment(self):
+        self.write("rules/review/1.md", "# Review\n\n<!--\n## Q1-1\nHidden question.\n-->\n")
+        self.write("rules/vectors/1.md", "## TEST-1-1\n\n## TEST-1-2\n\n"
+                   "See [question](../review/1.md#q1-1).\n")
+        self.run_check("FAIL links: 1.md -> ../review/1.md#q1-1 (dead fragment)")
+
+    def test_commented_link_is_not_a_live_broken_reference(self):
+        self.write("rules/review/1.md", "# Review\n\n<!--\n[old link](MISSING.md)\n-->\n")
+        self.run_check()
+
+    def test_orphan_pipe_rows_cannot_pass_as_vector_coverage(self):
+        self.write("rules/vectors/1.md", "## TEST-1-1\n\n## TEST-1-2\n\nA prose note.\n\n"
+                   "| 2.a accept | Setup | Conforms |\n| 2.b reject | Setup | Violates |\n")
+        self.edit("rules/INDEX.md", "| 1 | 2 | 0 | 0 |", "| 1 | 2 | 2 | 0 |")
+        self.run_check("FAIL tables: 1.md needs a header and separator before table rows")
+
+    def test_valid_header_separator_table_supplies_vector_coverage(self):
+        self.write("rules/vectors/1.md", "## TEST-1-1\n\n## TEST-1-2\n\n"
+                   "| Vector | Setup | Expected |\n| :--- | ---: | :---: |\n"
+                   "| 2.a accept | A `x|y` value | Conforms |\n"
+                   "| 2.b reject | A \\| value | Violates |\n")
+        self.edit("rules/INDEX.md", "| 1 | 2 | 0 | 0 |", "| 1 | 2 | 2 | 0 |")
+        self.run_check()
+
+    def test_orphan_pipe_examples_in_fences_and_comments_remain_literal(self):
+        self.write("rules/review/1.md", "# Review\n\n```txt\n| Example | Only |\n```\n\n"
+                   "<!--\n| Old example | Only |\n-->\n")
+        self.run_check()
+
+    def supersede_declaration(self, commit=True):
+        self.edit("SPEC.md", "Unchanged requirement.", "Updated requirement.")
+        digest = hashlib.blake2s(b"type: rule\nUpdated requirement.").hexdigest()
+        replacement = self.history_row.replace("Current meaning.", "Updated meaning.")
+        replacement = replacement.replace(self.history_row.split(" | ")[-1].strip(" |\n"), digest)
+        self.edit("rules/INDEX.md", self.history_row, replacement)
+        if commit:
+            self.git("add", "etna/SPEC.md", "etna/rules/INDEX.md")
+            self.git("-c", "user.name=Checker Test", "-c", "user.email=checker@example.invalid",
+                     "commit", "-qm", "supersede declaration before history backfill")
+
+    def backfill_from_git(self):
+        original_base = self.base
+        self.add_historical_declaration()
+        self.base = original_base
+        self.supersede_declaration()
+        self.append_history(self.history_row)
+
+    def test_backfilled_snapshot_has_typed_governed_git_provenance(self):
+        self.backfill_from_git()
+        self.run_check()
+
+    def test_backfill_cannot_invent_a_different_prior_declaration(self):
+        self.backfill_from_git()
+        self.edit("rules/INDEX.md", self.history_row,
+                  self.history_row.replace("Current meaning.", "Invented meaning."))
+        self.run_check("FAIL amendments: unsupported declaration snapshot TEST-1-2")
+
+    def test_backfill_cannot_reuse_one_git_supersession_twice(self):
+        self.backfill_from_git()
+        self.edit("rules/INDEX.md", self.history_row, self.history_row + self.history_row)
+        self.run_check("FAIL amendments: unsupported declaration snapshot TEST-1-2")
+
+    def test_required_base_snapshot_also_consumes_its_git_supersession(self):
+        self.add_historical_declaration()
+        self.supersede_declaration()
+        self.append_history(self.history_row + self.history_row)
+        self.run_check("FAIL amendments: unsupported declaration snapshot TEST-1-2")
+
+    def test_uncommitted_head_supersession_is_verified_against_older_base(self):
+        original_base = self.base
+        self.add_historical_declaration()
+        self.base = original_base
+        self.supersede_declaration(commit=False)
+        self.append_history(self.history_row)
+        self.run_check()
+
+    def test_unchanged_head_declaration_does_not_authorize_fake_working_history(self):
+        original_base = self.base
+        self.add_historical_declaration()
+        self.base = original_base
+        self.append_history(self.history_row)
+        self.run_check("FAIL amendments: unsupported declaration snapshot TEST-1-2")
+
+    def test_superseded_git_row_with_wrong_typed_digest_does_not_prove_backfill(self):
+        original_base = self.base
+        self.add_historical_declaration()
+        self.base = original_base
+        bad_row = self.history_row.replace(
+            hashlib.blake2s(b"type: rule\nUnchanged requirement.").hexdigest(), "a" * 64)
+        self.edit("rules/INDEX.md", self.history_row, bad_row)
+        self.git("add", "etna/rules/INDEX.md")
+        self.git("-c", "user.name=Checker Test", "-c", "user.email=checker@example.invalid",
+                 "commit", "-qm", "invalid historical digest")
+        self.history_row = bad_row
+        self.supersede_declaration()
+        self.append_history(bad_row)
+        self.run_check("FAIL amendments: unsupported declaration snapshot TEST-1-2")
+
     def test_spec_change_is_compared_to_external_base(self):
         self.edit("SPEC.md", "Unchanged requirement.", "Changed requirement.")
         self.run_check("FAIL amendments: undeclared amendment TEST-1-2")

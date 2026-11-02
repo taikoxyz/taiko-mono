@@ -273,9 +273,9 @@ _`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` fo
 
 | Vector      | Setup                                                                                             | Expected                                               |
 | ----------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| 25.a accept | anchor slots [268,270,271,281,upgradeTriggerSlot] exactly in order; valid packed (generation,B,T) | matches                                                |
+| 25.a accept | anchor slots [268,270,271,281,upgradeTriggerSlot] exactly in order; valid packed (generation,G,T) | matches                                                |
 | 25.b reject | missing/extra/reordered role slots or upgradeTriggerSlot differs from UPGRADE_BASE+9              | witness/proposal invalid (ENC-A-24; CONS-3.4-3)        |
-| 25.c reject | nonzero trigger has zero T, B=0/B>30, high bits set or overflowing generation                     | witness/proposal invalid                               |
+| 25.c reject | nonzero trigger has zero T, G=0/G>30, high bits set or overflowing generation                     | witness/proposal invalid                               |
 | 25.d reject | per-block ancestor predicate skipped after current trigger cleared                                | both guests reject historical violation (PROOF-6.2-11) |
 
 ## ENC-A-26
@@ -320,15 +320,15 @@ _`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` fo
 
 ## ENC-A-29
 
-| Vector      | Setup                                                                                            | Expected                                                                            |
-| ----------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
-| 29.a accept | `keccak256(abi.encode(uint256(x), blockHash(x), cometHash(x), forcedHead(x)))`, four words       | matches                                                                             |
-| 29.b reject | three or five words                                                                              | violates ENC-A-29                                                                   |
-| 29.c reject | order is `(blockHash(x), uint256(x), ...)`                                                       | violates ENC-A-29                                                                   |
-| 29.d reject | blockHash, cometHash or forcedHead is taken at a height other than `x`                           | violates ENC-A-29 (all at height x)                                                 |
-| 29.e reject | `x` or `forcedHead(x)` is encoded in fewer than 32 bytes (for example packed as uint48)          | violates ENC-A-29 (`uint256(x)`, four 32-byte words)                                |
-| 29.f accept | old/new epoch K values use a common checkpoint; historical cut hashes retain their original grid | conforms (ENC-A-29; START-10.1-4/11)                                                |
-| 29.g reject | historical cut grid is reinterpreted using a different epoch K                                   | violates ENC-A-29; structural routing rejects crossed boundaries (START-10.1-11/13) |
+| Vector      | Setup                                                                                            | Expected                                                                                                     |
+| ----------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| 29.a accept | `keccak256(abi.encode(uint256(x), blockHash(x), cometHash(x), forcedHead(x)))`, four words       | matches                                                                                                      |
+| 29.b reject | three or five words                                                                              | violates ENC-A-29                                                                                            |
+| 29.c reject | order is `(blockHash(x), uint256(x), ...)`                                                       | violates ENC-A-29                                                                                            |
+| 29.d reject | blockHash, cometHash or forcedHead is taken at a height other than `x`                           | violates ENC-A-29 (all at height x)                                                                          |
+| 29.e reject | `x` or `forcedHead(x)` is encoded in fewer than 32 bytes (for example packed as uint48)          | violates ENC-A-29 (`uint256(x)`, four 32-byte words)                                                         |
+| 29.f accept | old/new epoch K values use a common checkpoint; historical cut hashes retain their original grid | conforms (ENC-A-29; START-10.1-4/11)                                                                         |
+| 29.g reject | historical cut grid is reinterpreted using a different epoch K                                   | violates ENC-A-29; activated-epoch grid/proof binding fails and land reverts (LAND-6.1-10; START-10.1-11/13) |
 
 ## ENC-A-30
 

@@ -145,6 +145,8 @@
 | 16.a accept | the node verifies the latest checkpoint under 3.3/3.4, its slot-285 record under section 9, and slot 290 for startup, recovery and proving under 8.4 | matches            |
 | 16.b reject | the node trusts the latest checkpoint without reading its slot-285 record                                                                            | violates STOR-B-16 |
 | 16.c reject | a startup path skips the slot-290 record                                                                                                             | violates STOR-B-16 |
+| 16.d accept | every anchor authenticates UPGRADE_BASE+9 and applies the live same-generation ancestor predicate in addition to checkpoint/origin checks            | matches            |
+| 16.e reject | a node verifies checkpoint and origin records but omits the anchor's pauseTrigger or applicable ancestor predicate                                   | violates STOR-B-16 |
 
 ## STOR-B-17
 

@@ -118,7 +118,7 @@ def split_cells(line):
 
 def parse_index(text):
     rows, dups = {}, []
-    for line in text.split(NL):
+    for line in active_markdown(text).split(NL):
         if not line.startswith("|"):
             continue
         cells = split_cells(line)
@@ -186,13 +186,101 @@ def outside_fences(text):
     return masked, unclosed
 
 
+def inline_code_regions(text):
+    """Recognize same-line literal spans; block openers never inherit a prior line's span."""
+    return [(match.start(), match.end()) for match in re.finditer(
+        r"(?<![`\\])(`+)(?!`)[^\r\n]*?(?<!`)\1(?!`)", text)]
+
+
+def mask_regions(text, regions):
+    """Hide source regions without changing offsets or line boundaries."""
+    out, end = [], 0
+    for start, stop in regions:
+        out.extend((text[end:start], re.sub(r"[^\r\n]", " ", text[start:stop])))
+        end = stop
+    out.append(text[end:])
+    return "".join(out)
+
+
+def comment_regions(text):
+    """Find comments outside literal examples, with comments taking precedence over fences."""
+    regions, opening, fence, offset = [], None, None, 0
+    for line in text.splitlines(keepends=True):
+        match = re.match(r"^[ \t]*(`{3,}|~{3,})(.*)$", line.rstrip("\r\n"))
+        if opening is None:
+            if fence:
+                if match and match[1][0] == fence[0] and len(match[1]) >= fence[1] and not match[2].strip():
+                    fence = None
+                offset += len(line)
+                continue
+            if match and not (match[1][0] == "`" and "`" in match[2]):
+                fence = (match[1][0], len(match[1]))
+                offset += len(line)
+                continue
+        spans, cursor = inline_code_regions(line), 0
+        while cursor < len(line):
+            if opening is not None:
+                closing = line.find("-->", cursor)
+                if closing < 0:
+                    break
+                cursor = closing + 3
+                regions.append((opening, offset + cursor))
+                opening = None
+            else:
+                start = line.find("<!--", cursor)
+                if start < 0:
+                    break
+                literal = next((end for begin, end in spans if begin <= start < end), None)
+                if literal is not None:
+                    cursor = literal
+                    continue
+                opening, cursor = offset + start, start + 4
+        offset += len(line)
+    if opening is not None:
+        regions.append((opening, len(text)))
+    return regions
+
+
+def is_governing_comment(text, start, end):
+    """Only an exact standalone mapping comment can supply helper ownership."""
+    return (re.fullmatch(r"<!-- governed-by: " + ID + r" -->", text[start:end]) is not None
+            and (start == 0 or text[start - 1] == NL)
+            and (end == len(text) or text[end] in "\r\n"))
+
+
+def without_comments(text, keep_governing=False):
+    regions = [(start, end) for start, end in comment_regions(text)
+               if not (keep_governing and is_governing_comment(text, start, end))]
+    return mask_regions(text, regions)
+
+
+def active_markdown(text, keep_governing=False):
+    """Active headings/tables cannot be supplied by comments or fenced examples."""
+    return markdown_regions(without_comments(text, keep_governing), conservative=True)[0]
+
+
 def check_markdown_structure(name, text):
-    masked, unclosed = outside_fences(text)
+    masked, unclosed, _ = markdown_regions(without_comments(text), conservative=True)
     msgs = ["markdown: unclosed fence in " + name] if unclosed else []
     lines = masked.splitlines()
     for i, line in enumerate(lines):
         if i and lines[i - 1].strip() and re.fullmatch(r" {0,3}(?:=+|-+)[ \t]*", line):
             msgs.append("markdown: setext headings are unsupported in " + name + "; use ATX headings")
+    if name in ("SPEC.md", "UPGRADES.md"):
+        # This is a bounded source format, not an attempt to implement arbitrary HTML/CommonMark.
+        # A block opener on its own line is structural even after an unmatched backtick.
+        literal_mask = mask_regions(masked, inline_code_regions(masked))
+        comments = comment_regions(text)
+        invalid_comment = any(not (name == "UPGRADES.md" and is_governing_comment(text, start, end))
+                              for start, end in comments)
+        html = re.finditer(r"(?<!\\)<(?:/?[A-Za-z][A-Za-z0-9-]*(?=[\s/>]|$)|!|[?])", literal_mask)
+        invalid_tag = any(not re.match(r"(?:</?(?:details|summary)>|<br ?/?>)", literal_mask[match.start():])
+                          for match in html)
+        if invalid_comment or invalid_tag:
+            msgs.append("markdown: unsupported HTML in " + name
+                        + "; use details, summary or br tags, or fenced/inline literal examples")
+        if re.search(r"^[ \t]*(?:(?:[-+*]|[0-9]+[.)])[ \t]+)*>", literal_mask, re.M):
+            msgs.append("markdown: blockquote containers are unsupported in " + name)
     return msgs
 
 
@@ -201,18 +289,16 @@ def check_marker_placement(spec):
     _, _, definitions = markdown_regions(spec)
     locate, msgs = section_finder(spec), []
     spans = list(re.finditer(r"(?<![`\\])(`+)(?!`)(?:[^\n]|\n(?![ \t]*\n))*?(?<!`)\1(?!`)", masked))
-    comments, raw_html, hidden_end = [], [], 0
+    comments, raw_html, hidden_end = comment_regions(spec), [], 0
+    literal_mask = mask_regions(mask_regions(masked, comments), inline_code_regions(masked))
     # Search raw text for closing tags: a hidden HTML region may contain an entire fence.
     # Only the opener uses fence masking, so literal tags within a code example stay literal.
-    for opening in re.finditer(r"<!--|<(pre|script|style|textarea)(?=[\s>])[^>]*>", spec, re.I):
-        if (opening.start() < hidden_end or masked[opening.start()] != "<"
-                or any(span.start() <= opening.start() < span.end() for span in spans)):
+    for opening in re.finditer(r"<(pre|script|style|textarea)(?=[\s>])[^>]*>", spec, re.I):
+        if opening.start() < hidden_end or literal_mask[opening.start()] != "<":
             continue
-        is_comment = opening[0] == "<!--"
-        closing = re.search(r"-->" if is_comment else r"</" + opening[1] + r"\s*>",
-                            spec[opening.end():], re.I)
+        closing = re.search(r"</" + opening[1] + r"\s*>", spec[opening.end():], re.I)
         hidden_end = opening.end() + closing.end() if closing else len(spec)
-        (comments if is_comment else raw_html).append((opening.start(), hidden_end))
+        raw_html.append((opening.start(), hidden_end))
     # Preserve valid nested list items: their container indentation is not code indentation.
     list_indents, indented, offset = [], set(), 0
     lines = spec.splitlines(keepends=True)
@@ -261,7 +347,8 @@ def check_marker_placement(spec):
 def check_incorporation(spec, helper, index):
     """Check the explicit exception for definitions incorporated under SPEC rules."""
     # Examples cannot create sections or supply authority. Keep offsets/lines stable.
-    body, unclosed = outside_fences(helper)
+    body = active_markdown(helper, keep_governing=True)
+    _, unclosed = outside_fences(without_comments(helper))
     sections = list(re.finditer(r"^## (.+)$", body, re.M))
     mappings = re.compile(r"^<!-- governed-by: (" + ID + r") -->$", re.M)
     msgs, seen, used = [], set(), 0
@@ -297,6 +384,7 @@ def check_incorporation(spec, helper, index):
 
 def rule_bodies(text):
     """Extract governed text for amendment comparison, ignoring formatter spacing."""
+    text = without_comments(text)
     markers = sorted([(m.start(), m.end(), m[1], False) for m in INLINE.finditer(text)] +
                      [(m.start(), m.end(), m[1], True) for m in CODE.finditer(text)])
     bodies = {}
@@ -327,7 +415,7 @@ def governed_bodies(spec, helper=""):
         if len(references) != 1:
             raise ValueError("reference Solidity under LAND-6.1-10 must be exactly one block")
         bodies["LAND-6.1-10"] += "\n[reference Solidity]\n" + references[0]
-    masked, _ = outside_fences(helper)
+    masked = active_markdown(helper, keep_governing=True)
     sections = list(re.finditer(r"^## (.+)$", masked, re.M))
     for i, section in enumerate(sections):
         end = sections[i + 1].start() if i + 1 < len(sections) else len(helper)
@@ -343,16 +431,90 @@ def content_digest(body, kind):
 
 
 def amendment_rows(text, heading="Material amendments"):
-    section = re.search(r"^## " + re.escape(heading) + r"\n(.*?)(?=^## |\Z)", text, re.M | re.S)
+    section = re.search(r"^## " + re.escape(heading) + r"\n(.*?)(?=^## |\Z)",
+                        active_markdown(text), re.M | re.S)
     if section:
         for line in section[1].splitlines():
             cells = split_cells(line)
-            if line.startswith("|") and re.fullmatch(ID, cells[0]):
+            header = ["ID", "Prior meaning", "Current amendment", "Content digest"]
+            if (line.startswith("|") and cells != header
+                    and not all(re.fullmatch(r":?-+:?", cell) for cell in cells)):
                 yield cells
 
 
+def git_declaration_snapshots(rev, current_index_text):
+    """Verify superseded declarations on ancestry edges after the supplied Git base.
+
+    Each edge supplies one occurrence of an exact row only when its digest binds the
+    parent's complete governed content and Type. Legacy/unreadable states supply no proof.
+    """
+    base = subprocess.run(["git", "-C", DOCS, "rev-parse", "--verify", rev + "^{commit}"],
+                          capture_output=True, text=True)
+    if base.returncode:
+        raise ValueError("cannot read declaration provenance at supplied base")
+    base = base.stdout.strip()
+    graph = subprocess.run(["git", "-C", DOCS, "rev-list", "--parents", "--ancestry-path", base + "..HEAD"],
+                           capture_output=True, text=True)
+    if graph.returncode:
+        raise ValueError("cannot read declaration provenance after supplied base")
+    edges = [line.split() for line in graph.stdout.splitlines()]
+    ancestry = {base} | {edge[0] for edge in edges}
+    cache, snapshots = {}, []
+    head = subprocess.run(["git", "-C", DOCS, "rev-parse", "--verify", "HEAD"],
+                          capture_output=True, text=True)
+    if head.returncode:
+        raise ValueError("cannot read declaration provenance at HEAD")
+    head = head.stdout.strip()
+    # Pre-commit checks include the working declaration transition exactly once. After a
+    # commit this edge is unchanged; the actual parent->commit edge then supplies the proof.
+    if head in ancestry:
+        working = "working declaration"
+        cache[working] = (parse_index(current_index_text)[0],
+                          {row[0]: row for row in amendment_rows(current_index_text)})
+        edges.insert(0, [working, head])
+
+    def state(commit):
+        if commit not in cache:
+            source = git_show(commit, "rules/INDEX.md")
+            cache[commit] = None if source is None else (
+                parse_index(source)[0], {row[0]: row for row in amendment_rows(source)})
+        return cache[commit]
+
+    for child, *parents in edges:
+        now = state(child)
+        if now is None:
+            continue
+        for parent in parents:
+            if parent not in ancestry:
+                continue
+            before = state(parent)
+            if before is None:
+                continue
+            index, declared = before
+            candidates = [row for rid, row in declared.items()
+                          if rid in now[1] and row != now[1][rid] and len(row) == 4
+                          and re.fullmatch(ID, rid) and index.get(rid, {}).get("type") in LIVE + ("retired",)]
+            if not candidates:
+                continue
+            spec, helper = git_show(parent), git_show(parent, "UPGRADES.md")
+            if spec is None:
+                continue
+            if helper is None:
+                if "UPGRADES.md" in spec or not git_path_absent(parent, "UPGRADES.md"):
+                    continue
+                helper = ""
+            try:
+                bodies = governed_bodies(spec, helper)
+            except ValueError:
+                continue
+            snapshots.extend(row for row in candidates
+                             if (row[0] in bodies or index[row[0]]["type"] == "retired")
+                             and row[3] == content_digest(bodies.get(row[0], ""), index[row[0]]["type"]))
+    return snapshots
+
+
 def check_amendments(spec, index_text, index, baseline=None, helper="", baseline_helper="",
-                     baseline_index_text=None):
+                     baseline_index_text=None, verified_snapshots=()):
     msgs, declared = [], {}
     try:
         current = governed_bodies(spec, helper)
@@ -371,6 +533,13 @@ def check_amendments(spec, index_text, index, baseline=None, helper="", baseline
         elif rid in index and (rid in current or index[rid]["type"] == "retired"):
             if cells[3] != content_digest(current.get(rid, ""), index[rid]["type"]):
                 msgs.append("amendments: stale content digest " + rid)
+    snapshots = list(amendment_rows(index_text, "Amendment history"))
+    for cells in snapshots:
+        rid = cells[0]
+        if rid not in index:
+            msgs.append("amendments: unknown historical amendment " + rid)
+        if len(cells) != 4 or not all(cells[1:]) or not re.fullmatch(r"[0-9a-f]{64}", cells[-1]):
+            msgs.append("amendments: malformed historical amendment " + rid)
     if previous is not None:
         for rid in sorted(previous.keys() - current.keys()):
             if index.get(rid, {}).get("type") != "retired":
@@ -379,11 +548,11 @@ def check_amendments(spec, index_text, index, baseline=None, helper="", baseline
             if previous[rid] != current[rid] and rid not in declared:
                 msgs.append("amendments: undeclared amendment " + rid)
     if baseline_index_text is not None:
-        snapshots = list(amendment_rows(index_text, "Amendment history"))
         prior_snapshots = list(amendment_rows(baseline_index_text, "Amendment history"))
         if snapshots[:len(prior_snapshots)] != prior_snapshots:
             msgs.append("amendments: historical snapshots are not append-only")
         added_snapshots = snapshots[len(prior_snapshots):]
+        verified = list(verified_snapshots)
         prior_index, _ = parse_index(baseline_index_text)
         for rid, old in prior_index.items():
             now = index.get(rid)
@@ -408,6 +577,13 @@ def check_amendments(spec, index_text, index, baseline=None, helper="", baseline
                     msgs.append("amendments: missing declaration snapshot " + rid)
                 else:
                     added_snapshots.remove(cells)
+                    if cells in verified:
+                        verified.remove(cells)
+        for cells in added_snapshots:
+            if cells in verified:
+                verified.remove(cells)
+            else:
+                msgs.append("amendments: unsupported declaration snapshot " + cells[0])
     return msgs
 
 
@@ -416,12 +592,13 @@ VECTOR_LABEL = re.compile(r"^\| ([0-9]+[a-z]?\.[a-z]+)\b", re.M)
 
 def coverage_counts(index, assets):
     return {sec: (sum(v["section"] == sec and v["type"] != "retired" for v in index.values()),
-                  len(VECTOR_LABEL.findall(vectors)), len(re.findall(r"^## Q[^\n]+", review, re.M)))
+                  len(VECTOR_LABEL.findall(active_markdown(vectors))),
+                  len(re.findall(r"^## Q[^\n]+", active_markdown(review), re.M)))
             for sec, (vectors, review) in assets.items()}
 
 
 def check_coverage(index_text, index, assets):
-    section = re.search(r"^## Coverage\n(.*?)(?=^## |\Z)", index_text, re.M | re.S)
+    section = re.search(r"^## Coverage\n(.*?)(?=^## |\Z)", active_markdown(index_text), re.M | re.S)
     rows, msgs = {}, []
     if section:
         for line in section[1].splitlines():
@@ -439,7 +616,7 @@ def check_coverage(index_text, index, assets):
     for sec in rows.keys() - actual.keys():
         msgs.append("coverage: unknown section " + sec)
     for sec, (vectors, _review) in assets.items():
-        for heading in re.finditer(r"^## (" + ID + r")\n(.*?)(?=^## |\Z)", vectors, re.M | re.S):
+        for heading in re.finditer(r"^## (" + ID + r")\n(.*?)(?=^## |\Z)", active_markdown(vectors), re.M | re.S):
             seen = set()
             for label in VECTOR_LABEL.findall(heading[2]):
                 if label in seen:
@@ -571,9 +748,16 @@ def main():
                 else:
                     msgs.append("amendments: cannot read %s at supplied base" % os.path.basename(path))
     baseline = base_files.get("SPEC.md")
+    verified = []
+    if not msgs and args.amendments_base:
+        try:
+            verified = git_declaration_snapshots(args.amendments_base, open(INDEX).read())
+        except ValueError as error:
+            msgs.append("amendments: " + str(error))
     if not msgs:
         msgs = check_amendments(text, open(INDEX).read(), index, baseline, helper,
-                                base_files.get("UPGRADES.md", ""), base_files.get("rules/INDEX.md"))
+                                base_files.get("UPGRADES.md", ""), base_files.get("rules/INDEX.md"),
+                                verified_snapshots=verified)
     bad += fail(msgs) if msgs else (print("ok   amendments" + (" (base delta checked)" if baseline is not None else " (declarations only)")) or 0)
 
     # 4. assets
@@ -586,7 +770,7 @@ def main():
         sec = os.path.basename(vf)[:-3]
         allowed = {i for i, v in index.items() if v["section"] == sec}
         want = {i for i in allowed if index[i]["type"] == "rule"}
-        got = set(re.findall("^## (" + ID + ")[ \t]*$", open(vf).read(), flags=re.M))
+        got = set(re.findall("^## (" + ID + ")[ \t]*$", active_markdown(open(vf).read()), flags=re.M))
         for i in sorted(want - got)[:3]:
             msgs.append("assets: no vector heading for " + i)
         for i in sorted(got - allowed)[:3]:
@@ -609,11 +793,12 @@ def main():
     msgs, cache = [], {}
     def headings(path):
         if path not in cache:
-            cache[path] = {slug(m.group(2)) for m in re.finditer("^(#{1,6}) (.*)$", open(path).read(), flags=re.M)}
+            cache[path] = {slug(m.group(2)) for m in re.finditer("^(#{1,6}) (.*)$", active_markdown(open(path).read()), flags=re.M)}
         return cache[path]
     for f in glob.glob(os.path.join(RULES, "**", "*.md"), recursive=True) + [SPEC, upgrades]:
-        body = open(f).read()
-        if f not in (SPEC, upgrades) and outside_fences(body)[1]:
+        source = open(f).read()
+        body = active_markdown(source)
+        if f not in (SPEC, upgrades) and markdown_regions(without_comments(source), conservative=True)[1]:
             msgs.append("markdown: unclosed fence in " + os.path.relpath(f, DOCS))
         for m in re.finditer(RB + "[(]([^)]+)[)]", body):
             u = m.group(1).strip()
@@ -625,17 +810,14 @@ def main():
                 msgs.append("links: %s -> %s" % (os.path.basename(f), u))
             elif frag and frag not in headings(tgt):
                 msgs.append("links: %s -> %s (dead fragment)" % (os.path.basename(f), u))
-        block, fenced = [], False
+        block = []
         for ln in body.split(NL) + [""]:
-            if ln.strip().startswith(BT * 3):
-                fenced = not fenced
-                block = []
-                continue
-            if fenced:
-                continue
             if ln.startswith("|"):
                 block.append(ln)
             else:
+                if block and (len(block) < 2 or not all(
+                        re.fullmatch(r":?-{3,}:?", cell) for cell in split_cells(block[1]))):
+                    msgs.append("tables: %s needs a header and separator before table rows" % os.path.basename(f))
                 if len(block) >= 2 and len({columns(b) for b in block}) != 1:
                     msgs.append("tables: %s has a row with a different column count" % os.path.basename(f))
                 block = []

@@ -86,8 +86,8 @@ The Etna block-production and validation rules are in
   fixed fraction of remaining entry principal once and force exit; this has an
   expiry and lifetime replay flag, but no forfeiture nonce or revocation entry point.
 - **Recovery:** the owner calls `recover` with the expected generation, c and
-  recovery nonce, an authorization deadline, a checkpoint-safe optional pending-timestamp cancellation hash, and atomic exclusion and FI-blanking
-  lists. The Inbox keeps only the authorization nonce, with no recovery queue or
+  recovery nonce, an authorization deadline, and atomic exclusion and FI-blanking
+  lists: exactly six arguments. The Inbox keeps only the authorization nonce, with no recovery queue or
   stall timer; explicit invalidation and verifier-failure rollback advance it. Exclusions force exits without slashing. Recovery also stales pending validity plans and clears pause state. The settled prefix stays;
   the unsettled suffix is discarded, and the new generation starts from a fixed,
   authenticated origin. A verifier failure is not handled by `recover`: its

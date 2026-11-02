@@ -68,6 +68,37 @@ class MarkdownStructureTests(unittest.TestCase):
     def test_setext_inside_example_is_ignored(self):
         self.assertEqual(check.check_markdown_structure("SPEC.md", "```txt\nExample\n-------\n```\n"), [])
 
+    def test_only_bounded_html_forms_are_supported(self):
+        for markup in ("<div>", "<section>", "<x-custom>", "<details hidden>",
+                       "<!DOCTYPE html>", "<?processing value?>", "<!-- hidden -->"):
+            with self.subTest(markup=markup):
+                errors = check.check_markdown_structure("SPEC.md", markup + "\n")
+                self.assertTrue(any("unsupported HTML" in error for error in errors), errors)
+
+    def test_blockquote_containers_are_unsupported(self):
+        for opening in ("> ", "  > ", "- > ", "1. > "):
+            with self.subTest(opening=opening):
+                errors = check.check_markdown_structure("SPEC.md", opening + "Quoted requirement.\n")
+                self.assertTrue(any("blockquote" in error for error in errors), errors)
+
+    def test_supported_markup_and_literal_examples_remain_valid(self):
+        source = ("<details>\n<summary>Details</summary>\n\nVisible<br>prose.\n\n</details>\n"
+                  "Use `<pre>` and `<!--` as literals.\n\n```txt\n<div>\n> example\n<!--\n```\n")
+        self.assertEqual(check.check_markdown_structure("SPEC.md", source), [])
+
+    def test_literal_html_in_list_indented_fence_remains_valid(self):
+        source = "- Example\n\n    ```txt\n    <pre>\n    <!--\n    > literal\n    ```\n"
+        self.assertEqual(check.check_markdown_structure("SPEC.md", source), [])
+
+    def test_only_exact_helper_mapping_comment_is_allowed(self):
+        self.assertEqual(check.check_markdown_structure(
+            "UPGRADES.md", "<!-- governed-by: TEST-1-1 -->\n"), [])
+        for source in ("<!-- governed-by: TEST-1-1 extra -->\n",
+                       "<!--\n<!-- governed-by: TEST-1-1 -->\n-->\n"):
+            with self.subTest(source=source):
+                self.assertTrue(any("unsupported HTML" in error for error in
+                                    check.check_markdown_structure("UPGRADES.md", source)))
+
 
 class CheckerCLIStagesTests(unittest.TestCase):
     def setUp(self):
@@ -148,6 +179,11 @@ class CheckerCLIStagesTests(unittest.TestCase):
         path.write_text(path.read_text() + "\n```txt\nUnclosed vector example.\n")
         self.run_check("FAIL markdown: unclosed fence in rules/vectors/6.1.md")
 
+    def test_unclosed_list_indented_vector_fence(self):
+        path = self.docs / "rules/vectors/6.1.md"
+        path.write_text(path.read_text() + "\n- Example\n\n    ```txt\n    Unclosed vector example.\n")
+        self.run_check("FAIL markdown: unclosed fence in rules/vectors/6.1.md")
+
     def test_appendix_definition_fence_cannot_be_hidden_in_html(self):
         for opening, closing in (("<!--", "-->"), ("<pre>", "</pre>")):
             with self.subTest(opening=opening):
@@ -159,5 +195,32 @@ class CheckerCLIStagesTests(unittest.TestCase):
                                 + "\n" + closing + original[end:])
                 try:
                     self.run_check("FAIL placement: code-before marker inside hidden HTML ENC-A-1")
+                finally:
+                    path.write_text(original)
+
+    def test_lone_backtick_cannot_hide_appendix_html_opener(self):
+        for opening, closing in (("<!--", "-->"), ("<pre>", "</pre>")):
+            with self.subTest(opening=opening):
+                path = self.docs / "SPEC.md"
+                original = path.read_text()
+                start = original.index("```txt", original.index("## Appendix A"))
+                end = original.index("```", start + 6) + 3
+                path.write_text(original[:start] + "`\n" + opening + "\n" + original[start:end]
+                                + "\n" + closing + "\n`" + original[end:])
+                try:
+                    self.run_check("FAIL markdown: unsupported HTML in SPEC.md")
+                finally:
+                    path.write_text(original)
+
+    def test_raw_html_wrapper_is_rejected_by_cli(self):
+        for opening, closing in (("<div>", "</div>"), ("<section>", "</section>"),
+                                 ("<x-custom>", "</x-custom>")):
+            with self.subTest(opening=opening):
+                path = self.docs / "SPEC.md"
+                original = path.read_text()
+                line = next(line for line in original.splitlines() if line.startswith("**[CONS-3.4-12]**"))
+                path.write_text(original.replace(line, opening + "\n" + line + "\n" + closing, 1))
+                try:
+                    self.run_check("FAIL markdown: unsupported HTML in SPEC.md")
                 finally:
                     path.write_text(original)
