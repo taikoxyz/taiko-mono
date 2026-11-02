@@ -236,9 +236,9 @@
 | Vector      | Claimed layout or data                                                | Expected           |
 | ----------- | --------------------------------------------------------------------- | ------------------ |
 | 27.a accept | `confirmExit` writes only into the exit-confirmations namespace       | matches            |
-| 27.b accept | slot release clears the confirmation                                  | matches            |
+| 27.b accept | withdrawal clears the confirmation                                    | matches            |
 | 27.c reject | `confirmExit` creates a committee checkpoint or changes `entriesRoot` | violates STOR-B-27 |
-| 27.d reject | after slot release the confirmation remains                           | violates STOR-B-27 |
+| 27.d reject | after withdrawal the confirmation remains                             | violates STOR-B-27 |
 | 27.e reject | `confirmExit` writes a `regLeaf` entry                                | violates STOR-B-27 |
 
 ## STOR-B-28
@@ -246,9 +246,9 @@
 | Vector      | Claimed layout or data                                                                 | Expected           |
 | ----------- | -------------------------------------------------------------------------------------- | ------------------ |
 | 28.a accept | the owner is written at registration to `taiko.etna.registry.owners`, keyed by bond id | matches            |
-| 28.b accept | the owner entry is cleared at slot release                                             | matches            |
+| 28.b accept | the owner entry is cleared at withdrawal                                               | matches            |
 | 28.c reject | the owner stored in the entry's three words                                            | violates STOR-B-28 |
-| 28.d reject | the owner not cleared at slot release                                                  | violates STOR-B-28 |
+| 28.d reject | the owner not cleared at withdrawal                                                    | violates STOR-B-28 |
 
 ## STOR-B-29
 
@@ -272,8 +272,8 @@
 | Vector      | Claimed layout or data                                | Expected           |
 | ----------- | ----------------------------------------------------- | ------------------ |
 | 31.a accept | withdrawal clears `pendingTopUp` and `topUpReadyAtL1` | matches            |
-| 31.b reject | `pendingTopUp` nonzero after slot release             | violates STOR-B-31 |
-| 31.c reject | `topUpReadyAtL1` set after slot release               | violates STOR-B-31 |
+| 31.b reject | `pendingTopUp` nonzero after withdrawal               | violates STOR-B-31 |
+| 31.c reject | `topUpReadyAtL1` set after withdrawal                 | violates STOR-B-31 |
 
 ## STOR-B-32
 
