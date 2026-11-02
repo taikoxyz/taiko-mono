@@ -26,7 +26,7 @@
 | CONS-3.1-6    | rule       | Mempool nop; user transactions arrive over EL devp2p into the proposer's txpool                                                                | 3.1     | [3.1](vectors/3.1.md#cons-31-6)      |
 | CONS-3.1-7    | rule       | CometBFT height equals EL block number; Data.Txs holds one envelope                                                                            | 3.1     | [3.1](vectors/3.1.md#cons-31-7)      |
 | CONS-3.1-8    | rule       | ABCI responses: app_hash and fixed ExecTxResult fields                                                                                         | 3.1     | [3.1](vectors/3.1.md#cons-31-8)      |
-| CONS-3.1-9    | rule       | App and rules version, immutable consensus params, node-local trust metadata                                                                   | 3.1     | [3.1](vectors/3.1.md#cons-31-9)      |
+| CONS-3.1-9    | rule       | Fixed generation app version; authenticated timestamp/structural rule schedule                                                                 | 3.1     | [3.1](vectors/3.1.md#cons-31-9)      |
 | CONS-3.1-10   | rule       | CometBFT evidence is not punished by the app; double-sign slashing only on L1                                                                  | 3.1     | [3.1](vectors/3.1.md#cons-31-10)     |
 | CONS-3.1-11   | rule       | Pinned alethia-reth feature set and engine API methods used to drive it                                                                        | 3.1     | [3.1](vectors/3.1.md#cons-31-11)     |
 | CONS-3.1-12   | rule       | Pinned ZK Gas rules; L2_BLOCK_ZK_GAS_LIMIT independent of EVM gas                                                                              | 3.1     | [3.1](vectors/3.1.md#cons-31-12)     |
@@ -184,11 +184,11 @@
 | LAND-6.1-11   | rule       | All checks precede any state change                                                                                                            | 6.1     | [6.1](vectors/6.1.md#land-61-11)     |
 | LAND-6.1-12   | rule       | The leaf checks precede proof verification                                                                                                     | 6.1     | [6.1](vectors/6.1.md#land-61-12)     |
 | LAND-6.1-13   | rule       | Interface: land signature, LandInput's eight fields, K, cutLeaf/cutHash                                                                        | 6.1     | [6.1](vectors/6.1.md#land-61-13)     |
-| PROOF-6.2-1   | rule       | The verifier is an Inbox immutable                                                                                                             | 6.2     | [6.2](vectors/6.2.md#proof-62-1)     |
-| PROOF-6.2-2   | rule       | land only calls verifyProof and does not check the implementation                                                                              | 6.2     | [6.2](vectors/6.2.md#proof-62-2)     |
-| PROOF-6.2-3   | rule       | Production must use the same ZkRequiredVerifier as mainnet (Unzen)                                                                             | 6.2     | [6.2](vectors/6.2.md#proof-62-3)     |
+| PROOF-6.2-1   | rule       | Upgrade-aware router is an Inbox immutable                                                                                                     | 6.2     | [6.2](vectors/6.2.md#proof-62-1)     |
+| PROOF-6.2-2   | rule       | Router authenticates statement/header and selected policy                                                                                      | 6.2     | [6.2](vectors/6.2.md#proof-62-2)     |
+| PROOF-6.2-3   | rule       | Selected policies preserve ZkRequiredVerifier composition                                                                                      | 6.2     | [6.2](vectors/6.2.md#proof-62-3)     |
 | PROOF-6.2-4   | rule       | Exactly two sub-proofs, at least one ZK, hence two guests                                                                                      | 6.2     | [6.2](vectors/6.2.md#proof-62-4)     |
-| PROOF-6.2-5   | rule       | Verifier address, code hash and image set pinned in the manifest                                                                               | 6.2     | [6.2](vectors/6.2.md#proof-62-5)     |
+| PROOF-6.2-5   | rule       | Router, verifier code and image identities pinned at launch/upgrade                                                                            | 6.2     | [6.2](vectors/6.2.md#proof-62-5)     |
 | PROOF-6.2-6   | rule       | Backend failure fallback; settlement stops if none can be assembled                                                                            | 6.2     | [6.2](vectors/6.2.md#proof-62-6)     |
 | PROOF-6.2-7   | rule       | Withdrawals use land's SignalService checkpoint directly                                                                                       | 6.2     | [6.2](vectors/6.2.md#proof-62-7)     |
 | PROOF-6.2-8   | rule       | parentHeight/parentHash and headBefore are taken at proof origin p                                                                             | 6.2     | [6.2](vectors/6.2.md#proof-62-8)     |
@@ -452,21 +452,21 @@
 | START-10-22   | rule       | Initial state: anchor L1_0, FI cursor 0, checkpoint (0, genesis hash)                                                                          | 10      | [10](vectors/10.md#start-10-22)      |
 | START-10-23   | rule       | The generator writes an empty parameter-update authority                                                                                       | 10      | [10](vectors/10.md#start-10-23)      |
 | START-10-24   | rule       | In-place migration unsupported; no state deletion to bypass version checks                                                                     | 10      | [10](vectors/10.md#start-10-24)      |
-| START-10.1-1  | rule       | Upgrades stop production and settle before switching rules; no zero-downtime                                                                   | 10.1    | [10.1](vectors/10.1.md#start-101-1)  |
-| START-10.1-2  | rule       | Operational restarts that preserve rules retain same-domain signer state                                                                       | 10.1    | [10.1](vectors/10.1.md#start-101-2)  |
-| START-10.1-3  | rule       | Section 10 immutables need a new Inbox/genesis; 10.1 cannot bypass them                                                                        | 10.1    | [10.1](vectors/10.1.md#start-101-3)  |
-| START-10.1-4  | rule       | Upgrade plan binds deployment, generation, H, clients, images, verifier ranges                                                                 | 10.1    | [10.1](vectors/10.1.md#start-101-4)  |
-| START-10.1-5  | rule       | Plan authenticated through the DAO/timelock, enforced in nodes and L1                                                                          | 10.1    | [10.1](vectors/10.1.md#start-101-5)  |
-| START-10.1-6  | rule       | Registering a new image alone is not a protocol upgrade                                                                                        | 10.1    | [10.1](vectors/10.1.md#start-101-6)  |
-| START-10.1-7  | rule       | Coordinate signers to stop above H while retaining all HRS state                                                                               | 10.1    | [10.1](vectors/10.1.md#start-101-7)  |
-| START-10.1-8  | rule       | Settle through H under old rules; authenticate its checkpoint before H+1                                                                       | 10.1    | [10.1](vectors/10.1.md#start-101-8)  |
-| START-10.1-9  | rule       | The plan must take effect before signing crosses the boundary                                                                                  | 10.1    | [10.1](vectors/10.1.md#start-101-9)  |
-| START-10.1-10 | rule       | Above H: do not erase state or move the boundary; replan or use section 8                                                                      | 10.1    | [10.1](vectors/10.1.md#start-101-10) |
-| START-10.1-11 | rule       | Isolate in-flight jobs by deployment, generation, version, height range                                                                        | 10.1    | [10.1](vectors/10.1.md#start-101-11) |
-| START-10.1-12 | rule       | Old jobs settle or are invalidated, never rewritten into a new version                                                                         | 10.1    | [10.1](vectors/10.1.md#start-101-12) |
-| START-10.1-13 | rule       | Retain old material for replay; no old-rules-only image above H                                                                                | 10.1    | [10.1](vectors/10.1.md#start-101-13) |
-| START-10.1-14 | rule       | New images must not implicitly change history through H                                                                                        | 10.1    | [10.1](vectors/10.1.md#start-101-14) |
-| START-10.1-15 | rule       | Define and test acceptance ranges, switching transaction and rollback plan                                                                     | 10.1    | [10.1](vectors/10.1.md#start-101-15) |
+| START-10.1-1  | rule       | Timestamp EL forks; structural checkpoint switch and downtime scope                                                                            | 10.1    | [10.1](vectors/10.1.md#start-101-1)  |
+| START-10.1-2  | rule       | Operational restart requires identical commitments and retained signer state                                                                   | 10.1    | [10.1](vectors/10.1.md#start-101-2)  |
+| START-10.1-3  | rule       | Immutable/domain/genesis changes remain separate migrations                                                                                    | 10.1    | [10.1](vectors/10.1.md#start-101-3)  |
+| START-10.1-4  | rule       | Canonical plan binds scope, T/H, structure, adapters and verifier policy                                                                       | 10.1    | [10.1](vectors/10.1.md#start-101-4)  |
+| START-10.1-5  | rule       | Owner-authorized journal, lead bounds, grids and L1/node enforcement                                                                           | 10.1    | [10.1](vectors/10.1.md#start-101-5)  |
+| START-10.1-6  | rule       | Per-block timestamp selects EL rules; image registration is insufficient                                                                       | 10.1    | [10.1](vectors/10.1.md#start-101-6)  |
+| START-10.1-7  | rule       | Structural signer fence and refusal/safety consequences                                                                                        | 10.1    | [10.1](vectors/10.1.md#start-101-7)  |
+| START-10.1-8  | rule       | Atomic structural activation at exact authenticated checkpoint H                                                                               | 10.1    | [10.1](vectors/10.1.md#start-101-8)  |
+| START-10.1-9  | rule       | Finalized supported plans precede affected signatures                                                                                          | 10.1    | [10.1](vectors/10.1.md#start-101-9)  |
+| START-10.1-10 | rule       | No retroactive boundaries; cancellation and recovery history                                                                                   | 10.1    | [10.1](vectors/10.1.md#start-101-10) |
+| START-10.1-11 | rule       | Mixed timestamp batches allowed; structural batches cannot cross H                                                                             | 10.1    | [10.1](vectors/10.1.md#start-101-11) |
+| START-10.1-12 | rule       | Range-scoped old jobs and explicit on-chain invalidation                                                                                       | 10.1    | [10.1](vectors/10.1.md#start-101-12) |
+| START-10.1-13 | rule       | Statement/header binding and exact verifier/image routing                                                                                      | 10.1    | [10.1](vectors/10.1.md#start-101-13) |
+| START-10.1-14 | rule       | Complete historical rules retained by both guests                                                                                              | 10.1    | [10.1](vectors/10.1.md#start-101-14) |
+| START-10.1-15 | rule       | Implementation and upgrade acceptance before use; no obsolete fallback                                                                         | 10.1    | [10.1](vectors/10.1.md#start-101-15) |
 | PARAM-11-1    | rule       | Node-splitting parameters come only from L1 or the client; local config cannot                                                                 | 11      | [11](vectors/11.md#param-11-1)       |
 | PARAM-11-2    | rule       | Table values are references only; deployment follows L1 and section 10                                                                         | 11      | [11](vectors/11.md#param-11-2)       |
 | PARAM-11-3    | rule       | assignedPower is computed under 4.3, not from node-local configuration                                                                         | 11      | [11](vectors/11.md#param-11-3)       |
@@ -492,7 +492,7 @@
 | LIMIT-12-7    | limitation | No rotation power-change limit; the top n_max by stake is selected                                                                             | 12      | [12](vectors/12.md)                  |
 | LIMIT-12-8    | limitation | Refunds depend on settlement and the post-confirmation evidence window                                                                         | 12      | [12](vectors/12.md)                  |
 | LIMIT-12-9    | limitation | The switch from Unzen is not included yet                                                                                                      | 12      | [12](vectors/12.md)                  |
-| LIMIT-12-10   | limitation | The upgrade activation mechanism is not fully designed yet                                                                                     | 12      | [12](vectors/12.md)                  |
+| LIMIT-12-10   | limitation | Defined upgrade design still requires implementation and acceptance                                                                            | 12      | [12](vectors/12.md)                  |
 | LIMIT-12-10a  | rule       | L1 forks that change existing fields or the state commitment need client and guest upgrades and image registrations before they activate on L1 | 12      | [12](vectors/12.md#limit-12-10a)     |
 | LIMIT-12-11   | limitation | Registry capacity: 4096 slots, each locking minStake                                                                                           | 12      | [12](vectors/12.md)                  |
 | LIMIT-12-12   | limitation | No automatic gradual-offline handling; power is not reduced                                                                                    | 12      | [12](vectors/12.md)                  |
@@ -507,7 +507,7 @@
 | ENC-A-1       | rule       | APP_VERSION=1, versioned domain tags V1, envelope/payload prefix 0x06                                                                          | A       | [A](vectors/A.md#enc-a-1)            |
 | ENC-A-2       | rule       | Config is seven words (224 bytes); CommitteeRecord has five fields                                                                             | A       | [A](vectors/A.md#enc-a-2)            |
 | ENC-A-3       | rule       | Slot 285 holds three words                                                                                                                     | A       | [A](vectors/A.md#enc-a-3)            |
-| ENC-A-4       | rule       | Acceptance binds to the config; client or image changes activate no rules                                                                      | A       | [A](vectors/A.md#enc-a-4)            |
+| ENC-A-4       | rule       | Authenticated upgrade policy binds image acceptance; V1 ABI retained                                                                           | A       | [A](vectors/A.md#enc-a-4)            |
 | ENC-A-5       | rule       | Protocol hashes: abi.encode; right-zero-padded bytes32 tags; two excepted lists                                                                | A       | [A](vectors/A.md#enc-a-5)            |
 | ENC-A-6       | rule       | chainDomain: keccak256 over V1 tag, L1/L2 chain ids, inbox, generation                                                                         | A       | [A](vectors/A.md#enc-a-6)            |
 | ENC-A-7       | rule       | chain_id: "etna-" plus unpadded base64url of chainDomain, 48 bytes                                                                             | A       | [A](vectors/A.md#enc-a-7)            |
@@ -627,7 +627,7 @@
 | 5.2     | 9   | 31      | 4                |
 | 5.3     | 9   | 26      | 4                |
 | 6.1     | 13  | 52      | 4                |
-| 6.2     | 47  | 174     | 14               |
+| 6.2     | 47  | 174     | 13               |
 | 6.3     | 14  | 50      | 3                |
 | 6.4     | 16  | 60      | 4                |
 | 7.1     | 13  | 47      | 6                |
@@ -641,9 +641,9 @@
 | 9       | 16  | 75      | 7                |
 | 9.1     | 10  | 31      | 5                |
 | 10      | 24  | 96      | 5                |
-| 10.1    | 15  | 45      | 7                |
-| 11      | 16  | 64      | 7                |
-| 12      | 19  | 3       | 7                |
+| 10.1    | 15  | 70      | 0                |
+| 11      | 16  | 64      | 6                |
+| 12      | 19  | 3       | 6                |
 | A       | 58  | 289     | 5                |
 | B       | 34  | 127     | 5                |
 | C       | 12  | 28      | 5                |

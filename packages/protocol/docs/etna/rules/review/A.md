@@ -42,15 +42,17 @@ Raised by: DeepSeek-V4.1-Flash (dantaik)
 
 ## Q-A-3
 
-**Nothing in the seven-word config binds guest-image acceptance**
+**Which concrete deployments and images implement the authenticated acceptance policy?**
 
-**Text.** ENC-A-4: "Bind real guest-image/verifier acceptance to the config; until the upgrade mechanism is complete, changing clients or registering an image does not activate new rules." ENC-A-2: "Config has seven words/224 bytes". The seven-word preimage is "`committeeConfigHash = keccak256(abi.encode(bytes32("ETNA_PARENT_ANCHOR_V1"), l2ChainId, registry,` / `vp_unit, s_min, n_max, U))  // 7 words, 224 bytes`".
+**Text.** ENC-A-4 binds real guest-image/verifier acceptance to the config and authenticated 10.1 plan, whose outer envelope preserves the V1 statement.
 
-**Why it matters.** The config carries no image, verifier or code-hash field, so there is nothing for acceptance to bind to. 6.2 pins "the verifier address, code hash and accepted image set ... in the deployment manifest", and 10.1 says the activation mechanism "is not fully designed yet". Two clients can therefore both conform while disagreeing about whether a newly registered image may settle, which is exactly what the sentence is trying to settle.
+**Why it matters.** The canonical plan, exact image tuples and terminal-header binding are now specified. Runtime artifacts still need to implement those interfaces and publish reproducible identity/acceptance evidence, including per-proof checks independent of mutable backend allowlists.
 
-**Would close it.** Name the mechanism that ties image acceptance to the config — for example image hashes in a manifest authenticated at the boundary height, or an extension of the config — or say explicitly that acceptance is manifest-bound until the upgrade mechanism lands.
+**Would close it.** Publish the deployed router/adapter/policy code identities, pinned images and passing upgrade acceptance for the selected versions.
 
 Raised by: DeepSeek-V4.1-Flash (dantaik)
+
+Raised by: Codex (davidtaikocha), scope updated for the owner-requested upgrade mechanism.
 
 ## Q-A-4
 

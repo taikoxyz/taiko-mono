@@ -9,13 +9,14 @@ The Etna fork includes two designs, both in this directory:
   and finalizes them instantly; anyone can land a proven batch on L1, and funds
   on L1 recognize only landed checkpoints. The target is Stage 0.
 
-| File                           | Contents                                                                          |
-| ------------------------------ | --------------------------------------------------------------------------------- |
-| [ANCHORLESS.md](ANCHORLESS.md) | The anchorless design: header, contract changes, fork and upgrade order           |
-| [SPEC.md](SPEC.md)             | The PoS + ZK design specification, sections 1–12 and appendices A–C               |
-| [ACCEPTANCE.md](ACCEPTANCE.md) | The acceptance and launch checklist for SPEC.md                                   |
-| [rules/](rules/README.md)      | Stable rule references for SPEC.md, with vectors and review questions             |
-| [CLAUDE.md](CLAUDE.md)         | Guidance for AI agents editing SPEC.md and rules/; `AGENTS.md` is a symlink to it |
+| File                           | Contents                                                                              |
+| ------------------------------ | ------------------------------------------------------------------------------------- |
+| [ANCHORLESS.md](ANCHORLESS.md) | The anchorless design: header, contract changes, fork and upgrade order               |
+| [SPEC.md](SPEC.md)             | The PoS + ZK design specification, sections 1–12 and appendices A–C                   |
+| [ACCEPTANCE.md](ACCEPTANCE.md) | The acceptance and launch checklist for SPEC.md                                       |
+| [UPGRADES.md](UPGRADES.md)     | Canonical upgrade plans, timestamp EL forks, structural checkpoints and proof routing |
+| [rules/](rules/README.md)      | Stable rule references for SPEC.md, with vectors and review questions                 |
+| [CLAUDE.md](CLAUDE.md)         | Guidance for AI agents editing SPEC.md and rules/; `AGENTS.md` is a symlink to it     |
 
 The Etna block-production and validation rules are in
 [SPEC.md section 3](SPEC.md#3-consensus-and-blocks). Its header encoding is also recorded in
@@ -62,6 +63,7 @@ The Etna block-production and validation rules are in
 
 ### Key review points
 
+- **Upgrades:** ordinary EL forks use each block's timestamp and permit mixed-rule batches; structural upgrades settle exactly through common-grid H before authenticated activation at H+1. The on-chain plan journal, verifier routing and failure paths are specified in [UPGRADES.md](UPGRADES.md); runtime implementation and acceptance remain required.
 - **Consensus and signing:** stock CometBFT v0.40.0 with secp256k1eth keys, a
   signing domain bound to the deployment and recovery generation, committee
   changes activated two heights after they are derived, and an external signer
@@ -92,7 +94,7 @@ The Etna block-production and validation rules are in
   settlement rollback runs in the same DAO upgrade of the Inbox and registry that
   replaces the verifier.
 - **Open design and acceptance:** the Unzen switch and bridge wiring (section 12
-  item 9), upgrade activation (item 10), registration admission bounds (item 14)
+  item 9), upgrade implementation/acceptance (item 10), registration admission bounds (item 14)
   and deployment values for the capital target, reference price and forfeiture rate
   (item 18) remain to be pinned before launch. The value of K and the
   proving capacity behind it (6.3, section 11) are set by the checklist's
