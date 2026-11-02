@@ -114,11 +114,11 @@ class CheckerCLIStagesTests(unittest.TestCase):
         self.run_check("FAIL tables:")
 
     def test_helper_prose_invalidates_current_seal(self):
-        self.edit("UPGRADES.md", "**T > checkpointTimestamp**", "**T >= checkpointTimestamp**")
+        self.edit("UPGRADES.md", "maxAnchorAge < T", "maxAnchorAge <= T")
         self.run_check("FAIL amendments: stale content digest START-10.1-5")
 
     def test_helper_definition_invalidates_current_seal(self):
-        self.edit("UPGRADES.md", "uint256 boundary,", "uint8 boundary,")
+        self.edit("UPGRADES.md", "uint64 triggerTimestamp,", "uint8 triggerTimestamp,")
         self.run_check("FAIL amendments: stale content digest START-10.1-4")
 
     def test_reference_solidity_invalidates_current_seal(self):

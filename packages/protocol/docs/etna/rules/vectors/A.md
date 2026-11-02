@@ -271,16 +271,12 @@ _`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` fo
 
 ## ENC-A-25
 
-| Vector      | Setup                                                                        | Expected                                                  |
-| ----------- | ---------------------------------------------------------------------------- | --------------------------------------------------------- |
-| 25.a accept | anchor slots are exactly [268,270,271,281,UPGRADE_BASE+9] in order; scalar=0 | conforms                                                  |
-| 25.b reject | anchor slot order differs                                                    | violates ENC-A-25 exact order; block invalid (CONS-3.4-3) |
-| 25.c reject | anchor omits fence slot UPGRADE_BASE+9 or substitutes a different slot       | block invalid (CONS-3.4-3; PROOF-6.2-11)                  |
-| 25.d accept | forced entry i proves base/base+1, base=keccak256(abi.encode(i,280))         | conforms                                                  |
-| 25.e reject | forced mapping base uses another slot/index                                  | violates ENC-A-25                                         |
-| 25.f reject | forced slots are [base+1,base]                                               | violates ENC-A-25 exact order                             |
-| 25.g accept | scalar=(generation<<48)+H, H>0, high bits zero; block height<=H              | conforms (CONS-3.4-3)                                     |
-| 25.h reject | scalar has high bits set or is nonzero with H=0                              | malformed witness; block invalid (CONS-3.4-3)             |
+| Vector      | Setup                                                                                             | Expected                                               |
+| ----------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| 25.a accept | anchor slots [268,270,271,281,upgradeTriggerSlot] exactly in order; valid packed (generation,B,T) | matches                                                |
+| 25.b reject | missing/extra/reordered role slots or upgradeTriggerSlot differs from UPGRADE_BASE+9              | witness/proposal invalid (ENC-A-24; CONS-3.4-3)        |
+| 25.c reject | nonzero trigger has zero T, B=0/B>30, high bits set or overflowing generation                     | witness/proposal invalid                               |
+| 25.d reject | per-block ancestor predicate skipped after current trigger cleared                                | both guests reject historical violation (PROOF-6.2-11) |
 
 ## ENC-A-26
 
@@ -563,15 +559,11 @@ _`abi.encode(left, right)` of two `bytes32` words equals their plain concatenati
 
 ## ENC-A-51
 
-| Vector      | Setup                                                                         | Expected                                                    |
-| ----------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| 51.a accept | exclusions [bondId 1,5,9], seventh argument is bytes32 cancellation hash      | conforms                                                    |
-| 51.b reject | exclusions are [1,9,5] or [1,5,5]                                             | violates ENC-A-51 strict ordering                           |
-| 51.c accept | cancelPendingTimestampPlanHash=0                                              | preserve pending timestamp; no mode/bytes wrapper           |
-| 51.d accept | nonzero hash is exact pending kind-1 with T>checkpointTimestamp               | atomic cancellation with suffix recovery                    |
-| 51.e reject | nonzero hash names a pending structural kind-2 record                         | recover reverts (RECOV-8.3-3/16)                            |
-| 51.f reject | hash names active/cancelled/stale/unknown timestamp or T<=checkpointTimestamp | recover reverts                                             |
-| 51.g reject | a dynamic encoded action is substituted for the bytes32 seventh argument      | violates canonical recover interface (ENC-A-51; RECOV-8-37) |
+| Vector      | Setup                                                                | Expected                                             |
+| ----------- | -------------------------------------------------------------------- | ---------------------------------------------------- |
+| 51.a accept | canonical six-argument recover; exclusions sorted strictly by bondId | matches                                              |
+| 51.b reject | unsorted/duplicate exclusion IDs or dynamic/seventh upgrade argument | violates ENC-A-51; recover reverts (RECOV-8.3-16)    |
+| 51.c accept | pending validity upgrade exists                                      | recover atomically stales it and clears trigger/seal |
 
 ## ENC-A-52
 

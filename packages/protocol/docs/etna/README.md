@@ -9,14 +9,14 @@ The Etna fork includes two designs, both in this directory:
   and finalizes them instantly; anyone can land a proven batch on L1, and funds
   on L1 recognize only landed checkpoints. The target is Stage 0.
 
-| File                           | Contents                                                                              |
-| ------------------------------ | ------------------------------------------------------------------------------------- |
-| [ANCHORLESS.md](ANCHORLESS.md) | The anchorless design: header, contract changes, fork and upgrade order               |
-| [SPEC.md](SPEC.md)             | The PoS + ZK design specification, sections 1–12 and appendices A–C                   |
-| [ACCEPTANCE.md](ACCEPTANCE.md) | The acceptance and launch checklist for SPEC.md                                       |
-| [UPGRADES.md](UPGRADES.md)     | Canonical upgrade plans, timestamp EL forks, structural checkpoints and proof routing |
-| [rules/](rules/README.md)      | Stable rule references for SPEC.md, with vectors and review questions                 |
-| [CLAUDE.md](CLAUDE.md)         | Guidance for AI agents editing SPEC.md and rules/; `AGENTS.md` is a symlink to it     |
+| File                           | Contents                                                                             |
+| ------------------------------ | ------------------------------------------------------------------------------------ |
+| [ANCHORLESS.md](ANCHORLESS.md) | The anchorless design: header, contract changes, fork and upgrade order              |
+| [SPEC.md](SPEC.md)             | The PoS + ZK design specification, sections 1–12 and appendices A–C                  |
+| [ACCEPTANCE.md](ACCEPTANCE.md) | The acceptance and launch checklist for SPEC.md                                      |
+| [UPGRADES.md](UPGRADES.md)     | Canonical plans, timestamp-triggered checkpoint pauses, activation and proof routing |
+| [rules/](rules/README.md)      | Stable rule references for SPEC.md, with vectors and review questions                |
+| [CLAUDE.md](CLAUDE.md)         | Guidance for AI agents editing SPEC.md and rules/; `AGENTS.md` is a symlink to it    |
 
 The Etna block-production and validation rules are in
 [SPEC.md section 3](SPEC.md#3-consensus-and-blocks). Its header encoding is also recorded in
@@ -63,7 +63,7 @@ The Etna block-production and validation rules are in
 
 ### Key review points
 
-- **Upgrades:** ordinary EL forks use each block's timestamp and permit mixed-rule batches; structural upgrades settle exactly through common-grid H before authenticated activation at H+1. The on-chain plan journal, verifier routing and failure paths are specified in [UPGRADES.md](UPGRADES.md); runtime implementation and acceptance remain required.
+- **Upgrades:** all validity changes publish T, run old rules through the first eligible checkpoint H at/after T, pause, settle H and explicitly activate new rules at H+1. Same-rule proof maintenance is separate. The on-chain plan journal, verifier routing and failure paths are specified in [UPGRADES.md](UPGRADES.md); runtime implementation and acceptance remain required.
 - **Consensus and signing:** stock CometBFT v0.40.0 with secp256k1eth keys, a
   signing domain bound to the deployment and recovery generation, committee
   changes activated two heights after they are derived, and an external signer
@@ -88,7 +88,7 @@ The Etna block-production and validation rules are in
 - **Recovery:** the owner calls `recover` with the expected generation, c and
   recovery nonce, an authorization deadline, a checkpoint-safe optional pending-timestamp cancellation hash, and atomic exclusion and FI-blanking
   lists. The Inbox keeps only the authorization nonce, with no recovery queue or
-  stall timer; explicit invalidation and verifier-failure rollback advance it. Exclusions force exits without slashing. The settled prefix stays;
+  stall timer; explicit invalidation and verifier-failure rollback advance it. Exclusions force exits without slashing. Recovery also stales pending validity plans and clears pause state. The settled prefix stays;
   the unsettled suffix is discarded, and the new generation starts from a fixed,
   authenticated origin. A verifier failure is not handled by `recover`: its
   settlement rollback runs in the same DAO upgrade of the Inbox and registry that
