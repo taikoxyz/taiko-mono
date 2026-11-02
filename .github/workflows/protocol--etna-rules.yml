@@ -29,6 +29,17 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      - name: Ensure comparison base is available
+        env:
+          ETNA_RULES_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if ! git cat-file -e "$ETNA_RULES_BASE^{commit}" 2>/dev/null; then
+            if ! git fetch --no-tags --depth=1 origin "$ETNA_RULES_BASE"; then
+              echo "::error::Cannot retrieve the comparison base; a complete amendment delta cannot be checked."
+              exit 1
+            fi
+          fi
+
       - name: Check rule references
         env:
           ETNA_RULES_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}

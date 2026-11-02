@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Consistency checks for the rule-reference layer.
 
-    python3 rules/tools/check.py [--base REV]
+    python3 rules/tools/check.py [--base REV] [--amendments-base REV]
 
 Checks:
   1. purity   (only when --base is given) stripping every marker from SPEC.md reproduces that
@@ -16,12 +16,15 @@ Checks:
   4. assets   every section has a vectors and a review file; every live rule ID has a vector
               heading; no vector heading names an unknown ID
   5. incorporation UPGRADES.md sections have live governing rule IDs and SPEC backlinks
+     amendments compare complete governed scopes and require fresh content digests
+     coverage checks actual ID/vector/question counts and unique vector labels
+     structure checks ATX headings, closed fences and authorized marker placement
   6. links    relative links and #fragments resolve, and markdown tables have consistent columns
               (pipes inside inline code spans and escaped pipes are not separators)
 
 Exit code 0 only if every check passes.
 """
-import argparse, glob, os, re, subprocess, sys
+import argparse, glob, hashlib, os, re, subprocess, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 RULES = os.path.dirname(HERE)
@@ -66,13 +69,13 @@ def norm(text):
     return NL.join(out)
 
 
-def git_show(rev):
-    try:
-        top = subprocess.check_output(["git", "-C", DOCS, "rev-parse", "--show-toplevel"]).decode().strip()
-        rel = os.path.relpath(SPEC, top)
-        return subprocess.check_output(["git", "-C", DOCS, "show", rev + ":" + rel]).decode()
-    except Exception:
+def git_show(rev, relative="SPEC.md"):
+    top = subprocess.run(["git", "-C", DOCS, "rev-parse", "--show-toplevel"], capture_output=True, text=True)
+    if top.returncode:
         return None
+    path = os.path.relpath(os.path.join(DOCS, relative), top.stdout.strip())
+    result = subprocess.run(["git", "-C", DOCS, "show", rev + ":" + path], capture_output=True, text=True)
+    return result.stdout if result.returncode == 0 else None
 
 
 def split_cells(line):
@@ -122,7 +125,8 @@ SECTION = re.compile("^#{2,3} (?:Appendix ([A-C])[^A-Za-z0-9]|([0-9]+(?:[.][0-9]
 
 def section_finder(text):
     """Return a function mapping a SPEC.md offset to the section that contains it."""
-    starts = [(m.start(), m.group(1) or m.group(2)) for m in SECTION.finditer(text)]
+    masked, _ = outside_fences(text)
+    starts = [(m.start(), m.group(1) or m.group(2)) for m in SECTION.finditer(masked)]
 
     def at(pos):
         sec = None
@@ -140,21 +144,53 @@ def slug(h):
     return s.replace(" ", "-")
 
 
-def outside_fences(text):
-    """Keep non-code lines; CommonMark closers match the opening character/length."""
-    out, opening = [], None
-    for line in text.splitlines():
-        fence = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
+def markdown_regions(text):
+    """Mask fenced code while retaining offsets; return complete raw fenced regions."""
+    out, opening, regions, offset = [], None, [], 0
+    for line in text.splitlines(keepends=True):
+        content = line.rstrip("\r\n")
+        fence = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", content)
+        hidden = opening is not None
         if opening:
-            if fence and fence[1][0] == opening[0] and len(fence[1]) >= opening[1] and not fence[2].strip():
+            char, length, start, info = opening
+            if fence and fence[1][0] == char and len(fence[1]) >= length and not fence[2].strip():
+                regions.append((start, offset + len(line), info))
                 opening = None
-            out.append("")
         elif fence and not (fence[1][0] == "`" and "`" in fence[2]):
-            opening = (fence[1][0], len(fence[1]))
-            out.append("")
-        else:
-            out.append(line)
-    return NL.join(out), opening is not None
+            opening = (fence[1][0], len(fence[1]), offset, fence[2].strip())
+            hidden = True
+        out.append(" " * len(content) + line[len(content):] if hidden else line)
+        offset += len(line)
+    return "".join(out), opening is not None, regions
+
+
+def outside_fences(text):
+    masked, unclosed, _ = markdown_regions(text)
+    return masked, unclosed
+
+
+def check_markdown_structure(name, text):
+    masked, unclosed = outside_fences(text)
+    msgs = ["markdown: unclosed fence in " + name] if unclosed else []
+    lines = masked.splitlines()
+    for i, line in enumerate(lines):
+        if i and lines[i - 1].strip() and re.fullmatch(r" {0,3}(?:=+|-+)[ \t]*", line):
+            msgs.append("markdown: setext headings are unsupported in " + name + "; use ATX headings")
+    return msgs
+
+
+def check_marker_placement(spec):
+    _, _, regions = markdown_regions(spec)
+    locate, msgs = section_finder(spec), []
+    for marker in INLINE.finditer(spec):
+        if any(start <= marker.start() < end for start, end, _ in regions):
+            msgs.append("placement: inline rule inside fenced code " + marker[1])
+    for marker in CODE.finditer(spec):
+        authorized = marker[1].startswith("ENC-A-") and locate(marker.start()) == "A" and any(
+            start <= marker.start() < end and info == "txt" for start, end, info in regions)
+        if not authorized:
+            msgs.append("placement: code-before marker outside Appendix A definition " + marker[1])
+    return msgs
 
 
 def check_incorporation(spec, helper, index):
@@ -207,13 +243,47 @@ def rule_bodies(text):
                 end = min(end, blank)
         else:
             end = min(end, text.find(NL, start) if NL in text[start:] else len(text))
-        bodies[rid] = re.sub(r"\s+", " ", text[start:end]).strip()
+        body = text[start:end].strip()
+        # Preserve definition bytes and inline code; only prose spacing is formatter-owned.
+        parts = re.split(r"(`[^`]*`)", body)
+        bodies[rid] = body if code else "".join(part if i % 2 else re.sub(r"\s+", " ", part)
+                                                for i, part in enumerate(parts)).strip()
     return bodies
 
 
-def check_amendments(spec, index_text, index, baseline=None):
+def governed_bodies(spec, helper=""):
+    """Include incorporated helper sections and the normative landing reference block."""
+    bodies = rule_bodies(spec)
+    masked, _, regions = markdown_regions(spec)
+    if "LAND-6.1-10" in bodies:
+        locate = section_finder(spec)
+        references = [spec[start:end].strip() for start, end, info in regions
+                      if info == "solidity" and locate(start) == "6.1"]
+        if len(references) != 1:
+            raise ValueError("reference Solidity under LAND-6.1-10 must be exactly one block")
+        bodies["LAND-6.1-10"] += "\n[reference Solidity]\n" + references[0]
+    masked, _ = outside_fences(helper)
+    sections = list(re.finditer(r"^## (.+)$", masked, re.M))
+    for i, section in enumerate(sections):
+        end = sections[i + 1].start() if i + 1 < len(sections) else len(helper)
+        owners = re.findall(r"^<!-- governed-by: (" + ID + r") -->$", masked[section.end():end], re.M)
+        if len(owners) == 1 and owners[0] in bodies:
+            bodies[owners[0]] += "\n[UPGRADES.md#" + slug(section[1]) + "]\n" + helper[section.start():end].strip()
+    return bodies
+
+
+def content_digest(body):
+    return hashlib.blake2s(body.encode("utf-8")).hexdigest()
+
+
+def check_amendments(spec, index_text, index, baseline=None, helper="", baseline_helper=""):
     section = re.search(r"^## Material amendments\n(.*?)(?=^## |\Z)", index_text, re.M | re.S)
     msgs, declared = [], set()
+    try:
+        current = governed_bodies(spec, helper)
+        previous = governed_bodies(baseline, baseline_helper) if baseline is not None else None
+    except ValueError as error:
+        return ["amendments: " + str(error)]
     if section:
         for line in section[1].splitlines():
             cells = split_cells(line)
@@ -225,12 +295,13 @@ def check_amendments(spec, index_text, index, baseline=None):
             declared.add(rid)
             if rid not in index:
                 msgs.append("amendments: unknown amendment " + rid)
-            if len(cells) != 3 or not all(cells[1:]):
+            if len(cells) != 4 or not all(cells[1:]):
                 msgs.append("amendments: incomplete amendment " + rid)
-    if baseline is not None:
-        old, new = rule_bodies(baseline), rule_bodies(spec)
-        for rid in sorted(old.keys() & new.keys()):
-            if old[rid] != new[rid] and rid not in declared:
+            elif rid in current and cells[3] != content_digest(current[rid]):
+                msgs.append("amendments: stale content digest " + rid)
+    if previous is not None:
+        for rid in sorted(previous.keys() & current.keys()):
+            if previous[rid] != current[rid] and rid not in declared:
                 msgs.append("amendments: undeclared amendment " + rid)
     return msgs
 
@@ -305,6 +376,13 @@ def main():
     section_at = section_finder(text)
     bad = 0
 
+    upgrades = os.path.join(DOCS, "UPGRADES.md")
+    helper = open(upgrades).read()
+    msgs = check_markdown_structure("SPEC.md", text) + check_markdown_structure("UPGRADES.md", helper)
+    bad += fail(msgs) if msgs else (print("ok   markdown structure") or 0)
+    msgs = check_marker_placement(text)
+    bad += fail(msgs) if msgs else (print("ok   marker placement") or 0)
+
     # 1. purity
     if not args.base:
         print("SKIP purity (pass --base <revision-before-IDs> to run the migration check)")
@@ -375,7 +453,8 @@ def main():
     bad += fail(msgs) if msgs else (print("ok   index (%d live, %d retired)" % (len(live), len(retired))) or 0)
 
     baseline = git_show(args.amendments_base) if args.amendments_base else None
-    msgs = check_amendments(text, open(INDEX).read(), index, baseline)
+    baseline_helper = (git_show(args.amendments_base, "UPGRADES.md") or "") if args.amendments_base else ""
+    msgs = check_amendments(text, open(INDEX).read(), index, baseline, helper, baseline_helper)
     if args.amendments_base and baseline is None:
         msgs.append("amendments: cannot read supplied base")
     bad += fail(msgs) if msgs else (print("ok   amendments" + (" (base delta checked)" if baseline is not None else " (declarations only)")) or 0)
@@ -406,8 +485,7 @@ def main():
     bad += fail(msgs) if msgs else (print("ok   coverage counts and vector labels") or 0)
 
     # 5. explicitly incorporated upgrade definitions
-    upgrades = os.path.join(DOCS, "UPGRADES.md")
-    msgs = check_incorporation(text, open(upgrades).read(), index)
+    msgs = check_incorporation(text, helper, index)
     bad += fail(msgs) if msgs else (print("ok   incorporation (UPGRADES.md)") or 0)
 
     # 6. links and tables

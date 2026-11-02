@@ -267,6 +267,7 @@ _`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` fo
 | 24.c reject | nonce precedes address                                                                                             | violates ENC-A-24 (order)                  |
 | 24.d reject | a storage entry has two or four items                                                                              | violates ENC-A-24 (`[slot, value, proof]`) |
 | 24.e reject | the seventh item is one `[slot, value, proof]` rather than a list of them                                          | violates ENC-A-24                          |
+| 24.f reject | role-specific storage slots are missing, extra or reordered, even with individually valid MPT paths                | witness and proposal invalid (ENC-A-24)    |
 
 ## ENC-A-25
 
@@ -562,15 +563,15 @@ _`abi.encode(left, right)` of two `bytes32` words equals their plain concatenati
 
 ## ENC-A-51
 
-| Vector      | Setup                                                                                       | Expected                                                 |
-| ----------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| 51.a accept | exclusions `[bondId 1, 5, 9]`                                                               | strictly increasing; conforms                            |
-| 51.b reject | exclusions `[1, 9, 5]`                                                                      | violates ENC-A-51 (not sorted)                           |
-| 51.c reject | exclusions `[1, 5, 5]`                                                                      | violates ENC-A-51 (not strictly increasing)              |
-| 51.d accept | canonical mode0 action, hash=0, both byte arrays empty                                      | pending timestamp preserved (RECOV-8.3-3)                |
-| 51.e reject | action has trailing bytes, unknown mode or nonempty forbidden fields                        | recover reverts (RECOV-8.3-3/16)                         |
-| 51.f accept | mode1/2 binds exact pending hash and T>checkpointTimestamp at authorized recovery           | cancellation/replacement only with atomic suffix discard |
-| 51.g reject | action encodes four top-level arguments instead of one dynamic tuple with outer 0x20 offset | noncanonical; recover reverts (ENC-A-51; RECOV-8.3-16)   |
+| Vector      | Setup                                                                         | Expected                                                    |
+| ----------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| 51.a accept | exclusions [bondId 1,5,9], seventh argument is bytes32 cancellation hash      | conforms                                                    |
+| 51.b reject | exclusions are [1,9,5] or [1,5,5]                                             | violates ENC-A-51 strict ordering                           |
+| 51.c accept | cancelPendingTimestampPlanHash=0                                              | preserve pending timestamp; no mode/bytes wrapper           |
+| 51.d accept | nonzero hash is exact pending kind-1 with T>checkpointTimestamp               | atomic cancellation with suffix recovery                    |
+| 51.e reject | nonzero hash names a pending structural kind-2 record                         | recover reverts (RECOV-8.3-3/16)                            |
+| 51.f reject | hash names active/cancelled/stale/unknown timestamp or T<=checkpointTimestamp | recover reverts                                             |
+| 51.g reject | a dynamic encoded action is substituted for the bytes32 seventh argument      | violates canonical recover interface (ENC-A-51; RECOV-8-37) |
 
 ## ENC-A-52
 
@@ -606,9 +607,8 @@ _`abi.encode(left, right)` of two `bytes32` words equals their plain concatenati
 
 Everything below is a question, not a vector. Each has an entry in [review/A.md](../review/A.md).
 
-| Rule                        | Gap                                                                                                                                  | Question                      |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
-| ENC-A-6 to ENC-A-55         | whether the now-citable blocks should still be restructured into prose or tables                                                     | [Q-A-1](../review/A.md#q-a-1) |
-| ENC-A-37, ENC-A-39–ENC-A-42 | whether a bare tag literal is a padded `bytes32` word or a dynamic string, and whether `ETNA_SET_NODE` is deliberately unversioned   | [Q-A-2](../review/A.md#q-a-2) |
-| ENC-A-24, ENC-A-25          | whether an out-of-order, extra or missing witness slot list makes a witness invalid; the order is now stated, the consequence is not | [Q-A-4](../review/A.md#q-a-4) |
-| Shared vectors              | the obligation itself is un-numbered and has no owner                                                                                | [Q-A-5](../review/A.md#q-a-5) |
+| Rule                        | Gap                                                                                                                                | Question                      |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| ENC-A-6 to ENC-A-55         | whether the now-citable blocks should still be restructured into prose or tables                                                   | [Q-A-1](../review/A.md#q-a-1) |
+| ENC-A-37, ENC-A-39–ENC-A-42 | whether a bare tag literal is a padded `bytes32` word or a dynamic string, and whether `ETNA_SET_NODE` is deliberately unversioned | [Q-A-2](../review/A.md#q-a-2) |
+| Shared vectors              | the obligation itself is un-numbered and has no owner                                                                              | [Q-A-5](../review/A.md#q-a-5) |

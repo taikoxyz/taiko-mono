@@ -1,4 +1,5 @@
 """Checker regression tests with independent fixtures for each validation branch."""
+import hashlib
 import pathlib
 import subprocess
 import sys
@@ -81,9 +82,11 @@ class AmendmentTests(unittest.TestCase):
         self.after = "**[START-10.1-1]** New requirement.\n"
         self.index = {"START-10.1-1": {"type": "rule"}}
         self.table = (
-            "## Material amendments\n\n| ID | Prior meaning | Current amendment |\n"
-            "| --- | --- | --- |\n| START-10.1-1 | Old | New |\n\n## Index\n"
+            "## Material amendments\n\n| ID | Prior meaning | Current amendment | Content digest |\n"
+            "| --- | --- | --- | --- |\n"
+            "| START-10.1-1 | Old | New | " + hashlib.blake2s(b"New requirement.").hexdigest() + " |\n\n## Index\n"
         )
+        self.row = next(line for line in self.table.splitlines() if line.startswith("| START-10.1-1")) + "\n"
 
     def errors(self):
         return check.check_amendments(self.after, self.table, self.index, self.before)
@@ -92,11 +95,11 @@ class AmendmentTests(unittest.TestCase):
         self.assertEqual(self.errors(), [])
 
     def test_missing_changed_id(self):
-        self.table = self.table.replace("| START-10.1-1 | Old | New |\n", "")
+        self.table = self.table.replace(self.row, "")
         self.assertTrue(any("undeclared amendment START-10.1-1" in m for m in self.errors()))
 
     def test_duplicate_amendment_id(self):
-        self.table = self.table.replace("## Index", "| START-10.1-1 | Other | New |\n\n## Index")
+        self.table = self.table.replace("## Index", self.row + "\n## Index")
         self.assertTrue(any("duplicate amendment" in m for m in self.errors()))
 
     def test_unknown_amendment_id(self):
@@ -105,13 +108,13 @@ class AmendmentTests(unittest.TestCase):
 
     def test_formatting_does_not_require_amendment(self):
         self.after = "**[START-10.1-1]** Old   requirement.\n"
-        self.table = self.table.replace("| START-10.1-1 | Old | New |\n", "")
+        self.table = self.table.replace(self.row, "")
         self.assertEqual(self.errors(), [])
 
     def test_definition_block_change_requires_amendment(self):
         self.before = "```txt\n// [START-10.1-1]\nfield = old\n```\n"
         self.after = self.before.replace("field = old", "field = new")
-        self.table = self.table.replace("| START-10.1-1 | Old | New |\n", "")
+        self.table = self.table.replace(self.row, "")
         self.assertTrue(any("undeclared amendment" in m for m in self.errors()))
 
 
