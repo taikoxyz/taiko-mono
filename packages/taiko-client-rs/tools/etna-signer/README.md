@@ -101,3 +101,50 @@ that is behind regains trust only after Comet syncs. Every new transport still b
 closed session. Terminal trust/domain failures persist a latch and leave the supervisor
 alive and quiescent, including after container restart. See the package README for the
 supported combined image and separate app/supervisor container commands.
+
+## Generation authority
+
+After the previous signer has stopped, use the same registered key and original
+state path with these additional serve options:
+
+```sh
+--authority-root /absolute/private/authority \
+--l1-chain-id 1 --l2-chain-id 167001 \
+--inbox 0x1111111111111111111111111111111111111111 \
+--generation 2 --enroll-legacy
+```
+
+`--chain-id` must equal the canonical domain derived from both full decimal
+uint256 chain IDs, Inbox and generation. Keep the authority directory, key,
+original state and their adjacent `.lock` / `.authority.json` files outside
+Comet mounts and all disposable app/recovery directories. The canonical key,
+original state and authority root have exclusive owner locks. Symlink aliases
+share ownership; hard-linked signing files are refused.
+
+`--enroll-legacy` explicitly enrolls the existing generation-zero HRS once,
+checking any signed bytes against that domain without rewriting the key or HRS.
+Repeating the flag with exactly the same binding is idempotent. Incomplete marker
+publication requires this flag to resume; missing completed markers, registry or
+enrolled HRS require investigation. Neither enrollment nor a prepared recovery
+plan grants permission to sign. Once either external enrollment marker exists,
+standalone serve mode refuses that key/state.
+
+Authority mode requests private control schema 2. Its `recovery_origin` contains
+`generation`, `height`, `l1_number`, `l1_hash`, `l1_timestamp`, `el_hash`,
+`comet_hash`, `forced_cursor`, and `committee_hash` (the initial committee set
+root). The app derives this summary from independently verified bootstrap
+witnesses and refuses schema-1 control requests once initialized for recovery.
+Schema 2 includes a null origin before authentication or for generation zero.
+PubKey/Ping and the initial Comet handshake work while trust is closed and do not
+create a recovered HRS. Every signature and retry requires fresh private session
+Ready with the configured domain and consistent checkpoint/origin.
+
+An authenticated transition fsyncs an intent that permanently fences older
+generations, exclusively creates an unsigned stock state named `<chain-id>.json`,
+and atomically publishes enrollment plus the generation watermark before any
+signature. Generations may be skipped. A restart can finish a matching intent
+with absent or provably unsigned staging, after obtaining fresh authorization.
+Signed orphan state, missing/corrupt enrolled state, changed binding or changed
+origin fails closed. Preserve the entire registry and every historical state;
+never delete metadata to retry recovery. Stock FilePV still owns HRS checks and
+signing, with directory fsync completed before the transport receives a signature.

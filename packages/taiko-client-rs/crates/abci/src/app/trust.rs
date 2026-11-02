@@ -66,6 +66,31 @@ pub enum TrustPhase {
     Halted,
 }
 
+/// Immutable recovery identity authenticated by the app's retained bootstrap evidence.
+/// Private control caches this summary; signature requests never load the witness sidecar.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecoveryTrustOrigin {
+    /// Authenticated nonzero generation.
+    pub generation: u64,
+    /// Fixed retained L2 checkpoint c.
+    pub height: u64,
+    /// Canonical recovery execution block R.
+    pub l1_number: u64,
+    /// Hash of the proof-verified R header.
+    pub l1_hash: B256,
+    /// Timestamp of R in Unix seconds.
+    pub l1_timestamp: u64,
+    /// Retained execution hash at c.
+    pub el_hash: B256,
+    /// Retained old-generation Comet boundary hash at c.
+    pub comet_hash: B256,
+    /// Authenticated forced-inclusion cursor at c.
+    pub forced_cursor: u64,
+    /// Initial independently derived committee set root.
+    pub committee_hash: B256,
+}
+
 /// Versioned read-only signing/readiness snapshot. Null identity is always closed.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TrustSnapshot {
@@ -77,6 +102,9 @@ pub struct TrustSnapshot {
     pub chain_id: Option<String>,
     /// Verified AppState generation; absent before InitChain.
     pub generation: Option<u64>,
+    /// Recovery evidence summary; absent for generation zero and before authentication.
+    #[serde(default)]
+    pub recovery_origin: Option<RecoveryTrustOrigin>,
     /// Only true after durable committed-chain verification and refresh.
     pub trust_ready: bool,
     /// True whenever signing must remain closed.
@@ -169,6 +197,7 @@ impl TrustHandle {
             session_id: format!("{nonce}:0"),
             chain_id: state.map(|s| s.chain_id.clone()),
             generation: state.map(|s| s.generation),
+            recovery_origin: None,
             trust_ready: false,
             syncing: true,
             phase: TrustPhase::Acquiring,
@@ -315,6 +344,7 @@ impl TrustHandle {
         let snapshot = &mut inner.snapshot;
         snapshot.chain_id = Some(state.chain_id.clone());
         snapshot.generation = Some(state.generation);
+        snapshot.schema_version = if state.generation == 0 { 1 } else { 2 };
         snapshot.committed_head =
             Some(BlockRef { height: state.last_height, hash: state.parent.hash });
         if snapshot.trust_ready {
@@ -376,6 +406,22 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 AbciError::SafetyHalt("missing recovery bootstrap evidence".into())
             })?;
             let (witness, anchor) = bootstrap.verify(&self.params)?;
+            let origin = crate::recovery::verify_recovery_witness(&witness, &self.params)?;
+            if self.state.as_ref().and_then(|state| state.recovery.as_ref()) != Some(&origin) {
+                return Err(AbciError::SafetyHalt("recovery trust evidence changed".into()));
+            }
+            snapshot.schema_version = 2;
+            snapshot.recovery_origin = Some(RecoveryTrustOrigin {
+                generation: origin.generation,
+                height: origin.height,
+                l1_number: origin.l1_number,
+                l1_hash: witness.recovery_header.hash(),
+                l1_timestamp: origin.l1_timestamp,
+                el_hash: origin.el_hash,
+                comet_hash: origin.comet_hash,
+                forced_cursor: origin.forced_cursor,
+                committee_hash: origin.committee.record.set_root,
+            });
             within(
                 "trust recovery origin",
                 self.opts.l1_timeout,

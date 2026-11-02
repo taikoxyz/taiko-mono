@@ -12,7 +12,7 @@ use tokio::{
 };
 
 use super::{ServerError, remove_stale_socket};
-use crate::app::trust::TrustHandle;
+use crate::app::trust::{TrustHandle, TrustSnapshot};
 
 /// Maximum complete JSON request line, including newline.
 const MAX_LINE: u64 = 16 * 1024;
@@ -27,17 +27,17 @@ const MAX_CONNECTIONS: usize = 32;
 enum Request {
     /// Reads current readiness without changing or authorizing a signer session.
     Observe {
-        /// Must equal one.
+        /// One for legacy generation zero; two for recovery-aware callers.
         schema_version: u32,
     },
     /// Allocates a fresh session and closes authorization before any L1 work.
     BeginSession {
-        /// Must equal one.
+        /// One for legacy generation zero; two for recovery-aware callers.
         schema_version: u32,
     },
     /// Reads authorization for one exact process/session incarnation.
     CheckSession {
-        /// Must equal one.
+        /// One for legacy generation zero; two for recovery-aware callers.
         schema_version: u32,
         /// Opaque string returned by BeginSession.
         session_id: String,
@@ -107,23 +107,42 @@ async fn connection(stream: UnixStream, trust: TrustHandle) -> io::Result<()> {
         }
         let request: Request = serde_json::from_slice(&line)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-        let snapshot = match request {
-            Request::Observe { schema_version: 1 } => trust.snapshot(),
-            Request::BeginSession { schema_version: 1 } => trust.begin_session(),
-            Request::CheckSession { schema_version: 1, session_id } => {
-                trust.check_session(&session_id)
-            }
-            _ => {
-                return Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported control schema"))
-            }
+        let schema_version = match &request {
+            Request::Observe { schema_version } |
+            Request::BeginSession { schema_version } |
+            Request::CheckSession { schema_version, .. } => *schema_version,
         };
-        let mut bytes = serde_json::to_vec(&snapshot).map_err(io::Error::other)?;
+        if !matches!(schema_version, 1 | 2) ||
+            (schema_version == 1 && trust.snapshot().generation.is_some_and(|g| g > 0))
+        {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported control schema"));
+        }
+        let snapshot = match request {
+            Request::Observe { .. } => trust.snapshot(),
+            Request::BeginSession { .. } => trust.begin_session(),
+            Request::CheckSession { session_id, .. } => trust.check_session(&session_id),
+        };
+        let mut bytes = response_bytes(snapshot, schema_version)?;
         bytes.push(b'\n');
         if bytes.len() as u64 > MAX_LINE {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "oversized control response"));
         }
         tokio::time::timeout(IO_TIMEOUT, write.write_all(&bytes)).await??;
     }
+}
+
+/// Encodes the requested version, refusing downgrade even if initialization raced the request.
+fn response_bytes(mut snapshot: TrustSnapshot, schema_version: u32) -> io::Result<Vec<u8>> {
+    // Recheck the returned snapshot too: initialization can race the preflight above.
+    if schema_version == 1 && snapshot.generation.is_some_and(|g| g > 0) {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "recovery requires schema two"));
+    }
+    snapshot.schema_version = schema_version;
+    let mut value = serde_json::to_value(&snapshot).map_err(io::Error::other)?;
+    if schema_version == 1 {
+        value.as_object_mut().expect("snapshot is an object").remove("recovery_origin");
+    }
+    serde_json::to_vec(&value).map_err(io::Error::other)
 }
 
 #[cfg(test)]
@@ -164,7 +183,7 @@ mod tests {
         assert_eq!(stale.session_id, second.session_id);
         assert!(!stale.trust_ready);
         for invalid in [
-            b"{\"schema_version\":2,\"op\":\"begin_session\"}\n".as_slice(),
+            b"{\"schema_version\":3,\"op\":\"begin_session\"}\n".as_slice(),
             b"{\"schema_version\":1,\"op\":\"begin_session\",\"extra\":true}\n",
             b"{\"schema_version\":1,\"op\":\"reset\"}\n",
             b"{\"schema_version\":1,\"op\":\"check_session\",\"session_id\":1}\n",
@@ -175,6 +194,36 @@ mod tests {
         assert!(exchange(&path, &oversized).await.is_err());
         assert_eq!(trust.snapshot().session_id, second.session_id);
         task.abort();
+    }
+
+    #[tokio::test]
+    async fn schema_two_supports_closed_handshake_and_schema_one_stays_legacy() {
+        let dir = tempfile::Builder::new().prefix("etna-t-").tempdir_in("/tmp").unwrap();
+        let app = Fixture::genesis(1).app(dir.path());
+        let trust = app.trust_handle();
+        let path = app.trust_control_path();
+        let listener = bind(&path).await.unwrap();
+        let task = tokio::spawn(run(listener, trust));
+        let snapshot =
+            exchange(&path, b"{\"schema_version\":2,\"op\":\"begin_session\"}\n").await.unwrap();
+        assert_eq!(snapshot.schema_version, 2);
+        assert!(!snapshot.trust_ready && snapshot.syncing);
+        let legacy = exchange(&path, b"{\"schema_version\":1,\"op\":\"observe\"}\n").await.unwrap();
+        assert_eq!(legacy.schema_version, 1);
+        task.abort();
+    }
+
+    #[test]
+    fn recovered_snapshot_never_downgrades_to_schema_one() {
+        let dir = tempfile::tempdir().unwrap();
+        let app = Fixture::genesis(1).app(dir.path());
+        let mut snapshot = app.trust_handle().snapshot();
+        snapshot.generation = Some(1);
+        assert!(response_bytes(snapshot.clone(), 1).is_err());
+        let wire: serde_json::Value =
+            serde_json::from_slice(&response_bytes(snapshot, 2).unwrap()).unwrap();
+        assert_eq!(wire["schema_version"], 2);
+        assert!(wire.as_object().unwrap().contains_key("recovery_origin"));
     }
 
     #[tokio::test]

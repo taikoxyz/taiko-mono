@@ -35,21 +35,34 @@ type target struct {
 	Generation *uint64 `json:"generation"`
 	Inbox      string  `json:"inbox"`
 }
+type recoveryOrigin struct {
+	Generation    *uint64 `json:"generation"`
+	Height        *uint64 `json:"height"`
+	L1Number      *uint64 `json:"l1_number"`
+	L1Hash        string  `json:"l1_hash"`
+	L1Timestamp   *uint64 `json:"l1_timestamp"`
+	ELHash        string  `json:"el_hash"`
+	CometHash     string  `json:"comet_hash"`
+	ForcedCursor  *uint64 `json:"forced_cursor"`
+	CommitteeHash string  `json:"committee_hash"`
+}
 type trustResponse struct {
-	SchemaVersion uint64    `json:"schema_version"`
-	SessionID     string    `json:"session_id"`
-	ChainID       *string   `json:"chain_id"`
-	Generation    *uint64   `json:"generation"`
-	Ready         bool      `json:"trust_ready"`
-	Syncing       bool      `json:"syncing"`
-	Phase         string    `json:"phase"`
-	Target        *target   `json:"target"`
-	Committed     *blockRef `json:"committed_head"`
-	Trusted       *blockRef `json:"trusted_consensus_head"`
-	Reason        *string   `json:"reason"`
+	RecoveryOrigin *recoveryOrigin `json:"recovery_origin,omitempty"`
+	SchemaVersion  uint64          `json:"schema_version"`
+	SessionID      string          `json:"session_id"`
+	ChainID        *string         `json:"chain_id"`
+	Generation     *uint64         `json:"generation"`
+	Ready          bool            `json:"trust_ready"`
+	Syncing        bool            `json:"syncing"`
+	Phase          string          `json:"phase"`
+	Target         *target         `json:"target"`
+	Committed      *blockRef       `json:"committed_head"`
+	Trusted        *blockRef       `json:"trusted_consensus_head"`
+	Reason         *string         `json:"reason"`
 }
 type gate struct {
 	path        string
+	schema      uint64
 	timeout     time.Duration
 	session     atomic.Pointer[string]
 	authorized  func(*trustResponse)
@@ -73,7 +86,11 @@ func (g *gate) query(op string, session string) (*trustResponse, error) {
 	if err = c.SetDeadline(deadline); err != nil {
 		return nil, err
 	}
-	request := map[string]any{"schema_version": 1, "op": op}
+	version := g.schema
+	if version == 0 {
+		version = 1
+	}
+	request := map[string]any{"schema_version": version, "op": op}
 	if op == "check_session" {
 		request["session_id"] = session
 	}
@@ -93,6 +110,11 @@ func (g *gate) query(op string, session string) (*trustResponse, error) {
 		return nil, err
 	}
 	required := []string{"schema_version", "session_id", "chain_id", "generation", "trust_ready", "syncing", "phase", "target", "committed_head", "trusted_consensus_head", "reason"}
+	if version == 2 {
+		required = append(required, "recovery_origin")
+	} else if _, ok := fields["recovery_origin"]; ok {
+		return nil, errors.New("schema one recovery field")
+	}
 	for _, field := range required {
 		if _, ok := fields[field]; !ok {
 			return nil, fmt.Errorf("missing %s", field)
@@ -109,7 +131,7 @@ func (g *gate) query(op string, session string) (*trustResponse, error) {
 	if err = decoder.Decode(&res); err != nil {
 		return nil, err
 	}
-	if res.SchemaVersion != 1 || res.SessionID == "" {
+	if res.SchemaVersion != version || res.SessionID == "" {
 		return nil, errors.New("invalid control version/session")
 	}
 	// Decode into tokens too, rejecting duplicate object keys at every nesting level.
@@ -161,10 +183,23 @@ func canonicalHex(s string, n int) bool {
 }
 func validHead(h *blockRef) bool { return h != nil && h.Height != nil && canonicalHex(h.Hash, 32) }
 
-// trusted is the one readiness rule: authorize applies it to every signing request and
-// trustedDialer before exposing a transport to Comet. Callers first check that r answers
-// for their own session.
+// validRecovery binds the fixed authenticated origin independently of the moving checkpoint.
+func validRecovery(r *trustResponse) error {
+	o := r.RecoveryOrigin
+	if r.SchemaVersion != 2 || o == nil || o.Generation == nil || r.Generation == nil || *o.Generation != *r.Generation || *o.Generation == 0 || *o.Generation >= 1<<48 || o.Height == nil || *o.Height >= 1<<48 || o.L1Number == nil || o.L1Timestamp == nil || o.ForcedCursor == nil || *o.ForcedCursor >= 1<<48 || !canonicalHex(o.L1Hash, 32) || !canonicalHex(o.ELHash, 32) || !canonicalHex(o.CometHash, 32) || !canonicalHex(o.CommitteeHash, 32) || r.Target == nil || r.Target.Height == nil || r.Target.L1Number == nil || *r.Target.Height < *o.Height || *r.Target.L1Number < *o.L1Number {
+		return errors.New("missing or inconsistent authenticated recovery origin")
+	}
+	if *r.Target.Height == *o.Height && (r.Target.Hash != o.ELHash || r.Target.CometHash != o.CometHash) {
+		return errors.New("recovery checkpoint contradicts origin")
+	}
+	return nil
+}
+
+// trusted is shared by every signature and the post-refusal reconnect gate.
 func trusted(r *trustResponse, chain string) error {
+	if r == nil || r.SessionID == "" || (r.SchemaVersion != 1 && r.SchemaVersion != 2) {
+		return errors.New("invalid private authorization")
+	}
 	if r.ChainID == nil || *r.ChainID != chain || !r.Ready || r.Syncing || r.Phase != "ready" || r.Generation == nil || r.Target == nil || !validHead(r.Committed) || !validHead(r.Trusted) {
 		return errors.New("checkpoint trust is closed or belongs to another session/chain")
 	}
@@ -172,31 +207,39 @@ func trusted(r *trustResponse, chain string) error {
 	if t.Generation == nil || *t.Generation != *r.Generation || t.Height == nil || t.L1Number == nil || !canonicalHex(t.L1Hash, 32) || !canonicalHex(t.Hash, 32) || !canonicalHex(t.CometHash, 32) || !canonicalHex(t.Inbox, 20) || *r.Committed.Height < *t.Height || *r.Committed.Height != *r.Trusted.Height || r.Committed.Hash != r.Trusted.Hash || (*r.Committed.Height == *t.Height && r.Committed.Hash != t.Hash) {
 		return errors.New("inconsistent trusted checkpoint")
 	}
+	if *r.Generation > 0 {
+		return validRecovery(r)
+	}
+	if r.RecoveryOrigin != nil {
+		return errors.New("unexpected recovery origin")
+	}
 	return nil
 }
-func (g *gate) authorize(chain string) error {
+func (g *gate) check(chain string) (*trustResponse, error) {
 	sessionPtr := g.session.Load()
 	if sessionPtr == nil {
 		g.begin()
-		return errors.New("no Comet trust session; retry after rearm")
+		return nil, errors.New("no Comet trust session; retry after rearm")
 	}
 	session := *sessionPtr
 	r, err := g.query("check_session", session)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if r.SessionID != session {
 		g.begin()
-		return errors.New("trust session changed; rearmed closed for next request")
+		return nil, errors.New("trust session changed; rearmed closed for next request")
 	}
 	if err = trusted(r, chain); err != nil {
-		return err
+		return nil, err
 	}
 	if g.authorized != nil {
 		g.authorized(r)
 	}
-	return nil
+	return r, nil
 }
+
+func (g *gate) authorize(chain string) error { _, err := g.check(chain); return err }
 
 // publishObservation never contains private signing data or grants authorization. Failure
 // stops this process rather than silently disabling the supervisor's refusal detection.
@@ -339,7 +382,13 @@ func (g *gate) handle(signer types.PrivValidator, req pv.Message, chain string) 
 		if invalid || requestChain != chain {
 			err = errors.New("invalid signing request or chain ID")
 		} else {
-			err = g.authorize(chain)
+			var response *trustResponse
+			response, err = g.check(chain)
+			if err == nil {
+				if domain, ok := signer.(*domainSigner); ok {
+					signer, err = domain.authority.authorize(chain, response)
+				}
+			}
 		}
 		if err != nil {
 			g.publishObservation(true)

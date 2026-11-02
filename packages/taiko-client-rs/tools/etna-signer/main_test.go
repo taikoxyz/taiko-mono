@@ -128,3 +128,31 @@ func TestHardlinkedStateCannotSplitSigningHistory(t *testing.T) {
 		t.Fatal("hardlink rejection modified signing state")
 	}
 }
+
+func TestLegacyModeCannotBypassAuthorityMarker(t *testing.T) {
+	binary := buildSigner(t)
+	c := authorityFixture(t)
+	a, e := openAuthority(c)
+	if e != nil {
+		t.Fatal(e)
+	}
+	a.Close()
+	cmd := exec.Command(binary, "--comet-signer-addr", "unix:///absent-comet.sock", "--trust-socket", "/absent-trust.sock", "--chain-id", chain, "--priv-key", c.Key, "--priv-state", c.LegacyState)
+	done := make(chan error, 1)
+	var out strings.Builder
+	cmd.Stderr = &out
+	if e = cmd.Start(); e != nil {
+		t.Fatal(e)
+	}
+	go func() { done <- cmd.Wait() }()
+	select {
+	case e = <-done:
+		if e == nil || !strings.Contains(out.String(), "authority") {
+			t.Fatalf("wrong refusal: %v %s", e, out.String())
+		}
+	case <-time.After(5 * time.Second):
+		cmd.Process.Kill()
+		<-done
+		t.Fatalf("old mode failed to refuse authority marker: %s", out.String())
+	}
+}

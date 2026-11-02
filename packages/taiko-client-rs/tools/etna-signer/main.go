@@ -17,6 +17,7 @@ import (
 	"github.com/cometbft/cometbft/libs/log"
 	cmtnet "github.com/cometbft/cometbft/libs/net"
 	"github.com/cometbft/cometbft/privval"
+	"github.com/cometbft/cometbft/types"
 )
 
 // Resolve directory and file symlinks before both owner locking and FilePV loading.
@@ -67,6 +68,12 @@ func run() error {
 	chain := flag.String("chain-id", "", "verified Comet chain ID")
 	key := flag.String("priv-key", "", "existing Comet FilePV private key")
 	state := flag.String("priv-state", "", "existing Comet FilePV anti-double-sign state (never reset)")
+	root := flag.String("authority-root", "", "private durable deployment/key authority directory")
+	l1 := flag.String("l1-chain-id", "", "full decimal deployment L1 uint256 ID")
+	l2 := flag.String("l2-chain-id", "", "full decimal deployment L2 uint256 ID")
+	inbox := flag.String("inbox", "", "canonical 0x lowercase deployment Inbox")
+	generation := flag.Uint64("generation", 0, "explicit generation for authority-mode chain ID")
+	enroll := flag.Bool("enroll-legacy", false, "explicit one-time legacy enrollment; matching completed enrollment resumes idempotently")
 	denial := flag.String("denial-file", "", "private atomic refusal event file for the local supervisor")
 	timeout := flag.Duration("trust-timeout", time.Second, "per-request private control deadline (0 < timeout <= 10s)")
 	await := flag.Bool("await-trust", false, "recovery restart after a refused signing request, once trust has returned: connect to Comet only after the first transport's fresh trust session is Ready, so WAL replay's re-request of the refused step is authorized; later reconnects dial at once; never for a first start, where trust may return only after Comet syncs")
@@ -84,18 +91,47 @@ func run() error {
 	if err := singleLinkState(*state); err != nil {
 		return err
 	}
-	lock, err := os.OpenFile(*state+".lock", os.O_CREATE|os.O_RDWR, 0600)
-	if err != nil {
-		return err
+	var signer types.PrivValidator
+	if *root != "" {
+		config := authorityConfig{Root: *root, Key: *key, LegacyState: *state, L1ChainID: *l1, L2ChainID: *l2, Inbox: *inbox, EnrollLegacy: *enroll}
+		expected, err := config.chainID(*generation)
+		if err != nil || expected != *chain {
+			return errors.New("authority generation/deployment does not match chain ID")
+		}
+		authority, err := openAuthority(config)
+		if err != nil {
+			return err
+		}
+		defer authority.Close()
+		signer = &domainSigner{authority: authority}
+	} else {
+		if *enroll || *l1 != "" || *l2 != "" || *inbox != "" || *generation != 0 {
+			return errors.New("authority options require --authority-root")
+		}
+		// Key ownership prevents two different state paths using the same native key.
+		if err := singleLinkState(*key); err != nil {
+			return err
+		}
+		keyLock, err := ownerLock(*key + ".lock")
+		if err != nil {
+			return err
+		}
+		defer keyLock.Close()
+		stateLock, err := ownerLock(*state + ".lock")
+		if err != nil {
+			return err
+		}
+		defer stateLock.Close()
+		for _, p := range []string{*key + ".authority.json", *state + ".authority.json"} {
+			if _, err := os.Lstat(p); !os.IsNotExist(err) {
+				return errors.New("enrolled signer requires authority mode; missing or uncertain registry requires investigation")
+			}
+		}
+		if _, err := loadNativeKey(*key); err != nil {
+			return err
+		}
+		signer = privval.LoadFilePV(*key, *state)
 	}
-	defer lock.Close()
-	if err = syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		return errors.New("another signer owns this FilePV state")
-	}
-	if _, err := loadNativeKey(*key); err != nil {
-		return err
-	}
-	signer := privval.LoadFilePV(*key, *state)
 	var dial privval.SocketDialer
 	protocol, address := cmtnet.ProtocolAndAddress(*addr)
 	switch protocol {
@@ -109,6 +145,9 @@ func run() error {
 	logger := log.NewTMLogger(log.NewSyncWriter(os.Stderr))
 	gate := newGate(*control, *timeout)
 	gate.denialPath = *denial
+	if *root != "" {
+		gate.schema = 2
+	}
 	gate.authorized = func(r *trustResponse) {
 		logger.Info("checkpoint_trust_authorized", "session", r.SessionID, "committed_height", *r.Committed.Height, "target_height", *r.Target.Height)
 	}

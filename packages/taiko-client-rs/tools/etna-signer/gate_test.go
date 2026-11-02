@@ -639,3 +639,48 @@ func TestDenialSignalIncludesTimeoutWithoutChangingHRS(t *testing.T) {
 		t.Fatal("timeout changed authoritative HRS")
 	}
 }
+
+func TestSchemaTwoRecoveryAuthorizationIsStrict(t *testing.T) {
+	c := authorityFixture(t)
+	next, ready := readyDomain(t, c, 1)
+	raw, _ := json.Marshal(ready)
+	var base map[string]any
+	json.Unmarshal(raw, &base)
+	for _, mode := range []string{"valid", "downgrade", "absent-origin", "null-origin", "null-height", "unknown-origin", "wrong-generation", "checkpoint-before-origin", "changed-el", "stale-session"} {
+		t.Run(mode, func(t *testing.T) {
+			var r map[string]any
+			json.Unmarshal(raw, &r)
+			o := r["recovery_origin"].(map[string]any)
+			switch mode {
+			case "downgrade":
+				r["schema_version"] = 1
+			case "absent-origin":
+				delete(r, "recovery_origin")
+			case "null-origin":
+				r["recovery_origin"] = nil
+			case "null-height":
+				o["height"] = nil
+			case "unknown-origin":
+				o["unknown"] = true
+			case "wrong-generation":
+				o["generation"] = 2
+			case "checkpoint-before-origin":
+				o["height"] = 12
+			case "changed-el":
+				o["el_hash"] = "0x" + strings.Repeat("e", 64)
+			case "stale-session":
+				r["session_id"] = "other"
+			}
+			path := control(t, func(map[string]any) any { return r })
+			g := armed(path)
+			g.schema = 2
+			err := g.authorize(next)
+			if mode == "valid" && err != nil {
+				t.Fatal(err)
+			}
+			if mode != "valid" && err == nil {
+				t.Fatal("invalid recovery authorized")
+			}
+		})
+	}
+}

@@ -466,3 +466,23 @@ async fn recovery_init_engine_integrity_errors_halt_without_publishing_state() {
     assert_not_initialized(&app, dir.path());
     assert!(app.store.fatal_evidence().unwrap().is_some());
 }
+
+#[tokio::test]
+async fn recovered_trust_summary_uses_verified_recovery_header() {
+    let (fx, l1, engine, w) = recovery_fixture(1, 6, 1);
+    checkpoint(&fx, &l1, &w, 6, w.el_header.hash_slow(), B256::repeat_byte(0xcc), 1);
+    let doc = document(&fx, &w);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    init_chain(&mut app, request(&doc)).await.unwrap();
+    app.refresh_trust().await.unwrap();
+    let snapshot = app.trust_handle().snapshot();
+    assert!(snapshot.trust_ready);
+    let wire = serde_json::to_value(&snapshot).unwrap();
+    assert_eq!(wire["recovery_origin"]["generation"], 1);
+    assert_eq!(wire["recovery_origin"]["height"], 6);
+    assert_eq!(
+        wire["recovery_origin"]["l1_hash"],
+        serde_json::to_value(w.recovery_header.hash()).unwrap()
+    );
+}
