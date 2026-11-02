@@ -11,7 +11,7 @@ import check
 
 
 def declaration(rid, body):
-    digest = hashlib.blake2s(body.encode()).hexdigest()
+    digest = hashlib.blake2s(("type: rule\n" + body).encode()).hexdigest()
     return ("## Material amendments\n\n| ID | Prior meaning | Current amendment | Content digest |\n"
             "| --- | --- | --- | --- |\n| " + rid + " | Prior | Current | " + digest + " |\n\n## Index\n")
 

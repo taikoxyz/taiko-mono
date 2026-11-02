@@ -10,13 +10,15 @@ on:
     branches: [main]
     paths:
       - "packages/protocol/docs/etna/**"
+      - ".github/workflows/protocol--etna-rules.yml"
 
 permissions:
   contents: read
 
 concurrency:
-  group: etna-rules-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # PR updates supersede older checks; every push must check its own before/after delta.
+  group: etna-rules-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check:

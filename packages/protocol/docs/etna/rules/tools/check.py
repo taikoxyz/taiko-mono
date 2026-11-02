@@ -78,6 +78,17 @@ def git_show(rev, relative="SPEC.md"):
     return result.stdout if result.returncode == 0 else None
 
 
+def git_path_absent(rev, relative):
+    """Confirm path absence in a readable commit tree, rather than a failed blob read."""
+    top = subprocess.run(["git", "-C", DOCS, "rev-parse", "--show-toplevel"], capture_output=True, text=True)
+    if top.returncode:
+        return False
+    path = os.path.relpath(os.path.join(DOCS, relative), top.stdout.strip())
+    result = subprocess.run(["git", "-C", DOCS, "ls-tree", "--full-tree", "--name-only", "-z",
+                             rev + "^{commit}", "--", path], capture_output=True, text=True)
+    return result.returncode == 0 and not result.stdout
+
+
 def split_cells(line):
     s = line.strip()
     if s.startswith("|"):
@@ -105,9 +116,9 @@ def split_cells(line):
     return cells
 
 
-def load_index():
+def parse_index(text):
     rows, dups = {}, []
-    for line in open(INDEX).read().split(NL):
+    for line in text.split(NL):
         if not line.startswith("|"):
             continue
         cells = split_cells(line)
@@ -118,6 +129,10 @@ def load_index():
             continue
         rows[cells[0]] = {"type": cells[1], "section": cells[3]}
     return rows, dups
+
+
+def load_index():
+    return parse_index(open(INDEX).read())
 
 
 SECTION = re.compile("^#{2,3} (?:Appendix ([A-C])[^A-Za-z0-9]|([0-9]+(?:[.][0-9]+)?)[.]? )", re.M)
@@ -144,12 +159,14 @@ def slug(h):
     return s.replace(" ", "-")
 
 
-def markdown_regions(text):
+def markdown_regions(text, conservative=False):
     """Mask fenced code while retaining offsets; return complete raw fenced regions."""
     out, opening, regions, offset = [], None, [], 0
     for line in text.splitlines(keepends=True):
         content = line.rstrip("\r\n")
-        fence = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", content)
+        # Broad masking rejects list-relative examples; only strict fences grant authority.
+        indent = r"[ \t]*" if conservative else r" {0,3}"
+        fence = re.match(r"^" + indent + r"(`{3,}|~{3,})(.*)$", content)
         hidden = opening is not None
         if opening:
             char, length, start, info = opening
@@ -180,14 +197,54 @@ def check_markdown_structure(name, text):
 
 
 def check_marker_placement(spec):
-    _, _, regions = markdown_regions(spec)
+    masked, _, regions = markdown_regions(spec, conservative=True)
+    _, _, definitions = markdown_regions(spec)
     locate, msgs = section_finder(spec), []
+    comments = list(re.finditer(r"<!--[\s\S]*?(?:-->|\Z)", masked))
+    spans = list(re.finditer(r"(?<![`\\])(`+)(?!`)(?:[^\n]|\n(?![ \t]*\n))*?(?<!`)\1(?!`)", masked))
+    raw_html = []
+    for opening in re.finditer(r"<(pre|script|style|textarea)(?=[\s>])[^>]*>", masked, re.I):
+        if any(region.start() <= opening.start() < region.end() for region in comments + spans):
+            continue
+        closing = re.search(r"</" + opening[1] + r"\s*>", masked[opening.end():], re.I)
+        raw_html.append((opening.start(), opening.end() + closing.end() if closing else len(spec)))
+    # Preserve valid nested list items: their container indentation is not code indentation.
+    list_indents, indented, offset = [], set(), 0
+    lines = spec.splitlines(keepends=True)
+    for line in lines:
+        indent = len(re.match(r"^[ \t]*", line)[0].expandtabs(4))
+        fenced = any(start <= offset < end for start, end, _ in regions)
+        if line.strip():
+            while list_indents and indent < list_indents[-1]:
+                list_indents.pop()
+            container = list_indents[-1] if list_indents else 0
+            item = re.match(r"^[ ]*(?:[-+*]|[0-9]+[.)])[ \t]+", line)
+            if indent - container >= 4:
+                indented.add(offset)
+            elif item and not fenced:
+                list_indents.append(len(item[0].expandtabs(4)))
+        offset += len(line)
     for marker in INLINE.finditer(spec):
         if any(start <= marker.start() < end for start, end, _ in regions):
             msgs.append("placement: inline rule inside fenced code " + marker[1])
+        elif any(comment.start() <= marker.start() < comment.end() for comment in comments):
+            msgs.append("placement: inline rule inside HTML comment " + marker[1])
+        elif any(start <= marker.start() < end for start, end in raw_html):
+            msgs.append("placement: inline rule inside raw HTML code " + marker[1])
+        elif any(span.start() <= marker.start() < span.end() for span in spans):
+            msgs.append("placement: inline rule inside inline code " + marker[1])
+        elif spec.rfind(NL, 0, marker.start()) + 1 in indented:
+            msgs.append("placement: inline rule inside indented code " + marker[1])
+    for line, following in zip(lines, lines[1:]):
+        markers = INLINE.findall(line)
+        # One-line scopes cannot silently leave the rest of a rendered paragraph ungoverned.
+        boundary = re.match(r"^[ \t]*(?:#{1,6} |[|>]|`{3,}|~{3,}|[-+*] |[0-9]+[.)] |<!--)", following)
+        if (markers and not line.lstrip().startswith("|") and following.strip()
+                and not INLINE.search(following) and not boundary):
+            msgs.append("placement: unmarked paragraph continuation after " + markers[-1])
     for marker in CODE.finditer(spec):
         authorized = marker[1].startswith("ENC-A-") and locate(marker.start()) == "A" and any(
-            start <= marker.start() < end and info == "txt" for start, end, info in regions)
+            start <= marker.start() < end and info == "txt" for start, end, info in definitions)
         if not authorized:
             msgs.append("placement: code-before marker outside Appendix A definition " + marker[1])
     return msgs
@@ -272,37 +329,67 @@ def governed_bodies(spec, helper=""):
     return bodies
 
 
-def content_digest(body):
-    return hashlib.blake2s(body.encode("utf-8")).hexdigest()
+def content_digest(body, kind):
+    """Bind both the statement's governed content and its normative Type."""
+    return hashlib.blake2s(("type: " + kind + "\n" + body).encode("utf-8")).hexdigest()
 
 
-def check_amendments(spec, index_text, index, baseline=None, helper="", baseline_helper=""):
-    section = re.search(r"^## Material amendments\n(.*?)(?=^## |\Z)", index_text, re.M | re.S)
-    msgs, declared = [], set()
+def amendment_rows(text):
+    section = re.search(r"^## Material amendments\n(.*?)(?=^## |\Z)", text, re.M | re.S)
+    if section:
+        for line in section[1].splitlines():
+            cells = split_cells(line)
+            if line.startswith("|") and re.fullmatch(ID, cells[0]):
+                yield cells
+
+
+def check_amendments(spec, index_text, index, baseline=None, helper="", baseline_helper="",
+                     baseline_index_text=None):
+    msgs, declared = [], {}
     try:
         current = governed_bodies(spec, helper)
         previous = governed_bodies(baseline, baseline_helper) if baseline is not None else None
     except ValueError as error:
         return ["amendments: " + str(error)]
-    if section:
-        for line in section[1].splitlines():
-            cells = split_cells(line)
-            if not line.startswith("|") or not re.fullmatch(ID, cells[0]):
-                continue
-            rid = cells[0]
-            if rid in declared:
-                msgs.append("amendments: duplicate amendment " + rid)
-            declared.add(rid)
-            if rid not in index:
-                msgs.append("amendments: unknown amendment " + rid)
-            if len(cells) != 4 or not all(cells[1:]):
-                msgs.append("amendments: incomplete amendment " + rid)
-            elif rid in current and cells[3] != content_digest(current[rid]):
+    for cells in amendment_rows(index_text):
+        rid = cells[0]
+        if rid in declared:
+            msgs.append("amendments: duplicate amendment " + rid)
+        declared[rid] = cells
+        if rid not in index:
+            msgs.append("amendments: unknown amendment " + rid)
+        if len(cells) != 4 or not all(cells[1:]):
+            msgs.append("amendments: incomplete amendment " + rid)
+        elif rid in index and (rid in current or index[rid]["type"] == "retired"):
+            if cells[3] != content_digest(current.get(rid, ""), index[rid]["type"]):
                 msgs.append("amendments: stale content digest " + rid)
     if previous is not None:
+        for rid in sorted(previous.keys() - current.keys()):
+            if index.get(rid, {}).get("type") != "retired":
+                msgs.append("amendments: missing retired tombstone " + rid)
         for rid in sorted(previous.keys() & current.keys()):
             if previous[rid] != current[rid] and rid not in declared:
                 msgs.append("amendments: undeclared amendment " + rid)
+    if baseline_index_text is not None:
+        prior_index, _ = parse_index(baseline_index_text)
+        for rid, old in prior_index.items():
+            now = index.get(rid)
+            if now is None:
+                message = "amendments: missing retired tombstone " + rid
+                if message not in msgs:
+                    msgs.append(message)
+            elif old["type"] == "retired" and (now["type"] != "retired" or rid in current):
+                msgs.append("amendments: retired ID reused " + rid)
+            elif old["type"] != now["type"] and rid not in declared:
+                message = "amendments: undeclared amendment " + rid
+                if message not in msgs:
+                    msgs.append(message)
+        for cells in amendment_rows(baseline_index_text):
+            rid = cells[0]
+            if rid not in declared:
+                msgs.append("amendments: removed history " + rid)
+            elif len(cells) > 1 and len(declared[rid]) > 1 and cells[1] != declared[rid][1]:
+                msgs.append("amendments: rewritten prior meaning " + rid)
     return msgs
 
 
@@ -452,11 +539,21 @@ def main():
         msgs.append("index: unknown type(s): %s" % list(bad_types.items())[:3])
     bad += fail(msgs) if msgs else (print("ok   index (%d live, %d retired)" % (len(live), len(retired))) or 0)
 
-    baseline = git_show(args.amendments_base) if args.amendments_base else None
-    baseline_helper = (git_show(args.amendments_base, "UPGRADES.md") or "") if args.amendments_base else ""
-    msgs = check_amendments(text, open(INDEX).read(), index, baseline, helper, baseline_helper)
-    if args.amendments_base and baseline is None:
-        msgs.append("amendments: cannot read supplied base")
+    base_files, msgs = {}, []
+    if args.amendments_base:
+        for path in ("SPEC.md", "rules/INDEX.md", "UPGRADES.md"):
+            base_files[path] = git_show(args.amendments_base, path)
+            if base_files[path] is None:
+                base_spec = base_files.get("SPEC.md")
+                if (path == "UPGRADES.md" and base_spec is not None and "UPGRADES.md" not in base_spec
+                        and git_path_absent(args.amendments_base, path)):
+                    base_files[path] = ""
+                else:
+                    msgs.append("amendments: cannot read %s at supplied base" % os.path.basename(path))
+    baseline = base_files.get("SPEC.md")
+    if not msgs:
+        msgs = check_amendments(text, open(INDEX).read(), index, baseline, helper,
+                                base_files.get("UPGRADES.md", ""), base_files.get("rules/INDEX.md"))
     bad += fail(msgs) if msgs else (print("ok   amendments" + (" (base delta checked)" if baseline is not None else " (declarations only)")) or 0)
 
     # 4. assets
