@@ -162,15 +162,17 @@
 | DATA-5.2-7    | rule       | Blocks are contiguous, hash-linked and end at the checkpoint                                                                                   | 5.2     | [5.2](vectors/5.2.md#data-52-7)      |
 | DATA-5.2-8    | rule       | Private proof inputs: unpublished data and guest equality                                                                                      | 5.2     | [5.2](vectors/5.2.md#data-52-8)      |
 | DATA-5.2-9    | rule       | DA recovery: archived blobs plus starting state suffice                                                                                        | 5.2     | [5.2](vectors/5.2.md#data-52-9)      |
-| DATA-5.3-1    | rule       | Every new EL may use an authenticated public checkpoint snapshot throughout operation                                                          | 5.3     | [5.3](vectors/5.3.md#data-53-1)      |
-| DATA-5.3-2    | rule       | Snapshot verification/sync tooling required; independent full blob replay optional                                                             | 5.3     | [5.3](vectors/5.3.md#data-53-2)      |
-| DATA-5.3-3    | rule       | Complete starting state/code, manifest, file hashes and snapshot retention policy                                                              | 5.3     | [5.3](vectors/5.3.md#data-53-3)      |
-| DATA-5.3-4    | rule       | Authenticate checkpoint/header and actual state, storage, code and derived indexes                                                             | 5.3     | [5.3](vectors/5.3.md#data-53-4)      |
+| DATA-5.3-1    | rule       | EL-only snapshot startup; app nodes obtain origin state then replay fixed genesis                                                              | 5.3     | [5.3](vectors/5.3.md#data-53-1)      |
+| DATA-5.3-2    | retired    | Retired: Required independent public reconstruction program; replaced by DATA-5.3-2a                                                           | 5.3     | [5.3](vectors/5.3.md#data-53-2)      |
+| DATA-5.3-2a   | rule       | Snapshot tooling required; full genesis blob replay optional for EL-only startup                                                               | 5.3     | [5.3](vectors/5.3.md#data-53-2a)     |
+| DATA-5.3-3    | rule       | Complete state/code, file hashes, ancestor headers, starting checkpoint and FI cursor                                                          | 5.3     | [5.3](vectors/5.3.md#data-53-3)      |
+| DATA-5.3-4    | rule       | Reject unfinalized/missing checkpoint records; verify state, cursor and ancestry                                                               | 5.3     | [5.3](vectors/5.3.md#data-53-4)      |
 | DATA-5.3-5    | rule       | Blob replay verifies full (p,h] inputs in canonical landing order                                                                              | 5.3     | [5.3](vectors/5.3.md#data-53-5)      |
-| DATA-5.3-6    | rule       | Check prefix links; execute only (c,h] from authenticated state at or after s                                                                  | 5.3     | [5.3](vectors/5.3.md#data-53-6)      |
-| DATA-5.3-7    | rule       | Authenticate generation/origin history and latest checkpoint trust target                                                                      | 5.3     | [5.3](vectors/5.3.md#data-53-7)      |
-| DATA-5.3-8    | rule       | Reject missing required material or mismatches; pre-start historical blobs optional                                                            | 5.3     | [5.3](vectors/5.3.md#data-53-8)      |
-| DATA-5.3-9    | rule       | Snapshot availability dependency; authenticated archives and separate private history                                                          | 5.3     | [5.3](vectors/5.3.md#data-53-9)      |
+| DATA-5.3-6    | rule       | All p<=c<h with s<=c: verify prefix and execute only (c,h]                                                                                     | 5.3     | [5.3](vectors/5.3.md#data-53-6)      |
+| DATA-5.3-7    | rule       | EL-only readiness is separate from app checkpoint trust and signing                                                                            | 5.3     | [5.3](vectors/5.3.md#data-53-7)      |
+| DATA-5.3-8    | rule       | Reject missing required inputs or mismatches; preserve app replay and FI checks                                                                | 5.3     | [5.3](vectors/5.3.md#data-53-8)      |
+| DATA-5.3-9    | retired    | Retired: Required availability of all historical blobs; replaced by DATA-5.3-9a                                                                | 5.3     | [5.3](vectors/5.3.md#data-53-9)      |
+| DATA-5.3-9a   | rule       | Continuous public snapshot-to-latest path; separate app history and detection limits                                                           | 5.3     | [5.3](vectors/5.3.md#data-53-9a)     |
 | LAND-6.1-1    | rule       | land is permissionless and nonpayable                                                                                                          | 6.1     | [6.1](vectors/6.1.md#land-61-1)      |
 | LAND-6.1-2    | rule       | Proofs and blobs cover all of (p,h], origin p to terminal h                                                                                    | 6.1     | [6.1](vectors/6.1.md#land-61-2)      |
 | LAND-6.1-3    | rule       | c is read atomically at execution; only suffix (c,h] settles                                                                                   | 6.1     | [6.1](vectors/6.1.md#land-61-3)      |
@@ -625,7 +627,7 @@
 | 4.4     | 20  | 76      | 3                |
 | 5.1     | 3   | 10      | 2                |
 | 5.2     | 9   | 31      | 4                |
-| 5.3     | 9   | 43      | 4                |
+| 5.3     | 9   | 57      | 4                |
 | 6.1     | 13  | 52      | 4                |
 | 6.2     | 47  | 174     | 14               |
 | 6.3     | 14  | 50      | 3                |
