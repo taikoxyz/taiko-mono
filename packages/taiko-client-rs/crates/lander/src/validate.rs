@@ -316,6 +316,7 @@ pub fn verify_envelope(
     context: EnvelopeContext<'_>,
 ) -> Result<BlockFacts, ValidationError> {
     let chain = ChainContext {
+        recovery: None,
         genesis: context.genesis,
         generation: context.generation,
         parent: context.parent,

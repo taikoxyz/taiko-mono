@@ -131,6 +131,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let parent = self.genesis_parent(&context.genesis).await?;
         Ok(AppState {
             schema_version: 13,
+            recovery: None,
             app_version: crate::app::APP_VERSION,
             chain_id: req.chain_id.clone(),
             generation,

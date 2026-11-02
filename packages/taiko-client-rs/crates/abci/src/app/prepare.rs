@@ -308,8 +308,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
     }
 
     /// A candidate anchored at L1 block `n`: its witness, fetched when the anchor moves to `n` or
-    /// the height is `H0`, and the anchor that [`check_candidate_anchor`] proves (progress,
-    /// generation and back-pressure) or inherits.
+    /// the height is the generation's first, and the anchor that [`check_candidate_anchor`] proves
+    /// (progress, generation and back-pressure) or inherits.
     async fn anchor_candidate(
         &self,
         state: &AppState,
@@ -317,33 +317,34 @@ impl<L: L1Source, E: Engine> App<L, E> {
         n: u64,
     ) -> Result<(Option<AnchorWitness>, AnchorState), Rejection> {
         let params = &self.params;
-        let witness = if n != state.anchor.number || height == state.schedule().h0() {
-            let known = if n == state.anchor.number {
-                Some(state.anchor.clone())
+        let witness =
+            if n != state.anchor.number || state.origin_height().checked_add(1) == Some(height) {
+                let known = if n == state.anchor.number {
+                    Some(state.anchor.clone())
+                } else {
+                    self.preparation_cache()
+                        .anchor
+                        .as_ref()
+                        .filter(|witness| witness.l1_header.number() == n)
+                        .and_then(|witness| verify_anchor_witness(witness, params.inbox).ok())
+                };
+                let witness = if let Some(known) =
+                    known.filter(|anchor| state.forced_cursor < anchor.inbox.forced_inclusion_tail)
+                {
+                    // A known non-empty queue permits an independent entry proof while the
+                    // header/anchor are refreshed. The eventual chosen root still keys reuse.
+                    let (witness, _) = tokio::join!(
+                        self.anchor_witness(n),
+                        self.forced_entry(&known, state.forced_cursor),
+                    );
+                    witness?
+                } else {
+                    self.anchor_witness(n).await?
+                };
+                Some(witness)
             } else {
-                self.preparation_cache()
-                    .anchor
-                    .as_ref()
-                    .filter(|witness| witness.l1_header.number() == n)
-                    .and_then(|witness| verify_anchor_witness(witness, params.inbox).ok())
+                None
             };
-            let witness = if let Some(known) =
-                known.filter(|anchor| state.forced_cursor < anchor.inbox.forced_inclusion_tail)
-            {
-                // A known non-empty queue permits an independent entry proof while the
-                // header/anchor are refreshed. The eventual chosen root still keys reuse.
-                let (witness, _) = tokio::join!(
-                    self.anchor_witness(n),
-                    self.forced_entry(&known, state.forced_cursor),
-                );
-                witness?
-            } else {
-                self.anchor_witness(n).await?
-            };
-            Some(witness)
-        } else {
-            None
-        };
         let candidate = Candidate {
             anchor: witness.as_ref(),
             committee: None,
@@ -357,8 +358,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// The committee witness of `target_epoch` against `state`'s fixed parent anchor: a
     /// previously verified witness whose complete identity matches, or a bounded discovery
     /// ([`build_committee_witness_within`]) resuming the completed reads of an earlier attempt.
-    /// Historical entries may require state older than the cutoff; the complete witness still
-    /// verifies under the committed parent's state root before the caller durably retains it.
+    /// Historical entries may require state older than the cutoff; the complete witness verifies
+    /// under the switch block's own anchor root before the caller durably retains it.
     async fn committee_witness(
         &self,
         state: &AppState,
@@ -379,7 +380,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
                     self.l1(),
                     &self.params,
                     anchor.number,
-                    parent_anchor.max(state.genesis.l1_0),
+                    parent_anchor.max(state.anchor_floor()),
                     target_epoch,
                 ),
             )

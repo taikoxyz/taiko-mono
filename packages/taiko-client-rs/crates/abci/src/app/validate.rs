@@ -41,6 +41,8 @@ pub struct ChainContext<'a> {
     pub genesis: &'a GenesisRecord,
     /// The chain's recovery generation.
     pub generation: u64,
+    /// Fixed authenticated generation origin; absent for generation zero.
+    pub recovery: Option<&'a crate::recovery::RecoveryOrigin>,
     /// The committed parent block; the block must be at `parent.number + 1`.
     pub parent: &'a ParentInfo,
     /// The parent's anchor and the Inbox facts proven at it.
@@ -52,6 +54,22 @@ pub struct ChainContext<'a> {
 }
 
 impl ChainContext<'_> {
+    /// Global boundary preceding this generation's first consensus block.
+    pub fn origin_height(&self) -> u64 {
+        self.recovery.map_or(self.genesis.genesis_height, |origin| origin.height)
+    }
+
+    /// Earliest L1 anchor/snapshot allowed in this generation.
+    pub fn anchor_floor(&self) -> u64 {
+        self.recovery.map_or(self.genesis.l1_0, |origin| origin.l1_number)
+    }
+
+    /// Committee required at this height, allowing only switches discarded by recovery.
+    pub fn committee_at(&self, height: u64) -> Option<&CommitteeState> {
+        self.committees
+            .committee(self.schedule().active_committee_epoch(height, self.origin_height())?)
+    }
+
     /// The epoch schedule of the genesis record.
     pub fn schedule(&self) -> Schedule {
         Schedule::from_genesis(self.genesis)
@@ -84,6 +102,7 @@ impl AppState {
         ChainContext {
             genesis: &self.genesis,
             generation: self.generation,
+            recovery: self.recovery.as_ref(),
             parent: &self.parent,
             anchor: &self.anchor,
             forced_cursor: self.forced_cursor,
@@ -464,7 +483,9 @@ pub(crate) fn expected_header(
     proposer: tendermint::account::Id,
 ) -> Result<ExpectedHeader, Rejection> {
     let epoch = chain.schedule().epoch_of(height);
-    let committee = chain.committees.committee(epoch).ok_or(Rejection::CommitteeUnknown(epoch))?;
+    let required =
+        chain.schedule().active_committee_epoch(height, chain.origin_height()).unwrap_or(epoch);
+    let committee = chain.committee_at(height).ok_or(Rejection::CommitteeUnknown(required))?;
     if !rules::is_committee_proposer(&committee.members, proposer) {
         return Err(Rejection::ProposerUnknown(proposer));
     }
@@ -495,7 +516,8 @@ fn check_candidate(
 
 /// Authenticates a supplied anchor or inherits the parent's anchor, then checks anchor progress,
 /// generation and the authenticated back-pressure cap before registry discovery.
-/// Anchor witnesses are forced only on anchor moves and H0, independently of switch heights.
+/// Anchor witnesses are forced on anchor moves and the generation's first height, independently
+/// of global switch heights.
 pub(crate) fn check_candidate_anchor(
     chain: &ChainContext<'_>,
     params: &ChainParams,
@@ -503,7 +525,7 @@ pub(crate) fn check_candidate_anchor(
     c: &Candidate<'_>,
 ) -> Result<AnchorState, Rejection> {
     let anchor = candidate_anchor(chain, params, height, c)?;
-    rules::check_anchor_progress(chain.anchor.number, anchor.number, chain.genesis.l1_0)?;
+    rules::check_anchor_progress(chain.anchor.number, anchor.number, chain.anchor_floor())?;
 
     let inbox_generation = anchor.inbox.recovery_generation;
     if rules::check_generation(chain.generation, c.extra_generation, inbox_generation)? ==
@@ -520,8 +542,8 @@ pub(crate) fn check_candidate_anchor(
 }
 
 /// Derives the incoming committee at switch height `H(t)-2` and requires the outgoing local
-/// committee to exist. No L1 committee publication or checkpoint coverage of a prior derivation
-/// is required; back-pressure was already checked on the anchor.
+/// active committee to exist. No L1 committee publication or checkpoint coverage of a prior
+/// derivation is required; back-pressure was already checked on the anchor.
 pub(crate) fn finish_candidate(
     chain: &ChainContext<'_>,
     params: &ChainParams,
@@ -530,10 +552,12 @@ pub(crate) fn finish_candidate(
     anchor: AnchorState,
 ) -> Result<CandidateFacts, Rejection> {
     let derived = candidate_committee(chain, params, height, committee, &anchor)?;
-    if let Some(t) = chain.schedule().switch_target(height) &&
-        chain.committees.committee(t - 1).is_none()
-    {
-        return Err(Rejection::CommitteeUnknown(t - 1));
+    if chain.schedule().switch_target(height).is_some() && chain.committee_at(height).is_none() {
+        let epoch = chain
+            .schedule()
+            .active_committee_epoch(height, chain.origin_height())
+            .unwrap_or_else(|| chain.schedule().epoch_of(height));
+        return Err(Rejection::CommitteeUnknown(epoch));
     }
     Ok(CandidateFacts { anchor, derived })
 }
@@ -556,7 +580,7 @@ fn candidate_anchor(
     height: u64,
     c: &Candidate<'_>,
 ) -> Result<AnchorState, Rejection> {
-    let forced = height == chain.schedule().h0();
+    let forced = chain.origin_height().checked_add(1) == Some(height);
     match c.anchor {
         None if forced || c.extra_anchor != chain.anchor.number => {
             Err(Rejection::MissingWitness(WitnessKind::Anchor))
@@ -570,7 +594,8 @@ fn candidate_anchor(
 }
 
 /// Derives committee `t` only at its switch height `H(t)-2`: the snapshot cutoff is the committed
-/// parent's anchor number and the registry proofs verify against this block's own anchor
+/// parent's anchor number floored by the generation origin, and registry proofs verify against
+/// this block's own anchor
 /// `stateRoot`. Non-switch heights forbid runtime committee witnesses.
 fn candidate_committee(
     chain: &ChainContext<'_>,
@@ -586,7 +611,7 @@ fn candidate_committee(
         (Some(target), Some(w)) => {
             let (record, members) = verify_committee_witness_at_cutoff(
                 anchor.state_root,
-                chain.anchor.number.max(chain.genesis.l1_0),
+                chain.anchor.number.max(chain.anchor_floor()),
                 params,
                 w,
                 target,

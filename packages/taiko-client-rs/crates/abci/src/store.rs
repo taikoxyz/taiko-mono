@@ -17,6 +17,7 @@ use alloy_primitives::{Address, B256};
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    recovery::RecoveryOrigin,
     schedule::Schedule,
     types::{AnchorState, CommitteeRecord, GenesisRecord, Member, ParentInfo},
 };
@@ -48,7 +49,7 @@ pub struct CommitteeState {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppState {
-    /// Internal V1 journal schema; historical layouts require fresh state.
+    /// Journal schema: 13 for generation zero, 14 exclusively for fresh recovery state.
     pub schema_version: u32,
     /// Mandatory consensus format marker; old saved state has no implicit migration.
     pub app_version: u64,
@@ -56,6 +57,9 @@ pub struct AppState {
     pub chain_id: String,
     /// Recovery generation authenticated in the deployment domain.
     pub generation: u64,
+    /// Fixed authenticated boundary for fresh recovery schema 14; absent in schema 13.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recovery: Option<RecoveryOrigin>,
     /// Inbox account authenticated at genesis. Required so a restart cannot switch contracts;
     /// state files written without this binding are refused rather than migrated implicitly.
     pub inbox: Address,
@@ -73,7 +77,7 @@ pub struct AppState {
     /// have consumed (0 at `InitChain`). The next block may consume only entry
     /// `forced_cursor`. A required field: a state file without it is refused (no migration).
     pub forced_cursor: u64,
-    /// Known committees by epoch: the running epoch's and, once derived, the next one's.
+    /// Authenticated active and pending committee records, keyed by their actual target epochs.
     pub committees: BTreeMap<u64, CommitteeState>,
 }
 
@@ -83,9 +87,35 @@ impl AppState {
         Schedule::from_genesis(&self.genesis)
     }
 
-    /// Drops every committee of an epoch below `keep_from_epoch`.
+    /// The fixed global L2 boundary preceding this generation's first block.
+    pub fn origin_height(&self) -> u64 {
+        self.recovery.as_ref().map_or(self.genesis.genesis_height, |origin| origin.height)
+    }
+
+    /// Earliest L1 anchor/snapshot allowed for a block in this generation.
+    pub fn anchor_floor(&self) -> u64 {
+        self.recovery.as_ref().map_or(self.genesis.l1_0, |origin| origin.l1_number)
+    }
+
+    /// Target epoch of the authenticated initial committee, on the unchanged global schedule.
+    pub fn initial_committee_epoch(&self) -> u64 {
+        self.origin_height() / self.genesis.epoch_len
+    }
+
+    /// The actually active authenticated set; missing in-generation rotations never fall back.
+    pub fn committee_at(&self, height: u64) -> Option<&CommitteeState> {
+        self.committees.get(&self.schedule().active_committee_epoch(height, self.origin_height())?)
+    }
+
+    /// Drops obsolete records while retaining the set still active at `keep_from_epoch`.
+    /// A discarded pre-recovery switch does not make the initial R set obsolete.
     pub fn prune_committees(&mut self, keep_from_epoch: u64) {
-        self.committees = self.committees.split_off(&keep_from_epoch);
+        let keep = self
+            .schedule()
+            .checked_h_first(keep_from_epoch)
+            .and_then(|height| self.schedule().active_committee_epoch(height, self.origin_height()))
+            .unwrap_or(keep_from_epoch);
+        self.committees = self.committees.split_off(&keep);
     }
 }
 
@@ -325,6 +355,7 @@ mod tests {
         };
         AppState {
             schema_version: 13,
+            recovery: None,
             app_version: crate::app::APP_VERSION,
             chain_id: "taiko-etna-167001-g0".to_string(),
             generation: 0,

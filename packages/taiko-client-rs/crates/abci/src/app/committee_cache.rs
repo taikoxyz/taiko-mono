@@ -187,7 +187,7 @@ pub(super) fn load_cached_committee(
     };
     if let Err(error) = verify_committee_witness_at_cutoff(
         persisted.key.proof_anchor.2,
-        state.anchor.number.max(state.genesis.l1_0),
+        state.anchor.number.max(state.anchor_floor()),
         params,
         &witness,
         target,
@@ -416,7 +416,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         }
         verify_committee_witness_at_cutoff(
             anchor.state_root,
-            state.anchor.number.max(state.genesis.l1_0),
+            state.anchor.number.max(state.anchor_floor()),
             &self.params,
             witness,
             target_epoch,

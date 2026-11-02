@@ -84,6 +84,22 @@ impl Schedule {
         h.saturating_sub(h0) / self.len("epoch_of")
     }
 
+    /// Committee epoch required at a global height after a fixed generation origin.
+    /// The R-selected set survives global boundaries whose switch was discarded. A switch
+    /// after the origin always requires its own record; absence never falls back to an older set.
+    pub fn active_committee_epoch(&self, height: u64, origin_height: u64) -> Option<u64> {
+        if height <= origin_height {
+            return None;
+        }
+        let initial = origin_height / self.len("active_committee_epoch");
+        let epoch = self.epoch_of(height);
+        if epoch <= initial || self.checked_h_first(epoch)?.checked_sub(2)? <= origin_height {
+            Some(initial)
+        } else {
+            Some(epoch)
+        }
+    }
+
     /// The first height of epoch `e` is `1 + e * L`, including epoch zero.
     ///
     /// # Panics

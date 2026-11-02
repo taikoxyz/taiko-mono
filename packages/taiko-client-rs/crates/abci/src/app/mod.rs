@@ -627,9 +627,9 @@ fn at_genesis(state: &AppState) -> bool {
 
 /// Rejects a persisted state that `params` or the state itself contradicts (see [`App::new`]).
 fn check_stored_state(state: &AppState, params: &ChainParams) -> Result<(), AbciError> {
-    if state.schema_version != 13 {
+    if !matches!((state.schema_version, state.recovery.as_ref()), (13, None) | (14, Some(_))) {
         return Err(AbciError::StoredState(format!(
-            "unsupported journal schema {} (expected 13)",
+            "unsupported journal schema {} or recovery origin (expected 13 without origin or 14 with origin)",
             state.schema_version
         )));
     }
@@ -649,10 +649,27 @@ fn check_stored_state(state: &AppState, params: &ChainParams) -> Result<(), Abci
     if state.genesis.genesis_height != 0 {
         return Err(AbciError::StoredState("genesis height must be zero".into()));
     }
-    if state.generation != 0 {
-        return Err(AbciError::StoredState(
-            "unsupported recovery generation: fresh generation 0 only".into(),
-        ));
+    match &state.recovery {
+        None if state.generation != 0 => {
+            return Err(AbciError::StoredState(
+                "nonzero generation requires an authenticated recovery origin".into(),
+            ))
+        }
+        Some(origin)
+            if origin.generation == 0 ||
+                origin.generation != state.generation ||
+                origin.height > state.last_height ||
+                origin.l1_number < state.genesis.l1_0 ||
+                origin.committee.record.target_epoch != state.initial_committee_epoch() ||
+                origin.committee.record.cutoff_l1_block != origin.l1_number ||
+                state
+                    .committees
+                    .get(&state.initial_committee_epoch())
+                    .is_some_and(|set| *set != origin.committee) =>
+        {
+            return Err(AbciError::StoredState("inconsistent recovery origin".into()));
+        }
+        _ => {}
     }
     check_chain_id(&state.chain_id, params, state.generation)?;
     if state.genesis.committee_config_hash != crate::committee::committee_config_hash(params) {

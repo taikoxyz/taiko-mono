@@ -570,8 +570,8 @@ impl Backoff {
 /// consumes an entry ([`Validated::forced`]); the incoming committee derived at the switch is added
 /// before validator updates, a different record already known for its epoch being a
 /// [`AbciError::SafetyHalt`]. At the switch height to epoch `t`, `h_first(t) − 2` (CometBFT applies
-/// updates two heights later), the updates are [`committee::validator_updates`] from set `t − 1` to
-/// set `t`, and committees below `t − 1` are pruned; every other height emits none.
+/// updates two heights later), updates compare the actually active set to set `t`. Pruning keeps
+/// that outgoing set even when recovery discarded a global epoch's switch; other heights emit none.
 fn next_state(
     state: &AppState,
     v: &Validated,
@@ -621,7 +621,10 @@ fn next_state(
         })
     };
     // `switch_target` only yields epochs >= 1.
-    let updates = committee::validator_updates(&set(t - 1)?.members, &set(t)?.members);
+    let outgoing = state.committee_at(height).ok_or_else(|| {
+        safety_halt(height, "committee_unknown", format!("no active committee at height {height}"))
+    })?;
+    let updates = committee::validator_updates(&outgoing.members, &set(t)?.members);
     next.prune_committees(t - 1);
     Ok((next, updates))
 }

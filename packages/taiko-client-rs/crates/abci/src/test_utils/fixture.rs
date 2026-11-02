@@ -367,6 +367,7 @@ impl Fixture {
         };
         AppState {
             schema_version: 13,
+            recovery: None,
             app_version: crate::app::APP_VERSION,
             chain_id: self.request.chain_id.clone(),
             generation: self.inbox.recovery_generation,
@@ -477,12 +478,22 @@ pub(crate) fn recovery_fixture(
     c: u64,
     r_generation: u64,
 ) -> (Fixture, MockL1, MockEngine, crate::recovery::RecoveryWitness) {
+    recovery_fixture_with_spec(GenesisSpec::new(2), generation, c, r_generation)
+}
+
+/// Recovery evidence over a caller-selected immutable deployment schedule.
+pub(crate) fn recovery_fixture_with_spec(
+    spec: GenesisSpec,
+    generation: u64,
+    c: u64,
+    r_generation: u64,
+) -> (Fixture, MockL1, MockEngine, crate::recovery::RecoveryWitness) {
     use super::registry_account;
     use crate::{
         committee::{Snapshot, derive},
         recovery::RecoveryWitness,
     };
-    let fx = Fixture::genesis(2);
+    let fx = Fixture::build(spec);
     let l1 = fx.l1();
     let parent =
         Header { number: c.saturating_sub(1), timestamp: 1_760_000_060, ..Header::default() };
@@ -536,9 +547,13 @@ pub(crate) fn recovery_fixture(
         l1.insert_block(l1_header(110, Fixture::l1_timestamp(110)), final_state.clone());
     l1.set_finalized(110);
     let entries = fx.registry.checkpoints[0].1.clone();
-    let (record, _) =
-        derive(&Snapshot { checkpoint_index: 0, l1_block: 63, entries }, 100, c / 20, &fx.params)
-            .unwrap();
+    let (record, _) = derive(
+        &Snapshot { checkpoint_index: 0, l1_block: 63, entries },
+        100,
+        c / fx.genesis.epoch_len,
+        &fx.params,
+    )
+    .unwrap();
     let witness = RecoveryWitness {
         version: 1,
         generation,

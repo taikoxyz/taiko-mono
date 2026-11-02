@@ -641,6 +641,7 @@ impl BlockCase {
             }
         });
         let chain = ChainContext {
+            recovery: None,
             genesis: &genesis,
             generation: self.generation,
             parent: &parent,
