@@ -39,6 +39,8 @@ pub mod key;
 pub mod l1;
 /// Prometheus metrics of the ABCI app.
 pub mod metrics;
+/// Authenticated fixed governance-recovery origins.
+pub mod recovery;
 /// Header derivation and block-validity predicates.
 pub mod rules;
 /// Epoch schedule derived from the L1 genesis record.
@@ -78,6 +80,10 @@ pub use l1::{
     build_committee_witness_at_cutoff, header_at, is_final_canonical,
 };
 pub use metrics::AbciMetrics;
+pub use recovery::{
+    RecoveryError, RecoveryOrigin, RecoveryWitness, authenticate_recovery,
+    check_recovery_canonicality, verify_recovery_witness,
+};
 pub use rules::{ExpectedHeader, GenerationCheck, HeaderInputs, RuleViolation};
 pub use schedule::{Schedule, ScheduleError};
 pub use server::{

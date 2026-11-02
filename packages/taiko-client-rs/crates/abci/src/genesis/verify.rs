@@ -32,11 +32,25 @@ pub(crate) fn verify_context(
     inbox: &AccountWitness,
     params: &ChainParams,
 ) -> Result<GenesisContext, GenesisError> {
-    let (genesis, facts, committee_hash) =
-        verify_genesis_inbox(header.state_root(), inbox, params.inbox)?;
-    if facts.recovery_generation != 0 {
+    let context = verify_deployment_context(header, inbox, params)?;
+    if context.anchor.inbox.recovery_generation != 0 {
         return Err(GenesisError::UnsupportedRecovery("generation must be zero".into()));
     }
+    Ok(context)
+}
+
+/// Verifies immutable deployment facts, allowing recovery in the initialization L1 block.
+///
+/// End-of-block L1_0 state may already include governance recovery. Generation-zero startup
+/// must use `verify_context`; recovery separately authenticates its requested generation and R.
+/// Canonicality and finality remain the caller's responsibility.
+pub(crate) fn verify_deployment_context(
+    header: &RawL1Header,
+    inbox: &AccountWitness,
+    params: &ChainParams,
+) -> Result<GenesisContext, GenesisError> {
+    let (genesis, facts, committee_hash) =
+        verify_genesis_inbox(header.state_root(), inbox, params.inbox)?;
     if header.number() != genesis.l1_0 {
         return Err(GenesisError::InitializationMismatch {
             l1_0: header.number(),

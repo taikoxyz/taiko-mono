@@ -39,7 +39,7 @@ mod record;
 mod verify;
 
 pub(crate) use doc::genesis_time;
-pub(crate) use verify::{verify_committee, verify_context};
+pub(crate) use verify::{verify_committee, verify_context, verify_deployment_context};
 
 pub use build::build_genesis;
 pub use doc::{

@@ -202,7 +202,7 @@ pub fn verify_genesis_inbox(
 }
 
 /// Rejects a witness that proves an account other than the configured Inbox.
-fn check_contract(w: &AccountWitness, inbox: Address) -> Result<(), WitnessError> {
+pub(crate) fn check_contract(w: &AccountWitness, inbox: Address) -> Result<(), WitnessError> {
     if w.address != inbox {
         return Err(WitnessError::WrongContract { expected: inbox, got: w.address });
     }

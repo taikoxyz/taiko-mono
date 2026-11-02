@@ -77,6 +77,20 @@ pub mod inbox {
         mapping_words(ORIGINS, generation)
     }
 
+    /// Exact slot order for a recovery observation, including immutable deployment facts,
+    /// current checkpoint/queue observations, fixed generation origin and retained landing.
+    pub fn recovery_slots(generation: u64, height: u64) -> Vec<B256> {
+        let mut slots = genesis_slots();
+        slots.extend([
+            slot(LAST_CHECKPOINT_HEIGHT),
+            slot(LAST_CHECKPOINT_HASH),
+            slot(FORCED_INCLUSION_HEAD_TAIL),
+        ]);
+        slots.extend(origin_slots(generation));
+        slots.extend(landing_slots(height));
+        slots
+    }
+
     /// Inbox status after genesis initialization.
     pub const ETNA_ACTIVE: u8 = 3;
 

@@ -471,6 +471,90 @@ pub(crate) fn consensus_params() -> tendermint_proto::v0_38::types::ConsensusPar
     crate::genesis::GenesisConsensusParams::abci()
 }
 
+/// A proof-backed recovery with retained old-generation landing and a later checkpoint.
+pub(crate) fn recovery_fixture(
+    generation: u64,
+    c: u64,
+    r_generation: u64,
+) -> (Fixture, MockL1, MockEngine, crate::recovery::RecoveryWitness) {
+    use super::registry_account;
+    use crate::{
+        committee::{Snapshot, derive},
+        recovery::RecoveryWitness,
+    };
+    let fx = Fixture::genesis(2);
+    let l1 = fx.l1();
+    let parent =
+        Header { number: c.saturating_sub(1), timestamp: 1_760_000_060, ..Header::default() };
+    let el = if c == 0 {
+        fx.el_chain[0].clone()
+    } else {
+        Header {
+            number: c,
+            parent_hash: parent.hash_slow(),
+            state_root: B256::repeat_byte(0x55),
+            timestamp: 1_760_000_072,
+            base_fee_per_gas: Some(1),
+            ..Header::default()
+        }
+    };
+    let engine = MockEngine::with_chain(if c == 0 {
+        vec![el.clone()]
+    } else {
+        vec![parent.clone(), el.clone()]
+    });
+    let mut storage = fx.inbox_with(c + 6);
+    storage.recovery_generation = generation;
+    storage.forced_inclusion_head = 8;
+    storage.forced_inclusion_tail = 10;
+    let mut words = storage.slots();
+    words.extend(inbox::origin_slots(generation).into_iter().zip([
+        U256::from(c),
+        U256::from(100),
+        U256::from(Fixture::l1_timestamp(100)),
+    ]));
+    words.extend(inbox::landing_slots(c).into_iter().zip([
+        U256::from(if c == 0 { 0 } else { 3 }) << 96,
+        el.hash_slow().into(),
+        if c == 0 { U256::ZERO } else { B256::repeat_byte(0xcc).into() },
+    ]));
+    // Same-block recoveries leave the end-of-R generation higher than the requested one.
+    let state_for = |current: u64| {
+        let mut words = words.clone();
+        words.iter_mut().find(|(s, _)| *s == inbox::slot(inbox::RECOVERY_GENERATION)).unwrap().1 =
+            U256::from(current);
+        let mut accounts = filler_accounts();
+        accounts.push((fx.params.inbox, 1, U256::ZERO, B256::repeat_byte(1), words));
+        accounts.push(registry_account(fx.params.registry, &fx.registry));
+        TestState::new(accounts)
+    };
+    let r_state = state_for(r_generation);
+    let recovery_header =
+        l1.insert_block(l1_header(100, Fixture::l1_timestamp(100)), r_state.clone());
+    let final_state = state_for(generation);
+    let finalized_header =
+        l1.insert_block(l1_header(110, Fixture::l1_timestamp(110)), final_state.clone());
+    l1.set_finalized(110);
+    let entries = fx.registry.checkpoints[0].1.clone();
+    let (record, _) =
+        derive(&Snapshot { checkpoint_index: 0, l1_block: 63, entries }, 100, c / 20, &fx.params)
+            .unwrap();
+    let witness = RecoveryWitness {
+        version: 1,
+        generation,
+        genesis: fx.witness.clone(),
+        finalized_header,
+        finalized_inbox: final_state
+            .witness(fx.params.inbox, &inbox::recovery_slots(generation, c)),
+        recovery_header,
+        recovery_inbox: r_state.witness(fx.params.inbox, &inbox::recovery_slots(generation, c)),
+        committee: committee_witness(&r_state, fx.params.registry, &fx.registry, 0, record),
+        el_header: el,
+        parent_headers: if c == 0 { vec![] } else { vec![parent] },
+    };
+    (fx, l1, engine, witness)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
