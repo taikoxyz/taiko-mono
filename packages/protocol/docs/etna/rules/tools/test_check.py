@@ -716,6 +716,29 @@ class AmendmentBaseCLIIntegrationTests(unittest.TestCase):
 
 
 class MarkdownParserRegressions(unittest.TestCase):
+    def test_consistent_nested_table_is_valid_markup(self):
+        text = "- Note.\n\n  | A | B |\n  | --- | --- |\n  | C | D |\n"
+        self.assertEqual(check.check_tables("example.md", text), [])
+
+    def test_ragged_nested_table_is_rejected(self):
+        text = "- Note.\n\n  | A | B |\n  | --- | --- |\n  | C | D | Extra |\n"
+        self.assertIn("tables: example.md has a row with a different column count",
+                      check.check_tables("example.md", text))
+
+    def test_nested_table_cannot_supply_an_amendment_declaration(self):
+        text = ("## Material amendments\n\n- Note.\n\n"
+                "  | ID | Prior meaning | Current amendment | Content digest |\n"
+                "  | --- | --- | --- | --- |\n"
+                "  | TEST-1-1 | Old | New | " + "a" * 64 + " |\n")
+        self.assertEqual(list(check.amendment_rows(text)), [])
+
+    def test_nested_heading_cannot_open_an_amendment_section(self):
+        text = ("- ## Material amendments\n\n"
+                "| ID | Prior meaning | Current amendment | Content digest |\n"
+                "| --- | --- | --- | --- |\n"
+                "| TEST-1-1 | Old | New | " + "a" * 64 + " |\n")
+        self.assertEqual(list(check.amendment_rows(text)), [])
+
     def test_indented_fake_fence_cannot_hide_appendix_definition_in_comment(self):
         spec = ("    ~~~\n\n<!--\n## Appendix A. Encodings\n\n```txt\n"
                 "// [ENC-A-1]\nvalue = 1\n```\n-->\n")

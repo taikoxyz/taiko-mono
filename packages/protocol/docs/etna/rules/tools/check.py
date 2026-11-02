@@ -30,13 +30,14 @@ from functools import lru_cache
 from html.parser import HTMLParser
 
 try:
+    from cmarkgfm.cmark import Options as CMarkOptions, markdown_to_html_with_extensions
     from markdown_it import MarkdownIt
     from markdown_it.rules_block import table as table_rule
     from markdown_it.rules_block.table import escapedSplit, getLine
     from markdown_it.rules_inline import emphasis
     from markdown_it.tree import SyntaxTreeNode
 except ModuleNotFoundError as error:
-    if error.name not in ("markdown_it", "mdurl"):
+    if error.name not in ("cmarkgfm", "_cffi_backend", "markdown_it", "mdurl"):
         raise
     requirements = os.path.join(os.path.dirname(os.path.realpath(__file__)), "requirements.txt")
     raise SystemExit("Missing checker dependency; install with: python3 -m pip install -r " + requirements) from None
@@ -213,14 +214,16 @@ class MarkdownDocument:
         return node.children[0].content
 
     def sections(self, title=None):
-        headings = self.headings(2)
+        headings = [node for node in self.tree.children if node.type == "heading" and node.tag == "h2"]
         return [(node, self.span(headings[i + 1])[0] if i + 1 < len(headings) else len(self.text))
                 for i, node in enumerate(headings) if title is None or self.title(node) == title]
 
     def rows(self, start=0, end=None):
-        for node in self.nodes:
-            if node.type == "tr" and start <= self.span(node)[0] < (len(self.text) if end is None else end):
-                yield node, node.meta["cells"]
+        # Registry/declaration/coverage tables are document blocks, never nested examples.
+        for table in (node for node in self.tree.children if node.type == "table"):
+            for node in table.walk(include_self=False):
+                if node.type == "tr" and start <= self.span(node)[0] < (len(self.text) if end is None else end):
+                    yield node, node.meta["cells"]
 
     def fences(self):
         return [node for node in self.nodes if node.type == "fence"]
@@ -272,6 +275,65 @@ def markdown(text):
     return MarkdownDocument(text)
 
 
+class RenderedHTML(HTMLParser):
+    """Compare renderer output without serialization-only HTML whitespace.
+
+    Keep all text within inline/text containers and pre/code, including whitespace-only
+    code. Only indentation/newlines between document/list/table blocks are discarded.
+    """
+
+    VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"}
+    TEXT = {"p", "li", "summary", "td", "th", "a", "em", "strong", "del", "pre", "code",
+            "h1", "h2", "h3", "h4", "h5", "h6"}
+
+    def __init__(self, source):
+        super().__init__(convert_charrefs=True)
+        self.events, self.stack = [], []
+        self.feed(source)
+        self.close()
+
+    def handle_starttag(self, tag, attrs):
+        self.events.append(("start", tag, tuple(sorted(attrs, key=repr))))
+        if tag not in self.VOID:
+            self.stack.append(tag)
+
+    def handle_startendtag(self, tag, attrs):
+        self.handle_starttag(tag, attrs)
+        if tag not in self.VOID:
+            self.handle_endtag(tag)
+
+    def handle_endtag(self, tag):
+        if tag in self.VOID:
+            return
+        self.events.append(("end", tag))
+        if tag in self.stack:
+            del self.stack[len(self.stack) - 1 - self.stack[::-1].index(tag):]
+
+    def handle_data(self, data):
+        if not data.strip() and not any(tag in self.TEXT for tag in self.stack):
+            return
+        if self.events and self.events[-1][0] == "text":
+            self.events[-1] = ("text", self.events[-1][1] + data)
+        else:
+            self.events.append(("text", data))
+
+    def handle_comment(self, data):
+        self.events.append(("comment", data))
+
+
+def renderer_agreement(text):
+    """Require the source-map parser and GitHub's reference parser to agree.
+
+    These documents use their shared bounded syntax, rather than accepting all GFM.
+    Enable GitHub extensions and footnotes on the reference side so hidden/deleted
+    content or differing HTML block grammars cannot masquerade as shared syntax.
+    """
+    reference = markdown_to_html_with_extensions(
+        text, options=CMarkOptions.CMARK_OPT_UNSAFE | CMarkOptions.CMARK_OPT_FOOTNOTES,
+        extensions=["table", "autolink", "tagfilter", "strikethrough", "tasklist"])
+    return RenderedHTML(MD.render(text)).events == RenderedHTML(reference).events
+
+
 
 class SupportedHTML(HTMLParser):
     """Validate raw HTML tokens against the small normative-document allowlist."""
@@ -309,7 +371,9 @@ def check_markdown_structure(name, text):
     msgs = ["markdown: unclosed fence in " + name] if doc.unclosed() else []
     if any(node.markup in ("=", "-") for node in doc.headings()):
         msgs.append("markdown: setext headings are unsupported in " + name + "; use ATX headings")
-    if name in ("SPEC.md", "UPGRADES.md"):
+    if name in ("SPEC.md", "UPGRADES.md", "rules/INDEX.md"):
+        if not renderer_agreement(text):
+            msgs.append("markdown: renderer disagreement in " + name)
         allowed = {pos for pos, _rid in doc.governing()} if name == "UPGRADES.md" else set()
         invalid = False
         for node in doc.nodes:
@@ -359,10 +423,10 @@ def check_marker_placement(spec):
             continue
         previous = None
         for line in doc.source(node).splitlines():
-            markers = INLINE.findall(line)
-            if previous and line.strip() and not markers:
+            markers = list(INLINE.finditer(line))
+            if previous and line.strip() and (not markers or line[:markers[0].start()].strip()):
                 msgs.append("placement: unmarked paragraph continuation after " + previous)
-            previous = markers[-1] if markers else None
+            previous = markers[-1][1] if markers else None
     locate = section_finder(spec)
     for marker in CODE.finditer(spec):
         block = next((node for node in doc.nodes if node.map
@@ -602,7 +666,8 @@ def check_tables(name, source):
     doc, msgs = markdown(source), []
     for node in doc.nodes:
         if node.type == "table":
-            widths = {len(cells) for _row, cells in doc.rows(*doc.span(node))}
+            widths = {len(row.meta["cells"]) for row in node.walk(include_self=False)
+                      if row.type == "tr"}
             if len(widths) != 1:
                 msgs.append("tables: %s has a row with a different column count" % name)
         elif node.type == "paragraph" and any(line.lstrip().startswith("|") for line in node.children[0].content.splitlines()):
@@ -624,7 +689,9 @@ def main():
 
     upgrades = os.path.join(DOCS, "UPGRADES.md")
     helper = open(upgrades).read()
-    msgs = check_markdown_structure("SPEC.md", text) + check_markdown_structure("UPGRADES.md", helper)
+    msgs = (check_markdown_structure("SPEC.md", text)
+            + check_markdown_structure("UPGRADES.md", helper)
+            + check_markdown_structure("rules/INDEX.md", open(INDEX).read()))
     bad += fail(msgs) if msgs else (print("ok   markdown structure") or 0)
     msgs = check_marker_placement(text)
     bad += fail(msgs) if msgs else (print("ok   marker placement") or 0)

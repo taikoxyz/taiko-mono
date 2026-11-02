@@ -1,2 +1,5 @@
 markdown-it-py==4.0.0
 mdurl==0.1.2
+cmarkgfm==2025.10.22
+cffi==2.0.0
+pycparser==2.23

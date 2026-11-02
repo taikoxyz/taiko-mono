@@ -59,6 +59,28 @@ class GovernedContentTests(unittest.TestCase):
 
 
 class MarkdownStructureTests(unittest.TestCase):
+    def test_gfm_only_hidden_syntax_is_rejected_in_checked_sources(self):
+        for name in ("SPEC.md", "UPGRADES.md", "rules/INDEX.md"):
+            for source in ("[^hidden]: **[TEST-1-1]** Hidden requirement.\n",
+                           "<source\n**[TEST-1-1]** Hidden requirement.\n",
+                           "~~**[TEST-1-1]** Deleted requirement.~~\n"):
+                with self.subTest(name=name, source=source):
+                    self.assertIn("markdown: renderer disagreement in " + name,
+                                  check.check_markdown_structure(name, source))
+
+    def test_index_uses_the_same_bounded_source_syntax(self):
+        for source in ("<div>Hidden index content.</div>\n", "> Quoted index content.\n",
+                       '[hidden]: /url "Hidden index content."\n'):
+            with self.subTest(source=source):
+                self.assertTrue(check.check_markdown_structure("rules/INDEX.md", source))
+
+    def test_literal_unsupported_gfm_syntax_remains_valid(self):
+        source = ("Use `[^note]: text`, `<source` and `~~text~~` as literals.\n\n"
+                  "```txt\n[^note]: text\n<source\n~~text~~\n```\n")
+        for name in ("SPEC.md", "UPGRADES.md", "rules/INDEX.md"):
+            with self.subTest(name=name):
+                self.assertEqual(check.check_markdown_structure(name, source), [])
+
     def test_spec_unclosed_fence(self):
         self.assertTrue(any("unclosed fence" in e for e in check.check_markdown_structure("SPEC.md", "```txt\nvalue\n")))
 
@@ -122,6 +144,31 @@ class CheckerCLIStagesTests(unittest.TestCase):
     def test_duplicate_marker(self):
         self.edit("SPEC.md", "**[CONS-3.1-9]**", "**[CONS-3.1-8]**")
         self.run_check("FAIL markers: duplicate ID")
+
+    def test_footnote_cannot_hide_landing_paragraph_from_github(self):
+        self.edit("SPEC.md", "**[LAND-6.1-1]**", "[^hidden]: **[LAND-6.1-1]**")
+        self.run_check("FAIL markdown: renderer disagreement in SPEC.md")
+
+    def test_gfm_html_block_opener_cannot_hide_landing_paragraph(self):
+        self.edit("SPEC.md", "**[LAND-6.1-1]**", "<source\n**[LAND-6.1-1]**")
+        self.run_check("FAIL markdown: renderer disagreement in SPEC.md")
+
+    def test_marker_on_continuation_does_not_authorize_its_unmarked_prefix(self):
+        self.edit("SPEC.md", ". **[LAND-6.1-2]**", ".\nOnly DAO-allowlisted callers may call land. **[LAND-6.1-2]**")
+        self.run_check("FAIL placement: unmarked paragraph continuation after LAND-6.1-1")
+
+    def test_footnote_table_cannot_declare_an_otherwise_undeclared_amendment(self):
+        self.edit("SPEC.md", "Entries never expire.", "Entries expire after one day.")
+        spec = (self.docs / "SPEC.md").read_text()
+        body = check.governed_bodies(spec, (self.docs / "UPGRADES.md").read_text())["FI-7.2-3"]
+        digest = check.content_digest(body, "rule")
+        hidden_table = ("[^declaration]: Note.\n"
+                        "| ID | Prior meaning | Current amendment | Content digest |\n"
+                        "| --- | --- | --- | --- |\n"
+                        "| FI-7.2-3 | Entries never expire. | Entries expire after one day. | "
+                        + digest + " |\n\n")
+        self.edit("rules/INDEX.md", "## Amendment history", hidden_table + "## Amendment history")
+        self.run_check("FAIL markdown: renderer disagreement in rules/INDEX.md")
 
     def test_unknown_index_type(self):
         path = self.docs / "rules/INDEX.md"
