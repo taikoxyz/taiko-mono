@@ -227,8 +227,8 @@ _`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` fo
 | 20.b reject | storage value 5 is encoded as `0x00 0x05`                                                 | violates ENC-A-20 (leading zero); proposal invalid (ENC-A-16)       |
 | 20.c reject | a 2-byte string uses the long form `0xb8 0x02 ...`                                        | violates ENC-A-20 (prefix not minimal); proposal invalid (ENC-A-16) |
 | 20.d reject | the single byte `0x05` is encoded as `0x81 0x05`                                          | violates ENC-A-20 (prefix not minimal); proposal invalid (ENC-A-16) |
-| 20.e reject | a released slot's entry has a nonzero field                                               | violates ENC-A-20; proposal invalid (ENC-A-16)                      |
-| 20.f accept | a released slot's entry has all-zero fields                                               | matches                                                             |
+| 20.e reject | an empty slot's entry has a nonzero field                                                 | violates ENC-A-20; proposal invalid (ENC-A-16)                      |
+| 20.f accept | an empty slot's entry has all-zero fields                                                 | matches                                                             |
 | 20.g accept | a slot whose value is a hash uses minimal integer encoding, stripping leading zero bytes  | stated ("including slots that hold hashes")                         |
 
 ## ENC-A-21
@@ -410,6 +410,10 @@ _`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` fo
 | 37.b reject  | tag is `ETNA_REG_ENTRY_V2`                                                                              | violates ENC-A-37                                                                                                                    |
 | 37.c reject  | `j` or `exitEffectiveL1` is omitted                                                                     | violates ENC-A-37                                                                                                                    |
 | 37.d reject  | `ckX` precedes `ckPrefix`                                                                               | violates ENC-A-37 (order)                                                                                                            |
+| 37.e accept  | bond 4096 replaces the bond in slot 7; its entry is hashed into `entriesRoot`                           | `j = 7`; the other entry fields come from bond 4096 (STAKE-4.1-13a, STOR-B-21)                                                       |
+| 37.f reject  | the same replacement entry is hashed with `j = 4096`                                                    | violates STAKE-4.1-13a and ENC-A-37; `j` is the slot number, not the bond id                                                         |
+| 37.g accept  | bonds 0 and 1 hold slots 0 and 1; bond 0 is withdrawn; the next registration creates bond 2 in slot 0   | the new entry uses `j = 0` even before any bond id reaches 4096                                                                      |
+| 37.h reject  | the new entry for bond 2 in slot 0 uses `j = 2`                                                         | violates STAKE-4.1-13a and ENC-A-37                                                                                                  |
 
 ## ENC-A-38
 
@@ -588,12 +592,15 @@ _`abi.encode(left, right)` of two `bytes32` words equals their plain concatenati
 
 ## ENC-A-55
 
-| Vector      | Setup                                                                                        | Expected                                                                                                                       |
-| ----------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| 55.a accept | the registry owner forfeits a `bondId`/`entryKey` once, then never again for that `entryKey` | conforms                                                                                                                       |
-| 55.b reject | the DAO's execution address calls `forfeit` while the registry owner is a different address  | violates ENC-A-55 (registry-owner-only); FORF-4.4-1 names one caller, "the registry owner, the DAO's actual execution address" |
-| 55.c reject | a second `forfeit` for the same lifetime `entryKey`                                          | violates ENC-A-55 (once per lifetime entryKey)                                                                                 |
-| 55.d reject | any call that attempts to revoke or reset a forfeiture via a nonce                           | violates ENC-A-55 (no forfeiture nonce or revocation)                                                                          |
+| Vector      | Setup                                                                                                        | Expected                                                                                                                       |
+| ----------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| 55.a accept | the registry owner forfeits a `bondId`/`entryKey` once, then never again for that `entryKey`                 | conforms                                                                                                                       |
+| 55.b reject | the DAO's execution address calls `forfeit` while the registry owner is a different address                  | violates ENC-A-55 (registry-owner-only); FORF-4.4-1 names one caller, "the registry owner, the DAO's actual execution address" |
+| 55.c reject | a second `forfeit` for the same lifetime `entryKey`                                                          | violates ENC-A-55 (once per lifetime entryKey)                                                                                 |
+| 55.d reject | any call that attempts to revoke or reset a forfeiture via a nonce                                           | violates ENC-A-55 (no forfeiture nonce or revocation)                                                                          |
+| 55.e accept | bond 12 is displaced from slot 7 by bond 4096                                                                | emits `BondDisplaced(12, 7, 4096)` with all three uint256 fields indexed                                                       |
+| 55.f reject | `BondDisplaced` omits a field, swaps the displaced and replacement bond ids, or leaves the bond id unindexed | violates ENC-A-55 and STAKE-4.1-14b                                                                                            |
+| 55.g reject | registration takes an empty slot and emits `BondDisplaced`                                                   | violates STAKE-4.1-14b (no displaced bond)                                                                                     |
 
 ## Not covered
 

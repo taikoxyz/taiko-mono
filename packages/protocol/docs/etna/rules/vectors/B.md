@@ -287,12 +287,13 @@
 
 ## STOR-B-33
 
-| Vector      | Claimed layout or data                                                                           | Expected           |
-| ----------- | ------------------------------------------------------------------------------------------------ | ------------------ |
-| 33.a accept | a `topUp` that only sets `pendingTopUp` creates no checkpoint and leaves `entriesRoot` unchanged | matches            |
-| 33.b reject | `pendingTopUp` included in `regLeaf` or `entriesRoot`                                            | violates STOR-B-33 |
-| 33.c reject | a checkpoint written because of a pending change that alters no existing entry field             | violates STOR-B-33 |
-| 33.d reject | a guest reads the top-ups or forfeitures namespace                                               | violates STOR-B-33 |
+| Vector      | Claimed layout or data                                                                           | Expected                                |
+| ----------- | ------------------------------------------------------------------------------------------------ | --------------------------------------- |
+| 33.a accept | a `topUp` that only sets `pendingTopUp` creates no checkpoint and leaves `entriesRoot` unchanged | matches                                 |
+| 33.b reject | `pendingTopUp` included in `regLeaf` or `entriesRoot`                                            | violates STOR-B-33                      |
+| 33.c reject | a checkpoint written because of a pending change that alters no field of the entry in a slot     | violates STOR-B-33                      |
+| 33.d reject | a guest reads the top-ups or forfeitures namespace                                               | violates STOR-B-33                      |
+| 33.e accept | slashing or forfeiture changes only a displaced bond; no slot entry changes                      | no checkpoint is written (STAKE-4.1-36) |
 
 ## STOR-B-34
 
