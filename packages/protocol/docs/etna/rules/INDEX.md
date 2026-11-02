@@ -6,17 +6,59 @@
 
 ## Material amendments
 
-These citation handles are **amended**, not unchanged historical requirements. For an external citation written against the prior revision, consult that revision before applying the current text. Prior semantics below refer to main revision `c050012b84f38ecf229ed620f2facf8510171d47`; the V2/refinement column also supersedes the first upgrade draft `aa4ce48fc730d1b02d8a9d826b2972b8927d6a1f`.
+Each row identifies an amended citation handle, its prior text excerpt and current meaning. External citations to an older meaning must be read in that context. CI compares governed text against its externally supplied PR/push base and requires a declaration for every changed ID; no repository revision identifier is embedded here.
 
-| Citation                                            | Prior semantics                                                      | Current amendment                                                                                              |
-| --------------------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| START-10.1-1                                        | Upgrade stop/checkpoint workflow                                     | Ordinary EL timestamp fork; structural checkpoint; same-rule maintenance                                       |
-| START-10.1-11                                       | Batch must stay within one upgrade version                           | Mixed timestamp batches allowed; structural crossing forbidden                                                 |
-| START-10.1-12                                       | Old-version work invalidated at boundary                             | Original-range acceptance, subject to maintenance/global revocation                                            |
-| START-10.1-15                                       | Upgrade mechanism left open                                          | Required implemented activation mechanism and acceptance                                                       |
-| START-10.1-4/5/7/8/10/13                            | First draft plan/immutable T/hash-dependent activation/header parser | Explicit executor, safe T cancellation, preauthorization, L1 lag wait, V2 timestamp and independent revocation |
-| ENC-A-1/4/35                                        | V1 landing statement, no explicit terminal timestamp                 | V2, 22 words/704 bytes; images in journal, separate from config                                                |
-| CONS-3.1-9, START-10-5, PROOF-6.2-2/5/21, SYNC-9-14 | Fixed version/startup/proof/trust descriptions                       | Authenticated schedule, baseline identities, terminal timestamp proof and structural-only fence exception      |
+| ID            | Prior meaning                                                                                                                                           | Current amendment                                                                                            |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| CONS-3.1-9    | at height 0 Info returns the app version in this generation's genesis consensus params; the header's app version is constant within a generation, and … | Fixed generation app version; validity follows authenticated T/H schedules; local trust metadata excluded.   |
+| CONS-3.2-7    | gasLimit / chain constant L2_BLOCK_GAS_LIMIT /                                                                                                          | EL gas limit follows the authenticated timestamp schedule.                                                   |
+| CONS-3.3-3    | The witness proves the Inbox's recoveryGeneration, lastCheckpoint (height, hash) and the forced inclusion queue's head and tail.                        | Anchor witness also authenticates the fixed historical fence scalar.                                         |
+| CONS-3.4-3    | The presence or absence of an anchor witness follows 3.3, and the witness verifies.                                                                     | Every block checks its own anchor fence; later clearing cannot legalize a violation.                         |
+| FORF-4.4-1    | Authority and identity: forfeit(bondId, entryKey, incidentId, validUntil) is callable only by the registry owner, the DAO's actual execution address (… | Actual shared pinned proxy owner is the executor; Controller is its governance authority.                    |
+| LAND-6.1-9    | Once all pass, land atomically updates the checkpoint, snapshot, FI head, slot 285 record and SignalService.                                            | Landing also updates checkpointTimestamp and newly active timestamp status atomically.                       |
+| LAND-6.1-13   | The land signature, LandInput's eight fields, K and the cutLeaf and cutHash encodings (appendix A) are the interface. Local names and helper bodies ar… | Exactly nine input fields including lastTimestamp; K is epoch-versioned.                                     |
+| PROOF-6.2-1   | The verifier is an Inbox immutable.                                                                                                                     | Immutable upgrade-aware router.                                                                              |
+| PROOF-6.2-2   | The contract only calls its verifyProof interface and does not check the implementation;                                                                | Fixed statement binding and indexed cached policy checks before proof acceptance.                            |
+| PROOF-6.2-3   | production deployments must use the same ZkRequiredVerifier as mainnet (Unzen):                                                                         | Each selected production policy enforces the two-backend composition.                                        |
+| PROOF-6.2-4   | exactly two sub-proofs, at least one of them ZK (SGX + RISC0/SP1, or RISC0 + SP1), which needs two guests.                                              | Exactly two distinct backends, at least one ZK.                                                              |
+| PROOF-6.2-5   | The verifier address, code hash and accepted image set are pinned in the deployment manifest and checked as a launch gate in Etna Acceptance and Launc… | Authenticated journal/manifests pin executor/router/policy code and exact images.                            |
+| PROOF-6.2-11  | Inbox and registry storage holds under authenticated L1 roots; committeeConfigHash opens per appendix A; the genesis schedule is authenticated.         | Both guests authenticate and enforce each historical anchor fence.                                           |
+| PROOF-6.2-21  | execution runs from parentHash to the last block's hash and stateRoot; the execution part equals the blob payload byte for byte.                        | Both guests prove terminal header timestamp equality to lastTimestamp.                                       |
+| RECOV-8-27    | The Inbox restores lastCheckpoint (slots 270/271), the FI head (281) and activeCommitteeSnapshot (284) to the values written by the last trusted landi… | Exceptional rollback also restores upgrade checkpoint timestamp and reconciles routes/status.                |
+| RECOV-8-37    | The call is recover(expectedGeneration, expectedC, expectedRecoveryNonce, validUntil, exclusions, fiToClear).                                           | recover includes the canonical timestampPlanAction.                                                          |
+| RECOV-8.3-1   | Caller and conditions: only the Inbox owner (the DAO) may call recover.                                                                                 | Only actual DAO-controlled owner executor calls recover.                                                     |
+| RECOV-8.3-3   | At execution expectedGeneration, expectedC and expectedRecoveryNonce must equal current state, and block.timestamp <= validUntil;                       | Full recovery authorization binds the exact pending-timestamp action; T must exceed checkpointTimestamp.     |
+| RECOV-8.3-16  | Atomicity: list validation, registry forceExit, FI blanking, counter updates and origin recording all happen inside one recover call, and any failure … | Timestamp cancellation/replacement and suffix recovery revert together on any failure.                       |
+| SYNC-9-12     | After a signing request is refused for lack of trust or a timeout, the supervisor must therefore restart CometBFT automatically once trust returns: th… | Explicit refusal reasons/readiness monitoring and automatic restart after released fence.                    |
+| SYNC-9-14     | The restart needs no operator and resets no signing state; safety halts (section 8), requests for an old generation and refusals at a 10.1 upgrade bou… | Still-live fence blocks restart; finalized release resumes automatically after ordinary readiness.           |
+| START-10-5    | Deploy SignalService and initialize the Inbox (checking the registry under 4.1) with genesis hash/stateRoot, L, genesisCutoff, committee-0/config hash… | Initialize shared proxy ownership, journal/policies, maxTimestampLead and genesis checkpointTimestamp.       |
+| START-10-24   | In-place migration from other app/config versions (including a populated registry) is unsupported, and deleting retained state must not be used to byp… | Compatible changes only through 10.1; incompatible import/deployment migration remains separately specified. |
+| START-10.1-1  | Protocol upgrades stop production and settle before switching rules, without a zero-downtime promise.                                                   | Timestamp EL forks, checkpoint structural changes and same-rule verifier maintenance.                        |
+| START-10.1-2  | Operational restarts that preserve validity rules retain all same-domain signer state.                                                                  | Operational restart preserves commitments/signer state; image-only maintenance is explicit.                  |
+| START-10.1-3  | Changes to section 10's deployment-immutable parameters remain a separate new-Inbox/new-genesis migration; this section cannot bypass immutability.     | Immutable/interface/layout/genesis changes are unsupported in place; no implicit cross-deployment migration. |
+| START-10.1-4  | An upgrade plan must bind the deployment, generation, boundary height H (a grid point, since landings end only at grid points, 6.1; an upgrade that ch… | Canonical on-chain plan binds exact scope, code/images, executor and artifacts.                              |
+| START-10.1-5  | Authenticate it through the actual DAO/timelock authority and enforce it in both nodes and L1 verification; an off-chain manifest or operator agreemen… | Installation is structural authorization; bounded timestamp lead, journal/index/fence/recovery lifecycle.    |
+| START-10.1-6  | registering a new image alone is not a protocol upgrade.                                                                                                | Image registration alone grants no acceptance or rules; EL rules selected per block timestamp.               |
+| START-10.1-7  | Before the boundary, coordinate signers to stop above H while retaining all HRS state.                                                                  | Historical anchored fence enforced by nodes/guests; L1 lag waits; released fence restarts automatically.     |
+| START-10.1-8  | Settle through H under the old rules and authenticate its EL/CometBFT checkpoint before activating the new rules at H + 1.                              | Permissionless execution reads H on-chain and uses bounded atomic checks under installed authority.          |
+| START-10.1-9  | The plan must take effect before signing crosses the boundary.                                                                                          | Finalized authenticated plan/support required; missing data waits; authenticated contradictions halt.        |
+| START-10.1-10 | If signatures or unsettled blocks already exist above H, do not erase state or move the boundary backward; replan, or use section 8's separate procedu… | Ordinary safe-window cancellation plus atomic checkpoint-safe recovery cancellation/replacement.             |
+| START-10.1-11 | Isolate in-flight jobs by deployment, generation, statement/config/image version and height range; batches do not cross H.                              | Mixed timestamp batches allowed; structural batches cannot cross H.                                          |
+| START-10.1-12 | Old jobs must validly settle before the switch or be explicitly invalidated, never rewritten into a new version.                                        | Original-range old jobs subject to exact replacement/native validity/global revocation.                      |
+| START-10.1-13 | Retain old rule/image material for historical replay, but L1 settlement above H must no longer accept an image that only checks the old rules.          | Fixed 22-word timestamp binding, cached/indexed policies, global revocation and historical fences.           |
+| START-10.1-14 | New images must not implicitly change history through H.                                                                                                | Both guests retain complete old/new rules and cut/FI/overlap checks.                                         |
+| START-10.1-15 | Define and test the exact on-chain acceptance ranges, switching transaction and failure rollback plan.                                                  | Implement/pass boundary, recovery, bounded execution and automatic restart acceptance before use.            |
+| PARAM-11-5    | forcedInclusionDelay, maxAnchorAge / Inbox initialization / The former above 0; the latter ≥ 1152 s and above the L1 finality delay / Per deployment /  | Finite maxTimestampLead in seconds greater than maxAnchorAge.                                                |
+| PARAM-11-9    | K (grid interval) / Protocol constant built into the Inbox and both guests / 1 ≤ K ≤ 6 (six maximum-size blocks fill the six blobs of one transaction,… | K is an epoch-versioned grid parameter; changes use a common structural checkpoint.                          |
+| PARAM-11-10   | L2_BLOCK_GAS_LIMIT, L2_BLOCK_ZK_GAS_LIMIT, zk gas metering parameters and multiplier table / Built into the client per chain id (with the pinned EL ve… | EL-only metering/limit changes need coordinated client/guest release plus timestamp plan.                    |
+| LIMIT-12-10   | The upgrade activation mechanism is not fully designed yet. Section 10.1 specifies stopping and settling through H, new rules from H + 1, in-flight jo… | Upgrade mechanism specified; runtime implementation/acceptance remain required.                              |
+| LIMIT-12-10a  | L1 hard forks are a separate, external deadline: forks that only append header fields are absorbed by the decoding rule in 3.3, while forks that chang… | L1 fork classification and external deadline require authorized policies, not image registration alone.      |
+| ENC-A-1       | Versions: APP_VERSION=1, and every versioned domain tag is V1; the outer envelope/payload prefix is 0x06.                                               | One V1 domain scheme, APP_VERSION 1 and consensus-envelope prefix 0x06.                                      |
+| ENC-A-4       | Bind real guest-image/verifier acceptance to the config; until the upgrade mechanism is complete, changing clients or registering an image does not ac… | Proof-image identity belongs to the journal, separate from config; fixed 22-word statement.                  |
+| ENC-A-25      | Prove exactly in order: anchor [268, 270, 271, 281]; forced entry [base,base+1], base=keccak256(abi.encode(i,280));                                     | Anchor slots include packed fence at UPGRADE_BASE+9 and its canonical encoding.                              |
+| ENC-A-29      | cutLeaf(x) = keccak256(abi.encode(uint256(x), blockHash(x), cometHash(x), forcedHead(x))) // 4 words // blockHash(x) and cometHash(x) are the bytes32 … | K is versioned by structural epoch.                                                                          |
+| ENC-A-35      | statement = keccak256(abi.encode( bytes32("TAIKO_ETNA_LAND_V1"), l1ChainId, l2ChainId, inbox, registry, generation, parentHeight, parentHash, parentCo… | 22-word/704-byte V1 statement includes uint64-bounded lastTimestamp.                                         |
+| ENC-A-51      | // Exclusion = (uint256 bondId, bytes32 entryKey), sorted strictly by bondId.                                                                           | Recovery action uses one canonical dynamic tuple and explicit modes.                                         |
 
 ## Index
 
@@ -193,13 +235,13 @@ These citation handles are **amended**, not unchanged historical requirements. F
 | LAND-6.1-6    | rule       | Check list: range/grid/origin, leaves, FI head, reference/blobs, proofs                                                                        | 6.1     | [6.1](vectors/6.1.md#land-61-6)      |
 | LAND-6.1-7    | rule       | Leaves are exactly those of the grid points in (p,h)                                                                                           | 6.1     | [6.1](vectors/6.1.md#land-61-7)      |
 | LAND-6.1-8    | rule       | The leaf at c matches the current checkpoint record                                                                                            | 6.1     | [6.1](vectors/6.1.md#land-61-8)      |
-| LAND-6.1-9    | rule       | Atomic update: checkpoint, snapshot, FI head, slot 285, SignalService                                                                          | 6.1     | [6.1](vectors/6.1.md#land-61-9)      |
+| LAND-6.1-9    | rule       | Atomic landing and upgrade checkpoint/status updates                                                                                           | 6.1     | [6.1](vectors/6.1.md#land-61-9)      |
 | LAND-6.1-10   | rule       | Reference Solidity lists every check; the checks are normative                                                                                 | 6.1     | [6.1](vectors/6.1.md#land-61-10)     |
 | LAND-6.1-11   | rule       | All checks precede any state change                                                                                                            | 6.1     | [6.1](vectors/6.1.md#land-61-11)     |
 | LAND-6.1-12   | rule       | The leaf checks precede proof verification                                                                                                     | 6.1     | [6.1](vectors/6.1.md#land-61-12)     |
-| LAND-6.1-13   | rule       | Interface: land signature, LandInput's eight fields, K, cutLeaf/cutHash                                                                        | 6.1     | [6.1](vectors/6.1.md#land-61-13)     |
+| LAND-6.1-13   | rule       | land interface: nine LandInput fields, epoch K and cut encodings                                                                               | 6.1     | [6.1](vectors/6.1.md#land-61-13)     |
 | PROOF-6.2-1   | rule       | Upgrade-aware router is an Inbox immutable                                                                                                     | 6.2     | [6.2](vectors/6.2.md#proof-62-1)     |
-| PROOF-6.2-2   | rule       | Router authenticates statement/header and selected policy                                                                                      | 6.2     | [6.2](vectors/6.2.md#proof-62-2)     |
+| PROOF-6.2-2   | rule       | Fixed statement binding and indexed cached proof-policy verification                                                                           | 6.2     | [6.2](vectors/6.2.md#proof-62-2)     |
 | PROOF-6.2-3   | rule       | Selected policies preserve ZkRequiredVerifier composition                                                                                      | 6.2     | [6.2](vectors/6.2.md#proof-62-3)     |
 | PROOF-6.2-4   | rule       | Exactly two sub-proofs, at least one ZK, hence two guests                                                                                      | 6.2     | [6.2](vectors/6.2.md#proof-62-4)     |
 | PROOF-6.2-5   | rule       | Router, verifier code and image identities pinned at launch/upgrade                                                                            | 6.2     | [6.2](vectors/6.2.md#proof-62-5)     |
@@ -208,7 +250,7 @@ These citation handles are **amended**, not unchanged historical requirements. F
 | PROOF-6.2-8   | rule       | parentHeight/parentHash and headBefore are taken at proof origin p                                                                             | 6.2     | [6.2](vectors/6.2.md#proof-62-8)     |
 | PROOF-6.2-9   | rule       | Both sub-proofs authenticate the same statement, including cutHash                                                                             | 6.2     | [6.2](vectors/6.2.md#proof-62-9)     |
 | PROOF-6.2-10  | rule       | The proof stays valid when p is not the latest checkpoint at execution                                                                         | 6.2     | [6.2](vectors/6.2.md#proof-62-10)    |
-| PROOF-6.2-11  | rule       | Inbox and registry storage holds under authenticated L1 roots                                                                                  | 6.2     | [6.2](vectors/6.2.md#proof-62-11)    |
+| PROOF-6.2-11  | rule       | Authenticated storage, genesis and each block historical fence                                                                                 | 6.2     | [6.2](vectors/6.2.md#proof-62-11)    |
 | PROOF-6.2-12  | rule       | Derive signing and pending committees via 4.3 with authenticated inputs                                                                        | 6.2     | [6.2](vectors/6.2.md#proof-62-12)    |
 | PROOF-6.2-13  | rule       | Ordinary path: parentHash to D(t), at most L+2 historical headers                                                                              | 6.2     | [6.2](vectors/6.2.md#proof-62-13)    |
 | PROOF-6.2-14  | rule       | Every proof authenticates the fixed origin record; recovery also c and R                                                                       | 6.2     | [6.2](vectors/6.2.md#proof-62-14)    |
@@ -382,7 +424,7 @@ These citation handles are **amended**, not unchanged historical requirements. F
 | RECOV-8.2-4   | rule       | Sign for a new generation only after authenticating the recovery                                                                               | 8.2     | [8.2](vectors/8.2.md#recov-82-4)     |
 | RECOV-8.2-5   | rule       | New generation HRS starts at c+1; old-generation requests are refused                                                                          | 8.2     | [8.2](vectors/8.2.md#recov-82-5)     |
 | RECOV-8.2-6   | rule       | Generations use different signing domains; not double signs                                                                                    | 8.2     | [8.2](vectors/8.2.md#recov-82-6)     |
-| RECOV-8.3-1   | rule       | Caller: only the Inbox owner (the DAO) may call recover                                                                                        | 8.3     | [8.3](vectors/8.3.md#recov-83-1)     |
+| RECOV-8.3-1   | rule       | recover: actual pinned DAO-controlled owner only                                                                                               | 8.3     | [8.3](vectors/8.3.md#recov-83-1)     |
 | RECOV-8.3-2   | rule       | recover and invalidateRecoveryNonce require Inbox initialization                                                                               | 8.3     | [8.3](vectors/8.3.md#recov-83-2)     |
 | RECOV-8.3-3   | rule       | At execution: three expected values must match; timestamp ≤ validUntil                                                                         | 8.3     | [8.3](vectors/8.3.md#recov-83-3)     |
 | RECOV-8.3-4   | rule       | validUntil is an absolute L1 Unix timestamp fixed at authorization                                                                             | 8.3     | [8.3](vectors/8.3.md#recov-83-4)     |
@@ -429,7 +471,7 @@ These citation handles are **amended**, not unchanged historical requirements. F
 | SYNC-9-11     | rule       | Untrusted, timeout or superseded: no signature, no local fallback                                                                              | 9       | [9](vectors/9.md#sync-9-11)          |
 | SYNC-9-12     | rule       | Supervisor restarts CometBFT once trust returns after a trust/timeout refusal                                                                  | 9       | [9](vectors/9.md#sync-9-12)          |
 | SYNC-9-13     | rule       | Signer follows stock rules and persists each signature before broadcast                                                                        | 9       | [9](vectors/9.md#sync-9-13)          |
-| SYNC-9-14     | rule       | Restart needs no operator and resets no state; listed cases excluded                                                                           | 9       | [9](vectors/9.md#sync-9-14)          |
+| SYNC-9-14     | rule       | Automatic restart after finalized fence release; safety/old-generation exclusions                                                              | 9       | [9](vectors/9.md#sync-9-14)          |
 | SYNC-9-15     | rule       | Bridges and public RPC must read the app's trust status, not catching_up                                                                       | 9       | [9](vectors/9.md#sync-9-15)          |
 | SYNC-9-16     | rule       | Node requirements: L1 headers to L1_0, eth_getProof history and FI logs                                                                        | 9       | [9](vectors/9.md#sync-9-16)          |
 | SYNC-9.1-1    | rule       | Complete CometBFT recovery and proving require the listed original material                                                                    | 9.1     | [9.1](vectors/9.1.md#sync-91-1)      |
@@ -473,19 +515,19 @@ These citation handles are **amended**, not unchanged historical requirements. F
 | START-10.1-5  | rule       | Owner-authorized journal, lead bounds, grids and L1/node enforcement                                                                           | 10.1    | [10.1](vectors/10.1.md#start-101-5)  |
 | START-10.1-6  | rule       | Per-block timestamp selects EL rules; image registration is insufficient                                                                       | 10.1    | [10.1](vectors/10.1.md#start-101-6)  |
 | START-10.1-7  | rule       | Structural signer fence and refusal/safety consequences                                                                                        | 10.1    | [10.1](vectors/10.1.md#start-101-7)  |
-| START-10.1-8  | rule       | Atomic structural activation at exact authenticated checkpoint H                                                                               | 10.1    | [10.1](vectors/10.1.md#start-101-8)  |
+| START-10.1-8  | rule       | Installed structural authorization and bounded atomic execution at H                                                                           | 10.1    | [10.1](vectors/10.1.md#start-101-8)  |
 | START-10.1-9  | rule       | Finalized supported plans precede affected signatures                                                                                          | 10.1    | [10.1](vectors/10.1.md#start-101-9)  |
 | START-10.1-10 | rule       | No retroactive boundaries; cancellation and recovery history                                                                                   | 10.1    | [10.1](vectors/10.1.md#start-101-10) |
 | START-10.1-11 | rule       | Mixed timestamp batches allowed; structural batches cannot cross H                                                                             | 10.1    | [10.1](vectors/10.1.md#start-101-11) |
 | START-10.1-12 | rule       | Range-scoped old jobs and explicit on-chain invalidation                                                                                       | 10.1    | [10.1](vectors/10.1.md#start-101-12) |
-| START-10.1-13 | rule       | V2 timestamp binding, exact proof policy and independent revocation                                                                            | 10.1    | [10.1](vectors/10.1.md#start-101-13) |
+| START-10.1-13 | rule       | Fixed statement binding, indexed cached policies and historical fences                                                                         | 10.1    | [10.1](vectors/10.1.md#start-101-13) |
 | START-10.1-14 | rule       | Complete historical rules retained by both guests                                                                                              | 10.1    | [10.1](vectors/10.1.md#start-101-14) |
 | START-10.1-15 | rule       | Implementation and upgrade acceptance before use; no obsolete fallback                                                                         | 10.1    | [10.1](vectors/10.1.md#start-101-15) |
 | PARAM-11-1    | rule       | Node-splitting parameters come only from L1 or the client; local config cannot                                                                 | 11      | [11](vectors/11.md#param-11-1)       |
 | PARAM-11-2    | rule       | Table values are references only; deployment follows L1 and section 10                                                                         | 11      | [11](vectors/11.md#param-11-2)       |
 | PARAM-11-3    | rule       | assignedPower is computed under 4.3, not from node-local configuration                                                                         | 11      | [11](vectors/11.md#param-11-3)       |
 | PARAM-11-4    | rule       | L and genesisCutoff: L chosen independently of U; reference values                                                                             | 11      | [11](vectors/11.md#param-11-4)       |
-| PARAM-11-5    | rule       | forcedInclusionDelay above 0; maxAnchorAge at least 1152 s and above finality                                                                  | 11      | [11](vectors/11.md#param-11-5)       |
+| PARAM-11-5    | rule       | FI/anchor delays and finite maxTimestampLead in seconds                                                                                        | 11      | [11](vectors/11.md#param-11-5)       |
 | PARAM-11-6    | rule       | maxBatchBlocks at least K and calldata-bounded; fee/threshold above 0                                                                          | 11      | [11](vectors/11.md#param-11-6)       |
 | PARAM-11-7    | rule       | vp_unit, s_min, n_max: direct power; vp_unit at least 867,361,738                                                                              | 11      | [11](vectors/11.md#param-11-7)       |
 | PARAM-11-8    | rule       | U: K at most U at most 65,536, multiple of K; target 3,600                                                                                     | 11      | [11](vectors/11.md#param-11-8)       |
@@ -521,7 +563,7 @@ These citation handles are **amended**, not unchanged historical requirements. F
 | ENC-A-1       | rule       | APP_VERSION=1, versioned domain tags V1, envelope/payload prefix 0x06                                                                          | A       | [A](vectors/A.md#enc-a-1)            |
 | ENC-A-2       | rule       | Config is seven words (224 bytes); CommitteeRecord has five fields                                                                             | A       | [A](vectors/A.md#enc-a-2)            |
 | ENC-A-3       | rule       | Slot 285 holds three words                                                                                                                     | A       | [A](vectors/A.md#enc-a-3)            |
-| ENC-A-4       | rule       | Authenticated upgrade policy binds image acceptance; V1 ABI retained                                                                           | A       | [A](vectors/A.md#enc-a-4)            |
+| ENC-A-4       | rule       | Journal-bound proof policy; fixed 22-word V1 statement                                                                                         | A       | [A](vectors/A.md#enc-a-4)            |
 | ENC-A-5       | rule       | Protocol hashes: abi.encode; right-zero-padded bytes32 tags; two excepted lists                                                                | A       | [A](vectors/A.md#enc-a-5)            |
 | ENC-A-6       | rule       | chainDomain: keccak256 over V1 tag, L1/L2 chain ids, inbox, generation                                                                         | A       | [A](vectors/A.md#enc-a-6)            |
 | ENC-A-7       | rule       | chain_id: "etna-" plus unpadded base64url of chainDomain, 48 bytes                                                                             | A       | [A](vectors/A.md#enc-a-7)            |
@@ -542,7 +584,7 @@ These citation handles are **amended**, not unchanged historical requirements. F
 | ENC-A-22      | rule       | Strict decoding: committee witness under the block's anchor stateRoot                                                                          | A       | [A](vectors/A.md#enc-a-22)           |
 | ENC-A-23      | rule       | payload: 0x06 \|\| zlib(rlp([rlp([elHeader, [tx, ...]]), ...]))                                                                                | A       | [A](vectors/A.md#enc-a-23)           |
 | ENC-A-24      | rule       | AccountWitness: seven fields, with [slot, value, proof] entries                                                                                | A       | [A](vectors/A.md#enc-a-24)           |
-| ENC-A-25      | rule       | Witness slot order: anchor [268, 270, 271, 281]; forced [base, base+1]                                                                         | A       | [A](vectors/A.md#enc-a-25)           |
+| ENC-A-25      | rule       | Ordered anchor slots including UPGRADE_BASE+9 historical fence; forced slots                                                                   | A       | [A](vectors/A.md#enc-a-25)           |
 | ENC-A-26      | rule       | Committee witness: registry slots R, cp(i), cp(i)+1, cp(i+1) when present                                                                      | A       | [A](vectors/A.md#enc-a-26)           |
 | ENC-A-26a     | rule       | Witness proofs: exact ordered MPT paths, minimal values equal to the proven values, matching account fields                                    | A       | [A](vectors/A.md#enc-a-26a)          |
 | ENC-A-27      | rule       | CommitteeRecord: five fields in order, targetEpoch to totalPower                                                                               | A       | [A](vectors/A.md#enc-a-27)           |
@@ -553,7 +595,7 @@ These citation handles are **amended**, not unchanged historical requirements. F
 | ENC-A-32      | rule       | cutHash: empty leaf list hashed as keccak256("") when h = p + K                                                                                | A       | [A](vectors/A.md#enc-a-32)           |
 | ENC-A-33      | rule       | land: p and h multiples of K, exact leaf count, c >= h rejected                                                                                | A       | [A](vectors/A.md#enc-a-33)           |
 | ENC-A-34      | rule       | land overlap: leaves[(c-p)/K - 1] equals cutLeaf(c) from slot 285                                                                              | A       | [A](vectors/A.md#enc-a-34)           |
-| ENC-A-35      | rule       | statement: keccak256(abi.encode(...)) over the landing inputs                                                                                  | A       | [A](vectors/A.md#enc-a-35)           |
+| ENC-A-35      | rule       | Landing statement: 22 words/704 bytes including lastTimestamp                                                                                  | A       | [A](vectors/A.md#enc-a-35)           |
 | ENC-A-36      | rule       | committeeConfigHash: 7-word, 224-byte ETNA_PARENT_ANCHOR_V1 preimage                                                                           | A       | [A](vectors/A.md#enc-a-36)           |
 | ENC-A-37      | rule       | regLeaf: ETNA_REG_ENTRY_V1 preimage of the registry entry fields                                                                               | A       | [A](vectors/A.md#enc-a-37)           |
 | ENC-A-38      | rule       | entriesRoot: power-of-two zero padding; keccak256(left \|\| right) nodes                                                                       | A       | [A](vectors/A.md#enc-a-38)           |
@@ -571,7 +613,7 @@ These citation handles are **amended**, not unchanged historical requirements. F
 | ENC-A-49      | rule       | ckAddr: keccak256(uint256_be(ckX) \|\| uint256_be(ckY))[12:]                                                                                   | A       | [A](vectors/A.md#enc-a-49)           |
 | ENC-A-49a     | rule       | registerDigest: EIP-712 Register(address owner) under the EtnaStakingRegistry domain                                                           | A       | [A](vectors/A.md#enc-a-49a)          |
 | ENC-A-50      | rule       | popSig: exactly 65 bytes R \|\| S \|\| V; V in {0,1}, 0 < R < n, 0 < S <= n/2                                                                  | A       | [A](vectors/A.md#enc-a-50)           |
-| ENC-A-51      | rule       | Exclusions sorted strictly by bondId                                                                                                           | A       | [A](vectors/A.md#enc-a-51)           |
+| ENC-A-51      | rule       | Exclusion order and canonical recovery timestamp-action tuple                                                                                  | A       | [A](vectors/A.md#enc-a-51)           |
 | ENC-A-52      | rule       | invalidateRecoveryNonce is Inbox-owner only                                                                                                    | A       | [A](vectors/A.md#enc-a-52)           |
 | ENC-A-53      | rule       | recoveryNonce and validUntil types                                                                                                             | A       | [A](vectors/A.md#enc-a-53)           |
 | ENC-A-54      | rule       | Registry forfeit interface                                                                                                                     | A       | [A](vectors/A.md#enc-a-54)           |
@@ -629,35 +671,35 @@ These citation handles are **amended**, not unchanged historical requirements. F
 | ------- | --- | ------- | ---------------- |
 | 1       | 3   | 13      | 4                |
 | 2       | 7   | 27      | 4                |
-| 3.1     | 17  | 95      | 7                |
-| 3.2     | 12  | 51      | 4                |
-| 3.3     | 7   | 38      | 4                |
-| 3.4     | 16  | 76      | 6                |
+| 3.1     | 17  | 94      | 7                |
+| 3.2     | 12  | 52      | 4                |
+| 3.3     | 7   | 40      | 4                |
+| 3.4     | 16  | 79      | 6                |
 | 4.1     | 39  | 151     | 6                |
 | 4.2     | 3   | 12      | 2                |
 | 4.3     | 18  | 67      | 5                |
-| 4.4     | 20  | 76      | 3                |
+| 4.4     | 20  | 78      | 3                |
 | 5.1     | 3   | 10      | 2                |
 | 5.2     | 9   | 31      | 4                |
 | 5.3     | 9   | 26      | 4                |
-| 6.1     | 13  | 52      | 4                |
-| 6.2     | 47  | 174     | 13               |
+| 6.1     | 13  | 53      | 4                |
+| 6.2     | 47  | 177     | 12               |
 | 6.3     | 14  | 50      | 3                |
 | 6.4     | 16  | 60      | 4                |
 | 7.1     | 13  | 47      | 6                |
 | 7.2     | 13  | 64      | 10               |
 | 7.3     | 5   | 20      | 5                |
-| 8       | 58  | 152     | 10               |
+| 8       | 58  | 154     | 10               |
 | 8.1     | 12  | 35      | 7                |
 | 8.2     | 6   | 17      | 4                |
-| 8.3     | 19  | 48      | 7                |
+| 8.3     | 19  | 53      | 7                |
 | 8.4     | 15  | 38      | 6                |
-| 9       | 16  | 75      | 7                |
+| 9       | 16  | 78      | 6                |
 | 9.1     | 10  | 31      | 5                |
-| 10      | 24  | 96      | 5                |
-| 10.1    | 15  | 70      | 0                |
-| 11      | 16  | 64      | 6                |
-| 12      | 19  | 3       | 6                |
-| A       | 58  | 289     | 5                |
+| 10      | 24  | 99      | 5                |
+| 10.1    | 15  | 98      | 0                |
+| 11      | 16  | 66      | 5                |
+| 12      | 21  | 3       | 6                |
+| A       | 58  | 298     | 4                |
 | B       | 34  | 127     | 5                |
 | C       | 12  | 28      | 5                |

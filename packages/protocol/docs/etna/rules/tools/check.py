@@ -140,20 +140,32 @@ def slug(h):
     return s.replace(" ", "-")
 
 
+def outside_fences(text):
+    """Keep non-code lines; CommonMark closers match the opening character/length."""
+    out, opening = [], None
+    for line in text.splitlines():
+        fence = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
+        if opening:
+            if fence and fence[1][0] == opening[0] and len(fence[1]) >= opening[1] and not fence[2].strip():
+                opening = None
+            out.append("")
+        elif fence and not (fence[1][0] == "`" and "`" in fence[2]):
+            opening = (fence[1][0], len(fence[1]))
+            out.append("")
+        else:
+            out.append(line)
+    return NL.join(out), opening is not None
+
+
 def check_incorporation(spec, helper, index):
     """Check the explicit exception for definitions incorporated under SPEC rules."""
     # Examples cannot create sections or supply authority. Keep offsets/lines stable.
-    outside, fenced = [], False
-    for line in helper.splitlines():
-        if line.strip().startswith(("```", "~~~")):
-            fenced = not fenced
-            outside.append("")
-        else:
-            outside.append("" if fenced else line)
-    body = NL.join(outside)
+    body, unclosed = outside_fences(helper)
     sections = list(re.finditer(r"^## (.+)$", body, re.M))
     mappings = re.compile(r"^<!-- governed-by: (" + ID + r") -->$", re.M)
     msgs, seen, used = [], set(), 0
+    if unclosed:
+        msgs.append("incorporation: unclosed fence in UPGRADES.md")
     if not sections:
         msgs.append("incorporation: UPGRADES.md has no governed sections")
     for i, section in enumerate(sections):
@@ -179,6 +191,84 @@ def check_incorporation(spec, helper, index):
             msgs.append("incorporation: %s needs owning-rule backlink to %s" % (rid, backlink))
     if used != len(mappings.findall(body)):
         msgs.append("incorporation: governing ID outside a section")
+    return msgs
+
+
+def rule_bodies(text):
+    """Extract governed text for amendment comparison, ignoring formatter spacing."""
+    markers = sorted([(m.start(), m.end(), m[1], False) for m in INLINE.finditer(text)] +
+                     [(m.start(), m.end(), m[1], True) for m in CODE.finditer(text)])
+    bodies = {}
+    for i, (_start, start, rid, code) in enumerate(markers):
+        end = markers[i + 1][0] if i + 1 < len(markers) else len(text)
+        if code:
+            blank = text.find(NL + NL, start)
+            if blank >= 0:
+                end = min(end, blank)
+        else:
+            end = min(end, text.find(NL, start) if NL in text[start:] else len(text))
+        bodies[rid] = re.sub(r"\s+", " ", text[start:end]).strip()
+    return bodies
+
+
+def check_amendments(spec, index_text, index, baseline=None):
+    section = re.search(r"^## Material amendments\n(.*?)(?=^## |\Z)", index_text, re.M | re.S)
+    msgs, declared = [], set()
+    if section:
+        for line in section[1].splitlines():
+            cells = split_cells(line)
+            if not line.startswith("|") or not re.fullmatch(ID, cells[0]):
+                continue
+            rid = cells[0]
+            if rid in declared:
+                msgs.append("amendments: duplicate amendment " + rid)
+            declared.add(rid)
+            if rid not in index:
+                msgs.append("amendments: unknown amendment " + rid)
+            if len(cells) != 3 or not all(cells[1:]):
+                msgs.append("amendments: incomplete amendment " + rid)
+    if baseline is not None:
+        old, new = rule_bodies(baseline), rule_bodies(spec)
+        for rid in sorted(old.keys() & new.keys()):
+            if old[rid] != new[rid] and rid not in declared:
+                msgs.append("amendments: undeclared amendment " + rid)
+    return msgs
+
+
+VECTOR_LABEL = re.compile(r"^\| ([0-9]+[a-z]?\.[a-z]+)\b", re.M)
+
+
+def coverage_counts(index, assets):
+    return {sec: (sum(v["section"] == sec and v["type"] != "retired" for v in index.values()),
+                  len(VECTOR_LABEL.findall(vectors)), len(re.findall(r"^## Q[^\n]+", review, re.M)))
+            for sec, (vectors, review) in assets.items()}
+
+
+def check_coverage(index_text, index, assets):
+    section = re.search(r"^## Coverage\n(.*?)(?=^## |\Z)", index_text, re.M | re.S)
+    rows, msgs = {}, []
+    if section:
+        for line in section[1].splitlines():
+            cells = split_cells(line)
+            if len(cells) == 4 and all(c.isdigit() for c in cells[1:]):
+                if cells[0] in rows:
+                    msgs.append("coverage: duplicate section " + cells[0])
+                rows[cells[0]] = tuple(map(int, cells[1:]))
+    actual = coverage_counts(index, assets)
+    for sec, counts in actual.items():
+        if sec not in rows:
+            msgs.append("coverage: missing " + sec)
+        elif rows[sec] != counts:
+            msgs.append("coverage: %s says %s but assets contain %s" % (sec, rows[sec], counts))
+    for sec in rows.keys() - actual.keys():
+        msgs.append("coverage: unknown section " + sec)
+    for sec, (vectors, _review) in assets.items():
+        for heading in re.finditer(r"^## (" + ID + r")\n(.*?)(?=^## |\Z)", vectors, re.M | re.S):
+            seen = set()
+            for label in VECTOR_LABEL.findall(heading[2]):
+                if label in seen:
+                    msgs.append("coverage: duplicate vector %s under %s" % (label, heading[1]))
+                seen.add(label)
     return msgs
 
 
@@ -208,6 +298,7 @@ def columns(line):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--base", default=None, help="revision to compare SPEC.md against for the purity check (the commit before IDs were attached, or the revision you are editing from). Omit to skip purity: it is a migration check, not an invariant.")
+    ap.add_argument("--amendments-base", help="compare governed text against the externally supplied PR/push base; require every amended ID in INDEX.md")
     args = ap.parse_args()
     text = open(SPEC).read()
     index, dup_rows = load_index()
@@ -283,6 +374,12 @@ def main():
         msgs.append("index: unknown type(s): %s" % list(bad_types.items())[:3])
     bad += fail(msgs) if msgs else (print("ok   index (%d live, %d retired)" % (len(live), len(retired))) or 0)
 
+    baseline = git_show(args.amendments_base) if args.amendments_base else None
+    msgs = check_amendments(text, open(INDEX).read(), index, baseline)
+    if args.amendments_base and baseline is None:
+        msgs.append("amendments: cannot read supplied base")
+    bad += fail(msgs) if msgs else (print("ok   amendments" + (" (base delta checked)" if baseline is not None else " (declarations only)")) or 0)
+
     # 4. assets
     msgs = []
     for sec in sorted({v["section"] for v in index.values()}):
@@ -299,6 +396,14 @@ def main():
         for i in sorted(got - allowed)[:3]:
             msgs.append("assets: vector heading for unknown id " + i)
     bad += fail(msgs) if msgs else (print("ok   assets") or 0)
+
+    assets = {}
+    for sec in {v["section"] for v in index.values()}:
+        paths = [os.path.join(RULES, kind, sec + ".md") for kind in ("vectors", "review")]
+        if all(os.path.exists(path) for path in paths):
+            assets[sec] = tuple(open(path).read() for path in paths)
+    msgs = check_coverage(open(INDEX).read(), index, assets)
+    bad += fail(msgs) if msgs else (print("ok   coverage counts and vector labels") or 0)
 
     # 5. explicitly incorporated upgrade definitions
     upgrades = os.path.join(DOCS, "UPGRADES.md")

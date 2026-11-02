@@ -1,77 +1,156 @@
-"""Regression tests for normative upgrade-definition coverage.
-
-Run: python3 -m unittest discover -s packages/protocol/docs/etna/rules/tools
-Removing coverage/backlink enforcement must make the mutation tests fail.
-"""
+"""Checker regression tests with independent fixtures for each validation branch."""
 import pathlib
-import shutil
 import subprocess
 import sys
-import tempfile
 import unittest
 
+import check
 
-DOCS = pathlib.Path(__file__).resolve().parents[2]
 
-
-class UpgradeCoverageTests(unittest.TestCase):
+class IncorporationTests(unittest.TestCase):
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory()
-        self.addCleanup(self.temp.cleanup)
-        self.docs = pathlib.Path(self.temp.name) / "etna"
-        shutil.copytree(DOCS, self.docs, ignore=shutil.ignore_patterns("__pycache__"))
-
-    def change(self, name, old, new):
-        path = self.docs / name
-        text = path.read_text()
-        self.assertEqual(text.count(old), 1)
-        path.write_text(text.replace(old, new))
-
-    def check(self):
-        return subprocess.run(
-            [sys.executable, str(self.docs / "rules/tools/check.py")],
-            capture_output=True, text=True,
+        self.index = {"START-10.1-1": {"type": "rule"}, "START-10.1-4": {"type": "rule"}}
+        self.spec = (
+            "**[START-10.1-1]** [One](UPGRADES.md#1-one)\n"
+            "**[START-10.1-4]** [Two](UPGRADES.md#2-two)\n"
+        )
+        self.helper = (
+            "# Definitions\n\n## 1. One\n\n<!-- governed-by: START-10.1-1 -->\n\nFirst.\n"
+            "\n## 2. Two\n\n<!-- governed-by: START-10.1-4 -->\n\nSecond.\n"
         )
 
-    def assert_coverage_failure(self):
-        result = self.check()
-        self.assertNotEqual(result.returncode, 0, result.stdout)
-        self.assertIn("FAIL incorporation:", result.stdout)
+    def errors(self):
+        return check.check_incorporation(self.spec, self.helper, self.index)
 
-    def test_complete_current_document_passes(self):
-        result = self.check()
+    def test_valid_fixture(self):
+        self.assertEqual(self.errors(), [])
+
+    def test_missing_mapping(self):
+        self.helper = self.helper.replace("<!-- governed-by: START-10.1-1 -->", "")
+        self.assertTrue(any("exactly one" in m for m in self.errors()))
+
+    def test_unknown_id_only(self):
+        # The backlink is valid; only the INDEX ownership lookup is missing.
+        del self.index["START-10.1-1"]
+        self.assertEqual(self.errors(), ["incorporation: START-10.1-1 is not a live rule"])
+
+    def test_non_rule_type_only(self):
+        # Keep the known ID, matching marker and backlink intact.
+        self.index["START-10.1-1"]["type"] = "limitation"
+        self.assertEqual(self.errors(), ["incorporation: START-10.1-1 is not a live rule"])
+
+    def test_mapping_outside_section_only(self):
+        self.helper = "<!-- governed-by: START-10.1-1 -->\n" + self.helper
+        self.assertEqual(self.errors(), ["incorporation: governing ID outside a section"])
+
+    def test_duplicate_anchor_only(self):
+        self.helper = self.helper.replace("## 2. Two", "## 1. One")
+        self.spec = self.spec.replace("#2-two", "#1-one")
+        self.assertEqual(self.errors(), ["incorporation: duplicate section anchor 1-one"])
+
+    def test_missing_backlink_only(self):
+        self.spec = self.spec.replace("UPGRADES.md#1-one", "UPGRADES.md")
+        self.assertTrue(any("owning-rule backlink" in m for m in self.errors()))
+
+    def test_duplicate_mapping(self):
+        self.helper = self.helper.replace("First.", "<!-- governed-by: START-10.1-1 -->\n\nFirst.")
+        self.assertTrue(any("exactly one" in m for m in self.errors()))
+
+    def test_example_cannot_supply_mapping(self):
+        self.helper = self.helper.replace(
+            "<!-- governed-by: START-10.1-1 -->", "```txt\n<!-- governed-by: START-10.1-1 -->\n```"
+        )
+        self.assertTrue(any("exactly one" in m for m in self.errors()))
+
+    def test_mismatched_fence_cannot_hide_real_unmapped_section(self):
+        self.helper += "\n```txt\n~~~\n```\n\n## 3. Unmapped\n\nA real requirement.\n"
+        self.assertTrue(any("3. Unmapped needs exactly one" in m for m in self.errors()))
+
+    def test_shorter_fence_does_not_close_example(self):
+        self.helper += "\n````txt\n```\n## Example heading\n````\n"
+        self.assertEqual(self.errors(), [])
+
+    def test_unclosed_fence_is_an_error(self):
+        self.helper += "\n```txt\nAn unclosed example.\n"
+        self.assertTrue(any("unclosed fence" in m for m in self.errors()))
+
+
+class AmendmentTests(unittest.TestCase):
+    def setUp(self):
+        self.before = "**[START-10.1-1]** Old requirement.\n"
+        self.after = "**[START-10.1-1]** New requirement.\n"
+        self.index = {"START-10.1-1": {"type": "rule"}}
+        self.table = (
+            "## Material amendments\n\n| ID | Prior meaning | Current amendment |\n"
+            "| --- | --- | --- |\n| START-10.1-1 | Old | New |\n\n## Index\n"
+        )
+
+    def errors(self):
+        return check.check_amendments(self.after, self.table, self.index, self.before)
+
+    def test_all_changed_ids_are_declared(self):
+        self.assertEqual(self.errors(), [])
+
+    def test_missing_changed_id(self):
+        self.table = self.table.replace("| START-10.1-1 | Old | New |\n", "")
+        self.assertTrue(any("undeclared amendment START-10.1-1" in m for m in self.errors()))
+
+    def test_duplicate_amendment_id(self):
+        self.table = self.table.replace("## Index", "| START-10.1-1 | Other | New |\n\n## Index")
+        self.assertTrue(any("duplicate amendment" in m for m in self.errors()))
+
+    def test_unknown_amendment_id(self):
+        self.table = self.table.replace("START-10.1-1 |", "START-10.1-999 |")
+        self.assertTrue(any("unknown amendment" in m for m in self.errors()))
+
+    def test_formatting_does_not_require_amendment(self):
+        self.after = "**[START-10.1-1]** Old   requirement.\n"
+        self.table = self.table.replace("| START-10.1-1 | Old | New |\n", "")
+        self.assertEqual(self.errors(), [])
+
+    def test_definition_block_change_requires_amendment(self):
+        self.before = "```txt\n// [START-10.1-1]\nfield = old\n```\n"
+        self.after = self.before.replace("field = old", "field = new")
+        self.table = self.table.replace("| START-10.1-1 | Old | New |\n", "")
+        self.assertTrue(any("undeclared amendment" in m for m in self.errors()))
+
+
+class CoverageTests(unittest.TestCase):
+    def setUp(self):
+        self.index = {"START-10.1-1": {"section": "10.1", "type": "rule"},
+                      "START-10.1-4": {"section": "10.1", "type": "rule"}}
+        self.assets = {"10.1": ("## START-10.1-1\n| 1.a accept | A | Yes |\n| 1.b reject | B | No |\n", "## Q10.1-1\nQuestion.\n")}
+        self.table = "## Coverage\n\n| Section | IDs | Vectors | Review questions |\n| --- | --- | --- | --- |\n| 10.1 | 2 | 2 | 1 |\n"
+
+    def errors(self):
+        return check.check_coverage(self.table, self.index, self.assets)
+
+    def test_valid_counts(self):
+        self.assertEqual(self.errors(), [])
+
+    def test_each_count_is_checked_independently(self):
+        for row in ["1 | 2 | 1", "2 | 1 | 1", "2 | 2 | 0"]:
+            with self.subTest(row=row):
+                original = self.table
+                self.table = original.replace("2 | 2 | 1", row)
+                self.assertTrue(any("coverage: 10.1" in m for m in self.errors()))
+                self.table = original
+
+    def test_missing_section(self):
+        self.table = self.table.replace("| 10.1 | 2 | 2 | 1 |\n", "")
+        self.assertTrue(any("coverage: missing 10.1" in m for m in self.errors()))
+
+    def test_duplicate_case_label(self):
+        vectors, review = self.assets["10.1"]
+        self.assets["10.1"] = (vectors.replace("1.b", "1.a"), review)
+        self.assertTrue(any("duplicate vector" in m for m in self.errors()))
+
+
+class RepositoryIntegrationTests(unittest.TestCase):
+    def test_repository_checker(self):
+        docs = pathlib.Path(__file__).resolve().parents[2]
+        result = subprocess.run([sys.executable, str(docs / "rules/tools/check.py")], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-
-    def test_missing_governing_id_fails(self):
-        self.change("UPGRADES.md", "<!-- governed-by: START-10.1-8 -->", "")
-        self.assert_coverage_failure()
-
-    def test_unknown_governing_id_fails(self):
-        self.change("UPGRADES.md", "governed-by: START-10.1-8", "governed-by: START-10.1-999")
-        self.assert_coverage_failure()
-
-    def test_limitation_cannot_govern_requirements(self):
-        self.change("UPGRADES.md", "governed-by: START-10.1-8", "governed-by: LIMIT-12-10")
-        self.assert_coverage_failure()
-
-    def test_missing_owning_rule_backlink_fails(self):
-        self.change("SPEC.md", "UPGRADES.md#5-structural-fence-and-atomic-activation", "UPGRADES.md")
-        self.assert_coverage_failure()
-
-    def test_additional_unmapped_section_fails(self):
-        path = self.docs / "UPGRADES.md"
-        path.write_text(path.read_text() + "\n## 7. Unmapped requirements\n\nRequire new behavior.\n")
-        self.assert_coverage_failure()
-
-    def test_duplicate_mapping_fails(self):
-        marker = "<!-- governed-by: START-10.1-8 -->"
-        self.change("UPGRADES.md", marker, marker + "\n" + marker)
-        self.assert_coverage_failure()
-
-    def test_example_mapping_does_not_supply_authority(self):
-        marker = "<!-- governed-by: START-10.1-8 -->"
-        self.change("UPGRADES.md", marker, "```txt\n" + marker + "\n```")
-        self.assert_coverage_failure()
 
 
 if __name__ == "__main__":

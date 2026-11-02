@@ -23,9 +23,9 @@ Guidance for AI agents working on the Etna PoS + ZK specification (`SPEC.md`) an
 python3 rules/tools/check.py --base <revision-before-IDs>
 ```
 
-It must print **ALL CHECKS PASSED**. The checks are: **purity** (stripping every marker reproduces `--base` after normalising table padding — prettier owns whitespace, so a byte-exact comparison would fail by design), **markers** (unique, document order, contiguous per section; suffix IDs such as `FI-7.2-3a` are audited, and a gap left by a `retired` row is allowed), **index** (1:1 with `INDEX.md`), **assets** (vectors and review present for every section, every live `rule` has a vector heading, every cited question exists), **links and tables**.
+It must print **ALL CHECKS PASSED**. The checks are: **purity** (stripping every marker reproduces `--base` after normalising table padding — prettier owns whitespace, so a byte-exact comparison would fail by design), **markers** (unique, document order, contiguous per section; suffix IDs such as `FI-7.2-3a` are audited, and a gap left by a `retired` row is allowed), **index** (1:1 with `INDEX.md`), **assets** (vectors and review present for every section, every live `rule` has a vector heading, every cited question exists), **incorporated definitions, amendment declarations/deltas, coverage counts, links and tables**. Run the checker regression suite too; CI supplies the comparison base externally, without embedding revision identifiers in spec metadata.
 
-`--base` names the revision before the IDs were attached, or the revision you are editing from. **`purity` only runs when you pass `--base`**; omitting it skips purity and runs the other four, which is the normal mode after the ID migration and after any deliberate rule amendment. [rules/README.md](rules/README.md#checking-your-work) has the full table of what each check proves.
+`--base` names the revision before the IDs were attached, or the revision you are editing from. **`purity` only runs when you pass `--base`**; omitting it skips purity and runs the remaining checks, which is the normal mode after the ID migration and after any deliberate rule amendment. [rules/README.md](rules/README.md#checking-your-work) has the full table of what each check proves.
 
 ## Where things are
 

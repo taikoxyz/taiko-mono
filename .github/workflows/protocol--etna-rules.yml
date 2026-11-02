@@ -27,6 +27,12 @@ jobs:
         uses: actions/checkout@v7
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - name: Check rule references
-        run: python3 packages/protocol/docs/etna/rules/tools/check.py
+        env:
+          ETNA_RULES_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: python3 packages/protocol/docs/etna/rules/tools/check.py --amendments-base "$ETNA_RULES_BASE"
+
+      - name: Test rule checker
+        run: python3 -m unittest discover -s packages/protocol/docs/etna/rules/tools

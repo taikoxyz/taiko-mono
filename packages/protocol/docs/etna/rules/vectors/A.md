@@ -8,15 +8,15 @@
 
 ## ENC-A-1
 
-| Vector     | Setup                                                                                              | Expected                           |
-| ---------- | -------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| 1.a accept | envelope begins `0x06` followed by one RLP list; payload begins `0x06` followed by one zlib stream | prefix is the stated one           |
-| 1.b accept | V1 tags are used except `TAIKO_ETNA_LAND_V2` and `ETNA_UPGRADE_PLAN_V2`                            | matches ENC-A-1 version exceptions |
-| 1.c accept | the deployment exposes `APP_VERSION` 1 (CometBFT genesis, Info at height 0)                        | matches                            |
-| 1.d reject | envelope begins `0x07`                                                                             | violates ENC-A-1                   |
-| 1.e reject | payload begins `0x06` but the envelope begins `0x05`                                               | violates ENC-A-1                   |
-| 1.f reject | a landing statement uses V1, or an otherwise-V1 hash uses an unlisted V2 tag                       | violates ENC-A-1                   |
-| 1.g reject | the deployment reports `APP_VERSION` 2                                                             | violates ENC-A-1                   |
+| Vector     | Setup                                                                                              | Expected                 |
+| ---------- | -------------------------------------------------------------------------------------------------- | ------------------------ |
+| 1.a accept | envelope begins `0x06` followed by one RLP list; payload begins `0x06` followed by one zlib stream | prefix is the stated one |
+| 1.b accept | all versioned tags use their V1 domains, including the landing and upgrade plan                    | matches ENC-A-1          |
+| 1.c accept | the deployment exposes `APP_VERSION` 1 (CometBFT genesis, Info at height 0)                        | matches                  |
+| 1.d reject | envelope begins `0x07`                                                                             | violates ENC-A-1         |
+| 1.e reject | payload begins `0x06` but the envelope begins `0x05`                                               | violates ENC-A-1         |
+| 1.f reject | a hash uses an unsupported V2 domain tag                                                           | violates ENC-A-1         |
+| 1.g reject | the deployment reports `APP_VERSION` 2                                                             | violates ENC-A-1         |
 
 ## ENC-A-2
 
@@ -270,14 +270,16 @@ _`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` fo
 
 ## ENC-A-25
 
-| Vector      | Setup                                                                               | Expected                                                                            |
-| ----------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| 25.a accept | anchor witness proves slots `[268, 270, 271, 281]` in that order                    | matches                                                                             |
-| 25.b reject | anchor slots are `[268, 271, 270, 281]`                                             | violates ENC-A-25 ("exactly in order"); consequence — [Q-A-4](../review/A.md#q-a-4) |
-| 25.c reject | the anchor witness omits 281 or adds 269                                            | violates ENC-A-25 ("exactly")                                                       |
-| 25.d accept | forced entry `i` proves `base` and `base+1`, `base = keccak256(abi.encode(i, 280))` | matches                                                                             |
-| 25.e reject | `base` is computed as `keccak256(abi.encode(i, 281))` or with another index         | violates ENC-A-25                                                                   |
-| 25.f reject | forced slots are `[base+1, base]`                                                   | violates ENC-A-25 (order); consequence — [Q-A-4](../review/A.md#q-a-4)              |
+| Vector      | Setup                                                                        | Expected                                                  |
+| ----------- | ---------------------------------------------------------------------------- | --------------------------------------------------------- |
+| 25.a accept | anchor slots are exactly [268,270,271,281,UPGRADE_BASE+9] in order; scalar=0 | conforms                                                  |
+| 25.b reject | anchor slot order differs                                                    | violates ENC-A-25 exact order; block invalid (CONS-3.4-3) |
+| 25.c reject | anchor omits fence slot UPGRADE_BASE+9 or substitutes a different slot       | block invalid (CONS-3.4-3; PROOF-6.2-11)                  |
+| 25.d accept | forced entry i proves base/base+1, base=keccak256(abi.encode(i,280))         | conforms                                                  |
+| 25.e reject | forced mapping base uses another slot/index                                  | violates ENC-A-25                                         |
+| 25.f reject | forced slots are [base+1,base]                                               | violates ENC-A-25 exact order                             |
+| 25.g accept | scalar=(generation<<48)+H, H>0, high bits zero; block height<=H              | conforms (CONS-3.4-3)                                     |
+| 25.h reject | scalar has high bits set or is nonzero with H=0                              | malformed witness; block invalid (CONS-3.4-3)             |
 
 ## ENC-A-26
 
@@ -321,13 +323,15 @@ _`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` fo
 
 ## ENC-A-29
 
-| Vector      | Setup                                                                                      | Expected                                             |
-| ----------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------- |
-| 29.a accept | `keccak256(abi.encode(uint256(x), blockHash(x), cometHash(x), forcedHead(x)))`, four words | matches                                              |
-| 29.b reject | three or five words                                                                        | violates ENC-A-29                                    |
-| 29.c reject | order is `(blockHash(x), uint256(x), ...)`                                                 | violates ENC-A-29                                    |
-| 29.d reject | blockHash, cometHash or forcedHead is taken at a height other than `x`                     | violates ENC-A-29 (all at height x)                  |
-| 29.e reject | `x` or `forcedHead(x)` is encoded in fewer than 32 bytes (for example packed as uint48)    | violates ENC-A-29 (`uint256(x)`, four 32-byte words) |
+| Vector      | Setup                                                                                            | Expected                                                                            |
+| ----------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| 29.a accept | `keccak256(abi.encode(uint256(x), blockHash(x), cometHash(x), forcedHead(x)))`, four words       | matches                                                                             |
+| 29.b reject | three or five words                                                                              | violates ENC-A-29                                                                   |
+| 29.c reject | order is `(blockHash(x), uint256(x), ...)`                                                       | violates ENC-A-29                                                                   |
+| 29.d reject | blockHash, cometHash or forcedHead is taken at a height other than `x`                           | violates ENC-A-29 (all at height x)                                                 |
+| 29.e reject | `x` or `forcedHead(x)` is encoded in fewer than 32 bytes (for example packed as uint48)          | violates ENC-A-29 (`uint256(x)`, four 32-byte words)                                |
+| 29.f accept | old/new epoch K values use a common checkpoint; historical cut hashes retain their original grid | conforms (ENC-A-29; START-10.1-4/11)                                                |
+| 29.g reject | historical cut grid is reinterpreted using a different epoch K                                   | violates ENC-A-29; structural routing rejects crossed boundaries (START-10.1-11/13) |
 
 ## ENC-A-30
 
@@ -384,11 +388,12 @@ _`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` fo
 
 | Vector      | Setup                                                                                     | Expected                                |
 | ----------- | ----------------------------------------------------------------------------------------- | --------------------------------------- |
-| 35.a accept | `keccak256(abi.encode(...))` with the 22 static ABI words of the V2 definition, 704 bytes | matches                                 |
+| 35.a accept | `keccak256(abi.encode(...))` with the 22 static ABI words of the V1 definition, 704 bytes | matches                                 |
 | 35.b reject | the preimage has 21 or 23 words                                                           | violates ENC-A-35 (22 words, 704 bytes) |
-| 35.c reject | `TAIKO_ETNA_LAND_V2` is replaced by a V1 tag                                              | violates ENC-A-35 (and ENC-A-1)         |
+| 35.c reject | `TAIKO_ETNA_LAND_V1` is replaced by an unsupported tag                                    | violates ENC-A-35 (and ENC-A-1)         |
 | 35.d reject | `blobHashes` are hashed with `abi.encode` instead of `abi.encodePacked`                   | violates ENC-A-35                       |
 | 35.e reject | `l2ChainId` precedes `l1ChainId`                                                          | violates ENC-A-35 (field order)         |
+| 35.f reject | lastTimestamp>=2^64                                                                       | land reverts (ENC-A-35; START-10.1-13)  |
 
 ## ENC-A-36
 
@@ -557,11 +562,15 @@ _`abi.encode(left, right)` of two `bytes32` words equals their plain concatenati
 
 ## ENC-A-51
 
-| Vector      | Setup                         | Expected                                    |
-| ----------- | ----------------------------- | ------------------------------------------- |
-| 51.a accept | exclusions `[bondId 1, 5, 9]` | strictly increasing; conforms               |
-| 51.b reject | exclusions `[1, 9, 5]`        | violates ENC-A-51 (not sorted)              |
-| 51.c reject | exclusions `[1, 5, 5]`        | violates ENC-A-51 (not strictly increasing) |
+| Vector      | Setup                                                                                       | Expected                                                 |
+| ----------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| 51.a accept | exclusions `[bondId 1, 5, 9]`                                                               | strictly increasing; conforms                            |
+| 51.b reject | exclusions `[1, 9, 5]`                                                                      | violates ENC-A-51 (not sorted)                           |
+| 51.c reject | exclusions `[1, 5, 5]`                                                                      | violates ENC-A-51 (not strictly increasing)              |
+| 51.d accept | canonical mode0 action, hash=0, both byte arrays empty                                      | pending timestamp preserved (RECOV-8.3-3)                |
+| 51.e reject | action has trailing bytes, unknown mode or nonempty forbidden fields                        | recover reverts (RECOV-8.3-3/16)                         |
+| 51.f accept | mode1/2 binds exact pending hash and T>checkpointTimestamp at authorized recovery           | cancellation/replacement only with atomic suffix discard |
+| 51.g reject | action encodes four top-level arguments instead of one dynamic tuple with outer 0x20 offset | noncanonical; recover reverts (ENC-A-51; RECOV-8.3-16)   |
 
 ## ENC-A-52
 
