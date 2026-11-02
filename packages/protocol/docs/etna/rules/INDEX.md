@@ -13,6 +13,7 @@
 | MODEL-1-3     | rule       | land, saveForcedInclusion and the registry are unaffected by pause                                                                             | 1       | [1](vectors/1.md#model-1-3)          |
 | COMP-2-1      | rule       | Validator: registry stake, consensus key, stock CometBFT, checkpoint-trust gate                                                                | 2       | [2](vectors/2.md#comp-2-1)           |
 | COMP-2-2      | rule       | Full node: CometBFT, ABCI app and alethia-reth with no signing key                                                                             | 2       | [2](vectors/2.md#comp-2-2)           |
+| COMP-2-2a     | rule       | EL-only settled-state backend: finalized imports, matched-checkpoint serving, no app trust                                                     | 2       | [2](vectors/2.md#comp-2-2a)          |
 | COMP-2-3      | rule       | Lander: permissionless batch builder and land caller, no protocol reward                                                                       | 2       | [2](vectors/2.md#comp-2-3)           |
 | COMP-2-4      | rule       | Prover: produces two proofs per batch                                                                                                          | 2       | [2](vectors/2.md#comp-2-4)           |
 | COMP-2-5      | rule       | EtnaInbox: genesis parameters, land, checkpoints, FI queue and recovery                                                                        | 2       | [2](vectors/2.md#comp-2-5)           |
@@ -616,7 +617,7 @@
 | Section | IDs | Vectors | Review questions |
 | ------- | --- | ------- | ---------------- |
 | 1       | 3   | 13      | 4                |
-| 2       | 7   | 27      | 4                |
+| 2       | 8   | 31      | 3                |
 | 3.1     | 17  | 95      | 7                |
 | 3.2     | 12  | 51      | 4                |
 | 3.3     | 7   | 38      | 4                |
@@ -627,7 +628,7 @@
 | 4.4     | 20  | 76      | 3                |
 | 5.1     | 3   | 10      | 2                |
 | 5.2     | 9   | 31      | 4                |
-| 5.3     | 9   | 57      | 4                |
+| 5.3     | 9   | 61      | 4                |
 | 6.1     | 13  | 52      | 4                |
 | 6.2     | 47  | 174     | 14               |
 | 6.3     | 14  | 50      | 3                |

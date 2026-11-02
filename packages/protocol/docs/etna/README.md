@@ -62,7 +62,7 @@ The Etna block-production and validation rules are in
 
 ### Key review points
 
-- **EL startup:** EL-only backends may use an authenticated public checkpoint snapshot at launch or later. Validator/full-node app replay still starts at the authenticated fixed generation origin; a later snapshot cannot skip FinalizeBlock. Keep a public snapshot-to-latest sync path continuously available; full genesis blob replay is optional for EL-only startup (5.3, 8.4, 9.1).
+- **EL startup:** EL-only backends may use an authenticated public checkpoint snapshot at launch or later. Validator/full-node app replay still starts at the authenticated fixed generation origin; a later snapshot cannot skip FinalizeBlock. Keep genesis permanently public, preserve a public path to the current origin, and maintain a snapshot-to-latest sync path; full genesis blob replay is optional for EL-only startup (5.3, 8.4, 9.1).
 - **Consensus and signing:** stock CometBFT v0.40.0 with secp256k1eth keys, a
   signing domain bound to the deployment and recovery generation, committee
   changes activated two heights after they are derived, and an external signer
