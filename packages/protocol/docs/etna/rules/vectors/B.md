@@ -225,12 +225,13 @@
 
 ## STOR-B-26
 
-| Vector      | Claimed layout or data                                                   | Expected                                |
-| ----------- | ------------------------------------------------------------------------ | --------------------------------------- |
-| 26.a accept | `exitConfirmedAtL1` is 0                                                 | not confirmed                           |
-| 26.b accept | `exitConfirmedAtL1` is the L1 block of the first successful confirmation | confirmed                               |
-| 26.c reject | `exitConfirmedAtL1` = 0 treated as confirmed                             | violates STOR-B-26                      |
-| 26.d reject | the confirmation stored in the entry's three words                       | violates STOR-B-26 (separate namespace) |
+| Vector      | Claimed layout or data                                                   | Expected                                                                                 |
+| ----------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| 26.a accept | `exitConfirmedAtL1` is 0                                                 | not confirmed                                                                            |
+| 26.b accept | `exitConfirmedAtL1` is the L1 block of the first successful confirmation | confirmed                                                                                |
+| 26.c reject | `exitConfirmedAtL1` = 0 treated as confirmed                             | violates STOR-B-26                                                                       |
+| 26.d reject | the confirmation stored in the entry's three words                       | violates STOR-B-26 (separate namespace)                                                  |
+| 26.e accept | registration issues a fresh bond N after earlier calls naming N reverted | confirmation mapping is 0; unissued ids could not acquire a confirmation (STAKE-4.1-13a) |
 
 ## STOR-B-27
 

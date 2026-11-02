@@ -601,6 +601,10 @@ _`abi.encode(left, right)` of two `bytes32` words equals their plain concatenati
 | 55.e accept | bond 12 is displaced from slot 7 by bond 4096                                                                | emits `BondDisplaced(12, 7, 4096)` with all three uint256 fields indexed                                                       |
 | 55.f reject | `BondDisplaced` omits a field, swaps the displaced and replacement bond ids, or leaves the bond id unindexed | violates ENC-A-55 and STAKE-4.1-14b                                                                                            |
 | 55.g reject | registration takes an empty slot and emits `BondDisplaced`                                                   | violates STAKE-4.1-14b (no displaced bond)                                                                                     |
+| 55.h accept | key K belongs to bond 0 in slot 0; query `bondForKey(ckAddr(K))`, `bondInSlot(0)` and `slotOfBond(0)`        | each returns `(true, 0)` under the specified external-view ABI                                                                 |
+| 55.i accept | query an unused key, an empty slot or an unissued bond id through its corresponding lookup                   | returns `(false, 0)`; the read does not allocate or confirm a bond                                                             |
+| 55.j accept | withdraw bond 0, then query its key and `slotOfBond(0)`                                                      | key lookup returns `(true, 0)`; slot lookup returns `(false, 0)`                                                               |
+| 55.k reject | `bondInSlot(4096)` or a higher slot is queried                                                               | the lookup reverts (ENC-A-55)                                                                                                  |
 
 ## Not covered
 
