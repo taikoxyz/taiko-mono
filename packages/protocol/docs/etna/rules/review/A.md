@@ -42,15 +42,17 @@ Raised by: DeepSeek-V4.1-Flash (dantaik)
 
 ## Q-A-3
 
-**Nothing in the seven-word config binds guest-image acceptance**
+**Which concrete artifact binds the schedule to image acceptance?**
 
-**Text.** ENC-A-4: "Bind real guest-image/verifier acceptance to the config; until the upgrade mechanism is complete, changing clients or registering an image does not activate new rules." ENC-A-2: "Config has seven words/224 bytes". The seven-word preimage is "`committeeConfigHash = keccak256(abi.encode(bytes32("ETNA_PARENT_ANCHOR_V1"), l2ChainId, registry,` / `vp_unit, s_min, n_max, U))  // 7 words, 224 bytes`".
+**Text.** ENC-A-4 leaves the seven-word committeeConfigHash and current statement layout unchanged; START-10.1-5 requires accepted images to bind the authorized schedule or authenticate a commitment also enforced by L1 verification.
 
-**Why it matters.** The config carries no image, verifier or code-hash field, so there is nothing for acceptance to bind to. 6.2 pins "the verifier address, code hash and accepted image set ... in the deployment manifest", and 10.1 says the activation mechanism "is not fully designed yet". Two clients can therefore both conform while disagreeing about whether a newly registered image may settle, which is exactly what the sentence is trying to settle.
+**Why it matters.** The design now states explicitly that the committee config does not contain T or image acceptance. A concrete schedule record, authority proof and image/admission binding are still needed; no encoding is added by this amendment. This is the appendix side of [Q10.1-1](10.1.md#q101-1).
 
-**Would close it.** Name the mechanism that ties image acceptance to the config — for example image hashes in a manifest authenticated at the boundary height, or an extension of the config — or say explicitly that acceptance is manifest-bound until the upgrade mechanism lands.
+**Would close it.** Specify the encoding and on-chain authority/admission interface, including deployment/generation and history binding, and add shared node/guest/contract vectors. A manifest alone is insufficient under START-10.1-5.
 
 Raised by: DeepSeek-V4.1-Flash (dantaik)
+
+Raised by: Codex (davidtaikocha)
 
 ## Q-A-4
 

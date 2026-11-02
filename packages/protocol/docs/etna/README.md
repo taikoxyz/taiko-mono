@@ -52,7 +52,7 @@ The Etna block-production and validation rules are in
 | [7. Forced inclusion](SPEC.md#7-forced-inclusion)                                          | Queue admission, singleton builds, legal skipping and protocol fees              |
 | [8. Halts and recovery](SPEC.md#8-halts-and-recovery)                                      | Pauses, safety halts, verifier failure and DAO recovery                          |
 | [9. Sync and weak subjectivity](SPEC.md#9-sync-and-weak-subjectivity)                      | L1 checkpoint trust, guarded signing and consensus-history availability          |
-| [10. Startup and deployment](SPEC.md#10-startup-and-deployment)                            | Genesis, deployment constraints and upgrade boundaries                           |
+| [10. Startup and deployment](SPEC.md#10-startup-and-deployment)                            | Genesis, deployment constraints and timestamp upgrade boundaries                 |
 | [11. Parameters](SPEC.md#11-parameters)                                                    | Parameter sources, constraints and reference values                              |
 | [12. Known limitations and open items](SPEC.md#12-known-limitations-and-open-items)        | All 20 limitations and open items                                                |
 | [Appendix A: Encodings](SPEC.md#appendix-a-encodings)                                      | Domains, encodings, ABI and reference examples                                   |
@@ -91,8 +91,16 @@ The Etna block-production and validation rules are in
   authenticated origin. A verifier failure is not handled by `recover`: its
   settlement rollback runs in the same DAO upgrade of the Inbox and registry that
   replaces the verifier.
+- **Timestamp upgrades:** compatible validity-rule revisions use each L2 block's
+  timestamp: V1 below T and V2 at or above T. Deploy schedule-aware clients, ELs
+  and guests and finalize schedule-aware-only proof admission before crossing T.
+  Both guests may prove a batch spanning T with the original grid and cut checks;
+  pre-T history keeps its original rules. This route preserves K, signing domains
+  and fixed CometBFT parameters. Concrete authority/proof-binding and activation
+  interfaces remain pending (10.1); the checklist includes their acceptance.
 - **Open design and acceptance:** the Unzen switch and bridge wiring (section 12
-  item 9), upgrade activation (item 10), registration admission bounds (item 14)
+  item 9), concrete timestamp-upgrade activation interfaces (item 10),
+  registration admission bounds (item 14)
   and deployment values for the capital target, reference price and forfeiture rate
   (item 18) remain to be pinned before launch. The value of K and the
   proving capacity behind it (6.3, section 11) are set by the checklist's

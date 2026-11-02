@@ -44,15 +44,15 @@ _Which fields occupy the three words: [STOR-B-9](B.md#stor-b-9)._
 
 ## ENC-A-4
 
-| Vector     | Setup                                                                       | Expected                                          |
-| ---------- | --------------------------------------------------------------------------- | ------------------------------------------------- |
-| 4.a accept | a new guest image is registered in the verifier and the config is unchanged | the rules applied at each height are unchanged    |
-| 4.b accept | clients are upgraded and the config is unchanged                            | the rules applied at each height are unchanged    |
-| 4.c reject | a proof from an image the config does not bind is accepted as settling      | violates ENC-A-4 ("acceptance ... to the config") |
-| 4.d reject | registering an image alone changes the rules applied to later blocks        | violates ENC-A-4                                  |
-| 4.e reject | changing client software alone changes the rules applied to later blocks    | violates ENC-A-4                                  |
+| Vector     | Setup                                                                                                                | Expected                                 |
+| ---------- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| 4.a accept | Clients/images are prepared while the upgrade mechanism is incomplete                                                | preparation alone activates no new rules |
+| 4.b accept | The accepted image binds the authorized schedule and unchanged deployment config through the concrete 10.1 mechanism | requirement satisfied                    |
+| 4.c reject | The existing committeeConfigHash or unchanged statement is claimed to contain T without a defined binding            | violates ENC-A-4                         |
+| 4.d reject | Registering an image or changing software alone activates V2                                                         | violates ENC-A-4                         |
+| 4.e reject | A proof is accepted without binding its schedule to the authorized deployment                                        | violates ENC-A-4                         |
 
-_The sentence's scope is "until the upgrade mechanism is complete" (10.1). What in the config binds acceptance: [Q-A-3](../review/A.md#q-a-3)._
+_The concrete artifact and proof/image binding remain open: [Q-A-3](../review/A.md#q-a-3) and [Q10.1-1](../review/10.1.md#q101-1)._
 
 ## ENC-A-5
 
