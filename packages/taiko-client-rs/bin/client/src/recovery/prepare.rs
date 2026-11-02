@@ -155,10 +155,15 @@ fn comet_template(profile: &RecoveryProfile) -> Result<Vec<u8>, RecoveryCommandE
                 .as_table_mut()
                 .ok_or(RecoveryCommandError::Parse("Comet template section"))?;
             if fields.contains_key("home") ||
-                fields
-                    .get("laddr")
-                    .and_then(toml::Value::as_str)
-                    .is_some_and(|s| s.starts_with("unix://"))
+                ["laddr", "grpc_laddr"].iter().any(|name| {
+                    fields.get(*name).and_then(toml::Value::as_str).is_some_and(|listeners| {
+                        listeners.split(',').any(|address| {
+                            address.trim().split_once("://").is_some_and(|(protocol, _)| {
+                                matches!(protocol, "unix" | "unixpacket")
+                            })
+                        })
+                    })
+                })
             {
                 return Err(RecoveryCommandError::Missing("supported Comet template layout"));
             }

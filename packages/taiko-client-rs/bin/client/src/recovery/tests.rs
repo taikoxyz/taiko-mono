@@ -581,6 +581,37 @@ async fn recovery_comet_staging_replaces_old_runtime_paths_and_rejects_state_syn
     let plan = prepare::prepare(&p, 1, &root, &source, &engine).await.unwrap();
     assert!(plan.prerequisites.contains(&Prerequisite::CometTemplate));
     assert!(!plan.artifacts.contains_key("comet/config/config.toml"));
+
+    let mut accepted = Vec::new();
+    for (case, listeners) in [
+        ("grpc", "grpc_laddr='unix:///old-comet/run/grpc.sock'"),
+        ("mixed RPC", "laddr='tcp://127.0.0.1:26657,unix:///old-comet/run/rpc.sock'"),
+        ("trimmed RPC", "laddr='  unix:///old-comet/run/rpc.sock  '"),
+        ("trimmed grpc", "grpc_laddr='  unix:///old-comet/run/grpc.sock  '"),
+        (
+            "trimmed mixed RPC",
+            "laddr='  tcp://127.0.0.1:26657  ,  unix:///old-comet/run/rpc.sock  '",
+        ),
+        ("Unix-first RPC", "laddr='unix:///old-comet/run/rpc.sock,tcp://127.0.0.1:26657'"),
+        ("packet RPC", "laddr='unixpacket:///old-comet/run/rpc.sock'"),
+        ("mixed packet RPC", "laddr='tcp://127.0.0.1:26657,unixpacket:///old-comet/run/rpc.sock'"),
+        ("trimmed packet grpc", "grpc_laddr='  unixpacket:///old-comet/run/grpc.sock  '"),
+    ] {
+        std::fs::write(&config_path, format!("{template}[rpc]\n{listeners}\n")).unwrap();
+        let plan = prepare::prepare(&p, 1, &root, &source, &engine).await.unwrap();
+        if !plan.prerequisites.contains(&Prerequisite::CometTemplate) ||
+            plan.artifacts.contains_key("comet/config/config.toml") ||
+            store.plan_dir(plan.id()).join("comet/config/config.toml").exists()
+        {
+            accepted.push(case);
+        }
+    }
+    assert!(accepted.is_empty(), "unsafe Unix listener templates published: {accepted:?}");
+
+    std::fs::write(&config_path, format!("{template}[rpc]\nladdr=' tcp://127.0.0.1:26657 , tcp://127.0.0.1:26659 '\ngrpc_laddr=' tcp://127.0.0.1:26660 '\n")).unwrap();
+    let plan = prepare::prepare(&p, 1, &root, &source, &engine).await.unwrap();
+    assert!(!plan.prerequisites.contains(&Prerequisite::CometTemplate));
+    assert!(plan.artifacts.contains_key("comet/config/config.toml"));
 }
 
 #[tokio::test]
