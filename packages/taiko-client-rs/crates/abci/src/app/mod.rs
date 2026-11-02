@@ -551,9 +551,15 @@ impl<L: L1Source, E: Engine> App<L, E> {
         } else {
             tracing::warn!(method, height, reason, error = %rejection, "proposal refused");
         }
-        if matches!(rejection, Rejection::Superseded { .. }) {
+        if let Rejection::Superseded { chain, inbox } = rejection {
             self.superseded = true;
-            self.trust.revoke("authenticated higher recovery generation");
+            let reason = "authenticated higher recovery generation";
+            if self.trust.revoke(reason) &&
+                let Some(state) = self.state.as_ref().filter(|state| state.generation == *chain) &&
+                let Err(error) = self.store.record_supersession(state, *inbox, reason)
+            {
+                tracing::error!(%error, "could not persist typed supersession; recovery stays closed");
+            }
         }
         if matches!(rejection, Rejection::EmptyProposal) && self.halt.is_some() {
             return;

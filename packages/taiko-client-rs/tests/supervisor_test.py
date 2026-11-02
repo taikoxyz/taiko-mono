@@ -700,5 +700,68 @@ class UnixSupervisorTests(SupervisorTests):
         self.assertTrue((moved / "signer.sock").is_socket())
 
 
+class TypedSupersessionTests(unittest.TestCase):
+    def test_explicit_command_prefix_preserves_arguments_without_shell(self):
+        spec = importlib.util.spec_from_file_location("etna_command_supervisor", ROOT / "script/etna_validator.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        prefix = ["/usr/bin/python3", "/private/custom signer.py", "literal;$()"]
+        with patch.dict(os.environ, {"ETNA_SIGNER_COMMAND_JSON": json.dumps(prefix)}):
+            self.assertEqual(module.Supervisor.command_prefix("ETNA_SIGNER_COMMAND_JSON", ["/etna-signer"]), prefix)
+        with patch.dict(os.environ, {"ETNA_SIGNER_COMMAND_JSON": "{bad}"}):
+            with self.assertRaises(ValueError):
+                module.Supervisor.command_prefix("ETNA_SIGNER_COMMAND_JSON", ["/etna-signer"])
+
+    def test_child_overrides_cannot_replace_ownership_lifetime(self):
+        spec = importlib.util.spec_from_file_location("etna_env_supervisor", ROOT / "script/etna_validator.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        runtime = object.__new__(module.Supervisor)
+        runtime.owner_fds = []
+        lifetime, peer = socket.socketpair()
+        with lifetime, peer:
+            with patch.dict(os.environ, {"ETNA_OWNER_LIFETIME_FD": str(lifetime.fileno()), "ETNA_COMET_ENV_JSON": json.dumps({"ETNA_OWNER_LIFETIME_FD":"99999", "ETNA_OWNER_JOIN":"foreign"})}):
+                options = runtime.child_options("ETNA_COMET_ENV_JSON")
+                self.assertEqual(options["pass_fds"], (lifetime.fileno(),))
+                self.assertNotIn("ETNA_OWNER_LIFETIME_FD", options["env"])
+                self.assertNotIn("ETNA_OWNER_JOIN", options["env"])
+
+    def test_only_exact_first_cause_evidence_gets_structured_latch(self):
+        import hashlib
+        spec = importlib.util.spec_from_file_location("etna_typed_supervisor", ROOT / "script/etna_validator.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        for changed in (None, "missing", "fatal", "state", "domain", "generic"):
+            with self.subTest(changed=changed), tempfile.TemporaryDirectory() as directory:
+                store = Path(directory)
+                runtime = object.__new__(module.Supervisor)
+                runtime.store, runtime.chain, runtime.generation = store, "old-chain", 0
+                runtime.latch = store / "validator-supervisor.halted"
+                runtime.stop = lambda: None
+                state = json.dumps(dict(chain_id="old-chain", generation=0, inbox="0x01")).encode()
+                fatal = b"authenticated higher recovery generation"
+                evidence = dict(schema=1, chain_id="old-chain", previous_generation=0,
+                                current_generation=1, inbox="0x01", state_digest=hashlib.sha256(state).hexdigest(),
+                                fatal_digest=hashlib.sha256(fatal).hexdigest())
+                (store / "abci-state.json").write_bytes(state)
+                (store / "fatal-evidence.txt").write_bytes(fatal)
+                sidecar = store / "generation-superseded.json"
+                sidecar.write_text(json.dumps(evidence))
+                if changed == "missing": sidecar.unlink()
+                if changed == "fatal": (store / "fatal-evidence.txt").write_text("unrelated safety failure")
+                if changed == "state": (store / "abci-state.json").write_bytes(state + b" ")
+                if changed == "domain": runtime.chain = "foreign"
+                if changed == "generic": runtime.latch.write_text("terminal app trust or deployment identity\n")
+                snapshot = dict(phase="halted", chain_id="old-chain", generation=0)
+                runtime.halt("terminal app trust or deployment identity", snapshot)
+                if changed is None:
+                    latch = json.loads(runtime.latch.read_text())
+                    self.assertEqual(latch["kind"], "expected-generation-supersession")
+                    self.assertEqual(latch["evidence_digest"], hashlib.sha256(sidecar.read_bytes()).hexdigest())
+                else:
+                    self.assertEqual(runtime.latch.read_text(), "terminal app trust or deployment identity\n")
+                self.assertTrue((store / "fatal-evidence.txt").exists())
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -20,7 +20,9 @@ WORKDIR /signer
 COPY packages/taiko-client-rs/tools/etna-signer/go.mod packages/taiko-client-rs/tools/etna-signer/go.sum ./
 RUN go mod download
 COPY packages/taiko-client-rs/tools/etna-signer/*.go ./
-RUN CGO_ENABLED=0 go build -mod=readonly -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /etna-signer .
+COPY packages/taiko-client-rs/tools/etna-signer/cmd ./cmd
+RUN CGO_ENABLED=0 go build -mod=readonly -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /etna-signer . && \
+    CGO_ENABLED=0 go build -mod=readonly -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /etna-comet-inspect ./cmd/etna-comet-inspect
 
 FROM rust:1.95.0 AS build
 
@@ -52,6 +54,7 @@ RUN apt-get update && \
 WORKDIR /app
 
 COPY --from=signer-build /etna-signer ./etna-signer
+COPY --from=signer-build /etna-comet-inspect ./etna-comet-inspect
 
 COPY --from=comet /cometbft/build/cometbft /usr/bin/cometbft
 COPY packages/taiko-client-rs/script/etna_validator.py /app/script/etna_validator.py

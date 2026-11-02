@@ -280,9 +280,9 @@ impl TrustHandle {
     }
 
     /// Permanently revokes authorization before a fatal error, shutdown or worker drop.
-    pub(crate) fn revoke(&self, reason: impl Into<String>) {
+    pub(crate) fn revoke(&self, reason: impl Into<String>) -> bool {
         let mut state = self.inner.lock().unwrap_or_else(PoisonError::into_inner);
-        state.snapshot.halt(reason.into());
+        state.snapshot.halt(reason.into())
     }
 
     /// Atomically checks the verification session and latches its fatal failure under the same
@@ -376,12 +376,25 @@ impl<L: L1Source, E: Engine> App<L, E> {
         {
             return Ok(());
         }
-        match self.try_trust(&mut snapshot).await.map_err(classify_trust_error) {
+        let result = self.try_trust(&mut snapshot).await;
+        let superseded = match &result {
+            Err(AbciError::Recovery(crate::RecoveryError::Superseded { requested, current }))
+                if self.state.as_ref().is_some_and(|state| state.generation == *requested) =>
+            {
+                Some(*current)
+            }
+            _ => None,
+        };
+        match result.map_err(classify_trust_error) {
             Ok(()) => self.trust.publish(snapshot),
             Err(error @ AbciError::SafetyHalt(_)) => {
                 // A stale result cannot halt or authorize a newer session.
                 if self.trust.revoke_if_session(&snapshot.session_id, error.to_string()) {
-                    self.store.record_fatal(&error.to_string())?;
+                    if let (Some(current), Some(state)) = (superseded, self.state.as_ref()) {
+                        self.store.record_supersession(state, current, &error.to_string())?;
+                    } else {
+                        self.store.record_fatal(&error.to_string())?;
+                    }
                     return Err(error);
                 }
             }

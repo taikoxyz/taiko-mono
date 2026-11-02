@@ -199,8 +199,8 @@ fn comet_template(profile: &RecoveryProfile) -> Result<Vec<u8>, RecoveryCommandE
         table.insert(name.into(), toml::Value::String(value.into()));
     }
     if profile.role == NodeRole::Validator {
-        table.insert("priv_validator_key_file".into(), toml::Value::String(String::new()));
-        table.insert("priv_validator_state_file".into(), toml::Value::String(String::new()));
+        // Stock initializes a disposable local FilePV before replacing it with the mandatory
+        // external signer. These fresh relative paths never contain the registered identity.
         table.insert(
             "priv_validator_laddr".into(),
             toml::Value::String("unix://run/signer.sock".into()),

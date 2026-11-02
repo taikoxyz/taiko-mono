@@ -252,6 +252,41 @@ impl Store {
         Ok(())
     }
 
+    /// Retain typed supersession only when no previous fatal cause exists. A crash after the
+    /// fatal write but before this sidecar intentionally requires manual investigation.
+    pub(crate) fn record_supersession(
+        &self,
+        state: &AppState,
+        current: u64,
+        reason: &str,
+    ) -> Result<(), StoreError> {
+        use crate::recovery::supersession::{SUPERSESSION_FILE, SupersessionEvidence};
+        if self.fatal_evidence()?.is_some() {
+            return Ok(());
+        }
+        if fs::symlink_metadata(self.dir.join(SUPERSESSION_FILE)).is_ok() {
+            return Err(StoreError::BootstrapConflict);
+        }
+        let path = self.dir.join(STATE_FILE);
+        let bytes = fs::read(&path).map_err(|source| StoreError::Io {
+            op: "read superseded state",
+            path,
+            source,
+        })?;
+        let persisted: AppState = serde_json::from_slice(&bytes)
+            .map_err(|source| StoreError::Corrupt { path: self.dir.join(STATE_FILE), source })?;
+        if &persisted != state || current <= state.generation {
+            return Err(StoreError::BootstrapConflict);
+        }
+        self.record_fatal(reason)?;
+        let evidence = SupersessionEvidence::new(state, current, &bytes, reason.as_bytes());
+        self.save_bytes(
+            &serde_json::to_vec(&evidence).map_err(StoreError::Encode)?,
+            SUPERSESSION_FILE,
+            "generation-superseded.pending",
+        )
+    }
+
     /// Loads the untrusted committee sidecar bytes and discards an interrupted temporary save.
     /// The app independently authenticates its identity and proof before reuse.
     pub(crate) fn load_committee_witness(&self) -> Result<Option<Vec<u8>>, StoreError> {

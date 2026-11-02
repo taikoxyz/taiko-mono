@@ -93,6 +93,12 @@ pub struct RecoveryProfile {
     pub signer: Option<SignerProfile>,
     /// Optional independent lander preserving its original journal.
     pub lander: Option<LanderProfile>,
+    /// Optional protected, searchable parent for the separately owned Comet installation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub installation_parent: Option<PathBuf>,
+    /// Pinned stock-library read-only Comet inspector executable, required for activation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inspector: Option<Executable>,
 }
 
 impl RecoveryProfile {
@@ -154,6 +160,12 @@ impl RecoveryProfile {
         }
         if let Some(lander) = &self.lander {
             executables.push(&lander.executable);
+        }
+        if let Some(inspector) = &self.inspector {
+            executables.push(inspector);
+        }
+        if let Some(parent) = &self.installation_parent {
+            canonical_path(parent)?;
         }
         for executable in executables {
             if !executable.program.is_absolute() ||

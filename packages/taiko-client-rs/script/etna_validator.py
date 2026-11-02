@@ -23,6 +23,7 @@ together as on a first start, and a refusal there recovers again once Ready.
 """
 import errno
 import fcntl
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -40,6 +41,17 @@ APP_LIFECYCLE_STOPS = ("ABCI server stopped", "app worker stopped", "checkpoint 
 
 
 class Supervisor:
+    @staticmethod
+    def command_prefix(variable, fallback):
+        """Read an explicit executable prefix without shell expansion."""
+        value = os.environ.get(variable)
+        if value is None:
+            return fallback
+        prefix = json.loads(value)
+        if not isinstance(prefix, list) or not prefix or not all(isinstance(arg, str) and "\0" not in arg for arg in prefix) or not Path(prefix[0]).is_absolute():
+            raise ValueError("invalid explicit executable prefix")
+        return prefix
+
     def __init__(self):
         self.home = Path(os.environ["ETNA_COMET_HOME"]).resolve()
         self.store = Path(os.environ["ETNA_APP_STORE"]).resolve()
@@ -96,12 +108,12 @@ class Supervisor:
         self.events = Path(os.environ.get("ETNA_DENIAL_FILE", str(self.store / "signer-denial.json")))
         self.latch = self.store / "validator-supervisor.halted"
         binary = os.environ.get("ETNA_SIGNER_BIN", str(Path(__file__).resolve().parents[1] / "etna-signer"))
-        self.signer_command = [binary, "--comet-signer-addr", address,
+        self.signer_command = self.command_prefix("ETNA_SIGNER_COMMAND_JSON", [binary]) + ["--comet-signer-addr", address,
                                "--trust-socket", str(self.store / "checkpoint-trust.sock"),
                                "--chain-id", self.chain, "--priv-key", str(self.key),
                                "--priv-state", str(self.state), "--denial-file", str(self.events)] + authority_args
         self.comet_command = (["docker", "start", "--attach", self.container] if self.container else
-                              [os.environ.get("ETNA_COMET_BIN", "cometbft"), "start", "--home", str(self.home)])
+                              self.command_prefix("ETNA_COMET_COMMAND_JSON", [os.environ.get("ETNA_COMET_BIN", "cometbft"), "start"]) + ["--home", str(self.home)])
         self.signer = self.comet = None
         self.running = True
         self.pending = False
@@ -171,12 +183,20 @@ class Supervisor:
             for held in retained:
                 os.close(held)
 
-    def child_options(self):
+    def child_options(self, child_env=None):
         """Stock descendants inherit hold-only locks, without participant join capabilities."""
         environment = dict(os.environ)
+        lifetime = environment.get("ETNA_OWNER_LIFETIME_FD")
+        if child_env is not None:
+            overrides = json.loads(os.environ.get(child_env, "{}"))
+            if not isinstance(overrides, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in overrides.items()):
+                raise ValueError("invalid child environment")
+            environment.update(overrides)
+        for name in ("ETNA_SIGNER_COMMAND_JSON", "ETNA_COMET_COMMAND_JSON", "ETNA_SIGNER_ENV_JSON", "ETNA_COMET_ENV_JSON"):
+            environment.pop(name, None)
         environment.pop("ETNA_OWNER_FDS", None)
         environment.pop("ETNA_OWNER_JOIN", None)
-        lifetime = environment.pop("ETNA_OWNER_LIFETIME_FD", None)
+        environment.pop("ETNA_OWNER_LIFETIME_FD", None)
         inherited = list(self.owner_fds)
         if lifetime is not None:
             descriptor = int(lifetime)
@@ -317,7 +337,7 @@ class Supervisor:
         # file after both old children have been reaped; this is never signing state.
         self.events.unlink(missing_ok=True)
         self.last_event = None
-        self.signer = subprocess.Popen(self.signer_command + (["--await-trust"] if await_trust else []), **self.child_options())
+        self.signer = subprocess.Popen(self.signer_command + (["--await-trust"] if await_trust else []), **self.child_options("ETNA_SIGNER_ENV_JSON"))
         self.pending = False
         self.session = None
         self.observed_loss = False
@@ -339,12 +359,45 @@ class Supervisor:
             identity = dict(user=int(os.environ["ETNA_COMET_UID"]),
                             group=int(os.environ["ETNA_COMET_GID"]), extra_groups=[])
         self.comet = subprocess.Popen(command, cwd=None if self.container else self.home,
-                                      **identity, **self.child_options())
+                                      **identity, **self.child_options("ETNA_COMET_ENV_JSON"))
 
-    def halt(self, reason):
+    def expected_supersession(self, snapshot):
+        """Classify only typed first-cause bytes; generic latch/reason text never authorizes it."""
+        if not snapshot or snapshot.get("phase") != "halted" or snapshot.get("chain_id") != self.chain or snapshot.get("generation") != self.generation:
+            return None
+        def bounded(name):
+            descriptor = os.open(self.store / name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+            with os.fdopen(descriptor, "rb") as source:
+                metadata = os.fstat(source.fileno())
+                if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > 16 * 1024 * 1024:
+                    raise ValueError("invalid terminal evidence")
+                return source.read(16 * 1024 * 1024 + 1)
+        try:
+            raw = bounded("generation-superseded.json")
+            evidence = json.loads(raw)
+            state_bytes, fatal = bounded("abci-state.json"), bounded("fatal-evidence.txt")
+            state = json.loads(state_bytes)
+            if (set(evidence) != {"schema", "chain_id", "previous_generation", "current_generation", "inbox", "state_digest", "fatal_digest"}
+                    or evidence["schema"] != 1 or evidence["chain_id"] != self.chain
+                    or evidence["previous_generation"] != self.generation
+                    or not isinstance(evidence["current_generation"], int)
+                    or not self.generation < evidence["current_generation"] < 1 << 48
+                    or state.get("chain_id") != self.chain or state.get("generation") != self.generation
+                    or state.get("inbox") != evidence["inbox"]
+                    or hashlib.sha256(state_bytes).hexdigest() != evidence["state_digest"]
+                    or hashlib.sha256(fatal).hexdigest() != evidence["fatal_digest"]):
+                return None
+            return dict(schema=1, kind="expected-generation-supersession", chain_id=self.chain,
+                        previous_generation=self.generation, current_generation=evidence["current_generation"],
+                        evidence_digest=hashlib.sha256(raw).hexdigest())
+        except (OSError, ValueError, KeyError, TypeError):
+            return None
+
+    def halt(self, reason, terminal_snapshot=None):
         if not self.latch.exists():
+            evidence = self.expected_supersession(terminal_snapshot)
             with self.latch.open("x") as file:
-                file.write(reason + "\n")
+                file.write((json.dumps(evidence, sort_keys=True) if evidence else reason) + "\n")
                 file.flush()
                 os.fsync(file.fileno())
             directory = os.open(self.store, os.O_RDONLY)
@@ -396,7 +449,7 @@ class Supervisor:
             self.pending = True
             return
         if status.get("phase") == "halted":
-            self.halt("terminal app trust or deployment identity")
+            self.halt("terminal app trust or deployment identity", status)
             return
         # Session changes after app restart also leave stock Comet at a refused step.
         session = status["session_id"]
@@ -442,7 +495,7 @@ class Supervisor:
             return
         if status.get("phase") == "halted":
             if status.get("reason") not in APP_LIFECYCLE_STOPS:
-                self.halt("terminal app trust or deployment identity")
+                self.halt("terminal app trust or deployment identity", status)
             return
         if self.session is None or status["session_id"] != self.session:
             return  # The signer has not published the session it begins for this transport.

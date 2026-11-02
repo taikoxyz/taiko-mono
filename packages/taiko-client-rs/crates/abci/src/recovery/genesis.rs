@@ -35,7 +35,7 @@ pub async fn build_recovery_genesis<L: L1Source + ?Sized, E: Engine + ?Sized>(
 /// Immutable local evidence retained before publishing recovery state; never a trust grant.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct RecoveryBootstrap {
+pub struct RecoveryBootstrap {
     /// Sidecar schema; only version one is supported.
     pub(crate) version: u32,
     /// Canonical R-observation witness RLP, without the JSON wrapper or discriminator.
@@ -46,7 +46,7 @@ pub(crate) struct RecoveryBootstrap {
 
 impl RecoveryBootstrap {
     /// Authenticates stored proofs and their exact linkage to the retained origin header.
-    pub(crate) fn verify(
+    pub fn verify(
         &self,
         params: &ChainParams,
     ) -> Result<(super::RecoveryWitness, crate::types::AnchorState), RecoveryError> {
@@ -146,7 +146,7 @@ pub(crate) async fn recovery_bootstrap<L: L1Source + ?Sized>(
 }
 
 /// Reconstructs the parent summary exclusively from the authenticated origin and its parent.
-pub(crate) fn recovery_parent(w: &super::RecoveryWitness) -> crate::types::ParentInfo {
+pub fn recovery_parent(w: &super::RecoveryWitness) -> crate::types::ParentInfo {
     let header = &w.el_header;
     crate::types::ParentInfo {
         number: header.number,

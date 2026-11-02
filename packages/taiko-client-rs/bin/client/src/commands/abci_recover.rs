@@ -35,6 +35,18 @@ pub enum RecoveryAction {
         #[arg(long)]
         json: bool,
     },
+    /// Activate or resume an exact prepared plan, retaining foreground ownership until stopped.
+    Activate {
+        /// Private profile must match the exact immutable prepared profile commitment.
+        #[arg(long)]
+        profile: PathBuf,
+        /// Existing private recovery root.
+        #[arg(long)]
+        root: PathBuf,
+        /// Full immutable plan identifier, never inferred from an observed generation.
+        #[arg(long)]
+        plan: B256,
+    },
     /// Read immutable evidence and local durable phase without granting trust.
     Status {
         /// Existing private recovery root.
@@ -49,7 +61,7 @@ pub enum RecoveryAction {
     },
 }
 impl AbciRecoverSubCommand {
-    /// Runs the read-only-service command and prints only sanitized status fields.
+    /// Runs the selected foreground operation or prints sanitized historical status.
     pub async fn run(&self) -> Result<()> {
         let (report, json) = match &self.action {
             RecoveryAction::Prepare { profile, generation, root, json } => {
@@ -94,6 +106,15 @@ impl AbciRecoverSubCommand {
                 let plan = prepare(&profile, *generation, root, &l1, &engine).await?;
                 (status(&RecoveryStore::new(root), plan.id())?, *json)
             }
+            RecoveryAction::Activate { profile, root, plan } => {
+                crate::recovery::activate::activate(
+                    RecoveryProfile::load(profile)?,
+                    root.clone(),
+                    *plan,
+                )
+                .await?;
+                return Ok(());
+            }
             RecoveryAction::Status { root, plan, json } => {
                 (status(&RecoveryStore::new(root), *plan)?, *json)
             }
@@ -106,13 +127,16 @@ impl AbciRecoverSubCommand {
             );
         } else {
             println!(
-                "Plan {}: generation {}, c={}, R={}, phase={:?}; landed/trust target={}, committed=unknown, components=not-observed; pending prerequisites: {:?}",
+                "Plan {}: generation {}, c={}, R={}, phase={:?}; last landed={}, trust target={}, committed={:?}, live-trust=false, blocker={:?}; pending prerequisites: {:?}",
                 report.plan_id,
                 report.generation,
                 report.origin_height,
                 report.recovery_l1_block,
                 report.phase,
+                report.landed_height,
                 report.trust_target_height,
+                report.committed_height,
+                report.blocker,
                 report.prerequisites
             );
         }

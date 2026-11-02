@@ -49,7 +49,7 @@ pub fn read_bounded(path: &Path, limit: u64) -> Result<Vec<u8>, RecoveryCommandE
     Ok(bytes)
 }
 /// Creates a private directory or refuses nonprivate/aliased existing directories.
-fn private_dir(path: &Path) -> Result<(), RecoveryCommandError> {
+pub(super) fn private_dir(path: &Path) -> Result<(), RecoveryCommandError> {
     if !path.exists() {
         let mut builder = std::fs::DirBuilder::new();
         #[cfg(unix)]
@@ -62,7 +62,7 @@ fn private_dir(path: &Path) -> Result<(), RecoveryCommandError> {
     check_private_dir(path)
 }
 /// Rejects directory aliases and public permissions without creating or changing anything.
-fn check_private_dir(path: &Path) -> Result<(), RecoveryCommandError> {
+pub(super) fn check_private_dir(path: &Path) -> Result<(), RecoveryCommandError> {
     let metadata = std::fs::symlink_metadata(path)
         .map_err(|_| RecoveryCommandError::Io("directory metadata"))?;
     if !metadata.is_dir() {
@@ -78,13 +78,13 @@ fn check_private_dir(path: &Path) -> Result<(), RecoveryCommandError> {
     Ok(())
 }
 /// Makes directory entries durable before publication or after atomic replacement.
-fn sync_dir(path: &Path) -> Result<(), RecoveryCommandError> {
+pub(super) fn sync_dir(path: &Path) -> Result<(), RecoveryCommandError> {
     File::open(path)
         .and_then(|f| f.sync_all())
         .map_err(|_| RecoveryCommandError::Io("sync directory"))
 }
 /// Writes a newly created private file and durably flushes its complete contents.
-fn write_new(path: &Path, bytes: &[u8]) -> Result<(), RecoveryCommandError> {
+pub(super) fn write_new(path: &Path, bytes: &[u8]) -> Result<(), RecoveryCommandError> {
     if bytes.len() as u64 > MAX_PLAN_BYTES {
         return Err(RecoveryCommandError::Parse("file size"));
     }
@@ -316,4 +316,106 @@ fn validate_chain_artifact(plan: &RecoveryPlan, bytes: &[u8]) -> Result<(), Reco
         return Err(RecoveryCommandError::PlanMismatch);
     }
     Ok(())
+}
+
+/// Atomic selector for one completely verified immutable runtime bundle.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ActiveDescriptor {
+    /// Supported selector schema.
+    pub schema: u32,
+    /// Full content-addressed immutable plan ID.
+    pub plan_id: B256,
+    /// Authenticated generation, redundantly checked against the selected plan.
+    pub generation: u64,
+    /// Exact separately owned Comet runtime and its bound OS identity.
+    pub installation: super::install::InstalledComet,
+}
+impl ActiveDescriptor {
+    /// Bind a selector to already authenticated immutable plan bytes.
+    pub fn for_plan(plan: &RecoveryPlan, installation: super::install::InstalledComet) -> Self {
+        Self { schema: 1, plan_id: plan.id(), generation: plan.origin.generation, installation }
+    }
+}
+impl RecoveryStore {
+    /// Read and revalidate the selected immutable runtime, without making changes.
+    pub fn load_active(&self) -> Result<Option<ActiveDescriptor>, RecoveryCommandError> {
+        check_private_dir(&self.root)?;
+        let path = self.root.join("active.json");
+        if std::fs::symlink_metadata(&path).is_err_and(|e| e.kind() == std::io::ErrorKind::NotFound)
+        {
+            return Ok(None);
+        }
+        check_private_file(&path)?;
+        let descriptor: ActiveDescriptor =
+            serde_json::from_slice(&read_bounded(&path, 1024 * 1024)?)
+                .map_err(|_| RecoveryCommandError::Parse("active descriptor"))?;
+        let plan = self.load_plan(descriptor.plan_id)?;
+        if descriptor != ActiveDescriptor::for_plan(&plan, descriptor.installation.clone()) {
+            return Err(RecoveryCommandError::PlanMismatch);
+        }
+        super::install::verify(self, &plan, &descriptor.installation)?;
+        Ok(Some(descriptor))
+    }
+    /// Publish a complete fsynced bundle selector under the activation lease.
+    pub fn publish_active(
+        &self,
+        descriptor: &ActiveDescriptor,
+        previous: Option<&ActiveDescriptor>,
+    ) -> Result<(), RecoveryCommandError> {
+        self.publish_active_steps(descriptor, previous, |_| Ok(()))
+    }
+    /// Side-effect boundaries permit deterministic crash/fsync regression tests. The selector
+    /// is only an observation; authenticated generation checks and writer fences are required.
+    pub(super) fn publish_active_steps(
+        &self,
+        descriptor: &ActiveDescriptor,
+        previous: Option<&ActiveDescriptor>,
+        mut boundary: impl FnMut(&'static str) -> Result<(), RecoveryCommandError>,
+    ) -> Result<(), RecoveryCommandError> {
+        let plan = self.load_plan(descriptor.plan_id)?;
+        if descriptor != &ActiveDescriptor::for_plan(&plan, descriptor.installation.clone()) {
+            return Err(RecoveryCommandError::PlanMismatch);
+        }
+        super::install::verify(self, &plan, &descriptor.installation)?;
+        let lock_path = self.root.join("active.lock");
+        let lock = open_file(&lock_path, true).or_else(|_| open_file(&lock_path, false))?;
+        lock.try_lock().map_err(|_| RecoveryCommandError::Busy)?;
+        let current = self.load_active()?;
+        if current.as_ref() == Some(descriptor) {
+            return sync_dir(&self.root);
+        }
+        if current.as_ref() != previous ||
+            previous.is_some_and(|p| p.generation >= descriptor.generation)
+        {
+            return Err(RecoveryCommandError::PlanMismatch);
+        }
+        let bundle = self.plan_dir(descriptor.plan_id);
+        for name in plan.artifacts.keys().map(String::as_str).chain(["plan.json", "profile.json"]) {
+            open_file(&bundle.join(name), false)?
+                .sync_all()
+                .map_err(|_| RecoveryCommandError::Io("sync installed artifact"))?;
+        }
+        for name in ["comet/config", "comet/data", "comet/run", "comet", "app", ""] {
+            sync_dir(&bundle.join(name))?;
+        }
+        boundary("bundle-synced")?;
+        let pending = self.root.join("active.pending");
+        if std::fs::symlink_metadata(&pending).is_ok() {
+            check_private_file(&pending)?;
+            std::fs::remove_file(&pending)
+                .map_err(|_| RecoveryCommandError::Io("remove interrupted selector"))?;
+        }
+        write_new(
+            &pending,
+            &serde_json::to_vec(descriptor)
+                .map_err(|_| RecoveryCommandError::Parse("active descriptor"))?,
+        )?;
+        boundary("selector-synced")?;
+        std::fs::rename(&pending, self.root.join("active.json"))
+            .map_err(|_| RecoveryCommandError::Io("publish active descriptor"))?;
+        boundary("selector-renamed")?;
+        sync_dir(&self.root)?;
+        boundary("root-synced")
+    }
 }

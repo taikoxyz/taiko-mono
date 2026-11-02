@@ -395,3 +395,24 @@ async fn recovery_native_app_joins_only_its_matching_inherited_grant() {
     assert!(!stderr(&output).contains("ownership is busy"));
     assert!(ComponentLease::acquire(&paths, None).is_err());
 }
+
+#[tokio::test]
+async fn recovery_activate_native_cli_requires_exact_plan_and_stays_explicit() {
+    let help = run(&["abci-recover", "activate", "--help"]).await;
+    assert!(help.status.success(), "{}", stderr(&help));
+    let text = String::from_utf8_lossy(&help.stdout);
+    assert!(text.contains("--plan") && text.contains("--root") && text.contains("--profile"));
+    let invalid = run(&[
+        "abci-recover",
+        "activate",
+        "--root",
+        "/not-created",
+        "--plan",
+        "0x01",
+        "--profile",
+        "/missing-private-profile",
+    ])
+    .await;
+    assert!(!invalid.status.success());
+    assert!(invalid.stdout.is_empty());
+}

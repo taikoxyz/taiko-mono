@@ -1,5 +1,8 @@
 //! Immutable operator recovery preparation; persisted observations never grant authority.
 
+pub mod activate;
+pub mod inspect;
+pub mod install;
 pub mod plan;
 pub mod prepare;
 pub mod process;
@@ -33,6 +36,15 @@ pub enum RecoveryCommandError {
     /// Configured identity differs from authenticated identity.
     #[error("recovery deployment configuration mismatch")]
     ConfigMismatch,
+    /// Exact private app/signer incarnation changed; explicit resume must revalidate stores.
+    #[error("recovery private session changed; stopped for explicit resume")]
+    SessionChanged,
+    /// A directly retained runtime child exited, including an optional lander.
+    #[error("owned recovery component exited")]
+    ComponentExited,
+    /// Preserved prior safety evidence requires investigation, never automatic reset.
+    #[error("recovery blocked by preserved safety evidence")]
+    Halted,
     /// Own finalized L1 has a newer generation.
     #[error("recovery generation {requested} superseded by {current}")]
     Superseded {

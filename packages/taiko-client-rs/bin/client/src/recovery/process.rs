@@ -117,6 +117,22 @@ impl OwnedRuntime {
             // Terminal SIGINT belongs to the controller; it orders actual-handle shutdown.
             .process_group(0)
             .stdin(std::process::Stdio::null());
+        if role == ComponentRole::Comet &&
+            let Some(uid) = spec.executable.env.get("ETNA_COMET_UID")
+        {
+            let uid: u32 = uid.parse().map_err(|_| RecoveryCommandError::Parse("Comet UID"))?;
+            let gid: u32 = spec
+                .executable
+                .env
+                .get("ETNA_COMET_GID")
+                .ok_or(RecoveryCommandError::Parse("Comet GID"))?
+                .parse()
+                .map_err(|_| RecoveryCommandError::Parse("Comet GID"))?;
+            // Rust's Unix uid setup clears supplementary groups for a privilege change.
+            if uid != unsafe { libc::geteuid() } || gid != unsafe { libc::getegid() } {
+                command.uid(uid).gid(gid);
+            }
+        }
         let (lifetime, child_lifetime) = UnixStream::pair()
             .map_err(|_| RecoveryCommandError::Runtime("create descendant lifetime"))?;
         lifetime
@@ -147,6 +163,33 @@ impl OwnedRuntime {
             command.spawn().map_err(|_| RecoveryCommandError::Runtime("spawn owned component"))?;
         state.children.push(OwnedChild { role, child, lifetime });
         Ok(())
+    }
+    /// Poll retained children without reconstructing PIDs or releasing inherited reservations.
+    pub fn exited_role(&mut self) -> Result<Option<ComponentRole>, RecoveryCommandError> {
+        let mut guard = self.state.lock().map_err(|_| RecoveryCommandError::Busy)?;
+        let state = guard.as_mut().ok_or(RecoveryCommandError::Busy)?;
+        for owned in &mut state.children {
+            if owned
+                .child
+                .try_wait()
+                .map_err(|_| RecoveryCommandError::Runtime("observe owned child"))?
+                .is_some()
+            {
+                return Ok(Some(owned.role));
+            }
+        }
+        Ok(None)
+    }
+    /// Stop owned children while retaining all leases for a final durable status update.
+    /// The subsequent stop call releases them; cancellation still retains blocking cleanup.
+    pub async fn quiesce(&mut self) -> Result<(), RecoveryCommandError> {
+        let shared = Arc::clone(&self.state);
+        tokio::task::spawn_blocking(move || {
+            let mut guard = shared.lock().map_err(|_| RecoveryCommandError::Busy)?;
+            guard.as_mut().ok_or(RecoveryCommandError::Busy)?.stop()
+        })
+        .await
+        .map_err(|_| RecoveryCommandError::Runtime("quiesce owned runtime"))?
     }
     /// Stop/reap lander, supervisor/Comet, then app. Cancellation cannot drop the leases
     /// out from under this cleanup: the blocking task owns the entire state until finished.
@@ -249,6 +292,257 @@ fn wait_child(child: &mut Child, timeout: Duration) -> Result<bool, RecoveryComm
         }
         std::thread::sleep(Duration::from_millis(20));
     }
+}
+
+/// Check stock-only immutable paths and mandatory external signing before runtime effects.
+/// Old bundles with empty local FilePV paths require reprepare; their hashes are never rewritten.
+pub(super) fn validated_template(
+    profile: &super::profile::RecoveryProfile,
+    store: &super::store::RecoveryStore,
+    plan: &super::plan::RecoveryPlan,
+) -> Result<toml::Table, RecoveryCommandError> {
+    let bundle = store.plan_dir(plan.id());
+    let config = super::store::read_bounded(&bundle.join("comet/config/config.toml"), 1024 * 1024)?;
+    let config: toml::Table = toml::from_str(
+        std::str::from_utf8(&config).map_err(|_| RecoveryCommandError::PlanMismatch)?,
+    )
+    .map_err(|_| RecoveryCommandError::PlanMismatch)?;
+    if config.get("db_backend").and_then(toml::Value::as_str).unwrap_or("goleveldb") != "goleveldb"
+    {
+        return Err(RecoveryCommandError::Missing("goleveldb read-only inspector backend"))
+    }
+    for (name, expected) in [
+        ("priv_validator_key_file", "config/priv_validator_key.json"),
+        ("priv_validator_state_file", "data/priv_validator_state.json"),
+    ] {
+        if config.get(name).and_then(toml::Value::as_str) != Some(expected) {
+            return Err(RecoveryCommandError::Missing("stock local FilePV paths; prepare again"))
+        }
+    }
+    let expected = if profile.signer.is_some() { "unix://run/signer.sock" } else { "" };
+    if config.get("priv_validator_laddr").and_then(toml::Value::as_str).unwrap_or("") != expected {
+        return Err(RecoveryCommandError::PlanMismatch)
+    }
+    Ok(config)
+}
+
+/// Compile exact private executable prefixes into app, consensus and optional lander launches.
+/// Owned flags always use immutable installed artifacts and original signer/account journals.
+pub fn specifications(
+    profile: &super::profile::RecoveryProfile,
+    store: &super::store::RecoveryStore,
+    plan: &super::plan::RecoveryPlan,
+    installed: &super::install::InstalledComet,
+) -> Result<Vec<ProcessSpec>, RecoveryCommandError> {
+    let bundle = store.plan_dir(plan.id());
+    let config = validated_template(profile, store, plan)?;
+    let proxy = config
+        .get("proxy_app")
+        .and_then(toml::Value::as_str)
+        .ok_or(RecoveryCommandError::PlanMismatch)?;
+    let common = vec![
+        "--l1.http".into(),
+        profile.l1_http.clone(),
+        "--l2.http".into(),
+        profile.l2_http.clone(),
+        "--l2.auth".into(),
+        profile.l2_auth.clone(),
+        "--jwt.secret".into(),
+        profile.jwt_secret.display().to_string(),
+        "--chain-config".into(),
+        bundle.join("app-chain.toml").display().to_string(),
+    ];
+    let mut app = profile.app.clone();
+    app.argv.extend(common.clone());
+    app.argv.extend([
+        "--data-dir".into(),
+        bundle.join("app").display().to_string(),
+        "--abci.addr".into(),
+        proxy.into(),
+        "--fee-recipient".into(),
+        plan.deployment.fee_recipient.to_string(),
+    ]);
+    let mut result = vec![ProcessSpec {
+        executable: app,
+        cwd: bundle.clone(),
+        paths: ComponentPaths::new(ComponentRole::App, &bundle.join("app"))
+            .map_err(|_| RecoveryCommandError::Busy)?,
+    }];
+    let (role, mut executable) = if let Some(signer) = &profile.signer {
+        let mut supervisor = signer.supervisor.clone();
+        let chain = abci::rules::chain_id_for(&plan.deployment.params()?, plan.origin.generation)
+            .map_err(|_| RecoveryCommandError::Invalid)?;
+        for (key, value) in [
+            ("ETNA_COMET_HOME", installed.home.display().to_string()),
+            ("ETNA_APP_STORE", bundle.join("app").display().to_string()),
+            ("ETNA_PRIV_KEY", signer.key.display().to_string()),
+            ("ETNA_PRIV_STATE", signer.state.display().to_string()),
+            ("ETNA_AUTHORITY_ROOT", signer.authority.display().to_string()),
+            ("ETNA_CHAIN_ID", chain),
+            ("ETNA_GENERATION", plan.origin.generation.to_string()),
+            ("ETNA_L1_CHAIN_ID", plan.deployment.l1_chain_id.to_string()),
+            ("ETNA_L2_CHAIN_ID", plan.deployment.l2_chain_id.to_string()),
+            ("ETNA_INBOX", plan.deployment.inbox.to_string()),
+            ("ETNA_ENROLL_LEGACY", "1".into()),
+            (
+                "ETNA_SIGNER_ADDR",
+                format!("unix://{}", installed.home.join("run/signer.sock").display()),
+            ),
+            ("ETNA_DENIAL_FILE", bundle.join("app/signer-denial.json").display().to_string()),
+        ] {
+            supervisor.env.insert(key.into(), value);
+        }
+        for (name, command) in [("SIGNER", &signer.executable), ("COMET", &profile.comet)] {
+            let prefix: Vec<_> = std::iter::once(command.program.display().to_string())
+                .chain(command.argv.iter().cloned())
+                .collect();
+            supervisor.env.insert(
+                format!("ETNA_{name}_COMMAND_JSON"),
+                serde_json::to_string(&prefix)
+                    .map_err(|_| RecoveryCommandError::Parse("runtime prefix"))?,
+            );
+            supervisor.env.insert(
+                format!("ETNA_{name}_ENV_JSON"),
+                serde_json::to_string(&command.env)
+                    .map_err(|_| RecoveryCommandError::Parse("runtime environment"))?,
+            );
+        }
+        (ComponentRole::Supervisor, supervisor)
+    } else {
+        let mut comet = profile.comet.clone();
+        comet.argv.extend(["--home".into(), installed.home.display().to_string()]);
+        (ComponentRole::Comet, comet)
+    };
+    executable.env.insert("ETNA_COMET_UID".into(), installed.uid.to_string());
+    executable.env.insert("ETNA_COMET_GID".into(), installed.gid.to_string());
+    result.push(ProcessSpec {
+        executable,
+        cwd: installed.home.clone(),
+        paths: ComponentPaths::new(role, &installed.home)
+            .map_err(|_| RecoveryCommandError::Busy)?,
+    });
+    if let Some(lander) = &profile.lander {
+        let listener = config
+            .get("rpc")
+            .and_then(toml::Value::as_table)
+            .and_then(|t| t.get("laddr"))
+            .and_then(toml::Value::as_str)
+            .unwrap_or("tcp://127.0.0.1:26657");
+        let address = listener
+            .split(',')
+            .next()
+            .ok_or(RecoveryCommandError::Parse("Comet RPC listener"))?
+            .trim()
+            .replace("tcp://", "http://")
+            .replace("0.0.0.0", "127.0.0.1");
+        let mut executable = lander.executable.clone();
+        executable.argv.extend(common);
+        executable.argv.extend([
+            "--data-dir".into(),
+            lander.data_dir.display().to_string(),
+            "--comet.http".into(),
+            address,
+        ]);
+        result.push(ProcessSpec {
+            executable,
+            cwd: lander.data_dir.clone(),
+            paths: ComponentPaths::new(ComponentRole::Lander, &lander.data_dir)
+                .map_err(|_| RecoveryCommandError::Busy)?,
+        });
+    }
+    Ok(result)
+}
+
+/// Probe original private authority/journal locks and explicit local listeners without taking
+/// ownership or unlinking anything. Negative probes are prerequisites, never startup authority.
+pub async fn legacy_quiescent(
+    profile: &super::profile::RecoveryProfile,
+    homes: &[PathBuf],
+    apps: &[PathBuf],
+) -> Result<(), RecoveryCommandError> {
+    use abci::ownership::{check_legacy_listener, check_legacy_lock};
+    for app in apps {
+        check_legacy_listener(&app.join("checkpoint-trust.sock"))
+            .await
+            .map_err(|_| RecoveryCommandError::Busy)?;
+    }
+    if let Some(signer) = &profile.signer {
+        for path in [
+            PathBuf::from(format!("{}.lock", signer.key.display())),
+            PathBuf::from(format!("{}.lock", signer.state.display())),
+            signer.authority.join("owner.lock"),
+        ] {
+            check_legacy_lock(&path).map_err(|_| RecoveryCommandError::Busy)?;
+        }
+    }
+    if let Some(lander) = &profile.lander {
+        for name in ["lander.lock", "transaction-store.lock"] {
+            check_legacy_lock(&lander.data_dir.join(name))
+                .map_err(|_| RecoveryCommandError::Busy)?;
+        }
+    }
+    for home in homes {
+        let path = home.join("config/config.toml");
+        if !path.try_exists().map_err(|_| RecoveryCommandError::Busy)? {
+            continue
+        }
+        let config = super::store::read_bounded(&path, 1024 * 1024)?;
+        let config: toml::Table = toml::from_str(
+            std::str::from_utf8(&config).map_err(|_| RecoveryCommandError::PlanMismatch)?,
+        )
+        .map_err(|_| RecoveryCommandError::PlanMismatch)?;
+        let mut listeners: Vec<_> = ["proxy_app", "priv_validator_laddr"]
+            .iter()
+            .filter_map(|n| config.get(*n).and_then(toml::Value::as_str))
+            .collect();
+        for section in ["rpc", "p2p"] {
+            if let Some(table) = config.get(section).and_then(toml::Value::as_table) {
+                listeners.extend(
+                    ["laddr", "grpc_laddr"]
+                        .iter()
+                        .filter_map(|n| table.get(*n).and_then(toml::Value::as_str)),
+                );
+            }
+        }
+        for listener in listeners
+            .into_iter()
+            .flat_map(|s| s.split(','))
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
+            if let Some(path) = listener.strip_prefix("unix://") {
+                let path = if std::path::Path::new(path).is_absolute() {
+                    PathBuf::from(path)
+                } else if path == "run/signer.sock" {
+                    home.join(path)
+                } else {
+                    return Err(RecoveryCommandError::Busy)
+                };
+                check_legacy_listener(&path).await.map_err(|_| RecoveryCommandError::Busy)?;
+            } else {
+                let url = url::Url::parse(listener).map_err(|_| RecoveryCommandError::Busy)?;
+                if url.scheme() != "tcp" {
+                    return Err(RecoveryCommandError::Busy)
+                }
+                let host = match url.host_str().ok_or(RecoveryCommandError::Busy)? {
+                    "0.0.0.0" => "127.0.0.1",
+                    "[::]" => "::1",
+                    other => other,
+                };
+                let port = url.port().ok_or(RecoveryCommandError::Busy)?;
+                match tokio::time::timeout(
+                    Duration::from_secs(1),
+                    tokio::net::TcpStream::connect((host, port)),
+                )
+                .await
+                {
+                    Ok(Err(error)) if error.kind() == std::io::ErrorKind::ConnectionRefused => {}
+                    _ => return Err(RecoveryCommandError::Busy),
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -479,6 +773,20 @@ mod tests {
         stop_child(&mut child, Duration::from_millis(20)).unwrap();
         assert_eq!(child.try_wait().unwrap().unwrap().signal(), Some(libc::SIGKILL));
         assert_eq!(child.id(), None);
+    }
+    #[tokio::test]
+    async fn recovery_monitor_detects_retained_component_exit_before_cleanup() {
+        let root = tempfile::tempdir().unwrap();
+        let mut runtime = OwnedRuntime::new(acquire_activation(root.path(), B256::ZERO).unwrap());
+        let mut child = spec(root.path(), ComponentRole::App);
+        child.executable.program = "/usr/bin/true".into();
+        child.executable.argv.clear();
+        runtime.fence(&child.paths).unwrap();
+        runtime.spawn(ComponentRole::App, &child).unwrap();
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let exited = runtime.exited_role().unwrap();
+        runtime.stop().await.unwrap();
+        assert_eq!(exited, Some(ComponentRole::App));
     }
     #[tokio::test]
     async fn recovery_reaped_handle_never_signals_a_foreign_process() {

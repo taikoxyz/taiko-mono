@@ -351,6 +351,11 @@ async fn higher_generation_proposal_revokes_even_without_finalize_error() {
     assert!(app.superseded);
     assert!(!app.trust.snapshot().trust_ready);
     assert_eq!(app.trust.snapshot().phase, TrustPhase::Halted);
+    assert!(
+        dir.path().join("generation-superseded.json").is_file(),
+        "expected supersession must retain typed evidence"
+    );
+    assert!(app.store.fatal_evidence().unwrap().is_some());
 }
 
 #[tokio::test]

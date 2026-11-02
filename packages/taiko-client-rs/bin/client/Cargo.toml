@@ -32,6 +32,7 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 # taiko
 abci = { path = "../../crates/abci" }
 lander = { path = "../../crates/lander" }
+protocol = { path = "../../crates/protocol", default-features = false }
 rpc = { path = "../../crates/rpc" }
 
 # types
@@ -52,7 +53,6 @@ anyhow = { workspace = true }
 base64 = { workspace = true }
 http-body-util = { workspace = true }
 prost = { workspace = true }
-protocol = { path = "../../crates/protocol", default-features = false }
 sha2 = { workspace = true }
 tempfile = { workspace = true }
 tendermint-proto = { workspace = true }

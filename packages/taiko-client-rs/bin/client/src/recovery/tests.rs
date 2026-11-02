@@ -176,6 +176,8 @@ fn profile(dir: &Path) -> RecoveryProfile {
         peers: vec![],
         signer: None,
         lander: None,
+        installation_parent: None,
+        inspector: None,
     };
     std::fs::write(&profile.chain_config,"l1_chain_id = '1'\ninbox = '0x1111111111111111111111111111111111111111'\nregistry = '0x2222222222222222222222222222222222222222'\n").unwrap();
     std::fs::create_dir_all(profile.comet_home.join("config")).unwrap();
@@ -323,7 +325,7 @@ async fn recovery_rejects_aliased_staged_directories_and_journal_mismatches() {
     let engine = ReadEngine::new(&source);
     let plan = prepare::prepare(&p, 1, &root, &source, &engine).await.unwrap();
     let store = RecoveryStore::new(&root);
-    let journal = RecoveryJournal { schema: 1, plan_id: plan.id(), phase: RecoveryPhase::Prepared };
+    let journal = RecoveryJournal::prepared(plan.id());
     store.save_journal(&journal).unwrap();
     assert_eq!(store.load_journal(plan.id()).unwrap(), Some(journal));
     std::fs::write(
@@ -332,6 +334,7 @@ async fn recovery_rejects_aliased_staged_directories_and_journal_mismatches() {
             schema: 1,
             plan_id: B256::ZERO,
             phase: RecoveryPhase::Prepared,
+            ..RecoveryJournal::prepared(plan.id())
         })
         .unwrap(),
     )
@@ -406,6 +409,19 @@ async fn recovery_missing_state_reports_prerequisite_and_does_not_touch_signer_o
     std::fs::write(p.comet_home.join("config/config.toml"),"proxy_app='tcp://127.0.0.1:26658'\npriv_validator_laddr='unix://run/old.sock'\n[p2p]\npersistent_peers=''\n").unwrap();
     let root = dir.path().join("recovery");
     let plan = prepare::prepare(&p, 1, &root, &source, &engine).await.unwrap();
+    let config: toml::Table = toml::from_str(
+        &std::fs::read_to_string(
+            RecoveryStore::new(&root).plan_dir(plan.id()).join("comet/config/config.toml"),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(config["priv_validator_key_file"].as_str(), Some("config/priv_validator_key.json"));
+    assert_eq!(
+        config["priv_validator_state_file"].as_str(),
+        Some("data/priv_validator_state.json")
+    );
+    assert_eq!(config["priv_validator_laddr"].as_str(), Some("unix://run/signer.sock"));
     let report = status(&RecoveryStore::new(&root), plan.id()).unwrap();
     assert_eq!(report.phase, RecoveryPhase::Prepared);
     assert!(report.prerequisites.contains(&Prerequisite::HistoricalState));
@@ -678,8 +694,7 @@ async fn recovery_profile_changes_create_new_id_and_short_names_check_full_ident
     assert_eq!(store.plan_dir(first.id()), store.plan_dir(collision));
     assert!(store.load_plan(collision).is_err());
     assert_eq!(store.load_plan(first.id()).unwrap(), first);
-    let journal =
-        RecoveryJournal { schema: 1, plan_id: first.id(), phase: RecoveryPhase::Prepared };
+    let journal = RecoveryJournal::prepared(first.id());
     store.save_journal(&journal).unwrap();
     let lock = std::fs::File::open(store.plan_dir(first.id()).join("journal.lock")).unwrap();
     lock.try_lock().unwrap();
@@ -795,3 +810,6 @@ async fn recovery_publication_enforces_the_same_profile_bound_as_loading() {
     );
     assert!(!store.plan_dir(oversized.id()).exists());
 }
+
+#[path = "activation_tests.rs"]
+mod activation_tests;
