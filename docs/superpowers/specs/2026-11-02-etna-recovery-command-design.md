@@ -1,6 +1,6 @@
 # Etna governance recovery command
 
-Status: proposed for approval. Design only; no runtime implementation yet.
+Status: approved by the user on 2026-11-02. No runtime implementation yet.
 
 ## Intent and agreed direction
 
