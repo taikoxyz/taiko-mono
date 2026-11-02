@@ -45,6 +45,34 @@ class Supervisor:
         self.key = Path(os.environ["ETNA_PRIV_KEY"]).resolve()
         self.state = Path(os.environ["ETNA_PRIV_STATE"]).resolve()
         self.chain = os.environ["ETNA_CHAIN_ID"]
+        generation = os.environ.get("ETNA_GENERATION", "0")
+        if not generation.isascii() or not generation.isdecimal() or int(generation) >= 1 << 48:
+            raise ValueError("ETNA_GENERATION must be a decimal uint48")
+        self.generation = int(generation)
+        root = os.environ.get("ETNA_AUTHORITY_ROOT", "")
+        deployment = [os.environ.get(name, "") for name in
+                      ("ETNA_L1_CHAIN_ID", "ETNA_L2_CHAIN_ID", "ETNA_INBOX")]
+        enrollment = os.environ.get("ETNA_ENROLL_LEGACY", "0")
+        if enrollment not in ("0", "1"):
+            raise ValueError("ETNA_ENROLL_LEGACY must be 0 or 1")
+        self.schema = 2 if root else 1
+        authority_args = []
+        if root:
+            if "ETNA_GENERATION" not in os.environ or not all(deployment):
+                raise ValueError("authority mode requires explicit generation and complete deployment identity")
+            authority = Path(root).resolve()
+            for path in (authority, self.key, self.state):
+                if path.is_relative_to(self.home) or path.is_relative_to(self.store):
+                    raise ValueError("authority storage must be outside Comet home and app store")
+            # The native signer validates the canonical full chain domain against these
+            # IDs before opening authority. Never infer enrollment from observations.
+            authority_args = ["--authority-root", str(authority),
+                              "--l1-chain-id", deployment[0], "--l2-chain-id", deployment[1],
+                              "--inbox", deployment[2], "--generation", str(self.generation)]
+            if enrollment == "1":
+                authority_args.append("--enroll-legacy")
+        elif self.generation or any(deployment) or enrollment == "1":
+            raise ValueError("generation and authority options require ETNA_AUTHORITY_ROOT")
         for path in (self.key, self.state):
             if not path.is_file() or path.is_relative_to(self.home):
                 raise ValueError("existing registered key/state must be outside the Comet home")
@@ -63,7 +91,7 @@ class Supervisor:
         self.signer_command = [binary, "--comet-signer-addr", address,
                                "--trust-socket", str(self.store / "checkpoint-trust.sock"),
                                "--chain-id", self.chain, "--priv-key", str(self.key),
-                               "--priv-state", str(self.state), "--denial-file", str(self.events)]
+                               "--priv-state", str(self.state), "--denial-file", str(self.events)] + authority_args
         self.comet_command = (["docker", "start", "--attach", self.container] if self.container else
                               [os.environ.get("ETNA_COMET_BIN", "cometbft"), "start", "--home", str(self.home)])
         self.signer = self.comet = None
@@ -79,12 +107,14 @@ class Supervisor:
         with socket.socket(socket.AF_UNIX) as peer:
             peer.settimeout(1)
             peer.connect(str(self.store / "checkpoint-trust.sock"))
-            peer.sendall(b'{"schema_version":1,"op":"observe"}\n')
+            peer.sendall((json.dumps(dict(schema_version=self.schema, op="observe")) + "\n").encode())
             data = peer.makefile("rb").readline(16385)
             if len(data) > 16384 or not data.endswith(b"\n"):
                 raise ValueError("invalid private observation frame")
             value = json.loads(data)
-            if value.get("schema_version") != 1 or not isinstance(value.get("session_id"), str):
+            if (value.get("schema_version") != self.schema
+                    or not isinstance(value.get("session_id"), str)
+                    or (self.schema == 2 and "recovery_origin" not in value)):
                 raise ValueError("invalid private observation schema")
             return value
 
@@ -272,7 +302,7 @@ class Supervisor:
             return  # Unavailable observation never authorizes recovery.
         # Authenticated contradictions and every halted reason but an app lifecycle stop
         # remain sticky.
-        if status.get("generation") not in (None, 0) or status.get("chain_id") not in (None, self.chain):
+        if status.get("generation") not in (None, self.generation) or status.get("chain_id") not in (None, self.chain):
             self.halt("terminal deployment identity")
             return
         lifecycle_stop = status.get("reason") in APP_LIFECYCLE_STOPS
@@ -305,9 +335,12 @@ class Supervisor:
             print("etna_supervisor_awaiting_trust: Comet starts after the signer's fresh session is Ready", flush=True)
 
     def ready(self, status):
+        origin = status.get("recovery_origin")
         return (status.get("trust_ready") is True and status.get("syncing") is False
                 and status.get("phase") == "ready" and status.get("chain_id") == self.chain
-                and status.get("generation") == 0)
+                and status.get("generation") == self.generation
+                and (self.generation == 0 or
+                     (isinstance(origin, dict) and origin.get("generation") == self.generation)))
 
     def start_comet_once_trusted(self):
         """Recovery: start Comet only when the signer's own published session is Ready.
@@ -319,7 +352,7 @@ class Supervisor:
             status = self.observe()
         except (OSError, ValueError, KeyError):
             return  # Unavailable observation never authorizes starting Comet.
-        if status.get("generation") not in (None, 0) or status.get("chain_id") not in (None, self.chain):
+        if status.get("generation") not in (None, self.generation) or status.get("chain_id") not in (None, self.chain):
             self.halt("terminal deployment identity")
             return
         if status.get("phase") == "halted":

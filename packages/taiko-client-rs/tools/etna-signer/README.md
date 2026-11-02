@@ -85,7 +85,8 @@ The supported supervisor adds `--denial-file <app-store>/signer-denial.json`.
 It is a private atomic observation, not signing state or authorization: sequence zero
 publishes a fresh session ID, and positive sequence increments capture every signing
 refusal, including a local-control timeout while the app remains Ready. The supervisor
-uses nonmutating schema-1 `observe`, waits for exact private Ready, then reaps Comet and
+uses nonmutating `observe` (schema 1 for legacy, schema 2 for authority mode), waits for
+exact private Ready, then reaps Comet and
 the signer with unchanged HRS/WAL/history. Stock Comet never retries a refused request;
 only a restarted Comet's WAL replay asks for that step again. So the supervisor first
 restarts the signer alone with `--await-trust`: it begins the fresh closed session for its
@@ -103,6 +104,35 @@ alive and quiescent, including after container restart. See the package README f
 supported combined image and separate app/supervisor container commands.
 
 ## Generation authority
+
+For `script/start_etna_validator.sh`, set the existing `ETNA_COMET_HOME`,
+`ETNA_APP_STORE`, `ETNA_PRIV_KEY`, `ETNA_PRIV_STATE`, and `ETNA_CHAIN_ID`, plus:
+
+```sh
+export ETNA_GENERATION=2
+export ETNA_AUTHORITY_ROOT=/absolute/private/authority
+export ETNA_L1_CHAIN_ID=1 ETNA_L2_CHAIN_ID=167001
+export ETNA_INBOX=0x1111111111111111111111111111111111111111
+# Only explicit activation after fencing the previous owner may request enrollment:
+export ETNA_ENROLL_LEGACY=1
+```
+
+`ETNA_CHAIN_ID` must exactly match the installed Comet genesis. The signer checks
+the full canonical domain against generation and deployment before opening
+authority. Nonzero generations require authority mode; authority mode requires
+all deployment fields and an explicit decimal uint48 generation. Without authority
+options, existing generation-zero environments continue using schema 1.
+`ETNA_PRIV_STATE` always names the original generation-zero HRS. The authority root,
+key and original state must remain outside the Comet home/mounts and disposable app
+store. The supervisor canonicalizes these paths and passes them to the signer.
+
+`ETNA_ENROLL_LEGACY` accepts only `0` (default) or `1`; matching activation retries
+may retain `1`. The supervisor never infers enrollment or changes generations from
+observations. A same-generation refusal restart retains the configured flags and
+requires the new signer's session to become Ready before restarting Comet. A new
+generation observation halts the configured instance. Existing durable halt latches
+remain in place across explicit generation changes and restartAlways restarts;
+independent safety evidence requires operator investigation and repair.
 
 After the previous signer has stopped, use the same registered key and original
 state path with these additional serve options:

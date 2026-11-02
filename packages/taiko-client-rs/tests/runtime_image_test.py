@@ -51,6 +51,20 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
         "--registry", "0x" + "22" * 20, "--l1-chain-id", "31337"]))
     assert pop["publicKey"] == public["publicKey"] and len(pop["signature"]) == 132
     before = key.read_bytes(), state.read_bytes()
+    # Verify the packaged native parser accepts every supervisor authority flag,
+    # then rejects an inconsistent generation/domain before creating authority.
+    invalid_authority = private / "authority"
+    refused_domain = subprocess.run([
+        "/app/etna-signer", "--comet-signer-addr", "tcp://127.0.0.1:26659",
+        "--trust-socket", str(root / "not-started.sock"), "--chain-id", "wrong-domain",
+        "--priv-key", str(key), "--priv-state", str(state),
+        "--authority-root", str(invalid_authority), "--l1-chain-id", "31337",
+        "--l2-chain-id", "167001", "--inbox", "0x" + "11" * 20,
+        "--generation", "1", "--enroll-legacy"], capture_output=True, timeout=5)
+    assert refused_domain.returncode != 0, "mismatched generation/domain must refuse startup"
+    assert b"authority generation/deployment does not match chain ID" in refused_domain.stderr
+    assert not invalid_authority.exists()
+    assert before == (key.read_bytes(), state.read_bytes())
     home = root / "comet"
     (home / "config").mkdir(parents=True)
     (home / "data").mkdir()
