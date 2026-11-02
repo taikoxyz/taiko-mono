@@ -98,9 +98,10 @@ The Etna block-production and validation rules are in
   crossing T.
   Both guests may prove a batch spanning T with the original grid and cut checks;
   pre-T history keeps its original rules. All exclusions in SPEC START-10.1-3
-  apply: K/grid, chain_id/signing domains, APP_VERSION, fixed CometBFT consensus
-  parameters and deployment immutables require separate transitions or migrations. Concrete authority/proof-binding and activation
-  interfaces remain pending (10.1); the checklist includes their acceptance.
+  apply, including the invariant timestamp/anchor/discovery rules used to select
+  a revision. Section 10.1 requires advance notice, irreversible preparation and
+  complete upgrade discovery through each candidate anchor; the checklist covers
+  authority/proof binding, request-scoped readiness and acceptance.
 - **Open design and acceptance:** the Unzen switch and bridge wiring (section 12
   item 9), concrete timestamp-upgrade activation interfaces (item 10),
   registration admission bounds (item 14)

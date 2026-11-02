@@ -7,8 +7,8 @@ Checks:
   1. purity   (only when --base is given) stripping every marker from SPEC.md reproduces that
               revision, after normalising line ends and markdown table padding - the repository's
               prettier hook owns whitespace, so a byte-exact comparison would fail by design
-  2. markers  IDs are unique, in document order, and contiguous per section; an ID inserted with a
-              suffix letter (FI-7.2-3a) attaches to its parent number, and a gap left by a retired
+  2. markers  IDs are unique, in document order (following explicit replacement links), and
+              contiguous per section; an ID inserted with a suffix letter (FI-7.2-3a) attaches to its parent number, and a gap left by a retired
               ID is allowed when INDEX.md marks that ID retired; INDEX.md's section is the section
               the marker sits in, so a rule that moves keeps its ID
   3. index    every marker has exactly one INDEX.md row (a duplicate row fails) and every live row
@@ -112,7 +112,12 @@ def load_index():
         if cells[0] in rows:
             dups.append(cells[0])
             continue
-        rows[cells[0]] = {"type": cells[1], "section": cells[3]}
+        replacement = re.match(r"^Retired: replaced by (" + ID + r")\b", cells[2])
+        rows[cells[0]] = {
+            "type": cells[1],
+            "section": cells[3],
+            "replacement": replacement.group(1) if replacement else None,
+        }
     return rows, dups
 
 
@@ -206,6 +211,30 @@ def main():
     still = sorted(retired & set(ids))
     if still:
         msgs.append("markers: %d retired ID(s) still carry a marker, e.g. %s" % (len(still), still[:3]))
+    # Explicit replacements retain the original citation's document position, even if
+    # a suffix sibling already exists (10 -> 10b must stay before unrelated 10a).
+    predecessor = {}
+    for old, row in index.items():
+        new = row["replacement"]
+        if not new:
+            continue
+        if row["type"] != "retired" or new not in index:
+            msgs.append("markers: invalid replacement %s -> %s (retired source and indexed target required)" % (old, new))
+        elif (old.rsplit("-", 1)[0] != new.rsplit("-", 1)[0]
+              or parse_id(old)[0] != parse_id(new)[0]
+              or parse_id(old) >= parse_id(new)):
+            msgs.append("markers: replacement %s -> %s must use a later suffix of the same ID number" % (old, new))
+        elif new in predecessor:
+            msgs.append("markers: replacement %s has multiple predecessors" % new)
+        else:
+            predecessor[new] = old
+
+    def position_id(rid):
+        # Every accepted edge increases the suffix, so a predecessor chain is acyclic.
+        while rid in predecessor:
+            rid = predecessor[rid]
+        return rid
+
     # A rule that moves keeps its ID, so the section in its ID is a citation, not a location:
     # INDEX.md must name the section the marker actually sits in.
     located = {}
@@ -219,7 +248,7 @@ def main():
     for pos, i in found:
         # numbering and order are per ID namespace; a moved rule is outside its namespace's
         # run of the document, so it is checked for numbering but not for position
-        by.setdefault(i.split("-")[1], []).append((pos, parse_id(i), located[i] == i.split("-")[1]))
+        by.setdefault(i.split("-")[1], []).append((pos, parse_id(position_id(i)), located[i] == i.split("-")[1]))
     for sec in sorted(by):
         seq = [p for _, p, home in by[sec] if home]
         if seq != sorted(seq):

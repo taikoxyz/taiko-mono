@@ -30,3 +30,6 @@ jobs:
 
       - name: Check rule references
         run: python3 packages/protocol/docs/etna/rules/tools/check.py
+
+      - name: Test rule-reference checker
+        run: python3 -m unittest discover -s packages/protocol/docs/etna/rules/tools -p 'test_*.py' -v

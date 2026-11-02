@@ -26,7 +26,8 @@ A review comment like "section 7.2 has a problem" cannot be resolved, tested or 
 
 - **Never renumber to make room.** Insert a suffix letter on the preceding ID: `FI-7.2-3a` sits between `FI-7.2-3` and `FI-7.2-4`.
 - A deleted rule's ID is **retired, never reused**; `INDEX.md` keeps the row marked `retired`, so a stale external reference fails visibly instead of pointing at a different rule.
-- A semantic replacement that changes the governed subject or reverses an existing requirement/consequence must retire the old ID and use the next unused suffix on the same number (for example `ENC-A-4` → `ENC-A-4a`). A stale citation must not silently acquire the opposite meaning. The retired index row names and links its replacement; never reuse a retired ID or suffix.
+- The compatibility baseline is the most recent version merged into the target branch (normally `main`), not an intermediate commit in an unmerged PR. IDs introduced only by that PR may be revised or removed during review without creating retired rows. Do not reuse an ID retired in the merged baseline.
+- A semantic replacement that changes the governed subject or reverses an existing requirement/consequence must retire the old ID and use the next unused suffix on the same number (for example `ENC-A-4` → `ENC-A-4a`). A stale citation must not silently acquire the opposite meaning. The retired index row uses the title prefix `Retired: replaced by <ID>` and links its replacement; never reuse an ID or suffix retired in the merged baseline. The replacement retains the original statement's document position: if `LIMIT-12-10a` already exists, replacing `LIMIT-12-10` with the next unused suffix `LIMIT-12-10b` puts 10b before 10a. The checker follows these explicit replacement links (including chains), while unrelated suffix siblings retain their existing order.
 - Keep the ID for wording corrections, added precision or compatible extensions that preserve existing requirements and outcomes. If an old accept/reject case changes outcome or the old statement is no longer true, use retirement and replacement instead. Review every affected vector; do not hide a semantic replacement by merely rewriting its expectations.
 - Amend the rule text first, then replace/insert markers in a separate single-writer pass that preserves that amended unmarked text. Update INDEX.md, vectors, review references and other citations together; run all non-purity checks.
 - If a rule moves to another section its ID stays intact and `INDEX.md` records the move. **An ID is a citation, not a coordinate.**
@@ -111,6 +112,8 @@ Why not restructure the blocks into tables now: that is a change to the specific
 ```bash
 python3 rules/tools/check.py --base <revision-before-IDs>
 ```
+
+Regression tests for replacement ordering run with `python3 -m unittest discover -s rules/tools -p 'test_*.py'`.
 
 Five checks, and what each one actually proves:
 
