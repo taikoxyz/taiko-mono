@@ -567,10 +567,10 @@ _`abi.encode(left, right)` of two `bytes32` words equals their plain concatenati
 
 ## ENC-A-52
 
-| Vector      | Setup                                                                                                       | Expected                             |
-| ----------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------ |
-| 52.a accept | `invalidateRecoveryNonce` called by the Inbox owner                                                         | conforms                             |
-| 52.b reject | `invalidateRecoveryNonce` called by the registry owner or the DAO, when that address is not the Inbox owner | violates ENC-A-52 (Inbox owner only) |
+| Vector      | Setup                                                                                                                                | Expected                             |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ |
+| 52.a accept | `invalidateRecoveryNonce` called by the Inbox owner                                                                                  | conforms                             |
+| 52.b reject | `invalidateRecoveryNonce` called directly by the DAO/timelock Controller, distinct from the Inbox owner (the shared pinned executor) | violates ENC-A-52 (Inbox owner only) |
 
 ## ENC-A-53
 
@@ -588,12 +588,12 @@ _`abi.encode(left, right)` of two `bytes32` words equals their plain concatenati
 
 ## ENC-A-55
 
-| Vector      | Setup                                                                                        | Expected                                                                                                                       |
-| ----------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| 55.a accept | the registry owner forfeits a `bondId`/`entryKey` once, then never again for that `entryKey` | conforms                                                                                                                       |
-| 55.b reject | the DAO's execution address calls `forfeit` while the registry owner is a different address  | violates ENC-A-55 (registry-owner-only); FORF-4.4-1 names one caller, "the registry owner, the DAO's actual execution address" |
-| 55.c reject | a second `forfeit` for the same lifetime `entryKey`                                          | violates ENC-A-55 (once per lifetime entryKey)                                                                                 |
-| 55.d reject | any call that attempts to revoke or reset a forfeiture via a nonce                           | violates ENC-A-55 (no forfeiture nonce or revocation)                                                                          |
+| Vector      | Setup                                                                                        | Expected                                                                                                                                 |
+| ----------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| 55.a accept | the registry owner forfeits a `bondId`/`entryKey` once, then never again for that `entryKey` | conforms                                                                                                                                 |
+| 55.b reject | the DAO's execution address calls `forfeit` while the registry owner is a different address  | violates ENC-A-55 (caller is not registry owner); the mismatched ownership also violates FORF-4.4-1's shared pinned-executor requirement |
+| 55.c reject | a second `forfeit` for the same lifetime `entryKey`                                          | violates ENC-A-55 (once per lifetime entryKey)                                                                                           |
+| 55.d reject | any call that attempts to revoke or reset a forfeiture via a nonce                           | violates ENC-A-55 (no forfeiture nonce or revocation)                                                                                    |
 
 ## Not covered
 

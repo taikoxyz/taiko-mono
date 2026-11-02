@@ -215,6 +215,7 @@ class AmendmentHistoryTests(unittest.TestCase):
         current = self.table.replace("| rule | Rule |", "| retired | Rule |")
         current = current.replace(hashlib.blake2s(b"type: rule\nCurrent requirement.").hexdigest(),
                                   hashlib.blake2s(b"type: retired\n").hexdigest())
+        current = self.append_snapshot(current)
         index = {self.rid: {"type": "retired", "section": "1"}}
         self.assertEqual(self.errors(spec="", table=current, index=index), [])
 
@@ -222,6 +223,62 @@ class AmendmentHistoryTests(unittest.TestCase):
         index = {self.rid: {"type": "retired", "section": "1"}}
         self.assertIn("amendments: stale content digest TEST-1-1",
                       self.errors(spec="", index=index))
+
+    def append_snapshot(self, current):
+        row = next(line for line in self.table.splitlines() if line.startswith("| TEST-1-1 | Original"))
+        return current.replace("## Index", "## Amendment history\n\n"
+                               "| ID | Prior meaning | Current amendment | Content digest |\n"
+                               "| --- | --- | --- | --- |\n" + row + "\n\n## Index")
+
+    def test_second_amendment_requires_prior_current_declaration_snapshot(self):
+        current = self.table.replace("Current meaning.", "Second amendment.")
+        self.assertIn("amendments: missing declaration snapshot TEST-1-1", self.errors(table=current))
+
+    def test_digest_refresh_requires_prior_declaration_snapshot(self):
+        current = self.table.replace(hashlib.blake2s(b"type: rule\nCurrent requirement.").hexdigest(),
+                                  hashlib.blake2s(b"type: rule\nSecond requirement.").hexdigest())
+        self.assertIn("amendments: missing declaration snapshot TEST-1-1",
+                      self.errors(spec="**[TEST-1-1]** Second requirement.\n", table=current))
+
+    def test_second_amendment_with_exact_prior_snapshot_is_valid(self):
+        current = self.append_snapshot(self.table.replace("Current meaning.", "Second amendment."))
+        self.assertEqual(self.errors(table=current), [])
+
+    def test_existing_declaration_snapshot_cannot_be_removed(self):
+        baseline = self.append_snapshot(self.table)
+        self.assertIn("amendments: historical snapshots are not append-only",
+                      self.errors(baseline_table=baseline))
+
+    def test_existing_declaration_snapshot_cannot_be_rewritten(self):
+        baseline = self.append_snapshot(self.table)
+        start = baseline.index("## Amendment history")
+        current = baseline[:start] + baseline[start:].replace("Current meaning.", "Rewritten meaning.")
+        self.assertIn("amendments: historical snapshots are not append-only",
+                      self.errors(table=current, baseline_table=baseline))
+
+    def recurring_declaration(self):
+        row = next(line for line in self.table.splitlines() if line.startswith("| TEST-1-1 | Original"))
+        intermediate = row.replace("Current meaning.", "Intermediate meaning.").replace(
+            hashlib.blake2s(b"type: rule\nCurrent requirement.").hexdigest(),
+            hashlib.blake2s(b"type: rule\nIntermediate requirement.").hexdigest())
+        baseline = self.append_snapshot(self.table).replace("## Index", intermediate + "\n\n## Index")
+        current = baseline.replace("Current meaning.", "Third meaning.", 1).replace(
+            hashlib.blake2s(b"type: rule\nCurrent requirement.").hexdigest(),
+            hashlib.blake2s(b"type: rule\nThird requirement.").hexdigest(), 1)
+        return baseline, current, row
+
+    def test_repeated_declaration_requires_a_new_snapshot_after_returning_to_prior_meaning(self):
+        # The baseline is A -> B -> A; moving to C must append a second A snapshot.
+        baseline, current, _row = self.recurring_declaration()
+        self.assertIn("amendments: missing declaration snapshot TEST-1-1",
+                      self.errors(spec="**[TEST-1-1]** Third requirement.\n", table=current,
+                                  baseline_table=baseline))
+
+    def test_repeated_declaration_with_a_fresh_duplicate_snapshot_is_valid(self):
+        baseline, current, row = self.recurring_declaration()
+        current = current.replace("## Index", row + "\n\n## Index")
+        self.assertEqual(self.errors(spec="**[TEST-1-1]** Third requirement.\n", table=current,
+                                     baseline_table=baseline), [])
 
 
 class ProsePlacementTests(unittest.TestCase):
@@ -283,6 +340,14 @@ class ProsePlacementTests(unittest.TestCase):
         spec = "## Appendix A. Encodings\n\n    ```txt\n// [ENC-A-1]\nvalue = 1\n```\n"
         self.assertIn("placement: code-before marker outside Appendix A definition ENC-A-1",
                       check.check_marker_placement(spec))
+
+    def test_code_before_marker_cannot_be_hidden_in_html_within_definition(self):
+        for opening, closing in (("<!--", "-->"), ("<pre>", "</pre>")):
+            with self.subTest(opening=opening):
+                spec = ("## Appendix A. Encodings\n\n" + opening
+                        + "\n```txt\n// [ENC-A-1]\nvalue = 1\n```\n" + closing + "\n")
+                self.assertIn("placement: code-before marker inside hidden HTML ENC-A-1",
+                              check.check_marker_placement(spec))
 
 
 class AmendmentBaseCLIIntegrationTests(unittest.TestCase):
@@ -426,6 +491,23 @@ class AmendmentBaseCLIIntegrationTests(unittest.TestCase):
     def test_nonexistent_base_fails_closed(self):
         self.base = "0" * 40
         self.run_check("FAIL amendments: cannot read SPEC.md at supplied base")
+
+    def test_explicit_empty_base_is_an_argument_error(self):
+        result = subprocess.run([sys.executable, str(self.docs / "rules/tools/check.py"),
+                                 "--amendments-base", ""], capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("--amendments-base must not be empty", result.stderr)
+
+    def test_symlink_invocation_uses_real_checker_repository_and_base(self):
+        self.edit("SPEC.md", "Unchanged requirement.", "Changed requirement.")
+        launcher = self.repo / "launcher/check.py"
+        launcher.parent.mkdir()
+        launcher.symlink_to(self.docs / "rules/tools/check.py")
+        result = subprocess.run([sys.executable, str(launcher), "--amendments-base", self.base],
+                                cwd=launcher.parent, capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("FAIL amendments: undeclared amendment TEST-1-2", result.stdout)
+        self.assertNotIn("Traceback", result.stderr)
 
     def add_historical_declaration(self):
         digest = hashlib.blake2s(b"type: rule\nUnchanged requirement.").hexdigest()

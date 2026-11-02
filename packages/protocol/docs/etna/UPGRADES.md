@@ -1,6 +1,6 @@
 # Etna upgrade activation
 
-These definitions are incorporated by [SPEC section 10.1](SPEC.md#101-protocol-upgrade-boundaries). Each section and its fenced definitions belong to its governing rule. SPEC.md takes precedence. Unzen-to-Etna deployment/migration and section 8's exceptional verifier-failure rollback are separate.
+**Non-normative preamble.** Normative definitions begin in section 1. These definitions are incorporated by [SPEC section 10.1](SPEC.md#101-protocol-upgrade-boundaries). Each section and its fenced definitions belong to its governing rule. SPEC.md takes precedence. Unzen-to-Etna deployment/migration and section 8's exceptional verifier-failure rollback are separate.
 
 ## 1. Upgrade classes
 

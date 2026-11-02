@@ -26,7 +26,7 @@ Exit code 0 only if every check passes.
 """
 import argparse, glob, hashlib, os, re, subprocess, sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.realpath(__file__))
 RULES = os.path.dirname(HERE)
 DOCS = os.path.dirname(RULES)
 SPEC = os.path.join(DOCS, "SPEC.md")
@@ -200,14 +200,19 @@ def check_marker_placement(spec):
     masked, _, regions = markdown_regions(spec, conservative=True)
     _, _, definitions = markdown_regions(spec)
     locate, msgs = section_finder(spec), []
-    comments = list(re.finditer(r"<!--[\s\S]*?(?:-->|\Z)", masked))
     spans = list(re.finditer(r"(?<![`\\])(`+)(?!`)(?:[^\n]|\n(?![ \t]*\n))*?(?<!`)\1(?!`)", masked))
-    raw_html = []
-    for opening in re.finditer(r"<(pre|script|style|textarea)(?=[\s>])[^>]*>", masked, re.I):
-        if any(region.start() <= opening.start() < region.end() for region in comments + spans):
+    comments, raw_html, hidden_end = [], [], 0
+    # Search raw text for closing tags: a hidden HTML region may contain an entire fence.
+    # Only the opener uses fence masking, so literal tags within a code example stay literal.
+    for opening in re.finditer(r"<!--|<(pre|script|style|textarea)(?=[\s>])[^>]*>", spec, re.I):
+        if (opening.start() < hidden_end or masked[opening.start()] != "<"
+                or any(span.start() <= opening.start() < span.end() for span in spans)):
             continue
-        closing = re.search(r"</" + opening[1] + r"\s*>", masked[opening.end():], re.I)
-        raw_html.append((opening.start(), opening.end() + closing.end() if closing else len(spec)))
+        is_comment = opening[0] == "<!--"
+        closing = re.search(r"-->" if is_comment else r"</" + opening[1] + r"\s*>",
+                            spec[opening.end():], re.I)
+        hidden_end = opening.end() + closing.end() if closing else len(spec)
+        (comments if is_comment else raw_html).append((opening.start(), hidden_end))
     # Preserve valid nested list items: their container indentation is not code indentation.
     list_indents, indented, offset = [], set(), 0
     lines = spec.splitlines(keepends=True)
@@ -227,7 +232,7 @@ def check_marker_placement(spec):
     for marker in INLINE.finditer(spec):
         if any(start <= marker.start() < end for start, end, _ in regions):
             msgs.append("placement: inline rule inside fenced code " + marker[1])
-        elif any(comment.start() <= marker.start() < comment.end() for comment in comments):
+        elif any(start <= marker.start() < end for start, end in comments):
             msgs.append("placement: inline rule inside HTML comment " + marker[1])
         elif any(start <= marker.start() < end for start, end in raw_html):
             msgs.append("placement: inline rule inside raw HTML code " + marker[1])
@@ -243,6 +248,9 @@ def check_marker_placement(spec):
                 and not INLINE.search(following) and not boundary):
             msgs.append("placement: unmarked paragraph continuation after " + markers[-1])
     for marker in CODE.finditer(spec):
+        if any(start <= marker.start() < end for start, end in comments + raw_html):
+            msgs.append("placement: code-before marker inside hidden HTML " + marker[1])
+            continue
         authorized = marker[1].startswith("ENC-A-") and locate(marker.start()) == "A" and any(
             start <= marker.start() < end and info == "txt" for start, end, info in definitions)
         if not authorized:
@@ -334,8 +342,8 @@ def content_digest(body, kind):
     return hashlib.blake2s(("type: " + kind + "\n" + body).encode("utf-8")).hexdigest()
 
 
-def amendment_rows(text):
-    section = re.search(r"^## Material amendments\n(.*?)(?=^## |\Z)", text, re.M | re.S)
+def amendment_rows(text, heading="Material amendments"):
+    section = re.search(r"^## " + re.escape(heading) + r"\n(.*?)(?=^## |\Z)", text, re.M | re.S)
     if section:
         for line in section[1].splitlines():
             cells = split_cells(line)
@@ -371,6 +379,11 @@ def check_amendments(spec, index_text, index, baseline=None, helper="", baseline
             if previous[rid] != current[rid] and rid not in declared:
                 msgs.append("amendments: undeclared amendment " + rid)
     if baseline_index_text is not None:
+        snapshots = list(amendment_rows(index_text, "Amendment history"))
+        prior_snapshots = list(amendment_rows(baseline_index_text, "Amendment history"))
+        if snapshots[:len(prior_snapshots)] != prior_snapshots:
+            msgs.append("amendments: historical snapshots are not append-only")
+        added_snapshots = snapshots[len(prior_snapshots):]
         prior_index, _ = parse_index(baseline_index_text)
         for rid, old in prior_index.items():
             now = index.get(rid)
@@ -390,6 +403,11 @@ def check_amendments(spec, index_text, index, baseline=None, helper="", baseline
                 msgs.append("amendments: removed history " + rid)
             elif len(cells) > 1 and len(declared[rid]) > 1 and cells[1] != declared[rid][1]:
                 msgs.append("amendments: rewritten prior meaning " + rid)
+            if rid in declared and cells != declared[rid]:
+                if cells not in added_snapshots:
+                    msgs.append("amendments: missing declaration snapshot " + rid)
+                else:
+                    added_snapshots.remove(cells)
     return msgs
 
 
@@ -458,6 +476,8 @@ def main():
     ap.add_argument("--base", default=None, help="revision to compare SPEC.md against for the purity check (the commit before IDs were attached, or the revision you are editing from). Omit to skip purity: it is a migration check, not an invariant.")
     ap.add_argument("--amendments-base", help="compare governed text against the externally supplied PR/push base; require every amended ID in INDEX.md")
     args = ap.parse_args()
+    if args.amendments_base is not None and not args.amendments_base.strip():
+        ap.error("--amendments-base must not be empty")
     text = open(SPEC).read()
     index, dup_rows = load_index()
     section_at = section_finder(text)
@@ -593,6 +613,8 @@ def main():
         return cache[path]
     for f in glob.glob(os.path.join(RULES, "**", "*.md"), recursive=True) + [SPEC, upgrades]:
         body = open(f).read()
+        if f not in (SPEC, upgrades) and outside_fences(body)[1]:
+            msgs.append("markdown: unclosed fence in " + os.path.relpath(f, DOCS))
         for m in re.finditer(RB + "[(]([^)]+)[)]", body):
             u = m.group(1).strip()
             if u.startswith("http"):

@@ -142,3 +142,22 @@ class CheckerCLIStagesTests(unittest.TestCase):
         path = self.docs / "SPEC.md"
         path.write_text(path.read_text() + "\n```txt\nUnclosed\n")
         self.run_check("FAIL markdown: unclosed fence in SPEC.md")
+
+    def test_unclosed_vector_fence(self):
+        path = self.docs / "rules/vectors/6.1.md"
+        path.write_text(path.read_text() + "\n```txt\nUnclosed vector example.\n")
+        self.run_check("FAIL markdown: unclosed fence in rules/vectors/6.1.md")
+
+    def test_appendix_definition_fence_cannot_be_hidden_in_html(self):
+        for opening, closing in (("<!--", "-->"), ("<pre>", "</pre>")):
+            with self.subTest(opening=opening):
+                path = self.docs / "SPEC.md"
+                original = path.read_text()
+                start = original.index("```txt", original.index("## Appendix A"))
+                end = original.index("```", start + 6) + 3
+                path.write_text(original[:start] + opening + "\n" + original[start:end]
+                                + "\n" + closing + original[end:])
+                try:
+                    self.run_check("FAIL placement: code-before marker inside hidden HTML ENC-A-1")
+                finally:
+                    path.write_text(original)
