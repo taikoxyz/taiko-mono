@@ -44,13 +44,33 @@ contract EtnaGovernanceVectorsTest is EtnaStakingRegistryTestBase {
             j,
             "recover",
             IEtnaInbox.recover.selector,
-            abi.encodeCall(IEtnaInbox.recover, (2, 12, 7, 1_700_000_123, exclusions, blanks, 0))
+            abi.encodeCall(IEtnaInbox.recover, (2, 12, 7, 1_700_000_123, exclusions, blanks, 4))
         );
         _assertAbi(
             j,
             "invalidate_recovery_nonce",
             IEtnaInbox.invalidateRecoveryNonce.selector,
             abi.encodeCall(IEtnaInbox.invalidateRecoveryNonce, (7))
+        );
+        _assertAbi(
+            j,
+            "schedule_rules",
+            IEtnaInbox.scheduleRules.selector,
+            abi.encodeCall(IEtnaInbox.scheduleRules, (2, 1_700_003_600))
+        );
+        _assertAbi(
+            j,
+            "schedule_stop",
+            IEtnaInbox.scheduleStop.selector,
+            abi.encodeCall(IEtnaInbox.scheduleStop, (1_700_007_200, 600))
+        );
+        _assertAbi(
+            j,
+            "set_origin",
+            IEtnaInbox.setOrigin.selector,
+            abi.encodeCall(
+                IEtnaInbox.setOrigin, (1000, bytes32(uint256(0x51)), bytes32(uint256(0x52)))
+            )
         );
     }
 
@@ -67,10 +87,23 @@ contract EtnaGovernanceVectorsTest is EtnaStakingRegistryTestBase {
             10
         );
         emit IEtnaInbox.RecoveryNonceInvalidated(7, 8);
+        emit IEtnaStakingRegistry.BondDisplaced(12, 7, 4096);
+        // The packed slot 293 word of the ordinary `inbox_293` item.
+        emit IEtnaInbox.RulesScheduleUpdated(uint256(
+                LibEtnaVectors.bytes32At(j, ".packed_words.inbox_293[0].word")
+            ));
+        emit IEtnaInbox.StartWritten(1000, bytes32(uint256(0x51)), bytes32(uint256(0x52)));
         Vm.Log[] memory logs = vm.getRecordedLogs();
-        assertEq(logs.length, 4);
-        string[4] memory names =
-            ["top_up_deposited", "top_up_activated", "forfeited", "recovery_nonce_invalidated"];
+        assertEq(logs.length, 7);
+        string[7] memory names = [
+            "top_up_deposited",
+            "top_up_activated",
+            "forfeited",
+            "recovery_nonce_invalidated",
+            "bond_displaced",
+            "rules_schedule_updated",
+            "start_written"
+        ];
         for (uint256 i; i < names.length; ++i) {
             string memory row = string.concat(".governance_events.", names[i]);
             assertEq(logs[i].topics[0], LibEtnaVectors.bytes32At(j, string.concat(row, ".topic0")));

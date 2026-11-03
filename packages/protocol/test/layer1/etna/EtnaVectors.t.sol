@@ -37,8 +37,8 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         return false;
     }
 
-    function test_schema_IsVersionFour() external view {
-        assertEq(LibEtnaVectors.stringAt(LibEtnaVectors.load(), ".schema_version"), "4");
+    function test_schema_IsVersionFive() external view {
+        assertEq(LibEtnaVectors.stringAt(LibEtnaVectors.load(), ".schema_version"), "5");
     }
 
     // ---------------------------------------------------------------
@@ -90,10 +90,12 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         assertEq(_inboxSlot(j, "genesis_packed"), GENESIS_PACKED_SLOT);
         assertEq(_inboxSlot(j, "forced_inclusion_head_tail"), FORCED_INCLUSION_HEAD_TAIL_SLOT);
         assertEq(_inboxSlot(j, "forced_inclusion_config"), FORCED_INCLUSION_CONFIG_SLOT);
+        assertEq(_inboxSlot(j, "rules_schedule"), RULES_SCHEDULE_SLOT);
         // An ordinary item and an all-max item of each kind.
         assertEq(LibEtnaVectors.lengthAt(j, ".packed_words.inbox_272"), 2);
         assertEq(LibEtnaVectors.lengthAt(j, ".packed_words.inbox_281"), 2);
         assertEq(LibEtnaVectors.lengthAt(j, ".packed_words.inbox_282"), 2);
+        assertEq(LibEtnaVectors.lengthAt(j, ".packed_words.inbox_293"), 2);
         for (uint256 i; i < 2; ++i) {
             string memory p = _at(".packed_words.inbox_272", i);
             _storeInbox(j, "genesis_packed", _bytes32(j, p, "word"));
@@ -112,6 +114,10 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
             _storeInbox(j, "forced_inclusion_config", _bytes32(j, p, "word"));
             assertEq(inbox.forcedInclusionDelay(), _uint(j, p, "forced_inclusion_delay"), "delay");
             assertEq(inbox.maxAnchorAge(), _uint(j, p, "max_anchor_age"), "maxAnchorAge");
+
+            p = _at(".packed_words.inbox_293", i);
+            _storeInbox(j, "rules_schedule", _bytes32(j, p, "word"));
+            _assertRulesSchedule(j, p);
         }
     }
 
@@ -220,29 +226,33 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
     }
 
     /// @dev The anchor witness proves exactly these slots, in this order (appendix A); a node
-    /// decodes them as the generation, the checkpoint and the queue pointers.
-    function test_layout_AnchorSlotsAreGenerationCheckpointAndQueue() external {
+    /// decodes them as the generation, the checkpoint, the queue pointers and the rules schedule.
+    function test_layout_AnchorSlotsAreGenerationCheckpointQueueAndRulesSchedule() external {
         string memory j = LibEtnaVectors.load();
         string memory anchor = ".layout.inbox.anchor_slots";
-        assertEq(LibEtnaVectors.lengthAt(j, anchor), 4);
-        uint256[4] memory slots;
-        for (uint256 i; i < 4; ++i) {
+        assertEq(LibEtnaVectors.lengthAt(j, anchor), 5);
+        uint256[5] memory slots;
+        for (uint256 i; i < 5; ++i) {
             slots[i] = LibEtnaVectors.uintAt(j, string.concat(anchor, "[", vm.toString(i), "]"));
         }
         assertEq(slots[0], 268);
         assertEq(slots[1], 270);
         assertEq(slots[2], 271);
         assertEq(slots[3], 281);
+        assertEq(slots[4], 293);
         assertEq(slots[0], _inboxSlot(j, "recovery_generation"));
         assertEq(slots[1], _inboxSlot(j, "last_checkpoint_height"));
         assertEq(slots[2], _inboxSlot(j, "last_checkpoint_hash"));
         assertEq(slots[3], _inboxSlot(j, "forced_inclusion_head_tail"));
+        assertEq(slots[4], _inboxSlot(j, "rules_schedule"));
 
         string memory queue = _at(".packed_words.inbox_281", 0);
+        string memory rules = _at(".packed_words.inbox_293", 0);
         vm.store(inboxProxy, bytes32(slots[0]), bytes32(_probe48("anchor generation")));
         vm.store(inboxProxy, bytes32(slots[1]), bytes32(_probe48("anchor height")));
         vm.store(inboxProxy, bytes32(slots[2]), _probe("anchor hash"));
         vm.store(inboxProxy, bytes32(slots[3]), _bytes32(j, queue, "word"));
+        vm.store(inboxProxy, bytes32(slots[4]), _bytes32(j, rules, "word"));
 
         assertEq(inbox.recoveryGeneration(), _probe48("anchor generation"), "generation");
         IEtnaInbox.LandedCheckpoint memory checkpoint = inbox.lastCheckpoint();
@@ -251,6 +261,27 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         (uint48 head, uint48 tail) = inbox.getForcedInclusionState();
         assertEq(head, _uint(j, queue, "head"), "head");
         assertEq(tail, _uint(j, queue, "tail"), "tail");
+        _assertRulesSchedule(j, rules);
+    }
+
+    /// @dev `etnaStart()` returns slots 272 (height) and 273 (hash) as `view_abi` encodes them:
+    /// (0, 0) before the start write, and the planted start after it.
+    function test_etnaStart_ReturnsTheVectorEncodingOfSlots272And273() external {
+        string memory j = LibEtnaVectors.load();
+        string memory v = ".view_abi.etna_start.";
+        assertEq(_bytes(j, v, "selector"), abi.encodePacked(IEtnaInbox.etnaStart.selector));
+        assertEq(_bytes(j, v, "calldata"), abi.encodeCall(IEtnaInbox.etnaStart, ()));
+        assertEq(LibEtnaVectors.stringAt(j, string.concat(v, "returns")), "(uint48,bytes32)");
+
+        string memory written = string.concat(v, "results[0].");
+        string memory notWritten = string.concat(v, "results[1].");
+        assertEq(_string(j, notWritten, "name"), "not_written");
+        assertEq(_viewReturn(inboxProxy, _bytes(j, v, "calldata")), _bytes(j, notWritten, "data"));
+
+        assertEq(_string(j, written, "name"), "written");
+        _storeInbox(j, "genesis_packed", bytes32(_uint(j, written, "values[0]")));
+        _storeInbox(j, "genesis_block_hash", _bytes32(j, written, "values[1]"));
+        assertEq(_viewReturn(inboxProxy, _bytes(j, v, "calldata")), _bytes(j, written, "data"));
     }
 
     // ---------------------------------------------------------------
@@ -382,7 +413,7 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
 
         string memory cases = ".cuts.cut_hashes";
         uint256 n = LibEtnaVectors.lengthAt(j, cases);
-        assertEq(n, 5);
+        assertEq(n, 6);
         bool sawEmpty;
         for (uint256 c; c < n; ++c) {
             sawEmpty = _assertCutHash(j, _at(cases, c)) || sawEmpty;
@@ -653,13 +684,13 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         }
     }
 
-    /// @dev `entryKey = keccak256(abi.encode(ckPrefix, ckX))` identifies a slot's occupant for
+    /// @dev `entryKey = keccak256(abi.encode(ckPrefix, ckX))` identifies a bond's key for
     /// recovery exclusions (appendix A).
     function test_entryKeys() external view {
         string memory j = LibEtnaVectors.load();
-        // A released slot's entry is all zero.
-        bytes32 releasedKey = keccak256(abi.encode(0, 0));
-        assertEq(releasedKey, keccak256(abi.encode(uint256(0), bytes32(0))));
+        // An empty slot's entry is all zero.
+        bytes32 emptyKey = keccak256(abi.encode(0, 0));
+        assertEq(emptyKey, keccak256(abi.encode(uint256(0), bytes32(0))));
         uint256 n = LibEtnaVectors.lengthAt(j, ".keys");
         assertEq(n, 6);
         for (uint256 i; i < n; ++i) {
@@ -669,7 +700,7 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
             assertEq(_bytes(j, p, "public_key"), abi.encodePacked(uint8(ckPrefix), ckX), "33 B");
             bytes32 entryKey = keccak256(abi.encode(ckPrefix, ckX));
             assertEq(entryKey, _bytes32(j, p, "entry_key"));
-            assertNotEq(entryKey, releasedKey);
+            assertNotEq(entryKey, emptyKey);
         }
     }
 
@@ -769,6 +800,102 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         vm.prank(controlOwner);
         at.register(controlKey, MIN_STAKE, controlPop);
         assertEq(at.ownerOf(0), controlOwner, "control registered");
+    }
+
+    /// @dev The registry lookups take `view_abi`'s selectors and calldata and return its data: an
+    /// unused key, an empty slot and an unissued bond read `(false, 0)`, and once key a1 registers
+    /// as bond 0 in slot 0 its key and bond read `(true, 0)`. The `bond_4096` result needs a full
+    /// registry and is left to the encoding.
+    function test_lookups_ReturnTheVectorEncodings() external {
+        string memory j = LibEtnaVectors.load();
+        IEtnaStakingRegistry at = _etchVectorRegistry(j);
+        string memory forKey = ".view_abi.bond_for_key.";
+        string memory inSlot = ".view_abi.bond_in_slot.";
+        string memory ofBond = ".view_abi.slot_of_bond.";
+        address ckAddr = _address(j, ".keys[0].", "ck_addr");
+        assertEq(
+            _bytes(j, forKey, "calldata"), abi.encodeCall(IEtnaStakingRegistry.bondForKey, (ckAddr))
+        );
+        assertEq(
+            _bytes(j, inSlot, "calldata"), abi.encodeCall(IEtnaStakingRegistry.bondInSlot, (7))
+        );
+        assertEq(
+            _bytes(j, ofBond, "calldata"), abi.encodeCall(IEtnaStakingRegistry.slotOfBond, (0))
+        );
+        assertEq(
+            _bytes(j, forKey, "selector"),
+            abi.encodePacked(IEtnaStakingRegistry.bondForKey.selector)
+        );
+        assertEq(
+            _bytes(j, inSlot, "selector"),
+            abi.encodePacked(IEtnaStakingRegistry.bondInSlot.selector)
+        );
+        assertEq(
+            _bytes(j, ofBond, "selector"),
+            abi.encodePacked(IEtnaStakingRegistry.slotOfBond.selector)
+        );
+
+        assertEq(_string(j, forKey, "results[1].name"), "unused_key");
+        assertEq(_string(j, inSlot, "results[1].name"), "empty_slot");
+        assertEq(_string(j, ofBond, "results[1].name"), "no_slot");
+        assertEq(_lookup(at, j, forKey), _bytes(j, forKey, "results[1].data"), "unused key");
+        assertEq(_lookup(at, j, inSlot), _bytes(j, inSlot, "results[1].data"), "empty slot");
+        assertEq(_lookup(at, j, ofBond), _bytes(j, ofBond, "results[1].data"), "unissued bond");
+
+        string memory control = ".register_digests[0].";
+        address owner = _address(j, control, "owner");
+        _fundVectorOwner(at, owner);
+        vm.prank(owner);
+        assertEq(
+            at.register(_bytes(j, control, "key"), MIN_STAKE, _bytes(j, control, "pop_sig")), 0
+        );
+
+        assertEq(_string(j, forKey, "results[0].name"), "bond_0");
+        assertEq(_string(j, ofBond, "results[0].name"), "slot_0");
+        assertEq(_lookup(at, j, forKey), _bytes(j, forKey, "results[0].data"), "bond 0");
+        assertEq(_lookup(at, j, ofBond), _bytes(j, ofBond, "results[0].data"), "slot 0");
+        assertEq(_lookup(at, j, inSlot), _bytes(j, inSlot, "results[1].data"), "slot 7 empty");
+    }
+
+    // ---------------------------------------------------------------
+    // Helpers: Inbox layout
+    // ---------------------------------------------------------------
+
+    /// @dev The raw return data of a view call to `_target` with `_calldata`.
+    function _viewReturn(
+        address _target,
+        bytes memory _calldata
+    )
+        private
+        view
+        returns (bytes memory return_)
+    {
+        bool ok;
+        (ok, return_) = _target.staticcall(_calldata);
+        assertTrue(ok, "view call");
+    }
+
+    /// @dev The return data of the `view_abi` call at `_p` to `_registry`.
+    function _lookup(
+        IEtnaStakingRegistry _registry,
+        string memory _j,
+        string memory _p
+    )
+        private
+        view
+        returns (bytes memory)
+    {
+        return _viewReturn(address(_registry), _bytes(_j, _p, "calldata"));
+    }
+
+    /// @dev `rulesSchedule()` decodes the slot 293 word planted from the packed-word item `_p`.
+    function _assertRulesSchedule(string memory _j, string memory _p) private view {
+        IEtnaInbox.RulesSchedule memory rules = inbox.rulesSchedule();
+        assertEq(rules.activeRules, _uint(_j, _p, "active_rules"), "activeRules");
+        assertEq(rules.nextRules, _uint(_j, _p, "next_rules"), "nextRules");
+        assertEq(rules.rulesTime, _uint(_j, _p, "rules_time"), "rulesTime");
+        assertEq(rules.stopTime, _uint(_j, _p, "stop_time"), "stopTime");
+        assertEq(rules.stopGrid, _uint(_j, _p, "stop_grid"), "stopGrid");
     }
 
     // ---------------------------------------------------------------

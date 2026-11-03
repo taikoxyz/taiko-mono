@@ -175,7 +175,7 @@ contract LibEntriesTreeTest is CommonTest {
     // ---------------------------------------------------------------
 
     /// @dev The five `ETNA_REG_ENTRY_V1` leaves, and the leaf of empty slot 5 (all-zero fields,
-    /// the vectors' `released` item).
+    /// the vectors' `empty_slot` item).
     function test_leaf_MatchesTheSharedVectors() external view {
         string memory json = LibEtnaVectors.load();
         uint256 n = LibEtnaVectors.lengthAt(json, ".registry_entries.entries");
@@ -185,13 +185,40 @@ contract LibEntriesTreeTest is CommonTest {
             assertEq(tree.leaf(i, _vectorEntry(json, i)), _vectorLeaf(json, i), "entry leaf");
         }
         IEtnaStakingRegistry.Entry memory empty;
-        uint256 index = LibEtnaVectors.uintAt(json, ".registry_entries.released.index");
-        assertEq(index, n);
+        uint256 slot = LibEtnaVectors.uintAt(json, ".registry_entries.empty_slot.slot");
+        assertEq(slot, n);
         assertEq(
-            tree.leaf(index, empty),
-            LibEtnaVectors.bytes32At(json, ".registry_entries.released.leaf"),
-            "released leaf"
+            tree.leaf(slot, empty),
+            LibEtnaVectors.bytes32At(json, ".registry_entries.empty_slot.leaf"),
+            "empty slot leaf"
         );
+    }
+
+    /// @dev `regLeaf` is indexed by the slot, never the bond id: bond 4096 displacing the bond in
+    /// slot 7 and bond 2 taking slot 0 hash their slot, and indexing by the bond id gives the
+    /// vectors' `bond_id_leaf` instead.
+    function test_leaf_IndexesTheSlotNotTheBondId() external view {
+        string memory json = LibEtnaVectors.load();
+        string memory cases = ".registry_entries.bond_slots";
+        uint256 n = LibEtnaVectors.lengthAt(json, cases);
+        assertEq(n, 2);
+        for (uint256 i; i < n; ++i) {
+            string memory p = string.concat(cases, "[", vm.toString(i), "].");
+            uint256 slot = LibEtnaVectors.uintAt(json, string.concat(p, "slot"));
+            uint256 bondId = LibEtnaVectors.uintAt(json, string.concat(p, "bond_id"));
+            assertNotEq(slot, bondId);
+            IEtnaStakingRegistry.Entry memory entry = _entryAt(json, string.concat(p, "entry."));
+            assertEq(
+                tree.leaf(slot, entry),
+                LibEtnaVectors.bytes32At(json, string.concat(p, "leaf")),
+                "slot leaf"
+            );
+            assertEq(
+                tree.leaf(bondId, entry),
+                LibEtnaVectors.bytes32At(json, string.concat(p, "bond_id_leaf")),
+                "bond id leaf"
+            );
+        }
     }
 
     /// @dev The root after every append, from no entry to six (the five entries, then the empty
@@ -207,7 +234,7 @@ contract LibEntriesTreeTest is CommonTest {
             assertEq(LibEtnaVectors.uintAt(json, string.concat(root, ".count")), count);
             bytes32 leaf = count <= _ENTRIES
                 ? _vectorLeaf(json, count - 1)
-                : LibEtnaVectors.bytes32At(json, ".registry_entries.released.leaf");
+                : LibEtnaVectors.bytes32At(json, ".registry_entries.empty_slot.leaf");
             assertEq(tree.update(count, count - 1, leaf), _vectorRoot(json, count), "update");
             assertEq(tree.root(count), _vectorRoot(json, count), "root");
         }
@@ -343,14 +370,25 @@ contract LibEntriesTreeTest is CommonTest {
         pure
         returns (IEtnaStakingRegistry.Entry memory)
     {
-        string memory p = string.concat(".registry_entries.entries[", vm.toString(_i), "].");
+        return _entryAt(_json, string.concat(".registry_entries.entries[", vm.toString(_i), "]."));
+    }
+
+    /// @dev The registry entry whose fields are at the JSON path prefix `_p`.
+    function _entryAt(
+        string memory _json,
+        string memory _p
+    )
+        private
+        pure
+        returns (IEtnaStakingRegistry.Entry memory)
+    {
         return IEtnaStakingRegistry.Entry({
-            ckX: LibEtnaVectors.bytes32At(_json, string.concat(p, "ck_x")),
-            effStake: LibEtnaVectors.uintAt(_json, string.concat(p, "eff_stake")),
-            ckPrefix: uint8(LibEtnaVectors.uintAt(_json, string.concat(p, "ck_prefix"))),
-            activeFromL1: uint48(LibEtnaVectors.uintAt(_json, string.concat(p, "active_from_l1"))),
+            ckX: LibEtnaVectors.bytes32At(_json, string.concat(_p, "ck_x")),
+            effStake: LibEtnaVectors.uintAt(_json, string.concat(_p, "eff_stake")),
+            ckPrefix: uint8(LibEtnaVectors.uintAt(_json, string.concat(_p, "ck_prefix"))),
+            activeFromL1: uint48(LibEtnaVectors.uintAt(_json, string.concat(_p, "active_from_l1"))),
             exitEffectiveL1: uint48(
-                LibEtnaVectors.uintAt(_json, string.concat(p, "exit_effective_l1"))
+                LibEtnaVectors.uintAt(_json, string.concat(_p, "exit_effective_l1"))
             )
         });
     }
