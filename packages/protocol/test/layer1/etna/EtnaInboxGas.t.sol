@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import { EtnaInboxSwitchTestBase } from "./EtnaInboxSwitchTestBase.sol";
 import { EtnaLandTestBase } from "./EtnaLandTestBase.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
@@ -225,5 +226,99 @@ contract EtnaInboxForcedInclusionGasTest is EtnaInboxGasBase {
         vm.stopPrank();
         assertEq(inboxProxy.balance, 0, "swept");
         assertEq(PROTOCOL_FEE_RECIPIENT.balance, feesWei + 1, "to the treasury");
+    }
+}
+
+/// @title EtnaInboxLandFromStartGasTest
+/// @notice The first landing (0, 6] on a new network, where c is the start S = 0 and no Unzen
+/// check applies; the queue head stays 0, as in `EtnaInboxLandFromUnzenStartGasTest`.
+contract EtnaInboxLandFromStartGasTest is EtnaInboxGasBase {
+    function setUp() public override {
+        super.setUp();
+        IEtnaInbox.LandInput memory input = _input(0, 6);
+        landVerifier.setExpectedStatementHash(
+            _statement(input, _inbox().landings(0), _cutHash(input, new bytes32[](0)))
+        );
+    }
+
+    /// @dev The committed chain with queue head 0 throughout.
+    function _cut(uint256 _x) internal pure override returns (bytes32, bytes32, uint256) {
+        return (bytes32(100 + _x), _x == 0 ? bytes32(0) : bytes32(200 + _x), 0);
+    }
+
+    function test_gas_LandFromStart() external {
+        EtnaInbox target = EtnaInbox(inboxProxy);
+        IEtnaInbox.LandInput memory input = _input(0, 6);
+        bytes32[] memory leaves = new bytes32[](0);
+        bytes memory proof = PROOF;
+        vm.blobhashes(blobHashes);
+        vm.startPrank(Bob);
+        vm.startSnapshotGas("land_6_blocks_from_start");
+        target.land(input, leaves, proof);
+        _stopSnapshot("land_6_blocks_from_start");
+        vm.stopPrank();
+        _assertCheckpoint(6, bytes32(uint256(106)));
+    }
+}
+
+/// @title EtnaInboxLandFromUnzenStartGasTest
+/// @notice The first landing (S, S + 6] on a switching network: c is S, so `land` also reads the
+/// Unzen Inbox's core state and the SignalService checkpoint at S (LAND-6.1-8a).
+contract EtnaInboxLandFromUnzenStartGasTest is EtnaInboxSwitchTestBase {
+    function setUp() public override {
+        super.setUp();
+        _writeStart();
+        _finalizeUnzen();
+        IEtnaInbox.LandInput memory input = _input(S, S + 6);
+        landVerifier.setExpectedStatementHash(
+            _statement(input, _inbox().landings(S), _cutHash(input, new bytes32[](0)))
+        );
+    }
+
+    function test_gas_LandFromUnzenStart() external {
+        EtnaInbox target = EtnaInbox(inboxProxy);
+        IEtnaInbox.LandInput memory input = _input(S, S + 6);
+        bytes32[] memory leaves = new bytes32[](0);
+        bytes memory proof = PROOF;
+        vm.blobhashes(blobHashes);
+        vm.startPrank(Bob);
+        vm.startSnapshotGas("land_6_blocks_from_unzen_start");
+        target.land(input, leaves, proof);
+        emit log_named_uint("land_6_blocks_from_unzen_start", vm.stopSnapshotGas());
+        vm.stopPrank();
+        _assertCheckpoint(S + 6, bytes32(100 + S + 6));
+    }
+}
+
+/// @title EtnaInboxSetOriginGasTest
+/// @notice The originWriter's start write on a switching network.
+contract EtnaInboxSetOriginGasTest is EtnaInboxSwitchTestBase {
+    function setUp() public override {
+        super.setUp();
+        vm.warp(FORK_TIME);
+    }
+
+    function test_gas_SetOrigin() external {
+        EtnaInbox target = EtnaInbox(inboxProxy);
+        (bytes32 hash, bytes32 stateRoot) = (_startHash(), _startStateRoot());
+        vm.startPrank(Carol);
+        vm.startSnapshotGas("set_origin");
+        target.setOrigin(S, hash, stateRoot);
+        emit log_named_uint("set_origin", vm.stopSnapshotGas());
+        vm.stopPrank();
+        _assertCheckpoint(S, hash);
+    }
+}
+
+/// @title EtnaInboxScheduleRulesGasTest
+/// @notice The owner scheduling ruleset 1 from slot 293's initial zero.
+contract EtnaInboxScheduleRulesGasTest is EtnaInboxGasBase {
+    function test_gas_ScheduleRules() external {
+        EtnaInbox target = EtnaInbox(inboxProxy);
+        uint48 time = uint48(block.timestamp + MAX_ANCHOR_AGE);
+        vm.startSnapshotGas("schedule_rules");
+        target.scheduleRules(1, time);
+        _stopSnapshot("schedule_rules");
+        assertEq(_inbox().rulesSchedule().nextRules, 1, "scheduled");
     }
 }
