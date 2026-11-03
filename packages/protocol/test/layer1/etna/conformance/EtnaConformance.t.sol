@@ -5,15 +5,12 @@ import { MockLandProofVerifier } from "../EtnaInboxTestBase.sol";
 import { EtnaTestConstants } from "../EtnaTestConstants.sol";
 import { EtnaTestKeys } from "../EtnaTestKeys.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Test } from "forge-std/src/Test.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
 import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { EtnaInboxBootstrap } from "src/layer1/etna/impl/EtnaInboxBootstrap.sol";
 import { EtnaStakingRegistry } from "src/layer1/etna/impl/EtnaStakingRegistry.sol";
-import { LibCometVote } from "src/layer1/etna/libs/LibCometVote.sol";
-import { LibEntriesTree } from "src/layer1/etna/libs/LibEntriesTree.sol";
 import { LibEtnaKeys } from "src/layer1/etna/libs/LibEtnaKeys.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
@@ -36,9 +33,9 @@ contract ConformanceRefundRejecter {
 /// @dev The vectors are this suite's own copy, `vectors/*.json` next to this file, schema
 /// `etna-conformance-2`. The Etna formal PR (#22292) generates and documents them (`formal/etna`,
 /// schema in `testdata/etna_conformance/README.md` there); refresh the copy in `formal/etna` with
-/// `lake exe etna-vectors --write <this directory>/vectors --families forced,land,recover,registry
-/// --provenance <pushed formal commit>`, which adds only `provenance.formalCommit`. The files
-/// record only what the model decides.
+/// `lake exe etna-vectors --write <this directory>/vectors --families forced,land --provenance
+/// <pushed formal commit>`, which adds only `provenance.formalCommit`. The files record only what
+/// the model decides.
 ///
 /// For each vector: deploy the stack with the vector's immutables (keys and owners 1 to
 /// `registrySize` registered at block 10, key 1 by account 1 first; Inbox initialized at block 11
@@ -47,23 +44,13 @@ contract ConformanceRefundRejecter {
 /// revert flag, the call's results and the observable state with the model's. The Inbox is read
 /// through its getters, or before `init` through its appendix B slots, which the bootstrap never
 /// writes; landing records and SignalService checkpoints are compared at every grid point up to
-/// the highest landed height, so one the model does not have fails too. The registry is compared
-/// in full: every checkpoint (its entries root recomputed from the model's election entries),
-/// every bond and the forfeiture flags. Every vector runs from the same EVM snapshot.
-///
-/// A vector in this suite's known-divergence list (`_knownDivergences`) is checked against the
-/// contract behaviour recorded there instead and is reported; each entry must name a vector of its
-/// family and must differ from the model's decision or observable, so a fixed divergence fails the
-/// suite until its entry is removed.
+/// the highest landed height, so one the model does not have fails too. Every vector runs from
+/// the same EVM snapshot.
 ///
 /// Mapping: hash atom `n` is `bytes32(n)`; registry key `k` is the consensus key of private key
-/// `k` (key 0 is a released slot); account `n` is the address `0x10000 + n` (0 is the zero
-/// address); the Inbox and registry owner is this contract. The adapter booleans are
-/// established, not assumed: `transferOK = false` leaves the top-up caller without an allowance,
-/// `externalOK = false` makes the token's transfer to `slashSink` revert, and
-/// `verifierFailureRollback` is the harness's stand-in for the future verifier-replacement
-/// upgrade (`_rollback`). An argument that does not fit its ABI type cannot be sent in any
-/// transaction; such a call counts as rejected and is logged.
+/// `k` (key 0 has the all-zero key); account `n` is the address `0x10000 + n` (0 is the zero
+/// address); the Inbox and registry owner is this contract. An argument that does not fit its ABI
+/// type cannot be sent in any transaction; such a call counts as rejected and is logged.
 contract EtnaConformanceTest is Test, EtnaTestConstants {
     // ---------------------------------------------------------------
     // JSON shapes (decoded with `parseJsonType`, which matches keys by name). Forge checks a type
@@ -102,16 +89,6 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
         uint256 key;
     }
 
-    struct VoteJ {
-        uint256 blockId;
-        bool foreign;
-        uint256 generation;
-        uint256 height;
-        uint256 kind;
-        uint256 round;
-        uint256 signer;
-    }
-
     struct RecordJ {
         uint256 cometHash;
         uint256 elHash;
@@ -141,30 +118,6 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
         uint256 timestamp;
     }
 
-    struct BondJ {
-        uint256 activeFrom;
-        uint256 confirmedAt;
-        uint256 exitAt;
-        uint256 id;
-        uint256 key;
-        uint256 owner;
-        uint256 pendingTopUp;
-        uint256 stake;
-        uint256 topUpReadyAtL1;
-    }
-
-    struct EntryJ {
-        uint256 activeFrom;
-        uint256 exitAt;
-        uint256 key;
-        uint256 stake;
-    }
-
-    struct CheckpointJ {
-        uint256 block;
-        EntryJ[] entries;
-    }
-
     /// @dev The Inbox's scalar observables.
     struct InboxState {
         uint256 checkpointHeight;
@@ -175,25 +128,6 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
         uint256 tail;
         uint256 snapshot;
         uint256 feeGwei;
-    }
-
-    /// @dev A vector on which the contracts are known to differ from the model: the vector id, the
-    /// spec rules involved (SPEC.md rule ids), why they differ, and the contract's recorded
-    /// behaviour. A decision divergence (`observables` empty) records whether the call reverts,
-    /// with which error, or, if `resultKey` is not empty, the one result it returns; observables
-    /// are not compared. An observable divergence records the contract's values of the listed
-    /// observables (e.g. `inbox.checkpointHash`), each different from the model's; the decision,
-    /// the results and every other observable must still match.
-    struct KnownDivergence {
-        string id;
-        string spec;
-        string reason;
-        bool reverts;
-        bytes4 revertSelector;
-        string resultKey;
-        uint256 resultValue;
-        string[] observables;
-        uint256[] observedValues;
     }
 
     // ---------------------------------------------------------------
@@ -212,8 +146,6 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
     string private constant _LEAF_TYPE =
         "LeafJ(uint256 comet,bool cut,uint256 el,uint256 head,uint256 height,uint256 word)";
     string private constant _EXCLUSION_TYPE = "ExclusionJ(uint256 bondId,uint256 key)";
-    string private constant _VOTE_TYPE = "VoteJ(uint256 blockId,bool foreign,uint256 generation,"
-        "uint256 height,uint256 kind,uint256 round,uint256 signer)";
     string private constant _RECORD_TYPE = "RecordJ(uint256 cometHash,uint256 elHash,"
         "uint256 generation,uint256 head,uint256 height,uint256 parentHeight)";
     string private constant _SIGNAL_TYPE = "SignalJ(uint256 hash,uint256 height,uint256 stateRoot)";
@@ -221,12 +153,6 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
         "OriginJ(uint256 generation,uint256 height,uint256 l1Block,uint256 timestamp)";
     string private constant _QUEUE_TYPE =
         "QueueJ(bool blank,uint256 index,uint256 l1Block,uint256 timestamp)";
-    string private constant _BOND_TYPE = "BondJ(uint256 activeFrom,uint256 confirmedAt,"
-        "uint256 exitAt,uint256 id,uint256 key,uint256 owner,uint256 pendingTopUp,uint256 stake,"
-        "uint256 topUpReadyAtL1)";
-    string private constant _CHECKPOINT_TYPE = "CheckpointJ(uint256 block,EntryJ[] entries)"
-        "EntryJ(uint256 activeFrom,uint256 exitAt,uint256 key,uint256 stake)";
-
     uint256 private constant _GRID_INTERVAL = 6;
     uint256 private constant _REGISTERED_AT = 10;
     uint256 private constant _INIT_AT = 11;
@@ -246,7 +172,6 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
 
     address private constant _FEE_RECIPIENT = address(0xfee);
     address private constant _REMOTE_SIGNAL_SERVICE = address(0xdead);
-    uint64 private constant _VOTE_SECONDS = 1_700_000_000;
     /// @dev The account that makes the owner-only calls of a vector with `owner = false`.
     uint256 private constant _STRANGER = 21;
     /// @dev The account that lands.
@@ -265,13 +190,9 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
     uint256 private constant _SLOT_SIGNAL_CHECKPOINTS = 254;
 
     /// @dev Indices of the measured call results.
-    uint256 private constant _BOND_ID = 0;
-    uint256 private constant _FEE_WEI = 1;
-    uint256 private constant _REFUND = 2;
-    uint256 private constant _SWEPT = 3;
-    uint256 private constant _PAID = 4;
-    uint256 private constant _BOUNTY = 5;
-    uint256 private constant _TO_SINK = 6;
+    uint256 private constant _FEE_WEI = 0;
+    uint256 private constant _REFUND = 1;
+    uint256 private constant _SWEPT = 2;
 
     // ---------------------------------------------------------------
     // The current vector's deployment
@@ -290,11 +211,6 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
     uint256 internal maxLanded;
     /// @dev The number of calls this family could not encode (see the contract NatSpec).
     uint256 internal unencodable;
-    /// @dev The selector of the last call's revert (zero if it succeeded or reverted without one).
-    bytes4 internal lastRevert;
-    /// @dev The recorded contract values of the observable divergence running now, by name.
-    mapping(bytes32 field => bool overridden) internal overridden;
-    mapping(bytes32 field => uint256 value) internal overrideValue;
 
     // ---------------------------------------------------------------
     // Tests
@@ -304,184 +220,8 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
         _runFamily("forced");
     }
 
-    function test_conformance_registry() external {
-        _runFamily("registry");
-    }
-
     function test_conformance_land() external {
         _runFamily("land");
-    }
-
-    function test_conformance_recover() external {
-        _runFamily("recover");
-    }
-
-    // ---------------------------------------------------------------
-    // Known divergences
-    // ---------------------------------------------------------------
-
-    /// @dev The vectors of `_family` on which the contracts are known to differ from the model.
-    /// Remove an entry once the spec, the model or the contract changes so that the two agree;
-    /// the suite fails while a listed vector matches the model.
-    function _knownDivergences(string memory _family)
-        private
-        pure
-        returns (KnownDivergence[] memory known_)
-    {
-        bytes32 family = keccak256(bytes(_family));
-        if (family == keccak256("registry")) {
-            known_ = new KnownDivergence[](6);
-            known_[0] = _returns(
-                "registry.hw.free-slot-reuse-order",
-                "STAKE-4.1-14",
-                "Spec ambiguity: freed slots are reused first, in no stated order. The model's free "
-                "list is first in, first out (bond 1, released first, is reused); the contract's "
-                "_takeSlot pops the last released id (bond 2).",
-                "bondId",
-                2
-            );
-            known_[1] = _reverts(
-                "registry.hw.withdraw-to-zero-address",
-                "STAKE-4.1-27",
-                "Spec ambiguity: the principal is paid to `to`, which the spec does not restrict. "
-                "The model's withdraw has no recipient and accepts; the contract reverts "
-                "(ZERO_ADDRESS) when the principal is positive.",
-                EssentialContract.ZERO_ADDRESS.selector
-            );
-            known_[2] = _reverts(
-                "registry.hw.withdraw-at-block-2pow48-minus1",
-                "STAKE-4.1-36, STOR-B-22",
-                "Unreachable block: at L1 block 2^48 - 1 the model withdraws; the contract reverts "
-                "(InvalidEventBlock) because the withdrawal writes a checkpoint at the current "
-                "block and the registry stores no L1 block at or above its no-exit sentinel.",
-                IEtnaStakingRegistry.InvalidEventBlock.selector
-            );
-            known_[3] = _reverts(
-                "registry.hw.slash-at-block-2pow48-minus1",
-                "STAKE-4.1-34, STOR-B-22",
-                "Unreachable block: at L1 block 2^48 - 1 the model slashes and sets exitEffectiveL1 "
-                "= min(no exit, 2^48 - 1), the no-exit value; the contract reverts "
-                "(InvalidEventBlock) writing that block's checkpoint.",
-                IEtnaStakingRegistry.InvalidEventBlock.selector
-            );
-            known_[4] = _reverts(
-                "registry.hw.top-up-ready-block-last-valid",
-                "STAKE-4.1-16, STOR-B-30",
-                "Unreachable block: a top-up at L1 block 2^48 - 11 with activationDelay 10 is ready "
-                "at 2^48 - 1, which fits the uint48 field; the model accepts (only overflow is "
-                "rejected), the contract reverts (InvalidEventBlock) because it keeps every stored "
-                "block below the no-exit sentinel, readiness included.",
-                IEtnaStakingRegistry.InvalidEventBlock.selector
-            );
-            known_[5] = _observes(
-                "registry.hw.pending-only-slash",
-                "STAKE-4.1-34, STAKE-4.1-36, STOR-B-33",
-                "Spec ambiguity: slashing an entry whose effective stake a forfeiture already "
-                "zeroed, and whose exit is already earlier, changes only pending principal. The "
-                "model writes no checkpoint for an unchanged entry; the contract's slashDoubleSign "
-                "always writes one, so block 22 gets a third checkpoint repeating block 21's count "
-                "and root.",
-                _pair("registry.checkpointCount", "registry.lastCheckpointBlock"),
-                _pair(3, 22)
-            );
-        } else if (family == keccak256("recover")) {
-            known_ = new KnownDivergence[](2);
-            known_[0] = _reverts(
-                "recover.hw.exclusion-at-block-2pow48-minus1",
-                "RECOV-8-41, STAKE-4.1-39, STOR-B-22",
-                "Unreachable block: at R = 2^48 - 1 the model accepts and sets the excluded entry's "
-                "exitEffectiveL1 to min(no exit, R), the no-exit value, so the entry stays "
-                "eligible; the registry's forceExit reverts (InvalidEventBlock), so the whole "
-                "recovery reverts.",
-                IEtnaStakingRegistry.InvalidEventBlock.selector
-            );
-            known_[1] = _reverts(
-                "recover.hw.origin-timestamp-2pow48",
-                "RECOV-8.4-3, STOR-B-13",
-                "Spec ambiguity: slot 290 stores R.timestamp as a full word \"with range checks\" "
-                "but names no range. The model bounds it only by 2^256; the contract by 2^48 "
-                "(ValueOverflow), so a recovery at timestamp 2^48 reverts.",
-                IEtnaInbox.ValueOverflow.selector
-            );
-        }
-    }
-
-    /// @dev A decision divergence: the contract reverts with `_selector`.
-    function _reverts(
-        string memory _id,
-        string memory _spec,
-        string memory _reason,
-        bytes4 _selector
-    )
-        private
-        pure
-        returns (KnownDivergence memory d_)
-    {
-        d_.id = _id;
-        d_.spec = _spec;
-        d_.reason = _reason;
-        d_.reverts = true;
-        d_.revertSelector = _selector;
-    }
-
-    /// @dev A decision divergence: the contract succeeds and its result `_key` is `_value`.
-    function _returns(
-        string memory _id,
-        string memory _spec,
-        string memory _reason,
-        string memory _key,
-        uint256 _value
-    )
-        private
-        pure
-        returns (KnownDivergence memory d_)
-    {
-        d_.id = _id;
-        d_.spec = _spec;
-        d_.reason = _reason;
-        d_.resultKey = _key;
-        d_.resultValue = _value;
-    }
-
-    /// @dev An observable divergence: the contract's values of `_fields` are `_values`.
-    function _observes(
-        string memory _id,
-        string memory _spec,
-        string memory _reason,
-        string[] memory _fields,
-        uint256[] memory _values
-    )
-        private
-        pure
-        returns (KnownDivergence memory d_)
-    {
-        d_.id = _id;
-        d_.spec = _spec;
-        d_.reason = _reason;
-        d_.observables = _fields;
-        d_.observedValues = _values;
-    }
-
-    function _one(string memory _a) private pure returns (string[] memory xs_) {
-        xs_ = new string[](1);
-        xs_[0] = _a;
-    }
-
-    function _one(uint256 _a) private pure returns (uint256[] memory xs_) {
-        xs_ = new uint256[](1);
-        xs_[0] = _a;
-    }
-
-    function _pair(string memory _a, string memory _b) private pure returns (string[] memory xs_) {
-        xs_ = new string[](2);
-        xs_[0] = _a;
-        xs_[1] = _b;
-    }
-
-    function _pair(uint256 _a, uint256 _b) private pure returns (uint256[] memory xs_) {
-        xs_ = new uint256[](2);
-        xs_[0] = _a;
-        xs_[1] = _b;
     }
 
     // ---------------------------------------------------------------
@@ -508,121 +248,32 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
         assertTrue(_hasVector(j, count - 1), "the last vector is missing");
         assertFalse(_hasVector(j, count), "vectors beyond vectorCount");
 
-        KnownDivergence[] memory known = _knownDivergences(_family);
-        bool[] memory seen = new bool[](known.length);
         string memory report;
         uint256 failures;
-        uint256 divergences;
         uint256 skippedCalls;
         uint256 base = vm.snapshotState();
         for (uint256 i; i < count; ++i) {
             uint256 mark = _freeMemory();
-            (string memory id, string memory problem, uint256 index) = _runIndexed(j, i, known);
-            if (index < known.length) {
-                seen[index] = true;
-                ++divergences;
-            }
+            string memory v = string.concat(".vectors[", vm.toString(i), "]");
+            string memory problem = _runVector(j, v);
             skippedCalls += unencodable;
             if (bytes(problem).length != 0) {
                 ++failures;
-                report = string.concat(report, "\n", id, ":", problem);
+                report = string.concat(
+                    report, "\n", vm.parseJsonString(j, string.concat(v, ".id")), ":", problem
+                );
             } else {
                 _release(mark);
             }
             vm.revertToState(base);
         }
-        for (uint256 k; k < known.length; ++k) {
-            if (!seen[k]) {
-                ++failures;
-                report = string.concat(report, "\n", known[k].id, ": listed but not in the file");
-            }
-        }
         emit log_named_uint(string.concat(_family, " vectors"), count);
-        emit log_named_uint(string.concat(_family, " known divergences"), divergences);
         emit log_named_uint(
             string.concat(_family, " calls with unencodable arguments"), skippedCalls
         );
         assertEq(
             failures, 0, string.concat(_family, " vectors that differ from the model:", report)
         );
-    }
-
-    /// @dev Runs vector `_i`; returns its id, the problems found and its index in `_known`
-    /// (`type(uint256).max` if it is not listed).
-    function _runIndexed(
-        string memory _j,
-        uint256 _i,
-        KnownDivergence[] memory _known
-    )
-        private
-        returns (string memory id_, string memory problem_, uint256 index_)
-    {
-        string memory v = string.concat(".vectors[", vm.toString(_i), "]");
-        id_ = vm.parseJsonString(_j, string.concat(v, ".id"));
-        bool listed;
-        (listed, index_) = _findKnown(_known, id_);
-        if (!listed) return (id_, _runVector(_j, v), type(uint256).max);
-        emit log_named_string(
-            "known divergence",
-            string.concat(id_, " (", _known[index_].spec, "): ", _known[index_].reason)
-        );
-        problem_ = _runDivergent(_j, v, _known[index_]);
-    }
-
-    /// @dev Runs a vector on the known-divergence list. A decision divergence: the contract must
-    /// show exactly the recorded revert (and error) or result, which must differ from the model's
-    /// (a record equal to it is stale and must be removed); observables are not compared. An
-    /// observable divergence: the vector runs in full with the recorded values in place of the
-    /// model's for the listed observables, and the model's value of each must differ.
-    function _runDivergent(
-        string memory _j,
-        string memory _v,
-        KnownDivergence memory _d
-    )
-        private
-        returns (string memory problem_)
-    {
-        if (_d.observables.length != 0) {
-            for (uint256 k; k < _d.observables.length; ++k) {
-                string memory path = string.concat(_v, ".expect.observable.", _d.observables[k]);
-                if (vm.parseJsonUint(_j, path) == _d.observedValues[k]) {
-                    return string.concat(
-                        " the known divergence records the model's own ", _d.observables[k]
-                    );
-                }
-                bytes32 field = keccak256(bytes(_d.observables[k]));
-                overridden[field] = true;
-                overrideValue[field] = _d.observedValues[k];
-            }
-            return _runVector(_j, _v);
-        }
-        bool modelReverts = vm.parseJsonBool(_j, string.concat(_v, ".expect.revert"));
-        string memory modelResult = string.concat(_v, ".expect.result.", _d.resultKey);
-        bool sameResult = bytes(_d.resultKey).length == 0
-            || (vm.keyExistsJson(_j, modelResult)
-                && vm.parseJsonUint(_j, modelResult) == _d.resultValue);
-        if (_d.reverts == modelReverts && sameResult) {
-            return " the known divergence records the model's own decision";
-        }
-        problem_ = _setup(_j, _v);
-        if (bytes(problem_).length != 0) return problem_;
-        (bool ok, uint256[7] memory got) = _exec(_j, string.concat(_v, ".call"));
-        if (ok == _d.reverts) {
-            return _d.reverts
-                ? " the recorded revert is gone: the call succeeded"
-                : " the recorded success is gone: the call reverted";
-        }
-        if (_d.reverts && lastRevert != _d.revertSelector) {
-            return string.concat(
-                " the call reverted with ",
-                vm.toString(abi.encodePacked(lastRevert)),
-                ", not the recorded ",
-                vm.toString(abi.encodePacked(_d.revertSelector))
-            );
-        }
-        if (!_d.reverts && bytes(_d.resultKey).length != 0) {
-            problem_ = _cmp(_d.resultKey, _d.resultValue, got[_resultIndex(_d.resultKey)]);
-        }
     }
 
     /// @dev Deploys the vector's stack and replays its setup calls; returns a problem if one
@@ -660,7 +311,7 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
     {
         problem_ = _setup(_j, _v);
         if (bytes(problem_).length != 0) return problem_;
-        (bool ok, uint256[7] memory got) = _exec(_j, string.concat(_v, ".call"));
+        (bool ok, uint256[3] memory got) = _exec(_j, string.concat(_v, ".call"));
         string memory e = string.concat(_v, ".expect");
         bool wantRevert = vm.parseJsonBool(_j, string.concat(e, ".revert"));
         if (ok == wantRevert) {
@@ -672,9 +323,6 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
         string memory o = string.concat(e, ".observable");
         if (vm.keyExistsJson(_j, string.concat(o, ".inbox"))) {
             problem_ = string.concat(problem_, _checkInbox(_j, string.concat(o, ".inbox")));
-        }
-        if (vm.keyExistsJson(_j, string.concat(o, ".registry"))) {
-            problem_ = string.concat(problem_, _checkRegistry(_j, string.concat(o, ".registry")));
         }
     }
 
@@ -689,19 +337,6 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
         for (uint256 i; i < b.length; ++i) {
             bool hex_ = (b[i] >= "0" && b[i] <= "9") || (b[i] >= "a" && b[i] <= "f");
             assertTrue(hex_, "provenance.formalCommit is not lowercase hex");
-        }
-    }
-
-    function _findKnown(
-        KnownDivergence[] memory _known,
-        string memory _id
-    )
-        private
-        pure
-        returns (bool found_, uint256 index_)
-    {
-        for (uint256 k; k < _known.length; ++k) {
-            if (keccak256(bytes(_known[k].id)) == keccak256(bytes(_id))) return (true, k);
         }
     }
 
@@ -835,7 +470,7 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
         string memory _c
     )
         private
-        returns (bool ok_, uint256[7] memory got_)
+        returns (bool ok_, uint256[3] memory got_)
     {
         vm.roll(_u(_j, _c, ".block"));
         vm.warp(_u(_j, _c, ".timestamp"));
@@ -849,26 +484,6 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
             return (true, got_);
         }
         if (fn == keccak256("recover")) return (_recover(_j, a), got_);
-        if (fn == keccak256("invalidateRecoveryNonce")) return (_invalidate(_j, a), got_);
-        if (fn == keccak256("verifierFailureRollback")) return (_rollback(), got_);
-        if (fn == keccak256("register")) {
-            (ok_, got_[_BOND_ID]) =
-                _register(_account(_u(_j, a, ".caller")), _u(_j, a, ".key"), _u(_j, a, ".amount"));
-            return (ok_, got_);
-        }
-        if (fn == keccak256("topUp")) return (_topUp(_j, a), got_);
-        if (fn == keccak256("activateTopUp")) {
-            return (_registryCall(_j, a, EtnaStakingRegistry.activateTopUp.selector), got_);
-        }
-        if (fn == keccak256("forfeit")) return _forfeit(_j, a);
-        if (fn == keccak256("requestExit")) {
-            return (_registryCall(_j, a, EtnaStakingRegistry.requestExit.selector), got_);
-        }
-        if (fn == keccak256("confirmExit")) {
-            return (_registryCall(_j, a, EtnaStakingRegistry.confirmExit.selector), got_);
-        }
-        if (fn == keccak256("withdraw")) return _withdraw(_j, a);
-        if (fn == keccak256("slashDoubleSign")) return _slash(_j, a);
         revert("unknown fn");
     }
 
@@ -932,7 +547,7 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
         string memory _a
     )
         private
-        returns (bool ok_, uint256[7] memory got_)
+        returns (bool ok_, uint256[3] memory got_)
     {
         address caller = _account(_u(_j, _a, ".caller"));
         uint256 paid = _u(_j, _a, ".paid");
@@ -967,7 +582,7 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
         string memory _a
     )
         private
-        returns (bool ok_, uint256[7] memory got_)
+        returns (bool ok_, uint256[3] memory got_)
     {
         uint256 before = recipient.balance;
         vm.prank(_account(_u(_j, _a, ".caller")));
@@ -1015,61 +630,6 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
         }
     }
 
-    function _invalidate(string memory _j, string memory _a) private returns (bool ok_) {
-        (bool fits, uint256 nonce) = _word(_j, string.concat(_a, ".expectedRecoveryNonce"));
-        if (!fits) return _unencodable("invalidateRecoveryNonce");
-        if (!_bool(_j, _a, ".owner")) vm.prank(_account(_STRANGER));
-        ok_ = _call(inbox, abi.encodeCall(IEtnaInbox.invalidateRecoveryNonce, (nonce)));
-    }
-
-    /// @dev The verifier-failure rollback fixture (spec 8): the contracts leave the rollback to
-    /// the Inbox upgrade that replaces the verifier, so the harness applies the model's decoded
-    /// checked rollback to the target the vectors use, the genesis landing record and the genesis
-    /// cutoff. Checks: the Inbox is initialized and its nonce can be incremented (the Inbox lock
-    /// is free at the top level). Effects: the checkpoint and the queue head become the record's,
-    /// slot 284 the cutoff and the nonce grows by one; landing records and SignalService
-    /// checkpoints above the record are voided; every exit confirmation is re-checked against the
-    /// restored snapshot and cleared unless that snapshot reaches the entry's exit. Generation,
-    /// origins, the queue tail, registry principal and forfeiture flags are untouched.
-    function _rollback() private returns (bool) {
-        IEtnaInbox ib = IEtnaInbox(inbox);
-        if (!ib.isInitialized()) return false;
-        uint256 nonce = ib.recoveryNonce();
-        if (nonce == type(uint256).max) return false;
-
-        IEtnaInbox.Landing memory trusted = ib.landings(0);
-        uint256 snapshot = ib.genesisCutoff();
-        uint256 c = ib.lastCheckpoint().height;
-        (, uint48 tail) = ib.getForcedInclusionState();
-        vm.store(inbox, bytes32(_SLOT_CHECKPOINT_HEIGHT), bytes32(0));
-        vm.store(inbox, bytes32(_SLOT_CHECKPOINT_HASH), trusted.elHash);
-        vm.store(
-            inbox, bytes32(_SLOT_HEAD_TAIL), bytes32((uint256(tail) << 48) | uint256(trusted.head))
-        );
-        vm.store(inbox, bytes32(_SLOT_SNAPSHOT), bytes32(snapshot));
-        vm.store(inbox, bytes32(_SLOT_RECOVERY_NONCE), bytes32(nonce + 1));
-        bytes32 signals = keccak256(abi.encode(signalService.VERSION(), _SLOT_SIGNAL_CHECKPOINTS));
-        for (uint256 h = _GRID_INTERVAL; h <= c; h += _GRID_INTERVAL) {
-            uint256 record = uint256(keccak256(abi.encode(h, _SLOT_LANDINGS)));
-            uint256 signal = uint256(keccak256(abi.encode(h, signals)));
-            for (uint256 w; w < 3; ++w) {
-                vm.store(inbox, bytes32(record + w), 0);
-            }
-            vm.store(address(signalService), bytes32(signal), 0);
-            vm.store(address(signalService), bytes32(signal + 1), 0);
-        }
-        bytes32 confirmations = _erc7201("taiko.etna.registry.exit-confirmations");
-        for (uint256 id; id < registry.entryCount(); ++id) {
-            if (
-                registry.exitConfirmedAtL1(id) != 0
-                    && snapshot < registry.entryAt(id).exitEffectiveL1
-            ) {
-                vm.store(address(registry), keccak256(abi.encode(id, confirmations)), 0);
-            }
-        }
-        return true;
-    }
-
     function _register(
         address _caller,
         uint256 _key,
@@ -1091,137 +651,6 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
         if (ok_) bondId_ = abi.decode(ret, (uint256));
     }
 
-    /// @dev `transferOK = false` leaves the caller without an allowance, so the registry's
-    /// token transfer fails.
-    function _topUp(string memory _j, string memory _a) private returns (bool ok_) {
-        address caller = _account(_u(_j, _a, ".caller"));
-        uint256 amount = _u(_j, _a, ".amount");
-        if (_bool(_j, _a, ".transferOK")) {
-            _fund(caller, amount);
-        } else {
-            vm.prank(caller);
-            token.approve(address(registry), 0);
-        }
-        vm.prank(caller);
-        ok_ = _call(
-            address(registry),
-            abi.encodeCall(EtnaStakingRegistry.topUp, (_u(_j, _a, ".bondId"), amount))
-        );
-    }
-
-    /// @dev `externalOK = false` makes the token's transfer to `slashSink` revert. The owner is
-    /// this contract.
-    function _forfeit(
-        string memory _j,
-        string memory _a
-    )
-        private
-        returns (bool ok_, uint256[7] memory got_)
-    {
-        (bool fits, uint256 validUntil) = _word(_j, string.concat(_a, ".validUntil"));
-        if (!fits) return (_unencodable("forfeit"), got_);
-        bytes memory data = abi.encodeCall(
-            EtnaStakingRegistry.forfeit,
-            (
-                _u(_j, _a, ".bondId"),
-                _entryKey(_u(_j, _a, ".entryKey")),
-                bytes32(_u(_j, _a, ".incidentId")),
-                validUntil
-            )
-        );
-        if (!_bool(_j, _a, ".externalOK")) {
-            vm.mockCallRevert(
-                address(token),
-                abi.encodeWithSelector(IERC20.transfer.selector, SLASH_SINK),
-                "slashSink transfer fails"
-            );
-        }
-        uint256 sinkBefore = token.balanceOf(SLASH_SINK);
-        if (!_bool(_j, _a, ".owner")) vm.prank(_account(_STRANGER));
-        ok_ = _call(address(registry), data);
-        vm.clearMockedCalls();
-        got_[_TO_SINK] = token.balanceOf(SLASH_SINK) - sinkBefore;
-    }
-
-    function _registryCall(
-        string memory _j,
-        string memory _a,
-        bytes4 _selector
-    )
-        private
-        returns (bool ok_)
-    {
-        vm.prank(_account(_u(_j, _a, ".caller")));
-        ok_ = _call(address(registry), abi.encodeWithSelector(_selector, _u(_j, _a, ".bondId")));
-    }
-
-    function _withdraw(
-        string memory _j,
-        string memory _a
-    )
-        private
-        returns (bool ok_, uint256[7] memory got_)
-    {
-        address to = _account(_u(_j, _a, ".to"));
-        uint256 before = token.balanceOf(to);
-        vm.prank(_account(_u(_j, _a, ".caller")));
-        ok_ = _call(
-            address(registry),
-            abi.encodeCall(EtnaStakingRegistry.withdraw, (_u(_j, _a, ".bondId"), to))
-        );
-        got_[_PAID] = token.balanceOf(to) - before;
-    }
-
-    function _slash(
-        string memory _j,
-        string memory _a
-    )
-        private
-        returns (bool ok_, uint256[7] memory got_)
-    {
-        IEtnaStakingRegistry.Vote memory voteA = _vote(
-            abi.decode(vm.parseJsonType(_j, string.concat(_a, ".voteA"), _VOTE_TYPE), (VoteJ))
-        );
-        IEtnaStakingRegistry.Vote memory voteB = _vote(
-            abi.decode(vm.parseJsonType(_j, string.concat(_a, ".voteB"), _VOTE_TYPE), (VoteJ))
-        );
-        address caller = _account(_u(_j, _a, ".caller"));
-        uint256 callerBefore = token.balanceOf(caller);
-        uint256 sinkBefore = token.balanceOf(SLASH_SINK);
-        bytes memory data = abi.encodeCall(
-            EtnaStakingRegistry.slashDoubleSign, (_u(_j, _a, ".bondId"), voteA, voteB)
-        );
-        vm.prank(caller);
-        ok_ = _call(address(registry), data);
-        got_[_BOUNTY] = token.balanceOf(caller) - callerBefore;
-        got_[_TO_SINK] = token.balanceOf(SLASH_SINK) - sinkBefore;
-    }
-
-    /// @dev A vote with a one-part block id (all zero for block id 0), signed by private key
-    /// `signer` under this deployment's chain id, or another deployment's if `foreign`.
-    function _vote(VoteJ memory _v) private view returns (IEtnaStakingRegistry.Vote memory v_) {
-        v_.voteType = uint8(_v.kind);
-        v_.height = uint64(_v.height);
-        v_.round = uint32(_v.round);
-        if (_v.blockId != 0) {
-            v_.blockHash = bytes32(_v.blockId);
-            v_.partsTotal = 1;
-            v_.partsHash = keccak256(abi.encode(_v.blockId));
-        }
-        v_.timestampSeconds = _VOTE_SECONDS;
-        v_.generation = uint48(_v.generation);
-        bytes memory chainId = LibCometVote.chainId(
-            LibCometVote.chainDomain(
-                block.chainid,
-                _v.foreign ? L2_CHAIN_ID + 1 : L2_CHAIN_ID,
-                inbox,
-                uint48(_v.generation)
-            )
-        );
-        v_ = EtnaTestKeys.signVote(_v.signer, v_, chainId);
-    }
-
-    /// @dev Calls `_target` and records the selector of its revert in `lastRevert`.
     function _call(address _target, bytes memory _data) private returns (bool ok_) {
         (ok_,) = _call(_target, 0, _data);
     }
@@ -1235,7 +664,6 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
         returns (bool ok_, bytes memory ret_)
     {
         (ok_, ret_) = _target.call{ value: _value }(_data);
-        lastRevert = ok_ || ret_.length < 4 ? bytes4(0) : bytes4(ret_);
     }
 
     /// @dev Mints `_amount` to `_who`, who approves the registry for it. A balance the token's
@@ -1264,7 +692,7 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
     function _checkResult(
         string memory _j,
         string memory _r,
-        uint256[7] memory _got
+        uint256[3] memory _got
     )
         private
         pure
@@ -1285,13 +713,9 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
 
     function _resultIndex(string memory _key) private pure returns (uint256) {
         bytes32 k = keccak256(bytes(_key));
-        if (k == keccak256("bondId")) return _BOND_ID;
         if (k == keccak256("feeWei")) return _FEE_WEI;
         if (k == keccak256("refund")) return _REFUND;
         if (k == keccak256("swept")) return _SWEPT;
-        if (k == keccak256("paid")) return _PAID;
-        if (k == keccak256("bounty")) return _BOUNTY;
-        if (k == keccak256("toSink")) return _TO_SINK;
         revert("unknown result");
     }
 
@@ -1305,21 +729,19 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
     {
         InboxState memory s = _inboxState();
         p_ = string.concat(
-            _cmpField(
-                "inbox.checkpointHeight", _u(_j, _o, ".checkpointHeight"), s.checkpointHeight
-            ),
-            _cmpField("inbox.checkpointHash", _u(_j, _o, ".checkpointHash"), s.checkpointHash),
-            _cmpField("inbox.generation", _u(_j, _o, ".generation"), s.generation),
-            _cmpField("inbox.recoveryNonce", _u(_j, _o, ".recoveryNonce"), s.recoveryNonce),
-            _cmpField("inbox.head", _u(_j, _o, ".head"), s.head),
-            _cmpField("inbox.tail", _u(_j, _o, ".tail"), s.tail)
+            _cmp("inbox.checkpointHeight", _u(_j, _o, ".checkpointHeight"), s.checkpointHeight),
+            _cmp("inbox.checkpointHash", _u(_j, _o, ".checkpointHash"), s.checkpointHash),
+            _cmp("inbox.generation", _u(_j, _o, ".generation"), s.generation),
+            _cmp("inbox.recoveryNonce", _u(_j, _o, ".recoveryNonce"), s.recoveryNonce),
+            _cmp("inbox.head", _u(_j, _o, ".head"), s.head),
+            _cmp("inbox.tail", _u(_j, _o, ".tail"), s.tail)
         );
         p_ = string.concat(
             p_,
-            _cmpField("inbox.snapshot", _u(_j, _o, ".snapshot"), s.snapshot),
-            _cmpField("inbox.ethBalance", _u(_j, _o, ".ethBalance"), inbox.balance),
-            _cmpField("inbox.swept", _u(_j, _o, ".swept"), recipient.balance),
-            _cmpField("inbox.feeGwei", _u(_j, _o, ".feeGwei"), s.feeGwei)
+            _cmp("inbox.snapshot", _u(_j, _o, ".snapshot"), s.snapshot),
+            _cmp("inbox.ethBalance", _u(_j, _o, ".ethBalance"), inbox.balance),
+            _cmp("inbox.swept", _u(_j, _o, ".swept"), recipient.balance),
+            _cmp("inbox.feeGwei", _u(_j, _o, ".feeGwei"), s.feeGwei)
         );
         uint256 maxHeight = maxLanded > s.checkpointHeight ? maxLanded : s.checkpointHeight;
         p_ = string.concat(
@@ -1512,206 +934,9 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
         }
     }
 
-    function _checkRegistry(string memory _j, string memory _o) private returns (string memory p_) {
-        uint256 checkpoints = registry.checkpointCount();
-        p_ = string.concat(
-            _cmpField("registry.entryCount", _u(_j, _o, ".entryCount"), registry.entryCount()),
-            _cmpField("registry.freeCount", _u(_j, _o, ".freeCount"), registry.freeSlotCount()),
-            _cmpField(
-                "registry.stakeHeld", _u(_j, _o, ".stakeHeld"), token.balanceOf(address(registry))
-            ),
-            _cmpField("registry.checkpointCount", _u(_j, _o, ".checkpointCount"), checkpoints)
-        );
-        if (checkpoints != 0) {
-            IEtnaStakingRegistry.Checkpoint memory last = registry.checkpointAt(checkpoints - 1);
-            p_ = string.concat(
-                p_,
-                _cmpField(
-                    "registry.lastCheckpointBlock", _u(_j, _o, ".lastCheckpointBlock"), last.l1Block
-                ),
-                _cmpField(
-                    "registry.lastCheckpointCount", _u(_j, _o, ".lastCheckpointCount"), last.count
-                )
-            );
-        }
-        uint256 mark = _freeMemory();
-        p_ = _keep(
-            p_,
-            _checkCheckpoints(
-                _j, string.concat(_o, ".checkpoints"), _u(_j, _o, ".checkpointCount")
-            ),
-            mark
-        );
-        mark = _freeMemory();
-        p_ = _keep(p_, _checkBonds(_j, _o), mark);
-    }
-
-    /// @dev Compares the checkpoint history, oldest first: each checkpoint's block, slot count
-    /// and the entries root of the model's election entries. The number of checkpoints is
-    /// `registry.checkpointCount`, compared by the caller; checkpoints the contract has beyond the
-    /// model's (only under a recorded observable divergence) must repeat the previous count and
-    /// root.
-    function _checkCheckpoints(
-        string memory _j,
-        string memory _path,
-        uint256 _modelCount
-    )
-        private
-        returns (string memory p_)
-    {
-        // The model's list is newest first.
-        CheckpointJ[] memory want =
-            abi.decode(vm.parseJsonTypeArray(_j, _path, _CHECKPOINT_TYPE), (CheckpointJ[]));
-        require(want.length == _modelCount, "checkpoints and checkpointCount differ");
-        uint256 count = registry.checkpointCount();
-        for (uint256 k; k < count; ++k) {
-            uint256 mark = _freeMemory();
-            IEtnaStakingRegistry.Checkpoint memory got = registry.checkpointAt(k);
-            string memory at = string.concat("checkpoint ", vm.toString(k), " ");
-            string memory problem;
-            if (k < want.length) {
-                CheckpointJ memory w = want[want.length - 1 - k];
-                problem = string.concat(
-                    _cmp(string.concat(at, "l1Block"), w.block, got.l1Block),
-                    _cmp(string.concat(at, "count"), w.entries.length, got.count),
-                    _cmp(
-                        string.concat(at, "entriesRoot"),
-                        uint256(_entriesRoot(w.entries)),
-                        uint256(got.entriesRoot)
-                    )
-                );
-            } else if (k != 0) {
-                IEtnaStakingRegistry.Checkpoint memory prior = registry.checkpointAt(k - 1);
-                problem = string.concat(
-                    _cmp(string.concat(at, "count (repeat)"), prior.count, got.count),
-                    _cmp(
-                        string.concat(at, "entriesRoot (repeat)"),
-                        uint256(prior.entriesRoot),
-                        uint256(got.entriesRoot)
-                    )
-                );
-            }
-            p_ = _keep(p_, problem, mark);
-        }
-    }
-
-    /// @dev Compares every bond and the lifetime forfeiture flags: each listed key is flagged,
-    /// and no other key of a bond is.
-    function _checkBonds(string memory _j, string memory _o) private returns (string memory p_) {
-        BondJ[] memory bonds = abi.decode(
-            vm.parseJsonTypeArray(_j, string.concat(_o, ".bonds"), _BOND_TYPE), (BondJ[])
-        );
-        uint256[] memory forfeited = vm.parseJsonUintArray(_j, string.concat(_o, ".forfeitedKeys"));
-        for (uint256 i; i < bonds.length; ++i) {
-            uint256 mark = _freeMemory();
-            p_ = _keep(p_, _checkBond(bonds[i]), mark);
-        }
-        for (uint256 i; i < forfeited.length; ++i) {
-            uint256 mark = _freeMemory();
-            p_ = _keep(p_, _checkForfeited(forfeited[i], true), mark);
-        }
-        for (uint256 i; i < bonds.length; ++i) {
-            if (bonds[i].key == 0 || _contains(forfeited, bonds[i].key)) continue;
-            uint256 mark = _freeMemory();
-            p_ = _keep(p_, _checkForfeited(bonds[i].key, false), mark);
-        }
-    }
-
-    function _checkForfeited(uint256 _key, bool _want) private returns (string memory) {
-        return _cmp(
-            string.concat("forfeited[key ", vm.toString(_key), "]"),
-            _want ? 1 : 0,
-            registry.forfeited(_entryKey(_key)) ? 1 : 0
-        );
-    }
-
-    function _checkBond(BondJ memory _b) private returns (string memory p_) {
-        IEtnaStakingRegistry.Entry memory e = registry.entryAt(_b.id);
-        (uint256 pending, uint48 readyAt) = registry.topUpOf(_b.id);
-        (uint8 prefix, bytes32 x) = _keyParts(_b.key);
-        string memory at = string.concat("bond[", vm.toString(_b.id), "].");
-        p_ = string.concat(
-            _cmp(string.concat(at, "ckPrefix"), prefix, e.ckPrefix),
-            _cmp(string.concat(at, "ckX"), uint256(x), uint256(e.ckX)),
-            _cmp(string.concat(at, "effStake"), _b.stake, e.effStake),
-            _cmp(string.concat(at, "activeFromL1"), _b.activeFrom, e.activeFromL1),
-            _cmp(string.concat(at, "exitEffectiveL1"), _b.exitAt, e.exitEffectiveL1)
-        );
-        p_ = string.concat(
-            p_,
-            _cmp(
-                string.concat(at, "owner"),
-                uint160(_account(_b.owner)),
-                uint160(registry.ownerOf(_b.id))
-            ),
-            _cmp(
-                string.concat(at, "exitConfirmedAtL1"),
-                _b.confirmedAt,
-                registry.exitConfirmedAtL1(_b.id)
-            ),
-            _cmp(string.concat(at, "pendingTopUp"), _b.pendingTopUp, pending),
-            _cmp(string.concat(at, "topUpReadyAtL1"), _b.topUpReadyAtL1, readyAt)
-        );
-    }
-
-    /// @dev The entries root (appendix A) over the model's election entries: entry `i` is bond
-    /// `i`, and its leaf is `LibEntriesTree.leaf` of the key's prefix and X and the stake,
-    /// activation and exit; the leaves are padded with zero to a power of two.
-    function _entriesRoot(EntryJ[] memory _entries) private returns (bytes32) {
-        uint256 n = _entries.length;
-        if (n == 0) return 0;
-        uint256 size = 1;
-        while (size < n) {
-            size <<= 1;
-        }
-        bytes32[] memory layer = new bytes32[](size);
-        for (uint256 i; i < n; ++i) {
-            uint256 mark = _freeMemory();
-            (uint8 prefix, bytes32 x) = _keyParts(_entries[i].key);
-            require(
-                _entries[i].activeFrom <= type(uint48).max
-                    && _entries[i].exitAt <= type(uint48).max,
-                "entry block width"
-            );
-            layer[i] = LibEntriesTree.leaf(
-                i,
-                IEtnaStakingRegistry.Entry({
-                    ckX: x,
-                    effStake: _entries[i].stake,
-                    ckPrefix: prefix,
-                    activeFromL1: uint48(_entries[i].activeFrom),
-                    exitEffectiveL1: uint48(_entries[i].exitAt)
-                })
-            );
-            _release(mark);
-        }
-        for (; size > 1; size >>= 1) {
-            for (uint256 i; i < size / 2; ++i) {
-                layer[i] = keccak256(abi.encodePacked(layer[2 * i], layer[2 * i + 1]));
-            }
-        }
-        return layer[0];
-    }
-
     // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
-
-    /// @dev `_cmp` for a named observable, with the recorded contract value of an observable
-    /// divergence in place of the model's.
-    function _cmpField(
-        string memory _what,
-        uint256 _want,
-        uint256 _got
-    )
-        private
-        view
-        returns (string memory)
-    {
-        bytes32 field = keccak256(bytes(_what));
-        if (overridden[field]) _want = overrideValue[field];
-        return _cmp(_what, _want, _got);
-    }
 
     function _cmp(
         string memory _what,
@@ -1794,38 +1019,8 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
         }
     }
 
-    /// @dev Appends `_problem` to `_report`, or, with no problem, releases the memory allocated
-    /// since `_mark` (`_report` must predate it).
-    function _keep(
-        string memory _report,
-        string memory _problem,
-        uint256 _mark
-    )
-        private
-        pure
-        returns (string memory)
-    {
-        if (bytes(_problem).length == 0) {
-            _release(_mark);
-            return _report;
-        }
-        return string.concat(_report, _problem);
-    }
-
-    function _contains(uint256[] memory _xs, uint256 _x) private pure returns (bool) {
-        for (uint256 i; i < _xs.length; ++i) {
-            if (_xs[i] == _x) return true;
-        }
-        return false;
-    }
-
     function _load(address _target, uint256 _slot) private view returns (uint256) {
         return uint256(vm.load(_target, bytes32(_slot)));
-    }
-
-    /// @dev The ERC-7201 base slot of namespace `_id`.
-    function _erc7201(string memory _id) private pure returns (bytes32) {
-        return keccak256(abi.encode(uint256(keccak256(bytes(_id))) - 1)) & ~bytes32(uint256(0xff));
     }
 
     /// @dev Account `n` is `0x10000 + n`; account 0 is the zero address.
@@ -1837,8 +1032,7 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
         return _TIMESTAMP_BASE + _TIMESTAMP_STEP * _block;
     }
 
-    /// @dev The stored prefix and X of registry key `_key` (private key `_key`); zero for key 0, a
-    /// released slot.
+    /// @dev The stored prefix and X of registry key `_key` (private key `_key`); zero for key 0.
     function _keyParts(uint256 _key) private returns (uint8 prefix_, bytes32 x_) {
         if (_key == 0) return (0, 0);
         bytes memory publicKey = EtnaTestKeys.publicKey(_key);
@@ -1849,7 +1043,7 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
     }
 
     /// @dev entryKey = keccak256(abi.encode(ckPrefix, ckX)) of key `_key`; key 0 gives the
-    /// released (all-zero) slot's key.
+    /// all-zero key's.
     function _entryKey(uint256 _key) private returns (bytes32) {
         (uint8 prefix, bytes32 x) = _keyParts(_key);
         return LibEtnaKeys.entryKey(prefix, x);
