@@ -1,4 +1,13 @@
 import EtnaProofs.Current
+import EtnaProofs.CurrentBlocks
+import EtnaProofs.CurrentRegistry
+import EtnaProofs.CurrentRegistryPayments
+import EtnaProofs.CurrentFinality
+import EtnaProofs.CurrentSettlement
+import EtnaProofs.CurrentProtocolFinality
+import EtnaProofs.CurrentJournal
+import EtnaProofs.CurrentCustody
+import EtnaProofs.Headline.Current
 import EtnaProofs.UpgradeBoundary
 import EtnaProofs.Reconstruction
 import EtnaProofs.ActualQueue
@@ -50,6 +59,6 @@ import EtnaProofs.Headline.Claims
 
 /-! Etna proofs: the theorems about `EtnaModel`, including the pins in `EtnaProofs.Contracts`. -/
 
-/-! Version scope: only Etna.Design.Current models the selected current rules. Other
-declarations retain the archived pre-2026-11-03 semantics; their headline theorems are
-not claims about the whole latest protocol. See README.md. -/
+/-! Version scope: Current modules define the current decoded machine and its conditional
+H1–H3 claims. Other modules retain the archived pre-2026-11-03 semantics; their headline
+theorems are historical. See README.md for exact boundaries. -/

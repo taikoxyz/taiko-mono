@@ -1,4 +1,12 @@
 import EtnaModel.Current
+import EtnaModel.CurrentBlocks
+import EtnaModel.CurrentRegistry
+import EtnaModel.CurrentRegistryPayments
+import EtnaModel.CurrentFinality
+import EtnaModel.CurrentProtocol
+import EtnaModel.CurrentProtocolFinality
+import EtnaModel.CurrentCustody
+import EtnaModel.CurrentJournal
 import EtnaModel.UpgradeBoundary
 import EtnaModel.Reconstruction
 import EtnaModel.ActualQueue
@@ -38,6 +46,6 @@ import EtnaModel.AnchorHonesty
 /-! Etna model: the definitions, structures and transitions the claims and proofs are
 stated over. It holds no theorems except those listed in `scripts/check_imports.py`. -/
 
-/-! Version scope: only Etna.Design.Current models the selected current rules. Other
-declarations retain the archived pre-2026-11-03 semantics; their headline theorems are
-not claims about the whole latest protocol. See README.md. -/
+/-! Version scope: Current modules define the current decoded machine and its conditional
+H1–H3 claims. Other modules retain the archived pre-2026-11-03 semantics; their headline
+theorems are historical. See README.md for exact boundaries. -/

@@ -2,8 +2,8 @@
 """Check the pinned spec revision and explicit theorem/claim evidence edges.
 
 This is a traceability report and its consistency check, not the verification result. The
-current results are the explicitly scoped Current theorems; the three headline theorems
-under `Etna.Statements.Premises` are historical (README). A clause
+current results include the exact H1–H3 composition under `Etna.Statements.Current.Premises`;
+headlines under the original `Etna.Statements.Premises` remain historical (README). A clause
 marked partial has an edge from some `property` or `constant` theorem; it is not proved.
 
 Roles: `property` (Rule P: with every leading `∀`/hypothesis binder stripped, each atom of

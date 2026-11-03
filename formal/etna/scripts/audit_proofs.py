@@ -10,10 +10,10 @@ scripts/EtnaAudit.lean, manifest types passed as string data) and the Lean regre
 tests/, each kernel-replayed.
 
 The generated module checks every manifest entry (exact type, mechanical role, axioms), the
-package (namespaces, manifest modules, axioms, shadowing, what each library may hold, manifest
-completeness) and the headline layer: `Etna.Proofs.claims` and the three headline theorems
-have exactly their statement-layer claim as type and only the standard axioms, and every field
-of `Etna.Statements.Premises` is read by at least one headline proof.
+package (namespaces, manifest modules, axioms, shadowing, library contents and manifest
+completeness) and both current and historical headline layers. Each conjunction and three
+headline theorems must have exactly its statement-layer constant as type and only standard
+axioms; every field of both explicit premise records must be read by a headline proof.
 """
 import argparse
 import importlib.util
@@ -45,6 +45,13 @@ HEADLINES = {
     'Etna.Proofs.forced_inclusion_integrity': 'Etna.Statements.ForcedInclusionIntegrity',
 }
 PREMISES = 'Etna.Statements.Premises'
+CURRENT_CLAIMS = ('Etna.Design.Current.Headlines.claims', 'Etna.Statements.Current.Claims')
+CURRENT_HEADLINES = {
+    'Etna.Design.Current.Headlines.fund_safety': 'Etna.Statements.Current.FundSafety',
+    'Etna.Design.Current.Headlines.accountable_finality': 'Etna.Statements.Current.AccountableFinality',
+    'Etna.Design.Current.Headlines.forced_inclusion_integrity': 'Etna.Statements.Current.ForcedInclusionIntegrity',
+}
+CURRENT_PREMISES = 'Etna.Statements.Current.Premises'
 PREMISE_USE = re.compile(r'^premise use: (\S+) <- (.+)$', re.MULTILINE)
 NAME = re.compile(r'^[A-Za-z_][A-Za-z_0-9]*(\.[A-Za-z_][A-Za-z_0-9]*)*$')
 ANY_NAME = re.compile(r"^[A-Za-z_][A-Za-z_0-9'!?]*(\.[A-Za-z_][A-Za-z_0-9'!?]*)*$")
@@ -120,7 +127,7 @@ def validate_contract(manifest, root=ROOT):
         raise ValueError('design manifest schema/version required')
     validate_entries(manifest['theorems'])
     names = {e['declaration'] for e in manifest['theorems']}
-    for name in (CLAIMS[0], *HEADLINES, *COVERAGE.UNSOURCED):
+    for name in (CLAIMS[0], *HEADLINES, CURRENT_CLAIMS[0], *CURRENT_HEADLINES, *COVERAGE.UNSOURCED):
         if name not in names:
             raise ValueError('missing manifest entry: '+name)
 
@@ -175,6 +182,7 @@ def render_audit(entries, complete=True, shadows=None, libraries=None):
     if complete:
         lines.append(render_package_check(entries, shadows))
         lines += render_headline_check()
+        lines += render_headline_check(CURRENT_CLAIMS, CURRENT_HEADLINES, CURRENT_PREMISES)
     for e in entries:
         ns = e['declaration'].rsplit('.', 1)[0]
         lines += [f'namespace {ns}', f'-- Named boundaries: {json.dumps(e["assumptions"])}',
@@ -351,7 +359,9 @@ def main():
                       derivation_chains='.scratch/generated/derivation-chains.json',
                       kernel_replay=' '.join(GRAPH.declared_libraries())+' --fresh (whole import closure), '
                                     'generated Audit and '+', '.join(tests),
-                      headline=dict(claims=' : '.join(CLAIMS), theorems=HEADLINES, premise_use=uses),
+                      headline=dict(claims=' : '.join(CURRENT_CLAIMS), theorems=CURRENT_HEADLINES,
+                                    historical_claims=' : '.join(CLAIMS), historical_theorems=HEADLINES,
+                                    premise_use=uses),
                       vectors='testdata/etna_conformance equals a fresh lake exe etna-vectors run',
                       axioms=sorted(ALLOWED_AXIOMS),scope='conditional decoded specification only')
         (generated/'audit-result.json').write_text(json.dumps(result,indent=2)+'\n')

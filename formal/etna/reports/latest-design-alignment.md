@@ -1,70 +1,75 @@
-# Latest Etna design alignment
+# Latest Etna H1–H3 alignment
 
 Authority: main `1135c9b24fd03f50cb48eab250879435fd54f528`, including SPEC, ACCEPTANCE,
-ANCHORLESS and SWITCH. The protocol documents themselves are unchanged by this update.
-This report records design evidence, not production or launch sign-off.
+ANCHORLESS and SWITCH. These protocol documents are unchanged. This report concerns
+conditional decoded-design safety, not production implementation or launch sign-off.
 
-## What changed
+## Composed current claims
 
-The previous model had a height-scoped conditional upgrade sketch, reusable slot IDs,
-zero-based landing grids and no Unzen switch. Current `Etna.Design.Current` definitions
-cover selected replacement rules. Original definitions and exact theorem contracts remain
-historical, with independently hashed archived authorities. No current source is matched
-to an old clause by fuzzy similarity or line number.
+`Etna.Statements.Current.Claims` is the conjunction of the three exact current claims;
+`Etna.Design.Current.Headlines.claims` proves it. The audit independently pins all four
+headline types and checks that every one of the nine current premise fields is read.
+Historical headlines retain their original types and separately pinned authorities.
 
-| Current obligation                    | Exact evidence                                                                                | Scope                                                                                                                                                                                                                                                                                                                                                 |
-| ------------------------------------- | --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Timestamp rules and strict deadlines  | `Rules.schedule_rules_result`, `rules_require_owner`, `preserves_visible_window`              | A successful schedule call preserves selection for timestamps in [now, now+maxAnchorAge); this is a local visibility lemma, not the whole canonical-history consistency proof.                                                                                                                                                                        |
-| Stop and recovery rules               | `Rules.schedule_stop_result`, `stop_requires_owner`, `recover_clears_stop`                    | Decoded owner/initialization, 48-bit fields and grid checks; nonzero recovery rules must equal nextRules+1. Structural upgrades still require the full governance recovery outside this focused schedule model.                                                                                                                                       |
-| Cross-ruleset proof batches           | `Rules.covered_batch_keeps_every_ruleset`                                                     | Induction covers every timestamp in the batch; no historical noCrossing restriction. Actual image declarations, dual-verifier soundness and canonical anchor authentication remain external.                                                                                                                                                          |
-| Field bounds through schedule history | `Rules.trace_fields_fit`                                                                      | Induction over successful scheduleRules/scheduleStop calls, from fitting initial fields. Recovery is a separate checked operation.                                                                                                                                                                                                                    |
-| Permanent bond issuance               | `Registry.registration_issues_fresh`, `trace_issuance_monotone`                               | Lifetime IDs increase; 4096 bounds slots, not total issued bonds. The generic modify operation is plumbing, not an arbitrary public registry endpoint.                                                                                                                                                                                                |
-| Permanent key registration            | `Registry.registration_retains_keys`, `trace_keys_permanent`                                  | Present bond 0 differs from absence. Every lookup already present is retained through the modeled trace.                                                                                                                                                                                                                                              |
-| Displacement and withdrawal           | `Registry.displacement_keeps_old_bond`, `withdrawal_identity`, `withdrawal_preserves_counter` | Old owner/key/effective and pending principal remain on displacement; withdrawal preserves issued/key/exit identity. Examples check confirmation without an origin record, slashing while slotless and withdrawal without erasing the replacement. Full token custody, forfeiture transitions and current checkpoint-tree derivation remain unproved. |
-| Unissued IDs                          | `Registry.unissued_modify_rejected`, `unissued_withdraw_rejected`                             | Default storage cannot authenticate an unissued ID, including a recovery exclusion.                                                                                                                                                                                                                                                                   |
-| Start and landing fence               | `Start.grid_offset`, `first_landing_fenced`, `origin_written_once`                            | Explicit height≥S prevents truncated subtraction accepting pre-S heights. Unzen final proposal count, final block hash and SignalService hash/root must all match for the first landing.                                                                                                                                                              |
-| Corrected start                       | `Start.correction_new_generation`, `trace_generations_monotone`, `trace_origins_retained`     | Only at the refused start before landing; a new generation is created and old origin records are retained. Replacement-state authentication and the complete DAO recovery transition remain external.                                                                                                                                                 |
-| Imported data and signer state        | `Import.invalid_data_rejected`, `authenticated_conflict_halts`, `publish_boundary`            | Bad unauthenticated input rejects; authenticated conflicting EL hashes halt even when material is missing. Publication requires durability, preserves the entire signer and grants no trust. The complete header-number range is constructed; actual header contents, EL indexes and stock metadata stores require adapter refinement.                |
+| Obligation                   | Main current evidence                                                                                 | Boundary                                                                                                                                                                                                                                                                                                                                           |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| H1 recognized funds          | `Custody.trace_invariant`, `funds_authorized`, `landing_edge_authorized`, `path_rooted`               | Full-header paths retain actual reachable accepted calls. Pending/refused starts and inactive archival records are not declared authentic. Genesis, authenticated Unzen and decoded header/hash separation are primitive deployment/crypto boundaries.                                                                                             |
+| Actual overlapping suffix    | `Protocol.accepted_suffix_from_certificate`, `Journal.trace_frontier_record`                          | S-offset grid arithmetic, actual retained frontier lookup and cuts derive the suffix when p<c; the accepted call never receives a semantic chain or suffix as input.                                                                                                                                                                               |
+| H2 same-round accountability | `ProtocolFinality.current_h2`, `protocol_same_round_accountability`, `paid_evidence_future_liability` | More than one third of power; all future issued positive unwithdrawn key bonds, including displaced and historical-generation liability. Actual token transfers and exact receipts commit atomically. Standard token semantics and sufficient future registry balance remain explicit.                                                             |
+| H2 cross-round finality      | `Finality.full_chain_agreement`, `ProtocolFinality.protocol_full_chain_agreement`                     | Within one World/generation from the same full origin header, induction derives common prefixes from each chain's own complete archive and actual slot-snapshot history. Honest local round transitions, strict Byzantine minority, vote attribution and deterministic Comet/EL binding are assumed; chain agreement and context equality are not. |
+| H3 actual FIFO and deadlines | `Journal.trace_invariant`, `landing_service`, `local_due_action`, `local_late_action`                 | Complete end-block snapshots include same-block calls. Selected rules enforce real byte inclusion/skip; current headlines normalize the transaction hash to admission's fixed hash. Strict canonical L1 time supports the inclusive deadline implication.                                                                                          |
+| H3 call/recovery frames      | `nonlanding_never_advances`, `nonrecovery_preserves_existing`, `recovery_queue_exact`                 | Exhaustive current calls, failed-call stutter and node events; only landing advances head, rollback may rewind, and only listed recovery hashes change.                                                                                                                                                                                            |
+| Permanent registry           | `RegistryMachine.trace_stable`, `evidence_stays_slashable`, `RegistryPayments.failure_atomic`         | Closed lifecycle operations replace generic caller-supplied mutation. IDs and keys persist; historical slots and evidence retain meaning.                                                                                                                                                                                                          |
 
-All short theorem names in the table are under `Etna.Design.Current`.
-Supporting results are not promoted into induction-derived general claims. The current
-rule map narrows shared clauses to the exact rule IDs supported by the six properties.
-It reports 4 partial and 562 deferred clauses across the four current documents.
+Short names above are under `Etna.Design.Current` (custody under `Protocol.Custody`).
+The manifest contains 195 current contracts and 1,216 preserved original contracts.
+The current inventory has 24 partial/542 deferred clauses; 54 of 603 binding rule IDs have
+narrow partial evidence. No clause or operational acceptance gate is marked fully proved
+merely because a headline theorem exists.
 
-## Executable evidence
+## Validation and nonempty evidence
 
-`tests/CurrentDesign.lean` exercises timestamp equality, strict rescheduling deadlines,
-stop cancellation (including an unstored sum above the 48-bit field range), rules-number recovery, crossing batches, S-offset grids versus absolute
-epochs, first-generation anchors, bond/slot zero, pending-value admission and tie breaking,
-full-slot displacement, slotless slashing/confirmation/withdrawal, permanent withdrawn
-identity, unissued default storage, origin writes/corrections and import failure priority.
+Current fixtures cover accepted nonempty landings, overlap, corrected Unzen starts,
+first-generation anchors, crossing timestamp rules, deterministic include/skip decisions,
+unknown/unsupported rules, permanent displaced bonds, historic-generation slash receipts,
+structural recovery, rollback, full frontier lookup and signer restart preservation.
+Semantic mutants must compile as model-only changes before unchanged evidence rejects them.
+Exact-headline and mandatory-manifest checks protect the current conjunction separately
+from historical results.
 
-The 23 semantic mutants in `test_current_mutations.py` must first compile silently as
-Model-only sources; unchanged proofs and examples must then fail semantically. Source-pin
-mutations cover all seven independent authorities. Separate tests reject historical proof
-edges in current coverage and claims silently relabelled between authorities.
+Positive finite fixtures are not a complete satisfying model of all global crypto/EL/Comet
+premises. In particular, synthetic accepting verifier/hash adapters demonstrate concrete
+accepted/certified paths, not global verifier soundness or collision resistance. The global
+claims keep those primitive refinements explicit; this update does not infer them from tests.
 
-## Design review outcome
+The final audit passed all 1,411 exact contracts, 325 property derivation chains and
+31 Lean regression modules, with only the standard axioms. All nine current and seven
+historical premise fields are consumed. All 478 Python tests passed in 878.792 seconds,
+including the new current semantic mutants and preserved historical gate/witness suite.
+Source/library lint, fresh historical vectors, all authority pins, deterministic generated
+artifacts, the current rule report and `git diff --check` also passed. All 1,243 previously
+committed contract records remain unchanged; 168 public current theorem contracts were added.
 
-No confirmed new defect was found in the reviewed current design. The independent review
-checked timestamp-schedule visibility, cancellation/promotion, cross-ruleset batches,
-planned-stop/K alignment, displaced-bond liability, authenticated import boundaries and
-the Unzen first-landing fence. Differences from the previous model are corrected or
-explicitly scoped as historical; they are not reported as new protocol defects.
+## Review outcome and limits
 
-Current-spec limitations remain: DAO/validator upgrade availability, governance recovery's
-unsettled suffix loss, operational consensus archive availability, decoder/crypto/EL/Comet
-implementation refinement, and deployment/switch resource measurements. Complete current
-H1–H3 composition has not been established. The full current bond lifecycle, authenticated
-schedule history, and stock import implementation cannot be inferred from these local
-models or from the archived headline proofs.
+No confirmed new defect in the latest Etna design was found. The public H1/H3 statements
+require no committee honesty: the strict-minority/honest-round condition belongs only to
+H2's explicit agreement antecedent, matching the stronger leaf proofs. Same-round accountability also needs no honest minority. Review did find and correct
+model defects: disconnected catalogue/admission hashes; trust before initialization or
+without an authenticated origin; and zero-only initial token state that made positive
+standard-token calls unreachable. Deployment balances/approvals are now explicit inputs,
+and a funded trace exercises actual paid transactions from that initial state.
 
-## Validation on final sources
+The decoded-header separation boundary includes authenticated L1/header/storage expansion
+of the anchor, not merely hashing raw EL bytes. Token environment addresses must be wired
+to the intended deployment; the proof uses those fixed addresses. The node model preserves
+signer state and gates trust but does not prove the stock-store importer or complete
+producer membership/height refinement; H2 names honest-engine and signature attribution
+separately.
 
-All 406 Python tests passed, including the 23 current semantic mutants. Source lint,
-the five-library import graph, `lake build`, all eight historical JSON vector files'
-freshness, deterministic generated artifacts, all seven authority pins and the current
-rule report passed. The exact-type/role/axiom audit and fresh kernel replay passed for
-1,243 theorem contracts; all 22 Lean regression modules replayed without diagnostics.
-The audit recorded 254 property derivation chains. Every original theorem/type pair and
-all seven historical headline premise-field uses remain intact. `git diff --check` passed.
+DAO upgrades, image registration/revocation and verifier versions are interpreted under
+explicit backend soundness. This proves no arbitrary new code safe and no supported image
+combination available. Image-set coverage/launch policy, raw decoder/MPT/KZG/crypto/EL/Comet
+implementation refinement, outage/recovery loss bounds and operational switch rehearsal
+remain external or deferred. No liveness claim or acceptance measurement follows from
+these three conditional safety theorems.
