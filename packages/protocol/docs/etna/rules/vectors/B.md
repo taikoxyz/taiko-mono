@@ -138,6 +138,14 @@
 | 15.d reject | `recoveryNonce` stored in fewer than 256 bits                                                            | violates STOR-B-15 ("uint256")                 |
 | 15.e reject | `recoveryNonce` included in an ordinary anchor witness                                                   | violates STOR-B-15                             |
 
+## STOR-B-15a
+
+| Vector       | Claimed layout or data                                                                                       | Expected                                                      |
+| ------------ | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| 15a.a accept | slot 293 packs `activeRules`, `nextRules`, `rulesTime`, `stopTime`, `stopGrid` and is 0 after initialization | matches                                                       |
+| 15a.b reject | slot 293 is written by a call other than `scheduleRules`, `scheduleStop` or `recover`                        | violates STOR-B-15a                                           |
+| 15a.c reject | the anchor witness omits slot 293                                                                            | violates STOR-B-15a and ENC-A-25a; block invalid (3.4 rule 2) |
+
 ## STOR-B-16
 
 | Vector      | Claimed layout or data                                                                                                                               | Expected           |
@@ -156,11 +164,12 @@
 
 ## STOR-B-18
 
-| Vector      | Claimed layout or data                                        | Expected           |
-| ----------- | ------------------------------------------------------------- | ------------------ |
-| 18.a accept | the only recovery-related Inbox storage is the slot-292 nonce | matches            |
-| 18.b reject | the Inbox stores a recovery queue                             | violates STOR-B-18 |
-| 18.c reject | the Inbox stores a scheduled recovery or a stall timer        | violates STOR-B-18 |
+| Vector      | Claimed layout or data                                        | Expected                                                 |
+| ----------- | ------------------------------------------------------------- | -------------------------------------------------------- |
+| 18.a accept | the only recovery-related Inbox storage is the slot-292 nonce | matches                                                  |
+| 18.b reject | the Inbox stores a recovery queue                             | violates STOR-B-18                                       |
+| 18.c reject | the Inbox stores a scheduled recovery or a stall timer        | violates STOR-B-18                                       |
+| 18.d accept | the Inbox also stores the rules schedule in slot 293          | consistent with STOR-B-18 (separate from recovery, 10.1) |
 
 ## STOR-B-19
 
@@ -198,12 +207,14 @@
 
 ## STOR-B-23
 
-| Vector      | Claimed layout or data                                                                     | Expected           |
-| ----------- | ------------------------------------------------------------------------------------------ | ------------------ |
-| 23.a accept | slot 272: `genesisHeight` in the least-significant 48 bits, `L1_0` next, `L` next          | matches            |
-| 23.b accept | slot 285 word 1: parentHeight c in the least-significant field, then generation, then head | matches            |
-| 23.c reject | slot 272 with `L` in the least-significant 48 bits                                         | violates STOR-B-23 |
-| 23.d reject | slot 285 word 1 with `head` in the least-significant field                                 | violates STOR-B-23 |
+| Vector      | Claimed layout or data                                                                                          | Expected           |
+| ----------- | --------------------------------------------------------------------------------------------------------------- | ------------------ |
+| 23.a accept | slot 272: `genesisHeight` in the least-significant 48 bits, `L1_0` next, `L` next                               | matches            |
+| 23.b accept | slot 285 word 1: parentHeight c in the least-significant field, then generation, then head                      | matches            |
+| 23.c reject | slot 272 with `L` in the least-significant 48 bits                                                              | violates STOR-B-23 |
+| 23.d reject | slot 285 word 1 with `head` in the least-significant field                                                      | violates STOR-B-23 |
+| 23.e accept | slot 293: `activeRules` in the least-significant 48 bits, then `nextRules`, `rulesTime`, `stopTime`, `stopGrid` | matches            |
+| 23.f reject | slot 293 with `stopTime` in the least-significant 48 bits                                                       | violates STOR-B-23 |
 
 ## STOR-B-24
 

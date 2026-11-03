@@ -52,7 +52,7 @@ The Etna block-production and validation rules are in
 | [7. Forced inclusion](SPEC.md#7-forced-inclusion)                                          | Queue admission, singleton builds, legal skipping and protocol fees              |
 | [8. Halts and recovery](SPEC.md#8-halts-and-recovery)                                      | Pauses, safety halts, verifier failure and DAO recovery                          |
 | [9. Sync and weak subjectivity](SPEC.md#9-sync-and-weak-subjectivity)                      | L1 checkpoint trust, guarded signing and consensus-history availability          |
-| [10. Startup and deployment](SPEC.md#10-startup-and-deployment)                            | Genesis, deployment constraints and upgrade boundaries                           |
+| [10. Startup and deployment](SPEC.md#10-startup-and-deployment)                            | Genesis, deployment constraints and protocol upgrades                            |
 | [11. Parameters](SPEC.md#11-parameters)                                                    | Parameter sources, constraints and reference values                              |
 | [12. Known limitations and open items](SPEC.md#12-known-limitations-and-open-items)        | All 20 limitations and open items                                                |
 | [Appendix A: Encodings](SPEC.md#appendix-a-encodings)                                      | Domains, encodings, ABI and reference examples                                   |
@@ -84,15 +84,21 @@ The Etna block-production and validation rules are in
   fixed fraction of remaining entry principal once and force exit; this has an
   expiry and lifetime replay flag, but no forfeiture nonce or revocation entry point.
 - **Recovery:** the owner calls `recover` with the expected generation, c and
-  recovery nonce, an authorization deadline, and atomic exclusion and FI-blanking
-  lists. The Inbox keeps only the authorization nonce, with no recovery queue or
+  recovery nonce, an authorization deadline, atomic exclusion and FI-blanking
+  lists, and an optional ruleset for the new generation. For recovery, the Inbox keeps only the authorization nonce, with no recovery queue or
   stall timer; explicit invalidation and verifier-failure rollback advance it. Exclusions force exits without slashing. The settled prefix stays;
   the unsettled suffix is discarded, and the new generation starts from a fixed,
   authenticated origin. A verifier failure is not handled by `recover`: its
   settlement rollback runs in the same DAO upgrade of the Inbox and registry that
   replaces the verifier.
+- **Upgrades:** rule changes take effect at an L2 timestamp from one Inbox slot
+  that only the DAO writes, at least `maxAnchorAge` ahead, so every later block's
+  anchor shows it. Nodes and guests select each block's ruleset from its anchor
+  and refuse rulesets they do not implement, so the accepted image set stays flat
+  and production does not stop. Structural changes stop at a grid point and
+  restart through `recover`.
 - **Open design and acceptance:** the Unzen switch and bridge wiring (section 12
-  item 9), upgrade activation (item 10), registration admission bounds (item 14)
+  item 9), registration admission bounds (item 14)
   and deployment values for the capital target, reference price and forfeiture rate
   (item 18) remain to be pinned before launch. The value of K and the
   proving capacity behind it (6.3, section 11) are set by the checklist's
