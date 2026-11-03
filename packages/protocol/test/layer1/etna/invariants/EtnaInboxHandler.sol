@@ -341,7 +341,8 @@ contract EtnaInboxHandler is CommonBase {
             attempt.expectedNonce,
             attempt.validUntil,
             attempt.exclusions,
-            attempt.fiToClear
+            attempt.fiToClear,
+            0
         ) {
             if (attempt.expectedError.length != 0) {
                 _violate(Property.Generations, "a recovery the model rejects was accepted");

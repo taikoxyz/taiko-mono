@@ -81,6 +81,8 @@ abstract contract EtnaInboxTestBase is CommonTest, EtnaTestConstants {
     uint256 internal constant RESERVED_SLOT_289 = 289;
     uint256 internal constant ORIGINS_SLOT = 290;
     uint256 internal constant RESERVED_SLOT_291 = 291;
+    uint256 internal constant RECOVERY_NONCE_SLOT = 292;
+    uint256 internal constant RULES_SCHEDULE_SLOT = 293;
 
     // ---------------------------------------------------------------
     // Deployment parameters (the shared ones are in `EtnaTestConstants`)
@@ -247,7 +249,10 @@ abstract contract EtnaInboxTestBase is CommonTest, EtnaTestConstants {
             maxBatchBlocks: MAX_BATCH_BLOCKS,
             forcedInclusionFeeInGwei: FORCED_INCLUSION_FEE_GWEI,
             forcedInclusionFeeDoubleThreshold: FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD,
-            protocolFeeRecipient: PROTOCOL_FEE_RECIPIENT
+            protocolFeeRecipient: PROTOCOL_FEE_RECIPIENT,
+            originWriter: address(0),
+            unzenInbox: address(0),
+            etnaForkTime: 0
         });
     }
 

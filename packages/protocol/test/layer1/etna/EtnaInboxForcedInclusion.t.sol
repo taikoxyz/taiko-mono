@@ -337,14 +337,15 @@ contract EtnaInboxForcedInclusionTest is EtnaInboxTestBase {
         _inbox().saveForcedInclusion{ value: fee }(hex"c1");
     }
 
-    /// @dev `init` relies on every other Inbox slot being zero, so a save while the proxy runs
-    /// `EtnaInbox` but `init` has not run must neither enqueue nor charge.
-    function test_saveForcedInclusion_revertsBeforeInitialization() external {
+    /// @dev The queue opens with the start write (spec 10 step 5b), which a new network's `init`
+    /// performs, so a save while the proxy runs `EtnaInbox` but `init` has not run must neither
+    /// enqueue nor charge.
+    function test_saveForcedInclusion_revertsBeforeStartWrite() external {
         _deployFreshInbox(false);
         EssentialContract(inboxProxy).upgradeTo(address(inboxImpl));
         uint256 fee = _currentFeeWei();
 
-        vm.expectRevert(IEtnaInbox.NotInitialized.selector);
+        vm.expectRevert(IEtnaInbox.StartNotWritten.selector);
         vm.prank(Alice);
         _inbox().saveForcedInclusion{ value: fee }(hex"c0");
         _assertQueueAndBalanceUntouched();
@@ -514,9 +515,10 @@ contract EtnaInboxForcedInclusionTest is EtnaInboxTestBase {
     // ETH rejection
     // ---------------------------------------------------------------
 
-    /// @dev Only `saveForcedInclusion` accepts ETH (spec 7.1). `land`, `recover` and
-    /// `sweepProtocolFees` are nonpayable, so the dispatcher rejects value with empty revert data
-    /// before any modifier or body runs; the implementation has no `receive` or `fallback`.
+    /// @dev Only `saveForcedInclusion` accepts ETH (spec 7.1). `land`, `recover`, `setOrigin`,
+    /// `scheduleRules`, `scheduleStop` and `sweepProtocolFees` are nonpayable, so the dispatcher
+    /// rejects value with empty revert data before any modifier or body runs; the implementation
+    /// has no `receive` or `fallback`.
     /// `upgradeToAndCall` must stay payable as an override, so it checks `msg.value` itself.
     function test_inbox_rejectsEtherOutsideForcedInclusion() external {
         IEtnaInbox.LandInput memory input;
@@ -524,10 +526,13 @@ contract EtnaInboxForcedInclusionTest is EtnaInboxTestBase {
         _assertRejectsEther(
             abi.encodeCall(
                 IEtnaInbox.recover,
-                (0, 0, 0, type(uint256).max, new IEtnaInbox.Exclusion[](0), new uint256[](0))
+                (0, 0, 0, type(uint256).max, new IEtnaInbox.Exclusion[](0), new uint256[](0), 0)
             ),
             "recover"
         );
+        _assertRejectsEther(abi.encodeCall(IEtnaInbox.setOrigin, (1, bytes32(0), 0)), "setOrigin");
+        _assertRejectsEther(abi.encodeCall(IEtnaInbox.scheduleRules, (1, 0)), "scheduleRules");
+        _assertRejectsEther(abi.encodeCall(IEtnaInbox.scheduleStop, (0, 0)), "scheduleStop");
         _assertRejectsEther(abi.encodeCall(IEtnaInbox.sweepProtocolFees, ()), "sweep");
         _assertRejectsEther("", "plain transfer");
         _assertRejectsEther(hex"deadbeef", "unknown selector");

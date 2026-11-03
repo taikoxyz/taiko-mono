@@ -3,16 +3,17 @@
 Etna is a proof-of-stake validity rollup. A committee of TAIKO stakers orders and finalizes L2
 blocks with stock CometBFT, anyone can land a proven batch on L1, and L1 recognizes only landed
 checkpoints. These are its L1 contracts. Section numbers refer to the
-[Etna PoS + ZK design specification](../../../docs/etna-pos-zk/README.md); appendix A is its
+[Etna PoS + ZK design specification](../../../docs/etna/SPEC.md); appendix A is its
 encodings and appendix B its L1 storage layout.
 
 ## Contracts
 
-- `iface/IEtnaInbox.sol`, `impl/EtnaInbox.sol`: genesis `init` (spec 10 step 5), `land` (6.1),
-  the forced inclusion queue and the protocol fee sweep (7.1), governance `recover` (8, 8.3, 8.4)
-  and Inbox slots 258–292 (appendix B).
+- `iface/IEtnaInbox.sol`, `impl/EtnaInbox.sol`: `init` and the Etna start write (spec 10 steps
+  5-5b), `land` (6.1), the forced inclusion queue and the protocol fee sweep (7.1), governance
+  `recover` (8, 8.3, 8.4), the rules schedule (10.1) and Inbox slots 258–293 (appendix B).
 - `impl/EtnaInboxBootstrap.sol`: the Inbox proxy's first implementation; it only sets the owner,
-  so the proxy address exists before the registry that fixes it (10 step 1).
+  so the proxy address exists before the registry that fixes it (10 step 1), and reports no
+  Etna start, so the L1 SignalService can read it at any time.
 - `iface/IEtnaStakingRegistry.sol`, `impl/EtnaStakingRegistry.sol`: registration, exits,
   withdrawals, double-sign slashing, recovery's forced exits and per-block checkpoints (4.1).
 - `libs/LibEntriesTree.sol`: `regLeaf` and `entriesRoot` (appendix A) as an incremental Merkle
@@ -25,37 +26,60 @@ encodings and appendix B its L1 storage layout.
 
 ## EtnaInbox
 
+- The Etna start S is block 0 on a new network and the last Unzen block on a network that switches
+  from Unzen ([SWITCH.md](../../../docs/etna/SWITCH.md)). The immutables `originWriter`,
+  `unzenInbox` and `etnaForkTime` are all zero on a new network and all non-zero on a switching
+  one; the constructor rejects a mix and an Unzen Inbox without code.
 - `init`: owner only, sent through `upgradeToAndCall` from the bootstrap implementation. It checks
   every spec 10 deployment constraint it can see, checks that the registry's fixed Inbox is this
-  proxy and that both use the same L2 chain id, writes the appendix B initial values and saves
-  the block-0 SignalService checkpoint.
-- `land(input, leaves, proof)`: the spec 6.1 reference Solidity, check for check. Before `init`
-  no landing passes, because `landings[0]` is unwritten. With K = 6, p, c and h are grid points;
-  `leaves` are the cut leaves at the grid points inside (p, h), and if c > p the leaf at c is
-  compared with c's slot 285 record before the immutable verifier checks the 21-word statement
-  with `verifyProof(0, statement, proof)` (0: no proposal age applies).
+  proxy and that both use the same L2 chain id, and writes the appendix B initial values. On a
+  new network it also performs the start write with S = 0 and the genesis hash and state root and
+  saves the block-0 SignalService checkpoint; on a switching network both must be zero and it
+  writes no start.
+- `setOrigin(S, hash, stateRoot)`: the originWriter's start write on a switching network, once,
+  from `etnaForkTime` on, with 0 < S < 2^48 and a non-zero hash and state root. It writes slots
+  272–274 (L1_0 = its own block), generation 0's origin, the checkpoint (S, hash) and S's landing
+  record, emits `StartWritten` and opens the forced inclusion queue. It writes no SignalService
+  checkpoint: the one at S is the Unzen Inbox's.
+- `etnaStart()`: (S, start hash), or (0, 0) before the start write; never reverts. The L1
+  SignalService reads it to reject Unzen Inbox checkpoints above S.
+- `land(input, leaves, proof)`: the spec 6.1 reference Solidity, check for check. Before the start
+  write no landing passes, because `landings[0]` is unwritten. With K = 6, p, c and h are grid
+  points counted from S; `leaves` are the cut leaves at the grid points inside (p, h), and if c > p
+  the leaf at c is compared with c's slot 285 record before the immutable verifier checks the
+  21-word statement with `verifyProof(0, statement, proof)` (0: no proposal age applies). On a
+  switching network, while c is S, the landing first requires that the Unzen Inbox has finalized
+  every proposal up to the start's hash and that the SignalService checkpoint at S holds that hash
+  and the start's state root.
   The landing then moves the checkpoint, `activeCommitteeSnapshot` and the queue head, writes
   `landings[h]` with the actual parent c, saves the SignalService checkpoint and emits `Landed`.
   It pays nothing to anyone.
-- `saveForcedInclusion(tx)`: at most 8,192 bytes, for `fee × (threshold + pending) / threshold`
+- `saveForcedInclusion(tx)`: after the start write, at most 8,192 bytes, for `fee × (threshold + pending) / threshold`
   Gwei, which stays in the Inbox; overpayment is refunded. An entry stores only the transaction
   hash, the L1 timestamp and the L1 block.
 - `sweepProtocolFees()`: anyone sends the Inbox's whole balance to the immutable
   `protocolFeeRecipient`, the DAO treasury.
-- `recover(expectedGeneration, expectedC, expectedRecoveryNonce, validUntil, exclusions, fiToClear)`:
-  owner only after initialization, with all expected values matching current state and
-  `block.timestamp <= validUntil`. Recovery increments the uint256 authorization nonce. With
-  R = `block.number`, each excluded entry's exit moves to min(existing, R) in the registry, each
-  listed queue entry's hash becomes `keccak256("")`, the generation increments and its origin
-  (c, R's number, R's timestamp) is written once to slot 290. The checkpoint, its record, the
-  queue head and `activeCommitteeSnapshot` are kept.
+- `recover(expectedGeneration, expectedC, expectedRecoveryNonce, validUntil, exclusions, fiToClear,
+  rules)`: owner only after the start write, with all expected values matching current state,
+  expectedC − S a multiple of K, `block.timestamp <= validUntil` and a non-zero `rules` equal to
+  `nextRules + 1`. Recovery increments the uint256 authorization nonce. With R = `block.number`,
+  each excluded entry's exit moves to min(existing, R) in the registry, each listed queue entry's
+  hash becomes `keccak256("")`, the generation increments and its origin (c, R's number, R's
+  timestamp) is written once to slot 290. It then clears the planned stop and, for a non-zero
+  `rules`, sets `activeRules = nextRules = rules` and `rulesTime = 0`. The checkpoint, its record,
+  the queue head and `activeCommitteeSnapshot` are kept.
+- `scheduleRules(rules, time)` and `scheduleStop(time, grid)`: owner only after initialization;
+  they write the rules schedule in slot 293 exactly as spec 10.1 steps 5a-5c, with `maxAnchorAge`
+  as the deadline. A due `nextRules` is promoted first; a failed call keeps nothing. `recover`
+  and both calls emit `RulesScheduleUpdated` with the new slot 293 word.
 - `invalidateRecoveryNonce(expectedRecoveryNonce)`: owner only after initialization; checks and
   increments the nonce without wrapping, invalidating all unexecuted authorizations carrying it.
   Landing does not consume the nonce. A future verifier-failure rollback upgrade must preserve
   and increment its current value, so restoring an old checkpoint cannot revive authorization.
 
-`land`, `recover`, `invalidateRecoveryNonce`, `saveForcedInclusion` and `sweepProtocolFees`
-share one reentrancy lock and reject callbacks from registry mutations.
+`land`, `recover`, `invalidateRecoveryNonce`, `setOrigin`, `scheduleRules`, `scheduleStop`,
+`saveForcedInclusion` and `sweepProtocolFees` share one reentrancy lock and reject callbacks from
+registry mutations.
 Pause affects none of these entry points, nor the registry's (spec 1 requires this for `land`,
 `saveForcedInclusion` and the registry). Only `saveForcedInclusion` accepts ETH;
 `upgradeToAndCall` rejects it too.
@@ -119,7 +143,7 @@ Pause affects none of these entry points, nor the registry's (spec 1 requires th
 
 ## Storage
 
-- Inbox: appendix B exactly. The named slots are 258, 268–274, 278–282, 284, 285, 290 and 292;
+- Inbox: appendix B exactly. The named slots are 258, 268–274, 278–282, 284, 285, 290, 292 and 293;
   reserved slots 283, 286–289 and 291 are never read or written, and slots 251–257, 259–267 and
   275–277 are unused padding.
 - Registry: the ERC-7201 namespace `taiko.etna.registry` with base R holds `checkpoints` at R
@@ -138,9 +162,10 @@ Pause affects none of these entry points, nor the registry's (spec 1 requires th
 
 ## Deployment
 
-`script/layer1/etna/DeployEtnaDevnet.s.sol` deploys in the owner-initialized order (the Inbox
-proxy on its bootstrap, the registry, then the owner's `upgradeToAndCall` with `init`); its
-NatSpec lists every environment variable. Run from `packages/protocol`:
+`script/layer1/etna/DeployEtnaDevnet.s.sol` deploys a new network in the owner-initialized order
+(the Inbox proxy on its bootstrap, the registry, then the owner's `upgradeToAndCall` with `init`),
+with zero `originWriter`, `unzenInbox` and `etnaForkTime`; its NatSpec lists every environment
+variable. Run from `packages/protocol`:
 
 ```bash
 export FOUNDRY_PROFILE=layer1 S=script/layer1/etna/DeployEtnaDevnet.s.sol:DeployEtnaDevnet
@@ -191,8 +216,9 @@ python3 -m unittest discover -s ../../testdata/etna_vectors -p 'test_vectors.py'
 ## Out of scope
 
 - The verifier-failure rollback (spec 8); it comes with the Inbox upgrade replacing the verifier.
-- The switch from Unzen to Etna (spec 12 item 9); these contracts start a new chain at L2 block 0.
-- The protocol upgrade activation mechanism (spec 10.1, 12 item 10).
+- The rest of the switch from Unzen: the start rewrite of spec 10 step 5c, which ships with the
+  correcting Inbox upgrade, the L1 SignalService upgrade that accepts both Inboxes and rejects
+  Unzen Inbox checkpoints above S, and the Unzen Inbox cutoffs (10 step 5d).
 - Real proving guests. Tests use mock verifiers, so they show contract behaviour, not proof
   soundness; production needs a verifier that requires two proofs, at least one ZK (6.2).
 

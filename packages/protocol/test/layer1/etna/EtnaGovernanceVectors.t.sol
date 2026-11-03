@@ -44,7 +44,7 @@ contract EtnaGovernanceVectorsTest is EtnaStakingRegistryTestBase {
             j,
             "recover",
             IEtnaInbox.recover.selector,
-            abi.encodeCall(IEtnaInbox.recover, (2, 12, 7, 1_700_000_123, exclusions, blanks))
+            abi.encodeCall(IEtnaInbox.recover, (2, 12, 7, 1_700_000_123, exclusions, blanks, 0))
         );
         _assertAbi(
             j,

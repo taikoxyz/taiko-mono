@@ -384,6 +384,10 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
             "fee threshold"
         );
         assertEq(_inbox.protocolFeeRecipient(), PROTOCOL_FEE_RECIPIENT, "protocol fee recipient");
+        // A new network: no switch from Unzen.
+        assertEq(_inbox.originWriter(), address(0), "no origin writer");
+        assertEq(_inbox.unzenInbox(), address(0), "no Unzen Inbox");
+        assertEq(_inbox.etnaForkTime(), 0, "no fork time");
     }
 
     /// @dev Checks the initialized genesis state against the environment, with the committee
@@ -397,6 +401,7 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         view
     {
         IEtnaInbox.GenesisRecord memory record = _inbox.genesis();
+        assertEq(record.genesisHeight, 0, "the start is block 0");
         assertEq(record.l1Block, block.number, "L1_0");
         assertEq(record.epochLenL2, EPOCH_LEN_L2, "epoch length");
         assertEq(record.genesisBlockHash, GENESIS_BLOCK_HASH, "genesis hash");

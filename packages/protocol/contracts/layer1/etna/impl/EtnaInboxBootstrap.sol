@@ -8,8 +8,8 @@ import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 /// address exists before the registry that fixes it (spec 10 step 1).
 /// @dev The owner later upgrades the proxy to `EtnaInbox` and calls its `init` in the same
 /// transaction. Until then the proxy reports itself uninitialized, which keeps the registry's
-/// exit confirmation and slashing closed. The storage is `EssentialContract`'s alone, so the
-/// Inbox slots stay zero.
+/// exit confirmation and slashing closed, and reports no Etna start, so the L1 SignalService can
+/// read it at any time. The storage is `EssentialContract`'s alone, so the Inbox slots stay zero.
 /// @custom:security-contact security@taiko.xyz
 contract EtnaInboxBootstrap is EssentialContract {
     /// @notice Sets the owner of the proxy.
@@ -23,4 +23,9 @@ contract EtnaInboxBootstrap is EssentialContract {
     function isInitialized() external pure returns (bool) {
         return false;
     }
+
+    /// @notice Returns the Etna start; always unwritten here.
+    /// @return height_ Zero.
+    /// @return blockHash_ Zero.
+    function etnaStart() external pure returns (uint48 height_, bytes32 blockHash_) { }
 }

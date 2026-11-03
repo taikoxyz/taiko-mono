@@ -39,6 +39,37 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
             "fee threshold"
         );
         assertEq(impl.protocolFeeRecipient(), PROTOCOL_FEE_RECIPIENT, "protocol fee recipient");
+        assertEq(impl.originWriter(), address(0), "new network: no origin writer");
+        assertEq(impl.unzenInbox(), address(0), "new network: no Unzen Inbox");
+        assertEq(impl.etnaForkTime(), 0, "new network: no fork time");
+    }
+
+    /// @dev PARAM-11-12a: the three switching immutables are all zero (a new network) or all
+    /// non-zero (a switching network), and the Unzen Inbox must have code.
+    function test_constructor_RevertWhen_SwitchConfigIsMixed() external {
+        address unzen = address(registry); // any contract
+        IEtnaInbox.Config memory cfg = _defaultConfig();
+        (cfg.originWriter, cfg.unzenInbox, cfg.etnaForkTime) = (Carol, unzen, 1);
+        EtnaInbox impl = _newInboxImpl(cfg);
+        assertEq(impl.originWriter(), Carol, "origin writer");
+        assertEq(impl.unzenInbox(), unzen, "Unzen Inbox");
+        assertEq(impl.etnaForkTime(), 1, "fork time");
+
+        cfg.originWriter = address(0);
+        vm.expectRevert(IEtnaInbox.InvalidSwitchConfig.selector);
+        _newInboxImpl(cfg);
+
+        (cfg.originWriter, cfg.etnaForkTime) = (Carol, 0);
+        vm.expectRevert(IEtnaInbox.InvalidSwitchConfig.selector);
+        _newInboxImpl(cfg);
+
+        (cfg.etnaForkTime, cfg.unzenInbox) = (1, address(0));
+        vm.expectRevert(IEtnaInbox.InvalidSwitchConfig.selector);
+        _newInboxImpl(cfg);
+
+        cfg.unzenInbox = address(0x1234); // no code
+        vm.expectRevert(IEtnaInbox.InvalidSwitchConfig.selector);
+        _newInboxImpl(cfg);
     }
 
     function test_constructor_RevertWhen_AddressIsZero() external {
@@ -128,6 +159,10 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
     function test_bootstrap_SetsOwnerAndReportsUninitialized() external view {
         assertEq(EssentialContract(inboxProxy).owner(), address(this), "owner");
         assertFalse(IEtnaInbox(inboxProxy).isInitialized(), "uninitialized");
+        // START-10-5: the SignalService may read the start before the upgrade to `EtnaInbox`.
+        (uint48 startHeight, bytes32 startHash) = IEtnaInbox(inboxProxy).etnaStart();
+        assertEq(startHeight, 0, "no start height");
+        assertEq(startHash, 0, "no start hash");
         assertEq(
             uint256(vm.load(inboxProxy, bytes32(INITIALIZATION_STATUS_SLOT))),
             0,
@@ -167,15 +202,9 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         );
 
         vm.expectEmit(inboxProxy);
-        emit IEtnaInbox.EtnaInitialized(
-            GENESIS_BLOCK_HASH,
-            GENESIS_STATE_ROOT,
-            l1Block,
-            10,
-            cutoff,
-            COMMITTEE_RECORD_HASH,
-            configHash
-        );
+        emit IEtnaInbox.EtnaInitialized(10, cutoff, COMMITTEE_RECORD_HASH, configHash);
+        vm.expectEmit(inboxProxy);
+        emit IEtnaInbox.StartWritten(0, GENESIS_BLOCK_HASH, GENESIS_STATE_ROOT);
         _upgradeAndInit(inboxImpl, _defaultInitParams());
 
         assertEq(_load(INITIALIZATION_STATUS_SLOT), 3, "258");
@@ -191,7 +220,8 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         assertEq(_load(FORCED_INCLUSION_HEAD_TAIL_SLOT), 0, "281");
         assertEq(_load(FORCED_INCLUSION_CONFIG_SLOT), 3600 | 7200 << 48, "282");
         assertEq(_load(ACTIVE_COMMITTEE_SNAPSHOT_SLOT), cutoff, "284");
-        // Every other slot from 251 on stays zero, the reserved ones included.
+        // Every other slot from 251 on stays zero, the reserved ones and the rules schedule
+        // (slot 293) included.
         for (uint256 slot = 251; slot < 301; ++slot) {
             if (slot == INITIALIZATION_STATUS_SLOT || slot == COMMITTEE_CONFIG_HASH_SLOT) continue;
             if (slot >= LAST_CHECKPOINT_HASH_SLOT && slot <= GENESIS_STATE_ROOT_SLOT) continue;
@@ -220,6 +250,12 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         assertEq(inbox.generationStartHeight(), 0, "generationStartHeight");
         assertEq(inbox.recoverySnapshot(), l1Block, "recoverySnapshot");
         assertTrue(inbox.isInitialized(), "isInitialized");
+        (uint48 startHeight, bytes32 startHash) = inbox.etnaStart();
+        assertEq(startHeight, 0, "etnaStart height");
+        assertEq(startHash, GENESIS_BLOCK_HASH, "etnaStart hash");
+        IEtnaInbox.RulesSchedule memory schedule = inbox.rulesSchedule();
+        assertEq(schedule.activeRules | schedule.nextRules | schedule.rulesTime, 0, "rules 0");
+        assertEq(schedule.stopTime | schedule.stopGrid, 0, "no stop");
 
         ICheckpointStore.Checkpoint memory checkpoint = signalService.getCheckpoint(0);
         assertEq(checkpoint.blockNumber, 0, "checkpoint number");

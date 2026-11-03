@@ -14,7 +14,10 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 
 /// @title DeployEtnaDevnet
 /// @notice Deploys a new Etna chain starting from L2 block 0 in the owner-initialized order (spec
-/// 10 steps 1 and 5), so the Inbox proxy address exists before the registry that fixes it:
+/// 10 steps 1 and 5), so the Inbox proxy address exists before the registry that fixes it. It
+/// supports only a new network: the Inbox's originWriter, Unzen Inbox and fork time are zero, so
+/// `init` writes the Etna start at block 0 itself; a switch from Unzen (SWITCH.md) is out of
+/// scope. The steps:
 /// 1. `deployInboxProxy()`: the Inbox proxy on `EtnaInboxBootstrap`, which only sets the owner.
 ///    Export the proxy as INBOX_PROXY.
 /// 2. `deployRegistry()`: the staking registry with INBOX_PROXY fixed as its Inbox. Export it as
@@ -192,7 +195,8 @@ contract DeployEtnaDevnet is Script {
     }
 
     /// @dev Reads the Inbox implementation's configuration; the SignalService is set once
-    /// deployed.
+    /// deployed. A new network has no originWriter, Unzen Inbox or fork time, so all three are
+    /// zero and `init` writes the start at block 0.
     /// @return The Inbox configuration.
     function _inboxConfig() private view returns (IEtnaInbox.Config memory) {
         return IEtnaInbox.Config({
@@ -203,7 +207,10 @@ contract DeployEtnaDevnet is Script {
             maxBatchBlocks: _envUint64("MAX_BATCH_BLOCKS"),
             forcedInclusionFeeInGwei: _envUint64("FORCED_INCLUSION_FEE_GWEI"),
             forcedInclusionFeeDoubleThreshold: _envUint64("FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD"),
-            protocolFeeRecipient: vm.envAddress("PROTOCOL_FEE_RECIPIENT")
+            protocolFeeRecipient: vm.envAddress("PROTOCOL_FEE_RECIPIENT"),
+            originWriter: address(0),
+            unzenInbox: address(0),
+            etnaForkTime: 0
         });
     }
 

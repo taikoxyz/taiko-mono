@@ -566,7 +566,8 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
                 uint256(vm.load(inboxProxy, bytes32(uint256(292)))),
                 type(uint256).max,
                 _exclusions,
-                new uint256[](0)
+                new uint256[](0),
+                0
             );
         assertEq(_inbox().recoveryGeneration(), _generation + 1, "next generation");
     }

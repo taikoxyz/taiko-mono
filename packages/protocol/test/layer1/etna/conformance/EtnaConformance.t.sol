@@ -775,7 +775,10 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
                 maxBatchBlocks: uint64(_d.maxBatchBlocks),
                 forcedInclusionFeeInGwei: uint64(_d.feeGwei),
                 forcedInclusionFeeDoubleThreshold: uint64(_d.threshold),
-                protocolFeeRecipient: recipient
+                protocolFeeRecipient: recipient,
+                originWriter: address(0),
+                unzenInbox: address(0),
+                etnaForkTime: 0
             })
         );
         if (_d.initialized) {
@@ -991,7 +994,8 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
                 w[1],
                 w[2],
                 _exclusions(_j, string.concat(_a, ".exclusions")),
-                vm.parseJsonUintArray(_j, string.concat(_a, ".fiToClear"))
+                vm.parseJsonUintArray(_j, string.concat(_a, ".fiToClear")),
+                uint48(0)
             )
         );
         if (!_bool(_j, _a, ".owner")) vm.prank(_account(_STRANGER));

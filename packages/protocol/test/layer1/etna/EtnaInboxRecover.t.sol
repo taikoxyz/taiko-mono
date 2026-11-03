@@ -118,7 +118,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
     /// @dev Lean `recovery_preserves_settled_prefix`: with an exclusion and a blanking, recovery
     /// keeps the checkpoint, every landing record, the queue pointers, the snapshot, the
     /// SignalService checkpoints, the genesis words and the Inbox's ETH. The only Inbox slots it
-    /// writes are 268, origins(1) and the blanked entry's txHash.
+    /// writes are 268, the nonce, origins(1), the blanked entry's txHash and the rules schedule.
     function test_recover_PreservesSettledState() external {
         _land(0, 6);
         _land(6, 12);
@@ -148,15 +148,16 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
                 if (s.account != inboxProxy || !s.isWrite || s.reverted) continue;
                 uint256 slot = uint256(s.slot);
                 assertTrue(
-                    slot == RECOVERY_GENERATION_SLOT || slot == 292 || slot == _originSlot(1)
-                        || slot == _originSlot(1) + 1 || slot == _originSlot(1) + 2
-                        || slot == _queueSlot(2),
+                    slot == RECOVERY_GENERATION_SLOT || slot == RECOVERY_NONCE_SLOT
+                        || slot == _originSlot(1) || slot == _originSlot(1) + 1
+                        || slot == _originSlot(1) + 2 || slot == _queueSlot(2)
+                        || slot == RULES_SCHEDULE_SLOT,
                     string.concat("unexpected Inbox write to slot ", vm.toString(s.slot))
                 );
                 ++writes;
             }
         }
-        assertEq(writes, 6, "six Inbox writes including recovery nonce");
+        assertEq(writes, 7, "seven Inbox writes including the nonce and the rules schedule");
     }
 
     /// @dev Lean `exclusion_and_fi_clear_atomic`: excluding Bob and blanking entry 0 in one call.
@@ -276,6 +277,16 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
 
         _recover(0, 6, none, noIndices);
         _assertOrigin(1, 6, _LEAN_R, _LEAN_R_TIMESTAMP);
+    }
+
+    /// @dev RECOV-8.3-3a: expectedC - S must be a multiple of K. `land` keeps every checkpoint on
+    /// the grid, so an off-grid c only arises from a structural upgrade that changes K; the test
+    /// plants one in slot 270. The grid is checked before the lists.
+    function test_recover_RevertWhen_CheckpointOffGrid() external {
+        _storeInboxWord(LAST_CHECKPOINT_HEIGHT_SLOT, bytes32(uint256(4)));
+        _expectRecoverRevert(
+            0, 4, _unsortedExclusions(), _indices(2, 1), IEtnaInbox.CheckpointOffGrid.selector
+        );
     }
 
     /// @dev Lean `repeated_recovery_at_same_c_needs_new_generation`: replaying an executed
@@ -473,20 +484,22 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
             .recover(
                 0,
                 0,
-                uint256(vm.load(inboxProxy, bytes32(uint256(292)))),
+                uint256(_inboxWord(RECOVERY_NONCE_SLOT)),
                 type(uint256).max,
                 _noExclusions(),
-                _noIndices()
+                _noIndices(),
+                0
             );
         vm.expectRevert(IEtnaInbox.NotInitialized.selector);
         _inbox()
             .recover(
                 0,
                 0,
-                uint256(vm.load(inboxProxy, bytes32(uint256(292)))),
+                uint256(_inboxWord(RECOVERY_NONCE_SLOT)),
                 type(uint256).max,
                 _exclusions(0, VALIDATOR_PK),
-                _indices(0)
+                _indices(0),
+                0
             );
 
         for (uint256 slot = 251; slot < 301; ++slot) {
@@ -519,7 +532,8 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
             .lockedCall(
                 inboxProxy,
                 abi.encodeCall(
-                    IEtnaInbox.recover, (0, 0, 0, type(uint256).max, _noExclusions(), _noIndices())
+                    IEtnaInbox.recover,
+                    (0, 0, 0, type(uint256).max, _noExclusions(), _noIndices(), 0)
                 )
             );
         assertFalse(ok, "recover under the lock");
@@ -555,7 +569,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         probe.setReentryCalls(
             abi.encodeCall(IEtnaInbox.land, (_input(0, 6), new bytes32[](0), PROOF)),
             abi.encodeCall(
-                IEtnaInbox.recover, (0, 0, 0, type(uint256).max, _noExclusions(), _noIndices())
+                IEtnaInbox.recover, (0, 0, 0, type(uint256).max, _noExclusions(), _noIndices(), 0)
             )
         );
 
@@ -586,10 +600,11 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
             .recover(
                 0,
                 0,
-                uint256(vm.load(inboxProxy, bytes32(uint256(292)))),
+                uint256(_inboxWord(RECOVERY_NONCE_SLOT)),
                 type(uint256).max,
                 everyone,
-                _indices(0)
+                _indices(0),
+                0
             );
         VmSafe.AccountAccess[] memory accesses = vm.stopAndReturnStateDiff();
 
@@ -802,10 +817,11 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
             .recover(
                 _generation,
                 _c,
-                uint256(vm.load(inboxProxy, bytes32(uint256(292)))),
+                uint256(_inboxWord(RECOVERY_NONCE_SLOT)),
                 type(uint256).max,
                 _exclusionList,
-                _fiToClear
+                _fiToClear,
+                0
             );
     }
 
@@ -830,8 +846,9 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
     }
 
     /// @dev Expects `_caller`'s recovery to revert with `_revertData`, leaving the generation,
-    /// checkpoint, queue, snapshot, the current and next origins, the checkpoint's record, every
-    /// queue entry's txHash and every registry exit and checkpoint unchanged.
+    /// nonce, rules schedule, checkpoint, queue, snapshot, the current and next origins, the
+    /// checkpoint's record, every queue entry's txHash and every registry exit and checkpoint
+    /// unchanged.
     function _expectRecoverRevert(
         address _caller,
         uint48 _generation,
@@ -849,10 +866,11 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
             .recover(
                 _generation,
                 _c,
-                uint256(vm.load(inboxProxy, bytes32(uint256(292)))),
+                uint256(_inboxWord(RECOVERY_NONCE_SLOT)),
                 type(uint256).max,
                 _exclusionList,
-                _fiToClear
+                _fiToClear,
+                0
             );
         bytes32[] memory afterRevert = _recoveryState();
         assertEq(afterRevert.length, before.length, "state shape");
@@ -867,10 +885,11 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         uint256 c = _inbox().lastCheckpoint().height;
         (, uint48 tail) = _inbox().getForcedInclusionState();
         uint256 bonds = registry.entryCount();
-        words_ = new bytes32[](17 + tail + bonds);
+        words_ = new bytes32[](18 + tail + bonds);
         uint256 n;
         words_[n++] = _inboxWord(RECOVERY_GENERATION_SLOT);
-        words_[n++] = _inboxWord(292);
+        words_[n++] = _inboxWord(RECOVERY_NONCE_SLOT);
+        words_[n++] = _inboxWord(RULES_SCHEDULE_SLOT);
         words_[n++] = _inboxWord(LAST_CHECKPOINT_HEIGHT_SLOT);
         words_[n++] = _inboxWord(LAST_CHECKPOINT_HASH_SLOT);
         words_[n++] = _inboxWord(FORCED_INCLUSION_HEAD_TAIL_SLOT);

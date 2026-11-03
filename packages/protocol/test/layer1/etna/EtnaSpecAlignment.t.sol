@@ -31,7 +31,8 @@ interface IEtnaInboxAlignment {
         uint256 _nonce,
         uint256 _validUntil,
         IEtnaInbox.Exclusion[] calldata _exclusions,
-        uint256[] calldata _fiToClear
+        uint256[] calldata _fiToClear,
+        uint48 _rules
     )
         external;
     function invalidateRecoveryNonce(uint256 _nonce) external;
@@ -74,7 +75,7 @@ contract EtnaRegistrySpecAlignmentTest is EtnaStakingRegistryTestBase {
 contract EtnaInboxSpecAlignmentTest is EtnaInboxTestBase {
     function test_recover_RequiresNewSelectorAndConsumesNonce() external {
         IEtnaInboxAlignment target = IEtnaInboxAlignment(inboxProxy);
-        target.recover(0, 0, 0, block.timestamp, new IEtnaInbox.Exclusion[](0), new uint256[](0));
+        target.recover(0, 0, 0, block.timestamp, new IEtnaInbox.Exclusion[](0), new uint256[](0), 0);
         assertEq(target.recoveryNonce(), 1, "successful recovery consumes nonce");
         assertEq(
             uint256(uint48(uint256(vm.load(inboxProxy, bytes32(uint256(268)))))), 1, "generation"

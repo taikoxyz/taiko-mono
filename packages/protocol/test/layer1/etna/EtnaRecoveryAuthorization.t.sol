@@ -131,14 +131,14 @@ contract EtnaRecoveryAuthorizationTest is EtnaLandTestBase {
         blanks[0] = 0;
         bytes32 txHash = _inbox().getForcedInclusion(0).txHash;
         vm.expectRevert(IEtnaStakingRegistry.UnknownBond.selector);
-        _inbox().recover(0, 0, 0, block.timestamp, exclusions, blanks);
+        _inbox().recover(0, 0, 0, block.timestamp, exclusions, blanks, 0);
         assertEq(_inbox().recoveryNonce(), 0);
         assertEq(_inbox().recoveryGeneration(), 0);
         assertEq(registry.entryAt(0).exitEffectiveL1, type(uint48).max);
         assertEq(_inbox().getForcedInclusion(0).txHash, txHash);
         exclusions = new IEtnaInbox.Exclusion[](1);
         exclusions[0] = IEtnaInbox.Exclusion(0, _entryKey(0));
-        _inbox().recover(0, 0, 0, block.timestamp, exclusions, blanks);
+        _inbox().recover(0, 0, 0, block.timestamp, exclusions, blanks, 0);
         assertEq(_inbox().recoveryNonce(), 1);
         assertEq(registry.entryAt(0).effStake, MIN_STAKE, "exclusion is not a deduction");
     }
@@ -165,7 +165,7 @@ contract EtnaRecoveryAuthorizationTest is EtnaLandTestBase {
         (uint256 pendingBefore, uint48 readyBefore) = registry.topUpOf(0);
         IEtnaInbox.Exclusion[] memory exclusions = new IEtnaInbox.Exclusion[](1);
         exclusions[0] = IEtnaInbox.Exclusion(0, _entryKey(0));
-        _inbox().recover(0, 0, 0, block.timestamp, exclusions, new uint256[](0));
+        _inbox().recover(0, 0, 0, block.timestamp, exclusions, new uint256[](0), 0);
         (uint256 pendingAfter, uint48 readyAfter) = registry.topUpOf(0);
         assertEq(pendingAfter, pendingBefore, "recovery preserves pending principal");
         assertEq(readyAfter, readyBefore, "recovery preserves readiness");
@@ -272,7 +272,7 @@ contract EtnaRecoveryAuthorizationTest is EtnaLandTestBase {
         bytes[] memory attacks = new bytes[](3);
         attacks[0] = abi.encodeCall(
             IEtnaInbox.recover,
-            (0, 0, 0, block.timestamp, new IEtnaInbox.Exclusion[](0), new uint256[](0))
+            (0, 0, 0, block.timestamp, new IEtnaInbox.Exclusion[](0), new uint256[](0), 0)
         );
         attacks[1] = abi.encodeCall(IEtnaInbox.invalidateRecoveryNonce, (0));
         attacks[2] = abi.encodeCall(IEtnaInbox.land, (_input(0, 6), new bytes32[](0), PROOF));
@@ -303,7 +303,13 @@ contract EtnaRecoveryAuthorizationTest is EtnaLandTestBase {
     function _recover(uint48 _generation, uint256 _c, uint256 _nonce, uint256 _deadline) private {
         _inbox()
             .recover(
-                _generation, _c, _nonce, _deadline, new IEtnaInbox.Exclusion[](0), new uint256[](0)
+                _generation,
+                _c,
+                _nonce,
+                _deadline,
+                new IEtnaInbox.Exclusion[](0),
+                new uint256[](0),
+                0
             );
     }
 
