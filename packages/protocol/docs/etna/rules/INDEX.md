@@ -480,7 +480,7 @@
 | START-10.1-6   | rule       | Registering a new image alone is not a protocol upgrade                                                                                        | 10.1    | [10.1](vectors/10.1.md#start-101-6)   |
 | START-10.1-6a  | rule       | Each image implements a declared ruleset set and proves no block outside it                                                                    | 10.1    | [10.1](vectors/10.1.md#start-101-6a)  |
 | START-10.1-6b  | rule       | The accepted image set stays flat; no removal when a ruleset an image lacks takes effect                                                       | 10.1    | [10.1](vectors/10.1.md#start-101-6b)  |
-| START-10.1-6c  | rule       | Always one accepted combination for activeRules, unsettled rulesets and a pending nextRules                                                    | 10.1    | [10.1](vectors/10.1.md#start-101-6c)  |
+| START-10.1-6c  | rule       | Always one accepted combination for every ruleset applying after the latest checkpoint block's timestamp                                       | 10.1    | [10.1](vectors/10.1.md#start-101-6c)  |
 | START-10.1-7   | retired    | Coordinate signers to stop above H while retaining all HRS state                                                                               | 10.1    | —                                     |
 | START-10.1-8   | retired    | Settle through H under old rules; authenticate its checkpoint before H+1                                                                       | 10.1    | —                                     |
 | START-10.1-9   | retired    | The plan must take effect before signing crosses the boundary                                                                                  | 10.1    | —                                     |
@@ -676,7 +676,7 @@
 | 9       | 16  | 74      | 7                |
 | 9.1     | 10  | 31      | 5                |
 | 10      | 24  | 97      | 5                |
-| 10.1    | 24  | 108     | 1                |
+| 10.1    | 24  | 110     | 1                |
 | 11      | 16  | 64      | 6                |
 | 12      | 19  | 3       | 6                |
 | A       | 58  | 289     | 4                |
