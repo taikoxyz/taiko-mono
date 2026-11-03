@@ -330,6 +330,7 @@ _`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` fo
 | 29.c reject | order is `(blockHash(x), uint256(x), ...)`                                                 | violates ENC-A-29                                    |
 | 29.d reject | blockHash, cometHash or forcedHead is taken at a height other than `x`                     | violates ENC-A-29 (all at height x)                  |
 | 29.e reject | `x` or `forcedHead(x)` is encoded in fewer than 32 bytes (for example packed as uint48)    | violates ENC-A-29 (`uint256(x)`, four 32-byte words) |
+| 29.f accept | S = 1000, `K = 3`: grid points are 1000, 1003, 1006, …                                     | matches ("heights count from the Etna start S")      |
 
 ## ENC-A-30
 
@@ -364,13 +365,15 @@ _`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` fo
 
 ## ENC-A-33
 
-| Vector      | Setup                                                               | Expected                             |
-| ----------- | ------------------------------------------------------------------- | ------------------------------------ |
-| 33.a accept | `p % K == 0`, `h % K == 0`, `leaves.length == (h-p)/K - 1`, `c < h` | checks pass                          |
-| 33.b reject | `K = 3`, `p = 1`                                                    | violates ENC-A-33 (`p % K == 0`)     |
-| 33.c reject | `K = 3`, `h = 10`                                                   | violates ENC-A-33 (`h % K == 0`)     |
-| 33.d reject | `leaves.length = (h-p)/K` (one too many)                            | violates ENC-A-33                    |
-| 33.e reject | `c >= h`                                                            | rejected as already settled (stated) |
+| Vector      | Setup                                                                           | Expected                               |
+| ----------- | ------------------------------------------------------------------------------- | -------------------------------------- |
+| 33.a accept | `(p - S) % K == 0`, `(h - S) % K == 0`, `leaves.length == (h-p)/K - 1`, `c < h` | checks pass                            |
+| 33.b reject | `S = 0`, `K = 3`, `p = 1`                                                       | violates ENC-A-33 (`(p - S) % K == 0`) |
+| 33.c reject | `S = 0`, `K = 3`, `h = 10`                                                      | violates ENC-A-33 (`(h - S) % K == 0`) |
+| 33.d reject | `leaves.length = (h-p)/K` (one too many)                                        | violates ENC-A-33                      |
+| 33.e reject | `c >= h`                                                                        | rejected as already settled (stated)   |
+| 33.f accept | `S = 1000`, `K = 3`, `p = 1000`, `h = 1006`, one leaf                           | checks pass                            |
+| 33.g reject | `S = 1000`, `K = 3`, `h = 1005`                                                 | violates ENC-A-33 (`(h - S) % K == 0`) |
 
 ## ENC-A-34
 
