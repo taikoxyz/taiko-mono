@@ -76,7 +76,7 @@ Each entry therefore records what would count as evidence for the assumption and
 | ---- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | 10.a | the pinned K; m = largest multiple of K not above 6; 900/m computed | supports if it reproduces about 150 when K divides 6, 225 at K = 4 and 180 at K = 5; falsifies if the arithmetic differs |
 | 10.b | measured landing rate at sustained load                             | falsifies if the achieved rate is below the funded figure                                                                |
-| 10.c | landing heights checked against multiples of K                      | supports if every landing ends at a grid point                                                                           |
+| 10.c | landing heights checked against grid points (h − S a multiple of K) | supports if every landing ends at a grid point                                                                           |
 
 ## COST-C-11
 
