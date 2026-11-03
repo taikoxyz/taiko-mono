@@ -189,13 +189,14 @@
 
 ## STOR-B-21
 
-| Vector      | Claimed layout or data                                                                       | Expected                               |
-| ----------- | -------------------------------------------------------------------------------------------- | -------------------------------------- |
-| 21.a accept | checkpoint word 1 packs `l1Block` and `count`; word 2 is `entriesRoot`                       | matches                                |
-| 21.b accept | entry words: `ckX`, `effStake`, then packed `ckPrefix`, `activeFromL1` and `exitEffectiveL1` | matches                                |
-| 21.c reject | `entriesRoot` in checkpoint word 1                                                           | violates STOR-B-21                     |
-| 21.d reject | `ckX` in the third entry word                                                                | violates STOR-B-21                     |
-| 21.e reject | a node reads the top-ups or forfeitures namespace to derive a committee                      | violates STOR-B-21 ("only two things") |
+| Vector      | Claimed layout or data                                                                       | Expected                                      |
+| ----------- | -------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| 21.a accept | checkpoint word 1 packs `l1Block` and `count`; word 2 is `entriesRoot`                       | matches                                       |
+| 21.b accept | entry words: `ckX`, `effStake`, then packed `ckPrefix`, `activeFromL1` and `exitEffectiveL1` | matches                                       |
+| 21.c reject | `entriesRoot` in checkpoint word 1                                                           | violates STOR-B-21                            |
+| 21.d reject | `ckX` in the third entry word                                                                | violates STOR-B-21                            |
+| 21.e reject | a node reads the top-ups or forfeitures namespace to derive a committee                      | violates STOR-B-21 ("only two things")        |
+| 21.f reject | `entries` is indexed by bond id rather than slot number                                      | violates STOR-B-21 ("indexed by slot number") |
 
 ## STOR-B-22
 
@@ -235,21 +236,22 @@
 
 ## STOR-B-26
 
-| Vector      | Claimed layout or data                                                   | Expected                                |
-| ----------- | ------------------------------------------------------------------------ | --------------------------------------- |
-| 26.a accept | `exitConfirmedAtL1` is 0                                                 | not confirmed                           |
-| 26.b accept | `exitConfirmedAtL1` is the L1 block of the first successful confirmation | confirmed                               |
-| 26.c reject | `exitConfirmedAtL1` = 0 treated as confirmed                             | violates STOR-B-26                      |
-| 26.d reject | the confirmation stored in the entry's three words                       | violates STOR-B-26 (separate namespace) |
+| Vector      | Claimed layout or data                                                   | Expected                                                                                 |
+| ----------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| 26.a accept | `exitConfirmedAtL1` is 0                                                 | not confirmed                                                                            |
+| 26.b accept | `exitConfirmedAtL1` is the L1 block of the first successful confirmation | confirmed                                                                                |
+| 26.c reject | `exitConfirmedAtL1` = 0 treated as confirmed                             | violates STOR-B-26                                                                       |
+| 26.d reject | the confirmation stored in the entry's three words                       | violates STOR-B-26 (separate namespace)                                                  |
+| 26.e accept | registration issues a fresh bond N after earlier calls naming N reverted | confirmation mapping is 0; unissued ids could not acquire a confirmation (STAKE-4.1-13a) |
 
 ## STOR-B-27
 
 | Vector      | Claimed layout or data                                                | Expected           |
 | ----------- | --------------------------------------------------------------------- | ------------------ |
 | 27.a accept | `confirmExit` writes only into the exit-confirmations namespace       | matches            |
-| 27.b accept | slot release clears the confirmation                                  | matches            |
+| 27.b accept | withdrawal clears the confirmation                                    | matches            |
 | 27.c reject | `confirmExit` creates a committee checkpoint or changes `entriesRoot` | violates STOR-B-27 |
-| 27.d reject | after slot release the confirmation remains                           | violates STOR-B-27 |
+| 27.d reject | after withdrawal the confirmation remains                             | violates STOR-B-27 |
 | 27.e reject | `confirmExit` writes a `regLeaf` entry                                | violates STOR-B-27 |
 
 ## STOR-B-28
@@ -257,9 +259,9 @@
 | Vector      | Claimed layout or data                                                                 | Expected           |
 | ----------- | -------------------------------------------------------------------------------------- | ------------------ |
 | 28.a accept | the owner is written at registration to `taiko.etna.registry.owners`, keyed by bond id | matches            |
-| 28.b accept | the owner entry is cleared at slot release                                             | matches            |
+| 28.b accept | the owner entry is cleared at withdrawal                                               | matches            |
 | 28.c reject | the owner stored in the entry's three words                                            | violates STOR-B-28 |
-| 28.d reject | the owner not cleared at slot release                                                  | violates STOR-B-28 |
+| 28.d reject | the owner not cleared at withdrawal                                                    | violates STOR-B-28 |
 
 ## STOR-B-29
 
@@ -283,8 +285,8 @@
 | Vector      | Claimed layout or data                                | Expected           |
 | ----------- | ----------------------------------------------------- | ------------------ |
 | 31.a accept | withdrawal clears `pendingTopUp` and `topUpReadyAtL1` | matches            |
-| 31.b reject | `pendingTopUp` nonzero after slot release             | violates STOR-B-31 |
-| 31.c reject | `topUpReadyAtL1` set after slot release               | violates STOR-B-31 |
+| 31.b reject | `pendingTopUp` nonzero after withdrawal               | violates STOR-B-31 |
+| 31.c reject | `topUpReadyAtL1` set after withdrawal                 | violates STOR-B-31 |
 
 ## STOR-B-32
 
@@ -297,12 +299,13 @@
 
 ## STOR-B-33
 
-| Vector      | Claimed layout or data                                                                           | Expected           |
-| ----------- | ------------------------------------------------------------------------------------------------ | ------------------ |
-| 33.a accept | a `topUp` that only sets `pendingTopUp` creates no checkpoint and leaves `entriesRoot` unchanged | matches            |
-| 33.b reject | `pendingTopUp` included in `regLeaf` or `entriesRoot`                                            | violates STOR-B-33 |
-| 33.c reject | a checkpoint written because of a pending change that alters no existing entry field             | violates STOR-B-33 |
-| 33.d reject | a guest reads the top-ups or forfeitures namespace                                               | violates STOR-B-33 |
+| Vector      | Claimed layout or data                                                                           | Expected                                |
+| ----------- | ------------------------------------------------------------------------------------------------ | --------------------------------------- |
+| 33.a accept | a `topUp` that only sets `pendingTopUp` creates no checkpoint and leaves `entriesRoot` unchanged | matches                                 |
+| 33.b reject | `pendingTopUp` included in `regLeaf` or `entriesRoot`                                            | violates STOR-B-33                      |
+| 33.c reject | a checkpoint written because of a pending change that alters no field of the entry in a slot     | violates STOR-B-33                      |
+| 33.d reject | a guest reads the top-ups or forfeitures namespace                                               | violates STOR-B-33                      |
+| 33.e accept | slashing or forfeiture changes only a displaced bond; no slot entry changes                      | no checkpoint is written (STAKE-4.1-36) |
 
 ## STOR-B-34
 

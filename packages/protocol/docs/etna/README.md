@@ -79,8 +79,14 @@ The Etna block-production and validation rules are in
   inclusion fees stay in the Inbox, and anyone may sweep its ETH balance to the
   fixed DAO treasury. Landing earns no protocol reward.
 - **Staking and economic security:** delayed owner-funded top-ups reuse existing
-  entries. The launch checklist derives S_MIN_TOTAL from an independent capital
-  target and conservative price, while operating shortfalls trigger disclosure
+  bonds. Registration requires at least minStake; a full registry admits a
+  newcomer who stakes more than the smallest balance holding a slot, displacing
+  that bond. Bond ids are never reused, and unissued ids cannot be confirmed,
+  withdrawn or excluded through recovery. Displacement leaves already-derived
+  committee powers unchanged until a committee excluding the member takes
+  effect; operators should continue signing in the meantime. The launch
+  checklist derives S_MIN_TOTAL from an independent capital target and
+  conservative price, while operating shortfalls trigger disclosure
   and replenishment without blocking recovery. The DAO may immediately forfeit a
   fixed fraction of remaining entry principal once and force exit; this has an
   expiry and lifetime replay flag, but no forfeiture nonce or revocation entry point.
@@ -91,7 +97,10 @@ The Etna block-production and validation rules are in
   timer; explicit invalidation and verifier-failure rollback advance it.
   Exclusions force exits without slashing. The settled prefix stays; the
   unsettled suffix is discarded, and the new generation starts from a fixed,
-  authenticated origin. A verifier failure is not handled by `recover`: its
+  authenticated origin. Intended membership is not reserved: registrations,
+  activation, exits and punishment can change selection before the end of R,
+  whose finalized snapshot nodes and signers must authenticate. A verifier
+  failure is not handled by `recover`: its
   settlement rollback runs in the same DAO upgrade of the Inbox and registry
   that replaces the verifier.
 - **Upgrades:** rule changes take effect at an L2 timestamp from one Inbox slot
@@ -101,11 +110,12 @@ The Etna block-production and validation rules are in
   and production does not stop. Structural changes stop at a grid point and
   restart through `recover`.
 - **Open design and acceptance:** the Unzen switch and bridge wiring (section 12
-  item 9), registration admission bounds (item 14)
-  and deployment values for the capital target, reference price and forfeiture rate
+  item 9) and deployment values for the capital target, reference price and forfeiture rate
   (item 18) remain to be pinned before launch. The value of K and the
   proving capacity behind it (6.3, section 11) are set by the checklist's
   resource acceptance, as are the real-guest, signer, recovery and launch checks.
+  Full-registry gas acceptance covers both admission and later registry changes,
+  including minimum-index maintenance for slashing, forfeiture and withdrawal.
 
 These points are reading aids. SPEC.md holds the validity rules, and
 ACCEPTANCE.md holds the acceptance and launch requirements.
