@@ -21,6 +21,14 @@ library EtnaTestKeys {
         return abi.encodePacked(uint8(2 + (wallet.publicKeyY & 1)), bytes32(wallet.publicKeyX));
     }
 
+    /// @dev Returns the entry key of `_pk`'s consensus key: keccak256(abi.encode(ckPrefix, ckX)).
+    /// @param _pk The private key, in [1, n).
+    /// @return The entry key.
+    function entryKey(uint256 _pk) internal returns (bytes32) {
+        bytes memory key = publicKey(_pk);
+        return LibEtnaKeys.entryKey(uint8(key[0]), bytes32(_VM.createWallet(_pk).publicKeyX));
+    }
+
     /// @dev Signs `_digest` with `_pk`, normalizing S to the lower half of the order.
     /// @param _pk The private key.
     /// @param _digest The digest.

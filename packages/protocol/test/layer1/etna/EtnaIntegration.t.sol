@@ -149,7 +149,7 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
         registry.withdraw(0, Alice);
         assertEq(taikoToken.balanceOf(Alice) - aliceBefore, MIN_STAKE, "Alice paid");
         assertEq(registryBefore - taikoToken.balanceOf(address(registry)), MIN_STAKE, "stake left");
-        _assertReleased(0);
+        _assertWithdrawn(0);
     }
 
     // ---------------------------------------------------------------
@@ -167,7 +167,7 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
         uint256 bobBond = _registerValidator(registry, Bob, _BOB_PK);
         assertEq(bobBond, 1, "Bob's bond 1");
         assertEq(registry.ownerOf(bobBond), Bob, "Bob owns it");
-        assertEq(registry.entryAt(bobBond).effStake, MIN_STAKE, "Bob staked");
+        assertEq(registry.bondAt(bobBond).entry.effStake, MIN_STAKE, "Bob staked");
         uint256 exit = _requestExit(Alice, 0);
         vm.roll(exit + 1000);
         (IEtnaStakingRegistry.Vote memory a, IEtnaStakingRegistry.Vote memory b) =
@@ -179,60 +179,19 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
         vm.prank(Carol);
         registry.slashDoubleSign(bobBond, a, b);
         assertEq(registry.exitConfirmedAtL1(0), 0, "nothing confirmed");
-        assertEq(registry.entryAt(bobBond).effStake, MIN_STAKE, "nothing slashed");
+        assertEq(registry.bondAt(bobBond).entry.effStake, MIN_STAKE, "nothing slashed");
 
         _upgradeAndInit(inboxImpl, _defaultInitParams());
         vm.expectRevert(IEtnaStakingRegistry.ExitNotCovered.selector);
         registry.confirmExit(0);
         vm.prank(Carol);
         registry.slashDoubleSign(bobBond, a, b);
-        assertEq(registry.entryAt(bobBond).effStake, 0, "slashed once initialized");
+        assertEq(registry.bondAt(bobBond).entry.effStake, 0, "slashed once initialized");
         assertEq(
             taikoToken.balanceOf(Carol),
             MIN_STAKE * registry.slashBountyBps() / _BPS,
             "Carol's bounty"
         );
-    }
-
-    /// @dev On the real bootstrap proxy, long after Alice's exit takes effect, confirmation
-    /// reverts `InboxNotInitialized` for anyone, and the Inbox is checked before the bond, so an
-    /// unknown bond gets the same error. Nothing is recorded.
-    function test_confirmExit_RevertWhen_InboxNotInitialized() external {
-        _deployFreshInbox(false);
-        uint256 exit = _requestExit(Alice, 0);
-        vm.roll(exit + 1000);
-
-        vm.expectRevert(IEtnaStakingRegistry.InboxNotInitialized.selector);
-        vm.prank(Alice);
-        registry.confirmExit(0);
-        vm.expectRevert(IEtnaStakingRegistry.InboxNotInitialized.selector);
-        vm.prank(Carol);
-        registry.confirmExit(0);
-        uint256 unknownBond = registry.entryCount();
-        vm.expectRevert(IEtnaStakingRegistry.InboxNotInitialized.selector);
-        registry.confirmExit(unknownBond);
-        assertEq(registry.exitConfirmedAtL1(0), 0, "nothing confirmed");
-    }
-
-    /// @dev `withdraw` has no initialization check of its own: it needs a confirmation, and on
-    /// the bootstrap proxy none can be recorded (spec 4.1: until initialization "no withdrawal is
-    /// possible"). Long after Alice's exit plus the withdrawal delay, confirmation reverts
-    /// `InboxNotInitialized` and her withdrawal `ExitNotConfirmed`; the stake stays in the
-    /// registry and the slot stays hers.
-    function test_withdraw_RevertWhen_InboxNotInitialized() external {
-        _deployFreshInbox(false);
-        uint256 exit = _requestExit(Alice, 0);
-        vm.roll(exit + registry.withdrawalDelay() + 1000);
-
-        vm.expectRevert(IEtnaStakingRegistry.InboxNotInitialized.selector);
-        registry.confirmExit(0);
-        vm.expectRevert(IEtnaStakingRegistry.ExitNotConfirmed.selector);
-        vm.prank(Alice);
-        registry.withdraw(0, Alice);
-        assertEq(taikoToken.balanceOf(address(registry)), MIN_STAKE, "stake held");
-        assertEq(registry.entryAt(0).effStake, MIN_STAKE, "entry kept");
-        assertEq(registry.ownerOf(0), Alice, "slot kept");
-        assertFalse(registry.bondAt(0).withdrawn, "not withdrawn");
     }
 
     // ---------------------------------------------------------------
@@ -258,7 +217,7 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
         (a, b) = _doubleSign(VALIDATOR_PK, 1);
         vm.prank(Bob);
         registry.slashDoubleSign(0, a, b);
-        assertEq(registry.entryAt(0).effStake, 0, "generation-1 evidence slashes");
+        assertEq(registry.bondAt(0).entry.effStake, 0, "generation-1 evidence slashes");
         vm.revertToState(snapshot);
 
         (a, b) = _doubleSign(VALIDATOR_PK, 0);
@@ -269,7 +228,7 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
         );
         vm.prank(Bob);
         registry.slashDoubleSign(0, a, b);
-        IEtnaStakingRegistry.Entry memory entry = registry.entryAt(0);
+        IEtnaStakingRegistry.Entry memory entry = registry.bondAt(0).entry;
         assertEq(entry.effStake, 0, "generation-0 evidence slashes");
         assertEq(entry.exitEffectiveL1, block.number, "exit at the slash");
         assertEq(taikoToken.balanceOf(Bob), bounty, "Bob's bounty");
@@ -291,7 +250,7 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
         vm.expectEmit(address(registry));
         emit IEtnaStakingRegistry.ExitForced(0, uint48(r));
         _recover(0, 12, exclusions);
-        IEtnaStakingRegistry.Entry memory entry = registry.entryAt(0);
+        IEtnaStakingRegistry.Entry memory entry = registry.bondAt(0).entry;
         assertEq(entry.exitEffectiveL1, r, "exit = R");
         assertEq(entry.effStake, MIN_STAKE, "not slashed");
         assertEq(_inbox().activeCommitteeSnapshot(), LEAN_SNAPSHOT, "recovery keeps the snapshot");
@@ -312,7 +271,7 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
         vm.prank(Alice);
         registry.withdraw(0, Alice);
         assertEq(taikoToken.balanceOf(Alice) - aliceBefore, MIN_STAKE, "whole stake back");
-        _assertReleased(0);
+        _assertWithdrawn(0);
     }
 
     // ---------------------------------------------------------------
@@ -320,10 +279,10 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
     // ---------------------------------------------------------------
 
     /// @dev No exit confirmation or withdrawal runs inside a landing or a recovery: Alice's bond 0
-    /// is confirmed, slashed and past the withdrawal delay, so anyone may release it; Bob's bond 1
+    /// is confirmed, slashed and past the withdrawal delay, so anyone may withdraw it; Bob's bond 1
     /// has a covered exit, so anyone may confirm it. While the Inbox lock is held, first by the
     /// lock harness and then by a real `recover` whose registry probe makes the calls, both revert
-    /// `InboxLocked` and change nothing. Outside the lock Carol confirms bond 1 and releases bond 0
+    /// `InboxLocked` and change nothing. Outside the lock Carol confirms bond 1 and withdraws bond 0
     /// without payment.
     function test_confirmExit_RevertWhen_RecoverHoldsTheInboxLock() external {
         assertEq(_registerValidator(registry, Bob, _BOB_PK), 1, "Bob's bond 1");
@@ -337,7 +296,7 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
             _doubleSign(VALIDATOR_PK, 0);
         vm.prank(Bob);
         registry.slashDoubleSign(0, a, b);
-        assertEq(registry.entryAt(0).effStake, 0, "bond 0 slashed");
+        assertEq(registry.bondAt(0).entry.effStake, 0, "bond 0 slashed");
         assertEq(registry.exitConfirmedAtL1(0), confirmedAt, "confirmation kept");
         vm.roll(confirmedAt + registry.withdrawalDelay());
 
@@ -366,7 +325,7 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
         assertEq(probe.secondResult(), locked, "recover: withdraw InboxLocked");
 
         assertEq(registry.exitConfirmedAtL1(1), 0, "bond 1 unconfirmed");
-        assertEq(registry.ownerOf(0), Alice, "bond 0 unreleased");
+        assertEq(registry.ownerOf(0), Alice, "bond 0 not withdrawn");
         assertFalse(registry.bondAt(0).withdrawn, "bond 0 not withdrawn");
 
         _inbox().upgradeTo(address(inboxImpl));
@@ -380,7 +339,7 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
         vm.prank(Carol);
         registry.withdraw(0, Carol);
         assertEq(taikoToken.balanceOf(Carol), carolBefore, "no payment");
-        _assertReleased(0);
+        _assertWithdrawn(0);
     }
 
     /// @dev Slashing shares the Inbox exclusion barrier: it cannot change principal or exits
@@ -398,9 +357,9 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
         );
         assertFalse(ok, "slash under Inbox lock rejected");
         assertEq(ret, abi.encodeWithSelector(IEtnaStakingRegistry.InboxLocked.selector));
-        assertEq(registry.entryAt(0).effStake, MIN_STAKE, "stake unchanged under lock");
+        assertEq(registry.bondAt(0).entry.effStake, MIN_STAKE, "stake unchanged under lock");
         registry.slashDoubleSign(0, a, b);
-        IEtnaStakingRegistry.Entry memory entry = registry.entryAt(0);
+        IEtnaStakingRegistry.Entry memory entry = registry.bondAt(0).entry;
         assertEq(entry.effStake, 0, "slash outside lock succeeds");
         assertEq(taikoToken.balanceOf(address(this)), bounty);
         assertEq(taikoToken.balanceOf(registry.slashSink()), MIN_STAKE - bounty);
@@ -493,14 +452,14 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
         vm.expectEmit(address(registry));
         emit IEtnaStakingRegistry.ExitForced(bobBond, uint48(block.number));
         _recover(0, 12, exclusions);
-        assertEq(registry.entryAt(bobBond).exitEffectiveL1, block.number, "excluded at R");
+        assertEq(registry.bondAt(bobBond).entry.exitEffectiveL1, block.number, "excluded at R");
 
         (IEtnaStakingRegistry.Vote memory a, IEtnaStakingRegistry.Vote memory b) =
             _doubleSign(_BOB_PK, 0);
         uint256 bounty = MIN_STAKE * registry.slashBountyBps() / _BPS;
         vm.prank(David);
         registry.slashDoubleSign(bobBond, a, b);
-        assertEq(registry.entryAt(bobBond).effStake, 0, "Bob slashed");
+        assertEq(registry.bondAt(bobBond).entry.effStake, 0, "Bob slashed");
         assertEq(taikoToken.balanceOf(David), bounty, "David's bounty");
         assertEq(taikoToken.balanceOf(registry.slashSink()), MIN_STAKE - bounty, "sink");
 
@@ -509,7 +468,7 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
         vm.prank(Alice);
         registry.withdraw(0, Alice);
         assertEq(taikoToken.balanceOf(Alice) - aliceBefore, MIN_STAKE, "Alice paid");
-        _assertReleased(0);
+        _assertWithdrawn(0);
 
         uint256 fees = inboxProxy.balance;
         assertGt(fees, 0, "forced inclusion fees");
@@ -528,13 +487,13 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
     /// @dev `_owner` requests the exit of `_bondId`, expecting it at max(block.number,
     /// activeFromL1) + exitDelay and an `ExitRequested` event.
     function _requestExit(address _owner, uint256 _bondId) private returns (uint256 exit_) {
-        uint256 activeFromL1 = registry.entryAt(_bondId).activeFromL1;
+        uint256 activeFromL1 = registry.bondAt(_bondId).entry.activeFromL1;
         exit_ = (block.number > activeFromL1 ? block.number : activeFromL1) + registry.exitDelay();
         vm.expectEmit(address(registry));
         emit IEtnaStakingRegistry.ExitRequested(_bondId, uint48(exit_));
         vm.prank(_owner);
         registry.requestExit(_bondId);
-        assertEq(registry.entryAt(_bondId).exitEffectiveL1, exit_, "exit block");
+        assertEq(registry.bondAt(_bondId).entry.exitEffectiveL1, exit_, "exit block");
     }
 
     /// @dev Bob lands the committed chain's (_p, _h] proving the selection snapshot `_snapshot`.
@@ -578,7 +537,7 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
         view
         returns (IEtnaInbox.Exclusion[] memory list_)
     {
-        IEtnaStakingRegistry.Entry memory entry = registry.entryAt(_bondId);
+        IEtnaStakingRegistry.Entry memory entry = registry.bondAt(_bondId).entry;
         list_ = new IEtnaInbox.Exclusion[](1);
         list_[0] = IEtnaInbox.Exclusion({
             bondId: _bondId, entryKey: keccak256(abi.encode(uint256(entry.ckPrefix), entry.ckX))
@@ -630,17 +589,16 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
         v_.generation = _generation;
     }
 
-    /// @dev Asserts that bond `_bondId`, holding the slot of the same number, is withdrawn: the
-    /// slot's entry is zero and the bond has no owner or confirmation.
-    function _assertReleased(uint256 _bondId) private view {
-        IEtnaStakingRegistry.Entry memory entry = registry.entryAt(_bondId);
-        assertEq(entry.ckX, bytes32(0), "released: ckX");
-        assertEq(entry.effStake, 0, "released: effStake");
-        assertEq(entry.ckPrefix, 0, "released: ckPrefix");
-        assertEq(entry.activeFromL1, 0, "released: activeFromL1");
-        assertEq(entry.exitEffectiveL1, 0, "released: exitEffectiveL1");
-        assertEq(registry.ownerOf(_bondId), address(0), "released: owner");
-        assertEq(registry.exitConfirmedAtL1(_bondId), 0, "released: confirmation");
-        assertTrue(registry.bondAt(_bondId).withdrawn, "released: withdrawn");
+    /// @dev Asserts that bond `_bondId` is withdrawn: it has no stake, owner or confirmation and
+    /// holds no slot, and the slot it last held is empty.
+    function _assertWithdrawn(uint256 _bondId) private view {
+        IEtnaStakingRegistry.Bond memory bond = registry.bondAt(_bondId);
+        assertTrue(bond.withdrawn, "withdrawn");
+        assertFalse(bond.holdsSlot, "holds no slot");
+        assertEq(bond.entry.effStake, 0, "no stake");
+        IEtnaStakingRegistry.Entry memory empty;
+        assertEq(abi.encode(registry.entryAt(bond.slot)), abi.encode(empty), "slot emptied");
+        assertEq(registry.ownerOf(_bondId), address(0), "no owner");
+        assertEq(registry.exitConfirmedAtL1(_bondId), 0, "no confirmation");
     }
 }

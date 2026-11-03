@@ -51,7 +51,7 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
     /// one test instead of racing each other in Foundry's parallel test executor. Together they
     /// deploy the stack nine times, beyond one test's 80M block gas limit, so gas is not metered;
     /// the gas suites measure the contracts.
-    function test_deployment_C2OrderAndRejections() external {
+    function test_deployment_OrderAndRejections() external {
         vm.pauseGasMetering();
         _deploysTheBootstrapProxyFirst();
         _deploysTheRegistryFixedToTheProxy();

@@ -74,6 +74,16 @@ contract EtnaStakingRegistryTest is EtnaStakingRegistryTestBase {
         assertEq(new EtnaStakingRegistry(cfg).slashBountyBps(), 0);
     }
 
+    function test_constructor_RevertWhen_ForfeitRateZeroOrAboveWholeBalance() external {
+        IEtnaStakingRegistry.Config memory cfg = _config();
+        cfg.forfeitBps = 0;
+        vm.expectRevert(IEtnaStakingRegistry.InvalidConfig.selector);
+        new EtnaStakingRegistry(cfg);
+        cfg.forfeitBps = 10_001;
+        vm.expectRevert(IEtnaStakingRegistry.InvalidConfig.selector);
+        new EtnaStakingRegistry(cfg);
+    }
+
     function test_constructor_RevertWhen_ZeroOrCodelessParameters() external {
         IEtnaStakingRegistry.Config memory cfg = _config();
         cfg.token = address(0);
@@ -476,7 +486,7 @@ contract EtnaStakingRegistryTest is EtnaStakingRegistryTestBase {
         // stays.
         vm.prank(Alice);
         registry.requestExit(1);
-        mockInbox.forceExit(registry, 2, _entryKey(2));
+        mockInbox.forceExit(registry, 2, _entryKey(registry, 2));
         uint256 forcedAt = block.number;
         vm.roll(block.number + 1);
         _registerWith(Bob, 0xB0B1, MIN_STAKE + 10);
@@ -486,8 +496,8 @@ contract EtnaStakingRegistryTest is EtnaStakingRegistryTestBase {
 
         // Bond 5 forfeited to zero still holds slot 5 at value 0; withdrawing bond 9 empties slot
         // 9 at value 0 too.
-        registry.forfeit(5, _entryKey(5), bytes32(0), block.timestamp);
-        _release(9);
+        registry.forfeit(5, _entryKey(registry, 5), bytes32(0), block.timestamp);
+        _withdrawBond(9);
         (slot, value) = registry.admissionThreshold();
         assertEq(slot, 5, "the lower of two zero values");
         assertEq(value, 0, "zero");
@@ -527,7 +537,7 @@ contract EtnaStakingRegistryTest is EtnaStakingRegistryTestBase {
     /// slot stays empty, no bond is issued and no checkpoint is written.
     function test_register_RevertWhen_TransferFails() external {
         _register(Alice, _CK_A);
-        _release(0);
+        _withdrawBond(0);
         vm.roll(block.number + 1);
         uint256 checkpoints = registry.checkpointCount();
         bytes32 root = registry.entriesRoot();
@@ -675,12 +685,6 @@ contract EtnaStakingRegistryTest is EtnaStakingRegistryTestBase {
         );
         vm.prank(_staker);
         assertEq(registry.register(publicKey, MIN_STAKE, pop), _bondId, "bond id");
-    }
-
-    /// @dev The entry key of bond `_bondId`.
-    function _entryKey(uint256 _bondId) private view returns (bytes32) {
-        IEtnaStakingRegistry.Entry memory entry = registry.bondAt(_bondId).entry;
-        return keccak256(abi.encode(uint256(entry.ckPrefix), entry.ckX));
     }
 
     /// @dev Asserts a `(found, bondId)` lookup of `_key` through `_lookup`.

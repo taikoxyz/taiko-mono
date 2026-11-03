@@ -11,7 +11,6 @@ import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry
 import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { EtnaInboxBootstrap } from "src/layer1/etna/impl/EtnaInboxBootstrap.sol";
 import { EtnaStakingRegistry } from "src/layer1/etna/impl/EtnaStakingRegistry.sol";
-import { LibEtnaKeys } from "src/layer1/etna/libs/LibEtnaKeys.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
@@ -38,19 +37,17 @@ contract ConformanceRefundRejecter {
 /// the model decides.
 ///
 /// For each vector: deploy the stack with the vector's immutables (keys and owners 1 to
-/// `registrySize` registered at block 10, key 1 by account 1 first; Inbox initialized at block 11
-/// unless the vector says not; a non-zero `recoveryNonce` is written to slot 292), replay the
-/// setup calls (each must succeed, since the model accepted it), make the call and compare the
-/// revert flag, the call's results and the observable state with the model's. The Inbox is read
-/// through its getters, or before `init` through its appendix B slots, which the bootstrap never
-/// writes; landing records and SignalService checkpoints are compared at every grid point up to
-/// the highest landed height, so one the model does not have fails too. Every vector runs from
-/// the same EVM snapshot.
+/// `registrySize` registered at block 10, key 1 by account 1 first; Inbox initialized at block
+/// 11), replay the setup calls (each must succeed, since the model accepted it), make the call and
+/// compare the revert flag, the call's results and the observable state with the model's. The
+/// Inbox is read through its getters; landing records and SignalService checkpoints are compared
+/// at every grid point up to the highest landed height, so one the model does not have fails too.
+/// Every vector runs from the same EVM snapshot. The model's recoveries are owner calls with no
+/// exclusions, sent with `rules` 0.
 ///
 /// Mapping: hash atom `n` is `bytes32(n)`; registry key `k` is the consensus key of private key
-/// `k` (key 0 has the all-zero key); account `n` is the address `0x10000 + n` (0 is the zero
-/// address); the Inbox and registry owner is this contract. An argument that does not fit its ABI
-/// type cannot be sent in any transaction; such a call counts as rejected and is logged.
+/// `k`; account `n` is the address `0x10000 + n` (0 is the zero address); the Inbox and registry
+/// owner is this contract.
 contract EtnaConformanceTest is Test, EtnaTestConstants {
     // ---------------------------------------------------------------
     // JSON shapes (decoded with `parseJsonType`, which matches keys by name). Forge checks a type
@@ -82,11 +79,6 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
         uint256 head;
         uint256 height;
         uint256 word;
-    }
-
-    struct ExclusionJ {
-        uint256 bondId;
-        uint256 key;
     }
 
     struct RecordJ {
@@ -145,7 +137,6 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
         "uint256 threshold,uint256 unsettled,uint256 withdrawalDelay)";
     string private constant _LEAF_TYPE =
         "LeafJ(uint256 comet,bool cut,uint256 el,uint256 head,uint256 height,uint256 word)";
-    string private constant _EXCLUSION_TYPE = "ExclusionJ(uint256 bondId,uint256 key)";
     string private constant _RECORD_TYPE = "RecordJ(uint256 cometHash,uint256 elHash,"
         "uint256 generation,uint256 head,uint256 height,uint256 parentHeight)";
     string private constant _SIGNAL_TYPE = "SignalJ(uint256 hash,uint256 height,uint256 stateRoot)";
@@ -172,22 +163,8 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
 
     address private constant _FEE_RECIPIENT = address(0xfee);
     address private constant _REMOTE_SIGNAL_SERVICE = address(0xdead);
-    /// @dev The account that makes the owner-only calls of a vector with `owner = false`.
-    uint256 private constant _STRANGER = 21;
     /// @dev The account that lands.
     uint256 private constant _LANDER = 20;
-
-    /// @dev Inbox slots (spec appendix B).
-    uint256 private constant _SLOT_GENERATION = 268;
-    uint256 private constant _SLOT_CHECKPOINT_HEIGHT = 270;
-    uint256 private constant _SLOT_CHECKPOINT_HASH = 271;
-    uint256 private constant _SLOT_HEAD_TAIL = 281;
-    uint256 private constant _SLOT_SNAPSHOT = 284;
-    uint256 private constant _SLOT_LANDINGS = 285;
-    uint256 private constant _SLOT_ORIGINS = 290;
-    uint256 private constant _SLOT_RECOVERY_NONCE = 292;
-    /// @dev SignalService `_checkpoints` (mapping version => block number => record).
-    uint256 private constant _SLOT_SIGNAL_CHECKPOINTS = 254;
 
     /// @dev Indices of the measured call results.
     uint256 private constant _FEE_WEI = 0;
@@ -202,15 +179,11 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
     ConformanceRefundRejecter internal rejecter;
     TestERC20 internal token;
     address internal inbox;
-    /// @dev The `EtnaInbox` implementation `init` installs; the proxy runs it once initialized.
-    EtnaInbox internal inboxImpl;
     EtnaStakingRegistry internal registry;
     SignalService internal signalService;
     address internal recipient;
     /// @dev The highest `lastHeight` this vector landed, which bounds the record and signal checks.
     uint256 internal maxLanded;
-    /// @dev The number of calls this family could not encode (see the contract NatSpec).
-    uint256 internal unencodable;
 
     // ---------------------------------------------------------------
     // Tests
@@ -231,8 +204,8 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
     /// @dev Gas metering is paused: a family deploys a fresh stack per vector, far beyond the
     /// block gas limit a test runs under, and no checked rule depends on gas. Memory expansion is
     /// still checked against that limit, which caps this frame near 6 MB, so every loop over
-    /// vectors, registrations, bonds and entries releases what an iteration allocated
-    /// (`_release`) unless it keeps a problem to report.
+    /// vectors and registrations releases what an iteration allocated (`_release`) unless it
+    /// keeps a problem to report.
     function _runFamily(string memory _family) private {
         vm.pauseGasMetering();
         string memory j = vm.readFile(string.concat(vm.projectRoot(), _DIR, _family, ".json"));
@@ -250,13 +223,11 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
 
         string memory report;
         uint256 failures;
-        uint256 skippedCalls;
         uint256 base = vm.snapshotState();
         for (uint256 i; i < count; ++i) {
             uint256 mark = _freeMemory();
             string memory v = string.concat(".vectors[", vm.toString(i), "]");
             string memory problem = _runVector(j, v);
-            skippedCalls += unencodable;
             if (bytes(problem).length != 0) {
                 ++failures;
                 report = string.concat(
@@ -268,9 +239,6 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
             vm.revertToState(base);
         }
         emit log_named_uint(string.concat(_family, " vectors"), count);
-        emit log_named_uint(
-            string.concat(_family, " calls with unencodable arguments"), skippedCalls
-        );
         assertEq(
             failures, 0, string.concat(_family, " vectors that differ from the model:", report)
         );
@@ -363,6 +331,7 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
     // ---------------------------------------------------------------
 
     function _deploy(DeploymentJ memory _d) private {
+        require(_d.initialized && _d.recoveryNonce == 0, "unsupported deployment");
         vm.roll(_REGISTERED_AT);
         vm.warp(_timestamp(_REGISTERED_AT));
         verifier = new MockLandProofVerifier();
@@ -385,8 +354,7 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
         // Key and owner k take bond k - 1, all in the genesis cutoff block.
         for (uint256 k = _GENESIS_KEY; k <= _d.registrySize; ++k) {
             uint256 mark = _freeMemory();
-            (bool registered,) = _register(_account(k), k, _d.minStake);
-            require(registered, "bootstrap registration");
+            _register(_account(k), k, _d.minStake);
             _release(mark);
         }
 
@@ -401,7 +369,7 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
             )
         );
         recipient = _d.recipientAccepts ? _FEE_RECIPIENT : address(new ConformanceEtherRejecter());
-        inboxImpl = new EtnaInbox(
+        EtnaInbox inboxImpl = new EtnaInbox(
             IEtnaInbox.Config({
                 proofVerifier: address(verifier),
                 signalService: address(signalService),
@@ -416,16 +384,10 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
                 etnaForkTime: 0
             })
         );
-        if (_d.initialized) {
-            EssentialContract(inbox)
-                .upgradeToAndCall(
-                    address(inboxImpl), abi.encodeCall(EtnaInbox.init, (_initParams(_d.unsettled)))
-                );
-        }
-        // The persistent-state fixture for the nonce's uint256 boundary (slot 292).
-        if (_d.recoveryNonce != 0) {
-            vm.store(inbox, bytes32(_SLOT_RECOVERY_NONCE), bytes32(_d.recoveryNonce));
-        }
+        EssentialContract(inbox)
+            .upgradeToAndCall(
+                address(inboxImpl), abi.encodeCall(EtnaInbox.init, (_initParams(_d.unsettled)))
+            );
     }
 
     function _registryConfigOf(DeploymentJ memory _d)
@@ -554,10 +516,7 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
     {
         address caller = _account(_u(_j, _a, ".caller"));
         uint256 paid = _u(_j, _a, ".paid");
-        uint48 tail;
-        if (IEtnaInbox(inbox).isInitialized()) {
-            (, tail) = IEtnaInbox(inbox).getForcedInclusionState();
-        }
+        (, uint48 tail) = IEtnaInbox(inbox).getForcedInclusionState();
         bytes memory txBytes = new bytes(_u(_j, _a, ".rawBytes"));
         for (uint256 i; i < txBytes.length; ++i) {
             txBytes[i] = bytes1(uint8(tail + 1));
@@ -593,66 +552,33 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
         got_[_SWEPT] = recipient.balance - before;
     }
 
+    /// @dev The model's recoveries are owner calls with no exclusions; `rules` is 0.
     function _recover(string memory _j, string memory _a) private returns (bool ok_) {
-        // The expected generation (a uint48), nonce and deadline (uint256s).
-        uint256[3] memory w;
-        bool[2] memory fits;
-        w[0] = _u(_j, _a, ".expectedGeneration");
-        (fits[0], w[1]) = _word(_j, string.concat(_a, ".expectedRecoveryNonce"));
-        (fits[1], w[2]) = _word(_j, string.concat(_a, ".validUntil"));
-        if (w[0] > type(uint48).max || !fits[0] || !fits[1]) return _unencodable("recover");
-        bytes memory data = abi.encodeCall(
-            IEtnaInbox.recover,
-            (
-                uint48(w[0]),
-                _u(_j, _a, ".expectedC"),
-                w[1],
-                w[2],
-                _exclusions(_j, string.concat(_a, ".exclusions")),
-                vm.parseJsonUintArray(_j, string.concat(_a, ".fiToClear")),
-                uint48(0)
+        require(_bool(_j, _a, ".owner"), "recover by a non-owner");
+        require(!vm.keyExistsJson(_j, string.concat(_a, ".exclusions[0]")), "exclusions");
+        ok_ = _call(
+            inbox,
+            abi.encodeCall(
+                IEtnaInbox.recover,
+                (
+                    uint48(_u(_j, _a, ".expectedGeneration")),
+                    _u(_j, _a, ".expectedC"),
+                    _u(_j, _a, ".expectedRecoveryNonce"),
+                    _u(_j, _a, ".validUntil"),
+                    new IEtnaInbox.Exclusion[](0),
+                    vm.parseJsonUintArray(_j, string.concat(_a, ".fiToClear")),
+                    uint48(0)
+                )
             )
         );
-        if (!_bool(_j, _a, ".owner")) vm.prank(_account(_STRANGER));
-        ok_ = _call(inbox, data);
     }
 
-    /// @dev Exclusion `{bondId, key}` names bond `bondId` and the entry key of registry key `key`.
-    function _exclusions(
-        string memory _j,
-        string memory _path
-    )
-        private
-        returns (IEtnaInbox.Exclusion[] memory exclusions_)
-    {
-        ExclusionJ[] memory raw =
-            abi.decode(vm.parseJsonTypeArray(_j, _path, _EXCLUSION_TYPE), (ExclusionJ[]));
-        exclusions_ = new IEtnaInbox.Exclusion[](raw.length);
-        for (uint256 i; i < raw.length; ++i) {
-            exclusions_[i] =
-                IEtnaInbox.Exclusion({ bondId: raw[i].bondId, entryKey: _entryKey(raw[i].key) });
-        }
-    }
-
-    function _register(
-        address _caller,
-        uint256 _key,
-        uint256 _amount
-    )
-        private
-        returns (bool ok_, uint256 bondId_)
-    {
+    function _register(address _caller, uint256 _key, uint256 _amount) private {
         _fund(_caller, _amount);
         bytes memory publicKey = EtnaTestKeys.publicKey(_key);
         bytes memory pop = EtnaTestKeys.popSig(_key, registry, _caller);
         vm.prank(_caller);
-        bytes memory ret;
-        (ok_, ret) = _call(
-            address(registry),
-            0,
-            abi.encodeCall(EtnaStakingRegistry.register, (publicKey, _amount, pop))
-        );
-        if (ok_) bondId_ = abi.decode(ret, (uint256));
+        registry.register(publicKey, _amount, pop);
     }
 
     function _call(address _target, bytes memory _data) private returns (bool ok_) {
@@ -670,23 +596,11 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
         (ok_, ret_) = _target.call{ value: _value }(_data);
     }
 
-    /// @dev Mints `_amount` to `_who`, who approves the registry for it. A balance the token's
-    /// supply cannot hold (the uint256 boundary vectors) is written directly.
+    /// @dev Mints `_amount` to `_who`, who approves the registry for it.
     function _fund(address _who, uint256 _amount) private {
-        if (token.totalSupply() <= type(uint256).max - _amount) {
-            token.mint(_who, _amount);
-        } else {
-            deal(address(token), _who, token.balanceOf(_who) + _amount);
-        }
+        token.mint(_who, _amount);
         vm.prank(_who);
         token.approve(address(registry), _amount);
-    }
-
-    /// @dev Logs a call whose argument does not fit its ABI type and counts it as rejected.
-    function _unencodable(string memory _fn) private returns (bool) {
-        ++unencodable;
-        emit log_named_string("unencodable call, counted as rejected", _fn);
-        return false;
     }
 
     // ---------------------------------------------------------------
@@ -757,37 +671,21 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
         );
     }
 
-    /// @dev The Inbox's scalar observables: from its getters once initialized; before, from
-    /// its appendix B slots, which the bootstrap implementation never writes, and the fee of the
-    /// implementation `init` installs (the queue is empty).
+    /// @dev The Inbox's scalar observables, from its getters.
     function _inboxState() private view returns (InboxState memory s_) {
         IEtnaInbox ib = IEtnaInbox(inbox);
-        if (ib.isInitialized()) {
-            IEtnaInbox.LandedCheckpoint memory checkpoint = ib.lastCheckpoint();
-            (uint48 head, uint48 tail) = ib.getForcedInclusionState();
-            s_ = InboxState({
-                checkpointHeight: checkpoint.height,
-                checkpointHash: uint256(checkpoint.blockHash),
-                generation: ib.recoveryGeneration(),
-                recoveryNonce: ib.recoveryNonce(),
-                head: head,
-                tail: tail,
-                snapshot: ib.activeCommitteeSnapshot(),
-                feeGwei: ib.getCurrentForcedInclusionFee()
-            });
-        } else {
-            uint256 headTail = _load(inbox, _SLOT_HEAD_TAIL);
-            s_ = InboxState({
-                checkpointHeight: _load(inbox, _SLOT_CHECKPOINT_HEIGHT),
-                checkpointHash: _load(inbox, _SLOT_CHECKPOINT_HASH),
-                generation: _load(inbox, _SLOT_GENERATION),
-                recoveryNonce: _load(inbox, _SLOT_RECOVERY_NONCE),
-                head: uint48(headTail),
-                tail: uint48(headTail >> 48),
-                snapshot: _load(inbox, _SLOT_SNAPSHOT),
-                feeGwei: inboxImpl.getCurrentForcedInclusionFee()
-            });
-        }
+        IEtnaInbox.LandedCheckpoint memory checkpoint = ib.lastCheckpoint();
+        (uint48 head, uint48 tail) = ib.getForcedInclusionState();
+        s_ = InboxState({
+            checkpointHeight: checkpoint.height,
+            checkpointHash: uint256(checkpoint.blockHash),
+            generation: ib.recoveryGeneration(),
+            recoveryNonce: ib.recoveryNonce(),
+            head: head,
+            tail: tail,
+            snapshot: ib.activeCommitteeSnapshot(),
+            feeGwei: ib.getCurrentForcedInclusionFee()
+        });
     }
 
     /// @dev Compares the model's landing records with the contract's, and checks that every
@@ -808,7 +706,7 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
             for (uint256 i; i < records.length; ++i) {
                 if (records[i].height == h) r = records[i];
             }
-            IEtnaInbox.Landing memory l = _landing(h);
+            IEtnaInbox.Landing memory l = IEtnaInbox(inbox).landings(h);
             string memory at = string.concat("landings[", vm.toString(h), "].");
             p_ = string.concat(
                 p_,
@@ -824,17 +722,6 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
                 p_ = string.concat(p_, " record at ", vm.toString(records[i].height), " unchecked;");
             }
         }
-    }
-
-    function _landing(uint256 _height) private view returns (IEtnaInbox.Landing memory l_) {
-        if (IEtnaInbox(inbox).isInitialized()) return IEtnaInbox(inbox).landings(_height);
-        uint256 slot = uint256(keccak256(abi.encode(_height, _SLOT_LANDINGS)));
-        uint256 word = _load(inbox, slot);
-        l_.parentHeight = uint48(word);
-        l_.generation = uint48(word >> 48);
-        l_.head = uint48(word >> 96);
-        l_.elHash = bytes32(_load(inbox, slot + 1));
-        l_.cometHash = bytes32(_load(inbox, slot + 2));
     }
 
     /// @dev Compares the model's SignalService checkpoints with the contract's, and checks that
@@ -890,7 +777,7 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
             OriginJ memory want;
             if (i < origins.length) want = origins[i];
             uint256 generation = i < origins.length ? origins[i].generation : i;
-            IEtnaInbox.Origin memory o = _origin(generation);
+            IEtnaInbox.Origin memory o = IEtnaInbox(inbox).origins(generation);
             string memory at = string.concat("origins[", vm.toString(generation), "].");
             p_ = string.concat(
                 p_,
@@ -899,14 +786,6 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
                 _cmp(string.concat(at, "l1Timestamp"), want.timestamp, o.l1Timestamp)
             );
         }
-    }
-
-    function _origin(uint256 _generation) private view returns (IEtnaInbox.Origin memory o_) {
-        if (IEtnaInbox(inbox).isInitialized()) return IEtnaInbox(inbox).origins(_generation);
-        uint256 slot = uint256(keccak256(abi.encode(_generation, _SLOT_ORIGINS)));
-        o_.startHeight = _load(inbox, slot);
-        o_.l1BlockNumber = _load(inbox, slot + 1);
-        o_.l1Timestamp = _load(inbox, slot + 2);
     }
 
     function _checkQueue(
@@ -920,10 +799,8 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
         QueueJ[] memory queue =
             abi.decode(vm.parseJsonTypeArray(_j, _path, _QUEUE_TYPE), (QueueJ[]));
         for (uint256 i; i < queue.length; ++i) {
-            IEtnaInbox.ForcedInclusion memory f;
-            if (IEtnaInbox(inbox).isInitialized()) {
-                f = IEtnaInbox(inbox).getForcedInclusion(uint48(queue[i].index));
-            }
+            IEtnaInbox.ForcedInclusion memory f =
+                IEtnaInbox(inbox).getForcedInclusion(uint48(queue[i].index));
             string memory at = string.concat("queue[", vm.toString(queue[i].index), "].");
             p_ = string.concat(
                 p_,
@@ -981,33 +858,6 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
         return vm.parseJsonBool(_j, string.concat(_p, _field));
     }
 
-    /// @dev Reads an unsigned value (a JSON number or a canonical decimal string); `fits_` is
-    /// false if it is 2^256 or more, which no uint256 argument can carry.
-    function _word(
-        string memory _j,
-        string memory _path
-    )
-        private
-        pure
-        returns (bool fits_, uint256 value_)
-    {
-        try vm.parseJsonUint(_j, _path) returns (uint256 value) {
-            return (true, value);
-        } catch {
-            bytes memory digits = bytes(vm.parseJsonString(_j, _path));
-            bytes memory max = bytes(vm.toString(type(uint256).max));
-            require(digits.length >= max.length && digits[0] != "0", "not an unsigned decimal");
-            for (uint256 i; i < digits.length; ++i) {
-                require(digits[i] >= "0" && digits[i] <= "9", "not an unsigned decimal");
-            }
-            require(
-                digits.length > max.length || keccak256(digits) != keccak256(max),
-                "uint256 max did not parse"
-            );
-            return (false, 0);
-        }
-    }
-
     /// @dev The free memory pointer, to `_release` back to once what is allocated after it is dead.
     function _freeMemory() private pure returns (uint256 pointer_) {
         assembly {
@@ -1023,10 +873,6 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
         }
     }
 
-    function _load(address _target, uint256 _slot) private view returns (uint256) {
-        return uint256(vm.load(_target, bytes32(_slot)));
-    }
-
     /// @dev Account `n` is `0x10000 + n`; account 0 is the zero address.
     function _account(uint256 _n) private pure returns (address) {
         return _n == 0 ? address(0) : address(uint160(0x10000 + _n));
@@ -1034,22 +880,5 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
 
     function _timestamp(uint256 _block) private pure returns (uint256) {
         return _TIMESTAMP_BASE + _TIMESTAMP_STEP * _block;
-    }
-
-    /// @dev The stored prefix and X of registry key `_key` (private key `_key`); zero for key 0.
-    function _keyParts(uint256 _key) private returns (uint8 prefix_, bytes32 x_) {
-        if (_key == 0) return (0, 0);
-        bytes memory publicKey = EtnaTestKeys.publicKey(_key);
-        prefix_ = uint8(publicKey[0]);
-        assembly ("memory-safe") {
-            x_ := mload(add(publicKey, 33))
-        }
-    }
-
-    /// @dev entryKey = keccak256(abi.encode(ckPrefix, ckX)) of key `_key`; key 0 gives the
-    /// all-zero key's.
-    function _entryKey(uint256 _key) private returns (bytes32) {
-        (uint8 prefix, bytes32 x) = _keyParts(_key);
-        return LibEtnaKeys.entryKey(prefix, x);
     }
 }

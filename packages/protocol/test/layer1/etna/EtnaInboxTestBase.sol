@@ -76,8 +76,6 @@ abstract contract EtnaInboxTestBase is CommonTest, EtnaTestConstants {
     uint256 internal constant ACTIVE_COMMITTEE_SNAPSHOT_SLOT = 284;
     uint256 internal constant LANDINGS_SLOT = 285;
     uint256 internal constant RESERVED_SLOT_286 = 286;
-    uint256 internal constant RESERVED_SLOT_287 = 287;
-    uint256 internal constant RESERVED_SLOT_288 = 288;
     uint256 internal constant RESERVED_SLOT_289 = 289;
     uint256 internal constant ORIGINS_SLOT = 290;
     uint256 internal constant RESERVED_SLOT_291 = 291;

@@ -35,7 +35,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
         Root,
         History,
         Snapshots,
-        Reuse,
+        Lifecycle,
         Keys,
         Balance,
         Timing,
@@ -281,10 +281,18 @@ contract EtnaStakingRegistryHandler is CommonBase {
     Snapshot[] internal _snapshots;
     bytes32[][] internal _snapshotLeaves;
 
-    /// @dev The bonds and key addresses a call outside the prefill touched.
+    /// @dev The bonds, slots and key addresses a call outside the prefill touched.
     uint256[] internal _touchedBonds;
     mapping(uint256 bondId => bool) internal _isTouchedBond;
+    uint256[] internal _touchedSlots;
+    mapping(uint256 slot => bool) internal _isTouchedSlot;
     address[] internal _touchedKeys;
+
+    /// @dev A binary min-heap of slot keys `value << TREE_DEPTH | slot`, so the smallest key is
+    /// the smallest value, the lowest slot on a tie. Every change to a slot's value pushes the
+    /// slot's new key; a key is stale once its slot's modelled value differs, and `_threshold`
+    /// drops stale keys from the top.
+    uint256[] internal _valueHeap;
     bool internal _prefilling;
 
     mapping(Property => uint256) public violations;
@@ -305,13 +313,13 @@ contract EtnaStakingRegistryHandler is CommonBase {
     uint256 public confirmations;
     uint256 public repeatedConfirmations;
     uint256 public withdrawals;
-    uint256 public releasesWithoutPayment;
-    uint256 public releasesByOthers;
+    uint256 public withdrawalsWithoutPayment;
+    uint256 public withdrawalsByOthers;
     uint256 public slashes;
     uint256 public slashesOfExitingEntries;
     uint256 public slashesAfterConfirmation;
-    /// @dev Releases of an entry slashed after its exit was confirmed.
-    uint256 public releasesAfterConfirmedSlash;
+    /// @dev Withdrawals of an entry slashed after its exit was confirmed.
+    uint256 public withdrawalsAfterConfirmedSlash;
     uint256 public slashesUnderLock;
     uint256 public historicalSlashes;
     uint256 public forcedExits;
@@ -599,6 +607,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
                 registry.checkpointCount() != checkpointsBefore
                     || registry.entriesRoot() != rootBefore
             ) _violate(Property.History, "deposit changed committee checkpoint");
+            _pushSlotValue(s.slot);
             _checkThreshold();
         } catch (bytes memory reason) {
             _checkRevert(Property.Balance, "", reason, "topUp");
@@ -825,6 +834,10 @@ contract EtnaStakingRegistryHandler is CommonBase {
         return _touchedBonds;
     }
 
+    function touchedSlots() external view returns (uint256[] memory) {
+        return _touchedSlots;
+    }
+
     function touchedKeys() external view returns (address[] memory) {
         return _touchedKeys;
     }
@@ -931,10 +944,10 @@ contract EtnaStakingRegistryHandler is CommonBase {
         ++bondCount;
 
         if (registry.ownerOf(_bondId) != _a.caller) {
-            _violate(Property.Reuse, "the registrant is not the bond owner");
+            _violate(Property.Lifecycle, "the registrant is not the bond owner");
         }
         if (registry.exitConfirmedAtL1(_bondId) != 0) {
-            _violate(Property.Reuse, "a new bond has an exit confirmation");
+            _violate(Property.Lifecycle, "a new bond has an exit confirmation");
         }
         address ckAddr = wallet.addr;
         _keyBond[ckAddr] = _bondId + 1;
@@ -1074,12 +1087,12 @@ contract EtnaStakingRegistryHandler is CommonBase {
         vm.prank(_caller);
         try registry.confirmExit(_bondId) {
             if (expected.length != 0) {
-                _violate(Property.Reuse, "confirmExit accepted where the model rejects it");
+                _violate(Property.Lifecycle, "confirmExit accepted where the model rejects it");
             } else {
                 _recordConfirmation(_bondId, checkpointsBefore);
             }
         } catch (bytes memory reason) {
-            _checkRevert(Property.Reuse, expected, reason, "confirmExit");
+            _checkRevert(Property.Lifecycle, expected, reason, "confirmExit");
             _countRejection(CONFIRM_EXIT, expected);
         }
         if (_locked) inbox.setInNonReentrant(false);
@@ -1092,7 +1105,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
             _violate(Property.History, "confirmExit wrote a checkpoint");
         }
         if (!_sameEntry(registry.bondAt(_bondId).entry, s.entry)) {
-            _violate(Property.Reuse, "confirmExit changed the bond");
+            _violate(Property.Lifecycle, "confirmExit changed the bond");
         }
         if (s.confirmedAt == 0) {
             s.confirmedAt = block.number;
@@ -1102,7 +1115,9 @@ contract EtnaStakingRegistryHandler is CommonBase {
             ++repeatedConfirmations;
         }
         if (registry.exitConfirmedAtL1(_bondId) != s.confirmedAt) {
-            _violate(Property.Reuse, "the confirmation is not the block of the first confirmExit");
+            _violate(
+                Property.Lifecycle, "the confirmation is not the block of the first confirmExit"
+            );
         }
     }
 
@@ -1159,16 +1174,16 @@ contract EtnaStakingRegistryHandler is CommonBase {
             _violate(Property.Balance, "withdraw paid the recipient another amount than the stake");
         }
         if (registry.ownerOf(_bondId) != address(0)) {
-            _violate(Property.Reuse, "a withdrawn bond kept its owner");
+            _violate(Property.Lifecycle, "a withdrawn bond kept its owner");
         }
         if (registry.exitConfirmedAtL1(_bondId) != 0) {
-            _violate(Property.Reuse, "a withdrawn bond kept its confirmation");
+            _violate(Property.Lifecycle, "a withdrawn bond kept its confirmation");
         }
 
         if (amount == 0) {
-            ++releasesWithoutPayment;
-            if (_caller != s.owner) ++releasesByOthers;
-            if (s.slashedAfterConfirmation) ++releasesAfterConfirmedSlash;
+            ++withdrawalsWithoutPayment;
+            if (_caller != s.owner) ++withdrawalsByOthers;
+            if (s.slashedAfterConfirmation) ++withdrawalsAfterConfirmedSlash;
         } else {
             ++withdrawals;
             if (_to == recipient) paidToRecipient += amount;
@@ -1188,11 +1203,11 @@ contract EtnaStakingRegistryHandler is CommonBase {
         if (s.holdsSlot) {
             s.holdsSlot = false;
             delete _slotBond[s.slot];
-            _checkBondRecord(_bondId, Property.Reuse);
+            _checkBondRecord(_bondId, Property.Lifecycle);
             _touch(_bondId);
-            _commitSlot(s.slot, Property.Reuse);
+            _commitSlot(s.slot, Property.Lifecycle);
         } else {
-            _commit(_bondId, Property.Reuse);
+            _commit(_bondId, Property.Lifecycle);
         }
     }
 
@@ -1417,10 +1432,10 @@ contract EtnaStakingRegistryHandler is CommonBase {
             _violate(Property.Balance, "the slash did not pay the bounty and the sink the stake");
         }
         if (registry.ownerOf(_a.bondId) != s.owner) {
-            _violate(Property.Reuse, "the slash changed the owner");
+            _violate(Property.Lifecycle, "the slash changed the owner");
         }
         if (registry.exitConfirmedAtL1(_a.bondId) != s.confirmedAt) {
-            _violate(Property.Reuse, "the slash changed the confirmation");
+            _violate(Property.Lifecycle, "the slash changed the confirmation");
         }
 
         ++slashes;
@@ -1611,6 +1626,11 @@ contract EtnaStakingRegistryHandler is CommonBase {
     /// the current block's checkpoint was written with the modelled count and root, refreshes
     /// that block's checkpoint copy and snapshot, and checks the admission threshold.
     function _commitSlot(uint256 _slot, Property _property) internal {
+        _pushSlotValue(_slot);
+        if (!_prefilling && !_isTouchedSlot[_slot]) {
+            _isTouchedSlot[_slot] = true;
+            _touchedSlots.push(_slot);
+        }
         IEtnaStakingRegistry.Entry memory entry = _slotEntry(_slot);
         if (!_sameEntry(registry.entryAt(_slot), entry)) {
             _violate(_property, "the changed slot's entry differs from the model");
@@ -1668,22 +1688,64 @@ contract EtnaStakingRegistryHandler is CommonBase {
         if (holder != 0) entry_ = _bonds[holder - 1].entry;
     }
 
+    /// @dev The modelled value of `_slot`: its bond's effStake + pendingTopUp, or 0 if empty.
+    function _slotValue(uint256 _slot) internal view returns (uint256) {
+        uint256 holder = _slotBond[_slot];
+        if (holder == 0) return 0;
+        return _bonds[holder - 1].entry.effStake + _bonds[holder - 1].pendingTopUp;
+    }
+
     /// @dev The modelled admission threshold: the slot with the smallest value (its bond's
-    /// effStake + pendingTopUp, 0 if empty), the lowest on a tie, and that value. The prefill
-    /// registers into a registry with no empty or zero-valued slot, so there it is the next slot.
-    function _threshold() internal view returns (uint256 slot_, uint256 value_) {
+    /// effStake + pendingTopUp, 0 if empty), the lowest on a tie, and that value. The smallest
+    /// current key of the value heap names it among the used slots; an unused slot, value 0,
+    /// wins unless a used slot already has value 0. The prefill registers into a registry with
+    /// no empty or zero-valued slot, so there it is the next slot.
+    function _threshold() internal returns (uint256 slot_, uint256 value_) {
         if (_prefilling) return (slotCount, 0);
-        value_ = type(uint256).max;
-        for (uint256 i; i < slotCount; ++i) {
-            uint256 holder = _slotBond[i];
-            uint256 value;
-            if (holder != 0) {
-                value = _bonds[holder - 1].entry.effStake + _bonds[holder - 1].pendingTopUp;
+        bool found;
+        while (_valueHeap.length != 0) {
+            uint256 key = _valueHeap[0];
+            (slot_, value_) = (key & (maxEntries - 1), key >> TREE_DEPTH);
+            if (_slotValue(slot_) == value_) {
+                found = true;
+                break;
             }
-            if (value < value_) (slot_, value_) = (i, value);
-            if (value_ == 0) break;
+            _popValueHeap();
         }
-        if (value_ != 0 && slotCount < maxEntries) (slot_, value_) = (slotCount, 0);
+        if (!found || (value_ != 0 && slotCount < maxEntries)) (slot_, value_) = (slotCount, 0);
+    }
+
+    /// @dev Pushes `_slot`'s current key onto the value heap.
+    function _pushSlotValue(uint256 _slot) internal {
+        uint256 key = _slotValue(_slot) << TREE_DEPTH | _slot;
+        uint256 i = _valueHeap.length;
+        _valueHeap.push(key);
+        while (i != 0) {
+            uint256 parent = (i - 1) / 2;
+            uint256 parentKey = _valueHeap[parent];
+            if (parentKey <= key) break;
+            _valueHeap[i] = parentKey;
+            i = parent;
+        }
+        _valueHeap[i] = key;
+    }
+
+    /// @dev Removes the smallest key from the value heap.
+    function _popValueHeap() internal {
+        uint256 last = _valueHeap[_valueHeap.length - 1];
+        _valueHeap.pop();
+        uint256 n = _valueHeap.length;
+        if (n == 0) return;
+        uint256 i;
+        while (true) {
+            uint256 child = 2 * i + 1;
+            if (child >= n) break;
+            if (child + 1 < n && _valueHeap[child + 1] < _valueHeap[child]) ++child;
+            if (_valueHeap[child] >= last) break;
+            _valueHeap[i] = _valueHeap[child];
+            i = child;
+        }
+        _valueHeap[i] = last;
     }
 
     /// @dev Checks the registry's admission threshold against the model.
@@ -1861,7 +1923,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
     function _violate(Property _property, string memory _reason) internal {
         if (violations[_property]++ != 0) return;
         string[8] memory names =
-            ["root", "history", "snapshots", "reuse", "keys", "balance", "timing", "cap"];
+            ["root", "history", "snapshots", "lifecycle", "keys", "balance", "timing", "cap"];
         firstViolation[_property] = string.concat(names[uint8(_property)], ": ", _reason);
     }
 

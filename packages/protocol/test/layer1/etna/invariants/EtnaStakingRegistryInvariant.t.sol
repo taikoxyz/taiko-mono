@@ -18,11 +18,8 @@ abstract contract EtnaStakingRegistryInvariantBase is EtnaStakingRegistryTestBas
     uint48 internal constant NO_EXIT = type(uint48).max;
     uint256 internal constant CAPACITY = 4096;
 
-    /// @dev The ERC-7201 base slot R of `taiko.etna.registry`, its fields read directly
-    /// (`checkpoints` at R, `entries` at R + 1), and the bases of the owners and
-    /// exit-confirmations namespaces.
-    uint256 internal constant REGISTRY_BASE =
-        0x46e4e2fea4a7d0ac18aca03baa3a1f64e1be04ec23c1ca0c7b901af7b59b8000;
+    /// @dev The registry fields read directly (`checkpoints` at R, `entries` at R + 1), and the
+    /// bases of the owners and exit-confirmations namespaces.
     uint256 internal constant CHECKPOINTS_SLOT = REGISTRY_BASE;
     uint256 internal constant ENTRIES_SLOT = REGISTRY_BASE + 1;
     uint256 internal constant OWNERS_SLOT =
@@ -116,7 +113,7 @@ abstract contract EtnaStakingRegistryInvariantBase is EtnaStakingRegistryTestBas
     }
 
     /// @dev Every checkpoint matches the snapshot of the modelled entries at the end of its
-    /// block (count and root), however often its slots were released and reused since.
+    /// block (count and root), however often its slots were emptied and taken again since.
     function _assertSnapshots() internal view {
         EtnaStakingRegistryHandler.Snapshot[] memory snapshots = handler.snapshots();
         uint256 count = registry.checkpointCount();
@@ -166,16 +163,27 @@ abstract contract EtnaStakingRegistryInvariantBase is EtnaStakingRegistryTestBas
         }
     }
 
-    /// @dev Every slot below `_entryCount` holds the modelled bond (`bondInSlot`), or is empty
-    /// with all-zero raw entry words; every withdrawn bond is recorded as withdrawn.
+    /// @dev Every slot below `_entryCount` holds the modelled bond and every withdrawn bond is
+    /// recorded as withdrawn (`_assertSlot`, `_assertWithdrawnBonds`).
     function _assertSlots(uint256 _entryCount) internal view {
         for (uint256 i; i < _entryCount; ++i) {
-            (bool occupied, uint256 bondId) = registry.bondInSlot(i);
-            (bool modelOccupied, uint256 modelBondId) = handler.slotHolder(i);
-            assertEq(occupied, modelOccupied, "modelled slot occupancy");
-            assertEq(bondId, modelBondId, "modelled slot bond");
-            if (!occupied) _assertEmptySlot(i);
+            _assertSlot(i);
         }
+        _assertWithdrawnBonds();
+    }
+
+    /// @dev `_slot` holds the modelled bond (`bondInSlot`), or is empty with all-zero raw entry
+    /// words.
+    function _assertSlot(uint256 _slot) internal view {
+        (bool occupied, uint256 bondId) = registry.bondInSlot(_slot);
+        (bool modelOccupied, uint256 modelBondId) = handler.slotHolder(_slot);
+        assertEq(occupied, modelOccupied, "modelled slot occupancy");
+        assertEq(bondId, modelBondId, "modelled slot bond");
+        if (!occupied) _assertEmptySlot(_slot);
+    }
+
+    /// @dev Every withdrawn bond is recorded as withdrawn.
+    function _assertWithdrawnBonds() internal view {
         uint256[] memory withdrawn = handler.withdrawnBonds();
         for (uint256 i; i < withdrawn.length; ++i) {
             _assertWithdrawn(withdrawn[i]);
@@ -351,7 +359,7 @@ abstract contract EtnaStakingRegistryInvariantBase is EtnaStakingRegistryTestBas
 contract EtnaStakingRegistryInvariantTest is EtnaStakingRegistryInvariantBase {
     /// @notice A registration, exit, confirmation and withdrawal empty a slot that the next
     /// registration, a new bond, takes.
-    function test_handler_ReleasesAndReusesASlot() external {
+    function test_handler_WithdrawsAndRefillsASlot() external {
         handler.register(0, 0, 0);
         handler.requestExit(0);
         handler.advanceToWithdrawal(0);
@@ -370,8 +378,8 @@ contract EtnaStakingRegistryInvariantTest is EtnaStakingRegistryInvariantBase {
     }
 
     /// @notice A slash moves the whole stake out; after a landed snapshot covers the slash block
-    /// and the withdrawal delay, the slot is released without payment.
-    function test_handler_SlashedEntryIsReleasedWithoutPayment() external {
+    /// and the withdrawal delay, the bond is withdrawn without payment.
+    function test_handler_SlashedBondIsWithdrawnWithoutPayment() external {
         handler.register(0, 0, 0);
         handler.slash(0);
         handler.settle(0);
@@ -379,15 +387,15 @@ contract EtnaStakingRegistryInvariantTest is EtnaStakingRegistryInvariantBase {
         handler.advanceToWithdrawal(0);
         handler.withdraw(0);
         assertEq(handler.slashes(), 1, "slashes");
-        assertEq(handler.releasesWithoutPayment(), 1, "releases without payment");
+        assertEq(handler.withdrawalsWithoutPayment(), 1, "withdrawn without payment");
         assertEq(token.balanceOf(address(registry)), 0, "no stake left");
         _assertModelHeld();
     }
 
     /// @notice An entry slashed after its exit is confirmed keeps its exit and confirmation;
-    /// after the withdrawal delay from that confirmation, a non-owner releases the slot to the
+    /// after the withdrawal delay from that confirmation, a non-owner withdraws the bond to the
     /// zero address and no TAIKO moves (spec 4.1).
-    function test_handler_SlashAfterConfirmationKeepsItAndAnyoneReleases() external {
+    function test_handler_SlashAfterConfirmationKeepsItAndAnyoneWithdraws() external {
         handler.register(0, 0, 0);
         address bondOwner = registry.ownerOf(0);
         assertEq(bondOwner, Alice, "Alice owns bond 0");
@@ -410,12 +418,12 @@ contract EtnaStakingRegistryInvariantTest is EtnaStakingRegistryInvariantBase {
         assertEq(block.number, confirmedAt + registry.withdrawalDelay(), "delay from confirmation");
         uint256 carolBefore = token.balanceOf(Carol);
         handler.withdrawOf(0, Carol, address(0));
-        assertEq(handler.releasesAfterConfirmedSlash(), 1, "released after the slash");
-        assertEq(handler.releasesByOthers(), 1, "released by a non-owner");
+        assertEq(handler.withdrawalsAfterConfirmedSlash(), 1, "withdrawn after the slash");
+        assertEq(handler.withdrawalsByOthers(), 1, "withdrawn by a non-owner");
         assertTrue(registry.bondAt(0).withdrawn, "withdrawn");
         assertEq(registry.ownerOf(0), address(0), "no owner");
         assertEq(registry.exitConfirmedAtL1(0), 0, "no confirmation");
-        assertEq(token.balanceOf(Carol), carolBefore, "nothing to the releaser");
+        assertEq(token.balanceOf(Carol), carolBefore, "nothing to the caller");
         assertEq(token.balanceOf(address(registry)), 0, "no stake left");
         _assertModelHeld();
     }

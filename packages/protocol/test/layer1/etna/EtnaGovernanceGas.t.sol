@@ -7,7 +7,7 @@ import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry
 import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { EtnaStakingRegistry } from "src/layer1/etna/impl/EtnaStakingRegistry.sol";
 
-/// @notice Cold-transaction budgets for the added capital-management operations.
+/// @notice Cold-transaction budgets for the capital-management operations.
 abstract contract EtnaRegistryGovernanceGasBase is EtnaStakingRegistryGasBase {
     function setUp() public virtual override {
         super.setUp();

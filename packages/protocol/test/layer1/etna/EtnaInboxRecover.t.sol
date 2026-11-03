@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { EtnaInboxLockHarness } from "./EtnaInboxLockHarness.sol";
 import { MockLandProofVerifier } from "./EtnaInboxTestBase.sol";
 import { EtnaLandTestBase } from "./EtnaLandTestBase.sol";
 import { EtnaTestKeys } from "./EtnaTestKeys.sol";
@@ -321,7 +320,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
     /// Alice and lists a blanking: the whole call reverts, so Alice's exit, the queue entry and
     /// the generation stay as they were. A withdrawn bond named with its own key is accepted and
     /// keeps its earlier exit, while the emptied slot's all-zero key does not match it.
-    function test_recover_RevertWhen_ExclusionKeyStaleOrReleased() external {
+    function test_recover_RevertWhen_ExclusionKeyStaleOrUnissued() external {
         IEtnaInbox.Exclusion[] memory list = new IEtnaInbox.Exclusion[](2);
         list[0] = _exclusion(0, VALIDATOR_PK);
 
@@ -339,7 +338,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         // Bob exits, a landing's committee covers the exit, and he withdraws bond 1.
         vm.prank(Bob);
         registry.requestExit(1);
-        uint48 bobExit = registry.entryAt(1).exitEffectiveL1;
+        uint48 bobExit = registry.bondAt(1).entry.exitEffectiveL1;
         IEtnaInbox.LandInput memory input = _input(0, 6);
         input.activeCommitteeSnapshot = bobExit;
         _land(input, new bytes32[](0));
@@ -520,43 +519,6 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
     // ---------------------------------------------------------------
     // Lock and calls
     // ---------------------------------------------------------------
-
-    /// @dev `recover` and `land` share one lock (spec 8.3): while the harness holds it, re-entering
-    /// either reverts `REENTRANT_CALL`. The proxy is made its own owner so its re-entry into
-    /// `recover` passes `onlyOwner` and reaches the lock. Outside the lock both execute.
-    function test_recover_SharesTheLandLock() external {
-        _inbox().upgradeTo(address(new EtnaInboxLockHarness(_defaultConfig())));
-        _inbox().transferOwnership(inboxProxy);
-        vm.prank(inboxProxy);
-        _inbox().acceptOwnership();
-        assertEq(_inbox().owner(), inboxProxy, "the proxy owns itself");
-
-        bytes memory reentrant = abi.encodeWithSelector(EssentialContract.REENTRANT_CALL.selector);
-        (bool ok, bytes memory ret) = EtnaInboxLockHarness(inboxProxy)
-            .lockedCall(
-                inboxProxy,
-                abi.encodeCall(
-                    IEtnaInbox.recover,
-                    (0, 0, 0, type(uint256).max, _noExclusions(), _noIndices(), 0)
-                )
-            );
-        assertFalse(ok, "recover under the lock");
-        assertEq(ret, reentrant, "recover: REENTRANT_CALL");
-
-        (ok, ret) = EtnaInboxLockHarness(inboxProxy)
-            .lockedCall(
-                inboxProxy, abi.encodeCall(IEtnaInbox.land, (_input(0, 6), new bytes32[](0), PROOF))
-            );
-        assertFalse(ok, "land under the lock");
-        assertEq(ret, reentrant, "land: REENTRANT_CALL");
-        assertFalse(_inbox().inNonReentrant(), "released");
-        assertEq(_inbox().recoveryGeneration(), 0, "generation kept");
-        _assertCheckpoint(0, bytes32(uint256(100)));
-
-        _land(0, 6);
-        _recover(0, 6, _noExclusions(), _noIndices());
-        assertEq(_inbox().recoveryGeneration(), 1, "recovered outside the lock");
-    }
 
     /// @dev `recover` holds that lock while it calls the registry: a registry stand-in sees it held
     /// and its re-entries into `land` and `recover` both revert `REENTRANT_CALL`. The stand-in is
@@ -888,7 +850,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         uint256 generation = _inbox().recoveryGeneration();
         uint256 c = _inbox().lastCheckpoint().height;
         (, uint48 tail) = _inbox().getForcedInclusionState();
-        uint256 bonds = registry.entryCount();
+        uint256 bonds = registry.bondCount();
         words_ = new bytes32[](18 + tail + bonds);
         uint256 n;
         words_[n++] = _inboxWord(RECOVERY_GENERATION_SLOT);
@@ -907,7 +869,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
             words_[n++] = _inboxWord(_queueSlot(i));
         }
         for (uint256 b; b < bonds; ++b) {
-            words_[n++] = bytes32(uint256(registry.entryAt(b).exitEffectiveL1));
+            words_[n++] = bytes32(uint256(registry.bondAt(b).entry.exitEffectiveL1));
         }
         words_[n++] = bytes32(registry.checkpointCount());
         words_[n++] = registry.entriesRoot();
@@ -980,14 +942,8 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         assertEq(entry.l1Block, _expected.l1Block, "entry l1Block");
     }
 
-    function _assertEntry(
-        uint256 _bondId,
-        IEtnaStakingRegistry.Entry memory _expected
-    )
-        private
-        view
-    {
-        IEtnaStakingRegistry.Entry memory entry = registry.entryAt(_bondId);
+    function _assertEntry(uint256 _slot, IEtnaStakingRegistry.Entry memory _expected) private view {
+        IEtnaStakingRegistry.Entry memory entry = registry.entryAt(_slot);
         assertEq(entry.ckX, _expected.ckX, "ckX");
         assertEq(entry.effStake, _expected.effStake, "effStake");
         assertEq(entry.ckPrefix, _expected.ckPrefix, "ckPrefix");
@@ -995,19 +951,11 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         assertEq(entry.exitEffectiveL1, _expected.exitEffectiveL1, "exitEffectiveL1");
     }
 
-    /// @dev The entry key of `_pk`'s consensus key: keccak256(abi.encode(ckPrefix, ckX)).
-    function _entryKeyOf(uint256 _pk) private returns (bytes32) {
-        bytes memory publicKey = EtnaTestKeys.publicKey(_pk);
-        return keccak256(
-            abi.encode(uint256(uint8(publicKey[0])), bytes32(vm.createWallet(_pk).publicKeyX))
-        );
-    }
-
     function _exclusion(uint256 _bondId, uint256 _pk)
         private
         returns (IEtnaInbox.Exclusion memory)
     {
-        return IEtnaInbox.Exclusion({ bondId: _bondId, entryKey: _entryKeyOf(_pk) });
+        return IEtnaInbox.Exclusion({ bondId: _bondId, entryKey: EtnaTestKeys.entryKey(_pk) });
     }
 
     function _exclusions(

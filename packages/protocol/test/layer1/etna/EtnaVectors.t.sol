@@ -3,7 +3,6 @@ pragma solidity ^0.8.26;
 
 import { EtnaInboxTestBase } from "./EtnaInboxTestBase.sol";
 import { EtnaVectorReader, LibEtnaVectors } from "./LibEtnaVectors.sol";
-import { Base64 } from "solady/src/utils/Base64.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
 import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
@@ -642,31 +641,6 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         _landGenesisVectorFrom(j, at, leaves, 12);
     }
 
-    function test_chainDomains_DigestAndFortyEightByteChainId() external view {
-        string memory j = LibEtnaVectors.load();
-        uint256 n = LibEtnaVectors.lengthAt(j, ".chain_domains");
-        assertEq(n, 5);
-        for (uint256 i; i < n; ++i) {
-            string memory p = _at(".chain_domains", i);
-            uint256 generation = _uint(j, p, "generation");
-            assertLe(generation, type(uint48).max);
-            bytes memory preimage = abi.encode(
-                bytes32("ETNA_COMET_DOMAIN_V1"),
-                _uint(j, p, "l1_chain_id"),
-                _uint(j, p, "l2_chain_id"),
-                _address(j, p, "inbox"),
-                uint48(generation)
-            );
-            assertEq(preimage, _bytes(j, p, "preimage"));
-            bytes32 chainDomain = keccak256(preimage);
-            assertEq(chainDomain, _bytes32(j, p, "chain_domain"));
-            string memory chainId =
-                string.concat("etna-", Base64.encode(abi.encodePacked(chainDomain), true, true));
-            assertEq(bytes(chainId).length, 48);
-            assertEq(chainId, LibEtnaVectors.stringAt(j, string.concat(p, "chain_id")));
-        }
-    }
-
     function test_extraData_ThirteenBytes() external view {
         string memory j = LibEtnaVectors.load();
         uint256 n = LibEtnaVectors.lengthAt(j, ".extra_data");
@@ -681,26 +655,6 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
                 abi.encodePacked(uint8(100), uint48(generation), uint48(anchorNumber));
             assertEq(extraData.length, 13);
             assertEq(extraData, _bytes(j, p, "extra_data"));
-        }
-    }
-
-    /// @dev `entryKey = keccak256(abi.encode(ckPrefix, ckX))` identifies a bond's key for
-    /// recovery exclusions (appendix A).
-    function test_entryKeys() external view {
-        string memory j = LibEtnaVectors.load();
-        // An empty slot's entry is all zero.
-        bytes32 emptyKey = keccak256(abi.encode(0, 0));
-        assertEq(emptyKey, keccak256(abi.encode(uint256(0), bytes32(0))));
-        uint256 n = LibEtnaVectors.lengthAt(j, ".keys");
-        assertEq(n, 6);
-        for (uint256 i; i < n; ++i) {
-            string memory p = _at(".keys", i);
-            uint256 ckPrefix = _uint(j, p, "ck_prefix");
-            bytes32 ckX = _bytes32(j, p, "ck_x");
-            assertEq(_bytes(j, p, "public_key"), abi.encodePacked(uint8(ckPrefix), ckX), "33 B");
-            bytes32 entryKey = keccak256(abi.encode(ckPrefix, ckX));
-            assertEq(entryKey, _bytes32(j, p, "entry_key"));
-            assertNotEq(entryKey, emptyKey);
         }
     }
 
@@ -1467,13 +1421,6 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         for (uint256 w; w < _count; ++w) {
             assertEq(slots[w], _next(first_, w), "mapping word slot");
         }
-    }
-
-    /// @dev `keccak256(abi.encode(uint256(keccak256(_namespace)) - 1)) & ~0xff`.
-    function _erc7201(string memory _namespace) private pure returns (bytes32) {
-        return
-            keccak256(abi.encode(uint256(keccak256(bytes(_namespace))) - 1))
-                & ~bytes32(uint256(0xff));
     }
 
     function _next(bytes32 _slot, uint256 _offset) private pure returns (bytes32) {

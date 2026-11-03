@@ -121,11 +121,11 @@ contract EtnaGovernanceVectorsTest is EtnaStakingRegistryTestBase {
         }
     }
 
-    function test_vectors_NewNamespaceWordsAreExactlyWhatRegistryViewsRead() external {
+    function test_vectors_NamespaceWordsAreExactlyWhatRegistryViewsRead() external {
         string memory j = LibEtnaVectors.load();
         string memory p = ".layout.registry.top_ups";
         bytes32 base = LibEtnaVectors.bytes32At(j, string.concat(p, ".base"));
-        assertEq(base, _namespace("taiko.etna.registry.top-ups"));
+        assertEq(base, _erc7201("taiko.etna.registry.top-ups"));
         for (uint256 i; i < 2; ++i) {
             string memory row = string.concat(p, ".slots[", vm.toString(i), "]");
             uint256 bondId = LibEtnaVectors.uintAt(j, string.concat(row, ".bond_id"));
@@ -141,7 +141,7 @@ contract EtnaGovernanceVectorsTest is EtnaStakingRegistryTestBase {
         }
         p = ".layout.registry.forfeitures";
         base = LibEtnaVectors.bytes32At(j, string.concat(p, ".base"));
-        assertEq(base, _namespace("taiko.etna.registry.forfeitures"));
+        assertEq(base, _erc7201("taiko.etna.registry.forfeitures"));
         for (uint256 i; i < 2; ++i) {
             string memory row = string.concat(p, ".slots[", vm.toString(i), "]");
             bytes32 key = LibEtnaVectors.bytes32At(j, string.concat(row, ".entry_key"));
@@ -182,16 +182,6 @@ contract EtnaGovernanceVectorsTest is EtnaStakingRegistryTestBase {
         }
     }
 
-    function test_constructor_RevertWhen_ForfeitRateZeroOrAboveWholeBalance() external {
-        IEtnaStakingRegistry.Config memory cfg = _registryConfig(address(token), address(mockInbox));
-        cfg.forfeitBps = 0;
-        vm.expectRevert(IEtnaStakingRegistry.InvalidConfig.selector);
-        new EtnaStakingRegistry(cfg);
-        cfg.forfeitBps = 10_001;
-        vm.expectRevert(IEtnaStakingRegistry.InvalidConfig.selector);
-        new EtnaStakingRegistry(cfg);
-    }
-
     /// @dev A registry with `minStake` 1 and `_forfeitBps` whose bond 0 holds `_effective`
     /// effective and `_pending` pending principal. It registers one base unit, then plants the
     /// split in bond 0's record (the `bonds` mapping at R + 6, effStake in its second word) and
@@ -220,18 +210,11 @@ contract EtnaGovernanceVectorsTest is EtnaStakingRegistryTestBase {
         bytes memory pop = EtnaTestKeys.popSig(0xC0A, actual_, Alice);
         vm.prank(Alice);
         actual_.register(publicKey, 1, pop);
-        uint256 bondSlot = uint256(
-            keccak256(
-                abi.encode(
-                    uint256(0),
-                    uint256(0x46e4e2fea4a7d0ac18aca03baa3a1f64e1be04ec23c1ca0c7b901af7b59b8000) + 6
-                )
-            )
-        );
+        uint256 bondSlot = uint256(keccak256(abi.encode(uint256(0), REGISTRY_BASE + 6)));
         vm.store(address(actual_), bytes32(bondSlot + 1), bytes32(_effective));
         if (_pending != 0) {
             bytes32 pendingSlot =
-                keccak256(abi.encode(uint256(0), _namespace("taiko.etna.registry.top-ups")));
+                keccak256(abi.encode(uint256(0), _erc7201("taiko.etna.registry.top-ups")));
             vm.store(address(actual_), pendingSlot, bytes32(_pending));
             vm.store(address(actual_), bytes32(uint256(pendingSlot) + 1), bytes32(uint256(123)));
         }
@@ -251,11 +234,5 @@ contract EtnaGovernanceVectorsTest is EtnaStakingRegistryTestBase {
             abi.encodePacked(_selector), LibEtnaVectors.bytesAt(_j, string.concat(p, ".selector"))
         );
         assertEq(_calldata, LibEtnaVectors.bytesAt(_j, string.concat(p, ".calldata")));
-    }
-
-    function _namespace(string memory _name) private pure returns (bytes32) {
-        return bytes32(
-            uint256(keccak256(abi.encode(uint256(keccak256(bytes(_name))) - 1))) & ~uint256(0xff)
-        );
     }
 }

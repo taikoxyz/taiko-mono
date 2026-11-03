@@ -10,9 +10,10 @@ import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry
 /// bond, and reuse withdrawn bonds' slots at the cap.
 /// @dev The prefill registers through the handler in four blocks (four checkpoints), so the
 /// model, ghost tree and checkpoint copies cover every entry. Four prefilled bonds then request
-/// their exits and two of those are confirmed, so a run can release a slot within a few calls.
-/// Per-call checks stay cheap: the handler compares every root with its incremental ghost tree,
-/// and the invariants check only the bonds a run touched against the model.
+/// their exits and two of those are confirmed, so a run can empty a slot within a few calls.
+/// Per-call checks stay cheap: the handler compares every root with its incremental ghost tree
+/// and every admission threshold with its value heap, the invariants check only the bonds and
+/// slots a run touched against the model, and `afterInvariant` checks every slot once per run.
 abstract contract EtnaStakingRegistryNearCapInvariantBase is EtnaStakingRegistryInvariantBase {
     /// @dev The first prefilled consensus key, outside the handler's pool.
     uint256 internal constant PREFILL_KEY = 0x10000;
@@ -108,7 +109,7 @@ contract EtnaStakingRegistryNearCapInvariantTest is EtnaStakingRegistryNearCapIn
 
     /// @notice 8. Entries never exceed the 4,096 slots: at the cap a registration takes the
     /// slot of the smallest value (the per-call checks hold the admission threshold to the
-    /// model) and the slot holders are the model's. Every bond and key a run touched matches the
+    /// model) and the touched slots' holders are the model's. Every bond and key a run touched matches the
     /// model, and the registry's balance is the modelled stake. `entriesRoot()` is the ghost
     /// tree's root over all modelled entries, and the latest checkpoint holds it and the count.
     function invariant_entriesStayWithinTheCap() external view {
@@ -116,7 +117,11 @@ contract EtnaStakingRegistryNearCapInvariantTest is EtnaStakingRegistryNearCapIn
         uint256 count = registry.entryCount();
         assertLe(count, CAPACITY, "entries within the cap");
         assertEq(count, handler.slotCount(), "modelled slot count");
-        _assertSlots(count);
+        uint256[] memory slots = handler.touchedSlots();
+        for (uint256 i; i < slots.length; ++i) {
+            _assertSlot(slots[i]);
+        }
+        _assertWithdrawnBonds();
 
         uint256[] memory touched = handler.touchedBonds();
         for (uint256 i; i < touched.length; ++i) {
@@ -136,6 +141,12 @@ contract EtnaStakingRegistryNearCapInvariantTest is EtnaStakingRegistryNearCapIn
             registry.checkpointAt(registry.checkpointCount() - 1);
         assertEq(latest.count, count, "the latest checkpoint counts every slot");
         assertEq(latest.entriesRoot, root, "the latest checkpoint holds the current root");
+    }
+
+    /// @dev Ends every run by checking all slots against the model; the per-call checks cover
+    /// only the slots the run touched.
+    function afterInvariant() external view {
+        _assertSlots(registry.entryCount());
     }
 
     /// @dev Asserts that the naive root over all raw entries equals `entriesRoot()` and the ghost

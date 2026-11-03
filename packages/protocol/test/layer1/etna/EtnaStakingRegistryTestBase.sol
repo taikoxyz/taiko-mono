@@ -125,7 +125,7 @@ abstract contract EtnaStakingRegistryTestBase is CommonTest, EtnaTestConstants {
 
     /// @dev Withdraws bond `_bondId` the owner's way: requests its exit, confirms it, rolls the
     /// withdrawal delay forward and withdraws the stake to the owner.
-    function _release(uint256 _bondId) internal {
+    function _withdrawBond(uint256 _bondId) internal {
         address bondOwner = registry.ownerOf(_bondId);
         vm.prank(bondOwner);
         registry.requestExit(_bondId);

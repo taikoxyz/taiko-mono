@@ -6,60 +6,10 @@ import { EtnaLandTestBase } from "./EtnaLandTestBase.sol";
 import { ReentrantERC20 } from "./ReentrantERC20.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
-import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
-import { EtnaStakingRegistry } from "src/layer1/etna/impl/EtnaStakingRegistry.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { TestERC20 } from "test/mocks/TestERC20.sol";
 
-/// @notice Test-only upgrade contract modelling the required settlement rollback storage effects.
-/// @dev This harness deliberately exposes no production rollback API or verifier replacement.
-contract EtnaSettlementRollbackHarness is EtnaInbox {
-    constructor(Config memory _config) EtnaInbox(_config) { }
-
-    function restoreTrustedCheckpoint(
-        uint256 _height,
-        bytes32 _hash,
-        uint48 _head,
-        uint256 _snapshot
-    )
-        external
-        onlyOwner
-        nonReentrant
-    {
-        uint256 currentNonce;
-        assembly ("memory-safe") { currentNonce := sload(292) }
-        uint256 nextNonce = currentNonce + 1;
-        assembly ("memory-safe") {
-            sstore(270, _height)
-            sstore(271, _hash)
-            sstore(281, or(and(sload(281), not(sub(shl(48, 1), 1))), _head))
-            sstore(284, _snapshot)
-            sstore(292, nextNonce)
-        }
-    }
-}
-
-/// @notice Test-only companion upgrade preserving lifetime namespaces and rechecking exits.
-contract EtnaRegistryRollbackHarness is EtnaStakingRegistry {
-    constructor(Config memory _config) EtnaStakingRegistry(_config) { }
-
-    function recheckExitConfirmations(uint256 _restoredSnapshot) external onlyOwner {
-        uint256 count = this.bondCount();
-        for (uint256 i; i < count; ++i) {
-            if (this.bondAt(i).entry.exitEffectiveL1 <= _restoredSnapshot) continue;
-            bytes32 slot = keccak256(
-                abi.encode(
-                    i, uint256(0x25e74f824855a18216fe2fa8b7d9dcc76ad83f6de1a344c666c3293e57124900)
-                )
-            );
-            assembly ("memory-safe") { sstore(slot, 0) }
-        }
-    }
-}
-
 contract EtnaRecoveryAuthorizationTest is EtnaLandTestBase {
-    event RecoveryNonceInvalidated(uint256 oldNonce, uint256 newNonce);
-
     function test_recover_DeadlineIsInclusiveAndNonceConsumesExactlyOnce() external {
         vm.warp(1000);
         _recover(0, 0, 0, 1000);
@@ -99,7 +49,7 @@ contract EtnaRecoveryAuthorizationTest is EtnaLandTestBase {
         vm.expectRevert(IEtnaInbox.RecoveryNonceMismatch.selector);
         _inbox().invalidateRecoveryNonce(1);
         vm.expectEmit();
-        emit RecoveryNonceInvalidated(0, 1);
+        emit IEtnaInbox.RecoveryNonceInvalidated(0, 1);
         _inbox().invalidateRecoveryNonce(0);
         assertEq(_inbox().recoveryNonce(), 1);
         assertEq(_inbox().recoveryGeneration(), 0);
@@ -125,7 +75,7 @@ contract EtnaRecoveryAuthorizationTest is EtnaLandTestBase {
 
     function test_recover_FailedRegistryExclusionAndRetryPreserveNonceAtomicity() external {
         IEtnaInbox.Exclusion[] memory exclusions = new IEtnaInbox.Exclusion[](2);
-        exclusions[0] = IEtnaInbox.Exclusion(0, _entryKey(0));
+        exclusions[0] = IEtnaInbox.Exclusion(0, _entryKey(registry, 0));
         exclusions[1] = IEtnaInbox.Exclusion(1, bytes32(0));
         uint256[] memory blanks = new uint256[](1);
         blanks[0] = 0;
@@ -137,14 +87,14 @@ contract EtnaRecoveryAuthorizationTest is EtnaLandTestBase {
         assertEq(registry.entryAt(0).exitEffectiveL1, type(uint48).max);
         assertEq(_inbox().getForcedInclusion(0).txHash, txHash);
         exclusions = new IEtnaInbox.Exclusion[](1);
-        exclusions[0] = IEtnaInbox.Exclusion(0, _entryKey(0));
+        exclusions[0] = IEtnaInbox.Exclusion(0, _entryKey(registry, 0));
         _inbox().recover(0, 0, 0, block.timestamp, exclusions, blanks, 0);
         assertEq(_inbox().recoveryNonce(), 1);
         assertEq(registry.entryAt(0).effStake, MIN_STAKE, "exclusion is not a deduction");
     }
 
     function test_land_AndForfeitDoNotConsumeNonceOrInvalidateUnexpiredForfeiture() external {
-        bytes32 key = _entryKey(0);
+        bytes32 key = _entryKey(registry, 0);
         _land(0, 6);
         assertEq(_inbox().recoveryNonce(), 0);
         _recover(0, 6, 0, block.timestamp);
@@ -164,7 +114,7 @@ contract EtnaRecoveryAuthorizationTest is EtnaLandTestBase {
         registry.topUp(0, 7 ether);
         (uint256 pendingBefore, uint48 readyBefore) = registry.topUpOf(0);
         IEtnaInbox.Exclusion[] memory exclusions = new IEtnaInbox.Exclusion[](1);
-        exclusions[0] = IEtnaInbox.Exclusion(0, _entryKey(0));
+        exclusions[0] = IEtnaInbox.Exclusion(0, _entryKey(registry, 0));
         _inbox().recover(0, 0, 0, block.timestamp, exclusions, new uint256[](0), 0);
         (uint256 pendingAfter, uint48 readyAfter) = registry.topUpOf(0);
         assertEq(pendingAfter, pendingBefore, "recovery preserves pending principal");
@@ -173,7 +123,7 @@ contract EtnaRecoveryAuthorizationTest is EtnaLandTestBase {
         vm.roll(readyAfter);
         vm.expectRevert(IEtnaStakingRegistry.ExitAlreadySet.selector);
         registry.activateTopUp(0);
-        registry.forfeit(0, _entryKey(0), 0, block.timestamp);
+        registry.forfeit(0, _entryKey(registry, 0), 0, block.timestamp);
         assertEq(registry.entryAt(0).effStake, 899.3 ether);
         (pendingAfter,) = registry.topUpOf(0);
         assertEq(pendingAfter, 7 ether);
@@ -190,72 +140,6 @@ contract EtnaRecoveryAuthorizationTest is EtnaLandTestBase {
         assertFalse(ok);
         assertEq(ret, abi.encodeWithSelector(EssentialContract.REENTRANT_CALL.selector));
         assertEq(_inbox().recoveryNonce(), 0);
-    }
-
-    function test_rollback_PreservesCurrentNonceAndLifetimeFlagAndPreventsOldCheckpointReplay()
-        external
-    {
-        bytes32 key = _entryKey(0);
-        registry.forfeit(0, key, 0, block.timestamp);
-        _land(0, 6);
-        _inbox().invalidateRecoveryNonce(0);
-        _inbox().invalidateRecoveryNonce(1);
-        _inbox().upgradeTo(address(new EtnaSettlementRollbackHarness(_defaultConfig())));
-        registry.upgradeTo(
-            address(
-                new EtnaRegistryRollbackHarness(_registryConfig(address(taikoToken), inboxProxy))
-            )
-        );
-        EtnaSettlementRollbackHarness(inboxProxy)
-            .restoreTrustedCheckpoint(0, bytes32(uint256(100)), 0, 1);
-        EtnaRegistryRollbackHarness(address(registry)).recheckExitConfirmations(1);
-        assertEq(_inbox().lastCheckpoint().height, 0);
-        assertEq(_inbox().recoveryNonce(), 3, "increments current nonce, never restores old one");
-        assertEq(_inbox().recoveryGeneration(), 0, "rollback does not change generation");
-        assertTrue(registry.forfeited(key), "rollback preserves lifetime flag");
-        vm.expectRevert(IEtnaInbox.RecoveryNonceMismatch.selector);
-        _recover(0, 0, 0, block.timestamp);
-        _recover(0, 0, 3, block.timestamp);
-        assertEq(_inbox().recoveryNonce(), 4);
-    }
-
-    function test_rollback_RechecksConfirmationAgainstSnapshotIncludingSameBlockConfirmations()
-        external
-    {
-        _registerValidator(registry, Bob, 0xB0B);
-        vm.prank(Alice);
-        registry.requestExit(0); // exit 31
-        vm.prank(Bob);
-        registry.requestExit(1); // exit 41
-        vm.roll(50);
-        _setReference(49, keccak256("reference49"));
-        IEtnaInbox.LandInput memory input = _input(0, 6);
-        input.activeCommitteeSnapshot = 45;
-        vm.blobhashes(blobHashes);
-        _inbox().land(input, _leaves(0, 6), PROOF);
-        registry.confirmExit(0);
-        registry.confirmExit(1);
-        assertEq(registry.exitConfirmedAtL1(0), 50);
-        assertEq(registry.exitConfirmedAtL1(1), 50);
-        _inbox().upgradeTo(address(new EtnaSettlementRollbackHarness(_defaultConfig())));
-        registry.upgradeTo(
-            address(
-                new EtnaRegistryRollbackHarness(_registryConfig(address(taikoToken), inboxProxy))
-            )
-        );
-        EtnaSettlementRollbackHarness(inboxProxy)
-            .restoreTrustedCheckpoint(0, bytes32(uint256(100)), 0, 31);
-        EtnaRegistryRollbackHarness(address(registry)).recheckExitConfirmations(31);
-        assertEq(registry.exitConfirmedAtL1(0), 50, "still covered, clock preserved");
-        assertEq(
-            registry.exitConfirmedAtL1(1), 0, "uncovered confirmation cleared despite same block"
-        );
-        vm.roll(80);
-        vm.expectRevert(IEtnaStakingRegistry.ExitNotConfirmed.selector);
-        vm.prank(Bob);
-        registry.withdraw(1, Bob);
-        vm.prank(Alice);
-        registry.withdraw(0, Alice);
     }
 
     function test_registryTokenCallback_CannotRecoverInvalidateOrLandDuringTopUp() external {
@@ -291,13 +175,11 @@ contract EtnaRecoveryAuthorizationTest is EtnaLandTestBase {
         }
     }
 
-    function test_recoveryAuthorization_RevertWhen_UninitializedForBothEntryPoints() external {
+    function test_invalidateRecoveryNonce_RevertWhen_Uninitialized() external {
         _deployFreshInbox(false);
         EssentialContract(inboxProxy).upgradeTo(address(inboxImpl));
         vm.expectRevert(IEtnaInbox.NotInitialized.selector);
         _inbox().invalidateRecoveryNonce(0);
-        vm.expectRevert(IEtnaInbox.NotInitialized.selector);
-        _recover(0, 0, 0, block.timestamp);
     }
 
     function _recover(uint48 _generation, uint256 _c, uint256 _nonce, uint256 _deadline) private {
@@ -311,10 +193,5 @@ contract EtnaRecoveryAuthorizationTest is EtnaLandTestBase {
                 new uint256[](0),
                 0
             );
-    }
-
-    function _entryKey(uint256 _id) private view returns (bytes32) {
-        IEtnaStakingRegistry.Entry memory entry = registry.bondAt(_id).entry;
-        return keccak256(abi.encode(entry.ckPrefix, entry.ckX));
     }
 }

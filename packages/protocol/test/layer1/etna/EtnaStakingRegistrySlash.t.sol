@@ -68,7 +68,7 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
     /// ether) to Bob and 900 ether to the sink. The entry keeps its key and activation, its exit
     /// moves from none to min(none, 50) = 50, and block 50's checkpoint is appended over the new
     /// leaf before any stake moves. A landed committee covering block 50 then lets anyone confirm
-    /// the exit and, after the delay, release the slot without payment (Lean
+    /// the exit and, after the delay, withdraw the bond without payment (Lean
     /// `double_sign_then_release`).
     function test_slashDoubleSign_SlashesWholeStakeAndPaysBounty() external {
         (IEtnaStakingRegistry.Vote memory a, IEtnaStakingRegistry.Vote memory b) = _conflict(_CK_A);
@@ -119,7 +119,7 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
         _assertSameEntry(registry.entryAt(0), zero);
         _assertSameEntry(registry.bondAt(0).entry, expected);
         assertTrue(registry.bondAt(0).withdrawn, "withdrawn");
-        assertEq(token.balanceOf(Carol), 0, "nothing to the releaser");
+        assertEq(token.balanceOf(Carol), 0, "nothing to the caller");
         assertEq(token.balanceOf(Bob) + token.balanceOf(SLASH_SINK), MIN_STAKE, "paid once");
     }
 
@@ -189,8 +189,8 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
     /// block 110. The stake goes, the exit stays at min(60, 110) = 60 and the confirmation stays
     /// at 100, so the slash neither restarts nor skips the withdrawal delay. At block 129 the
     /// release is still early; at block 130 Carol, who is not the owner, releases the slot and no
-    /// TAIKO moves (spec 4.1: a slashed entry is released by anyone without payment).
-    function test_slashDoubleSign_KeepsExistingConfirmationAndAllowsAnyoneToRelease() external {
+    /// TAIKO moves (spec 4.1: a slashed bond is withdrawn by anyone without payment).
+    function test_slashDoubleSign_KeepsExistingConfirmationAndAllowsAnyoneToWithdraw() external {
         vm.prank(Alice);
         registry.requestExit(0);
         mockInbox.setActiveCommitteeSnapshot(_EXIT);
@@ -211,9 +211,9 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
 
         vm.roll(130);
         IEtnaStakingRegistry.Entry memory zero;
-        bytes32 releasedLeaf = LibEntriesTree.leaf(0, zero);
+        bytes32 emptyLeaf = LibEntriesTree.leaf(0, zero);
         vm.expectEmit(address(registry));
-        emit IEtnaStakingRegistry.CheckpointWritten(2, 130, 1, releasedLeaf);
+        emit IEtnaStakingRegistry.CheckpointWritten(2, 130, 1, emptyLeaf);
         vm.expectEmit(address(registry));
         emit IEtnaStakingRegistry.StakeWithdrawn(0, Carol, 0);
         vm.recordLogs();
@@ -224,7 +224,7 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
         for (uint256 i; i < logs.length; ++i) {
             assertTrue(logs[i].emitter != address(token), "no TAIKO transfer");
         }
-        assertEq(token.balanceOf(Carol), 0, "nothing to the releaser");
+        assertEq(token.balanceOf(Carol), 0, "nothing to the caller");
         assertEq(token.balanceOf(Alice), 0, "nothing to the owner");
         assertEq(token.balanceOf(Bob), _BOUNTY, "bounty");
         assertEq(token.balanceOf(SLASH_SINK), _TO_SINK, "sink");
@@ -232,7 +232,7 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
         assertTrue(registry.bondAt(0).withdrawn, "withdrawn");
         assertEq(registry.ownerOf(0), address(0), "owner cleared");
         assertEq(registry.exitConfirmedAtL1(0), 0, "confirmation cleared");
-        assertEq(registry.entriesRoot(), releasedLeaf, "root");
+        assertEq(registry.entriesRoot(), emptyLeaf, "root");
     }
 
     /// @dev A slash neither confirms the exit nor skips the delay (Lean `zero_stake_still_waits`).
@@ -525,30 +525,23 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
         assertEq(registry.checkpointCount(), checkpoints, "no checkpoint");
     }
 
-    /// @dev A withdrawn bond can no longer be slashed, checked before the signatures. Once
-    /// another bond takes the emptied slot, the old key's evidence does not match the new bond.
+    /// @dev A withdrawn bond can no longer be slashed, checked before the signatures.
     function test_slashDoubleSign_RevertWhen_BondWithdrawn() external {
         bytes4 bondWithdrawn = IEtnaStakingRegistry.BondWithdrawn.selector;
         (IEtnaStakingRegistry.Vote memory a, IEtnaStakingRegistry.Vote memory b) = _conflict(_CK_A);
-        _release(0);
+        _withdrawBond(0);
 
         _assertSlashReverts(0, a, b, bondWithdrawn, "withdrawn");
         _assertSlashReverts(
             0, _vote(_BLOCK_A, 0), _vote(_BLOCK_B, 0), bondWithdrawn, "before signatures"
         );
-
-        assertEq(_register(Bob, _CK_B), 1, "bond 1 takes slot 0");
-        _assertSlashReverts(
-            1, a, b, IEtnaStakingRegistry.InvalidSignature.selector, "previous occupant's key"
-        );
-        assertEq(registry.entryAt(0).effStake, MIN_STAKE, "new bond untouched");
     }
 
     /// @dev A bond id never issued, checked before the signatures.
     function test_slashDoubleSign_RevertWhen_UnknownBond() external {
         bytes4 unknownBond = IEtnaStakingRegistry.UnknownBond.selector;
         (IEtnaStakingRegistry.Vote memory a, IEtnaStakingRegistry.Vote memory b) = _conflict(_CK_A);
-        _assertSlashReverts(1, a, b, unknownBond, "next slot");
+        _assertSlashReverts(1, a, b, unknownBond, "next bond id");
         _assertSlashReverts(type(uint256).max, a, b, unknownBond, "max");
         _assertSlashReverts(
             1, _vote(_BLOCK_A, 0), _vote(_BLOCK_B, 0), unknownBond, "before signatures"
