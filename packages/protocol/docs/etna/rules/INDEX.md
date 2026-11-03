@@ -12,7 +12,9 @@
 | MODEL-1-2      | rule       | Proof completeness covers every grid segment of K blocks within one landing                                                                    | 1       | [1](vectors/1.md#model-1-2)           |
 | MODEL-1-3      | rule       | land, saveForcedInclusion and the registry are unaffected by pause                                                                             | 1       | [1](vectors/1.md#model-1-3)           |
 | COMP-2-1       | rule       | Validator: registry stake, consensus key, stock CometBFT, checkpoint-trust gate                                                                | 2       | [2](vectors/2.md#comp-2-1)            |
-| COMP-2-2       | rule       | Full node: CometBFT, ABCI app and alethia-reth with no signing key                                                                             | 2       | [2](vectors/2.md#comp-2-2)            |
+| COMP-2-2       | retired    | Full node: CometBFT, ABCI app and alethia-reth with no signing key                                                                             | 2       | [2](vectors/2.md#comp-2-2)            |
+| COMP-2-2a      | rule       | EL-only settled-state backend: finalized imports, matched-checkpoint serving, no app trust                                                     | 2       | [2](vectors/2.md#comp-2-2a)           |
+| COMP-2-2b      | rule       | Full node: authenticated prefix import or replay, validate subsequent blocks                                                                   | 2       | [2](vectors/2.md#comp-2-2b)           |
 | COMP-2-3       | rule       | Lander: permissionless batch builder and land caller, no protocol reward                                                                       | 2       | [2](vectors/2.md#comp-2-3)            |
 | COMP-2-4       | rule       | Prover: produces two proofs per batch                                                                                                          | 2       | [2](vectors/2.md#comp-2-4)            |
 | COMP-2-5       | rule       | EtnaInbox: genesis parameters, land, checkpoints, FI queue, rules schedule and recovery                                                        | 2       | [2](vectors/2.md#comp-2-5)            |
@@ -167,16 +169,27 @@
 | DATA-5.2-7     | rule       | Blocks are contiguous, hash-linked and end at the checkpoint                                                                                   | 5.2     | [5.2](vectors/5.2.md#data-52-7)       |
 | DATA-5.2-8     | rule       | Private proof inputs: unpublished data and guest equality                                                                                      | 5.2     | [5.2](vectors/5.2.md#data-52-8)       |
 | DATA-5.2-9     | rule       | DA recovery: archived blobs plus starting state suffice                                                                                        | 5.2     | [5.2](vectors/5.2.md#data-52-9)       |
-| DATA-5.3-1     | rule       | Reconstruction uses only public inputs                                                                                                         | 5.3     | [5.3](vectors/5.3.md#data-53-1)       |
-| DATA-5.3-2     | rule       | A source-available program and public inputs are required                                                                                      | 5.3     | [5.3](vectors/5.3.md#data-53-2)       |
-| DATA-5.3-3     | rule       | Starting material: genesis state/code, hashes, ids, L1_0                                                                                       | 5.3     | [5.3](vectors/5.3.md#data-53-3)       |
+| DATA-5.3-1     | retired    | Reconstruction uses only public inputs                                                                                                         | 5.3     | [5.3](vectors/5.3.md#data-53-1)       |
+| DATA-5.3-1a    | rule       | All ELs may use snapshots; app nodes choose fixed-genesis replay or authenticated import                                                       | 5.3     | [5.3](vectors/5.3.md#data-53-1a)      |
+| DATA-5.3-2     | retired    | A source-available program and public inputs are required                                                                                      | 5.3     | [5.3](vectors/5.3.md#data-53-2)       |
+| DATA-5.3-2a    | rule       | EL/app snapshot tools required; blob replay optional; app replay or authenticated import required                                              | 5.3     | [5.3](vectors/5.3.md#data-53-2a)      |
+| DATA-5.3-3     | rule       | Complete state/code, file hashes, ancestor headers, starting checkpoint and FI cursor                                                          | 5.3     | [5.3](vectors/5.3.md#data-53-3)       |
 | DATA-5.3-3a    | rule       | Reconstruction takes each block's ruleset from emitted slot 293 values and replays every ruleset                                               | 5.3     | [5.3](vectors/5.3.md#data-53-3a)      |
-| DATA-5.3-4     | rule       | The program recomputes and matches the authenticated start                                                                                     | 5.3     | [5.3](vectors/5.3.md#data-53-4)       |
-| DATA-5.3-5     | rule       | Verify versioned hashes and (p,h] blobs in landing order                                                                                       | 5.3     | [5.3](vectors/5.3.md#data-53-5)       |
-| DATA-5.3-6     | rule       | Execute only (c,h]; check prefix, h hash/stateRoot and cursor                                                                                  | 5.3     | [5.3](vectors/5.3.md#data-53-6)       |
-| DATA-5.3-7     | rule       | History selection uses authenticated generations/origins                                                                                       | 5.3     | [5.3](vectors/5.3.md#data-53-7)       |
-| DATA-5.3-8     | rule       | Reject missing material/versions; never skip or use RPC                                                                                        | 5.3     | [5.3](vectors/5.3.md#data-53-8)       |
-| DATA-5.3-9     | rule       | Archive authentication; private history is separate                                                                                            | 5.3     | [5.3](vectors/5.3.md#data-53-9)       |
+| DATA-5.3-4     | rule       | Reject unfinalized/missing checkpoint records; verify state, cursor and ancestry                                                               | 5.3     | [5.3](vectors/5.3.md#data-53-4)       |
+| DATA-5.3-5     | rule       | Blob replay verifies full (p,h] inputs in canonical landing order                                                                              | 5.3     | [5.3](vectors/5.3.md#data-53-5)       |
+| DATA-5.3-6     | rule       | All p<=c<h with s<=c: verify prefix and execute only (c,h]                                                                                     | 5.3     | [5.3](vectors/5.3.md#data-53-6)       |
+| DATA-5.3-7     | rule       | EL-only readiness is separate from app checkpoint trust and signing                                                                            | 5.3     | [5.3](vectors/5.3.md#data-53-7)       |
+| DATA-5.3-8     | rule       | Reject missing required inputs or mismatches; app import and post-start FI checks                                                              | 5.3     | [5.3](vectors/5.3.md#data-53-8)       |
+| DATA-5.3-9     | retired    | Archive authentication; private history is separate                                                                                            | 5.3     | [5.3](vectors/5.3.md#data-53-9)       |
+| DATA-5.3-9a    | rule       | Continuous public snapshot-to-latest path; separate app history and detection limits                                                           | 5.3     | [5.3](vectors/5.3.md#data-53-9a)      |
+| DATA-5.4-1     | rule       | Current-generation checkpoint and fixed-origin trust root                                                                                      | 5.4     | [5.4](vectors/5.4.md#data-54-1)       |
+| DATA-5.4-2     | rule       | Authenticate original consensus archive and all committee switches                                                                             | 5.4     | [5.4](vectors/5.4.md#data-54-2)       |
+| DATA-5.4-3     | rule       | Reconstruct app metadata, H+2 priorities and stock historical/evidence stores                                                                  | 5.4     | [5.4](vectors/5.4.md#data-54-3)       |
+| DATA-5.4-4     | rule       | Post-s state, EL canonical indexes o..s and authenticated local history                                                                        | 5.4     | [5.4](vectors/5.4.md#data-54-4)       |
+| DATA-5.4-5     | rule       | Durable import; reject bad candidates, safety-halt on authenticated landing contradictions                                                     | 5.4     | [5.4](vectors/5.4.md#data-54-5)       |
+| DATA-5.4-6     | rule       | Stock P2P from s+1, FI parent-state retention and latest-target trust                                                                          | 5.4     | [5.4](vectors/5.4.md#data-54-6)       |
+| DATA-5.4-7     | rule       | Never import or roll back signer HRS                                                                                                           | 5.4     | [5.4](vectors/5.4.md#data-54-7)       |
+| DATA-5.4-8     | rule       | Available app import path and independent-history evidence                                                                                     | 5.4     | [5.4](vectors/5.4.md#data-54-8)       |
 | LAND-6.1-1     | rule       | land is permissionless and nonpayable                                                                                                          | 6.1     | [6.1](vectors/6.1.md#land-61-1)       |
 | LAND-6.1-2     | rule       | Proofs and blobs cover all of (p,h], origin p to terminal h                                                                                    | 6.1     | [6.1](vectors/6.1.md#land-61-2)       |
 | LAND-6.1-3     | rule       | c is read atomically at execution; only suffix (c,h] settles                                                                                   | 6.1     | [6.1](vectors/6.1.md#land-61-3)       |
@@ -413,7 +426,8 @@
 | RECOV-8.4-11   | rule       | FI cursor starts at the authenticated origin head                                                                                              | 8.4     | [8.4](vectors/8.4.md#recov-84-11)     |
 | RECOV-8.4-12   | rule       | First block carries a finalized anchor witness no earlier than R                                                                               | 8.4     | [8.4](vectors/8.4.md#recov-84-12)     |
 | RECOV-8.4-13   | rule       | Every anchor and L1 root is no earlier than R                                                                                                  | 8.4     | [8.4](vectors/8.4.md#recov-84-13)     |
-| RECOV-8.4-14   | rule       | Joining nodes replay from fixed genesis and match EL and Comet hashes                                                                          | 8.4     | [8.4](vectors/8.4.md#recov-84-14)     |
+| RECOV-8.4-14   | retired    | Joining nodes replay from fixed genesis and match EL and Comet hashes                                                                          | 8.4     | [8.4](vectors/8.4.md#recov-84-14)     |
+| RECOV-8.4-14a  | rule       | Joining app nodes use fixed-genesis replay or authenticated import and match both hashes                                                       | 8.4     | [8.4](vectors/8.4.md#recov-84-14a)    |
 | RECOV-8.4-15   | rule       | The latest checkpoint is never a new genesis for the same domain                                                                               | 8.4     | [8.4](vectors/8.4.md#recov-84-15)     |
 | SYNC-9-1       | rule       | Cold sync revalidates an anchor witness against the node's own L1 node and 3.4                                                                 | 9       | [9](vectors/9.md#sync-9-1)            |
 | SYNC-9-2       | rule       | Own L1 node lag, unreachable or timeout only waits; halt only on contradiction                                                                 | 9       | [9](vectors/9.md#sync-9-2)            |
@@ -423,7 +437,7 @@
 | SYNC-9-6       | rule       | After trust, every anchor change checks the new lastCheckpoint per 3.4                                                                         | 9       | [9](vectors/9.md#sync-9-6)            |
 | SYNC-9-7       | rule       | Missing data leaves the node untrusted; contradictions and malformed data halt                                                                 | 9       | [9](vectors/9.md#sync-9-7)            |
 | SYNC-9-8       | rule       | A canonical-hash-matching header that fails to parse needs an upgrade, no halt                                                                 | 9       | [9](vectors/9.md#sync-9-8)            |
-| SYNC-9-9       | rule       | A recovery origin is distinct from the latest trust target; replay under 8.4                                                                   | 9       | [9](vectors/9.md#sync-9-9)            |
+| SYNC-9-9       | rule       | Recovery origin differs from trust target; use fixed replay or 5.4 import                                                                      | 9       | [9](vectors/9.md#sync-9-9)            |
 | SYNC-9-10      | rule       | Every validator signature requires the app to confirm that the node is trusted                                                                 | 9       | [9](vectors/9.md#sync-9-10)           |
 | SYNC-9-11      | rule       | Untrusted, timeout or superseded: no signature, no local fallback                                                                              | 9       | [9](vectors/9.md#sync-9-11)           |
 | SYNC-9-12      | rule       | Supervisor restarts CometBFT once trust returns after a trust/timeout refusal                                                                  | 9       | [9](vectors/9.md#sync-9-12)           |
@@ -654,7 +668,7 @@
 | Section | IDs | Vectors | Review questions |
 | ------- | --- | ------- | ---------------- |
 | 1       | 3   | 13      | 4                |
-| 2       | 7   | 27      | 4                |
+| 2       | 8   | 31      | 3                |
 | 3.1     | 17  | 95      | 7                |
 | 3.2     | 12  | 51      | 4                |
 | 3.3     | 7   | 39      | 4                |
@@ -665,7 +679,8 @@
 | 4.4     | 20  | 76      | 3                |
 | 5.1     | 3   | 10      | 2                |
 | 5.2     | 9   | 31      | 4                |
-| 5.3     | 10  | 29      | 4                |
+| 5.3     | 10  | 62      | 4                |
+| 5.4     | 8   | 40      | 2                |
 | 6.1     | 13  | 52      | 4                |
 | 6.2     | 48  | 180     | 14               |
 | 6.3     | 14  | 51      | 3                |
@@ -677,9 +692,9 @@
 | 8.1     | 12  | 35      | 7                |
 | 8.2     | 6   | 17      | 4                |
 | 8.3     | 20  | 50      | 7                |
-| 8.4     | 15  | 38      | 6                |
-| 9       | 16  | 74      | 7                |
-| 9.1     | 10  | 31      | 5                |
+| 8.4     | 15  | 39      | 6                |
+| 9       | 16  | 75      | 6                |
+| 9.1     | 10  | 31      | 4                |
 | 10      | 24  | 97      | 5                |
 | 10.1    | 24  | 113     | 1                |
 | 11      | 16  | 64      | 6                |
