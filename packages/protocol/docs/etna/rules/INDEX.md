@@ -26,7 +26,7 @@
 | CONS-3.1-6     | rule       | Mempool nop; user transactions arrive over EL devp2p into the proposer's txpool                                                                | 3.1     | [3.1](vectors/3.1.md#cons-31-6)       |
 | CONS-3.1-7     | rule       | CometBFT height equals EL block number; Data.Txs holds one envelope                                                                            | 3.1     | [3.1](vectors/3.1.md#cons-31-7)       |
 | CONS-3.1-8     | rule       | ABCI responses: app_hash and fixed ExecTxResult fields                                                                                         | 3.1     | [3.1](vectors/3.1.md#cons-31-8)       |
-| CONS-3.1-9     | rule       | App and rules version, immutable consensus params, node-local trust metadata                                                                   | 3.1     | [3.1](vectors/3.1.md#cons-31-9)       |
+| CONS-3.1-9     | rule       | App version, ruleset from the 10.1 schedule, immutable consensus params, node-local trust metadata                                             | 3.1     | [3.1](vectors/3.1.md#cons-31-9)       |
 | CONS-3.1-10    | rule       | CometBFT evidence is not punished by the app; double-sign slashing only on L1                                                                  | 3.1     | [3.1](vectors/3.1.md#cons-31-10)      |
 | CONS-3.1-11    | rule       | Pinned alethia-reth feature set and engine API methods used to drive it                                                                        | 3.1     | [3.1](vectors/3.1.md#cons-31-11)      |
 | CONS-3.1-12    | rule       | Pinned ZK Gas rules; L2_BLOCK_ZK_GAS_LIMIT independent of EVM gas                                                                              | 3.1     | [3.1](vectors/3.1.md#cons-31-12)      |
@@ -167,6 +167,7 @@
 | DATA-5.3-1     | rule       | Reconstruction uses only public inputs                                                                                                         | 5.3     | [5.3](vectors/5.3.md#data-53-1)       |
 | DATA-5.3-2     | rule       | A source-available program and public inputs are required                                                                                      | 5.3     | [5.3](vectors/5.3.md#data-53-2)       |
 | DATA-5.3-3     | rule       | Starting material: genesis state/code, hashes, ids, L1_0                                                                                       | 5.3     | [5.3](vectors/5.3.md#data-53-3)       |
+| DATA-5.3-3a    | rule       | Reconstruction takes each block's ruleset from emitted slot 293 values and replays every ruleset                                               | 5.3     | [5.3](vectors/5.3.md#data-53-3a)      |
 | DATA-5.3-4     | rule       | The program recomputes and matches the authenticated start                                                                                     | 5.3     | [5.3](vectors/5.3.md#data-53-4)       |
 | DATA-5.3-5     | rule       | Verify versioned hashes and (p,h] blobs in landing order                                                                                       | 5.3     | [5.3](vectors/5.3.md#data-53-5)       |
 | DATA-5.3-6     | rule       | Execute only (c,h]; check prefix, h hash/stateRoot and cursor                                                                                  | 5.3     | [5.3](vectors/5.3.md#data-53-6)       |
@@ -450,7 +451,8 @@
 | START-10-13    | rule       | Use positive activation and exit delays                                                                                                        | 10      | [10](vectors/10.md#start-10-13)       |
 | START-10-14    | rule       | Deployment, nodes and guests check the same configuration                                                                                      | 10      | [10](vectors/10.md#start-10-14)       |
 | START-10-15    | rule       | Appendix A's chain_id is exactly 48 ASCII bytes                                                                                                | 10      | [10](vectors/10.md#start-10-15)       |
-| START-10-16    | rule       | Wrong immutables need a new Inbox/genesis; the registry must be repointed                                                                      | 10      | [10](vectors/10.md#start-10-16)       |
+| START-10-16    | retired    | Wrong immutables need a new Inbox/genesis; the registry must be repointed                                                                      | 10      | —                                     |
+| START-10-16a   | rule       | Wrong deployment-core parameters need a new Inbox/genesis; others a structural upgrade                                                         | 10      | [10](vectors/10.md#start-10-16a)      |
 | START-10-17    | rule       | Old signing state is not reset                                                                                                                 | 10      | [10](vectors/10.md#start-10-17)       |
 | START-10-18    | rule       | Pin maxBatchBlocks at least K (at least one grid segment)                                                                                      | 10      | [10](vectors/10.md#start-10-18)       |
 | START-10-19    | rule       | Do not claim readiness before the launch gate passes                                                                                           | 10      | [10](vectors/10.md#start-10-19)       |
@@ -461,11 +463,12 @@
 | START-10-24    | rule       | In-place migration unsupported; no state deletion to bypass version checks                                                                     | 10      | [10](vectors/10.md#start-10-24)       |
 | START-10.1-1   | retired    | Upgrades stop production and settle before switching rules; no zero-downtime                                                                   | 10.1    | —                                     |
 | START-10.1-2   | rule       | Operational restarts that preserve rules retain same-domain signer state                                                                       | 10.1    | [10.1](vectors/10.1.md#start-101-2)   |
-| START-10.1-3   | rule       | Section 10 immutables need a new Inbox/genesis; 10.1 cannot bypass them                                                                        | 10.1    | [10.1](vectors/10.1.md#start-101-3)   |
+| START-10.1-2a  | rule       | Deployment core changes only through a new Inbox/genesis; L1-fork decoding follows L1's schedule                                               | 10.1    | [10.1](vectors/10.1.md#start-101-2a)  |
+| START-10.1-3   | retired    | Section 10 immutables need a new Inbox/genesis; 10.1 cannot bypass them                                                                        | 10.1    | —                                     |
 | START-10.1-3a  | rule       | A ruleset is a complete published per-block definition; sections 3-7 and appendix A are ruleset 0                                              | 10.1    | [10.1](vectors/10.1.md#start-101-3a)  |
 | START-10.1-3b  | rule       | Later rulesets are published before scheduling; a number names only one definition                                                             | 10.1    | [10.1](vectors/10.1.md#start-101-3b)  |
 | START-10.1-3c  | rule       | A rule upgrade switches rulesets from an L2 timestamp without stopping production                                                              | 10.1    | [10.1](vectors/10.1.md#start-101-3c)  |
-| START-10.1-3d  | rule       | A ruleset cannot change L1-checked state, CometBFT, chain_id or what ruleset selection relies on                                               | 10.1    | [10.1](vectors/10.1.md#start-101-3d)  |
+| START-10.1-3d  | rule       | A scheduled ruleset keeps the deployment core and L1, framing, size and CometBFT rules                                                         | 10.1    | [10.1](vectors/10.1.md#start-101-3d)  |
 | START-10.1-3e  | rule       | Slot 293 holds activeRules, nextRules, rulesTime, stopTime, stopGrid; 0 is ruleset 0, nothing scheduled                                        | 10.1    | [10.1](vectors/10.1.md#start-101-3e)  |
 | START-10.1-3f  | rule       | A block's ruleset: nextRules if its timestamp is at least rulesTime, else activeRules                                                          | 10.1    | [10.1](vectors/10.1.md#start-101-3f)  |
 | START-10.1-3g  | rule       | Only the Inbox owner writes the schedule; nodes and guests enforce it; manifests are insufficient                                              | 10.1    | [10.1](vectors/10.1.md#start-101-3g)  |
@@ -477,7 +480,7 @@
 | START-10.1-6   | rule       | Registering a new image alone is not a protocol upgrade                                                                                        | 10.1    | [10.1](vectors/10.1.md#start-101-6)   |
 | START-10.1-6a  | rule       | Each image implements a declared ruleset set and proves no block outside it                                                                    | 10.1    | [10.1](vectors/10.1.md#start-101-6a)  |
 | START-10.1-6b  | rule       | The accepted image set stays flat; no removal when a ruleset an image lacks takes effect                                                       | 10.1    | [10.1](vectors/10.1.md#start-101-6b)  |
-| START-10.1-6c  | rule       | Before a finite rulesTime, one combination implements nextRules, activeRules and every unsettled ruleset                                       | 10.1    | [10.1](vectors/10.1.md#start-101-6c)  |
+| START-10.1-6c  | rule       | Always one accepted combination for activeRules, unsettled rulesets and a pending nextRules                                                    | 10.1    | [10.1](vectors/10.1.md#start-101-6c)  |
 | START-10.1-7   | retired    | Coordinate signers to stop above H while retaining all HRS state                                                                               | 10.1    | —                                     |
 | START-10.1-8   | retired    | Settle through H under old rules; authenticate its checkpoint before H+1                                                                       | 10.1    | —                                     |
 | START-10.1-9   | retired    | The plan must take effect before signing crosses the boundary                                                                                  | 10.1    | —                                     |
@@ -490,9 +493,9 @@
 | START-10.1-14b | rule       | Unsupported ruleset: placeholder, reject, FinalizeBlock waits; resumes once upgraded                                                           | 10.1    | [10.1](vectors/10.1.md#start-101-14b) |
 | START-10.1-14c | rule       | Replaying software, public reconstruction included, implements every ruleset history used                                                      | 10.1    | [10.1](vectors/10.1.md#start-101-14c) |
 | START-10.1-14d | rule       | Planned stop: a block whose parent is a stopGrid multiple at or past stopTime is invalid                                                       | 10.1    | [10.1](vectors/10.1.md#start-101-14d) |
-| START-10.1-14e | rule       | Structural upgrade: stop, settle, one DAO transaction with a full recover; K changes via stopGrid                                              | 10.1    | [10.1](vectors/10.1.md#start-101-14e) |
+| START-10.1-14e | rule       | Structural upgrade: stop, settle, standard-path DAO transaction with recover and a new ruleset                                                 | 10.1    | [10.1](vectors/10.1.md#start-101-14e) |
 | START-10.1-14f | rule       | Ruleset selection, refusal and stop ship from launch in nodes and both guests                                                                  | 10.1    | [10.1](vectors/10.1.md#start-101-14f) |
-| START-10.1-14g | rule       | A ruleset passes shared vectors, incl. a landing across rulesTime, before it is scheduled                                                      | 10.1    | [10.1](vectors/10.1.md#start-101-14g) |
+| START-10.1-14g | rule       | Client, EL and both guests pass a ruleset's shared vectors, incl. a landing across rulesTime                                                   | 10.1    | [10.1](vectors/10.1.md#start-101-14g) |
 | START-10.1-15  | retired    | Define and test acceptance ranges, switching transaction and rollback plan                                                                     | 10.1    | —                                     |
 | PARAM-11-1     | rule       | Node-splitting parameters come only from L1, the 10.1 schedule or the client; local config cannot                                              | 11      | [11](vectors/11.md#param-11-1)        |
 | PARAM-11-2     | rule       | Table values are references only; deployment follows L1 and section 10                                                                         | 11      | [11](vectors/11.md#param-11-2)        |
@@ -657,7 +660,7 @@
 | 4.4     | 20  | 76      | 3                |
 | 5.1     | 3   | 10      | 2                |
 | 5.2     | 9   | 31      | 4                |
-| 5.3     | 9   | 26      | 4                |
+| 5.3     | 10  | 29      | 4                |
 | 6.1     | 13  | 52      | 4                |
 | 6.2     | 48  | 179     | 14               |
 | 6.3     | 14  | 51      | 3                |
@@ -665,15 +668,15 @@
 | 7.1     | 13  | 47      | 6                |
 | 7.2     | 13  | 64      | 10               |
 | 7.3     | 5   | 20      | 5                |
-| 8       | 60  | 162     | 10               |
+| 8       | 60  | 163     | 10               |
 | 8.1     | 12  | 35      | 7                |
 | 8.2     | 6   | 17      | 4                |
 | 8.3     | 19  | 48      | 7                |
 | 8.4     | 15  | 38      | 6                |
 | 9       | 16  | 74      | 7                |
 | 9.1     | 10  | 31      | 5                |
-| 10      | 24  | 96      | 5                |
-| 10.1    | 24  | 98      | 1                |
+| 10      | 24  | 97      | 5                |
+| 10.1    | 24  | 108     | 1                |
 | 11      | 16  | 64      | 6                |
 | 12      | 19  | 3       | 6                |
 | A       | 58  | 289     | 4                |
