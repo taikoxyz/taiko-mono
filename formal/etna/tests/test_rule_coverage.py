@@ -14,6 +14,10 @@ rules = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(rules)
 DOCS = 'packages/protocol/docs/etna'
 CONFIG = json.loads((ROOT/rules.CONFIG).read_text())
+LIVE = {r['rule']: r for r in rules.rule_rows()}
+PARTIAL = LIVE['STAKE-4.1-13a']['clause']
+SINGLE = LIVE['START-10-5c']['clause']
+DEFERRED = LIVE['LAND-6.1-1']['clause']
 
 
 def repinned(config, repo):
@@ -29,6 +33,7 @@ class RuleCoverageTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)
             shutil.copytree(rules.REPO/DOCS, repo/DOCS)
+            shutil.copytree(ROOT/'legacy/2026-10-30', repo/'formal/etna/legacy/2026-10-30', dirs_exist_ok=True)
             if edit_docs:
                 edit_docs(repo)
             config = repinned(CONFIG, repo) if repin else copy.deepcopy(CONFIG)
@@ -71,61 +76,58 @@ class RuleCoverageTests(unittest.TestCase):
 
     def test_override_must_route_to_a_partial_clause(self):
         def edit(config):
-            config['via']['LAND-6.1-1'] = {'clause': 'EN-f0ba7de0b6221621', 'reason': 'same block'}
+            config['via']['LAND-6.1-1'] = {'clause': DEFERRED, 'reason': 'synthetic deferred target'}
         with self.assertRaisesRegex(ValueError, 'routes to a deferred clause'):
             self.rows(edit_config=edit)
 
     def test_redundant_override_is_rejected(self):
         def edit(config):
-            config['via']['BACKP-6.4-1'] = {'clause': 'EN-976a8c89163f509a', 'reason': 'already partial'}
+            config['via']['STAKE-4.1-13a'] = {'clause': PARTIAL, 'reason': 'already partial'}
         with self.assertRaisesRegex(ValueError, 'redundant override'):
             self.rows(edit_config=edit)
 
     def test_override_needs_a_reason(self):
         def edit(config):
-            config['via']['LAND-6.1-2']['reason'] = ' '
+            config['via']['LAND-6.1-1'] = {'clause': PARTIAL, 'reason': ' '}
         with self.assertRaisesRegex(ValueError, 'needs a reason'):
             self.rows(edit_config=edit)
 
     def test_override_for_unknown_rule_is_rejected(self):
         def edit(config):
-            config['via']['LAND-6.1-99'] = {'clause': 'EN-976a8c89163f509a', 'reason': 'no such rule'}
+            config['via']['LAND-6.1-99'] = {'clause': PARTIAL, 'reason': 'no such rule'}
         with self.assertRaisesRegex(ValueError, 'unknown rule'):
             self.rows(edit_config=edit)
 
     def test_narrowing_must_be_a_proper_subset(self):
         def everything(config):
-            config['narrow']['EN-b8d78ca3f1f77e84'] = [f'BACKP-6.4-{n}' for n in range(1, 9)]
+            config['narrow'][PARTIAL] = ['STAKE-4.1-13a', 'STAKE-4.1-14a', 'STAKE-4.1-14b']
         with self.assertRaisesRegex(ValueError, 'proper subset'):
             self.rows(edit_config=everything)
-
         def outsider(config):
-            config['narrow']['EN-b8d78ca3f1f77e84'] = ['BACKP-6.4-1', 'BACKP-6.4-10']
+            config['narrow'][PARTIAL] = ['LAND-6.1-1']
         with self.assertRaisesRegex(ValueError, 'proper subset'):
             self.rows(edit_config=outsider)
 
     def test_empty_narrowing_defers_every_rule(self):
-        """An empty list says the clause's theorems address none of its rule IDs."""
         def edit(config):
-            config['narrow']['EN-b8d78ca3f1f77e84'] = []
+            config['narrow'][PARTIAL] = []
         rows = {r['rule']: r for r in self.rows(edit_config=edit)}
-        for n in range(1, 9):
-            self.assertEqual(rows[f'BACKP-6.4-{n}']['status'], 'deferred')
-            self.assertEqual(rows[f'BACKP-6.4-{n}']['theorems'], [])
+        for rule in ['STAKE-4.1-13a', 'STAKE-4.1-14a', 'STAKE-4.1-14b']:
+            self.assertEqual(rows[rule]['status'], 'deferred')
+            self.assertEqual(rows[rule]['theorems'], [])
 
     def test_narrowing_needs_a_shared_clause(self):
-        """A clause with one rule ID is not narrowed: an empty list would silently demote it."""
         def edit(config):
-            config['narrow']['EN-b88b6b1e1d0a93b8'] = []
+            config['narrow'][SINGLE] = []
         with self.assertRaisesRegex(ValueError, 'shared by several rules'):
             self.rows(edit_config=edit)
 
     def test_narrowed_rules_lose_their_theorems(self):
         rows = {r['rule']: r for r in self.rows()}
-        self.assertEqual(rows['BACKP-6.4-2']['status'], 'deferred')
-        self.assertEqual(rows['BACKP-6.4-2']['theorems'], [])
-        self.assertEqual(rows['BACKP-6.4-1']['status'], 'partial')
-        self.assertIn('Etna.Design.ProtocolState.anchored_unsettled_bound', rows['BACKP-6.4-1']['theorems'])
+        self.assertEqual(rows['STAKE-4.1-14a']['status'], 'deferred')
+        self.assertEqual(rows['STAKE-4.1-14a']['theorems'], [])
+        self.assertEqual(rows['STAKE-4.1-13a']['status'], 'partial')
+        self.assertIn('Etna.Design.Current.Registry.trace_keys_permanent', rows['STAKE-4.1-13a']['theorems'])
 
 
 if __name__ == '__main__':

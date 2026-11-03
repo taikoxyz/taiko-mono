@@ -3,9 +3,9 @@
   "scope": "conditional decoded specification property only",
   "source": {
     "path": "packages/protocol/docs/etna/SPEC.md",
-    "revision": "2026-10-30",
-    "commit": "b7ca989c8e343073daa628771102bdee7fe7101b",
-    "sha256": "1246b2b713975d6c5f9d3fceeec427af541796545b416eda7d25b7eed10f695f"
+    "revision": "2026-11-03",
+    "commit": "1135c9b24fd03f50cb48eab250879435fd54f528",
+    "sha256": "e41a086fe6cb33da140fade2a2aff1ef2f0d2faf49fde5a58b74c97c3132c232"
   },
   "boundaries": {
     "context": "HistoricalContext derives origin, latest-at-cutoff registry entries and covered anchor lookups from typed inputs. RegistryHistory models lifetime identities and entry checkpoints; actual root/key-byte validation, authenticated signer-prefix/cutoff linkage, genesis provenance and evidence delivery remain external.",
@@ -21,7 +21,8 @@
     "anchorless": "Canonical L1 root-at-number ancestry and decoded storage-proof soundness, ideal EIP timestamp/root writes and getter behavior, identical builder/importer/prover pre-execution, and atomic authorized decoded upgrade transactions. Raw histories derive root/cache/namespace guarantees; MPT, EIP bytecode, crypto/encoding, deployment transport, legacy Bridge authorization and payouts remain external. The model has no stale proposal-flow production rule or production activation claim. A single fixed service slot adapter derives the slot from source chain/app/signal. Isolation requires explicit distinct derived slots; no unconditional finite-hash injectivity is assumed.",
     "actual_queue": "Timestamped original transaction journals and authenticated final states of L1 blocks, preserving all same-block calls. Queue timing and tail coverage are derived, and current-origin binding excludes later recovery for exact storage transport. Ideal hash/canonical-parser/deterministic singleton interfaces bind raw and position-zero bytes for local unlanded blocks; real L1/storage/crypto/EL implementations, wall-clock liveness and launch resource acceptance remain external.",
     "reconstruction": "Public full EL header bytes, ordered EIP-2718 transaction bytes, canonical authenticated L1 records and complete starting state/code/configuration only. Fixed codecs/hashes/full-block EL semantics (including EIP-4788/2935 effects), truthful guest-rules domain, original-blob availability and finite compared-header collision exclusion are explicit external contracts. Actual accepted cut binding plus saved parent links derives overlap identity; no prefix agreement or reconstruction-success assumption. Ordinary recovery only; exceptional rollback needs an authenticated restart. No crypto/codec/EVM implementation, private Comet replay, arbitrary RPC snapshot, DA liveness or launch-resource claim.",
-    "upgrade": "Conditional exact-plan/current-finalized-checkpoint authority, atomic switching transaction and original session/EL/guest/verifier adapters only. No production activation authority is constructed. Arbitrary previous height schedule and explicit boundaries, retained replay materials/jobs/HRS, common-grid code-K switch with unchanged deployment parameters. Single represented current-generation log and produced-height evidence are not global signer coordination. Historical cached retries use the original encoder/session; rule metadata is not a native vote field. Original fixed-version Trace remains separate."
+    "upgrade": "Conditional exact-plan/current-finalized-checkpoint authority, atomic switching transaction and original session/EL/guest/verifier adapters only. No production activation authority is constructed. Arbitrary previous height schedule and explicit boundaries, retained replay materials/jobs/HRS, common-grid code-K switch with unchanged deployment parameters. Single represented current-generation log and produced-height evidence are not global signer coordination. Historical cached retries use the original encoder/session; rule metadata is not a native vote field. Original fixed-version Trace remains separate.",
+    "current": "Current decoded timestamp schedule, lifetime bond admission/displacement and selected start/import boundaries only. Fixed authenticated L1/Unzen/storage/metadata adapters are external; no composition of current production contracts, complete latest H1-H3, current EL/Comet store implementation or launch acceptance is claimed. Original machine/theorems cite exact archived authorities and do not count toward current coverage."
   },
   "design_pending": [
     "EN-fac3b57a8c83d321",
@@ -49,7 +50,8 @@
           "Etna.Design.BlockValidity.chain_parent_hashes",
           "Etna.Design.Derived.chain_heights_consecutive"
         ]
-      }
+      },
+      "historical": true
     },
     {
       "id": "DV-02",
@@ -67,7 +69,8 @@
         "EN-ced8c7aa78799681": [
           "Etna.Design.BlockValidity.chain_timestamps_increase"
         ]
-      }
+      },
+      "historical": true
     },
     {
       "id": "DV-04",
@@ -83,7 +86,8 @@
           "Etna.Design.Accountability.conflicting_commits_double_sign",
           "Etna.Design.Accountability.conflicting_commits_overlap"
         ]
-      }
+      },
+      "historical": true
     },
     {
       "id": "DV-05",
@@ -101,7 +105,8 @@
         "EN-179bc07a1f6d0129": [
           "Etna.Design.Derived.chain_switch_witnesses_activate"
         ]
-      }
+      },
+      "historical": true
     },
     {
       "id": "DV-06",
@@ -113,7 +118,8 @@
         "EN-2e7fa6e510a4d3cb": ["Etna.Design.BlockValidity.chain_cursor_steps"],
         "EN-043c32870af8d13f": ["Etna.Design.BlockValidity.chain_cursor_steps"],
         "EN-adcd3a47969dbd68": ["Etna.Design.BlockValidity.chain_cursor_steps"]
-      }
+      },
+      "historical": true
     },
     {
       "id": "DV-07",
@@ -123,7 +129,8 @@
       "assumptions": ["context", "payload", "el", "hash"],
       "evidence": {
         "EN-adcd3a47969dbd68": ["Etna.Design.Settlement.chain_certified"]
-      }
+      },
+      "historical": true
     },
     {
       "id": "DV-08",
@@ -141,7 +148,8 @@
         "EN-adcd3a47969dbd68": [
           "Etna.Design.Settlement.accepted_frontier_from_valid_chain"
         ]
-      }
+      },
+      "historical": true
     },
     {
       "id": "DV-09",
@@ -174,7 +182,8 @@
         "EN-adcd3a47969dbd68": [
           "Etna.Design.Settlement.accepted_terminal_from_valid_chain"
         ]
-      }
+      },
+      "historical": true
     },
     {
       "id": "DV-10",
@@ -191,7 +200,8 @@
           "Etna.Design.Settlement.trace_preserves_old_records",
           "Etna.Design.Settlement.trace_preserves_state"
         ]
-      }
+      },
+      "historical": true
     },
     {
       "id": "HS-01",
@@ -225,7 +235,8 @@
         "EN-b88b6b1e1d0a93b8": [
           "Etna.Design.Derived.conflicting_commits_slashable"
         ]
-      }
+      },
+      "historical": true
     },
     {
       "id": "HS-02",
@@ -243,7 +254,8 @@
           "Etna.Design.RegistryHistory.snapshot_is_latest",
           "Etna.Design.RegistryHistory.trace_preserves_registry"
         ]
-      }
+      },
+      "historical": true
     },
     {
       "id": "HS-03",
@@ -264,7 +276,8 @@
         "EN-e11112a7ad1b77fd": [
           "Etna.Design.HistoricalContext.context_uses_latest_snapshot"
         ]
-      }
+      },
+      "historical": true
     },
     {
       "id": "HS-04",
@@ -301,7 +314,8 @@
           "Etna.Design.ProtocolState.step_preserves_core",
           "Etna.Design.ProtocolState.trace_preserves_core"
         ]
-      }
+      },
+      "historical": true
     },
     {
       "id": "HS-05",
@@ -319,7 +333,8 @@
         "EN-7319b105593c8c53": [
           "Etna.Design.ProtocolState.trace_generation_monotone"
         ]
-      }
+      },
+      "historical": true
     },
     {
       "id": "HS-06",
@@ -345,7 +360,8 @@
         "EN-9ac7403cd8147312": [
           "Etna.Design.ProtocolState.accepted_snapshot_from_history"
         ]
-      }
+      },
+      "historical": true
     },
     {
       "id": "HS-07",
@@ -375,7 +391,8 @@
         "EN-66e4688eba764b2e": [
           "Etna.Design.ProtocolState.trace_preserves_immutables"
         ]
-      }
+      },
+      "historical": true
     },
     {
       "id": "DV-17",
@@ -388,7 +405,8 @@
           "Etna.Design.ProtocolState.trace_nonce_monotone",
           "Etna.Design.ProtocolState.consumed_authorization_never_revives"
         ]
-      }
+      },
+      "historical": true
     },
     {
       "id": "DV-18",
@@ -400,7 +418,8 @@
         "EN-61545df98f0ad68f": [
           "Etna.Design.RegistryHistory.future_trace_never_clears_forfeiture"
         ]
-      }
+      },
+      "historical": true
     },
     {
       "id": "DV-19",
@@ -427,7 +446,8 @@
         "EN-bf78b9d3bc888c6c": [
           "Etna.Design.Accounting.protocol_trajectory_conservation"
         ]
-      }
+      },
+      "historical": true
     },
     {
       "id": "DV-20",
@@ -446,7 +466,8 @@
           "Etna.Design.SigningEscrow.trace_withdrawal_window"
         ],
         "EN-d04a236579cc9990": ["Etna.Design.SigningEscrow.trace_covered"]
-      }
+      },
+      "historical": true
     },
     {
       "id": "DV-21",
@@ -464,7 +485,8 @@
         "EN-d7e07b7ea27ed4a3": [
           "Etna.Design.SigningEscrow.confirmed_key_absent_later_cutoff"
         ]
-      }
+      },
+      "historical": true
     },
     {
       "id": "DV-22",
@@ -482,7 +504,8 @@
         "EN-2b238db781615e6e": [
           "Etna.Design.SigningBridge.fresh_signing_connection"
         ]
-      }
+      },
+      "historical": true
     },
     {
       "id": "DV-23",
@@ -511,7 +534,8 @@
           "Etna.Design.NormalSigning.fresh_signing_connection",
           "Etna.Design.NormalSigning.initialized_fresh_signing_connection"
         ]
-      }
+      },
+      "historical": true
     },
     {
       "id": "DV-24",
@@ -521,7 +545,8 @@
       "assumptions": ["l1", "payload", "el", "hash", "journal", "deployment"],
       "evidence": {
         "EN-1ee6db9f8ebb8410": ["Etna.Proofs.honest_anchor_chain_sees_due"]
-      }
+      },
+      "historical": true
     },
     {
       "id": "DV-25",
@@ -539,7 +564,8 @@
         "EN-4651c537a506e6fd": [
           "Etna.Design.SigningEscrow.trusted_rollback_excludes_confirmed_keys"
         ]
-      }
+      },
+      "historical": true
     },
     {
       "id": "DV-26",
@@ -557,7 +583,8 @@
         "EN-d7e07b7ea27ed4a3": [
           "Etna.Design.SigningEscrow.slashed_key_absent_from_later_committees"
         ]
-      }
+      },
+      "historical": true
     },
     {
       "id": "DV-ANCHORLESS-ROOT",
@@ -575,7 +602,8 @@
         "ANCHORLESS-19b714580c334859": [
           "Etna.Design.Anchorless.resolved_exact_source"
         ]
-      }
+      },
+      "historical": true
     },
     {
       "id": "DV-ANCHORLESS-AUTH",
@@ -596,7 +624,8 @@
         "ANCHORLESS-b7b8de64ca020aed": [
           "Etna.Design.Anchorless.authorization_sound"
         ]
-      }
+      },
+      "historical": true
     },
     {
       "id": "DV-ANCHORLESS-CACHE",
@@ -608,7 +637,8 @@
         "ANCHORLESS-a5d7d6824045ca1c": [
           "Etna.Design.Anchorless.cached_provenance"
         ]
-      }
+      },
+      "historical": true
     },
     {
       "id": "DV-ANCHORLESS-MIGRATION",
@@ -626,7 +656,8 @@
         "ANCHORLESS-75bb106c4cec0ba4": [
           "Etna.Design.Anchorless.migration_safety"
         ]
-      }
+      },
+      "historical": true
     },
     {
       "id": "DV-ANCHORLESS-SERVICE",
@@ -638,7 +669,8 @@
         "ANCHORLESS-6f651d8e580ae691": [
           "Etna.Design.Anchorless.service_authorization_sound"
         ]
-      }
+      },
+      "historical": true
     },
     {
       "id": "DV-ACTUAL-QUEUE",
@@ -653,7 +685,8 @@
         "EN-7fdd2e21c46727ee": [
           "Etna.Design.ActualQueue.local_chain_byte_service"
         ]
-      }
+      },
+      "historical": true
     },
     {
       "id": "DV-PUBLIC-RECONSTRUCTION",
@@ -671,7 +704,8 @@
           "Etna.Design.Reconstruction.certified_result",
           "Etna.Design.Reconstruction.certified_trace_interval"
         ]
-      }
+      },
+      "historical": true
     },
     {
       "id": "DV-CONDITIONAL-UPGRADE",
@@ -690,19 +724,83 @@
         "EN-1c08d6a12a414c54": [
           "Etna.Design.UpgradeBoundary.trace_retains_history"
         ]
+      },
+      "historical": true
+    },
+    {
+      "id": "CURRENT-01",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "Along successful current scheduleRules/scheduleStop traces, all five schedule fields remain within their 48-bit bounds, from a fitting initial schedule.",
+      "assumptions": ["current"],
+      "historical": false,
+      "evidence": {
+        "LIVE_EN-f3360a370c6978e1": [
+          "Etna.Design.Current.Rules.trace_fields_fit"
+        ]
+      }
+    },
+    {
+      "id": "CURRENT-02",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "The lifetime issuance counter never decreases across current registration, bond modifications and withdrawals. This is not a proof of token custody.",
+      "assumptions": ["current"],
+      "historical": false,
+      "evidence": {
+        "LIVE_EN-4eeb66cec75465ce": [
+          "Etna.Design.Current.Registry.trace_issuance_monotone"
+        ]
+      }
+    },
+    {
+      "id": "CURRENT-03",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "Every existing key-to-bond-id lookup survives current registration, bond modifications and withdrawals; numeric zero is a valid present id.",
+      "assumptions": ["current"],
+      "historical": false,
+      "evidence": {
+        "LIVE_EN-4eeb66cec75465ce": [
+          "Etna.Design.Current.Registry.trace_keys_permanent"
+        ]
       }
     }
   ],
   "acceptance_source": {
     "path": "packages/protocol/docs/etna/ACCEPTANCE.md",
+    "revision": "2026-11-03",
+    "commit": "1135c9b24fd03f50cb48eab250879435fd54f528",
+    "sha256": "8ca975f38b6e58de8a21caebf2c334daaa445d1f35425b1b30443d0d6ead4d06"
+  },
+  "anchorless_source": {
+    "path": "packages/protocol/docs/etna/ANCHORLESS.md",
+    "revision": "2026-11-03",
+    "commit": "1135c9b24fd03f50cb48eab250879435fd54f528",
+    "sha256": "08f6c75a3fb8183ff986a22f56c14379990bb4a527e42d1be12387195152c717"
+  },
+  "historical_source": {
+    "path": "formal/etna/legacy/2026-10-30/SPEC.md",
+    "revision": "2026-10-30",
+    "commit": "b7ca989c8e343073daa628771102bdee7fe7101b",
+    "sha256": "1246b2b713975d6c5f9d3fceeec427af541796545b416eda7d25b7eed10f695f"
+  },
+  "historical_acceptance_source": {
+    "path": "formal/etna/legacy/2026-10-30/ACCEPTANCE.md",
     "revision": "2026-10-29",
     "commit": "39ebefbf33a2702b750e0fb0db7d2a40ff8e8480",
     "sha256": "876f89892acc91508fd322b4df676a0eb19550b39c9a43490376b4a3b4863c60"
   },
-  "anchorless_source": {
-    "path": "packages/protocol/docs/etna/ANCHORLESS.md",
+  "historical_anchorless_source": {
+    "path": "formal/etna/legacy/2026-10-30/ANCHORLESS.md",
     "revision": "2026-10-30",
     "commit": "b7ca989c8e343073daa628771102bdee7fe7101b",
     "sha256": "cf2b44a570e737056cdad16afc57f48071985951d4a6cdae026a49494c14571d"
+  },
+  "switch_source": {
+    "path": "packages/protocol/docs/etna/SWITCH.md",
+    "revision": "2026-11-03",
+    "commit": "1135c9b24fd03f50cb48eab250879435fd54f528",
+    "sha256": "1f0b67ed94ff9f15b3334b1092d797c551fcfb7d0f9263ad4958c7b0a28dbf90"
   }
 }

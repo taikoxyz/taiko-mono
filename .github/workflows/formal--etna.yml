@@ -8,6 +8,7 @@ on:
       - "packages/protocol/docs/etna/SPEC.md"
       - "packages/protocol/docs/etna/ACCEPTANCE.md"
       - "packages/protocol/docs/etna/ANCHORLESS.md"
+      - "packages/protocol/docs/etna/SWITCH.md"
       - "packages/protocol/docs/etna/rules/INDEX.md"
       - ".github/workflows/formal--etna.yml"
   push:
@@ -18,6 +19,7 @@ on:
       - "packages/protocol/docs/etna/SPEC.md"
       - "packages/protocol/docs/etna/ACCEPTANCE.md"
       - "packages/protocol/docs/etna/ANCHORLESS.md"
+      - "packages/protocol/docs/etna/SWITCH.md"
       - "packages/protocol/docs/etna/rules/INDEX.md"
       - ".github/workflows/formal--etna.yml"
   workflow_dispatch:

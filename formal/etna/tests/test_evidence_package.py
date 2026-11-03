@@ -17,7 +17,7 @@ class EvidencePackageTests(unittest.TestCase):
         rows = coverage.inventory()
         self.assertEqual(len([r for r in rows if r['language'] in ('en', 'acceptance')]),313)
         self.assertEqual(len([r for r in rows if r['language'] == 'anchorless']),92)
-        self.assertEqual(len(rows),405)
+        self.assertEqual(len([r for r in rows if r['historical']]),405)
         # inventory() checks each explicit claim edge and its general-property role.
 
     def test_clause_ids_survive_line_insertion(self):
@@ -62,11 +62,11 @@ class EvidencePackageTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             hashes = json.loads((Path(tmp)/'coverage.json').read_text())['source_sha256']
             self.assertEqual(hashes['packages/protocol/docs/etna/SPEC.md'],
-                             '3957abeaf43d69d2b3fad937c5677b522305316388b9d47e099bef79a3da3a4b')
+                             '0b6c860d97e58040ab4d0ac9f1a93e95d0389f939a8fe0534f3a5d5437c62a6c')
             self.assertEqual(hashes['packages/protocol/docs/etna/ACCEPTANCE.md'],
-                             '876f89892acc91508fd322b4df676a0eb19550b39c9a43490376b4a3b4863c60')
+                             '8ca975f38b6e58de8a21caebf2c334daaa445d1f35425b1b30443d0d6ead4d06')
             self.assertEqual(hashes['packages/protocol/docs/etna/ANCHORLESS.md'],
-                             'cf2b44a570e737056cdad16afc57f48071985951d4a6cdae026a49494c14571d')
+                             '08f6c75a3fb8183ff986a22f56c14379990bb4a527e42d1be12387195152c717')
             self.assertNotIn('packages/protocol/docs/etna/sources/manifest.json', hashes)
 
     def test_generator_detects_stale_outputs(self):

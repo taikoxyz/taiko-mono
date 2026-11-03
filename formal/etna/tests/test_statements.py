@@ -160,7 +160,7 @@ class ReadmeStatementTests(unittest.TestCase):
     Claims.lean)."""
 
     def test_readme_lean_blocks_match_the_sources(self):
-        readme = (ROOT/'README.md').read_text()
+        readme = (ROOT/'reports/historical-verification.md').read_text()
         blocks = re.findall(r'^```lean\n(.*?)^```', readme, re.S | re.M)
         claims = (ROOT/'EtnaStatements/Claims.lean').read_text()
         headline = '\n'.join(p.read_text() for p in sorted((ROOT/'EtnaProofs/Headline').glob('*.lean')))

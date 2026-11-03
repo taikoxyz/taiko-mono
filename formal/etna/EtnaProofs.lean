@@ -1,3 +1,4 @@
+import EtnaProofs.Current
 import EtnaProofs.UpgradeBoundary
 import EtnaProofs.Reconstruction
 import EtnaProofs.ActualQueue
@@ -48,3 +49,7 @@ import EtnaProofs.Headline.AnchoredQueue
 import EtnaProofs.Headline.Claims
 
 /-! Etna proofs: the theorems about `EtnaModel`, including the pins in `EtnaProofs.Contracts`. -/
+
+/-! Version scope: only Etna.Design.Current models the selected current rules. Other
+declarations retain the archived pre-2026-11-03 semantics; their headline theorems are
+not claims about the whole latest protocol. See README.md. -/

@@ -22,23 +22,8 @@ class PinnedSourceTests(unittest.TestCase):
             root.mkdir(parents=True)
             directory = 'packages/protocol/docs/etna'
             shutil.copytree(coverage.REPO/directory, repo/directory)
-            value = {
-                'source': {
-                    'path': directory+'/SPEC.md', 'revision': '2026-10-30',
-                    'commit': 'b7ca989c8e343073daa628771102bdee7fe7101b',
-                    'sha256': '1246b2b713975d6c5f9d3fceeec427af541796545b416eda7d25b7eed10f695f',
-                },
-                'anchorless_source': {
-                    'path': directory+'/ANCHORLESS.md', 'revision': '2026-10-30',
-                    'commit': 'b7ca989c8e343073daa628771102bdee7fe7101b',
-                    'sha256': 'cf2b44a570e737056cdad16afc57f48071985951d4a6cdae026a49494c14571d',
-                },
-                'acceptance_source': {
-                    'path': directory+'/ACCEPTANCE.md', 'revision': '2026-10-29',
-                    'commit': '39ebefbf33a2702b750e0fb0db7d2a40ff8e8480',
-                    'sha256': '876f89892acc91508fd322b4df676a0eb19550b39c9a43490376b4a3b4863c60',
-                },
-            }
+            shutil.copytree(ROOT/'legacy/2026-10-30', repo/'formal/etna/legacy/2026-10-30', dirs_exist_ok=True)
+            value = json.loads((ROOT/'spec-coverage.json').read_text())
             if mutate:
                 mutate(repo, value)
             (root/'spec-coverage.json').write_text(json.dumps(value))
@@ -127,6 +112,7 @@ class SpecCoverageTests(unittest.TestCase):
             shutil.copytree(ROOT/'manifests',root/'manifests')
             shutil.copyfile(ROOT/'spec-coverage.json',root/'spec-coverage.json')
             shutil.copytree(coverage.REPO/coverage.SPEC_DIR,repo/coverage.SPEC_DIR)
+            shutil.copytree(ROOT/'legacy/2026-10-30', repo/'formal/etna/legacy/2026-10-30', dirs_exist_ok=True)
             if mutate: mutate(root)
             return subprocess.run(['python3',str(ROOT/'scripts/check_spec_coverage.py'),'--root',str(root),'--repo',str(repo)],
                                   capture_output=True,text=True)
@@ -208,7 +194,7 @@ class SpecCoverageTests(unittest.TestCase):
         # A clause backed only by regressions stays deferred and cannot back a claim; a
         # theorem left without sources (the constant cap_derivation) leaves the graph.
         rows = coverage.inventory()
-        source = next(r['id'] for r in rows if 'The bound leaves headroom within the 130,044' in r['summary'])
+        source = next(r['id'] for r in rows if r['historical'] and 'The bound leaves headroom within the 130,044' in r['summary'])
         name = 'Etna.Design.Budget.grid_calldata_examples'
         def mutate(root):
             def edit_manifest(x):
@@ -229,7 +215,7 @@ class ReviewedMappingTests(unittest.TestCase):
         phrases = ('Reject a latest checkpoint conflicting with local history','Before authorizing')
         rows = [r for r in coverage.inventory() if any(p in r['summary'] for p in phrases)]
         # Exact node-fence and DAO pre-check paragraphs, without line-number IDs.
-        rows = [r for r in rows if r['summary'].startswith(('- **Reject','- **Before'))]
+        rows = [r for r in rows if r['historical'] and r['summary'].startswith(('- **Reject','- **Before'))]
         self.assertEqual(len(rows),2)
         for row in rows: self.assertEqual(row['status'],'deferred',row['id'])
 

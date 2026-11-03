@@ -836,11 +836,12 @@ class CoverageRoleTests(unittest.TestCase):
             root.mkdir(parents=True)
             shutil.copytree(ROOT/'manifests', root/'manifests')
             shutil.copytree(COVERAGE.REPO/COVERAGE.SPEC_DIR, repo/COVERAGE.SPEC_DIR)
+            shutil.copytree(ROOT/'legacy/2026-10-30', repo/'formal/etna/legacy/2026-10-30', dirs_exist_ok=True)
             spec = json.loads((ROOT/'spec-coverage.json').read_text())
-            source = repo/COVERAGE.SPEC_PATH
+            source = repo/COVERAGE.HISTORICAL_DIR/'SPEC.md'
             text = source.read_text()+'\nAudit duplicate clause.\n\nAudit duplicate clause.\n'
             source.write_text(text)
-            spec['source']['sha256'] = COVERAGE.digest(COVERAGE.strip_markers(text).encode())
+            spec['historical_source']['sha256'] = COVERAGE.digest(COVERAGE.strip_markers(text).encode())
             (root/'spec-coverage.json').write_text(json.dumps(spec))
             duplicate = [r for r in COVERAGE.clauses(COVERAGE.strip_markers(text), 'en') if r['summary']=='Audit duplicate clause.']
             self.assertEqual(len(duplicate), 2)
@@ -852,7 +853,8 @@ class CoverageRoleTests(unittest.TestCase):
 
     def test_unsupported_domain_tag_edge_removed(self):
         rows = [r for r in self.inventory() if 'ETNA_COMET_DOMAIN_V1' in r['summary']]
-        self.assertEqual(len(rows), 1)
+        self.assertEqual(len(rows), 2)
+        self.assertEqual({r['historical'] for r in rows}, {True, False})
         for row in rows:
             self.assertNotIn('Etna.Design.Encoding.domain_tags_are_ascii', row['theorems'], row['id'])
 

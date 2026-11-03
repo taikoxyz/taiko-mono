@@ -1,3 +1,8 @@
+> Historical vectors: these files exercise the pre-2026-11-03 decoded machine, whose
+> exact authority snapshots are in `formal/etna/legacy/2026-10-30`. They do not establish
+> conformance to the latest lifetime-bond, timestamp-schedule or Unzen-switch rules.
+> Current rule regressions live in `formal/etna/tests/CurrentDesign.lean`.
+
 # Etna behavioral conformance vectors
 
 These files say what the Etna Lean model (`formal/etna`) decides on concrete inputs. Unlike

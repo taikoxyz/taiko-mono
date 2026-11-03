@@ -17661,6 +17661,330 @@
       "role": "regression",
       "sources": ["EN-d0feb40e3354690c"],
       "scope": "Kernel witness: existing session composition. Decoded policy/range/session behavior only; not a production activation mechanism."
+    },
+    {
+      "module": "EtnaProofs.Current",
+      "declaration": "Etna.Design.Current.Rules.schedule_rules_result",
+      "type": "∀ {c : Etna.Design.Current.Rules.Control} {s t : Etna.Design.Current.Rules.Schedule} {caller now rule time : Nat}, Etna.Design.Current.Rules.scheduleRules c s caller now rule time = Option.some t → (t.active = if s.time ≤ now then s.next else s.active) ∧ t.next = rule ∧ t.time = time ∧ t.stopTime = s.stopTime ∧ t.stopGrid = s.stopGrid ∧ Etna.Design.Current.Rules.fits t",
+      "assumptions": [
+        "decoded current storage and atomic call boundary; real L1/MPT/Unzen/stock EL/Comet adapters remain external"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-f3360a370c6978e1"],
+      "scope": "Current decoded rule only. Local guard/transition result; no complete current-machine or production refinement claim."
+    },
+    {
+      "module": "EtnaProofs.Current",
+      "declaration": "Etna.Design.Current.Rules.schedule_stop_result",
+      "type": "∀ {c : Etna.Design.Current.Rules.Control} {s t : Etna.Design.Current.Rules.Schedule} {caller now time grid : Nat}, Etna.Design.Current.Rules.scheduleStop c s caller now time grid = Option.some t → t.active = s.active ∧ t.next = s.next ∧ t.time = s.time ∧ t.stopTime = time ∧ t.stopGrid = grid ∧ Etna.Design.Current.Rules.fits t",
+      "assumptions": [
+        "decoded current storage and atomic call boundary; real L1/MPT/Unzen/stock EL/Comet adapters remain external"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-f3360a370c6978e1"],
+      "scope": "Current decoded rule only. Local guard/transition result; no complete current-machine or production refinement claim."
+    },
+    {
+      "module": "EtnaProofs.Current",
+      "declaration": "Etna.Design.Current.Rules.rules_require_owner",
+      "type": "∀ {c : Etna.Design.Current.Rules.Control} {s t : Etna.Design.Current.Rules.Schedule} {caller now rule time : Nat}, Etna.Design.Current.Rules.scheduleRules c s caller now rule time = Option.some t → c.initialized = Bool.true ∧ caller = c.owner ∧ now + c.maxAge ≤ time",
+      "assumptions": [
+        "decoded current storage and atomic call boundary; real L1/MPT/Unzen/stock EL/Comet adapters remain external"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-f3360a370c6978e1"],
+      "scope": "Current decoded rule only. Local guard/transition result; no complete current-machine or production refinement claim."
+    },
+    {
+      "module": "EtnaProofs.Current",
+      "declaration": "Etna.Design.Current.Rules.stop_requires_owner",
+      "type": "∀ {c : Etna.Design.Current.Rules.Control} {s t : Etna.Design.Current.Rules.Schedule} {caller now time grid : Nat}, Etna.Design.Current.Rules.scheduleStop c s caller now time grid = Option.some t → c.initialized = Bool.true ∧ caller = c.owner ∧ (time = 0 ∧ grid = 0 ∨ now + c.maxAge ≤ time ∧ 0 < grid ∧ 0 < c.grid ∧ grid % c.grid = 0)",
+      "assumptions": [
+        "decoded current storage and atomic call boundary; real L1/MPT/Unzen/stock EL/Comet adapters remain external"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-f3360a370c6978e1"],
+      "scope": "Current decoded rule only. Local guard/transition result; no complete current-machine or production refinement claim."
+    },
+    {
+      "module": "EtnaProofs.Current",
+      "declaration": "Etna.Design.Current.Rules.trace_fields_fit",
+      "type": "∀ {c : Etna.Design.Current.Rules.Control} {s t : Etna.Design.Current.Rules.Schedule}, Etna.Design.Current.Rules.Trace c s t → Etna.Design.Current.Rules.fits s → Etna.Design.Current.Rules.fits t",
+      "assumptions": [
+        "decoded current storage and atomic call boundary; real L1/MPT/Unzen/stock EL/Comet adapters remain external"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["LIVE_EN-f3360a370c6978e1"],
+      "scope": "Current decoded rule only. Trace induction over the explicitly modeled transitions."
+    },
+    {
+      "module": "EtnaProofs.Current",
+      "declaration": "Etna.Design.Current.Rules.preserves_visible_window",
+      "type": "∀ {c : Etna.Design.Current.Rules.Control} {s t : Etna.Design.Current.Rules.Schedule} {caller now rule time stamp : Nat}, Etna.Design.Current.Rules.scheduleRules c s caller now rule time = Option.some t → now ≤ stamp → stamp < now + c.maxAge → Etna.Design.Current.Rules.select t stamp = Etna.Design.Current.Rules.select s stamp",
+      "assumptions": [
+        "decoded current storage and atomic call boundary; real L1/MPT/Unzen/stock EL/Comet adapters remain external"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-f3360a370c6978e1"],
+      "scope": "Current decoded rule only. Local guard/transition result; no complete current-machine or production refinement claim."
+    },
+    {
+      "module": "EtnaProofs.Current",
+      "declaration": "Etna.Design.Current.Rules.recover_clears_stop",
+      "type": "∀ {s t : Etna.Design.Current.Rules.Schedule} {rule : Nat}, Etna.Design.Current.Rules.recover s rule = Option.some t → t.stopTime = 0 ∧ t.stopGrid = 0",
+      "assumptions": [
+        "decoded current storage and atomic call boundary; real L1/MPT/Unzen/stock EL/Comet adapters remain external"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-e4d5ea9bf749c3f7"],
+      "scope": "Current decoded rule only. Local guard/transition result; no complete current-machine or production refinement claim."
+    },
+    {
+      "module": "EtnaProofs.Current",
+      "declaration": "Etna.Design.Current.Registry.registration_issues_fresh",
+      "type": "∀ {s t : Etna.Design.Current.Registry.State} {key owner amount now id : Nat}, Etna.Design.Current.Registry.register s key owner amount now = Option.some (t, id) → id = s.nextId ∧ t.nextId = s.nextId + 1 ∧ t.keyId key = Option.some id",
+      "assumptions": [
+        "decoded current storage and atomic call boundary; real L1/MPT/Unzen/stock EL/Comet adapters remain external"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-4eeb66cec75465ce"],
+      "scope": "Current decoded rule only. Local guard/transition result; no complete current-machine or production refinement claim."
+    },
+    {
+      "module": "EtnaProofs.Current",
+      "declaration": "Etna.Design.Current.Registry.modify_preserves_identity_counter",
+      "type": "∀ {s t : Etna.Design.Current.Registry.State} {id : Nat} {f : Etna.Design.Current.Registry.Bond → Option Etna.Design.Current.Registry.Bond}, Etna.Design.Current.Registry.modify s id f = Option.some t → t.nextId = s.nextId ∧ t.keyId = s.keyId",
+      "assumptions": [
+        "decoded current storage and atomic call boundary; real L1/MPT/Unzen/stock EL/Comet adapters remain external"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-4eeb66cec75465ce"],
+      "scope": "Current decoded rule only. Local guard/transition result; no complete current-machine or production refinement claim."
+    },
+    {
+      "module": "EtnaProofs.Current",
+      "declaration": "Etna.Design.Current.Registry.unissued_modify_rejected",
+      "type": "∀ (s : Etna.Design.Current.Registry.State) (id : Nat) (f : Etna.Design.Current.Registry.Bond → Option Etna.Design.Current.Registry.Bond), s.nextId ≤ id → Etna.Design.Current.Registry.modify s id f = Option.none",
+      "assumptions": [
+        "decoded current storage and atomic call boundary; real L1/MPT/Unzen/stock EL/Comet adapters remain external"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-4eeb66cec75465ce"],
+      "scope": "Current decoded rule only. Local guard/transition result; no complete current-machine or production refinement claim."
+    },
+    {
+      "module": "EtnaProofs.Current",
+      "declaration": "Etna.Design.Current.Registry.unissued_withdraw_rejected",
+      "type": "∀ (s : Etna.Design.Current.Registry.State) (id caller now delay : Nat), s.nextId ≤ id → Etna.Design.Current.Registry.withdraw s id caller now delay = Option.none",
+      "assumptions": [
+        "decoded current storage and atomic call boundary; real L1/MPT/Unzen/stock EL/Comet adapters remain external"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-4eeb66cec75465ce"],
+      "scope": "Current decoded rule only. Local guard/transition result; no complete current-machine or production refinement claim."
+    },
+    {
+      "module": "EtnaProofs.Current",
+      "declaration": "Etna.Design.Current.Registry.withdrawal_identity",
+      "type": "∀ (b : Etna.Design.Current.Registry.Bond), (Etna.Design.Current.Registry.withdrawn b).value.key = b.value.key ∧ (Etna.Design.Current.Registry.withdrawn b).value.exitAt = b.value.exitAt ∧ (Etna.Design.Current.Registry.withdrawn b).value.released = Bool.true ∧ (Etna.Design.Current.Registry.withdrawn b).slot = Option.none",
+      "assumptions": [
+        "decoded current storage and atomic call boundary; real L1/MPT/Unzen/stock EL/Comet adapters remain external"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-443baffea980ec5b"],
+      "scope": "Current decoded rule only. Local guard/transition result; no complete current-machine or production refinement claim."
+    },
+    {
+      "module": "EtnaProofs.Current",
+      "declaration": "Etna.Design.Current.Registry.withdrawal_preserves_counter",
+      "type": "∀ {s t : Etna.Design.Current.Registry.State} {id caller now delay payout : Nat}, Etna.Design.Current.Registry.withdraw s id caller now delay = Option.some (t, payout) → t.nextId = s.nextId ∧ t.keyId = s.keyId",
+      "assumptions": [
+        "decoded current storage and atomic call boundary; real L1/MPT/Unzen/stock EL/Comet adapters remain external"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-4eeb66cec75465ce"],
+      "scope": "Current decoded rule only. Local guard/transition result; no complete current-machine or production refinement claim."
+    },
+    {
+      "module": "EtnaProofs.Current",
+      "declaration": "Etna.Design.Current.Registry.trace_issuance_monotone",
+      "type": "∀ {s t : Etna.Design.Current.Registry.State}, Etna.Design.Current.Registry.Trace s t → s.nextId ≤ t.nextId",
+      "assumptions": [
+        "decoded current storage and atomic call boundary; real L1/MPT/Unzen/stock EL/Comet adapters remain external"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["LIVE_EN-4eeb66cec75465ce"],
+      "scope": "Current decoded rule only. Trace induction over the explicitly modeled transitions."
+    },
+    {
+      "module": "EtnaProofs.Current",
+      "declaration": "Etna.Design.Current.Start.grid_offset",
+      "type": "∀ {start grid height : Nat}, Etna.Design.Current.Start.onGrid start grid height = Bool.true → start ≤ height ∧ (height - start) % grid = 0",
+      "assumptions": [
+        "decoded current storage and atomic call boundary; real L1/MPT/Unzen/stock EL/Comet adapters remain external"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-a563a899ed3d4c6b"],
+      "scope": "Current decoded rule only. Local guard/transition result; no complete current-machine or production refinement claim."
+    },
+    {
+      "module": "EtnaProofs.Current",
+      "declaration": "Etna.Design.Current.Start.first_landing_fenced",
+      "type": "∀ {start hash root : Nat} {u : Etna.Design.Current.Start.Unzen}, Etna.Design.Current.Start.firstLanding Bool.true start start hash root u = Bool.true → u.nextProposal = u.finalizedProposal + 1 ∧ u.finalizedHash = hash ∧ u.checkpointExists = Bool.true ∧ u.checkpointHash = hash ∧ u.checkpointRoot = root",
+      "assumptions": [
+        "decoded current storage and atomic call boundary; real L1/MPT/Unzen/stock EL/Comet adapters remain external"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-a563a899ed3d4c6b"],
+      "scope": "Current decoded rule only. Local guard/transition result; no complete current-machine or production refinement claim."
+    },
+    {
+      "module": "EtnaProofs.Current",
+      "declaration": "Etna.Design.Current.Start.origin_written_once",
+      "type": "∀ (s : Etna.Design.Current.Start.State) (caller now l1Block height hash root : Nat), s.start ≠ Option.none → Etna.Design.Current.Start.setOrigin s caller now l1Block height hash root = Option.none",
+      "assumptions": [
+        "decoded current storage and atomic call boundary; real L1/MPT/Unzen/stock EL/Comet adapters remain external"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-418f79028f11c3d9"],
+      "scope": "Current decoded rule only. Local guard/transition result; no complete current-machine or production refinement claim."
+    },
+    {
+      "module": "EtnaProofs.Current",
+      "declaration": "Etna.Design.Current.Start.correction_new_generation",
+      "type": "∀ {s t : Etna.Design.Current.Start.State} {owner authenticated : Bool} {checkpoint height hash root l1Block now : Nat}, Etna.Design.Current.Start.correct s owner authenticated checkpoint height hash root l1Block now = Option.some t → t.generation = s.generation + 1 ∧ ∀ (g : Nat), g ≤ s.generation → t.origins g = s.origins g",
+      "assumptions": [
+        "decoded current storage and atomic call boundary; real L1/MPT/Unzen/stock EL/Comet adapters remain external"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-a0a126e4b8ea2b61"],
+      "scope": "Current decoded rule only. Local guard/transition result; no complete current-machine or production refinement claim."
+    },
+    {
+      "module": "EtnaProofs.Current",
+      "declaration": "Etna.Design.Current.Import.authenticated_conflict_halts",
+      "type": "∀ {c : Etna.Design.Current.Import.Candidate} {generation : Nat}, c.generation = generation → c.origin ≤ c.height → c.checkpointAuthenticated = Bool.true → c.dataHashAuthenticated = Bool.true → c.envelopeEL ≠ c.checkpointEL → Etna.Design.Current.Import.inspect c generation = Etna.Design.Current.Import.Decision.halt",
+      "assumptions": [
+        "decoded current storage and atomic call boundary; real L1/MPT/Unzen/stock EL/Comet adapters remain external"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-ae3a8e34d200a4b2"],
+      "scope": "Current decoded rule only. Local guard/transition result; no complete current-machine or production refinement claim."
+    },
+    {
+      "module": "EtnaProofs.Current",
+      "declaration": "Etna.Design.Current.Import.invalid_data_rejected",
+      "type": "∀ (c : Etna.Design.Current.Import.Candidate) (generation : Nat), c.dataHashAuthenticated = Bool.false → Etna.Design.Current.Import.inspect c generation = Etna.Design.Current.Import.Decision.reject",
+      "assumptions": [
+        "decoded current storage and atomic call boundary; real L1/MPT/Unzen/stock EL/Comet adapters remain external"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-ae3a8e34d200a4b2"],
+      "scope": "Current decoded rule only. Local guard/transition result; no complete current-machine or production refinement claim."
+    },
+    {
+      "module": "EtnaProofs.Current",
+      "declaration": "Etna.Design.Current.Import.publish_boundary",
+      "type": "∀ {c : Etna.Design.Current.Import.Candidate} {generation : Nat} {signer : Etna.Design.Signer.State} {durable : Bool} {installed : Etna.Design.Current.Import.Installed}, Etna.Design.Current.Import.publish c generation signer durable = Option.some installed → durable = Bool.true ∧ installed.signer = signer ∧ installed.trusted = Bool.false ∧ installed.headerNumbers = List.range' c.origin (c.height - c.origin + 1)",
+      "assumptions": [
+        "decoded current storage and atomic call boundary; real L1/MPT/Unzen/stock EL/Comet adapters remain external"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-f98242f5400aa7f7"],
+      "scope": "Current decoded rule only. Local guard/transition result; no complete current-machine or production refinement claim."
+    },
+    {
+      "module": "EtnaProofs.Current",
+      "declaration": "Etna.Design.Current.Registry.registration_retains_keys",
+      "type": "∀ {s t : Etna.Design.Current.Registry.State} {key owner amount now id oldKey oldId : Nat}, Etna.Design.Current.Registry.register s key owner amount now = Option.some (t, id) → s.keyId oldKey = Option.some oldId → t.keyId oldKey = Option.some oldId",
+      "assumptions": [
+        "decoded current storage and atomic call boundary; real L1/MPT/Unzen/stock EL/Comet adapters remain external"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-4eeb66cec75465ce"],
+      "scope": "Current decoded rule only. Local guard/transition result; no complete current-machine or production refinement claim."
+    },
+    {
+      "module": "EtnaProofs.Current",
+      "declaration": "Etna.Design.Current.Registry.trace_keys_permanent",
+      "type": "∀ {s t : Etna.Design.Current.Registry.State}, Etna.Design.Current.Registry.Trace s t → ∀ (key id : Nat), s.keyId key = Option.some id → t.keyId key = Option.some id",
+      "assumptions": [
+        "decoded current storage and atomic call boundary; real L1/MPT/Unzen/stock EL/Comet adapters remain external"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["LIVE_EN-4eeb66cec75465ce"],
+      "scope": "Current decoded rule only. Trace induction over the explicitly modeled transitions."
+    },
+    {
+      "module": "EtnaProofs.Current",
+      "declaration": "Etna.Design.Current.Registry.displacement_keeps_old_bond",
+      "type": "∀ {s t : Etna.Design.Current.Registry.State} {key owner amount now id oldId : Nat} {old : Etna.Design.Current.Registry.Bond}, Etna.Design.Current.Registry.register s key owner amount now = Option.some (t, id) → s.slots (Etna.Design.Current.Registry.admissionSlot s) = Option.some oldId → s.bonds oldId = Option.some old → oldId < s.nextId → t.bonds oldId = Option.some { value := Etna.Design.Staking.exclude old.value now, slot := Option.none }",
+      "assumptions": [
+        "decoded current storage and atomic call boundary; real L1/MPT/Unzen/stock EL/Comet adapters remain external"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-4eeb66cec75465ce"],
+      "scope": "Current decoded rule only. Local guard/transition result; no complete current-machine or production refinement claim."
+    },
+    {
+      "module": "EtnaProofs.Current",
+      "declaration": "Etna.Design.Current.Start.trace_generations_monotone",
+      "type": "∀ {s t : Etna.Design.Current.Start.State}, Etna.Design.Current.Start.Trace s t → s.generation ≤ t.generation",
+      "assumptions": [
+        "decoded current storage and atomic call boundary; real L1/MPT/Unzen/stock EL/Comet adapters remain external"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["LIVE_EN-a0a126e4b8ea2b61"],
+      "scope": "Current decoded rule only. Trace induction over the explicitly modeled transitions."
+    },
+    {
+      "module": "EtnaProofs.Current",
+      "declaration": "Etna.Design.Current.Start.trace_origins_retained",
+      "type": "∀ {s t : Etna.Design.Current.Start.State}, Etna.Design.Current.Start.Trace s t → ∀ (g : Nat), g ≤ s.generation → t.origins g = s.origins g",
+      "assumptions": [
+        "decoded current storage and atomic call boundary; real L1/MPT/Unzen/stock EL/Comet adapters remain external"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["LIVE_EN-a0a126e4b8ea2b61"],
+      "scope": "Current decoded rule only. Trace induction over the explicitly modeled transitions."
+    },
+    {
+      "module": "EtnaProofs.Current",
+      "declaration": "Etna.Design.Current.Rules.covered_batch_keeps_every_ruleset",
+      "type": "∀ (implemented : List Nat) (s : Etna.Design.Current.Rules.Schedule) (timestamps : List Nat), Etna.Design.Current.Rules.covers implemented s timestamps = Bool.true → ∀ (t : Nat), t ∈ timestamps → Etna.Design.Current.Rules.select s t ∈ implemented",
+      "assumptions": [
+        "decoded current storage and atomic call boundary; real L1/MPT/Unzen/stock EL/Comet adapters remain external"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["LIVE_EN-ad883390e144f5e5"],
+      "scope": "Current decoded rule only. Trace induction over the explicitly modeled transitions."
     }
   ]
 }

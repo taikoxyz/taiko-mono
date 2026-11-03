@@ -2,7 +2,8 @@
 """Check the pinned spec revision and explicit theorem/claim evidence edges.
 
 This is a traceability report and its consistency check, not the verification result. The
-result is the three headline theorems under `Etna.Statements.Premises` (README). A clause
+current results are the explicitly scoped Current theorems; the three headline theorems
+under `Etna.Statements.Premises` are historical (README). A clause
 marked partial has an edge from some `property` or `constant` theorem; it is not proved.
 
 Roles: `property` (Rule P: with every leading `∀`/hypothesis binder stripped, each atom of
@@ -14,11 +15,17 @@ or not derived) and `regression` edges never do.
 The role text is not trusted: the proof audit (scripts/EtnaAudit.lean, checkContract)
 checks each `property`/`supporting` role both ways against the kernel type and proof term.
 
-The authorities are the in-repo SPEC.md, ACCEPTANCE.md and ANCHORLESS.md, independently pinned in
+Current SPEC.md, ACCEPTANCE.md, ANCHORLESS.md and SWITCH.md and the three archived
+historical authorities are independently pinned in
 spec-coverage.json by source path, reviewed Git commit, revision date and SHA-256.
 No editor-export manifest is needed. Any edit to an authority's text fails this check
 until the clause links are reviewed against the new text and its pin is updated. The pin
 and the clauses cover the text with rule-reference markers removed (strip_markers).
+
+Current clauses use LIVE_* IDs; archived clauses retain their original IDs. Only
+Etna.Design.Current declarations may cite current clauses. Historical claims are
+explicitly labelled and cannot target current clauses (or conversely). Current coverage
+never includes the historical inventory.
 
 Every theorem cites at least one clause, except the reviewed plumbing in UNSOURCED, which
 cites none: it is audited like any theorem but is the obligation of no clause.
@@ -37,9 +44,15 @@ SPEC_DIR = 'packages/protocol/docs/etna'
 SPEC_PATH = SPEC_DIR+'/SPEC.md'
 ACCEPTANCE_PATH = SPEC_DIR+'/ACCEPTANCE.md'
 ANCHORLESS_PATH = SPEC_DIR+'/ANCHORLESS.md'
-SOURCE_INPUTS = (('source', 'spec', SPEC_PATH, 'en'),
-                 ('acceptance_source', 'acceptance', ACCEPTANCE_PATH, 'acceptance'),
-                 ('anchorless_source', 'anchorless', ANCHORLESS_PATH, 'anchorless'))
+SWITCH_PATH = SPEC_DIR+'/SWITCH.md'
+HISTORICAL_DIR = 'formal/etna/legacy/2026-10-30'
+SOURCE_INPUTS = (('source', 'spec', SPEC_PATH, 'live_en'),
+                 ('acceptance_source', 'acceptance', ACCEPTANCE_PATH, 'live_acceptance'),
+                 ('anchorless_source', 'anchorless', ANCHORLESS_PATH, 'live_anchorless'),
+                 ('switch_source', 'switch', SWITCH_PATH, 'live_switch'),
+                 ('historical_source', 'historical spec', HISTORICAL_DIR+'/SPEC.md', 'en'),
+                 ('historical_acceptance_source', 'historical acceptance', HISTORICAL_DIR+'/ACCEPTANCE.md', 'acceptance'),
+                 ('historical_anchorless_source', 'historical anchorless', HISTORICAL_DIR+'/ANCHORLESS.md', 'anchorless'))
 ROLES = {'property', 'constant', 'supporting', 'regression'}
 PARTIAL_ROLES = {'property', 'constant'}
 SCOPE = 'conditional decoded specification property only'
@@ -174,7 +187,7 @@ def source_rows(root=ROOT, repo=REPO):
                              'against the new text, then update its pin in spec-coverage.json')
         rows = clauses(text, language)
         for row in rows:
-            row.update(path=path, source_commit=source['commit'])
+            row.update(path=path, source_commit=source['commit'], historical=key.startswith('historical_'))
         result.extend(rows)
     return result
 
@@ -185,6 +198,7 @@ def inventory(root=ROOT, repo=REPO):
         raise ValueError('unsupported inventory schema/scope')
     rows = source_rows(root, repo)
     ids = {r['id'] for r in rows}
+    historical_ids = {r['id'] for r in rows if r['historical']}
     if len(ids) != len(rows):
         raise ValueError('duplicate content identity')
     entries = json.loads((root/'manifests/design.json').read_text())['theorems']
@@ -205,6 +219,8 @@ def inventory(root=ROOT, repo=REPO):
         for source in sources:
             if source not in ids:
                 raise ValueError(f'unknown theorem source {source}: {name}')
+            if (source in historical_ids) == name.startswith('Etna.Design.Current.'):
+                raise ValueError(f'theorem authority mismatch: {name} cites {source}')
         if not entry['scope'].strip():
             raise ValueError(f'theorem scope required: {name}')
         roles[name] = role
@@ -246,6 +262,8 @@ def inventory(root=ROOT, repo=REPO):
                 raise ValueError(f'unknown source clause in proof claim {cid}: {source}')
             if by_id[source]['status'] not in {'partial','proved'}:
                 raise ValueError(f'proof claim {cid} targets deferred/design-pending source {source}')
+            if by_id[source]['historical'] != claim.get('historical', False):
+                raise ValueError(f'claim {cid} mixes current and historical evidence: {source}')
             if not declarations or len(declarations) != len(set(declarations)):
                 raise ValueError(f'nonempty unique claim evidence required: {cid} {source}')
             for name in declarations:
@@ -270,7 +288,10 @@ def main():
     args = parser.parse_args()
     try:
         rows = inventory(args.root, args.repo)
-        print(f'Validated {len(rows)} source clauses of {SPEC_PATH}, {ACCEPTANCE_PATH} and {ANCHORLESS_PATH}, explicit claim edges and roles; '+str(dict(Counter(r['status'] for r in rows))))
+        current = [r for r in rows if not r['historical']]
+        historical = [r for r in rows if r['historical']]
+        print(f'Validated {len(current)} current clauses (SPEC/ACCEPTANCE/ANCHORLESS/SWITCH): '+str(dict(Counter(r['status'] for r in current))))
+        print(f'Separately retained {len(historical)} historical clauses: '+str(dict(Counter(r['status'] for r in historical))))
         return 0
     except (ValueError,KeyError,OSError,TypeError) as exc:
         print('spec coverage failed: '+str(exc),file=sys.stderr)

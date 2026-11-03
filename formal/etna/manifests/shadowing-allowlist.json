@@ -56,6 +56,36 @@
       "declaration": "Etna.Design.Signer.instReprState",
       "shadows": "Etna.Design.instReprState",
       "reason": "Derived Repr instance for Signer.State; instances are found by type class resolution, not by this name."
+    },
+    {
+      "declaration": "Etna.Design.Current.Registry.State",
+      "shadows": "Etna.Design.State",
+      "reason": "Current permanent-bond ledger, distinct from the historical inbox State; no unqualified inbox State is intended in this namespace."
+    },
+    {
+      "declaration": "Etna.Design.Current.Start.State",
+      "shadows": "Etna.Design.State",
+      "reason": "Current initialization/origin-write state, distinct from the historical inbox State."
+    },
+    {
+      "declaration": "Etna.Design.Current.Start.Origin",
+      "shadows": "Etna.Design.Origin",
+      "reason": "Current fixed origin record with explicit timestamp, distinct from the historical origin type."
+    },
+    {
+      "declaration": "Etna.Design.Current.Start.instReprOrigin",
+      "shadows": "Etna.Design.instReprOrigin",
+      "reason": "Derived representation instance owned by the current Start.Origin type."
+    },
+    {
+      "declaration": "Etna.Design.Current.Start.instDecidableEqOrigin",
+      "shadows": "Etna.Design.instDecidableEqOrigin",
+      "reason": "Derived equality instance owned by the current Start.Origin type."
+    },
+    {
+      "declaration": "Etna.Design.Current.Registry.modify",
+      "shadows": "modify",
+      "reason": "Issued-id-checked bond edit primitive; this namespace does not use the outer monadic modify helper."
     }
   ]
 }
