@@ -11,8 +11,7 @@ import { IEtnaStakingRegistry } from "../iface/IEtnaStakingRegistry.sol";
 /// `zero(l) = keccak256(zero(l - 1) ‖ zero(l - 1))`.
 ///
 /// The root over the first `count` leaves is the node at level `ceil(log2(count))`, index 0,
-/// which equals the root of those leaves padded with zero leaves to the next power of two. This
-/// is the Etna node's `entries_root` (`crates/abci/src/committee` of taiko-client-rs).
+/// which equals the root of those leaves padded with zero leaves to the next power of two.
 ///
 /// Node `(level, index)` lives at key `(level << 32) | index` of the caller's mapping.
 ///

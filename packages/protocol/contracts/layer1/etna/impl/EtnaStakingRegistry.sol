@@ -19,9 +19,10 @@ import "./EtnaStakingRegistry_Layout.sol"; // DO NOT DELETE
 /// holds, from its base R: `checkpoints` (R) and the slot-indexed `entries` (R + 1), the only
 /// slots nodes read, then the storage appendix B does not name: the entries tree nodes, the
 /// admission index, the key and slot lookups, the bond records and the bond count.
-/// `taiko.etna.registry.owners` holds the bond owners and
-/// `taiko.etna.registry.exit-confirmations` the exit confirmations; neither enters the entries
-/// root. The Inbox proxy and the L2 chain id are immutables. Every L1 block the registry stores
+/// `taiko.etna.registry.owners` holds the bond owners, `taiko.etna.registry.exit-confirmations`
+/// the exit confirmations, `taiko.etna.registry.top-ups` the pending top-ups and
+/// `taiko.etna.registry.forfeitures` the lifetime forfeiture flags; none enters the entries root.
+/// The Inbox proxy and the L2 chain id are immutables. Every L1 block the registry stores
 /// (activation, exit and checkpoint blocks) is below the no-exit sentinel 2^48 - 1.
 ///
 /// The admission index is a tournament tree over the 4096 slots: node 1 is the root and leaf
@@ -330,7 +331,7 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     /// @dev Checks in order: the Inbox's initialization, both votes' ranges, the pair (same type,
     /// height, round and generation, different block ids), the generation, the bond and its
     /// stake, then both signatures. The slash is written before either transfer. Unaffected by
-    /// pause. The Inbox lock rejects callbacks into slashing during landing or recovery.
+    /// pause. The Inbox lock rejects callbacks into slashing from any Inbox entry point.
     function slashDoubleSign(
         uint256 _bondId,
         Vote calldata _voteA,
@@ -370,11 +371,14 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
             InvalidSignature()
         );
 
-        entry.effStake = 0;
         delete _topUpsStorage().topUps[_bondId];
-        // At most the stored exit, so it fits in 48 bits.
-        entry.exitEffectiveL1 = uint48(Math.min(entry.exitEffectiveL1, block.number));
-        _save(_registryStorage(), bond, entry);
+        // The entry changes only if it has effective stake or its exit is later than this block.
+        if (entry.effStake != 0 || block.number < entry.exitEffectiveL1) {
+            entry.effStake = 0;
+            // At most the stored exit, so it fits in 48 bits.
+            entry.exitEffectiveL1 = uint48(Math.min(entry.exitEffectiveL1, block.number));
+            _save(_registryStorage(), bond, entry);
+        }
         if (bond.holdsSlot) _setSlotValue(_registryStorage(), bond.slot, 0);
 
         uint256 bounty = Math.mulDiv(amount, slashBountyBps, _BPS);
@@ -764,9 +768,8 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         );
     }
 
-    /// @dev Reverts with `InboxLocked` whenever the Inbox holds its reentrancy lock (during `land`
-    /// and `recover`, and also during `saveForcedInclusion`, its refund included, and
-    /// `sweepProtocolFees`, its transfer included), so registry mutations cannot run inside Inbox
+    /// @dev Reverts with `InboxLocked` while any Inbox entry point that takes its reentrancy lock
+    /// is executing, its transfers included, so registry mutations cannot run inside Inbox
     /// execution. Only the Inbox-authorized forceExit deliberately skips this reciprocal check.
     function _checkInboxUnlocked() private view {
         require(!EssentialContract(inbox).inNonReentrant(), InboxLocked());

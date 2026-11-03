@@ -272,6 +272,49 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
         assertEq(token.balanceOf(Carol), 0, "nothing paid");
     }
 
+    /// @dev A slot holder with no effective stake, only pending principal and an exit already
+    /// passed: a 90% forfeiture at block 40 takes all 1000 ether of effective stake and 800 of
+    /// the 1000 ether top-up and sets the exit to 40. Slashing it at block 50 changes no entry
+    /// field, so it writes no checkpoint, yet it takes the 200 ether pending, clears the top-up
+    /// and returns the slot's admission value to 0.
+    function test_slashDoubleSign_PendingOnlyEntryWritesNoCheckpoint() external {
+        IEtnaStakingRegistry.Config memory config =
+            _registryConfig(address(token), address(mockInbox));
+        config.forfeitBps = 9000;
+        registry = _deployRegistry(config);
+        assertEq(_register(Alice, _CK_A), 0, "bond 0");
+        vm.roll(_REGISTERED_AT + ACTIVATION_DELAY);
+        _fund(Alice, MIN_STAKE);
+        vm.prank(Alice);
+        registry.topUp(0, MIN_STAKE);
+        registry.forfeit(0, _entryKey(registry, 0), 0, block.timestamp);
+        uint48 exit = uint48(block.number);
+        assertEq(registry.entryAt(0).effStake, 0, "no effective stake");
+        (uint256 pending,) = registry.topUpOf(0);
+        assertEq(pending, 200 ether, "pending principal left");
+        (uint256 slot, uint256 value) = registry.admissionThreshold();
+        assertEq(slot, 1, "slot 0 still holds a value");
+        assertEq(value, 0, "the empty slot 1");
+
+        vm.roll(50);
+        uint256 checkpoints = registry.checkpointCount();
+        bytes32 root = registry.entriesRoot();
+        (IEtnaStakingRegistry.Vote memory a, IEtnaStakingRegistry.Vote memory b) = _conflict(_CK_A);
+        _slash(0, a, b);
+
+        assertEq(registry.checkpointCount(), checkpoints, "no checkpoint");
+        assertEq(registry.entriesRoot(), root, "root");
+        assertEq(registry.entryAt(0).exitEffectiveL1, exit, "exit kept");
+        uint48 readyAt;
+        (pending, readyAt) = registry.topUpOf(0);
+        assertEq(pending, 0, "pending slashed");
+        assertEq(readyAt, 0, "readiness cleared");
+        (slot, value) = registry.admissionThreshold();
+        assertEq(slot, 0, "slot 0 is the smallest again");
+        assertEq(value, 0, "slot 0's value");
+        assertEq(token.balanceOf(Bob), 20 ether, "bounty on the pending principal");
+    }
+
     /// @dev The vector deployment (L1 chain 1, L2 chain 167001, Inbox 0x1111…) with the vector key
     /// registered as bond 0, the Inbox at each pair's `current_generation`, and the vector
     /// signatures used as given. Every `votes.pairs` item with `double_sign` slashes the whole

@@ -1451,12 +1451,19 @@ contract EtnaStakingRegistryHandler is CommonBase {
         bountiesPaid += bounty;
         sinkPaid += amount - bounty;
 
+        // Only effective stake or a later exit changes the entry; pending principal alone does not.
+        bool entryChanges = s.entry.effStake != 0 || block.number < s.entry.exitEffectiveL1;
         s.entry.effStake = 0;
         s.pendingTopUp = 0;
         s.topUpReadyAtL1 = 0;
         s.slashedAt = block.number;
         _setExit(_a.bondId, _min(s.entry.exitEffectiveL1, block.number));
-        _commit(_a.bondId, Property.Balance);
+        if (entryChanges) {
+            _commit(_a.bondId, Property.Balance);
+        } else {
+            _checkBondRecord(_a.bondId, Property.Balance);
+            _checkNoCheckpoint(_a.bondId);
+        }
     }
 
     /// @dev Whether a vote's fields are in range, written out from appendix A's bounds.
@@ -1587,17 +1594,24 @@ contract EtnaStakingRegistryHandler is CommonBase {
             _commitSlot(s.slot, _property);
             return;
         }
+        _checkNoCheckpoint(_bondId);
+    }
+
+    /// @dev After a successful call that changed bond `_bondId` but no slot's entry: checks that
+    /// the call wrote or rewrote no checkpoint, and the admission threshold.
+    function _checkNoCheckpoint(uint256 _bondId) internal {
         _touch(_bondId);
+        if (_bonds[_bondId].holdsSlot) _pushSlotValue(_bonds[_bondId].slot);
         uint256 known = _checkpoints.length;
         if (registry.checkpointCount() != known) {
-            _violate(Property.History, "a change to a bond without a slot wrote a checkpoint");
+            _violate(Property.History, "a change to no slot's entry wrote a checkpoint");
         } else if (known != 0) {
             IEtnaStakingRegistry.Checkpoint memory latest = registry.checkpointAt(known - 1);
             if (
                 latest.l1Block != _checkpoints[known - 1].l1Block
                     || latest.entriesRoot != _checkpoints[known - 1].entriesRoot
             ) {
-                _violate(Property.History, "a change to a bond without a slot rewrote a checkpoint");
+                _violate(Property.History, "a change to no slot's entry rewrote a checkpoint");
             }
         }
         if (!_prefilling) _checkThreshold();

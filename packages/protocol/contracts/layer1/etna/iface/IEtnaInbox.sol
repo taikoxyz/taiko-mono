@@ -611,8 +611,11 @@ interface IEtnaInbox {
     /// @notice The stop is neither (0, 0) nor a time at least `maxAnchorAge` ahead with a positive
     /// multiple of 6 as its grid.
     error InvalidStop();
+    /// @notice The expected recovery nonce differs from the current one.
     error RecoveryNonceMismatch();
+    /// @notice The authorization's `validUntil` deadline has passed.
     error AuthorizationExpired();
+    /// @notice The staking registry holds its reentrancy lock.
     error RegistryLocked();
     /// @notice `maxBatchBlocks` is below 6 or above 65,532.
     error InvalidMaxBatchBlocks();

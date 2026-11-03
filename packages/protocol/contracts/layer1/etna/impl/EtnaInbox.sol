@@ -30,7 +30,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     // Structs
     // ---------------------------------------------------------------
 
-    /// @dev Slot 282: the genesis forced inclusion parameters in seconds, packed from the
+    /// @dev Slot 282: the forced inclusion parameters in seconds, packed from the
     /// least-significant bit.
     struct ForcedInclusionConfig {
         uint48 delay;
@@ -67,7 +67,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     // Constants
     // ---------------------------------------------------------------
 
-    /// @notice `K`: landings end only at heights that are multiples of this (spec 6.1).
+    /// @notice `K`: landings end only at heights h with h - S a multiple of this (spec 6.1).
     uint256 public constant GRID_INTERVAL = 6;
 
     /// @notice The landing statement version emitted by `Landed`.
@@ -344,8 +344,9 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @dev Follows the spec 6.1 reference Solidity: its checks in its order, all before any
     /// write. Before the start write it needs no extra check: c = 0 forces p = 0, and the
     /// unwritten landings[0] fails step 2. Unaffected by pause. The only external calls are the
-    /// proof verifier, the EIP-2935 history contract, the Unzen Inbox and SignalService views while
-    /// c is S on a switching network (all static) and the SignalService checkpoint write.
+    /// registry's lock view, the proof verifier, the EIP-2935 history contract, the Unzen Inbox
+    /// and SignalService views while c is S on a switching network (all static) and the
+    /// SignalService checkpoint write.
     function land(
         LandInput calldata _input,
         bytes32[] calldata _leaves,
@@ -427,9 +428,9 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// origin writes, `Recovered`, then the slot 293 write and its event. The registry checks
     /// each exclusion inside its `forceExit`, after the earlier exclusions have been applied; the
     /// call is atomic, so a failing `forceExit` reverts them all. Unaffected by pause. The only
-    /// external calls are `forceExit` on the fixed registry. At block.number == 2^48 - 1 recovery
-    /// passes its own bound but any exclusion reverts in the registry, which stores no L1 block at
-    /// its no-exit sentinel.
+    /// external calls are the registry's lock view and `forceExit` on the fixed registry. At
+    /// block.number == 2^48 - 1 recovery passes its own bound but any exclusion reverts in the
+    /// registry, which stores no L1 block at its no-exit sentinel.
     function recover(
         uint48 _expectedGeneration,
         uint256 _expectedC,

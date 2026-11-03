@@ -311,10 +311,9 @@ interface IEtnaStakingRegistry {
     function forfeitBps() external view returns (uint256 forfeitBps_);
 
     /// @notice Records the exit confirmation that starts the withdrawal delay (spec 4.1).
-    /// @dev Callable by anyone. Reverts `InboxLocked` whenever the Inbox holds its reentrancy
-    /// lock, which it does throughout `land`, `recover`, `saveForcedInclusion` (including the
-    /// refund) and `sweepProtocolFees`. Requires an initialized Inbox, an unwithdrawn bond with
-    /// an exit set, and the Inbox's `activeCommitteeSnapshot() >= exitEffectiveL1`: a landed
+    /// @dev Callable by anyone. Reverts `InboxLocked` while any Inbox entry point that takes its
+    /// reentrancy lock is executing. Requires an initialized Inbox, an unwithdrawn bond with an
+    /// exit set, and the Inbox's `activeCommitteeSnapshot() >= exitEffectiveL1`: a landed
     /// committee no longer includes the stake. The first call records block.number; later calls
     /// succeed without moving it.
     /// @param _bondId The bond id.
@@ -343,8 +342,10 @@ interface IEtnaStakingRegistry {
     /// (appendix A), to the address of the bond's stored key. The bond must be unwithdrawn with
     /// a positive effective plus pending principal, whether or not it holds a slot. Clears both
     /// balances and top-up readiness, sets exitEffectiveL1 to min(existing, block.number), pays
-    /// slashBountyBps of all principal to the caller and the rest to slashSink, and writes the
-    /// current block's checkpoint if the bond holds a slot.
+    /// slashBountyBps of all principal to the caller and the rest to slashSink, and sets the
+    /// slot's admission value to 0 if the bond holds a slot. Writes the current block's
+    /// checkpoint only if the bond holds a slot and its entry changed (a positive effStake or an
+    /// exit after the current block).
     /// @param _bondId The bond id.
     /// @param _voteA One vote.
     /// @param _voteB The conflicting vote.
@@ -477,8 +478,8 @@ interface IEtnaStakingRegistry {
     error InvalidEventBlock();
     /// @notice The Inbox is not initialized.
     error InboxNotInitialized();
-    /// @notice The Inbox holds its reentrancy lock: it is executing `land`, `recover`,
-    /// `saveForcedInclusion` or `sweepProtocolFees`.
+    /// @notice The Inbox holds its reentrancy lock: an Inbox entry point that takes it is
+    /// executing.
     error InboxLocked();
     /// @notice No landed committee excludes the stake yet.
     error ExitNotCovered();
@@ -502,10 +503,16 @@ interface IEtnaStakingRegistry {
     error UnknownCheckpoint();
     /// @notice The caller is not the Inbox.
     error NotInbox();
+    /// @notice The bond is not active yet or has no effective stake.
     error TopUpNotAllowed();
+    /// @notice The top-up amount is zero or would overflow the bond's principal.
     error InvalidTopUpAmount();
+    /// @notice The bond already has a pending top-up.
     error TopUpPending();
+    /// @notice No top-up is pending or its readiness block has not been reached.
     error TopUpNotReady();
+    /// @notice The entry key was already forfeited.
     error AlreadyForfeited();
+    /// @notice The authorization's `validUntil` deadline has passed.
     error AuthorizationExpired();
 }

@@ -55,20 +55,21 @@ encodings and appendix B its L1 storage layout.
   The landing then moves the checkpoint, `activeCommitteeSnapshot` and the queue head, writes
   `landings[h]` with the actual parent c, saves the SignalService checkpoint and emits `Landed`.
   It pays nothing to anyone.
-- `saveForcedInclusion(tx)`: after the start write, at most 8,192 bytes, for `fee × (threshold + pending) / threshold`
-  Gwei, which stays in the Inbox; overpayment is refunded. An entry stores only the transaction
-  hash, the L1 timestamp and the L1 block.
+- `saveForcedInclusion(tx)`: after the start write, at most 8,192 bytes, for
+  `fee × (threshold + pending) / threshold` Gwei, which stays in the Inbox; overpayment is
+  refunded. An entry stores only the transaction hash, the L1 timestamp and the L1 block.
 - `sweepProtocolFees()`: anyone sends the Inbox's whole balance to the immutable
   `protocolFeeRecipient`, the DAO treasury.
-- `recover(expectedGeneration, expectedC, expectedRecoveryNonce, validUntil, exclusions, fiToClear,
-  rules)`: owner only after the start write, with all expected values matching current state,
-  expectedC − S a multiple of K, `block.timestamp <= validUntil` and a non-zero `rules` equal to
-  `nextRules + 1`. Recovery increments the uint256 authorization nonce. With R = `block.number`,
-  each excluded entry's exit moves to min(existing, R) in the registry, each listed queue entry's
-  hash becomes `keccak256("")`, the generation increments and its origin (c, R's number, R's
-  timestamp) is written once to slot 290. It then clears the planned stop and, for a non-zero
-  `rules`, sets `activeRules = nextRules = rules` and `rulesTime = 0`. The checkpoint, its record,
-  the queue head and `activeCommitteeSnapshot` are kept.
+- `recover(expectedGeneration, expectedC, expectedRecoveryNonce, validUntil, exclusions, ...)`,
+  whose last two arguments are `fiToClear` and `rules`: owner only after the start write, with all
+  expected values matching current state, expectedC − S a multiple of K,
+  `block.timestamp <= validUntil` and a non-zero `rules` equal to `nextRules + 1`. Recovery
+  increments the uint256 authorization nonce. With R = `block.number`, each excluded entry's exit
+  moves to min(existing, R) in the registry, each listed queue entry's hash becomes
+  `keccak256("")`, the generation increments and its origin (c, R's number, R's timestamp) is
+  written once to slot 290. It then clears the planned stop and, for a non-zero `rules`, sets
+  `activeRules = nextRules = rules` and `rulesTime = 0`. The checkpoint, its record, the queue
+  head and `activeCommitteeSnapshot` are kept.
 - `scheduleRules(rules, time)` and `scheduleStop(time, grid)`: owner only after initialization;
   they write the rules schedule in slot 293 exactly as spec 10.1 steps 5a-5c, with `maxAnchorAge`
   as the deadline. A due `nextRules` is promoted first; a failed call keeps nothing. `recover`
@@ -110,16 +111,19 @@ Pause affects none of these entry points, nor the registry's (spec 1 requires th
   effect. `activateTopUp(bondId)` is permissionless at readiness, after `activationDelay` L1
   blocks; activation writes the normal checkpoint and does not change historical committees.
   No deposit or activation is allowed after exit is set. Withdrawal and double-sign slashing
-  account for **all** remaining effective and pending principal, clearing pending state on release.
+  account for **all** remaining effective and pending principal and clear the pending state.
 - `forfeit(bondId, entryKey, incidentId, validUntil)`: registry owner only after initialization,
   once per lifetime entry key, with an inclusive timestamp deadline. Deducts
   `ceil((effStake + pendingTopUp) * forfeitBps / 10000)` from effective stake first, then pending
   funds, pays only `slashSink` and forces exit without resetting an existing confirmation clock.
-  The flag survives withdrawal, slot reuse, recovery and verifier-failure rollback. There is no
+  The flag survives withdrawal, displacement, recovery and verifier-failure rollback. There is no
   forfeiture nonce, revocation method, freeze or extra delay. Landing and recovery leave an
   unexecuted authorization usable until expiry; attribution and timely execution belong to DAO
   governance. Double-sign evidence can still take the remainder.
-- `forceExit(bondId, entryKey)` derives the recovery execution block from `block.number`.
+- `forceExit(bondId, entryKey)` derives the recovery execution block from `block.number` and
+  checks `entryKey` against the bond's record, which a displaced or withdrawn bond keeps; a
+  mismatch or an unissued id reverts the whole `recover`, and a displaced or withdrawn bond keeps
+  its earlier exit (spec 8 step 2).
 - Every L1 block that changes the entry in a slot ends with exactly one checkpoint
   (`l1Block`, `count`, `entriesRoot`); a change to a bond that holds no slot writes none. The
   Inbox proxy and the L2 chain id are immutables.
@@ -141,9 +145,6 @@ Pause affects none of these entry points, nor the registry's (spec 1 requires th
 - Evidence votes have type 1 or 2, a height in [1, 2^63), a round below 2^31, timestamp seconds
   read as an int64 within CometBFT's Timestamp range (negative values included), nanoseconds
   below 10^9 and a 65-byte low-s signature with V in {0, 1}.
-- The registry checks each exclusion's `entryKey` inside `forceExit` against the bond's record,
-  which a displaced or withdrawn bond keeps; a mismatch or an unissued id reverts the whole
-  `recover`, and a displaced or withdrawn bond is a no-op.
 - Registry storage that appendix B does not name (tree nodes, the admission index, the key and
   slot lookups, the bond records and the bond count) lives in the `taiko.etna.registry`
   namespace after `entries`, so nodes read only the two named slots.
