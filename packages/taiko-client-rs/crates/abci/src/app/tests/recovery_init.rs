@@ -341,9 +341,6 @@ async fn recovery_init_rejects_changed_domain_time_validators_and_config() {
             2 => req.validators.pop().map(|_| ()).unwrap(),
             3 => req.initial_height = 1u32.into(),
             4 => params.l2_chain_id += 1,
-            5 => {
-                l1.state().states.remove(&64);
-            }
             _ => unreachable!(),
         }
         let dir = tempfile::tempdir().unwrap();

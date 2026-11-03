@@ -215,7 +215,7 @@ pub enum AbciError {
     InitialHeight {
         /// The requested initial height.
         got: u64,
-        /// The first consensus height, always 1.
+        /// The authenticated origin plus one: 1 for genesis, c+1 for recovery.
         expected: u64,
     },
     /// The request time differs from the authenticated L1 initialization timestamp.

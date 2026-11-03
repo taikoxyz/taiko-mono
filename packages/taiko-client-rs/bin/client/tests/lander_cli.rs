@@ -556,7 +556,18 @@ async fn lander_cli_checks_engine_before_opening_journal_or_running() -> Result<
             !output.contains("running the permissionless Etna lander"),
             "runner started without Engine"
         );
-        ensure!(!args.data.exists(), "startup failure opened the journal");
+        // Cooperative ownership reserves the private directory before Engine bootstrap.
+        // No journal file or its lock may be created before authenticated capabilities.
+        ensure!(
+            std::fs::read_dir(&args.data)?.next().is_none(),
+            "startup failure wrote transaction journal data"
+        );
+        let paths = abci::ownership::ComponentPaths::new(
+            abci::ownership::ComponentRole::Lander,
+            &args.data,
+        )?;
+        let _lease = abci::ownership::ComponentLease::acquire(&paths, None)
+            .context("startup retained ownership after failure or cancellation")?;
         assert_key_absent(&process);
     }
     Ok(())

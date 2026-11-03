@@ -178,3 +178,30 @@ Signed orphan state, missing/corrupt enrolled state, changed binding or changed
 origin fails closed. Preserve the entire registry and every historical state;
 never delete metadata to retry recovery. Stock FilePV still owns HRS checks and
 signing, with directory fsync completed before the transport receives a signature.
+
+## Recovery controller and retention
+
+Use the [governance recovery runbook](../../docs/governance-recovery.md) for the exact
+private validator/full-node profiles and prepare/activate/status commands. Activation is
+foreground and starts the supported supervisor after fencing declared old owners. Stop
+external services and their restart controllers first. Share protected persistent parent
+mounts for adjacent leases; a component-only mount does not provide shared ownership.
+
+The controller supplies explicit enrollment and canonical lowercase `ETNA_INBOX`. It
+retains the registered key and original generation-zero HRS paths across every generation.
+Keep both external authority markers, registry manifest/intent/watermark and every domain
+state together with their locks. Missing enrolled files, ambiguous signed staging or generic
+fatal/latch evidence require investigation and repair, never replacement files or resets.
+Historical expected supersession is accepted only with matching typed authenticated evidence;
+its original fatal/sidecar/latch bytes remain in place.
+
+Stock Comet creates its own disposable, unregistered FilePV in fresh standard local paths
+before replacing it with the mandatory guarded external signer. That dummy never signs for
+a validator. Do not copy registered key/HRS into Comet, clear those standard paths or enable
+a registered local fallback. The installed P2P node key remains a separate private identity.
+
+Successful or replayed recovery InitChain keeps the signer-established private session.
+Unavailable evidence closes readiness in that same session; contradictions halt. The owned
+controller can observe a supervisor-rearmed same-boot session only when its private signer
+incarnation matches, then must see fresh Ready. An app boot change or conflicting domain
+fails closed. Offline status and persisted phases never authorize a signature.

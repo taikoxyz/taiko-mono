@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+- Add explicit L1-authenticated governance recovery preparation, foreground activation/resume
+  and redacted offline status for validators and full nodes with usable local EL origin state.
+- Preserve registered keys, per-generation FilePV authority, old Comet history and immutable
+  pending lander bytes while retaining global committee/landing schedules. See the
+  [recovery runbook](docs/governance-recovery.md). The lander still uses dummy proofs; real
+  proving, snapshot import and production deployment acceptance are outside this change.
+
 ## [2.3.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-rs-v2.2.0...taiko-alethia-client-rs-v2.3.0) (2026-09-28)
 
 

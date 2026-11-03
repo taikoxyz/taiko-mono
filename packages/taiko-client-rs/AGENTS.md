@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-- `bin/client/` hosts the CLI entry point (`abci`, `abci-genesis`, `abci-committee-record`, `lander`); keep orchestration light and delegate protocol logic to the crates.
+- `bin/client/` hosts the CLI entry point (`abci`, `abci-genesis`, `abci-committee-record`, `abci-recover`, `lander`); keep orchestration light and delegate protocol logic to the crates.
 - `crates/abci` is the ABCI++ application of the Etna PoS chain (CometBFT + `taiko-client abci` + alethia-reth). Keep `envelope`, `rules`, `schedule`, `committee` and `forced` (the forced inclusion rule) free of I/O so they can later move unchanged into a no_std crate for the guest. The envelope is version 6; validators enforce forced inclusion and anchor freshness per block.
 - `crates/lander` authenticates CometBFT batches and historical committee ancestry, builds V6 blobs and the twenty-one-word V1 statement, obtains a proof through a trait (dummy `0x00` only), and durably submits nonpayable `land(input, leaves, proof)`. Fees and payouts are not consensus inputs. Never replace an outstanding nonce automatically.
 - `crates/protocol` holds shared protocol helpers (including Shasta manifest decoding for raiko2); `crates/rpc` holds the Engine API / JWT provider helpers. FI bytes are authenticated calldata from exact-block admission events. Document shared traits whenever exposing cross-crate APIs.
@@ -69,7 +69,8 @@
 
 - Every validator harness/runtime startup must set `priv_validator_laddr` and use the guarded
   signer with the actual private key outside the Comet home/mount. Preserve FilePV state and
-  Comet WAL on restart; only ephemeral test initialization creates signing files. Every new
+  Comet WAL on restart. Only new-identity bootstrap or freshly authorized guarded generation
+  enrollment creates signing files; never initialize replacements for existing state. Every new
   Comet transport begins a closed opaque trust session; app-only restart invalidates it.
   Unavailable trust control denies signatures and leaves signing state unchanged. Stop/reap
   Comet before stopping the signer and app. Full nodes use an unregistered local identity.
@@ -87,3 +88,15 @@
   starts run the signer without that flag together with Comet.
   Terminal trust/domain failures durably latch and quiesce across restartAlways restarts.
   Include `just supervisor-test` in the full verification gate.
+
+- Governance recovery operations and private profile/CLI/status examples live in
+  [docs/governance-recovery.md](docs/governance-recovery.md). Activation is foreground and
+  retains actual owned child handles and inherited leases through ordered shutdown; external
+  services must be stopped first. Packaged participants must share the protected persistent
+  parent/inode namespace for adjacent leases. Never adopt PIDs or reset uncertain state.
+- Recovery InitChain preserves the guarded signer session, closing readiness in that session
+  on unavailable evidence. The controller may observe a verified supervisor-rearmed signer
+  session in the same app boot; changed boot/domain or unexpected full-node rearm fails closed.
+  Offline status always reports `live_trust=false`. Preserve authority markers/manifest/intent,
+  all per-generation HRS, generic fatal evidence and latches across retries. A freshly
+  authenticated later generation acknowledges only exact typed historical supersession.

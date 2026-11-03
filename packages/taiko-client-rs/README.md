@@ -1,6 +1,7 @@
 # taiko-client-rs
 
-The Rust consensus-side node of the Taiko Etna PoS chain, starting from L2 genesis block 0. Stock CometBFT orders and finalizes
+The Rust consensus-side node of the Taiko Etna PoS chain, supporting fresh genesis and explicit
+L1-authenticated governance recovery from a retained local EL origin. Stock CometBFT orders and finalizes
 blocks; the `taiko-client abci` ABCI++ application builds and validates them and drives
 alethia-reth through the Engine API. The independent `taiko-client lander` publishes decided batches to L1.
 
@@ -48,26 +49,28 @@ asks the app's private control socket before every signature (see
   CometBFT the validator updates (spec section 4, Staking and committees). Its state is persisted
   atomically at every `Commit`.
 - **alethia-reth** executes blocks; the app drives it with `engine_forkchoiceUpdatedV3`,
-  `engine_getPayloadV5` and `engine_newPayloadV4`. CometBFT height equals the EL block number; Etna starts at L2 block 0, and consensus starts at height 1.
+  `engine_getPayloadV5` and `engine_newPayloadV4`. CometBFT height equals the EL block number. Fresh Etna starts at L2 block 0 with consensus
+  height 1; recovered generations start consensus at retained height c+1.
 
 ## Project structure
 
-| Path                   | Description                                                                           |
-| ---------------------- | ------------------------------------------------------------------------------------- |
-| `bin/client/`          | The `taiko-client` binary (`abci`, `abci-genesis`, `abci-committee-record`, `lander`) |
-| `crates/lander/`       | Permissionless batch/blob construction, proof trait and durable L1 submission         |
-| `crates/abci/`         | The ABCI++ application of the Etna PoS chain                                          |
-| `crates/protocol/`     | Shared helpers; `shasta` and `FixedKSigner` serve raiko2                              |
-| `crates/rpc/`          | Engine API and JWT helpers                                                            |
-| `crates/bindings/`     | Generated Anchor contract bindings, kept for protocol's anchor builder (raiko2)       |
-| `crates/test-harness/` | Docker devnet (anvil, alethia-reth, CometBFT) and calldata admission fixtures         |
-| `script/`              | Maintenance scripts (binding generation)                                              |
-| `tests/`               | The integration test entrypoint and the test JWT secret                               |
+| Path                   | Description                                                                                           |
+| ---------------------- | ----------------------------------------------------------------------------------------------------- |
+| `bin/client/`          | The `taiko-client` binary (`abci`, `abci-genesis`, `abci-committee-record`, `abci-recover`, `lander`) |
+| `crates/lander/`       | Permissionless batch/blob construction, proof trait and durable L1 submission                         |
+| `crates/abci/`         | The ABCI++ application of the Etna PoS chain                                                          |
+| `crates/protocol/`     | Shared helpers; `shasta` and `FixedKSigner` serve raiko2                                              |
+| `crates/rpc/`          | Engine API and JWT helpers                                                                            |
+| `crates/bindings/`     | Generated Anchor contract bindings, kept for protocol's anchor builder (raiko2)                       |
+| `crates/test-harness/` | Docker devnet (anvil, alethia-reth, CometBFT) and calldata admission fixtures                         |
+| `script/`              | Maintenance scripts (binding generation)                                                              |
+| `tests/`               | The integration test entrypoint and the test JWT secret                                               |
 
 ## Fresh deployment
 
-The client starts a fresh Etna chain at generation zero only; it migrates no earlier state
-format. It is aligned with protocol commit `1b14b634c8d213b5b30d8fc61ca6f6dcec344389` (the
+Fresh deployment starts at generation zero; it migrates no earlier state format. Explicit
+[governance recovery](docs/governance-recovery.md) authenticates a later generation and
+creates fresh app/Comet stores while preserving registered signing authority and old history. It is aligned with protocol commit `1b14b634c8d213b5b30d8fc61ca6f6dcec344389` (the
 Inbox, staking registry and the pinned contract artifacts) and alethia-reth commit
 `6ac93d4b38e1cd72b993cef1ed1dc2cb0affa7b4`. Start the EL and verify its block 0 before the Inbox
 is initialized (spec section 10, Startup and deployment). The proof provider is a dummy `0x00`,
@@ -150,9 +153,11 @@ parameters. The required
 identity. L2 IDs are checked without truncation and values above uint64 are explicitly refused.
 All nodes must use the same chain parameters: genesis and every restart check them against the
 Inbox's committee configuration hash. The Inbox address
-is also required in persisted state and checked again on restart. `InitChain` requires the exact
-L1_0 genesis time, canonical representable CometBFT consensus parameters, and an EL genesis
-header whose hash and state root match H* and S*.
+is also required in persisted state and checked again on restart. Fresh `InitChain` requires
+the exact L1_0 genesis time, canonical representable CometBFT consensus parameters, and an EL
+genesis header whose hash and state root match H* and S*. Recovered `InitChain` independently
+verifies its authenticated c/R origin and generation genesis; see the
+[recovery runbook](docs/governance-recovery.md).
 
 A safety halt (a committed block or the execution engine contradicting the app state) exits the
 process with status 2; investigate before restarting. Liveness halts (anchor not final, anchor
@@ -230,7 +235,17 @@ Canonical ordinary reverts stop once after clearing the spent job. A gas-exhaust
 rebuild once with fresh estimation; repeated gas exhaustion on the same checkpoint stops.
 Use one active lander per signing account and preserve journals across restarts. Keep unpruned
 Comet blocks/commits, EL ancestry/execution state and historical L1 headers/proofs/registry
-snapshots. Real proving, governance recovery and automatic operator nonce repair remain excluded.
+snapshots. Governance recovery and old-generation nonce reconciliation are covered in the
+[recovery runbook](docs/governance-recovery.md#enrollment-waits-and-interruption). Real proving
+and automatic operator nonce repair remain excluded.
+
+### `abci-recover`
+
+Prepare an immutable private plan, activate/resume its owned foreground runtime, or inspect
+redacted offline status. Follow the [governance recovery runbook](docs/governance-recovery.md)
+for validator/full-node profiles, optional lander, exact CLI/JSON examples, external-service
+stopping, private authority retention and interrupted activation. Recovery requires usable
+local EL state at c; it imports no snapshots and retains the dummy-proof development scope.
 
 ### `abci-genesis`
 

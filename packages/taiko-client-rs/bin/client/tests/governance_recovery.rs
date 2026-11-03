@@ -548,12 +548,31 @@ async fn standby_recovery(clear_fi: bool) -> Result<()> {
         wait_checkpoint(&f, &mut lander, 6).await?;
         lander.stop().await?;
         c.wait_for_height(13).await?;
+        // Blockstore publication precedes ABCI Commit; the pending set is queryable only
+        // after the app has durably committed S(1)=13, not merely published that block.
+        let committed = test_harness::wait_until(
+            "old app committed switch height 13",
+            std::time::Duration::from_secs(120),
+            std::time::Duration::from_millis(100),
+            || async {
+                let status = c.cmt.abci_status().await?;
+                Ok((status.head >= 13).then_some(status.head))
+            },
+        )
+        .await?;
+        ensure!(committed < 15, "old committee activated before fixture isolation");
         // D(1)=12 and S(1)=13 have derived the old pending set; H(1)=15 has not activated it.
         let old_pending = c.cmt.committee(1).await?.context("old pending epoch-one committee")?;
+        assert_eq!(old_pending.record.target_epoch, 1);
         assert_eq!(old_pending.members[0].pubkey, f.keys[active].pubkey());
+        eprintln!("old pending committee observed: committed={committed}, target_epoch=1");
         for index in 0..2 {
             c.stop_node(index).await?;
         }
+        let retained: abci::store::AppState =
+            serde_json::from_slice(&fs::read(c.app_dir(0).join(abci::store::STATE_FILE))?)?;
+        ensure!((13..15).contains(&retained.last_height), "old pending fixture height changed");
+        assert_eq!(retained.committees.get(&1), Some(&old_pending));
         let archives = (0..2)
             .map(|i| {
                 let path = f.signer_storage.path().join(format!("{i}/state.json"));

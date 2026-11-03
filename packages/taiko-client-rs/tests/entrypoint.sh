@@ -97,9 +97,10 @@ done
 # The distinct-UID scenario runs the entire controller and its native children in Linux.
 # An explicit image override is useful for an already rebuilt local source snapshot. Otherwise
 # build before nextest so image compilation does not consume a scenario's bounded timeout.
+# Arbitrary nextest substring/filterset arguments may select recovery cases, so conservatively
+# prepare the runtime for every invocation except the fixed smoke tier.
 if [[ -z "${ETNA_RECOVERY_IMAGE:-}" ]] && \
-    [[ "$filter" != *single_validator_produces_blocks_by_the_header_rules* ]] && \
-    { [[ $# == 0 ]] || [[ "$*" == *governance_recovery* ]] || [[ "$*" == --* ]]; }; then
+    [[ "$filter" != *single_validator_produces_blocks_by_the_header_rules* ]]; then
     export ETNA_RECOVERY_IMAGE="etna-client-recovery-test:$TAIKO_CLIENT_RS_TEST_RUN"
     bash ./script/build_recovery_runtime.sh
     recovery_image_built=1

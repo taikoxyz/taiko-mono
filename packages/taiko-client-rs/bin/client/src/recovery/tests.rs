@@ -813,3 +813,87 @@ async fn recovery_publication_enforces_the_same_profile_bound_as_loading() {
 
 #[path = "activation_tests.rs"]
 mod activation_tests;
+
+const RUNBOOK: &str = include_str!("../../../../docs/governance-recovery.md");
+
+fn runbook_blocks(language: &str) -> Vec<&str> {
+    RUNBOOK
+        .split(&format!("```{language}\n"))
+        .skip(1)
+        .map(|section| section.split("```").next().unwrap())
+        .collect()
+}
+
+#[test]
+fn recovery_runbook_commands_profiles_and_lander_prefix_parse_exactly() {
+    use clap::Parser;
+    let commands = runbook_blocks("sh");
+    assert_eq!(commands.len(), 3);
+    for command in commands {
+        crate::cli::Cli::try_parse_from(command.split_whitespace()).unwrap();
+    }
+    let profiles = runbook_blocks("toml");
+    assert_eq!(profiles.len(), 2);
+    let mut validator: RecoveryProfile = toml::from_str(profiles[0]).unwrap();
+    validator.validate().unwrap();
+    assert_eq!(validator.role, NodeRole::Validator);
+    assert_eq!(validator.app.argv, ["abci"]);
+    assert_eq!(validator.comet.argv, ["start"]);
+    assert!(validator.inspector.is_some());
+    let with_lander = format!("{}\n{}", profiles[0], profiles[1]);
+    validator = toml::from_str(&with_lander).unwrap();
+    validator.validate().unwrap();
+    let lander = validator.lander.as_ref().unwrap();
+    let mut argv = vec![lander.executable.program.display().to_string()];
+    argv.extend(lander.executable.argv.clone());
+    for (flag, value) in [
+        ("--l1.http", validator.l1_http.as_str()),
+        ("--l2.http", validator.l2_http.as_str()),
+        ("--l2.auth", validator.l2_auth.as_str()),
+        ("--jwt.secret", validator.jwt_secret.to_str().unwrap()),
+        ("--comet.http", "http://127.0.0.1:26657"),
+        ("--data-dir", lander.data_dir.to_str().unwrap()),
+    ] {
+        argv.extend([flag.to_owned(), value.to_owned()]);
+    }
+    crate::cli::Cli::try_parse_from(argv).unwrap();
+    let mut full_node: toml::Table = toml::from_str(profiles[0]).unwrap();
+    full_node.insert("role".into(), "full-node".into());
+    full_node.remove("signer");
+    let full_node: RecoveryProfile = full_node.try_into().unwrap();
+    full_node.validate().unwrap();
+    assert!(full_node.signer.is_none());
+}
+
+#[tokio::test]
+async fn recovery_runbook_json_matches_actual_status_and_redacts_all_private_inputs() {
+    let dir = tempfile::Builder::new().prefix("rb-").tempdir_in("/tmp").unwrap();
+    let source = Source::new();
+    let mut p = configured_profile(dir.path(), &source);
+    p.app.env.insert("PRIVATE_TOKEN".into(), "secret-environment".into());
+    let root = dir.path().join("recovery");
+    let plan = prepare::prepare(&p, 1, &root, &source, &ReadEngine::new(&source)).await.unwrap();
+    let store = RecoveryStore::new(&root);
+    let report = status(&store, plan.id()).unwrap();
+    let mut actual = serde_json::to_value(&report).unwrap();
+    let example: serde_json::Value = serde_json::from_str(runbook_blocks("json")[0]).unwrap();
+    actual["plan_id"] = example["plan_id"].clone();
+    assert_eq!(actual, example);
+    let _: RecoveryStatus = serde_json::from_value(example).unwrap();
+    let public = format!(
+        "{} {}",
+        serde_json::to_string(&report).unwrap(),
+        serde_json::to_string(&plan).unwrap()
+    );
+    for private in [
+        "alice",
+        "password",
+        "secret-token",
+        "secret-argument",
+        "secret-environment",
+        "PRIVATE_TOKEN",
+        dir.path().to_str().unwrap(),
+    ] {
+        assert!(!public.contains(private), "private input leaked: {private}");
+    }
+}

@@ -403,7 +403,8 @@ class RecoveredSupervisorTests(SupervisorTests):
                            comet_hash="0x" + "34" * 32, forced_cursor=2,
                            committee_hash="0x" + "45" * 32)
 
-    def test_generation_one_first_start_keeps_closed_handshake(self):
+    def test_generation_one_start_retains_flags_while_trust_closes(self):
+        """Check supervisor flags with sleeping peers; native recovery covers the handshake."""
         self.ready, self.phase = False, "acquiring"
         time.sleep(.3)
         args = self.signers()[0]["argv"]
