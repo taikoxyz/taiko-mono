@@ -79,6 +79,13 @@ impl CacheKey {
             proof_anchor: (state.anchor.number, state.anchor.hash, state.anchor.state_root),
         }
     }
+
+    /// Whether `other` has the same derivation context, whatever anchor its proof used.
+    fn same_context(&self, other: &Self) -> bool {
+        let mut same = self.clone();
+        same.proof_anchor = other.proof_anchor;
+        same == *other
+    }
 }
 
 /// One background discovery and verification of the switch witness for one context; dropping it
@@ -239,11 +246,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let key = CacheKey::new(state, &self.params, target);
         {
             let mut cache = self.committee_cache();
-            if cache.as_ref().is_some_and(|cached| {
-                let mut same_context = key.clone();
-                same_context.proof_anchor = cached.key.proof_anchor;
-                cached.key == same_context
-            }) {
+            if cache.as_ref().is_some_and(|cached| key.same_context(&cached.key)) {
                 drop(cache);
                 *self.committee_prefetch() = None;
                 return;
@@ -396,6 +399,21 @@ impl<L: L1Source, E: Engine> App<L, E> {
         self.committee_cache()
             .as_ref()
             .filter(|cached| cached.key == key)
+            .map(|cached| cached.witness.clone())
+    }
+
+    /// The witness retained for `state`'s derivation context under any proof anchor. It was
+    /// verified only under its own proof root, so it is a basis to re-prove under another root
+    /// and is never served as-is.
+    pub(super) fn context_committee_witness(
+        &self,
+        state: &AppState,
+        target_epoch: u64,
+    ) -> Option<CommitteeWitness> {
+        let key = CacheKey::new(state, &self.params, target_epoch);
+        self.committee_cache()
+            .as_ref()
+            .filter(|cached| key.same_context(&cached.key))
             .map(|cached| cached.witness.clone())
     }
 

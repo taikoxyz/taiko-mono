@@ -25,7 +25,9 @@ pub mod witness;
 pub use archive::CommitteeL1Source;
 #[cfg(test)]
 pub(crate) use fetch::build_committee_witness;
-pub(crate) use fetch::{DiscoveryProgress, build_committee_witness_within};
+pub(crate) use fetch::{
+    DiscoveryProgress, build_committee_witness_within, reprove_committee_witness,
+};
 pub use fetch::{FetchError, build_committee_witness_at_cutoff};
 pub use header::{L1HeaderError, RawL1Header};
 pub use mpt::{MptError, VerifiedStorage, verify_account_witness};

@@ -175,6 +175,42 @@ pub(crate) async fn build_committee_witness_within<L: L1Source + ?Sized>(
         .await
 }
 
+/// `base` re-proved under the state root of L1 block `block`: the same record and entries,
+/// with the registry account and [`snapshot_slots`] proofs read at `block`.
+///
+/// Registry checkpoints are append-only, so the snapshot `base` selected at its cutoff is the
+/// same at any proving block at or after that cutoff. Only the proofs depend on the block's
+/// root, plus whether a next checkpoint exists there. Two reads, each within `read_timeout`:
+/// `checkpoints.length`, then the proof. Like every discovery result, the witness is unverified.
+pub(crate) async fn reprove_committee_witness<L: L1Source + ?Sized>(
+    l1: &L,
+    params: &ChainParams,
+    base: &CommitteeWitness,
+    block: u64,
+    read_timeout: Duration,
+) -> Result<CommitteeWitness, FetchError> {
+    let progress = DiscoveryProgress::default();
+    let discovery = Discovery {
+        l1,
+        params,
+        cutoff: Some(base.record.cutoff_l1_block),
+        read_timeout: Some(read_timeout),
+        progress: &progress,
+    };
+    let length = discovery.registry_word(registry::length_slot(), block).await?;
+    let index = base.record.checkpoint_index;
+    let has_next = U256::from(index) + U256::from(1) < length;
+    let slots = snapshot_slots(index, has_next);
+    let proof = discovery
+        .read("registry proof read", l1.account_witness(params.registry, &slots, block))
+        .await?;
+    Ok(CommitteeWitness {
+        record: base.record.clone(),
+        registry: proof,
+        entries: base.entries.clone(),
+    })
+}
+
 /// One committee-witness discovery over an L1 source.
 struct Discovery<'a, L: ?Sized> {
     /// The node's own L1.
@@ -531,6 +567,53 @@ mod tests {
         )
         .expect("the witness verifies at the explicit cutoff");
         assert_eq!(record, witness.record);
+    }
+
+    /// A witness discovered at cutoff 61 is re-proved at later blocks with the checkpoint count
+    /// and one proof, equal to discovering it there: at 63 checkpoint 0 is still the last, and at
+    /// 64 checkpoint 1 (block 62) follows it.
+    #[tokio::test]
+    async fn a_reproved_witness_equals_the_discovery_at_its_block() {
+        let fx = Fixture::genesis(3);
+        let params = fx.params.clone();
+        let (old, new) = (sample_entries(3), sample_entries(4));
+        let first = RegistryStorage { checkpoints: vec![(60, old.clone())] };
+        let joined = RegistryStorage { checkpoints: vec![(60, old.clone()), (62, new)] };
+        let l1 = MockL1::new(64);
+        fx.plant_l1_block(&l1, 61, &fx.inbox, &first);
+        fx.plant_l1_block(&l1, 63, &fx.inbox, &first);
+        fx.plant_l1_block(&l1, 64, &fx.inbox, &joined);
+        let base = build_committee_witness_at_cutoff(&l1, &params, 61, 61, Schedule::E0)
+            .await
+            .expect("witness");
+
+        for (block, has_next) in [(63, false), (64, true)] {
+            l1.state().calls.clear();
+            let reproved =
+                reprove_committee_witness(&l1, &params, &base, block, Duration::from_secs(1))
+                    .await
+                    .expect("re-proved");
+            assert_eq!(
+                l1.calls(),
+                [
+                    L1Call::StorageAt {
+                        address: params.registry,
+                        slot: registry::length_slot(),
+                        block
+                    },
+                    L1Call::AccountWitness {
+                        address: params.registry,
+                        slots: snapshot_slots(0, has_next),
+                        block
+                    },
+                ]
+            );
+            let discovered =
+                build_committee_witness_at_cutoff(&l1, &params, block, 61, Schedule::E0)
+                    .await
+                    .expect("witness");
+            assert_eq!(reproved, discovered, "block {block}");
+        }
     }
 
     /// A large registry is read in batches of [`ENTRY_BATCH`] entries per call.

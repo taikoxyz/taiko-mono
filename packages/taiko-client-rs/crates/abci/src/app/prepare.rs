@@ -16,12 +16,13 @@ use super::{
     },
 };
 use crate::{
+    committee::verify_committee_witness_at_cutoff,
     engine::Engine,
     envelope::{AnchorWitness, CommitteeWitness, EtnaEnvelope, ForcedWitness},
     forced::{self, ForcedContext},
     l1::{
         L1Error, L1Source, build_committee_witness_within, header_at, layout::inbox,
-        verify_anchor_witness,
+        reprove_committee_witness, verify_anchor_witness,
     },
     metrics::{AbciMetrics, set_u64},
     rules,
@@ -365,24 +366,31 @@ impl<L: L1Source, E: Engine> App<L, E> {
         Ok((witness, anchor))
     }
 
-    /// The committee witness of `target_epoch` against `state`'s fixed parent anchor: a
-    /// previously verified witness whose complete identity matches, or a bounded discovery
-    /// ([`build_committee_witness_within`]) resuming the completed reads of an earlier attempt.
-    /// Historical entries may require state older than the cutoff; the complete witness verifies
-    /// under the switch block's own anchor root before the caller durably retains it.
+    /// The committee witness of `target_epoch` for a switch block anchored at `anchor`. Under
+    /// `state`'s fixed parent anchor it is [`App::parent_anchor_committee_witness`]. A block that
+    /// moves its anchor keeps the snapshot that parent anchor selects (COMM-4.3-11), and only
+    /// the proofs follow its own root (COMM-4.3-12). So a witness held for that snapshot is
+    /// re-proved under `anchor` with two reads ([`reprove_committee_witness`]) instead of
+    /// discovering the registry again. The exception is a generation origin above the parent
+    /// anchor, which is explicitly discovered under `anchor`. Historical entries may require
+    /// state older than the cutoff; the complete witness verifies under the switch block's own
+    /// anchor root before the caller durably retains it.
     async fn committee_witness(
         &self,
         state: &AppState,
         anchor: &AnchorState,
         target_epoch: u64,
     ) -> Result<CommitteeWitness, Rejection> {
+        if anchor.hash == state.anchor.hash {
+            return self.parent_anchor_committee_witness(state, target_epoch).await;
+        }
+        if let Some(witness) = self.cached_candidate_committee_witness(state, anchor, target_epoch)
+        {
+            return Ok(witness);
+        }
         let parent_anchor = state.anchor.number;
-        if anchor.hash != state.anchor.hash {
-            if let Some(witness) =
-                self.cached_candidate_committee_witness(state, anchor, target_epoch)
-            {
-                return Ok(witness);
-            }
+        let cutoff = parent_anchor.max(state.anchor_floor());
+        if cutoff != parent_anchor {
             return deadline(
                 "switch registry proof",
                 self.opts.l1_timeout,
@@ -390,13 +398,73 @@ impl<L: L1Source, E: Engine> App<L, E> {
                     self.l1(),
                     &self.params,
                     anchor.number,
-                    parent_anchor.max(state.anchor_floor()),
+                    cutoff,
                     target_epoch,
                 ),
             )
             .await;
         }
+        if let Some(retained) = self.context_committee_witness(state, target_epoch) {
+            let witness = self.reproved_under(&retained, anchor).await?;
+            // The retained witness may have verified only under a forged proposal's root.
+            match verify_committee_witness_at_cutoff(
+                anchor.state_root,
+                cutoff,
+                &self.params,
+                &witness,
+                target_epoch,
+            ) {
+                Ok(_) => return Ok(witness),
+                Err(error) => tracing::warn!(
+                    parent_anchor,
+                    anchor = anchor.number,
+                    target_epoch,
+                    %error,
+                    "the retained committee snapshot does not hold under the moved anchor"
+                ),
+            }
+        }
+        let base = self.parent_anchor_committee_witness(state, target_epoch).await?;
+        self.reproved_under(&base, anchor).await
+    }
 
+    /// `base` re-proved under `anchor`'s root ([`reprove_committee_witness`]), within the L1
+    /// deadline.
+    async fn reproved_under(
+        &self,
+        base: &CommitteeWitness,
+        anchor: &AnchorState,
+    ) -> Result<CommitteeWitness, Rejection> {
+        tracing::debug!(
+            cutoff = base.record.cutoff_l1_block,
+            anchor = anchor.number,
+            target_epoch = base.record.target_epoch,
+            "re-proving the committed snapshot under the moved anchor"
+        );
+        deadline(
+            "switch registry proof",
+            self.opts.l1_timeout,
+            reprove_committee_witness(
+                self.l1(),
+                &self.params,
+                base,
+                anchor.number,
+                self.opts.l1_timeout,
+            ),
+        )
+        .await
+    }
+
+    /// The committee witness of `target_epoch` against `state`'s fixed parent anchor: a
+    /// previously verified witness whose complete identity matches, the background prefetch's, or
+    /// a bounded discovery ([`build_committee_witness_within`]) resuming the completed reads of an
+    /// earlier attempt.
+    async fn parent_anchor_committee_witness(
+        &self,
+        state: &AppState,
+        target_epoch: u64,
+    ) -> Result<CommitteeWitness, Rejection> {
+        let parent_anchor = state.anchor.number;
         if let Some(witness) = self.cached_committee_witness(state, target_epoch) {
             tracing::debug!(parent_anchor, target_epoch, "reusing the cached committee witness");
             return Ok(witness);

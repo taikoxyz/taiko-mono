@@ -6,16 +6,21 @@ use alloy_primitives::{B256, U256};
 
 use super::{
     proposal::{
-        bft_time, hand_envelope, judge, jump, prepare, prepare_req, propose, rejected, validate,
+        bft_time, hand_envelope, judge, jump, next_height, prepare, prepare_req, propose, rejected,
+        validate,
     },
     *,
 };
 use crate::{
     app::validate::Rejection,
-    committee::{CommitteeError, entries_root, verify_committee_witness},
+    committee::{CommitteeError, entries_root, snapshot_slots, verify_committee_witness},
+    engine::EngineError,
     envelope::CommitteeWitness,
-    l1::{DiscoveryProgress, MptError, build_committee_witness_within},
-    test_utils::{RegistryStorage, sample_entries},
+    l1::{
+        DiscoveryProgress, MptError, build_committee_witness_at_cutoff,
+        build_committee_witness_within, layout::registry,
+    },
+    test_utils::{L1Call, RegistryStorage, sample_entries},
     types::AnchorState,
 };
 
@@ -25,6 +30,42 @@ const PARENT_ANCHOR: u64 = 1010;
 const NEW_ANCHOR: u64 = 1030;
 /// The L1 block of the registry checkpoint written between the two anchors.
 const JOIN_BLOCK: u64 = 1020;
+/// A later finalized L1 block a second round at `switch 2` moves its anchor to.
+const LATER_ANCHOR: u64 = 1040;
+
+/// The registry after [`JOIN_BLOCK`]: the genesis checkpoint (three entries) and a second one
+/// (four entries).
+fn joined_registry(fx: &Fixture) -> RegistryStorage {
+    RegistryStorage {
+        checkpoints: vec![
+            (fx.genesis.genesis_cutoff, sample_entries(3)),
+            (JOIN_BLOCK, sample_entries(4)),
+        ],
+    }
+}
+
+/// The staking-registry reads `app` made so far, in order.
+fn registry_calls(app: &App<MockL1, MockEngine>) -> Vec<L1Call> {
+    let registry = app.params.registry;
+    app.l1()
+        .calls()
+        .into_iter()
+        .filter(|c| {
+            matches!(c, L1Call::StorageAt { address, .. } | L1Call::AccountWitness { address, .. }
+                if *address == registry)
+        })
+        .collect()
+}
+
+/// The two reads that re-prove the committed snapshot (checkpoint 0) under the root of `block`,
+/// where checkpoint 1 also exists: the checkpoint count, then one registry proof.
+fn reproof_calls(app: &App<MockL1, MockEngine>, block: u64) -> Vec<L1Call> {
+    let address = app.params.registry;
+    vec![
+        L1Call::StorageAt { address, slot: registry::length_slot(), block },
+        L1Call::AccountWitness { address, slots: snapshot_slots(0, true), block },
+    ]
+}
 
 /// An app whose next height is `switch 2` and whose block there moves the anchor.
 ///
@@ -40,14 +81,8 @@ async fn before_switch(fx: &Fixture, dir: &Path) -> (App<MockL1, MockEngine>, An
     let parent = fx.anchor_state(app.l1(), PARENT_ANCHOR);
     jump(&mut app, h_e - 1, parent, &[(1, fx.committee(1))]);
 
-    let joined = RegistryStorage {
-        checkpoints: vec![
-            (fx.genesis.genesis_cutoff, sample_entries(3)),
-            (JOIN_BLOCK, sample_entries(4)),
-        ],
-    };
     fx.plant_l1_block(app.l1(), JOIN_BLOCK - 1, &fx.inbox_with(h_e - 3), &fx.registry);
-    fx.advance_l1(app.l1(), NEW_ANCHOR, &fx.inbox_with(h_e - 3), &joined);
+    fx.advance_l1(app.l1(), NEW_ANCHOR, &fx.inbox_with(h_e - 3), &joined_registry(fx));
     let moved = fx.anchor_state(app.l1(), NEW_ANCHOR);
     assert_ne!(moved.state_root, app.state().unwrap().anchor.state_root);
     (app, moved)
@@ -197,6 +232,85 @@ async fn forged_committee_witnesses_are_rejected() {
         }
         assert_eq!(rejected(&mut app, &env).await, "committee_witness", "{case}");
     }
+}
+
+/// (d) The snapshot of a moved-anchor `switch 2` is fixed by the committed parent anchor
+/// (COMM-4.3-11), and only its registry proof depends on the candidate's root (COMM-4.3-12): a
+/// proposer holding the parent anchor's verified witness re-proves it with two reads at
+/// [`NEW_ANCHOR`] instead of discovering the registry again.
+#[tokio::test]
+async fn a_moved_anchor_reproves_the_parent_anchor_witness() {
+    let fx = Fixture::genesis(3);
+    let dir = tempfile::tempdir().unwrap();
+    let (mut app, _) = before_switch(&fx, dir.path()).await;
+    let state = app.state().unwrap().clone();
+    app.cache_committee_witness(&state, 2, &witness_at(&app, PARENT_ANCHOR).await).unwrap();
+    app.l1().state().calls.clear();
+
+    let env = propose(&mut app).await;
+    assert_eq!(registry_calls(&app), reproof_calls(&app, NEW_ANCHOR));
+    let expected =
+        build_committee_witness_at_cutoff(app.l1(), &app.params, NEW_ANCHOR, PARENT_ANCHOR, 2)
+            .await
+            .unwrap();
+    assert_eq!(env.committee, Some(expected));
+}
+
+/// (e) A later round at `switch 2`, after the own L1 finalized past the anchor an earlier
+/// round proved under, re-proves the witness that round retained: finality moving between
+/// rounds never restarts the registry discovery.
+#[tokio::test]
+async fn a_round_after_finality_moves_again_reproves_the_retained_witness() {
+    let fx = Fixture::genesis(3);
+    let dir = tempfile::tempdir().unwrap();
+    let (mut app, _) = before_switch(&fx, dir.path()).await;
+    // Round 0 at NEW_ANCHOR: the committee witness is built, then the EL fails to build.
+    app.engine().state().build_script.push_back(Err(EngineError::Transport("down".into())));
+    let req = prepare_req(next_height(&app), bft_time(&app));
+    assert!(prepare(&mut app, req).await.is_empty());
+
+    // Round 1: the own L1 has finalized LATER_ANCHOR in between.
+    let h_e = app.state().unwrap().schedule().h_first(2) - 2;
+    fx.advance_l1(app.l1(), LATER_ANCHOR, &fx.inbox_with(h_e - 3), &joined_registry(&fx));
+    app.l1().state().calls.clear();
+    let env = propose(&mut app).await;
+    assert_eq!(env.anchor.as_ref().map(|w| w.l1_header.number()), Some(LATER_ANCHOR));
+    assert_eq!(registry_calls(&app), reproof_calls(&app, LATER_ANCHOR));
+    let expected =
+        build_committee_witness_at_cutoff(app.l1(), &app.params, LATER_ANCHOR, PARENT_ANCHOR, 2)
+            .await
+            .unwrap();
+    assert_eq!(env.committee, Some(expected));
+}
+
+/// (f) A retained witness whose snapshot does not hold under the candidate's root is not
+/// proposed. Here it was verified under another L1 state whose genesis checkpoint holds two
+/// entries, as a forged peer proposal can leave one. The proposer falls back to the parent
+/// anchor's own snapshot and re-proves that.
+#[tokio::test]
+async fn a_retained_witness_that_fails_under_the_new_root_gives_way_to_the_parent_anchor() {
+    const FORGED_ANCHOR: u64 = 1025;
+    let fx = Fixture::genesis(3);
+    let dir = tempfile::tempdir().unwrap();
+    let (mut app, _) = before_switch(&fx, dir.path()).await;
+    let h_e = app.state().unwrap().schedule().h_first(2) - 2;
+    let other =
+        RegistryStorage { checkpoints: vec![(fx.genesis.genesis_cutoff, sample_entries(2))] };
+    fx.plant_l1_block(app.l1(), FORGED_ANCHOR, &fx.inbox_with(h_e - 3), &other);
+    let forged_anchor = fx.anchor_state(app.l1(), FORGED_ANCHOR);
+    let forged =
+        build_committee_witness_at_cutoff(app.l1(), &app.params, FORGED_ANCHOR, PARENT_ANCHOR, 2)
+            .await
+            .unwrap();
+    let state = app.state().unwrap().clone();
+    app.cache_candidate_committee_witness(&state, &forged_anchor, 2, &forged).unwrap();
+
+    let env = propose(&mut app).await;
+    let expected =
+        build_committee_witness_at_cutoff(app.l1(), &app.params, NEW_ANCHOR, PARENT_ANCHOR, 2)
+            .await
+            .unwrap();
+    assert_eq!(env.committee, Some(expected));
 }
 
 /// An unknown outgoing committee cannot be replaced, even with a valid incoming witness.
