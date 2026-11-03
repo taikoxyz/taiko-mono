@@ -69,7 +69,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
                             return Err(AbciError::SafetyHalt(reason.to_string()));
                         }
                         Err(reason) => {
-                            tracing::warn!(height, %reason, "waiting for canonical L1 header support");
+                            tracing::warn!(height, %reason, "waiting for L1 finality or header support");
                             tokio::time::sleep(FINALIZE_RETRY_MAX).await;
                         }
                     }

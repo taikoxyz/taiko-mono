@@ -226,6 +226,71 @@ async fn anchor_not_final_is_rejected() {
     assert_eq!(rejected(&mut app, &env).await, "anchor_not_final");
 }
 
+/// `0x06 || rlp([block, [[raw]], [], []])`: an envelope whose anchor item starts with `raw`,
+/// bytes no `RawL1Header` accepts, and whose block claims `anchor` in its `extraData`.
+fn unparseable_anchor_envelope(env: &EtnaEnvelope, anchor: u64) -> Bytes {
+    let mut block = env.block.clone();
+    block.header.extra_data = encode_extra_data(0, anchor).unwrap();
+    let raw = Bytes::from_static(&[0xc1, 0x80]);
+    let item = |payload: Vec<u8>| {
+        let mut out = Vec::new();
+        alloy_rlp::Header { list: true, payload_length: payload.len() }.encode(&mut out);
+        out.extend(payload);
+        out
+    };
+    let mut payload = alloy_rlp::encode(&block);
+    payload.extend(item(item(alloy_rlp::encode(&raw))));
+    payload.extend(item(vec![]));
+    payload.extend(item(vec![]));
+    let mut tx = vec![crate::envelope::ENVELOPE_VERSION];
+    tx.extend(item(payload));
+    tx.into()
+}
+
+/// ProcessProposal rejects every unparseable anchor whatever the own L1 answers (RECOV-8-6), so
+/// it never waits on a number the proposer chose: one above the own finalized head is not final
+/// (CONS-3.3-5), and one the own L1 cannot serve (here block 1, as on a history-pruned node)
+/// rejects as a malformed envelope. FinalizeBlock of such a decided block still waits for L1.
+#[tokio::test(start_paused = true)]
+async fn unparseable_anchor_the_own_l1_cannot_confirm_is_rejected_without_waiting() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let (mut app, env) = plain(&fx, dir.path()).await;
+    let finalized = app.l1().state().finalized;
+    let (h, t) = (next_height(&app), bft_time(&app));
+    for (anchor, label) in
+        [(finalized + 1, "anchor_not_final"), ((1 << 48) - 1, "anchor_not_final"), (1, "envelope")]
+    {
+        let req = process_req(h, t, vec![unparseable_anchor_envelope(&env, anchor)]);
+        let resp = tokio::time::timeout(Duration::from_secs(60), process(&mut app, req.clone()))
+            .await
+            .unwrap_or_else(|_| panic!("ProcessProposal waits forever for L1 block {anchor}"));
+        assert_eq!(resp, response::ProcessProposal::Reject, "anchor {anchor}");
+        assert_eq!(app.halt.as_deref(), Some(label), "anchor {anchor}");
+        let decided = super::proposal::finalize(&mut app, super::proposal::finalize_req(&req));
+        assert!(
+            tokio::time::timeout(Duration::from_secs(60), decided).await.is_err(),
+            "FinalizeBlock waits for L1 block {anchor}"
+        );
+    }
+}
+
+/// An own-L1 integrity failure while classifying an unparseable anchor still halts
+/// ProcessProposal for repair rather than being folded into an ordinary rejection.
+#[tokio::test]
+async fn unparseable_anchor_with_an_own_l1_integrity_failure_halts() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let (mut app, env) = plain(&fx, dir.path()).await;
+    let finalized = app.l1().state().finalized;
+    let malformed = L1Error::MalformedResponse("block without `hash`".into());
+    app.l1().state().canonical_script.push_back(Err(malformed));
+    let tx = unparseable_anchor_envelope(&env, finalized);
+    let req = process_req(next_height(&app), bft_time(&app), vec![tx]);
+    let result = app.handle(Request::ProcessProposal(req)).await;
+    assert!(matches!(result, Err(AbciError::SafetyHalt(_))), "{result:?}");
+}
+
 #[tokio::test]
 async fn wrong_inbox_proof_is_rejected() {
     let fx = Fixture::genesis(1);

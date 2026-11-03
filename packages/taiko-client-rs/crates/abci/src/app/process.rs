@@ -100,8 +100,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let env = match single_envelope(&txs) {
             Ok(env) => env,
             Err(error) => {
-                self.check_header_format(&txs).await?;
-                return Err(error.into());
+                // Every outcome rejects (RECOV-8-6); the own L1 only names the reason, so a
+                // temporary answer about a number the proposer chose never keeps this pending.
+                return Err(match self.check_header_format(&txs).await {
+                    Err(reason) if !reason.retryable_dependency() => reason,
+                    _ => error.into(),
+                });
             }
         };
         let (height, bft_secs) = (req.height.value(), unix_secs(req.time));
@@ -161,8 +165,19 @@ impl<L: L1Source, E: Engine> App<L, E> {
     }
 
     /// Distinguishes a canonical unsupported L1 header from a forged malformed witness.
+    ///
+    /// The proposer chooses the `extraData` anchor number, so one above the own finalized head is
+    /// [`Rejection::AnchorNotFinal`] before any header lookup (CONS-3.3-5); FinalizeBlock then
+    /// waits for L1 finality instead of comparing against a non-final hash. ProcessProposal never
+    /// waits on this check, since it rejects whatever the own L1 answers.
     pub(super) async fn check_header_format(&self, txs: &[Bytes]) -> Result<(), Rejection> {
         if let Some((number, raw)) = crate::envelope::undecodable_anchor(txs) {
+            let finalized =
+                deadline("L1 finalized head", self.opts.l1_timeout, self.l1().finalized_number())
+                    .await?;
+            if number > finalized {
+                return Err(Rejection::AnchorNotFinal { number });
+            }
             let canonical = deadline(
                 "L1 canonical header",
                 self.opts.l1_timeout,
