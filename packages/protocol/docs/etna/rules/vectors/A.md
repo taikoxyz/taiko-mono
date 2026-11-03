@@ -42,17 +42,15 @@ _Which seven words, and which five fields: [Q-A-1](../review/A.md#q-a-1)._
 
 _Which fields occupy the three words: [STOR-B-9](B.md#stor-b-9)._
 
-## ENC-A-4
+## ENC-A-4a
 
-| Vector     | Setup                                                                       | Expected                                          |
-| ---------- | --------------------------------------------------------------------------- | ------------------------------------------------- |
-| 4.a accept | a new guest image is registered in the verifier and the config is unchanged | the rules applied at each height are unchanged    |
-| 4.b accept | clients are upgraded and the config is unchanged                            | the rules applied at each height are unchanged    |
-| 4.c reject | a proof from an image the config does not bind is accepted as settling      | violates ENC-A-4 ("acceptance ... to the config") |
-| 4.d reject | registering an image alone changes the rules applied to later blocks        | violates ENC-A-4                                  |
-| 4.e reject | changing client software alone changes the rules applied to later blocks    | violates ENC-A-4                                  |
-
-_The sentence's scope is "until the upgrade mechanism is complete" (10.1). What in the config binds acceptance: [Q-A-3](../review/A.md#q-a-3)._
+| Vector      | Setup                                                                     | Expected                                       |
+| ----------- | ------------------------------------------------------------------------- | ---------------------------------------------- |
+| 4a.a accept | a new guest image is registered in the verifier and slot 293 is unchanged | the ruleset applied to each block is unchanged |
+| 4a.b accept | clients are upgraded and slot 293 is unchanged                            | the ruleset applied to each block is unchanged |
+| 4a.c reject | registering an image alone changes the rules applied to later blocks      | violates ENC-A-4a                              |
+| 4a.d reject | changing client software alone changes the rules applied to later blocks  | violates ENC-A-4a                              |
+| 4a.e accept | guest-image acceptance is the verifier's accepted set (6.2)               | conforms                                       |
 
 ## ENC-A-5
 
@@ -270,16 +268,16 @@ _`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` fo
 | 24.d reject | a storage entry has two or four items                                                                              | violates ENC-A-24 (`[slot, value, proof]`) |
 | 24.e reject | the seventh item is one `[slot, value, proof]` rather than a list of them                                          | violates ENC-A-24                          |
 
-## ENC-A-25
+## ENC-A-25a
 
-| Vector      | Setup                                                                               | Expected                                                                            |
-| ----------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| 25.a accept | anchor witness proves slots `[268, 270, 271, 281]` in that order                    | matches                                                                             |
-| 25.b reject | anchor slots are `[268, 271, 270, 281]`                                             | violates ENC-A-25 ("exactly in order"); consequence — [Q-A-4](../review/A.md#q-a-4) |
-| 25.c reject | the anchor witness omits 281 or adds 269                                            | violates ENC-A-25 ("exactly")                                                       |
-| 25.d accept | forced entry `i` proves `base` and `base+1`, `base = keccak256(abi.encode(i, 280))` | matches                                                                             |
-| 25.e reject | `base` is computed as `keccak256(abi.encode(i, 281))` or with another index         | violates ENC-A-25                                                                   |
-| 25.f reject | forced slots are `[base+1, base]`                                                   | violates ENC-A-25 (order); consequence — [Q-A-4](../review/A.md#q-a-4)              |
+| Vector       | Setup                                                                               | Expected                                                                             |
+| ------------ | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| 25a.a accept | anchor witness proves slots `[268, 270, 271, 281, 293]` in that order               | matches                                                                              |
+| 25a.b reject | anchor slots are `[268, 271, 270, 281, 293]`                                        | violates ENC-A-25a ("exactly in order"); consequence — [Q-A-4](../review/A.md#q-a-4) |
+| 25a.c reject | the anchor witness omits 281 or 293, or adds 269                                    | violates ENC-A-25a ("exactly")                                                       |
+| 25a.d accept | forced entry `i` proves `base` and `base+1`, `base = keccak256(abi.encode(i, 280))` | matches                                                                              |
+| 25a.e reject | `base` is computed as `keccak256(abi.encode(i, 281))` or with another index         | violates ENC-A-25a                                                                   |
+| 25a.f reject | forced slots are `[base+1, base]`                                                   | violates ENC-A-25a (order); consequence — [Q-A-4](../review/A.md#q-a-4)              |
 
 ## ENC-A-26
 
@@ -614,6 +612,5 @@ Everything below is a question, not a vector. Each has an entry in [review/A.md]
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
 | ENC-A-6 to ENC-A-55         | whether the now-citable blocks should still be restructured into prose or tables                                                     | [Q-A-1](../review/A.md#q-a-1) |
 | ENC-A-37, ENC-A-39–ENC-A-42 | whether a bare tag literal is a padded `bytes32` word or a dynamic string, and whether `ETNA_SET_NODE` is deliberately unversioned   | [Q-A-2](../review/A.md#q-a-2) |
-| ENC-A-4                     | what in the seven-word config binds guest-image and verifier acceptance                                                              | [Q-A-3](../review/A.md#q-a-3) |
-| ENC-A-24, ENC-A-25          | whether an out-of-order, extra or missing witness slot list makes a witness invalid; the order is now stated, the consequence is not | [Q-A-4](../review/A.md#q-a-4) |
+| ENC-A-24, ENC-A-25a         | whether an out-of-order, extra or missing witness slot list makes a witness invalid; the order is now stated, the consequence is not | [Q-A-4](../review/A.md#q-a-4) |
 | Shared vectors              | the obligation itself is un-numbered and has no owner                                                                                | [Q-A-5](../review/A.md#q-a-5) |
