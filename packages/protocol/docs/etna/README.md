@@ -13,6 +13,7 @@ The Etna fork includes two designs, both in this directory:
 | ------------------------------ | --------------------------------------------------------------------------------- |
 | [ANCHORLESS.md](ANCHORLESS.md) | The anchorless design: header, contract changes, fork and upgrade order           |
 | [SPEC.md](SPEC.md)             | The PoS + ZK design specification, sections 1–12 and appendices A–C               |
+| [SWITCH.md](SWITCH.md)         | The one-time switch from Unzen to Etna: DAO proposal, switch day, first landing   |
 | [ACCEPTANCE.md](ACCEPTANCE.md) | The acceptance and launch checklist for SPEC.md                                   |
 | [rules/](rules/README.md)      | Stable rule references for SPEC.md, with vectors and review questions             |
 | [CLAUDE.md](CLAUDE.md)         | Guidance for AI agents editing SPEC.md and rules/; `AGENTS.md` is a symlink to it |
@@ -91,8 +92,7 @@ The Etna block-production and validation rules are in
   authenticated origin. A verifier failure is not handled by `recover`: its
   settlement rollback runs in the same DAO upgrade of the Inbox and registry that
   replaces the verifier.
-- **Open design and acceptance:** the Unzen switch and bridge wiring (section 12
-  item 9), upgrade activation (item 10), registration admission bounds (item 14)
+- **Open design and acceptance:** upgrade activation (section 12 item 10), registration admission bounds (item 14)
   and deployment values for the capital target, reference price and forfeiture rate
   (item 18) remain to be pinned before launch. The value of K and the
   proving capacity behind it (6.3, section 11) are set by the checklist's
