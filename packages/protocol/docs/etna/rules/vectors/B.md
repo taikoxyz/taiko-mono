@@ -84,6 +84,7 @@
 | 9.e reject | a later landing overwrites the record at an older origin p                                                                          | violates STOR-B-9                                                              |
 | 9.f reject | the start record carries the start's hash as its Comet hash                                                                         | violates STOR-B-9 ("Comet hash 0")                                             |
 | 9.g accept | S = 1000 with start hash H                                                                                                          | landings[1000] is (parent 1000, generation 0, head 0, EL hash H, Comet hash 0) |
+| 9.h accept | a START-10-5c rewrite changes S                                                                                                     | the record at the old S is cleared (the stated exception)                      |
 
 ## STOR-B-10
 
