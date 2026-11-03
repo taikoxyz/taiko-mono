@@ -379,9 +379,10 @@ impl LandingSource for RpcLandingSource {
     /// Retain every fixed starting Inbox slot and its raw header in the reference ancestry.
     async fn starting_inbox_witness(&self, anchor: &AnchorState) -> Result<AnchorWitness> {
         let l1_header = self.anchors.header(anchor.number).await.map_err(anchor_error)?;
+        let slots = starting_slots(anchor.inbox.recovery_generation);
         let inbox = self
             .anchors
-            .account_witness(self.params.inbox, &snapshot_slots(), anchor.number)
+            .account_witness(self.params.inbox, &slots, anchor.number)
             .await
             .map_err(anchor_error)?;
         Ok(AnchorWitness { l1_header, inbox })
@@ -585,6 +586,16 @@ pub fn snapshot_slots() -> Vec<B256> {
     slots
 }
 
+/// Fixed Inbox slots plus `generation`'s fixed origin record (slot 290), which every proof
+/// authenticates (PROOF-6.2-14); a batch reads it under its own starting anchor, not under R.
+pub fn starting_slots(generation: u64) -> Vec<B256> {
+    let mut slots = snapshot_slots();
+    slots.extend(inbox::origin_slots(generation));
+    slots.sort_unstable();
+    slots.dedup();
+    slots
+}
+
 /// Fixed Inbox facts plus the exact retained landing record at the supplied checkpoint.
 pub fn snapshot_landing_slots(height: u64) -> Vec<B256> {
     let mut slots = snapshot_slots();
@@ -689,6 +700,7 @@ fn decode_snapshot(
 /// The full proof must include checkpoint facts as well as genesis/config/bootstrap. Its raw
 /// header and decoded anchor facts must equal the consumed parent anchor; no latest snapshot can
 /// substitute for this ancestor. Projection preserves the strict slot-set checks of both verifiers.
+/// The slot set includes the anchor generation's fixed origin record ([`starting_slots`]).
 pub fn verify_starting_inbox(
     witness: &AnchorWitness,
     anchor: &AnchorState,
@@ -697,7 +709,8 @@ pub fn verify_starting_inbox(
     if witness.inbox.address != inbox_address {
         return Err(LanderError::Safety("starting proof names another Inbox".into()));
     }
-    verify_account_witness(anchor.state_root, &witness.inbox, &snapshot_slots())
+    let slots = starting_slots(anchor.inbox.recovery_generation);
+    verify_account_witness(anchor.state_root, &witness.inbox, &slots)
         .map_err(|e| LanderError::Safety(format!("starting Inbox proof: {e}")))?;
     let genesis_proof = project_witness(&witness.inbox, &inbox::genesis_slots());
     let (genesis, _, bootstrap) =

@@ -876,8 +876,8 @@ impl LandingSource for Fixture {
         Ok(anchor)
     }
     async fn starting_inbox_witness(&self, anchor: &AnchorState) -> Result<AnchorWitness> {
-        let mut witness =
-            self.states[&anchor.number].witness(self.params.inbox, &crate::l1::snapshot_slots());
+        let slots = crate::l1::starting_slots(anchor.inbox.recovery_generation);
+        let mut witness = self.states[&anchor.number].witness(self.params.inbox, &slots);
         match self.starting_proof_mutation {
             Some(0) => {
                 witness.storage.retain(|s| s.slot != inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT))

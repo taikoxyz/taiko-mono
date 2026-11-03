@@ -16,6 +16,8 @@ use std::{
 
 /// Journal schema version; incompatible formats stop rather than discard outstanding nonces.
 ///
+/// Schema 15 proves the generation's origin record in the starting witness and reaches R in the
+/// reference chain only while a batch uses recovery material.
 /// Schema 14 authenticates slot 293 and retains the immutable signed bytes on old-schema refusal.
 /// Schema 13 binds native private protobufs, V1 grid cuts and deployment identity.
 /// Schema 12 binds V10 execution-only DA; old signed jobs remain untouched on rejection.
@@ -31,7 +33,7 @@ use std::{
 /// over a six-field `LandInput` (forced inclusion head after the batch and fee recipient included),
 /// compressed V3 blob payloads and snapshots carrying the forced inclusion queue; schema 4 bound V5
 /// statements over uncompressed V2 payloads and schema 3 complete V1 blocks.
-const JOURNAL_VERSION: u8 = 14;
+const JOURNAL_VERSION: u8 = 15;
 /// Hard allocation bound before reading or decoding an untrusted journal.
 pub(crate) const MAX_JOURNAL_BYTES: u64 = 256 * 1024 * 1024;
 
@@ -622,7 +624,7 @@ mod tests {
             Ok(_) => panic!("schema 10 must be rejected"),
         };
         assert!(
-            error.to_string().contains("incompatible journal schema 10 (expected 14)"),
+            error.to_string().contains("incompatible journal schema 10 (expected 15)"),
             "{error}"
         );
         assert_eq!(std::fs::read(&path).unwrap(), bytes);

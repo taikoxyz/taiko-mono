@@ -1012,12 +1012,8 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
             .block
             .header;
         let parent_anchor = start.anchor.clone();
-        let mut consumed = std::iter::once(parent_anchor.clone())
-            .chain(anchors.iter().cloned())
-            .collect::<Vec<_>>();
-        if snapshot.recovery.is_some() {
-            consumed.push(recovery_anchor(&snapshot)?);
-        }
+        let consumed =
+            consumed_anchors(&snapshot, &parent_anchor, &anchors, committees.keys().copied())?;
         let headers = self.l1.reference(&snapshot, &consumed).await?;
         verify_reference_chain(&headers, &consumed)?;
         let reference = &headers[0];
@@ -1111,7 +1107,30 @@ fn committee_epoch(snapshot: &LandingSnapshot, schedule: &Schedule, height: u64)
     })
 }
 
-/// Reconstructs R's proof-bound anchor for committee provenance and complete reference ancestry.
+/// The anchors a batch's reference chain must reach: p's anchor, every block's anchor and,
+/// only while the batch uses recovery material, R. That is a proof from the generation origin
+/// c or one using the committee selected from R's registry snapshot (`epochs` lists the
+/// batch's committees; PROOF-6.2-14, PROOF-6.2-30). Later batches authenticate the fixed origin
+/// record under their starting anchor, so R never ages a generation out of the reference bound.
+pub(crate) fn consumed_anchors(
+    snapshot: &LandingSnapshot,
+    parent_anchor: &AnchorState,
+    anchors: &[AnchorState],
+    mut epochs: impl Iterator<Item = u64>,
+) -> Result<Vec<AnchorState>> {
+    let mut consumed =
+        std::iter::once(parent_anchor.clone()).chain(anchors.iter().cloned()).collect::<Vec<_>>();
+    if let Some(origin) = &snapshot.recovery &&
+        (snapshot.checkpoint_height == origin.height ||
+            epochs.any(|epoch| epoch == origin.committee.record.target_epoch))
+    {
+        consumed.push(recovery_anchor(snapshot)?);
+    }
+    Ok(consumed)
+}
+
+/// Reconstructs R's proof-bound anchor for the initial committee's provenance and, while a batch
+/// uses recovery material ([`consumed_anchors`]), its reference ancestry.
 pub(crate) fn recovery_anchor(snapshot: &LandingSnapshot) -> Result<AnchorState> {
     use alloy_rlp::Decodable;
     let bytes = snapshot
@@ -2372,7 +2391,7 @@ mod tests {
                     .iter()
                     .map(|p| p.slot)
                     .collect::<Vec<_>>(),
-                crate::l1::snapshot_slots()
+                crate::l1::starting_slots(request.batch.snapshot.generation)
             );
             assert!(
                 headers

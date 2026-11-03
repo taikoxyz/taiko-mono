@@ -97,7 +97,7 @@ implement at R. Rules scheduled after R do not change that fixed recovery origin
 This release supports new networks with Etna start S = 0 and their governance recoveries.
 The [Unzen switch](../protocol/docs/etna/SWITCH.md), settled-prefix app import and public
 EL snapshot tooling require separate implementations. A nonzero Etna start is refused.
-App state schemas are 15 (generation zero) and 16 (recovery); lander journals use schema 14.
+App state schemas are 15 (generation zero) and 16 (recovery); lander journals use schema 15.
 Older stores and witnesses are refused without rewriting signed jobs or FilePV state.
 
 ## Forced inclusion
@@ -237,7 +237,7 @@ The public blob payload carries execution blocks only (spec section 5.2, Blob pa
 input and statement are spec section 6.1 (land). Before signing or sending, the lander checks the
 deployed Inbox implementation and its immutable getters.
 
-`lander-state.json` uses schema 14 and is protected by `lander.lock`; other schemas are refused
+`lander-state.json` uses schema 15 and is protected by `lander.lock`; other schemas are refused
 and left intact. Signed bytes and blob sidecars are durably written before
 broadcast. For an original range (p,h] and competing checkpoint p<=c<h, the original input,
 leaves, proof, blobs, nonce and signed bytes remain unchanged. At c>=h, never-broadcast work

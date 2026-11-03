@@ -274,9 +274,10 @@ async fn recovery_later_checkpoint_and_epoch_crossing_keep_authenticated_origin(
                 terminal_leaves.get(&length)
             );
         }
-        let mut missing_r = prepared.batch.clone();
-        missing_r.reference_headers.pop();
-        assert!(missing_r.validate_statement().is_err());
+        // The chain must reach its oldest consumed anchor; dropping that header is refused.
+        let mut truncated = prepared.batch.clone();
+        truncated.reference_headers.pop();
+        assert!(truncated.validate_statement().is_err());
         assert!(
             prepared
                 .batch
@@ -285,6 +286,46 @@ async fn recovery_later_checkpoint_and_epoch_crossing_keep_authenticated_origin(
                 .all(|h| RawL1Header::from_raw(h.clone()).unwrap().number() >= 20)
         );
     }
+}
+
+/// R joins the reference chain only while a batch uses recovery material: a proof from the
+/// origin c, or one that uses the committee selected from R's registry snapshot (PROOF-6.2-14,
+/// PROOF-6.2-30). Requiring it in every batch would make the generation unlandable once R falls
+/// more than the reference bound (BATCH-6.3-6, 131,072 headers) behind the finalized tip.
+#[tokio::test]
+async fn recovery_root_is_consumed_only_while_recovery_material_is_used() {
+    // c = 6, R = 20, next anchor 21. Every batch from c uses R; from p = 12 the initial committee
+    // (epoch 1) still governs at L = 6 and 7, but at L = 8 the batch uses ordinary committees only.
+    for (length, checkpoint, uses_r) in
+        [(6, 6, true), (6, 12, true), (7, 6, true), (7, 12, true), (8, 6, true), (8, 12, false)]
+    {
+        let f = Arc::new(fixture(length, checkpoint, 18).await);
+        let prepared = builder(f.clone()).prepare(f.snapshot.clone()).await.unwrap().unwrap();
+        let oldest = prepared.batch.reference_headers.last().unwrap().clone();
+        let oldest = RawL1Header::from_raw(oldest).unwrap().number();
+        assert_eq!(oldest, if uses_r { 20 } else { 21 }, "length {length}, p {checkpoint}");
+        prepared.batch.validate_statement().unwrap();
+    }
+}
+
+/// Without R, a batch still authenticates its generation's fixed origin record (slot 290)
+/// under its own starting anchor (PROOF-6.2-14): the starting proof must carry it.
+#[tokio::test]
+async fn starting_witness_authenticates_the_generation_origin_record() {
+    let f = Arc::new(fixture(8, 12, 18).await);
+    let origin = f.snapshot.recovery.clone().unwrap();
+    let prepared = builder(f.clone()).prepare(f.snapshot.clone()).await.unwrap().unwrap();
+    let witness = &prepared.batch.starting_inbox_witness;
+    let slots = inbox::origin_slots(origin.generation);
+    let record = slots.map(|slot| {
+        witness.inbox.storage.iter().find(|p| p.slot == slot).expect("origin slot is proven").value
+    });
+    assert_eq!(record, [origin.height, origin.l1_number, origin.l1_timestamp].map(U256::from));
+
+    let mut without_origin = witness.clone();
+    without_origin.inbox.storage.retain(|p| !slots.contains(&p.slot));
+    let anchor = &prepared.batch.parent_anchor;
+    assert!(crate::l1::verify_starting_inbox(&without_origin, anchor, f.params.inbox).is_err());
 }
 
 #[tokio::test]

@@ -536,12 +536,13 @@ impl PreparedBatch {
                 self.snapshot.recovery.as_ref(),
             )
             .map_err(|_| invalid())?;
-            let mut anchors = std::iter::once(self.parent_anchor.clone())
-                .chain(self.anchors.iter().cloned())
-                .collect::<Vec<_>>();
-            if self.snapshot.recovery.is_some() {
-                anchors.push(crate::batch::recovery_anchor(&self.snapshot).map_err(|_| invalid())?);
-            }
+            let anchors = crate::batch::consumed_anchors(
+                &self.snapshot,
+                &self.parent_anchor,
+                &self.anchors,
+                self.committees.iter().map(|committee| committee.record.target_epoch),
+            )
+            .map_err(|_| invalid())?;
             let reference = self
                 .reference_headers
                 .iter()
