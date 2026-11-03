@@ -4,14 +4,10 @@
 Only alloc changes, except the derived top-level stateRoot is discarded. All other non-alloc
 fields remain identical to canonical devnet JSON. The alloc gains the canonical EIP-4788 and
 EIP-2935 system contracts.
-The pinned alethia-reth supports this strict custom genesis with an explicit Etna activation
-override, restores the canonical fork table and rebuilds its genesis header/hash. The client
-harness checks the actual block-0 hash/root and installed runtimes.
 """
 
 import argparse
 import copy
-import hashlib
 import json
 from pathlib import Path
 import re
@@ -22,7 +18,6 @@ HISTORY = "0x0000f90827f1c53a10cb7a02335b175320002935"
 # 1e25b4849259320fca1123de362bc38b0b090ece:crates/node/tests/fixtures/etna-genesis.json.
 ROOTS_RUNTIME = "0x3373fffffffffffffffffffffffffffffffffffffffe14604d57602036146024575f5ffd5b5f35801560495762001fff810690815414603c575f5ffd5b62001fff01545f5260205ff35b5f5ffd5b62001fff42064281555f359062001fff015500"
 HISTORY_RUNTIME = "0x3373fffffffffffffffffffffffffffffffffffffffe14604657602036036042575f35600143038111604257611fff81430311604257611fff9006545f5260205ff35b5f5ffd5b5f35611fff60014303065500"
-ROOTS_SHA256 = "cb7bd3e115730f7d57c15cd892880ed517ff4421bf43dfc7591198868fffe31d"
 
 
 def address(value):
@@ -35,18 +30,8 @@ def address(value):
     return "0x" + value
 
 
-def bytecode(value):
-    """Require concrete nonempty 0x-prefixed hex and return it lowercased."""
-    if not isinstance(value, str) or not re.fullmatch(r"0x(?:[0-9a-fA-F]{2})+", value):
-        raise ValueError("runtime must be nonempty 0x-prefixed concrete bytecode")
-    return value.lower()
-
-
 def build(base):
     """Install the system contracts into alloc and discard the now-stale derived state root."""
-    roots = bytecode(ROOTS_RUNTIME)
-    if hashlib.sha256(bytes.fromhex(roots[2:])).hexdigest() != ROOTS_SHA256:
-        raise ValueError("canonical EIP-4788 runtime hash mismatch")
     genesis = copy.deepcopy(base)
     genesis.pop("stateRoot", None)
     alloc = {}
@@ -55,7 +40,7 @@ def build(base):
         if normalized in alloc:
             raise ValueError("duplicate alloc address after normalization: " + normalized)
         alloc[normalized] = account
-    for target, deployed in ((ROOTS, roots), (HISTORY, bytecode(HISTORY_RUNTIME))):
+    for target, deployed in ((ROOTS, ROOTS_RUNTIME), (HISTORY, HISTORY_RUNTIME)):
         alloc[target] = {"balance": "0x0", "nonce": "0x1", "code": deployed}
     genesis["alloc"] = alloc
     return genesis

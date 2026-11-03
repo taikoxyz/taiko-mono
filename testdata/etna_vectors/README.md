@@ -103,11 +103,7 @@ python3 -m unittest discover -s testdata/etna_vectors -p 'test_vectors.py' -v
 ## Consumers
 
 - Contracts (`packages/protocol`, profile `layer1`; `foundry.toml` grants read access to this
-  directory): `test/layer1/etna/LibEtnaVectors.sol` loads the file for `EtnaVectors.t.sol`, which
-  checks the Inbox and registry layout through their views and rebuilds every appendix A encoding,
-  and for `LibEntriesTree.t.sol`, which checks the entry leaves and roots.
-- Etna node and guests (`packages/taiko-client-rs`): `script/gen_lander_artifacts.sh` copies the
-  top-level files of this directory, byte for byte, to the same path in the client and records
-  each file's SHA-256 in the fixture manifest; `script/check_lander_artifacts.sh` checks the copy
-  against the pinned protocol revision. The `votegen/` and `ficheck/` subdirectories are not
-  copied.
+  directory): `test/layer1/etna/LibEtnaVectors.sol` loads the file for the Etna Solidity tests.
+  `EtnaVectors.t.sol` checks the Inbox and registry layout through their views and rebuilds every
+  appendix A encoding; the library and registry tests check their own sections.
+- The Etna node and guests read the same file.

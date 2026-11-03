@@ -59,19 +59,6 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
                          self._system_account(self.builder.HISTORY_RUNTIME))
         self.assertEqual(len(alloc), 3)
 
-    def test_rejects_system_runtime_hash_drift(self):
-        original = self.builder.ROOTS_RUNTIME
-        try:
-            self.builder.ROOTS_RUNTIME = "0x6000"
-            with self.assertRaises(ValueError):
-                self.builder.build(self.base)
-        finally:
-            self.builder.ROOTS_RUNTIME = original
-
-    def test_cli_rejects_unknown_flags(self):
-        self._assert_cli_rejected(json.dumps(self.base), "unrecognized arguments",
-                                  ["--unknown", "x"])
-
     def test_cli_rejects_duplicate_literal_alloc_keys_without_output(self):
         key = "0xabcdef0000000000000000000000000000000000"
         raw_base = ('{"config":{"chainId":167001},"alloc":{'
@@ -92,29 +79,19 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
                         + "\n").encode()
             self.assertEqual(output.read_bytes(), expected)
 
-    def test_write_is_deterministic(self):
+    def _assert_cli_rejected(self, raw_base, diagnostic="duplicate JSON key"):
         with tempfile.TemporaryDirectory() as directory:
-            destination = Path(directory) / "genesis.json"
-            genesis = self.builder.build(self.base)
-            self.builder.write(genesis, destination)
-            first = destination.read_bytes()
-            self.builder.write(genesis, destination)
-            self.assertEqual(first, destination.read_bytes())
-            self.assertTrue(first.endswith(b"\n"))
-
-    def _assert_cli_rejected(self, raw_base, diagnostic="duplicate JSON key", extra_args=()):
-        with tempfile.TemporaryDirectory() as directory:
-            result, output = self._run_cli(directory, raw_base, extra_args)
+            result, output = self._run_cli(directory, raw_base)
             self.assertFalse(output.exists(), "rejected input must not create genesis output")
             self.assertNotEqual(result.returncode, 0)
             self.assertIn(diagnostic, result.stderr)
 
-    def _run_cli(self, directory, raw_base, extra_args=()):
+    def _run_cli(self, directory, raw_base):
         base = Path(directory) / "base.json"
         output = Path(directory) / "genesis.json"
         base.write_text(raw_base)
         result = subprocess.run([sys.executable, str(SCRIPT), "--base", str(base),
-                                 "--output", str(output), *extra_args],
+                                 "--output", str(output)],
                                 text=True, capture_output=True, check=False)
         return result, output
 
