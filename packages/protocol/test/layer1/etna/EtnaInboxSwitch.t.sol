@@ -3,7 +3,6 @@ pragma solidity ^0.8.26;
 
 import { EtnaInboxSwitchTestBase } from "./EtnaInboxSwitchTestBase.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
-import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
