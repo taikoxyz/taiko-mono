@@ -1,6 +1,8 @@
 # Block Derivation in Taiko
 
-This document provides a comprehensive specification for deriving blocks from on-chain proposals in Taiko's Shasta fork, including the changes made by the later Unzen and Etna forks (see [Forks](#forks)).
+This document specifies block derivation from on-chain proposals in Taiko's Shasta and Unzen forks and records Etna's header commitments (see [Forks](#forks)).
+
+The proposal and manifest derivation flow below describes Shasta/Unzen. Etna block production, metadata validation and recovery follow [the Etna PoS + ZK specification](./etna/SPEC.md). Remaining proposal-based Etna descriptions await a separate rewrite and do not define Etna PoS derivation; its header encoding is recorded in [Pre-Execution Block Header](#pre-execution-block-header).
 
 ## Terminology
 
@@ -17,7 +19,7 @@ The Shasta fork introduces refined terminology to better reflect the system's ar
 | Unzen                | `UNZEN_FORK_TIME`  | Osaka execution rules with the Cancun and Prague header fields; zk gas, recorded in `difficulty`; a larger per-source block limit                         |
 | Etna (not scheduled) | `ETNA_FORK_TIME`   | No anchor transaction; L1 anchor state root in `parentBeaconBlockRoot` and number in `extraData` (see [Etna](#etna-blocks-without-an-anchor-transaction)) |
 
-Each L2 block follows the fork active at its own timestamp, so one proposal can contain blocks of two forks. Only the per-source block limit picks its fork by the proposal's L1 timestamp.
+In the proposal-based Shasta/Unzen flow, each L2 block follows the fork active at its own timestamp, so one proposal can contain both Shasta and Unzen blocks. Only the per-source block limit picks its fork by the proposal's L1 timestamp. The Unzen Inbox accepts no proposal from shortly before `ETNA_FORK_TIME` ([the Etna switch](./etna/SWITCH.md)), so no proposal contains Etna blocks.
 
 ## Metadata Architecture
 
@@ -63,6 +65,7 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 | **anchorBlockNumber**  | The L1 block number to which this block anchors       |
 | **anchorBlockHash**    | The block hash for the block at anchorBlockNumber     |
 | **anchorStateRoot**    | The state root for the block at anchorBlockNumber     |
+| **generation**         | The authenticated recovery generation (Etna only)     |
 
 ## Metadata Preparation
 
@@ -77,13 +80,13 @@ The following metadata fields are extracted directly from the event payload:
 
 **Proposal-level assignments:**
 
-| Metadata Field                            | Value Assignment                         |
-| ----------------------------------------- | ---------------------------------------- |
-| `metadata.id`                             | `payload.id`                             |
-| `metadata.proposer`                       | `payload.proposer`                       |
-| `metadata.parentProposalHash`             | `payload.parentProposalHash`             |
-| `metadata.endOfSubmissionWindowTimestamp` | `payload.endOfSubmissionWindowTimestamp` |
-| `metadata.basefeeSharingPctg`             | `payload.basefeeSharingPctg`             |
+| Metadata Field                            | Value Assignment                                                        |
+| ----------------------------------------- | ----------------------------------------------------------------------- |
+| `metadata.id`                             | `payload.id`                                                            |
+| `metadata.proposer`                       | `payload.proposer`                                                      |
+| `metadata.parentProposalHash`             | `payload.parentProposalHash`                                            |
+| `metadata.endOfSubmissionWindowTimestamp` | `payload.endOfSubmissionWindowTimestamp`                                |
+| `metadata.basefeeSharingPctg`             | `payload.basefeeSharingPctg` (before Etna); fixed at `100` from Etna on |
 
 **Derivation source-level assignments (for source `i`):**
 
@@ -245,7 +248,7 @@ Anchor block validation ensures proper L1 state synchronization and may trigger 
 
 **Forced inclusion protection**: Only proposer-supplied sources are penalized for stagnant anchors. Forced inclusions (`derivationSource.isForcedInclusion == true`) blocks intentionally inherit the parent anchor as mentioned above and never get replaced with the default manifest even when the anchor number does not advance.
 
-Recover `parent.metadata.anchorBlockNumber` using the parent's fork: `Anchor.getBlockState().anchorBlockNumber` before Etna, bytes 7..12 of `extraData` from Etna, and `0` for genesis.
+Recover `parent.metadata.anchorBlockNumber` from `Anchor.getBlockState().anchorBlockNumber`, or `0` for genesis. Within proposal derivation, proposals carry only pre-Etna blocks, so a parent here is never an Etna block.
 
 #### `anchorBlockHash` and `anchorStateRoot` Validation
 
@@ -307,17 +310,20 @@ The validated metadata serves three critical functions in block construction:
 
 Metadata encoding into L2 block header fields facilitates efficient peer validation:
 
-| Metadata Component   | Type    | Header Field                           |
-| -------------------- | ------- | -------------------------------------- |
-| `number`             | uint256 | `number`                               |
-| `timestamp`          | uint256 | `timestamp`                            |
-| `difficulty`         | uint256 | `mixHash`                              |
-| `gasLimit`           | uint256 | `gasLimit`                             |
-| `basefeeSharingPctg` | uint8   | First byte in `extraData`              |
-| `proposalId`         | uint48  | Bytes 1..6 in `extraData`              |
-| `anchorBlockNumber`  | uint48  | Bytes 7..12 in `extraData` (Etna only) |
+| Metadata Component   | Type    | Header Field                                           |
+| -------------------- | ------- | ------------------------------------------------------ |
+| `number`             | uint256 | `number`                                               |
+| `timestamp`          | uint256 | `timestamp`                                            |
+| `difficulty`         | uint256 | `mixHash`                                              |
+| `gasLimit`           | uint256 | `gasLimit`                                             |
+| `basefeeSharingPctg` | uint8   | First byte in `extraData`; fixed at `100` from Etna on |
+| `proposalId`         | uint48  | Bytes 1..6 in `extraData` (before Etna)                |
+| `generation`         | uint48  | Bytes 1..6 in `extraData` (Etna only)                  |
+| `anchorBlockNumber`  | uint48  | Bytes 7..12 in `extraData` (Etna only)                 |
 
-For non-genesis blocks, Shasta/Unzen use 7-byte `extraData`; Etna uses exactly 13 bytes: `[basefeeSharingPctg(1) | proposalId(6) | anchorBlockNumber(6)]`. Offsets are zero-based and inclusive. Both `uint48` values are big-endian and must fit without truncation. Encode the final derived `anchorBlockNumber` after validation and inheritance.
+For non-genesis blocks, Shasta/Unzen use 7-byte `extraData`; Etna uses exactly 13 bytes as specified in [the Etna PoS + ZK spec, 3.2](./etna/SPEC.md#32-block-header): `[basefeeSharingPctg(1) | generation(6) | anchorBlockNumber(6)]`, with `basefeeSharingPctg` always 100. Offsets are zero-based and inclusive. Every `uint48` field is big-endian and must fit without truncation. Encode the final derived `anchorBlockNumber` after validation and inheritance.
+
+For Etna, `metadata.generation` is the authenticated recovery generation of the current CometBFT chain. The anchor witness proves the Inbox's `recoveryGeneration` under [SPEC.md 3.3](./etna/SPEC.md#33-anchor); an inherited anchor retains its authenticated state. [SPEC.md 3.4](./etna/SPEC.md#34-block-validity) checks the header's generation against both that state and the CometBFT `chain_id`. Governance recovery establishes a new chain generation under [SPEC.md 8.4](./etna/SPEC.md#84-fixed-origin-and-genesis-of-a-new-generation), rather than inheriting the old generation from the parent header. This field does not come from `proposalId` or a `Proposed` payload.
 
 #### Additional Pre-Execution Block Header Fields
 
@@ -375,13 +381,12 @@ The anchor transaction executes a carefully orchestrated sequence of operations:
 
 ## Etna: Blocks Without an Anchor Transaction
 
-Etna replaces the anchor transaction with header commitments to the L1 anchor block's number and execution state root. EIP-4788 records the root. The proposal format and metadata validation rules stay the same. The design, the contract changes and the activation order are in [the Etna anchorless design](./etna-anchorless/DESIGN.md).
+Etna replaces the anchor transaction with header commitments to the L1 anchor block's number and execution state root. EIP-4788 records the root. Etna block production and metadata validation follow [SPEC.md section 3](./etna/SPEC.md#3-consensus-and-blocks); the proposal-based validation flow above is not an Etna rule. The contract changes and the activation order are in [the Etna anchorless design](./etna/ANCHORLESS.md). The remaining proposal-based descriptions below await the separate rewrite noted at the start of this document.
 
 - A block's transactions come from `metadata.transactions` as before, but nothing is prepended and no position is reserved, so the first transaction is treated like every other one. A default source manifest yields a block without transactions.
 - Transactions from the golden touch address are ordinary transactions, with ordinary balance, fee and refund handling.
 - In non-genesis blocks, `parentBeaconBlockRoot` is the nonzero `metadata.anchorStateRoot` of the L1 block at the final `anchorBlockNumber`; bytes 7..12 of `extraData` encode that number. The execution engine checks the nonzero root and 13-byte layout.
-- Inherited anchors, including forced/default blocks, preserve the parent's number/root pair. Use an Etna parent's header; for a pre-Etna parent, authenticate its number and any saved checkpoint through its L2 state. If no checkpoint exists, authenticate the L1 header instead.
-- Genesis inheritance uses number `0` and the state root of L1 block `0`. The L2 genesis header keeps a zero `parentBeaconBlockRoot` and performs no EIP-4788 call.
+- A block that keeps its parent's anchor carries the parent's number and root. The first Etna block always carries an anchor witness ([the Etna PoS + ZK spec, 3.3](./etna/SPEC.md#33-anchor)), so no Etna block inherits an anchor from an Unzen parent; on a new network the L2 genesis header keeps a zero `parentBeaconBlockRoot` and performs no EIP-4788 call.
 
 ## L1 Proof and Liveness Bond Settlement
 

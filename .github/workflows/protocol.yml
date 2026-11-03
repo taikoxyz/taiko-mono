@@ -51,7 +51,7 @@ jobs:
 
       - name: Read Foundry version
         id: foundry-version
-        run: echo "version=$(grep foundry packages/protocol/.tool-versions | awk '{print $2}')" >> $GITHUB_OUTPUT
+        run: echo "version=$(grep foundry packages/protocol/.tool-versions | awk '{print $2}')" >> "$GITHUB_OUTPUT"
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@dba66c27052e63476d886f22216e119ba7e615bf # v1.9.2
@@ -306,7 +306,7 @@ jobs:
 
   genesis-docker:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
-    runs-on: [taiko-runner]
+    runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
@@ -318,7 +318,7 @@ jobs:
 
       - name: Read Foundry version
         id: foundry-version
-        run: echo "version=$(grep foundry packages/protocol/.tool-versions | awk '{print $2}')" >> $GITHUB_OUTPUT
+        run: echo "version=$(grep foundry packages/protocol/.tool-versions | awk '{print $2}')" >> "$GITHUB_OUTPUT"
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@dba66c27052e63476d886f22216e119ba7e615bf # v1.9.2

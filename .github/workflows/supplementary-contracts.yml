@@ -19,14 +19,21 @@ jobs:
   build-supplementary-contracts:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     runs-on: ubuntu-latest
+    # SECURITY: this job runs PR code and dependency install scripts, so it holds no secrets and a
+    # read-only token. Generated output is handed to commit-generated-files as a patch.
     permissions:
-      # Required by stefanzweifel/git-auto-commit-action, which pushes with the checkout credentials.
-      contents: write
+      contents: read
+    outputs:
+      changes: ${{ steps.export.outputs.changes }}
+      build_sha: ${{ steps.export.outputs.build_sha }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          submodules: recursive
+          # account for forked repos case
+          ref: ${{ github.head_ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          persist-credentials: false
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@dba66c27052e63476d886f22216e119ba7e615bf # v1.9.2
@@ -42,9 +49,184 @@ jobs:
 
       - name: Format solidity && update contract layout table
         working-directory: ./packages/supplementary-contracts
-        run: pnpm layout &&  pnpm lint:sol
+        run: pnpm layout && pnpm lint:sol
 
-      - name: Commit contract layout table
-        uses: stefanzweifel/git-auto-commit-action@d0b01107b5db882071f96de5dd4b54961ea93f4c # v7.2.1
+      - name: Export generated contract layout table
+        id: export
+        if: github.event.pull_request.head.repo.fork == false
+        run: |
+          set -euo pipefail
+          echo "build_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          git add -A packages/supplementary-contracts
+          # Only the generated layout table travels in the patch. Formatting changes are left out on
+          # purpose: commit-generated-files reruns forge fmt itself instead of trusting this job.
+          git diff --cached --binary --no-renames -- \
+            packages/supplementary-contracts/contract_layout.md \
+            > "$RUNNER_TEMP/generated.patch"
+          # Wake the commit job only for what it can push: the layout table or .sol files that its
+          # own forge fmt run may reformat.
+          if [ -s "$RUNNER_TEMP/generated.patch" ] \
+            || ! git diff --cached --quiet -- ':(glob)packages/supplementary-contracts/**/*.sol'; then
+            echo "changes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changes=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload generated contract layout table
+        if: steps.export.outputs.changes == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          commit_message: "forge fmt & update contract layout table"
+          name: supplementary-contracts-generated-patch
+          path: ${{ runner.temp }}/generated.patch
+          retention-days: 1
+
+  commit-generated-files:
+    needs: build-supplementary-contracts
+    if: needs.build-supplementary-contracts.outputs.changes == 'true' && github.event.pull_request.head.repo.fork == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # SECURITY: the only job that sees TAIKO_KITTY_TOKEN. It never runs PR code or dependency
+    # scripts: it applies the patch from build-supplementary-contracts (the layout table only) onto
+    # a fresh checkout, reruns forge fmt itself, and pushes the result.
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.head_ref }}
+          persist-credentials: false
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@dba66c27052e63476d886f22216e119ba7e615bf # v1.9.2
+        with:
+          version: nightly-2cb875799419c907cc3709e586ece2559e6b340e
+          # SECURITY: no cache. Jobs in this PR share a cache scope, so the build job could plant
+          # an entry, and restoring it can write anywhere, including .git/hooks and git config.
+          cache: false
+
+      - name: Download generated contract layout table
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: supplementary-contracts-generated-patch
+          path: ${{ runner.temp }}/patch
+
+      # No token in this step: forge fmt parses PR-authored Solidity here.
+      - name: Commit generated files
+        id: commit
+        env:
+          BUILD_SHA: ${{ needs.build-supplementary-contracts.outputs.build_sha }}
+          PATCH: ${{ runner.temp }}/patch/generated.patch
+        run: |
+          set -euo pipefail
+          if [ "$(git rev-parse HEAD)" != "$BUILD_SHA" ]; then
+            echo "Branch moved since the build ran; the newer push regenerates the files."
+            exit 0
+          fi
+          refuse() {
+            echo "Refusing to push: $*" >&2
+            exit 1
+          }
+          layout=packages/supplementary-contracts/contract_layout.md
+          # Generated output: the storage layout table written by deployments/gen-layouts.sh.
+          generated='^packages/supplementary-contracts/contract_layout[.]md$'
+          # Files forge fmt may modify in place.
+          formatted='^packages/supplementary-contracts/[^ ]+[.]sol$'
+          if [ -s "$PATCH" ]; then
+            # The build job exports plain diffs (--no-renames), so rename/copy headers mean the
+            # patch did not come from the exporter.
+            if grep -qE '^(rename|copy) (from|to) ' "$PATCH"; then
+              refuse "patch has rename or copy entries"
+            fi
+            git apply --index "$PATCH"
+            # Validate what was actually staged, both sides of every change, not what the patch
+            # claims: --numstat on the patch only reports a rename's destination.
+            # Only non-executable regular files (no symlinks, gitlinks or exec bits, before or
+            # after) at generated paths may come from the patch.
+            # Read from a file, not a pipe, so refuse exits this shell rather than a subshell.
+            git diff --cached --raw --no-renames -z > "$RUNNER_TEMP/staged"
+            while IFS= read -r -d '' meta && IFS= read -r -d '' path; do
+              read -r old_mode new_mode _ <<< "${meta#:}"
+              for mode in "$old_mode" "$new_mode"; do
+                case "$mode" in
+                  000000 | 100644) ;;
+                  *) refuse "non-regular file (mode $mode): $path" ;;
+                esac
+              done
+              [[ "$path" =~ $generated ]] || refuse "unexpected path: $path"
+              if [ "$new_mode" != 000000 ]; then
+                # gen-layouts.sh writes "## Contract" headings and the tables forge inspect prints,
+                # whose corners are U+256D..U+2570. Drop those, then allow only tab and printable
+                # ASCII, so \r and other control bytes cannot hide content in the table.
+                LC_ALL=C sed -e $'s/\xe2\x95[\xad\xae\xaf\xb0]//g' -- "$path" > "$RUNNER_TEMP/layout"
+                if LC_ALL=C grep -q $'[^\t -~]' -- "$RUNNER_TEMP/layout"; then
+                  refuse "non-printable byte in layout table: $path"
+                fi
+                rc=0
+                grep -qvE '^$|^## [A-Za-z0-9_:./-]+$|^[-|+=]' -- "$RUNNER_TEMP/layout" || rc=$?
+                case "$rc" in
+                  1) ;;
+                  0) refuse "layout table has unexpected lines: $path" ;;
+                  *) refuse "could not read layout table: $path" ;;
+                esac
+              fi
+            done < "$RUNNER_TEMP/staged"
+          fi
+          # Formatting is redone here rather than taken from the build job, so a compromised
+          # dependency there cannot get source changes committed as "formatting".
+          (cd packages/supplementary-contracts && forge fmt)
+          # forge fmt only rewrites .sol files; restoring the table still pins it to exactly what
+          # the validated patch staged.
+          if [ -n "$(git ls-files -- "$layout")" ]; then
+            git checkout -- "$layout"
+          fi
+          git add -u -- packages/supplementary-contracts
+          if git diff --cached --quiet; then
+            echo "No generated changes to push."
+            exit 0
+          fi
+          # Re-check the final staged set: on top of the validated patch, forge fmt may only have
+          # modified (never added or deleted) regular .sol files.
+          git diff --cached --raw --no-renames -z > "$RUNNER_TEMP/final"
+          while IFS= read -r -d '' meta && IFS= read -r -d '' path; do
+            read -r old_mode new_mode _ _ status <<< "${meta#:}"
+            for mode in "$old_mode" "$new_mode"; do
+              case "$mode" in
+                000000 | 100644) ;;
+                *) refuse "non-regular file (mode $mode): $path" ;;
+              esac
+            done
+            if [[ "$path" =~ $generated ]]; then
+              continue
+            fi
+            if [[ "$status" != M || ! "$path" =~ $formatted ]]; then
+              refuse "unexpected change after forge fmt ($status): $path"
+            fi
+          done < "$RUNNER_TEMP/final"
+          # Authored by the PR actor and committed by the bot, as git-auto-commit-action did.
+          git -c user.name="github-actions[bot]" \
+            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -m "forge fmt & update contract layout table" \
+            --author="${GITHUB_ACTOR} <${GITHUB_ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com>"
+          echo "push=true" >> "$GITHUB_OUTPUT"
+
+      # TAIKO_KITTY_TOKEN rather than GITHUB_TOKEN: pushes made with GITHUB_TOKEN do not trigger
+      # workflows, so the bot commit would become the PR head without any checks having run on it.
+      - name: Push generated files
+        if: steps.commit.outputs.push == 'true'
+        env:
+          PUSH_TOKEN: ${{ secrets.TAIKO_KITTY_TOKEN }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          auth=$(printf 'x-access-token:%s' "$PUSH_TOKEN" | base64 -w0)
+          echo "::add-mask::$auth"
+          # Deliberately not forced: the commit's parent is the build's head SHA, so if the branch
+          # moved while this job ran, the push is rejected as a non-fast-forward instead of landing
+          # stale output.
+          # The header goes through git's environment config rather than -c, so the credential
+          # never appears in the process list.
+          GIT_CONFIG_COUNT=1 \
+            GIT_CONFIG_KEY_0="http.https://github.com/.extraheader" \
+            GIT_CONFIG_VALUE_0="AUTHORIZATION: basic ${auth}" \
+            git push origin "HEAD:refs/heads/${HEAD_REF}"
