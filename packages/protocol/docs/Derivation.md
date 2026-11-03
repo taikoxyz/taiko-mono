@@ -19,7 +19,7 @@ The Shasta fork introduces refined terminology to better reflect the system's ar
 | Unzen                | `UNZEN_FORK_TIME`  | Osaka execution rules with the Cancun and Prague header fields; zk gas, recorded in `difficulty`; a larger per-source block limit                         |
 | Etna (not scheduled) | `ETNA_FORK_TIME`   | No anchor transaction; L1 anchor state root in `parentBeaconBlockRoot` and number in `extraData` (see [Etna](#etna-blocks-without-an-anchor-transaction)) |
 
-In the proposal-based Shasta/Unzen flow, each L2 block follows the fork active at its own timestamp, so one proposal can contain blocks of both forks. Only the per-source block limit picks its fork by the proposal's L1 timestamp.
+In the proposal-based Shasta/Unzen flow, each L2 block follows the fork active at its own timestamp, so one proposal can contain blocks of both forks. Only the per-source block limit picks its fork by the proposal's L1 timestamp. The Unzen Inbox accepts no proposal from shortly before `ETNA_FORK_TIME` ([the Etna switch](./etna/SWITCH.md)), so no proposal contains Etna blocks.
 
 ## Metadata Architecture
 

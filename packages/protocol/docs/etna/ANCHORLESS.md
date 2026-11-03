@@ -36,7 +36,7 @@ Etna block production follows the PoS + ZK specification, so bytes 0..6 of `extr
 - **Derivation and prover rule**: the root must be the state root of the L1 block at the derived `anchorBlockNumber`, and bytes 7..12 of `extraData` must encode that number. Provers authenticate the anchor block's header through the parent-hash chain of the L1 headers they are given; before Etna they apply the same check to the anchor calldata.
 - **Self-contained blocks**: a block received over P2P executes without L1 access.
 
-Blocks that inherit their anchor (forced inclusions and default manifests) keep the parent's number and root. For an Etna parent, both come from its header. For a pre-Etna parent, they come from its L2 state: its anchor number and saved checkpoint, or the L1 header when no checkpoint exists. Genesis inheritance uses number 0 and the state root of L1 block 0; the L2 genesis header keeps a zero root and performs no EIP-4788 call.
+A block that keeps its parent's anchor carries the parent's number and root. The first Etna block always carries an anchor witness ([SPEC.md 3.3](SPEC.md#33-anchor)), so no Etna block inherits an anchor from an Unzen parent; on a new network the L2 genesis header keeps a zero root and performs no EIP-4788 call.
 
 Other derivation changes at the fork:
 
@@ -127,7 +127,7 @@ With EIP-2935 in place, the L2 matches Ethereum's post-Prague state: `BLOCKHASH`
 
 ## 8. Fork and migration
 
-- **Activation**: Etna activates by L2 timestamp at `ETNA_FORK_TIME`. Each L2 block follows the fork active at its own timestamp, so one proposal can contain blocks of both forks. Pre-fork blocks keep the anchor transaction and a zero `parentBeaconBlockRoot`; post-fork blocks have no anchor transaction, a non-zero `parentBeaconBlockRoot` and 13 bytes of `extraData`.
+- **Activation**: Etna activates by L2 timestamp at `ETNA_FORK_TIME`. The Unzen Inbox accepts no proposal from shortly before that time, so every Unzen block is earlier and every Etna block is at or after it ([SWITCH.md](SWITCH.md)). Pre-fork blocks keep the anchor transaction and a zero `parentBeaconBlockRoot`; post-fork blocks have no anchor transaction, a non-zero `parentBeaconBlockRoot` and 13 bytes of `extraData`.
 - **`anchorV4` gate**: `Anchor.anchorV4` reverts from `etnaTimestamp` on. The gate is required. The ancestors-hash check excludes the parent, so in the first block without an anchor transaction an `anchorV4` sent as an ordinary transaction would still pass. The golden touch key is public, and also usable through an EIP-7702 delegation, so anyone could then save a forged checkpoint. A later clean-up upgrade can delete `anchorV4`, `blockHashes`, the block state and the ancestors hash, but must keep `withdraw` and `getL1StateRoot`.
 - **Checkpoints**: pre-fork checkpoints stay in storage, but proofs stop reading them at the fork. `SignalService.saveCheckpoint` and its authorized syncer stay for L1, where the Inbox keeps saving L2 → L1 checkpoints.
 - **Storage namespace**: `SignalServiceL2` uses the `VERSION` storage namespace, while the L2 `SignalService` deployed before Etna uses flat mappings. The upgrade therefore leaves the old checkpoints and cached signals unreadable; legitimate signals are proven again against a newer root. Provers that read the parent checkpoint read both layouts: the versioned mapping at base `keccak256(abi.encode(VERSION, 254))` first, then the flat slot `keccak256(abi.encode(blockNumber, 254))` when the versioned one is empty.
@@ -145,8 +145,10 @@ Each step depends on the previous one.
 
    Both proxies go in one batch because `SignalServiceL2` asks the `Anchor` for every uncached root, and the `Anchor` deployed before Etna has no `getL1StateRoot`. Upgrading the `SignalService` alone would make every uncached L1 → L2 proof revert, including the message that would upgrade the `Anchor`; the namespace switch also empties the received-signal cache, so nothing could reach L2 again. The guest images go first because a proposal with a forced inclusion or a stalled anchor reads its parent checkpoint from the versioned mapping, which old guests cannot prove, so finalization would stop until new ones are trusted.
 
+   This is the switch proposal in [SWITCH.md](SWITCH.md#3-the-dao-proposal), which also carries the switch's L1 actions.
+
 4. **Relayers and the bridge UI.** Checkpoints saved before the `SignalService` upgrade are no longer readable, so L1 → L2 processing waits until a post-upgrade `CheckpointSaved` is indexed, or treats `SS_CHECKPOINT_NOT_FOUND` as transient. Proof builders that set `blockId` to an L2 timestamp and `rootHash` to that block's `parentBeaconBlockRoot` must ship before the fork. A proof built before the fork must be rebuilt after it, and a timestamp that has left the EIP-4788 window needs a fresh proof.
-5. **The fork.** Clients activate Etna at `ETNA_FORK_TIME`. Once step 3 has executed, the fork time is fixed on chain. Moving it needs another L2 upgrade that executes before the old time, because from then on uncached L1 → L2 proofs fail until the clients actually fork.
+5. **The switch.** Etna starts as described in [SWITCH.md](SWITCH.md#4-switch-day): the Unzen Inbox stops accepting proposals shortly before `ETNA_FORK_TIME`, and the first Etna block has a timestamp at or after it. Once step 3 has executed, the fork time is fixed on chain in the `Anchor`, the Unzen Inbox and the EtnaInbox. Moving it needs upgrades of all three, executed before the old propose cutoff, because from the old time on uncached L1 → L2 proofs fail until Etna starts.
 6. **Afterwards.** Never roll the L2 `SignalService` back to the flat implementation, which would revive the pre-upgrade checkpoints and cached signals. A later `Anchor` clean-up must keep `getL1StateRoot`.
 
 ## 9. Changes by component
@@ -175,5 +177,5 @@ Each step depends on the previous one.
 
 ## 11. Open questions
 
-1. **Fork scheduling**: `ETNA_FORK_TIME` is not set. The `Anchor`'s `etnaTimestamp` must equal it and is fixed once the upgrade executes, so it has to be chosen before the DAO proposal (section 8).
+1. **Fork scheduling**: `ETNA_FORK_TIME` is not set. The `Anchor`'s `etnaTimestamp` must equal it and is fixed once the upgrade executes, so it has to be chosen before the DAO proposal (section 8). The Unzen Inbox's propose cutoff and the EtnaInbox's `ETNA_FORK_TIME` derive from the same value ([SWITCH.md](SWITCH.md#3-the-dao-proposal)).
 2. **Consumers of the anchor transaction**: whether anything else relies on the `Anchored` event or on transaction 0 being the anchor, such as explorers, indexers and tests. The known consumers of `CheckpointSaved` and `Anchor.getBlockState()` are in section 9.

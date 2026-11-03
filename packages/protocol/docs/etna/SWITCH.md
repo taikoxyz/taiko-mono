@@ -140,4 +140,4 @@ Block production does not wait for this check. Etna produces up to U blocks beyo
 
 ## 9. Rehearsal
 
-Run the whole procedure on a devnet that runs Unzen, then on Hoodi, before mainnet. Section 6 of [ACCEPTANCE.md](ACCEPTANCE.md) lists what the rehearsal must show.
+Run the whole procedure on a devnet that runs Unzen, then on Hoodi, before mainnet. [ACCEPTANCE.md section 6](ACCEPTANCE.md#6-switch-rehearsal-switchmd) lists what the rehearsal must show.
