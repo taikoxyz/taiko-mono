@@ -218,6 +218,36 @@ fn registry_state(storage: &RegistryStorage) -> TestState {
     TestState::new(accounts)
 }
 
+#[test]
+fn displacement_and_empty_slots_preserve_historical_authenticated_committees() {
+    let old = sample_entries(3);
+    let replacement = sample_entries(4).pop().unwrap();
+    let mut current = old.clone();
+    current[0] = replacement.clone();
+    current[1] = RegistryEntry {
+        ck_prefix: 0,
+        ck_x: B256::ZERO,
+        eff_stake: U256::ZERO,
+        active_from_l1: 0,
+        exit_effective_l1: 0,
+    };
+    let storage = RegistryStorage { checkpoints: vec![(20, old), (40, current)] };
+    let state = registry_state(&storage);
+    let historical =
+        verify_snapshot(state.state_root(), REGISTRY, &witness_at(&state, &storage, 0), 30)
+            .unwrap();
+    let latest =
+        verify_snapshot(state.state_root(), REGISTRY, &witness_at(&state, &storage, 1), 50)
+            .unwrap();
+    let (_, previous_members) = derive(&historical, 30, 0, &devnet()).unwrap();
+    let (_, current_members) = derive(&latest, 50, 0, &devnet()).unwrap();
+    assert_eq!(previous_members.len(), 3);
+    assert_eq!(current_members.len(), 2);
+    assert!(!previous_members.iter().any(|m| m.pubkey == replacement.consensus_key().unwrap()));
+    assert!(current_members.iter().any(|m| m.pubkey == replacement.consensus_key().unwrap()));
+    assert_eq!(derive(&historical, 30, 0, &devnet()).unwrap().1, previous_members);
+}
+
 fn witness_at(state: &TestState, storage: &RegistryStorage, index: u64) -> CommitteeWitness {
     let record = CommitteeRecord { checkpoint_index: index, ..vector_record() };
     committee_witness(state, REGISTRY, storage, index, record)

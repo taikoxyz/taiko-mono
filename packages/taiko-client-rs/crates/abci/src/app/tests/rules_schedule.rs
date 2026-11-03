@@ -81,3 +81,20 @@ async fn decided_planned_stop_violation_is_a_safety_halt() {
     );
     assert!(app.pending.is_none());
 }
+
+#[tokio::test(start_paused = true)]
+async fn unsupported_rules_do_not_mask_a_forged_anchor_during_cold_finalize() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 6).await;
+    let mut witness = install_schedule(&fx, &app, U256::from(1) << 48);
+    witness.l1_header = crate::test_utils::edit_l1_header(&witness.l1_header, |h| h.gas_used += 1);
+    let env = hand_envelope(&app, Some(witness), None);
+    let (_, req) = judge(&mut app, &env).await;
+    let result = tokio::time::timeout(
+        std::time::Duration::from_secs(20),
+        finalize(&mut app, finalize_req(&req)),
+    )
+    .await;
+    assert!(matches!(result, Ok(Err(AbciError::SafetyHalt(_)))), "{result:?}");
+}

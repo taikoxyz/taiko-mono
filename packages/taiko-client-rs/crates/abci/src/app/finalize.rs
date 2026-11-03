@@ -32,7 +32,7 @@ use super::{
 use crate::{
     committee,
     engine::{Engine, EngineError, PayloadVerdict},
-    envelope::single_envelope,
+    envelope::{EtnaEnvelope, single_envelope},
     l1::{L1Source, RawL1Header},
     metrics::AbciMetrics,
     store::AppState,
@@ -88,6 +88,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             ) {
                 Ok(validated) => break validated,
                 Err(Rejection::Rule(crate::rules::RuleViolation::UnsupportedRuleset { rules })) => {
+                    self.confirm_unsupported_rules(state, height, bft_secs, &env).await?;
                     tracing::warn!(height, rules, "waiting for ruleset support; upgrade the node");
                     tokio::time::sleep(FINALIZE_RETRY_MAX).await;
                 }
@@ -149,6 +150,45 @@ impl<L: L1Source, E: Engine> App<L, E> {
             consensus_param_updates: None,
             app_hash: app_hash(hash),
         })
+    }
+
+    /// Authenticates the fixed-core facts before waiting for software support. A proof under
+    /// a fabricated L1 header or a conflicting checkpoint is a safety halt, even when that
+    /// header claims a newer ruleset. The core timestamp and freshness rules remain checkable.
+    async fn confirm_unsupported_rules(
+        &self,
+        state: &AppState,
+        height: u64,
+        bft_secs: u64,
+        env: &EtnaEnvelope,
+    ) -> Result<(), AbciError> {
+        let anchor = if let Some(witness) = &env.anchor {
+            self.confirm_anchor(height, &witness.l1_header).await?;
+            let anchor = crate::l1::verify_anchor_witness(witness, self.params.inbox)
+                .map_err(|e| invalid_block(height, &Rejection::Witness(e)))?;
+            self.confirm_checkpoint(state, height, &anchor).await?;
+            anchor
+        } else {
+            state.anchor.clone()
+        };
+        let timestamp =
+            crate::rules::block_timestamp(state.parent.timestamp, bft_secs, anchor.timestamp);
+        if env.block.header.timestamp != timestamp {
+            return Err(invalid_block(
+                height,
+                &Rejection::Rule(crate::rules::RuleViolation::header_field(
+                    "timestamp",
+                    &timestamp,
+                    &env.block.header.timestamp,
+                )),
+            ));
+        }
+        crate::rules::check_anchor_freshness(
+            timestamp,
+            anchor.timestamp,
+            state.genesis.max_anchor_age,
+        )
+        .map_err(|e| invalid_block(height, &Rejection::Rule(e)))
     }
 
     /// Handles `Commit`: persists the state the last `FinalizeBlock` derived and makes it the
