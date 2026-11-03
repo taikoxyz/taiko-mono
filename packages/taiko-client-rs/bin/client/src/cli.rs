@@ -51,7 +51,21 @@ impl Cli {
     /// Run the subcommand.
     pub fn run(self) -> Result<()> {
         match self.subcommand {
-            Commands::AbciRecover(cmd) => Self::run_one_shot(cmd.run()),
+            Commands::AbciRecover(cmd) => {
+                if matches!(
+                    cmd.action,
+                    crate::commands::abci_recover::RecoveryAction::Activate { .. }
+                ) {
+                    // Activation owns signals and must await ordered child shutdown before the
+                    // runtime exits. An outer cancellation race would detach its descendants.
+                    let runtime = Self::tokio_runtime()?;
+                    let result = runtime.block_on(cmd.run());
+                    runtime.shutdown_timeout(RUNTIME_SHUTDOWN_TIMEOUT);
+                    result
+                } else {
+                    Self::run_one_shot(cmd.run())
+                }
+            }
             Commands::Abci(cmd) => Self::run_until_shutdown(cmd.run()),
             Commands::Lander(cmd) => Self::run_until_shutdown(cmd.run()),
             Commands::AbciGenesis(cmd) => Self::run_one_shot(cmd.run()),

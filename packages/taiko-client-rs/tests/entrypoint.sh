@@ -21,6 +21,8 @@ cd "$DIR/.."
 
 bash ./script/build_etna_signer.sh
 export ETNA_SIGNER_BIN="$PWD/target/etna-signer/etna-signer"
+bash ./script/build_stock_comet.sh
+export ETNA_COMET_BIN="$PWD/target/etna-signer/cometbft"
 
 # Internal selectors used by the fixed `just test-smoke` and `just test-full` recipes. Shift only
 # this leading flag so all remaining arguments retain their nextest meaning. By default the
@@ -39,6 +41,7 @@ fi
 # Every harness child inherits this label. Cleanup stays scoped to this invocation, including
 # lander fixtures, even when cancellation bypasses the harness's normal Drop cleanup.
 export TAIKO_CLIENT_RS_TEST_RUN=${TAIKO_CLIENT_RS_TEST_RUN:-local-$$-$RANDOM}
+recovery_image_built=0
 cleanup_devnets() {
     local status=$?
     trap - EXIT INT TERM
@@ -52,6 +55,9 @@ cleanup_devnets() {
     fi
     if [[ -n "$networks" ]]; then
         printf '%s\n' "$networks" | xargs docker network rm || failed=1
+    fi
+    if [[ "$recovery_image_built" == 1 ]]; then
+        docker image rm "$ETNA_RECOVERY_IMAGE" > /dev/null || failed=1
     fi
     if [[ "$status" == 0 && "$failed" != 0 ]]; then status=1; fi
     exit "$status"
@@ -87,6 +93,17 @@ for image in "$ANVIL_IMAGE" "$LANDER_ANVIL_IMAGE" "$ALETHIA_RETH_IMAGE" "$COMETB
         docker pull --quiet "$image"
     fi
 done
+
+# The distinct-UID scenario runs the entire controller and its native children in Linux.
+# An explicit image override is useful for an already rebuilt local source snapshot. Otherwise
+# build before nextest so image compilation does not consume a scenario's bounded timeout.
+if [[ -z "${ETNA_RECOVERY_IMAGE:-}" ]] && \
+    [[ "$filter" != *single_validator_produces_blocks_by_the_header_rules* ]] && \
+    { [[ $# == 0 ]] || [[ "$*" == *governance_recovery* ]] || [[ "$*" == --* ]]; }; then
+    export ETNA_RECOVERY_IMAGE="etna-client-recovery-test:$TAIKO_CLIENT_RS_TEST_RUN"
+    bash ./script/build_recovery_runtime.sh
+    recovery_image_built=1
+fi
 
 echo "Running the ABCI, lander, and CLI docker scenarios"
 terminate_tree() {

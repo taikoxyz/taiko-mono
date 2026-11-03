@@ -34,6 +34,16 @@ pub struct StandaloneAnvil {
 }
 
 impl StandaloneAnvil {
+    /// Owned network for attaching another fixture container without a host RPC adapter.
+    pub fn docker_network(&self) -> &str {
+        self.docker.network()
+    }
+
+    /// The existing Anvil peer on that private network.
+    pub fn docker_container(&self) -> String {
+        format!("{}-anvil", self.docker.network().strip_suffix("-net").unwrap())
+    }
+
     /// Starts an Osaka anvil with chain id 31337, default ephemeral development accounts,
     /// automining, and the dedicated `LANDER_ANVIL_IMAGE` override. This version includes canonical
     /// zero-storage proofs; the older ABCI image is preserved independently.

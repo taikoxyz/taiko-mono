@@ -382,7 +382,7 @@ pub fn specifications(
             ("ETNA_GENERATION", plan.origin.generation.to_string()),
             ("ETNA_L1_CHAIN_ID", plan.deployment.l1_chain_id.to_string()),
             ("ETNA_L2_CHAIN_ID", plan.deployment.l2_chain_id.to_string()),
-            ("ETNA_INBOX", plan.deployment.inbox.to_string()),
+            ("ETNA_INBOX", format!("{:#x}", plan.deployment.inbox)),
             ("ETNA_ENROLL_LEGACY", "1".into()),
             (
                 "ETNA_SIGNER_ADDR",

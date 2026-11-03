@@ -46,6 +46,63 @@ fn request(doc: &GenesisDoc) -> request::InitChain {
 }
 
 #[tokio::test]
+async fn recovery_init_preserves_guarded_signer_session_on_first_and_replayed_handshake() {
+    let (fx, l1, engine, w) = recovery_fixture(1, 6, 1);
+    checkpoint(&fx, &l1, &w, 6, w.el_header.hash_slow(), B256::repeat_byte(0xcc), 1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let doc = document(&fx, &w);
+    let first = app.trust.begin_session();
+    assert!(!first.trust_ready);
+    init_chain(&mut app, request(&doc)).await.unwrap();
+    assert_eq!(app.trust.snapshot().session_id, first.session_id);
+    app.refresh_trust().await.unwrap();
+    assert!(app.trust.snapshot().trust_ready);
+    // Stock Comet replays InitChain while app Info still reports zero at the origin.
+    let rearmed = app.trust.begin_session();
+    app.refresh_trust().await.unwrap();
+    assert!(app.trust.snapshot().trust_ready);
+    init_chain(&mut app, request(&doc)).await.unwrap();
+    assert_eq!(app.trust.snapshot().session_id, rearmed.session_id);
+    app.refresh_trust().await.unwrap();
+    assert!(app.trust.snapshot().trust_ready);
+}
+
+#[tokio::test]
+async fn recovery_init_replay_closes_unavailable_history_without_replacing_signer_session() {
+    let (fx, l1, engine, w) = recovery_fixture(1, 6, 1);
+    checkpoint(&fx, &l1, &w, 6, w.el_header.hash_slow(), B256::repeat_byte(0xcc), 1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let req = request(&document(&fx, &w));
+    init_chain(&mut app, req.clone()).await.unwrap();
+    app.trust.begin_session();
+    app.refresh_trust().await.unwrap();
+    let trust = app.trust_handle();
+    let session = trust.snapshot().session_id;
+    assert!(trust.snapshot().trust_ready);
+    let l1 = app.l1.clone();
+    let finalized = l1.state().finalized;
+    l1.set_finalized(w.recovery_header.number() - 1);
+    {
+        let pending = init_chain(&mut app, req);
+        tokio::pin!(pending);
+        tokio::select! {
+            result = &mut pending => panic!("unavailable history must wait: {result:?}"),
+            _ = tokio::time::sleep(std::time::Duration::from_millis(30)) => {}
+        }
+        assert!(!trust.snapshot().trust_ready);
+        assert_eq!(trust.snapshot().session_id, session);
+        l1.set_finalized(finalized);
+        tokio::time::timeout(std::time::Duration::from_secs(3), pending).await.unwrap().unwrap();
+    }
+    assert_eq!(trust.snapshot().session_id, session);
+    assert!(!trust.snapshot().trust_ready);
+    app.refresh_trust().await.unwrap();
+    assert!(trust.snapshot().trust_ready);
+}
+
+#[tokio::test]
 async fn recovery_init_preserves_stock_zero_height_handshake() {
     use super::proposal::{decide, judge, propose};
     let (fx, l1, engine, w) = recovery_fixture(1, 6, 1);

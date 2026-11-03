@@ -349,9 +349,11 @@ pub(super) async fn monitor<L: abci::L1Source + ?Sized, E: Engine + ?Sized>(
     journal: &mut super::status::ActivationJournal,
 ) -> Result<(), RecoveryCommandError> {
     use super::status::{ActivationBlocker, ActivationPhase};
+    let app = store.plan_dir(plan.id()).join("app");
     let mut session = None;
     let mut tick = tokio::time::interval(Duration::from_millis(250));
     loop {
+        check_current_halt(&app)?;
         // Immediately completed evidence failures must not starve child-exit checks.
         if runtime.exited_role()?.is_some() {
             return Err(RecoveryCommandError::ComponentExited)
@@ -362,13 +364,14 @@ pub(super) async fn monitor<L: abci::L1Source + ?Sized, E: Engine + ?Sized>(
             loop {
                 tokio::select! {
                     result=&mut round=>break result,
-                    _=tick.tick()=>{if runtime.exited_role()?.is_some(){break Err(RecoveryCommandError::ComponentExited)}},
+                    _=tick.tick()=>{check_current_halt(&app)?;if runtime.exited_role()?.is_some(){break Err(RecoveryCommandError::ComponentExited)}},
                 }
             }
         };
         if runtime.exited_role()?.is_some() {
             return Err(RecoveryCommandError::ComponentExited)
         }
+        check_current_halt(&app)?;
         match observed {
             Ok(()) => {}
             Err(RecoveryCommandError::Runtime(_) | RecoveryCommandError::Missing(_)) => {
@@ -384,6 +387,23 @@ pub(super) async fn monitor<L: abci::L1Source + ?Sized, E: Engine + ?Sized>(
         // Settlement is an observation, not permission to abandon owned child supervision.
         tick.tick().await;
     }
+}
+
+/// Any current-generation terminal record closes observation; historical supersession is
+/// evaluated separately during activation. Unreadable/aliased paths cannot prove absence.
+fn check_current_halt(app: &std::path::Path) -> Result<(), RecoveryCommandError> {
+    for name in [
+        "fatal-evidence.txt",
+        "validator-supervisor.halted",
+        abci::recovery::supersession::SUPERSESSION_FILE,
+    ] {
+        if !std::fs::symlink_metadata(app.join(name))
+            .is_err_and(|error| error.kind() == std::io::ErrorKind::NotFound)
+        {
+            return Err(RecoveryCommandError::Halted);
+        }
+    }
+    Ok(())
 }
 
 /// One private incarnation and independent finalized-landing/canonical-chain observation.
@@ -475,6 +495,7 @@ pub(super) async fn observation_round<L: abci::L1Source + ?Sized, E: Engine + ?S
     if current != snapshot || (profile.signer.is_some() && signer_session(&app)? != expected) {
         return Err(RecoveryCommandError::Runtime("private observation changed"))
     }
+    check_current_halt(&app)?;
     record_observation(plan, journal, &snapshot, expected, &landing)
 }
 

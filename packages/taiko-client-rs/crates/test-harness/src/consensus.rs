@@ -36,6 +36,8 @@ pub struct ContractConsensus {
     tmp: TempDir,
     /// Suppresses failure diagnostics after clean teardown.
     stopped: bool,
+    /// Native peers retain their loopback signer ports across restart.
+    native_ports: Option<Vec<u16>>,
 }
 impl ContractConsensus {
     /// Start one independently executing validator for each authoritative bootstrap directory.
@@ -44,6 +46,26 @@ impl ContractConsensus {
         l2: &StandaloneReth,
         params: ChainParams,
         signer_dirs: Vec<PathBuf>,
+    ) -> Result<Self> {
+        Self::start_mode(l1_http, l2, params, signer_dirs, false).await
+    }
+
+    /// Starts the pinned stock binary as foreground supervisor-owned host processes.
+    pub async fn start_native(
+        l1_http: Url,
+        l2: &StandaloneReth,
+        params: ChainParams,
+        signer_dirs: Vec<PathBuf>,
+    ) -> Result<Self> {
+        Self::start_mode(l1_http, l2, params, signer_dirs, true).await
+    }
+
+    async fn start_mode(
+        l1_http: Url,
+        l2: &StandaloneReth,
+        params: ChainParams,
+        signer_dirs: Vec<PathBuf>,
+        native: bool,
     ) -> Result<Self> {
         ensure!(!signer_dirs.is_empty(), "validators required");
         let tmp = tempfile::Builder::new().prefix("real-consensus-").tempdir_in("/tmp")?;
@@ -62,6 +84,8 @@ impl ContractConsensus {
         let mut extra_el = Vec::new();
         let image = std::env::var("COMETBFT_IMAGE").unwrap_or_else(|_| "cometbft/cometbft:v0.40.0@sha256:0703fb881dac0987c8e41a5810cc09dbcb503bb59ac91705f6936c4b972ac798".into());
         let user = host_user().await?;
+        let native_p2p = (0..n).map(|_| free_port()).collect::<Result<Vec<_>>>()?;
+        let mut native_ports = Vec::new();
         for i in 0..n {
             if i > 0 {
                 extra_el.push(StandaloneReth::start().await?);
@@ -80,18 +104,36 @@ impl ContractConsensus {
             let home = tmp.path().join(format!("comet-{i}"));
             let persistent_peers = (0..n)
                 .filter(|j| *j != i)
-                .map(|j| format!("{}@{}:26656", nodes[j].node_id(), names[j]))
+                .map(|j| {
+                    if native {
+                        format!("{}@127.0.0.1:{}", nodes[j].node_id(), native_p2p[j])
+                    } else {
+                        format!("{}@{}:26656", nodes[j].node_id(), names[j])
+                    }
+                })
                 .collect::<Vec<_>>()
                 .join(",");
+            let rpc_port = free_port()?;
+            let signer_port = free_port()?;
+            let proxy = format!(
+                "tcp://{}:{}",
+                if native { "127.0.0.1" } else { "host.docker.internal" },
+                app.port()
+            );
+            let signer_address = if native {
+                format!("tcp://127.0.0.1:{signer_port}")
+            } else {
+                "tcp://0.0.0.0:26659".into()
+            };
             write_home(
                 &home,
                 &HomeConfig {
                     moniker: &names[i],
-                    proxy_app: &format!("tcp://host.docker.internal:{}", app.port()),
+                    proxy_app: &proxy,
                     timeout_commit_ms: 1000,
                     persistent_peers: &persistent_peers,
                     genesis_json: &genesis_json,
-                    signer_addr: "tcp://0.0.0.0:26659",
+                    signer_addr: &signer_address,
                     node: &nodes[i],
                 },
             )?;
@@ -99,8 +141,27 @@ impl ContractConsensus {
                 signer_dirs[i].clone(),
                 tmp.path().join(format!("app-{i}/checkpoint-trust.sock")),
                 genesis_doc.chain_id.clone(),
-            )?
-            .supervised(home.clone(), names[i].clone());
+            )?;
+            if native {
+                use std::os::unix::fs::PermissionsExt;
+                std::fs::set_permissions(
+                    home.join("config/node_key.json"),
+                    std::fs::Permissions::from_mode(0o600),
+                )?;
+                let path = home.join("config/config.toml");
+                let config = std::fs::read_to_string(&path)?
+                    .replace("tcp://0.0.0.0:26657", &format!("tcp://127.0.0.1:{rpc_port}"))
+                    .replace("tcp://0.0.0.0:26656", &format!("tcp://127.0.0.1:{}", native_p2p[i]));
+                std::fs::write(path, config)?;
+                let signer = signer.native(home);
+                signer.start(signer_port)?;
+                peers.push(CmtClient::new(local_url(rpc_port)?));
+                apps.push(app);
+                signers.push(signer);
+                native_ports.push(signer_port);
+                continue;
+            }
+            let signer = signer.supervised(home.clone(), names[i].clone());
             make_world_writable(&home)?;
             let mount = format!("{}:/cometbft", home.display());
             let rpc = format!("127.0.0.1:{}:26657", free_port()?);
@@ -144,6 +205,7 @@ impl ContractConsensus {
             docker,
             tmp,
             stopped: false,
+            native_ports: native.then_some(native_ports),
         };
         this.wait_for_height(1).await?;
         Ok(this)
@@ -165,6 +227,11 @@ impl ContractConsensus {
     pub fn comet_home(&self, i: usize) -> PathBuf {
         self.tmp.path().join(format!("comet-{i}"))
     }
+    /// Endpoints of an independently executing peer, with the caller-owned first EL supplied.
+    pub fn execution_endpoints(&self, i: usize, first: &StandaloneReth) -> (Url, Url) {
+        let el = if i == 0 { first } else { &self.extra_el[i - 1] };
+        (el.http.clone(), el.auth.clone())
+    }
     /// Reads authoritative HRS without modifying it.
     pub fn signing_state(&self, i: usize) -> Result<serde_json::Value> {
         self.signers[i].state()
@@ -179,8 +246,12 @@ impl ContractConsensus {
     /// Restarts app then supervised consensus, preserving every storage directory.
     pub async fn restart_node(&mut self, i: usize) -> Result<()> {
         self.apps[i].launch().await?;
-        crate::docker::docker(&["start", &self.names[i]]).await?;
-        self.signers[i].start(host_port(&self.names[i], 26659).await?)?;
+        if let Some(ports) = &self.native_ports {
+            self.signers[i].start(ports[i])?;
+        } else {
+            crate::docker::docker(&["start", &self.names[i]]).await?;
+            self.signers[i].start(host_port(&self.names[i], 26659).await?)?;
+        }
         Ok(())
     }
     /// Waits for the first validator while surfacing terminal app failures.

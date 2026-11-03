@@ -183,12 +183,14 @@ impl<L: L1Source, E: Engine> App<L, E> {
             });
         }
         check_validators(&req.validators, &origin.committee.members)?;
-        self.trust.begin_session();
         let mut pause = super::FINALIZE_RETRY_INITIAL;
         let bootstrap = loop {
             match self.recovery_inputs(w).await {
                 Ok(bootstrap) => break bootstrap,
                 Err(error) if recovery_input_unavailable(&error) => {
+                    // The guarded signer owns the session. A successful stock InitChain replay
+                    // must not rotate it, while unavailable inputs immediately close readiness.
+                    self.trust.await_authentication(error.to_string());
                     tracing::warn!(height = origin.height, %error, ?pause, "recovery initialization waits for authenticated history");
                     tokio::time::sleep(pause).await;
                     pause = (pause * 2).min(super::FINALIZE_RETRY_MAX);

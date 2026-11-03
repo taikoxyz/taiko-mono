@@ -139,6 +139,16 @@ pub struct StandaloneReth {
     _tmp: TempDir,
 }
 impl StandaloneReth {
+    /// Owned network for attaching another fixture container without exposing Engine RPC.
+    pub fn docker_network(&self) -> &str {
+        self.docker.network()
+    }
+
+    /// Name of this exact retained EL container, also used for restart.
+    pub fn docker_container(&self) -> &str {
+        self._tmp.path().file_name().unwrap().to_str().unwrap()
+    }
+
     /// Start a fresh EL with canonical generated system predeploys and no obsolete fee vault.
     pub async fn start() -> Result<Self> {
         let genesis = EtnaGenesis::build()?;
@@ -150,17 +160,12 @@ impl StandaloneReth {
         let mount = format!("{}:/genesis.json:ro", path.display());
         let jwt_mount = format!("{}:/jwt.hex:ro", jwt_path()?.display());
         let image = std::env::var("ALETHIA_RETH_IMAGE").unwrap_or_else(|_| RETH_IMAGE.into());
-        let mut args = vec![
-            "-p",
-            "127.0.0.1::8545",
-            "-p",
-            "127.0.0.1::8551",
-            "-v",
-            &mount,
-            "-v",
-            &jwt_mount,
-            &image,
-        ];
+        // Recovery profiles bind these endpoints immutably. Docker reallocates anonymous
+        // published ports on restart, so reserve explicit owned loopback ports instead.
+        let http_port = format!("127.0.0.1:{}:8545", crate::app::free_port()?);
+        let auth_port = format!("127.0.0.1:{}:8551", crate::app::free_port()?);
+        let mut args =
+            vec!["-p", &http_port, "-p", &auth_port, "-v", &mount, "-v", &jwt_mount, &image];
         args.extend(RETH_CMD.split_whitespace());
         docker.run(&name, &args).await?;
         let http = local_url(host_port(&name, 8545).await?)?;
@@ -181,6 +186,16 @@ impl StandaloneReth {
             &jwt_path()?,
             Duration::from_secs(30),
         )?)
+    }
+    /// Restart the same owned EL container, retaining its canonical database and ports.
+    pub async fn restart(&self) -> Result<()> {
+        let name = self._tmp.path().file_name().unwrap().to_string_lossy();
+        crate::docker::docker(&["restart", &name]).await?;
+        wait_until("restarted custom genesis EL", RPC_TIMEOUT, POLL, || async {
+            Ok(Some(self.provider.get_chain_id().await?))
+        })
+        .await?;
+        Ok(())
     }
     /// Explicitly remove this instance's container and private network.
     pub async fn stop(mut self) -> Result<()> {

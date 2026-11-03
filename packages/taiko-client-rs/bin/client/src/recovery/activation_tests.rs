@@ -1318,3 +1318,103 @@ async fn recovery_activation_repeated_generation_preserves_historical_supersessi
 
 #[path = "supervisor_activation_tests.rs"]
 mod supervisor_activation_tests;
+
+#[tokio::test]
+async fn recovery_activation_current_halt_stops_owned_children_and_preserves_evidence() {
+    use crate::recovery::activate::activate_with;
+    for filename in
+        ["validator-supervisor.halted", "fatal-evidence.txt", "generation-superseded.json"]
+    {
+        let dir = tempfile::tempdir_in("/private/tmp").unwrap();
+        let source = Source::new();
+        let mut profile = native_profile(dir.path(), &source);
+        profile.app.argv[1] = profile.app.argv[1].replace(
+            "record('start')",
+            &format!("record('start')\nfrom pathlib import Path\nPath(sys.argv[sys.argv.index('--data-dir')+1], {filename:?}).write_bytes(b'new current fatal evidence')"),
+        );
+        let root = dir.path().join("r");
+        let plan =
+            prepare::prepare(&profile, 1, &root, &source, &ReadEngine::new(&source)).await.unwrap();
+        let engine = ProbeEngine {
+            reader: ReadEngine::new(&source),
+            built_on: Mutex::new(vec![]),
+            malformed: false,
+        };
+        let result = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            activate_with(
+                profile,
+                root.clone(),
+                plan.id(),
+                &source,
+                &engine,
+                std::future::pending(),
+            ),
+        )
+        .await;
+        assert!(
+            matches!(result, Ok(Err(RecoveryCommandError::Halted))),
+            "new {filename}: {result:?}"
+        );
+        let store = RecoveryStore::new(&root);
+        assert_eq!(
+            std::fs::read(store.plan_dir(plan.id()).join("app").join(filename)).unwrap(),
+            b"new current fatal evidence"
+        );
+        let journal = store.load_journal(plan.id()).unwrap().unwrap();
+        assert_eq!(journal.blocker, Some(ActivationBlocker::SafetyHalt));
+        assert!(journal.progress.is_none_or(|p| !p.trusted));
+        assert!(abci::ownership::acquire_activation(&root, plan.id()).is_ok());
+        let log = std::fs::read_to_string(dir.path().join("children.log")).unwrap();
+        assert!(log.contains("app:stop"));
+        assert!(log.contains("comet:stop"));
+    }
+}
+
+#[tokio::test]
+async fn recovery_process_specifications_encode_canonical_signer_deployment() {
+    let dir = tempfile::tempdir_in("/private/tmp").unwrap();
+    let source = Source::new();
+    let mut profile = configured_profile(dir.path(), &source);
+    profile.role = NodeRole::Validator;
+    profile.signer = Some(SignerProfile {
+        key: dir.path().join("key.json"),
+        state: dir.path().join("state.json"),
+        authority: dir.path().join("authority"),
+        executable: profile.app.clone(),
+        supervisor: profile.app.clone(),
+    });
+    let template = profile.comet_home.join("config/config.toml");
+    std::fs::write(
+        &template,
+        std::fs::read_to_string(&template)
+            .unwrap()
+            .replace("priv_validator_laddr = ''", "priv_validator_laddr = 'tcp://127.0.0.1:26659'"),
+    )
+    .unwrap();
+    install_transport_key(&profile);
+    let root = dir.path().join("r");
+    let mut plan =
+        prepare::prepare(&profile, 1, &root, &source, &ReadEngine::new(&source)).await.unwrap();
+    let store = RecoveryStore::new(&root);
+    let config = std::fs::read(store.plan_dir(plan.id()).join("comet/config/config.toml")).unwrap();
+    // Isolate command serialization with an alphabetic address. This is not an authenticated
+    // activation: the command compiler takes the already validated caller-owned plan.
+    let inbox = "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512";
+    plan.deployment.inbox = inbox.parse().unwrap();
+    let configuration = store.plan_dir(plan.id()).join("comet/config");
+    std::fs::create_dir_all(&configuration).unwrap();
+    std::fs::write(configuration.join("config.toml"), config).unwrap();
+    let installed = crate::recovery::install::binding(&profile, plan.id()).unwrap();
+    std::fs::create_dir_all(store.plan_dir(plan.id()).join("app")).unwrap();
+    std::fs::create_dir_all(&installed.home).unwrap();
+    let specs =
+        crate::recovery::process::specifications(&profile, &store, &plan, &installed).unwrap();
+    let supervisor = &specs[1].executable.env;
+    assert_eq!(supervisor["ETNA_INBOX"], inbox);
+    assert_eq!(supervisor["ETNA_L1_CHAIN_ID"], plan.deployment.l1_chain_id.to_string());
+    assert_eq!(
+        supervisor["ETNA_CHAIN_ID"],
+        abci::rules::chain_id_for(&plan.deployment.params().unwrap(), 1).unwrap()
+    );
+}

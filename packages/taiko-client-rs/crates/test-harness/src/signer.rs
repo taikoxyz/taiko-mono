@@ -33,7 +33,7 @@ pub(crate) struct SignerNode {
     /// Owned helper or supervisor PID in the cleanup registry.
     pid: Mutex<Option<u32>>,
     /// Supported supervisor adapter: retained home and existing Docker container.
-    runtime: Option<(PathBuf, String)>,
+    runtime: Option<(PathBuf, Option<String>)>,
 }
 
 impl SignerNode {
@@ -83,7 +83,13 @@ impl SignerNode {
 
     /// Runs the same supervisor as the supported image against a stock Docker Comet child.
     pub(crate) fn supervised(mut self, home: PathBuf, container: String) -> Self {
-        self.runtime = Some((home, container));
+        self.runtime = Some((home, Some(container)));
+        self
+    }
+
+    /// Uses stock foreground Comet on this host, preserving the supervisor lifecycle.
+    pub(crate) fn native(mut self, home: PathBuf) -> Self {
+        self.runtime = Some((home, None));
         self
     }
 
@@ -107,13 +113,22 @@ impl SignerNode {
             command
                 .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../script/etna_validator.py"))
                 .env("ETNA_COMET_HOME", home)
-                .env("ETNA_COMET_CONTAINER", container)
                 .env("ETNA_SIGNER_ADDR", format!("tcp://127.0.0.1:{port}"))
                 .env("ETNA_APP_STORE", self.control.parent().expect("app store"))
                 .env("ETNA_PRIV_KEY", key_dir.join("key.json"))
                 .env("ETNA_PRIV_STATE", key_dir.join("state.json"))
                 .env("ETNA_CHAIN_ID", &self.chain_id)
                 .env("ETNA_SIGNER_BIN", &binary);
+            if let Some(container) = container {
+                command.env("ETNA_COMET_CONTAINER", container);
+            } else {
+                let comet = std::env::var("ETNA_COMET_BIN")
+                    .context("ETNA_COMET_BIN required for native stock consensus")?;
+                command.env(
+                    "ETNA_COMET_COMMAND_JSON",
+                    serde_json::to_string(&[comet, "start".into()])?,
+                );
+            }
             command
         } else {
             let mut command = Command::new(binary);

@@ -262,6 +262,21 @@ impl TrustHandle {
         snapshot
     }
 
+    /// Closes authorization while retrying recovery inputs, preserving the signer's session
+    /// and authenticated checkpoint floor. Only a later verification may publish readiness.
+    pub(super) fn await_authentication(&self, reason: String) {
+        let mut state = self.inner.lock().unwrap_or_else(PoisonError::into_inner);
+        let snapshot = &mut state.snapshot;
+        if snapshot.phase != TrustPhase::Halted {
+            snapshot.phase = TrustPhase::Acquiring;
+            snapshot.reason = Some(bounded_reason(reason));
+        }
+        snapshot.trust_ready = false;
+        snapshot.syncing = true;
+        snapshot.trusted_consensus_head = None;
+        snapshot.publish_metrics();
+    }
+
     /// Returns closed for a stale session without altering the current session.
     pub(crate) fn check_session(&self, session: &str) -> TrustSnapshot {
         let mut snapshot = self.snapshot();

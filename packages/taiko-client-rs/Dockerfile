@@ -37,10 +37,11 @@ COPY packages/taiko-client-rs packages/taiko-client-rs
 
 WORKDIR /app/packages/taiko-client-rs
 
+ARG CARGO_BUILD_JOBS=2
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/usr/local/cargo/git \
     --mount=type=cache,target=/app/packages/taiko-client-rs/target \
-    cargo build --release --locked && \
+    CARGO_BUILD_JOBS="$CARGO_BUILD_JOBS" cargo build --release --locked && \
     cp /app/packages/taiko-client-rs/target/release/taiko-client /tmp/taiko-client
 
 FROM ubuntu:24.04 AS runtime-tools

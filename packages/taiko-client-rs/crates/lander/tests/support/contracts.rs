@@ -75,6 +75,16 @@ impl ContractFixture {
     }
 
     pub async fn deploy_config(count: usize, unsettled_limit: u64, epoch_len: u64) -> Result<Self> {
+        Self::deploy_committee_config(count, unsettled_limit, epoch_len, 128).await
+    }
+
+    /// Authenticates a bounded committee cap so registered standby keys can enter after recovery.
+    pub async fn deploy_committee_config(
+        count: usize,
+        unsettled_limit: u64,
+        epoch_len: u64,
+        n_max: usize,
+    ) -> Result<Self> {
         let anvil = StandaloneAnvil::start().await?;
         let p = &anvil.provider;
         let owner = dev_signer().address();
@@ -205,6 +215,7 @@ impl ContractFixture {
             registry,
             l1_chain_id,
             unsettled_limit,
+            n_max,
             fee_recipient: Address::repeat_byte(0x77),
             ..ChainParams::builtin(L2_CHAIN_ID)?
         };
