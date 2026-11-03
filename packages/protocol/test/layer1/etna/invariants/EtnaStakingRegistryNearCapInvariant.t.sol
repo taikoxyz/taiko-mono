@@ -6,12 +6,13 @@ import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry
 
 /// @title EtnaStakingRegistryNearCapInvariantBase
 /// @notice Prefills the registry with 4,095 real registrations, one short of the 4,096 slots, so
-/// runs take the last slot, hit `RegistryFull`, release slots and reuse them at the cap.
+/// runs take the last slot, then admit only stakes above the smallest slot value, displacing its
+/// bond, and reuse withdrawn bonds' slots at the cap.
 /// @dev The prefill registers through the handler in four blocks (four checkpoints), so the
 /// model, ghost tree and checkpoint copies cover every entry. Four prefilled bonds then request
 /// their exits and two of those are confirmed, so a run can release a slot within a few calls.
 /// Per-call checks stay cheap: the handler compares every root with its incremental ghost tree,
-/// and the invariants check only the slots a run touched against the model.
+/// and the invariants check only the bonds a run touched against the model.
 abstract contract EtnaStakingRegistryNearCapInvariantBase is EtnaStakingRegistryInvariantBase {
     /// @dev The first prefilled consensus key, outside the handler's pool.
     uint256 internal constant PREFILL_KEY = 0x10000;
@@ -70,50 +71,62 @@ abstract contract EtnaStakingRegistryNearCapInvariantBase is EtnaStakingRegistry
 /// forge-config: default.invariant.depth = 50
 /// forge-config: default.invariant.fail_on_revert = true
 contract EtnaStakingRegistryNearCapInvariantTest is EtnaStakingRegistryNearCapInvariantBase {
-    /// @notice The 4,096th registration takes the last slot, the next one reverts
-    /// `RegistryFull`, and after a release the next registration reuses the released slot at the
-    /// cap. With the released slot present and again after the reuse, the naive root over all
-    /// 4,096 raw entries equals `entriesRoot()` and the ghost tree's root.
-    function test_handler_FillsReleasesAndReusesAtTheCap() external {
+    /// @notice The 4,096th registration takes the last slot. With every slot at the minimum
+    /// stake, a minimum registration reverts `StakeTooLow` and a double one displaces the bond in
+    /// slot 0; after bond 1 is withdrawn, the next minimum registration takes its emptied slot.
+    /// With the slot empty and again after it is taken, the naive root over all 4,096 raw entries
+    /// equals `entriesRoot()` and the ghost tree's root.
+    function test_handler_FillsDisplacesAndReusesAtTheCap() external {
         handler.register(0, 0, 0);
         assertEq(registry.entryCount(), CAPACITY, "the 4096th registration");
         assertEq(handler.capFills(), 1, "cap filled");
         handler.register(1, 1, 0);
         assertEq(
-            handler.rejections(0, IEtnaStakingRegistry.RegistryFull.selector), 1, "registry full"
+            handler.rejections(0, IEtnaStakingRegistry.StakeTooLow.selector),
+            1,
+            "not above the smallest value"
         );
+        handler.register(2, 2, 1);
+        assertEq(handler.displacements(), 1, "a double stake displaces");
+        (bool holdsSlot,) = registry.slotOfBond(0);
+        assertFalse(holdsSlot, "bond 0 displaced from slot 0");
+
         handler.advanceToWithdrawal(0);
-        handler.withdraw(0);
-        assertEq(handler.withdrawals(), 1, "a slot released");
-        assertEq(registry.freeSlotCount(), 1, "one free slot at the cap");
-        _assertNaiveRoot("at the cap with a free slot");
-        handler.register(2, 2, 0);
-        assertEq(handler.reusesAtCap(), 1, "the released slot reused at the cap");
+        address owner = registry.ownerOf(1);
+        handler.withdrawOf(1, owner, owner);
+        assertEq(handler.withdrawals(), 1, "bond 1 withdrawn");
+        (bool occupied,) = registry.bondInSlot(1);
+        assertFalse(occupied, "slot 1 emptied");
+        _assertNaiveRoot("at the cap with an empty slot");
+        handler.register(4, 4, 0);
+        assertEq(handler.reuses(), 1, "the emptied slot reused at the cap");
         assertEq(registry.entryCount(), CAPACITY, "still 4096 slots");
 
         _assertNaiveRoot("at the cap after the reuse");
         _assertModelHeld();
     }
 
-    /// @notice 8. Entries never exceed the 4,096 slots: a registration at the cap reverts
-    /// `RegistryFull` unless a slot is free, the most recently released slot is reused first,
-    /// and every free slot is a distinct released bond. Every slot and key a run touched matches
-    /// the model, and the registry's balance is the modelled stake. `entriesRoot()` is the ghost
+    /// @notice 8. Entries never exceed the 4,096 slots: at the cap a registration takes the
+    /// slot of the smallest value (the per-call checks hold the admission threshold to the
+    /// model) and the slot holders are the model's. Every bond and key a run touched matches the
+    /// model, and the registry's balance is the modelled stake. `entriesRoot()` is the ghost
     /// tree's root over all modelled entries, and the latest checkpoint holds it and the count.
     function invariant_entriesStayWithinTheCap() external view {
         _assertModelHeld();
         uint256 count = registry.entryCount();
         assertLe(count, CAPACITY, "entries within the cap");
         assertEq(count, handler.slotCount(), "modelled slot count");
-        _assertFreeSlots(count);
+        _assertSlots(count);
 
-        uint256[] memory touched = handler.touchedSlots();
+        uint256[] memory touched = handler.touchedBonds();
         for (uint256 i; i < touched.length; ++i) {
             _assertModelled(touched[i]);
         }
         address[] memory keys = handler.touchedKeys();
         for (uint256 i; i < keys.length; ++i) {
-            assertTrue(registry.keyUsed(keys[i]), "a registered key stays used");
+            (bool registered, uint256 bondId) = registry.bondForKey(keys[i]);
+            assertTrue(registered, "a registered key stays registered");
+            assertEq(bondId + 1, handler.keyBond(keys[i]), "the key names its bond");
         }
         assertEq(token.balanceOf(address(registry)), handler.staked(), "modelled stake");
 
@@ -147,7 +160,7 @@ contract EtnaStakingRegistryNearCapInvariantTest is EtnaStakingRegistryNearCapIn
     }
 
     /// @notice 3. Each checkpoint matches its end-of-block snapshot (count and root of the
-    /// modelled entries) after slots are released and reused at the cap.
+    /// modelled entries) after bonds are displaced and slots reused at the cap.
     function invariant_snapshotsSurviveSlotReuse() external view {
         _assertModelHeld();
         _assertSnapshots();
@@ -158,7 +171,7 @@ contract EtnaStakingRegistryNearCapInvariantTest is EtnaStakingRegistryNearCapIn
     /// of its confirmation, also at the cap.
     function invariant_activationAndExitTiming() external view {
         _assertModelHeld();
-        uint256[] memory touched = handler.touchedSlots();
+        uint256[] memory touched = handler.touchedBonds();
         for (uint256 i; i < touched.length; ++i) {
             _assertTiming(touched[i]);
         }

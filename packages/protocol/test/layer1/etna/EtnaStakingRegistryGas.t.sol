@@ -35,6 +35,10 @@ abstract contract EtnaStakingRegistryGasBase is EtnaStakingRegistryTestBase {
     bytes internal publicKey;
     bytes internal pop;
 
+    /// @dev The conflicting votes a slashing test reports.
+    IEtnaStakingRegistry.Vote internal voteA;
+    IEtnaStakingRegistry.Vote internal voteB;
+
     /// @notice Carol registers `_count` minimum stakes with the consensus keys `_firstKey`,
     /// `_firstKey + 1`, ... in the current block.
     /// @dev Called by this contract only, as an external call so each batch starts with empty
@@ -52,16 +56,17 @@ abstract contract EtnaStakingRegistryGasBase is EtnaStakingRegistryTestBase {
     /// @dev Funds `_staker` and stores the key and proof of possession of `_pk` for `_staker`'s
     /// measured registration.
     function _prepareRegistration(address _staker, uint256 _pk) internal {
-        _fund(_staker, MIN_STAKE);
+        _fund(_staker, MIN_STAKE + 1);
         publicKey = EtnaTestKeys.publicKey(_pk);
         pop = EtnaTestKeys.popSig(_pk, registry, _staker);
     }
 
-    /// @dev Measures `_staker`'s registration of the stored key with `MIN_STAKE` as `_label`, and
-    /// returns its bond id.
+    /// @dev Measures `_staker`'s registration of the stored key staking `_amount` as `_label`,
+    /// and returns its bond id.
     function _measureRegister(
         string memory _label,
-        address _staker
+        address _staker,
+        uint256 _amount
     )
         internal
         returns (uint256 bondId_)
@@ -71,7 +76,7 @@ abstract contract EtnaStakingRegistryGasBase is EtnaStakingRegistryTestBase {
         bytes memory proof = pop;
         vm.startPrank(_staker);
         vm.startSnapshotGas(_label);
-        bondId_ = target.register(key, MIN_STAKE, proof);
+        bondId_ = target.register(key, _amount, proof);
         _stopSnapshot(_label);
         vm.stopPrank();
     }
@@ -94,6 +99,74 @@ abstract contract EtnaStakingRegistryGasBase is EtnaStakingRegistryTestBase {
         assertLt(gasUsed_, GAS_LIMIT, _label);
     }
 
+    /// @dev Two conflicting generation-0 precommits at height 1000, round 3, signed by `_pk` for
+    /// this deployment.
+    function _conflictingVotes(uint256 _pk)
+        internal
+        view
+        returns (IEtnaStakingRegistry.Vote memory a_, IEtnaStakingRegistry.Vote memory b_)
+    {
+        bytes memory cometChainId = LibCometVote.chainId(
+            LibCometVote.chainDomain(block.chainid, L2_CHAIN_ID, address(mockInbox), 0)
+        );
+        a_ = EtnaTestKeys.signVote(_pk, _precommit(keccak256("block a")), cometChainId);
+        b_ = EtnaTestKeys.signVote(_pk, _precommit(keccak256("block b")), cometChainId);
+    }
+
+    /// @dev A precommit at height 1000, round 3, for `_blockHash` with a one-part part set
+    /// header.
+    function _precommit(bytes32 _blockHash)
+        internal
+        pure
+        returns (IEtnaStakingRegistry.Vote memory v_)
+    {
+        v_.voteType = 2;
+        v_.height = 1000;
+        v_.round = 3;
+        v_.blockHash = _blockHash;
+        v_.partsTotal = 1;
+        v_.partsHash = keccak256(abi.encode(_blockHash));
+        v_.timestampSeconds = 1_700_000_000;
+        v_.timestampNanos = 123;
+    }
+
+    /// @dev Measures Bob's double-sign report against `_bondId` with the stored votes as
+    /// `_label`.
+    function _measureSlash(string memory _label, uint256 _bondId) internal {
+        EtnaStakingRegistry target = registry;
+        IEtnaStakingRegistry.Vote memory a = voteA;
+        IEtnaStakingRegistry.Vote memory b = voteB;
+        vm.startPrank(Bob);
+        vm.startSnapshotGas(_label);
+        target.slashDoubleSign(_bondId, a, b);
+        _stopSnapshot(_label);
+        vm.stopPrank();
+        assertEq(registry.bondAt(_bondId).entry.effStake, 0, "slashed");
+    }
+
+    /// @dev Measures the registry owner's forfeiture of `_bondId` as `_label`.
+    function _measureForfeit(string memory _label, uint256 _bondId) internal {
+        EtnaStakingRegistry target = registry;
+        IEtnaStakingRegistry.Entry memory entry = registry.bondAt(_bondId).entry;
+        bytes32 entryKey = keccak256(abi.encode(uint256(entry.ckPrefix), entry.ckX));
+        uint256 validUntil = block.timestamp;
+        vm.startSnapshotGas(_label);
+        target.forfeit(_bondId, entryKey, bytes32(0), validUntil);
+        _stopSnapshot(_label);
+        assertTrue(registry.forfeited(entryKey), "forfeited");
+    }
+
+    /// @dev Measures `_owner`'s withdrawal of `_bondId` to itself as `_label`.
+    function _measureWithdraw(string memory _label, address _owner, uint256 _bondId) internal {
+        EtnaStakingRegistry target = registry;
+        vm.startPrank(_owner);
+        vm.startSnapshotGas(_label);
+        target.withdraw(_bondId, _owner);
+        _stopSnapshot(_label);
+        vm.stopPrank();
+        assertTrue(registry.bondAt(_bondId).withdrawn, "withdrawn");
+    }
+
     /// @dev Carol registers `_count` minimum stakes, `PREFILL_CALL` per call and one L1 block per
     /// call, then the chain moves one more block so the measured call writes a new checkpoint.
     function _prefill(uint256 _count) internal {
@@ -106,7 +179,7 @@ abstract contract EtnaStakingRegistryGasBase is EtnaStakingRegistryTestBase {
         }
         vm.resumeGasMetering();
         assertEq(registry.entryCount(), _count, "prefilled");
-        assertEq(registry.freeSlotCount(), 0, "no free slot");
+        assertEq(registry.bondCount(), _count, "one bond per slot");
     }
 }
 
@@ -120,7 +193,7 @@ contract EtnaStakingRegistryInitialGasTest is EtnaStakingRegistryGasBase {
     }
 
     function test_gas_InitialRegistration() external {
-        assertEq(_measureRegister("initial_register", Alice), 0, "bond 0");
+        assertEq(_measureRegister("initial_register", Alice, MIN_STAKE), 0, "bond 0");
         assertEq(registry.checkpointCount(), 1, "first checkpoint");
     }
 }
@@ -138,7 +211,7 @@ contract EtnaStakingRegistrySecondEntryGasTest is EtnaStakingRegistryGasBase {
     }
 
     function test_gas_SecondRegistration() external {
-        assertEq(_measureRegister("second_register", Bob), 1, "bond 1");
+        assertEq(_measureRegister("second_register", Bob, MIN_STAKE), 1, "bond 1");
         assertEq(registry.checkpointCount(), 2, "checkpoint appended");
     }
 
@@ -198,58 +271,25 @@ contract EtnaStakingRegistryWithdrawalGasTest is EtnaStakingRegistryGasBase {
         _stopSnapshot("withdrawal");
         vm.stopPrank();
         assertEq(token.balanceOf(staker), MIN_STAKE, "stake returned");
-        assertEq(registry.freeSlotCount(), 1, "slot released");
+        assertTrue(registry.bondAt(0).withdrawn, "withdrawn");
     }
 }
 
 /// @title EtnaStakingRegistrySlashGasTest
 /// @notice Bob reporting two conflicting generation-0 precommits signed by bond 0's key.
 contract EtnaStakingRegistrySlashGasTest is EtnaStakingRegistryGasBase {
-    /// @dev The conflicting votes the test reports.
-    IEtnaStakingRegistry.Vote internal voteA;
-    IEtnaStakingRegistry.Vote internal voteB;
-
     function setUp() public override {
         super.setUp();
         mockInbox.setInitialized(true);
         vm.roll(10);
         assertEq(_register(Alice, CK_A), 0, "bond 0");
         vm.roll(11);
-        bytes memory cometChainId = LibCometVote.chainId(
-            LibCometVote.chainDomain(block.chainid, L2_CHAIN_ID, address(mockInbox), 0)
-        );
-        voteA = EtnaTestKeys.signVote(CK_A, _precommit(keccak256("block a")), cometChainId);
-        voteB = EtnaTestKeys.signVote(CK_A, _precommit(keccak256("block b")), cometChainId);
+        (voteA, voteB) = _conflictingVotes(CK_A);
     }
 
     function test_gas_SlashDoubleSign() external {
-        EtnaStakingRegistry target = registry;
-        IEtnaStakingRegistry.Vote memory a = voteA;
-        IEtnaStakingRegistry.Vote memory b = voteB;
-        vm.startPrank(Bob);
-        vm.startSnapshotGas("slash_double_sign");
-        target.slashDoubleSign(0, a, b);
-        _stopSnapshot("slash_double_sign");
-        vm.stopPrank();
-        assertEq(registry.entryAt(0).effStake, 0, "slashed");
+        _measureSlash("slash_double_sign", 0);
         assertEq(token.balanceOf(Bob), MIN_STAKE * SLASH_BOUNTY_BPS / 10_000, "bounty");
-    }
-
-    /// @dev A precommit at height 1000, round 3, for `_blockHash` with a one-part part set
-    /// header.
-    function _precommit(bytes32 _blockHash)
-        private
-        pure
-        returns (IEtnaStakingRegistry.Vote memory v_)
-    {
-        v_.voteType = 2;
-        v_.height = 1000;
-        v_.round = 3;
-        v_.blockHash = _blockHash;
-        v_.partsTotal = 1;
-        v_.partsHash = keccak256(abi.encode(_blockHash));
-        v_.timestampSeconds = 1_700_000_000;
-        v_.timestampNanos = 123;
     }
 }
 
@@ -264,21 +304,91 @@ contract EtnaStakingRegistryNearCapGasTest is EtnaStakingRegistryGasBase {
     }
 
     function test_gas_RegistrationIntoLastSlot() external {
-        assertEq(_measureRegister("register_at_4095", Alice), CAPACITY - 1, "last slot");
+        assertEq(_measureRegister("register_at_4095", Alice, MIN_STAKE), CAPACITY - 1, "last slot");
         assertEq(registry.entryCount(), CAPACITY, "full");
     }
 }
 
 /// @title EtnaStakingRegistryFullCapGasTest
-/// @notice An exit request with all 4,096 slots used.
+/// @notice With all 4,096 slots held at the minimum stake and active: an exit request, a top-up,
+/// double-sign slashing and forfeiture of the bond in slot 0, and a registration displacing it.
 contract EtnaStakingRegistryFullCapGasTest is EtnaStakingRegistryGasBase {
     function setUp() public override {
         super.setUp();
         vm.roll(10);
         _prefill(CAPACITY);
+        vm.roll(block.number + ACTIVATION_DELAY);
+        mockInbox.setInitialized(true);
+        _prepareRegistration(Bob, CK_B);
+        _fund(Carol, MIN_STAKE);
+        (voteA, voteB) = _conflictingVotes(PREFILL_KEY);
     }
 
     function test_gas_ExitAtFullCapacity() external {
         _measureExit("exit_at_4096", Carol, 0);
+    }
+
+    function test_gas_DisplacingRegistration() external {
+        assertEq(_measureRegister("register_displacing", Bob, MIN_STAKE + 1), CAPACITY, "bond");
+        assertFalse(registry.bondAt(0).holdsSlot, "bond 0 displaced");
+    }
+
+    function test_gas_TopUpAtFullCapacity() external {
+        EtnaStakingRegistry target = registry;
+        vm.startPrank(Carol);
+        vm.startSnapshotGas("top_up_at_4096");
+        target.topUp(0, MIN_STAKE);
+        _stopSnapshot("top_up_at_4096");
+        vm.stopPrank();
+        (uint256 slot,) = registry.admissionThreshold();
+        assertEq(slot, 1, "slot 0 is no longer the smallest");
+    }
+
+    function test_gas_SlashAtFullCapacity() external {
+        _measureSlash("slash_at_4096", 0);
+    }
+
+    function test_gas_ForfeitAtFullCapacity() external {
+        _measureForfeit("forfeit_at_4096", 0);
+    }
+}
+
+/// @title EtnaStakingRegistryDisplacedGasTest
+/// @notice With all 4,096 slots held: bond 0 displaced by bond 4096 and bond 1 exiting, both
+/// confirmed and past the withdrawal delay. Withdrawing the slot holder (bond 1) against
+/// withdrawing, slashing and forfeiting the displaced bond 0, which touch no slot.
+contract EtnaStakingRegistryDisplacedGasTest is EtnaStakingRegistryGasBase {
+    function setUp() public override {
+        super.setUp();
+        vm.roll(10);
+        _prefill(CAPACITY);
+        mockInbox.setInitialized(true);
+        _prepareRegistration(Bob, CK_B);
+        vm.prank(Bob);
+        registry.register(publicKey, MIN_STAKE + 1, pop);
+        assertFalse(registry.bondAt(0).holdsSlot, "bond 0 displaced");
+        vm.prank(Carol);
+        registry.requestExit(1);
+        vm.roll(registry.bondAt(1).entry.exitEffectiveL1);
+        _confirmExit(0);
+        _confirmExit(1);
+        vm.roll(block.number + WITHDRAWAL_DELAY);
+        (voteA, voteB) = _conflictingVotes(PREFILL_KEY);
+    }
+
+    function test_gas_WithdrawHolder() external {
+        _measureWithdraw("withdraw_holder_at_4096", Carol, 1);
+    }
+
+    function test_gas_WithdrawDisplaced() external {
+        _measureWithdraw("withdraw_displaced", Carol, 0);
+    }
+
+    function test_gas_SlashDisplaced() external {
+        _measureSlash("slash_displaced", 0);
+    }
+
+    function test_gas_ForfeitDisplaced() external {
+        _measureForfeit("forfeit_displaced", 0);
     }
 }

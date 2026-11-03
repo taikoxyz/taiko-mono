@@ -232,7 +232,7 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
         assertEq(taikoToken.balanceOf(address(registry)), MIN_STAKE, "stake held");
         assertEq(registry.entryAt(0).effStake, MIN_STAKE, "entry kept");
         assertEq(registry.ownerOf(0), Alice, "slot kept");
-        assertEq(registry.freeSlotCount(), 0, "no slot freed");
+        assertFalse(registry.bondAt(0).withdrawn, "not withdrawn");
     }
 
     // ---------------------------------------------------------------
@@ -367,7 +367,7 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
 
         assertEq(registry.exitConfirmedAtL1(1), 0, "bond 1 unconfirmed");
         assertEq(registry.ownerOf(0), Alice, "bond 0 unreleased");
-        assertEq(registry.freeSlotCount(), 0, "no slot freed");
+        assertFalse(registry.bondAt(0).withdrawn, "bond 0 not withdrawn");
 
         _inbox().upgradeTo(address(inboxImpl));
         assertFalse(_inbox().inNonReentrant(), "unlocked");
@@ -630,8 +630,8 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
         v_.generation = _generation;
     }
 
-    /// @dev Asserts that `_bondId`'s slot is released: zero entry, no owner, no confirmation,
-    /// and the only free slot.
+    /// @dev Asserts that bond `_bondId`, holding the slot of the same number, is withdrawn: the
+    /// slot's entry is zero and the bond has no owner or confirmation.
     function _assertReleased(uint256 _bondId) private view {
         IEtnaStakingRegistry.Entry memory entry = registry.entryAt(_bondId);
         assertEq(entry.ckX, bytes32(0), "released: ckX");
@@ -641,6 +641,6 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
         assertEq(entry.exitEffectiveL1, 0, "released: exitEffectiveL1");
         assertEq(registry.ownerOf(_bondId), address(0), "released: owner");
         assertEq(registry.exitConfirmedAtL1(_bondId), 0, "released: confirmation");
-        assertEq(registry.freeSlotCount(), 1, "released: free slot");
+        assertTrue(registry.bondAt(_bondId).withdrawn, "released: withdrawn");
     }
 }

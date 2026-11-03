@@ -725,7 +725,8 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
             vm.prank(owner);
             assertEq(at.register(publicKey, MIN_STAKE, pop), 0, "bond id");
             assertEq(at.ownerOf(0), owner, "owner");
-            assertTrue(at.keyUsed(_address(j, key, "ck_addr")), "key used");
+            (bool registered,) = at.bondForKey(_address(j, key, "ck_addr"));
+            assertTrue(registered, "key used");
             assertEq(at.entryAt(0).ckPrefix, _uint(j, key, "ck_prefix"), "ckPrefix");
             assertEq(at.entryAt(0).ckX, _bytes32(j, key, "ck_x"), "ckX");
             vm.revertToState(fresh);

@@ -126,38 +126,10 @@ contract EtnaGovernanceVectorsTest is EtnaStakingRegistryTestBase {
             string memory row = string.concat(".forfeitures[", vm.toString(i), "]");
             uint256 effective = LibEtnaVectors.uintAt(j, string.concat(row, ".eff_stake"));
             uint256 pending = LibEtnaVectors.uintAt(j, string.concat(row, ".pending_top_up"));
-            ReentrantERC20 actualToken = new ReentrantERC20();
-            IEtnaStakingRegistry.Config memory cfg =
-                _registryConfig(address(actualToken), address(mockInbox));
-            cfg.minStake = 1;
-            cfg.forfeitBps = LibEtnaVectors.uintAt(j, string.concat(row, ".forfeit_bps"));
-            EtnaStakingRegistry actual = _deployRegistry(cfg);
-            actualToken.mint(Alice, effective + pending);
-            vm.prank(Alice);
-            actualToken.approve(address(actual), type(uint256).max);
-            bytes memory publicKey = EtnaTestKeys.publicKey(0xC0A);
-            bytes memory pop = EtnaTestKeys.popSig(0xC0A, actual, Alice);
-            vm.prank(Alice);
-            actual.register(publicKey, effective + pending, pop);
-            if (pending != 0) {
-                // Boundary fixtures include pending-only principal. Plant just its split; all
-                // authorization, arithmetic, checkpoint and token-transfer code remains real.
-                uint256 entrySlot = uint256(
-                    keccak256(
-                        abi.encode(
-                            uint256(
-                                    0x46e4e2fea4a7d0ac18aca03baa3a1f64e1be04ec23c1ca0c7b901af7b59b8000
-                                ) + 1
-                        )
-                    )
-                );
-                vm.store(address(actual), bytes32(entrySlot + 1), bytes32(effective));
-                bytes32 pendingSlot =
-                    keccak256(abi.encode(uint256(0), _namespace("taiko.etna.registry.top-ups")));
-                vm.store(address(actual), pendingSlot, bytes32(pending));
-                vm.store(address(actual), bytes32(uint256(pendingSlot) + 1), bytes32(uint256(123)));
-            }
-            IEtnaStakingRegistry.Entry memory entry = actual.entryAt(0);
+            (EtnaStakingRegistry actual, ReentrantERC20 actualToken) = _forfeitureFixture(
+                effective, pending, LibEtnaVectors.uintAt(j, string.concat(row, ".forfeit_bps"))
+            );
+            IEtnaStakingRegistry.Entry memory entry = actual.bondAt(0).entry;
             actual.forfeit(
                 0, keccak256(abi.encode(entry.ckPrefix, entry.ckX)), bytes32(i), block.timestamp
             );
@@ -166,7 +138,7 @@ contract EtnaGovernanceVectorsTest is EtnaStakingRegistryTestBase {
                 LibEtnaVectors.uintAt(j, string.concat(row, ".penalty"))
             );
             assertEq(
-                actual.entryAt(0).effStake,
+                actual.bondAt(0).entry.effStake,
                 LibEtnaVectors.uintAt(j, string.concat(row, ".eff_stake_after"))
             );
             (uint256 remaining, uint48 ready) = actual.topUpOf(0);
@@ -185,6 +157,51 @@ contract EtnaGovernanceVectorsTest is EtnaStakingRegistryTestBase {
         cfg.forfeitBps = 10_001;
         vm.expectRevert(IEtnaStakingRegistry.InvalidConfig.selector);
         new EtnaStakingRegistry(cfg);
+    }
+
+    /// @dev A registry with `minStake` 1 and `_forfeitBps` whose bond 0 holds `_effective`
+    /// effective and `_pending` pending principal. It registers one base unit, then plants the
+    /// split in bond 0's record (the `bonds` mapping at R + 6, effStake in its second word) and
+    /// the top-ups namespace, with the registry holding all of it: the uint256 maximum does not
+    /// fit an admission value, and pending-only principal cannot be deposited. All authorization,
+    /// arithmetic, checkpoint and token-transfer code remains real.
+    function _forfeitureFixture(
+        uint256 _effective,
+        uint256 _pending,
+        uint256 _forfeitBps
+    )
+        private
+        returns (EtnaStakingRegistry actual_, ReentrantERC20 token_)
+    {
+        token_ = new ReentrantERC20();
+        IEtnaStakingRegistry.Config memory cfg =
+            _registryConfig(address(token_), address(mockInbox));
+        cfg.minStake = 1;
+        cfg.forfeitBps = _forfeitBps;
+        actual_ = _deployRegistry(cfg);
+        token_.mint(Alice, 1);
+        token_.mint(address(actual_), _effective + _pending - 1);
+        vm.prank(Alice);
+        token_.approve(address(actual_), type(uint256).max);
+        bytes memory publicKey = EtnaTestKeys.publicKey(0xC0A);
+        bytes memory pop = EtnaTestKeys.popSig(0xC0A, actual_, Alice);
+        vm.prank(Alice);
+        actual_.register(publicKey, 1, pop);
+        uint256 bondSlot = uint256(
+            keccak256(
+                abi.encode(
+                    uint256(0),
+                    uint256(0x46e4e2fea4a7d0ac18aca03baa3a1f64e1be04ec23c1ca0c7b901af7b59b8000) + 6
+                )
+            )
+        );
+        vm.store(address(actual_), bytes32(bondSlot + 1), bytes32(_effective));
+        if (_pending != 0) {
+            bytes32 pendingSlot =
+                keccak256(abi.encode(uint256(0), _namespace("taiko.etna.registry.top-ups")));
+            vm.store(address(actual_), pendingSlot, bytes32(_pending));
+            vm.store(address(actual_), bytes32(uint256(pendingSlot) + 1), bytes32(uint256(123)));
+        }
     }
 
     function _assertAbi(

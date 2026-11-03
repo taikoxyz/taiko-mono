@@ -14,8 +14,9 @@ encodings and appendix B its L1 storage layout.
 - `impl/EtnaInboxBootstrap.sol`: the Inbox proxy's first implementation; it only sets the owner,
   so the proxy address exists before the registry that fixes it (10 step 1), and reports no
   Etna start, so the L1 SignalService can read it at any time.
-- `iface/IEtnaStakingRegistry.sol`, `impl/EtnaStakingRegistry.sol`: registration, exits,
-  withdrawals, double-sign slashing, recovery's forced exits and per-block checkpoints (4.1).
+- `iface/IEtnaStakingRegistry.sol`, `impl/EtnaStakingRegistry.sol`: registration and admission
+  by displacement, exits, withdrawals, double-sign slashing, recovery's forced exits and
+  per-block checkpoints (4.1).
 - `libs/LibEntriesTree.sol`: `regLeaf` and `entriesRoot` (appendix A) as an incremental Merkle
   tree of depth 12, one leaf per slot.
 - `libs/LibEtnaKeys.sol`: 33-byte secp256k1 key decompression, `ckAddr`, `entryKey` and 65-byte
@@ -88,12 +89,21 @@ Pause affects none of these entry points, nor the registry's (spec 1 requires th
 
 - `register(publicKey, amount, popSig)`: a 33-byte compressed consensus key with a proof of
   possession over the EIP-712 `Register(address owner)` digest for the caller, who becomes the
-  owner for life. Each key registers once, ever. There are 4,096 slots; a bond id is a slot, and
-  released slots are reused last in, first out.
+  owner for life. Each key registers once, ever. Each registration issues the next bond id
+  (from 0, never reused) and takes the slot with the smallest value: 0 if empty, otherwise its
+  bond's effective plus pending stake, ties going to the lowest slot. The stake must be at least
+  `minStake` and above that value; a bond holding the slot is displaced (`BondDisplaced`): it
+  leaves the slot, its exit becomes min(its exit, the current block), and it keeps everything
+  else until it is confirmed and withdrawn. `bondForKey`, `bondInSlot` and `slotOfBond` return
+  `(found, id)` pairs; `admissionThreshold` names the slot and value the next registration must
+  beat; `bondAt` returns a bond's record whether or not it holds a slot.
 - `requestExit`, `confirmExit`, `withdraw(bondId, to)`, `slashDoubleSign(bondId, voteA, voteB)`
-  and the Inbox-only `forceExit` follow spec 4.1 and 8 step 2. Confirming an exit needs an
-  initialized Inbox whose `activeCommitteeSnapshot` reaches the exit block; `slashDoubleSign`
-  needs an initialized Inbox and accepts votes from the current or an earlier generation.
+  and the Inbox-only `forceExit` follow spec 4.1 and 8 step 2, whether or not the bond holds a
+  slot; a call naming an unissued id reverts `UnknownBond`. Withdrawal zeros the bond's balance
+  and keeps its key, activation and exit, and empties its slot if it holds one. Confirming an
+  exit needs an initialized Inbox whose `activeCommitteeSnapshot` reaches the exit block;
+  `slashDoubleSign` needs an initialized Inbox and accepts votes from the current or an earlier
+  generation.
   Registry mutations revert while the Inbox holds its lock, except its authorized `forceExit`.
 - `topUp(bondId, amount)`: the active entry's owner deposits one positive pending amount, even
   with all slots occupied or before Inbox initialization. It has no voting power or checkpoint
@@ -110,8 +120,9 @@ Pause affects none of these entry points, nor the registry's (spec 1 requires th
   unexecuted authorization usable until expiry; attribution and timely execution belong to DAO
   governance. Double-sign evidence can still take the remainder.
 - `forceExit(bondId, entryKey)` derives the recovery execution block from `block.number`.
-- Every L1 block that changes an entry ends with exactly one checkpoint
-  (`l1Block`, `count`, `entriesRoot`). The Inbox proxy and the L2 chain id are immutables.
+- Every L1 block that changes the entry in a slot ends with exactly one checkpoint
+  (`l1Block`, `count`, `entriesRoot`); a change to a bond that holds no slot writes none. The
+  Inbox proxy and the L2 chain id are immutables.
 
 ## Difference from the spec
 
@@ -130,10 +141,16 @@ Pause affects none of these entry points, nor the registry's (spec 1 requires th
 - Evidence votes have type 1 or 2, a height in [1, 2^63), a round below 2^31, timestamp seconds
   read as an int64 within CometBFT's Timestamp range (negative values included), nanoseconds
   below 10^9 and a 65-byte low-s signature with V in {0, 1}.
-- The registry checks each exclusion's `entryKey` inside `forceExit`; a mismatch or a released
-  slot reverts the whole `recover`.
-- Registry storage that appendix B does not name (tree nodes, free slots, used keys) lives in the
-  `taiko.etna.registry` namespace after `entries`, so nodes read only the two named slots.
+- The registry checks each exclusion's `entryKey` inside `forceExit` against the bond's record,
+  which a displaced or withdrawn bond keeps; a mismatch or an unissued id reverts the whole
+  `recover`, and a displaced or withdrawn bond is a no-op.
+- Registry storage that appendix B does not name (tree nodes, the admission index, the key and
+  slot lookups, the bond records and the bond count) lives in the `taiko.etna.registry`
+  namespace after `entries`, so nodes read only the two named slots.
+- The admission index is a tournament tree over the 4,096 slots keyed by `value << 12 | slot`,
+  so a slot's value (a bond's effective plus pending stake) must be below 2^244
+  (`BalanceTooLarge`), far above TAIKO's supply. An update walks one leaf-to-root path and stops
+  at the first unchanged node.
 - `minStake` and `s_min` are independent; the deploy script defaults `minStake` to `s_min`.
 - `activationDelay`, `exitDelay` and `withdrawalDelay` are each in [1, 2^32), so an oversized
   delay cannot make every registration or exit request revert.
@@ -147,8 +164,9 @@ Pause affects none of these entry points, nor the registry's (spec 1 requires th
   reserved slots 283, 286–289 and 291 are never read or written, and slots 251–257, 259–267 and
   275–277 are unused padding.
 - Registry: the ERC-7201 namespace `taiko.etna.registry` with base R holds `checkpoints` at R
-  and `entries` at R + 1, the only slots nodes read, then the tree nodes, the free slots and the
-  used keys. Bond owners and exit confirmations live in the separate namespaces
+  and the slot-indexed `entries` at R + 1, the only slots nodes read, then the tree nodes, the
+  admission index, the key and slot lookups, the bond records and the bond count. Bond owners
+  and exit confirmations, keyed by bond id, live in the separate namespaces
   `taiko.etna.registry.owners` and `taiko.etna.registry.exit-confirmations`, outside
   `entriesRoot`.
 - Pending deposits use `taiko.etna.registry.top-ups`, a bond-id mapping with a uint256 amount

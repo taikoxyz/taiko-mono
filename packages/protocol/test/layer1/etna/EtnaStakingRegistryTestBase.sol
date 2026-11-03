@@ -14,6 +14,9 @@ import { CommonTest } from "test/shared/CommonTest.sol";
 /// @notice Deploys a staking registry proxy staking TAIKO and fixed to a `MockEtnaInbox`.
 /// @dev The test contract holds the whole TAIKO supply and funds stakers from it.
 abstract contract EtnaStakingRegistryTestBase is CommonTest, EtnaTestConstants {
+    /// @dev The consensus private key `_fillRegistry` registers for slot `i` is `FILL_KEY + i`.
+    uint256 internal constant FILL_KEY = 0xF1110000;
+
     TaikoToken internal token;
     MockEtnaInbox internal mockInbox;
     EtnaStakingRegistry internal registry;
@@ -72,18 +75,55 @@ abstract contract EtnaStakingRegistryTestBase is CommonTest, EtnaTestConstants {
         bondId_ = registry.register(publicKey, MIN_STAKE, pop);
     }
 
+    /// @dev Funds `_staker` with `_amount`, which then registers `_pk`'s key staking it.
+    function _registerWith(address _staker, uint256 _pk, uint256 _amount) internal {
+        _fund(_staker, _amount);
+        bytes memory publicKey = EtnaTestKeys.publicKey(_pk);
+        bytes memory pop = EtnaTestKeys.popSig(_pk, registry, _staker);
+        vm.prank(_staker);
+        registry.register(publicKey, _amount, pop);
+    }
+
+    /// @dev Has Alice register the key `FILL_KEY + slot` into every slot from `entryCount()` on,
+    /// staking `MIN_STAKE + slot * _step`, with gas metering paused, so all 4096 slots are held.
+    function _fillRegistry(uint256 _step) internal {
+        vm.pauseGasMetering();
+        uint256 first = registry.entryCount();
+        uint256 capacity = registry.MAX_ENTRIES();
+        uint256 total;
+        for (uint256 slot = first; slot < capacity; ++slot) {
+            total += MIN_STAKE + slot * _step;
+        }
+        _fund(Alice, total);
+        for (uint256 slot = first; slot < capacity; ++slot) {
+            this.registerFill(slot, MIN_STAKE + slot * _step);
+        }
+        vm.resumeGasMetering();
+    }
+
+    /// @notice Alice registers the key `FILL_KEY + _slot` staking `_amount`.
+    /// @dev Called by this contract only, as an external call so each registration starts with
+    /// empty memory.
+    function registerFill(uint256 _slot, uint256 _amount) external {
+        require(msg.sender == address(this), "self only");
+        bytes memory publicKey = EtnaTestKeys.publicKey(FILL_KEY + _slot);
+        bytes memory pop = EtnaTestKeys.popSig(FILL_KEY + _slot, registry, Alice);
+        vm.prank(Alice);
+        registry.register(publicKey, _amount, pop);
+    }
+
     /// @dev Confirms the exit already set on bond `_bondId`: initializes the mock Inbox, raises
     /// its snapshot to the exit if it is lower and confirms in the current block.
     function _confirmExit(uint256 _bondId) internal {
         mockInbox.setInitialized(true);
-        uint256 exitEffectiveL1 = registry.entryAt(_bondId).exitEffectiveL1;
+        uint256 exitEffectiveL1 = registry.bondAt(_bondId).entry.exitEffectiveL1;
         if (mockInbox.activeCommitteeSnapshot() < exitEffectiveL1) {
             mockInbox.setActiveCommitteeSnapshot(exitEffectiveL1);
         }
         registry.confirmExit(_bondId);
     }
 
-    /// @dev Releases bond `_bondId` the owner's way: requests its exit, confirms it, rolls the
+    /// @dev Withdraws bond `_bondId` the owner's way: requests its exit, confirms it, rolls the
     /// withdrawal delay forward and withdraws the stake to the owner.
     function _release(uint256 _bondId) internal {
         address bondOwner = registry.ownerOf(_bondId);
@@ -95,7 +135,8 @@ abstract contract EtnaStakingRegistryTestBase is CommonTest, EtnaTestConstants {
         registry.withdraw(_bondId, bondOwner);
     }
 
-    /// @dev Asserts that the registry holds `_expected` at `_bondId`.
+    /// @dev Asserts that bond `_bondId`'s record holds `_expected` and, if the bond holds a slot,
+    /// so does the slot's entry.
     function _assertEntry(
         uint256 _bondId,
         IEtnaStakingRegistry.Entry memory _expected
@@ -103,7 +144,20 @@ abstract contract EtnaStakingRegistryTestBase is CommonTest, EtnaTestConstants {
         internal
         view
     {
-        IEtnaStakingRegistry.Entry memory entry = registry.entryAt(_bondId);
+        _assertSameEntry(registry.bondAt(_bondId).entry, _expected);
+        (bool holdsSlot, uint256 slot) = registry.slotOfBond(_bondId);
+        if (holdsSlot) _assertSameEntry(registry.entryAt(slot), _expected);
+    }
+
+    /// @dev Asserts that `_entry` equals `_expected` field by field.
+    function _assertSameEntry(
+        IEtnaStakingRegistry.Entry memory _entry,
+        IEtnaStakingRegistry.Entry memory _expected
+    )
+        internal
+        pure
+    {
+        IEtnaStakingRegistry.Entry memory entry = _entry;
         assertEq(entry.ckX, _expected.ckX, "ckX");
         assertEq(entry.effStake, _expected.effStake, "effStake");
         assertEq(entry.ckPrefix, _expected.ckPrefix, "ckPrefix");

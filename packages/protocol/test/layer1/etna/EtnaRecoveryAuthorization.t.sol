@@ -44,9 +44,9 @@ contract EtnaRegistryRollbackHarness is EtnaStakingRegistry {
     constructor(Config memory _config) EtnaStakingRegistry(_config) { }
 
     function recheckExitConfirmations(uint256 _restoredSnapshot) external onlyOwner {
-        uint256 count = this.entryCount();
+        uint256 count = this.bondCount();
         for (uint256 i; i < count; ++i) {
-            if (this.entryAt(i).exitEffectiveL1 <= _restoredSnapshot) continue;
+            if (this.bondAt(i).entry.exitEffectiveL1 <= _restoredSnapshot) continue;
             bytes32 slot = keccak256(
                 abi.encode(
                     i, uint256(0x25e74f824855a18216fe2fa8b7d9dcc76ad83f6de1a344c666c3293e57124900)
@@ -314,7 +314,7 @@ contract EtnaRecoveryAuthorizationTest is EtnaLandTestBase {
     }
 
     function _entryKey(uint256 _id) private view returns (bytes32) {
-        IEtnaStakingRegistry.Entry memory entry = registry.entryAt(_id);
+        IEtnaStakingRegistry.Entry memory entry = registry.bondAt(_id).entry;
         return keccak256(abi.encode(entry.ckPrefix, entry.ckX));
     }
 }

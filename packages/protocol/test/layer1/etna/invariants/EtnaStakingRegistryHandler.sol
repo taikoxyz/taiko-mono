@@ -16,14 +16,15 @@ import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 /// @notice Drives an `EtnaStakingRegistry` fixed to a `MockEtnaInbox` through registrations with
 /// real secp256k1 keys and proofs of possession, exit requests, exit confirmations, withdrawals,
 /// double-sign slashing with real vote signatures, recovery exclusions, landed snapshots and L1
-/// time, and keeps an independent model of the entries, owners, confirmations, used keys, free
-/// slots, stake and checkpoints the registry must hold.
+/// time, and keeps an independent model of the bonds, the slots they hold, owners,
+/// confirmations, registered keys, the admission threshold, stake and checkpoints the registry
+/// must hold.
 /// @dev Every call is valid or broken in exactly one named way. The handler predicts the outcome
 /// from its model, success or the exact revert data, runs the call in try/catch and records a
 /// violation when the registry disagrees, so the handler itself never reverts and
 /// `fail_on_revert` stays meaningful. It checks per call what the invariants cannot see
-/// afterwards (the bond id taken, token movements, checkpoints a call must not write); the
-/// invariants compare the registry's storage with the model after every call.
+/// afterwards (the bond id and slot taken, token movements, checkpoints a call must not write);
+/// the invariants compare the registry's storage with the model after every call.
 contract EtnaStakingRegistryHandler is CommonBase {
     // ---------------------------------------------------------------
     // Types
@@ -41,12 +42,12 @@ contract EtnaStakingRegistryHandler is CommonBase {
         Cap
     }
 
-    /// @dev The model of one slot: the entry the registry must hold and its current occupant's
-    /// bookkeeping. A released slot keeps only `occupancies` and `formerEntryKey`.
-    struct Slot {
+    /// @dev The model of one bond: its fields, which its slot's entry mirrors while it holds one,
+    /// and its bookkeeping. A withdrawn bond keeps its key, activation and exit.
+    struct Bond {
         IEtnaStakingRegistry.Entry entry;
         address owner;
-        /// @dev The occupant's consensus private key.
+        /// @dev The bond's consensus private key.
         uint256 pk;
         uint256 registeredAt;
         uint256 pendingTopUp;
@@ -56,16 +57,17 @@ contract EtnaStakingRegistryHandler is CommonBase {
         uint256 requestedExit;
         /// @dev The block of the slash; 0 if not slashed.
         uint256 slashedAt;
-        /// @dev The lowest exit a recovery exclusion forced; `NO_EXIT` if none.
+        /// @dev The lowest exit a recovery exclusion, forfeiture or displacement forced;
+        /// `NO_EXIT` if none.
         uint256 forcedExit;
         /// @dev The confirmation block and the landed snapshot at that block; 0 if unconfirmed.
         uint256 confirmedAt;
         uint256 snapshotAtConfirmation;
-        /// @dev The registrations this slot has taken so far.
-        uint256 occupancies;
-        /// @dev The entry key of the last occupant released from this slot.
-        bytes32 formerEntryKey;
-        /// @dev Whether the occupant was slashed after its exit was confirmed.
+        /// @dev The slot the bond holds or last held.
+        uint256 slot;
+        bool holdsSlot;
+        bool withdrawn;
+        /// @dev Whether the bond was slashed after its exit was confirmed.
         bool slashedAfterConfirmation;
     }
 
@@ -85,7 +87,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
         bytes publicKey;
         bytes popSig;
         bytes expectedError;
-        uint256 expectedId;
+        uint256 expectedSlot;
     }
 
     /// @dev One slashing attempt.
@@ -148,7 +150,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
 
     /// @dev `requestExit` defects.
     uint256 internal constant EXIT_UNKNOWN_BOND = 1;
-    uint256 internal constant EXIT_RELEASED = 2;
+    uint256 internal constant EXIT_WITHDRAWN = 2;
     uint256 internal constant EXIT_NOT_OWNER = 3;
     uint256 internal constant EXIT_ALREADY_SET = 4;
     uint256 internal constant EXIT_MODES = 5;
@@ -157,7 +159,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
     uint256 internal constant CONFIRM_LOCKED = 1;
     uint256 internal constant CONFIRM_UNINITIALIZED = 2;
     uint256 internal constant CONFIRM_UNKNOWN_BOND = 3;
-    uint256 internal constant CONFIRM_RELEASED = 4;
+    uint256 internal constant CONFIRM_WITHDRAWN = 4;
     uint256 internal constant CONFIRM_NOT_SET = 5;
     uint256 internal constant CONFIRM_NOT_COVERED = 6;
     uint256 internal constant CONFIRM_MODES = 7;
@@ -176,21 +178,21 @@ contract EtnaStakingRegistryHandler is CommonBase {
     uint256 internal constant SLASH_NOT_DOUBLE_SIGN = 3;
     uint256 internal constant SLASH_FUTURE_GENERATION = 4;
     uint256 internal constant SLASH_UNKNOWN_BOND = 5;
-    uint256 internal constant SLASH_RELEASED = 6;
+    uint256 internal constant SLASH_WITHDRAWN = 6;
     uint256 internal constant SLASH_NOTHING_TO_SLASH = 7;
     uint256 internal constant SLASH_WRONG_SIGNATURE = 8;
     uint256 internal constant SLASH_MODES = 9;
 
-    /// @dev `forceExit` defects.
+    /// @dev `forceExit` defects, and a withdrawn bond, which an exclusion accepts as a no-op.
     uint256 internal constant FORCE_NOT_INBOX = 1;
     uint256 internal constant FORCE_UNKNOWN_BOND = 2;
-    uint256 internal constant FORCE_RELEASED = 3;
+    uint256 internal constant FORCE_WITHDRAWN = 3;
     uint256 internal constant FORCE_WRONG_KEY = 4;
     uint256 internal constant FORCE_BLOCK_OVERFLOW = 5;
     uint256 internal constant FORCE_MODES = 6;
 
-    /// @dev Bond picks: which slots a pick may return.
-    uint256 internal constant ANY_UNRELEASED = 0;
+    /// @dev Bond picks: which bonds a pick may return.
+    uint256 internal constant ANY_UNWITHDRAWN = 0;
     uint256 internal constant NO_EXIT_SET = 1;
     uint256 internal constant STAKED = 2;
     uint256 internal constant UNCONFIRMED = 3;
@@ -239,17 +241,21 @@ contract EtnaStakingRegistryHandler is CommonBase {
     // Model
     // ---------------------------------------------------------------
 
-    mapping(uint256 bondId => Slot) internal _slots;
+    mapping(uint256 bondId => Bond) internal _bonds;
+    uint256 public bondCount;
+    /// @dev The slots used so far, `entries.length`.
     uint256 public slotCount;
-    /// @dev The released slots, most recently released last.
-    uint256[] internal _freeSlots;
-    /// @dev The unreleased slots with an exit set, and each one's index + 1.
+    /// @dev Bond id + 1 of every held slot.
+    mapping(uint256 slot => uint256 bondIdPlusOne) internal _slotBond;
+    /// @dev The withdrawn bonds, in order.
+    uint256[] internal _withdrawn;
+    /// @dev The unwithdrawn bonds with an exit set, and each one's index + 1.
     uint256[] internal _exiting;
     mapping(uint256 bondId => uint256 position) internal _exitingPosition;
 
-    /// @dev Every consensus private key ever registered, in order, and their addresses.
+    /// @dev Every consensus private key ever registered, in order, and each address's bond id + 1.
     uint256[] internal _usedPks;
-    mapping(address ckAddr => bool) internal _keyUsed;
+    mapping(address ckAddr => uint256 bondIdPlusOne) internal _keyBond;
 
     uint256 public staked;
     uint256 public deposited;
@@ -275,9 +281,9 @@ contract EtnaStakingRegistryHandler is CommonBase {
     Snapshot[] internal _snapshots;
     bytes32[][] internal _snapshotLeaves;
 
-    /// @dev The slots and key addresses a call outside the prefill touched.
-    uint256[] internal _touchedSlots;
-    mapping(uint256 bondId => bool) internal _isTouchedSlot;
+    /// @dev The bonds and key addresses a call outside the prefill touched.
+    uint256[] internal _touchedBonds;
+    mapping(uint256 bondId => bool) internal _isTouchedBond;
     address[] internal _touchedKeys;
     bool internal _prefilling;
 
@@ -289,10 +295,11 @@ contract EtnaStakingRegistryHandler is CommonBase {
     // ---------------------------------------------------------------
 
     uint256 public registrations;
+    /// @dev Registrations into an emptied slot, into a held slot (displacing its bond) and into
+    /// the last never-used slot (the 4096th).
     uint256 public reuses;
-    /// @dev Registrations that took the last free slot (the 4096th) and reuses with all slots used.
+    uint256 public displacements;
     uint256 public capFills;
-    uint256 public reusesAtCap;
     uint256 public exitRequests;
     uint256 public exitsBeforeActivation;
     uint256 public confirmations;
@@ -416,34 +423,34 @@ contract EtnaStakingRegistryHandler is CommonBase {
         _register(a);
     }
 
-    /// @notice The bond owner requests the exit of an entry with none set. One call in four is
-    /// broken instead: an unknown bond, a released slot, another caller or an exit already set.
+    /// @notice The bond owner requests the exit of a bond with none set. One call in four is
+    /// broken instead: an unissued bond, a withdrawn bond, another caller or an exit already set.
     function requestExit(uint256 _seed) external {
         uint256 defect = _mode(_seed, EXIT_MODES);
         bool found;
         uint256 bondId;
         if (defect == EXIT_ALREADY_SET) {
             (found, bondId) = _pick(_seed, EXITING);
-        } else if (defect == EXIT_RELEASED) {
-            (found, bondId) = _pickReleased(_seed);
+        } else if (defect == EXIT_WITHDRAWN) {
+            (found, bondId) = _pickWithdrawn(_seed);
         } else if (defect != EXIT_UNKNOWN_BOND) {
             (found, bondId) = _pick(_seed, NO_EXIT_SET);
         }
         if (!found) bondId = _unknownBond(_seed);
-        address caller = _slots[bondId].owner;
+        address caller = _bonds[bondId].owner;
         if (defect == EXIT_NOT_OWNER || caller == address(0)) caller = _other(caller, _seed);
         _requestExit(bondId, caller);
     }
 
-    /// @notice Anyone confirms the exit of an entry, mostly one a landed snapshot covers (a
+    /// @notice Anyone confirms the exit of a bond, mostly one a landed snapshot covers (a
     /// repeat leaves the clock). One call in four is broken instead: the Inbox lock held, the
-    /// Inbox uninitialized, an unknown bond, a released slot, no exit set or an uncovered exit.
+    /// Inbox uninitialized, an unissued bond, a withdrawn bond, no exit set or an uncovered exit.
     function confirmExit(uint256 _seed) external {
         uint256 defect = _mode(_seed, CONFIRM_MODES);
         bool found;
         uint256 bondId;
-        if (defect == CONFIRM_RELEASED) {
-            (found, bondId) = _pickReleased(_seed);
+        if (defect == CONFIRM_WITHDRAWN) {
+            (found, bondId) = _pickWithdrawn(_seed);
         } else if (defect == CONFIRM_NOT_SET) {
             (found, bondId) = _pick(_seed, NO_EXIT_SET);
         } else if (defect == CONFIRM_NOT_COVERED) {
@@ -458,10 +465,10 @@ contract EtnaStakingRegistryHandler is CommonBase {
         );
     }
 
-    /// @notice Releases an entry whose confirmed exit has waited out the withdrawal delay: the
-    /// owner takes a positive stake to itself or the recipient, and anyone releases a slashed
-    /// entry. One call in four is broken instead: the Inbox lock held, no confirmation (an
-    /// unconfirmed, released or unknown bond), the delay not over, another caller or a zero
+    /// @notice Withdraws a bond whose confirmed exit has waited out the withdrawal delay: the
+    /// owner takes a positive stake to itself or the recipient, and anyone withdraws a slashed
+    /// bond. One call in four is broken instead: the Inbox lock held, no confirmation (an
+    /// unconfirmed, withdrawn or unissued bond), the delay not over, another caller or a zero
     /// recipient for a positive stake.
     function withdraw(uint256 _seed) external {
         uint256 defect = _mode(_seed, WITHDRAW_MODES);
@@ -470,7 +477,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
         if (defect == WITHDRAW_NOT_CONFIRMED) {
             uint256 kind = _rand(_seed, "unconfirmed") % 3;
             if (kind == 0) (found, bondId) = _pick(_seed, UNCONFIRMED);
-            else if (kind == 1) (found, bondId) = _pickReleased(_seed);
+            else if (kind == 1) (found, bondId) = _pickWithdrawn(_seed);
         } else if (defect == WITHDRAW_NOT_READY) {
             (found, bondId) = _pick(_seed, UNREADY);
         } else if (defect == WITHDRAW_NOT_OWNER || defect == WITHDRAW_ZERO_RECIPIENT) {
@@ -482,7 +489,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
         }
         if (!found) bondId = _unknownBond(_seed);
 
-        Slot storage s = _slots[bondId];
+        Bond storage s = _bonds[bondId];
         address caller = s.owner;
         address to = _rand(_seed, "to") % 2 == 0 ? caller : recipient;
         if (
@@ -492,7 +499,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
             caller = _anyone(_seed);
         }
         if (s.entry.effStake + s.pendingTopUp == 0) {
-            // Anyone releases a slashed entry, to any address.
+            // Anyone withdraws a slashed bond, to any address.
             uint256 toKind = _rand(_seed, "to kind") % 3;
             to = toKind == 0 ? address(0) : toKind == 1 ? recipient : caller;
         }
@@ -503,18 +510,18 @@ contract EtnaStakingRegistryHandler is CommonBase {
 
     /// @notice A reporter submits two conflicting votes of the same type, height, round and
     /// generation, each signed with the bond's key under this deployment's chain id for a past or
-    /// the current generation, against an entry with stake: three times in four one with no exit
-    /// set, otherwise any, confirmed ones included. Sometimes the Inbox lock is held, which
-    /// must reject the slash without effects. One call in four is broken instead: the Inbox uninitialized, a vote
-    /// field out of range, no double sign, a future generation, an unknown bond, a released slot,
-    /// a slashed entry or a wrong signature.
+    /// the current generation, against a bond with stake: three times in four one with no exit
+    /// set, otherwise any, confirmed and displaced ones included. Sometimes the Inbox lock is
+    /// held, which must reject the slash without effects. One call in four is broken instead: the
+    /// Inbox uninitialized, a vote field out of range, no double sign, a future generation, an
+    /// unissued bond, a withdrawn bond, a slashed bond or a wrong signature.
     function slash(uint256 _seed) external {
         SlashAttempt memory a;
         a.defect = _mode(_seed, SLASH_MODES);
         a.reporter = _reporters[_rand(_seed, "reporter") % _reporters.length];
         bool found;
-        if (a.defect == SLASH_RELEASED) {
-            (found, a.bondId) = _pickReleased(_seed);
+        if (a.defect == SLASH_WITHDRAWN) {
+            (found, a.bondId) = _pickWithdrawn(_seed);
         } else if (a.defect == SLASH_NOTHING_TO_SLASH) {
             (found, a.bondId) = _pick(_seed, SLASHED);
         } else if (a.defect != SLASH_UNKNOWN_BOND) {
@@ -523,8 +530,8 @@ contract EtnaStakingRegistryHandler is CommonBase {
             if (!found) (found, a.bondId) = _pick(_seed, STAKED);
         }
         if (!found) a.bondId = _unknownBond(_seed);
-        // A slot without an occupant has no key; any key gives evidence its entry check rejects.
-        a.signerPk = _slots[a.bondId].pk;
+        // An unissued bond has no key; any key gives evidence its bond check rejects.
+        a.signerPk = _bonds[a.bondId].pk;
         if (a.signerPk == 0) a.signerPk = _poolKeys[_rand(_seed, "signer") % POOL_SIZE];
         a.signaturesValid = true;
         _shapeVotes(a, _seed);
@@ -532,10 +539,10 @@ contract EtnaStakingRegistryHandler is CommonBase {
     }
 
     /// @notice A recovery exclusion through the Inbox: about half of the calls start a new
-    /// recovery generation, then the Inbox moves one entry's exit to the current block (a no-op
-    /// when not earlier). One call in four is broken instead:
-    /// a caller other than the Inbox, an unknown bond, a released slot, a wrong entry key or
-    /// R at or above 2^48 - 1.
+    /// recovery generation, then the Inbox moves one bond's exit to the current block (a no-op
+    /// when not earlier, as for every displaced or withdrawn bond). One call in four names a
+    /// withdrawn bond or is broken instead: a caller other than the Inbox, an unissued bond, a
+    /// wrong entry key or R at or above 2^48 - 1.
     function forceExit(uint256 _seed) external {
         if (_rand(_seed, "recovery") % 2 == 0) {
             ++ghostGeneration;
@@ -545,14 +552,14 @@ contract EtnaStakingRegistryHandler is CommonBase {
         uint256 defect = _mode(_seed, FORCE_MODES);
         bool found;
         uint256 bondId;
-        if (defect == FORCE_RELEASED) {
-            (found, bondId) = _pickReleased(_seed);
+        if (defect == FORCE_WITHDRAWN) {
+            (found, bondId) = _pickWithdrawn(_seed);
         } else if (defect != FORCE_UNKNOWN_BOND) {
-            (found, bondId) = _pick(_seed, ANY_UNRELEASED);
+            (found, bondId) = _pick(_seed, ANY_UNWITHDRAWN);
         }
         if (!found) bondId = _unknownBond(_seed);
 
-        Slot storage s = _slots[bondId];
+        Bond storage s = _bonds[bondId];
         bytes32 entryKey = s.entry.ckPrefix != 0
             ? _entryKeyOf(s.entry.ckPrefix, s.entry.ckX)
             : bytes32(_rand(_seed, "entry key"));
@@ -568,11 +575,12 @@ contract EtnaStakingRegistryHandler is CommonBase {
         if (defect == FORCE_BLOCK_OVERFLOW) vm.roll(executionBlock);
     }
 
-    /// @notice Deposits additional owner principal without changing the entry or checkpoint.
+    /// @notice Deposits additional owner principal without changing the entry or checkpoint;
+    /// it raises the slot's admission value.
     function topUp(uint256 _seed) external {
         (bool found, uint256 bondId) = _pick(_seed, NO_EXIT_SET);
         if (!found) return;
-        Slot storage s = _slots[bondId];
+        Bond storage s = _bonds[bondId];
         if (s.entry.effStake == 0 || block.number < s.entry.activeFromL1 || s.pendingTopUp != 0) {
             return;
         }
@@ -582,10 +590,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
         bytes32 rootBefore = registry.entriesRoot();
         vm.prank(s.owner);
         try registry.topUp(bondId, amount) {
-            if (!_isTouchedSlot[bondId]) {
-                _isTouchedSlot[bondId] = true;
-                _touchedSlots.push(bondId);
-            }
+            _touch(bondId);
             s.pendingTopUp = amount;
             s.topUpReadyAtL1 = uint48(block.number + activationDelay);
             staked += amount;
@@ -594,6 +599,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
                 registry.checkpointCount() != checkpointsBefore
                     || registry.entriesRoot() != rootBefore
             ) _violate(Property.History, "deposit changed committee checkpoint");
+            _checkThreshold();
         } catch (bytes memory reason) {
             _checkRevert(Property.Balance, "", reason, "topUp");
         }
@@ -601,10 +607,10 @@ contract EtnaStakingRegistryHandler is CommonBase {
 
     /// @notice Activates the entire matured deposit, leaving historical checkpoints immutable.
     function activateTopUp(uint256 _seed) external {
-        if (slotCount == 0) return;
-        uint256 bondId = _seed % slotCount;
-        Slot storage s = _slots[bondId];
-        if (s.entry.ckPrefix == 0 || s.pendingTopUp == 0 || s.entry.exitEffectiveL1 != NO_EXIT) {
+        if (bondCount == 0) return;
+        uint256 bondId = _seed % bondCount;
+        Bond storage s = _bonds[bondId];
+        if (s.withdrawn || s.pendingTopUp == 0 || s.entry.exitEffectiveL1 != NO_EXIT) {
             return;
         }
         if (_seed % 2 == 0 && block.number < s.topUpReadyAtL1) vm.roll(s.topUpReadyAtL1);
@@ -627,9 +633,9 @@ contract EtnaStakingRegistryHandler is CommonBase {
 
     /// @notice DAO forfeiture models ceiling arithmetic, balance sources, exits and lifetime replay.
     function forfeit(uint256 _seed) external {
-        (bool found, uint256 bondId) = _pick(_seed, ANY_UNRELEASED);
+        (bool found, uint256 bondId) = _pick(_seed, ANY_UNWITHDRAWN);
         if (!found) return;
-        Slot storage s = _slots[bondId];
+        Bond storage s = _bonds[bondId];
         bytes32 key = _entryKeyOf(s.entry.ckPrefix, s.entry.ckX);
         uint256 principal = s.entry.effStake + s.pendingTopUp;
         bytes memory expected;
@@ -670,7 +676,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
         if (mode == 1) {
             target = ghostSnapshot + (_seed >> 2) % (block.number - ghostSnapshot + 1);
         } else if (mode == 2 && _exiting.length != 0) {
-            uint256 exit = _slots[_exiting[(_seed >> 2) % _exiting.length]].entry.exitEffectiveL1;
+            uint256 exit = _bonds[_exiting[(_seed >> 2) % _exiting.length]].entry.exitEffectiveL1;
             if (exit <= block.number) target = exit;
         }
         if (target < ghostSnapshot) target = ghostSnapshot;
@@ -691,8 +697,8 @@ contract EtnaStakingRegistryHandler is CommonBase {
             target += 1 + (_seed >> 2) % 12;
         } else if (mode == 3) {
             uint256 milestone;
-            if (slotCount != 0) {
-                IEtnaStakingRegistry.Entry storage entry = _slots[(_seed >> 3) % slotCount].entry;
+            if (bondCount != 0) {
+                IEtnaStakingRegistry.Entry storage entry = _bonds[(_seed >> 3) % bondCount].entry;
                 milestone = (_seed >> 2) % 2 == 0 && entry.exitEffectiveL1 != NO_EXIT
                     ? entry.exitEffectiveL1
                     : entry.activeFromL1;
@@ -705,21 +711,21 @@ contract EtnaStakingRegistryHandler is CommonBase {
     }
 
     /// @notice Advances the L1 block to where the earliest (or a random) confirmed exit can be
-    /// withdrawn or, with none confirmed, to the earliest (or a random) pending exit, so slots
-    /// are released and reused within a run.
+    /// withdrawn or, with none confirmed, to the earliest (or a random) pending exit, so bonds
+    /// are withdrawn and their slots reused within a run.
     function advanceToWithdrawal(uint256 _seed) external {
         uint256 target = type(uint256).max;
         uint256 count = _exiting.length;
         uint256 start = count == 0 ? 0 : (_seed >> 1) % count;
         for (uint256 i; i < count; ++i) {
-            Slot storage s = _slots[_exiting[(start + i) % count]];
+            Bond storage s = _bonds[_exiting[(start + i) % count]];
             if (s.confirmedAt != 0) {
                 target = _min(target, s.confirmedAt + withdrawalDelay);
                 if (_seed % 2 != 0) break;
             }
         }
         for (uint256 i; i < count && target == type(uint256).max; ++i) {
-            target = _min(target, _slots[_exiting[(start + i) % count]].entry.exitEffectiveL1);
+            target = _min(target, _bonds[_exiting[(start + i) % count]].entry.exitEffectiveL1);
             if (_seed % 2 != 0) break;
         }
         if (target == type(uint256).max) target = block.number + 1 + _seed % _idleSpan;
@@ -732,7 +738,8 @@ contract EtnaStakingRegistryHandler is CommonBase {
 
     /// @notice Registers `_count` minimum stakes in the current block with the consensus keys
     /// `_firstKey`, `_firstKey + 1`, ... round-robin over the stakers, through the same checks
-    /// as `register`. The slots are not tracked as touched.
+    /// as `register`, into an empty or partly filled registry with no empty slot below the next
+    /// one. The bonds are not tracked as touched.
     function prefill(uint256 _count, uint256 _firstKey) external {
         _prefilling = true;
         for (uint256 i; i < _count; ++i) {
@@ -750,7 +757,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
     /// @notice The owner of `_bondId` requests its exit, through the same checks as
     /// `requestExit`.
     function requestExitOf(uint256 _bondId) external {
-        _requestExit(_bondId, _slots[_bondId].owner);
+        _requestExit(_bondId, _bonds[_bondId].owner);
     }
 
     /// @notice Confirms the exit of `_bondId`, through the same checks as `confirmExit`.
@@ -767,12 +774,18 @@ contract EtnaStakingRegistryHandler is CommonBase {
     // Views for the invariants
     // ---------------------------------------------------------------
 
-    function slotAt(uint256 _bondId) external view returns (Slot memory) {
-        return _slots[_bondId];
+    function bondAt(uint256 _bondId) external view returns (Bond memory) {
+        return _bonds[_bondId];
     }
 
-    function freeSlots() external view returns (uint256[] memory) {
-        return _freeSlots;
+    /// @notice The model's `bondInSlot`: whether a bond holds `_slot`, and which.
+    function slotHolder(uint256 _slot) external view returns (bool, uint256) {
+        uint256 holder = _slotBond[_slot];
+        return holder == 0 ? (false, 0) : (true, holder - 1);
+    }
+
+    function withdrawnBonds() external view returns (uint256[] memory) {
+        return _withdrawn;
     }
 
     function usedPks() external view returns (uint256[] memory) {
@@ -791,8 +804,9 @@ contract EtnaStakingRegistryHandler is CommonBase {
         return _reporters;
     }
 
-    function isKeyUsed(address _ckAddr) external view returns (bool) {
-        return _keyUsed[_ckAddr];
+    /// @notice The model's `bondForKey`, as bond id + 1 (0 for an unused key).
+    function keyBond(address _ckAddr) external view returns (uint256) {
+        return _keyBond[_ckAddr];
     }
 
     function checkpoints() external view returns (IEtnaStakingRegistry.Checkpoint[] memory) {
@@ -807,8 +821,8 @@ contract EtnaStakingRegistryHandler is CommonBase {
         return _snapshotLeaves[_index];
     }
 
-    function touchedSlots() external view returns (uint256[] memory) {
-        return _touchedSlots;
+    function touchedBonds() external view returns (uint256[] memory) {
+        return _touchedBonds;
     }
 
     function touchedKeys() external view returns (address[] memory) {
@@ -831,8 +845,10 @@ contract EtnaStakingRegistryHandler is CommonBase {
     // ---------------------------------------------------------------
 
     function _register(RegisterAttempt memory _a) internal {
-        _a.expectedError = _expectRegister(_a);
-        _a.expectedId = _freeSlots.length != 0 ? _freeSlots[_freeSlots.length - 1] : slotCount;
+        uint256 value;
+        (_a.expectedSlot, value) = _threshold();
+        _a.expectedError = _expectRegister(_a, value);
+        if (!_prefilling) _checkThreshold();
         uint256 callerBefore = token.balanceOf(_a.caller);
         uint256 registryBefore = token.balanceOf(address(registry));
 
@@ -840,8 +856,8 @@ contract EtnaStakingRegistryHandler is CommonBase {
         try registry.register(_a.publicKey, _a.amount, _a.popSig) returns (uint256 bondId) {
             if (_a.expectedError.length != 0) {
                 _violate(Property.Keys, "register accepted where the model rejects it");
-            } else if (bondId != _a.expectedId) {
-                _violate(Property.Cap, "register took another slot than the last released one");
+            } else if (bondId != bondCount) {
+                _violate(Property.Cap, "register issued another bond id than the next one");
             } else {
                 if (
                     token.balanceOf(_a.caller) != callerBefore - _a.amount
@@ -858,31 +874,45 @@ contract EtnaStakingRegistryHandler is CommonBase {
     }
 
     /// @dev The registration's expected revert data in the registry's check order (stake, key
-    /// encoding, proof of possession, key reuse, capacity), or empty.
-    function _expectRegister(RegisterAttempt memory _a) internal view returns (bytes memory) {
+    /// encoding, proof of possession, key reuse, admission threshold `_value`), or empty.
+    function _expectRegister(
+        RegisterAttempt memory _a,
+        uint256 _value
+    )
+        internal
+        view
+        returns (bytes memory)
+    {
         if (_a.amount < minStake) return _err(IEtnaStakingRegistry.StakeTooLow.selector);
         if (_a.defect == MALFORMED_KEY) {
             return _err(IEtnaStakingRegistry.InvalidPublicKey.selector);
         }
         if (_a.defect == WRONG_POP) return _err(IEtnaStakingRegistry.InvalidSignature.selector);
-        if (_keyUsed[vm.addr(_a.pk)]) return _err(IEtnaStakingRegistry.KeyAlreadyUsed.selector);
-        if (_freeSlots.length == 0 && slotCount >= maxEntries) {
-            return _err(IEtnaStakingRegistry.RegistryFull.selector);
+        if (_keyBond[vm.addr(_a.pk)] != 0) {
+            return _err(IEtnaStakingRegistry.KeyAlreadyUsed.selector);
         }
+        if (_a.amount <= _value) return _err(IEtnaStakingRegistry.StakeTooLow.selector);
         return "";
     }
 
     function _recordRegistration(RegisterAttempt memory _a, uint256 _bondId) internal {
-        Slot storage s = _slots[_bondId];
-        if (_bondId < slotCount) {
-            _freeSlots.pop();
+        uint256 slot = _a.expectedSlot;
+        uint256 occupant = _slotBond[slot];
+        if (occupant != 0) {
+            Bond storage displaced = _bonds[occupant - 1];
+            displaced.holdsSlot = false;
+            displaced.forcedExit = _min(displaced.forcedExit, block.number);
+            _setExit(occupant - 1, _min(displaced.entry.exitEffectiveL1, block.number));
+            _checkBondRecord(occupant - 1, Property.Cap);
+            ++displacements;
+        } else if (slot < slotCount) {
             ++reuses;
-            if (slotCount == maxEntries) ++reusesAtCap;
         } else {
             ++slotCount;
             if (slotCount == maxEntries) ++capFills;
         }
         Vm.Wallet memory wallet = vm.createWallet(_a.pk);
+        Bond storage s = _bonds[_bondId];
         s.entry = IEtnaStakingRegistry.Entry({
             ckX: bytes32(wallet.publicKeyX),
             effStake: _a.amount,
@@ -893,29 +923,27 @@ contract EtnaStakingRegistryHandler is CommonBase {
         s.owner = _a.caller;
         s.pk = _a.pk;
         s.registeredAt = block.number;
-        s.requestedAt = 0;
         s.requestedExit = NO_EXIT;
-        s.slashedAt = 0;
         s.forcedExit = NO_EXIT;
-        s.confirmedAt = 0;
-        s.snapshotAtConfirmation = 0;
-        s.slashedAfterConfirmation = false;
-        ++s.occupancies;
+        s.slot = slot;
+        s.holdsSlot = true;
+        _slotBond[slot] = _bondId + 1;
+        ++bondCount;
 
-        if (registry.entryAt(_bondId).activeFromL1 != block.number + activationDelay) {
-            _violate(Property.Timing, "activation is not exactly its delay after registration");
-        }
         if (registry.ownerOf(_bondId) != _a.caller) {
             _violate(Property.Reuse, "the registrant is not the bond owner");
         }
         if (registry.exitConfirmedAtL1(_bondId) != 0) {
-            _violate(Property.Reuse, "a new occupant inherited an exit confirmation");
+            _violate(Property.Reuse, "a new bond has an exit confirmation");
         }
         address ckAddr = wallet.addr;
-        _keyUsed[ckAddr] = true;
+        _keyBond[ckAddr] = _bondId + 1;
         _usedPks.push(_a.pk);
         if (!_prefilling) _touchedKeys.push(ckAddr);
-        if (!registry.keyUsed(ckAddr)) _violate(Property.Keys, "a registered key is not used");
+        (bool registered, uint256 keyBondId) = registry.bondForKey(ckAddr);
+        if (!registered || keyBondId != _bondId) {
+            _violate(Property.Keys, "a registered key does not name its bond");
+        }
 
         staked += _a.amount;
         deposited += _a.amount;
@@ -983,13 +1011,13 @@ contract EtnaStakingRegistryHandler is CommonBase {
     // ---------------------------------------------------------------
 
     function _requestExit(uint256 _bondId, address _caller) internal {
-        Slot storage s = _slots[_bondId];
+        Bond storage s = _bonds[_bondId];
         uint256 exit = _max(block.number, s.entry.activeFromL1) + exitDelay;
         bytes memory expected;
-        if (_bondId >= slotCount) {
+        if (_bondId >= bondCount) {
             expected = _err(IEtnaStakingRegistry.UnknownBond.selector);
-        } else if (s.entry.ckPrefix == 0) {
-            expected = _err(IEtnaStakingRegistry.SlotReleased.selector);
+        } else if (s.withdrawn) {
+            expected = _err(IEtnaStakingRegistry.BondWithdrawn.selector);
         } else if (s.owner != _caller) {
             expected = _err(IEtnaStakingRegistry.NotBondOwner.selector);
         } else if (s.entry.exitEffectiveL1 != NO_EXIT) {
@@ -1024,16 +1052,16 @@ contract EtnaStakingRegistryHandler is CommonBase {
     )
         internal
     {
-        Slot storage s = _slots[_bondId];
+        Bond storage s = _bonds[_bondId];
         bytes memory expected;
         if (_locked) {
             expected = _err(IEtnaStakingRegistry.InboxLocked.selector);
         } else if (_uninitialized) {
             expected = _err(IEtnaStakingRegistry.InboxNotInitialized.selector);
-        } else if (_bondId >= slotCount) {
+        } else if (_bondId >= bondCount) {
             expected = _err(IEtnaStakingRegistry.UnknownBond.selector);
-        } else if (s.entry.ckPrefix == 0) {
-            expected = _err(IEtnaStakingRegistry.SlotReleased.selector);
+        } else if (s.withdrawn) {
+            expected = _err(IEtnaStakingRegistry.BondWithdrawn.selector);
         } else if (s.entry.exitEffectiveL1 == NO_EXIT) {
             expected = _err(IEtnaStakingRegistry.ExitNotSet.selector);
         } else if (ghostSnapshot < s.entry.exitEffectiveL1) {
@@ -1059,12 +1087,12 @@ contract EtnaStakingRegistryHandler is CommonBase {
     }
 
     function _recordConfirmation(uint256 _bondId, uint256 _checkpointsBefore) internal {
-        Slot storage s = _slots[_bondId];
+        Bond storage s = _bonds[_bondId];
         if (registry.checkpointCount() != _checkpointsBefore) {
             _violate(Property.History, "confirmExit wrote a checkpoint");
         }
-        if (!_sameEntry(registry.entryAt(_bondId), s.entry)) {
-            _violate(Property.Reuse, "confirmExit changed the entry");
+        if (!_sameEntry(registry.bondAt(_bondId).entry, s.entry)) {
+            _violate(Property.Reuse, "confirmExit changed the bond");
         }
         if (s.confirmedAt == 0) {
             s.confirmedAt = block.number;
@@ -1079,13 +1107,16 @@ contract EtnaStakingRegistryHandler is CommonBase {
     }
 
     function _withdraw(uint256 _bondId, address _caller, address _to, bool _locked) internal {
-        Slot storage s = _slots[_bondId];
+        Bond storage s = _bonds[_bondId];
         uint256 amount = s.entry.effStake + s.pendingTopUp;
         bytes memory expected;
         if (_locked) {
             expected = _err(IEtnaStakingRegistry.InboxLocked.selector);
+        } else if (_bondId >= bondCount) {
+            expected = _err(IEtnaStakingRegistry.UnknownBond.selector);
+        } else if (s.withdrawn) {
+            expected = _err(IEtnaStakingRegistry.BondWithdrawn.selector);
         } else if (s.confirmedAt == 0) {
-            // Unknown and released slots have no confirmation either.
             expected = _err(IEtnaStakingRegistry.ExitNotConfirmed.selector);
         } else if (block.number < s.confirmedAt + withdrawalDelay) {
             expected = _err(IEtnaStakingRegistry.WithdrawalNotReady.selector);
@@ -1119,7 +1150,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
     )
         internal
     {
-        Slot storage s = _slots[_bondId];
+        Bond storage s = _bonds[_bondId];
         uint256 amount = s.entry.effStake + s.pendingTopUp;
         if (token.balanceOf(address(registry)) != _before.registry - amount) {
             _violate(Property.Balance, "withdraw moved another amount out of the registry");
@@ -1128,13 +1159,10 @@ contract EtnaStakingRegistryHandler is CommonBase {
             _violate(Property.Balance, "withdraw paid the recipient another amount than the stake");
         }
         if (registry.ownerOf(_bondId) != address(0)) {
-            _violate(Property.Reuse, "a released slot kept its owner");
+            _violate(Property.Reuse, "a withdrawn bond kept its owner");
         }
         if (registry.exitConfirmedAtL1(_bondId) != 0) {
-            _violate(Property.Reuse, "a released slot kept its confirmation");
-        }
-        if (registry.freeSlotCount() != _freeSlots.length + 1) {
-            _violate(Property.Cap, "withdraw did not free exactly one slot");
+            _violate(Property.Reuse, "a withdrawn bond kept its confirmation");
         }
 
         if (amount == 0) {
@@ -1148,23 +1176,24 @@ contract EtnaStakingRegistryHandler is CommonBase {
         }
         staked -= amount;
         _removeExiting(_bondId);
-        _freeSlots.push(_bondId);
+        _withdrawn.push(_bondId);
 
-        s.formerEntryKey = _entryKeyOf(s.entry.ckPrefix, s.entry.ckX);
-        delete s.entry;
+        s.entry.effStake = 0;
         s.owner = address(0);
-        s.pk = 0;
-        s.registeredAt = 0;
         s.pendingTopUp = 0;
         s.topUpReadyAtL1 = 0;
-        s.requestedAt = 0;
-        s.requestedExit = 0;
-        s.slashedAt = 0;
-        s.forcedExit = 0;
         s.confirmedAt = 0;
         s.snapshotAtConfirmation = 0;
-        s.slashedAfterConfirmation = false;
-        _commit(_bondId, Property.Reuse);
+        s.withdrawn = true;
+        if (s.holdsSlot) {
+            s.holdsSlot = false;
+            delete _slotBond[s.slot];
+            _checkBondRecord(_bondId, Property.Reuse);
+            _touch(_bondId);
+            _commitSlot(s.slot, Property.Reuse);
+        } else {
+            _commit(_bondId, Property.Reuse);
+        }
     }
 
     // ---------------------------------------------------------------
@@ -1366,9 +1395,9 @@ contract EtnaStakingRegistryHandler is CommonBase {
         if (a.generation > ghostGeneration) {
             return _err(IEtnaStakingRegistry.FutureGeneration.selector);
         }
-        Slot storage s = _slots[_a.bondId];
-        if (_a.bondId >= slotCount) return _err(IEtnaStakingRegistry.UnknownBond.selector);
-        if (s.entry.ckPrefix == 0) return _err(IEtnaStakingRegistry.SlotReleased.selector);
+        Bond storage s = _bonds[_a.bondId];
+        if (_a.bondId >= bondCount) return _err(IEtnaStakingRegistry.UnknownBond.selector);
+        if (s.withdrawn) return _err(IEtnaStakingRegistry.BondWithdrawn.selector);
         if (s.entry.effStake + s.pendingTopUp == 0) {
             return _err(IEtnaStakingRegistry.NothingToSlash.selector);
         }
@@ -1377,7 +1406,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
     }
 
     function _recordSlash(SlashAttempt memory _a, Balances memory _before) internal {
-        Slot storage s = _slots[_a.bondId];
+        Bond storage s = _bonds[_a.bondId];
         uint256 amount = s.entry.effStake + s.pendingTopUp;
         uint256 bounty = amount * slashBountyBps / BPS;
         if (
@@ -1430,14 +1459,12 @@ contract EtnaStakingRegistryHandler is CommonBase {
     /// @dev Models an Inbox exclusion using the actual execution block, including its bounds.
     function _forceExit(uint256 _bondId, bytes32 _entryKey, bool _notInbox) internal {
         uint256 r = block.number;
-        Slot storage s = _slots[_bondId];
+        Bond storage s = _bonds[_bondId];
         bytes memory expected;
         if (_notInbox) {
             expected = _err(IEtnaStakingRegistry.NotInbox.selector);
-        } else if (_bondId >= slotCount) {
+        } else if (_bondId >= bondCount) {
             expected = _err(IEtnaStakingRegistry.UnknownBond.selector);
-        } else if (s.entry.ckPrefix == 0) {
-            expected = _err(IEtnaStakingRegistry.SlotReleased.selector);
         } else if (_entryKey != _entryKeyOf(s.entry.ckPrefix, s.entry.ckX)) {
             expected = _err(IEtnaStakingRegistry.EntryKeyMismatch.selector);
         } else if (r >= NO_EXIT) {
@@ -1472,8 +1499,8 @@ contract EtnaStakingRegistryHandler is CommonBase {
             if (registry.checkpointCount() != checkpointsBefore) {
                 _violate(Property.History, "a forceExit that keeps the exit wrote a checkpoint");
             }
-            if (!_sameEntry(registry.entryAt(_bondId), s.entry)) {
-                _violate(Property.Timing, "a forceExit that keeps the exit changed the entry");
+            if (!_sameEntry(registry.bondAt(_bondId).entry, s.entry)) {
+                _violate(Property.Timing, "a forceExit that keeps the exit changed the bond");
             }
             ++forcedNoOps;
         } else {
@@ -1484,8 +1511,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
         }
     }
 
-    /// @dev Another entry key than `_bondId`'s: its former occupant's, another bond's, the
-    /// flipped prefix, or another X.
+    /// @dev Another entry key than `_bondId`'s: another bond's, the flipped prefix, or another X.
     function _wrongEntryKey(
         uint256 _bondId,
         bytes32 _key,
@@ -1495,16 +1521,15 @@ contract EtnaStakingRegistryHandler is CommonBase {
         view
         returns (bytes32)
     {
-        Slot storage s = _slots[_bondId];
-        uint256 kind = _rand(_seed, "wrong key") % 4;
-        if (kind == 0 && s.formerEntryKey != 0) return s.formerEntryKey;
-        if (kind == 1 && slotCount > 1) {
-            Slot storage other = _slots[(_bondId + 1 + _seed % (slotCount - 1)) % slotCount];
+        Bond storage s = _bonds[_bondId];
+        uint256 kind = _rand(_seed, "wrong key") % 3;
+        if (kind == 0 && bondCount > 1) {
+            Bond storage other = _bonds[(_bondId + 1 + _seed % (bondCount - 1)) % bondCount];
             if (other.entry.ckPrefix != 0) {
                 return _entryKeyOf(other.entry.ckPrefix, other.entry.ckX);
             }
         }
-        if (kind == 2 && s.entry.ckPrefix != 0) {
+        if (kind == 1 && s.entry.ckPrefix != 0) {
             return _entryKeyOf(s.entry.ckPrefix ^ 1, s.entry.ckX);
         }
         bytes32 wrong = _entryKeyOf(s.entry.ckPrefix, bytes32(uint256(s.entry.ckX) ^ 1));
@@ -1516,9 +1541,9 @@ contract EtnaStakingRegistryHandler is CommonBase {
     // ---------------------------------------------------------------
 
     /// @dev Sets the modelled exit of `_bondId`, which must never move later, and tracks the
-    /// slot as exiting.
+    /// bond as exiting.
     function _setExit(uint256 _bondId, uint256 _exit) internal {
-        IEtnaStakingRegistry.Entry storage entry = _slots[_bondId].entry;
+        IEtnaStakingRegistry.Entry storage entry = _bonds[_bondId].entry;
         if (_exit > entry.exitEffectiveL1) _violate(Property.Timing, "an exit moved later");
         if (_exitingPosition[_bondId] == 0) {
             _exiting.push(_bondId);
@@ -1537,20 +1562,66 @@ contract EtnaStakingRegistryHandler is CommonBase {
         delete _exitingPosition[_bondId];
     }
 
-    /// @dev After a successful call that changed entry `_bondId`: checks the entry against the
-    /// model, folds its leaf into the ghost tree, then checks that exactly the current block's
-    /// checkpoint was written with the modelled count and root, and refreshes that block's
-    /// checkpoint copy and snapshot.
+    /// @dev After a successful call that changed bond `_bondId`: checks its record against the
+    /// model, then, if it holds a slot, commits the slot (`_commitSlot`); otherwise checks that
+    /// the call wrote no checkpoint.
     function _commit(uint256 _bondId, Property _property) internal {
-        Slot storage s = _slots[_bondId];
-        if (!_sameEntry(registry.entryAt(_bondId), s.entry)) {
-            _violate(_property, "the changed entry differs from the model");
+        _checkBondRecord(_bondId, _property);
+        Bond storage s = _bonds[_bondId];
+        if (s.holdsSlot) {
+            _commitSlot(s.slot, _property);
+            return;
         }
-        _setLeaf(_bondId, _regLeaf(_bondId, s.entry));
-        if (!_prefilling && !_isTouchedSlot[_bondId]) {
-            _isTouchedSlot[_bondId] = true;
-            _touchedSlots.push(_bondId);
+        _touch(_bondId);
+        uint256 known = _checkpoints.length;
+        if (registry.checkpointCount() != known) {
+            _violate(Property.History, "a change to a bond without a slot wrote a checkpoint");
+        } else if (known != 0) {
+            IEtnaStakingRegistry.Checkpoint memory latest = registry.checkpointAt(known - 1);
+            if (
+                latest.l1Block != _checkpoints[known - 1].l1Block
+                    || latest.entriesRoot != _checkpoints[known - 1].entriesRoot
+            ) {
+                _violate(Property.History, "a change to a bond without a slot rewrote a checkpoint");
+            }
         }
+        if (!_prefilling) _checkThreshold();
+    }
+
+    /// @dev Checks the registry's record of bond `_bondId` (fields, slot and withdrawal) and its
+    /// slot lookup against the model.
+    function _checkBondRecord(uint256 _bondId, Property _property) internal {
+        Bond storage s = _bonds[_bondId];
+        IEtnaStakingRegistry.Bond memory got = registry.bondAt(_bondId);
+        if (!_sameEntry(got.entry, s.entry)) {
+            _violate(_property, "the bond record differs from the model");
+        }
+        (bool holdsSlot, uint256 slot) = registry.slotOfBond(_bondId);
+        if (
+            got.holdsSlot != s.holdsSlot || holdsSlot != s.holdsSlot
+                || (s.holdsSlot && (got.slot != s.slot || slot != s.slot))
+                || got.withdrawn != s.withdrawn
+        ) {
+            _violate(_property, "the bond's slot or withdrawal differs from the model");
+        }
+    }
+
+    /// @dev After a successful call that changed the entry in `_slot`: checks the slot's entry
+    /// and holder against the model, folds its leaf into the ghost tree, then checks that exactly
+    /// the current block's checkpoint was written with the modelled count and root, refreshes
+    /// that block's checkpoint copy and snapshot, and checks the admission threshold.
+    function _commitSlot(uint256 _slot, Property _property) internal {
+        IEtnaStakingRegistry.Entry memory entry = _slotEntry(_slot);
+        if (!_sameEntry(registry.entryAt(_slot), entry)) {
+            _violate(_property, "the changed slot's entry differs from the model");
+        }
+        (bool occupied, uint256 holder) = registry.bondInSlot(_slot);
+        uint256 modelHolder = _slotBond[_slot];
+        if (occupied != (modelHolder != 0) || (occupied && holder != modelHolder - 1)) {
+            _violate(_property, "the slot's bond differs from the model");
+        }
+        _setLeaf(_slot, _regLeaf(_slot, entry));
+        if (modelHolder != 0) _touch(modelHolder - 1);
 
         uint256 count = registry.checkpointCount();
         uint256 known = _checkpoints.length;
@@ -1581,9 +1652,54 @@ contract EtnaStakingRegistryHandler is CommonBase {
             delete _snapshotLeaves[count - 1];
             bytes32[] storage leaves = _snapshotLeaves[count - 1];
             for (uint256 i; i < slotCount; ++i) {
-                leaves.push(_regLeaf(i, _slots[i].entry));
+                leaves.push(_regLeaf(i, _slotEntry(i)));
             }
         }
+        if (!_prefilling) _checkThreshold();
+    }
+
+    /// @dev The modelled entry of `_slot`: its bond's fields, or all zero if it is empty.
+    function _slotEntry(uint256 _slot)
+        internal
+        view
+        returns (IEtnaStakingRegistry.Entry memory entry_)
+    {
+        uint256 holder = _slotBond[_slot];
+        if (holder != 0) entry_ = _bonds[holder - 1].entry;
+    }
+
+    /// @dev The modelled admission threshold: the slot with the smallest value (its bond's
+    /// effStake + pendingTopUp, 0 if empty), the lowest on a tie, and that value. The prefill
+    /// registers into a registry with no empty or zero-valued slot, so there it is the next slot.
+    function _threshold() internal view returns (uint256 slot_, uint256 value_) {
+        if (_prefilling) return (slotCount, 0);
+        value_ = type(uint256).max;
+        for (uint256 i; i < slotCount; ++i) {
+            uint256 holder = _slotBond[i];
+            uint256 value;
+            if (holder != 0) {
+                value = _bonds[holder - 1].entry.effStake + _bonds[holder - 1].pendingTopUp;
+            }
+            if (value < value_) (slot_, value_) = (i, value);
+            if (value_ == 0) break;
+        }
+        if (value_ != 0 && slotCount < maxEntries) (slot_, value_) = (slotCount, 0);
+    }
+
+    /// @dev Checks the registry's admission threshold against the model.
+    function _checkThreshold() internal {
+        (uint256 slot, uint256 value) = _threshold();
+        (uint256 gotSlot, uint256 gotValue) = registry.admissionThreshold();
+        if (gotSlot != slot || gotValue != value) {
+            _violate(Property.Cap, "the admission threshold differs from the model");
+        }
+    }
+
+    /// @dev Tracks `_bondId` as touched by a call outside the prefill.
+    function _touch(uint256 _bondId) internal {
+        if (_prefilling || _isTouchedBond[_bondId]) return;
+        _isTouchedBond[_bondId] = true;
+        _touchedBonds.push(_bondId);
     }
 
     function _setLeaf(uint256 _index, bytes32 _leaf) internal {
@@ -1612,8 +1728,8 @@ contract EtnaStakingRegistryHandler is CommonBase {
         return _seed % 4 == 3 ? 1 + _rand(_seed, "defect") % (_modes - 1) : VALID;
     }
 
-    /// @dev A slot of the kind `_want`, from a random start. Exiting kinds scan the exiting
-    /// slots; the others scan every slot of a small registry or probe 32 random ones.
+    /// @dev A bond of the kind `_want`, from a random start. Exiting kinds scan the exiting
+    /// bonds; the others scan every bond of a small registry or probe 32 random ones.
     function _pick(uint256 _seed, uint256 _want) internal view returns (bool, uint256) {
         uint256 start = _rand(_seed, "pick");
         if (_want >= EXITING) {
@@ -1624,26 +1740,26 @@ contract EtnaStakingRegistryHandler is CommonBase {
             }
             return (false, 0);
         }
-        if (slotCount <= 64) {
-            for (uint256 i; i < slotCount; ++i) {
-                uint256 bondId = (start + i) % slotCount;
+        if (bondCount <= 64) {
+            for (uint256 i; i < bondCount; ++i) {
+                uint256 bondId = (start + i) % bondCount;
                 if (_matches(bondId, _want)) return (true, bondId);
             }
             return (false, 0);
         }
         for (uint256 i; i < 32; ++i) {
-            uint256 bondId = _rand(start, i) % slotCount;
+            uint256 bondId = _rand(start, i) % bondCount;
             if (_matches(bondId, _want)) return (true, bondId);
         }
         return (false, 0);
     }
 
     function _matches(uint256 _bondId, uint256 _want) internal view returns (bool) {
-        Slot storage s = _slots[_bondId];
-        if (s.entry.ckPrefix == 0) return false;
+        Bond storage s = _bonds[_bondId];
+        if (s.withdrawn) return false;
         uint256 exit = s.entry.exitEffectiveL1;
         bool ready = s.confirmedAt != 0 && block.number >= s.confirmedAt + withdrawalDelay;
-        if (_want == ANY_UNRELEASED) return true;
+        if (_want == ANY_UNWITHDRAWN) return true;
         if (_want == NO_EXIT_SET) return exit == NO_EXIT;
         if (_want == STAKED) return s.entry.effStake + s.pendingTopUp != 0;
         if (_want == UNCONFIRMED) return s.confirmedAt == 0;
@@ -1657,14 +1773,14 @@ contract EtnaStakingRegistryHandler is CommonBase {
         return s.entry.effStake + s.pendingTopUp == 0; // SLASHED
     }
 
-    function _pickReleased(uint256 _seed) internal view returns (bool, uint256) {
-        if (_freeSlots.length == 0) return (false, 0);
-        return (true, _freeSlots[_rand(_seed, "released") % _freeSlots.length]);
+    function _pickWithdrawn(uint256 _seed) internal view returns (bool, uint256) {
+        if (_withdrawn.length == 0) return (false, 0);
+        return (true, _withdrawn[_rand(_seed, "withdrawn") % _withdrawn.length]);
     }
 
-    /// @dev A bond id no slot has used yet.
+    /// @dev A bond id not issued yet.
     function _unknownBond(uint256 _seed) internal view returns (uint256) {
-        return slotCount + _rand(_seed, "unknown") % 3;
+        return bondCount + _rand(_seed, "unknown") % 3;
     }
 
     /// @dev An unused pool key, scanning from a random start; zero once every pool key is used.
@@ -1672,7 +1788,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
         uint256 start = _rand(_seed, "pool");
         for (uint256 i; i < POOL_SIZE; ++i) {
             uint256 pk = _poolKeys[(start + i) % POOL_SIZE];
-            if (!_keyUsed[vm.addr(pk)]) return pk;
+            if (_keyBond[vm.addr(pk)] == 0) return pk;
         }
         return 0;
     }
@@ -1819,8 +1935,8 @@ contract EtnaStakingRegistryHandler is CommonBase {
         );
     }
 
-    /// @dev The occupant identity recovery exclusions name: keccak256(abi.encode(uint256(prefix),
-    /// X)) (appendix A).
+    /// @dev The bond identity recovery exclusions name: keccak256(abi.encode(uint256(prefix), X))
+    /// (appendix A).
     function _entryKeyOf(uint8 _prefix, bytes32 _x) internal pure returns (bytes32) {
         return keccak256(abi.encode(uint256(_prefix), _x));
     }

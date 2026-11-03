@@ -5,9 +5,10 @@ import { IEtnaStakingRegistry } from "../iface/IEtnaStakingRegistry.sol";
 
 /// @title LibEntriesTree
 /// @notice Incremental Merkle tree over the staking registry's entries, and the entry leaf.
-/// @dev The tree has a fixed depth of 12 (4096 leaf positions). Leaf `i` is the hash of entry
-/// `i`; inner nodes are `keccak256(left ‖ right)`. A node that was never written reads as the
-/// zero hash of its level: `zero(0) = 0` and `zero(l) = keccak256(zero(l - 1) ‖ zero(l - 1))`.
+/// @dev The tree has a fixed depth of 12 (4096 leaf positions). Leaf `i` is the hash of the
+/// entry in slot `i`; inner nodes are `keccak256(left ‖ right)`. A node that was never written
+/// reads as the zero hash of its level: `zero(0) = 0` and
+/// `zero(l) = keccak256(zero(l - 1) ‖ zero(l - 1))`.
 ///
 /// The root over the first `count` leaves is the node at level `ceil(log2(count))`, index 0,
 /// which equals the root of those leaves padded with zero leaves to the next power of two. This
@@ -64,15 +65,15 @@ library LibEntriesTree {
     // Internal Functions
     // ---------------------------------------------------------------
 
-    /// @dev Hashes entry `_index` into its leaf, spec appendix A `regLeaf`: the seven-word
-    /// `keccak256(abi.encode(ENTRY_TAG, _index, uint256(ckPrefix), ckX, effStake,
-    /// uint256(activeFromL1), uint256(exitEffectiveL1)))`. A released slot's all-zero entry
-    /// still hashes to a non-zero leaf.
-    /// @param _index The entry's index (its bond id).
+    /// @dev Hashes the entry of `_slot` into its leaf, spec appendix A `regLeaf`: the seven-word
+    /// `keccak256(abi.encode(ENTRY_TAG, _slot, uint256(ckPrefix), ckX, effStake,
+    /// uint256(activeFromL1), uint256(exitEffectiveL1)))`. An empty slot's all-zero entry still
+    /// hashes to a non-zero leaf.
+    /// @param _slot The entry's slot, never the bond id.
     /// @param _entry The entry.
     /// @return The leaf hash.
     function leaf(
-        uint256 _index,
+        uint256 _slot,
         IEtnaStakingRegistry.Entry memory _entry
     )
         internal
@@ -82,7 +83,7 @@ library LibEntriesTree {
         return keccak256(
             abi.encode(
                 ENTRY_TAG,
-                _index,
+                _slot,
                 uint256(_entry.ckPrefix),
                 _entry.ckX,
                 _entry.effStake,
