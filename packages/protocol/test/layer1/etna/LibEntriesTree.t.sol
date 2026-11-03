@@ -23,14 +23,14 @@ contract LibEntriesTreeHarness {
     }
 
     function leaf(
-        uint256 _index,
+        uint256 _slot,
         IEtnaStakingRegistry.Entry memory _entry
     )
         external
         pure
         returns (bytes32)
     {
-        return LibEntriesTree.leaf(_index, _entry);
+        return LibEntriesTree.leaf(_slot, _entry);
     }
 
     function zero(uint256 _level) external pure returns (bytes32) {
@@ -147,16 +147,16 @@ contract LibEntriesTreeTest is CommonTest {
         assertTrue(tree.leaf(1, entry) != before, "exitEffectiveL1");
     }
 
-    function test_leaf_OfReleasedSlotHashesZeroFields() external view {
-        IEtnaStakingRegistry.Entry memory released;
+    function test_leaf_OfEmptySlotHashesZeroFields() external view {
+        IEtnaStakingRegistry.Entry memory empty;
         for (uint256 j; j < 3; ++j) {
-            bytes32 leaf = tree.leaf(j, released);
+            bytes32 leaf = tree.leaf(j, empty);
             assertEq(
                 leaf,
                 keccak256(abi.encode(bytes32("ETNA_REG_ENTRY_V1"), j, 0, 0, 0, 0, 0)),
                 "zero-field leaf"
             );
-            assertTrue(leaf != bytes32(0), "a released slot's leaf is not the zero leaf");
+            assertTrue(leaf != bytes32(0), "an empty slot's leaf is not the zero leaf");
         }
     }
 
@@ -174,8 +174,8 @@ contract LibEntriesTreeTest is CommonTest {
     // Shared vectors (testdata/etna_vectors, registry_entries)
     // ---------------------------------------------------------------
 
-    /// @dev The five `ETNA_REG_ENTRY_V1` leaves, and the leaf of released slot 5 (all-zero
-    /// fields).
+    /// @dev The five `ETNA_REG_ENTRY_V1` leaves, and the leaf of empty slot 5 (all-zero fields,
+    /// the vectors' `released` item).
     function test_leaf_MatchesTheSharedVectors() external view {
         string memory json = LibEtnaVectors.load();
         uint256 n = LibEtnaVectors.lengthAt(json, ".registry_entries.entries");
@@ -184,18 +184,18 @@ contract LibEntriesTreeTest is CommonTest {
         for (uint256 i; i < n; ++i) {
             assertEq(tree.leaf(i, _vectorEntry(json, i)), _vectorLeaf(json, i), "entry leaf");
         }
-        IEtnaStakingRegistry.Entry memory released;
+        IEtnaStakingRegistry.Entry memory empty;
         uint256 index = LibEtnaVectors.uintAt(json, ".registry_entries.released.index");
         assertEq(index, n);
         assertEq(
-            tree.leaf(index, released),
+            tree.leaf(index, empty),
             LibEtnaVectors.bytes32At(json, ".registry_entries.released.leaf"),
             "released leaf"
         );
     }
 
-    /// @dev The root after every append, from no entry to six (the five entries, then the
-    /// released slot), equals the shared root of that prefix.
+    /// @dev The root after every append, from no entry to six (the five entries, then the empty
+    /// slot), equals the shared root of that prefix.
     function test_root_MatchesTheSharedVectors() external {
         string memory json = LibEtnaVectors.load();
         uint256 n = LibEtnaVectors.lengthAt(json, ".registry_entries.roots");

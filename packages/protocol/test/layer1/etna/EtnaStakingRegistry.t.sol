@@ -19,8 +19,6 @@ contract EtnaStakingRegistryTest is EtnaStakingRegistryTestBase {
     uint256 private constant _CK_A = 0xC0A;
     uint256 private constant _CK_B = 0xC0B;
     uint256 private constant _CK_C = 0xC0C;
-    /// @dev The first of the consensus private keys that fill the registry.
-    uint256 private constant _CK_FILL = 0xF000;
 
     /// @dev The `exitEffectiveL1` of an entry with no exit set.
     uint48 private constant _NO_EXIT = type(uint48).max;
@@ -115,15 +113,26 @@ contract EtnaStakingRegistryTest is EtnaStakingRegistryTestBase {
         assertEq(registry.checkpointCount(), 0, "checkpoints");
         assertEq(registry.entryCount(), 0, "entries");
         assertEq(registry.entriesRoot(), bytes32(0), "root of no entry");
-        assertEq(registry.freeSlotCount(), 0, "free slots");
+        assertEq(registry.bondCount(), 0, "bonds");
         assertEq(registry.ownerOf(0), address(0), "owner");
         assertEq(registry.exitConfirmedAtL1(0), 0, "confirmation");
-        assertFalse(registry.keyUsed(Alice), "key");
+        _assertLookup(registry.bondForKey, vm.addr(_CK_A), false, 0, "unused key");
+        _assertSlotHolder(0, false, 0, "empty slot");
+        _assertSlotOfBond(0, false, 0, "unissued bond");
+        (uint256 slot, uint256 value) = registry.admissionThreshold();
+        assertEq(slot, 0, "threshold slot");
+        assertEq(value, 0, "threshold value");
+        IEtnaStakingRegistry.Entry memory zero;
+        _assertSameEntry(registry.entryAt(4095), zero);
 
         vm.expectRevert(IEtnaStakingRegistry.UnknownCheckpoint.selector);
         registry.checkpointAt(0);
         vm.expectRevert(IEtnaStakingRegistry.UnknownBond.selector);
-        registry.entryAt(0);
+        registry.bondAt(0);
+        vm.expectRevert(IEtnaStakingRegistry.UnknownSlot.selector);
+        registry.entryAt(4096);
+        vm.expectRevert(IEtnaStakingRegistry.UnknownSlot.selector);
+        registry.bondInSlot(4096);
     }
 
     function test_registerDigest_IsEip712OverTheOwner() external {
@@ -172,10 +181,12 @@ contract EtnaStakingRegistryTest is EtnaStakingRegistryTestBase {
         _assertEntry(0, expected);
         assertEq(registry.entryAt(0).exitEffectiveL1, 281_474_976_710_655, "no exit set");
         assertEq(registry.entryCount(), 1, "entry count");
+        assertEq(registry.bondCount(), 1, "bond count");
         assertEq(registry.ownerOf(0), Alice, "owner");
-        assertTrue(registry.keyUsed(vm.addr(_CK_A)), "key used");
+        _assertLookup(registry.bondForKey, ckAddr, true, 0, "key of bond 0");
+        _assertSlotHolder(0, true, 0, "slot 0 holds bond 0");
+        _assertSlotOfBond(0, true, 0, "bond 0 holds slot 0");
         assertEq(registry.exitConfirmedAtL1(0), 0, "no confirmation");
-        assertEq(registry.freeSlotCount(), 0, "free slots");
         assertEq(registry.checkpointCount(), 1, "checkpoints");
         _assertCheckpoint(0, block.number, 1, leaf);
         assertEq(registry.entriesRoot(), leaf, "the root of one entry is its leaf");
@@ -341,8 +352,8 @@ contract EtnaStakingRegistryTest is EtnaStakingRegistryTestBase {
         registry.register(flipped, MIN_STAKE, pop);
         assertEq(registry.entryAt(0).ckPrefix, prefix ^ 1, "prefix");
         assertEq(registry.entryAt(0).ckX, x, "x");
-        assertTrue(registry.keyUsed(vm.addr(negated)), "negated key used");
-        assertFalse(registry.keyUsed(vm.addr(_CK_A)), "original key unused");
+        _assertLookup(registry.bondForKey, vm.addr(negated), true, 0, "negated key used");
+        _assertLookup(registry.bondForKey, vm.addr(_CK_A), false, 0, "original key unused");
     }
 
     function test_register_RevertWhen_KeyAlreadyRegistered() external {
@@ -388,41 +399,132 @@ contract EtnaStakingRegistryTest is EtnaStakingRegistryTestBase {
         assertEq(registry.entriesRoot(), root, "root");
     }
 
-    function test_register_RevertWhen_RegistryFull() external {
+    /// @dev With every slot held at the same value, a registration must stake more than it
+    /// (spec 4.1 vectors 14a.c and 14a.f); a used key is rejected first. The next one displaces
+    /// the bond in the lowest slot.
+    function test_register_FullRegistryAdmitsOnlyAboveTheSmallestValue() external {
+        _fillRegistry(0);
         uint256 capacity = registry.MAX_ENTRIES();
-        vm.pauseGasMetering();
-        _fund(Alice, (capacity + 1) * MIN_STAKE);
-        for (uint256 i; i < capacity; ++i) {
-            assertEq(_callRegister(Alice, _CK_FILL + i), i);
-        }
-        vm.resumeGasMetering();
         assertEq(registry.entryCount(), capacity, "entry count");
         assertEq(registry.checkpointCount(), 1, "checkpoints");
-        _assertCheckpoint(0, block.number, capacity, registry.entriesRoot());
+        (uint256 slot, uint256 value) = registry.admissionThreshold();
+        assertEq(slot, 0, "ties go to the lowest slot");
+        assertEq(value, MIN_STAKE, "every slot holds the minimum stake");
 
-        uint256 pk = _CK_FILL + capacity;
+        uint256 pk = FILL_KEY + capacity;
         bytes memory publicKey = EtnaTestKeys.publicKey(pk);
-        bytes memory pop = EtnaTestKeys.popSig(pk, registry, Alice);
-        _assertRegisterReverts(
-            Alice, publicKey, MIN_STAKE, pop, IEtnaStakingRegistry.RegistryFull.selector, "full"
-        );
-        assertFalse(registry.keyUsed(vm.addr(pk)), "key unused");
+        bytes memory pop = EtnaTestKeys.popSig(pk, registry, Bob);
+        _fund(Bob, MIN_STAKE + 1);
+        bytes4 stakeTooLow = IEtnaStakingRegistry.StakeTooLow.selector;
+        _assertRegisterReverts(Bob, publicKey, MIN_STAKE, pop, stakeTooLow, "equal to the smallest");
+        _assertLookup(registry.bondForKey, vm.addr(pk), false, 0, "key unused");
+        assertEq(registry.bondCount(), capacity, "no bond issued");
 
-        // A used key is rejected as such before the capacity is checked.
-        publicKey = EtnaTestKeys.publicKey(_CK_FILL);
-        pop = EtnaTestKeys.popSig(_CK_FILL, registry, Alice);
+        bytes memory usedKey = EtnaTestKeys.publicKey(FILL_KEY);
+        bytes memory usedPop = EtnaTestKeys.popSig(FILL_KEY, registry, Bob);
         _assertRegisterReverts(
-            Alice,
-            publicKey,
-            MIN_STAKE,
-            pop,
+            Bob,
+            usedKey,
+            MIN_STAKE + 1,
+            usedPop,
             IEtnaStakingRegistry.KeyAlreadyUsed.selector,
             "key checked first"
         );
+
+        vm.roll(block.number + 1);
+        vm.expectEmit(address(registry));
+        emit IEtnaStakingRegistry.BondDisplaced(0, 0, capacity);
+        vm.prank(Bob);
+        assertEq(registry.register(publicKey, MIN_STAKE + 1, pop), capacity, "bond 4096");
+
+        _assertSlotHolder(0, true, capacity, "slot 0 holds bond 4096");
+        _assertSlotOfBond(capacity, true, 0, "bond 4096 holds slot 0");
+        _assertSlotOfBond(0, false, 0, "bond 0 holds no slot");
+        assertEq(registry.entryAt(0).ckX, bytes32(vm.createWallet(pk).publicKeyX), "new entry");
+        assertEq(registry.entryCount(), capacity, "no slot appended");
+        assertEq(registry.checkpointCount(), 2, "the displacement's checkpoint");
+        (slot, value) = registry.admissionThreshold();
+        assertEq(slot, 1, "the next lowest slot");
+        assertEq(value, MIN_STAKE, "its value");
     }
 
-    /// @dev A failed stake pull reverts the whole registration: the key stays unused, the freed
-    /// slot stays on the free list and no checkpoint is written.
+    /// @dev Admission takes the smallest value, counting a pending top-up (vector 14a.e); a
+    /// held slot whose bond was forfeited to zero ties with an empty slot at 0 and the lower one
+    /// is taken first (14a.d); an amount above that value but below `minStake` is rejected
+    /// (14a.g). A displaced bond keeps an earlier exit and a later one moves to the current block
+    /// (14b.b, 14b.c); `BondDisplaced` is emitted only when a bond is displaced (55.g).
+    function test_register_TakesTheSmallestValue() external {
+        IEtnaStakingRegistry.Config memory cfg = _config();
+        cfg.forfeitBps = 10_000;
+        registry = _deployRegistry(cfg);
+        mockInbox.setInitialized(true);
+        _fillRegistry(1);
+        (uint256 slot, uint256 value) = registry.admissionThreshold();
+        assertEq(slot, 0, "slot 0 holds the smallest stake");
+        assertEq(value, MIN_STAKE, "its value");
+
+        // A pending top-up counts: slot 1 becomes the smallest.
+        vm.roll(block.number + ACTIVATION_DELAY);
+        _fund(Alice, MIN_STAKE);
+        vm.prank(Alice);
+        registry.topUp(0, MIN_STAKE);
+        (slot, value) = registry.admissionThreshold();
+        assertEq(slot, 1, "pending top-up counted");
+        assertEq(value, MIN_STAKE + 1, "slot 1's stake");
+
+        // Bond 1's requested exit moves to the displacement block; bond 2's earlier forced exit
+        // stays.
+        vm.prank(Alice);
+        registry.requestExit(1);
+        mockInbox.forceExit(registry, 2, _entryKey(2));
+        uint256 forcedAt = block.number;
+        vm.roll(block.number + 1);
+        _registerWith(Bob, 0xB0B1, MIN_STAKE + 10);
+        assertEq(registry.bondAt(1).entry.exitEffectiveL1, block.number, "exit moved earlier");
+        _registerWith(Bob, 0xB0B2, MIN_STAKE + 3);
+        assertEq(registry.bondAt(2).entry.exitEffectiveL1, forcedAt, "earlier exit kept");
+
+        // Bond 5 forfeited to zero still holds slot 5 at value 0; withdrawing bond 9 empties slot
+        // 9 at value 0 too.
+        registry.forfeit(5, _entryKey(5), bytes32(0), block.timestamp);
+        _release(9);
+        (slot, value) = registry.admissionThreshold();
+        assertEq(slot, 5, "the lower of two zero values");
+        assertEq(value, 0, "zero");
+
+        uint256 pk = 0xB0B3;
+        _assertRegisterReverts(
+            Bob,
+            EtnaTestKeys.publicKey(pk),
+            MIN_STAKE - 1,
+            EtnaTestKeys.popSig(pk, registry, Bob),
+            IEtnaStakingRegistry.StakeTooLow.selector,
+            "below the minimum"
+        );
+        uint256 next = registry.bondCount();
+        _fund(Bob, MIN_STAKE);
+        bytes memory publicKey = EtnaTestKeys.publicKey(pk);
+        bytes memory pop = EtnaTestKeys.popSig(pk, registry, Bob);
+        vm.expectEmit(address(registry));
+        emit IEtnaStakingRegistry.BondDisplaced(5, 5, next);
+        vm.prank(Bob);
+        registry.register(publicKey, MIN_STAKE, pop);
+        _assertSlotOfBond(5, false, 0, "bond 5 displaced");
+
+        vm.recordLogs();
+        _registerWith(Bob, 0xB0B4, MIN_STAKE);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        for (uint256 i; i < logs.length; ++i) {
+            assertTrue(
+                logs[i].topics[0] != IEtnaStakingRegistry.BondDisplaced.selector,
+                "no displacement into an empty slot"
+            );
+        }
+        _assertSlotHolder(9, true, next + 1, "the empty slot 9 is taken");
+    }
+
+    /// @dev A failed stake pull reverts the whole registration: the key stays unused, the empty
+    /// slot stays empty, no bond is issued and no checkpoint is written.
     function test_register_RevertWhen_TransferFails() external {
         _register(Alice, _CK_A);
         _release(0);
@@ -464,7 +566,7 @@ contract EtnaStakingRegistryTest is EtnaStakingRegistryTestBase {
         vm.prank(Alice);
         registry.register(publicKey, MIN_STAKE, pop);
         assertEq(registry.entryCount(), 0, "no entry");
-        assertFalse(registry.keyUsed(vm.addr(_CK_A)), "key unused");
+        _assertLookup(registry.bondForKey, vm.addr(_CK_A), false, 0, "key unused");
     }
 
     function test_register_SucceedsBeforeInboxInitialization() external {
@@ -519,7 +621,7 @@ contract EtnaStakingRegistryTest is EtnaStakingRegistryTestBase {
         uint256 bondId = registry.register(publicKey, MIN_STAKE, pop);
         assertEq(registry.entryAt(bondId).ckPrefix, prefix, "prefix");
         assertEq(uint256(registry.entryAt(bondId).ckX), wallet.publicKeyX, "x");
-        assertTrue(registry.keyUsed(wallet.addr), "key used");
+        _assertLookup(registry.bondForKey, wallet.addr, true, bondId, "key used");
     }
 
     // ---------------------------------------------------------------
@@ -575,12 +677,56 @@ contract EtnaStakingRegistryTest is EtnaStakingRegistryTestBase {
         assertEq(registry.register(publicKey, MIN_STAKE, pop), _bondId, "bond id");
     }
 
-    /// @dev `_staker` registers `_pk`'s key with `MIN_STAKE`.
-    function _callRegister(address _staker, uint256 _pk) private returns (uint256) {
-        bytes memory publicKey = EtnaTestKeys.publicKey(_pk);
-        bytes memory pop = EtnaTestKeys.popSig(_pk, registry, _staker);
-        vm.prank(_staker);
-        return registry.register(publicKey, MIN_STAKE, pop);
+    /// @dev The entry key of bond `_bondId`.
+    function _entryKey(uint256 _bondId) private view returns (bytes32) {
+        IEtnaStakingRegistry.Entry memory entry = registry.bondAt(_bondId).entry;
+        return keccak256(abi.encode(uint256(entry.ckPrefix), entry.ckX));
+    }
+
+    /// @dev Asserts a `(found, bondId)` lookup of `_key` through `_lookup`.
+    function _assertLookup(
+        function(address) external view returns (bool, uint256) _lookup,
+        address _key,
+        bool _found,
+        uint256 _bondId,
+        string memory _label
+    )
+        private
+        view
+    {
+        (bool found, uint256 bondId) = _lookup(_key);
+        assertEq(found, _found, _label);
+        assertEq(bondId, _bondId, _label);
+    }
+
+    /// @dev Asserts `bondInSlot(_slot)`.
+    function _assertSlotHolder(
+        uint256 _slot,
+        bool _occupied,
+        uint256 _bondId,
+        string memory _label
+    )
+        private
+        view
+    {
+        (bool occupied, uint256 bondId) = registry.bondInSlot(_slot);
+        assertEq(occupied, _occupied, _label);
+        assertEq(bondId, _bondId, _label);
+    }
+
+    /// @dev Asserts `slotOfBond(_bondId)`.
+    function _assertSlotOfBond(
+        uint256 _bondId,
+        bool _holdsSlot,
+        uint256 _slot,
+        string memory _label
+    )
+        private
+        view
+    {
+        (bool holdsSlot, uint256 slot) = registry.slotOfBond(_bondId);
+        assertEq(holdsSlot, _holdsSlot, _label);
+        assertEq(slot, _slot, _label);
     }
 
     function _assertPopRejected(
@@ -627,8 +773,8 @@ contract EtnaStakingRegistryTest is EtnaStakingRegistryTestBase {
         vm.chainId(chainId);
     }
 
-    /// @dev Asserts that `_ckAddr` is unused and that the registry still has one slot, released
-    /// and free, `_checkpoints` checkpoints and root `_root`.
+    /// @dev Asserts that `_ckAddr` is unused and that the registry still has one slot, empty,
+    /// one bond, `_checkpoints` checkpoints and root `_root`.
     function _assertNothingRegistered(
         address _ckAddr,
         uint256 _checkpoints,
@@ -637,8 +783,9 @@ contract EtnaStakingRegistryTest is EtnaStakingRegistryTestBase {
         private
         view
     {
-        assertFalse(registry.keyUsed(_ckAddr), "key unused");
-        assertEq(registry.freeSlotCount(), 1, "free slot kept");
+        _assertLookup(registry.bondForKey, _ckAddr, false, 0, "key unused");
+        _assertSlotHolder(0, false, 0, "slot kept empty");
+        assertEq(registry.bondCount(), 1, "no bond issued");
         assertEq(registry.entryCount(), 1, "no slot appended");
         assertEq(registry.ownerOf(0), address(0), "no owner");
         assertEq(registry.checkpointCount(), _checkpoints, "no checkpoint");

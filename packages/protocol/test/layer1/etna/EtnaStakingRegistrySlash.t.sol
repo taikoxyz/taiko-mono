@@ -103,7 +103,8 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
         _assertCheckpoint(1, 50, 1, leaf);
         assertEq(registry.ownerOf(0), Alice, "owner kept");
         assertEq(registry.exitConfirmedAtL1(0), 0, "not confirmed");
-        assertTrue(registry.keyUsed(vm.addr(_CK_A)), "key used");
+        (bool registered,) = registry.bondForKey(vm.addr(_CK_A));
+        assertTrue(registered, "key registered");
 
         vm.expectRevert(IEtnaStakingRegistry.ExitNotCovered.selector);
         registry.confirmExit(0);
@@ -115,8 +116,9 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
         registry.withdraw(0, Carol);
 
         IEtnaStakingRegistry.Entry memory zero;
-        _assertEntry(0, zero);
-        assertEq(registry.freeSlotCount(), 1, "slot freed");
+        _assertSameEntry(registry.entryAt(0), zero);
+        _assertSameEntry(registry.bondAt(0).entry, expected);
+        assertTrue(registry.bondAt(0).withdrawn, "withdrawn");
         assertEq(token.balanceOf(Carol), 0, "nothing to the releaser");
         assertEq(token.balanceOf(Bob) + token.balanceOf(SLASH_SINK), MIN_STAKE, "paid once");
     }
@@ -226,10 +228,10 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
         assertEq(token.balanceOf(Alice), 0, "nothing to the owner");
         assertEq(token.balanceOf(Bob), _BOUNTY, "bounty");
         assertEq(token.balanceOf(SLASH_SINK), _TO_SINK, "sink");
-        _assertEntry(0, zero);
+        _assertSameEntry(registry.entryAt(0), zero);
+        assertTrue(registry.bondAt(0).withdrawn, "withdrawn");
         assertEq(registry.ownerOf(0), address(0), "owner cleared");
         assertEq(registry.exitConfirmedAtL1(0), 0, "confirmation cleared");
-        assertEq(registry.freeSlotCount(), 1, "slot freed");
         assertEq(registry.entriesRoot(), releasedLeaf, "root");
     }
 
@@ -266,7 +268,7 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
         emit IEtnaStakingRegistry.StakeWithdrawn(0, address(0), 0);
         vm.prank(Carol);
         registry.withdraw(0, address(0));
-        assertEq(registry.freeSlotCount(), 1, "slot freed");
+        assertTrue(registry.bondAt(0).withdrawn, "withdrawn");
         assertEq(token.balanceOf(Carol), 0, "nothing paid");
     }
 
@@ -290,7 +292,8 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
         uint256 pk = LibEtnaVectors.uintAt(j, ".votes.key.private_key");
         assertEq(EtnaTestKeys.publicKey(pk), LibEtnaVectors.bytesAt(j, ".votes.key.public_key"));
         assertEq(_register(Alice, pk), 0, "bond 0");
-        assertTrue(registry.keyUsed(LibEtnaVectors.addressAt(j, ".votes.key.signer")), "key");
+        (bool registered,) = registry.bondForKey(LibEtnaVectors.addressAt(j, ".votes.key.signer"));
+        assertTrue(registered, "key");
 
         string[] memory names = _caseNames(j);
         uint256 n = LibEtnaVectors.lengthAt(j, ".votes.pairs");
@@ -523,25 +526,25 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
     }
 
     /// @dev A withdrawn bond can no longer be slashed, checked before the signatures. Once
-    /// another key reuses the slot, the old key's evidence does not match the new occupant.
-    function test_slashDoubleSign_RevertWhen_SlotReleased() external {
-        bytes4 slotReleased = IEtnaStakingRegistry.SlotReleased.selector;
+    /// another bond takes the emptied slot, the old key's evidence does not match the new bond.
+    function test_slashDoubleSign_RevertWhen_BondWithdrawn() external {
+        bytes4 bondWithdrawn = IEtnaStakingRegistry.BondWithdrawn.selector;
         (IEtnaStakingRegistry.Vote memory a, IEtnaStakingRegistry.Vote memory b) = _conflict(_CK_A);
         _release(0);
 
-        _assertSlashReverts(0, a, b, slotReleased, "released");
+        _assertSlashReverts(0, a, b, bondWithdrawn, "withdrawn");
         _assertSlashReverts(
-            0, _vote(_BLOCK_A, 0), _vote(_BLOCK_B, 0), slotReleased, "before signatures"
+            0, _vote(_BLOCK_A, 0), _vote(_BLOCK_B, 0), bondWithdrawn, "before signatures"
         );
 
-        assertEq(_register(Bob, _CK_B), 0, "slot reused");
+        assertEq(_register(Bob, _CK_B), 1, "bond 1 takes slot 0");
         _assertSlashReverts(
-            0, a, b, IEtnaStakingRegistry.InvalidSignature.selector, "previous occupant's key"
+            1, a, b, IEtnaStakingRegistry.InvalidSignature.selector, "previous occupant's key"
         );
-        assertEq(registry.entryAt(0).effStake, MIN_STAKE, "new occupant untouched");
+        assertEq(registry.entryAt(0).effStake, MIN_STAKE, "new bond untouched");
     }
 
-    /// @dev A bond id past the used slots, checked before the signatures.
+    /// @dev A bond id never issued, checked before the signatures.
     function test_slashDoubleSign_RevertWhen_UnknownBond() external {
         bytes4 unknownBond = IEtnaStakingRegistry.UnknownBond.selector;
         (IEtnaStakingRegistry.Vote memory a, IEtnaStakingRegistry.Vote memory b) = _conflict(_CK_A);

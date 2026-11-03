@@ -16,13 +16,18 @@ import "./EtnaStakingRegistry_Layout.sol"; // DO NOT DELETE
 /// @title EtnaStakingRegistry
 /// @notice The TAIKO staking registry of the Etna PoS chain; see `IEtnaStakingRegistry`.
 /// @dev All state lives in five ERC-7201 namespaces (spec appendix B). `taiko.etna.registry`
-/// holds, from its base R: `checkpoints` (R) and `entries` (R + 1), the only slots nodes read,
-/// then the storage appendix B does not name: the tree nodes, the free slot list and the used key
-/// addresses.
+/// holds, from its base R: `checkpoints` (R) and the slot-indexed `entries` (R + 1), the only
+/// slots nodes read, then the storage appendix B does not name: the entries tree nodes, the
+/// admission index, the key and slot lookups, the bond records and the bond count.
 /// `taiko.etna.registry.owners` holds the bond owners and
 /// `taiko.etna.registry.exit-confirmations` the exit confirmations; neither enters the entries
 /// root. The Inbox proxy and the L2 chain id are immutables. Every L1 block the registry stores
 /// (activation, exit and checkpoint blocks) is below the no-exit sentinel 2^48 - 1.
+///
+/// The admission index is a tournament tree over the 4096 slots: node 1 is the root and leaf
+/// `4096 + slot` holds the slot's key `value << 12 | slot`, so the smallest key is the smallest
+/// value, ties going to the lowest slot. An unwritten node reads as value 0 at its leftmost slot;
+/// the only written key that is 0, value 0 at slot 0, reads the same.
 /// @custom:security-contact security@taiko.xyz
 contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     using SafeERC20 for IERC20;
@@ -33,16 +38,22 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
 
     /// @custom:storage-location erc7201:taiko.etna.registry
     struct RegistryStorage {
-        /// @dev Slot R: one checkpoint per L1 block that changed an entry.
+        /// @dev Slot R: one checkpoint per L1 block that changed the entry in a slot.
         Checkpoint[] checkpoints;
-        /// @dev Slot R + 1: the entries, indexed by bond id.
+        /// @dev Slot R + 1: the entries, indexed by slot.
         Entry[] entries;
         /// @dev Slot R + 2: the `LibEntriesTree` nodes.
         mapping(uint256 node => bytes32 hash) tree;
-        /// @dev Slot R + 3: released bond ids, reused last-in first-out.
-        uint256[] freeSlots;
-        /// @dev Slot R + 4: the consensus key addresses ever registered.
-        mapping(address ckAddr => bool used) keyUsed;
+        /// @dev Slot R + 3: the admission index nodes.
+        mapping(uint256 node => uint256 key) minIndex;
+        /// @dev Slot R + 4: bond id + 1 of every consensus key address ever registered.
+        mapping(address ckAddr => uint256 bondIdPlusOne) keyBond;
+        /// @dev Slot R + 5: bond id + 1 of every held slot.
+        mapping(uint256 slot => uint256 bondIdPlusOne) slotBond;
+        /// @dev Slot R + 6: the bond records.
+        mapping(uint256 bondId => Bond bond) bonds;
+        /// @dev Slot R + 7: the number of bonds issued, the next bond id.
+        uint256 bondCount;
     }
 
     /// @custom:storage-location erc7201:taiko.etna.registry.owners
@@ -80,6 +91,9 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
 
     /// @notice The number of slots (the entries tree capacity).
     uint256 public constant MAX_ENTRIES = LibEntriesTree.CAPACITY;
+
+    /// @dev Slot values must be below this bound, so an admission key fits in a word.
+    uint256 private constant _VALUE_BOUND = 2 ** 244;
 
     /// @dev Delays must be below this bound, so an oversized delay cannot make every
     /// registration or exit request revert.
@@ -139,7 +153,7 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     /// takes effect.
     uint256 public immutable exitDelay;
 
-    /// @notice The L1 blocks from the exit confirmation until the slot can be released.
+    /// @notice The L1 blocks from the exit confirmation until the bond can be withdrawn.
     uint256 public immutable withdrawalDelay;
 
     /// @notice The share of a slashed stake paid to the reporter, in basis points.
@@ -220,15 +234,16 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         );
 
         RegistryStorage storage $ = _registryStorage();
-        require(!$.keyUsed[ckAddr], KeyAlreadyUsed());
-        bondId_ = _takeSlot($);
+        require($.keyBond[ckAddr] == 0, KeyAlreadyUsed());
+        bondId_ = $.bondCount++;
+        _takeSlot($, bondId_, _amount);
         uint48 activeFromL1 = _toEventBlock(block.number + activationDelay);
 
+        $.keyBond[ckAddr] = bondId_ + 1;
         _ownersStorage().owners[bondId_] = msg.sender;
-        $.keyUsed[ckAddr] = true;
-        _commit(
+        _save(
             $,
-            bondId_,
+            $.bonds[bondId_],
             Entry({
                 ckX: x,
                 effStake: _amount,
@@ -247,14 +262,14 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     function requestExit(uint256 _bondId) external nonReentrant {
         _checkInboxUnlocked();
         RegistryStorage storage $ = _registryStorage();
-        // Existence comes before ownership: an unknown or released slot has no owner.
-        Entry memory entry = _unreleasedEntry($, _bondId);
+        Bond storage bond = _unwithdrawnBond($, _bondId);
         require(_ownersStorage().owners[_bondId] == msg.sender, NotBondOwner());
+        Entry memory entry = bond.entry;
         require(entry.exitEffectiveL1 == NO_EXIT, ExitAlreadySet());
 
         entry.exitEffectiveL1 =
             _toEventBlock(Math.max(block.number, entry.activeFromL1) + exitDelay);
-        _commit($, _bondId, entry);
+        _save($, bond, entry);
         emit ExitRequested(_bondId, entry.exitEffectiveL1);
     }
 
@@ -263,7 +278,7 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     function confirmExit(uint256 _bondId) external nonReentrant {
         _checkInboxUnlocked();
         require(IEtnaInbox(inbox).isInitialized(), InboxNotInitialized());
-        uint48 exitEffectiveL1 = _unreleasedEntry(_registryStorage(), _bondId).exitEffectiveL1;
+        uint48 exitEffectiveL1 = _unwithdrawnBond(_registryStorage(), _bondId).entry.exitEffectiveL1;
         require(exitEffectiveL1 != NO_EXIT, ExitNotSet());
         require(IEtnaInbox(inbox).activeCommitteeSnapshot() >= exitEffectiveL1, ExitNotCovered());
 
@@ -275,19 +290,19 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     }
 
     /// @inheritdoc IEtnaStakingRegistry
-    /// @dev Only an unreleased slot has a confirmation, so the confirmation check also rejects
-    /// unknown and released bonds. Unaffected by pause.
+    /// @dev Unaffected by pause.
     function withdraw(uint256 _bondId, address _to) external nonReentrant {
         _checkInboxUnlocked();
+        RegistryStorage storage $ = _registryStorage();
+        Bond storage bond = _unwithdrawnBond($, _bondId);
         mapping(uint256 => uint256) storage confirmations =
             _exitConfirmationsStorage().exitConfirmedAtL1;
         uint256 confirmedAt = confirmations[_bondId];
         require(confirmedAt != 0, ExitNotConfirmed());
         require(block.number >= confirmedAt + withdrawalDelay, WithdrawalNotReady());
 
-        RegistryStorage storage $ = _registryStorage();
         mapping(uint256 => address) storage owners = _ownersStorage().owners;
-        uint256 amount = $.entries[_bondId].effStake + _topUpsStorage().topUps[_bondId].pendingTopUp;
+        uint256 amount = bond.entry.effStake + _topUpsStorage().topUps[_bondId].pendingTopUp;
         if (amount != 0) {
             require(owners[_bondId] == msg.sender, NotBondOwner());
             require(_to != address(0), ZERO_ADDRESS());
@@ -296,9 +311,16 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         delete owners[_bondId];
         delete confirmations[_bondId];
         delete _topUpsStorage().topUps[_bondId];
-        Entry memory released;
-        _commit($, _bondId, released);
-        $.freeSlots.push(_bondId);
+        bond.entry.effStake = 0;
+        bond.withdrawn = true;
+        if (bond.holdsSlot) {
+            uint256 slot = bond.slot;
+            bond.holdsSlot = false;
+            delete $.slotBond[slot];
+            Entry memory empty;
+            _commit($, slot, empty);
+            _setSlotValue($, slot, 0);
+        }
 
         if (amount != 0) token.safeTransfer(_to, amount);
         emit StakeWithdrawn(_bondId, _to, amount);
@@ -306,7 +328,7 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
 
     /// @inheritdoc IEtnaStakingRegistry
     /// @dev Checks in order: the Inbox's initialization, both votes' ranges, the pair (same type,
-    /// height, round and generation, different block ids), the generation, the entry and its
+    /// height, round and generation, different block ids), the generation, the bond and its
     /// stake, then both signatures. The slash is written before either transfer. Unaffected by
     /// pause. The Inbox lock rejects callbacks into slashing during landing or recovery.
     function slashDoubleSign(
@@ -331,8 +353,8 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         );
         require(voteA.generation <= IEtnaInbox(inbox).recoveryGeneration(), FutureGeneration());
 
-        RegistryStorage storage $ = _registryStorage();
-        Entry memory entry = _unreleasedEntry($, _bondId);
+        Bond storage bond = _unwithdrawnBond(_registryStorage(), _bondId);
+        Entry memory entry = bond.entry;
         uint256 amount = entry.effStake + _topUpsStorage().topUps[_bondId].pendingTopUp;
         require(amount != 0, NothingToSlash());
 
@@ -352,7 +374,8 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         delete _topUpsStorage().topUps[_bondId];
         // At most the stored exit, so it fits in 48 bits.
         entry.exitEffectiveL1 = uint48(Math.min(entry.exitEffectiveL1, block.number));
-        _commit($, _bondId, entry);
+        _save(_registryStorage(), bond, entry);
+        if (bond.holdsSlot) _setSlotValue(_registryStorage(), bond.slot, 0);
 
         uint256 bounty = Math.mulDiv(amount, slashBountyBps, _BPS);
         token.safeTransfer(msg.sender, bounty);
@@ -370,28 +393,31 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     }
 
     /// @inheritdoc IEtnaStakingRegistry
-    /// @dev Checks in order: the caller, the entry (`UnknownBond`, then `SlotReleased`), the
-    /// entry key, then the current block, which must be below the no-exit sentinel
-    /// (`InvalidEventBlock`) so an excluded entry is always left with an exit. An exit already at
-    /// or before the current block is kept, with no checkpoint or event. Unaffected by pause.
+    /// @dev Checks in order: the caller, the bond (`UnknownBond`), the entry key, then the current
+    /// block, which must be below the no-exit sentinel (`InvalidEventBlock`) so an excluded bond
+    /// is always left with an exit. An exit already at or before the current block, as a
+    /// displaced or withdrawn bond has, is kept with no checkpoint or event. Unaffected by pause.
     function forceExit(uint256 _bondId, bytes32 _entryKey) external nonReentrant {
         require(msg.sender == inbox, NotInbox());
         RegistryStorage storage $ = _registryStorage();
-        Entry memory entry = _unreleasedEntry($, _bondId);
+        Bond storage bond = _issuedBond($, _bondId);
+        Entry memory entry = bond.entry;
         require(_entryKey == LibEtnaKeys.entryKey(entry.ckPrefix, entry.ckX), EntryKeyMismatch());
         uint48 r = _toEventBlock(block.number);
         if (r >= entry.exitEffectiveL1) return;
 
         entry.exitEffectiveL1 = r;
-        _commit($, _bondId, entry);
+        _save($, bond, entry);
         emit ExitForced(_bondId, r);
     }
 
     /// @inheritdoc IEtnaStakingRegistry
     function topUp(uint256 _bondId, uint256 _amount) external nonReentrant {
         _checkInboxUnlocked();
-        Entry storage entry = _unreleasedEntry(_registryStorage(), _bondId);
+        RegistryStorage storage $ = _registryStorage();
+        Bond storage bond = _unwithdrawnBond($, _bondId);
         require(_ownersStorage().owners[_bondId] == msg.sender, NotBondOwner());
+        Entry storage entry = bond.entry;
         require(block.number >= entry.activeFromL1 && entry.effStake != 0, TopUpNotAllowed());
         require(entry.exitEffectiveL1 == NO_EXIT, ExitAlreadySet());
         require(_amount != 0, InvalidTopUpAmount());
@@ -402,6 +428,8 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         uint48 readyAt = _toEventBlock(block.number + activationDelay);
         pending.pendingTopUp = _amount;
         pending.readyAtL1 = readyAt;
+        // A bond with no exit set still holds its slot.
+        _setSlotValue($, bond.slot, entry.effStake + _amount);
         token.safeTransferFrom(msg.sender, address(this), _amount);
         emit TopUpDeposited(_bondId, _amount, readyAt);
     }
@@ -410,13 +438,14 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     function activateTopUp(uint256 _bondId) external nonReentrant {
         _checkInboxUnlocked();
         RegistryStorage storage $ = _registryStorage();
-        Entry memory entry = _unreleasedEntry($, _bondId);
+        Bond storage bond = _unwithdrawnBond($, _bondId);
+        Entry memory entry = bond.entry;
         require(entry.exitEffectiveL1 == NO_EXIT, ExitAlreadySet());
         TopUp memory pending = _topUpsStorage().topUps[_bondId];
         require(pending.pendingTopUp != 0 && block.number >= pending.readyAtL1, TopUpNotReady());
         entry.effStake += pending.pendingTopUp;
         delete _topUpsStorage().topUps[_bondId];
-        _commit($, _bondId, entry);
+        _save($, bond, entry);
         emit TopUpActivated(_bondId, pending.pendingTopUp);
     }
 
@@ -435,7 +464,8 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         require(IEtnaInbox(inbox).isInitialized(), InboxNotInitialized());
         require(block.timestamp <= _validUntil, AuthorizationExpired());
         RegistryStorage storage $ = _registryStorage();
-        Entry memory entry = _unreleasedEntry($, _bondId);
+        Bond storage bond = _unwithdrawnBond($, _bondId);
+        Entry memory entry = bond.entry;
         require(_entryKey == LibEtnaKeys.entryKey(entry.ckPrefix, entry.ckX), EntryKeyMismatch());
         ForfeituresStorage storage flags = _forfeituresStorage();
         require(!flags.forfeitures[_entryKey], AlreadyForfeited());
@@ -451,8 +481,9 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         uint48 exit = uint48(Math.min(entry.exitEffectiveL1, _toEventBlock(block.number)));
         if (fromEffective != 0 || exit != entry.exitEffectiveL1) {
             entry.exitEffectiveL1 = exit;
-            _commit($, _bondId, entry);
+            _save($, bond, entry);
         }
+        if (bond.holdsSlot) _setSlotValue($, bond.slot, balance - penalty);
         token.safeTransfer(slashSink, penalty);
         emit Forfeited(_bondId, _entryKey, _incidentId, balance, penalty);
     }
@@ -490,16 +521,50 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     }
 
     /// @inheritdoc IEtnaStakingRegistry
-    function entryAt(uint256 _bondId) external view returns (Entry memory) {
+    function entryAt(uint256 _slot) external view returns (Entry memory entry_) {
+        require(_slot < MAX_ENTRIES, UnknownSlot());
         RegistryStorage storage $ = _registryStorage();
-        require(_bondId < $.entries.length, UnknownBond());
-        return $.entries[_bondId];
+        if (_slot < $.entries.length) entry_ = $.entries[_slot];
     }
 
     /// @inheritdoc IEtnaStakingRegistry
     function entriesRoot() external view returns (bytes32) {
         RegistryStorage storage $ = _registryStorage();
         return LibEntriesTree.root($.tree, $.entries.length);
+    }
+
+    /// @inheritdoc IEtnaStakingRegistry
+    function bondCount() external view returns (uint256) {
+        return _registryStorage().bondCount;
+    }
+
+    /// @inheritdoc IEtnaStakingRegistry
+    function bondAt(uint256 _bondId) external view returns (Bond memory) {
+        return _issuedBond(_registryStorage(), _bondId);
+    }
+
+    /// @inheritdoc IEtnaStakingRegistry
+    function bondForKey(address _ckAddr) external view returns (bool registered_, uint256 bondId_) {
+        return _lookup(_registryStorage().keyBond[_ckAddr]);
+    }
+
+    /// @inheritdoc IEtnaStakingRegistry
+    function bondInSlot(uint256 _slot) external view returns (bool occupied_, uint256 bondId_) {
+        require(_slot < MAX_ENTRIES, UnknownSlot());
+        return _lookup(_registryStorage().slotBond[_slot]);
+    }
+
+    /// @inheritdoc IEtnaStakingRegistry
+    function slotOfBond(uint256 _bondId) external view returns (bool holdsSlot_, uint256 slot_) {
+        RegistryStorage storage $ = _registryStorage();
+        if (_bondId < $.bondCount && $.bonds[_bondId].holdsSlot) {
+            return (true, $.bonds[_bondId].slot);
+        }
+    }
+
+    /// @inheritdoc IEtnaStakingRegistry
+    function admissionThreshold() external view returns (uint256 slot_, uint256 value_) {
+        return _admissionThreshold(_registryStorage());
     }
 
     /// @inheritdoc IEtnaStakingRegistry
@@ -510,16 +575,6 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     /// @inheritdoc IEtnaStakingRegistry
     function exitConfirmedAtL1(uint256 _bondId) external view returns (uint256) {
         return _exitConfirmationsStorage().exitConfirmedAtL1[_bondId];
-    }
-
-    /// @inheritdoc IEtnaStakingRegistry
-    function keyUsed(address _ckAddr) external view returns (bool) {
-        return _registryStorage().keyUsed[_ckAddr];
-    }
-
-    /// @inheritdoc IEtnaStakingRegistry
-    function freeSlotCount() external view returns (uint256) {
-        return _registryStorage().freeSlots.length;
     }
 
     /// @inheritdoc IEtnaStakingRegistry
@@ -535,53 +590,88 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     // Private Functions
     // ---------------------------------------------------------------
 
-    /// @dev Takes the slot of a new entry: the most recently released slot if there is one,
-    /// otherwise a new slot appended after the used ones. Reverts with `RegistryFull` when all
-    /// `MAX_ENTRIES` slots are used and none is free.
-    /// @param $ The registry storage.
-    /// @return bondId_ The slot.
-    function _takeSlot(RegistryStorage storage $) private returns (uint256 bondId_) {
-        uint256 freeCount = $.freeSlots.length;
-        if (freeCount != 0) {
-            bondId_ = $.freeSlots[freeCount - 1];
-            $.freeSlots.pop();
-        } else {
-            bondId_ = $.entries.length;
-            require(bondId_ < MAX_ENTRIES, RegistryFull());
-            $.entries.push();
-        }
-    }
-
-    /// @dev Returns the entry of a used, unreleased slot. A registered entry's `ckPrefix` is 0x02
-    /// or 0x03, and a released slot's entry is all zero.
+    /// @dev Returns an issued bond.
     /// @param $ The registry storage.
     /// @param _bondId The bond id.
-    /// @return entry_ The entry; reverts with `UnknownBond` for a never-used slot and with
-    /// `SlotReleased` for a released one.
-    function _unreleasedEntry(
+    /// @return bond_ The bond; reverts with `UnknownBond` unless `_bondId` was issued.
+    function _issuedBond(
         RegistryStorage storage $,
         uint256 _bondId
     )
         private
         view
-        returns (Entry storage entry_)
+        returns (Bond storage bond_)
     {
-        require(_bondId < $.entries.length, UnknownBond());
-        entry_ = $.entries[_bondId];
-        require(entry_.ckPrefix != 0, SlotReleased());
+        require(_bondId < $.bondCount, UnknownBond());
+        bond_ = $.bonds[_bondId];
     }
 
-    /// @dev Writes entry `_bondId`, its tree leaf and the current block's checkpoint. The
-    /// checkpoint overwrites the last one if that is from this block and is appended otherwise,
-    /// so every L1 block that changes an entry ends with exactly one checkpoint.
+    /// @dev Returns an issued bond that was not withdrawn.
     /// @param $ The registry storage.
-    /// @param _bondId The bond id, below `entries.length`.
-    /// @param _entry The entry's new value.
-    function _commit(RegistryStorage storage $, uint256 _bondId, Entry memory _entry) private {
-        $.entries[_bondId] = _entry;
+    /// @param _bondId The bond id.
+    /// @return bond_ The bond; reverts with `UnknownBond` for an unissued id and with
+    /// `BondWithdrawn` for a withdrawn bond.
+    function _unwithdrawnBond(
+        RegistryStorage storage $,
+        uint256 _bondId
+    )
+        private
+        view
+        returns (Bond storage bond_)
+    {
+        bond_ = _issuedBond($, _bondId);
+        require(!bond_.withdrawn, BondWithdrawn());
+    }
+
+    /// @dev Gives a new bond the slot of the admission threshold and sets the slot's value,
+    /// displacing the bond holding it: that bond leaves the slot and its exit becomes min(its
+    /// exit, the current block). The caller writes the slot's entry.
+    /// @param $ The registry storage.
+    /// @param _bondId The new bond.
+    /// @param _amount The new bond's stake, which must exceed the slot's value.
+    function _takeSlot(RegistryStorage storage $, uint256 _bondId, uint256 _amount) private {
+        (uint256 slot, uint256 value) = _admissionThreshold($);
+        require(_amount > value, StakeTooLow());
+        uint256 occupant = $.slotBond[slot];
+        if (occupant != 0) {
+            Bond storage displaced = $.bonds[occupant - 1];
+            displaced.holdsSlot = false;
+            // At most the stored exit, so it fits in 48 bits.
+            displaced.entry.exitEffectiveL1 =
+                uint48(Math.min(displaced.entry.exitEffectiveL1, block.number));
+            emit BondDisplaced(occupant - 1, slot, _bondId);
+        } else if (slot == $.entries.length) {
+            // An empty slot below `entries.length` would have been taken first.
+            $.entries.push();
+        }
+        $.slotBond[slot] = _bondId + 1;
+        Bond storage bond = $.bonds[_bondId];
+        bond.slot = uint16(slot);
+        bond.holdsSlot = true;
+        _setSlotValue($, slot, _amount);
+    }
+
+    /// @dev Writes a bond's entry fields and, if it holds a slot, the slot's entry, its tree leaf
+    /// and the current block's checkpoint.
+    /// @param $ The registry storage.
+    /// @param _bond The bond.
+    /// @param _entry The bond's new entry fields.
+    function _save(RegistryStorage storage $, Bond storage _bond, Entry memory _entry) private {
+        _bond.entry = _entry;
+        if (_bond.holdsSlot) _commit($, _bond.slot, _entry);
+    }
+
+    /// @dev Writes the entry of `_slot`, its tree leaf and the current block's checkpoint. The
+    /// checkpoint overwrites the last one if that is from this block and is appended otherwise,
+    /// so every L1 block that changes the entry in a slot ends with exactly one checkpoint.
+    /// @param $ The registry storage.
+    /// @param _slot The slot, below `entries.length`.
+    /// @param _entry The slot's new entry.
+    function _commit(RegistryStorage storage $, uint256 _slot, Entry memory _entry) private {
+        $.entries[_slot] = _entry;
         uint256 count = $.entries.length;
         bytes32 root =
-            LibEntriesTree.update($.tree, count, _bondId, LibEntriesTree.leaf(_bondId, _entry));
+            LibEntriesTree.update($.tree, count, _slot, LibEntriesTree.leaf(_slot, _entry));
 
         uint48 l1Block = _toEventBlock(block.number);
         // `count` is at most MAX_ENTRIES.
@@ -594,6 +684,65 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
             $.checkpoints.push(checkpoint);
         }
         emit CheckpointWritten(index, l1Block, uint48(count), root);
+    }
+
+    /// @dev Sets a slot's admission value and updates its ancestors, stopping at the first node
+    /// whose key does not change.
+    /// @param $ The registry storage.
+    /// @param _slot The slot.
+    /// @param _value The slot's new value: its bond's effStake + pendingTopUp, or 0 if empty.
+    function _setSlotValue(RegistryStorage storage $, uint256 _slot, uint256 _value) private {
+        require(_value < _VALUE_BOUND, BalanceTooLarge());
+        uint256 node = MAX_ENTRIES + _slot;
+        uint256 key = _value << LibEntriesTree.DEPTH | _slot;
+        for (uint256 level;; ++level) {
+            if (_minKey($, node, level) == key) return;
+            $.minIndex[node] = key;
+            if (node == 1) return;
+            uint256 sibling = _minKey($, node ^ 1, level);
+            if (sibling < key) key = sibling;
+            node >>= 1;
+        }
+    }
+
+    /// @dev Returns the key of an admission index node.
+    /// @param $ The registry storage.
+    /// @param _node The node, in [1, 2 * MAX_ENTRIES).
+    /// @param _level The node's height above the leaves.
+    /// @return key_ The smallest `value << 12 | slot` under the node; value 0 at the node's
+    /// leftmost slot if the node was never written.
+    function _minKey(
+        RegistryStorage storage $,
+        uint256 _node,
+        uint256 _level
+    )
+        private
+        view
+        returns (uint256 key_)
+    {
+        key_ = $.minIndex[_node];
+        if (key_ == 0) key_ = (_node << _level) - MAX_ENTRIES;
+    }
+
+    /// @dev Returns the slot a registration takes and its value.
+    /// @param $ The registry storage.
+    /// @return slot_ The slot with the smallest value, the lowest one on a tie.
+    /// @return value_ Its value.
+    function _admissionThreshold(RegistryStorage storage $)
+        private
+        view
+        returns (uint256 slot_, uint256 value_)
+    {
+        uint256 key = _minKey($, 1, LibEntriesTree.DEPTH);
+        return (key & (MAX_ENTRIES - 1), key >> LibEntriesTree.DEPTH);
+    }
+
+    /// @dev Decodes a stored bond id + 1.
+    /// @param _bondIdPlusOne The stored value; 0 if none.
+    /// @return found_ Whether it names a bond.
+    /// @return bondId_ The bond id; 0 if none.
+    function _lookup(uint256 _bondIdPlusOne) private pure returns (bool found_, uint256 bondId_) {
+        if (_bondIdPlusOne != 0) return (true, _bondIdPlusOne - 1);
     }
 
     /// @dev Recovers the signer of a vote from its signature over keccak256 of its CometBFT sign
@@ -617,7 +766,7 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
 
     /// @dev Reverts with `InboxLocked` whenever the Inbox holds its reentrancy lock (during `land`
     /// and `recover`, and also during `saveForcedInclusion`, its refund included, and
-    /// `sweepProtocolFees`, its transfer included), so entry mutations cannot run inside Inbox
+    /// `sweepProtocolFees`, its transfer included), so registry mutations cannot run inside Inbox
     /// execution. Only the Inbox-authorized forceExit deliberately skips this reciprocal check.
     function _checkInboxUnlocked() private view {
         require(!EssentialContract(inbox).inNonReentrant(), InboxLocked());

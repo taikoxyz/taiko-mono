@@ -304,12 +304,12 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
     // Lists
     // ---------------------------------------------------------------
 
-    /// @dev Lean `stale_exclusion_identity_rejected` and `released_slot_exclusion_rejected`: the
-    /// registry checks each exclusion's entry key inside `forceExit` and rejects an exclusion whose
-    /// key no longer matches, an unknown bond and a released slot (under the occupant's old key or
-    /// the all-zero entry's key). Each list starts with a valid exclusion of Alice and lists a
-    /// blanking: the whole call reverts, so Alice's exit, the queue entry and the generation stay
-    /// as they were.
+    /// @dev Lean `stale_exclusion_identity_rejected` and spec 8 RECOV-8-40a: the registry checks
+    /// each exclusion's entry key inside `forceExit` and rejects an exclusion whose key does not
+    /// match its bond, or an unissued bond. Each rejected list starts with a valid exclusion of
+    /// Alice and lists a blanking: the whole call reverts, so Alice's exit, the queue entry and
+    /// the generation stay as they were. A withdrawn bond named with its own key is accepted and
+    /// keeps its earlier exit, while the emptied slot's all-zero key does not match it.
     function test_recover_RevertWhen_ExclusionKeyStaleOrReleased() external {
         IEtnaInbox.Exclusion[] memory list = new IEtnaInbox.Exclusion[](2);
         list[0] = _exclusion(0, VALIDATOR_PK);
@@ -325,26 +325,30 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         list[1] = _exclusion(2, _BOB_PK);
         _expectRecoverRevert(0, 0, list, _indices(0), IEtnaStakingRegistry.UnknownBond.selector);
 
-        // Bob exits, a landing's committee covers the exit, and he withdraws: slot 1 is released.
+        // Bob exits, a landing's committee covers the exit, and he withdraws bond 1.
         vm.prank(Bob);
         registry.requestExit(1);
+        uint48 bobExit = registry.entryAt(1).exitEffectiveL1;
         IEtnaInbox.LandInput memory input = _input(0, 6);
-        input.activeCommitteeSnapshot = registry.entryAt(1).exitEffectiveL1;
+        input.activeCommitteeSnapshot = bobExit;
         _land(input, new bytes32[](0));
         registry.confirmExit(1);
         vm.roll(block.number + WITHDRAWAL_DELAY);
         vm.prank(Bob);
         registry.withdraw(1, Bob);
-        assertEq(registry.entryAt(1).ckPrefix, 0, "slot 1 released");
+        assertEq(registry.entryAt(1).ckPrefix, 0, "slot 1 emptied");
 
         list[1] = _exclusion(1, _BOB_PK);
-        _expectRecoverRevert(0, 6, list, _indices(1), IEtnaStakingRegistry.SlotReleased.selector);
         list[1].entryKey = keccak256(abi.encode(0, 0));
-        _expectRecoverRevert(0, 6, list, _indices(1), IEtnaStakingRegistry.SlotReleased.selector);
+        _expectRecoverRevert(
+            0, 6, list, _indices(1), IEtnaStakingRegistry.EntryKeyMismatch.selector
+        );
         assertEq(registry.entryAt(0).exitEffectiveL1, _NO_EXIT, "Alice keeps no exit");
 
-        _recover(0, 6, _exclusions(0, VALIDATOR_PK), _indices(1));
+        list[1] = _exclusion(1, _BOB_PK);
+        _recover(0, 6, list, _indices(1));
         assertEq(registry.entryAt(0).exitEffectiveL1, block.number, "Alice excluded");
+        assertEq(registry.bondAt(1).entry.exitEffectiveL1, bobExit, "Bob's earlier exit stands");
     }
 
     /// @dev Both lists must be strictly increasing: equal or descending neighbours, anywhere in
