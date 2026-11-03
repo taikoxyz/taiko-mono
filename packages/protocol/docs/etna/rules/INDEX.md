@@ -379,6 +379,7 @@
 | RECOV-8.3-1    | rule       | Caller: only the Inbox owner (the DAO) may call recover                                                                                        | 8.3     | [8.3](vectors/8.3.md#recov-83-1)      |
 | RECOV-8.3-2    | rule       | recover and invalidateRecoveryNonce require Inbox initialization                                                                               | 8.3     | [8.3](vectors/8.3.md#recov-83-2)      |
 | RECOV-8.3-3    | rule       | At execution: three expected values must match; timestamp ≤ validUntil                                                                         | 8.3     | [8.3](vectors/8.3.md#recov-83-3)      |
+| RECOV-8.3-3a   | rule       | expectedC must be a multiple of the Inbox's (possibly new) K                                                                                   | 8.3     | [8.3](vectors/8.3.md#recov-83-3a)     |
 | RECOV-8.3-4    | rule       | validUntil is an absolute L1 Unix timestamp fixed at authorization                                                                             | 8.3     | [8.3](vectors/8.3.md#recov-83-4)      |
 | RECOV-8.3-5    | rule       | Inbox stores only a monotonic uint256 recoveryNonce; no queue                                                                                  | 8.3     | [8.3](vectors/8.3.md#recov-83-5)      |
 | RECOV-8.3-6    | rule       | Inbox does not distinguish DAO authorization paths                                                                                             | 8.3     | [8.3](vectors/8.3.md#recov-83-6)      |
@@ -662,21 +663,21 @@
 | 5.2     | 9   | 31      | 4                |
 | 5.3     | 10  | 29      | 4                |
 | 6.1     | 13  | 52      | 4                |
-| 6.2     | 48  | 179     | 14               |
+| 6.2     | 48  | 180     | 14               |
 | 6.3     | 14  | 51      | 3                |
 | 6.4     | 16  | 60      | 4                |
 | 7.1     | 13  | 47      | 6                |
 | 7.2     | 13  | 64      | 10               |
 | 7.3     | 5   | 20      | 5                |
-| 8       | 60  | 163     | 10               |
+| 8       | 60  | 164     | 10               |
 | 8.1     | 12  | 35      | 7                |
 | 8.2     | 6   | 17      | 4                |
-| 8.3     | 19  | 48      | 7                |
+| 8.3     | 20  | 50      | 7                |
 | 8.4     | 15  | 38      | 6                |
 | 9       | 16  | 74      | 7                |
 | 9.1     | 10  | 31      | 5                |
 | 10      | 24  | 97      | 5                |
-| 10.1    | 24  | 110     | 1                |
+| 10.1    | 24  | 111     | 1                |
 | 11      | 16  | 64      | 6                |
 | 12      | 19  | 3       | 6                |
 | A       | 58  | 289     | 4                |

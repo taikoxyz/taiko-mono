@@ -85,12 +85,14 @@ The Etna block-production and validation rules are in
   expiry and lifetime replay flag, but no forfeiture nonce or revocation entry point.
 - **Recovery:** the owner calls `recover` with the expected generation, c and
   recovery nonce, an authorization deadline, atomic exclusion and FI-blanking
-  lists, and an optional ruleset for the new generation. For recovery, the Inbox keeps only the authorization nonce, with no recovery queue or
-  stall timer; explicit invalidation and verifier-failure rollback advance it. Exclusions force exits without slashing. The settled prefix stays;
-  the unsettled suffix is discarded, and the new generation starts from a fixed,
+  lists, and an optional ruleset for the new generation. For recovery, the
+  Inbox keeps only the authorization nonce, with no recovery queue or stall
+  timer; explicit invalidation and verifier-failure rollback advance it.
+  Exclusions force exits without slashing. The settled prefix stays; the
+  unsettled suffix is discarded, and the new generation starts from a fixed,
   authenticated origin. A verifier failure is not handled by `recover`: its
-  settlement rollback runs in the same DAO upgrade of the Inbox and registry that
-  replaces the verifier.
+  settlement rollback runs in the same DAO upgrade of the Inbox and registry
+  that replaces the verifier.
 - **Upgrades:** rule changes take effect at an L2 timestamp from one Inbox slot
   that only the DAO writes, at least `maxAnchorAge` ahead, so every later block's
   anchor shows it. Nodes and guests select each block's ruleset from its anchor
