@@ -179,4 +179,4 @@ Every step completes before the old propose cutoff, and the new `ETNA_FORK_TIME`
 
 ## 9. Rehearsal
 
-Run the whole procedure on a test network that runs Unzen first, then on mainnet. [ACCEPTANCE.md section 7](ACCEPTANCE.md#7-switch-rehearsal-switchmd) lists what the rehearsal must show.
+Run the whole procedure on a test network that runs Unzen first, then on mainnet. [ACCEPTANCE.md section 8](ACCEPTANCE.md#8-switch-rehearsal-switchmd) lists what the rehearsal must show.
