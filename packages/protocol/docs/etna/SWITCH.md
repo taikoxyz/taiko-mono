@@ -31,7 +31,7 @@ The switch runs in these stages:
 outage: from stage 3 to stage 7
 ```
 
-The outage is about `PROPOSE_MARGIN` plus two L1 finality periods (stages 4 and 6), plus the time the originWriter and node operators take. It does not include Unzen's proving time, but that time has a budget: Etna produces at most U blocks beyond its latest checkpoint, which stays S until the first landing. Unzen's final proof, the first Etna landing, its L1 finality and an Etna anchor that picks it up ([SPEC.md 6.4](SPEC.md#64-back-pressure)) must together fit within U × block time from the first Etna block, about 4 h at the reference U = 3,600 and 4 s blocks. Otherwise Etna pauses a second time on back-pressure; no block is lost.
+The outage is about `PROPOSE_MARGIN` plus two L1 finality periods (stages 4 and 6), plus the time the originWriter and node operators take. Forced inclusion is unavailable for slightly longer: the Unzen Inbox stops accepting entries at `ETNA_FORK_TIME − FI_MARGIN`, and the EtnaInbox accepts them only from `setOrigin` on. The outage does not include Unzen's proving time, but that time has a budget: Etna produces at most U blocks beyond its latest checkpoint, which stays S until the first landing. Unzen's final proof, the first Etna landing, its L1 finality and an Etna anchor that picks it up ([SPEC.md 6.4](SPEC.md#64-back-pressure)) must together fit within U × block time from the first Etna block, about 4 h at the reference U = 3,600 and 4 s blocks. Otherwise Etna pauses a second time on back-pressure; no block is lost.
 
 ## 2. Prerequisites
 
