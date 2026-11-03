@@ -524,7 +524,6 @@
 | LIMIT-12-7     | limitation | No rotation power-change limit; the top n_max by stake is selected                                                                             | 12      | [12](vectors/12.md)                   |
 | LIMIT-12-8     | limitation | Refunds depend on settlement and the post-confirmation evidence window                                                                         | 12      | [12](vectors/12.md)                   |
 | LIMIT-12-9     | limitation | The switch from Unzen is not included yet                                                                                                      | 12      | [12](vectors/12.md)                   |
-| LIMIT-12-9a    | limitation | Upgrades depend on the DAO and on validators upgrading in time                                                                                 | 12      | [12](vectors/12.md)                   |
 | LIMIT-12-10    | retired    | The upgrade activation mechanism is not fully designed yet                                                                                     | 12      | —                                     |
 | LIMIT-12-10a   | rule       | L1 forks that change existing fields or the state commitment need client and guest upgrades and image registrations before they activate on L1 | 12      | [12](vectors/12.md#limit-12-10a)      |
 | LIMIT-12-11    | limitation | Registry capacity: 4096 slots, each locking minStake                                                                                           | 12      | [12](vectors/12.md)                   |
@@ -537,6 +536,7 @@
 | LIMIT-12-18    | limitation | Economic security and discretionary forfeiture; 1/3 can halt consensus                                                                         | 12      | [12](vectors/12.md)                   |
 | LIMIT-12-19    | limitation | Slashed members keep their voting power until a committee that excludes them takes effect                                                      | 12      | [12](vectors/12.md)                   |
 | LIMIT-12-20    | limitation | Blanking does not stop resubmission of the same forced inclusion bytes                                                                         | 12      | [12](vectors/12.md)                   |
+| LIMIT-12-21    | limitation | Upgrades depend on the DAO and on validators upgrading in time                                                                                 | 12      | [12](vectors/12.md)                   |
 | ENC-A-1        | rule       | APP_VERSION=1, versioned domain tags V1, envelope/payload prefix 0x06                                                                          | A       | [A](vectors/A.md#enc-a-1)             |
 | ENC-A-2        | rule       | Config is seven words (224 bytes); CommitteeRecord has five fields                                                                             | A       | [A](vectors/A.md#enc-a-2)             |
 | ENC-A-3        | rule       | Slot 285 holds three words                                                                                                                     | A       | [A](vectors/A.md#enc-a-3)             |
@@ -677,7 +677,7 @@
 | 9       | 16  | 74      | 7                |
 | 9.1     | 10  | 31      | 5                |
 | 10      | 24  | 97      | 5                |
-| 10.1    | 24  | 111     | 1                |
+| 10.1    | 24  | 113     | 1                |
 | 11      | 16  | 64      | 6                |
 | 12      | 19  | 3       | 6                |
 | A       | 58  | 289     | 4                |
