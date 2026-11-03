@@ -41,27 +41,28 @@ The Etna block-production and validation rules are in
 
 ### Reading map
 
-| Section                                                                                    | Covers                                                                           |
-| ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| [1. Positioning and security model](SPEC.md#1-positioning-and-security-model)              | Security model and trust assumptions                                             |
-| [2. Components](SPEC.md#2-components)                                                      | Roles and components                                                             |
-| [3. Consensus and blocks](SPEC.md#3-consensus-and-blocks)                                  | Stock CometBFT, EL integration, anchors, validity and size limits                |
-| [4. Staking and committees](SPEC.md#4-staking-and-committees)                              | Registration/top-ups, exits, double-sign and DAO forfeiture, committee selection |
-| [5. Data formats and DA](SPEC.md#5-data-formats-and-da)                                    | Private envelopes, public blobs and public EL reconstruction                     |
-| [6. Landing and settlement](SPEC.md#6-landing-and-settlement)                              | Landing checks, two proofs, grid cuts, overlapping jobs and back-pressure        |
-| [7. Forced inclusion](SPEC.md#7-forced-inclusion)                                          | Queue admission, singleton builds, legal skipping and protocol fees              |
-| [8. Halts and recovery](SPEC.md#8-halts-and-recovery)                                      | Pauses, safety halts, verifier failure and DAO recovery                          |
-| [9. Sync and weak subjectivity](SPEC.md#9-sync-and-weak-subjectivity)                      | L1 checkpoint trust, guarded signing and consensus-history availability          |
-| [10. Startup and deployment](SPEC.md#10-startup-and-deployment)                            | Genesis, deployment constraints and protocol upgrades                            |
-| [11. Parameters](SPEC.md#11-parameters)                                                    | Parameter sources, constraints and reference values                              |
-| [12. Known limitations and open items](SPEC.md#12-known-limitations-and-open-items)        | All 20 limitations and open items                                                |
-| [Appendix A: Encodings](SPEC.md#appendix-a-encodings)                                      | Domains, encodings, ABI and reference examples                                   |
-| [Appendix B: L1 storage layout](SPEC.md#appendix-b-l1-storage-layout)                      | Inbox and registry slots, packing and namespaces                                 |
-| [Appendix C: Operating funding](SPEC.md#appendix-c-operating-funding-and-cost-assumptions) | DAO operating funding and worst-case cost assumptions                            |
-| [Acceptance and launch checklist](ACCEPTANCE.md)                                           | Resource, latency and recovery acceptance, shared vectors, launch gate           |
+| Section                                                                                    | Covers                                                                                                |
+| ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| [1. Positioning and security model](SPEC.md#1-positioning-and-security-model)              | Security model and trust assumptions                                                                  |
+| [2. Components](SPEC.md#2-components)                                                      | Roles and components                                                                                  |
+| [3. Consensus and blocks](SPEC.md#3-consensus-and-blocks)                                  | Stock CometBFT, EL integration, anchors, validity and size limits                                     |
+| [4. Staking and committees](SPEC.md#4-staking-and-committees)                              | Registration/top-ups, exits, double-sign and DAO forfeiture, committee selection                      |
+| [5. Data formats and DA](SPEC.md#5-data-formats-and-da)                                    | Private envelopes, public blobs, authenticated EL/app snapshot sync and optional full blob replay     |
+| [6. Landing and settlement](SPEC.md#6-landing-and-settlement)                              | Landing checks, two proofs, grid cuts, overlapping jobs and back-pressure                             |
+| [7. Forced inclusion](SPEC.md#7-forced-inclusion)                                          | Queue admission, singleton builds, legal skipping and protocol fees                                   |
+| [8. Halts and recovery](SPEC.md#8-halts-and-recovery)                                      | Pauses, safety halts, verifier failure and DAO recovery                                               |
+| [9. Sync and weak subjectivity](SPEC.md#9-sync-and-weak-subjectivity)                      | L1 checkpoint trust, guarded signing and consensus-history availability                               |
+| [10. Startup and deployment](SPEC.md#10-startup-and-deployment)                            | Genesis, deployment constraints and protocol upgrades                                                 |
+| [11. Parameters](SPEC.md#11-parameters)                                                    | Parameter sources, constraints and reference values                                                   |
+| [12. Known limitations and open items](SPEC.md#12-known-limitations-and-open-items)        | All 20 limitations and open items                                                                     |
+| [Appendix A: Encodings](SPEC.md#appendix-a-encodings)                                      | Domains, encodings, ABI and reference examples                                                        |
+| [Appendix B: L1 storage layout](SPEC.md#appendix-b-l1-storage-layout)                      | Inbox and registry slots, packing and namespaces                                                      |
+| [Appendix C: Operating funding](SPEC.md#appendix-c-operating-funding-and-cost-assumptions) | DAO operating funding and worst-case cost assumptions                                                 |
+| [Acceptance and launch checklist](ACCEPTANCE.md)                                           | Resource, latency and recovery acceptance, shared vectors, launch gate, checkpoint snapshot sync (§7) |
 
 ### Key review points
 
+- **Snapshot startup:** EL-only backends, validators and full nodes may start from authenticated checkpoint snapshots at launch or later. App nodes also authenticate the current generation’s consensus archive and reconstruct committee, proposer-priority and evidence/history state without pre-checkpoint EL execution, then use stock CometBFT P2P from s+1. Fixed genesis, latest-checkpoint trust and signer HRS remain mandatory. Keep genesis and the current origin publicly recoverable and preserve complete EL/app snapshot-to-latest paths; full genesis blob replay is optional (5.3, 5.4, 8.4, 9.1).
 - **Consensus and signing:** stock CometBFT v0.40.0 with secp256k1eth keys, a
   signing domain bound to the deployment and recovery generation, committee
   changes activated two heights after they are derived, and an external signer
