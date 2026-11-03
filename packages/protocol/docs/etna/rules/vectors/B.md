@@ -75,16 +75,16 @@
 
 ## STOR-B-9
 
-| Vector     | Claimed layout or data                                                                                                              | Expected                                                                       |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| 9.a accept | the record for h is three words: word 1 packs actual parentHeight=c, generation and head; words 2 and 3 are the EL and Comet hashes | matches                                                                        |
-| 9.b accept | the start record at S has parent S, generation 0, head 0, EL hash equal to the start's hash, Comet hash 0                           | matches                                                                        |
-| 9.c accept | a proof with origin p reads its own retained record at p after later landings                                                       | matches ("never pruned")                                                       |
-| 9.d reject | the record for h stores proof origin p as parentHeight when p is below c                                                            | violates STOR-B-9 ("actual parentHeight=c")                                    |
-| 9.e reject | a later landing overwrites the record at an older origin p                                                                          | violates STOR-B-9                                                              |
-| 9.f reject | the start record carries the start's hash as its Comet hash                                                                         | violates STOR-B-9 ("Comet hash 0")                                             |
-| 9.g accept | S = 1000 with start hash H                                                                                                          | landings[1000] is (parent 1000, generation 0, head 0, EL hash H, Comet hash 0) |
-| 9.h accept | a START-10-5c rewrite changes S                                                                                                     | the record at the old S is cleared (the stated exception)                      |
+| Vector     | Claimed layout or data                                                                                                              | Expected                                                                                         |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| 9.a accept | the record for h is three words: word 1 packs actual parentHeight=c, generation and head; words 2 and 3 are the EL and Comet hashes | matches                                                                                          |
+| 9.b accept | the start record at S has parent S, generation 0, head 0, EL hash equal to the start's hash, Comet hash 0                           | matches                                                                                          |
+| 9.c accept | a proof with origin p reads its own retained record at p after later landings                                                       | matches ("never pruned")                                                                         |
+| 9.d reject | the record for h stores proof origin p as parentHeight when p is below c                                                            | violates STOR-B-9 ("actual parentHeight=c")                                                      |
+| 9.e reject | a later landing overwrites the record at an older origin p                                                                          | violates STOR-B-9                                                                                |
+| 9.f reject | the start record carries the start's hash as its Comet hash                                                                         | violates STOR-B-9 ("Comet hash 0")                                                               |
+| 9.g accept | S = 1000 with start hash H                                                                                                          | landings[1000] is (parent 1000, generation 0, head 0, EL hash H, Comet hash 0)                   |
+| 9.h accept | a START-10-5c rewrite changes S                                                                                                     | the record at the old S stays; as an older generation's record it cannot serve as a proof origin |
 
 ## STOR-B-10
 
