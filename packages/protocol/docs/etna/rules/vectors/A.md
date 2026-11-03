@@ -33,26 +33,24 @@ _Which seven words, and which five fields: [Q-A-1](../review/A.md#q-a-1)._
 
 ## ENC-A-3
 
-| Vector     | Setup                                            | Expected                         |
-| ---------- | ------------------------------------------------ | -------------------------------- |
-| 3.a accept | the slot-285 record at any height is three words | matches                          |
-| 3.b accept | block 0's slot-285 record is three words         | matches (no exemption is stated) |
-| 3.c reject | a slot-285 record of two words                   | violates ENC-A-3                 |
-| 3.d reject | a slot-285 record of four words                  | violates ENC-A-3                 |
+| Vector     | Setup                                                           | Expected                         |
+| ---------- | --------------------------------------------------------------- | -------------------------------- |
+| 3.a accept | the slot-285 record at any height is three words                | matches                          |
+| 3.b accept | the start record at S (block 0 on a new network) is three words | matches (no exemption is stated) |
+| 3.c reject | a slot-285 record of two words                                  | violates ENC-A-3                 |
+| 3.d reject | a slot-285 record of four words                                 | violates ENC-A-3                 |
 
 _Which fields occupy the three words: [STOR-B-9](B.md#stor-b-9)._
 
-## ENC-A-4
+## ENC-A-4a
 
-| Vector     | Setup                                                                       | Expected                                          |
-| ---------- | --------------------------------------------------------------------------- | ------------------------------------------------- |
-| 4.a accept | a new guest image is registered in the verifier and the config is unchanged | the rules applied at each height are unchanged    |
-| 4.b accept | clients are upgraded and the config is unchanged                            | the rules applied at each height are unchanged    |
-| 4.c reject | a proof from an image the config does not bind is accepted as settling      | violates ENC-A-4 ("acceptance ... to the config") |
-| 4.d reject | registering an image alone changes the rules applied to later blocks        | violates ENC-A-4                                  |
-| 4.e reject | changing client software alone changes the rules applied to later blocks    | violates ENC-A-4                                  |
-
-_The sentence's scope is "until the upgrade mechanism is complete" (10.1). What in the config binds acceptance: [Q-A-3](../review/A.md#q-a-3)._
+| Vector      | Setup                                                                     | Expected                                       |
+| ----------- | ------------------------------------------------------------------------- | ---------------------------------------------- |
+| 4a.a accept | a new guest image is registered in the verifier and slot 293 is unchanged | the ruleset applied to each block is unchanged |
+| 4a.b accept | clients are upgraded and slot 293 is unchanged                            | the ruleset applied to each block is unchanged |
+| 4a.c reject | registering an image alone changes the rules applied to later blocks      | violates ENC-A-4a                              |
+| 4a.d reject | changing client software alone changes the rules applied to later blocks  | violates ENC-A-4a                              |
+| 4a.e accept | guest-image acceptance is the verifier's accepted set (6.2)               | conforms                                       |
 
 ## ENC-A-5
 
@@ -227,8 +225,8 @@ _`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` fo
 | 20.b reject | storage value 5 is encoded as `0x00 0x05`                                                 | violates ENC-A-20 (leading zero); proposal invalid (ENC-A-16)       |
 | 20.c reject | a 2-byte string uses the long form `0xb8 0x02 ...`                                        | violates ENC-A-20 (prefix not minimal); proposal invalid (ENC-A-16) |
 | 20.d reject | the single byte `0x05` is encoded as `0x81 0x05`                                          | violates ENC-A-20 (prefix not minimal); proposal invalid (ENC-A-16) |
-| 20.e reject | a released slot's entry has a nonzero field                                               | violates ENC-A-20; proposal invalid (ENC-A-16)                      |
-| 20.f accept | a released slot's entry has all-zero fields                                               | matches                                                             |
+| 20.e reject | an empty slot's entry has a nonzero field                                                 | violates ENC-A-20; proposal invalid (ENC-A-16)                      |
+| 20.f accept | an empty slot's entry has all-zero fields                                                 | matches                                                             |
 | 20.g accept | a slot whose value is a hash uses minimal integer encoding, stripping leading zero bytes  | stated ("including slots that hold hashes")                         |
 
 ## ENC-A-21
@@ -270,16 +268,16 @@ _`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` fo
 | 24.d reject | a storage entry has two or four items                                                                              | violates ENC-A-24 (`[slot, value, proof]`) |
 | 24.e reject | the seventh item is one `[slot, value, proof]` rather than a list of them                                          | violates ENC-A-24                          |
 
-## ENC-A-25
+## ENC-A-25a
 
-| Vector      | Setup                                                                               | Expected                                                                            |
-| ----------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| 25.a accept | anchor witness proves slots `[268, 270, 271, 281]` in that order                    | matches                                                                             |
-| 25.b reject | anchor slots are `[268, 271, 270, 281]`                                             | violates ENC-A-25 ("exactly in order"); consequence — [Q-A-4](../review/A.md#q-a-4) |
-| 25.c reject | the anchor witness omits 281 or adds 269                                            | violates ENC-A-25 ("exactly")                                                       |
-| 25.d accept | forced entry `i` proves `base` and `base+1`, `base = keccak256(abi.encode(i, 280))` | matches                                                                             |
-| 25.e reject | `base` is computed as `keccak256(abi.encode(i, 281))` or with another index         | violates ENC-A-25                                                                   |
-| 25.f reject | forced slots are `[base+1, base]`                                                   | violates ENC-A-25 (order); consequence — [Q-A-4](../review/A.md#q-a-4)              |
+| Vector       | Setup                                                                               | Expected                                                                             |
+| ------------ | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| 25a.a accept | anchor witness proves slots `[268, 270, 271, 281, 293]` in that order               | matches                                                                              |
+| 25a.b reject | anchor slots are `[268, 271, 270, 281, 293]`                                        | violates ENC-A-25a ("exactly in order"); consequence — [Q-A-4](../review/A.md#q-a-4) |
+| 25a.c reject | the anchor witness omits 281 or 293, or adds 269                                    | violates ENC-A-25a ("exactly")                                                       |
+| 25a.d accept | forced entry `i` proves `base` and `base+1`, `base = keccak256(abi.encode(i, 280))` | matches                                                                              |
+| 25a.e reject | `base` is computed as `keccak256(abi.encode(i, 281))` or with another index         | violates ENC-A-25a                                                                   |
+| 25a.f reject | forced slots are `[base+1, base]`                                                   | violates ENC-A-25a (order); consequence — [Q-A-4](../review/A.md#q-a-4)              |
 
 ## ENC-A-26
 
@@ -330,6 +328,7 @@ _`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` fo
 | 29.c reject | order is `(blockHash(x), uint256(x), ...)`                                                 | violates ENC-A-29                                    |
 | 29.d reject | blockHash, cometHash or forcedHead is taken at a height other than `x`                     | violates ENC-A-29 (all at height x)                  |
 | 29.e reject | `x` or `forcedHead(x)` is encoded in fewer than 32 bytes (for example packed as uint48)    | violates ENC-A-29 (`uint256(x)`, four 32-byte words) |
+| 29.f accept | S = 1000, `K = 3`: grid points are 1000, 1003, 1006, …                                     | matches ("heights count from the Etna start S")      |
 
 ## ENC-A-30
 
@@ -364,13 +363,15 @@ _`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` fo
 
 ## ENC-A-33
 
-| Vector      | Setup                                                               | Expected                             |
-| ----------- | ------------------------------------------------------------------- | ------------------------------------ |
-| 33.a accept | `p % K == 0`, `h % K == 0`, `leaves.length == (h-p)/K - 1`, `c < h` | checks pass                          |
-| 33.b reject | `K = 3`, `p = 1`                                                    | violates ENC-A-33 (`p % K == 0`)     |
-| 33.c reject | `K = 3`, `h = 10`                                                   | violates ENC-A-33 (`h % K == 0`)     |
-| 33.d reject | `leaves.length = (h-p)/K` (one too many)                            | violates ENC-A-33                    |
-| 33.e reject | `c >= h`                                                            | rejected as already settled (stated) |
+| Vector      | Setup                                                                           | Expected                               |
+| ----------- | ------------------------------------------------------------------------------- | -------------------------------------- |
+| 33.a accept | `(p - S) % K == 0`, `(h - S) % K == 0`, `leaves.length == (h-p)/K - 1`, `c < h` | checks pass                            |
+| 33.b reject | `S = 0`, `K = 3`, `p = 1`                                                       | violates ENC-A-33 (`(p - S) % K == 0`) |
+| 33.c reject | `S = 0`, `K = 3`, `h = 10`                                                      | violates ENC-A-33 (`(h - S) % K == 0`) |
+| 33.d reject | `leaves.length = (h-p)/K` (one too many)                                        | violates ENC-A-33                      |
+| 33.e reject | `c >= h`                                                                        | rejected as already settled (stated)   |
+| 33.f accept | `S = 1000`, `K = 3`, `p = 1000`, `h = 1006`, one leaf                           | checks pass                            |
+| 33.g reject | `S = 1000`, `K = 3`, `h = 1005`                                                 | violates ENC-A-33 (`(h - S) % K == 0`) |
 
 ## ENC-A-34
 
@@ -410,6 +411,10 @@ _`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` fo
 | 37.b reject  | tag is `ETNA_REG_ENTRY_V2`                                                                              | violates ENC-A-37                                                                                                                    |
 | 37.c reject  | `j` or `exitEffectiveL1` is omitted                                                                     | violates ENC-A-37                                                                                                                    |
 | 37.d reject  | `ckX` precedes `ckPrefix`                                                                               | violates ENC-A-37 (order)                                                                                                            |
+| 37.e accept  | bond 4096 replaces the bond in slot 7; its entry is hashed into `entriesRoot`                           | `j = 7`; the other entry fields come from bond 4096 (STAKE-4.1-13a, STOR-B-21)                                                       |
+| 37.f reject  | the same replacement entry is hashed with `j = 4096`                                                    | violates STAKE-4.1-13a and ENC-A-37; `j` is the slot number, not the bond id                                                         |
+| 37.g accept  | bonds 0 and 1 hold slots 0 and 1; bond 0 is withdrawn; the next registration creates bond 2 in slot 0   | the new entry uses `j = 0` even before any bond id reaches 4096                                                                      |
+| 37.h reject  | the new entry for bond 2 in slot 0 uses `j = 2`                                                         | violates STAKE-4.1-13a and ENC-A-37                                                                                                  |
 
 ## ENC-A-38
 
@@ -588,12 +593,19 @@ _`abi.encode(left, right)` of two `bytes32` words equals their plain concatenati
 
 ## ENC-A-55
 
-| Vector      | Setup                                                                                        | Expected                                                                                                                       |
-| ----------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| 55.a accept | the registry owner forfeits a `bondId`/`entryKey` once, then never again for that `entryKey` | conforms                                                                                                                       |
-| 55.b reject | the DAO's execution address calls `forfeit` while the registry owner is a different address  | violates ENC-A-55 (registry-owner-only); FORF-4.4-1 names one caller, "the registry owner, the DAO's actual execution address" |
-| 55.c reject | a second `forfeit` for the same lifetime `entryKey`                                          | violates ENC-A-55 (once per lifetime entryKey)                                                                                 |
-| 55.d reject | any call that attempts to revoke or reset a forfeiture via a nonce                           | violates ENC-A-55 (no forfeiture nonce or revocation)                                                                          |
+| Vector      | Setup                                                                                                        | Expected                                                                                                                       |
+| ----------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| 55.a accept | the registry owner forfeits a `bondId`/`entryKey` once, then never again for that `entryKey`                 | conforms                                                                                                                       |
+| 55.b reject | the DAO's execution address calls `forfeit` while the registry owner is a different address                  | violates ENC-A-55 (registry-owner-only); FORF-4.4-1 names one caller, "the registry owner, the DAO's actual execution address" |
+| 55.c reject | a second `forfeit` for the same lifetime `entryKey`                                                          | violates ENC-A-55 (once per lifetime entryKey)                                                                                 |
+| 55.d reject | any call that attempts to revoke or reset a forfeiture via a nonce                                           | violates ENC-A-55 (no forfeiture nonce or revocation)                                                                          |
+| 55.e accept | bond 12 is displaced from slot 7 by bond 4096                                                                | emits `BondDisplaced(12, 7, 4096)` with all three uint256 fields indexed                                                       |
+| 55.f reject | `BondDisplaced` omits a field, swaps the displaced and replacement bond ids, or leaves the bond id unindexed | violates ENC-A-55 and STAKE-4.1-14b                                                                                            |
+| 55.g reject | registration takes an empty slot and emits `BondDisplaced`                                                   | violates STAKE-4.1-14b (no displaced bond)                                                                                     |
+| 55.h accept | key K belongs to bond 0 in slot 0; query `bondForKey(ckAddr(K))`, `bondInSlot(0)` and `slotOfBond(0)`        | each returns `(true, 0)` under the specified external-view ABI                                                                 |
+| 55.i accept | query an unused key, an empty slot or an unissued bond id through its corresponding lookup                   | returns `(false, 0)`; the read does not allocate or confirm a bond                                                             |
+| 55.j accept | withdraw bond 0, then query its key and `slotOfBond(0)`                                                      | key lookup returns `(true, 0)`; slot lookup returns `(false, 0)`                                                               |
+| 55.k reject | `bondInSlot(4096)` or a higher slot is queried                                                               | the lookup reverts (ENC-A-55)                                                                                                  |
 
 ## Not covered
 
@@ -603,6 +615,5 @@ Everything below is a question, not a vector. Each has an entry in [review/A.md]
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
 | ENC-A-6 to ENC-A-55         | whether the now-citable blocks should still be restructured into prose or tables                                                     | [Q-A-1](../review/A.md#q-a-1) |
 | ENC-A-37, ENC-A-39–ENC-A-42 | whether a bare tag literal is a padded `bytes32` word or a dynamic string, and whether `ETNA_SET_NODE` is deliberately unversioned   | [Q-A-2](../review/A.md#q-a-2) |
-| ENC-A-4                     | what in the seven-word config binds guest-image and verifier acceptance                                                              | [Q-A-3](../review/A.md#q-a-3) |
-| ENC-A-24, ENC-A-25          | whether an out-of-order, extra or missing witness slot list makes a witness invalid; the order is now stated, the consequence is not | [Q-A-4](../review/A.md#q-a-4) |
+| ENC-A-24, ENC-A-25a         | whether an out-of-order, extra or missing witness slot list makes a witness invalid; the order is now stated, the consequence is not | [Q-A-4](../review/A.md#q-a-4) |
 | Shared vectors              | the obligation itself is un-numbered and has no owner                                                                                | [Q-A-5](../review/A.md#q-a-5) |
