@@ -50,6 +50,12 @@ func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 			return err
 		}
 
+		defer func() {
+			ctxClose()
+			app.Close(ctx)
+			log.Info("Application stopped", "name", app.Name())
+		}()
+
 		if err := metrics.Serve(
 			ctx,
 			c.Bool(flags.MetricsEnabled.Name),
@@ -59,12 +65,6 @@ func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 			log.Error("Starting metrics server error", "error", err)
 			return err
 		}
-
-		defer func() {
-			ctxClose()
-			app.Close(ctx)
-			log.Info("Application stopped", "name", app.Name())
-		}()
 
 		quitCh := make(chan os.Signal, 1)
 		signal.Notify(quitCh, []os.Signal{
