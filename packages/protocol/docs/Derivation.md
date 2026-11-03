@@ -248,7 +248,7 @@ Anchor block validation ensures proper L1 state synchronization and may trigger 
 
 **Forced inclusion protection**: Only proposer-supplied sources are penalized for stagnant anchors. Forced inclusions (`derivationSource.isForcedInclusion == true`) blocks intentionally inherit the parent anchor as mentioned above and never get replaced with the default manifest even when the anchor number does not advance.
 
-Recover `parent.metadata.anchorBlockNumber` from `Anchor.getBlockState().anchorBlockNumber`, or `0` for genesis. Proposals carry only pre-Etna blocks, so a parent is never an Etna block.
+Recover `parent.metadata.anchorBlockNumber` from `Anchor.getBlockState().anchorBlockNumber`, or `0` for genesis. Within proposal derivation, proposals carry only pre-Etna blocks, so a parent here is never an Etna block.
 
 #### `anchorBlockHash` and `anchorStateRoot` Validation
 
