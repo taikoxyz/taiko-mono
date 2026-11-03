@@ -33,12 +33,12 @@ _Which seven words, and which five fields: [Q-A-1](../review/A.md#q-a-1)._
 
 ## ENC-A-3
 
-| Vector     | Setup                                            | Expected                         |
-| ---------- | ------------------------------------------------ | -------------------------------- |
-| 3.a accept | the slot-285 record at any height is three words | matches                          |
-| 3.b accept | block 0's slot-285 record is three words         | matches (no exemption is stated) |
-| 3.c reject | a slot-285 record of two words                   | violates ENC-A-3                 |
-| 3.d reject | a slot-285 record of four words                  | violates ENC-A-3                 |
+| Vector     | Setup                                                           | Expected                         |
+| ---------- | --------------------------------------------------------------- | -------------------------------- |
+| 3.a accept | the slot-285 record at any height is three words                | matches                          |
+| 3.b accept | the start record at S (block 0 on a new network) is three words | matches (no exemption is stated) |
+| 3.c reject | a slot-285 record of two words                                  | violates ENC-A-3                 |
+| 3.d reject | a slot-285 record of four words                                 | violates ENC-A-3                 |
 
 _Which fields occupy the three words: [STOR-B-9](B.md#stor-b-9)._
 
