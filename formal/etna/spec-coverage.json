@@ -22,7 +22,7 @@
     "actual_queue": "Timestamped original transaction journals and authenticated final states of L1 blocks, preserving all same-block calls. Queue timing and tail coverage are derived, and current-origin binding excludes later recovery for exact storage transport. Ideal hash/canonical-parser/deterministic singleton interfaces bind raw and position-zero bytes for local unlanded blocks; real L1/storage/crypto/EL implementations, wall-clock liveness and launch resource acceptance remain external.",
     "reconstruction": "Public full EL header bytes, ordered EIP-2718 transaction bytes, canonical authenticated L1 records and complete starting state/code/configuration only. Fixed codecs/hashes/full-block EL semantics (including EIP-4788/2935 effects), truthful guest-rules domain, original-blob availability and finite compared-header collision exclusion are explicit external contracts. Actual accepted cut binding plus saved parent links derives overlap identity; no prefix agreement or reconstruction-success assumption. Ordinary recovery only; exceptional rollback needs an authenticated restart. No crypto/codec/EVM implementation, private Comet replay, arbitrary RPC snapshot, DA liveness or launch-resource claim.",
     "upgrade": "Conditional exact-plan/current-finalized-checkpoint authority, atomic switching transaction and original session/EL/guest/verifier adapters only. No production activation authority is constructed. Arbitrary previous height schedule and explicit boundaries, retained replay materials/jobs/HRS, common-grid code-K switch with unchanged deployment parameters. Single represented current-generation log and produced-height evidence are not global signer coordination. Historical cached retries use the original encoder/session; rule metadata is not a native vote field. Original fixed-version Trace remains separate.",
-    "current": "Conditional current decoded safety over a closed transaction machine: one coherent retained signal chain, actual issued/funded historical stake, derived reserve and evidence-window retention, reverse signature soundness, closed-cut temporal authority, due-qualified FIFO and complete decoded payload positions. The 13 primitive/deployment premises have an actual accepting registered-stake/FI witness with globally injective snapshot commitments; before-reference forced ETH cannot replay a fixed proof. This is a restricted new-network interpreter witness, not production EL/crypto/Comet/store refinement or switching-margin/availability/launch acceptance. Upstream Unzen pre-fork derivability is an explicit separate cutoff refinement, not an Etna guest check. Historical results remain separately pinned."
+    "current": "Conditional current decoded safety under fourteen raw primitive/deployment premises. Concrete physical archive ancestry and closed reference-local certificates derive normal checkpoint/cutoff/window/status facts; full joint profiles realize landing, switching, conflict accountability, honest nonempty agreement and decoded import. Raw DAO upgrade histories need explicit per-history authorization. Fresh Genesis excludes existing-registry retarget opening provenance; seeded preservation does not create it. Production crypto/L1/EL/guest/token/Solidity/Comet/store implementations and operational acceptance remain separate. Irreversible exceptional bad-checkpoint payouts are excluded from ordinary stake retention."
   },
   "design_pending": [
     "EN-fac3b57a8c83d321",
@@ -770,12 +770,13 @@
       "id": "CURRENT-H1",
       "status": "proved",
       "scope": "conditional decoded specification property only",
-      "description": "All retained Etna signals share one retained checkpoint chain/header map, with exact Unzen first-fence evidence; lifecycle freeze, legacy authentication, reference identity and trusted snapshot provenance are explicit.",
+      "description": "One coherent retained checkpoint/signal chain, reachable authenticated roots and actual suffixes, global strict legacy/Etna separation, one-shot/frozen starts and exact rollback snapshot provenance under normative histories or initialized endpoints of explicitly authorized deployed upgrade histories.",
       "assumptions": ["current"],
       "historical": false,
       "evidence": {
-        "LIVE_EN-a563a899ed3d4c6b": [
-          "Etna.Design.Current.Headlines.fund_safety"
+        "LIVE_EN-806e818366c6b783": [
+          "Etna.Design.Current.Headlines.fund_safety",
+          "Etna.Design.Current.Headlines.deployed_claims"
         ]
       }
     },
@@ -783,11 +784,17 @@
       "id": "CURRENT-H2",
       "status": "proved",
       "scope": "conditional decoded specification property only",
-      "description": "Conflicting same-round commits expose real issued identities and funded remaining liabilities without future-solvency assumptions; historical principal provenance, no false slash, protected evidence windows and closed-cut temporal authority are derived. Honest-round agreement remains conditional; expired committees do not retain their original escrow forever.",
+      "description": "Historical funded identity/liability and ordinary above-checkpoint at-risk overlap. Actual rollback-free execution and checkpoint-fenced physical candidates derive snapshot/cutoff/window bounds and live/unconfirmed bonds; future protected liability is exhausted principal or funded slash. Cross-round agreement requires explicit honest execution; exceptional verifier rollback cannot recover paid withdrawals.",
       "assumptions": ["current"],
       "historical": false,
       "evidence": {
-        "LIVE_EN-b82d63337df901b4": [
+        "LIVE_EN-fb39b71e9b4c760c": [
+          "Etna.Design.Current.Headlines.accountable_finality"
+        ],
+        "LIVE_EN-8863d8019505caf8": [
+          "Etna.Design.Current.Headlines.accountable_finality"
+        ],
+        "LIVE_EN-c36e4d0d76a728b6": [
           "Etna.Design.Current.Headlines.accountable_finality"
         ]
       }

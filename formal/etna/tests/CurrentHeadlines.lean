@@ -17,7 +17,7 @@ example : AccountableFinality =
       EconomicAccountability env w ∧ Economics.Safety env w ∧
       Economics.HistoricalStakeFunded env w ∧ TemporalAuthority env w ∧
         (ProtocolFinality.HonestExecutions engine env w →
-          ProtocolFinality.CurrentAgreement env w)) := rfl
+          ProtocolFinality.CurrentAgreement env w) ∧ NormalAccountability env registry w) := rfl
 example : ForcedInclusionIntegrity := Headlines.forced_inclusion_integrity
 
 -- All universally quantified public claims compose under the same primitive record.
@@ -50,6 +50,28 @@ example (env : Environment) (registry : RegistryMachine.State) (engine : Finalit
     referencePrefix other a.input.l1ReferenceBlockNumber = referencePrefix w a.input.l1ReferenceBlockNumber :=
   (Headlines.claims.1 env registry engine premises w run).2.2.2.2.1 other a same
 
+-- The full14 primitive profile also rejects start rewriting and prevents a legacy
+-- checkpoint from reaching any Etna checkpoint on a switching deployment.
+example (env : Environment) (registry : RegistryMachine.State) (engine : Finality.Engine)
+    (premises : Premises env registry engine) (w : World)
+    (run : Trace env (empty env registry) w) (start : StartData) (written : w.start = some start)
+    (caller height hash root : Nat) : setOrigin env w caller height hash root = none :=
+  (Headlines.fund_safety env registry engine premises w run).2.2.2.2.2.2.1
+    start written caller height hash root
+
+example (env : Environment) (registry : RegistryMachine.State) (engine : Finality.Engine)
+    (premises : Premises env registry engine) (w : World)
+    (run : Trace env (empty env registry) w) (switching : env.core.unzenInbox ≠ 0) :
+    Custody.LegacyEtnaDisjoint w :=
+  (Headlines.fund_safety env registry engine premises w run).2.2.2.2.2.2.2 switching
+
+example (env : Environment) (registry : RegistryMachine.State) (engine : Finality.Engine)
+    (premises : Premises env registry engine) (w : World)
+    (history : Governance.DeployedTrace env (empty env registry) w)
+    (authorization : Governance.AuthorizedUpgrades history) (initialized : w.initialized = true) :
+    FundSafetyAt env registry w ∧ AccountableFinalityAt env registry engine w ∧ ForcedInclusionAt env w :=
+  Headlines.deployed_claims premises history authorization initialized
+
 -- Economic accountability, reserve/clock safety, historical stake provenance and
 -- temporal authority are all usable before supplying the agreement honesty condition.
 example (env : Environment) (registry : RegistryMachine.State) (engine : Finality.Engine)
@@ -66,7 +88,7 @@ example (env : Environment) (registry : RegistryMachine.State) (engine : Finalit
     (run : Trace env (empty env registry) w) (initialized : w.initialized = true)
     (honesty : ProtocolFinality.HonestExecutions engine env w) :
     ProtocolFinality.CurrentAgreement env w :=
-  (Headlines.claims.2.1 env registry engine premises w run initialized).2.2.2.2 honesty
+  (Headlines.claims.2.1 env registry engine premises w run initialized).2.2.2.2.1 honesty
 
 example (env : Environment) (registry : RegistryMachine.State) (engine : Finality.Engine)
     (premises : Premises env registry engine) (w : World)
@@ -77,6 +99,12 @@ example (env : Environment) (registry : RegistryMachine.State) (engine : Finalit
     LandingService env w t a :=
   ⟨(Headlines.claims.1 env registry engine premises w run).2.2.1 a t accepted,
     (Headlines.claims.2.2 env registry engine premises w run).2.2.1 a t accepted⟩
+
+example (env : Environment) (registry : RegistryMachine.State) (engine : Finality.Engine)
+    (premises : Premises env registry engine) (w : World)
+    (trace : Trace env (empty env registry) w) (initialized : w.initialized = true) :
+    NormalAccountability env registry w :=
+  (Headlines.accountable_finality env registry engine premises w trace initialized).2.2.2.2.2
 
 -- Every consumed segment exposes complete-payload position zero and a due-qualified
 -- skip, using the admission hash normalized by the selected interpreter refinement.
@@ -127,7 +155,7 @@ example (env : Environment) (registry : RegistryMachine.State) (engine : Finalit
     (premises : Premises env registry engine) (w : World)
     (run : Trace env (empty env registry) w) (request : RecoveryRequest) (t : World)
     (accepted : recover env w request = some t) :
-    t.queue = w.queue.map (fun (i,e) =>
+    t.inbox.head = w.inbox.head ∧ t.queue = w.queue.map (fun (i,e) =>
       (i,if i ∈ request.clear then Forced.clear (emptyHash env) e else e)) ∧
     request.clear.Pairwise (· < ·) ∧ ∀ i ∈ request.clear, w.inbox.head ≤ i ∧ i < w.inbox.tail :=
   (Headlines.claims.2.2 env registry engine premises w run).2.2.2.2.2.2.2.1 request t accepted
@@ -138,7 +166,7 @@ example (env : Environment) (registry : RegistryMachine.State) (engine : Finalit
     (accepted : land env w a = some t) :
     ∃ proof ∈ a.proofs, ∃ archive parent blocks,
       BatchCertificate env w (statement env w a) archive parent blocks ∧
-        ∀ block ∈ blocks, Blocks.selectedRules block ∈ env.imageRules proof.image :=
+        CertificateFootprint env w a.input.l1ReferenceBlockNumber ∧ ∀ block ∈ blocks, Blocks.selectedRules block ∈ env.imageRules proof.image :=
   (Headlines.claims.2.2 env registry engine premises w run).2.2.2.2.2.2.2.2.1 a t accepted
 
 example (env : Environment) (registry : RegistryMachine.State) (engine : Finality.Engine)

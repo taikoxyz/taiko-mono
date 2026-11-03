@@ -22,8 +22,8 @@ HEADLINES = {
 PREMISES = 'Etna.Statements.Current.Premises'
 H1, H2, H3 = HEADLINES
 PREMISE_USES = {
-    'currentPrimitives': [H1],
-    'currentVerifierSound': [H1, H3],
+    'currentPrimitives': [H1,H2],
+    'currentVerifierSound': [H1,H2,H3],
     'currentStandardToken': [H2],
     'currentSignatureAgreement': [H2],
     'currentBountyBound': [H2],
@@ -35,6 +35,7 @@ PREMISE_USES = {
     'currentRegistryGenesis': [H2],
     'currentSignatureSound': [H2],
     'currentSelfAllowance': [H2],
+    'currentUnzenExtension': [H1],
 }
 
 
@@ -103,7 +104,7 @@ class CurrentHeadlineTests(unittest.TestCase):
         result = self.checked('\n'.join(AUDIT.render_headline_check(CLAIMS, HEADLINES, PREMISES)))
         self.assert_success(result, silent=False)
         uses, rest = AUDIT.premise_uses(result.stdout + result.stderr)
-        self.assertEqual(len(uses), 13, 'current headline audit lost a primitive field')
+        self.assertEqual(len(uses), 14, 'current headline audit lost a primitive field')
         self.assertEqual(uses, PREMISE_USES)
         self.assertEqual(rest.strip(), '')
 

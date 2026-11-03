@@ -21,7 +21,7 @@ def layers():
         im, body = read_layer(f'EtnaModel/{name}.lean')
         imports.extend(im)
         models.append(body)
-    for name in ('CurrentSettlement', 'CurrentCustody'):
+    for name in ('CurrentReference', 'CurrentCertificate', 'CurrentSettlement', 'CurrentCustody'):
         im, body = read_layer(f'EtnaProofs/{name}.lean')
         imports.extend(im)
         if name == 'CurrentCustody':
@@ -32,6 +32,7 @@ def layers():
         proofs.append(body)
     imports = [line for line in imports if line not in {
         'import EtnaModel.CurrentProtocol', 'import EtnaModel.CurrentCustody',
+        'import EtnaProofs.CurrentReference', 'import EtnaProofs.CurrentCertificate',
         'import EtnaProofs.CurrentSettlement', 'import EtnaProofs.CurrentJournal'}]
     imports.append('import EtnaProofs.CurrentBlocks')
     header = '\n'.join(dict.fromkeys(imports)) + '\nset_option linter.unusedVariables false\n'
@@ -51,6 +52,11 @@ class CurrentCustodyTests(unittest.TestCase):
     def test_nonempty_overlap_and_corrected_start_paths(self):
         result = subprocess.run(['lake', 'env', 'lean', 'tests/CurrentCustody.lean'], cwd=ROOT,
                                 capture_output=True, text=True, timeout=120)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout + result.stderr, '')
+
+    def test_unchanged_mutation_layers_compile(self):
+        result = self.compile('\n'.join(layers()))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(result.stdout + result.stderr, '')
 
@@ -83,6 +89,10 @@ class CurrentCustodyTests(unittest.TestCase):
     def test_genesis_root_is_new_network_only(self):
         self.reject('(newNetwork : env.core.unzenInbox = 0) : Path env initial env.genesisHeader',
                     '(newNetwork : True) : Path env initial env.genesisHeader')
+
+    def test_switching_root_requires_its_actual_source_trace(self):
+        self.reject('∃ w t a legacy, Trace env initial w ∧ land env w a = some t ∧ FirstFence env w h ∧',
+                    '∃ w t a legacy, land env w a = some t ∧ FirstFence env w h ∧')
 
     def test_each_edge_needs_its_parent_custody(self):
         self.reject('(segment : Suffix env w a) (parent : Path env initial segment.parent)',

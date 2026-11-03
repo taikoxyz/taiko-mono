@@ -588,6 +588,39 @@ theorem funds_backed {env : Environment} {registry : RegistryMachine.State} {w :
         simpa only [Protocol.transact,result,Option.getD_some] using execute_backed standard ih currentRate result
     | node after validated => exact ih
 
+/-- A deployment retaining an existing registry can supply its actual opening reserve
+and token balance. This theorem preserves that backing without requiring `nextId = 0`;
+authentication of the seed's earlier issuance/history is a separate obligation. -/
+theorem funds_backed_from_seed {env : Environment} {first w : World}
+    (standard : ProtocolFinality.StandardToken env)
+    (backed : RegistryPayments.Backed env.token first.registry)
+    (rate : first.registry.registry.config.slashBountyBps ≤ 10000)
+    (run : Trace env first w) : RegistryPayments.Backed env.token w.registry := by
+  induction run with
+  | refl => exact backed
+  | @step before after prior change ih =>
+    have currentRate : before.registry.registry.config.slashBountyBps ≤ 10000 := by
+      have same : before.registry.registry.config = first.registry.registry.config :=
+        (RegistryMachine.trace_stable (ProtocolFinality.registry_trace prior)).registry.config
+      rw [same]
+      exact rate
+    cases change with
+    | call call =>
+      cases result : execute env before call with
+      | none => simpa only [Protocol.transact,result,Option.getD_none] using ih
+      | some after =>
+        simpa only [Protocol.transact,result,Option.getD_some] using execute_backed standard ih currentRate result
+    | node after validated => exact ih
+
+/-- The seed form is suitable for a verified existing-registry upgrade: its original
+permanent ids and history are retained, rather than reissued by an empty constructor. -/
+theorem history_issued_from_seed {env : Environment} {first w : World}
+    (run : Trace env first w)
+    (slots : RegistryMachine.SlotsIssued first.registry.registry.ledger)
+    (history : RegistryMachine.HistoryIssued first.registry.registry) :
+    RegistryMachine.SlotsIssued w.registry.registry.ledger ∧ RegistryMachine.HistoryIssued w.registry.registry :=
+  RegistryMachine.trace_history_issued_from_seed (ProtocolFinality.registry_trace run) slots history
+
 theorem trace_trans {env : Environment} {a b c : World} (ab : Trace env a b) (bc : Trace env b c) : Trace env a c := by
   induction bc with
   | refl => exact ab
@@ -660,6 +693,37 @@ theorem funded_future_liability {env : Environment} {registry : RegistryMachine.
     exact rate
   exact ProtocolFinality.paid_evidence_future_liability standard initialized currentRate auth
     later future id bond caller issued found sameKey live positive free enough
+
+/-- The lifetime id and its unreleased status are derived at every future use. The
+zero branch is necessary: an earlier valid slash or forfeiture may have consumed the
+principal. The initial unconfirmed state remains an explicit premise; a historical
+election alone does not establish it after a verifier-failure withdrawal and rollback. -/
+theorem retained_window_liability {env : Environment} {registry : RegistryMachine.State} {w : World}
+    (genesis : RegistryMachine.Genesis registry) (standard : ProtocolFinality.StandardToken env)
+    (self : env.initialToken.allowances env.token.registryAddress env.token.registryAddress = 0)
+    (rate : registry.config.slashBountyBps ≤ 10000) (run : Trace env (empty env registry) w)
+    (initialized : w.initialized = true) {id : Nat} {bond : Registry.Bond}
+    (issued : id < w.registry.registry.ledger.nextId)
+    (found : w.registry.registry.ledger.bonds id = some bond)
+    (live : bond.value.released = false) (unconfirmed : bond.value.confirmedAt = none)
+    (window : env.evidenceWindow ≤ w.registry.registry.config.withdrawalDelay)
+    {a b : Staking.Vote} {sa sb : Hash}
+    (auth : RegistryMachine.Evidence w.registry.registry (registryView env w) bond.value.key a b sa sb) :
+    RetainedWindowLiability env w id bond.value.key a b sa sb := by
+  intro later future early
+  obtain ⟨current,currentIssued,currentFound,currentLive,_⟩ :=
+    evidence_window_retained future issued found live unconfirmed window early
+  have stable := RegistryMachine.trace_stable (ProtocolFinality.registry_trace future)
+  obtain ⟨retained,retainedFound,key⟩ := stable.registry.ledger.bonds id bond issued found
+  have same : retained = current := Option.some.inj (retainedFound.symm.trans currentFound)
+  subst retained
+  refine ⟨current,currentIssued,currentFound,key,currentLive,?_⟩
+  by_cases empty : current.value.balance = 0
+  · exact Or.inl empty
+  · right
+    intro caller free
+    exact funded_future_liability genesis standard self rate run initialized auth later future
+      id current caller currentIssued currentFound key currentLive (by omega) free
 
 theorem economically_accountable {env : Environment} {registry : RegistryMachine.State} {w : World}
     (genesis : RegistryMachine.Genesis registry) (standard : ProtocolFinality.StandardToken env)

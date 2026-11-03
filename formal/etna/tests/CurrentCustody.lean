@@ -1,4 +1,5 @@
 import EtnaProofs.CurrentCoherentCustody
+import EtnaProofs.CurrentGovernance
 
 namespace Etna.CurrentCustodyRegression
 open Etna.Design Etna.Design.Current Protocol
@@ -39,6 +40,7 @@ def env : Environment where
   stateRoot := Snapshot.number
   blockHash := fun _ n => 1000+n
   headerHash := BlockValidity.Header.elHash
+  headerParent := fun hash => hash-1
   committeeHash := fun _ => 1
   configHash := fun _ => 0
   signature := fun _ => True
@@ -102,8 +104,8 @@ theorem landing_checks : LandingChecks env source landing := by decide +kernel
 theorem landing_accepted : land env source landing = some (landed source landing) := by
   simp [Protocol.land,landing_checks]
 
-theorem landing_certifies : Certifies env source (statement env source landing) := by
-  refine ⟨archive,genesis,[b1,b2],?_,⟨⟨b1_valid,b2_valid,True.intro⟩,rfl⟩,?_,rfl,?_,?_⟩
+theorem landing_certifies : LiveCertifies env source (statement env source landing) := by
+  refine ⟨archive,genesis,[b1,b2],?_,⟨⟨b1_valid,b2_valid,True.intro⟩,rfl⟩,?_,rfl,?_,?_,?_⟩
   · decide +kernel
   · rfl
   · intro b member
@@ -113,6 +115,19 @@ theorem landing_certifies : Certifies env source (statement env source landing) 
       subst b; rfl
   · intro impossible
     exact (impossible rfl).elim
+  · refine ⟨genesis,[],rfl,rfl,rfl,rfl,rfl,?_,?_,?_,by decide,?_⟩
+    · simp [Archive.Linked,env,archive,h1,h2,genesis]
+    · intro h _; rfl
+    · intro b member
+      rcases List.mem_cons.mp member with rfl | later
+      · rfl
+      · have : b = b2 := by simpa using later
+        subst b; rfl
+    · intro h member
+      rcases List.mem_cons.mp member with rfl | later
+      · decide
+      · have : h = h2 := by simpa [archive] using later
+        subst h; decide
 
 example : Nonempty (Suffix env source landing) :=
   accepted_suffix_from_certificate landing_accepted landing_certifies (by decide +kernel)
@@ -158,7 +173,7 @@ theorem first_path : Custody.Path env initial h1 :=
 theorem overlap_checks : LandingChecks env afterFirst landing := by decide +kernel
 theorem overlap_accepted : Protocol.land env afterFirst landing = some (landed afterFirst landing) := by
   simp [Protocol.land,overlap_checks]
-theorem overlap_certifies : Certifies env afterFirst (statement env afterFirst landing) :=
+theorem overlap_certifies : LiveCertifies env afterFirst (statement env afterFirst landing) :=
   landing_certifies
 
 example : Nonempty (Suffix env afterFirst landing) :=
@@ -186,7 +201,7 @@ theorem overlap_path : Custody.Path env initial h2 :=
   .landing after_first_reachable overlap_accepted overlapSuffix first_path
 
 example : Custody.SignalSafe env initial ⟨2,102,102⟩ := ⟨h2,overlap_path,rfl,rfl,rfl,rfl⟩
-example : ∃ root, Custody.AuthenticRoot env root ∧ Custody.Descends env initial root h2 :=
+example : ∃ root, Custody.AuthenticRoot env initial root ∧ Custody.Descends env initial root h2 :=
   Custody.path_rooted overlap_path
 
 -- A forged overlap frontier changes no accepted output state.
@@ -236,8 +251,8 @@ theorem switch_checks : LandingChecks switchEnv switchSource switchLanding := by
 theorem switch_accepted : Protocol.land switchEnv switchSource switchLanding = some (landed switchSource switchLanding) := by
   simp [Protocol.land,switch_checks]
 
-theorem switch_certifies : Certifies switchEnv switchSource (statement switchEnv switchSource switchLanding) := by
-  refine ⟨switchArchive,legacyHeader,[switchBlock],?_,⟨⟨switch_valid,True.intro⟩,rfl⟩,rfl,rfl,?_,?_⟩
+theorem switch_certifies : LiveCertifies switchEnv switchSource (statement switchEnv switchSource switchLanding) := by
+  refine ⟨switchArchive,legacyHeader,[switchBlock],?_,⟨⟨switch_valid,True.intro⟩,rfl⟩,rfl,rfl,?_,?_,?_⟩
   · decide +kernel
   · intro b mem
     have same : b = switchBlock := by simpa using mem
@@ -245,6 +260,15 @@ theorem switch_certifies : Certifies switchEnv switchSource (statement switchEnv
     rfl
   · intro _ _
     rfl
+  · refine ⟨legacyHeader,[],rfl,rfl,rfl,rfl,rfl,?_,?_,?_,by decide,?_⟩
+    · simp [Archive.Linked,switchEnv,env,switchArchive,switchHeader,legacyHeader]
+    · intro h _; rfl
+    · intro b member
+      have : b = switchBlock := by simpa using member
+      subst b; rfl
+    · intro h member
+      have : h = switchHeader := by simpa [switchArchive] using member
+      subst h; decide
 
 example : Nonempty (Suffix switchEnv switchSource switchLanding) :=
   accepted_suffix_from_certificate switch_accepted switch_certifies (by decide +kernel)
@@ -371,24 +395,40 @@ example : (land switchEnv { switchSource with unzen := { switchSource.unzen with
 
 -- Executable semantic mutants demonstrate which lifecycle boundary each rejection
 -- protects. The signal guard is deliberately retained in the correction mutant.
-def setOriginWithoutOnce (w : World) (height hash root : Nat) : Option World :=
-  if w.initialized = true ∧ w.inbox.generation = 0 ∧
+def setOriginWithoutOnce (w : World) (caller height hash root : Nat) : Option World :=
+  if w.initialized = true ∧ w.inbox.generation = 0 ∧ caller = switchEnv.core.originWriter ∧
       switchEnv.core.unzenInbox ≠ 0 ∧ switchEnv.core.forkTime ≤ switchEnv.time w.number ∧
       0 < height ∧ height < limit48 ∧ hash ≠ 0 ∧ root ≠ 0 then
     some (writeStart w height hash root w.number (switchEnv.time w.number) 0)
   else none
 
-def correctWithoutEverLanded (w : World) (height hash root : Nat) : Option World :=
+def correctWithoutEverLanded (w : World) (caller height hash root : Nat) : Option World :=
   w.start.bind fun old =>
-    if switchEnv.core.unzenInbox ≠ 0 ∧ w.inbox.checkpoint.height = old.height ∧ w.inbox.signals = [] ∧
+    if caller = switchEnv.core.owner ∧ switchEnv.core.unzenInbox ≠ 0 ∧ w.inbox.checkpoint.height = old.height ∧ w.inbox.signals = [] ∧
         0 < height ∧ height < limit48 ∧ hash ≠ 0 ∧ root ≠ 0 ∧ w.inbox.generation+1 < limit48 then
       some (writeStart w height hash root w.number (switchEnv.time w.number) (w.inbox.generation+1))
     else none
 
 example : (setOrigin switchEnv wrongStart 8 2 502 502).isNone = true ∧
-    (setOriginWithoutOnce wrongStart 2 502 502).isSome = true := by decide +kernel
+    (setOriginWithoutOnce wrongStart 8 2 502 502).isSome = true := by decide +kernel
 
 example : (correctStart switchEnv switchRestored 7 2 502 502).isNone = true ∧
-    (correctWithoutEverLanded switchRestored 2 502 502).isSome = true := by decide +kernel
+    (correctWithoutEverLanded switchRestored 7 2 502 502).isSome = true := by decide +kernel
+
+-- Ghost guards describe DAO upgrade admissibility, not storage checks. Erasing them
+-- accepts these raw owner actions, and external historical authorization rejects them.
+example : (Governance.rawCorrectStart switchEnv switchRestored 7 2 502 502).isSome = true ∧
+    ¬ Governance.UpgradeAuthorized switchRestored (.correctStart 7 2 502 502) := by
+  constructor
+  · decide +kernel
+  · change ¬ switchRestored.everLanded = false
+    decide +kernel
+
+example : (Governance.rawRollback env afterFirst 7 source.inbox.checkpoint 999).isSome = true ∧
+    ¬ Governance.UpgradeAuthorized afterFirst (.rollback 7 source.inbox.checkpoint 999) := by
+  constructor
+  · decide +kernel
+  · change ¬ (source.inbox.checkpoint,999) ∈ afterFirst.activeSnapshots
+    decide +kernel
 
 end Etna.CurrentCustodyRegression

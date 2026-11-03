@@ -1,3 +1,11 @@
+import EtnaProofs.CurrentCandidate
+import EtnaProofs.CurrentAdmission
+import EtnaProofs.CurrentArchive
+import EtnaProofs.CurrentCertificate
+import EtnaProofs.CurrentUnzen
+import EtnaProofs.CurrentGovernance
+import EtnaProofs.CurrentStakeRisk
+import EtnaProofs.CurrentCheckpointRisk
 import EtnaProofs.CurrentEncoding
 import EtnaProofs.CurrentReference
 import EtnaProofs.CurrentMetadata

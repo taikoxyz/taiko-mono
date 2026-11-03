@@ -1,5 +1,16 @@
 import EtnaProofs.CurrentRegistry
 
+-- The raw STAKE-4.1-26 fence, with no caller-supplied live/unconfirmed premise:
+-- a selected bond cannot begin its evidence clock before the landed snapshot
+-- reaches its effective exit.
+example (s : Etna.Design.Current.RegistryMachine.State)
+    (v : Etna.Design.Current.RegistryMachine.InboxView) (now cutoff id : Nat)
+    (bond : Etna.Design.Current.Registry.Bond)
+    (found : s.ledger.bonds id = some bond)
+    (selected : cutoff < bond.value.exitAt) (settlement : v.snapshot ≤ cutoff) :
+    Etna.Design.Current.RegistryMachine.execute s v now (.confirm id) = none :=
+  Etna.Design.Current.RegistryMachine.confirm_blocked_above_snapshot found selected settlement
+
 open Etna.Design Etna.Design.Current
 namespace CurrentRegistryTests
 open RegistryMachine

@@ -37,6 +37,21 @@ def FundedFutureLiability (env : Environment) (first : World) (key : Hash)
     ∃ next, registryCall env later caller (.slash id a b sa sb) = some next ∧
       next.receipts = later.receipts ++ ProtocolFinality.slashReceipts env later caller current
 
+/-- Once an actual bond is unconfirmed, its entire deployment evidence window retains
+the lifetime identity and unreleased principal. At use, neither release status nor a
+positive balance is an input: exhausted principal is reported explicitly, and every
+positive remainder has an executable funded slash. This does not assert that a
+historical committee is still unconfirmed at the current checkpoint. -/
+def RetainedWindowLiability (env : Environment) (first : World) (id : Nat) (key : Hash)
+    (a b : Staking.Vote) (sa sb : Hash) : Prop :=
+  ∀ later, Trace env first later → later.number < first.number+env.evidenceWindow →
+    ∃ current, id < later.registry.registry.ledger.nextId ∧
+      later.registry.registry.ledger.bonds id = some current ∧
+      current.value.key = key ∧ current.value.released = false ∧
+      (current.value.balance = 0 ∨ ∀ caller, later.inbox.entered = false →
+        ∃ next, registryCall env later caller (.slash id a b sa sb) = some next ∧
+          next.receipts = later.receipts ++ ProtocolFinality.slashReceipts env later caller current)
+
 /-- Accountable identities have real lifetime bonds, authentic conflicting evidence and
 unconditionally funded future slash transactions whenever principal remains unreleased. -/
 def EconomicallyAccountable (env : Environment) (w : World) (c : Consensus.Context) (h : Nat)

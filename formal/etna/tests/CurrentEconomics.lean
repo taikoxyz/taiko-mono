@@ -1,4 +1,4 @@
-import EtnaProofs.CurrentEconomics
+import EtnaProofs.CurrentCheckpointRisk
 
 open Etna.Design Etna.Design.Current
 
@@ -81,6 +81,17 @@ theorem genesis : RegistryMachine.Genesis registry := by
 theorem run : Protocol.Trace env initial started :=
   .step (.step (.step (.refl initial) (.call initial (.registry 71 (.register 7 71 Committee.minUnit 7))))
     (.call registered (.advance 2))) (.call advanced (.initializeInbox 1))
+theorem protocolNormalRun : CheckpointRisk.NormalRun env initial started :=
+  .call (.call (.call (.refl initial) (.registry 71 (.register 7 71 Committee.minUnit 7)) True.intro (by decide +kernel))
+    (.advance 2) True.intro (by decide +kernel)) (.initializeInbox 1) True.intro (by decide +kernel)
+theorem protocolRollbackFreeRun : CheckpointRisk.RollbackFreeRun env initial started :=
+  .call (.call (.call (.refl initial) (.registry 71 (.register 7 71 Committee.minUnit 7)) True.intro)
+    (.advance 2) True.intro) (.initializeInbox 1) True.intro
+theorem normalRun : StakeRisk.NormalTrace (Protocol.registryWorld env initial) (Protocol.registryWorld env started) :=
+  protocolNormalRun.registry
+example : CheckpointRisk.CurrentSource env initial started := protocolNormalRun.source (by decide +kernel)
+example : env.evidenceWindow ≤ started.registry.registry.config.withdrawalDelay :=
+  CheckpointRisk.initialized_evidence_window run (by decide +kernel)
 example : started.initialized = true := by decide +kernel
 example : started.registry.token.balances 40 = Committee.minUnit := by decide +kernel
 example : Economics.reserve started.registry.registry.ledger = Committee.minUnit := by decide +kernel
@@ -109,6 +120,10 @@ example : Economics.Safety env started :=
 example : Economics.EconomicallyAccountable env started (policy env started [] 1).consensus 1 [vote 11] [vote 12] :=
   Economics.economically_accountable (env := env) genesis rfl (by decide) (by decide) run refinement (by decide)
     (common := []) (moreA := []) (moreB := []) (by decide) voteA voteB (by decide)
+example : StakeRisk.AccountableAtRisk env started (policy env started [] 1).consensus 1 [vote 11] [vote 12] :=
+  StakeRisk.economically_at_risk (env := env) genesis rfl (by decide) (by decide) run normalRun refinement
+    (by decide) (by decide) (common := []) (moreA := []) (moreB := [])
+    (by decide) (by decide) voteA voteB (by decide)
 
 def evA : Staking.Vote := Accountability.evidence (vote 11)
 def evB : Staking.Vote := Accountability.evidence (vote 12)
@@ -129,6 +144,21 @@ example : ∃ bond, 0 < started.registry.registry.ledger.nextId ∧
     (next := slashed) rfl
 
 def depositedBond : Registry.Bond := ⟨⟨7,71,Committee.minUnit,1,Staking.noExit,false,none,0,0⟩,some 0⟩
+theorem retainedWindow : Economics.RetainedWindowLiability env started 0 7 evA evB 7 7 := by
+  exact Economics.retained_window_liability (env := env) genesis rfl (by decide) (by decide) run (by decide)
+    (bond := depositedBond) (by decide) (by decide +kernel) rfl rfl (by decide) (by decide +kernel)
+
+-- No released/positive hypotheses are supplied for a future use. A valid prior slash
+-- exhausts the principal, and the retained id is still unreleased during the window.
+example : ∃ current, 0 < slashed.registry.registry.ledger.nextId ∧
+    slashed.registry.registry.ledger.bonds 0 = some current ∧
+    current.value.key = 7 ∧ current.value.released = false ∧
+    (current.value.balance = 0 ∨ ∀ caller, slashed.inbox.entered = false →
+      ∃ next, Protocol.registryCall env slashed caller (.slash 0 evA evB 7 7) = some next ∧
+        next.receipts = slashed.receipts ++ ProtocolFinality.slashReceipts env slashed caller current) :=
+  retainedWindow slashed (.step (.refl started) (.call started (.registry 77 (.slash 0 evA evB 7 7))))
+    (by decide +kernel)
+
 example : RegistryMachine.EvidenceClock slashed.registry.registry 0 started.number :=
   Economics.evidence_window_retained (.step (.refl started) (.call started (.registry 77 (.slash 0 evA evB 7 7))))
     (bond := depositedBond) (window := 1) (by decide) (by decide +kernel) rfl rfl (by decide) (by decide)
@@ -158,6 +188,14 @@ def activated := Protocol.transact env mature (.registry 77 (.activateTopUp 0))
 theorem laterRun : Protocol.Trace env started activated :=
   .step (.step (.step (.refl started) (.call started (.registry 71 (.topUp 0 71 100))))
     (.call topped (.advance 3))) (.call mature (.registry 77 (.activateTopUp 0)))
+example : RegistryPayments.Backed env.token activated.registry :=
+  Economics.funds_backed_from_seed rfl
+    (Economics.funds_backed genesis rfl (by decide) (by decide) run)
+    (by decide +kernel) laterRun
+example : RegistryMachine.SlotsIssued activated.registry.registry.ledger ∧
+    RegistryMachine.HistoryIssued activated.registry.registry :=
+  Economics.history_issued_from_seed laterRun
+    (Economics.history_issued genesis run).1 (Economics.history_issued genesis run).2
 example : (activated.registry.registry.ledger.bonds 0).map (fun b => b.value.stake) = some (Committee.minUnit+100) := by decide +kernel
 example : Consensus.activeAt (Finality.derive (config started) started.registry.registry []) 1 =
     Consensus.activeAt (Finality.derive (config activated) activated.registry.registry []) 1 :=
@@ -188,4 +226,63 @@ example : (initializeWith {env with token := RegistryPayments.standardEnvironmen
 
 -- A registry self-deposit cannot use absent self-approval to inflate the reserve.
 example : (Protocol.registryCall env started 40 (.register 9 40 Committee.minUnit 9)).isNone = true := by decide +kernel
+
+-- RECOV-8-35 is a real limitation, even starting with raw empty Genesis and paid
+-- registrations: funds withdrawn using an unsound landing are not restored by the
+-- later checkpoint/snapshot rollback. The permissive verifier here deliberately
+-- does not satisfy proof soundness. A historical above-checkpoint committee alone
+-- therefore cannot imply that its original principal is still held.
+def riskExited := Protocol.transact env started (.registry 71 (.requestExit 0 71))
+def riskAdvanced := Protocol.transact env riskExited (.advance 4)
+def riskImage := Protocol.transact env riskAdvanced (.image 1 11 true)
+def unsoundLanding : Landing :=
+  ⟨⟨0,1,101,201,101,3,0,3⟩,[],[1],[⟨.sgx,11,1⟩,⟨.sp1,11,2⟩]⟩
+def riskLanded := Protocol.transact env riskImage (.land unsoundLanding)
+def riskConfirmed := Protocol.transact env riskLanded (.registry 77 (.confirm 0))
+def riskMature := Protocol.transact env riskConfirmed (.advance 7)
+def riskWithdrawn := Protocol.transact env riskMature (.registry 71 (.withdraw 0 71 71))
+def riskRolled := Protocol.transact env riskWithdrawn (.rollback 1 started.inbox.checkpoint 1)
+
+example : LandingChecks env riskImage unsoundLanding := by decide +kernel
+example : (riskConfirmed.registry.registry.ledger.bonds 0).map (fun b => b.value.confirmedAt) = some (some 4) := by decide +kernel
+example : riskWithdrawn.registry.token.balances 71 = 2*Committee.minUnit := by decide +kernel
+example : riskRolled.inbox.checkpoint.height = 0 ∧ riskRolled.inbox.snapshot = 1 := by decide +kernel
+example : (riskRolled.registry.registry.ledger.bonds 0).map (fun b => b.value.released) = some true := by decide +kernel
+example : 1 > riskRolled.inbox.checkpoint.height ∧
+    Consensus.CommitValid (policy env riskRolled [] 6).consensus env.signature 1 0 11 [vote 11] := by
+  decide +kernel
+example : (Protocol.registryCall env riskRolled 77 (.slash 0 evA evB 7 7)).isNone = true := by decide +kernel
+
+theorem riskRun : Protocol.Trace env initial riskRolled :=
+  .step (.step (.step (.step (.step (.step (.step (.step run
+    (.call started (.registry 71 (.requestExit 0 71))))
+    (.call riskExited (.advance 4))) (.call riskAdvanced (.image 1 11 true)))
+    (.call riskImage (.land unsoundLanding))) (.call riskLanded (.registry 77 (.confirm 0))))
+    (.call riskConfirmed (.advance 7))) (.call riskMature (.registry 71 (.withdraw 0 71 71))))
+    (.call riskWithdrawn (.rollback 1 started.inbox.checkpoint 1))
+
+-- The exceptional run cannot be silently admitted by the normal-execution profile.
+example : ¬ StakeRisk.NormalTrace (Protocol.registryWorld env initial) (Protocol.registryWorld env riskRolled) := by
+  intro normal
+  let entry : Committee.Entry := ⟨7,Committee.minUnit,1,Staking.noExit⟩
+  have member : entry ∈ (Consensus.activeAt (policy env riskRolled [] 6).consensus 1).members := by decide +kernel
+  obtain ⟨id,bond,issued,found,_,live,_,_⟩ := StakeRisk.committee_unconfirmed normal genesis
+    (cfg := Protocol.config riskRolled) (archive := []) (h := 1) (by decide +kernel) (by decide +kernel) member
+  have bound : riskRolled.registry.registry.ledger.nextId = 1 := by decide +kernel
+  have identity : id = 0 := by change id < riskRolled.registry.registry.ledger.nextId at issued; omega
+  subst id
+  have paid : (riskRolled.registry.registry.ledger.bonds 0).map (fun b => b.value.released) = some true := by decide +kernel
+  change riskRolled.registry.registry.ledger.bonds 0 = some bond at found
+  rw [found] at paid
+  simp only [Option.map_some,Option.some.injEq,live] at paid
+  cases paid
+
+-- Existing-registry deployment is supported by START-10-16a but excluded by the
+-- fresh-deployment Genesis premise. This is a deployment scope distinction, not a
+-- claim that a retargeted registry starts with no permanent bonds.
+example : ¬ RegistryMachine.Genesis started.registry.registry := by
+  intro fresh
+  have impossible : started.registry.registry.ledger.nextId = 0 := fresh.1
+  have issued : started.registry.registry.ledger.nextId = 1 := by decide +kernel
+  omega
 end Etna.EconomicsRegression

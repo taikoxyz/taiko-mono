@@ -53,6 +53,12 @@ CURRENT_HEADLINES = {
 }
 CURRENT_PREMISES = 'Etna.Statements.Current.Premises'
 CURRENT_ACCEPTING_WITNESS = 'Etna.Design.Current.Protocol.NonVacuity.premises_satisfiable'
+CURRENT_PROFILE_WITNESSES = (
+    'Etna.Design.Current.Protocol.CurrentSwitch.accepting_switch',
+    'Etna.Design.Current.Protocol.RiskNonVacuity.risk_profile_satisfiable',
+    'Etna.Design.Current.Protocol.HonestAgreement.nonempty_honest_agreement',
+    'Etna.Design.Current.Protocol.RiskNonVacuity.import_profile_satisfiable',
+)
 PREMISE_USE = re.compile(r'^premise use: (\S+) <- (.+)$', re.MULTILINE)
 NAME = re.compile(r'^[A-Za-z_][A-Za-z_0-9]*(\.[A-Za-z_][A-Za-z_0-9]*)*$')
 ANY_NAME = re.compile(r"^[A-Za-z_][A-Za-z_0-9'!?]*(\.[A-Za-z_][A-Za-z_0-9'!?]*)*$")
@@ -129,7 +135,7 @@ def validate_contract(manifest, root=ROOT):
     validate_entries(manifest['theorems'])
     names = {e['declaration'] for e in manifest['theorems']}
     for name in (CLAIMS[0], *HEADLINES, CURRENT_CLAIMS[0], *CURRENT_HEADLINES,
-                 CURRENT_ACCEPTING_WITNESS, *COVERAGE.UNSOURCED):
+                 CURRENT_ACCEPTING_WITNESS, *CURRENT_PROFILE_WITNESSES, *COVERAGE.UNSOURCED):
         if name not in names:
             raise ValueError('missing manifest entry: '+name)
 
@@ -363,6 +369,7 @@ def main():
                                     'generated Audit and '+', '.join(tests),
                       headline=dict(claims=' : '.join(CURRENT_CLAIMS), theorems=CURRENT_HEADLINES,
                                     accepting_witness=CURRENT_ACCEPTING_WITNESS,
+                                    profile_witnesses=CURRENT_PROFILE_WITNESSES,
                                     historical_claims=' : '.join(CLAIMS), historical_theorems=HEADLINES,
                                     premise_use=uses),
                       vectors='testdata/etna_conformance equals a fresh lake exe etna-vectors run',

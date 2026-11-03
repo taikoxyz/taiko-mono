@@ -5,6 +5,7 @@ import EtnaVectors.Recover
 import EtnaVectors.ForcedStep
 import EtnaVectors.Schedule
 import EtnaVectors.Random
+import EtnaVectors.CurrentRegistry
 
 /-! `lake exe etna-vectors --write <dir> [--provenance <formal commit>] [--families <f>,…]` writes
 one JSON file per family: four Inbox families for the contracts and four client-rule families for
@@ -26,7 +27,7 @@ def families (provenance : Option String) : List (String × Except String String
 
 def usage : String :=
   "usage: etna-vectors --write <dir> [--provenance <formal commit>] [--families <family>,...] " ++
-  "| --write <dir> --random <seed> [--count <n>]"
+  "| --write <dir> --random <seed> [--count <n>] | --current-registry --write <dir>"
 
 structure Options where
   dir : Option String := none
@@ -37,6 +38,8 @@ structure Options where
   random : Option Nat := none
   /-- Random vectors per file; only with `random` (default 100). -/
   count : Option Nat := none
+  /-- Separate current displacement family; never changes the historical default files. -/
+  currentRegistry : Bool := false
 
 def parseOptions : Options → List String → Option Options
   | o, [] => some o
@@ -49,6 +52,7 @@ def parseOptions : Options → List String → Option Options
   | o, "--count" :: s :: rest => match s.toNat? with
     | some n => parseOptions { o with count := some n } rest
     | none => none
+  | o, "--current-registry" :: rest => parseOptions {o with currentRegistry := true} rest
   | _, _ => none
 
 /-- `forced_step.json` names the family `forced_step`. -/
@@ -61,6 +65,14 @@ def run (args : List String) : IO UInt32 := do
   let some dir := o.dir
     | IO.eprintln usage
       return 2
+  if o.currentRegistry then
+    if o.random.isSome || o.only.isSome || o.count.isSome || o.provenance.isSome then
+      IO.eprintln "etna-vectors: --current-registry requires only --write"
+      return 2
+    IO.FS.createDirAll dir
+    IO.FS.writeFile (System.FilePath.mk dir / "registry_admission.json") CurrentRegistry.file
+    IO.println ("etna-vectors: wrote current registry admission vectors to " ++ dir)
+    return 0
   if o.random.isSome && o.only.isSome then
     IO.eprintln "etna-vectors: --families does not apply to --random"
     return 2

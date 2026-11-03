@@ -1,5 +1,7 @@
 # Current review corrections
 
+> **Previous correction pass at `88043c92e`.** Its counts and remaining gaps describe that revision. See [round four](review-round-four.md), the current README and latest alignment for the superseding contracts and validation.
+
 Reviewed baseline: PR #22292 at `259e142364cbdcb60de116c6930a05e131ab9606`.
 Authority: `1135c9b24fd03f50cb48eab250879435fd54f528`. The entire Etna directory,
 including its rules subtree, has identical Git object IDs at the subsequently checked

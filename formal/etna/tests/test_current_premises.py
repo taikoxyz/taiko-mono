@@ -19,6 +19,17 @@ class CurrentPremisesTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, audit.CURRENT_ACCEPTING_WITNESS):
             audit.validate_contract(manifest)
 
+    def test_switch_and_equivocation_profiles_are_mandatory(self):
+        spec = importlib.util.spec_from_file_location('profiles_audit', ROOT/'scripts/audit_proofs.py')
+        audit = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(audit)
+        for name in audit.CURRENT_PROFILE_WITNESSES:
+            with self.subTest(name=name):
+                manifest = json.loads((ROOT/'manifests/design.json').read_text())
+                manifest['theorems'] = [e for e in manifest['theorems'] if e['declaration'] != name]
+                with self.assertRaisesRegex(ValueError, name):
+                    audit.validate_contract(manifest)
+
     def test_global_acceptance_and_before_after_reference_semantics(self):
         result = subprocess.run(
             ['lake', 'env', 'lean', 'tests/CurrentPremises.lean'],

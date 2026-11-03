@@ -1,3 +1,8 @@
+import EtnaModel.CurrentArchive
+import EtnaModel.CurrentUnzen
+import EtnaModel.CurrentGovernance
+import EtnaModel.CurrentStakeRisk
+import EtnaModel.CurrentCheckpointRisk
 import EtnaModel.CurrentEncoding
 import EtnaModel.CurrentMetadata
 import EtnaModel.CurrentCoherentCustody

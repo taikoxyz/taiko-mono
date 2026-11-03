@@ -1280,15 +1280,15 @@ theorem accepted_image_certificate {env : Environment} {initial w t : World} {a 
 
 theorem accepted_certificate {env : Environment} {initial w t : World} {a : Landing}
     (soundness : VerifierSound env initial) (reach : Protocol.Trace env initial w)
-    (ok : Protocol.land env w a = some t) : Certifies env w (statement env w a) := by
+    (ok : Protocol.land env w a = some t) : LiveCertifies env w (statement env w a) := by
   obtain ⟨proof,_,cert⟩ := accepted_image_certificate soundness reach ok
-  exact image_certificate_forget cert
+  exact image_certificate_live cert
 
 /-- The certified execution-time suffix consumes precisely [oldHead,newHead), in FIFO
 order, and each consuming edge acts on the actual queue entry and decoded payload bytes. -/
 theorem landing_service_from_certificate {env : Environment} {registry : RegistryMachine.State}
     {w t : World} {a : Landing} (trace : Protocol.Trace env (empty env registry) w)
-    (ok : Protocol.land env w a = some t) (cert : Certifies env w (statement env w a)) :
+    (ok : Protocol.land env w a = some t) (cert : LiveCertifies env w (statement env w a)) :
     ∃ segment : Suffix env w a,
       (Blocks.consumingPairs segment.parent segment.blocks).map (fun x => x.1.cursor) =
         List.range' w.inbox.head (t.inbox.head-w.inbox.head) ∧

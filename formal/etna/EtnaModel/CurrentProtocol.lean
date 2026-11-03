@@ -1,6 +1,7 @@
 import EtnaModel.CurrentBlocks
 import EtnaModel.CurrentFinality
 import EtnaModel.CurrentRegistryPayments
+import EtnaModel.CurrentArchive
 
 /-! The current transaction machine. Historical state records are data types only: every
 current public transition is defined here, with S-relative grids, anchored rule schedules,
@@ -78,6 +79,7 @@ structure Environment where
   signature : Consensus.Vote → Prop
   txHash : Blocks.Bytes → Hash
   unzenNextProposal : Nat
+  /-- Deprecated compatibility field; concrete Archive.Authenticated is authoritative. -/
   archiveAuthenticated : Consensus.Context → List Blocks.Header → Nat → Bool
   timestampOf : Hash → Nat
   catalogue : Blocks.RulesetCatalogue
@@ -96,6 +98,10 @@ structure Environment where
   /-- Existing TAIKO balances and approvals at deployment, not newly minted principal. -/
   initialToken : RegistryPayments.TokenState := ⟨fun _ => 0,fun _ _ => 0⟩
   evidenceWindow : Nat := 50400
+  /-- Fixed decoded physical parentHash projection, indexed by the EL header hash. -/
+  headerParent : Hash → Hash := fun _ => 0
+  /-- Decode the Unzen proof boundary parent at the finalized proposal offset. -/
+  unzenParent : Nat → Nat → Blocks.Header → Hash → Hash := fun _ _ _ _ => 0
 
 structure World where
   inbox : Etna.Design.State
@@ -208,6 +214,8 @@ def setOrigin (env : Environment) (w : World) (caller height hash root : Nat) : 
     some (writeStart w height hash root w.number (env.time w.number) 0)
   else none
 
+/-- Normative DAO implementation-upgrade action, not a deployed public entry point.
+The everLanded guard constrains admissible history; it is not a bytecode storage check. -/
 def correctStart (env : Environment) (w : World) (caller height hash root : Nat) : Option World :=
   w.start.bind fun old =>
     if caller = env.core.owner ∧ env.core.unzenInbox ≠ 0 ∧ w.everLanded = false ∧
@@ -291,6 +299,8 @@ def invalidate (env : Environment) (w : World) (caller nonce : Nat) : Option Wor
     some { w with inbox := { w.inbox with recoveryNonce := nonce+1 } }
   else none
 
+/-- Normative DAO implementation-upgrade action, not a deployed public entry point.
+activeSnapshots authenticates admissible historical provenance, not readable bytecode storage. -/
 def rollback (env : Environment) (w : World) (caller : Nat) (trusted : Checkpoint) (snapshot : Nat) : Option World :=
   if caller = env.core.owner ∧ w.initialized = true ∧ w.inbox.entered = false ∧
       trusted ∈ w.activeRecords ∧ trusted.height ≤ w.inbox.checkpoint.height ∧
@@ -305,6 +315,43 @@ def config (w : World) : Finality.Config :=
   ⟨w.inbox.domain,w.inbox.generation,w.inbox.origin.height,w.inbox.origin.l1Block,
     w.inbox.genesisCutoff,w.inbox.epochLen,w.inbox.configuration.unit,
     w.inbox.configuration.minimum,w.inbox.configuration.nMax⟩
+
+/-- A guest's storage context is the last completed snapshot of its committed reference
+prefix. The empty fallback is fixed by deployment data, never by later mutable state. -/
+def certificateWorld (env : Environment) (w : World) (reference : Nat) : World :=
+  let registry : RegistryMachine.State :=
+    { ledger := { nextId := 0,bonds := fun _ => none,slots := fun _ => none,keyId := fun _ => none } }
+  let base := empty env registry
+  let chainPrefix := referencePrefix w reference
+  let last := chainPrefix.getLast?.getD (snapshot env base reference)
+  { base with
+    inbox := last.inbox
+    start := last.start
+    schedule := last.schedule
+    registry := { base.registry with registry := { registry with history := last.registryHistory } }
+    queue := last.queue
+    number := reference+1
+    history := chainPrefix }
+
+def certificateOrigin (w : World) : Option Checkpoint := recordAt w.inbox (config w).originHeight
+
+def certificateOriginCut (w : World) : Cut :=
+  let cp := (certificateOrigin w).getD default
+  ⟨cp.elHash,cp.cometHash,cp.cursor⟩
+
+/-- The raw live storage needed to apply a reference-local certificate. Registry changes
+above the reference and all checkpoint/FI progress may differ. -/
+structure CertificateStorage (source w : World) (reference : Nat) : Prop where
+  configuration : config source = config w
+  parameters : parametersOf source.inbox = parametersOf w.inbox
+  committee : source.inbox.committeeConfig = w.inbox.committeeConfig
+  start : source.start = w.start
+  registry : source.registry.registry.history.filter (fun cp => decide (cp.block ≤ reference)) =
+    w.registry.registry.history.filter (fun cp => decide (cp.block ≤ reference))
+  ordered : RegistryHistory.Ordered w.registry.registry.history
+
+abbrev CertificateFootprint (env : Environment) (w : World) (reference : Nat) : Prop :=
+  CertificateStorage (certificateWorld env w reference) w reference
 
 def matchingSnapshot (env : Environment) (w : World) (a : BlockValidity.Anchor) : Option Snapshot :=
   w.history.find? (fun s => anchor env s == a)
@@ -334,7 +381,8 @@ def policy (env : Environment) (w : World) (archive : List Header) (reference : 
     ((matchingSnapshot env w a).map fun s => decide (s.schedule = schedule)).getD false
   batchPayloadValid := env.payload
   configHash := env.configHash
-  historyAuthenticated := fun context reference => env.archiveAuthenticated context archive reference
+  /- Concrete archive ancestry is checked by BatchCertificate, replacing the old oracle. -/
+  historyAuthenticated := fun _ _ => true
   catalogue := env.catalogue
 
 structure Proof where
@@ -436,7 +484,8 @@ def land (env : Environment) (w : World) (a : Landing) : Option World :=
 written, its SignalService gate rejects a checkpoint above S. -/
 def unzenProve (env : Environment) (w : World) (proposal : Nat) (h : Header) (proof : Hash) : Option World :=
   if env.core.unzenInbox ≠ 0 ∧ env.unzenValid proposal h proof = true ∧
-      w.unzen.finalizedProposal ≤ proposal ∧ proposal < w.unzen.nextProposal ∧
+      w.unzen.finalizedProposal < proposal ∧ proposal < w.unzen.nextProposal ∧
+      env.unzenParent w.unzen.finalizedProposal proposal h proof = w.unzen.finalizedHash ∧
       (w.start = none ∨ h.height ≤ (w.start.map StartData.height).getD 0) then
     some { w with unzen := ⟨w.unzen.nextProposal,proposal,h.elHash,true,h.elHash,h.stateRoot⟩,       unzenHeader := some h,legacySignals := w.legacySignals ++ [⟨h.height,h.elHash,h.stateRoot⟩] }
   else none
@@ -474,7 +523,9 @@ def nodeTrust (env : Environment) (w : World) (archive : List Header) (blocks : 
         env.unzenRoot p ∧ env.startImplementation p.stateRoot = true ∧ p.timestamp < env.core.forkTime) ∧
       Blocks.Chain (policy env w archive w.number) p blocks ∧
       (Blocks.terminal p blocks).height = cp.height ∧ (Blocks.terminal p blocks).cut =
-        ⟨cp.elHash,cp.cometHash,cp.cursor⟩
+        ⟨cp.elHash,cp.cometHash,cp.cursor⟩ ∧
+      Archive.Authenticated env.headerHash env.headerParent (config w)
+        ⟨origin.elHash,origin.cometHash,origin.cursor⟩ w.number archive p blocks
 
 /-- This is an explicit app validation event, not a caller-supplied trusted Boolean. -/
 inductive NodeEvent (env : Environment) (w : World) : Node → Prop
@@ -558,21 +609,39 @@ inductive Trace (env : Environment) : World → World → Prop
 /-- Proof soundness is about individual accepted guest statements, not custody or queues. -/
 def HashBound (env : Environment) (h : Header) : Prop := env.headerHash h = h.elHash
 
-def BatchCertificate (env : Environment) (w : World) (d : StatementData)
+def LiveBatchCertificate (env : Environment) (w : World) (d : StatementData)
     (archive : List Header) (p : Header) (bs : List Block) : Prop :=
   Finality.Ready (config w) w.registry.registry archive (Blocks.terminal p bs).height ∧
     Blocks.BatchValid (policy env w archive d.input.l1ReferenceBlockNumber) p bs d.blobHashes ∧
     d = Blocks.statement (policy env w archive d.input.l1ReferenceBlockNumber) p bs d.blobHashes ∧
     HashBound env p ∧ (∀ b ∈ bs, HashBound env b.header) ∧
     (env.core.unzenInbox ≠ 0 → p.height = (w.start.map StartData.height).getD 0 →
-      env.startImplementation p.stateRoot = true)
+      env.startImplementation p.stateRoot = true) ∧
+    Archive.Authenticated env.headerHash env.headerParent (config w)
+      (certificateOriginCut (certificateWorld env w d.input.l1ReferenceBlockNumber))
+      d.input.l1ReferenceBlockNumber archive p bs
+
+/-- Guest semantics use only the complete committed prefix, including its actual origin
+record. They are independent of later landings, registry calls and verifier governance. -/
+def BatchCertificate (env : Environment) (w : World) (d : StatementData)
+    (archive : List Header) (p : Header) (bs : List Block) : Prop :=
+  let closed := certificateWorld env w d.input.l1ReferenceBlockNumber
+  LiveBatchCertificate env closed d archive p bs ∧
+    (referencePrefix w d.input.l1ReferenceBlockNumber).map Snapshot.number =
+      List.range (d.input.l1ReferenceBlockNumber+1) ∧
+    (certificateOrigin closed).isSome = true
 
 def Certifies (env : Environment) (w : World) (d : StatementData) : Prop :=
   ∃ archive p bs, BatchCertificate env w d archive p bs
 
+/-- Operational view derived from the immutable certificate and raw live storage. -/
+def LiveCertifies (env : Environment) (w : World) (d : StatementData) : Prop :=
+  ∃ archive p bs, LiveBatchCertificate env w d archive p bs
+
 /-- A sound guest certifies the batch only under rules that its declared image implements. -/
 def ImageCertifies (env : Environment) (w : World) (image : Hash) (d : StatementData) : Prop :=
   ∃ archive p bs, BatchCertificate env w d archive p bs ∧
+    CertificateFootprint env w d.input.l1ReferenceBlockNumber ∧
     ∀ b ∈ bs, Blocks.selectedRules b ∈ env.imageRules image
 
 /-- Semantic certificate suffix extracted at the execution-time frontier. No public call

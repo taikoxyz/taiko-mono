@@ -11,6 +11,7 @@ open Etna.Design Etna.Design.Current Protocol
 set_option maxRecDepth 30000
 set_option maxHeartbeats 8000000
 set_option linter.unusedSimpArgs false
+set_option backward.isDefEq.respectTransparency false
 
 abbrev Commitments := Etna.Design.Current.Encoding.Tree
 
@@ -122,6 +123,7 @@ def l1Commitment (history : List Snapshot) (number : Nat) : Hash :=
 def env : Environment := { baseEnv with
   stateRoot := stateCommitment
   headerHash := headerCommitment
+  headerParent := fun hash => hash-1
   blockHash := l1Commitment
   catalogue := fun _ => some definition
   verify := fun _ _ image _ d => decide (image = 11 ∧ (d = template ∨ d = recoveredTemplate)) }
@@ -279,6 +281,22 @@ private theorem label_tail {α : Type} [DecidableEq α] (head x : α) (rest : Li
   change Encoding.pair (Encoding.relabel _ _ _) 2 = 4
   rw [label]
   rfl
+
+theorem source_statement : statement env (source env) landing = template := by
+  change (⟨domain,0,0,100,0,0,landing.input,referenceHash env (source env) 2,[1],
+    ⟨0,0,1,[]⟩⟩ : StatementData) = template
+  rw [source_reference]
+  rfl
+
+theorem source_landing_checks : LandingChecks env (source env) landing := by
+  constructor
+  case proofs =>
+    simp only [proofsAccepted,source_statement]
+    decide +kernel
+  all_goals first | rfl | decide +kernel
+
+theorem source_landing_accepted : land env (source env) landing = some (landed (source env) landing) := by
+  simp only [Protocol.land,source_landing_checks,ite_true]
 
  theorem latest_bounded_filter (history : List RegistryHistory.Snapshot) {cutoff bound : Nat}
     (within : cutoff ≤ bound) :
@@ -513,32 +531,71 @@ theorem batch_binding_in_context {w : World} (context : TemplateContext w) :
   simp only [policy,Finality.derive,context.config,source_config,context.committee]
   rfl
 
+set_option maxHeartbeats 400000 in
+theorem source_pure_certificate : BatchCertificate env (source env) template archive genesis [block] := by
+  have context := template_context (source_reachable env) source_statement
+  have policyFixed : policy env (certificateWorld env (source env) 2) archive 2 = pol := by rfl
+  refine ⟨?_,?_,?_⟩
+  · refine ⟨?_,?_,?_,genesis_bound,?_,?_,?_⟩
+    · have ready := ready_in_context (source_reachable env) context
+      exact ready
+    · change Blocks.BatchValid (policy env (certificateWorld env (source env) 2) archive 2) genesis [block] [1]
+      rw [policyFixed]
+      exact ⟨⟨first_valid,True.intro⟩,rfl⟩
+    · change template = Blocks.statement (policy env (certificateWorld env (source env) 2) archive 2) genesis [block] [1]
+      rw [policyFixed]
+      exact (batch_binding_in_context context).symm
+    · intro b member
+      have equal : b = block := by simpa using member
+      subst b; exact first_bound
+    · intro impossible; exact (impossible rfl).elim
+    · refine ⟨genesis,[],rfl,rfl,genesis_bound,rfl,rfl,?_,?_,?_,by decide,?_⟩
+      · simp [Archive.Linked,archive,block,body,first,firstBase,genesis,genesisBase,env,Blocks.Block.header]
+      · intro h member
+        have equal : h = first := by simpa [archive] using member
+        subst h; exact first_bound
+      · intro b member
+        have equal : b = block := by simpa using member
+        subst b; rfl
+      · intro h member
+        have equal : h = first := by simpa [archive] using member
+        subst h; decide
+  · rfl
+  · rfl
+
+theorem source_view_registry :
+    (certificateWorld env (source env) 2).registry.registry.history = closedTwo.registryHistory := by
+  have last : (referencePrefix (source env) 2).getLast? = some closedTwo := by
+    rw [source_independent_of_verifier]
+    rfl
+  simp only [certificateWorld,last,Option.getD_some]
+
+set_option maxHeartbeats 400000 in
 theorem template_image_certifies {w : World} {a : Landing}
     (trace : Trace env (empty env registry) w) (same : statement env w a = template) :
     ImageCertifies env w 11 (statement env w a) := by
   have context := template_context trace same
   have ref := congrArg (fun d : StatementData => d.input.l1ReferenceBlockNumber) same
   change a.input.l1ReferenceBlockNumber = 2 at ref
-  refine ⟨archive,genesis,[block],?_,?_⟩
-  · refine ⟨ready_in_context trace context,?_,?_,genesis_bound,?_,?_⟩
-    · have blobs := congrArg StatementData.blobHashes same
-      change a.blobs = [1] at blobs
-      change Blocks.BatchValid (policy env w archive a.input.l1ReferenceBlockNumber) genesis [block] a.blobs
-      rw [ref,blobs]
-      exact ⟨⟨first_valid_in_context context,True.intro⟩,rfl⟩
-    · rw [same]
-      change template = Blocks.statement (policy env w archive 2) genesis [block] [1]
-      exact (batch_binding_in_context context).symm
-    · intro b member
-      have equal : b = block := by simpa using member
-      subst b
-      exact first_bound
-    · intro impossible
-      exact (impossible rfl).elim
+  have prefixSame : referencePrefix (source env) 2 = referencePrefix w 2 :=
+    reference_hash_binds_prefix reference_binding (source_reference.trans context.reference.symm)
+  have viewSame := certificate_world_of_prefix (env := env) prefixSame
+  refine ⟨archive,genesis,[block],?_,?_,?_⟩
+  · rw [same]
+    exact batch_certificate_transport prefixSame source_pure_certificate
+  · change CertificateFootprint env w a.input.l1ReferenceBlockNumber
+    rw [ref]
+    constructor
+    · rw [← viewSame]; exact context.config.symm
+    · rw [← viewSame]; exact source_parameters.trans context.parameters.symm
+    · rw [← viewSame]; exact context.committee.symm
+    · rw [← viewSame]; exact context.start.symm
+    · rw [← viewSame,source_view_registry]
+      exact (Economics.closed_registry_history trace closedTwo context.closed).2.symm
+    · exact (Economics.registry_history_time registry_genesis trace).1
   · intro b member
     have equal : b = block := by simpa using member
-    subst b
-    decide +kernel
+    subst b; decide
 
 theorem recovered_source_independent : recoveredSource env = recoveredSource baseEnv := by
   have advanceSame (w : World) (n : Nat) := seed_calls_independent w (.advance n) (by intro x impossible; cases impossible)
@@ -627,6 +684,12 @@ structure RecoveredContext (w : World) : Prop where
     RegistryHistory.latestSnapshot (recoveredSource env).registry.registry.history 4
   reference : referenceHash env w 4 = 26
   lookup : Finality.registryAt w.registry.registry 4 = Finality.registryAt (recoveredSource env).registry.registry 4
+
+theorem recovered_source_statement : statement env (recoveredSource env) recoveredLanding = recoveredTemplate := by
+  change (⟨domain,1,0,101,201,1,recoveredLanding.input,referenceHash env (recoveredSource env) 4,[1],
+    ⟨1,1,2,[]⟩⟩ : StatementData) = recoveredTemplate
+  rw [recovered_reference]
+  rfl
 
 theorem recovered_context {w : World} {a : Landing}
     (trace : Trace env (empty env registry) w) (same : statement env w a = recoveredTemplate) :
@@ -791,32 +854,80 @@ theorem recovered_binding_in_context {w : World} (context : RecoveredContext w) 
   simp only [policy,Finality.derive,context.config,recovered_config,context.committee]
   rfl
 
+theorem recovered_source_reachable : Trace env (empty env registry) (recoveredSource env) := by
+  have landedTrace : Trace env (empty env registry) (landed (source env) landing) := by
+    have call := Step.call (env := env) (source env) (.land landing)
+    have actual : transact env (source env) (.land landing) = landed (source env) landing := by
+      simp only [transact,execute,source_landing_accepted,Option.getD_some]
+    exact .step (source_reachable env) (actual ▸ call)
+  exact .step (.step (.step landedTrace (.call _ (.advance 4))) (.call _ (.recover recoveryRequest)))
+    (.call _ (.advance 5))
+
+set_option maxHeartbeats 400000 in
+theorem recovered_pure_certificate : BatchCertificate env (recoveredSource env) recoveredTemplate recoveredArchive first [recoveredBlock] := by
+  have context := recovered_context (show Trace env (empty env registry) (recoveredSource env) from recovered_source_reachable) recovered_source_statement
+  have policyFixed : policy env (certificateWorld env (recoveredSource env) 4) recoveredArchive 4 = recoveredPolicy := by rfl
+  refine ⟨?_,?_,?_⟩
+  · refine ⟨?_,?_,?_,first_bound,?_,?_,?_⟩
+    · have ready := ready_recovered_context recovered_source_reachable context
+      exact ready
+    · change Blocks.BatchValid (policy env (certificateWorld env (recoveredSource env) 4) recoveredArchive 4) first [recoveredBlock] [1]
+      rw [policyFixed]
+      exact ⟨⟨second_valid,True.intro⟩,rfl⟩
+    · change recoveredTemplate = Blocks.statement (policy env (certificateWorld env (recoveredSource env) 4) recoveredArchive 4) first [recoveredBlock] [1]
+      rw [policyFixed]
+      exact (recovered_binding_in_context context).symm
+    · intro b member
+      have equal : b = recoveredBlock := by simpa using member
+      subst b; exact second_bound
+    · intro impossible; exact (impossible rfl).elim
+    · refine ⟨first,[],rfl,rfl,first_bound,rfl,rfl,?_,?_,?_,by decide,?_⟩
+      · simp [Archive.Linked,recoveredArchive,recoveredBlock,recoveredBody,second,first,firstBase,env,Blocks.Block.header]
+      · intro h member
+        have equal : h = second := by simpa [recoveredArchive] using member
+        subst h; exact second_bound
+      · intro b member
+        have equal : b = recoveredBlock := by simpa using member
+        subst b; rfl
+      · intro h member
+        have equal : h = second := by simpa [recoveredArchive] using member
+        subst h; decide
+  · rfl
+  · rfl
+
+theorem recovered_view_registry :
+    (certificateWorld env (recoveredSource env) 4).registry.registry.history = closedFour.registryHistory := by
+  have last : (referencePrefix (recoveredSource env) 4).getLast? = some closedFour := by
+    rw [recovered_source_independent]
+    rfl
+  simp only [certificateWorld,last,Option.getD_some]
+
+set_option maxHeartbeats 400000 in
 theorem recovered_image_certifies {w : World} {a : Landing}
     (trace : Trace env (empty env registry) w) (same : statement env w a = recoveredTemplate) :
     ImageCertifies env w 11 (statement env w a) := by
   have context := recovered_context trace same
   have ref := congrArg (fun d : StatementData => d.input.l1ReferenceBlockNumber) same
   change a.input.l1ReferenceBlockNumber = 4 at ref
-  refine ⟨recoveredArchive,first,[recoveredBlock],?_,?_⟩
-  · refine ⟨ready_recovered_context trace context,?_,?_,first_bound,?_,?_⟩
-    · have blobs := congrArg StatementData.blobHashes same
-      change a.blobs = [1] at blobs
-      change Blocks.BatchValid (policy env w recoveredArchive a.input.l1ReferenceBlockNumber) first [recoveredBlock] a.blobs
-      rw [ref,blobs]
-      exact ⟨⟨second_valid_in_context context,True.intro⟩,rfl⟩
-    · rw [same]
-      change recoveredTemplate = Blocks.statement (policy env w recoveredArchive 4) first [recoveredBlock] [1]
-      exact (recovered_binding_in_context context).symm
-    · intro b member
-      have equal : b = recoveredBlock := by simpa using member
-      subst b
-      exact second_bound
-    · intro impossible
-      exact (impossible rfl).elim
+  have prefixSame : referencePrefix (recoveredSource env) 4 = referencePrefix w 4 :=
+    reference_hash_binds_prefix reference_binding (recovered_reference.trans context.reference.symm)
+  have viewSame := certificate_world_of_prefix (env := env) prefixSame
+  refine ⟨recoveredArchive,first,[recoveredBlock],?_,?_,?_⟩
+  · rw [same]
+    exact batch_certificate_transport prefixSame recovered_pure_certificate
+  · change CertificateFootprint env w a.input.l1ReferenceBlockNumber
+    rw [ref]
+    constructor
+    · rw [← viewSame]; exact context.config.symm
+    · rw [← viewSame]; exact (show parametersOf (recoveredSource env).inbox = baseEnv.parameters from rfl).trans context.parameters.symm
+    · rw [← viewSame]; exact context.committee.symm
+    · rw [← viewSame]; exact context.start.symm
+    · rw [← viewSame,recovered_view_registry]
+      exact (Economics.closed_registry_history trace closedFour context.closed).2.symm
+    · exact (Economics.registry_history_time registry_genesis trace).1
   · intro b member
     have equal : b = recoveredBlock := by simpa using member
-    subst b
-    decide +kernel
+    subst b; decide
 
 
 theorem verifier_sound : VerifierSound env (empty env registry) := by
@@ -833,30 +944,16 @@ theorem verifier_sound : VerifierSound env (empty env registry) := by
     · exact template_image_certifies trace ordinary
     · exact recovered_image_certifies trace recovered
 
-theorem source_statement : statement env (source env) landing = template := by
-  change (⟨domain,0,0,100,0,0,landing.input,referenceHash env (source env) 2,[1],
-    ⟨0,0,1,[]⟩⟩ : StatementData) = template
-  rw [source_reference]
-  rfl
-
-theorem source_landing_checks : LandingChecks env (source env) landing := by
-  constructor
-  case proofs =>
-    simp only [proofsAccepted,source_statement]
-    decide +kernel
-  all_goals first | rfl | decide +kernel
-
-theorem source_landing_accepted : land env (source env) landing = some (landed (source env) landing) := by
-  simp only [Protocol.land,source_landing_checks,ite_true]
-
 theorem premises : Etna.Statements.Current.Premises env registry engine := by
   refine ⟨primitives,verifier_sound,rfl,signature_refinement,by decide,
     fun w _ => codec_sound w,fun w _ => vote_attribution w,fun _ _ h => h,?_,
-    reference_binding,registry_genesis,signature_sound,by decide⟩
-  intro id selected present
-  have same : selected = definition := by simpa [env,baseEnv] using present.symm
-  subst selected
-  rfl
+    reference_binding,registry_genesis,signature_sound,by decide,?_⟩
+  · intro id selected present
+    have same : selected = definition := by simpa [env,baseEnv] using present.symm
+    subst selected
+    rfl
+  · intro boundary proposal h proof parent earlier accepted
+    cases accepted
 
 def AcceptingDeployment : Prop :=
   ∃ e registry engine w t a, Etna.Statements.Current.Premises e registry engine ∧
@@ -927,6 +1024,46 @@ theorem after_reference_landing_accepted :
   have checks : LandingChecks env afterReference landing := ⟨source_landing_checks.initialized,source_landing_checks.started,source_landing_checks.entered,source_landing_checks.origin,source_landing_checks.parentBeforeFrontier,source_landing_checks.progress,source_landing_checks.height,source_landing_checks.parentGrid,source_landing_checks.lastGrid,source_landing_checks.frontierGrid,source_landing_checks.batchSize,source_landing_checks.record,source_landing_checks.generation,source_landing_checks.leafCount,source_landing_checks.frontier,source_landing_checks.cursor,source_landing_checks.head,source_landing_checks.tail,source_landing_checks.service,source_landing_checks.reference,source_landing_checks.referenceAge,source_landing_checks.blobs,source_landing_checks.unzen,source_landing_checks.proofs⟩
   simp only [Protocol.land,checks,ite_true]
 
+
+def closedAfterReference : World := transact env afterReference (.advance 4)
+
+theorem closed_after_reference_reachable : Trace env (empty env registry) closedAfterReference :=
+  .step (.step (source_reachable env) (.call _ (.forcedETH 1))) (.call _ (.advance 4))
+
+theorem closed_after_reference_history : closedAfterReference.history =
+    (source env).history ++ [snapshot env afterReference 3] := rfl
+
+theorem closed_after_reference_prefix : referencePrefix closedAfterReference 2 = referencePrefix (source env) 2 := by
+  unfold referencePrefix
+  rw [closed_after_reference_history,List.take_append_of_le_length (show 3 ≤ (source env).history.length from by decide)]
+
+theorem closed_after_reference_statement : statement env closedAfterReference landing = template := by
+  change (⟨domain,0,0,100,0,0,landing.input,referenceHash env closedAfterReference 2,[1],⟨0,0,1,[]⟩⟩ : StatementData) = template
+  have hashes : referenceHash env closedAfterReference 2 = referenceHash env (source env) 2 :=
+    congrArg (fun history => env.blockHash history 2) closed_after_reference_prefix
+  rw [hashes,source_reference]
+  rfl
+
+theorem closed_after_reference_checks : LandingChecks env closedAfterReference landing := by
+  constructor
+  case proofs =>
+    simp only [proofsAccepted,closed_after_reference_statement]
+    decide +kernel
+  all_goals first | rfl | decide +kernel
+
+theorem closed_after_reference_landing :
+    land env closedAfterReference landing = some (landed closedAfterReference landing) := by
+  simp only [Protocol.land,closed_after_reference_checks,ite_true]
+
+/-- A changed block strictly beyond the reference has actually closed, and the original
+proof still settles under the complete global deployment premise record. -/
+theorem accepting_after_closed_reference_change :
+    Etna.Statements.Current.Premises env registry engine ∧
+    Trace env (empty env registry) closedAfterReference ∧
+    3 < closedAfterReference.history.length ∧
+    land env closedAfterReference landing = some (landed closedAfterReference landing) :=
+  ⟨premises,closed_after_reference_reachable,by decide,closed_after_reference_landing⟩
+
 def firstLanded : World := landed (source env) landing
 def rolledBack : World :=
   (rollback env firstLanded 7 (source env).inbox.checkpoint 1).getD firstLanded
@@ -938,14 +1075,27 @@ theorem rollback_then_landing_accepted :
   have checks : LandingChecks env rolledBack landing := ⟨source_landing_checks.initialized,source_landing_checks.started,source_landing_checks.entered,source_landing_checks.origin,source_landing_checks.parentBeforeFrontier,source_landing_checks.progress,source_landing_checks.height,source_landing_checks.parentGrid,source_landing_checks.lastGrid,source_landing_checks.frontierGrid,source_landing_checks.batchSize,source_landing_checks.record,source_landing_checks.generation,source_landing_checks.leafCount,source_landing_checks.frontier,source_landing_checks.cursor,source_landing_checks.head,source_landing_checks.tail,source_landing_checks.service,source_landing_checks.reference,source_landing_checks.referenceAge,source_landing_checks.blobs,source_landing_checks.unzen,source_landing_checks.proofs⟩
   simp only [Protocol.land,checks,ite_true]
 
+
+theorem first_landed_reachable : Trace env (empty env registry) firstLanded := by
+  have call := Step.call (env := env) (source env) (.land landing)
+  have actual : transact env (source env) (.land landing) = firstLanded := by
+    simp only [transact,execute,source_landing_accepted,Option.getD_some,firstLanded]
+  exact .step (source_reachable env) (actual ▸ call)
+
+theorem rolled_back_reachable : Trace env (empty env registry) rolledBack := by
+  have call := Step.call (env := env) firstLanded (.rollback 7 (source env).inbox.checkpoint 1)
+  have actual : transact env firstLanded (.rollback 7 (source env).inbox.checkpoint 1) = rolledBack := by
+    simp only [transact,execute,positive_rollback,Option.getD_some]
+  exact .step first_landed_reachable (actual ▸ call)
+
+theorem accepting_after_actual_rollback :
+    Etna.Statements.Current.Premises env registry engine ∧
+    Trace env (empty env registry) rolledBack ∧
+    land env rolledBack landing = some (landed rolledBack landing) :=
+  ⟨premises,rolled_back_reachable,rollback_then_landing_accepted⟩
+
 theorem actual_recovery_after_rollback :
     (recover env rolledBack ⟨7,0,0,1,100,[],[],0,none⟩).isSome = true := by decide +kernel
-
-theorem recovered_source_statement : statement env (recoveredSource env) recoveredLanding = recoveredTemplate := by
-  change (⟨domain,1,0,101,201,1,recoveredLanding.input,referenceHash env (recoveredSource env) 4,[1],
-    ⟨1,1,2,[]⟩⟩ : StatementData) = recoveredTemplate
-  rw [recovered_reference]
-  rfl
 
 theorem recovered_landing_checks : LandingChecks env (recoveredSource env) recoveredLanding := by
   constructor
@@ -957,15 +1107,6 @@ theorem recovered_landing_checks : LandingChecks env (recoveredSource env) recov
 theorem recovery_landing_accepted :
     land env (recoveredSource env) recoveredLanding = some (landed (recoveredSource env) recoveredLanding) := by
   simp only [Protocol.land,recovered_landing_checks,ite_true]
-
-theorem recovered_source_reachable : Trace env (empty env registry) (recoveredSource env) := by
-  have landedTrace : Trace env (empty env registry) (landed (source env) landing) := by
-    have call := Step.call (env := env) (source env) (.land landing)
-    have actual : transact env (source env) (.land landing) = landed (source env) landing := by
-      simp only [transact,execute,source_landing_accepted,Option.getD_some]
-    exact .step (source_reachable env) (actual ▸ call)
-  exact .step (.step (.step landedTrace (.call _ (.advance 4))) (.call _ (.recover recoveryRequest)))
-    (.call _ (.advance 5))
 
 theorem recovered_generation_advanced :
     (recoveredSource env).inbox.generation = 1 ∧

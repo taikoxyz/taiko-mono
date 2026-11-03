@@ -1,6 +1,7 @@
 import EtnaModel.CurrentProtocol
 import EtnaProofs.CurrentBlocks
 import EtnaProofs.Landing
+import EtnaProofs.CurrentCertificate
 
 namespace Etna.Design.Current.Protocol
 
@@ -51,7 +52,7 @@ theorem headerAt_hash_bound {env : Environment} {p : Header} {bs : List Block}
 /-- Current checks and an independently certified complete batch determine the actual
 execution-time suffix. No accepted transition takes a suffix as an input. -/
 theorem accepted_suffix_from_certificate {env : Environment} {w t : World} {a : Landing}
-    (ok : land env w a = some t) (cert : Certifies env w (statement env w a))
+    (ok : land env w a = some t) (cert : LiveCertifies env w (statement env w a))
     (record : recordAt w.inbox w.inbox.checkpoint.height = some w.inbox.checkpoint) :
     Nonempty (Suffix env w a) := by
   have check := (land_success ok).1

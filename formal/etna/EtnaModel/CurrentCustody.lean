@@ -45,9 +45,9 @@ inductive Path (env : Environment) (initial : World) : Header → Prop
       (segment : Suffix env w a) (parent : Path env initial segment.parent) :
       Path env initial (Blocks.terminal segment.parent segment.blocks)
 
-def AuthenticRoot (env : Environment) (h : Header) : Prop :=
+def AuthenticRoot (env : Environment) (initial : World) (h : Header) : Prop :=
   (env.core.unzenInbox = 0 ∧ h = env.genesisHeader) ∨
-  ∃ w t a legacy, land env w a = some t ∧ FirstFence env w h ∧
+  ∃ w t a legacy, Trace env initial w ∧ land env w a = some t ∧ FirstFence env w h ∧
     w.unzenHeader = some legacy ∧ env.unzenRoot legacy ∧ StartsAt h legacy
 
 inductive Descends (env : Environment) (initial : World) (root : Header) : Header → Prop

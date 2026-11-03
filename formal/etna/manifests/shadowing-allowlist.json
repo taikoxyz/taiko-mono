@@ -261,6 +261,31 @@
       "declaration": "Etna.Design.Current.Protocol.NonVacuity.premises_satisfiable",
       "shadows": "Etna.Design.NonVacuity.premises_satisfiable",
       "reason": "Current existential premise witness with an actual accepting trace and globally injective roots; the historical witness has a different model and exact type."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.Governance.execute",
+      "shadows": "Etna.Design.Current.Protocol.execute",
+      "reason": "Ghost-erased DAO history adapter; its ordinary branch and refinement explicitly name Protocol.execute, keeping normative admissibility separate."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.Governance.transact",
+      "shadows": "Etna.Design.transact",
+      "reason": "Raw DAO history atomic adapter over Governance.execute; normative Protocol.transact and the historical State adapter are explicitly qualified where needed."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.Governance.transact",
+      "shadows": "Etna.Design.Current.Protocol.transact",
+      "reason": "Raw DAO history atomic adapter over Governance.execute; normative Protocol.transact and the historical State adapter are explicitly qualified where needed."
+    },
+    {
+      "declaration": "Etna.Design.Current.CheckpointRisk.NormalRun.trans",
+      "shadows": "trans",
+      "reason": "Transitivity of the actual normal execution relation, intentionally selected inside its namespace instead of the generic trans relation helper."
+    },
+    {
+      "declaration": "Etna.Vectors.CurrentRegistry.Seed.pending",
+      "shadows": "Etna.Vectors.pending",
+      "reason": "Current-vector seed pending-principal field, distinct from the historical vector renderer/helper pending function."
     }
   ]
 }

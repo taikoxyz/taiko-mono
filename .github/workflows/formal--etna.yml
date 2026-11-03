@@ -5,6 +5,7 @@ on:
     paths:
       - "formal/etna/**"
       - "testdata/etna_conformance/**"
+      - "testdata/etna_current_conformance/**"
       - "packages/protocol/docs/etna/SPEC.md"
       - "packages/protocol/docs/etna/ACCEPTANCE.md"
       - "packages/protocol/docs/etna/ANCHORLESS.md"
@@ -16,6 +17,7 @@ on:
     paths:
       - "formal/etna/**"
       - "testdata/etna_conformance/**"
+      - "testdata/etna_current_conformance/**"
       - "packages/protocol/docs/etna/SPEC.md"
       - "packages/protocol/docs/etna/ACCEPTANCE.md"
       - "packages/protocol/docs/etna/ANCHORLESS.md"
@@ -34,7 +36,9 @@ concurrency:
 jobs:
   etna-formal:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    # Includes fresh kernel replay and the complete mutation suite; the previous
+    # 30-minute budget cancelled the test step after successful build/audit.
+    timeout-minutes: 90
     defaults:
       run:
         working-directory: formal/etna
@@ -72,10 +76,12 @@ jobs:
             echo "::error::lake build modified or created non-ignored files"
             exit 1
           fi
-      # The committed behavioral vectors (consumed by the Etna contracts and the Rust client) are a
-      # fresh generator run: no missing, extra or stale file. The audit repeats this check.
+      # Check the historical contract/client vectors and the separate current-model
+      # admission family against fresh generators. The audit repeats the historical check.
       - name: Check the conformance vectors are fresh
-        run: python3 scripts/check_vectors.py
+        run: |
+          python3 scripts/check_vectors.py
+          python3 scripts/check_current_vectors.py
       # Kernel-check exact current and historical headline types, theorem roles, standard
       # axioms, consumed premise fields, library contents and a fresh whole-kernel replay.
       # Authority pins and exact per-rule traceability were checked before the build.

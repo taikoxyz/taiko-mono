@@ -70,8 +70,12 @@ def observed : Protocol.World := Protocol.transact env closed2 (.observe 1)
 
 theorem authenticated_start_trust : Protocol.nodeTrust env observed [] [] := by
   refine ⟨rfl,⟨0,100,100⟩,rfl,0,⟨0,100,0,0,0,0⟩,?_,?_,?_,?_,?_,env.genesisHeader,
-    ⟨0,100,0,0,0,0⟩,?_,?_,?_,?_,?_,?_,?_,?_,?_⟩
-  all_goals first | exact True.intro | decide | simp [env]
+    ⟨0,100,0,0,0,0⟩,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_⟩
+  all_goals solve
+    | exact True.intro
+    | decide
+    | simp [env]
+    | (refine ⟨env.genesisHeader,[],rfl,rfl,rfl,rfl,rfl,True.intro,?_,?_,by decide,?_⟩ <;> simp)
 
 -- Ordinary startup may trust the authenticated genesis after observing its completed block.
 example : observed.initialized = true := by decide
@@ -90,3 +94,19 @@ example : ¬ Protocol.nodeTrust {env with core := {env.core with unzenInbox := 5
   exact (switch (by decide) atStart).1
 
 end Etna.CurrentProtocolRegression.NodeWitness
+
+namespace Etna.CurrentProtocolRegression
+open Etna.Design Etna.Design.Current
+
+-- A replay cannot select historical committee anchors from an archive which omits
+-- one of the actual replayed blocks, even when its final checkpoint fields match.
+example (env : Protocol.Environment) (w : Protocol.World) (b : Blocks.Block) (bs : List Blocks.Block) :
+    ¬ Protocol.nodeTrust env w [] (b :: bs) := by
+  intro trusted
+  obtain ⟨_,_,_,_,_,_,_,_,_,_,p,origin,_,_,_,_,_,_,_,_,_,auth⟩ := trusted
+  obtain ⟨_,prior,_,_,_,shape,_⟩ := auth
+  have lengths := congrArg List.length shape
+  simp only [List.length_nil,List.length_append,List.length_map,List.length_cons] at lengths
+  omega
+
+end Etna.CurrentProtocolRegression

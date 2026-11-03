@@ -9,18 +9,28 @@ set_option linter.unusedSimpArgs false
 /-- Paths unfold into an authenticated root and only actual accepted landing edges. -/
 theorem path_rooted {env : Environment} {initial : World} {h : Header}
     (path : Path env initial h) :
-    ∃ root, AuthenticRoot env root ∧ Descends env initial root h := by
+    ∃ root, AuthenticRoot env initial root ∧ Descends env initial root h := by
   induction path with
   | genesis _ _ _ newNetwork => exact ⟨_,Or.inl ⟨newNetwork,rfl⟩,.refl⟩
   | unzen prior accepted first switching retained authenticated starts bound fence =>
-    exact ⟨_,Or.inr ⟨_,_,_,_,accepted,fence,retained,authenticated,starts⟩,.refl⟩
+    exact ⟨_,Or.inr ⟨_,_,_,_,prior,accepted,fence,retained,authenticated,starts⟩,.refl⟩
   | landing prior accepted segment _ ih =>
     obtain ⟨root,auth,descends⟩ := ih
     exact ⟨root,auth,.landing prior accepted segment descends⟩
 
+/-- A switching root retains the actual reachable state whose first landing
+passed the fence; an arbitrary synthetic accepting world cannot authorize a root. -/
+theorem authentic_root_reachable {env : Environment} {initial : World} {h : Header}
+    (switching : env.core.unzenInbox ≠ 0) (auth : AuthenticRoot env initial h) :
+    ∃ w t a legacy, Trace env initial w ∧ land env w a = some t ∧ FirstFence env w h ∧
+      w.unzenHeader = some legacy ∧ env.unzenRoot legacy ∧ StartsAt h legacy := by
+  rcases auth with ⟨newNetwork,_⟩ | reachable
+  · exact (switching newNetwork).elim
+  · exact reachable
+
 theorem certified_landing {env : Environment} {initial w t : World} {a : Landing}
     (soundness : VerifierSound env initial) (reach : Trace env initial w)
-    (ok : land env w a = some t) : Certifies env w (statement env w a) := by
+    (ok : land env w a = some t) : LiveCertifies env w (statement env w a) := by
   obtain ⟨sound,cover,verify⟩ := soundness
   have accepted := (land_success ok).1.proofs
   obtain ⟨item,member,good⟩ := cover _ accepted
@@ -34,7 +44,7 @@ theorem certified_landing {env : Environment} {initial w t : World} {a : Landing
   have bytes : env.verify w.verifier proof.backend proof.image proof.bytes (statement env w a) = true := by
     simp only [Bool.and_eq_true] at verified
     exact verified.2
-  exact image_certificate_forget (verify w reach a t proof ok present good bytes)
+  exact image_certificate_live (verify w reach a t proof ok present good bytes)
 
 theorem bound_headers_equal {env : Environment} (primitive : Primitives env)
     {x y : Header} (hx : HashBound env x) (hy : HashBound env y) (cut : x.cut = y.cut) : x = y := by
@@ -57,7 +67,7 @@ theorem pending_parent_fence {env : Environment} {initial w t : World} {a : Land
     (cursorHead : w.inbox.checkpoint.cursor = w.inbox.head)
     (record : recordAt w.inbox w.inbox.checkpoint.height = some w.inbox.checkpoint)
     (pending : Pending env w w.inbox.checkpoint)
-    (certificate : Certifies env w (statement env w a)) :
+    (certificate : LiveCertifies env w (statement env w a)) :
     FirstFence env w segment.parent ∧ ∃ legacy, w.unzenHeader = some legacy ∧
       env.unzenRoot legacy ∧ StartsAt segment.parent legacy := by
   obtain ⟨switching,start,written,height,hash,comet,cursor⟩ := pending
@@ -75,7 +85,7 @@ theorem pending_parent_fence {env : Environment} {initial w t : World} {a : Land
   have cur : segment.parent.cursor = 0 :=
     (congrArg Cut.cursor segment.parentCut).trans (cursorHead.symm.trans cursor)
   have implementation : env.startImplementation segment.parent.stateRoot = true := by
-    obtain ⟨archive,p,bs,ready,valid,binding,hashp,hashes,implemented⟩ := certificate
+    obtain ⟨archive,p,bs,ready,valid,binding,hashp,hashes,implemented,_⟩ := certificate
     have inputs := congrArg StatementData.input binding
     have ph : a.input.parentHeight = p.height := congrArg LandInput.parentHeight inputs
     have pg := (land_success ok).1.parentGrid
@@ -109,7 +119,7 @@ theorem pending_parent {env : Environment} {initial w t : World} {a : Landing}
     (cursorHead : w.inbox.checkpoint.cursor = w.inbox.head)
     (record : recordAt w.inbox w.inbox.checkpoint.height = some w.inbox.checkpoint)
     (pending : Pending env w w.inbox.checkpoint)
-    (certificate : Certifies env w (statement env w a)) : Path env initial segment.parent := by
+    (certificate : LiveCertifies env w (statement env w a)) : Path env initial segment.parent := by
   obtain ⟨fence,legacy,retained,auth,starts⟩ :=
     pending_parent_fence primitive reach ok inv segment cursorHead record pending certificate
   obtain ⟨switching,start,written,height,_⟩ := pending

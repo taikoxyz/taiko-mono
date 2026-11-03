@@ -116,6 +116,24 @@ theorem withdrawal_window {s t : Registry.State} {id caller now delay payout win
       next allowed => exact ⟨bond,atL1,issued,found,clock,by omega⟩
       next => cases ok
   next => cases ok
+
+/-- STAKE-4.1-26 blocks the confirmation transaction while the actual landed
+selection snapshot is below a selected identity's effective exit. This is the raw
+call-level fence; a historical entry alone does not establish the present bond's
+exit or the preceding snapshot trajectory. -/
+theorem confirm_blocked_above_snapshot {s : State} {v : InboxView}
+    {now cutoff id : Nat} {bond : Registry.Bond}
+    (found : s.ledger.bonds id = some bond)
+    (selected : cutoff < bond.value.exitAt) (settlement : v.snapshot ≤ cutoff) :
+    execute s v now (.confirm id) = none := by
+  have blocked : ¬ bond.value.exitAt ≤ v.snapshot := by omega
+  simp only [execute]
+  split
+  · unfold editValue
+    split
+    · simp [found,bondEdit,blocked]
+    · rfl
+  · rfl
 set_option linter.unusedSimpArgs false
 set_option maxRecDepth 20000
 
@@ -894,6 +912,19 @@ theorem trace_history_issued {first later : World} (run : Trace first later) (ge
     constructor
     · intro slot id found; rw [genesis.2.2.1 slot] at found; cases found
     · intro cp member; rw [genesis.2.2.2.2.1] at member; cases member
+  | step _ change ih =>
+    cases change with
+    | call action ok => exact ⟨execute_slots_issued ih.1 ok,execute_history_issued ih.1 ih.2 ok⟩
+    | frame => exact ih
+    | rollback _ _ _ _ _ _ _ ok => exact ⟨execute_slots_issued ih.1 ok,execute_history_issued ih.1 ih.2 ok⟩
+
+/-- Existing permanent registries need authenticated seed invariants, not a fabricated
+empty deployment. A retarget preserving ledger/history can carry these facts forward. -/
+theorem trace_history_issued_from_seed {first later : World} (run : Trace first later)
+    (slots : SlotsIssued first.registry.ledger) (history : HistoryIssued first.registry) :
+    SlotsIssued later.registry.ledger ∧ HistoryIssued later.registry := by
+  induction run with
+  | refl => exact ⟨slots,history⟩
   | step _ change ih =>
     cases change with
     | call action ok => exact ⟨execute_slots_issued ih.1 ok,execute_history_issued ih.1 ih.2 ok⟩

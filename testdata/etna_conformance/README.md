@@ -1,7 +1,8 @@
 > Historical vectors: these files exercise the pre-2026-11-03 decoded machine, whose
 > exact authority snapshots are in `formal/etna/legacy/2026-10-30`. They do not establish
 > conformance to the latest lifetime-bond, timestamp-schedule or Unzen-switch rules.
-> Current rule regressions live in `formal/etna/tests/CurrentDesign.lean`.
+> Current rule regressions live under `formal/etna/tests/Current*.lean`; the separate
+> current displacement vectors are in `testdata/etna_current_conformance`.
 
 # Etna behavioral conformance vectors
 
@@ -12,13 +13,13 @@ client's lander pins that directory's exact file list and hashes
 (`packages/taiko-client-rs/crates/lander/src/test_utils/artifacts.rs`). There are two kinds:
 
 - **Inbox families** (schema `etna-conformance-2`): concrete call sequences, whether each call is
-  accepted or reverts, what it returns and the state a contract exposes afterwards. The Etna
-  contracts must do the same.
+  accepted or reverts, what it returns and the state a contract exposes afterwards. A contract harness targeting this historical
+  baseline must reproduce those decisions; current Etna behavior can differ.
 - **Client-rule families** (schema `etna-client-conformance-1`): the whole input of one pure node
-  rule and the model's decision on it. The Rust client (`packages/taiko-client-rs`) must decide the
-  same; see [Client-rule families](#client-rule-families-etna-client-conformance-1).
+  rule and the model's decision on it. A Rust client harness (`packages/taiko-client-rs`) targeting this historical baseline
+  compares against these decisions; see [Client-rule families](#client-rule-families-etna-client-conformance-1).
 
-The current authority is `SPEC.md` at commit `b7ca989c8e343073daa628771102bdee7fe7101b` and
+The historical authority for these files is archived `SPEC.md` at commit `b7ca989c8e343073daa628771102bdee7fe7101b` and
 `ACCEPTANCE.md` at `39ebefbf33a2702b750e0fb0db7d2a40ff8e8480`, independently byte-pinned in
 `formal/etna/spec-coverage.json`; a `spec L…` reference is a line of `SPEC.md` with the rule
 markers removed (see `formal/etna/README.md`). Regenerating these files establishes nothing
@@ -125,7 +126,7 @@ Each file is one object: `schema`, `family`, `generator`, `provenance` (the copi
 
 - `source` is `generated` (an enumerated grid) or `handwritten` (an edge case taken from the spec
   text). Only hand-written vectors have `spec`, a line of
-  `packages/protocol/docs/etna/SPEC.md` at the revision `formal/etna` pins.
+  `formal/etna/legacy/2026-10-30/SPEC.md` at its historical pin, not the current Etna specification.
 - `setup.deployment` sets the immutables a vector varies: `initialized` (false leaves the Inbox
   proxy on its bootstrap implementation), `maxBatchBlocks`, `feeGwei`, `threshold`,
   `recipientAccepts` (false makes `protocolFeeRecipient` a contract that rejects ETH),

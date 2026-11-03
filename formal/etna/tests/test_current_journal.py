@@ -25,6 +25,20 @@ def layers():
         text = re.sub(r'\bProtocol\b', 'ProtocolMutation', text)
         text = re.sub(r'\bJournal\b', 'JournalMutation', text)
         bodies.append(text)
+    bridge = []
+    for name in ('CurrentReference', 'CurrentCertificate'):
+        lines = (ROOT / 'EtnaProofs' / (name + '.lean')).read_text().splitlines()
+        body = []
+        for line in lines:
+            if line.startswith('import '):
+                if line not in ('import EtnaModel.CurrentProtocol', 'import EtnaProofs.CurrentReference'):
+                    imports.append(line)
+            else:
+                body.append(line)
+        bridge.append(re.sub(r'\bProtocol\b', 'ProtocolMutation', '\n'.join(body)))
+    imports = [line for line in imports if line not in
+               ('import EtnaProofs.CurrentReference', 'import EtnaProofs.CurrentCertificate')]
+    bodies[2] = '\n'.join(bridge) + '\n' + bodies[2]
     return '\n'.join(dict.fromkeys(imports)) + '\n', *bodies
 
 
@@ -39,6 +53,11 @@ class CurrentJournalTests(unittest.TestCase):
     def test_kernel_regressions(self):
         result = subprocess.run(['lake', 'env', 'lean', 'tests/CurrentJournal.lean'],
                                 cwd=ROOT, capture_output=True, text=True, timeout=90)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout + result.stderr, '')
+
+    def test_unchanged_mutation_layers_compile(self):
+        result = self.compile('\n'.join(layers()))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(result.stdout + result.stderr, '')
 

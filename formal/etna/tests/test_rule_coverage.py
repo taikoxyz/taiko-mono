@@ -165,10 +165,19 @@ class RuleCoverageTests(unittest.TestCase):
         rows = {r['rule']:r for r in self.rows()}
         for rule in ('COMM-4.3-14','PROOF-6.2-7','PROOF-6.2-17','PROOF-6.2-18',
                      'PROOF-6.2-19','PROOF-6.2-40','FORF-4.4-8','RECOV-8-28',
-                     'RECOV-8-46','RECOV-8.3-11','RECOV-8.3-12','START-10-5'):
+                     'RECOV-8-46','RECOV-8.3-11','RECOV-8.3-12'):
             with self.subTest(rule=rule):
                 self.assertEqual(rows[rule]['status'], 'deferred')
                 self.assertEqual(rows[rule]['theorems'], [])
+
+    def test_switching_lane_fragment_requires_its_direct_trace_theorems(self):
+        row = next(r for r in self.rows() if r['rule'] == 'START-10-5')
+        self.assertEqual(row['status'], 'partial')
+        self.assertEqual(set(row['theorems']), {
+            'Etna.Design.Current.Protocol.Custody.trace_legacy_prefix',
+            'Etna.Design.Current.Protocol.Custody.trace_legacy_etna_disjoint'})
+        # This fragment does not establish deployment, storage version or initialization.
+        self.assertIn('not SignalService storage/version', row['reason'])
 
     def test_exact_payment_stop_and_pending_interval_fragments(self):
         rows = {r['rule']:r for r in self.rows()}

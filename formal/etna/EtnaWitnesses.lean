@@ -1,3 +1,6 @@
+import EtnaWitnesses.NonVacuity.CurrentAgreement
+import EtnaWitnesses.NonVacuity.CurrentRisk
+import EtnaWitnesses.NonVacuity.CurrentSwitch
 import EtnaWitnesses.NonVacuity.Current
 import EtnaWitnesses.Regressions.UpgradeBoundary
 import EtnaWitnesses.Regressions.Reconstruction

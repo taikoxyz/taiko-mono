@@ -9,15 +9,15 @@ def Edge (env : Environment) (initial : World) (parent child : Header) : Prop :=
   ∃ (w t : World) (a : Landing) (segment : Suffix env w a), Trace env initial w ∧ land env w a = some t ∧
     segment.parent = parent ∧ Blocks.terminal segment.parent segment.blocks = child
 
-def RootAt (env : Environment) (start : Option StartData) (h : Header) : Prop :=
+def RootAt (env : Environment) (initial : World) (start : Option StartData) (h : Header) : Prop :=
   ∃ s, start = some s ∧ h.height = s.height ∧ h.elHash = s.hash ∧
-    h.stateRoot = s.stateRoot ∧ AuthenticRoot env h
+    h.stateRoot = s.stateRoot ∧ AuthenticRoot env initial h
 
 /-- Newest-first retained chain: every record's actual parent is the next retained
 record, and the oldest record is this start's authenticated root. -/
 inductive Linked (env : Environment) (initial : World) (start : Option StartData)
     (H : Checkpoint → Header) : List Checkpoint → Prop
-  | root (cp : Checkpoint) (root : RootAt env start (H cp)) : Linked env initial start H [cp]
+  | root (cp : Checkpoint) (root : RootAt env initial start (H cp)) : Linked env initial start H [cp]
   | step (child parent : Checkpoint) (rest : List Checkpoint)
       (parentHeight : parent.height = child.parent) (lower : parent.height < child.height)
       (edge : Edge env initial (H parent) (H child))
