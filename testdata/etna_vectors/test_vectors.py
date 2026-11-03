@@ -532,15 +532,45 @@ class VectorsTest(unittest.TestCase):
     def test_governance_authorization_and_principal_vectors(self):
         self.assertIn("governance_abi", V)
         calls = V["governance_abi"]
-        self.assertEqual(set(calls), {"top_up", "activate_top_up", "forfeit", "recover", "invalidate_recovery_nonce"})
+        self.assertEqual(
+            set(calls),
+            {
+                "top_up",
+                "activate_top_up",
+                "forfeit",
+                "recover",
+                "invalidate_recovery_nonce",
+                "schedule_rules",
+                "schedule_stop",
+                "set_origin",
+            },
+        )
         for call in calls.values():
             self.assertEqual(call["calldata"][:10], call["selector"])
             self.assertEqual(len(hexbytes(call["selector"])), 4)
+        self.assertEqual(
+            calls["recover"]["signature"],
+            "recover(uint48,uint256,uint256,uint256,(uint256,bytes32)[],uint256[],uint48)",
+        )
+        # Seven head words: the two list offsets, then `rules` last.
         recovery = words("0x" + calls["recover"]["calldata"][10:])
-        self.assertEqual([int(w, 16) for w in recovery[:6]], [2, 12, 7, 1700000123, 192, 288])
-        self.assertEqual(int(recovery[6], 16), 1)
-        self.assertEqual(int(recovery[9], 16), 2)
-        self.assertEqual([int(w, 16) for w in recovery[10:]], [3, 5])
+        self.assertEqual([int(w, 16) for w in recovery[:7]], [2, 12, 7, 1700000123, 224, 320, 4])
+        self.assertEqual(int(recovery[7], 16), 1)
+        self.assertEqual(int(recovery[10], 16), 2)
+        self.assertEqual([int(w, 16) for w in recovery[11:]], [3, 5])
+        self.assertEqual(calls["schedule_rules"]["signature"], "scheduleRules(uint48,uint48)")
+        self.assertEqual(
+            [int(w, 16) for w in words("0x" + calls["schedule_rules"]["calldata"][10:])],
+            [2, 1_700_003_600],
+        )
+        self.assertEqual(calls["schedule_stop"]["signature"], "scheduleStop(uint48,uint48)")
+        stop = [int(w, 16) for w in words("0x" + calls["schedule_stop"]["calldata"][10:])]
+        self.assertEqual(stop, [1_700_007_200, 600])
+        self.assertEqual(stop[1] % K, 0)
+        self.assertEqual(calls["set_origin"]["signature"], "setOrigin(uint256,bytes32,bytes32)")
+        self.assertEqual(
+            words("0x" + calls["set_origin"]["calldata"][10:]), [uint(1000), uint(0x51), uint(0x52)]
+        )
         cases = V["forfeitures"]
         expected = [(100, 0, 1000, 10, 90, 0), (2, 98, 1000, 10, 0, 90), (1, 0, 1, 1, 0, 0), (0, 3, 10000, 3, 0, 0)]
         self.assertEqual([tuple(int(c[k]) for k in ("eff_stake", "pending_top_up", "forfeit_bps", "penalty", "eff_stake_after", "pending_top_up_after")) for c in cases[:4]], expected)
@@ -564,19 +594,73 @@ class VectorsTest(unittest.TestCase):
     def test_governance_event_payloads(self):
         self.assertTrue("governance_events" in V, "new events must be shared with ABI consumers")
         events = V["governance_events"]
+        rules = int(V["packed_words"]["inbox_293"][0]["word"], 16)
         expected = {
             "top_up_deposited": [100, 42],
             "top_up_activated": [100],
             "forfeited": [42, 100, 10],
             "recovery_nonce_invalidated": [7, 8],
+            "bond_displaced": [],
+            "rules_schedule_updated": [rules],
+            "start_written": [1000, 0x51, 0x52],
         }
         self.assertEqual(set(events), set(expected))
         for name, values in expected.items():
             self.assertEqual([int(w, 16) for w in words(events[name]["data"])], values)
             self.assertEqual(len(hexbytes(events[name]["topic0"])), 32)
+        # BondDisplaced(bondId, slot, replacementBondId) indexes all three; the other new events
+        # index nothing.
+        self.assertEqual(
+            events["bond_displaced"]["indexed_topics"], [uint(12), uint(7), uint(4096)]
+        )
+        for name in ("rules_schedule_updated", "start_written", "recovery_nonce_invalidated"):
+            self.assertEqual(events[name]["indexed_topics"], [], name)
 
-    def test_schema_version_is_4(self):
-        self.assertEqual(V["schema_version"], "4")
+    def test_view_return_data(self):
+        views = V["view_abi"]
+        self.assertEqual(
+            {name: view["signature"] for name, view in views.items()},
+            {
+                "bond_for_key": "bondForKey(address)",
+                "bond_in_slot": "bondInSlot(uint256)",
+                "slot_of_bond": "slotOfBond(uint256)",
+                "etna_start": "etnaStart()",
+            },
+        )
+        for name, view in views.items():
+            self.assertEqual(view["calldata"][:10], view["selector"], name)
+            self.assertEqual(len(hexbytes(view["selector"])), 4, name)
+            types = view["returns"][1:-1].split(",")
+            for result in view["results"]:
+                encoded = []
+                for kind, value in zip(types, result["values"]):
+                    if kind == "bool":
+                        encoded.append(uint(1 if value else 0))
+                    elif kind == "bytes32":
+                        encoded.append(value)
+                    else:
+                        encoded.append(uint(value))
+                self.assertEqual(words(result["data"]), encoded, (name, result["name"]))
+        # A present bond 0 or slot 0 and an absent one differ only in the flag word.
+        for name in ("bond_for_key", "bond_in_slot", "slot_of_bond"):
+            present, absent = views[name]["results"]
+            self.assertTrue(present["values"][0])
+            self.assertEqual(absent["values"], [False, "0"])
+        self.assertEqual(views["slot_of_bond"]["results"][0]["values"], [True, "0"])
+        self.assertEqual(views["bond_for_key"]["results"][0]["values"], [True, "0"])
+        self.assertEqual(
+            words("0x" + views["bond_for_key"]["calldata"][10:]),
+            [address(V["keys"][0]["ck_addr"])],
+        )
+        self.assertEqual(views["etna_start"]["calldata"], views["etna_start"]["selector"])
+        written, not_written = views["etna_start"]["results"]
+        self.assertEqual(not_written["data"], "0x" + "00" * 64)
+        # The start that `setOrigin` writes: its height and hash.
+        origin = words("0x" + V["governance_abi"]["set_origin"]["calldata"][10:])
+        self.assertEqual(words(written["data"]), origin[:2])
+
+    def test_schema_version_is_5(self):
+        self.assertEqual(V["schema_version"], "5")
 
     def test_deployment(self):
         self.assertEqual(
@@ -587,6 +671,10 @@ class VectorsTest(unittest.TestCase):
                 "inbox": "0x1111111111111111111111111111111111111111",
                 "registry": "0x2222222222222222222222222222222222222222",
                 "l2_block_gas_limit": "45000000",
+                "etna_start": "0",
+                "origin_writer": "0x0000000000000000000000000000000000000000",
+                "unzen_inbox": "0x0000000000000000000000000000000000000000",
+                "etna_fork_time": "0",
             },
         )
 
@@ -616,9 +704,10 @@ class VectorsTest(unittest.TestCase):
         for statement in statements:
             inputs = statement["inputs"]
             p, h = int(inputs["parent_height"]), int(inputs["last_height"])
+            start = int(V["deployment"]["etna_start"])
             self.assertEqual(len(hexbytes(statement["preimage"])), 672)
-            self.assertEqual(p % K, 0)
-            self.assertEqual(h % K, 0)
+            self.assertEqual((p - start) % K, 0)
+            self.assertEqual((h - start) % K, 0)
             self.assertEqual(word(statement["preimage"], 0), tag("TAIKO_ETNA_LAND_V1"))
             self.assertEqual(word(statement["preimage"], 20), inputs["cut_hash"])
             self.assertEqual(inputs["committee_config_hash"], V["committee_config"]["hash"])
@@ -688,12 +777,22 @@ class VectorsTest(unittest.TestCase):
     def test_cut_hash_leaf_count(self):
         table = {int(c["height"]): c["leaf"] for c in V["cuts"]["table"]}
         cases = V["cuts"]["cut_hashes"]
+        fields = ("etna_start", "generation", "parent_height", "last_height")
         self.assertEqual(
-            [(int(c["generation"]), int(c["parent_height"]), int(c["last_height"])) for c in cases],
-            [(0, 0, 6), (0, 0, 12), (0, 0, 18), (1, 6, 18), (0, 0, 300)],
+            [tuple(int(c[k]) for k in fields) for c in cases],
+            [
+                (0, 0, 0, 6),
+                (0, 0, 0, 12),
+                (0, 0, 0, 18),
+                (0, 1, 6, 18),
+                (0, 0, 0, 300),
+                (1000, 0, 1000, 1012),
+            ],
         )
         for case in cases:
-            p, h = int(case["parent_height"]), int(case["last_height"])
+            p, h, start = (int(case[k]) for k in ("parent_height", "last_height", "etna_start"))
+            self.assertEqual((p - start) % K, 0)
+            self.assertEqual((h - start) % K, 0)
             self.assertEqual(len(case["leaves"]), (h - p) // K - 1)
             self.assertEqual(len(hexbytes(case["preimage"])), 160)
             self.assertEqual(
@@ -710,7 +809,20 @@ class VectorsTest(unittest.TestCase):
                 height = p + K * (index + 1)
                 if height in table:
                     self.assertEqual(leaf, table[height])
-        self.assertEqual(len(cases[-1]["leaves"]), 49)
+        self.assertEqual(len(by_name(cases, "g0_p0_h300")["leaves"]), 49)
+        # With S = 1000 the one grid point inside (1000, 1012) is 1006.
+        self.assertEqual(len(by_name(cases, "s1000_g0_p1000_h1012")["leaves"]), 1)
+
+    def test_grid_points_count_from_the_etna_start(self):
+        points = V["cuts"]["grid_points"]
+        for point in points:
+            start, height = int(point["etna_start"]), int(point["height"])
+            self.assertEqual(point["on_grid"], height >= start and (height - start) % K == 0)
+        on = {(int(p["etna_start"]), int(p["height"])) for p in points if p["on_grid"]}
+        off = {(int(p["etna_start"]), int(p["height"])) for p in points if not p["on_grid"]}
+        self.assertTrue({(1000, 1000), (1000, 1006), (1000, 1012)} <= on)
+        # On a grid counted from 0, but not from S = 1000.
+        self.assertTrue({(1000, 1002), (1000, 1008)} <= off)
 
     def test_chain_ids_are_48_ascii_bytes(self):
         domains = V["chain_domains"]
@@ -1027,6 +1139,7 @@ class VectorsTest(unittest.TestCase):
             "inbox_281": V["layout"]["inbox"]["packing"]["forced_inclusion_head_tail"],
             "inbox_282": V["layout"]["inbox"]["packing"]["forced_inclusion_config"],
             "inbox_285_word1": V["layout"]["inbox"]["packing"]["landing_word1"],
+            "inbox_293": V["layout"]["inbox"]["packing"]["rules_schedule"],
             "registry_checkpoint_word1": V["layout"]["registry"]["packing"]["checkpoint_word1"],
             "registry_entry_word3": V["layout"]["registry"]["packing"]["entry_word3"],
         }
@@ -1069,7 +1182,7 @@ class VectorsTest(unittest.TestCase):
 
     def test_layout_anchor_and_reserved_slots(self):
         inbox = V["layout"]["inbox"]
-        self.assertEqual(inbox["anchor_slots"], ["268", "270", "271", "281"])
+        self.assertEqual(inbox["anchor_slots"], ["268", "270", "271", "281", "293"])
         self.assertEqual(inbox["reserved_slots"], ["283", "286", "287", "288", "289", "291"])
         self.assertEqual(inbox["initialized_status"], "3")
         self.assertEqual(
@@ -1092,6 +1205,7 @@ class VectorsTest(unittest.TestCase):
                 "landings": "285",
                 "origins": "290",
                 "recovery_nonce": "292",
+                "rules_schedule": "293",
             },
         )
         used = set(inbox["slots"].values())
@@ -1151,7 +1265,8 @@ class VectorsTest(unittest.TestCase):
         ):
             self.assertEqual(registry[key]["namespace"], namespace)
             self.assertEqual(int(registry[key]["base"], 16) & 0xFF, 0)
-            self.assertEqual([s["bond_id"] for s in registry[key]["slots"]], ["0", "4095"])
+            # Bond ids are not slots: 4096 is a valid id beyond the last slot.
+            self.assertEqual([s["bond_id"] for s in registry[key]["slots"]], ["0", "4096"])
 
     def test_registry_entries_match_keys(self):
         reg = V["registry_entries"]
@@ -1168,12 +1283,30 @@ class VectorsTest(unittest.TestCase):
         self.assertEqual(roots[0]["entries_root"], uint(0))
         self.assertEqual(roots[1]["entries_root"], reg["leaves"][0])
 
-    def test_released_leaf_uses_zero_fields(self):
-        released = V["registry_entries"]["released"]
-        self.assertEqual(released["index"], "5")
-        self.assertEqual(len(hexbytes(released["leaf"])), 32)
-        self.assertNotEqual(released["leaf"], uint(0))
-        self.assertNotIn(released["leaf"], V["registry_entries"]["leaves"])
+    def test_empty_slot_leaf_uses_zero_fields(self):
+        empty = V["registry_entries"]["empty_slot"]
+        self.assertEqual(empty["slot"], "5")
+        self.assertEqual(len(hexbytes(empty["leaf"])), 32)
+        self.assertNotEqual(empty["leaf"], uint(0))
+        self.assertNotIn(empty["leaf"], V["registry_entries"]["leaves"])
+        self.assertEqual(V["registry_entries"]["roots"][6]["count"], "6")
+
+    def test_reg_leaf_is_indexed_by_slot_not_bond_id(self):
+        cases = V["registry_entries"]["bond_slots"]
+        self.assertEqual(
+            [(c["name"], int(c["bond_id"]), int(c["slot"])) for c in cases],
+            [("displacement", 4096, 7), ("withdrawal_reuse", 2, 0)],
+        )
+        key = V["keys"][5]
+        leaves = set(V["registry_entries"]["leaves"])
+        for case in cases:
+            self.assertLess(int(case["slot"]), 4096)
+            self.assertNotEqual(case["bond_id"], case["slot"])
+            self.assertEqual(case["entry"]["ck_prefix"], key["ck_prefix"])
+            self.assertEqual(case["entry"]["ck_x"], key["ck_x"])
+            self.assertNotEqual(case["leaf"], case["bond_id_leaf"])
+            self.assertNotIn(case["leaf"], leaves)
+        self.assertNotEqual(cases[0]["leaf"], cases[1]["leaf"])
 
     def test_keys_compress_to_33_bytes(self):
         keys = V["keys"]

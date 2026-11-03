@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerates testdata/etna_vectors/vectors.json (schema "4").
+"""Regenerates testdata/etna_vectors/vectors.json (schema "5").
 
 Run from the repository root with Foundry's `cast` and Go on PATH and the workspace's pnpm
 dependencies installed (the output is formatted with the repository's prettier):
@@ -56,6 +56,11 @@ DEPLOYMENT = {
     "inbox": "0x1111111111111111111111111111111111111111",
     "registry": "0x2222222222222222222222222222222222222222",
     "l2_block_gas_limit": 45_000_000,
+    # A new network: the Etna start S is block 0 and the switch immutables are zero (spec 10, 11).
+    "etna_start": 0,
+    "origin_writer": "0x" + "00" * 20,
+    "unzen_inbox": "0x" + "00" * 20,
+    "etna_fork_time": 0,
 }
 OTHER_INBOX = "0x3333333333333333333333333333333333333333"
 
@@ -545,10 +550,14 @@ def entries_root(leaves):
 
 
 def registry_entries(key_list):
-    """Entries 0..4 from keys a1..a5, their leaves, a released slot 5 and every prefix root.
+    """Entries in slots 0..4 from keys a1..a5, their leaves, empty slot 5, every prefix root, and
+    leaves of bonds whose id differs from their slot.
 
     Entry `i`: `i + 1` TAIKO, active from `10 + i`, exit at `1000 + i` for odd `i` (no exit,
-    `2^48 - 1`, for even `i`). Slot 5 is released: its entry has all-zero fields.
+    `2^48 - 1`, for even `i`). An empty slot's entry has all-zero fields. `regLeaf` is indexed by
+    the slot, never the bond id (appendix A): `bond_slots` pins bond 4096 displacing the bond in
+    slot 7 and bond 2 taking slot 0 after bond 0's withdrawal, with the leaf a bond-id index would
+    give as `bond_id_leaf`.
     """
     entries = []
     for i, key in enumerate(key_list[:5]):
@@ -569,16 +578,39 @@ def registry_entries(key_list):
         "active_from_l1": 0,
         "exit_effective_l1": 0,
     }
-    released = {"index": 5, "leaf": reg_leaf(5, zero_entry)}
-    all_leaves = leaves + [released["leaf"]]
+    empty_slot = {"slot": 5, "leaf": reg_leaf(5, zero_entry)}
+    all_leaves = leaves + [empty_slot["leaf"]]
+    key = key_list[5]
+    bond_entry = {
+        "ck_prefix": int(key["ck_prefix"]),
+        "ck_x": key["ck_x"],
+        "eff_stake": 6 * 10**18,
+        "active_from_l1": 15,
+        "exit_effective_l1": NO_EXIT,
+    }
+    bond_slots = []
+    for name, bond_id, slot in (("displacement", 4096, 7), ("withdrawal_reuse", 2, 0)):
+        leaf, bond_id_leaf = reg_leaf(slot, bond_entry), reg_leaf(bond_id, bond_entry)
+        assert leaf != bond_id_leaf
+        bond_slots.append(
+            {
+                "name": name,
+                "bond_id": bond_id,
+                "slot": slot,
+                "entry": bond_entry,
+                "leaf": leaf,
+                "bond_id_leaf": bond_id_leaf,
+            }
+        )
     return decimals(
         {
             "entries": entries,
             "leaves": leaves,
-            "released": released,
+            "empty_slot": empty_slot,
             "roots": [
                 {"count": n, "entries_root": entries_root(all_leaves[:n])} for n in range(7)
             ],
+            "bond_slots": bond_slots,
         }
     )
 
@@ -716,13 +748,33 @@ def cut_leaf(x):
     return _LEAVES[x]
 
 
+# name, Etna start S, generation, p, h. Grid points are the heights h >= S with h - S a multiple
+# of K (appendix A); the S = 1000 case puts its one leaf at 1006, not at 1002 or 1008.
 CUT_CASES = (
-    ("g0_p0_h6", 0, 0, 6),
-    ("g0_p0_h12", 0, 0, 12),
-    ("g0_p0_h18", 0, 0, 18),
-    ("g1_p6_h18", 1, 6, 18),
-    ("g0_p0_h300", 0, 0, 300),
+    ("g0_p0_h6", 0, 0, 0, 6),
+    ("g0_p0_h12", 0, 0, 0, 12),
+    ("g0_p0_h18", 0, 0, 0, 18),
+    ("g1_p6_h18", 0, 1, 6, 18),
+    ("g0_p0_h300", 0, 0, 0, 300),
+    ("s1000_g0_p1000_h1012", 1000, 0, 1000, 1012),
 )
+# (S, height) pairs whose grid membership is pinned: 1002 and 1008 lie on a grid counted from 0.
+GRID_POINTS = (
+    (0, 0),
+    (0, 6),
+    (0, 1),
+    (0, 10),
+    (1000, 1000),
+    (1000, 1006),
+    (1000, 1012),
+    (1000, 1002),
+    (1000, 1005),
+    (1000, 1008),
+)
+
+
+def on_grid(start, height):
+    return height >= start and (height - start) % K == 0
 
 
 def cuts():
@@ -731,7 +783,8 @@ def cuts():
         preimage, leaf = cut_leaf(x)
         table.append({**cut_at(x), "preimage": preimage, "leaf": leaf})
     cut_hashes = []
-    for name, generation, p, h in CUT_CASES:
+    for name, start, generation, p, h in CUT_CASES:
+        assert on_grid(start, p) and on_grid(start, h)
         leaves = [cut_leaf(x)[1] for x in range(p + K, h, K)]
         assert len(leaves) == (h - p) // K - 1
         leaves_hash = keccak(concat(*leaves))
@@ -746,6 +799,7 @@ def cuts():
         cut_hashes.append(
             {
                 "name": name,
+                "etna_start": start,
                 "generation": generation,
                 "parent_height": p,
                 "last_height": h,
@@ -755,7 +809,11 @@ def cuts():
                 "cut_hash": keccak(preimage),
             }
         )
-    return decimals({"table": table, "cut_hashes": cut_hashes})
+    grid_points = [
+        {"etna_start": start, "height": height, "on_grid": on_grid(start, height)}
+        for start, height in GRID_POINTS
+    ]
+    return decimals({"table": table, "cut_hashes": cut_hashes, "grid_points": grid_points})
 
 
 def cut_hash_for(cut_vectors, generation, p, h):
@@ -1848,6 +1906,12 @@ PACKED = {
         ("parent_height", "generation", "head"),
         (12, 1, 3),
     ),
+    "inbox_293": (
+        "inbox",
+        "rules_schedule",
+        ("active_rules", "next_rules", "rules_time", "stop_time", "stop_grid"),
+        (1, 2, 1_700_003_600, 1_700_007_200, 600),
+    ),
     "registry_checkpoint_word1": (
         "registry",
         "checkpoint_word1",
@@ -1928,9 +1992,10 @@ INBOX_SLOTS = {
     "landings": 285,
     "origins": 290,
     "recovery_nonce": 292,
+    "rules_schedule": 293,
 }
 RESERVED_SLOTS = (283, 286, 287, 288, 289, 291)
-ANCHOR_SLOTS = (268, 270, 271, 281)
+ANCHOR_SLOTS = (268, 270, 271, 281, 293)
 
 
 def mapping_slots(key, slot, count):
@@ -1956,7 +2021,7 @@ def layout():
             "base": ns_base,
             "slots": [
                 {"bond_id": bond_id, "slot": cast("index", "uint256", bond_id, ns_base)}
-                for bond_id in (0, 4095)
+                for bond_id in (0, 4096)
             ],
         }
 
@@ -2022,6 +2087,10 @@ def layout():
     return decimals({"inbox": inbox, "registry": registry})
 
 
+# The Etna start used by the start ABI and event vectors: S = 1000 with its hash and stateRoot.
+START = (1000, word(0x51), word(0x52))
+
+
 def governance_abi(key_list):
     """Executable appendix A governance calldata, independently checked by contract consumers."""
     entry_key = key_list[0]["entry_key"]
@@ -2029,8 +2098,11 @@ def governance_abi(key_list):
         "top_up": ("topUp(uint256,uint256)", [0, 100]),
         "activate_top_up": ("activateTopUp(uint256)", [0]),
         "forfeit": ("forfeit(uint256,bytes32,bytes32,uint256)", [0, entry_key, word(42), 1700000123]),
-        "recover": ("recover(uint48,uint256,uint256,uint256,(uint256,bytes32)[],uint256[])", [2, 12, 7, 1700000123, f"[(0,{entry_key})]", "[3,5]"]),
+        "recover": ("recover(uint48,uint256,uint256,uint256,(uint256,bytes32)[],uint256[],uint48)", [2, 12, 7, 1700000123, f"[(0,{entry_key})]", "[3,5]", 4]),
         "invalidate_recovery_nonce": ("invalidateRecoveryNonce(uint256)", [7]),
+        "schedule_rules": ("scheduleRules(uint48,uint48)", [2, 1_700_003_600]),
+        "schedule_stop": ("scheduleStop(uint48,uint48)", [1_700_007_200, 600]),
+        "set_origin": ("setOrigin(uint256,bytes32,bytes32)", list(START)),
     }
     return {
         name: {"signature": signature, "selector": cast("sig", signature), "calldata": cast("calldata", signature, *args)}
@@ -2049,13 +2121,73 @@ def forfeitures():
     return decimals(out)
 
 
+def view_abi(key_list):
+    """Calldata and return data of the appendix A registry lookups and the Inbox start view.
+
+    `(true, 0)` names bond 0 or slot 0 and `(false, 0)` is absence, so the flag, not a zero id,
+    tells them apart. `etnaStart()` returns (0, 0) before the start write.
+    """
+    found = "(bool,uint256)"
+    views = {
+        "bond_for_key": (
+            "bondForKey(address)",
+            [key_list[0]["ck_addr"]],
+            found,
+            (("bond_0", (True, 0)), ("unused_key", (False, 0))),
+        ),
+        "bond_in_slot": (
+            "bondInSlot(uint256)",
+            [7],
+            found,
+            (("bond_4096", (True, 4096)), ("empty_slot", (False, 0))),
+        ),
+        "slot_of_bond": (
+            "slotOfBond(uint256)",
+            [0],
+            found,
+            (("slot_0", (True, 0)), ("no_slot", (False, 0))),
+        ),
+        "etna_start": (
+            "etnaStart()",
+            [],
+            "(uint48,bytes32)",
+            (("written", START[:2]), ("not_written", (0, word(0)))),
+        ),
+    }
+
+    def arg(value):
+        return str(value).lower() if isinstance(value, bool) else value
+
+    return {
+        name: {
+            "signature": signature,
+            "selector": cast("sig", signature),
+            "calldata": cast("calldata", signature, *args),
+            "returns": returns,
+            "results": [
+                {
+                    "name": result,
+                    "values": decimals(list(values)),
+                    "data": abi_encode("f" + returns, *map(arg, values)),
+                }
+                for result, values in results
+            ],
+        }
+        for name, (signature, args, returns, results) in views.items()
+    }
+
+
 def governance_events(key_list):
     """Event topics and non-indexed ABI data, including explicit nonce invalidation."""
+    rules_schedule = int(pack(*PACKED["inbox_293"][2:]), 16)
     definitions = {
         "top_up_deposited": ("TopUpDeposited(uint256,uint256,uint48)", [word(0)], "f(uint256,uint48)", [100, 42]),
         "top_up_activated": ("TopUpActivated(uint256,uint256)", [word(0)], "f(uint256)", [100]),
         "forfeited": ("Forfeited(uint256,bytes32,bytes32,uint256,uint256)", [word(0), key_list[0]["entry_key"]], "f(bytes32,uint256,uint256)", [word(42), 100, 10]),
         "recovery_nonce_invalidated": ("RecoveryNonceInvalidated(uint256,uint256)", [], "f(uint256,uint256)", [7, 8]),
+        "bond_displaced": ("BondDisplaced(uint256,uint256,uint256)", [word(12), word(7), word(4096)], "f()", []),
+        "rules_schedule_updated": ("RulesScheduleUpdated(uint256)", [], "f(uint256)", [rules_schedule]),
+        "start_written": ("StartWritten(uint256,bytes32,bytes32)", [], "f(uint256,bytes32,bytes32)", list(START)),
     }
     return {
         name: {"signature": signature, "topic0": keccak(signature), "indexed_topics": topics, "data": abi_encode(encoding, *args)}
@@ -2072,7 +2204,7 @@ def main():
     statements = land_statements(config, cut_vectors)
     domains = chain_domains()
     vectors = {
-        "schema_version": "4",
+        "schema_version": "5",
         "deployment": deployment(),
         "keys": key_list,
         "key_decompression": key_decompression(key_list),
@@ -2094,6 +2226,7 @@ def main():
         "governance_abi": governance_abi(key_list),
         "forfeitures": forfeitures(),
         "governance_events": governance_events(key_list),
+        "view_abi": view_abi(key_list),
     }
     OUTPUT.write_text(json.dumps(vectors, indent=2) + "\n")
     subprocess.run(["pnpm", "exec", "prettier", "--write", str(OUTPUT)], cwd=ROOT, check=True)
