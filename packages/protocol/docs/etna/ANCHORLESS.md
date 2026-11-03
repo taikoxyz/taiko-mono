@@ -81,7 +81,7 @@ function _getStateRoot(uint64 blockId) internal view override returns (bytes32) 
 
 - **Proof format**: the existing single-hop `HopProof`. Its `blockId` is an L1 block number before the fork and an L2 timestamp from the fork on; the timestamp of the L2 block that verifies the proof decides which. `rootHash` must equal the resolved root, and the account and storage proofs are checked against the L1 `SignalService` as before. No caller-supplied L1 number, hash or root is trusted.
 - **No checkpoints after the fork**: from the fork on, proofs never read checkpoints. A signal proven once stays cached, and an empty proof for a cached signal keeps working after its EIP-4788 entry expires.
-- **L1 unchanged**: `SignalService` stays shared L1 and L2 code. Its base keeps the checkpoint path with the `uint48` bound.
+- **L1 checkpoint path unchanged**: `SignalService` stays shared L1 and L2 code. Its base keeps the checkpoint path with the `uint48` bound. The switch only adds the Unzen Inbox as a second L1 syncer ([SWITCH.md](SWITCH.md#3-the-dao-proposal)).
 - **Storage**: `SignalServiceL2` keeps checkpoints and cached signals in the `VERSION` storage namespace of the current `SignalService`; section 8 covers the migration.
 - **Fork time**: `etnaTimestamp` is an immutable of the `Anchor`. It must equal the clients' fork time, and it also gates `anchorV4` (section 8).
 
@@ -129,7 +129,7 @@ With EIP-2935 in place, the L2 matches Ethereum's post-Prague state: `BLOCKHASH`
 
 - **Activation**: Etna activates by L2 timestamp at `ETNA_FORK_TIME`. The Unzen Inbox accepts no proposal from shortly before that time, so every Unzen block is earlier and every Etna block is at or after it ([SWITCH.md](SWITCH.md)). Pre-fork blocks keep the anchor transaction and a zero `parentBeaconBlockRoot`; post-fork blocks have no anchor transaction, a non-zero `parentBeaconBlockRoot` and 13 bytes of `extraData`.
 - **`anchorV4` gate**: `Anchor.anchorV4` reverts from `etnaTimestamp` on. The gate is required. The ancestors-hash check excludes the parent, so in the first block without an anchor transaction an `anchorV4` sent as an ordinary transaction would still pass. The golden touch key is public, and also usable through an EIP-7702 delegation, so anyone could then save a forged checkpoint. A later clean-up upgrade can delete `anchorV4`, `blockHashes`, the block state and the ancestors hash, but must keep `withdraw` and `getL1StateRoot`.
-- **Checkpoints**: pre-fork checkpoints stay in storage, but proofs stop reading them at the fork. `SignalService.saveCheckpoint` and its authorized syncer stay for L1, where the Inbox keeps saving L2 → L1 checkpoints.
+- **Checkpoints**: pre-fork checkpoints stay in storage, but proofs stop reading them at the fork. `SignalService.saveCheckpoint` and its authorized syncers stay for L1, where the EtnaInbox saves L2 → L1 checkpoints above the Etna start and the Unzen Inbox's final proofs save those at or below it ([SWITCH.md](SWITCH.md#6-bridge-during-and-after-the-switch)).
 - **Storage namespace**: `SignalServiceL2` uses the `VERSION` storage namespace, while the L2 `SignalService` deployed before Etna uses flat mappings. The upgrade therefore leaves the old checkpoints and cached signals unreadable; legitimate signals are proven again against a newer root. Provers that read the parent checkpoint read both layouts: the versioned mapping at base `keccak256(abi.encode(VERSION, 254))` first, then the flat slot `keccak256(abi.encode(blockNumber, 254))` when the versioned one is empty.
 
 ### Upgrade order
