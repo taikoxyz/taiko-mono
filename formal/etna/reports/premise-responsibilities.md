@@ -1,5 +1,7 @@
 # Trust assumptions and implementation contracts
 
+> **Historical report.** This document describes the original model and the baseline identified below. Any use of “current” refers to that historical baseline. For the current `Etna.Design.Current` claims and evidence, read the [current scope](../README.md) and [latest alignment](latest-design-alignment.md).
+
 This inventory classifies the existing seven fields of `Etna.Statements.Premises` and the
 supplemental signing hypotheses. It changes no field, H1-H3 statement or protocol rule.
 A conditional theorem can use an implementation contract before a production refinement is

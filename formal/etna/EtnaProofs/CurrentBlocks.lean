@@ -208,6 +208,63 @@ theorem valid_advance_action {r : GenerationPolicy} {p : Header} {b : Block} (ok
   rw [carried] at stepped
   exact ActualQueue.opened_advance_action (ok.fields w carried) stepped
 
+/-- Before due, the consuming branch must be the witness's authenticated position-zero
+inclusion; an ineligible raw transaction or empty singleton cannot justify early service. -/
+theorem opened_early_inclusion {primitive : ActualQueue.Primitives} {p : Header}
+    {b : BlockValidity.Block} {w : Forced.Witness} {raw : Bytes} {first : Option Bytes}
+    {tail delay : Nat}
+    (fields : ActualQueue.PayloadFields primitive p b w raw first)
+    (accepted : Forced.step p.cursor tail b.header.anchor.timestamp delay (some w) b.singleton =
+      .accepted (p.cursor+1)) (early : b.header.anchor.timestamp < w.stored.timestamp+delay) :
+    Included primitive w.stored first := by
+  have included : w.firstHash = some w.stored.txHash ∧ w.firstCanonical = true ∧ w.firstBytes ≤ 8192 := by
+    unfold Forced.step at accepted
+    dsimp only at accepted
+    split at accepted
+    · simp_all
+    · split at accepted
+      · contradiction
+      · split at accepted
+        · assumption
+        · simp at accepted
+  rcases fields with ⟨_,_,_,hash,canonical,size,_⟩
+  cases first with
+  | none => simp [hash] at included
+  | some tx =>
+    refine ⟨tx,rfl,?_,?_,?_⟩
+    · simpa [hash] using included.1
+    · simpa [canonical] using included.2.1
+    · simpa [size] using included.2.2
+
+/-- Consuming a valid block exposes inclusion, or both the inclusive deadline and a
+hash-bound completed skip. The position-zero field is the complete payload's actual head. -/
+theorem valid_timely_action {r : GenerationPolicy} {p : Header} {b : Block} (ok : Valid r p b)
+    (next : b.header.cursor = p.cursor+1) :
+    ∃ w, b.body.forced = some w ∧ w.index = p.cursor ∧
+      TimelyByteAction (definition r b).bytes r.forcedDelay p b.body w.stored b.raw b.first := by
+  obtain ⟨w,carried,index,action⟩ := valid_advance_action ok next
+  refine ⟨w,carried,index,?_⟩
+  by_cases due : w.stored.timestamp+r.forcedDelay ≤ b.header.anchor.timestamp
+  · rcases action with included | skipped
+    · exact Or.inl included
+    · exact Or.inr ⟨due,skipped⟩
+  · have accepted := ok.forced
+    rw [next,carried] at accepted
+    exact Or.inl (opened_early_inclusion (ok.fields w carried) accepted (Nat.lt_of_not_ge due))
+
+/-- A nondue consumed entry occurs at the head of the authenticated complete execution
+payload. An occurrence later in the payload is never sufficient for this conclusion. -/
+theorem valid_early_position_zero {r : GenerationPolicy} {p : Header} {b : Block}
+    (ok : Valid r p b) (next : b.header.cursor = p.cursor+1) {w : Forced.Witness}
+    (carried : b.body.forced = some w)
+    (early : b.header.anchor.timestamp < w.stored.timestamp+r.forcedDelay) :
+    ∃ tx, b.transactions.head? = some tx ∧ (definition r b).bytes.hashBytes tx = w.stored.txHash ∧
+      (definition r b).bytes.canonical tx = true ∧ tx.length ≤ 8192 := by
+  have accepted := ok.forced
+  rw [next,carried] at accepted
+  obtain ⟨tx,first,hash,canonical,size⟩ := opened_early_inclusion (ok.fields w carried) accepted early
+  exact ⟨tx,ok.positionZero ▸ first,hash,canonical,size⟩
+
 theorem valid_due_action {r : GenerationPolicy} {p : Header} {b : Block} {w : Forced.Witness}
     (ok : Valid r p b) (pending : p.cursor < b.header.anchor.tail)
     (carried : b.body.forced = some w) (due : w.stored.timestamp+r.forcedDelay ≤ b.header.anchor.timestamp) :

@@ -1,4 +1,4 @@
-import EtnaProofs.CurrentCustody
+import EtnaProofs.CurrentCoherentCustody
 
 namespace Etna.CurrentCustodyRegression
 open Etna.Design Etna.Design.Current Protocol
@@ -37,7 +37,7 @@ def env : Environment where
   initialSigner := signer
   time := id
   stateRoot := Snapshot.number
-  blockHash := fun n => 1000+n
+  blockHash := fun _ n => 1000+n
   headerHash := BlockValidity.Header.elHash
   committeeHash := fun _ => 1
   configHash := fun _ => 0
@@ -68,9 +68,9 @@ theorem source_reachable : Trace env initial source :=
     (.call _ (.image 7 11 true))) (.call _ (.advance 2))
 
 def b1 : Block := ⟨⟨h1,100,none,domain,0,2,100,100,true,none,1,1,1,0,
-  [⟨domain,0,1,0,2,201,7⟩],none,.completedEmpty⟩,⟨0,0,0,0,0⟩,[],none⟩
+  [⟨domain,0,1,0,2,201,7⟩],none,.completedEmpty⟩,⟨0,0,0,0,0⟩,[],none,[]⟩
 def b2 : Block := ⟨⟨h2,101,some 201,domain,0,3,100,100,false,none,1,1,1,0,
-  [⟨domain,0,2,0,2,202,7⟩],none,.completedEmpty⟩,⟨0,0,0,0,0⟩,[],none⟩
+  [⟨domain,0,2,0,2,202,7⟩],none,.completedEmpty⟩,⟨0,0,0,0,0⟩,[],none,[]⟩
 def archive : List Header := [h1,h2]
 def pol := policy env source archive 1
 instance : DecidablePred pol.signature := fun _ => inferInstanceAs (Decidable True)
@@ -217,7 +217,7 @@ example : correctedStart.inbox.generation = 1 ∧ correctedStart.inbox.signals =
 
 def switchHeader : Header := ⟨2,502,502,602,0,3,⟨2,2,2,1,501,1,0⟩⟩
 def switchBlock : Block := ⟨⟨switchHeader,501,none,domain,1,3,100,100,true,none,1,1,2,0,
-  [⟨domain,1,2,0,2,602,7⟩],none,.completedEmpty⟩,⟨0,0,0,0,0⟩,[],none⟩
+  [⟨domain,1,2,0,2,602,7⟩],none,.completedEmpty⟩,⟨0,0,0,0,0⟩,[],none,[]⟩
 def switchArchive : List Header := [switchHeader]
 def switchPolicy := policy switchEnv switchSource switchArchive 2
 instance : DecidablePred switchPolicy.signature := fun _ => inferInstanceAs (Decidable True)
@@ -244,7 +244,7 @@ theorem switch_certifies : Certifies switchEnv switchSource (statement switchEnv
     subst b
     rfl
   · intro _ _
-    exact ⟨rfl,by decide⟩
+    rfl
 
 example : Nonempty (Suffix switchEnv switchSource switchLanding) :=
   accepted_suffix_from_certificate switch_accepted switch_certifies (by decide +kernel)
@@ -269,7 +269,7 @@ def switchSuffix : Suffix switchEnv switchSource switchLanding where
 
 theorem corrected_root_path : Custody.Path switchEnv switchInitial legacyHeader :=
   .unzen switch_reachable switch_accepted rfl (by decide) rfl True.intro
-    ⟨rfl,rfl,rfl,rfl,rfl,rfl,rfl⟩ rfl
+    ⟨rfl,rfl,rfl,rfl,rfl,rfl,rfl⟩ rfl ⟨⟨1,501,501⟩,by decide +kernel⟩
 
 theorem corrected_landing_path : Custody.Path switchEnv switchInitial switchHeader :=
   .landing switch_reachable switch_accepted switchSuffix corrected_root_path
@@ -280,5 +280,115 @@ example : Custody.SignalSafe switchEnv switchInitial ⟨2,502,502⟩ :=
 -- Neither the wrong archival start nor a start lacking the legacy proof can land.
 example : (Protocol.land switchEnv wrongStart switchLanding).isNone = true := by decide +kernel
 example : (Protocol.land switchEnv correctedStart switchLanding).isNone = true := by decide +kernel
+
+-- Rollback restores the snapshot saved with its checkpoint, never an arbitrary argument.
+theorem arbitrary_rollback_snapshot_rejected :
+    (rollback env afterFirst 7 source.inbox.checkpoint 999).isNone = true := by
+  decide +kernel
+
+def retainedHeader (cp : Checkpoint) : Header := if cp.height = 0 then genesis else h1
+
+theorem first_shared_chain : Custody.Coherent env initial afterFirst := by
+  refine Or.inr ⟨retainedHeader,rfl,?_,?_,?_⟩
+  · intro cp member
+    change cp ∈ [afterFirst.inbox.checkpoint,source.inbox.checkpoint] at member
+    rcases List.mem_cons.mp member with rfl | older
+    · exact ⟨⟨rfl,rfl⟩,rfl⟩
+    · have same : cp = source.inbox.checkpoint := by simpa using older
+      subst cp
+      exact ⟨⟨rfl,rfl⟩,rfl⟩
+  · refine .step afterFirst.inbox.checkpoint source.inbox.checkpoint [] rfl (by decide +kernel) ?_ ?_
+    · exact ⟨source,afterFirst,firstLanding,firstSuffix,source_reachable,first_accepted,rfl,rfl⟩
+    · exact .root _ ⟨⟨0,100,100⟩,rfl,rfl,rfl,rfl,Or.inl ⟨rfl,rfl⟩⟩
+  · intro signal member
+    change signal ∈ [⟨0,100,100⟩,⟨1,101,101⟩] at member
+    rcases List.mem_cons.mp member with rfl | later
+    · exact ⟨source.inbox.checkpoint,by decide +kernel,rfl,rfl,rfl⟩
+    · have same : signal = ⟨1,101,101⟩ := by simpa using later
+      subst signal
+      exact ⟨afterFirst.inbox.checkpoint,by decide +kernel,rfl,rfl,rfl⟩
+
+def restored : World := (rollback env afterFirst 7 source.inbox.checkpoint 0).getD afterFirst
+
+theorem rollback_accepted : rollback env afterFirst 7 source.inbox.checkpoint 0 = some restored := by
+  rfl
+
+theorem rollback_retains_one_shared_chain : Custody.Coherent env initial restored :=
+  Custody.rollback_coherent first_shared_chain rollback_accepted
+
+def staleSignalMutant : World :=
+  { restored with inbox := { restored.inbox with signals := afterFirst.inbox.signals } }
+
+theorem missing_signal_filter_breaks_shared_chain : ¬ Custody.Coherent env initial staleSignalMutant := by
+  intro held
+  have impossible := Custody.coherent_signal_bounded held
+    (show (⟨1,101,101⟩ : Signal) ∈ staleSignalMutant.inbox.signals from by decide +kernel)
+  change 1 ≤ 0 at impossible
+  omega
+
+-- Start reuse and correction after any landing remain rejected after a rollback to S.
+example : (setOrigin switchEnv correctedStart 8 2 502 502).isNone = true := by decide +kernel
+example : (correctStart switchEnv (landed switchSource switchLanding) 7 1 501 501).isNone = true := by
+  decide +kernel
+
+example : (rollback env afterFirst 7 source.inbox.checkpoint 0).isSome = true ∧
+    restored.inbox.snapshot = 0 ∧ restored.inbox.signals = [⟨0,100,100⟩] := by decide +kernel
+
+def recovery : RecoveryRequest := ⟨7,0,1,0,100,[],[],0,none⟩
+def recovered : World := (recover env afterFirst recovery).getD afterFirst
+
+example : (recover env afterFirst recovery).isSome = true ∧ recovered.inbox.generation = 1 ∧
+    recovered.inbox.checkpoint = afterFirst.inbox.checkpoint ∧
+    recovered.inbox.signals = afterFirst.inbox.signals := by decide +kernel
+
+-- Competing accepted batches share the same source. The later overlapping batch
+-- writes only its suffix, and rollback retains the earlier signal and exact snapshot.
+def afterOverlap := landed afterFirst landing
+example : (land env source firstLanding).isSome = true ∧ (land env source landing).isSome = true ∧
+    (land env afterFirst landing).isSome = true ∧
+    ((rollback env afterOverlap 7 afterFirst.inbox.checkpoint 0).map (fun w => w.inbox.signals)) =
+      some afterFirst.inbox.signals := by decide +kernel
+
+example : ((rollback env recovered 7 source.inbox.checkpoint 0).map
+    (fun w => (w.inbox.generation,w.inbox.checkpoint.height,w.inbox.snapshot))) = some (1,0,0) := by
+  decide +kernel
+
+def switchAfterLanding := landed switchSource switchLanding
+def switchRestored : World :=
+  (rollback switchEnv switchAfterLanding 7 switchSource.inbox.checkpoint 0).getD switchAfterLanding
+
+example : (rollback switchEnv switchAfterLanding 7 switchSource.inbox.checkpoint 0).isSome = true ∧
+    switchRestored.everLanded = true ∧ switchRestored.inbox.checkpoint.height = 1 ∧
+    switchRestored.legacySignals = switchAfterLanding.legacySignals ∧
+    (correctStart switchEnv switchRestored 7 2 502 502).isNone = true := by decide +kernel
+
+-- An earlier Unzen checkpoint alone is insufficient: every accepted proposal must
+-- have finalized, and rollback to S reopens this same fence.
+example : (land switchEnv { switchSource with unzen := { switchSource.unzen with nextProposal := 3 } }
+    switchLanding).isNone = true ∧
+    (land switchEnv { switchRestored with unzen := { switchRestored.unzen with nextProposal := 3 } }
+      switchLanding).isNone = true := by decide +kernel
+
+-- Executable semantic mutants demonstrate which lifecycle boundary each rejection
+-- protects. The signal guard is deliberately retained in the correction mutant.
+def setOriginWithoutOnce (w : World) (height hash root : Nat) : Option World :=
+  if w.initialized = true ∧ w.inbox.generation = 0 ∧
+      switchEnv.core.unzenInbox ≠ 0 ∧ switchEnv.core.forkTime ≤ switchEnv.time w.number ∧
+      0 < height ∧ height < limit48 ∧ hash ≠ 0 ∧ root ≠ 0 then
+    some (writeStart w height hash root w.number (switchEnv.time w.number) 0)
+  else none
+
+def correctWithoutEverLanded (w : World) (height hash root : Nat) : Option World :=
+  w.start.bind fun old =>
+    if switchEnv.core.unzenInbox ≠ 0 ∧ w.inbox.checkpoint.height = old.height ∧ w.inbox.signals = [] ∧
+        0 < height ∧ height < limit48 ∧ hash ≠ 0 ∧ root ≠ 0 ∧ w.inbox.generation+1 < limit48 then
+      some (writeStart w height hash root w.number (switchEnv.time w.number) (w.inbox.generation+1))
+    else none
+
+example : (setOrigin switchEnv wrongStart 8 2 502 502).isNone = true ∧
+    (setOriginWithoutOnce wrongStart 2 502 502).isSome = true := by decide +kernel
+
+example : (correctStart switchEnv switchRestored 7 2 502 502).isNone = true ∧
+    (correctWithoutEverLanded switchRestored 2 502 502).isSome = true := by decide +kernel
 
 end Etna.CurrentCustodyRegression

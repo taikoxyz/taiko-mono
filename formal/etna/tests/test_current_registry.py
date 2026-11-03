@@ -12,7 +12,11 @@ def layers():
     proofs = (ROOT / 'EtnaProofs/CurrentRegistry.lean').read_text()
     fixture = (ROOT / 'tests/CurrentRegistry.lean').read_text()
     model = model.replace('RegistryMachine', 'RegistryMachineMutation')
-    proofs = proofs.replace('import EtnaModel.CurrentRegistry', '').replace('RegistryMachine', 'RegistryMachineMutation')
+    extra_imports = '\n'.join(line for line in proofs.splitlines()
+                              if line.startswith('import ') and line != 'import EtnaModel.CurrentRegistry')
+    proofs = '\n'.join(line for line in proofs.splitlines() if not line.startswith('import '))
+    model = extra_imports + '\n' + model
+    proofs = proofs.replace('RegistryMachine', 'RegistryMachineMutation')
     fixture = fixture.replace('import EtnaProofs.CurrentRegistry', '').replace('RegistryMachine', 'RegistryMachineMutation')
     return model, proofs, fixture
 
@@ -52,8 +56,8 @@ MUTATIONS = [
      'Staking.doubleSign v.domain v.generation a b = true ∧ a.generation = v.generation'),
     ('signature', 's.verify key a sigA = true', 's.verify key a sigA = s.verify key a sigA'),
     ('issued_exclusion', 'decide (id < s.ledger.nextId) &&', 'true &&'),
-    ('forfeit_rate', 'Staking.forfeitPenalty b.balance s.config.forfeitBps',
-     'Staking.forfeitPenalty b.balance 10000'),
+    ('forfeit_rate', 'let penalty := Staking.forfeitPenalty b.balance s.config.forfeitBps',
+     'let penalty := Staking.forfeitPenalty b.balance 10000'),
     ('rollback_recheck', 'Staking.rollbackBySnapshot snapshot b.value', 'Staking.rollbackBySnapshot (snapshot+b.value.exitAt) b.value'),
 ]
 

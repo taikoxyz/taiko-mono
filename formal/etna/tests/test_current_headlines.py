@@ -31,6 +31,10 @@ PREMISE_USES = {
     'currentVoteAttribution': [H2],
     'currentClock': [H3],
     'currentCatalogueHash': [H3],
+    'currentReferenceBinding': [H1],
+    'currentRegistryGenesis': [H2],
+    'currentSignatureSound': [H2],
+    'currentSelfAllowance': [H2],
 }
 
 
@@ -99,16 +103,21 @@ class CurrentHeadlineTests(unittest.TestCase):
         result = self.checked('\n'.join(AUDIT.render_headline_check(CLAIMS, HEADLINES, PREMISES)))
         self.assert_success(result, silent=False)
         uses, rest = AUDIT.premise_uses(result.stdout + result.stderr)
+        self.assertEqual(len(uses), 13, 'current headline audit lost a primitive field')
         self.assertEqual(uses, PREMISE_USES)
         self.assertEqual(rest.strip(), '')
 
-    def test_h1_h3_and_shared_premises_have_no_honesty_dependency(self):
+    def test_only_cross_round_agreement_has_an_honesty_dependency(self):
         # Traverse definitions and structure constructors, so hiding the assumption
         # behind a renamed shared field also fails this contract.
         body = '''run_elab do
   for claim in [`Etna.Statements.Current.Premises,
       `Etna.Statements.Current.FundSafety,
-      `Etna.Statements.Current.ForcedInclusionIntegrity] do
+      `Etna.Statements.Current.ForcedInclusionIntegrity,
+      `Etna.Statements.Current.EconomicAccountability,
+      `Etna.Design.Current.Economics.Safety,
+      `Etna.Design.Current.Economics.HistoricalStakeFunded,
+      `Etna.Statements.Current.TemporalAuthority] do
     let reached ← EtnaAudit.dependencies [`Etna] [claim]
     for forbidden in [`Etna.Design.Current.ProtocolFinality.HonestExecutions,
         `Etna.Design.Locking.HonestRules, `Etna.Design.Locking.Minority] do
@@ -129,6 +138,37 @@ class CurrentHeadlineTests(unittest.TestCase):
         result = self.checked(mutation + changed)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('must not depend on', result.stdout + result.stderr)
+
+    def test_primitive_record_does_not_supply_headline_outcomes(self):
+        body = '''run_elab do
+  let reached ← EtnaAudit.dependencies [`Etna] [`Etna.Statements.Current.Premises]
+  for forbidden in [`Etna.Statements.Current.Claims,
+      `Etna.Statements.Current.FundSafety,
+      `Etna.Statements.Current.AccountableFinality,
+      `Etna.Statements.Current.ForcedInclusionIntegrity,
+      `Etna.Design.Current.Protocol.Custody.Coherent,
+      `Etna.Design.Current.Economics.Safety,
+      `Etna.Design.Current.Economics.HistoricalStakeFunded,
+      `Etna.Design.Current.Economics.EconomicallyAccountable,
+      `Etna.Design.Current.Economics.FundedFutureLiability,
+      `Etna.Design.Current.RegistryPayments.Backed,
+      `Etna.Design.Current.ProtocolFinality.CurrentAgreement,
+      `Etna.Design.Current.ProtocolFinality.PaidFutureLiability] do
+    if reached.contains forbidden then
+      throwError "primitive record supplies derived outcome {forbidden}"
+'''
+        self.assert_success(self.checked(body))
+        hidden = '''def Etna.CurrentHeadlineProbe.HiddenBacking : Prop :=
+  ∀ env registry engine, Etna.Statements.Current.Premises env registry engine →
+    ∀ w, Etna.Design.Current.Protocol.Trace env
+      (Etna.Design.Current.Protocol.empty env registry) w →
+      Etna.Design.Current.RegistryPayments.Backed env.token w.registry
+'''
+        changed = body.replace('[`Etna.Statements.Current.Premises]',
+                               '[`Etna.CurrentHeadlineProbe.HiddenBacking]')
+        result = self.checked(hidden + changed)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('primitive record supplies derived outcome', result.stdout + result.stderr)
 
     def test_complete_renderer_executes_current_exact_and_premise_checks(self):
         entries = contract_fixture()['theorems']
@@ -163,6 +203,25 @@ class CurrentHeadlineTests(unittest.TestCase):
         self.assertIn('read by no headline proof', output)
         self.assertIn('currentClock', output)
         self.assertIn('currentCatalogueHash', output)
+
+    def test_without_h2_raw_genesis_and_reverse_signature_are_unconsumed(self):
+        partial = {name: claim for name, claim in HEADLINES.items() if name != H2}
+        body = AUDIT.render_headline_check(CLAIMS, partial, PREMISES)[1]
+        result = self.checked(body)
+        self.assertNotEqual(result.returncode, 0)
+        output = ' '.join((result.stdout + result.stderr).split())
+        self.assertIn('read by no headline proof', output)
+        for field in ('currentRegistryGenesis', 'currentSignatureSound', 'currentSelfAllowance'):
+            self.assertIn(field, output)
+
+    def test_cross_record_headline_mapping_is_rejected(self):
+        crossed = dict(HEADLINES)
+        crossed[H1], crossed[H2] = crossed[H2], crossed[H1]
+        check = AUDIT.render_headline_check(CLAIMS, crossed, PREMISES)[0]
+        result = self.checked(check)
+        self.assertNotEqual(result.returncode, 0)
+        output = result.stdout + result.stderr
+        self.assertIn('must have exactly type Etna.Statements.Current.AccountableFinality, not', output)
 
     def test_weakened_current_conjunction_is_not_the_current_claim(self):
         proof = '''namespace Etna.CurrentHeadlineProbe

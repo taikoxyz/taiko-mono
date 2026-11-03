@@ -104,7 +104,7 @@ def updateBond (s : State) (id : Nat) (bond : Bond) : State :=
 and the old bond's exit; the old principal and key remain reachable by its lifetime id. -/
 def register (s : State) (key owner amount now : Nat) : Option (State × Nat) :=
   let slot := admissionSlot s
-  if s.keyId key = none ∧ key ≠ 0 ∧ 0 < s.minStake ∧ s.minStake ≤ amount ∧
+  if s.keyId key = none ∧ key ≠ 0 ∧ s.minStake ≤ amount ∧
       slotValue s slot < amount ∧ amount < limit256 ∧
       0 < s.activationDelay ∧ now+s.activationDelay < Staking.noExit then
     let displaced := match s.slots slot with

@@ -22,7 +22,7 @@
     "actual_queue": "Timestamped original transaction journals and authenticated final states of L1 blocks, preserving all same-block calls. Queue timing and tail coverage are derived, and current-origin binding excludes later recovery for exact storage transport. Ideal hash/canonical-parser/deterministic singleton interfaces bind raw and position-zero bytes for local unlanded blocks; real L1/storage/crypto/EL implementations, wall-clock liveness and launch resource acceptance remain external.",
     "reconstruction": "Public full EL header bytes, ordered EIP-2718 transaction bytes, canonical authenticated L1 records and complete starting state/code/configuration only. Fixed codecs/hashes/full-block EL semantics (including EIP-4788/2935 effects), truthful guest-rules domain, original-blob availability and finite compared-header collision exclusion are explicit external contracts. Actual accepted cut binding plus saved parent links derives overlap identity; no prefix agreement or reconstruction-success assumption. Ordinary recovery only; exceptional rollback needs an authenticated restart. No crypto/codec/EVM implementation, private Comet replay, arbitrary RPC snapshot, DA liveness or launch-resource claim.",
     "upgrade": "Conditional exact-plan/current-finalized-checkpoint authority, atomic switching transaction and original session/EL/guest/verifier adapters only. No production activation authority is constructed. Arbitrary previous height schedule and explicit boundaries, retained replay materials/jobs/HRS, common-grid code-K switch with unchanged deployment parameters. Single represented current-generation log and produced-height evidence are not global signer coordination. Historical cached retries use the original encoder/session; rule metadata is not a native vote field. Original fixed-version Trace remains separate.",
-    "current": "Current closed decoded transaction model and exact conditional H1-H3 composition: full-header custody, within-generation own-archive finality with actual paid historical-evidence liability, and complete-journal fixed-hash FIFO service. Explicit backend, decoded header/L1/Unzen, token/signature, EL/Comet codec and honest-engine refinements remain external; paid slashes require available standard-token balance. No production conformance, arbitrary upgraded-code safety, image availability, complete stock-store importer, global primitive-premise realization or launch/liveness acceptance is claimed. Original machine/theorems cite exact archived authorities and do not count toward current coverage."
+    "current": "Conditional current decoded safety over a closed transaction machine: one coherent retained signal chain, actual issued/funded historical stake, derived reserve and evidence-window retention, reverse signature soundness, closed-cut temporal authority, due-qualified FIFO and complete decoded payload positions. The 13 primitive/deployment premises have an actual accepting registered-stake/FI witness with globally injective snapshot commitments; before-reference forced ETH cannot replay a fixed proof. This is a restricted new-network interpreter witness, not production EL/crypto/Comet/store refinement or switching-margin/availability/launch acceptance. Upstream Unzen pre-fork derivability is an explicit separate cutoff refinement, not an Etna guest check. Historical results remain separately pinned."
   },
   "design_pending": [
     "EN-fac3b57a8c83d321",
@@ -770,11 +770,11 @@
       "id": "CURRENT-H1",
       "status": "proved",
       "scope": "conditional decoded specification property only",
-      "description": "Every recognized Etna signal and accepted landing edge has full-header custody from accepted genesis or the authenticated Unzen first fence, across all actual calls, correction, overlap, recovery and rollback.",
+      "description": "All retained Etna signals share one retained checkpoint chain/header map, with exact Unzen first-fence evidence; lifecycle freeze, legacy authentication, reference identity and trusted snapshot provenance are explicit.",
       "assumptions": ["current"],
       "historical": false,
       "evidence": {
-        "LIVE_EN-806e818366c6b783": [
+        "LIVE_EN-a563a899ed3d4c6b": [
           "Etna.Design.Current.Headlines.fund_safety"
         ]
       }
@@ -783,11 +783,11 @@
       "id": "CURRENT-H2",
       "status": "proved",
       "scope": "conditional decoded specification property only",
-      "description": "Same-round conflicting commits imply >1/3 accountable power and persistent actual paid slash transactions (standard token and available balance); honest stock-Comet rounds imply full overlapping-header agreement across own derived archives.",
+      "description": "Conflicting same-round commits expose real issued identities and funded remaining liabilities without future-solvency assumptions; historical principal provenance, no false slash, protected evidence windows and closed-cut temporal authority are derived. Honest-round agreement remains conditional; expired committees do not retain their original escrow forever.",
       "assumptions": ["current"],
       "historical": false,
       "evidence": {
-        "LIVE_EN-c36e4d0d76a728b6": [
+        "LIVE_EN-b82d63337df901b4": [
           "Etna.Design.Current.Headlines.accountable_finality"
         ]
       }
@@ -796,11 +796,11 @@
       "id": "CURRENT-H3",
       "status": "proved",
       "scope": "conditional decoded specification property only",
-      "description": "Actual complete-journal FIFO service with fixed transaction hashes, canonical position-zero inclusion or legal completed skip, inclusive due/late bounds, no nonlanding head advance and exact recovery clears.",
+      "description": "Actual closed-journal FIFO service has due-qualified skips, fixed-hash decoded payload position zero, no early skip, head bounds, exact pending recovery guards, supported-image batches, admission/refund accounting and closed importer readiness/range.",
       "assumptions": ["current"],
       "historical": false,
       "evidence": {
-        "LIVE_EN-9e8e4c90054257e9": [
+        "LIVE_EN-7fdd2e21c46727ee": [
           "Etna.Design.Current.Headlines.forced_inclusion_integrity"
         ]
       }

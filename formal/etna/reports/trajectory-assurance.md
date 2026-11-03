@@ -1,5 +1,7 @@
 # Trajectory principal conservation and signing/exit assurance
 
+> **Historical report.** This document describes the original model and the baseline identified below. Any use of “current” refers to that historical baseline. For the current `Etna.Design.Current` claims and evidence, read the [current scope](../README.md) and [latest alignment](latest-design-alignment.md).
+
 Authority: SPEC.md at `b7ca989c8e343073daa628771102bdee7fe7101b` (#22317; re-pinned from `39ebefbf33a2702b750e0fb0db7d2a40ff8e8480`, see [source alignment](source-alignment.md)) and ACCEPTANCE.md at `39ebefbf33a2702b750e0fb0db7d2a40ff8e8480` (#22303). This extension adds supplemental results to #22292 without changing the seven headline premises, H1–H3, production implementations or the specification.
 
 ## Principal conservation over every original trace

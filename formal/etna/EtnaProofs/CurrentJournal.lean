@@ -1,6 +1,7 @@
 import EtnaModel.CurrentJournal
 import EtnaProofs.CurrentBlocks
 import EtnaProofs.CurrentSettlement
+import EtnaProofs.CurrentReference
 
 namespace Etna.Design.Current.Journal
 open Protocol
@@ -1258,9 +1259,10 @@ theorem trace_frontier_record {env : Environment} {registry : RegistryMachine.St
   exact ⟨shape.member started,shape.records _ (shape.member started),shape.cursor started⟩
 
 /-- Primitive backend soundness yields the concrete accepted statement certificate. -/
-theorem accepted_certificate {env : Environment} {initial w t : World} {a : Landing}
+theorem accepted_image_certificate {env : Environment} {initial w t : World} {a : Landing}
     (soundness : VerifierSound env initial) (reach : Protocol.Trace env initial w)
-    (ok : Protocol.land env w a = some t) : Certifies env w (statement env w a) := by
+    (ok : Protocol.land env w a = some t) :
+    ∃ proof ∈ a.proofs, ImageCertifies env w proof.image (statement env w a) := by
   obtain ⟨sound,cover,verify⟩ := soundness
   have accepted := (Protocol.land_success ok).1.proofs
   obtain ⟨item,member,good⟩ := cover _ accepted
@@ -1274,7 +1276,13 @@ theorem accepted_certificate {env : Environment} {initial w t : World} {a : Land
   have bytes : env.verify w.verifier proof.backend proof.image proof.bytes (statement env w a) = true := by
     simp only [Bool.and_eq_true] at verified
     exact verified.2
-  exact verify w reach a t proof ok present good bytes
+  exact ⟨proof,present,verify w reach a t proof ok present good bytes⟩
+
+theorem accepted_certificate {env : Environment} {initial w t : World} {a : Landing}
+    (soundness : VerifierSound env initial) (reach : Protocol.Trace env initial w)
+    (ok : Protocol.land env w a = some t) : Certifies env w (statement env w a) := by
+  obtain ⟨proof,_,cert⟩ := accepted_image_certificate soundness reach ok
+  exact image_certificate_forget cert
 
 /-- The certified execution-time suffix consumes precisely [oldHead,newHead), in FIFO
 order, and each consuming edge acts on the actual queue entry and decoded payload bytes. -/

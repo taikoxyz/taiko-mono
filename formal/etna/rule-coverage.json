@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "spec": {
     "path": "packages/protocol/docs/etna/SPEC.md",
     "revision": "2026-11-03",
@@ -12,10 +12,511 @@
     "commit": "1135c9b24fd03f50cb48eab250879435fd54f528",
     "sha256": "08b01228fec0408fc4cab74ca46188028da59735faa8dd6c6e434f843767a5ab"
   },
-  "via": {},
-  "narrow": {
-    "LIVE_EN-f3360a370c6978e1": ["START-10.1-5c"],
-    "LIVE_EN-4eeb66cec75465ce": ["STAKE-4.1-13a"],
-    "LIVE_EN-ad883390e144f5e5": ["START-10.1-6a"]
+  "evidence": {
+    "CONS-3.4-2": {
+      "theorems": ["Etna.Design.Current.Blocks.chain_parent_hashes"],
+      "reason": "Valid decoded chain EL parentHash fields link to the predecessor EL hash; no Comet LastBlockID, cut coverage or raw decoder conclusion."
+    },
+    "DATA-5.4-4": {
+      "theorems": [
+        "Etna.Design.Current.QueueIntegrity.import_complete_range",
+        "Etna.Design.Current.QueueIntegrity.node_import_closed"
+      ],
+      "reason": "Numeric original-header interval includes every height from origin through checkpoint exactly once; actual EL header contents, indexes and stock stores are deferred."
+    },
+    "DATA-5.4-5": {
+      "theorems": [
+        "Etna.Design.Current.Import.authenticated_conflict_halts",
+        "Etna.Design.Current.Import.invalid_data_rejected",
+        "Etna.Design.Current.Import.publish_boundary"
+      ],
+      "reason": "Authenticated imported envelope disagreement halts; decoded candidate inspection only, no alert or store implementation proof."
+    },
+    "DATA-5.4-7": {
+      "theorems": [
+        "Etna.Design.Current.Import.publish_boundary",
+        "Etna.Design.Current.QueueIntegrity.node_import_closed"
+      ],
+      "reason": "Successful decoded publication requires the durable flag, preserves the signer and grants no trust; actual store staging remains external."
+    },
+    "FI-7.1-1": {
+      "theorems": [
+        "Etna.Design.Current.QueueIntegrity.admission_exact",
+        "Etna.Design.Current.QueueIntegrity.forced_admission_accounting"
+      ],
+      "reason": "Exact successful decoded fee, refund, balance/revenue, cursor and appended hash/time/block accounting; no event encoder proof."
+    },
+    "FI-7.1-2": {
+      "theorems": ["Etna.Design.Current.QueueIntegrity.admission_exact"],
+      "reason": "Exact successful decoded fee, refund, balance/revenue, cursor and appended hash/time/block accounting; no event encoder proof."
+    },
+    "FI-7.1-4": {
+      "theorems": [
+        "Etna.Design.Current.QueueIntegrity.admission_exact",
+        "Etna.Design.Current.QueueIntegrity.forced_admission_accounting"
+      ],
+      "reason": "Exact successful decoded fee, refund, balance/revenue, cursor and appended hash/time/block accounting; no event encoder proof."
+    },
+    "FI-7.1-7": {
+      "theorems": [
+        "Etna.Design.Current.QueueIntegrity.admission_failure_atomic",
+        "Etna.Design.Current.QueueIntegrity.refund_failure_rejected",
+        "Etna.Design.Current.QueueIntegrity.underpayment_rejected"
+      ],
+      "reason": "Underpayment or failed refund reverts all admission state, including fee revenue and queue entries."
+    },
+    "FI-7.2-1": {
+      "theorems": [
+        "Etna.Design.Current.Blocks.chain_consumed_indices",
+        "Etna.Design.Current.Blocks.chain_cursor_bounds",
+        "Etna.Design.Current.Blocks.chain_cursor_steps",
+        "Etna.Design.Current.Blocks.chain_cursor_walk",
+        "Etna.Design.Current.Blocks.consuming_pair_action",
+        "Etna.Design.Current.Blocks.valid_cursor_step",
+        "Etna.Design.Current.Journal.chain_consumes_actual",
+        "Etna.Design.Current.Journal.head_advance_is_landing",
+        "Etna.Design.Current.Journal.landing_service",
+        "Etna.Design.Current.Journal.landing_service_from_certificate",
+        "Etna.Design.Current.Journal.nonlanding_never_advances",
+        "Etna.Design.Current.Journal.trace_frontier_record",
+        "Etna.Design.Current.Journal.trace_record_shape",
+        "Etna.Design.Current.QueueIntegrity.landing_service",
+        "Etna.Design.Current.QueueIntegrity.trace_head_bounds"
+      ],
+      "reason": "Actual valid-chain cursor increments are zero or one and consumed indices are exactly the FIFO interval."
+    },
+    "FI-7.2-10": {
+      "theorems": [
+        "Etna.Design.Current.Blocks.valid_due_action",
+        "Etna.Design.Current.Headlines.forced_inclusion_integrity",
+        "Etna.Design.Current.Journal.local_due_action",
+        "Etna.Design.Current.QueueIntegrity.landing_service"
+      ],
+      "reason": "Due valid blocks include or legally skip under the selected deterministic interpreter."
+    },
+    "FI-7.2-11": {
+      "theorems": [
+        "Etna.Design.Current.Blocks.valid_advance_action",
+        "Etna.Design.Current.Journal.chain_consumes_actual",
+        "Etna.Design.Current.Journal.landing_service",
+        "Etna.Design.Current.Journal.landing_service_from_certificate"
+      ],
+      "reason": "Every consumed decoded edge is bound to actual raw/first bytes under the selected interpreter; no parser implementation proof."
+    },
+    "FI-7.2-13": {
+      "theorems": [
+        "Etna.Design.Current.Journal.nonrecovery_preserves_existing",
+        "Etna.Design.Current.Journal.recovery_preserves_untargeted",
+        "Etna.Design.Current.Journal.recovery_queue_exact"
+      ],
+      "reason": "Only listed recovery entries change their hash; metadata and other entries are retained."
+    },
+    "FI-7.2-2": {
+      "theorems": [
+        "Etna.Design.Current.Blocks.pending_witness",
+        "Etna.Design.Current.Journal.actual_anchor_coverage",
+        "Etna.Design.Current.Journal.trace_history_persistent",
+        "Etna.Design.Current.Journal.trace_invariant"
+      ],
+      "reason": "Accepted pending steps carry the current-index witness and consume it once due; exact Forced.step contract."
+    },
+    "FI-7.2-3": {
+      "theorems": ["Etna.Design.Current.Blocks.pending_witness"],
+      "reason": "Accepted pending steps carry the current-index witness and consume it once due; exact Forced.step contract."
+    },
+    "FI-7.2-5": {
+      "theorems": [
+        "Etna.Design.Current.Blocks.opened_early_inclusion",
+        "Etna.Design.Current.Blocks.valid_early_position_zero",
+        "Etna.Design.Current.Blocks.valid_timely_action",
+        "Etna.Design.Current.QueueIntegrity.landing_service",
+        "Etna.Design.Current.QueueIntegrity.no_early_skip"
+      ],
+      "reason": "A consumed nondue edge authenticates the complete payload head; skips require the inclusive due bound. Raw eligibility/EL refinement is external."
+    },
+    "FI-7.2-6": {
+      "theorems": [
+        "Etna.Design.Current.Blocks.opened_early_inclusion",
+        "Etna.Design.Current.Blocks.valid_early_position_zero",
+        "Etna.Design.Current.Blocks.valid_timely_action",
+        "Etna.Design.Current.QueueIntegrity.landing_service",
+        "Etna.Design.Current.QueueIntegrity.no_early_skip"
+      ],
+      "reason": "A consumed nondue edge authenticates the complete payload head; skips require the inclusive due bound. Raw eligibility/EL refinement is external."
+    },
+    "FI-7.3-1": {
+      "theorems": ["Etna.Design.Current.Journal.local_due_action"],
+      "reason": "Actual current due queue-head bytes are included or legally skipped under the selected interpreter."
+    },
+    "FI-7.3-2": {
+      "theorems": [
+        "Etna.Design.Current.Blocks.valid_late_action",
+        "Etna.Design.Current.Journal.local_late_action"
+      ],
+      "reason": "The inclusive block-time age bound implies due service under the selected interpreter."
+    },
+    "FORF-4.4-9": {
+      "theorems": [
+        "Etna.Design.Current.RegistryPayments.forfeit_payment_exact"
+      ],
+      "reason": "The decoded forfeiture intent sends the entire penalty to slashSink with no bounty; principal deduction order is not this conclusion."
+    },
+    "LAND-6.1-3": {
+      "theorems": [
+        "Etna.Design.Current.Protocol.Custody.accepted_landing_path",
+        "Etna.Design.Current.Protocol.Custody.certified_landing",
+        "Etna.Design.Current.Protocol.Custody.funds_authorized",
+        "Etna.Design.Current.Protocol.Custody.landing_edge_authorized",
+        "Etna.Design.Current.Protocol.Custody.landing_invariant",
+        "Etna.Design.Current.Protocol.Custody.suffix_terminal_bound",
+        "Etna.Design.Current.Protocol.Custody.trace_coherent",
+        "Etna.Design.Current.Protocol.accepted_suffix_from_certificate"
+      ],
+      "reason": "Accepted current signals/landing edges have decoded certified custody paths and bound terminal headers; no global bridge implementation proof."
+    },
+    "LAND-6.1-5": {
+      "theorems": ["Etna.Design.Current.Start.grid_offset"],
+      "reason": "Decoded grid acceptance uses the Etna-start offset; exact guard projection only."
+    },
+    "LAND-6.1-6": {
+      "theorems": ["Etna.Design.Current.Protocol.land_success"],
+      "reason": "Accepted decoded landing checks and resulting atomic state value; exact transcription, not Solidity order proof."
+    },
+    "LAND-6.1-8a": {
+      "theorems": [
+        "Etna.Design.Current.Protocol.Custody.path_rooted",
+        "Etna.Design.Current.Protocol.Custody.pending_parent_fence",
+        "Etna.Design.Current.Start.first_landing_fenced"
+      ],
+      "reason": "The decoded first switching landing requires the Unzen checkpoint fence."
+    },
+    "LAND-6.1-9": {
+      "theorems": [
+        "Etna.Design.Current.Headlines.fund_safety",
+        "Etna.Design.Current.Protocol.Custody.landing_snapshot_saved",
+        "Etna.Design.Current.Protocol.Custody.trace_coherent",
+        "Etna.Design.Current.Protocol.Custody.trace_invariant",
+        "Etna.Design.Current.Protocol.land_success"
+      ],
+      "reason": "Conditional retained-signal/record custody through actual checkpoint writers and closed traces; no withdrawal mechanism, delay or veto conclusion."
+    },
+    "PROOF-6.2-10": {
+      "theorems": [
+        "Etna.Design.Current.Protocol.accepted_suffix_from_certificate"
+      ],
+      "reason": "An accepted certified complete batch yields the actual execution-time suffix with its retained frontier binding, including p<c."
+    },
+    "PROOF-6.2-12": {
+      "theorems": [
+        "Etna.Design.Current.Finality.active_committee_prefix",
+        "Etna.Design.Current.Finality.active_cutoff",
+        "Etna.Design.Current.Finality.build_success",
+        "Etna.Design.Current.Finality.derive_generation_zero_target",
+        "Etna.Design.Current.Finality.derive_normal_preorigin_cutoff",
+        "Etna.Design.Current.Finality.derive_preorigin_anchor",
+        "Etna.Design.Current.Finality.registry_from_raw_prefix"
+      ],
+      "reason": "Exact decoded committee cutoff/provenance derivation; raw origin/header/snapshot adapters remain external."
+    },
+    "PROOF-6.2-15": {
+      "theorems": ["Etna.Design.Current.Blocks.valid_parent_links"],
+      "reason": "Decoded parent height, EL parentHash and current-generation LastBlockID boundary links only."
+    },
+    "PROOF-6.2-24": {
+      "theorems": [
+        "Etna.Design.Current.Blocks.chain_consumed_indices",
+        "Etna.Design.Current.Blocks.chain_cursor_bounds",
+        "Etna.Design.Current.Blocks.chain_cursor_steps",
+        "Etna.Design.Current.Blocks.chain_cursor_walk",
+        "Etna.Design.Current.Blocks.consuming_pair_action",
+        "Etna.Design.Current.Blocks.valid_cursor_step",
+        "Etna.Design.Current.Journal.chain_consumes_actual",
+        "Etna.Design.Current.Journal.landing_service",
+        "Etna.Design.Current.Journal.landing_service_from_certificate",
+        "Etna.Design.Current.QueueIntegrity.landing_service"
+      ],
+      "reason": "Actual valid-chain cursor increments are zero or one and consumed indices are exactly the FIFO interval."
+    },
+    "PROOF-6.2-39": {
+      "theorems": ["Etna.Design.Current.Blocks.chain_height"],
+      "reason": "Valid decoded chains have exactly consecutive heights from the parent through the terminal height; this is the height-continuity fragment of cut coverage, not full cuts authentication."
+    },
+    "PROOF-6.2-42": {
+      "theorems": ["Etna.Design.Current.Blocks.statement_endpoints"],
+      "reason": "Exact decoded terminal EL hash and FI cursor equal statement fields; no authenticated-origin hashes or first-cut cursor conclusion."
+    },
+    "PROOF-6.2-45a": {
+      "theorems": [
+        "Etna.Design.Current.Blocks.unknown_rules_refused",
+        "Etna.Design.Current.Journal.accepted_image_certificate"
+      ],
+      "reason": "A missing selected interpreter cannot authorize a valid decoded block."
+    },
+    "PROOF-6.2-46a": {
+      "theorems": [
+        "Etna.Design.Current.Protocol.Custody.path_rooted",
+        "Etna.Design.Current.Protocol.Custody.pending_parent_fence"
+      ],
+      "reason": "Paths start at accepted genesis or the exact Unzen first fence; guest implementation-check adapter is distinct from off-chain origin duties."
+    },
+    "PROOF-6.2-47": {
+      "theorems": ["Etna.Design.Current.Blocks.later_anchor_rules"],
+      "reason": "Later decoded blocks inherit all anchor fields when the anchor number is unchanged; no raw header/MPT proof refinement."
+    },
+    "RECOV-8-27": {
+      "theorems": [
+        "Etna.Design.Current.Protocol.Custody.coherent_signal_bounded",
+        "Etna.Design.Current.Protocol.Custody.rollback_coherent",
+        "Etna.Design.Current.Protocol.Custody.rollback_snapshot_provenance"
+      ],
+      "reason": "Rollback truncates retained signal/custody associations at the trusted checkpoint; no governance mechanism proof."
+    },
+    "RECOV-8-38": {
+      "theorems": [
+        "Etna.Design.Current.QueueIntegrity.recovery_pending_guards"
+      ],
+      "reason": "Successful recovery has a strictly sorted FI clear list entirely within the pending execution-time queue interval; no nonce/generation conclusion."
+    },
+    "RECOV-8-43": {
+      "theorems": [
+        "Etna.Design.Current.QueueIntegrity.recovery_pending_guards"
+      ],
+      "reason": "Successful recovery has a strictly sorted FI clear list entirely within the pending execution-time queue interval; no nonce/generation conclusion."
+    },
+    "RECOV-8-47a": {
+      "theorems": ["Etna.Design.Current.Rules.recover_clears_stop"],
+      "reason": "Successful decoded recovery clears stopTime and stopGrid; not a fee/refund or complete rules-installation proof."
+    },
+    "RECOV-8.4-12": {
+      "theorems": ["Etna.Design.Current.Blocks.first_anchor_witness"],
+      "reason": "The generation first block carries its own anchor witness; freshness/authentication remain the other validity fields."
+    },
+    "RECOV-8.4-4": {
+      "theorems": [
+        "Etna.Design.Current.Protocol.closed_started_metadata",
+        "Etna.Design.Current.Protocol.trace_started_metadata"
+      ],
+      "reason": "A complete closed, already-started snapshot in the current generation has the same start and active raw origin as the current World. Only active-origin immutability within that generation is protocol evidence."
+    },
+    "STAKE-4.1-13a": {
+      "theorems": [
+        "Etna.Design.Current.Economics.committee_issued",
+        "Etna.Design.Current.Economics.historical_stake_funded",
+        "Etna.Design.Current.Registry.displacement_keeps_old_bond",
+        "Etna.Design.Current.Registry.modify_preserves_identity_counter",
+        "Etna.Design.Current.Registry.registration_issues_fresh",
+        "Etna.Design.Current.Registry.registration_retains_keys",
+        "Etna.Design.Current.Registry.trace_issuance_monotone",
+        "Etna.Design.Current.Registry.trace_keys_permanent",
+        "Etna.Design.Current.Registry.unissued_modify_rejected",
+        "Etna.Design.Current.Registry.unissued_withdraw_rejected",
+        "Etna.Design.Current.Registry.withdrawal_preserves_counter",
+        "Etna.Design.Current.RegistryMachine.execute_history_issued",
+        "Etna.Design.Current.RegistryMachine.trace_history_issued",
+        "Etna.Design.Current.RegistryMachine.trace_stable",
+        "Etna.Design.Current.RegistryMachine.used_key_rejected"
+      ],
+      "reason": "Permanent issued bond/key identity and displacement preservation only; no 4096-slot admission algorithm verification."
+    },
+    "STAKE-4.1-14b": {
+      "theorems": [
+        "Etna.Design.Current.Economics.closed_registry_history",
+        "Etna.Design.Current.Economics.historical_origin",
+        "Etna.Design.Current.Economics.historical_stake_funded",
+        "Etna.Design.Current.Economics.protocol_closed_history",
+        "Etna.Design.Current.Economics.temporal_committee_agreement",
+        "Etna.Design.Current.RegistryMachine.execute_closed_history",
+        "Etna.Design.Current.RegistryMachine.finish_closed_history",
+        "Etna.Design.Current.RegistryMachine.record_closed_history",
+        "Etna.Design.Current.RegistryMachine.trace_closed_history"
+      ],
+      "reason": "Closed earlier election history and its derived committee authority remain unchanged across actual later calls."
+    },
+    "STAKE-4.1-16": {
+      "theorems": [
+        "Etna.Design.Current.RegistryPayments.deposit_payment_exact",
+        "Etna.Design.Current.RegistryPayments.failure_atomic",
+        "Etna.Design.Current.RegistryPayments.principal_and_transfers_commit",
+        "Etna.Design.Current.RegistryPayments.transaction_conserves_principal",
+        "Etna.Design.Current.RegistryPayments.transfer_failure_reverts",
+        "Etna.Design.Current.RegistryPayments.tx_success_details",
+        "Etna.Design.Current.RegistryPayments.tx_success_projects"
+      ],
+      "reason": "The actual deposit payment intent transfers the top-up amount from owner to registry; guard checking is separate."
+    },
+    "STAKE-4.1-19": {
+      "theorems": [
+        "Etna.Design.Current.Economics.closed_registry_history",
+        "Etna.Design.Current.Economics.historical_origin",
+        "Etna.Design.Current.Economics.historical_stake_funded",
+        "Etna.Design.Current.Economics.protocol_closed_history",
+        "Etna.Design.Current.Economics.temporal_committee_agreement",
+        "Etna.Design.Current.RegistryMachine.execute_closed_history",
+        "Etna.Design.Current.RegistryMachine.finish_closed_history",
+        "Etna.Design.Current.RegistryMachine.record_closed_history",
+        "Etna.Design.Current.RegistryMachine.trace_closed_history"
+      ],
+      "reason": "Closed earlier election history and its derived committee authority remain unchanged across actual later calls."
+    },
+    "STAKE-4.1-21": {
+      "theorems": [
+        "Etna.Design.Current.Economics.economically_accountable",
+        "Etna.Design.Current.Economics.funded_future_liability",
+        "Etna.Design.Current.Economics.historical_stake_funded",
+        "Etna.Design.Current.RegistryMachine.evidence_monotone",
+        "Etna.Design.Current.RegistryMachine.evidence_stays_slashable",
+        "Etna.Design.Current.RegistryMachine.slash_enabled",
+        "Etna.Design.Current.RegistryMachine.slash_exact",
+        "Etna.Design.Current.RegistryPayments.transaction_conserves_principal"
+      ],
+      "reason": "Actual keyed historical double-sign evidence remains actionable for issued positive unwithdrawn principal; no unrelated admission/withdrawal policy proof."
+    },
+    "STAKE-4.1-25": {
+      "theorems": [
+        "Etna.Design.Current.Economics.evidence_window_retained",
+        "Etna.Design.Current.RegistryMachine.trace_evidence_clock",
+        "Etna.Design.Current.RegistryMachine.withdrawal_window"
+      ],
+      "reason": "Actual later worlds cannot release an observed live unconfirmed bond before the full configured evidence duration."
+    },
+    "STAKE-4.1-27": {
+      "theorems": [
+        "Etna.Design.Current.Economics.evidence_window_retained",
+        "Etna.Design.Current.RegistryMachine.trace_evidence_clock",
+        "Etna.Design.Current.RegistryMachine.withdrawal_window",
+        "Etna.Design.Current.RegistryPayments.failure_atomic",
+        "Etna.Design.Current.RegistryPayments.principal_and_transfers_commit",
+        "Etna.Design.Current.RegistryPayments.transfer_failure_reverts",
+        "Etna.Design.Current.RegistryPayments.tx_success_details",
+        "Etna.Design.Current.RegistryPayments.tx_success_projects",
+        "Etna.Design.Current.RegistryPayments.withdraw_payment_exact"
+      ],
+      "reason": "Atomic actual payment wrapper commits principal and all transfer intents together; a failed transfer stutters the transaction."
+    },
+    "STAKE-4.1-28": {
+      "theorems": [
+        "Etna.Design.Current.Registry.withdrawal_identity",
+        "Etna.Design.Current.RegistryMachine.trace_evidence_clock",
+        "Etna.Design.Current.RegistryMachine.withdrawal_window"
+      ],
+      "reason": "Successful withdrawal retains the issued identity counter and permanent key registration only."
+    },
+    "STAKE-4.1-31": {
+      "theorems": [
+        "Etna.Design.Current.Economics.no_false_slash",
+        "Etna.Design.Current.RegistryMachine.evidence_monotone",
+        "Etna.Design.Current.RegistryMachine.evidence_stays_slashable",
+        "Etna.Design.Current.RegistryMachine.slash_enabled",
+        "Etna.Design.Current.RegistryMachine.slash_exact",
+        "Etna.Design.Current.RegistryPayments.evidence_stays_transaction_slashable",
+        "Etna.Design.Current.RegistryPayments.failure_atomic",
+        "Etna.Design.Current.RegistryPayments.principal_and_transfers_commit",
+        "Etna.Design.Current.RegistryPayments.slash_payments_exact",
+        "Etna.Design.Current.RegistryPayments.standard_slash_transfers_available",
+        "Etna.Design.Current.RegistryPayments.transfer_failure_reverts",
+        "Etna.Design.Current.RegistryPayments.tx_success_details",
+        "Etna.Design.Current.RegistryPayments.tx_success_projects"
+      ],
+      "reason": "Actual keyed historical double-sign evidence remains actionable for issued positive unwithdrawn principal; no unrelated admission/withdrawal policy proof."
+    },
+    "STAKE-4.1-32": {
+      "theorems": [
+        "Etna.Design.Current.Economics.economically_accountable",
+        "Etna.Design.Current.Economics.funded_future_liability",
+        "Etna.Design.Current.Economics.no_false_slash",
+        "Etna.Design.Current.Finality.evidence_future_liability",
+        "Etna.Design.Current.Finality.evidence_retained_id",
+        "Etna.Design.Current.Finality.same_round_accountability",
+        "Etna.Design.Current.Finality.shared_prefix_accountability",
+        "Etna.Design.Current.Headlines.accountable_finality",
+        "Etna.Design.Current.ProtocolFinality.current_h2",
+        "Etna.Design.Current.ProtocolFinality.paid_evidence_future_liability",
+        "Etna.Design.Current.ProtocolFinality.protocol_same_round_accountability",
+        "Etna.Design.Current.RegistryMachine.evidence_monotone",
+        "Etna.Design.Current.RegistryMachine.evidence_stays_slashable",
+        "Etna.Design.Current.RegistryMachine.slash_enabled",
+        "Etna.Design.Current.RegistryMachine.slash_exact"
+      ],
+      "reason": "Same-round conflicting decoded commits expose accountable key power and persistent executable historical-evidence liability."
+    },
+    "STAKE-4.1-33": {
+      "theorems": ["Etna.Design.Current.Economics.no_false_slash"],
+      "reason": "Every actual successful public slash authenticates both bond-key signatures and the double-sign predicate under reverse signature soundness."
+    },
+    "STAKE-4.1-34": {
+      "theorems": [
+        "Etna.Design.Current.RegistryMachine.slash_exact",
+        "Etna.Design.Current.RegistryPayments.slash_payments_exact"
+      ],
+      "reason": "Successful decoded slashing zeros the complete bond principal and sets the earlier exit; stored-key signature authentication and exact payment refinements are separate."
+    },
+    "STAKE-4.1-36": {
+      "theorems": [
+        "Etna.Design.Current.RegistryMachine.execute_history_origin_exact"
+      ],
+      "reason": "Every retained checkpoint after a successful decoded registry call is either an existing checkpoint or has the current L1 block and the exact resulting slot-entry list. This is the new-checkpoint fidelity component only."
+    },
+    "START-10-5a": {
+      "theorems": [
+        "Etna.Design.Current.Protocol.Custody.set_origin_once",
+        "Etna.Design.Current.Start.origin_written_once"
+      ],
+      "reason": "Switching-network origin write is one-shot in the decoded start model."
+    },
+    "START-10-5c": {
+      "theorems": [
+        "Etna.Design.Current.Protocol.Custody.correction_before_any_landing",
+        "Etna.Design.Current.Protocol.Custody.start_snapshot_saved",
+        "Etna.Design.Current.Protocol.Custody.trace_start_frozen",
+        "Etna.Design.Current.Start.correction_new_generation",
+        "Etna.Design.Current.Start.trace_generations_monotone",
+        "Etna.Design.Current.Start.trace_origins_retained"
+      ],
+      "reason": "Decoded start correction increments generations and preserves prior origin data; no broad SignalService implementation claim."
+    },
+    "START-10.1-14e": {
+      "theorems": [
+        "Etna.Design.Current.Economics.trace_same_generation_parameters",
+        "Etna.Design.Current.Protocol.closed_generation_parameters"
+      ],
+      "reason": "An actual later trace with the same observed generation has exactly the same installed raw Parameters. Structural parameter changes cannot occur within that generation; the full structural-upgrade procedure is not asserted."
+    },
+    "START-10.1-3d": {
+      "theorems": [
+        "Etna.Design.Current.Economics.trace_same_generation_parameters",
+        "Etna.Design.Current.Protocol.closed_generation_parameters"
+      ],
+      "reason": "An actual later trace with the same observed generation has exactly the same installed raw Parameters. Structural parameter changes cannot occur within that generation; the full structural-upgrade procedure is not asserted."
+    },
+    "START-10.1-5a": {
+      "theorems": [
+        "Etna.Design.Current.Rules.preserves_visible_window",
+        "Etna.Design.Current.Rules.rules_require_owner",
+        "Etna.Design.Current.Rules.schedule_rules_result"
+      ],
+      "reason": "Accepted rules scheduling fields, ownership/deadline and visible-window preservation only; no event or client refinement."
+    },
+    "START-10.1-5b": {
+      "theorems": [
+        "Etna.Design.Current.Rules.schedule_stop_result",
+        "Etna.Design.Current.Rules.stop_requires_owner"
+      ],
+      "reason": "Accepted stop scheduling fields, ownership, grid and deadline checks only."
+    },
+    "START-10.1-5c": {
+      "theorems": [
+        "Etna.Design.Current.Rules.preserves_visible_window",
+        "Etna.Design.Current.Rules.rules_require_owner",
+        "Etna.Design.Current.Rules.schedule_rules_result",
+        "Etna.Design.Current.Rules.schedule_stop_result",
+        "Etna.Design.Current.Rules.stop_requires_owner",
+        "Etna.Design.Current.Rules.trace_fields_fit"
+      ],
+      "reason": "Accepted rules scheduling fields, ownership/deadline and visible-window preservation only; no event or client refinement."
+    },
+    "START-10.1-6a": {
+      "theorems": ["Etna.Design.Current.Journal.accepted_image_certificate"],
+      "reason": "An accepted landing has an actually submitted proof whose declared image certifies the complete decoded batch under each selected ruleset and stop. This uses the primitive backend/image soundness contract; it establishes neither image-combination availability nor guest implementation refinement."
+    }
   }
 }

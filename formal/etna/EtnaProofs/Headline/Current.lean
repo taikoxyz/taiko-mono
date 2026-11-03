@@ -2,6 +2,10 @@ import EtnaStatements.Current
 import EtnaProofs.CurrentCustody
 import EtnaProofs.CurrentProtocolFinality
 import EtnaProofs.CurrentJournal
+import EtnaProofs.CurrentCoherentCustody
+import EtnaProofs.CurrentEconomics
+import EtnaProofs.CurrentMetadata
+import EtnaProofs.CurrentQueueIntegrity
 
 namespace Etna.Design.Current.Headlines
 open Protocol Etna.Statements.Current
@@ -19,43 +23,67 @@ theorem catalogue_bytes {env : Environment} {w : World} {archive : List Blocks.H
 
 theorem fund_safety : FundSafety := by
   intro env registry engine premises w trace
-  exact ⟨Custody.funds_authorized premises.currentPrimitives premises.currentVerifierSound trace,
-    fun _ _ accepted => Custody.landing_edge_authorized premises.currentPrimitives
-      premises.currentVerifierSound trace accepted⟩
+  refine ⟨Custody.trace_coherent premises.currentPrimitives premises.currentVerifierSound trace,
+    Custody.trace_legacy_authenticated premises.currentPrimitives trace,?_,?_,?_,?_⟩
+  · intro a t accepted
+    exact Custody.landing_edge_authorized premises.currentPrimitives premises.currentVerifierSound trace accepted
+  · intro later future ever
+    exact Custody.trace_start_frozen trace ever future
+  · intro other a same
+    exact reference_hash_binds_prefix premises.currentReferenceBinding (congrArg StatementData.referenceHash same)
+  · intro cp snap member
+    exact Custody.trace_snapshot_provenance trace (cp,snap) member
 
 theorem accountable_finality : AccountableFinality := by
   intro env registry engine premises w trace initialized
-  constructor
+  refine ⟨?_,?_,?_,?_,?_⟩
   · intro common moreA moreB referenceA referenceB h round a b votesA votesB covered validA validB conflict
-    exact ProtocolFinality.protocol_same_round_accountability trace premises.currentStandardToken
-      premises.currentSignatureAgreement initialized premises.currentBountyBound covered validA validB conflict
+    exact Economics.economically_accountable premises.currentRegistryGenesis premises.currentStandardToken
+      premises.currentSelfAllowance premises.currentBountyBound trace premises.currentSignatureAgreement
+      initialized covered validA validB conflict
+  · exact Economics.economic_safety premises.currentRegistryGenesis premises.currentStandardToken
+      premises.currentSelfAllowance premises.currentBountyBound trace premises.currentSignatureSound
+  · exact Economics.historical_stake_funded premises.currentRegistryGenesis premises.currentStandardToken
+      premises.currentSelfAllowance premises.currentBountyBound trace
+  · intro later future started same common moreA moreB h covered closed
+    exact Economics.temporal_committee_agreement future
+      (trace_same_generation_config trace future started same) covered closed
   · intro honesty
     exact (ProtocolFinality.current_h2 trace premises.currentStandardToken
       premises.currentSignatureAgreement initialized premises.currentBountyBound
-      (premises.currentCodec w trace) honesty
-      (premises.currentVoteAttribution w trace)).2
+      (premises.currentCodec w trace) honesty (premises.currentVoteAttribution w trace)).2
 
 theorem forced_inclusion_integrity : ForcedInclusionIntegrity := by
   intro env registry engine premises w trace
-  refine ⟨Journal.trace_invariant trace,?_,?_,?_,?_,?_⟩
+  refine ⟨Journal.trace_invariant trace,QueueIntegrity.trace_head_bounds trace,?_,?_,?_,?_,?_,?_,?_,?_,?_⟩
   · intro a t accepted
     obtain ⟨segment,indices,actions,unchanged⟩ :=
-      Journal.landing_service premises.currentVerifierSound trace accepted
+      QueueIntegrity.landing_service premises.currentVerifierSound trace accepted
     refine ⟨segment,indices,?_,unchanged⟩
     intro x member
-    obtain ⟨entry,queued,action⟩ := actions x member
+    obtain ⟨entry,queued,first,action⟩ := actions x member
     have valid := (Blocks.consuming_pair_action segment.valid member).1
     rw [catalogue_bytes premises.currentCatalogueHash valid]
-    exact ⟨entry,queued,action⟩
+    exact ⟨entry,queued,first,action⟩
   · intro archive reference parent block entry valid queued deadline
     rw [catalogue_bytes premises.currentCatalogueHash valid]
     rcases deadline with due | late
     · exact Journal.local_due_action trace premises.currentClock valid queued due
     · exact Journal.local_late_action trace premises.currentClock valid queued late
+  · intro archive reference parent block entry valid next queued early
+    rw [catalogue_bytes premises.currentCatalogueHash valid]
+    exact QueueIntegrity.no_early_skip trace archive reference parent block entry valid next queued early
   · exact Journal.nonlanding_never_advances trace
   · exact Journal.nonrecovery_preserves_existing env w
   · intro request t accepted
-    exact Journal.recovery_queue_exact accepted
+    exact ⟨Journal.recovery_queue_exact accepted,QueueIntegrity.recovery_pending_guards accepted⟩
+  · intro a t accepted
+    exact Journal.accepted_image_certificate premises.currentVerifierSound trace accepted
+  · intro raw paid refund t accepted
+    exact (QueueIntegrity.admission_exact accepted).1
+  · intro candidate durable t accepted
+    obtain ⟨trusted,_,signer,_,_,_,_,_,headers⟩ := QueueIntegrity.node_import_closed accepted
+    exact ⟨trusted,signer,headers⟩
 
 theorem claims : Claims := ⟨fund_safety,accountable_finality,forced_inclusion_integrity⟩
 

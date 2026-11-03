@@ -1,3 +1,9 @@
+import EtnaProofs.CurrentEncoding
+import EtnaProofs.CurrentReference
+import EtnaProofs.CurrentMetadata
+import EtnaProofs.CurrentCoherentCustody
+import EtnaProofs.CurrentEconomics
+import EtnaProofs.CurrentQueueIntegrity
 import EtnaProofs.Current
 import EtnaProofs.CurrentBlocks
 import EtnaProofs.CurrentRegistry

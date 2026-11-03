@@ -5,6 +5,86 @@ import EtnaProofs.Staking
 namespace Etna.Design.Current.RegistryPayments
 set_option maxRecDepth 20000
 
+theorem standard_transfer_balance {registry : Nat} {s t : TokenState} {p : Payment}
+    (ok : standardTransfer registry s p = some t)
+    (shape : (p.pull = true → p.recipient = registry) ∧ (p.pull = false → p.source = registry))
+    (self : s.allowances registry registry = 0) :
+    s.balances registry+(if p.pull then p.amount else 0) ≤
+      t.balances registry+(if p.pull then 0 else p.amount) ∧ t.allowances registry registry = 0 := by
+  unfold standardTransfer at ok
+  split at ok
+  next allowed =>
+    cases Option.some.inj ok
+    constructor
+    · cases pull : p.pull with
+      | false =>
+        have source := shape.2 pull
+        by_cases dest : registry = p.recipient
+        · simp [source,dest]
+        · simp only [Bool.false_eq_true,ite_false,source,dest,ite_true,Nat.add_zero]
+          omega
+      | true =>
+        have dest := shape.1 pull
+        by_cases source : registry = p.source
+        · have zero : p.amount = 0 := by
+            have approved : p.amount ≤ s.allowances p.source registry := by simpa [pull] using allowed.2
+            rw [← source,self] at approved
+            omega
+          simp [dest,source,zero]
+        · simp [dest,source]
+    · dsimp only
+      split <;> simp_all
+  next => cases ok
+
+theorem standard_transfers_balance {registry sink : Nat} {s t : TokenState} {ps : List Payment}
+    (ok : runTransfers (standardEnvironment registry sink) s ps = some t)
+    (shape : ∀ p ∈ ps, (p.pull = true → p.recipient = registry) ∧ (p.pull = false → p.source = registry))
+    (self : s.allowances registry registry = 0) :
+    s.balances registry+credits ps ≤ t.balances registry+debits ps ∧ t.allowances registry registry = 0 := by
+  induction ps generalizing s with
+  | nil => cases Option.some.inj ok; exact ⟨Nat.le_refl _,self⟩
+  | cons p ps ih =>
+    obtain ⟨mid,transferred,rest⟩ := Option.bind_eq_some_iff.mp ok
+    have first := standard_transfer_balance transferred (shape p (by simp)) self
+    have later := ih rest (fun p member => shape p (by simp [member])) first.2
+    constructor
+    · simp only [credits,debits]
+      omega
+    · exact later.2
+
+theorem intents_shape (env : PaymentEnvironment) (s : RegistryMachine.State)
+    (caller : Nat) (a : RegistryMachine.Action) :
+    ∀ p ∈ paymentIntents env s caller a,
+      (p.pull = true → p.recipient = env.registryAddress) ∧
+      (p.pull = false → p.source = env.registryAddress) := by
+  cases a <;> simp only [paymentIntents]
+  all_goals try { simp }
+  all_goals cases found : s.ledger.bonds _ <;> simp
+  all_goals split <;> simp
+
+theorem intents_credits (env : PaymentEnvironment) (s : RegistryMachine.State)
+    (caller : Nat) (a : RegistryMachine.Action) :
+    credits (paymentIntents env s caller a) = RegistryMachine.incoming a := by
+  cases a <;> simp only [paymentIntents,RegistryMachine.incoming,credits]
+  all_goals try { rfl }
+  all_goals cases found : s.ledger.bonds _ <;> simp [credits]
+  all_goals split <;> simp [credits]
+
+theorem intents_debits (env : PaymentEnvironment) (s : RegistryMachine.State)
+    (caller : Nat) (a : RegistryMachine.Action) (rate : s.config.slashBountyBps ≤ 10000) :
+    debits (paymentIntents env s caller a) = RegistryMachine.outgoing s a := by
+  cases a <;> simp only [paymentIntents,RegistryMachine.outgoing,RegistryMachine.outgoingBond,debits]
+  all_goals try { rfl }
+  all_goals cases found : s.ledger.bonds _ <;> simp only [Option.map_none,Option.getD_none,
+    Option.map_some,Option.getD_some,debits]
+  all_goals try { rfl }
+  all_goals try { split <;> simp_all [debits] }
+  all_goals
+    rename_i bond
+    have bounded := Staking.fraction_bounded bond.value.balance _ rate
+    simp only [Bool.false_eq_true,ite_false,Nat.add_zero]
+    omega
+
 /-- Both principal projection and token state come from the same successful transaction. -/
 theorem tx_success_details {env : PaymentEnvironment} {s t : State}
     {v : RegistryMachine.InboxView} {now caller : Nat} {action : RegistryMachine.Action}
@@ -28,6 +108,45 @@ theorem tx_success_projects {env : PaymentEnvironment} {s t : State}
     (ok : executeTransaction env s v now caller action = some (t,receipts)) :
     RegistryMachine.execute s.registry v now action = some t.registry :=
   (tx_success_details ok).1
+
+theorem standard_environment_eq {env : PaymentEnvironment}
+    (standard : env.transfer = standardTransfer env.registryAddress) :
+    env = standardEnvironment env.registryAddress env.slashSink := by
+  cases env
+  dsimp only at standard
+  cases standard
+  rfl
+
+/-- Deposits increase the actual reserve, and each liability reduction has the exact
+atomic payout receipts. This includes pending principal and displaced permanent bonds. -/
+theorem transaction_conserves_principal {env : PaymentEnvironment} {s t : State}
+    {v : RegistryMachine.InboxView} {now caller : Nat} {a : RegistryMachine.Action}
+    {receipts : List Payment}
+    (ok : executeTransaction env s v now caller a = some (t,receipts))
+    (rate : s.registry.config.slashBountyBps ≤ 10000) :
+    RegistryMachine.reserve t.registry.ledger+debits receipts =
+      RegistryMachine.reserve s.registry.ledger+credits receipts := by
+  have details := tx_success_details ok
+  rw [details.2.2.1,intents_debits env s.registry caller a rate,intents_credits]
+  exact RegistryMachine.execute_reserve details.1
+
+/-- Standard-token execution preserves reserve backing from the pre-state. No future
+funding condition is assumed; registry self-deposits cannot create unbacked liabilities. -/
+theorem transaction_backed {env : PaymentEnvironment} {s t : State}
+    {v : RegistryMachine.InboxView} {now caller : Nat} {a : RegistryMachine.Action}
+    {receipts : List Payment}
+    (standard : env.transfer = standardTransfer env.registryAddress)
+    (backed : Backed env s) (rate : s.registry.config.slashBountyBps ≤ 10000)
+    (ok : executeTransaction env s v now caller a = some (t,receipts)) : Backed env t := by
+  have details := tx_success_details ok
+  have transfers := details.2.1
+  rw [standard_environment_eq standard] at transfers
+  have balances := standard_transfers_balance transfers (intents_shape env s.registry caller a) backed.2
+  have principal := transaction_conserves_principal ok rate
+  rw [← standard_environment_eq standard] at balances
+  rw [← details.2.2.1] at balances
+  have funded := backed.1
+  exact ⟨by omega,balances.2⟩
 
 /-- A later payout failure cannot leave an earlier principal/flag/token edit committed. -/
 theorem failure_atomic {env : PaymentEnvironment} {s : State}

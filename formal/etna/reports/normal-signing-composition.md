@@ -1,5 +1,7 @@
 # Normal rotation, recovery and current signing
 
+> **Historical report.** This document describes the original model and the baseline identified below. Any use of “current” refers to that historical baseline. For the current `Etna.Design.Current` claims and evidence, read the [current scope](../README.md) and [latest alignment](latest-design-alignment.md).
+
 This extension connects ordinary protocol history to an actual fresh signing event without
 changing H1-H3, their seven premises or a production rule. Its assumptions are classified in
 [premise responsibilities](premise-responsibilities.md).

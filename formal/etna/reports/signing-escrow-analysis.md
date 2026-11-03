@@ -1,5 +1,7 @@
 # Signing rights, exit escrow and the evidence window
 
+> **Historical report.** This document describes the original model and the baseline identified below. Any use of “current” refers to that historical baseline. For the current `Etna.Design.Current` claims and evidence, read the [current scope](../README.md) and [latest alignment](latest-design-alignment.md).
+
 The new results strengthen the registry trajectory argument without strengthening H1–H3 or assuming a bond remains live. They do **not** establish an unconditional equivalence between cryptographic commit validity, current signing authority and current positive collateral.
 
 ## General results

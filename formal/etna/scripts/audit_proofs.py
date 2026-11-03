@@ -52,6 +52,7 @@ CURRENT_HEADLINES = {
     'Etna.Design.Current.Headlines.forced_inclusion_integrity': 'Etna.Statements.Current.ForcedInclusionIntegrity',
 }
 CURRENT_PREMISES = 'Etna.Statements.Current.Premises'
+CURRENT_ACCEPTING_WITNESS = 'Etna.Design.Current.Protocol.NonVacuity.premises_satisfiable'
 PREMISE_USE = re.compile(r'^premise use: (\S+) <- (.+)$', re.MULTILINE)
 NAME = re.compile(r'^[A-Za-z_][A-Za-z_0-9]*(\.[A-Za-z_][A-Za-z_0-9]*)*$')
 ANY_NAME = re.compile(r"^[A-Za-z_][A-Za-z_0-9'!?]*(\.[A-Za-z_][A-Za-z_0-9'!?]*)*$")
@@ -127,7 +128,8 @@ def validate_contract(manifest, root=ROOT):
         raise ValueError('design manifest schema/version required')
     validate_entries(manifest['theorems'])
     names = {e['declaration'] for e in manifest['theorems']}
-    for name in (CLAIMS[0], *HEADLINES, CURRENT_CLAIMS[0], *CURRENT_HEADLINES, *COVERAGE.UNSOURCED):
+    for name in (CLAIMS[0], *HEADLINES, CURRENT_CLAIMS[0], *CURRENT_HEADLINES,
+                 CURRENT_ACCEPTING_WITNESS, *COVERAGE.UNSOURCED):
         if name not in names:
             raise ValueError('missing manifest entry: '+name)
 
@@ -360,6 +362,7 @@ def main():
                       kernel_replay=' '.join(GRAPH.declared_libraries())+' --fresh (whole import closure), '
                                     'generated Audit and '+', '.join(tests),
                       headline=dict(claims=' : '.join(CURRENT_CLAIMS), theorems=CURRENT_HEADLINES,
+                                    accepting_witness=CURRENT_ACCEPTING_WITNESS,
                                     historical_claims=' : '.join(CLAIMS), historical_theorems=HEADLINES,
                                     premise_use=uses),
                       vectors='testdata/etna_conformance equals a fresh lake exe etna-vectors run',

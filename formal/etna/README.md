@@ -4,60 +4,97 @@ The current authorities are `SPEC.md`, `ACCEPTANCE.md`, `ANCHORLESS.md` and `SWI
 under `packages/protocol/docs/etna`, pinned to main commit
 `1135c9b24fd03f50cb48eab250879435fd54f528` (2026-11-03).
 
-The current decoded model proves H1, H2, H3 and their conjunction under the explicit
-`Etna.Statements.Current.Premises`. This is conditional design verification, not production
-conformance or launch readiness. Operational acceptance measurements remain deferred.
+The current result concerns conditional decoded-design safety. It does not establish
+production conformance, liveness, measured capacity or launch readiness. Read the exact
+claims in `EtnaStatements/Current.lean`, their primitive premise record, and the composition
+in `EtnaProofs/Headline/Current.lean`; [latest alignment](reports/latest-design-alignment.md)
+records the specific evidence and remaining boundaries. The [review disposition](reports/current-review-corrections.md)
+addresses each supplied critical, important and minor finding.
 
-## Current H1–H3
+## Current evidence
 
-Read `EtnaStatements/Current.lean` for the exact claims and nine named premise fields, then
-`EtnaProofs/Headline/Current.lean` for their composition. The closed machine in
-`EtnaModel/CurrentProtocol.lean` implements each modeled call and failed-call rollback;
-its `Trace` has no caller-supplied custody, slashability or queue-service invariant.
+The closed machine in `EtnaModel/CurrentProtocol.lean` defines actual calls, failed-call
+rollback and complete closed L1 snapshots. Its traces receive no caller-supplied custody,
+slashability or queue-service conclusion. Current proofs address:
 
-| Claim                     | Derived result                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| H1 — fund safety          | Every recognized Etna signal and accepted landing edge has full-header custody, rooted in accepted genesis or the authenticated Unzen first fence. Pending/refused starts assert no authenticity. Actual overlap suffixes compose across correction, recovery, rollback and all other calls.                                                                                                                                                               |
-| H2 — accountable finality | Same-round conflicting commits expose more than one third of power with persistent historical evidence, including displaced and later-generation bonds. Future paid slashes use the actual atomic token wrapper, conditional on standard transfer semantics and available balance. Honest stock-Comet round rules imply agreement of all overlapping headers within one World/generation from the same full origin header, using each chain's own archive. |
-| H3 — forced inclusion     | Complete end-block journals authenticate actual queue entries. Accepted landings consume exactly `[oldHead,newHead)` in order; inclusive due/late bounds force canonical position-zero inclusion or a legal completed skip. Nonlanding calls cannot advance head; recovery clears exactly its listed hashes.                                                                                                                                               |
+- Custody of retained checkpoints and signals, a common retained parent chain, exact Unzen
+  first-fence evidence, start freezing, and checkpoint-associated rollback snapshots.
+- Actual issued-bond committee provenance, principal/token accounting, historical evidence
+  retention, and conditional same-round accountability and cross-round chain agreement.
+- Exact FIFO service, complete decoded payload position-zero binding, due-qualified skips,
+  nondue inclusion, head bounds, pending recovery indices, and atomic admission fees/refunds.
+- Complete original-generation header-number intervals, closed trust/readiness and preserved
+  signer anti-double-sign state. The importer does not represent the actual original EL
+  header contents, execution indexes or complete stock-store installation required by SPEC 5.4.
 
-Per-block timestamp selection permits batches crossing `rulesTime`. S-relative grids,
-absolute committee epochs, fresh first-generation anchors, permanent bond IDs, structural
-K recovery and the Unzen fence use current definitions. The selected catalogue fixes
-EL/payload/parser/singleton interpreters; a named refinement binds every interpreter's
-transaction hash to the fixed admission/clearing hash.
+Reference commitments cover the supplied complete closed L1 prefix. Current proof-image
+certificates name the rulesets implemented by the actual declared image; each decoded block
+selects its own anchored ruleset. A batch may cross a ruleset timestamp boundary. A declared
+image missing any selected ruleset cannot certify that complete batch under the soundness
+contract. This is a guest/refinement obligation, not a claim that L1 decodes the batch.
 
-The remaining premises concern backend statement soundness, authenticated decoded header
-and Unzen bindings, token/signature refinement, deterministic Comet/EL codecs, honest
-round executions and vote attribution, and strictly increasing canonical L1 timestamps.
-The Byzantine-minority/honest-round condition is an explicit H2 agreement antecedent; H1 and H3
-require no committee honesty. They do not assert any of the three headline conclusions. Unknown arbitrary DAO-installed
-code, image-combination availability, stock-store import implementation and node-engine
-refinement are outside these decoded safety claims. Node publication preserves signer
-state and grants no trust; validated replay remains an explicit application abstraction.
+The complete decoded execution transaction list is passed to the selected fixed payload
+adapter, and the FI inclusion field equals that list's head. Canonical EIP-2718 parsing,
+raw body decoding, hash/signature authentication, singleton full-budget execution and
+pinned EL/Comet implementations remain explicit refinement boundaries. The byte predicates
+are relative to those fixed interpreters; finite test adapters do not prove their
+production implementations correct.
 
-Positive fixtures exercise nonempty accepted batches, overlap, corrected Unzen starts,
-cross-ruleset byte actions, historical-evidence payments and recovery/rollback. Their
-finite test adapters are not a complete realization of the global cryptographic premises.
-Do not read executable acceptance fixtures as a production soundness proof.
+Unknown DAO-installed code, supported-image availability, raw MPT/KZG/crypto decoders,
+node-engine refinement, outage/recovery loss bounds and operational acceptance measurements
+remain outside these conditional claims. Honest-round/minority assumptions apply to the
+agreement conclusion; H1 and H3 do not acquire committee-honesty assumptions.
 
-There are **195 current exact theorem contracts** (including supporting obligations).
-The [alignment report](reports/latest-design-alignment.md) describes exact evidence and
-limits. [Rule traceability](reports/rule-coverage.md) covers **635 live IDs**, including
-603 binding rules. The four authorities have **566 clauses: 24 partial, 542 deferred**.
-“Partial” means a narrow theorem edge, not proof of the entire clause or a coverage rate.
+## Accepting realization of all current premises
 
-## Historical results are separate
+`Etna.Design.Current.Protocol.NonVacuity.accepting_deployment` in
+`EtnaWitnesses/NonVacuity/Current.lean` exhibits the complete 13-field current Premises
+record together with a reachable successful landing that advances the FI head. The trace
+contains an actual registered and funded bond and nonzero admission fees. Its state-root
+encoding is injective over the full decoded `Snapshot` type, and its verifier soundness is
+proved for every reachable World, not inferred from a finite accepted fixture.
 
-All **1,216 original theorem/type pairs**, including the original H1–H3 claims, are retained
-against independently pinned `legacy/2026-10-30` snapshots. Their 405-clause inventory
-(101 partial, 301 deferred, 3 then-design-pending) and 34 claims remain historical.
-Model definitions outside `Etna.Design.Current` keep that original decoded machine. The original
-JSON conformance vectors also remain historical; they do not establish current conformance.
+This is a restricted new-network interpretation: the verifier accepts only the declared
+image and two fixed certified statement templates. It establishes joint satisfiability of the
+current primitive assumptions and nonempty service. It does not realize a switching
+network, arbitrary rulesets/verifiers or production cryptography and EL implementations.
+The same complete-premise environment also witnesses a successful landing followed by
+recovery and a generation-1 successful landing, and a rollback followed by another landing.
 
-The [historical report](reports/historical-verification.md) and
-[historical rule map](reports/historical-rule-coverage.md) describe those versions.
-Source checks reject historical proof edges in live clauses and claims mixing authorities.
+## Exact traceability
+
+[Rule traceability](reports/rule-coverage.md) inventories every live rule ID. Schema 2 in
+`rule-coverage.json` names each reviewed rule-to-theorem edge explicitly. Shared source
+paragraphs do not give evidence to neighboring rules. A `partial` row is a narrow derived
+property or constant, never proof of the entire rule. A `supporting` row exposes a guard or
+projection separately. Generic list/arithmetic/encoding plumbing carries no protocol source
+edge, even if its mechanical theorem role is `property`.
+
+The clause inventory contains 315 SPEC clauses and **251 clauses in the other three
+in-repository authorities**: 113 in SWITCH, 93 in ANCHORLESS and 45 in ACCEPTANCE. The
+review's 251-clause concern is valid. SWITCH has only narrow direct evidence for the
+decoded accepted first fence and authenticated custody root at lines 117–128. Its proposal
+and FI margin arithmetic, off-chain originWriter/node duties, bridge migration and complete
+switch procedure remain deferred. All 93 current ANCHORLESS clauses and all 45 ACCEPTANCE
+clauses remain deferred: the current proof does not establish the bridge root resolver,
+EIP-4788 writes/cache/storage migration, deployment ordering, measured resources, real guest
+performance, launch gates or operational switch/recovery rehearsal. These counts describe
+an inventory, not a verification percentage.
+
+External normative dependencies, including the adopted zk-gas revision, CometBFT and
+Ethereum data formats, additionally remain implementation/refinement boundaries. The
+header-number importer is also an abstraction gap relative to SPEC 5.4's authenticated
+original EL headers, installed indexes and full stock stores; proving its numeric range
+does not implement those contents or stores.
+
+## Historical results
+
+The original machine, theorem contracts, seven-premise headlines and JSON conformance
+vectors are retained against the independently pinned `legacy/2026-10-30` authorities.
+They do not establish current conformance. Historical reports are labelled at their entry
+point; their use of “current” refers to the historical baseline named in that report.
+See [historical verification](reports/historical-verification.md) and the
+[historical rule map](reports/historical-rule-coverage.md).
 
 ## Verification
 
@@ -66,22 +103,19 @@ Use the exact compiler in `lean-toolchain`: Lean 4.35.0-rc4, Init/Std only. From
 ```sh
 python3 scripts/lint_sources.py
 python3 scripts/check_imports.py
+python3 scripts/check_spec_coverage.py
+python3 scripts/rule_coverage.py --check
 lake build
 python3 scripts/check_vectors.py
 python3 scripts/generate_artifacts.py
 python3 scripts/generate_artifacts.py --check
-python3 scripts/check_spec_coverage.py
-python3 scripts/rule_coverage.py --check
 python3 scripts/audit_proofs.py
 python3 -m unittest discover -s tests -v
 ```
 
-Run the build/audit before the Python suite; both use shared compiled artifacts. The audit
-checks **1,411 exact theorem contracts**, mechanical roles, derivation chains, transitive
-axioms, library placement and fresh whole-kernel replay. Both current and historical
-headline types and premise-field use are mandatory, even if a manifest entry is deleted.
-Every Lean regression module is replayed with zero diagnostics. The final local run passed
-all **478 Python tests** and **31 Lean regression modules**.
-
-CI watches all four current authorities, including `SWITCH.md`. No execution plans or
-`docs/superpowers` artifacts are tracked.
+Run builds/audits and the Python suite serially because they use shared compiled artifacts.
+The audit checks exact current and historical theorem types, mechanically computed roles,
+transitive axioms, premise use, library placement and fresh whole-kernel replay. Authority
+pins and exact rule evidence are checked before the expensive CI build. A changed exact
+contract must be reviewed and re-exported; no numerical pass total in an older report
+substitutes for running these commands on the final tree.

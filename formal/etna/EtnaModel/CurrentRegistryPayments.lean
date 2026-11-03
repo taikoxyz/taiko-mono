@@ -27,6 +27,20 @@ structure State where
   registry : RegistryMachine.State
   token : TokenState
 
+def credits : List Payment → Nat
+  | [] => 0
+  | p :: rest => (if p.pull then p.amount else 0)+credits rest
+
+def debits : List Payment → Nat
+  | [] => 0
+  | p :: rest => (if p.pull then 0 else p.amount)+debits rest
+
+/-- Funding is a state invariant to derive, not an assumption at future slash time.
+Zero registry self-allowance rules out creating liabilities by transferFrom to itself. -/
+def Backed (env : PaymentEnvironment) (s : State) : Prop :=
+  RegistryMachine.reserve s.registry.ledger ≤ s.token.balances env.registryAddress ∧
+    s.token.allowances env.registryAddress env.registryAddress = 0
+
 /-- The outer authenticated caller must match every embedded caller field. Permissionless
 operations use the outer caller directly (in particular for the double-sign bounty). -/
 def callerMatches (caller : Nat) : RegistryMachine.Action → Bool

@@ -14,6 +14,8 @@ structure Block where
   schedule : Rules.Schedule
   raw : Bytes
   first : Option Bytes
+  /-- Complete decoded execution-body order; the fixed payload adapter authenticates it. -/
+  transactions : List Bytes := first.toList
   deriving DecidableEq, Repr
 
 def Block.header (b : Block) : Header := b.body.header
@@ -21,7 +23,8 @@ def Block.header (b : Block) : Header := b.body.header
 /-- Immutable decoded interpreter entry, never a supplied block-validity conclusion. -/
 structure Definition where
   executionValid : Header → BlockValidity.Block → Bool
-  payloadValid : BlockValidity.Block → Bytes → Option Bytes → Bool
+  /-- Authenticate the complete ordered execution-body transaction list and witness bytes. -/
+  payloadValid : BlockValidity.Block → Bytes → List Bytes → Bool
   bytes : ActualQueue.Primitives
 
 abbrev RulesetCatalogue := Nat → Option Definition
@@ -57,6 +60,24 @@ def selectedRules (b : Block) : Nat := Rules.select b.schedule b.header.timestam
 
 def definition (r : GenerationPolicy) (b : Block) : Definition :=
   (r.catalogue (selectedRules b)).getD refusingDefinition
+
+/-- The entry is the canonical, hash-matching transaction at execution-body position zero.
+The parser is the selected fixed interpreter; no raw EIP-2718 refinement is asserted here. -/
+def Included (primitive : ActualQueue.Primitives) (entry : Forced.Entry) (first : Option Bytes) : Prop :=
+  ∃ tx, first = some tx ∧ primitive.hashBytes tx = entry.txHash ∧
+    primitive.canonical tx = true ∧ tx.length ≤ 8192
+
+/-- A skip is bound to the submitted bytes and a completed selected-interpreter decision. -/
+def Skipped (primitive : ActualQueue.Primitives) (parent : Header)
+    (block : BlockValidity.Block) (entry : Forced.Entry) (raw : Bytes) : Prop :=
+  primitive.hashBytes raw = entry.txHash ∧ raw.length ≤ 8192 ∧
+    (primitive.canonical raw = false ∨ primitive.buildSingleton parent block.header raw = .completedEmpty)
+
+/-- Inclusion is allowed before the deadline; skipping consumes an entry only once due. -/
+def TimelyByteAction (primitive : ActualQueue.Primitives) (delay : Nat) (parent : Header)
+    (block : BlockValidity.Block) (entry : Forced.Entry) (raw : Bytes) (first : Option Bytes) : Prop :=
+  Included primitive entry first ∨
+    (entry.timestamp+delay ≤ block.header.anchor.timestamp ∧ Skipped primitive parent block entry raw)
 
 def HeaderValid (r : GenerationPolicy) (p : Header) (b : Block) : Prop :=
   b.header.height = p.height+1 ∧ b.body.parentHash = p.elHash ∧
@@ -113,7 +134,8 @@ structure Valid (r : GenerationPolicy) (p : Header) (b : Block) : Prop where
   scheduleOpening : r.scheduleAuthenticated b.header.anchor b.schedule = true
   notStopped : Rules.stopped b.schedule r.startHeight p.height p.timestamp = false
   execution : (definition r b).executionValid p b.body = true
-  payload : (definition r b).payloadValid b.body b.raw b.first = true
+  payload : (definition r b).payloadValid b.body b.raw b.transactions = true
+  positionZero : b.first = b.transactions.head?
   fields : ∀ w, b.body.forced = some w → ActualQueue.PayloadFields (definition r b).bytes p b.body w b.raw b.first
   storage : ∀ w, b.body.forced = some w → r.forcedAuthenticated b.header.anchor w = true
   configuration : r.committeeConfig = r.configHash (Encoding.configWords r.consensus.domain.l2ChainId

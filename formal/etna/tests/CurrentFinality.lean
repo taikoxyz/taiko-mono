@@ -206,7 +206,7 @@ def origin : Header := ⟨8,108,208,0,0,10,⟨500,500,500,8,108,9,0⟩⟩
 def block (h hash round : Nat) : Block :=
   ⟨⟨decodedHeader h hash,99+h,(if h = 9 then none else some 20),domain,0,h+2,
     100,100,true,(if h = 9 then some ⟨⟨1,10,[member]⟩,10⟩ else none),1,1,h+1,round,
-    [⟨domain,0,h,round,2,hash,7⟩],none,.unavailable⟩,⟨1,1,0,0,0⟩,[],none⟩
+    [⟨domain,0,h,round,2,hash,7⟩],none,.unavailable⟩,⟨1,1,0,0,0⟩,[],none,[]⟩
 def one : Block := block 9 20 0
 def two : Block := block 10 21 1
 def shorter : Block := block 9 20 2

@@ -89,6 +89,25 @@ UNSOURCED = {
 }
 
 
+def _current_plumbing():
+    """Reviewed exact-name policy, not an automatic exemption for a module/prefix."""
+    data = json.loads(Path(__file__).with_name('current-plumbing.json').read_text())
+    if set(data) != {'schema_version','scope','theorems'} or data['schema_version'] != 1:
+        raise ValueError('invalid current plumbing policy')
+    entries = data['theorems']
+    if not isinstance(entries,dict) or not entries or not data['scope'].strip():
+        raise ValueError('current plumbing declarations/reasons required')
+    for name, reason in entries.items():
+        if (not name.startswith('Etna.Design.Current.') or not isinstance(reason,str) or not reason.strip()):
+            raise ValueError('invalid reviewed current plumbing declaration/reason: '+str(name))
+    if set(entries) & set(UNSOURCED):
+        raise ValueError('duplicate current/historical plumbing policy')
+    return entries
+
+
+UNSOURCED.update(_current_plumbing())
+
+
 def digest(data):
     return hashlib.sha256(data).hexdigest()
 

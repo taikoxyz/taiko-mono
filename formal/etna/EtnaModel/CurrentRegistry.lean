@@ -4,6 +4,13 @@ import EtnaModel.Current
 are deployment immutables, never evidence arguments. -/
 namespace Etna.Design.Current.RegistryMachine
 
+/-- Finite outstanding principal over permanent issued ids. -/
+def sumBalances (bonds : Nat → Option Registry.Bond) : Nat → Nat
+  | 0 => 0
+  | n+1 => sumBalances bonds n + ((bonds n).map (fun b => b.value.balance)).getD 0
+
+def reserve (ledger : Registry.State) : Nat := sumBalances ledger.bonds ledger.nextId
+
 structure Config where
   exitDelay : Nat := 1
   withdrawalDelay : Nat := 50400
@@ -12,6 +19,14 @@ structure Config where
   owner : Nat := 1
   inbox : Nat := 2
   deriving DecidableEq, Repr
+
+/-- The evidence duration is a fixed deployment policy, not a slash caller input.
+The specification suggests seven days but requires the withdrawal delay to cover the
+deployment's entire evidence window. -/
+def Config.valid (c : Config) (ledger : Registry.State) (evidenceWindow : Nat) : Bool :=
+  decide (0 < ledger.activationDelay ∧ 0 < c.exitDelay ∧
+    0 < evidenceWindow ∧ evidenceWindow ≤ c.withdrawalDelay ∧ c.slashBountyBps ≤ 10000 ∧
+    0 < c.forfeitBps ∧ c.forfeitBps ≤ 10000)
 
 structure State where
   ledger : Registry.State
@@ -23,6 +38,31 @@ structure State where
   entryKey : Hash → Hash := id
   forfeited : List Hash := []
   history : List RegistryHistory.Snapshot := []
+
+/-- A fresh deployment has no previously issued identities, slots, or election history.
+Later history must be produced by successful real registry transactions. -/
+def Genesis (s : State) : Prop :=
+  s.ledger.nextId = 0 ∧ (∀ id, s.ledger.bonds id = none) ∧
+  (∀ slot, s.ledger.slots slot = none) ∧ (∀ key, s.ledger.keyId key = none) ∧
+  s.history = [] ∧ s.forfeited = []
+
+def SlotsIssued (s : Registry.State) : Prop :=
+  ∀ slot id, s.slots slot = some id → id < s.nextId
+
+/-- Every nonzero historical election identity comes from an issued permanent bond.
+This is a derived property; the fresh deployment has no supplied election snapshots. -/
+def HistoryIssued (s : State) : Prop :=
+  ∀ cp ∈ s.history, ∀ entry ∈ cp.entries, entry.stake ≠ 0 →
+    ∃ id bond, id < s.ledger.nextId ∧ s.ledger.bonds id = some bond ∧ bond.value.key = entry.key
+
+/-- An outstanding bond whose first possible confirmation is no earlier than `since`.
+Punishment may reduce principal, but neither it nor rollback may bypass withdrawal time. -/
+def EvidenceClock (s : State) (id since : Nat) : Prop :=
+  ∃ bond, id < s.ledger.nextId ∧ s.ledger.bonds id = some bond ∧ bond.value.released = false ∧
+    ∀ atL1, bond.value.confirmedAt = some atL1 → since ≤ atL1
+
+def HistoryTime (s : State) (now : Nat) : Prop :=
+  RegistryHistory.Ordered s.history ∧ ∀ cp ∈ s.history, cp.block ≤ now
 
 structure InboxView where
   domain : Domain
@@ -66,6 +106,21 @@ inductive Action where
   | exclude (caller snapshot : Nat) (xs : List (Nat × Hash))
   | recheck (caller snapshot : Nat)
   deriving DecidableEq, Repr
+
+def incoming : Action → Nat
+  | .register _ _ amount _ | .topUp _ _ amount => amount
+  | _ => 0
+
+def outgoingBond (s : State) (b : Staking.Bond) : Action → Nat
+  | .withdraw _ _ _ | .slash _ _ _ _ _ => b.balance
+  | .forfeit _ _ _ _ _ => Staking.forfeitPenalty b.balance s.config.forfeitBps
+  | _ => 0
+
+def outgoing (s : State) (a : Action) : Nat :=
+  match a with
+  | .withdraw id _ _ | .slash id _ _ _ _ | .forfeit id _ _ _ _ =>
+      ((s.ledger.bonds id).map (fun b => outgoingBond s b.value a)).getD 0
+  | _ => 0
 
 /-- Internal liability plumbing; callers cannot substitute a key or an edit function. -/
 def writeValue (s : Registry.State) (id : Nat) (old : Registry.Bond)

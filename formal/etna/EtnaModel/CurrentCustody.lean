@@ -12,12 +12,22 @@ structure Primitives (env : Environment) : Prop where
     x.height = y.height ∧ x.stateRoot = y.stateRoot ∧ x.timestamp = y.timestamp ∧ x.anchor = y.anchor
   /-- The pre-existing Unzen proof authenticates its actual decoded EL header. -/
   unzen : ∀ proposal h proof, env.unzenValid proposal h proof = true →
-    env.unzenRoot h ∧ HashBound env h
+    env.unzenRoot h ∧ HashBound env h ∧ h.timestamp < env.core.forkTime
 
 /-- Physical EL fields of a legacy header, with Etna's initial Comet/FI context. -/
 def StartsAt (h legacy : Header) : Prop :=
   h.height = legacy.height ∧ h.elHash = legacy.elHash ∧ h.stateRoot = legacy.stateRoot ∧
   h.timestamp = legacy.timestamp ∧ h.anchor = legacy.anchor ∧ h.cometHash = 0 ∧ h.cursor = 0
+
+/-- The actual contract fence at the accepting first landing. The timestamp is the
+upstream Unzen/cutoff duty; implementation validation remains guest semantics. -/
+def FirstFence (env : Environment) (w : World) (h : Header) : Prop :=
+  ∃ start, w.start = some start ∧ w.inbox.checkpoint.height = start.height ∧
+    env.core.unzenInbox ≠ 0 ∧ w.unzen.nextProposal = w.unzen.finalizedProposal+1 ∧
+    w.unzen.finalizedHash = start.hash ∧ w.unzen.checkpointExists = true ∧
+    w.unzen.checkpointHash = start.hash ∧ w.unzen.checkpointRoot = start.stateRoot ∧
+    h.height = start.height ∧ h.elHash = start.hash ∧ h.stateRoot = start.stateRoot ∧
+    env.startImplementation h.stateRoot = true ∧ h.timestamp < env.core.forkTime
 
 inductive Path (env : Environment) (initial : World) : Header → Prop
   | genesis {w t : World} (caller : Nat)
@@ -29,7 +39,7 @@ inductive Path (env : Environment) (initial : World) : Header → Prop
       (switching : env.core.unzenInbox ≠ 0)
       (retained : w.unzenHeader = some legacy)
       (authenticated : env.unzenRoot legacy) (starts : StartsAt h legacy)
-      (bound : HashBound env h) : Path env initial h
+      (bound : HashBound env h) (fence : FirstFence env w h) : Path env initial h
   | landing {w t : World} {a : Landing}
       (prior : Trace env initial w) (accepted : land env w a = some t)
       (segment : Suffix env w a) (parent : Path env initial segment.parent) :
@@ -37,7 +47,8 @@ inductive Path (env : Environment) (initial : World) : Header → Prop
 
 def AuthenticRoot (env : Environment) (h : Header) : Prop :=
   (env.core.unzenInbox = 0 ∧ h = env.genesisHeader) ∨
-  ∃ legacy, env.unzenRoot legacy ∧ StartsAt h legacy
+  ∃ w t a legacy, land env w a = some t ∧ FirstFence env w h ∧
+    w.unzenHeader = some legacy ∧ env.unzenRoot legacy ∧ StartsAt h legacy
 
 inductive Descends (env : Environment) (initial : World) (root : Header) : Header → Prop
   | refl : Descends env initial root root
@@ -66,7 +77,7 @@ structure Invariant (env : Environment) (initial w : World) : Prop where
   signals : ∀ s ∈ w.inbox.signals, SignalSafe env initial s
   unzen : w.unzen.checkpointExists = true → ∃ h, w.unzenHeader = some h ∧ env.unzenRoot h ∧ HashBound env h ∧
     w.unzen.finalizedHash = h.elHash ∧ w.unzen.checkpointHash = h.elHash ∧
-    w.unzen.checkpointRoot = h.stateRoot
+    w.unzen.checkpointRoot = h.stateRoot ∧ h.timestamp < env.core.forkTime
 
 /-- Raw reachability facts, proved by the current journal rather than presumed by H1. -/
 def Frontier (w : World) : Prop := w.start.isSome = true →

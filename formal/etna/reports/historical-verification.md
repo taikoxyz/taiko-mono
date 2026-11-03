@@ -1,5 +1,7 @@
 # Historical verification before the 2026-11-03 alignment
 
+> **Historical report.** This document describes the original model and the baseline identified below. Any use of “current” refers to that historical baseline. For the current `Etna.Design.Current` claims and evidence, read the [current scope](../README.md) and [latest alignment](latest-design-alignment.md).
+
 This report describes only the archived authorities in `legacy/2026-10-30`.
 See [current scope](../README.md) and [alignment evidence](latest-design-alignment.md).
 

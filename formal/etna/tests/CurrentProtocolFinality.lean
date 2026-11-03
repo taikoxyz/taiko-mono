@@ -33,7 +33,7 @@ def env : Environment where
   initialSigner := ⟨domain,0,1,[],false,[]⟩
   time := id
   stateRoot := fun s => s.number+100
-  blockHash := id
+  blockHash := fun _ n => n
   headerHash := fun h => h.elHash
   committeeHash := fun _ => 1
   configHash := fun _ => 0

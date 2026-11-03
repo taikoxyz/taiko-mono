@@ -62,6 +62,9 @@ class CurrentBlocksTests(unittest.TestCase):
         self.reject('fields : ∀ w, b.body.forced = some w → ActualQueue.PayloadFields (definition r b).bytes p b.body w b.raw b.first',
                     'fields : True')
 
+    def test_complete_payload_position_zero_required(self):
+        self.reject('positionZero : b.first = b.transactions.head?', 'positionZero : True')
+
     def test_no_unlanded_height_cap(self):
         self.reject('b.header.timestamp < limit256 ∧',
                     'b.header.height < limit48 ∧ b.header.timestamp < limit256 ∧')

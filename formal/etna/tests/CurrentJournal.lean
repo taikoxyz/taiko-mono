@@ -16,12 +16,12 @@ def registry : RegistryMachine.State :=
     config := {inbox := 3} }
 def env : Protocol.Environment where
   core := ⟨domain,7,8,0,0,9⟩
-  parameters := ⟨1,10,0,⟨Committee.minUnit,Committee.minUnit,1,10⟩,2,1152,10,0,1,9⟩
+  parameters := ⟨1,10,0,⟨Committee.minUnit,Committee.minUnit,1,10⟩,2,1152,10,1,1,9⟩
   genesisHeader := ⟨0,100,100,0,0,0,⟨0,0,0,0,0,0,0⟩⟩
   initialSigner := ⟨domain,0,0,[],false,[]⟩
   time := id
   stateRoot := fun s => s.number
-  blockHash := id
+  blockHash := fun _ n => n
   headerHash := fun h => h.elHash
   committeeHash := fun _ => 1
   configHash := fun _ => 0
@@ -44,10 +44,10 @@ def env : Protocol.Environment where
 def initial : Protocol.World := Protocol.empty env registry
 def block1 : Protocol.World := Protocol.transact env initial (.advance 1)
 def started : Protocol.World := Protocol.transact env block1 (.initializeInbox 7)
-def one : Protocol.World := Protocol.transact env started (.enqueue [11] 0 false)
-def two : Protocol.World := Protocol.transact env one (.enqueue [12] 0 false)
+def one : Protocol.World := Protocol.transact env started (.enqueue [11] 1000000000 false)
+def two : Protocol.World := Protocol.transact env one (.enqueue [12] 2000000000 false)
 def closed : Protocol.World := Protocol.transact env two (.advance 3)
-def third : Protocol.World := Protocol.transact env closed (.enqueue [13] 0 false)
+def third : Protocol.World := Protocol.transact env closed (.enqueue [13] 3000000000 false)
 
 -- Both same-block admissions are present in the completed block, including empty block 2.
 example : two.queue = [(0,⟨11,1,1⟩),(1,⟨12,1,1⟩)] := by decide
@@ -74,8 +74,8 @@ example : (Protocol.transact env recovered (.recover request)).queue = recovered
 theorem third_trace : Protocol.Trace env initial third :=
   .step (.step (.step (.step (.step (.step (.refl initial)
     (.call initial (.advance 1))) (.call block1 (.initializeInbox 7)))
-    (.call started (.enqueue [11] 0 false))) (.call one (.enqueue [12] 0 false)))
-    (.call two (.advance 3))) (.call closed (.enqueue [13] 0 false))
+    (.call started (.enqueue [11] 1000000000 false))) (.call one (.enqueue [12] 2000000000 false)))
+    (.call two (.advance 3))) (.call closed (.enqueue [13] 3000000000 false))
 example : Invariant env third := trace_invariant third_trace
 example : Invariant env recovered := trace_invariant (.step third_trace (.call third (.recover request)))
 example : RecordShape third := trace_record_shape third_trace

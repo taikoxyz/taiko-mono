@@ -1,5 +1,7 @@
 # Trusted rollback across recovery
 
+> **Historical report.** This document describes the original model and the baseline identified below. Any use of “current” refers to that historical baseline. For the current `Etna.Design.Current` claims and evidence, read the [current scope](../README.md) and [latest alignment](latest-design-alignment.md).
+
 Task 4 extends the decoded design proof package from base `a2cbbff99c` without changing any prior public theorem type, model transition, headline premise, normative specification or production code.
 
 `CanonicalHistory.run_snapshot_below` exposes the source-history invariant already derived from valid accepted batches, decoded header/archive binding and raw origin/reference bounds. `SigningEscrow.later_generation_origin` proves by induction on unrestricted actual protocol transitions that a strictly newer generation's origin block is at least the source World’s L1 clock. Thus the exact source snapshot lies below every later recovery origin, including after arbitrarily many forged landings and recoveries. The recovery cutoff floor establishes `SnapshotTrusted` without requiring verifier soundness or canonical history on the suffix.

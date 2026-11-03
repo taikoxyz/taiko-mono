@@ -1,9 +1,9 @@
 # Review corrections
 
-The first three sections record the first correction pass. Its counts (420 contracts,
-47 tests, 172 partial / 441 deferred) are historical, and so are the counts of the second,
-third and fourth passes. The current numbers are in the last section ("Headline-theorem
-restructure") and in the README.
+> **Historical report.** This document describes the original model and the baseline identified below. Any use of “current” refers to that historical baseline. For the current `Etna.Design.Current` claims and evidence, read the [current scope](../README.md) and [latest alignment](latest-design-alignment.md).
+
+The sections below preserve successive historical correction passes, their original counts and citations.
+They do not supply the current verification totals or authority pins.
 
 Baseline: PR #22292 at `2f884b06f10fae4e48104ada88cada05b3d80fd5`. These changes
 repair formal evidence and its tooling. No production contracts/clients/guests are

@@ -32,7 +32,7 @@ structure Parameters where
 def Parameters.valid (p : Parameters) : Bool :=
   Committee.configOK p.gridK p.epochLen p.committee.unsettled &&
   decide (0 < p.forcedDelay ∧ 1152 ≤ p.maxAnchorAge ∧ p.gridK ≤ p.maxBatchBlocks ∧
-    0 < p.forcedThreshold ∧ p.treasury ≠ 0 ∧ Committee.minUnit ≤ p.committee.unit ∧
+    0 < p.forcedFee ∧ 0 < p.forcedThreshold ∧ p.treasury ≠ 0 ∧ Committee.minUnit ≤ p.committee.unit ∧
     p.committee.unit ≤ p.committee.minimum ∧ 1 ≤ p.committee.nMax ∧ p.committee.nMax ≤ 4096)
 
 def install (s : Etna.Design.State) (p : Parameters) (configHash : List Encoding.Word → Hash) : Etna.Design.State :=
@@ -61,6 +61,7 @@ structure Snapshot where
   start : Option StartData
   registryHistory : List RegistryHistory.Snapshot
   queue : List (Nat × Forced.Entry)
+  deriving DecidableEq, Repr
 
 structure Environment where
   core : Core
@@ -69,7 +70,8 @@ structure Environment where
   initialSigner : Signer.State
   time : Nat → Nat
   stateRoot : Snapshot → Hash
-  blockHash : Nat → Hash
+  /-- Hash of the supplied complete closed prefix through the numbered reference. -/
+  blockHash : List Snapshot → Nat → Hash
   headerHash : Blocks.Header → Hash
   committeeHash : Committee.Record → Hash
   configHash : List Encoding.Word → Hash
@@ -93,6 +95,7 @@ structure Environment where
   token : RegistryPayments.PaymentEnvironment
   /-- Existing TAIKO balances and approvals at deployment, not newly minted principal. -/
   initialToken : RegistryPayments.TokenState := ⟨fun _ => 0,fun _ _ => 0⟩
+  evidenceWindow : Nat := 50400
 
 structure World where
   inbox : Etna.Design.State
@@ -113,6 +116,8 @@ structure World where
   configurations : List (Nat × Parameters)
   everLanded : Bool
   receipts : List RegistryPayments.Payment
+  /-- Ghost provenance of the selection snapshot written with each retained record. -/
+  activeSnapshots : List (Checkpoint × Nat) := []
 
 abbrev Header := Blocks.Header
 abbrev Block := Blocks.Block
@@ -139,7 +144,17 @@ def empty (env : Environment) (registry : RegistryMachine.State) : World :=
   ⟨install (bareInbox env.core) env.parameters env.configHash,false,none,⟨0,0,0,0,0⟩,
     ⟨registry,env.initialToken⟩,[],[],[],⟨env.unzenNextProposal,0,0,false,0,0⟩,none,[],0,
     ⟨{ env.initialSigner with ready := false },env.initialSigner.activeGeneration,none,[],false,false,false⟩,
-    0,[],[],false,[]⟩
+    0,[],[],false,[],[]⟩
+
+/-- An L1 reference commits only completed blocks at or before it, never later calls. -/
+def referencePrefix (w : World) (number : Nat) : List Snapshot := w.history.take (number+1)
+
+def referenceHash (env : Environment) (w : World) (number : Nat) : Hash :=
+  env.blockHash (referencePrefix w number) number
+
+/-- Ideal collision separation for the decoded canonical L1 prefix commitment. -/
+def ReferenceBinding (env : Environment) : Prop :=
+  ∀ a b number, env.blockHash a number = env.blockHash b number → a = b
 
 def registryView (env : Environment) (w : World) : RegistryMachine.InboxView :=
   ⟨w.inbox.domain,w.inbox.generation,w.inbox.snapshot,w.initialized,w.inbox.entered,env.time w.number⟩
@@ -167,12 +182,15 @@ def writeRecord (records : List Checkpoint) (cp : Checkpoint) : List Checkpoint 
 def writeStart (w : World) (height hash root block timestamp generation : Nat) : World :=
   let origin : Etna.Design.Origin := ⟨height,block,timestamp⟩
   let cp : Checkpoint := ⟨height,hash,0,0,generation,height⟩
-  { w with start := some ⟨height,hash,root⟩,     inbox := { w.inbox with generation := generation,origin := origin,       origins := w.inbox.origins ++ [(generation,origin)],checkpoint := cp,       records := writeRecord w.inbox.records cp },activeRecords := [cp] }
+  { w with start := some ⟨height,hash,root⟩,     inbox := { w.inbox with generation := generation,origin := origin,       origins := w.inbox.origins ++ [(generation,origin)],checkpoint := cp,       records := writeRecord w.inbox.records cp },activeRecords := [cp],activeSnapshots := [(cp,w.inbox.snapshot)] }
 
 def initializeInbox (env : Environment) (w : World) (caller : Nat) : Option World :=
   if caller = env.core.owner ∧ w.initialized = false ∧ w.inbox.generation = 0 ∧ env.parameters.valid = true ∧
       w.registry.registry.config.inbox = env.core.domain.inbox ∧
-      env.parameters.genesisCutoff < w.number then
+      env.parameters.genesisCutoff < w.number ∧
+      w.registry.registry.config.valid w.registry.registry.ledger env.evidenceWindow = true ∧
+      env.token.registryAddress = env.core.domain.registry ∧ env.token.slashSink = env.core.slashSink ∧
+      env.token.slashSink ≠ 0 then
     let initial := { w with initialized := true,       inbox := { w.inbox with snapshot := env.parameters.genesisCutoff },       configurations := [(0,env.parameters)] }
     if env.core.unzenInbox = 0 then
       if env.genesisHeader.height = 0 ∧ env.genesisHeader.cursor = 0 ∧ env.genesisHeader.cometHash = 0 then
@@ -276,10 +294,10 @@ def invalidate (env : Environment) (w : World) (caller nonce : Nat) : Option Wor
 def rollback (env : Environment) (w : World) (caller : Nat) (trusted : Checkpoint) (snapshot : Nat) : Option World :=
   if caller = env.core.owner ∧ w.initialized = true ∧ w.inbox.entered = false ∧
       trusted ∈ w.activeRecords ∧ trusted.height ≤ w.inbox.checkpoint.height ∧
-      w.inbox.recoveryNonce+1 < limit256 then
+      w.inbox.recoveryNonce+1 < limit256 ∧ (trusted,snapshot) ∈ w.activeSnapshots then
     (RegistryMachine.execute w.registry.registry (registryView env w) w.number
       (.recheck w.registry.registry.config.inbox snapshot)).map fun registry =>
-    { w with registry := { w.registry with registry := registry },       inbox := { w.inbox with checkpoint := trusted,head := trusted.cursor,snapshot := snapshot,         recoveryNonce := w.inbox.recoveryNonce+1,         records := w.inbox.records.filter (fun r => r ∉ w.activeRecords ∨ r.height ≤ trusted.height),         signals := w.inbox.signals.filter (fun s => s.height ≤ trusted.height) },       activeRecords := w.activeRecords.filter (fun r => r.height ≤ trusted.height) }
+    { w with registry := { w.registry with registry := registry },       inbox := { w.inbox with checkpoint := trusted,head := trusted.cursor,snapshot := snapshot,         recoveryNonce := w.inbox.recoveryNonce+1,         records := w.inbox.records.filter (fun r => r ∉ w.activeRecords ∨ r.height ≤ trusted.height),         signals := w.inbox.signals.filter (fun s => s.height ≤ trusted.height) },       activeRecords := w.activeRecords.filter (fun r => r.height ≤ trusted.height),activeSnapshots := w.activeSnapshots.filter (fun x => x.1.height ≤ trusted.height) }
   else none
 
 /-- Configuration actually applicable to this generation, never a later initializeInboxr. -/
@@ -300,7 +318,7 @@ def policy (env : Environment) (w : World) (archive : List Header) (reference : 
   forcedDelay := w.inbox.forcedDelay
   unsettled := w.inbox.configuration.unsettled
   referenceNumber := reference
-  referenceHash := env.blockHash reference
+  referenceHash := referenceHash env w reference
   committeeHash := env.committeeHash
   signature := env.signature
   anchorAuthenticated := fun a => (matchingSnapshot env w a).isSome
@@ -335,7 +353,7 @@ structure Landing where
 def statement (env : Environment) (w : World) (a : Landing) : StatementData :=
   let origin := (recordAt w.inbox a.input.parentHeight).getD default
   ⟨w.inbox.domain,w.inbox.generation,w.inbox.committeeConfig,origin.elHash,origin.cometHash,origin.cursor,
-    a.input,env.blockHash a.input.l1ReferenceBlockNumber,a.blobs,
+    a.input,referenceHash env w a.input.l1ReferenceBlockNumber,a.blobs,
     ⟨w.inbox.generation,a.input.parentHeight,a.input.lastHeight,a.leaves⟩⟩
 
 def proofsAccepted (env : Environment) (w : World) (a : Landing) : Bool :=
@@ -409,7 +427,7 @@ instance (env : Environment) (w : World) (a : Landing) : Decidable (LandingCheck
 def landed (w : World) (a : Landing) : World :=
   let cp : Checkpoint := ⟨a.input.lastHeight,a.input.lastBlockHash,a.input.lastCometHash,
     a.input.forcedInclusionHead,w.inbox.generation,w.inbox.checkpoint.height⟩
-  { w with inbox := { w.inbox with checkpoint := cp,records := writeRecord w.inbox.records cp,       head := a.input.forcedInclusionHead,snapshot := a.input.activeCommitteeSnapshot,       signals := w.inbox.signals ++ [⟨a.input.lastHeight,a.input.lastBlockHash,a.input.lastStateRoot⟩] },     activeRecords := cp :: w.activeRecords,everLanded := true }
+  { w with inbox := { w.inbox with checkpoint := cp,records := writeRecord w.inbox.records cp,       head := a.input.forcedInclusionHead,snapshot := a.input.activeCommitteeSnapshot,       signals := w.inbox.signals ++ [⟨a.input.lastHeight,a.input.lastBlockHash,a.input.lastStateRoot⟩] },     activeRecords := cp :: w.activeRecords,activeSnapshots := (cp,a.input.activeCommitteeSnapshot) :: w.activeSnapshots,everLanded := true }
 
 def land (env : Environment) (w : World) (a : Landing) : Option World :=
   if LandingChecks env w a then some (landed w a) else none
@@ -432,9 +450,10 @@ def nodeImport (env : Environment) (w : World) (candidate : Import.Candidate) (d
   | none => none
   | some (generation,checkpoint) =>
     if env.importValid generation checkpoint candidate = true ∧ candidate.height = checkpoint.height ∧
-        candidate.checkpointEL = checkpoint.elHash ∧ generation = w.inbox.generation then
+        candidate.checkpointEL = checkpoint.elHash ∧ generation = w.inbox.generation ∧
+        candidate.origin = w.inbox.origin.height then
       (Import.publish candidate generation w.node.signer durable).map fun installed =>
-        { w with node := { w.node with importedHeaders := installed.headerNumbers,           signer := installed.signer,trusted := false } }
+        { w with node := { w.node with importedHeaders := installed.headerNumbers,           signer := { installed.signer with ready := false },trusted := false } }
     else none
 
 def nodeRestart (w : World) : World :=
@@ -539,13 +558,22 @@ inductive Trace (env : Environment) : World → World → Prop
 /-- Proof soundness is about individual accepted guest statements, not custody or queues. -/
 def HashBound (env : Environment) (h : Header) : Prop := env.headerHash h = h.elHash
 
-def Certifies (env : Environment) (w : World) (d : StatementData) : Prop :=
-  ∃ archive p bs, Finality.Ready (config w) w.registry.registry archive (Blocks.terminal p bs).height ∧
+def BatchCertificate (env : Environment) (w : World) (d : StatementData)
+    (archive : List Header) (p : Header) (bs : List Block) : Prop :=
+  Finality.Ready (config w) w.registry.registry archive (Blocks.terminal p bs).height ∧
     Blocks.BatchValid (policy env w archive d.input.l1ReferenceBlockNumber) p bs d.blobHashes ∧
     d = Blocks.statement (policy env w archive d.input.l1ReferenceBlockNumber) p bs d.blobHashes ∧
     HashBound env p ∧ (∀ b ∈ bs, HashBound env b.header) ∧
     (env.core.unzenInbox ≠ 0 → p.height = (w.start.map StartData.height).getD 0 →
-      env.startImplementation p.stateRoot = true ∧ p.timestamp < env.core.forkTime)
+      env.startImplementation p.stateRoot = true)
+
+def Certifies (env : Environment) (w : World) (d : StatementData) : Prop :=
+  ∃ archive p bs, BatchCertificate env w d archive p bs
+
+/-- A sound guest certifies the batch only under rules that its declared image implements. -/
+def ImageCertifies (env : Environment) (w : World) (image : Hash) (d : StatementData) : Prop :=
+  ∃ archive p bs, BatchCertificate env w d archive p bs ∧
+    ∀ b ∈ bs, Blocks.selectedRules b ∈ env.imageRules image
 
 /-- Semantic certificate suffix extracted at the execution-time frontier. No public call
 accepts such a value or assumes it; the soundness bridge derives its fields from proofs. -/
@@ -571,6 +599,6 @@ def VerifierSound (env : Environment) (initial : World) : Prop :=
     ∀ w, Trace env initial w → ∀ a t proof, land env w a = some t → proof ∈ a.proofs →
       sound proof.backend →
       env.verify w.verifier proof.backend proof.image proof.bytes (statement env w a) = true →
-      Certifies env w (statement env w a)
+      ImageCertifies env w proof.image (statement env w a)
 
 end Etna.Design.Current.Protocol

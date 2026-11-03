@@ -1,5 +1,7 @@
 # Source alignment review — 2026-10-29
 
+> **Historical report.** This document describes the original model and the baseline identified below. Any use of “current” refers to that historical baseline. For the current `Etna.Design.Current` claims and evidence, read the [current scope](../README.md) and [latest alignment](latest-design-alignment.md).
+
 Authority: SPEC.md and ACCEPTANCE.md at `39ebefbf33a2702b750e0fb0db7d2a40ff8e8480`. The old source is `sources/spec.md` at formal head `c9708e76159bb8da701f8bc20c07ff2e46537642`. Production specifications are unchanged.
 
 Inventory schema 4 retains `source` and adds `acceptance_source`. Each fixed repository path has its own SHA-256, full Git commit and revision date. Runtime checks compare bytes with this reviewed inventory; neither an editor manifest nor local Git history is required. Metadata identifies provenance and is not a signature or a proof of publication. SPEC clauses retain the `EN-` prefix; acceptance clauses use `ACCEPTANCE-`. Every source row carries `path` and `source_commit`.

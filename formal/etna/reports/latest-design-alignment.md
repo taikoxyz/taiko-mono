@@ -1,75 +1,98 @@
-# Latest Etna H1–H3 alignment
+# Latest Etna design alignment
 
 Authority: main `1135c9b24fd03f50cb48eab250879435fd54f528`, including SPEC, ACCEPTANCE,
 ANCHORLESS and SWITCH. These protocol documents are unchanged. This report concerns
-conditional decoded-design safety, not production implementation or launch sign-off.
+conditional decoded-design safety and the review corrections to its model/evidence.
+It does not certify production implementations, complete acceptance or launch readiness.
 
-## Composed current claims
+## Semantic contracts and boundaries
 
-`Etna.Statements.Current.Claims` is the conjunction of the three exact current claims;
-`Etna.Design.Current.Headlines.claims` proves it. The audit independently pins all four
-headline types and checks that every one of the nine current premise fields is read.
-Historical headlines retain their original types and separately pinned authorities.
+| Obligation              | Current evidence                                                                 | Precise boundary                                                                                                                                                                                                                                                                |
+| ----------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reference identity      | Closed-prefix reference commitments and separation                               | A reference binds the complete supplied closed L1 prefix, including financial state. Hashing/authentication implementations remain primitive refinements. Changes after the fixed reference do not rewrite that prefix.                                                         |
+| Retained funds custody  | Current custody and coherent retained-chain invariants                           | Signals and retained checkpoints share a parent chain. Accepted Unzen first-fence and implementation-check evidence are distinct from off-chain pre-fork origin duties. No unrelated node-trust obligation is inferred.                                                         |
+| Lifecycle and rollback  | One-shot start write, post-landing start freeze, checkpoint-associated snapshots | Corrections do not reopen the start after a landing. Rollback truncates the retained chain and signals and restores the snapshot actually associated with its trusted checkpoint.                                                                                               |
+| Economic accountability | Issued-bond history, atomic principal/payment accounting and evidence clock      | Election identities come from real issued bonds. Reserve backing and evidence-window retention are derived from initial state and actual lifecycle calls; raw signature/token refinements remain explicit.                                                                      |
+| Chain agreement         | Own-archive committee derivation and round/codec binding                         | The exact agreement conclusion remains conditional on its declared honest-round/minority and primitive codec/signature assumptions. It does not prove liveness.                                                                                                                 |
+| Forced inclusion        | Complete journal, timed byte actions, actual FIFO interval and nondue inclusion  | Inclusion authenticates the complete decoded payload's head. A skip must be due. Parser/body/EL/singleton execution is relative to the selected fixed interpreter; no production EIP-2718 or full-budget EL implementation is proved.                                           |
+| FI admission            | Exact payment/refund, balance/revenue, append and failure contracts              | Positive configured fees, underpayment rejection, failed-refund rollback and exact byte/hash/time/block admission are exercised with nonzero fees. Event encoding and production ETH transfer execution remain separate.                                                        |
+| Import publication      | Complete original-generation header-number interval and closed readiness         | The model installs numbers and closes readiness/trust while preserving HRS/log state. It does not represent the actual original EL headers, execution indexes or full stock stores required by SPEC 5.4. This remains an abstraction gap, not an implemented complete importer. |
+| Rulesets and images     | Per-block selected definitions and actual-image certificate support              | A declared image must implement every ruleset in its complete decoded batch. Three-ruleset fixtures reject a missing middle definition. Backend/guest implementation refinement and availability remain explicit.                                                               |
 
-| Obligation                   | Main current evidence                                                                                 | Boundary                                                                                                                                                                                                                                                                                                                                           |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| H1 recognized funds          | `Custody.trace_invariant`, `funds_authorized`, `landing_edge_authorized`, `path_rooted`               | Full-header paths retain actual reachable accepted calls. Pending/refused starts and inactive archival records are not declared authentic. Genesis, authenticated Unzen and decoded header/hash separation are primitive deployment/crypto boundaries.                                                                                             |
-| Actual overlapping suffix    | `Protocol.accepted_suffix_from_certificate`, `Journal.trace_frontier_record`                          | S-offset grid arithmetic, actual retained frontier lookup and cuts derive the suffix when p<c; the accepted call never receives a semantic chain or suffix as input.                                                                                                                                                                               |
-| H2 same-round accountability | `ProtocolFinality.current_h2`, `protocol_same_round_accountability`, `paid_evidence_future_liability` | More than one third of power; all future issued positive unwithdrawn key bonds, including displaced and historical-generation liability. Actual token transfers and exact receipts commit atomically. Standard token semantics and sufficient future registry balance remain explicit.                                                             |
-| H2 cross-round finality      | `Finality.full_chain_agreement`, `ProtocolFinality.protocol_full_chain_agreement`                     | Within one World/generation from the same full origin header, induction derives common prefixes from each chain's own complete archive and actual slot-snapshot history. Honest local round transitions, strict Byzantine minority, vote attribution and deterministic Comet/EL binding are assumed; chain agreement and context equality are not. |
-| H3 actual FIFO and deadlines | `Journal.trace_invariant`, `landing_service`, `local_due_action`, `local_late_action`                 | Complete end-block snapshots include same-block calls. Selected rules enforce real byte inclusion/skip; current headlines normalize the transaction hash to admission's fixed hash. Strict canonical L1 time supports the inclusive deadline implication.                                                                                          |
-| H3 call/recovery frames      | `nonlanding_never_advances`, `nonrecovery_preserves_existing`, `recovery_queue_exact`                 | Exhaustive current calls, failed-call stutter and node events; only landing advances head, rollback may rewind, and only listed recovery hashes change.                                                                                                                                                                                            |
-| Permanent registry           | `RegistryMachine.trace_stable`, `evidence_stays_slashable`, `RegistryPayments.failure_atomic`         | Closed lifecycle operations replace generic caller-supplied mutation. IDs and keys persist; historical slots and evidence retain meaning.                                                                                                                                                                                                          |
+Exact exported definitions and theorem types are the authority for the strength and
+quantifiers of each result. The global accepting realization is now proved by
+`Etna.Design.Current.Protocol.NonVacuity.accepting_deployment`: all 13 current Premises
+hold together, with an actual registered/funded bond, nonzero FI admission and a reachable
+accepted landing that advances the FI head. The full decoded Snapshot state-root encoding
+is globally injective. `verifier_sound` covers every reachable accepting World; its
+verifier accepts only image 11 and the two fixed certified statement templates. This is a
+restricted new-network interpreter witness, not a switching-network or production
+crypto/EL realization. Other finite fixtures do not replace that global proof or the final
+kernel/type/axiom audit.
 
-Short names above are under `Etna.Design.Current` (custody under `Protocol.Custody`).
-The manifest contains 195 current contracts and 1,216 preserved original contracts.
-The current inventory has 24 partial/542 deferred clauses; 54 of 603 binding rule IDs have
-narrow partial evidence. No clause or operational acceptance gate is marked fully proved
-merely because a headline theorem exists.
+## Review disposition
 
-## Validation and nonempty evidence
+The [per-finding disposition](current-review-corrections.md) records the critical,
+important, earlier and minor feedback individually, with corrections and explicit limits.
 
-Current fixtures cover accepted nonempty landings, overlap, corrected Unzen starts,
-first-generation anchors, crossing timestamp rules, deterministic include/skip decisions,
-unknown/unsupported rules, permanent displaced bonds, historic-generation slash receipts,
-structural recovery, rollback, full frontier lookup and signer restart preservation.
-Semantic mutants must compile as model-only changes before unchanged evidence rejects them.
-Exact-headline and mandatory-manifest checks protect the current conjunction separately
-from historical results.
+The review identified substantive model/evidence gaps in reference binding, coherent
+custody, economic provenance, due-qualified FI skips, admission accounting, complete payload
+position zero, importer readiness/prefix range and proof-image ruleset support. The current
+semantic layers expose these contracts rather than adding their conclusions to Premises.
 
-Positive finite fixtures are not a complete satisfying model of all global crypto/EL/Comet
-premises. In particular, synthetic accepting verifier/hash adapters demonstrate concrete
-accepted/certified paths, not global verifier soundness or collision resistance. The global
-claims keep those primitive refinements explicit; this update does not infer them from tests.
+Rule traceability now uses an explicit reviewed rule-to-theorem map. It no longer inherits
+evidence from a whole paragraph or proof module. In particular, generic list-agreement
+helpers do not cover stock CometBFT process/locking rules; future-slash existence does not
+cover top-up/withdrawal policy; cursor arithmetic does not cover discarded zk trial work;
+and the guest implementation fence does not prove node pre-fork operational duties.
+Specific landing suffix/frontier obligations are mapped separately from unrelated landing
+interface, nonpayable and evaluation-order requirements. Supporting raw guards are visible
+without being counted as derived partial properties.
 
-The final audit passed all 1,411 exact contracts, 325 property derivation chains and
-31 Lean regression modules, with only the standard axioms. All nine current and seven
-historical premise fields are consumed. All 478 Python tests passed in 878.792 seconds,
-including the new current semantic mutants and preserved historical gate/witness suite.
-Source/library lint, fresh historical vectors, all authority pins, deterministic generated
-artifacts, the current rule report and `git diff --check` also passed. All 1,243 previously
-committed contract records remain unchanged; 168 public current theorem contracts were added.
+Two review suggestions do not indicate defects. `trace_fields_fit` needs no induction
+hypothesis because each successful call validates all resulting fields. `scheduleRules`'s
+48-bit sum guard is implied by its representable scheduled time and lower deadline; using
+a 256-bit guard would leave successful behavior unchanged. Stop cancellation has a different
+arithmetic condition and is tested separately.
 
-## Review outcome and limits
+The review correctly identified **251 inventoried clauses in the other three in-repository
+authorities**. The earlier interpretation of this number as an unsupported external-spec
+count was wrong. The inventory is 315 SPEC + 113 SWITCH + 93 ANCHORLESS + 45 ACCEPTANCE
+clauses. No percentage of verification follows from those counts.
 
-No confirmed new defect in the latest Etna design was found. The public H1/H3 statements
-require no committee honesty: the strict-minority/honest-round condition belongs only to
-H2's explicit agreement antecedent, matching the stronger leaf proofs. Same-round accountability also needs no honest minority. Review did find and correct
-model defects: disconnected catalogue/admission hashes; trust before initialization or
-without an authenticated origin; and zero-only initial token state that made positive
-standard-token calls unreachable. Deployment balances/approvals are now explicit inputs,
-and a funded trace exercises actual paid transactions from that initial state.
+| Additional authority    | Current evidence                                                                                                                                                                                                                                  | Explicitly deferred scope                                                                                                                                                                                                                                                                       |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SWITCH — 113 clauses    | Direct links only for the accepted decoded first-fence conditions, their matching authenticated Unzen root, the fixed guest implementation checker and the L1 accepting-root portion of lines 117–128. Each source edge states its narrow result. | PROPOSE_MARGIN/FI_MARGIN arithmetic (including lines 77–83), actual Unzen proposal processing, originWriter and honest-node operational checks, bridge/signal migration and the complete switch procedure. The primitive pre-fork Unzen-header condition does not prove the margin calculation. |
+| ANCHORLESS — 93 clauses | All current clauses remain deferred. Historical anchorless results do not count as current evidence.                                                                                                                                              | Bridge root resolver and HopProof verification, EIP-4788 pre-execution writes/ring-buffer expiry, cached signals, storage VERSION namespaces, deployed contract code and upgrade/migration order.                                                                                               |
+| ACCEPTANCE — 45 clauses | All current clauses remain deferred. Synthetic/model fixtures do not complete acceptance gates.                                                                                                                                                   | Actual guest/resource/latency/gas measurements, maximum committee/signer/HSM tests, production two-proof combinations, launch capital/concentration gates and full switch/recovery rehearsal.                                                                                                   |
 
-The decoded-header separation boundary includes authenticated L1/header/storage expansion
-of the anchor, not merely hashing raw EL bytes. Token environment addresses must be wired
-to the intended deployment; the proof uses those fixed addresses. The node model preserves
-signer state and gates trust but does not prove the stock-store importer or complete
-producer membership/height refinement; H2 names honest-engine and signature attribution
-separately.
+Adopted zk-gas rules, CometBFT, Ethereum transaction formats and raw cryptographic/data-store
+implementations remain additional refinement obligations. Import-range/readiness proofs
+operate only on header numbers and flags; they do not model or install the actual header
+contents, EL indexes and stock stores SPEC 5.4 requires. Historical reports and JSON vectors
+describe their named baselines and carry explicit archival labels.
 
-DAO upgrades, image registration/revocation and verifier versions are interpreted under
-explicit backend soundness. This proves no arbitrary new code safe and no supported image
-combination available. Image-set coverage/launch policy, raw decoder/MPT/KZG/crypto/EL/Comet
-implementation refinement, outage/recovery loss bounds and operational switch rehearsal
-remain external or deferred. No liveness claim or acceptance measurement follows from
-these three conditional safety theorems.
+## Validation
+
+Final review-correction validation with pinned Lean 4.35.0-rc4:
+
+- `lake build` succeeds; source lint checks 204 Lean files and the import graph checks
+  170 modules in five libraries, with no Model theorem exemption.
+- `audit_proofs.py` passes all **1,625 exact contracts**, mechanical roles and fresh
+  whole-import-closure kernel replay, including **34 Lean regression modules**. Only
+  `propext`, `Classical.choice` and `Quot.sound` occur as transitive axioms. All thirteen
+  current and seven historical premise fields are read by headline proofs. The accepting
+  current premise witness is mandatory. The 396 recorded property derivation chains are
+  syntactic evidence records, not a count of verified protocol rules.
+- The complete Python regression/mutation suite passes **504 tests in 1,051.595 seconds**,
+  run serially after the audit. It includes exact-type/premise/kernel attacks and the
+  new custody, economics, admission, image, payload, timed-service and source-map checks.
+- Fresh historical vectors, deterministic generated artifacts, authority pins, the exact
+  rule report, formatting and `git diff --check` pass. All 1,216 original historical
+  contract records are unchanged; `docs/superpowers` is absent.
+
+The current clause inventory is **30 partial / 536 deferred**. The exact rule view is
+**33 narrow partial / 27 supporting / 543 deferred** binding rules, plus 32 deferred
+assumption/limitation rows. No clause or whole rule is claimed fully verified. CI checks
+authority and rule pins before expensive builds; local results do not assert hosted CI
+completion or production conformance.

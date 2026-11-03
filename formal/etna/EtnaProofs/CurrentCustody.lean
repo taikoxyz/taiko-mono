@@ -12,7 +12,8 @@ theorem path_rooted {env : Environment} {initial : World} {h : Header}
     ∃ root, AuthenticRoot env root ∧ Descends env initial root h := by
   induction path with
   | genesis _ _ _ newNetwork => exact ⟨_,Or.inl ⟨newNetwork,rfl⟩,.refl⟩
-  | unzen _ _ _ _ _ authenticated starts _ => exact ⟨_,Or.inr ⟨_,authenticated,starts⟩,.refl⟩
+  | unzen prior accepted first switching retained authenticated starts bound fence =>
+    exact ⟨_,Or.inr ⟨_,_,_,_,accepted,fence,retained,authenticated,starts⟩,.refl⟩
   | landing prior accepted segment _ ih =>
     obtain ⟨root,auth,descends⟩ := ih
     exact ⟨root,auth,.landing prior accepted segment descends⟩
@@ -33,7 +34,7 @@ theorem certified_landing {env : Environment} {initial w t : World} {a : Landing
   have bytes : env.verify w.verifier proof.backend proof.image proof.bytes (statement env w a) = true := by
     simp only [Bool.and_eq_true] at verified
     exact verified.2
-  exact verify w reach a t proof ok present good bytes
+  exact image_certificate_forget (verify w reach a t proof ok present good bytes)
 
 theorem bound_headers_equal {env : Environment} (primitive : Primitives env)
     {x y : Header} (hx : HashBound env x) (hy : HashBound env y) (cut : x.cut = y.cut) : x = y := by
@@ -50,11 +51,15 @@ theorem suffix_terminal_bound {env : Environment} {w : World} {a : Landing}
   simpa [Blocks.headerAt] using h
 
 /-- The decoded Unzen state becomes a root only through an accepted first landing. -/
-theorem pending_parent {env : Environment} {initial w t : World} {a : Landing}
-    (primitive : Primitives env) (reach : Trace env initial w) (ok : land env w a = some t)
+theorem pending_parent_fence {env : Environment} {initial w t : World} {a : Landing}
+    (primitive : Primitives env) (_reach : Trace env initial w) (ok : land env w a = some t)
     (inv : Invariant env initial w) (segment : Suffix env w a)
     (cursorHead : w.inbox.checkpoint.cursor = w.inbox.head)
-    (pending : Pending env w w.inbox.checkpoint) : Path env initial segment.parent := by
+    (record : recordAt w.inbox w.inbox.checkpoint.height = some w.inbox.checkpoint)
+    (pending : Pending env w w.inbox.checkpoint)
+    (certificate : Certifies env w (statement env w a)) :
+    FirstFence env w segment.parent ∧ ∃ legacy, w.unzenHeader = some legacy ∧
+      env.unzenRoot legacy ∧ StartsAt segment.parent legacy := by
   obtain ⟨switching,start,written,height,hash,comet,cursor⟩ := pending
   have first : w.inbox.checkpoint.height = (w.start.map StartData.height).getD 0 := by simpa [written] using height
   have fence := (land_success ok).1.unzen
@@ -62,14 +67,54 @@ theorem pending_parent {env : Environment} {initial w t : World} {a : Landing}
       w.unzen.finalizedHash = start.hash ∧ w.unzen.checkpointExists = true ∧
       w.unzen.checkpointHash = start.hash ∧ w.unzen.checkpointRoot = start.stateRoot := by
     simpa [firstFence,written,Start.firstLanding,switching,height] using fence
-  obtain ⟨legacy,retained,auth,bound,finalized,checkpoint,root⟩ := inv.unzen fenced.2.2.1
+  obtain ⟨legacy,retained,auth,bound,finalized,checkpoint,root,preFork⟩ := inv.unzen fenced.2.2.1
   have parentEl : segment.parent.elHash = w.inbox.checkpoint.elHash := congrArg Cut.elHash segment.parentCut
   have el : segment.parent.elHash = legacy.elHash := parentEl.trans (hash.trans (fenced.2.1.symm.trans finalized))
   obtain ⟨h,r,tm,an⟩ := primitive.separation _ _ segment.parentHashBound bound el
   have pc : segment.parent.cometHash = 0 := (congrArg Cut.cometHash segment.parentCut).trans comet
   have cur : segment.parent.cursor = 0 :=
     (congrArg Cut.cursor segment.parentCut).trans (cursorHead.symm.trans cursor)
-  exact .unzen reach ok first switching retained auth ⟨h,el,r,tm,an,pc,cur⟩ segment.parentHashBound
+  have implementation : env.startImplementation segment.parent.stateRoot = true := by
+    obtain ⟨archive,p,bs,ready,valid,binding,hashp,hashes,implemented⟩ := certificate
+    have inputs := congrArg StatementData.input binding
+    have ph : a.input.parentHeight = p.height := congrArg LandInput.parentHeight inputs
+    have pg := (land_success ok).1.parentGrid
+    simp only [Start.onGrid,decide_eq_true_eq] at pg
+    have ps : p.height = start.height := by
+      have before := (land_success ok).1.parentBeforeFrontier
+      simp only [written,Option.map_some,Option.getD_some] at pg
+      omega
+    have originRecord : recordAt w.inbox a.input.parentHeight = some w.inbox.checkpoint := by
+      rw [ph,ps,← height]
+      exact record
+    have pe := congrArg StatementData.parentHash binding
+    have pm := congrArg StatementData.parentCometHash binding
+    have pu := congrArg StatementData.headBefore binding
+    simp only [statement,originRecord,Option.getD_some,Blocks.statement] at pe pm pu
+    have pcut : p.cut = segment.parent.cut := by
+      rw [segment.parentCut]
+      simp only [BlockValidity.Header.cut]
+      rw [← pe,← pm,← pu,cursorHead]
+    have same := bound_headers_equal primitive hashp segment.parentHashBound pcut
+    have checked := implemented switching (by simpa [written] using ps)
+    simpa [same] using checked
+  refine ⟨?_,legacy,retained,auth,⟨h,el,r,tm,an,pc,cur⟩⟩
+  exact ⟨start,written,height,switching,fenced.1,fenced.2.1,fenced.2.2.1,fenced.2.2.2.1,
+      fenced.2.2.2.2,segment.parentHeight.trans height,el.trans (finalized.symm.trans fenced.2.1),
+      r.trans (root.symm.trans fenced.2.2.2.2),implementation,tm ▸ preFork⟩
+
+theorem pending_parent {env : Environment} {initial w t : World} {a : Landing}
+    (primitive : Primitives env) (reach : Trace env initial w) (ok : land env w a = some t)
+    (inv : Invariant env initial w) (segment : Suffix env w a)
+    (cursorHead : w.inbox.checkpoint.cursor = w.inbox.head)
+    (record : recordAt w.inbox w.inbox.checkpoint.height = some w.inbox.checkpoint)
+    (pending : Pending env w w.inbox.checkpoint)
+    (certificate : Certifies env w (statement env w a)) : Path env initial segment.parent := by
+  obtain ⟨fence,legacy,retained,auth,starts⟩ :=
+    pending_parent_fence primitive reach ok inv segment cursorHead record pending certificate
+  obtain ⟨switching,start,written,height,_⟩ := pending
+  exact .unzen reach ok (by simpa [written] using height) switching retained auth starts
+    segment.parentHashBound fence
 
 /-- An actual accepted landing creates a full-header custody edge. -/
 theorem accepted_landing_path {env : Environment} {initial w t : World} {a : Landing}
@@ -79,14 +124,15 @@ theorem accepted_landing_path {env : Environment} {initial w t : World} {a : Lan
     ∃ segment : Suffix env w a, Path env initial segment.parent ∧
       Path env initial (Blocks.terminal segment.parent segment.blocks) := by
   obtain ⟨member,record,cursor⟩ := frontier (land_success ok).1.started
-  obtain ⟨segment⟩ := accepted_suffix_from_certificate ok (certified_landing soundness reach ok) record
+  have certificate := certified_landing soundness reach ok
+  obtain ⟨segment⟩ := accepted_suffix_from_certificate ok certificate record
   have parent : Path env initial segment.parent := by
     rcases inv.records _ member with certified | pending
     · obtain ⟨h,matched,bound,path⟩ := certified
       have cut : segment.parent.cut = h.cut := by rw [matched.2,cursor]; exact segment.parentCut
       have same := bound_headers_equal primitive segment.parentHashBound bound cut
       exact same ▸ path
-    · exact pending_parent primitive reach ok inv segment cursor pending
+    · exact pending_parent primitive reach ok inv segment cursor record pending certificate
   exact ⟨segment,parent,.landing reach ok segment parent⟩
 
 theorem landing_invariant {env : Environment} {initial w t : World} {a : Landing}
@@ -180,7 +226,8 @@ theorem unzen_invariant {env : Environment} {initial w t : World} {proposal proo
     refine ⟨inv.records,inv.signals,?_⟩
     intro _
     exact ⟨h,rfl,(primitive.unzen proposal h proof guard.2.1).1,
-      (primitive.unzen proposal h proof guard.2.1).2,rfl,rfl,rfl⟩
+      (primitive.unzen proposal h proof guard.2.1).2.1,rfl,rfl,rfl,
+      (primitive.unzen proposal h proof guard.2.1).2.2⟩
   next => simp at ok
 
 /-- Exhaustive successful-call induction. No public action is hidden behind a frame premise. -/

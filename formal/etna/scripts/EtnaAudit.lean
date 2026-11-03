@@ -415,7 +415,10 @@ def checkContract (declaration role source : String) : TermElabM Unit := do
     for (target, _) in (← resolveGlobalName id) do
       if target == decl then
         throwError "manifest type of {decl} refers to the theorem itself"
-  let expected ← withoutErrToSorry do
+  -- The source type may name this declaration's actual universe parameters. Bind
+  -- exactly those names; undeclared levels remain errors and the full type is still
+  -- compared against the imported kernel declaration without instantiating it away.
+  let expected ← withLevelNames info.levelParams <| withoutErrToSorry do
     let e ← elabType stx
     synthesizeSyntheticMVarsNoPostponing
     instantiateMVars e

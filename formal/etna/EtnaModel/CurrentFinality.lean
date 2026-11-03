@@ -85,6 +85,15 @@ This says nothing about conflicting values, quorums, or successful slash executi
 def SignatureRefinement (registry : RegistryMachine.State) (signature : Consensus.Vote → Prop) : Prop :=
   ∀ vote, signature vote → ∃ sig, registry.verify vote.key (Accountability.evidence vote) sig = true
 
+/-- Decode a registry evidence vote under the bond's permanent signing key. -/
+def signedVote (key : Hash) (vote : Staking.Vote) : Consensus.Vote :=
+  ⟨vote.domain,vote.generation,vote.height,vote.round,vote.kind,vote.blockId,key⟩
+
+/-- Reverse cryptographic refinement: accepted signature bytes authenticate an actual
+signature under this key. It is independent of quorum, punishment and token balances. -/
+def SignatureSound (registry : RegistryMachine.State) (signature : Consensus.Vote → Prop) : Prop :=
+  ∀ key vote sig, registry.verify key vote sig = true → signature (signedVote key vote)
+
 def overlap (c : Consensus.Context) (h : Nat) (votesA votesB : List Consensus.Vote) : List Committee.Entry :=
   (Consensus.activeAt c h).members.filter fun entry =>
     (votesA.map Consensus.Vote.key).contains entry.key && (votesB.map Consensus.Vote.key).contains entry.key

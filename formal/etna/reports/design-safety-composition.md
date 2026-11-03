@@ -1,5 +1,7 @@
 # Etna supplemental design safety evidence
 
+> **Historical report.** This document describes the original model and the baseline identified below. Any use of “current” refers to that historical baseline. For the current `Etna.Design.Current` claims and evidence, read the [current scope](../README.md) and [latest alignment](latest-design-alignment.md).
+
 The eight design-proof tasks extend the existing decoded specification model without
 changing the original seven `Premises` fields, H1–H3 definitions, or any of the original
 954 declaration/type pairs. The new results establish stronger conditional properties

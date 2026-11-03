@@ -221,6 +221,46 @@
       "declaration": "Etna.Design.Current.Protocol.land_success",
       "shadows": "Etna.Design.land_success",
       "reason": "Current version-specific decoded state, transition or headline has the conventional historical name; separate namespace and exact theorem types prevent authority substitution."
+    },
+    {
+      "declaration": "Etna.Design.Current.Encoding.optional",
+      "shadows": "optional",
+      "reason": "Structural Option encoder used explicitly inside Current.Encoding; it does not refer to the parser combinator optional."
+    },
+    {
+      "declaration": "Etna.Design.Current.Encoding.domain",
+      "shadows": "Etna.Design.Encoding.domain",
+      "reason": "Current structural encoder for the current Domain; historical Encoding.domain encodes the independently pinned historical model."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.NonVacuity.TemplateContext.config",
+      "shadows": "Etna.Design.Current.Protocol.config",
+      "reason": "Equality field recording the fixed ordinary-template configuration; its type explicitly invokes Protocol.config before entering the field namespace."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.NonVacuity.env",
+      "shadows": "Etna.Design.NonVacuity.env",
+      "reason": "Current closed-machine accepting environment; the historical NonVacuity.env remains separate and is never used by current witness proofs."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.NonVacuity.RecoveredContext.config",
+      "shadows": "Etna.Design.Current.Protocol.config",
+      "reason": "Equality field recording the fixed recovered-template configuration; its type explicitly invokes Protocol.config before entering the field namespace."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.NonVacuity.premises",
+      "shadows": "Etna.Design.NonVacuity.premises",
+      "reason": "Complete thirteen-field current premise witness, distinct from the historical seven-field premise witness."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.NonVacuity.vote",
+      "shadows": "Etna.Design.NonVacuity.vote",
+      "reason": "Concrete current generation-zero signed vote; historical NonVacuity.vote belongs to the separately pinned model."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.NonVacuity.premises_satisfiable",
+      "shadows": "Etna.Design.NonVacuity.premises_satisfiable",
+      "reason": "Current existential premise witness with an actual accepting trace and globally injective roots; the historical witness has a different model and exact type."
     }
   ]
 }

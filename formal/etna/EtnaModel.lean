@@ -1,3 +1,8 @@
+import EtnaModel.CurrentEncoding
+import EtnaModel.CurrentMetadata
+import EtnaModel.CurrentCoherentCustody
+import EtnaModel.CurrentEconomics
+import EtnaModel.CurrentQueueIntegrity
 import EtnaModel.Current
 import EtnaModel.CurrentBlocks
 import EtnaModel.CurrentRegistry

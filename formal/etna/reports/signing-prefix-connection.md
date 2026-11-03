@@ -1,5 +1,7 @@
 # Actual signer, trusted prefix and exit snapshot connection
 
+> **Historical report.** This document describes the original model and the baseline identified below. Any use of “current” refers to that historical baseline. For the current `Etna.Design.Current` claims and evidence, read the [current scope](../README.md) and [latest alignment](latest-design-alignment.md).
+
 Authority: SPEC.md at `b7ca989c8e343073daa628771102bdee7fe7101b` (#22317; re-pinned from `39ebefbf33a2702b750e0fb0db7d2a40ff8e8480`, see [source alignment](source-alignment.md)) and ACCEPTANCE.md at `39ebefbf33a2702b750e0fb0db7d2a40ff8e8480` (#22303). This extension updates the formal results of #22292. It changes no production signer, client, contract, specification or original headline premise. No superpowers design or implementation document is part of the patch. The later normal-recovery composition is recorded in [normal signing composition](normal-signing-composition.md).
 
 ## What is now connected

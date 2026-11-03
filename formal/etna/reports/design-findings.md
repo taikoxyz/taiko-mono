@@ -1,5 +1,7 @@
 # Etna design findings (historical 02:33Z assessment)
 
+> **Historical report.** This document describes the original model and the baseline identified below. Any use of “current” refers to that historical baseline. For the current `Etna.Design.Current` claims and evidence, read the [current scope](../README.md) and [latest alignment](latest-design-alignment.md).
+
 Historical report: counts, source line IDs and audit packaging below describe the original batch; see [review corrections](review-corrections.md) for the current schema, bindings and checks.
 This report preserves the earlier assessment against the 02:33Z text, which was
 not retained. The current 04:07Z bilingual snapshots and first-batch proof scope are

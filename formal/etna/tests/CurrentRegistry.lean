@@ -60,6 +60,9 @@ example : (execute slashed view 13 (.slash 0 voteA voteB 1 1)).isNone = true := 
 
 def confirmed : RegistryMachine.State := (execute displaced view 12 (.confirm 0)).getD displaced
 def withdrawn : RegistryMachine.State := (execute confirmed view 14 (.withdraw 0 4 8)).getD confirmed
+example : (execute confirmed view 13 (.withdraw 0 4 8)).isNone = true := by decide
+example : ((execute confirmed view 13 (.confirm 0)).bind fun s =>
+    (s.ledger.bonds 0).map (fun b => b.value.confirmedAt)) = some (some 12) := by decide
 example : withdrawn.ledger.slots 0 = some 1 := by decide
 example : keyAt withdrawn 1 = some 9000 := by decide
 example : keyAt withdrawn 0 = some 1 := by decide
@@ -77,6 +80,11 @@ example : ((execute confirmed view 13 (.recheck 2 5)).bind fun s =>
     (s.ledger.bonds 0).map (fun b => b.value.confirmedAt)) = some none := by decide
 example : ((execute confirmed view 13 (.recheck 2 10)).bind fun s =>
     (s.ledger.bonds 0).map (fun b => b.value.confirmedAt)) = some (some 12) := by decide
+def rechecked := (execute confirmed view 13 (.recheck 2 5)).getD confirmed
+def reconfirmed := (execute rechecked view 14 (.confirm 0)).getD rechecked
+example : (execute rechecked view 14 (.withdraw 0 4 8)).isNone = true := by decide
+example : (execute reconfirmed view 15 (.withdraw 0 4 8)).isNone = true := by decide
+example : (execute reconfirmed view 16 (.withdraw 0 4 8)).isSome = true := by decide
 end CurrentRegistryTests
 
 namespace CurrentRegistryTests

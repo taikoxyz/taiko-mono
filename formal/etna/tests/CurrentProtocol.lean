@@ -36,12 +36,12 @@ def registry : RegistryMachine.State :=
     config := {inbox := 3} }
 def env : Protocol.Environment where
   core := ⟨domain,7,8,0,0,9⟩
-  parameters := ⟨1,10,0,⟨Committee.minUnit,Committee.minUnit,1,10⟩,2,1152,10,0,1,9⟩
+  parameters := ⟨1,10,0,⟨Committee.minUnit,Committee.minUnit,1,10⟩,2,1152,10,1,1,9⟩
   genesisHeader := ⟨0,100,100,0,0,0,⟨0,0,0,0,0,0,0⟩⟩
   initialSigner := ⟨domain,0,0,[],false,[]⟩
   time := id
   stateRoot := fun s => s.number
-  blockHash := id
+  blockHash := fun _ n => n
   headerHash := fun h => h.elHash
   committeeHash := fun _ => 1
   configHash := fun _ => 0

@@ -1,15 +1,10 @@
-"""Rule-level traceability over the stable rule IDs of SPEC.md and rules/INDEX.md.
+"""Exact reviewed rule-to-theorem traceability over the pinned live authorities.
 
-The clause inventory of check_spec_coverage.py is keyed by content blocks of the marker-free
-SPEC.md. This view keys the same evidence by rule ID: each `**[ID]**` or `// [ID]` marker is
-located in the marker-free text, the clause that contains it gives the rule its status, and
-`rule-coverage.json` may route a rule to another clause that states it (for example the 6.1
-reference Solidity) with a reviewed reason. Like the clause inventory, this is traceability,
-not a verification result: "partial" means some property or constant theorem cites the clause.
-
-SPEC.md and INDEX.md are pinned by their raw bytes, markers included, because the clause pin
-ignores markers. `--check` validates the pins and the overrides and requires the committed
-report to equal a fresh rendering.
+Schema 2 requires an explicit evidence entry for each supported rule. Clause sharing
+never supplies evidence to another rule. A reviewed edge names the exact theorem and
+source clause; the theorem must cite that clause and be current. Mechanical supporting
+guards remain visible as supporting, never counted as partial property evidence.
+This validates traceability metadata, not semantic adequacy or complete verification.
 """
 import argparse
 from collections import Counter, defaultdict
@@ -86,8 +81,8 @@ def index_rows(text):
 
 def rule_rows(root=ROOT, repo=REPO, config=None):
     config = config if config is not None else json.loads((root/CONFIG).read_text())
-    if config.get('schema_version') != 1:
-        raise ValueError('unsupported rule-coverage schema')
+    if config.get('schema_version') != 2 or 'via' in config or 'narrow' in config:
+        raise ValueError('unsupported rule-coverage schema: schema 2 exact evidence required')
     spec_text = pinned_text(repo, config.get('spec', {}), SPEC_PATH, 'spec')
     index = index_rows(pinned_text(repo, config.get('index', {}), INDEX_PATH, 'index'))
     lines = marker_lines(spec_text)
@@ -98,7 +93,7 @@ def rule_rows(root=ROOT, repo=REPO, config=None):
 
     clauses = [r for r in coverage.inventory(root, repo) if r['path'] == SPEC_PATH]
     by_id = {r['id']: r for r in clauses}
-    roles = {e['declaration']: e['role'] for e in json.loads((root/'manifests/design.json').read_text())['theorems']}
+    entries = {e['declaration']:e for e in json.loads((root/'manifests/design.json').read_text())['theorems']}
 
     def clause_at(line):
         hits = [r for r in clauses if r['start_line'] <= line <= r['end_line']]
@@ -106,52 +101,52 @@ def rule_rows(root=ROOT, repo=REPO, config=None):
             raise ValueError(f'line {line} lies in {len(hits)} clauses')
         return hits[0]
 
-    owner = {rule: clause_at(line) for rule, line in lines.items()}
-    sharing = Counter(owner[rule]['id'] for rule in owner)
-    via = config.get('via', {})
-    # `narrow`: for a cited clause shared by several rules, the rules its theorems address.
-    narrow = config.get('narrow', {})
-    for clause_id, named in narrow.items():
-        target = by_id.get(clause_id)
-        if target is None or target['status'] != 'partial':
-            raise ValueError(f'narrowing names {clause_id}, which is not a partial clause')
-        inside = {rule for rule in owner if owner[rule]['id'] == clause_id}
-        if len(inside) < 2:
-            raise ValueError(f'narrowing of {clause_id} needs a clause shared by several rules')
-        # An empty list says the clause's theorems address none of its rule IDs.
-        if not set(named) <= inside or set(named) == inside:
-            raise ValueError(f'narrowing of {clause_id} must name a proper subset of its rules')
-    result = []
-    for rule in [r for r in lines if r in live]:  # document order: marker_lines inserts in reading order
-        clause = owner[rule]
-        status = clause['status']
-        if clause['id'] in narrow and rule not in narrow[clause['id']]:
-            status = 'deferred'
-        route = None
-        if rule in via:
-            entry = via[rule]
-            target = by_id.get(entry.get('clause'))
-            if index[rule]['type'] != 'rule':
-                raise ValueError(f'override for non-rule {rule}')
-            if target is None:
-                raise ValueError(f'override for {rule} names unknown clause {entry.get("clause")}')
-            if status == 'partial':
-                raise ValueError(f'redundant override for {rule}: its own clause is already partial')
-            if target['status'] != 'partial':
-                raise ValueError(f'override for {rule} routes to a {target["status"]} clause')
-            if not entry.get('reason', '').strip():
-                raise ValueError(f'override for {rule} needs a reason')
-            route, status = target, 'partial-via'
-        evidence = route or clause
-        theorems = [] if status == 'deferred' else sorted(
-            n for n in evidence['theorems'] if roles[n] in coverage.PARTIAL_ROLES)
-        result.append(dict(rule=rule, type=index[rule]['type'], title=index[rule]['title'],
-                           section=index[rule]['section'], status=status, clause=clause['id'],
-                           via=route['id'] if route else None, shared=sharing[clause['id']],
-                           theorems=theorems))
-    for rule in via:
+    owner = {rule:clause_at(line) for rule,line in lines.items()}
+    sharing = Counter(row['id'] for row in owner.values())
+    evidence = config.get('evidence')
+    if not isinstance(evidence, dict):
+        raise ValueError('exact rule evidence object required')
+    for rule in evidence:
         if rule not in live:
-            raise ValueError(f'override for unknown rule {rule}')
+            raise ValueError(f'evidence for unknown rule {rule}')
+        if index[rule]['type'] != 'rule':
+            raise ValueError(f'evidence for non-rule {rule}')
+
+    result = []
+    for rule in lines:
+        clause, status, route, names, reason = owner[rule], 'deferred', None, [], ''
+        if rule in evidence:
+            edge = evidence[rule]
+            if not isinstance(edge, dict) or not isinstance(edge.get('theorems'), list) or not edge['theorems']:
+                raise ValueError(f'evidence for {rule} requires nonempty exact theorem list')
+            reason = edge.get('reason','').strip()
+            if not reason:
+                raise ValueError(f'evidence for {rule} needs a reason describing the narrow result')
+            target = by_id.get(edge.get('clause',clause['id']))
+            if target is None:
+                raise ValueError(f'evidence for {rule} names unknown live SPEC clause')
+            names = edge['theorems']
+            if len(names) != len(set(names)):
+                raise ValueError(f'duplicate theorem evidence for {rule}')
+            for name in names:
+                theorem = entries.get(name)
+                if theorem is None:
+                    raise ValueError(f'unknown theorem {name} for {rule}')
+                if not name.startswith('Etna.Design.Current.'):
+                    raise ValueError(f'{rule} needs a current theorem, not {name}')
+                if name in coverage.UNSOURCED:
+                    raise ValueError(f'{name} is plumbing, not protocol evidence for {rule}')
+                if target['id'] not in theorem['sources']:
+                    raise ValueError(f'{name} does not cite {target["id"]} for {rule}')
+                if theorem['role'] not in {'property','constant','supporting'}:
+                    raise ValueError(f'{name} has no general supporting/property role for {rule}')
+            route = target if target['id'] != clause['id'] else None
+            partial = any(entries[name]['role'] in coverage.PARTIAL_ROLES for name in names)
+            status = ('partial-via' if route else 'partial') if partial else 'supporting'
+        result.append(dict(rule=rule,type=index[rule]['type'],title=index[rule]['title'],
+                           section=index[rule]['section'],status=status,clause=clause['id'],
+                           via=route['id'] if route else None,shared=sharing[clause['id']],
+                           theorems=sorted(names),reason=reason))
     return result
 
 
@@ -168,21 +163,19 @@ def table(header, align, body):
 
 
 def render(rows):
-    out = ['# Rule-level traceability', '',
-           'Generated by `scripts/rule_coverage.py` from the pinned `SPEC.md` and `rules/INDEX.md`; do not edit.',
-           'Like the clause inventory, this is traceability, not a verification result. A rule is `partial` when',
-           'a property or constant theorem cites the clause that contains it, and `partial-via` when',
-           '`rule-coverage.json` routes it to another clause that states it. Several rules can share one',
-           'clause (the "Shared" column); a theorem cited for that clause is listed for each of them, unless',
-           '`rule-coverage.json` narrows the clause to the rules its theorems address, in which case the',
-           'other rules of that clause are `deferred`.', '']
+    out = ['# Exact rule-level traceability', '',
+           'Generated by `scripts/rule_coverage.py` from pinned authorities and the reviewed schema-2 evidence map.',
+           'Only an explicit rule-to-theorem edge can make a rule `partial` or `supporting`.',
+           'Shared clauses never transfer evidence to neighboring IDs. `partial` is narrow property/constant',
+           'evidence, not proof of the whole rule; `supporting` exposes exact guards or projections without',
+           'counting them as a derived property. Raw decoder/EL/crypto and acceptance obligations remain separate.', '']
     totals = defaultdict(Counter)
     families = defaultdict(Counter)
     for row in rows:
         totals[row['type']][row['status']] += 1
         if row['type'] == 'rule':
             families[row['rule'].split('-')[0]][row['status']] += 1
-    statuses = ['partial', 'partial-via', 'deferred', 'design-pending']
+    statuses = ['partial', 'partial-via', 'supporting', 'deferred', 'design-pending']
     counts = 'l' + 'r'*(1+len(statuses))
     out += ['## Totals', '']
     out += table(['Type', 'Count'] + statuses, counts,
@@ -200,6 +193,8 @@ def render(rows):
         body.append([row['rule'], row['type'], row['status'], clause, str(row['shared']), shown])
     out += ['', '## Every ID', '']
     out += table(['ID', 'Type', 'Status', 'Clause', 'Shared', 'Theorems'], 'llllrl', body)
+    out += ['', '## Narrow evidence scopes', '']
+    out += [f'- **{row["rule"]}**: {row["reason"]}' for row in rows if row['theorems']]
     return '\n'.join(out) + '\n'
 
 

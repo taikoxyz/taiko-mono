@@ -1,5 +1,7 @@
 # Public settled EL reconstruction
 
+> **Historical report.** This document describes the original model and the baseline identified below. Any use of “current” refers to that historical baseline. For the current `Etna.Design.Current` claims and evidence, read the [current scope](../README.md) and [latest alignment](latest-design-alignment.md).
+
 This model adds a public reconstruction program and conditional success proofs for
 SPEC 5.2–5.3. It does not implement or verify compression, KZG, Keccak, an EVM, or a
 production reconstruction client. The 405-clause inventory remains traceability,

@@ -46,6 +46,11 @@ jobs:
       # Model/Statements hold no proofs; imports only point down Witnesses -> Proofs -> Statements -> Model.
       - name: Check the library import graph
         run: python3 scripts/check_imports.py
+      # Review the pinned authority bytes and exact rule evidence before expensive builds.
+      - name: Check reviewed authorities and exact rule evidence
+        run: |
+          python3 scripts/check_spec_coverage.py
+          python3 scripts/rule_coverage.py --check
       - name: Install exact Lean toolchain
         env:
           GH_TOKEN: ${{ github.token }}
@@ -71,17 +76,13 @@ jobs:
       # fresh generator run: no missing, extra or stale file. The audit repeats this check.
       - name: Check the conformance vectors are fresh
         run: python3 scripts/check_vectors.py
-      # Exact manifest types and roles, library contents, the headline claims (Etna.Proofs.claims and
-      # H1-H3 typed exactly by their claims, standard axioms only, every premise field read by a
-      # headline proof) and a fresh kernel replay. check_spec_coverage.py checks the clause inventory
-      # and rule_coverage.py the rule-ID view of it, traceability reports (not the verification result),
-      # for consistency.
+      # Kernel-check exact current and historical headline types, theorem roles, standard
+      # axioms, consumed premise fields, library contents and a fresh whole-kernel replay.
+      # Authority pins and exact per-rule traceability were checked before the build.
       - name: Audit
         run: |
           python3 scripts/generate_artifacts.py
           python3 scripts/generate_artifacts.py --check
-          python3 scripts/check_spec_coverage.py
-          python3 scripts/rule_coverage.py --check
           python3 scripts/audit_proofs.py
       - name: Run mutation and regression tests
         run: python3 -m unittest discover -s tests -v
