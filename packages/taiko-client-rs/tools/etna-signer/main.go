@@ -130,7 +130,7 @@ func run() error {
 		if _, err := loadNativeKey(*key); err != nil {
 			return err
 		}
-		signer = privval.LoadFilePV(*key, *state)
+		signer = loadDurableFilePV(*key, *state)
 	}
 	var dial privval.SocketDialer
 	protocol, address := cmtnet.ProtocolAndAddress(*addr)

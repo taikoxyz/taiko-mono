@@ -2,11 +2,8 @@ package main
 
 import (
 	"errors"
-	"os"
-	"path/filepath"
 
 	"github.com/cometbft/cometbft/crypto"
-	"github.com/cometbft/cometbft/privval"
 	tm "github.com/cometbft/cometbft/proto/tendermint/types"
 )
 
@@ -30,7 +27,7 @@ type authorizedPV struct {
 }
 
 func (p *authorizedPV) GetPubKey() (crypto.PubKey, error) { return p.authority.native.PubKey(), nil }
-func (p *authorizedPV) sign(chain string, sign func(*privval.FilePV) error) error {
+func (p *authorizedPV) sign(chain string, sign func(*durableFilePV) error) error {
 	a := p.authority
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -40,32 +37,17 @@ func (p *authorizedPV) sign(chain string, sign func(*privval.FilePV) error) erro
 	if _, err := validateHRS(p.domain.State, chain, a.native.PubKey()); err != nil {
 		return err
 	}
-	pv := privval.LoadFilePV(a.config.Key, p.domain.State)
-	if err := sign(pv); err != nil {
-		return err
-	}
-	// Stock FilePV synchronously writes then renames its state, but does not fsync the
-	// directory. Complete durability before releasing any signature to the transport.
-	f, err := os.Open(p.domain.State)
-	if err != nil {
-		return err
-	}
-	err = f.Sync()
-	f.Close()
-	if err != nil {
-		return err
-	}
-	return syncDirectory(filepath.Dir(p.domain.State))
+	return sign(loadDurableFilePV(a.config.Key, p.domain.State))
 }
 func (p *authorizedPV) SignVote(chain string, v *tm.Vote) error {
 	if p.domain.Origin != nil && v.Height <= int64(*p.domain.Origin.Height) {
 		return errors.New("cannot sign retained recovery prefix")
 	}
-	return p.sign(chain, func(pv *privval.FilePV) error { return pv.SignVote(chain, v) })
+	return p.sign(chain, func(pv *durableFilePV) error { return pv.SignVote(chain, v) })
 }
 func (p *authorizedPV) SignProposal(chain string, v *tm.Proposal) error {
 	if p.domain.Origin != nil && v.Height <= int64(*p.domain.Origin.Height) {
 		return errors.New("cannot sign retained recovery prefix")
 	}
-	return p.sign(chain, func(pv *privval.FilePV) error { return pv.SignProposal(chain, v) })
+	return p.sign(chain, func(pv *durableFilePV) error { return pv.SignProposal(chain, v) })
 }

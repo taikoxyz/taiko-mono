@@ -17,6 +17,11 @@
   [recovery runbook](docs/governance-recovery.md). The lander still uses dummy proofs; real
   proving, snapshot import and production deployment acceptance are outside this change.
 
+### Bug Fixes
+
+- Persist the FilePV state file and its parent directory before returning any signature,
+  including generation-zero signing and cached HRS retries; refuse signatures if synchronization fails.
+
 ## [2.3.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-rs-v2.2.0...taiko-alethia-client-rs-v2.3.0) (2026-09-28)
 
 
