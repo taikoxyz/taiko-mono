@@ -177,6 +177,34 @@ mod tests {
     }
 
     #[test]
+    fn recovery_refuses_unsupported_rules_at_r_without_invalidating_fixed_origin() {
+        use crate::test_utils::edit_l1_header;
+        let (fx, _, _, mut w) = fixture(1, 0, 1);
+        let state = changed_state(&fx, &w, &[(inbox::slot(293), U256::from(1) << 48)]);
+        w.recovery_header =
+            edit_l1_header(&w.recovery_header, |h| h.state_root = state.state_root());
+        w.recovery_inbox = state.witness(fx.params.inbox, &inbox::recovery_slots(1, 0));
+        let registry_slots: Vec<_> = w.committee.registry.storage.iter().map(|p| p.slot).collect();
+        w.committee.registry = state.witness(fx.params.registry, &registry_slots);
+        assert!(matches!(
+            verify_recovery_witness(&w, &fx.params),
+            Err(RecoveryError::Unavailable(message)) if message.contains("ruleset 1")
+        ));
+    }
+
+    #[test]
+    fn later_rules_schedule_writes_preserve_the_fixed_recovery_origin() {
+        use crate::test_utils::edit_l1_header;
+        let (fx, _, _, mut w) = fixture(1, 0, 1);
+        let original = verify_recovery_witness(&w, &fx.params).unwrap();
+        let state = changed_state(&fx, &w, &[(inbox::slot(293), U256::from(1) << 48)]);
+        w.finalized_header =
+            edit_l1_header(&w.finalized_header, |h| h.state_root = state.state_root());
+        w.finalized_inbox = state.witness(fx.params.inbox, &inbox::recovery_slots(1, 0));
+        assert_eq!(verify_recovery_witness(&w, &fx.params).unwrap(), original);
+    }
+
+    #[test]
     fn recovery_rejects_proven_missing_origins_and_reserved_packed_widths() {
         use crate::test_utils::edit_l1_header;
         let (fx, _, _, w) = fixture(1, 0, 1);

@@ -27,6 +27,7 @@ pub(crate) fn request() -> ProofRequest {
         state_root: B256::repeat_byte(4),
         timestamp: 20,
         inbox: InboxFacts {
+            rules_schedule: alloy_primitives::U256::ZERO,
             recovery_generation: 0,
             last_checkpoint_height: 0,
             last_checkpoint_hash: genesis.genesis_hash,

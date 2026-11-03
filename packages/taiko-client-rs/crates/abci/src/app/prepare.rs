@@ -107,6 +107,16 @@ impl<L: L1Source, E: Engine> App<L, E> {
         set_u64(AbciMetrics::l1_finality_lag(), finalized.saturating_sub(state.anchor.number));
         let newest = state.anchor.number.max(finalized);
         let (anchor, anchor_state) = self.choose_anchor(state, height, newest).await?;
+        rules::check_rules_schedule(
+            anchor_state.inbox.rules_schedule,
+            &state.parent,
+            rules::block_timestamp(
+                state.parent.timestamp,
+                unix_secs(req.time),
+                anchor_state.timestamp,
+            ),
+            state.genesis.genesis_height,
+        )?;
         let expected = expected_header(
             &state.chain_context(),
             params,

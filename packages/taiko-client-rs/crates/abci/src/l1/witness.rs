@@ -89,7 +89,12 @@ pub fn verify_anchor_witness(
     let header = &w.l1_header;
     let storage = verify_account_witness(header.state_root(), &w.inbox, &inbox::anchor_slots())?;
     let head_tail = inbox_word(&storage, inbox::FORCED_INCLUSION_HEAD_TAIL);
+    let rules_schedule = inbox_word(&storage, inbox::RULES_SCHEDULE);
+    if rules_schedule >> 240 != U256::ZERO {
+        return Err(WitnessError::ReservedBits { slot: inbox::RULES_SCHEDULE });
+    }
     let facts = InboxFacts {
+        rules_schedule,
         recovery_generation: word_u48(inbox_word(&storage, inbox::RECOVERY_GENERATION), 0),
         last_checkpoint_height: word_u48(inbox_word(&storage, inbox::LAST_CHECKPOINT_HEIGHT), 0),
         last_checkpoint_hash: inbox_word(&storage, inbox::LAST_CHECKPOINT_HASH).into(),
@@ -192,6 +197,9 @@ pub fn verify_genesis_inbox(
     }
 
     let facts = InboxFacts {
+        // Initialization writes the zero schedule. Every first-generation block must carry
+        // its own anchor witness, which authenticates the then-current schedule.
+        rules_schedule: U256::ZERO,
         recovery_generation: word_u48(inbox_word(&storage, inbox::RECOVERY_GENERATION), 0),
         last_checkpoint_height: genesis.genesis_height,
         last_checkpoint_hash: genesis.genesis_hash,
@@ -278,6 +286,16 @@ mod tests {
             word("last_checkpoint_hash", 0xc4),
             packed("forced_inclusion_head_tail", &[("head", max48 - 1), ("tail", max48)]),
             packed(
+                "rules_schedule",
+                &[
+                    ("active_rules", 7),
+                    ("next_rules", 8),
+                    ("rules_time", max48),
+                    ("stop_time", 123),
+                    ("stop_grid", 6),
+                ],
+            ),
+            packed(
                 "genesis_packed",
                 &[
                     ("genesis_height", 0),
@@ -330,6 +348,11 @@ mod tests {
         assert_eq!(
             verify_anchor_witness(&anchor, INBOX).unwrap().inbox,
             InboxFacts {
+                rules_schedule: U256::from(7) |
+                    (U256::from(8) << 48) |
+                    (U256::from(max48) << 96) |
+                    (U256::from(123) << 144) |
+                    (U256::from(6) << 192),
                 recovery_generation: ((1u64 << 48) - 1) - 1,
                 last_checkpoint_height: 0x4567_89ab_cdef,
                 last_checkpoint_hash: B256::repeat_byte(0xc4),
@@ -351,6 +374,7 @@ mod tests {
         assert_eq!(
             anchor.inbox,
             InboxFacts {
+                rules_schedule: alloy_primitives::U256::ZERO,
                 recovery_generation: ((1u64 << 48) - 1) - 1,
                 last_checkpoint_height: 0x4567_89ab_cdef,
                 last_checkpoint_hash: B256::repeat_byte(0xc4),
@@ -484,6 +508,7 @@ mod tests {
         assert_eq!(
             facts,
             InboxFacts {
+                rules_schedule: alloy_primitives::U256::ZERO,
                 recovery_generation: 6,
                 last_checkpoint_height: genesis.genesis_height,
                 last_checkpoint_hash: genesis.genesis_hash,

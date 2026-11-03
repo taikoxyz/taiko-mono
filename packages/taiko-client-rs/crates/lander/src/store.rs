@@ -16,6 +16,7 @@ use std::{
 
 /// Journal schema version; incompatible formats stop rather than discard outstanding nonces.
 ///
+/// Schema 14 authenticates slot 293 and retains the immutable signed bytes on old-schema refusal.
 /// Schema 13 binds native private protobufs, V1 grid cuts and deployment identity.
 /// Schema 12 binds V10 execution-only DA; old signed jobs remain untouched on rejection.
 /// Schema 11 adds the proof-bound active committee snapshot in the twenty-one-word V9 statement
@@ -30,7 +31,7 @@ use std::{
 /// over a six-field `LandInput` (forced inclusion head after the batch and fee recipient included),
 /// compressed V3 blob payloads and snapshots carrying the forced inclusion queue; schema 4 bound V5
 /// statements over uncompressed V2 payloads and schema 3 complete V1 blocks.
-const JOURNAL_VERSION: u8 = 13;
+const JOURNAL_VERSION: u8 = 14;
 /// Hard allocation bound before reading or decoding an untrusted journal.
 pub(crate) const MAX_JOURNAL_BYTES: u64 = 256 * 1024 * 1024;
 
@@ -469,7 +470,7 @@ mod tests {
     /// domain JSON commits and schema 8 V6 statements without participation.
     #[test]
     fn legacy_journals_are_rejected_without_modifying_their_files() {
-        for version in [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] {
+        for version in [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13] {
             let directory = tempfile::tempdir().unwrap();
             let journal = serde_json::json!({
                 "version": version,
@@ -576,7 +577,7 @@ mod tests {
         };
         let state =
             JournalState::Pending { job: Box::new(ProvedJob { request, proof }), transaction };
-        for version in [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] {
+        for version in [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13] {
             let directory = tempfile::tempdir().unwrap();
             let bytes = serde_json::to_vec(
                 &serde_json::json!({ "version": version, "identity": id, "state": state }),
@@ -621,7 +622,7 @@ mod tests {
             Ok(_) => panic!("schema 10 must be rejected"),
         };
         assert!(
-            error.to_string().contains("incompatible journal schema 10 (expected 13)"),
+            error.to_string().contains("incompatible journal schema 10 (expected 14)"),
             "{error}"
         );
         assert_eq!(std::fs::read(&path).unwrap(), bytes);

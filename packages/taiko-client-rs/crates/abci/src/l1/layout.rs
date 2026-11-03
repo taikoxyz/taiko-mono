@@ -2,8 +2,8 @@
 //!
 //! Inbox activation authenticates status, generation, schedule, genesis cutoff, configuration
 //! hash, the single genesis committee hash and the forced inclusion delay and maximum anchor
-//! age. Runtime anchors prove only generation, checkpoint height/hash and the forced
-//! inclusion queue's head/tail; no future committee mapping exists.
+//! age. Runtime anchors prove generation, checkpoint height/hash, the forced inclusion
+//! queue's head/tail and the rules schedule; no future committee mapping exists.
 //!
 //! Registry checkpoints must be strictly increasing and complete, with a checkpoint in every
 //! changing L1 block. Discovery reads historical entries before the next checkpoint and then
@@ -55,6 +55,8 @@ pub mod inbox {
     pub const LANDINGS: u64 = 285;
     /// Immutable generation origins, keyed by generation, three words each.
     pub const ORIGINS: u64 = 290;
+    /// Five packed uint48 fields: active rules, next rules, rules time, stop time and stop grid.
+    pub const RULES_SCHEDULE: u64 = 293;
 
     /// Returns the `N` consecutive words at a Solidity mapping element: `base =
     /// keccak256(abi.encode(uint256(key), uint256(mapping)))` and the words after it, with
@@ -85,6 +87,7 @@ pub mod inbox {
             slot(LAST_CHECKPOINT_HEIGHT),
             slot(LAST_CHECKPOINT_HASH),
             slot(FORCED_INCLUSION_HEAD_TAIL),
+            slot(RULES_SCHEDULE),
         ]);
         slots.extend(origin_slots(generation));
         slots.extend(landing_slots(height));
@@ -100,13 +103,14 @@ pub mod inbox {
     }
 
     /// The fixed slots authenticated by every per-block anchor witness: generation,
-    /// last checkpoint height and hash, and the forced inclusion queue's head/tail.
+    /// last checkpoint height and hash, the forced inclusion queue's head/tail and rules.
     pub fn anchor_slots() -> Vec<B256> {
         [
             RECOVERY_GENERATION,
             LAST_CHECKPOINT_HEIGHT,
             LAST_CHECKPOINT_HASH,
             FORCED_INCLUSION_HEAD_TAIL,
+            RULES_SCHEDULE,
         ]
         .map(slot)
         .to_vec()
@@ -145,7 +149,7 @@ pub mod inbox {
 /// is `checkpoints`, a dynamic array of two-word structs
 /// `{ uint48 l1Block; uint48 count; bytes32 entriesRoot; }`. The second field is `entries`,
 /// a dynamic array of three-word structs with a compressed key, uint256 stake and packed
-/// uint8 key prefix / uint48 activation / uint48 exit heights, indexed by bond ID.
+/// uint8 key prefix / uint48 activation / uint48 exit heights, indexed by slot number.
 ///
 /// As the contract appends a checkpoint in every L1 block that changes any entry (see the
 /// contract obligations in the module docs), the entries read at block `checkpoints[i].l1Block`
@@ -261,7 +265,7 @@ mod tests {
     #[test]
     fn inbox_slots_match_the_shared_vectors() {
         let slots = vectors::at("/layout/inbox/slots").as_object().expect("named slots");
-        assert_eq!(slots.len(), 17);
+        assert_eq!(slots.len(), 18);
         for name in slots.keys() {
             let constant = match name.as_str() {
                 "initialization_status" => inbox::STATUS,
@@ -282,6 +286,7 @@ mod tests {
                 "active_committee_snapshot" => inbox::ACTIVE_COMMITTEE_SNAPSHOT,
                 // Governance authorization state is deliberately absent from node witnesses.
                 "recovery_nonce" => 292,
+                "rules_schedule" => inbox::RULES_SCHEDULE,
                 other => panic!("the node reads no Inbox slot named {other}"),
             };
             assert_eq!(constant, vectors::u64_at(&format!("/layout/inbox/slots/{name}")), "{name}");

@@ -46,7 +46,7 @@ fn v1_configuration_matches_seven_word_vector() {
     assert_ne!(committee_config_hash(&p), original);
 }
 #[test]
-fn v1_registry_and_committee_roots_match_schema4() {
+fn v1_registry_and_committee_roots_match_schema5() {
     let v = vectors();
     let entries = crate::test_utils::vectors::registry_entries();
     for root in v["registry_entries"]["roots"].as_array().unwrap() {
@@ -95,6 +95,26 @@ fn v1_registry_and_committee_roots_match_schema4() {
             record_hash(CHAIN, &record),
             case["record_hash"].as_str().unwrap().parse::<B256>().unwrap()
         );
+    }
+}
+
+#[test]
+fn displaced_and_reused_entries_hash_the_slot_instead_of_the_permanent_bond_id() {
+    for case in vectors()["registry_entries"]["bond_slots"].as_array().unwrap() {
+        let raw = &case["entry"];
+        let consensus_key = key(raw);
+        let entry = RegistryEntry {
+            ck_prefix: consensus_key.prefix(),
+            ck_x: consensus_key.x(),
+            eff_stake: raw["eff_stake"].as_str().unwrap().parse().unwrap(),
+            active_from_l1: raw["active_from_l1"].as_str().unwrap().parse().unwrap(),
+            exit_effective_l1: raw["exit_effective_l1"].as_str().unwrap().parse().unwrap(),
+        };
+        let slot: usize = case["slot"].as_str().unwrap().parse().unwrap();
+        let bond: usize = case["bond_id"].as_str().unwrap().parse().unwrap();
+        let expected: B256 = case["leaf"].as_str().unwrap().parse().unwrap();
+        assert_eq!(entry_leaf(slot, &entry), expected);
+        assert_ne!(entry_leaf(bond, &entry), expected);
     }
 }
 #[test]

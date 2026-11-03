@@ -136,7 +136,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         check_validators(&req.validators, &committee.members)?;
         let parent = self.genesis_parent(&context.genesis).await?;
         Ok(AppState {
-            schema_version: 13,
+            schema_version: 15,
             recovery: None,
             app_version: crate::app::APP_VERSION,
             chain_id: req.chain_id.clone(),
@@ -206,7 +206,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         )?
         .genesis;
         let state = AppState {
-            schema_version: 14,
+            schema_version: 16,
             app_version: super::APP_VERSION,
             chain_id: req.chain_id.clone(),
             generation: origin.generation,

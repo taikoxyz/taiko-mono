@@ -30,6 +30,10 @@ use crate::{
     types::{AnchorState, ParentInfo},
 };
 
+/// Deployment-core ruleset selection and planned-stop enforcement.
+mod upgrade;
+pub use upgrade::{check_rules_schedule, check_supported_rules};
+
 /// All base fees and tips accrue immediately to the execution beneficiary.
 pub const BASEFEE_SHARING_PCTG: u8 = 100;
 
@@ -118,6 +122,18 @@ pub const HEADER_FIELD_DEBUG_MAX: usize = 256;
 /// Why a block, header or `chain_id` breaks a consensus rule.
 #[derive(Debug, thiserror::Error, Clone, PartialEq, Eq)]
 pub enum RuleViolation {
+    /// The authenticated schedule selects a ruleset absent from this software.
+    #[error("ruleset {rules} is unsupported; upgrade the node to continue")]
+    UnsupportedRuleset {
+        /// Ruleset selected by this block's anchor and timestamp.
+        rules: u64,
+    },
+    /// The committed parent reached the authenticated planned-stop grid and time.
+    #[error("planned stop reached at parent height {parent_height}")]
+    PlannedStop {
+        /// Last producible L2 block height.
+        parent_height: u64,
+    },
     /// The block height is not the parent's number plus one.
     #[error("height {height} does not follow parent block {parent}")]
     HeightMismatch {
@@ -252,6 +268,8 @@ impl RuleViolation {
     /// A stable snake_case label of the variant, for the rejection-reason metric.
     pub fn label(&self) -> &'static str {
         match self {
+            Self::UnsupportedRuleset { .. } => "unsupported_ruleset",
+            Self::PlannedStop { .. } => "planned_stop",
             Self::HeightMismatch { .. } => "height_mismatch",
             Self::HeaderField { .. } => "header_field",
             Self::ExtraDataOverflow { .. } => "extra_data_overflow",

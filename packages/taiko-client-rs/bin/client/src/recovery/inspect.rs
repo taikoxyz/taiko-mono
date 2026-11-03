@@ -143,7 +143,7 @@ pub fn validate_stores(
             params.inbox,
         )
         .map_err(|_| RecoveryCommandError::Invalid)?;
-        if state.schema_version != 14 ||
+        if state.schema_version != 16 ||
             state.app_version != abci::app::APP_VERSION ||
             state.chain_id != chain ||
             state.generation != plan.origin.generation ||

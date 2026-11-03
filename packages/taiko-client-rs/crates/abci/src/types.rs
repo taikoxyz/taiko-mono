@@ -48,8 +48,8 @@ pub struct AccountWitness {
 /// One staking-registry entry as captured by a registry checkpoint (layout in
 /// [`l1::layout::registry`](crate::l1::layout::registry)).
 ///
-/// Entries are indexed by slot (`bondId`). An exited entry stays with `exit_effective_l1` set until
-/// its stake is withdrawn; a later registration may then reuse its slot.
+/// Entries are indexed by slot number, independently of permanent bond IDs. Displacement
+/// replaces a slot's entry; historical checkpoints retain the original occupant.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RlpEncodable, RlpDecodable)]
 #[serde(deny_unknown_fields)]
 pub struct RegistryEntry {
@@ -113,6 +113,8 @@ pub struct Member {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InboxFacts {
+    /// Authenticated packed rules schedule (slot 293): five low-order uint48 fields.
+    pub rules_schedule: U256,
     /// `recoveryGeneration` (slot 268); also bound into the CometBFT domain and the `extraData`
     /// generation of every block of that generation.
     pub recovery_generation: u64,
@@ -239,6 +241,7 @@ mod tests {
 
     fn inbox_facts() -> InboxFacts {
         InboxFacts {
+            rules_schedule: alloy_primitives::U256::ZERO,
             recovery_generation: 2,
             last_checkpoint_height: 1_000,
             last_checkpoint_hash: B256::repeat_byte(0x33),

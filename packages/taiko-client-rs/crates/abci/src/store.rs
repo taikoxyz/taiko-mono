@@ -49,7 +49,7 @@ pub struct CommitteeState {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppState {
-    /// Journal schema: 13 for generation zero, 14 exclusively for fresh recovery state.
+    /// Journal schema: 15 for generation zero, 16 exclusively for fresh recovery state.
     pub schema_version: u32,
     /// Mandatory consensus format marker; old saved state has no implicit migration.
     pub app_version: u64,
@@ -57,7 +57,7 @@ pub struct AppState {
     pub chain_id: String,
     /// Recovery generation authenticated in the deployment domain.
     pub generation: u64,
-    /// Fixed authenticated boundary for fresh recovery schema 14; absent in schema 13.
+    /// Fixed authenticated boundary for fresh recovery schema 16; absent in schema 15.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recovery: Option<RecoveryOrigin>,
     /// Inbox account authenticated at genesis. Required so a restart cannot switch contracts;
@@ -425,7 +425,7 @@ mod tests {
             max_anchor_age: 7_200,
         };
         AppState {
-            schema_version: 13,
+            schema_version: 15,
             recovery: None,
             app_version: crate::app::APP_VERSION,
             chain_id: "taiko-etna-167001-g0".to_string(),
@@ -450,6 +450,7 @@ mod tests {
                 state_root: B256::repeat_byte(0x5a),
                 timestamp: 1_791_526_400,
                 inbox: InboxFacts {
+                    rules_schedule: alloy_primitives::U256::ZERO,
                     recovery_generation: 0,
                     last_checkpoint_height: 101,
                     last_checkpoint_hash: B256::repeat_byte(0x33),
@@ -582,6 +583,7 @@ mod tests {
             ("/genesis", "max_anchor_age"),
             ("/anchor/inbox", "forced_inclusion_head"),
             ("/anchor/inbox", "forced_inclusion_tail"),
+            ("/anchor/inbox", "rules_schedule"),
         ] {
             let mut json = current.clone();
             json.pointer_mut(object)

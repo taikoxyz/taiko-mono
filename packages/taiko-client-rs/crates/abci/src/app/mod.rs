@@ -675,9 +675,9 @@ fn at_generation_origin(state: &AppState) -> bool {
 
 /// Rejects a persisted state that `params` or the state itself contradicts (see [`App::new`]).
 fn check_stored_state(state: &AppState, params: &ChainParams) -> Result<(), AbciError> {
-    if !matches!((state.schema_version, state.recovery.as_ref()), (13, None) | (14, Some(_))) {
+    if !matches!((state.schema_version, state.recovery.as_ref()), (15, None) | (16, Some(_))) {
         return Err(AbciError::StoredState(format!(
-            "unsupported journal schema {} or recovery origin (expected 13 without origin or 14 with origin)",
+            "unsupported journal schema {} or recovery origin (expected 15 without origin or 16 with origin)",
             state.schema_version
         )));
     }

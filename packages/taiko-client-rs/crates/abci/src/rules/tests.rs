@@ -22,6 +22,7 @@ fn anchor(number: u64, timestamp: u64) -> AnchorState {
         state_root: B256::repeat_byte(0x5a),
         timestamp,
         inbox: InboxFacts {
+            rules_schedule: alloy_primitives::U256::ZERO,
             recovery_generation: GENERATION,
             last_checkpoint_height: 0,
             last_checkpoint_hash: B256::ZERO,
@@ -588,6 +589,8 @@ fn chain_id_fits_cometbft_max_len() {
 /// One value of every [`RuleViolation`] variant.
 fn every_violation() -> Vec<RuleViolation> {
     let all = vec![
+        RuleViolation::UnsupportedRuleset { rules: 1 },
+        RuleViolation::PlannedStop { parent_height: 6 },
         RuleViolation::HeightMismatch { height: 2, parent: 0 },
         RuleViolation::HeaderField { field: "number", expected: "1".into(), got: "2".into() },
         RuleViolation::ExtraDataOverflow { field: "proposal_id", value: u64::MAX },
@@ -610,6 +613,7 @@ fn every_violation() -> Vec<RuleViolation> {
     // Exhaustiveness guard: adding a variant without listing it above fails to compile here.
     for v in &all {
         match v {
+            RuleViolation::UnsupportedRuleset { .. } | RuleViolation::PlannedStop { .. } => {}
             RuleViolation::HeightMismatch { .. } |
             RuleViolation::HeaderField { .. } |
             RuleViolation::ExtraDataOverflow { .. } |

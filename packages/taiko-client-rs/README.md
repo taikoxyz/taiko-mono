@@ -6,7 +6,7 @@ blocks; the `taiko-client abci` ABCI++ application builds and validates them and
 alethia-reth through the Engine API. The independent `taiko-client lander` publishes decided batches to L1.
 
 The protocol rules are specified in the
-[Etna PoS + ZK design specification](../protocol/docs/etna-pos-zk/README.md);
+[Etna PoS + ZK design specification](../protocol/docs/etna/README.md);
 "spec section N" below refers to it. This README covers building, running and operating the
 client, and names the spec section where an operator needs a rule.
 
@@ -70,7 +70,7 @@ asks the app's private control socket before every signature (see
 
 Fresh deployment starts at generation zero; it migrates no earlier state format. Explicit
 [governance recovery](docs/governance-recovery.md) authenticates a later generation and
-creates fresh app/Comet stores while preserving registered signing authority and old history. It is aligned with protocol commit `1b14b634c8d213b5b30d8fc61ca6f6dcec344389` (the
+creates fresh app/Comet stores while preserving registered signing authority and old history. It is aligned with protocol commit `87cd3b385ab317550ed6be3ca588cbeab66146d9` (the
 Inbox, staking registry and the pinned contract artifacts) and alethia-reth commit
 `6ac93d4b38e1cd72b993cef1ed1dc2cb0affa7b4`. Start the EL and verify its block 0 before the Inbox
 is initialized (spec section 10, Startup and deployment). The proof provider is a dummy `0x00`,
@@ -86,6 +86,19 @@ checkpoint trust reads them. `fatal-evidence.txt` survives restarts and records 
 failure, such as an unknown-execution-state Engine error (`-38100`); repair its cause before
 restarting. An L1 header shape the node cannot parse makes `ProcessProposal` reject and
 `FinalizeBlock` wait, without a safety halt: upgrade the client.
+
+The client implements ruleset 0 and authenticates the rules schedule in Inbox slot 293 at
+each block's carried or inherited anchor. It selects rules by the block timestamp, refuses
+to propose or accept an unsupported ruleset, and waits for upgraded software during replay.
+An authenticated planned stop permits the stopping grid block and refuses its successor;
+governance recovery clears the stop. Recovery preparation also refuses rules it cannot
+implement at R. Rules scheduled after R do not change that fixed recovery origin.
+
+This release supports new networks with Etna start S = 0 and their governance recoveries.
+The [Unzen switch](../protocol/docs/etna/SWITCH.md), settled-prefix app import and public
+EL snapshot tooling require separate implementations. A nonzero Etna start is refused.
+App state schemas are 15 (generation zero) and 16 (recovery); lander journals use schema 14.
+Older stores and witnesses are refused without rewriting signed jobs or FilePV state.
 
 ## Forced inclusion
 
@@ -224,7 +237,7 @@ The public blob payload carries execution blocks only (spec section 5.2, Blob pa
 input and statement are spec section 6.1 (land). Before signing or sending, the lander checks the
 deployed Inbox implementation and its immutable getters.
 
-`lander-state.json` uses schema 13 and is protected by `lander.lock`; other schemas are refused
+`lander-state.json` uses schema 14 and is protected by `lander.lock`; other schemas are refused
 and left intact. Signed bytes and blob sidecars are durably written before
 broadcast. For an original range (p,h] and competing checkpoint p<=c<h, the original input,
 leaves, proof, blobs, nonce and signed bytes remain unchanged. At c>=h, never-broadcast work

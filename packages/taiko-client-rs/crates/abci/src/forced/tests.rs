@@ -30,6 +30,7 @@ fn fixture(tx: Bytes) -> (AnchorState, ForcedWitness) {
         state_root: state.state_root(),
         timestamp: T0 + DELAY,
         inbox: InboxFacts {
+            rules_schedule: alloy_primitives::U256::ZERO,
             recovery_generation: 0,
             last_checkpoint_height: 0,
             last_checkpoint_hash: B256::ZERO,

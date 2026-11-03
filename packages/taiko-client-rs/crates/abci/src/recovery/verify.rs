@@ -96,6 +96,16 @@ pub(super) fn observation(
     }
     let (height, number, timestamp) =
         (height.to::<u64>(), number.to::<u64>(), timestamp.to::<u64>());
+    let rules = word(&storage, inbox::slot(inbox::RULES_SCHEDULE));
+    if rules >> 240 != U256::ZERO {
+        return Err(invalid("reserved rules schedule bits"));
+    }
+    if header.number() == number {
+        // The R-selected committee is meaningful only under a ruleset this binary supports.
+        // Later schedule writes are mutable and do not change this fixed recovery origin.
+        crate::rules::check_supported_rules(rules, timestamp)
+            .map_err(|e| RecoveryError::Unavailable(e.to_string()))?;
+    }
     if number == 0 ||
         number < w.genesis.l1_header.number() ||
         timestamp == 0 ||

@@ -426,6 +426,7 @@ impl AnchorFacts {
             state_root: header.state_root(),
             timestamp: header.timestamp(),
             inbox: InboxFacts {
+                rules_schedule: alloy_primitives::U256::ZERO,
                 recovery_generation: self.generation,
                 last_checkpoint_height: self.checkpoint_height,
                 last_checkpoint_hash: B256::repeat_byte(0x0c),

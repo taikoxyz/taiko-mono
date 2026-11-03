@@ -168,7 +168,7 @@ pub struct Snapshot {
     pub checkpoint_index: u64,
     /// The checkpoint's `l1Block`: the L1 block whose entry changes it captures.
     pub l1_block: u64,
-    /// The checkpoint's entries, in index (`bondId`) order.
+    /// The checkpoint's entries, in index (`slot`) order.
     pub entries: Vec<RegistryEntry>,
 }
 
@@ -411,7 +411,7 @@ struct Selection {
     total_power: u64,
 }
 
-/// Selects the committee for `target_epoch` at `cutoff` from `entries` (indexed by `bondId`)
+/// Selects the committee for `target_epoch` at `cutoff` from `entries` (indexed by `slot`)
 /// under every rule and check of [`derive()`], which only adds the record.
 fn select(
     entries: &[RegistryEntry],
@@ -428,15 +428,15 @@ fn select(
         .ok_or(CommitteeError::EpochOutOfRange(target_epoch))?;
     let min_stake = params.s_min.max(params.vp_unit);
 
-    // `(set key, bondId, entry)`; `bondId` is the entry's index in the snapshot.
+    // `(set key, slot, entry)`; `slot` is the entry's index in the snapshot.
     let mut eligible: Vec<(B256, usize, &RegistryEntry)> = entries
         .iter()
         .enumerate()
         .filter(|(_, e)| is_base_eligible(e, cutoff, min_stake))
-        .map(|(bond_id, e)| Ok((set_key(params.l2_chain_id, e.consensus_key()?), bond_id, e)))
+        .map(|(slot, e)| Ok((set_key(params.l2_chain_id, e.consensus_key()?), slot, e)))
         .collect::<Result<_, CommitteeError>>()?;
     // Adjacent equal set keys identify duplicate eligible consensus identities.
-    eligible.sort_by_key(|(key, bond_id, _)| (*key, *bond_id));
+    eligible.sort_by_key(|(key, slot, _)| (*key, *slot));
     if eligible.windows(2).any(|pair| pair[0].0 == pair[1].0) {
         return Err(CommitteeError::DuplicateKey);
     }
@@ -449,7 +449,7 @@ fn select(
         return Err(CommitteeError::Empty);
     }
     let selected: Vec<(usize, &RegistryEntry)> =
-        eligible.into_iter().map(|(_, bond_id, e)| (bond_id, e)).collect();
+        eligible.into_iter().map(|(_, slot, e)| (slot, e)).collect();
 
     let members = selected
         .iter()

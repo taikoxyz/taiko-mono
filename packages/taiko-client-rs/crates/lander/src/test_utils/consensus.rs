@@ -125,6 +125,7 @@ fn committee_with_keys(
         state_root: B256::repeat_byte(2),
         timestamp: 1,
         inbox: InboxFacts {
+            rules_schedule: alloy_primitives::U256::ZERO,
             recovery_generation: 0,
             last_checkpoint_height: 0,
             last_checkpoint_hash: B256::ZERO,

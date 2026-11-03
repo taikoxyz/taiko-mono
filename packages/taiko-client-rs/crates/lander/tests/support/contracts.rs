@@ -267,6 +267,9 @@ impl ContractFixture {
             include_str!("../fixtures/contracts/EtnaInbox.json"),
             EtnaInbox::constructorCall {
                 _config: IEtnaInbox::Config {
+                    originWriter: Address::ZERO,
+                    unzenInbox: Address::ZERO,
+                    etnaForkTime: Default::default(),
                     proofVerifier: verifier,
                     signalService: signal,
                     stakingRegistry: registry,

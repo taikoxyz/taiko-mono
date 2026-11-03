@@ -43,6 +43,21 @@
               "internalType": "address",
               "name": "protocolFeeRecipient",
               "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "originWriter",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "unzenInbox",
+              "type": "address"
+            },
+            {
+              "internalType": "uint48",
+              "name": "etnaForkTime",
+              "type": "uint48"
             }
           ],
           "internalType": "struct IEtnaInbox.Config",
@@ -145,6 +160,37 @@
         {
           "internalType": "bytes32",
           "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "etnaForkTime",
+      "outputs": [
+        {
+          "internalType": "uint48",
+          "name": "",
+          "type": "uint48"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "etnaStart",
+      "outputs": [
+        {
+          "internalType": "uint48",
+          "name": "height_",
+          "type": "uint48"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "blockHash_",
           "type": "bytes32"
         }
       ],
@@ -682,6 +728,19 @@
       "type": "function"
     },
     {
+      "inputs": [],
+      "name": "originWriter",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
       "inputs": [
         {
           "internalType": "uint256",
@@ -845,6 +904,11 @@
           "internalType": "uint256[]",
           "name": "_fiToClear",
           "type": "uint256[]"
+        },
+        {
+          "internalType": "uint48",
+          "name": "_rules",
+          "type": "uint48"
         }
       ],
       "name": "recover",
@@ -912,6 +976,46 @@
       "type": "function"
     },
     {
+      "inputs": [],
+      "name": "rulesSchedule",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint48",
+              "name": "activeRules",
+              "type": "uint48"
+            },
+            {
+              "internalType": "uint48",
+              "name": "nextRules",
+              "type": "uint48"
+            },
+            {
+              "internalType": "uint48",
+              "name": "rulesTime",
+              "type": "uint48"
+            },
+            {
+              "internalType": "uint48",
+              "name": "stopTime",
+              "type": "uint48"
+            },
+            {
+              "internalType": "uint48",
+              "name": "stopGrid",
+              "type": "uint48"
+            }
+          ],
+          "internalType": "struct IEtnaInbox.RulesSchedule",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
       "inputs": [
         {
           "internalType": "bytes",
@@ -922,6 +1026,65 @@
       "name": "saveForcedInclusion",
       "outputs": [],
       "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint48",
+          "name": "_rules",
+          "type": "uint48"
+        },
+        {
+          "internalType": "uint48",
+          "name": "_time",
+          "type": "uint48"
+        }
+      ],
+      "name": "scheduleRules",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint48",
+          "name": "_time",
+          "type": "uint48"
+        },
+        {
+          "internalType": "uint48",
+          "name": "_grid",
+          "type": "uint48"
+        }
+      ],
+      "name": "scheduleStop",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_height",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "_blockHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "_stateRoot",
+          "type": "bytes32"
+        }
+      ],
+      "name": "setOrigin",
+      "outputs": [],
+      "stateMutability": "nonpayable",
       "type": "function"
     },
     {
@@ -975,6 +1138,19 @@
       "name": "unpause",
       "outputs": [],
       "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "unzenInbox",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
       "type": "function"
     },
     {
@@ -1043,24 +1219,6 @@
     {
       "anonymous": false,
       "inputs": [
-        {
-          "indexed": false,
-          "internalType": "bytes32",
-          "name": "genesisBlockHash",
-          "type": "bytes32"
-        },
-        {
-          "indexed": false,
-          "internalType": "bytes32",
-          "name": "genesisStateRoot",
-          "type": "bytes32"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "l1Block",
-          "type": "uint256"
-        },
         {
           "indexed": false,
           "internalType": "uint256",
@@ -1313,6 +1471,44 @@
       "inputs": [
         {
           "indexed": false,
+          "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        }
+      ],
+      "name": "RulesScheduleUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "height",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "blockHash",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "stateRoot",
+          "type": "bytes32"
+        }
+      ],
+      "name": "StartWritten",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
           "internalType": "address",
           "name": "account",
           "type": "address"
@@ -1356,7 +1552,17 @@
     },
     {
       "inputs": [],
+      "name": "BeforeEtnaForkTime",
+      "type": "error"
+    },
+    {
+      "inputs": [],
       "name": "CheckpointMismatch",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CheckpointOffGrid",
       "type": "error"
     },
     {
@@ -1486,6 +1692,31 @@
     },
     {
       "inputs": [],
+      "name": "InvalidRules",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidScheduleTime",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidStart",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidStop",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidSwitchConfig",
+      "type": "error"
+    },
+    {
+      "inputs": [],
       "name": "LeafCountMismatch",
       "type": "error"
     },
@@ -1527,6 +1758,41 @@
     {
       "inputs": [],
       "name": "RegistryMismatch",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "RulesLocked",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "StartAlreadyWritten",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "StartCheckpointMismatch",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "StartNotWritten",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "StopLocked",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "UnzenNotFinalized",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "UnzenStartMismatch",
       "type": "error"
     },
     {

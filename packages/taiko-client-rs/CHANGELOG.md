@@ -4,6 +4,12 @@
 
 ### Features
 
+- Align with protocol `87cd3b385` and the current Etna specification: authenticate slot 293,
+  enforce ruleset selection/refusal and planned stops, and retain fixed recovery origins
+  across later schedule writes. Reproduce schema-5 vectors and the updated recovery ABI.
+- Read registry entries by slot independently of permanent bond IDs, including displacement
+  and reuse; reject older app and lander stores without modifying their signed state.
+
 - Add explicit L1-authenticated governance recovery preparation, foreground activation/resume
   and redacted offline status for validators and full nodes with usable local EL origin state.
 - Preserve registered keys, per-generation FilePV authority, old Comet history and immutable

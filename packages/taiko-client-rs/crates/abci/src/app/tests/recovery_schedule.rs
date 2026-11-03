@@ -21,7 +21,7 @@ fn recovered(epoch_len: u64) -> (Fixture, MockL1, AppState) {
     let origin = verify_recovery_witness(&witness, &fx.params).unwrap();
     let mut state = fx.expected_state();
     state.anchor = verify_anchor_witness(&fx.anchor_witness(&l1, 64), fx.params.inbox).unwrap();
-    state.schema_version = 14;
+    state.schema_version = 16;
     state.generation = 1;
     state.chain_id = chain_id_for(&fx.params, 1).unwrap();
     state.last_height = 6;
@@ -163,7 +163,7 @@ fn recovery_schedule_schema_is_explicit_and_generation_zero_bytes_stay_unchanged
     let (fx, _, state) = recovered(7);
     assert!(super::super::check_stored_state(&state, &fx.params).is_ok());
     let mut wrong = state.clone();
-    wrong.schema_version = 13;
+    wrong.schema_version = 15;
     assert!(super::super::check_stored_state(&wrong, &fx.params).is_err());
     wrong = state.clone();
     wrong.recovery = None;
@@ -176,7 +176,7 @@ fn recovery_schedule_schema_is_explicit_and_generation_zero_bytes_stay_unchanged
     assert!(!serde_json::to_value(&old).unwrap().as_object().unwrap().contains_key("recovery"));
     let decoded: AppState = serde_json::from_slice(&before).unwrap();
     assert_eq!(serde_json::to_vec(&decoded).unwrap(), before);
-    assert_eq!(decoded.schema_version, 13);
+    assert_eq!(decoded.schema_version, 15);
     let dir = tempfile::tempdir().unwrap();
     let store = Store::new(dir.path().into());
     store.save(&old).unwrap();

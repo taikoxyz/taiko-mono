@@ -429,6 +429,7 @@ pub fn validate_block(
         chain,
         params,
         height,
+        bft_secs,
         &Candidate {
             anchor: env.anchor.as_ref(),
             committee: env.committee.as_ref(),
@@ -508,9 +509,16 @@ fn check_candidate(
     chain: &ChainContext<'_>,
     params: &ChainParams,
     height: u64,
+    bft_secs: u64,
     c: &Candidate<'_>,
 ) -> Result<CandidateFacts, Rejection> {
     let anchor = check_candidate_anchor(chain, params, height, c)?;
+    rules::check_rules_schedule(
+        anchor.inbox.rules_schedule,
+        chain.parent,
+        rules::block_timestamp(chain.parent.timestamp, bft_secs, anchor.timestamp),
+        chain.genesis.genesis_height,
+    )?;
     finish_candidate(chain, params, height, c.committee, anchor)
 }
 

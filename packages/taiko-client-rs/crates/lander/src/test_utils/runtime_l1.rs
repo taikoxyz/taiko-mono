@@ -159,6 +159,7 @@ fn anchor(header: &RawL1Header) -> AnchorState {
         state_root: header.state_root(),
         timestamp: header.timestamp(),
         inbox: InboxFacts {
+            rules_schedule: alloy_primitives::U256::ZERO,
             recovery_generation: 0,
             last_checkpoint_height: 0,
             last_checkpoint_hash: B256::repeat_byte(1),
@@ -420,7 +421,7 @@ async fn snapshot_reorg_retries_with_coherent_hash_pinned_header_and_proof() {
                 call["params"][2],
                 json!({"blockHash": snapshot.l1_block_hash, "requireCanonical": true})
             );
-            assert!(matches!(call["params"][1].as_array().unwrap().len(), 15 | 18));
+            assert!(matches!(call["params"][1].as_array().unwrap().len(), 16 | 19));
         }
         let raw =
             calls.iter().filter(|call| call["method"] == "debug_getRawHeader").collect::<Vec<_>>();

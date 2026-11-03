@@ -326,6 +326,7 @@ fn anchor(raw: &RawL1Header, height: u64, hash: B256, queue: &Queue) -> AnchorSt
         state_root: raw.state_root(),
         timestamp: raw.timestamp(),
         inbox: InboxFacts {
+            rules_schedule: alloy_primitives::U256::ZERO,
             recovery_generation: 0,
             last_checkpoint_height: height,
             last_checkpoint_hash: hash,

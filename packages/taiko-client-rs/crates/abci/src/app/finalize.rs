@@ -77,15 +77,23 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 return Err(invalid_block(height, &Rejection::from(error)));
             }
         };
-        let fresh = validate_block(
-            &state.chain_context(),
-            &self.params,
-            &env,
-            height,
-            bft_secs,
-            req.proposer_address,
-        )
-        .map_err(|e| invalid_block(height, &e))?;
+        let fresh = loop {
+            match validate_block(
+                &state.chain_context(),
+                &self.params,
+                &env,
+                height,
+                bft_secs,
+                req.proposer_address,
+            ) {
+                Ok(validated) => break validated,
+                Err(Rejection::Rule(crate::rules::RuleViolation::UnsupportedRuleset { rules })) => {
+                    tracing::warn!(height, rules, "waiting for ruleset support; upgrade the node");
+                    tokio::time::sleep(FINALIZE_RETRY_MAX).await;
+                }
+                Err(error) => return Err(invalid_block(height, &error)),
+            }
+        };
         let cached = self.verdicts.remove(&req.hash).filter(|v| {
             v.proposer == fresh.proposer &&
                 v.envelope_hash == fresh.envelope_hash &&

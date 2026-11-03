@@ -46,6 +46,8 @@ use crate::{
 mod fixture;
 /// In-memory L1 and execution-engine mocks.
 mod mocks;
+/// Manual regeneration of CLI recovery proofs from their complete, unchanged fixture states.
+mod recovery_fixtures;
 /// The Etna vectors shared with the contracts (`testdata/etna_vectors`).
 pub(crate) mod vectors;
 
@@ -380,6 +382,7 @@ pub(crate) fn anchor_at(number: u64, state_root: B256) -> AnchorState {
         state_root,
         timestamp: 0,
         inbox: InboxFacts {
+            rules_schedule: alloy_primitives::U256::ZERO,
             recovery_generation: 0,
             last_checkpoint_height: 0,
             last_checkpoint_hash: B256::ZERO,

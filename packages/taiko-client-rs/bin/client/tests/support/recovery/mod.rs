@@ -245,6 +245,7 @@ pub async fn recover_with_lists(
             _validUntil: U256::from(now + 3600),
             _exclusions: exclusions,
             _fiToClear: fi_to_clear,
+            _rules: U48::ZERO,
         }
         .abi_encode(),
     )

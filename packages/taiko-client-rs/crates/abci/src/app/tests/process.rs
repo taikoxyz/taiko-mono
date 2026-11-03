@@ -26,6 +26,34 @@ use crate::{
 /// One in-place header mutation.
 type Mutation = dyn Fn(&mut Header);
 
+/// Prove the scheduled word through a real account/storage trie; changing its value must
+/// change proposal admission even when every ruleset-0 header field is otherwise valid.
+#[tokio::test]
+async fn authenticated_rules_schedule_controls_proposal_admission() {
+    use crate::test_utils::{
+        TestState, anchor_witness_in, filler_accounts, inbox_account, l1_header,
+    };
+    for (word, label) in [
+        (U256::from(1) << 48, "unsupported_ruleset"),
+        ((U256::from(1) << 144) | (U256::from(6) << 192), "planned_stop"),
+    ] {
+        let fx = Fixture::genesis(1);
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = mid_epoch(&fx, dir.path(), 6).await;
+        let mut accounts = filler_accounts();
+        let mut account = inbox_account(fx.params.inbox, &fx.inbox);
+        account.4.push((crate::l1::layout::inbox::slot(293), word));
+        accounts.push(account);
+        let state = TestState::new(accounts);
+        let header = l1_header(66, Fixture::l1_timestamp(66));
+        app.l1().insert_block(header.clone(), state.clone());
+        app.l1().set_finalized(66);
+        let witness = anchor_witness_in(&state, fx.params.inbox, header);
+        let env = hand_envelope(&app, Some(witness), None);
+        assert_eq!(rejected(&mut app, &env).await, label);
+    }
+}
+
 /// A mid-epoch app (next height plain) and the valid envelope it proposes for that height.
 async fn plain(fx: &Fixture, dir: &Path) -> (App<MockL1, MockEngine>, EtnaEnvelope) {
     let mut app = mid_epoch(fx, dir, 5).await;

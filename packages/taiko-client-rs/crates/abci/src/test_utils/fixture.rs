@@ -366,7 +366,7 @@ impl Fixture {
             0
         };
         AppState {
-            schema_version: 13,
+            schema_version: 15,
             recovery: None,
             app_version: crate::app::APP_VERSION,
             chain_id: self.request.chain_id.clone(),
@@ -391,6 +391,7 @@ impl Fixture {
                 state_root: self.l1_state.state_root(),
                 timestamp: self.witness.l1_header.timestamp(),
                 inbox: InboxFacts {
+                    rules_schedule: alloy_primitives::U256::ZERO,
                     recovery_generation: self.inbox.recovery_generation,
                     last_checkpoint_height: self.genesis.genesis_height,
                     last_checkpoint_hash: self.genesis.genesis_hash,
