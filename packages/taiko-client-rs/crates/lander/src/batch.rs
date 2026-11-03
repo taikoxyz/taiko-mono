@@ -58,7 +58,7 @@ pub struct BatchObservation {
     /// Complete blocks fitting the configured block, codec, payload and blob bounds and the
     /// selection budgets.
     pub publishable_blocks: usize,
-    /// The certified tip's anchored unsettled depth has reached `U - 1`.
+    /// The decided tip's authenticated anchor puts its unsettled depth at `U - 1` or more.
     pub force_backpressure: bool,
     /// An unlanded switch witness exists anywhere in the decided backlog.
     pub force_epoch: bool,
@@ -148,7 +148,18 @@ struct CachedCheckpoint {
     committees: BTreeMap<u64, AuthenticatedCommittee>,
 }
 
-/// Constant-space forward authentication state shared by observation and proof preparation.
+/// A decided tip an observation resolved, and the authenticated anchor it consumes.
+#[derive(Clone)]
+struct TipAnchor {
+    /// The tip's height.
+    height: u64,
+    /// The tip's CometBFT block hash, pinning the chain the anchor was found on.
+    comet_hash: B256,
+    /// The anchor the tip consumes.
+    anchor: AnchorState,
+}
+
+/// Constant-space forward authentication state of proof preparation.
 struct ForwardState {
     /// Exact authenticated committed parent inputs.
     parent: ParentInfo,
@@ -264,6 +275,9 @@ pub struct BatchBuilder<C: ?Sized, L: ?Sized> {
     deflate_budget: usize,
     /// Retain at most one authenticated epoch-sized context and serialize concurrent misses.
     checkpoint_cache: Mutex<Option<CachedCheckpoint>>,
+    /// The last tip whose anchor [`BatchBuilder::tip_anchor`] authenticated, so a later
+    /// observation reads only the blocks decided since.
+    tip_anchor: Mutex<Option<TipAnchor>>,
 }
 
 impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
@@ -293,6 +307,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             list_budget: MAX_BATCH_LIST_BYTES,
             deflate_budget: MAX_SELECTION_DEFLATE_BYTES,
             checkpoint_cache: Mutex::new(None),
+            tip_anchor: Mutex::new(None),
         })
     }
 
@@ -939,6 +954,79 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         }
         Ok((anchors, state.forced_cursor, leaves))
     }
+
+    /// The authenticated anchor the decided `tip` consumes, used only for back-pressure urgency.
+    ///
+    /// Walks back from `tip` to the newest block above `checkpoint` that carries an anchor
+    /// witness, or to the tip an earlier observation resolved. Blocks are read and decoded
+    /// without verifying their certificates: `prepare` authenticates a batch's blocks, and a
+    /// block past the batch never stops a landing (BATCH-6.3-12a). With no later witness the
+    /// tip consumes the checkpoint's anchor `start`. A newest witness that does not decode or
+    /// authenticate against the own L1 also yields `start`, whose unsettled depth never
+    /// undercounts the tip's (BACKP-6.4-10); such a result is not remembered.
+    async fn tip_anchor(
+        &self,
+        start: &AnchorState,
+        checkpoint: u64,
+        tip: u64,
+    ) -> Result<AnchorState> {
+        let mut retained = self.tip_anchor.lock().await;
+        let known = retained.take().filter(|known| {
+            known.height > checkpoint && known.height <= tip && known.anchor.number >= start.number
+        });
+        let mut tip_hash = None;
+        for height in (checkpoint + 1..=tip).rev() {
+            let pair = self.comet.block(height).await?;
+            let hash = B256::from_slice(pair.block.header.hash().as_bytes());
+            let comet_hash = *tip_hash.get_or_insert(hash);
+            let resolved = match &known {
+                Some(known) if (known.height, known.comet_hash) == (height, hash) => {
+                    Some(known.anchor.clone())
+                }
+                _ => match pair.block.data.as_slice() {
+                    [tx] => match abci::EtnaEnvelope::decode(tx) {
+                        // The block inherits its parent's anchor.
+                        Ok(envelope) if envelope.anchor.is_none() => continue,
+                        Ok(envelope) => {
+                            let witness = envelope.anchor.expect("checked above");
+                            self.authenticated_anchor(&witness, start).await
+                        }
+                        Err(_) => None,
+                    },
+                    _ => None,
+                },
+            };
+            let Some(anchor) = resolved else {
+                tracing::warn!(
+                    height,
+                    "decided block's anchor does not authenticate; counting back-pressure from the \
+                     checkpoint's anchor"
+                );
+                return Ok(start.clone());
+            };
+            *retained = Some(TipAnchor { height: tip, comet_hash, anchor: anchor.clone() });
+            return Ok(anchor);
+        }
+        if let Some(comet_hash) = tip_hash {
+            *retained = Some(TipAnchor { height: tip, comet_hash, anchor: start.clone() });
+        }
+        Ok(start.clone())
+    }
+
+    /// The anchor `witness` proves, when it authenticates against the own L1 and does not precede
+    /// the checkpoint's anchor `start`; `None` otherwise.
+    async fn authenticated_anchor(
+        &self,
+        witness: &abci::AnchorWitness,
+        start: &AnchorState,
+    ) -> Option<AnchorState> {
+        let anchor = abci::l1::verify_anchor_witness(witness, self.params.inbox).ok()?;
+        if anchor.number < start.number {
+            return None;
+        }
+        let canonical = self.l1.canonical_hash(anchor.number).await.ok()?;
+        (canonical == anchor.hash).then_some(anchor)
+    }
 }
 
 #[async_trait]
@@ -951,7 +1039,8 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
         Ok(())
     }
 
-    /// Preview capacity and authenticate the tip's historical anchor for urgency decisions.
+    /// Preview capacity and the tip's authenticated anchor for urgency decisions, without
+    /// verifying the decided blocks: `prepare` authenticates the ones a batch selects.
     async fn observe(&self, snapshot: &LandingSnapshot) -> Result<BatchObservation> {
         let schedule = self.schedule(snapshot)?;
         let status = self.status(snapshot).await?;
@@ -964,19 +1053,9 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
             });
         }
         let prefix = self.publishable_prefix(snapshot, status.height).await?;
-        let mut committees = BTreeMap::new();
-        let start = self.checkpoint(snapshot, &schedule, &mut committees).await?;
-        let mut state = ForwardState::new(&start, snapshot)?;
-        for pair in &prefix.blocks {
-            self.authenticate_block(snapshot, &schedule, &mut state, &mut committees, pair).await?;
-        }
-        let fetched = state.parent.number;
-        for height in fetched + 1..=status.height {
-            let pair = self.comet.block(height).await?;
-            self.authenticate_block(snapshot, &schedule, &mut state, &mut committees, &pair)
-                .await?;
-        }
-        let anchor = &state.anchor;
+        let start = self.checkpoint(snapshot, &schedule, &mut BTreeMap::new()).await?;
+        let anchor =
+            self.tip_anchor(&start.anchor, snapshot.checkpoint_height, status.height).await?;
         Ok(BatchObservation {
             decided_height: status.height,
             publishable_blocks: prefix.blocks.len(),
@@ -1264,6 +1343,7 @@ mod tests {
         committee_reads: AtomicUsize,
         parent_reads: AtomicUsize,
         status_reads: AtomicUsize,
+        block_reads: AtomicUsize,
         anchor_reorg: AtomicBool,
         snapshot_reorg: AtomicBool,
         parent_changed: AtomicBool,
@@ -1279,6 +1359,7 @@ mod tests {
                 committee_reads: AtomicUsize::new(0),
                 parent_reads: AtomicUsize::new(0),
                 status_reads: AtomicUsize::new(0),
+                block_reads: AtomicUsize::new(0),
                 anchor_reorg: AtomicBool::new(false),
                 snapshot_reorg: AtomicBool::new(false),
                 parent_changed: AtomicBool::new(false),
@@ -1316,6 +1397,7 @@ mod tests {
         }
 
         async fn block(&self, height: u64) -> Result<CertifiedBlock> {
+            self.block_reads.fetch_add(1, Ordering::Relaxed);
             self.fixture().block(height).await
         }
     }
@@ -1514,6 +1596,22 @@ mod tests {
             .unwrap();
         assert_eq!(starting.keys().copied().collect::<Vec<_>>(), vec![0]);
         assert_eq!(source.committee_reads.load(Ordering::Relaxed), 1);
+    }
+
+    /// A later observation resolves the tip's anchor from the tip an earlier one resolved, so
+    /// each poll reads the blocks decided since rather than walking back to the anchor's move
+    /// (block 23 here).
+    #[tokio::test]
+    async fn a_repeated_observation_reuses_the_resolved_tip_anchor() {
+        let source = TrackingSource::new(Fixture::new(18, 30));
+        let b = source.builder(1);
+        let snapshot = source.fixture().snapshot.clone();
+        let first = b.observe(&snapshot).await.unwrap();
+        // At least the one-block prefix and the walk back from block 30 to block 23.
+        assert!(source.block_reads.swap(0, Ordering::Relaxed) > 8);
+        assert_eq!(b.observe(&snapshot).await.unwrap(), first);
+        // The one-block prefix and the remembered tip.
+        assert_eq!(source.block_reads.load(Ordering::Relaxed), 2);
     }
 
     #[tokio::test]
@@ -1897,28 +1995,51 @@ mod tests {
         }
     }
 
+    /// Observation verifies no certificate or switch witness of a decided block past its
+    /// publishable prefix, so such a block never stops the prefix from landing (BATCH-6.3-12a);
+    /// `prepare` still refuses it once a batch includes it.
     #[tokio::test]
-    async fn observe_authenticates_switch_beyond_capacity_limited_prefix() {
+    async fn observe_does_not_verify_blocks_beyond_its_prefix() {
         let fixture = Arc::new(Fixture::new(18, 30));
         let observed =
             builder(fixture.clone(), limits(1)).observe(&fixture.snapshot).await.unwrap();
         assert_eq!(observed.publishable_blocks, 0);
         assert_eq!(observed.decided_height, 30);
         assert!(observed.force_epoch);
+        let mut missing_witness = Fixture::new(18, 30);
+        alter_envelope(&mut missing_witness, 23, |e| e.committee = None);
+        let mut unsigned = Fixture::new(18, 30);
+        unsigned.blocks.get_mut(&21).unwrap().commit.signatures.clear();
+        for fixture in [missing_witness, unsigned] {
+            let fixture = Arc::new(fixture);
+            assert_eq!(
+                builder(fixture.clone(), limits(1)).observe(&fixture.snapshot).await.unwrap(),
+                observed
+            );
+            assert!(matches!(
+                builder(fixture.clone(), limits(12)).prepare(fixture.snapshot.clone()).await,
+                Err(LanderError::Safety(_))
+            ));
+        }
+    }
+
+    /// When the newest anchor witness past the prefix does not authenticate, the tip's unsettled
+    /// depth is counted from the checkpoint's own anchor, which never undercounts it
+    /// (BACKP-6.4-10): block 23 moves the anchor to an L1 state whose last checkpoint is 18, but
+    /// its proof is forged, so the depth is 30 − 6 = 24 ≥ U − 1 instead of 30 − 18 = 12.
+    #[tokio::test]
+    async fn an_unauthenticated_tip_anchor_counts_pressure_from_the_checkpoint_anchor() {
         let mut fixture = Fixture::new(18, 30);
-        alter_envelope(&mut fixture, 23, |e| e.committee = None);
+        alter_envelope(&mut fixture, 23, |e| {
+            let witness = e.anchor.as_mut().expect("block 23 moves its anchor");
+            witness.inbox.storage[0].value += U256::from(1);
+        });
         let fixture = Arc::new(fixture);
-        assert!(matches!(
-            builder(fixture.clone(), limits(1)).observe(&fixture.snapshot).await,
-            Err(LanderError::Safety(_))
-        ));
-        let mut fixture = Fixture::new(18, 30);
-        fixture.blocks.get_mut(&21).unwrap().commit.signatures.clear();
-        let fixture = Arc::new(fixture);
-        assert!(matches!(
-            builder(fixture.clone(), limits(1)).observe(&fixture.snapshot).await,
-            Err(LanderError::Safety(_))
-        ));
+        let observed =
+            builder(fixture.clone(), limits(1)).observe(&fixture.snapshot).await.unwrap();
+        assert_eq!(observed.publishable_blocks, 0);
+        assert!(observed.force_epoch);
+        assert!(observed.force_backpressure);
     }
 
     #[tokio::test]
@@ -1940,7 +2061,8 @@ mod tests {
     }
 
     /// The builder holds every block to the snapshot genesis's `maxAnchorAge`: block 1 of the
-    /// fixture (101 s) uses anchor 10 (10 s), an anchor age of 91 s.
+    /// fixture (101 s) uses anchor 10 (10 s), an anchor age of 91 s. Observation verifies no
+    /// block, so preparation reports it.
     #[tokio::test]
     async fn a_block_with_an_anchor_older_than_the_genesis_maximum_age_is_rejected() {
         let fixture = Arc::new(Fixture::with_max_anchor_age(0, 6, 2000));
@@ -1952,16 +2074,11 @@ mod tests {
 
         let fixture = Arc::new(Fixture::with_max_anchor_age(0, 6, 1251));
         let violation = abci::rules::RuleViolation::AnchorTooOld { age: 1252, max: 1251 };
-        for observation in [false, true] {
-            let b = builder(fixture.clone(), limits(6));
-            let error = if observation {
-                b.observe(&fixture.snapshot).await.unwrap_err()
-            } else {
-                b.prepare(fixture.snapshot.clone()).await.unwrap_err()
-            };
-            assert!(matches!(error, LanderError::Safety(_)), "{error}");
-            assert!(error.to_string().contains(&violation.to_string()), "{error}");
-        }
+        let b = builder(fixture.clone(), limits(6));
+        assert_eq!(b.observe(&fixture.snapshot).await.unwrap().publishable_blocks, 6);
+        let error = b.prepare(fixture.snapshot.clone()).await.unwrap_err();
+        assert!(matches!(error, LanderError::Safety(_)), "{error}");
+        assert!(error.to_string().contains(&violation.to_string()), "{error}");
     }
 
     #[tokio::test]
@@ -2498,19 +2615,15 @@ mod tests {
             (word(17), word(18))
         }
 
-        /// The batch errors with a safety error naming `violation`, in preparation and observation.
+        /// Preparing the batch errors with a safety error naming `violation`; observation verifies
+        /// no block and succeeds.
         async fn assert_safety(fixture: Fixture, violation: &str) {
             let fixture = Arc::new(fixture);
-            for observation in [false, true] {
-                let b = builder(fixture.clone(), limits(6));
-                let error = if observation {
-                    b.observe(&fixture.snapshot).await.unwrap_err()
-                } else {
-                    b.prepare(fixture.snapshot.clone()).await.unwrap_err()
-                };
-                assert!(matches!(error, LanderError::Safety(_)), "{error}");
-                assert!(error.to_string().contains(violation), "{error}");
-            }
+            let b = builder(fixture.clone(), limits(6));
+            b.observe(&fixture.snapshot).await.unwrap();
+            let error = b.prepare(fixture.snapshot.clone()).await.unwrap_err();
+            assert!(matches!(error, LanderError::Safety(_)), "{error}");
+            assert!(error.to_string().contains(violation), "{error}");
         }
 
         #[tokio::test]

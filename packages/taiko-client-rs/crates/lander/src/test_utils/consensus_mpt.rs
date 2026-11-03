@@ -1250,28 +1250,33 @@ mod readiness {
         assert_eq!(observed.publishable_blocks, 12);
     }
 
+    /// A malformed body or an unsigned certificate past the selected prefix leaves observation
+    /// to succeed, and preparation refuses it once its batch reaches it. An undecodable block
+    /// above the newest anchor witness counts pressure from the checkpoint's anchor (CP=6, depth
+    /// 24); a block that decodes keeps the tip's anchor at block 23 (CP=18, depth 12).
     #[tokio::test]
-    async fn tip_body_and_certificate_are_authenticated_beyond_selected_prefix() {
-        let mut fixture = Fixture::new(18, 30);
-        fixture.blocks.get_mut(&26).unwrap().block.data[0].push(0);
-        let fixture = Arc::new(fixture);
-        assert!(matches!(
-            builder(fixture.clone(), limits(1)).observe(&fixture.snapshot).await,
-            Err(LanderError::Safety(_))
-        ));
-        let mut fixture = Fixture::new(18, 30);
-        fixture
+    async fn tip_body_and_certificate_beyond_the_prefix_are_left_to_preparation() {
+        let mut malformed = Fixture::new(18, 30);
+        malformed.blocks.get_mut(&26).unwrap().block.data[0].push(0);
+        let mut unsigned = Fixture::new(18, 30);
+        unsigned
             .blocks
             .get_mut(&26)
             .unwrap()
             .commit
             .signatures
             .fill(crate::native::CommitSig::BlockIdFlagAbsent);
-        let fixture = Arc::new(fixture);
-        assert!(matches!(
-            builder(fixture.clone(), limits(1)).observe(&fixture.snapshot).await,
-            Err(LanderError::Safety(_))
-        ));
+        for (fixture, pressure) in [(malformed, true), (unsigned, false)] {
+            let fixture = Arc::new(fixture);
+            let observed =
+                builder(fixture.clone(), limits(1)).observe(&fixture.snapshot).await.unwrap();
+            assert_eq!(observed.publishable_blocks, 0);
+            assert_eq!(observed.force_backpressure, pressure);
+            assert!(matches!(
+                builder(fixture.clone(), limits(12)).prepare(fixture.snapshot.clone()).await,
+                Err(LanderError::Safety(_))
+            ));
+        }
     }
 
     #[tokio::test]
