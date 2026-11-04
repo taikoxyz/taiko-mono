@@ -371,10 +371,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// moves its anchor keeps the snapshot that parent anchor selects (COMM-4.3-11), and only
     /// the proofs follow its own root (COMM-4.3-12). So a witness held for that snapshot is
     /// re-proved under `anchor` with two reads ([`reprove_committee_witness`]) instead of
-    /// discovering the registry again. The exception is a generation origin above the parent
-    /// anchor, which is explicitly discovered under `anchor`. Historical entries may require
-    /// state older than the cutoff; the complete witness verifies under the switch block's own
-    /// anchor root before the caller durably retains it.
+    /// discovering the registry again. A generation origin above the parent anchor acquires
+    /// its snapshot resumably at R ([`App::recovery_committee_witness`]). Historical entries may
+    /// require state older than the cutoff; the complete witness verifies under the switch
+    /// block's own anchor root before the caller durably retains it.
     async fn committee_witness(
         &self,
         state: &AppState,
@@ -391,18 +391,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let parent_anchor = state.anchor.number;
         let cutoff = parent_anchor.max(state.anchor_floor());
         if cutoff != parent_anchor {
-            return deadline(
-                "switch registry proof",
-                self.opts.l1_timeout,
-                crate::l1::build_committee_witness_at_cutoff(
-                    self.l1(),
-                    &self.params,
-                    anchor.number,
-                    cutoff,
-                    target_epoch,
-                ),
-            )
-            .await;
+            return self.recovery_committee_witness(state, anchor, target_epoch).await;
         }
         if let Some(retained) = self.context_committee_witness(state, target_epoch) {
             let witness = self.reproved_under(&retained, anchor).await?;
@@ -426,6 +415,57 @@ impl<L: L1Source, E: Engine> App<L, E> {
         }
         let base = self.parent_anchor_committee_witness(state, target_epoch).await?;
         self.reproved_under(&base, anchor).await
+    }
+
+    /// Acquires the first recovered switch's fixed R snapshot across bounded proposal
+    /// rounds, retains it before re-proving, and reuses it when the candidate anchor moves.
+    async fn recovery_committee_witness(
+        &self,
+        state: &AppState,
+        anchor: &AnchorState,
+        target_epoch: u64,
+    ) -> Result<CommitteeWitness, Rejection> {
+        let cutoff = state.anchor_floor();
+        if let Some(retained) = self.context_committee_witness(state, target_epoch) {
+            let witness = self.reproved_under(&retained, anchor).await?;
+            if verify_committee_witness_at_cutoff(
+                anchor.state_root,
+                cutoff,
+                &self.params,
+                &witness,
+                target_epoch,
+            )
+            .is_ok()
+            {
+                return Ok(witness);
+            }
+            tracing::warn!(
+                cutoff,
+                target_epoch,
+                "retained recovery snapshot failed under the candidate root"
+            );
+        }
+        let header = self.l1_read("recovery registry header", header_at(self.l1(), cutoff)).await?;
+        let base = build_committee_witness_within(
+            self.l1(),
+            &self.params,
+            cutoff,
+            target_epoch,
+            self.opts.l1_timeout,
+            &self.discovery,
+        )
+        .await?;
+        self.cache_committee_witness_at_root(
+            state,
+            (header.number(), header.hash(), header.state_root()),
+            target_epoch,
+            &base,
+        )?;
+        if anchor.hash == header.hash() {
+            Ok(base)
+        } else {
+            self.reproved_under(&base, anchor).await
+        }
     }
 
     /// `base` re-proved under `anchor`'s root ([`reprove_committee_witness`]), within the L1

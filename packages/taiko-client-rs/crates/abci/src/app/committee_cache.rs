@@ -238,6 +238,13 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// discovery for the same context restarts once its backoff has passed since it failed, and
     /// resumes from the reads it finished.
     fn refresh_committee_prefetch(&self, state: &AppState, start: bool) {
+        // Before the first recovery commit the retained c anchor precedes R. Discovery at
+        // that old root cannot prove the required R snapshot; PrepareProposal acquires it
+        // resumably at R instead. Keep any verified R/candidate witness across these rounds.
+        if state.anchor.number < state.anchor_floor() {
+            *self.committee_prefetch() = None;
+            return;
+        }
         let Some(target) = prefetch_target(state, &self.params) else {
             *self.committee_cache() = None;
             *self.committee_prefetch() = None;
@@ -425,15 +432,32 @@ impl<L: L1Source, E: Engine> App<L, E> {
         target_epoch: u64,
         witness: &CommitteeWitness,
     ) -> Result<(), Rejection> {
+        self.cache_committee_witness_at_root(
+            state,
+            (anchor.number, anchor.hash, anchor.state_root),
+            target_epoch,
+            witness,
+        )
+    }
+
+    /// Verifies and retains a witness under the supplied L1 header identity. Recovery
+    /// discovery uses R's root before re-proving the same snapshot under a candidate anchor.
+    pub(super) fn cache_committee_witness_at_root(
+        &self,
+        state: &AppState,
+        proof_anchor: (u64, B256, B256),
+        target_epoch: u64,
+        witness: &CommitteeWitness,
+    ) -> Result<(), Rejection> {
         let mut key = CacheKey::new(state, &self.params, target_epoch);
-        key.proof_anchor = (anchor.number, anchor.hash, anchor.state_root);
+        key.proof_anchor = proof_anchor;
 
         let mut cache = self.committee_cache();
         if cache.as_ref().is_some_and(|cached| cached.key == key && cached.witness == *witness) {
             return Ok(());
         }
         verify_committee_witness_at_cutoff(
-            anchor.state_root,
+            proof_anchor.2,
             state.anchor.number.max(state.anchor_floor()),
             &self.params,
             witness,

@@ -540,3 +540,92 @@ async fn recovered_trust_summary_uses_verified_recovery_header() {
         serde_json::to_value(w.recovery_header.hash()).unwrap()
     );
 }
+
+/// The first new-generation block can itself derive an incoming committee. Its R snapshot
+/// must make progress across rounds whose total discovery exceeds PrepareProposal's budget.
+#[tokio::test(start_paused = true)]
+async fn recovery_first_switch_resumes_discovery_across_slow_proposal_rounds() {
+    use super::proposal::{bft_time, next_height, prepare, prepare_req};
+    use crate::test_utils::{GenesisSpec, L1Call, recovery_fixture_with_spec};
+    use std::time::Duration;
+
+    let mut spec = GenesisSpec::new(2);
+    spec.epoch_len = 8;
+    spec.entries = Some(crate::test_utils::sample_entries(301));
+    let (fx, l1, engine, w) = recovery_fixture_with_spec(spec, 1, 6, 1);
+    checkpoint(&fx, &l1, &w, 6, w.el_header.hash_slow(), B256::repeat_byte(0xcc), 1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    init_chain(&mut app, request(&document(&fx, &w))).await.unwrap();
+    assert_eq!(app.state().unwrap().schedule().switch_target(7), Some(1));
+    assert_eq!(app.state().unwrap().anchor.number, 64);
+    assert_eq!(app.state().unwrap().anchor_floor(), 100);
+    app.l1().state().calls.clear();
+    app.l1().state().delay = Some(Duration::from_millis(350));
+    let mut inbox = fx.inbox_at_checkpoint(6, w.el_header.hash_slow());
+    inbox.recovery_generation = 1;
+    inbox.forced_inclusion_head = 3;
+    inbox.forced_inclusion_tail = 3;
+    for round in 0..8 {
+        fx.advance_l1(app.l1(), 121 + round, &inbox, &fx.registry);
+        let state = app.state().unwrap().clone();
+        app.prefetch_committee_witness(&state);
+        let mut req = prepare_req(next_height(&app), bft_time(&app));
+        req.proposer_address = tendermint::account::Id::new(
+            state.committee_at(7).unwrap().members[0].pubkey.address().into_array(),
+        );
+        let txs = prepare(&mut app, req).await;
+        if let Some(tx) = txs.first() {
+            let env = crate::EtnaEnvelope::decode(tx).unwrap();
+            assert_eq!(env.committee.unwrap().record.cutoff_l1_block, 100);
+            let length = crate::l1::layout::registry::length_slot();
+            let discoveries = app
+                .l1()
+                .calls()
+                .iter()
+                .filter(|call| {
+                    matches!(call, L1Call::StorageAt { address, slot, block: 100 }
+                    if *address == fx.params.registry && *slot == length)
+                })
+                .count();
+            assert_eq!(discoveries, 1, "R discovery's completed reads are retained");
+            return;
+        }
+        assert_eq!(app.halt.as_deref(), Some("timeout"));
+    }
+    panic!("the recovered switch never completed despite every L1 read being within its deadline");
+}
+
+#[tokio::test]
+async fn recovery_first_switch_reuses_snapshot_after_restart_and_anchor_advance() {
+    use super::proposal::propose;
+    use crate::test_utils::{GenesisSpec, L1Call, recovery_fixture_with_spec};
+    let mut spec = GenesisSpec::new(2);
+    spec.epoch_len = 8;
+    let (fx, l1, engine, w) = recovery_fixture_with_spec(spec, 1, 6, 1);
+    checkpoint(&fx, &l1, &w, 6, w.el_header.hash_slow(), B256::repeat_byte(0xcc), 1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    init_chain(&mut app, request(&document(&fx, &w))).await.unwrap();
+    let first = propose(&mut app).await.committee.unwrap();
+    drop(app);
+    let mut spec = GenesisSpec::new(2);
+    spec.epoch_len = 8;
+    let (_, l1, engine, _) = recovery_fixture_with_spec(spec, 1, 6, 1);
+    checkpoint(&fx, &l1, &w, 6, w.el_header.hash_slow(), B256::repeat_byte(0xcc), 1);
+    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut inbox = fx.inbox_at_checkpoint(6, w.el_header.hash_slow());
+    inbox.recovery_generation = 1;
+    inbox.forced_inclusion_head = 3;
+    inbox.forced_inclusion_tail = 3;
+    fx.advance_l1(app.l1(), 121, &inbox, &fx.registry);
+    app.l1().state().calls.clear();
+    let next = propose(&mut app).await.committee.unwrap();
+    assert_eq!(next.record, first.record);
+    assert_eq!(next.entries, first.entries);
+    let reads: Vec<_> = app.l1().calls().into_iter().filter(|call| {
+        matches!(call, L1Call::StorageAt { address, .. } | L1Call::AccountWitness { address, .. }
+            if *address == fx.params.registry)
+    }).collect();
+    assert_eq!(reads.len(), 2, "only the new anchor's registry proof is fetched: {reads:?}");
+}

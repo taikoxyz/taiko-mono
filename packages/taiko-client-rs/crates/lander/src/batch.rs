@@ -981,7 +981,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             let comet_hash = *tip_hash.get_or_insert(hash);
             let resolved = match &known {
                 Some(known) if (known.height, known.comet_hash) == (height, hash) => {
-                    Some(known.anchor.clone())
+                    Ok(Some(known.anchor.clone()))
                 }
                 _ => match pair.block.data.as_slice() {
                     [tx] => match abci::EtnaEnvelope::decode(tx) {
@@ -991,18 +991,28 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                             let witness = envelope.anchor.expect("checked above");
                             self.authenticated_anchor(&witness, start).await
                         }
-                        Err(_) => None,
+                        Err(_) => Ok(None),
                     },
-                    _ => None,
+                    _ => Ok(None),
                 },
             };
-            let Some(anchor) = resolved else {
-                tracing::warn!(
-                    height,
-                    "decided block's anchor does not authenticate; counting back-pressure from the \
-                     checkpoint's anchor"
-                );
-                return Ok(start.clone());
+            let anchor = match resolved {
+                Ok(Some(anchor)) => anchor,
+                Ok(None) => {
+                    tracing::warn!(
+                        height,
+                        "decided block's anchor does not authenticate; counting back-pressure from the checkpoint's anchor"
+                    );
+                    return Ok(start.clone());
+                }
+                Err(error) if error.is_retryable() => {
+                    tracing::debug!(
+                        height, %error,
+                        "own L1 anchor lookup is unavailable; counting back-pressure from the checkpoint's anchor"
+                    );
+                    return Ok(start.clone());
+                }
+                Err(error) => return Err(error),
             };
             *retained = Some(TipAnchor { height: tip, comet_hash, anchor: anchor.clone() });
             return Ok(anchor);
@@ -1014,18 +1024,21 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
     }
 
     /// The anchor `witness` proves, when it authenticates against the own L1 and does not precede
-    /// the checkpoint's anchor `start`; `None` otherwise.
+    /// the checkpoint's anchor `start`; `None` for an invalid witness or hash mismatch.
+    /// Own-L1 lookup failures retain their retry-versus-stop classification.
     async fn authenticated_anchor(
         &self,
         witness: &abci::AnchorWitness,
         start: &AnchorState,
-    ) -> Option<AnchorState> {
-        let anchor = abci::l1::verify_anchor_witness(witness, self.params.inbox).ok()?;
+    ) -> Result<Option<AnchorState>> {
+        let Ok(anchor) = abci::l1::verify_anchor_witness(witness, self.params.inbox) else {
+            return Ok(None);
+        };
         if anchor.number < start.number {
-            return None;
+            return Ok(None);
         }
-        let canonical = self.l1.canonical_hash(anchor.number).await.ok()?;
-        (canonical == anchor.hash).then_some(anchor)
+        let canonical = self.l1.canonical_hash(anchor.number).await?;
+        Ok((canonical == anchor.hash).then_some(anchor))
     }
 }
 
@@ -1345,6 +1358,8 @@ mod tests {
         status_reads: AtomicUsize,
         block_reads: AtomicUsize,
         anchor_reorg: AtomicBool,
+        canonical_unavailable: AtomicBool,
+        canonical_failure: AtomicBool,
         snapshot_reorg: AtomicBool,
         parent_changed: AtomicBool,
     }
@@ -1361,6 +1376,8 @@ mod tests {
                 status_reads: AtomicUsize::new(0),
                 block_reads: AtomicUsize::new(0),
                 anchor_reorg: AtomicBool::new(false),
+                canonical_unavailable: AtomicBool::new(false),
+                canonical_failure: AtomicBool::new(false),
                 snapshot_reorg: AtomicBool::new(false),
                 parent_changed: AtomicBool::new(false),
             })
@@ -1462,6 +1479,12 @@ mod tests {
             Ok(crate::l1::Deployment { max_batch_blocks, ..deployment })
         }
         async fn canonical_hash(&self, number: u64) -> Result<alloy_primitives::B256> {
+            if self.canonical_unavailable.load(Ordering::Relaxed) {
+                return Err(LanderError::Temporary("L1 unavailable".into()));
+            }
+            if self.canonical_failure.load(Ordering::Relaxed) {
+                return Err(LanderError::Safety("malformed own-L1 reply".into()));
+            }
             let fixture = self.fixture();
             if self.snapshot_reorg.load(Ordering::Relaxed) &&
                 number == fixture.snapshot.l1_block_number
@@ -2040,6 +2063,30 @@ mod tests {
         assert_eq!(observed.publishable_blocks, 0);
         assert!(observed.force_epoch);
         assert!(observed.force_backpressure);
+    }
+
+    #[tokio::test]
+    async fn advisory_anchor_keeps_l1_errors_distinct_from_invalid_witnesses() {
+        let source = TrackingSource::new(Fixture::new(18, 30));
+        let fixture = source.fixture();
+        let parent = fixture.parent_header(&fixture.snapshot).await.unwrap();
+        let start = fixture.parent_anchor(&fixture.snapshot, &parent).await.unwrap();
+        let envelope = abci::EtnaEnvelope::decode(&fixture.blocks[&23].block.data[0]).unwrap();
+        let witness = envelope.anchor.unwrap();
+        let b = source.builder(1);
+        source.canonical_unavailable.store(true, Ordering::Relaxed);
+        assert!(matches!(
+            b.authenticated_anchor(&witness, &start).await,
+            Err(LanderError::Temporary(_))
+        ));
+        assert_eq!(b.tip_anchor(&start, 18, 30).await.unwrap(), start);
+        assert!(b.tip_anchor.lock().await.is_none(), "unavailable observations are not cached");
+        source.canonical_unavailable.store(false, Ordering::Relaxed);
+        source.canonical_failure.store(true, Ordering::Relaxed);
+        assert!(matches!(b.tip_anchor(&start, 18, 30).await, Err(LanderError::Safety(_))));
+        source.canonical_failure.store(false, Ordering::Relaxed);
+        let recovered = b.tip_anchor(&start, 18, 30).await.unwrap();
+        assert!(recovered.inbox.last_checkpoint_height > start.inbox.last_checkpoint_height);
     }
 
     #[tokio::test]

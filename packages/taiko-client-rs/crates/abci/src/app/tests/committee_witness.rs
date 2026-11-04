@@ -313,6 +313,42 @@ async fn a_retained_witness_that_fails_under_the_new_root_gives_way_to_the_paren
     assert_eq!(env.committee, Some(expected));
 }
 
+#[tokio::test]
+async fn a_rejected_switch_proposal_cannot_replace_the_authenticated_cache() {
+    for checkpoint_conflict in [false, true] {
+        let fx = Fixture::genesis(3);
+        let dir = tempfile::tempdir().unwrap();
+        let (mut app, _) = before_switch(&fx, dir.path()).await;
+        let state = app.state().unwrap().clone();
+        let retained = witness_at(&app, PARENT_ANCHOR).await;
+        app.cache_committee_witness(&state, 2, &retained).unwrap();
+        let before = app.store.load_committee_witness().unwrap();
+        if checkpoint_conflict {
+            let mut inbox = fx.inbox_with(state.last_height);
+            inbox.last_checkpoint_hash = B256::repeat_byte(0xde);
+            fx.plant_l1_block(app.l1(), NEW_ANCHOR, &inbox, &joined_registry(&fx));
+        }
+        let moved =
+            build_committee_witness_at_cutoff(app.l1(), &app.params, NEW_ANCHOR, PARENT_ANCHOR, 2)
+                .await
+                .unwrap();
+        let anchor = fx.anchor_witness(app.l1(), NEW_ANCHOR);
+        let env = hand_envelope(&app, Some(anchor), Some(moved));
+        let reason = if checkpoint_conflict {
+            "checkpoint_conflict"
+        } else {
+            app.l1().set_finalized(PARENT_ANCHOR);
+            "anchor_not_final"
+        };
+        assert_eq!(rejected(&mut app, &env).await, reason);
+        assert!(
+            app.store.load_committee_witness().unwrap() == before,
+            "rejected proposal rewrote the sidecar"
+        );
+        assert_eq!(app.context_committee_witness(&state, 2), Some(retained));
+    }
+}
+
 /// An unknown outgoing committee cannot be replaced, even with a valid incoming witness.
 #[tokio::test]
 async fn switch_height_with_an_unknown_outgoing_committee_is_rejected() {

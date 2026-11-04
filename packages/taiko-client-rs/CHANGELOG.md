@@ -19,6 +19,10 @@
 
 ### Bug Fixes
 
+- Resume the first recovered committee switch from a fixed R snapshot across proposal
+  deadlines and reuse its verified witness after restart or anchor advancement.
+- Authenticate proposal anchors before caching committee witnesses, and distinguish unavailable
+  advisory L1 lookups from invalid anchor witnesses while keeping conservative publication urgency.
 - Persist the FilePV state file and its parent directory before returning any signature,
   including generation-zero signing and cached HRS retries; refuse signatures if synchronization fails.
 
