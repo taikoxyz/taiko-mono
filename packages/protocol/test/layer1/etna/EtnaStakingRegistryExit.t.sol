@@ -971,7 +971,13 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
         vm.roll(_REGISTERED_AT + WITHDRAWAL_DELAY);
     }
 
-    function _assertWithdrawReverts(uint256 _bondId, bytes4 _error, string memory _label) private {
+    function _assertWithdrawReverts(
+        uint256 _bondId,
+        bytes4 _error,
+        string memory _label
+    )
+        private
+    {
         vm.prank(Alice);
         try registry.withdraw(_bondId, Alice) {
             assertTrue(false, string.concat(_label, ": withdrew"));
@@ -1009,7 +1015,13 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
 
     /// @dev Forces bond `_bondId`'s exit in the current block through the Inbox and asserts nothing
     /// changes: no event, checkpoint, root or exit.
-    function _assertForceExitKeeps(uint256 _bondId, bytes32 _key, string memory _label) private {
+    function _assertForceExitKeeps(
+        uint256 _bondId,
+        bytes32 _key,
+        string memory _label
+    )
+        private
+    {
         uint256 checkpoints = registry.checkpointCount();
         bytes32 root = registry.entriesRoot();
         uint48 exit = registry.bondAt(_bondId).entry.exitEffectiveL1;

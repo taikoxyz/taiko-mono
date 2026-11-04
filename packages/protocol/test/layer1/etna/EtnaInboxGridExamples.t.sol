@@ -277,7 +277,14 @@ contract EtnaInboxGridExamplesTest is EtnaLandTestBase {
 
     /// @dev The generation-0 record of the edge (`_parent`, `_x`]: the committed chain's hashes
     /// and queue head at `_x`.
-    function _record(uint256 _parent, uint256 _x) private pure returns (IEtnaInbox.Landing memory) {
+    function _record(
+        uint256 _parent,
+        uint256 _x
+    )
+        private
+        pure
+        returns (IEtnaInbox.Landing memory)
+    {
         (bytes32 el, bytes32 comet, uint256 head) = _cut(_x);
         return IEtnaInbox.Landing({
             parentHeight: uint48(_parent),

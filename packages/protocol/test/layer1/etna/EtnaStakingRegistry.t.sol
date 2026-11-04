@@ -818,7 +818,14 @@ contract EtnaStakingRegistryTest is EtnaStakingRegistryTestBase {
 
     /// @dev The leaf of slot `_bondId` holding `_pk`'s key, registered with `MIN_STAKE` at
     /// `_l1Block`.
-    function _leafOf(uint256 _bondId, uint256 _pk, uint256 _l1Block) private returns (bytes32) {
+    function _leafOf(
+        uint256 _bondId,
+        uint256 _pk,
+        uint256 _l1Block
+    )
+        private
+        returns (bytes32)
+    {
         (uint8 prefix, bytes32 x) = _compressed(_pk);
         return LibEntriesTree.leaf(
             _bondId, _entry(prefix, x, MIN_STAKE, uint48(_l1Block + ACTIVATION_DELAY))

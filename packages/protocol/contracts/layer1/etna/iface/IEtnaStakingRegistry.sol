@@ -349,7 +349,12 @@ interface IEtnaStakingRegistry {
     /// @param _bondId The bond id.
     /// @param _voteA One vote.
     /// @param _voteB The conflicting vote.
-    function slashDoubleSign(uint256 _bondId, Vote calldata _voteA, Vote calldata _voteB) external;
+    function slashDoubleSign(
+        uint256 _bondId,
+        Vote calldata _voteA,
+        Vote calldata _voteB
+    )
+        external;
 
     /// @notice Moves a bond's exit to the recovery execution block during governance recovery
     /// (spec 8 step 2).

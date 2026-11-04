@@ -369,7 +369,14 @@ contract EtnaCurrentRegistryConformanceTest is Test {
     /// @param _caller The fresh registration caller.
     /// @param _newKey The attempted fresh registration key.
     /// @return digest_ The complete observable opening state, in a bounded external memory frame.
-    function stateDigest(address _caller, uint256 _newKey) external view returns (bytes32 digest_) {
+    function stateDigest(
+        address _caller,
+        uint256 _newKey
+    )
+        external
+        view
+        returns (bytes32 digest_)
+    {
         (uint256 slot, uint256 value) = _registry.admissionThreshold();
         (bool newKeyUsed, uint256 newKeyId) = _registry.bondForKey(vm.addr(_newKey));
         digest_ = keccak256(

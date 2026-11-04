@@ -450,7 +450,14 @@ contract LibEntriesTreeTest is CommonTest {
 
     /// @dev The root of the first `_count` leaves padded with zero leaves to the next power of
     /// two, hashed pairwise level by level.
-    function _naiveRoot(bytes32[] memory _leaves, uint256 _count) private pure returns (bytes32) {
+    function _naiveRoot(
+        bytes32[] memory _leaves,
+        uint256 _count
+    )
+        private
+        pure
+        returns (bytes32)
+    {
         if (_count == 0) return bytes32(0);
         uint256 width = 1;
         while (width < _count) {

@@ -89,7 +89,8 @@ contract EtnaGovernanceVectorsTest is EtnaStakingRegistryTestBase {
         emit IEtnaInbox.RecoveryNonceInvalidated(7, 8);
         emit IEtnaStakingRegistry.BondDisplaced(12, 7, 4096);
         // The packed slot 293 word of the ordinary `inbox_293` item.
-        emit IEtnaInbox.RulesScheduleUpdated(uint256(
+        emit IEtnaInbox
+            .RulesScheduleUpdated(uint256(
                 LibEtnaVectors.bytes32At(j, ".packed_words.inbox_293[0].word")
             ));
         emit IEtnaInbox.StartWritten(1000, bytes32(uint256(0x51)), bytes32(uint256(0x52)));

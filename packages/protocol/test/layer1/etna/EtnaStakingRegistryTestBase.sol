@@ -37,7 +37,10 @@ abstract contract EtnaStakingRegistryTestBase is CommonTest, EtnaTestConstants {
     }
 
     /// @dev Deploys a registry proxy, owned by this test, staking `_token` and fixed to `_inbox`.
-    function _deployRegistry(address _token, address _inbox)
+    function _deployRegistry(
+        address _token,
+        address _inbox
+    )
         internal
         returns (EtnaStakingRegistry)
     {

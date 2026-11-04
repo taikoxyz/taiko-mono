@@ -25,7 +25,12 @@ contract LockProbeRegistry {
     bool public recoverSucceeded;
     bytes public recoverError;
 
-    function setReentryCalls(bytes calldata _landCall, bytes calldata _recoverCall) external {
+    function setReentryCalls(
+        bytes calldata _landCall,
+        bytes calldata _recoverCall
+    )
+        external
+    {
         landCall = _landCall;
         recoverCall = _recoverCall;
     }
@@ -942,7 +947,13 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         assertEq(entry.l1Block, _expected.l1Block, "entry l1Block");
     }
 
-    function _assertEntry(uint256 _slot, IEtnaStakingRegistry.Entry memory _expected) private view {
+    function _assertEntry(
+        uint256 _slot,
+        IEtnaStakingRegistry.Entry memory _expected
+    )
+        private
+        view
+    {
         IEtnaStakingRegistry.Entry memory entry = registry.entryAt(_slot);
         assertEq(entry.ckX, _expected.ckX, "ckX");
         assertEq(entry.effStake, _expected.effStake, "effStake");
@@ -951,7 +962,10 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         assertEq(entry.exitEffectiveL1, _expected.exitEffectiveL1, "exitEffectiveL1");
     }
 
-    function _exclusion(uint256 _bondId, uint256 _pk)
+    function _exclusion(
+        uint256 _bondId,
+        uint256 _pk
+    )
         private
         returns (IEtnaInbox.Exclusion memory)
     {

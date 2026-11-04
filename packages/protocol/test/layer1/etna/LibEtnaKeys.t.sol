@@ -29,7 +29,14 @@ contract LibEtnaKeysHarness {
         return LibEtnaKeys.entryKey(_prefix, _x);
     }
 
-    function recoverSigner(bytes32 _digest, bytes calldata _sig) external pure returns (address) {
+    function recoverSigner(
+        bytes32 _digest,
+        bytes calldata _sig
+    )
+        external
+        pure
+        returns (address)
+    {
         return LibEtnaKeys.recoverSigner(_digest, _sig);
     }
 
@@ -244,7 +251,13 @@ contract LibEtnaKeysTest is CommonTest, EtnaVectorReader {
 
     /// @dev Decompression accepts exactly the X below p with x^3 + 7 a square mod p (Euler's
     /// criterion), and returns the root of the requested parity.
-    function testFuzz_decompress_AcceptsExactlyTheCurvePoints(bool _odd, bytes32 _x) external view {
+    function testFuzz_decompress_AcceptsExactlyTheCurvePoints(
+        bool _odd,
+        bytes32 _x
+    )
+        external
+        view
+    {
         uint8 prefix = _odd ? 3 : 2;
         uint256 x = uint256(_x);
         bool expected = x < _P && _onCurve(x);
@@ -448,7 +461,13 @@ contract LibEtnaKeysTest is CommonTest, EtnaVectorReader {
     // Helpers
     // ---------------------------------------------------------------
 
-    function _assertInvalidPublicKey(bytes memory _publicKey, string memory _label) private view {
+    function _assertInvalidPublicKey(
+        bytes memory _publicKey,
+        string memory _label
+    )
+        private
+        view
+    {
         try keys.parsePublicKey(_publicKey) returns (uint8, bytes32, bytes32) {
             assertTrue(false, string.concat(_label, ": accepted"));
         } catch (bytes memory err) {
@@ -492,7 +511,13 @@ contract LibEtnaKeysTest is CommonTest, EtnaVectorReader {
         }
     }
 
-    function _assertSignatureRejected(bytes memory _sig, string memory _label) private view {
+    function _assertSignatureRejected(
+        bytes memory _sig,
+        string memory _label
+    )
+        private
+        view
+    {
         try keys.parseSignature(_sig) returns (uint8, bytes32, bytes32) {
             assertTrue(false, string.concat(_label, ": accepted"));
         } catch (bytes memory err) {
@@ -575,7 +600,14 @@ contract LibEtnaKeysTest is CommonTest, EtnaVectorReader {
     }
 
     /// @dev The JSON path prefix of the `keys` entry named `_name`.
-    function _keyNamed(string memory _j, string memory _name) private view returns (string memory) {
+    function _keyNamed(
+        string memory _j,
+        string memory _name
+    )
+        private
+        view
+        returns (string memory)
+    {
         uint256 n = LibEtnaVectors.lengthAt(_j, ".keys");
         for (uint256 i; i < n; ++i) {
             string memory p = _at(".keys", i);

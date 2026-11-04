@@ -170,7 +170,12 @@ abstract contract EtnaInboxTestBase is CommonTest, EtnaTestConstants {
 
     /// @dev The owner upgrades the Inbox proxy to `_impl` and calls `init(_params)` in the same
     /// transaction.
-    function _upgradeAndInit(EtnaInbox _impl, IEtnaInbox.InitParams memory _params) internal {
+    function _upgradeAndInit(
+        EtnaInbox _impl,
+        IEtnaInbox.InitParams memory _params
+    )
+        internal
+    {
         EssentialContract(inboxProxy)
             .upgradeToAndCall(address(_impl), abi.encodeCall(EtnaInbox.init, (_params)));
     }

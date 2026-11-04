@@ -213,9 +213,9 @@ contract EtnaInboxForcedInclusionTest is EtnaInboxTestBase {
                 "fee before the entry"
             );
             uint256 value = uint256(fee) * 1 gwei + i;
-            uint256 refund = shasta.save{ value: value }(
-                FORCED_INCLUSION_FEE_GWEI, FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD, _blobReference(0)
-            );
+            uint256 refund = shasta.save{
+                value: value
+            }(FORCED_INCLUSION_FEE_GWEI, FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD, _blobReference(0));
             uint256 balanceBefore = Alice.balance;
             vm.prank(Alice);
             _inbox().saveForcedInclusion{ value: value }(hex"c0");
