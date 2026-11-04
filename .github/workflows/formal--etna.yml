@@ -55,6 +55,7 @@ jobs:
         run: |
           python3 scripts/check_spec_coverage.py
           python3 scripts/rule_coverage.py --check
+          python3 scripts/generate_statements.py --check
       - name: Install exact Lean toolchain
         env:
           GH_TOKEN: ${{ github.token }}

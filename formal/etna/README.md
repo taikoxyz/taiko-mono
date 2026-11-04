@@ -10,6 +10,28 @@ The [round-five review report](reports/review-round-five.md) records the latest 
 proofs and remaining boundaries; [latest alignment](reports/latest-design-alignment.md)
 records validation. Production conformance, liveness and launch acceptance are separate.
 
+## Visual audit reader
+
+[STATEMENTS.html](STATEMENTS.html) is a self-contained, offline reader inspired by
+[FlashProve's statements page](https://github.com/anthropics/FlashProve/blob/main/lean/STATEMENTS.html).
+Download the HTML and open it in a browser, or serve this directory locally. GitHub's
+file view displays its source; it does not render the interactive page.
+
+The reader puts H1–H3 and their scope beside exact Lean source, lists the fifteen
+current premises, and searches named declarations, reviewed theorem types and exact
+rule-evidence edges. Current entries are separate from historical / shared definitions.
+Source links inside the code use exact or globally unique names; ambiguous names remain
+unlinked. This is a source index, not a compiler-resolved dependency graph or a new proof
+result. Generated projections/recursors and anonymous examples/instances are not listed.
+
+Regenerate with `python3 scripts/generate_statements.py`; CI runs
+`python3 scripts/generate_statements.py --check` and rejects stale HTML. The renderer uses
+only Python's standard library and the existing inventory/lexer. Its source assets live
+in `scripts/statements`. All browsing data, styles and scripts are embedded; no external
+libraries or network calls are needed. Optional report/local-source links need the checkout,
+and GitHub links need network access. Embedded file hashes identify the displayed source;
+GitHub source links follow the PR branch, while authority links use pinned revisions.
+
 ## Current safety contracts
 
 H1 derives one retained header/parent chain for all Etna signals, reachable authenticated
@@ -142,6 +164,7 @@ python3 scripts/lint_sources.py
 python3 scripts/check_imports.py
 python3 scripts/check_spec_coverage.py
 python3 scripts/rule_coverage.py --check
+python3 scripts/generate_statements.py --check
 lake build
 python3 scripts/check_vectors.py
 python3 scripts/check_current_vectors.py

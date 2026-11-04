@@ -1,3 +1,6 @@
 # Auto-generated files - always use local branch version during merges
 packages/protocol/gas-reports/* merge=ours
 packages/protocol/layout/* merge=ours
+
+# Reproducible offline audit reader; review the generator, assets and manifests.
+formal/etna/STATEMENTS.html linguist-generated=true

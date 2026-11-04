@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'sha256-@@STYLE_HASH@@'; script-src 'sha256-@@SCRIPT_HASH@@'; base-uri 'none'; form-action 'none'"
+    />
+    <meta
+      name="description"
+      content="Etna's conditional H1–H3 claims beside their exact Lean definitions, premises, theorem contracts and source code."
+    />
+    <title>Etna · Lean audit reader</title>
+    <!-- @@STYLE@@ -->
+  </head>
+  <body>
+    <a class="skip" href="#catalogue">Skip to declaration catalogue</a>
+    <header class="masthead">
+      <a class="brand" href="#overview"
+        >ETNA <span>/ Lean audit reader</span></a
+      >
+      <nav aria-label="Page sections">
+        <a href="#claims">Claims</a><a href="#premises">Premises</a
+        ><a href="#catalogue">Catalogue</a><a href="#boundaries">Limits</a>
+      </nav>
+      <span class="offline">Self-contained · offline</span>
+    </header>
+    <div class="workspace">
+      <main id="paper">
+        <section class="intro" id="overview">
+          <p class="eyebrow">FORMAL / ETNA / STATEMENTS</p>
+          <h1>Etna, stated in Lean.</h1>
+          <p class="lede">
+            Read the conditional safety claims alongside their definitions,
+            assumptions and source code.
+          </p>
+          <p class="intro-note">
+            Select a Lean name to inspect its source. The catalogue includes
+            current declarations and an explicitly separate historical / shared
+            view. Everything needed to browse is embedded in this file.
+          </p>
+          <div class="ledger" id="ledger"></div>
+          <div class="scope-note">
+            <strong>What this page establishes.</strong> This reader reproduces
+            source and reviewed theorem contracts. Conditional decoded-design
+            proofs do not establish production implementation conformance,
+            liveness or launch acceptance. Counts below are inventories, not
+            coverage percentages.
+          </div>
+        </section>
+        <section id="claims">
+          <div class="section-heading">
+            <p class="eyebrow">01 / CURRENT CLAIMS</p>
+            <h2>Three claims, one premise record</h2>
+          </div>
+          <p>
+            Each headline quantifies over
+            <a href="#decl=Etna.Statements.Current.Premises" class="name"
+              >Current.Premises</a
+            >
+            and an actual decoded execution from a fresh registry. The exact
+            quantifiers and extra conditions remain visible in Lean.
+          </p>
+          <div class="claims">
+            <article class="claim">
+              <div class="claim-top">
+                <span class="number">H1</span
+                ><span class="badge property">Conditional custody</span>
+              </div>
+              <h3>Fund safety</h3>
+              <p>
+                Retained Etna signals share one authenticated chain. Accepted
+                landing edges, frozen start data and the modeled legacy / Etna
+                switching partition are derived from actual traces.
+              </p>
+              <p class="caveat">
+                The legacy lane starts empty. Existing SignalService checkpoints
+                and arbitrary DAO upgrades are outside this profile.
+              </p>
+              <div class="actions">
+                <a href="#decl=Etna.Statements.Current.FundSafetyAt"
+                  >Definition ↗</a
+                ><a href="#decl=Etna.Statements.Current.FundSafety"
+                  >Quantified claim ↗</a
+                ><a href="#decl=Etna.Design.Current.Headlines.fund_safety"
+                  >Proof ↗</a
+                >
+              </div>
+            </article>
+            <article class="claim">
+              <div class="claim-top">
+                <span class="number">H2</span
+                ><span class="badge property">Conditional finality</span>
+              </div>
+              <h3>Accountable finality</h3>
+              <p>
+                Historical funding, committee authority, agreement under
+                honest-locking assumptions, and live stake retention for valid
+                candidates above the checkpoint.
+              </p>
+              <p class="caveat">
+                Normal stake risk requires no rollback since fresh deployment
+                and an explicitly assumed evidence-window policy. No restart
+                theorem follows a rollback.
+              </p>
+              <div class="actions">
+                <a href="#decl=Etna.Statements.Current.AccountableFinalityAt"
+                  >Definition ↗</a
+                ><a href="#decl=Etna.Statements.Current.NormalAccountability"
+                  >Risk conditions ↗</a
+                ><a
+                  href="#decl=Etna.Design.Current.Headlines.accountable_finality"
+                  >Proof ↗</a
+                >
+              </div>
+            </article>
+            <article class="claim">
+              <div class="claim-top">
+                <span class="number">H3</span
+                ><span class="badge property">Conditional service</span>
+              </div>
+              <h3>Forced inclusion integrity</h3>
+              <p>
+                Exact FIFO landing intervals, due-only skipping, early
+                position-zero inclusion, payment accounting and bounded recovery
+                changes over decoded payloads.
+              </p>
+              <p class="caveat">
+                This is service integrity for valid decoded blocks. Eventual
+                landing, real payload / EL parsing and complete node-store
+                refinement remain separate.
+              </p>
+              <div class="actions">
+                <a href="#decl=Etna.Statements.Current.ForcedInclusionAt"
+                  >Definition ↗</a
+                ><a href="#decl=Etna.Statements.Current.LandingService"
+                  >Landing service ↗</a
+                ><a
+                  href="#decl=Etna.Design.Current.Headlines.forced_inclusion_integrity"
+                  >Proof ↗</a
+                >
+              </div>
+            </article>
+          </div>
+          <div class="flow" aria-label="Reading order">
+            <span>Environment + deployment premises</span
+            ><b aria-hidden="true">→</b><span>Actual decoded trace</span
+            ><b aria-hidden="true">→</b><span>Conditional H1–H3</span>
+          </div>
+        </section>
+        <section id="premises">
+          <div class="section-heading">
+            <p class="eyebrow">02 / ASSUMPTIONS</p>
+            <h2>The current premise record</h2>
+          </div>
+          <p>
+            These are assumptions supplied to the joint headline proofs. Their
+            component definitions specify the actual obligations; this list does
+            not discharge them.
+          </p>
+          <a class="source-button" href="#decl=Etna.Statements.Current.Premises"
+            >Inspect the full premise record ↗</a
+          >
+          <dl class="premise-list" id="premise-list"></dl>
+        </section>
+        <section id="catalogue">
+          <div class="section-heading">
+            <p class="eyebrow">03 / SOURCE CATALOGUE</p>
+            <h2>Explore the formalization</h2>
+          </div>
+          <p class="catalogue-note">
+            Named source declarations only. Generated projections / recursors,
+            anonymous instances and examples are not separate entries.
+            Definition names are source-indexed; reviewed theorem types and
+            roles are copied from the manifest. Rule links are exact manifest
+            edges, not an inferred dependency graph.
+          </p>
+          <div class="filters">
+            <label class="search-label" for="search"
+              >Search names, text or rule IDs<input
+                id="search"
+                type="search"
+                placeholder="e.g. Certifies, withdrawalDelay, LAND-6.1-9"
+                autocomplete="off"
+            /></label>
+            <div class="filter-row">
+              <label
+                >Profile<select id="profile">
+                  <option value="current">Current</option>
+                  <option value="historical-shared">Historical / shared</option>
+                  <option value="all">All</option>
+                </select></label
+              >
+              <label
+                >Kind<select id="kind">
+                  <option value="all">All declarations</option>
+                  <option value="definitions">Definitions &amp; types</option>
+                  <option value="theorems">Theorems</option>
+                  <option value="rules">Rule evidence</option>
+                </select></label
+              >
+              <label
+                >Module<select id="module">
+                  <option value="all">All modules</option>
+                </select></label
+              >
+            </div>
+          </div>
+          <div class="results-head">
+            <span id="result-count" role="status" aria-live="polite"></span
+            ><button id="reset" type="button">Reset filters</button>
+          </div>
+          <div id="results"></div>
+          <button id="more" class="load-more" type="button" hidden>
+            Show more
+          </button>
+          <noscript
+            ><p>
+              This catalogue needs JavaScript for search and source navigation.
+              Open the Lean sources and manifests directly to audit without
+              JavaScript.
+            </p></noscript
+          >
+        </section>
+        <section id="boundaries">
+          <div class="section-heading">
+            <p class="eyebrow">04 / AUDIT BOUNDARIES</p>
+            <h2>Read the scope with the statement</h2>
+          </div>
+          <div class="limits">
+            <article>
+              <h3>Complete semantic ancestry</h3>
+              <p>
+                Accepted certificates require complete origin-to-parent
+                ancestry. Separate L+2 window extraction lemmas do not refine
+                the interpreter to an L+2-only production guest.
+              </p>
+              <a href="#decl=Etna.Design.Current.Archive.Authenticated"
+                >Archive authentication ↗</a
+              >
+            </article>
+            <article>
+              <h3>Explicit external obligations</h3>
+              <p>
+                Raw decoding, real cryptographic and EL / CometBFT
+                implementations, node stores, deployment parameters, and
+                per-history DAO upgrade duties need independent evidence.
+              </p>
+              <a href="#decl=Etna.Design.Current.Headlines.deployed_claims"
+                >Authorized upgrade bridge ↗</a
+              >
+            </article>
+            <article>
+              <h3>Restricted positive witnesses</h3>
+              <p>
+                The joint-premise profiles use restricted interpreters. All
+                accepted certificate fixtures have empty prebatch prior lists;
+                agreement compares a chain with itself. They are not complete
+                launch rehearsals.
+              </p>
+              <a href="reports/review-round-five.md"
+                >Read the round-five report ↗</a
+              >
+            </article>
+            <article>
+              <h3>Partial means a fragment</h3>
+              <p>
+                Supporting lemmas and regression fixtures are distinct from
+                general properties. A narrow rule edge does not verify an entire
+                rule. All current ANCHORLESS and ACCEPTANCE clauses remain
+                deferred.
+              </p>
+              <a href="reports/latest-design-alignment.md"
+                >Read the alignment report ↗</a
+              >
+            </article>
+          </div>
+          <details class="provenance">
+            <summary>Generation, source fingerprints and provenance</summary>
+            <p>
+              Generated deterministically from the checked-in sources and
+              reviewed manifests by
+              <code>python3 scripts/generate_statements.py</code>. CI runs
+              <code>--check</code>. This checks freshness, not proof validity;
+              the separate Lean kernel audit checks theorem contracts.
+            </p>
+            <p>
+              Embedded source SHA-256 values identify the displayed bytes.
+              GitHub source links follow the PR branch and can move; authority
+              links use their reviewed pinned commits. The HTML does not embed
+              or assert a fresh CI result.
+            </p>
+            <div id="provenance"></div>
+            <p>
+              Layout reference:
+              <a
+                href="https://github.com/anthropics/FlashProve/blob/main/lean/STATEMENTS.html"
+                >FlashProve's statements reader</a
+              >. This Etna reader is independently implemented and uses this
+              repository's sources and scope records.
+            </p>
+          </details>
+        </section>
+        <footer>
+          <span>ETNA / CONDITIONAL DECODED-DESIGN SAFETY</span
+          ><a href="README.md">Package README ↗</a>
+        </footer>
+      </main>
+      <aside id="source-panel" aria-label="Lean source inspector">
+        <div class="source-toolbar">
+          <span class="panel-kicker">LEAN / SOURCE</span>
+          <div>
+            <button id="copy" type="button">Copy name</button
+            ><button
+              id="close-source"
+              type="button"
+              aria-label="Close source inspector"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+        <div class="source-info">
+          <div id="source-badges"></div>
+          <h2 id="source-name">Select a declaration</h2>
+          <div id="source-location"></div>
+        </div>
+        <div class="source-scroll" id="source-scroll">
+          <div id="source-summary"></div>
+          <div class="code-heading">
+            <span id="code-label">Source</span
+            ><label><input type="checkbox" id="full-file" /> Full module</label>
+          </div>
+          <pre
+            id="source-code"
+            tabindex="0"
+            aria-label="Lean source code"
+          ><code>Select a Lean name on the left to inspect the exact embedded source.</code></pre>
+          <div id="source-evidence"></div>
+          <p class="source-footnote">
+            Identifier links use exact or globally unique source names.
+            Ambiguous short names stay unlinked. These text links do not claim
+            compiler-resolved dependencies.
+          </p>
+        </div>
+      </aside>
+    </div>
+    <!-- @@DATA@@ -->
+    <!-- @@SCRIPT@@ -->
+  </body>
+</html>
