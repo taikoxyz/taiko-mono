@@ -84,8 +84,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// [`App::choose_anchor`]), derives
     /// the header and checks that its timestamp keeps the anchor fresh (an anchor older than
     /// `maxAnchorAge` proposes nothing until L1 finalizes a newer block). At `H(t)-2`, discovers
-    /// or reuses committee `t` at the committed parent's cutoff under the candidate anchor's state
-    /// root. Then verifies the candidate, collects the forced inclusion witness the anchor's
+    /// or reuses committee `t` at the snapshot cutoff (the committed parent anchor, or the
+    /// generation origin R when that is later) under the candidate anchor's state root. Then
+    /// verifies the candidate, collects the forced inclusion witness the anchor's
     /// queue requires ([`App::forced_inclusion`]), attempts a forced-first mixed list, confirms
     /// any required skip, restores full ordinary selection after a failed forced attempt,
     /// checks every derived header field and ensures the envelope fits CometBFT's transaction
@@ -417,8 +418,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
         self.reproved_under(&base, anchor).await
     }
 
-    /// Acquires the first recovered switch's fixed R snapshot across bounded proposal
-    /// rounds, retains it before re-proving, and reuses it when the candidate anchor moves.
+    /// The first recovered switch's fixed R snapshot under `anchor`: a retained witness of the
+    /// same context re-proved there, the background discovery at R
+    /// ([`App::prefetch_committee_witness`], which no proposal deadline bounds), or a discovery
+    /// at R that resumes across bounded proposal rounds. A witness discovered here is retained
+    /// before it is re-proved, so a moved candidate anchor reuses it.
     async fn recovery_committee_witness(
         &self,
         state: &AppState,
@@ -444,6 +448,14 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 target_epoch,
                 "retained recovery snapshot failed under the candidate root"
             );
+        }
+        if let Some(found) = self.prefetched_committee_witness(state, target_epoch).await {
+            tracing::debug!(cutoff, target_epoch, "using the prefetched recovery snapshot");
+            return if anchor.hash == found.proof_anchor.1 {
+                Ok(found.witness)
+            } else {
+                self.reproved_under(&found.witness, anchor).await
+            };
         }
         let header = self.l1_read("recovery registry header", header_at(self.l1(), cutoff)).await?;
         let base = build_committee_witness_within(
@@ -509,9 +521,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
             tracing::debug!(parent_anchor, target_epoch, "reusing the cached committee witness");
             return Ok(witness);
         }
-        if let Some(witness) = self.prefetched_committee_witness(state, target_epoch).await {
+        if let Some(found) = self.prefetched_committee_witness(state, target_epoch).await {
             tracing::debug!(parent_anchor, target_epoch, "using the prefetched committee witness");
-            return Ok(witness);
+            return Ok(found.witness);
         }
         Ok(build_committee_witness_within(
             self.l1(),

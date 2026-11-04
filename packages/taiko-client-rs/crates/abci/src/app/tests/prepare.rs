@@ -462,7 +462,7 @@ async fn the_switch_witness_is_prefetched_before_the_parent_anchor_state_is_prun
     assert_eq!(super::proposal::process(&mut app, req).await, response::ProcessProposal::Reject);
     let state = app.state().unwrap().clone();
     let target = state.schedule().switch_target(state.last_height + 1).unwrap();
-    let witness = app.prefetched_committee_witness(&state, target).await;
+    let witness = app.prefetched_committee_witness(&state, target).await.map(|found| found.witness);
     assert!(witness.is_some(), "the background discovery verified the witness");
     app.adopt_committee_prefetch(&state);
     assert!(dir.path().join(COMMITTEE_WITNESS_FILE).exists(), "and persisted it");
@@ -489,7 +489,7 @@ async fn committing_the_derivation_parent_prefetches_the_switch_witness() {
     let state = app.state().unwrap().clone();
     assert_eq!(state.last_height, h_e - 1, "D(t) is committed");
     let target = state.schedule().switch_target(state.last_height + 1).unwrap();
-    let witness = app.prefetched_committee_witness(&state, target).await;
+    let witness = app.prefetched_committee_witness(&state, target).await.map(|found| found.witness);
     assert!(witness.is_some(), "Commit started the discovery");
 
     app.l1().state().states.clear();
@@ -531,7 +531,7 @@ async fn committing_a_new_anchor_prefetches_the_switch_witness_it_may_have_to_pr
     step(&mut app).await;
     let state = app.state().unwrap().clone();
     assert_eq!((state.last_height, state.anchor.number), (d_2(&fx) - 2, 70));
-    let witness = app.prefetched_committee_witness(&state, 2).await;
+    let witness = app.prefetched_committee_witness(&state, 2).await.map(|found| found.witness);
     assert!(witness.is_some(), "Commit started the discovery two heights before D(t)");
 
     // L1 finality stalls at 70 and the L1 node prunes block 70's state.
@@ -558,7 +558,7 @@ async fn a_switch_witness_prefetched_before_the_derivation_parent_survives_resta
     let mut app = before_anchor_adoption(&fx, dir.path(), d_2(&fx) - 5).await;
     step(&mut app).await;
     let state = app.state().unwrap().clone();
-    let witness = app.prefetched_committee_witness(&state, 2).await;
+    let witness = app.prefetched_committee_witness(&state, 2).await.map(|found| found.witness);
     assert!(witness.is_some());
     app.adopt_committee_prefetch(&state);
 

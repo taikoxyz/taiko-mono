@@ -70,6 +70,9 @@ pub(crate) struct MockL1State {
     pub(crate) delay: Option<Duration>,
     /// Extra delay of proof reads only, for proposal cancellation between RPC stages.
     pub(crate) proof_delay: Option<Duration>,
+    /// Extra delay of state reads (`account_witness`, `storage_at`) at one L1 block, as an
+    /// archive serving old state more slowly than recent state.
+    pub(crate) block_delay: Option<(u64, Duration)>,
     /// When set, every proof read (`account_witness`) fails with this error, as an L1 node
     /// refusing or rate-limiting `eth_getProof` answers.
     pub(crate) proof_fail: Option<L1Error>,
@@ -155,6 +158,16 @@ impl MockL1 {
         }
     }
 
+    /// Sleeps for the scripted `block_delay` when `block` is its block.
+    async fn pause_at(&self, block: u64) {
+        let delay = self.state().block_delay;
+        if let Some((slow, delay)) = delay &&
+            slow == block
+        {
+            tokio::time::sleep(delay).await;
+        }
+    }
+
     /// Records `call` and returns the scripted failure, if any.
     fn record(&self, call: L1Call) -> Result<MutexGuard<'_, MockL1State>, L1Error> {
         let mut state = self.state();
@@ -231,6 +244,7 @@ impl L1Source for MockL1 {
         if let Some(delay) = delay {
             tokio::time::sleep(delay).await;
         }
+        self.pause_at(block).await;
         let state =
             self.record(L1Call::AccountWitness { address, slots: slots.to_vec(), block })?;
         if let Some(err) = &state.proof_fail {
@@ -268,6 +282,7 @@ impl L1Source for MockL1 {
     async fn storage_at(&self, address: Address, slot: B256, block: u64) -> Result<U256, L1Error> {
         let _call = InFlight::new(self);
         self.pause().await;
+        self.pause_at(block).await;
         let state = self.record(L1Call::StorageAt { address, slot, block })?;
         Ok(Self::state_at(&state, address, block)?.storage(address, slot))
     }

@@ -596,6 +596,53 @@ async fn recovery_first_switch_resumes_discovery_across_slow_proposal_rounds() {
     panic!("the recovered switch never completed despite every L1 read being within its deadline");
 }
 
+/// A read of R's state can take longer than a whole PrepareProposal budget, so no proposal can
+/// finish the R snapshot on its own. The background discovery at R, which every
+/// ProcessProposal starts, still completes the first recovered switch.
+#[tokio::test(start_paused = true)]
+async fn recovery_first_switch_completes_when_each_r_read_outlasts_the_proposal_budget() {
+    use super::proposal::{bft_time, next_height, prepare, prepare_req};
+    use crate::test_utils::{GenesisSpec, recovery_fixture_with_spec};
+    use std::time::Duration;
+
+    let mut spec = GenesisSpec::new(2);
+    spec.epoch_len = 8;
+    let (fx, l1, engine, w) = recovery_fixture_with_spec(spec, 1, 6, 1);
+    checkpoint(&fx, &l1, &w, 6, w.el_header.hash_slow(), B256::repeat_byte(0xcc), 1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    init_chain(&mut app, request(&document(&fx, &w))).await.unwrap();
+    let floor = app.state().unwrap().anchor_floor();
+    assert_eq!(app.state().unwrap().schedule().switch_target(7), Some(1));
+    assert!(app.state().unwrap().anchor.number < floor);
+    let slow = Duration::from_millis(2_500);
+    assert!(
+        slow > AppOptions::default().prepare_timeout && slow < AppOptions::default().l1_timeout
+    );
+    app.l1().state().block_delay = Some((floor, slow));
+    let mut inbox = fx.inbox_at_checkpoint(6, w.el_header.hash_slow());
+    inbox.recovery_generation = 1;
+    inbox.forced_inclusion_head = 3;
+    inbox.forced_inclusion_tail = 3;
+    for round in 0..40 {
+        fx.advance_l1(app.l1(), 121 + round, &inbox, &fx.registry);
+        let state = app.state().unwrap().clone();
+        // As every ProcessProposal of the round does, empty proposals included.
+        app.prefetch_committee_witness(&state);
+        let mut req = prepare_req(next_height(&app), bft_time(&app));
+        req.proposer_address = tendermint::account::Id::new(
+            state.committee_at(7).unwrap().members[0].pubkey.address().into_array(),
+        );
+        if let Some(tx) = prepare(&mut app, req).await.first() {
+            let env = crate::EtnaEnvelope::decode(tx).unwrap();
+            assert_eq!(env.committee.unwrap().record.cutoff_l1_block, floor);
+            return;
+        }
+        assert_eq!(app.halt.as_deref(), Some("timeout"));
+    }
+    panic!("the recovered switch never completed although every L1 read is within its deadline");
+}
+
 #[tokio::test]
 async fn recovery_first_switch_reuses_snapshot_after_restart_and_anchor_advance() {
     use super::proposal::propose;
