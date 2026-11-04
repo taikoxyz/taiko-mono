@@ -727,6 +727,12 @@ just clippy     # doc lints on library code, then every target with -D warnings
 
 ### Tests
 
+The [340 formal client vectors](crates/abci/tests/fixtures/etna_conformance/README.md)
+are regenerated from #22292 at `4f38cfcc8`. They check the historical decoded model
+and retain one documented height-bound divergence; they do not establish conformance
+to the latest Etna specification. Current registry admission vectors belong to the
+contract harness.
+
 - `just unit` runs all unit tests and the `native_cli` process tests, then protocol
   tests without default features and the abci doctests. No docker needed. It builds only those
   targets, and without extra arguments runs lander's library tests in one `cargo test` process,

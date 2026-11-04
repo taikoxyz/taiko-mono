@@ -1,11 +1,14 @@
-//! Etna client conformance: the Lean model's decisions on this client's block rules.
+//! Etna client conformance: the historical Lean model's decisions on client block rules.
 //!
 //! The Etna formal PR (#22292) generates rule-level vectors from the model's executable
 //! definitions (`Forced.step`, `Consensus.activeAt`/`ElectionValid`, `BlockValidity.HeaderValid`/
 //! `AnchorValid`) and documents their schema (`etna-client-conformance-1`) in
 //! `testdata/etna_conformance/README.md` there. This crate runs its own copy,
 //! `tests/fixtures/etna_conformance/*.json`, which adds only `provenance.formalCommit`, the pushed
-//! formal commit it was generated at. Refresh it from `formal/etna` of that commit with
+//! formal commit it was generated at. The fixture README records the exact source and scope:
+//! these historical families do not establish conformance to the latest Etna specification.
+//! Current registry admission vectors exercise contract transactions, outside this harness.
+//! Refresh it from `formal/etna` of that commit with
 //!
 //! ```text
 //! lake exe etna-vectors --write <this crate>/tests/fixtures/etna_conformance \
@@ -110,7 +113,7 @@ struct KnownDivergence {
 fn known_divergences() -> Vec<KnownDivergence> {
     vec![KnownDivergence {
         id: "block_rules.hw.height-2pow48",
-        spec: "SPEC.md 3.4 [CONS-3.4-2]; 6.1 L287",
+        spec: "historical SPEC.md 3.4 [CONS-3.4-2]; 6.1 L287",
         reason: "Spec ambiguity, unreachable: the model's HeaderValid requires height < 2^48, a \
                  bound the spec states only for land (6.1, L287); 3.4 states none and \
                  validate_block checks none, so the client accepts block 2^48. A chain cannot \
