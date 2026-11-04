@@ -276,9 +276,26 @@ async fn stale_l1_finality_pauses_and_resumes_l2() -> anyhow::Result<()> {
     devnet.l1_resume().await?;
     devnet.lander_resume();
     let resumed = Instant::now();
-    devnet.wait_for_height(0, stalled_at + 3, Duration::from_secs(30)).await?;
+    let resumed_height = stalled_at + 3;
+    // Comet publishes its block-store height before ABCI applies the block to the EL.
+    let block = wait_until(
+        &format!("resumed L2 block {resumed_height}"),
+        Duration::from_secs(30),
+        Duration::from_millis(250),
+        || async {
+            if let Some(reason) = devnet.app_halt(0) {
+                return Err(Fatal(anyhow!("app 0 halted: {reason}")).into());
+            }
+            if devnet.cmt(0).latest_height().await? < resumed_height {
+                return Ok(None);
+            }
+            Ok(l2.get_block_by_number(BlockNumberOrTag::Number(resumed_height)).await?)
+        },
+    )
+    .await
+    .inspect_err(|_| devnet.dump_logs())?;
     eprintln!("resumed {:?} after L1", resumed.elapsed());
-    let anchor = anchor_of(&l2, stalled_at + 3).await?;
+    let anchor = abci::rules::decode_extra_data(&block.header.extra_data)?.2;
     assert!(anchor > frozen, "block {} anchors at {anchor}, not above {frozen}", stalled_at + 3);
     assert_eq!(devnet.app_halt(0), None);
 
