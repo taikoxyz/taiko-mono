@@ -93,6 +93,13 @@ impl AppState {
         self.recovery.as_ref().map_or(self.genesis.genesis_height, |origin| origin.height)
     }
 
+    /// The lowest height whose committed Comet block ID checkpoint trust may still read: the
+    /// committed anchor's checkpoint. Back-pressure keeps `last_height` within the unsettled
+    /// cap of it, so the retained IDs stay bounded.
+    pub fn comet_history_floor(&self) -> u64 {
+        self.anchor.inbox.last_checkpoint_height
+    }
+
     /// Whether this generation has actually committed a new Comet block after its origin.
     pub fn has_generation_commit(&self) -> bool {
         self.last_height > self.origin_height()
@@ -234,6 +241,33 @@ impl Store {
         self.save_bytes(&json, &format!("comet-hash-{height}.json"), "comet-hash.tmp")
     }
 
+    /// Deletes the recorded Comet block IDs below `floor` and returns how many it removed. Only
+    /// canonical `comet-hash-{height}.json` names are touched. A deletion lost to a crash leaves
+    /// a correct immutable record behind, so the directory is not fsynced.
+    pub fn prune_comet_hashes(&self, floor: u64) -> Result<usize, StoreError> {
+        let entries = match fs::read_dir(&self.dir) {
+            Ok(entries) => entries,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(0),
+            Err(source) => return Err(io_err("list", &self.dir, source)),
+        };
+        let mut removed = 0;
+        for entry in entries {
+            let entry = entry.map_err(|source| io_err("list", &self.dir, source))?;
+            let name = entry.file_name();
+            let Some(height) = name.to_str().and_then(comet_hash_height) else { continue };
+            if height >= floor {
+                continue;
+            }
+            let path = entry.path();
+            match fs::remove_file(&path) {
+                Ok(()) => removed += 1,
+                Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+                Err(source) => return Err(io_err("remove", &path, source)),
+            }
+        }
+        Ok(removed)
+    }
+
     /// Reads sticky fatal evidence. Its presence requires explicit operator repair before restart.
     pub(crate) fn fatal_evidence(&self) -> Result<Option<String>, StoreError> {
         let path = self.dir.join("fatal-evidence.txt");
@@ -361,6 +395,13 @@ impl Store {
         fs::rename(&tmp, &path).map_err(|source| io_err("rename", &tmp, source))?;
         if self.durable { sync_dir(&self.dir) } else { Ok(()) }
     }
+}
+
+/// The height recorded by a canonical `comet-hash-{height}.json` file name.
+fn comet_hash_height(name: &str) -> Option<u64> {
+    let digits = name.strip_prefix("comet-hash-")?.strip_suffix(".json")?;
+    let height = digits.parse::<u64>().ok()?;
+    (height.to_string() == digits).then_some(height)
 }
 
 /// Builds a [`StoreError::Io`].
@@ -696,5 +737,35 @@ mod comet_history_tests {
         ));
         std::fs::write(dir.path().join("comet-hash-6.json"), b"invalid").unwrap();
         assert!(matches!(reopened.load_comet_hash(6), Err(StoreError::Corrupt { .. })));
+    }
+
+    #[test]
+    fn pruning_removes_only_comet_hashes_below_the_floor() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::volatile(dir.path().into());
+        for height in 1..=5 {
+            store.save_comet_hash(height, B256::repeat_byte(height as u8)).unwrap();
+        }
+        let unrelated = [STATE_FILE, "comet-hash.tmp", "comet-hash-01.json", "comet-hash-x.json"];
+        for name in unrelated {
+            std::fs::write(dir.path().join(name), b"kept").unwrap();
+        }
+
+        assert_eq!(store.prune_comet_hashes(3).unwrap(), 2);
+
+        for height in 1..=2 {
+            assert_eq!(store.load_comet_hash(height).unwrap(), None, "height {height}");
+        }
+        for height in 3..=5 {
+            assert_eq!(
+                store.load_comet_hash(height).unwrap(),
+                Some(B256::repeat_byte(height as u8)),
+                "height {height}"
+            );
+        }
+        for name in unrelated {
+            assert!(dir.path().join(name).exists(), "{name} is not committed Comet history");
+        }
+        assert_eq!(store.prune_comet_hashes(3).unwrap(), 0, "pruning again finds nothing");
     }
 }

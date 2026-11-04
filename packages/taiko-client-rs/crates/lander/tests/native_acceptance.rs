@@ -223,7 +223,26 @@ async fn four_validator_native_consensus_fees_fi_epoch_landing_and_restart() -> 
     )
     .await?;
     assert_eq!(std::fs::read(key_path)?, key);
-    assert_eq!(std::fs::read(history)?, saved_history);
+    // Restart never rewrites a committed Comet block ID. Commits delete one only once the
+    // committed anchor's checkpoint has passed it, after saving that state, so read the file
+    // before the state.
+    match std::fs::read(&history) {
+        Ok(bytes) => assert_eq!(bytes, saved_history),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            let state: abci::store::AppState = serde_json::from_slice(&std::fs::read(
+                c.app_dir(3).join(abci::store::STATE_FILE),
+            )?)?;
+            let floor = state.comet_history_floor();
+            ensure!(floor > first.batch.input.lastHeight.to::<u64>(), "pruned at floor {floor}");
+        }
+        Err(error) => return Err(error.into()),
+    }
+    ensure!(
+        abci::Store::new(c.app_dir(3))
+            .load_comet_hash(second.batch.input.lastHeight.to::<u64>())?
+            .is_some(),
+        "the latest landed checkpoint keeps its Comet block ID"
+    );
     assert!(c.signing_state(3)?["height"].as_str().unwrap().parse::<u64>()? >= old_height);
     let recovery = lander::codec::LandedRange {
         parent_height: 0,

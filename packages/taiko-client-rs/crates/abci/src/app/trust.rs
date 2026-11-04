@@ -484,10 +484,17 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if snapshot.phase == TrustPhase::Ready {
             return Ok(());
         }
-        let target = match &snapshot.target {
-            Some(target) => target.clone(),
+        let pinned = snapshot.target.clone();
+        let target = match pinned.filter(|t| !names_pruned_history(self.state.as_ref(), t.height)) {
+            Some(target) => target,
             None => {
                 let target = self.acquire_target().await?;
+                if names_pruned_history(self.state.as_ref(), target.height) {
+                    snapshot.target = None;
+                    return Err(AbciError::TrustControl(
+                        "own finalized checkpoint precedes the retained Comet history".into(),
+                    ));
+                }
                 self.trust.pin(&snapshot.session_id, &target)?;
                 snapshot.target = Some(target.clone());
                 // Retain acquisition across retries, but only for this session.
@@ -761,6 +768,14 @@ fn check_identity(state: &AppState, target: &CheckpointTarget) -> Result<(), Abc
         ));
     }
     Ok(())
+}
+
+/// Whether a checkpoint at `height` names a Comet block ID that commits have pruned: above the
+/// generation origin (whose ID the state retains) and below
+/// [`AppState::comet_history_floor`]. Such a checkpoint is never verified, only re-acquired.
+fn names_pruned_history(state: Option<&AppState>, height: u64) -> bool {
+    state
+        .is_some_and(|state| state.origin_height() < height && height < state.comet_history_floor())
 }
 
 /// Revokes the independently cloned handle when its sole app owner is dropped.

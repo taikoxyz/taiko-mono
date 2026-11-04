@@ -198,13 +198,21 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// the proposal reads (but for the entry at the committed cursor, whose authenticated bytes
     /// remain reusable) and the halt reason, drops a cached committee witness the new committed
     /// state no longer needs, starts a live decision's switch-witness prefetch, publishes the
-    /// new head's gauges, and answers `retain_height = 0` (no block pruning). Errors:
-    /// [`AbciError::NothingToCommit`] without a pending state; [`AbciError::Store`] when it
-    /// cannot be persisted (it then stays pending).
+    /// new head's gauges, and answers `retain_height = 0` (no block pruning). When the new
+    /// state raises [`AppState::comet_history_floor`], the Comet block IDs below it are deleted
+    /// after the state is durable; a failed deletion only logs, and the next raise retries it.
+    /// Errors: [`AbciError::NothingToCommit`] without a pending state; [`AbciError::Store`]
+    /// when it cannot be persisted (it then stays pending).
     pub(super) fn commit(&mut self) -> Result<response::Commit, AbciError> {
         let pending = self.pending.as_ref().ok_or(AbciError::NothingToCommit)?;
         self.store.save_comet_hash(pending.last_height, pending.last_comet_hash)?;
         self.store.save(pending)?;
+        let floor = pending.comet_history_floor();
+        if self.state.as_ref().is_none_or(|state| state.comet_history_floor() < floor) &&
+            let Err(error) = self.store.prune_comet_hashes(floor)
+        {
+            tracing::warn!(%error, floor, "could not prune committed Comet history");
+        }
         tracing::info!(
             height = pending.last_height,
             hash = %pending.parent.hash,

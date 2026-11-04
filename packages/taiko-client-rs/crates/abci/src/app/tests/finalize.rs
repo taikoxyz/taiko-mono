@@ -57,6 +57,29 @@ async fn anchor_moving(fx: &Fixture, dir: &Path) -> App<MockL1, MockEngine> {
     app
 }
 
+/// Checkpoint trust never reads a Comet block ID below the committed anchor's checkpoint, so
+/// the commit that moves that checkpoint to `B* + 3` deletes the IDs below it and keeps the rest.
+#[tokio::test]
+async fn commit_prunes_comet_history_below_the_committed_anchor_checkpoint() {
+    let fx = Fixture::genesis(2);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = anchor_moving(&fx, dir.path()).await;
+    let b = fx.genesis.genesis_height;
+    for height in b + 1..=b + 5 {
+        app.store.save_comet_hash(height, B256::repeat_byte(height as u8)).unwrap();
+    }
+
+    step(&mut app).await;
+
+    assert_eq!(app.state().unwrap().anchor.inbox.last_checkpoint_height, b + 3);
+    for height in b + 1..b + 3 {
+        assert_eq!(app.store.load_comet_hash(height).unwrap(), None, "height {height}");
+    }
+    for height in b + 3..=b + 6 {
+        assert!(app.store.load_comet_hash(height).unwrap().is_some(), "height {height}");
+    }
+}
+
 #[tokio::test]
 async fn finalize_after_process_uses_the_cached_verdict() {
     let fx = Fixture::genesis(2);

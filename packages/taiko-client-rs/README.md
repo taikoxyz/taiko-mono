@@ -81,8 +81,10 @@ separate Ed25519 identities. The CometBFT chain ID is the 48-byte `etna-` deploy
 `abci-genesis` writes.
 
 Never reset signed state or Comet history to force a start. The app writes
-`comet-hash-{height}.json` before each commit; retain those files with Comet history, as
-checkpoint trust reads them. `fatal-evidence.txt` survives restarts and records the first safety
+`comet-hash-{height}.json`, the committed Comet block ID that checkpoint trust compares with a
+landed checkpoint, before each commit. Trust never reads one below the committed anchor's last
+checkpoint, so commits delete those; back-pressure keeps at most `unsettled_limit + 1` files.
+Do not delete the others by hand. `fatal-evidence.txt` survives restarts and records the first safety
 failure, such as an unknown-execution-state Engine error (`-38100`); repair its cause before
 restarting. An L1 header shape the node cannot parse makes `ProcessProposal` reject and
 `FinalizeBlock` wait, without a safety halt: upgrade the client.
@@ -738,7 +740,8 @@ just clippy     # doc lints on library code, then every target with -D warnings
   actually prune Reth state. Lander scenarios cover actual Inbox blob
   transactions, cross-epoch batching, four native validators with ordinary and forced
   transactions, 100% beneficiary fees, FI fees swept to the treasury, epoch transition, dummy
-  0x00 landing, signer timeout recovery and offline catchup with retained HRS/history,
+  0x00 landing, signer timeout recovery and offline catchup with retained HRS and Comet block
+  IDs at or above the committed anchor's checkpoint,
   execution-DA replay, permissionless overlap races,
   verifier rejection, a pending L1 reference crossing the BLOCKHASH/EIP-2935 boundary, stock
   CometBFT collection, and actual-CLI SIGKILL/SIGTERM restarts, minimum/timeout batching, and

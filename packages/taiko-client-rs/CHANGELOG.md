@@ -29,6 +29,9 @@
 - Acquire the first recovered switch's R snapshot in the background, so a slow archive read
   no longer has to fit inside one proposal round, and keep the remembered tip anchor when a
   newer own-L1 lookup is unavailable.
+- Delete committed Comet block IDs below the committed anchor's checkpoint, which trust never
+  reads, so the app directory stays within `unsettled_limit + 1` of them instead of growing one
+  file per height until the volume runs out of inodes; trust re-acquires a checkpoint below it.
 
 ## [2.3.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-rs-v2.2.0...taiko-alethia-client-rs-v2.3.0) (2026-09-28)
 

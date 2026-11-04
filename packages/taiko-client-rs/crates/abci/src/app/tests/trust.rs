@@ -742,3 +742,86 @@ async fn decided_comet_hash_mismatch_halts_before_settle_even_when_el_matches() 
     assert!(app.pending.is_none());
     assert_eq!(app.engine().calls().len(), calls);
 }
+
+/// Commits the next block, anchored at L1 block `anchor` when given (else inheriting the
+/// committed anchor); returns its Comet block ID.
+async fn commit_next(app: &mut App<MockL1, MockEngine>, fx: &Fixture, anchor: Option<u64>) -> B256 {
+    let witness = anchor.map(|number| fx.anchor_witness(app.l1(), number));
+    let env = hand_envelope(app, witness, None);
+    let req = process_req(next_height(app), bft_time(app), vec![env.encode()]);
+    finalize(app, finalize_req(&req)).await.unwrap();
+    commit(app).await.unwrap();
+    B256::from_slice(req.hash.as_bytes())
+}
+
+/// Plants L1 block `number` landing the committed `height` with Comet block ID `comet`, and
+/// makes it final.
+fn finalize_landing(
+    app: &App<MockL1, MockEngine>,
+    fx: &Fixture,
+    number: u64,
+    height: u64,
+    comet: B256,
+) {
+    let hash = app.engine().state().chain[&height].hash_slow();
+    let inbox =
+        InboxStorage { last_checkpoint_comet_hash: comet, ..fx.inbox_at_checkpoint(height, hash) };
+    fx.advance_l1(app.l1(), number, &inbox, &fx.registry);
+}
+
+/// A checkpoint below the committed anchor's names pruned Comet history: while own finality
+/// lags there, trust stays closed, and it opens once finality reaches the committed anchor.
+#[tokio::test]
+async fn lagging_own_finality_waits_for_a_checkpoint_with_retained_comet_history() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    commit_next(&mut app, &fx, Some(fx.genesis.l1_0)).await;
+    let second = commit_next(&mut app, &fx, None).await;
+    let third = commit_next(&mut app, &fx, None).await;
+    finalize_landing(&app, &fx, 65, 2, second);
+    finalize_landing(&app, &fx, 66, 3, third);
+    commit_next(&mut app, &fx, Some(66)).await;
+    assert_eq!(app.store.load_comet_hash(2).unwrap(), None, "below the anchored checkpoint 3");
+
+    app.l1().set_finalized(65);
+    app.refresh_trust().await.unwrap();
+    assert!(!app.trust.snapshot().trust_ready);
+
+    app.l1().set_finalized(66);
+    app.refresh_trust().await.unwrap();
+    let snapshot = app.trust.snapshot();
+    assert!(snapshot.trust_ready, "{:?}", snapshot.reason);
+    assert_eq!(snapshot.target.unwrap().height, 3);
+}
+
+/// A session target pinned before the committed anchor moved past it names pruned Comet
+/// history: the next attempt acquires a current checkpoint instead of stalling on it.
+#[tokio::test]
+async fn pinned_target_below_the_comet_history_floor_is_reacquired() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    commit_next(&mut app, &fx, Some(fx.genesis.l1_0)).await;
+    commit_next(&mut app, &fx, None).await;
+    let env = hand_envelope(&app, None, None);
+    let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
+    let inbox = InboxStorage {
+        last_checkpoint_comet_hash: B256::from_slice(req.hash.as_bytes()),
+        ..fx.inbox_at_checkpoint(3, env.block.header.hash_slow())
+    };
+    fx.advance_l1(app.l1(), 65, &inbox, &fx.registry);
+    app.refresh_trust().await.unwrap();
+    assert_eq!(app.trust.snapshot().target.unwrap().height, 3, "pinned above the head");
+    finalize(&mut app, finalize_req(&req)).await.unwrap();
+    commit(&mut app).await.unwrap();
+    let fourth = commit_next(&mut app, &fx, None).await;
+    finalize_landing(&app, &fx, 66, 4, fourth);
+    commit_next(&mut app, &fx, Some(66)).await;
+    assert_eq!(app.store.load_comet_hash(3).unwrap(), None, "below the anchored checkpoint 4");
+
+    app.refresh_trust().await.unwrap();
+    let snapshot = app.trust.snapshot();
+    assert!(snapshot.trust_ready, "{:?}", snapshot.reason);
+    assert_eq!(snapshot.target.unwrap().height, 4);
+}
