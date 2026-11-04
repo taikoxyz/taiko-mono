@@ -2,15 +2,15 @@
   "schema_version": 2,
   "spec": {
     "path": "packages/protocol/docs/etna/SPEC.md",
-    "revision": "2026-11-03",
-    "commit": "1135c9b24fd03f50cb48eab250879435fd54f528",
-    "sha256": "0b6c860d97e58040ab4d0ac9f1a93e95d0389f939a8fe0534f3a5d5437c62a6c"
+    "revision": "2026-11-04",
+    "commit": "e84a9aaac526c15597d97ee93f8803f92b02c279",
+    "sha256": "0c30f04b966551f4d7d3b89599a2ed9a39092b67fb20738c22e34b4ffd51c528"
   },
   "index": {
     "path": "packages/protocol/docs/etna/rules/INDEX.md",
-    "revision": "2026-11-03",
-    "commit": "1135c9b24fd03f50cb48eab250879435fd54f528",
-    "sha256": "08b01228fec0408fc4cab74ca46188028da59735faa8dd6c6e434f843767a5ab"
+    "revision": "2026-11-04",
+    "commit": "e84a9aaac526c15597d97ee93f8803f92b02c279",
+    "sha256": "26803435c7d629e08dd7c53a6c6237de0f202505c122c4502972c9f4644c8d24"
   },
   "evidence": {
     "CONS-3.4-2": {
@@ -547,7 +547,7 @@
       "reason": "Every actual successful public slash authenticates both bond-key signatures and the double-sign predicate under reverse signature soundness."
     },
     "STAKE-4.1-34": {
-      "clause": "LIVE_EN-1922bc4f51f2158c",
+      "clause": "LIVE_EN-ff4628d87c4b4409",
       "theorems": [
         "Etna.Design.Current.RegistryMachine.slash_exact",
         "Etna.Design.Current.RegistryPayments.slash_payments_exact",

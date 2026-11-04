@@ -1,7 +1,7 @@
 import EtnaModel.RegistryHistory
 import EtnaModel.Signer
 
-/-! Current decoded rules at main 1135c9b. The old machine is a historical reference;
+/-! Current decoded rules at main e84a9aa. The old machine is a historical reference;
 these definitions do not silently extend its headline theorems to the current design.
 Crypto, authenticated L1 storage and stock EL/Comet adapters remain external. -/
 namespace Etna.Design.Current
@@ -158,7 +158,7 @@ current initialized storage fact and fixed-adapter evidence. Slot possession is 
 def slash (s : State) (initialized evidence : Bool) (id now bounty : Nat) : Option State :=
   modify s id fun b =>
     if initialized = true ∧ evidence = true ∧ b.value.released = false ∧
-        0 < b.value.balance ∧ bounty ≤ 10000 then
+        0 < b.value.balance ∧ bounty < 10000 then
       some ⟨{ b.value with stake := 0, pendingTopUp := 0, topUpReadyAtL1 := 0, exitAt := min b.value.exitAt now },b.slot⟩
     else none
 

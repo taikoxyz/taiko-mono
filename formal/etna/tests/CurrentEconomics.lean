@@ -212,7 +212,9 @@ example : ¬ RegistryMachine.Genesis phantom := by
 def zeroDelay := {registry with config := {registry.config with withdrawalDelay := 0}}
 def zeroMinimum := {registry with ledger := {registry.ledger with minStake := 0}}
 def noActivation := {registry with ledger := {registry.ledger with activationDelay := 0}}
-def badBounty := {registry with config := {registry.config with slashBountyBps := 10001}}
+def badBounty := {registry with config := {registry.config with slashBountyBps := 10000}}
+def zeroBounty := {registry with config := {registry.config with slashBountyBps := 0}}
+def maxBounty := {registry with config := {registry.config with slashBountyBps := 9999}}
 def initializeWith (e : Environment) (r : RegistryMachine.State) :=
   Protocol.execute e (Protocol.transact e (Protocol.empty e r) (.advance 2)) (.initializeInbox 1)
 example : (initializeWith env zeroDelay).isSome = true := by decide +kernel
@@ -222,6 +224,8 @@ example : zeroMinimum.config.valid zeroMinimum.ledger = true := by decide +kerne
 example : (initializeWith env zeroMinimum).isSome = true := by decide +kernel
 example : (initializeWith env noActivation).isNone = true := by decide +kernel
 example : (initializeWith env badBounty).isNone = true := by decide +kernel
+example : (initializeWith env zeroBounty).isSome = true := by decide +kernel
+example : (initializeWith env maxBounty).isSome = true := by decide +kernel
 example : (initializeWith {env with core := {env.core with slashSink := 0}, token := RegistryPayments.standardEnvironment 40 0} registry).isNone = true := by decide +kernel
 example : (initializeWith {env with token := RegistryPayments.standardEnvironment 41 90} registry).isNone = true := by decide +kernel
 

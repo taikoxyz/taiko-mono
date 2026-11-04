@@ -427,7 +427,7 @@ theorem trace_same_generation_parameters {env : Environment} {first later : Worl
 
 theorem execute_backed {env : Environment} {w t : World} {call : Call}
     (standard : ProtocolFinality.StandardToken env) (backed : RegistryPayments.Backed env.token w.registry)
-    (rate : w.registry.registry.config.slashBountyBps ≤ 10000)
+    (rate : w.registry.registry.config.slashBountyBps < 10000)
     (ok : execute env w call = some t) : RegistryPayments.Backed env.token t.registry := by
   cases call with
   | advance n =>
@@ -466,7 +466,7 @@ theorem execute_backed {env : Environment} {w t : World} {call : Call}
     unfold registryCall at ok
     split at ok
     · obtain ⟨⟨paid,receipts⟩,transaction,rfl⟩ := Option.map_eq_some_iff.mp ok
-      exact RegistryPayments.transaction_backed standard backed rate transaction
+      exact RegistryPayments.transaction_backed standard backed (Nat.le_of_lt rate) transaction
     · cases ok
   | enqueue raw paid refund =>
     simp only [execute] at ok
@@ -567,7 +567,7 @@ standard-token balances. It assumes no condition about balances at future slash 
 theorem funds_backed {env : Environment} {registry : RegistryMachine.State} {w : World}
     (genesis : RegistryMachine.Genesis registry) (standard : ProtocolFinality.StandardToken env)
     (self : env.initialToken.allowances env.token.registryAddress env.token.registryAddress = 0)
-    (rate : registry.config.slashBountyBps ≤ 10000)
+    (rate : registry.config.slashBountyBps < 10000)
     (run : Trace env (empty env registry) w) : RegistryPayments.Backed env.token w.registry := by
   induction run with
   | refl =>
@@ -577,7 +577,7 @@ theorem funds_backed {env : Environment} {registry : RegistryMachine.State} {w :
       exact Nat.zero_le _
     · exact self
   | @step before after prior change ih =>
-    have currentRate : before.registry.registry.config.slashBountyBps ≤ 10000 := by
+    have currentRate : before.registry.registry.config.slashBountyBps < 10000 := by
       rw [(ProtocolFinality.trace_fields prior).2.2.2.2.2.1]
       exact rate
     cases change with
@@ -594,12 +594,12 @@ authentication of the seed's earlier issuance/history is a separate obligation. 
 theorem funds_backed_from_seed {env : Environment} {first w : World}
     (standard : ProtocolFinality.StandardToken env)
     (backed : RegistryPayments.Backed env.token first.registry)
-    (rate : first.registry.registry.config.slashBountyBps ≤ 10000)
+    (rate : first.registry.registry.config.slashBountyBps < 10000)
     (run : Trace env first w) : RegistryPayments.Backed env.token w.registry := by
   induction run with
   | refl => exact backed
   | @step before after prior change ih =>
-    have currentRate : before.registry.registry.config.slashBountyBps ≤ 10000 := by
+    have currentRate : before.registry.registry.config.slashBountyBps < 10000 := by
       have same : before.registry.registry.config = first.registry.registry.config :=
         (RegistryMachine.trace_stable (ProtocolFinality.registry_trace prior)).registry.config
       rw [same]
@@ -681,14 +681,14 @@ theorem temporal_commit_agreement {env : Environment} {first later : World}
 theorem funded_future_liability {env : Environment} {registry : RegistryMachine.State} {w : World}
     (genesis : RegistryMachine.Genesis registry) (standard : ProtocolFinality.StandardToken env)
     (self : env.initialToken.allowances env.token.registryAddress env.token.registryAddress = 0)
-    (rate : registry.config.slashBountyBps ≤ 10000) (run : Trace env (empty env registry) w)
+    (rate : registry.config.slashBountyBps < 10000) (run : Trace env (empty env registry) w)
     (initialized : w.initialized = true) {key : Hash} {a b : Staking.Vote} {sa sb : Hash}
     (auth : RegistryMachine.Evidence w.registry.registry (registryView env w) key a b sa sb) :
     FundedFutureLiability env w key a b sa sb := by
   intro later future id bond caller issued found sameKey live positive free
   have funded := (funds_backed genesis standard self rate (trace_trans run future)).1
   have enough := Nat.le_trans (RegistryMachine.reserve_member issued found) funded
-  have currentRate : w.registry.registry.config.slashBountyBps ≤ 10000 := by
+  have currentRate : w.registry.registry.config.slashBountyBps < 10000 := by
     rw [(ProtocolFinality.trace_fields run).2.2.2.2.2.1]
     exact rate
   exact ProtocolFinality.paid_evidence_future_liability standard initialized currentRate auth
@@ -701,7 +701,7 @@ election alone does not establish it after a verifier-failure withdrawal and rol
 theorem retained_window_liability {env : Environment} {registry : RegistryMachine.State} {w : World}
     (genesis : RegistryMachine.Genesis registry) (standard : ProtocolFinality.StandardToken env)
     (self : env.initialToken.allowances env.token.registryAddress env.token.registryAddress = 0)
-    (rate : registry.config.slashBountyBps ≤ 10000) (run : Trace env (empty env registry) w)
+    (rate : registry.config.slashBountyBps < 10000) (run : Trace env (empty env registry) w)
     (initialized : w.initialized = true) {id : Nat} {bond : Registry.Bond}
     (issued : id < w.registry.registry.ledger.nextId)
     (found : w.registry.registry.ledger.bonds id = some bond)
@@ -728,7 +728,7 @@ theorem retained_window_liability {env : Environment} {registry : RegistryMachin
 theorem economically_accountable {env : Environment} {registry : RegistryMachine.State} {w : World}
     (genesis : RegistryMachine.Genesis registry) (standard : ProtocolFinality.StandardToken env)
     (self : env.initialToken.allowances env.token.registryAddress env.token.registryAddress = 0)
-    (rate : registry.config.slashBountyBps ≤ 10000) (run : Trace env (empty env registry) w)
+    (rate : registry.config.slashBountyBps < 10000) (run : Trace env (empty env registry) w)
     (refinement : Finality.SignatureRefinement registry env.signature) (initialized : w.initialized = true)
     {common moreA moreB : List Header} {referenceA referenceB h round a b : Nat}
     {votesA votesB : List Consensus.Vote}
@@ -756,7 +756,7 @@ theorem economically_accountable {env : Environment} {registry : RegistryMachine
 theorem economic_safety {env : Environment} {registry : RegistryMachine.State} {w : World}
     (genesis : RegistryMachine.Genesis registry) (standard : ProtocolFinality.StandardToken env)
     (self : env.initialToken.allowances env.token.registryAddress env.token.registryAddress = 0)
-    (rate : registry.config.slashBountyBps ≤ 10000) (run : Trace env (empty env registry) w)
+    (rate : registry.config.slashBountyBps < 10000) (run : Trace env (empty env registry) w)
     (sound : Finality.SignatureSound registry env.signature) : Safety env w := by
   refine ⟨funds_backed genesis standard self rate run,?_,?_,closed_registry_history run⟩
   · intro caller id a b sa sb next accepted
@@ -931,7 +931,7 @@ protocol state whose entire reserve was funded. The trace to the present is expl
 theorem historical_stake_funded {env : Environment} {registry : RegistryMachine.State} {w : World}
     (genesis : RegistryMachine.Genesis registry) (standard : ProtocolFinality.StandardToken env)
     (self : env.initialToken.allowances env.token.registryAddress env.token.registryAddress = 0)
-    (rate : registry.config.slashBountyBps ≤ 10000) (run : Trace env (empty env registry) w) :
+    (rate : registry.config.slashBountyBps < 10000) (run : Trace env (empty env registry) w) :
     HistoricalStakeFunded env w := by
   intro cp member entry selected positive
   obtain ⟨past,earlier,later,atBlock,origin⟩ := historical_origin genesis run cp member

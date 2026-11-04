@@ -18,7 +18,7 @@ example (s : RegistryMachine.State) (v : InboxView) (now id : Nat) (b : Registry
     (issued : id < s.ledger.nextId) (found : s.ledger.bonds id = some b)
     (initialized : v.initialized = true) (free : v.entered = false)
     (live : b.value.released = false) (positive : 0 < b.value.balance)
-    (rate : s.config.slashBountyBps ≤ 10000)
+    (rate : s.config.slashBountyBps < 10000)
     (a z : Staking.Vote) (sa sz : Hash)
     (auth : Evidence s v b.value.key a z sa sz) :
     ∃ t, execute s v now (.slash id a z sa sz) = some t := by

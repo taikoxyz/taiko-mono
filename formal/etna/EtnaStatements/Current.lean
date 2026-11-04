@@ -23,7 +23,7 @@ structure Premises (env : Environment) (registry : RegistryMachine.State)
   currentVerifierSound : VerifierSound env (empty env registry)
   currentStandardToken : ProtocolFinality.StandardToken env
   currentSignatureAgreement : Finality.SignatureRefinement registry env.signature
-  currentBountyBound : registry.config.slashBountyBps ≤ 10000
+  currentBountyBound : registry.config.slashBountyBps < 10000
   currentCodec : ∀ w, Trace env (empty env registry) w → ProtocolFinality.CodecSound env w
   currentVoteAttribution : ∀ w, Trace env (empty env registry) w → ProtocolFinality.VoteAttribution engine env w
   currentClock : ∀ m n, m < n → env.time m < env.time n

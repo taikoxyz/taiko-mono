@@ -148,7 +148,7 @@ end Etna.CurrentProtocolFinalityRegression
 example (env : Protocol.Environment) (initial w : Protocol.World) (engine : Finality.Engine)
     (run : Protocol.Trace env initial w) (standard : StandardToken env)
     (refinement : Finality.SignatureRefinement initial.registry.registry env.signature)
-    (initialized : w.initialized = true) (rate : initial.registry.registry.config.slashBountyBps ≤ 10000)
+    (initialized : w.initialized = true) (rate : initial.registry.registry.config.slashBountyBps < 10000)
     (codec : CodecSound env w) (honesty : HonestExecutions engine env w)
     (attribution : VoteAttribution engine env w) : H2 env w :=
   current_h2 run standard refinement initialized rate codec honesty attribution

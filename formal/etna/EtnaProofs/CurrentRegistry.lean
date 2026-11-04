@@ -945,7 +945,7 @@ theorem slash_enabled {s : State} {v : InboxView} {now id : Nat} {b : Registry.B
     (issued : id < s.ledger.nextId) (found : s.ledger.bonds id = some b)
     (initialized : v.initialized = true) (free : v.entered = false)
     (live : b.value.released = false) (positive : 0 < b.value.balance)
-    (rate : s.config.slashBountyBps ≤ 10000)
+    (rate : s.config.slashBountyBps < 10000)
     {a z : Staking.Vote} {sa sz : Hash}
     (auth : Evidence s v b.value.key a z sa sz) :
     ∃ t, execute s v now (.slash id a z sa sz) = some t := by
@@ -966,7 +966,7 @@ theorem evidence_stays_slashable {first later : World} (trace : Trace first late
     (present : later.registry.ledger.bonds id = some current)
     (live : current.value.released = false) (positive : 0 < current.value.balance)
     (free : later.inbox.entered = false)
-    (rate : first.registry.config.slashBountyBps ≤ 10000) :
+    (rate : first.registry.config.slashBountyBps < 10000) :
     ∃ t, execute later.registry later.inbox later.now (.slash id a b sa sb) = some t := by
   have stable := trace_stable trace
   obtain ⟨retained,hr,hk⟩ := stable.registry.ledger.bonds id original issued found
@@ -983,7 +983,7 @@ theorem slash_exact {s : State} {v : InboxView} {now id : Nat} {b : Registry.Bon
     (issued : id < s.ledger.nextId) (found : s.ledger.bonds id = some b)
     (initialized : v.initialized = true) (free : v.entered = false)
     (live : b.value.released = false) (positive : 0 < b.value.balance)
-    (rate : s.config.slashBountyBps ≤ 10000)
+    (rate : s.config.slashBountyBps < 10000)
     {a z : Staking.Vote} {sa sz : Hash}
     (auth : Evidence s v b.value.key a z sa sz) :
     ∃ t c, execute s v now (.slash id a z sa sz) = some t ∧

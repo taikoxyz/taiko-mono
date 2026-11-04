@@ -3,9 +3,9 @@
   "scope": "conditional decoded specification property only",
   "source": {
     "path": "packages/protocol/docs/etna/SPEC.md",
-    "revision": "2026-11-03",
-    "commit": "1135c9b24fd03f50cb48eab250879435fd54f528",
-    "sha256": "e41a086fe6cb33da140fade2a2aff1ef2f0d2faf49fde5a58b74c97c3132c232"
+    "revision": "2026-11-04",
+    "commit": "e84a9aaac526c15597d97ee93f8803f92b02c279",
+    "sha256": "bf1d30e28b01638f829a9256ce4a53c9a4cbfdc706ec4e8aab54efd31b058f62"
   },
   "boundaries": {
     "context": "HistoricalContext derives origin, latest-at-cutoff registry entries and covered anchor lookups from typed inputs. RegistryHistory models lifetime identities and entry checkpoints; actual root/key-byte validation, authenticated signer-prefix/cutoff linkage, genesis provenance and evidence delivery remain external.",
@@ -815,14 +815,14 @@
   ],
   "acceptance_source": {
     "path": "packages/protocol/docs/etna/ACCEPTANCE.md",
-    "revision": "2026-11-03",
-    "commit": "1135c9b24fd03f50cb48eab250879435fd54f528",
-    "sha256": "8ca975f38b6e58de8a21caebf2c334daaa445d1f35425b1b30443d0d6ead4d06"
+    "revision": "2026-11-04",
+    "commit": "e84a9aaac526c15597d97ee93f8803f92b02c279",
+    "sha256": "f7002b6a044c0bbe5d4f59ee596dff9b1dbf89bc4c1bfb3caaba541eb3df4314"
   },
   "anchorless_source": {
     "path": "packages/protocol/docs/etna/ANCHORLESS.md",
-    "revision": "2026-11-03",
-    "commit": "1135c9b24fd03f50cb48eab250879435fd54f528",
+    "revision": "2026-11-04",
+    "commit": "e84a9aaac526c15597d97ee93f8803f92b02c279",
     "sha256": "08f6c75a3fb8183ff986a22f56c14379990bb4a527e42d1be12387195152c717"
   },
   "historical_source": {
@@ -845,8 +845,8 @@
   },
   "switch_source": {
     "path": "packages/protocol/docs/etna/SWITCH.md",
-    "revision": "2026-11-03",
-    "commit": "1135c9b24fd03f50cb48eab250879435fd54f528",
-    "sha256": "1f0b67ed94ff9f15b3334b1092d797c551fcfb7d0f9263ad4958c7b0a28dbf90"
+    "revision": "2026-11-04",
+    "commit": "e84a9aaac526c15597d97ee93f8803f92b02c279",
+    "sha256": "d3ac501093465320105523f1b71337c315148df66a7a1b9b99f8f875d3fdf502"
   }
 }

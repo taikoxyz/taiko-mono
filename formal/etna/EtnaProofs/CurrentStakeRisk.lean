@@ -467,7 +467,7 @@ candidate/checkpoint ancestry; all bond statuses are derived from the lifecycle.
 theorem economically_at_risk {env : Protocol.Environment} {registry : RegistryMachine.State}
     {w : Protocol.World} (genesis : Genesis registry) (standard : ProtocolFinality.StandardToken env)
     (self : env.initialToken.allowances env.token.registryAddress env.token.registryAddress = 0)
-    (rate : registry.config.slashBountyBps ≤ 10000)
+    (rate : registry.config.slashBountyBps < 10000)
     (run : Protocol.Trace env (Protocol.empty env registry) w)
     (normal : NormalTrace (Protocol.registryWorld env (Protocol.empty env registry)) (Protocol.registryWorld env w))
     (refinement : Finality.SignatureRefinement registry env.signature) (initialized : w.initialized = true)

@@ -249,7 +249,7 @@ theorem evidence_stays_transaction_slashable {env : PaymentEnvironment}
     (present : later.registry.ledger.bonds id = some current)
     (live : current.value.released = false) (positive : 0 < current.value.balance)
     (free : later.inbox.entered = false)
-    (rate : first.registry.config.slashBountyBps ≤ 10000)
+    (rate : first.registry.config.slashBountyBps < 10000)
     (token : TokenState) (caller : Nat)
     (available : ∃ token', runTransfers env token
       (paymentIntents env later.registry caller (.slash id a b sa sb)) = some token') :

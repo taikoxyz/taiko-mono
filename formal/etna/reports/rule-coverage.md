@@ -141,7 +141,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | STAKE-4.1-31   | rule       | partial    | LIVE_EN-405f21d19d6bc681 |      1 | `evidence_stays_transaction_slashable`                                                                      |
 | STAKE-4.1-32   | rule       | partial    | LIVE_EN-b82d63337df901b4 |      1 | `funded_future_liability`, `no_false_slash`, `evidence_future_liability` +7                                 |
 | STAKE-4.1-33   | rule       | partial    | LIVE_EN-ffb6d8f886ed245e |      1 | `no_false_slash`                                                                                            |
-| STAKE-4.1-34   | rule       | supporting | LIVE_EN-1922bc4f51f2158c |      1 | `slash_exact`, `slash_payments_exact`, `standard_slash_transfers_available`                                 |
+| STAKE-4.1-34   | rule       | supporting | LIVE_EN-ff4628d87c4b4409 |      1 | `slash_exact`, `slash_payments_exact`, `standard_slash_transfers_available`                                 |
 | STAKE-4.1-35   | rule       | deferred   | LIVE_EN-c3f51f9d72eb6ec5 |      1 |                                                                                                             |
 | STAKE-4.1-36   | rule       | supporting | LIVE_EN-255e96e167914963 |      1 | `execute_history_origin_exact`                                                                              |
 | STAKE-4.1-37   | rule       | deferred   | LIVE_EN-25553fea06dda239 |      3 |                                                                                                             |
@@ -202,19 +202,19 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | DATA-5.2-9     | rule       | deferred   | LIVE_EN-da7985670c04c5db |      1 |                                                                                                             |
 | DATA-5.3-1a    | rule       | deferred   | LIVE_EN-e545f4a8a4d0bb62 |      2 |                                                                                                             |
 | DATA-5.3-2a    | rule       | deferred   | LIVE_EN-e545f4a8a4d0bb62 |      2 |                                                                                                             |
-| DATA-5.3-3     | rule       | deferred   | LIVE_EN-297ac2a6cf6cabeb |      3 |                                                                                                             |
-| DATA-5.3-3a    | rule       | deferred   | LIVE_EN-297ac2a6cf6cabeb |      3 |                                                                                                             |
-| DATA-5.3-4     | rule       | deferred   | LIVE_EN-297ac2a6cf6cabeb |      3 |                                                                                                             |
-| DATA-5.3-5     | rule       | deferred   | LIVE_EN-f6a519db46756c99 |      4 |                                                                                                             |
-| DATA-5.3-6     | rule       | deferred   | LIVE_EN-f6a519db46756c99 |      4 |                                                                                                             |
-| DATA-5.3-7     | rule       | deferred   | LIVE_EN-f6a519db46756c99 |      4 |                                                                                                             |
-| DATA-5.3-8     | rule       | deferred   | LIVE_EN-f6a519db46756c99 |      4 |                                                                                                             |
+| DATA-5.3-3     | rule       | deferred   | LIVE_EN-4740b7cedd294888 |      3 |                                                                                                             |
+| DATA-5.3-3a    | rule       | deferred   | LIVE_EN-4740b7cedd294888 |      3 |                                                                                                             |
+| DATA-5.3-4     | rule       | deferred   | LIVE_EN-4740b7cedd294888 |      3 |                                                                                                             |
+| DATA-5.3-5     | rule       | deferred   | LIVE_EN-4b109582ad67b554 |      4 |                                                                                                             |
+| DATA-5.3-6     | rule       | deferred   | LIVE_EN-4b109582ad67b554 |      4 |                                                                                                             |
+| DATA-5.3-7     | rule       | deferred   | LIVE_EN-4b109582ad67b554 |      4 |                                                                                                             |
+| DATA-5.3-8     | rule       | deferred   | LIVE_EN-4b109582ad67b554 |      4 |                                                                                                             |
 | DATA-5.3-9a    | rule       | deferred   | LIVE_EN-e84e377baa4b101d |      1 |                                                                                                             |
 | DATA-5.4-1     | rule       | deferred   | LIVE_EN-afd12e8b37228410 |      1 |                                                                                                             |
 | DATA-5.4-2     | rule       | deferred   | LIVE_EN-89f602a15705f8e0 |      1 |                                                                                                             |
 | DATA-5.4-3     | rule       | deferred   | LIVE_EN-411268e5831f0bfa |      1 |                                                                                                             |
 | DATA-5.4-4     | rule       | supporting | LIVE_EN-e9433576eae740ac |      1 | `import_complete_range`, `node_import_closed`                                                               |
-| DATA-5.4-5     | rule       | supporting | LIVE_EN-ae3a8e34d200a4b2 |      1 | `authenticated_conflict_halts`, `invalid_data_rejected`, `publish_boundary`                                 |
+| DATA-5.4-5     | rule       | supporting | LIVE_EN-c000ff052b2bf68d |      1 | `authenticated_conflict_halts`, `invalid_data_rejected`, `publish_boundary`                                 |
 | DATA-5.4-6     | rule       | deferred   | LIVE_EN-65eb904699f0be37 |      1 |                                                                                                             |
 | DATA-5.4-7     | rule       | supporting | LIVE_EN-f98242f5400aa7f7 |      1 | `publish_boundary`, `node_import_closed`                                                                    |
 | DATA-5.4-8     | rule       | deferred   | LIVE_EN-c8ef3c957d86a756 |      1 |                                                                                                             |
@@ -544,7 +544,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | PARAM-11-8     | rule       | deferred   | LIVE_EN-d3eaecaba96068b7 |      1 |                                                                                                             |
 | PARAM-11-9     | rule       | deferred   | LIVE_EN-6e23a9cf7af0bce9 |      1 |                                                                                                             |
 | PARAM-11-10a   | rule       | deferred   | LIVE_EN-b65946896862274f |      1 |                                                                                                             |
-| PARAM-11-11    | rule       | deferred   | LIVE_EN-056492c07d9386c9 |      1 |                                                                                                             |
+| PARAM-11-11    | rule       | deferred   | LIVE_EN-a700bb40882283d1 |      1 |                                                                                                             |
 | PARAM-11-12    | rule       | deferred   | LIVE_EN-f1d65f9a3710b142 |      1 |                                                                                                             |
 | PARAM-11-12a   | rule       | deferred   | LIVE_EN-7eb2a54be5d24804 |      1 |                                                                                                             |
 | PARAM-11-12b   | rule       | deferred   | LIVE_EN-c11fe37f47a82308 |      1 |                                                                                                             |

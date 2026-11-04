@@ -1,5 +1,12 @@
 # Latest Etna design alignment
 
+The current authorities are main `e84a9aaac526c15597d97ee93f8803f92b02c279` (2026-11-04),
+including merged PR #22335. See [the current alignment](alignment-22335.md) for the strict
+bounty bound, exact supporting-edge review and validation. The preceding report below
+describes the earlier authority and its validation; it is retained as historical evidence.
+
+## Previous alignment
+
 Authority: main `1135c9b24fd03f50cb48eab250879435fd54f528`, including SPEC, ACCEPTANCE,
 ANCHORLESS and SWITCH. The complete Etna documents/rules tree remains unchanged at checked
 main `4bcd0b45a46f6bcfcfd7de2c888033b0c80b9e3f`.

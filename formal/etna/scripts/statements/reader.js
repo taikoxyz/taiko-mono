@@ -77,7 +77,7 @@
     currentSignatureAgreement:
       "Signature-refinement and vote-field agreement at the decoded boundary.",
     currentBountyBound:
-      "The configured slash bounty does not exceed 10,000 basis points.",
+      "The configured slash bounty is below 10,000 basis points; zero is allowed.",
     currentCodec:
       "Consensus value / header codec soundness at every reachable world.",
     currentVoteAttribution:

@@ -2,7 +2,7 @@
 
 The current authorities are `SPEC.md`, `ACCEPTANCE.md`, `ANCHORLESS.md` and `SWITCH.md`
 under `packages/protocol/docs/etna`, pinned to main
-`1135c9b24fd03f50cb48eab250879435fd54f528` (2026-11-03).
+`e84a9aaac526c15597d97ee93f8803f92b02c279` (2026-11-04).
 
 This package proves conditional decoded-design safety. Exact claims live in
 `EtnaStatements/Current.lean`, with composition in `EtnaProofs/Headline/Current.lean`.
@@ -74,6 +74,14 @@ Ordinary recovery preserves the checkpoint/records/head and constructs its exact
 Import closes readiness/trust, preserves signing state and installs the full original-
 generation numeric header interval. Actual EL header contents/indexes, earlier ancestor
 context and stock stores required by SPEC 5.4 remain an explicit abstraction gap.
+
+The current registry admits `0 ≤ slashBountyBps < 10000`; zero pays no reporter
+bounty. Slashing pays `floor(balance * slashBountyBps / 10000)` to the authenticated
+caller, including a self-reporting owner, and the remainder to the fixed sink.
+The current executable-slash premises use the strict bound; general conservation
+lemmas and the separately pinned historical model retain their weaker arithmetic
+bounds. The [PR #22335 alignment](reports/alignment-22335.md) records the authority
+changes and the unchanged deferred derivation, finality and DAO implementation boundaries.
 
 ## Reference and archive authority
 

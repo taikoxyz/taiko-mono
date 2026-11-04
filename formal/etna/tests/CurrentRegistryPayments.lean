@@ -86,4 +86,18 @@ example : (transact env zeroMinimum view 10 4 (.register 3 4 1 3)).token.balance
 example : ((transact env zeroMinimum view 10 4 (.register 3 4 1 3)).registry.ledger.bonds 2).map
     (fun b => b.value.balance) = some 1 := by decide
 example : (executeTransaction env zeroMinimum view 10 4 (.register 3 4 0 3)).isNone = true := by decide
+-- #22335: self-reporting uses the same floor bounty and retains a positive sink share.
+def slashFixture (balance rate : Nat) : State :=
+  let bond : Registry.Bond := ⟨{ oldBond.value with stake := balance },none⟩
+  let ledger := { registry.ledger with bonds := fun i => if i = 0 then some bond else none }
+  let machine := { registry with config := { registry.config with slashBountyBps := rate }, ledger := ledger }
+  let funded := { token with balances := fun a => if a = 100 then balance else 0 }
+  ⟨machine,funded⟩
+example : (executeTransaction env (slashFixture 1001 1000) view 10 4 slash).map Prod.snd =
+    some [⟨100,4,100,false⟩,⟨100,200,901,false⟩] := by decide
+example : (executeTransaction env (slashFixture 1 9999) view 10 4 slash).map Prod.snd =
+    some [⟨100,4,0,false⟩,⟨100,200,1,false⟩] := by decide
+example : (executeTransaction env (slashFixture 10 0) view 10 4 slash).map Prod.snd =
+    some [⟨100,4,0,false⟩,⟨100,200,10,false⟩] := by decide
+example : (executeTransaction env (slashFixture 10 10000) view 10 4 slash).isNone = true := by decide
 end Etna.Design.Current.RegistryPayments.Tests

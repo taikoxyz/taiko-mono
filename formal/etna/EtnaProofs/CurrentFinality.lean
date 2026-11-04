@@ -127,7 +127,7 @@ including positive displaced or forfeited bonds and bonds in later recovery gene
 theorem evidence_future_liability {first : RegistryMachine.World} {key : Hash}
     {a b : Staking.Vote} {sa sb : Hash}
     (initialized : first.inbox.initialized = true)
-    (rate : first.registry.config.slashBountyBps ≤ 10000)
+    (rate : first.registry.config.slashBountyBps < 10000)
     (auth : RegistryMachine.Evidence first.registry first.inbox key a b sa sb) :
     FutureLiability first key a b sa sb := by
   intro later trace id current issued found keySame live positive free
@@ -145,7 +145,7 @@ theorem evidence_retained_id {first later : RegistryMachine.World}
     (auth : RegistryMachine.Evidence first.registry first.inbox original.value.key a b sa sb)
     (present : later.registry.ledger.bonds id = some current)
     (live : current.value.released = false) (positive : 0 < current.value.balance)
-    (free : later.inbox.entered = false) (rate : first.registry.config.slashBountyBps ≤ 10000) :
+    (free : later.inbox.entered = false) (rate : first.registry.config.slashBountyBps < 10000) :
     ∃ next, RegistryMachine.execute later.registry later.inbox later.now (.slash id a b sa sb) = some next :=
   RegistryMachine.evidence_stays_slashable trace issued found initialized auth present live positive free rate
 
@@ -157,7 +157,7 @@ theorem same_round_accountability {c : Consensus.Context} {signature : Consensus
     (validB : Consensus.CommitValid c signature h round b votesB) (conflict : a ≠ b)
     (refinement : SignatureRefinement first.registry signature)
     (domain : first.inbox.domain = c.domain) (generation : c.generation ≤ first.inbox.generation)
-    (initialized : first.inbox.initialized = true) (rate : first.registry.config.slashBountyBps ≤ 10000) :
+    (initialized : first.inbox.initialized = true) (rate : first.registry.config.slashBountyBps < 10000) :
     Committee.totalPower c.unit (Consensus.activeAt c h).members <
       3*Committee.totalPower c.unit (overlap c h votesA votesB) ∧
     ∀ entry ∈ overlap c h votesA votesB, ∃ va ∈ votesA, ∃ vb ∈ votesB,
@@ -250,7 +250,7 @@ theorem shared_prefix_accountability {cfg : Config} {registryA registryB : Regis
     (validB : Consensus.CommitValid (derive cfg registryB (common ++ moreB)) signature h round b votesB)
     (conflict : a ≠ b) (refinement : SignatureRefinement first.registry signature)
     (domain : first.inbox.domain = cfg.domain) (generation : cfg.generation ≤ first.inbox.generation)
-    (initialized : first.inbox.initialized = true) (rate : first.registry.config.slashBountyBps ≤ 10000) :
+    (initialized : first.inbox.initialized = true) (rate : first.registry.config.slashBountyBps < 10000) :
     Accountable first (derive cfg registryA (common ++ moreA)) h votesA votesB :=
   same_round_accountability validA (commit_valid_transport covered registryPrefix validB)
     conflict refinement domain generation initialized rate

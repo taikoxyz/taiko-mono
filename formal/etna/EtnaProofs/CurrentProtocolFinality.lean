@@ -270,21 +270,21 @@ principal authorization is derived from persistent authenticated evidence. -/
 theorem paid_evidence_future_liability {env : Environment} {first : World} {key : Hash}
     {a b : Staking.Vote} {sa sb : Hash}
     (standard : StandardToken env) (initialized : first.initialized = true)
-    (rate : first.registry.registry.config.slashBountyBps ≤ 10000)
+    (rate : first.registry.registry.config.slashBountyBps < 10000)
     (auth : RegistryMachine.Evidence first.registry.registry (registryView env first) key a b sa sb) :
     PaidFutureLiability env first key a b sa sb := by
   intro later run id current caller issued found sameKey live positive free funded
   have stable := RegistryMachine.trace_stable (registry_trace run)
   have evidence := RegistryMachine.evidence_monotone stable.registry.verify stable.domain stable.generation auth
   rw [← sameKey] at evidence
-  have laterRate : later.registry.registry.config.slashBountyBps ≤ 10000 := by
+  have laterRate : later.registry.registry.config.slashBountyBps < 10000 := by
     rw [(trace_fields run).2.2.2.2.2.1]
     exact rate
   obtain ⟨principal,executed⟩ := RegistryMachine.slash_enabled (now := later.number) issued found (stable.initialized initialized)
     free live positive laterRate evidence
   obtain ⟨token,transfers⟩ := RegistryPayments.standard_slash_transfers_available
     env.token.registryAddress env.token.slashSink caller current.value.balance
-    later.registry.registry.config.slashBountyBps later.registry.token laterRate funded
+    later.registry.registry.config.slashBountyBps later.registry.token (Nat.le_of_lt laterRate) funded
   rw [← standard_environment_eq env.token standard] at transfers
   have intents := RegistryPayments.slash_payments_exact env.token later.registry.registry caller id a b sa sb current found
   rw [← intents] at transfers
@@ -304,7 +304,7 @@ theorem protocol_same_round_accountability {env : Environment} {initial w : Worl
     (run : Trace env initial w) (standard : StandardToken env)
     (refinement : Finality.SignatureRefinement initial.registry.registry env.signature)
     (initialized : w.initialized = true)
-    (rate : initial.registry.registry.config.slashBountyBps ≤ 10000)
+    (rate : initial.registry.registry.config.slashBountyBps < 10000)
     {common moreA moreB : List Header} {referenceA referenceB h round a b : Nat}
     {votesA votesB : List Consensus.Vote}
     (covered : Finality.requiredPrefix (config w) h ≤ common.length)
@@ -312,7 +312,7 @@ theorem protocol_same_round_accountability {env : Environment} {initial w : Worl
     (validB : Consensus.CommitValid (policy env w (common ++ moreB) referenceB).consensus env.signature h round b votesB)
     (conflict : a ≠ b) :
     PaidAccountable env w (policy env w (common ++ moreA) referenceA).consensus h votesA votesB := by
-  have currentRate : w.registry.registry.config.slashBountyBps ≤ 10000 := by
+  have currentRate : w.registry.registry.config.slashBountyBps < 10000 := by
     rw [(trace_fields run).2.2.2.2.2.1]
     exact rate
   have liability := Finality.shared_prefix_accountability (cfg := config w)
@@ -350,7 +350,7 @@ theorem current_h2 {env : Environment} {initial w : World} {engine : Finality.En
     (run : Trace env initial w) (standard : StandardToken env)
     (refinement : Finality.SignatureRefinement initial.registry.registry env.signature)
     (initialized : w.initialized = true)
-    (rate : initial.registry.registry.config.slashBountyBps ≤ 10000)
+    (rate : initial.registry.registry.config.slashBountyBps < 10000)
     (codec : CodecSound env w) (honesty : HonestExecutions engine env w)
     (attribution : VoteAttribution engine env w) : H2 env w := by
   constructor

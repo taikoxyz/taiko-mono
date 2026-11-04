@@ -24,7 +24,7 @@ structure Config where
 deployment obligation, not an initializer check against an external evidence policy. -/
 def Config.valid (c : Config) (ledger : Registry.State) : Bool :=
   decide (0 < ledger.activationDelay ∧ 0 < c.exitDelay ∧
-    c.slashBountyBps ≤ 10000 ∧
+    c.slashBountyBps < 10000 ∧
     0 < c.forfeitBps ∧ c.forfeitBps ≤ 10000)
 
 structure State where
@@ -153,7 +153,7 @@ def bondEdit (s : State) (v : InboxView) (now : Nat) (b : Staking.Bond) : Action
     else none
   | .slash _ a z sa sz =>
     if v.initialized = true ∧ b.released = false ∧ 0 < b.balance ∧
-      s.config.slashBountyBps ≤ 10000 ∧ Evidence s v b.key a z sa sz then
+      s.config.slashBountyBps < 10000 ∧ Evidence s v b.key a z sa sz then
       some { b with stake := 0, pendingTopUp := 0, topUpReadyAtL1 := 0, exitAt := min b.exitAt now }
     else none
   | .forfeit _ caller key _ validUntil =>

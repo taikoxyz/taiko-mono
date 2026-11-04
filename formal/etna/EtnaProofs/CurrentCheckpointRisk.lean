@@ -1232,7 +1232,7 @@ theorem economically_at_risk_of_candidate {env : Environment} {registry : Regist
     (sound : VerifierSound env (empty env registry)) (candidate : Candidate env w h)
     (genesis : RegistryMachine.Genesis registry) (standard : ProtocolFinality.StandardToken env)
     (self : env.initialToken.allowances env.token.registryAddress env.token.registryAddress = 0)
-    (rate : registry.config.slashBountyBps ≤ 10000)
+    (rate : registry.config.slashBountyBps < 10000)
     (refinement : Finality.SignatureRefinement registry env.signature)
     (deployment : env.evidenceWindow ≤ registry.config.withdrawalDelay) (initialized : w.initialized = true)
     {common moreA moreB : List Header} {referenceA referenceB round a b : Nat}
