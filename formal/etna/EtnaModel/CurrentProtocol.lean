@@ -79,8 +79,6 @@ structure Environment where
   signature : Consensus.Vote → Prop
   txHash : Blocks.Bytes → Hash
   unzenNextProposal : Nat
-  /-- Deprecated compatibility field; concrete Archive.Authenticated is authoritative. -/
-  archiveAuthenticated : Consensus.Context → List Blocks.Header → Nat → Bool
   timestampOf : Hash → Nat
   catalogue : Blocks.RulesetCatalogue
   payload : List Hash → List Blocks.Block → Bool
@@ -194,7 +192,7 @@ def initializeInbox (env : Environment) (w : World) (caller : Nat) : Option Worl
   if caller = env.core.owner ∧ w.initialized = false ∧ w.inbox.generation = 0 ∧ env.parameters.valid = true ∧
       w.registry.registry.config.inbox = env.core.domain.inbox ∧
       env.parameters.genesisCutoff < w.number ∧
-      w.registry.registry.config.valid w.registry.registry.ledger env.evidenceWindow = true ∧
+      w.registry.registry.config.valid w.registry.registry.ledger = true ∧
       env.token.registryAddress = env.core.domain.registry ∧ env.token.slashSink = env.core.slashSink ∧
       env.token.slashSink ≠ 0 then
     let initial := { w with initialized := true,       inbox := { w.inbox with snapshot := env.parameters.genesisCutoff },       configurations := [(0,env.parameters)] }
@@ -641,7 +639,6 @@ def LiveCertifies (env : Environment) (w : World) (d : StatementData) : Prop :=
 /-- A sound guest certifies the batch only under rules that its declared image implements. -/
 def ImageCertifies (env : Environment) (w : World) (image : Hash) (d : StatementData) : Prop :=
   ∃ archive p bs, BatchCertificate env w d archive p bs ∧
-    CertificateFootprint env w d.input.l1ReferenceBlockNumber ∧
     ∀ b ∈ bs, Blocks.selectedRules b ∈ env.imageRules image
 
 /-- Semantic certificate suffix extracted at the execution-time frontier. No public call

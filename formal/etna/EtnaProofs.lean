@@ -1,6 +1,7 @@
 import EtnaProofs.CurrentCandidate
 import EtnaProofs.CurrentAdmission
 import EtnaProofs.CurrentArchive
+import EtnaProofs.CurrentLookback
 import EtnaProofs.CurrentCertificate
 import EtnaProofs.CurrentUnzen
 import EtnaProofs.CurrentGovernance

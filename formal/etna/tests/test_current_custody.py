@@ -1,5 +1,6 @@
 """Current custody uses actual accepted calls; model-only mutants must compile first."""
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 import unittest
@@ -16,28 +17,26 @@ def read_layer(path):
 
 
 def layers():
+    model_names = ('CurrentProtocol', 'CurrentCustody', 'CurrentJournal',
+                   'CurrentProtocolFinality', 'CurrentEconomics', 'CurrentMetadata')
+    proof_names = ('CurrentReference', 'CurrentHistory', 'CurrentProtocolFinality',
+                   'CurrentEconomics', 'CurrentMetadata', 'CurrentFootprintHistory',
+                   'CurrentCertificate', 'CurrentSettlement', 'CurrentJournal', 'CurrentCustody')
+    cloned = {f'EtnaModel.{name}' for name in model_names}
+    cloned.update(f'EtnaProofs.{name}' for name in proof_names)
     imports, models, proofs = [], [], []
-    for name in ('CurrentProtocol', 'CurrentCustody'):
-        im, body = read_layer(f'EtnaModel/{name}.lean')
-        imports.extend(im)
-        models.append(body)
-    for name in ('CurrentReference', 'CurrentCertificate', 'CurrentSettlement', 'CurrentCustody'):
-        im, body = read_layer(f'EtnaProofs/{name}.lean')
-        imports.extend(im)
-        if name == 'CurrentCustody':
-            # Root journal proofs refer to the original protocol. The local custody
-            # lemmas below already cover landing, roots and nonlanding preservation.
-            body = body.split('/-- Exhaustive successful-call induction.', 1)[0]
-            body += '\nend Etna.Design.Current.Protocol.Custody\n'
-        proofs.append(body)
-    imports = [line for line in imports if line not in {
-        'import EtnaModel.CurrentProtocol', 'import EtnaModel.CurrentCustody',
-        'import EtnaProofs.CurrentReference', 'import EtnaProofs.CurrentCertificate',
-        'import EtnaProofs.CurrentSettlement', 'import EtnaProofs.CurrentJournal'}]
-    imports.append('import EtnaProofs.CurrentBlocks')
+    for library, names, bodies in (('EtnaModel', model_names, models), ('EtnaProofs', proof_names, proofs)):
+        for name in names:
+            im, body = read_layer(f'{library}/{name}.lean')
+            imports.extend(line for line in im if line.removeprefix('import ') not in cloned)
+            if name == 'CurrentCustody' and library == 'EtnaProofs':
+                body = body.split('/-- Exhaustive successful-call induction.', 1)[0]
+                body += '\nend Etna.Design.Current.Protocol.Custody\n'
+            for namespace in ('Protocol', 'Journal', 'ProtocolFinality', 'Economics'):
+                body = re.sub(r'\b' + namespace + r'\b', 'CustodyMutation' + namespace, body)
+            bodies.append(body)
     header = '\n'.join(dict.fromkeys(imports)) + '\nset_option linter.unusedVariables false\n'
-    return header, '\n'.join(models).replace('Protocol', 'CustodyMutationProtocol'), \
-        '\n'.join(proofs).replace('Protocol', 'CustodyMutationProtocol')
+    return header, '\n'.join(models), '\n'.join(proofs)
 
 
 class CurrentCustodyTests(unittest.TestCase):

@@ -28,23 +28,11 @@ theorem authentic_root_reachable {env : Environment} {initial : World} {h : Head
   · exact (switching newNetwork).elim
   · exact reachable
 
-theorem certified_landing {env : Environment} {initial w t : World} {a : Landing}
-    (soundness : VerifierSound env initial) (reach : Trace env initial w)
-    (ok : land env w a = some t) : LiveCertifies env w (statement env w a) := by
-  obtain ⟨sound,cover,verify⟩ := soundness
-  have accepted := (land_success ok).1.proofs
-  obtain ⟨item,member,good⟩ := cover _ accepted
-  obtain ⟨proof,present,rfl⟩ := List.mem_map.mp member
-  have all : ∀ x ∈ a.proofs.map (fun p => (p.backend,
-      decide (p.image ∈ w.images) && env.verify w.verifier p.backend p.image p.bytes (statement env w a))),
-      x.2 = true := by
-    simp only [proofsAccepted,dualOK,Bool.and_eq_true,List.all_eq_true] at accepted
-    exact accepted.1.1.2
-  have verified := all _ (List.mem_map_of_mem present)
-  have bytes : env.verify w.verifier proof.backend proof.image proof.bytes (statement env w a) = true := by
-    simp only [Bool.and_eq_true] at verified
-    exact verified.2
-  exact image_certificate_live (verify w reach a t proof ok present good bytes)
+theorem certified_landing {env : Environment} {registry : RegistryMachine.State} {w t : World} {a : Landing}
+    (genesis : RegistryMachine.Genesis registry)
+    (soundness : VerifierSound env (empty env registry)) (reach : Trace env (empty env registry) w)
+    (ok : land env w a = some t) : LiveCertifies env w (statement env w a) :=
+  Journal.accepted_certificate genesis soundness reach ok
 
 theorem bound_headers_equal {env : Environment} (primitive : Primitives env)
     {x y : Header} (hx : HashBound env x) (hy : HashBound env y) (cut : x.cut = y.cut) : x = y := by
@@ -127,16 +115,17 @@ theorem pending_parent {env : Environment} {initial w t : World} {a : Landing}
     segment.parentHashBound fence
 
 /-- An actual accepted landing creates a full-header custody edge. -/
-theorem accepted_landing_path {env : Environment} {initial w t : World} {a : Landing}
-    (primitive : Primitives env) (soundness : VerifierSound env initial)
-    (reach : Trace env initial w) (ok : land env w a = some t)
-    (inv : Invariant env initial w) (frontier : Frontier w) :
-    ∃ segment : Suffix env w a, Path env initial segment.parent ∧
-      Path env initial (Blocks.terminal segment.parent segment.blocks) := by
+theorem accepted_landing_path {env : Environment} {registry : RegistryMachine.State} {w t : World} {a : Landing}
+    (genesis : RegistryMachine.Genesis registry)
+    (primitive : Primitives env) (soundness : VerifierSound env (empty env registry))
+    (reach : Trace env (empty env registry) w) (ok : land env w a = some t)
+    (inv : Invariant env (empty env registry) w) (frontier : Frontier w) :
+    ∃ segment : Suffix env w a, Path env (empty env registry) segment.parent ∧
+      Path env (empty env registry) (Blocks.terminal segment.parent segment.blocks) := by
   obtain ⟨member,record,cursor⟩ := frontier (land_success ok).1.started
-  have certificate := certified_landing soundness reach ok
+  have certificate := certified_landing genesis soundness reach ok
   obtain ⟨segment⟩ := accepted_suffix_from_certificate ok certificate record
-  have parent : Path env initial segment.parent := by
+  have parent : Path env (empty env registry) segment.parent := by
     rcases inv.records _ member with certified | pending
     · obtain ⟨h,matched,bound,path⟩ := certified
       have cut : segment.parent.cut = h.cut := by rw [matched.2,cursor]; exact segment.parentCut
@@ -145,11 +134,12 @@ theorem accepted_landing_path {env : Environment} {initial w t : World} {a : Lan
     · exact pending_parent primitive reach ok inv segment cursor record pending certificate
   exact ⟨segment,parent,.landing reach ok segment parent⟩
 
-theorem landing_invariant {env : Environment} {initial w t : World} {a : Landing}
-    (primitive : Primitives env) (soundness : VerifierSound env initial)
-    (reach : Trace env initial w) (ok : land env w a = some t)
-    (inv : Invariant env initial w) (frontier : Frontier w) : Invariant env initial t := by
-  obtain ⟨segment,parent,path⟩ := accepted_landing_path primitive soundness reach ok inv frontier
+theorem landing_invariant {env : Environment} {registry : RegistryMachine.State} {w t : World} {a : Landing}
+    (genesis : RegistryMachine.Genesis registry)
+    (primitive : Primitives env) (soundness : VerifierSound env (empty env registry))
+    (reach : Trace env (empty env registry) w) (ok : land env w a = some t)
+    (inv : Invariant env (empty env registry) w) (frontier : Frontier w) : Invariant env (empty env registry) t := by
+  obtain ⟨segment,parent,path⟩ := accepted_landing_path genesis primitive soundness reach ok inv frontier
   have bound := suffix_terminal_bound segment
   rcases land_success ok with ⟨_,rfl⟩
   refine ⟨?_,?_,inv.unzen⟩
@@ -241,10 +231,11 @@ theorem unzen_invariant {env : Environment} {initial w t : World} {proposal proo
   next => simp at ok
 
 /-- Exhaustive successful-call induction. No public action is hidden behind a frame premise. -/
-theorem execute_invariant {env : Environment} {initial w t : World} {call : Call}
-    (primitive : Primitives env) (soundness : VerifierSound env initial)
-    (reach : Trace env initial w) (inv : Invariant env initial w) (frontier : Frontier w)
-    (ok : execute env w call = some t) : Invariant env initial t := by
+theorem execute_invariant {env : Environment} {registry : RegistryMachine.State} {w t : World} {call : Call}
+    (genesis : RegistryMachine.Genesis registry)
+    (primitive : Primitives env) (soundness : VerifierSound env (empty env registry))
+    (reach : Trace env (empty env registry) w) (inv : Invariant env (empty env registry) w) (frontier : Frontier w)
+    (ok : execute env w call = some t) : Invariant env (empty env registry) t := by
   cases call with
   | advance number =>
     change advance env w number = some t at ok
@@ -338,7 +329,7 @@ theorem execute_invariant {env : Environment} {initial w t : World} {call : Call
       exact frame_invariant inv (fun _ h => (List.mem_filter.mp h).1)
         (fun _ h => (List.mem_filter.mp h).1) rfl rfl rfl
     next => simp at ok
-  | land a => exact landing_invariant primitive soundness reach ok inv frontier
+  | land a => exact landing_invariant genesis primitive soundness reach ok inv frontier
   | unzenProve proposal header proof => exact unzen_invariant primitive inv ok
   | image caller image register | verifier caller version =>
     simp only [Protocol.execute] at ok
@@ -374,6 +365,7 @@ theorem empty_invariant (env : Environment) (registry : RegistryMachine.State) :
 
 /-- Whole current-machine custody, including failed transactions and node events. -/
 theorem trace_invariant {env : Environment} {registry : RegistryMachine.State} {w : World}
+    (genesis : RegistryMachine.Genesis registry)
     (primitive : Primitives env) (soundness : VerifierSound env (empty env registry))
     (trace : Trace env (empty env registry) w) : Invariant env (empty env registry) w := by
   induction trace with
@@ -384,25 +376,27 @@ theorem trace_invariant {env : Environment} {registry : RegistryMachine.State} {
       cases ok : execute env previous call with
       | none => simpa [transact,ok] using ih
       | some t =>
-        have inv := execute_invariant primitive soundness prior ih
+        have inv := execute_invariant genesis primitive soundness prior ih
           (Journal.trace_frontier_record prior) ok
         simpa [transact,ok] using inv
     | node after verified => exact unchanged_invariant ih rfl rfl rfl rfl rfl
 
 /-- Every funds-authorizing Etna signal has a complete current custody path. -/
 theorem funds_authorized {env : Environment} {registry : RegistryMachine.State} {w : World}
+    (genesis : RegistryMachine.Genesis registry)
     (primitive : Primitives env) (soundness : VerifierSound env (empty env registry))
     (trace : Trace env (empty env registry) w) :
     ∀ signal ∈ w.inbox.signals, SignalSafe env (empty env registry) signal :=
-  (trace_invariant primitive soundness trace).signals
+  (trace_invariant genesis primitive soundness trace).signals
 
 /-- Every successful landing edge has the same concrete path and exact endpoint. -/
 theorem landing_edge_authorized {env : Environment} {registry : RegistryMachine.State} {w t : World} {a : Landing}
+    (genesis : RegistryMachine.Genesis registry)
     (primitive : Primitives env) (soundness : VerifierSound env (empty env registry))
     (trace : Trace env (empty env registry) w) (accepted : land env w a = some t) :
     ∃ segment : Suffix env w a, Path env (empty env registry) segment.parent ∧
       Path env (empty env registry) (Blocks.terminal segment.parent segment.blocks) :=
-  accepted_landing_path primitive soundness trace accepted (trace_invariant primitive soundness trace)
+  accepted_landing_path genesis primitive soundness trace accepted (trace_invariant genesis primitive soundness trace)
     (Journal.trace_frontier_record trace)
 
 end Etna.Design.Current.Protocol.Custody

@@ -20,12 +20,11 @@ structure Config where
   inbox : Nat := 2
   deriving DecidableEq, Repr
 
-/-- The evidence duration is a fixed deployment policy, not a slash caller input.
-The specification suggests seven days but requires the withdrawal delay to cover the
-deployment's entire evidence window. -/
-def Config.valid (c : Config) (ledger : Registry.State) (evidenceWindow : Nat) : Bool :=
+/-- Physical immutable-parameter checks. PARAM-11-11's evidence-window sizing is a
+deployment obligation, not an initializer check against an external evidence policy. -/
+def Config.valid (c : Config) (ledger : Registry.State) : Bool :=
   decide (0 < ledger.activationDelay ∧ 0 < c.exitDelay ∧
-    0 < evidenceWindow ∧ evidenceWindow ≤ c.withdrawalDelay ∧ c.slashBountyBps ≤ 10000 ∧
+    c.slashBountyBps ≤ 10000 ∧
     0 < c.forfeitBps ∧ c.forfeitBps ≤ 10000)
 
 structure State where

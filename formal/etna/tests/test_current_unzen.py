@@ -57,7 +57,7 @@ class CurrentUnzenTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(result.stdout + result.stderr, '')
 
-    def test_all_fourteen_premises_switch_and_two_lane_theorem(self):
+    def test_all_fifteen_premises_switch_and_two_lane_theorem(self):
         result = subprocess.run(['lake', 'env', 'lean', 'tests/CurrentSwitch.lean'], cwd=ROOT,
                                 capture_output=True, text=True, timeout=120)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

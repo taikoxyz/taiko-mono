@@ -40,7 +40,6 @@ def env : Environment where
   signature := fun v => v.key = 7
   txHash := fun raw => raw.length
   unzenNextProposal := 0
-  archiveAuthenticated := fun _ _ _ => true
   timestampOf := fun _ => 0
   catalogue := fun _ => none
   payload := fun _ _ => true

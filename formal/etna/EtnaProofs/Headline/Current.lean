@@ -26,10 +26,10 @@ theorem catalogue_bytes {env : Environment} {w : World} {archive : List Blocks.H
 
 theorem fund_safety : FundSafety := by
   intro env registry engine premises w trace
-  refine ⟨Custody.trace_coherent premises.currentPrimitives premises.currentVerifierSound trace,
+  refine ⟨Custody.trace_coherent premises.currentRegistryGenesis premises.currentPrimitives premises.currentVerifierSound trace,
     Custody.trace_legacy_authenticated premises.currentPrimitives trace,?_,?_,?_,?_,?_,?_⟩
   · intro a t accepted
-    exact Custody.landing_edge_authorized premises.currentPrimitives premises.currentVerifierSound trace accepted
+    exact Custody.landing_edge_authorized premises.currentRegistryGenesis premises.currentPrimitives premises.currentVerifierSound trace accepted
   · intro later future ever
     exact Custody.trace_start_frozen trace ever future
   · intro other a same
@@ -39,12 +39,14 @@ theorem fund_safety : FundSafety := by
   · intro start written caller height hash root
     exact Custody.set_origin_once written caller height hash root
   · intro switching
-    exact Custody.trace_legacy_etna_disjoint switching premises.currentPrimitives
-      premises.currentUnzenExtension premises.currentVerifierSound trace
+    exact ⟨Custody.trace_legacy_etna_disjoint premises.currentRegistryGenesis switching premises.currentPrimitives
+      premises.currentUnzenExtension premises.currentVerifierSound trace,
+      Custody.trace_switching_fence premises.currentRegistryGenesis switching premises.currentPrimitives
+        premises.currentUnzenExtension premises.currentVerifierSound trace⟩
 
 theorem accountable_finality : AccountableFinality := by
   intro env registry engine premises w trace initialized
-  refine ⟨?_,?_,?_,?_,?_,?_⟩
+  refine ⟨?_,?_,?_,?_,?_,?_,?_⟩
   · intro common moreA moreB referenceA referenceB h round a b votesA votesB covered validA validB conflict
     exact Economics.economically_accountable premises.currentRegistryGenesis premises.currentStandardToken
       premises.currentSelfAllowance premises.currentBountyBound trace premises.currentSignatureAgreement
@@ -64,14 +66,17 @@ theorem accountable_finality : AccountableFinality := by
     exact CheckpointRisk.economically_at_risk_of_candidate run started premises.currentPrimitives
       premises.currentVerifierSound candidate premises.currentRegistryGenesis premises.currentStandardToken
       premises.currentSelfAllowance premises.currentBountyBound premises.currentSignatureAgreement
-      initialized shape covered validA validB conflict
+      premises.currentEvidenceWindow.2 initialized shape covered validA validB conflict
+  · intro run started h _above candidate elected
+    exact CheckpointRisk.committee_retained_of_candidate premises.currentRegistryGenesis
+      run started premises.currentPrimitives premises.currentVerifierSound candidate elected
 
 theorem forced_inclusion_integrity : ForcedInclusionIntegrity := by
   intro env registry engine premises w trace
   refine ⟨Journal.trace_invariant trace,QueueIntegrity.trace_head_bounds trace,?_,?_,?_,?_,?_,?_,?_,?_,?_⟩
   · intro a t accepted
     obtain ⟨segment,indices,actions,unchanged⟩ :=
-      QueueIntegrity.landing_service premises.currentVerifierSound trace accepted
+      QueueIntegrity.landing_service premises.currentRegistryGenesis premises.currentVerifierSound trace accepted
     refine ⟨segment,indices,?_,unchanged⟩
     intro x member
     obtain ⟨entry,queued,first,action⟩ := actions x member
@@ -99,7 +104,7 @@ theorem forced_inclusion_integrity : ForcedInclusionIntegrity := by
     obtain ⟨trusted,_,signer,_,_,_,_,_,headers⟩ := QueueIntegrity.node_import_closed accepted
     exact ⟨trusted,signer,headers⟩
 
-/-- Actual ghost-erased DAO upgrade histories require explicit historical authorization.
+/-- Actual instrumented raw DAO upgrade histories require explicit historical authorization.
 The owner address alone does not imply the correction/rollback admissibility policy. -/
 theorem deployed_claims {env : Environment} {registry : RegistryMachine.State} {engine : Finality.Engine}
     {w : World} (premises : Premises env registry engine)

@@ -14,7 +14,9 @@
         "lowStake": 10,
         "lowPending": 0,
         "secondLowIndex": null,
-        "vacantLow": false
+        "vacantLow": false,
+        "landedSnapshot": 0,
+        "vacancyLifecycle": null
       },
       "call": {
         "fn": "register",
@@ -72,7 +74,9 @@
         "lowStake": 10,
         "lowPending": 0,
         "secondLowIndex": null,
-        "vacantLow": false
+        "vacantLow": false,
+        "landedSnapshot": 0,
+        "vacancyLifecycle": null
       },
       "call": {
         "fn": "register",
@@ -96,7 +100,9 @@
         "lowStake": 10,
         "lowPending": 0,
         "secondLowIndex": null,
-        "vacantLow": false
+        "vacantLow": false,
+        "landedSnapshot": 0,
+        "vacancyLifecycle": null
       },
       "call": {
         "fn": "register",
@@ -120,7 +126,9 @@
         "lowStake": 10,
         "lowPending": 0,
         "secondLowIndex": 4095,
-        "vacantLow": false
+        "vacantLow": false,
+        "landedSnapshot": 0,
+        "vacancyLifecycle": null
       },
       "call": {
         "fn": "register",
@@ -178,7 +186,9 @@
         "lowStake": 10,
         "lowPending": 1,
         "secondLowIndex": 4095,
-        "vacantLow": false
+        "vacantLow": false,
+        "landedSnapshot": 0,
+        "vacancyLifecycle": null
       },
       "call": {
         "fn": "register",
@@ -236,7 +246,9 @@
         "lowStake": 20,
         "lowPending": 0,
         "secondLowIndex": null,
-        "vacantLow": false
+        "vacantLow": false,
+        "landedSnapshot": 0,
+        "vacancyLifecycle": null
       },
       "call": {
         "fn": "register",
@@ -294,7 +306,28 @@
         "lowStake": 10,
         "lowPending": 0,
         "secondLowIndex": null,
-        "vacantLow": true
+        "vacantLow": true,
+        "landedSnapshot": 2,
+        "vacancyLifecycle": {
+          "requestBlock": 1,
+          "exitAt": 2,
+          "confirmBlock": 2,
+          "withdrawBlock": 5,
+          "recipient": 7,
+          "withdrawnBond": {
+            "key": 4096,
+            "owner": 0,
+            "stake": 0,
+            "pending": 0,
+            "balance": 0,
+            "activeFrom": 1,
+            "exitAt": 2,
+            "released": true,
+            "confirmedAt": null,
+            "readyAt": 0,
+            "slot": null
+          }
+        }
       },
       "call": {
         "fn": "register",
@@ -340,7 +373,9 @@
         "lowStake": 7,
         "lowPending": 3,
         "secondLowIndex": null,
-        "vacantLow": false
+        "vacantLow": false,
+        "landedSnapshot": 0,
+        "vacancyLifecycle": null
       },
       "call": {
         "fn": "register",
@@ -364,7 +399,7 @@
           "exitAt": 10,
           "released": false,
           "confirmedAt": null,
-          "readyAt": 1,
+          "readyAt": 2,
           "slot": null
         },
         "newBond": {

@@ -5,10 +5,11 @@ namespace Etna.CurrentCustodyRegression
 open Etna.Design Etna.Design.Current Protocol
 
 example {env : Environment} {registry : RegistryMachine.State} {w : World}
+    (genesis : RegistryMachine.Genesis registry)
     (primitive : Custody.Primitives env) (sound : VerifierSound env (empty env registry))
     (trace : Trace env (empty env registry) w) :
     ∀ s ∈ w.inbox.signals, Custody.SignalSafe env (empty env registry) s :=
-  Custody.funds_authorized primitive sound trace
+  Custody.funds_authorized genesis primitive sound trace
 
 -- A nonzero S requires only relative-grid divisibility, keeping absolute leaf heights.
 example : (8-5)/3-1 < gridCount 3 5 11 ∧ 5+3*((8-5)/3-1+1) = 8 ∧
@@ -46,7 +47,6 @@ def env : Environment where
   signature := fun _ => True
   txHash := fun _ => 0
   unzenNextProposal := 2
-  archiveAuthenticated := fun _ _ _ => true
   timestampOf := fun _ => 1
   catalogue := fun id => if id = 0 then some definition else none
   payload := fun _ _ => true
@@ -428,7 +428,8 @@ example : (Governance.rawRollback env afterFirst 7 source.inbox.checkpoint 999).
     ¬ Governance.UpgradeAuthorized afterFirst (.rollback 7 source.inbox.checkpoint 999) := by
   constructor
   · decide +kernel
-  · change ¬ (source.inbox.checkpoint,999) ∈ afterFirst.activeSnapshots
+  · change ¬ (source.inbox.checkpoint ∈ afterFirst.activeRecords ∧
+      (source.inbox.checkpoint,999) ∈ afterFirst.activeSnapshots)
     decide +kernel
 
 end Etna.CurrentCustodyRegression

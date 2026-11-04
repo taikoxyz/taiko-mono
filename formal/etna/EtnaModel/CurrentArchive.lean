@@ -30,4 +30,10 @@ def Authenticated (hash : Header → Hash) (parentOf : Hash → Hash)
     (∀ b ∈ bs, parentOf b.header.elHash = b.body.parentHash) ∧
     cfg.originBlock ≤ reference ∧ (∀ h ∈ archive, h.anchor.number ≤ reference)
 
+/-- The historical headers retained for the next ordinary decision, including its
+exact decision header, or the generation origin when the lookback precedes it. -/
+def decisionWindow (cfg : Finality.Config) (root : Header) (prior : List Header) (p : Header) :
+    List Header :=
+  (root :: prior).drop (Finality.decisionLookback cfg (p.height+1)-root.height)
+
 end Etna.Design.Current.Archive

@@ -10,17 +10,27 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class CurrentReferenceTests(unittest.TestCase):
     def sources(self):
+        models = ('CurrentProtocol', 'CurrentJournal', 'CurrentProtocolFinality',
+                  'CurrentEconomics', 'CurrentMetadata')
+        proofs = ('CurrentReference', 'CurrentHistory', 'CurrentProtocolFinality',
+                  'CurrentEconomics', 'CurrentMetadata', 'CurrentFootprintHistory',
+                  'CurrentCertificate')
+        cloned = {f'EtnaModel.{name}' for name in models}
+        cloned.update(f'EtnaProofs.{name}' for name in proofs)
         imports, bodies = [], []
-        for library, name in [('EtnaModel', 'CurrentProtocol'), ('EtnaProofs', 'CurrentReference'),
-                              ('EtnaProofs', 'CurrentCertificate')]:
-            body = []
-            for line in (ROOT / library / (name + '.lean')).read_text().splitlines():
-                if line.startswith('import '):
-                    if line not in ('import EtnaModel.CurrentProtocol', 'import EtnaProofs.CurrentReference'):
-                        imports.append(line)
-                else:
-                    body.append(line)
-            bodies.append(re.sub(r'\bProtocol\b', 'ReferenceMutationProtocol', '\n'.join(body)))
+        for library, names in (('EtnaModel', models), ('EtnaProofs', proofs)):
+            for name in names:
+                body = []
+                for line in (ROOT / library / (name + '.lean')).read_text().splitlines():
+                    if line.startswith('import '):
+                        if line.removeprefix('import ') not in cloned:
+                            imports.append(line)
+                    else:
+                        body.append(line)
+                renamed = '\n'.join(body)
+                for namespace in ('Protocol', 'Journal', 'ProtocolFinality', 'Economics'):
+                    renamed = re.sub(r'\b' + namespace + r'\b', 'ReferenceMutation' + namespace, renamed)
+                bodies.append(renamed)
         return '\n'.join(dict.fromkeys(imports)) + '\n', bodies[0], '\n'.join(bodies[1:])
 
     def compile(self, source):
@@ -64,8 +74,25 @@ class CurrentReferenceTests(unittest.TestCase):
         self.reject('''(referencePrefix w d.input.l1ReferenceBlockNumber).map Snapshot.number =
       List.range (d.input.l1ReferenceBlockNumber+1)''', 'True')
 
+    def test_statement_generation_binds_reference_to_live_generation(self):
+        self.reject('⟨w.inbox.domain,w.inbox.generation,w.inbox.committeeConfig,origin.elHash,origin.cometHash,origin.cursor,',
+                    '⟨w.inbox.domain,0,w.inbox.committeeConfig,origin.elHash,origin.cometHash,origin.cursor,')
+
+    def test_image_certificate_has_no_live_storage_premise(self):
+        model = (ROOT / 'EtnaModel/CurrentProtocol.lean').read_text()
+        image = model.split('def ImageCertifies ', 1)[1].split('/-- Semantic', 1)[0]
+        self.assertNotIn('CertificateFootprint', image)
+        environment = model.split('structure Environment where', 1)[1].split('structure World where', 1)[0]
+        self.assertNotIn('archiveAuthenticated', environment)
+
     def test_general_transport_and_operational_bound(self):
         result = subprocess.run(['lake', 'env', 'lean', 'tests/CurrentReference.lean'],
+                                cwd=ROOT, capture_output=True, text=True, timeout=120)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout + result.stderr, '')
+
+    def test_reachable_recovery_stale_reference_rejected_by_bound_certificate(self):
+        result = subprocess.run(['lake', 'env', 'lean', 'tests/CurrentCertificateFootprint.lean'],
                                 cwd=ROOT, capture_output=True, text=True, timeout=120)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(result.stdout + result.stderr, '')

@@ -1,5 +1,6 @@
 import EtnaProofs.CurrentReference
 import EtnaProofs.CurrentArchive
+import EtnaProofs.CurrentFootprintHistory
 
 namespace Etna.Design.Current.Protocol
 set_option linter.unusedSimpArgs false
@@ -279,9 +280,65 @@ theorem batch_certificate_live {env : Environment} {w : World} {d : StatementDat
   · simpa only [fp.start] using start
   · simpa only [certificate_world_idempotent,fp.configuration] using auth
 
+/-- Binding the actual submitted statement to its reference-local certificate fixes the
+closed generation. Actual history then supplies the live storage used by that guest. -/
+theorem certified_statement_footprint {env : Environment} {registry : RegistryMachine.State}
+    {w : World} {a : Landing} (genesis : RegistryMachine.Genesis registry)
+    (reach : Trace env (empty env registry) w)
+    (cert : Certifies env w (statement env w a)) :
+    CertificateFootprint env w a.input.l1ReferenceBlockNumber := by
+  obtain ⟨archive,p,bs,checked,complete,origin⟩ := cert
+  have binding := checked.2.2.1
+  change (referencePrefix w a.input.l1ReferenceBlockNumber).map Snapshot.number =
+    List.range (a.input.l1ReferenceBlockNumber+1) at complete
+  change (certificateOrigin (certificateWorld env w a.input.l1ReferenceBlockNumber)).isSome = true at origin
+  change statement env w a = Blocks.statement
+    (policy env (certificateWorld env w a.input.l1ReferenceBlockNumber) archive a.input.l1ReferenceBlockNumber)
+    p bs a.blobs at binding
+  have lastNumber : ((referencePrefix w a.input.l1ReferenceBlockNumber).getLast?.map Snapshot.number) =
+      some a.input.l1ReferenceBlockNumber := by
+    rw [← List.getLast?_map,complete,List.getLast?_range]
+    simp
+  obtain ⟨s,last,number⟩ := Option.map_eq_some_iff.mp lastNumber
+  have member : s ∈ w.history := (List.take_subset _ _) (List.mem_of_getLast? last)
+  obtain ⟨before,prior,later,inbox,start⟩ := closed_snapshot_provenance reach s member
+  have sourceInbox : (certificateWorld env w a.input.l1ReferenceBlockNumber).inbox = before.inbox := by
+    simpa only [certificateWorld,last,Option.getD_some] using inbox
+  have sourceStart : (certificateWorld env w a.input.l1ReferenceBlockNumber).start = before.start := by
+    simpa only [certificateWorld,last,Option.getD_some] using start
+  have generation := congrArg StatementData.generation binding
+  change w.inbox.generation = (certificateWorld env w a.input.l1ReferenceBlockNumber).inbox.generation at generation
+  rw [sourceInbox] at generation
+  have started : before.start.isSome = true := by
+    cases absent : before.start with
+    | some _ => rfl
+    | none =>
+      have records := trace_unstarted_records prior absent
+      simp only [certificateOrigin,recordAt] at origin
+      rw [sourceInbox,records] at origin
+      cases origin
+  have parameters := Economics.trace_same_generation_parameters later generation
+  have configuration := trace_same_generation_config prior later started generation
+  have committee := congrArg StatementData.config binding
+  change w.inbox.committeeConfig = (certificateWorld env w a.input.l1ReferenceBlockNumber).inbox.committeeConfig at committee
+  constructor
+  · change config (certificateWorld env w a.input.l1ReferenceBlockNumber) = config w
+    simpa only [config,sourceInbox] using configuration.symm
+  · change parametersOf (certificateWorld env w a.input.l1ReferenceBlockNumber).inbox = parametersOf w.inbox
+    rw [sourceInbox]; exact parameters.symm
+  · exact committee.symm
+  · rw [sourceStart]; exact (trace_started_metadata prior later started generation).1.symm
+  · have history := (Economics.closed_registry_history reach s member).2
+    simp only [certificateWorld,last,Option.getD_some]
+    change s.registryHistory.filter (fun cp => decide (cp.block ≤ a.input.l1ReferenceBlockNumber)) = _
+    rw [← number]
+    exact history.symm
+  · exact (Economics.registry_history_time genesis reach).1
+
 theorem image_certificate_live {env : Environment} {w : World} {image : Hash} {d : StatementData}
-    (cert : ImageCertifies env w image d) : LiveCertifies env w d := by
-  obtain ⟨archive,p,bs,checked,footprint,_⟩ := cert
+    (cert : ImageCertifies env w image d)
+    (footprint : CertificateFootprint env w d.input.l1ReferenceBlockNumber) : LiveCertifies env w d := by
+  obtain ⟨archive,p,bs,checked,_⟩ := cert
   exact ⟨archive,p,bs,batch_certificate_live checked footprint⟩
 
 /-- The authenticated actual governing cutoff is no later than the reference. -/

@@ -105,19 +105,20 @@ set_option linter.unusedSimpArgs false
         omega)⟩,height,hash,root⟩
   next => simp at ok
 
- theorem landing_coherent {env : Environment} {initial w t : World} {a : Landing}
-    (primitive : Primitives env) (soundness : VerifierSound env initial)
-    (reach : Trace env initial w) (ok : land env w a = some t)
-    (old : Invariant env initial w) (held : Coherent env initial w) (frontier : Frontier w) :
-    Coherent env initial t := by
+ theorem landing_coherent {env : Environment} {registry : RegistryMachine.State} {w t : World} {a : Landing}
+    (genesis : RegistryMachine.Genesis registry)
+    (primitive : Primitives env) (soundness : VerifierSound env (empty env registry))
+    (reach : Trace env (empty env registry) w) (ok : land env w a = some t)
+    (old : Invariant env (empty env registry) w) (held : Coherent env (empty env registry) w) (frontier : Frontier w) :
+    Coherent env (empty env registry) t := by
   have checks := (land_success ok).1
   obtain ⟨member,record,cursor⟩ := frontier checks.started
-  have certificate := certified_landing soundness reach ok
+  have certificate := certified_landing genesis soundness reach ok
   obtain ⟨segment⟩ := accepted_suffix_from_certificate ok certificate record
   have existing : ∃ H : Checkpoint → Header,
       w.activeRecords.head? = some w.inbox.checkpoint ∧
       (∀ cp ∈ w.activeRecords, HeaderOf cp (H cp) ∧ HashBound env (H cp)) ∧
-      Linked env initial w.start H w.activeRecords ∧
+      Linked env (empty env registry) w.start H w.activeRecords ∧
       (∀ signal ∈ w.inbox.signals, ∃ cp ∈ w.activeRecords,
         cp.height = signal.height ∧ cp.elHash = signal.hash ∧ (H cp).stateRoot = signal.stateRoot) ∧
       H w.inbox.checkpoint = segment.parent := by
@@ -126,7 +127,7 @@ set_option linter.unusedSimpArgs false
       · simp [none] at member
       · obtain ⟨fence,legacy,retained,auth,starts⟩ :=
           pending_parent_fence primitive reach ok old segment cursor record pending certificate
-        have rootAuth : AuthenticRoot env initial segment.parent :=
+        have rootAuth : AuthenticRoot env (empty env registry) segment.parent :=
           Or.inr ⟨w,t,a,legacy,reach,ok,fence,retained,auth,starts⟩
         obtain ⟨start,written,atStart,switching,complete,finalized,checkpoint,hash,root,
           height,el,state,implementation,preFork⟩ := fence
@@ -160,7 +161,7 @@ set_option linter.unusedSimpArgs false
     simp [G,fresh r mem]
   have newHeader : G cp = terminal := by simp [G]
   have parentHeader : G w.inbox.checkpoint = segment.parent := (kept _ member).trans parent
-  have edge : Edge env initial (G w.inbox.checkpoint) (G cp) :=
+  have edge : Edge env (empty env registry) (G w.inbox.checkpoint) (G cp) :=
     ⟨w,t,a,segment,reach,ok,parentHeader.symm,newHeader.symm⟩
   rcases land_success ok with ⟨_,rfl⟩
   refine Or.inr ⟨G,rfl,?_,?_,?_⟩
@@ -171,7 +172,7 @@ set_option linter.unusedSimpArgs false
     · rw [kept r oldMember]
       exact headers r oldMember
   · have prior := linked_map links kept
-    change Linked env initial w.start G (cp :: w.activeRecords)
+    change Linked env (empty env registry) w.start G (cp :: w.activeRecords)
     rw [records] at prior ⊢
     exact .step cp w.inbox.checkpoint rest rfl checks.progress edge prior
   · intro signal mem
@@ -224,11 +225,12 @@ set_option linter.unusedSimpArgs false
       exact frame_coherent held rfl rfl rfl rfl
   next => simp at ok
 
-theorem execute_coherent {env : Environment} {initial w t : World} {call : Call}
-    (primitive : Primitives env) (soundness : VerifierSound env initial)
-    (reach : Trace env initial w) (inv : Invariant env initial w)
-    (held : Coherent env initial w) (frontier : Frontier w)
-    (ok : execute env w call = some t) : Coherent env initial t := by
+theorem execute_coherent {env : Environment} {registry : RegistryMachine.State} {w t : World} {call : Call}
+    (genesis : RegistryMachine.Genesis registry)
+    (primitive : Primitives env) (soundness : VerifierSound env (empty env registry))
+    (reach : Trace env (empty env registry) w) (inv : Invariant env (empty env registry) w)
+    (held : Coherent env (empty env registry) w) (frontier : Frontier w)
+    (ok : execute env w call = some t) : Coherent env (empty env registry) t := by
   cases call with
   | advance number =>
     change advance env w number = some t at ok
@@ -315,7 +317,7 @@ theorem execute_coherent {env : Environment} {initial w t : World} {call : Call}
     next => cases Option.some.inj ok; exact frame_coherent held rfl rfl rfl rfl
     next => simp at ok
   | rollback caller trusted restored => exact rollback_coherent held ok
-  | land a => exact landing_coherent primitive soundness reach ok inv held frontier
+  | land a => exact landing_coherent genesis primitive soundness reach ok inv held frontier
   | unzenProve proposal header proof =>
     change unzenProve env w proposal header proof = some t at ok
     unfold unzenProve at ok
@@ -356,6 +358,7 @@ theorem execute_coherent {env : Environment} {initial w t : World} {call : Call}
 
 /-- Every actual successful call, revert and node event preserves the shared chain. -/
  theorem trace_coherent {env : Environment} {registry : RegistryMachine.State} {w : World}
+    (genesis : RegistryMachine.Genesis registry)
     (primitive : Primitives env) (soundness : VerifierSound env (empty env registry))
     (trace : Trace env (empty env registry) w) : Coherent env (empty env registry) w := by
   induction trace with
@@ -366,8 +369,8 @@ theorem execute_coherent {env : Environment} {initial w t : World} {call : Call}
       cases ok : execute env previous call with
       | none => simpa [transact,ok] using ih
       | some t =>
-        have invariant := execute_coherent primitive soundness prior
-          (trace_invariant primitive soundness prior) ih (Journal.trace_frontier_record prior) ok
+        have invariant := execute_coherent genesis primitive soundness prior
+          (trace_invariant genesis primitive soundness prior) ih (Journal.trace_frontier_record prior) ok
         simpa [transact,ok] using invariant
     | node after verified => exact frame_coherent ih rfl rfl rfl rfl
 

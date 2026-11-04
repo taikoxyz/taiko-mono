@@ -226,13 +226,6 @@
       ],
       "reason": "Supporting decoded atomic landed-world value and its saved checkpoint/snapshot association. The single result value updates checkpoint, snapshot, FI head, slot-285 record and Etna signal; no Solidity/external-call/storage atomicity proof. Custody-chain invariants are not evidence for this update rule."
     },
-    "PARAM-11-11": {
-      "clause": "LIVE_EN-056492c07d9386c9",
-      "theorems": [
-        "Etna.Design.Current.CheckpointRisk.initialized_evidence_window"
-      ],
-      "reason": "Actual initialization plus preserved registry configuration derives evidenceWindow <= withdrawalDelay. No claim about the other registry numeric/address/crypto parameters in the shared row is added."
-    },
     "PROOF-6.2-10": {
       "theorems": [
         "Etna.Design.Current.Protocol.accepted_suffix_from_certificate"
@@ -257,9 +250,13 @@
         "Etna.Design.Current.Archive.actual_linked",
         "Etna.Design.Current.Archive.actual_body_parent",
         "Etna.Design.Current.Archive.cutoff_agrees_at_ancestor",
-        "Etna.Design.Current.Protocol.accepted_certificate_checkpoint_split"
+        "Etna.Design.Current.Protocol.accepted_certificate_checkpoint_split",
+        "Etna.Design.Current.Archive.decisionWindow_length_le",
+        "Etna.Design.Current.Archive.decisionWindow_ancestry",
+        "Etna.Design.Current.Archive.decisionWindow_decision_header",
+        "Etna.Design.Current.Archive.decisionWindow_cutoff_eq"
       ],
-      "reason": "The concrete authenticated archive physically links the actual batch parent/headers and the accepted checkpoint; fixed parent/hash-to-anchor refinements make its ancestral cutoff unique. Raw EL header decoding/hash correctness and the L+2 resource bound are not proved."
+      "reason": "Full semantic archive ancestry binds the real parent/batch/checkpoint and uniquely fixes the decoded ancestral cutoff. A separately extracted ordinary decision suffix preserves physical links and exact post-origin cutoff and has at most L+2 headers. The accepted certificate still requires complete ancestry: refinement to an L+2-only guest, byte decoding and separate L1/recovery material budgets remain deferred."
     },
     "PROOF-6.2-14": {
       "clause": "LIVE_EN-4b408fa419d8782a",
@@ -485,9 +482,10 @@
         "Etna.Design.Current.RegistryMachine.confirm_blocked_above_snapshot",
         "Etna.Design.Current.StakeRisk.selected_unconfirmed",
         "Etna.Design.Current.StakeRisk.committee_unconfirmed",
-        "Etna.Design.Current.CheckpointRisk.economically_at_risk_of_candidate"
+        "Etna.Design.Current.CheckpointRisk.economically_at_risk_of_candidate",
+        "Etna.Design.Current.CheckpointRisk.committee_retained_of_candidate"
       ],
-      "reason": "The decoded confirm action rejects when actual landed snapshot is below effective exit; actual ordinary-history selected overlap bonds are consequently derived unconfirmed. Other confirmation guards and first/idempotent clock writes are separate obligations."
+      "reason": "The decoded confirm action rejects when actual landed snapshot is below effective exit; actual ordinary-history selected overlap bonds are consequently derived unconfirmed. Other confirmation guards and first/idempotent clock writes are separate obligations. The whole valid candidate committee, independent of overlap/round, is retained under rollback-free fresh-deployment execution; no post-rollback restart or original-amount guarantee is asserted."
     },
     "STAKE-4.1-27": {
       "clause": "LIVE_EN-8863d8019505caf8",
@@ -516,9 +514,10 @@
       "theorems": [
         "Etna.Design.Current.CheckpointRisk.RollbackFreeRun.normal",
         "Etna.Design.Current.CheckpointRisk.candidate_snapshot_bound",
-        "Etna.Design.Current.CheckpointRisk.economically_at_risk_of_candidate"
+        "Etna.Design.Current.CheckpointRisk.economically_at_risk_of_candidate",
+        "Etna.Design.Current.CheckpointRisk.committee_retained_of_candidate"
       ],
-      "reason": "Stored activeCommitteeSnapshot never decreases in actual rollback-free protocol histories, using each accepted certificate/frontier ancestry. Candidate ancestry derives cutoff >= the actual snapshot before economic retention is concluded; no monotonicity/cutoff/window outcome premise is supplied. Exceptional verifier-failure rollback and irrecoverable paid withdrawals remain excluded."
+      "reason": "Stored activeCommitteeSnapshot never decreases in actual rollback-free protocol histories, using each accepted certificate/frontier ancestry. Candidate ancestry derives cutoff >= the actual snapshot before economic retention is concluded; no monotonicity/cutoff/window outcome premise is supplied. Exceptional verifier-failure rollback and irrecoverable paid withdrawals remain excluded. The whole valid candidate committee, independent of overlap/round, is retained under rollback-free fresh-deployment execution; no post-rollback restart or original-amount guarantee is asserted."
     },
     "STAKE-4.1-31": {
       "clause": "LIVE_EN-405f21d19d6bc681",
@@ -587,13 +586,6 @@
         "Etna.Design.Current.Start.trace_origins_retained"
       ],
       "reason": "Decoded start correction increments generations and preserves prior origin data; no broad SignalService implementation claim."
-    },
-    "START-10-5d": {
-      "clause": "LIVE_EN-c909c903f9e270ca",
-      "theorems": [
-        "Etna.Design.Current.Protocol.Custody.trace_unzen_proposal_monotone"
-      ],
-      "reason": "The modeled ordinary Unzen prove lane never decreases the finalized proposal frontier along actual traces. Proposal/FI cutoff timing, new Unzen proposal operations, legacy recovery and unchanged production bytecode are outside this fixed-cut theorem."
     },
     "START-10.1-3d": {
       "clause": "LIVE_EN-95576d90354f3a45",

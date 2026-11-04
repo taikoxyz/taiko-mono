@@ -699,42 +699,16 @@ private theorem execute_initialized_change {env : Environment} {w t : World} {ca
     subst t
     exact Or.inl rfl
 
-private theorem initialize_evidence_guard {env : Environment} {w t : World} {caller : Nat}
-    (ok : initializeInbox env w caller = some t) :
+/-- PARAM-11-11 is a deployment assumption. Execution only transports the
+immutable withdrawal delay; initializeInbox does not check an external evidence policy. -/
+theorem evidence_window_of_deployment {env : Environment} {registry : RegistryMachine.State} {w : World}
+    (deployment : env.evidenceWindow ≤ registry.config.withdrawalDelay)
+    (run : Trace env (empty env registry) w) :
     env.evidenceWindow ≤ w.registry.registry.config.withdrawalDelay := by
-  unfold initializeInbox at ok
-  split at ok
-  next allowed =>
-    have valid := allowed.2.2.2.2.2.2.1
-    simp only [RegistryMachine.Config.valid,decide_eq_true_eq] at valid
-    exact valid.2.2.2.1
-  next => cases ok
-
-/-- PARAM-11-11 is enforced by the actual initializer and preserved registry
-immutables; callers of the normal headline supply no evidence-window inequality. -/
-theorem initialized_evidence_window {env : Environment} {registry : RegistryMachine.State} {w : World}
-    (run : Trace env (empty env registry) w) (initialized : w.initialized = true) :
-    env.evidenceWindow ≤ w.registry.registry.config.withdrawalDelay := by
-  induction run with
-  | refl => cases initialized
-  | @step before after prior change ih =>
-    cases change with
-    | node after valid => exact ih initialized
-    | call call =>
-      cases ok : execute env before call with
-      | none =>
-        simp only [Protocol.transact,ok,Option.getD_none] at initialized ⊢
-        exact ih initialized
-      | some after =>
-        simp only [Protocol.transact,ok,Option.getD_some] at initialized ⊢
-        have fixed : after.registry.registry.config = before.registry.registry.config :=
-          (RegistryMachine.trace_stable (ProtocolFinality.execute_registry_trace ok)).registry.config
-        rw [fixed]
-        rcases execute_initialized_change ok with same | ⟨caller,same⟩
-        · rw [same] at initialized
-          exact ih initialized
-        · subst call
-          exact initialize_evidence_guard ok
+  have fixed : w.registry.registry.config = registry.config :=
+    (ProtocolFinality.trace_fields run).2.2.2.2.2.1
+  rw [fixed]
+  exact deployment
 
 theorem NormalRun.generation_origin_floor {env : Environment} {first later : World}
     (run : NormalRun env first later) (generation : first.inbox.generation < later.inbox.generation) :
@@ -793,10 +767,11 @@ private theorem required_within_height (cfg : Finality.Config) (height : Nat) :
   · omega
 
 private theorem landing_time {env : Environment} {registry : RegistryMachine.State} {w t : World} {a : Landing}
+    (genesis : RegistryMachine.Genesis registry)
     (sound : VerifierSound env (empty env registry)) (reach : Trace env (empty env registry) w)
     (accepted : Protocol.land env w a = some t) : t.inbox.snapshot ≤ t.number := by
   obtain ⟨archive,parent,blocks,ready,valid,binding,hashParent,hashes,implementation,auth⟩ :=
-    Protocol.Custody.certified_landing sound reach accepted
+    Protocol.Custody.certified_landing genesis sound reach accepted
   have input := congrArg (fun d : StatementData => d.input.activeCommitteeSnapshot) binding
   change a.input.activeCommitteeSnapshot =
     (Consensus.activeAt (Finality.derive (config w) w.registry.registry archive)
@@ -808,6 +783,7 @@ private theorem landing_time {env : Environment} {registry : RegistryMachine.Sta
   exact Nat.le_trans bounded (Nat.le_of_lt early)
 
 private theorem execute_snapshot_timed {env : Environment} {registry : RegistryMachine.State} {w t : World} {call : Call}
+    (genesis : RegistryMachine.Genesis registry)
     (sound : VerifierSound env (empty env registry)) (reach : Trace env (empty env registry) w)
     (old : w.inbox.snapshot ≤ w.number) (ordinary : OrdinaryCall call)
     (ok : execute env w call = some t) : t.inbox.snapshot ≤ t.number := by
@@ -837,7 +813,7 @@ private theorem execute_snapshot_timed {env : Environment} {registry : RegistryM
     split at ok
     · cases Option.some.inj ok; exact old
     · cases ok
-  case land landing => exact landing_time sound reach ok
+  case land landing => exact landing_time genesis sound reach ok
   case rollback caller trusted snapshot => exact False.elim ordinary
   all_goals
     rcases execute_checkpoint_frame ordinary ok with impossible | fields
@@ -850,6 +826,7 @@ private theorem execute_snapshot_timed {env : Environment} {registry : RegistryM
 /-- Every actual normal snapshot is a past/current L1 block, derived from accepted
 guest ancestry and initializer bounds rather than supplied as snapshot provenance. -/
 theorem NormalRun.snapshot_timed {env : Environment} {registry : RegistryMachine.State} {w : World}
+    (genesis : RegistryMachine.Genesis registry)
     (run : NormalRun env (empty env registry) w) (sound : VerifierSound env (empty env registry)) :
     w.inbox.snapshot ≤ w.number := by
   induction run with
@@ -858,7 +835,7 @@ theorem NormalRun.snapshot_timed {env : Environment} {registry : RegistryMachine
     cases ok : execute env before call with
     | none => simpa only [Protocol.transact,ok,Option.getD_none] using ih
     | some after =>
-      simpa only [Protocol.transact,ok,Option.getD_some] using execute_snapshot_timed sound prior.project ih ordinary ok
+      simpa only [Protocol.transact,ok,Option.getD_some] using execute_snapshot_timed genesis sound prior.project ih ordinary ok
   | node prior after valid ih => exact ih
 
 private theorem execute_unlanded_snapshot {env : Environment} {w t : World} {call : Call}
@@ -934,6 +911,7 @@ same-generation landing writer's real snapshot is below the candidate's cutoff.
 No cutoff inequality, committee equality or economic status is an input. -/
 theorem landing_snapshot_bound {env : Environment} {registry : RegistryMachine.State}
     {before after w : World} {a : Landing} {h : Nat}
+    (genesis : RegistryMachine.Genesis registry)
     (primitive : Protocol.Custody.Primitives env)
     (sound : VerifierSound env (empty env registry))
     (reach : Trace env (empty env registry) before)
@@ -951,7 +929,7 @@ theorem landing_snapshot_bound {env : Environment} {registry : RegistryMachine.S
       (show Trace env before (Protocol.transact env before (.land a)) from .step (.refl _) (.call before (.land a)))
   have sameConfig := trace_same_generation_config reach (Economics.trace_trans landingRun later) check.started generation
   obtain ⟨archive,parent,blocks,ready,valid,binding,hashParent,hashes,implementation,auth⟩ :=
-    Protocol.Custody.certified_landing sound reach accepted
+    Protocol.Custody.certified_landing genesis sound reach accepted
   have height : (Blocks.terminal parent blocks).height = w.inbox.checkpoint.height := by
     have input := congrArg (fun d : StatementData => d.input.lastHeight) binding
     change a.input.lastHeight = (Blocks.terminal parent blocks).height at input
@@ -1062,6 +1040,7 @@ earlier than the actual stored activeCommitteeSnapshot. The proof follows the
 checkpoint's real writer through initialization, start correction, landings and
 generation changes. Its only candidate fence is raw physical checkpoint hash equality. -/
 theorem candidate_snapshot_bound {env : Environment} {registry : RegistryMachine.State} {w : World} {h : Nat}
+    (genesis : RegistryMachine.Genesis registry)
     (run : NormalRun env (empty env registry) w) (started : w.start.isSome = true)
     (primitive : Protocol.Custody.Primitives env) (sound : VerifierSound env (empty env registry))
     (candidate : Candidate env w h) :
@@ -1074,7 +1053,7 @@ theorem candidate_snapshot_bound {env : Environment} {registry : RegistryMachine
       have gen : after.inbox.generation = before.inbox.generation := by
         rw [(Protocol.land_success accepted).2]
         rfl
-      exact landing_snapshot_bound primitive sound priorRun.project accepted later.project
+      exact landing_snapshot_bound genesis primitive sound priorRun.project accepted later.project
         (sameGeneration.trans gen) checkpoint snapshot candidate
     case initializeInbox caller =>
       change initializeInbox env before caller = some after at accepted
@@ -1116,7 +1095,7 @@ theorem candidate_snapshot_bound {env : Environment} {registry : RegistryMachine
       split at accepted
       · cases Option.some.inj accepted
         have origin := (trace_started_metadata complete.project later.project sourceStarted sameGeneration).2
-        have old := priorRun.snapshot_timed sound
+        have old := priorRun.snapshot_timed genesis sound
         have positive : w.inbox.generation ≠ 0 := by
           change w.inbox.generation = before.inbox.generation+1 at sameGeneration
           omega
@@ -1129,7 +1108,7 @@ theorem candidate_snapshot_bound {env : Environment} {registry : RegistryMachine
     all_goals cases writes
   · have increased : after.inbox.generation < w.inbox.generation := by omega
     have origin := later.generation_origin_floor increased
-    have old := complete.snapshot_timed sound
+    have old := complete.snapshot_timed genesis sound
     have positive : w.inbox.generation ≠ 0 := by omega
     rw [← snapshot]
     exact Nat.le_trans old (Nat.le_trans origin (candidate_origin_floor candidate positive))
@@ -1137,12 +1116,13 @@ theorem candidate_snapshot_bound {env : Environment} {registry : RegistryMachine
 /-- The accepted guest's full physical archive passes the same raw latest-checkpoint
 hash check as a node candidate. The cutoff equality is extracted from statement bytes. -/
 theorem candidate_of_accepted_landing {env : Environment} {registry : RegistryMachine.State}
-    {w t : World} {a : Landing} (sound : VerifierSound env (empty env registry))
+    {w t : World} {a : Landing} (genesis : RegistryMachine.Genesis registry)
+    (sound : VerifierSound env (empty env registry))
     (reach : Trace env (empty env registry) w) (accepted : Protocol.land env w a = some t) :
     ∃ candidate : Candidate env w a.input.lastHeight,
       Finality.cutoff (config w) candidate.headers a.input.lastHeight = a.input.activeCommitteeSnapshot := by
   have check := (Protocol.land_success accepted).1
-  have cert := Protocol.Custody.certified_landing sound reach accepted
+  have cert := Protocol.Custody.certified_landing genesis sound reach accepted
   obtain ⟨archive,parent,blocks,certificate⟩ := cert
   have frontier := Journal.trace_frontier_shape reach
   have record := frontier.records _ (frontier.member check.started)
@@ -1184,6 +1164,7 @@ theorem candidate_of_accepted_landing {env : Environment} {registry : RegistryMa
   exact input.symm
 
 private theorem ordinary_snapshot_order {env : Environment} {registry : RegistryMachine.State} {w t : World} {call : Call}
+    (genesis : RegistryMachine.Genesis registry)
     (run : NormalRun env (empty env registry) w) (primitive : Protocol.Custody.Primitives env)
     (sound : VerifierSound env (empty env registry)) (ordinary : OrdinaryCall call)
     (ok : execute env w call = some t) : w.inbox.snapshot ≤ t.inbox.snapshot := by
@@ -1216,8 +1197,8 @@ private theorem ordinary_snapshot_order {env : Environment} {registry : Registry
     · cases Option.some.inj ok; exact Nat.le_refl _
     · cases ok
   case land landing =>
-    obtain ⟨candidate,cutoff⟩ := candidate_of_accepted_landing sound run.project ok
-    have bound := candidate_snapshot_bound run (Protocol.land_success ok).1.started primitive sound candidate
+    obtain ⟨candidate,cutoff⟩ := candidate_of_accepted_landing genesis sound run.project ok
+    have bound := candidate_snapshot_bound genesis run (Protocol.land_success ok).1.started primitive sound candidate
     rw [cutoff] at bound
     rw [(Protocol.land_success ok).2]
     exact bound
@@ -1230,6 +1211,7 @@ private theorem ordinary_snapshot_order {env : Environment} {registry : Registry
 /-- STAKE-4.1-29 is derived for every ordinary accepted call, using the actual
 checkpoint hash fence authenticated by L1's accepted frontier cut. -/
 theorem RollbackFreeRun.normal {env : Environment} {registry : RegistryMachine.State} {w : World}
+    (genesis : RegistryMachine.Genesis registry)
     (run : RollbackFreeRun env (empty env registry) w) (primitive : Protocol.Custody.Primitives env)
     (sound : VerifierSound env (empty env registry)) : NormalRun env (empty env registry) w := by
   induction run with
@@ -1239,7 +1221,7 @@ theorem RollbackFreeRun.normal {env : Environment} {registry : RegistryMachine.S
     cases ok : execute env before call with
     | none => simp only [Protocol.transact,ok,Option.getD_none]; exact Nat.le_refl _
     | some after =>
-      simpa only [Protocol.transact,ok,Option.getD_some] using ordinary_snapshot_order ih primitive sound ordinary ok
+      simpa only [Protocol.transact,ok,Option.getD_some] using ordinary_snapshot_order genesis ih primitive sound ordinary ok
   | node prior after valid ih => exact .node ih after valid
 
 /-- The complete normal-execution accountability result consumes the node's raw
@@ -1251,7 +1233,8 @@ theorem economically_at_risk_of_candidate {env : Environment} {registry : Regist
     (genesis : RegistryMachine.Genesis registry) (standard : ProtocolFinality.StandardToken env)
     (self : env.initialToken.allowances env.token.registryAddress env.token.registryAddress = 0)
     (rate : registry.config.slashBountyBps ≤ 10000)
-    (refinement : Finality.SignatureRefinement registry env.signature) (initialized : w.initialized = true)
+    (refinement : Finality.SignatureRefinement registry env.signature)
+    (deployment : env.evidenceWindow ≤ registry.config.withdrawalDelay) (initialized : w.initialized = true)
     {common moreA moreB : List Header} {referenceA referenceB round a b : Nat}
     {votesA votesB : List Consensus.Vote}
     (shape : candidate.headers = common ++ moreA)
@@ -1260,11 +1243,34 @@ theorem economically_at_risk_of_candidate {env : Environment} {registry : Regist
     (validB : Consensus.CommitValid (policy env w (common ++ moreB) referenceB).consensus env.signature h round b votesB)
     (conflict : a ≠ b) :
     StakeRisk.AccountableAtRisk env w (policy env w (common ++ moreA) referenceA).consensus h votesA votesB := by
-  have normal := run.normal primitive sound
-  have window := initialized_evidence_window run.project initialized
-  have bound := candidate_snapshot_bound normal started primitive sound candidate
+  have normal := run.normal genesis primitive sound
+  have window := evidence_window_of_deployment deployment run.project
+  have bound := candidate_snapshot_bound genesis normal started primitive sound candidate
   rw [shape] at bound
   exact StakeRisk.economically_at_risk genesis standard self rate run.project normal.registry
     refinement initialized window bound covered validA validB conflict
+
+/-- Every member of a valid candidate committee is retained, independent of which
+members form a particular equivocation overlap or which consensus round is used. -/
+theorem committee_retained_of_candidate {env : Environment} {registry : RegistryMachine.State}
+    {w : World} {h : Nat} (genesis : RegistryMachine.Genesis registry)
+    (run : RollbackFreeRun env (empty env registry) w) (started : w.start.isSome = true)
+    (primitive : Protocol.Custody.Primitives env) (sound : VerifierSound env (empty env registry))
+    (candidate : Candidate env w h)
+    (elected : Consensus.ElectionValid (policy env w candidate.headers candidate.reference).consensus
+      (Consensus.activeAt (policy env w candidate.headers candidate.reference).consensus h)) :
+    ∀ entry ∈ (Consensus.activeAt (policy env w candidate.headers candidate.reference).consensus h).members,
+      ∃ id, StakeRisk.Retained w.registry.registry
+        (Finality.cutoff (config w) candidate.headers h) id entry.key := by
+  have unit : 0 < w.inbox.configuration.unit := by
+    unfold Consensus.ElectionValid Committee.election at elected
+    dsimp only at elected
+    split at elected
+    next allowed => exact allowed.1
+    next => cases elected
+  have normal := run.normal genesis primitive sound
+  have bound := candidate_snapshot_bound genesis normal started primitive sound candidate
+  intro entry member
+  exact StakeRisk.committee_unconfirmed normal.registry genesis unit bound member
 
 end Etna.Design.Current.CheckpointRisk

@@ -466,7 +466,8 @@ theorem execute_nonlanding_effect {env : Environment} {w t : World} {call : Call
   · exact execute_unzen_frame (fun p h b eq => legacy ⟨p,h,b,eq⟩) ok
 
  theorem execute_switching_fence {env : Environment} {registry : RegistryMachine.State}
-    {w t : World} {call : Call} (switching : env.core.unzenInbox ≠ 0)
+    {w t : World} {call : Call} (genesis : RegistryMachine.Genesis registry)
+    (switching : env.core.unzenInbox ≠ 0)
     (primitive : Primitives env) (soundness : VerifierSound env (empty env registry))
     (reach : Trace env (empty env registry) w) (prefixHeld : LegacyPrefix env w)
     (held : SwitchingFence env w) (ok : execute env w call = some t) : SwitchingFence env t := by
@@ -478,10 +479,10 @@ theorem execute_nonlanding_effect {env : Environment} {w t : World} {call : Call
     rcases held with ⟨ever,noSignals,waiting⟩ | ⟨ever,start,written,closed,legacyBound,signalBound⟩
     · rcases waiting with none | ⟨_,pending⟩
       · simp [none] at member
-      · obtain ⟨segment,_,_⟩ := landing_edge_authorized primitive soundness reach ok
-        have certificate := certified_landing soundness reach ok
+      · obtain ⟨segment,_,_⟩ := landing_edge_authorized genesis primitive soundness reach ok
+        have certificate := certified_landing genesis soundness reach ok
         obtain ⟨fence,_⟩ := pending_parent_fence primitive reach ok
-          (trace_invariant primitive soundness reach) segment cursor record pending certificate
+          (trace_invariant genesis primitive soundness reach) segment cursor record pending certificate
         have bounded := legacy_bounded_at_first_fence primitive prefixHeld fence segment.parentHashBound
         obtain ⟨start,written,atStart,_,closed,_,_,_,_,height,_,_,_,_⟩ := fence
         obtain ⟨_,rfl⟩ := land_success ok
@@ -496,7 +497,7 @@ theorem execute_nonlanding_effect {env : Environment} {w t : World} {call : Call
           change start.height < a.input.lastHeight
           have := checks.progress
           omega
-    · have lower := coherent_checkpoint_above_start (trace_coherent primitive soundness reach) written member
+    · have lower := coherent_checkpoint_above_start (trace_coherent genesis primitive soundness reach) written member
       obtain ⟨_,rfl⟩ := land_success ok
       refine Or.inr ⟨rfl,start,written,closed,legacyBound,?_⟩
       intro signal mem
@@ -519,6 +520,7 @@ theorem execute_nonlanding_effect {env : Environment} {w t : World} {call : Call
         exact signalBound signal (effect.2.1 signal mem)
 
  theorem trace_switching_fence {env : Environment} {registry : RegistryMachine.State} {w : World}
+    (genesis : RegistryMachine.Genesis registry)
     (switching : env.core.unzenInbox ≠ 0) (primitive : Primitives env)
     (extension : UnzenExtension env env.unzenParent) (soundness : VerifierSound env (empty env registry))
     (trace : Trace env (empty env registry) w) : SwitchingFence env w := by
@@ -530,7 +532,7 @@ theorem execute_nonlanding_effect {env : Environment} {w t : World} {call : Call
       cases ok : execute env previous call with
       | none => simpa [transact,ok] using ih
       | some result =>
-        have preserved := execute_switching_fence switching primitive soundness prior
+        have preserved := execute_switching_fence genesis switching primitive soundness prior
           (trace_legacy_prefix primitive extension prior) ih ok
         simpa [transact,ok] using preserved
     | node after checked => exact ih
@@ -538,10 +540,11 @@ theorem execute_nonlanding_effect {env : Environment} {w t : World} {call : Call
 /-- Full switching traces cannot overwrite a legacy checkpoint with an Etna one,
 including a legacy proof emitted before a refused/too-low start was written. -/
 theorem trace_legacy_etna_disjoint {env : Environment} {registry : RegistryMachine.State} {w : World}
+    (genesis : RegistryMachine.Genesis registry)
     (switching : env.core.unzenInbox ≠ 0) (primitive : Primitives env)
     (extension : UnzenExtension env env.unzenParent) (soundness : VerifierSound env (empty env registry))
     (trace : Trace env (empty env registry) w) : LegacyEtnaDisjoint w := by
-  rcases trace_switching_fence switching primitive extension soundness trace with
+  rcases trace_switching_fence genesis switching primitive extension soundness trace with
     ⟨_,empty,_⟩ | ⟨_,start,_,_,legacyBound,signalBound⟩
   · intro legacy old etna fresh
     simp [empty] at fresh

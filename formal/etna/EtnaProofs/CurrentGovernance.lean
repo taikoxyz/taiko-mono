@@ -9,10 +9,11 @@ namespace Etna.Design.Current.Protocol.Governance
   simpa only [rawCorrectStart,correctStart,authorized, and_true,true_and] using ok
 
  theorem raw_rollback_refines {env : Environment} {w t : World} {caller snapshot : Nat}
-    {trusted : Checkpoint} (authorized : (trusted,snapshot) ∈ w.activeSnapshots)
+    {trusted : Checkpoint}
+    (authorized : trusted ∈ w.activeRecords ∧ (trusted,snapshot) ∈ w.activeSnapshots)
     (ok : rawRollback env w caller trusted snapshot = some t) :
     rollback env w caller trusted snapshot = some t := by
-  simpa only [rawRollback,rollback,authorized,and_true] using ok
+  simpa only [rawRollback,rollback,authorized.1,authorized.2,true_and,and_true] using ok
 
  theorem execute_refines {env : Environment} {w t : World} {call : Call}
     (authorized : UpgradeAuthorized w call) (ok : execute env w call = some t) :

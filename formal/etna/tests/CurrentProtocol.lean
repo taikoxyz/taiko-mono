@@ -48,7 +48,6 @@ def env : Protocol.Environment where
   signature := fun _ => True
   txHash := fun raw => ((raw.head?).getD 0).toNat
   unzenNextProposal := 1
-  archiveAuthenticated := fun _ _ _ => true
   timestampOf := fun _ => 0
   catalogue := fun _ => none
   payload := fun _ _ => true

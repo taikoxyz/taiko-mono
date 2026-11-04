@@ -1,5 +1,5 @@
 import EtnaModel.CurrentMetadata
-import EtnaProofs.CurrentJournal
+import EtnaProofs.CurrentHistory
 import EtnaProofs.CurrentProtocolFinality
 import EtnaProofs.CurrentEconomics
 

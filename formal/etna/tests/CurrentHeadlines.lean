@@ -17,7 +17,7 @@ example : AccountableFinality =
       EconomicAccountability env w ∧ Economics.Safety env w ∧
       Economics.HistoricalStakeFunded env w ∧ TemporalAuthority env w ∧
         (ProtocolFinality.HonestExecutions engine env w →
-          ProtocolFinality.CurrentAgreement env w) ∧ NormalAccountability env registry w) := rfl
+          ProtocolFinality.CurrentAgreement env w) ∧ NormalAccountability env registry w ∧ NormalCommitteeRetention env registry w) := rfl
 example : ForcedInclusionIntegrity := Headlines.forced_inclusion_integrity
 
 -- All universally quantified public claims compose under the same primitive record.
@@ -50,7 +50,7 @@ example (env : Environment) (registry : RegistryMachine.State) (engine : Finalit
     referencePrefix other a.input.l1ReferenceBlockNumber = referencePrefix w a.input.l1ReferenceBlockNumber :=
   (Headlines.claims.1 env registry engine premises w run).2.2.2.2.1 other a same
 
--- The full14 primitive profile also rejects start rewriting and prevents a legacy
+-- The full15 primitive profile also rejects start rewriting and prevents a legacy
 -- checkpoint from reaching any Etna checkpoint on a switching deployment.
 example (env : Environment) (registry : RegistryMachine.State) (engine : Finality.Engine)
     (premises : Premises env registry engine) (w : World)
@@ -63,7 +63,7 @@ example (env : Environment) (registry : RegistryMachine.State) (engine : Finalit
     (premises : Premises env registry engine) (w : World)
     (run : Trace env (empty env registry) w) (switching : env.core.unzenInbox ≠ 0) :
     Custody.LegacyEtnaDisjoint w :=
-  (Headlines.fund_safety env registry engine premises w run).2.2.2.2.2.2.2 switching
+  ((Headlines.fund_safety env registry engine premises w run).2.2.2.2.2.2.2 switching).1
 
 example (env : Environment) (registry : RegistryMachine.State) (engine : Finality.Engine)
     (premises : Premises env registry engine) (w : World)
@@ -104,7 +104,7 @@ example (env : Environment) (registry : RegistryMachine.State) (engine : Finalit
     (premises : Premises env registry engine) (w : World)
     (trace : Trace env (empty env registry) w) (initialized : w.initialized = true) :
     NormalAccountability env registry w :=
-  (Headlines.accountable_finality env registry engine premises w trace initialized).2.2.2.2.2
+  (Headlines.accountable_finality env registry engine premises w trace initialized).2.2.2.2.2.1
 
 -- Every consumed segment exposes complete-payload position zero and a due-qualified
 -- skip, using the admission hash normalized by the selected interpreter refinement.
@@ -166,7 +166,7 @@ example (env : Environment) (registry : RegistryMachine.State) (engine : Finalit
     (accepted : land env w a = some t) :
     ∃ proof ∈ a.proofs, ∃ archive parent blocks,
       BatchCertificate env w (statement env w a) archive parent blocks ∧
-        CertificateFootprint env w a.input.l1ReferenceBlockNumber ∧ ∀ block ∈ blocks, Blocks.selectedRules block ∈ env.imageRules proof.image :=
+        ∀ block ∈ blocks, Blocks.selectedRules block ∈ env.imageRules proof.image :=
   (Headlines.claims.2.2 env registry engine premises w run).2.2.2.2.2.2.2.2.1 a t accepted
 
 example (env : Environment) (registry : RegistryMachine.State) (engine : Finality.Engine)
@@ -209,5 +209,13 @@ example (env : Environment) :
   have same := congrFun (hashes 0 mismatchedDefinition rfl) []
   change (7 : Nat) = 8 at same
   cases same
+
+
+-- Both sides of S are exported; this is stronger than pairwise lane disjointness.
+example (env : Environment) (registry : RegistryMachine.State) (engine : Finality.Engine)
+    (premises : Premises env registry engine) (w : World)
+    (run : Trace env (empty env registry) w) (switching : env.core.unzenInbox ≠ 0) :
+    Custody.SwitchingFence env w :=
+  ((Headlines.fund_safety env registry engine premises w run).2.2.2.2.2.2.2 switching).2
 
 end Etna.CurrentHeadlineRegression

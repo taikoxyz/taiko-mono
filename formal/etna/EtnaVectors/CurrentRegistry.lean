@@ -18,15 +18,13 @@ def initialBond (seed : Seed) (i : Nat) : Registry.Bond :=
   let pending := if i = seed.low then seed.pending else 0
   let value : Staking.Bond :=
     ⟨i+1,7,(if selected then seed.lowStake else 20),1,Staking.noExit,false,none,
-      pending,(if pending = 0 then 0 else 1)⟩
-  if seed.vacant && decide (i = seed.low) then
-    ⟨{ value with owner := 0,stake := 0,released := true,pendingTopUp := 0,topUpReadyAtL1 := 0 },none⟩
-  else ⟨value,some i⟩
+      pending,(if pending = 0 then 0 else 2)⟩
+  ⟨value,some i⟩
 
 def ledger (seed : Seed) : Registry.State :=
   { nextId := 4096,
     bonds := fun i => if i < 4096 then some (initialBond seed i) else none,
-    slots := fun i => if i < 4096 ∧ ¬ (seed.vacant = true ∧ i = seed.low) then some i else none,
+    slots := fun i => if i < 4096 then some i else none,
     keyId := fun k => if 0 < k ∧ k ≤ 4096 then some (k-1) else none }
 
 def registry (seed : Seed) : RegistryMachine.State :=
@@ -35,10 +33,32 @@ def registry (seed : Seed) : RegistryMachine.State :=
       verify := fun _ _ _ => false,registerAuth := fun _ _ _ _ => true }
   { raw with history := [⟨0,RegistryMachine.entries raw⟩] }
 
-def opening (seed : Seed) : RegistryPayments.State :=
+def funded (seed : Seed) : RegistryPayments.State :=
   let reserve := (List.range 4096).foldl (fun total i => total+(initialBond seed i).value.balance) 0
   ⟨registry seed,⟨fun a => if a = 4 then reserve else if a = 8 then 100 else 0,
     fun payer recipient => if payer = 8 ∧ recipient = 4 then 100 else 0⟩⟩
+
+def view (snapshot : Nat) : RegistryMachine.InboxView := ⟨⟨1,2,3,4⟩,0,snapshot,true,false,10⟩
+
+def vacancyRequest (seed : Seed) :=
+  RegistryPayments.executeTransaction (RegistryPayments.standardEnvironment 4 5)
+    (funded seed) (view 0) 1 7 (.requestExit seed.low 7)
+
+def vacancyConfirmation (seed : Seed) :=
+  (vacancyRequest seed).bind fun (s,_) =>
+    RegistryPayments.executeTransaction (RegistryPayments.standardEnvironment 4 5)
+      s (view 2) 2 7 (.confirm seed.low)
+
+def vacancyWithdrawal (seed : Seed) :=
+  (vacancyConfirmation seed).bind fun (s,_) =>
+    RegistryPayments.executeTransaction (RegistryPayments.standardEnvironment 4 5)
+      s (view 2) 5 7 (.withdraw seed.low 7 7)
+
+/-- The vacant-slot fixture uses actual exit, confirmation and paid withdrawal calls.
+The regression checks each success, retained lifetime identity, metadata and reserve. -/
+def opening (seed : Seed) : RegistryPayments.State :=
+  if seed.vacant then ((vacancyWithdrawal seed).map Prod.fst).getD (funded seed)
+  else funded seed
 
 def optionNat : Option Nat → JVal
   | none => jNull
@@ -55,14 +75,20 @@ def vector (name : String) (seed : Seed) (amount : Nat) : JVal :=
   let before := opening seed
   let slot := Registry.admissionSlot before.registry.ledger
   let occupant := before.registry.ledger.slots slot
-  let view : RegistryMachine.InboxView := ⟨⟨1,2,3,4⟩,0,0,true,false,10⟩
+  let snapshot := if seed.vacant then 2 else 0
   let result := RegistryPayments.executeTransaction (RegistryPayments.standardEnvironment 4 5)
-    before view 10 8 (.register 9000 8 amount 9000)
+    before (view snapshot) 10 8 (.register 9000 8 amount 9000)
   jObj [
     ("id",jStr name),("rules",jRow [jStr "STAKE-4.1-13a",jStr "STAKE-4.1-14a"]),
     ("setup",jObj [("slotCount",jNat 4096),("defaultStake",jNat 20),
       ("lowIndex",jNat seed.low),("lowStake",jNat seed.lowStake),("lowPending",jNat seed.pending),
-      ("secondLowIndex",optionNat seed.second),("vacantLow",jBool seed.vacant)]),
+      ("secondLowIndex",optionNat seed.second),("vacantLow",jBool seed.vacant),
+      ("landedSnapshot",jNat snapshot),
+      ("vacancyLifecycle",if seed.vacant then jObj [
+        ("requestBlock",jNat 1),("exitAt",jNat 2),("confirmBlock",jNat 2),
+        ("withdrawBlock",jNat 5),("recipient",jNat 7),
+        ("withdrawnBond",match before.registry.ledger.bonds seed.low with
+          | none => jNull | some b => renderBond b)] else jNull)]),
     ("call",jObj [("fn",jStr "register"),("block",jNat 10),("caller",jNat 8),
       ("key",jNat 9000),("amount",jNat amount)]),
     ("expect",match result with

@@ -165,7 +165,7 @@ class RuleCoverageTests(unittest.TestCase):
         rows = {r['rule']:r for r in self.rows()}
         for rule in ('COMM-4.3-14','PROOF-6.2-7','PROOF-6.2-17','PROOF-6.2-18',
                      'PROOF-6.2-19','PROOF-6.2-40','FORF-4.4-8','RECOV-8-28',
-                     'RECOV-8-46','RECOV-8.3-11','RECOV-8.3-12'):
+                     'RECOV-8-46','RECOV-8.3-11','RECOV-8.3-12','START-10-5d','PARAM-11-11'):
             with self.subTest(rule=rule):
                 self.assertEqual(rows[rule]['status'], 'deferred')
                 self.assertEqual(rows[rule]['theorems'], [])

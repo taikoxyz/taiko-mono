@@ -2,6 +2,14 @@ import EtnaModel.CurrentProtocol
 
 namespace Etna.Design.Current.Protocol
 
+theorem land_success {env : Environment} {w t : World} {a : Landing}
+    (ok : land env w a = some t) : LandingChecks env w a ∧ t = landed w a := by
+  unfold land at ok
+  split at ok
+  next check => exact ⟨check,(Option.some.inj ok).symm⟩
+  next => simp at ok
+
+
 theorem image_certificate_forget {env : Environment} {w : World} {image : Hash}
     {d : StatementData} (cert : ImageCertifies env w image d) : Certifies env w d := by
   obtain ⟨archive,parent,blocks,certificate,_⟩ := cert
@@ -68,5 +76,16 @@ theorem equal_statement_certificate_transport {env : Environment} (binding : Ref
     change referencePrefix a la.input.l1ReferenceBlockNumber = referencePrefix b lb.input.l1ReferenceBlockNumber
     rw [← reference]
     exact reference_hash_binds_prefix binding hash) cert
+
+/-- The declared image's rules and its certificate depend only on the committed prefix;
+no live-storage coherence is part of guest certification. -/
+theorem image_certificate_transport {env : Environment} {a b : World} {image : Hash} {da db : StatementData}
+    (same : da = db)
+    (closed : referencePrefix a da.input.l1ReferenceBlockNumber = referencePrefix b db.input.l1ReferenceBlockNumber)
+    (cert : ImageCertifies env a image da) : ImageCertifies env b image db := by
+  subst db
+  obtain ⟨archive,parent,blocks,checked,rules⟩ := cert
+  exact ⟨archive,parent,blocks,batch_certificate_transport closed checked,rules⟩
+
 
 end Etna.Design.Current.Protocol

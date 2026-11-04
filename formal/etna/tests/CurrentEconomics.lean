@@ -46,7 +46,6 @@ def baseEnv : Environment where
   signature := fun v => v.key = 7
   txHash := fun raw => raw.length
   unzenNextProposal := 0
-  archiveAuthenticated := fun _ _ _ => true
   timestampOf := fun _ => 0
   catalogue := fun _ => none
   payload := fun _ _ => true
@@ -91,7 +90,7 @@ theorem normalRun : StakeRisk.NormalTrace (Protocol.registryWorld env initial) (
   protocolNormalRun.registry
 example : CheckpointRisk.CurrentSource env initial started := protocolNormalRun.source (by decide +kernel)
 example : env.evidenceWindow ≤ started.registry.registry.config.withdrawalDelay :=
-  CheckpointRisk.initialized_evidence_window run (by decide +kernel)
+  CheckpointRisk.evidence_window_of_deployment (by decide +kernel) run
 example : started.initialized = true := by decide +kernel
 example : started.registry.token.balances 40 = Committee.minUnit := by decide +kernel
 example : Economics.reserve started.registry.registry.ledger = Committee.minUnit := by decide +kernel
@@ -209,15 +208,17 @@ example : ¬ RegistryMachine.Genesis phantom := by
   have empty := bad.2.2.2.2.1
   cases empty
 
--- Invalid immutable deployments are rejected before initialization.
+-- Physical immutable checks are separate from the external evidence-window policy.
 def zeroDelay := {registry with config := {registry.config with withdrawalDelay := 0}}
 def zeroMinimum := {registry with ledger := {registry.ledger with minStake := 0}}
 def noActivation := {registry with ledger := {registry.ledger with activationDelay := 0}}
 def badBounty := {registry with config := {registry.config with slashBountyBps := 10001}}
 def initializeWith (e : Environment) (r : RegistryMachine.State) :=
   Protocol.execute e (Protocol.transact e (Protocol.empty e r) (.advance 2)) (.initializeInbox 1)
-example : (initializeWith env zeroDelay).isNone = true := by decide +kernel
-example : zeroMinimum.config.valid zeroMinimum.ledger env.evidenceWindow = true := by decide +kernel
+example : (initializeWith env zeroDelay).isSome = true := by decide +kernel
+example : ¬ (0 < env.evidenceWindow ∧ env.evidenceWindow ≤ zeroDelay.config.withdrawalDelay) := by
+  decide +kernel
+example : zeroMinimum.config.valid zeroMinimum.ledger = true := by decide +kernel
 example : (initializeWith env zeroMinimum).isSome = true := by decide +kernel
 example : (initializeWith env noActivation).isNone = true := by decide +kernel
 example : (initializeWith env badBounty).isNone = true := by decide +kernel

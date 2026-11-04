@@ -9,37 +9,33 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def layers():
-    imports = []
-    bodies = []
-    for path in ('EtnaModel/CurrentProtocol.lean', 'EtnaModel/CurrentJournal.lean',
-                 'EtnaProofs/CurrentSettlement.lean', 'EtnaProofs/CurrentJournal.lean', 'tests/CurrentJournal.lean'):
+    model_paths = ('EtnaModel/CurrentProtocol.lean', 'EtnaModel/CurrentJournal.lean')
+    support_paths = tuple(f'EtnaModel/{name}.lean' for name in
+                          ('CurrentProtocolFinality', 'CurrentEconomics', 'CurrentMetadata'))
+    bridge_paths = tuple(f'EtnaProofs/{name}.lean' for name in
+                         ('CurrentReference', 'CurrentHistory', 'CurrentProtocolFinality',
+                          'CurrentEconomics', 'CurrentMetadata', 'CurrentFootprintHistory',
+                          'CurrentCertificate', 'CurrentSettlement'))
+    final_paths = ('EtnaProofs/CurrentJournal.lean', 'tests/CurrentJournal.lean')
+    paths = model_paths + support_paths + bridge_paths + final_paths
+    cloned = {path.removesuffix('.lean').replace('/', '.') for path in paths}
+    imports, bodies = [], {}
+    for path in paths:
         body = []
         for line in (ROOT / path).read_text().splitlines():
             if line.startswith('import '):
-                if line not in ('import EtnaModel.CurrentProtocol', 'import EtnaModel.CurrentJournal',
-                                'import EtnaProofs.CurrentJournal', 'import EtnaProofs.CurrentSettlement'):
+                if line.removeprefix('import ') not in cloned:
                     imports.append(line)
             else:
                 body.append(line)
         text = '\n'.join(body)
-        text = re.sub(r'\bProtocol\b', 'ProtocolMutation', text)
-        text = re.sub(r'\bJournal\b', 'JournalMutation', text)
-        bodies.append(text)
-    bridge = []
-    for name in ('CurrentReference', 'CurrentCertificate'):
-        lines = (ROOT / 'EtnaProofs' / (name + '.lean')).read_text().splitlines()
-        body = []
-        for line in lines:
-            if line.startswith('import '):
-                if line not in ('import EtnaModel.CurrentProtocol', 'import EtnaProofs.CurrentReference'):
-                    imports.append(line)
-            else:
-                body.append(line)
-        bridge.append(re.sub(r'\bProtocol\b', 'ProtocolMutation', '\n'.join(body)))
-    imports = [line for line in imports if line not in
-               ('import EtnaProofs.CurrentReference', 'import EtnaProofs.CurrentCertificate')]
-    bodies[2] = '\n'.join(bridge) + '\n' + bodies[2]
-    return '\n'.join(dict.fromkeys(imports)) + '\n', *bodies
+        for namespace in ('Protocol', 'Journal', 'ProtocolFinality', 'Economics'):
+            text = re.sub(r'\b' + namespace + r'\b', namespace + 'Mutation', text)
+        bodies[path] = text
+    bridge = '\n'.join(bodies[path] for path in support_paths + bridge_paths)
+    return ('\n'.join(dict.fromkeys(imports)) + '\n',
+            *(bodies[path] for path in model_paths), bridge,
+            *(bodies[path] for path in final_paths))
 
 
 class CurrentJournalTests(unittest.TestCase):

@@ -2,8 +2,8 @@ import EtnaModel.CurrentCoherentCustody
 
 /-! External DAO upgrades and their history obligations. `correctStart` and `rollback`
 in the normative machine are admissible upgrade actions, not deployed public entry
-points. The raw functions below erase the historical ghost guards. `everLanded` and
-`activeSnapshots` remain instrumentation of the actual transaction history; an owner
+points. The raw functions below erase the historical ghost guards. `everLanded`,
+`activeRecords` and `activeSnapshots` instrument the actual transaction history; an owner
 must establish their obligations from that history, not read them from Inbox storage. -/
 namespace Etna.Design.Current.Protocol.Governance
 
@@ -16,11 +16,17 @@ def rawCorrectStart (env : Environment) (w : World) (caller height hash root : N
       some (writeStart w height hash root w.number (env.time w.number) (w.inbox.generation+1))
     else none
 
-/-- Physical rollback checks/effect without a nonexistent checkpoint/snapshot mapping. -/
+/-- Raw rollback checks/effect without retained-lineage or checkpoint/snapshot
+authorization. `inbox.records` is the physical height-indexed mapping represented by
+a list; `activeRecords` instruments which records belong to the retained history.
+The latter still describes which physical records this chosen upgrade clears, but
+is not a runtime authorization check. Thus this effect is instrumented rather than
+a fully ghost-free implementation; `raw_rollback_refines` relates it to the normative
+effect only under the separately stated history duties. -/
 def rawRollback (env : Environment) (w : World) (caller : Nat) (trusted : Checkpoint)
     (snapshot : Nat) : Option World :=
   if caller = env.core.owner ∧ w.initialized = true ∧ w.inbox.entered = false ∧
-      trusted ∈ w.activeRecords ∧ trusted.height ≤ w.inbox.checkpoint.height ∧
+      trusted.height ≤ w.inbox.checkpoint.height ∧
       w.inbox.recoveryNonce+1 < limit256 then
     (RegistryMachine.execute w.registry.registry (registryView env w) w.number
       (.recheck w.registry.registry.config.inbox snapshot)).map fun registry =>
@@ -54,11 +60,13 @@ inductive DeployedTrace (env : Environment) : World → World → Type
       (event : NodeEvent env w after) : DeployedTrace env first { w with node := after }
 
 /-- These are external authorization duties over instrumented history, not runtime
-checks. A correction follows no successful landing; a rollback restores the snapshot
-recorded with its retained checkpoint. Neither condition states a custody outcome. -/
+checks. A correction follows no successful landing; a rollback selects a retained
+checkpoint and restores the snapshot recorded with it. These duties do not establish
+the complete last-trusted-before-first-bad target policy or state a custody outcome. -/
 def UpgradeAuthorized (w : World) : Call → Prop
   | .correctStart _ _ _ _ => w.everLanded = false
-  | .rollback _ trusted snapshot => (trusted,snapshot) ∈ w.activeSnapshots
+  | .rollback _ trusted snapshot =>
+      trusted ∈ w.activeRecords ∧ (trusted,snapshot) ∈ w.activeSnapshots
   | _ => True
 
 /-- Authorization is required only for successful raw upgrades in this actual history.

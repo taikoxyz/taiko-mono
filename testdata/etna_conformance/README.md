@@ -21,10 +21,13 @@ client's lander pins that directory's exact file list and hashes
 
 The historical authority for these files is archived `SPEC.md` at commit `b7ca989c8e343073daa628771102bdee7fe7101b` and
 `ACCEPTANCE.md` at `39ebefbf33a2702b750e0fb0db7d2a40ff8e8480`, independently byte-pinned in
-`formal/etna/spec-coverage.json`; a `spec L…` reference is a line of `SPEC.md` with the rule
-markers removed (see `formal/etna/README.md`). Regenerating these files establishes nothing
-about an implementation; the harnesses below run a stamped copy, and their results are in
-`formal/etna/README.md`.
+the [historical formal manifest](https://github.com/taikoxyz/taiko-mono/blob/094791d763984df266fb041c2cd32b47e1e918a0/formal/etna/spec-coverage.json);
+a `spec L…` reference is a line of that historical `SPEC.md` with the rule markers removed.
+Regenerating these files establishes nothing about an implementation. The historical
+[contract and Rust client conformance observations](https://github.com/taikoxyz/taiko-mono/blob/094791d763984df266fb041c2cd32b47e1e918a0/formal/etna/README.md#conformance)
+were recorded at that immutable formal revision against separately pinned implementation
+revisions. They are historical evidence, not a fresh result from the current harnesses or
+conformance to the latest Etna specification.
 
 The files record only what the model decides. Neither implementation reads this directory: each
 keeps its own copy next to its harness, stamped with `"provenance": {"formalCommit": "<sha>"}`,

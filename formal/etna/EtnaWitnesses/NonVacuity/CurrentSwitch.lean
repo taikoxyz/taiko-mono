@@ -248,19 +248,9 @@ instance : Decidable (Blocks.HeaderValid pol legacy block) := inferInstanceAs (D
     rfl
   have committee : w.inbox.committeeConfig = (source env).inbox.committeeConfig := congrArg StatementData.config same
   have viewSame := certificate_world_of_prefix (env := env) prefixSame
-  refine ⟨archive,legacy,[block],?_,?_,?_⟩
+  refine ⟨archive,legacy,[block],?_,?_⟩
   · rw [same]
     exact batch_certificate_transport prefixSame source_pure_certificate
-  · change CertificateFootprint env w a.input.l1ReferenceBlockNumber
-    rw [ref]
-    constructor
-    · rw [← viewSame]; exact source_view_storage.configuration.trans currentConfig.symm
-    · rw [← viewSame]; exact source_view_storage.parameters.trans (source_parameters.trans pars.symm)
-    · rw [← viewSame]; exact source_view_storage.committee.trans committee.symm
-    · rw [← viewSame]; exact source_view_storage.start.trans (source_start_eq_closed.trans metadata.1.symm)
-    · rw [← viewSame,source_view_registry]
-      exact (Economics.closed_registry_history trace closedFour closed).2.symm
-    · exact (Economics.registry_history_time NonVacuity.registry_genesis trace).1
   · intro b member
     have equal : b = block := by simpa using member
     subst b; decide
@@ -280,7 +270,7 @@ instance : Decidable (Blocks.HeaderValid pol legacy block) := inferInstanceAs (D
  theorem premises : Etna.Statements.Current.Premises env registry engine := by
   refine ⟨primitives,verifier_sound,rfl,NonVacuity.signature_refinement,by decide,
     fun w _ => codec_sound w,fun w _ => vote_attribution w,fun _ _ h => h,?_,
-    reference_binding,NonVacuity.registry_genesis,NonVacuity.signature_sound,by decide,unzen_extension⟩
+    reference_binding,NonVacuity.registry_genesis,NonVacuity.signature_sound,by decide,unzen_extension,by decide +kernel⟩
   intro id selected present
   have same : selected = definition := by simpa [env] using present.symm
   subst selected

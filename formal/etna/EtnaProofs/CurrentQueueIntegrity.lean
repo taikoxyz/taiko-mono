@@ -103,10 +103,11 @@ theorem no_early_skip {env : Environment} {registry : RegistryMachine.State} {w 
 /-- Complete landed FIFO service strengthens the old unqualified byte-action result:
 every skip is due and every inclusion uses the complete payload's position zero. -/
 theorem landing_service {env : Environment} {registry : RegistryMachine.State} {w t : World} {a : Landing}
+    (genesis : RegistryMachine.Genesis registry)
     (soundness : VerifierSound env (empty env registry))
     (trace : Protocol.Trace env (empty env registry) w) (ok : Protocol.land env w a = some t) :
     LandingService env w t a := by
-  obtain ⟨segment,indices,_,queue⟩ := Journal.landing_service soundness trace ok
+  obtain ⟨segment,indices,_,queue⟩ := Journal.landing_service genesis soundness trace ok
   refine ⟨segment,indices,?_,queue⟩
   intro x member
   obtain ⟨valid,next,wit,carried,index,_⟩ := Blocks.consuming_pair_action segment.valid member

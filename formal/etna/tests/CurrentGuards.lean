@@ -26,7 +26,6 @@ def env : Environment where
   signature := fun _ => True
   txHash := fun _ => 0
   unzenNextProposal := 2
-  archiveAuthenticated := fun _ _ _ => true
   timestampOf := fun _ => 1
   catalogue := fun _ => none
   payload := fun _ _ => true

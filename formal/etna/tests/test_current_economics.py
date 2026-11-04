@@ -1,4 +1,4 @@
-"""Real funded history and evidence windows, plus semantic deployment-guard mutants."""
+"""Real funded history and evidence windows, plus physical immutable-guard mutants."""
 from pathlib import Path
 import re
 import subprocess
@@ -49,9 +49,9 @@ class CurrentEconomicsTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(result.stdout + result.stderr, '')
 
-    def test_withdrawal_delay_must_cover_deployment_window(self):
-        self.reject('w.registry.registry.config.valid w.registry.registry.ledger env.evidenceWindow = true ∧', '''
-def invalid := {registry with config := {registry.config with withdrawalDelay := 0}}
+    def test_immutable_activation_delay_is_checked(self):
+        self.reject('w.registry.registry.config.valid w.registry.registry.ledger = true ∧', '''
+def invalid := {registry with ledger := {registry.ledger with activationDelay := 0}}
 example : (ProtocolEconomicsMutation.execute env
     (ProtocolEconomicsMutation.transact env (ProtocolEconomicsMutation.empty env invalid) (.advance 2))
     (.initializeInbox 1)).isNone = true := by decide +kernel

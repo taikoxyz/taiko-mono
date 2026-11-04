@@ -32,10 +32,11 @@ PREMISE_USES = {
     'currentClock': [H3],
     'currentCatalogueHash': [H3],
     'currentReferenceBinding': [H1],
-    'currentRegistryGenesis': [H2],
+    'currentRegistryGenesis': [H1,H2,H3],
     'currentSignatureSound': [H2],
     'currentSelfAllowance': [H2],
     'currentUnzenExtension': [H1],
+    'currentEvidenceWindow': [H2],
 }
 
 
@@ -104,7 +105,7 @@ class CurrentHeadlineTests(unittest.TestCase):
         result = self.checked('\n'.join(AUDIT.render_headline_check(CLAIMS, HEADLINES, PREMISES)))
         self.assert_success(result, silent=False)
         uses, rest = AUDIT.premise_uses(result.stdout + result.stderr)
-        self.assertEqual(len(uses), 14, 'current headline audit lost a primitive field')
+        self.assertEqual(len(uses), 15, 'current headline audit lost a primitive field')
         self.assertEqual(uses, PREMISE_USES)
         self.assertEqual(rest.strip(), '')
 

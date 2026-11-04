@@ -5,13 +5,6 @@ import EtnaProofs.CurrentCertificate
 
 namespace Etna.Design.Current.Protocol
 
-theorem land_success {env : Environment} {w t : World} {a : Landing}
-    (ok : land env w a = some t) : LandingChecks env w a ∧ t = landed w a := by
-  unfold land at ok
-  split at ok
-  next check => exact ⟨check,(Option.some.inj ok).symm⟩
-  next => simp at ok
-
 /-- Grid differences are divisible even when S is not an absolute multiple of K. -/
 theorem offset_grid_difference {s k p h : Nat}
     (pg : Start.onGrid s k p = true) (hg : Start.onGrid s k h = true) : k ∣ h-p := by

@@ -39,7 +39,6 @@ def baseEnv : Environment where
   signature := fun candidate => candidate = vote 201 ∨ candidate = vote 202
   txHash := fun raw => raw.length
   unzenNextProposal := 1
-  archiveAuthenticated := fun _ _ _ => true
   timestampOf := fun _ => 1
   catalogue := fun _ => none
   payload := fun _ _ => true
@@ -150,7 +149,7 @@ theorem vote_attribution (w : World) : ProtocolFinality.VoteAttribution engine e
 theorem premises : Etna.Statements.Current.Premises env registry engine := by
   refine ⟨primitives,verifier_sound,rfl,signature_refinement,by decide,
     fun w _ => codec_sound w,fun w _ => vote_attribution w,fun _ _ h => h,?_,
-    reference_binding,registry_genesis,signature_sound,by decide,?_⟩
+    reference_binding,registry_genesis,signature_sound,by decide,?_,by decide +kernel⟩
   · intro id selected present
     cases present
   · intro boundary proposal header proof parent earlier accepted
@@ -190,7 +189,7 @@ theorem at_risk : StakeRisk.AccountableAtRisk env (source env)
     (policy env (source env) [first] 2).consensus 1 [vote 201] [vote 202] := by
   exact CheckpointRisk.economically_at_risk_of_candidate rollback_free (by decide +kernel)
     primitives verifier_sound candidate registry_genesis rfl (by decide) (by decide)
-    signature_refinement (by decide +kernel) (common := []) (moreA := [first]) (moreB := [other])
+    signature_refinement (by decide +kernel) (by decide +kernel) (common := []) (moreA := [first]) (moreB := [other])
     rfl (by decide +kernel) commit_a commit_b (by decide)
 
 private theorem label_head {α : Type} [DecidableEq α] (head : α) (code : α → Nat) :

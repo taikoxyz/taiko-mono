@@ -1,4 +1,12 @@
-"""Compile-first mutations for start, rollback and every first-landing fence field."""
+"""Compile-first model/fixture mutations for start, rollback and fence fields.
+
+These assertions exercise each fence conjunct on raw synthetic Unzen records;
+they do not recompile proofs or establish each guard independently necessary on
+reachable traces. Reachable finalizedHash and checkpointHash are always equal,
+so their two equality guards imply one another. A nonzero switching start hash
+also rules out the initial, checkpointExists=false Unzen state. Substantive
+switching derivations are recompiled in test_current_switching_proof_mutations.
+"""
 from pathlib import Path
 import re
 import subprocess

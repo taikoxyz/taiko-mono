@@ -127,7 +127,8 @@ def honestEngine : Finality.Engine := ⟨fun generation _ => execution generatio
     currentRegistryGenesis := original.currentRegistryGenesis
     currentSignatureSound := original.currentSignatureSound
     currentSelfAllowance := original.currentSelfAllowance
-    currentUnzenExtension := original.currentUnzenExtension }
+    currentUnzenExtension := original.currentUnzenExtension
+    currentEvidenceWindow := original.currentEvidenceWindow }
 
  theorem current_agreement : ProtocolFinality.CurrentAgreement env (source env) :=
   (ProtocolFinality.current_h2 (engine := honestEngine) (NonVacuity.source_reachable env)
@@ -142,7 +143,7 @@ def honestEngine : Finality.Engine := ⟨fun generation _ => execution generatio
   ⟨NonVacuity.first_valid,True.intro⟩
 
 /-- An actual nonempty valid chain reaches the current agreement theorem under all
-fourteen original environment premises and an honest, attributed execution profile. -/
+fifteen original environment premises and an honest, attributed execution profile. -/
 theorem nonempty_honest_agreement :
     Etna.Statements.Current.Premises env registry honestEngine ∧
     Trace env (empty env registry) (source env) ∧

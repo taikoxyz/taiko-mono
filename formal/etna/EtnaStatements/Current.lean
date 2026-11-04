@@ -33,6 +33,8 @@ structure Premises (env : Environment) (registry : RegistryMachine.State)
   currentSignatureSound : Finality.SignatureSound registry env.signature
   currentSelfAllowance : env.initialToken.allowances env.token.registryAddress env.token.registryAddress = 0
   currentUnzenExtension : Custody.UnzenExtension env env.unzenParent
+  /-- PARAM-11-11 deployment policy; not an initializeInbox contract check. -/
+  currentEvidenceWindow : 0 < env.evidenceWindow ∧ env.evidenceWindow ≤ registry.config.withdrawalDelay
 
 /-- An accepted statement fixes its complete canonical closed reference prefix, including
 actual Inbox balances and storage. This is independent of later calls after that cut. -/
@@ -53,7 +55,7 @@ def FundSafetyAt (env : Environment) (registry : RegistryMachine.State) (w : Wor
     (∀ cp snap, (cp,snap) ∈ w.activeSnapshots → Custody.SnapshotSource env (empty env registry) cp snap) ∧
     (∀ start, w.start = some start → ∀ caller height hash root,
       setOrigin env w caller height hash root = none) ∧
-    (env.core.unzenInbox ≠ 0 → Custody.LegacyEtnaDisjoint w)
+    (env.core.unzenInbox ≠ 0 → Custody.LegacyEtnaDisjoint w ∧ Custody.SwitchingFence env w)
 
 def FundSafety : Prop :=
   ∀ env registry engine, Premises env registry engine → ∀ w, Trace env (empty env registry) w →
@@ -95,11 +97,24 @@ def NormalAccountability (env : Environment) (registry : RegistryMachine.State) 
       a ≠ b → StakeRisk.AccountableAtRisk env w
         (policy env w (common ++ moreA) referenceA).consensus h votesA votesB
 
+/-- All members of an authenticated, valid committee above the checkpoint retain
+unconfirmed bonds in a deployment with no rollback since its fresh genesis. This
+is independent of an overlap and of a particular consensus round. -/
+def NormalCommitteeRetention (env : Environment) (registry : RegistryMachine.State) (w : World) : Prop :=
+  ∀ _run : CheckpointRisk.RollbackFreeRun env (empty env registry) w,
+    w.start.isSome = true → ∀ h, w.inbox.checkpoint.height < h →
+    ∀ candidate : CheckpointRisk.Candidate env w h,
+    Consensus.ElectionValid (policy env w candidate.headers candidate.reference).consensus
+      (Consensus.activeAt (policy env w candidate.headers candidate.reference).consensus h) →
+    ∀ entry ∈ (Consensus.activeAt (policy env w candidate.headers candidate.reference).consensus h).members,
+      ∃ id, StakeRisk.Retained w.registry.registry
+        (Finality.cutoff (config w) candidate.headers h) id entry.key
+
 def AccountableFinalityAt (env : Environment) (registry : RegistryMachine.State) (engine : Finality.Engine) (w : World) : Prop :=
   EconomicAccountability env w ∧ Economics.Safety env w ∧
   Economics.HistoricalStakeFunded env w ∧ TemporalAuthority env w ∧
   (ProtocolFinality.HonestExecutions engine env w → ProtocolFinality.CurrentAgreement env w) ∧
-  NormalAccountability env registry w
+  NormalAccountability env registry w ∧ NormalCommitteeRetention env registry w
 
 def AccountableFinality : Prop :=
   ∀ env registry engine, Premises env registry engine → ∀ w,

@@ -47,7 +47,6 @@ def baseEnv : Environment where
   signature := fun candidate => candidate = vote ∨ candidate = recoveredVote
   txHash := txHash
   unzenNextProposal := 1
-  archiveAuthenticated := fun _ _ _ => true
   timestampOf := fun _ => 1
   catalogue := fun _ => none
   payload := fun _ _ => true
@@ -580,19 +579,9 @@ theorem template_image_certifies {w : World} {a : Landing}
   have prefixSame : referencePrefix (source env) 2 = referencePrefix w 2 :=
     reference_hash_binds_prefix reference_binding (source_reference.trans context.reference.symm)
   have viewSame := certificate_world_of_prefix (env := env) prefixSame
-  refine ⟨archive,genesis,[block],?_,?_,?_⟩
+  refine ⟨archive,genesis,[block],?_,?_⟩
   · rw [same]
     exact batch_certificate_transport prefixSame source_pure_certificate
-  · change CertificateFootprint env w a.input.l1ReferenceBlockNumber
-    rw [ref]
-    constructor
-    · rw [← viewSame]; exact context.config.symm
-    · rw [← viewSame]; exact source_parameters.trans context.parameters.symm
-    · rw [← viewSame]; exact context.committee.symm
-    · rw [← viewSame]; exact context.start.symm
-    · rw [← viewSame,source_view_registry]
-      exact (Economics.closed_registry_history trace closedTwo context.closed).2.symm
-    · exact (Economics.registry_history_time registry_genesis trace).1
   · intro b member
     have equal : b = block := by simpa using member
     subst b; decide
@@ -912,19 +901,9 @@ theorem recovered_image_certifies {w : World} {a : Landing}
   have prefixSame : referencePrefix (recoveredSource env) 4 = referencePrefix w 4 :=
     reference_hash_binds_prefix reference_binding (recovered_reference.trans context.reference.symm)
   have viewSame := certificate_world_of_prefix (env := env) prefixSame
-  refine ⟨recoveredArchive,first,[recoveredBlock],?_,?_,?_⟩
+  refine ⟨recoveredArchive,first,[recoveredBlock],?_,?_⟩
   · rw [same]
     exact batch_certificate_transport prefixSame recovered_pure_certificate
-  · change CertificateFootprint env w a.input.l1ReferenceBlockNumber
-    rw [ref]
-    constructor
-    · rw [← viewSame]; exact context.config.symm
-    · rw [← viewSame]; exact (show parametersOf (recoveredSource env).inbox = baseEnv.parameters from rfl).trans context.parameters.symm
-    · rw [← viewSame]; exact context.committee.symm
-    · rw [← viewSame]; exact context.start.symm
-    · rw [← viewSame,recovered_view_registry]
-      exact (Economics.closed_registry_history trace closedFour context.closed).2.symm
-    · exact (Economics.registry_history_time registry_genesis trace).1
   · intro b member
     have equal : b = recoveredBlock := by simpa using member
     subst b; decide
@@ -947,7 +926,7 @@ theorem verifier_sound : VerifierSound env (empty env registry) := by
 theorem premises : Etna.Statements.Current.Premises env registry engine := by
   refine ⟨primitives,verifier_sound,rfl,signature_refinement,by decide,
     fun w _ => codec_sound w,fun w _ => vote_attribution w,fun _ _ h => h,?_,
-    reference_binding,registry_genesis,signature_sound,by decide,?_⟩
+    reference_binding,registry_genesis,signature_sound,by decide,?_,by decide +kernel⟩
   · intro id selected present
     have same : selected = definition := by simpa [env,baseEnv] using present.symm
     subst selected
