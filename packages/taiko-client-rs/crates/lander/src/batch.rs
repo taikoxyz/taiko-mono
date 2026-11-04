@@ -962,8 +962,10 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
     /// without verifying their certificates: `prepare` authenticates a batch's blocks, and a
     /// block past the batch never stops a landing (BATCH-6.3-12a). With no later witness the
     /// tip consumes the checkpoint's anchor `start`. A newest witness that does not decode or
-    /// authenticate against the own L1 also yields `start`, whose unsettled depth never
-    /// undercounts the tip's (BACKP-6.4-10); such a result is not remembered.
+    /// authenticate against the own L1, or whose own-L1 lookup is unavailable, also yields
+    /// `start`, whose unsettled depth never undercounts the tip's (BACKP-6.4-10); such a result
+    /// is not remembered, and the tip an earlier observation resolved stays remembered. An
+    /// own-L1 answer that is malformed or inconsistent is returned as its error.
     async fn tip_anchor(
         &self,
         start: &AnchorState,
@@ -971,7 +973,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         tip: u64,
     ) -> Result<AnchorState> {
         let mut retained = self.tip_anchor.lock().await;
-        let known = retained.take().filter(|known| {
+        let known = retained.clone().filter(|known| {
             known.height > checkpoint && known.height <= tip && known.anchor.number >= start.number
         });
         let mut tip_hash = None;
@@ -2063,6 +2065,26 @@ mod tests {
         assert_eq!(observed.publishable_blocks, 0);
         assert!(observed.force_epoch);
         assert!(observed.force_backpressure);
+    }
+
+    /// An unavailable lookup above a remembered tip yields the checkpoint's anchor without
+    /// forgetting that tip, so later polls still stop their walk there.
+    #[tokio::test]
+    async fn an_unavailable_lookup_keeps_the_remembered_tip() {
+        let source = TrackingSource::new(Fixture::new(18, 30));
+        let fixture = source.fixture();
+        let parent = fixture.parent_header(&fixture.snapshot).await.unwrap();
+        let start = fixture.parent_anchor(&fixture.snapshot, &parent).await.unwrap();
+        let b = source.builder(1);
+        b.tip_anchor(&start, 18, 22).await.unwrap();
+        assert_eq!(b.tip_anchor.lock().await.as_ref().map(|memo| memo.height), Some(22));
+        source.canonical_unavailable.store(true, Ordering::Relaxed);
+        assert_eq!(b.tip_anchor(&start, 18, 30).await.unwrap(), start);
+        assert_eq!(b.tip_anchor.lock().await.as_ref().map(|memo| memo.height), Some(22));
+        source.canonical_unavailable.store(false, Ordering::Relaxed);
+        let moved = b.tip_anchor(&start, 18, 30).await.unwrap();
+        assert!(moved.inbox.last_checkpoint_height > start.inbox.last_checkpoint_height);
+        assert_eq!(b.tip_anchor.lock().await.as_ref().map(|memo| memo.height), Some(30));
     }
 
     #[tokio::test]
