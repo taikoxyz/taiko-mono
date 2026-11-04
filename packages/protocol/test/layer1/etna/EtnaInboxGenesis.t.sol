@@ -540,7 +540,12 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
 
     /// @dev Expects `init(_params)` through the owner's upgrade to `inboxImpl` to revert with
     /// `_selector`.
-    function _assertInitRejects(IEtnaInbox.InitParams memory _params, bytes4 _selector) private {
+    function _assertInitRejects(
+        IEtnaInbox.InitParams memory _params,
+        bytes4 _selector
+    )
+        private
+    {
         vm.expectRevert(_selector);
         _upgradeAndInit(inboxImpl, _params);
     }
@@ -552,7 +557,12 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
 
     /// @dev Initializes through `_impl` with `_params`, checks the stored parameters, then
     /// restores the uninitialized state.
-    function _assertInitAccepts(EtnaInbox _impl, IEtnaInbox.InitParams memory _params) private {
+    function _assertInitAccepts(
+        EtnaInbox _impl,
+        IEtnaInbox.InitParams memory _params
+    )
+        private
+    {
         uint256 fresh = vm.snapshotState();
         _upgradeAndInit(_impl, _params);
         IEtnaInbox inbox = IEtnaInbox(inboxProxy);

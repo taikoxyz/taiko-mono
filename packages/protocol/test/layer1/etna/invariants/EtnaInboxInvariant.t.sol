@@ -293,7 +293,13 @@ contract EtnaInboxInvariantTest is EtnaInboxTestBase {
     }
 
     /// @dev Checks a generation's origin through the getter and its three slot 290 words.
-    function _assertOrigin(uint256 _generation, IEtnaInbox.Origin memory _expected) internal view {
+    function _assertOrigin(
+        uint256 _generation,
+        IEtnaInbox.Origin memory _expected
+    )
+        internal
+        view
+    {
         IEtnaInbox.Origin memory origin = inbox.origins(_generation);
         assertEq(origin.startHeight, _expected.startHeight, "origin startHeight");
         assertEq(origin.l1BlockNumber, _expected.l1BlockNumber, "origin l1BlockNumber");

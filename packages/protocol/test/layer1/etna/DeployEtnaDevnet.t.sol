@@ -371,7 +371,14 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
     }
 
     /// @dev Checks the Inbox implementation's immutables against the environment.
-    function _assertImmutables(EtnaInbox _inbox, address _signals, address _registry) private view {
+    function _assertImmutables(
+        EtnaInbox _inbox,
+        address _signals,
+        address _registry
+    )
+        private
+        view
+    {
         assertEq(_inbox.proofVerifier(), address(landVerifier), "proof verifier");
         assertEq(_inbox.signalService(), _signals, "SignalService");
         assertEq(_inbox.stakingRegistry(), _registry, "registry");
@@ -423,7 +430,13 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
 
     /// @dev Carol lands (0, 6] with no cut leaves and one blob; the mock verifier must receive the
     /// appendix A statement rebuilt from the environment.
-    function _landBlockSix(EtnaInbox _inbox, SignalService _signals, uint256 _cutoff) private {
+    function _landBlockSix(
+        EtnaInbox _inbox,
+        SignalService _signals,
+        uint256 _cutoff
+    )
+        private
+    {
         IEtnaInbox.LandInput memory input = IEtnaInbox.LandInput({
             parentHeight: 0,
             lastHeight: 6,

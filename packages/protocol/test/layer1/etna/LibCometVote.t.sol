@@ -547,7 +547,10 @@ contract LibCometVoteTest is CommonTest, EtnaVectorReader {
     }
 
     /// @dev The JSON path prefix of the `votes.cases` item named `_name`.
-    function _caseNamed(string memory _j, string memory _name)
+    function _caseNamed(
+        string memory _j,
+        string memory _name
+    )
         private
         view
         returns (string memory)
@@ -749,7 +752,13 @@ contract LibCometVoteTest is CommonTest, EtnaVectorReader {
 
     /// @dev Decodes a `CanonicalBlockID` into `_d`: an optional 32-byte hash, then the always
     /// present part set header with an optional total and an optional 32-byte hash.
-    function _decodeBlockId(bytes memory _b, IEtnaStakingRegistry.Vote memory _d) private pure {
+    function _decodeBlockId(
+        bytes memory _b,
+        IEtnaStakingRegistry.Vote memory _d
+    )
+        private
+        pure
+    {
         uint256 o;
         if (o < _b.length && uint8(_b[o]) == 0x0a) {
             bytes memory hash;

@@ -389,11 +389,12 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         require(_genesis.genesisBlockHash != 0, StartNotWritten());
         require(_tx.length <= MAX_FORCED_TX_BYTES, ForcedTransactionTooLarge());
 
-        uint256 feeWei = uint256(
-            _forcedInclusions.currentFee(
-                forcedInclusionFeeInGwei, forcedInclusionFeeDoubleThreshold
-            )
-        ) * 1 gwei;
+        uint256 feeWei =
+            uint256(
+                    _forcedInclusions.currentFee(
+                        forcedInclusionFeeInGwei, forcedInclusionFeeDoubleThreshold
+                    )
+                ) * 1 gwei;
         require(msg.value >= feeWei, InsufficientFee());
 
         uint48 index = _forcedInclusions.tail;

@@ -211,7 +211,14 @@ library LibCometVote {
     /// @param _tag The field tag.
     /// @param _payload The payload.
     /// @return The encoded field.
-    function _bytesField(uint8 _tag, bytes memory _payload) private pure returns (bytes memory) {
+    function _bytesField(
+        uint8 _tag,
+        bytes memory _payload
+    )
+        private
+        pure
+        returns (bytes memory)
+    {
         return bytes.concat(bytes1(_tag), _uvarint(_payload.length), _payload);
     }
 

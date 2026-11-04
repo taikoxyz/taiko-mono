@@ -182,7 +182,14 @@ contract EtnaRecoveryAuthorizationTest is EtnaLandTestBase {
         _inbox().invalidateRecoveryNonce(0);
     }
 
-    function _recover(uint48 _generation, uint256 _c, uint256 _nonce, uint256 _deadline) private {
+    function _recover(
+        uint48 _generation,
+        uint256 _c,
+        uint256 _nonce,
+        uint256 _deadline
+    )
+        private
+    {
         _inbox()
             .recover(
                 _generation,

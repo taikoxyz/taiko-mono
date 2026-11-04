@@ -173,28 +173,52 @@ contract EtnaInboxRulesScheduleTest is EtnaLandTestBase {
         assertEq(uint256(_inboxWord(RULES_SCHEDULE_SLOT)), _pack(_s), "slot 293");
     }
 
-    function _scheduleRules(uint48 _rules, uint256 _time, uint256[5] memory _expected) private {
+    function _scheduleRules(
+        uint48 _rules,
+        uint256 _time,
+        uint256[5] memory _expected
+    )
+        private
+    {
         vm.expectEmit(inboxProxy);
         emit IEtnaInbox.RulesScheduleUpdated(_pack(_expected));
         _inbox().scheduleRules(_rules, uint48(_time));
         _assertSchedule(_expected);
     }
 
-    function _scheduleStop(uint256 _time, uint48 _grid, uint256[5] memory _expected) private {
+    function _scheduleStop(
+        uint256 _time,
+        uint48 _grid,
+        uint256[5] memory _expected
+    )
+        private
+    {
         vm.expectEmit(inboxProxy);
         emit IEtnaInbox.RulesScheduleUpdated(_pack(_expected));
         _inbox().scheduleStop(uint48(_time), _grid);
         _assertSchedule(_expected);
     }
 
-    function _expectScheduleRulesRevert(uint48 _rules, uint256 _time, bytes4 _selector) private {
+    function _expectScheduleRulesRevert(
+        uint48 _rules,
+        uint256 _time,
+        bytes4 _selector
+    )
+        private
+    {
         bytes32 before = _inboxWord(RULES_SCHEDULE_SLOT);
         vm.expectRevert(_selector);
         _inbox().scheduleRules(_rules, uint48(_time));
         assertEq(_inboxWord(RULES_SCHEDULE_SLOT), before, "slot 293 unchanged");
     }
 
-    function _expectScheduleStopRevert(uint256 _time, uint48 _grid, bytes4 _selector) private {
+    function _expectScheduleStopRevert(
+        uint256 _time,
+        uint48 _grid,
+        bytes4 _selector
+    )
+        private
+    {
         bytes32 before = _inboxWord(RULES_SCHEDULE_SLOT);
         vm.expectRevert(_selector);
         _inbox().scheduleStop(uint48(_time), _grid);

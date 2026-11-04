@@ -50,7 +50,7 @@ abstract contract EtnaInboxSwitchTestBase is EtnaLandTestBase {
     function _switchConfig() internal view returns (IEtnaInbox.Config memory config_) {
         config_ = _defaultConfig();
         (config_.originWriter, config_.unzenInbox, config_.etnaForkTime) =
-        (Carol, address(unzen), FORK_TIME);
+            (Carol, address(unzen), FORK_TIME);
     }
 
     /// @dev The default inputs without a genesis hash or state root.

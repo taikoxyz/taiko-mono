@@ -27,8 +27,11 @@ contract ConformanceRefundRejecter {
 }
 
 /// @title EtnaConformanceTest
-/// @notice Runs the behavioral conformance vectors that the Etna Lean model generates against the
-/// Etna contracts.
+/// @notice Replays the historical forced-inclusion and landing vectors from the Etna Lean model
+/// against the current contracts.
+/// @dev These two historical families retain compatible behavior. They do not establish current
+/// lifetime-bond, rules-schedule or Unzen-switch conformance. Current registry admission vectors
+/// run separately in `EtnaCurrentRegistryConformance.t.sol`; see `README.md` for the pinned source.
 /// @dev The vectors are this suite's own copy, `vectors/*.json` next to this file, schema
 /// `etna-conformance-2`. The Etna formal PR (#22292) generates and documents them (`formal/etna`,
 /// schema in `testdata/etna_conformance/README.md` there); refresh the copy in `formal/etna` with

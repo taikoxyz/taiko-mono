@@ -623,7 +623,14 @@ contract EtnaInboxHandler is CommonBase {
 
     /// @dev A copy of the honest cut at grid point `_x`: settled at or below c, drawn by this
     /// attempt above it.
-    function _cutAt(LandAttempt memory _attempt, uint256 _x) internal view returns (Cut memory) {
+    function _cutAt(
+        LandAttempt memory _attempt,
+        uint256 _x
+    )
+        internal
+        view
+        returns (Cut memory)
+    {
         if (_x <= _attempt.c) return _cuts[_x];
         Cut memory drawn = _attempt.newCuts[(_x - _attempt.c) / K - 1];
         return Cut({
@@ -661,7 +668,13 @@ contract EtnaInboxHandler is CommonBase {
     /// @dev Breaks the landing in the way its defect names and sets the predicted revert data;
     /// returns false if the state cannot express the defect. Every break leaves the checks before
     /// the broken one passing, so the predicted error is the first one the Inbox raises.
-    function _breakLanding(LandAttempt memory _attempt, uint256 _seed) internal returns (bool) {
+    function _breakLanding(
+        LandAttempt memory _attempt,
+        uint256 _seed
+    )
+        internal
+        returns (bool)
+    {
         uint256 defect = _attempt.defect;
         IEtnaInbox.LandInput memory input = _attempt.input;
         uint256 c = _attempt.c;
@@ -736,7 +749,14 @@ contract EtnaInboxHandler is CommonBase {
 
     /// @dev Moves p to a grid point of the current generation in reach of h that has no landing
     /// record; false if there is none.
-    function _breakOrigin(LandAttempt memory _attempt, uint256 _seed) internal view returns (bool) {
+    function _breakOrigin(
+        LandAttempt memory _attempt,
+        uint256 _seed
+    )
+        internal
+        view
+        returns (bool)
+    {
         IEtnaInbox.LandInput memory input = _attempt.input;
         uint256 lowest = input.lastHeight > maxSpan ? input.lastHeight - maxSpan : 0;
         if (lowest < _attempt.startHeight) lowest = _attempt.startHeight;
@@ -777,7 +797,14 @@ contract EtnaInboxHandler is CommonBase {
 
     /// @dev Replaces leaf `_index` with the leaf of a wrong height, EL hash, Comet hash or
     /// cursor at the same grid point.
-    function _breakLeaf(LandAttempt memory _attempt, uint256 _index, uint256 _seed) internal view {
+    function _breakLeaf(
+        LandAttempt memory _attempt,
+        uint256 _index,
+        uint256 _seed
+    )
+        internal
+        view
+    {
         uint256 x = _attempt.input.parentHeight + K * (_index + 1);
         Cut memory cut = _cutAt(_attempt, x);
         uint256 mode = _seed % 4;
@@ -928,7 +955,14 @@ contract EtnaInboxHandler is CommonBase {
 
     /// @dev A selection snapshot between the current one and the reference block; the Inbox only
     /// binds it into the statement.
-    function _snapshot(uint256 _referenceNumber, uint256 _seed) internal view returns (uint256) {
+    function _snapshot(
+        uint256 _referenceNumber,
+        uint256 _seed
+    )
+        internal
+        view
+        returns (uint256)
+    {
         if (ghostSnapshot > _referenceNumber) return ghostSnapshot;
         return ghostSnapshot + _seed % (_referenceNumber - ghostSnapshot + 1);
     }
@@ -1053,7 +1087,13 @@ contract EtnaInboxHandler is CommonBase {
     }
 
     /// @dev Swaps the first two exclusions, or lists one bond twice.
-    function _unsortExclusions(RecoveryAttempt memory _attempt, uint256 _seed) internal view {
+    function _unsortExclusions(
+        RecoveryAttempt memory _attempt,
+        uint256 _seed
+    )
+        internal
+        view
+    {
         IEtnaInbox.Exclusion[] memory list = _attempt.exclusions;
         if (list.length >= 2) {
             (list[0], list[1]) = (list[1], list[0]);

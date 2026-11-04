@@ -35,7 +35,14 @@ library LibEtnaVectors {
     /// @param _json The vectors document.
     /// @param _key The JSON path.
     /// @return The value.
-    function bytes32At(string memory _json, string memory _key) internal pure returns (bytes32) {
+    function bytes32At(
+        string memory _json,
+        string memory _key
+    )
+        internal
+        pure
+        returns (bytes32)
+    {
         return _VM.parseJsonBytes32(_json, _key);
     }
 
@@ -43,7 +50,14 @@ library LibEtnaVectors {
     /// @param _json The vectors document.
     /// @param _key The JSON path.
     /// @return The value.
-    function addressAt(string memory _json, string memory _key) internal pure returns (address) {
+    function addressAt(
+        string memory _json,
+        string memory _key
+    )
+        internal
+        pure
+        returns (address)
+    {
         return _VM.parseJsonAddress(_json, _key);
     }
 
@@ -51,7 +65,14 @@ library LibEtnaVectors {
     /// @param _json The vectors document.
     /// @param _key The JSON path.
     /// @return The value.
-    function bytesAt(string memory _json, string memory _key) internal pure returns (bytes memory) {
+    function bytesAt(
+        string memory _json,
+        string memory _key
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
         return _VM.parseJsonBytes(_json, _key);
     }
 
@@ -101,7 +122,14 @@ library LibEtnaVectors {
     /// @param _array The JSON path of the array.
     /// @param _index The item's index.
     /// @return The item's path prefix.
-    function itemAt(string memory _array, uint256 _index) internal pure returns (string memory) {
+    function itemAt(
+        string memory _array,
+        uint256 _index
+    )
+        internal
+        pure
+        returns (string memory)
+    {
         return string.concat(_array, "[", _VM.toString(_index), "].");
     }
 }

@@ -399,7 +399,13 @@ contract EtnaStakingRegistryHandler is CommonBase {
     }
 
     /// @dev One registration of `register`'s burst.
-    function _registerOne(uint256 _stakerSeed, uint256 _keySeed, uint256 _amountSeed) internal {
+    function _registerOne(
+        uint256 _stakerSeed,
+        uint256 _keySeed,
+        uint256 _amountSeed
+    )
+        internal
+    {
         RegisterAttempt memory a;
         a.caller = _staker(_stakerSeed);
         a.defect = _mode(_keySeed, REGISTER_MODES);
@@ -1121,7 +1127,14 @@ contract EtnaStakingRegistryHandler is CommonBase {
         }
     }
 
-    function _withdraw(uint256 _bondId, address _caller, address _to, bool _locked) internal {
+    function _withdraw(
+        uint256 _bondId,
+        address _caller,
+        address _to,
+        bool _locked
+    )
+        internal
+    {
         Bond storage s = _bonds[_bondId];
         uint256 amount = s.entry.effStake + s.pendingTopUp;
         bytes memory expected;
@@ -1894,7 +1907,14 @@ contract EtnaStakingRegistryHandler is CommonBase {
     // Helpers
     // ---------------------------------------------------------------
 
-    function _balances(address _to, address _reporter) internal view returns (Balances memory b_) {
+    function _balances(
+        address _to,
+        address _reporter
+    )
+        internal
+        view
+        returns (Balances memory b_)
+    {
         b_.registry = token.balanceOf(address(registry));
         if (_to != address(0)) b_.to = token.balanceOf(_to);
         if (_reporter != address(0)) b_.reporter = token.balanceOf(_reporter);

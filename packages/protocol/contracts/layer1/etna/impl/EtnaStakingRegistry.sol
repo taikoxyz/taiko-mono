@@ -635,7 +635,13 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     /// @param $ The registry storage.
     /// @param _bondId The new bond.
     /// @param _amount The new bond's stake, which must exceed the slot's value.
-    function _takeSlot(RegistryStorage storage $, uint256 _bondId, uint256 _amount) private {
+    function _takeSlot(
+        RegistryStorage storage $,
+        uint256 _bondId,
+        uint256 _amount
+    )
+        private
+    {
         (uint256 slot, uint256 value) = _admissionThreshold($);
         require(_amount > value, StakeTooLow());
         uint256 occupant = $.slotBond[slot];
@@ -662,7 +668,13 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     /// @param $ The registry storage.
     /// @param _bond The bond.
     /// @param _entry The bond's new entry fields.
-    function _save(RegistryStorage storage $, Bond storage _bond, Entry memory _entry) private {
+    function _save(
+        RegistryStorage storage $,
+        Bond storage _bond,
+        Entry memory _entry
+    )
+        private
+    {
         _bond.entry = _entry;
         if (_bond.holdsSlot) _commit($, _bond.slot, _entry);
     }
@@ -673,7 +685,13 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     /// @param $ The registry storage.
     /// @param _slot The slot, below `entries.length`.
     /// @param _entry The slot's new entry.
-    function _commit(RegistryStorage storage $, uint256 _slot, Entry memory _entry) private {
+    function _commit(
+        RegistryStorage storage $,
+        uint256 _slot,
+        Entry memory _entry
+    )
+        private
+    {
         $.entries[_slot] = _entry;
         uint256 count = $.entries.length;
         bytes32 root =
@@ -697,7 +715,13 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     /// @param $ The registry storage.
     /// @param _slot The slot.
     /// @param _value The slot's new value: its bond's effStake + pendingTopUp, or 0 if empty.
-    function _setSlotValue(RegistryStorage storage $, uint256 _slot, uint256 _value) private {
+    function _setSlotValue(
+        RegistryStorage storage $,
+        uint256 _slot,
+        uint256 _value
+    )
+        private
+    {
         require(_value < _VALUE_BOUND, BalanceTooLarge());
         uint256 node = MAX_ENTRIES + _slot;
         uint256 key = _value << LibEntriesTree.DEPTH | _slot;

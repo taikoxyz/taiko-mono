@@ -741,7 +741,12 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
 
     /// @dev Bob reports a conflicting pair `_CK_A` signed under `_cometChainId` against bond 0 of
     /// the current registry, which must slash it.
-    function _assertForeignPairSlashes(bytes memory _cometChainId, string memory _label) private {
+    function _assertForeignPairSlashes(
+        bytes memory _cometChainId,
+        string memory _label
+    )
+        private
+    {
         _slash(
             0,
             EtnaTestKeys.signVote(_CK_A, _vote(_BLOCK_A, 0), _cometChainId),
@@ -779,7 +784,13 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
         }
     }
 
-    function _assertWithdrawReverts(address _caller, bytes4 _error, string memory _label) private {
+    function _assertWithdrawReverts(
+        address _caller,
+        bytes4 _error,
+        string memory _label
+    )
+        private
+    {
         vm.prank(_caller);
         try registry.withdraw(0, _caller) {
             assertTrue(false, string.concat(_label, ": withdrew"));

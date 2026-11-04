@@ -2,7 +2,7 @@
   "schema": "etna-conformance-2",
   "family": "land",
   "generator": "formal/etna: lake exe etna-vectors --write testdata/etna_conformance",
-  "provenance": {"formalCommit": "2d06eeb663eb436ba5a6c63552665caab8e13b85"},
+  "provenance": {"formalCommit": "4f38cfcc8cbcfad10ec159110f5a8f74ca3e7ea5"},
   "constants": {
     "gridInterval": 6,
     "registeredAt": 10,
@@ -19,7 +19,7 @@
     "nMax": 128,
     "referenceHash": 7
   },
-  "vectorCount": 98,
+  "vectorCount": 100,
   "vectors": [
     {
       "id": "land.range.c0.p0.h0",
@@ -4814,6 +4814,69 @@
       }
     },
     {
+      "id": "land.leaves.frontier-wrong-comet-hash",
+      "family": "land",
+      "source": "generated",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 10,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
+          {"block": 13, "timestamp": 1700000156, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
+          {"block": 14, "timestamp": 1700000168, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 2000000000, "refundOK": true}},
+          {"block": 15, "timestamp": 1700000180, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 2000000000, "refundOK": true}},
+          {"block": 16, "timestamp": 1700000192, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 3000000000, "refundOK": true}},
+          {"block": 17, "timestamp": 1700000204, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 3000000000, "refundOK": true}},
+          {"block": 18, "timestamp": 1700000216, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
+          {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
+          {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
+          {"block": 21, "timestamp": 1700000252, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 20, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
+        ]
+      },
+      "call": {"block": 22, "timestamp": 1700000264, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 18, "lastBlockHash": 10018, "lastCometHash": 20018, "lastStateRoot": 30018, "l1ReferenceBlockNumber": 21, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 2, "leaves": [{"comet": 20006, "cut": true, "el": 10006, "head": 1, "height": 6, "word": 0}, {"comet": 20013, "cut": true, "el": 10012, "head": 2, "height": 12, "word": 0}]}},
+      "expect": {
+        "revert": true,
+        "result": {},
+        "observable": {
+          "inbox": {
+            "checkpointHeight": 12,
+            "checkpointHash": 10012,
+            "generation": 0,
+            "recoveryNonce": 0,
+            "head": 2,
+            "tail": 8,
+            "snapshot": 10,
+            "ethBalance": 20000000000,
+            "swept": 0,
+            "feeGwei": 4,
+            "records": [
+              {"cometHash": 0, "elHash": 10000, "generation": 0, "head": 0, "height": 0, "parentHeight": 0},
+              {"cometHash": 20006, "elHash": 10006, "generation": 0, "head": 1, "height": 6, "parentHeight": 0},
+              {"cometHash": 20012, "elHash": 10012, "generation": 0, "head": 2, "height": 12, "parentHeight": 6}
+            ],
+            "signals": [
+              {"hash": 10000, "height": 0, "stateRoot": 30000},
+              {"hash": 10006, "height": 6, "stateRoot": 30006},
+              {"hash": 10012, "height": 12, "stateRoot": 30012}
+            ],
+            "origins": [
+              {"generation": 0, "height": 0, "l1Block": 11, "timestamp": 1700000132}
+            ],
+            "queue": [
+              {"blank": false, "index": 0, "l1Block": 12, "timestamp": 1700000144},
+              {"blank": false, "index": 1, "l1Block": 13, "timestamp": 1700000156},
+              {"blank": false, "index": 2, "l1Block": 14, "timestamp": 1700000168},
+              {"blank": false, "index": 3, "l1Block": 15, "timestamp": 1700000180},
+              {"blank": false, "index": 4, "l1Block": 16, "timestamp": 1700000192},
+              {"blank": false, "index": 5, "l1Block": 17, "timestamp": 1700000204},
+              {"blank": false, "index": 6, "l1Block": 18, "timestamp": 1700000216},
+              {"blank": false, "index": 7, "l1Block": 19, "timestamp": 1700000228}
+            ]
+          }
+        }
+      }
+    },
+    {
       "id": "land.leaves.frontier-wrong-height",
       "family": "land",
       "source": "generated",
@@ -6286,6 +6349,69 @@
               {"generation": 0, "height": 0, "l1Block": 11, "timestamp": 1700000132}
             ],
             "queue": []
+          }
+        }
+      }
+    },
+    {
+      "id": "land.hw.two-landings-in-one-l1-block",
+      "family": "land",
+      "source": "handwritten",
+      "spec": "spec L284",
+      "setup": {
+        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "callCount": 9,
+        "calls": [
+          {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
+          {"block": 13, "timestamp": 1700000156, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
+          {"block": 14, "timestamp": 1700000168, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 2000000000, "refundOK": true}},
+          {"block": 15, "timestamp": 1700000180, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 2000000000, "refundOK": true}},
+          {"block": 16, "timestamp": 1700000192, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 3000000000, "refundOK": true}},
+          {"block": 17, "timestamp": 1700000204, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 3000000000, "refundOK": true}},
+          {"block": 18, "timestamp": 1700000216, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
+          {"block": 19, "timestamp": 1700000228, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 4000000000, "refundOK": true}},
+          {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}}
+        ]
+      },
+      "call": {"block": 20, "timestamp": 1700000240, "fn": "land", "args": {"parentHeight": 6, "lastHeight": 12, "lastBlockHash": 10012, "lastCometHash": 20012, "lastStateRoot": 30012, "l1ReferenceBlockNumber": 19, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 0, "leaves": []}},
+      "expect": {
+        "revert": false,
+        "result": {},
+        "observable": {
+          "inbox": {
+            "checkpointHeight": 12,
+            "checkpointHash": 10012,
+            "generation": 0,
+            "recoveryNonce": 0,
+            "head": 2,
+            "tail": 8,
+            "snapshot": 10,
+            "ethBalance": 20000000000,
+            "swept": 0,
+            "feeGwei": 4,
+            "records": [
+              {"cometHash": 0, "elHash": 10000, "generation": 0, "head": 0, "height": 0, "parentHeight": 0},
+              {"cometHash": 20006, "elHash": 10006, "generation": 0, "head": 1, "height": 6, "parentHeight": 0},
+              {"cometHash": 20012, "elHash": 10012, "generation": 0, "head": 2, "height": 12, "parentHeight": 6}
+            ],
+            "signals": [
+              {"hash": 10000, "height": 0, "stateRoot": 30000},
+              {"hash": 10006, "height": 6, "stateRoot": 30006},
+              {"hash": 10012, "height": 12, "stateRoot": 30012}
+            ],
+            "origins": [
+              {"generation": 0, "height": 0, "l1Block": 11, "timestamp": 1700000132}
+            ],
+            "queue": [
+              {"blank": false, "index": 0, "l1Block": 12, "timestamp": 1700000144},
+              {"blank": false, "index": 1, "l1Block": 13, "timestamp": 1700000156},
+              {"blank": false, "index": 2, "l1Block": 14, "timestamp": 1700000168},
+              {"blank": false, "index": 3, "l1Block": 15, "timestamp": 1700000180},
+              {"blank": false, "index": 4, "l1Block": 16, "timestamp": 1700000192},
+              {"blank": false, "index": 5, "l1Block": 17, "timestamp": 1700000204},
+              {"blank": false, "index": 6, "l1Block": 18, "timestamp": 1700000216},
+              {"blank": false, "index": 7, "l1Block": 19, "timestamp": 1700000228}
+            ]
           }
         }
       }
