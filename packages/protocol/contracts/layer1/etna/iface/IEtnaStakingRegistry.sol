@@ -34,8 +34,8 @@ interface IEtnaStakingRegistry {
         /// [1, 2^32). Spec 11 also asks for no less than the double-sign evidence window
         /// (suggested at least 50,400 L1 blocks), which the constructor does not check.
         uint256 withdrawalDelay;
-        /// @notice The share of a slashed stake paid to the reporter, in basis points; at most
-        /// 10,000.
+        /// @notice The share of a slashed stake paid to the reporter, in basis points; below
+        /// 10,000 (zero is allowed).
         uint256 slashBountyBps;
         /// @notice The receiver of a slashed stake minus the bounty; non-zero.
         address slashSink;
@@ -342,7 +342,8 @@ interface IEtnaStakingRegistry {
     /// (appendix A), to the address of the bond's stored key. The bond must be unwithdrawn with
     /// a positive effective plus pending principal, whether or not it holds a slot. Clears both
     /// balances and top-up readiness, sets exitEffectiveL1 to min(existing, block.number), pays
-    /// slashBountyBps of all principal to the caller and the rest to slashSink, and sets the
+    /// floor(principal * slashBountyBps / 10000) to the caller and the remainder to slashSink.
+    /// The owner or signer may self-report and receives the same bounty. Sets the
     /// slot's admission value to 0 if the bond holds a slot. Writes the current block's
     /// checkpoint only if the bond holds a slot and its entry changed (a positive effStake or an
     /// exit after the current block).

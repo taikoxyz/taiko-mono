@@ -123,6 +123,32 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
         assertEq(token.balanceOf(Bob) + token.balanceOf(SLASH_SINK), MIN_STAKE, "paid once");
     }
 
+    /// @dev STAKE-4.1-34.g: an owner reporting its own signer receives only the bounty,
+    /// calculated from effective and pending principal together.
+    function test_slashDoubleSign_OwnerMaySelfReport() external {
+        _assertSlashPayout(800, 200, 1000, Alice, 100, 900);
+    }
+
+    /// @dev The signer may also report, independently of the bond's owner.
+    function test_slashDoubleSign_SignerMaySelfReport() external {
+        _assertSlashPayout(800, 200, 1000, vm.addr(_CK_B), 100, 900);
+    }
+
+    /// @dev STAKE-4.1-34.i: the fractional bounty goes to the sink instead of rounding up.
+    function test_slashDoubleSign_RoundsBountyDown() external {
+        _assertSlashPayout(1001, 0, 1000, Bob, 100, 901);
+    }
+
+    /// @dev STAKE-4.1-34.j: even the highest allowed bounty leaves a one-unit slash at the sink.
+    function test_slashDoubleSign_OneUnitPaysNoBounty() external {
+        _assertSlashPayout(1, 0, 9999, Bob, 0, 1);
+    }
+
+    /// @dev PARAM-11-11.i: a zero rate sends all principal to the sink.
+    function test_slashDoubleSign_ZeroBountyPaysAllPrincipalToSink() external {
+        _assertSlashPayout(1001, 0, 0, Bob, 0, 1001);
+    }
+
     /// @dev A nil precommit and a precommit for a block in the same round have different block
     /// ids, so together they are a double sign, in either order.
     function test_slashDoubleSign_NilAgainstNonNilIsDoubleSign() external {
@@ -753,6 +779,54 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
             EtnaTestKeys.signVote(_CK_A, _vote(_BLOCK_B, 0), _cometChainId)
         );
         assertEq(registry.entryAt(0).effStake, 0, string.concat(_label, ": slashed there"));
+    }
+
+    /// @dev Checks literal payout expectations against real token transfers and the slashed bond.
+    /// @param _effective The initial effective stake.
+    /// @param _pending The unactivated top-up.
+    /// @param _bps The reporter bounty rate.
+    /// @param _reporter The evidence caller.
+    /// @param _bounty The expected reporter payment.
+    /// @param _remainder The expected sink payment.
+    function _assertSlashPayout(
+        uint256 _effective,
+        uint256 _pending,
+        uint256 _bps,
+        address _reporter,
+        uint256 _bounty,
+        uint256 _remainder
+    )
+        private
+    {
+        IEtnaStakingRegistry.Config memory config =
+            _registryConfig(address(token), address(mockInbox));
+        config.minStake = 1;
+        config.slashBountyBps = _bps;
+        registry = _deployRegistry(config);
+        _registerWith(Alice, _CK_B, _effective);
+        if (_pending != 0) {
+            vm.roll(block.number + ACTIVATION_DELAY);
+            _fund(Alice, _pending);
+            vm.prank(Alice);
+            registry.topUp(0, _pending);
+        }
+        uint256 reporterBefore = token.balanceOf(_reporter);
+        uint256 sinkBefore = token.balanceOf(SLASH_SINK);
+        (IEtnaStakingRegistry.Vote memory a, IEtnaStakingRegistry.Vote memory b) = _conflict(_CK_B);
+        vm.expectEmit();
+        emit IEtnaStakingRegistry.DoubleSignSlashed(
+            0, _reporter, _effective + _pending, _bounty, 0, _HEIGHT, _ROUND, 2
+        );
+        vm.prank(_reporter);
+        registry.slashDoubleSign(0, a, b);
+
+        assertEq(token.balanceOf(_reporter) - reporterBefore, _bounty, "reporter payment");
+        assertEq(token.balanceOf(SLASH_SINK) - sinkBefore, _remainder, "sink payment");
+        assertEq(token.balanceOf(address(registry)), 0, "all principal paid");
+        assertEq(registry.bondAt(0).entry.effStake, 0, "effective principal slashed");
+        (uint256 pending, uint48 readyAt) = registry.topUpOf(0);
+        assertEq(pending, 0, "pending principal slashed");
+        assertEq(readyAt, 0, "readiness cleared");
     }
 
     /// @dev Bob reports `_a` and `_b` against `_bondId`.

@@ -17,7 +17,7 @@ import { TestERC20 } from "test/mocks/TestERC20.sol";
 /// The model's registration payment receipt maps to the token's caller-to-registry Transfer event.
 contract EtnaCurrentRegistryConformanceTest is Test {
     string private constant _FILE = "/test/layer1/etna/conformance/vectors/registry_admission.json";
-    string private constant _AUTHORITY_COMMIT = "1135c9b24fd03f50cb48eab250879435fd54f528";
+    string private constant _AUTHORITY_COMMIT = "e84a9aaac526c15597d97ee93f8803f92b02c279";
 
     struct RegistrationCall {
         address caller;

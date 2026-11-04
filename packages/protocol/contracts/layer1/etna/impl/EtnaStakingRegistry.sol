@@ -185,7 +185,7 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         require(_isValidDelay(_config.activationDelay), InvalidConfig());
         require(_isValidDelay(_config.exitDelay), InvalidConfig());
         require(_isValidDelay(_config.withdrawalDelay), InvalidConfig());
-        require(_config.slashBountyBps <= _BPS, InvalidConfig());
+        require(_config.slashBountyBps < _BPS, InvalidConfig());
         require(_config.slashSink != address(0), InvalidConfig());
         require(_config.l2ChainId != 0, InvalidConfig());
         require(_config.inbox.code.length != 0, InvalidConfig());

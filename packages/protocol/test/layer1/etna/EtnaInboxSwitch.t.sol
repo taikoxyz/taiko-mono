@@ -192,7 +192,7 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
         _assertCheckpoint(S + 12, bytes32(100 + S + 12));
     }
 
-    /// @dev 8a.b, 8a.c, 8a.i: an unfinalized Unzen proposal or a different last finalized hash
+    /// @dev 8a.b, 8a.c, 8a.i, 8a.l: an unfinalized Unzen proposal or a different last finalized hash
     /// rejects the landing before proof verification; the verifier would reject it too.
     function test_land_RevertWhen_UnzenIsNotFinalizedAtTheStart() external {
         _writeStart();
@@ -204,6 +204,11 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
         _expectLandRevert(input, new bytes32[](0), IEtnaInbox.UnzenNotFinalized.selector);
 
         unzen.setCoreState(8, 7, bytes32(100 + S - 1));
+        _expectLandRevert(input, new bytes32[](0), IEtnaInbox.UnzenStartMismatch.selector);
+
+        // An empty proposer source still derives a successor block. A matching checkpoint at
+        // the earlier S cannot substitute for the hash of the last finalized Unzen block.
+        unzen.setCoreState(8, 7, bytes32(100 + S + 1));
         _expectLandRevert(input, new bytes32[](0), IEtnaInbox.UnzenStartMismatch.selector);
     }
 

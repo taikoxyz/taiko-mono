@@ -6,6 +6,9 @@ checkpoints. These are its L1 contracts. Section numbers refer to the
 [Etna PoS + ZK design specification](../../../docs/etna/SPEC.md); appendix A is its
 encodings and appendix B its L1 storage layout.
 
+The current specification baseline is main at `e84a9aaac526c15597d97ee93f8803f92b02c279`
+([#22335](https://github.com/taikoxyz/taiko-mono/pull/22335)).
+
 ## Contracts
 
 - `iface/IEtnaInbox.sol`, `impl/EtnaInbox.sol`: `init` and the Etna start write (spec 10 steps
@@ -105,6 +108,9 @@ Pause affects none of these entry points, nor the registry's (spec 1 requires th
   exit needs an initialized Inbox whose `activeCommitteeSnapshot` reaches the exit block;
   `slashDoubleSign` needs an initialized Inbox and accepts votes from the current or an earlier
   generation.
+  Double-sign bounty rates are in [0, 10,000): the caller receives
+  `floor(principal * slashBountyBps / 10000)` and the sink receives the remainder. The owner or
+  signer may self-report for the same bounty.
   Registry mutations revert while the Inbox holds its lock, except its authorized `forceExit`.
 - `topUp(bondId, amount)`: the active entry's owner deposits one positive pending amount, even
   with all slots occupied or before Inbox initialization. It has no voting power or checkpoint
@@ -238,6 +244,9 @@ python3 -m unittest discover -s ../../testdata/etna_vectors -p 'test_vectors.py'
 - The rest of the switch from Unzen: the start rewrite of spec 10 step 5c, which ships with the
   correcting Inbox upgrade, the L1 SignalService upgrade that accepts both Inboxes and rejects
   Unzen Inbox checkpoints above S, and the Unzen Inbox cutoffs (10 step 5d).
+- Snapshot verification, checkpoint import and switch deployment tooling. The merged spec's
+  missing-data retry rules, originWriter finality and timestamp duties, and DAO proposal lead
+  guard belong to those implementations and operations; the contract enforces its observable gates.
 - Real proving guests. Tests use mock verifiers, so they show contract behaviour, not proof
   soundness; production needs a verifier that requires two proofs, at least one ZK (6.2).
 

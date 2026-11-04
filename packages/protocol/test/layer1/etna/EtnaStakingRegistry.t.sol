@@ -62,14 +62,21 @@ contract EtnaStakingRegistryTest is EtnaStakingRegistryTestBase {
         }
     }
 
-    function test_constructor_RevertWhen_BountyAboveTenThousand() external {
+    function test_constructor_RevertWhen_BountyAtOrAboveTenThousand() external {
         IEtnaStakingRegistry.Config memory cfg = _config();
         cfg.slashBountyBps = 10_001;
         vm.expectRevert(IEtnaStakingRegistry.InvalidConfig.selector);
         new EtnaStakingRegistry(cfg);
 
         cfg.slashBountyBps = 10_000;
-        assertEq(new EtnaStakingRegistry(cfg).slashBountyBps(), 10_000);
+        vm.expectRevert(IEtnaStakingRegistry.InvalidConfig.selector);
+        new EtnaStakingRegistry(cfg);
+    }
+
+    function test_constructor_AcceptsBountyBelowTenThousand() external {
+        IEtnaStakingRegistry.Config memory cfg = _config();
+        cfg.slashBountyBps = 9999;
+        assertEq(new EtnaStakingRegistry(cfg).slashBountyBps(), 9999);
         cfg.slashBountyBps = 0;
         assertEq(new EtnaStakingRegistry(cfg).slashBountyBps(), 0);
     }
