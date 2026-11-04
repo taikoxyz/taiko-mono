@@ -180,7 +180,7 @@ For each `DerivationSource[i]`, the validator performs:
 
 If any validation step fails for source `i`, that source is replaced with a **default source manifest** (single block with only an anchor transaction, or with no transactions from Etna on). Other sources are unaffected.
 
-In particular, an empty `blocks` list is replaced with a single default block, for both proposer-supplied and forced-inclusion sources. The [Inbox](../contracts/layer1/core/impl/Inbox.sol) always includes the proposer's source, so the source list is nonempty. Every accepted Unzen proposal therefore derives at least one L2 block and advances the proposal's last L2 block height; an empty list never makes a proposal a no-op. The [metadata-stage conformance vectors](../../../testdata/derivation_vectors/README.md#metadata-stage-conformance-vectors) cover this fallback separately from payload decoding.
+In particular, an empty `blocks` list is replaced with a single default block, for both proposer-supplied and forced-inclusion sources. [`Inbox.propose`](../contracts/layer1/core/impl/Inbox.sol) always appends the proposer's source, so every proposal it accepts has a nonempty source list, derives at least one L2 block and advances the proposal's last L2 block height; an empty list never makes such a proposal a no-op. The activation proposal 0, which `activate` emits, carries no sources and derives no blocks. The [metadata-stage conformance vectors](../../../testdata/derivation_vectors/README.md#metadata-stage-conformance-vectors) cover this fallback separately from payload decoding.
 
 #### Default Source Manifest
 
