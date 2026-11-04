@@ -4,7 +4,7 @@
 
 ### Features
 
-- Align with protocol `87cd3b385` and the current Etna specification: authenticate slot 293,
+- Align with protocol `98ef82aee` and the current Etna specification: authenticate slot 293,
   enforce ruleset selection/refusal and planned stops, and retain fixed recovery origins
   across later schedule writes. Reproduce schema-5 vectors and the updated recovery ABI.
 - Read registry entries by slot independently of permanent bond IDs, including displacement
@@ -18,6 +18,10 @@
   proving, snapshot import and production deployment acceptance are outside this change.
 
 ### Bug Fixes
+
+- Replace empty derivation sources with a single default block before and after Unzen,
+  matching the clarified source validation rules in protocol #22335. Regenerate contract
+  fixtures and shared vectors from the protocol revision enforcing the strict bounty bound.
 
 - Resume the first recovered committee switch from a fixed R snapshot across proposal
   deadlines and reuse its verified witness after restart or anchor advancement.

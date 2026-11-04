@@ -70,7 +70,7 @@ asks the app's private control socket before every signature (see
 
 Fresh deployment starts at generation zero; it migrates no earlier state format. Explicit
 [governance recovery](docs/governance-recovery.md) authenticates a later generation and
-creates fresh app/Comet stores while preserving registered signing authority and old history. It is aligned with protocol commit `87cd3b385ab317550ed6be3ca588cbeab66146d9` (the
+creates fresh app/Comet stores while preserving registered signing authority and old history. It is aligned with protocol commit `98ef82aee6c290eb29840071675e575081a70084` (the
 Inbox, staking registry and the pinned contract artifacts) and alethia-reth commit
 `6ac93d4b38e1cd72b993cef1ed1dc2cb0affa7b4`. Start the EL and verify its block 0 before the Inbox
 is initialized (spec section 10, Startup and deployment). The proof provider is a dummy `0x00`,
