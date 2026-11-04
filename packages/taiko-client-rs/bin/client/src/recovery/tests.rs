@@ -10,9 +10,14 @@ use alloy_primitives::{Address, B256, Bytes, U256, keccak256};
 use serde::Deserialize;
 use std::{
     collections::{BTreeMap, VecDeque},
-    path::Path,
+    path::{Path, PathBuf},
     sync::Mutex,
 };
+
+/// A short canonical parent keeps Unix sockets usable on both macOS and Linux.
+fn short_temp_parent() -> PathBuf {
+    Path::new("/tmp").canonicalize().unwrap()
+}
 
 #[derive(Deserialize)]
 struct Fixture {
@@ -703,7 +708,7 @@ async fn recovery_profile_changes_create_new_id_and_short_names_check_full_ident
 
 #[tokio::test]
 async fn recovery_socket_paths_report_overlong_roots_and_keep_short_roots_usable() {
-    let dir = tempfile::Builder::new().prefix("r7").tempdir_in("/private/tmp").unwrap();
+    let dir = tempfile::Builder::new().prefix("r7").tempdir_in(short_temp_parent()).unwrap();
     let source = Source::new();
     let p = configured_profile(dir.path(), &source);
     let engine = ReadEngine::new(&source);
