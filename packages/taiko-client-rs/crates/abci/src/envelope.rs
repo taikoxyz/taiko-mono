@@ -83,7 +83,7 @@ pub use crate::forced::ForcedWitness;
 pub struct EtnaEnvelope {
     /// The L2 execution block.
     pub block: ExecutionBlock,
-    /// Present iff the block moves the anchor or is height 1.
+    /// Present iff the block moves the anchor or is its generation's first block (spec 3.3).
     pub anchor: Option<AnchorWitness>,
     /// Present iff the block is the target epoch's switch height H-2.
     pub committee: Option<CommitteeWitness>,

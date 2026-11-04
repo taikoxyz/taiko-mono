@@ -163,7 +163,7 @@ fn decode_extra_data_rejects_wrong_lengths() {
 fn encode_extra_data_rejects_uint48_overflow() {
     assert_eq!(
         encode_extra_data(UINT48_MAX + 1, 1),
-        Err(RuleViolation::ExtraDataOverflow { field: "proposal_id", value: UINT48_MAX + 1 })
+        Err(RuleViolation::ExtraDataOverflow { field: "generation", value: UINT48_MAX + 1 })
     );
     assert_eq!(
         encode_extra_data(1, u64::MAX),
@@ -263,7 +263,7 @@ fn expected_header_rejects_a_generation_beyond_uint48() {
     let i = HeaderInputs { generation: UINT48_MAX + 1, ..inputs(11, &p, &a, &params) };
     assert_eq!(
         expected_header(&i),
-        Err(RuleViolation::ExtraDataOverflow { field: "proposal_id", value: UINT48_MAX + 1 })
+        Err(RuleViolation::ExtraDataOverflow { field: "generation", value: UINT48_MAX + 1 })
     );
 }
 
@@ -489,7 +489,7 @@ fn anchor_progress_rejects_a_regression() {
 fn anchor_progress_rejects_an_anchor_before_activation() {
     assert_eq!(
         check_anchor_progress(40, 49, L1_0),
-        Err(RuleViolation::AnchorBeforeActivation { anchor: 49, l1_0: L1_0 })
+        Err(RuleViolation::AnchorBeforeActivation { anchor: 49, origin: L1_0 })
     );
 }
 
@@ -593,11 +593,11 @@ fn every_violation() -> Vec<RuleViolation> {
         RuleViolation::PlannedStop { parent_height: 6 },
         RuleViolation::HeightMismatch { height: 2, parent: 0 },
         RuleViolation::HeaderField { field: "number", expected: "1".into(), got: "2".into() },
-        RuleViolation::ExtraDataOverflow { field: "proposal_id", value: u64::MAX },
+        RuleViolation::ExtraDataOverflow { field: "generation", value: u64::MAX },
         RuleViolation::ExtraDataLength { len: 7 },
         RuleViolation::BaseFeeUnavailable { parent: 1 },
         RuleViolation::AnchorRegressed { parent: 2, anchor: 1 },
-        RuleViolation::AnchorBeforeActivation { anchor: 1, l1_0: 2 },
+        RuleViolation::AnchorBeforeActivation { anchor: 1, origin: 2 },
         RuleViolation::AnchorTooOld { age: 7_201, max: 7_200 },
         RuleViolation::BackPressure { depth: 11, cap: 10 },
         RuleViolation::GenerationMismatch { chain: 1, extra: 2 },

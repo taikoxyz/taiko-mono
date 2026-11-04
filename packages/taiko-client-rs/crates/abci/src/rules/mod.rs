@@ -158,8 +158,7 @@ pub enum RuleViolation {
     /// A number does not fit its 6-byte `uint48` `extraData` slot.
     #[error("extraData field {field} value {value} does not fit in uint48")]
     ExtraDataOverflow {
-        /// The protocol field name: `proposal_id` (the slot carrying the generation) or
-        /// `anchor_block_number`.
+        /// The protocol field name: `generation` or `anchor_block_number`.
         field: &'static str,
         /// The rejected value.
         value: u64,
@@ -184,13 +183,14 @@ pub enum RuleViolation {
         /// The block's anchor L1 block number.
         anchor: u64,
     },
-    /// The anchor L1 block precedes the Etna initialization block `L1_0`.
-    #[error("anchor {anchor} is below the genesis block L1_0 = {l1_0}")]
+    /// The anchor L1 block precedes the current generation's L1 origin: `L1_0` for generation 0,
+    /// R after a governance recovery (spec 3.4 rule 3).
+    #[error("anchor {anchor} is below the generation's L1 origin {origin}")]
     AnchorBeforeActivation {
         /// The block's anchor L1 block number.
         anchor: u64,
-        /// `L1_0`.
-        l1_0: u64,
+        /// The current generation's L1 origin block number.
+        origin: u64,
     },
     /// The block is more than the genesis `maxAnchorAge` younger than its anchor L1 block.
     #[error("anchor is {age} s older than the block, above the maximum anchor age of {max} s")]
@@ -304,9 +304,9 @@ pub fn block_timestamp(parent_ts: u64, bft_secs: u64, anchor_ts: u64) -> u64 {
 }
 
 /// Encodes the 13-byte Etna `extraData`
-/// `[BASEFEE_SHARING_PCTG (100) | generation u48 BE | anchor u48 BE]`: the unused proposal-id
-/// slot carries the recovery generation, so the EL block hash an L1 checkpoint pins commits to
-/// it.
+/// `[BASEFEE_SHARING_PCTG (100) | generation u48 BE | anchor u48 BE]`: the slot that held the
+/// proposal id before Etna carries the recovery generation, so the EL block hash an L1
+/// checkpoint pins commits to it.
 ///
 /// Fails with [`RuleViolation::ExtraDataOverflow`] when `generation` or `anchor` exceeds
 /// `uint48`.
@@ -523,19 +523,20 @@ pub fn payload_attributes(
 
 /// Checks a block's anchor L1 block number.
 ///
-/// In order: `anchor >= parent_anchor` ([`RuleViolation::AnchorRegressed`]) and `anchor >= L1_0`
-/// ([`RuleViolation::AnchorBeforeActivation`]). Epochs place no further floor on the anchor:
+/// In order: `anchor >= parent_anchor` ([`RuleViolation::AnchorRegressed`]) and `anchor >=
+/// origin`, the current generation's L1 origin (`L1_0`, or R after a recovery;
+/// [`RuleViolation::AnchorBeforeActivation`]). Epochs place no further floor on the anchor:
 /// how far it lags the block's time is bounded by [`check_anchor_freshness`] instead.
 pub fn check_anchor_progress(
     parent_anchor: u64,
     anchor: u64,
-    l1_0: u64,
+    origin: u64,
 ) -> Result<(), RuleViolation> {
     if anchor < parent_anchor {
         return Err(RuleViolation::AnchorRegressed { parent: parent_anchor, anchor });
     }
-    if anchor < l1_0 {
-        return Err(RuleViolation::AnchorBeforeActivation { anchor, l1_0 });
+    if anchor < origin {
+        return Err(RuleViolation::AnchorBeforeActivation { anchor, origin });
     }
     Ok(())
 }

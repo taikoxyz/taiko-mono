@@ -262,7 +262,7 @@ fn recovery_schedule_first_block_requires_a_witness_at_or_after_r() {
             .unwrap_err(),
         Rejection::Rule(crate::rules::RuleViolation::AnchorBeforeActivation {
             anchor: 64,
-            l1_0: 100
+            origin: 100
         })
     );
 }

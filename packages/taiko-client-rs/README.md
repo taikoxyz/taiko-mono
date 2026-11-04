@@ -539,8 +539,9 @@ or config opening differs.
   checkpoint can be older than that anchor. The state window or cached history must cover
   those historical entry reads as well as the parent-anchor proofs. Landers starting mid-epoch
   also need the earlier derivation snapshot's entries and the bounded EL ancestor headers.
-- At switch height `S(t)`, the registry snapshot is the committed `D(t)` anchor's L1 block, and
-  its proofs verify under `S(t)`'s own anchor state root (spec section 4.3); `S(t)` keeps its
+- At switch height `S(t)`, the registry snapshot is the later of the committed `D(t)` anchor's
+  L1 block and the current generation's L1 origin (`L1_0`, or R after a recovery), and its
+  proofs verify under `S(t)`'s own anchor state root (spec section 4.3); `S(t)` keeps its
   parent's anchor unless it carries a newer one. An L1 finality stall keeps that anchor for up to
   `maxAnchorAge` (planned 2 h, about 600 L1 blocks), far beyond a geth full node's 128-block state window, so nodes
   discover the witness as soon as they commit the anchor (see the sidecar below). That needs the

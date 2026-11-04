@@ -51,19 +51,20 @@ pub fn encode_extra_data(basefee_sharing_pctg: u8, proposal_id: u64) -> Bytes {
 }
 
 /// Encode the 13-byte `extraData` of a non-genesis Etna block header:
-/// `[basefeeSharingPctg | proposalId(6) | anchorBlockNumber(6)]`, both numbers big-endian
-/// `uint48`.
+/// `[basefeeSharingPctg | generation(6) | anchorBlockNumber(6)]`, both numbers big-endian
+/// `uint48` (Etna spec 3.2).
 ///
-/// The first 7 bytes equal [`encode_extra_data`]'s pre-Etna layout, so proposal-id readers work
-/// for both forks. A `proposal_id` or `anchor_block_number` above `uint48` is an error.
+/// The first 7 bytes keep [`encode_extra_data`]'s pre-Etna layout: the 6-byte slot that holds
+/// the proposal id before Etna holds the recovery generation from Etna on. A `generation` or
+/// `anchor_block_number` above `uint48` is an error.
 pub fn encode_etna_extra_data(
     basefee_sharing_pctg: u8,
-    proposal_id: u64,
+    generation: u64,
     anchor_block_number: u64,
 ) -> Result<Bytes> {
     let mut data = [0u8; ETNA_EXTRA_DATA_LEN];
     data[0] = basefee_sharing_pctg;
-    data[1..SHASTA_EXTRA_DATA_LEN].copy_from_slice(&uint48_be_bytes("proposal_id", proposal_id)?);
+    data[1..SHASTA_EXTRA_DATA_LEN].copy_from_slice(&uint48_be_bytes("generation", generation)?);
     data[SHASTA_EXTRA_DATA_LEN..]
         .copy_from_slice(&uint48_be_bytes("anchor_block_number", anchor_block_number)?);
     Ok(Bytes::from(data.to_vec()))
@@ -303,7 +304,7 @@ mod tests {
         );
     }
 
-    /// `[pctg | proposalId(6) | anchorBlockNumber(6)]`, both numbers big-endian `uint48`.
+    /// `[pctg | generation(6) | anchorBlockNumber(6)]`, both numbers big-endian `uint48`.
     #[test]
     fn etna_extra_data_encodes_the_13_byte_layout() {
         let extra_data = encode_etna_extra_data(50, 7, 123_456).expect("fields fit uint48");
@@ -329,7 +330,7 @@ mod tests {
     fn etna_extra_data_rejects_fields_beyond_uint48() {
         assert!(matches!(
             encode_etna_extra_data(50, UINT48_MAX + 1, 1),
-            Err(ProtocolError::EtnaExtraDataFieldOverflow { field: "proposal_id", value })
+            Err(ProtocolError::EtnaExtraDataFieldOverflow { field: "generation", value })
                 if value == UINT48_MAX + 1
         ));
         assert!(matches!(
