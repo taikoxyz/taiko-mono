@@ -173,12 +173,14 @@ For each `DerivationSource[i]`, the validator performs:
 4. **Size Extraction**: Extract data size from bytes `[offset+32, offset+64)`
 5. **Decompression**: Apply ZLIB decompression to bytes `[offset+64, offset+64+size)`
 6. **Decoding**: RLP decode the decompressed data
-7. **Block Count Validation**: Verify `manifest.blocks.length` does not exceed the per-source limit selected by the landed L1 block timestamp of the proposal:
+7. **Block Count Validation**: Verify `manifest.blocks.length` is at least 1 and does not exceed the per-source limit selected by the landed L1 block timestamp of the proposal:
    - Before Unzen: `DERIVATION_SOURCE_MAX_BLOCKS = 192`
    - At/after Unzen: `UNZEN_DERIVATION_SOURCE_MAX_BLOCKS = 768`
 8. **Forced Inclusion Block Count Enforcement**: If `derivation.sources[i].isForcedInclusion` is true and `manifest.blocks.length != 1`, replace the entire source with the default manifest
 
 If any validation step fails for source `i`, that source is replaced with a **default source manifest** (single block with only an anchor transaction, or with no transactions from Etna on). Other sources are unaffected.
+
+In particular, an empty `blocks` list is replaced with a single default block, for both proposer-supplied and forced-inclusion sources. Every accepted Unzen proposal therefore derives at least one L2 block and advances the ending L2 height; an empty list never makes a proposal a no-op. The [metadata-stage conformance vectors](../../../testdata/derivation_vectors/README.md#metadata-stage-conformance-vectors) cover this fallback separately from payload decoding.
 
 #### Default Source Manifest
 

@@ -4,14 +4,14 @@ This document is the one-time procedure that ends the Unzen chain at its last bl
 
 ## 1. Overview
 
-| Name                          | Meaning                                                                                                                                                                                 |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ETNA_FORK_TIME`              | The single switch time: the clients' Etna fork time, the L2 `Anchor`'s `etnaTimestamp` and an EtnaInbox immutable. Every Unzen block is earlier and every Etna block is at or after it. |
-| S                             | The Etna start: the last Unzen block. Etna's first block is S + 1, and CometBFT heights continue the L2 block numbers.                                                                  |
-| `originWriter`                | A multisig named by an EtnaInbox immutable. It can call `setOrigin(S, hash, stateRoot)` once, after `ETNA_FORK_TIME` (SPEC START-10-5a).                                                |
-| R₀                            | The L1 block that executes `setOrigin`. It becomes `L1_0`, generation 0's L1 origin, so every Etna anchor is at or after it.                                                            |
-| `PROPOSAL_LEAD`               | How long before `ETNA_FORK_TIME` the DAO proposal must execute ([section 3](#3-the-dao-proposal)).                                                                                      |
-| `PROPOSE_MARGIN`, `FI_MARGIN` | How long before `ETNA_FORK_TIME` the Unzen Inbox stops accepting proposals and forced inclusions (SPEC START-10-5d, PARAM-11-12b).                                                      |
+| Name                          | Meaning                                                                                                                                                                                                                   |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ETNA_FORK_TIME`              | The single switch time: the clients' Etna fork time, the L2 `Anchor`'s `etnaTimestamp` and an EtnaInbox immutable. Every Unzen block is earlier and every Etna block is at or after it.                                   |
+| S                             | The Etna start: the last Unzen block. Etna's first block is S + 1, and CometBFT heights continue the L2 block numbers.                                                                                                    |
+| `originWriter`                | A multisig named by an EtnaInbox immutable. It can call `setOrigin(S, hash, stateRoot)` once, with `block.timestamp >= ETNA_FORK_TIME`; it must first wait for finality as section 4, step 5 requires (SPEC START-10-5a). |
+| R₀                            | The L1 block that executes `setOrigin`. It becomes `L1_0`, generation 0's L1 origin, so every Etna anchor is at or after it.                                                                                              |
+| `PROPOSAL_LEAD`               | How long before `ETNA_FORK_TIME` the DAO proposal must execute ([section 3](#3-the-dao-proposal)).                                                                                                                        |
+| `PROPOSE_MARGIN`, `FI_MARGIN` | How long before `ETNA_FORK_TIME` the Unzen Inbox stops accepting proposals and forced inclusions (SPEC START-10-5d, PARAM-11-12b).                                                                                        |
 
 The switch runs in these stages:
 
@@ -120,7 +120,7 @@ While the latest checkpoint is still S, `land` additionally requires three thing
 
 The three together prove that the originWriter wrote Unzen's last block.
 
-- `setOrigin` only runs after `ETNA_FORK_TIME`, and the Unzen Inbox accepts no proposal after the propose cutoff (START-10-5d), so by the time of any landing the set of Unzen proposals is closed.
+- `setOrigin` requires `block.timestamp >= ETNA_FORK_TIME`; the originWriter must also wait until the first L1 block with timestamp at or after `ETNA_FORK_TIME` is finalized (START-10-5a). The Unzen Inbox accepts no proposal at or after the propose cutoff (START-10-5d), so by the time of any landing the set of Unzen proposals is closed.
 - Conditions 1 and 2 make the written block the end of the last Unzen proposal, not some earlier block that happens to have a checkpoint.
 - Condition 3 ties the written height and stateRoot to the block Unzen's own proof settled.
 - The guest of that first proof also checks that the L2 `Anchor` at S has the Etna implementation (PROOF-6.2-46a). Proofs therefore cannot settle a chain that started without the `anchorV4` gate.
