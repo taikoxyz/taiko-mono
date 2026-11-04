@@ -119,6 +119,18 @@ end Outer.Inner
         self.assertEqual(data['authorities'][prefix+'ANCHORLESS.md'].get('github_path'),
                          'packages/protocol/docs/etna/ANCHORLESS.md')
 
+    def test_citation_lines_keep_raw_offsets_when_rule_marker_lines_are_removed(self):
+        module=generator()
+        raw='one\n// [ENC-A-6]\n**[ENC-A-7]** two\n  // [ENC-A-8]\nthree\n'
+        self.assertEqual(module.source_line_map(raw),[1,3,5])
+        data=module.build_catalogue()
+        for clause in data['clauses']:
+            raw=(module.REPO/clause['path']).read_text()
+            clean=module.coverage.strip_markers(raw).splitlines(keepends=True)
+            excerpt=''.join(raw.splitlines(keepends=True)[clause['github_start_line']-1:clause['github_end_line']])
+            expected=''.join(clean[clause['start_line']-1:clause['end_line']])
+            self.assertEqual(module.coverage.strip_markers(excerpt),expected,clause['id'])
+
 
 if __name__ == '__main__':
     unittest.main()

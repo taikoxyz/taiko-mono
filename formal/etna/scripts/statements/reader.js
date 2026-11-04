@@ -39,7 +39,7 @@
     `${data.github}/blob/${data.branch}/formal/etna/${path.split("/").map(encodeURIComponent).join("/")}`;
   const authorityURL = (clause) => {
     const pin = data.authorities[clause.path];
-    return `${data.github}/blob/${pin.commit}/${pin.github_path}#L${clause.start_line}-L${clause.end_line}`;
+    return `${data.github}/blob/${pin.commit}/${pin.github_path}#L${clause.github_start_line}-L${clause.github_end_line}`;
   };
   const explanations = {
     "Etna.Design.Current.Protocol.Certifies":
@@ -320,7 +320,7 @@
                 target: "_blank",
                 rel: "noopener noreferrer",
               },
-              `${clause.historical ? "Historical · " : ""}${clause.path.split("/").pop()}:${clause.start_line}–${clause.end_line} ↗`,
+              `${clause.historical ? "Historical · " : ""}${clause.path.split("/").pop()}:${clause.github_start_line}–${clause.github_end_line} ↗`,
             ),
             node("p", {}, clause.summary),
           ),

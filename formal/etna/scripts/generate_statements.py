@@ -31,6 +31,12 @@ HISTORICAL_PATHS = {
 }
 
 
+def source_line_map(text):
+    """Map each marker-stripped inventory line to its one-based raw source line."""
+    return [number for number,line in enumerate(text.splitlines(keepends=True),1)
+            if not coverage.CODE_MARKER_LINE.fullmatch(line)]
+
+
 def source_declarations(text):
     """Index named source declarations, tracking namespace/section/mutual scopes.
 
@@ -104,6 +110,12 @@ def build_catalogue(root=ROOT,repo=REPO):
     missing=set(contracts)-set(names)
     if missing: raise ValueError('manifest declarations missing from source index: '+', '.join(sorted(missing)))
     clauses=coverage.inventory(root,repo)
+    line_maps={path:source_line_map((repo/path).read_text())
+               for _,_,path,_ in coverage.SOURCE_INPUTS}
+    for clause in clauses:
+        lines=line_maps[clause['path']]
+        clause['github_start_line']=lines[clause['start_line']-1]
+        clause['github_end_line']=lines[clause['end_line']-1]
     rules=rule_coverage.rule_rows(root,repo)
     pins=json.loads((root/'spec-coverage.json').read_text())
     authorities={path:{**pins[key],'github_path':HISTORICAL_PATHS.get(key,path)}
