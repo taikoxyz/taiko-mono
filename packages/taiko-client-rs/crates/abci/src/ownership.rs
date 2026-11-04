@@ -401,7 +401,9 @@ mod tests {
             return;
         }
         let root = tempfile::tempdir().unwrap();
-        let paths = ComponentPaths::new(ComponentRole::App, root.path()).unwrap();
+        let directory = root.path().join("app");
+        std::fs::create_dir(&directory).unwrap();
+        let paths = ComponentPaths::new(ComponentRole::App, &directory).unwrap();
         let file = open_lock(&paths.lock_path().unwrap()).unwrap();
         let grant = OwnerGrant { files: vec![file], role: "app".into(), join: 0 };
         assert!(ComponentLease::acquire(&paths, Some(&grant)).is_err());

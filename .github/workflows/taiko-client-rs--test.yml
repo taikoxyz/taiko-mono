@@ -279,6 +279,16 @@ jobs:
         with:
           persist-credentials: false
 
+      # The host Rust cache and the current-source Docker build coexist on this runner.
+      # Remove unrelated preinstalled SDKs before either build consumes the available disk.
+      - name: Free space for native and Docker builds
+        shell: bash
+        run: |
+          set -euxo pipefail
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup
+          df -h /
+
       - name: Install guarded signer Go toolchain
         uses: actions/setup-go@v7
         with:
