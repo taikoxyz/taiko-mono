@@ -272,7 +272,8 @@ jobs:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     name: Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    # Cold host/runtime builds precede the serial devnet scenarios.
+    timeout-minutes: 90
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
