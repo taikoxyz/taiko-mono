@@ -2,9 +2,6 @@ package metrics
 
 import (
 	"context"
-	"os"
-	"os/signal"
-	"syscall"
 
 	p2pNodeMetrics "github.com/ethereum-optimism/optimism/op-node/metrics"
 	opMetrics "github.com/ethereum-optimism/optimism/op-service/metrics"
@@ -177,8 +174,8 @@ var (
 	}, []string{"method", "endpoint", "error"})
 )
 
-// Serve starts the metrics server on the given address, will be closed when the given
-// context is cancelled.
+// Serve starts the metrics server on the given address and returns once it is
+// listening. The server is closed when the given context is cancelled.
 func Serve(ctx context.Context, enabled bool, addr string, port int) error {
 	if !enabled {
 		return nil
@@ -199,20 +196,14 @@ func Serve(ctx context.Context, enabled bool, addr string, port int) error {
 		return err
 	}
 
-	defer func() {
-		if err := server.Stop(ctx); err != nil {
+	// Return once the server is listening, and leave signal handling to the caller,
+	// so one shutdown signal stops both the metrics server and the application.
+	go func() {
+		<-ctx.Done()
+		if err := server.Close(); err != nil {
 			log.Error("Failed to close metrics server", "error", err)
 		}
 	}()
-
-	// Block until context is cancelled or interrupt signal is received
-	interruptChannel := make(chan os.Signal, 1)
-	signal.Notify(interruptChannel, os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT)
-	select {
-	case <-interruptChannel:
-	case <-ctx.Done():
-		signal.Stop(interruptChannel)
-	}
 
 	return nil
 }
