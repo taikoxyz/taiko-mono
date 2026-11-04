@@ -111,7 +111,8 @@ async fn unknown_configuration_is_rejected_without_rpc_or_output_replacement() {
 
 #[tokio::test]
 async fn proposer_requires_explicit_beneficiary_and_checks_l2_id_without_truncation() {
-    let data = tempfile::tempdir().unwrap();
+    let root = tempfile::tempdir().unwrap();
+    let data = root.path().join("app");
     let endpoint = rpc("0x100028c59").await; // 2^32 + 167001, never the builtin devnet.
     let base = [
         "abci",
@@ -124,7 +125,7 @@ async fn proposer_requires_explicit_beneficiary_and_checks_l2_id_without_truncat
         "--jwt.secret",
         "/not-read",
         "--data-dir",
-        data.path().to_str().unwrap(),
+        data.to_str().unwrap(),
     ];
     let missing = run(&base).await;
     assert!(!missing.status.success());
@@ -149,7 +150,7 @@ async fn proposer_requires_explicit_beneficiary_and_checks_l2_id_without_truncat
         "--jwt.secret",
         "/not-read",
         "--data-dir",
-        data.path().to_str().unwrap(),
+        data.to_str().unwrap(),
         "--fee-recipient",
         "0x7777777777777777777777777777777777777777",
     ])
@@ -263,7 +264,9 @@ async fn recovery_rejects_zero_before_profile_or_network_and_redacts_private_inp
 #[tokio::test]
 async fn recovery_app_refuses_external_owner_before_rpc() {
     use std::{fs::OpenOptions, os::unix::fs::OpenOptionsExt};
-    let dir = tempfile::tempdir().unwrap();
+    let root = tempfile::tempdir().unwrap();
+    let directory = root.path().join("app");
+    std::fs::create_dir(&directory).unwrap();
     let file = OpenOptions::new()
         .create(true)
         .truncate(false)
@@ -271,7 +274,7 @@ async fn recovery_app_refuses_external_owner_before_rpc() {
         .write(true)
         .mode(0o600)
         .open(
-            abci::ownership::ComponentPaths::new(abci::ownership::ComponentRole::App, dir.path())
+            abci::ownership::ComponentPaths::new(abci::ownership::ComponentRole::App, &directory)
                 .unwrap()
                 .lock_path()
                 .unwrap(),
@@ -289,7 +292,7 @@ async fn recovery_app_refuses_external_owner_before_rpc() {
         "--jwt.secret",
         "/not-read",
         "--data-dir",
-        dir.path().to_str().unwrap(),
+        directory.to_str().unwrap(),
         "--fee-recipient",
         "0x7777777777777777777777777777777777777777",
     ])
