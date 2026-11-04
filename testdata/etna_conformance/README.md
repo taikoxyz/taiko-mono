@@ -74,7 +74,7 @@ in `_knownDivergences`. Refresh the copy from `formal/etna` with
 
 ```sh
 lake exe etna-vectors --write <contracts checkout>/packages/protocol/test/layer1/etna/conformance/vectors \
-  --families forced,land,recover,registry --provenance "$(git rev-parse HEAD)"
+  --families forced,land --provenance "$(git rev-parse HEAD)"
 ```
 
 and run every vector in that checkout with
@@ -84,8 +84,12 @@ cd packages/protocol
 FOUNDRY_PROFILE=layer1 forge test --match-path 'test/layer1/etna/conformance/*'
 ```
 
-The contracts copy holds only the four Inbox files (`forced`, `land`, `recover`, `registry`),
-hence `--families`.
+The contracts copy holds only `forced` and `land`, hence `--families`. The historical
+`registry` and `recover` files must not be consumed by a harness targeting the current
+specification: they reissue bond ids (for example `registry.register.reuses-freed-slot`),
+contradicting STAKE-4.1-13a, and predate the current registry capacity, rules schedule and
+recovery interface. Current registry admission vectors are in
+[`../etna_current_conformance`](../etna_current_conformance/README.md).
 
 **Rust client.** The harness of the Etna client PR (#22280),
 `packages/taiko-client-rs/crates/abci/tests/etna_conformance.rs`, reads its copy of the four

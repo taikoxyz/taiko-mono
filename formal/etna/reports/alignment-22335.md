@@ -6,9 +6,12 @@ and merges that main revision into the existing PR history.
 
 ## Model and evidence changes
 
-The current registry initializer and decoded slash reject `slashBountyBps = 10000`;
-zero and 9999 remain admissible. The current enabled-slash theorem chain and H1–H3
-premise record require the strict bound. Generic token arithmetic/conservation lemmas
+The current registry initializer rejects `slashBountyBps = 10000`; zero and 9999
+remain admissible. SPEC states the strict bound only as a deployment constraint on the
+immutable (PARAM-11-11), and STAKE-4.1-34 has no runtime bound check. The decoded slash
+keeps the same bound as a defensive guard, unreachable from a validly initialized
+registry. The current enabled-slash theorem chain and H1–H3 premise record require the
+strict bound. Generic token arithmetic/conservation lemmas
 retain the weaker `≤ 10000` bound where sufficient. Historical/shared machines,
 the 1,216 historical manifest objects, historical authority pins and historical JSON
 vector bytes are unchanged.
@@ -17,14 +20,15 @@ The existing current payment definition already computes the floor bounty and se
 the exact remainder to the fixed sink, using the authenticated outer caller without
 excluding the bond owner. Kernel regressions now exercise self-reporting, 1001 units
 at 1000 bps (100 bounty / 901 sink), one unit at 9999 bps (zero bounty / one sink),
-zero bounty and rejection of the exact 10000 boundary. These are decoded-model tests,
-not a new whole-rule or production-token proof.
+zero bounty and the defensive guard at the exact 10000 boundary. These are
+decoded-model tests, not a new whole-rule or production-token proof.
 
 Five SPEC clauses, two ACCEPTANCE clauses and six SWITCH clauses change identity.
 Only two changed SPEC clauses had existing supporting edges: STAKE-4.1-34's exact
 principal/payment projections and DATA-5.4-5's candidate rejection, authenticated
-conflict halt and publication boundary. Those edges retain their exact theorem lists
-and supporting status. No new edge or proof credit is assigned. PARAM-11-11 remains
+conflict halt and publication boundary. Those edges keep their supporting status.
+DATA-5.4-5 gains one supporting theorem for the unfinalized-record retry (below); no
+other edge or proof credit is assigned. PARAM-11-11 remains
 deferred: evidence-window sizing is still a deployment premise. Inventory totals stay
 38 partial / 528 deferred current clauses and 41 partial / 35 supporting / 527 deferred
 binding rules, with 32 deferred assumption/limitation rows.
@@ -46,13 +50,17 @@ The origin writer's separate wait for finalized L1 and the DAO proposal's inclus
 lead-time boundary are operational/implementation obligations; this refresh does not
 add a DAO proposal or L1 finality implementation model. SWITCH remains deferred.
 
-Current candidate inspection already retries unavailable material, rejects failed
-checkpoint/DataHash authentication and halts an authenticated EL hash contradiction.
-A record still awaiting L1 finality must keep real synchronization incomplete and
-untrusted until retry; the model's primitive authenticated candidate inputs do not
-implement that finality wait. Missing downloads likewise differ from a publisher
-omitting required starting material. No complete snapshot-sync or ACCEPTANCE proof
-is added; all ACCEPTANCE clauses remain deferred.
+Current candidate inspection retries unavailable material, rejects a missing or
+mismatching checkpoint record (5.3 vector 4.f) and failed DataHash authentication, and
+halts only a finalized authenticated EL hash contradiction. Before this alignment the
+model returned `reject` for a record landed only in an unfinalized L1 block, contrary
+to vector 4.m. `Import.Candidate` now carries `checkpointFinalized`, a primitive input
+from the node's own L1 view: such a record now returns `retry`, so synchronization stays
+incomplete and untrusted until the record finalizes. `Import.unfinalized_checkpoint_retries`
+proves this; regressions cover vectors 4.m, 4.n and 4.f, and the conflict halt now
+requires finality. The L1 finality adapter itself is not modelled. Missing downloads
+likewise differ from a publisher omitting required starting material. No complete
+snapshot-sync or ACCEPTANCE proof is added; all ACCEPTANCE clauses remain deferred.
 
 ## Validation
 
@@ -89,3 +97,20 @@ The semantic/vector checkpoint is `a8722e8caf570ba64597f532b6945313e3182643`.
 This follow-up only corrects the fingerprint test and records validation. Historical
 hosted results in preceding reports apply only to their recorded SHAs; this local
 validation does not claim a hosted run at the new head.
+
+## Follow-up: unfinalized checkpoint import
+
+A later review against the same authority found that `Import.inspect` rejected a
+checkpoint record landed only in an unfinalized L1 block, where 5.3 vector 4.m requires
+synchronization to stay incomplete and retry. The model, the conflict-halt theorem, the
+new `Import.unfinalized_checkpoint_retries` supporting theorem, its manifest entry, the
+DATA-5.4-5 evidence edge, a mutation case and kernel regressions for vectors 4.m, 4.n
+and 4.f were updated together. Inventory totals are unchanged. The historical vector
+README now names only `forced` and `land` as consumed by the contracts harness, because
+the historical `registry` file reissues bond ids contrary to STAKE-4.1-13a.
+
+Local validation of this follow-up with pinned Lean 4.35.0-rc4: the full 196-job build,
+source/import lint, spec and rule coverage, offline reader freshness, both vector checks,
+deterministic Audit/inventory rendering and the canonical serial audit passed. The
+complete Python command ran **568 tests in 1546.922 seconds, all passing**. Hosted CI
+for this head is pending.

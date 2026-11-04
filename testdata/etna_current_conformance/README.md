@@ -44,7 +44,8 @@ slash sink 5 and the fresh registration uses key 9000 at block 10.
 
 Key numbers identify distinct valid fixture keys with valid PoP, rather than raw
 compressed public-key bytes. A consumer harness must materialize the setup using its
-own real keys/storage and standard token, then compare the listed observables. These
-files are ready for current contract/client harness consumption; this PR does not
-claim those separate implementation harnesses have imported or passed them. Raw
-cryptography, token callbacks and full deployment conformance are separate refinements.
+own real keys/storage and standard token, then compare the listed observables. The
+contracts PR (#22286) consumes a byte-identical copy in
+`packages/protocol/test/layer1/etna/conformance/EtnaCurrentRegistryConformance.t.sol`;
+this formal package does not itself run that harness. Raw cryptography, token callbacks
+and full deployment conformance are separate refinements.

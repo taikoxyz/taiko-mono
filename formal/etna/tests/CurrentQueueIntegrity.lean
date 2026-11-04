@@ -71,7 +71,7 @@ def signature : Signer.Signed := ⟨0,⟨0,0,2⟩,42,43⟩
 def importing : Protocol.World :=
   { started with node := { started.node with
       target := some (0,started.inbox.checkpoint),signer := { started.node.signer with ready := true,log := [signature] } } }
-def candidate : Import.Candidate := ⟨0,0,0,100,100,true,true,true,true⟩
+def candidate : Import.Candidate := ⟨0,0,0,100,100,true,true,true,true,true⟩
 def imported : Protocol.World := (Protocol.nodeImport env importing candidate true).getD importing
 example : imported.node.trusted = false ∧ imported.node.signer.ready = false ∧
     imported.node.signer.log = [signature] ∧ imported.node.importedHeaders = [0] := by decide

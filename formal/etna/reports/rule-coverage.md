@@ -214,7 +214,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | DATA-5.4-2     | rule       | deferred   | LIVE_EN-89f602a15705f8e0 |      1 |                                                                                                             |
 | DATA-5.4-3     | rule       | deferred   | LIVE_EN-411268e5831f0bfa |      1 |                                                                                                             |
 | DATA-5.4-4     | rule       | supporting | LIVE_EN-e9433576eae740ac |      1 | `import_complete_range`, `node_import_closed`                                                               |
-| DATA-5.4-5     | rule       | supporting | LIVE_EN-c000ff052b2bf68d |      1 | `authenticated_conflict_halts`, `invalid_data_rejected`, `publish_boundary`                                 |
+| DATA-5.4-5     | rule       | supporting | LIVE_EN-c000ff052b2bf68d |      1 | `authenticated_conflict_halts`, `invalid_data_rejected`, `publish_boundary` +1                              |
 | DATA-5.4-6     | rule       | deferred   | LIVE_EN-65eb904699f0be37 |      1 |                                                                                                             |
 | DATA-5.4-7     | rule       | supporting | LIVE_EN-f98242f5400aa7f7 |      1 | `publish_boundary`, `node_import_closed`                                                                    |
 | DATA-5.4-8     | rule       | deferred   | LIVE_EN-c8ef3c957d86a756 |      1 |                                                                                                             |
@@ -700,7 +700,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 - **STAKE-4.1-36**: Every retained checkpoint after a successful decoded registry call is either an existing checkpoint or has the current L1 block and the exact resulting slot-entry list. This is the new-checkpoint fidelity component only.
 - **FORF-4.4-9**: The decoded forfeiture intent sends the entire penalty to slashSink with no bounty; principal deduction order is not this conclusion.
 - **DATA-5.4-4**: Numeric original-header interval includes every height from origin through checkpoint exactly once; actual EL header contents, indexes and stock stores are deferred.
-- **DATA-5.4-5**: Authenticated imported envelope disagreement halts; decoded candidate inspection only, no alert or store implementation proof.
+- **DATA-5.4-5**: Finalized authenticated imported envelope disagreement halts and an unfinalized checkpoint record retries; decoded candidate inspection only, no alert or store implementation proof.
 - **DATA-5.4-7**: Successful decoded publication requires the durable flag, preserves the signer and grants no trust; actual store staging remains external.
 - **LAND-6.1-3**: An actual accepted landing with its certificate yields a decoded valid Suffix whose parent height/cut are the execution-time current checkpoint and whose terminal fields equal the landing target. This is the precise (c,h] suffix extraction; custody-chain invariants alone do not conclude atomic frontier selection or new-suffix settlement. Raw Solidity/storage/guest refinement remains separate.
 - **LAND-6.1-5**: Decoded grid acceptance uses the Etna-start offset; exact guard projection only.

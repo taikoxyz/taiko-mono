@@ -17881,14 +17881,26 @@
     {
       "module": "EtnaProofs.Current",
       "declaration": "Etna.Design.Current.Import.authenticated_conflict_halts",
-      "type": "∀ {c : Etna.Design.Current.Import.Candidate} {generation : Nat},\n  c.generation = generation →\n    c.origin ≤ c.height →\n      c.checkpointAuthenticated = Bool.true →\n        c.dataHashAuthenticated = Bool.true →\n          c.envelopeEL ≠ c.checkpointEL →\n            Etna.Design.Current.Import.inspect c generation = Etna.Design.Current.Import.Decision.halt",
+      "type": "∀ {c : Etna.Design.Current.Import.Candidate} {generation : Nat},\n  c.generation = generation →\n    c.origin ≤ c.height →\n      c.checkpointAuthenticated = Bool.true →\n        c.checkpointFinalized = Bool.true →\n          c.dataHashAuthenticated = Bool.true →\n            c.envelopeEL ≠ c.checkpointEL →\n              Etna.Design.Current.Import.inspect c generation = Etna.Design.Current.Import.Decision.halt",
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
       "sources": ["LIVE_EN-c000ff052b2bf68d"],
-      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Authenticated imported envelope disagreement halts; decoded candidate inspection only, no alert or store implementation proof."
+      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Finalized authenticated imported envelope disagreement halts; decoded candidate inspection only, no alert or store implementation proof."
+    },
+    {
+      "module": "EtnaProofs.Current",
+      "declaration": "Etna.Design.Current.Import.unfinalized_checkpoint_retries",
+      "type": "∀ {c : Etna.Design.Current.Import.Candidate} {generation : Nat},\n  c.generation = generation →\n    c.origin ≤ c.height →\n      c.checkpointAuthenticated = Bool.true →\n        c.dataHashAuthenticated = Bool.true →\n          c.checkpointFinalized = Bool.false →\n            Etna.Design.Current.Import.inspect c generation = Etna.Design.Current.Import.Decision.retry",
+      "assumptions": [
+        "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-c000ff052b2bf68d"],
+      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. A checkpoint record landed only in an unfinalized L1 block leaves decoded import retrying until it finalizes (DATA-5.3-4 as DATA-5.4-5 applies it); no L1 finality adapter proof."
     },
     {
       "module": "EtnaProofs.Current",

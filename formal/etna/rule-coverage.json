@@ -28,9 +28,10 @@
       "theorems": [
         "Etna.Design.Current.Import.authenticated_conflict_halts",
         "Etna.Design.Current.Import.invalid_data_rejected",
-        "Etna.Design.Current.Import.publish_boundary"
+        "Etna.Design.Current.Import.publish_boundary",
+        "Etna.Design.Current.Import.unfinalized_checkpoint_retries"
       ],
-      "reason": "Authenticated imported envelope disagreement halts; decoded candidate inspection only, no alert or store implementation proof."
+      "reason": "Finalized authenticated imported envelope disagreement halts and an unfinalized checkpoint record retries; decoded candidate inspection only, no alert or store implementation proof."
     },
     "DATA-5.4-7": {
       "theorems": [

@@ -187,9 +187,16 @@ namespace Import
 
 theorem authenticated_conflict_halts {c : Candidate} {generation : Nat}
     (same : c.generation = generation) (height : c.origin ≤ c.height)
-    (auth : c.checkpointAuthenticated = true) (data : c.dataHashAuthenticated = true)
+    (auth : c.checkpointAuthenticated = true) (final : c.checkpointFinalized = true)
+    (data : c.dataHashAuthenticated = true)
     (conflict : c.envelopeEL ≠ c.checkpointEL) : inspect c generation = .halt := by
-  simp [inspect, same, Nat.not_lt.mpr height, auth, data, conflict]
+  simp [inspect, same, Nat.not_lt.mpr height, auth, final, data, conflict]
+
+theorem unfinalized_checkpoint_retries {c : Candidate} {generation : Nat}
+    (same : c.generation = generation) (height : c.origin ≤ c.height)
+    (auth : c.checkpointAuthenticated = true) (data : c.dataHashAuthenticated = true)
+    (unfinalized : c.checkpointFinalized = false) : inspect c generation = .retry := by
+  simp [inspect, same, Nat.not_lt.mpr height, auth, data, unfinalized]
 
 theorem invalid_data_rejected (c : Candidate) (generation : Nat)
     (invalid : c.dataHashAuthenticated = false) : inspect c generation = .reject := by

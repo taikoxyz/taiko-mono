@@ -237,7 +237,9 @@ end Start
 
 namespace Import
 /-- These facts are outputs of named fixed L1/MPT/stock-Comet/metadata adapters, not
-arbitrary peer assertions. This boundary does not prove those adapter implementations. -/
+arbitrary peer assertions. This boundary does not prove those adapter implementations.
+`checkpointAuthenticated` means s's slot 285 record is landed in the node's own L1 view and
+matches; `checkpointFinalized` means that L1 block is finalized in the same view (DATA-5.3-4). -/
 structure Candidate where
   generation : Nat
   origin : Nat
@@ -245,6 +247,7 @@ structure Candidate where
   checkpointEL : Hash
   envelopeEL : Hash
   checkpointAuthenticated : Bool
+  checkpointFinalized : Bool
   dataHashAuthenticated : Bool
   metadataAuthenticated : Bool
   materialAvailable : Bool
@@ -254,9 +257,13 @@ inductive Decision where
   | reject | retry | halt | staged
   deriving DecidableEq, Repr
 
+/-- A missing or mismatching record rejects; a record landed only in an unfinalized L1 block
+leaves synchronization incomplete until it finalizes and verification is retried (DATA-5.3-4,
+vectors 4.f and 4.m). Only a finalized, authenticated envelope can prove a contradiction. -/
 def inspect (c : Candidate) (currentGeneration : Nat) : Decision :=
   if c.generation ≠ currentGeneration ∨ c.height < c.origin ∨
       c.checkpointAuthenticated = false ∨ c.dataHashAuthenticated = false then .reject
+  else if c.checkpointFinalized = false then .retry
   else if c.envelopeEL ≠ c.checkpointEL then .halt
   else if c.materialAvailable = false then .retry
   else if c.metadataAuthenticated = false then .reject

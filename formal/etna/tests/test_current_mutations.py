@@ -67,6 +67,7 @@ MUTATIONS = [
     ('correction_new_generation', 'generation := s.generation+1, origins', 'generation := s.generation, origins', False),
     ('import_datahash_authentication', 'c.dataHashAuthenticated = false then .reject', 'False then .reject', False),
     ('authenticated_conflict_halt', 'else if c.envelopeEL ≠ c.checkpointEL then .halt', 'else if c.envelopeEL ≠ c.checkpointEL then .reject', False),
+    ('import_checkpoint_finality', 'else if c.checkpointFinalized = false then .retry', 'else if False then .retry', False),
     ('durable_publication', 'if durable = true ∧ inspect', 'if durable = durable ∧ inspect', False),
     ('no_import_trust', ',signer,false⟩', ',signer,true⟩', False),
     ('complete_header_range', "List.range' c.origin (c.height-c.origin+1),signer", "List.range' c.origin (min 256 (c.height-c.origin+1)),signer", False),

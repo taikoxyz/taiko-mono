@@ -237,7 +237,7 @@ theorem risk_profile_satisfiable :
 /-- This dedicated publication fixture supplies the decoded adapter's positive
 authentication/material results. It exercises actual observe/import calls and the
 authorization fence; canonical decoding and stock-store installation remain external. -/
-def importCandidate : Import.Candidate := ⟨0,0,0,100,100,true,true,true,true⟩
+def importCandidate : Import.Candidate := ⟨0,0,0,100,100,true,true,true,true,true⟩
 def observed : World := Protocol.transact env (source env) (.observe 2)
 def published : World := Protocol.transact env observed (.importSnapshot importCandidate true)
 

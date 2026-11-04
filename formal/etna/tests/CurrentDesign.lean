@@ -96,13 +96,26 @@ theorem start_write_and_correction :
     ((Start.correct writtenOrigin true true 5 6 71 81 10 101).map (fun s =>
       (s.generation,s.origins 0,s.origins 1))) = some (1,some ⟨5,9,100⟩,some ⟨6,10,101⟩) := by decide +kernel
 
-def candidate : Import.Candidate := ⟨2,5,400,70,70,true,true,true,true⟩
+def candidate : Import.Candidate := ⟨2,5,400,70,70,true,true,true,true,true⟩
 
 theorem import_authentication_priority :
     Import.inspect { candidate with envelopeEL := 71, dataHashAuthenticated := false } 2 = .reject ∧
     Import.inspect { candidate with envelopeEL := 71, materialAvailable := false } 2 = .halt ∧
     Import.inspect { candidate with materialAvailable := false } 2 = .retry ∧
     Import.inspect candidate 3 = .reject := by decide +kernel
+
+/-- A checkpoint known only from a publisher claim, with no record landed on L1. -/
+def unlanded : Import.Candidate :=
+  { candidate with checkpointAuthenticated := false, checkpointFinalized := false }
+
+/-- SPEC 5.3 vectors 4.m, 4.n and 4.f: a record landed only in an unfinalized L1 block leaves
+the import retrying, even when its envelope would conflict; once the record finalizes the same
+candidate stages; a checkpoint with no landed record rejects. -/
+theorem import_checkpoint_finality :
+    Import.inspect { candidate with checkpointFinalized := false } 2 = .retry ∧
+    Import.inspect { candidate with checkpointFinalized := false, envelopeEL := 71 } 2 = .retry ∧
+    Import.inspect candidate 2 = .staged ∧
+    Import.inspect unlanded 2 = .reject := by decide +kernel
 
 theorem interrupted_import_unpublished (signer : Etna.Design.Signer.State) :
     Import.publish candidate 2 signer false = none := by rfl
