@@ -178,6 +178,9 @@ Signed orphan state, missing/corrupt enrolled state, changed binding or changed
 origin fails closed. Preserve the entire registry and every historical state;
 never delete metadata to retry recovery. Stock FilePV still owns HRS checks and
 signing, with directory fsync completed before the transport receives a signature.
+A failed state or directory fsync withholds that signature and stops all signing in
+the process, cached retries included, because a later fsync can succeed although the
+earlier write was lost. Inspect the state before restarting the signer.
 
 ## Recovery controller and retention
 

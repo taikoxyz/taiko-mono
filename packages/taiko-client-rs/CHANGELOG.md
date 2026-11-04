@@ -24,7 +24,11 @@
 - Authenticate proposal anchors before caching committee witnesses, and distinguish unavailable
   advisory L1 lookups from invalid anchor witnesses while keeping conservative publication urgency.
 - Persist the FilePV state file and its parent directory before returning any signature,
-  including generation-zero signing and cached HRS retries; refuse signatures if synchronization fails.
+  including generation-zero signing and cached HRS retries; after a failed synchronization,
+  refuse every signature until a restart.
+- Acquire the first recovered switch's R snapshot in the background, so a slow archive read
+  no longer has to fit inside one proposal round, and keep the remembered tip anchor when a
+  newer own-L1 lookup is unavailable.
 
 ## [2.3.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-rs-v2.2.0...taiko-alethia-client-rs-v2.3.0) (2026-09-28)
 

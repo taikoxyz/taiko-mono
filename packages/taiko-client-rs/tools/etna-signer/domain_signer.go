@@ -37,7 +37,13 @@ func (p *authorizedPV) sign(chain string, sign func(*durableFilePV) error) error
 	if _, err := validateHRS(p.domain.State, chain, a.native.PubKey()); err != nil {
 		return err
 	}
-	return sign(loadDurableFilePV(a.config.Key, p.domain.State))
+	err := sign(loadDurableFilePV(a.config.Key, p.domain.State))
+	if errors.Is(err, errStateUncertain) {
+		// Each request reloads the state, so latch the failure here: no domain signs
+		// again until a restart inspects the durable state (RECOV-8.2-3).
+		a.uncertain = true
+	}
+	return err
 }
 func (p *authorizedPV) SignVote(chain string, v *tm.Vote) error {
 	if p.domain.Origin != nil && v.Height <= int64(*p.domain.Origin.Height) {

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -8,16 +10,30 @@ import (
 	tm "github.com/cometbft/cometbft/proto/tendermint/types"
 )
 
+// errStateUncertain marks a signature withheld because the latest HRS state may not be
+// durable. The signer then stops signing (RECOV-8.2-3): a later fsync can report success
+// although an earlier write was lost, so only a restart after inspecting the state resumes.
+var errStateUncertain = errors.New("signing state persistence uncertain; restart after inspecting it")
+
 // durableFilePV completes stock FilePV's state persistence before publishing a
 // signature. FilePV synchronously writes and renames its state, but does not
 // fsync the containing directory, and cached HRS retries do not write at all.
+//
+// The first failed synchronization refuses every later request, cached HRS retries
+// included, because the in-memory state may then be ahead of what survives a crash.
+// A failed stock write panics, so the in-memory state cannot otherwise run ahead of
+// the file.
 type durableFilePV struct {
 	*privval.FilePV
 	state string
+	// syncFile flushes the opened state file; tests replace it to fail as a disk does.
+	syncFile func(*os.File) error
+	// uncertain is the first synchronization failure; nothing is signed after it.
+	uncertain error
 }
 
 func loadDurableFilePV(key, state string) *durableFilePV {
-	return &durableFilePV{FilePV: privval.LoadFilePV(key, state), state: state}
+	return &durableFilePV{FilePV: privval.LoadFilePV(key, state), state: state, syncFile: (*os.File).Sync}
 }
 
 // syncState also runs for cached signatures: a prior synchronization may have
@@ -27,7 +43,7 @@ func (p *durableFilePV) syncState() error {
 	if err != nil {
 		return err
 	}
-	if err = f.Sync(); err != nil {
+	if err = p.syncFile(f); err != nil {
 		f.Close()
 		return err
 	}
@@ -37,12 +53,25 @@ func (p *durableFilePV) syncState() error {
 	return syncDirectory(filepath.Dir(p.state))
 }
 
-func (p *durableFilePV) SignVote(chain string, vote *tm.Vote) error {
-	signed := *vote
-	if err := p.FilePV.SignVote(chain, &signed); err != nil {
+// signDurably runs one stock signing step and succeeds only once the state it
+// recorded is durable; a failed synchronization latches errStateUncertain.
+func (p *durableFilePV) signDurably(sign func() error) error {
+	if p.uncertain != nil {
+		return fmt.Errorf("%w: %w", errStateUncertain, p.uncertain)
+	}
+	if err := sign(); err != nil {
 		return err
 	}
 	if err := p.syncState(); err != nil {
+		p.uncertain = err
+		return fmt.Errorf("%w: %w", errStateUncertain, err)
+	}
+	return nil
+}
+
+func (p *durableFilePV) SignVote(chain string, vote *tm.Vote) error {
+	signed := *vote
+	if err := p.signDurably(func() error { return p.FilePV.SignVote(chain, &signed) }); err != nil {
 		return err
 	}
 	*vote = signed
@@ -51,10 +80,7 @@ func (p *durableFilePV) SignVote(chain string, vote *tm.Vote) error {
 
 func (p *durableFilePV) SignProposal(chain string, proposal *tm.Proposal) error {
 	signed := *proposal
-	if err := p.FilePV.SignProposal(chain, &signed); err != nil {
-		return err
-	}
-	if err := p.syncState(); err != nil {
+	if err := p.signDurably(func() error { return p.FilePV.SignProposal(chain, &signed) }); err != nil {
 		return err
 	}
 	*proposal = signed
