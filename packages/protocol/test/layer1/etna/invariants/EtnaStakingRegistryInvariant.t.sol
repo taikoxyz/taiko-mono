@@ -485,7 +485,8 @@ contract EtnaStakingRegistryInvariantTest is EtnaStakingRegistryInvariantBase {
     /// their namespaces) are the model's: a withdrawn bond keeps its key and exit with no stake,
     /// owner or confirmation, and every other bond, displaced or not, holds its modelled fields
     /// and slot. Each slot holds the modelled bond or is empty with zero entry words, and no bond
-    /// has a confirmation from before its registration.
+    /// has a confirmation from before its registration. An unwithdrawn bond without an exit
+    /// holds its slot, which `topUp` relies on.
     function invariant_bondsAndSlotsMatchTheModel() external view {
         _assertModelHeld();
         uint256 bonds = registry.bondCount();
@@ -502,6 +503,10 @@ contract EtnaStakingRegistryInvariantTest is EtnaStakingRegistryInvariantBase {
             _assertModelled(i);
             if (handler.bondAt(i).withdrawn) continue;
             assertTrue(owner != address(0), "an unwithdrawn bond has an owner");
+            if (registry.bondAt(i).entry.exitEffectiveL1 == NO_EXIT) {
+                (bool holdsSlot,) = registry.slotOfBond(i);
+                assertTrue(holdsSlot, "a bond without an exit holds its slot");
+            }
             if (confirmedAt != 0) {
                 assertGe(confirmedAt, handler.bondAt(i).registeredAt, "no earlier confirmation");
                 assertNotEq(registry.bondAt(i).entry.exitEffectiveL1, NO_EXIT, "exit is set");

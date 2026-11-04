@@ -424,6 +424,9 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         Entry storage entry = bond.entry;
         require(block.number >= entry.activeFromL1 && entry.effStake != 0, TopUpNotAllowed());
         require(entry.exitEffectiveL1 == NO_EXIT, ExitAlreadySet());
+        // Admission gives a bond its slot and displacement sets its exit, so a bond without an
+        // exit holds its slot; checked so the slot write below cannot reach another bond's slot.
+        require(bond.holdsSlot, TopUpNotAllowed());
         require(_amount != 0, InvalidTopUpAmount());
         TopUp storage pending = _topUpsStorage().topUps[_bondId];
         require(pending.pendingTopUp == 0, TopUpPending());
@@ -432,7 +435,6 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         uint48 readyAt = _toEventBlock(block.number + activationDelay);
         pending.pendingTopUp = _amount;
         pending.readyAtL1 = readyAt;
-        // A bond with no exit set still holds its slot.
         _setSlotValue($, bond.slot, entry.effStake + _amount);
         token.safeTransferFrom(msg.sender, address(this), _amount);
         emit TopUpDeposited(_bondId, _amount, readyAt);
