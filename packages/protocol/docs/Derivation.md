@@ -176,11 +176,11 @@ For each `DerivationSource[i]`, the validator performs:
 7. **Block Count Validation**: Verify `manifest.blocks.length` is at least 1 and does not exceed the per-source limit selected by the landed L1 block timestamp of the proposal:
    - Before Unzen: `DERIVATION_SOURCE_MAX_BLOCKS = 192`
    - At/after Unzen: `UNZEN_DERIVATION_SOURCE_MAX_BLOCKS = 768`
-8. **Forced Inclusion Block Count Enforcement**: If `derivation.sources[i].isForcedInclusion` is true and `manifest.blocks.length != 1`, replace the entire source with the default manifest
+8. **Forced Inclusion Block Count Enforcement**: If `derivation.sources[i].isForcedInclusion` is true and `manifest.blocks.length != 1`, replace the entire source with the default source manifest
 
 If any validation step fails for source `i`, that source is replaced with a **default source manifest** (single block with only an anchor transaction, or with no transactions from Etna on). Other sources are unaffected.
 
-In particular, an empty `blocks` list is replaced with a single default block, for both proposer-supplied and forced-inclusion sources. Every accepted Unzen proposal therefore derives at least one L2 block and advances the ending L2 height; an empty list never makes a proposal a no-op. The [metadata-stage conformance vectors](../../../testdata/derivation_vectors/README.md#metadata-stage-conformance-vectors) cover this fallback separately from payload decoding.
+In particular, an empty `blocks` list is replaced with a single default block, for both proposer-supplied and forced-inclusion sources. The [Inbox](../contracts/layer1/core/impl/Inbox.sol) always includes the proposer's source, so the source list is nonempty. Every accepted Unzen proposal therefore derives at least one L2 block and advances the proposal's last L2 block height; an empty list never makes a proposal a no-op. The [metadata-stage conformance vectors](../../../testdata/derivation_vectors/README.md#metadata-stage-conformance-vectors) cover this fallback separately from payload decoding.
 
 #### Default Source Manifest
 
@@ -224,7 +224,7 @@ Users submit forced inclusion transactions directly to L1 by posting blob data c
 
 This design ensures forced inclusions integrate properly with the chain's metadata while allowing users to specify only their transactions without requiring knowledge of chain state parameters.
 
-Any non-zero `gasLimit`, `coinbase`, `anchorBlockNumber`, or `timestamp` is overwritten during metadata application with inherited proposer/parent values, keeping the source valid and avoiding a fallback to the default manifest.
+Any non-zero `gasLimit`, `coinbase`, `anchorBlockNumber`, or `timestamp` is overwritten during metadata application with inherited proposer/parent values, keeping the source valid and avoiding a fallback to the default source manifest.
 
 ### Metadata Validation and Computation
 
@@ -248,7 +248,7 @@ Anchor block validation ensures proper L1 state synchronization and may trigger 
 - **Future reference**: `manifest.blocks[i].anchorBlockNumber > proposal.originBlockNumber`
 - **Excessive lag**: `manifest.blocks[i].anchorBlockNumber < proposal.originBlockNumber - MAX_ANCHOR_OFFSET`
 
-**Forced inclusion protection**: Only proposer-supplied sources are penalized for stagnant anchors. Forced inclusions (`derivationSource.isForcedInclusion == true`) blocks intentionally inherit the parent anchor as mentioned above and never get replaced with the default manifest even when the anchor number does not advance.
+**Forced inclusion protection**: Only proposer-supplied sources are penalized for stagnant anchors. Forced inclusions (`derivationSource.isForcedInclusion == true`) blocks intentionally inherit the parent anchor as mentioned above and never get replaced with the default source manifest even when the anchor number does not advance.
 
 Recover `parent.metadata.anchorBlockNumber` from `Anchor.getBlockState().anchorBlockNumber`, or `0` for genesis. Within proposal derivation, proposals carry only pre-Etna blocks, so a parent here is never an Etna block.
 

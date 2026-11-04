@@ -22,13 +22,13 @@ separately because it is proposal metadata, not part of the manifest payload.
 
 ## Metadata-stage conformance vectors
 
-These written vectors cover the [block-count and default-source rules](../../packages/protocol/docs/Derivation.md#per-source-manifest-extraction) after payload decoding. They are separate from the JSON corpus's decoding expectations: decoding an empty `blocks` list does not by itself apply the metadata-stage fallback.
+These written vectors cover the [block-count and default-source rules](../../packages/protocol/docs/Derivation.md#per-source-manifest-extraction) after payload decoding. They are separate from the JSON corpus's decoding expectations: decoding an empty `blocks` list does not by itself apply the metadata-stage fallback. Default blocks receive the metadata specified in [Default Source Manifest](../../packages/protocol/docs/Derivation.md#default-source-manifest).
 
-| Case                          | Setup                                                                                        | Expected after source validation                                                                                    |
-| ----------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Empty proposer source         | A proposal's proposer-supplied source decodes to `blocks = []`                               | Replace that source with one default block and apply inherited metadata; the proposal advances the ending L2 height |
-| Empty forced-inclusion source | A forced-inclusion source decodes to `blocks = []`                                           | Replace that source with one default block and apply inherited metadata                                             |
-| Source isolation              | One valid single-block forced-inclusion source followed by an empty proposer-supplied source | Preserve the forced-inclusion source and replace only the proposer-supplied source; derive two blocks               |
+| Case                          | Setup                                                                                        | Expected after source validation                                                                                        |
+| ----------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Empty proposer source         | A proposal's proposer-supplied source decodes to `blocks = []`                               | Replace that source with one default block and apply inherited metadata; the proposal advances its last L2 block height |
+| Empty forced-inclusion source | A forced-inclusion source decodes to `blocks = []`                                           | Replace that source with one default block and apply inherited metadata                                                 |
+| Source isolation              | One valid single-block forced-inclusion source followed by an empty proposer-supplied source | Preserve the forced-inclusion source and replace only the proposer-supplied source; derive two blocks                   |
 
 ## Local driver/engine verification
 
