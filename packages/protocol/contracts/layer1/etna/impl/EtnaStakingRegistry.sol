@@ -178,7 +178,8 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
 
     /// @notice Sets the registry's immutable parameters.
     /// @param _config The configuration: non-zero token, minimum stake, slash sink and L2 chain
-    /// id, delays in [1, 2^32), a bounty of at most 10,000 bps and an Inbox with code.
+    /// id, delays in [1, 2^32), a bounty below 10,000 bps (zero allowed), a forfeit rate in
+    /// [1, 10,000] bps and an Inbox with code.
     constructor(Config memory _config) {
         require(_config.token != address(0), InvalidConfig());
         require(_config.minStake != 0, InvalidConfig());

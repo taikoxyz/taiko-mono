@@ -474,8 +474,8 @@ interface IEtnaInbox {
 
     /// @notice Returns the selection snapshot of the committee that signed the latest checkpoint
     /// (slot 284).
-    /// @dev Set to the genesis cutoff by `init` and advanced only by `land`; the registry's exit
-    /// confirmation reads it.
+    /// @dev Set to the genesis cutoff by `init` and afterwards written only by `land`, which
+    /// stores the proven value; the registry's exit confirmation reads it.
     /// @return The L1 snapshot block.
     function activeCommitteeSnapshot() external view returns (uint256);
 

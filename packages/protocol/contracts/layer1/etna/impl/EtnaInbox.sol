@@ -18,8 +18,9 @@ import "./EtnaInbox_Layout.sol"; // DO NOT DELETE
 /// @dev The proxy first runs `EtnaInboxBootstrap`; its owner then upgrades to this contract and
 /// calls `init`. On a new network `init` also writes the Etna start at block 0; on a switching
 /// network the originWriter writes it later with `setOrigin`. Storage follows spec appendix B
-/// exactly: the slots from 251 on are reserved or named as listed there, and reserved slots 283,
-/// 286-289 and 291 are never read or written.
+/// exactly: its named slots 258, 268-274, 278-282, 284, 285, 290, 292 and 293 sit where it lists
+/// them, reserved slots 283, 286-289 and 291 are never read or written, and slots 251-257,
+/// 259-267 and 275-277 are unused padding.
 /// @custom:security-contact security@taiko.xyz
 // solhint-disable-next-line max-states-count
 contract EtnaInbox is IEtnaInbox, EssentialContract {

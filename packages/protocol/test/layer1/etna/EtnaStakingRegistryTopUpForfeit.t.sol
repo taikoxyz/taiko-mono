@@ -110,6 +110,17 @@ contract EtnaStakingRegistryTopUpForfeitTest is EtnaStakingRegistryTestBase {
         registry.topUp(0, 1);
     }
 
+    /// @dev Spec 4.1 vector 13a.m: an unissued id (the next one or a far-future one) reverts
+    /// without writing any state.
+    function test_activateTopUp_RevertWhen_UnknownBond() external {
+        vm.expectRevert(IEtnaStakingRegistry.UnknownBond.selector);
+        registry.activateTopUp(1);
+        vm.expectRevert(IEtnaStakingRegistry.UnknownBond.selector);
+        registry.activateTopUp(type(uint256).max);
+        _assertPending(0, 0);
+        assertEq(registry.entryAt(0).effStake, MIN_STAKE);
+    }
+
     function test_topUp_RevertWhen_ReadinessReachesSentinel() external {
         _fund(Alice, 1);
         vm.roll(uint256(type(uint48).max) - ACTIVATION_DELAY);
@@ -426,6 +437,22 @@ contract EtnaStakingRegistryTopUpForfeitTest is EtnaStakingRegistryTestBase {
         _assertPending(7 ether, 130);
         assertEq(reentrant.balanceOf(address(registry)), MIN_STAKE + 7 ether);
         assertEq(reentrant.balanceOf(Bob), 0);
+    }
+
+    /// @dev Spec 4.1 vector 13a.m: an authorization naming an unissued id reverts, even with the
+    /// key keccak256(abi.encode(0, 0)) that its default fields would hash to, and sets no flag.
+    function test_forfeit_RevertWhen_UnknownBond() external {
+        mockInbox.setInitialized(true);
+        bytes32 defaultKey = keccak256(abi.encode(0, 0));
+        uint256 sinkBefore = token.balanceOf(SLASH_SINK);
+        vm.expectRevert(IEtnaStakingRegistry.UnknownBond.selector);
+        registry.forfeit(1, defaultKey, 0, block.timestamp);
+        vm.expectRevert(IEtnaStakingRegistry.UnknownBond.selector);
+        registry.forfeit(type(uint256).max, _key, 0, block.timestamp);
+        assertFalse(registry.forfeited(defaultKey));
+        assertFalse(registry.forfeited(_key));
+        assertEq(token.balanceOf(SLASH_SINK), sinkBefore);
+        assertEq(registry.entryAt(0).effStake, MIN_STAKE);
     }
 
     /// @dev An authorization naming bond 0 cannot reach bond 1, which now holds bond 0's

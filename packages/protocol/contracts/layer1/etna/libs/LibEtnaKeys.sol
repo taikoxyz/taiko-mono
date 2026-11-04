@@ -92,8 +92,8 @@ library LibEtnaKeys {
         return address(uint160(uint256(keccak256(abi.encodePacked(_x, _y)))));
     }
 
-    /// @dev The identity of a slot's occupant in recovery exclusions:
-    /// keccak256(abi.encode(uint256(prefix), X)) (appendix A).
+    /// @dev The lifetime identity of a bond's consensus key, used by recovery exclusions and
+    /// responsibility forfeiture: keccak256(abi.encode(uint256(prefix), X)) (appendix A).
     /// @param _prefix The SEC1 prefix.
     /// @param _x The X coordinate.
     /// @return The entry key.

@@ -47,7 +47,8 @@ The current specification baseline is main at `e84a9aaac526c15597d97ee93f8803f92
   checkpoint: the one at S is the Unzen Inbox's.
 - `etnaStart()`: (S, start hash), or (0, 0) before the start write; never reverts. The L1
   SignalService reads it to reject Unzen Inbox checkpoints above S.
-- `land(input, leaves, proof)`: the spec 6.1 reference Solidity, check for check. Before the start
+- `land(input, leaves, proof)`: the spec 6.1 reference Solidity, check for check, plus the shared
+  registry lock below. Before the start
   write no landing passes, because `landings[0]` is unwritten. With K = 6, p, c and h are grid
   points counted from S; `leaves` are the cut leaves at the grid points inside (p, h), and if c > p
   the leaf at c is compared with c's slot 285 record before the immutable verifier checks the
@@ -158,6 +159,9 @@ Pause affects none of these entry points, nor the registry's (spec 1 requires th
   so a slot's value (a bond's effective plus pending stake) must be below 2^244
   (`BalanceTooLarge`), far above TAIKO's supply. An update walks one leaf-to-root path and stops
   at the first unchanged node.
+- Every Inbox entry point also reverts with `RegistryLocked` while the registry holds its
+  reentrancy lock, the reciprocal of the registry's check on Inbox execution. With a standard
+  TAIKO token no registry call can reach the Inbox, so this check never fires in practice.
 - `minStake` and `s_min` are independent; the deploy script defaults `minStake` to `s_min`.
 - `activationDelay`, `exitDelay` and `withdrawalDelay` are each in [1, 2^32), so an oversized
   delay cannot make every registration or exit request revert.

@@ -101,6 +101,13 @@ contract EtnaInboxRulesScheduleTest is EtnaLandTestBase {
         _expectScheduleStopRevert(_NOW + _M + 100, 12, IEtnaInbox.StopLocked.selector);
     }
 
+    /// @dev 5b.e, ACCEPTANCE 10.1 item 2: one second after now + M the stop is not yet locked,
+    /// so it can still be cancelled.
+    function test_scheduleStop_CancelsOneSecondBeforeTheLock() external {
+        _plant([uint256(0), 0, 0, _NOW + _M + 1, 6]);
+        _scheduleStop(0, 0, [uint256(0), 0, 0, 0, 0]);
+    }
+
     // ---------------------------------------------------------------
     // Callers (START-10.1-5c)
     // ---------------------------------------------------------------
