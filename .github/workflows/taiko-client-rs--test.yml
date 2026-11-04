@@ -272,12 +272,23 @@ jobs:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     name: Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    # Cold host/runtime builds precede the serial devnet scenarios.
+    timeout-minutes: 90
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      # The host Rust cache and the current-source Docker build coexist on this runner.
+      # Remove unrelated preinstalled SDKs before either build consumes the available disk.
+      - name: Free space for native and Docker builds
+        shell: bash
+        run: |
+          set -euxo pipefail
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup
+          df -h /
 
       - name: Install guarded signer Go toolchain
         uses: actions/setup-go@v7

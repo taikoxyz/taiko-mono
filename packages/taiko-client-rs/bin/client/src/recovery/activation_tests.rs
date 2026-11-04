@@ -107,7 +107,7 @@ async fn recovery_el_origin_ready_does_not_require_head_rewind() {
     )
     .await
     .unwrap();
-    let dir = tempfile::tempdir_in("/private/tmp").unwrap();
+    let dir = tempfile::tempdir_in(short_temp_parent()).unwrap();
     let p = configured_profile(dir.path(), &source);
     let root = dir.path().join("r");
     let plan = prepare::prepare(&p, 1, &root, &source, &ReadEngine::new(&source)).await.unwrap();
@@ -163,7 +163,7 @@ async fn recovery_probe_rejects_pruned_state_and_contradictory_candidate() {
 
 #[tokio::test]
 async fn recovery_activation_descriptor_is_atomic_bound_and_repeatable() {
-    let dir = tempfile::tempdir_in("/private/tmp").unwrap();
+    let dir = tempfile::tempdir_in(short_temp_parent()).unwrap();
     let source = Source::new();
     let p = configured_profile(dir.path(), &source);
     install_transport_key(&p);
@@ -184,7 +184,7 @@ async fn recovery_activation_descriptor_is_atomic_bound_and_repeatable() {
 
 #[tokio::test]
 async fn recovery_activation_each_durable_phase_roundtrips_without_live_authority() {
-    let dir = tempfile::tempdir_in("/private/tmp").unwrap();
+    let dir = tempfile::tempdir_in(short_temp_parent()).unwrap();
     let source = Source::new();
     let p = configured_profile(dir.path(), &source);
     let root = dir.path().join("recovery");
@@ -214,7 +214,7 @@ async fn recovery_activation_each_durable_phase_roundtrips_without_live_authorit
 #[tokio::test]
 async fn recovery_activation_publication_faults_leave_whole_selector_and_retry() {
     for failed_boundary in ["bundle-synced", "selector-synced", "selector-renamed", "root-synced"] {
-        let dir = tempfile::tempdir_in("/private/tmp").unwrap();
+        let dir = tempfile::tempdir_in(short_temp_parent()).unwrap();
         let source = Source::new();
         let p = configured_profile(dir.path(), &source);
         install_transport_key(&p);
@@ -249,7 +249,7 @@ async fn recovery_activation_trust_requires_exact_private_session_and_settlement
         BlockRef, CheckpointTarget, RecoveryTrustOrigin, TrustPhase, TrustSnapshot,
     };
     let source = Source::new();
-    let dir = tempfile::tempdir_in("/private/tmp").unwrap();
+    let dir = tempfile::tempdir_in(short_temp_parent()).unwrap();
     let plan = plan(&profile(dir.path()), &source).await;
     let o = &plan.origin;
     let target = CheckpointTarget {
@@ -320,7 +320,7 @@ async fn recovery_activation_trust_requires_exact_private_session_and_settlement
 #[tokio::test]
 async fn recovery_activation_rechecks_generation_before_and_after_locks() {
     for initial_reads in [0, 1] {
-        let dir = tempfile::tempdir_in("/private/tmp").unwrap();
+        let dir = tempfile::tempdir_in(short_temp_parent()).unwrap();
         let source = Source::new();
         let p = configured_profile(dir.path(), &source);
         let root = dir.path().join("recovery");
@@ -340,7 +340,7 @@ async fn recovery_activation_rechecks_generation_before_and_after_locks() {
 }
 #[tokio::test]
 async fn recovery_activation_same_generation_target_advances_without_changing_genesis() {
-    let dir = tempfile::tempdir_in("/private/tmp").unwrap();
+    let dir = tempfile::tempdir_in(short_temp_parent()).unwrap();
     let source = Source::new();
     let p = configured_profile(dir.path(), &source);
     let root = dir.path().join("recovery");
@@ -357,7 +357,7 @@ async fn recovery_activation_landing_uses_own_finalized_proofs_and_landing_gener
         fixture: serde_json::from_str(include_str!("testdata/activation.json")).unwrap(),
         finalized: Mutex::new(VecDeque::new()),
     };
-    let dir = tempfile::tempdir_in("/private/tmp").unwrap();
+    let dir = tempfile::tempdir_in(short_temp_parent()).unwrap();
     let plan = plan(&profile(dir.path()), &source).await;
     let initial = crate::recovery::activate::finalized_landing(&source, &plan).await.unwrap();
     assert_eq!(initial.target.height, 12);
@@ -377,7 +377,7 @@ async fn recovery_activation_landing_uses_own_finalized_proofs_and_landing_gener
 async fn recovery_activation_installs_separate_bound_comet_home_with_private_p2p() {
     use crate::recovery::install;
     use std::os::unix::fs::{MetadataExt, PermissionsExt};
-    let dir = tempfile::tempdir_in("/private/tmp").unwrap();
+    let dir = tempfile::tempdir_in(short_temp_parent()).unwrap();
     let source = Source::new();
     let profile = configured_profile(dir.path(), &source);
     let key = serde_json::to_vec(&test_harness::node_keys(1).remove(0).node_key_json()).unwrap();
@@ -428,7 +428,7 @@ fn installed_descriptor(
 #[tokio::test]
 async fn recovery_activation_rejects_foreign_comet_identity_before_writers() {
     use crate::recovery::inspect::{Inspection, validate_stores};
-    let dir = tempfile::tempdir_in("/private/tmp").unwrap();
+    let dir = tempfile::tempdir_in(short_temp_parent()).unwrap();
     let source = Source::new();
     let p = configured_profile(dir.path(), &source);
     let root = dir.path().join("recovery");
@@ -501,7 +501,7 @@ while True: time.sleep(.01)
 #[tokio::test]
 async fn recovery_activation_native_children_cancel_and_resume_retain_ordered_ownership() {
     use crate::recovery::activate::activate_with;
-    let dir = tempfile::tempdir_in("/private/tmp").unwrap();
+    let dir = tempfile::tempdir_in(short_temp_parent()).unwrap();
     let source = Source::new();
     let profile = native_profile(dir.path(), &source);
     let root = dir.path().join("r");
@@ -569,7 +569,7 @@ async fn recovery_activation_native_children_cancel_and_resume_retain_ordered_ow
 #[tokio::test]
 async fn recovery_activation_generic_latch_and_contradictory_phase_block_before_engine() {
     use crate::recovery::activate::activate_with;
-    let dir = tempfile::tempdir_in("/private/tmp").unwrap();
+    let dir = tempfile::tempdir_in(short_temp_parent()).unwrap();
     let source = Source::new();
     let profile = native_profile(dir.path(), &source);
     let root = dir.path().join("r");
@@ -679,7 +679,7 @@ async fn recovery_activation_committed_crash_window_resumes_without_origin_probe
         activate::activate_with,
         inspect::{Inspection, validate_stores},
     };
-    let dir = tempfile::tempdir_in("/private/tmp").unwrap();
+    let dir = tempfile::tempdir_in(short_temp_parent()).unwrap();
     let source = Source::new();
     let profile = native_profile(dir.path(), &source);
     let root = dir.path().join("r");
@@ -759,7 +759,7 @@ async fn recovery_activation_private_sessions_fullnode_only_and_incarnation_fail
     use std::{os::unix::fs::PermissionsExt, sync::Arc};
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
     for validator in [false, true] {
-        let dir = tempfile::tempdir_in("/private/tmp").unwrap();
+        let dir = tempfile::tempdir_in(short_temp_parent()).unwrap();
         let source = Source {
             fixture: serde_json::from_str(include_str!("testdata/activation.json")).unwrap(),
             finalized: Mutex::new(VecDeque::new()),
@@ -1025,7 +1025,7 @@ async fn recovery_activation_private_sessions_fullnode_only_and_incarnation_fail
 #[tokio::test]
 async fn recovery_activation_rejects_legacy_empty_pv_bundle_and_live_owner_before_probe() {
     use crate::recovery::activate::activate_with;
-    let dir = tempfile::tempdir_in("/private/tmp").unwrap();
+    let dir = tempfile::tempdir_in(short_temp_parent()).unwrap();
     let source = Source::new();
     let profile = native_profile(dir.path(), &source);
     let root = dir.path().join("r");
@@ -1078,7 +1078,7 @@ async fn recovery_activation_rejects_legacy_empty_pv_bundle_and_live_owner_befor
 async fn recovery_activation_accepts_only_exact_prior_supersession_evidence() {
     use crate::recovery::activate::check_prior_halt;
     use abci::recovery::supersession::{SUPERSESSION_FILE, SupersessionEvidence, digest};
-    let dir = tempfile::tempdir_in("/private/tmp").unwrap();
+    let dir = tempfile::tempdir_in(short_temp_parent()).unwrap();
     let source = Source::new();
     let profile = native_profile(dir.path(), &source);
     let root = dir.path().join("r");
@@ -1132,7 +1132,7 @@ async fn recovery_activation_accepts_only_exact_prior_supersession_evidence() {
 
 #[tokio::test]
 async fn recovery_activation_owned_component_exit_stops_remaining_children() {
-    let dir = tempfile::tempdir_in("/private/tmp").unwrap();
+    let dir = tempfile::tempdir_in(short_temp_parent()).unwrap();
     let source = Source::new();
     let mut profile = native_profile(dir.path(), &source);
     profile.comet.argv=vec!["-c".into(),"import sys,time;from pathlib import Path\np=Path(sys.argv[1])\nwhile not p.exists() or 'app:start' not in p.read_text():time.sleep(.01)".into(),dir.path().join("children.log").display().to_string()];
@@ -1168,7 +1168,7 @@ async fn recovery_activation_owned_component_exit_stops_remaining_children() {
 
 #[tokio::test]
 async fn recovery_activation_origin_state_rejects_mixed_anchor_and_cursor_before_start() {
-    let dir = tempfile::tempdir_in("/private/tmp").unwrap();
+    let dir = tempfile::tempdir_in(short_temp_parent()).unwrap();
     let source = Source::new();
     let profile = native_profile(dir.path(), &source);
     let root = dir.path().join("r");
@@ -1198,7 +1198,7 @@ async fn recovery_activation_origin_state_rejects_mixed_anchor_and_cursor_before
 async fn recovery_activation_repeated_generation_preserves_historical_supersession() {
     use crate::recovery::activate::{activate_with, check_prior_halt};
     use abci::recovery::supersession::{SUPERSESSION_FILE, SupersessionEvidence, digest};
-    let dir = tempfile::tempdir_in("/private/tmp").unwrap();
+    let dir = tempfile::tempdir_in(short_temp_parent()).unwrap();
     let first = Source::new();
     let second = Source {
         fixture: serde_json::from_str(include_str!("testdata/repeated.json")).unwrap(),
@@ -1325,7 +1325,7 @@ async fn recovery_activation_current_halt_stops_owned_children_and_preserves_evi
     for filename in
         ["validator-supervisor.halted", "fatal-evidence.txt", "generation-superseded.json"]
     {
-        let dir = tempfile::tempdir_in("/private/tmp").unwrap();
+        let dir = tempfile::tempdir_in(short_temp_parent()).unwrap();
         let source = Source::new();
         let mut profile = native_profile(dir.path(), &source);
         profile.app.argv[1] = profile.app.argv[1].replace(
@@ -1373,7 +1373,7 @@ async fn recovery_activation_current_halt_stops_owned_children_and_preserves_evi
 
 #[tokio::test]
 async fn recovery_process_specifications_encode_canonical_signer_deployment() {
-    let dir = tempfile::tempdir_in("/private/tmp").unwrap();
+    let dir = tempfile::tempdir_in(short_temp_parent()).unwrap();
     let source = Source::new();
     let mut profile = configured_profile(dir.path(), &source);
     profile.role = NodeRole::Validator;

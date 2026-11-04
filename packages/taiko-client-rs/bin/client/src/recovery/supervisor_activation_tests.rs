@@ -6,6 +6,8 @@ const APP: &str = r#"import json,os,socket,sys
 from pathlib import Path
 root=Path(sys.argv[1]); app=Path(sys.argv[sys.argv.index('--data-dir')+1])
 base=json.loads((root/'snapshot.json').read_text()); counter=0
+# The controller can inspect the socket inode immediately after bind.
+os.umask(0o077)
 listener=socket.socket(socket.AF_UNIX);listener.bind(str(app/'checkpoint-trust.sock'));os.chmod(app/'checkpoint-trust.sock',0o600);listener.listen()
 while True:
  peer,_=listener.accept()
@@ -51,7 +53,7 @@ async fn eventually(mut condition: impl FnMut() -> bool) {
 
 #[tokio::test]
 async fn recovery_controller_owned_supervisor_recovers_initial_and_later_refusal() {
-    let dir = tempfile::tempdir_in("/private/tmp").unwrap();
+    let dir = tempfile::tempdir_in(short_temp_parent()).unwrap();
     let base = dir.path();
     let source = Source {
         fixture: serde_json::from_str(include_str!("testdata/session.json")).unwrap(),

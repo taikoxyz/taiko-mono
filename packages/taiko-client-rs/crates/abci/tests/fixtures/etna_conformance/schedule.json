@@ -2,7 +2,7 @@
   "schema": "etna-client-conformance-1",
   "family": "schedule",
   "generator": "formal/etna: lake exe etna-vectors --write testdata/etna_conformance",
-  "provenance": {"formalCommit": "4ec05bbe27bad6c65c6425fc508cae304deb343a"},
+  "provenance": {"formalCommit": "4f38cfcc8cbcfad10ec159110f5a8f74ca3e7ea5"},
   "contexts": [
     {
       "name": "rotation",
