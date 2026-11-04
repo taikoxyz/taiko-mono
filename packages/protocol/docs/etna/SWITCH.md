@@ -134,7 +134,7 @@ Block production does not wait for this check. Etna produces up to U blocks beyo
 - **L2 → L1.** The L1 Bridge verifies messages against SignalService checkpoints indexed by L2 block number, and it does not change.
   - Checkpoints at or below S come from the Unzen Inbox, including those its final proofs save after Etna has started.
   - Checkpoints above S come from the EtnaInbox.
-  - Neither overwrites the other. The Unzen Inbox accepts no proposal after the cutoff, so a sound Unzen proof never covers heights above S, and the upgraded SignalService also rejects Unzen Inbox checkpoints above S once the start is written. The EtnaInbox lands only above S.
+  - Neither overwrites the other. The Unzen Inbox accepts no proposal at or after the propose cutoff, so a sound Unzen proof never covers heights above S, and the upgraded SignalService also rejects Unzen Inbox checkpoints above S once the start is written. The EtnaInbox lands only above S.
 - **L1 → L2.** This follows the anchorless design ([ANCHORLESS.md section 4](ANCHORLESS.md#4-bridge-verification) and [section 8](ANCHORLESS.md#8-fork-and-migration)). From the first Etna block on, the L2 SignalService verifies proofs against the EIP-4788 roots of Etna anchors. A message sent on L1 before the cutoff and not yet processed on L2 is proven against an Etna block's root, whose anchor is at or after R₀. A proof built before the switch must be rebuilt.
 - **Unchanged.** The Bridge, the vaults and the QuotaManager do not change.
 
