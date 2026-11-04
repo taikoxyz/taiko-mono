@@ -56,5 +56,36 @@ is added; all ACCEPTANCE clauses remain deferred.
 
 ## Validation
 
-Validation is recorded after the complete local build, audit and regression run.
-Historical hosted results in the previous reports apply only to their recorded SHAs.
+Local validation used the pinned Lean 4.35.0-rc4 toolchain. The full 196-job build
+passed, as did 17 focused authority/economics/payment tests in 42.128 seconds.
+
+The complete Python command executed **567 tests in 1489.372 seconds: 566 passed and
+one failed**. The failure was the evidence-package test's obsolete literal raw SPEC
+fingerprint from the preceding authority. Its SPEC and ACCEPTANCE expectations now
+match the reviewed current bytes, and it additionally checks SWITCH's fingerprint.
+The complete affected evidence-package module then passed **all 10 tests in 1.031
+seconds**. The other 566 outcomes remain applicable because this follow-up changes
+only fingerprint expectations and this report; the original full command's exit was
+not green.
+
+After the full command and the affected-module rerun, the **canonical serial audit
+passed in 155.62 seconds**: all 1,821 exact contracts, types, mechanical roles,
+transitive allowed axioms, fresh whole-import-closure replay and 50 Lean regression
+modules passed. All 15 current premise fields (22 including historical fields) are
+consumed by the headline proofs. An earlier overlapping audit was provisional; the
+final audit ran alone after the suite and is the recorded final audit evidence.
+The 460 mechanical property derivation chains do not count verified protocol rules.
+
+Final serial checks passed for the eight historical vector files, separate current
+admission file, deterministic Audit/971-clause inventory, offline reader freshness,
+authority pins, exact rule evidence, source/import lint and reader JavaScript syntax.
+Historical manifest objects, archived authority bytes and historical vectors remain
+unchanged. Direct Prettier 3.2.5 and whitespace checks pass. The repository pre-commit
+wrapper still fails on pnpm's rejection of the existing `p256-verifier#v0.1.0` and
+`urc#main` aliases; equivalent formatting checks ran directly, with `LEFTHOOK=0` for
+commits. The lockfile is unchanged.
+
+The semantic/vector checkpoint is `a8722e8caf570ba64597f532b6945313e3182643`.
+This follow-up only corrects the fingerprint test and records validation. Historical
+hosted results in preceding reports apply only to their recorded SHAs; this local
+validation does not claim a hosted run at the new head.
