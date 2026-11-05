@@ -1,36 +1,77 @@
 # Etna design verification
 
-The current authorities are `SPEC.md`, `ACCEPTANCE.md`, `ANCHORLESS.md` and `SWITCH.md`
-under `packages/protocol/docs/etna`, pinned to main
-`e84a9aaac526c15597d97ee93f8803f92b02c279` (2026-11-04).
+The authorities are `SPEC.md`, `ACCEPTANCE.md`, `ANCHORLESS.md` and `SWITCH.md` under
+`packages/protocol/docs/etna`, pinned to main `e84a9aaac526c15597d97ee93f8803f92b02c279`
+(2026-11-04). This package contains only the current design; the archived 2026-10-30 model,
+its vectors and reports were removed and remain readable at formal revision
+[`583bc2620`](https://github.com/taikoxyz/taiko-mono/tree/583bc2620258838e75ce353c11f9344616ac1020/formal/etna).
 
-This package proves conditional decoded-design safety. Exact claims live in
-`EtnaStatements/Current.lean`, with composition in `EtnaProofs/Headline/Current.lean`.
-The [round-five review report](reports/review-round-five.md) records the latest feedback,
-proofs and remaining boundaries; [latest alignment](reports/latest-design-alignment.md)
-records validation. Production conformance, liveness and launch acceptance are separate.
+## What is proved, and what is not
+
+This package proves **conditional, design-level safety** of the decoded Etna machine. Exact
+claims live in `EtnaStatements/Current.lean` (175 lines); composition is in
+`EtnaProofs/Headline/Current.lean`. Every claim holds for every reachable `Trace` from a
+fresh deployment, **assuming the fifteen fields of `Premises`** below.
+
+- **H1, fund safety.** Every accepted landing extends one hash-bound checkpoint chain from an
+  authenticated root; Etna and legacy (Unzen) signals stay disjoint; the start is written once.
+- **H2, accountable finality.** Two conflicting commits at the same height and round imply an
+  overlap of more than one third of the voting power with authentic evidence and an executable
+  funded slash; with honest locking and a Byzantine minority, valid chains agree.
+- **H3, forced-inclusion integrity.** No valid landing skips a due forced inclusion: FIFO
+  service, due-only skips, no early skip, and only `land` advances the head. This is a safety
+  property of landings. It does **not** promise that a due inclusion is ever landed.
+
+Not covered here: liveness (no permanent halt, landings continue, recovery completes),
+refinement to the Solidity contracts, the Rust client or the zkVM guests, CometBFT's
+implementation, cryptography, data availability, and economic security. Cross-round
+equivocation (amnesia) is outside H2, as the spec states.
+
+## Premises and who must discharge them
+
+H1–H3 are only as strong as these premises. Six describe the environment or deployment;
+the others are obligations on code or cryptography that this package does not verify.
+
+| Premise field | What it assumes | Who must make it true |
+| --- | --- | --- |
+| `currentPrimitives` | Genesis header is hash-bound; equal EL hashes mean equal EL fields; a valid Unzen proof authenticates its decoded EL header before the fork time | Hash collision resistance; existing Unzen guest and verifier |
+| `currentVerifierSound` | Every accepted landing proof with a sound backend certifies its statement for the selected rulesets | Etna zkVM/TEE guests, proof systems, `ZkRequiredVerifier`, DAO verifier choice |
+| `currentStandardToken` | The bond token behaves as a standard ERC-20 transfer | Token deployment |
+| `currentSignatureAgreement` | Signed consensus bytes refine to the registry's signature check | Comet sign-bytes in the Rust client and the Solidity verifier |
+| `currentBountyBound` | `slashBountyBps < 10000` | Registry initializer (checked on chain) |
+| `currentCodec` | Comet header/envelope codec is canonical for the fixed interpreters | Rust client and stock CometBFT parity |
+| `currentVoteAttribution` | Every commit vote is a real precommit of the engine, with honest local rules and a Byzantine minority at checked heights | CometBFT engine and validator operation |
+| `currentClock` | L1 time strictly increases with block number | Ethereum L1 |
+| `currentCatalogueHash` | Catalogued EL transaction bytes hash to the environment's transaction hash | Hash function; EL catalogue |
+| `currentReferenceBinding` | Equal L1 block hashes imply equal L1 prefixes | Hash collision resistance (modeled as an injective map) |
+| `currentRegistryGenesis` | The registry starts fresh, with no prior identities or history | Deployment procedure |
+| `currentSignatureSound` | An accepted signature authenticates the key holder | secp256k1 verification in Solidity |
+| `currentSelfAllowance` | The registry has no allowance to itself at genesis | Token deployment |
+| `currentUnzenExtension` | A valid Unzen proof extends its decoded parent to a higher height | Existing Unzen guest |
+| `currentEvidenceWindow` | `0 < evidenceWindow ≤ withdrawalDelay` | Deployment parameters |
+
+Hash premises are a standard idealization: the models treat commitments as injective. Read a
+claim that relies on them as "the claim holds, or a hash collision exists".
+
+## Review surface and statement lock
+
+The **review surface** is what a reviewer must read to know what H1–H3 and the five witnesses
+mean: their statements and every Etna definition they use, but no proof. `review-surface.lock.json`
+records a SHA-256 of the kernel terms of each of those constants (1,417 at this revision).
+`python3 scripts/review_surface.py --check` fails if the lock is stale. In CI, the base
+revision's copy of the same script compares the lock and the gate files (`scripts/`, the
+lakefile, the toolchain pin and the workflow) with the base branch. Any difference fails the
+pull request until a reviewer applies the `formal-statement-change` label; the job summary
+lists the changed constants. Proof-only changes never touch the lock.
 
 ## Visual audit reader
 
-[STATEMENTS.html](STATEMENTS.html) is a self-contained, offline reader inspired by
-[FlashProve's statements page](https://github.com/anthropics/FlashProve/blob/main/lean/STATEMENTS.html).
-Download the HTML and open it in a browser, or serve this directory locally. GitHub's
-file view displays its source; it does not render the interactive page.
-
-The reader puts H1–H3 and their scope beside exact Lean source, lists the fifteen
-current premises, and searches named declarations, reviewed theorem types and exact
-rule-evidence edges. Current entries are separate from historical / shared definitions.
-Source links inside the code use exact or globally unique names; ambiguous names remain
-unlinked. This is a source index, not a compiler-resolved dependency graph or a new proof
-result. Generated projections/recursors and anonymous examples/instances are not listed.
-
-Regenerate with `python3 scripts/generate_statements.py`; CI runs
-`python3 scripts/generate_statements.py --check` and rejects stale HTML. The renderer uses
-only Python's standard library and the existing inventory/lexer. Its source assets live
-in `scripts/statements`. All browsing data, styles and scripts are embedded; no external
-libraries or network calls are needed. Optional report/local-source links need the checkout,
-and GitHub links need network access. Embedded file hashes identify the displayed source;
-GitHub source links follow the PR branch, while authority links use pinned revisions.
+`python3 scripts/generate_statements.py` writes `STATEMENTS.html`, a self-contained offline
+reader inspired by [FlashProve's statements page](https://github.com/anthropics/FlashProve/blob/main/lean/STATEMENTS.html).
+It is not tracked; CI uploads it as the `etna-statements` workflow artifact. It puts H1–H3
+and their scope beside exact Lean source, lists the fifteen premises, and searches named
+declarations, reviewed theorem types and exact rule-evidence edges. It is a source index, not
+a compiler-resolved dependency graph or a proof result.
 
 ## Current safety contracts
 
@@ -78,9 +119,7 @@ context and stock stores required by SPEC 5.4 remain an explicit abstraction gap
 The current registry admits `0 ≤ slashBountyBps < 10000`; zero pays no reporter
 bounty. Slashing pays `floor(balance * slashBountyBps / 10000)` to the authenticated
 caller, including a self-reporting owner, and the remainder to the fixed sink.
-The current executable-slash premises use the strict bound; general conservation
-lemmas and the separately pinned historical model retain their weaker arithmetic
-bounds. The [PR #22335 alignment](reports/alignment-22335.md) records the authority
+The executable-slash premises use the strict bound. The [PR #22335 alignment](reports/alignment-22335.md) records the authority
 changes and the unchanged deferred derivation, finality and DAO implementation boundaries.
 
 ## Reference and archive authority
@@ -149,40 +188,44 @@ audit obligations. Finite ordinary fixtures using fewer premises are not substit
 `rule-coverage.json` names each reviewed rule/theorem edge. Shared paragraphs do not give
 neighboring rules evidence. Supporting guards are separate; generic conservation, list,
 encoding and transport helpers have no protocol source credit. A narrow partial fragment
-never verifies the entire rule.
+never verifies the entire rule. Twenty shared lemmas outside the `Current` namespace that
+the current proofs reuse are listed as unsourced plumbing in `scripts/check_spec_coverage.py`.
 
-The current inventory is **38 partial / 528 deferred clauses**, and **41 narrow partial /
+The inventory is **38 partial / 528 deferred clauses**, and **41 narrow partial /
 35 supporting / 527 deferred binding rules**, plus 32 deferred assumption/limitation rows.
-SWITCH has narrow first-fence/root evidence. All 93 current ANCHORLESS and 45 ACCEPTANCE
+SWITCH has narrow first-fence/root evidence. All 93 ANCHORLESS and 45 ACCEPTANCE
 clauses remain deferred. Margin arithmetic, bridge resolver/EIP-4788/storage migration,
 production parsing/crypto/EL/guest/token/Solidity/Comet/store refinement, operational
 availability, measured resources and full launch/switch/recovery acceptance remain separate.
 
-Historical `Etna.Design` results outside `Current`, their 1,216 unchanged contract records
-and eight conformance files use the archived 2026-10-30 authorities. They do not establish
-current conformance. New executable displacement vectors are separately generated into
-`testdata/etna_current_conformance`; current implementation harness adoption is not claimed.
+`testdata/etna_current_conformance` holds vectors generated by the current executable model
+(`lake exe etna-vectors --write <dir>`); implementation harness adoption is not claimed.
 
 ## Verification
 
-Use pinned Lean 4.35.0-rc4, Init/Std only. From `formal/etna`, run serially:
+Use pinned Lean 4.35.0, Init/Std only. From `formal/etna`, run serially:
 
 ```sh
 python3 scripts/lint_sources.py
 python3 scripts/check_imports.py
 python3 scripts/check_spec_coverage.py
 python3 scripts/rule_coverage.py --check
-python3 scripts/generate_statements.py --check
 lake build
-python3 scripts/check_vectors.py
 python3 scripts/check_current_vectors.py
+python3 scripts/review_surface.py --check
 python3 scripts/generate_artifacts.py
 python3 scripts/generate_artifacts.py --check
 python3 scripts/audit_proofs.py
-python3 -m unittest discover -s tests -v
+python3 -m unittest discover -s tests            # fast suite
+ETNA_FULL_TESTS=1 python3 -m unittest discover -s tests   # adds the slow mutation suite
 ```
 
 The audit checks exact types, mechanical roles, allowed transitive axioms, premise use,
-mandatory joint-premise profiles and fresh whole-kernel replay. CI checks pins before
-building and has a 90-minute job budget. Local results and hosted CI outcomes are reported
-separately in the latest alignment; the previous 504-test local pass was not hosted success.
+mandatory joint-premise profiles and fresh whole-kernel replay.
+
+CI (`.github/workflows/formal--etna.yml`) runs three jobs. `etna-formal` runs every gate
+above with the fast suite on each pull request, with a Lake build cache. `etna-review-surface`
+needs no Lean: it applies the statement lock against the base branch. `etna-formal-full`
+runs the full mutation suite and `lake check --paranoid` (five independent kernels in a
+bubblewrap sandbox) nightly, on pushes to main, on manual dispatch and on pull requests
+labelled `formal-full`.
