@@ -887,20 +887,32 @@ async fn trust_halts_on_a_landed_validator_state_mismatch() {
     }
 }
 
-/// The trust target is a retained grid height above the origin, so a missing validator-state
-/// sidecar there means the node lost its own state: trust halts for safety rather than retry.
+/// A validator-state preimage the node cannot read at a retained grid target keeps trust
+/// closed and retrying without fatal evidence, like missing Comet history; once the sidecar is
+/// back, trust opens. Only a landed hash that contradicts the node's own state halts.
 #[tokio::test]
-async fn trust_halts_when_the_committed_validator_state_is_lost() {
+async fn trust_waits_when_the_committed_validator_state_is_unavailable() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
     commit_to(&mut app, &fx, GRID_INTERVAL + 1).await;
     finalize_landing(&app, &fx, 100, GRID_INTERVAL);
+    let preimage = app.val_state_preimage(GRID_INTERVAL).unwrap();
     std::fs::remove_file(dir.path().join(format!("val-state-{GRID_INTERVAL}.bin"))).unwrap();
-    let error = app.refresh_trust().await.unwrap_err();
-    assert!(matches!(error, AbciError::SafetyHalt(_)), "{error}");
-    assert!(error.to_string().contains("sidecar of retained height"), "{error}");
-    assert!(app.store.fatal_evidence().unwrap().is_some());
+    app.refresh_trust().await.unwrap();
+    let snapshot = app.trust.snapshot();
+    assert!(!snapshot.trust_ready);
+    assert_ne!(snapshot.phase, TrustPhase::Halted);
+    let reason = snapshot.reason.unwrap();
+    assert!(
+        reason.contains(&format!("validator state unavailable at {GRID_INTERVAL}")),
+        "{reason}"
+    );
+    assert!(reason.contains("sidecar of retained height"), "{reason}");
+    assert!(app.store.fatal_evidence().unwrap().is_none());
+    app.store.save_val_state(GRID_INTERVAL, &preimage).unwrap();
+    app.refresh_trust().await.unwrap();
+    assert!(app.trust.snapshot().trust_ready, "{:?}", app.trust.snapshot().reason);
 }
 
 /// A landed validator-state hash equal to the replica's after that height, from the head

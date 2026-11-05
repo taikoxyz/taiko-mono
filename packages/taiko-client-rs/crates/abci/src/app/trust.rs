@@ -690,8 +690,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
     ///
     /// Above the generation origin the landed validator-state hash must equal the hash of the
     /// state the node's own replica holds after the target (SYNC-9-5, SYNC-9-5b). The origin's
-    /// record does not hold this generation's state and is not compared. The target is a
-    /// retained grid height, so a missing preimage there means the node lost its own state.
+    /// record does not hold this generation's state and is not compared. A mismatch halts; a
+    /// preimage the node cannot read keeps it untrusted and retrying, like missing Comet history.
     async fn verify_link(
         &self,
         state: &AppState,
@@ -730,7 +730,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
         }
         if target.height != state.origin_height() {
             let preimage = self.val_state_preimage(target.height).map_err(|error| {
-                AbciError::SafetyHalt(format!("committed validator state unavailable: {error}"))
+                AbciError::TrustControl(format!(
+                    "committed validator state unavailable at {}: {error}",
+                    target.height
+                ))
             })?;
             if keccak256(preimage) != target.val_state_hash {
                 return Err(AbciError::SafetyHalt(format!(
