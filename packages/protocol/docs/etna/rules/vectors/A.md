@@ -349,6 +349,8 @@ _`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` fo
 
 _29a.l checks only the byte encoding of the entries as given; whether that order is CometBFT's set order depends on the real addresses of the keys._
 
+_Reproduce 29a.l with Foundry's `cast`: `cast keccak $(cast abi-encode 'f(bytes32,uint256,(uint8,bytes32,uint64,int64)[],uint256,(uint8,bytes32,uint64,int64)[],uint256)' $(cast format-bytes32-string ETNA_VAL_STATE_V1) 6 '[(2,K1,10,-5),(3,K2,10,5)]' 1 '[(2,K1,10,5),(3,K2,10,-5)]' 0)`, with K1 and K2 the two 32-byte values in the row._
+
 ## ENC-A-30
 
 | Vector      | Setup                                                                                                                                                             | Expected                           |
