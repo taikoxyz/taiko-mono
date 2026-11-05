@@ -51,7 +51,8 @@ pub mod inbox {
     /// Proof-bound active committee snapshot: `uint64` L1 block number, bits 0–63.
     #[cfg(test)]
     pub const ACTIVE_COMMITTEE_SNAPSHOT: u64 = 284;
-    /// Checkpoint landing records, keyed by endpoint height, three words each.
+    /// Checkpoint landing records, keyed by endpoint height, four words each; see
+    /// [`landing_slots`].
     pub const LANDINGS: u64 = 285;
     /// Immutable generation origins, keyed by generation, three words each.
     pub const ORIGINS: u64 = 290;
@@ -69,8 +70,10 @@ pub mod inbox {
         std::array::from_fn(|offset| B256::from(base.wrapping_add(U256::from(offset))))
     }
 
-    /// Packed parent/generation/head, EL hash and Comet hash for a landed endpoint.
-    pub fn landing_slots(height: u64) -> [B256; 3] {
+    /// Packed parent/generation/head, EL hash, Comet hash and validator-state hash (appendix
+    /// A's `valStateHash`) for a landed endpoint. The start record holds Comet and
+    /// validator-state hashes 0.
+    pub fn landing_slots(height: u64) -> [B256; 4] {
         mapping_words(LANDINGS, height)
     }
 
@@ -300,9 +303,12 @@ mod tests {
         };
         assert_eq!(inbox::anchor_slots(), listed("/layout/inbox/anchor_slots"));
         assert!(!inbox::anchor_slots().contains(&inbox::slot(292)));
-        for (table, key, slots_fn) in [
-            ("origin_slots", "generation", inbox::origin_slots as fn(u64) -> [B256; 3]),
-            ("landing_slots", "height", inbox::landing_slots),
+        let origin_slots: fn(u64) -> Vec<B256> =
+            |generation| inbox::origin_slots(generation).into();
+        let landing_slots: fn(u64) -> Vec<B256> = |height| inbox::landing_slots(height).into();
+        for (table, key, slots_fn, words) in [
+            ("origin_slots", "generation", origin_slots, 3),
+            ("landing_slots", "height", landing_slots, 4),
         ] {
             for case in vectors::at(&format!("/layout/inbox/{table}")).as_array().unwrap() {
                 let index = case[key].as_str().unwrap().parse().unwrap();
@@ -312,7 +318,8 @@ mod tests {
                     .iter()
                     .map(|v| v.as_str().unwrap().parse().unwrap())
                     .collect();
-                assert_eq!(slots_fn(index).to_vec(), expected);
+                assert_eq!(expected.len(), words, "{table} {index}");
+                assert_eq!(slots_fn(index), expected);
             }
         }
     }

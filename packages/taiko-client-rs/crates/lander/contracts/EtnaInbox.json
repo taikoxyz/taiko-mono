@@ -591,6 +591,11 @@
             },
             {
               "internalType": "bytes32",
+              "name": "lastValStateHash",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "bytes32",
               "name": "lastStateRoot",
               "type": "bytes32"
             },
@@ -665,6 +670,11 @@
             {
               "internalType": "bytes32",
               "name": "cometHash",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "valStateHash",
               "type": "bytes32"
             }
           ],

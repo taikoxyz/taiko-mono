@@ -546,6 +546,7 @@ pub(crate) fn recovery_fixture_with_spec(
         U256::from(if c == 0 { 0 } else { 3 }) << 96,
         el.hash_slow().into(),
         if c == 0 { U256::ZERO } else { B256::repeat_byte(0xcc).into() },
+        if c == 0 { U256::ZERO } else { B256::repeat_byte(0xdd).into() },
     ]));
     // Same-block recoveries leave the end-of-R generation higher than the requested one.
     let state_for = |current: u64| {

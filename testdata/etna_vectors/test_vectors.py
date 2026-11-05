@@ -543,6 +543,8 @@ class VectorsTest(unittest.TestCase):
                 "schedule_rules",
                 "schedule_stop",
                 "set_origin",
+                "save_forced_inclusion",
+                "sweep_protocol_fees",
             },
         )
         for call in calls.values():
@@ -571,6 +573,16 @@ class VectorsTest(unittest.TestCase):
         self.assertEqual(
             words("0x" + calls["set_origin"]["calldata"][10:]), [uint(1000), uint(0x51), uint(0x52)]
         )
+        # saveForcedInclusion(bytes) takes the raw transaction (spec 7.1); sweepProtocolFees() no
+        # argument.
+        self.assertEqual(calls["save_forced_inclusion"]["signature"], "saveForcedInclusion(bytes)")
+        fi = words("0x" + calls["save_forced_inclusion"]["calldata"][10:])
+        self.assertEqual([int(w, 16) for w in fi[:2]], [32, 1])
+        self.assertEqual(fi[2], "0xc0" + "00" * 31)
+        self.assertEqual(calls["sweep_protocol_fees"]["signature"], "sweepProtocolFees()")
+        self.assertEqual(
+            calls["sweep_protocol_fees"]["calldata"], calls["sweep_protocol_fees"]["selector"]
+        )
         cases = V["forfeitures"]
         expected = [(100, 0, 1000, 10, 90, 0), (2, 98, 1000, 10, 0, 90), (1, 0, 1, 1, 0, 0), (0, 3, 10000, 3, 0, 0)]
         self.assertEqual([tuple(int(c[k]) for k in ("eff_stake", "pending_top_up", "forfeit_bps", "penalty", "eff_stake_after", "pending_top_up_after")) for c in cases[:4]], expected)
@@ -595,6 +607,7 @@ class VectorsTest(unittest.TestCase):
         self.assertTrue("governance_events" in V, "new events must be shared with ABI consumers")
         events = V["governance_events"]
         rules = int(V["packed_words"]["inbox_293"][0]["word"], 16)
+        entry_key = int(V["keys"][0]["entry_key"], 16)
         expected = {
             "top_up_deposited": [100, 42],
             "top_up_activated": [100],
@@ -603,17 +616,35 @@ class VectorsTest(unittest.TestCase):
             "bond_displaced": [],
             "rules_schedule_updated": [rules],
             "start_written": [1000, 0x51, 0x52],
+            "etna_initialized": [10, 40, 0x53, 0x54],
+            "landed": [0x77, 50, 1],
+            # The offset of the bytes, the fee, the length, then the one-byte transaction
+            # left-aligned.
+            "forced_inclusion_saved": [64, 1_000_000_000, 1, 0xC0 << 248],
+            "protocol_fees_swept": [1_000_000_000],
+            # Five head words with the two list offsets, then each list's length and items.
+            "recovered": [12, 50, 1700000123, 160, 256, 1, 0, entry_key, 2, 3, 5],
         }
         self.assertEqual(set(events), set(expected))
         for name, values in expected.items():
             self.assertEqual([int(w, 16) for w in words(events[name]["data"])], values)
             self.assertEqual(len(hexbytes(events[name]["topic0"])), 32)
-        # BondDisplaced(bondId, slot, replacementBondId) indexes all three; the other new events
-        # index nothing.
+        # BondDisplaced(bondId, slot, replacementBondId) indexes all three; Landed its three
+        # heights; ForcedInclusionSaved its queue index; Recovered the new generation. The other
+        # events index nothing.
         self.assertEqual(
             events["bond_displaced"]["indexed_topics"], [uint(12), uint(7), uint(4096)]
         )
-        for name in ("rules_schedule_updated", "start_written", "recovery_nonce_invalidated"):
+        self.assertEqual(events["landed"]["indexed_topics"], [uint(0), uint(6), uint(12)])
+        self.assertEqual(events["forced_inclusion_saved"]["indexed_topics"], [uint(3)])
+        self.assertEqual(events["recovered"]["indexed_topics"], [uint(2)])
+        for name in (
+            "rules_schedule_updated",
+            "start_written",
+            "recovery_nonce_invalidated",
+            "etna_initialized",
+            "protocol_fees_swept",
+        ):
             self.assertEqual(events[name]["indexed_topics"], [], name)
 
     def test_view_return_data(self):
@@ -659,8 +690,8 @@ class VectorsTest(unittest.TestCase):
         origin = words("0x" + V["governance_abi"]["set_origin"]["calldata"][10:])
         self.assertEqual(words(written["data"]), origin[:2])
 
-    def test_schema_version_is_5(self):
-        self.assertEqual(V["schema_version"], "5")
+    def test_schema_version_is_6(self):
+        self.assertEqual(V["schema_version"], "6")
 
     def test_deployment(self):
         self.assertEqual(
@@ -698,18 +729,39 @@ class VectorsTest(unittest.TestCase):
             ],
         )
 
-    def test_statements_are_21_words(self):
+    def test_validator_state_published_encoding(self):
+        case = V["validator_states"][0]
+        self.assertEqual(
+            case["hash"],
+            "0x368f341ba9eb8b6d6cadbd5b944daed7ed417b273d1257911a7fd18320f2a81b",
+        )
+        self.assertEqual(len(hexbytes(case["preimage"])), 768)
+        w = words(case["preimage"])
+        self.assertEqual(
+            w[:6],
+            [tag("ETNA_VAL_STATE_V1"), uint(6), uint(192), uint(1), uint(480), uint(0)],
+        )
+        self.assertEqual(w[6], uint(2))
+        self.assertEqual(w[15], uint(2))
+        self.assertEqual(w[10], uint(2**256 - 5))
+        self.assertEqual(w[23], uint(2**256 - 5))
+        self.assertEqual(w[14], uint(5))
+        self.assertEqual(w[19], uint(5))
+        self.assertNotEqual(case["hash"], case["changed_current_proposer_hash"])
+        self.assertNotEqual(case["hash"], case["changed_next_proposer_hash"])
+
+    def test_statements_are_23_words(self):
         statements = V["land_statements"]
         self.assertEqual([s["name"] for s in statements], ["genesis", "nonzero"])
         for statement in statements:
             inputs = statement["inputs"]
             p, h = int(inputs["parent_height"]), int(inputs["last_height"])
             start = int(V["deployment"]["etna_start"])
-            self.assertEqual(len(hexbytes(statement["preimage"])), 672)
+            self.assertEqual(len(hexbytes(statement["preimage"])), 736)
             self.assertEqual((p - start) % K, 0)
             self.assertEqual((h - start) % K, 0)
             self.assertEqual(word(statement["preimage"], 0), tag("TAIKO_ETNA_LAND_V1"))
-            self.assertEqual(word(statement["preimage"], 20), inputs["cut_hash"])
+            self.assertEqual(word(statement["preimage"], 22), inputs["cut_hash"])
             self.assertEqual(inputs["committee_config_hash"], V["committee_config"]["hash"])
             cut = [
                 c
@@ -731,10 +783,12 @@ class VectorsTest(unittest.TestCase):
                     uint(p),
                     inputs["parent_hash"],
                     inputs["parent_comet_hash"],
+                    inputs["parent_val_state_hash"],
                     inputs["committee_config_hash"],
                     uint(h),
                     inputs["last_block_hash"],
                     inputs["last_comet_hash"],
+                    inputs["last_val_state_hash"],
                     inputs["last_state_root"],
                     uint(inputs["l1_reference_block_number"]),
                     inputs["l1_reference_block_hash"],
@@ -749,18 +803,19 @@ class VectorsTest(unittest.TestCase):
                 self.assertEqual(len(hexbytes(blob)), 32)
                 self.assertEqual(hexbytes(blob)[0], 0x01)
 
-    def test_cut_leaves_are_four_words(self):
+    def test_cut_leaves_are_five_words(self):
         table = V["cuts"]["table"]
         self.assertEqual([int(c["height"]) for c in table], list(range(19)))
         for cut in table:
             x = int(cut["height"])
-            self.assertEqual(len(hexbytes(cut["preimage"])), 128)
+            self.assertEqual(len(hexbytes(cut["preimage"])), 160)
             self.assertEqual(int(cut["forced_head"]), x // K)
             self.assertEqual(cut["block_hash"], uint(100 + x))
             self.assertEqual(cut["comet_hash"], uint(0 if x == 0 else 200 + x))
+            self.assertEqual(cut["val_state_hash"], uint(0 if x == 0 else 400 + x))
             self.assertEqual(
                 words(cut["preimage"]),
-                [uint(x), cut["block_hash"], cut["comet_hash"], uint(cut["forced_head"])],
+                [uint(x), cut["block_hash"], cut["comet_hash"], uint(cut["forced_head"]), cut["val_state_hash"]],
             )
 
     def test_empty_cut_list_hashes_empty_string(self):
@@ -1215,7 +1270,7 @@ class VectorsTest(unittest.TestCase):
         inbox = V["layout"]["inbox"]
         for key, field, count, ids in (
             ("forced_inclusion_entry_slots", "index", 2, ["0", "7"]),
-            ("landing_slots", "height", 3, ["0", "6", "18"]),
+            ("landing_slots", "height", 4, ["0", "6", "18"]),
             ("origin_slots", "generation", 3, ["0", "1"]),
         ):
             self.assertEqual([item[field] for item in inbox[key]], ids, key)
@@ -1586,7 +1641,7 @@ class VectorsTest(unittest.TestCase):
         abi = V["land_abi"]
         self.assertEqual(
             abi["signature"],
-            "land((uint256,uint256,bytes32,bytes32,bytes32,uint256,uint256,uint256),bytes32[],bytes)",
+            "land((uint256,uint256,bytes32,bytes32,bytes32,bytes32,uint256,uint256,uint256),bytes32[],bytes)",
         )
         self.assertEqual(abi["statement"], "nonzero")
         inputs = by_name(V["land_statements"], "nonzero")["inputs"]
@@ -1596,12 +1651,13 @@ class VectorsTest(unittest.TestCase):
         calldata = hexbytes(abi["calldata"])
         self.assertEqual(calldata[:4], hexbytes(abi["selector"]))
         self.assertEqual(
-            ["0x" + calldata[4 + 32 * i : 36 + 32 * i].hex() for i in range(8)],
+            ["0x" + calldata[4 + 32 * i : 36 + 32 * i].hex() for i in range(9)],
             [
                 uint(inputs["parent_height"]),
                 uint(inputs["last_height"]),
                 inputs["last_block_hash"],
                 inputs["last_comet_hash"],
+                inputs["last_val_state_hash"],
                 inputs["last_state_root"],
                 uint(inputs["l1_reference_block_number"]),
                 uint(inputs["forced_inclusion_head_after"]),

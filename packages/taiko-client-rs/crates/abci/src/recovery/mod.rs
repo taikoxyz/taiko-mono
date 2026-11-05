@@ -38,6 +38,7 @@ mod tests {
         assert_eq!(origin.committee.record.target_epoch, 0);
         assert_eq!(origin.state_root, B256::repeat_byte(0x55));
         assert_eq!(origin.comet_hash, B256::repeat_byte(0xcc));
+        assert_eq!(origin.val_state_hash, B256::repeat_byte(0xdd), "word 4 is retained");
     }
 
     #[test]
@@ -397,6 +398,40 @@ mod tests {
         w.committee.registry = state.witness(fx.params.registry, &slots);
         assert!(matches!(verify_recovery_witness(&w, &fx.params), Err(RecoveryError::Invalid(_))));
     }
+
+    /// STOR-B-9: the start write records validator-state hash 0, so a recovery from c = 0
+    /// whose start record holds another word 4, consistently at R and at finality, is invalid.
+    #[test]
+    fn recovery_at_zero_requires_the_start_record_zero_val_state() {
+        use crate::test_utils::edit_l1_header;
+        let (fx, _, _, mut w) = fixture(1, 0, 1);
+        let state = changed_state(&fx, &w, &[(inbox::landing_slots(0)[3], U256::from(1))]);
+        w.finalized_header =
+            edit_l1_header(&w.finalized_header, |h| h.state_root = state.state_root());
+        w.recovery_header =
+            edit_l1_header(&w.recovery_header, |h| h.state_root = state.state_root());
+        w.finalized_inbox = state.witness(fx.params.inbox, &inbox::recovery_slots(1, 0));
+        w.recovery_inbox = w.finalized_inbox.clone();
+        let slots: Vec<_> = w.committee.registry.storage.iter().map(|p| p.slot).collect();
+        w.committee.registry = state.witness(fx.params.registry, &slots);
+        let error = verify_recovery_witness(&w, &fx.params).unwrap_err();
+        assert!(error.to_string().contains("invalid genesis landing"), "{error}");
+    }
+
+    /// The retained landing's validator-state hash belongs to the fixed origin: a finalized
+    /// observation whose word 4 differs from R's does not bind the same origin.
+    #[test]
+    fn recovery_rejects_a_changed_retained_landing_val_state() {
+        use crate::test_utils::edit_l1_header;
+        let (fx, _, _, mut w) = fixture(1, 6, 1);
+        let state = changed_state(&fx, &w, &[(inbox::landing_slots(6)[3], U256::from(1))]);
+        w.finalized_header =
+            edit_l1_header(&w.finalized_header, |h| h.state_root = state.state_root());
+        w.finalized_inbox = state.witness(fx.params.inbox, &inbox::recovery_slots(1, 6));
+        let error = verify_recovery_witness(&w, &fx.params).unwrap_err();
+        assert!(error.to_string().contains("fixed origin does not bind"), "{error}");
+    }
+
     #[test]
     fn recovery_rejects_changed_retained_landing_parent_or_generation() {
         use crate::test_utils::edit_l1_header;

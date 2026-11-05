@@ -250,6 +250,7 @@ mod tests {
             last_checkpoint_height: 0x4567_89ab_cdef,
             last_checkpoint_hash: B256::repeat_byte(0xc4),
             last_checkpoint_comet_hash: B256::ZERO,
+            last_checkpoint_val_state_hash: B256::ZERO,
             forced_inclusion_head: 0x0000_8765_4321_0fed,
             forced_inclusion_tail: 0x0000_ffff_ffff_fffe,
             forced_inclusion_queue: vec![],

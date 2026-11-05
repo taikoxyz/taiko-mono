@@ -29,6 +29,9 @@ pub(super) struct Observation {
     pub(super) el_hash: B256,
     /// Original landing Comet hash.
     pub(super) comet_hash: B256,
+    /// Original landing validator-state hash (word 4): the original generation's state, never
+    /// compared with this generation's.
+    pub(super) val_state_hash: B256,
     /// Actual previous checkpoint of the retained landing.
     pub(super) parent_height: u64,
     /// Generation that originally created the retained landing, possibly far older.
@@ -114,7 +117,8 @@ pub(super) fn observation(
     {
         return Err(invalid("missing or inconsistent fixed origin"));
     }
-    let [packed, el_hash, comet_hash] = inbox::landing_slots(c).map(|s| word(&storage, s));
+    let [packed, el_hash, comet_hash, val_state_hash] =
+        inbox::landing_slots(c).map(|s| word(&storage, s));
     if packed >> 144 != U256::ZERO {
         return Err(invalid("reserved landing bits"));
     }
@@ -123,6 +127,7 @@ pub(super) fn observation(
     let cursor = word_u48(packed, 96);
     let el_hash = B256::from(el_hash);
     let comet_hash = B256::from(comet_hash);
+    let val_state_hash = B256::from(val_state_hash);
     if el_hash.is_zero() ||
         landing_generation >= w.generation ||
         (c > 0 &&
@@ -132,7 +137,7 @@ pub(super) fn observation(
     {
         return Err(invalid("invalid retained landing"));
     }
-    if c == 0 && (packed != U256::ZERO || !comet_hash.is_zero()) {
+    if c == 0 && (packed != U256::ZERO || !comet_hash.is_zero() || !val_state_hash.is_zero()) {
         return Err(invalid("invalid genesis landing"));
     }
     let checkpoint = word(&storage, inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT));
@@ -157,6 +162,7 @@ pub(super) fn observation(
         timestamp,
         el_hash,
         comet_hash,
+        val_state_hash,
         parent_height: parent,
         landing_generation,
         cursor,
@@ -231,6 +237,7 @@ pub fn verify_recovery_witness(
         el_hash: origin.el_hash,
         state_root: w.el_header.state_root,
         comet_hash: origin.comet_hash,
+        val_state_hash: origin.val_state_hash,
         forced_cursor: origin.cursor,
         committee: CommitteeState { record, members },
     })

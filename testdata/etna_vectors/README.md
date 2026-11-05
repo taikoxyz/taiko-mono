@@ -6,20 +6,33 @@ and the accept/reject cases of every boundary rule. Every implementation reads t
 instead of carrying its own copies of the literals. Section numbers below refer to the Etna
 specification; appendix A is the encodings and appendix B the L1 storage layout.
 
-Schema version is `"5"`. All integers are decimal strings, so values above 2^53 survive every
+Schema version is `"6"`. All integers are decimal strings, so values above 2^53 survive every
 JSON parser. Hex values are `0x`-prefixed. Clients must decode every input exactly: a decoder
 consumes all of its input and rejects trailing bytes, as the reject cases below require.
 
 `governance_abi` encodes the calldata of delayed top-ups, lifetime forfeiture, nonce/deadline-bound
 recovery with its trailing `rules` argument, explicit recovery invalidation, the rules schedule
-calls `scheduleRules` and `scheduleStop`, and the start write `setOrigin` (spec 8, 10, 10.1).
+calls `scheduleRules` and `scheduleStop`, the start write `setOrigin`, and the forced inclusion
+calls `saveForcedInclusion` and `sweepProtocolFees` (spec 7.1, 8, 10, 10.1).
 `governance_events` gives each event's topics and data, including `BondDisplaced` with all three
 fields indexed and the unindexed `RulesScheduleUpdated` (the packed slot-293 word) and
-`StartWritten`. `view_abi` gives the calldata and return data of the registry lookups
-`bondForKey`, `bondInSlot` and `slotOfBond`, where `(true, 0)` names bond 0 or slot 0 and
-`(false, 0)` is absence, and of the Inbox's `etnaStart()`, which returns (0, 0) before the start
-write. `forfeitures` pins effective-first rounded-up deductions, including pending-only and
-uint256 boundary balances.
+`StartWritten`, and the Inbox's `EtnaInitialized`, `Landed` (its three heights indexed),
+`ForcedInclusionSaved` (its queue index indexed, then the raw transaction and the fee charged),
+`ProtocolFeesSwept` and `Recovered` (the new generation indexed). `view_abi` gives the calldata
+and return data of the registry lookups `bondForKey`, `bondInSlot` and `slotOfBond`, where
+`(true, 0)` names bond 0 or slot 0 and `(false, 0)` is absence, and of the Inbox's `etnaStart()`,
+which returns (0, 0) before the start write. `forfeitures` pins effective-first rounded-up
+deductions, including pending-only and uint256 boundary balances.
+
+`validator_states` pins the ENC-A-29a.l encoding-only example: two entries per set,
+negative `int64` priorities sign-extended to 32 bytes, and both stored proposer indexes.
+Its 768-byte preimage hashes to
+`0x368f341ba9eb8b6d6cadbd5b944daed7ed417b273d1257911a7fd18320f2a81b`.
+Synthetic keys do not establish CometBFT set ordering. The cut table uses opaque synthetic
+commitments; L1 does not decode validator state. LandInput has nine fields, slot 285 records
+have four words, cut leaves have five words, and statements have 23 words (736 bytes).
+The parent validator-state hash is the retained origin record's value even at recovery start.
+The `0x06` extraData envelope and all fixed storage slots remain unchanged.
 
 ## Sections
 
@@ -33,8 +46,8 @@ uint256 boundary balances.
 | `committee_config`  | 4.3, 6.4, A, B | `committeeConfigHash` (Inbox slot 269): the seven input words (`ETNA_PARENT_ANCHOR_V1`, L2 chain id, registry, `vp_unit`, `s_min`, `n_max`, `U`), the 224-byte preimage and the hash.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `registry_entries`  | 4.1, A, B      | Entries in slots 0–4 from keys a1–a5, their `ETNA_REG_ENTRY_V1` leaves, the leaf of empty slot 5 (all-zero fields, still a non-zero leaf) and the entries root of every prefix from 0 to 6 leaves. `bond_slots` pins `regLeaf` indexed by the slot, not the bond id: bond 4096 displacing the bond in slot 7, and bond 2 taking slot 0 after bond 0's withdrawal, each with the wrong leaf a bond-id index gives (`bond_id_leaf`).                                                                                                                                                                                                                                                                  |
 | `committee_sets`    | 4.3, A         | Committees of 0, 1, 3 and 5 members in ascending set-key order: set keys, `ETNA_SET_LEAF_V1` preimages and leaves with `k = targetEpoch + 1`, `ETNA_SET_NODE` inner nodes with odd-node promotion, total power and the five-field `ETNA_COMMITTEE_V1` record. The empty committee is invalid and has no root or record.                                                                                                                                                                                                                                                                                                                                                                             |
-| `cuts`              | 6.1, 6.3, A    | Cut leaves `keccak256(abi.encode(x, blockHash, cometHash, forcedHead))` for heights 0–18 of a fixed model (EL hash 100 + x, Comet hash 200 + x and 0 at x = 0, FI cursor x / 6), and `ETNA_LAND_CUTS_V1` cut hashes over the grid points strictly between p and h, including the empty list (`keccak256("")`), a 49-leaf case and a case with Etna start S = 1000 whose one leaf is at 1006. Grid points are the heights h ≥ S with h − S a multiple of K; `grid_points` pins membership, including 1002 and 1008, which lie on a grid counted from 0 but not from S = 1000.                                                                                                                        |
-| `land_statements`   | 6.1, 6.2, A    | The 21-word (672-byte) `TAIKO_ETNA_LAND_V1` statement for a generation-0 landing from block 0 and a generation-1 landing from height 6.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `cuts`              | 6.1, 6.3, A    | Cut leaves `keccak256(abi.encode(x, blockHash, cometHash, forcedHead, valStateHash))` for heights 0–18 of a fixed model (EL hash 100 + x, Comet hash 200 + x and 0 at x = 0, FI cursor x / 6, opaque validator-state hash 400 + x and 0 at x = 0), and `ETNA_LAND_CUTS_V1` cut hashes over the grid points strictly between p and h, including the empty list (`keccak256("")`), a 49-leaf case and a case with Etna start S = 1000 whose one leaf is at 1006. Grid points are the heights h ≥ S with h − S a multiple of K; `grid_points` pins membership, including 1002 and 1008, which lie on a grid counted from 0 but not from S = 1000.                                                      |
+| `land_statements`   | 6.1, 6.2, A    | The 23-word (736-byte) `TAIKO_ETNA_LAND_V1` statement for a generation-0 landing from block 0 and a generation-1 landing from height 6.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `land_abi`          | 6.1            | The `land(input, leaves, proof)` signature, selector and complete calldata of the generation-1 statement.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `chain_domains`     | 3.1, A         | `chainDomain` and the 48-byte CometBFT chain id `"etna-" + base64url_no_padding(chainDomain)` for generations 0, 1, 2 and 2^48 − 1 and for another Inbox.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `votes`             | 4.1, A         | CometBFT vote sign bytes and secp256k1eth signatures by key a1: round 0 omitted, nil and partial block ids, a hash with an empty part set header (`12 00`), a zero timestamp (`2a 00`), negative and boundary timestamps (see below), the largest signable values and one- and two-byte length prefixes. `pairs` are double-sign evidence with the verdict at a given current generation: conflicts (including one from a historical generation and one between two backdated votes) and non-slashable pairs that differ in type, height, round or generation (each also with conflicting block ids), share a block id, or come from a future generation or another deployment.                     |

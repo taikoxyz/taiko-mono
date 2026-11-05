@@ -8,7 +8,7 @@ use std::{
     sync::{Arc, Mutex, PoisonError},
 };
 
-use alloy_primitives::{Address, B256};
+use alloy_primitives::{Address, B256, keccak256};
 use serde::{Deserialize, Serialize};
 use tokio::sync::Notify;
 
@@ -22,6 +22,7 @@ use crate::{
         verify_account_witness, verify_anchor_witness,
     },
     store::AppState,
+    valstate::ValState,
 };
 
 /// One authenticated checkpoint at an immutable finalized L1 snapshot.
@@ -37,6 +38,9 @@ pub struct CheckpointTarget {
     pub hash: B256,
     /// Comet block ID authenticated by the checkpoint landing record (zero at height zero).
     pub comet_hash: B256,
+    /// Validator-state hash (appendix A's `valStateHash`) authenticated by the checkpoint
+    /// landing record's word 4 (zero at height zero).
+    pub val_state_hash: B256,
     /// Authenticated recovery generation.
     pub generation: u64,
     /// Account whose storage proof authenticated this target.
@@ -217,9 +221,11 @@ impl TrustHandle {
                     l1_hash: state.anchor.hash,
                     height: state.anchor.inbox.last_checkpoint_height,
                     hash: state.anchor.inbox.last_checkpoint_hash,
-                    // Committed anchors authenticate the EL hash; this floor's Comet hash is
-                    // unknown until the first slot-285 proof is acquired.
+                    // Committed anchors authenticate the EL hash; this floor's Comet and
+                    // validator-state hashes are unknown until the first slot-285 proof is
+                    // acquired.
                     comet_hash: B256::ZERO,
+                    val_state_hash: B256::ZERO,
                     generation: state.generation,
                     inbox: state.inbox,
                 }),
@@ -330,7 +336,9 @@ impl TrustHandle {
                 (target.height == floor.height &&
                     (target.hash != floor.hash ||
                         (!floor.comet_hash.is_zero() &&
-                            target.comet_hash != floor.comet_hash)))
+                            target.comet_hash != floor.comet_hash) ||
+                        (!floor.val_state_hash.is_zero() &&
+                            target.val_state_hash != floor.val_state_hash)))
             {
                 return Err(AbciError::SafetyHalt(
                     "authenticated checkpoint conflicts with retained floor".into(),
@@ -523,7 +531,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
         }
         if (refreshed.l1_number == target.l1_number && refreshed.l1_hash != target.l1_hash) ||
             (refreshed.height == target.height &&
-                (refreshed.hash != target.hash || refreshed.comet_hash != target.comet_hash))
+                (refreshed.hash != target.hash ||
+                    refreshed.comet_hash != target.comet_hash ||
+                    refreshed.val_state_hash != target.val_state_hash))
         {
             return Err(AbciError::SafetyHalt(
                 "authenticated checkpoint changed at the same height".into(),
@@ -544,7 +554,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
         Ok(())
     }
 
-    /// Authenticates the exact own-finalized header/root and full Inbox anchor slot set.
+    /// Authenticates the exact own-finalized header/root and full Inbox anchor slot set, and
+    /// the four-word slot 285 record of its checkpoint (the start record holds Comet and
+    /// validator-state hashes 0).
     async fn acquire_target(&self) -> Result<CheckpointTarget, AbciError> {
         let timeout = self.opts.l1_timeout;
         let number = within("trust finalized L1", timeout, self.l1.finalized_number()).await?;
@@ -579,6 +591,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let packed = storage.get(slots[0]).expect("verified exact slots");
         let el_hash = B256::from(storage.get(slots[1]).expect("verified exact slots"));
         let comet_hash = B256::from(storage.get(slots[2]).expect("verified exact slots"));
+        let val_state_hash = B256::from(storage.get(slots[3]).expect("verified exact slots"));
         let parent = word_u48(packed, 0);
         let landing_generation = word_u48(packed, 48);
         let retained_origin =
@@ -587,6 +600,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
                     facts.last_checkpoint_height == origin.height &&
                     el_hash == origin.el_hash &&
                     comet_hash == origin.comet_hash &&
+                    val_state_hash == origin.val_state_hash &&
                     word_u48(packed, 96) == origin.forced_cursor &&
                     landing_generation < origin.generation
             });
@@ -599,7 +613,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
             (landing_generation != facts.recovery_generation && !retained_origin) ||
             packed >> 144 != alloy_primitives::U256::ZERO ||
             word_u48(packed, 96) != facts.forced_inclusion_head ||
-            (facts.last_checkpoint_height == 0 && (parent != 0 || !comet_hash.is_zero())) ||
+            (facts.last_checkpoint_height == 0 &&
+                (parent != 0 || !comet_hash.is_zero() || !val_state_hash.is_zero())) ||
             (facts.last_checkpoint_height > 0 &&
                 (parent >= facts.last_checkpoint_height || comet_hash.is_zero()))
         {
@@ -626,6 +641,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             height: facts.last_checkpoint_height,
             hash: facts.last_checkpoint_hash,
             comet_hash,
+            val_state_hash,
             generation: facts.recovery_generation,
             inbox: self.params.inbox,
         })
@@ -671,6 +687,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
     /// Starts at the durable app hash and follows every parentHash to the target. A genuine
     /// target somewhere else in the EL cannot satisfy this chain. Missing history is retryable.
+    ///
+    /// Above the generation origin the landed validator-state hash must equal the hash of the
+    /// state the node's own replica holds after the target (SYNC-9-5, SYNC-9-5b). The origin's
+    /// record does not hold this generation's state and is not compared. The target is a
+    /// retained grid height, so a missing preimage there means the node lost its own state.
     async fn verify_link(
         &self,
         state: &AppState,
@@ -707,6 +728,18 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 target.height
             )));
         }
+        if target.height != state.origin_height() {
+            let preimage = self.val_state_preimage(target.height).map_err(|error| {
+                AbciError::SafetyHalt(format!("committed validator state unavailable: {error}"))
+            })?;
+            if keccak256(preimage) != target.val_state_hash {
+                return Err(AbciError::SafetyHalt(format!(
+                    "validator_state_mismatch: the landed validator-state hash at {} differs \
+                     from the committed one",
+                    target.height
+                )));
+            }
+        }
         let mut expected = state.parent.hash;
         for number in (target.height..=state.last_height).rev() {
             let header = within(
@@ -740,23 +773,30 @@ impl<L: L1Source, E: Engine> App<L, E> {
         Ok(())
     }
 
-    /// Checks a derived candidate before settling it; Finalize alone never grants readiness.
+    /// Checks a derived candidate, with the validator state `val_state` after it, before
+    /// settling it; Finalize alone never grants readiness.
     pub(super) fn check_trust_candidate(
         &self,
         height: u64,
         hash: B256,
         comet_hash: B256,
+        val_state: &ValState,
     ) -> Result<(), AbciError> {
-        if let Some(target) = self.trust.snapshot().target &&
-            height == target.height &&
-            (hash != target.hash || comet_hash != target.comet_hash)
-        {
-            self.trust.revoke("decided checkpoint hash mismatch");
-            return Err(AbciError::SafetyHalt(format!(
-                "decided checkpoint hash mismatch at {height}"
-            )));
-        }
-        Ok(())
+        let Some(target) = self.trust.snapshot().target.filter(|t| t.height == height) else {
+            return Ok(());
+        };
+        let reason = if hash != target.hash || comet_hash != target.comet_hash {
+            format!("decided checkpoint hash mismatch at {height}")
+        } else if val_state.hash() != target.val_state_hash {
+            format!(
+                "validator_state_mismatch: the decided validator state at {height} differs from \
+                 the landed one"
+            )
+        } else {
+            return Ok(());
+        };
+        self.trust.revoke(reason.clone());
+        Err(AbciError::SafetyHalt(reason))
     }
 }
 

@@ -135,7 +135,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             .collect::<Result<Vec<_>, _>>()?;
 
         let hash = next.parent.hash;
-        self.check_trust_candidate(height, hash, next.last_comet_hash)?;
+        self.check_trust_candidate(height, hash, next.last_comet_hash, &next.val_state)?;
         let finalized = next.anchor.inbox.last_checkpoint_hash;
         self.settle(height, &validated, finalized).await?;
         self.decided_live = !cold;

@@ -6,14 +6,19 @@ use super::{
     *,
 };
 use crate::{
+    GRID_INTERVAL,
     app::trust::TrustPhase,
+    envelope::EtnaEnvelope,
     l1::L1Error,
     test_utils::{InboxStorage, L1Call},
 };
-use alloy_primitives::B256;
+use alloy_primitives::{B256, keccak256};
 
-/// Provides real proofs at the exact finalized snapshot.
+/// Provides real proofs at the exact finalized snapshot. A committed `height` lands with the
+/// app's own Comet and validator-state hashes, the next height with those [`next_envelope`]
+/// decides, and any other height with placeholders.
 fn target(app: &App<MockL1, MockEngine>, fx: &Fixture, height: u64, hash: B256) {
+    let next = || height == next_height(app);
     let inbox = InboxStorage {
         last_checkpoint_height: height,
         last_checkpoint_hash: hash,
@@ -21,12 +26,8 @@ fn target(app: &App<MockL1, MockEngine>, fx: &Fixture, height: u64, hash: B256) 
             B256::ZERO
         } else {
             app.store.load_comet_hash(height).unwrap().unwrap_or_else(|| {
-                if height == next_height(app) {
-                    let env = hand_envelope(
-                        app,
-                        Some(fx.anchor_witness(app.l1(), fx.genesis.l1_0)),
-                        None,
-                    );
+                if next() {
+                    let env = next_envelope(app, fx);
                     B256::from_slice(
                         process_req(height, bft_time(app), vec![env.encode()]).hash.as_bytes(),
                     )
@@ -35,10 +36,42 @@ fn target(app: &App<MockL1, MockEngine>, fx: &Fixture, height: u64, hash: B256) 
                 }
             })
         },
+        last_checkpoint_val_state_hash: if height == 0 {
+            B256::ZERO
+        } else if next() {
+            next_val_state_hash(app)
+        } else {
+            app.val_state_preimage(height).map_or(B256::repeat_byte(8), keccak256)
+        },
         ..fx.inbox.clone()
     };
     fx.plant_l1_block(app.l1(), 100, &inbox, &fx.registry);
     app.l1().set_finalized(100);
+}
+
+/// The envelope the tests decide at the next height: the first block after genesis carries the
+/// genesis anchor's witness, later ones inherit the committed anchor.
+fn next_envelope(app: &App<MockL1, MockEngine>, fx: &Fixture) -> EtnaEnvelope {
+    let first = app.state().expect("initialized").last_height == 0;
+    hand_envelope(app, first.then(|| fx.anchor_witness(app.l1(), fx.genesis.l1_0)), None)
+}
+
+/// The validator-state hash the app holds after the committed grid `height`.
+fn val_state_hash(app: &App<MockL1, MockEngine>, height: u64) -> B256 {
+    keccak256(app.val_state_preimage(height).expect("a retained grid height"))
+}
+
+/// The validator-state hash after the next height, which changes no validator in these tests.
+fn next_val_state_hash(app: &App<MockL1, MockEngine>) -> B256 {
+    app.state().expect("initialized").val_state.advance(&[]).expect("advances").hash()
+}
+
+/// Commits blocks up to `height`, the first one anchored at the genesis L1 block.
+async fn commit_to(app: &mut App<MockL1, MockEngine>, fx: &Fixture, height: u64) {
+    while app.state().expect("initialized").last_height < height {
+        let first = app.state().expect("initialized").last_height == 0;
+        commit_next(app, fx, first.then_some(fx.genesis.l1_0)).await;
+    }
 }
 
 #[tokio::test]
@@ -90,9 +123,10 @@ async fn future_target_allows_info_and_replay_but_finalize_does_not_unlock() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), fx.genesis.l1_0)), None);
+    commit_to(&mut app, &fx, GRID_INTERVAL - 1).await;
+    let env = next_envelope(&app, &fx);
     let hash = env.block.header.hash_slow();
-    target(&app, &fx, 1, hash);
+    target(&app, &fx, GRID_INTERVAL, hash);
     app.refresh_trust().await.unwrap();
     assert_eq!(app.trust.snapshot().phase, TrustPhase::CatchingUp);
     assert_eq!(
@@ -102,7 +136,7 @@ async fn future_target_allows_info_and_replay_but_finalize_does_not_unlock() {
             .unwrap()
             .last_block_height
             .value(),
-        0
+        GRID_INTERVAL - 1
     );
     let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
     finalize(&mut app, finalize_req(&req)).await.unwrap();
@@ -190,27 +224,29 @@ async fn target_is_pinned_until_match_then_refresh_can_extend_catchup() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), fx.genesis.l1_0)), None);
+    commit_to(&mut app, &fx, GRID_INTERVAL - 1).await;
+    let env = next_envelope(&app, &fx);
     let hash = env.block.header.hash_slow();
-    target(&app, &fx, 1, hash);
+    target(&app, &fx, GRID_INTERVAL, hash);
     app.refresh_trust().await.unwrap();
     let inbox = InboxStorage {
-        last_checkpoint_height: 2,
+        last_checkpoint_height: 2 * GRID_INTERVAL,
         last_checkpoint_hash: B256::repeat_byte(8),
         last_checkpoint_comet_hash: B256::repeat_byte(8),
+        last_checkpoint_val_state_hash: B256::repeat_byte(8),
         ..fx.inbox.clone()
     };
     fx.plant_l1_block(app.l1(), 101, &inbox, &fx.registry);
     app.l1().set_finalized(101);
     app.refresh_trust().await.unwrap();
-    assert_eq!(app.trust.snapshot().target.unwrap().height, 1);
+    assert_eq!(app.trust.snapshot().target.unwrap().height, GRID_INTERVAL);
     let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
     finalize(&mut app, finalize_req(&req)).await.unwrap();
     commit(&mut app).await.unwrap();
     app.refresh_trust().await.unwrap();
     let snapshot = app.trust.snapshot();
     assert!(!snapshot.trust_ready);
-    assert_eq!(snapshot.target.unwrap().height, 2);
+    assert_eq!(snapshot.target.unwrap().height, 2 * GRID_INTERVAL);
 }
 
 #[tokio::test]
@@ -363,9 +399,10 @@ async fn refreshed_lower_checkpoint_never_downgrades_pinned_target() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), fx.genesis.l1_0)), None);
+    commit_to(&mut app, &fx, GRID_INTERVAL - 1).await;
+    let env = next_envelope(&app, &fx);
     let hash = env.block.header.hash_slow();
-    target(&app, &fx, 1, hash);
+    target(&app, &fx, GRID_INTERVAL, hash);
     app.refresh_trust().await.unwrap();
     let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
     finalize(&mut app, finalize_req(&req)).await.unwrap();
@@ -374,7 +411,7 @@ async fn refreshed_lower_checkpoint_never_downgrades_pinned_target() {
     app.l1().set_finalized(101);
     app.refresh_trust().await.unwrap();
     assert!(!app.trust.snapshot().trust_ready);
-    assert_eq!(app.trust.snapshot().target.unwrap().height, 1);
+    assert_eq!(app.trust.snapshot().target.unwrap().height, GRID_INTERVAL);
 }
 
 #[tokio::test]
@@ -466,14 +503,8 @@ async fn restart_equal_and_above_checkpoint_require_fresh_proof_and_linked_histo
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    for i in 0..2 {
-        let anchor = (i == 0).then(|| fx.anchor_witness(app.l1(), fx.genesis.l1_0));
-        let env = hand_envelope(&app, anchor, None);
-        let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
-        finalize(&mut app, finalize_req(&req)).await.unwrap();
-        commit(&mut app).await.unwrap();
-    }
-    for checkpoint in [1, 2] {
+    commit_to(&mut app, &fx, 2 * GRID_INTERVAL).await;
+    for checkpoint in [GRID_INTERVAL, 2 * GRID_INTERVAL] {
         let hash = app.engine().state().chain[&checkpoint].hash_slow();
         let mut restarted = app_with(
             fx.l1(),
@@ -486,7 +517,7 @@ async fn restart_equal_and_above_checkpoint_require_fresh_proof_and_linked_histo
         assert!(!restarted.trust.snapshot().trust_ready);
         restarted.refresh_trust().await.unwrap();
         assert!(restarted.trust.snapshot().trust_ready);
-        assert_eq!(restarted.trust.snapshot().committed_head.unwrap().height, 2);
+        assert_eq!(restarted.trust.snapshot().committed_head.unwrap().height, 2 * GRID_INTERVAL);
     }
     let mut restarted = app_with(
         fx.l1(),
@@ -668,7 +699,7 @@ async fn committed_comet_history_is_required_and_survives_restart() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    for i in 0..2 {
+    for i in 0..=GRID_INTERVAL {
         let anchor = (i == 0).then(|| fx.anchor_witness(app.l1(), fx.genesis.l1_0));
         let env = hand_envelope(&app, anchor, None);
         let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
@@ -680,8 +711,8 @@ async fn committed_comet_history_is_required_and_survives_restart() {
             Some(B256::from_slice(req.hash.as_bytes()))
         );
     }
-    let comet = app.store.load_comet_hash(1).unwrap().unwrap();
-    let el = app.engine().state().chain[&1].hash_slow();
+    let comet = app.store.load_comet_hash(GRID_INTERVAL).unwrap().unwrap();
+    let el = app.engine().state().chain[&GRID_INTERVAL].hash_slow();
     let mut restarted = app_with(
         fx.l1(),
         app.engine().reopen(),
@@ -689,21 +720,19 @@ async fn committed_comet_history_is_required_and_survives_restart() {
         dir.path(),
         AppOptions::default(),
     );
-    target(&restarted, &fx, 1, el);
-    let path = dir.path().join("comet-hash-1.json");
+    target(&restarted, &fx, GRID_INTERVAL, el);
+    let path = dir.path().join(format!("comet-hash-{GRID_INTERVAL}.json"));
     std::fs::remove_file(&path).unwrap();
     restarted.refresh_trust().await.unwrap();
     assert!(!restarted.trust.snapshot().trust_ready);
     assert!(restarted.trust.snapshot().reason.unwrap().contains("missing committed Comet"));
-    restarted.store.save_comet_hash(1, comet).unwrap();
+    restarted.store.save_comet_hash(GRID_INTERVAL, comet).unwrap();
     restarted.refresh_trust().await.unwrap();
     assert!(restarted.trust.snapshot().trust_ready);
     restarted.trust.begin_session();
     let inbox = InboxStorage {
-        last_checkpoint_height: 1,
-        last_checkpoint_hash: el,
         last_checkpoint_comet_hash: B256::repeat_byte(0xaa),
-        ..fx.inbox.clone()
+        ..landed(&restarted, &fx, GRID_INTERVAL)
     };
     fx.plant_l1_block(restarted.l1(), 101, &inbox, &fx.registry);
     restarted.l1().set_finalized(101);
@@ -754,19 +783,20 @@ async fn commit_next(app: &mut App<MockL1, MockEngine>, fx: &Fixture, anchor: Op
     B256::from_slice(req.hash.as_bytes())
 }
 
-/// Plants L1 block `number` landing the committed `height` with Comet block ID `comet`, and
-/// makes it final.
-fn finalize_landing(
-    app: &App<MockL1, MockEngine>,
-    fx: &Fixture,
-    number: u64,
-    height: u64,
-    comet: B256,
-) {
-    let hash = app.engine().state().chain[&height].hash_slow();
-    let inbox =
-        InboxStorage { last_checkpoint_comet_hash: comet, ..fx.inbox_at_checkpoint(height, hash) };
-    fx.advance_l1(app.l1(), number, &inbox, &fx.registry);
+/// The Inbox storage landing the committed `height` with the app's own EL, Comet and
+/// validator-state hashes there.
+fn landed(app: &App<MockL1, MockEngine>, fx: &Fixture, height: u64) -> InboxStorage {
+    InboxStorage {
+        last_checkpoint_comet_hash: app.store.load_comet_hash(height).unwrap().expect("committed"),
+        last_checkpoint_val_state_hash: val_state_hash(app, height),
+        ..fx.inbox_at_checkpoint(height, app.engine().state().chain[&height].hash_slow())
+    }
+}
+
+/// Plants L1 block `number` landing the committed `height` (see [`landed`]), and makes it
+/// final.
+fn finalize_landing(app: &App<MockL1, MockEngine>, fx: &Fixture, number: u64, height: u64) {
+    fx.advance_l1(app.l1(), number, &landed(app, fx, height), &fx.registry);
 }
 
 /// A checkpoint below the committed anchor's names pruned Comet history: while own finality
@@ -776,13 +806,15 @@ async fn lagging_own_finality_waits_for_a_checkpoint_with_retained_comet_history
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    commit_next(&mut app, &fx, Some(fx.genesis.l1_0)).await;
-    let second = commit_next(&mut app, &fx, None).await;
-    let third = commit_next(&mut app, &fx, None).await;
-    finalize_landing(&app, &fx, 65, 2, second);
-    finalize_landing(&app, &fx, 66, 3, third);
+    commit_to(&mut app, &fx, 2 * GRID_INTERVAL).await;
+    finalize_landing(&app, &fx, 65, GRID_INTERVAL);
+    finalize_landing(&app, &fx, 66, 2 * GRID_INTERVAL);
     commit_next(&mut app, &fx, Some(66)).await;
-    assert_eq!(app.store.load_comet_hash(2).unwrap(), None, "below the anchored checkpoint 3");
+    assert_eq!(
+        app.store.load_comet_hash(GRID_INTERVAL).unwrap(),
+        None,
+        "below the anchored checkpoint"
+    );
 
     app.l1().set_finalized(65);
     app.refresh_trust().await.unwrap();
@@ -792,7 +824,7 @@ async fn lagging_own_finality_waits_for_a_checkpoint_with_retained_comet_history
     app.refresh_trust().await.unwrap();
     let snapshot = app.trust.snapshot();
     assert!(snapshot.trust_ready, "{:?}", snapshot.reason);
-    assert_eq!(snapshot.target.unwrap().height, 3);
+    assert_eq!(snapshot.target.unwrap().height, 2 * GRID_INTERVAL);
 }
 
 /// A session target pinned before the committed anchor moved past it names pruned Comet
@@ -802,26 +834,172 @@ async fn pinned_target_below_the_comet_history_floor_is_reacquired() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    commit_next(&mut app, &fx, Some(fx.genesis.l1_0)).await;
-    commit_next(&mut app, &fx, None).await;
-    let env = hand_envelope(&app, None, None);
+    commit_to(&mut app, &fx, GRID_INTERVAL - 1).await;
+    let env = next_envelope(&app, &fx);
     let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
     let inbox = InboxStorage {
         last_checkpoint_comet_hash: B256::from_slice(req.hash.as_bytes()),
-        ..fx.inbox_at_checkpoint(3, env.block.header.hash_slow())
+        last_checkpoint_val_state_hash: next_val_state_hash(&app),
+        ..fx.inbox_at_checkpoint(GRID_INTERVAL, env.block.header.hash_slow())
     };
     fx.advance_l1(app.l1(), 65, &inbox, &fx.registry);
     app.refresh_trust().await.unwrap();
-    assert_eq!(app.trust.snapshot().target.unwrap().height, 3, "pinned above the head");
+    let pinned = app.trust.snapshot().target.unwrap().height;
+    assert_eq!(pinned, GRID_INTERVAL, "pinned above the head");
     finalize(&mut app, finalize_req(&req)).await.unwrap();
     commit(&mut app).await.unwrap();
-    let fourth = commit_next(&mut app, &fx, None).await;
-    finalize_landing(&app, &fx, 66, 4, fourth);
+    commit_to(&mut app, &fx, 2 * GRID_INTERVAL).await;
+    finalize_landing(&app, &fx, 66, 2 * GRID_INTERVAL);
     commit_next(&mut app, &fx, Some(66)).await;
-    assert_eq!(app.store.load_comet_hash(3).unwrap(), None, "below the anchored checkpoint 4");
+    assert_eq!(
+        app.store.load_comet_hash(GRID_INTERVAL).unwrap(),
+        None,
+        "below the anchored checkpoint"
+    );
 
     app.refresh_trust().await.unwrap();
     let snapshot = app.trust.snapshot();
     assert!(snapshot.trust_ready, "{:?}", snapshot.reason);
-    assert_eq!(snapshot.target.unwrap().height, 4);
+    assert_eq!(snapshot.target.unwrap().height, 2 * GRID_INTERVAL);
+}
+
+/// SYNC-9-5b: a landed validator-state hash that differs from the state the node's own
+/// replica holds after that height, from the head state or from the grid sidecar, is an
+/// authenticated contradiction: trust halts for safety and records the fatal evidence.
+#[tokio::test]
+async fn trust_halts_on_a_landed_validator_state_mismatch() {
+    for head in [GRID_INTERVAL, GRID_INTERVAL + 1] {
+        let fx = Fixture::genesis(1);
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = initialized(&fx, dir.path()).await;
+        commit_to(&mut app, &fx, head).await;
+        let inbox = InboxStorage {
+            last_checkpoint_val_state_hash: B256::repeat_byte(0x5a),
+            ..landed(&app, &fx, GRID_INTERVAL)
+        };
+        fx.advance_l1(app.l1(), 100, &inbox, &fx.registry);
+        let error = app.refresh_trust().await.unwrap_err();
+        assert!(matches!(error, AbciError::SafetyHalt(_)), "head {head}: {error}");
+        assert!(error.to_string().contains("validator_state_mismatch"), "head {head}: {error}");
+        assert_eq!(app.trust.snapshot().phase, TrustPhase::Halted);
+        let evidence = std::fs::read_to_string(dir.path().join("fatal-evidence.txt")).unwrap();
+        assert!(evidence.contains("validator_state_mismatch"), "head {head}: {evidence}");
+    }
+}
+
+/// The trust target is a retained grid height above the origin, so a missing validator-state
+/// sidecar there means the node lost its own state: trust halts for safety rather than retry.
+#[tokio::test]
+async fn trust_halts_when_the_committed_validator_state_is_lost() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    commit_to(&mut app, &fx, GRID_INTERVAL + 1).await;
+    finalize_landing(&app, &fx, 100, GRID_INTERVAL);
+    std::fs::remove_file(dir.path().join(format!("val-state-{GRID_INTERVAL}.bin"))).unwrap();
+    let error = app.refresh_trust().await.unwrap_err();
+    assert!(matches!(error, AbciError::SafetyHalt(_)), "{error}");
+    assert!(error.to_string().contains("sidecar of retained height"), "{error}");
+    assert!(app.store.fatal_evidence().unwrap().is_some());
+}
+
+/// A landed validator-state hash equal to the replica's after that height, from the head
+/// state or from the grid sidecar, lets trust open.
+#[tokio::test]
+async fn trust_accepts_a_matching_validator_state() {
+    for head in [GRID_INTERVAL, GRID_INTERVAL + 1] {
+        let fx = Fixture::genesis(1);
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = initialized(&fx, dir.path()).await;
+        commit_to(&mut app, &fx, head).await;
+        finalize_landing(&app, &fx, 100, GRID_INTERVAL);
+        app.refresh_trust().await.unwrap();
+        let snapshot = app.trust.snapshot();
+        assert!(snapshot.trust_ready, "head {head}: {:?}", snapshot.reason);
+        let target = snapshot.target.unwrap();
+        assert_eq!(target.height, GRID_INTERVAL);
+        assert_eq!(target.val_state_hash, val_state_hash(&app, GRID_INTERVAL));
+    }
+}
+
+/// STOR-B-9: the start write records validator-state hash 0, so a start record with any other
+/// word 4 is malformed L1 data and halts, as a nonzero Comet hash there does.
+#[tokio::test]
+async fn start_record_with_nonzero_val_state_is_invalid() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    let inbox = InboxStorage {
+        last_checkpoint_val_state_hash: B256::repeat_byte(0x77),
+        ..fx.inbox.clone()
+    };
+    fx.advance_l1(app.l1(), 100, &inbox, &fx.registry);
+    let error = app.refresh_trust().await.unwrap_err();
+    assert!(matches!(error, AbciError::SafetyHalt(_)), "{error}");
+    assert!(error.to_string().contains("invalid checkpoint landing record"), "{error}");
+    assert!(!app.trust.snapshot().trust_ready);
+}
+
+/// A pinned target's landing record cannot change: a later proof of the same height whose
+/// only difference is the validator-state hash halts, both on the refresh after the link
+/// check and against the floor a reconnect keeps.
+#[tokio::test]
+async fn pinned_target_changing_only_val_state_is_rejected() {
+    for (reconnect, reason) in [
+        (false, "authenticated checkpoint changed at the same height"),
+        (true, "authenticated checkpoint conflicts with retained floor"),
+    ] {
+        let fx = Fixture::genesis(1);
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = initialized(&fx, dir.path()).await;
+        commit_to(&mut app, &fx, GRID_INTERVAL - 1).await;
+        let env = next_envelope(&app, &fx);
+        target(&app, &fx, GRID_INTERVAL, env.block.header.hash_slow());
+        app.refresh_trust().await.unwrap();
+        assert_eq!(app.trust.snapshot().target.unwrap().height, GRID_INTERVAL);
+        let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
+        finalize(&mut app, finalize_req(&req)).await.unwrap();
+        commit(&mut app).await.unwrap();
+        let changed = InboxStorage {
+            last_checkpoint_val_state_hash: B256::repeat_byte(0x5a),
+            ..landed(&app, &fx, GRID_INTERVAL)
+        };
+        fx.advance_l1(app.l1(), 101, &changed, &fx.registry);
+        if reconnect {
+            app.trust.begin_session();
+        }
+        let error = app.refresh_trust().await.unwrap_err();
+        assert!(matches!(error, AbciError::SafetyHalt(_)), "{error}");
+        assert!(error.to_string().contains(reason), "{error}");
+        assert_eq!(app.trust.snapshot().phase, TrustPhase::Halted);
+    }
+}
+
+/// A decided block at the pinned target height whose validator state differs from the landed
+/// one halts before it settles, even though its EL and Comet hashes match.
+#[tokio::test]
+async fn check_trust_candidate_compares_val_state() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    commit_to(&mut app, &fx, GRID_INTERVAL - 1).await;
+    let env = next_envelope(&app, &fx);
+    let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
+    let inbox = InboxStorage {
+        last_checkpoint_comet_hash: B256::from_slice(req.hash.as_bytes()),
+        last_checkpoint_val_state_hash: B256::repeat_byte(0x5a),
+        ..fx.inbox_at_checkpoint(GRID_INTERVAL, env.block.header.hash_slow())
+    };
+    fx.advance_l1(app.l1(), 100, &inbox, &fx.registry);
+    app.refresh_trust().await.unwrap();
+    assert_eq!(app.trust.snapshot().target.unwrap().height, GRID_INTERVAL);
+    let calls = app.engine().calls().len();
+    let error = finalize(&mut app, finalize_req(&req)).await.unwrap_err();
+    assert!(matches!(error, AbciError::SafetyHalt(_)), "{error}");
+    assert!(error.to_string().contains("validator_state_mismatch"), "{error}");
+    assert!(app.pending.is_none());
+    assert_eq!(app.engine().calls().len(), calls);
+    assert_eq!(app.trust.snapshot().phase, TrustPhase::Halted);
+    let evidence = app.store.fatal_evidence().unwrap().expect("fatal evidence");
+    assert!(evidence.contains("validator_state_mismatch"), "{evidence}");
 }

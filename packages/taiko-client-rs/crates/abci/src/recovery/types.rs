@@ -52,6 +52,9 @@ pub struct RecoveryOrigin {
     pub state_root: B256,
     /// Retained old-generation Comet boundary hash, zero only at c = 0.
     pub comet_hash: B256,
+    /// Retained landing validator-state hash (word 4), zero only at c = 0. It is the original
+    /// generation's state, not this one's, so it is never compared with the node's (SYNC-9-5).
+    pub val_state_hash: B256,
     /// FI queue cursor from the retained landing at c.
     pub forced_cursor: u64,
     /// Initial committee derived independently from the complete R registry snapshot.
