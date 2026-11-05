@@ -688,10 +688,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Starts at the durable app hash and follows every parentHash to the target. A genuine
     /// target somewhere else in the EL cannot satisfy this chain. Missing history is retryable.
     ///
-    /// Above the generation origin the landed validator-state hash must equal the hash of the
-    /// state the node's own replica holds after the target (SYNC-9-5, SYNC-9-5b). The origin's
-    /// record does not hold this generation's state and is not compared. A mismatch halts; a
-    /// preimage the node cannot read keeps it untrusted and retrying, like missing Comet history.
+    /// Above the generation origin, once the EL ancestry links, the landed validator-state hash
+    /// must equal the hash of the state the node's own replica holds after the target
+    /// (SYNC-9-5, SYNC-9-5b). The origin's record does not hold this generation's state and is
+    /// not compared. A mismatch halts; a preimage the node cannot read keeps it untrusted and
+    /// retrying, like missing Comet history.
     async fn verify_link(
         &self,
         state: &AppState,
@@ -728,21 +729,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 target.height
             )));
         }
-        if target.height != state.origin_height() {
-            let preimage = self.val_state_preimage(target.height).map_err(|error| {
-                AbciError::TrustControl(format!(
-                    "committed validator state unavailable at {}: {error}",
-                    target.height
-                ))
-            })?;
-            if keccak256(preimage) != target.val_state_hash {
-                return Err(AbciError::SafetyHalt(format!(
-                    "validator_state_mismatch: the landed validator-state hash at {} differs \
-                     from the committed one",
-                    target.height
-                )));
-            }
-        }
         let mut expected = state.parent.hash;
         for number in (target.height..=state.last_height).rev() {
             let header = within(
@@ -772,6 +758,23 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 ));
             }
             expected = header.parent_hash;
+        }
+        // After the EL walk, so an EL divergence is named as such even when the validator
+        // states differ too.
+        if target.height != state.origin_height() {
+            let preimage = self.val_state_preimage(target.height).map_err(|error| {
+                AbciError::TrustControl(format!(
+                    "committed validator state unavailable at {}: {error}",
+                    target.height
+                ))
+            })?;
+            if keccak256(preimage) != target.val_state_hash {
+                return Err(AbciError::SafetyHalt(format!(
+                    "validator_state_mismatch: the landed validator-state hash at {} differs \
+                     from the committed one",
+                    target.height
+                )));
+            }
         }
         Ok(())
     }

@@ -155,13 +155,21 @@ pub fn validate_stores(
         {
             return Err(RecoveryCommandError::PlanMismatch)
         }
+        // At the origin the validator state is CometBFT's genesis state of the R committee.
+        let genesis_val_state = || {
+            let members: Vec<_> =
+                plan.origin.committee.members.iter().map(|m| (m.pubkey, m.power)).collect();
+            abci::valstate::ValState::genesis(plan.origin.height, &members)
+                .map_err(|_| RecoveryCommandError::Invalid)
+        };
         if state.last_height == plan.origin.height &&
             (state.parent != abci::recovery::recovery_parent(&witness) ||
                 bootstrap_anchor.as_ref() != Some(&state.anchor) ||
                 state.forced_cursor != plan.origin.forced_cursor ||
                 !state.last_comet_hash.is_zero() ||
                 state.committees.len() != 1 ||
-                state.committee_at(plan.origin.height + 1) != Some(&plan.origin.committee))
+                state.committee_at(plan.origin.height + 1) != Some(&plan.origin.committee) ||
+                state.val_state != genesis_val_state()?)
         {
             return Err(RecoveryCommandError::PlanMismatch)
         }

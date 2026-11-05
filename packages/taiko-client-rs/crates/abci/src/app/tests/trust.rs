@@ -887,6 +887,31 @@ async fn trust_halts_on_a_landed_validator_state_mismatch() {
     }
 }
 
+/// A landed record whose EL hash and validator-state hash both differ from the node's own
+/// halts naming the EL divergence: the ancestry walk precedes the validator-state comparison.
+#[tokio::test]
+async fn trust_names_an_el_divergence_before_a_validator_state_mismatch() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    commit_to(&mut app, &fx, GRID_INTERVAL + 1).await;
+    let inbox = InboxStorage {
+        last_checkpoint_hash: B256::repeat_byte(0x33),
+        last_checkpoint_val_state_hash: B256::repeat_byte(0x5a),
+        ..landed(&app, &fx, GRID_INTERVAL)
+    };
+    fx.advance_l1(app.l1(), 100, &inbox, &fx.registry);
+    let error = app.refresh_trust().await.unwrap_err();
+    assert!(matches!(error, AbciError::SafetyHalt(_)), "{error}");
+    let reason = error.to_string();
+    assert!(
+        reason.contains(&format!("committed checkpoint hash mismatch at {GRID_INTERVAL}")),
+        "{reason}"
+    );
+    assert!(!reason.contains("validator_state_mismatch"), "{reason}");
+    assert_eq!(app.trust.snapshot().phase, TrustPhase::Halted);
+}
+
 /// A validator-state preimage the node cannot read at a retained grid target keeps trust
 /// closed and retrying without fatal evidence, like missing Comet history; once the sidecar is
 /// back, trust opens. Only a landed hash that contradicts the node's own state halts.

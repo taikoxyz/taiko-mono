@@ -1174,7 +1174,7 @@ async fn recovery_activation_owned_component_exit_stops_remaining_children() {
 }
 
 #[tokio::test]
-async fn recovery_activation_origin_state_rejects_mixed_anchor_and_cursor_before_start() {
+async fn recovery_activation_origin_state_rejects_mixed_anchor_cursor_or_val_state_before_start() {
     let dir = tempfile::tempdir_in(short_temp_parent()).unwrap();
     let source = Source::new();
     let profile = native_profile(dir.path(), &source);
@@ -1186,12 +1186,18 @@ async fn recovery_activation_origin_state_rejects_mixed_anchor_and_cursor_before
     let report: crate::recovery::inspect::Inspection =
         serde_json::from_slice(&std::fs::read(dir.path().join("inspection.json")).unwrap())
             .unwrap();
-    for change in ["anchor", "cursor"] {
+    assert_eq!(
+        crate::recovery::inspect::validate_stores(&store, &plan, &report).unwrap(),
+        Some(state.clone()),
+        "the installed origin state"
+    );
+    for change in ["anchor", "cursor", "validator state"] {
         let mut changed = state.clone();
-        if change == "anchor" {
-            changed.anchor.hash = B256::ZERO;
-        } else {
-            changed.forced_cursor += 1;
+        match change {
+            "anchor" => changed.anchor.hash = B256::ZERO,
+            "cursor" => changed.forced_cursor += 1,
+            // Not the R committee's genesis state, though at the origin height.
+            _ => changed.val_state.current.entries[0].priority += 1,
         }
         abci::Store::new(store.plan_dir(plan.id()).join("app")).save(&changed).unwrap();
         assert!(
