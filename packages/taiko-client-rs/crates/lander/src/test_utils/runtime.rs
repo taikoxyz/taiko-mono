@@ -7,7 +7,7 @@ use crate::{
     tx::SignedTransaction,
     types::{Limits, SidecarMode},
 };
-use abci::l1::header::RawL1Header;
+use abci::{l1::header::RawL1Header, valstate::ValState};
 use alloy::{
     signers::{Signer, local::PrivateKeySigner},
     sol_types::SolCall,
@@ -46,11 +46,19 @@ pub(crate) fn request() -> ProofRequest {
     request.batch.input.lastStateRoot = header.state_root;
     request.batch.input.lastCometHash =
         alloy_primitives::B256::from_slice(last.block.header.hash().as_bytes());
+    request.batch.start_val_state = ValState::genesis(
+        0,
+        &committee.state.members.iter().map(|m| (m.pubkey, m.power)).collect::<Vec<_>>(),
+    )
+    .unwrap();
+    let val_states = val_states(&request.batch.start_val_state, blocks.len());
+    request.batch.input.lastValStateHash = val_states[12].hash();
     request.batch.leaves = vec![statement::cut_leaf(
         6,
         abci::EtnaEnvelope::decode(&blocks[5].block.data[0]).unwrap().block.header.hash_slow(),
         alloy_primitives::B256::from_slice(blocks[5].block.header.hash().as_bytes()),
         0,
+        val_states[6].hash(),
     )];
     request.batch.anchors = vec![request.batch.parent_anchor.clone(); blocks.len()];
     request.batch.blocks = blocks;
@@ -60,6 +68,16 @@ pub(crate) fn request() -> ProofRequest {
     let payload = codec::encode(&request.batch.blocks, &limits()).unwrap();
     rebind(&mut request, &payload);
     request
+}
+
+/// The validator states after heights `0..=blocks` of [`request`]'s chain, whose single
+/// committee never switches: `start` advanced without updates.
+pub(crate) fn val_states(start: &ValState, blocks: usize) -> Vec<ValState> {
+    let mut states = vec![start.clone()];
+    for _ in 0..blocks {
+        states.push(states.last().unwrap().advance(&[]).unwrap());
+    }
+    states
 }
 
 /// Limits fitting [`request`]'s two blocks.

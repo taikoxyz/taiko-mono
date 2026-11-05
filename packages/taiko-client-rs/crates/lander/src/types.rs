@@ -3,7 +3,7 @@
 use crate::native::{Block, Commit, RawBlock};
 use abci::{
     AccountWitness, AnchorState, AnchorWitness, CommitteeState, CommitteeWitness, GRID_INTERVAL,
-    GenesisRecord, RawL1Header,
+    GenesisRecord, RawL1Header, valstate::ValState,
 };
 use alloy_consensus::Header;
 use alloy_primitives::{Address, B256, Bytes, U256};
@@ -98,6 +98,10 @@ pub struct LandingSnapshot {
     pub checkpoint_hash: B256,
     /// Authenticated Comet hash from the retained landing record at the checkpoint.
     pub checkpoint_comet_hash: B256,
+    /// Validator-state hash (appendix A's `valStateHash`, slot 285 word 4) from the retained
+    /// landing record at the checkpoint: 0 in the start record, and at a recovery origin the
+    /// old generation's value, which the statement binds as stored but no replay starts from.
+    pub checkpoint_val_state_hash: B256,
     /// Forced inclusion queue `head` (slot 281, bits 0–47): the next entry not yet settled on L1.
     pub forced_inclusion_head: u64,
     /// Forced inclusion queue `tail` (slot 281, bits 48–95): the next free entry index.
@@ -297,10 +301,14 @@ pub struct PreparedBatch {
     pub committees: Vec<CommitteeState>,
     /// Registry witnesses deduplicated by epoch, with their authenticated proving roots.
     pub committee_witnesses: Vec<CommitteeContext>,
-    /// Eight canonical V1 ABI fields binding the original parent and terminal EL/Comet state,
-    /// reference block, terminal forced cursor and active committee cutoff.
+    /// Nine canonical V1 ABI fields binding the original parent and the terminal EL, Comet and
+    /// validator state, reference block, terminal forced cursor and active committee cutoff.
     #[serde(with = "crate::contracts::abi_serde")]
     pub input: LandInput,
+    /// The validator state CometBFT holds after the checkpoint, from which every cut leaf's and
+    /// the terminal validator-state hash are replayed: the generation's genesis state at its
+    /// origin, otherwise the state whose hash the checkpoint record's word 4 holds.
+    pub start_val_state: ValState,
     /// Ordered cut leaves for the interior grid points ([`GRID_INTERVAL`]) of the immutable range.
     pub leaves: Vec<B256>,
     /// Executing deployment/config identity rechecked before signing or rebroadcasting.
@@ -384,14 +392,34 @@ impl PreparedBatch {
         Ok(())
     }
 
-    /// Reconstruct every committed cursor and cut from the retained authenticated envelopes.
-    /// A canonical skip was executed by the builder; restoration checks its unchanged pure
-    /// classification and witness, while a real proof guest must execute that skip itself.
+    /// Reconstruct every committed cursor, validator state and cut from the retained
+    /// authenticated envelopes. A canonical skip was executed by the builder; restoration checks
+    /// its unchanged pure classification and witness, while a real proof guest must execute that
+    /// skip itself. The validator state is replayed from [`Self::start_val_state`], which must be
+    /// the generation's genesis state at its origin and otherwise hash to the checkpoint's word 4,
+    /// with the job's committees and the genesis schedule, as the builder replayed it.
     fn validate_cuts(&self) -> Result<()> {
         use abci::forced::{ForcedContext, ForcedDecision, check};
         if self.anchors.len() != self.blocks.len() {
             return Err(LanderError::Journal("job anchor count differs from blocks".into()));
         }
+        let journal = |e: LanderError| LanderError::Journal(format!("job validator state: {e}"));
+        let schedule = abci::Schedule::from_genesis(&self.snapshot.genesis);
+        let committee =
+            |epoch: u64| self.committees.iter().find(|c| c.record.target_epoch == epoch);
+        let consistent = if self.snapshot.checkpoint_height == self.snapshot.origin_height() {
+            crate::batch::origin_val_state(&self.snapshot, &schedule, committee).map_err(journal)? ==
+                self.start_val_state
+        } else {
+            self.start_val_state.height == self.snapshot.checkpoint_height &&
+                self.start_val_state.hash() == self.snapshot.checkpoint_val_state_hash
+        };
+        if !consistent {
+            return Err(LanderError::Journal(
+                "job starting validator state contradicts its checkpoint".into(),
+            ));
+        }
+        let mut val_state = self.start_val_state.clone();
         let mut cursor = self.snapshot.forced_inclusion_head;
         let mut leaves = Vec::new();
         for (pair, anchor) in self.blocks.iter().zip(&self.anchors) {
@@ -416,18 +444,30 @@ impl PreparedBatch {
                     .ok_or_else(|| LanderError::Journal("job cursor overflow".into()))?;
             }
             let height = envelope.block.header.number;
+            val_state = crate::batch::next_val_state(
+                &val_state,
+                &self.snapshot,
+                &schedule,
+                height,
+                committee,
+            )
+            .map_err(journal)?;
             if height.is_multiple_of(GRID_INTERVAL) && U256::from(height) < self.input.lastHeight {
                 leaves.push(crate::statement::cut_leaf(
                     height,
                     envelope.block.header.hash_slow(),
                     B256::from_slice(pair.block.header.hash().as_bytes()),
                     cursor,
+                    val_state.hash(),
                 ));
             }
         }
-        if leaves != self.leaves || U256::from(cursor) != self.input.forcedInclusionHead {
+        if leaves != self.leaves ||
+            U256::from(cursor) != self.input.forcedInclusionHead ||
+            val_state.hash() != self.input.lastValStateHash
+        {
             return Err(LanderError::Journal(
-                "job V1 cut leaves or terminal cursor mismatch".into(),
+                "job V1 cut leaves, terminal cursor or validator state mismatch".into(),
             ));
         }
         Ok(())

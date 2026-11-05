@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use crate::native::{Commit, RawBlock};
 use async_trait::async_trait;
+use base64::{Engine as _, engine::general_purpose::STANDARD};
 use futures::StreamExt;
 use serde::{Deserialize, de::DeserializeOwned};
 use serde_json::{Value, json};
@@ -32,6 +33,10 @@ pub trait CometSource: Send + Sync {
     async fn status(&self) -> Result<CometStatus>;
     /// Reads a complete block and its decision certificate at exactly `height`.
     async fn block(&self, height: u64) -> Result<CertifiedBlock>;
+    /// Reads the raw validator-state preimage (ENC-A-29a) the app reports after the grid
+    /// `height`, unauthenticated. A rejected query or an unreachable node is
+    /// [`LanderError::Temporary`].
+    async fn val_state(&self, height: u64) -> Result<Vec<u8>>;
 }
 
 /// A typed HTTP adapter that bounds the complete response body before JSON decoding.
@@ -130,6 +135,25 @@ fn deserialize_commit<'de, D: serde::Deserializer<'de>>(
 struct CommitResponse {
     /// Header plus that height's precommit certificate.
     signed_header: SignedHeader,
+}
+
+/// Result from `abci_query`.
+#[derive(Deserialize)]
+struct QueryResponse {
+    /// The app's answer.
+    response: QueryResult,
+}
+
+/// The fields used from the app's `ResponseQuery`; CometBFT omits a zero code and an empty
+/// value.
+#[derive(Deserialize)]
+struct QueryResult {
+    /// The app's result code; 0 answers the query.
+    #[serde(default)]
+    code: u32,
+    /// The answer's bytes in standard base64.
+    #[serde(default)]
+    value: Option<String>,
 }
 
 /// Avoids assuming the `/block` and `/commit` calls referred to identical headers.
@@ -269,6 +293,32 @@ impl CometSource for HttpCometSource {
             )));
         }
         Ok(pair)
+    }
+
+    async fn val_state(&self, height: u64) -> Result<Vec<u8>> {
+        let params =
+            json!({"path":format!("/val_state/{height}"),"data":"","height":"0","prove":false});
+        // The app answers only retained heights it has committed; a lagging or unreadable answer
+        // is waited out, never a reason to stop.
+        let temporary = |error: LanderError| match error {
+            LanderError::Unavailable(detail) | LanderError::Encoding(detail) => {
+                LanderError::Temporary(detail)
+            }
+            other => other,
+        };
+        let query: QueryResponse = self.rpc("abci_query", params).await.map_err(temporary)?;
+        if query.response.code != 0 {
+            // The app's log is not echoed: a provider may rewrite it.
+            return Err(LanderError::Temporary(format!(
+                "the app rejects the validator state query at height {height} with code {}",
+                query.response.code
+            )));
+        }
+        STANDARD.decode(query.response.value.unwrap_or_default()).map_err(|_| {
+            LanderError::Temporary(format!(
+                "the validator state at height {height} is not standard base64"
+            ))
+        })
     }
 }
 
@@ -573,6 +623,34 @@ mod tests {
         let error = rpc.block(7).await.unwrap_err();
         assert!(matches!(error, LanderError::Unavailable(_)));
         assert!(error.to_string().contains("height 7"));
+    }
+
+    /// `abci_query` answers the raw preimage in base64, with CometBFT's zero code omitted; a
+    /// rejected query, a JSON-RPC error, unreadable JSON or a transport failure is temporary.
+    #[tokio::test]
+    async fn reads_the_validator_state_and_waits_on_any_refusal() {
+        let preimage = vec![7u8; 70];
+        for response in [
+            json!({"response":{"value":STANDARD.encode(&preimage),"height":"12"}}),
+            json!({"response":{"code":0,"value":STANDARD.encode(&preimage),"log":""}}),
+        ] {
+            let rpc = source(vec![success(response)], 8192, Duration::from_secs(2)).await;
+            assert_eq!(rpc.val_state(12).await.unwrap(), preimage);
+        }
+        let rpc = source(vec![success(json!({"response":{}}))], 8192, Duration::from_secs(2)).await;
+        assert_eq!(rpc.val_state(12).await.unwrap(), Vec::<u8>::new());
+        for response in [
+            success(json!({"response":{"code":1,"log":"not retained"}})),
+            success(json!({"response":{"code":0,"value":"not base64!"}})),
+            success(json!({"response":{"code":"zero"}})),
+            (json!({"jsonrpc":"2.0","id":1,"error":{"code":-32603}}), Duration::ZERO),
+            (json!({"__body":"<html>"}), Duration::ZERO),
+            (json!({"result":{}}), Duration::from_millis(200)),
+        ] {
+            let rpc = source(vec![response.clone()], 8192, Duration::from_millis(100)).await;
+            let error = rpc.val_state(12).await.unwrap_err();
+            assert!(matches!(error, LanderError::Temporary(_)), "{response:?}: {error}");
+        }
     }
 
     #[tokio::test]

@@ -44,6 +44,10 @@ impl CometSource for Decided {
             .cloned()
             .ok_or_else(|| LanderError::Unavailable(format!("no decided block at height {height}")))
     }
+
+    async fn val_state(&self, _: u64) -> Result<Vec<u8>> {
+        Err(unread("the validator state"))
+    }
 }
 
 #[async_trait]

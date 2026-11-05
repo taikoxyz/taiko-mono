@@ -34,6 +34,7 @@ fn rpc_data(chain: &FixtureChain) -> RpcData {
             .iter()
             .map(|(epoch, committee)| (*epoch, committee.state.clone()))
             .collect(),
+        val_states: chain.val_states.iter().map(abci::valstate::ValState::encode).collect(),
     }
 }
 
@@ -511,6 +512,7 @@ async fn lander_cli_checks_engine_before_opening_journal_or_running() -> Result<
             blocks: Vec::new(),
             headers: Vec::new(),
             committees: Default::default(),
+            val_states: Vec::new(),
         })
         .await?;
         *rpc.engine_reply.write().await = (status, body);

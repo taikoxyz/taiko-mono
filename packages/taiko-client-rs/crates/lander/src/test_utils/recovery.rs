@@ -42,6 +42,9 @@ pub(crate) async fn fixture(length: u64, checkpoint: u64, tip: u64) -> Fixture {
     };
     let old_el = f.headers[&6].clone();
     let old_comet = f.snapshot.checkpoint_comet_hash;
+    // Generation zero's state at c: the retained record's word 4, which generation two binds as
+    // stored but never replays from.
+    let old_val_state = f.snapshot.checkpoint_val_state_hash;
     let epoch = 6 / length;
     let old_committees = f.committees.clone();
     for e in epoch..=schedule.epoch_of(tip + 2).max(epoch + 2) {
@@ -60,11 +63,20 @@ pub(crate) async fn fixture(length: u64, checkpoint: u64, tip: u64) -> Fixture {
         f.committees
             .insert(e, AuthenticatedCommittee::new(CommitteeState { record, members }).unwrap());
     }
+    f.val_states = replay_val_states(
+        &schedule,
+        &f.committees,
+        (6, &f.committees[&epoch].state),
+        tip,
+        |height| schedule.active_committee_epoch(height, 6).unwrap(),
+    );
+    let val_state_hash =
+        |height: u64| if height == 6 { old_val_state } else { f.val_states[&height].hash() };
     let state_at = |height: u64, hash: B256, comet: B256| {
         let base = state_with_queue(
             &f.params,
             &entries,
-            (height, hash, comet),
+            (height, hash, comet, val_state_hash(height)),
             &old_committees,
             &genesis,
             &Queue { head: 0, tail: 0, entries: vec![] },
@@ -85,6 +97,7 @@ pub(crate) async fn fixture(length: u64, checkpoint: u64, tip: u64) -> Fixture {
             U256::ZERO,
             old_el.hash_slow().into(),
             old_comet.into(),
+            old_val_state.into(),
         ]));
         if height > 6 {
             slots.push((inbox::landing_slots(height)[0], U256::from(6) | (U256::from(2) << 48)));
@@ -215,6 +228,7 @@ pub(crate) async fn fixture(length: u64, checkpoint: u64, tip: u64) -> Fixture {
         checkpoint_height: checkpoint,
         checkpoint_hash: f.headers[&checkpoint].hash_slow(),
         checkpoint_comet_hash: cp_comet,
+        checkpoint_val_state_hash: val_state_hash(checkpoint),
         l1_header: raw.clone(),
         l1_block_hash: raw.hash(),
         l1_block_number: 23,
@@ -242,6 +256,46 @@ async fn recovery_origin_uses_retained_boundary_and_r_committee() {
         assert!(prepared.batch.anchors.iter().all(|a| a.number >= 20));
         assert!(prepared.batch.blocks[0].block.last_commit.is_none());
         assert!(prepared.batch.committee_witnesses.iter().all(|c| c.anchor.number >= 20));
+    }
+}
+
+/// From the recovery origin c the replay starts at the genesis state of R's committee, with no
+/// query (the fixture panics on one), while the statement's `parentValStateHash` is the retained
+/// record's word 4 as stored: the old generation's value, here generation zero's state at c.
+#[tokio::test]
+async fn recovered_origin_starts_from_genesis_but_binds_the_stored_parent_word() {
+    for length in [6, 7, 8] {
+        let f = Arc::new(fixture(length, 6, 18).await);
+        let origin = f.snapshot.recovery.clone().unwrap();
+        let members = origin.committee.members.iter().map(|m| (m.pubkey, m.power));
+        let genesis = ValState::genesis(6, &members.collect::<Vec<_>>()).unwrap();
+        let stored = f.snapshot.checkpoint_val_state_hash;
+        assert_eq!(stored, origin.val_state_hash);
+        assert!(!stored.is_zero());
+        assert_ne!(stored, genesis.hash());
+
+        let prepared = builder(f.clone()).prepare(f.snapshot.clone()).await.unwrap().unwrap();
+        let batch = &prepared.batch;
+        assert_eq!(batch.start_val_state, genesis);
+        assert_eq!(batch.input.lastValStateHash, f.val_states[&18].hash());
+        let leaf = crate::statement::cut_leaf(
+            12,
+            f.headers[&12].hash_slow(),
+            B256::from_slice(f.blocks[&12].block.header.hash().as_bytes()),
+            0,
+            f.val_states[&12].hash(),
+        );
+        assert_eq!(batch.leaves, vec![leaf]);
+        let reference = RawL1Header::from_raw(batch.reference_headers[0].clone()).unwrap();
+        let words = crate::statement::preimage(
+            &batch.snapshot,
+            &batch.input,
+            reference.hash(),
+            &batch.blobs.versioned_hashes,
+            &batch.leaves,
+        );
+        assert_eq!(&words[9 * 32..10 * 32], stored.as_slice(), "length {length}");
+        batch.validate_statement().unwrap();
     }
 }
 

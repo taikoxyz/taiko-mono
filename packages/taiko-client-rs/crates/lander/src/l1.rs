@@ -660,6 +660,7 @@ fn decode_snapshot(
     let landing = storage.get(slots[0]).expect("verified landing slot");
     let el_hash: B256 = storage.get(slots[1]).expect("verified landing slot").into();
     let comet_hash: B256 = storage.get(slots[2]).expect("verified landing slot").into();
+    let val_state_hash: B256 = storage.get(slots[3]).expect("verified landing slot").into();
     let generation = word_u48(word(inbox::RECOVERY_GENERATION), 0);
     if landing >> 144 != U256::ZERO ||
         head_tail >> 96 != U256::ZERO ||
@@ -667,7 +668,8 @@ fn decode_snapshot(
         el_hash != B256::from(word(inbox::LAST_CHECKPOINT_HASH)) ||
         word_u48(landing, 48) > generation ||
         word_u48(landing, 96) != word_u48(head_tail, 0) ||
-        (height == 0 && (word_u48(landing, 0) != 0 || !comet_hash.is_zero())) ||
+        (height == 0 &&
+            (word_u48(landing, 0) != 0 || !comet_hash.is_zero() || !val_state_hash.is_zero())) ||
         (height > 0 && (word_u48(landing, 0) >= height || comet_hash.is_zero()))
     {
         return Err(LanderError::Safety("invalid checkpoint landing record".into()));
@@ -685,6 +687,7 @@ fn decode_snapshot(
         checkpoint_height: word_u64(word(inbox::LAST_CHECKPOINT_HEIGHT), 0),
         checkpoint_hash: word(inbox::LAST_CHECKPOINT_HASH).into(),
         checkpoint_comet_hash: comet_hash,
+        checkpoint_val_state_hash: val_state_hash,
         forced_inclusion_head: word_u48(head_tail, 0),
         forced_inclusion_tail: word_u48(head_tail, 48),
         genesis,
@@ -781,6 +784,7 @@ pub fn authenticate_snapshot(snapshot: &LandingSnapshot, params: &ChainParams) -
                 (origin.height == snapshot.checkpoint_height &&
                     (origin.el_hash != snapshot.checkpoint_hash ||
                         origin.comet_hash != snapshot.checkpoint_comet_hash ||
+                        origin.val_state_hash != snapshot.checkpoint_val_state_hash ||
                         origin.forced_cursor != snapshot.forced_inclusion_head))
             {
                 return Err(LanderError::Safety(

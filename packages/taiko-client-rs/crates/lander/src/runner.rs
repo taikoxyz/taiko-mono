@@ -803,6 +803,7 @@ fn overlapping_frontier(
     if current.checkpoint_height == prepared.checkpoint_height {
         if current.checkpoint_hash != prepared.checkpoint_hash ||
             current.checkpoint_comet_hash != prepared.checkpoint_comet_hash ||
+            current.checkpoint_val_state_hash != prepared.checkpoint_val_state_hash ||
             current.forced_inclusion_head != prepared.forced_inclusion_head
         {
             return Err(LanderError::Safety(
@@ -820,6 +821,7 @@ fn overlapping_frontier(
             current.checkpoint_hash,
             current.checkpoint_comet_hash,
             current.forced_inclusion_head,
+            current.checkpoint_val_state_hash,
         );
         if batch.leaves.get(index as usize) != Some(&leaf) {
             return Err(LanderError::Safety(

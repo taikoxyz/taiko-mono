@@ -12,7 +12,7 @@ sol!(
 /// Protocol revision from which the interface and contract fixtures are generated.
 pub const PROTOCOL_REVISION: &str = "b6e765b0fd186f67fa360d4572bea2a8d701e7cb";
 
-/// Journal representation of the generated eight-field `LandInput` as canonical ABI bytes.
+/// Journal representation of the generated nine-field `LandInput` as canonical ABI bytes.
 pub(crate) mod abi_serde {
     use alloy::sol_types::{SolType, SolValue};
     use alloy_primitives::Bytes;

@@ -40,6 +40,9 @@ pub struct RpcData {
     pub blocks: Vec<CertifiedBlock>,
     pub headers: Vec<Header>,
     pub committees: BTreeMap<u64, CommitteeState>,
+    /// The validator-state preimage after each height, indexed by height; `/val_state/<height>`
+    /// answers it at grid heights above the origin 0, as the app does.
+    pub val_states: Vec<Vec<u8>>,
 }
 
 /// One local fixture endpoint supports both public L2 and CometBFT read APIs.
@@ -133,13 +136,24 @@ async fn rpc(State(state): State<RpcState>, Json(request): Json<Value>) -> Respo
             })
         }
         "abci_query" => {
-            let epoch = params["path"]
-                .as_str()
-                .and_then(|path| path.strip_prefix("/committee/"))
-                .and_then(|epoch| epoch.parse::<u64>().ok());
-            epoch.and_then(|epoch| data.committees.get(&epoch)).map(|committee| {
-                let bytes = serde_json::to_vec(committee).expect("committee serialization");
-                json!({"response":{"code":0,"value":STANDARD.encode(bytes)}})
+            let path = params["path"].as_str().unwrap_or_default();
+            let answer = if let Some(height) = path.strip_prefix("/val_state/") {
+                height
+                    .parse::<u64>()
+                    .ok()
+                    .filter(|height| *height > 0 && height.is_multiple_of(abci::GRID_INTERVAL))
+                    .and_then(|height| data.val_states.get(usize::try_from(height).ok()?).cloned())
+            } else {
+                path.strip_prefix("/committee/")
+                    .and_then(|epoch| epoch.parse::<u64>().ok())
+                    .and_then(|epoch| data.committees.get(&epoch))
+                    .map(|committee| {
+                        serde_json::to_vec(committee).expect("committee serialization")
+                    })
+            };
+            Some(match answer {
+                Some(bytes) => json!({"response":{"code":0,"value":STANDARD.encode(bytes)}}),
+                None => json!({"response":{"code":1,"log":"fixture app rejects the query"}}),
             })
         }
         _ => None,

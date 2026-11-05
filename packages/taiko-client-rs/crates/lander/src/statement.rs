@@ -3,22 +3,30 @@
 use crate::{contracts::IEtnaInbox::LandInput, types::LandingSnapshot};
 use alloy_primitives::{B256, U256, keccak256};
 
-/// Byte length of the static twenty-one-word public statement preimage.
-pub const PREIMAGE_BYTES: usize = 21 * 32;
+/// Byte length of the static twenty-three-word public statement preimage (ENC-A-35).
+pub const PREIMAGE_BYTES: usize = 23 * 32;
 
 /// Hash Solidity's packed ordered bytes32 blob list, with no array offset or length words.
 pub fn blob_hashes_hash(hashes: &[B256]) -> B256 {
     keccak256(hashes.iter().flat_map(|h| h.as_slice()).copied().collect::<Vec<_>>())
 }
 
-/// Commit one grid endpoint's execution/consensus identity and consumed FI cursor.
-pub fn cut_leaf(height: u64, el_hash: B256, comet_hash: B256, cursor: u64) -> B256 {
+/// Commit one grid endpoint's execution/consensus identity, consumed FI cursor and validator
+/// state (ENC-A-29: five words).
+pub fn cut_leaf(
+    height: u64,
+    el_hash: B256,
+    comet_hash: B256,
+    cursor: u64,
+    val_state_hash: B256,
+) -> B256 {
     keccak256(
         [
             U256::from(height).to_be_bytes::<32>(),
             el_hash.0,
             comet_hash.0,
             U256::from(cursor).to_be_bytes::<32>(),
+            val_state_hash.0,
         ]
         .concat(),
     )
@@ -40,7 +48,9 @@ pub fn cut_hash(generation: u64, parent: U256, last: U256, leaves: &[B256]) -> B
     )
 }
 
-/// Encode the twenty-one static ABI words authenticated by the Inbox V1 statement.
+/// Encode the twenty-three static ABI words authenticated by the Inbox V1 statement, in ENC-A-35
+/// order. The parent words, `parentValStateHash` included, are the checkpoint record's values as
+/// stored, even at a generation's origin.
 pub fn preimage(
     snapshot: &LandingSnapshot,
     input: &LandInput,
@@ -64,10 +74,12 @@ pub fn preimage(
         input.parentHeight.to_be_bytes::<32>(),
         snapshot.checkpoint_hash.0,
         snapshot.checkpoint_comet_hash.0,
+        snapshot.checkpoint_val_state_hash.0,
         snapshot.committee_config_hash.0,
         input.lastHeight.to_be_bytes::<32>(),
         input.lastBlockHash.0,
         input.lastCometHash.0,
+        input.lastValStateHash.0,
         input.lastStateRoot.0,
         input.l1ReferenceBlockNumber.to_be_bytes::<32>(),
         reference_hash.0,
@@ -112,6 +124,7 @@ mod tests {
         snapshot.checkpoint_height = vectors::u64_at(&path("parent_height"));
         snapshot.checkpoint_hash = vectors::b256_at(&path("parent_hash"));
         snapshot.checkpoint_comet_hash = vectors::b256_at(&path("parent_comet_hash"));
+        snapshot.checkpoint_val_state_hash = vectors::b256_at(&path("parent_val_state_hash"));
         snapshot.committee_config_hash = vectors::b256_at(&path("committee_config_hash"));
         snapshot.forced_inclusion_head = vectors::u64_at(&path("forced_inclusion_head_before"));
         let input = LandInput {
@@ -119,6 +132,7 @@ mod tests {
             lastHeight: vectors::u256_at(&path("last_height")),
             lastBlockHash: vectors::b256_at(&path("last_block_hash")),
             lastCometHash: vectors::b256_at(&path("last_comet_hash")),
+            lastValStateHash: vectors::b256_at(&path("last_val_state_hash")),
             lastStateRoot: vectors::b256_at(&path("last_state_root")),
             l1ReferenceBlockNumber: vectors::u256_at(&path("l1_reference_block_number")),
             forcedInclusionHead: vectors::u256_at(&path("forced_inclusion_head_after")),
@@ -139,8 +153,9 @@ mod tests {
             .map(|height| vectors::b256_at(&format!("/cuts/table/{height}/leaf")))
             .collect()
     }
+
     #[test]
-    fn cut_leaves_match_all_independent_four_word_vectors() {
+    fn cut_leaves_match_all_independent_five_word_vectors() {
         for index in 0..vectors::len_at("/cuts/table") {
             let path = |key: &str| format!("/cuts/table/{index}/{key}");
             assert_eq!(
@@ -148,18 +163,20 @@ mod tests {
                     vectors::u64_at(&path("height")),
                     vectors::b256_at(&path("block_hash")),
                     vectors::b256_at(&path("comet_hash")),
-                    vectors::u64_at(&path("forced_head"))
+                    vectors::u64_at(&path("forced_head")),
+                    vectors::b256_at(&path("val_state_hash"))
                 ),
                 vectors::b256_at(&path("leaf"))
             );
+            assert_eq!(vectors::bytes_at(&path("preimage")).len(), 5 * 32);
         }
     }
     #[test]
-    fn v1_statement_matches_all_pinned_672_byte_preimages() {
+    fn v1_statement_matches_all_pinned_736_byte_preimages() {
         for index in 0..vectors::len_at("/land_statements") {
             let (snapshot, input, reference, blobs) = vector(index);
             let encoded = preimage(&snapshot, &input, reference, &blobs, &leaves(index));
-            assert_eq!(encoded.len(), 672);
+            assert_eq!(encoded.len(), 736);
             assert_eq!(
                 encoded.as_slice(),
                 vectors::bytes_at(&format!("/land_statements/{index}/preimage")).as_ref()
@@ -179,7 +196,7 @@ mod tests {
     fn every_static_word_and_blob_order_is_bound() {
         let (snapshot, input, reference, blobs) = vector(1);
         let encoded = preimage(&snapshot, &input, reference, &blobs, &leaves(1));
-        for word in 1..21 {
+        for word in 1..23 {
             let mut snapshot = snapshot.clone();
             let mut input = input.clone();
             let mut reference = reference;
@@ -194,18 +211,20 @@ mod tests {
                 6 => input.parentHeight ^= U256::from(1),
                 7 => snapshot.checkpoint_hash[0] ^= 1,
                 8 => snapshot.checkpoint_comet_hash[0] ^= 1,
-                9 => snapshot.committee_config_hash[0] ^= 1,
-                10 => input.lastHeight ^= U256::from(1),
-                11 => input.lastBlockHash[0] ^= 1,
-                12 => input.lastCometHash[0] ^= 1,
-                13 => input.lastStateRoot[0] ^= 1,
-                14 => input.l1ReferenceBlockNumber ^= U256::from(1),
-                15 => reference[0] ^= 1,
-                16 => blobs[0][0] ^= 1,
-                17 => snapshot.forced_inclusion_head ^= 1,
-                18 => input.forcedInclusionHead ^= U256::from(1),
-                19 => input.activeCommitteeSnapshot ^= U256::from(1),
-                20 => cuts[0][0] ^= 1,
+                9 => snapshot.checkpoint_val_state_hash[0] ^= 1,
+                10 => snapshot.committee_config_hash[0] ^= 1,
+                11 => input.lastHeight ^= U256::from(1),
+                12 => input.lastBlockHash[0] ^= 1,
+                13 => input.lastCometHash[0] ^= 1,
+                14 => input.lastValStateHash[0] ^= 1,
+                15 => input.lastStateRoot[0] ^= 1,
+                16 => input.l1ReferenceBlockNumber ^= U256::from(1),
+                17 => reference[0] ^= 1,
+                18 => blobs[0][0] ^= 1,
+                19 => snapshot.forced_inclusion_head ^= 1,
+                20 => input.forcedInclusionHead ^= U256::from(1),
+                21 => input.activeCommitteeSnapshot ^= U256::from(1),
+                22 => cuts[0][0] ^= 1,
                 _ => unreachable!(),
             }
             let changed = preimage(&snapshot, &input, reference, &blobs, &cuts);
@@ -233,7 +252,7 @@ mod tests {
     }
 
     #[test]
-    fn v1_eight_field_abi_matches_complete_pinned_calldata() {
+    fn v1_nine_field_abi_matches_complete_pinned_calldata() {
         use crate::contracts::IEtnaInbox::landCall;
         let (_, input, _, _) = vector(1);
         let call = landCall {

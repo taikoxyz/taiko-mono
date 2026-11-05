@@ -4,7 +4,7 @@ use crate::{
     proof::ProofRequest,
     types::{LandingSnapshot, PreparedBatch},
 };
-use abci::{AnchorState, GenesisRecord, InboxFacts};
+use abci::{AnchorState, GenesisRecord, InboxFacts, valstate::ValState};
 use alloy_consensus::Header;
 use alloy_eips::{eip4844::BlobTransactionSidecar, eip7594::BlobTransactionSidecarVariant};
 use alloy_primitives::{Address, B256, U256};
@@ -50,6 +50,7 @@ pub(crate) fn request() -> ProofRequest {
                 checkpoint_height: 0,
                 checkpoint_hash: genesis.genesis_hash,
                 checkpoint_comet_hash: B256::ZERO,
+                checkpoint_val_state_hash: B256::ZERO,
                 forced_inclusion_head: 0,
                 forced_inclusion_tail: 0,
                 genesis,
@@ -94,12 +95,22 @@ pub(crate) fn request() -> ProofRequest {
                 lastCometHash: B256::repeat_byte(7),
                 lastHeight: U256::from(1),
                 lastBlockHash: B256::repeat_byte(7),
+                lastValStateHash: B256::repeat_byte(0x0a),
                 lastStateRoot: B256::repeat_byte(8),
                 l1ReferenceBlockNumber: U256::from(15),
                 forcedInclusionHead: U256::ZERO,
-
                 activeCommitteeSnapshot: U256::from(9),
             },
+            start_val_state: ValState::genesis(
+                0,
+                &[(
+                    super::consensus::public_key(
+                        &super::consensus::SigningKey::from_slice(&[1; 32]).unwrap(),
+                    ),
+                    1,
+                )],
+            )
+            .unwrap(),
             blobs: PreparedBlobs {
                 payload_bytes: 0,
                 sidecar: BlobTransactionSidecarVariant::Eip4844(BlobTransactionSidecar::default()),

@@ -7,9 +7,10 @@ use abci::engine::{
 use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 use abci::{
-    AnchorState, ChainParams, GRID_INTERVAL, ParentInfo, Schedule,
+    AnchorState, ChainParams, CommitteeState, GRID_INTERVAL, ParentInfo, Schedule,
     committee::{record_hash, verify_committee_witness_at_cutoff},
     rules,
+    valstate::ValState,
 };
 use alloy_primitives::{Address, B256, U256, aliases::U48};
 use async_trait::async_trait;
@@ -87,6 +88,10 @@ struct BatchStart {
     previous: Option<CertifiedBlock>,
     /// Exact minimal descending checkpoint-bound execution headers.
     history: Vec<alloy_consensus::Header>,
+    /// The validator state CometBFT holds after the checkpoint: the generation's genesis state
+    /// at its origin ([`origin_val_state`]), otherwise the app's answer whose hash the
+    /// checkpoint record's word 4 holds.
+    val_state: ValState,
 }
 
 /// Immutable checkpoint identity; advancing the operational L1 head does not change it.
@@ -110,6 +115,8 @@ struct CheckpointIdentity {
     hash: B256,
     /// Certified BFT checkpoint hash binding the private parent certificate.
     comet_hash: B256,
+    /// Validator-state hash of the checkpoint record, which the starting state must match.
+    val_state_hash: B256,
     /// Complete genesis configuration, including forced inclusion and anchor age rules.
     genesis: abci::GenesisRecord,
     /// Deployment's authenticated committee derivation configuration.
@@ -131,6 +138,7 @@ impl CheckpointIdentity {
             height: snapshot.checkpoint_height,
             hash: snapshot.checkpoint_hash,
             comet_hash: snapshot.checkpoint_comet_hash,
+            val_state_hash: snapshot.checkpoint_val_state_hash,
             genesis: snapshot.genesis.clone(),
             committee_config_hash: snapshot.committee_config_hash,
             bootstrap_hash: snapshot.genesis_committee_record_hash,
@@ -171,6 +179,9 @@ struct ForwardState {
     previous: Option<CertifiedBlock>,
     /// Forced inclusion cursor after `parent`: the queue entries the chain has consumed.
     forced_cursor: u64,
+    /// The validator state CometBFT holds after `parent`, replayed as abci's FinalizeBlock
+    /// advances it ([`next_val_state`]).
+    val_state: ValState,
 }
 
 impl ForwardState {
@@ -185,6 +196,7 @@ impl ForwardState {
             anchor: start.anchor.clone(),
             previous: start.previous.clone(),
             forced_cursor: snapshot.forced_inclusion_head,
+            val_state: start.val_state.clone(),
         })
     }
 }
@@ -687,12 +699,18 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                     "genesis checkpoint hash/state root mismatch".into(),
                 ));
             }
+            // At the generation's start the replay starts from its genesis state, whatever the
+            // origin record's word 4 holds (PROOF-6.2-41a); no app holds a sidecar there.
+            let val_state = origin_val_state(snapshot, schedule, |epoch| {
+                committees.get(&epoch).map(|c| &c.state)
+            })?;
             return Ok(BatchStart {
                 parent,
                 anchor,
                 inbox_witness: starting_inbox_witness,
                 previous: None,
                 history: headers,
+                val_state,
             });
         }
         let pair = self.comet.block(snapshot.checkpoint_height).await?;
@@ -734,13 +752,56 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         if pair.block.header.next_validators_hash != committees[&next_epoch].validators.hash() {
             return Err(LanderError::Safety("checkpoint next validator hash disagrees".into()));
         }
+        let val_state = self
+            .app_val_state(
+                snapshot.checkpoint_height,
+                snapshot.checkpoint_val_state_hash,
+                "the checkpoint record's word 4",
+            )
+            .await?;
         Ok(BatchStart {
             parent,
             anchor,
             inbox_witness: starting_inbox_witness,
             previous: Some(pair),
             history: headers,
+            val_state,
         })
+    }
+
+    /// The validator state the app reports after `height`, accepted only when it decodes as the
+    /// state after exactly `height` and its hash is `expected`, the hash `source` holds. No
+    /// answer, an undecodable one or a different state is logged as an error and is
+    /// [`LanderError::Temporary`]: an app that has not yet committed `height` answers later, and
+    /// nothing lands while it disagrees.
+    async fn app_val_state(
+        &self,
+        height: u64,
+        expected: B256,
+        source: &'static str,
+    ) -> Result<ValState> {
+        let refuse = |reason: String| {
+            tracing::error!(
+                height,
+                %expected,
+                source,
+                %reason,
+                "the app's validator state does not match; not landing"
+            );
+            LanderError::Temporary(format!(
+                "the app's validator state at height {height} does not match {source}: {reason}"
+            ))
+        };
+        let bytes = self.comet.val_state(height).await.map_err(|e| refuse(e.to_string()))?;
+        let state = ValState::decode(&bytes).map_err(|e| refuse(e.to_string()))?;
+        if state.height != height || state.hash() != expected {
+            return Err(refuse(format!(
+                "the app reports the state after height {} with hash {}",
+                state.height,
+                state.hash()
+            )));
+        }
+        Ok(state)
     }
     /// Verify one successor using a known outgoing certificate before accepting new authorities.
     ///
@@ -915,16 +976,21 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 "next validator hash disagrees at height {height}"
             )));
         }
+        let val_state = next_val_state(&state.val_state, snapshot, schedule, height, |epoch| {
+            committees.get(&epoch).map(|c| &c.state)
+        })?;
         state.header = facts.envelope.block.header.clone();
         state.parent = facts.parent;
         state.anchor = facts.anchor;
         state.previous = Some(pair.clone());
         state.forced_cursor = forced_cursor;
+        state.val_state = val_state;
         Ok(())
     }
 
-    /// Retain only the selected proof prefix's per-block anchors after shared verification, the
-    /// forced inclusion cursor after its last block.
+    /// Retain only the selected proof prefix's per-block anchors and interior cut leaves after
+    /// shared verification, with the forward state after its last block (its forced inclusion
+    /// cursor and validator state).
     async fn authenticate_blocks(
         &self,
         snapshot: &LandingSnapshot,
@@ -932,7 +998,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         start: &BatchStart,
         committees: &mut BTreeMap<u64, AuthenticatedCommittee>,
         blocks: &[CertifiedBlock],
-    ) -> Result<(Vec<AnchorState>, u64, Vec<B256>)> {
+    ) -> Result<(Vec<AnchorState>, Vec<B256>, ForwardState)> {
         let mut state = ForwardState::new(start, snapshot)?;
         let mut anchors = Vec::new();
         let mut leaves = Vec::new();
@@ -949,10 +1015,11 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                     state.parent.hash,
                     B256::from_slice(pair.block.header.hash().as_bytes()),
                     state.forced_cursor,
+                    state.val_state.hash(),
                 ));
             }
         }
-        Ok((anchors, state.forced_cursor, leaves))
+        Ok((anchors, leaves, state))
     }
 
     /// The authenticated anchor the decided `tip` consumes, used only for back-pressure urgency.
@@ -1091,12 +1158,18 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
         let mut committees = BTreeMap::new();
         let start = self.checkpoint(&snapshot, &schedule, &mut committees).await?;
         let prefix = self.publishable_prefix(&snapshot, status.height).await?;
-        let (anchors, forced_cursor, leaves) = self
+        let (anchors, leaves, end) = self
             .authenticate_blocks(&snapshot, &schedule, &start, &mut committees, &prefix.blocks)
             .await?;
         if prefix.blocks.is_empty() {
             return Ok(None);
         }
+        let forced_cursor = end.forced_cursor;
+        // Nothing is proved unless the app's own state at h equals the replay: nodes compare
+        // the landed hash with their own CometBFT state at trust (SYNC-9-5).
+        let last_val_state = end.val_state.hash();
+        self.app_val_state(end.parent.number, last_val_state, "the replayed validator state")
+            .await?;
         let (blocks, payload) = self.payload(prefix).await?;
         let Some(terminal) = blocks.last() else {
             return Ok(None);
@@ -1144,6 +1217,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
             lastHeight: U256::from(last.number),
             lastBlockHash: last.hash_slow(),
             lastCometHash: B256::from_slice(terminal.block.header.hash().as_bytes()),
+            lastValStateHash: last_val_state,
             lastStateRoot: last.state_root,
             l1ReferenceBlockNumber: U256::from(reference.number()),
             forcedInclusionHead: U256::from(
@@ -1185,6 +1259,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
                     .collect(),
                 committees: committees.into_values().map(|committee| committee.state).collect(),
                 input,
+                start_val_state: start.val_state.clone(),
                 leaves,
                 deployment_identity: deployment.identity,
                 blobs,
@@ -1199,6 +1274,62 @@ fn committee_epoch(snapshot: &LandingSnapshot, schedule: &Schedule, height: u64)
     schedule.active_committee_epoch(height, snapshot.origin_height()).ok_or_else(|| {
         LanderError::Safety("committee height does not follow generation origin".into())
     })
+}
+
+/// CometBFT's genesis validator state at the generation origin `o` (ENC-A-29a, PROOF-6.2-41a):
+/// the two sets built from the generation's initial committee, the one signing `o + 1`, which
+/// `committee` resolves by epoch. No query answers it: the app writes no sidecar at the origin.
+pub(crate) fn origin_val_state<'a>(
+    snapshot: &LandingSnapshot,
+    schedule: &Schedule,
+    committee: impl Fn(u64) -> Option<&'a CommitteeState>,
+) -> Result<ValState> {
+    let origin = snapshot.origin_height();
+    let first = origin
+        .checked_add(1)
+        .ok_or_else(|| LanderError::Safety("generation origin height overflow".into()))?;
+    let epoch = committee_epoch(snapshot, schedule, first)?;
+    let initial = committee(epoch)
+        .ok_or_else(|| LanderError::Safety(format!("missing initial committee {epoch}")))?;
+    let members: Vec<_> = initial.members.iter().map(|m| (m.pubkey, m.power)).collect();
+    ValState::genesis(origin, &members)
+        .map_err(|e| LanderError::Safety(format!("genesis validator state at {origin}: {e}")))
+}
+
+/// The validator state after `height`, from `state` after `height - 1` (PROOF-6.2-41a). It
+/// applies the updates abci's FinalizeBlock returns at `height` (`next_state`): at the switch
+/// height to epoch `t`,
+/// those from the committee active at `height` to committee `t`; at every other height none.
+/// `committee` resolves an authenticated committee by epoch. A missing committee or an update
+/// CometBFT refuses is a safety error, as it halts the app.
+pub(crate) fn next_val_state<'a>(
+    state: &ValState,
+    snapshot: &LandingSnapshot,
+    schedule: &Schedule,
+    height: u64,
+    committee: impl Fn(u64) -> Option<&'a CommitteeState>,
+) -> Result<ValState> {
+    if state.height.checked_add(1) != Some(height) {
+        return Err(LanderError::Safety(format!(
+            "validator state after height {} cannot advance to {height}",
+            state.height
+        )));
+    }
+    let updates = match schedule.switch_target(height) {
+        Some(target) => {
+            let epoch = committee_epoch(snapshot, schedule, height)?;
+            let (Some(outgoing), Some(incoming)) = (committee(epoch), committee(target)) else {
+                return Err(LanderError::Safety(format!(
+                    "missing committee {epoch} or {target} for the validator updates at {height}"
+                )));
+            };
+            abci::committee::validator_updates(&outgoing.members, &incoming.members)
+        }
+        None => Vec::new(),
+    };
+    state
+        .advance(&updates)
+        .map_err(|e| LanderError::Safety(format!("validator state after height {height}: {e}")))
 }
 
 /// The anchors a batch's reference chain must reach: p's anchor, every block's anchor and,
@@ -1359,6 +1490,7 @@ mod tests {
         parent_reads: AtomicUsize,
         status_reads: AtomicUsize,
         block_reads: AtomicUsize,
+        val_state_reads: AtomicUsize,
         anchor_reorg: AtomicBool,
         canonical_unavailable: AtomicBool,
         canonical_failure: AtomicBool,
@@ -1377,6 +1509,7 @@ mod tests {
                 parent_reads: AtomicUsize::new(0),
                 status_reads: AtomicUsize::new(0),
                 block_reads: AtomicUsize::new(0),
+                val_state_reads: AtomicUsize::new(0),
                 anchor_reorg: AtomicBool::new(false),
                 canonical_unavailable: AtomicBool::new(false),
                 canonical_failure: AtomicBool::new(false),
@@ -1418,6 +1551,11 @@ mod tests {
         async fn block(&self, height: u64) -> Result<CertifiedBlock> {
             self.block_reads.fetch_add(1, Ordering::Relaxed);
             self.fixture().block(height).await
+        }
+
+        async fn val_state(&self, height: u64) -> Result<Vec<u8>> {
+            self.val_state_reads.fetch_add(1, Ordering::Relaxed);
+            self.fixture().val_state(height).await
         }
     }
 
@@ -1785,9 +1923,9 @@ mod tests {
                 .unwrap();
             let encoded = request.batch.input.abi_encode();
             assert_eq!(
-                encoded.get(7 * 32..),
+                encoded.get(8 * 32..),
                 Some(U256::from(expected).to_be_bytes::<32>().as_slice()),
-                "checkpoint {checkpoint}, terminal {tip}: eighth ABI word must name the active committee snapshot"
+                "checkpoint {checkpoint}, terminal {tip}: ninth ABI word must name the active committee snapshot"
             );
             request.batch.validate_statement().unwrap();
         }
@@ -2206,6 +2344,126 @@ mod tests {
         );
     }
 
+    /// A valid preimage of a state other than `state`: one proposer priority differs.
+    fn other_state(state: &ValState) -> Vec<u8> {
+        let mut other = state.clone();
+        other.current.entries[0].priority += 1;
+        other.encode()
+    }
+
+    /// Prepares the one batch `fixture` offers in batches of `blocks` blocks.
+    async fn prepared(fixture: Fixture, blocks: usize) -> Result<Option<ProofRequest>> {
+        let fixture = Arc::new(fixture);
+        builder(fixture.clone(), limits(blocks)).prepare(fixture.snapshot.clone()).await
+    }
+
+    /// The starting validator state comes from the app only when it hashes to the checkpoint
+    /// record's word 4 and is the state after c; a restored job whose starting state differs is
+    /// refused.
+    #[tokio::test]
+    async fn starting_state_is_accepted_only_against_the_landed_word() {
+        let mut fixture = Fixture::new(6, 12);
+        let at_c = fixture.val_states[&6].clone();
+        fixture.val_state_answers.insert(6, Some(other_state(&at_c)));
+        let error = prepared(fixture, 6).await.expect_err("a state off word 4 is refused");
+        assert!(matches!(error, LanderError::Temporary(_)), "{error}");
+
+        let batch = prepared(Fixture::new(6, 12), 6).await.unwrap().unwrap().batch;
+        assert_eq!(batch.start_val_state, at_c);
+        assert_eq!(batch.snapshot.checkpoint_val_state_hash, at_c.hash());
+        batch.validate_statement().unwrap();
+        let mut tampered = batch;
+        tampered.start_val_state.current.entries[0].priority += 1;
+        let error = tampered.validate_statement().unwrap_err();
+        assert!(matches!(error, LanderError::Journal(_)), "{error}");
+    }
+
+    /// No answer, an undecodable one or the state after another height waits: nothing lands.
+    #[tokio::test]
+    async fn missing_starting_preimage_is_temporary() {
+        let other_height = Fixture::new(6, 12).val_states[&12].encode();
+        for answer in [None, Some(vec![0; 31]), Some(vec![]), Some(other_height)] {
+            let mut fixture = Fixture::new(6, 12);
+            fixture.val_state_answers.insert(6, answer.clone());
+            let error = prepared(fixture, 6).await.expect_err("refused");
+            assert!(matches!(error, LanderError::Temporary(_)), "{answer:?}: {error}");
+        }
+    }
+
+    /// At the generation origin the starting state is CometBFT's genesis state of committee 0;
+    /// the fixture panics if the origin is queried, and only the guard at h queries the app.
+    #[tokio::test]
+    async fn start_at_the_generation_origin_uses_genesis_without_a_query() {
+        let source = TrackingSource::new(Fixture::new(0, 12));
+        let batch = source
+            .builder(12)
+            .prepare(source.fixture().snapshot.clone())
+            .await
+            .unwrap()
+            .unwrap()
+            .batch;
+        let members = &source.fixture().committees[&0].state.members;
+        let genesis =
+            ValState::genesis(0, &members.iter().map(|m| (m.pubkey, m.power)).collect::<Vec<_>>())
+                .unwrap();
+        assert_eq!(batch.start_val_state, genesis);
+        assert_eq!(batch.snapshot.checkpoint_val_state_hash, B256::ZERO);
+        assert_eq!(source.val_state_reads.load(Ordering::Relaxed), 1);
+        batch.validate_statement().unwrap();
+    }
+
+    /// Across the switch to epoch 1 at height 23, which adds a validator, the leaves and
+    /// `lastValStateHash` are the hashes of an independent genesis + advance replay of the
+    /// app's updates.
+    #[tokio::test]
+    async fn replay_matches_the_app_replica_across_a_switch() {
+        let fixture = Fixture::new(18, 30);
+        let schedule = Schedule::from_genesis(&fixture.snapshot.genesis);
+        let members = |epoch: u64| &fixture.committees[&epoch].state.members;
+        let powers = |epoch: u64| members(epoch).iter().map(|m| (m.pubkey, m.power)).collect();
+        let powers: Vec<_> = powers(0);
+        let mut replica = vec![ValState::genesis(0, &powers).unwrap()];
+        let mut unswitched = replica[0].clone();
+        for height in 1..=30u64 {
+            let updates = if height == 23 {
+                abci::committee::validator_updates(members(0), members(1))
+            } else {
+                vec![]
+            };
+            assert_eq!(schedule.switch_target(height), (height == 23).then_some(1));
+            assert_eq!(updates.is_empty(), height != 23, "height {height}");
+            replica.push(replica.last().unwrap().advance(&updates).unwrap());
+            unswitched = unswitched.advance(&[]).unwrap();
+        }
+        assert_ne!(replica[30], unswitched);
+        let headers = fixture.headers.clone();
+        let comet =
+            |height: u64| B256::from_slice(fixture.blocks[&height].block.header.hash().as_bytes());
+        let leaf =
+            statement::cut_leaf(24, headers[&24].hash_slow(), comet(24), 0, replica[24].hash());
+        let batch = prepared(fixture, 12).await.unwrap().unwrap().batch;
+        assert_eq!(batch.start_val_state, replica[18]);
+        assert_eq!(batch.leaves, vec![leaf]);
+        assert_eq!(batch.input.lastValStateHash, replica[30].hash());
+        batch.validate_statement().unwrap();
+    }
+
+    /// The app's own state at h must agree with the replay before any proof is requested.
+    #[tokio::test]
+    async fn guard_refuses_to_land_when_the_app_disagrees() {
+        for (checkpoint, last) in [(0, 12), (6, 12)] {
+            let mut fixture = Fixture::new(checkpoint, last);
+            let at_h = fixture.val_states[&last].clone();
+            fixture.val_state_answers.insert(last, Some(other_state(&at_h)));
+            let error = prepared(fixture, 12).await.expect_err("no proof request");
+            assert!(matches!(error, LanderError::Temporary(_)), "{error}");
+            let mut fixture = Fixture::new(checkpoint, last);
+            fixture.val_state_answers.insert(last, None);
+            let error = prepared(fixture, 12).await.expect_err("no proof request");
+            assert!(matches!(error, LanderError::Temporary(_)), "{error}");
+        }
+    }
+
     /// Epoch changes retain every authenticated block and bind their exact base fees.
     #[tokio::test]
     async fn prepared_batch_binds_execution_across_epoch_boundary() {
@@ -2298,8 +2556,8 @@ mod tests {
             &batch.leaves,
         );
         let three = U256::from(3).to_be_bytes::<32>();
-        assert_eq!(&preimage[17 * 32..18 * 32], &three);
-        assert_eq!(&preimage[18 * 32..19 * 32], &three);
+        assert_eq!(&preimage[19 * 32..20 * 32], &three);
+        assert_eq!(&preimage[20 * 32..21 * 32], &three);
         assert_eq!(batch.statement_hash, alloy_primitives::keccak256(preimage));
     }
 
@@ -2680,8 +2938,8 @@ mod tests {
                 alloy_primitives::U256::from_be_slice(&preimage[index * 32..(index + 1) * 32])
                     .to::<u64>()
             };
-            assert_eq!(U256::from(word(18)), batch.input.forcedInclusionHead);
-            (word(17), word(18))
+            assert_eq!(U256::from(word(20)), batch.input.forcedInclusionHead);
+            (word(19), word(20))
         }
 
         /// Preparing the batch errors with a safety error naming `violation`; observation verifies

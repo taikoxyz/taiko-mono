@@ -19,6 +19,7 @@ use abci::{
     forced::ForcedEntry,
     l1::layout::{inbox, registry},
     rules::{self, HeaderInputs},
+    valstate::ValState,
 };
 use alloy_consensus::{EMPTY_OMMER_ROOT_HASH, EMPTY_ROOT_HASH, Header};
 use alloy_eips::eip7685::EMPTY_REQUESTS_HASH;
@@ -149,7 +150,39 @@ pub struct Fixture {
     pub witness_mutation: Option<u8>,
     pub starting_proof_mutation: Option<u8>,
     pub parent_anchor_override: Option<AnchorState>,
+    /// The validator state after each height from the generation origin on, replayed
+    /// independently of the lander ([`replay_val_states`]).
+    pub val_states: BTreeMap<u64, ValState>,
+    /// Answers that replace the replica's at their heights: `None` is a rejected query.
+    pub val_state_answers: BTreeMap<u64, Option<Vec<u8>>>,
     states: BTreeMap<u64, State>,
+}
+
+/// The validator states after heights `origin..=tip`, replayed as abci's app keeps them: the
+/// genesis state of `initial` at `origin`, then, at each height `x` whose `switch_target(x)` is
+/// `t`, the updates from the committee `signing(x)` names to committee `t`, and none elsewhere.
+pub fn replay_val_states(
+    schedule: &Schedule,
+    committees: &BTreeMap<u64, AuthenticatedCommittee>,
+    (origin, initial): (u64, &CommitteeState),
+    tip: u64,
+    signing: impl Fn(u64) -> u64,
+) -> BTreeMap<u64, ValState> {
+    let powers =
+        |c: &CommitteeState| c.members.iter().map(|m| (m.pubkey, m.power)).collect::<Vec<_>>();
+    let mut states =
+        BTreeMap::from([(origin, ValState::genesis(origin, &powers(initial)).unwrap())]);
+    for height in origin + 1..=tip {
+        let updates = schedule.switch_target(height).map_or_else(Vec::new, |target| {
+            abci::committee::validator_updates(
+                &committees[&signing(height)].state.members,
+                &committees[&target].state.members,
+            )
+        });
+        let next = states[&(height - 1)].advance(&updates).unwrap();
+        states.insert(height, next);
+    }
+    states
 }
 
 fn l1_header(number: u64, state: &State, parent: B256) -> RawL1Header {
@@ -176,18 +209,19 @@ struct Queue {
     entries: Vec<ForcedEntry>,
 }
 
-/// The fixture's L1 state: the Inbox with last checkpoint `(height, hash)`, the genesis record
+/// The fixture's L1 state: the Inbox with last checkpoint `(height, hash)` and its landing record
+/// (`endpoint`: height, EL, Comet and validator-state hashes), the genesis record
 /// `genesis` and the forced inclusion queue `queue` (slots 280–281), and the registry holding
 /// `entries`.
 fn state_with_queue(
     params: &ChainParams,
     entries: &[RegistryEntry],
-    endpoint: (u64, B256, B256),
+    endpoint: (u64, B256, B256, B256),
     committees: &BTreeMap<u64, AuthenticatedCommittee>,
     genesis: &GenesisRecord,
     queue: &Queue,
 ) -> State {
-    let (height, hash, comet_hash) = endpoint;
+    let (height, hash, comet_hash, val_state_hash) = endpoint;
     let mut slots = vec![
         (inbox::slot(inbox::STATUS), U256::from(3)),
         (inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT), U256::from(height)),
@@ -226,6 +260,7 @@ fn state_with_queue(
         (landing[0], U256::from(queue.head) << 96),
         (landing[1], hash.into()),
         (landing[2], comet_hash.into()),
+        (landing[3], val_state_hash.into()),
     ]);
     for entry in &queue.entries {
         let [hash, metadata] = inbox::forced_inclusion_entry_slots(entry.index);
@@ -352,6 +387,30 @@ impl Fixture {
         head: u64,
         tail: u64,
     ) -> LandingSnapshot {
+        self.replanted(genesis, head, tail, self.snapshot.checkpoint_val_state_hash)
+    }
+
+    /// The landing snapshot re-planted with `word` as the checkpoint record's word 4, its
+    /// validator-state hash, in the same way as [`Fixture::snapshot_with_forced_queue`].
+    pub fn snapshot_with_val_state_word(&self, word: B256) -> LandingSnapshot {
+        let snapshot = &self.snapshot;
+        self.replanted(
+            snapshot.genesis.clone(),
+            snapshot.forced_inclusion_head,
+            snapshot.forced_inclusion_tail,
+            word,
+        )
+    }
+
+    /// The landing snapshot re-planted with `genesis`, the queue's `(head, tail)` and the
+    /// checkpoint record's validator-state hash `val_state_hash`.
+    fn replanted(
+        &self,
+        genesis: GenesisRecord,
+        head: u64,
+        tail: u64,
+        val_state_hash: B256,
+    ) -> LandingSnapshot {
         let state = state_with_queue(
             &self.params,
             &self.registry_entries(),
@@ -359,6 +418,7 @@ impl Fixture {
                 self.snapshot.checkpoint_height,
                 self.snapshot.checkpoint_hash,
                 self.snapshot.checkpoint_comet_hash,
+                val_state_hash,
             ),
             &self.committees,
             &genesis,
@@ -370,6 +430,7 @@ impl Fixture {
             l1_block_hash: header.hash(),
             forced_inclusion_head: head,
             forced_inclusion_tail: tail,
+            checkpoint_val_state_hash: val_state_hash,
             inbox_witness: state.witness(
                 self.params.inbox,
                 &crate::l1::snapshot_landing_slots(self.snapshot.checkpoint_height),
@@ -550,11 +611,18 @@ impl Fixture {
                 AuthenticatedCommittee::new(CommitteeState { record, members }).unwrap(),
             );
         }
+        let val_states =
+            replay_val_states(&schedule, &committees, (0, &committees[&0].state), tip, |height| {
+                schedule.epoch_of(height)
+            });
+        // The start record and the snapshot of an Etna start hold validator-state hash 0.
+        let val_state_hash =
+            |height: u64| if height == 0 { B256::ZERO } else { val_states[&height].hash() };
         let planted = plan.planted();
         let genesis_state = state_with_queue(
             &params,
             &entries,
-            (0, genesis.genesis_hash, B256::ZERO),
+            (0, genesis.genesis_hash, B256::ZERO, B256::ZERO),
             &committees,
             &genesis,
             &plan.queue(&planted, 10, 0),
@@ -599,6 +667,7 @@ impl Fixture {
                         blocks.get(&cp).map_or(B256::ZERO, |pair| {
                             B256::from_slice(pair.block.header.hash().as_bytes())
                         }),
+                        val_state_hash(cp),
                     ),
                     &committees,
                     &genesis,
@@ -749,6 +818,7 @@ impl Fixture {
                 blocks.get(&checkpoint).map_or(B256::ZERO, |pair: &CertifiedBlock| {
                     B256::from_slice(pair.block.header.hash().as_bytes())
                 }),
+                val_state_hash(checkpoint),
             ),
             &committees,
             &genesis,
@@ -774,6 +844,7 @@ impl Fixture {
                 .map_or(B256::ZERO, |pair: &CertifiedBlock| {
                     B256::from_slice(pair.block.header.hash().as_bytes())
                 }),
+            checkpoint_val_state_hash: val_state_hash(checkpoint),
             forced_inclusion_head: snapshot_queue.head,
             forced_inclusion_tail: snapshot_queue.tail,
             committee_config_hash: genesis.committee_config_hash,
@@ -798,6 +869,8 @@ impl Fixture {
             witness_mutation: None,
             starting_proof_mutation: None,
             parent_anchor_override: None,
+            val_states,
+            val_state_answers: BTreeMap::new(),
             states,
         }
     }
@@ -820,6 +893,21 @@ impl CometSource for Fixture {
             .get(&height)
             .cloned()
             .ok_or_else(|| LanderError::Unavailable(format!("height {height} pruned")))
+    }
+    /// As the app answers `/val_state/<height>`: grid heights after the generation origin only.
+    /// The lander must never ask for the origin, which has no sidecar.
+    async fn val_state(&self, height: u64) -> Result<Vec<u8>> {
+        assert_ne!(height, self.snapshot.origin_height(), "queried the generation origin");
+        let answer = match self.val_state_answers.get(&height) {
+            Some(answer) => answer.clone(),
+            None => height
+                .is_multiple_of(abci::GRID_INTERVAL)
+                .then(|| self.val_states.get(&height).map(ValState::encode))
+                .flatten(),
+        };
+        answer.ok_or_else(|| {
+            LanderError::Temporary(format!("the app rejects the validator state query at {height}"))
+        })
     }
 }
 #[async_trait]
@@ -1026,10 +1114,12 @@ mod readiness {
             inbox::slot(inbox::LAST_CHECKPOINT_HASH),
             fixture.snapshot.checkpoint_hash.into(),
         );
+        fixture.snapshot.checkpoint_val_state_hash = fixture.val_states[&height].hash();
         let landing = inbox::landing_slots(height);
         slots.insert(landing[0], U256::from(fixture.snapshot.forced_inclusion_head) << 96);
         slots.insert(landing[1], fixture.snapshot.checkpoint_hash.into());
         slots.insert(landing[2], fixture.snapshot.checkpoint_comet_hash.into());
+        slots.insert(landing[3], fixture.snapshot.checkpoint_val_state_hash.into());
         let state = State::new(
             accounts
                 .into_iter()

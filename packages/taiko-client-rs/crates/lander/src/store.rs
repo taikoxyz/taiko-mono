@@ -16,6 +16,9 @@ use std::{
 
 /// Journal schema version; incompatible formats stop rather than discard outstanding nonces.
 ///
+/// Schema 16 binds the validator state (#22338): five-word cut leaves, the twenty-three-word
+/// statement, the nine-field `LandInput`, the checkpoint record's word 4 in the snapshot and the
+/// job's starting validator state.
 /// Schema 15 proves the generation's origin record in the starting witness and reaches R in the
 /// reference chain only while a batch uses recovery material.
 /// Schema 14 authenticates slot 293 and retains the immutable signed bytes on old-schema refusal.
@@ -33,7 +36,7 @@ use std::{
 /// over a six-field `LandInput` (forced inclusion head after the batch and fee recipient included),
 /// compressed V3 blob payloads and snapshots carrying the forced inclusion queue; schema 4 bound V5
 /// statements over uncompressed V2 payloads and schema 3 complete V1 blocks.
-const JOURNAL_VERSION: u8 = 15;
+const JOURNAL_VERSION: u8 = 16;
 /// Hard allocation bound before reading or decoding an untrusted journal.
 pub(crate) const MAX_JOURNAL_BYTES: u64 = 256 * 1024 * 1024;
 
@@ -469,10 +472,11 @@ mod tests {
 
     /// Schema 2 holds V4 statements, schema 3 complete-block V1 blob payloads and schema 4
     /// uncompressed V2 payloads; schema 5 used lossy domain block serialization, schema 6
-    /// domain JSON commits and schema 8 V6 statements without participation.
+    /// domain JSON commits, schema 8 V6 statements without participation and schema 15 jobs
+    /// without the validator state.
     #[test]
     fn legacy_journals_are_rejected_without_modifying_their_files() {
-        for version in [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13] {
+        for version in 2..=15 {
             let directory = tempfile::tempdir().unwrap();
             let journal = serde_json::json!({
                 "version": version,
@@ -485,7 +489,12 @@ mod tests {
                 Err(e) => e,
                 Ok(_) => panic!("schema {version} must be rejected"),
             };
-            assert!(error.to_string().contains("incompatible journal schema"), "{error}");
+            assert!(
+                error
+                    .to_string()
+                    .contains(&format!("incompatible journal schema {version} (expected 16)")),
+                "{error}"
+            );
             assert_eq!(
                 std::fs::read_to_string(directory.path().join("lander-state.json")).unwrap(),
                 journal.to_string()
@@ -565,6 +574,51 @@ mod tests {
         assert_eq!(std::fs::read(path).unwrap(), bytes);
     }
 
+    /// A restored job's starting validator state is recomputed (the genesis state at this
+    /// job's origin checkpoint), so one changed priority refuses the journal, digest rebound or
+    /// not, and leaves its file unchanged.
+    #[test]
+    fn restored_job_rejects_a_tampered_starting_state() {
+        let original = crate::test_utils::runtime::request();
+        for rebind in [false, true] {
+            let mut request = original.clone();
+            request.batch.start_val_state.current.entries[0].priority += 1;
+            if rebind {
+                let reference =
+                    abci::RawL1Header::from_raw(request.batch.reference_headers[0].clone())
+                        .unwrap();
+                request.batch.statement_hash = crate::statement::hash(
+                    &request.batch.snapshot,
+                    &request.batch.input,
+                    reference.hash(),
+                    &request.batch.blobs.versioned_hashes,
+                    &request.batch.leaves,
+                );
+            }
+            let id = JournalIdentity {
+                l1_chain_id: request.batch.snapshot.l1_chain_id,
+                l2_chain_id: request.batch.snapshot.l2_chain_id,
+                inbox: request.batch.snapshot.inbox,
+                registry: request.batch.snapshot.registry,
+                sender: Address::repeat_byte(5),
+            };
+            let state = JournalState::Prepared {
+                job: Box::new(ProvedJob { request, proof: Bytes::from_static(&[0]) }),
+            };
+            let bytes = serde_json::to_vec(
+                &serde_json::json!({ "version": JOURNAL_VERSION, "identity": id, "state": state }),
+            )
+            .unwrap();
+            let directory = tempfile::tempdir().unwrap();
+            let path = directory.path().join("lander-state.json");
+            std::fs::write(&path, &bytes).unwrap();
+            let error = Store::open(directory.path(), id).err().expect("tampered state rejected");
+            assert!(matches!(error, LanderError::Journal(_)), "{error}");
+            assert!(error.to_string().contains("starting validator state"), "{error}");
+            assert_eq!(std::fs::read(path).unwrap(), bytes);
+        }
+    }
+
     #[tokio::test]
     async fn legacy_pending_journal_retains_exact_signed_bytes_and_nonce_on_rejection() {
         let request = crate::test_utils::runtime::request();
@@ -579,7 +633,7 @@ mod tests {
         };
         let state =
             JournalState::Pending { job: Box::new(ProvedJob { request, proof }), transaction };
-        for version in [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13] {
+        for version in 2..=15 {
             let directory = tempfile::tempdir().unwrap();
             let bytes = serde_json::to_vec(
                 &serde_json::json!({ "version": version, "identity": id, "state": state }),
@@ -624,7 +678,7 @@ mod tests {
             Ok(_) => panic!("schema 10 must be rejected"),
         };
         assert!(
-            error.to_string().contains("incompatible journal schema 10 (expected 15)"),
+            error.to_string().contains("incompatible journal schema 10 (expected 16)"),
             "{error}"
         );
         assert_eq!(std::fs::read(&path).unwrap(), bytes);
@@ -804,6 +858,7 @@ mod tests {
                 .hash_slow(),
             B256::from_slice(large.batch.blocks[5].block.header.hash().as_bytes()),
             0,
+            crate::test_utils::runtime::val_states(&large.batch.start_val_state, 6)[6].hash(),
         )];
         let payload = codec::encode(&large.batch.blocks, &cap).unwrap();
         rebind(&mut large, &payload);

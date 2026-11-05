@@ -118,14 +118,24 @@ async fn tick(ctx: &LanderCtx, landed: &mut Landed) -> Result<()> {
             .get_block_by_number(BlockNumberOrTag::Number(target))
             .await?
             .with_context(|| format!("L2 block {target} missing"))?;
-        let comet_hash = if target == 0 {
-            alloy_primitives::B256::ZERO
+        // The start record holds Comet and validator-state hashes 0; a later record holds the
+        // node's own hashes, the validator state's as its app reports it (`/val_state`).
+        let (comet_hash, val_state_hash) = if target == 0 {
+            (alloy_primitives::B256::ZERO, alloy_primitives::B256::ZERO)
         } else {
             let value = ctx.cmt.call("block", &[("height", target.to_string())]).await?;
-            value["block_id"]["hash"].as_str().context("native Comet checkpoint hash")?.parse()?
+            let comet_hash =
+                value["block_id"]["hash"].as_str().context("native Comet checkpoint hash")?;
+            let preimage = ctx
+                .cmt
+                .abci_query(&format!("/val_state/{target}"))
+                .await?
+                .with_context(|| format!("the app rejects /val_state/{target}"))?;
+            (comet_hash.parse()?, alloy_primitives::keccak256(preimage))
         };
         let values = InboxValues {
             checkpoint_comet_hash: Some(comet_hash),
+            checkpoint_val_state_hash: Some(val_state_hash),
             last_checkpoint: Some((target, block.header.hash)),
             ..Default::default()
         };

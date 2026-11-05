@@ -183,6 +183,7 @@ fn snapshot(headers: &BTreeMap<u64, RawL1Header>) -> LandingSnapshot {
         checkpoint_height: 0,
         checkpoint_hash: B256::repeat_byte(1),
         checkpoint_comet_hash: B256::ZERO,
+        checkpoint_val_state_hash: B256::ZERO,
         forced_inclusion_head: 0,
         forced_inclusion_tail: 0,
         genesis: GenesisRecord {
@@ -421,7 +422,7 @@ async fn snapshot_reorg_retries_with_coherent_hash_pinned_header_and_proof() {
                 call["params"][2],
                 json!({"blockHash": snapshot.l1_block_hash, "requireCanonical": true})
             );
-            assert!(matches!(call["params"][1].as_array().unwrap().len(), 16 | 19));
+            assert!(matches!(call["params"][1].as_array().unwrap().len(), 16 | 20));
         }
         let raw =
             calls.iter().filter(|call| call["method"] == "debug_getRawHeader").collect::<Vec<_>>();
@@ -540,6 +541,42 @@ fn snapshot_decoding_returns_the_planted_forced_inclusion_head_and_tail() {
         let error = super::authenticate_snapshot(&claimed, &fixture.params).unwrap_err();
         assert!(matches!(error, LanderError::Safety(_)), "{error}");
     }
+}
+
+/// The start record holds validator-state hash 0 (STOR-B-9); a later record's word 4 is carried
+/// into the snapshot as stored.
+#[test]
+fn snapshot_decoding_requires_a_zero_validator_state_word_at_the_start() {
+    let decode = |planted: &LandingSnapshot, params: &ChainParams| {
+        super::decode_snapshot(
+            planted.l1_header.clone(),
+            planted.inbox_witness.clone(),
+            planted.l1_chain_id,
+            planted.l2_chain_id,
+            params,
+        )
+    };
+    let start = crate::test_utils::consensus_mpt::Fixture::new(0, 2);
+    let planted = start.snapshot_with_val_state_word(B256::repeat_byte(0x4e));
+    let error = decode(&planted, &start.params).unwrap_err();
+    assert!(matches!(error, LanderError::Safety(_)), "{error}");
+    let zero = start.snapshot_with_val_state_word(B256::ZERO);
+    assert_eq!(decode(&zero, &start.params).unwrap().checkpoint_val_state_hash, B256::ZERO);
+
+    let later = crate::test_utils::consensus_mpt::Fixture::new(6, 12);
+    assert_ne!(later.snapshot.checkpoint_val_state_hash, B256::ZERO);
+    assert_eq!(decode(&later.snapshot, &later.params).unwrap(), later.snapshot);
+    let planted = later.snapshot_with_val_state_word(B256::repeat_byte(0x4e));
+    assert_eq!(
+        decode(&planted, &later.params).unwrap().checkpoint_val_state_hash,
+        B256::repeat_byte(0x4e)
+    );
+    // The word is authenticated: a value beside the proof is a contradiction, not a hint.
+    let claimed = LandingSnapshot { checkpoint_val_state_hash: B256::repeat_byte(0x4f), ..planted };
+    assert!(matches!(
+        super::authenticate_snapshot(&claimed, &later.params),
+        Err(LanderError::Safety(_))
+    ));
 }
 
 #[test]

@@ -17,6 +17,7 @@ use abci::{
         witness::verify_anchor_witness,
     },
     rules::{HeaderInputs, expected_header},
+    valstate::ValState,
 };
 use alloy_consensus::{EMPTY_ROOT_HASH, Header};
 use alloy_eips::{BlockId, eip7685::EMPTY_REQUESTS_HASH};
@@ -64,6 +65,9 @@ pub struct FixtureChain {
     /// Exact admitted transaction bytes by queue index, carried whenever the anchor proves
     /// that entry pending; inclusion at position zero consumes it.
     pub forced_transactions: BTreeMap<u64, Bytes>,
+    /// The validator state after each height, indexed by height: the genesis state at 0, then
+    /// each block's updates as abci's app applies them, which `/val_state/<height>` serves.
+    pub val_states: Vec<ValState>,
 }
 
 impl FixtureChain {
@@ -77,6 +81,10 @@ impl FixtureChain {
             fixture.inbox,
         )?;
         let committee = AuthenticatedCommittee::new(fixture.committee.clone())?;
+        let genesis = ValState::genesis(
+            0,
+            &committee.state.members.iter().map(|m| (m.pubkey, m.power)).collect::<Vec<_>>(),
+        )?;
         Ok(Self {
             chain_id: abci::domain::chain_id(&abci::domain::DeploymentDomain {
                 l1_chain_id: fixture.params.l1_chain_id,
@@ -90,6 +98,7 @@ impl FixtureChain {
             anchors: vec![anchor],
             committees: BTreeMap::from([(0, committee)]),
             forced_transactions: BTreeMap::new(),
+            val_states: vec![genesis],
         })
     }
 
@@ -261,6 +270,14 @@ impl FixtureChain {
                 let epoch = derived.record.target_epoch;
                 self.committees.insert(epoch, AuthenticatedCommittee::new(derived)?);
             }
+            let updates = switch.map_or_else(Vec::new, |target| {
+                abci::committee::validator_updates(
+                    &self.committees[&schedule.epoch_of(height)].state.members,
+                    &self.committees[&target].state.members,
+                )
+            });
+            let val_state = self.val_states.last().expect("genesis state").advance(&updates)?;
+            self.val_states.push(val_state);
             self.blocks.push(pair);
             self.headers.push(header);
             self.anchors.push(facts.anchor);
@@ -307,6 +324,12 @@ impl FixtureChain {
             .find(|proof| proof.slot == inbox::slot(inbox::FORCED_INCLUSION_HEAD_TAIL))
             .expect("the snapshot proof covers the forced inclusion head/tail")
             .value;
+        let val_state_hash = inbox_witness
+            .storage
+            .iter()
+            .find(|proof| proof.slot == inbox::landing_slots(checkpoint.height.to())[3])
+            .expect("the snapshot proof covers the checkpoint record")
+            .value;
         let snapshot = LandingSnapshot {
             l1_block_hash: state.hash(),
             l1_block_number: state.number(),
@@ -330,6 +353,7 @@ impl FixtureChain {
                 )
             },
             checkpoint_hash: checkpoint.blockHash,
+            checkpoint_val_state_hash: val_state_hash.into(),
             forced_inclusion_head: word_u48(head_tail, 0),
             forced_inclusion_tail: word_u48(head_tail, 48),
             genesis: fixture.genesis.clone(),
@@ -347,6 +371,7 @@ impl FixtureChain {
             anchors: self.anchors[..=last as usize].to_vec(),
             committees: self.committees.clone(),
             forced_transactions: self.forced_transactions.clone(),
+            val_states: self.val_states[..=last as usize].to_vec(),
         });
         let adapter = Arc::new(FixtureLanding {
             chain: chain.clone(),
@@ -476,6 +501,19 @@ impl lander::comet::CometSource for FixtureChain {
             .get(height as usize - 1)
             .cloned()
             .ok_or_else(|| lander::error::LanderError::Unavailable("fixture block".into()))
+    }
+    /// As the app answers `/val_state/<height>`: grid heights above the origin 0 only.
+    async fn val_state(&self, height: u64) -> lander::error::Result<Vec<u8>> {
+        usize::try_from(height)
+            .ok()
+            .filter(|_| height > 0 && height.is_multiple_of(abci::GRID_INTERVAL))
+            .and_then(|height| self.val_states.get(height))
+            .map(ValState::encode)
+            .ok_or_else(|| {
+                lander::error::LanderError::Temporary(format!(
+                    "fixture app rejects the validator state query at {height}"
+                ))
+            })
     }
 }
 

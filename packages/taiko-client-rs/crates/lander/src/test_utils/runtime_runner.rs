@@ -144,6 +144,7 @@ impl Fixture {
             abci::EtnaEnvelope::decode(&pair.block.data[0]).unwrap().block.header.hash_slow();
         control.snapshot.checkpoint_comet_hash =
             B256::from_slice(pair.block.header.hash().as_bytes());
+        control.snapshot.checkpoint_val_state_hash = val_state_hash(&self.request, height);
     }
     fn mine(&self, transaction: &SignedTransaction, success: bool) {
         self.mine_using(transaction, success, 100_000);
@@ -597,6 +598,8 @@ async fn out_of_gas_count_resets_when_the_checkpoint_changes() {
         control.snapshot.checkpoint_hash = fixture.request.batch.snapshot.checkpoint_hash;
         control.snapshot.checkpoint_comet_hash =
             fixture.request.batch.snapshot.checkpoint_comet_hash;
+        control.snapshot.checkpoint_val_state_hash =
+            fixture.request.batch.snapshot.checkpoint_val_state_hash;
     }
     assert_eq!(land_out_of_gas(&fixture, &mut runner).await.unwrap(), StepOutcome::Rebuild);
     assert_eq!(fixture.control.lock().unwrap().signs, 2);
@@ -1195,6 +1198,7 @@ async fn v1_partial_checkpoint_advance_retains_signed_bytes_across_restart() {
                 .hash_slow();
         control.snapshot.checkpoint_comet_hash =
             B256::from_slice(fixture.request.batch.blocks[5].block.header.hash().as_bytes());
+        control.snapshot.checkpoint_val_state_hash = val_state_hash(&fixture.request, 6);
     }
     let mut runner = fixture.runner();
     assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
@@ -1244,7 +1248,7 @@ async fn v1_completed_settlement_keeps_pending_nonce_across_restart_until_canoni
 
 #[tokio::test]
 async fn v1_overlap_identity_mutations_preserve_signed_journal_and_stop_broadcast() {
-    for mutation in 0..4 {
+    for mutation in 0..5 {
         let fixture = Fixture::new();
         let mut runner = fixture.runner();
         runner.step().await.unwrap();
@@ -1260,6 +1264,7 @@ async fn v1_overlap_identity_mutations_preserve_signed_journal_and_stop_broadcas
                 1 => control.snapshot.checkpoint_comet_hash[0] ^= 1,
                 2 => control.snapshot.forced_inclusion_head += 1,
                 3 => control.helper_mismatch = true,
+                4 => control.snapshot.checkpoint_val_state_hash[0] ^= 1,
                 _ => unreachable!(),
             }
         }
@@ -1268,6 +1273,32 @@ async fn v1_overlap_identity_mutations_preserve_signed_journal_and_stop_broadcas
         assert_eq!(std::fs::read(&path).unwrap(), bytes);
         assert!(fixture.control.lock().unwrap().broadcasts.is_empty());
     }
+}
+
+/// The validator-state hash after `height` of `request`'s chain.
+fn val_state_hash(request: &ProofRequest, height: u64) -> B256 {
+    crate::test_utils::runtime::val_states(&request.batch.start_val_state, height as usize)
+        [height as usize]
+        .hash()
+}
+
+/// A landed checkpoint inside the job's interval is accepted only when its record, word 4
+/// included, recomputes the job's cut leaf at c; at the job's own parent height word 4 must be
+/// unchanged.
+#[test]
+fn overlap_recomputes_the_leaf_at_c_with_word_4() {
+    let fixture = Fixture::new();
+    let batch = &fixture.request.batch;
+    fixture.compete(6);
+    let current = fixture.control.lock().unwrap().snapshot.clone();
+    assert!(super::overlapping_frontier(&current, batch).unwrap());
+    let mut changed = current.clone();
+    changed.checkpoint_val_state_hash[31] ^= 1;
+    assert!(matches!(super::overlapping_frontier(&changed, batch), Err(LanderError::Safety(_))));
+    let mut parent = batch.snapshot.clone();
+    assert!(super::overlapping_frontier(&parent, batch).unwrap());
+    parent.checkpoint_val_state_hash[31] ^= 1;
+    assert!(matches!(super::overlapping_frontier(&parent, batch), Err(LanderError::Safety(_))));
 }
 
 #[tokio::test]

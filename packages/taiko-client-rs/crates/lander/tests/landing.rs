@@ -144,6 +144,23 @@ async fn assert_landed(
         fixture.checkpoint().await?,
         (request.batch.input.lastHeight.to(), request.batch.input.lastBlockHash)
     );
+    // The landed record holds the terminal EL, Comet and validator-state hashes (STOR-B-9).
+    let record = view(
+        p,
+        fixture.inbox,
+        EtnaInbox::landingsCall { _height: request.batch.input.lastHeight },
+        None,
+    )
+    .await?;
+    assert_eq!(
+        (record.elHash, record.cometHash, record.valStateHash),
+        (
+            request.batch.input.lastBlockHash,
+            request.batch.input.lastCometHash,
+            request.batch.input.lastValStateHash
+        )
+    );
+    assert_ne!(record.valStateHash, B256::ZERO);
     let saved = view(
         p,
         fixture.signal,
@@ -424,6 +441,25 @@ async fn lander_competing_sender_partial_progress_keeps_original_signed_batch() 
     other.broadcast(&tx).await?;
     assert!(receipt(&fixture.anvil.provider, tx.hash).await?.status());
     assert_eq!(fixture.checkpoint().await?.0, 6);
+    // The original's leaf at 6 recomputes from c's record, its validator-state word included.
+    let at_c = view(
+        &fixture.anvil.provider,
+        fixture.inbox,
+        EtnaInbox::landingsCall { _height: U256::from(6) },
+        None,
+    )
+    .await?;
+    assert_eq!(at_c.valStateHash, prefix.batch.input.lastValStateHash);
+    assert_eq!(
+        original.batch.leaves[0],
+        lander::statement::cut_leaf(
+            6,
+            at_c.elHash,
+            at_c.cometHash,
+            at_c.head.to::<u64>(),
+            at_c.valStateHash
+        )
+    );
     fixture.expect_statement(original.batch.statement_hash).await?;
     transport(&fixture)?.broadcast(&signed).await?;
     let landed = receipt(&fixture.anvil.provider, signed.hash).await?;
