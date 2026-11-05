@@ -11,6 +11,9 @@ use crate::{AccountWitness, RawL1Header, l1::layout::inbox, recovery::RecoveryWi
 
 use super::TestState;
 
+/// The landing heights searched for proven slot 285 records, beyond every fixture checkpoint.
+const LANDING_HEIGHTS: u64 = 1_000;
+
 #[test]
 #[ignore = "manual fixture regeneration"]
 fn regenerate_cli_recovery_fixtures() {
@@ -58,6 +61,18 @@ fn regenerate_cli_recovery_fixtures() {
                     !slots.contains(&inbox::slot(inbox::RULES_SCHEDULE))
                 {
                     slots.push(inbox::slot(inbox::RULES_SCHEDULE));
+                }
+                // Slot 285 records have four words (STOR-B-9): a record proven with all three
+                // older words is proven with its fourth too. A partly proven record stays so.
+                if proof.address == inbox_address {
+                    for height in 0..=LANDING_HEIGHTS {
+                        let [packed, el, comet, val_state] = inbox::landing_slots(height);
+                        if [packed, el, comet].iter().all(|word| slots.contains(word)) &&
+                            !slots.contains(&val_state)
+                        {
+                            slots.push(val_state);
+                        }
+                    }
                 }
                 account["proof"] = serde_json::to_value(Bytes::from(alloy_rlp::encode(
                     state.witness(proof.address, &slots),

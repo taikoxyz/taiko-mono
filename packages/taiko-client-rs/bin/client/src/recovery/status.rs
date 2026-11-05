@@ -285,7 +285,8 @@ pub(super) fn record_observation(
         committed.is_some_and(|head| head.height >= landing.target.height) &&
         (target.height != landing.target.height ||
             (target.hash == landing.target.hash &&
-                target.comet_hash == landing.target.comet_hash));
+                target.comet_hash == landing.target.comet_hash &&
+                target.val_state_hash == landing.target.val_state_hash));
     journal.progress = Some(ActivationProgress {
         session_id: session.into(),
         trusted,

@@ -258,6 +258,7 @@ async fn recovery_activation_trust_requires_exact_private_session_and_settlement
         height: o.height,
         hash: o.el_hash,
         comet_hash: o.comet_hash,
+        val_state_hash: o.val_state_hash,
         generation: o.generation,
         inbox: plan.deployment.inbox,
     };

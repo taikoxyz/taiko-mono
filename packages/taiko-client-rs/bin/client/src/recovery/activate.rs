@@ -250,12 +250,14 @@ pub(super) async fn finalized_landing<L: abci::L1Source + ?Sized>(
         let packed = words.get(slots[0]).ok_or(RecoveryCommandError::Invalid)?;
         let hash = B256::from(words.get(slots[1]).ok_or(RecoveryCommandError::Invalid)?);
         let comet_hash = B256::from(words.get(slots[2]).ok_or(RecoveryCommandError::Invalid)?);
+        let val_state_hash = B256::from(words.get(slots[3]).ok_or(RecoveryCommandError::Invalid)?);
         let landing_generation = word_u48(packed, 48);
         let parent = word_u48(packed, 0);
         let o = &plan.origin;
         let retained = facts.last_checkpoint_height == o.height &&
             hash == o.el_hash &&
             comet_hash == o.comet_hash &&
+            val_state_hash == o.val_state_hash &&
             word_u48(packed, 96) == o.forced_cursor &&
             landing_generation < o.generation;
         if hash != facts.last_checkpoint_hash ||
@@ -263,7 +265,8 @@ pub(super) async fn finalized_landing<L: abci::L1Source + ?Sized>(
             packed >> 144 != U256::ZERO ||
             word_u48(packed, 96) != facts.forced_inclusion_head ||
             (landing_generation != o.generation && !retained) ||
-            (facts.last_checkpoint_height == 0 && (parent != 0 || !comet_hash.is_zero())) ||
+            (facts.last_checkpoint_height == 0 &&
+                (parent != 0 || !comet_hash.is_zero() || !val_state_hash.is_zero())) ||
             (facts.last_checkpoint_height > 0 &&
                 (parent >= facts.last_checkpoint_height || comet_hash.is_zero()))
         {
@@ -283,6 +286,7 @@ pub(super) async fn finalized_landing<L: abci::L1Source + ?Sized>(
                 height: facts.last_checkpoint_height,
                 hash,
                 comet_hash,
+                val_state_hash,
                 generation: facts.recovery_generation,
                 inbox: params.inbox,
             },
