@@ -10,9 +10,15 @@
 //! CometBFT's `/validators` RPC is not a reference for this state: away from the heights it
 //! stores in full, it rebuilds a set with one `IncrementProposerPriority(k)`, which rescales
 //! once where the live state rescales at every height.
+//!
+//! [`ValState::encode`] is the state's ENC-A-29a preimage, [`ValState::hash`] its
+//! `valStateHash` and [`ValState::decode`] the inverse of `encode`.
 
-use crate::key::ConsensusKey;
-use alloy_primitives::Address;
+use crate::{
+    committee::{tag, word},
+    key::ConsensusKey,
+};
+use alloy_primitives::{Address, B256, keccak256};
 use serde::{Deserialize, Serialize};
 
 /// CometBFT's `MaxTotalVotingPower`, `MaxInt64 / 8`: the largest power and total power.
@@ -20,6 +26,15 @@ const MAX_TOTAL_VOTING_POWER: i64 = i64::MAX / 8;
 
 /// CometBFT's `PriorityWindowSizeFactor`: priorities are rescaled into `2 · total power`.
 const PRIORITY_WINDOW_SIZE_FACTOR: i64 = 2;
+
+/// `bytes32("ETNA_VAL_STATE_V1")`: the domain tag of the validator-state preimage.
+const VAL_STATE_TAG: B256 = tag(b"ETNA_VAL_STATE_V1");
+
+/// The preimage's head words: the tag, the height, and an offset and a proposer index per set.
+const HEAD_WORDS: usize = 6;
+
+/// The ABI words of one `ValEntry`: ckPrefix, ckX, votingPower and proposerPriority.
+const ENTRY_WORDS: usize = 4;
 
 /// One validator of a set: its key, voting power and proposer priority.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -55,8 +70,9 @@ pub struct ValState {
     pub next: ValSet,
 }
 
-/// A change set or genesis CometBFT v0.40.0 rejects. CometBFT halts on each of these, so the
-/// caller, which produced the updates, must treat them as safety halts.
+/// A change set or genesis CometBFT v0.40.0 rejects, or a preimage [`ValState::decode`]
+/// rejects. CometBFT halts on each change-set and genesis error, so the caller, which produced
+/// the updates, must treat them as safety halts.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ValStateError {
     /// Two changes name the same validator.
@@ -99,6 +115,10 @@ pub enum ValStateError {
         /// The member's key.
         key: ConsensusKey,
     },
+    /// The bytes are not a preimage [`ValState::decode`] accepts; the text names the violation
+    /// found.
+    #[error("malformed validator-state preimage: {0}")]
+    Malformed(&'static str),
 }
 
 impl ValState {
@@ -141,6 +161,127 @@ impl ValState {
             next: next.into_val_set(proposer),
         })
     }
+
+    /// The ENC-A-29a preimage: `abi.encode(bytes32("ETNA_VAL_STATE_V1"), uint256(height),
+    /// current, uint256(current.proposer), next, uint256(next.proposer))`, each set an
+    /// `(uint8 ckPrefix, bytes32 ckX, uint64 votingPower, int64 proposerPriority)[]`. A power
+    /// is written as its 64 bits, so only states with positive powers, as [`Self::genesis`]
+    /// and [`Self::advance`] build, decode back.
+    pub fn encode(&self) -> Vec<u8> {
+        let set_words = |set: &ValSet| 1 + ENTRY_WORDS * set.entries.len();
+        let next_offset = 32 * (HEAD_WORDS + set_words(&self.current));
+        let mut out = Vec::with_capacity(next_offset + 32 * set_words(&self.next));
+        let mut push = |w: B256| out.extend_from_slice(w.as_slice());
+        push(VAL_STATE_TAG);
+        push(word(self.height));
+        push(word(32 * HEAD_WORDS));
+        push(word(self.current.proposer));
+        push(word(next_offset));
+        push(word(self.next.proposer));
+        for set in [&self.current, &self.next] {
+            push(word(set.entries.len()));
+            for e in &set.entries {
+                push(word(e.key.prefix()));
+                push(e.key.x());
+                push(word(e.power as u64));
+                push(int64_word(e.priority));
+            }
+        }
+        out
+    }
+
+    /// ENC-A-29a's `valStateHash`: the keccak256 of [`Self::encode`].
+    pub fn hash(&self) -> B256 {
+        keccak256(self.encode())
+    }
+
+    /// The state whose [`Self::encode`] is exactly `bytes`. Each key must be a valid
+    /// compressed secp256k1 point and each power a positive int64; each set must be in
+    /// CometBFT order, power descending and then address ascending, without a repeated
+    /// validator, and its proposer index must lie within it. Anything else is
+    /// [`ValStateError::Malformed`].
+    pub fn decode(bytes: &[u8]) -> Result<Self, ValStateError> {
+        let (words, []) = bytes.as_chunks::<32>() else {
+            return Err(ValStateError::Malformed("not a whole number of words"));
+        };
+        let Some((head, mut rest)) = words.split_first_chunk::<HEAD_WORDS>() else {
+            return Err(ValStateError::Malformed("truncated head"));
+        };
+        // The high bytes of every word, the tag and the offsets are checked by re-encoding.
+        let state = Self {
+            height: low_u64(&head[1]),
+            current: decode_set(&mut rest, low_u64(&head[3]))?,
+            next: decode_set(&mut rest, low_u64(&head[5]))?,
+        };
+        if state.encode() != bytes {
+            return Err(ValStateError::Malformed("not the canonical encoding"));
+        }
+        Ok(state)
+    }
+}
+
+/// Reads one set's array (its length, then its entries) from the front of `rest`, and checks
+/// the entries and the `proposer` index as [`ValState::decode`] describes. Only the low eight
+/// bytes of each integer word are read; the caller's re-encoding checks the rest.
+fn decode_set(rest: &mut &[[u8; 32]], proposer: u64) -> Result<ValSet, ValStateError> {
+    let (length, tail) = rest.split_first().ok_or(ValStateError::Malformed("truncated set"))?;
+    let len = usize::try_from(low_u64(length))
+        .ok()
+        .filter(|&len| len <= tail.len() / ENTRY_WORDS)
+        .ok_or(ValStateError::Malformed("set runs past the end"))?;
+    let (entries, after) = tail.split_at(len * ENTRY_WORDS);
+    *rest = after;
+    let entries = entries
+        .as_chunks::<ENTRY_WORDS>()
+        .0
+        .iter()
+        .map(|[prefix, x, power, priority]| {
+            let mut key = [0u8; 33];
+            key[0] = prefix[31];
+            key[1..].copy_from_slice(x);
+            let key = ConsensusKey::from_slice(&key)
+                .map_err(|_| ValStateError::Malformed("invalid consensus key"))?;
+            let power = i64::from_be_bytes(low_bytes(power));
+            if power <= 0 {
+                return Err(ValStateError::Malformed("voting power is not a positive int64"));
+            }
+            Ok(ValEntry { key, power, priority: i64::from_be_bytes(low_bytes(priority)) })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut addresses: Vec<Address> = entries.iter().map(|e| e.key.address()).collect();
+    let in_order = entries
+        .windows(2)
+        .zip(addresses.windows(2))
+        .all(|(e, a)| e[0].power > e[1].power || (e[0].power == e[1].power && a[0] < a[1]));
+    if !in_order {
+        return Err(ValStateError::Malformed("set is not in CometBFT order"));
+    }
+    addresses.sort_unstable();
+    if addresses.windows(2).any(|a| a[0] == a[1]) {
+        return Err(ValStateError::Malformed("repeated validator"));
+    }
+    let proposer = usize::try_from(proposer)
+        .ok()
+        .filter(|&p| p < entries.len())
+        .ok_or(ValStateError::Malformed("proposer index outside the set"))?;
+    Ok(ValSet { entries, proposer })
+}
+
+/// An `int64` ABI word: `value` sign-extended to 32 bytes, big-endian.
+fn int64_word(value: i64) -> B256 {
+    let mut out = [if value < 0 { 0xff } else { 0 }; 32];
+    out[24..].copy_from_slice(&value.to_be_bytes());
+    B256::new(out)
+}
+
+/// The low eight bytes of an ABI word.
+fn low_bytes(word: &[u8; 32]) -> [u8; 8] {
+    *word.last_chunk().expect("a word has 32 bytes")
+}
+
+/// The low eight bytes of an ABI word as an unsigned integer.
+fn low_u64(word: &[u8; 32]) -> u64 {
+    u64::from_be_bytes(low_bytes(word))
 }
 
 /// Go's `Validator` during the arithmetic, with the secp256k1eth address that orders sets and
@@ -371,10 +512,12 @@ fn safe_sub_clip(a: i64, b: i64) -> i64 {
     a.saturating_sub(b)
 }
 
-/// `processChanges`: sorts copies of the changes by address (stably), rejects a repeated
-/// address, a negative power or one above `MaxTotalVotingPower` in that order, and splits the
-/// rest into updates and zero-power removals. A `u64` power reaches CometBFT as protobuf int64,
-/// the same 64 bits, so 2^63 and above are negative.
+/// `processChanges`: sorts copies of the changes by address, scans them for a repeated
+/// address, a negative power or one above `MaxTotalVotingPower`, and splits the rest into
+/// updates and zero-power removals. A `u64` power reaches CometBFT as protobuf int64, the same
+/// 64 bits, so 2^63 and above are negative. Go's `sort.Sort` is not stable, so when a repeated
+/// address also carries an invalid power, Go may report a different one of these errors; both
+/// reject the change set.
 fn process_changes(
     changes: &[(ConsensusKey, u64)],
 ) -> Result<(Vec<Validator>, Vec<Validator>), ValStateError> {
@@ -460,7 +603,7 @@ fn verify_removals(deletes: &[Validator], vals: &ValidatorSet) -> Result<i64, Va
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_primitives::hex;
+    use alloy_primitives::{b256, hex};
     use serde::Deserialize;
 
     #[derive(Deserialize)]
@@ -592,6 +735,7 @@ mod tests {
                     "Cannot create validator set: cannot process validators with voting power 0",
                 ) && names(key)
             }
+            ValStateError::Malformed(_) => false,
         }
     }
 
@@ -698,6 +842,141 @@ mod tests {
                     }
                 }
             }
+        }
+    }
+
+    /// The state of `validator_states[0]` (`ENC-A-29a.l`) in the protocol's schema-6
+    /// `testdata/etna_vectors/vectors.json`, with its two keys.
+    fn shared_vector_state() -> (ValState, ConsensusKey, ConsensusKey) {
+        let key = |prefix: u8, x: B256| {
+            ConsensusKey::from_slice(&[&[prefix][..], x.as_slice()].concat()).unwrap()
+        };
+        let k1 =
+            key(2, b256!("0x0000000000000000000000000000000000000000000000000000000000000001"));
+        let k2 =
+            key(3, b256!("0x0000000000000000000000000000000000000000000000000000000000000002"));
+        let entry = |key, priority| ValEntry { key, power: 10, priority };
+        let state = ValState {
+            height: 6,
+            current: ValSet { entries: vec![entry(k1, -5), entry(k2, 5)], proposer: 1 },
+            next: ValSet { entries: vec![entry(k1, 5), entry(k2, -5)], proposer: 0 },
+        };
+        (state, k1, k2)
+    }
+
+    #[test]
+    fn hash_matches_the_shared_enc_a_29a_vector() {
+        let (mut state, ..) = shared_vector_state();
+        // The vector's `preimage`, one ABI word per line.
+        let preimage = hex!(
+            "0x45544e415f56414c5f53544154455f5631000000000000000000000000000000"
+            "0x0000000000000000000000000000000000000000000000000000000000000006"
+            "0x00000000000000000000000000000000000000000000000000000000000000c0"
+            "0x0000000000000000000000000000000000000000000000000000000000000001"
+            "0x00000000000000000000000000000000000000000000000000000000000001e0"
+            "0x0000000000000000000000000000000000000000000000000000000000000000"
+            "0x0000000000000000000000000000000000000000000000000000000000000002"
+            "0x0000000000000000000000000000000000000000000000000000000000000002"
+            "0x0000000000000000000000000000000000000000000000000000000000000001"
+            "0x000000000000000000000000000000000000000000000000000000000000000a"
+            "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffb"
+            "0x0000000000000000000000000000000000000000000000000000000000000003"
+            "0x0000000000000000000000000000000000000000000000000000000000000002"
+            "0x000000000000000000000000000000000000000000000000000000000000000a"
+            "0x0000000000000000000000000000000000000000000000000000000000000005"
+            "0x0000000000000000000000000000000000000000000000000000000000000002"
+            "0x0000000000000000000000000000000000000000000000000000000000000002"
+            "0x0000000000000000000000000000000000000000000000000000000000000001"
+            "0x000000000000000000000000000000000000000000000000000000000000000a"
+            "0x0000000000000000000000000000000000000000000000000000000000000005"
+            "0x0000000000000000000000000000000000000000000000000000000000000003"
+            "0x0000000000000000000000000000000000000000000000000000000000000002"
+            "0x000000000000000000000000000000000000000000000000000000000000000a"
+            "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffb"
+        );
+        assert_eq!(state.encode(), preimage);
+        assert_eq!(ValState::decode(&preimage), Ok(state.clone()));
+        assert_eq!(
+            state.hash(),
+            b256!("0x368f341ba9eb8b6d6cadbd5b944daed7ed417b273d1257911a7fd18320f2a81b")
+        );
+        // `changed_current_proposer_hash` and `changed_next_proposer_hash`: the other index.
+        state.current.proposer = 0;
+        assert_eq!(
+            state.hash(),
+            b256!("0x588b4676269a2f51fc3310c20ad915828ec9ae5bb9f3099c4be43054b6429e1b")
+        );
+        state.current.proposer = 1;
+        state.next.proposer = 1;
+        assert_eq!(
+            state.hash(),
+            b256!("0x2c7893e7eadea5b4bb0d1bbf7e70f38db98775a52a5a6b46e809e25181bb387e")
+        );
+    }
+
+    #[test]
+    fn encode_decode_round_trips_every_go_vector_state() {
+        let vectors = vectors();
+        let mut states = 0;
+        for case in &vectors.cases {
+            for state in replay(&vectors.keys, case).into_iter().flatten() {
+                let bytes = state.encode();
+                let entries = state.current.entries.len() + state.next.entries.len();
+                assert_eq!(bytes.len(), 32 * (8 + 4 * entries), "{}", case.name);
+                assert_eq!(ValState::decode(&bytes), Ok(state.clone()), "{}", case.name);
+                assert_eq!(state.hash(), keccak256(&bytes), "{}", case.name);
+                states += 1;
+            }
+        }
+        assert!(states > 100, "only {states} states");
+    }
+
+    #[test]
+    fn decode_rejects_non_canonical_bytes() {
+        let (state, k1, _) = shared_vector_state();
+        let bytes = state.encode();
+        // Word indexes: the head is 0..6, the current length 6, current entry i's ckPrefix,
+        // ckX, votingPower and proposerPriority 7 + 4i..11 + 4i.
+        let with_word = |index: usize, value: B256| {
+            let mut out = bytes.clone();
+            out[32 * index..32 * (index + 1)].copy_from_slice(value.as_slice());
+            out
+        };
+        let with_state = |edit: &dyn Fn(&mut ValState)| {
+            let mut edited = state.clone();
+            edit(&mut edited);
+            edited.encode()
+        };
+        let mut trailing_byte = bytes.clone();
+        trailing_byte.push(0);
+        let trailing_word = [&bytes[..], &[0; 32]].concat();
+        let cases = [
+            ("wrong tag", with_word(0, tag(b"ETNA_VAL_STATE_V2"))),
+            ("wrong current offset", with_word(2, word(0xe0))),
+            ("wrong next offset", with_word(4, word(0x1e0 + 32))),
+            ("trailing byte", trailing_byte),
+            ("trailing word", trailing_word),
+            ("truncated", bytes[..bytes.len() - 32].to_vec()),
+            ("huge length", with_word(6, B256::repeat_byte(0xff))),
+            ("unsorted pair", with_state(&|s| s.current.entries.swap(0, 1))),
+            (
+                "duplicate key",
+                with_state(&|s| s.current.entries[1] = ValEntry { key: k1, power: 9, priority: 0 }),
+            ),
+            ("prefix byte 4", with_word(7, word(4))),
+            ("power 0", with_state(&|s| s.current.entries[1].power = 0)),
+            ("power above int64", with_word(9, word(u64::MAX))),
+            ("current proposer index = len", with_state(&|s| s.current.proposer = 2)),
+            ("next proposer index = len", with_state(&|s| s.next.proposer = 2)),
+            // current[0]'s priority -5 zero-extended, as a uint64 would be written.
+            ("priority not sign-extended", with_word(10, word((-5i64) as u64))),
+        ];
+        for (name, bytes) in cases {
+            assert!(
+                matches!(ValState::decode(&bytes), Err(ValStateError::Malformed(_))),
+                "{name}: {:?}",
+                ValState::decode(&bytes)
+            );
         }
     }
 

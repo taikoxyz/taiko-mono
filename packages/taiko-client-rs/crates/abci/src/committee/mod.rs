@@ -542,7 +542,7 @@ fn set_node(l2_chain_id: u64, k: u64, left: B256, right: B256) -> B256 {
 }
 
 /// One `abi.encode` word: the unsigned integer `value` left-padded to 32 bytes, big-endian.
-fn word<T>(value: T) -> B256
+pub(crate) fn word<T>(value: T) -> B256
 where
     U256: UintTryFrom<T>,
 {
@@ -550,7 +550,7 @@ where
 }
 
 /// A `bytes32` domain tag: the ASCII `name`, right-padded with zero bytes (at most 32 bytes).
-const fn tag(name: &[u8]) -> B256 {
+pub(crate) const fn tag(name: &[u8]) -> B256 {
     let mut out = [0u8; 32];
     let mut i = 0;
     while i < name.len() {
