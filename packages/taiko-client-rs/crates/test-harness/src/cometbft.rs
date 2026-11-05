@@ -241,13 +241,19 @@ impl CmtClient {
 
     /// `abci_query` of `path`: the value when the app answers code 0, `None` otherwise.
     pub async fn abci_query(&self, path: &str) -> Result<Option<Vec<u8>>> {
+        Ok(self.abci_answer(path).await?.ok())
+    }
+
+    /// `abci_query` of `path`: the value when the app answers code 0, otherwise the app's
+    /// refusal log.
+    pub async fn abci_answer(&self, path: &str) -> Result<std::result::Result<Vec<u8>, String>> {
         let result = self.call("abci_query", &[("path", format!("\"{path}\""))]).await?;
         let response = &result["response"];
         if response["code"].as_u64().unwrap_or(0) != 0 {
-            return Ok(None);
+            return Ok(Err(response["log"].as_str().unwrap_or_default().to_string()));
         }
         let value = response["value"].as_str().unwrap_or_default();
-        Ok(Some(STANDARD.decode(value)?))
+        Ok(Ok(STANDARD.decode(value)?))
     }
 
     /// The app's `/status`.

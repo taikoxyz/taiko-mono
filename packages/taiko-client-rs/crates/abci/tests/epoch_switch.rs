@@ -21,44 +21,69 @@ async fn validator_set(
     Ok(set.into_iter().map(|v| (v.pubkey, v.power)).collect())
 }
 
+/// How long the app may refuse `/val_state/<g>` while its `/status` reports `g` retained
+/// (`floor <= g <= head`) before [`read_grid_val_states`] fails with the app's reason.
+const REFUSAL_DEADLINE: Duration = Duration::from_secs(10);
+
+/// How long [`read_grid_val_states`] may take to read every grid state: several times the
+/// scenario's usual minute, and under the integration profile's ten-minute kill, so a stalled
+/// read fails with its own reason.
+const READ_DEADLINE: Duration = Duration::from_secs(300);
+
 /// Reads the app's `/val_state/<g>` for every grid height `g` up to `through` while the app
 /// still retains it. Each checkpoint the fake lander lands raises the retention floor and
 /// prunes the states below it, so the task reads each grid state as soon as it is committed
-/// and fails if the floor passes one first.
+/// and fails if the floor passes one first, if a retained one stays refused for
+/// [`REFUSAL_DEADLINE`], or if the reads outlast [`READ_DEADLINE`].
 fn read_grid_val_states(
     cmt: CmtClient,
     through: u64,
 ) -> JoinHandle<anyhow::Result<BTreeMap<u64, ValState>>> {
     tokio::spawn(async move {
+        let started = Instant::now();
         let mut served = BTreeMap::new();
         let mut next = GRID_INTERVAL;
+        // Since when the app has refused `next` while reporting it retained.
+        let mut refused_since = None;
         while next <= through {
-            let read = match cmt.abci_status().await {
+            anyhow::ensure!(
+                started.elapsed() < READ_DEADLINE,
+                "/val_state/{next} was not read within {READ_DEADLINE:?}"
+            );
+            match cmt.abci_status().await {
+                Ok(status) if next > status.head => refused_since = None,
                 Ok(status) => {
+                    let floor = status.last_checkpoint_height;
                     anyhow::ensure!(
-                        next >= status.last_checkpoint_height,
-                        "/val_state/{next} was not served before the floor rose to {}",
-                        status.last_checkpoint_height
+                        next >= floor,
+                        "/val_state/{next} was not served before the floor rose to {floor}"
                     );
-                    if next > status.head {
-                        Ok(None)
-                    } else {
-                        // A refusal here means the floor just passed `next`; the next status
-                        // read reports it.
-                        cmt.abci_query(&format!("/val_state/{next}")).await
+                    match cmt.abci_answer(&format!("/val_state/{next}")).await {
+                        Ok(Ok(preimage)) => {
+                            let state = ValState::decode(&preimage)?;
+                            anyhow::ensure!(
+                                state.height == next,
+                                "/val_state/{next} holds another height"
+                            );
+                            served.insert(next, state);
+                            next += GRID_INTERVAL;
+                            refused_since = None;
+                            continue;
+                        }
+                        // One refusal can mean the floor just passed `next`, which the next
+                        // status read reports; a lasting one is the app's failure.
+                        Ok(Err(log)) => {
+                            let since = *refused_since.get_or_insert_with(Instant::now);
+                            anyhow::ensure!(
+                                since.elapsed() < REFUSAL_DEADLINE,
+                                "/val_state/{next} refused for {REFUSAL_DEADLINE:?} while \
+                                 retained ({floor}..={}): {log}",
+                                status.head
+                            );
+                        }
+                        Err(error) => eprintln!("reading /val_state/{next}: {error:#}"),
                     }
                 }
-                Err(error) => Err(error),
-            };
-            match read {
-                Ok(Some(preimage)) => {
-                    let state = ValState::decode(&preimage)?;
-                    anyhow::ensure!(state.height == next, "/val_state/{next} holds another height");
-                    served.insert(next, state);
-                    next += GRID_INTERVAL;
-                    continue;
-                }
-                Ok(None) => {}
                 Err(error) => eprintln!("reading /val_state/{next}: {error:#}"),
             }
             tokio::time::sleep(Duration::from_millis(250)).await;
@@ -80,8 +105,12 @@ async fn epoch_switch_adds_the_joining_validator() -> anyhow::Result<()> {
     };
     let devnet = Devnet::start(spec.clone()).await?;
     eprintln!("devnet {} up after {:?}", devnet.id(), started.elapsed());
-    // The grid validator states of the scanned heights below `last` (31), read before pruning.
-    let served = read_grid_val_states(devnet.cmt(0).clone(), 30);
+    // Literal canonical L=20 boundaries of target epoch 1; never derive expected activation
+    // from the code under test. The scan covers the heights below `last`.
+    let (derivation, switch, h_first) = (18, 19, 21);
+    let last = h_first + 10;
+    // The grid validator states of the scanned heights, read before pruning.
+    let served = read_grid_val_states(devnet.cmt(0).clone(), last - 1);
     let schedule = devnet.schedule();
     let keys = devnet.keys();
     let stake = devnet.registry_entry(0).eff_stake;
@@ -106,8 +135,6 @@ async fn epoch_switch_adds_the_joining_validator() -> anyhow::Result<()> {
 
     // The joined entry is visible when the committed derivation parent covers its L1 block.
     let t = 1;
-    // Literal canonical L=20 boundaries; never derive expected activation from the code under test.
-    let (derivation, switch, h_first) = (18, 19, 21);
     assert_eq!(schedule.h_first(t), h_first);
     assert_eq!(schedule.derivation_parent_height(t), Some(derivation));
     assert_eq!(schedule.switch_target(switch), Some(t));
@@ -137,7 +164,6 @@ async fn epoch_switch_adds_the_joining_validator() -> anyhow::Result<()> {
     assert_eq!(committee.record.total_power, 3 * power);
 
     // Past the switch height and h_first(t), with canonical commits for a few heights of epoch t.
-    let last = h_first + 10;
     assert!(last < schedule.h_first(t + 1), "scan stays within epoch 1");
     devnet.wait_for_height(0, last, Duration::from_secs(120)).await?;
     eprintln!("height {last} after {:?}", started.elapsed());
