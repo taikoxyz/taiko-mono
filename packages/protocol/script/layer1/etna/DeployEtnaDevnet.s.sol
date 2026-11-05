@@ -53,9 +53,8 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// [6, 65,532]); FORCED_INCLUSION_DELAY (seconds, non-zero); MAX_ANCHOR_AGE (seconds, at least
 /// 1152).
 /// The script checks only SIGNAL_SERVICE's and ETNA_PROOF_VERIFIER's code and L1_CHAIN_ID itself;
-/// the constructors
-/// and `init` check the other bounds listed above, so a logged owner call is validated when the
-/// owner sends it. Nothing on chain checks the rest, which the operator must ensure:
+/// the constructors and `init` check the other bounds listed above, so a logged owner call is
+/// validated when the owner sends it. Nothing on chain checks the rest, which the operator must ensure:
 /// MAX_ANCHOR_AGE above the L1 finality delay (spec 11), REGISTRY_WITHDRAWAL_DELAY no shorter
 /// than the double-sign evidence window (spec 11 suggests at least 50,400 L1 blocks, about 7 days;
 /// a shorter delay lets a double signer withdraw before the evidence reaches L1), genesis values

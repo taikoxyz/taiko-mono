@@ -94,7 +94,7 @@ contract EtnaGenesisTest is Test {
                 "\"SignalServiceImpl\":\"0x0167001000000000000000000000000000000005\"}}"
             )
         );
-        string[] memory command = new string[](10);
+        string[] memory command = new string[](12);
         command[0] = "python3";
         command[1] = "script/layer2/build_etna_genesis.py";
         command[2] = "--base";
@@ -103,8 +103,10 @@ contract EtnaGenesisTest is Test {
         command[5] = _path("predeploys");
         command[6] = "--predeploy-config";
         command[7] = _path("config");
-        command[8] = "--output";
-        command[9] = _path("genesis");
+        command[8] = "--l1-signal-service";
+        command[9] = "0x00000000000000000000000000000000000000aa";
+        command[10] = "--output";
+        command[11] = _path("genesis");
         vm.ffi(command);
         genesis_ = vm.readFile(_path("genesis"));
         _install(genesis_, _ROOTS);

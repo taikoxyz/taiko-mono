@@ -77,4 +77,7 @@ async function main() {
     console.log(`config JSON saved to ${configJsonSavedPath}`);
 }
 
-main().catch(console.error);
+main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+});

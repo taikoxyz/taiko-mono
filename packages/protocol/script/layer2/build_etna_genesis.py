@@ -8,8 +8,11 @@ the canonical EIP-4788 and EIP-2935 system contracts.
 
 The predeploy configuration must give the Anchor `etnaTimestamp` 0x0: on a new network every block
 is an Etna block, and an Anchor without that gate keeps `anchorV4` callable with the public golden
-touch key, which would let anyone save a forged L1 checkpoint. It must also name the L1
-SignalService that `SignalServiceL2` proves against.
+touch key, which would let anyone save a forged L1 checkpoint. Its `remoteSignalService` must be
+the deployed L1 SignalService passed as `--l1-signal-service`, which `SignalServiceL2` proves
+against. Predeploy accounts are reduced to the fields execution clients accept (balance, nonce,
+code, storage), dropping the generator's `contractName`, with storage keys and values written as
+32-byte words.
 """
 
 import argparse
@@ -28,6 +31,10 @@ HISTORY_RUNTIME = "0x3373fffffffffffffffffffffffffffffffffffffffe146046576020360
 # Predeploys the Etna root path depends on: the Anchor gates anchorV4 and resolves L1 state roots,
 # and SignalServiceL2 proves L1 signals against them.
 REQUIRED_PREDEPLOYS = ("TaikoAnchor", "TaikoAnchorImpl", "SignalService", "SignalServiceImpl")
+# Genesis account fields execution clients accept; alethia-reth rejects any other key.
+ACCOUNT_FIELDS = ("balance", "nonce", "code", "storage")
+# Generator bookkeeping that is not part of the account.
+GENERATOR_FIELDS = ("contractName",)
 
 
 def address(value):
@@ -38,6 +45,34 @@ def address(value):
     if not re.fullmatch(r"[0-9a-f]{40}", value):
         raise ValueError("alloc addresses must contain exactly 20 hex bytes")
     return "0x" + value
+
+
+def word(value, label):
+    """Normalize a hex quantity of at most 32 bytes to a 0x-prefixed 32-byte word."""
+    if not isinstance(value, str) or not re.fullmatch(r"0x[0-9a-fA-F]{1,64}", value):
+        raise ValueError(label + " must be a 0x-prefixed hex string of at most 32 bytes")
+    return "0x" + value[2:].lower().rjust(64, "0")
+
+
+def genesis_account(account, label):
+    """Reduce one generated predeploy to the genesis account fields execution clients accept."""
+    if not isinstance(account, dict):
+        raise ValueError(label + " must be an object")
+    unknown = sorted(set(account) - set(ACCOUNT_FIELDS) - set(GENERATOR_FIELDS))
+    if unknown:
+        raise ValueError(label + " has unknown fields: " + ", ".join(unknown))
+    if "balance" not in account:
+        raise ValueError(label + " has no balance")
+    result = {key: account[key] for key in ACCOUNT_FIELDS if key in account}
+    if "storage" in result:
+        storage = {}
+        for key, value in result["storage"].items():
+            slot = word(key, label + " storage key")
+            if slot in storage:
+                raise ValueError(label + " has a duplicate storage slot: " + slot)
+            storage[slot] = word(value, label + " storage value")
+        result["storage"] = storage
+    return result
 
 
 def normalized_alloc(alloc, label):
@@ -51,7 +86,7 @@ def normalized_alloc(alloc, label):
     return result
 
 
-def check_predeploy_config(config, base, predeploys):
+def check_predeploy_config(config, base, predeploys, l1_signal_service):
     """Check that the generator configuration describes an Etna network matching the base."""
     etna_timestamp = config.get("etnaTimestamp")
     if not isinstance(etna_timestamp, str) or not re.fullmatch(r"0x[0-9a-fA-F]+", etna_timestamp):
@@ -61,8 +96,11 @@ def check_predeploy_config(config, base, predeploys):
             "predeploy config: etnaTimestamp must be 0x0 on a new Etna network, or anchorV4 "
             "stays callable with the public golden touch key"
         )
-    if address(config.get("remoteSignalService")) == ZERO_ADDRESS:
-        raise ValueError("predeploy config: remoteSignalService must name the L1 SignalService")
+    remote = address(config.get("remoteSignalService"))
+    if remote == ZERO_ADDRESS or remote != address(l1_signal_service):
+        raise ValueError(
+            "predeploy config: remoteSignalService must be the L1 SignalService " + l1_signal_service
+        )
     chain_id = config.get("chainId")
     if not isinstance(chain_id, int) or chain_id != base.get("config", {}).get("chainId"):
         raise ValueError("predeploy config: chainId differs from the base genesis chain id")
@@ -75,13 +113,16 @@ def check_predeploy_config(config, base, predeploys):
             raise ValueError("predeploys: no code at the configured " + name + " address")
 
 
-def build(base, predeploys, predeploy_config):
+def build(base, predeploys, predeploy_config, l1_signal_service):
     """Overlay the predeploys, install the system contracts and drop the stale state root."""
     genesis = copy.deepcopy(base)
     genesis.pop("stateRoot", None)
     alloc = normalized_alloc(genesis.get("alloc", {}), "alloc")
-    overlay = normalized_alloc(copy.deepcopy(predeploys), "predeploy")
-    check_predeploy_config(predeploy_config, genesis, overlay)
+    overlay = {
+        key: genesis_account(account, "predeploy " + key)
+        for key, account in normalized_alloc(copy.deepcopy(predeploys), "predeploy").items()
+    }
+    check_predeploy_config(predeploy_config, genesis, overlay, l1_signal_service)
     alloc.update(overlay)
     for target, deployed in ((ROOTS, ROOTS_RUNTIME), (HISTORY, HISTORY_RUNTIME)):
         alloc[target] = {"balance": "0x0", "nonce": "0x1", "code": deployed}
@@ -121,9 +162,15 @@ def main():
         "--predeploy-config", type=Path, required=True,
         help="test/genesis/data/genesis_config.json from the same `pnpm genesis:gen` run",
     )
+    parser.add_argument(
+        "--l1-signal-service", required=True,
+        help="the deployed L1 SignalService proxy (SIGNAL_SERVICE from deployInboxProxy())",
+    )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    genesis = build(load(args.base), load(args.predeploys), load(args.predeploy_config))
+    genesis = build(
+        load(args.base), load(args.predeploys), load(args.predeploy_config), args.l1_signal_service
+    )
     write(genesis, args.output)
 
 

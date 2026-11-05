@@ -144,6 +144,10 @@ Pause affects none of these entry points, nor the registry's (spec 1 requires th
 
 ## Choices the spec leaves open
 
+- K, the grid interval, is the constant `GRID_INTERVAL = 6`, the largest value PARAM-11-9 allows;
+  the spec leaves K to be set from proving capacity measured during acceptance. U and
+  `maxBatchBlocks` are bounded for K = 6, and the vectors use it. A smaller K needs a new Inbox
+  implementation, guests and vectors (10.1).
 - The Inbox proxy starts on `EtnaInboxBootstrap`, so its address exists before the registry that
   fixes it. Once the registry exists, the owner calls `upgradeToAndCall(EtnaInbox, init(...))`,
   and `init` also requires the owner. Slot 258 then reads 3.
@@ -223,14 +227,23 @@ golden touch key is public) and `remoteSignalService` to SIGNAL_SERVICE, then ru
 ```bash
 python3 script/layer2/build_etna_genesis.py --base <genesis.json> \
   --predeploys test/genesis/data/genesis_alloc.json \
-  --predeploy-config test/genesis/data/genesis_config.json --output <file>
+  --predeploy-config test/genesis/data/genesis_config.json \
+  --l1-signal-service "$SIGNAL_SERVICE" --output <file>
 ```
 
-The builder refuses any other `etnaTimestamp`, a zero `remoteSignalService`, another chain id and
-predeploys without the Anchor or SignalService. It replaces the base's accounts at the predeploy
-addresses, adds the EIP-4788 and EIP-2935 system contracts (spec 10 step 3) and changes nothing
-outside `alloc`; the 100% base-fee share is the per-block `extraData[0] = 100` rule that nodes and
-guests enforce, not a genesis field.
+The builder refuses any other `etnaTimestamp`, a `remoteSignalService` other than SIGNAL_SERVICE,
+another chain id and predeploys without the Anchor or SignalService. It replaces the base's
+accounts at the predeploy addresses with the generated ones, keeping only the account fields
+execution clients accept, adds the EIP-4788 and EIP-2935 system contracts (spec 10 step 3) and
+changes nothing outside `alloc`; the 100% base-fee share is the per-block `extraData[0] = 100`
+rule that nodes and guests enforce, not a genesis field. `generate.ts` exits non-zero on failure,
+so a failed run cannot leave an older config/alloc pair behind unnoticed. The builder checks the
+generator's configuration, not the bytecode, so after booting the EL on the genesis also check the
+Anchor proxy (`contractAddresses.TaikoAnchor` in the generated config) at block 0:
+
+```bash
+cast call --rpc-url "$L2_RPC" --block 0 "$TAIKO_ANCHOR" 'etnaTimestamp()(uint64)' # must print 0
+```
 
 `deployInbox()` deploys the `EtnaInbox` implementation over SIGNAL_SERVICE, then upgrades and
 initializes the proxy if the deployer owns it, or logs that call for the owner. No contract
@@ -254,7 +267,7 @@ automatically enough for forfeiture execution. See SPEC 4.4/8.3/11 and ACCEPTANC
 
 ## Anchorless L2 contracts
 
-These implement [ANCHORLESS.md](../../../docs/etna/ANCHORLESS.md) section 4.
+These implement [ANCHORLESS.md](../../../docs/etna/ANCHORLESS.md) sections 4 and 8.
 
 - `layer2/core/Anchor.sol`: `anchorV4` reverts from the immutable `etnaTimestamp` on;
   `getL1StateRoot(blockId)` reads the checkpoint store before it and the EIP-4788 root for an L2

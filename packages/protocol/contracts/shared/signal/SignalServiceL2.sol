@@ -4,6 +4,8 @@ pragma solidity ^0.8.26;
 import { IL1StateRootProvider } from "./IL1StateRootProvider.sol";
 import { SignalService } from "./SignalService.sol";
 
+import "./SignalServiceL2_Layout.sol"; // DO NOT DELETE
+
 /// @title SignalServiceL2
 /// @notice Verifies L1 signals using execution state roots recorded by the L2 Anchor's oracle.
 /// @dev Uses SignalService's VERSION namespace and adds no storage slots.

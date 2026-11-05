@@ -34,15 +34,18 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
             addr: {"balance": "0x0", "code": "0x60" + str(i)}
             for i, addr in enumerate(self.addresses.values())
         }
+        self.l1_signal_service = "0x00000000000000000000000000000000000000aa"
         self.config = {
             "chainId": 167001,
             "etnaTimestamp": "0x0",
-            "remoteSignalService": "0x00000000000000000000000000000000000000aa",
+            "remoteSignalService": self.l1_signal_service,
             "contractAddresses": dict(self.addresses),
         }
 
-    def _build(self):
-        return self.builder.build(self.base, self.predeploys, self.config)
+    def _build(self, predeploys=None, config=None):
+        return self.builder.build(self.base, self.predeploys if predeploys is None else predeploys,
+                                  self.config if config is None else config,
+                                  self.l1_signal_service)
 
     def _system_account(self, code):
         return {"balance": "0x0", "nonce": "0x1", "code": code}
@@ -99,13 +102,48 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "0x-prefixed hex string"):
                 self._build()
 
-    def test_rejects_a_missing_l1_signal_service(self):
+    def test_rejects_a_missing_or_other_l1_signal_service(self):
         self.config["remoteSignalService"] = "0x" + "00" * 20
-        with self.assertRaisesRegex(ValueError, "remoteSignalService must name"):
+        with self.assertRaisesRegex(ValueError, "remoteSignalService must be the L1"):
             self._build()
+        self.config["remoteSignalService"] = "0x00000000000000000000000000000000000000bb"
+        with self.assertRaisesRegex(ValueError, "remoteSignalService must be the L1"):
+            self._build()
+        self.config["remoteSignalService"] = self.l1_signal_service.upper().replace("0X", "0x")
+        self._build()
         del self.config["remoteSignalService"]
         with self.assertRaises(ValueError):
             self._build()
+
+    def test_projects_generator_accounts_to_genesis_fields(self):
+        anchor = self.addresses["TaikoAnchor"]
+        self.predeploys[anchor] = {
+            "contractName": "TaikoAnchor", "balance": "0x0", "code": "0x6001",
+            "storage": {"0x01": "0xAB", "0x" + "cd" * 32: "0x" + "00" * 31 + "02"},
+        }
+        account = self._build()["alloc"][anchor]
+        self.assertEqual(account, {
+            "balance": "0x0", "code": "0x6001",
+            "storage": {"0x" + "00" * 31 + "01": "0x" + "00" * 31 + "ab",
+                        "0x" + "cd" * 32: "0x" + "00" * 31 + "02"},
+        })
+
+    def test_rejects_predeploy_accounts_clients_cannot_parse(self):
+        anchor = self.addresses["TaikoAnchor"]
+        cases = [
+            ({"balance": "0x0", "code": "0x60", "secretKey": "0x01"}, "unknown fields: secretKey"),
+            ({"code": "0x60"}, "has no balance"),
+            ({"balance": "0x0", "code": "0x60", "storage": {"0x1": "0x1", "0x01": "0x2"}},
+             "duplicate storage slot"),
+            ({"balance": "0x0", "code": "0x60", "storage": {"0x" + "00" * 33: "0x1"}},
+             "at most 32 bytes"),
+            ({"balance": "0x0", "code": "0x60", "storage": {"0x1": 1}}, "at most 32 bytes"),
+        ]
+        for account, diagnostic in cases:
+            predeploys = dict(self.predeploys)
+            predeploys[anchor] = account
+            with self.assertRaisesRegex(ValueError, diagnostic):
+                self._build(predeploys=predeploys)
 
     def test_rejects_predeploys_for_another_chain(self):
         self.config["chainId"] = 167
@@ -117,14 +155,14 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
             predeploys = dict(self.predeploys)
             del predeploys[self.addresses[name]]
             with self.assertRaisesRegex(ValueError, "no code at the configured " + name):
-                self.builder.build(self.base, predeploys, self.config)
+                self._build(predeploys=predeploys)
             predeploys[self.addresses[name]] = {"balance": "0x0", "code": "0x"}
             with self.assertRaisesRegex(ValueError, "no code at the configured " + name):
-                self.builder.build(self.base, predeploys, self.config)
+                self._build(predeploys=predeploys)
             config = json.loads(json.dumps(self.config))
             del config["contractAddresses"][name]
             with self.assertRaisesRegex(ValueError, "no " + name + " address"):
-                self.builder.build(self.base, self.predeploys, config)
+                self._build(config=config)
 
     def test_rejects_normalized_predeploy_aliases(self):
         anchor = self.addresses["TaikoAnchor"]
@@ -172,7 +210,9 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
         config.write_text(json.dumps(self.config))
         result = subprocess.run([sys.executable, str(SCRIPT), "--base", str(base),
                                  "--predeploys", str(predeploys),
-                                 "--predeploy-config", str(config), "--output", str(output)],
+                                 "--predeploy-config", str(config),
+                                 "--l1-signal-service", self.l1_signal_service,
+                                 "--output", str(output)],
                                 text=True, capture_output=True, check=False)
         return result, output
 
