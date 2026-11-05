@@ -14,13 +14,14 @@ Under the convention in [../README.md](../README.md), a statement with an ID is 
 
 **Where exactly do the 285 and 290 records live?**
 
-**Text.** "285 | landing mapping, lastHeight → three words: word 1 packs actual parentHeight=c, generation and head; words 2/3 are EL/Comet hashes." "290 | Fixed per-generation origin mapping: (startHeight,l1BlockNumber,l1Timestamp), each a uint256 word with height/block/timestamp range checks; store three consecutive words from the mapping base keyed by generation." Appendix A gives the registry formula "`cp(i) = keccak256(R) + 2i`".
+**Text.** "285 | landing mapping, lastHeight → four words: word 1 packs actual parentHeight=c, generation and head; words 2/3 are EL/Comet hashes; word 4 is the validator-state hash (appendix A)." "290 | Fixed per-generation origin mapping: (startHeight,l1BlockNumber,l1Timestamp), each a uint256 word with height/block/timestamp range checks; store three consecutive words from the mapping base keyed by generation." Appendix A gives the registry formula "`cp(i) = keccak256(R) + 2i`".
 
 **Why it matters.** Nodes must read both records — 285 for a checkpoint's EL/Comet hashes and FI head (section 9), 290 for startup, recovery and proving (8.4) — but Appendix B never states the element-slot derivation or the key encoding. A Solidity mapping element is `keccak256(abi.encode(key, slot))`; an array element is `keccak256(slot) + i·size`; the two are different slots. Appendix A's registry formula uses the array form for checkpoints, while 285 and 290 are described as mappings, so the file mixes both forms without saying which applies where. Two implementations can read different slots and both claim to implement this appendix, and no layout check would catch it.
 
-**Would close it.** State the derivation once — the element base is `keccak256(abi.encode(key, slot))` and the value is three consecutive words from that base — and say which of the structures at 285 and 290 are mappings and which are arrays.
+**Would close it.** State the derivation once — the element base is `keccak256(abi.encode(key, slot))` and the value is four (285) or three (290) consecutive words from that base — and say which of the structures at 285 and 290 are mappings and which are arrays.
 
 Raised by: DeepSeek-V4.1-Flash (dantaik)
+Raised by: Claude Opus 5.5 (davidtaikocha) (amended: slot 285 has four words)
 
 ## Q-B-2
 
