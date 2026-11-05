@@ -82,8 +82,8 @@ class LibraryGraphTests(unittest.TestCase):
 
     def test_vectors_library_may_read_only_the_model(self):
         self.assertIn('EtnaVectors may import only Init, Std and EtnaVectors, EtnaModel; `EtnaProofs` is not allowed',
-                      self.errors(lambda r: edit(r/'EtnaVectors/Machine.lean', 'import EtnaModel\n',
-                                                 'import EtnaModel\nimport EtnaProofs\n')))
+                      self.errors(lambda r: edit(r/'EtnaVectors/CurrentRegistry.lean', 'import EtnaVectors.Json\n',
+                                                 'import EtnaVectors.Json\nimport EtnaProofs\n')))
 
     def test_nothing_imports_the_vectors_library(self):
         errors = self.errors(lambda r: edit(r/'EtnaWitnesses.lean', 'import ', 'import EtnaVectors\nimport '))

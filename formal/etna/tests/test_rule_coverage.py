@@ -21,7 +21,6 @@ class RuleCoverageTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)
             shutil.copytree(rules.REPO/DOCS, repo/DOCS)
-            shutil.copytree(ROOT/'legacy/2026-10-30', repo/'formal/etna/legacy/2026-10-30', dirs_exist_ok=True)
             if edit_docs:
                 edit_docs(repo)
             config = copy.deepcopy(CONFIG)
@@ -110,10 +109,11 @@ class RuleCoverageTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'duplicate theorem'):
             self.rows(edit_config=edit)
 
-    def test_historical_evidence_is_rejected(self):
+    def test_non_current_evidence_is_rejected(self):
         def edit(config):
             self.exact(config)
-            config['evidence']['STAKE-4.1-13a']['theorems'] = ['Etna.Proofs.evidence_stays_slashable']
+            # A shared lemma outside Etna.Design.Current is in the manifest but is not current evidence.
+            config['evidence']['STAKE-4.1-13a']['theorems'] = ['Etna.Design.Staking.fraction_bounded']
         with self.assertRaisesRegex(ValueError, 'current theorem'):
             self.rows(edit_config=edit)
 

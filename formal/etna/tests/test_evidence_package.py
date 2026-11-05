@@ -15,9 +15,10 @@ spec.loader.exec_module(coverage)
 class EvidencePackageTests(unittest.TestCase):
     def test_claim_pairs_have_reviewed_edges(self):
         rows = coverage.inventory()
-        self.assertEqual(len([r for r in rows if r['language'] in ('en', 'acceptance')]),313)
-        self.assertEqual(len([r for r in rows if r['language'] == 'anchorless']),92)
-        self.assertEqual(len([r for r in rows if r['historical']]),405)
+        self.assertEqual(len([r for r in rows if r['language'] in ('live_en', 'live_acceptance')]),360)
+        self.assertEqual(len([r for r in rows if r['language'] == 'live_anchorless']),93)
+        self.assertEqual(len([r for r in rows if r['language'] == 'live_switch']),113)
+        self.assertEqual(len(rows),566)
         # inventory() checks each explicit claim edge and its general-property role.
 
     def test_clause_ids_survive_line_insertion(self):

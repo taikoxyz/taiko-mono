@@ -1,13 +1,24 @@
 """Current app trust and funded initial state reject compilable weakened models."""
+import importlib.util
 from pathlib import Path
 import re
 import subprocess
 import tempfile
 import unittest
+import os
 
-from test_current_protocol_finality import sources as finality_sources
+
+def setUpModule():
+    if os.environ.get('ETNA_FULL_TESTS') != '1':
+        raise unittest.SkipTest('mutation suite: set ETNA_FULL_TESTS=1 (CI job etna-formal-full)')
 
 ROOT = Path(__file__).resolve().parents[1]
+# Loaded by path so this module also runs alone (`python3 -m unittest tests.test_current_protocol`).
+_FINALITY = importlib.util.spec_from_file_location('current_protocol_finality_sources',
+                                                   ROOT/'tests/test_current_protocol_finality.py')
+_finality = importlib.util.module_from_spec(_FINALITY)
+_FINALITY.loader.exec_module(_finality)
+finality_sources = _finality.sources
 
 
 def node_sources():

@@ -52,7 +52,7 @@ end Outer.Inner
             self.assertIn(row['name'].rsplit('.',1)[-1],source_line)
             self.assertEqual(row['contract'],contract)
         self.assertEqual(entries['Etna.Statements.Current.Premises']['profile'],'current')
-        self.assertEqual(entries['Etna.Statements.Premises']['profile'],'historical-shared')
+        self.assertEqual(entries['Etna.Design.Staking.fraction_bounded']['profile'],'shared')
 
     def test_lean_string_cannot_escape_the_embedded_json(self):
         module = generator()
@@ -109,15 +109,16 @@ end Outer.Inner
         self.assertTrue(targets)
         self.assertEqual(targets-names,set())
 
-    def test_historical_citations_use_the_original_path_at_the_pinned_commit(self):
-        data=generator().build_catalogue()
-        prefix='formal/etna/legacy/2026-10-30/'
-        self.assertEqual(data['authorities'][prefix+'SPEC.md'].get('github_path'),
-                         'packages/protocol/docs/etna/SPEC.md')
-        self.assertEqual(data['authorities'][prefix+'ACCEPTANCE.md'].get('github_path'),
-                         'packages/protocol/docs/etna-pos-zk/ACCEPTANCE.md')
-        self.assertEqual(data['authorities'][prefix+'ANCHORLESS.md'].get('github_path'),
-                         'packages/protocol/docs/etna/ANCHORLESS.md')
+    def test_citations_use_each_authority_path_at_its_pinned_commit(self):
+        module=generator()
+        data=module.build_catalogue()
+        pins=json.loads((ROOT/'spec-coverage.json').read_text())
+        paths={path for _,_,path,_ in module.coverage.SOURCE_INPUTS}
+        self.assertEqual(set(data['authorities']),paths)
+        for key,_,path,_ in module.coverage.SOURCE_INPUTS:
+            self.assertEqual(data['authorities'][path].get('github_path'),path)
+            self.assertEqual(data['authorities'][path]['commit'],pins[key]['commit'])
+        self.assertEqual({c['path'] for c in data['clauses']},paths)
 
     def test_citation_lines_keep_raw_offsets_when_rule_marker_lines_are_removed(self):
         module=generator()

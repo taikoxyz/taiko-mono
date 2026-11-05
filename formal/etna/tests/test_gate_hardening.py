@@ -4,6 +4,7 @@ injection, name shadowing, unchecked Lean tests, manifest modules and self-assig
 directions and dead `have`/`let` bindings that would fake a derivation), what each library may
 hold, and the headline layer (exact claim types, every premise read by a headline proof)."""
 import importlib.util
+import os
 import json
 from pathlib import Path
 import shutil
@@ -26,6 +27,12 @@ LINT = load('gate_lint', 'scripts/lint_sources.py')
 COVERAGE = load('gate_coverage', 'scripts/check_spec_coverage.py')
 MANIFEST = json.loads((ROOT/'manifests/design.json').read_text())
 ENTRIES = {e['declaration']: e for e in MANIFEST['theorems']}
+# The first manifest entry that cites a clause (shared/plumbing entries cite none).
+SOURCED = next(e for e in MANIFEST['theorems'] if e['sources'])
+# A current derived (induction) property and a current closed regression witness.
+PROPERTY = 'Etna.Design.Current.Registry.trace_issuance_monotone'
+REGRESSION = 'Etna.Design.Current.Protocol.NonVacuity.premises_satisfiable'
+H1, H2, H3 = AUDIT.CURRENT_HEADLINES
 
 
 def scratch():
@@ -76,10 +83,10 @@ class SourceLintTests(unittest.TestCase):
         self.assertEqual(LINT.lint(ROOT), [])
 
     def test_m7_build_time_eval_rejected(self):
-        payload = ('\nnamespace Etna.Design.Deployment\n#eval show IO Unit from do\n'
-                   '  IO.FS.writeFile "scripts/audit_proofs.py" ""\nend Etna.Design.Deployment\n')
-        errors = self.lint_errors(lambda r: (r/'EtnaModel/Deployment.lean').write_text(
-            (r/'EtnaModel/Deployment.lean').read_text()+payload))
+        payload = ('\nnamespace Etna.Design.Current.Registry\n#eval show IO Unit from do\n'
+                   '  IO.FS.writeFile "scripts/audit_proofs.py" ""\nend Etna.Design.Current.Registry\n')
+        errors = self.lint_errors(lambda r: (r/'EtnaModel/CurrentRegistry.lean').write_text(
+            (r/'EtnaModel/CurrentRegistry.lean').read_text()+payload))
         self.assertIn('forbidden command `#eval`', errors)
 
     def test_m6_second_library_and_foreign_import_rejected(self):
@@ -87,7 +94,7 @@ class SourceLintTests(unittest.TestCase):
             (root/'lakefile.toml').write_text((root/'lakefile.toml').read_text()+'\n[[lean_lib]]\nname = "Helper"\n')
             (root/'Helper.lean').write_text('import Lean\nset_option debug.skipKernelTC true in\n'
                                             'run_elab Lean.addDecl default\n')
-            edit(root/'EtnaModel/Deployment.lean', 'import EtnaModel.ProtocolState', 'import Helper\nimport EtnaModel.ProtocolState')
+            edit(root/'EtnaModel/Common.lean', 'import Std', 'import Helper\nimport Std')
         errors = self.lint_errors(mutate)
         self.assertIn("library 'Helper' is not one of the Etna libraries", errors)
         self.assertIn('one plain [[lean_lib]] per Etna library', errors)
@@ -113,12 +120,10 @@ class SourceLintTests(unittest.TestCase):
 
     def test_m10_sorry_and_axiom_in_lean_tests_rejected(self):
         def mutate(root):
-            path = root/'tests/ReviewFixes.lean'
-            edit(path, 'old_signatures_check_only_old_key : SecondBatch.verifyEvidence 7 SecondBatch.oldA 101 = true ∧\n'
-                       '    SecondBatch.verifyEvidence 8 SecondBatch.oldA 101 = false := by decide +kernel',
-                 'old_signatures_check_only_old_key : SecondBatch.verifyEvidence 7 SecondBatch.oldA 101 = true ∧\n'
-                 '    SecondBatch.verifyEvidence 8 SecondBatch.oldA 101 = false := by sorry')
-            edit(path, 'end Etna.Design.ReviewFixes', 'axiom poison : False\nend Etna.Design.ReviewFixes')
+            path = root/'tests/CurrentAgreement.lean'
+            edit(path, '(honestEngine.execution 0 1).locks 7 2 = some (0,201) := by decide +kernel',
+                 '(honestEngine.execution 0 1).locks 7 2 = some (0,201) := by sorry')
+            edit(path, 'end Etna.CurrentAgreementRegression', 'axiom poison : False\nend Etna.CurrentAgreementRegression')
         errors = self.lint_errors(mutate)
         self.assertIn('forbidden keyword `sorry`', errors)
         self.assertIn('forbidden keyword `axiom`', errors)
@@ -190,12 +195,12 @@ class ManifestTypeTests(unittest.TestCase):
         return ''
 
     def test_m8_type_of_echo_rejected(self):
-        name = 'Etna.Design.Deployment.constructed_configuration_unique'
+        name = PROPERTY
         with self.assertRaisesRegex(ValueError, 'forbidden syntax `type_of%`'):
             self.audit(self.real(name, type='type_of% @'+name))
 
     def test_m8_newline_injection_stays_data(self):
-        name = 'Etna.Design.Deployment.constructed_configuration_unique'
+        name = PROPERTY
         injected = ENTRIES[name]['type']+'))\n  set_option debug.skipKernelTC true\n#exit\n-- "\\'
         self.assertIn('\\"\\\\"', AUDIT.lean_string(injected))
         with self.assertRaisesRegex(ValueError, 'not exactly one Lean term'):
@@ -216,18 +221,22 @@ class ManifestTypeTests(unittest.TestCase):
 
     def test_p4_closed_regression_cannot_be_property(self):
         with self.assertRaisesRegex(ValueError, 'role property requires'):
-            self.audit(self.real('Etna.Design.FirstBatch.ordinary_handover', role='property'))
+            self.audit(self.real(REGRESSION, role='property'))
 
     def test_p4_constant_cannot_be_property(self):
+        # No current entry has the constant role; a closed constant fact stands in for one.
+        decl = ('namespace Etna.Design.AuditTest\n'
+                'theorem checked : Committee.minUnit = 867361738 := rfl\nend Etna.Design.AuditTest')
+        self.audit(self.synthetic('Committee.minUnit = 867361738', 'constant'), decl)
         with self.assertRaisesRegex(ValueError, 'role property requires'):
-            self.audit(self.real('Etna.Design.Budget.cap_derivation', role='property'))
+            self.audit(self.synthetic('Committee.minUnit = 867361738', 'property'), decl)
 
     def test_bare_claim_theorem_cannot_be_constant(self):
         # `fund_safety : FundSafety` shows no binder until the claim is unfolded; the constant
         # role reads statements through `statementView`, as Rule P does.
         with self.assertRaisesRegex(ValueError, 'role constant requires a closed statement without leading binders: '
-                                    'Etna.Proofs.fund_safety'):
-            self.audit(self.real('Etna.Proofs.fund_safety', role='constant'))
+                                    'Etna.Design.Current.Headlines.fund_safety'):
+            self.audit(self.real('Etna.Design.Current.Headlines.fund_safety', role='constant'))
 
     def test_p4_weakened_conclusion_cannot_be_property(self):
         # mut3: hypotheses kept, conclusion weakened to a closed `True`.
@@ -239,14 +248,15 @@ class ManifestTypeTests(unittest.TestCase):
             self.audit(self.synthetic('∀ {a b : Nat} (h : a = b), True', 'constant'), decl)
 
     def test_mechanical_roles_accept_current_examples(self):
-        self.audit(self.real('Etna.Design.Budget.cap_derivation'))
-        self.audit(self.real('Etna.Design.Consensus.election_valid_iff'))
-        self.audit(self.real('Etna.Design.Accountability.conflicting_commits_double_sign'))
+        self.audit(self.real(PROPERTY))
+        self.audit(self.real('Etna.Design.Current.RegistryMachine.stable_refl'))
+        self.audit(self.real(REGRESSION))
+        self.audit(self.real('Etna.Design.Accountability.conflicting_commits_overlap'))
 
     def test_rule_p_vacuous_binders_cannot_launder_closed_facts(self):
         # Each statement quantifies over something, yet its content is the closed fact C
         # (or a reflexivity/witness-only atom). Rule P rejects every one, naming the atom.
-        closed = 'SecondBatch.editedWorld.inbox.epochLen = 3'
+        closed = 'Committee.minUnit = 867361738'
         cases = {
             'launder_unit': f'∀ _u : Unit, _u = _u ∧ {closed}',
             'launder_hypothesis': f'∀ n : Nat, n < n + 1 → {closed}',
@@ -261,24 +271,24 @@ class ManifestTypeTests(unittest.TestCase):
         }
         decl = ('namespace Etna.Design.AuditTest\n'
                 f'theorem closed_fact : {closed} := by decide +kernel\n'
-                'theorem launder_unit : ∀ _u : Unit, _u = _u ∧ SecondBatch.editedWorld.inbox.epochLen = 3 :=\n'
+                'theorem launder_unit : ∀ _u : Unit, _u = _u ∧ Committee.minUnit = 867361738 :=\n'
                 '  fun _ => ⟨rfl, closed_fact⟩\n'
-                'theorem launder_hypothesis : ∀ n : Nat, n < n + 1 → SecondBatch.editedWorld.inbox.epochLen = 3 :=\n'
+                'theorem launder_hypothesis : ∀ n : Nat, n < n + 1 → Committee.minUnit = 867361738 :=\n'
                 '  fun _ _ => closed_fact\n'
-                'theorem launder_or : ∀ x : Nat, SecondBatch.editedWorld.inbox.epochLen = 3 ∨ x = x :=\n'
+                'theorem launder_or : ∀ x : Nat, Committee.minUnit = 867361738 ∨ x = x :=\n'
                 '  fun _ => .inl closed_fact\n'
-                'theorem launder_exists : ∀ _x : Nat, ∃ y : Nat, y = y ∧ SecondBatch.editedWorld.inbox.epochLen = 3 :=\n'
+                'theorem launder_exists : ∀ _x : Nat, ∃ y : Nat, y = y ∧ Committee.minUnit = 867361738 :=\n'
                 '  fun _ => ⟨0, rfl, closed_fact⟩\n'
                 'theorem launder_witness_only : ∀ _x : Nat, ∃ y : Nat, y = 0 := fun _ => ⟨0, rfl⟩\n'
                 'theorem launder_iff : ∀ x : Nat, (x < 1 ↔ x < 1) := fun _ => .rfl\n'
                 'theorem launder_heq : ∀ x : Nat, HEq x x := fun _ => .rfl\n'
                 'theorem launder_true : ∀ x : Nat, x < x + 1 ∧ True := fun x => ⟨Nat.lt_succ_self x, trivial⟩\n'
-                'theorem launder_beta : ∀ x : Nat, (fun (_ : Nat) => SecondBatch.editedWorld.inbox.epochLen = 3) x :=\n'
+                'theorem launder_beta : ∀ x : Nat, (fun (_ : Nat) => Committee.minUnit = 867361738) x :=\n'
                 '  fun _ => closed_fact\n'
-                'theorem launder_no_binders : SecondBatch.editedWorld.inbox.epochLen = 3 := closed_fact\n'
+                'theorem launder_no_binders : Committee.minUnit = 867361738 := closed_fact\n'
                 'end Etna.Design.AuditTest')
         output = self.audit_many(cases, decl)
-        closed_atom = 'SecondBatch.editedWorld.inbox.epochLen'
+        closed_atom = 'Committee.minUnit'
         expected = {
             'launder_unit': ('is trivially true', '_u _u'),
             'launder_hypothesis': ('uses none', closed_atom),
@@ -309,7 +319,8 @@ class ManifestTypeTests(unittest.TestCase):
             'genuine_exists': '∀ x : Nat, ∃ y : Nat, x < y ∧ y = x + 1',
             'genuine_hypothesis': '∀ (n : Nat) (_h : 0 < n), n - 1 < n ∨ n = 0',
             'genuine_iff': '∀ x : Nat, (x < 1 ↔ x = 0)',
-            'genuine_via_etna': '∀ ws : List Encoding.Word, (Encoding.flatBytes ws).length = 32*ws.length',
+            'genuine_via_etna': '∀ (c : Consensus.Context) (members : List Committee.Entry) (keys : List Hash), '
+                                'Consensus.signedPower c members keys ≤ Committee.totalPower c.unit members',
         }
         decl = ('namespace Etna.Design.AuditTest\n'
                 'theorem genuine_exists : ∀ x : Nat, ∃ y : Nat, x < y ∧ y = x + 1 := by\n'
@@ -322,8 +333,9 @@ class ManifestTypeTests(unittest.TestCase):
                 '  | succ m _ => exact .inl (Nat.sub_lt h Nat.one_pos)\n'
                 'theorem genuine_iff : ∀ x : Nat, (x < 1 ↔ x = 0) := by\n'
                 '  intro x; induction x <;> exact Nat.lt_one_iff\n'
-                'theorem genuine_via_etna : ∀ ws : List Encoding.Word, (Encoding.flatBytes ws).length = 32*ws.length :=\n'
-                '  fun ws => Encoding.flatBytes_length ws\n'
+                'theorem genuine_via_etna : ∀ (c : Consensus.Context) (members : List Committee.Entry) (keys : List Hash),\n'
+                '    Consensus.signedPower c members keys ≤ Committee.totalPower c.unit members :=\n'
+                '  fun c members keys => Consensus.signed_power_bounded c members keys\n'
                 'end Etna.Design.AuditTest')
         self.assertEqual(self.audit_many(cases, decl), '')
 
@@ -355,10 +367,10 @@ class DerivedRoleTests(unittest.TestCase):
     users are property. One Lean run per direction, no package copy."""
 
     WRONG = {
-        'Etna.Design.Committee.exited_not_chosen': 'property',
-        'Etna.Design.Committee.covered_exit_never_chosen': 'property',
-        'Etna.Design.ProtocolState.trace_generation_monotone': 'supporting',
-        'Etna.Design.Deployment.trace_preserves_constraints': 'supporting',
+        'Etna.Design.Current.RegistryMachine.stable_refl': 'property',
+        'Etna.Design.Current.RegistryMachine.ledger_refl': 'property',
+        'Etna.Design.Current.Registry.trace_issuance_monotone': 'supporting',
+        'Etna.Design.Current.Protocol.Custody.funds_authorized': 'supporting',
     }
 
     def audit(self, entries):
@@ -377,15 +389,15 @@ class DerivedRoleTests(unittest.TestCase):
         errors = {name: block for block in output.split('error: ')[1:] for name in self.WRONG
                   if f'{name}:' in block}
         self.assertEqual(set(errors), set(self.WRONG), output[:2000])
-        for name in ('Etna.Design.Committee.exited_not_chosen', 'Etna.Design.Committee.covered_exit_never_chosen'):
+        for name in ('Etna.Design.Current.RegistryMachine.stable_refl', 'Etna.Design.Current.RegistryMachine.ledger_refl'):
             self.assertIn(f'role property requires a derived proof: {name}: not derived', errors[name])
         self.assertIn('role supporting is wrong for a derived Rule P statement: '
-                      'Etna.Design.ProtocolState.trace_generation_monotone: derived via '
-                      'Etna.Design.ProtocolState.trace_generation_monotone -> Etna.Design.ProtocolState.Trace.rec',
-                      errors['Etna.Design.ProtocolState.trace_generation_monotone'])
-        self.assertIn('derived via Etna.Design.Deployment.trace_preserves_constraints -> '
-                      'Etna.Design.ProtocolState.trace_preserves_immutables -> Etna.Design.ProtocolState.Trace.rec',
-                      errors['Etna.Design.Deployment.trace_preserves_constraints'])
+                      'Etna.Design.Current.Registry.trace_issuance_monotone: derived via '
+                      'Etna.Design.Current.Registry.trace_issuance_monotone -> Etna.Design.Current.Registry.Trace.rec',
+                      errors['Etna.Design.Current.Registry.trace_issuance_monotone'])
+        self.assertIn('derived via Etna.Design.Current.Protocol.Custody.funds_authorized -> '
+                      'Etna.Design.Current.Protocol.Custody.trace_invariant -> Etna.Design.Current.Protocol.Trace.rec',
+                      errors['Etna.Design.Current.Protocol.Custody.funds_authorized'])
 
     def test_true_roles_accepted(self):
         for name, wrong in self.WRONG.items():
@@ -434,7 +446,7 @@ theorem dead_inline_rec : {SHALLOW} := by
   have _ : True := Nat.rec (motive := fun _ => True) trivial (fun _ _ => trivial) 0
   exact {WITNESS}
 theorem dead_derived_property : {SHALLOW} := by
-  have _ := @HistoricalContext.prefix_floor
+  have _ := @Current.Registry.trace_issuance_monotone
   exact {WITNESS}
 theorem dead_nested : {SHALLOW} :=
   have h := pad_zero
@@ -526,16 +538,8 @@ theorem headline_indirect (p : Assumed) : 2 = 2 := by
 end Etna.Design.AuditProbe
 """
     PROBES = {'EtnaStatements.AuditProbe': STATEMENTS, 'EtnaProofs.AuditProbe': PREMISES}
-    PREMISE_USE = {
-        'genesis': ['Etna.Proofs.fund_safety', 'Etna.Proofs.accountable_finality',
-                    'Etna.Proofs.forced_inclusion_integrity'],
-        'verifierSound': ['Etna.Proofs.fund_safety', 'Etna.Proofs.forced_inclusion_integrity'],
-        'authenticatedInputs': ['Etna.Proofs.forced_inclusion_integrity'],
-        'hashSeparation': ['Etna.Proofs.fund_safety', 'Etna.Proofs.forced_inclusion_integrity'],
-        'headerHashes': ['Etna.Proofs.fund_safety'],
-        'headerSeparation': ['Etna.Proofs.fund_safety'],
-        'signatureAgreement': ['Etna.Proofs.accountable_finality'],
-    }
+    # The reviewed field -> headline map, kept in one place (tests/test_current_headlines.py).
+    PREMISE_USE = load('gate_current_headlines', 'tests/test_current_headlines.py').PREMISE_USES
 
     def run_lean(self, text):
         """Run a Lean file in the probe environment; returns (failed, raw output)."""
@@ -557,12 +561,12 @@ end Etna.Design.AuditProbe
         self.assertEqual(rest.strip(), '')
 
     def test_unused_premise_field_rejected(self):
-        # Without H3's proof, no headline reads authenticatedInputs.
-        partial = {k: v for k, v in AUDIT.HEADLINES.items() if k != 'Etna.Proofs.forced_inclusion_integrity'}
+        # Without H3's proof, no headline reads the clock or the catalogue hash.
+        partial = {k: v for k, v in AUDIT.CURRENT_HEADLINES.items() if k != H3}
         failed, output = self.lean(AUDIT.render_headline_check(headlines=partial)[1])
         self.assertTrue(failed, output)
-        self.assertIn('premise fields of Etna.Statements.Premises read by no headline proof (after unused '
-                      'bindings are removed): [authenticatedInputs]', ' '.join(output.split()))
+        self.assertIn('premise fields of Etna.Statements.Current.Premises read by no headline proof (after unused '
+                      'bindings are removed): [currentClock, currentCatalogueHash]', ' '.join(output.split()))
 
     def test_premise_read_only_by_dead_binding_is_unused(self):
         call = 'run_elab _root_.EtnaAudit.checkPremiseUse "Etna.Design.AuditProbe.Assumed" ' + AUDIT.lean_string(
@@ -577,17 +581,18 @@ end Etna.Design.AuditProbe
 
     def test_weaker_or_missing_claims_theorem_rejected(self):
         weak = ('namespace Etna.AuditProbe\n'
-                'theorem claims : Etna.Statements.FundSafety ∧ Etna.Statements.AccountableFinality :=\n'
-                '  ⟨Etna.Proofs.fund_safety, Etna.Proofs.accountable_finality⟩\nend Etna.AuditProbe\n')
+                'theorem claims : Etna.Statements.Current.FundSafety ∧ Etna.Statements.Current.AccountableFinality :=\n'
+                f'  ⟨{H1}, {H2}⟩\nend Etna.AuditProbe\n')
         failed, output = self.lean(weak+AUDIT.render_headline_check(claims=('Etna.AuditProbe.claims',
-                                                                            'Etna.Statements.Claims'))[0])
+                                                                            'Etna.Statements.Current.Claims'))[0])
         self.assertTrue(failed, output)
-        self.assertIn('headline theorem Etna.AuditProbe.claims must have exactly type Etna.Statements.Claims, not',
+        self.assertIn('headline theorem Etna.AuditProbe.claims must have exactly type Etna.Statements.Current.Claims, '
+                      'not', output)
+        failed, output = self.lean(AUDIT.render_headline_check(claims=('Etna.Design.Current.Headlines.missing',
+                                                                       'Etna.Statements.Current.Claims'))[0])
+        self.assertTrue(failed, output)
+        self.assertIn('missing headline theorem Etna.Design.Current.Headlines.missing : Etna.Statements.Current.Claims',
                       output)
-        failed, output = self.lean(AUDIT.render_headline_check(claims=('Etna.Proofs.missing',
-                                                                       'Etna.Statements.Claims'))[0])
-        self.assertTrue(failed, output)
-        self.assertIn('missing headline theorem Etna.Proofs.missing : Etna.Statements.Claims', output)
 
     def test_statement_definitions_unfold_only_from_statements(self):
         # A theorem stated as a statement-layer claim is checked on the claim's body, as if
@@ -689,7 +694,7 @@ class PackageCheckTests(unittest.TestCase):
     def test_m11_module_of_rangeless_declaration_checked(self):
         source = ('import Lean\nimport EtnaModel\nrun_elab Lean.addDecl (.thmDecl { name := `Etna.Design.Common.ghost, '
                   'levelParams := [], type := Lean.mkConst ``True, value := Lean.mkConst ``True.intro })\n')
-        ghost = {**ENTRIES['Etna.Design.dual_count'], 'declaration': 'Etna.Design.Common.ghost',
+        ghost = {**SOURCED, 'declaration': 'Etna.Design.Common.ghost',
                  'module': 'EtnaProofs.Common', 'type': 'True', 'role': 'constant'}
         self.rejected(self.package(source, MANIFEST['theorems']+[ghost]), 'manifest module mismatch')
 
@@ -736,30 +741,32 @@ class PackageCheckTests(unittest.TestCase):
                                    'axiom poison : False\nend Etna.Design.AuditProbe\n'), 'forbidden axioms')
 
 
+@unittest.skipUnless(os.environ.get('ETNA_FULL_TESTS') == '1', 'mutation suite: set ETNA_FULL_TESTS=1 (CI job etna-formal-full)')
 class LeanRegressionFileTests(unittest.TestCase):
     """M10 at the audit: tests/*.lean are compiled warning-free, replayed and axiom-checked."""
 
     def mutated(self, mutate):
         with scratch() as tmp:
             root = copy_package(tmp, build=True)
-            mutate(root/'tests/ReviewFixes.lean')
+            mutate(root/'tests/CurrentAgreement.lean')
             with self.assertRaises(ValueError) as caught:
                 AUDIT.check_test_modules(root)
             return str(caught.exception)
 
     def test_sorry_warning_rejected(self):
         message = self.mutated(lambda p: edit(
-            p, 'SecondBatch.historicalRules).isNone = true := by decide +kernel\n\ntheorem substituted_genesis_record_rejected',
-            'SecondBatch.historicalRules).isNone = true := by sorry\n\ntheorem substituted_genesis_record_rejected'))
+            p, '(honestEngine.execution 0 1).locks 7 2 = some (0,201) := by decide +kernel',
+            '(honestEngine.execution 0 1).locks 7 2 = some (0,201) := by sorry'))
         self.assertRegex(message, "warning.*sorry")
 
     def test_custom_axiom_rejected(self):
-        message = self.mutated(lambda p: edit(p, 'end Etna.Design.ReviewFixes',
+        message = self.mutated(lambda p: edit(p, 'end Etna.CurrentAgreementRegression',
                                               'axiom poison : False\ntheorem everything_rejected : (1:Nat) = 2 := poison.elim\n'
-                                              'end Etna.Design.ReviewFixes'))
+                                              'end Etna.CurrentAgreementRegression'))
         self.assertIn('forbidden axioms', message)
 
 
+@unittest.skipUnless(os.environ.get('ETNA_FULL_TESTS') == '1', 'mutation suite: set ETNA_FULL_TESTS=1 (CI job etna-formal-full)')
 class FreshReplayTests(unittest.TestCase):
     """M6 past the lint: only `leanchecker --fresh` replays a forged import outside the Etna libraries."""
 
@@ -770,10 +777,10 @@ class FreshReplayTests(unittest.TestCase):
             (root/'Helper.lean').write_text(
                 'import Lean\nset_option debug.skipKernelTC true in\nrun_elab Lean.addDecl (.thmDecl { name := `Helper.bad, '
                 'levelParams := [], type := Lean.mkConst ``False, value := Lean.mkConst ``True.intro })\n')
-            deployment = root/'EtnaProofs/Deployment.lean'
-            edit(deployment, 'import EtnaModel.Deployment', 'import Helper\nimport EtnaModel.Deployment')
-            deployment.write_text(deployment.read_text()+'\nnamespace Etna.Design.Deployment\n'
-                                  'theorem pwned : False := Helper.bad\nend Etna.Design.Deployment\n')
+            admission = root/'EtnaProofs/CurrentAdmission.lean'
+            edit(admission, 'import EtnaProofs.Current', 'import Helper\nimport EtnaProofs.Current')
+            admission.write_text(admission.read_text()+'\nnamespace Etna.Design.Current.Registry\n'
+                                 'theorem pwned : False := Helper.bad\nend Etna.Design.Current.Registry\n')
             self.assertTrue(LINT.lint(root))
             AUDIT.run(['lake', 'build', 'Helper', *AUDIT.GRAPH.declared_libraries(root)], cwd=root)
             plain = subprocess.run(['lake', 'env', 'leanchecker', 'EtnaProofs'], cwd=root, capture_output=True)
@@ -798,33 +805,46 @@ class CoverageRoleTests(unittest.TestCase):
                     (root/name).write_text(json.dumps(value))
             return COVERAGE.inventory(root)
 
-    def test_constant_edge_is_partial_but_cannot_back_claim(self):
-        source = ENTRIES['Etna.Design.Budget.cap_derivation']['sources'][0]
-        rows = {r['id']: r for r in self.inventory()}
-        self.assertEqual(ENTRIES['Etna.Design.Budget.cap_derivation']['role'], 'constant')
-        self.assertEqual(rows[source]['status'], 'partial')
+    @staticmethod
+    def relabel(name, role):
+        def change(manifest):
+            next(e for e in manifest['theorems'] if e['declaration'] == name)['role'] = role
+        return change
 
-        def claim(spec):
-            spec['claims'][0]['evidence'] = {source: ['Etna.Design.Budget.cap_derivation']}
-        with self.assertRaisesRegex(ValueError, 'cap_derivation \\(constant\\)'):
-            self.inventory(change_spec=claim)
+    def test_constant_edge_is_partial_but_cannot_back_claim(self):
+        # No current entry is a constant: relabel the only partial-role edge of a claimed clause.
+        claims = json.loads((ROOT/'spec-coverage.json').read_text())['claims']
+        cid, (source, [name]) = claims[0]['id'], next(iter(claims[0]['evidence'].items()))
+        rows = {r['id']: r for r in self.inventory()}
+        partial = [n for n in rows[source]['theorems'] if ENTRIES[n]['role'] in COVERAGE.PARTIAL_ROLES]
+        self.assertEqual(partial, [name])
+
+        def drop_claim(spec):
+            spec['claims'] = [c for c in spec['claims'] if c['id'] != cid]
+        rows = {r['id']: r for r in self.inventory(self.relabel(name, 'constant'), drop_claim)}
+        self.assertEqual(rows[source]['status'], 'partial')
+        with self.assertRaisesRegex(ValueError, f'{cid} {source} {name} \\(constant\\)'):
+            self.inventory(self.relabel(name, 'constant'))
 
     def test_regression_edge_cannot_back_claim(self):
         # mut12 also relabels closed traces as `property`; ManifestTypeTests shows the
-        # Lean audit rejects that role, so the graph only ever sees `regression` here.
-        name = 'Etna.Design.FirstBatch.ordinary_handover'
+        # Lean audit rejects that role, so the graph only ever sees `regression` here. The
+        # current witnesses cite no clause, so a claimed theorem on a clause that other
+        # property edges keep partial is relabelled.
         rows = {r['id']: r for r in self.inventory()}
-        source = next(s for s in ENTRIES[name]['sources'] if rows[s]['status'] == 'partial')
+        claims = json.loads((ROOT/'spec-coverage.json').read_text())['claims']
+        cid, source, name = next((c['id'], s, n) for c in claims for s, names in c['evidence'].items() for n in names
+                                 if sum(ENTRIES[m]['role'] == 'property' for m in rows[s]['theorems']) > 1)
 
-        def claim(spec):
-            spec['claims'][0]['evidence'] = {source: [name]}
-        with self.assertRaisesRegex(ValueError, f'DV-01 {source} {name} \\(regression\\)'):
-            self.inventory(change_spec=claim)
+        def only(spec):
+            spec['claims'] = [{**c, 'evidence': {source: [name]}} for c in spec['claims'] if c['id'] == cid]
+        with self.assertRaisesRegex(ValueError, f'{cid} {source} {name} \\(regression\\)'):
+            self.inventory(self.relabel(name, 'regression'), only)
 
     def test_errors_name_clause_and_theorem(self):
         def unknown(m):
-            m['theorems'][0]['sources'] = ['EN-missing']
-        with self.assertRaisesRegex(ValueError, 'unknown theorem source EN-missing: Etna.Design.dual_count'):
+            next(e for e in m['theorems'] if e['declaration'] == SOURCED['declaration'])['sources'] = ['LIVE_EN-missing']
+        with self.assertRaisesRegex(ValueError, 'unknown theorem source LIVE_EN-missing: '+SOURCED['declaration']):
             self.inventory(change_manifest=unknown)
 
     def test_linked_duplicate_text_clause_rejected(self):
@@ -836,27 +856,27 @@ class CoverageRoleTests(unittest.TestCase):
             root.mkdir(parents=True)
             shutil.copytree(ROOT/'manifests', root/'manifests')
             shutil.copytree(COVERAGE.REPO/COVERAGE.SPEC_DIR, repo/COVERAGE.SPEC_DIR)
-            shutil.copytree(ROOT/'legacy/2026-10-30', repo/'formal/etna/legacy/2026-10-30', dirs_exist_ok=True)
             spec = json.loads((ROOT/'spec-coverage.json').read_text())
-            source = repo/COVERAGE.HISTORICAL_DIR/'SPEC.md'
+            source = repo/COVERAGE.SPEC_PATH
             text = source.read_text()+'\nAudit duplicate clause.\n\nAudit duplicate clause.\n'
             source.write_text(text)
-            spec['historical_source']['sha256'] = COVERAGE.digest(COVERAGE.strip_markers(text).encode())
+            spec['source']['sha256'] = COVERAGE.digest(COVERAGE.strip_markers(text).encode())
             (root/'spec-coverage.json').write_text(json.dumps(spec))
-            duplicate = [r for r in COVERAGE.clauses(COVERAGE.strip_markers(text), 'en') if r['summary']=='Audit duplicate clause.']
+            duplicate = [r for r in COVERAGE.clauses(COVERAGE.strip_markers(text), 'live_en')
+                         if r['summary']=='Audit duplicate clause.']
             self.assertEqual(len(duplicate), 2)
             manifest = json.loads((root/'manifests/design.json').read_text())
-            manifest['theorems'][0]['sources'].append(duplicate[-1]['id'])
+            next(e for e in manifest['theorems'] if e['declaration'] == SOURCED['declaration'])['sources'].append(
+                duplicate[-1]['id'])
             (root/'manifests/design.json').write_text(json.dumps(manifest))
             with self.assertRaisesRegex(ValueError, duplicate[-1]['id']+' .*order-dependent'):
                 COVERAGE.inventory(root, repo)
 
     def test_unsupported_domain_tag_edge_removed(self):
+        # The domain-tag clause has no reviewed edge (the old ASCII-tag lemma does not support it).
         rows = [r for r in self.inventory() if 'ETNA_COMET_DOMAIN_V1' in r['summary']]
-        self.assertEqual(len(rows), 2)
-        self.assertEqual({r['historical'] for r in rows}, {True, False})
-        for row in rows:
-            self.assertNotIn('Etna.Design.Encoding.domain_tags_are_ascii', row['theorems'], row['id'])
+        self.assertEqual(len(rows), 1)
+        self.assertEqual((rows[0]['status'], rows[0]['theorems']), ('deferred', []))
 
 
 if __name__ == '__main__':

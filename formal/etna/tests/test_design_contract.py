@@ -30,6 +30,8 @@ def combined_source(stem):
 class ContractTests(unittest.TestCase):
     def setUp(self):
         self.manifest = json.loads((ROOT/'manifests/design.json').read_text())
+        # The first entry that cites a clause (shared/plumbing entries cite none).
+        self.sourced = next(e for e in self.manifest['theorems'] if e['sources'])
 
     def check(self):
         AUDIT.validate_contract(self.manifest)
@@ -71,7 +73,7 @@ class ContractTests(unittest.TestCase):
             self.check()
 
     def test_source_module_mapping_cannot_be_relabelled(self):
-        self.manifest['theorems'][0]['module'] = 'EtnaProofs.Encoding'
+        self.manifest['theorems'][0]['module'] = 'EtnaProofs.CurrentEncoding'
         with self.assertRaisesRegex(ValueError,'manifest module mismatch'):
             self.check_full_manifest()
 
@@ -83,29 +85,33 @@ class ContractTests(unittest.TestCase):
     def test_module_outside_the_theorem_libraries_rejected(self):
         # Manifested theorems live in EtnaProofs or EtnaWitnesses; Model/Statements only for an
         # ALLOWED_MODEL_THEOREMS entry (none today).
-        for module in ('EtnaModel.Common', 'EtnaStatements.Claims', 'EtnaVectors.Main'):
+        name = self.manifest['theorems'][0]['declaration']
+        for module in ('EtnaModel.Common', 'EtnaStatements.Current', 'EtnaVectors.Main'):
             self.manifest['theorems'][0]['module'] = module
-            with self.assertRaisesRegex(ValueError,f'manifest module {module} of Etna.Design.dual_count: '
+            with self.assertRaisesRegex(ValueError,f'manifest module {module} of {name}: '
                                         'theorems live in EtnaProofs or EtnaWitnesses'):
                 self.check()
 
     def test_headline_proofs_live_in_headline_modules(self):
-        entry = next(e for e in self.manifest['theorems'] if e['declaration'] == 'Etna.Proofs.fund_safety')
-        entry['module'] = 'EtnaProofs.Common'
-        with self.assertRaisesRegex(ValueError,'Etna.Proofs.fund_safety: the Etna.Proofs namespace .* lives in '
+        # The one remaining Etna.Proofs declaration is a shared lemma of the headline layer.
+        entry = next(e for e in self.manifest['theorems'] if e['declaration'] == 'Etna.Proofs.selected_power_le')
+        entry['module'] = 'EtnaProofs.Staking'
+        with self.assertRaisesRegex(ValueError,'Etna.Proofs.selected_power_le: the Etna.Proofs namespace .* lives in '
                                     'EtnaProofs.Headline'):
             self.check()
 
     def test_headline_and_unsourced_entries_required(self):
-        for name in ('Etna.Proofs.claims', 'Etna.Proofs.fund_safety', 'Etna.Proofs.run_trace', 'Etna.Proofs.trace_run'):
+        plumbing = json.loads((ROOT/'scripts/current-plumbing.json').read_text())['theorems']
+        for name in (AUDIT.CURRENT_CLAIMS[0], 'Etna.Design.Current.Headlines.fund_safety',
+                     'Etna.Design.Staking.fraction_bounded', next(iter(plumbing))):
             manifest = copy.deepcopy(self.manifest)
             manifest['theorems'] = [e for e in manifest['theorems'] if e['declaration'] != name]
             with self.assertRaisesRegex(ValueError,'missing manifest entry: '+name):
                 AUDIT.validate_contract(manifest)
 
     def test_only_unsourced_plumbing_may_cite_no_clause(self):
-        self.manifest['theorems'][0]['sources'] = []
-        with self.assertRaisesRegex(ValueError,'role/source/scope required: Etna.Design.dual_count'):
+        self.sourced['sources'] = []
+        with self.assertRaisesRegex(ValueError,'role/source/scope required: '+self.sourced['declaration']):
             self.check()
 
 

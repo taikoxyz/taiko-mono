@@ -13,8 +13,14 @@ coverage = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(coverage)
 
 
+ENTRIES = json.loads((ROOT/'manifests/design.json').read_text())['theorems']
+# The first manifest entry that cites a clause (shared/plumbing entries cite none).
+SOURCED = next(e for e in ENTRIES if e['sources'])
+PROPERTY = next(e for e in ENTRIES if e['role']=='property' and e['sources'])
+
+
 class PinnedSourceTests(unittest.TestCase):
-    """A redirected pin or an edit to either authority must fail before evidence loads."""
+    """A redirected pin or an edit to any authority must fail before evidence loads."""
     def check_sources(self, mutate=None):
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)
@@ -22,7 +28,6 @@ class PinnedSourceTests(unittest.TestCase):
             root.mkdir(parents=True)
             directory = 'packages/protocol/docs/etna'
             shutil.copytree(coverage.REPO/directory, repo/directory)
-            shutil.copytree(ROOT/'legacy/2026-10-30', repo/'formal/etna/legacy/2026-10-30', dirs_exist_ok=True)
             value = json.loads((ROOT/'spec-coverage.json').read_text())
             if mutate:
                 mutate(repo, value)
@@ -31,13 +36,14 @@ class PinnedSourceTests(unittest.TestCase):
 
     def test_current_sources_need_no_external_manifest(self):
         rows = self.check_sources()
-        self.assertTrue(any(r['id'].startswith('EN-') for r in rows))
-        self.assertTrue(any(r['id'].startswith('ACCEPTANCE-') for r in rows))
+        for prefix in ('LIVE_EN-', 'LIVE_ACCEPTANCE-', 'LIVE_ANCHORLESS-', 'LIVE_SWITCH-'):
+            self.assertTrue(any(r['id'].startswith(prefix) for r in rows), prefix)
 
     def test_anchorless_has_independent_exact_inventory(self):
         rows = self.check_sources()
-        self.assertEqual(len([r for r in rows if r['language'] in ('en', 'acceptance')]), 313)
-        self.assertEqual(len([r for r in rows if r['language'] == 'anchorless']), 92)
+        self.assertEqual(len([r for r in rows if r['language'] in ('live_en', 'live_acceptance')]), 360)
+        self.assertEqual(len([r for r in rows if r['language'] == 'live_anchorless']), 93)
+        self.assertEqual(len([r for r in rows if r['language'] == 'live_switch']), 113)
 
     def test_anchorless_edit_is_rejected(self):
         with self.assertRaisesRegex(ValueError, 'anchorless digest mismatch'):
@@ -90,14 +96,18 @@ class PinnedSourceTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'the acceptance source must be'):
             self.check_sources(redirect)
 
-    def test_both_reviewed_hashes_are_required(self):
-        for key, diagnostic in [('source', 'spec digest mismatch'),
-                                ('acceptance_source', 'acceptance digest mismatch')]:
-            with self.subTest(key=key), self.assertRaisesRegex(ValueError, diagnostic):
+    def test_switch_edit_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, 'switch digest mismatch'):
+            self.check_sources(lambda repo, value:
+                (repo/'packages/protocol/docs/etna/SWITCH.md').write_text('changed'))
+
+    def test_every_reviewed_hash_is_required(self):
+        for key, label, _, _ in coverage.SOURCE_INPUTS:
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, label+' digest mismatch'):
                 self.check_sources(lambda repo, value: value[key].update(sha256='0'*64))
 
-    def test_both_sources_require_a_full_reviewed_commit(self):
-        for key in ('source', 'acceptance_source'):
+    def test_every_source_requires_a_full_reviewed_commit(self):
+        for key, _, _, _ in coverage.SOURCE_INPUTS:
             with self.subTest(key=key), self.assertRaisesRegex(ValueError, 'full Git commit'):
                 self.check_sources(lambda repo, value: value[key].update(commit='39ebefb'))
 
@@ -112,7 +122,6 @@ class SpecCoverageTests(unittest.TestCase):
             shutil.copytree(ROOT/'manifests',root/'manifests')
             shutil.copyfile(ROOT/'spec-coverage.json',root/'spec-coverage.json')
             shutil.copytree(coverage.REPO/coverage.SPEC_DIR,repo/coverage.SPEC_DIR)
-            shutil.copytree(ROOT/'legacy/2026-10-30', repo/'formal/etna/legacy/2026-10-30', dirs_exist_ok=True)
             if mutate: mutate(root)
             return subprocess.run(['python3',str(ROOT/'scripts/check_spec_coverage.py'),'--root',str(root),'--repo',str(repo)],
                                   capture_output=True,text=True)
@@ -133,7 +142,7 @@ class SpecCoverageTests(unittest.TestCase):
         self.assertEqual(result.returncode,0,result.stderr)
 
     def test_claim_cannot_reference_unrecorded_source(self):
-        self.rejected(lambda r:self.edit(r,'spec-coverage.json',lambda x:x['claims'][0].update(evidence={'EN-missing':['Etna.Design.dual_count']})),'unknown source clause')
+        self.rejected(lambda r:self.edit(r,'spec-coverage.json',lambda x:x['claims'][0].update(evidence={'LIVE_EN-missing':[PROPERTY['declaration']]})),'unknown source clause')
 
     def test_claim_cannot_drop_external_boundaries(self):
         self.rejected(lambda r:self.edit(r,'spec-coverage.json',lambda x:x['claims'][0].update(assumptions=[])),'named boundaries')
@@ -144,21 +153,32 @@ class SpecCoverageTests(unittest.TestCase):
     def test_unknown_role_rejected(self):
         self.rejected(lambda r:self.edit(r,'manifests/design.json',lambda x:x['theorems'][0].update(role='full-coverage')),'theorem role')
 
+    def sourced(self, change):
+        """Apply `change` to the manifest entry SOURCED."""
+        def edit(x):
+            change(next(e for e in x['theorems'] if e['declaration']==SOURCED['declaration']))
+        return lambda r:self.edit(r,'manifests/design.json',edit)
+
     def test_unknown_source_rejected(self):
-        self.rejected(lambda r:self.edit(r,'manifests/design.json',lambda x:x['theorems'][0].update(sources=['EN-missing'])),'theorem source')
+        self.rejected(self.sourced(lambda e:e.update(sources=['LIVE_EN-missing'])),'theorem source')
 
     def test_only_unsourced_plumbing_may_cite_no_clause(self):
-        self.rejected(lambda r:self.edit(r,'manifests/design.json',lambda x:x['theorems'][0].update(sources=[])),
-                      'empty or duplicate theorem source list: Etna.Design.dual_count')
+        self.rejected(self.sourced(lambda e:e.update(sources=[])),
+                      'empty or duplicate theorem source list: '+SOURCED['declaration'])
 
     def test_unsourced_entry_cannot_cite_clauses(self):
-        # run_trace (Run ⊆ Trace plumbing) backs no clause; restoring its old 6.1 land edge fails.
-        def cite(x):
-            entry = next(e for e in x['theorems'] if e['declaration']=='Etna.Proofs.run_trace')
-            self.assertEqual(entry['sources'],[])
-            entry['sources'] = ['EN-976a8c89163f509a']
-        self.rejected(lambda r:self.edit(r,'manifests/design.json',cite),
-                      'Etna.Proofs.run_trace is listed in UNSOURCED (backs no clause) but cites EN-976a8c89163f509a')
+        # A shared lemma and a reviewed current plumbing declaration back no clause; giving
+        # either one a clause edge fails.
+        plumbing = json.loads((ROOT/'scripts/current-plumbing.json').read_text())['theorems']
+        source = SOURCED['sources'][0]
+        for name in ('Etna.Design.Staking.fraction_bounded', next(iter(plumbing))):
+            def cite(x):
+                entry = next(e for e in x['theorems'] if e['declaration']==name)
+                self.assertEqual(entry['sources'],[])
+                entry['sources'] = [source]
+            with self.subTest(name=name):
+                self.rejected(lambda r:self.edit(r,'manifests/design.json',cite),
+                              f'{name} is listed in UNSOURCED (backs no clause) but cites {source}')
 
     def test_spec_bytes_are_pinned(self):
         self.rejected(lambda r:(r.parents[1]/coverage.SPEC_PATH).write_text('changed'),'spec digest mismatch')
@@ -172,14 +192,14 @@ class SpecCoverageTests(unittest.TestCase):
                       'the spec source must be')
 
     def test_claim_edge_not_in_theorem_map_is_rejected(self):
-        entries = json.loads((ROOT/'manifests/design.json').read_text())['theorems']
-        source = next(s for e in entries if e['role']=='property' for s in e['sources']
-                      if s not in entries[0]['sources'])
-        self.rejected(lambda r:self.edit(r,'spec-coverage.json',lambda x:x['claims'][0].update(evidence={source:['Etna.Design.dual_count']})),'claim edge missing')
+        # A partial clause and a real property theorem that does not cite it.
+        source = PROPERTY['sources'][0]
+        other = next(e['declaration'] for e in ENTRIES if e['role']=='property' and source not in e['sources'])
+        self.rejected(lambda r:self.edit(r,'spec-coverage.json',lambda x:x['claims'][0].update(evidence={source:[other]})),'claim edge missing')
 
     def test_claim_cannot_target_deferred_local_trust_clause(self):
         source = next(r['id'] for r in coverage.inventory() if 'Reject a latest checkpoint conflicting with local history' in r['summary'])
-        self.rejected(lambda r:self.edit(r,'spec-coverage.json',lambda x:x['claims'][0].update(evidence={source:['Etna.Design.dual_count']})),'deferred/design-pending')
+        self.rejected(lambda r:self.edit(r,'spec-coverage.json',lambda x:x['claims'][0].update(evidence={source:[PROPERTY['declaration']]})),'deferred/design-pending')
 
     def test_claim_cannot_use_unknown_theorem(self):
         def change(x):
@@ -188,19 +208,20 @@ class SpecCoverageTests(unittest.TestCase):
         self.rejected(lambda r:self.edit(r,'spec-coverage.json',change),'unknown theorem')
 
     def test_used_boundary_cannot_disappear(self):
-        self.rejected(lambda r:self.edit(r,'spec-coverage.json',lambda x:x['boundaries'].pop('l1')),'named boundaries')
+        self.rejected(lambda r:self.edit(r,'spec-coverage.json',lambda x:x['boundaries'].pop('current')),'named boundaries')
 
     def test_concrete_only_clause_cannot_support_proof_claim(self):
-        # A clause backed only by regressions stays deferred and cannot back a claim; a
-        # theorem left without sources (the constant cap_derivation) leaves the graph.
+        # A clause backed only by a regression edge stays deferred and cannot back a claim; a
+        # theorem left without sources leaves the graph. (The current concrete witnesses are
+        # reviewed plumbing that cite no clause, so a sourced theorem is relabelled regression.)
         rows = coverage.inventory()
-        source = next(r['id'] for r in rows if r['historical'] and 'The bound leaves headroom within the 130,044' in r['summary'])
-        name = 'Etna.Design.Budget.grid_calldata_examples'
+        source = next(r['id'] for r in rows if r['language']=='live_en' and 'The bound leaves headroom within the 130,044' in r['summary'])
+        name = SOURCED['declaration']
         def mutate(root):
             def edit_manifest(x):
                 for e in x['theorems']:
                     e['sources'] = [s for s in e['sources'] if s != source]
-                    if e['declaration']==name: e['sources'].append(source)
+                    if e['declaration']==name: e.update(role='regression', sources=[source])
                 x['theorems'] = [e for e in x['theorems'] if e['sources'] or e['declaration'] in coverage.UNSOURCED]
             self.edit(root,'manifests/design.json',edit_manifest)
             self.edit(root,'spec-coverage.json',lambda x:x['claims'][0].update(evidence={source:[name]}))
@@ -215,18 +236,13 @@ class ReviewedMappingTests(unittest.TestCase):
         phrases = ('Reject a latest checkpoint conflicting with local history','Before authorizing')
         rows = [r for r in coverage.inventory() if any(p in r['summary'] for p in phrases)]
         # Exact node-fence and DAO pre-check paragraphs, without line-number IDs.
-        rows = [r for r in rows if r['historical'] and r['summary'].startswith(('- **Reject','- **Before'))]
+        rows = [r for r in rows if r['language']=='live_en' and r['summary'].startswith(('- **Reject','- **Before'))]
         self.assertEqual(len(rows),2)
         for row in rows: self.assertEqual(row['status'],'deferred',row['id'])
 
-    def test_concrete_vectors_are_regression_evidence(self):
-        for short in ('Budget.grid_calldata_examples','Budget.schedule_arithmetic','Budget.data_worst_case_landing_rate',
-                      'Keys.generator_even_prefix','Keys.generator_odd_prefix','Keys.leading_zero_x_kept',
-                      'Keys.non_residue_rejected','Keys.unreduced_x_rejected','Keys.other_prefixes_rejected','Keys.wrong_lengths_rejected'):
-            self.assertEqual(self.entries['Etna.Design.'+short]['role'],'regression',short)
-
-    def test_registry_trace_scope_matches_exact_conclusion(self):
-        for name in ('step_preserves_registry','trace_preserves_registry'):
-            scope = self.entries['Etna.Design.RegistryHistory.'+name]['scope']
-            self.assertNotIn('current entry projection',scope)
-            for predicate in ('KeysValid','IdentitiesValid','Ordered'): self.assertIn(predicate,scope)
+    def test_concrete_witnesses_are_regression_evidence(self):
+        # Concrete accepting/non-vacuity instances never become property/constant clause evidence.
+        witnesses = [e for e in self.entries.values() if e['module'].startswith('EtnaWitnesses.')]
+        self.assertTrue(witnesses)
+        for entry in witnesses:
+            self.assertEqual(entry['role'],'regression',entry['declaration'])

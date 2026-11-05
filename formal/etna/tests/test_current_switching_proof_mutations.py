@@ -11,6 +11,12 @@ import re
 import subprocess
 import tempfile
 import unittest
+import os
+
+
+def setUpModule():
+    if os.environ.get('ETNA_FULL_TESTS') != '1':
+        raise unittest.SkipTest('mutation suite: set ETNA_FULL_TESTS=1 (CI job etna-formal-full)')
 
 ROOT = Path(__file__).resolve().parents[1]
 MODELS = ('CurrentProtocol', 'CurrentCustody', 'CurrentCoherentCustody',

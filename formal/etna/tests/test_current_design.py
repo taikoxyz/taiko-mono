@@ -1,4 +1,4 @@
-"""Current authority pins, historical isolation and kernel-checked semantic examples."""
+"""Current authority pins, current-only evidence and kernel-checked semantic examples."""
 import importlib.util
 import json
 from pathlib import Path
@@ -13,12 +13,12 @@ spec.loader.exec_module(coverage)
 
 
 class CurrentAuthorityTests(unittest.TestCase):
-    def test_current_and_historical_evidence_are_separate(self):
-        rows = coverage.inventory()
-        current = [r for r in rows if not r.get('historical', False)]
-        historical = [r for r in rows if r.get('historical', False)]
-        self.assertEqual(len(historical), 405)
-        self.assertTrue(any(r['language'] == 'live_switch' for r in current))
+    def test_inventory_is_current_only(self):
+        current = coverage.inventory()
+        self.assertEqual(len(current), 566)
+        self.assertTrue(all('historical' not in r for r in current))
+        self.assertEqual({r['language'] for r in current},
+                         {'live_en', 'live_acceptance', 'live_anchorless', 'live_switch'})
         self.assertTrue(all(r['source_commit'] == 'e84a9aaac526c15597d97ee93f8803f92b02c279' for r in current))
         self.assertFalse(any(r['status'] == 'design-pending' for r in current))
         self.assertTrue(all(n.startswith('Etna.Design.Current.') for r in current for n in r['theorems']))
@@ -31,29 +31,22 @@ class CurrentAuthorityTests(unittest.TestCase):
         self.assertEqual(result.stdout+result.stderr, '')
 
 class CurrentEvidenceIsolationTests(unittest.TestCase):
-    def test_historical_theorem_cannot_count_as_current_evidence(self):
+    def test_non_current_theorem_cannot_count_as_current_evidence(self):
+        # A theorem outside Etna.Design.Current (and outside the reviewed shared plumbing)
+        # citing a current clause is an authority mismatch.
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root/'manifests').mkdir()
             manifest = json.loads((ROOT/'manifests/design.json').read_text())
             spec = json.loads((ROOT/'spec-coverage.json').read_text())
             current_source = next(iter(spec['claims'][-1]['evidence']))
-            manifest['theorems'][0]['sources'].append(current_source)
+            entry = next(e for e in manifest['theorems'] if e['sources'])
+            manifest['theorems'].append({**entry, 'declaration': 'Etna.Design.Staking.not_current',
+                                         'sources': [current_source]})
             (root/'manifests/design.json').write_text(json.dumps(manifest))
             (root/'spec-coverage.json').write_text(json.dumps(spec))
-            with self.assertRaisesRegex(ValueError, 'authority'):
-                coverage.inventory(root, coverage.REPO)
-
-    def test_claim_cannot_silently_change_authority(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            (root/'manifests').mkdir()
-            manifest = json.loads((ROOT/'manifests/design.json').read_text())
-            spec = json.loads((ROOT/'spec-coverage.json').read_text())
-            spec['claims'][0]['historical'] = False
-            (root/'manifests/design.json').write_text(json.dumps(manifest))
-            (root/'spec-coverage.json').write_text(json.dumps(spec))
-            with self.assertRaisesRegex(ValueError, 'mixes current and historical'):
+            with self.assertRaisesRegex(ValueError, 'theorem authority mismatch: Etna.Design.Staking.not_current cites '
+                                        + current_source):
                 coverage.inventory(root, coverage.REPO)
 
     def test_switch_authority_pin_is_required(self):
