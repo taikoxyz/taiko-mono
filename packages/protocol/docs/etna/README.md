@@ -63,7 +63,7 @@ The Etna block-production and validation rules are in
 
 ### Key review points
 
-- **Snapshot startup:** EL-only backends, validators and full nodes may start from authenticated checkpoint snapshots at launch or later. App nodes also authenticate the current generation’s consensus archive and reconstruct committee, proposer-priority and evidence/history state without pre-checkpoint EL execution, then use stock CometBFT P2P from s+1. Fixed genesis, latest-checkpoint trust and signer HRS remain mandatory. Keep genesis and the current origin publicly recoverable and preserve complete EL/app snapshot-to-latest paths; full genesis blob replay is optional (5.3, 5.4, 8.4, 9.1).
+- **Snapshot startup:** EL-only backends, validators and full nodes may start from authenticated checkpoint snapshots at launch or later. App nodes also install the proposer priorities proven in the checkpoint's landed validator-state hash and authenticate only a bounded window of consensus history ending at the checkpoint, without pre-checkpoint EL execution or a scan from genesis, then use stock CometBFT P2P from s+1. Fixed genesis, latest-checkpoint trust and signer HRS remain mandatory; the trust check also compares the landed validator-state hash with the node's own state and halts for safety on a mismatch. Keep genesis and the current origin publicly recoverable, keep the full consensus history archived so fixed-genesis replay stays possible, and preserve complete EL/app snapshot-to-latest paths; full genesis blob replay is optional (5.3, 5.4, 6.2, 8.4, 9.1).
 - **Consensus and signing:** stock CometBFT v0.40.0 with secp256k1eth keys, a
   signing domain bound to the deployment and recovery generation, committee
   changes activated two heights after they are derived, and an external signer
@@ -71,8 +71,9 @@ The Etna block-production and validation rules are in
 - **Settlement:** exactly two sub-proofs, at least one of them ZK. A batch proves
   the range (p,h], from its proof origin p to its terminal height h. When `land`
   executes it reads c, the latest checkpoint height, and settles only the new
-  suffix (c,h]. Each grid leaf binds the height, EL hash, Comet hash and FI cursor
-  of its own grid point in (p,h). Before proof verification, `land` checks the
+  suffix (c,h]. Each grid leaf binds the height, EL hash, Comet hash, FI cursor
+  and validator-state hash (CometBFT's validator sets with their proposer
+  priorities) of its own grid point in (p,h). Before proof verification, `land` checks the
   leaf at c (when c > p) against c's slot 285 record and that record's FI cursor
   against the current FI head; the other leaves are bound only through cutHash
   in the proofs.
