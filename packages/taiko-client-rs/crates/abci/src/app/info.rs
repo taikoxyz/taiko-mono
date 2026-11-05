@@ -9,7 +9,7 @@ use tendermint::{
 use super::{
     APP_NAME, APP_VERSION, AbciError, App, app_hash, at_generation_origin, cometbft_height, within,
 };
-use crate::{engine::Engine, l1::L1Source, store::AppState};
+use crate::{GRID_INTERVAL, engine::Engine, l1::L1Source, store::AppState, valstate::ValState};
 
 /// Response code of a rejected `CheckTx` and of a failed `Query`.
 pub const CODE_REJECTED: u32 = 1;
@@ -89,9 +89,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Handles `Query`.
     ///
     /// Paths: `/status` answers the JSON [`Status`](super::Status); `/committee/<epoch>` answers
-    /// the JSON [`CommitteeState`](crate::store::CommitteeState) of a known epoch. Anything else
-    /// (an unknown path or epoch, or any query before `InitChain`) answers code
-    /// [`CODE_REJECTED`] with the reason in `log`. `height` is the last committed height.
+    /// the JSON [`CommitteeState`](crate::store::CommitteeState) of a known epoch;
+    /// `/val_state/<height>`, with a canonical decimal height, answers the raw validator-state
+    /// preimage of [`App::val_state_preimage`]. Anything else (an unknown path, epoch or height,
+    /// or any query before `InitChain`) answers code [`CODE_REJECTED`] with the reason in `log`.
+    /// `height` is the last committed height. Callers authenticate the answers themselves.
     pub(super) fn query(&self, req: request::Query) -> response::Query {
         let height =
             self.state.as_ref().map_or(Height::from(0u32), |s| cometbft_height(s.last_height));
@@ -106,7 +108,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         }
     }
 
-    /// The JSON answer to the query `path`, or the reason it has none.
+    /// The answer to the query `path`, or the reason it has none.
     fn query_value(&self, path: &str) -> Result<Vec<u8>, String> {
         if path == "/trust" {
             return serde_json::to_vec(&self.trust.snapshot()).map_err(|e| e.to_string());
@@ -115,6 +117,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if path == "/status" {
             let status = self.status().ok_or("the app is not initialized")?;
             return serde_json::to_vec(&status).map_err(|e| e.to_string());
+        }
+        if let Some(height) = path.strip_prefix("/val_state/") {
+            let parsed = height.parse::<u64>().ok().filter(|h| h.to_string() == height);
+            let height = parsed.ok_or_else(|| format!("invalid height {height:?}"))?;
+            return self.val_state_preimage(height);
         }
         let Some(epoch) = path.strip_prefix("/committee/") else {
             return Err(format!("unknown query path {path:?}"));
@@ -125,6 +132,49 @@ impl<L: L1Source, E: Engine> App<L, E> {
             .get(&epoch)
             .ok_or_else(|| format!("no committee known for epoch {epoch}"))?;
         serde_json::to_vec(committee).map_err(|e| e.to_string())
+    }
+
+    /// The validator-state preimage ([`ValState::encode`]) after the committed grid `height`: the
+    /// head state's when `height` is the last committed height, else its durable sidecar.
+    ///
+    /// Only grid heights (multiples of [`GRID_INTERVAL`]) within the retained range
+    /// `[comet_history_floor, last_height]` answer; any other height, a state not yet
+    /// initialized, and a sidecar that is missing, unreadable or not a canonical preimage of
+    /// that very height are errors naming the cause. A missing sidecar at a retained height
+    /// other than the generation origin (which no Commit writes) means lost durable state.
+    pub fn val_state_preimage(&self, height: u64) -> Result<Vec<u8>, String> {
+        let state = self.state.as_ref().ok_or("the app is not initialized")?;
+        if !height.is_multiple_of(GRID_INTERVAL) {
+            return Err(format!(
+                "height {height} is not a grid height (a multiple of {GRID_INTERVAL})"
+            ));
+        }
+        let (floor, last) = (state.comet_history_floor(), state.last_height);
+        if !(floor..=last).contains(&height) {
+            return Err(format!(
+                "the validator state at height {height} is not retained (retained: {floor}..={last})"
+            ));
+        }
+        if height == last {
+            return Ok(state.val_state.encode());
+        }
+        let preimage = self
+            .store
+            .load_val_state(height)
+            .map_err(|e| format!("cannot read the validator state at height {height}: {e}"))?
+            .ok_or_else(|| {
+                format!("the validator-state sidecar of retained height {height} is missing")
+            })?;
+        match ValState::decode(&preimage) {
+            Ok(decoded) if decoded.height == height => Ok(preimage),
+            Ok(decoded) => Err(format!(
+                "the validator-state sidecar of height {height} holds height {}",
+                decoded.height
+            )),
+            Err(e) => {
+                Err(format!("the validator-state sidecar of height {height} is corrupt: {e}"))
+            }
+        }
     }
 
     /// Handles `CheckTx`: rejects every transaction (the CometBFT mempool is `nop`; user

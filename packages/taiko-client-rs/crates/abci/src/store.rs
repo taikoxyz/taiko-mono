@@ -2,9 +2,10 @@
 //!
 //! [`AppState`] is everything `FinalizeBlock` needs besides the envelope and the EL: the chain
 //! identity, the genesis record and schedule, the committed parent, its anchor facts, the forced
-//! inclusion cursor and the known committees. `Commit` persists it with [`Store::save`]: the JSON
-//! is written to `abci-state.json.tmp`, fsynced, renamed over `abci-state.json` and the directory
-//! fsynced, so a crash leaves either the old or the new state, never a torn file.
+//! inclusion cursor, the known committees and CometBFT's validator state. `Commit` persists it
+//! with [`Store::save`]: the JSON is written to `abci-state.json.tmp`, fsynced, renamed over
+//! `abci-state.json` and the directory fsynced, so a crash leaves either the old or the new
+//! state, never a torn file.
 
 use std::{
     collections::BTreeMap,
@@ -20,6 +21,7 @@ use crate::{
     recovery::RecoveryOrigin,
     schedule::Schedule,
     types::{AnchorState, CommitteeRecord, GenesisRecord, Member, ParentInfo},
+    valstate::ValState,
 };
 
 /// File name of the persisted state inside the data directory.
@@ -49,7 +51,7 @@ pub struct CommitteeState {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppState {
-    /// Journal schema: 15 for generation zero, 16 exclusively for fresh recovery state.
+    /// Journal schema: 17 for generation zero, 18 exclusively for fresh recovery state.
     pub schema_version: u32,
     /// Mandatory consensus format marker; old saved state has no implicit migration.
     pub app_version: u64,
@@ -57,7 +59,7 @@ pub struct AppState {
     pub chain_id: String,
     /// Recovery generation authenticated in the deployment domain.
     pub generation: u64,
-    /// Fixed authenticated boundary for fresh recovery schema 16; absent in schema 15.
+    /// Fixed authenticated boundary for fresh recovery schema 18; absent in schema 17.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recovery: Option<RecoveryOrigin>,
     /// Inbox account authenticated at genesis. Required so a restart cannot switch contracts;
@@ -80,6 +82,10 @@ pub struct AppState {
     pub forced_cursor: u64,
     /// Authenticated active and pending committee records, keyed by their actual target epochs.
     pub committees: BTreeMap<u64, CommitteeState>,
+    /// CometBFT's validator state after `last_height` (its `height` is `last_height`): the
+    /// generation's genesis state, advanced by every committed height's validator updates. A
+    /// required field: a state file without it is refused (no migration).
+    pub val_state: ValState,
 }
 
 impl AppState {
@@ -158,6 +164,9 @@ pub enum StoreError {
     /// Replaying a committed height produced a different Comet block ID.
     #[error("conflicting durable Comet block hash at height {0}")]
     CometConflict(u64),
+    /// Replaying a committed grid height produced a different validator-state preimage.
+    #[error("conflicting durable validator state at height {0}")]
+    ValStateConflict(u64),
     /// An immutable recovery bootstrap already exists with different evidence.
     #[error("conflicting immutable recovery bootstrap")]
     BootstrapConflict,
@@ -222,7 +231,7 @@ impl Store {
     /// Reads committed Comet history. Absence keeps checkpoint trust closed until restored.
     /// Entries above the committed AppState height are never evidence of a commit.
     pub fn load_comet_hash(&self, height: u64) -> Result<Option<B256>, StoreError> {
-        let path = self.dir.join(format!("comet-hash-{height}.json"));
+        let path = self.dir.join(COMET_HASH_FILE.name(height));
         match fs::read(&path) {
             Ok(bytes) => serde_json::from_slice(&bytes)
                 .map(Some)
@@ -238,13 +247,50 @@ impl Store {
             return if previous == hash { Ok(()) } else { Err(StoreError::CometConflict(height)) };
         }
         let json = serde_json::to_vec(&hash).map_err(StoreError::Encode)?;
-        self.save_bytes(&json, &format!("comet-hash-{height}.json"), "comet-hash.tmp")
+        self.save_bytes(&json, &COMET_HASH_FILE.name(height), "comet-hash.tmp")
     }
 
     /// Deletes the recorded Comet block IDs below `floor` and returns how many it removed. Only
     /// canonical `comet-hash-{height}.json` names are touched. A deletion lost to a crash leaves
     /// a correct immutable record behind, so the directory is not fsynced.
     pub fn prune_comet_hashes(&self, floor: u64) -> Result<usize, StoreError> {
+        self.prune_below(floor, COMET_HASH_FILE)
+    }
+
+    /// Reads the validator-state preimage ([`ValState::encode`]) recorded for the committed grid
+    /// height `height`. The bytes are returned as stored; the caller decodes them.
+    pub fn load_val_state(&self, height: u64) -> Result<Option<Vec<u8>>, StoreError> {
+        let path = self.dir.join(VAL_STATE_FILE.name(height));
+        match fs::read(&path) {
+            Ok(bytes) => Ok(Some(bytes)),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
+            Err(source) => Err(StoreError::Io { op: "read", path, source }),
+        }
+    }
+
+    /// Durably records the immutable validator-state preimage of the committed grid height
+    /// `height` before publishing its committed AppState. Saving the recorded bytes again
+    /// succeeds; other bytes are [`StoreError::ValStateConflict`].
+    pub fn save_val_state(&self, height: u64, preimage: &[u8]) -> Result<(), StoreError> {
+        if let Some(previous) = self.load_val_state(height)? {
+            return if previous == preimage {
+                Ok(())
+            } else {
+                Err(StoreError::ValStateConflict(height))
+            };
+        }
+        self.save_bytes(preimage, &VAL_STATE_FILE.name(height), "val-state.tmp")
+    }
+
+    /// Deletes the recorded validator-state preimages below `floor` and returns how many it
+    /// removed, as [`Store::prune_comet_hashes`] does for `val-state-{height}.bin` names.
+    pub fn prune_val_states(&self, floor: u64) -> Result<usize, StoreError> {
+        self.prune_below(floor, VAL_STATE_FILE)
+    }
+
+    /// Deletes the per-height records named by `kind` below `floor` and returns how many it
+    /// removed; other names are never touched.
+    fn prune_below(&self, floor: u64, kind: HeightFile) -> Result<usize, StoreError> {
         let entries = match fs::read_dir(&self.dir) {
             Ok(entries) => entries,
             Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(0),
@@ -254,7 +300,7 @@ impl Store {
         for entry in entries {
             let entry = entry.map_err(|source| io_err("list", &self.dir, source))?;
             let name = entry.file_name();
-            let Some(height) = name.to_str().and_then(comet_hash_height) else { continue };
+            let Some(height) = name.to_str().and_then(|name| kind.height(name)) else { continue };
             if height >= floor {
                 continue;
             }
@@ -397,11 +443,33 @@ impl Store {
     }
 }
 
-/// The height recorded by a canonical `comet-hash-{height}.json` file name.
-fn comet_hash_height(name: &str) -> Option<u64> {
-    let digits = name.strip_prefix("comet-hash-")?.strip_suffix(".json")?;
-    let height = digits.parse::<u64>().ok()?;
-    (height.to_string() == digits).then_some(height)
+/// The `{prefix}{height}{suffix}` file names of one kind of per-height record.
+#[derive(Clone, Copy, Debug)]
+struct HeightFile {
+    /// The name before the decimal height.
+    prefix: &'static str,
+    /// The name after the decimal height.
+    suffix: &'static str,
+}
+
+/// The committed Comet block IDs: `comet-hash-{height}.json`.
+const COMET_HASH_FILE: HeightFile = HeightFile { prefix: "comet-hash-", suffix: ".json" };
+
+/// The grid heights' validator-state preimages: `val-state-{height}.bin`.
+const VAL_STATE_FILE: HeightFile = HeightFile { prefix: "val-state-", suffix: ".bin" };
+
+impl HeightFile {
+    /// The canonical file name of `height`.
+    fn name(self, height: u64) -> String {
+        format!("{}{height}{}", self.prefix, self.suffix)
+    }
+
+    /// The height a canonical file name of this kind records.
+    fn height(self, name: &str) -> Option<u64> {
+        let digits = name.strip_prefix(self.prefix)?.strip_suffix(self.suffix)?;
+        let height = digits.parse::<u64>().ok()?;
+        (height.to_string() == digits).then_some(height)
+    }
 }
 
 /// Builds a [`StoreError::Io`].
@@ -466,7 +534,7 @@ mod tests {
             max_anchor_age: 7_200,
         };
         AppState {
-            schema_version: 15,
+            schema_version: 17,
             recovery: None,
             app_version: crate::app::APP_VERSION,
             chain_id: "taiko-etna-167001-g0".to_string(),
@@ -501,6 +569,8 @@ mod tests {
             },
             forced_cursor: 3,
             committees: (0..4).map(|e| (e, committee(e))).collect(),
+            val_state: ValState::genesis(105, &crate::test_utils::powers(&committee(0).members))
+                .unwrap(),
         }
     }
 
@@ -607,8 +677,9 @@ mod tests {
         assert!(matches!(err, StoreError::Corrupt { .. }), "{err:?}");
     }
 
-    /// A state written before forced inclusion lacks its genesis-record, anchor and cursor fields
-    /// and is refused rather than defaulted (prelaunch: no migration).
+    /// A state written before forced inclusion or the validator state lacks its genesis-record,
+    /// anchor, cursor or validator-state fields and is refused rather than defaulted (prelaunch:
+    /// no migration).
     #[test]
     fn load_rejects_a_state_without_forced_inclusion_fields() {
         let dir = tempfile::tempdir().unwrap();
@@ -620,6 +691,7 @@ mod tests {
             ("", "last_comet_hash"),
             ("/committees/0/members/0", "pubkey"),
             ("", "forced_cursor"),
+            ("", "val_state"),
             ("/genesis", "forced_inclusion_delay"),
             ("/genesis", "max_anchor_age"),
             ("/anchor/inbox", "forced_inclusion_head"),
@@ -767,5 +839,52 @@ mod comet_history_tests {
             assert!(dir.path().join(name).exists(), "{name} is not committed Comet history");
         }
         assert_eq!(store.prune_comet_hashes(3).unwrap(), 0, "pruning again finds nothing");
+    }
+
+    #[test]
+    fn durable_val_states_are_immutable() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().into());
+        assert_eq!(store.load_val_state(6).unwrap(), None);
+        store.save_val_state(6, b"preimage").unwrap();
+        let reopened = Store::new(dir.path().into());
+        assert_eq!(reopened.load_val_state(6).unwrap(), Some(b"preimage".to_vec()));
+        reopened.save_val_state(6, b"preimage").unwrap();
+        assert!(matches!(
+            reopened.save_val_state(6, b"other"),
+            Err(StoreError::ValStateConflict(6))
+        ));
+        assert_eq!(reopened.load_val_state(6).unwrap(), Some(b"preimage".to_vec()));
+    }
+
+    #[test]
+    fn pruning_removes_only_val_states_below_the_floor() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::volatile(dir.path().into());
+        for height in [6, 12, 18] {
+            store.save_val_state(height, &[height as u8]).unwrap();
+            store.save_comet_hash(height, B256::repeat_byte(height as u8)).unwrap();
+        }
+        let unrelated =
+            ["val-state.tmp", "val-state-06.bin", "val-state-x.bin", "val-state-6.json"];
+        for name in unrelated {
+            std::fs::write(dir.path().join(name), b"kept").unwrap();
+        }
+
+        assert_eq!(store.prune_val_states(13).unwrap(), 2);
+
+        for height in [6, 12] {
+            assert_eq!(store.load_val_state(height).unwrap(), None, "height {height}");
+        }
+        assert_eq!(store.load_val_state(18).unwrap(), Some(vec![18]));
+        for height in [6, 12, 18] {
+            assert!(store.load_comet_hash(height).unwrap().is_some(), "comet hash {height}");
+        }
+        for name in unrelated {
+            assert!(dir.path().join(name).exists(), "{name} is not a validator-state sidecar");
+        }
+        assert_eq!(store.prune_val_states(13).unwrap(), 0, "pruning again finds nothing");
+        assert_eq!(store.prune_comet_hashes(13).unwrap(), 2, "and leaves Comet history alone");
+        assert_eq!(store.load_val_state(18).unwrap(), Some(vec![18]));
     }
 }

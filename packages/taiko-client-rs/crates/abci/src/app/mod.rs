@@ -357,10 +357,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// [`Schedule::validate`](crate::schedule::Schedule::validate) and equal the one derived from
     /// its genesis record, its Inbox must match the account
     /// authenticated at genesis, its `chain_id` must name `params.l2_chain_id` and its
-    /// generation, and its last height must equal its parent's number and fit a CometBFT
-    /// height. Every saved committee must retain canonical stake-derived powers, checked totals
-    /// and its set root. These local consistency checks do not authenticate a coherently
-    /// rewritten state file.
+    /// generation, and its last height must equal its parent's number and its validator
+    /// state's height and fit a CometBFT height. Every saved committee must retain canonical
+    /// stake-derived powers, checked totals and its set root. These local consistency checks do
+    /// not authenticate a coherently rewritten state file.
     ///
     /// Forced inclusion uses authenticated calldata and requires no KZG initialization.
     pub fn new(
@@ -675,9 +675,9 @@ fn at_generation_origin(state: &AppState) -> bool {
 
 /// Rejects a persisted state that `params` or the state itself contradicts (see [`App::new`]).
 fn check_stored_state(state: &AppState, params: &ChainParams) -> Result<(), AbciError> {
-    if !matches!((state.schema_version, state.recovery.as_ref()), (15, None) | (16, Some(_))) {
+    if !matches!((state.schema_version, state.recovery.as_ref()), (17, None) | (18, Some(_))) {
         return Err(AbciError::StoredState(format!(
-            "unsupported journal schema {} or recovery origin (expected 15 without origin or 16 with origin)",
+            "unsupported journal schema {} or recovery origin (expected 17 without origin or 18 with origin)",
             state.schema_version
         )));
     }
@@ -769,6 +769,12 @@ fn check_stored_state(state: &AppState, params: &ChainParams) -> Result<(), Abci
         return Err(AbciError::StoredState(format!(
             "last height {} differs from the parent block number {}",
             state.last_height, state.parent.number
+        )));
+    }
+    if state.val_state.height != state.last_height {
+        return Err(AbciError::StoredState(format!(
+            "last height {} differs from the validator state's height {}",
+            state.last_height, state.val_state.height
         )));
     }
     if Height::try_from(state.last_height).is_err() {

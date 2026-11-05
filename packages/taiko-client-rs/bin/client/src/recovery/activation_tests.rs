@@ -652,7 +652,7 @@ async fn initialized_state(
     )
     .unwrap();
     let state = abci::store::AppState {
-        schema_version: 16,
+        schema_version: 18,
         app_version: abci::app::APP_VERSION,
         chain_id: abci::rules::chain_id_for(&plan.deployment.params().unwrap(), 1).unwrap(),
         generation: 1,
@@ -668,6 +668,11 @@ async fn initialized_state(
             plan.origin.height / genesis.epoch_len,
             plan.origin.committee.clone(),
         )]),
+        val_state: abci::valstate::ValState::genesis(
+            plan.origin.height,
+            &plan.origin.committee.members.iter().map(|m| (m.pubkey, m.power)).collect::<Vec<_>>(),
+        )
+        .unwrap(),
     };
     abci::Store::new(store.plan_dir(plan.id()).join("app")).save(&state).unwrap();
     state
@@ -702,6 +707,7 @@ async fn recovery_activation_committed_crash_window_resumes_without_origin_probe
         forced: None,
     };
     state.last_height = 7;
+    state.val_state = state.val_state.advance(&[]).unwrap();
     state.last_comet_hash = B256::repeat_byte(77);
     state.parent.number = 7;
     state.parent.hash = header.hash_slow();
@@ -1085,7 +1091,7 @@ async fn recovery_activation_accepts_only_exact_prior_supersession_evidence() {
     let plan =
         prepare::prepare(&profile, 1, &root, &source, &ReadEngine::new(&source)).await.unwrap();
     let mut old = initialized_state(&RecoveryStore::new(&root), &plan, &source).await;
-    old.schema_version = 15;
+    old.schema_version = 17;
     old.generation = 0;
     old.recovery = None;
     old.chain_id = abci::rules::chain_id_for(&plan.deployment.params().unwrap(), 0).unwrap();
@@ -1213,7 +1219,7 @@ async fn recovery_activation_repeated_generation_preserves_historical_supersessi
     for name in [abci::store::STATE_FILE, "recovery-bootstrap.json"] {
         std::fs::remove_file(store.plan_dir(plan1.id()).join("app").join(name)).unwrap();
     }
-    old.schema_version = 15;
+    old.schema_version = 17;
     old.generation = 0;
     old.recovery = None;
     old.chain_id = abci::rules::chain_id_for(&plan1.deployment.params().unwrap(), 0).unwrap();

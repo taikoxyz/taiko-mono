@@ -196,6 +196,7 @@ async fn init_chain_after_the_first_block_is_rejected() {
     let mut state = fx.expected_state();
     state.last_height += 1;
     state.parent.number += 1;
+    state.val_state = state.val_state.advance(&[]).unwrap();
     Store::volatile(dir.path().to_path_buf()).save(&state).unwrap();
 
     let mut app = fx.app(dir.path());

@@ -31,7 +31,7 @@ use crate::{
 };
 
 /// `(pubkey, power)` pairs of CometBFT validator updates, in response order.
-fn updates_of(resp: &response::FinalizeBlock) -> Vec<(crate::key::ConsensusKey, u64)> {
+pub(super) fn updates_of(resp: &response::FinalizeBlock) -> Vec<(crate::key::ConsensusKey, u64)> {
     resp.validator_updates.iter().map(|u| (u.pub_key, u.power.value())).collect()
 }
 
@@ -290,6 +290,7 @@ async fn finalize_updates_parent_anchor_and_committees() {
     let h = &env.block.header;
     let mut expected = before.clone();
     expected.last_height = h0;
+    expected.val_state = before.val_state.advance(&[]).unwrap();
     expected.last_comet_hash = B256::from_slice(req.hash.as_bytes());
     expected.parent = ParentInfo {
         number: h0,
@@ -1399,7 +1400,7 @@ async fn finalize_before_init_chain_is_an_error() {
 }
 
 /// A genesis with `L = 4` and an unsettled cap of 1 (`D_MAX = 3`, `MARGIN_V = 2`).
-fn short_epochs() -> Fixture {
+pub(super) fn short_epochs() -> Fixture {
     let mut spec = GenesisSpec::new(3);
     spec.epoch_len = 4;
     spec.params.unsettled_limit = 6;
@@ -1415,7 +1416,7 @@ fn short_epochs() -> Fixture {
 /// checkpoint; settlement advances only checkpoint facts. A fourth validator registers at
 /// L1 block `L1_0 + 2`. Committee 1 selects its earlier committed parent; committees 2 and 3
 /// include the fourth validator once their committed parent anchors cover the join.
-async fn multi_epoch_run(
+pub(super) async fn multi_epoch_run(
     fx: &Fixture,
     dir: &Path,
 ) -> (App<MockL1, MockEngine>, Vec<(request::FinalizeBlock, response::FinalizeBlock)>) {
@@ -1452,7 +1453,7 @@ async fn multi_epoch_run(
 
 /// Gives `to` the L1 chain `from` holds (its headers and finalized number), as the own L1 of a
 /// node replaying blocks anchored on that chain sees it; `to` keeps its own block states.
-fn share_l1_chain(from: &MockL1, to: &MockL1) {
+pub(super) fn share_l1_chain(from: &MockL1, to: &MockL1) {
     let (headers, finalized) = {
         let from = from.state();
         (from.headers.clone(), from.finalized)

@@ -18,6 +18,7 @@ use crate::{
     schedule::Schedule,
     store::AppState,
     types::{GenesisRecord, Member, ParentInfo},
+    valstate::ValState,
 };
 
 impl<L: L1Source, E: Engine> App<L, E> {
@@ -89,7 +90,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// `genesisCommitteeRecordHash` and its members to be exactly the genesis validators; makes
     /// sure the EL serves `B*` with hash `H*` and state root `S*` (EL sync if needed).
     /// Persists the authenticated Inbox address. The state has `last = (B*,
-    /// H*)` and forced inclusion cursor 0.
+    /// H*)`, forced inclusion cursor 0 and CometBFT's genesis validator state of `e_0` at `B*`.
     async fn verify_genesis(&self, req: &request::InitChain) -> Result<AppState, AbciError> {
         let w = match decode_bootstrap_state(&req.app_state_bytes)? {
             BootstrapWitness::Initial(w) => w,
@@ -134,9 +135,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
         let committee = verify_committee(&context, &w.committee, params)?;
         check_validators(&req.validators, &committee.members)?;
+        let val_state = genesis_val_state(0, &committee.members)?;
         let parent = self.genesis_parent(&context.genesis).await?;
         Ok(AppState {
-            schema_version: 15,
+            schema_version: 17,
             recovery: None,
             app_version: crate::app::APP_VERSION,
             chain_id: req.chain_id.clone(),
@@ -149,12 +151,14 @@ impl<L: L1Source, E: Engine> App<L, E> {
             anchor: context.anchor,
             forced_cursor: 0,
             committees: BTreeMap::from([(Schedule::E0, committee)]),
+            val_state,
         })
     }
 
     /// Independently authenticates fixed recovery evidence, historical anchor and local EL
     /// boundary. The immutable sidecar is durable before callers can publish the corresponding
-    /// AppState.
+    /// AppState. The generation starts from CometBFT's genesis validator state of the origin
+    /// committee at the origin height.
     async fn verify_recovery_genesis(
         &self,
         req: &request::InitChain,
@@ -183,6 +187,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             });
         }
         check_validators(&req.validators, &origin.committee.members)?;
+        let val_state = genesis_val_state(origin.height, &origin.committee.members)?;
         let mut pause = super::FINALIZE_RETRY_INITIAL;
         let bootstrap = loop {
             match self.recovery_inputs(w).await {
@@ -206,7 +211,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         )?
         .genesis;
         let state = AppState {
-            schema_version: 16,
+            schema_version: 18,
             app_version: super::APP_VERSION,
             chain_id: req.chain_id.clone(),
             generation: origin.generation,
@@ -221,6 +226,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 origin.committee.record.target_epoch,
                 origin.committee.clone(),
             )]),
+            val_state,
             recovery: Some(origin),
         };
         self.store.save_recovery_bootstrap(&bootstrap)?;
@@ -369,6 +375,16 @@ fn check_validators(
         Some(extra) => Err(mismatch(format!("validator {extra} is not a committee member"))),
         None => Ok(()),
     }
+}
+
+/// CometBFT's genesis validator state at the origin `height` of the validators `members`, which
+/// [`check_validators`] matched against the request. CometBFT refuses a genesis set it cannot
+/// build, so neither can the app.
+fn genesis_val_state(height: u64, members: &[Member]) -> Result<ValState, AbciError> {
+    let validators: Vec<_> = members.iter().map(|m| (m.pubkey, m.power)).collect();
+    ValState::genesis(height, &validators).map_err(|error| {
+        AbciError::GenesisValidatorsMismatch(format!("not a CometBFT validator set: {error}"))
+    })
 }
 
 /// Only acquisition failures may keep recovery InitChain pending on the same connection.

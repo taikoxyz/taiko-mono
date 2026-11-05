@@ -198,7 +198,7 @@ pub(super) async fn step(app: &mut App<MockL1, MockEngine>) -> EtnaEnvelope {
 /// committed anchor, and `committees` added to the known ones. The parent is the
 /// [`committed_block`] at `last`, and the EL's canonical chain gains one below it at every height
 /// above genesis it does not hold yet, so anchored checkpoints of `Fixture::inbox_with` name the
-/// local chain.
+/// local chain. The validator state advances to `last` without updates.
 pub(super) fn jump(
     app: &mut App<MockL1, MockEngine>,
     last: u64,
@@ -225,6 +225,9 @@ pub(super) fn jump(
     state.last_height = last;
     state.anchor = anchor;
     state.committees.extend(committees.iter().cloned());
+    while state.val_state.height < last {
+        state.val_state = state.val_state.advance(&[]).expect("a nonempty set advances");
+    }
 }
 
 /// Moves the committed parent's timestamp so that the next height's derived timestamp, at

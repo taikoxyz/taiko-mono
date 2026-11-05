@@ -21,7 +21,7 @@ fn recovered(epoch_len: u64) -> (Fixture, MockL1, AppState) {
     let origin = verify_recovery_witness(&witness, &fx.params).unwrap();
     let mut state = fx.expected_state();
     state.anchor = verify_anchor_witness(&fx.anchor_witness(&l1, 64), fx.params.inbox).unwrap();
-    state.schema_version = 16;
+    state.schema_version = 18;
     state.generation = 1;
     state.chain_id = chain_id_for(&fx.params, 1).unwrap();
     state.last_height = 6;
@@ -29,6 +29,11 @@ fn recovered(epoch_len: u64) -> (Fixture, MockL1, AppState) {
     state.parent.hash = origin.el_hash;
     state.forced_cursor = origin.forced_cursor;
     state.committees = [(origin.committee.record.target_epoch, origin.committee.clone())].into();
+    state.val_state = crate::valstate::ValState::genesis(
+        origin.height,
+        &crate::test_utils::powers(&origin.committee.members),
+    )
+    .unwrap();
     state.recovery = Some(origin);
     (fx, l1, state)
 }
@@ -162,10 +167,19 @@ fn recovery_schedule_rejects_missing_switch_after_recovery() {
 fn recovery_schedule_schema_is_explicit_and_generation_zero_bytes_stay_unchanged() {
     let (fx, _, state) = recovered(7);
     assert!(super::super::check_stored_state(&state, &fx.params).is_ok());
+    // Generation zero's schema, and the schemas before the validator state, are refused.
+    for schema in [15, 16, 17] {
+        let mut wrong = state.clone();
+        wrong.schema_version = schema;
+        assert!(super::super::check_stored_state(&wrong, &fx.params).is_err(), "{schema}");
+    }
+    for schema in [15, 16, 18] {
+        let mut wrong = fx.expected_state();
+        wrong.schema_version = schema;
+        assert!(super::super::check_stored_state(&wrong, &fx.params).is_err(), "{schema}");
+    }
+    assert!(super::super::check_stored_state(&fx.expected_state(), &fx.params).is_ok());
     let mut wrong = state.clone();
-    wrong.schema_version = 15;
-    assert!(super::super::check_stored_state(&wrong, &fx.params).is_err());
-    wrong = state.clone();
     wrong.recovery = None;
     assert!(super::super::check_stored_state(&wrong, &fx.params).is_err());
     let mut mismatched = state.clone();
@@ -176,7 +190,7 @@ fn recovery_schedule_schema_is_explicit_and_generation_zero_bytes_stay_unchanged
     assert!(!serde_json::to_value(&old).unwrap().as_object().unwrap().contains_key("recovery"));
     let decoded: AppState = serde_json::from_slice(&before).unwrap();
     assert_eq!(serde_json::to_vec(&decoded).unwrap(), before);
-    assert_eq!(decoded.schema_version, 15);
+    assert_eq!(decoded.schema_version, 17);
     let dir = tempfile::tempdir().unwrap();
     let store = Store::new(dir.path().into());
     store.save(&old).unwrap();

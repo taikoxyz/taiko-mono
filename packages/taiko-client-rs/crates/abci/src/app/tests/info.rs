@@ -68,6 +68,7 @@ async fn only_the_first_info_after_a_start_reconciles_the_el() {
     };
     let mut state = fx.expected_state();
     state.last_height = first.number;
+    state.val_state = state.val_state.advance(&[]).unwrap();
     state.parent = ParentInfo {
         number: first.number,
         hash: first.hash_slow(),
@@ -151,6 +152,7 @@ async fn info_after_the_first_block_reports_the_committed_head() {
     };
     let mut state = fx.expected_state();
     state.last_height = first.number;
+    state.val_state = state.val_state.advance(&[]).unwrap();
     state.parent = ParentInfo {
         number: first.number,
         hash: first.hash_slow(),
@@ -328,8 +330,12 @@ async fn app_new_rejects_an_inconsistent_stored_state() {
     let mut bad_height = good.clone();
     bad_height.last_height = u64::MAX;
     bad_height.parent.number = u64::MAX;
+    let mut old_schema = good.clone();
+    old_schema.schema_version = 15;
+    let mut bad_val_state = good.clone();
+    bad_val_state.val_state = good.val_state.advance(&[]).unwrap();
 
-    for state in [bad_generation, bad_genesis, bad_parent, bad_height] {
+    for state in [bad_generation, bad_genesis, bad_parent, bad_height, old_schema, bad_val_state] {
         store.save(&state).unwrap();
         let err =
             App::new(fx.l1(), fx.engine(), fx.params.clone(), store.clone(), AppOptions::default())
@@ -455,6 +461,9 @@ fn saved_state_checks_every_committees_power_and_totals() {
     }
     original.last_height = original.schedule().h_first(1);
     original.parent.number = original.last_height;
+    while original.val_state.height < original.last_height {
+        original.val_state = original.val_state.advance(&[]).unwrap();
+    }
     for epoch in [0, 1, 2] {
         for corruption in [
             "roundtrip",

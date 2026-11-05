@@ -25,6 +25,7 @@ mod proposal;
 mod recovery_init;
 mod recovery_schedule;
 mod rules_schedule;
+mod val_state;
 
 /// A fresh app over the given parts and a blob source serving no blob, with a store in `dir`.
 fn app_with(

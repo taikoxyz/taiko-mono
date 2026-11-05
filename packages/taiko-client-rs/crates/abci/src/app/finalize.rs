@@ -30,7 +30,7 @@ use super::{
     validate::{Rejection, Validated, validate_block},
 };
 use crate::{
-    committee,
+    GRID_INTERVAL, committee,
     engine::{Engine, EngineError, PayloadVerdict},
     envelope::{EtnaEnvelope, single_envelope},
     l1::{L1Source, RawL1Header},
@@ -117,6 +117,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
             validated.forced = self.confirm_forced(state, height, &validated).await?;
         }
         let (mut next, updates) = next_state(state, &validated, height)?;
+        // CometBFT applies exactly the updates this response returns; a change set it would
+        // refuse halts it, so the replica halts first.
+        next.val_state = state
+            .val_state
+            .advance(&updates)
+            .map_err(|error| safety_halt(height, "validator_state", error))?;
         next.last_comet_hash = match req.hash {
             tendermint::Hash::Sha256(hash) => B256::from(hash),
             tendermint::Hash::None => {
@@ -201,17 +207,25 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// new head's gauges, and answers `retain_height = 0` (no block pruning). When the new
     /// state raises [`AppState::comet_history_floor`], the Comet block IDs below it are deleted
     /// after the state is durable; a failed deletion only logs, and the next raise retries it.
+    /// At a grid height the validator state's preimage is saved as an immutable sidecar before
+    /// the state, and the sidecars follow the Comet block IDs' floor.
     /// Errors: [`AbciError::NothingToCommit`] without a pending state; [`AbciError::Store`]
     /// when it cannot be persisted (it then stays pending).
     pub(super) fn commit(&mut self) -> Result<response::Commit, AbciError> {
         let pending = self.pending.as_ref().ok_or(AbciError::NothingToCommit)?;
         self.store.save_comet_hash(pending.last_height, pending.last_comet_hash)?;
+        if pending.last_height.is_multiple_of(GRID_INTERVAL) {
+            self.store.save_val_state(pending.last_height, &pending.val_state.encode())?;
+        }
         self.store.save(pending)?;
         let floor = pending.comet_history_floor();
-        if self.state.as_ref().is_none_or(|state| state.comet_history_floor() < floor) &&
-            let Err(error) = self.store.prune_comet_hashes(floor)
-        {
-            tracing::warn!(%error, floor, "could not prune committed Comet history");
+        if self.state.as_ref().is_none_or(|state| state.comet_history_floor() < floor) {
+            if let Err(error) = self.store.prune_comet_hashes(floor) {
+                tracing::warn!(%error, floor, "could not prune committed Comet history");
+            }
+            if let Err(error) = self.store.prune_val_states(floor) {
+                tracing::warn!(%error, floor, "could not prune committed validator states");
+            }
         }
         tracing::info!(
             height = pending.last_height,

@@ -38,6 +38,7 @@ use crate::{
     types::{
         AnchorState, CommitteeRecord, GenesisRecord, InboxFacts, Member, ParentInfo, RegistryEntry,
     },
+    valstate::ValState,
 };
 
 /// The knobs of a [`Fixture`]; [`GenesisSpec::new`] gives a valid default.
@@ -366,7 +367,7 @@ impl Fixture {
             0
         };
         AppState {
-            schema_version: 15,
+            schema_version: 17,
             recovery: None,
             app_version: crate::app::APP_VERSION,
             chain_id: self.request.chain_id.clone(),
@@ -404,6 +405,8 @@ impl Fixture {
                 Schedule::E0,
                 CommitteeState { record: self.record.clone(), members: self.members.clone() },
             )]),
+            val_state: ValState::genesis(self.genesis.genesis_height, &powers(&self.members))
+                .expect("the e_0 committee is a CometBFT validator set"),
         }
     }
 }
@@ -433,6 +436,14 @@ pub(crate) fn l1_state_with(
     accounts.push(inbox_account(params.inbox, inbox));
     accounts.push(registry_account(params.registry, registry));
     TestState::new(accounts)
+}
+
+/// The `(key, power)` validators of `members`, in member order, as [`ValState::genesis`]
+/// takes them.
+///
+/// [`ValState::genesis`]: crate::valstate::ValState::genesis
+pub(crate) fn powers(members: &[Member]) -> Vec<(crate::key::ConsensusKey, u64)> {
+    members.iter().map(|m| (m.pubkey, m.power)).collect()
 }
 
 /// The CometBFT validator updates of `members` (Ed25519 key, power), in member order.

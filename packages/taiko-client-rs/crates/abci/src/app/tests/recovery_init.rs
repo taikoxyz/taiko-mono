@@ -118,6 +118,14 @@ async fn recovery_init_preserves_stock_zero_height_handshake() {
     assert_eq!(app.state().unwrap().anchor.number, 64);
     assert_eq!(app.state().unwrap().last_comet_hash, B256::ZERO);
     assert_eq!(app.state().unwrap().genesis, fx.genesis);
+    // CometBFT starts the generation from the origin committee at the origin height.
+    let origin = verify_recovery_witness(&w, &fx.params).unwrap();
+    let genesis_vals = crate::valstate::ValState::genesis(
+        origin.height,
+        &crate::test_utils::powers(&origin.committee.members),
+    )
+    .unwrap();
+    assert_eq!(app.state().unwrap().val_state, genesis_vals);
     drop(app);
     let (_, l1, engine, _) = recovery_fixture(1, 6, 1);
     let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
@@ -135,6 +143,7 @@ async fn recovery_init_preserves_stock_zero_height_handshake() {
     let (accepted, req) = judge(&mut app, &env).await;
     assert_eq!(accepted, response::ProcessProposal::Accept);
     decide(&mut app, &req).await;
+    assert_eq!(app.state().unwrap().val_state, genesis_vals.advance(&[]).unwrap());
     let info_after = info(&mut app).await.unwrap();
     assert_eq!(info_after.last_block_height.value(), 7);
     assert_eq!(info_after.last_block_app_hash.as_bytes(), env.block.header.hash_slow().as_slice());
