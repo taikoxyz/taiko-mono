@@ -87,7 +87,11 @@ checkpoint, so commits delete those; back-pressure keeps at most `unsettled_limi
 Do not delete the others by hand. At each grid height (a multiple of 6) the app also writes
 `val-state-{height}.bin`, its copy of the validator state CometBFT holds after that height, and
 deletes those below the same checkpoint. Do not delete these by hand either: without the file at
-its target, checkpoint trust waits instead of completing. `fatal-evidence.txt` survives restarts
+its target, checkpoint trust waits instead of completing, and a node missing one cannot serve as
+a lander's source. The lander queries the app at the checkpoint a batch starts from, for the
+starting state (except at the generation's start height, where it uses the genesis state), and
+at the batch's last height, to check its own replay; it builds no batch while either query
+fails, but keeps following a landing it already sent. `fatal-evidence.txt` survives restarts
 and records the first safety failure, such as an unknown-execution-state Engine error
 (`-38100`); repair its cause before restarting. An L1 header shape the node cannot parse makes
 `ProcessProposal` reject and `FinalizeBlock` wait, without a safety halt: upgrade the client.
@@ -103,8 +107,7 @@ state and is not compared. A mismatch is a safety halt whose reason starts with
 landed value means the proofs accepted a wrong result. The ABCI query `/val_state/<height>`,
 with a decimal height, returns the raw state encoding at a grid height from the latest
 checkpoint the committed anchor proves through the head. It refuses other heights, and the
-generation's start height once a block follows it. The lander reads it at the start and end of
-each landing. Do not substitute CometBFT's `/validators` RPC: away from the heights where
+generation's start height once a block follows it. Do not substitute CometBFT's `/validators` RPC: away from the heights where
 CometBFT stores a set in full, it rebuilds the proposer priorities in one bulk step, which can
 differ from the live state.
 
