@@ -2,9 +2,9 @@ name: Etna formal verification
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
     paths:
       - "formal/etna/**"
-      - "testdata/etna_conformance/**"
       - "testdata/etna_current_conformance/**"
       - "packages/protocol/docs/etna/SPEC.md"
       - "packages/protocol/docs/etna/ACCEPTANCE.md"
@@ -16,7 +16,6 @@ on:
     branches: [main]
     paths:
       - "formal/etna/**"
-      - "testdata/etna_conformance/**"
       - "testdata/etna_current_conformance/**"
       - "packages/protocol/docs/etna/SPEC.md"
       - "packages/protocol/docs/etna/ACCEPTANCE.md"
@@ -24,6 +23,8 @@ on:
       - "packages/protocol/docs/etna/SWITCH.md"
       - "packages/protocol/docs/etna/rules/INDEX.md"
       - ".github/workflows/formal--etna.yml"
+  schedule:
+    - cron: "17 3 * * *"
   workflow_dispatch:
 
 permissions:
@@ -33,17 +34,60 @@ concurrency:
   group: etna-formal-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  LEAN_VERSION: "4.35.0"
+  LEAN_SHA256: "7289597a44543246c9227b8cae501767e095ce17f6d448b95fc4a8dc97268f6d"
+
 jobs:
-  etna-formal:
+  # The statement lock. No Lean: the base revision's copy of review_surface.py compares this
+  # pull request's review-surface lock and gate files with the base branch.
+  etna-review-surface:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
-    # Includes fresh kernel replay and the complete mutation suite; the previous
-    # 30-minute budget cancelled the test step after successful build/audit.
-    timeout-minutes: 90
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Compare the review surface and gate files with the base branch
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          APPROVED: ${{ contains(github.event.pull_request.labels.*.name, 'formal-statement-change') }}
+        run: |
+          judge="${RUNNER_TEMP}/review_surface.py"
+          if git cat-file -e "${BASE_SHA}:formal/etna/scripts/review_surface.py" 2>/dev/null; then
+            git show "${BASE_SHA}:formal/etna/scripts/review_surface.py" > "$judge"
+          else
+            echo "::notice::The base branch has no review-surface judge; using this pull request's copy (bootstrap)"
+            cp formal/etna/scripts/review_surface.py "$judge"
+          fi
+          set +e
+          python3 -I "$judge" --against "$BASE_SHA" > "${RUNNER_TEMP}/surface.md"
+          status=$?
+          set -e
+          cat "${RUNNER_TEMP}/surface.md"
+          cat "${RUNNER_TEMP}/surface.md" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$status" -eq 0 ]; then
+            exit 0
+          fi
+          if [ "$status" -eq 3 ] && [ "$APPROVED" = "true" ]; then
+            echo "::notice::Review-surface or gate changes approved by the formal-statement-change label"
+            exit 0
+          fi
+          if [ "$status" -eq 3 ]; then
+            echo "::error::The review surface or gate files changed; a reviewer must read the job summary and apply the formal-statement-change label"
+          fi
+          exit 1
+
+  etna-formal:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
     defaults:
       run:
         working-directory: formal/etna
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # Before any Lean/Lake runs: no build-time code, foreign imports or extra targets.
       - name: Lint Lean sources and package configuration
         run: python3 scripts/lint_sources.py
@@ -55,18 +99,26 @@ jobs:
         run: |
           python3 scripts/check_spec_coverage.py
           python3 scripts/rule_coverage.py --check
-          python3 scripts/generate_statements.py --check
       - name: Install exact Lean toolchain
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           etna_tools="${RUNNER_TEMP}/etna-lean"
+          archive="lean-${LEAN_VERSION}-linux.tar.zst"
           mkdir -p "$etna_tools"
-          gh release download v4.35.0-rc4 --repo leanprover/lean4 \
-            --pattern lean-4.35.0-rc4-linux.tar.zst --dir "$etna_tools"
-          echo "e78e14c54c39a145945833cfcdb219458d650c210847a90dcef8fa8ff05ab51a  $etna_tools/lean-4.35.0-rc4-linux.tar.zst" | sha256sum -c -
-          tar --zstd -xf "$etna_tools/lean-4.35.0-rc4-linux.tar.zst" -C "$etna_tools"
-          echo "$etna_tools/lean-4.35.0-rc4-linux/bin" >> "$GITHUB_PATH"
+          gh release download "v${LEAN_VERSION}" --repo leanprover/lean4 --pattern "$archive" --dir "$etna_tools"
+          echo "${LEAN_SHA256}  ${etna_tools}/${archive}" | sha256sum -c -
+          tar --zstd -xf "${etna_tools}/${archive}" -C "$etna_tools"
+          echo "${etna_tools}/lean-${LEAN_VERSION}-linux/bin" >> "$GITHUB_PATH"
+      # Lake rebuilds every module whose source or dependencies changed; the cache only saves
+      # unchanged work. Pull requests read caches written by main and by their own branch.
+      - name: Restore the Lake build cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: formal/etna/.lake
+          key: etna-lake-${{ runner.os }}-${{ env.LEAN_VERSION }}-${{ hashFiles('formal/etna/lakefile.toml', 'formal/etna/lake-manifest.json') }}-${{ hashFiles('formal/etna/Etna*.lean', 'formal/etna/Etna*/**/*.lean') }}
+          restore-keys: |
+            etna-lake-${{ runner.os }}-${{ env.LEAN_VERSION }}-${{ hashFiles('formal/etna/lakefile.toml', 'formal/etna/lake-manifest.json') }}-
       - name: Build
         run: lake build
       - name: Require an unmodified tree after build
@@ -77,27 +129,88 @@ jobs:
             echo "::error::lake build modified or created non-ignored files"
             exit 1
           fi
-      # Check the historical contract/client vectors and the separate current-model
-      # admission family against fresh generators. The audit repeats the historical check.
-      - name: Check the conformance vectors are fresh
+      - name: Check the conformance vectors and the review-surface lock are fresh
         run: |
-          python3 scripts/check_vectors.py
           python3 scripts/check_current_vectors.py
-      # Kernel-check exact current and historical headline types, theorem roles, standard
-      # axioms, consumed premise fields, library contents and a fresh whole-kernel replay.
-      # Authority pins and exact per-rule traceability were checked before the build.
+          python3 scripts/review_surface.py --check
+      # Kernel-check exact headline types, theorem roles, standard axioms, consumed premise
+      # fields, library contents and a fresh whole-kernel replay.
       - name: Audit
         run: |
           python3 scripts/generate_artifacts.py
           python3 scripts/generate_artifacts.py --check
           python3 scripts/audit_proofs.py
-      - name: Run mutation and regression tests
+      - name: Run the fast regression and gate tests
         run: python3 -m unittest discover -s tests -v
+      - name: Build the offline statements reader
+        run: python3 scripts/generate_statements.py --out "${RUNNER_TEMP}/STATEMENTS.html"
+      - name: Upload the offline statements reader
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: etna-statements
+          path: ${{ runner.temp }}/STATEMENTS.html
+          if-no-files-found: error
+          retention-days: 30
       - name: Require an unmodified tree after audit and tests
         run: |
           dirty="$(git status --porcelain --untracked-files=all -- .)"
           if [ -n "$dirty" ]; then
             printf '%s\n' "$dirty"
             echo "::error::the audit or tests modified or created non-ignored files"
+            exit 1
+          fi
+
+  # The slow mutation suite and an independent multi-kernel replay. Nightly, on main, on
+  # manual dispatch, and on pull requests labelled formal-full.
+  etna-formal-full:
+    if: >-
+      github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'formal-full'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: formal/etna
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install exact Lean toolchain and bubblewrap
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          etna_tools="${RUNNER_TEMP}/etna-lean"
+          archive="lean-${LEAN_VERSION}-linux.tar.zst"
+          mkdir -p "$etna_tools"
+          gh release download "v${LEAN_VERSION}" --repo leanprover/lean4 --pattern "$archive" --dir "$etna_tools"
+          echo "${LEAN_SHA256}  ${etna_tools}/${archive}" | sha256sum -c -
+          tar --zstd -xf "${etna_tools}/${archive}" -C "$etna_tools"
+          echo "${etna_tools}/lean-${LEAN_VERSION}-linux/bin" >> "$GITHUB_PATH"
+          sudo apt-get update -q
+          sudo apt-get install -y -q bubblewrap
+          # Ubuntu 24.04 restricts unprivileged user namespaces, which bubblewrap needs.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Restore the Lake build cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: formal/etna/.lake
+          key: etna-lake-${{ runner.os }}-${{ env.LEAN_VERSION }}-${{ hashFiles('formal/etna/lakefile.toml', 'formal/etna/lake-manifest.json') }}-${{ hashFiles('formal/etna/Etna*.lean', 'formal/etna/Etna*/**/*.lean') }}
+          restore-keys: |
+            etna-lake-${{ runner.os }}-${{ env.LEAN_VERSION }}-${{ hashFiles('formal/etna/lakefile.toml', 'formal/etna/lake-manifest.json') }}-
+      - name: Build
+        run: lake build
+      - name: Run the full mutation, regression and gate suite
+        env:
+          ETNA_FULL_TESTS: "1"
+        run: python3 -m unittest discover -s tests -v
+      # Five independent kernels (leanchecker-paranoid, lean4lean, nanoda, con-leche,
+      # con-ron) replay the exported project inside a bubblewrap sandbox.
+      - name: Replay the project with independent kernels
+        run: lake check --paranoid
+      - name: Require an unmodified tree
+        run: |
+          dirty="$(git status --porcelain --untracked-files=all -- .)"
+          if [ -n "$dirty" ]; then
+            printf '%s\n' "$dirty"
+            echo "::error::the full suite modified or created non-ignored files"
             exit 1
           fi

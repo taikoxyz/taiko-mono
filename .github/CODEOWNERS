@@ -9,7 +9,7 @@
 
 # Formal models and the conformance vectors they generate
 /formal/**                      @dantaik @davidtaikocha @smtmfft
-/testdata/etna_conformance/**   @dantaik @davidtaikocha @smtmfft
+/testdata/etna_current_conformance/** @dantaik @davidtaikocha @smtmfft
 
 # Client services
 /packages/taiko-client/**       @davidtaikocha @smtmfft
