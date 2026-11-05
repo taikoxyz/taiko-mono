@@ -7,7 +7,9 @@ use std::{
     time::Duration,
 };
 
-use abci::{CommitteeState, EtnaEnvelope, Status, single_envelope};
+use abci::{
+    CommitteeState, EtnaEnvelope, Status, key::ConsensusKey, single_envelope, valstate::ValEntry,
+};
 use alloy_primitives::{B256, Bytes};
 use anyhow::{Context, Result, bail, ensure};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
@@ -155,27 +157,80 @@ impl CmtClient {
 
     /// The validator set at `height` (the latest when `None`).
     pub async fn validators(&self, height: Option<u64>) -> Result<Vec<CmtValidator>> {
-        let mut query = vec![("per_page", "100".to_string())];
-        if let Some(h) = height {
-            query.push(("height", h.to_string()));
-        }
-        let result = self.call("validators", &query).await?;
-        result["validators"]
-            .as_array()
-            .context("validators: no array")?
-            .iter()
-            .map(|v| {
+        self.validator_entries(height)
+            .await?
+            .into_iter()
+            .map(|e| Ok(CmtValidator { pubkey: e.key, power: u64::try_from(e.power)? }))
+            .collect()
+    }
+
+    /// Every validator `/validators` reports at `height` (the latest when `None`), page by
+    /// page, in CometBFT order with its power and proposer priority. CometBFT stores a set in
+    /// full only at genesis, at each height a changed set first signs and every 100,000
+    /// heights; at any other height it rebuilds the priorities in bulk, which can differ from
+    /// the live state.
+    pub async fn validator_entries(&self, mut height: Option<u64>) -> Result<Vec<ValEntry>> {
+        /// CometBFT's largest `per_page`.
+        const PER_PAGE: u64 = 100;
+        let mut entries = Vec::new();
+        for page in 1u64.. {
+            let mut query = vec![("per_page", PER_PAGE.to_string()), ("page", page.to_string())];
+            if let Some(h) = height {
+                query.push(("height", h.to_string()));
+            }
+            let result = self.call("validators", &query).await?;
+            // Later pages read the height the first one answered for.
+            height = Some(str_u64(&result["block_height"])?);
+            let total = usize::try_from(str_u64(&result["total"])?)?;
+            let validators = result["validators"].as_array().context("validators: no array")?;
+            ensure!(!validators.is_empty() || total == 0, "validators: empty page {page}");
+            for v in validators {
                 ensure!(
                     v["pub_key"]["type"] == "tendermint/PubKeySecp256k1eth",
                     "native validator key type required"
                 );
                 let key = STANDARD.decode(v["pub_key"]["value"].as_str().context("pub_key")?)?;
-                Ok(CmtValidator {
-                    pubkey: abci::key::ConsensusKey::from_slice(&key)?,
-                    power: str_u64(&v["voting_power"])?,
-                })
+                entries.push(ValEntry {
+                    key: ConsensusKey::from_slice(&key)?,
+                    power: str_i64(&v["voting_power"])?,
+                    priority: str_i64(&v["proposer_priority"])?,
+                });
+            }
+            ensure!(entries.len() <= total, "validators: more than the total {total}");
+            if entries.len() == total {
+                break;
+            }
+        }
+        Ok(entries)
+    }
+
+    /// The validator updates the app's `FinalizeBlock` returned at `height`, as `/block_results`
+    /// records them (a removal at power 0).
+    pub async fn validator_updates(&self, height: u64) -> Result<Vec<(ConsensusKey, u64)>> {
+        /// The JSON type name of a secp256k1eth `crypto.PublicKey`.
+        const SECP256K1ETH: &str = "tendermint.crypto.PublicKey_Secp256K1Eth";
+        let result = self.call("block_results", &[("height", height.to_string())]).await?;
+        let Some(updates) = result["validator_updates"].as_array() else {
+            ensure!(result["validator_updates"].is_null(), "block_results: validator_updates");
+            return Ok(Vec::new());
+        };
+        updates
+            .iter()
+            .map(|u| {
+                let sum = &u["pub_key"]["Sum"];
+                ensure!(sum["type"] == SECP256K1ETH, "native validator update key required: {u}");
+                let key = sum["value"]["secp256k1eth"].as_str().context("secp256k1eth key")?;
+                // A zero power is omitted.
+                let power = if u["power"].is_null() { 0 } else { str_u64(&u["power"])? };
+                Ok((ConsensusKey::from_slice(&STANDARD.decode(key)?)?, power))
             })
             .collect()
+    }
+
+    /// The round of the commit that decided `height`.
+    pub async fn commit_round(&self, height: u64) -> Result<u64> {
+        let result = self.call("commit", &[("height", height.to_string())]).await?;
+        str_u64(&result["signed_header"]["commit"]["round"])
     }
 
     /// The latest height and the validator set there.
@@ -268,6 +323,15 @@ fn str_u64(v: &Value) -> Result<u64> {
     match v {
         Value::String(s) => Ok(s.parse()?),
         Value::Number(n) => n.as_u64().context("u64"),
+        other => bail!("expected a decimal string, got {other}"),
+    }
+}
+
+/// A signed decimal-string (or number) JSON value as `i64`.
+fn str_i64(v: &Value) -> Result<i64> {
+    match v {
+        Value::String(s) => Ok(s.parse()?),
+        Value::Number(n) => n.as_i64().context("i64"),
         other => bail!("expected a decimal string, got {other}"),
     }
 }

@@ -13,8 +13,12 @@ Recovery authenticates the full deployment domain, generation and recovery execu
 chain ID, `initial_height=c+1`, `genesis_time=R.timestamp` and `app_hash=ELHash(c)`. Its first
 block has empty LastBlockID/LastCommit. The global epoch schedule `H(t)=1+t*L` and global
 K grid continue unchanged; the initial committee is the R snapshot for `floor(c/L)`,
-effective at c+1. Old pending committee updates are discarded. No registered key, prior HRS,
-old Comet WAL/history or signed landing transaction is copied into a new generation.
+effective at c+1. Old pending committee updates are discarded. The app's validator state
+starts at c as stock CometBFT's genesis state for that committee. The landing record at c keeps
+its original generation's EL, Comet and validator-state hashes; checkpoint trust does not
+compare that validator-state hash, and the first new-generation landing starts from the genesis
+state instead. No registered key, prior HRS, old Comet WAL/history or signed landing transaction
+is copied into a new generation.
 
 ## Before preparation
 
@@ -196,7 +200,8 @@ The journal phases are `prepared`, `stopping`, `isolated`, `el-origin-ready`, `i
 `running`, `trusted`, `settled`. Phases are checked against real facts on every resume.
 `trusted` requires the exact private session/domain/origin and current authenticated target;
 logical c alone is not a new commit. `settled` additionally requires an own-L1-finalized
-new-generation landing above c, matching canonical EL and local committed Comet history.
+new-generation landing above c, matching canonical EL, local committed Comet history and the
+app's validator state.
 The controller continues monitoring after settlement and clears observed trust on uncertainty.
 
 ## Enrollment, waits and interruption

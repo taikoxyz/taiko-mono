@@ -3,13 +3,14 @@
 //! (`restart.rs`).
 
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     time::{Duration, Instant},
 };
 
-use abci::{RegistryEntry, key::ConsensusKey};
+use abci::{GRID_INTERVAL, RegistryEntry, key::ConsensusKey, valstate::ValState};
 use alloy_provider::Provider;
-use test_harness::{Devnet, DevnetSpec, wait_until};
+use test_harness::{CmtClient, Devnet, DevnetSpec, wait_until};
+use tokio::task::JoinHandle;
 
 /// CometBFT node 0's validator set at `height` as `(pubkey, power)` pairs.
 async fn validator_set(
@@ -18,6 +19,52 @@ async fn validator_set(
 ) -> anyhow::Result<BTreeSet<(ConsensusKey, u64)>> {
     let set = devnet.cmt(0).validators(Some(height)).await?;
     Ok(set.into_iter().map(|v| (v.pubkey, v.power)).collect())
+}
+
+/// Reads the app's `/val_state/<g>` for every grid height `g` up to `through` while the app
+/// still retains it. Each checkpoint the fake lander lands raises the retention floor and
+/// prunes the states below it, so the task reads each grid state as soon as it is committed
+/// and fails if the floor passes one first.
+fn read_grid_val_states(
+    cmt: CmtClient,
+    through: u64,
+) -> JoinHandle<anyhow::Result<BTreeMap<u64, ValState>>> {
+    tokio::spawn(async move {
+        let mut served = BTreeMap::new();
+        let mut next = GRID_INTERVAL;
+        while next <= through {
+            let read = match cmt.abci_status().await {
+                Ok(status) => {
+                    anyhow::ensure!(
+                        next >= status.last_checkpoint_height,
+                        "/val_state/{next} was not served before the floor rose to {}",
+                        status.last_checkpoint_height
+                    );
+                    if next > status.head {
+                        Ok(None)
+                    } else {
+                        // A refusal here means the floor just passed `next`; the next status
+                        // read reports it.
+                        cmt.abci_query(&format!("/val_state/{next}")).await
+                    }
+                }
+                Err(error) => Err(error),
+            };
+            match read {
+                Ok(Some(preimage)) => {
+                    let state = ValState::decode(&preimage)?;
+                    anyhow::ensure!(state.height == next, "/val_state/{next} holds another height");
+                    served.insert(next, state);
+                    next += GRID_INTERVAL;
+                    continue;
+                }
+                Ok(None) => {}
+                Err(error) => eprintln!("reading /val_state/{next}: {error:#}"),
+            }
+            tokio::time::sleep(Duration::from_millis(250)).await;
+        }
+        Ok(served)
+    })
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -33,6 +80,8 @@ async fn epoch_switch_adds_the_joining_validator() -> anyhow::Result<()> {
     };
     let devnet = Devnet::start(spec.clone()).await?;
     eprintln!("devnet {} up after {:?}", devnet.id(), started.elapsed());
+    // The grid validator states of the scanned heights below `last` (31), read before pruning.
+    let served = read_grid_val_states(devnet.cmt(0).clone(), 30);
     let schedule = devnet.schedule();
     let keys = devnet.keys();
     let stake = devnet.registry_entry(0).eff_stake;
@@ -171,6 +220,51 @@ async fn epoch_switch_adds_the_joining_validator() -> anyhow::Result<()> {
     }
     assert!(!produced.is_empty(), "joiner produced no block; scanned proposers: {proposers:?}");
     eprintln!("validator 4 produced heights {produced:?}; scanned proposers: {proposers:?}");
+
+    // The app's validator state against stock CometBFT. Replay CometBFT's arithmetic from the
+    // genesis state with the updates CometBFT recorded; every grid state the app served must
+    // equal it, and CometBFT must agree where it is exact.
+    let served = served.await??;
+    let grids: Vec<u64> = (GRID_INTERVAL..last).step_by(GRID_INTERVAL as usize).collect();
+    assert_eq!(served.keys().copied().collect::<Vec<_>>(), grids, "grid states read");
+    let genesis: Vec<(ConsensusKey, u64)> =
+        initial.members.iter().map(|m| (m.pubkey, m.power)).collect();
+    // `states[h]` is the state after height h: its `current` signs h + 1.
+    let mut states = vec![ValState::genesis(0, &genesis)?];
+    for h in 1..last {
+        let updates = devnet.cmt(0).validator_updates(h).await?;
+        assert_eq!(!updates.is_empty(), h == switch, "height {h}: validator updates {updates:?}");
+        let state = states[usize::try_from(h - 1)?].advance(&updates)?;
+        if let Some(app) = served.get(&h) {
+            assert_eq!(app, &state, "height {h}: /val_state against the replay");
+        }
+        states.push(state);
+    }
+    // Only a block decided in round 0 is known to come from the set's stored proposer.
+    let mut round_zero = Vec::new();
+    for b in 1..last {
+        if devnet.cmt(0).commit_round(b).await? != 0 {
+            continue;
+        }
+        let set = &states[usize::try_from(b - 1)?].current;
+        assert_eq!(
+            devnet.cmt(0).proposer_address(b).await?,
+            abci::genesis::validator_address(set.entries[set.proposer].key),
+            "height {b}: header proposer against the stored proposer"
+        );
+        round_zero.push(b);
+    }
+    eprintln!("round-0 proposers checked at heights {round_zero:?}");
+    assert!(round_zero.iter().any(|&b| b >= h_first), "no round-0 height from h_first {h_first}");
+    // `/validators` is exact only where CometBFT stores the set in full: genesis height 1 and
+    // h_first, where the switched set first signs.
+    for h in [1, h_first] {
+        assert_eq!(
+            devnet.cmt(0).validator_entries(Some(h)).await?,
+            states[usize::try_from(h - 1)?].current.entries,
+            "/validators priorities at height {h}"
+        );
+    }
 
     for i in 0..spec.validators {
         let status = devnet.abci_status(i).await?;

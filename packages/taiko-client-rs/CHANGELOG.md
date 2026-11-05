@@ -4,7 +4,14 @@
 
 ### Features
 
-- Align with protocol `98ef82aee` and the current Etna specification: authenticate slot 293,
+- Check the CometBFT validator state at checkpoint trust. The app keeps its own copy of stock
+  CometBFT v0.40.0's validator sets, proposer priorities and stored proposers, records it at
+  each grid height in an immutable `val-state-{height}.bin`, and serves it as the ABCI query
+  `/val_state/<height>`. Landings carry its hash as the fourth word of each landing record, and
+  a node whose own state differs from the landed hash halts for safety
+  (`validator_state_mismatch`). App state schemas are now 17 (generation zero) and 18
+  (recovery), and lander journals 16; older stores are refused.
+- Align with protocol `b6e765b0f` and the current Etna specification: authenticate slot 293,
   enforce ruleset selection/refusal and planned stops, and retain fixed recovery origins
   across later schedule writes. Reproduce schema-5 vectors and the updated recovery ABI.
 - Read registry entries by slot independently of permanent bond IDs, including displacement

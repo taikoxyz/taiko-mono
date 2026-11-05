@@ -70,7 +70,7 @@ asks the app's private control socket before every signature (see
 
 Fresh deployment starts at generation zero; it migrates no earlier state format. Explicit
 [governance recovery](docs/governance-recovery.md) authenticates a later generation and
-creates fresh app/Comet stores while preserving registered signing authority and old history. It is aligned with protocol commit `98ef82aee6c290eb29840071675e575081a70084` (the
+creates fresh app/Comet stores while preserving registered signing authority and old history. It is aligned with protocol commit `b6e765b0fd186f67fa360d4572bea2a8d701e7cb` (the
 Inbox, staking registry and the pinned contract artifacts) and alethia-reth commit
 `6ac93d4b38e1cd72b993cef1ed1dc2cb0affa7b4`. Start the EL and verify its block 0 before the Inbox
 is initialized (spec section 10, Startup and deployment). The proof provider is a dummy `0x00`,
@@ -84,10 +84,29 @@ Never reset signed state or Comet history to force a start. The app writes
 `comet-hash-{height}.json`, the committed Comet block ID that checkpoint trust compares with a
 landed checkpoint, before each commit. Trust never reads one below the committed anchor's last
 checkpoint, so commits delete those; back-pressure keeps at most `unsettled_limit + 1` files.
-Do not delete the others by hand. `fatal-evidence.txt` survives restarts and records the first safety
-failure, such as an unknown-execution-state Engine error (`-38100`); repair its cause before
-restarting. An L1 header shape the node cannot parse makes `ProcessProposal` reject and
-`FinalizeBlock` wait, without a safety halt: upgrade the client.
+Do not delete the others by hand. At each grid height (a multiple of 6) the app also writes
+`val-state-{height}.bin`, its copy of the validator state CometBFT holds after that height, and
+deletes those below the same checkpoint. Do not delete these by hand either: without the file at
+its target, checkpoint trust waits instead of completing. `fatal-evidence.txt` survives restarts
+and records the first safety failure, such as an unknown-execution-state Engine error
+(`-38100`); repair its cause before restarting. An L1 header shape the node cannot parse makes
+`ProcessProposal` reject and `FinalizeBlock` wait, without a safety halt: upgrade the client.
+
+Each landing record also holds the hash of the CometBFT validator state after its height: the
+validator set that signs the next height and the one after it, with their voting powers,
+proposer priorities and stored proposers (spec appendix A). The app keeps its own copy of that
+state, computed with stock CometBFT v0.40.0's arithmetic from the validator updates it returns,
+and checkpoint trust compares its hash with the landed one (spec section 9, Sync and weak
+subjectivity). The record at the generation's own start height does not hold this generation's
+state and is not compared. A mismatch is a safety halt whose reason starts with
+`validator_state_mismatch`: either this node's state or the landed value is wrong, and a wrong
+landed value means the proofs accepted a wrong result. The ABCI query `/val_state/<height>`,
+with a decimal height, returns the raw state encoding at a grid height from the latest
+checkpoint the committed anchor proves through the head. It refuses other heights, and the
+generation's start height once a block follows it. The lander reads it at the start and end of
+each landing. Do not substitute CometBFT's `/validators` RPC: away from the heights where
+CometBFT stores a set in full, it rebuilds the proposer priorities in one bulk step, which can
+differ from the live state.
 
 The client implements ruleset 0 and authenticates the rules schedule in Inbox slot 293 at
 each block's carried or inherited anchor. It selects rules by the block timestamp, refuses
@@ -97,9 +116,9 @@ governance recovery clears the stop. Recovery preparation also refuses rules it 
 implement at R. Rules scheduled after R do not change that fixed recovery origin.
 
 This release supports new networks with Etna start S = 0 and their governance recoveries.
-The [Unzen switch](../protocol/docs/etna/SWITCH.md), settled-prefix app import and public
+The [Unzen switch](../protocol/docs/etna/SWITCH.md), checkpoint import and public
 EL snapshot tooling require separate implementations. A nonzero Etna start is refused.
-App state schemas are 15 (generation zero) and 16 (recovery); lander journals use schema 15.
+App state schemas are 17 (generation zero) and 18 (recovery); lander journals use schema 16.
 Older stores and witnesses are refused without rewriting signed jobs or FilePV state.
 
 ## Forced inclusion
@@ -239,7 +258,7 @@ The public blob payload carries execution blocks only (spec section 5.2, Blob pa
 input and statement are spec section 6.1 (land). Before signing or sending, the lander checks the
 deployed Inbox implementation and its immutable getters.
 
-`lander-state.json` uses schema 15 and is protected by `lander.lock`; other schemas are refused
+`lander-state.json` uses schema 16 and is protected by `lander.lock`; other schemas are refused
 and left intact. Signed bytes and blob sidecars are durably written before
 broadcast. For an original range (p,h] and competing checkpoint p<=c<h, the original input,
 leaves, proof, blobs, nonce and signed bytes remain unchanged. At c>=h, never-broadcast work

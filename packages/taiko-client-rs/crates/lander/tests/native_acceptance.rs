@@ -17,7 +17,7 @@ use lander::{
 use std::{sync::Arc, time::Duration};
 use support::{
     ContractFixture,
-    contracts::{EtnaInbox, receipt, transact},
+    contracts::{EtnaInbox, receipt, transact, view},
     fixtures::limits,
 };
 use test_harness::{
@@ -61,7 +61,20 @@ async fn land(f: &ContractFixture, c: &ContractConsensus) -> Result<(ProofReques
     ensure!(landed.status(), "dummy landing reverted");
     let event = landed.decoded_log::<EtnaInbox::Landed>().context("real Landed event")?;
     assert_eq!(event.data.lastHeight, request.batch.input.lastHeight);
-    assert_eq!(f.checkpoint().await?.0, request.batch.input.lastHeight.to::<u64>());
+    let height = request.batch.input.lastHeight.to::<u64>();
+    assert_eq!(f.checkpoint().await?.0, height);
+    // The record's validator-state word is the hash of the state the actual app serves there;
+    // the app retains it until a later checkpoint lands.
+    let record = view(
+        &f.anvil.provider,
+        f.inbox,
+        EtnaInbox::landingsCall { _height: request.batch.input.lastHeight },
+        None,
+    )
+    .await?;
+    let served = c.cmt.abci_query(&format!("/val_state/{height}")).await?;
+    let served = served.with_context(|| format!("the app refuses /val_state/{height}"))?;
+    assert_eq!(record.valStateHash, alloy_primitives::keccak256(served), "word 4 at {height}");
     Ok((request, tx.hash))
 }
 
