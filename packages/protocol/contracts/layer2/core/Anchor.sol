@@ -6,15 +6,18 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
+import { IL1StateRootProvider } from "src/shared/signal/IL1StateRootProvider.sol";
 
 import "./Anchor_Layout.sol"; // DO NOT DELETE
 
 /// @title Anchor
-/// @notice Implements the Shasta fork's anchoring mechanism with checkpoint management.
+/// @notice Implements the Shasta fork's anchoring mechanism with checkpoint management, and the
+/// Etna fork's timestamp-indexed L1 state root oracle.
 /// @dev This contract implements:
-///      - Anchoring of L1 checkpoints for cross-chain verification
+///      - Anchoring of L1 checkpoints for cross-chain verification, before the Etna fork
+///      - Reading L1 execution state roots recorded by EIP-4788, from the Etna fork on
 /// @custom:security-contact security@taiko.xyz
-contract Anchor is EssentialContract {
+contract Anchor is EssentialContract, IL1StateRootProvider {
     using LibAddress for address;
     using SafeERC20 for IERC20;
 
@@ -39,6 +42,11 @@ contract Anchor is EssentialContract {
     /// @notice Gas limit for anchor transactions (must be enforced).
     uint64 public constant ANCHOR_GAS_LIMIT = 1_000_000;
 
+    /// @notice The canonical EIP-4788 beacon roots contract. Once deployed, it records every L2
+    /// block's `parentBeaconBlockRoot`. That root is zero before the Etna fork; from Etna on, it
+    /// is the execution state root of the L1 block that the L2 block anchors to.
+    address public constant BEACON_ROOTS = 0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02;
+
     // ---------------------------------------------------------------
     // Immutables
     // ---------------------------------------------------------------
@@ -48,6 +56,11 @@ contract Anchor is EssentialContract {
 
     /// @notice The L1's chain ID.
     uint64 public immutable l1ChainId;
+
+    /// @notice First L2 block timestamp at which the Etna fork is active.
+    /// @dev `anchorV4` reverts from this timestamp on. 0 means Etna is active from genesis;
+    /// `type(uint64).max` means Etna never activates.
+    uint64 public immutable etnaTimestamp;
 
     // ---------------------------------------------------------------
     // State variables
@@ -95,7 +108,8 @@ contract Anchor is EssentialContract {
     /// @notice Initializes the Anchor contract.
     /// @param _checkpointStore The address of the checkpoint store.
     /// @param _l1ChainId The L1 chain ID.
-    constructor(ICheckpointStore _checkpointStore, uint64 _l1ChainId) {
+    /// @param _etnaTimestamp First L2 block timestamp at which the Etna fork is active.
+    constructor(ICheckpointStore _checkpointStore, uint64 _l1ChainId, uint64 _etnaTimestamp) {
         // Validate addresses
         require(address(_checkpointStore) != address(0), InvalidAddress());
 
@@ -106,6 +120,7 @@ contract Anchor is EssentialContract {
         // Assign immutables
         checkpointStore = _checkpointStore;
         l1ChainId = _l1ChainId;
+        etnaTimestamp = _etnaTimestamp;
     }
 
     /// @notice Initializes the owner of the Anchor.
@@ -119,13 +134,16 @@ contract Anchor is EssentialContract {
     // ---------------------------------------------------------------
 
     /// @notice Processes a block and anchors L1 data.
-    /// @dev Core function that anchors L1 block data for cross-chain verification.
+    /// @dev Core function that anchors L1 block data for cross-chain verification. Reverts from
+    /// `etnaTimestamp` on, where blocks no longer carry an anchor transaction.
     /// @param _checkpoint Checkpoint data for the L1 block being anchored.
     function anchorV4(ICheckpointStore.Checkpoint calldata _checkpoint)
         external
         onlyValidSender
         nonReentrant
     {
+        require(block.timestamp < etnaTimestamp, AnchorDisabled());
+
         uint48 prevAnchorBlockNumber = _blockState.anchorBlockNumber;
         _validateBlock(_checkpoint);
 
@@ -135,6 +153,23 @@ contract Anchor is EssentialContract {
         emit Anchored(
             prevAnchorBlockNumber, _blockState.anchorBlockNumber, _blockState.ancestorsHash
         );
+    }
+
+    /// @inheritdoc IL1StateRootProvider
+    function getL1StateRoot(uint64 _blockId) external view returns (bytes32 stateRoot_) {
+        if (block.timestamp < etnaTimestamp) {
+            require(_blockId <= type(uint48).max, InvalidL1BlockNumber());
+            stateRoot_ = checkpointStore.getCheckpoint(uint48(_blockId)).stateRoot;
+        } else {
+            require(_blockId >= etnaTimestamp, EtnaNotActive());
+
+            // EIP-4788 takes a raw 32-byte timestamp without a selector. Missing/expired entries
+            // revert; absent code returns no data.
+            (bool ok, bytes memory ret) = BEACON_ROOTS.staticcall(abi.encode(uint256(_blockId)));
+            require(ok && ret.length == 32, L1StateRootNotFound());
+            stateRoot_ = abi.decode(ret, (bytes32));
+        }
+        require(stateRoot_ != bytes32(0), L1StateRootNotFound());
     }
 
     /// @notice Withdraw token or Ether from this address.
@@ -233,8 +268,12 @@ contract Anchor is EssentialContract {
     // ---------------------------------------------------------------
 
     error AncestorsHashMismatch();
+    error AnchorDisabled();
     error InvalidAddress();
     error InvalidL1ChainId();
     error InvalidL2ChainId();
     error InvalidSender();
+    error L1StateRootNotFound();
+    error EtnaNotActive();
+    error InvalidL1BlockNumber();
 }

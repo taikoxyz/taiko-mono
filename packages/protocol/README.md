@@ -14,6 +14,7 @@ To install dependencies:
 ```bash
 pnpm install
 ```
+
 Foundryup will automatically update during the post-installation script to the version specified in `.tool-versions`.
 
 ## Compilation
@@ -64,6 +65,7 @@ module.exports = {
     { "0x79fcdef22feed20eddacbb2587640e45491b757f": 1024 },
   ],
   l1ChainId: 31337,
+  etnaTimestamp: "0xffffffffffffffff", // never; "0x0" = Etna from genesis
   ownerSecurityCouncil: "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39",
   ownerTimelockController: "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39",
   param1559: {
