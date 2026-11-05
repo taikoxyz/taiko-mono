@@ -72,20 +72,32 @@ contract EtnaGovernanceVectorsTest is EtnaStakingRegistryTestBase {
                 IEtnaInbox.setOrigin, (1000, bytes32(uint256(0x51)), bytes32(uint256(0x52)))
             )
         );
+        _assertAbi(
+            j,
+            "save_forced_inclusion",
+            IEtnaInbox.saveForcedInclusion.selector,
+            abi.encodeCall(IEtnaInbox.saveForcedInclusion, (hex"c0"))
+        );
+        _assertAbi(
+            j,
+            "sweep_protocol_fees",
+            IEtnaInbox.sweepProtocolFees.selector,
+            abi.encodeCall(IEtnaInbox.sweepProtocolFees, ())
+        );
     }
 
     function test_vectors_GovernanceEventTopicsAndDataMatchDeclaredAbi() external {
         string memory j = LibEtnaVectors.load();
+        bytes32 key = 0x7268c66e6d00f6fb2bc2a14b5bd15892af0853ac758024d8795d61a5acedf607;
+        IEtnaInbox.Exclusion[] memory exclusions = new IEtnaInbox.Exclusion[](1);
+        exclusions[0] = IEtnaInbox.Exclusion(0, key);
+        uint256[] memory blanks = new uint256[](2);
+        blanks[0] = 3;
+        blanks[1] = 5;
         vm.recordLogs();
         emit IEtnaStakingRegistry.TopUpDeposited(0, 100, 42);
         emit IEtnaStakingRegistry.TopUpActivated(0, 100);
-        emit IEtnaStakingRegistry.Forfeited(
-            0,
-            0x7268c66e6d00f6fb2bc2a14b5bd15892af0853ac758024d8795d61a5acedf607,
-            bytes32(uint256(42)),
-            100,
-            10
-        );
+        emit IEtnaStakingRegistry.Forfeited(0, key, bytes32(uint256(42)), 100, 10);
         emit IEtnaInbox.RecoveryNonceInvalidated(7, 8);
         emit IEtnaStakingRegistry.BondDisplaced(12, 7, 4096);
         // The packed slot 293 word of the ordinary `inbox_293` item.
@@ -94,16 +106,26 @@ contract EtnaGovernanceVectorsTest is EtnaStakingRegistryTestBase {
                 LibEtnaVectors.bytes32At(j, ".packed_words.inbox_293[0].word")
             ));
         emit IEtnaInbox.StartWritten(1000, bytes32(uint256(0x51)), bytes32(uint256(0x52)));
+        emit IEtnaInbox.EtnaInitialized(10, 40, bytes32(uint256(0x53)), bytes32(uint256(0x54)));
+        emit IEtnaInbox.Landed(0, 6, 12, bytes32(uint256(0x77)), 50, 1);
+        emit IEtnaInbox.ForcedInclusionSaved(3, hex"c0", 1_000_000_000);
+        emit IEtnaInbox.ProtocolFeesSwept(1_000_000_000);
+        emit IEtnaInbox.Recovered(2, 12, 50, 1_700_000_123, exclusions, blanks);
         Vm.Log[] memory logs = vm.getRecordedLogs();
-        assertEq(logs.length, 7);
-        string[7] memory names = [
+        assertEq(logs.length, 12);
+        string[12] memory names = [
             "top_up_deposited",
             "top_up_activated",
             "forfeited",
             "recovery_nonce_invalidated",
             "bond_displaced",
             "rules_schedule_updated",
-            "start_written"
+            "start_written",
+            "etna_initialized",
+            "landed",
+            "forced_inclusion_saved",
+            "protocol_fees_swept",
+            "recovered"
         ];
         for (uint256 i; i < names.length; ++i) {
             string memory row = string.concat(".governance_events.", names[i]);

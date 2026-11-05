@@ -603,11 +603,13 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
 
     /// @inheritdoc IEtnaInbox
     function generationStartHeight() external view returns (uint256) {
+        require(_genesis.genesisBlockHash != 0, StartNotWritten());
         return _origins[_recoveryGeneration].startHeight;
     }
 
     /// @inheritdoc IEtnaInbox
     function recoverySnapshot() external view returns (uint256) {
+        require(_genesis.genesisBlockHash != 0, StartNotWritten());
         return _origins[_recoveryGeneration].l1BlockNumber;
     }
 

@@ -603,6 +603,44 @@ contract EtnaStakingRegistryTest is EtnaStakingRegistryTestBase {
         assertEq(registry.checkpointCount(), 1, "checkpoint");
     }
 
+    /// @dev A slot value must stay below 2^244 so it packs above the 12 slot bits of an admission
+    /// key; registration and top-up both reject a larger one and write nothing.
+    function test_register_AndTopUp_RevertWhen_SlotValueReaches2Pow244() external {
+        uint256 bound = 2 ** 244;
+        // TAIKO's supply is far below the bound, so stake an unarmed (plain) mintable token.
+        ReentrantERC20 large = new ReentrantERC20();
+        registry = _deployRegistry(address(large), address(mockInbox));
+        large.mint(Alice, bound);
+        large.mint(Bob, bound);
+        vm.prank(Alice);
+        large.approve(address(registry), type(uint256).max);
+        vm.prank(Bob);
+        large.approve(address(registry), type(uint256).max);
+        bytes memory publicKey = EtnaTestKeys.publicKey(_CK_A);
+        bytes memory pop = EtnaTestKeys.popSig(_CK_A, registry, Alice);
+        _assertRegisterReverts(
+            Alice, publicKey, bound, pop, IEtnaStakingRegistry.BalanceTooLarge.selector, "2^244"
+        );
+        assertEq(registry.checkpointCount(), 0, "no checkpoint");
+
+        vm.prank(Alice);
+        registry.register(publicKey, bound - 1, pop);
+        _assertAdmissionThreshold(1, 0);
+        bytes memory publicKeyB = EtnaTestKeys.publicKey(_CK_B);
+        bytes memory popB = EtnaTestKeys.popSig(_CK_B, registry, Bob);
+        vm.prank(Bob);
+        registry.register(publicKeyB, MIN_STAKE, popB);
+        vm.roll(block.number + ACTIVATION_DELAY);
+        vm.expectRevert(IEtnaStakingRegistry.BalanceTooLarge.selector);
+        vm.prank(Bob);
+        registry.topUp(1, bound - MIN_STAKE);
+        (uint256 pending,) = registry.topUpOf(1);
+        assertEq(pending, 0, "no pending top-up");
+        vm.prank(Bob);
+        registry.topUp(1, bound - MIN_STAKE - 1);
+        _assertAdmissionThreshold(2, 0);
+    }
+
     /// @dev `activeFromL1` must be below the no-exit sentinel 2^48 - 1.
     function test_register_RevertWhen_ActivationOverflows48Bits() external {
         bytes memory publicKey = EtnaTestKeys.publicKey(_CK_A);

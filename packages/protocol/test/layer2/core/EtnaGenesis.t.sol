@@ -61,63 +61,19 @@ contract EtnaGenesisTest is Test {
         assertFalse(ok, "overwritten timestamp expires");
     }
 
-    /// @dev Runs the builder through FFI on an empty-alloc base and stub predeploys, then installs
-    /// its system contracts.
+    /// @dev Runs the builder CLI through FFI on an empty-alloc base and the stand-in predeploys and
+    /// artifacts of `etna_genesis_fixture.py`, then installs its system contracts.
     /// @return genesis_ The generated genesis JSON.
     function _build() private returns (string memory genesis_) {
-        vm.writeFile(
-            _path("base"), "{\"config\":{\"chainId\":167001},\"timestamp\":\"0x0\",\"alloc\":{}}"
-        );
-        vm.writeFile(
-            _path("predeploys"),
-            string.concat(
-                "{",
-                _stubAccount("0x1670010000000000000000000000000000010001"),
-                ",",
-                _stubAccount("0x0167001000000000000000000000000000010001"),
-                ",",
-                _stubAccount("0x1670010000000000000000000000000000000005"),
-                ",",
-                _stubAccount("0x0167001000000000000000000000000000000005"),
-                "}"
-            )
-        );
-        vm.writeFile(
-            _path("config"),
-            string.concat(
-                "{\"chainId\":167001,\"etnaTimestamp\":\"0x0\",",
-                "\"remoteSignalService\":\"0x00000000000000000000000000000000000000aa\",",
-                "\"contractAddresses\":{",
-                "\"TaikoAnchor\":\"0x1670010000000000000000000000000000010001\",",
-                "\"TaikoAnchorImpl\":\"0x0167001000000000000000000000000000010001\",",
-                "\"SignalService\":\"0x1670010000000000000000000000000000000005\",",
-                "\"SignalServiceImpl\":\"0x0167001000000000000000000000000000000005\"}}"
-            )
-        );
-        string[] memory command = new string[](12);
+        string[] memory command = new string[](4);
         command[0] = "python3";
-        command[1] = "script/layer2/build_etna_genesis.py";
-        command[2] = "--base";
-        command[3] = _path("base");
-        command[4] = "--predeploys";
-        command[5] = _path("predeploys");
-        command[6] = "--predeploy-config";
-        command[7] = _path("config");
-        command[8] = "--l1-signal-service";
-        command[9] = "0x00000000000000000000000000000000000000aa";
-        command[10] = "--output";
-        command[11] = _path("genesis");
+        command[1] = "test/layer2/core/etna_genesis_fixture.py";
+        command[2] = "--output";
+        command[3] = _path("genesis");
         vm.ffi(command);
         genesis_ = vm.readFile(_path("genesis"));
         _install(genesis_, _ROOTS);
         _install(genesis_, _HISTORY);
-    }
-
-    /// @dev Returns one stub predeploy alloc entry with non-empty code.
-    /// @param _address The account address as a lowercase hex string.
-    /// @return The JSON member.
-    function _stubAccount(string memory _address) private pure returns (string memory) {
-        return string.concat("\"", _address, "\":{\"balance\":\"0x0\",\"code\":\"0x00\"}");
     }
 
     /// @dev Returns a per-test file path; Foundry runs tests concurrently.

@@ -232,14 +232,21 @@ python3 script/layer2/build_etna_genesis.py --base <genesis.json> \
 ```
 
 The builder refuses any other `etnaTimestamp`, a `remoteSignalService` other than SIGNAL_SERVICE,
-another chain id and predeploys without the Anchor or SignalService. It replaces the base's
-accounts at the predeploy addresses with the generated ones, keeping only the account fields
-execution clients accept, adds the EIP-4788 and EIP-2935 system contracts (spec 10 step 3) and
-changes nothing outside `alloc`; the 100% base-fee share is the per-block `extraData[0] = 100`
-rule that nodes and guests enforce, not a genesis field. `generate.ts` exits non-zero on failure,
-so a failed run cannot leave an older config/alloc pair behind unnoticed. The builder checks the
-generator's configuration, not the bytecode, so after booting the EL on the genesis also check the
-Anchor proxy (`contractAddresses.TaikoAnchor` in the generated config) at block 0:
+another chain id and predeploys without the Anchor or SignalService. Because the checked-in
+`genesis_config.json` can disagree with a gitignored `genesis_alloc.json`, it checks the same values
+in the emitted bytecode too, against the `out/layer2` artifacts of the same `pnpm genesis:gen` run
+(`--artifacts` overrides the directory): both proxies must point at their implementations, whose
+code must be the compiled `Anchor` and `SignalServiceL2` runtimes, with the Anchor's
+`etnaTimestamp` 0 and `checkpointStore` the SignalService proxy, and SignalServiceL2's syncer the
+Anchor proxy and its remote SIGNAL_SERVICE. If `out/layer2` no longer matches the alloc, for
+example after a rebuild from other sources or without the AST, it refuses until `pnpm genesis:gen`
+reruns. It replaces the base's accounts at the predeploy addresses with the generated ones,
+keeping only the account fields execution clients accept, adds the EIP-4788 and EIP-2935 system
+contracts (spec 10 step 3) and changes nothing outside `alloc`; the 100% base-fee share is the
+per-block `extraData[0] = 100` rule that nodes and guests enforce, not a genesis field.
+`generate.ts` exits non-zero on failure, so a failed run cannot leave an older config/alloc pair
+behind unnoticed. After booting the EL on the genesis, also check the Anchor proxy
+(`contractAddresses.TaikoAnchor` in the generated config) at block 0:
 
 ```bash
 cast call --rpc-url "$L2_RPC" --block 0 "$TAIKO_ANCHOR" 'etnaTimestamp()(uint64)' # must print 0

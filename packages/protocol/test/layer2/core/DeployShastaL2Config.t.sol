@@ -4,9 +4,12 @@ pragma solidity ^0.8.24;
 import { DeployShastaL2Contracts } from "script/layer2/DeployShastaL2Contracts.s.sol";
 import { DeployShastaL2Hoodi } from "script/layer2/DeployShastaL2Hoodi.s.sol";
 import { DeployShastaL2Mainnet } from "script/layer2/DeployShastaL2Mainnet.s.sol";
+import { Anchor } from "src/layer2/core/Anchor.sol";
 import { LibL2HoodiAddrs } from "src/layer2/hoodi/LibL2HoodiAddrs.sol";
 import { LibL2Addrs } from "src/layer2/mainnet/LibL2Addrs.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
+import { SignalServiceL2 } from "src/shared/signal/SignalServiceL2.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
 import { LegacySignalService } from "test/shared/signal/LegacySignalService.sol";
 
@@ -21,6 +24,10 @@ contract MainnetConfigLoader is DeployShastaL2Mainnet {
 
     function validateConfig(DeploymentConfig memory _config) external view {
         _validateConfig(_config);
+    }
+
+    function deploy(DeploymentConfig memory _config) external returns (address, address) {
+        return _deploy(_config);
     }
 }
 
@@ -64,6 +71,40 @@ contract TestDeployShastaL2Config is CommonTest {
         config.etnaTimestamp = uint64(block.timestamp);
         vm.expectRevert(bytes("ETNA_TIMESTAMP not in the future"));
         loader.validateConfig(config);
+    }
+
+    /// @dev The Anchor saves checkpoints into the L2 SignalService proxy, and SignalServiceL2
+    /// accepts them only from the Anchor proxy. Swapping the two addresses would make every Unzen
+    /// `anchorV4` revert once the DAO batch installs both implementations.
+    function test_deploy_WiresAnchorAndSignalServiceL2() external {
+        MainnetConfigLoader loader = new MainnetConfigLoader();
+        DeployShastaL2Contracts.DeploymentConfig memory config =
+            DeployShastaL2Contracts.DeploymentConfig({
+                l1ChainId: 1,
+                l1SignalService: address(0x11),
+                l2SignalService: address(0x22),
+                anchorProxy: address(0x33),
+                signalServicePauser: Alice,
+                etnaTimestamp: _ETNA_TIMESTAMP
+            });
+        (address anchorImpl, address signalServiceImpl) = loader.deploy(config);
+
+        Anchor anchor = Anchor(anchorImpl);
+        assertEq(address(anchor.checkpointStore()), config.l2SignalService, "checkpoint store");
+        assertEq(anchor.l1ChainId(), config.l1ChainId, "L1 chain id");
+        assertEq(anchor.etnaTimestamp(), config.etnaTimestamp, "Etna timestamp");
+
+        SignalServiceL2 signalService = SignalServiceL2(signalServiceImpl);
+        assertEq(signalService.pauser(), Alice, "pauser");
+        ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
+            blockNumber: 1, blockHash: bytes32(uint256(1)), stateRoot: bytes32(uint256(2))
+        });
+        vm.expectRevert(SignalService.SS_UNAUTHORIZED.selector);
+        vm.prank(config.l2SignalService);
+        signalService.saveCheckpoint(checkpoint);
+        vm.prank(config.anchorProxy);
+        signalService.saveCheckpoint(checkpoint);
+        assertEq(signalService.getCheckpoint(1).stateRoot, checkpoint.stateRoot, "saved");
     }
 
     function _checkLoader(IDeploymentConfigLoader _loader, address _signalService) private {

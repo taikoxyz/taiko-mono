@@ -209,7 +209,9 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
             assertEq(origin.l1BlockNumber, _uint(j, o, "l1_block_number"), "l1BlockNumber");
             assertEq(origin.l1Timestamp, _uint(j, o, "l1_timestamp"), "l1Timestamp");
 
-            // The current generation's origin views read the same record.
+            // The current generation's origin views read the same record, once a start is
+            // written (slot 273), as it always is when an origin record exists.
+            _storeInbox(j, "genesis_block_hash", bytes32(uint256(100)));
             _storeInbox(j, "recovery_generation", bytes32(generation));
             assertEq(inbox.generationStartHeight(), origin.startHeight, "generationStartHeight");
             assertEq(inbox.recoverySnapshot(), origin.l1BlockNumber, "recoverySnapshot");
@@ -579,6 +581,9 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         assertEq(generation, 1, "generation");
         assertEq(p, 6, "origin");
         vm.store(at, bytes32(_inboxSlot(j, "recovery_generation")), bytes32(generation));
+        // The start (slot 273) is written whenever an origin exists: the cut model's EL hash of
+        // height 0, 100 + 0.
+        vm.store(at, bytes32(_inboxSlot(j, "genesis_block_hash")), bytes32(uint256(100)));
         _plantVectorOrigin(j, at, 1, p);
         _plantVectorLanding(
             j,

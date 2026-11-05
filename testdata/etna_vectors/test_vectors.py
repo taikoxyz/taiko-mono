@@ -543,6 +543,8 @@ class VectorsTest(unittest.TestCase):
                 "schedule_rules",
                 "schedule_stop",
                 "set_origin",
+                "save_forced_inclusion",
+                "sweep_protocol_fees",
             },
         )
         for call in calls.values():
@@ -571,6 +573,16 @@ class VectorsTest(unittest.TestCase):
         self.assertEqual(
             words("0x" + calls["set_origin"]["calldata"][10:]), [uint(1000), uint(0x51), uint(0x52)]
         )
+        # saveForcedInclusion(bytes) takes the raw transaction (spec 7.1); sweepProtocolFees() no
+        # argument.
+        self.assertEqual(calls["save_forced_inclusion"]["signature"], "saveForcedInclusion(bytes)")
+        fi = words("0x" + calls["save_forced_inclusion"]["calldata"][10:])
+        self.assertEqual([int(w, 16) for w in fi[:2]], [32, 1])
+        self.assertEqual(fi[2], "0xc0" + "00" * 31)
+        self.assertEqual(calls["sweep_protocol_fees"]["signature"], "sweepProtocolFees()")
+        self.assertEqual(
+            calls["sweep_protocol_fees"]["calldata"], calls["sweep_protocol_fees"]["selector"]
+        )
         cases = V["forfeitures"]
         expected = [(100, 0, 1000, 10, 90, 0), (2, 98, 1000, 10, 0, 90), (1, 0, 1, 1, 0, 0), (0, 3, 10000, 3, 0, 0)]
         self.assertEqual([tuple(int(c[k]) for k in ("eff_stake", "pending_top_up", "forfeit_bps", "penalty", "eff_stake_after", "pending_top_up_after")) for c in cases[:4]], expected)
@@ -595,6 +607,7 @@ class VectorsTest(unittest.TestCase):
         self.assertTrue("governance_events" in V, "new events must be shared with ABI consumers")
         events = V["governance_events"]
         rules = int(V["packed_words"]["inbox_293"][0]["word"], 16)
+        entry_key = int(V["keys"][0]["entry_key"], 16)
         expected = {
             "top_up_deposited": [100, 42],
             "top_up_activated": [100],
@@ -603,17 +616,34 @@ class VectorsTest(unittest.TestCase):
             "bond_displaced": [],
             "rules_schedule_updated": [rules],
             "start_written": [1000, 0x51, 0x52],
+            "etna_initialized": [10, 40, 0x53, 0x54],
+            "landed": [0x77, 50, 1],
+            # The offset of the bytes, the fee, then the one-byte transaction left-aligned.
+            "forced_inclusion_saved": [64, 1_000_000_000, 1, 0xC0 << 248],
+            "protocol_fees_swept": [1_000_000_000],
+            # Five head words with the two list offsets, then each list's length and items.
+            "recovered": [12, 50, 1700000123, 160, 256, 1, 0, entry_key, 2, 3, 5],
         }
         self.assertEqual(set(events), set(expected))
         for name, values in expected.items():
             self.assertEqual([int(w, 16) for w in words(events[name]["data"])], values)
             self.assertEqual(len(hexbytes(events[name]["topic0"])), 32)
-        # BondDisplaced(bondId, slot, replacementBondId) indexes all three; the other new events
-        # index nothing.
+        # BondDisplaced(bondId, slot, replacementBondId) indexes all three; Landed its three
+        # heights; ForcedInclusionSaved its queue index; Recovered the new generation. The other
+        # events index nothing.
         self.assertEqual(
             events["bond_displaced"]["indexed_topics"], [uint(12), uint(7), uint(4096)]
         )
-        for name in ("rules_schedule_updated", "start_written", "recovery_nonce_invalidated"):
+        self.assertEqual(events["landed"]["indexed_topics"], [uint(0), uint(6), uint(12)])
+        self.assertEqual(events["forced_inclusion_saved"]["indexed_topics"], [uint(3)])
+        self.assertEqual(events["recovered"]["indexed_topics"], [uint(2)])
+        for name in (
+            "rules_schedule_updated",
+            "start_written",
+            "recovery_nonce_invalidated",
+            "etna_initialized",
+            "protocol_fees_swept",
+        ):
             self.assertEqual(events[name]["indexed_topics"], [], name)
 
     def test_view_return_data(self):

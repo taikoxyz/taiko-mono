@@ -12,11 +12,15 @@ consumes all of its input and rejects trailing bytes, as the reject cases below 
 
 `governance_abi` encodes the calldata of delayed top-ups, lifetime forfeiture, nonce/deadline-bound
 recovery with its trailing `rules` argument, explicit recovery invalidation, the rules schedule
-calls `scheduleRules` and `scheduleStop`, and the start write `setOrigin` (spec 8, 10, 10.1).
+calls `scheduleRules` and `scheduleStop`, the start write `setOrigin`, and the forced inclusion
+calls `saveForcedInclusion` and `sweepProtocolFees` (spec 7.1, 8, 10, 10.1).
 `governance_events` gives each event's topics and data, including `BondDisplaced` with all three
 fields indexed and the unindexed `RulesScheduleUpdated` (the packed slot-293 word) and
-`StartWritten`. `view_abi` gives the calldata and return data of the registry lookups
-`bondForKey`, `bondInSlot` and `slotOfBond`, where `(true, 0)` names bond 0 or slot 0 and
+`StartWritten`, and the Inbox's `EtnaInitialized`, `Landed` (its three heights indexed),
+`ForcedInclusionSaved` (its queue index indexed, then the raw transaction and the fee charged),
+`ProtocolFeesSwept` and `Recovered` (the new generation indexed). `view_abi` gives the calldata
+and return data of the registry lookups `bondForKey`, `bondInSlot` and `slotOfBond`, where
+`(true, 0)` names bond 0 or slot 0 and
 `(false, 0)` is absence, and of the Inbox's `etnaStart()`, which returns (0, 0) before the start
 write. `forfeitures` pins effective-first rounded-up deductions, including pending-only and
 uint256 boundary balances.

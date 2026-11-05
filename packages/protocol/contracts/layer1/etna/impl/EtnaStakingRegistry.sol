@@ -383,7 +383,8 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         if (bond.holdsSlot) _setSlotValue(_registryStorage(), bond.slot, 0);
 
         uint256 bounty = Math.mulDiv(amount, slashBountyBps, _BPS);
-        token.safeTransfer(msg.sender, bounty);
+        // A zero rate or a dust slash pays no bounty; skip the zero transfer.
+        if (bounty != 0) token.safeTransfer(msg.sender, bounty);
         token.safeTransfer(slashSink, amount - bounty);
         emit DoubleSignSlashed(
             _bondId,

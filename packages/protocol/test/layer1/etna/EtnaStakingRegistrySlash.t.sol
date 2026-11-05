@@ -813,6 +813,10 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
         uint256 reporterBefore = token.balanceOf(_reporter);
         uint256 sinkBefore = token.balanceOf(SLASH_SINK);
         (IEtnaStakingRegistry.Vote memory a, IEtnaStakingRegistry.Vote memory b) = _conflict(_CK_B);
+        // No bounty means no transfer to the reporter at all, not a zero-amount one.
+        if (_bounty == 0) {
+            vm.expectCall(address(token), abi.encodeCall(IERC20.transfer, (_reporter, 0)), 0);
+        }
         vm.expectEmit();
         emit IEtnaStakingRegistry.DoubleSignSlashed(
             0, _reporter, _effective + _pending, _bounty, 0, _HEIGHT, _ROUND, 2

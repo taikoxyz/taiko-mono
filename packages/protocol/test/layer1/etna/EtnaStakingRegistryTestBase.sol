@@ -184,6 +184,13 @@ abstract contract EtnaStakingRegistryTestBase is CommonTest, EtnaTestConstants {
         assertEq(checkpoint.entriesRoot, _root, "checkpoint entriesRoot");
     }
 
+    /// @dev Asserts the slot the next registration takes and its value.
+    function _assertAdmissionThreshold(uint256 _slot, uint256 _value) internal view {
+        (uint256 slot, uint256 value) = registry.admissionThreshold();
+        assertEq(slot, _slot, "admission slot");
+        assertEq(value, _value, "admission value");
+    }
+
     /// @dev Splits a 65-byte signature `R ‖ S ‖ V`.
     function _split(bytes memory _sig) internal pure returns (bytes32 r_, bytes32 s_, uint8 v_) {
         assembly {

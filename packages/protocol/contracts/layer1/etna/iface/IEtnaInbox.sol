@@ -497,13 +497,17 @@ interface IEtnaInbox {
 
     /// @notice Returns the current generation's start height,
     /// `origins(recoveryGeneration()).startHeight`.
+    /// @dev Reverts with `StartNotWritten` before the start write, which writes generation 0's
+    /// record: a missing record has no default (spec 8.4). Every later generation's record is
+    /// written by the `recover` that starts it.
     /// @return The start height.
     function generationStartHeight() external view returns (uint256);
 
     /// @notice Returns the current generation's origin L1 block,
     /// `origins(recoveryGeneration()).l1BlockNumber`.
     /// @dev `R` for a recovery generation; `L1_0` for generation 0, whose committee 0 is still
-    /// selected at the genesis cutoff (spec 8.4).
+    /// selected at the genesis cutoff (spec 8.4). Reverts with `StartNotWritten` before the start
+    /// write, like `generationStartHeight`.
     /// @return The origin L1 block.
     function recoverySnapshot() external view returns (uint256);
 

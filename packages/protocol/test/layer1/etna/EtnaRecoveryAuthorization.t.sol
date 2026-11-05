@@ -175,6 +175,33 @@ contract EtnaRecoveryAuthorizationTest is EtnaLandTestBase {
         }
     }
 
+    /// @dev RECOV-8.3-19: the other entry points also refuse to run while the registry holds its
+    /// lock, and change nothing.
+    function test_entryPoints_RevertWhen_RegistryLocked() external {
+        vm.deal(inboxProxy, 1 ether);
+        vm.deal(Alice, 1 ether);
+        IEtnaInbox.RulesSchedule memory schedule = _inbox().rulesSchedule();
+        (uint48 head, uint48 tail) = _inbox().getForcedInclusionState();
+        _mockRegistryLocked();
+
+        vm.expectRevert(IEtnaInbox.RegistryLocked.selector);
+        vm.prank(Alice);
+        _inbox().saveForcedInclusion{ value: 1 ether }(hex"c0");
+        vm.expectRevert(IEtnaInbox.RegistryLocked.selector);
+        _inbox().sweepProtocolFees();
+        vm.expectRevert(IEtnaInbox.RegistryLocked.selector);
+        _inbox().scheduleRules(1, uint48(block.timestamp + 1 days));
+        vm.expectRevert(IEtnaInbox.RegistryLocked.selector);
+        _inbox().scheduleStop(uint48(block.timestamp + 1 days), 6);
+
+        (uint48 headAfter, uint48 tailAfter) = _inbox().getForcedInclusionState();
+        assertEq(headAfter, head, "queue head");
+        assertEq(tailAfter, tail, "no forced inclusion");
+        assertEq(inboxProxy.balance, 1 ether, "nothing swept");
+        assertEq(Alice.balance, 1 ether, "nothing charged");
+        assertEq(abi.encode(_inbox().rulesSchedule()), abi.encode(schedule), "no schedule");
+    }
+
     function test_invalidateRecoveryNonce_RevertWhen_Uninitialized() external {
         _deployFreshInbox(false);
         EssentialContract(inboxProxy).upgradeTo(address(inboxImpl));

@@ -21,7 +21,8 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
     /// @dev `init` stores L, the committee and FI parameters but no start: slots 270/271 and
     /// 273/274, landings(0) and origins(0) stay zero, slot 272 holds only L, and no SignalService
     /// checkpoint is saved. Before the start write forced inclusion (5b.b), `land` and `recover`
-    /// (RECOV-8.3-2) revert; invalidating the recovery nonce and scheduling work.
+    /// (RECOV-8.3-2) revert, and so do the views of the missing generation 0 origin (8.4 5.b);
+    /// invalidating the recovery nonce and scheduling work.
     function test_init_SwitchingNetworkWritesNoStart() external {
         assertTrue(_inbox().isInitialized(), "initialized");
         assertEq(uint256(_inboxWord(GENESIS_PACKED_SLOT)), EPOCH_LEN_L2 << 96, "272: L only");
@@ -37,6 +38,10 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
         _assertStart(0, 0);
         vm.expectRevert(SignalService.SS_CHECKPOINT_NOT_FOUND.selector);
         signalService.getCheckpoint(0);
+        vm.expectRevert(IEtnaInbox.StartNotWritten.selector);
+        _inbox().generationStartHeight();
+        vm.expectRevert(IEtnaInbox.StartNotWritten.selector);
+        _inbox().recoverySnapshot();
 
         vm.deal(Alice, 1 ether);
         vm.expectRevert(IEtnaInbox.StartNotWritten.selector);
@@ -148,6 +153,23 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
         _expectSetOriginRevert(
             S + 6, bytes32(uint256(1)), bytes32(uint256(2)), IEtnaInbox.StartAlreadyWritten.selector
         );
+    }
+
+    /// @dev RECOV-8.3-19: while the registry holds its lock, `init` and the start write revert
+    /// and write nothing.
+    function test_initAndSetOrigin_RevertWhen_RegistryLocked() external {
+        vm.warp(FORK_TIME);
+        _mockRegistryLocked();
+        vm.expectRevert(IEtnaInbox.RegistryLocked.selector);
+        vm.prank(Carol);
+        _inbox().setOrigin(S, _startHash(), _startStateRoot());
+        _assertStart(0, 0);
+
+        // A fresh proxy, still on its bootstrap implementation, with a new registry.
+        _deployFreshInbox(_switchConfig(), _switchInitParams(), false);
+        _mockRegistryLocked();
+        vm.expectRevert(IEtnaInbox.RegistryLocked.selector);
+        _upgradeAndInit(inboxImpl, _switchInitParams());
     }
 
     /// @dev 5a.m: a new network's Inbox has no originWriter (and `init` wrote its start), so no

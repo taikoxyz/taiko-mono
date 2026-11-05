@@ -471,7 +471,8 @@ contract EtnaStakingRegistryTopUpForfeitTest is EtnaStakingRegistryTestBase {
     }
 
     /// @dev Forfeiting a displaced bond takes its penalty and sets the lifetime flag without
-    /// writing a checkpoint (spec 4.4 vectors 4.g and 11.e).
+    /// writing a checkpoint (spec 4.4 vectors 4.g and 11.e). Its former slot keeps the new
+    /// holder's admission value.
     function test_forfeit_DisplacedBondWritesNoCheckpoint() external {
         _fillRegistry(1);
         vm.roll(block.number + 1);
@@ -479,6 +480,9 @@ contract EtnaStakingRegistryTopUpForfeitTest is EtnaStakingRegistryTestBase {
         assertFalse(registry.bondAt(0).holdsSlot, "bond 0 displaced");
         uint256 checkpoints = registry.checkpointCount();
         bytes32 root = registry.entriesRoot();
+        (uint256 slot, uint256 value) = registry.admissionThreshold();
+        assertEq(slot, 0, "the new holder's slot is the smallest");
+        assertEq(value, MIN_STAKE + 1, "at the new holder's value");
         mockInbox.setInitialized(true);
 
         vm.roll(block.number + 1);
@@ -488,6 +492,7 @@ contract EtnaStakingRegistryTopUpForfeitTest is EtnaStakingRegistryTestBase {
         assertEq(token.balanceOf(SLASH_SINK), 100 ether, "penalty to the sink");
         assertEq(registry.checkpointCount(), checkpoints, "no checkpoint");
         assertEq(registry.entriesRoot(), root, "root");
+        _assertAdmissionThreshold(slot, value);
     }
 
     function test_topUp_RevertWhen_ZeroEffectiveStakeEvenWithoutExit() external {

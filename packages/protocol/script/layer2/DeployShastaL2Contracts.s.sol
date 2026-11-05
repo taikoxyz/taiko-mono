@@ -70,19 +70,28 @@ abstract contract DeployShastaL2Contracts is DeployCapability {
         return abi.decode(ret, (address));
     }
 
-    function _deploy(DeploymentConfig memory config) internal {
-        address anchorImpl = address(
+    /// @dev Deploys the two implementations without upgrading the proxies: the Anchor saves
+    /// checkpoints into the L2 SignalService proxy, and SignalServiceL2 accepts them only from the
+    /// Anchor proxy.
+    /// @param config The validated deployment configuration.
+    /// @return anchorImpl_ The new Anchor implementation.
+    /// @return signalServiceImpl_ The new SignalServiceL2 implementation.
+    function _deploy(DeploymentConfig memory config)
+        internal
+        returns (address anchorImpl_, address signalServiceImpl_)
+    {
+        anchorImpl_ = address(
             new Anchor(
                 ICheckpointStore(config.l2SignalService), config.l1ChainId, config.etnaTimestamp
             )
         );
-        console2.log("New anchorImpl deployed:", anchorImpl);
+        console2.log("New anchorImpl deployed:", anchorImpl_);
 
-        address signalServiceImpl = address(
+        signalServiceImpl_ = address(
             new SignalServiceL2(
                 config.anchorProxy, config.l1SignalService, config.signalServicePauser
             )
         );
-        console2.log("New signalServiceImpl deployed:", signalServiceImpl);
+        console2.log("New signalServiceImpl deployed:", signalServiceImpl_);
     }
 }

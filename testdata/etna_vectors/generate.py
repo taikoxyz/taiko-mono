@@ -2135,6 +2135,10 @@ def layout():
 
 # The Etna start used by the start ABI and event vectors: S = 1000 with its hash and stateRoot.
 START = (1000, word(0x51), word(0x52))
+# The forced inclusion bytes and fee of the FI ABI and event vectors; encoding is not checked at
+# submission (spec 7.1), so one byte suffices.
+FI_TX = "0xc0"
+FI_FEE_WEI = 1_000_000_000
 
 
 def governance_abi(key_list):
@@ -2149,6 +2153,8 @@ def governance_abi(key_list):
         "schedule_rules": ("scheduleRules(uint48,uint48)", [2, 1_700_003_600]),
         "schedule_stop": ("scheduleStop(uint48,uint48)", [1_700_007_200, 600]),
         "set_origin": ("setOrigin(uint256,bytes32,bytes32)", list(START)),
+        "save_forced_inclusion": ("saveForcedInclusion(bytes)", [FI_TX]),
+        "sweep_protocol_fees": ("sweepProtocolFees()", []),
     }
     return {
         name: {"signature": signature, "selector": cast("sig", signature), "calldata": cast("calldata", signature, *args)}
@@ -2224,8 +2230,10 @@ def view_abi(key_list):
 
 
 def governance_events(key_list):
-    """Event topics and non-indexed ABI data, including explicit nonce invalidation."""
+    """Event topics and non-indexed ABI data: the governance events, explicit nonce invalidation,
+    and the Inbox's initialization, landing, forced inclusion, sweep and recovery events."""
     rules_schedule = int(pack(*PACKED["inbox_293"][2:]), 16)
+    entry_key = key_list[0]["entry_key"]
     definitions = {
         "top_up_deposited": ("TopUpDeposited(uint256,uint256,uint48)", [word(0)], "f(uint256,uint48)", [100, 42]),
         "top_up_activated": ("TopUpActivated(uint256,uint256)", [word(0)], "f(uint256)", [100]),
@@ -2234,6 +2242,11 @@ def governance_events(key_list):
         "bond_displaced": ("BondDisplaced(uint256,uint256,uint256)", [word(12), word(7), word(4096)], "f()", []),
         "rules_schedule_updated": ("RulesScheduleUpdated(uint256)", [], "f(uint256)", [rules_schedule]),
         "start_written": ("StartWritten(uint256,bytes32,bytes32)", [], "f(uint256,bytes32,bytes32)", list(START)),
+        "etna_initialized": ("EtnaInitialized(uint256,uint256,bytes32,bytes32)", [], "f(uint256,uint256,bytes32,bytes32)", [10, 40, word(0x53), word(0x54)]),
+        "landed": ("Landed(uint256,uint256,uint256,bytes32,uint256,uint8)", [word(0), word(6), word(12)], "f(bytes32,uint256,uint8)", [word(0x77), 50, 1]),
+        "forced_inclusion_saved": ("ForcedInclusionSaved(uint48,bytes,uint256)", [word(3)], "f(bytes,uint256)", [FI_TX, FI_FEE_WEI]),
+        "protocol_fees_swept": ("ProtocolFeesSwept(uint256)", [], "f(uint256)", [FI_FEE_WEI]),
+        "recovered": ("Recovered(uint48,uint256,uint256,uint256,(uint256,bytes32)[],uint256[])", [word(2)], "f(uint256,uint256,uint256,(uint256,bytes32)[],uint256[])", [12, 50, 1700000123, f"[(0,{entry_key})]", "[3,5]"]),
     }
     return {
         name: {"signature": signature, "topic0": keccak(signature), "indexed_topics": topics, "data": abi_encode(encoding, *args)}

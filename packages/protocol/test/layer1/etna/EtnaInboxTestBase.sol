@@ -243,6 +243,16 @@ abstract contract EtnaInboxTestBase is CommonTest, EtnaTestConstants {
         return new EtnaInbox(_config);
     }
 
+    /// @dev Makes the current registry report that it holds its reentrancy lock, as it does while
+    /// one of its token transfers calls out.
+    function _mockRegistryLocked() internal {
+        vm.mockCall(
+            address(registry),
+            abi.encodeWithSelector(EssentialContract.inNonReentrant.selector),
+            abi.encode(true)
+        );
+    }
+
     function _defaultConfig() internal view returns (IEtnaInbox.Config memory) {
         return IEtnaInbox.Config({
             proofVerifier: address(landVerifier),

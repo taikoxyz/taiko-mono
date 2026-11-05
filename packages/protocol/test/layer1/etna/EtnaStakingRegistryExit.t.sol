@@ -583,7 +583,7 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
     }
 
     /// @dev Double-sign slashing of a displaced bond takes its whole principal and writes no
-    /// checkpoint (spec 4.1 vector 36.e).
+    /// checkpoint (spec 4.1 vector 36.e). Its former slot keeps the new holder's admission value.
     function test_displacedBond_SlashWritesNoCheckpoint() external {
         _fillRegistry(1);
         vm.roll(block.number + 1);
@@ -591,12 +591,16 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
         assertFalse(registry.bondAt(0).holdsSlot, "bond 0 displaced");
         uint256 checkpoints = registry.checkpointCount();
         bytes32 root = registry.entriesRoot();
+        (uint256 slot, uint256 value) = registry.admissionThreshold();
+        assertEq(slot, 0, "the new holder's slot is the smallest");
+        assertEq(value, MIN_STAKE + 1, "at the new holder's value");
 
         vm.roll(block.number + 1);
         _slashDoubleSign(0, _CK_A);
         assertEq(registry.bondAt(0).entry.effStake, 0, "slashed");
         assertEq(registry.checkpointCount(), checkpoints, "no checkpoint");
         assertEq(registry.entriesRoot(), root, "root");
+        _assertAdmissionThreshold(slot, value);
     }
 
     // ---------------------------------------------------------------

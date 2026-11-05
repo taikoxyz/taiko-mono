@@ -13,6 +13,15 @@ the deployed L1 SignalService passed as `--l1-signal-service`, which `SignalServ
 against. Predeploy accounts are reduced to the fields execution clients accept (balance, nonce,
 code, storage), dropping the generator's `contractName`, with storage keys and values written as
 32-byte words.
+
+The configuration file can disagree with the alloc, for example when it was edited without rerunning
+the generator, so the same values are also checked in the emitted bytecode. The Anchor and
+SignalService proxies must point at their implementations, and each implementation's code must be
+the runtime of the compiled `Anchor` or `SignalServiceL2` in `--artifacts` (`out/layer2`, written
+with its AST by `pnpm genesis:gen`), differing only in immutables and library links. Then the
+immutables are read at the compiler's offsets: the Anchor's `etnaTimestamp` must be 0 and its
+`checkpointStore` the SignalService proxy, and SignalServiceL2's `_authorizedSyncer` must be the
+Anchor proxy and its `_remoteSignalService` the L1 SignalService.
 """
 
 import argparse
@@ -35,6 +44,10 @@ REQUIRED_PREDEPLOYS = ("TaikoAnchor", "TaikoAnchorImpl", "SignalService", "Signa
 ACCOUNT_FIELDS = ("balance", "nonce", "code", "storage")
 # Generator bookkeeping that is not part of the account.
 GENERATOR_FIELDS = ("contractName",)
+# The ERC-1967 implementation slot of the predeploy proxies.
+IMPLEMENTATION_SLOT = "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc"
+# The `pnpm genesis:gen` artifacts: `pnpm compile:l2` writes them with their AST.
+DEFAULT_ARTIFACTS = Path(__file__).resolve().parents[2] / "out" / "layer2"
 
 
 def address(value):
@@ -94,7 +107,8 @@ def check_predeploy_config(config, base, predeploys, l1_signal_service):
     if int(etna_timestamp, 16) != 0:
         raise ValueError(
             "predeploy config: etnaTimestamp must be 0x0 on a new Etna network, or anchorV4 "
-            "stays callable with the public golden touch key"
+            "stays callable with the public golden touch key; set it in "
+            "test/genesis/data/genesis_config.js and rerun `pnpm genesis:gen`"
         )
     remote = address(config.get("remoteSignalService"))
     if remote == ZERO_ADDRESS or remote != address(l1_signal_service):
@@ -113,7 +127,105 @@ def check_predeploy_config(config, base, predeploys, l1_signal_service):
             raise ValueError("predeploys: no code at the configured " + name + " address")
 
 
-def build(base, predeploys, predeploy_config, l1_signal_service):
+def address_word(value):
+    """Left-pad a 20-byte address to the 32-byte word an immutable or storage slot holds."""
+    return "0x" + address(value).removeprefix("0x").rjust(64, "0")
+
+
+def load_artifact(artifacts, name):
+    """Load the Foundry artifact of contract `name` from the artifacts directory."""
+    path = Path(artifacts) / (name + ".sol") / (name + ".json")
+    if not path.is_file():
+        raise ValueError("artifacts: no " + str(path) + "; run `pnpm genesis:gen`")
+    return load(path)
+
+
+def immutable_id(artifacts, contract, name):
+    """Return the AST id of the immutable `name` that `contract` declares.
+
+    Solidity identifies immutables by AST id in `immutableReferences`; the generator patches them
+    by the same lookup.
+    """
+    ast = load_artifact(artifacts, contract).get("ast")
+    if not isinstance(ast, dict):
+        raise ValueError("artifacts: " + contract + " has no AST; rebuild with `pnpm genesis:gen`")
+    for node in ast.get("nodes", []):
+        if node.get("nodeType") != "ContractDefinition" or node.get("name") != contract:
+            continue
+        for member in node.get("nodes", []):
+            if (member.get("nodeType") == "VariableDeclaration" and member.get("name") == name
+                    and member.get("mutability") == "immutable"):
+                return str(member["id"])
+    raise ValueError("artifacts: " + contract + " declares no immutable " + name)
+
+
+def runtime_code(account, artifact, label):
+    """Require the account code to be the artifact's runtime, filled in only at its immutables
+    and library links, and return it as bytes."""
+    deployed = artifact.get("deployedBytecode", {})
+    expected = deployed.get("object", "").removeprefix("0x")
+    code = bytes.fromhex(account["code"].removeprefix("0x"))
+    filled = set()
+    for references in deployed.get("immutableReferences", {}).values():
+        for reference in references:
+            filled.update(range(reference["start"], reference["start"] + reference["length"]))
+    for libraries in deployed.get("linkReferences", {}).values():
+        for references in libraries.values():
+            for reference in references:
+                filled.update(range(reference["start"], reference["start"] + reference["length"]))
+    if not expected or len(expected) != 2 * len(code) or any(
+        expected[2 * i:2 * i + 2].lower() != code[i:i + 1].hex()
+        for i in range(len(code)) if i not in filled
+    ):
+        raise ValueError(
+            "predeploys: " + label + " is not the compiled runtime in the artifacts; rerun "
+            "`pnpm genesis:gen` and build from its output"
+        )
+    return code
+
+
+def immutable_word(code, artifact, reference_id, label):
+    """Return the one 32-byte value written at every offset of an immutable."""
+    references = artifact["deployedBytecode"].get("immutableReferences", {}).get(reference_id)
+    if not references:
+        raise ValueError("artifacts: " + label + " is never read, so it cannot be checked")
+    values = {code[r["start"]:r["start"] + r["length"]] for r in references}
+    if len(values) != 1 or any(r["length"] != 32 for r in references):
+        raise ValueError("predeploys: " + label + " differs between its offsets")
+    return "0x" + values.pop().hex()
+
+
+def check_predeploy_code(config, predeploys, artifacts, l1_signal_service):
+    """Check the Etna root path in the emitted bytecode rather than in the configuration."""
+    addresses = {name: address(config["contractAddresses"][name]) for name in REQUIRED_PREDEPLOYS}
+    for proxy, implementation in (("TaikoAnchor", "TaikoAnchorImpl"),
+                                  ("SignalService", "SignalServiceImpl")):
+        storage = predeploys[addresses[proxy]].get("storage", {})
+        if storage.get(IMPLEMENTATION_SLOT) != address_word(addresses[implementation]):
+            raise ValueError("predeploys: the " + proxy + " proxy does not point at the "
+                             "configured " + implementation)
+    expected = (
+        ("TaikoAnchorImpl", "Anchor", (
+            ("Anchor", "etnaTimestamp", "0x" + "00" * 32),
+            ("Anchor", "checkpointStore", address_word(addresses["SignalService"])),
+        )),
+        ("SignalServiceImpl", "SignalServiceL2", (
+            ("SignalService", "_authorizedSyncer", address_word(addresses["TaikoAnchor"])),
+            ("SignalService", "_remoteSignalService", address_word(l1_signal_service)),
+        )),
+    )
+    for name, contract, immutables in expected:
+        artifact = load_artifact(artifacts, contract)
+        code = runtime_code(predeploys[addresses[name]], artifact, name)
+        for declaring, immutable, value in immutables:
+            label = name + " " + immutable
+            reference_id = immutable_id(artifacts, declaring, immutable)
+            actual = immutable_word(code, artifact, reference_id, label)
+            if actual != value:
+                raise ValueError("predeploys: " + label + " is " + actual + ", not " + value)
+
+
+def build(base, predeploys, predeploy_config, l1_signal_service, artifacts=DEFAULT_ARTIFACTS):
     """Overlay the predeploys, install the system contracts and drop the stale state root."""
     genesis = copy.deepcopy(base)
     genesis.pop("stateRoot", None)
@@ -123,6 +235,7 @@ def build(base, predeploys, predeploy_config, l1_signal_service):
         for key, account in normalized_alloc(copy.deepcopy(predeploys), "predeploy").items()
     }
     check_predeploy_config(predeploy_config, genesis, overlay, l1_signal_service)
+    check_predeploy_code(predeploy_config, overlay, artifacts, l1_signal_service)
     alloc.update(overlay)
     for target, deployed in ((ROOTS, ROOTS_RUNTIME), (HISTORY, HISTORY_RUNTIME)):
         alloc[target] = {"balance": "0x0", "nonce": "0x1", "code": deployed}
@@ -166,10 +279,15 @@ def main():
         "--l1-signal-service", required=True,
         help="the deployed L1 SignalService proxy (SIGNAL_SERVICE from deployInboxProxy())",
     )
+    parser.add_argument(
+        "--artifacts", type=Path, default=DEFAULT_ARTIFACTS,
+        help="the Foundry artifacts the predeploys were generated from (default: out/layer2)",
+    )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     genesis = build(
-        load(args.base), load(args.predeploys), load(args.predeploy_config), args.l1_signal_service
+        load(args.base), load(args.predeploys), load(args.predeploy_config), args.l1_signal_service,
+        args.artifacts,
     )
     write(genesis, args.output)
 
