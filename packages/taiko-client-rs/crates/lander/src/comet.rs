@@ -154,7 +154,13 @@ struct QueryResult {
     /// The answer's bytes in standard base64.
     #[serde(default)]
     value: Option<String>,
+    /// The app's reason for a nonzero code.
+    #[serde(default)]
+    log: Option<String>,
 }
+
+/// The most characters of a remote app's refusal log an error carries ([`HttpCometSource::echo`]).
+const MAX_ECHOED_LOG_CHARS: usize = 256;
 
 /// Avoids assuming the `/block` and `/commit` calls referred to identical headers.
 #[derive(Deserialize)]
@@ -252,6 +258,28 @@ impl HttpCometSource {
             .result
             .ok_or_else(|| LanderError::Encoding(format!("Comet {method} response has no result")))
     }
+
+    /// The remote app's refusal `log` as an error may carry it: its first
+    /// [`MAX_ECHOED_LOG_CHARS`] characters, each outside printable ASCII replaced by `?`. A log
+    /// naming any part of the endpoint that may hold a credential (its user, password, path or
+    /// query) is withheld whole: errors never echo the endpoint, and a provider may rewrite
+    /// what the app wrote.
+    fn echo(&self, log: &str) -> String {
+        let url = &self.url;
+        let parts = [
+            url.username(),
+            url.password().unwrap_or(""),
+            url.path().trim_matches('/'),
+            url.query().unwrap_or(""),
+        ];
+        if parts.iter().any(|part| !part.is_empty() && log.contains(part)) {
+            return "<log withheld: it names the endpoint>".into();
+        }
+        log.chars()
+            .take(MAX_ECHOED_LOG_CHARS)
+            .map(|c| if c == ' ' || c.is_ascii_graphic() { c } else { '?' })
+            .collect()
+    }
 }
 
 #[async_trait]
@@ -308,10 +336,10 @@ impl CometSource for HttpCometSource {
         };
         let query: QueryResponse = self.rpc("abci_query", params).await.map_err(temporary)?;
         if query.response.code != 0 {
-            // The app's log is not echoed: a provider may rewrite it.
             return Err(LanderError::Temporary(format!(
-                "the app rejects the validator state query at height {height} with code {}",
-                query.response.code
+                "the app rejects the validator state query at height {height} with code {}: {}",
+                query.response.code,
+                self.echo(query.response.log.as_deref().unwrap_or_default())
             )));
         }
         STANDARD.decode(query.response.value.unwrap_or_default()).map_err(|_| {
@@ -651,6 +679,38 @@ mod tests {
             let error = rpc.val_state(12).await.unwrap_err();
             assert!(matches!(error, LanderError::Temporary(_)), "{response:?}: {error}");
         }
+        let refusal = success(
+            json!({"response":{"code":1,"log":"sidecar of retained height 12 is missing"}}),
+        );
+        let rpc = source(vec![refusal], 8192, Duration::from_secs(2)).await;
+        let error = rpc.val_state(12).await.unwrap_err().to_string();
+        assert!(
+            error.ends_with("with code 1: sidecar of retained height 12 is missing"),
+            "{error}"
+        );
+    }
+
+    /// A refusal log reaches the error bounded and in printable ASCII, and never when it names
+    /// a part of the endpoint that may hold a credential.
+    #[test]
+    fn refusal_logs_are_bounded_and_never_echo_the_endpoint() {
+        let url = "https://user-secret:pass-secret@provider/path-secret?key=query-secret";
+        let rpc =
+            HttpCometSource::new(Url::parse(url).unwrap(), Duration::from_secs(1), 1024).unwrap();
+        assert_eq!(rpc.echo("not retained (retained: 6..=12)"), "not retained (retained: 6..=12)");
+        assert_eq!(rpc.echo("line\nbreak\u{1b}[31m\u{e9}"), "line?break?[31m?");
+        assert_eq!(rpc.echo(&"x".repeat(1000)).len(), MAX_ECHOED_LOG_CHARS);
+        for secret in ["user-secret", "pass-secret", "path-secret", "key=query-secret", url] {
+            let echoed = rpc.echo(&format!("refused for {secret}"));
+            assert!(!echoed.contains(secret) && echoed.contains("withheld"), "{secret}: {echoed}");
+        }
+        let bare = HttpCometSource::new(
+            Url::parse("http://127.0.0.1:26657").unwrap(),
+            Duration::from_secs(1),
+            1024,
+        )
+        .unwrap();
+        assert_eq!(bare.echo("height 12 is not a grid height"), "height 12 is not a grid height");
     }
 
     #[tokio::test]

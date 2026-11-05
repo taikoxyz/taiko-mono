@@ -139,9 +139,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
     ///
     /// Only grid heights (multiples of [`GRID_INTERVAL`]) within the retained range
     /// `[comet_history_floor, last_height]` answer; any other height, a state not yet
-    /// initialized, and a sidecar that is missing, unreadable or not a canonical preimage of
-    /// that very height are errors naming the cause. A missing sidecar at a retained height
-    /// other than the generation origin (which no Commit writes) means lost durable state.
+    /// initialized, and a sidecar that is missing, unreadable or not framed as a preimage of that
+    /// very height ([`ValState::framed_height`]) are errors naming the cause. The sidecar's
+    /// entries are not decoded again on this serial worker: the app wrote them, and every reader
+    /// authenticates the hash. A failing sidecar at a retained height other than the generation
+    /// origin (which no Commit writes) means lost durable state and is logged as a warning.
     pub fn val_state_preimage(&self, height: u64) -> Result<Vec<u8>, String> {
         let state = self.state.as_ref().ok_or("the app is not initialized")?;
         if !height.is_multiple_of(GRID_INTERVAL) {
@@ -158,23 +160,35 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if height == last {
             return Ok(state.val_state.encode());
         }
-        let preimage = self
+        let sidecar = self
             .store
             .load_val_state(height)
-            .map_err(|e| format!("cannot read the validator state at height {height}: {e}"))?
-            .ok_or_else(|| {
-                format!("the validator-state sidecar of retained height {height} is missing")
-            })?;
-        match ValState::decode(&preimage) {
-            Ok(decoded) if decoded.height == height => Ok(preimage),
-            Ok(decoded) => Err(format!(
-                "the validator-state sidecar of height {height} holds height {}",
-                decoded.height
-            )),
-            Err(e) => {
-                Err(format!("the validator-state sidecar of height {height} is corrupt: {e}"))
-            }
+            .map_err(|e| format!("cannot read the validator state at height {height}: {e}"))
+            .and_then(|loaded| {
+                let preimage = loaded.ok_or_else(|| {
+                    format!("the validator-state sidecar of retained height {height} is missing")
+                })?;
+                match ValState::framed_height(&preimage) {
+                    Ok(framed) if framed == height => Ok(preimage),
+                    Ok(framed) => Err(format!(
+                        "the validator-state sidecar of height {height} holds height {framed}"
+                    )),
+                    Err(e) => Err(format!(
+                        "the validator-state sidecar of height {height} is corrupt: {e}"
+                    )),
+                }
+            });
+        if let Err(reason) = &sidecar &&
+            height != state.origin_height()
+        {
+            tracing::warn!(
+                height,
+                %reason,
+                "lost durable validator state: checkpoint trust and landings at this height wait \
+                 until the sidecar is restored"
+            );
         }
+        sidecar
     }
 
     /// Handles `CheckTx`: rejects every transaction (the CometBFT mempool is `nop`; user

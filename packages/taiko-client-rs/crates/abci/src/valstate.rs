@@ -218,6 +218,41 @@ impl ValState {
         }
         Ok(state)
     }
+
+    /// The height of the preimage `bytes`, checking only its frame: whole words, the tag, a
+    /// height word holding a `u64`, and head offsets and set lengths that span exactly `bytes`.
+    /// Unlike [`Self::decode`] it reads no entry, so it checks no key, power, order or proposer
+    /// index and costs no key decompression; it suits bytes [`Self::encode`] wrote, such as the
+    /// app's own sidecars, whose readers authenticate the hash anyway.
+    pub fn framed_height(bytes: &[u8]) -> Result<u64, ValStateError> {
+        let (words, []) = bytes.as_chunks::<32>() else {
+            return Err(ValStateError::Malformed("not a whole number of words"));
+        };
+        let Some((head, rest)) = words.split_first_chunk::<HEAD_WORDS>() else {
+            return Err(ValStateError::Malformed("truncated head"));
+        };
+        // The words of the set whose length word is `rest[at]`: that word and its entries.
+        let span = |at: usize| {
+            let length = rest.get(at)?;
+            let entries = usize::try_from(low_u64(length)).ok()?;
+            (word(entries).0 == *length)
+                .then_some(entries)?
+                .checked_mul(ENTRY_WORDS)?
+                .checked_add(1)
+        };
+        let current = span(0).ok_or(ValStateError::Malformed("set runs past the end"))?;
+        let next = span(current).ok_or(ValStateError::Malformed("set runs past the end"))?;
+        let height = low_u64(&head[1]);
+        if head[0] != VAL_STATE_TAG.0 ||
+            head[1] != word(height).0 ||
+            head[2] != word(32 * HEAD_WORDS).0 ||
+            head[4] != word(32 * (HEAD_WORDS + current)).0 ||
+            current.checked_add(next) != Some(rest.len())
+        {
+            return Err(ValStateError::Malformed("not a validator-state preimage frame"));
+        }
+        Ok(height)
+    }
 }
 
 /// Reads one set's array (its length, then its entries) from the front of `rest`, and checks
@@ -603,7 +638,7 @@ fn verify_removals(deletes: &[Validator], vals: &ValidatorSet) -> Result<i64, Va
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_primitives::{b256, hex};
+    use alloy_primitives::hex;
     use serde::Deserialize;
 
     #[derive(Deserialize)]
@@ -845,73 +880,59 @@ mod tests {
         }
     }
 
-    /// The state of `validator_states[0]` (`ENC-A-29a.l`) in the protocol's schema-6
-    /// `testdata/etna_vectors/vectors.json`, with its two keys.
-    fn shared_vector_state() -> (ValState, ConsensusKey, ConsensusKey) {
-        let key = |prefix: u8, x: B256| {
-            ConsensusKey::from_slice(&[&[prefix][..], x.as_slice()].concat()).unwrap()
+    /// `validator_states[0]` (`ENC-A-29a.l`) in the protocol's schema-6 vectors
+    /// (`testdata/etna_vectors/vectors.json`), read from the file, so a re-pin that changes the
+    /// encoding fails here.
+    const SHARED_VECTOR: &str = "/validator_states/0";
+
+    /// The vector [`SHARED_VECTOR`]'s field `name`.
+    fn shared_field(name: &str) -> String {
+        format!("{SHARED_VECTOR}/{name}")
+    }
+
+    /// The state of [`SHARED_VECTOR`].
+    fn shared_vector_state() -> ValState {
+        use crate::test_utils::vectors::{b256_at, len_at, str_at, u64_at, usize_at};
+        let set = |name: &str| ValSet {
+            entries: (0..len_at(&shared_field(name)))
+                .map(|i| {
+                    let field = |field: &str| shared_field(&format!("{name}/{i}/{field}"));
+                    let prefix = u8::try_from(u64_at(&field("ck_prefix"))).unwrap();
+                    let x = b256_at(&field("ck_x"));
+                    ValEntry {
+                        key: ConsensusKey::from_slice(&[&[prefix][..], x.as_slice()].concat())
+                            .unwrap(),
+                        power: str_at(&field("voting_power")).parse().unwrap(),
+                        priority: str_at(&field("proposer_priority")).parse().unwrap(),
+                    }
+                })
+                .collect(),
+            proposer: usize_at(&shared_field(&format!("{name}_proposer"))),
         };
-        let k1 =
-            key(2, b256!("0x0000000000000000000000000000000000000000000000000000000000000001"));
-        let k2 =
-            key(3, b256!("0x0000000000000000000000000000000000000000000000000000000000000002"));
-        let entry = |key, priority| ValEntry { key, power: 10, priority };
-        let state = ValState {
-            height: 6,
-            current: ValSet { entries: vec![entry(k1, -5), entry(k2, 5)], proposer: 1 },
-            next: ValSet { entries: vec![entry(k1, 5), entry(k2, -5)], proposer: 0 },
-        };
-        (state, k1, k2)
+        ValState {
+            height: u64_at(&shared_field("height")),
+            current: set("current"),
+            next: set("next"),
+        }
     }
 
     #[test]
     fn hash_matches_the_shared_enc_a_29a_vector() {
-        let (mut state, ..) = shared_vector_state();
-        // The vector's `preimage`, one ABI word per line.
-        let preimage = hex!(
-            "0x45544e415f56414c5f53544154455f5631000000000000000000000000000000"
-            "0x0000000000000000000000000000000000000000000000000000000000000006"
-            "0x00000000000000000000000000000000000000000000000000000000000000c0"
-            "0x0000000000000000000000000000000000000000000000000000000000000001"
-            "0x00000000000000000000000000000000000000000000000000000000000001e0"
-            "0x0000000000000000000000000000000000000000000000000000000000000000"
-            "0x0000000000000000000000000000000000000000000000000000000000000002"
-            "0x0000000000000000000000000000000000000000000000000000000000000002"
-            "0x0000000000000000000000000000000000000000000000000000000000000001"
-            "0x000000000000000000000000000000000000000000000000000000000000000a"
-            "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffb"
-            "0x0000000000000000000000000000000000000000000000000000000000000003"
-            "0x0000000000000000000000000000000000000000000000000000000000000002"
-            "0x000000000000000000000000000000000000000000000000000000000000000a"
-            "0x0000000000000000000000000000000000000000000000000000000000000005"
-            "0x0000000000000000000000000000000000000000000000000000000000000002"
-            "0x0000000000000000000000000000000000000000000000000000000000000002"
-            "0x0000000000000000000000000000000000000000000000000000000000000001"
-            "0x000000000000000000000000000000000000000000000000000000000000000a"
-            "0x0000000000000000000000000000000000000000000000000000000000000005"
-            "0x0000000000000000000000000000000000000000000000000000000000000003"
-            "0x0000000000000000000000000000000000000000000000000000000000000002"
-            "0x000000000000000000000000000000000000000000000000000000000000000a"
-            "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffb"
-        );
+        use crate::test_utils::vectors::{b256_at, str_at};
+        assert_eq!(str_at(&shared_field("name")), "ENC-A-29a.l");
+        let mut state = shared_vector_state();
+        let preimage = hex::decode(str_at(&shared_field("preimage"))).unwrap();
         assert_eq!(state.encode(), preimage);
         assert_eq!(ValState::decode(&preimage), Ok(state.clone()));
-        assert_eq!(
-            state.hash(),
-            b256!("0x368f341ba9eb8b6d6cadbd5b944daed7ed417b273d1257911a7fd18320f2a81b")
-        );
-        // `changed_current_proposer_hash` and `changed_next_proposer_hash`: the other index.
+        assert_eq!(ValState::framed_height(&preimage), Ok(state.height));
+        assert_eq!(state.hash(), b256_at(&shared_field("hash")));
+        // The generator's proposer changes: current 0 with next 0, then current 1 with next 1.
         state.current.proposer = 0;
-        assert_eq!(
-            state.hash(),
-            b256!("0x588b4676269a2f51fc3310c20ad915828ec9ae5bb9f3099c4be43054b6429e1b")
-        );
+        state.next.proposer = 0;
+        assert_eq!(state.hash(), b256_at(&shared_field("changed_current_proposer_hash")));
         state.current.proposer = 1;
         state.next.proposer = 1;
-        assert_eq!(
-            state.hash(),
-            b256!("0x2c7893e7eadea5b4bb0d1bbf7e70f38db98775a52a5a6b46e809e25181bb387e")
-        );
+        assert_eq!(state.hash(), b256_at(&shared_field("changed_next_proposer_hash")));
     }
 
     #[test]
@@ -924,6 +945,7 @@ mod tests {
                 let entries = state.current.entries.len() + state.next.entries.len();
                 assert_eq!(bytes.len(), 32 * (8 + 4 * entries), "{}", case.name);
                 assert_eq!(ValState::decode(&bytes), Ok(state.clone()), "{}", case.name);
+                assert_eq!(ValState::framed_height(&bytes), Ok(state.height), "{}", case.name);
                 assert_eq!(state.hash(), keccak256(&bytes), "{}", case.name);
                 states += 1;
             }
@@ -931,9 +953,12 @@ mod tests {
         assert!(states > 100, "only {states} states");
     }
 
+    /// [`ValState::decode`] rejects every non-canonical preimage; [`ValState::framed_height`]
+    /// rejects those whose frame is broken and, reading no entry, accepts the others.
     #[test]
     fn decode_rejects_non_canonical_bytes() {
-        let (state, k1, _) = shared_vector_state();
+        let state = shared_vector_state();
+        let k1 = state.current.entries[0].key;
         let bytes = state.encode();
         // Word indexes: the head is 0..6, the current length 6, current entry i's ckPrefix,
         // ckX, votingPower and proposerPriority 7 + 4i..11 + 4i.
@@ -950,33 +975,44 @@ mod tests {
         let mut trailing_byte = bytes.clone();
         trailing_byte.push(0);
         let trailing_word = [&bytes[..], &[0; 32]].concat();
+        let mut height_above_u64 = word(state.height);
+        height_above_u64.0[23] = 1;
+        // (name, bytes, whether the frame is broken)
         let cases = [
-            ("wrong tag", with_word(0, tag(b"ETNA_VAL_STATE_V2"))),
-            ("wrong current offset", with_word(2, word(0xe0))),
-            ("wrong next offset", with_word(4, word(0x1e0 + 32))),
-            ("trailing byte", trailing_byte),
-            ("trailing word", trailing_word),
-            ("truncated", bytes[..bytes.len() - 32].to_vec()),
-            ("huge length", with_word(6, B256::repeat_byte(0xff))),
-            ("unsorted pair", with_state(&|s| s.current.entries.swap(0, 1))),
+            ("wrong tag", with_word(0, tag(b"ETNA_VAL_STATE_V2")), true),
+            ("height above u64", with_word(1, height_above_u64), true),
+            ("wrong current offset", with_word(2, word(0xe0)), true),
+            ("wrong next offset", with_word(4, word(0x1e0 + 32)), true),
+            ("trailing byte", trailing_byte, true),
+            ("trailing word", trailing_word, true),
+            ("truncated", bytes[..bytes.len() - 32].to_vec(), true),
+            ("huge length", with_word(6, B256::repeat_byte(0xff)), true),
+            ("unsorted pair", with_state(&|s| s.current.entries.swap(0, 1)), false),
             (
                 "duplicate key",
                 with_state(&|s| s.current.entries[1] = ValEntry { key: k1, power: 9, priority: 0 }),
+                false,
             ),
-            ("prefix byte 4", with_word(7, word(4))),
-            ("power 0", with_state(&|s| s.current.entries[1].power = 0)),
-            ("power above int64", with_word(9, word(u64::MAX))),
-            ("current proposer index = len", with_state(&|s| s.current.proposer = 2)),
-            ("next proposer index = len", with_state(&|s| s.next.proposer = 2)),
+            ("prefix byte 4", with_word(7, word(4)), false),
+            ("power 0", with_state(&|s| s.current.entries[1].power = 0), false),
+            ("power above int64", with_word(9, word(u64::MAX)), false),
+            ("current proposer index = len", with_state(&|s| s.current.proposer = 2), false),
+            ("next proposer index = len", with_state(&|s| s.next.proposer = 2), false),
             // current[0]'s priority -5 zero-extended, as a uint64 would be written.
-            ("priority not sign-extended", with_word(10, word((-5i64) as u64))),
+            ("priority not sign-extended", with_word(10, word((-5i64) as u64)), false),
         ];
-        for (name, bytes) in cases {
+        for (name, bytes, frame) in cases {
             assert!(
                 matches!(ValState::decode(&bytes), Err(ValStateError::Malformed(_))),
                 "{name}: {:?}",
                 ValState::decode(&bytes)
             );
+            let framed = ValState::framed_height(&bytes);
+            if frame {
+                assert!(matches!(framed, Err(ValStateError::Malformed(_))), "{name}: {framed:?}");
+            } else {
+                assert_eq!(framed, Ok(state.height), "{name}");
+            }
         }
     }
 
