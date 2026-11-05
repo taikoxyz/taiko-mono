@@ -52,7 +52,7 @@ The current specification baseline is main at `e84a9aaac526c15597d97ee93f8803f92
   write no landing passes, because `landings[0]` is unwritten. With K = 6, p, c and h are grid
   points counted from S; `leaves` are the cut leaves at the grid points inside (p, h), and if c > p
   the leaf at c is compared with c's slot 285 record before the immutable verifier checks the
-  21-word statement with `verifyProof(0, statement, proof)` (0: no proposal age applies). On a
+  23-word statement with `verifyProof(0, statement, proof)` (0: no proposal age applies). On a
   switching network, while c is S, the landing first requires that the Unzen Inbox has finalized
   every proposal up to the start's hash and that the SignalService checkpoint at S holds that hash
   and the start's state root.

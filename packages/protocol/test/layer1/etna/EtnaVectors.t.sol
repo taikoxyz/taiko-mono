@@ -80,7 +80,7 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         return false;
     }
 
-    function test_schema_IsVersionFive() external view {
+    function test_schema_IsVersionSix() external view {
         assertEq(LibEtnaVectors.stringAt(LibEtnaVectors.load(), ".schema_version"), "6");
     }
 

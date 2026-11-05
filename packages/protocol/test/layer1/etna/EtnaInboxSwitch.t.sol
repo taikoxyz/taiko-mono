@@ -30,6 +30,8 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
         _assertCheckpoint(0, 0);
         for (uint256 w; w < 4; ++w) {
             assertEq(_inboxWord(_landingSlot(0) + w), 0, "landings(0)");
+        }
+        for (uint256 w; w < 3; ++w) {
             assertEq(_inboxWord(_originSlot(0) + w), 0, "origins(0)");
         }
         _assertStart(0, 0);

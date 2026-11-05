@@ -142,7 +142,7 @@ contract EtnaInboxGridExamplesTest is EtnaLandTestBase {
 
     /// @dev Lean `landing_records_actual_edges`: after (0, 6], (0, 12] and (0, 18] from p = 0
     /// the records hold the settled edges (12, 18), (6, 12), (0, 6) and the genesis (0, 0), never
-    /// the proof origin. A record is three words with no state root; the state root goes only to
+    /// the proof origin. A record is four words with no state root; the state root goes only to
     /// the SignalService.
     function test_land_ExampleLandingRecordsActualEdges() external {
         _land(0, 6);
