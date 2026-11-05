@@ -30,7 +30,8 @@ import unicodedata
 ROOT = Path(__file__).resolve().parents[1]
 ALLOWED_AXIOMS = {'propext', 'Classical.choice', 'Quot.sound'}
 ROLES = {'property', 'constant', 'supporting', 'regression'}
-# Model theorems keep the model's namespace; the headline claims' proofs live in `Etna.Proofs`.
+# Model theorems keep the model's namespace (headline proofs: `Etna.Design.Current.Headlines`);
+# the `Etna.Proofs` namespace is reserved for EtnaProofs.Headline modules.
 ACTIVE_NAMESPACES = ('Etna.Design.', 'Etna.Proofs.')
 # Libraries that hold manifested theorems. EtnaModel/EtnaStatements hold none, apart from the
 # definition-obligation theorems allowlisted in scripts/check_imports.py ALLOWED_MODEL_THEOREMS.

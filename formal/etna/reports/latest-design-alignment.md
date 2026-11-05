@@ -1,86 +1,50 @@
 # Latest Etna design alignment
 
-The current authorities are main `e84a9aaac526c15597d97ee93f8803f92b02c279` (2026-11-04),
-including merged PR #22335. See [the current alignment](alignment-22335.md) for the strict
-bounty bound, exact supporting-edge review and validation. The preceding report below
-describes the earlier authority and its validation; it is retained as historical evidence.
+Authorities: main `e84a9aaac526c15597d97ee93f8803f92b02c279` (2026-11-04) for SPEC,
+ACCEPTANCE, ANCHORLESS and SWITCH, unchanged since [the #22335 alignment](alignment-22335.md).
+This revision changes the package shape, not the decoded model, statements or proofs.
 
-## Previous alignment
+## Current-only package
 
-Authority: main `1135c9b24fd03f50cb48eab250879435fd54f528`, including SPEC, ACCEPTANCE,
-ANCHORLESS and SWITCH. The complete Etna documents/rules tree remains unchanged at checked
-main `4bcd0b45a46f6bcfcfd7de2c888033b0c80b9e3f`.
-This pass follows PR head `1bb87356a2dc72d0133d40522c309e25d9b3b146`.
-Read [current scope](../README.md) and the [round-five disposition](review-round-five.md)
-for exact conclusions and remaining boundaries. This is conditional decoded-design safety.
+The archived 2026-10-30 layer was removed. It remains readable at formal revision
+[`583bc2620`](https://github.com/taikoxyz/taiko-mono/tree/583bc2620258838e75ce353c11f9344616ac1020/formal/etna).
 
-The current contracts derive coherent retained custody, reachable roots and actual suffixes,
-pairwise legacy/Etna separation and an explicit postlanding S partition for the modeled
-legacy emissions. Pre-deployment SignalService history is absent. Complete semantic archive
-ancestry is physically linked and reference-bound. Pure image certificates contain no live
-footprint: actual fresh-deployment history and statement generation/config binding derive
-that storage compatibility for accepted calls under ordinary verifier soundness.
+- The set to keep was computed, not hand-picked: the transitive constant closure (types and
+  values) of every declaration in a `Current*` module and of the names the current tests use.
+  107 library modules and 21 Lean regression files outside that closure were deleted, and the
+  unused declarations of 21 shared modules were removed by their exact declaration ranges.
+- Thirty-four shared declarations outside `Current` stay as reviewed unsourced plumbing:
+  twenty lemmas the current proofs reuse, and fourteen semantic pins on shared definitions the
+  statements use (`EtnaProofs/Contracts.lean`, `Consensus.election_valid_iff`). The other 54
+  archived pins referenced definitions outside the current review surface. Every definition the statements use is also
+  covered by the review-surface lock.
+- Removed with the layer: the historical statements and headlines, the legacy authority copies,
+  `testdata/etna_conformance` (implementation pull requests keep their own copies), the
+  historical reports and their Python tests.
+- The manifest holds 640 exact contracts (606 current, 34 shared), down from 1,822. Clause and
+  rule evidence is unchanged: 38 partial / 528 deferred clauses; 41 partial / 35 supporting /
+  527 deferred binding rules.
+- The toolchain is stable Lean 4.35.0 (was 4.35.0-rc4).
 
-H2 derives normal above-checkpoint overlap and whole-valid-committee bond retention,
-with no rollback anywhere since fresh genesis. There is no post-rollback restart theorem.
-Snapshot/cutoff order and live/unconfirmed status are derived. **Correct positive deployment
-evidence-window sizing is an explicit premise**; execution merely transports the immutable
-withdrawal delay. Initialization does not compare it with an external evidence policy.
-Protected liability distinguishes previously exhausted principal from an executable funded
-slash; it promises neither replenished original stake nor recovery of exceptional paid
-bad-checkpoint withdrawals. Honest agreement retains its locking/minority/codec boundaries.
+## Statement lock
 
-H3 derives complete-journal FIFO intervals, due-only skips, decoded position-zero payload
-service, actual image/ruleset support, fees/refunds and exact recovery/import effects.
-Raw DAO histories need per-successful-upgrade authorization for retained target membership
-and saved snapshot pairs. The raw clearing effect remains instrumented, not an established
-production upgrade implementation. The last-trusted-before-first-bad target policy and
-existing-registry retarget opening provenance remain outside these fresh-deployment claims.
+`review-surface.lock.json` hashes the kernel terms of the four headline theorems, the five
+joint-premise witnesses and every Etna definition they use (1,417 constants; proofs excluded).
+CI compares it with the base branch using the base revision's copy of `scripts/review_surface.py`;
+a change to the lock or to a gate file needs the `formal-statement-change` label.
 
-Separate extraction proofs obtain an ordinary L+2 decision window with exact ancestry,
-header/anchor/cutoff projection from complete semantic ancestry. The accepted-certificate
-interpreter still requires the complete ancestry. An L+2-only guest/decoder/Certifies
-refinement and separate L1 ancestry/recovery budgets remain deferred.
+## Local validation (macOS, Lean 4.35.0)
 
-All fifteen premises hold jointly in checked restricted profiles. The first switching
-landing is after recovery into generation 1 and its Unzen extension premise has no positive
-antecedent. Risk is exercised above the genesis checkpoint, without a post-landing snapshot
-branch. Honest agreement positively compares a nonempty chain with itself in a single-value
-round-zero engine. All positive accepted archive certificates use empty prebatch priors.
-The README records the finite interpreter/signature/proof-template/refusal limits. No
-complete production guest/engine/launch rehearsal follows from those examples.
-
-The current inventory is **38 partial / 528 deferred clauses**; the rule view is
-**41 narrow partial / 35 supporting / 527 deferred** binding rules plus 32 deferred
-assumption/limitation rows. PARAM-11-11 and START-10-5d receive no proof credit for an
-assumed deployment choice or unrelated proposal monotonicity. No clause or whole rule is
-fully verified. All current ANCHORLESS and ACCEPTANCE clauses remain deferred. Production
-crypto/header/parent/L1/EL/guest/token/Solidity/Comet/store refinement, availability, liveness,
-full migration and launch acceptance remain external. No new Etna design defect was
-confirmed; the reviewed corrections address model/premise/evidence boundaries.
-
-All **1,216** historical contract objects and historical JSON vector bytes remain unchanged.
-Eight separate current displacement cases use checked metadata/reserve openings, including
-actual paid withdrawal for the vacant slot and pending top-ups after activation. Historical
-reports now identify immutable historical evidence rather than removed current README text.
-
-## Validation
-
-Pinned Lean 4.35.0-rc4, Init/Std only. The final manifest contains **1,821** exact contracts
-(605 current); source/import checks cover **240 Lean files / 190 modules / five libraries**.
-The whole package build and focused footprint/guard/proof-mutation/vector/lookback/headline
-regressions pass. The final fresh exact-type/role/axiom/kernel audit passes all **1,821**
-contracts and **50 Lean regression modules**, including the 15 current premise fields,
-shadowing, allowed standard axioms and whole-import-closure replay. The 460 mechanical
-property derivation chains are not a count of verified protocol rules.
-
-The broad local current run executed 175 tests, exposing one obsolete initializer-window
-expectation. It now checks the actual activation-delay guard, and all four economics
-regressions pass in 12.111 seconds. All 20 exact rule-evidence tests pass. The complete
-final Python suite is rerun by hosted CI below; a local focused pass is not hosted success.
-
-The final tree discovers **559 Python tests**. Hosted CI reruns the complete final suite,
-with its exact pushed SHA, outcome and run link recorded in the PR checks/body. The previous
-550-test hosted success applies to `1bb87356a`, not an unverified later revision. The
-90-minute budget retains the full build/audit/suite/clean-tree checks; local results are
-reported separately from the completed hosted result.
+- Fresh `lake build` from an empty `.lake/build`: 90 jobs, 3 min 21 s, no warnings.
+- `lint_sources`, `check_imports` (84 modules), `check_spec_coverage`, `rule_coverage --check`,
+  `check_current_vectors`, `review_surface --check` and `generate_artifacts --check` pass.
+- `audit_proofs.py`: 640 exact contracts, mechanical roles, allowed axioms, shadowing, library
+  contents, headline claims, all fifteen premise fields read by a headline proof, fresh
+  whole-kernel replay and 29 Lean regression modules; 150 s on the final tree.
+- Fast suite (`python3 -m unittest discover -s tests`): 194 tests in 227 s, OK; 20 skipped
+  (the 17 mutation modules and two slow gate classes).
+- Full suite (`ETNA_FULL_TESTS=1`): 342 tests in 1,497 s with two failures, both
+  `test_current_headlines` tests that call `EtnaAudit.dependencies`, which had been removed
+  as dead code. It was restored; the 12 headline tests then pass, and the fast suite above
+  includes them. The other 340 tests passed in that run.
+- `lake check --paranoid` needs bubblewrap, which macOS lacks; it runs in the nightly CI job.

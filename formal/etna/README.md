@@ -32,23 +32,23 @@ equivocation (amnesia) is outside H2, as the spec states.
 H1–H3 are only as strong as these premises. Six describe the environment or deployment;
 the others are obligations on code or cryptography that this package does not verify.
 
-| Premise field | What it assumes | Who must make it true |
-| --- | --- | --- |
-| `currentPrimitives` | Genesis header is hash-bound; equal EL hashes mean equal EL fields; a valid Unzen proof authenticates its decoded EL header before the fork time | Hash collision resistance; existing Unzen guest and verifier |
-| `currentVerifierSound` | Every accepted landing proof with a sound backend certifies its statement for the selected rulesets | Etna zkVM/TEE guests, proof systems, `ZkRequiredVerifier`, DAO verifier choice |
-| `currentStandardToken` | The bond token behaves as a standard ERC-20 transfer | Token deployment |
-| `currentSignatureAgreement` | Signed consensus bytes refine to the registry's signature check | Comet sign-bytes in the Rust client and the Solidity verifier |
-| `currentBountyBound` | `slashBountyBps < 10000` | Registry initializer (checked on chain) |
-| `currentCodec` | Comet header/envelope codec is canonical for the fixed interpreters | Rust client and stock CometBFT parity |
-| `currentVoteAttribution` | Every commit vote is a real precommit of the engine, with honest local rules and a Byzantine minority at checked heights | CometBFT engine and validator operation |
-| `currentClock` | L1 time strictly increases with block number | Ethereum L1 |
-| `currentCatalogueHash` | Catalogued EL transaction bytes hash to the environment's transaction hash | Hash function; EL catalogue |
-| `currentReferenceBinding` | Equal L1 block hashes imply equal L1 prefixes | Hash collision resistance (modeled as an injective map) |
-| `currentRegistryGenesis` | The registry starts fresh, with no prior identities or history | Deployment procedure |
-| `currentSignatureSound` | An accepted signature authenticates the key holder | secp256k1 verification in Solidity |
-| `currentSelfAllowance` | The registry has no allowance to itself at genesis | Token deployment |
-| `currentUnzenExtension` | A valid Unzen proof extends its decoded parent to a higher height | Existing Unzen guest |
-| `currentEvidenceWindow` | `0 < evidenceWindow ≤ withdrawalDelay` | Deployment parameters |
+| Premise field               | What it assumes                                                                                                                                  | Who must make it true                                                          |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| `currentPrimitives`         | Genesis header is hash-bound; equal EL hashes mean equal EL fields; a valid Unzen proof authenticates its decoded EL header before the fork time | Hash collision resistance; existing Unzen guest and verifier                   |
+| `currentVerifierSound`      | Every accepted landing proof with a sound backend certifies its statement for the selected rulesets                                              | Etna zkVM/TEE guests, proof systems, `ZkRequiredVerifier`, DAO verifier choice |
+| `currentStandardToken`      | The bond token behaves as a standard ERC-20 transfer                                                                                             | Token deployment                                                               |
+| `currentSignatureAgreement` | Signed consensus bytes refine to the registry's signature check                                                                                  | Comet sign-bytes in the Rust client and the Solidity verifier                  |
+| `currentBountyBound`        | `slashBountyBps < 10000`                                                                                                                         | Registry initializer (checked on chain)                                        |
+| `currentCodec`              | Comet header/envelope codec is canonical for the fixed interpreters                                                                              | Rust client and stock CometBFT parity                                          |
+| `currentVoteAttribution`    | Every commit vote is a real precommit of the engine, with honest local rules and a Byzantine minority at checked heights                         | CometBFT engine and validator operation                                        |
+| `currentClock`              | L1 time strictly increases with block number                                                                                                     | Ethereum L1                                                                    |
+| `currentCatalogueHash`      | Catalogued EL transaction bytes hash to the environment's transaction hash                                                                       | Hash function; EL catalogue                                                    |
+| `currentReferenceBinding`   | Equal L1 block hashes imply equal L1 prefixes                                                                                                    | Hash collision resistance (modeled as an injective map)                        |
+| `currentRegistryGenesis`    | The registry starts fresh, with no prior identities or history                                                                                   | Deployment procedure                                                           |
+| `currentSignatureSound`     | An accepted signature authenticates the key holder                                                                                               | secp256k1 verification in Solidity                                             |
+| `currentSelfAllowance`      | The registry has no allowance to itself at genesis                                                                                               | Token deployment                                                               |
+| `currentUnzenExtension`     | A valid Unzen proof extends its decoded parent to a higher height                                                                                | Existing Unzen guest                                                           |
+| `currentEvidenceWindow`     | `0 < evidenceWindow ≤ withdrawalDelay`                                                                                                           | Deployment parameters                                                          |
 
 Hash premises are a standard idealization: the models treat commitments as injective. Read a
 claim that relies on them as "the claim holds, or a hash collision exists".
@@ -60,7 +60,7 @@ mean: their statements and every Etna definition they use, but no proof. `review
 records a SHA-256 of the kernel terms of each of those constants (1,417 at this revision).
 `python3 scripts/review_surface.py --check` fails if the lock is stale. In CI, the base
 revision's copy of the same script compares the lock and the gate files (`scripts/`, the
-lakefile, the toolchain pin and the workflow) with the base branch. Any difference fails the
+Python tests, the lakefile, the toolchain pin and the workflow) with the base branch. Any difference fails the
 pull request until a reviewer applies the `formal-statement-change` label; the job summary
 lists the changed constants. Proof-only changes never touch the lock.
 
@@ -188,8 +188,11 @@ audit obligations. Finite ordinary fixtures using fewer premises are not substit
 `rule-coverage.json` names each reviewed rule/theorem edge. Shared paragraphs do not give
 neighboring rules evidence. Supporting guards are separate; generic conservation, list,
 encoding and transport helpers have no protocol source credit. A narrow partial fragment
-never verifies the entire rule. Twenty shared lemmas outside the `Current` namespace that
-the current proofs reuse are listed as unsourced plumbing in `scripts/check_spec_coverage.py`.
+never verifies the entire rule. Thirty-four shared declarations outside the `Current`
+namespace are listed as unsourced plumbing in `scripts/check_spec_coverage.py`: twenty lemmas
+the current proofs reuse, and fourteen semantic pins (`EtnaProofs/Contracts.lean` and
+`Consensus.election_valid_iff`) that fail the build if a shared definition the statements use
+is weakened without editing its pin.
 
 The inventory is **38 partial / 528 deferred clauses**, and **41 narrow partial /
 35 supporting / 527 deferred binding rules**, plus 32 deferred assumption/limitation rows.

@@ -7633,6 +7633,174 @@
       "bridge_level": "spec-proved",
       "scope": "Transports an explicitly assumed deployment evidence-window inequality through immutable registry configuration. Does not establish correct parameter choice or an initializer guard; no rule credit.",
       "sources": []
+    },
+    {
+      "module": "EtnaProofs.Consensus",
+      "declaration": "Etna.Design.Consensus.election_valid_iff",
+      "type": "∀ (c : _root_.Etna.Design.Consensus.Context) (r : _root_.Etna.Design.Committee.Record),\n    _root_.Etna.Design.Consensus.ElectionValid c r ↔\n      _root_.Etna.Design.Committee.election c.unit c.minimum r.cutoff c.nMax (c.registry r.cutoff) =\n        _root_.Option.some r.members",
+      "assumptions": [
+        "explicit decoded election definition contract; not independent source/spec correspondence"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [],
+      "scope": "Shared semantic pin on a definition the current statements use (reviewed plumbing in scripts/check_spec_coverage.py SHARED). It carries no clause credit of its own. Original scope: Explicit unfolded election semantic contract; changing ElectionValid to True violates this contract."
+    },
+    {
+      "module": "EtnaProofs.Contracts",
+      "declaration": "Etna.Design.Contracts.config_ok_eq",
+      "type": "∀ (k l u : _root_.Nat), _root_.Etna.Design.Committee.configOK k l u = _root_.Decidable.decide (1 ≤ k ∧ k ≤ 6 ∧ 3 ≤ l ∧ l+1 < _root_.Etna.Design.limit48 ∧ k ≤ u ∧ u ≤ 65536 ∧ u % k = 0)",
+      "assumptions": [
+        "explicit decoded definition contract; not independent source/spec correspondence"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [],
+      "scope": "Shared semantic pin on a definition the current statements use (reviewed plumbing in scripts/check_spec_coverage.py SHARED). It carries no clause credit of its own. Original scope: Unfolded semantic contract closed by Iff.rfl/rfl (structure pins by field reconstruction), root-qualified names; weakening the definition without editing this pin fails."
+    },
+    {
+      "module": "EtnaProofs.Contracts",
+      "declaration": "Etna.Design.Contracts.signed_power_eq",
+      "type": "∀ (c : _root_.Etna.Design.Consensus.Context) (members : _root_.List _root_.Etna.Design.Committee.Entry) (keys : _root_.List _root_.Etna.Design.Hash), _root_.Etna.Design.Consensus.signedPower c members keys = _root_.Etna.Design.Committee.totalPower c.unit (members.filter (fun e => keys.contains e.key))",
+      "assumptions": [
+        "explicit decoded definition contract; not independent source/spec correspondence"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [],
+      "scope": "Shared semantic pin on a definition the current statements use (reviewed plumbing in scripts/check_spec_coverage.py SHARED). It carries no clause credit of its own. Original scope: Unfolded semantic contract closed by Iff.rfl/rfl (structure pins by field reconstruction), root-qualified names; weakening the definition without editing this pin fails."
+    },
+    {
+      "module": "EtnaProofs.Contracts",
+      "declaration": "Etna.Design.Contracts.vote_valid_iff",
+      "type": "∀ (c : _root_.Etna.Design.Consensus.Context) (signature : _root_.Etna.Design.Consensus.Vote → Prop) (h round block : _root_.Nat) (v : _root_.Etna.Design.Consensus.Vote), _root_.Etna.Design.Consensus.VoteValid c signature h round block v ↔ v.domain = c.domain ∧ v.generation = c.generation ∧ v.height = h ∧ v.round = round ∧ v.kind = 2 ∧ v.blockId = block ∧ v.key ∈ ((_root_.Etna.Design.Consensus.activeAt c h).members.map _root_.Etna.Design.Committee.Entry.key) ∧ signature v",
+      "assumptions": [
+        "explicit decoded definition contract; not independent source/spec correspondence"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [],
+      "scope": "Shared semantic pin on a definition the current statements use (reviewed plumbing in scripts/check_spec_coverage.py SHARED). It carries no clause credit of its own. Original scope: Unfolded semantic contract closed by Iff.rfl/rfl (structure pins by field reconstruction), root-qualified names; weakening the definition without editing this pin fails."
+    },
+    {
+      "module": "EtnaProofs.Contracts",
+      "declaration": "Etna.Design.Contracts.commit_valid_iff",
+      "type": "∀ (c : _root_.Etna.Design.Consensus.Context) (signature : _root_.Etna.Design.Consensus.Vote → Prop) (h round block : _root_.Nat) (votes : _root_.List _root_.Etna.Design.Consensus.Vote), _root_.Etna.Design.Consensus.CommitValid c signature h round block votes ↔ c.originHeight < h ∧ _root_.Etna.Design.Consensus.ElectionValid c (_root_.Etna.Design.Consensus.activeAt c h) ∧ (votes.map _root_.Etna.Design.Consensus.Vote.key).Nodup ∧ (∀ v ∈ votes, _root_.Etna.Design.Consensus.VoteValid c signature h round block v) ∧ 2*_root_.Etna.Design.Committee.totalPower c.unit (_root_.Etna.Design.Consensus.activeAt c h).members < 3*_root_.Etna.Design.Consensus.signedPower c (_root_.Etna.Design.Consensus.activeAt c h).members (votes.map _root_.Etna.Design.Consensus.Vote.key)",
+      "assumptions": [
+        "explicit decoded definition contract; not independent source/spec correspondence"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [],
+      "scope": "Shared semantic pin on a definition the current statements use (reviewed plumbing in scripts/check_spec_coverage.py SHARED). It carries no clause credit of its own. Original scope: Unfolded semantic contract closed by Iff.rfl/rfl (structure pins by field reconstruction), root-qualified names; weakening the definition without editing this pin fails."
+    },
+    {
+      "module": "EtnaProofs.Contracts",
+      "declaration": "Etna.Design.Contracts.dual_ok_eq",
+      "type": "∀ (proofs : _root_.List (_root_.Etna.Design.Backend × _root_.Bool)), _root_.Etna.Design.dualOK proofs = (_root_.Decidable.decide (proofs.length = 2) && proofs.all _root_.Prod.snd && proofs.any (fun x => x.1 != .sgx) && _root_.Decidable.decide ((proofs.map _root_.Prod.fst).Nodup))",
+      "assumptions": [
+        "explicit decoded definition contract; not independent source/spec correspondence"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [],
+      "scope": "Shared semantic pin on a definition the current statements use (reviewed plumbing in scripts/check_spec_coverage.py SHARED). It carries no clause credit of its own. Original scope: Unfolded semantic contract closed by Iff.rfl/rfl (structure pins by field reconstruction), root-qualified names; weakening the definition without editing this pin fails."
+    },
+    {
+      "module": "EtnaProofs.Contracts",
+      "declaration": "Etna.Design.Contracts.double_sign_eq",
+      "type": "∀ (deployment : _root_.Etna.Design.Domain) (currentGeneration : _root_.Nat) (a b : _root_.Etna.Design.Staking.Vote), _root_.Etna.Design.Staking.doubleSign deployment currentGeneration a b = _root_.Decidable.decide (a.domain = deployment ∧ b.domain = deployment ∧ a.generation = b.generation ∧ a.generation ≤ currentGeneration ∧ a.height = b.height ∧ a.round = b.round ∧ a.kind = b.kind ∧ (a.kind = 1 ∨ a.kind = 2) ∧ a.blockId ≠ b.blockId)",
+      "assumptions": [
+        "explicit decoded definition contract; not independent source/spec correspondence"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [],
+      "scope": "Shared semantic pin on a definition the current statements use (reviewed plumbing in scripts/check_spec_coverage.py SHARED). It carries no clause credit of its own. Original scope: Unfolded semantic contract closed by Iff.rfl/rfl (structure pins by field reconstruction), root-qualified names; weakening the definition without editing this pin fails."
+    },
+    {
+      "declaration": "Etna.Design.Contracts.bond_balance_eq",
+      "module": "EtnaProofs.Contracts",
+      "type": "∀ (b : Etna.Design.Staking.Bond), b.balance = b.stake + b.pendingTopUp",
+      "assumptions": [
+        "Decoded authenticated L1 clock, authority and entry identity; token transfers and EVM transaction journaling remain external."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [],
+      "scope": "Shared semantic pin on a definition the current statements use (reviewed plumbing in scripts/check_spec_coverage.py SHARED). It carries no clause credit of its own. Original scope: Decoded specification result under its explicit hypotheses; no production ABI, byte-layout, cryptographic or DAO-attribution conformance is implied."
+    },
+    {
+      "declaration": "Etna.Design.Contracts.forfeit_penalty_eq",
+      "module": "EtnaProofs.Contracts",
+      "type": "∀ (balance bps : Nat), Etna.Design.Staking.forfeitPenalty balance bps = (balance * bps + 9999) / 10000",
+      "assumptions": [
+        "Decoded authenticated L1 clock, authority and entry identity; token transfers and EVM transaction journaling remain external."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [],
+      "scope": "Shared semantic pin on a definition the current statements use (reviewed plumbing in scripts/check_spec_coverage.py SHARED). It carries no clause credit of its own. Original scope: Decoded specification result under its explicit hypotheses; no production ABI, byte-layout, cryptographic or DAO-attribution conformance is implied."
+    },
+    {
+      "module": "EtnaProofs.Contracts",
+      "declaration": "Etna.Design.Contracts.ordered_iff",
+      "type": "∀ (history : _root_.List _root_.Etna.Design.RegistryHistory.Snapshot), _root_.Etna.Design.RegistryHistory.Ordered history ↔ history.Pairwise (fun a b => b.block < a.block)",
+      "assumptions": [
+        "explicit decoded definition contract; not independent source/spec correspondence"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [],
+      "scope": "Shared semantic pin on a definition the current statements use (reviewed plumbing in scripts/check_spec_coverage.py SHARED). It carries no clause credit of its own. Original scope: Unfolded semantic contract closed by Iff.rfl/rfl (structure pins by field reconstruction), root-qualified names; weakening the definition without editing this pin fails."
+    },
+    {
+      "module": "EtnaProofs.Contracts",
+      "declaration": "Etna.Design.Contracts.forced_step_eq",
+      "type": "∀ (cursor tail anchor delay : _root_.Nat) (w : _root_.Option _root_.Etna.Design.Forced.Witness)\n    (execution : _root_.Etna.Design.Forced.Singleton), _root_.Etna.Design.Forced.step cursor tail anchor delay w execution =\n      if cursor ≥ tail then\n        if w.isNone then _root_.Etna.Design.Forced.Result.accepted cursor else _root_.Etna.Design.Forced.Result.rejected\n      else match w with\n      | .none => _root_.Etna.Design.Forced.Result.rejected\n      | .some w =>\n        if w.index ≠ cursor ∨ !w.storageAuthenticated ∨ w.rawBytes > 8192 ∨\n          (w.rawBytes ≠ 0 ∧ w.rawHash ≠ w.stored.txHash) then _root_.Etna.Design.Forced.Result.rejected\n        else if w.firstHash = _root_.Option.some w.stored.txHash ∧ w.firstCanonical = _root_.Bool.true ∧\n            w.firstBytes ≤ 8192 then _root_.Etna.Design.Forced.Result.accepted (cursor+1)\n        else if anchor < w.stored.timestamp+delay then _root_.Etna.Design.Forced.Result.accepted cursor\n        else if w.rawHash ≠ w.stored.txHash ∨ w.rawBytes > 8192 then _root_.Etna.Design.Forced.Result.rejected\n        else if w.canonical = _root_.Bool.false then _root_.Etna.Design.Forced.Result.accepted (cursor+1)\n        else match execution with\n          | .unavailable => _root_.Etna.Design.Forced.Result.waiting\n          | .completedRetained | .inconsistent => _root_.Etna.Design.Forced.Result.rejected\n          | .completedEmpty => _root_.Etna.Design.Forced.Result.accepted (cursor+1)",
+      "assumptions": [
+        "explicit decoded definition contract; not independent source/spec correspondence"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [],
+      "scope": "Shared semantic pin on a definition the current statements use (reviewed plumbing in scripts/check_spec_coverage.py SHARED). It carries no clause credit of its own. Original scope: Unfolded semantic contract closed by Iff.rfl/rfl (structure pins by field reconstruction), root-qualified names; weakening the definition without editing this pin fails."
+    },
+    {
+      "module": "EtnaProofs.Contracts",
+      "declaration": "Etna.Design.Contracts.election_eq",
+      "type": "∀ (unit minimum cutoff nMax : _root_.Nat) (e a b : _root_.Etna.Design.Committee.Entry)\n    (entries : _root_.List _root_.Etna.Design.Committee.Entry), _root_.Etna.Design.Committee.eligible unit minimum cutoff e =\n      _root_.Decidable.decide (e.activeFrom ≤ cutoff ∧ cutoff < e.exitAt ∧ _root_.Max.max minimum unit ≤ e.stake) ∧\n    _root_.Etna.Design.Committee.rank a b =\n      _root_.Decidable.decide (b.stake < a.stake ∨ (a.stake = b.stake ∧ a.key ≤ b.key)) ∧\n    _root_.Etna.Design.Committee.chosen unit minimum cutoff nMax entries =\n      (((entries.filter (_root_.Etna.Design.Committee.eligible unit minimum cutoff)).mergeSort\n        _root_.Etna.Design.Committee.rank).take nMax).mergeSort (fun x y => _root_.Decidable.decide (x.key ≤ y.key)) ∧\n    _root_.Etna.Design.Committee.power unit e = e.stake/unit ∧\n    _root_.Etna.Design.Committee.totalPower unit entries = (entries.map (_root_.Etna.Design.Committee.power unit)).sum ∧\n    _root_.Etna.Design.Committee.maxPower = (2^63-1)/8 ∧\n    _root_.Etna.Design.Committee.election unit minimum cutoff nMax entries =\n      if 0 < unit ∧ unit ≤ minimum ∧ 1 ≤ nMax ∧ nMax ≤ 4096 ∧\n          ((entries.filter (_root_.Etna.Design.Committee.eligible unit minimum cutoff)).map\n            _root_.Etna.Design.Committee.Entry.key).Nodup ∧\n          _root_.Etna.Design.Committee.chosen unit minimum cutoff nMax entries ≠ [] ∧\n          (∀ x ∈ _root_.Etna.Design.Committee.chosen unit minimum cutoff nMax entries,\n            0 < _root_.Etna.Design.Committee.power unit x) ∧\n          _root_.Etna.Design.Committee.totalPower unit (_root_.Etna.Design.Committee.chosen unit minimum cutoff nMax entries) ≤\n            _root_.Etna.Design.Committee.maxPower\n      then _root_.Option.some (_root_.Etna.Design.Committee.chosen unit minimum cutoff nMax entries)\n      else _root_.Option.none",
+      "assumptions": [
+        "explicit decoded definition contract; not independent source/spec correspondence"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [],
+      "scope": "Shared semantic pin on a definition the current statements use (reviewed plumbing in scripts/check_spec_coverage.py SHARED). It carries no clause credit of its own. Original scope: Unfolded semantic contract closed by Iff.rfl/rfl (structure pins by field reconstruction), root-qualified names; weakening the definition without editing this pin fails."
+    },
+    {
+      "module": "EtnaProofs.Contracts",
+      "declaration": "Etna.Design.Contracts.forced_fee_eq",
+      "type": "∀ (s : _root_.Etna.Design.State) (base threshold pending rawBytes paid : _root_.Nat)\n    (refundOK transferOK : _root_.Bool), _root_.Etna.Design.Forced.admissionFee base threshold pending = base*(threshold+pending)/threshold*1000000000 ∧\n    _root_.Etna.Design.Forced.enqueue s rawBytes paid refundOK =\n      (if s.entered = _root_.Bool.false ∧ s.forcedThreshold > 0 ∧ rawBytes ≤ 8192 ∧ s.head ≤ s.tail ∧\n          s.tail+1 < _root_.Etna.Design.limit48 ∧\n          _root_.Etna.Design.Forced.admissionFee s.forcedFee s.forcedThreshold (s.tail-s.head) ≤ paid ∧\n          s.ethBalance+_root_.Etna.Design.Forced.admissionFee s.forcedFee s.forcedThreshold (s.tail-s.head) <\n            _root_.Etna.Design.limit256 ∧\n          (paid = _root_.Etna.Design.Forced.admissionFee s.forcedFee s.forcedThreshold (s.tail-s.head) ∨\n            refundOK = _root_.Bool.true) then\n        _root_.Option.some { s with\n          tail := s.tail+1,\n          feeAdmissions := s.feeAdmissions+_root_.Etna.Design.Forced.admissionFee s.forcedFee s.forcedThreshold (s.tail-s.head),\n          ethBalance := s.ethBalance+_root_.Etna.Design.Forced.admissionFee s.forcedFee s.forcedThreshold (s.tail-s.head) }\n      else _root_.Option.none) ∧\n    _root_.Etna.Design.Forced.sweep s transferOK =\n      if s.entered = _root_.Bool.false ∧ s.protocolFeeRecipient ≠ 0 ∧ transferOK = _root_.Bool.true then\n        _root_.Option.some { s with ethBalance := 0,swept := s.swept+s.ethBalance }\n      else _root_.Option.none",
+      "assumptions": [
+        "explicit decoded definition contract; not independent source/spec correspondence"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [],
+      "scope": "Shared semantic pin on a definition the current statements use (reviewed plumbing in scripts/check_spec_coverage.py SHARED). It carries no clause credit of its own. Original scope: Unfolded semantic contract closed by Iff.rfl/rfl (structure pins by field reconstruction), root-qualified names; weakening the definition without editing this pin fails."
+    },
+    {
+      "module": "EtnaProofs.Contracts",
+      "declaration": "Etna.Design.Contracts.committee_schedule_eq",
+      "type": "∀ (c : _root_.Etna.Design.Consensus.Context) (h t target cutoff : _root_.Nat), _root_.Etna.Design.Consensus.epoch c h = (h-1)/c.epochLen ∧\n    _root_.Etna.Design.Consensus.switchHeight c t = t*c.epochLen-1 ∧\n    _root_.Etna.Design.Consensus.selected c target cutoff =\n      ⟨target,cutoff,_root_.Etna.Design.Committee.chosen c.unit c.minimum cutoff c.nMax (c.registry cutoff)⟩ ∧\n    _root_.Etna.Design.Consensus.initial c =\n      _root_.Etna.Design.Consensus.selected c (if c.generation = 0 then 0 else c.originHeight/c.epochLen)\n        (if c.generation = 0 then c.genesisCutoff else c.originBlock) ∧\n    _root_.Etna.Design.Consensus.normal c t =\n      _root_.Etna.Design.Consensus.selected c t (_root_.Max.max (c.anchorAt (t*c.epochLen-2)) c.originBlock) ∧\n    _root_.Etna.Design.Consensus.activeAt c h =\n      if c.originHeight < _root_.Etna.Design.Consensus.switchHeight c (_root_.Etna.Design.Consensus.epoch c h) then\n        _root_.Etna.Design.Consensus.normal c (_root_.Etna.Design.Consensus.epoch c h)\n      else _root_.Etna.Design.Consensus.initial c",
+      "assumptions": [
+        "explicit decoded definition contract; not independent source/spec correspondence"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [],
+      "scope": "Shared semantic pin on a definition the current statements use (reviewed plumbing in scripts/check_spec_coverage.py SHARED). It carries no clause credit of its own. Original scope: Unfolded semantic contract closed by Iff.rfl/rfl (structure pins by field reconstruction), root-qualified names; weakening the definition without editing this pin fails. Pins Consensus.epoch, switchHeight, selected, initial, normal and activeAt."
     }
   ]
 }

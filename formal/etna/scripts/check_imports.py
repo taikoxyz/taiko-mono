@@ -6,7 +6,7 @@ The package is split so a reviewer reads definitions and claims without proofs:
   EtnaModel       definitions, structures, inductives, instances (no theorems)
   EtnaStatements  the premise record and headline claims, stated without proofs
   EtnaProofs      theorems about the model and proofs of the claims
-  EtnaWitnesses   regressions, satisfying runs and counterexamples
+  EtnaWitnesses   joint-premise realizations (non-vacuity witnesses)
   EtnaVectors     the conformance-vector generator (optional; reads only the model)
 
 Each library is one Lake `lean_lib` with root `<Name>.lean` and modules `<Name>/**/*.lean`.

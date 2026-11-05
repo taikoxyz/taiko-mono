@@ -1,7 +1,7 @@
 import EtnaModel.CurrentRegistryPayments
 import EtnaVectors.Json
 
-/-! Executable current displacement vectors. Historical conformance files are unchanged.
+/-! Executable current displacement vectors (`testdata/etna_current_conformance`).
 Key numbers denote valid distinct test keys; PoP and token adapters have their stated meanings. -/
 namespace Etna.Vectors.CurrentRegistry
 open Etna.Design Etna.Design.Current

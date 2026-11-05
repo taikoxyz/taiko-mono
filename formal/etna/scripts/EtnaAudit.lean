@@ -467,39 +467,6 @@ partial def dependencies (roots : List Name) (todo : List Name) (seen : NameSet 
         | none => []
       dependencies roots (next ++ rest) (seen.insert c)
 
-/-- Shape of one statement-layer claim (tests/test_statements.py): `claim` is a documented
-`Prop` definition whose definitions (under its own root namespace and `Etna`) reach every name in
-`required`, and every field of the premise structure `premises` is documented and is not `True`
-(after unfolding definitions to weak head normal form). All problems are reported together. -/
-def checkStatement (claim premises required : String) : MetaM Unit := do
-  let env ← getEnv
-  let claim := claim.toName
-  let premises := premises.toName
-  let mut problems : Array String := #[]
-  match env.find? claim with
-  | some (.defnInfo v) =>
-    unless v.type.isProp do problems := problems.push s!"{claim} is not a Prop"
-  | _ => throwError "statement check: {claim} is not a definition"
-  if (← findDocString? env claim).isNone then problems := problems.push s!"{claim} has no docstring"
-  let reached ← dependencies [claim.getRoot, premises.getRoot, `Etna] [claim]
-  for n in (rows required).flatten do
-    unless reached.contains n do problems := problems.push s!"{claim} does not depend on {n}"
-  match getStructureInfo? env premises with
-  | none => problems := problems.push s!"{premises} is not a structure"
-  | some info =>
-    for field in info.fieldNames do
-      let projection := premises ++ field
-      match env.find? projection with
-      | none => problems := problems.push s!"premise field {field} has no projection"
-      | some projectionInfo =>
-        let vacuous ← forallTelescope projectionInfo.type fun _ body => do
-          return (← whnf body).isConstOf ``True
-        if vacuous then problems := problems.push s!"premise field {field} is `True`"
-        if (← findDocString? env projection).isNone then
-          problems := problems.push s!"premise field {field} has no docstring"
-  unless problems.isEmpty do
-    throwError "statement check failed: {"; ".intercalate problems.toList}"
-
 /-- The headline layer. Each row `theorem claim` names a theorem whose type is exactly the
 statement-layer claim `claim`, the constant itself (no binder, conjunct or disjunct added or
 dropped, nothing unfolded), and whose axioms are the standard three. -/

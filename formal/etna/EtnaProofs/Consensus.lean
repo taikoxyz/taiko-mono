@@ -4,6 +4,15 @@ import EtnaProofs.Committee
 /-! Proofs about `EtnaModel.Consensus`. -/
 namespace Etna.Design.Consensus
 
+/-- Independent unfolded election contract: weakening ElectionValid to True must fail.
+This constrains this modeled definition, not its correspondence to every source rule.
+Every global name is `_root_`-qualified so a nearer declaration cannot capture it. -/
+theorem election_valid_iff (c : _root_.Etna.Design.Consensus.Context)
+    (r : _root_.Etna.Design.Committee.Record) :
+    _root_.Etna.Design.Consensus.ElectionValid c r ↔
+      _root_.Etna.Design.Committee.election c.unit c.minimum r.cutoff c.nMax (c.registry r.cutoff) =
+        _root_.Option.some r.members := Iff.rfl
+
 theorem commit_strict_quorum {c : Context} {signature : Vote → Prop}
     {h round block : Nat} {votes : List Vote} (ok : CommitValid c signature h round block votes) :
     2*Committee.totalPower c.unit (activeAt c h).members <

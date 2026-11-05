@@ -1,5 +1,9 @@
 # Review round five
 
+> Dated record. Counts and file references describe the revision named below; the
+> archived layer it mentions was removed later. See the README and
+> [latest alignment](latest-design-alignment.md) for the current tree.
+
 Baseline: PR #22292 at `1bb87356a2dc72d0133d40522c309e25d9b3b146`.
 This pass checks the new minor findings against the decoded machine and pinned Etna
 SPEC/SWITCH. It changes model/proof/evidence scope, not production contracts or guests.

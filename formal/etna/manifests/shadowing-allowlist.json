@@ -13,11 +13,6 @@
       "reason": "Forced-inclusion singleton execution outcome type; Forced theorems and manifest types intentionally mean this type, not Init's Singleton class."
     },
     {
-      "declaration": "Etna.Design.RegistryHistory.Snapshot.entries",
-      "shadows": "Etna.Design.RegistryHistory.entries",
-      "reason": "Snapshot field storing recorded entries; the State-level entries function is distinct and only shadowed inside namespace Snapshot."
-    },
-    {
       "declaration": "Etna.Design.Signal.hash",
       "shadows": "hash",
       "reason": "SignalService checkpoint hash field; Hashable.hash is never meant inside namespace Signal."
@@ -78,11 +73,6 @@
       "reason": "Current version-specific decoded state, transition or headline has the conventional historical name; separate namespace and exact theorem types prevent authority substitution."
     },
     {
-      "declaration": "Etna.Design.Current.RegistryPayments.transact",
-      "shadows": "Etna.Design.transact",
-      "reason": "Current version-specific decoded state, transition or headline has the conventional historical name; separate namespace and exact theorem types prevent authority substitution."
-    },
-    {
       "declaration": "Etna.Design.Current.Protocol.Call.unzenProve",
       "shadows": "Etna.Design.Current.Protocol.unzenProve",
       "reason": "Current closed-machine call constructor shares its operation name; match branches and actual functions remain typed and fully qualified."
@@ -113,11 +103,6 @@
       "reason": "Current closed-machine call constructor shares its operation name; match branches and actual functions remain typed and fully qualified."
     },
     {
-      "declaration": "Etna.Design.Current.Protocol.transact",
-      "shadows": "Etna.Design.transact",
-      "reason": "Current version-specific decoded state, transition or headline has the conventional historical name; separate namespace and exact theorem types prevent authority substitution."
-    },
-    {
       "declaration": "Etna.Design.Current.Protocol.Call.advance",
       "shadows": "Etna.Design.Current.Protocol.advance",
       "reason": "Current closed-machine call constructor shares its operation name; match branches and actual functions remain typed and fully qualified."
@@ -131,11 +116,6 @@
       "declaration": "Etna.Design.Current.Protocol.StartData.hash",
       "shadows": "hash",
       "reason": "Current version-specific decoded state, transition or headline has the conventional historical name; separate namespace and exact theorem types prevent authority substitution."
-    },
-    {
-      "declaration": "Etna.Design.Current.Protocol.Call.land",
-      "shadows": "Etna.Design.land",
-      "reason": "Current closed-machine call constructor shares its operation name; match branches and actual functions remain typed and fully qualified."
     },
     {
       "declaration": "Etna.Design.Current.Protocol.Call.land",
@@ -153,11 +133,6 @@
       "reason": "Current closed-machine call constructor shares its operation name; match branches and actual functions remain typed and fully qualified."
     },
     {
-      "declaration": "Etna.Design.Current.Protocol.land",
-      "shadows": "Etna.Design.land",
-      "reason": "Current version-specific decoded state, transition or headline has the conventional historical name; separate namespace and exact theorem types prevent authority substitution."
-    },
-    {
       "declaration": "Etna.Design.Current.Protocol.Call.enqueue",
       "shadows": "Etna.Design.Current.Protocol.enqueue",
       "reason": "Current closed-machine call constructor shares its operation name; match branches and actual functions remain typed and fully qualified."
@@ -173,44 +148,9 @@
       "reason": "Current closed-machine call constructor shares its operation name; match branches and actual functions remain typed and fully qualified."
     },
     {
-      "declaration": "Etna.Statements.Current.Premises",
-      "shadows": "Etna.Statements.Premises",
-      "reason": "Current version-specific decoded state, transition or headline has the conventional historical name; separate namespace and exact theorem types prevent authority substitution."
-    },
-    {
-      "declaration": "Etna.Statements.Current.ForcedInclusionIntegrity",
-      "shadows": "Etna.Statements.ForcedInclusionIntegrity",
-      "reason": "Current version-specific decoded state, transition or headline has the conventional historical name; separate namespace and exact theorem types prevent authority substitution."
-    },
-    {
-      "declaration": "Etna.Statements.Current.AccountableFinality",
-      "shadows": "Etna.Statements.AccountableFinality",
-      "reason": "Current version-specific decoded state, transition or headline has the conventional historical name; separate namespace and exact theorem types prevent authority substitution."
-    },
-    {
-      "declaration": "Etna.Statements.Current.FundSafety",
-      "shadows": "Etna.Statements.FundSafety",
-      "reason": "Current version-specific decoded state, transition or headline has the conventional historical name; separate namespace and exact theorem types prevent authority substitution."
-    },
-    {
-      "declaration": "Etna.Statements.Current.Claims",
-      "shadows": "Etna.Statements.Claims",
-      "reason": "Current version-specific decoded state, transition or headline has the conventional historical name; separate namespace and exact theorem types prevent authority substitution."
-    },
-    {
-      "declaration": "Etna.Design.Current.Protocol.land_success",
-      "shadows": "Etna.Design.land_success",
-      "reason": "Current version-specific decoded state, transition or headline has the conventional historical name; separate namespace and exact theorem types prevent authority substitution."
-    },
-    {
       "declaration": "Etna.Design.Current.Encoding.optional",
       "shadows": "optional",
       "reason": "Structural Option encoder used explicitly inside Current.Encoding; it does not refer to the parser combinator optional."
-    },
-    {
-      "declaration": "Etna.Design.Current.Encoding.domain",
-      "shadows": "Etna.Design.Encoding.domain",
-      "reason": "Current structural encoder for the current Domain; historical Encoding.domain encodes the independently pinned historical model."
     },
     {
       "declaration": "Etna.Design.Current.Protocol.NonVacuity.TemplateContext.config",
@@ -218,39 +158,14 @@
       "reason": "Equality field recording the fixed ordinary-template configuration; its type explicitly invokes Protocol.config before entering the field namespace."
     },
     {
-      "declaration": "Etna.Design.Current.Protocol.NonVacuity.env",
-      "shadows": "Etna.Design.NonVacuity.env",
-      "reason": "Current closed-machine accepting environment; the historical NonVacuity.env remains separate and is never used by current witness proofs."
-    },
-    {
       "declaration": "Etna.Design.Current.Protocol.NonVacuity.RecoveredContext.config",
       "shadows": "Etna.Design.Current.Protocol.config",
       "reason": "Equality field recording the fixed recovered-template configuration; its type explicitly invokes Protocol.config before entering the field namespace."
     },
     {
-      "declaration": "Etna.Design.Current.Protocol.NonVacuity.premises",
-      "shadows": "Etna.Design.NonVacuity.premises",
-      "reason": "Complete thirteen-field current premise witness, distinct from the historical seven-field premise witness."
-    },
-    {
-      "declaration": "Etna.Design.Current.Protocol.NonVacuity.vote",
-      "shadows": "Etna.Design.NonVacuity.vote",
-      "reason": "Concrete current generation-zero signed vote; historical NonVacuity.vote belongs to the separately pinned model."
-    },
-    {
-      "declaration": "Etna.Design.Current.Protocol.NonVacuity.premises_satisfiable",
-      "shadows": "Etna.Design.NonVacuity.premises_satisfiable",
-      "reason": "Current existential premise witness with an actual accepting trace and globally injective roots; the historical witness has a different model and exact type."
-    },
-    {
       "declaration": "Etna.Design.Current.Protocol.Governance.execute",
       "shadows": "Etna.Design.Current.Protocol.execute",
       "reason": "Ghost-erased DAO history adapter; its ordinary branch and refinement explicitly name Protocol.execute, keeping normative admissibility separate."
-    },
-    {
-      "declaration": "Etna.Design.Current.Protocol.Governance.transact",
-      "shadows": "Etna.Design.transact",
-      "reason": "Raw DAO history atomic adapter over Governance.execute; normative Protocol.transact and the historical State adapter are explicitly qualified where needed."
     },
     {
       "declaration": "Etna.Design.Current.Protocol.Governance.transact",
@@ -261,11 +176,6 @@
       "declaration": "Etna.Design.Current.CheckpointRisk.NormalRun.trans",
       "shadows": "trans",
       "reason": "Transitivity of the actual normal execution relation, intentionally selected inside its namespace instead of the generic trans relation helper."
-    },
-    {
-      "declaration": "Etna.Vectors.CurrentRegistry.Seed.pending",
-      "shadows": "Etna.Vectors.pending",
-      "reason": "Current-vector seed pending-principal field, distinct from the historical vector renderer/helper pending function."
     }
   ]
 }

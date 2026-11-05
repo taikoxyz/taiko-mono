@@ -1,5 +1,9 @@
 # Alignment with merged PR #22335
 
+> Dated record. Counts and file references describe the revision named below; the
+> archived layer it mentions was removed later. See the README and
+> [latest alignment](latest-design-alignment.md) for the current tree.
+
 Current authority: main `e84a9aaac526c15597d97ee93f8803f92b02c279` (2026-11-04).
 This refresh follows formal PR head `4f38cfcc8cbcfad10ec159110f5a8f74ca3e7ea5`
 and merges that main revision into the existing PR history.

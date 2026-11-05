@@ -23,33 +23,20 @@ import EtnaProofs.CurrentProtocolFinality
 import EtnaProofs.CurrentJournal
 import EtnaProofs.CurrentCustody
 import EtnaProofs.Headline.Current
-import EtnaModel.SigningBridge
-import EtnaModel.RegistryHistory
-import EtnaModel.Consensus
-import EtnaModel.BlockValidity
-import EtnaModel.Signer
-import EtnaModel.Common
-import EtnaModel.Landing
-import EtnaModel.Staking
-import EtnaModel.Forced
 import EtnaProofs.Landing
 import EtnaProofs.Staking
 import EtnaProofs.Forced
 import EtnaProofs.Consensus
-import EtnaModel.Encoding
 import EtnaProofs.RegistryHistory
-import EtnaModel
 import EtnaProofs.ActualQueue
 import EtnaProofs.Locking
-import EtnaStatements
-import EtnaModel.Committee
 import EtnaProofs.Committee
-import Std
 import EtnaProofs.Accountability
 import EtnaProofs.Headline.AccountableFinality
+import EtnaProofs.CurrentFootprintHistory
+import EtnaProofs.CurrentHistory
+import EtnaProofs.Contracts
 
-/-! Etna proofs: the theorems about `EtnaModel`, including the pins in `EtnaProofs.Contracts`. -/
-
-/-! Version scope: Current modules define the current decoded machine and its conditional
-H1–H3 claims. Other modules retain the archived pre-2026-11-03 semantics; their headline
-theorems are historical. See README.md for exact boundaries. -/
+/-! Etna proofs: the theorems about `EtnaModel` and the H1–H3 composition in
+`EtnaProofs.Headline.Current`. Modules outside `Current*` hold the shared lemmas the
+current proofs reuse. -/

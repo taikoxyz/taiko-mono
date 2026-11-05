@@ -53,6 +53,20 @@ SCOPE = 'conditional decoded specification property only'
 SHARED_REASON = ('Shared lemma outside the Current namespace, reused by current proofs; '
                  'its evidence is the Etna.Design.Current declarations that use it')
 UNSOURCED = {name: SHARED_REASON for name in (
+    'Etna.Design.Consensus.election_valid_iff',
+    'Etna.Design.Contracts.config_ok_eq',
+    'Etna.Design.Contracts.signed_power_eq',
+    'Etna.Design.Contracts.vote_valid_iff',
+    'Etna.Design.Contracts.commit_valid_iff',
+    'Etna.Design.Contracts.dual_ok_eq',
+    'Etna.Design.Contracts.double_sign_eq',
+    'Etna.Design.Contracts.bond_balance_eq',
+    'Etna.Design.Contracts.forfeit_penalty_eq',
+    'Etna.Design.Contracts.ordered_iff',
+    'Etna.Design.Contracts.forced_step_eq',
+    'Etna.Design.Contracts.election_eq',
+    'Etna.Design.Contracts.forced_fee_eq',
+    'Etna.Design.Contracts.committee_schedule_eq',
     'Etna.Design.gridLeaves_getD',
     'Etna.Design.Committee.chosen_eligible',
     'Etna.Design.Staking.fraction_bounded',

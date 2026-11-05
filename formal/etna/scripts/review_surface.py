@@ -29,8 +29,9 @@ REPO = ROOT.parents[1]
 LOCK = ROOT/'review-surface.lock.json'
 LOCK_PATH = 'formal/etna/review-surface.lock.json'
 # Files that define how evidence is judged. Changing one needs the same review as a statement.
-GATE_PATHS = ('formal/etna/scripts', 'formal/etna/lakefile.toml', 'formal/etna/lean-toolchain',
-              'formal/etna/lake-manifest.json', '.github/workflows/formal--etna.yml')
+GATE_PATHS = ('formal/etna/scripts', ':(glob)formal/etna/tests/*.py', 'formal/etna/lakefile.toml',
+              'formal/etna/lean-toolchain', 'formal/etna/lake-manifest.json',
+              '.github/workflows/formal--etna.yml')
 SCOPE = ('Kernel terms of the headline/witness statements and of every Etna definition they use; '
          'theorem proofs are excluded. A change here changes what H1-H3 or the witnesses mean.')
 
