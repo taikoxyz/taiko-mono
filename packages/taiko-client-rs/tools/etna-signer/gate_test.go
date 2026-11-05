@@ -74,7 +74,7 @@ func control(t *testing.T, reply func(map[string]any) any) string {
 }
 func snapshot(ready bool) map[string]any {
 	hash := "0x" + strings.Repeat("b", 64)
-	return map[string]any{"schema_version": 1, "session_id": "test:7", "chain_id": chain, "generation": 0, "trust_ready": ready, "syncing": !ready, "phase": map[bool]string{true: "ready", false: "catching_up"}[ready], "target": map[string]any{"l1_number": 10, "l1_hash": "0x" + strings.Repeat("a", 64), "height": 0, "hash": hash, "comet_hash": "0x" + strings.Repeat("c", 64), "generation": 0, "inbox": "0x" + strings.Repeat("1", 40)}, "committed_head": map[string]any{"height": 0, "hash": hash}, "trusted_consensus_head": map[string]any{"height": 0, "hash": hash}, "reason": nil}
+	return map[string]any{"schema_version": 1, "session_id": "test:7", "chain_id": chain, "generation": 0, "trust_ready": ready, "syncing": !ready, "phase": map[bool]string{true: "ready", false: "catching_up"}[ready], "target": map[string]any{"l1_number": 10, "l1_hash": "0x" + strings.Repeat("a", 64), "height": 0, "hash": hash, "comet_hash": "0x" + strings.Repeat("c", 64), "val_state_hash": "0x" + strings.Repeat("e", 64), "generation": 0, "inbox": "0x" + strings.Repeat("1", 40)}, "committed_head": map[string]any{"height": 0, "hash": hash}, "trusted_consensus_head": map[string]any{"height": 0, "hash": hash}, "reason": nil}
 }
 func filePV(t *testing.T) (*privval.FilePV, string, string) {
 	t.Helper()
@@ -581,32 +581,34 @@ func TestMalformedReadyRequestsNeverReachFilePV(t *testing.T) {
 	}
 }
 
-func TestMandatoryCanonicalCometCheckpointHash(t *testing.T) {
-	for _, value := range []any{nil, json.RawMessage("null"), "", "0x01", "0x" + strings.Repeat("A", 64), "0x" + strings.Repeat("0", 64)} {
-		t.Run(fmt.Sprint(value), func(t *testing.T) {
-			path := control(t, func(map[string]any) any {
-				r := snapshot(true)
-				target := r["target"].(map[string]any)
-				if value == nil {
-					delete(target, "comet_hash")
-				} else {
-					target["comet_hash"] = value
+func TestMandatoryCanonicalCheckpointRecordHashes(t *testing.T) {
+	for _, field := range []string{"comet_hash", "val_state_hash"} {
+		for _, value := range []any{nil, json.RawMessage("null"), "", "0x01", "0x" + strings.Repeat("A", 64), "0x" + strings.Repeat("0", 64)} {
+			t.Run(fmt.Sprint(field, "=", value), func(t *testing.T) {
+				path := control(t, func(map[string]any) any {
+					r := snapshot(true)
+					target := r["target"].(map[string]any)
+					if value == nil {
+						delete(target, field)
+					} else {
+						target[field] = value
+					}
+					return r
+				})
+				signer, _, state := filePV(t)
+				before, _ := os.ReadFile(state)
+				_, err := armed(path).handle(signer, proposalRequest(), chain)
+				// The all-zero hashes of the genesis record are canonical and are accepted.
+				valid := value == "0x"+strings.Repeat("0", 64)
+				if (err == nil) != valid {
+					t.Fatalf("%s acceptance: %v", field, err)
 				}
-				return r
+				after, _ := os.ReadFile(state)
+				if !valid && !bytes.Equal(before, after) {
+					t.Fatalf("invalid %s modified HRS", field)
+				}
 			})
-			signer, _, state := filePV(t)
-			before, _ := os.ReadFile(state)
-			_, err := armed(path).handle(signer, proposalRequest(), chain)
-			// The all-zero genesis Comet hash is canonical and is accepted.
-			valid := value == "0x"+strings.Repeat("0", 64)
-			if (err == nil) != valid {
-				t.Fatalf("comet hash acceptance: %v", err)
-			}
-			after, _ := os.ReadFile(state)
-			if !valid && !bytes.Equal(before, after) {
-				t.Fatal("invalid comet hash modified HRS")
-			}
-		})
+		}
 	}
 }
 

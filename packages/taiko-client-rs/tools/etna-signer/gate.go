@@ -27,13 +27,14 @@ type blockRef struct {
 	Hash   string  `json:"hash"`
 }
 type target struct {
-	L1Number   *uint64 `json:"l1_number"`
-	L1Hash     string  `json:"l1_hash"`
-	Height     *uint64 `json:"height"`
-	Hash       string  `json:"hash"`
-	CometHash  string  `json:"comet_hash"`
-	Generation *uint64 `json:"generation"`
-	Inbox      string  `json:"inbox"`
+	L1Number     *uint64 `json:"l1_number"`
+	L1Hash       string  `json:"l1_hash"`
+	Height       *uint64 `json:"height"`
+	Hash         string  `json:"hash"`
+	CometHash    string  `json:"comet_hash"`
+	ValStateHash string  `json:"val_state_hash"`
+	Generation   *uint64 `json:"generation"`
+	Inbox        string  `json:"inbox"`
 }
 type recoveryOrigin struct {
 	Generation    *uint64 `json:"generation"`
@@ -204,7 +205,7 @@ func trusted(r *trustResponse, chain string) error {
 		return errors.New("checkpoint trust is closed or belongs to another session/chain")
 	}
 	t := r.Target
-	if t.Generation == nil || *t.Generation != *r.Generation || t.Height == nil || t.L1Number == nil || !canonicalHex(t.L1Hash, 32) || !canonicalHex(t.Hash, 32) || !canonicalHex(t.CometHash, 32) || !canonicalHex(t.Inbox, 20) || *r.Committed.Height < *t.Height || *r.Committed.Height != *r.Trusted.Height || r.Committed.Hash != r.Trusted.Hash || (*r.Committed.Height == *t.Height && r.Committed.Hash != t.Hash) {
+	if t.Generation == nil || *t.Generation != *r.Generation || t.Height == nil || t.L1Number == nil || !canonicalHex(t.L1Hash, 32) || !canonicalHex(t.Hash, 32) || !canonicalHex(t.CometHash, 32) || !canonicalHex(t.ValStateHash, 32) || !canonicalHex(t.Inbox, 20) || *r.Committed.Height < *t.Height || *r.Committed.Height != *r.Trusted.Height || r.Committed.Hash != r.Trusted.Hash || (*r.Committed.Height == *t.Height && r.Committed.Hash != t.Hash) {
 		return errors.New("inconsistent trusted checkpoint")
 	}
 	if *r.Generation > 0 {

@@ -73,9 +73,9 @@ SecretConnection transport identities remain separate Ed25519 keys.
 
 Every transport connection opens a fresh closed trust session. Every signature,
 including a cached same-HRS retry, checks that private session again. PubKey and
-Ping remain available while closed. Trust schema 1 requires a canonical 32-byte
-`target.comet_hash` alongside the EL checkpoint hash; absent, null, malformed,
-unknown or duplicate fields fail closed. Denial never invokes FilePV signing.
+Ping remain available while closed. Trust schema 1 requires canonical 32-byte
+`target.comet_hash` and `target.val_state_hash` alongside the EL checkpoint hash;
+absent, null, malformed, unknown or duplicate fields fail closed. Denial never invokes FilePV signing.
 Only stock FilePV writes signing state after authorization.
 
 Run `just signer-test` for Go race/process/native interop tests. No Cargo build is
