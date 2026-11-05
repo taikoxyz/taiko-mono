@@ -4,7 +4,7 @@
 
 `accept` means the described encoding satisfies the rule cited. `reject` means a stated requirement is violated. Appendix A states one consequence: ENC-A-16's "any violation makes the proposal invalid". It covers the envelope grammar (ENC-A-11–ENC-A-15) and the strict-decoding conditions (ENC-A-16–ENC-A-22), so those reject rows say "proposal invalid (ENC-A-16)". Rows elsewhere say "violates ENC-A-N" where the text states no consequence. Where a definition spans several lines, the marker and the ID sit above its first line, and the ID cites the whole definition (see [../README.md](../README.md#how-far-an-id-extends)).
 
-**Scope note.** Appendix A's grammar — `chainDomain`, `chain_id`, `extraData`, the envelope and payload layouts, `AccountWitness`, `cutLeaf`, `cutHash`, `statement`, `committeeConfigHash`, `regLeaf`, `entriesRoot`, `setKey`/`setLeaf`/`setNode`/`record`, `voteSignBytes`, registration and the `recover` interface — sits inside four fenced blocks (SPEC.md 635–811). Under the `code-before` exception in [../README.md](../README.md), ENC-A-6–ENC-A-50 mark the definition lines (ENC-A-51–ENC-A-55 are a separate supplement); each marker is a new `// [ID]` line above an unchanged governed line. Lines in those blocks that carry no ID remain uncited. The form question (whether to restructure the blocks into prose or tables) is still [Q-A-1](../review/A.md#q-a-1).
+**Scope note.** Appendix A's grammar — `chainDomain`, `chain_id`, `extraData`, the envelope and payload layouts, `AccountWitness`, `cutLeaf`, `valStateHash`, `cutHash`, `statement`, `committeeConfigHash`, `regLeaf`, `entriesRoot`, `setKey`/`setLeaf`/`setNode`/`record`, `voteSignBytes`, registration and the `recover` interface — sits inside four fenced blocks in appendix A. Under the `code-before` exception in [../README.md](../README.md), ENC-A-6–ENC-A-50 mark the definition lines (ENC-A-51–ENC-A-55 are a separate supplement); each marker is a new `// [ID]` line above an unchanged governed line. Lines in those blocks that carry no ID remain uncited. The form question (whether to restructure the blocks into prose or tables) is still [Q-A-1](../review/A.md#q-a-1).
 
 ## ENC-A-1
 
@@ -33,14 +33,14 @@ _Which seven words, and which five fields: [Q-A-1](../review/A.md#q-a-1)._
 
 ## ENC-A-3
 
-| Vector     | Setup                                                           | Expected                         |
-| ---------- | --------------------------------------------------------------- | -------------------------------- |
-| 3.a accept | the slot-285 record at any height is three words                | matches                          |
-| 3.b accept | the start record at S (block 0 on a new network) is three words | matches (no exemption is stated) |
-| 3.c reject | a slot-285 record of two words                                  | violates ENC-A-3                 |
-| 3.d reject | a slot-285 record of four words                                 | violates ENC-A-3                 |
+| Vector     | Setup                                                              | Expected                         |
+| ---------- | ------------------------------------------------------------------ | -------------------------------- |
+| 3.a accept | the slot-285 record at any height is four words                    | matches                          |
+| 3.b accept | the start record at S (block 0 on a new network) is four words     | matches (no exemption is stated) |
+| 3.c reject | a slot-285 record of three words, without the validator-state hash | violates ENC-A-3                 |
+| 3.d reject | a slot-285 record of five words                                    | violates ENC-A-3                 |
 
-_Which fields occupy the three words: [STOR-B-9](B.md#stor-b-9)._
+_Which fields occupy the four words: [STOR-B-9](B.md#stor-b-9)._
 
 ## ENC-A-4a
 
@@ -321,14 +321,35 @@ _`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` fo
 
 ## ENC-A-29
 
-| Vector      | Setup                                                                                      | Expected                                             |
-| ----------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------- |
-| 29.a accept | `keccak256(abi.encode(uint256(x), blockHash(x), cometHash(x), forcedHead(x)))`, four words | matches                                              |
-| 29.b reject | three or five words                                                                        | violates ENC-A-29                                    |
-| 29.c reject | order is `(blockHash(x), uint256(x), ...)`                                                 | violates ENC-A-29                                    |
-| 29.d reject | blockHash, cometHash or forcedHead is taken at a height other than `x`                     | violates ENC-A-29 (all at height x)                  |
-| 29.e reject | `x` or `forcedHead(x)` is encoded in fewer than 32 bytes (for example packed as uint48)    | violates ENC-A-29 (`uint256(x)`, four 32-byte words) |
-| 29.f accept | S = 1000, `K = 3`: grid points are 1000, 1003, 1006, …                                     | matches ("heights count from the Etna start S")      |
+| Vector      | Setup                                                                                                       | Expected                                             |
+| ----------- | ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| 29.a accept | `keccak256(abi.encode(uint256(x), blockHash(x), cometHash(x), forcedHead(x), valStateHash(x)))`, five words | matches                                              |
+| 29.b reject | four or six words, for example a leaf without `valStateHash(x)`                                             | violates ENC-A-29                                    |
+| 29.c reject | order is `(blockHash(x), uint256(x), ...)`                                                                  | violates ENC-A-29                                    |
+| 29.d reject | blockHash, cometHash, forcedHead or valStateHash is taken at a height other than `x`                        | violates ENC-A-29 (all at height x)                  |
+| 29.e reject | `x` or `forcedHead(x)` is encoded in fewer than 32 bytes (for example packed as uint48)                     | violates ENC-A-29 (`uint256(x)`, five 32-byte words) |
+| 29.f accept | S = 1000, `K = 3`: grid points are 1000, 1003, 1006, …                                                      | matches ("heights count from the Etna start S")      |
+
+## ENC-A-29a
+
+| Vector       | Setup                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Expected                                                                            |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| 29a.a accept | `keccak256(abi.encode(bytes32("ETNA_VAL_STATE_V1"), uint256(x), current(x), uint256(currentProposer(x)), next(x), uint256(nextProposer(x))))`, each set a `ValEntry[]` of `(uint8 ckPrefix, bytes32 ckX, uint64 votingPower, int64 proposerPriority)`                                                                                                                                                                                                                       | matches                                                                             |
+| 29a.b accept | current(x) and next(x) are CometBFT's `State.Validators` and `State.NextValidators` after committing x, each ordered by votingPower descending and then address ascending                                                                                                                                                                                                                                                                                                   | matches                                                                             |
+| 29a.c reject | in a set whose members have unequal powers, the entries are ordered by set key (4.3) or by address                                                                                                                                                                                                                                                                                                                                                                          | violates ENC-A-29a                                                                  |
+| 29a.d reject | in a set of at least two members whose CometBFT priorities are not all zero, every `proposerPriority` is written as 0                                                                                                                                                                                                                                                                                                                                                       | violates ENC-A-29a                                                                  |
+| 29a.e reject | a negative `proposerPriority` is encoded as an unsigned value instead of sign-extended `int64`                                                                                                                                                                                                                                                                                                                                                                              | violates ENC-A-29a                                                                  |
+| 29a.f reject | current(x) is the set that signed x (`State.LastValidators`)                                                                                                                                                                                                                                                                                                                                                                                                                | violates ENC-A-29a                                                                  |
+| 29a.g reject | the tag is `ETNA_VAL_STATE_V2`                                                                                                                                                                                                                                                                                                                                                                                                                                              | violates ENC-A-29a (and ENC-A-1)                                                    |
+| 29a.h accept | x = S(t): next(x) is the committee that signs H(t), with the priorities and stored proposer CometBFT holds for it after committing S(t)                                                                                                                                                                                                                                                                                                                                     | matches (next(x) signs x + 2 = H(t))                                                |
+| 29a.i reject | in a set whose lowest-priority (or highest-priority) member differs from the validator CometBFT stores as the set's proposer, `currentProposer(x)` names that member                                                                                                                                                                                                                                                                                                        | violates ENC-A-29a                                                                  |
+| 29a.j reject | a proposer index counts from the set-key order instead of the set's own order                                                                                                                                                                                                                                                                                                                                                                                               | violates ENC-A-29a                                                                  |
+| 29a.k accept | x = o, a generation's start height: current(o) and next(o) are the two sets CometBFT builds from that generation's genesis                                                                                                                                                                                                                                                                                                                                                  | matches                                                                             |
+| 29a.l accept | x = 6; current = [(2, 0x0000000000000000000000000000000000000000000000000000000000000001, 10, −5), (3, 0x0000000000000000000000000000000000000000000000000000000000000002, 10, 5)] with currentProposer 1; next = [(2, 0x0000000000000000000000000000000000000000000000000000000000000001, 10, 5), (3, 0x0000000000000000000000000000000000000000000000000000000000000002, 10, −5)] with nextProposer 0; the encoding is 768 bytes (six head words, then 9 words per array) | valStateHash = `0x368f341ba9eb8b6d6cadbd5b944daed7ed417b273d1257911a7fd18320f2a81b` |
+
+_29a.l checks only the byte encoding of the entries as given; whether that order is CometBFT's set order depends on the real addresses of the keys._
+
+_Reproduce 29a.l with Foundry's `cast`: `cast keccak $(cast abi-encode 'f(bytes32,uint256,(uint8,bytes32,uint64,int64)[],uint256,(uint8,bytes32,uint64,int64)[],uint256)' $(cast format-bytes32-string ETNA_VAL_STATE_V1) 6 '[(2,K1,10,-5),(3,K2,10,5)]' 1 '[(2,K1,10,5),(3,K2,10,-5)]' 0)`, with K1 and K2 the two 32-byte values in the row._
 
 ## ENC-A-30
 
@@ -385,13 +406,15 @@ _`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` fo
 
 ## ENC-A-35
 
-| Vector      | Setup                                                                                  | Expected                                |
-| ----------- | -------------------------------------------------------------------------------------- | --------------------------------------- |
-| 35.a accept | `keccak256(abi.encode(...))` with the 21 static ABI words of the definition, 672 bytes | matches                                 |
-| 35.b reject | the preimage has 20 or 22 words                                                        | violates ENC-A-35 (21 words, 672 bytes) |
-| 35.c reject | `TAIKO_ETNA_LAND_V1` is replaced by a V2 tag                                           | violates ENC-A-35 (and ENC-A-1)         |
-| 35.d reject | `blobHashes` are hashed with `abi.encode` instead of `abi.encodePacked`                | violates ENC-A-35                       |
-| 35.e reject | `l2ChainId` precedes `l1ChainId`                                                       | violates ENC-A-35 (field order)         |
+| Vector      | Setup                                                                                                                                                                                  | Expected                                                  |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| 35.a accept | `keccak256(abi.encode(...))` with the 23 static ABI words of the definition, 736 bytes                                                                                                 | matches                                                   |
+| 35.b reject | the preimage has 21 or 22 words, for example without `parentValStateHash` or `lastValStateHash`                                                                                        | violates ENC-A-35 (23 words, 736 bytes)                   |
+| 35.c reject | `TAIKO_ETNA_LAND_V1` is replaced by a V2 tag                                                                                                                                           | violates ENC-A-35 (and ENC-A-1)                           |
+| 35.d reject | `blobHashes` are hashed with `abi.encode` instead of `abi.encodePacked`                                                                                                                | violates ENC-A-35                                         |
+| 35.e reject | `l2ChainId` precedes `l1ChainId`                                                                                                                                                       | violates ENC-A-35 (field order)                           |
+| 35.f reject | `lastValStateHash` follows `lastStateRoot` instead of `lastCometHash`                                                                                                                  | violates ENC-A-35 (field order)                           |
+| 35.g reject | p is a recovery generation's start height, whose origin record holds the old generation's validator-state hash, and `parentValStateHash` is replaced by 0 instead of that stored value | violates ENC-A-35 ("the origin record's value as stored") |
 
 ## ENC-A-36
 
