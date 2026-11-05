@@ -135,8 +135,9 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
         assertEq(saved.stateRoot, bytes32(uint256(306)), "signal state root");
     }
 
-    /// @dev Proving (0, 12] after (0, 6] landed: parentHash, parentCometHash and headBefore come
-    /// from `landings(0)`, not from the checkpoint at 6; the new record's parent is the actual c.
+    /// @dev Proving (0, 12] after (0, 6] landed: parentHash, parentCometHash, parentValStateHash
+    /// and headBefore come from `landings(0)`, not from the checkpoint at 6; the new record's
+    /// parent is the actual c.
     function test_land_StatementBindsOriginNotCheckpoint() external {
         _land(0, 6);
         IEtnaInbox.LandInput memory input = _input(0, 12);
@@ -367,7 +368,7 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
         _expectLandRevert(_input(6, 12), none, IEtnaInbox.ForcedInclusionHeadMismatch.selector);
     }
 
-    /// @dev The leaf at c must match c's record in all four words; it is checked while the
+    /// @dev The leaf at c must match c's record in all five words; it is checked while the
     /// verifier rejects everything, so the leaf check runs before the proof.
     function test_land_RevertWhen_FrontierLeafDiffers() external {
         _land(0, 6);

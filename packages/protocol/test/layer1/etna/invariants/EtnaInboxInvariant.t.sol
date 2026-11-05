@@ -126,8 +126,8 @@ contract EtnaInboxInvariantTest is EtnaInboxTestBase {
 
     /// @notice 2. Following `parentHeight` from c reaches block 0 through every landed height in
     /// reverse order: each record is on the grid, its parent below it and its fields (actual
-    /// parent c, generation, queue head, EL and Comet hashes) the model's, through the getter and
-    /// the three slot 285 words. No other grid point up to c + 60 has a record.
+    /// parent c, generation, queue head, EL, Comet and validator-state hashes) the model's, through
+    /// the getter and the four slot 285 words. No other grid point up to c + 60 has a record.
     function invariant_landingRecordsFormTheActualChain() external view {
         _assertModelHeld();
         uint256 remaining = handler.checkpointCount();
@@ -267,7 +267,7 @@ contract EtnaInboxInvariantTest is EtnaInboxTestBase {
         }
     }
 
-    /// @dev Checks a landing record through the getter and its three slot 285 words.
+    /// @dev Checks a landing record through the getter and its four slot 285 words.
     function _assertRecord(
         uint256 _height,
         IEtnaInbox.Landing memory _record,

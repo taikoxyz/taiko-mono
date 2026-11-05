@@ -60,7 +60,7 @@ contract TestSignalServiceL2 is CommonTest, AnchorTestBase, SignalServiceProofFi
 
         vm.warp(ETNA_TIMESTAMP);
         // The wire format is unchanged, but blockId is now interpreted as an L2 timestamp.
-        vm.expectRevert(Anchor.EtnaNotActive.selector);
+        vm.expectRevert(Anchor.TimestampBeforeEtna.selector);
         _signalService.verifySignalReceived(
             SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, VALID_SIGNAL_PROOF
         );

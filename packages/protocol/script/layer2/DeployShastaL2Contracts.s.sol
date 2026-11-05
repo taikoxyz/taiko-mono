@@ -41,9 +41,12 @@ abstract contract DeployShastaL2Contracts is DeployCapability {
         require(config.l2SignalService != address(0), "L2_SIGNAL_SERVICE not set");
         require(config.anchorProxy != address(0), "ANCHOR_PROXY not set");
         // On a running network the gate must lie in the future, or anchorV4 would already revert.
-        // This checks only deploy time. The upgrade to this Anchor implementation must execute on
-        // L2 before etnaTimestamp; otherwise the old, ungated anchorV4 is still live at the fork.
+        // This checks only deploy time. The DAO proposal's single L2 batch upgrades this Anchor
+        // and SignalServiceL2 together and must execute well before the Unzen propose cutoff, so
+        // the Anchor at the Etna start S is already this one (Etna SWITCH.md section 3).
         require(config.etnaTimestamp > block.timestamp, "ETNA_TIMESTAMP not in the future");
+        // ETNA_FORK_TIME is a uint48 in the EtnaInbox; a larger value could never match it.
+        require(config.etnaTimestamp <= type(uint48).max, "ETNA_TIMESTAMP above 2^48 - 1");
     }
 
     /// @dev Preserves an existing immutable pauser when deploying a replacement implementation.

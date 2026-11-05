@@ -161,7 +161,7 @@ contract Anchor is EssentialContract, IL1StateRootProvider {
             require(_blockId <= type(uint48).max, InvalidL1BlockNumber());
             stateRoot_ = checkpointStore.getCheckpoint(uint48(_blockId)).stateRoot;
         } else {
-            require(_blockId >= etnaTimestamp, EtnaNotActive());
+            require(_blockId >= etnaTimestamp, TimestampBeforeEtna());
 
             // EIP-4788 takes a raw 32-byte timestamp without a selector. Missing/expired entries
             // revert; absent code returns no data.
@@ -270,10 +270,10 @@ contract Anchor is EssentialContract, IL1StateRootProvider {
     error AncestorsHashMismatch();
     error AnchorDisabled();
     error InvalidAddress();
+    error InvalidL1BlockNumber();
     error InvalidL1ChainId();
     error InvalidL2ChainId();
     error InvalidSender();
     error L1StateRootNotFound();
-    error EtnaNotActive();
-    error InvalidL1BlockNumber();
+    error TimestampBeforeEtna();
 }

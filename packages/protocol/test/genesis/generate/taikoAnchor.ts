@@ -23,6 +23,16 @@ export async function deployTaikoAnchor(
     if (etnaTimestamp === undefined) {
         throw new Error("genesis config: etnaTimestamp is not set");
     }
+    // The immutable is a uint64; a wider value would leave dirty high bits in the patched word.
+    if (
+        typeof etnaTimestamp !== "string" ||
+        !/^0x[0-9a-fA-F]+$/.test(etnaTimestamp) ||
+        ethers.BigNumber.from(etnaTimestamp).gt("0xffffffffffffffff")
+    ) {
+        throw new Error(
+            "genesis config: etnaTimestamp must be a 0x-prefixed hex string of at most 2^64 - 1",
+        );
+    }
 
     const alloc: any = {};
 

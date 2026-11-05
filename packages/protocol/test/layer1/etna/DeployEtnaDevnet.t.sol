@@ -17,9 +17,9 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 
 /// @title DeployEtnaDevnetTest
 /// @notice Runs `DeployEtnaDevnet` in the owner-initialized order (spec 10 steps 1 and 5): the
-/// Inbox proxy on its bootstrap implementation, the registry fixed to it, a validator registration,
-/// then the SignalService and the Inbox implementation, with the proxy owner's
-/// upgrade-and-initialize call.
+/// Inbox proxy on its bootstrap implementation with the SignalService authorizing it, the registry
+/// fixed to the proxy, a validator registration, then the Inbox implementation, with the proxy
+/// owner's upgrade-and-initialize call.
 /// @dev The base stack stays on its bootstrap implementation; only its registry is used, as a
 /// registry fixed to another Inbox.
 contract DeployEtnaDevnetTest is EtnaInboxTestBase {
@@ -61,6 +61,7 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         _RevertWhen_L2ChainIdDiffersFromTheRegistry();
         _RevertWhen_L1ChainIdMismatch();
         _RevertWhen_ProofVerifierHasNoCode();
+        _RevertWhen_SignalServiceHasNoCode();
         _RevertWhen_UnsettledLimitInvalid();
         _RevertWhen_OptionalVariableMalformed();
     }
@@ -73,12 +74,13 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
     }
 
     /// @dev Sets every variable the script reads. `REGISTRY_MIN_STAKE` is empty, which the script
-    /// reads as unset; `INBOX_PROXY`, `STAKING_REGISTRY` and `GENESIS_CUTOFF` are zero until a
-    /// scenario deploys and registers.
+    /// reads as unset; `INBOX_PROXY`, `SIGNAL_SERVICE`, `STAKING_REGISTRY` and `GENESIS_CUTOFF` are
+    /// zero until a scenario deploys and registers.
     function _setEnvironment() private {
         vm.setEnv("PRIVATE_KEY", vm.toString(_DEPLOYER_PK));
         vm.setEnv("CONTRACT_OWNER", vm.toString(address(0)));
         vm.setEnv("INBOX_PROXY", vm.toString(address(0)));
+        vm.setEnv("SIGNAL_SERVICE", vm.toString(address(0)));
         vm.setEnv("TAIKO_TOKEN", vm.toString(address(taikoToken)));
         vm.setEnv("REGISTRY_MIN_STAKE", "");
         vm.setEnv("REGISTRY_ACTIVATION_DELAY", vm.toString(ACTIVATION_DELAY));
@@ -119,11 +121,22 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
     function _deploysTheBootstrapProxyFirst() private withEnvironment {
         vm.setEnv("CONTRACT_OWNER", vm.toString(Bob));
         uint64 nonce = vm.getNonce(_scriptDeployer);
-        address proxy = _deployment.deployInboxProxy();
-        assertEq(vm.getNonce(_scriptDeployer), nonce + 2, "two CREATEs");
+        (address proxy, address signals) = _deployment.deployInboxProxy();
+        assertEq(vm.getNonce(_scriptDeployer), nonce + 4, "four CREATEs");
         assertEq(_implementation(proxy), vm.computeCreateAddress(_scriptDeployer, nonce));
-        assertEq(proxy, vm.computeCreateAddress(_scriptDeployer, nonce + 1), "proxy last");
+        assertEq(proxy, vm.computeCreateAddress(_scriptDeployer, nonce + 1), "then the proxy");
+        assertEq(signals, vm.computeCreateAddress(_scriptDeployer, nonce + 3), "SignalService");
         assertEq(EssentialContract(proxy).owner(), Bob, "configured owner");
+        assertEq(SignalService(signals).owner(), Bob, "SignalService owner");
+        // Only the Inbox proxy may save checkpoints, before and after its upgrade.
+        ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
+            blockNumber: 1, blockHash: bytes32(uint256(1)), stateRoot: bytes32(uint256(2))
+        });
+        vm.prank(Alice);
+        vm.expectRevert(SignalService.SS_UNAUTHORIZED.selector);
+        SignalService(signals).saveCheckpoint(checkpoint);
+        vm.prank(proxy);
+        SignalService(signals).saveCheckpoint(checkpoint);
         assertFalse(IEtnaInbox(proxy).isInitialized(), "bootstrap reports uninitialized");
         assertEq(vm.load(proxy, bytes32(INITIALIZATION_STATUS_SLOT)), 0, "slot 258 zero");
         assertEq(vm.load(proxy, bytes32(COMMITTEE_CONFIG_HASH_SLOT)), 0, "slot 269 zero");
@@ -131,8 +144,9 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         EtnaInboxBootstrap(proxy).init(Alice);
 
         vm.setEnv("CONTRACT_OWNER", vm.toString(address(0)));
-        address defaultOwned = _deployment.deployInboxProxy();
+        (address defaultOwned, address defaultSignals) = _deployment.deployInboxProxy();
         assertEq(EssentialContract(defaultOwned).owner(), _scriptDeployer, "default owner");
+        assertEq(SignalService(defaultSignals).owner(), _scriptDeployer, "default owner");
     }
 
     function _deploysTheRegistryFixedToTheProxy() private withEnvironment {
@@ -164,14 +178,14 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
 
     function _registersThenOwnerInitializesAndLandsBlockSix() private withEnvironment {
         (address proxy, EtnaStakingRegistry deployedRegistry) = _deployProxyAndRegistry();
+        address signals = vm.envAddress("SIGNAL_SERVICE");
         uint256 cutoff = block.number;
         _registerAndPickCutoff(deployedRegistry);
 
         uint64 nonce = vm.getNonce(_scriptDeployer);
-        (address impl, address signals) = _deployment.deployInbox();
-        assertEq(vm.getNonce(_scriptDeployer), nonce + 4, "three CREATEs and the upgrade call");
-        assertEq(signals, vm.computeCreateAddress(_scriptDeployer, nonce + 1), "SignalService");
-        assertEq(impl, vm.computeCreateAddress(_scriptDeployer, nonce + 2), "then the Inbox");
+        address impl = _deployment.deployInbox();
+        assertEq(vm.getNonce(_scriptDeployer), nonce + 2, "one CREATE and the upgrade call");
+        assertEq(impl, vm.computeCreateAddress(_scriptDeployer, nonce), "the Inbox");
 
         EtnaInbox inbox = EtnaInbox(proxy);
         assertTrue(inbox.isInitialized(), "initialized by the upgrade call");
@@ -186,13 +200,14 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
     function _nonOwnerDeployerLeavesInitToTheOwner() private withEnvironment {
         vm.setEnv("CONTRACT_OWNER", vm.toString(Bob));
         (address proxy, EtnaStakingRegistry deployedRegistry) = _deployProxyAndRegistry();
+        address signals = vm.envAddress("SIGNAL_SERVICE");
         uint256 cutoff = block.number;
         uint256 bondId = _registerAndPickCutoff(deployedRegistry);
         address bootstrap = _implementation(proxy);
 
         uint64 nonce = vm.getNonce(_scriptDeployer);
-        (address impl, address signals) = _deployment.deployInbox();
-        assertEq(vm.getNonce(_scriptDeployer), nonce + 3, "three CREATEs and no upgrade call");
+        address impl = _deployment.deployInbox();
+        assertEq(vm.getNonce(_scriptDeployer), nonce + 1, "one CREATE and no upgrade call");
         assertFalse(IEtnaInbox(proxy).isInitialized(), "proxy stays on the bootstrap");
         assertEq(_implementation(proxy), bootstrap, "bootstrap implementation kept");
         assertEq(SignalService(signals).owner(), Bob, "SignalService owner");
@@ -259,6 +274,13 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         _expectRejectedBeforeBroadcast(proxy, DeployEtnaDevnet.ProofVerifierHasNoCode.selector);
     }
 
+    function _RevertWhen_SignalServiceHasNoCode() private withEnvironment {
+        (address proxy, EtnaStakingRegistry deployedRegistry) = _deployProxyAndRegistry();
+        _registerAndPickCutoff(deployedRegistry);
+        vm.setEnv("SIGNAL_SERVICE", vm.toString(Carol));
+        _expectRejectedBeforeBroadcast(proxy, DeployEtnaDevnet.SignalServiceHasNoCode.selector);
+    }
+
     /// @dev U must be a multiple of 6 in [6, 65,532]; the valid 3,600 then initializes, so the
     /// limit was the only fault.
     function _RevertWhen_UnsettledLimitInvalid() private withEnvironment {
@@ -286,7 +308,7 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         );
 
         vm.setEnv("CONTRACT_OWNER", "");
-        address proxy = _deployment.deployInboxProxy();
+        (address proxy,) = _deployment.deployInboxProxy();
         assertEq(EssentialContract(proxy).owner(), _scriptDeployer, "empty means the deployer");
 
         vm.setEnv("INBOX_PROXY", vm.toString(proxy));
@@ -300,14 +322,16 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
     // Helpers
     // ---------------------------------------------------------------
 
-    /// @dev Runs the first two deployment steps, the Inbox proxy and then the registry fixed to it,
-    /// and exports both addresses.
+    /// @dev Runs the first two deployment steps, the Inbox proxy with its SignalService and then
+    /// the registry fixed to the proxy, and exports all three addresses.
     function _deployProxyAndRegistry()
         private
         returns (address proxy_, EtnaStakingRegistry registry_)
     {
-        proxy_ = _deployment.deployInboxProxy();
+        address signals;
+        (proxy_, signals) = _deployment.deployInboxProxy();
         vm.setEnv("INBOX_PROXY", vm.toString(proxy_));
+        vm.setEnv("SIGNAL_SERVICE", vm.toString(signals));
         registry_ = EtnaStakingRegistry(_deployment.deployRegistry());
         vm.setEnv("STAKING_REGISTRY", vm.toString(address(registry_)));
     }

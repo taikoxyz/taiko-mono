@@ -781,6 +781,7 @@ class VectorsTest(unittest.TestCase):
             self.assertEqual(int(cut["forced_head"]), x // K)
             self.assertEqual(cut["block_hash"], uint(100 + x))
             self.assertEqual(cut["comet_hash"], uint(0 if x == 0 else 200 + x))
+            self.assertEqual(cut["val_state_hash"], uint(0 if x == 0 else 400 + x))
             self.assertEqual(
                 words(cut["preimage"]),
                 [uint(x), cut["block_hash"], cut["comet_hash"], uint(cut["forced_head"]), cut["val_state_hash"]],

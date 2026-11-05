@@ -329,18 +329,15 @@ interface IEtnaInbox {
     /// keccak256(abi.encodePacked(_leaves)))). The statement is the keccak256 of 23 static ABI
     /// words (736 bytes): bytes32("TAIKO_ETNA_LAND_V1"), block.chainid, l2ChainId, this proxy,
     /// stakingRegistry, generation, p, parentHash, parentCometHash, parentValStateHash,
-    /// committeeConfigHash, h,
-    /// lastBlockHash, lastCometHash, lastValStateHash, lastStateRoot, l1ReferenceBlockNumber,
-    /// its block hash,
-    /// keccak256(abi.encodePacked(blobHashes)), headBefore, forcedInclusionHead,
-    /// activeCommitteeSnapshot and cutHash, where parentHash, parentCometHash, parentValStateHash
-    /// and headBefore are
-    /// the elHash, cometHash, valStateHash and head of landings[p] (appendix A). It then sets the
-    /// checkpoint to
-    /// (h, lastBlockHash), activeCommitteeSnapshot, the queue head and landings[h] = (c,
-    /// generation, forcedInclusionHead, lastBlockHash, lastCometHash, lastValStateHash), saves the
-    /// SignalService
-    /// checkpoint (h, lastBlockHash, lastStateRoot) and emits `Landed`. It pays no fee.
+    /// committeeConfigHash, h, lastBlockHash, lastCometHash, lastValStateHash, lastStateRoot,
+    /// l1ReferenceBlockNumber, its block hash, keccak256(abi.encodePacked(blobHashes)),
+    /// headBefore, forcedInclusionHead, activeCommitteeSnapshot and cutHash, where parentHash,
+    /// parentCometHash, parentValStateHash and headBefore are the elHash, cometHash, valStateHash
+    /// and head of landings[p] (appendix A). It then sets the checkpoint to (h, lastBlockHash),
+    /// activeCommitteeSnapshot, the queue head and landings[h] = (c, generation,
+    /// forcedInclusionHead, lastBlockHash, lastCometHash, lastValStateHash), saves the
+    /// SignalService checkpoint (h, lastBlockHash, lastStateRoot) and emits `Landed`. It pays no
+    /// fee.
     /// @param _input The batch's public inputs.
     /// @param _leaves The cut leaves at the grid points p + K, ..., h - K, in height order.
     /// @param _proof The two sub-proofs (spec 6.2).

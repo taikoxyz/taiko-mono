@@ -563,8 +563,8 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
     }
 
     /// @dev `land` hashes the nonzero statement vector from its exact ABI calldata: generation 1
-    /// starts at 6, whose generation-0 record (0, 0, 1, bytes32(106), bytes32(206)) is also the
-    /// checkpoint; head 1 and tail 3.
+    /// starts at 6, whose generation-0 record (0, 0, 1, bytes32(106), bytes32(206),
+    /// bytes32(406)) is also the checkpoint; head 1 and tail 3.
     function test_land_HashesTheNonzeroStatementVector() external {
         string memory j = LibEtnaVectors.load();
         string memory s = ".land_statements[1].";

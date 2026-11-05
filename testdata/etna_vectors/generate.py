@@ -758,8 +758,9 @@ def validator_states():
 
 
 def cut_at(x):
-    """The Lean model's `Examples.cutAt`: EL hash 100 + x, Comet hash 200 + x (0 at x = 0), FI
-    cursor x / 6."""
+    """The cut at height x: the Lean model's `Examples.cutAt` (EL hash 100 + x, Comet hash 200 + x,
+    0 at x = 0, FI cursor x / 6) plus a validator-state hash 400 + x (0 at x = 0), which that model
+    does not have."""
     return {
         "height": x,
         "block_hash": word(100 + x),

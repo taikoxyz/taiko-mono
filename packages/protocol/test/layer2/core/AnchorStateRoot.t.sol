@@ -93,7 +93,7 @@ contract AnchorStateRootTest is AnchorTestBase {
         _recordBeaconRoot(blockNumber, L1_STATE_ROOT);
         vm.warp(ETNA_TIMESTAMP);
 
-        _expectGetterRevert(_anchor, blockNumber, Anchor.EtnaNotActive.selector);
+        _expectGetterRevert(_anchor, blockNumber, Anchor.TimestampBeforeEtna.selector);
     }
 
     function test_getL1StateRoot_ReturnsRootWhenEtnaActiveFromGenesis() external {
@@ -101,6 +101,16 @@ contract AnchorStateRootTest is AnchorTestBase {
         _recordBeaconRoot(1, L1_STATE_ROOT);
 
         assertEq(_getL1StateRoot(anchor, 1), L1_STATE_ROOT);
+    }
+
+    function test_getL1StateRoot_IgnoresCheckpointsWhenEtnaActiveFromGenesis() external {
+        Anchor anchor = _deployAnchor(_checkpointStore, 0);
+        _checkpointStore.saveCheckpoint(_checkpoint(0, 123, uint256(L1_STATE_ROOT)));
+        _checkpointStore.saveCheckpoint(_checkpoint(1, 123, uint256(L1_STATE_ROOT)));
+
+        // EIP-4788 holds no root for timestamp 0 or for an unrecorded timestamp.
+        _expectGetterRevert(anchor, 0);
+        _expectGetterRevert(anchor, 1);
     }
 
     function test_getL1StateRoot_RevertWhen_ZeroRootRecorded() external {

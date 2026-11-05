@@ -2,12 +2,13 @@
 
 Etna is a proof-of-stake validity rollup. A committee of TAIKO stakers orders and finalizes L2
 blocks with stock CometBFT, anyone can land a proven batch on L1, and L1 recognizes only landed
-checkpoints. These are its L1 contracts. Section numbers refer to the
+checkpoints. These are its L1 contracts; the L2 changes are listed under
+[Anchorless L2 contracts](#anchorless-l2-contracts). Section numbers refer to the
 [Etna PoS + ZK design specification](../../../docs/etna/SPEC.md); appendix A is its
 encodings and appendix B its L1 storage layout.
 
-The current specification baseline is main at `e84a9aaac526c15597d97ee93f8803f92b02c279`
-([#22335](https://github.com/taikoxyz/taiko-mono/pull/22335)).
+The current specification baseline is main at `589b542de790861efd8b4d9bb0a4b1d066c2685f`
+([#22338](https://github.com/taikoxyz/taiko-mono/pull/22338)).
 
 ## Contracts
 
@@ -199,20 +200,39 @@ fourth word while the proof applies the generation-start validator-state excepti
 ## Deployment
 
 `script/layer1/etna/DeployEtnaDevnet.s.sol` deploys a new network in the owner-initialized order
-(the Inbox proxy on its bootstrap, the registry, then the owner's `upgradeToAndCall` with `init`),
-with zero `originWriter`, `unzenInbox` and `etnaForkTime`; its NatSpec lists every environment
-variable. Run from `packages/protocol`:
+(the Inbox proxy on its bootstrap with the L1 SignalService, the registry, then the owner's
+`upgradeToAndCall` with `init`), with zero `originWriter`, `unzenInbox` and `etnaForkTime`; its
+NatSpec lists every environment variable. Run from `packages/protocol`:
 
 ```bash
 export FOUNDRY_PROFILE=layer1 S=script/layer1/etna/DeployEtnaDevnet.s.sol:DeployEtnaDevnet
-forge script $S --sig 'deployInboxProxy()' --rpc-url "$L1_RPC" --broadcast # export INBOX_PROXY
+# REMOTE_SIGNAL_SERVICE is the L2 SignalService predeploy; export INBOX_PROXY and SIGNAL_SERVICE.
+forge script $S --sig 'deployInboxProxy()' --rpc-url "$L1_RPC" --broadcast
 forge script $S --sig 'deployRegistry()' --rpc-url "$L1_RPC" --broadcast # export STAKING_REGISTRY
-# Validators register and activate; pick GENESIS_CUTOFF, compute committee 0's record hash,
-# build the L2 genesis and compute block 0's hash and state root with the EL.
+# Validators register and activate; pick GENESIS_CUTOFF and compute committee 0's record hash.
+# Build the L2 genesis (below) and compute block 0's hash and state root with the EL.
 forge script $S --sig 'deployInbox()' --rpc-url "$L1_RPC" --broadcast
 ```
 
-`deployInbox()` deploys the SignalService and the `EtnaInbox` implementation, then upgrades and
+The L2 genesis of a new network needs the Etna L2 predeploys. In
+`test/genesis/data/genesis_config.js` set `chainId` to the L2 chain id, `l1ChainId`,
+`etnaTimestamp: "0x0"` (every block is an Etna block, so `anchorV4` must never be callable; the
+golden touch key is public) and `remoteSignalService` to SIGNAL_SERVICE, then run
+`pnpm genesis:gen` and build the genesis from the base JSON:
+
+```bash
+python3 script/layer2/build_etna_genesis.py --base <genesis.json> \
+  --predeploys test/genesis/data/genesis_alloc.json \
+  --predeploy-config test/genesis/data/genesis_config.json --output <file>
+```
+
+The builder refuses any other `etnaTimestamp`, a zero `remoteSignalService`, another chain id and
+predeploys without the Anchor or SignalService. It replaces the base's accounts at the predeploy
+addresses, adds the EIP-4788 and EIP-2935 system contracts (spec 10 step 3) and changes nothing
+outside `alloc`; the 100% base-fee share is the per-block `extraData[0] = 100` rule that nodes and
+guests enforce, not a genesis field.
+
+`deployInbox()` deploys the `EtnaInbox` implementation over SIGNAL_SERVICE, then upgrades and
 initializes the proxy if the deployer owns it, or logs that call for the owner. No contract
 checks two spec 11 bounds, so the operator must: `REGISTRY_WITHDRAWAL_DELAY` no shorter than the
 double-sign evidence window (suggested at least 50,400 L1 blocks, about 7 days) and
@@ -231,9 +251,21 @@ than blocked recovery or signing. Owners can top up existing entries even in a f
 DAO funding does not bypass owner-only deposits. Exercise detection, attribution, governance and
 L1-inclusion budgets against the fastest lawful withdrawal: the suggested seven days is not
 automatically enough for forfeiture execution. See SPEC 4.4/8.3/11 and ACCEPTANCE 4.
-`script/layer2/build_etna_genesis.py --base <genesis.json> --output <file>` adds the EIP-4788 and
-EIP-2935 system contracts to the L2 genesis alloc (spec 10 step 3); the 100% base-fee share is
-the per-block `extraData[0] = 100` rule that nodes and guests enforce, not a genesis field.
+
+## Anchorless L2 contracts
+
+These implement [ANCHORLESS.md](../../../docs/etna/ANCHORLESS.md) section 4.
+
+- `layer2/core/Anchor.sol`: `anchorV4` reverts from the immutable `etnaTimestamp` on;
+  `getL1StateRoot(blockId)` reads the checkpoint store before it and the EIP-4788 root for an L2
+  timestamp at or after it. `etnaTimestamp` is `ETNA_FORK_TIME` on a switching network and 0 on a
+  new one.
+- `shared/signal/SignalServiceL2.sol`: the L2 SignalService; it resolves proof roots through the
+  Anchor and adds no storage. Both SignalServices keep checkpoints and cached signals under
+  `VERSION`; `_authorizeCheckpoint` is the hook the L1 two-syncer upgrade overrides.
+- `script/layer2/DeployShastaL2Contracts.s.sol` deploys both implementations for a switching
+  network from ETNA_TIMESTAMP without upgrading the proxies; the DAO proposal's single L2 batch
+  upgrades them (SWITCH.md section 3).
 
 ## Tests
 
@@ -242,7 +274,8 @@ Run from `packages/protocol`:
 ```bash
 pnpm test:l1 --match-contract 'Etna|LibEntriesTree|LibEtnaKeys|LibCometVote'
 FOUNDRY_INVARIANT_RUNS=256 pnpm test:l1 --match-contract 'Etna.*Invariant'
-pnpm test:l2 --match-contract EtnaGenesisTest
+pnpm test:l2 --match-contract 'EtnaGenesisTest|Anchor|DeployShastaL2Config'
+pnpm test:shared --match-contract 'SignalService'
 python3 -m unittest discover -s test/layer2/core -p 'test_etna_genesis.py'
 python3 -m unittest discover -s ../../testdata/etna_vectors -p 'test_vectors.py'
 ```
@@ -254,7 +287,8 @@ python3 -m unittest discover -s ../../testdata/etna_vectors -p 'test_vectors.py'
 - The verifier-failure rollback (spec 8); it comes with the Inbox upgrade replacing the verifier.
 - The rest of the switch from Unzen: the start rewrite of spec 10 step 5c, which ships with the
   correcting Inbox upgrade, the L1 SignalService upgrade that accepts both Inboxes and rejects
-  Unzen Inbox checkpoints above S, and the Unzen Inbox cutoffs (10 step 5d).
+  Unzen Inbox checkpoints above S (an override of `_authorizeCheckpoint`), and the Unzen Inbox
+  cutoffs (10 step 5d).
 - Snapshot verification, checkpoint import and switch deployment tooling. The merged spec's
   missing-data retry rules, originWriter finality and timestamp duties, and DAO proposal lead
   guard belong to those implementations and operations; the contract enforces its observable gates.

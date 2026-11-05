@@ -782,7 +782,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
 
     /// @dev Spec 10 step 5b: the start write. Writes slot 272 as (S, L1_0 = block.number, L),
     /// slots 273/274, generation 0's origin (S, L1_0, block.timestamp), the checkpoint (S, hash)
-    /// and landings[S] = (S, 0, 0, hash, 0), and emits `StartWritten`. Callers check that S,
+    /// and landings[S] = (S, 0, 0, hash, 0, 0), and emits `StartWritten`. Callers check that S,
     /// block.number and block.timestamp fit 48 bits.
     /// @param _height The Etna start S.
     /// @param _blockHash The EL block hash of S.
@@ -908,8 +908,8 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// step 5: reads the reference block hash and the blob hashes, reverting if either is
     /// unavailable. A separate frame keeps `land` within the non-IR compiler's stack limit.
     /// @param _input The landing inputs.
-    /// @param _origin The landing record at p: the source of parentHash, parentCometHash and
-    /// headBefore.
+    /// @param _origin The landing record at p: the source of parentHash, parentCometHash,
+    /// parentValStateHash and headBefore.
     /// @param _generation The recovery generation.
     /// @param _cutHash The cut hash.
     /// @return The statement hash.

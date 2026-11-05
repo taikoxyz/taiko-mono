@@ -18,28 +18,32 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// supports only a new network: the Inbox's originWriter, Unzen Inbox and fork time are zero, so
 /// `init` writes the Etna start at block 0 itself; a switch from Unzen (SWITCH.md) is out of
 /// scope. The steps:
-/// 1. `deployInboxProxy()`: the Inbox proxy on `EtnaInboxBootstrap`, which only sets the owner.
-///    Export the proxy as INBOX_PROXY.
+/// 1. `deployInboxProxy()`: the Inbox proxy on `EtnaInboxBootstrap`, which only sets the owner,
+///    then the L1 SignalService authorizing it. Export them as INBOX_PROXY and SIGNAL_SERVICE.
+///    The SignalService comes first because the L2 genesis fixes its address in SignalServiceL2.
 /// 2. `deployRegistry()`: the staking registry with INBOX_PROXY fixed as its Inbox. Export it as
 ///    STAKING_REGISTRY.
 /// 3. Off-script: validators register with a proof of possession of their consensus key and wait
 ///    for activation and L1 finality; pick a past GENESIS_CUTOFF at or after the registry's first
-///    checkpoint, compute committee 0's record hash and build the L2 genesis.
-/// 4. `deployInbox()`: the SignalService authorizing INBOX_PROXY, then the `EtnaInbox`
-///    implementation. The proxy owner upgrades to it and calls `init` in one transaction: the
-///    script sends that call when the deployer owns the proxy and otherwise logs it for the owner.
-/// @dev Every call reads PRIVATE_KEY (the deployer) and the optional CONTRACT_OWNER, the owner of
-/// the proxies it deploys (the deployer if unset, empty or zero). An optional variable that is
-/// set but malformed reverts the call instead of falling back to its default.
-/// `deployInboxProxy()` reads nothing else.
+///    checkpoint, compute committee 0's record hash and build the L2 genesis, whose Anchor has
+///    `etnaTimestamp` 0 and whose SignalServiceL2 proves against SIGNAL_SERVICE
+///    (`script/layer2/build_etna_genesis.py` checks both).
+/// 4. `deployInbox()`: the `EtnaInbox` implementation. The proxy owner upgrades to it and calls
+///    `init` in one transaction: the script sends that call when the deployer owns the proxy and
+///    otherwise logs it for the owner.
+/// @dev Every call reads PRIVATE_KEY (the deployer). `deployInboxProxy()` and `deployRegistry()`
+/// also read the optional CONTRACT_OWNER, the owner of the proxies they deploy (the deployer if
+/// unset, empty or zero). An optional variable that is set but malformed reverts the call instead
+/// of falling back to its default.
+/// `deployInboxProxy()`: REMOTE_SIGNAL_SERVICE (the L2 SignalService).
 /// `deployRegistry()`: INBOX_PROXY; TAIKO_TOKEN; REGISTRY_MIN_STAKE in token base units, which
 /// defaults to ETNA_S_MIN if unset, empty or zero (the two are independent parameters);
 /// REGISTRY_ACTIVATION_DELAY, REGISTRY_EXIT_DELAY and REGISTRY_WITHDRAWAL_DELAY in L1 blocks, each
 /// in [1, 2^32);
 /// SLASH_BOUNTY_BPS (below 10,000, zero allowed); SLASH_SINK (non-zero); L2_CHAIN_ID;
 /// REGISTRY_FORFEIT_BPS (required, in [1, 10,000], with no production default).
-/// `deployInbox()`: INBOX_PROXY; STAKING_REGISTRY; ETNA_PROOF_VERIFIER, which must have code;
-/// REMOTE_SIGNAL_SERVICE (the L2 SignalService); L1_CHAIN_ID, which must equal this chain's id;
+/// `deployInbox()`: INBOX_PROXY; SIGNAL_SERVICE, which must have code; STAKING_REGISTRY;
+/// ETNA_PROOF_VERIFIER, which must have code; L1_CHAIN_ID, which must equal this chain's id;
 /// L2_CHAIN_ID, which must equal the registry's; MAX_BATCH_BLOCKS (in [6, 65,532]);
 /// FORCED_INCLUSION_FEE_GWEI and FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD (non-zero);
 /// PROTOCOL_FEE_RECIPIENT (the DAO treasury, non-zero); GENESIS_BLOCK_HASH and GENESIS_STATE_ROOT
@@ -48,7 +52,8 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// ETNA_VP_UNIT), ETNA_N_MAX (in [1, 4096]) and ETNA_UNSETTLED_LIMIT (U, a multiple of 6 in
 /// [6, 65,532]); FORCED_INCLUSION_DELAY (seconds, non-zero); MAX_ANCHOR_AGE (seconds, at least
 /// 1152).
-/// The script checks only ETNA_PROOF_VERIFIER's code and L1_CHAIN_ID itself; the constructors
+/// The script checks only SIGNAL_SERVICE's and ETNA_PROOF_VERIFIER's code and L1_CHAIN_ID itself;
+/// the constructors
 /// and `init` check the other bounds listed above, so a logged owner call is validated when the
 /// owner sends it. Nothing on chain checks the rest, which the operator must ensure:
 /// MAX_ANCHOR_AGE above the L1 finality delay (spec 11), REGISTRY_WITHDRAWAL_DELAY no shorter
@@ -62,23 +67,31 @@ contract DeployEtnaDevnet is Script {
     // External & Public Functions
     // ---------------------------------------------------------------
 
-    /// @notice Deploys the Inbox proxy on its bootstrap implementation (step 1).
+    /// @notice Deploys the Inbox proxy on its bootstrap implementation and the L1 SignalService
+    /// authorizing it (step 1).
     /// @return proxy_ The Inbox proxy, owned by CONTRACT_OWNER or the deployer.
-    function deployInboxProxy() external returns (address proxy_) {
+    /// @return signalService_ The L1 SignalService proxy, with the same owner.
+    function deployInboxProxy() external returns (address proxy_, address signalService_) {
         uint256 privateKey = _privateKey();
         address owner = _owner(privateKey);
+        address remoteSignalService = vm.envAddress("REMOTE_SIGNAL_SERVICE");
 
         vm.startBroadcast(privateKey);
         address bootstrap = address(new EtnaInboxBootstrap());
         proxy_ = address(
             new ERC1967Proxy(bootstrap, abi.encodeCall(EtnaInboxBootstrap.init, (owner)))
         );
+        address signalImpl = address(new SignalService(proxy_, remoteSignalService, owner));
+        signalService_ =
+            address(new ERC1967Proxy(signalImpl, abi.encodeCall(SignalService.init, (owner))));
         vm.stopBroadcast();
 
         console2.log("EtnaInbox proxy (bootstrap):", proxy_);
         console2.log("  bootstrap implementation:", bootstrap);
         console2.log("  owner:", owner);
-        console2.log("Export INBOX_PROXY, then deploy the registry.");
+        console2.log("SignalService proxy:", signalService_);
+        console2.log("  owner:", owner);
+        console2.log("Export INBOX_PROXY and SIGNAL_SERVICE, then deploy the registry.");
     }
 
     /// @notice Deploys the staking registry with INBOX_PROXY fixed as its Inbox (step 2).
@@ -102,37 +115,28 @@ contract DeployEtnaDevnet is Script {
         console2.log("Validators register and activate before the genesis cutoff is picked.");
     }
 
-    /// @notice Deploys the SignalService authorizing INBOX_PROXY and the `EtnaInbox`
-    /// implementation, then upgrades the proxy to it and initializes it if the deployer owns the
-    /// proxy (step 4).
+    /// @notice Deploys the `EtnaInbox` implementation over SIGNAL_SERVICE, then upgrades the proxy
+    /// to it and initializes it if the deployer owns the proxy (step 4).
     /// @dev Otherwise logs `ownerInitCall(inboxImpl_)` for the proxy owner to send to
-    /// INBOX_PROXY. Reverts before broadcasting if ETNA_PROOF_VERIFIER has no code or L1_CHAIN_ID
-    /// is not this chain's id.
+    /// INBOX_PROXY. Reverts before broadcasting if SIGNAL_SERVICE or ETNA_PROOF_VERIFIER has no
+    /// code or L1_CHAIN_ID is not this chain's id.
     /// @return inboxImpl_ The `EtnaInbox` implementation.
-    /// @return signalService_ The L1 SignalService proxy.
-    function deployInbox() external returns (address inboxImpl_, address signalService_) {
+    function deployInbox() external returns (address inboxImpl_) {
         uint256 privateKey = _privateKey();
-        address owner = _owner(privateKey);
         address proxy = vm.envAddress("INBOX_PROXY");
         IEtnaInbox.Config memory config = _inboxConfig();
+        require(config.signalService.code.length != 0, SignalServiceHasNoCode());
         require(config.proofVerifier.code.length != 0, ProofVerifierHasNoCode());
         require(vm.envUint("L1_CHAIN_ID") == block.chainid, L1ChainIdMismatch());
-        address remoteSignalService = vm.envAddress("REMOTE_SIGNAL_SERVICE");
         bool deployerOwnsProxy = EssentialContract(proxy).owner() == vm.addr(privateKey);
 
         vm.startBroadcast(privateKey);
-        address signalImpl = address(new SignalService(proxy, remoteSignalService, owner));
-        signalService_ =
-            address(new ERC1967Proxy(signalImpl, abi.encodeCall(SignalService.init, (owner))));
-        config.signalService = signalService_;
         inboxImpl_ = address(new EtnaInbox(config));
         if (deployerOwnsProxy) {
             EssentialContract(proxy).upgradeToAndCall(inboxImpl_, _initCall());
         }
         vm.stopBroadcast();
 
-        console2.log("SignalService proxy:", signalService_);
-        console2.log("  owner:", owner);
         console2.log("EtnaInbox implementation:", inboxImpl_);
         console2.log("EtnaInbox proxy:", proxy);
         if (deployerOwnsProxy) {
@@ -194,14 +198,13 @@ contract DeployEtnaDevnet is Script {
         });
     }
 
-    /// @dev Reads the Inbox implementation's configuration; the SignalService is set once
-    /// deployed. A new network has no originWriter, Unzen Inbox or fork time, so all three are
-    /// zero and `init` writes the start at block 0.
+    /// @dev Reads the Inbox implementation's configuration. A new network has no originWriter,
+    /// Unzen Inbox or fork time, so all three are zero and `init` writes the start at block 0.
     /// @return The Inbox configuration.
     function _inboxConfig() private view returns (IEtnaInbox.Config memory) {
         return IEtnaInbox.Config({
             proofVerifier: vm.envAddress("ETNA_PROOF_VERIFIER"),
-            signalService: address(0),
+            signalService: vm.envAddress("SIGNAL_SERVICE"),
             stakingRegistry: vm.envAddress("STAKING_REGISTRY"),
             l2ChainId: _envUint64("L2_CHAIN_ID"),
             maxBatchBlocks: _envUint64("MAX_BATCH_BLOCKS"),
@@ -260,4 +263,6 @@ contract DeployEtnaDevnet is Script {
     error L1ChainIdMismatch();
     /// @notice ETNA_PROOF_VERIFIER has no code.
     error ProofVerifierHasNoCode();
+    /// @notice SIGNAL_SERVICE has no code.
+    error SignalServiceHasNoCode();
 }

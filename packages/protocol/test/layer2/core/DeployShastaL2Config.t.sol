@@ -18,6 +18,10 @@ contract MainnetConfigLoader is DeployShastaL2Mainnet {
     function loadConfig() external view returns (DeploymentConfig memory) {
         return _loadConfig();
     }
+
+    function validateConfig(DeploymentConfig memory _config) external view {
+        _validateConfig(_config);
+    }
 }
 
 contract HoodiConfigLoader is DeployShastaL2Hoodi {
@@ -38,6 +42,28 @@ contract TestDeployShastaL2Config is CommonTest {
 
         _checkLoader(mainnet, LibL2Addrs.SIGNAL_SERVICE);
         _checkLoader(hoodi, LibL2HoodiAddrs.HOODI_SIGNAL_SERVICE);
+    }
+
+    function test_validateConfig_RequiresAFutureUint48EtnaTimestamp() external {
+        MainnetConfigLoader loader = new MainnetConfigLoader();
+        DeployShastaL2Contracts.DeploymentConfig memory config =
+            DeployShastaL2Contracts.DeploymentConfig({
+                l1ChainId: 1,
+                l1SignalService: address(1),
+                l2SignalService: address(2),
+                anchorProxy: address(3),
+                signalServicePauser: address(0),
+                etnaTimestamp: type(uint48).max
+            });
+        loader.validateConfig(config);
+
+        config.etnaTimestamp = uint64(type(uint48).max) + 1;
+        vm.expectRevert(bytes("ETNA_TIMESTAMP above 2^48 - 1"));
+        loader.validateConfig(config);
+
+        config.etnaTimestamp = uint64(block.timestamp);
+        vm.expectRevert(bytes("ETNA_TIMESTAMP not in the future"));
+        loader.validateConfig(config);
     }
 
     function _checkLoader(IDeploymentConfigLoader _loader, address _signalService) private {

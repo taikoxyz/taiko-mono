@@ -7,9 +7,10 @@ import "./ICheckpointStore.sol";
 /// @notice The SignalService contract serves as a secure cross-chain message
 /// passing system. It defines methods for sending and verifying signals with
 /// merkle proofs. The trust assumption is that the target chain has secure
-/// access to the merkle root (such as Taiko injects it in the anchor
-/// transaction). With this, verifying a signal is reduced to simply verifying
-/// a merkle proof.
+/// access to the source chain's state root: on L1, the checkpoints the Inbox
+/// saves; on L2, the checkpoints the anchor transaction saves before Etna and
+/// the EIP-4788 roots the block headers commit to from Etna on. With this,
+/// verifying a signal is reduced to simply verifying a merkle proof.
 /// @custom:security-contact security@taiko.xyz
 interface ISignalService is ICheckpointStore {
     /// @dev DEPRECATED
@@ -61,8 +62,8 @@ interface ISignalService is ICheckpointStore {
     /// @param _app The address that initiated the signal.
     /// @param _signal The signal (message) to send.
     /// @param _proof Merkle proof that the signal was persisted on the
-    /// source chain. If this proof is empty, then we check if this signal has been marked as
-    /// received by TaikoL2.
+    /// source chain. If this proof is empty, the signal must already have been proven and
+    /// cached as received.
     /// @return numCacheOps_ The number of newly cached items.
     function proveSignalReceived(
         uint64 _chainId,
@@ -80,8 +81,8 @@ interface ISignalService is ICheckpointStore {
     /// @param _app The address that initiated the signal.
     /// @param _signal The signal (message) to send.
     /// @param _proof Merkle proof that the signal was persisted on the
-    /// source chain. If this proof is empty, then we check if this signal has been marked as
-    /// received by TaikoL2.
+    /// source chain. If this proof is empty, the signal must already have been proven and
+    /// cached as received.
     function verifySignalReceived(
         uint64 _chainId,
         address _app,

@@ -52,6 +52,35 @@ contract TestSignalService is CommonTest, SignalServiceProofFixture {
         assertEq(stored.stateRoot, checkpoint.stateRoot);
     }
 
+    function test_saveCheckpoint_UsesTheOverriddenAuthorization() public {
+        address secondSyncer = makeAddr("secondSyncer");
+        TwoSyncerSignalService impl = new TwoSyncerSignalService(
+            AUTHORIZED_SYNCER, secondSyncer, REMOTE_SIGNAL_SERVICE, address(0)
+        );
+        SignalService twoSyncers = SignalService(
+            address(new ERC1967Proxy(address(impl), abi.encodeCall(SignalService.init, (deployer))))
+        );
+        ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
+            blockNumber: 1, blockHash: bytes32(uint256(1)), stateRoot: bytes32(uint256(2))
+        });
+
+        vm.prank(AUTHORIZED_SYNCER);
+        twoSyncers.saveCheckpoint(checkpoint);
+        checkpoint.blockNumber = 2;
+        vm.prank(secondSyncer);
+        twoSyncers.saveCheckpoint(checkpoint);
+        // The override sees the checkpoint: the second syncer may not save above height 2.
+        checkpoint.blockNumber = 3;
+        vm.prank(secondSyncer);
+        vm.expectRevert(SignalService.SS_UNAUTHORIZED.selector);
+        twoSyncers.saveCheckpoint(checkpoint);
+        vm.expectRevert(SignalService.SS_UNAUTHORIZED.selector);
+        twoSyncers.saveCheckpoint(checkpoint);
+
+        assertEq(twoSyncers.getCheckpoint(1).stateRoot, bytes32(uint256(2)));
+        assertEq(twoSyncers.getCheckpoint(2).stateRoot, bytes32(uint256(2)));
+    }
+
     function test_saveCheckpoint_RevertWhen_CheckpointFieldInvalid() public {
         ICheckpointStore.Checkpoint memory badStateRoot = ICheckpointStore.Checkpoint({
             blockNumber: 1, blockHash: bytes32(uint256(1)), stateRoot: bytes32(0)
@@ -306,5 +335,27 @@ contract TestSignalService is CommonTest, SignalServiceProofFixture {
 
         vm.store(address(signalService), deprecatedRecordSlot, blockHash);
         vm.store(address(signalService), bytes32(uint256(deprecatedRecordSlot) + 1), stateRoot);
+    }
+}
+
+/// @dev A SignalService with a second syncer limited to heights up to 2, overriding only the
+/// authorization hook.
+contract TwoSyncerSignalService is SignalService {
+    address private immutable _secondSyncer;
+
+    constructor(
+        address _syncer,
+        address _second,
+        address _remote,
+        address _pauserAddress
+    )
+        SignalService(_syncer, _remote, _pauserAddress)
+    {
+        _secondSyncer = _second;
+    }
+
+    function _authorizeCheckpoint(Checkpoint calldata _checkpoint) internal view override {
+        if (msg.sender == _secondSyncer && _checkpoint.blockNumber <= 2) return;
+        super._authorizeCheckpoint(_checkpoint);
     }
 }

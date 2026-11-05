@@ -172,7 +172,7 @@ contract SignalService is EssentialContract, ISignalService {
 
     /// @inheritdoc ICheckpointStore
     function saveCheckpoint(Checkpoint calldata _checkpoint) external override {
-        if (msg.sender != _authorizedSyncer) revert SS_UNAUTHORIZED();
+        _authorizeCheckpoint(_checkpoint);
         if (_checkpoint.stateRoot == bytes32(0)) revert SS_INVALID_CHECKPOINT();
         if (_checkpoint.blockHash == bytes32(0)) revert SS_INVALID_CHECKPOINT();
 
@@ -199,6 +199,15 @@ contract SignalService is EssentialContract, ISignalService {
 
     /// @dev Authorizes the owner or the designated immutable pauser to pause/unpause.
     function _authorizePause(address, bool) internal view override onlyFromOwnerOr(pauser) { }
+
+    /// @dev Reverts unless `msg.sender` may save the checkpoint passed to `saveCheckpoint`. The
+    /// base accepts only the authorized syncer. An implementation with more syncers, such as the
+    /// L1 SignalService that accepts checkpoints from both the Unzen Inbox and the EtnaInbox (Etna
+    /// SWITCH.md section 3), overrides this hook and keeps the base, and so `SignalServiceL2`,
+    /// unchanged.
+    function _authorizeCheckpoint(Checkpoint calldata) internal view virtual {
+        if (msg.sender != _authorizedSyncer) revert SS_UNAUTHORIZED();
+    }
 
     /// @dev Returns the authenticated state root for a checkpoint proof.
     /// @param _blockId Source block number.
