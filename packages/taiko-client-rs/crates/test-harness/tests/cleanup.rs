@@ -43,7 +43,9 @@ if [[ "$1 $2" == 'network ls' ]]; then echo owned-network; fi
         .stderr(std::process::Stdio::null())
         .kill_on_drop(true)
         .spawn()?;
-    tokio::time::timeout(Duration::from_secs(5), async {
+    // Before it reaches cargo, the entrypoint builds the Go helpers for real, which can take
+    // several seconds on a loaded host under `nice`; only the termination below is timed.
+    tokio::time::timeout(Duration::from_secs(60), async {
         while !ready.exists() {
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
