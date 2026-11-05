@@ -12,7 +12,7 @@ set_option maxHeartbeats 400000
 set_option linter.unusedSimpArgs false
 set_option backward.isDefEq.respectTransparency false
 
-def legacy : Header := { first with cometHash := 0,cursor := 0 }
+def legacy : Header := { first with cometHash := 0,cursor := 0,valStateHash := 0 }
 def baseEnv : Environment := { NonVacuity.baseEnv with
   core := ⟨domain,7,8,99,3,9⟩
   unzenNextProposal := 2
@@ -44,7 +44,7 @@ def block : Block := ⟨body,⟨0,0,0,0,0⟩,[],some [1],[[1]]⟩
 def definition : Blocks.Definition :=
   ⟨fun p b => decide (p = legacy ∧ b.header = second),
     fun _ raw transactions => decide (raw = [] ∧ transactions = [[1]]),NonVacuity.bytes⟩
-def landing : Landing := ⟨⟨1,2,102,202,101,4,1,4⟩,[],[1],[⟨.sgx,11,1⟩,⟨.sp1,11,2⟩]⟩
+def landing : Landing := ⟨⟨1,2,102,202,302,101,4,1,4⟩,[],[1],[⟨.sgx,11,1⟩,⟨.sp1,11,2⟩]⟩
 def template : StatementData := { statement baseEnv (source baseEnv) landing with referenceHash := 16 }
 
 def knownSnapshots : List Snapshot := (source baseEnv).history
@@ -130,7 +130,7 @@ instance : Decidable (Blocks.HeaderValid pol legacy block) := inferInstanceAs (D
   rfl
 
  theorem source_statement : statement env (source env) landing = template := by
-  change (⟨domain,1,0,101,0,0,landing.input,referenceHash env (source env) 4,[1],⟨1,1,2,[]⟩⟩ : StatementData) = template
+  change (⟨domain,1,0,101,0,0,0,landing.input,referenceHash env (source env) 4,[1],⟨1,1,2,[]⟩⟩ : StatementData) = template
   rw [source_reference]
   rfl
 
@@ -165,7 +165,7 @@ instance : Decidable (Blocks.HeaderValid pol legacy block) := inferInstanceAs (D
       exact ⟨⟨block_valid,True.intro⟩,rfl⟩
     · change template = Blocks.statement (policy env (certificateWorld env (source env) 4) archive 4) legacy [block] [1]
       rw [policyFixed]
-      change template = (⟨domain,1,0,101,0,0,landing.input,referenceHash env (source env) 4,[1],⟨1,1,2,[]⟩⟩ : StatementData)
+      change template = (⟨domain,1,0,101,0,0,0,landing.input,referenceHash env (source env) 4,[1],⟨1,1,2,[]⟩⟩ : StatementData)
       rw [source_reference]
       rfl
     · intro b member

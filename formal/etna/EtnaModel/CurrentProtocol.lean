@@ -185,7 +185,7 @@ def writeRecord (records : List Checkpoint) (cp : Checkpoint) : List Checkpoint 
 
 def writeStart (w : World) (height hash root block timestamp generation : Nat) : World :=
   let origin : Etna.Design.Origin := ⟨height,block,timestamp⟩
-  let cp : Checkpoint := ⟨height,hash,0,0,generation,height⟩
+  let cp : Checkpoint := ⟨height,hash,0,0,generation,height,0⟩
   { w with start := some ⟨height,hash,root⟩,     inbox := { w.inbox with generation := generation,origin := origin,       origins := w.inbox.origins ++ [(generation,origin)],checkpoint := cp,       records := writeRecord w.inbox.records cp },activeRecords := [cp],activeSnapshots := [(cp,w.inbox.snapshot)] }
 
 def initializeInbox (env : Environment) (w : World) (caller : Nat) : Option World :=
@@ -197,7 +197,8 @@ def initializeInbox (env : Environment) (w : World) (caller : Nat) : Option Worl
       env.token.slashSink ≠ 0 then
     let initial := { w with initialized := true,       inbox := { w.inbox with snapshot := env.parameters.genesisCutoff },       configurations := [(0,env.parameters)] }
     if env.core.unzenInbox = 0 then
-      if env.genesisHeader.height = 0 ∧ env.genesisHeader.cursor = 0 ∧ env.genesisHeader.cometHash = 0 then
+      if env.genesisHeader.height = 0 ∧ env.genesisHeader.cursor = 0 ∧ env.genesisHeader.cometHash = 0 ∧
+          env.genesisHeader.valStateHash = 0 then
         let started := writeStart initial 0 env.genesisHeader.elHash env.genesisHeader.stateRoot
           w.number (env.time w.number) 0
         some { started with inbox := { started.inbox with           signals := [⟨0,env.genesisHeader.elHash,env.genesisHeader.stateRoot⟩] } }
@@ -335,7 +336,7 @@ def certificateOrigin (w : World) : Option Checkpoint := recordAt w.inbox (confi
 
 def certificateOriginCut (w : World) : Cut :=
   let cp := (certificateOrigin w).getD default
-  ⟨cp.elHash,cp.cometHash,cp.cursor⟩
+  ⟨cp.elHash,cp.cometHash,cp.cursor,cp.valStateHash⟩
 
 /-- The raw live storage needed to apply a reference-local certificate. Registry changes
 above the reference and all checkpoint/FI progress may differ. -/
@@ -398,7 +399,8 @@ structure Landing where
 
 def statement (env : Environment) (w : World) (a : Landing) : StatementData :=
   let origin := (recordAt w.inbox a.input.parentHeight).getD default
-  ⟨w.inbox.domain,w.inbox.generation,w.inbox.committeeConfig,origin.elHash,origin.cometHash,origin.cursor,
+  ⟨w.inbox.domain,w.inbox.generation,w.inbox.committeeConfig,origin.elHash,origin.cometHash,origin.valStateHash,
+    origin.cursor,
     a.input,referenceHash env w a.input.l1ReferenceBlockNumber,a.blobs,
     ⟨w.inbox.generation,a.input.parentHeight,a.input.lastHeight,a.leaves⟩⟩
 
@@ -430,7 +432,8 @@ structure LandingChecks (env : Environment) (w : World) (a : Landing) : Prop whe
   leafCount : a.leaves.length = gridCount w.inbox.gridK a.input.parentHeight a.input.lastHeight
   frontier : a.input.parentHeight < w.inbox.checkpoint.height →
     a.leaves.getD ((w.inbox.checkpoint.height-a.input.parentHeight)/w.inbox.gridK-1) default =
-      cutLeaf w.inbox.checkpoint.height ⟨w.inbox.checkpoint.elHash,w.inbox.checkpoint.cometHash,w.inbox.head⟩
+      cutLeaf w.inbox.checkpoint.height
+        ⟨w.inbox.checkpoint.elHash,w.inbox.checkpoint.cometHash,w.inbox.head,w.inbox.checkpoint.valStateHash⟩
   cursor : ((recordAt w.inbox w.inbox.checkpoint.height).getD default).cursor = w.inbox.head
   head : w.inbox.head ≤ a.input.forcedInclusionHead
   tail : a.input.forcedInclusionHead ≤ w.inbox.tail
@@ -456,7 +459,8 @@ instance (env : Environment) (w : World) (a : Landing) : Decidable (LandingCheck
     ((recordAt w.inbox a.input.parentHeight).isSome = true) ∧
     (((recordAt w.inbox a.input.parentHeight).getD default).generation = w.inbox.generation ∨ a.input.parentHeight = w.inbox.origin.height) ∧
     (a.leaves.length = gridCount w.inbox.gridK a.input.parentHeight a.input.lastHeight) ∧
-    (a.input.parentHeight < w.inbox.checkpoint.height → a.leaves.getD ((w.inbox.checkpoint.height-a.input.parentHeight)/w.inbox.gridK-1) default = cutLeaf w.inbox.checkpoint.height ⟨w.inbox.checkpoint.elHash,w.inbox.checkpoint.cometHash,w.inbox.head⟩) ∧
+    (a.input.parentHeight < w.inbox.checkpoint.height → a.leaves.getD ((w.inbox.checkpoint.height-a.input.parentHeight)/w.inbox.gridK-1) default = cutLeaf w.inbox.checkpoint.height
+        ⟨w.inbox.checkpoint.elHash,w.inbox.checkpoint.cometHash,w.inbox.head,w.inbox.checkpoint.valStateHash⟩) ∧
     (((recordAt w.inbox w.inbox.checkpoint.height).getD default).cursor = w.inbox.head) ∧
     (w.inbox.head ≤ a.input.forcedInclusionHead) ∧
     (a.input.forcedInclusionHead ≤ w.inbox.tail) ∧
@@ -472,7 +476,7 @@ instance (env : Environment) (w : World) (a : Landing) : Decidable (LandingCheck
 /-- State written by L1 contains only decoded statement fields, never an assumed valid chain. -/
 def landed (w : World) (a : Landing) : World :=
   let cp : Checkpoint := ⟨a.input.lastHeight,a.input.lastBlockHash,a.input.lastCometHash,
-    a.input.forcedInclusionHead,w.inbox.generation,w.inbox.checkpoint.height⟩
+    a.input.forcedInclusionHead,w.inbox.generation,w.inbox.checkpoint.height,a.input.lastValStateHash⟩
   { w with inbox := { w.inbox with checkpoint := cp,records := writeRecord w.inbox.records cp,       head := a.input.forcedInclusionHead,snapshot := a.input.activeCommitteeSnapshot,       signals := w.inbox.signals ++ [⟨a.input.lastHeight,a.input.lastBlockHash,a.input.lastStateRoot⟩] },     activeRecords := cp :: w.activeRecords,activeSnapshots := (cp,a.input.activeCommitteeSnapshot) :: w.activeSnapshots,everLanded := true }
 
 def land (env : Environment) (w : World) (a : Landing) : Option World :=
@@ -499,7 +503,7 @@ def nodeImport (env : Environment) (w : World) (candidate : Import.Candidate) (d
     if env.importValid generation checkpoint candidate = true ∧ candidate.height = checkpoint.height ∧
         candidate.checkpointEL = checkpoint.elHash ∧ generation = w.inbox.generation ∧
         candidate.origin = w.inbox.origin.height then
-      (Import.publish candidate generation w.node.signer durable).map fun installed =>
+      (Import.publish candidate generation w.inbox.configuration.unsettled w.node.signer durable).map fun installed =>
         { w with node := { w.node with importedHeaders := installed.headerNumbers,           signer := { installed.signer with ready := false },trusted := false } }
     else none
 
@@ -514,16 +518,16 @@ def nodeTrust (env : Environment) (w : World) (archive : List Header) (blocks : 
     cp = w.inbox.checkpoint ∧ w.node.signer.activeGeneration = generation ∧
     w.node.generationWatermark ≤ generation ∧
     ∃ p origin, recordAt w.inbox w.inbox.origin.height = some origin ∧
-      p.height = w.inbox.origin.height ∧ p.cut = ⟨origin.elHash,origin.cometHash,origin.cursor⟩ ∧
+      p.height = w.inbox.origin.height ∧ p.cut = ⟨origin.elHash,origin.cometHash,origin.cursor,origin.valStateHash⟩ ∧
       env.headerHash p = p.elHash ∧
       (p.height = start.height → p.stateRoot = start.stateRoot) ∧
       (env.core.unzenInbox ≠ 0 → cp.height = start.height →
         env.unzenRoot p ∧ env.startImplementation p.stateRoot = true ∧ p.timestamp < env.core.forkTime) ∧
       Blocks.Chain (policy env w archive w.number) p blocks ∧
       (Blocks.terminal p blocks).height = cp.height ∧ (Blocks.terminal p blocks).cut =
-        ⟨cp.elHash,cp.cometHash,cp.cursor⟩ ∧
+        ⟨cp.elHash,cp.cometHash,cp.cursor,cp.valStateHash⟩ ∧
       Archive.Authenticated env.headerHash env.headerParent (config w)
-        ⟨origin.elHash,origin.cometHash,origin.cursor⟩ w.number archive p blocks
+        ⟨origin.elHash,origin.cometHash,origin.cursor,origin.valStateHash⟩ w.number archive p blocks
 
 /-- This is an explicit app validation event, not a caller-supplied trusted Boolean. -/
 inductive NodeEvent (env : Environment) (w : World) : Node → Prop
@@ -650,10 +654,11 @@ structure Suffix (env : Environment) (w : World) (a : Landing) where
   ready : Finality.Ready (config w) w.registry.registry archive (Blocks.terminal parent blocks).height
   valid : Blocks.Chain (policy env w archive a.input.l1ReferenceBlockNumber) parent blocks
   parentHeight : parent.height = w.inbox.checkpoint.height
-  parentCut : parent.cut = ⟨w.inbox.checkpoint.elHash,w.inbox.checkpoint.cometHash,w.inbox.head⟩
+  parentCut : parent.cut =
+    ⟨w.inbox.checkpoint.elHash,w.inbox.checkpoint.cometHash,w.inbox.head,w.inbox.checkpoint.valStateHash⟩
   terminalHeight : (Blocks.terminal parent blocks).height = a.input.lastHeight
   terminalCut : (Blocks.terminal parent blocks).cut =
-    ⟨a.input.lastBlockHash,a.input.lastCometHash,a.input.forcedInclusionHead⟩
+    ⟨a.input.lastBlockHash,a.input.lastCometHash,a.input.forcedInclusionHead,a.input.lastValStateHash⟩
   terminalRoot : (Blocks.terminal parent blocks).stateRoot = a.input.lastStateRoot
   parentHashBound : HashBound env parent
   headerHashes : ∀ b ∈ blocks, HashBound env b.header

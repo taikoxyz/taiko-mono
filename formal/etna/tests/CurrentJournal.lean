@@ -17,7 +17,7 @@ def registry : RegistryMachine.State :=
 def env : Protocol.Environment where
   core := ⟨domain,7,8,0,0,9⟩
   parameters := ⟨1,10,0,⟨Committee.minUnit,Committee.minUnit,1,10⟩,2,1152,10,1,1,9⟩
-  genesisHeader := ⟨0,100,100,0,0,0,⟨0,0,0,0,0,0,0⟩⟩
+  genesisHeader := ⟨0,100,100,0,0,0,⟨0,0,0,0,0,0,0⟩,0⟩
   initialSigner := ⟨domain,0,0,[],false,[]⟩
   time := id
   stateRoot := fun s => s.number

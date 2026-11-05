@@ -46,13 +46,15 @@ def NoEarlySkip (env : Environment) (w : World) : Prop :=
     Blocks.Included (Blocks.definition (policy env w archive reference) block).bytes
       entry block.transactions.head?
 
-/-- Publication installs every original generation header, including both endpoints,
-with no duplicate or missing index. -/
-structure ImportRange (candidate : Import.Candidate) (installed : Import.Installed) : Prop where
-  ordered : installed.headerNumbers = List.range' candidate.origin (candidate.height-candidate.origin+1)
+/-- Publication installs every original generation header from max(o, s - U + 1) through s,
+including both endpoints, with no duplicate or missing index (DATA-5.4-4). -/
+structure ImportRange (candidate : Import.Candidate) (unsettled : Nat) (installed : Import.Installed) : Prop where
+  ordered : installed.headerNumbers = List.range' (Import.retainedFrom candidate unsettled)
+    (candidate.height+1-Import.retainedFrom candidate unsettled)
   origin : candidate.origin ≤ candidate.height
-  length : installed.headerNumbers.length = candidate.height-candidate.origin+1
-  complete : ∀ n, n ∈ installed.headerNumbers ↔ candidate.origin ≤ n ∧ n ≤ candidate.height
+  length : installed.headerNumbers.length = candidate.height+1-Import.retainedFrom candidate unsettled
+  complete : ∀ n, n ∈ installed.headerNumbers ↔
+    candidate.origin ≤ n ∧ candidate.height+1 ≤ n+unsettled ∧ n ≤ candidate.height
   distinct : installed.headerNumbers.Nodup
 
 end Etna.Design.Current.QueueIntegrity

@@ -78,7 +78,7 @@ set_option linter.unusedSimpArgs false
     (switching : env.core.unzenInbox ≠ 0) (noSignals : w.inbox.signals = [])
     (height hash root block timestamp generation : Nat) :
     Coherent env initial (writeStart w height hash root block timestamp generation) := by
-  exact Or.inl ⟨noSignals,Or.inr ⟨rfl,switching,⟨height,hash,root⟩,rfl,rfl,rfl,rfl,rfl⟩⟩
+  exact Or.inl ⟨noSignals,Or.inr ⟨rfl,switching,⟨height,hash,root⟩,rfl,rfl,rfl,rfl,rfl,rfl⟩⟩
 
  theorem rollback_coherent {env : Environment} {initial w t : World} {caller snap : Nat}
     {trusted : Checkpoint} (held : Coherent env initial w)
@@ -146,7 +146,7 @@ set_option linter.unusedSimpArgs false
   obtain ⟨H,head,headers,links,named,parent⟩ := existing
   obtain ⟨rest,records⟩ := List.head?_eq_some_iff.mp head
   let cp : Checkpoint := ⟨a.input.lastHeight,a.input.lastBlockHash,a.input.lastCometHash,
-    a.input.forcedInclusionHead,w.inbox.generation,w.inbox.checkpoint.height⟩
+    a.input.forcedInclusionHead,w.inbox.generation,w.inbox.checkpoint.height,a.input.lastValStateHash⟩
   let terminal := Blocks.terminal segment.parent segment.blocks
   let G : Checkpoint → Header := fun r => if r = cp then terminal else H r
   have fresh : ∀ r ∈ w.activeRecords, r ≠ cp := by
@@ -210,9 +210,9 @@ set_option linter.unusedSimpArgs false
         cases Option.some.inj ok
         refine Or.inr ⟨fun _ => env.genesisHeader,rfl,?_,?_,?_⟩
         · intro cp mem
-          have same : cp = ⟨0,env.genesisHeader.elHash,0,0,0,0⟩ := by simpa [writeStart] using mem
+          have same : cp = ⟨0,env.genesisHeader.elHash,0,0,0,0,0⟩ := by simpa [writeStart] using mem
           subst cp
-          exact ⟨⟨genesis.1,by simp [BlockValidity.Header.cut,genesis.2.1,genesis.2.2]⟩,primitive.genesis⟩
+          exact ⟨⟨genesis.1,by simp [BlockValidity.Header.cut,genesis.2.1,genesis.2.2.1,genesis.2.2.2]⟩,primitive.genesis⟩
         · exact .root _ ⟨⟨0,env.genesisHeader.elHash,env.genesisHeader.stateRoot⟩,rfl,genesis.1,rfl,rfl,
             Or.inl ⟨newNetwork,rfl⟩⟩
         · intro signal mem

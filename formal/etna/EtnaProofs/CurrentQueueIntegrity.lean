@@ -117,11 +117,13 @@ theorem landing_service {env : Environment} {registry : RegistryMachine.State} {
   exact ⟨wit.stored,index ▸ Journal.opening_current (Journal.trace_invariant trace) valid carried,
     valid.positionZero,action⟩
 
-/-- The importer installs the full inclusive original-header range, preserving its order
-and uniqueness. This is decoded publication, not a proof of stock Comet store refinement. -/
-theorem import_complete_range {c : Import.Candidate} {generation : Nat} {signer : Signer.State}
+/-- The importer installs the inclusive original-header range max(o, s - U + 1)..s, preserving
+its order and uniqueness. This is decoded publication, not a proof of stock Comet store
+refinement. -/
+theorem import_complete_range {c : Import.Candidate} {generation unsettled : Nat} {signer : Signer.State}
     {durable : Bool} {installed : Import.Installed}
-    (ok : Import.publish c generation signer durable = some installed) : ImportRange c installed := by
+    (ok : Import.publish c generation unsettled signer durable = some installed) :
+    ImportRange c unsettled installed := by
   obtain ⟨_,_,_,headers⟩ := Import.publish_boundary ok
   have origin : c.origin ≤ c.height := by
     unfold Import.publish at ok
@@ -136,22 +138,27 @@ theorem import_complete_range {c : Import.Candidate} {generation : Nat} {signer 
   refine ⟨headers,origin,by simp [headers],?_,?_⟩
   · intro n
     rw [headers,List.mem_range'_1]
+    unfold Import.retainedFrom
     omega
   · rw [headers]
     exact List.nodup_range'
 
 /-- Import publication always closes signing readiness and trust, while retaining the
-signer's domain, anti-double-sign HRS, prior records and completed original-header range. -/
+signer's domain, anti-double-sign HRS, prior records and the completed original-header range
+max(o, s - U + 1)..s. -/
 theorem node_import_closed {env : Environment} {w t : World} {candidate : Import.Candidate} {durable : Bool}
     (ok : nodeImport env w candidate durable = some t) :
     t.node.trusted = false ∧ t.node.signer.ready = false ∧
     t.node.signer = { w.node.signer with ready := false } ∧
     t.node.signer.domain = w.node.signer.domain ∧
     t.node.signer.log = w.node.signer.log ∧
-    t.node.importedHeaders = List.range' candidate.origin (candidate.height-candidate.origin+1) ∧
-    (∀ n, n ∈ t.node.importedHeaders ↔ candidate.origin ≤ n ∧ n ≤ candidate.height) ∧
+    t.node.importedHeaders = List.range' (Import.retainedFrom candidate w.inbox.configuration.unsettled)
+      (candidate.height+1-Import.retainedFrom candidate w.inbox.configuration.unsettled) ∧
+    (∀ n, n ∈ t.node.importedHeaders ↔ candidate.origin ≤ n ∧
+      candidate.height+1 ≤ n+w.inbox.configuration.unsettled ∧ n ≤ candidate.height) ∧
     candidate.origin = w.inbox.origin.height ∧
-    (∀ n, n ∈ t.node.importedHeaders ↔ w.inbox.origin.height ≤ n ∧ n ≤ candidate.height) := by
+    (∀ n, n ∈ t.node.importedHeaders ↔ w.inbox.origin.height ≤ n ∧
+      candidate.height+1 ≤ n+w.inbox.configuration.unsettled ∧ n ≤ candidate.height) := by
   unfold nodeImport at ok
   split at ok
   next => simp at ok

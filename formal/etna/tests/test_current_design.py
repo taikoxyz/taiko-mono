@@ -15,11 +15,11 @@ spec.loader.exec_module(coverage)
 class CurrentAuthorityTests(unittest.TestCase):
     def test_inventory_is_current_only(self):
         current = coverage.inventory()
-        self.assertEqual(len(current), 566)
+        self.assertEqual(len(current), 567)
         self.assertTrue(all('historical' not in r for r in current))
         self.assertEqual({r['language'] for r in current},
                          {'live_en', 'live_acceptance', 'live_anchorless', 'live_switch'})
-        self.assertTrue(all(r['source_commit'] == 'e84a9aaac526c15597d97ee93f8803f92b02c279' for r in current))
+        self.assertTrue(all(r['source_commit'] == '589b542de790861efd8b4d9bb0a4b1d066c2685f' for r in current))
         self.assertFalse(any(r['status'] == 'design-pending' for r in current))
         self.assertTrue(all(n.startswith('Etna.Design.Current.') for r in current for n in r['theorems']))
         self.assertTrue(any(r['status'] == 'partial' for r in current))

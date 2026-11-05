@@ -1024,7 +1024,7 @@ theorem write_start_frontier (w : World) (height hash root block timestamp gener
   · intro _; exact head
   · intro _; exact List.mem_cons_self
   · intro r mem
-    have same : r = ⟨height,hash,0,0,generation,height⟩ := by simpa [writeStart] using mem
+    have same : r = ⟨height,hash,0,0,generation,height,0⟩ := by simpa [writeStart] using mem
     subst r
     exact written_lookup _ _
   · intro _; exact head.symm
@@ -1097,7 +1097,7 @@ theorem execute_frontier_shape {env : Environment} {w t : World} {call : Call}
           · intro impossible; cases impossible
           · intro impossible; cases impossible
           · intro r mem
-            have same : r = ⟨0,env.genesisHeader.elHash,0,0,0,0⟩ := by simpa only [writeStart,List.mem_singleton] using mem
+            have same : r = ⟨0,env.genesisHeader.elHash,0,0,0,0,0⟩ := by simpa only [writeStart,List.mem_singleton] using mem
             subst r
             exact written_lookup _ _
         next => simp at ok

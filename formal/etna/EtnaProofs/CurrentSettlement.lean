@@ -55,6 +55,8 @@ theorem accepted_suffix_from_certificate {env : Environment} {w t : World} {a : 
   have last : a.input.lastHeight = (Blocks.terminal p bs).height := congrArg LandInput.lastHeight inputs
   have lastHash : a.input.lastBlockHash = (Blocks.terminal p bs).elHash := congrArg LandInput.lastBlockHash inputs
   have lastComet : a.input.lastCometHash = (Blocks.terminal p bs).cometHash := congrArg LandInput.lastCometHash inputs
+  have lastVal : a.input.lastValStateHash = (Blocks.terminal p bs).valStateHash :=
+    congrArg LandInput.lastValStateHash inputs
   have lastRoot : a.input.lastStateRoot = (Blocks.terminal p bs).stateRoot := congrArg LandInput.lastStateRoot inputs
   have lastCursor : a.input.forcedInclusionHead = (Blocks.terminal p bs).cursor := congrArg LandInput.forcedInclusionHead inputs
   have leaves : a.leaves = gridLeaves w.inbox.gridK p.height (Blocks.terminal p bs).height (Blocks.cuts p bs) := by
@@ -73,7 +75,8 @@ theorem accepted_suffix_from_certificate {env : Environment} {w t : World} {a : 
     omega
   have cursor : w.inbox.checkpoint.cursor = w.inbox.head := by
     simpa [record] using check.cursor
-  have qcut : q.cut = ⟨w.inbox.checkpoint.elHash,w.inbox.checkpoint.cometHash,w.inbox.head⟩ := by
+  have qcut : q.cut =
+      ⟨w.inbox.checkpoint.elHash,w.inbox.checkpoint.cometHash,w.inbox.head,w.inbox.checkpoint.valStateHash⟩ := by
     rw [Blocks.headerAt_cut p bs n bound]
     rcases Nat.lt_or_eq_of_le low with lt | eq
     · have frontier := check.frontier (by omega)
@@ -84,23 +87,26 @@ theorem accepted_suffix_from_certificate {env : Environment} {w t : World} {a : 
       exact (Leaf.cut.inj frontier).2
     · have originEl := congrArg StatementData.parentHash binding
       have originComet := congrArg StatementData.parentCometHash binding
+      have originVal := congrArg StatementData.parentValStateHash binding
       have originCursor := congrArg StatementData.headBefore binding
       have originRecord : recordAt w.inbox a.input.parentHeight = some w.inbox.checkpoint := by
         rw [parent,eq]; exact record
-      simp only [statement,originRecord,Option.getD_some,Blocks.statement] at originEl originComet originCursor
+      simp only [statement,originRecord,Option.getD_some,Blocks.statement]
+        at originEl originComet originVal originCursor
       have nz : n = 0 := by dsimp [n]; omega
       simp only [nz,Blocks.cuts,List.getD_cons_zero,BlockValidity.Header.cut]
-      rw [← originEl,← originComet,← originCursor,cursor]
+      rw [← originEl,← originComet,← originVal,← originCursor,cursor]
   have qbound : HashBound env q := headerAt_hash_bound hashp hashes n
   have terminal := Blocks.suffix_terminal p bs n
   refine ⟨⟨archive,q,bs.drop n,?_,(Blocks.chain_suffix valid.1 n).2,qheight,qcut,?_,?_,?_,qbound,?_⟩⟩
   · simpa only [q,terminal] using ready
   · exact terminal ▸ last.symm
   · rw [terminal]
-    exact congrArg (fun (x : Nat × Nat × Nat) => (⟨x.1,x.2.1,x.2.2⟩ : Cut))
-      (show ((Blocks.terminal p bs).elHash,(Blocks.terminal p bs).cometHash,(Blocks.terminal p bs).cursor) =
-        (a.input.lastBlockHash,a.input.lastCometHash,a.input.forcedInclusionHead) from
-        by rw [lastHash,lastComet,lastCursor])
+    exact congrArg (fun (x : Nat × Nat × Nat × Nat) => (⟨x.1,x.2.1,x.2.2.1,x.2.2.2⟩ : Cut))
+      (show ((Blocks.terminal p bs).elHash,(Blocks.terminal p bs).cometHash,(Blocks.terminal p bs).cursor,
+          (Blocks.terminal p bs).valStateHash) =
+        (a.input.lastBlockHash,a.input.lastCometHash,a.input.forcedInclusionHead,a.input.lastValStateHash) from
+        by rw [lastHash,lastComet,lastCursor,lastVal])
   · rw [terminal]; exact lastRoot.symm
   · intro b member
     exact hashes b (List.mem_of_mem_drop member)

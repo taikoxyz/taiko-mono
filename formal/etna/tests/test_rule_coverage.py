@@ -147,8 +147,9 @@ class RuleCoverageTests(unittest.TestCase):
         rows = {r['rule']:r for r in self.rows()}
         prefix = 'Etna.Design.Current.'
         self.assertEqual(set(rows['DATA-5.4-5']['theorems']), {
-            prefix+'Import.authenticated_conflict_halts',
-            prefix+'Import.invalid_data_rejected', prefix+'Import.publish_boundary',
+            prefix+'Import.authenticated_conflict_halts', prefix+'Import.committee_conflict_halts',
+            prefix+'Import.invalid_data_rejected', prefix+'Import.invalid_val_state_rejected',
+            prefix+'Import.next_validators_conflict_halts', prefix+'Import.publish_boundary',
             prefix+'Import.unfinalized_checkpoint_retries'})
         self.assertEqual(set(rows['DATA-5.4-7']['theorems']), {
             prefix+'Import.publish_boundary', prefix+'QueueIntegrity.node_import_closed'})

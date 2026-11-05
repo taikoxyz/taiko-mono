@@ -84,8 +84,14 @@ class CurrentCustodyTests(unittest.TestCase):
                     'if True then some (landed w a) else none')
 
     def test_origin_cursor_is_bound(self):
-        self.reject('origin.elHash,origin.cometHash,origin.cursor,',
-                    'origin.elHash,origin.cometHash,0,')
+        self.reject('origin.valStateHash,\n    origin.cursor,', 'origin.valStateHash,\n    0,')
+
+    def test_origin_val_state_is_bound(self):
+        self.reject('origin.cometHash,origin.valStateHash,\n    origin.cursor,',
+                    'origin.cometHash,0,\n    origin.cursor,')
+
+    def test_landing_records_its_val_state(self):
+        self.reject('w.inbox.checkpoint.height,a.input.lastValStateHash⟩', 'w.inbox.checkpoint.height,0⟩')
 
     def test_parent_hash_binding_required(self):
         self.reject('HashBound env p ∧ (∀ b ∈ bs, HashBound env b.header)',

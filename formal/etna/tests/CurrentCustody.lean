@@ -17,9 +17,9 @@ example : (8-5)/3-1 < gridCount 3 5 11 ∧ 5+3*((8-5)/3-1+1) = 8 ∧
   offset_frontier_index (s := 5) (by decide) (by decide) (by decide) (by decide) (by decide)
 
 def domain : Domain := ⟨1,2,3,4⟩
-def genesis : Header := ⟨0,100,100,0,0,1,⟨1,1,1,0,100,0,0⟩⟩
-def h1 : Header := ⟨1,101,101,201,0,2,⟨1,1,1,0,100,0,0⟩⟩
-def h2 : Header := ⟨2,102,102,202,0,3,⟨1,1,1,0,100,0,0⟩⟩
+def genesis : Header := ⟨0,100,100,0,0,1,⟨1,1,1,0,100,0,0⟩,0⟩
+def h1 : Header := ⟨1,101,101,201,0,2,⟨1,1,1,0,100,0,0⟩,0⟩
+def h2 : Header := ⟨2,102,102,202,0,3,⟨1,1,1,0,100,0,0⟩,0⟩
 def entry : Committee.Entry := ⟨7,Committee.minUnit,0,Staking.noExit⟩
 def registry : RegistryMachine.State :=
   { ledger := ⟨1,fun id => if id = 0 then some ⟨⟨7,8,Committee.minUnit,0,Staking.noExit,false,none,0,0⟩,some 0⟩ else none,
@@ -98,7 +98,7 @@ theorem b2_valid : Blocks.Valid pol h1 b2 := by
     | (constructor <;> decide +kernel)
     | (intro wit carried; cases carried)
 
-def landing : Landing := ⟨⟨0,2,102,202,102,1,0,0⟩,[cutLeaf 1 h1.cut],[1],[⟨.sgx,11,1⟩,⟨.sp1,11,2⟩]⟩
+def landing : Landing := ⟨⟨0,2,102,202,0,102,1,0,0⟩,[cutLeaf 1 h1.cut],[1],[⟨.sgx,11,1⟩,⟨.sp1,11,2⟩]⟩
 
 theorem landing_checks : LandingChecks env source landing := by decide +kernel
 theorem landing_accepted : land env source landing = some (landed source landing) := by
@@ -133,7 +133,7 @@ example : Nonempty (Suffix env source landing) :=
   accepted_suffix_from_certificate landing_accepted landing_certifies (by decide +kernel)
 
 -- The first accepted edge settles only height 1; the next proof still starts at 0.
-def firstLanding : Landing := { landing with input := ⟨0,1,101,201,101,1,0,0⟩,leaves := [] }
+def firstLanding : Landing := { landing with input := ⟨0,1,101,201,0,101,1,0,0⟩,leaves := [] }
 def afterFirst := landed source firstLanding
 
 theorem first_checks : LandingChecks env source firstLanding := by decide +kernel
@@ -205,7 +205,11 @@ example : ∃ root, Custody.AuthenticRoot env initial root ∧ Custody.Descends 
   Custody.path_rooted overlap_path
 
 -- A forged overlap frontier changes no accepted output state.
-example : (Protocol.land env afterFirst { landing with leaves := [cutLeaf 1 ⟨999,201,0⟩] }).isNone = true := by
+example : (Protocol.land env afterFirst { landing with leaves := [cutLeaf 1 ⟨999,201,0,0⟩] }).isNone = true := by
+  decide +kernel
+-- Matching EL/Comet hashes and FI cursor are not enough: the frontier leaf's validator-state
+-- hash must equal the record's (6.1 step 3, #22338).
+example : (Protocol.land env afterFirst { landing with leaves := [cutLeaf 1 { h1.cut with valStateHash := 5 }] }).isNone = true := by
   decide +kernel
 
 -- A refused start is corrected before any landing, preserving the old archival record.
@@ -215,7 +219,7 @@ def switchAdvanced := Protocol.transact switchEnv switchInitial (.advance 2)
 def switchInitialized := Protocol.transact switchEnv switchAdvanced (.initializeInbox 7)
 def wrongStart := Protocol.transact switchEnv switchInitialized (.setOrigin 8 5 505 505)
 def correctedStart := Protocol.transact switchEnv wrongStart (.correctStart 7 1 501 501)
-def legacyHeader : Header := ⟨1,501,501,0,0,1,⟨500,1,500,0,0,0,0⟩⟩
+def legacyHeader : Header := ⟨1,501,501,0,0,1,⟨500,1,500,0,0,0,0⟩,0⟩
 def provenStart := Protocol.transact switchEnv correctedStart (.unzenProve 1 legacyHeader 77)
 def switchImaged := Protocol.transact switchEnv provenStart (.image 7 11 true)
 def switchSource := Protocol.transact switchEnv switchImaged (.advance 3)
@@ -230,7 +234,7 @@ example : correctedStart.inbox.generation = 1 ∧ correctedStart.inbox.signals =
     (recordAt correctedStart.inbox 5).isSome = true ∧ correctedStart.inbox.checkpoint.height = 1 := by
   decide +kernel
 
-def switchHeader : Header := ⟨2,502,502,602,0,3,⟨2,2,2,1,501,1,0⟩⟩
+def switchHeader : Header := ⟨2,502,502,602,0,3,⟨2,2,2,1,501,1,0⟩,0⟩
 def switchBlock : Block := ⟨⟨switchHeader,501,none,domain,1,3,100,100,true,none,1,1,2,0,
   [⟨domain,1,2,0,2,602,7⟩],none,.completedEmpty⟩,⟨0,0,0,0,0⟩,[],none,[]⟩
 def switchArchive : List Header := [switchHeader]
@@ -246,7 +250,7 @@ theorem switch_valid : Blocks.Valid switchPolicy legacyHeader switchBlock := by
     | (constructor <;> decide +kernel)
     | (intro wit carried; cases carried)
 
-def switchLanding : Landing := ⟨⟨1,2,502,602,502,2,0,2⟩,[],[1],[⟨.sgx,11,1⟩,⟨.sp1,11,2⟩]⟩
+def switchLanding : Landing := ⟨⟨1,2,502,602,0,502,2,0,2⟩,[],[1],[⟨.sgx,11,1⟩,⟨.sp1,11,2⟩]⟩
 theorem switch_checks : LandingChecks switchEnv switchSource switchLanding := by decide +kernel
 theorem switch_accepted : Protocol.land switchEnv switchSource switchLanding = some (landed switchSource switchLanding) := by
   simp [Protocol.land,switch_checks]
@@ -293,7 +297,7 @@ def switchSuffix : Suffix switchEnv switchSource switchLanding where
 
 theorem corrected_root_path : Custody.Path switchEnv switchInitial legacyHeader :=
   .unzen switch_reachable switch_accepted rfl (by decide) rfl True.intro
-    ⟨rfl,rfl,rfl,rfl,rfl,rfl,rfl⟩ rfl ⟨⟨1,501,501⟩,by decide +kernel⟩
+    ⟨rfl,rfl,rfl,rfl,rfl,rfl,rfl,rfl⟩ rfl ⟨⟨1,501,501⟩,by decide +kernel⟩
 
 theorem corrected_landing_path : Custody.Path switchEnv switchInitial switchHeader :=
   .landing switch_reachable switch_accepted switchSuffix corrected_root_path

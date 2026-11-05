@@ -39,7 +39,8 @@ theorem accepted_certificate_checkpoint_split {env : Environment} {w t : World} 
     omega
   have cursor : w.inbox.checkpoint.cursor = w.inbox.head := by
     simpa [record] using check.cursor
-  have qcut : q.cut = ⟨w.inbox.checkpoint.elHash,w.inbox.checkpoint.cometHash,w.inbox.head⟩ := by
+  have qcut : q.cut =
+      ⟨w.inbox.checkpoint.elHash,w.inbox.checkpoint.cometHash,w.inbox.head,w.inbox.checkpoint.valStateHash⟩ := by
     rw [Blocks.headerAt_cut p bs n bound]
     rcases Nat.lt_or_eq_of_le low with lt | eq
     · have frontier := check.frontier (by omega)
@@ -50,13 +51,15 @@ theorem accepted_certificate_checkpoint_split {env : Environment} {w t : World} 
       exact (Leaf.cut.inj frontier).2
     · have originEl := congrArg StatementData.parentHash binding
       have originComet := congrArg StatementData.parentCometHash binding
+      have originVal := congrArg StatementData.parentValStateHash binding
       have originCursor := congrArg StatementData.headBefore binding
       have originRecord : recordAt w.inbox a.input.parentHeight = some w.inbox.checkpoint := by
         rw [parent,eq]; exact record
-      simp only [statement,originRecord,Option.getD_some,Blocks.statement] at originEl originComet originCursor
+      simp only [statement,originRecord,Option.getD_some,Blocks.statement]
+        at originEl originComet originVal originCursor
       have nz : n = 0 := by dsimp [n]; omega
       simp only [nz,Blocks.cuts,List.getD_cons_zero,BlockValidity.Header.cut]
-      rw [← originEl,← originComet,← originCursor,cursor]
+      rw [← originEl,← originComet,← originVal,← originCursor,cursor]
   obtain ⟨root,prior,rootHeight,_,rootBound,shape,priorTerminal,linked,archiveBound,_⟩ := auth
   let before := prior ++ (bs.take n).map Blocks.Block.header
   let after := (bs.drop n).map Blocks.Block.header

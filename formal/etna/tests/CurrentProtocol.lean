@@ -37,7 +37,7 @@ def registry : RegistryMachine.State :=
 def env : Protocol.Environment where
   core := ⟨domain,7,8,0,0,9⟩
   parameters := ⟨1,10,0,⟨Committee.minUnit,Committee.minUnit,1,10⟩,2,1152,10,1,1,9⟩
-  genesisHeader := ⟨0,100,100,0,0,0,⟨0,0,0,0,0,0,0⟩⟩
+  genesisHeader := ⟨0,100,100,0,0,0,⟨0,0,0,0,0,0,0⟩,0⟩
   initialSigner := ⟨domain,0,0,[],false,[]⟩
   time := id
   stateRoot := fun s => s.number
@@ -68,8 +68,8 @@ def closed2 : Protocol.World := Protocol.transact env started (.advance 2)
 def observed : Protocol.World := Protocol.transact env closed2 (.observe 1)
 
 theorem authenticated_start_trust : Protocol.nodeTrust env observed [] [] := by
-  refine ⟨rfl,⟨0,100,100⟩,rfl,0,⟨0,100,0,0,0,0⟩,?_,?_,?_,?_,?_,env.genesisHeader,
-    ⟨0,100,0,0,0,0⟩,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_⟩
+  refine ⟨rfl,⟨0,100,100⟩,rfl,0,⟨0,100,0,0,0,0,0⟩,?_,?_,?_,?_,?_,env.genesisHeader,
+    ⟨0,100,0,0,0,0,0⟩,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_⟩
   all_goals solve
     | exact True.intro
     | decide

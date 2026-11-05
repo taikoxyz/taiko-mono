@@ -498,25 +498,25 @@
     {
       "module": "EtnaProofs.Current",
       "declaration": "Etna.Design.Current.Import.authenticated_conflict_halts",
-      "type": "∀ {c : Etna.Design.Current.Import.Candidate} {generation : Nat},\n  c.generation = generation →\n    c.origin ≤ c.height →\n      c.checkpointAuthenticated = Bool.true →\n        c.checkpointFinalized = Bool.true →\n          c.dataHashAuthenticated = Bool.true →\n            c.envelopeEL ≠ c.checkpointEL →\n              Etna.Design.Current.Import.inspect c generation = Etna.Design.Current.Import.Decision.halt",
+      "type": "∀ {c : Etna.Design.Current.Import.Candidate} {generation : Nat},\n  c.generation = generation →\n    c.origin ≤ c.height →\n      c.checkpointAuthenticated = Bool.true →\n        c.checkpointFinalized = Bool.true →\n          c.dataHashAuthenticated = Bool.true →\n            c.valStateAuthenticated = Bool.true →\n              c.envelopeEL ≠ c.checkpointEL →\n                Etna.Design.Current.Import.inspect c generation = Etna.Design.Current.Import.Decision.halt",
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-c000ff052b2bf68d"],
+      "sources": ["LIVE_EN-87331d19f043f44c"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Finalized authenticated imported envelope disagreement halts; decoded candidate inspection only, no alert or store implementation proof."
     },
     {
       "module": "EtnaProofs.Current",
       "declaration": "Etna.Design.Current.Import.unfinalized_checkpoint_retries",
-      "type": "∀ {c : Etna.Design.Current.Import.Candidate} {generation : Nat},\n  c.generation = generation →\n    c.origin ≤ c.height →\n      c.checkpointAuthenticated = Bool.true →\n        c.dataHashAuthenticated = Bool.true →\n          c.checkpointFinalized = Bool.false →\n            Etna.Design.Current.Import.inspect c generation = Etna.Design.Current.Import.Decision.retry",
+      "type": "∀ {c : Etna.Design.Current.Import.Candidate} {generation : Nat},\n  c.generation = generation →\n    c.origin ≤ c.height →\n      c.checkpointAuthenticated = Bool.true →\n        c.dataHashAuthenticated = Bool.true →\n          c.valStateAuthenticated = Bool.true →\n            c.checkpointFinalized = Bool.false →\n              Etna.Design.Current.Import.inspect c generation = Etna.Design.Current.Import.Decision.retry",
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-c000ff052b2bf68d"],
+      "sources": ["LIVE_EN-87331d19f043f44c"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. A checkpoint record landed only in an unfinalized L1 block leaves decoded import retrying until it finalizes (DATA-5.3-4 as DATA-5.4-5 applies it); no L1 finality adapter proof."
     },
     {
@@ -528,19 +528,55 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-c000ff052b2bf68d"],
+      "sources": ["LIVE_EN-87331d19f043f44c"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. An unauthenticated DataHash rejects the candidate; decoded inspection only, no store implementation proof."
     },
     {
       "module": "EtnaProofs.Current",
-      "declaration": "Etna.Design.Current.Import.publish_boundary",
-      "type": "∀ {c : Etna.Design.Current.Import.Candidate} {generation : Nat} {signer : Etna.Design.Signer.State} {durable : Bool}\n  {installed : Etna.Design.Current.Import.Installed},\n  Etna.Design.Current.Import.publish c generation signer durable = Option.some installed →\n    durable = Bool.true ∧\n      installed.signer = signer ∧\n        installed.trusted = Bool.false ∧ installed.headerNumbers = List.range' c.origin (c.height - c.origin + 1)",
+      "declaration": "Etna.Design.Current.Import.invalid_val_state_rejected",
+      "type": "∀ (c : Etna.Design.Current.Import.Candidate) (generation : Nat),\n  c.valStateAuthenticated = Bool.false →\n    Etna.Design.Current.Import.inspect c generation = Etna.Design.Current.Import.Decision.reject",
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-c000ff052b2bf68d", "LIVE_EN-f98242f5400aa7f7"],
+      "sources": ["LIVE_EN-87331d19f043f44c"],
+      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. A validator-state preimage that does not hash to the record value rejects the candidate; decoded inspection only, no preimage encoding or store implementation proof."
+    },
+    {
+      "module": "EtnaProofs.Current",
+      "declaration": "Etna.Design.Current.Import.next_validators_conflict_halts",
+      "type": "∀ {c : Etna.Design.Current.Import.Candidate} {generation : Nat},\n  c.generation = generation →\n    c.origin ≤ c.height →\n      c.checkpointAuthenticated = Bool.true →\n        c.checkpointFinalized = Bool.true →\n          c.dataHashAuthenticated = Bool.true →\n            c.valStateAuthenticated = Bool.true →\n              c.nextValidatorsMatch = Bool.false →\n                Etna.Design.Current.Import.inspect c generation = Etna.Design.Current.Import.Decision.halt",
+      "assumptions": [
+        "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-87331d19f043f44c"],
+      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. A finalized record whose validator-state preimage matches but whose set for s + 1 disagrees with header(s)'s next_validators_hash halts; decoded inspection only, no alert or CometBFT state proof."
+    },
+    {
+      "module": "EtnaProofs.Current",
+      "declaration": "Etna.Design.Current.Import.committee_conflict_halts",
+      "type": "∀ {c : Etna.Design.Current.Import.Candidate} {generation : Nat},\n  c.generation = generation →\n    c.origin ≤ c.height →\n      c.checkpointAuthenticated = Bool.true →\n        c.checkpointFinalized = Bool.true →\n          c.dataHashAuthenticated = Bool.true →\n            c.valStateAuthenticated = Bool.true →\n              c.envelopeEL = c.checkpointEL →\n                c.nextValidatorsMatch = Bool.true →\n                  c.materialAvailable = Bool.true →\n                    c.metadataAuthenticated = Bool.true →\n                      c.committeesMatch = Bool.false →\n                        Etna.Design.Current.Import.inspect c generation = Etna.Design.Current.Import.Decision.halt",
+      "assumptions": [
+        "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-87331d19f043f44c"],
+      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. With the window available and authenticated, a derived committee that disagrees with the matching preimage halts; decoded inspection only, no 4.3 derivation or alert proof."
+    },
+    {
+      "module": "EtnaProofs.Current",
+      "declaration": "Etna.Design.Current.Import.publish_boundary",
+      "type": "∀ {c : Etna.Design.Current.Import.Candidate} {generation unsettled : Nat} {signer : Etna.Design.Signer.State}\n  {durable : Bool} {installed : Etna.Design.Current.Import.Installed},\n  Etna.Design.Current.Import.publish c generation unsettled signer durable = Option.some installed →\n    durable = Bool.true ∧\n      installed.signer = signer ∧\n        installed.trusted = Bool.false ∧\n          installed.headerNumbers =\n            List.range' (Etna.Design.Current.Import.retainedFrom c unsettled)\n              (c.height + 1 - Etna.Design.Current.Import.retainedFrom c unsettled)",
+      "assumptions": [
+        "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-87331d19f043f44c", "LIVE_EN-f98242f5400aa7f7"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Successful decoded publication requires the durable flag, preserves the signer and grants no trust; actual store staging remains external."
     },
     {
@@ -658,7 +694,7 @@
       "type": "∀ {r : Etna.Design.Current.Blocks.GenerationPolicy} {p : Etna.Design.Current.Blocks.Header}\n  {bs : List Etna.Design.Current.Blocks.Block},\n  Etna.Design.Current.Blocks.Chain r p bs → Etna.Design.cursorSteps (Etna.Design.Current.Blocks.cuts p bs) = Bool.true",
       "sources": [
         "LIVE_EN-2e7fa6e510a4d3cb",
-        "LIVE_EN-7ae0985576149bdc",
+        "LIVE_EN-9dabf1462e3643ef",
         "LIVE_EN-332fe10acb3ea4eb"
       ],
       "assumptions": [
@@ -674,7 +710,7 @@
       "type": "∀ {r : Etna.Design.Current.Blocks.GenerationPolicy} {p : Etna.Design.Current.Blocks.Header}\n  {bs : List Etna.Design.Current.Blocks.Block},\n  Etna.Design.Current.Blocks.Chain r p bs →\n    ∀ (edge : Nat × Nat),\n      edge ∈ Etna.Design.Current.Blocks.cursorWalk p bs → edge.fst ≤ edge.snd ∧ edge.snd ≤ edge.fst + 1",
       "sources": [
         "LIVE_EN-2e7fa6e510a4d3cb",
-        "LIVE_EN-7ae0985576149bdc",
+        "LIVE_EN-9dabf1462e3643ef",
         "LIVE_EN-332fe10acb3ea4eb"
       ],
       "assumptions": [
@@ -688,7 +724,7 @@
       "module": "EtnaProofs.CurrentBlocks",
       "role": "property",
       "type": "∀ {r : Etna.Design.Current.Blocks.GenerationPolicy} {p : Etna.Design.Current.Blocks.Header}\n  {bs : List Etna.Design.Current.Blocks.Block},\n  Etna.Design.Current.Blocks.Chain r p bs → (Etna.Design.Current.Blocks.terminal p bs).height = p.height + bs.length",
-      "sources": ["LIVE_EN-7ae0985576149bdc"],
+      "sources": ["LIVE_EN-9dabf1462e3643ef"],
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
@@ -844,7 +880,7 @@
       "module": "EtnaProofs.CurrentBlocks",
       "role": "supporting",
       "type": "∀ {r : Etna.Design.Current.Blocks.GenerationPolicy} {p : Etna.Design.Current.Blocks.Header}\n  {b : Etna.Design.Current.Blocks.Block},\n  p.height ≠ r.consensus.originHeight →\n    Etna.Design.Current.Blocks.AnchorValid r p b →\n      p.anchor.number ≤ b.header.anchor.number ∧\n        r.consensus.anchorAt p.height = p.anchor.number ∧\n          b.body.anchorWitness = Decidable.decide (p.anchor.number ≠ b.header.anchor.number) ∧\n            (p.anchor.number = b.header.anchor.number → p.anchor = b.header.anchor)",
-      "sources": ["LIVE_EN-7ae0985576149bdc"],
+      "sources": ["LIVE_EN-9dabf1462e3643ef"],
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
@@ -903,13 +939,13 @@
       "declaration": "Etna.Design.Current.Blocks.statement_endpoints",
       "module": "EtnaProofs.CurrentBlocks",
       "role": "supporting",
-      "type": "∀ (r : Etna.Design.Current.Blocks.GenerationPolicy) (p : Etna.Design.Current.Blocks.Header)\n  (bs : List Etna.Design.Current.Blocks.Block) (blobs : List Etna.Design.Hash),\n  (Etna.Design.Current.Blocks.statement r p bs blobs).input.parentHeight = p.height ∧\n    (Etna.Design.Current.Blocks.statement r p bs blobs).input.lastHeight =\n        (Etna.Design.Current.Blocks.terminal p bs).height ∧\n      (Etna.Design.Current.Blocks.statement r p bs blobs).input.lastBlockHash =\n          (Etna.Design.Current.Blocks.terminal p bs).elHash ∧\n        (Etna.Design.Current.Blocks.statement r p bs blobs).input.lastStateRoot =\n            (Etna.Design.Current.Blocks.terminal p bs).stateRoot ∧\n          (Etna.Design.Current.Blocks.statement r p bs blobs).input.forcedInclusionHead =\n              (Etna.Design.Current.Blocks.terminal p bs).cursor ∧\n            (Etna.Design.Current.Blocks.statement r p bs blobs).cutHash =\n              Etna.Design.tableHash r.gridK r.consensus.generation p.height\n                (Etna.Design.Current.Blocks.terminal p bs).height (Etna.Design.Current.Blocks.cuts p bs)",
-      "sources": ["LIVE_EN-7ae0985576149bdc"],
+      "type": "∀ (r : Etna.Design.Current.Blocks.GenerationPolicy) (p : Etna.Design.Current.Blocks.Header)\n  (bs : List Etna.Design.Current.Blocks.Block) (blobs : List Etna.Design.Hash),\n  (Etna.Design.Current.Blocks.statement r p bs blobs).input.parentHeight = p.height ∧\n    (Etna.Design.Current.Blocks.statement r p bs blobs).input.lastHeight =\n        (Etna.Design.Current.Blocks.terminal p bs).height ∧\n      (Etna.Design.Current.Blocks.statement r p bs blobs).input.lastBlockHash =\n          (Etna.Design.Current.Blocks.terminal p bs).elHash ∧\n        (Etna.Design.Current.Blocks.statement r p bs blobs).input.lastCometHash =\n            (Etna.Design.Current.Blocks.terminal p bs).cometHash ∧\n          (Etna.Design.Current.Blocks.statement r p bs blobs).input.lastValStateHash =\n              (Etna.Design.Current.Blocks.terminal p bs).valStateHash ∧\n            (Etna.Design.Current.Blocks.statement r p bs blobs).input.lastStateRoot =\n                (Etna.Design.Current.Blocks.terminal p bs).stateRoot ∧\n              (Etna.Design.Current.Blocks.statement r p bs blobs).input.forcedInclusionHead =\n                  (Etna.Design.Current.Blocks.terminal p bs).cursor ∧\n                (Etna.Design.Current.Blocks.statement r p bs blobs).cutHash =\n                  Etna.Design.tableHash r.gridK r.consensus.generation p.height\n                    (Etna.Design.Current.Blocks.terminal p bs).height (Etna.Design.Current.Blocks.cuts p bs)",
+      "sources": ["LIVE_EN-9dabf1462e3643ef"],
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Exact decoded terminal EL hash and FI cursor equal statement fields; no authenticated-origin hashes or first-cut cursor conclusion."
+      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Exact decoded terminal EL hash, CometBFT hash, validator-state hash and FI cursor equal statement fields; no authenticated-origin hashes or first-cut cursor conclusion."
     },
     {
       "declaration": "Etna.Design.Current.Blocks.suffix_terminal",
@@ -940,7 +976,7 @@
       "module": "EtnaProofs.CurrentBlocks",
       "role": "supporting",
       "type": "∀ {r : Etna.Design.Current.Blocks.GenerationPolicy} {p : Etna.Design.Current.Blocks.Header}\n  {b : Etna.Design.Current.Blocks.Block},\n  r.catalogue (Etna.Design.Current.Blocks.selectedRules b) = Option.none → ¬Etna.Design.Current.Blocks.Valid r p b",
-      "sources": ["LIVE_EN-7ae0985576149bdc"],
+      "sources": ["LIVE_EN-9dabf1462e3643ef"],
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
@@ -966,7 +1002,7 @@
       "type": "∀ {r : Etna.Design.Current.Blocks.GenerationPolicy} {p : Etna.Design.Current.Blocks.Header}\n  {b : Etna.Design.Current.Blocks.Block},\n  Etna.Design.Current.Blocks.Valid r p b → p.cursor ≤ b.header.cursor ∧ b.header.cursor ≤ p.cursor + 1",
       "sources": [
         "LIVE_EN-2e7fa6e510a4d3cb",
-        "LIVE_EN-7ae0985576149bdc",
+        "LIVE_EN-9dabf1462e3643ef",
         "LIVE_EN-332fe10acb3ea4eb"
       ],
       "assumptions": [
@@ -1143,7 +1179,7 @@
       "type": "∀ {env : Etna.Design.Current.Protocol.Environment} {initial : Etna.Design.Current.Protocol.World}\n  {h : Etna.Design.Current.Protocol.Header},\n  Etna.Design.Current.Protocol.Custody.Path env initial h →\n    ∃ root,\n      Etna.Design.Current.Protocol.Custody.AuthenticRoot env initial root ∧\n        Etna.Design.Current.Protocol.Custody.Descends env initial root h",
       "sources": [
         "LIVE_EN-a563a899ed3d4c6b",
-        "LIVE_EN-7ae0985576149bdc",
+        "LIVE_EN-9dabf1462e3643ef",
         "LIVE_SWITCH-5feebcd49f3b4148",
         "LIVE_SWITCH-2b455848adac9018"
       ],
@@ -3055,7 +3091,7 @@
       "bridge_level": "spec-proved",
       "sources": [
         "LIVE_EN-a563a899ed3d4c6b",
-        "LIVE_EN-7ae0985576149bdc",
+        "LIVE_EN-9dabf1462e3643ef",
         "LIVE_SWITCH-cc0dc0613d835bcf",
         "LIVE_SWITCH-f52091db530cc114",
         "LIVE_SWITCH-512ea2bb85cd825f",
@@ -3680,7 +3716,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-7ae0985576149bdc", "LIVE_EN-ad883390e144f5e5"],
+      "sources": ["LIVE_EN-9dabf1462e3643ef", "LIVE_EN-ad883390e144f5e5"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. An accepted landing has an actually submitted proof whose declared image certifies the complete decoded batch under each selected ruleset and stop. This uses the primitive backend/image soundness contract; it establishes neither image-combination availability nor guest implementation refinement. LIVE_EN-7ae0985576149bdc: Only PROOF-6.2-45a: the certificate is tied to one actually submitted sound proof image and a complete per-block valid batch with selected-interpreter/stop checks. No unrelated cuts, switching-implementation, or inherited-anchor requirement is inferred.; LIVE_EN-ad883390e144f5e5: Only START-10.1-6a: every selected ruleset of the image-certified decoded batch belongs to that actual image's declared implementation set. No proof-combination availability or registration/revocation policy follows."
     },
     {
@@ -3783,13 +3819,13 @@
       "declaration": "Etna.Design.Current.QueueIntegrity.import_complete_range",
       "module": "EtnaProofs.CurrentQueueIntegrity",
       "role": "supporting",
-      "type": "∀ {c : Etna.Design.Current.Import.Candidate} {generation : Nat} {signer : Etna.Design.Signer.State} {durable : Bool}\n  {installed : Etna.Design.Current.Import.Installed},\n  Etna.Design.Current.Import.publish c generation signer durable = Option.some installed →\n    Etna.Design.Current.QueueIntegrity.ImportRange c installed",
+      "type": "∀ {c : Etna.Design.Current.Import.Candidate} {generation unsettled : Nat} {signer : Etna.Design.Signer.State}\n  {durable : Bool} {installed : Etna.Design.Current.Import.Installed},\n  Etna.Design.Current.Import.publish c generation unsettled signer durable = Option.some installed →\n    Etna.Design.Current.QueueIntegrity.ImportRange c unsettled installed",
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-e9433576eae740ac"],
-      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Numeric original-header interval includes every height from origin through checkpoint exactly once; actual EL header contents, indexes and stock stores are deferred."
+      "sources": ["LIVE_EN-5197fc5f88162605"],
+      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Numeric original-header interval includes every height from max(origin, checkpoint - U + 1) through checkpoint exactly once; actual EL header contents, indexes and stock stores are deferred."
     },
     {
       "declaration": "Etna.Design.Current.QueueIntegrity.landing_service",
@@ -3825,13 +3861,13 @@
       "declaration": "Etna.Design.Current.QueueIntegrity.node_import_closed",
       "module": "EtnaProofs.CurrentQueueIntegrity",
       "role": "supporting",
-      "type": "∀ {env : Etna.Design.Current.Protocol.Environment} {w t : Etna.Design.Current.Protocol.World}\n  {candidate : Etna.Design.Current.Import.Candidate} {durable : Bool},\n  Etna.Design.Current.Protocol.nodeImport env w candidate durable = Option.some t →\n    t.node.trusted = Bool.false ∧\n      t.node.signer.ready = Bool.false ∧\n        (t.node.signer =\n            have __src := w.node.signer;\n            { domain := __src.domain, activeGeneration := __src.activeGeneration, startHeight := __src.startHeight,\n              retired := __src.retired, ready := Bool.false, log := __src.log }) ∧\n          t.node.signer.domain = w.node.signer.domain ∧\n            t.node.signer.log = w.node.signer.log ∧\n              t.node.importedHeaders = List.range' candidate.origin (candidate.height - candidate.origin + 1) ∧\n                (∀ (n : Nat), n ∈ t.node.importedHeaders ↔ candidate.origin ≤ n ∧ n ≤ candidate.height) ∧\n                  candidate.origin = w.inbox.origin.height ∧\n                    ∀ (n : Nat), n ∈ t.node.importedHeaders ↔ w.inbox.origin.height ≤ n ∧ n ≤ candidate.height",
+      "type": "∀ {env : Etna.Design.Current.Protocol.Environment} {w t : Etna.Design.Current.Protocol.World}\n  {candidate : Etna.Design.Current.Import.Candidate} {durable : Bool},\n  Etna.Design.Current.Protocol.nodeImport env w candidate durable = Option.some t →\n    t.node.trusted = Bool.false ∧\n      t.node.signer.ready = Bool.false ∧\n        (t.node.signer =\n            have __src := w.node.signer;\n            { domain := __src.domain, activeGeneration := __src.activeGeneration, startHeight := __src.startHeight,\n              retired := __src.retired, ready := Bool.false, log := __src.log }) ∧\n          t.node.signer.domain = w.node.signer.domain ∧\n            t.node.signer.log = w.node.signer.log ∧\n              t.node.importedHeaders =\n                  List.range' (Etna.Design.Current.Import.retainedFrom candidate w.inbox.configuration.unsettled)\n                    (candidate.height + 1 -\n                      Etna.Design.Current.Import.retainedFrom candidate w.inbox.configuration.unsettled) ∧\n                (∀ (n : Nat),\n                    n ∈ t.node.importedHeaders ↔\n                      candidate.origin ≤ n ∧\n                        candidate.height + 1 ≤ n + w.inbox.configuration.unsettled ∧ n ≤ candidate.height) ∧\n                  candidate.origin = w.inbox.origin.height ∧\n                    ∀ (n : Nat),\n                      n ∈ t.node.importedHeaders ↔\n                        w.inbox.origin.height ≤ n ∧\n                          candidate.height + 1 ≤ n + w.inbox.configuration.unsettled ∧ n ≤ candidate.height",
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-e9433576eae740ac", "LIVE_EN-f98242f5400aa7f7"],
-      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Closed decoded import installs the actual-generation numeric interval and preserves signer state with readiness false; actual EL headers, indexes, stores and availability are deferred."
+      "sources": ["LIVE_EN-5197fc5f88162605", "LIVE_EN-f98242f5400aa7f7"],
+      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Closed decoded import installs the actual-generation numeric interval max(o, s - U + 1)..s and preserves signer state with readiness false; actual EL headers, indexes, stores and availability are deferred."
     },
     {
       "declaration": "Etna.Design.Current.QueueIntegrity.recovery_pending_guards",

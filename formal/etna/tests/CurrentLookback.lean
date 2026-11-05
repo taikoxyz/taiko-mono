@@ -8,7 +8,7 @@ open Etna.Design Etna.Design.Current
 def domain : Domain := ⟨1,2,3,4⟩
 def cfg : Finality.Config := ⟨domain,0,0,10,10,10,1,1,1⟩
 def header (height : Nat) : Blocks.Header :=
-  ⟨height,100+height,0,0,0,height,⟨1000+height,0,0,0,0,0,0⟩⟩
+  ⟨height,100+height,0,0,0,height,⟨1000+height,0,0,0,0,0,0⟩,0⟩
 def parentOf (hash : Hash) := hash-1
 def prior : List Blocks.Header := (List.range' 1 99).map header
 

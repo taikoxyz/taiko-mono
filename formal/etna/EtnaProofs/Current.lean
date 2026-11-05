@@ -188,25 +188,54 @@ namespace Import
 theorem authenticated_conflict_halts {c : Candidate} {generation : Nat}
     (same : c.generation = generation) (height : c.origin ≤ c.height)
     (auth : c.checkpointAuthenticated = true) (final : c.checkpointFinalized = true)
-    (data : c.dataHashAuthenticated = true)
+    (data : c.dataHashAuthenticated = true) (valState : c.valStateAuthenticated = true)
     (conflict : c.envelopeEL ≠ c.checkpointEL) : inspect c generation = .halt := by
-  simp [inspect, same, Nat.not_lt.mpr height, auth, final, data, conflict]
+  simp [inspect, same, Nat.not_lt.mpr height, auth, final, data, valState, conflict]
+
+/-- A preimage that hashes to the finalized record's validator-state hash but whose set for
+s + 1 differs from header(s)'s next_validators_hash is an authenticated contradiction. -/
+theorem next_validators_conflict_halts {c : Candidate} {generation : Nat}
+    (same : c.generation = generation) (height : c.origin ≤ c.height)
+    (auth : c.checkpointAuthenticated = true) (final : c.checkpointFinalized = true)
+    (data : c.dataHashAuthenticated = true) (valState : c.valStateAuthenticated = true)
+    (conflict : c.nextValidatorsMatch = false) : inspect c generation = .halt := by
+  simp [inspect, same, Nat.not_lt.mpr height, auth, final, data, valState, conflict]
+
+/-- With the window available and authenticated, a committee derived under 4.3 whose keys and
+powers differ from the matching preimage's set is an authenticated contradiction. -/
+theorem committee_conflict_halts {c : Candidate} {generation : Nat}
+    (same : c.generation = generation) (height : c.origin ≤ c.height)
+    (auth : c.checkpointAuthenticated = true) (final : c.checkpointFinalized = true)
+    (data : c.dataHashAuthenticated = true) (valState : c.valStateAuthenticated = true)
+    (envelope : c.envelopeEL = c.checkpointEL) (next : c.nextValidatorsMatch = true)
+    (material : c.materialAvailable = true) (metadata : c.metadataAuthenticated = true)
+    (conflict : c.committeesMatch = false) : inspect c generation = .halt := by
+  simp [inspect, same, Nat.not_lt.mpr height, auth, final, data, valState, envelope, next, material,
+    metadata, conflict]
 
 theorem unfinalized_checkpoint_retries {c : Candidate} {generation : Nat}
     (same : c.generation = generation) (height : c.origin ≤ c.height)
     (auth : c.checkpointAuthenticated = true) (data : c.dataHashAuthenticated = true)
+    (valState : c.valStateAuthenticated = true)
     (unfinalized : c.checkpointFinalized = false) : inspect c generation = .retry := by
-  simp [inspect, same, Nat.not_lt.mpr height, auth, data, unfinalized]
+  simp [inspect, same, Nat.not_lt.mpr height, auth, data, valState, unfinalized]
 
 theorem invalid_data_rejected (c : Candidate) (generation : Nat)
     (invalid : c.dataHashAuthenticated = false) : inspect c generation = .reject := by
   simp [inspect, invalid]
 
-theorem publish_boundary {c : Candidate} {generation : Nat} {signer : Signer.State}
+/-- A validator-state preimage that does not hash to the record's value is only an invalid
+candidate, even when the record is finalized and every other check would pass. -/
+theorem invalid_val_state_rejected (c : Candidate) (generation : Nat)
+    (invalid : c.valStateAuthenticated = false) : inspect c generation = .reject := by
+  simp [inspect, invalid]
+
+theorem publish_boundary {c : Candidate} {generation unsettled : Nat} {signer : Signer.State}
     {durable : Bool} {installed : Installed}
-    (ok : publish c generation signer durable = some installed) :
+    (ok : publish c generation unsettled signer durable = some installed) :
     durable = true ∧ installed.signer = signer ∧ installed.trusted = false ∧
-    installed.headerNumbers = List.range' c.origin (c.height-c.origin+1) := by
+    installed.headerNumbers =
+      List.range' (retainedFrom c unsettled) (c.height+1-retainedFrom c unsettled) := by
   unfold publish at ok
   split at ok
   next guard => cases Option.some.inj ok; exact ⟨guard.1,rfl,rfl,rfl⟩

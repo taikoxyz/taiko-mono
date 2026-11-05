@@ -96,7 +96,7 @@ theorem start_write_and_correction :
     ((Start.correct writtenOrigin true true 5 6 71 81 10 101).map (fun s =>
       (s.generation,s.origins 0,s.origins 1))) = some (1,some ⟨5,9,100⟩,some ⟨6,10,101⟩) := by decide +kernel
 
-def candidate : Import.Candidate := ⟨2,5,400,70,70,true,true,true,true,true⟩
+def candidate : Import.Candidate := ⟨2,5,400,70,70,true,true,true,true,true,true,true,true⟩
 
 theorem import_authentication_priority :
     Import.inspect { candidate with envelopeEL := 71, dataHashAuthenticated := false } 2 = .reject ∧
@@ -117,8 +117,28 @@ theorem import_checkpoint_finality :
     Import.inspect candidate 2 = .staged ∧
     Import.inspect unlanded 2 = .reject := by decide +kernel
 
+/-- DATA-5.4-3/5 (#22338): a validator-state preimage that does not hash to s's record value
+rejects, before any contradiction; one that does but whose set for s + 1 disagrees with
+header(s) halts once the record is finalized; a committee derived from the authenticated
+window that disagrees with the preimage halts, but only after the window is available and
+authenticated. -/
+theorem import_validator_state :
+    Import.inspect { candidate with valStateAuthenticated := false } 2 = .reject ∧
+    Import.inspect { candidate with valStateAuthenticated := false, nextValidatorsMatch := false } 2 = .reject ∧
+    Import.inspect { candidate with nextValidatorsMatch := false } 2 = .halt ∧
+    Import.inspect { candidate with nextValidatorsMatch := false, checkpointFinalized := false } 2 = .retry ∧
+    Import.inspect { candidate with committeesMatch := false } 2 = .halt ∧
+    Import.inspect { candidate with committeesMatch := false, materialAvailable := false } 2 = .retry ∧
+    Import.inspect { candidate with committeesMatch := false, metadataAuthenticated := false } 2 = .reject := by
+  decide +kernel
+
+/-- DATA-5.4-4 (#22338): the import retains EL headers from max(o, s - U + 1) through s. -/
+theorem import_retained_window :
+    Import.retainedFrom candidate 1 = 400 ∧ Import.retainedFrom candidate 4 = 397 ∧
+    Import.retainedFrom candidate 396 = 5 ∧ Import.retainedFrom candidate 1000 = 5 := by decide
+
 theorem interrupted_import_unpublished (signer : Etna.Design.Signer.State) :
-    Import.publish candidate 2 signer false = none := by rfl
+    Import.publish candidate 2 1 signer false = none := by rfl
 
 end Etna.CurrentRegression
 

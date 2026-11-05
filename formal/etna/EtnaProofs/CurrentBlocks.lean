@@ -179,10 +179,12 @@ theorem statement_endpoints (r : GenerationPolicy) (p : Header) (bs : List Block
     (statement r p bs blobs).input.parentHeight = p.height ∧
     (statement r p bs blobs).input.lastHeight = (terminal p bs).height ∧
     (statement r p bs blobs).input.lastBlockHash = (terminal p bs).elHash ∧
+    (statement r p bs blobs).input.lastCometHash = (terminal p bs).cometHash ∧
+    (statement r p bs blobs).input.lastValStateHash = (terminal p bs).valStateHash ∧
     (statement r p bs blobs).input.lastStateRoot = (terminal p bs).stateRoot ∧
     (statement r p bs blobs).input.forcedInclusionHead = (terminal p bs).cursor ∧
     (statement r p bs blobs).cutHash = tableHash r.gridK r.consensus.generation p.height
-      (terminal p bs).height (cuts p bs) := ⟨rfl,rfl,rfl,rfl,rfl,rfl⟩
+      (terminal p bs).height (cuts p bs) := ⟨rfl,rfl,rfl,rfl,rfl,rfl,rfl,rfl⟩
 
 /-- A pending accepted step exposes its own authenticated entry and inclusive due rule. -/
 theorem pending_witness {c tail anchor delay next : Nat} {w : Option Forced.Witness}

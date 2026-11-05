@@ -239,7 +239,11 @@ namespace Import
 /-- These facts are outputs of named fixed L1/MPT/stock-Comet/metadata adapters, not
 arbitrary peer assertions. This boundary does not prove those adapter implementations.
 `checkpointAuthenticated` means s's slot 285 record is landed in the node's own L1 view and
-matches; `checkpointFinalized` means that L1 block is finalized in the same view (DATA-5.3-4). -/
+matches; `checkpointFinalized` means that L1 block is finalized in the same view (DATA-5.3-4).
+The last three are the validator-state checks of DATA-5.4-3/5: the supplied preimage hashes to
+the record's validator-state hash; its set for s + 1 hashes to header(s)'s
+next_validators_hash; and the committees derived under 4.3 from the window and the node's own
+L1 have the keys and powers of the preimage's sets. -/
 structure Candidate where
   generation : Nat
   origin : Nat
@@ -251,6 +255,9 @@ structure Candidate where
   dataHashAuthenticated : Bool
   metadataAuthenticated : Bool
   materialAvailable : Bool
+  valStateAuthenticated : Bool
+  nextValidatorsMatch : Bool
+  committeesMatch : Bool
   deriving DecidableEq, Repr
 
 inductive Decision where
@@ -259,14 +266,19 @@ inductive Decision where
 
 /-- A missing or mismatching record rejects; a record landed only in an unfinalized L1 block
 leaves synchronization incomplete until it finalizes and verification is retried (DATA-5.3-4,
-vectors 4.f and 4.m). Only a finalized, authenticated envelope can prove a contradiction. -/
+vectors 4.f and 4.m). A validator-state preimage that does not hash to the record's value is an
+invalid candidate. Only finalized, authenticated landing data can prove a contradiction: an
+envelope EL hash or a preimage set for s + 1 that disagrees with it, or a committee derived
+from the authenticated window that disagrees with the preimage (DATA-5.4-5). -/
 def inspect (c : Candidate) (currentGeneration : Nat) : Decision :=
   if c.generation ≠ currentGeneration ∨ c.height < c.origin ∨
-      c.checkpointAuthenticated = false ∨ c.dataHashAuthenticated = false then .reject
+      c.checkpointAuthenticated = false ∨ c.dataHashAuthenticated = false ∨
+      c.valStateAuthenticated = false then .reject
   else if c.checkpointFinalized = false then .retry
-  else if c.envelopeEL ≠ c.checkpointEL then .halt
+  else if c.envelopeEL ≠ c.checkpointEL ∨ c.nextValidatorsMatch = false then .halt
   else if c.materialAvailable = false then .retry
   else if c.metadataAuthenticated = false then .reject
+  else if c.committeesMatch = false then .halt
   else .staged
 
 structure Installed where
@@ -276,12 +288,17 @@ structure Installed where
   signer : Signer.State
   trusted : Bool
 
+/-- First height whose EL header the import installs and retains: max(o, s - U + 1), with U the
+unsettled bound (DATA-5.4-4). `s + 1 - U` is Nat subtraction, so it is 0 when U > s + 1. -/
+def retainedFrom (c : Candidate) (unsettled : Nat) : Nat := max c.origin (c.height+1-unsettled)
+
 /-- An interrupted staging phase publishes nothing. Current generation is rechecked
 at publication; existing signer state is preserved in full, and import grants no trust. -/
-def publish (c : Candidate) (currentGeneration : Nat) (signer : Signer.State)
+def publish (c : Candidate) (currentGeneration unsettled : Nat) (signer : Signer.State)
     (durable : Bool) : Option Installed :=
   if durable = true ∧ inspect c currentGeneration = .staged then
-    some ⟨c.generation,c.height,List.range' c.origin (c.height-c.origin+1),signer,false⟩
+    some ⟨c.generation,c.height,
+      List.range' (retainedFrom c unsettled) (c.height+1-retainedFrom c unsettled),signer,false⟩
   else none
 end Import
 end Etna.Design.Current

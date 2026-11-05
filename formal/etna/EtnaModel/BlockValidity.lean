@@ -28,9 +28,15 @@ structure Header where
   cursor : Nat
   timestamp : Nat
   anchor : Anchor
+  /-- Validator-state hash after committing this height (appendix A valStateHash), an opaque
+  atom. At a generation's origin the model reads it as the origin record's stored value: the
+  record there need not hold this generation's validator state (PROOF-6.2-40, SYNC-9-5), and
+  without CometBFT's state-update arithmetic (PROOF-6.2-41a, deferred) the origin's own
+  validator state is never an input to a later block. -/
+  valStateHash : Hash
   deriving DecidableEq, Repr
 
-def Header.cut (h : Header) : Cut := ⟨h.elHash,h.cometHash,h.cursor⟩
+def Header.cut (h : Header) : Cut := ⟨h.elHash,h.cometHash,h.cursor,h.valStateHash⟩
 
 structure CommitteeWitness where
   record : Committee.Record

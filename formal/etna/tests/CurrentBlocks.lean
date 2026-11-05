@@ -45,15 +45,15 @@ def policy : GenerationPolicy where
   historyAuthenticated := fun _ _ => true
   catalogue := fun id => if id = 1 ∨ id = 2 then some interpreter else none
 
-def parent : Header := ⟨0,100,100,0,0,10,⟨500,1,500,0,0,9,0⟩⟩
+def parent : Header := ⟨0,100,100,0,0,10,⟨500,1,500,0,0,9,0⟩,0⟩
 def w0 : Forced.Witness := ⟨0,⟨7,9,9⟩,true,7,1,true,some 7,true,1⟩
 def w1 : Forced.Witness := ⟨1,⟨8,9,9⟩,true,8,1,true,none,false,0⟩
 def b1 : Block := ⟨
-  ⟨⟨1,101,101,201,1,11,⟨10,10,1,0,0,0,1⟩⟩,100,none,domain,0,11,100,100,true,none,
+  ⟨⟨1,101,101,201,1,11,⟨10,10,1,0,0,0,1⟩,0⟩,100,none,domain,0,11,100,100,true,none,
     1,1,1,0,[⟨domain,0,1,0,2,201,7⟩],some w0,.completedEmpty⟩,
   ⟨1,2,12,0,0⟩,[7],some [7],[[7]]⟩
 def b2 : Block := ⟨
-  ⟨⟨2,102,102,202,2,12,⟨11,11,2,0,0,0,2⟩⟩,101,some 201,domain,0,12,100,100,true,none,
+  ⟨⟨2,102,102,202,2,12,⟨11,11,2,0,0,0,2⟩,0⟩,101,some 201,domain,0,12,100,100,true,none,
     1,1,2,0,[⟨domain,0,2,0,2,202,7⟩],some w1,.completedEmpty⟩,
   ⟨1,2,12,0,0⟩,[8],none,[]⟩
 
@@ -159,7 +159,7 @@ example : Forced.step 0 1 10 1 (some earlyWitness) .completedEmpty ≠ .accepted
 -- All three installed definitions matter across separate authenticated schedule writes;
 -- an image missing the middle definition cannot certify the complete decoded batch.
 def third : Block := ⟨
-  ⟨⟨3,103,103,203,2,13,⟨12,12,3,0,0,0,2⟩⟩,102,some 202,domain,0,13,100,100,true,none,
+  ⟨⟨3,103,103,203,2,13,⟨12,12,3,0,0,0,2⟩,0⟩,102,some 202,domain,0,13,100,100,true,none,
     1,1,3,0,[⟨domain,0,3,0,2,203,7⟩],none,.completedEmpty⟩,
   ⟨2,3,13,0,0⟩,[],none,[]⟩
 def threePolicy : GenerationPolicy :=

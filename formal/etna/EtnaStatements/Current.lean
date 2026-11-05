@@ -164,7 +164,8 @@ def ForcedInclusionAt (env : Environment) (w : World) : Prop :=
       QueueIntegrity.AdmissionAccounting w.inbox t.inbox raw.length paid refund) ∧
     ∀ candidate durable t, nodeImport env w candidate durable = some t →
       t.node.trusted = false ∧ t.node.signer = { w.node.signer with ready := false } ∧
-      ∀ n, n ∈ t.node.importedHeaders ↔ w.inbox.origin.height ≤ n ∧ n ≤ candidate.height
+      ∀ n, n ∈ t.node.importedHeaders ↔ w.inbox.origin.height ≤ n ∧
+        candidate.height+1 ≤ n+w.inbox.configuration.unsettled ∧ n ≤ candidate.height
 
 def ForcedInclusionIntegrity : Prop :=
   ∀ env registry engine, Premises env registry engine → ∀ w, Trace env (empty env registry) w →

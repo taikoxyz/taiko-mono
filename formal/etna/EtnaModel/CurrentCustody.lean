@@ -14,10 +14,12 @@ structure Primitives (env : Environment) : Prop where
   unzen : ∀ proposal h proof, env.unzenValid proposal h proof = true →
     env.unzenRoot h ∧ HashBound env h ∧ h.timestamp < env.core.forkTime
 
-/-- Physical EL fields of a legacy header, with Etna's initial Comet/FI context. -/
+/-- Physical EL fields of a legacy header, with Etna's initial Comet/FI context and the start
+record's zero validator-state hash (STOR-B-9). -/
 def StartsAt (h legacy : Header) : Prop :=
   h.height = legacy.height ∧ h.elHash = legacy.elHash ∧ h.stateRoot = legacy.stateRoot ∧
-  h.timestamp = legacy.timestamp ∧ h.anchor = legacy.anchor ∧ h.cometHash = 0 ∧ h.cursor = 0
+  h.timestamp = legacy.timestamp ∧ h.anchor = legacy.anchor ∧ h.cometHash = 0 ∧ h.cursor = 0 ∧
+  h.valStateHash = 0
 
 /-- The actual contract fence at the accepting first landing. The timestamp is the
 upstream Unzen/cutoff duty; implementation validation remains guest semantics. -/
@@ -58,7 +60,7 @@ inductive Descends (env : Environment) (initial : World) (root : Header) : Heade
       Descends env initial root (Blocks.terminal segment.parent segment.blocks)
 
 def HeaderOf (cp : Checkpoint) (h : Header) : Prop :=
-  h.height = cp.height ∧ h.cut = ⟨cp.elHash,cp.cometHash,cp.cursor⟩
+  h.height = cp.height ∧ h.cut = ⟨cp.elHash,cp.cometHash,cp.cursor,cp.valStateHash⟩
 
 def Certified (env : Environment) (initial : World) (cp : Checkpoint) : Prop :=
   ∃ h, HeaderOf cp h ∧ HashBound env h ∧ Path env initial h
@@ -66,7 +68,7 @@ def Certified (env : Environment) (initial : World) (cp : Checkpoint) : Prop :=
 /-- This branch asserts no header existence, hash binding, or authenticity. -/
 def Pending (env : Environment) (w : World) (cp : Checkpoint) : Prop :=
   env.core.unzenInbox ≠ 0 ∧ ∃ start, w.start = some start ∧ cp.height = start.height ∧ cp.elHash = start.hash ∧
-    cp.cometHash = 0 ∧ cp.cursor = 0
+    cp.cometHash = 0 ∧ cp.cursor = 0 ∧ cp.valStateHash = 0
 
 def SignalSafe (env : Environment) (initial : World) (s : Signal) : Prop :=
   ∃ h, Path env initial h ∧ HashBound env h ∧ h.height = s.height ∧

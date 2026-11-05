@@ -170,9 +170,9 @@ def consumingPairs (p : Header) (bs : List Block) : List (Header × Block) :=
 
 def statement (r : GenerationPolicy) (p : Header) (bs : List Block) (blobs : List Hash) : StatementData :=
   let last := terminal p bs
-  let input : LandInput := ⟨p.height,last.height,last.elHash,last.cometHash,last.stateRoot,
+  let input : LandInput := ⟨p.height,last.height,last.elHash,last.cometHash,last.valStateHash,last.stateRoot,
     r.referenceNumber,last.cursor,(Consensus.activeAt r.consensus last.height).cutoff⟩
-  ⟨r.consensus.domain,r.consensus.generation,r.committeeConfig,p.elHash,p.cometHash,p.cursor,
+  ⟨r.consensus.domain,r.consensus.generation,r.committeeConfig,p.elHash,p.cometHash,p.valStateHash,p.cursor,
     input,r.referenceHash,blobs,tableHash r.gridK r.consensus.generation p.height last.height (cuts p bs)⟩
 
 def BatchValid (r : GenerationPolicy) (p : Header) (bs : List Block) (blobs : List Hash) : Prop :=

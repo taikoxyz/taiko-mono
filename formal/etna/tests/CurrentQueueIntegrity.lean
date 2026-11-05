@@ -12,7 +12,7 @@ def registry : RegistryMachine.State :=
 def env : Protocol.Environment where
   core := ⟨domain,7,8,0,0,9⟩
   parameters := ⟨1,10,0,⟨Committee.minUnit,Committee.minUnit,1,10⟩,2,1152,10,1,1,9⟩
-  genesisHeader := ⟨0,100,100,0,0,0,⟨0,0,0,0,0,0,0⟩⟩
+  genesisHeader := ⟨0,100,100,0,0,0,⟨0,0,0,0,0,0,0⟩,0⟩
   initialSigner := ⟨domain,0,0,[],false,[]⟩
   time := id
   stateRoot := fun s => s.number
@@ -71,13 +71,20 @@ def signature : Signer.Signed := ⟨0,⟨0,0,2⟩,42,43⟩
 def importing : Protocol.World :=
   { started with node := { started.node with
       target := some (0,started.inbox.checkpoint),signer := { started.node.signer with ready := true,log := [signature] } } }
-def candidate : Import.Candidate := ⟨0,0,0,100,100,true,true,true,true,true⟩
+def candidate : Import.Candidate := ⟨0,0,0,100,100,true,true,true,true,true,true,true,true⟩
 def imported : Protocol.World := (Protocol.nodeImport env importing candidate true).getD importing
 example : imported.node.trusted = false ∧ imported.node.signer.ready = false ∧
     imported.node.signer.log = [signature] ∧ imported.node.importedHeaders = [0] := by decide
-example : Import.publish {candidate with origin := 1,height := 4} 0 importing.node.signer true =
+-- DATA-5.4-4 (#22338): EL headers max(o, s - U + 1)..s. With U = 4 the window reaches the origin.
+example : Import.publish {candidate with origin := 1,height := 4} 0 4 importing.node.signer true =
     some ⟨0,4,[1,2,3,4],importing.node.signer,false⟩ := by rfl
-example : Import.publish {candidate with origin := 5,height := 4} 0 importing.node.signer true = none := by decide
+example : Import.publish {candidate with origin := 1,height := 4} 0 2 importing.node.signer true =
+    some ⟨0,4,[3,4],importing.node.signer,false⟩ := by rfl
+example : Import.publish {candidate with origin := 1,height := 4} 0 1 importing.node.signer true =
+    some ⟨0,4,[4],importing.node.signer,false⟩ := by rfl
+example : Import.publish {candidate with origin := 3,height := 4} 0 64 importing.node.signer true =
+    some ⟨0,4,[3,4],importing.node.signer,false⟩ := by rfl
+example : Import.publish {candidate with origin := 5,height := 4} 0 4 importing.node.signer true = none := by decide
 
 -- Exported contracts are exercised symbolically, not inferred from finite adapters.
 example (env : Protocol.Environment) (w t : Protocol.World) (raw : Blocks.Bytes)

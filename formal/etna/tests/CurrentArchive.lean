@@ -7,7 +7,7 @@ namespace Etna.CurrentArchiveRegression
 def domain : Domain := ⟨1,2,3,4⟩
 def cfg : Finality.Config := ⟨domain,0,0,10,10,10,1,1,1⟩
 def header (height anchor : Nat) : Blocks.Header :=
-  ⟨height,100+height,200+height,300+height,0,10+height,⟨anchor,anchor,anchor,0,100,0,0⟩⟩
+  ⟨height,100+height,200+height,300+height,0,10+height,⟨anchor,anchor,anchor,0,100,0,0⟩,0⟩
 def block (h : Blocks.Header) (parent : Hash) : Blocks.Block :=
   ⟨⟨h,parent,none,domain,0,0,100,0,true,none,0,0,0,0,[],none,.unavailable⟩,
     ⟨1,1,0,0,0⟩,[],none,[]⟩

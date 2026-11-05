@@ -1,15 +1,15 @@
 # Etna design verification
 
 The authorities are `SPEC.md`, `ACCEPTANCE.md`, `ANCHORLESS.md` and `SWITCH.md` under
-`packages/protocol/docs/etna`, pinned to main `e84a9aaac526c15597d97ee93f8803f92b02c279`
-(2026-11-04). This package contains only the current design; the archived 2026-10-30 model,
+`packages/protocol/docs/etna`, pinned to main `589b542de790861efd8b4d9bb0a4b1d066c2685f`
+(2026-11-05, after #22338). This package contains only the current design; the archived 2026-10-30 model,
 its vectors and reports were removed and remain readable at formal revision
 [`583bc2620`](https://github.com/taikoxyz/taiko-mono/tree/583bc2620258838e75ce353c11f9344616ac1020/formal/etna).
 
 ## What is proved, and what is not
 
 This package proves **conditional, design-level safety** of the decoded Etna machine. Exact
-claims live in `EtnaStatements/Current.lean` (175 lines); composition is in
+claims live in `EtnaStatements/Current.lean` (176 lines); composition is in
 `EtnaProofs/Headline/Current.lean`. Every claim holds for every reachable `Trace` from a
 fresh deployment, **assuming the fifteen fields of `Premises`** below.
 
@@ -57,7 +57,7 @@ claim that relies on them as "the claim holds, or a hash collision exists".
 
 The **review surface** is what a reviewer must read to know what H1–H3 and the five witnesses
 mean: their statements and every Etna definition they use, but no proof. `review-surface.lock.json`
-records a SHA-256 of the kernel terms of each of those constants (1,417 at this revision).
+records a SHA-256 of the kernel terms of each of those constants (1,430 at this revision).
 `python3 scripts/review_surface.py --check` fails if the lock is stale. In CI, the base
 revision's copy of the same script compares the lock and the gate files (`scripts/`, the
 Python tests, the lakefile, the toolchain pin and the workflow) with the base branch. Any difference fails the
@@ -112,9 +112,22 @@ H3 derives exact FIFO intervals from complete closed journals, due-only skipping
 position-zero inclusion from the complete decoded transaction list, actual proof-image
 support for every selected ruleset, exact positive fees/refunds and pending recovery bounds.
 Ordinary recovery preserves the checkpoint/records/head and constructs its exact new origin.
-Import closes readiness/trust, preserves signing state and installs the full original-
-generation numeric header interval. Actual EL header contents/indexes, earlier ancestor
-context and stock stores required by SPEC 5.4 remain an explicit abstraction gap.
+Import closes readiness/trust, preserves signing state and installs the original-generation
+numeric header interval max(o, s − U + 1)..s, with U the unsettled bound (DATA-5.4-4). Its
+decoded inspection rejects a validator-state preimage that does not hash to the landed value
+and halts on an authenticated validator-state contradiction (DATA-5.4-5). Actual EL header
+contents/indexes, earlier ancestor context, the window's Comet history and stock stores
+required by SPEC 5.4 remain an explicit abstraction gap.
+
+Checkpoint records, cuts, `LandInput` and the statement carry appendix A's validator-state
+hash as an opaque atom: the frontier leaf, the landed record, the statement endpoints and the
+node trust check compare it like the EL and Comet hashes. CometBFT's state-update arithmetic
+behind it (PROOF-6.2-41a) and the preimage encoding (ENC-A-29a) are not modelled. At a
+generation's origin the model reads the origin header's validator-state hash as the record's
+stored value, so the spec's start-height exception (PROOF-6.2-40, SYNC-9-5) holds by
+construction; this is sound only because no later block in the model takes the origin's own
+validator state as an input. The [PR #22338 alignment](reports/alignment-22338.md) records the changed
+clauses, evidence and boundaries.
 
 The current registry admits `0 ≤ slashBountyBps < 10000`; zero pays no reporter
 bounty. Slashing pays `floor(balance * slashBountyBps / 10000)` to the authenticated
@@ -194,9 +207,9 @@ the current proofs reuse, and fourteen semantic pins (`EtnaProofs/Contracts.lean
 `Consensus.election_valid_iff`) that fail the build if a shared definition the statements use
 is weakened without editing its pin.
 
-The inventory is **38 partial / 528 deferred clauses**, and **41 narrow partial /
-35 supporting / 527 deferred binding rules**, plus 32 deferred assumption/limitation rows.
-SWITCH has narrow first-fence/root evidence. All 93 ANCHORLESS and 45 ACCEPTANCE
+The inventory is **38 partial / 529 deferred clauses**, and **41 narrow partial /
+35 supporting / 530 deferred binding rules**, plus 32 deferred assumption/limitation rows.
+SWITCH has narrow first-fence/root evidence. All 93 ANCHORLESS and 46 ACCEPTANCE
 clauses remain deferred. Margin arithmetic, bridge resolver/EIP-4788/storage migration,
 production parsing/crypto/EL/guest/token/Solidity/Comet/store refinement, operational
 availability, measured resources and full launch/switch/recovery acceptance remain separate.

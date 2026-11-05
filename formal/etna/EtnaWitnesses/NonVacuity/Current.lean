@@ -28,7 +28,7 @@ def registry : RegistryMachine.State where
       (message = Accountability.evidence recoveredVote ∧ signature = 12)))
   registerAuth := fun key owner amount pop => decide (key = 7 ∧ owner = 8 ∧ amount = unit ∧ pop = 1)
 
-def genesisBase : Header := ⟨0,0,10,0,0,1,⟨0,0,0,0,0,0,0⟩⟩
+def genesisBase : Header := ⟨0,0,10,0,0,1,⟨0,0,0,0,0,0,0⟩,0⟩
 def genesis : Header := { genesisBase with elHash := 100 }
 def initialSigner : Signer.State := ⟨domain,0,1,[],false,[]⟩
 def txHash (bytes : Blocks.Bytes) : Hash := if bytes = [1] then 1 else 0
@@ -72,9 +72,9 @@ def source (env : Environment) : World := transact env (imaged env) (.advance 3)
 
 def closedTwo : Snapshot := snapshot baseEnv (imaged baseEnv) 2
 
-def firstBase : Header := ⟨1,0,100,201,1,2,⟨2,2,2,0,100,0,1⟩⟩
+def firstBase : Header := ⟨1,0,100,201,1,2,⟨2,2,2,0,100,0,1⟩,301⟩
 def first : Header := { firstBase with elHash := 101 }
-def second : Header := ⟨2,102,101,202,1,4,⟨4,4,4,1,101,1,1⟩⟩
+def second : Header := ⟨2,102,101,202,1,4,⟨4,4,4,1,101,1,1⟩,302⟩
 def forcedEntry : Forced.Entry := ⟨1,2,2⟩
 def witness : Forced.Witness := ⟨0,forcedEntry,true,0,0,false,some 1,true,1⟩
 def body : BlockValidity.Block :=
@@ -86,7 +86,7 @@ def bytes : ActualQueue.Primitives :=
 def definition : Blocks.Definition :=
   ⟨fun p b => decide ((p = genesis ∧ b.header = first) ∨ (p = first ∧ b.header = second)),
     fun b raw transactions => decide (raw = [] ∧ transactions = if b.header.height = 1 then [[1]] else []),bytes⟩
-def landing : Landing := ⟨⟨0,1,first.elHash,201,100,2,1,1⟩,[],[1],
+def landing : Landing := ⟨⟨0,1,first.elHash,201,301,100,2,1,1⟩,[],[1],
   [⟨.sgx,11,1⟩,⟨.sp1,11,2⟩]⟩
 def template : StatementData := { statement baseEnv (source baseEnv) landing with referenceHash := 4 }
 
@@ -101,7 +101,7 @@ def recoveredBody : BlockValidity.Block :=
   ⟨second,first.elHash,none,domain,1,4,100,100,true,none,1,1,
     second.anchor.stateRoot,0,[recoveredVote],none,.completedRetained⟩
 def recoveredBlock : Block := ⟨recoveredBody,⟨0,0,0,0,0⟩,[],none,[]⟩
-def recoveredLanding : Landing := ⟨⟨1,2,102,202,101,4,1,4⟩,[],[1],
+def recoveredLanding : Landing := ⟨⟨1,2,102,202,302,101,4,1,4⟩,[],[1],
   [⟨.sgx,11,1⟩,⟨.sp1,11,2⟩]⟩
 def recoveredTemplate : StatementData :=
   { statement baseEnv (recoveredSource baseEnv) recoveredLanding with referenceHash := 26 }
@@ -282,7 +282,7 @@ private theorem label_tail {α : Type} [DecidableEq α] (head x : α) (rest : Li
   rfl
 
 theorem source_statement : statement env (source env) landing = template := by
-  change (⟨domain,0,0,100,0,0,landing.input,referenceHash env (source env) 2,[1],
+  change (⟨domain,0,0,100,0,0,0,landing.input,referenceHash env (source env) 2,[1],
     ⟨0,0,1,[]⟩⟩ : StatementData) = template
   rw [source_reference]
   rfl
@@ -523,8 +523,8 @@ theorem batch_binding_in_context {w : World} (context : TemplateContext w) :
   have cutoffOne : (Consensus.activeAt pol.consensus 1).cutoff = 1 := by decide +kernel
   unfold Blocks.statement
   change (⟨(policy env w archive 2).consensus.domain,(policy env w archive 2).consensus.generation,
-    (policy env w archive 2).committeeConfig,100,0,0,
-    ⟨0,1,101,201,100,2,1,(Consensus.activeAt (policy env w archive 2).consensus 1).cutoff⟩,
+    (policy env w archive 2).committeeConfig,100,0,0,0,
+    ⟨0,1,101,201,301,100,2,1,(Consensus.activeAt (policy env w archive 2).consensus 1).cutoff⟩,
     referenceHash env w 2,[1],tableHash w.inbox.gridK w.inbox.generation 0 1 (Blocks.cuts genesis [block])⟩ : StatementData) = template
   rw [active,cutoffOne,context.reference,grid,context.generation]
   simp only [policy,Finality.derive,context.config,source_config,context.committee]
@@ -675,7 +675,7 @@ structure RecoveredContext (w : World) : Prop where
   lookup : Finality.registryAt w.registry.registry 4 = Finality.registryAt (recoveredSource env).registry.registry 4
 
 theorem recovered_source_statement : statement env (recoveredSource env) recoveredLanding = recoveredTemplate := by
-  change (⟨domain,1,0,101,201,1,recoveredLanding.input,referenceHash env (recoveredSource env) 4,[1],
+  change (⟨domain,1,0,101,201,301,1,recoveredLanding.input,referenceHash env (recoveredSource env) 4,[1],
     ⟨1,1,2,[]⟩⟩ : StatementData) = recoveredTemplate
   rw [recovered_reference]
   rfl
@@ -836,8 +836,8 @@ theorem recovered_binding_in_context {w : World} (context : RecoveredContext w) 
   have cutoffOne : (Consensus.activeAt recoveredPolicy.consensus 2).cutoff = 4 := by decide +kernel
   unfold Blocks.statement
   change (⟨(policy env w recoveredArchive 4).consensus.domain,(policy env w recoveredArchive 4).consensus.generation,
-    (policy env w recoveredArchive 4).committeeConfig,101,201,1,
-    ⟨1,2,102,202,101,4,1,(Consensus.activeAt (policy env w recoveredArchive 4).consensus 2).cutoff⟩,
+    (policy env w recoveredArchive 4).committeeConfig,101,201,301,1,
+    ⟨1,2,102,202,302,101,4,1,(Consensus.activeAt (policy env w recoveredArchive 4).consensus 2).cutoff⟩,
     referenceHash env w 4,[1],tableHash w.inbox.gridK w.inbox.generation 1 2 (Blocks.cuts first [recoveredBlock])⟩ : StatementData) = recoveredTemplate
   rw [active,cutoffOne,context.reference,grid,context.generation]
   simp only [policy,Finality.derive,context.config,recovered_config,context.committee]
@@ -1017,7 +1017,7 @@ theorem closed_after_reference_prefix : referencePrefix closedAfterReference 2 =
   rw [closed_after_reference_history,List.take_append_of_le_length (show 3 ≤ (source env).history.length from by decide)]
 
 theorem closed_after_reference_statement : statement env closedAfterReference landing = template := by
-  change (⟨domain,0,0,100,0,0,landing.input,referenceHash env closedAfterReference 2,[1],⟨0,0,1,[]⟩⟩ : StatementData) = template
+  change (⟨domain,0,0,100,0,0,0,landing.input,referenceHash env closedAfterReference 2,[1],⟨0,0,1,[]⟩⟩ : StatementData) = template
   have hashes : referenceHash env closedAfterReference 2 = referenceHash env (source env) 2 :=
     congrArg (fun history => env.blockHash history 2) closed_after_reference_prefix
   rw [hashes,source_reference]

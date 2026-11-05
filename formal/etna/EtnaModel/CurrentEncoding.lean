@@ -41,7 +41,7 @@ def origin (o : Origin) : Tree := .node (.leaf o.height) (.node (.leaf o.l1Block
 def namedOrigin (x : Nat × Origin) : Tree := .node (.leaf x.1) (origin x.2)
 
 def checkpoint (c : Checkpoint) : Tree := quad (.node (.leaf c.height) (.leaf c.elHash))
-  (.node (.leaf c.cometHash) (.leaf c.cursor)) (.leaf c.generation) (.leaf c.parent)
+  (.node (.leaf c.cometHash) (.leaf c.cursor)) (.leaf c.generation) (.node (.leaf c.parent) (.leaf c.valStateHash))
 
 def signal (s : Signal) : Tree := .node (.leaf s.height) (.node (.leaf s.hash) (.leaf s.stateRoot))
 

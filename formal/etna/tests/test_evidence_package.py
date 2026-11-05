@@ -15,10 +15,10 @@ spec.loader.exec_module(coverage)
 class EvidencePackageTests(unittest.TestCase):
     def test_claim_pairs_have_reviewed_edges(self):
         rows = coverage.inventory()
-        self.assertEqual(len([r for r in rows if r['language'] in ('live_en', 'live_acceptance')]),360)
+        self.assertEqual(len([r for r in rows if r['language'] in ('live_en', 'live_acceptance')]),361)
         self.assertEqual(len([r for r in rows if r['language'] == 'live_anchorless']),93)
         self.assertEqual(len([r for r in rows if r['language'] == 'live_switch']),113)
-        self.assertEqual(len(rows),566)
+        self.assertEqual(len(rows),567)
         # inventory() checks each explicit claim edge and its general-property role.
 
     def test_clause_ids_survive_line_insertion(self):
@@ -63,9 +63,9 @@ class EvidencePackageTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             hashes = json.loads((Path(tmp)/'coverage.json').read_text())['source_sha256']
             self.assertEqual(hashes['packages/protocol/docs/etna/SPEC.md'],
-                             '0c30f04b966551f4d7d3b89599a2ed9a39092b67fb20738c22e34b4ffd51c528')
+                             '808304718c34f4e90e250a8a1313d4767ceb7ba457899863c796c70cf64d20f3')
             self.assertEqual(hashes['packages/protocol/docs/etna/ACCEPTANCE.md'],
-                             'f7002b6a044c0bbe5d4f59ee596dff9b1dbf89bc4c1bfb3caaba541eb3df4314')
+                             'ba20eb052b788234d7b93f2bb4844a222fe0156f1e0a15307f8d3e6381a6f218')
             self.assertEqual(hashes['packages/protocol/docs/etna/ANCHORLESS.md'],
                              '08f6c75a3fb8183ff986a22f56c14379990bb4a527e42d1be12387195152c717')
             self.assertEqual(hashes['packages/protocol/docs/etna/SWITCH.md'],

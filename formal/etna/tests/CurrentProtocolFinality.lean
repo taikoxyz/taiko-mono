@@ -29,7 +29,7 @@ def registry : RegistryMachine.State where
 def env : Environment where
   core := ⟨domain,1,2,0,0,90⟩
   parameters := ⟨1,10,0,⟨Committee.minUnit,Committee.minUnit,1,10⟩,1,1152,10,1,1,99⟩
-  genesisHeader := ⟨0,100,200,0,0,0,⟨0,0,0,0,0,0,0⟩⟩
+  genesisHeader := ⟨0,100,200,0,0,0,⟨0,0,0,0,0,0,0⟩,0⟩
   initialSigner := ⟨domain,0,1,[],false,[]⟩
   time := id
   stateRoot := fun s => s.number+100

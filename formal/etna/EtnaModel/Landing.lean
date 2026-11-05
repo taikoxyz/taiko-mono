@@ -2,12 +2,14 @@ import EtnaModel.Common
 
 namespace Etna.Design
 
-/-- The cut at one height x: EL block hash, CometBFT block hash and FI cursor (the fields of
-cutLeaf(x) after the height). -/
+/-- The cut at one height x: EL block hash, CometBFT block hash, FI cursor and validator-state
+hash (the fields of cutLeaf(x) after the height). `valStateHash` is an opaque atom for
+appendix A's valStateHash(x); CometBFT's state-update arithmetic behind it is not modelled. -/
 structure Cut where
   elHash : Hash
   cometHash : Hash
   cursor : Nat
+  valStateHash : Hash
   deriving DecidableEq, Repr, Inhabited
 
 /-- A bytes32 leaf as land receives it: a real cutLeaf preimage or any other word. Free
@@ -19,8 +21,8 @@ inductive Leaf where
 
 instance : Inhabited Leaf := ⟨.word 0⟩
 
-/-- cutLeaf(x) = keccak256(abi.encode(uint256(x), blockHash(x), cometHash(x), forcedHead(x)));
-the height is part of the leaf. -/
+/-- cutLeaf(x) = keccak256(abi.encode(uint256(x), blockHash(x), cometHash(x), forcedHead(x),
+valStateHash(x))); the height is part of the leaf. -/
 def cutLeaf (x : Nat) (c : Cut) : Leaf := .cut x c
 
 /-- Number of grid points strictly between p and h: (h−p)/K − 1. -/
@@ -42,12 +44,13 @@ structure CutHash where
 
 def tableHash (k generation p h : Nat) (table : List Cut) : CutHash := ⟨generation,p,h,gridLeaves k p h table⟩
 
-/-- Exactly the eight LandInput fields; caller is neither a field nor a beneficiary. -/
+/-- Exactly the nine LandInput fields; caller is neither a field nor a beneficiary. -/
 structure LandInput where
   parentHeight : Nat
   lastHeight : Nat
   lastBlockHash : Hash
   lastCometHash : Hash
+  lastValStateHash : Hash
   lastStateRoot : Hash
   l1ReferenceBlockNumber : Nat
   forcedInclusionHead : Nat
@@ -55,13 +58,15 @@ structure LandInput where
   deriving DecidableEq, Repr
 
 /-- Decoded public statement. Real hashing/verifier binding is an explicit boundary.
-The certificate binds the whole proof range through cutHash, never execution-time c. -/
+The certificate binds the whole proof range through cutHash, never execution-time c.
+`parentValStateHash` is origin p's slot 285 value as stored, even at a generation start. -/
 structure StatementData where
   domain : Domain
   generation : Nat
   config : Hash
   parentHash : Hash
   parentCometHash : Hash
+  parentValStateHash : Hash
   headBefore : Nat
   input : LandInput
   referenceHash : Hash

@@ -29,9 +29,9 @@ def registry : RegistryMachine.State :=
   { rawRegistry with history := [⟨10,RegistryMachine.entries rawRegistry⟩] }
 def laterRegistry : RegistryMachine.State :=
   { registry with history := ⟨20,[]⟩ :: registry.history }
-def h9 : Blocks.Header := ⟨9,9,9,9,0,11,⟨11,11,11,8,8,0,0⟩⟩
-def h10 : Blocks.Header := ⟨10,10,10,10,0,12,⟨12,12,12,8,8,0,0⟩⟩
-def oldUnzen : Blocks.Header := ⟨8,8,8,8,0,500,⟨500,500,500,8,8,9,0⟩⟩
+def h9 : Blocks.Header := ⟨9,9,9,9,0,11,⟨11,11,11,8,8,0,0⟩,0⟩
+def h10 : Blocks.Header := ⟨10,10,10,10,0,12,⟨12,12,12,8,8,0,0⟩,0⟩
+def oldUnzen : Blocks.Header := ⟨8,8,8,8,0,500,⟨500,500,500,8,8,9,0⟩,0⟩
 def adapters : Adapters := ⟨fun _ => true,fun _ => true,fun _ => true⟩
 
 -- S=8,L=10,D(1)=8 must select origin10 even if supplied old bytes carry anchor500.
@@ -46,7 +46,7 @@ example : (build {adapters with config := fun _ => false} cfg registry [h9] 11).
 example : (Consensus.initial (derive {cfg with genesisCutoff := 7} registry [h9])).cutoff = 7 := by decide +kernel
 
 def normalCfg : Config := {cfg with originHeight := 0}
-def normalHeader (h : Nat) : Blocks.Header := ⟨h,h,h,h,0,10+h,⟨10+h,10+h,10+h,0,0,0,0⟩⟩
+def normalHeader (h : Nat) : Blocks.Header := ⟨h,h,h,h,0,10+h,⟨10+h,10+h,10+h,0,0,0,0⟩,0⟩
 def common : List Blocks.Header := (List.range' 1 8).map normalHeader
 
 -- A genuine post-origin D(1)=8 reads header8's anchor18, independent of later suffixes.
@@ -177,7 +177,7 @@ set_option maxRecDepth 30000
 set_option maxHeartbeats 12000000
 
 def decodedHeader (h hash : Nat) : Header :=
-  ⟨h,100+h,200+h,hash,0,h+2,⟨h+1,h+1,h+1,8,108,0,0⟩⟩
+  ⟨h,100+h,200+h,hash,0,h+2,⟨h+1,h+1,h+1,8,108,0,0⟩,0⟩
 def fixedInterpreter : Definition :=
   ⟨fun _ b => decide (b.header = decodedHeader b.header.height b.header.cometHash),
     fun _ _ _ => true,⟨fun _ => 0,fun _ => false,fun _ _ _ => .unavailable⟩⟩
@@ -202,7 +202,7 @@ def policy (archive : List Header) : GenerationPolicy where
   historyAuthenticated := fun _ _ => true
   catalogue := fun rule => if rule = 1 then some fixedInterpreter else none
 
-def origin : Header := ⟨8,108,208,0,0,10,⟨500,500,500,8,108,9,0⟩⟩
+def origin : Header := ⟨8,108,208,0,0,10,⟨500,500,500,8,108,9,0⟩,0⟩
 def block (h hash round : Nat) : Block :=
   ⟨⟨decodedHeader h hash,99+h,(if h = 9 then none else some 20),domain,0,h+2,
     100,100,true,(if h = 9 then some ⟨⟨1,10,[member]⟩,10⟩ else none),1,1,h+1,round,

@@ -2,15 +2,15 @@
   "schema_version": 2,
   "spec": {
     "path": "packages/protocol/docs/etna/SPEC.md",
-    "revision": "2026-11-04",
-    "commit": "e84a9aaac526c15597d97ee93f8803f92b02c279",
-    "sha256": "0c30f04b966551f4d7d3b89599a2ed9a39092b67fb20738c22e34b4ffd51c528"
+    "revision": "2026-11-05",
+    "commit": "589b542de790861efd8b4d9bb0a4b1d066c2685f",
+    "sha256": "808304718c34f4e90e250a8a1313d4767ceb7ba457899863c796c70cf64d20f3"
   },
   "index": {
     "path": "packages/protocol/docs/etna/rules/INDEX.md",
-    "revision": "2026-11-04",
-    "commit": "e84a9aaac526c15597d97ee93f8803f92b02c279",
-    "sha256": "26803435c7d629e08dd7c53a6c6237de0f202505c122c4502972c9f4644c8d24"
+    "revision": "2026-11-05",
+    "commit": "589b542de790861efd8b4d9bb0a4b1d066c2685f",
+    "sha256": "96ad4c1a66bf2b5c042686e37133f11a63468031f3c1a945ed393fd2fb755df5"
   },
   "evidence": {
     "CONS-3.4-2": {
@@ -22,16 +22,19 @@
         "Etna.Design.Current.QueueIntegrity.import_complete_range",
         "Etna.Design.Current.QueueIntegrity.node_import_closed"
       ],
-      "reason": "Numeric original-header interval includes every height from origin through checkpoint exactly once; actual EL header contents, indexes and stock stores are deferred."
+      "reason": "Numeric original-header interval includes every height from max(origin, checkpoint - U + 1) through checkpoint exactly once; actual EL header contents, indexes and stock stores are deferred."
     },
     "DATA-5.4-5": {
       "theorems": [
         "Etna.Design.Current.Import.authenticated_conflict_halts",
+        "Etna.Design.Current.Import.committee_conflict_halts",
         "Etna.Design.Current.Import.invalid_data_rejected",
+        "Etna.Design.Current.Import.invalid_val_state_rejected",
+        "Etna.Design.Current.Import.next_validators_conflict_halts",
         "Etna.Design.Current.Import.publish_boundary",
         "Etna.Design.Current.Import.unfinalized_checkpoint_retries"
       ],
-      "reason": "Finalized authenticated imported envelope disagreement halts and an unfinalized checkpoint record retries; decoded candidate inspection only, no alert or store implementation proof."
+      "reason": "Finalized authenticated disagreement halts (imported envelope EL hash, the validator-state preimage's set for s + 1, or a derived committee against that preimage); an unmatched preimage rejects and an unfinalized checkpoint record retries; decoded candidate inspection only, no alert or store implementation proof."
     },
     "DATA-5.4-7": {
       "theorems": [
@@ -302,7 +305,7 @@
       "reason": "Valid decoded chains have exactly consecutive heights from the parent through the terminal height; this is the height-continuity fragment of cut coverage, not full cuts authentication."
     },
     "PROOF-6.2-41": {
-      "clause": "LIVE_EN-7ae0985576149bdc",
+      "clause": "LIVE_EN-9dabf1462e3643ef",
       "theorems": [
         "Etna.Design.Current.Blocks.valid_cursor_step",
         "Etna.Design.Current.Blocks.chain_cursor_steps",
@@ -312,7 +315,7 @@
     },
     "PROOF-6.2-42": {
       "theorems": ["Etna.Design.Current.Blocks.statement_endpoints"],
-      "reason": "Exact decoded terminal EL hash and FI cursor equal statement fields; no authenticated-origin hashes or first-cut cursor conclusion."
+      "reason": "Exact decoded terminal EL hash, CometBFT hash, validator-state hash and FI cursor equal statement fields; no authenticated-origin hashes or first-cut cursor conclusion."
     },
     "PROOF-6.2-45a": {
       "theorems": [

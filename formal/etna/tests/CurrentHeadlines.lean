@@ -181,7 +181,8 @@ example (env : Environment) (registry : RegistryMachine.State) (engine : Finalit
     (run : Trace env (empty env registry) w) (candidate : Import.Candidate) (durable : Bool) (t : World)
     (accepted : nodeImport env w candidate durable = some t) :
     t.node.trusted = false ∧ t.node.signer = {w.node.signer with ready := false} ∧
-      ∀ n, n ∈ t.node.importedHeaders ↔ w.inbox.origin.height ≤ n ∧ n ≤ candidate.height :=
+      ∀ n, n ∈ t.node.importedHeaders ↔ w.inbox.origin.height ≤ n ∧
+        candidate.height+1 ≤ n+w.inbox.configuration.unsettled ∧ n ≤ candidate.height :=
   (Headlines.claims.2.2 env registry engine premises w run).2.2.2.2.2.2.2.2.2.2 candidate durable t accepted
 
 example (env : Environment) (registry : RegistryMachine.State) (engine : Finality.Engine)

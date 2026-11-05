@@ -35,7 +35,7 @@ def oldRegistry : RegistryMachine.State where
 def baseEnv : Environment where
   core := ⟨domain,1,2,0,0,90⟩
   parameters := ⟨1,10,0,⟨Committee.minUnit,Committee.minUnit,1,10⟩,1,1152,10,1,1,99⟩
-  genesisHeader := ⟨0,100,200,0,0,0,⟨0,0,0,0,0,0,0⟩⟩
+  genesisHeader := ⟨0,100,200,0,0,0,⟨0,0,0,0,0,0,0⟩,0⟩
   initialSigner := ⟨domain,0,1,[],false,[]⟩
   time := id
   stateRoot := fun s => s.number+100
@@ -241,7 +241,7 @@ def riskExited := Protocol.transact env started (.registry 71 (.requestExit 0 71
 def riskAdvanced := Protocol.transact env riskExited (.advance 4)
 def riskImage := Protocol.transact env riskAdvanced (.image 1 11 true)
 def unsoundLanding : Landing :=
-  ⟨⟨0,1,101,201,101,3,0,3⟩,[],[1],[⟨.sgx,11,1⟩,⟨.sp1,11,2⟩]⟩
+  ⟨⟨0,1,101,201,0,101,3,0,3⟩,[],[1],[⟨.sgx,11,1⟩,⟨.sp1,11,2⟩]⟩
 def riskLanded := Protocol.transact env riskImage (.land unsoundLanding)
 def riskConfirmed := Protocol.transact env riskLanded (.registry 77 (.confirm 0))
 def riskMature := Protocol.transact env riskConfirmed (.advance 7)

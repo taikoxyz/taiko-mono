@@ -296,7 +296,7 @@ theorem execute_nonlanding_effect {env : Environment} {w t : World} {call : Call
       cases Option.some.inj ok
       refine ⟨rfl,fun _ mem => mem,?_⟩
       intro held
-      exact ⟨held.1,Or.inr ⟨rfl,switching,⟨height,hash,root⟩,rfl,rfl,rfl,rfl,rfl⟩⟩
+      exact ⟨held.1,Or.inr ⟨rfl,switching,⟨height,hash,root⟩,rfl,rfl,rfl,rfl,rfl,rfl⟩⟩
     next => simp at ok
   | correctStart caller height hash root =>
     change correctStart env w caller height hash root = some t at ok
@@ -307,7 +307,7 @@ theorem execute_nonlanding_effect {env : Environment} {w t : World} {call : Call
       cases Option.some.inj ok
       refine ⟨rfl,fun _ mem => mem,?_⟩
       intro held
-      exact ⟨held.1,Or.inr ⟨rfl,switching,⟨height,hash,root⟩,rfl,rfl,rfl,rfl,rfl⟩⟩
+      exact ⟨held.1,Or.inr ⟨rfl,switching,⟨height,hash,root⟩,rfl,rfl,rfl,rfl,rfl,rfl⟩⟩
     next => simp at ok
   | registry caller action =>
     change registryCall env w caller action = some t at ok

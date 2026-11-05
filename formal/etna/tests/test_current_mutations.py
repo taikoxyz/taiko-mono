@@ -71,12 +71,16 @@ MUTATIONS = [
     ('first_unzen_state_root', 'u.checkpointRoot = root)', 'u.checkpointRoot = u.checkpointRoot ∧ root = root)', False),
     ('origin_fork_time', 's.unzenInbox ≠ 0 ∧ s.forkTime ≤ now', 's.unzenInbox ≠ 0 ∧ True', True),
     ('correction_new_generation', 'generation := s.generation+1, origins', 'generation := s.generation, origins', False),
-    ('import_datahash_authentication', 'c.dataHashAuthenticated = false then .reject', 'False then .reject', False),
-    ('authenticated_conflict_halt', 'else if c.envelopeEL ≠ c.checkpointEL then .halt', 'else if c.envelopeEL ≠ c.checkpointEL then .reject', False),
+    ('import_datahash_authentication', 'c.dataHashAuthenticated = false ∨\n', 'False ∨\n', False),
+    ('import_val_state_preimage', 'c.valStateAuthenticated = false then .reject', 'False then .reject', False),
+    ('authenticated_conflict_halt', 'c.envelopeEL ≠ c.checkpointEL ∨ c.nextValidatorsMatch = false then .halt', 'c.envelopeEL ≠ c.checkpointEL ∨ c.nextValidatorsMatch = false then .reject', False),
+    ('next_validators_conflict_halt', ' ∨ c.nextValidatorsMatch = false then .halt', ' then .halt', False),
+    ('committee_conflict_halt', 'else if c.committeesMatch = false then .halt', 'else if False then .halt', False),
     ('import_checkpoint_finality', 'else if c.checkpointFinalized = false then .retry', 'else if False then .retry', False),
     ('durable_publication', 'if durable = true ∧ inspect', 'if durable = durable ∧ inspect', False),
     ('no_import_trust', ',signer,false⟩', ',signer,true⟩', False),
-    ('complete_header_range', "List.range' c.origin (c.height-c.origin+1),signer", "List.range' c.origin (min 256 (c.height-c.origin+1)),signer", False),
+    ('complete_header_range', "List.range' (retainedFrom c unsettled) (c.height+1-retainedFrom c unsettled),signer", "List.range' (retainedFrom c unsettled) (min 256 (c.height+1-retainedFrom c unsettled)),signer", False),
+    ('retained_window', 'max c.origin (c.height+1-unsettled)', 'min c.origin (c.height+1-unsettled)', True),
 ]
 
 

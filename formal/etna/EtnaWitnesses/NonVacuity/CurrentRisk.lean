@@ -22,8 +22,8 @@ def registry : RegistryMachine.State where
       (message = Accountability.evidence (vote 202) ∧ signature = 12)))
   registerAuth := fun key owner amount pop => decide (key = 7 ∧ owner = 8 ∧ amount = unit ∧ pop = 1)
 
-def genesis : Header := ⟨0,100,10,0,0,1,⟨0,0,0,0,0,0,0⟩⟩
-def first : Header := ⟨1,101,11,201,0,3,⟨2,2,0,0,100,0,0⟩⟩
+def genesis : Header := ⟨0,100,10,0,0,1,⟨0,0,0,0,0,0,0⟩,0⟩
+def first : Header := ⟨1,101,11,201,0,3,⟨2,2,0,0,100,0,0⟩,301⟩
 def other : Header := {first with cometHash := 202}
 def baseEnv : Environment where
   core := ⟨domain,7,8,0,2,9⟩
@@ -237,7 +237,7 @@ theorem risk_profile_satisfiable :
 /-- This dedicated publication fixture supplies the decoded adapter's positive
 authentication/material results. It exercises actual observe/import calls and the
 authorization fence; canonical decoding and stock-store installation remain external. -/
-def importCandidate : Import.Candidate := ⟨0,0,0,100,100,true,true,true,true,true⟩
+def importCandidate : Import.Candidate := ⟨0,0,0,100,100,true,true,true,true,true,true,true,true⟩
 def observed : World := Protocol.transact env (source env) (.observe 2)
 def published : World := Protocol.transact env observed (.importSnapshot importCandidate true)
 

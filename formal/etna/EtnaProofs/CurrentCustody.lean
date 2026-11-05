@@ -36,7 +36,8 @@ theorem certified_landing {env : Environment} {registry : RegistryMachine.State}
 
 theorem bound_headers_equal {env : Environment} (primitive : Primitives env)
     {x y : Header} (hx : HashBound env x) (hy : HashBound env y) (cut : x.cut = y.cut) : x = y := by
-  have fields : x.elHash = y.elHash ∧ x.cometHash = y.cometHash ∧ x.cursor = y.cursor := by
+  have fields : x.elHash = y.elHash ∧ x.cometHash = y.cometHash ∧ x.cursor = y.cursor ∧
+      x.valStateHash = y.valStateHash := by
     simpa [BlockValidity.Header.cut] using cut
   obtain ⟨height,root,time,anchor⟩ := primitive.separation x y hx hy fields.1
   cases x
@@ -58,7 +59,7 @@ theorem pending_parent_fence {env : Environment} {initial w t : World} {a : Land
     (certificate : LiveCertifies env w (statement env w a)) :
     FirstFence env w segment.parent ∧ ∃ legacy, w.unzenHeader = some legacy ∧
       env.unzenRoot legacy ∧ StartsAt segment.parent legacy := by
-  obtain ⟨switching,start,written,height,hash,comet,cursor⟩ := pending
+  obtain ⟨switching,start,written,height,hash,comet,cursor,val⟩ := pending
   have first : w.inbox.checkpoint.height = (w.start.map StartData.height).getD 0 := by simpa [written] using height
   have fence := (land_success ok).1.unzen
   have fenced : w.unzen.nextProposal = w.unzen.finalizedProposal+1 ∧
@@ -72,6 +73,7 @@ theorem pending_parent_fence {env : Environment} {initial w t : World} {a : Land
   have pc : segment.parent.cometHash = 0 := (congrArg Cut.cometHash segment.parentCut).trans comet
   have cur : segment.parent.cursor = 0 :=
     (congrArg Cut.cursor segment.parentCut).trans (cursorHead.symm.trans cursor)
+  have pv : segment.parent.valStateHash = 0 := (congrArg Cut.valStateHash segment.parentCut).trans val
   have implementation : env.startImplementation segment.parent.stateRoot = true := by
     obtain ⟨archive,p,bs,ready,valid,binding,hashp,hashes,implemented,_⟩ := certificate
     have inputs := congrArg StatementData.input binding
@@ -87,16 +89,17 @@ theorem pending_parent_fence {env : Environment} {initial w t : World} {a : Land
       exact record
     have pe := congrArg StatementData.parentHash binding
     have pm := congrArg StatementData.parentCometHash binding
+    have pv' := congrArg StatementData.parentValStateHash binding
     have pu := congrArg StatementData.headBefore binding
-    simp only [statement,originRecord,Option.getD_some,Blocks.statement] at pe pm pu
+    simp only [statement,originRecord,Option.getD_some,Blocks.statement] at pe pm pv' pu
     have pcut : p.cut = segment.parent.cut := by
       rw [segment.parentCut]
       simp only [BlockValidity.Header.cut]
-      rw [← pe,← pm,← pu,cursorHead]
+      rw [← pe,← pm,← pv',← pu,cursorHead]
     have same := bound_headers_equal primitive hashp segment.parentHashBound pcut
     have checked := implemented switching (by simpa [written] using ps)
     simpa [same] using checked
-  refine ⟨?_,legacy,retained,auth,⟨h,el,r,tm,an,pc,cur⟩⟩
+  refine ⟨?_,legacy,retained,auth,⟨h,el,r,tm,an,pc,cur,pv⟩⟩
   exact ⟨start,written,height,switching,fenced.1,fenced.2.1,fenced.2.2.1,fenced.2.2.2.1,
       fenced.2.2.2.2,segment.parentHeight.trans height,el.trans (finalized.symm.trans fenced.2.1),
       r.trans (root.symm.trans fenced.2.2.2.2),implementation,tm ▸ preFork⟩
@@ -183,9 +186,9 @@ theorem write_start_invariant {env : Environment} {initial w : World}
     Invariant env initial (writeStart w height hash root block timestamp generation) := by
   refine ⟨?_,inv.signals,inv.unzen⟩
   intro cp member
-  have same : cp = ⟨height,hash,0,0,generation,height⟩ := by simpa [writeStart] using member
+  have same : cp = ⟨height,hash,0,0,generation,height,0⟩ := by simpa [writeStart] using member
   subst cp
-  exact Or.inr ⟨switching,⟨height,hash,root⟩,rfl,rfl,rfl,rfl,rfl⟩
+  exact Or.inr ⟨switching,⟨height,hash,root⟩,rfl,rfl,rfl,rfl,rfl,rfl⟩
 
 theorem initialize_invariant {env : Environment} {initial w t : World} {caller : Nat}
     (primitive : Primitives env) (reach : Trace env initial w)
@@ -203,9 +206,9 @@ theorem initialize_invariant {env : Environment} {initial w t : World} {caller :
         have path : Path env initial env.genesisHeader := .genesis caller reach accepted newNetwork
         refine ⟨?_,?_,inv.unzen⟩
         · intro cp mem
-          have same : cp = ⟨0,env.genesisHeader.elHash,0,0,0,0⟩ := by simpa [writeStart] using mem
+          have same : cp = ⟨0,env.genesisHeader.elHash,0,0,0,0,0⟩ := by simpa [writeStart] using mem
           subst cp
-          exact Or.inl ⟨env.genesisHeader,⟨genesis.1,by simp [BlockValidity.Header.cut,genesis.2.1,genesis.2.2]⟩,primitive.genesis,path⟩
+          exact Or.inl ⟨env.genesisHeader,⟨genesis.1,by simp [BlockValidity.Header.cut,genesis.2.1,genesis.2.2.1,genesis.2.2.2]⟩,primitive.genesis,path⟩
         · intro signal mem
           have same : signal = ⟨0,env.genesisHeader.elHash,env.genesisHeader.stateRoot⟩ := by simpa [writeStart] using mem
           subst signal

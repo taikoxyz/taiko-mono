@@ -1,8 +1,11 @@
 # Latest Etna design alignment
 
-Authorities: main `e84a9aaac526c15597d97ee93f8803f92b02c279` (2026-11-04) for SPEC,
-ACCEPTANCE, ANCHORLESS and SWITCH, unchanged since [the #22335 alignment](alignment-22335.md).
-This revision changes the package shape, not the decoded model, statements or proofs.
+Authorities: main `589b542de790861efd8b4d9bb0a4b1d066c2685f` (2026-11-05) for SPEC,
+ACCEPTANCE, ANCHORLESS and SWITCH. This revision aligns the model with #22338. Checkpoint records,
+cuts, `LandInput` and the statement carry the validator-state hash; app import retains EL headers
+from max(o, s − U + 1); its inspection handles the validator-state preimage. H3's import clause
+changes accordingly. [The #22338 alignment](alignment-22338.md) has the details. The sections
+below describe the current-only package and statement lock introduced by the previous revision.
 
 ## Current-only package
 
@@ -21,30 +24,31 @@ The archived 2026-10-30 layer was removed. It remains readable at formal revisio
 - Removed with the layer: the historical statements and headlines, the legacy authority copies,
   `testdata/etna_conformance` (implementation pull requests keep their own copies), the
   historical reports and their Python tests.
-- The manifest holds 640 exact contracts (606 current, 34 shared), down from 1,822. Clause and
-  rule evidence is unchanged: 38 partial / 528 deferred clauses; 41 partial / 35 supporting /
-  527 deferred binding rules.
+- The manifest holds 643 exact contracts (609 current, 34 shared), down from 1,822 before the
+  removal. Evidence after #22338: 38 partial / 529 deferred clauses; 41 partial / 35 supporting /
+  530 deferred binding rules.
 - The toolchain is stable Lean 4.35.0 (was 4.35.0-rc4).
 
 ## Statement lock
 
 `review-surface.lock.json` hashes the kernel terms of the four headline theorems, the five
-joint-premise witnesses and every Etna definition they use (1,417 constants; proofs excluded).
+joint-premise witnesses and every Etna definition they use (1,430 constants after #22338;
+proofs excluded).
 CI compares it with the base branch using the base revision's copy of `scripts/review_surface.py`;
 a change to the lock or to a gate file needs the `formal-statement-change` label.
 
 ## Local validation (macOS, Lean 4.35.0)
 
-- Fresh `lake build` from an empty `.lake/build`: 90 jobs, 3 min 21 s, no warnings.
-- `lint_sources`, `check_imports` (84 modules), `check_spec_coverage`, `rule_coverage --check`,
-  `check_current_vectors`, `review_surface --check` and `generate_artifacts --check` pass.
-- `audit_proofs.py`: 640 exact contracts, mechanical roles, allowed axioms, shadowing, library
+- Fresh `lake build` from an empty `.lake/build`: 90 jobs, 2 min 59 s, no warnings.
+- `lint_sources`, `check_imports` (84 modules), `check_spec_coverage` (567 clauses),
+  `rule_coverage --check`, `check_current_vectors`, `review_surface --check` (1,430 constants)
+  and `generate_artifacts --check` pass.
+- `audit_proofs.py`: 643 exact contracts, mechanical roles, allowed axioms, shadowing, library
   contents, headline claims, all fifteen premise fields read by a headline proof, fresh
-  whole-kernel replay and 29 Lean regression modules; 150 s on the final tree.
-- Fast suite (`python3 -m unittest discover -s tests`): 194 tests in 227 s, OK; 20 skipped
-  (the 17 mutation modules and two slow gate classes).
-- Full suite (`ETNA_FULL_TESTS=1`): 342 tests in 1,497 s with two failures, both
-  `test_current_headlines` tests that call `EtnaAudit.dependencies`, which had been removed
-  as dead code. It was restored; the 12 headline tests then pass, and the fast suite above
-  includes them. The other 340 tests passed in that run.
+  whole-kernel replay and 29 Lean regression modules; 167 s.
+- Full suite (`ETNA_FULL_TESTS=1`, which includes every fast test): 348 tests in 1,594 s, 347
+  passed. The failure was the new window mutant. It left `unsettled` unused, so the mutated
+  model compiled with a warning that the harness rejects, and it was checked only against the
+  light fixture. It now uses `min` and the full fixture; the 28-test mutation module then
+  passed in 294 s.
 - `lake check --paranoid` needs bubblewrap, which macOS lacks; it runs in the nightly CI job.

@@ -4,13 +4,13 @@ namespace Etna.Design.Current.Protocol.GovernanceReview
 open Etna.Design Etna.Design.Current Governance
 
 def domain : Domain := ⟨1,2,3,4⟩
-def genesis : Header := ⟨0,100,10,0,0,1,⟨0,0,0,0,0,0,0⟩⟩
+def genesis : Header := ⟨0,100,10,0,0,1,⟨0,0,0,0,0,0,0⟩,0⟩
 def registry : RegistryMachine.State where
   ledger := ⟨0,fun _ => none,fun _ => none,fun _ => none,Committee.minUnit,1⟩
   config := { inbox := 3 }
 
-def h5 : Header := ⟨5,101,15,0,0,1,⟨0,0,0,0,0,0,0⟩⟩
-def h10 : Header := ⟨10,102,20,0,0,1,⟨0,0,0,0,0,0,0⟩⟩
+def h5 : Header := ⟨5,101,15,0,0,1,⟨0,0,0,0,0,0,0⟩,0⟩
+def h10 : Header := ⟨10,102,20,0,0,1,⟨0,0,0,0,0,0,0⟩,0⟩
 def headerCommitment (h : Header) : Hash :=
   Encoding.relabel [Encoding.header genesis,Encoding.header h5,Encoding.header h10]
     Encoding.Tree.code (Encoding.header h)+100
