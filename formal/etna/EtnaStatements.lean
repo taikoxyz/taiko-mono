@@ -1,6 +1,4 @@
-import EtnaStatements.Environment
-import EtnaStatements.Premises
-import EtnaStatements.Claims
+import EtnaModel
 import EtnaStatements.Current
 
 /-! Etna statements: the premise record and the headline claims, stated over `EtnaModel`

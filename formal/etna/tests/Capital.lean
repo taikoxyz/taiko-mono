@@ -1,1 +1,0 @@
-import EtnaWitnesses.Regressions.Capital

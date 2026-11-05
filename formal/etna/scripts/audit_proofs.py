@@ -4,16 +4,16 @@
 Order: source/package lint and library graph (scripts/lint_sources.py, which runs
 scripts/check_imports.py) before any Lean runs, manifest and shadowing-allowlist schema,
 pinned compiler, zero-warning `lake build`, fresh conformance vectors
-(scripts/check_vectors.py), a fresh kernel replay of every Etna library and its whole import
+(scripts/check_current_vectors.py), a fresh kernel replay of every Etna library and its whole import
 closure (`leanchecker --fresh`), then a generated Audit module (checks compiled separately in
 scripts/EtnaAudit.lean, manifest types passed as string data) and the Lean regression files in
 tests/, each kernel-replayed.
 
 The generated module checks every manifest entry (exact type, mechanical role, axioms), the
 package (namespaces, manifest modules, axioms, shadowing, library contents and manifest
-completeness) and both current and historical headline layers. Each conjunction and three
-headline theorems must have exactly its statement-layer constant as type and only standard
-axioms; every field of both explicit premise records must be read by a headline proof.
+completeness) and the headline layer. The conjunction and the three headline theorems must
+have exactly its statement-layer constant as type and only standard axioms; every field of
+the explicit premise record must be read by a headline proof.
 """
 import argparse
 import importlib.util
@@ -36,15 +36,8 @@ ACTIVE_NAMESPACES = ('Etna.Design.', 'Etna.Proofs.')
 # definition-obligation theorems allowlisted in scripts/check_imports.py ALLOWED_MODEL_THEOREMS.
 THEOREM_LIBRARIES = ('EtnaProofs', 'EtnaWitnesses')
 HEADLINE_MODULES = 'EtnaProofs.Headline.'
-# The headline layer: theorem -> the statement-layer claim that is exactly its type. `CLAIMS`
-# is the conjunction; every premise field must be read by one of the three HEADLINES' proofs.
-CLAIMS = ('Etna.Proofs.claims', 'Etna.Statements.Claims')
-HEADLINES = {
-    'Etna.Proofs.fund_safety': 'Etna.Statements.FundSafety',
-    'Etna.Proofs.accountable_finality': 'Etna.Statements.AccountableFinality',
-    'Etna.Proofs.forced_inclusion_integrity': 'Etna.Statements.ForcedInclusionIntegrity',
-}
-PREMISES = 'Etna.Statements.Premises'
+# The headline layer: theorem -> the statement-layer claim that is exactly its type.
+# CURRENT_CLAIMS is the conjunction; every premise field must be read by a headline proof.
 CURRENT_CLAIMS = ('Etna.Design.Current.Headlines.claims', 'Etna.Statements.Current.Claims')
 CURRENT_HEADLINES = {
     'Etna.Design.Current.Headlines.fund_safety': 'Etna.Statements.Current.FundSafety',
@@ -75,7 +68,7 @@ def _load(name, file):
 LINT = _load('etna_lint_sources', 'lint_sources.py')
 GRAPH = LINT.GRAPH
 COVERAGE = _load('etna_spec_coverage', 'check_spec_coverage.py')
-VECTORS = _load('etna_check_vectors', 'check_vectors.py')
+VECTORS = _load('etna_check_current_vectors', 'check_current_vectors.py')
 
 
 def run(command, cwd=ROOT):
@@ -134,7 +127,7 @@ def validate_contract(manifest, root=ROOT):
         raise ValueError('design manifest schema/version required')
     validate_entries(manifest['theorems'])
     names = {e['declaration'] for e in manifest['theorems']}
-    for name in (CLAIMS[0], *HEADLINES, CURRENT_CLAIMS[0], *CURRENT_HEADLINES,
+    for name in (CURRENT_CLAIMS[0], *CURRENT_HEADLINES,
                  CURRENT_ACCEPTING_WITNESS, *CURRENT_PROFILE_WITNESSES, *COVERAGE.UNSOURCED):
         if name not in names:
             raise ValueError('missing manifest entry: '+name)
@@ -168,10 +161,10 @@ def render_package_check(entries, shadows=None):
             f'{lean_string(model)}')
 
 
-def render_headline_check(claims=CLAIMS, headlines=None, premises=PREMISES):
+def render_headline_check(claims=CURRENT_CLAIMS, headlines=None, premises=CURRENT_PREMISES):
     """The headline layer: exact claim types and axioms, then premise use (one
     `premise use: field <- theorem …` line per field)."""
-    headlines = HEADLINES if headlines is None else headlines
+    headlines = CURRENT_HEADLINES if headlines is None else headlines
     rows = '\n'.join(' '.join(pair) for pair in (claims, *headlines.items()))
     theorems = '\n'.join(headlines)
     return [f'run_elab _root_.EtnaAudit.checkHeadline {lean_string(rows)}',
@@ -190,7 +183,6 @@ def render_audit(entries, complete=True, shadows=None, libraries=None):
     if complete:
         lines.append(render_package_check(entries, shadows))
         lines += render_headline_check()
-        lines += render_headline_check(CURRENT_CLAIMS, CURRENT_HEADLINES, CURRENT_PREMISES)
     for e in entries:
         ns = e['declaration'].rsplit('.', 1)[0]
         lines += [f'namespace {ns}', f'-- Named boundaries: {json.dumps(e["assumptions"])}',
@@ -337,14 +329,12 @@ def main():
         load_shadow_allowlist()
         run([sys.executable,str(ROOT/'scripts/generate_artifacts.py')])
         version = run(['lake','env','lean','--version'])
-        if 'version 4.35.0-rc4,' not in version:
+        if 'version 4.35.0,' not in version:
             raise ValueError('exact pinned Lean compiler required')
         build = run(['lake','build'])
         if re.search('warning', build, re.IGNORECASE):
             raise ValueError(build)
-        stale = VECTORS.check(ROOT)
-        if stale:
-            raise ValueError('conformance vectors are not a fresh generator run:\n  '+'\n  '.join(stale))
+        VECTORS.check()
         fresh = kernel_replay()
         args.output.parent.mkdir(parents=True,exist_ok=True)
         args.output.write_text(render_audit(manifest['theorems']))
@@ -370,9 +360,8 @@ def main():
                       headline=dict(claims=' : '.join(CURRENT_CLAIMS), theorems=CURRENT_HEADLINES,
                                     accepting_witness=CURRENT_ACCEPTING_WITNESS,
                                     profile_witnesses=CURRENT_PROFILE_WITNESSES,
-                                    historical_claims=' : '.join(CLAIMS), historical_theorems=HEADLINES,
                                     premise_use=uses),
-                      vectors='testdata/etna_conformance equals a fresh lake exe etna-vectors run',
+                      vectors='testdata/etna_current_conformance equals a fresh lake exe etna-vectors run',
                       axioms=sorted(ALLOWED_AXIOMS),scope='conditional decoded specification only')
         (generated/'audit-result.json').write_text(json.dumps(result,indent=2)+'\n')
         print(f'Audited {len(manifest["theorems"])} full theorem contracts; source lint, fresh vectors, fresh kernel '

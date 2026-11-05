@@ -30,8 +30,7 @@ def artifacts(root=ROOT, repo=REPO):
     for _, _, path, _ in SOURCE_INPUTS:
         hashes[path] = hashlib.sha256((repo/path).read_bytes()).hexdigest()
     report = dict(generated=True,scope='source clauses are not atomic requirements or a coverage percentage',
-                  clauses=rows,statuses=dict(Counter(r['status'] for r in rows if not r['historical'])),
-                  historical_statuses=dict(Counter(r['status'] for r in rows if r['historical'])),source_sha256=hashes,
+                  clauses=rows,statuses=dict(Counter(r['status'] for r in rows)),source_sha256=hashes,
                   source_sha256_scope='informational input fingerprints; not validated against a reviewed record')
     return {'Audit.lean':render_audit(manifest['theorems'],shadows=shadows),
             'coverage.json':json.dumps(report,ensure_ascii=False,indent=2)+'\n'}

@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 _graph_spec = importlib.util.spec_from_file_location('etna_check_imports', Path(__file__).with_name('check_imports.py'))
 GRAPH = importlib.util.module_from_spec(_graph_spec)
 _graph_spec.loader.exec_module(GRAPH)
-TOOLCHAIN = 'leanprover/lean4:v4.35.0-rc4'
+TOOLCHAIN = 'leanprover/lean4:v4.35.0'
 
 # Keywords/identifiers that run code during elaboration, define syntax/macros, register
 # runtime hooks, trust compiled code or skip proofs. Matched against whole tokens only.

@@ -2,9 +2,8 @@
 """Check the pinned spec revision and explicit theorem/claim evidence edges.
 
 This is a traceability report and its consistency check, not the verification result. The
-current results include the exact H1–H3 composition under `Etna.Statements.Current.Premises`;
-headlines under the original `Etna.Statements.Premises` remain historical (README). A clause
-marked partial has an edge from some `property` or `constant` theorem; it is not proved.
+results are the exact H1–H3 composition under `Etna.Statements.Current.Premises` (README). A
+clause marked partial has an edge from some `property` or `constant` theorem; it is not proved.
 
 Roles: `property` (Rule P: with every leading `∀`/hypothesis binder stripped, each atom of
 the conclusion, split at `∧`/`∨`/`∃`, uses one of those binders and is not trivially true,
@@ -15,20 +14,18 @@ or not derived) and `regression` edges never do.
 The role text is not trusted: the proof audit (scripts/EtnaAudit.lean, checkContract)
 checks each `property`/`supporting` role both ways against the kernel type and proof term.
 
-Current SPEC.md, ACCEPTANCE.md, ANCHORLESS.md and SWITCH.md and the three archived
-historical authorities are independently pinned in
+SPEC.md, ACCEPTANCE.md, ANCHORLESS.md and SWITCH.md are independently pinned in
 spec-coverage.json by source path, reviewed Git commit, revision date and SHA-256.
 No editor-export manifest is needed. Any edit to an authority's text fails this check
 until the clause links are reviewed against the new text and its pin is updated. The pin
 and the clauses cover the text with rule-reference markers removed (strip_markers).
 
-Current clauses use LIVE_* IDs; archived clauses retain their original IDs. Only
-Etna.Design.Current declarations may cite current clauses. Historical claims are
-explicitly labelled and cannot target current clauses (or conversely). Current coverage
-never includes the historical inventory.
-
-Every theorem cites at least one clause, except the reviewed plumbing in UNSOURCED, which
-cites none: it is audited like any theorem but is the obligation of no clause.
+Clauses use LIVE_* IDs. Only Etna.Design.Current declarations may cite them. Every
+theorem cites at least one clause, except the reviewed plumbing in UNSOURCED, which cites
+none: it is audited like any theorem but is the obligation of no clause. UNSOURCED holds
+the current plumbing (scripts/current-plumbing.json) and SHARED: lemmas outside the
+Current namespace that current proofs reuse; their evidence is the Current declarations
+that use them.
 """
 import argparse
 from collections import Counter
@@ -45,48 +42,38 @@ SPEC_PATH = SPEC_DIR+'/SPEC.md'
 ACCEPTANCE_PATH = SPEC_DIR+'/ACCEPTANCE.md'
 ANCHORLESS_PATH = SPEC_DIR+'/ANCHORLESS.md'
 SWITCH_PATH = SPEC_DIR+'/SWITCH.md'
-HISTORICAL_DIR = 'formal/etna/legacy/2026-10-30'
 SOURCE_INPUTS = (('source', 'spec', SPEC_PATH, 'live_en'),
                  ('acceptance_source', 'acceptance', ACCEPTANCE_PATH, 'live_acceptance'),
                  ('anchorless_source', 'anchorless', ANCHORLESS_PATH, 'live_anchorless'),
-                 ('switch_source', 'switch', SWITCH_PATH, 'live_switch'),
-                 ('historical_source', 'historical spec', HISTORICAL_DIR+'/SPEC.md', 'en'),
-                 ('historical_acceptance_source', 'historical acceptance', HISTORICAL_DIR+'/ACCEPTANCE.md', 'acceptance'),
-                 ('historical_anchorless_source', 'historical anchorless', HISTORICAL_DIR+'/ANCHORLESS.md', 'anchorless'))
+                 ('switch_source', 'switch', SWITCH_PATH, 'live_switch'))
 ROLES = {'property', 'constant', 'supporting', 'regression'}
 PARTIAL_ROLES = {'property', 'constant'}
 SCOPE = 'conditional decoded specification property only'
 # Theorems that back no clause (each must cite none): modelling plumbing, not a spec obligation.
-UNSOURCED = {
-    'Etna.Design.ActualQueue.transactions_trace': 'Timestamped journal projection to original protocol calls; modelling correspondence only',
-    'Etna.Design.ActualQueue.canonical_journal': 'Compatible time annotation lifts unchanged canonical run_trace to a journal; modelling correspondence only',
-    'Etna.Design.CanonicalHistory.run_trace': 'Canonical-history projection to original protocol transitions; modelling correspondence only, no specification clause',
-    'Etna.Design.CanonicalHistory.run_statements': 'Submission-annotated canonical-history projection to original Statements.Run; modelling correspondence only, no specification clause',
-    'Etna.Design.ProtocolState.trace_entered': 'The reentrancy flag never changes along a trace (it is never set); '
-                                               'no clause: recovery nonces and cross-function reentrancy are not stated',
-    'Etna.Proofs.run_trace': 'Run ⊆ Trace: restates a run of the headline claims as a protocol trace; '
-                             'an obligation of no clause (it used to cite the whole 6.1 land clause)',
-    'Etna.Proofs.trace_run': 'Trace ⊆ Run for an environment that submits every landing land accepts on a '
-                             "trace-reachable World: Run's side condition excludes nothing; an obligation of no clause",
-    'Etna.Design.Accounting.bondEffect_project': 'Payout-observer projection to the existing bond function; modelling correspondence, not a spec obligation',
-    'Etna.Design.Accounting.editEffect_project': 'Payout-observer projection to the existing registry edit; modelling correspondence, not a spec obligation',
-    'Etna.Design.Accounting.editEffect_lift': 'Existing accepted registry edit lifts to the payout observer; modelling correspondence, not a spec obligation',
-    'Etna.Design.Accounting.attempt_failure': 'Generic Option failure stutter; no protocol clause is an obligation of this algebraic identity',
-    'Etna.Design.Accounting.sumBalances_congr': 'Finite-sum congruence helper; no protocol clause is an obligation of this arithmetic identity',
-    'Etna.Design.Accounting.sumBalances_update': 'Finite-sum update helper; no protocol clause is an obligation of this arithmetic identity',
-    'Etna.Design.Accounting.step_project': 'Every observer step is an original step or a failed-call stutter; modelling correspondence only',
-    'Etna.Design.Accounting.step_lift': 'Every original step has an observer step; modelling completeness only',
-    'Etna.Design.Accounting.trace_project': 'Observer traces project to original traces after removing stutters; modelling correspondence only',
-    'Etna.Design.Accounting.trace_lift': 'Every original trace has an observer trace; modelling completeness only',
-    'Etna.Design.SigningEscrow.snapshot_trace_projects': 'Snapshot-disciplined trace projects to the original machine; modelling correspondence only',
-    'Etna.Design.SigningBridge.valid_chain_split': 'Concatenated valid-chain decomposition is modelling plumbing; it is not evidence for a spec clause',
-    'Etna.Design.NormalSigning.ordinary_append': 'Normal provenance composition/projection only; no specification clause is an obligation of this helper',
-    'Etna.Design.NormalSigning.ordinary_trace': 'Normal provenance composition/projection only; no specification clause is an obligation of this helper',
-    'Etna.Design.NormalSigning.run_ordinary': 'Normal provenance composition/projection only; no specification clause is an obligation of this helper',
-    'Etna.Design.NormalSigning.run_trace': 'Normal provenance composition/projection only; no specification clause is an obligation of this helper',
-    'Etna.Design.NormalSigning.run_snapshot_trace': 'Normal provenance composition/projection only; no specification clause is an obligation of this helper',
-    'Etna.Design.NormalSigning.source_ordinary': 'Normal provenance composition/projection only; no specification clause is an obligation of this helper',
-}
+SHARED_REASON = ('Shared lemma outside the Current namespace, reused by current proofs; '
+                 'its evidence is the Etna.Design.Current declarations that use it')
+UNSOURCED = {name: SHARED_REASON for name in (
+    'Etna.Design.gridLeaves_getD',
+    'Etna.Design.Committee.chosen_eligible',
+    'Etna.Design.Staking.fraction_bounded',
+    'Etna.Design.Forced.step_one_or_zero',
+    'Etna.Design.Forced.overdue_from_block_time',
+    'Etna.Design.Consensus.commit_strict_quorum',
+    'Etna.Design.Consensus.signed_power_bounded',
+    'Etna.Design.RegistryHistory.record_head',
+    'Etna.Design.RegistryHistory.record_preserves_order',
+    'Etna.Design.Accountability.overlap_power',
+    'Etna.Design.Accountability.conflicting_commits_overlap',
+    'Etna.Proofs.selected_power_le',
+    'Etna.Design.Staking.forfeit_penalty_bounded',
+    'Etna.Design.Staking.forfeit_penalty_ceiling',
+    'Etna.Design.Locking.polc_unique',
+    'Etna.Design.Locking.commit_has_polc',
+    'Etna.Design.Locking.polc_after_commit',
+    'Etna.Design.Locking.commit_agreement',
+    'Etna.Design.Locking.commitValid_bridge',
+    'Etna.Design.ActualQueue.opened_advance_action',
+)}
 
 
 def _current_plumbing():
@@ -101,7 +88,7 @@ def _current_plumbing():
         if (not name.startswith('Etna.Design.Current.') or not isinstance(reason,str) or not reason.strip()):
             raise ValueError('invalid reviewed current plumbing declaration/reason: '+str(name))
     if set(entries) & set(UNSOURCED):
-        raise ValueError('duplicate current/historical plumbing policy')
+        raise ValueError('duplicate current/shared plumbing policy')
     return entries
 
 
@@ -206,7 +193,7 @@ def source_rows(root=ROOT, repo=REPO):
                              'against the new text, then update its pin in spec-coverage.json')
         rows = clauses(text, language)
         for row in rows:
-            row.update(path=path, source_commit=source['commit'], historical=key.startswith('historical_'))
+            row.update(path=path, source_commit=source['commit'])
         result.extend(rows)
     return result
 
@@ -217,7 +204,6 @@ def inventory(root=ROOT, repo=REPO):
         raise ValueError('unsupported inventory schema/scope')
     rows = source_rows(root, repo)
     ids = {r['id'] for r in rows}
-    historical_ids = {r['id'] for r in rows if r['historical']}
     if len(ids) != len(rows):
         raise ValueError('duplicate content identity')
     entries = json.loads((root/'manifests/design.json').read_text())['theorems']
@@ -238,7 +224,7 @@ def inventory(root=ROOT, repo=REPO):
         for source in sources:
             if source not in ids:
                 raise ValueError(f'unknown theorem source {source}: {name}')
-            if (source in historical_ids) == name.startswith('Etna.Design.Current.'):
+            if not name.startswith('Etna.Design.Current.'):
                 raise ValueError(f'theorem authority mismatch: {name} cites {source}')
         if not entry['scope'].strip():
             raise ValueError(f'theorem scope required: {name}')
@@ -281,8 +267,6 @@ def inventory(root=ROOT, repo=REPO):
                 raise ValueError(f'unknown source clause in proof claim {cid}: {source}')
             if by_id[source]['status'] not in {'partial','proved'}:
                 raise ValueError(f'proof claim {cid} targets deferred/design-pending source {source}')
-            if by_id[source]['historical'] != claim.get('historical', False):
-                raise ValueError(f'claim {cid} mixes current and historical evidence: {source}')
             if not declarations or len(declarations) != len(set(declarations)):
                 raise ValueError(f'nonempty unique claim evidence required: {cid} {source}')
             for name in declarations:
@@ -307,10 +291,7 @@ def main():
     args = parser.parse_args()
     try:
         rows = inventory(args.root, args.repo)
-        current = [r for r in rows if not r['historical']]
-        historical = [r for r in rows if r['historical']]
-        print(f'Validated {len(current)} current clauses (SPEC/ACCEPTANCE/ANCHORLESS/SWITCH): '+str(dict(Counter(r['status'] for r in current))))
-        print(f'Separately retained {len(historical)} historical clauses: '+str(dict(Counter(r['status'] for r in historical))))
+        print(f'Validated {len(rows)} clauses (SPEC/ACCEPTANCE/ANCHORLESS/SWITCH): '+str(dict(Counter(r['status'] for r in rows))))
         return 0
     except (ValueError,KeyError,OSError,TypeError) as exc:
         print('spec coverage failed: '+str(exc),file=sys.stderr)

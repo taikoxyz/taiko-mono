@@ -1,6 +1,9 @@
 import EtnaModel.Locking
-import EtnaProofs.RoundSafety
-import EtnaProofs.HistoricalContext
+import EtnaModel.Consensus
+import EtnaProofs.Headline.AccountableFinality
+import EtnaModel.RegistryHistory
+import EtnaProofs.RegistryHistory
+import EtnaProofs.Consensus
 
 /-! Cross-round safety derived from per-key prevote/PoLC/lock transitions. No
 CrossRoundAccountable premise and no cross-round automatic slashing conclusion. -/
@@ -165,112 +168,5 @@ theorem commitValid_bridge {c : Consensus.Context} {signature : Consensus.Vote �
   obtain ⟨v,member,key⟩ := List.mem_map.mp mem
   rw [← key]
   exact attributed v member
-
-/-- Etna design safety at its actual activeAt committee, independent of commit rounds.
-The bridge's nonnil/crypto attribution and honest-key engine rules remain explicit. -/
-theorem commitValid_agreement {c : Consensus.Context} {signature : Consensus.Vote → Prop} {h : Nat}
-    {honest : Hash → Bool} {mode : Bool} {e : Execution}
-    (rules : HonestRules c.unit (Consensus.activeAt c h).members honest mode e)
-    (minority : Minority c.unit (Consensus.activeAt c h).members honest)
-    {ra rb a b : Nat} {votesA votesB : List Consensus.Vote}
-    (attributedA : CommitAttribution e ra a votesA) (attributedB : CommitAttribution e rb b votesB)
-    (ca : Consensus.CommitValid c signature h ra a votesA)
-    (cb : Consensus.CommitValid c signature h rb b votesB) : a = b :=
-  commit_agreement rules minority (commitValid_bridge attributedA ca) (commitValid_bridge attributedB cb)
-
-private theorem registry_from_raw_prefix {a b : RegistryHistory.State} {cutoff : Nat}
-    (shared : a.history.filter (fun cp => decide (cp.block ≤ cutoff)) =
-      b.history.filter (fun cp => decide (cp.block ≤ cutoff))) :
-    HistoricalContext.registryAt a cutoff = HistoricalContext.registryAt b cutoff := by
-  have heads := congrArg List.head? shared
-  simp only [List.head?_filter] at heads
-  simp only [HistoricalContext.registryAt,RegistryHistory.latestSnapshot,heads]
-
-/-- Derived contexts agree at this height from the common decoded archive common and
-raw finalized registry entries through its cutoff. The build checks and raw inputs are
-not a proof of header/MPT authentication; callers must supply that adapter boundary.
-No assumption equates chosen committees or already-derived registry lookup functions. -/
-theorem active_committee_prefix {sa sb : State} {registryA registryB : RegistryHistory.State}
-    {cfg : HistoricalContext.Parameters} {common moreA moreB : List Nat} {h : Nat}
-    {ca cb : Consensus.Context}
-    (builtA : HistoricalContext.build sa registryA cfg (common ++ moreA) = some ca)
-    (builtB : HistoricalContext.build sb registryB cfg (common ++ moreB) = some cb)
-    (sameInstance : SameInstance sa sb) (covered : requiredPrefix sa cfg h ≤ common.length)
-    (registryPrefix : registryA.history.filter (fun cp => decide (cp.block ≤ HistoricalContext.cutoff sa cfg common h)) =
-      registryB.history.filter (fun cp => decide (cp.block ≤ HistoricalContext.cutoff sa cfg common h))) :
-    ca.domain = cb.domain ∧ ca.generation = cb.generation ∧ ca.unit = cb.unit ∧
-      Consensus.activeAt ca h = Consensus.activeAt cb h := by
-  rw [(HistoricalContext.build_success builtA).2,(HistoricalContext.build_success builtB).2]
-  obtain ⟨domain,generation,origin⟩ := sameInstance
-  refine ⟨domain,generation,rfl,?_⟩
-  have registry := registry_from_raw_prefix registryPrefix
-  unfold Consensus.activeAt Consensus.epoch Consensus.switchHeight HistoricalContext.derive
-  dsimp only
-  rw [← origin]
-  by_cases normal : sa.origin.height < (h-1)/cfg.epochLen*cfg.epochLen-1
-  · have index : (h-1)/cfg.epochLen*cfg.epochLen-2 < common.length := by
-      have count : (h-1)/cfg.epochLen*cfg.epochLen-2+1 ≤ common.length := by
-        simpa [requiredPrefix,normal] using covered
-      omega
-    have anchorA := HistoricalContext.prefix_append_stable 0 common moreA _ index
-    have anchorB := HistoricalContext.prefix_append_stable 0 common moreB _ index
-    simp only [normal,ite_true,Consensus.normal,Consensus.selected,
-      HistoricalContext.anchorAt,anchorA,anchorB]
-    simpa [HistoricalContext.cutoff,normal,HistoricalContext.anchorAt] using congrArg
-      (fun es => Committee.Record.mk ((h-1)/cfg.epochLen)
-        (max (HistoricalContext.anchorAt common ((h-1)/cfg.epochLen*cfg.epochLen-2)) sa.origin.l1Block)
-        (Committee.chosen cfg.unit cfg.minimum
-          (max (HistoricalContext.anchorAt common ((h-1)/cfg.epochLen*cfg.epochLen-2)) sa.origin.l1Block) cfg.nMax es)) registry
-  · simp only [normal,ite_false,Consensus.initial,Consensus.selected,← generation]
-    simpa [HistoricalContext.cutoff,normal] using congrArg
-      (fun es => Committee.Record.mk (if sa.generation = 0 then 0 else sa.origin.height/cfg.epochLen)
-        (if sa.generation = 0 then cfg.genesisCutoff else sa.origin.l1Block)
-        (Committee.chosen cfg.unit cfg.minimum
-          (if sa.generation = 0 then cfg.genesisCutoff else sa.origin.l1Block) cfg.nMax es)) registry
-
-/-- S(t) = t*epochLen-1 signals an update; H+2 = t*epochLen+1 uses it.
-Exactly the first t*epochLen-1 archive entries suffice, including header S(t)-1. -/
-theorem handover_prefix_length (s : State) (cfg : HistoricalContext.Parameters)
-    (registry : RegistryHistory.State) (archive : List Nat) (t : Nat) (positive : 0 < cfg.epochLen)
-    (occurred : s.origin.height < t*cfg.epochLen-1) :
-    requiredPrefix s cfg (t*cfg.epochLen+1) = t*cfg.epochLen-1 ∧
-      Consensus.activeAt (HistoricalContext.derive s registry cfg archive) (t*cfg.epochLen+1) =
-        Consensus.normal (HistoricalContext.derive s registry cfg archive) t := by
-  constructor
-  · simp only [requiredPrefix,Nat.add_sub_cancel,Nat.mul_div_cancel _ positive,occurred,ite_true]
-    omega
-  · exact Consensus.active_at_handover _ t positive occurred
-
-/-- Before this generation's first occurred switch, recovery bootstrap needs no archive
-entry: its registry cutoff is the authenticated fixed origin, not the current checkpoint. -/
-theorem recovery_bootstrap_prefix (s : State) (cfg : HistoricalContext.Parameters)
-    (registry : RegistryHistory.State) (archive : List Nat) (h : Nat) (recovery : s.generation ≠ 0)
-    (bootstrap : (h-1)/cfg.epochLen*cfg.epochLen-1 ≤ s.origin.height) :
-    requiredPrefix s cfg h = 0 ∧
-      (Consensus.activeAt (HistoricalContext.derive s registry cfg archive) h).cutoff = s.origin.l1Block := by
-  refine ⟨by simp [requiredPrefix,Nat.not_lt.mpr bootstrap],?_⟩
-  exact Consensus.recovery_initial_until_switch _ h recovery bootstrap
-
-/-- Two locally built Etna contexts compose with one locking execution only after their
-raw same-instance inputs derive the same committee. Numerical height alone is insufficient. -/
-theorem shared_history_commitValid_agreement {sa sb : State} {registryA registryB : RegistryHistory.State}
-    {cfg : HistoricalContext.Parameters} {common moreA moreB : List Nat} {h : Nat}
-    {ca cb : Consensus.Context}
-    (builtA : HistoricalContext.build sa registryA cfg (common ++ moreA) = some ca)
-    (builtB : HistoricalContext.build sb registryB cfg (common ++ moreB) = some cb)
-    (sameInstance : SameInstance sa sb) (covered : requiredPrefix sa cfg h ≤ common.length)
-    (registryPrefix : registryA.history.filter (fun cp => decide (cp.block ≤ HistoricalContext.cutoff sa cfg common h)) =
-      registryB.history.filter (fun cp => decide (cp.block ≤ HistoricalContext.cutoff sa cfg common h)))
-    {honest : Hash → Bool} {mode : Bool} {e : Execution} {sigA sigB : Consensus.Vote → Prop}
-    (rules : HonestRules ca.unit (Consensus.activeAt ca h).members honest mode e)
-    (minority : Minority ca.unit (Consensus.activeAt ca h).members honest)
-    {ra rb a b : Nat} {votesA votesB : List Consensus.Vote}
-    (attributedA : CommitAttribution e ra a votesA) (attributedB : CommitAttribution e rb b votesB)
-    (validA : Consensus.CommitValid ca sigA h ra a votesA)
-    (validB : Consensus.CommitValid cb sigB h rb b votesB) : a = b := by
-  obtain ⟨_,_,unit,committee⟩ := active_committee_prefix builtA builtB sameInstance covered registryPrefix
-  have lowerB := commitValid_bridge attributedB validB
-  rw [← unit,← committee] at lowerB
-  exact commit_agreement rules minority (commitValid_bridge attributedA validA) lowerB
 
 end Etna.Design.Locking

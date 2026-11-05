@@ -37,8 +37,8 @@
           </p>
           <p class="intro-note">
             Select a Lean name to inspect its source. The catalogue includes
-            current declarations and an explicitly separate historical / shared
-            view. Everything needed to browse is embedded in this file.
+            current declarations and a separate view of shared model
+            primitives they import. Everything needed to browse is embedded in this file.
           </p>
           <div class="ledger" id="ledger"></div>
           <div class="scope-note">
@@ -188,7 +188,7 @@
               <label
                 >Profile<select id="profile">
                   <option value="current">Current</option>
-                  <option value="historical-shared">Historical / shared</option>
+                  <option value="shared">Shared</option>
                   <option value="all">All</option>
                 </select></label
               >
@@ -281,8 +281,9 @@
             <p>
               Generated deterministically from the checked-in sources and
               reviewed manifests by
-              <code>python3 scripts/generate_statements.py</code>. CI runs
-              <code>--check</code>. This checks freshness, not proof validity;
+              <code>python3 scripts/generate_statements.py</code>. CI builds
+              it and uploads it as the <code>etna-statements</code> workflow
+              artifact. Generation is not proof validity;
               the separate Lean kernel audit checks theorem contracts.
             </p>
             <p>

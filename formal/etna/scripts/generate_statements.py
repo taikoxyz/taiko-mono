@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the offline Lean statement/source viewer; --check rejects stale HTML.
+"""Generate the offline Lean statement/source viewer (CI uploads it as a workflow artifact).
 
 This is a source browser, not a replacement for the kernel audit. Named source
 declarations are indexed with the package's existing Lean lexer. Compiler-generated
@@ -22,13 +22,6 @@ import check_spec_coverage as coverage
 import rule_coverage
 
 KINDS = {'def','abbrev','structure','inductive','class','theorem','lemma','opaque','instance'}
-# The local archival copies did not exist at these reviewed upstream revisions.
-# These original published paths match their pinned, marker-stripped source digests.
-HISTORICAL_PATHS = {
-    'historical_source':'packages/protocol/docs/etna/SPEC.md',
-    'historical_acceptance_source':'packages/protocol/docs/etna-pos-zk/ACCEPTANCE.md',
-    'historical_anchorless_source':'packages/protocol/docs/etna/ANCHORLESS.md',
-}
 
 
 def source_line_map(text):
@@ -99,7 +92,7 @@ def build_catalogue(root=ROOT,repo=REPO):
             for row in source_declarations(text):
                 row.update(file=file,module=module,library=library,
                            profile='current' if any(p.startswith('Current') for p in module.split('.'))
-                                   or '.Current.' in row['name'] else 'historical-shared')
+                                   or '.Current.' in row['name'] else 'shared')
                 if row['name'] in contracts:
                     if contracts[row['name']]['module']!=module:
                         raise ValueError('manifest/source module mismatch: '+row['name'])
@@ -118,7 +111,7 @@ def build_catalogue(root=ROOT,repo=REPO):
         clause['github_end_line']=lines[clause['end_line']-1]
     rules=rule_coverage.rule_rows(root,repo)
     pins=json.loads((root/'spec-coverage.json').read_text())
-    authorities={path:{**pins[key],'github_path':HISTORICAL_PATHS.get(key,path)}
+    authorities={path:{**pins[key],'github_path':path}
                  for key,_,path,_ in coverage.SOURCE_INPUTS}
     # No clock, current HEAD or network access: a clean checkout always reproduces the bytes.
     inputs=[root/'manifests/design.json',root/'spec-coverage.json',root/'rule-coverage.json',

@@ -31,14 +31,7 @@ def jObj (fields : List (String × JVal)) : JVal := fun d =>
     "{\n" ++ String.intercalate ",\n" (fields.map fun (k, v) => indentation (d+1) ++ jStr k 0 ++ ": " ++ v (d+1)) ++
       "\n" ++ indentation d ++ "}"
 
-/-- A one-line object. -/
-def jLine (fields : List (String × JVal)) : JVal := fun _ =>
-  "{" ++ String.intercalate ", " (fields.map fun (k, v) => jStr k 0 ++ ": " ++ v 0) ++ "}"
-
 /-- A one-line array. -/
 def jRow (items : List JVal) : JVal := fun _ => "[" ++ String.intercalate ", " (items.map fun v => v 0) ++ "]"
-
-/-- A one-line array of numbers. -/
-def jNats (xs : List Nat) : JVal := fun _ => "[" ++ String.intercalate ", " (xs.map Nat.repr) ++ "]"
 
 end Etna.Vectors

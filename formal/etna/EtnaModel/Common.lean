@@ -8,9 +8,6 @@ abbrev Hash := Nat
 
 def limit48 : Nat := 2^48
 
-/-- Allowed grid intervals: K is a protocol constant built into the Inbox and both guests,
-1 ≤ K ≤ 6, its value fixed from measured proving capacity (§11). -/
-def GridRange (k : Nat) : Prop := 1 ≤ k ∧ k ≤ 6
 def limit256 : Nat := 2^256
 
 structure Domain where
@@ -125,10 +122,6 @@ structure State where
 
 def recordAt (s : State) (h : Nat) : Option Checkpoint :=
   s.records.find? (fun r => r.height == h)
-
-/-- Every wei that entered the Inbox (FI fees or forced transfers) is either still held
-or was swept to the fixed treasury. -/
-def FeeConserved (s : State) : Prop := s.feeAdmissions+s.forcedETH = s.ethBalance+s.swept
 
 /-- At least one ZK proof, exactly two successful subproofs. Soundness is separate. -/
 inductive Backend | sgx | risc0 | sp1 deriving DecidableEq, Repr

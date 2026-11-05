@@ -1,5 +1,5 @@
 import EtnaModel.Consensus
-import EtnaModel.HistoricalContext
+import EtnaModel.RegistryHistory
 
 /-! A fixed-height, fixed-committee interface to the pinned CometBFT v0.40.0 rules.
 `nilUnlock = true` is the markdown reading: locked prevotes stay on their block and
@@ -98,15 +98,5 @@ concrete certificate being bridged; unrelated authentic nil precommits remain pe
 `some 0` is a block, never an implicit nil sentinel. No agreement/locking premise occurs. -/
 def CommitAttribution (e : Execution) (r b : Nat) (votes : List Consensus.Vote) : Prop :=
   ∀ v ∈ votes, e.precommits v.key r (some b)
-
-/-- Exact archive count queried by activeAt. Normal rotation reads header S(t)-1,
-so indices 0..t*epochLen-2 require t*epochLen-1 entries; bootstrap reads none. -/
-def requiredPrefix (s : State) (cfg : HistoricalContext.Parameters) (h : Nat) : Nat :=
-  let t := (h-1)/cfg.epochLen
-  if s.origin.height < t*cfg.epochLen-1 then t*cfg.epochLen-2+1 else 0
-
-/-- Raw decoded identity scope. Distinct recovery generations do not share this scope. -/
-def SameInstance (a b : State) : Prop :=
-  a.domain = b.domain ∧ a.generation = b.generation ∧ a.origin = b.origin
 
 end Etna.Design.Locking

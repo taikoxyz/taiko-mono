@@ -140,7 +140,7 @@
     node(
       "p",
       {},
-      `Toolchain: ${data.toolchain}. ${Object.keys(data.files).length} source files embedded. Historical / shared entries may also supply primitives imported by the current model; that label does not grant them current rule evidence.`,
+      `Toolchain: ${data.toolchain}. ${Object.keys(data.files).length} source files embedded. Shared entries supply primitives imported by the current model; that label does not grant them rule evidence.`,
     ),
   );
   for (const [path, digest] of Object.entries(data.fingerprints))
@@ -218,7 +218,7 @@
     $("source-badges").replaceChildren(
       badge(entry.kind),
       badge(
-        entry.profile === "current" ? "current" : "historical / shared",
+        entry.profile === "current" ? "current" : "shared",
         entry.profile,
       ),
     );
@@ -320,7 +320,7 @@
                 target: "_blank",
                 rel: "noopener noreferrer",
               },
-              `${clause.historical ? "Historical · " : ""}${clause.path.split("/").pop()}:${clause.github_start_line}–${clause.github_end_line} ↗`,
+              `${clause.path.split("/").pop()}:${clause.github_start_line}–${clause.github_end_line} ↗`,
             ),
             node("p", {}, clause.summary),
           ),

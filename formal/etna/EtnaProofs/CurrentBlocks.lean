@@ -1,6 +1,10 @@
 import EtnaModel.CurrentBlocks
 import EtnaProofs.ActualQueue
-import EtnaProofs.BlockValidity
+import EtnaModel.BlockValidity
+import EtnaProofs.Consensus
+import EtnaProofs.Landing
+import EtnaProofs.Forced
+import EtnaModel.Encoding
 
 namespace Etna.Design.Current.Blocks
 
