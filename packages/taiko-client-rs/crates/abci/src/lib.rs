@@ -8,7 +8,7 @@
 //! confirms that a moved anchor header is final and canonical in the node's own L1.
 //!
 //! The `types`, `config`, `schedule`, `envelope`, `l1::header`, `l1::layout`, `l1::mpt`,
-//! `l1::witness`, `committee`, `forced`, `rules` and `engine::convert` modules and
+//! `l1::witness`, `committee`, `forced`, `rules`, `valstate` and `engine::convert` modules and
 //! the genesis `app_state` codec perform no I/O; `l1::source`, `l1::forced_tx`, `engine` and
 //! `elsync` hold the L1 and execution-engine adapters, `l1::fetch` and the genesis
 //! builder read L1 through them, `app` answers CometBFT's ABCI requests on top of them, and
@@ -53,6 +53,9 @@ pub mod server;
 pub mod store;
 /// Plain data shared across modules (witnesses, committee records, anchor and parent facts).
 pub mod types;
+/// Stock CometBFT v0.40.0 validator-set arithmetic: the proposer priorities and stored proposers
+/// of `State.Validators` and `State.NextValidators`.
+pub mod valstate;
 /// Stock CometBFT transport with native secp256k1eth keys.
 pub mod wire;
 
