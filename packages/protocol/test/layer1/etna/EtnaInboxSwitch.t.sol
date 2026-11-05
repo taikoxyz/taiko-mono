@@ -155,8 +155,9 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
         );
     }
 
-    /// @dev RECOV-8.3-19: while the registry holds its lock, `init` and the start write revert
-    /// and write nothing.
+    /// @dev Every Inbox entry point refuses to run while the registry holds its lock (the shared
+    /// lock in the Etna README, beyond the entry points RECOV-8.3-19 lists): `init` and the start
+    /// write revert and write nothing.
     function test_initAndSetOrigin_RevertWhen_RegistryLocked() external {
         vm.warp(FORK_TIME);
         _mockRegistryLocked();

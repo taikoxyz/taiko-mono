@@ -1,6 +1,7 @@
 """Regression tests for the alloc-only Etna genesis builder (stdlib only)."""
 import importlib.util
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -122,14 +123,15 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
     def test_projects_generator_accounts_to_genesis_fields(self):
         anchor = self.addresses["TaikoAnchor"]
         implementation = self.addresses["TaikoAnchorImpl"]
+        code = self.predeploys[anchor]["code"]
         self.predeploys[anchor] = {
-            "contractName": "TaikoAnchor", "balance": "0x0", "code": "0x6001",
+            "contractName": "TaikoAnchor", "balance": "0x0", "code": code.upper().replace("0X", "0x"),
             "storage": {"0x01": "0xAB", "0x" + "cd" * 32: "0x" + "00" * 31 + "02",
                         self.fixture.IMPLEMENTATION_SLOT: implementation.upper().replace("0X", "0x")},
         }
         account = self._build()["alloc"][anchor]
         self.assertEqual(account, {
-            "balance": "0x0", "code": "0x6001",
+            "balance": "0x0", "code": code,
             "storage": {"0x" + "00" * 31 + "01": "0x" + "00" * 31 + "ab",
                         "0x" + "cd" * 32: "0x" + "00" * 31 + "02",
                         self.fixture.IMPLEMENTATION_SLOT: self.fixture.address_word(implementation)},
@@ -145,6 +147,11 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
             ({"balance": "0x0", "code": "0x60", "storage": {"0x" + "00" * 33: "0x1"}},
              "at most 32 bytes"),
             ({"balance": "0x0", "code": "0x60", "storage": {"0x1": 1}}, "at most 32 bytes"),
+            # Code clients cannot parse: an odd digit count, whitespace, no prefix, not a string.
+            ({"balance": "0x0", "code": "0x6"}, "code must be 0x-prefixed hex bytes"),
+            ({"balance": "0x0", "code": "0x60 00"}, "code must be 0x-prefixed hex bytes"),
+            ({"balance": "0x0", "code": "6000"}, "code must be 0x-prefixed hex bytes"),
+            ({"balance": "0x0", "code": 96}, "code must be 0x-prefixed hex bytes"),
         ]
         for account, diagnostic in cases:
             predeploys = dict(self.predeploys)
@@ -192,7 +199,7 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
             self.predeploys = self.fixture.predeploys(**{immutable: other})
             with self.assertRaisesRegex(ValueError, name + " " + immutable + " is " + other):
                 self._build()
-        # Immutables the root path does not depend on, and library links, may hold anything.
+        # Immutables the root path does not depend on may hold anything.
         self.predeploys = self.fixture.predeploys(self=other, pauser=other)
         self._build()
 
@@ -202,17 +209,54 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "etnaTimestamp differs between its offsets"):
             self._build()
 
+    def test_rejects_proxy_code_that_is_not_the_compiled_proxy(self):
+        # Calls land at the proxy: an ungated Anchor runtime there, still pointing at a gated
+        # implementation, would keep anchorV4 open at the Anchor address.
+        ungated = self.fixture.predeploys(etnaTimestamp=self.fixture.word(2**64 - 1))
+        self.predeploys[self.addresses["TaikoAnchor"]]["code"] = (
+            ungated[self.addresses["TaikoAnchorImpl"]]["code"])
+        with self.assertRaisesRegex(ValueError, "TaikoAnchor is not the compiled ERC1967Proxy"):
+            self._build()
+        self.setUp()
+        self.predeploys[self.addresses["SignalService"]]["code"] = "0x00"
+        with self.assertRaisesRegex(ValueError, "SignalService is not the compiled ERC1967Proxy"):
+            self._build()
+        self.setUp()
+        self._set_code_byte("SignalService", 3, 0xFE)
+        with self.assertRaisesRegex(ValueError, "SignalService is not the compiled ERC1967Proxy"):
+            self._build()
+
+    def test_rejects_root_path_artifacts_that_link_a_library(self):
+        # A linked library would be a call target the immutable check does not cover.
+        signal = self.fixture.artifacts()["SignalServiceL2"]
+        signal["deployedBytecode"]["linkReferences"] = {
+            "contracts/Lib.sol": {"Lib": [{"start": 132, "length": 20}]}}
+        self.fixture.write_artifacts(self.artifacts, {"SignalServiceL2": signal})
+        with self.assertRaisesRegex(ValueError, "SignalServiceL2 links a library"):
+            self._build()
+
+    def test_rejects_an_immutable_that_is_not_32_bytes(self):
+        anchor = self.fixture.artifacts()["Anchor"]
+        anchor["deployedBytecode"]["immutableReferences"]["12"][0]["length"] = 20
+        self.fixture.write_artifacts(self.artifacts, {"Anchor": anchor})
+        with self.assertRaisesRegex(ValueError, "etnaTimestamp is not a 32-byte immutable"):
+            self._build()
+
     def test_rejects_code_that_is_not_the_compiled_runtime(self):
-        for name, offset in (("TaikoAnchorImpl", 0), ("SignalServiceImpl", 33)):
+        for name, contract, offset in (("TaikoAnchorImpl", "Anchor", 0),
+                                       ("SignalServiceImpl", "SignalServiceL2", 33)):
             self.setUp()
             self._set_code_byte(name, offset, 0xFE)
-            with self.assertRaisesRegex(ValueError, name + " is not the compiled runtime"):
+            # The message names the artifacts directory and how to point at the right one.
+            with self.assertRaisesRegex(ValueError, name + " is not the compiled " + contract
+                                        + " runtime in " + re.escape(str(self.artifacts))
+                                        + ".*--artifacts"):
                 self._build()
         # A trailing byte, and the base SignalService instead of SignalServiceL2.
         self.setUp()
         account = self.predeploys[self.addresses["TaikoAnchorImpl"]]
         account["code"] += "00"
-        with self.assertRaisesRegex(ValueError, "TaikoAnchorImpl is not the compiled runtime"):
+        with self.assertRaisesRegex(ValueError, "TaikoAnchorImpl is not the compiled Anchor"):
             self._build()
         self.setUp()
         base_runtime = self.fixture.runtime(self.fixture.artifacts()["SignalService"], {
@@ -221,7 +265,8 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
             "pauser": self.fixture.word(0),
         })
         self.predeploys[self.addresses["SignalServiceImpl"]]["code"] = base_runtime
-        with self.assertRaisesRegex(ValueError, "SignalServiceImpl is not the compiled runtime"):
+        with self.assertRaisesRegex(ValueError,
+                                    "SignalServiceImpl is not the compiled SignalServiceL2"):
             self._build()
 
     def test_rejects_a_proxy_that_points_elsewhere(self):
@@ -259,7 +304,7 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
         self.fixture.write_artifacts(self.artifacts, {"Anchor": contracts["Anchor"],
                                                       "SignalServiceL2": signal})
         self.predeploys = self.fixture.predeploys(_remoteSignalService=self.fixture.word(0))
-        with self.assertRaisesRegex(ValueError, "_remoteSignalService is never read"):
+        with self.assertRaisesRegex(ValueError, "_remoteSignalService has no offsets"):
             self._build()
 
     def test_cli_rejects_duplicate_literal_alloc_keys_without_output(self):

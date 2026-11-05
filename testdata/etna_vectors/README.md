@@ -20,10 +20,9 @@ fields indexed and the unindexed `RulesScheduleUpdated` (the packed slot-293 wor
 `ForcedInclusionSaved` (its queue index indexed, then the raw transaction and the fee charged),
 `ProtocolFeesSwept` and `Recovered` (the new generation indexed). `view_abi` gives the calldata
 and return data of the registry lookups `bondForKey`, `bondInSlot` and `slotOfBond`, where
-`(true, 0)` names bond 0 or slot 0 and
-`(false, 0)` is absence, and of the Inbox's `etnaStart()`, which returns (0, 0) before the start
-write. `forfeitures` pins effective-first rounded-up deductions, including pending-only and
-uint256 boundary balances.
+`(true, 0)` names bond 0 or slot 0 and `(false, 0)` is absence, and of the Inbox's `etnaStart()`,
+which returns (0, 0) before the start write. `forfeitures` pins effective-first rounded-up
+deductions, including pending-only and uint256 boundary balances.
 
 `validator_states` pins the ENC-A-29a.l encoding-only example: two entries per set,
 negative `int64` priorities sign-extended to 32 bytes, and both stored proposer indexes.

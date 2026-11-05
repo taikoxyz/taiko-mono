@@ -1,10 +1,10 @@
 """Synthetic inputs for the Etna genesis builder tests (stdlib only).
 
-The predeploys are stand-in Anchor and SignalServiceL2 implementations behind ERC-1967 proxies.
-Each implementation's code is a small artifact's runtime with its immutables and a library link
-filled in the way `pnpm genesis:gen` fills them, so the builder can check the emitted bytecode
-against the artifacts. Run as a script, it writes the inputs to a temporary directory and runs the
-builder CLI, so the Solidity test exercises the same path as an operator.
+The predeploys are stand-in Anchor and SignalServiceL2 implementations behind stand-in ERC-1967
+proxies. Each account's code is a small artifact's runtime with its immutables filled in the way
+`pnpm genesis:gen` fills them, so the builder can check the emitted bytecode against the
+artifacts. Run as a script, it writes the inputs to a temporary directory and runs the builder
+CLI, so the Solidity test exercises the same path as an operator.
 """
 import argparse
 import json
@@ -17,7 +17,6 @@ PROTOCOL = Path(__file__).resolve().parents[3]
 SCRIPT = PROTOCOL / "script/layer2/build_etna_genesis.py"
 CHAIN_ID = 167001
 L1_SIGNAL_SERVICE = "0x00000000000000000000000000000000000000aa"
-LIBRARY = "0x00000000000000000000000000000000000000bb"
 IMPLEMENTATION_SLOT = "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc"
 ADDRESSES = {
     "TaikoAnchor": "0x1670010000000000000000000000000000010001",
@@ -31,8 +30,6 @@ IDS = {
     "checkpointStore": 11, "etnaTimestamp": 12, "self": 13,
     "_authorizedSyncer": 21, "_remoteSignalService": 22, "pauser": 23,
 }
-# The placeholder solc leaves for an unlinked library address: 20 bytes as 40 characters.
-PLACEHOLDER = "__$" + "0" * 34 + "$__"
 
 
 def word(value):
@@ -45,19 +42,15 @@ def address_word(value):
     return "0x" + value.removeprefix("0x").lower().rjust(64, "0")
 
 
-def _artifact(name, declared, layout, bases=(), links=0):
+def _artifact(name, declared, layout, bases=(), body="00"):
     """An artifact whose runtime has a marker byte before each 32-byte immutable in `layout`, then
-    `links` PUSH20 library addresses, then STOP."""
-    code, immutables, linked = "", {}, []
+    `body`."""
+    code, immutables = "", {}
     for index, immutable in enumerate(layout):
         code += format(0x60 + index, "02x")
         immutables.setdefault(str(IDS[immutable]), []).append({"start": len(code) // 2, "length": 32})
         code += "00" * 32
-    for _ in range(links):
-        code += "73"
-        linked.append({"start": len(code) // 2, "length": 20})
-        code += PLACEHOLDER
-    code += "00"
+    code += body
     contract = {
         "nodeType": "ContractDefinition",
         "name": name,
@@ -73,16 +66,17 @@ def _artifact(name, declared, layout, bases=(), links=0):
         "deployedBytecode": {
             "object": "0x" + code,
             "immutableReferences": immutables,
-            "linkReferences": {"contracts/Lib.sol": {"Lib": linked}} if linked else {},
+            "linkReferences": {},
         },
     }
 
 
 def artifacts():
-    """The stand-in Anchor, SignalService and SignalServiceL2 artifacts. The Anchor reads
-    `etnaTimestamp` twice; SignalServiceL2 inherits SignalService's immutables and links one
-    library."""
+    """The stand-in ERC1967Proxy, Anchor, SignalService and SignalServiceL2 artifacts. The proxy
+    has no immutables, the Anchor reads `etnaTimestamp` twice, and SignalServiceL2 inherits
+    SignalService's immutables."""
     return {
+        "ERC1967Proxy": _artifact("ERC1967Proxy", (), (), body="363d3d373d3d3d363d00"),
         "Anchor": _artifact(
             "Anchor", ("checkpointStore", "etnaTimestamp", "self"),
             ("checkpointStore", "etnaTimestamp", "self", "etnaTimestamp"),
@@ -94,31 +88,26 @@ def artifacts():
         "SignalServiceL2": _artifact(
             "SignalServiceL2", (), ("_authorizedSyncer", "_remoteSignalService", "pauser",
                                     "_remoteSignalService"),
-            bases=("SignalService",), links=1,
+            bases=("SignalService",),
         ),
     }
 
 
 def runtime(artifact, values):
-    """The artifact's runtime with each immutable set from `values` (by name) and every library
-    link set to `LIBRARY`."""
+    """The artifact's runtime with each immutable set from `values` (by name)."""
     deployed = artifact["deployedBytecode"]
-    code = bytearray.fromhex(deployed["object"].removeprefix("0x").replace(PLACEHOLDER, "00" * 20))
+    code = bytearray.fromhex(deployed["object"].removeprefix("0x"))
     names = {str(i): name for name, i in IDS.items()}
     for reference_id, references in deployed["immutableReferences"].items():
         value = bytes.fromhex(values[names[reference_id]].removeprefix("0x"))
         for reference in references:
             code[reference["start"]:reference["start"] + 32] = value
-    for libraries in deployed["linkReferences"].values():
-        for references in libraries.values():
-            for reference in references:
-                code[reference["start"]:reference["start"] + 20] = bytes.fromhex(LIBRARY[2:])
     return "0x" + code.hex()
 
 
 def proxy(implementation):
     """A stand-in ERC-1967 proxy pointing at `implementation`."""
-    return {"balance": "0x0", "code": "0x6001",
+    return {"balance": "0x0", "code": runtime(artifacts()["ERC1967Proxy"], {}),
             "storage": {IMPLEMENTATION_SLOT: address_word(implementation)}}
 
 

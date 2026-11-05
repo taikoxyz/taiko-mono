@@ -618,7 +618,8 @@ class VectorsTest(unittest.TestCase):
             "start_written": [1000, 0x51, 0x52],
             "etna_initialized": [10, 40, 0x53, 0x54],
             "landed": [0x77, 50, 1],
-            # The offset of the bytes, the fee, then the one-byte transaction left-aligned.
+            # The offset of the bytes, the fee, the length, then the one-byte transaction
+            # left-aligned.
             "forced_inclusion_saved": [64, 1_000_000_000, 1, 0xC0 << 248],
             "protocol_fees_swept": [1_000_000_000],
             # Five head words with the two list offsets, then each list's length and items.

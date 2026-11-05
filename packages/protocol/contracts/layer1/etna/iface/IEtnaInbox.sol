@@ -498,8 +498,9 @@ interface IEtnaInbox {
     /// @notice Returns the current generation's start height,
     /// `origins(recoveryGeneration()).startHeight`.
     /// @dev Reverts with `StartNotWritten` before the start write, which writes generation 0's
-    /// record: a missing record has no default (spec 8.4). Every later generation's record is
-    /// written by the `recover` that starts it.
+    /// record: a missing record has no default (spec 8.4). Whatever starts a later generation
+    /// (`recover`, or an Inbox upgrade correcting the start under spec 10 step 5c) writes its record
+    /// in the same transaction.
     /// @return The start height.
     function generationStartHeight() external view returns (uint256);
 

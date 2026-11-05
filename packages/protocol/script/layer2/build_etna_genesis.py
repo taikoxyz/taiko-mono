@@ -15,13 +15,15 @@ code, storage), dropping the generator's `contractName`, with storage keys and v
 32-byte words.
 
 The configuration file can disagree with the alloc, for example when it was edited without rerunning
-the generator, so the same values are also checked in the emitted bytecode. The Anchor and
-SignalService proxies must point at their implementations, and each implementation's code must be
-the runtime of the compiled `Anchor` or `SignalServiceL2` in `--artifacts` (`out/layer2`, written
-with its AST by `pnpm genesis:gen`), differing only in immutables and library links. Then the
-immutables are read at the compiler's offsets: the Anchor's `etnaTimestamp` must be 0 and its
-`checkpointStore` the SignalService proxy, and SignalServiceL2's `_authorizedSyncer` must be the
-Anchor proxy and its `_remoteSignalService` the L1 SignalService.
+the generator, so the same values are also checked in the emitted bytecode, against the artifacts in
+`--artifacts` (`out/layer2`, written with their AST by `pnpm genesis:gen`). The Anchor and
+SignalService proxy accounts must hold exactly the compiled `ERC1967Proxy` runtime and point at
+their implementations. Each implementation's code must be the runtime of the compiled `Anchor` or
+`SignalServiceL2`, differing only in immutables; these contracts link no library, so an artifact
+with a library link is refused. Then the immutables are read at the compiler's offsets: the
+Anchor's `etnaTimestamp` must be 0 and its `checkpointStore` the SignalService proxy, and
+SignalServiceL2's `_authorizedSyncer` must be the Anchor proxy and its `_remoteSignalService` the
+L1 SignalService.
 """
 
 import argparse
@@ -77,6 +79,11 @@ def genesis_account(account, label):
     if "balance" not in account:
         raise ValueError(label + " has no balance")
     result = {key: account[key] for key in ACCOUNT_FIELDS if key in account}
+    if "code" in result:
+        code = result["code"]
+        if not isinstance(code, str) or not re.fullmatch(r"0x(?:[0-9a-fA-F]{2})*", code):
+            raise ValueError(label + " code must be 0x-prefixed hex bytes")
+        result["code"] = code.lower()
     if "storage" in result:
         storage = {}
         for key, value in result["storage"].items():
@@ -159,27 +166,26 @@ def immutable_id(artifacts, contract, name):
     raise ValueError("artifacts: " + contract + " declares no immutable " + name)
 
 
-def runtime_code(account, artifact, label):
-    """Require the account code to be the artifact's runtime, filled in only at its immutables
-    and library links, and return it as bytes."""
-    deployed = artifact.get("deployedBytecode", {})
-    expected = deployed.get("object", "").removeprefix("0x")
+def runtime_code(account, artifacts, contract, label):
+    """Require the account code to be `contract`'s compiled runtime, filled in only at its
+    immutables, and return it as bytes."""
+    deployed = load_artifact(artifacts, contract).get("deployedBytecode", {})
+    if deployed.get("linkReferences"):
+        raise ValueError("artifacts: " + contract + " links a library, which the genesis check "
+                         "does not cover")
+    expected = bytes.fromhex(deployed.get("object", "").removeprefix("0x"))
     code = bytes.fromhex(account["code"].removeprefix("0x"))
     filled = set()
     for references in deployed.get("immutableReferences", {}).values():
         for reference in references:
             filled.update(range(reference["start"], reference["start"] + reference["length"]))
-    for libraries in deployed.get("linkReferences", {}).values():
-        for references in libraries.values():
-            for reference in references:
-                filled.update(range(reference["start"], reference["start"] + reference["length"]))
-    if not expected or len(expected) != 2 * len(code) or any(
-        expected[2 * i:2 * i + 2].lower() != code[i:i + 1].hex()
-        for i in range(len(code)) if i not in filled
+    if not expected or len(code) != len(expected) or any(
+        code[i] != expected[i] for i in range(len(code)) if i not in filled
     ):
         raise ValueError(
-            "predeploys: " + label + " is not the compiled runtime in the artifacts; rerun "
-            "`pnpm genesis:gen` and build from its output"
+            "predeploys: " + label + " is not the compiled " + contract + " runtime in "
+            + str(artifacts) + "; rerun `pnpm genesis:gen`, or pass the artifacts it used with "
+            "--artifacts"
         )
     return code
 
@@ -188,9 +194,12 @@ def immutable_word(code, artifact, reference_id, label):
     """Return the one 32-byte value written at every offset of an immutable."""
     references = artifact["deployedBytecode"].get("immutableReferences", {}).get(reference_id)
     if not references:
-        raise ValueError("artifacts: " + label + " is never read, so it cannot be checked")
-    values = {code[r["start"]:r["start"] + r["length"]] for r in references}
-    if len(values) != 1 or any(r["length"] != 32 for r in references):
+        raise ValueError("artifacts: " + label + " has no offsets in the runtime; the artifacts "
+                         "may come from different builds, so rebuild them with `pnpm genesis:gen`")
+    if any(r["length"] != 32 for r in references):
+        raise ValueError("artifacts: " + label + " is not a 32-byte immutable")
+    values = {code[r["start"]:r["start"] + 32] for r in references}
+    if len(values) != 1:
         raise ValueError("predeploys: " + label + " differs between its offsets")
     return "0x" + values.pop().hex()
 
@@ -200,6 +209,8 @@ def check_predeploy_code(config, predeploys, artifacts, l1_signal_service):
     addresses = {name: address(config["contractAddresses"][name]) for name in REQUIRED_PREDEPLOYS}
     for proxy, implementation in (("TaikoAnchor", "TaikoAnchorImpl"),
                                   ("SignalService", "SignalServiceImpl")):
+        # Calls land at the proxy, so its code must be the plain proxy, not an implementation.
+        runtime_code(predeploys[addresses[proxy]], artifacts, "ERC1967Proxy", proxy)
         storage = predeploys[addresses[proxy]].get("storage", {})
         if storage.get(IMPLEMENTATION_SLOT) != address_word(addresses[implementation]):
             raise ValueError("predeploys: the " + proxy + " proxy does not point at the "
@@ -216,7 +227,7 @@ def check_predeploy_code(config, predeploys, artifacts, l1_signal_service):
     )
     for name, contract, immutables in expected:
         artifact = load_artifact(artifacts, contract)
-        code = runtime_code(predeploys[addresses[name]], artifact, name)
+        code = runtime_code(predeploys[addresses[name]], artifacts, contract, name)
         for declaring, immutable, value in immutables:
             label = name + " " + immutable
             reference_id = immutable_id(artifacts, declaring, immutable)
@@ -281,7 +292,8 @@ def main():
     )
     parser.add_argument(
         "--artifacts", type=Path, default=DEFAULT_ARTIFACTS,
-        help="the Foundry artifacts the predeploys were generated from (default: out/layer2)",
+        help="the Foundry artifacts the predeploys were generated from (default: this package's "
+             "out/layer2, wherever the command runs)",
     )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()

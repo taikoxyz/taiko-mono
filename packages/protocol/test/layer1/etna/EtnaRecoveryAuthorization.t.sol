@@ -175,8 +175,9 @@ contract EtnaRecoveryAuthorizationTest is EtnaLandTestBase {
         }
     }
 
-    /// @dev RECOV-8.3-19: the other entry points also refuse to run while the registry holds its
-    /// lock, and change nothing.
+    /// @dev Every Inbox entry point refuses to run while the registry holds its lock (the shared
+    /// lock in the Etna README, beyond the entry points RECOV-8.3-19 lists): forced inclusion,
+    /// the sweep and the schedule calls revert and change nothing.
     function test_entryPoints_RevertWhen_RegistryLocked() external {
         vm.deal(inboxProxy, 1 ether);
         vm.deal(Alice, 1 ether);

@@ -47,7 +47,9 @@ The current specification baseline is main at `589b542de790861efd8b4d9bb0a4b1d06
   record, emits `StartWritten` and opens the forced inclusion queue. It writes no SignalService
   checkpoint: the one at S is the Unzen Inbox's.
 - `etnaStart()`: (S, start hash), or (0, 0) before the start write; never reverts. The L1
-  SignalService reads it to reject Unzen Inbox checkpoints above S.
+  SignalService reads it to reject Unzen Inbox checkpoints above S. `generationStartHeight()` and
+  `recoverySnapshot()`, which read the current generation's origin record, instead revert with
+  `StartNotWritten` before the start write, since no record exists yet (spec 8.4).
 - `land(input, leaves, proof)`: the spec 6.1 reference Solidity, check for check, plus the shared
   registry lock below. Before the start
   write no landing passes, because `landings[0]` is unwritten. With K = 6, p, c and h are grid
@@ -235,8 +237,9 @@ The builder refuses any other `etnaTimestamp`, a `remoteSignalService` other tha
 another chain id and predeploys without the Anchor or SignalService. Because the checked-in
 `genesis_config.json` can disagree with a gitignored `genesis_alloc.json`, it checks the same values
 in the emitted bytecode too, against the `out/layer2` artifacts of the same `pnpm genesis:gen` run
-(`--artifacts` overrides the directory): both proxies must point at their implementations, whose
-code must be the compiled `Anchor` and `SignalServiceL2` runtimes, with the Anchor's
+(`--artifacts` overrides the directory): both proxy accounts must hold exactly the compiled
+`ERC1967Proxy` runtime and point at their implementations, whose code must be the compiled
+`Anchor` and `SignalServiceL2` runtimes (neither links a library), with the Anchor's
 `etnaTimestamp` 0 and `checkpointStore` the SignalService proxy, and SignalServiceL2's syncer the
 Anchor proxy and its remote SIGNAL_SERVICE. If `out/layer2` no longer matches the alloc, for
 example after a rebuild from other sources or without the AST, it refuses until `pnpm genesis:gen`

@@ -88,11 +88,11 @@ contract AnchorStateRootTest is AnchorTestBase {
     }
 
     /// @dev 2^48 - 1 is the largest block number the checkpoint store holds; 2^48 is rejected
-    /// before the cast, which would otherwise read block 0's checkpoint.
+    /// before the cast, which would otherwise read block 0's checkpoint, given its own root here.
     function test_getL1StateRoot_BlockNumberBoundaryBeforeEtna() external {
         uint48 largest = type(uint48).max;
         _checkpointStore.saveCheckpoint(_checkpoint(largest, 123, uint256(L1_STATE_ROOT)));
-        _checkpointStore.saveCheckpoint(_checkpoint(0, 456, uint256(L1_STATE_ROOT)));
+        _checkpointStore.saveCheckpoint(_checkpoint(0, 456, uint256(L1_STATE_ROOT) ^ 1));
         vm.warp(ETNA_TIMESTAMP - 1);
 
         assertEq(_anchor.getL1StateRoot(largest), L1_STATE_ROOT);

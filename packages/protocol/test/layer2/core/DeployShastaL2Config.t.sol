@@ -74,16 +74,17 @@ contract TestDeployShastaL2Config is CommonTest {
     }
 
     /// @dev The Anchor saves checkpoints into the L2 SignalService proxy, and SignalServiceL2
-    /// accepts them only from the Anchor proxy. Swapping the two addresses would make every Unzen
-    /// `anchorV4` revert once the DAO batch installs both implementations.
+    /// accepts them only from the Anchor proxy and proves against the L1 SignalService. Swapping
+    /// the first two would make every Unzen `anchorV4` revert once the DAO batch installs both
+    /// implementations; a wrong remote would make every L1 to L2 proof fail.
     function test_deploy_WiresAnchorAndSignalServiceL2() external {
         MainnetConfigLoader loader = new MainnetConfigLoader();
         DeployShastaL2Contracts.DeploymentConfig memory config =
             DeployShastaL2Contracts.DeploymentConfig({
                 l1ChainId: 1,
-                l1SignalService: address(0x11),
-                l2SignalService: address(0x22),
-                anchorProxy: address(0x33),
+                l1SignalService: makeAddr("l1SignalService"),
+                l2SignalService: makeAddr("l2SignalService"),
+                anchorProxy: makeAddr("anchorProxy"),
                 signalServicePauser: Alice,
                 etnaTimestamp: _ETNA_TIMESTAMP
             });
@@ -96,6 +97,9 @@ contract TestDeployShastaL2Config is CommonTest {
 
         SignalServiceL2 signalService = SignalServiceL2(signalServiceImpl);
         assertEq(signalService.pauser(), Alice, "pauser");
+        // The remote has no getter; the runtime embeds it as an immutable word.
+        assertTrue(_embeds(signalServiceImpl.code, config.l1SignalService), "remote");
+        assertFalse(_embeds(signalServiceImpl.code, config.l2SignalService), "not the L2 one");
         ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
             blockNumber: 1, blockHash: bytes32(uint256(1)), stateRoot: bytes32(uint256(2))
         });
@@ -105,6 +109,20 @@ contract TestDeployShastaL2Config is CommonTest {
         vm.prank(config.anchorProxy);
         signalService.saveCheckpoint(checkpoint);
         assertEq(signalService.getCheckpoint(1).stateRoot, checkpoint.stateRoot, "saved");
+    }
+
+    /// @dev Whether `_code` contains `_value` as a left-padded 32-byte word, the form an immutable
+    /// address takes in a runtime.
+    function _embeds(bytes memory _code, address _value) private pure returns (bool) {
+        bytes32 target = bytes32(uint256(uint160(_value)));
+        for (uint256 i; i + 32 <= _code.length; ++i) {
+            bytes32 word;
+            assembly {
+                word := mload(add(add(_code, 0x20), i))
+            }
+            if (word == target) return true;
+        }
+        return false;
     }
 
     function _checkLoader(IDeploymentConfigLoader _loader, address _signalService) private {
