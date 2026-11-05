@@ -4,7 +4,7 @@
 
 `accept` means the described encoding satisfies the rule cited. `reject` means a stated requirement is violated. Appendix A states one consequence: ENC-A-16's "any violation makes the proposal invalid". It covers the envelope grammar (ENC-A-11–ENC-A-15) and the strict-decoding conditions (ENC-A-16–ENC-A-22), so those reject rows say "proposal invalid (ENC-A-16)". Rows elsewhere say "violates ENC-A-N" where the text states no consequence. Where a definition spans several lines, the marker and the ID sit above its first line, and the ID cites the whole definition (see [../README.md](../README.md#how-far-an-id-extends)).
 
-**Scope note.** Appendix A's grammar — `chainDomain`, `chain_id`, `extraData`, the envelope and payload layouts, `AccountWitness`, `cutLeaf`, `valStateHash`, `cutHash`, `statement`, `committeeConfigHash`, `regLeaf`, `entriesRoot`, `setKey`/`setLeaf`/`setNode`/`record`, `voteSignBytes`, registration and the `recover` interface — sits inside four fenced blocks (SPEC.md 635–811). Under the `code-before` exception in [../README.md](../README.md), ENC-A-6–ENC-A-50 mark the definition lines (ENC-A-51–ENC-A-55 are a separate supplement); each marker is a new `// [ID]` line above an unchanged governed line. Lines in those blocks that carry no ID remain uncited. The form question (whether to restructure the blocks into prose or tables) is still [Q-A-1](../review/A.md#q-a-1).
+**Scope note.** Appendix A's grammar — `chainDomain`, `chain_id`, `extraData`, the envelope and payload layouts, `AccountWitness`, `cutLeaf`, `valStateHash`, `cutHash`, `statement`, `committeeConfigHash`, `regLeaf`, `entriesRoot`, `setKey`/`setLeaf`/`setNode`/`record`, `voteSignBytes`, registration and the `recover` interface — sits inside four fenced blocks in appendix A. Under the `code-before` exception in [../README.md](../README.md), ENC-A-6–ENC-A-50 mark the definition lines (ENC-A-51–ENC-A-55 are a separate supplement); each marker is a new `// [ID]` line above an unchanged governed line. Lines in those blocks that carry no ID remain uncited. The form question (whether to restructure the blocks into prose or tables) is still [Q-A-1](../review/A.md#q-a-1).
 
 ## ENC-A-1
 
@@ -404,15 +404,15 @@ _29a.l checks only the byte encoding of the entries as given; whether that order
 
 ## ENC-A-35
 
-| Vector      | Setup                                                                                                                            | Expected                                                  |
-| ----------- | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| 35.a accept | `keccak256(abi.encode(...))` with the 23 static ABI words of the definition, 736 bytes                                           | matches                                                   |
-| 35.b reject | the preimage has 21 or 22 words, for example without `parentValStateHash` or `lastValStateHash`                                  | violates ENC-A-35 (23 words, 736 bytes)                   |
-| 35.c reject | `TAIKO_ETNA_LAND_V1` is replaced by a V2 tag                                                                                     | violates ENC-A-35 (and ENC-A-1)                           |
-| 35.d reject | `blobHashes` are hashed with `abi.encode` instead of `abi.encodePacked`                                                          | violates ENC-A-35                                         |
-| 35.e reject | `l2ChainId` precedes `l1ChainId`                                                                                                 | violates ENC-A-35 (field order)                           |
-| 35.f reject | `lastValStateHash` follows `lastStateRoot` instead of `lastCometHash`                                                            | violates ENC-A-35 (field order)                           |
-| 35.g reject | p is the current generation's start height and `parentValStateHash` is replaced by 0 instead of the origin record's stored value | violates ENC-A-35 ("the origin record's value as stored") |
+| Vector      | Setup                                                                                                                                                                                  | Expected                                                  |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| 35.a accept | `keccak256(abi.encode(...))` with the 23 static ABI words of the definition, 736 bytes                                                                                                 | matches                                                   |
+| 35.b reject | the preimage has 21 or 22 words, for example without `parentValStateHash` or `lastValStateHash`                                                                                        | violates ENC-A-35 (23 words, 736 bytes)                   |
+| 35.c reject | `TAIKO_ETNA_LAND_V1` is replaced by a V2 tag                                                                                                                                           | violates ENC-A-35 (and ENC-A-1)                           |
+| 35.d reject | `blobHashes` are hashed with `abi.encode` instead of `abi.encodePacked`                                                                                                                | violates ENC-A-35                                         |
+| 35.e reject | `l2ChainId` precedes `l1ChainId`                                                                                                                                                       | violates ENC-A-35 (field order)                           |
+| 35.f reject | `lastValStateHash` follows `lastStateRoot` instead of `lastCometHash`                                                                                                                  | violates ENC-A-35 (field order)                           |
+| 35.g reject | p is a recovery generation's start height, whose origin record holds the old generation's validator-state hash, and `parentValStateHash` is replaced by 0 instead of that stored value | violates ENC-A-35 ("the origin record's value as stored") |
 
 ## ENC-A-36
 
