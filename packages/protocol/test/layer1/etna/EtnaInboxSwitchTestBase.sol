@@ -34,8 +34,12 @@ abstract contract EtnaInboxSwitchTestBase is EtnaLandTestBase {
         _setBlobCount(2);
     }
 
-    /// @dev The base's committed chain with forced inclusion cursor 0 and the start's Comet hash
-    /// 0.
+    /// @dev The switching start also has a zero validator-state commitment.
+    function _valStateHash(uint256 _x) internal pure override returns (bytes32) {
+        return _x == S ? bytes32(0) : bytes32(400 + _x);
+    }
+
+    /// @dev The base's chain with forced inclusion cursor and start Comet hash zero.
     function _cut(uint256 _x)
         internal
         pure
@@ -50,7 +54,7 @@ abstract contract EtnaInboxSwitchTestBase is EtnaLandTestBase {
     function _switchConfig() internal view returns (IEtnaInbox.Config memory config_) {
         config_ = _defaultConfig();
         (config_.originWriter, config_.unzenInbox, config_.etnaForkTime) =
-            (Carol, address(unzen), FORK_TIME);
+        (Carol, address(unzen), FORK_TIME);
     }
 
     /// @dev The default inputs without a genesis hash or state root.

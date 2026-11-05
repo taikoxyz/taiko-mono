@@ -19,6 +19,50 @@ import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 /// rebuild every preimage with Solidity's `abi.encode` and compare bytes and hashes. Each test
 /// loads the file into memory (`j`); it is too large to keep in storage.
 contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
+    struct ValEntry {
+        uint8 ckPrefix;
+        bytes32 ckX;
+        uint64 votingPower;
+        int64 proposerPriority;
+    }
+
+    /// @dev The published encoding-only example pins signed priorities and both stored proposers.
+    function test_validatorState_PublishedEncoding() external view {
+        string memory j = LibEtnaVectors.load();
+        string memory p = ".validator_states[0].";
+        ValEntry[] memory current = new ValEntry[](2);
+        current[0] = ValEntry(2, bytes32(uint256(1)), 10, -5);
+        current[1] = ValEntry(3, bytes32(uint256(2)), 10, 5);
+        ValEntry[] memory next = new ValEntry[](2);
+        next[0] = ValEntry(2, bytes32(uint256(1)), 10, 5);
+        next[1] = ValEntry(3, bytes32(uint256(2)), 10, -5);
+        bytes memory preimage = abi.encode(
+            bytes32("ETNA_VAL_STATE_V1"), uint256(6), current, uint256(1), next, uint256(0)
+        );
+        assertEq(preimage.length, 768);
+        assertEq(preimage, _bytes(j, p, "preimage"));
+        assertEq(keccak256(preimage), _bytes32(j, p, "hash"));
+        assertEq(
+            keccak256(preimage), 0x368f341ba9eb8b6d6cadbd5b944daed7ed417b273d1257911a7fd18320f2a81b
+        );
+        assertEq(
+            keccak256(
+                abi.encode(
+                    bytes32("ETNA_VAL_STATE_V1"), uint256(6), current, uint256(0), next, uint256(0)
+                )
+            ),
+            _bytes32(j, p, "changed_current_proposer_hash")
+        );
+        assertEq(
+            keccak256(
+                abi.encode(
+                    bytes32("ETNA_VAL_STATE_V1"), uint256(6), current, uint256(1), next, uint256(1)
+                )
+            ),
+            _bytes32(j, p, "changed_next_proposer_hash")
+        );
+    }
+
     /// @dev `K`, the landing grid interval.
     uint256 private constant _K = 6;
 
@@ -37,7 +81,7 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
     }
 
     function test_schema_IsVersionFive() external view {
-        assertEq(LibEtnaVectors.stringAt(LibEtnaVectors.load(), ".schema_version"), "5");
+        assertEq(LibEtnaVectors.stringAt(LibEtnaVectors.load(), ".schema_version"), "6");
     }
 
     // ---------------------------------------------------------------
@@ -130,12 +174,13 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         for (uint256 k; k < 3; ++k) {
             string memory p = _at(landings, k);
             uint256 height = _uint(j, p, "height");
-            bytes32 first = _mappingSlots(j, p, height, LANDINGS_SLOT, 3);
+            bytes32 first = _mappingSlots(j, p, height, LANDINGS_SLOT, 4);
             // Word 1 alternates between the ordinary and the all-max packed item.
             string memory w = _at(".packed_words.inbox_285_word1", k % 2);
             vm.store(inboxProxy, first, _bytes32(j, w, "word"));
             vm.store(inboxProxy, _next(first, 1), _probe(string.concat("elHash", p)));
             vm.store(inboxProxy, _next(first, 2), _probe(string.concat("cometHash", p)));
+            vm.store(inboxProxy, _next(first, 3), _probe(string.concat("valStateHash", p)));
 
             IEtnaInbox.Landing memory landing = inbox.landings(height);
             assertEq(landing.parentHeight, _uint(j, w, "parent_height"), "parentHeight");
@@ -143,6 +188,7 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
             assertEq(landing.head, _uint(j, w, "head"), "head");
             assertEq(landing.elHash, _probe(string.concat("elHash", p)), "elHash");
             assertEq(landing.cometHash, _probe(string.concat("cometHash", p)), "cometHash");
+            assertEq(landing.valStateHash, _probe(string.concat("valStateHash", p)), "valStateHash");
         }
 
         string memory origins = ".layout.inbox.origin_slots";
@@ -405,7 +451,7 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
             assertEq(_bytes32(j, p, "comet_hash"), _cutCometHash(x), "cometHash");
             assertEq(_uint(j, p, "forced_head"), x / _K, "forcedHead");
             bytes memory preimage = _cutLeafPreimage(x);
-            assertEq(preimage.length, 128);
+            assertEq(preimage.length, 160);
             assertEq(preimage, _bytes(j, p, "preimage"));
             assertEq(keccak256(preimage), _bytes32(j, p, "leaf"));
         }
@@ -420,7 +466,7 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         assertTrue(sawEmpty, "an empty leaf list");
     }
 
-    function test_statements_TwentyOneWords() external view {
+    function test_statements_TwentyThreeWords() external view {
         string memory j = LibEtnaVectors.load();
         assertEq(LibEtnaVectors.lengthAt(j, ".land_statements"), 2);
         assertEq(LibEtnaVectors.stringAt(j, ".land_statements[0].name"), "genesis");
@@ -433,10 +479,10 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
             assertEq(blobHashesHash, _bytes32(j, p, "blob_hashes_hash"), "blob hashes hash");
             bytes memory preimage = bytes.concat(
                 _statementWords0To6(j, input),
-                _statementWords7To13(j, input),
-                _statementWords14To20(j, input, blobHashesHash)
+                _statementWords7To15(j, input),
+                _statementWords16To22(j, input, blobHashesHash)
             );
-            assertEq(preimage.length, 672);
+            assertEq(preimage.length, 736);
             assertEq(preimage, _bytes(j, p, "preimage"));
             assertEq(keccak256(preimage), _bytes32(j, p, "hash"));
         }
@@ -448,7 +494,7 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         string memory signature = LibEtnaVectors.stringAt(j, string.concat(a, "signature"));
         assertEq(
             signature,
-            "land((uint256,uint256,bytes32,bytes32,bytes32,uint256,uint256,uint256),bytes32[],bytes)"
+            "land((uint256,uint256,bytes32,bytes32,bytes32,bytes32,uint256,uint256,uint256),bytes32[],bytes)"
         );
         assertEq(_bytes(j, a, "selector").length, 4);
         bytes4 selector = bytes4(_bytes(j, a, "selector"));
@@ -623,6 +669,7 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         (toTwelve.parentHeight, toTwelve.lastHeight) = (6, 12);
         toTwelve.lastBlockHash = _bytes32(j, row12, "block_hash");
         toTwelve.lastCometHash = _bytes32(j, row12, "comet_hash");
+        toTwelve.lastValStateHash = _bytes32(j, row12, "val_state_hash");
         toTwelve.lastStateRoot = keccak256("state root 12");
         toTwelve.forcedInclusionHead = _uint(j, row12, "forced_head");
         vm.blobhashes(_bytes32Array(j, input, "blob_hashes"));
@@ -631,7 +678,13 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         assertEq(twelve.parentHeight, 6, "record at 12 settled on 6");
         assertEq(
             keccak256(
-                abi.encode(uint256(12), twelve.elHash, twelve.cometHash, uint256(twelve.head))
+                abi.encode(
+                    uint256(12),
+                    twelve.elHash,
+                    twelve.cometHash,
+                    uint256(twelve.head),
+                    twelve.valStateHash
+                )
             ),
             _bytes32(j, row12, "leaf"),
             "the record at 12 is the table's cut at 12"
@@ -928,13 +981,7 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
     /// @dev The namespace's base is its ERC-7201 slot, and a value written at each vector slot
     /// `keccak256(abi.encode(bondId, base))` is what the registry's view returns for that bond id,
     /// so the registry's private base constant is the vector's.
-    function _assertNamespace(
-        string memory _j,
-        string memory _key,
-        string memory _ns
-    )
-        private
-    {
+    function _assertNamespace(string memory _j, string memory _key, string memory _ns) private {
         string memory p = string.concat(".layout.registry.", _key, ".");
         assertEq(LibEtnaVectors.stringAt(_j, string.concat(p, "namespace")), _ns);
         bytes32 base = _bytes32(_j, p, "base");
@@ -965,14 +1012,7 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
 
     /// @dev Checks one committee set: ascending set keys, member leaves, odd-node promotion, the
     /// root, the total power and the five-field record (appendix A).
-    function _assertCommitteeSet(
-        string memory _j,
-        string memory _p,
-        uint256 _size
-    )
-        private
-        view
-    {
+    function _assertCommitteeSet(string memory _j, string memory _p, uint256 _size) private view {
         assertTrue(vm.parseJsonBool(_j, string.concat(_p, "valid")));
         assertEq(_uint(_j, _p, "l2_chain_id"), L2_CHAIN_ID);
         uint256 k = _uint(_j, _p, "set_version");
@@ -1052,14 +1092,7 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
 
     /// @dev Checks one cut hash case, rebuilding its leaves from the cut model; returns whether
     /// its leaf list is empty.
-    function _assertCutHash(
-        string memory _j,
-        string memory _p
-    )
-        private
-        pure
-        returns (bool empty_)
-    {
+    function _assertCutHash(string memory _j, string memory _p) private pure returns (bool empty_) {
         uint256 parentHeight = _uint(_j, _p, "parent_height");
         uint256 lastHeight = _uint(_j, _p, "last_height");
         bytes32[] memory leaves = new bytes32[]((lastHeight - parentHeight) / _K - 1);
@@ -1085,9 +1118,13 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
     }
 
     /// @dev The cut model at height `_x`: EL hash 100 + x, Comet hash 200 + x (0 at x = 0) and FI
-    /// cursor x / 6; `cutLeaf` is the keccak256 of these four words.
+    /// cursor x / 6; `cutLeaf` is the keccak256 of these five words.
     function _cutLeafPreimage(uint256 _x) private pure returns (bytes memory) {
-        return abi.encode(_x, _cutBlockHash(_x), _cutCometHash(_x), _x / _K);
+        return abi.encode(_x, _cutBlockHash(_x), _cutCometHash(_x), _x / _K, _cutValStateHash(_x));
+    }
+
+    function _cutValStateHash(uint256 _x) private pure returns (bytes32) {
+        return _x == 0 ? bytes32(0) : bytes32(400 + _x);
     }
 
     function _cutBlockHash(uint256 _x) private pure returns (bytes32) {
@@ -1119,9 +1156,9 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         );
     }
 
-    /// @dev Statement words 7-13: the origin hashes, the configuration hash and the terminal
+    /// @dev Statement words 7-15: the origin hashes, the configuration hash and the terminal
     /// height, hashes and state root.
-    function _statementWords7To13(
+    function _statementWords7To15(
         string memory _j,
         string memory _in
     )
@@ -1137,17 +1174,19 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         return abi.encode(
             _bytes32(_j, _in, "parent_hash"),
             _bytes32(_j, _in, "parent_comet_hash"),
+            _bytes32(_j, _in, "parent_val_state_hash"),
             _bytes32(_j, _in, "committee_config_hash"),
             _uint(_j, _in, "last_height"),
             _bytes32(_j, _in, "last_block_hash"),
             _bytes32(_j, _in, "last_comet_hash"),
+            _bytes32(_j, _in, "last_val_state_hash"),
             _bytes32(_j, _in, "last_state_root")
         );
     }
 
-    /// @dev Statement words 14-20: the reference block, the blob hashes hash, the queue heads,
+    /// @dev Statement words 16-22: the reference block, the blob hashes hash, the queue heads,
     /// the active committee snapshot and the cut hash.
-    function _statementWords14To20(
+    function _statementWords16To22(
         string memory _j,
         string memory _in,
         bytes32 _blobHashesHash
@@ -1167,7 +1206,7 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         );
     }
 
-    /// @dev The statement inputs at `_in` as `land`'s eight public inputs.
+    /// @dev The statement inputs at `_in` as `land`'s nine public inputs.
     function _landInput(
         string memory _j,
         string memory _in
@@ -1181,6 +1220,7 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
             lastHeight: _uint(_j, _in, "last_height"),
             lastBlockHash: _bytes32(_j, _in, "last_block_hash"),
             lastCometHash: _bytes32(_j, _in, "last_comet_hash"),
+            lastValStateHash: _bytes32(_j, _in, "last_val_state_hash"),
             lastStateRoot: _bytes32(_j, _in, "last_state_root"),
             l1ReferenceBlockNumber: _uint(_j, _in, "l1_reference_block_number"),
             forcedInclusionHead: _uint(_j, _in, "forced_inclusion_head_after"),
@@ -1242,13 +1282,7 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
     /// and registry, this suite's verifier and a fresh SignalService accepting that address;
     /// switches to the statement's L1 chain id, rolls to the block after its reference block,
     /// whose hash it sets, attaches its blobs and plants slot 258 = 3 and the vector config hash.
-    function _etchVectorInbox(
-        string memory _j,
-        string memory _in
-    )
-        private
-        returns (address at_)
-    {
+    function _etchVectorInbox(string memory _j, string memory _in) private returns (address at_) {
         at_ = _address(_j, ".deployment.", "inbox");
         vm.etch(_address(_j, ".deployment.", "registry"), registry.impl().code);
         assertEq(_address(_j, _in, "inbox"), at_, "statement inbox");
@@ -1293,6 +1327,11 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         vm.store(_target, slots[0], bytes32(_head << 96));
         vm.store(_target, slots[1], _el);
         vm.store(_target, slots[2], _comet);
+        vm.store(
+            _target,
+            slots[3],
+            _cutValStateHash(_uint(_j, _at(".layout.inbox.landing_slots", _index), "height"))
+        );
     }
 
     /// @dev Writes origin (`_startHeight`, 18,990,000, 1,700,000,000) for `_generation` at the
@@ -1336,6 +1375,11 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
             "record word 1"
         );
         assertEq(vm.load(_target, slots[1]), lastBlockHash, "record EL hash");
+        assertEq(
+            vm.load(_target, slots[3]),
+            _bytes32(_j, _in, "last_val_state_hash"),
+            "record validator state hash"
+        );
         assertEq(
             vm.load(_target, slots[2]), _bytes32(_j, _in, "last_comet_hash"), "record Comet hash"
         );

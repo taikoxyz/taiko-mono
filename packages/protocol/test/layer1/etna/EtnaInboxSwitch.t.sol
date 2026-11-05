@@ -28,7 +28,7 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
         assertEq(_inboxWord(GENESIS_BLOCK_HASH_SLOT), 0, "273");
         assertEq(_inboxWord(GENESIS_STATE_ROOT_SLOT), 0, "274");
         _assertCheckpoint(0, 0);
-        for (uint256 w; w < 3; ++w) {
+        for (uint256 w; w < 4; ++w) {
             assertEq(_inboxWord(_landingSlot(0) + w), 0, "landings(0)");
             assertEq(_inboxWord(_originSlot(0) + w), 0, "origins(0)");
         }

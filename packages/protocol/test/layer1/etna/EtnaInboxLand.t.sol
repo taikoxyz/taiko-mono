@@ -47,8 +47,56 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
     // Landing and its writes
     // ---------------------------------------------------------------
 
-    /// @dev (0, 6] carries no leaf, so its cutHash is over keccak256(""); every spec 6.1 step 7
-    /// write lands and `landings(0)` is untouched.
+    /// @dev The terminal opaque commitment occupies the fourth mapping word.
+    function test_land_ValidatorStateFourthWord() external {
+        _land(0, 6);
+        assertEq(_inboxWord(_landingSlot(6) + 3), bytes32(uint256(406)), "terminal validator state");
+    }
+
+    /// @dev A hash-only frontier mismatch is rejected before proof verification.
+    function test_land_ValidatorStateOnlyFrontierMismatch() external {
+        _land(0, 6);
+        _storeInboxWord(_landingSlot(6) + 3, bytes32(uint256(9999)));
+        vm.expectCall(
+            address(landVerifier), abi.encodePacked(IProofVerifier.verifyProof.selector), 0
+        );
+        _expectLandRevert(_input(0, 12), _leaves(0, 12), IEtnaInbox.FrontierLeafMismatch.selector);
+    }
+
+    /// @dev Both opaque commitments are proof inputs.
+    function test_land_ValidatorStateStatementMutations() external {
+        _land(0, 6);
+        IEtnaInbox.LandInput memory input = _input(6, 12);
+        bytes32[] memory none = new bytes32[](0);
+        bytes32 expected = _statement(input, _inbox().landings(6), _cutHash(input, none));
+        landVerifier.setExpectedStatementHash(expected);
+        input.lastValStateHash = keccak256("changed terminal validator state");
+        _expectLandRevert(input, none, MockLandProofVerifier.ProofRejected.selector);
+        input = _input(6, 12);
+        _storeInboxWord(_landingSlot(6) + 3, keccak256("changed parent validator state"));
+        _expectLandRevert(input, none, MockLandProofVerifier.ProofRejected.selector);
+        _storeInboxWord(_landingSlot(6) + 3, _valStateHash(6));
+        _land(input, none);
+    }
+
+    /// @dev A downstream checkpoint failure rolls back the fourth word already written by land.
+    function test_land_ValidatorStateRollbackAfterCheckpointFailure() external {
+        vm.mockCallRevert(
+            address(signalService),
+            abi.encodeWithSelector(SignalService.saveCheckpoint.selector),
+            abi.encode("checkpoint failed")
+        );
+        IEtnaInbox.LandInput memory input = _input(0, 6);
+        vm.blobhashes(blobHashes);
+        vm.expectRevert(abi.encode("checkpoint failed"));
+        _inbox().land(input, new bytes32[](0), PROOF);
+        assertEq(_inboxWord(_landingSlot(6) + 3), 0, "fourth word rolled back");
+        _assertCheckpoint(0, bytes32(uint256(100)));
+        _assertQueue(0, LEAN_FORCED_INCLUSIONS);
+        assertEq(_inbox().activeCommitteeSnapshot(), registryCheckpointBlock);
+    }
+
+    /// @dev The first segment writes the terminal record and retains the start record.
     function test_land_LandsFirstGridSegment() external {
         IEtnaInbox.LandInput memory input = _input(0, 6);
         bytes32[] memory none = new bytes32[](0);
@@ -210,7 +258,8 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
             generation: 0,
             head: 0,
             elHash: keccak256("el near 2^48"),
-            cometHash: keccak256("comet near 2^48")
+            cometHash: keccak256("comet near 2^48"),
+            valStateHash: keccak256("validator near 2^48")
         });
         _plantLanding(p, near);
         _storeInboxWord(LAST_CHECKPOINT_HEIGHT_SLOT, bytes32(p));
@@ -230,7 +279,8 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
                 generation: 0,
                 head: 0,
                 elHash: input.lastBlockHash,
-                cometHash: input.lastCometHash
+                cometHash: input.lastCometHash,
+                valStateHash: input.lastValStateHash
             })
         );
         assertEq(
@@ -574,7 +624,9 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
         _assertQueue(0, LEAN_FORCED_INCLUSIONS);
         _assertLanding(
             6,
-            IEtnaInbox.Landing({ parentHeight: 0, generation: 0, head: 0, elHash: 0, cometHash: 0 })
+            IEtnaInbox.Landing({
+                parentHeight: 0, generation: 0, head: 0, elHash: 0, cometHash: 0, valStateHash: 0
+            })
         );
         vm.expectRevert(SignalService.SS_CHECKPOINT_NOT_FOUND.selector);
         signalService.getCheckpoint(6);

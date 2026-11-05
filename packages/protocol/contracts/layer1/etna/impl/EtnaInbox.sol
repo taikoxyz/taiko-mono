@@ -38,8 +38,8 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         uint48 maxAnchorAge;
     }
 
-    /// @dev The 21 static words of the landing statement in appendix A order; its ABI encoding is
-    /// the 672-byte statement preimage.
+    /// @dev The 23 static words of the landing statement in appendix A order; its ABI encoding is
+    /// the 736-byte statement preimage.
     struct LandStatement {
         bytes32 tag;
         uint256 l1ChainId;
@@ -50,10 +50,12 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         uint256 parentHeight;
         bytes32 parentHash;
         bytes32 parentCometHash;
+        bytes32 parentValStateHash;
         bytes32 committeeConfigHash;
         uint256 lastHeight;
         bytes32 lastBlockHash;
         bytes32 lastCometHash;
+        bytes32 lastValStateHash;
         bytes32 lastStateRoot;
         uint256 l1ReferenceBlockNumber;
         bytes32 l1ReferenceBlockHash;
@@ -390,12 +392,11 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         require(_genesis.genesisBlockHash != 0, StartNotWritten());
         require(_tx.length <= MAX_FORCED_TX_BYTES, ForcedTransactionTooLarge());
 
-        uint256 feeWei =
-            uint256(
-                    _forcedInclusions.currentFee(
-                        forcedInclusionFeeInGwei, forcedInclusionFeeDoubleThreshold
-                    )
-                ) * 1 gwei;
+        uint256 feeWei = uint256(
+            _forcedInclusions.currentFee(
+                forcedInclusionFeeInGwei, forcedInclusionFeeDoubleThreshold
+            )
+        ) * 1 gwei;
         require(msg.value >= feeWei, InsufficientFee());
 
         uint48 index = _forcedInclusions.tail;
@@ -766,7 +767,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         if (_c > p) {
             require(
                 _leaves[(_c - p) / GRID_INTERVAL - 1]
-                    == keccak256(abi.encode(_c, cur.elHash, cur.cometHash, head)),
+                    == keccak256(abi.encode(_c, cur.elHash, cur.cometHash, head, cur.valStateHash)),
                 FrontierLeafMismatch()
             );
         }
@@ -799,8 +800,14 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
             startHeight: _height, l1BlockNumber: block.number, l1Timestamp: block.timestamp
         });
         _lastCheckpoint = LandedCheckpoint({ height: s, blockHash: _blockHash });
-        _landings[_height] =
-            Landing({ parentHeight: s, generation: 0, head: 0, elHash: _blockHash, cometHash: 0 });
+        _landings[_height] = Landing({
+            parentHeight: s,
+            generation: 0,
+            head: 0,
+            elHash: _blockHash,
+            cometHash: 0,
+            valStateHash: 0
+        });
         emit StartWritten(_height, _blockHash, _stateRoot);
     }
 
@@ -897,7 +904,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         );
     }
 
-    /// @dev Builds the landing statement (appendix A) and hashes its 21 words. Runs spec 6.1
+    /// @dev Builds the landing statement (appendix A) and hashes its 23 words. Runs spec 6.1
     /// step 5: reads the reference block hash and the blob hashes, reverting if either is
     /// unavailable. A separate frame keeps `land` within the non-IR compiler's stack limit.
     /// @param _input The landing inputs.
@@ -926,10 +933,12 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         statement.parentHeight = _input.parentHeight;
         statement.parentHash = _origin.elHash;
         statement.parentCometHash = _origin.cometHash;
+        statement.parentValStateHash = _origin.valStateHash;
         statement.committeeConfigHash = _committeeConfigHash;
         statement.lastHeight = _input.lastHeight;
         statement.lastBlockHash = _input.lastBlockHash;
         statement.lastCometHash = _input.lastCometHash;
+        statement.lastValStateHash = _input.lastValStateHash;
         statement.lastStateRoot = _input.lastStateRoot;
         statement.l1ReferenceBlockNumber = _input.l1ReferenceBlockNumber;
         statement.l1ReferenceBlockHash = _readL1ReferenceBlockHash(_input.l1ReferenceBlockNumber);
@@ -970,7 +979,8 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
             generation: _generation,
             head: uint48(_headAfter),
             elHash: lastBlockHash,
-            cometHash: _input.lastCometHash
+            cometHash: _input.lastCometHash,
+            valStateHash: _input.lastValStateHash
         });
 
         _signalService.saveCheckpoint(

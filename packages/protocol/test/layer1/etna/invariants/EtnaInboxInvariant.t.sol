@@ -281,6 +281,7 @@ contract EtnaInboxInvariantTest is EtnaInboxTestBase {
         assertEq(_record.head, _expected.head, "record head");
         assertEq(_record.elHash, _expected.elHash, "record elHash");
         assertEq(_record.cometHash, _expected.cometHash, "record cometHash");
+        assertEq(_record.valStateHash, _expected.valStateHash, "record valStateHash");
         uint256 slot = uint256(keccak256(abi.encode(_height, LANDINGS_SLOT)));
         assertEq(
             uint256(_word(slot)),
@@ -290,16 +291,11 @@ contract EtnaInboxInvariantTest is EtnaInboxTestBase {
         );
         assertEq(_word(slot + 1), _expected.elHash, "slot 285 word 2");
         assertEq(_word(slot + 2), _expected.cometHash, "slot 285 word 3");
+        assertEq(_word(slot + 3), _expected.valStateHash, "slot 285 word 4");
     }
 
     /// @dev Checks a generation's origin through the getter and its three slot 290 words.
-    function _assertOrigin(
-        uint256 _generation,
-        IEtnaInbox.Origin memory _expected
-    )
-        internal
-        view
-    {
+    function _assertOrigin(uint256 _generation, IEtnaInbox.Origin memory _expected) internal view {
         IEtnaInbox.Origin memory origin = inbox.origins(_generation);
         assertEq(origin.startHeight, _expected.startHeight, "origin startHeight");
         assertEq(origin.l1BlockNumber, _expected.l1BlockNumber, "origin l1BlockNumber");

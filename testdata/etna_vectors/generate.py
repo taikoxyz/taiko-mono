@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerates testdata/etna_vectors/vectors.json (schema "5").
+"""Regenerates testdata/etna_vectors/vectors.json (schema "6").
 
 Run from the repository root with Foundry's `cast` and Go on PATH and the workspace's pnpm
 dependencies installed (the output is formatted with the repository's prettier):
@@ -719,6 +719,44 @@ def committee_sets(entries, config):
 # --- cuts, statements, land ABI ------------------------------------------------------------------
 
 
+def validator_states():
+    """ENC-A-29a.l encoding-only example; synthetic keys do not assert canonical set order."""
+    signature = (
+        "f(bytes32,uint256,(uint8,bytes32,uint64,int64)[],uint256,"
+        "(uint8,bytes32,uint64,int64)[],uint256)"
+    )
+    current = f"[(2,{word(1)},10,-5),(3,{word(2)},10,5)]"
+    next_set = f"[(2,{word(1)},10,5),(3,{word(2)},10,-5)]"
+
+    def encode(current_proposer, next_proposer):
+        return abi_encode(
+            signature, tag("ETNA_VAL_STATE_V1"), 6,
+            current, current_proposer, next_set, next_proposer,
+        )
+
+    def entry(prefix, x, priority):
+        return {
+            "ck_prefix": str(prefix), "ck_x": word(x),
+            "voting_power": "10", "proposer_priority": str(priority),
+        }
+
+    preimage = encode(1, 0)
+    digest = keccak(preimage)
+    assert digest == "0x368f341ba9eb8b6d6cadbd5b944daed7ed417b273d1257911a7fd18320f2a81b"
+    return [{
+        "name": "ENC-A-29a.l",
+        "height": "6",
+        "current_proposer": "1",
+        "next_proposer": "0",
+        "current": [entry(2, 1, -5), entry(3, 2, 5)],
+        "next": [entry(2, 1, 5), entry(3, 2, -5)],
+        "preimage": preimage,
+        "hash": digest,
+        "changed_current_proposer_hash": keccak(encode(0, 0)),
+        "changed_next_proposer_hash": keccak(encode(1, 1)),
+    }]
+
+
 def cut_at(x):
     """The Lean model's `Examples.cutAt`: EL hash 100 + x, Comet hash 200 + x (0 at x = 0), FI
     cursor x / 6."""
@@ -727,6 +765,7 @@ def cut_at(x):
         "block_hash": word(100 + x),
         "comet_hash": word(0 if x == 0 else 200 + x),
         "forced_head": x // K,
+        "val_state_hash": word(0 if x == 0 else 400 + x),
     }
 
 
@@ -734,15 +773,16 @@ _LEAVES = {}
 
 
 def cut_leaf(x):
-    """`(preimage, leaf)` of cutLeaf(x): four words (x, blockHash, cometHash, forcedHead)."""
+    """`(preimage, leaf)` of cutLeaf(x): five words (x, blockHash, cometHash, forcedHead, valStateHash)."""
     if x not in _LEAVES:
         cut = cut_at(x)
         preimage = abi_encode(
-            "f(uint256,bytes32,bytes32,uint256)",
+            "f(uint256,bytes32,bytes32,uint256,bytes32)",
             x,
             cut["block_hash"],
             cut["comet_hash"],
             cut["forced_head"],
+            cut["val_state_hash"],
         )
         _LEAVES[x] = (preimage, keccak(preimage))
     return _LEAVES[x]
@@ -827,8 +867,8 @@ def cut_hash_for(cut_vectors, generation, p, h):
 
 
 STATEMENT_SIGNATURE = (
-    "f(bytes32,uint256,uint256,address,address,uint256,uint256,bytes32,bytes32,bytes32,uint256,"
-    "bytes32,bytes32,bytes32,uint256,bytes32,bytes32,uint256,uint256,uint256,bytes32)"
+    "f(bytes32,uint256,uint256,address,address,uint256,uint256,bytes32,bytes32,bytes32,bytes32,uint256,"
+    "bytes32,bytes32,bytes32,bytes32,uint256,bytes32,bytes32,uint256,uint256,uint256,bytes32)"
 )
 STATEMENT_CASES = (
     # name, generation, p, h, FI head before (at p), FI head after (at h)
@@ -838,7 +878,7 @@ STATEMENT_CASES = (
 
 
 def land_statements(config, cut_vectors):
-    """Twenty-one static words (672 bytes); origin and terminal values follow `cut_at`."""
+    """Twenty-three static words (736 bytes); origin and terminal values follow `cut_at`."""
     out = []
     for name, generation, p, h, head_before, head_after in STATEMENT_CASES:
         origin, last = cut_at(p), cut_at(h)
@@ -853,10 +893,12 @@ def land_statements(config, cut_vectors):
             "parent_height": p,
             "parent_hash": origin["block_hash"],
             "parent_comet_hash": origin["comet_hash"],
+            "parent_val_state_hash": origin["val_state_hash"],
             "committee_config_hash": config["hash"],
             "last_height": h,
             "last_block_hash": last["block_hash"],
             "last_comet_hash": last["comet_hash"],
+            "last_val_state_hash": last["val_state_hash"],
             "last_state_root": word(300 + h),
             "l1_reference_block_number": 19_000_000,
             "l1_reference_block_hash": word(0x44),
@@ -878,10 +920,12 @@ def land_statements(config, cut_vectors):
             inputs["parent_height"],
             inputs["parent_hash"],
             inputs["parent_comet_hash"],
+            inputs["parent_val_state_hash"],
             inputs["committee_config_hash"],
             inputs["last_height"],
             inputs["last_block_hash"],
             inputs["last_comet_hash"],
+            inputs["last_val_state_hash"],
             inputs["last_state_root"],
             inputs["l1_reference_block_number"],
             inputs["l1_reference_block_hash"],
@@ -904,7 +948,7 @@ def land_statements(config, cut_vectors):
 
 
 LAND_SIGNATURE = (
-    "land((uint256,uint256,bytes32,bytes32,bytes32,uint256,uint256,uint256),bytes32[],bytes)"
+    "land((uint256,uint256,bytes32,bytes32,bytes32,bytes32,uint256,uint256,uint256),bytes32[],bytes)"
 )
 
 
@@ -921,6 +965,7 @@ def land_abi(statements):
             inputs["last_height"],
             inputs["last_block_hash"],
             inputs["last_comet_hash"],
+            inputs["last_val_state_hash"],
             inputs["last_state_root"],
             inputs["l1_reference_block_number"],
             inputs["forced_inclusion_head_after"],
@@ -2036,7 +2081,7 @@ def layout():
             for i in (0, 7)
         ],
         "landing_slots": [
-            {"height": h, "slots": mapping_slots(h, INBOX_SLOTS["landings"], 3)}
+            {"height": h, "slots": mapping_slots(h, INBOX_SLOTS["landings"], 4)}
             for h in (0, 6, 18)
         ],
         "origin_slots": [
@@ -2204,7 +2249,7 @@ def main():
     statements = land_statements(config, cut_vectors)
     domains = chain_domains()
     vectors = {
-        "schema_version": "5",
+        "schema_version": "6",
         "deployment": deployment(),
         "keys": key_list,
         "key_decompression": key_decompression(key_list),
@@ -2213,6 +2258,7 @@ def main():
         "committee_config": config,
         "registry_entries": entries,
         "committee_sets": committee_sets(entries["entries"], config),
+        "validator_states": validator_states(),
         "cuts": cut_vectors,
         "land_statements": statements,
         "land_abi": land_abi(statements),

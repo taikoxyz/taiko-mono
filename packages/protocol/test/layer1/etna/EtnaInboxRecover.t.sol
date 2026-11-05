@@ -25,12 +25,7 @@ contract LockProbeRegistry {
     bool public recoverSucceeded;
     bytes public recoverError;
 
-    function setReentryCalls(
-        bytes calldata _landCall,
-        bytes calldata _recoverCall
-    )
-        external
-    {
+    function setReentryCalls(bytes calldata _landCall, bytes calldata _recoverCall) external {
         landCall = _landCall;
         recoverCall = _recoverCall;
     }
@@ -684,7 +679,13 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         assertEq(
             leaves[0],
             keccak256(
-                abi.encode(uint256(18), bytes32(uint256(1118)), bytes32(uint256(1218)), uint256(3))
+                abi.encode(
+                    uint256(18),
+                    bytes32(uint256(1118)),
+                    bytes32(uint256(1218)),
+                    uint256(3),
+                    _valStateHash(18)
+                )
             ),
             "the leaf at 18 from the generation-1 record"
         );
@@ -751,6 +752,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         _land(6, 12);
         IEtnaInbox.Landing memory atOrigin = _record(6, 0, 2, 12);
         assertEq(atOrigin.cometHash, bytes32(uint256(212)), "generation-0 Comet hash");
+        assertEq(atOrigin.valStateHash, _valStateHash(12), "retained validator state");
         _assertLanding(12, atOrigin);
 
         _recover(0, 12, _noExclusions(), _noIndices());
@@ -856,7 +858,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         uint256 c = _inbox().lastCheckpoint().height;
         (, uint48 tail) = _inbox().getForcedInclusionState();
         uint256 bonds = registry.bondCount();
-        words_ = new bytes32[](18 + tail + bonds);
+        words_ = new bytes32[](19 + tail + bonds);
         uint256 n;
         words_[n++] = _inboxWord(RECOVERY_GENERATION_SLOT);
         words_[n++] = _inboxWord(RECOVERY_NONCE_SLOT);
@@ -870,6 +872,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
             words_[n++] = _inboxWord(_originSlot(generation + 1) + w);
             words_[n++] = _inboxWord(_landingSlot(c) + w);
         }
+        words_[n++] = _inboxWord(_landingSlot(c) + 3);
         for (uint256 i; i < tail; ++i) {
             words_[n++] = _inboxWord(_queueSlot(i));
         }
@@ -883,7 +886,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
     /// @dev The settled state with the chain landed to 12: slots 258-284 except the generation,
     /// landings 0, 6 and 12, origins(0) and the SignalService checkpoints at 0, 6 and 12.
     function _settledWords() private view returns (bytes32[] memory words_) {
-        words_ = new bytes32[](26 + 9 + 9 + 3);
+        words_ = new bytes32[](26 + 12 + 9 + 3);
         uint256 n;
         for (
             uint256 slot = INITIALIZATION_STATUS_SLOT;
@@ -895,7 +898,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
             }
         }
         for (uint256 h; h <= 12; h += K) {
-            for (uint256 w; w < 3; ++w) {
+            for (uint256 w; w < 4; ++w) {
                 words_[n++] = _inboxWord(_landingSlot(h) + w);
             }
             ICheckpointStore.Checkpoint memory saved = signalService.getCheckpoint(uint48(h));
@@ -947,13 +950,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         assertEq(entry.l1Block, _expected.l1Block, "entry l1Block");
     }
 
-    function _assertEntry(
-        uint256 _slot,
-        IEtnaStakingRegistry.Entry memory _expected
-    )
-        private
-        view
-    {
+    function _assertEntry(uint256 _slot, IEtnaStakingRegistry.Entry memory _expected) private view {
         IEtnaStakingRegistry.Entry memory entry = registry.entryAt(_slot);
         assertEq(entry.ckX, _expected.ckX, "ckX");
         assertEq(entry.effStake, _expected.effStake, "effStake");
@@ -962,10 +959,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         assertEq(entry.exitEffectiveL1, _expected.exitEffectiveL1, "exitEffectiveL1");
     }
 
-    function _exclusion(
-        uint256 _bondId,
-        uint256 _pk
-    )
+    function _exclusion(uint256 _bondId, uint256 _pk)
         private
         returns (IEtnaInbox.Exclusion memory)
     {

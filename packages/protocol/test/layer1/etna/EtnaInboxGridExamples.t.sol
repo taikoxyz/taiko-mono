@@ -20,18 +20,18 @@ contract EtnaInboxGridExamplesTest is EtnaLandTestBase {
     /// @dev `cutLeaf(6)` and `cutLeaf(12)` of the committed chain: `cuts.table[6].leaf` and
     /// `cuts.table[12].leaf` in `testdata/etna_vectors/vectors.json`.
     bytes32 private constant _LEAF_6 =
-        0x7b344c9699a4702dfbf7c0c72c1b6b4f8717e764c2d9157d55f4c59c56e3f430;
+        0x7d83901377c9c2c2867911ed30f3f86f9d91539ee57dd8ef49d5bce3eca0b06f;
     bytes32 private constant _LEAF_12 =
-        0x061f4a7bd1a37f73423c186b40468e6c37353882bb818a20ee34c07dfe30469b;
+        0x99b509212ea6e6e9ffe323d2af1ecda2ea50844c600e16528a3cabfd22818c2f;
 
     /// @dev The generation-0 cut hashes of (0, 6], (0, 12] and (0, 18]: the `g0_p0_h6`,
     /// `g0_p0_h12` and `g0_p0_h18` vectors.
     bytes32 private constant _CUT_HASH_0_6 =
         0xcf8e3c664c50dae3ca433e951161604725515156d44722b20b12c56e002d3715;
     bytes32 private constant _CUT_HASH_0_12 =
-        0xae874ed6014bf59ae91121c7bd35bd0a6afc886c3b54f476c1b96dac5a2d72fb;
+        0xaeba181fe354de53f6b1ebce17164502a333e6bfe7a6c7aea80c64393a6d6fe5;
     bytes32 private constant _CUT_HASH_0_18 =
-        0xc30fe19d5489610933a6f27e72792d7cbbd2934c877d5692784dafaabf75505c;
+        0xfb4cc2ce23513ddaa52f3f39656b97ad00970fd1707bef04afb5c0bce1f178cb;
 
     /// @dev Lean `grid_leaf_lists`: the honest leaves of (0, h] are the cut leaves at the grid
     /// points strictly inside it, none for h = 6. From c = 0 `land` accepts each list and binds
@@ -40,14 +40,26 @@ contract EtnaInboxGridExamplesTest is EtnaLandTestBase {
         assertEq(
             _leaf(6),
             keccak256(
-                abi.encode(uint256(6), bytes32(uint256(106)), bytes32(uint256(206)), uint256(1))
+                abi.encode(
+                    uint256(6),
+                    bytes32(uint256(106)),
+                    bytes32(uint256(206)),
+                    uint256(1),
+                    _valStateHash(6)
+                )
             ),
             "cutLeaf 6 preimage"
         );
         assertEq(
             _leaf(12),
             keccak256(
-                abi.encode(uint256(12), bytes32(uint256(112)), bytes32(uint256(212)), uint256(2))
+                abi.encode(
+                    uint256(12),
+                    bytes32(uint256(112)),
+                    bytes32(uint256(212)),
+                    uint256(2),
+                    _valStateHash(12)
+                )
             ),
             "cutLeaf 12 preimage"
         );
@@ -277,21 +289,15 @@ contract EtnaInboxGridExamplesTest is EtnaLandTestBase {
 
     /// @dev The generation-0 record of the edge (`_parent`, `_x`]: the committed chain's hashes
     /// and queue head at `_x`.
-    function _record(
-        uint256 _parent,
-        uint256 _x
-    )
-        private
-        pure
-        returns (IEtnaInbox.Landing memory)
-    {
+    function _record(uint256 _parent, uint256 _x) private pure returns (IEtnaInbox.Landing memory) {
         (bytes32 el, bytes32 comet, uint256 head) = _cut(_x);
         return IEtnaInbox.Landing({
             parentHeight: uint48(_parent),
             generation: 0,
             head: uint48(head),
             elHash: el,
-            cometHash: comet
+            cometHash: comet,
+            valStateHash: _valStateHash(_x)
         });
     }
 

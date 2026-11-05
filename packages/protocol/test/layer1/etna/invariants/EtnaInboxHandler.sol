@@ -57,6 +57,7 @@ contract EtnaInboxHandler is CommonBase {
     struct Cut {
         bytes32 elHash;
         bytes32 cometHash;
+        bytes32 valStateHash;
         uint48 head;
         bytes32 stateRoot;
     }
@@ -258,6 +259,7 @@ contract EtnaInboxHandler is CommonBase {
         _cuts[0] = Cut({
             elHash: _deployment.genesisBlockHash,
             cometHash: 0,
+            valStateHash: 0,
             head: 0,
             stateRoot: _deployment.genesisStateRoot
         });
@@ -554,7 +556,8 @@ contract EtnaInboxHandler is CommonBase {
         for (uint256 i; i < _attempt.leaves.length; ++i) {
             uint256 x = p + K * (i + 1);
             Cut memory cut = _cutAt(_attempt, x);
-            _attempt.leaves[i] = LibEtnaLandStatement.leaf(x, cut.elHash, cut.cometHash, cut.head);
+            _attempt.leaves[i] =
+                LibEtnaLandStatement.leaf(x, cut.elHash, cut.cometHash, cut.head, cut.valStateHash);
         }
 
         Cut memory last = _attempt.newCuts[_attempt.newCuts.length - 1];
@@ -565,6 +568,7 @@ contract EtnaInboxHandler is CommonBase {
             lastHeight: h,
             lastBlockHash: last.elHash,
             lastCometHash: last.cometHash,
+            lastValStateHash: last.valStateHash,
             lastStateRoot: last.stateRoot,
             l1ReferenceBlockNumber: referenceNumber,
             forcedInclusionHead: headAfter,
@@ -616,6 +620,7 @@ contract EtnaInboxHandler is CommonBase {
         return Cut({
             elHash: keccak256(abi.encode("etna el", ghostGeneration, _x)),
             cometHash: keccak256(abi.encode("etna comet", ghostGeneration, _x)),
+            valStateHash: keccak256(abi.encode("etna validators", ghostGeneration, _x)),
             head: uint48(_min(_headAfter, _head + (_x - _c))),
             stateRoot: keccak256(abi.encode("etna state", ghostGeneration, _x))
         });
@@ -623,19 +628,13 @@ contract EtnaInboxHandler is CommonBase {
 
     /// @dev A copy of the honest cut at grid point `_x`: settled at or below c, drawn by this
     /// attempt above it.
-    function _cutAt(
-        LandAttempt memory _attempt,
-        uint256 _x
-    )
-        internal
-        view
-        returns (Cut memory)
-    {
+    function _cutAt(LandAttempt memory _attempt, uint256 _x) internal view returns (Cut memory) {
         if (_x <= _attempt.c) return _cuts[_x];
         Cut memory drawn = _attempt.newCuts[(_x - _attempt.c) / K - 1];
         return Cut({
             elHash: drawn.elHash,
             cometHash: drawn.cometHash,
+            valStateHash: drawn.valStateHash,
             head: drawn.head,
             stateRoot: drawn.stateRoot
         });
@@ -661,20 +660,14 @@ contract EtnaInboxHandler is CommonBase {
                 ghostGeneration, input.parentHeight, input.lastHeight, _attempt.leaves
             )
         );
-        if (preimage.length != 672) _violate(Property.Checkpoint, "the statement is not 21 words");
+        if (preimage.length != 736) _violate(Property.Checkpoint, "the statement is not 23 words");
         return keccak256(preimage);
     }
 
     /// @dev Breaks the landing in the way its defect names and sets the predicted revert data;
     /// returns false if the state cannot express the defect. Every break leaves the checks before
     /// the broken one passing, so the predicted error is the first one the Inbox raises.
-    function _breakLanding(
-        LandAttempt memory _attempt,
-        uint256 _seed
-    )
-        internal
-        returns (bool)
-    {
+    function _breakLanding(LandAttempt memory _attempt, uint256 _seed) internal returns (bool) {
         uint256 defect = _attempt.defect;
         IEtnaInbox.LandInput memory input = _attempt.input;
         uint256 c = _attempt.c;
@@ -749,14 +742,7 @@ contract EtnaInboxHandler is CommonBase {
 
     /// @dev Moves p to a grid point of the current generation in reach of h that has no landing
     /// record; false if there is none.
-    function _breakOrigin(
-        LandAttempt memory _attempt,
-        uint256 _seed
-    )
-        internal
-        view
-        returns (bool)
-    {
+    function _breakOrigin(LandAttempt memory _attempt, uint256 _seed) internal view returns (bool) {
         IEtnaInbox.LandInput memory input = _attempt.input;
         uint256 lowest = input.lastHeight > maxSpan ? input.lastHeight - maxSpan : 0;
         if (lowest < _attempt.startHeight) lowest = _attempt.startHeight;
@@ -797,22 +783,17 @@ contract EtnaInboxHandler is CommonBase {
 
     /// @dev Replaces leaf `_index` with the leaf of a wrong height, EL hash, Comet hash or
     /// cursor at the same grid point.
-    function _breakLeaf(
-        LandAttempt memory _attempt,
-        uint256 _index,
-        uint256 _seed
-    )
-        internal
-        view
-    {
+    function _breakLeaf(LandAttempt memory _attempt, uint256 _index, uint256 _seed) internal view {
         uint256 x = _attempt.input.parentHeight + K * (_index + 1);
         Cut memory cut = _cutAt(_attempt, x);
-        uint256 mode = _seed % 4;
+        uint256 mode = _seed % 5;
         if (mode == 0) x += 1 + (_seed >> 2) % (K - 1);
         else if (mode == 1) cut.elHash = keccak256(abi.encode(cut.elHash));
         else if (mode == 2) cut.cometHash = keccak256(abi.encode(cut.cometHash));
-        else cut.head += 1;
-        _attempt.leaves[_index] = LibEtnaLandStatement.leaf(x, cut.elHash, cut.cometHash, cut.head);
+        else if (mode == 3) cut.head += 1;
+        else cut.valStateHash = keccak256(abi.encode(cut.valStateHash));
+        _attempt.leaves[_index] =
+            LibEtnaLandStatement.leaf(x, cut.elHash, cut.cometHash, cut.head, cut.valStateHash);
     }
 
     /// @dev Breaks a leaf other than the one at c; false if there is none.
@@ -873,10 +854,11 @@ contract EtnaInboxHandler is CommonBase {
 
     /// @dev A public input other than the proven one: the state root, Comet hash or snapshot.
     function _breakInput(IEtnaInbox.LandInput memory _input, uint256 _seed) internal pure {
-        uint256 mode = _seed % 3;
+        uint256 mode = _seed % 4;
         if (mode == 0) _input.lastStateRoot = keccak256(abi.encode(_input.lastStateRoot));
         else if (mode == 1) _input.lastCometHash = keccak256(abi.encode(_input.lastCometHash));
-        else _input.activeCommitteeSnapshot += 1;
+        else if (mode == 2) _input.activeCommitteeSnapshot += 1;
+        else _input.lastValStateHash = keccak256(abi.encode(_input.lastValStateHash));
     }
 
     function _submitLanding(LandAttempt memory _attempt) internal {
@@ -917,7 +899,8 @@ contract EtnaInboxHandler is CommonBase {
             generation: ghostGeneration,
             head: uint48(input.forcedInclusionHead),
             elHash: input.lastBlockHash,
-            cometHash: input.lastCometHash
+            cometHash: input.lastCometHash,
+            valStateHash: input.lastValStateHash
         });
         _checkpoints.push(input.lastHeight);
         ghostHead = uint48(input.forcedInclusionHead);
@@ -955,14 +938,7 @@ contract EtnaInboxHandler is CommonBase {
 
     /// @dev A selection snapshot between the current one and the reference block; the Inbox only
     /// binds it into the statement.
-    function _snapshot(
-        uint256 _referenceNumber,
-        uint256 _seed
-    )
-        internal
-        view
-        returns (uint256)
-    {
+    function _snapshot(uint256 _referenceNumber, uint256 _seed) internal view returns (uint256) {
         if (ghostSnapshot > _referenceNumber) return ghostSnapshot;
         return ghostSnapshot + _seed % (_referenceNumber - ghostSnapshot + 1);
     }
@@ -1087,13 +1063,7 @@ contract EtnaInboxHandler is CommonBase {
     }
 
     /// @dev Swaps the first two exclusions, or lists one bond twice.
-    function _unsortExclusions(
-        RecoveryAttempt memory _attempt,
-        uint256 _seed
-    )
-        internal
-        view
-    {
+    function _unsortExclusions(RecoveryAttempt memory _attempt, uint256 _seed) internal view {
         IEtnaInbox.Exclusion[] memory list = _attempt.exclusions;
         if (list.length >= 2) {
             (list[0], list[1]) = (list[1], list[0]);

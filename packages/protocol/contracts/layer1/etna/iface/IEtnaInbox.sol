@@ -96,6 +96,8 @@ interface IEtnaInbox {
         bytes32 lastBlockHash;
         /// @notice The CometBFT block hash at `h`.
         bytes32 lastCometHash;
+        /// @notice The opaque validator-state hash at `h` (appendix A).
+        bytes32 lastValStateHash;
         /// @notice The EL state root at `h`.
         bytes32 lastStateRoot;
         /// @notice The L1 block whose header chain holds every anchor and proving root used.
@@ -146,9 +148,9 @@ interface IEtnaInbox {
         uint48 stopGrid;
     }
 
-    /// @notice The landing record of a checkpoint height (slot 285 mapping, three words); the
+    /// @notice The landing record of a checkpoint height (slot 285 mapping, four words); the
     /// first word packs `parentHeight`, `generation` and `head`.
-    /// @dev The start write records S as (S, 0, 0, start hash, 0). Records are never pruned
+    /// @dev The start write records S as (S, 0, 0, start hash, 0, 0). Records are never pruned
     /// (spec 8.4).
     struct Landing {
         /// @notice The actual checkpoint `c` the landing settled on, never the proof origin.
@@ -161,6 +163,8 @@ interface IEtnaInbox {
         bytes32 elHash;
         /// @notice The CometBFT block hash at this height; zero for the start S.
         bytes32 cometHash;
+        /// @notice The opaque validator-state hash; zero for the start S.
+        bytes32 valStateHash;
     }
 
     /// @notice The fixed origin of a recovery generation (slot 290 mapping, three words; spec 8.4).
@@ -294,7 +298,7 @@ interface IEtnaInbox {
     /// and block.number and block.timestamp below 2^48. A new-network Inbox has no originWriter,
     /// so every call reverts there. The start write sets slot 272 to (S, L1_0 = block.number, L),
     /// slots 273/274 to the hash and state root, origins[0] = (S, L1_0, block.timestamp), the
-    /// checkpoint to (S, hash) and landings[S] = (S, 0, 0, hash, 0), opens the forced inclusion
+    /// checkpoint to (S, hash) and landings[S] = (S, 0, 0, hash, 0, 0), opens the forced inclusion
     /// queue and emits `StartWritten`. It writes no SignalService checkpoint: the one at S is the
     /// Unzen Inbox's, which `land` checks while c is S.
     /// @param _height The Etna start S, the last Unzen block.
@@ -316,21 +320,26 @@ interface IEtnaInbox {
     ///    holds that hash and the start's state root;
     /// 3. _leaves.length == (h - p) / K - 1 and landings[c].head equal to the queue head; if
     ///    c > p, _leaves[(c - p) / K - 1] == keccak256(abi.encode(c, elHash, cometHash,
-    ///    uint256(head))) over landings[c];
+    ///    uint256(head), valStateHash)) over landings[c];
     /// 4. head <= forcedInclusionHead <= tail and forcedInclusionHead - head <= h - c;
     /// 5. l1ReferenceBlockNumber < block.number with a non-zero hash from `blockhash` (256 blocks)
     ///    or the EIP-2935 history contract (8191 blocks), and 1 to 6 blobs;
     /// 6. proofVerifier.verifyProof(0, statement, _proof) succeeds.
     /// cutHash = keccak256(abi.encode(bytes32("ETNA_LAND_CUTS_V1"), uint256(generation), p, h,
-    /// keccak256(abi.encodePacked(_leaves)))). The statement is the keccak256 of 21 static ABI
-    /// words (672 bytes): bytes32("TAIKO_ETNA_LAND_V1"), block.chainid, l2ChainId, this proxy,
-    /// stakingRegistry, generation, p, parentHash, parentCometHash, committeeConfigHash, h,
-    /// lastBlockHash, lastCometHash, lastStateRoot, l1ReferenceBlockNumber, its block hash,
+    /// keccak256(abi.encodePacked(_leaves)))). The statement is the keccak256 of 23 static ABI
+    /// words (736 bytes): bytes32("TAIKO_ETNA_LAND_V1"), block.chainid, l2ChainId, this proxy,
+    /// stakingRegistry, generation, p, parentHash, parentCometHash, parentValStateHash,
+    /// committeeConfigHash, h,
+    /// lastBlockHash, lastCometHash, lastValStateHash, lastStateRoot, l1ReferenceBlockNumber,
+    /// its block hash,
     /// keccak256(abi.encodePacked(blobHashes)), headBefore, forcedInclusionHead,
-    /// activeCommitteeSnapshot and cutHash, where parentHash, parentCometHash and headBefore are
-    /// the elHash, cometHash and head of landings[p] (appendix A). It then sets the checkpoint to
+    /// activeCommitteeSnapshot and cutHash, where parentHash, parentCometHash, parentValStateHash
+    /// and headBefore are
+    /// the elHash, cometHash, valStateHash and head of landings[p] (appendix A). It then sets the
+    /// checkpoint to
     /// (h, lastBlockHash), activeCommitteeSnapshot, the queue head and landings[h] = (c,
-    /// generation, forcedInclusionHead, lastBlockHash, lastCometHash), saves the SignalService
+    /// generation, forcedInclusionHead, lastBlockHash, lastCometHash, lastValStateHash), saves the
+    /// SignalService
     /// checkpoint (h, lastBlockHash, lastStateRoot) and emits `Landed`. It pays no fee.
     /// @param _input The batch's public inputs.
     /// @param _leaves The cut leaves at the grid points p + K, ..., h - K, in height order.

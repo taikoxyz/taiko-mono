@@ -243,6 +243,14 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         assertEq(landing.head, 0, "landings(0).head");
         assertEq(landing.elHash, GENESIS_BLOCK_HASH, "landings(0).elHash");
         assertEq(landing.cometHash, 0, "landings(0).cometHash");
+        assertEq(landing.valStateHash, 0, "landings(0).valStateHash");
+        assertEq(
+            vm.load(
+                inboxProxy, bytes32(uint256(keccak256(abi.encode(uint256(0), LANDINGS_SLOT))) + 3)
+            ),
+            bytes32(0),
+            "start fourth word"
+        );
         IEtnaInbox.Origin memory origin = inbox.origins(0);
         assertEq(origin.startHeight, 0, "origins(0).startHeight");
         assertEq(origin.l1BlockNumber, l1Block, "origins(0).l1BlockNumber");
@@ -540,12 +548,7 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
 
     /// @dev Expects `init(_params)` through the owner's upgrade to `inboxImpl` to revert with
     /// `_selector`.
-    function _assertInitRejects(
-        IEtnaInbox.InitParams memory _params,
-        bytes4 _selector
-    )
-        private
-    {
+    function _assertInitRejects(IEtnaInbox.InitParams memory _params, bytes4 _selector) private {
         vm.expectRevert(_selector);
         _upgradeAndInit(inboxImpl, _params);
     }
@@ -557,12 +560,7 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
 
     /// @dev Initializes through `_impl` with `_params`, checks the stored parameters, then
     /// restores the uninitialized state.
-    function _assertInitAccepts(
-        EtnaInbox _impl,
-        IEtnaInbox.InitParams memory _params
-    )
-        private
-    {
+    function _assertInitAccepts(EtnaInbox _impl, IEtnaInbox.InitParams memory _params) private {
         uint256 fresh = vm.snapshotState();
         _upgradeAndInit(_impl, _params);
         IEtnaInbox inbox = IEtnaInbox(inboxProxy);

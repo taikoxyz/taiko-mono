@@ -14,8 +14,11 @@ at commit `4f38cfcc8cbcfad10ec159110f5a8f74ca3e7ea5`.
 They describe the pre-2026-11-03 decoded machine. The selected forced and land
 behaviors remain applicable; historical registry and recover vectors are excluded
 because their reused identities, registry capacity and recovery interface do not
-represent the current lifetime-bond, schedule and start rules. Passing these two
-families does not establish conformance to the complete current specification.
+represent the current lifetime-bond, schedule and start rules. The decoded harness supplies zero for the new terminal validator-state hash and appends a
+zero validator-state word to reconstructed cut leaves; the historical JSON remains unchanged.
+These families do not exercise nonzero validator-state commitments, proposer indexes or
+priority encoding. Current shared vectors and dedicated landing tests cover those dimensions.
+Passing these two families does not establish conformance to the complete current specification.
 
 `EtnaCurrentRegistryConformance.t.sol` consumes all eight cases in the separate
 `etna-current-registry-admission-1` schema. The current file is copied byte for byte
