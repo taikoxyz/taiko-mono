@@ -937,7 +937,9 @@ impl LandingSource for Fixture {
         snapshot: &LandingSnapshot,
         parent: &ParentContext,
     ) -> Result<AnchorState> {
-        if let Some(anchor) = &self.parent_anchor_override {
+        if parent.header.number == snapshot.checkpoint_height &&
+            let Some(anchor) = &self.parent_anchor_override
+        {
             return Ok(anchor.clone());
         }
         let number = if parent.header.number == 0 {

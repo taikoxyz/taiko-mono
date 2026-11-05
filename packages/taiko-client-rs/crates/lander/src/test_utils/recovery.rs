@@ -348,12 +348,19 @@ async fn recovery_later_checkpoint_and_epoch_crossing_keep_authenticated_origin(
 /// more than the reference bound (BATCH-6.3-6, 131,072 headers) behind the finalized tip.
 #[tokio::test]
 async fn recovery_root_is_consumed_only_while_recovery_material_is_used() {
-    // c = 6, R = 20, next anchor 21. Every batch from c uses R; from p = 12 the initial committee
-    // (epoch 1) still governs at L = 6 and 7, but at L = 8 the batch uses ordinary committees only.
-    for (length, checkpoint, uses_r) in
-        [(6, 6, true), (6, 12, true), (7, 6, true), (7, 12, true), (8, 6, true), (8, 12, false)]
-    {
-        let f = Arc::new(fixture(length, checkpoint, 18).await);
+    // c = 6, R = 20, next anchor 21. At L = 8, ordinary epoch 1 was selected by the first
+    // recovered switch at 7, whose own proving anchor is R. Its provenance still consumes R
+    // at p = 12. The later batch from 18 uses only epoch 2 and later switches at anchor 21.
+    for (length, checkpoint, tip, uses_r) in [
+        (6, 6, 18, true),
+        (6, 12, 18, true),
+        (7, 6, 18, true),
+        (7, 12, 18, true),
+        (8, 6, 18, true),
+        (8, 12, 18, true),
+        (8, 18, 24, false),
+    ] {
+        let f = Arc::new(fixture(length, checkpoint, tip).await);
         let prepared = builder(f.clone()).prepare(f.snapshot.clone()).await.unwrap().unwrap();
         let oldest = prepared.batch.reference_headers.last().unwrap().clone();
         let oldest = RawL1Header::from_raw(oldest).unwrap().number();

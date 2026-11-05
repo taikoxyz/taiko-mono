@@ -691,7 +691,40 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             ));
         }
         for (epoch, derivation) in derivations {
-            self.committee(snapshot, &anchor, epoch, derivation, committees).await?;
+            // D(t) fixes the snapshot, while S(t)'s own anchor fixes the proof root. The
+            // checkpoint may already have advanced to a later anchor (COMM-4.3-12).
+            let proving_anchor = if derivation.is_some() {
+                let switch_height = schedule
+                    .checked_h_first(epoch)
+                    .and_then(|height| height.checked_sub(2))
+                    .ok_or_else(|| LanderError::Safety("invalid committee switch height".into()))?;
+                let index = headers
+                    .iter()
+                    .position(|header| header.number == switch_height)
+                    .ok_or_else(|| LanderError::Safety("missing committee switch header".into()))?;
+                let switch = ParentContext {
+                    header: headers[index].clone(),
+                    grandparent_timestamp: headers
+                        .get(index + 1)
+                        .map_or(0, |header| header.timestamp),
+                };
+                let proving_anchor = self.l1.parent_anchor(snapshot, &switch).await?;
+                let (_, generation, number) =
+                    rules::decode_extra_data(&switch.header.extra_data)
+                        .map_err(|error| LanderError::Safety(error.to_string()))?;
+                if generation != snapshot.generation ||
+                    proving_anchor.number != number ||
+                    switch.header.parent_beacon_block_root != Some(proving_anchor.state_root)
+                {
+                    return Err(LanderError::Safety(
+                        "committee proving anchor differs from its switch header".into(),
+                    ));
+                }
+                proving_anchor
+            } else {
+                anchor.clone()
+            };
+            self.committee(snapshot, &proving_anchor, epoch, derivation, committees).await?;
         }
         if at_origin {
             let (hash, root) = snapshot.recovery.as_ref().map_or(
@@ -1222,8 +1255,11 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
             .block
             .header;
         let parent_anchor = start.anchor.clone();
-        let consumed =
+        let mut consumed =
             consumed_anchors(&snapshot, &parent_anchor, &anchors, committees.keys().copied())?;
+        consumed.extend(committees.values().filter_map(|committee| {
+            committee.provenance.as_ref().map(|context| context.anchor.clone())
+        }));
         let headers = self.l1.reference(&snapshot, &consumed).await?;
         verify_reference_chain(&headers, &consumed)?;
         let reference = &headers[0];
@@ -2069,6 +2105,76 @@ mod tests {
             request.batch.committees.iter().find(|c| c.record.target_epoch == 1).unwrap();
         assert_eq!(incoming.record.cutoff_l1_block, 11);
         assert_eq!(request.batch.parent_anchor.number, 12);
+    }
+
+    #[tokio::test]
+    async fn starting_committee_retains_its_switch_anchor_after_checkpoint_anchor_moves() {
+        let fixture = Arc::new(Fixture::with_progressing_epochs(18, 24));
+        let batch = builder(fixture.clone(), limits(6))
+            .prepare(fixture.snapshot.clone())
+            .await
+            .unwrap()
+            .unwrap()
+            .batch;
+        let context = batch
+            .committee_witnesses
+            .iter()
+            .find(|context| context.witness.record.target_epoch == 1)
+            .unwrap();
+        let switch = &fixture.headers[&11];
+        assert_ne!(batch.parent_anchor.state_root, switch.parent_beacon_block_root.unwrap());
+        assert_eq!(context.anchor.state_root, switch.parent_beacon_block_root.unwrap());
+        assert_eq!(context.anchor.number, rules::decode_extra_data(&switch.extra_data).unwrap().2);
+        batch.validate_statement().unwrap();
+    }
+
+    #[tokio::test]
+    async fn starting_committee_rejects_valid_registry_proof_rebound_to_checkpoint_anchor() {
+        let fixture = Arc::new(Fixture::with_progressing_epochs(18, 24));
+        let mut batch = builder(fixture.clone(), limits(6))
+            .prepare(fixture.snapshot.clone())
+            .await
+            .unwrap()
+            .unwrap()
+            .batch;
+        let context = batch
+            .committee_witnesses
+            .iter_mut()
+            .find(|context| context.witness.record.target_epoch == 1)
+            .unwrap();
+        context.anchor = batch.parent_anchor.clone();
+        context.witness = fixture
+            .committee_witness(&context.anchor, context.witness.record.cutoff_l1_block, 1)
+            .await
+            .unwrap();
+        assert!(batch.validate_statement().is_err());
+    }
+
+    #[tokio::test]
+    async fn starting_committee_history_cannot_shadow_a_switch_inside_the_batch() {
+        let fixture = Arc::new(Fixture::with_epoch(6, 12, 0, 13));
+        let mut batch = builder(fixture.clone(), limits(6))
+            .prepare(fixture.snapshot.clone())
+            .await
+            .unwrap()
+            .unwrap()
+            .batch;
+        batch.validate_statement().unwrap();
+        let context = batch
+            .committee_witnesses
+            .iter_mut()
+            .find(|context| context.witness.record.target_epoch == 1)
+            .unwrap();
+        context.anchor = fixture.anchors[&11].clone();
+        context.witness = fixture
+            .committee_witness(&context.anchor, context.witness.record.cutoff_l1_block, 1)
+            .await
+            .unwrap();
+        let mut forged_switch = fixture.headers[&12].clone();
+        forged_switch.extra_data = rules::encode_extra_data(0, context.anchor.number).unwrap();
+        forged_switch.parent_beacon_block_root = Some(context.anchor.state_root);
+        batch.execution_history.push(forged_switch);
+        assert!(batch.validate_statement().is_err());
     }
 
     #[tokio::test]

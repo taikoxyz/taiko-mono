@@ -370,7 +370,27 @@ impl PreparedBatch {
         }) {
             return Err(LanderError::Journal("job terminal Comet hash mismatch".into()));
         }
+        let schedule = abci::Schedule::from_genesis(&self.snapshot.genesis);
+        schedule.validate().map_err(|error| {
+            LanderError::Journal(format!("job execution history schedule: {error}"))
+        })?;
+        // Genesis has no earlier execution ancestry; existing origin jobs may carry no
+        // separate header history. Every supplied history is authenticated before use.
+        if parent != 0 || !self.execution_history.is_empty() {
+            crate::history::verify(
+                crate::history::HistoryInput {
+                    recovery: self.snapshot.recovery.as_ref(),
+                    height: self.snapshot.checkpoint_height,
+                    hash: self.snapshot.checkpoint_hash,
+                    generation: self.snapshot.generation,
+                    schedule: &schedule,
+                },
+                &self.execution_history,
+            )
+            .map_err(|error| LanderError::Journal(format!("job execution history: {error}")))?;
+        }
         self.validate_cuts()?;
+        self.validate_switch_anchors(&headers)?;
         self.validate_active_committee_snapshot(&headers)?;
         let raw = self
             .reference_headers
@@ -473,6 +493,44 @@ impl PreparedBatch {
         Ok(())
     }
 
+    /// Bind every ordinary committee's proving root to its authenticated switch header,
+    /// including pending sets and switches preceding this batch's starting checkpoint.
+    fn validate_switch_anchors(&self, headers: &[Header]) -> Result<()> {
+        let invalid = || LanderError::Journal("job committee switch anchor mismatch".into());
+        let schedule = abci::Schedule::from_genesis(&self.snapshot.genesis);
+        for context in &self.committee_witnesses {
+            let epoch = context.witness.record.target_epoch;
+            if epoch == 0 ||
+                self.snapshot
+                    .recovery
+                    .as_ref()
+                    .is_some_and(|origin| origin.committee.record.target_epoch == epoch)
+            {
+                continue;
+            }
+            let switch_height = schedule
+                .checked_h_first(epoch)
+                .and_then(|height| height.checked_sub(2))
+                .ok_or_else(invalid)?;
+            let source = if switch_height <= self.snapshot.checkpoint_height {
+                &self.execution_history
+            } else {
+                headers
+            };
+            let switch =
+                source.iter().find(|header| header.number == switch_height).ok_or_else(invalid)?;
+            let (_, generation, number) =
+                abci::rules::decode_extra_data(&switch.extra_data).map_err(|_| invalid())?;
+            if generation != self.snapshot.generation ||
+                context.anchor.number != number ||
+                switch.parent_beacon_block_root != Some(context.anchor.state_root)
+            {
+                return Err(invalid());
+            }
+        }
+        Ok(())
+    }
+
     /// Recover the terminal committee cutoff from committed execution ancestry and retained
     /// registry provenance. A recomputed digest cannot authorize a different cutoff or epoch.
     fn validate_active_committee_snapshot(&self, headers: &[Header]) -> Result<()> {
@@ -534,17 +592,6 @@ impl PreparedBatch {
         } else {
             let derivation_height = schedule.derivation_parent_height(epoch).ok_or_else(invalid)?;
             let derivation = if derivation_height <= self.snapshot.checkpoint_height {
-                crate::history::verify(
-                    crate::history::HistoryInput {
-                        recovery: self.snapshot.recovery.as_ref(),
-                        height: self.snapshot.checkpoint_height,
-                        hash: self.snapshot.checkpoint_hash,
-                        generation: self.snapshot.generation,
-                        schedule: &schedule,
-                    },
-                    &self.execution_history,
-                )
-                .map_err(|_| invalid())?;
                 self.execution_history
                     .iter()
                     .find(|header| header.number == derivation_height)
@@ -576,13 +623,14 @@ impl PreparedBatch {
                 self.snapshot.recovery.as_ref(),
             )
             .map_err(|_| invalid())?;
-            let anchors = crate::batch::consumed_anchors(
+            let mut anchors = crate::batch::consumed_anchors(
                 &self.snapshot,
                 &self.parent_anchor,
                 &self.anchors,
                 self.committees.iter().map(|committee| committee.record.target_epoch),
             )
             .map_err(|_| invalid())?;
+            anchors.extend(self.committee_witnesses.iter().map(|context| context.anchor.clone()));
             let reference = self
                 .reference_headers
                 .iter()
