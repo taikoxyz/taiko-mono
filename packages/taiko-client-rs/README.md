@@ -70,7 +70,7 @@ asks the app's private control socket before every signature (see
 
 Fresh deployment starts at generation zero; it migrates no earlier state format. Explicit
 [governance recovery](docs/governance-recovery.md) authenticates a later generation and
-creates fresh app/Comet stores while preserving registered signing authority and old history. It is aligned with protocol commit `b6e765b0fd186f67fa360d4572bea2a8d701e7cb` (the
+creates fresh app/Comet stores while preserving registered signing authority and old history. It is aligned with protocol commit `35e2f8f191132e87d9a223554d0b699f4203f2e3` (the
 Inbox, staking registry and the pinned contract artifacts) and alethia-reth commit
 `6ac93d4b38e1cd72b993cef1ed1dc2cb0affa7b4`. Start the EL and verify its block 0 before the Inbox
 is initialized (spec section 10, Startup and deployment). The proof provider is a dummy `0x00`,
@@ -268,6 +268,10 @@ broadcast. For an original range (p,h] and competing checkpoint p<=c<h, the orig
 leaves, proof, blobs, nonce and signed bytes remain unchanged. At c>=h, never-broadcast work
 can finish; possibly-broadcast work remains pending until canonical receipt/nonce reconciliation.
 An ambiguous send or dropped transaction never authorizes recycling its nonce.
+If a transaction remains dropped or underpriced, the lander keeps its original signed bytes
+and nonce and waits; restarting cannot repair it. Investigate the account and journal using
+the [nonce reconciliation procedure](docs/governance-recovery.md#enrollment-waits-and-interruption)
+before any operator action; never delete the journal or allocate a replacement nonce to bypass it.
 
 Canonical ordinary reverts stop once after clearing the spent job. A gas-exhausted landing may
 rebuild once with fresh estimation; repeated gas exhaustion on the same checkpoint stops.
@@ -432,12 +436,21 @@ or config opening differs.
 
    Leave `create_empty_blocks = true` (the default).
 
-4. **Start alethia-reth** with Etna active (devnet example):
+4. **Start alethia-reth** with Etna active and the agreed L2 genesis allocation (devnet example):
 
    ```sh
-   alethia-reth node --chain devnet --devnet-etna-timestamp 0 \
+   alethia-reth node --chain ./etna-l2-genesis.json --devnet-etna-timestamp 0 \
      --http --http.api eth,net --authrpc.addr 127.0.0.1 --authrpc.jwtsecret ./jwt.hex
    ```
+
+`etna-l2-genesis.json` must preserve the pinned Alethia devnet genesis fields outside
+`alloc` and include the canonical EIP-4788 beacon-roots and EIP-2935 history-storage
+predeploy code at their protocol addresses. The timestamp override alone does not install
+these contracts. Build the allocation with the
+[pinned Etna genesis builder](https://github.com/taikoxyz/taiko-mono/blob/35e2f8f191132e87d9a223554d0b699f4203f2e3/packages/protocol/script/layer2/build_etna_genesis.py)
+and use the same
+resulting block-0 hash/state root when initializing the Inbox; `InitChain` verifies both
+predeploy runtimes and refuses an incomplete allocation.
 
 5. **Start the app**, then the **guarded signer and CometBFT**. The app must listen first:
 
@@ -604,12 +617,15 @@ or config opening differs.
   was still served when it was adopted; a proposal shares a running discovery rather than
   repeating it. On restart, the app checks the complete chain/config/epoch/anchor identity and
   re-verifies the proof. Invalid or stale sidecars are ignored and reacquired; a sidecar write
-  failure is a `committee_cache_error` liveness halt. Preserve this sidecar alongside
+  failure pauses local preparation; a validator can still accept an otherwise valid peer
+  proposal without persisting this optional cache. Preserve this sidecar alongside
   `abci-state.json`. The cache protects already acquired witnesses; a validator that was down
   for the whole time the snapshot stayed within its L1's proof window still needs archive state,
   or a peer's valid `S(t)` proposal carrying the witness. reth's `--rpc.eth-proof-window` also
   limits historical proof access independently of retained state; configure it for the history
-  needed by validators and landers.
+  needed by validators and landers. Full nodes importing an older checkpoint can also need
+  historical `eth_getProof` calls to reconstruct an inherited anchor and committee snapshots;
+  retain that state and configure the proof window for the selected import history.
 - **Validators** (and `abci-genesis`) also read raw L1 headers with `debug_getRawHeader`, so
   enable the `debug` namespace on their L1 node (e.g. `--http.api eth,debug`). Without it the
   app re-encodes the header from `eth_getBlockByNumber`, which works only while it knows every

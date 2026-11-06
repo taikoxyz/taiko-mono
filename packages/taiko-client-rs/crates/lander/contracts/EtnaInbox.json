@@ -1747,6 +1747,11 @@
     },
     {
       "inputs": [],
+      "name": "OriginAlreadyWritten",
+      "type": "error"
+    },
+    {
+      "inputs": [],
       "name": "REENTRANT_CALL",
       "type": "error"
     },

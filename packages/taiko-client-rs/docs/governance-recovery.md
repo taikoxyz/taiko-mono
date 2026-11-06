@@ -35,6 +35,10 @@ is copied into a new generation.
   key, original generation-zero HRS, authority registry, all historical domain states and
   adjacent `.lock`/`.authority.json` files outside every Comet mount and disposable root.
   Keep backups protected with the same care as the key. Never initialize replacement HRS.
+  Never restore an older HRS, FilePV state, or signing-authority backup to resume the same
+  validator identity: a backup can omit signatures already released. If the latest state
+  is lost or uncertain, stop signing and resolve the identity through governance; restoring
+  app/EL/Comet data does not authorize rolling back signer state.
 - All participating packaged processes must share the same protected persistent **parent**
   mount/inode namespace for adjacent ownership leases. Separate component-directory mounts
   alone do not share those locks. The installation parent must be protected and searchable

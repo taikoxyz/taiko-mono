@@ -8,13 +8,18 @@ Run from the repository root (standard library only; no `cast`, `go` or network)
 `generate.py` computes every hash and slot with `cast`. These tests decode the generated preimages
 and words and check what can be checked without keccak: word order and count, field widths and
 packing offsets, the 48-byte chain id, key compression and decompression, signature recovery to the
-registered point, and the shape of each case.
+registered point, and the shape of each case. The validator-state chains are the exception: they
+are replayed with `valset_model.py` and every hash is recomputed with a Keccak-256 written here
+(hashlib's when the Python build has one).
 """
 
 import base64
+import hashlib
 import json
 import pathlib
 import unittest
+
+import valset_model
 
 V = json.loads((pathlib.Path(__file__).resolve().parent / "vectors.json").read_text())
 
@@ -528,6 +533,126 @@ def fi_static_failures(tx_type, fields, chain_id, gas_limit):
     return failures
 
 
+# --- validator-state chains (appendix A ENC-A-29a, PROOF-6.2-41a) ---------------------------------
+
+# Keccak-256 (the pre-NIST padding Ethereum uses). hashlib has it only when built against OpenSSL
+# 3.2 or later, so the pure-Python permutation below is the fallback; both are checked against the
+# known digests in `test_keccak256`.
+_KECCAK_RC = (
+    0x0000000000000001, 0x0000000000008082, 0x800000000000808A, 0x8000000080008000,
+    0x000000000000808B, 0x0000000080000001, 0x8000000080008081, 0x8000000000008009,
+    0x000000000000008A, 0x0000000000000088, 0x0000000080008009, 0x000000008000000A,
+    0x000000008000808B, 0x800000000000008B, 0x8000000000008089, 0x8000000000008003,
+    0x8000000000008002, 0x8000000000000080, 0x000000000000800A, 0x800000008000000A,
+    0x8000000080008081, 0x8000000000008080, 0x0000000080000001, 0x8000000080008008,
+)  # fmt: skip
+# Lane i = x + 5y: rho rotation and pi destination (B[y, 2x + 3y] = rot(A[x, y])).
+_KECCAK_ROT = (
+    0, 1, 62, 28, 27, 36, 44, 6, 55, 20, 3, 10, 43, 25, 39, 41, 45, 15, 21, 8, 18, 2, 61, 56, 14,
+)  # fmt: skip
+_KECCAK_STEPS = tuple(
+    (i, i // 5 + 5 * ((2 * (i % 5) + 3 * (i // 5)) % 5), _KECCAK_ROT[i]) for i in range(25)
+)
+_MASK64 = (1 << 64) - 1
+
+
+def _keccak_f(a):
+    b = [0] * 25
+    for rc in _KECCAK_RC:
+        c = [a[x] ^ a[x + 5] ^ a[x + 10] ^ a[x + 15] ^ a[x + 20] for x in range(5)]
+        d = [
+            c[(x - 1) % 5] ^ (((c[(x + 1) % 5] << 1) | (c[(x + 1) % 5] >> 63)) & _MASK64)
+            for x in range(5)
+        ]
+        for i, j, r in _KECCAK_STEPS:
+            v = a[i] ^ d[i % 5]
+            b[j] = ((v << r) | (v >> (64 - r))) & _MASK64 if r else v
+        for y in (0, 5, 10, 15, 20):
+            b0, b1, b2, b3, b4 = b[y : y + 5]
+            a[y : y + 5] = (
+                b0 ^ (~b1 & b2),
+                b1 ^ (~b2 & b3),
+                b2 ^ (~b3 & b4),
+                b3 ^ (~b4 & b0),
+                b4 ^ (~b0 & b1),
+            )
+        a[0] ^= rc
+
+
+def keccak256_python(data):
+    data = bytes(data) + b"\x01" + bytes(-(len(data) + 1) % 136)
+    data = data[:-1] + bytes([data[-1] | 0x80])
+    a = [0] * 25
+    for offset in range(0, len(data), 136):
+        for i in range(17):
+            a[i] ^= int.from_bytes(data[offset + 8 * i : offset + 8 * i + 8], "little")
+        _keccak_f(a)
+    return b"".join(a[i].to_bytes(8, "little") for i in range(4))
+
+
+def keccak256(data):
+    try:
+        return hashlib.new("keccak-256", bytes(data)).digest()
+    except ValueError:
+        return keccak256_python(data)
+
+
+def eth_address(point):
+    """The secp256k1eth validator address: keccak256(X || Y)[12:] (CONS-3.1-3), lowercase hex."""
+    x, y = point
+    return keccak256(x.to_bytes(32, "big") + y.to_bytes(32, "big"))[12:].hex()
+
+
+def val_state_preimage(height, current, current_proposer, following, next_proposer, keys):
+    """Appendix A's valStateHash preimage: six head words (tag, x, offset, index, offset, index),
+    then each set as its length and four words per entry, the priority sign-extended."""
+
+    def w(value):
+        return (value % 2**256).to_bytes(32, "big")
+
+    def array(entries):
+        out = [w(len(entries))]
+        for key, power, priority in entries:
+            out += [w(int(keys[key]["ck_prefix"])), hexbytes(keys[key]["ck_x"])]
+            out += [w(int(power)), w(int(priority))]
+        return b"".join(out)
+
+    head = hexbytes(tag("ETNA_VAL_STATE_V1")) + w(height) + w(192) + w(current_proposer)
+    head += w(192 + 32 + 128 * len(current)) + w(next_proposer)
+    return head + array(current) + array(following)
+
+
+def epoch_roles(epoch_length, height):
+    """Which of `S(t)`, `S(t)+1` and `H(t)` height is (S(t) = t·L - 1, H(t) = t·L + 1; 4.2, 4.3)."""
+    roles = []
+    for name, suffix, offset in (("S", "", -1), ("S", "+1", 0), ("H", "", 1)):
+        t, rest = divmod(height - offset, epoch_length)
+        if rest == 0 and t >= 1:
+            roles.append(f"{name}({t}){suffix}")
+    return roles
+
+
+def as_entries(rows):
+    return [[key, int(power), int(priority)] for key, power, priority in rows]
+
+
+def model_events(events):
+    """The model's events as vectors.json writes them (integers as decimal strings)."""
+
+    def text(value):
+        if isinstance(value, bool) or isinstance(value, str):
+            return value
+        if isinstance(value, list):
+            return [text(v) for v in value]
+        return str(value)
+
+    return [{k: text(v) for k, v in event.items()} for event in events]
+
+
+def committee(entries):
+    return {key: int(power) for key, power, _ in entries}
+
+
 class VectorsTest(unittest.TestCase):
     def test_governance_authorization_and_principal_vectors(self):
         self.assertIn("governance_abi", V)
@@ -749,6 +874,275 @@ class VectorsTest(unittest.TestCase):
         self.assertEqual(w[19], uint(5))
         self.assertNotEqual(case["hash"], case["changed_current_proposer_hash"])
         self.assertNotEqual(case["hash"], case["changed_next_proposer_hash"])
+
+    def test_keccak256(self):
+        published = V["validator_states"][0]
+        config = V["committee_config"]
+        key = V["keys"][0]
+        for impl in (keccak256_python, keccak256):
+            self.assertEqual("0x" + impl(b"").hex(), KECCAK_EMPTY)
+            self.assertEqual("0x" + impl(hexbytes(published["preimage"])).hex(), published["hash"])
+            self.assertEqual("0x" + impl(hexbytes(config["preimage"])).hex(), config["hash"])
+            self.assertEqual(
+                "0x" + impl(hexbytes(key["ck_x"]) + hexbytes(key["ck_y"]))[12:].hex(),
+                key["ck_addr"],
+            )
+
+    def test_validator_state_chain_keys(self):
+        section = V["val_state_chains"]
+        self.assertEqual(section["cometbft"], "v0.40.0")
+        self.assertEqual([k["name"] for k in section["keys"]], [f"c{i}" for i in range(1, 13)])
+        for i, key in enumerate(section["keys"], start=1):
+            self.assertEqual(int(key["private_key"], 16), 0xC0 + i)
+            point = ec_mul(SECP_G, 0xC0 + i)
+            self.assertEqual(decompress(hexbytes(key["public_key"])), point)
+            self.assertEqual(int(key["ck_prefix"]), 2 + (point[1] & 1))
+            self.assertEqual((int(key["ck_x"], 16), int(key["ck_y"], 16)), point)
+            self.assertEqual(key["ck_addr"], "0x" + eth_address(point))
+
+    def test_validator_state_chain_replay(self):
+        """Every state is what valset_model's reading of CometBFT v0.40.0 gives, events included."""
+        section = V["val_state_chains"]
+        address = {k["name"]: k["ck_addr"][2:] for k in section["keys"]}
+        self.assertEqual(
+            [c["name"] for c in section["chains"]],
+            ["gen0", "gen1", "bounds_a", "bounds_b", "bounds_c"],
+        )
+        for chain in section["chains"]:
+            start, end = int(chain["start_height"]), int(chain["end_height"])
+            epoch_length = int(chain["epoch_length"])
+            self.assertGreaterEqual(epoch_length, 3)  # START-10-7
+            updates = {}
+            for switch in chain["switches"]:
+                height, t = int(switch["height"]), int(switch["epoch"])
+                # FinalizeBlock at S(t) = H(t) - 2 returns the update; it first signs H(t).
+                self.assertEqual(height, t * epoch_length - 1)
+                self.assertEqual(int(switch["activation_height"]), t * epoch_length + 1)
+                self.assertTrue(start < height <= end)
+                updates[height] = [(k, int(p)) for k, p in switch["changes"]]
+            genesis = [(k, int(p)) for k, p in chain["genesis"]]
+            states, events = valset_model.replay(address, start, end, genesis, updates)
+            self.assertEqual(
+                [int(s["height"]) for s in chain["states"]], list(range(start, end + 1))
+            )
+            for state, (height, current, following) in zip(chain["states"], states, strict=True):
+                with self.subTest(chain=chain["name"], height=height):
+                    self.assertEqual(as_entries(state["current"]), current.entries())
+                    self.assertEqual(int(state["current_proposer"]), current.proposer_index())
+                    self.assertEqual(as_entries(state["next"]), following.entries())
+                    self.assertEqual(int(state["next_proposer"]), following.proposer_index())
+            self.assertEqual(chain["events"], model_events(events))
+
+    def test_validator_state_chain_hashes(self):
+        section = V["val_state_chains"]
+        keys = {k["name"]: k for k in section["keys"]}
+        for chain in section["chains"]:
+            hashes = set()
+            for i, state in enumerate(chain["states"]):
+                preimage = val_state_preimage(
+                    int(state["height"]),
+                    as_entries(state["current"]),
+                    int(state["current_proposer"]),
+                    as_entries(state["next"]),
+                    int(state["next_proposer"]),
+                    keys,
+                )
+                self.assertEqual("0x" + keccak256(preimage).hex(), state["hash"], state["height"])
+                hashes.add(state["hash"])
+                if i == 0:
+                    self.assertEqual(preimage, hexbytes(chain["start_preimage"]))
+                    w = words(chain["start_preimage"])
+                    n = len(state["current"])
+                    self.assertEqual(w[0], tag("ETNA_VAL_STATE_V1"))
+                    self.assertEqual(
+                        w[1:6],
+                        [
+                            uint(state["height"]),
+                            uint(192),
+                            uint(state["current_proposer"]),
+                            uint(192 + 32 + 128 * n),
+                            uint(state["next_proposer"]),
+                        ],
+                    )
+                    self.assertEqual(len(w), 6 + 2 + 4 * (n + len(state["next"])))
+            self.assertEqual(len(hashes), len(chain["states"]))
+
+    def test_validator_state_chain_invariants(self):
+        section = V["val_state_chains"]
+        keys = {k["name"]: k for k in section["keys"]}
+        stored_not_highest = 0
+        for chain in section["chains"]:
+            states = chain["states"]
+            switches = {int(s["height"]): s for s in chain["switches"]}
+            genesis = {k: int(p) for k, p in chain["genesis"]}
+            self.assertEqual(committee(states[0]["current"]), genesis)
+            self.assertEqual(committee(states[0]["next"]), genesis)
+            for i, state in enumerate(states):
+                height = int(state["height"])
+                for side in ("current", "next"):
+                    entries = as_entries(state[side])
+                    proposer = int(state[side + "_proposer"])
+                    # Set order: voting power descending, then secp256k1eth address ascending.
+                    order = [(-power, keys[key]["ck_addr"]) for key, power, _ in entries]
+                    self.assertEqual(order, sorted(set(order)))
+                    self.assertTrue(0 <= proposer < len(entries))
+                    # Centering subtracts floor(sum / n), leaving a sum in [0, n - 1], and the
+                    # increment adds and removes the same total.
+                    self.assertTrue(0 <= sum(e[2] for e in entries) <= len(entries) - 1)
+                    # The stored proposer was decremented by the total: it is not recomputed.
+                    if entries[proposer][2] != max(e[2] for e in entries):
+                        stored_not_highest += 1
+                if i == 0:
+                    continue
+                previous = states[i - 1]
+                # Validators at x is NextValidators at x - 1, with its stored proposer.
+                self.assertEqual(state["current"], previous["next"])
+                self.assertEqual(state["current_proposer"], previous["next_proposer"])
+                expected = committee(previous["next"])
+                for key, power in switches.get(height, {"changes": []})["changes"]:
+                    if int(power):
+                        expected[key] = int(power)
+                    else:
+                        del expected[key]
+                self.assertEqual(committee(state["next"]), expected)
+            # H + 2: a switch returned at S(t) signs neither S(t) + 1 (current at S(t)) nor
+            # S(t) + 2 = H(t) until current at S(t) + 1.
+            by_height = {int(s["height"]): s for s in states}
+            for height, switch in switches.items():
+                new = committee(by_height[height]["next"])
+                self.assertNotEqual(committee(by_height[height]["current"]), new)
+                if height + 1 in by_height:
+                    self.assertEqual(committee(by_height[height + 1]["current"]), new)
+        self.assertGreater(stored_not_highest, 0)
+
+    def test_validator_state_events_cover_bounds(self):
+        """Rescaling at 2·total (none) and 2·total + 1 (ratio 2) in both UpdateWithChangeSet and
+        IncrementProposerPriority, floor centering at its n - 1 residual, truncation toward zero
+        and proposer ties broken by address."""
+        section = V["val_state_chains"]
+        address = {k["name"]: k["ck_addr"] for k in section["keys"]}
+        seen = set()
+        for chain in section["chains"]:
+            for event in chain["events"]:
+                if event["kind"] == "rescale":
+                    diff, diff_max = int(event["diff"]), int(event["diff_max"])
+                    self.assertGreaterEqual(diff, diff_max)
+                    self.assertEqual(event["fires"], diff > diff_max)
+                    if event["fires"]:
+                        self.assertEqual(int(event["ratio"]), -(-diff // diff_max))
+                        if event["truncated"]:
+                            seen.add("truncated")
+                    seen.add((event["step"], "rescale", diff - diff_max))
+                elif event["kind"] == "center":
+                    total, count = int(event["sum"]), int(event["count"])
+                    self.assertTrue(total < 0 and total % count)
+                    self.assertEqual(int(event["shift"]), total // count)
+                    if total - count * (total // count) == count - 1:
+                        seen.add("center_residual_n_minus_1")
+                else:
+                    self.assertEqual(event["kind"], "tie")
+                    self.assertGreater(len(event["tied"]), 1)
+                    self.assertEqual(event["proposer"], event["tied"][0])
+                    self.assertEqual(event["tied"], sorted(event["tied"], key=address.get))
+                    seen.add("tie")
+        for step in ("update", "increment"):
+            self.assertIn((step, "rescale", 0), seen)
+            self.assertIn((step, "rescale", 1), seen)
+        self.assertTrue({"truncated", "center_residual_n_minus_1", "tie"} <= seen)
+
+    def test_validator_state_landings(self):
+        section = V["val_state_chains"]
+        chains = {c["name"]: c for c in section["chains"]}
+        etna_start = int(V["deployment"]["etna_start"])
+
+        def hash_at(name, height):
+            (state,) = [s for s in chains[name]["states"] if int(s["height"]) == height]
+            return state["hash"]
+
+        roles, starts = set(), set()
+        for landing in section["landings"]:
+            name = landing["chain"]
+            chain = chains[name]
+            p, h = int(landing["parent_height"]), int(landing["last_height"])
+            self.assertEqual((p - etna_start) % K, 0)
+            self.assertEqual((h - etna_start) % K, 0)
+            self.assertTrue(int(chain["start_height"]) <= p < h <= int(chain["end_height"]))
+            self.assertEqual(landing["generation"], chain["generation"])
+            self.assertEqual(landing["origin_val_state_hash"], hash_at(name, p))
+            self.assertEqual(landing["last_val_state_hash"], hash_at(name, h))
+            grid = landing["grid_points"]
+            self.assertEqual([int(g["height"]) for g in grid], list(range(p + K, h, K)))
+            for g in grid:
+                self.assertEqual(g["val_state_hash"], hash_at(name, int(g["height"])))
+                roles_at = epoch_roles(int(chain["epoch_length"]), int(g["height"]))
+                self.assertEqual(g["roles"], roles_at)
+                roles.update(r.split("(")[0] + r.split(")")[1] for r in g["roles"])
+            parent, origin = landing["parent_val_state_hash"], landing["origin_val_state_hash"]
+            generation_start = p == int(chain["start_height"])
+            self.assertEqual(landing["origin_is_generation_start"], generation_start)
+            if not generation_start:
+                # Any other origin: the guest takes the record's preimage as its input state.
+                self.assertEqual(parent, origin)
+                continue
+            # A generation's start height: the record holds 0 (the start write at S) or the old
+            # generation's state at c; the guest builds the genesis state and does not compare.
+            generation = int(chain["generation"])
+            starts.add(generation)
+            if generation == 0:
+                self.assertEqual(parent, uint(0))
+            else:
+                (older,) = [
+                    c["name"]
+                    for c in section["chains"]
+                    if int(c["generation"]) == generation - 1
+                    and int(c["start_height"]) <= p <= int(c["end_height"])
+                ]
+                self.assertEqual(parent, hash_at(older, p))
+            self.assertNotEqual(parent, origin)
+        self.assertEqual(roles, {"S", "S+1", "H"})
+        self.assertEqual(starts, {0, 1})
+
+    def test_validator_state_max_committee(self):
+        """Rebuilds the 4096-member committee at MaxTotalVotingPower from its rules."""
+        mc = V["val_state_chains"]["max_committee"]
+        size, total = int(mc["size"]), int(mc["total_power"])
+        self.assertEqual((size, total), (4096, (2**63 - 1) // 8))
+        keys, address, genesis = {}, {}, []
+        point = ec_mul(SECP_G, int(mc["first_private_key"], 16))
+        for i in range(size):
+            if i:
+                point = ec_add(point, SECP_G)
+            name = f"m{i}"
+            keys[name] = {"ck_prefix": 2 + (point[1] & 1), "ck_x": "0x%064x" % point[0]}
+            address[name] = eth_address(point)
+            genesis.append((name, 2**48 + i % 64 - 32))
+        genesis[-1] = (genesis[-1][0], total - sum(p for _, p in genesis[:-1]))
+        self.assertEqual(int(mc["last_member_power"]), genesis[-1][1])
+        start = int(mc["start_height"])
+        states, events = valset_model.replay(
+            address, start, start + len(mc["states"]) - 1, genesis, {}
+        )
+        for state, (height, current, following) in zip(mc["states"], states, strict=True):
+            self.assertEqual(int(state["height"]), height)
+            for side, valset in (("current", current), ("next", following)):
+                entries = valset.entries()
+                head, tail = as_entries(state[side + "_head"]), as_entries(state[side + "_tail"])
+                self.assertEqual(head, entries[: len(head)])
+                self.assertEqual(tail, entries[-len(tail) :])
+                self.assertEqual(int(state[side + "_proposer"]), valset.proposer_index())
+                self.assertEqual(valset.total(), total)
+                self.assertEqual(len(entries), size)
+            preimage = val_state_preimage(
+                height,
+                current.entries(),
+                current.proposer_index(),
+                following.entries(),
+                following.proposer_index(),
+                keys,
+            )
+            self.assertEqual(len(preimage), int(state["preimage_bytes"]))
+            self.assertEqual("0x" + keccak256(preimage).hex(), state["hash"])
+        self.assertEqual(mc["events"], model_events(events))
 
     def test_statements_are_23_words(self):
         statements = V["land_statements"]

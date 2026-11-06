@@ -579,6 +579,118 @@ fn snapshot_decoding_requires_a_zero_validator_state_word_at_the_start() {
     ));
 }
 
+/// Shared grid membership drives the real snapshot decoder for the supported S=0 deployment.
+#[test]
+fn snapshot_grid_membership_matches_shared_fresh_deployment_vectors() {
+    use crate::test_utils::vectors;
+    use abci::l1::layout::inbox;
+    let fixture = crate::test_utils::consensus_mpt::Fixture::new(0, 2);
+    for index in 0..vectors::len_at("/cuts/grid_points") {
+        let path = |field: &str| format!("/cuts/grid_points/{index}/{field}");
+        if vectors::u64_at(&path("etna_start")) != 0 {
+            continue;
+        }
+        let height = vectors::u64_at(&path("height"));
+        let landing = inbox::landing_slots(height);
+        let planted = fixture.snapshot_with_inbox_words([
+            (inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT), U256::from(height)),
+            (landing[0], U256::ZERO),
+            (landing[1], fixture.snapshot.checkpoint_hash.into()),
+            (landing[2], if height == 0 { U256::ZERO } else { U256::from(7) }),
+            (landing[3], if height == 0 { U256::ZERO } else { U256::from(8) }),
+        ]);
+        let result = super::decode_snapshot(
+            planted.l1_header,
+            planted.inbox_witness,
+            planted.l1_chain_id,
+            planted.l2_chain_id,
+            &fixture.params,
+        );
+        let on_grid = vectors::vectors().pointer(&path("on_grid")).unwrap().as_bool().unwrap();
+        assert_eq!(result.is_ok(), on_grid, "height {height}: {result:?}");
+        if !on_grid {
+            assert!(matches!(result, Err(LanderError::Safety(_))));
+        }
+    }
+}
+
+/// Independently generated packed words bind parent, generation and head to distinct fields.
+#[test]
+fn snapshot_decodes_the_shared_landing_word_and_rejects_each_contradictory_field() {
+    use crate::test_utils::vectors;
+    use abci::l1::layout::inbox;
+    let fixture = crate::test_utils::consensus_mpt::Fixture::new(18, 18);
+    let path = |field: &str| format!("/packed_words/inbox_285_word1/0/{field}");
+    let word = U256::from_be_bytes(vectors::b256_at(&path("word")).0);
+    let parent = vectors::u64_at(&path("parent_height"));
+    let generation = vectors::u64_at(&path("generation"));
+    let head = vectors::u64_at(&path("head"));
+    let height = fixture.snapshot.checkpoint_height;
+    assert!(parent < height);
+    let decode = |word: U256| {
+        let planted = fixture.snapshot_with_inbox_words([
+            (inbox::slot(inbox::RECOVERY_GENERATION), U256::from(generation)),
+            (
+                inbox::slot(inbox::FORCED_INCLUSION_HEAD_TAIL),
+                U256::from(head) | (U256::from(head) << 48),
+            ),
+            (inbox::landing_slots(height)[0], word),
+        ]);
+        super::decode_snapshot(
+            planted.l1_header,
+            planted.inbox_witness,
+            planted.l1_chain_id,
+            planted.l2_chain_id,
+            &fixture.params,
+        )
+    };
+    let decoded = decode(word).unwrap();
+    assert_eq!(decoded.generation, generation);
+    assert_eq!(decoded.forced_inclusion_head, head);
+    for (field, value) in
+        [("parent_height", height), ("generation", generation + 1), ("head", head + 1)]
+    {
+        let offset =
+            vectors::u64_at(&format!("/layout/inbox/packing/landing_word1/{field}/offset"));
+        let mask: U256 = ((U256::from(1) << 48) - U256::from(1)) << offset;
+        let changed = (word & !mask) | (U256::from(value) << offset);
+        let error = decode(changed).unwrap_err();
+        assert!(matches!(error, LanderError::Safety(_)), "{field}: {error}");
+    }
+}
+
+/// A valid switching deployment is unsupported by this release, not proof of a chain fault.
+#[test]
+fn nonzero_etna_start_is_an_unsupported_configuration() {
+    use abci::l1::layout::inbox;
+    let fixture = crate::test_utils::consensus_mpt::Fixture::new(0, 2);
+    let start = 1000;
+    let g = &fixture.snapshot.genesis;
+    let landing = inbox::landing_slots(start);
+    let planted = fixture.snapshot_with_inbox_words([
+        (
+            inbox::slot(inbox::GENESIS_PACKED),
+            U256::from(start) | (U256::from(g.l1_0) << 48) | (U256::from(g.epoch_len) << 96),
+        ),
+        (inbox::origin_slots(0)[0], U256::from(start)),
+        (inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT), U256::from(start)),
+        (landing[0], U256::ZERO),
+        (landing[1], g.genesis_hash.into()),
+        (landing[2], U256::ZERO),
+        (landing[3], U256::ZERO),
+    ]);
+    let error = super::decode_snapshot(
+        planted.l1_header,
+        planted.inbox_witness,
+        planted.l1_chain_id,
+        planted.l2_chain_id,
+        &fixture.params,
+    )
+    .unwrap_err();
+    assert!(matches!(error, LanderError::Configuration(_)), "{error}");
+    assert!(error.to_string().contains("start") && error.to_string().contains("1000"), "{error}");
+}
+
 #[test]
 fn snapshot_with_an_invalid_forced_inclusion_config_is_a_configuration_error() {
     let fixture = crate::test_utils::consensus_mpt::Fixture::new(0, 2);

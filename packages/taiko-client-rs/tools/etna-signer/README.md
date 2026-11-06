@@ -180,7 +180,11 @@ never delete metadata to retry recovery. Stock FilePV still owns HRS checks and
 signing, with directory fsync completed before the transport receives a signature.
 A failed state or directory fsync withholds that signature and stops all signing in
 the process, cached retries included, because a later fsync can succeed although the
-earlier write was lost. Inspect the state before restarting the signer.
+earlier write was lost. The signer exits nonzero on this typed uncertainty; the supported
+supervisor records a durable halt instead of rearming it as a temporary trust refusal,
+including when the exit races with an observation or ordered rearm. Inspect the state and
+resolve the supervisor halt before an explicit operator restart. Never restore an older
+HRS or authority backup to resume the identity.
 
 ## Recovery controller and retention
 

@@ -8,7 +8,6 @@ use tendermint::{Time, block::Height, vote};
 use super::*;
 use crate::{
     committee::{self, CommitteeError, verify_committee_witness_at_cutoff},
-    elsync::ElSyncError,
     engine::PayloadVerdict,
     genesis::GenesisError,
     l1::{RawL1Header, witness::WitnessError},
@@ -43,6 +42,32 @@ async fn init_chain_persists_the_verified_genesis_state() {
         "{:?}",
         app.engine().calls()
     );
+}
+
+#[tokio::test(start_paused = true)]
+async fn init_chain_retries_transient_l1_failure_on_the_same_abci_request() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = fx.app(dir.path());
+    app.l1().state().finalized_script.push_back(Err(crate::L1Error::Rpc("offline".into())));
+    let response = init_chain(&mut app, fx.request.clone())
+        .await
+        .expect("temporary L1 failure must not fail ABCI");
+    assert_eq!(response.app_hash.as_bytes(), fx.genesis_hash().as_slice());
+    assert_eq!(app.state(), Some(&fx.expected_state()));
+    assert!(!dir.path().join("fatal-evidence.txt").exists());
+}
+
+#[tokio::test]
+async fn init_chain_latches_malformed_own_engine_reply_during_genesis_sync() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = fx.app(dir.path());
+    app.engine().state().header_script.push_back(Err(crate::EngineError::BadReply("null".into())));
+    let result = init_chain(&mut app, fx.request.clone()).await;
+    assert!(matches!(result, Err(AbciError::SafetyHalt(_))), "{result:?}");
+    assert_not_initialized(&app, dir.path());
+    assert!(dir.path().join("fatal-evidence.txt").is_file());
 }
 
 /// Genesis derives at explicit snapshot 63; entries active from 62 remain inactive at 59.
@@ -234,19 +259,21 @@ async fn malformed_app_state_is_rejected() {
     assert_not_initialized(&app, dir.path());
 }
 
-#[tokio::test]
-async fn genesis_l1_block_above_finalized_is_rejected() {
+#[tokio::test(start_paused = true)]
+async fn genesis_l1_block_above_finalized_waits_for_finality() {
     let fx = Fixture::genesis(2);
     let (l1, engine, params, req) = fx.parts();
     l1.set_finalized(fx.genesis.l1_0 - 1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = app_with(l1, engine, params, dir.path(), AppOptions::default());
-    let err = init_chain(&mut app, req).await.expect_err("not final");
-    assert!(
-        matches!(err, AbciError::GenesisNotFinal { number, .. } if number == fx.genesis.l1_0),
-        "{err:?}"
-    );
-    assert_not_initialized(&app, dir.path());
+    let l1 = app.l1.clone();
+    let finalize = async {
+        tokio::time::sleep(Duration::from_secs(10)).await;
+        l1.set_finalized(fx.genesis.l1_0);
+    };
+    let (response, ()) = tokio::join!(init_chain(&mut app, req), finalize);
+    assert!(response.is_ok(), "{response:?}");
+    assert_eq!(app.state(), Some(&fx.expected_state()));
 }
 
 #[tokio::test]
@@ -258,23 +285,22 @@ async fn non_canonical_genesis_l1_header_is_rejected() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = app_with(l1, engine, params, dir.path(), AppOptions::default());
     let err = init_chain(&mut app, req).await.expect_err("not canonical");
-    assert!(matches!(err, AbciError::GenesisNotFinal { .. }), "{err:?}");
+    assert!(matches!(err, AbciError::SafetyHalt(_)), "{err:?}");
     assert_not_initialized(&app, dir.path());
 }
 
 #[tokio::test(start_paused = true)]
-async fn slow_l1_times_out() {
+async fn slow_l1_keeps_init_chain_pending() {
     let fx = Fixture::genesis(2);
     let (l1, engine, params, req) = fx.parts();
     l1.state().delay = Some(Duration::from_secs(60));
     let dir = tempfile::tempdir().unwrap();
     let mut app = app_with(l1, engine, params, dir.path(), AppOptions::default());
-    let err = init_chain(&mut app, req).await.expect_err("L1 too slow");
     assert!(
-        matches!(err, AbciError::Timeout { after, .. } if after == AppOptions::default().l1_timeout),
-        "{err:?}"
+        tokio::time::timeout(Duration::from_secs(90), init_chain(&mut app, req)).await.is_err()
     );
     assert_not_initialized(&app, dir.path());
+    assert!(!dir.path().join("fatal-evidence.txt").exists());
 }
 
 #[tokio::test]
@@ -542,15 +568,17 @@ async fn el_missing_b_star_is_synced_first() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn el_that_never_reaches_b_star_times_out() {
+async fn el_that_has_not_reached_b_star_keeps_init_chain_pending() {
     let fx = Fixture::genesis(2);
     let (l1, _, params, req) = fx.parts();
     let opts = AppOptions { elsync_timeout: Duration::from_secs(30), ..AppOptions::default() };
     let dir = tempfile::tempdir().unwrap();
     let mut app = app_with(l1, MockEngine::new(), params, dir.path(), opts);
-    let err = init_chain(&mut app, req).await.expect_err("EL never syncs");
-    assert!(matches!(err, AbciError::ElSync(ElSyncError::Timeout { .. })), "{err:?}");
+    assert!(
+        tokio::time::timeout(Duration::from_secs(90), init_chain(&mut app, req)).await.is_err()
+    );
     assert_not_initialized(&app, dir.path());
+    assert!(!dir.path().join("fatal-evidence.txt").exists());
 }
 
 #[tokio::test]

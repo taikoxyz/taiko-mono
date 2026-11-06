@@ -10,7 +10,6 @@ use super::*;
 use crate::{
     app::{APP_NAME, APP_VERSION, Status},
     config::ConfigError,
-    elsync::ElSyncError,
     engine::PayloadVerdict,
     rules::RuleViolation,
     store::CommitteeState,
@@ -50,6 +49,18 @@ async fn info_at_genesis_reports_height_zero() {
     assert_eq!(resp.last_block_height.value(), 0);
     assert!(resp.last_block_app_hash.as_bytes().is_empty());
     assert_eq!(app.engine().calls(), [], "InitChain reconciled the EL already");
+}
+
+#[tokio::test(start_paused = true)]
+async fn info_retries_transient_engine_failure_on_the_same_abci_request() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    drop(initialized(&fx, dir.path()).await);
+    let mut app = fx.app(dir.path());
+    app.engine().state().delay_script.push_back(Duration::from_secs(60));
+    let response = info(&mut app).await.expect("temporary EL timeout must not fail ABCI");
+    assert_eq!(response.last_block_height.value(), 0);
+    assert!(!dir.path().join("fatal-evidence.txt").exists());
 }
 
 /// CometBFT also sends `Info` for every RPC `/abci_info` call, on the same sequential worker as
@@ -97,7 +108,7 @@ async fn only_the_first_info_after_a_start_reconciles_the_el() {
     assert_eq!(app.engine().calls(), [], "later Info calls make no engine call");
 }
 
-/// A failed reconcile is not remembered: the next `Info` tries again.
+/// Cancelling a pending reconcile cannot mark it successful; the next `Info` retries it.
 #[tokio::test(start_paused = true)]
 async fn info_retries_a_failed_reconcile() {
     let fx = Fixture::genesis(2);
@@ -106,21 +117,16 @@ async fn info_retries_a_failed_reconcile() {
 
     let opts = AppOptions { elsync_timeout: Duration::from_secs(30), ..AppOptions::default() };
     let mut app = app_with(fx.l1(), MockEngine::new(), fx.params.clone(), dir.path(), opts);
-    info(&mut app).await.expect_err("the EL never syncs");
-
-    // The EL catches up (e.g. after its own restart); the next Info reconciles and succeeds.
+    assert!(tokio::time::timeout(Duration::from_secs(40), info(&mut app)).await.is_err());
     {
-        let mut engine = app.engine().state();
+        let mut state = app.engine().state();
         for header in &fx.el_chain {
-            engine.known.insert(header.hash_slow(), header.clone());
-            engine.chain.insert(header.number, header.clone());
+            state.known.insert(header.hash_slow(), header.clone());
+            state.chain.insert(header.number, header.clone());
         }
-        engine.calls.clear();
     }
-    let resp = info(&mut app).await.expect("the retried reconcile succeeds");
+    let resp = info(&mut app).await.expect("the pending reconcile succeeds");
     assert_eq!(resp.last_block_height.value(), 0, "still at genesis");
-    assert_eq!(app.engine().calls(), [EngineCall::HeaderByNumber(fx.genesis.genesis_height)]);
-
     app.engine().state().calls.clear();
     info(&mut app).await.expect("Info succeeds");
     assert_eq!(app.engine().calls(), [], "the successful reconcile is remembered");
@@ -198,15 +204,15 @@ async fn info_syncs_an_el_missing_the_committed_block() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn info_fails_when_the_el_never_reaches_the_committed_block() {
+async fn info_stays_pending_when_the_el_has_not_reached_the_committed_block() {
     let fx = Fixture::genesis(2);
     let dir = tempfile::tempdir().unwrap();
     drop(initialized(&fx, dir.path()).await);
 
     let opts = AppOptions { elsync_timeout: Duration::from_secs(30), ..AppOptions::default() };
     let mut app = app_with(fx.l1(), MockEngine::new(), fx.params.clone(), dir.path(), opts);
-    let err = info(&mut app).await.expect_err("EL never syncs");
-    assert!(matches!(err, AbciError::ElSync(ElSyncError::Timeout { .. })), "{err:?}");
+    assert!(tokio::time::timeout(Duration::from_secs(90), info(&mut app)).await.is_err());
+    assert!(!dir.path().join("fatal-evidence.txt").exists());
 }
 
 #[tokio::test]

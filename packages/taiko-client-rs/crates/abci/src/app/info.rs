@@ -27,11 +27,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
     ///
     /// With a state, the first `Info` after the process started (CometBFT's handshake) first
     /// reconciles the EL with it ([`App::reconcile_el`]), so the handshake replays on top of an
-    /// EL that holds the committed head; its failure is the request's error and the next `Info`
-    /// tries again. Once a reconcile (or `InitChain`) succeeded, `Info` answers from the
-    /// committed state alone: CometBFT also sends `Info` for every RPC `/abci_info` call, on the
-    /// same sequential worker as consensus, and an EL hiccup there must neither delay consensus
-    /// nor fail the connection.
+    /// EL that holds the committed head; temporary failures leave the same request pending
+    /// until reconciliation succeeds. Once a reconcile (or `InitChain`) succeeded, `Info` answers
+    /// from the committed state alone: CometBFT also sends `Info` for every RPC `/abci_info`
+    /// call, on the same sequential worker as consensus, and an EL hiccup there must neither
+    /// delay consensus nor fail the connection.
     ///
     /// Independent Comet restarts rearm the private signer session. Its bounded background
     /// trust check rechecks the durable EL head and checkpoint ancestry; ordinary Info calls
@@ -42,7 +42,19 @@ impl<L: L1Source, E: Engine> App<L, E> {
             None => (Height::from(0u32), AppHash::default()),
             Some(state) => {
                 if !self.el_reconciled {
-                    self.reconcile_el(state).await?;
+                    let mut pause = super::FINALIZE_RETRY_INITIAL;
+                    loop {
+                        match self.reconcile_el(state).await {
+                            Ok(()) => break,
+                            Err(error) if super::init::startup_input_unavailable(&error) => {
+                                self.trust.await_authentication(error.to_string());
+                                tracing::warn!(%error, ?pause, "startup reconciliation waits for the execution engine");
+                                tokio::time::sleep(pause).await;
+                                pause = (pause * 2).min(super::FINALIZE_RETRY_MAX);
+                            }
+                            Err(error) => return Err(super::trust::classify_trust_error(error)),
+                        }
+                    }
                     self.el_reconciled = true;
                 }
                 if at_generation_origin(state) {

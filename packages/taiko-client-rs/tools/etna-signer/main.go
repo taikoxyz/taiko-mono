@@ -17,6 +17,7 @@ import (
 	"github.com/cometbft/cometbft/libs/log"
 	cmtnet "github.com/cometbft/cometbft/libs/net"
 	"github.com/cometbft/cometbft/privval"
+	pv "github.com/cometbft/cometbft/proto/tendermint/privval"
 	"github.com/cometbft/cometbft/types"
 )
 
@@ -167,9 +168,32 @@ func run() error {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 	defer signal.Stop(signals)
-	<-signals
+	return awaitSignerShutdown(server, gate, signals)
+}
+
+// awaitSignerShutdown joins and fences the stock request handler before deciding
+// the exit status, retaining uncertainty discovered during ordinary signal shutdown.
+// The caller owns signal registration and the signing server.
+func awaitSignerShutdown(server *privval.SignerServer, gate *gate, signals <-chan os.Signal) error {
+	var terminal error
+	select {
+	case <-signals:
+	case terminal = <-gate.terminal:
+	}
+	stopErr := server.Stop()
+	// Stock Stop only closes transport. SetRequestHandler holds the stock handler
+	// mutex until an active request finishes and fences any already-decoded request
+	// that has not started yet, so no later handler can discover an omitted failure.
+	server.SetRequestHandler(func(types.PrivValidator, pv.Message, string) (pv.Message, error) {
+		return pv.Message{}, errors.New("signer stopped")
+	})
 	gate.session.Store(nil)
-	return server.Stop()
+	select {
+	case err := <-gate.terminal:
+		terminal = errors.Join(terminal, err)
+	default:
+	}
+	return errors.Join(terminal, stopErr)
 }
 func main() {
 	if err := run(); err != nil {

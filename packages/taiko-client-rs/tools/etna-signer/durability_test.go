@@ -7,10 +7,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"syscall"
 	"testing"
 	"time"
 
+	"github.com/cometbft/cometbft/libs/protoio"
 	"github.com/cometbft/cometbft/privval"
 	pv "github.com/cometbft/cometbft/proto/tendermint/privval"
 	tm "github.com/cometbft/cometbft/proto/tendermint/types"
@@ -18,9 +18,9 @@ import (
 
 // The state directory remains writable/searchable, so stock FilePV can replace
 // its HRS file, but opening the directory for fsync must fail. Exercise the actual
-// default generation-zero process, including cached retries and its wire replies:
-// once a synchronization failed, the process signs nothing more even after the
-// directory recovers, and only a restarted process resumes (RECOV-8.2-3).
+// default generation-zero process: a synchronization failure withholds the wire
+// signature and exits. An explicit restart after inspecting retained state can
+// return its cached signature (RECOV-8.2-3).
 func TestLegacySignerStopsSigningAfterDirectorySyncFails(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("root bypasses the directory-read permission fault")
@@ -49,38 +49,22 @@ func TestLegacySignerStopsSigningAfterDirectorySyncFails(t *testing.T) {
 					t.Logf("signer output: %s", contents)
 				}
 			})
-			start := func() (stop func(), conn net.Conn) {
-				child := exec.Command(binary, "--comet-signer-addr", "unix://"+socket, "--trust-socket", path, "--chain-id", chain, "--priv-key", key, "--priv-state", state)
+			start := func() (child *exec.Cmd, conn net.Conn) {
+				child = exec.Command(binary, "--comet-signer-addr", "unix://"+socket, "--trust-socket", path, "--chain-id", chain, "--priv-key", key, "--priv-state", state)
 				child.Stdout = logs
 				child.Stderr = logs
 				if err := child.Start(); err != nil {
 					t.Fatal(err)
 				}
-				stopped := false
-				stop = func() {
-					if stopped {
-						return
-					}
-					stopped = true
-					child.Process.Signal(syscall.SIGTERM)
-					done := make(chan error, 1)
-					go func() { done <- child.Wait() }()
-					select {
-					case <-done:
-					case <-time.After(3 * time.Second):
-						child.Process.Kill()
-						<-done
-					}
-				}
-				t.Cleanup(stop)
+				t.Cleanup(func() { stopTestProcess(t, child) })
 				conn = acceptSigner(t, listener)
 				pubkey := pv.Message{Sum: &pv.Message_PubKeyRequest{PubKeyRequest: &pv.PubKeyRequest{ChainId: chain}}}
 				if response := signerExchange(t, conn, pubkey); response.GetPubKeyResponse() == nil || response.GetPubKeyResponse().Error != nil {
 					t.Fatal("initial pubkey failed")
 				}
-				return stop, conn
+				return child, conn
 			}
-			stop, conn := start()
+			child, conn := start()
 			if err = os.Chmod(directory, 0300); err != nil {
 				t.Fatal(err)
 			}
@@ -113,23 +97,46 @@ func TestLegacySignerStopsSigningAfterDirectorySyncFails(t *testing.T) {
 					}
 				}
 			}
-			for attempt := 0; attempt < 3; attempt++ {
-				req := request()
-				if attempt == 2 {
-					if vote := req.GetSignVoteRequest(); vote != nil {
-						vote.Vote.Timestamp = time.Unix(101, 0)
-					} else {
-						req.GetSignProposalRequest().Proposal.Timestamp = time.Unix(101, 0)
-					}
+			req := request()
+			if err := conn.SetDeadline(time.Now().Add(3 * time.Second)); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := protoio.NewDelimitedWriter(conn).WriteMsg(&req); err != nil {
+				t.Fatal(err)
+			}
+			var reply pv.Message
+			if _, err := protoio.NewDelimitedReader(conn, 16*1024).ReadMsg(&reply); err == nil {
+				withheld(0, reply) // Exit may close the transport before the error reply.
+			}
+			done := make(chan error, 1)
+			go func() { done <- child.Wait() }()
+			select {
+			case err := <-done:
+				if err == nil {
+					t.Fatal("uncertain persistence exited successfully")
 				}
-				withheld(attempt, signerExchange(t, conn, req))
+			case <-time.After(3 * time.Second):
+				child.Process.Kill()
+				<-done
+				t.Fatal("uncertain signer did not terminate")
 			}
 			if err = os.Chmod(directory, 0700); err != nil {
 				t.Fatal(err)
 			}
-			// The directory recovered, but the failed synchronization latched.
-			withheld(3, signerExchange(t, conn, request()))
-			stop()
+			// Inspect the retained stock state before explicitly restarting the signer.
+			inspected := privval.LoadFilePV(key, state)
+			if inspected.LastSignState.Height != 1 || len(inspected.LastSignState.Signature) != 65 {
+				t.Fatal("uncertain signature lost its retained HRS")
+			}
+			// A restarted Comet owns a fresh listener, without queued connections from
+			// the terminated signer's transport-reconnect loop.
+			listener.Close()
+			raw, err = net.ListenUnix("unix", &net.UnixAddr{Name: socket, Net: "unix"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			listener = privval.NewUnixListener(raw)
+			defer listener.Close()
 			_, conn = start()
 			response := signerExchange(t, conn, request())
 			var signature []byte
@@ -147,7 +154,7 @@ func TestLegacySignerStopsSigningAfterDirectorySyncFails(t *testing.T) {
 				signature = signed.Vote.Signature
 			}
 			persisted := privval.LoadFilePV(key, state)
-			if len(signature) != 65 || !bytes.Equal(signature, persisted.LastSignState.Signature) || persisted.LastSignState.Height != 1 {
+			if len(signature) != 65 || !bytes.Equal(signature, inspected.LastSignState.Signature) || !bytes.Equal(signature, persisted.LastSignState.Signature) || persisted.LastSignState.Height != 1 {
 				t.Fatal("successful reply did not match persisted HRS/signature")
 			}
 		})
@@ -155,6 +162,34 @@ func TestLegacySignerStopsSigningAfterDirectorySyncFails(t *testing.T) {
 }
 
 var errInjectedSync = errors.New("injected fsync failure")
+
+// A failed authority transition cannot be reported as a retryable trust refusal:
+// the supervisor must require inspection before another process can resume it.
+func TestAuthorityTransitionFailureIsPersistenceUncertainty(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root bypasses the directory-write permission fault")
+	}
+	c := authorityFixture(t)
+	a, err := openAuthority(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	domain, ready := readyDomain(t, c, 2)
+	if err := os.Chmod(c.Root, 0500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Chmod(c.Root, 0700) })
+	if _, err := a.authorize(domain, ready); !errors.Is(err, errStateUncertain) {
+		t.Fatalf("failed authority persistence was not terminal: %v", err)
+	}
+	if err := os.Chmod(c.Root, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.authorize(domain, ready); !errors.Is(err, errStateUncertain) {
+		t.Fatalf("authority retried after failed persistence: %v", err)
+	}
+}
 
 // A failing fsync withholds the signature and latches: the same signer refuses every
 // later request, cached HRS retries included, even once the disk recovers. Only a

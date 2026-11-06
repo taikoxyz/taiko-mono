@@ -5,7 +5,7 @@
 # the committed files.
 set -euo pipefail
 
-PINNED_REVISION=b6e765b0fd186f67fa360d4572bea2a8d701e7cb
+PINNED_REVISION=35e2f8f191132e87d9a223554d0b699f4203f2e3
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLIENT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROTOCOL_CHECKOUT="$(cd "${1:?usage: gen_lander_artifacts.sh <taiko-mono-checkout>}" && pwd)"
@@ -114,14 +114,24 @@ manifest["interface"] = {"source": f"packages/protocol/{interface_path}", "sha25
 vectors_dir = "testdata/etna_vectors"
 source_vectors, client_vectors = checkout / vectors_dir, client.parents[1] / vectors_dir
 client_vectors.mkdir(parents=True, exist_ok=True)
-for stale in client_vectors.iterdir():
-    if stale.is_file() and not (source_vectors / stale.name).is_file():
+# Include tracked generator helpers such as valgen/, not build/cache files left in the
+# checkout. Relative names keep the manifest reproducible as the vector suite grows.
+tracked_vectors = subprocess.check_output(
+    ["git", "ls-files", "-z", "--", vectors_dir], cwd=checkout
+).decode().split("\0")
+relative_vectors = sorted(
+    pathlib.Path(name).relative_to(vectors_dir) for name in tracked_vectors if name
+)
+for stale in client_vectors.rglob("*"):
+    if stale.is_file() and stale.relative_to(client_vectors) not in relative_vectors:
         stale.unlink()
 vector_files = {}
-for source in sorted(path for path in source_vectors.iterdir() if path.is_file()):
-    contents = source.read_bytes()
-    (client_vectors / source.name).write_bytes(contents)
-    vector_files[source.name] = hashlib.sha256(contents).hexdigest()
+for relative in relative_vectors:
+    contents = (source_vectors / relative).read_bytes()
+    destination = client_vectors / relative
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_bytes(contents)
+    vector_files[relative.as_posix()] = hashlib.sha256(contents).hexdigest()
 manifest["vectors"] = {"source": vectors_dir, "files": vector_files}
 (output / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
 subprocess.run(["pnpm", "exec", "prettier", "--write", str(output / "manifest.json")], cwd=checkout, check=True)

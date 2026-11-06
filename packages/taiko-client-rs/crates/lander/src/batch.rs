@@ -857,6 +857,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         let bytes = self.comet.val_state(height).await.map_err(|e| refuse(e.to_string()))?;
         let state = ValState::decode(&bytes).map_err(|e| refuse(e.to_string()))?;
         if state.height != height || state.hash() != expected {
+            crate::metrics::LanderMetrics::validator_state_mismatch();
             return Err(refuse(format!(
                 "the app reports the state after height {} with hash {}",
                 state.height,
@@ -931,7 +932,12 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 forced_cursor: state.forced_cursor,
             },
         )
-        .map_err(|e| LanderError::Safety(e.to_string()))?;
+        .map_err(|e| match e {
+            crate::validate::ValidationError::UnsupportedRuleset { .. } => {
+                LanderError::Temporary(e.to_string())
+            }
+            other => LanderError::Safety(other.to_string()),
+        })?;
         let probe_context = || {
             format!(
                 "L2 {}, entry {}, parent {} ({}), anchor {} ({})",
@@ -957,11 +963,16 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 ))
             })?
             .map_err(|error| {
-                LanderError::Temporary(format!(
+                let reason = format!(
                     "forced parent lookup at {}: {}",
                     probe_context(),
                     engine_diagnostic(&error),
-                ))
+                );
+                if error.is_retryable() {
+                    LanderError::Temporary(reason)
+                } else {
+                    LanderError::Safety(format!("{reason}; repair the EL before retrying"))
+                }
             })?;
             let observed = header.map(|header| header.hash_slow());
             if observed != Some(state.parent.hash) {
@@ -988,11 +999,20 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             ))
         })?
         .map_err(|e| match e {
-            ForcedBuildError::Engine(error) => LanderError::Temporary(format!(
-                "forced singleton build at {}: {}",
-                probe_context(),
-                engine_diagnostic(&error),
-            )),
+            ForcedBuildError::Engine(error) => {
+                let reason = format!(
+                    "forced singleton build at {}: {}",
+                    probe_context(),
+                    engine_diagnostic(&error),
+                );
+                if error.is_retryable_build() {
+                    LanderError::Temporary(reason)
+                } else {
+                    LanderError::Safety(format!(
+                        "{reason}; repair the EL and restore historical parent state if pruned"
+                    ))
+                }
+            }
             other => LanderError::Safety(format!(
                 "forced singleton check at {}: {other}",
                 probe_context()
@@ -2540,6 +2560,70 @@ mod tests {
         assert_eq!(val_state_reads(), 5, "the accepted starting state is kept");
     }
 
+    /// Software lacking a selected ruleset pauses without treating certified history as invalid.
+    #[tokio::test]
+    async fn unsupported_inherited_ruleset_pauses_batch_authentication() {
+        let fixture = Arc::new(Fixture::new(0, 6));
+        let b = builder(fixture.clone(), limits(6));
+        let snapshot = &fixture.snapshot;
+        let schedule = b.schedule(snapshot).unwrap();
+        let mut committees = BTreeMap::new();
+        let start = b.checkpoint(snapshot, &schedule, &mut committees).await.unwrap();
+        let initial = b.start_val_state(snapshot, &schedule, &committees).await.unwrap();
+        let mut state = ForwardState::new(&start, snapshot, initial).unwrap();
+        b.authenticate_block(snapshot, &schedule, &mut state, &mut committees, &fixture.blocks[&1])
+            .await
+            .unwrap();
+        // This method receives an already-authenticated inherited anchor. A future ruleset
+        // changes no framing, and software support is checked before ruleset-zero predicates.
+        state.anchor.inbox.rules_schedule = U256::from(1) << 48;
+        let error = b
+            .authenticate_block(
+                snapshot,
+                &schedule,
+                &mut state,
+                &mut committees,
+                &fixture.blocks[&2],
+            )
+            .await
+            .unwrap_err();
+        assert!(matches!(error, LanderError::Temporary(_)), "{error}");
+        assert!(
+            error.to_string().contains("ruleset 1") && error.to_string().contains("upgrade"),
+            "{error}"
+        );
+        assert_eq!(state.parent.number, 1, "refusal never advances the authenticated state");
+    }
+
+    /// Operators can distinguish a decoded contradictory state from endpoint availability waits.
+    #[tokio::test]
+    async fn validator_state_mismatch_has_a_dedicated_bounded_counter() {
+        let count = || {
+            prometheus::gather()
+                .into_iter()
+                .find(|family| family.get_name() == "lander_validator_state_mismatches_total")
+                .map(|family| family.get_metric()[0].get_counter().get_value())
+                .unwrap_or(0.0)
+        };
+        let fixture = Arc::new(Fixture::new(6, 12));
+        let b = builder(fixture.clone(), limits(6));
+        let before = count();
+        let error = b
+            .app_val_state(6, B256::repeat_byte(0x7f), "the settled checkpoint")
+            .await
+            .unwrap_err();
+        assert!(matches!(error, LanderError::Temporary(_)), "{error}");
+        assert!(count() > before, "mismatched authenticated state must increment its own counter");
+        let family = prometheus::gather()
+            .into_iter()
+            .find(|family| family.get_name() == "lander_validator_state_mismatches_total")
+            .unwrap();
+        assert!(
+            family.get_metric()[0].get_label().is_empty(),
+            "height and hashes never become labels"
+        );
+    }
+
     /// Prepares the one batch `fixture` offers in batches of `blocks` blocks.
     async fn prepared(fixture: Fixture, blocks: usize) -> Result<Option<ProofRequest>> {
         let fixture = Arc::new(fixture);
@@ -3295,7 +3379,7 @@ mod tests {
         #[tokio::test(start_paused = true)]
         async fn canonical_skip_requires_completed_empty_matching_singleton() {
             use test_harness::unavailable_engine::ProbeEngine;
-            for mode in 0..7 {
+            for mode in 0..18 {
                 let plan = ForcedPlan { delay: 5, entries: vec![(10, 5)], consume_at: vec![1] };
                 let mut fixture = Fixture::with_forced(0, 6, plan);
                 alter_envelope(&mut fixture, 1, |env| {
@@ -3330,7 +3414,50 @@ mod tests {
                 b.engine_timeout = Duration::from_millis(10);
                 b.engine = Arc::new(ProbeEngine {
                     parent,
-                    result: if mode == 3 {
+                    parent_reply: match mode {
+                        14 => Some(Err(abci::EngineError::BadReply("bad header secret".into()))),
+                        15 => Some(Err(abci::EngineError::ErrorReply {
+                            call: "eth_getBlockByNumber secret".into(),
+                            code: -32602,
+                            message: "secret".into(),
+                        })),
+                        16 => Some(Err(abci::EngineError::ErrorReply {
+                            call: "eth_getBlockByNumber secret".into(),
+                            code: -32603,
+                            message: "secret".into(),
+                        })),
+                        17 => Some(Err(abci::EngineError::ErrorReply {
+                            call: "eth_getBlockByNumber secret".into(),
+                            code: -38001,
+                            message: "secret".into(),
+                        })),
+                        _ => None,
+                    },
+                    result: if mode == 7 {
+                        Err(abci::EngineError::ErrorReply {
+                            call: "engine_forkchoiceUpdatedV3 secret".into(),
+                            code: -38100,
+                            message: "secret".into(),
+                        })
+                    } else if mode == 8 {
+                        Err(abci::EngineError::BuildNotStarted(abci::PayloadVerdict::Invalid(
+                            "secret".into(),
+                        )))
+                    } else if mode == 9 {
+                        Err(abci::EngineError::Setup("secret".into()))
+                    } else if mode == 10 {
+                        Err(abci::EngineError::BadReply("secret".into()))
+                    } else if mode == 11 {
+                        Err(abci::EngineError::ErrorReply {
+                            call: "engine_getPayloadV5 secret".into(),
+                            code: -38001,
+                            message: "secret".into(),
+                        })
+                    } else if mode == 12 {
+                        Err(abci::EngineError::BuildNotStarted(abci::PayloadVerdict::Syncing))
+                    } else if mode == 13 {
+                        Err(abci::EngineError::BuildNotStarted(abci::PayloadVerdict::Valid))
+                    } else if mode == 3 {
                         Err(abci::EngineError::Transport("unavailable".into()))
                     } else if mode == 6 {
                         Err(abci::EngineError::ErrorReply {
@@ -3347,6 +3474,18 @@ mod tests {
                 match mode {
                     0 => assert_eq!(heads(&prepared.unwrap().unwrap()), (0, 1)),
                     1 | 2 | 5 => assert!(matches!(prepared, Err(LanderError::Safety(_)))),
+                    7..=10 | 14 | 15 | 17 => {
+                        let error = prepared.unwrap_err();
+                        assert!(matches!(error, LanderError::Safety(_)), "mode {mode}: {error}");
+                        let text = error.to_string();
+                        assert!(
+                            text.contains("L2 1") &&
+                                text.contains("entry 0") &&
+                                text.contains("parent 0"),
+                            "{text}"
+                        );
+                        assert!(!text.contains("secret"), "{text}");
+                    }
                     _ => {
                         let error = prepared.unwrap_err();
                         assert!(matches!(error, LanderError::Temporary(_)));
@@ -3396,8 +3535,8 @@ mod tests {
                 .await
                 .unwrap_err();
             assert!(
-                matches!(error, LanderError::Temporary(_)),
-                "missing execution state must fail closed: {error}"
+                matches!(error, LanderError::Safety(_)),
+                "a fixture EL without configured execution state requires repair: {error}"
             );
             // Block 1 carries no forced witness at all.
             let mut fixture = Fixture::with_forced(0, 6, due(vec![1]));

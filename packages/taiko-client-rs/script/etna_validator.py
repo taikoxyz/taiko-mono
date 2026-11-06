@@ -294,6 +294,7 @@ class Supervisor:
 
     def stop(self):
         # Bound and reap Comet before removing the signer. Never touch HRS/WAL/history.
+        signer_failed = False
         if self.comet is not None:
             if self.container:
                 subprocess.run(["docker", "stop", "--time", "10", self.container],
@@ -313,11 +314,15 @@ class Supervisor:
             except subprocess.TimeoutExpired:
                 self.signer.kill()
                 self.signer.wait()
+            # A fatal signer exit can race tick's poll while observe or Comet's
+            # shutdown is in progress. Reaping must retain that failure before rearm.
+            signer_failed = self.signer.returncode not in (0, -signal.SIGTERM)
             self.signer = None
 
         if self.event_scratch is not None:
             self.event_scratch.cleanup()
             self.event_scratch = None
+        return signer_failed
 
     def prepare_transport(self):
         """Remove only a disconnected local transport inode after old children are reaped."""
@@ -558,7 +563,9 @@ class Supervisor:
             if not self.pending:
                 self.observed_loss = False
         if self.pending and ready:
-            self.stop()
+            if self.stop():
+                self.halt("signer exited during recovery; inspect diagnostics")
+                return
             self.start(await_trust=True)
             print("etna_supervisor_awaiting_trust: Comet starts after the signer's fresh session is Ready", flush=True)
 
@@ -600,7 +607,9 @@ class Supervisor:
                 and head["height"] < target["height"]):
             # Only Comet can commit up to this checkpoint, so waiting could never end.
             print("etna_supervisor_trust_needs_comet: starting signer and Comet together", flush=True)
-            self.stop()
+            if self.stop():
+                self.halt("signer exited during recovery; inspect diagnostics")
+                return
             self.start()
             return
         state = (self.session, status.get("phase"), status.get("reason"))

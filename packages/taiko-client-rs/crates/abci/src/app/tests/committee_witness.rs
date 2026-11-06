@@ -135,6 +135,20 @@ async fn committee_witness_uses_own_anchor_root_and_parent_cutoff() {
     assert_eq!(derived.members.len(), 3);
 }
 
+#[tokio::test]
+async fn valid_switch_proposal_is_accepted_when_optional_witness_cache_cannot_be_saved() {
+    let fx = Fixture::genesis(3);
+    let proposer_dir = tempfile::tempdir().unwrap();
+    let (mut proposer, _) = before_switch(&fx, proposer_dir.path()).await;
+    let env = propose(&mut proposer).await;
+    let dir = tempfile::tempdir().unwrap();
+    let (mut app, _) = before_switch(&fx, dir.path()).await;
+    std::fs::create_dir(dir.path().join(crate::store::COMMITTEE_WITNESS_FILE)).unwrap();
+    let (response, _) = judge(&mut app, &env).await;
+    assert_eq!(response, response::ProcessProposal::Accept);
+    assert!(!dir.path().join("fatal-evidence.txt").exists());
+}
+
 /// (b) The candidate anchor 1030 selects the joined checkpoint and is valid there, but its
 /// registry proof does not authenticate under the committed parent 1010, so it is refused.
 #[tokio::test]

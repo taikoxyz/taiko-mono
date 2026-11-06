@@ -33,6 +33,12 @@ pub enum ValidationError {
     /// One committed body hash disagrees with its contents.
     #[error("CometBFT {0} commitment mismatch")]
     Commitment(&'static str),
+    /// Authenticated content selects a ruleset this software cannot interpret yet.
+    #[error("ruleset {rules} is unsupported; upgrade the lander to continue")]
+    UnsupportedRuleset {
+        /// Monotonically assigned protocol ruleset selected by the block's own anchor.
+        rules: u64,
+    },
     /// An Etna envelope is malformed or violates witness/schedule/header rules.
     #[error("invalid Etna block: {0}")]
     Etna(String),
@@ -371,7 +377,12 @@ pub fn verify_envelope(
         context.bft_time_secs,
         context.proposer,
     )
-    .map_err(|e| ValidationError::Etna(e.to_string()))?;
+    .map_err(|e| match e {
+        abci::app::Rejection::Rule(rules::RuleViolation::UnsupportedRuleset { rules }) => {
+            ValidationError::UnsupportedRuleset { rules }
+        }
+        other => ValidationError::Etna(other.to_string()),
+    })?;
     let header = &envelope.block.header;
     let next_parent = ParentInfo {
         number: header.number,

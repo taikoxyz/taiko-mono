@@ -98,7 +98,7 @@ paths = [
 
 # Etna vectors: public keccak digests and the 33-byte compressed secp256k1 public keys
 # (0x02/0x03 + 64 hex) of fixed test scalars. Narrowed like the entry above: generic-api-key
-# only, and only bare hex of exactly those two shapes, in these generated vector files.
+# only, and only those two shapes with an optional 0x prefix, in these generated vector files.
 # Entries match by path and value, not by commit, so they survive rebases and squash merges.
 [[allowlists]]
 description = "Etna vectors: public hashes and compressed public keys"
@@ -107,7 +107,9 @@ condition = "AND"
 regexes = ['''^(0x)?(0[23])?[a-fA-F0-9]{64}$''']
 paths = [
   '''^testdata/etna_vectors/vectors\.json$''',
-  '''^packages/taiko-client-rs/crates/abci/testdata/(v1-vectors|comet-wire)\.json$''',
+  '''^packages/taiko-client-rs/crates/abci/testdata/comet-wire\.json$''',
+  # Removed from HEAD, but repo--secret-scan.yml scans every PR commit where it still exists.
+  '''^packages/taiko-client-rs/crates/abci/testdata/v1-vectors\.json$''',
 ]
 
 # The public CometBFT chain ID of the lander's consensus test chain (`taiko-etna-<id>-g<n>`),

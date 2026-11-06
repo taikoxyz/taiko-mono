@@ -5,7 +5,7 @@
 
 use std::sync::LazyLock;
 
-use prometheus::{IntCounterVec, IntGauge, IntGaugeVec, Opts};
+use prometheus::{IntCounter, IntCounterVec, IntGauge, IntGaugeVec, Opts};
 
 use crate::LanderError;
 
@@ -78,6 +78,11 @@ impl LanderMetrics {
         set_u64(&METRICS.confirmations, count);
     }
 
+    /// Count a decoded app state contradicting its expected height or authenticated hash.
+    pub fn validator_state_mismatch() {
+        METRICS.validator_state_mismatches.inc();
+    }
+
     /// Count a retry using only the shared finite operational classification.
     pub fn retry(error: &LanderError) {
         let reason = match error {
@@ -113,6 +118,8 @@ struct Metrics {
     pending_nonce: IntGauge,
     /// Canonical receipt confirmations so far.
     confirmations: IntGauge,
+    /// Decoded app states contradicting an authenticated checkpoint or batch replay.
+    validator_state_mismatches: IntCounter,
     /// Retry attempts by finite operational class.
     retries: IntCounterVec,
 }
@@ -157,6 +164,13 @@ static METRICS: LazyLock<Metrics> = LazyLock::new(|| {
         transaction_phase,
         pending_nonce,
         confirmations: gauge("lander_confirmations", "Canonical receipt confirmations"),
+        validator_state_mismatches: register(
+            IntCounter::new(
+                "lander_validator_state_mismatches_total",
+                "Decoded app validator states differing from the authenticated expected state",
+            )
+            .expect("valid validator state mismatch metric"),
+        ),
         retries,
     }
 });
@@ -215,6 +229,7 @@ mod tests {
             "lander_pending_nonce",
             "lander_confirmations",
             "lander_retries_total",
+            "lander_validator_state_mismatches_total",
         ] {
             assert!(names.iter().any(|n| n == name), "missing {name}");
         }

@@ -54,6 +54,7 @@ impl Engine for UnavailableEngine {
 /// Scripted singleton evidence for tests of callers' completed-decision handling.
 pub struct ProbeEngine {
     pub parent: Header,
+    pub parent_reply: Option<Result<Option<Header>, EngineError>>,
     pub result: Result<ExecutionBlock, EngineError>,
     pub delay: std::time::Duration,
 }
@@ -89,6 +90,8 @@ impl Engine for ProbeEngine {
         Err(EngineError::Setup("fixture has no historical state".into()))
     }
     async fn header_by_number(&self, number: u64) -> Result<Option<Header>, EngineError> {
-        Ok((number == self.parent.number).then(|| self.parent.clone()))
+        self.parent_reply
+            .clone()
+            .unwrap_or_else(|| Ok((number == self.parent.number).then(|| self.parent.clone())))
     }
 }

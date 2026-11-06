@@ -140,7 +140,7 @@ jobs:
           persist-credentials: false
 
       - name: Install guarded signer Go toolchain
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: "1.27.2"
           cache-dependency-path: packages/taiko-client-rs/tools/etna-signer/go.sum
@@ -209,17 +209,21 @@ jobs:
             packages/taiko-client-rs -> target
 
       - name: Setup just
-        uses: extractions/setup-just@v4
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
         with:
           just-version: 1.5.0
 
-      - uses: taiki-e/install-action@v2
+      - uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
         with:
           tool: cargo-nextest@0.9.145
 
       - name: Run guarded signer race tests
         working-directory: packages/taiko-client-rs
         run: just signer-test
+
+      - name: Run validator supervisor tests
+        working-directory: packages/taiko-client-rs
+        run: just supervisor-test
 
       - name: Run unit tests
         working-directory: packages/taiko-client-rs
@@ -233,7 +237,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       # As .github/actions/install-pnpm-dependencies: git-hosted pnpm dependencies over HTTPS.
       - name: Set up Git to use HTTPS
@@ -291,7 +297,7 @@ jobs:
           df -h /
 
       - name: Install guarded signer Go toolchain
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: "1.27.2"
           cache-dependency-path: packages/taiko-client-rs/tools/etna-signer/go.sum

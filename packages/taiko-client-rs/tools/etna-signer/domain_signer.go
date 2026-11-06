@@ -31,7 +31,10 @@ func (p *authorizedPV) sign(chain string, sign func(*durableFilePV) error) error
 	a := p.authority
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if a.closed || a.uncertain || chain != p.domain.Chain || p.domain.Generation != a.manifest.Watermark || (a.pending != nil && a.pending.Generation > p.domain.Generation) {
+	if a.uncertain {
+		return errStateUncertain
+	}
+	if a.closed || chain != p.domain.Chain || p.domain.Generation != a.manifest.Watermark || (a.pending != nil && a.pending.Generation > p.domain.Generation) {
 		return errors.New("domain authority closed or superseded")
 	}
 	if _, err := validateHRS(p.domain.State, chain, a.native.PubKey()); err != nil {

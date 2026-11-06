@@ -225,6 +225,9 @@ where
         if h > landing.height {
             return Err(candidate("successor block supplied beyond selected checkpoint"));
         }
+        if pair.block.header.height.value() != h {
+            return Err(candidate("requested block height mismatch"));
+        }
         // The hash chain authenticates these header fields. Check them before the commit, whose
         // own APP_VERSION and chain id checks would call a landed header a bad certificate.
         if let Some(fault) =
@@ -981,6 +984,9 @@ async fn confirm_landed(
         }
         height += 1;
         hash = header.hash();
+    }
+    if hash.as_bytes() != landing.comet_hash.as_slice() {
+        return candidate("refused window block is not on the landed chain");
     }
     match fault {
         ContentFault::Now(error) => error,

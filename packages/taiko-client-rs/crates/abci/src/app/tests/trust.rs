@@ -395,6 +395,32 @@ async fn higher_generation_proposal_revokes_even_without_finalize_error() {
 }
 
 #[tokio::test]
+async fn generation_zero_startup_supersession_retains_typed_recovery_evidence() {
+    use crate::recovery::supersession::{SUPERSESSION_FILE, SupersessionEvidence};
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    drop(initialized(&fx, dir.path()).await);
+    let original = std::fs::read(dir.path().join(crate::store::STATE_FILE)).unwrap();
+    let mut app = fx.app(dir.path());
+    let inbox = InboxStorage { recovery_generation: 1, ..fx.inbox.clone() };
+    fx.plant_l1_block(app.l1(), 101, &inbox, &fx.registry);
+    app.l1().set_finalized(101);
+    assert!(matches!(app.refresh_trust().await, Err(AbciError::SafetyHalt(_))));
+    assert_eq!(app.trust.snapshot().phase, TrustPhase::Halted);
+    let evidence: SupersessionEvidence = serde_json::from_slice(
+        &std::fs::read(dir.path().join(SUPERSESSION_FILE))
+            .expect("startup supersession must be acknowledgeable by authenticated recovery"),
+    )
+    .unwrap();
+    assert_eq!((evidence.previous_generation, evidence.current_generation), (0, 1));
+    assert!(
+        evidence
+            .validates(&original, &std::fs::read(dir.path().join("fatal-evidence.txt")).unwrap(),)
+    );
+    assert_eq!(std::fs::read(dir.path().join(crate::store::STATE_FILE)).unwrap(), original);
+}
+
+#[tokio::test]
 async fn refreshed_lower_checkpoint_never_downgrades_pinned_target() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
@@ -432,14 +458,19 @@ async fn reconnect_never_forgets_an_authenticated_unreached_checkpoint() {
     );
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn initial_l1_outage_does_not_permanently_poison_genesis_trust() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = fx.app(dir.path());
     app.l1().state().fail = Some(L1Error::Rpc("startup outage".into()));
-    assert!(init_chain(&mut app, fx.request.clone()).await.is_err());
+    assert!(
+        tokio::time::timeout(Duration::from_secs(20), init_chain(&mut app, fx.request.clone()),)
+            .await
+            .is_err()
+    );
     assert!(!app.trust.snapshot().trust_ready);
+    assert!(!dir.path().join("fatal-evidence.txt").exists());
     app.l1().state().fail = None;
     target(&app, &fx, 0, fx.genesis_hash());
     init_chain(&mut app, fx.request.clone()).await.unwrap();

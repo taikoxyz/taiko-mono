@@ -216,6 +216,43 @@ async fn independently_derived_pending_set_mismatch_is_authenticated_safety_erro
 }
 
 #[tokio::test]
+async fn missing_required_switch_witness_halts_only_when_the_landed_chain_contains_it() {
+    for landed in [true, false] {
+        let mut fx = Fixture::with_epoch(18, 18, 0, 13);
+        let package = import_package(&fx, 18).await;
+        let switch = (1..=18)
+            .find(|height| {
+                Schedule::from_genesis(&fx.snapshot.genesis).switch_target(*height) == Some(1)
+            })
+            .unwrap();
+        let pair = fx.blocks.get_mut(&switch).unwrap();
+        let mut env = abci::EtnaEnvelope::decode(&pair.block.data[0]).unwrap();
+        assert!(env.committee.take().is_some());
+        pair.block.data[0] = env.encode().to_vec();
+        pair.block.header.data_hash = Some(crate::validate::data_hash(&pair.block.data));
+        relink_after(&mut fx, switch, if landed { 18 } else { switch });
+        let comet = B256::from_slice(fx.blocks[&18].block.header.hash().as_bytes());
+        fx.import_landings(&[(18, fx.headers[&18].hash_slow(), comet, fx.val_states[&18].hash())]);
+        let fx = std::sync::Arc::new(fx);
+        let result = authenticate_import(
+            &package,
+            frames(&fx, 18).into_iter(),
+            &fx.params,
+            &OwnL1(fx.clone()),
+        )
+        .await;
+        if landed {
+            assert!(
+                matches!(result, Err(ImportError::Safety(ref message)) if message.contains("committee witness presence violates switch schedule")),
+                "{result:?}"
+            );
+        } else {
+            assert!(matches!(result, Err(ImportError::Candidate(_))), "{result:?}");
+        }
+    }
+}
+
+#[tokio::test]
 async fn incomplete_stream_waits_and_successor_is_not_consumed_as_import_state() {
     let fx = std::sync::Arc::new(Fixture::new(6, 7));
     let package = import_package(&fx, 6).await;
@@ -439,6 +476,34 @@ fn break_fixed_header_field(header: &mut tendermint::block::Header, field: &str)
         "app" => header.version.app = 0,
         "chain" => header.chain_id = "etna-other".parse().unwrap(),
         _ => unreachable!("{field}"),
+    }
+}
+
+#[tokio::test]
+async fn forged_terminal_height_cannot_turn_unlanded_fixed_fields_into_a_safety_halt() {
+    let fx = std::sync::Arc::new(Fixture::new(6, 6));
+    let package = import_package(&fx, 6).await;
+    for height in [5u64, 7] {
+        for field in ["consensus", "app", "chain"] {
+            let mut input = frames(&fx, 6);
+            let frame = input.last_mut().unwrap().as_mut().unwrap();
+            let mut raw = crate::native::RawBlock::decode(frame.block.as_ref()).unwrap();
+            let mut header: tendermint::block::Header =
+                raw.header.take().unwrap().try_into().unwrap();
+            header.height = height.try_into().unwrap();
+            break_fixed_header_field(&mut header, field);
+            raw.header = Some(header.into());
+            // The publisher has no authority to replace the terminal header. No resigning or
+            // change to the own-L1 landing is needed for this attack.
+            frame.block = raw.encode_to_vec().into();
+            let result =
+                authenticate_import(&package, input.into_iter(), &fx.params, &OwnL1(fx.clone()))
+                    .await;
+            assert!(
+                matches!(result, Err(ImportError::Candidate(_))),
+                "{height}/{field}: {result:?}"
+            );
+        }
     }
 }
 
@@ -797,6 +862,45 @@ async fn embedded_successor_commit_requires_native_validity_full_id_and_exact_or
             "{mutation}: {result:?}"
         );
     }
+}
+
+#[tokio::test]
+async fn terminal_own_commit_cannot_authenticate_a_publisher_changed_last_commit_round() {
+    use crate::test_utils::consensus::{SigningKey, resign};
+    let mut fx = Fixture::new(6, 6);
+    let package = import_package(&fx, 6).await;
+    let pair = fx.blocks.get_mut(&6).unwrap();
+    let landed_hash = pair.block.header.hash();
+    let original_parts = pair.commit.block_id.part_set_header;
+    let last = pair.block.last_commit.as_mut().unwrap();
+    // Commit.Hash binds signature protobufs, not the round used to verify those signatures.
+    last.round = 1u16.into();
+    assert_eq!(pair.block.header.last_commit_hash, Some(crate::validate::commit_hash(last)));
+    // Historical quorum keys can certify a new terminal part-set for the same landed header.
+    // That part-set is not anchored independently to L1, so it cannot turn an invalid embedded
+    // certificate into authority to halt the importer.
+    resign(
+        pair,
+        &fx.committees[&0],
+        &[SigningKey::from_slice(&[1; 32]).unwrap(), SigningKey::from_slice(&[2; 32]).unwrap()],
+    );
+    assert_eq!(pair.block.header.hash(), landed_hash);
+    assert_ne!(pair.commit.block_id.part_set_header, original_parts);
+    crate::validate::verify_native_commit(
+        &pair.commit,
+        &pair.block.header,
+        &fx.committees[&0].validators,
+        &package.genesis.chain_id,
+    )
+    .unwrap();
+    let fx = std::sync::Arc::new(fx);
+    let result =
+        authenticate_import(&package, frames(&fx, 6).into_iter(), &fx.params, &OwnL1(fx.clone()))
+            .await;
+    assert!(
+        matches!(result, Err(ImportError::Candidate(ref detail)) if detail.contains("signature verification failed")),
+        "{result:?}"
+    );
 }
 
 #[tokio::test]

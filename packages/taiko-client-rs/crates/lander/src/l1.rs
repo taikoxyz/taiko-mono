@@ -625,6 +625,16 @@ pub(crate) fn decode_snapshot(
         verify_account_witness(raw.state_root(), &witness, &snapshot_landing_slots(height))
             .map_err(|e| LanderError::Safety(format!("Inbox snapshot proof: {e}")))?;
     let word = |slot| storage.get(inbox::slot(slot)).expect("verified snapshot slot");
+    // This release supports fresh networks only. Authenticate the packed start before the
+    // S=0 origin checks, so a switching deployment asks for compatible software rather than
+    // reporting its valid nonzero origin as a chain contradiction.
+    let packed = word(inbox::GENESIS_PACKED);
+    let etna_start = word_u48(packed, 0);
+    if packed >> 144 == U256::ZERO && etna_start != 0 {
+        return Err(LanderError::Configuration(format!(
+            "Etna start {etna_start} is unsupported; this lander supports fresh S=0 deployments"
+        )));
+    }
     let (genesis, _, bootstrap) = verify_genesis_inbox(
         raw.state_root(),
         &project_witness(&witness, &inbox::genesis_slots()),

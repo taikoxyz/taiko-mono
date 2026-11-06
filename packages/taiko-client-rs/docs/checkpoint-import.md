@@ -92,9 +92,10 @@ taiko-client abci-import run-app --root /srv/etna/operations/import-600 \
   --el-p2p-port 30303 --el-bootnodes enode://<etna-el-node-id>@<host>:30303
 ```
 
-User transactions reach the proposer's txpool only over EL devp2p, so give the owned EL `--el-p2p-port PORT` (TCP and UDP, on `--el-p2p-addr`, default `0.0.0.0`). Without it the EL has no peers, and a validator proposes blocks without user transactions.
+User transactions reach the proposer's txpool only over EL devp2p, so give the owned EL `--el-p2p-port PORT` (TCP RLPx on `--el-p2p-addr`, default `0.0.0.0`; UDP discv4 uses the same port when explicit bootnodes enable discovery). Without it the EL has no peers, and a validator proposes blocks without user transactions.
 
 The port also needs Etna peers: `--el-bootnodes`, `--el-trusted-peers`, or both, each taking comma-separated enode URLs. The Taiko chainspecs have no bootnodes, so the EL never falls back to Ethereum mainnet's:
+
 - With `--el-bootnodes`, discv4 discovery runs on the same port, and discv5 is off.
 - Without bootnodes, discovery is off. The EL then peers only with its trusted peers and inbound peers.
 

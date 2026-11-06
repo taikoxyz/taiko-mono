@@ -28,9 +28,11 @@ deductions, including pending-only and uint256 boundary balances.
 negative `int64` priorities sign-extended to 32 bytes, and both stored proposer indexes.
 Its 768-byte preimage hashes to
 `0x368f341ba9eb8b6d6cadbd5b944daed7ed417b273d1257911a7fd18320f2a81b`.
-Synthetic keys do not establish CometBFT set ordering. The cut table uses opaque synthetic
-commitments; L1 does not decode validator state. LandInput has nine fields, slot 285 records
-have four words, cut leaves have five words, and statements have 23 words (736 bytes).
+Its synthetic keys do not establish CometBFT set ordering; that caveat applies to this example
+only: `val_state_chains` holds states that CometBFT v0.40.0 computed from real keys (see
+below). The cut table uses opaque synthetic commitments; L1 does not decode validator state.
+LandInput has nine fields, slot 285 records have four words, cut leaves have five words, and
+statements have 23 words (736 bytes).
 The parent validator-state hash is the retained origin record's value even at recovery start.
 The `0x06` extraData envelope and all fixed storage slots remain unchanged.
 
@@ -46,6 +48,7 @@ The `0x06` extraData envelope and all fixed storage slots remain unchanged.
 | `committee_config`  | 4.3, 6.4, A, B | `committeeConfigHash` (Inbox slot 269): the seven input words (`ETNA_PARENT_ANCHOR_V1`, L2 chain id, registry, `vp_unit`, `s_min`, `n_max`, `U`), the 224-byte preimage and the hash.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `registry_entries`  | 4.1, A, B      | Entries in slots 0–4 from keys a1–a5, their `ETNA_REG_ENTRY_V1` leaves, the leaf of empty slot 5 (all-zero fields, still a non-zero leaf) and the entries root of every prefix from 0 to 6 leaves. `bond_slots` pins `regLeaf` indexed by the slot, not the bond id: bond 4096 displacing the bond in slot 7, and bond 2 taking slot 0 after bond 0's withdrawal, each with the wrong leaf a bond-id index gives (`bond_id_leaf`).                                                                                                                                                                                                                                                                  |
 | `committee_sets`    | 4.3, A         | Committees of 0, 1, 3 and 5 members in ascending set-key order: set keys, `ETNA_SET_LEAF_V1` preimages and leaves with `k = targetEpoch + 1`, `ETNA_SET_NODE` inner nodes with odd-node promotion, total power and the five-field `ETNA_COMMITTEE_V1` record. The empty committee is invalid and has no root or record.                                                                                                                                                                                                                                                                                                                                                                             |
+| `val_state_chains`  | 6.2, 8.4, A    | `valStateHash(x)` (ENC-A-29a) of the states stock CometBFT v0.40.0 holds after committing each height of five chains with real secp256k1eth keys: the genesis of generation 0 and of a recovery generation, single-height increments, switches at S(t) that add, remove and re-weight members, priority rescaling and centering at their bounds, proposer ties broken by address and both stored proposers; landings whose grid points fall at S(t), S(t)+1 and H(t), from a generation's start (origin record 0 or the old generation's value) and from a later origin; and 4096 members at `MaxTotalVotingPower`. See the notes below.                                                            |
 | `cuts`              | 6.1, 6.3, A    | Cut leaves `keccak256(abi.encode(x, blockHash, cometHash, forcedHead, valStateHash))` for heights 0–18 of a fixed model (EL hash 100 + x, Comet hash 200 + x and 0 at x = 0, FI cursor x / 6, opaque validator-state hash 400 + x and 0 at x = 0), and `ETNA_LAND_CUTS_V1` cut hashes over the grid points strictly between p and h, including the empty list (`keccak256("")`), a 49-leaf case and a case with Etna start S = 1000 whose one leaf is at 1006. Grid points are the heights h ≥ S with h − S a multiple of K; `grid_points` pins membership, including 1002 and 1008, which lie on a grid counted from 0 but not from S = 1000.                                                      |
 | `land_statements`   | 6.1, 6.2, A    | The 23-word (736-byte) `TAIKO_ETNA_LAND_V1` statement for a generation-0 landing from block 0 and a generation-1 landing from height 6.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `land_abi`          | 6.1            | The `land(input, leaves, proof)` signature, selector and complete calldata of the generation-1 statement.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
@@ -56,6 +59,74 @@ The `0x06` extraData envelope and all fixed storage slots remain unchanged.
 | `packed_words`      | B              | Every packed storage word (Inbox slots 272, 281, 282 and 293, the second word of a slot-280 entry and the first word of a slot-285 record; the registry's first checkpoint word and third entry word) with an ordinary and an all-max item. The items are encoding-only: the all-max slot-293 `stop_grid` is not a multiple of K.                                                                                                                                                                                                                                                                                                                                                                   |
 | `origin_words`      | 8.4, B         | Slot-290 origins `(startHeight, l1BlockNumber, l1Timestamp)`, three full words each. The items are encoding-only: the all-max item's `start_height` is not a grid point.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `layout`            | A, B           | For the Inbox: the named slots, including the slot-293 rules schedule, the reserved slots, the packing table, the initialized status (3), the anchor witness slots in proof order (268, 270, 271, 281, 293) and the mapping slots of forced inclusion entries, landings and origins. For the registry: the ERC-7201 base R of `taiko.etna.registry`, the checkpoint (R) and slot-indexed entry (R + 1) array slots, the packing table, the slots a committee witness proves for a snapshot, and the bond-id-indexed `owners`, `exit_confirmations` and `top_ups` namespaces (bond ids 0 and 4096: ids are not slots and are not bounded by 4096) and the entry-key-indexed `forfeitures` namespace. |
+
+### Validator-state chains
+
+`val_state_chains` is what a client or guest must reproduce for PROOF-6.2-41a: the validator
+state after each height, from a generation's genesis on, applying the validator updates that
+FinalizeBlock returns.
+
+- `keys` are c1–c12 (private keys 0xC1–0xCC) with `ck_prefix`, `ck_x`, `ck_y` and the
+  secp256k1eth address `ck_addr` that orders a set. A set row is
+  `[key, votingPower, proposerPriority]` in CometBFT's order (power descending, then `ck_addr`
+  ascending); its ValEntry is `(ck_prefix, ck_x, votingPower, proposerPriority)` of that key.
+  `current_proposer` and `next_proposer` are indexes into the rows.
+- A chain has `genesis` (the validators of the genesis at `start_height`, whose initial height is
+  `start_height + 1`), `switches`, and one state per height through `end_height` with both sets,
+  both stored proposers and `hash`. `start_preimage` is the preimage at `start_height`; the other
+  preimages follow from the rows and `keys`.
+- FinalizeBlock returns a switch at `height` = S(t) = t·L − 1 (L is `epoch_length`; H(t) =
+  1 + t·L counts from block 0) as `changes`: a joining member at its power, a leaving member at 0,
+  a re-weighted member at its new power. It changes only `next` at S(t); `current` at S(t) + 1
+  holds the new committee, which first signs `activation_height` = H(t) = S(t) + 2
+  (COMM-4.3-13). Sending the whole new committee instead, unchanged members at their power, gives
+  the same state, because CometBFT keeps an unchanged member's priority; `valgen/` checks this at
+  every height.
+- `gen0` is generation 0 from S = 0 with L = 7, heights 0–48, switching at 6 (add), 13 (remove),
+  20 (re-weight), 27 (all three), 34 (add), 41 (remove the largest member, add a small one: the
+  update rescales) and 48. `gen1` is the recovery generation from c = 48 (8.4): a new genesis at
+  48, heights 48–60. Generation 0's update returned at 48 is discarded with its state, and the
+  next switch is S(8) = 55. `bounds_a`, `bounds_b` and `bounds_c` (L = 3) reach the
+  priority-window bounds: a spread of exactly 2·total (no rescale) and of 2·total + 1 (rescale
+  by 2), each inside `UpdateWithChangeSet` and inside `IncrementProposerPriority`, the latter
+  also at a height without an update, and a centered sum of −1 over four members.
+- `events` mark where a chain reaches these cases, as `valset_model.py` replays it. `rescale` is
+  a spread at or above `diff_max` = 2·total, with `fires`, `ratio` and the `truncated` members
+  whose negative priority Go's division rounds toward zero. `center` is a negative sum that is not
+  a multiple of the member count; the shift is the floor of the average (`big.Int.Div`), not the
+  truncated quotient. `tie` is a shared highest priority; the lowest address becomes the
+  proposer. `step` is `genesis` (the increment inside `NewValidatorSet`, giving `current`),
+  `genesis_next` (the further increment giving `next`), `update` (inside `UpdateWithChangeSet`)
+  or `increment` (`IncrementProposerPriority`).
+- Every stored set's priorities sum to between 0 and n − 1. The stored proposer is the member
+  the last increment decremented, usually not the highest priority: read it, never recompute it.
+- `landings` give a landing statement's validator-state hashes. `parent_val_state_hash` is the
+  origin record's value: 0 at the Etna start (`gen0_from_start`), generation 0's state at
+  c = 48 for the first landing of generation 1 (`gen1_from_start`), and the state at p for a
+  later origin (`gen0_from_24`). `origin_val_state_hash` is the state the guest starts from: at a
+  generation's start height the genesis state, which is not compared with the record
+  (PROOF-6.2-40), and elsewhere the record's preimage. `grid_points` are the cut leaves' validator
+  states strictly between p and h, with `roles` S(t), S(t)+1 or H(t) where one falls there;
+  `last_val_state_hash` is the statement's `lastValStateHash`. L1 treats these hashes as opaque;
+  the landings are references for client and guest tests.
+- `max_committee` is 4096 members at `MaxTotalVotingPower` = (2^63 − 1) / 8. Member i (key mi)
+  has private key 0x10000 + i and power 2^48 + (i mod 64) − 32; member 4095 takes the rest of the
+  total, 2^48 + 2078, so 64 power classes each order by address. It lists the hash at genesis
+  and one height later, both proposers, the first and last three rows of each set and the
+  preimage size (1,048,832 bytes), not all 16,384 rows: those would add more than 1 MB to a file
+  that every Etna Solidity test loads. Rebuild the sets from the rules and compare the hash; the
+  rows shown and the proposers locate a mismatch.
+
+`valgen/` produces every state with CometBFT's own code: `state.MakeGenesisState` at a chain's
+start (state/state.go:344-345: `NewValidatorSet` and `CopyIncrementProposerPriority(1)`), and
+`BlockExecutor.ApplyVerifiedBlock` at each later height, which runs an ABCI app whose
+FinalizeBlock returns the switch's updates and applies them through the unexported `updateState`
+(state/execution.go:737-804). Nothing that produces an output is reimplemented. As a check,
+`valgen/` also recomputes each height from `updateState`'s validator lines with exported
+functions (`Copy`, `UpdateWithChangeSet`, `IncrementProposerPriority`; execution.go:746-760 and
+795-796) and requires the same sets. `valset_model.py` is a separate standard-library model of
+that arithmetic, written from types/validator_set.go and types/validator.go: generation stops if
+it differs from CometBFT at any height, and `test_vectors.py` replays every chain with it.
 
 ### Forced-inclusion eligibility
 
@@ -98,16 +169,20 @@ python3 testdata/etna_vectors/generate.py
 
 `generate.py` holds the inputs, the packing table and the storage slot numbers, written from
 appendices A and B. Every ABI encoding, hash and storage slot is computed by `cast`, independently
-of the contracts and of the node. Two Go modules, each in its own directory and never imported by
+of the contracts and of the node. Three Go modules, each in its own directory and never imported by
 the root module, are run with `go run`:
 
 - `votegen/` signs every vote with stock CometBFT v0.40.0 (`types.VoteSignBytes` and the
   secp256k1eth key type). Generation stops if any sign-byte string differs from a separate Python
   encoder written from appendix A; neither side is adjusted to match the other.
 - `ficheck/` checks the written `fi_eligibility` cases against go-ethereum v1.15.5.
+- `valgen/` computes the `val_state_chains` states with stock CometBFT v0.40.0 (above).
+  Generation stops if any state differs from `valset_model.py`, or any preimage or hash from
+  `cast abi-encode` and `cast keccak` of its rows.
 
 Regeneration is deterministic: two runs produce identical bytes. The structural tests need only
-the Python standard library and run in the protocol CI:
+the Python standard library (plus `valset_model.py` and a Keccak-256 of their own for the
+validator-state chains) and run in the protocol CI:
 
 ```bash
 python3 -m unittest discover -s testdata/etna_vectors -p 'test_vectors.py' -v
@@ -119,4 +194,5 @@ python3 -m unittest discover -s testdata/etna_vectors -p 'test_vectors.py' -v
   directory): `test/layer1/etna/LibEtnaVectors.sol` loads the file for the Etna Solidity tests.
   `EtnaVectors.t.sol` checks the Inbox and registry layout through their views and rebuilds every
   appendix A encoding; the library and registry tests check their own sections.
-- The Etna node and guests read the same file.
+- The Etna node and guests read the same file. The L1 contracts treat validator-state hashes as
+  opaque, so `val_state_chains` serves the node and the guests.

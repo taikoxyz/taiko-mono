@@ -13,7 +13,7 @@ use crate::{
         BootstrapWitness, GenesisConsensusParams, decode_bootstrap_state, genesis_time,
         verify_committee, verify_context,
     },
-    l1::{L1Source, is_final_canonical},
+    l1::L1Source,
     rules::check_chain_id,
     schedule::Schedule,
     store::AppState,
@@ -29,7 +29,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// while that state is still at its generation origin (B* or c): the request is verified again
     /// and must yield exactly the stored state, which is then answered as before without being
     /// rewritten. A state past its origin, or a request yielding another state, is
-    /// [`AbciError::AlreadyInitialized`]; a verification failure is reported as such.
+    /// [`AbciError::AlreadyInitialized`]. Temporary L1/EL acquisition failures keep the same
+    /// request pending; authenticated contradictions still fail for safety.
     ///
     /// See [`App::verify_genesis`] for the checks; as they make sure the EL serves `B*`, a
     /// successful `InitChain` also counts as this process's EL reconcile (see [`App::info`]).
@@ -43,7 +44,19 @@ impl<L: L1Source, E: Engine> App<L, E> {
             Some(state) if at_generation_origin(state) => true,
             Some(_) => return Err(AbciError::AlreadyInitialized),
         };
-        let state = self.verify_genesis(&req).await?;
+        let mut pause = super::FINALIZE_RETRY_INITIAL;
+        let state = loop {
+            match self.verify_genesis(&req).await {
+                Ok(state) => break state,
+                Err(error) if startup_input_unavailable(&error) => {
+                    self.trust.await_authentication(error.to_string());
+                    tracing::warn!(%error, ?pause, "initialization waits for authenticated L1/EL inputs");
+                    tokio::time::sleep(pause).await;
+                    pause = (pause * 2).min(super::FINALIZE_RETRY_MAX);
+                }
+                Err(error) => return Err(super::trust::classify_trust_error(error)),
+            }
+        };
         let origin_hash = state.parent.hash;
         if restart {
             if self.state.as_ref() != Some(&state) {
@@ -106,17 +119,29 @@ impl<L: L1Source, E: Engine> App<L, E> {
             return Err(AbciError::GenesisConsensusParamsMismatch);
         }
 
-        let is_final = within(
+        let finalized = within(
             "L1 finality check of the genesis header",
             self.opts.l1_timeout,
-            is_final_canonical(self.l1(), l1_header),
+            self.l1().finalized_number(),
         )
         .await?;
-        if !is_final {
+        if finalized < l1_header.number() {
             return Err(AbciError::GenesisNotFinal {
                 number: l1_header.number(),
                 hash: l1_header.hash(),
             });
+        }
+        if within(
+            "L1 canonicality check of the genesis header",
+            self.opts.l1_timeout,
+            self.l1().canonical_hash(l1_header.number()),
+        )
+        .await? !=
+            l1_header.hash()
+        {
+            return Err(AbciError::SafetyHalt(
+                "genesis header differs from own finalized L1".into(),
+            ));
         }
 
         let context = verify_context(l1_header, &w.inbox, params)?;
@@ -192,7 +217,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let bootstrap = loop {
             match self.recovery_inputs(w).await {
                 Ok(bootstrap) => break bootstrap,
-                Err(error) if recovery_input_unavailable(&error) => {
+                Err(error) if startup_input_unavailable(&error) => {
                     // The guarded signer owns the session. A successful stock InitChain replay
                     // must not rotate it, while unavailable inputs immediately close readiness.
                     self.trust.await_authentication(error.to_string());
@@ -387,13 +412,17 @@ fn genesis_val_state(height: u64, members: &[Member]) -> Result<ValState, AbciEr
     })
 }
 
-/// Only acquisition failures may keep recovery InitChain pending on the same connection.
-fn recovery_input_unavailable(error: &AbciError) -> bool {
+/// Only acquisition failures keep startup ABCI requests pending on the same connection.
+/// Authenticated contradictions and malformed own-source replies still fail for safety.
+pub(super) fn startup_input_unavailable(error: &AbciError) -> bool {
     match error {
         AbciError::Recovery(crate::RecoveryError::Unavailable(_)) |
         AbciError::Timeout { .. } |
-        AbciError::ElBlockMissing(_) => true,
+        AbciError::ElBlockMissing(_) |
+        AbciError::GenesisNotFinal { .. } |
+        AbciError::ElSync(crate::elsync::ElSyncError::Timeout { .. }) => true,
         AbciError::Engine(error) => error.is_retryable(),
+        AbciError::ElSync(crate::elsync::ElSyncError::Engine(error)) => error.is_retryable(),
         AbciError::L1(error) => !error.is_integrity_failure(),
         _ => false,
     }

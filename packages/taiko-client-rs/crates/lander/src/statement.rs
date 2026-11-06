@@ -172,6 +172,26 @@ mod tests {
         }
     }
     #[test]
+    fn cut_hashes_match_independent_empty_long_and_nonzero_start_vectors() {
+        for index in 0..vectors::len_at("/cuts/cut_hashes") {
+            let path = |field: &str| format!("/cuts/cut_hashes/{index}/{field}");
+            let leaves = vectors::b256s_at(&path("leaves"));
+            assert_eq!(blob_hashes_hash(&leaves), vectors::b256_at(&path("leaves_hash")));
+            assert_eq!(
+                cut_hash(
+                    vectors::u64_at(&path("generation")),
+                    vectors::u256_at(&path("parent_height")),
+                    vectors::u256_at(&path("last_height")),
+                    &leaves
+                ),
+                vectors::b256_at(&path("cut_hash")),
+                "{}",
+                vectors::str_at(&path("name")),
+            );
+        }
+    }
+
+    #[test]
     fn v1_statement_matches_all_pinned_736_byte_preimages() {
         for index in 0..vectors::len_at("/land_statements") {
             let (snapshot, input, reference, blobs) = vector(index);

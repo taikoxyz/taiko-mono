@@ -42,17 +42,30 @@ fn shared_vectors_match_the_pinned_protocol_copy() -> Result<()> {
     assert_eq!(manifest["vectors"]["source"], DIR);
     let recorded = manifest["vectors"]["files"].as_object().context("vector file hashes")?;
     let dir = manifest_dir.join("../../../..").join(DIR);
-    let mut names = std::fs::read_dir(&dir)?
-        .filter_map(|entry| match entry {
-            Ok(entry) if entry.path().is_file() => {
-                Some(Ok(entry.file_name().into_string().expect("UTF-8 file name")))
+    let mut names = Vec::new();
+    let mut pending = vec![dir.clone()];
+    while let Some(parent) = pending.pop() {
+        for entry in std::fs::read_dir(parent)? {
+            let entry = entry?;
+            let name = entry.file_name();
+            let name = name.to_str().context("UTF-8 vector file name")?;
+            // Desktop metadata and Python bytecode are not generated source inputs.
+            if name.starts_with('.') || name == "__pycache__" {
+                continue;
             }
-            Ok(_) => None,
-            Err(e) => Some(Err(e.into())),
-        })
-        .collect::<Result<Vec<_>>>()?;
-    // Untracked dotfiles (a desktop's folder metadata) are not part of the copy.
-    names.retain(|name| !name.starts_with('.'));
+            let path = entry.path();
+            if path.is_dir() {
+                pending.push(path);
+            } else if path.is_file() {
+                names.push(
+                    path.strip_prefix(&dir)?
+                        .to_str()
+                        .context("UTF-8 vector path")?
+                        .replace(std::path::MAIN_SEPARATOR, "/"),
+                );
+            }
+        }
+    }
     names.sort();
     assert_eq!(names, recorded.keys().cloned().collect::<Vec<_>>(), "vector files");
     assert!(names.iter().any(|name| name == "vectors.json"));

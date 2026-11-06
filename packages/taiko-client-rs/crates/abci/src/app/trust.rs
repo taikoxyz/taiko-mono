@@ -17,7 +17,7 @@ use crate::{
     engine::Engine,
     envelope::AnchorWitness,
     l1::{
-        L1Source,
+        L1Source, RawL1Header,
         layout::{inbox, word_u48},
         verify_account_witness, verify_anchor_witness,
     },
@@ -458,11 +458,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 forced_cursor: origin.forced_cursor,
                 committee_hash: origin.committee.record.set_root,
             });
-            within(
-                "trust recovery origin",
-                self.opts.l1_timeout,
-                crate::recovery::check_recovery_canonicality(self.l1(), &self.params, &witness),
-            )
+            within("trust recovery origin", self.opts.l1_timeout, async {
+                crate::recovery::check_recovery_canonicality(self.l1(), &self.params, &witness)
+                    .await
+                    .map_err(AbciError::Recovery)
+            })
             .await?;
             if within(
                 "trust historical anchor finality",
@@ -576,6 +576,17 @@ impl<L: L1Source, E: Engine> App<L, E> {
         )
         .map_err(|e| AbciError::SafetyHalt(format!("invalid checkpoint proof: {e}")))?
         .inbox;
+        // A recovery keeps its origin's older landing record. Authenticate supersession from
+        // the own-finalized Inbox before interpreting that record in the old generation.
+        if let Some(state) = &self.state &&
+            facts.recovery_generation > state.generation
+        {
+            self.confirm_target_header(&header).await?;
+            return Err(AbciError::Recovery(crate::RecoveryError::Superseded {
+                requested: state.generation,
+                current: facts.recovery_generation,
+            }));
+        }
         let slots = inbox::landing_slots(facts.last_checkpoint_height);
         let landing = within(
             "trust landing proof",
@@ -620,18 +631,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         {
             return Err(AbciError::SafetyHalt("invalid checkpoint landing record".into()));
         }
-        let canonical =
-            within("trust canonical L1", timeout, self.l1.canonical_hash(number)).await?;
-        if canonical != header.hash() {
-            return Err(AbciError::SafetyHalt("checkpoint finalized L1 hash changed".into()));
-        }
-        if within("trust reconfirm finalized L1", timeout, self.l1.finalized_number()).await? <
-            number
-        {
-            return Err(AbciError::TrustControl(
-                "own finalized L1 regressed during checkpoint acquisition".into(),
-            ));
-        }
+        self.confirm_target_header(&header).await?;
         if facts.last_checkpoint_hash.is_zero() || facts.last_checkpoint_height > i64::MAX as u64 {
             return Err(AbciError::SafetyHalt("invalid finalized Inbox checkpoint/status".into()));
         }
@@ -645,6 +645,25 @@ impl<L: L1Source, E: Engine> App<L, E> {
             generation: facts.recovery_generation,
             inbox: self.params.inbox,
         })
+    }
+
+    /// Reconfirms own-finalized canonicality after the proofs used for this target or typed
+    /// supersession have been read. A receding observation leaves the session closed.
+    async fn confirm_target_header(&self, header: &RawL1Header) -> Result<(), AbciError> {
+        let timeout = self.opts.l1_timeout;
+        let canonical =
+            within("trust canonical L1", timeout, self.l1.canonical_hash(header.number())).await?;
+        if canonical != header.hash() {
+            return Err(AbciError::SafetyHalt("checkpoint finalized L1 hash changed".into()));
+        }
+        if within("trust reconfirm finalized L1", timeout, self.l1.finalized_number()).await? <
+            header.number()
+        {
+            return Err(AbciError::TrustControl(
+                "own finalized L1 regressed during checkpoint acquisition".into(),
+            ));
+        }
+        Ok(())
     }
 
     /// Rechecks the actual committed head on every closed-session attempt, including Comet-only
@@ -808,6 +827,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
 /// Binds a finalized proof to verified initialization identity, never query parameters.
 fn check_identity(state: &AppState, target: &CheckpointTarget) -> Result<(), AbciError> {
+    if target.inbox == state.inbox && target.generation > state.generation {
+        return Err(AbciError::Recovery(crate::RecoveryError::Superseded {
+            requested: state.generation,
+            current: target.generation,
+        }));
+    }
     if target.generation != state.generation || target.inbox != state.inbox {
         return Err(AbciError::SafetyHalt(
             "checkpoint generation/Inbox differs from initialized chain".into(),
@@ -845,8 +870,8 @@ fn bounded_reason(reason: String) -> String {
 
 /// Adapter integrity failures must have the same fatal boundary as successful-but-invalid
 /// proof/header values. Transport, missing history and unsupported-header capabilities remain
-/// retryable: lack of data cannot prove a contradiction. Shared with recovery initialization;
-/// legacy generation-zero initialization stays unchanged.
+/// retryable: lack of data cannot prove a contradiction. Startup initialization and EL
+/// reconciliation use this same integrity boundary.
 pub(super) fn classify_trust_error(error: AbciError) -> AbciError {
     use crate::{engine::EngineError, store::StoreError};
     let integrity = match &error {
@@ -861,13 +886,15 @@ pub(super) fn classify_trust_error(error: AbciError) -> AbciError {
             crate::RecoveryError::Superseded { .. } |
             crate::RecoveryError::ConfigMismatch { .. },
         ) => true,
-        AbciError::Engine(error) => matches!(
-            error,
-            EngineError::ErrorReply { code: -38100, .. } |
-                EngineError::HeaderHashMismatch { .. } |
-                EngineError::HeaderNumberMismatch { .. } |
-                EngineError::BadReply(_)
-        ),
+        AbciError::Engine(error) | AbciError::ElSync(crate::elsync::ElSyncError::Engine(error)) => {
+            matches!(
+                error,
+                EngineError::ErrorReply { code: -38100, .. } |
+                    EngineError::HeaderHashMismatch { .. } |
+                    EngineError::HeaderNumberMismatch { .. } |
+                    EngineError::BadReply(_)
+            )
+        }
         _ => false,
     };
     if integrity {

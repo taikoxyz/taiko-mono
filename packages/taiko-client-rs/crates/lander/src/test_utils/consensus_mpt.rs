@@ -472,6 +472,33 @@ impl Fixture {
         self.snapshot.recovery_witness = recovery_witness;
         self.states.insert(number, state);
     }
+    /// Replant exact Inbox words under a new authenticated root for decoder boundary tests.
+    pub fn snapshot_with_inbox_words(
+        &self,
+        words: impl IntoIterator<Item = (B256, U256)>,
+    ) -> LandingSnapshot {
+        let mut accounts = self.states[&self.snapshot.l1_block_number].accounts.clone();
+        let slots = &mut accounts.get_mut(&self.params.inbox).unwrap().0;
+        slots.extend(words);
+        let height =
+            abci::l1::layout::word_u48(slots[&inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT)], 0);
+        let state = State::new(
+            accounts
+                .into_iter()
+                .map(|(address, (slots, _))| (address, slots.into_iter().collect()))
+                .collect(),
+        );
+        let number = self.snapshot.l1_block_number;
+        let raw = l1_header(number, &state, self.l1_headers[&(number - 1)].hash());
+        LandingSnapshot {
+            l1_block_hash: raw.hash(),
+            l1_header: raw,
+            inbox_witness: state
+                .witness(self.params.inbox, &crate::l1::snapshot_landing_slots(height)),
+            ..self.snapshot.clone()
+        }
+    }
+
     /// The landing snapshot re-planted with the genesis record `genesis` and the forced
     /// inclusion queue's `(head, tail)` at slot 281: the same checkpoint in a fresh snapshot block
     /// over the same parent, with its proof.

@@ -79,9 +79,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
     ///
     /// Supersession is reported only after the supplied anchor is independently confirmed final
     /// and canonical, since a forged header could claim a later generation. Verified committee
-    /// witnesses are cached at their switch height only after own-L1 finality and checkpoint
-    /// ancestry pass, even if a later execution check refuses the block; their proofs bind the
-    /// candidate root and the committed parent cutoff.
+    /// witness retention is attempted at its switch height only after own-L1 finality and
+    /// checkpoint ancestry pass, even if a later execution check refuses the block. Optional
+    /// sidecar write failures do not reject a valid proposal; the proofs bind the candidate
+    /// root and the committed parent cutoff.
     ///
     /// Anchor age is measured against the fixed derived block timestamp in [`validate_block`],
     /// never against a moving local finalized head. Once final and canonical, an anchor does not
@@ -131,13 +132,20 @@ impl<L: L1Source, E: Engine> App<L, E> {
             self.check_anchor_final(w).await?;
             self.check_anchor_checkpoint(state, &validated.anchor).await?;
         }
-        if let (Some((target_epoch, _)), Some(witness)) = (&validated.derived, &env.committee) {
-            self.cache_candidate_committee_witness(
+        if let (Some((target_epoch, _)), Some(witness)) = (&validated.derived, &env.committee) &&
+            let Err(error) = self.cache_candidate_committee_witness(
                 state,
                 &validated.anchor,
                 *target_epoch,
                 witness,
-            )?;
+            )
+        {
+            // Validation already authenticated this witness. Optional local retention
+            // cannot change the validity of another proposer's block.
+            if !matches!(error, Rejection::CommitteeCache(_)) {
+                return Err(error);
+            }
+            tracing::warn!(%error, "valid committee witness could not be cached");
         }
         validated.forced = deadline(
             "forced singleton check",

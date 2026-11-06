@@ -40,6 +40,7 @@ class SupervisorTests(unittest.TestCase):
         self.session = "same-session"
         self.extra = {}
         self.ops = []
+        self.observation_hold = None
         self.requests, self.observations = [], []
         self.socket = socket.socket(socket.AF_UNIX)
         self.socket.bind(str(self.store / "checkpoint-trust.sock"))
@@ -109,6 +110,10 @@ class SupervisorTests(unittest.TestCase):
                 if self.schema == 2:
                     response["recovery_origin"] = self.origin if self.ready else None
                 self.observations.append(response)
+                held = self.observation_hold
+                if held is not None:
+                    held[0].set()
+                    held[1].wait(timeout=5)
                 peer.sendall((json.dumps(response) + "\n").encode())
 
     def starts(self):
@@ -250,6 +255,47 @@ class SupervisorTests(unittest.TestCase):
         self.assertEqual(self.state.read_text(), "authoritative HRS")
         self.assertTrue(self.ops)
         self.assertEqual(set(self.ops), {"observe"})
+
+    def test_signer_exit_during_observation_cannot_be_rearmed(self):
+        """A signer dying after tick's first poll must halt before a pending restart."""
+        self.proc.terminate()
+        self.proc.wait(timeout=5)
+        spec = importlib.util.spec_from_file_location("etna_guard_exit_race", ROOT / "script/etna_validator.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        entered, release = threading.Event(), threading.Event()
+        worker = None
+        with patch.dict(os.environ, self.env, clear=True):
+            runtime = module.Supervisor()
+            runtime.acquire_owner()
+            try:
+                runtime.start()
+                self.wait(lambda: self.starts() == 2 and len(self.signers()) == 2)
+                self.ready, self.phase = False, "acquiring"
+                self.publish(1, self.session)
+                runtime.tick()  # Record an ordinary refusal while trust is still closed.
+                self.ready, self.phase = True, "ready"
+                self.observation_hold = (entered, release)
+                worker = threading.Thread(target=runtime.tick)
+                worker.start()
+                self.assertTrue(entered.wait(timeout=3), "supervisor did not enter private observation")
+                runtime.signer.kill()
+                runtime.signer.wait(timeout=3)
+                release.set()
+                worker.join(timeout=5)
+                self.assertFalse(worker.is_alive(), "supervisor recovery did not finish")
+                self.assertTrue((self.store / "validator-supervisor.halted").exists(),
+                                "a signer exit during observation bypassed the terminal latch")
+                self.assertEqual(self.starts(), 2, "supervisor restarted abnormal signing authority")
+                self.assertEqual(self.state.read_text(), "authoritative HRS")
+            finally:
+                release.set()
+                if worker is not None:
+                    worker.join(timeout=5)
+                runtime.stop()
+                for descriptor in runtime.owner_fds:
+                    os.close(descriptor)
+                self.observation_hold = None
 
     def test_initial_transport_session_does_not_restart_healthy_comet(self):
         self.session = "fresh-session"

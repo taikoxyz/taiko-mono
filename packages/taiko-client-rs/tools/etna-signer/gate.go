@@ -71,9 +71,26 @@ type gate struct {
 	denialPath  string
 	denials     uint64
 	observation sync.Mutex
+	// terminal distinguishes uncertain signing persistence from recoverable trust loss.
+	terminal chan error
 }
 
-func newGate(path string, timeout time.Duration) *gate { return &gate{path: path, timeout: timeout} }
+func newGate(path string, timeout time.Duration) *gate {
+	return &gate{path: path, timeout: timeout, terminal: make(chan error, 1)}
+}
+
+// stopIfUncertain asks the process owner to exit, so the supervisor durably halts
+// instead of automatically restarting a signer whose latest state needs inspection.
+func (g *gate) stopIfUncertain(err error) bool {
+	if !errors.Is(err, errStateUncertain) {
+		return false
+	}
+	select {
+	case g.terminal <- err:
+	default:
+	}
+	return true
+}
 
 // Every request gets its own bounded local connection. Deadlines close abandoned I/O;
 // authorization is never cached across requests or transport sessions.
@@ -392,7 +409,9 @@ func (g *gate) handle(signer types.PrivValidator, req pv.Message, chain string) 
 			}
 		}
 		if err != nil {
-			g.publishObservation(true)
+			if !g.stopIfUncertain(err) {
+				g.publishObservation(true)
+			}
 
 			remote := &pv.RemoteSignerError{Code: 1, Description: "checkpoint trust denied: " + err.Error()}
 			switch req.Sum.(type) {
@@ -403,5 +422,7 @@ func (g *gate) handle(signer types.PrivValidator, req pv.Message, chain string) 
 			}
 		}
 	}
-	return privval.DefaultValidationRequestHandler(signer, req, chain)
+	response, err := privval.DefaultValidationRequestHandler(signer, req, chain)
+	g.stopIfUncertain(err)
+	return response, err
 }

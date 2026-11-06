@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -315,11 +316,14 @@ func openAuthority(c authorityConfig) (_ *authority, err error) {
 
 	return a, nil
 }
-func (a *authority) authorize(chain string, r *trustResponse) (types.PrivValidator, error) {
+func (a *authority) authorize(chain string, r *trustResponse) (_ types.PrivValidator, err error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if a.closed || a.uncertain {
-		return nil, errors.New("authority closed or persistence uncertain")
+	if a.uncertain {
+		return nil, errStateUncertain
+	}
+	if a.closed {
+		return nil, errors.New("authority closed")
 	}
 	if r == nil {
 		return nil, errors.New("missing authorization")
@@ -354,6 +358,11 @@ func (a *authority) authorize(chain string, r *trustResponse) (types.PrivValidat
 		}
 	}
 	a.uncertain = true // Any transition failure requires restart and durable-state inspection.
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("%w: %w", errStateUncertain, err)
+		}
+	}()
 	d := authorityDomain{Generation: g, Chain: chain, State: filepath.Join(a.config.Root, chain+".json"), Origin: r.RecoveryOrigin}
 	if err = a.recordIntent(d); err != nil {
 		return nil, err

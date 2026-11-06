@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased review fixes
+
+- Authenticate import frame heights and terminal hashes before recording protocol contradictions.
+- Keep signer persistence uncertainty terminal under supervised restarts.
+- Preserve retryable dependency failures and unsupported-ruleset pauses while halting on nonretryable decided-block Engine failures.
+- Carry typed generation-zero supersession into governance recovery and keep optional cache writes out of proposal validity.
+- Refresh pinned Etna contracts/vectors and CI action pins; run the validator supervisor suite in CI.
+
 ## Unreleased
 
 ### Features
