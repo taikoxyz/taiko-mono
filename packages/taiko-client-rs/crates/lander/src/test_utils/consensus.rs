@@ -236,7 +236,7 @@ pub fn pair_with_envelope(
         )),
         validators_hash: committee.validators.hash(),
         next_validators_hash: committee.validators.hash(),
-        consensus_hash: Hash::Sha256([2; 32]),
+        consensus_hash: Hash::Sha256(abci::genesis::GenesisConsensusParams::etna_hash().0),
         app_hash: AppHash::try_from(parent.to_vec()).unwrap(),
         last_results_hash: None,
         evidence_hash: Some(merkle(&[])),

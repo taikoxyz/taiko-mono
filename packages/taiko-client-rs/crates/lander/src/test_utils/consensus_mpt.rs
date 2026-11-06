@@ -378,6 +378,100 @@ struct EpochFixture {
 }
 
 impl Fixture {
+    /// Exact trie proofs for checkpoint-import tests; no consensus source is exposed.
+    pub fn import_witness(&self, address: Address, slots: &[B256], number: u64) -> AccountWitness {
+        self.states[&number].witness(address, slots)
+    }
+
+    /// Append an actual hash-linked L1 observation and MPT after a landing or same-generation
+    /// verifier rollback. Retain old mapping leaves so their existence cannot stand in for
+    /// membership of the newly selected frontier's parent chain.
+    pub fn advance_import_frontier(&mut self, height: u64, parent: u64, recovery_nonce: u64) {
+        let previous = self.snapshot.l1_block_number;
+        let mut accounts = self.states[&previous]
+            .accounts
+            .iter()
+            .map(|(a, (slots, _))| (*a, slots.clone()))
+            .collect::<BTreeMap<_, _>>();
+        let slots = accounts.get_mut(&self.params.inbox).unwrap();
+        let el = self.headers[&height].hash_slow();
+        let comet = B256::from_slice(self.blocks[&height].block.header.hash().as_bytes());
+        slots.insert(inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT), U256::from(height));
+        slots.insert(inbox::slot(inbox::LAST_CHECKPOINT_HASH), el.into());
+        slots.insert(inbox::slot(292), U256::from(recovery_nonce)); // STOR-B-15; not an anchor field.
+        for (slot, word) in inbox::landing_slots(height).into_iter().zip([
+            U256::from(parent),
+            el.into(),
+            comet.into(),
+            self.val_states[&height].hash().into(),
+        ]) {
+            slots.insert(slot, word);
+        }
+        let state =
+            State::new(accounts.into_iter().map(|(a, s)| (a, s.into_iter().collect())).collect());
+        let next = previous + 1;
+        let header = l1_header(next, &state, self.l1_headers[&previous].hash());
+        self.l1_headers.insert(next, header.clone());
+        self.snapshot = crate::l1::decode_snapshot(
+            header,
+            state.witness(self.params.inbox, &crate::l1::snapshot_landing_slots(height)),
+            self.params.l1_chain_id,
+            self.params.l2_chain_id,
+            &self.params,
+        )
+        .unwrap();
+        self.states.insert(next, state);
+    }
+
+    /// Retain multiple landing records in the same finalized root, including deliberate
+    /// hash-authenticated contradiction fixtures supplied by the caller.
+    pub fn import_landings(&mut self, records: &[(u64, B256, B256, B256)]) {
+        let number = self.snapshot.l1_block_number;
+        let mut accounts = self.states[&number]
+            .accounts
+            .iter()
+            .map(|(address, (slots, _))| (*address, slots.clone()))
+            .collect::<BTreeMap<_, _>>();
+        let slots = accounts.get_mut(&self.params.inbox).unwrap();
+        for (height, el, comet, validators) in records {
+            if *height == self.snapshot.checkpoint_height {
+                slots.insert(inbox::slot(inbox::LAST_CHECKPOINT_HASH), (*el).into());
+            }
+            let keys = inbox::landing_slots(*height);
+            for (slot, value) in keys.into_iter().zip([
+                slots.get(&keys[0]).copied().unwrap_or_default(),
+                (*el).into(),
+                (*comet).into(),
+                (*validators).into(),
+            ]) {
+                slots.insert(slot, value);
+            }
+        }
+        let state = State::new(
+            accounts
+                .into_iter()
+                .map(|(address, slots)| (address, slots.into_iter().collect()))
+                .collect(),
+        );
+        let header = l1_header(number, &state, self.l1_headers[&(number - 1)].hash());
+        self.l1_headers.insert(number, header.clone());
+        let recovery = self.snapshot.recovery.clone();
+        let recovery_witness = self.snapshot.recovery_witness.clone();
+        self.snapshot = crate::l1::decode_snapshot(
+            header,
+            state.witness(
+                self.params.inbox,
+                &crate::l1::snapshot_landing_slots(self.snapshot.checkpoint_height),
+            ),
+            self.params.l1_chain_id,
+            self.params.l2_chain_id,
+            &self.params,
+        )
+        .unwrap();
+        self.snapshot.recovery = recovery;
+        self.snapshot.recovery_witness = recovery_witness;
+        self.states.insert(number, state);
+    }
     /// The landing snapshot re-planted with the genesis record `genesis` and the forced
     /// inclusion queue's `(head, tail)` at slot 281: the same checkpoint in a fresh snapshot block
     /// over the same parent, with its proof.
@@ -857,6 +951,7 @@ impl Fixture {
                 .witness(params.inbox, &crate::l1::snapshot_landing_slots(checkpoint)),
             genesis,
         };
+        states.insert(snapshot_number, snapshot_state);
         Self {
             params,
             snapshot: landing,

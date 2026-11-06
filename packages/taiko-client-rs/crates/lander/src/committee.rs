@@ -51,6 +51,22 @@ pub struct Validators {
     total: u64,
 }
 impl Validators {
+    /// Build native commit slots from previously power-bounded members. Only keys/powers enter
+    /// this representation; callers authenticate it against each native header before use.
+    pub(crate) fn from_members(members: &[abci::Member]) -> Result<Self, KeyError> {
+        let mut validators = members
+            .iter()
+            .map(|member| Validator {
+                address: Id::new(member.pubkey.address().into_array()),
+                pub_key: member.pubkey,
+                voting_power: member.power,
+            })
+            .collect::<Vec<_>>();
+        validators.sort_by_key(|v| (std::cmp::Reverse(v.voting_power), v.address));
+        let hash = abci::wire::validators_hash(members)?;
+        let total = validators.iter().map(|v| v.voting_power).sum();
+        Ok(Self { members: validators, hash: Hash::Sha256(hash.0), total })
+    }
     /// Ordered signature slots.
     pub fn validators(&self) -> &[Validator] {
         &self.members
@@ -71,23 +87,8 @@ impl AuthenticatedCommittee {
     /// its epoch, member order, stake/power mapping, totals and set root. Fails only on a voting
     /// power outside CometBFT's `int64` range.
     pub fn new(state: CommitteeState) -> Result<Self, KeyError> {
-        let mut validators = state
-            .members
-            .iter()
-            .map(|member| Validator {
-                address: Id::new(member.pubkey.address().into_array()),
-                pub_key: member.pubkey,
-                voting_power: member.power,
-            })
-            .collect::<Vec<_>>();
-        validators.sort_by_key(|v| (std::cmp::Reverse(v.voting_power), v.address));
-        let hash = abci::wire::validators_hash(&state.members)?;
-        let total = validators.iter().map(|v| v.voting_power).sum();
-        Ok(Self {
-            state,
-            validators: Validators { members: validators, hash: Hash::Sha256(hash.0), total },
-            provenance: None,
-        })
+        let validators = Validators::from_members(&state.members)?;
+        Ok(Self { state, validators, provenance: None })
     }
 }
 

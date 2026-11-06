@@ -220,6 +220,7 @@ pub(crate) async fn fixture(length: u64, checkpoint: u64, tip: u64) -> Fixture {
     for n in 22..=23 {
         f.l1_headers.insert(n, l1_header(n, &state, f.l1_headers[&(n - 1)].hash()));
     }
+    f.states.insert(23, state.clone());
     let raw = f.l1_headers[&23].clone();
     f.snapshot = LandingSnapshot {
         recovery: Some(origin),

@@ -15,6 +15,7 @@ use crate::types::Member;
 
 /// The CometBFT `genesis.json` of an Etna chain.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct GenesisDoc {
     /// RFC 3339 UTC time of `L1_0` (deployment) or R (recovery), whole seconds
     /// (`YYYY-MM-DDTHH:MM:SSZ`).
@@ -35,6 +36,7 @@ pub struct GenesisDoc {
 
 /// CometBFT's `consensus_params` (v0.40 shape).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct GenesisConsensusParams {
     /// Block size limits.
     pub block: BlockParams,
@@ -52,6 +54,7 @@ pub struct GenesisConsensusParams {
 
 /// `consensus_params.block`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct BlockParams {
     /// Maximum block size in bytes, as a decimal string.
     pub max_bytes: String,
@@ -61,6 +64,7 @@ pub struct BlockParams {
 
 /// `consensus_params.evidence`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct EvidenceParams {
     /// Maximum evidence age in blocks, as a decimal string.
     pub max_age_num_blocks: String,
@@ -72,6 +76,7 @@ pub struct EvidenceParams {
 
 /// `consensus_params.validator`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ValidatorParams {
     /// The accepted validator key types (CometBFT names, `secp256k1eth` for this deployment).
     pub pub_key_types: Vec<String>,
@@ -79,6 +84,7 @@ pub struct ValidatorParams {
 
 /// `consensus_params.version`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct VersionParams {
     /// The app protocol version, as a decimal string.
     pub app: String,
@@ -86,6 +92,7 @@ pub struct VersionParams {
 
 /// `consensus_params.abci`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AbciParams {
     /// The first height with vote extensions, as a decimal string (`0` = disabled).
     pub vote_extensions_enable_height: String,
@@ -93,12 +100,27 @@ pub struct AbciParams {
 
 /// `consensus_params.authority`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AuthorityParams {
     /// The account allowed to update consensus parameters (empty = none).
     pub authority: String,
 }
 
 impl GenesisConsensusParams {
+    /// Stock v0.40 ConsensusParams.Hash for the immutable Etna parameters. Comet hashes only
+    /// HashedParams' block-byte and gas limits, using canonical protobuf and SHA-256.
+    pub fn etna_hash() -> alloy_primitives::B256 {
+        use prost::Message;
+        use sha2::{Digest, Sha256};
+        let block = Self::abci().block.expect("fixed block parameters");
+        let bytes = tendermint_proto::v0_38::types::HashedParams {
+            block_max_bytes: block.max_bytes,
+            block_max_gas: block.max_gas,
+        }
+        .encode_to_vec();
+        alloy_primitives::B256::from_slice(&Sha256::digest(bytes))
+    }
+
     /// Canonical parameters representable by the ABCI request type. CometBFT v0.40's
     /// authority field is not exposed by tendermint-rs and cannot be compared here.
     pub(crate) fn abci() -> tendermint_proto::v0_38::types::ConsensusParams {
@@ -155,6 +177,7 @@ pub(crate) fn genesis_time(timestamp: u64) -> Result<Time, GenesisError> {
 
 /// One genesis validator.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct GenesisValidator {
     /// [`validator_address`] of the key.
     pub address: String,

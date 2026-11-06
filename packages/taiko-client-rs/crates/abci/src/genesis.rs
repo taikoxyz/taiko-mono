@@ -389,3 +389,7 @@ mod tests {
         assert!(matches!(decode_app_state(&json), Err(GenesisError::TrailingBytes(2))));
     }
 }
+
+/// Pure authentication of immutable genesis documents for offline import.
+mod import;
+pub use import::{VerifiedGenesis, verify_original_genesis};

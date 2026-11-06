@@ -70,6 +70,22 @@ pub fn verify_commit(
     committee: &AuthenticatedCommittee,
     chain_id: &str,
 ) -> Result<(), ValidationError> {
+    if committee.state.record.total_power != committee.validators.total_voting_power() {
+        return Err(ValidationError::Certificate(
+            "committee record and native total power differ".into(),
+        ));
+    }
+    verify_native_commit(commit, header, &committee.validators, chain_id)
+}
+
+/// Verify the native certificate against keys/powers bound by this header, independently of
+/// whether the registry switch choosing the historical set is inside the import window.
+pub(crate) fn verify_native_commit(
+    commit: &Commit,
+    header: &tendermint::block::Header,
+    validators: &crate::committee::Validators,
+    chain_id: &str,
+) -> Result<(), ValidationError> {
     if header.version.app != abci::app::APP_VERSION {
         return Err(ValidationError::Certificate("unsupported Etna APP_VERSION".into()));
     }
@@ -84,18 +100,18 @@ pub fn verify_commit(
             "commit block id mismatch or empty part set".into(),
         ));
     }
-    if commit.signatures.len() != committee.validators.validators().len() {
+    if commit.signatures.len() != validators.validators().len() {
         return Err(ValidationError::Certificate(
             "signature slots differ from validator count".into(),
         ));
     }
-    if header.validators_hash != committee.validators.hash() {
+    if header.validators_hash != validators.hash() {
         return Err(ValidationError::Commitment("validator set"));
     }
     let mut signed_power = 0u128;
     let mut seen = BTreeSet::new();
     for (index, (sig, validator)) in
-        commit.signatures.iter().zip(committee.validators.validators()).enumerate()
+        commit.signatures.iter().zip(validators.validators()).enumerate()
     {
         let (address, timestamp, signature, is_commit) = match sig {
             CommitSig::BlockIdFlagAbsent => continue,
@@ -141,7 +157,7 @@ pub fn verify_commit(
             signed_power += u128::from(validator.power());
         }
     }
-    let total = u128::from(committee.state.record.total_power);
+    let total = u128::from(validators.total_voting_power());
     if signed_power * 3 <= total * 2 {
         return Err(ValidationError::Certificate(format!(
             "insufficient commit power {signed_power}/{total}; require strictly more than 2/3"

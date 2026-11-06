@@ -405,7 +405,7 @@ impl Store {
     }
 
     /// Saves authenticated bootstrap evidence before AppState, refusing conflicting retries.
-    pub(crate) fn save_recovery_bootstrap(
+    pub fn save_recovery_bootstrap(
         &self,
         bootstrap: &crate::recovery::RecoveryBootstrap,
     ) -> Result<(), StoreError> {

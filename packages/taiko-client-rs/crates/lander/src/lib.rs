@@ -58,3 +58,6 @@ pub mod history;
 
 /// Lossless native stock-Comet certificates and key-bearing block evidence.
 pub mod native;
+
+/// Offline bounded checkpoint authentication and app reconstruction.
+pub mod checkpoint_import;

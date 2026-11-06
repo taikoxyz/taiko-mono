@@ -606,7 +606,7 @@ pub fn snapshot_landing_slots(height: u64) -> Vec<B256> {
 }
 
 /// Decode all snapshot fields from an address-bound proof under the exact raw canonical header.
-fn decode_snapshot(
+pub(crate) fn decode_snapshot(
     raw: RawL1Header,
     witness: AccountWitness,
     l1_chain_id: U256,
