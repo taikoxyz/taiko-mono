@@ -244,7 +244,7 @@ the current proofs reuse, and fourteen semantic pins (`EtnaProofs/Contracts.lean
 is weakened without editing its pin.
 
 The inventory is **38 partial / 529 deferred clauses**, and **41 narrow partial /
-35 supporting / 530 deferred binding rules**, plus 32 deferred assumption/limitation rows.
+36 supporting / 529 deferred binding rules**, plus 32 deferred assumption/limitation rows.
 SWITCH has narrow first-fence/root evidence. All 93 ANCHORLESS and 46 ACCEPTANCE
 clauses remain deferred. Margin arithmetic, bridge resolver/EIP-4788/storage migration,
 production parsing/crypto/EL/guest/token/Solidity/Comet/store refinement, operational
