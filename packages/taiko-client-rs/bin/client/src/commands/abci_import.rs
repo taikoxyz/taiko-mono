@@ -27,6 +27,22 @@ enum Action {
         /// Optional loopback public EL HTTP reader port. App traffic uses private IPC.
         #[arg(long)]
         el_http_port: Option<u16>,
+        /// EL devp2p port (TCP and UDP). User transactions arrive only over devp2p; without it
+        /// the owned EL has no peers.
+        #[arg(long)]
+        el_p2p_port: Option<u16>,
+        /// EL devp2p listen address.
+        #[arg(long, default_value = "0.0.0.0", requires = "el_p2p_port")]
+        el_p2p_addr: std::net::IpAddr,
+        /// Comma-separated EL discovery bootnode enode URLs; defaults to the chainspec's.
+        #[arg(long, value_delimiter = ',', value_parser = enode, requires = "el_p2p_port")]
+        el_bootnodes: Vec<String>,
+        /// Comma-separated enode URLs of EL peers to keep connected.
+        #[arg(long, value_delimiter = ',', value_parser = enode, requires = "el_p2p_port")]
+        el_trusted_peers: Vec<String>,
+        /// EL NAT resolution (any|none|upnp|publicip|extip:<IP>).
+        #[arg(long, value_parser = nat, requires = "el_p2p_port")]
+        el_nat: Option<String>,
         /// Optional existing archive for post-import immutable grid preimages.
         #[arg(long)]
         checkpoint_archive_dir: Option<PathBuf>,
@@ -100,13 +116,26 @@ impl Command {
                 profile,
                 fee_recipient,
                 el_http_port,
+                el_p2p_port,
+                el_p2p_addr,
+                el_bootnodes,
+                el_trusted_peers,
+                el_nat,
                 checkpoint_archive_dir,
             } => {
+                let p2p = el_p2p_port.map(|port| import::runtime::ElP2p {
+                    addr: *el_p2p_addr,
+                    port,
+                    bootnodes: el_bootnodes.clone(),
+                    trusted_peers: el_trusted_peers.clone(),
+                    nat: el_nat.clone(),
+                });
                 return import::runtime::run(
                     profile,
                     root,
                     *fee_recipient,
                     *el_http_port,
+                    p2p,
                     checkpoint_archive_dir.clone(),
                 )
                 .await
@@ -129,5 +158,68 @@ impl Command {
         };
         println!("{view}");
         Ok(())
+    }
+}
+
+/// Accept one enode URL; reth checks the rest when it starts.
+fn enode(value: &str) -> std::result::Result<String, String> {
+    if value.starts_with("enode://") && !value.contains(char::is_whitespace) {
+        Ok(value.to_owned())
+    } else {
+        Err("expected an enode://<id>@<host>:<port> URL".into())
+    }
+}
+
+/// Accept one of reth's NAT resolution forms.
+fn nat(value: &str) -> std::result::Result<String, String> {
+    match value {
+        "any" | "none" | "upnp" | "publicip" => Ok(value.to_owned()),
+        _ if value
+            .strip_prefix("extip:")
+            .is_some_and(|ip| ip.parse::<std::net::IpAddr>().is_ok()) =>
+        {
+            Ok(value.to_owned())
+        }
+        _ => Err("expected any, none, upnp, publicip or extip:<IP>".into()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse(extra: &[&str]) -> std::result::Result<Command, clap::Error> {
+        let base = ["abci-import", "run-app", "--root", "/r", "--profile", "/p"];
+        let fee = ["--fee-recipient", "0x0000000000000000000000000000000000000001"];
+        Command::try_parse_from(base.iter().chain(&fee).chain(extra))
+    }
+
+    #[test]
+    fn run_app_el_p2p_options() {
+        let Action::RunApp { el_p2p_port, el_p2p_addr, el_bootnodes, el_nat, .. } = parse(&[
+            "--el-p2p-port",
+            "30303",
+            "--el-bootnodes",
+            "enode://a@10.0.0.1:30303,enode://b@10.0.0.2:30303",
+            "--el-nat",
+            "extip:203.0.113.7",
+        ])
+        .unwrap()
+        .action
+        else {
+            panic!("run-app");
+        };
+        assert_eq!(el_p2p_port, Some(30303));
+        assert_eq!(el_p2p_addr.to_string(), "0.0.0.0");
+        assert_eq!(el_bootnodes.len(), 2);
+        assert_eq!(el_nat.as_deref(), Some("extip:203.0.113.7"));
+        assert!(parse(&[]).is_ok());
+        for bad in [
+            &["--el-bootnodes", "enode://a@10.0.0.1:30303"][..],
+            &["--el-p2p-port", "30303", "--el-bootnodes", "10.0.0.1:30303"],
+            &["--el-p2p-port", "30303", "--el-nat", "extip:nope"],
+        ] {
+            assert!(parse(bad).is_err(), "{bad:?}");
+        }
     }
 }

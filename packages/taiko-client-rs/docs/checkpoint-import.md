@@ -88,8 +88,11 @@ Start the app and its bound native execution node in one foreground process. Sel
 
 ```sh
 taiko-client abci-import run-app --root /srv/etna/operations/import-600 \
-  --profile /srv/etna/config/import.json --fee-recipient 0x0000000000000000000000000000000000000001
+  --profile /srv/etna/config/import.json --fee-recipient 0x0000000000000000000000000000000000000001 \
+  --el-p2p-port 30303
 ```
+
+User transactions reach the proposer's txpool only over EL devp2p, so give the owned EL `--el-p2p-port PORT` (TCP and UDP, on `--el-p2p-addr`, default `0.0.0.0`). Without it the EL has no peers, and a validator proposes blocks without user transactions. `--el-bootnodes` and `--el-trusted-peers` take comma-separated enode URLs; the chainspec bootnodes apply by default. `--el-nat` takes reth's NAT forms, such as `extip:<IP>`. The offline install check never enables devp2p, and the EL never writes a peer file into the installed datadir.
 
 Use `--el-http-port PORT` if a separate loopback EL reader is needed. Keep this listener private and gate any external RPC route on the running app’s checkpoint readiness. The app uses two private Unix sockets throughout its lifetime. The guardian announces its actual child PID on an inherited descriptor. Each normal or authenticated RPC connection checks that kernel peer identity before sending bytes. External Engine URLs and JWTs cannot redirect the imported app’s forkchoice or payload writes. A normal restart checks the retained execution floor and current committed state and resumes from the current head. Use `--checkpoint-archive-dir PATH` to preserve subsequent grid preimages. The installed Comet template supplies the ABCI listener.
 

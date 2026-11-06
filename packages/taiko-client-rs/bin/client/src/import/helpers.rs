@@ -389,7 +389,7 @@ impl<'a> Manifest<'a> {
         use abci::{Engine, engine::PayloadVerdict};
         let log = work.join("el-startup.log");
         let mut owned =
-            super::runtime::OwnedEngine::start(i, &work.join("el"), holds, None, Some(&log))
+            super::runtime::OwnedEngine::start(i, &work.join("el"), holds, None, None, Some(&log))
                 .await?;
         let engine = owned.engine.clone();
         let last = self.headers.last().ok_or_else(|| bad("missing terminal header"))?;

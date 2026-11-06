@@ -18,6 +18,60 @@ use std::{
     time::{Duration, Instant},
 };
 
+/// Devp2p settings for the live owned EL. User transactions reach the proposer's txpool only
+/// over EL devp2p, so a validator without them proposes no user transactions.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct ElP2p {
+    /// Listen address for RLPx and discv4.
+    pub addr: std::net::IpAddr,
+    /// Listen port for RLPx (TCP) and discv4 (UDP).
+    pub port: u16,
+    /// Discovery bootnodes; the chainspec's own apply when empty.
+    pub bootnodes: Vec<String>,
+    /// Peers to keep connected.
+    pub trusted_peers: Vec<String>,
+    /// NAT resolution, such as `extip:<IP>`; reth's default applies when absent.
+    pub nat: Option<String>,
+}
+
+/// EL networking arguments. Without devp2p settings the EL listens only on loopback, has no
+/// peers and writes no peer file, as the offline install check requires.
+fn network_args(p2p: Option<&ElP2p>) -> Vec<String> {
+    let Some(p2p) = p2p else {
+        return [
+            "--addr",
+            "127.0.0.1",
+            "--port",
+            "0",
+            "--disable-discovery",
+            "--trusted-only",
+            "--no-persist-peers",
+        ]
+        .map(String::from)
+        .to_vec();
+    };
+    let (addr, port) = (p2p.addr.to_string(), p2p.port.to_string());
+    // `--flag=value` keeps each operator value bound to its own flag.
+    let mut args = vec![
+        format!("--addr={addr}"),
+        format!("--port={port}"),
+        format!("--discovery.addr={addr}"),
+        format!("--discovery.port={port}"),
+        // Keep the installed datadir free of a peer file.
+        "--no-persist-peers".into(),
+    ];
+    if !p2p.bootnodes.is_empty() {
+        args.push(format!("--bootnodes={}", p2p.bootnodes.join(",")));
+    }
+    if !p2p.trusted_peers.is_empty() {
+        args.push(format!("--trusted-peers={}", p2p.trusted_peers.join(",")));
+    }
+    if let Some(nat) = &p2p.nat {
+        args.push(format!("--nat={nat}"));
+    }
+    args
+}
+
 /// Native child and its unguessable, private IPC session. The guardian holds the leases until
 /// the real child exits, including when its controller is killed.
 pub(super) struct OwnedEngine {
@@ -39,6 +93,7 @@ impl OwnedEngine {
         datadir: &Path,
         holds: &Holds,
         http_port: Option<u16>,
+        p2p: Option<&ElP2p>,
         diagnostics: Option<&Path>,
     ) -> R<Self> {
         let temp = std::env::temp_dir().canonicalize().map_err(io)?;
@@ -74,15 +129,7 @@ impl OwnedEngine {
             .arg(&engine_socket)
             .args(["--authrpc.addr", "127.0.0.1", "--authrpc.port", "0", "--authrpc.jwtsecret"])
             .arg(&jwt)
-            .args([
-                "--addr",
-                "127.0.0.1",
-                "--port",
-                "0",
-                "--disable-discovery",
-                "--trusted-only",
-                "--no-persist-peers",
-            ])
+            .args(network_args(p2p))
             .current_dir(datadir);
         if let Some(port) = http_port {
             cmd.args([
@@ -239,6 +286,7 @@ pub(crate) async fn run(
     root: &Path,
     fee_recipient: alloy_primitives::Address,
     http_port: Option<u16>,
+    p2p: Option<ElP2p>,
     archive_dir: Option<PathBuf>,
 ) -> crate::error::Result<()> {
     let intent = Intent::load(root)?;
@@ -272,8 +320,15 @@ pub(crate) async fn run(
         .ok_or_else(|| bad("missing installed ABCI address"))?;
     let (mut params, l1) = p.own().await?;
     params.fee_recipient = fee_recipient;
-    let mut owned =
-        latch(root, OwnedEngine::start(i, &ready.join("el"), &holds, http_port, None).await)?;
+    if p2p.is_none() {
+        tracing::warn!(
+            "owned EL runs without devp2p (no --el-p2p-port): it receives no user transactions"
+        );
+    }
+    let mut owned = latch(
+        root,
+        OwnedEngine::start(i, &ready.join("el"), &holds, http_port, p2p.as_ref(), None).await,
+    )?;
     if owned.chain_id().await? != U256::from(params.l2_chain_id) {
         return Err(bad("owned execution chain identity differs").into())
     }
@@ -401,6 +456,34 @@ mod tests {
     use alloy::transports::mock::Asserter;
     use alloy_provider::ProviderBuilder;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    #[test]
+    fn el_is_isolated_without_p2p_and_peers_with_it() {
+        let isolated = network_args(None);
+        for flag in ["--disable-discovery", "--trusted-only", "--no-persist-peers"] {
+            assert!(isolated.iter().any(|a| a == flag), "{flag}");
+        }
+        let live = network_args(Some(&ElP2p {
+            addr: "0.0.0.0".parse().unwrap(),
+            port: 30303,
+            bootnodes: vec!["enode://a@10.0.0.1:30303".into(), "enode://b@10.0.0.2:30303".into()],
+            trusted_peers: vec!["enode://c@10.0.0.3:30303".into()],
+            nat: Some("extip:203.0.113.7".into()),
+        }));
+        assert_eq!(
+            live,
+            [
+                "--addr=0.0.0.0",
+                "--port=30303",
+                "--discovery.addr=0.0.0.0",
+                "--discovery.port=30303",
+                "--no-persist-peers",
+                "--bootnodes=enode://a@10.0.0.1:30303,enode://b@10.0.0.2:30303",
+                "--trusted-peers=enode://c@10.0.0.3:30303",
+                "--nat=extip:203.0.113.7",
+            ]
+        );
+    }
 
     fn mocked() -> (RpcEngine, Asserter, Asserter) {
         let public = Asserter::new();
