@@ -43,6 +43,11 @@ impl DriverMetrics {
         &METRICS.event_sync_finalized_state_unavailable_total
     }
 
+    /// Return the event-sync reconnect-anchor retry counter.
+    pub(crate) fn event_sync_reconnect_anchor_retries_total() -> &'static IntCounter {
+        &METRICS.event_sync_reconnect_anchor_retries_total
+    }
+
     /// Return the event scanner batch counter.
     pub(crate) fn event_scanner_batches_total() -> &'static IntCounter {
         &METRICS.event_scanner_batches_total
@@ -186,6 +191,8 @@ struct DriverMetricHandles {
     beacon_sync_finalized_state_unavailable_total: IntCounter,
     /// Finalized-state reads unavailable during event sync.
     event_sync_finalized_state_unavailable_total: IntCounter,
+    /// Finalized L1 reconnect-anchor lookups retried after RPC failures.
+    event_sync_reconnect_anchor_retries_total: IntCounter,
     /// Batches of proposal logs received from the scanner.
     event_scanner_batches_total: IntCounter,
     /// Scanner stream errors.
@@ -265,6 +272,10 @@ impl DriverMetricHandles {
             event_sync_finalized_state_unavailable_total: counter(
                 "driver_event_sync_finalized_state_unavailable_total",
                 "Finalized L1 state reads unavailable during event sync",
+            ),
+            event_sync_reconnect_anchor_retries_total: counter(
+                "driver_event_sync_reconnect_anchor_retries_total",
+                "Finalized L1 reconnect-anchor lookups retried after RPC failures",
             ),
             event_scanner_batches_total: counter(
                 "driver_event_scanner_batches_total",
@@ -411,5 +422,19 @@ mod tests {
                 "missing finalized-state degraded-path counter: {name}",
             );
         }
+    }
+
+    #[test]
+    fn reconnect_anchor_retry_counter_is_exported() {
+        DriverMetrics::init();
+
+        let families = prometheus::gather();
+        assert!(
+            families
+                .iter()
+                .any(|family| family.get_name() ==
+                    "driver_event_sync_reconnect_anchor_retries_total"),
+            "missing reconnect-anchor retry counter",
+        );
     }
 }

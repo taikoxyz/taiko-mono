@@ -4,7 +4,7 @@ permissions:
 
 on:
   push:
-    branches: [main]
+    branches: [main, codex/taiko-client-rs-2.3.x]
     paths:
       - "testdata/derivation_vectors/**"
       - "packages/taiko-client-rs/**"
