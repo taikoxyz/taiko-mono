@@ -15,6 +15,9 @@ pub const MAX_TIMEOUT_SECS: u64 = 3600;
 /// Flags of the `abci` subcommand (besides the common ones).
 #[derive(Parser, Clone, Debug, PartialEq, Eq)]
 pub struct AbciArgs {
+    /// Existing canonical archive directory for immutable per-domain grid preimages.
+    #[clap(long = "checkpoint-archive-dir", env = "ABCI_CHECKPOINT_ARCHIVE_DIR")]
+    pub checkpoint_archive_dir: Option<PathBuf>,
     /// Explicit local beneficiary for all fees of blocks this node proposes.
     #[clap(long = "fee-recipient", env = "ABCI_FEE_RECIPIENT", required = true)]
     pub fee_recipient: alloy_primitives::Address,

@@ -360,6 +360,80 @@ fn annotate_history(error: LanderError, height: u64) -> LanderError {
     }
 }
 
+impl HttpCometSource {
+    /// Read only the predecessor header; evidence-window discovery must never read its block,
+    /// certificate or historical validator set.
+    pub async fn archive_header(&self, height: u64) -> Result<Header> {
+        #[derive(Deserialize)]
+        struct Response {
+            /// Original header with explicit timestamp.
+            #[serde(deserialize_with = "deserialize_header")]
+            header: Header,
+        }
+        let res: Response = self.rpc("header", json!({"height":height.to_string()})).await?;
+        if res.header.height.value() != height {
+            return Err(LanderError::Encoding("archive header height mismatch".into()))
+        }
+        Ok(res.header)
+    }
+
+    /// Read only paginated original signing keys and powers. Never infer landed priorities
+    /// or the stored proposer from a reconstructed stock RPC response.
+    pub async fn archive_validators(
+        &self,
+        height: u64,
+        limit: usize,
+    ) -> Result<Vec<crate::checkpoint_import::ImportValidator>> {
+        #[derive(Deserialize)]
+        struct Row {
+            /// Native stock public key, including its algorithm discriminator.
+            pub_key: abci::key::CometPublicKey,
+            /// Comet int64 encoded as decimal text.
+            voting_power: String,
+        }
+        #[derive(Deserialize)]
+        struct Page {
+            /// Height selected by stock state store.
+            block_height: String,
+            /// Complete number of validators on all pages.
+            total: String,
+            /// Exactly this ordered page.
+            validators: Vec<Row>,
+        }
+        let invalid = || LanderError::Encoding("invalid archive validators page".into());
+        let mut out = Vec::new();
+        let mut page = 1;
+        let mut expected = None;
+        loop {
+            let result: Page = self
+                .rpc(
+                    "validators",
+                    json!({"height":height.to_string(),"page":page.to_string(),"per_page":"100"}),
+                )
+                .await?;
+            let total = result.total.parse::<usize>().map_err(|_| invalid())?;
+            if result.block_height != height.to_string() ||
+                total == 0 ||
+                total > limit ||
+                expected.replace(total).is_some_and(|v| v != total) ||
+                result.validators.len() != 100.min(total.saturating_sub(out.len()))
+            {
+                return Err(invalid())
+            }
+            for r in result.validators {
+                out.push(crate::checkpoint_import::ImportValidator {
+                    key: r.pub_key.0,
+                    power: r.voting_power.parse().map_err(|_| invalid())?,
+                })
+            }
+            if out.len() == total {
+                return Ok(out)
+            }
+            page += 1;
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

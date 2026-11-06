@@ -141,6 +141,9 @@ impl AppState {
 /// Why the state could not be loaded or saved.
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {
+    /// A checkpoint journal was moved or restored beside another installation.
+    #[error("checkpoint import state identity mismatch")]
+    ImportIdentity,
     /// A filesystem operation failed.
     #[error("cannot {op} {}: {source}", path.display())]
     Io {
@@ -175,6 +178,37 @@ pub enum StoreError {
     Encode(#[source] serde_json::Error),
 }
 
+/// Explicit imported journal container; ordinary stores reject this structural format.
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ImportedState {
+    /// Local journal envelope version.
+    pub schema: u32,
+    /// Immutable operation identity checked against the ready components.
+    pub installation_id: B256,
+    /// Unmodified application state using its original deployment/recovery schema.
+    pub state: AppState,
+}
+
+/// Decode a single exact durable image using the caller's verified distinction between
+/// ordinary and imported storage. No general state migration or automatic tag adoption.
+pub(crate) fn decode_journal(
+    bytes: &[u8],
+    installation: Option<B256>,
+    path: &Path,
+) -> Result<AppState, StoreError> {
+    let corrupt = |source| StoreError::Corrupt { path: path.to_owned(), source };
+    if let Some(id) = installation {
+        let tagged: ImportedState = serde_json::from_slice(bytes).map_err(corrupt)?;
+        if tagged.schema != 1 || tagged.installation_id != id {
+            return Err(StoreError::ImportIdentity)
+        }
+        Ok(tagged.state)
+    } else {
+        serde_json::from_slice(bytes).map_err(corrupt)
+    }
+}
+
 /// Atomic JSON file store for [`AppState`] in one data directory.
 #[derive(Clone, Debug)]
 pub struct Store {
@@ -182,19 +216,42 @@ pub struct Store {
     dir: PathBuf,
     /// Whether saves fsync the file and its directory. Only [`Store::volatile`] clears it.
     durable: bool,
+    /// Install identity for imported journals; ordinary legacy state is never rewritten.
+    import: Option<(B256, u64)>,
+    /// Optional independent archive of immutable landed-candidate grid preimages.
+    archive: Option<PathBuf>,
 }
 
 impl Store {
     /// A store over `dir`. Touches nothing on disk.
     pub fn new(dir: PathBuf) -> Self {
-        Self { dir, durable: true }
+        Self { dir, durable: true, import: None, archive: None }
+    }
+
+    /// Open an imported journal only after the caller checked the complete publication
+    /// and component identities. This selects a local format, never admission or signing.
+    pub fn imported(dir: PathBuf, id: B256, floor: u64) -> Self {
+        Self { import: Some((id, floor)), ..Self::new(dir) }
+    }
+
+    /// Oldest independently installed execution state; ordinary fully replayed stores have no
+    /// import floor.
+    pub fn execution_floor(&self) -> Option<u64> {
+        self.import.map(|(_, height)| height)
+    }
+
+    /// Retain every future grid preimage in a separate operator-managed directory. The
+    /// namespace includes the generation-qualified chain ID and never prunes or overwrites.
+    pub fn with_val_archive(mut self, archive: Option<PathBuf>) -> Self {
+        self.archive = archive;
+        self
     }
 
     /// A store that saves the same files without fsyncing them, for unit tests that commit many
     /// blocks without testing durability. This module's own tests keep [`Store::new`].
     #[cfg(test)]
     pub(crate) fn volatile(dir: PathBuf) -> Self {
-        Self { dir, durable: false }
+        Self { dir, durable: false, import: None, archive: None }
     }
 
     /// Directory for node-local sidecars and private checkpoint control.
@@ -223,8 +280,7 @@ impl Store {
             Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(None),
             Err(source) => return Err(StoreError::Io { op: "read", path, source }),
         };
-        let state: AppState = serde_json::from_slice(&bytes)
-            .map_err(|source| StoreError::Corrupt { path, source })?;
+        let state = decode_journal(&bytes, self.import.map(|(id, _)| id), &path)?;
         Ok(Some(state))
     }
 
@@ -353,8 +409,8 @@ impl Store {
             path,
             source,
         })?;
-        let persisted: AppState = serde_json::from_slice(&bytes)
-            .map_err(|source| StoreError::Corrupt { path: self.dir.join(STATE_FILE), source })?;
+        let persisted =
+            decode_journal(&bytes, self.import.map(|(id, _)| id), &self.dir.join(STATE_FILE))?;
         if &persisted != state || current <= state.generation {
             return Err(StoreError::BootstrapConflict);
         }
@@ -421,7 +477,21 @@ impl Store {
     /// Creates the data directory if needed, writes [`TMP_FILE`], fsyncs it, renames it to
     /// [`STATE_FILE`] and (on unix) fsyncs the directory so the rename is durable.
     pub fn save(&self, s: &AppState) -> Result<(), StoreError> {
-        let json = serde_json::to_vec_pretty(s).map_err(StoreError::Encode)?;
+        if let Some(archive) = &self.archive &&
+            s.has_generation_commit() &&
+            s.last_height.is_multiple_of(crate::GRID_INTERVAL)
+        {
+            archive_preimage(archive, s)?;
+        }
+        let json = match self.import {
+            Some((id, _)) => serde_json::to_vec_pretty(&ImportedState {
+                schema: 1,
+                installation_id: id,
+                state: s.clone(),
+            }),
+            None => serde_json::to_vec_pretty(s),
+        }
+        .map_err(StoreError::Encode)?;
         self.save_bytes(&json, STATE_FILE, TMP_FILE)
     }
 
@@ -441,6 +511,41 @@ impl Store {
         fs::rename(&tmp, &path).map_err(|source| io_err("rename", &tmp, source))?;
         if self.durable { sync_dir(&self.dir) } else { Ok(()) }
     }
+}
+
+/// Publish an immutable grid preimage in the archive filesystem before its corresponding
+/// live journal commit. Equal retries are safe; a conflicting copy is never replaced.
+fn archive_preimage(archive: &Path, s: &AppState) -> Result<(), StoreError> {
+    use std::os::unix::fs::MetadataExt;
+    let metadata = archive.symlink_metadata().map_err(|e| io_err("stat archive", archive, e))?;
+    if archive.canonicalize().ok().as_deref() != Some(archive) ||
+        !metadata.is_dir() ||
+        metadata.mode() & 0o022 != 0
+    {
+        return Err(StoreError::ImportIdentity)
+    }
+    let domain = alloy_primitives::keccak256(s.chain_id.as_bytes());
+    let path = archive.join(format!("{domain}-{}.bin", s.last_height));
+    let bytes = s.val_state.encode();
+    let mut tmp = tempfile::NamedTempFile::new_in(archive)
+        .map_err(|e| io_err("create archive", archive, e))?;
+    tmp.write_all(&bytes)
+        .and_then(|()| tmp.as_file().sync_all())
+        .map_err(|e| io_err("sync archive", archive, e))?;
+    match tmp.persist_noclobber(&path) {
+        Ok(_) => {}
+        Err(e) if e.error.kind() == io::ErrorKind::AlreadyExists => {
+            let m = path.symlink_metadata().map_err(|e| io_err("archive metadata", &path, e))?;
+            if !m.is_file() ||
+                m.len() != bytes.len() as u64 ||
+                fs::read(&path).map_err(|e| io_err("read archive", &path, e))? != bytes
+            {
+                return Err(StoreError::ValStateConflict(s.last_height))
+            }
+        }
+        Err(e) => return Err(io_err("publish archive", &path, e.error)),
+    }
+    sync_dir(archive)
 }
 
 /// The `{prefix}{height}{suffix}` file names of one kind of per-height record.
@@ -574,6 +679,32 @@ mod tests {
         }
     }
 
+    #[test]
+    fn detached_import_is_not_legacy_state_and_archived_preimage_survives_pruning() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path().canonicalize().unwrap();
+        let dir = root.join("app");
+        let archive = root.join("archive");
+        fs::create_dir(&archive).unwrap();
+        let id = B256::repeat_byte(9);
+        let store = Store::imported(dir.clone(), id, 108).with_val_archive(Some(archive.clone()));
+        let mut s = state();
+        s.last_height = 108;
+        s.parent.number = 108;
+        s.val_state.height = 108;
+        store.save_val_state(108, &s.val_state.encode()).unwrap();
+        store.save(&s).unwrap();
+        assert_eq!(store.load().unwrap(), Some(s.clone()));
+        assert!(Store::new(dir.clone()).load().is_err());
+        assert!(Store::imported(dir.clone(), B256::ZERO, 108).load().is_err());
+        assert_eq!(store.prune_val_states(109).unwrap(), 1);
+        let saved =
+            archive.join(format!("{}-108.bin", alloy_primitives::keccak256(s.chain_id.as_bytes())));
+        assert_eq!(fs::read(&saved).unwrap(), s.val_state.encode());
+        store.save(&s).unwrap();
+        fs::write(&saved, b"conflict").unwrap();
+        assert!(store.save(&s).is_err());
+    }
     #[test]
     fn save_then_load_round_trips() {
         let dir = tempfile::tempdir().expect("tempdir");

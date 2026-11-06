@@ -562,8 +562,32 @@ async fn own_finality_is_required_before_any_consensus_reads() {
 async fn current_generation_change_rejects_before_any_consensus_reads() {
     let previous = Fixture::with_epoch(6, 6, 0, 8);
     let package = import_package(&previous, 6).await;
+    let previous = std::sync::Arc::new(previous);
+    let verified = authenticate_import(
+        &package,
+        frames(&previous, 6).into_iter(),
+        &previous.params,
+        &OwnL1(previous.clone()),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        verified
+            .current_landing(&previous.params, &OwnL1(previous.clone()))
+            .await
+            .unwrap()
+            .checkpoint_height,
+        6
+    );
     let current =
         std::sync::Arc::new(crate::test_utils::consensus_mpt::recovery::fixture(8, 12, 12).await);
+    assert!(
+        matches!(verified.current_landing(&current.params,&OwnL1(current.clone())).await,Err(ImportError::Candidate(ref m)) if m.contains("current finalized generation"))
+    );
+    assert!(matches!(
+        select_export(&package.genesis, 6, &current.params, &OwnL1(current.clone())).await,
+        Err(ImportError::Candidate(_))
+    ));
     let forbidden = std::iter::from_fn(|| -> Option<Result<WindowBlock, ImportError>> {
         panic!("superseded package read consensus bytes")
     });

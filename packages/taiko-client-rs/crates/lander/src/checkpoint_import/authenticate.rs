@@ -19,6 +19,34 @@ use abci::{
 use prost::Message;
 use tendermint_proto::v0_38::types::Commit as RawCommit;
 
+/// Authenticate the exporter's fixed origin and selected landing before it makes any
+/// archival consensus requests. The returned public genesis facts select a bounded scan;
+/// full window verification and a fresh own observation are still required before export.
+pub async fn select_export<L: L1Source + ?Sized>(
+    genesis: &GenesisDoc,
+    height: u64,
+    params: &ChainParams,
+    l1: &L,
+) -> Result<abci::genesis::VerifiedGenesis, ImportError> {
+    params.validate().map_err(candidate)?;
+    let fixed = abci::genesis::verify_original_genesis(genesis, params).map_err(candidate)?;
+    for header in &fixed.l1_headers {
+        canonical(l1, header).await?;
+    }
+    let origin = fixed.recovery.as_ref().map_or(0, |r| r.height);
+    if height < origin ||
+        height > abci::schedule::UINT48_MAX ||
+        !height.is_multiple_of(abci::GRID_INTERVAL)
+    {
+        return Err(candidate("invalid export checkpoint selection"))
+    }
+    // verify_original_genesis validated the versioned recovery frame and complete original
+    // genesis. authenticate_snapshot requires its inner, untagged canonical witness RLP.
+    let recovery = fixed.recovery.as_ref().map(|_| genesis.app_state.witness.slice(1..));
+    own_landing(l1, params, height, &fixed, recovery).await?;
+    Ok(fixed)
+}
+
 /// Authenticate the original genesis, current own-finalized generation and retained landing,
 /// then consume exactly one ascending native block window. Missing frames remain unavailable;
 /// no execution engine, prefix source, or successor block is needed or accepted. The future
@@ -872,6 +900,38 @@ fn check_header_projection(
         return Err(safety("authenticated terminal envelope execution hash contradicts landing"));
     }
     Ok(height)
+}
+
+impl VerifiedImport {
+    /// Immediately before publishing an already authenticated installation, pin a fresh
+    /// finalized snapshot and re-open the actual settled ancestry to the same selected
+    /// landing. This check is independent of consensus window length and never accepts a
+    /// serialized receipt. A generation transition or superseded selection refuses publication.
+    pub async fn current_landing<L: L1Source + ?Sized>(
+        &self,
+        params: &ChainParams,
+        l1: &L,
+    ) -> Result<crate::LandingSnapshot, ImportError> {
+        // This earlier finalized header came from this in-memory verification, not a receipt.
+        own_canonical(l1, &self.admission_target.l1_header).await?;
+        let fixed =
+            abci::genesis::verify_original_genesis(self.genesis(), params).map_err(candidate)?;
+        for h in &fixed.l1_headers {
+            canonical(l1, h).await?
+        }
+        let (snapshot, landing) = own_landing(
+            l1,
+            params,
+            self.landing.height,
+            &fixed,
+            self.admission_target.recovery_witness.clone(),
+        )
+        .await?;
+        if landing != self.landing {
+            return Err(candidate("selected landing changed before publication"))
+        }
+        Ok(snapshot)
+    }
 }
 
 #[cfg(test)]

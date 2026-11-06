@@ -7,3 +7,6 @@ pub mod client;
 pub mod error;
 
 pub use error::{Result, RpcClientError};
+
+/// Peer-authenticated private IPC for a controller-owned execution process.
+pub mod owned_ipc;

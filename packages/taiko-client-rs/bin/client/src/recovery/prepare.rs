@@ -135,10 +135,53 @@ pub async fn prepare<L: L1Source + ?Sized, E: Engine + ?Sized>(
 /// become an explicit prerequisite; only controller-managed relative storage survives.
 fn comet_template(profile: &RecoveryProfile) -> Result<Vec<u8>, RecoveryCommandError> {
     let bytes = read_bounded(&profile.comet_home.join("config/config.toml"), 1024 * 1024)?;
-    let mut table: toml::Table = toml::from_str(
-        std::str::from_utf8(&bytes).map_err(|_| RecoveryCommandError::Parse("Comet template"))?,
+    normalized_comet_config(
+        parse_comet_template(&bytes)?,
+        profile.role == NodeRole::Validator,
+        Some(&profile.peers),
+    )
+}
+
+/// Accept a TOML spelling only when Rust and pinned stock Viper see the same keys. TOML
+/// already expands ordinary dotted syntax to nested tables. Literal dotted keys and
+/// mixed-case aliases would survive a normal round trip yet shadow normalized settings.
+pub(crate) fn parse_comet_template(bytes: &[u8]) -> Result<toml::Table, RecoveryCommandError> {
+    let value: toml::Value = toml::from_str(
+        std::str::from_utf8(bytes).map_err(|_| RecoveryCommandError::Parse("Comet template"))?,
     )
     .map_err(|_| RecoveryCommandError::Parse("Comet template"))?;
+    if !canonical_comet_keys(&value) {
+        return Err(RecoveryCommandError::Parse("ambiguous Comet configuration key"))
+    }
+    match value {
+        toml::Value::Table(table) => Ok(table),
+        _ => Err(RecoveryCommandError::Parse("Comet template")),
+    }
+}
+
+/// Stock's own keys use lowercase ASCII, digits, hyphens and underscores. Check nested
+/// inline tables and arrays of tables as well as ordinary sections.
+fn canonical_comet_keys(value: &toml::Value) -> bool {
+    match value {
+        toml::Value::Table(table) => table.iter().all(|(key, v)| {
+            !key.is_empty() &&
+                key.bytes().all(|b| {
+                    b.is_ascii_lowercase() || b.is_ascii_digit() || matches!(b, b'_' | b'-')
+                }) &&
+                canonical_comet_keys(v)
+        }),
+        toml::Value::Array(values) => values.iter().all(canonical_comet_keys),
+        _ => true,
+    }
+}
+
+/// Normalize all stock path-bearing fields to the new home, and preserve only explicit
+/// peer settings. Never copy storage, registered key material or a signer state file.
+pub(crate) fn normalized_comet_config(
+    mut table: toml::Table,
+    validator: bool,
+    peers: Option<&[String]>,
+) -> Result<Vec<u8>, RecoveryCommandError> {
     if table.get("proxy_app").and_then(toml::Value::as_str).is_none() {
         return Err(RecoveryCommandError::Missing("Comet template proxy_app"));
     }
@@ -156,10 +199,12 @@ fn comet_template(profile: &RecoveryProfile) -> Result<Vec<u8>, RecoveryCommandE
                 .ok_or(RecoveryCommandError::Parse("Comet template section"))?;
             if fields.contains_key("home") ||
                 ["laddr", "grpc_laddr"].iter().any(|name| {
-                    fields.get(*name).and_then(toml::Value::as_str).is_some_and(|listeners| {
-                        listeners.split(',').any(|address| {
-                            address.trim().split_once("://").is_some_and(|(protocol, _)| {
-                                matches!(protocol, "unix" | "unixpacket")
+                    fields.get(*name).is_some_and(|v| {
+                        v.as_str().is_none_or(|listeners| {
+                            listeners.split(',').any(|address| {
+                                address.trim().split_once("://").is_some_and(|(protocol, _)| {
+                                    matches!(protocol, "unix" | "unixpacket")
+                                })
                             })
                         })
                     })
@@ -168,9 +213,9 @@ fn comet_template(profile: &RecoveryProfile) -> Result<Vec<u8>, RecoveryCommandE
                 return Err(RecoveryCommandError::Missing("supported Comet template layout"));
             }
             if section == "rpc" &&
-                ["tls_cert_file", "tls_key_file"].iter().any(|name| {
-                    fields.get(*name).and_then(toml::Value::as_str).is_some_and(|s| !s.is_empty())
-                })
+                ["tls_cert_file", "tls_key_file"]
+                    .iter()
+                    .any(|name| fields.get(*name).is_some_and(|v| v.as_str() != Some("")))
             {
                 return Err(RecoveryCommandError::Missing("fresh Comet TLS configuration"));
             }
@@ -178,15 +223,19 @@ fn comet_template(profile: &RecoveryProfile) -> Result<Vec<u8>, RecoveryCommandE
                 fields.insert("wal_dir".into(), toml::Value::String("data/mempool.wal".into()));
             }
             if section == "statesync" {
-                if fields.get("enable").and_then(toml::Value::as_bool).unwrap_or(false) {
+                if fields.get("enable").is_some_and(|v| v.as_bool() != Some(false)) {
                     return Err(RecoveryCommandError::Missing("state-sync disabled Comet template"));
                 }
                 fields.insert("temp_dir".into(), toml::Value::String(String::new()));
             }
         }
     }
-    let signer = table.get("priv_validator_laddr").and_then(toml::Value::as_str).unwrap_or("");
-    if (profile.role == NodeRole::Validator) == signer.is_empty() {
+    let signer = table
+        .get("priv_validator_laddr")
+        .map(|v| v.as_str().ok_or(RecoveryCommandError::Parse("Comet signer address")))
+        .transpose()?
+        .unwrap_or("");
+    if validator == signer.is_empty() {
         return Err(RecoveryCommandError::Missing("role-compatible Comet signer template"));
     }
     for (name, value) in [
@@ -198,7 +247,7 @@ fn comet_template(profile: &RecoveryProfile) -> Result<Vec<u8>, RecoveryCommandE
     ] {
         table.insert(name.into(), toml::Value::String(value.into()));
     }
-    if profile.role == NodeRole::Validator {
+    if validator {
         // Stock initializes a disposable local FilePV before replacing it with the mandatory
         // external signer. These fresh relative paths never contain the registered identity.
         table.insert(
@@ -211,7 +260,9 @@ fn comet_template(profile: &RecoveryProfile) -> Result<Vec<u8>, RecoveryCommandE
         .and_then(toml::Value::as_table_mut)
         .ok_or(RecoveryCommandError::Missing("Comet p2p template"))?;
     p2p.insert("addr_book_file".into(), toml::Value::String("config/addrbook.json".into()));
-    p2p.insert("persistent_peers".into(), toml::Value::String(profile.peers.join(",")));
+    if let Some(peers) = peers {
+        p2p.insert("persistent_peers".into(), toml::Value::String(peers.join(",")));
+    }
     if let Some(consensus) = table.get_mut("consensus") {
         let consensus = consensus
             .as_table_mut()
@@ -268,4 +319,37 @@ fn node_key(profile: &RecoveryProfile) -> Result<Vec<u8>, RecoveryCommandError> 
     let bytes = read_bounded(&path, 16 * 1024)?;
     validate_node_key(&bytes)?;
     Ok(bytes)
+}
+
+#[cfg(test)]
+mod effective_config_tests {
+    use super::*;
+    #[test]
+    fn viper_aliases_cannot_shadow_canonical_paths_or_consensus_settings() {
+        for extra in [
+            "DB_BACKEND='memdb'",
+            "DB_DIR='foreign'",
+            "'statesync.enable'=true",
+            "'consensus.wal_file'='foreign/wal'",
+            "'consensus.timeout_propose'='-1s'",
+            "[CONSENSUS]\nTIMEOUT_PROPOSE='-1s'",
+            "[[test]]\n'foo.bar'=true",
+            "statesync.enable='true'",
+            "rpc.tls_key_file=1",
+        ] {
+            let input = format!("proxy_app='tcp://127.0.0.1:26658'\n{extra}\n[p2p]\npex=false");
+            assert!(
+                parse_comet_template(input.as_bytes())
+                    .and_then(|t| normalized_comet_config(t, false, None))
+                    .is_err(),
+                "accepted {extra}"
+            );
+        }
+        let ordinary=b"proxy_app='tcp://127.0.0.1:26658'\ndb_backend='goleveldb'\nconsensus.timeout_propose='3s'\n[mempool]\nkeep-invalid-txs-in-cache=false\n[p2p]\npex=false";
+        assert!(
+            parse_comet_template(ordinary)
+                .and_then(|t| normalized_comet_config(t, false, None))
+                .is_ok()
+        );
+    }
 }

@@ -54,17 +54,17 @@ asks the app's private control socket before every signature (see
 
 ## Project structure
 
-| Path                   | Description                                                                                           |
-| ---------------------- | ----------------------------------------------------------------------------------------------------- |
-| `bin/client/`          | The `taiko-client` binary (`abci`, `abci-genesis`, `abci-committee-record`, `abci-recover`, `lander`) |
-| `crates/lander/`       | Permissionless batch/blob construction, proof trait and durable L1 submission                         |
-| `crates/abci/`         | The ABCI++ application of the Etna PoS chain                                                          |
-| `crates/protocol/`     | Shared helpers; `shasta` and `FixedKSigner` serve raiko2                                              |
-| `crates/rpc/`          | Engine API and JWT helpers                                                                            |
-| `crates/bindings/`     | Generated Anchor contract bindings, kept for protocol's anchor builder (raiko2)                       |
-| `crates/test-harness/` | Docker devnet (anvil, alethia-reth, CometBFT) and calldata admission fixtures                         |
-| `script/`              | Maintenance scripts (binding generation)                                                              |
-| `tests/`               | The integration test entrypoint and the test JWT secret                                               |
+| Path                   | Description                                                                                                          |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `bin/client/`          | The `taiko-client` binary (`abci`, `abci-genesis`, `abci-committee-record`, `abci-recover`, `abci-import`, `lander`) |
+| `crates/lander/`       | Permissionless batch/blob construction, proof trait and durable L1 submission                                        |
+| `crates/abci/`         | The ABCI++ application of the Etna PoS chain                                                                         |
+| `crates/protocol/`     | Shared helpers; `shasta` and `FixedKSigner` serve raiko2                                                             |
+| `crates/rpc/`          | Engine API and JWT helpers                                                                                           |
+| `crates/bindings/`     | Generated Anchor contract bindings, kept for protocol's anchor builder (raiko2)                                      |
+| `crates/test-harness/` | Docker devnet (anvil, alethia-reth, CometBFT) and calldata admission fixtures                                        |
+| `script/`              | Maintenance scripts (binding generation)                                                                             |
+| `tests/`               | The integration test entrypoint and the test JWT secret                                                              |
 
 ## Fresh deployment
 
@@ -119,8 +119,9 @@ governance recovery clears the stop. Recovery preparation also refuses rules it 
 implement at R. Rules scheduled after R do not change that fixed recovery origin.
 
 This release supports new networks with Etna start S = 0 and their governance recoveries.
-The [Unzen switch](../protocol/docs/etna/SWITCH.md), checkpoint import and public
-EL snapshot tooling require separate implementations. A nonzero Etna start is refused.
+[Checkpoint import](docs/checkpoint-import.md) uses a separately obtained offline EL dataset.
+The [Unzen switch](../protocol/docs/etna/SWITCH.md) and public EL snapshot tooling require
+separate implementations. A nonzero Etna start is refused.
 App state schemas are 17 (generation zero) and 18 (recovery); lander journals use schema 16.
 Older stores and witnesses are refused without rewriting signed jobs or FilePV state.
 
@@ -275,6 +276,13 @@ Comet blocks/commits, EL ancestry/execution state and historical L1 headers/proo
 snapshots. Governance recovery and old-generation nonce reconciliation are covered in the
 [recovery runbook](docs/governance-recovery.md#enrollment-waits-and-interruption). Real proving
 and automatic operator nonce repair remain excluded.
+
+### `abci-import`
+
+Export, prepare and install a landed Etna checkpoint into fresh app, stock Comet and execution
+stores. See the [checkpoint import runbook](docs/checkpoint-import.md) for the separate offline EL
+dataset, original genesis, durable grid preimage archive and guarded startup. Offline status never
+grants signing readiness.
 
 ### `abci-recover`
 

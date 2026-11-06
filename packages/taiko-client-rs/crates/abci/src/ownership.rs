@@ -21,6 +21,8 @@ pub const OWNER_JOIN_ENV: &str = "ETNA_OWNER_JOIN";
 /// A participating writer role.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ComponentRole {
+    /// Offline checkpoint execution store; the normal EL inherits the complete barrier.
+    Execution,
     /// ABCI application writer.
     App,
     /// Validator supervisor, signer and stock Comet subtree.
@@ -35,6 +37,7 @@ impl ComponentRole {
     pub fn tag(self) -> &'static str {
         match self {
             Self::App => "app",
+            Self::Execution => "execution",
             Self::Supervisor => "supervisor",
             Self::Comet => "comet",
             Self::Lander => "lander",

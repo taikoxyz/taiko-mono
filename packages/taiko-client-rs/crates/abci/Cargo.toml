@@ -43,6 +43,7 @@ tracing = { workspace = true }
 
 # types
 libc = "0.2"
+tempfile = { workspace = true }
 thiserror = { workspace = true }
 url = { workspace = true }
 
@@ -58,7 +59,6 @@ alloy-transport = { workspace = true }
 anyhow = { workspace = true }
 flate2 = { workspace = true }
 proptest = { workspace = true }
-tempfile = { workspace = true }
 test-harness = { path = "../test-harness" }
 tokio = { workspace = true, features = ["test-util"] }
 tracing-subscriber = { workspace = true }

@@ -4,6 +4,15 @@
 
 ### Features
 
+- Add authenticated bounded-window checkpoint import for fresh Etna generations and governance
+  recovery, with offline stock Comet store bootstrap, independent local EL state verification,
+  canonical retained header indexes and coordinated publication. See the
+  [checkpoint import runbook](docs/checkpoint-import.md).
+- Preserve the landed future validator sets, priorities and stored proposers, distinguish
+  authenticated contradictions from incomplete input or subprocess failures, and retain an
+  optional immutable preimage archive beyond live sidecar pruning.
+- Verify historical committee witnesses under the switch block's own anchor root while keeping
+  the derivation parent's selected snapshot, including pending committees and recovery.
 - Check the CometBFT validator state at checkpoint trust. The app keeps its own copy of stock
   CometBFT v0.40.0's validator sets, proposer priorities and stored proposers, records it at
   each grid height in an immutable `val-state-{height}.bin`, and serves it as the ABCI query
@@ -24,7 +33,8 @@
 - Preserve registered keys, per-generation FilePV authority, old Comet history and immutable
   pending lander bytes while retaining global committee/landing schedules. See the
   [recovery runbook](docs/governance-recovery.md). The lander still uses dummy proofs; real
-  proving, snapshot import and production deployment acceptance are outside this change.
+  proving, Unzen switching, public EL snapshot distribution and production deployment acceptance
+  are outside this change.
 
 ### Bug Fixes
 

@@ -237,6 +237,11 @@ func TestAuthenticatedContradictionClass(t *testing.T) {
 	if !errors.As(e, &contradiction) {
 		t.Fatalf("missing typed contradiction: %v", e)
 	}
+	r := contradiction.Receipt()
+	encoded, _ := json.Marshal(p)
+	if r.Schema != 1 || r.Kind != "authenticated_contradiction" || r.Reason != "validator_state_next_hash_mismatch" || r.Height != 100001 || r.CometHash != trust.CometHash || r.ELHash != trust.ELHash || r.ValStateHash != trust.ValStateHash || r.PackageHash != hexBytes(keccak(encoded)) {
+		t.Fatalf("contradiction receipt lost authenticated identity: %+v", r)
+	}
 }
 
 func duplicateEvidence(t *testing.T, h int64, at time.Time, vals *types.ValidatorSet) *types.DuplicateVoteEvidence {
@@ -603,14 +608,19 @@ func TestCLIProcessVerifyInstallAndContradictionExit(t *testing.T) {
 	trust.ValStateHash = hexBytes(keccak(pre))
 	write()
 	args = []string{"verify", "--package", path, "--trusted-comet-hash", trust.CometHash, "--trusted-el-hash", trust.ELHash, "--trusted-val-state-hash", trust.ValStateHash}
-	output, e = exec.Command(binaryPath, args...).CombinedOutput()
+	output, e = exec.Command(binaryPath, args...).Output()
 	var exit *exec.ExitError
 	if !errors.As(e, &exit) || exit.ExitCode() != 2 {
 		t.Fatalf("contradiction exit: %v %s", e, output)
 	}
+	var contradiction ContradictionReceipt
+	raw, _ := json.Marshal(p)
+	if e := strictDecode(output, &contradiction); e != nil || contradiction.Schema != 1 || contradiction.Kind != "authenticated_contradiction" || contradiction.Reason != "validator_state_next_hash_mismatch" || contradiction.Height != 100001 || contradiction.CometHash != trust.CometHash || contradiction.ELHash != trust.ELHash || contradiction.ValStateHash != trust.ValStateHash || contradiction.PackageHash != hexBytes(keccak(raw)) {
+		t.Fatalf("native contradiction has no matching receipt: %v %s", e, output)
+	}
 	args[len(args)-1] = hexBytes(make([]byte, 32))
-	output, e = exec.Command(binaryPath, args...).CombinedOutput()
-	if !errors.As(e, &exit) || exit.ExitCode() != 1 {
+	output, e = exec.Command(binaryPath, args...).Output()
+	if !errors.As(e, &exit) || exit.ExitCode() != 1 || len(output) != 0 {
 		t.Fatalf("candidate-rejection exit: %v %s", e, output)
 	}
 }

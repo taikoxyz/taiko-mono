@@ -701,12 +701,103 @@ class UnixSupervisorTests(SupervisorTests):
         self.assertTrue((moved / "signer.sock").is_socket())
 
 
+class LauncherPathTests(unittest.TestCase):
+    def load_module(self):
+        spec = importlib.util.spec_from_file_location("etna_guard_paths", ROOT / "script/etna_validator.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    def test_both_launchers_refuse_late_escaped_detached_journal_before_children(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp).resolve()
+            app, home = base / "app", base / "comet"
+            app.mkdir(); (home / "config").mkdir(parents=True)
+            (home / "config/config.toml").write_text('priv_validator_laddr = ""')
+            raw = b" " * 4096 + b'{"state":{},"schema":1,"installa' + b'\\u0074ion_id":"detached"}'
+            self.assertEqual(json.loads(raw)["installation_id"], "detached")
+            (app / "abci-state.json").write_bytes(raw)
+            for script in ("start_etna_full_node.py", "etna_validator.py"):
+                with self.subTest(script=script):
+                    env = dict(ETNA_APP_STORE=str(app), ETNA_COMET_HOME=str(home), ETNA_COMET_BIN="/usr/bin/true", PATH=os.defpath)
+                    proc = subprocess.run([os.sys.executable, str(ROOT / "script" / script)], env=env, capture_output=True)
+                    self.assertNotEqual(proc.returncode, 0)
+                    self.assertIn(b"incomplete or mixed import paths", proc.stderr)
+                    self.assertEqual((app / "abci-state.json").read_bytes(), raw)
+
+    def test_imported_rearm_uses_a_fresh_private_denial_route_and_preserves_prior_observation(self):
+        module = self.load_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp).resolve()
+            store, home = base / "app", base / "comet"
+            store.mkdir(); (home / "config").mkdir(parents=True)
+            (home / "config/config.toml").write_text('priv_validator_laddr="tcp://127.0.0.1:12345"')
+            (home / "config/genesis.json").write_text('{"chain_id":"test"}')
+            key, state = base / "key", base / "hrs"
+            key.write_bytes(b"registered"); state.write_bytes(b"authoritative HRS")
+            prior = store / "signer-denial.json"
+            historical = b'{"sequence":5,"session_id":"old-private-session"}'
+            prior.write_bytes(historical)
+            imported = dict(signer_binary="/usr/bin/true", comet_binary="/usr/bin/true",
+                            comet_identity=[os.geteuid(), os.getegid()])
+            env = dict(ETNA_APP_STORE=str(store), ETNA_COMET_HOME=str(home), ETNA_PRIV_KEY=str(key),
+                       ETNA_PRIV_STATE=str(state), ETNA_CHAIN_ID="test")
+            with patch.dict(os.environ,env,clear=True), patch.object(module.etna_import_guard,"launch_info",return_value=imported), patch.object(module.subprocess,"Popen") as spawn:
+                runtime = module.Supervisor()
+                routes = []
+                for _ in range(2):
+                    runtime.start(await_trust=True)
+                    argv = spawn.call_args.args[0]
+                    actual = Path(argv[argv.index("--denial-file") + 1])
+                    self.assertTrue(actual.is_relative_to(store))
+                    self.assertNotEqual(actual, prior)
+                    self.assertEqual(actual.parent.stat().st_mode & 0o077, 0)
+                    self.assertFalse(actual.exists())
+                    actual.write_text('{"sequence":0,"session_id":"fresh"}')
+                    routes.append(actual)
+                    runtime.stop()
+                    self.assertFalse(actual.parent.exists())
+                self.assertNotEqual(*routes)
+            self.assertEqual(prior.read_bytes(), historical)
+            self.assertEqual((key.read_bytes(), state.read_bytes()), (b"registered", b"authoritative HRS"))
+
+    def test_denial_routes_preserve_keys_state_wal_and_uncertain_files(self):
+        module = self.load_module()
+        for case in ("key", "state", "old-wal", "default-key", "default-state", "scratch-hardlink",
+                     "scratch-symlink", "default-foreign", "ordinary-foreign", "ordinary-live-wal"):
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as tmp:
+                base = Path(tmp).resolve()
+                store, home = base / "app", base / "home"
+                store.mkdir(); (home / "config").mkdir(parents=True)
+                (home / "config/config.toml").write_text('priv_validator_laddr="tcp://127.0.0.1:12345"')
+                (home / "config/genesis.json").write_text('{"chain_id":"test"}')
+                default = store / "signer-denial.json"
+                key = default if case == "default-key" else base / "key"
+                state = default if case == "default-state" else base / "state"
+                wal = (home if case == "ordinary-live-wal" else base / "older") / "data/cs.wal/wal"
+                wal.parent.mkdir(parents=True);wal.write_bytes(b"old wal");key.write_bytes(b"registered key");state.write_bytes(b"authoritative HRS")
+                env = dict(ETNA_APP_STORE=str(store), ETNA_COMET_HOME=str(home),ETNA_PRIV_KEY=str(key),
+                           ETNA_PRIV_STATE=str(state), ETNA_CHAIN_ID="test", ETNA_SIGNER_BIN="/usr/bin/true")
+                if case in ("key","state","old-wal","ordinary-live-wal"):
+                    env["ETNA_DENIAL_FILE"] = str({"key":key,"state":state}.get(case,wal))
+                if case == "scratch-hardlink": os.link(state, str(default)+".tmp")
+                if case == "scratch-symlink": Path(str(default)+".tmp").symlink_to(key)
+                if case in ("default-foreign","ordinary-foreign"): default.write_bytes(b"foreign preserved bytes")
+                saved = {p: p.read_bytes() for p in (key,state,wal,default) if p.exists()}
+                imported = None if case.startswith("ordinary-") else dict(signer_binary="/usr/bin/true",comet_binary="/usr/bin/true",comet_identity=[os.geteuid(),os.getegid()])
+                with patch.dict(os.environ,env,clear=True), patch.object(module.etna_import_guard,"launch_info",return_value=imported), patch.object(module.subprocess,"Popen") as spawn:
+                    with self.assertRaises(ValueError): module.Supervisor().start()
+                    spawn.assert_not_called()
+                for p, expected in saved.items(): self.assertEqual(p.read_bytes(),expected)
+
+
 class TypedSupersessionTests(unittest.TestCase):
     def test_comet_identity_keeps_privileged_group_drop_and_same_uid_native_path(self):
         spec = importlib.util.spec_from_file_location("etna_identity_supervisor", ROOT / "script/etna_validator.py")
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         runtime = object.__new__(module.Supervisor)
+        runtime.imported = None
         runtime.container, runtime.home = None, Path("/private/runtime")
         runtime.comet_command = ["/cometbft", "start"]
         runtime.child_options = lambda _: {}
@@ -734,6 +825,7 @@ class TypedSupersessionTests(unittest.TestCase):
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         runtime = object.__new__(module.Supervisor)
+        runtime.imported = None
         runtime.owner_fds = []
         lifetime, peer = socket.socketpair()
         with lifetime, peer:
@@ -748,7 +840,7 @@ class TypedSupersessionTests(unittest.TestCase):
         spec = importlib.util.spec_from_file_location("etna_typed_supervisor", ROOT / "script/etna_validator.py")
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        for changed in (None, "missing", "fatal", "state", "domain", "generic"):
+        for changed in (None, "imported", "large-import", "foreign-import", "missing", "fatal", "state", "domain", "generic"):
             with self.subTest(changed=changed), tempfile.TemporaryDirectory() as directory:
                 store = Path(directory)
                 runtime = object.__new__(module.Supervisor)
@@ -756,6 +848,13 @@ class TypedSupersessionTests(unittest.TestCase):
                 runtime.latch = store / "validator-supervisor.halted"
                 runtime.stop = lambda: None
                 state = json.dumps(dict(chain_id="old-chain", generation=0, inbox="0x01")).encode()
+                runtime.imported = None
+                if changed in ("imported", "large-import", "foreign-import"):
+                    runtime.imported = {"installation_id": "0x" + "11" * 32}
+                    identity = runtime.imported["installation_id"] if changed != "foreign-import" else "0x" + "22" * 32
+                    state = json.dumps(dict(schema=1, installation_id=identity, state=json.loads(state))).encode()
+                    if changed == "large-import":
+                        state = b" " * (2 * 1024 * 1024) + state
                 fatal = b"authenticated higher recovery generation"
                 evidence = dict(schema=1, chain_id="old-chain", previous_generation=0,
                                 current_generation=1, inbox="0x01", state_digest=hashlib.sha256(state).hexdigest(),
@@ -771,7 +870,7 @@ class TypedSupersessionTests(unittest.TestCase):
                 if changed == "generic": runtime.latch.write_text("terminal app trust or deployment identity\n")
                 snapshot = dict(phase="halted", chain_id="old-chain", generation=0)
                 runtime.halt("terminal app trust or deployment identity", snapshot)
-                if changed is None:
+                if changed in (None, "imported", "large-import"):
                     latch = json.loads(runtime.latch.read_text())
                     self.assertEqual(latch["kind"], "expected-generation-supersession")
                     self.assertEqual(latch["evidence_digest"], hashlib.sha256(sidecar.read_bytes()).hexdigest())

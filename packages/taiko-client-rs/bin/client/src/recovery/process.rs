@@ -217,6 +217,7 @@ impl RuntimeState {
             ComponentRole::Lander => 0,
             ComponentRole::Supervisor | ComponentRole::Comet => 1,
             ComponentRole::App => 2,
+            ComponentRole::Execution => 3,
         });
         for owned in &mut self.children {
             stop_child(&mut owned.child, Duration::from_secs(20))?;

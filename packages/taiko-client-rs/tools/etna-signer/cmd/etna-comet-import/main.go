@@ -2,6 +2,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -14,7 +15,7 @@ import (
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return errors.New("expected verify, install or export")
+		return errors.New("expected verify, install, export, bind-stores or check-stores")
 	}
 	flags := flag.NewFlagSet(args[0], flag.ContinueOnError)
 	pkg := flags.String("package", "", "stock package JSON")
@@ -27,11 +28,37 @@ func run(args []string) error {
 	last := flags.Int64("last-height", 0, "last included height")
 	limit := flags.Int64("max-package-bytes", checkpoint.MaxStreamPackageBytes, "complete package disk-spool byte limit")
 	output := flags.String("output", "", "new export JSON file")
+	spoolParent := flags.String("spool-parent", "", "owned discardable parent for bounded package spool")
+	installationID := flags.String("installation-id", "", "32-byte local installation identity")
+	fixedOrigin := flags.Bool("fixed-origin", false, "bind fresh empty fixed-origin stores")
 	if err := flags.Parse(args[1:]); err != nil {
 		return err
 	}
 	if flags.NArg() != 0 {
 		return errors.New("unexpected positional arguments")
+	}
+	if args[0] == "bind-stores" || args[0] == "check-stores" {
+		if *home == "" || len(*installationID) != 66 || (*installationID)[:2] != "0x" {
+			return errors.New("store identity requires home and 32-byte 0x installation-id")
+		}
+		raw, err := hex.DecodeString((*installationID)[2:])
+		if err != nil {
+			return err
+		}
+		var id [32]byte
+		copy(id[:], raw)
+		if args[0] == "bind-stores" {
+			err = checkpoint.BindStoreIdentity(*home, id, *fixedOrigin)
+		} else {
+			if *fixedOrigin {
+				return errors.New("check-stores does not accept fixed-origin")
+			}
+			err = checkpoint.CheckStoreIdentity(*home, id)
+		}
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(struct{}{})
 	}
 	if args[0] == "export" {
 		if *home == "" || *preimage == "" || *output == "" {
@@ -73,7 +100,7 @@ func run(args []string) error {
 		return err
 	}
 	defer f.Close()
-	v, err := checkpoint.VerifyStream(f, checkpoint.Trust{CometHash: *comet, ELHash: *el, ValStateHash: *val}, "", *limit)
+	v, err := checkpoint.VerifyStream(f, checkpoint.Trust{CometHash: *comet, ELHash: *el, ValStateHash: *val}, *spoolParent, *limit)
 	if err != nil {
 		return err
 	}
@@ -88,13 +115,21 @@ func run(args []string) error {
 	}
 	return json.NewEncoder(os.Stdout).Encode(v.Report())
 }
+
+// writeFailure emits a proof receipt only for a verifier-produced contradiction.
+func writeFailure(stdout, stderr io.Writer, err error) int {
+	fmt.Fprintln(stderr, err)
+	var contradiction *checkpoint.ContradictionError
+	if errors.As(err, &contradiction) {
+		if err := json.NewEncoder(stdout).Encode(contradiction.Receipt()); err == nil {
+			return 2
+		}
+	}
+	return 1
+}
+
 func main() {
 	if err := run(os.Args[1:]); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		var contradiction *checkpoint.ContradictionError
-		if errors.As(err, &contradiction) {
-			os.Exit(2)
-		}
-		os.Exit(1)
+		os.Exit(writeFailure(os.Stdout, os.Stderr, err))
 	}
 }

@@ -356,6 +356,7 @@ async fn status_query_reports_the_committed_head() {
     assert_eq!(
         status,
         Status {
+            execution_floor: None,
             head: fx.genesis.genesis_height,
             epoch: 0,
             generation: 0,

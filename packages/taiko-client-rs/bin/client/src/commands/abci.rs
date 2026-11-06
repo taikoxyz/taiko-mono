@@ -69,10 +69,18 @@ impl Subcommand for AbciSubCommand {
     /// the app over the state in `--data-dir`; the ABCI server on `--abci.addr`.
     async fn run(&self) -> Result<()> {
         self.init_logs()?;
-        self.init_metrics()?;
 
         let common = &self.common_flags;
         let flags = &self.abci_flags;
+        let imported = crate::import::boundary::check(&flags.data_dir)?;
+        if imported.is_some() {
+            return Err(lander::checkpoint_import::ImportError::Candidate(
+                "imported ABCI requires abci-import run-app with its bound native execution owner"
+                    .into(),
+            )
+            .into());
+        }
+        self.init_metrics()?;
         let _ownership = abci::ownership::ComponentLease::standalone(
             abci::ownership::ComponentRole::App,
             &flags.data_dir,
@@ -104,7 +112,8 @@ impl Subcommand for AbciSubCommand {
             ))) as Arc<dyn L1Source>
         });
         let l1 = CommitteeL1Source::new(l1, archive, params.registry, opts.l1_timeout);
-        let store = Store::new(flags.data_dir.clone());
+        let store = Store::new(flags.data_dir.clone())
+            .with_val_archive(flags.checkpoint_archive_dir.clone());
         let app = App::new(l1, engine, params, store, opts)?;
         info!(
             chain_id,

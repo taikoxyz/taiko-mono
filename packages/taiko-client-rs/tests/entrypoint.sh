@@ -23,6 +23,10 @@ bash ./script/build_etna_signer.sh
 export ETNA_SIGNER_BIN="$PWD/target/etna-signer/etna-signer"
 bash ./script/build_stock_comet.sh
 export ETNA_COMET_BIN="$PWD/target/etna-signer/cometbft"
+bash ./script/build_etna_el_import.sh
+export ETNA_EL_IMPORT_BIN="${ETNA_EL_IMPORT_BIN:-$PWD/target/etna-signer/etna-el-import}"
+bash ./script/build_etna_el_runtime.sh
+export ETNA_EL_BIN="${ETNA_EL_BIN:-$PWD/target/etna-signer/alethia-reth}"
 
 # Internal selectors used by the fixed `just test-smoke` and `just test-full` recipes. Shift only
 # this leading flag so all remaining arguments retain their nextest meaning. By default the

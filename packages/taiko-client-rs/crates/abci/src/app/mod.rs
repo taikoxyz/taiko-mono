@@ -132,6 +132,9 @@ impl Default for AppOptions {
 /// The app's status as served by the `/status` query.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Status {
+    /// Oldest locally installed execution state, if this node was built by checkpoint import.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub execution_floor: Option<u64>,
     /// Last committed height (== L2 block number); `B*` right after `InitChain`.
     pub head: u64,
     /// Epoch of the head (`e_0` while the head is still the genesis anchor `B*`).
@@ -461,6 +464,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let schedule = &state.schedule();
         let trust = self.trust.snapshot();
         Some(Status {
+            execution_floor: self.store.execution_floor(),
             head: state.last_height,
             epoch: schedule.epoch_of(state.last_height.max(schedule.h0())),
             generation: state.generation,

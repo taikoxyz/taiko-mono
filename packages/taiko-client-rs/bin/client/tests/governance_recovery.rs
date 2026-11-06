@@ -2,6 +2,7 @@
 #[path = "../../../crates/lander/tests/support/mod.rs"]
 mod contracts_support;
 mod support {
+    pub mod checkpoint_import;
     pub mod recovery;
 }
 use alloy_eips::{BlockNumberOrTag, eip2718::Encodable2718};
@@ -18,22 +19,28 @@ use test_harness::{ContractConsensus, mine_l1_blocks, set_interval_mining};
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
 async fn governance_recovery_command_produces_and_lands() -> Result<()> {
-    checkpoint_roundtrip(8, false).await
+    checkpoint_roundtrip(8, false, false).await
 }
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
 async fn governance_recovery_l7_overlap_preserves_global_grid() -> Result<()> {
-    checkpoint_roundtrip(7, false).await
+    checkpoint_roundtrip(7, false, false).await
 }
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
 async fn governance_recovery_l6_blanks_fi_and_lands_epoch_boundary() -> Result<()> {
-    checkpoint_roundtrip(6, true).await
+    checkpoint_roundtrip(6, true, false).await
 }
 
-async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool) -> Result<()> {
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "docker"]
+async fn checkpoint_import_recovered_fixed_and_landed_points_continue_stock() -> Result<()> {
+    checkpoint_roundtrip(8, false, true).await
+}
+
+async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool, with_import: bool) -> Result<()> {
     test_harness::init_tracing();
     let f = ContractFixture::deploy_config(1, 120, epoch_len).await?;
     set_interval_mining(&f.anvil.provider, 1).await?;
@@ -45,6 +52,9 @@ async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool) -> Result<()> {
     )
     .await?;
     let commands = Commands::new(&f, &c)?;
+    if with_import {
+        support::checkpoint_import::enable_recovery_archive(&commands)?;
+    }
     let result: Result<()> =
         async {
             c.wait_for_height(6).await?;
@@ -233,6 +243,15 @@ async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool) -> Result<()> {
                     (0, 1),
                     "blank entry stays pending until the unchanged FI delay elapses"
                 );
+            }
+            if with_import {
+                support::checkpoint_import::recovered(&f, &c, &commands, &plan, &old_blocks)
+                    .await?;
+                activation.stop().await?;
+                assert_eq!(fs::read(old_hrs_path)?, old_hrs);
+                assert_eq!(fs::read(old_key_path)?, old_key);
+                assert_eq!(fs::read(old_wal_path)?, old_wal);
+                return Ok(());
             }
             if epoch_len == 8 {
                 support::recovery::full_node::join_after_landing(&f, &c, &old_blocks).await?;

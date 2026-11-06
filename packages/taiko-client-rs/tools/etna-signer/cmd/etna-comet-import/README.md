@@ -72,13 +72,19 @@ not authority. Export writes the complete package to `--output` and no report.
 
 Exit 0 means the requested offline operation completed. Exit 1 rejects malformed,
 missing or unsupported material, source/store errors, and ordinary bad candidates.
-Exit 2 means the trusted terminal Comet hash and matching landed preimage
-contradict `header(s).next_validators_hash`; the controller must durably safety-halt.
+For a verified contradiction, exit 2 is accompanied by one strict JSON stdout
+receipt with `schema=1`, `kind=authenticated_contradiction`,
+`reason=validator_state_next_hash_mismatch`, `height`, `comet_hash`, `el_hash`,
+`val_state_hash`, and `package_hash`. The controller must match all identity fields
+to its separately verified landing and input before durably safety-halting.
+Exit 2 alone is insufficient: a Go runtime crash or SIGQUIT can also return it.
 Rust handles independently derived committee and terminal EL contradictions.
 
 The CLI streams one bounded block at a time into a private spool. Its default
 aggregate disk profile is 1 TiB, configurable downward with `--max-package-bytes`
-for verification/install. Each block JSON value is bounded to 128 MiB and each
+for verification/install. The lifecycle passes `--spool-parent` pointing to its
+private discardable work directory, so interrupted child spools are reclaimed
+with that operation. Each block JSON value is bounded to 128 MiB and each
 metadata value to 64 MiB. Exceeding a bound rejects the entire package, without
 shortening the window. The internal in-memory `Read`/`Verify` convenience API is
 for small packages and has a 1 GiB decoding profile. Export streams directly
@@ -96,6 +102,15 @@ It writes only config/genesis.json and stock state/blockstore/evidence databases
 flushes them, closes and reopens them through stock APIs, and fsyncs directories.
 A crash leaves an unpublished partial home; the parent controller may remove
 only its own staging and retry. Existing destinations are always refused.
+
+Before publication, the controller uses `bind-stores --home ...
+--installation-id 0x...` to bind one private role-specific identity key inside
+each state/blockstore/evidence GoLevelDB. `--fixed-origin` creates all three
+empty databases before stock InitChain. Binding requires the controller's private
+`.etna-stock-staging.json` claim, refuses existing identities, and consumes that
+claim on success. `check-stores` with the same home/id opens all three read-only
+and verifies their identity before runtime startup, including after progress.
+These commands return `{}` on success and never authorize signing.
 
 Historical records use the pinned public ValidatorsInfo/ConsensusParamsInfo
 protobufs and stock key formats: full validator sets at the first retained

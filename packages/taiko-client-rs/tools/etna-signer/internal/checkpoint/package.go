@@ -115,11 +115,28 @@ func (v *Verified) Report() Report { return v.report }
 
 // ContradictionError means authenticated bytes contradict the authenticated landing.
 // Callers must durably safety-halt rather than retry another publisher.
-type ContradictionError struct{ Reason string }
+type ContradictionError struct{ receipt ContradictionReceipt }
 
-func (e *ContradictionError) Error() string { return "authenticated contradiction: " + e.Reason }
-func hexBytes(b []byte) string              { return "0x" + hex.EncodeToString(b) }
-func keccak(b []byte) []byte                { h := sha3.NewLegacyKeccak256(); _, _ = h.Write(b); return h.Sum(nil) }
+// ContradictionReceipt binds an actual verified contradiction to the selected landing and bytes.
+// An exit code alone cannot distinguish this proof from a Go panic or runtime signal.
+type ContradictionReceipt struct {
+	Schema       uint32 `json:"schema"`
+	Kind         string `json:"kind"`
+	Reason       string `json:"reason"`
+	Height       int64  `json:"height"`
+	CometHash    string `json:"comet_hash"`
+	ELHash       string `json:"el_hash"`
+	ValStateHash string `json:"val_state_hash"`
+	PackageHash  string `json:"package_hash"`
+}
+
+// Receipt returns the machine-readable identity produced only by the verification path.
+func (e *ContradictionError) Receipt() ContradictionReceipt { return e.receipt }
+func (e *ContradictionError) Error() string {
+	return "authenticated contradiction: " + e.receipt.Reason
+}
+func hexBytes(b []byte) string { return "0x" + hex.EncodeToString(b) }
+func keccak(b []byte) []byte   { h := sha3.NewLegacyKeccak256(); _, _ = h.Write(b); return h.Sum(nil) }
 func decodeHex(s string, max int) ([]byte, error) {
 	if !strings.HasPrefix(s, "0x") || len(s)%2 != 0 || len(s) < 2 || len(s) > 2+2*max {
 		return nil, errors.New("invalid or oversized 0x bytes")
@@ -477,7 +494,10 @@ func verifySource(p *Package, trust Trust, source func(func(Block) error) error,
 		return nil, errors.New("terminal trusted Comet hash or height mismatch")
 	}
 	if !bytes.Equal(current.Hash(), terminal.NextValidatorsHash) {
-		return nil, &ContradictionError{Reason: "landed state contradicts next_validators_hash"}
+		return nil, &ContradictionError{receipt: ContradictionReceipt{
+			Schema: 1, Kind: "authenticated_contradiction", Reason: "validator_state_next_hash_mismatch",
+			Height: height, CometHash: hexBytes(comet), ELHash: hexBytes(el), ValStateHash: hexBytes(vh), PackageHash: packageHash,
+		}}
 	}
 	s, e := sm.MakeGenesisState(g)
 	if e != nil {

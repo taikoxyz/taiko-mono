@@ -17,6 +17,9 @@ use thiserror::Error;
 /// - Metrics initialization errors
 #[derive(Debug, Error)]
 pub enum CliError {
+    /// Classified offline checkpoint failure. Only authenticated safety evidence exits two.
+    #[error("checkpoint import: {0}")]
+    CheckpointImport(#[from] lander::checkpoint_import::ImportError),
     /// Canonical writer ownership is held or cannot be established safely.
     #[error(transparent)]
     Ownership(#[from] abci::ownership::OwnershipError),

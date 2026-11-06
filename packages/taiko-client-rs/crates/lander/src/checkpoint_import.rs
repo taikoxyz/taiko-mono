@@ -17,7 +17,7 @@ mod authenticate;
 /// Evidence expiry and exact minimal suffix proof.
 mod window;
 
-pub use authenticate::authenticate_import;
+pub use authenticate::{authenticate_import, select_export};
 pub use window::evidence_expired;
 
 /// Import failures keep publisher faults distinct from authenticated contradictions.
