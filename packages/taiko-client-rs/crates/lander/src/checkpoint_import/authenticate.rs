@@ -815,7 +815,6 @@ fn check_metadata(
         )
         .into());
     }
-    rules::check_fixed_fields(&env.block.header).map_err(candidate)?;
     let number = anchor.number;
     if anchor.inbox.recovery_generation != state.generation ||
         env.block.header.parent_beacon_block_root != Some(anchor.state_root)
@@ -840,6 +839,9 @@ fn check_metadata(
         rules::RuleViolation::UnsupportedRuleset { .. } => ContentFault::Unsupported(e.to_string()),
         _ => ContentFault::Rule(e.to_string()),
     })?;
+    // The checks above are deployment core (START-10.1-2a). The fixed EL header fields are
+    // ruleset 0's and a later ruleset may change them, so check them after its refusal.
+    rules::check_fixed_fields(&env.block.header).map_err(candidate)?;
     rules::check_anchor_freshness(
         env.block.header.timestamp,
         anchor.timestamp,
@@ -1106,7 +1108,7 @@ mod tests {
     #[test]
     fn rules_boundary_is_selected_from_inherited_anchor_and_block_time() {
         let fx = Fixture::new(6, 6);
-        let env = abci::EtnaEnvelope::decode(&fx.blocks[&6].block.data[0]).unwrap();
+        let mut env = abci::EtnaEnvelope::decode(&fx.blocks[&6].block.data[0]).unwrap();
         let mut anchor = fx.anchors[&6].clone();
         let state = AppState {
             schema_version: 17,
@@ -1124,9 +1126,9 @@ mod tests {
             committees: BTreeMap::new(),
             val_state: fx.val_states[&5].clone(),
         };
-        let check = |anchor: &AnchorState| {
+        let check = |env: &abci::EtnaEnvelope, anchor: &AnchorState| {
             check_metadata(
-                &env,
+                env,
                 MetadataContext {
                     parent: &fx.headers[&5],
                     anchor,
@@ -1139,11 +1141,21 @@ mod tests {
         };
         anchor.inbox.rules_schedule =
             (U256::from(1) << 48) | (U256::from(env.block.header.timestamp + 1) << 96);
-        check(&anchor).unwrap();
+        check(&env, &anchor).unwrap();
         anchor.inbox.rules_schedule =
             (U256::from(1) << 48) | (U256::from(env.block.header.timestamp) << 96);
         assert!(
-            matches!(check(&anchor), Err(ContentFault::Unsupported(ref message)) if message.contains("ruleset"))
+            matches!(check(&env, &anchor), Err(ContentFault::Unsupported(ref message)) if message.contains("ruleset"))
+        );
+        // A later ruleset may allow a nonzero nonce: refuse the ruleset before ruleset 0's
+        // fixed fields, or a landed block under it would safety-halt this node for good.
+        env.block.header.nonce = alloy_primitives::B64::from(1u64);
+        assert!(
+            matches!(check(&env, &anchor), Err(ContentFault::Unsupported(ref message)) if message.contains("ruleset"))
+        );
+        anchor.inbox.rules_schedule = U256::ZERO;
+        assert!(
+            matches!(check(&env, &anchor), Err(ContentFault::Rule(ref message)) if message.contains("nonce"))
         );
     }
 
