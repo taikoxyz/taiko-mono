@@ -412,7 +412,7 @@ func TestStreamingRejectsDuplicatesOversizeAndTrailing(t *testing.T) {
 	}
 }
 
-func TestTerminalCommitAvailableWithoutSuccessorBlock(t *testing.T) {
+func TestTerminalCommitUsesStockKeysWithoutSuccessorBlock(t *testing.T) {
 	p, trust, _ := fixture(t)
 	v, e := Verify(p, trust)
 	if e != nil {
@@ -426,13 +426,31 @@ func TestTerminalCommitAvailableWithoutSuccessorBlock(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	defer db.Close()
 	blocks := bs.NewBlockStore(db)
-	if c := blocks.LoadBlockCommit(100001); c == nil || hexBytes(c.BlockID.Hash) != trust.CometHash {
-		t.Fatal("terminal commit missing from stock signed-header evidence lookup")
+	// A stock node at state s has SC:s but no C:s, so stock evidence's
+	// signed-header lookup at height s must fail here too.
+	if blocks.LoadBlockCommit(100001) != nil {
+		t.Fatal("installed C:s that a stock node at state s does not have")
+	}
+	seen := blocks.LoadSeenCommit(100001)
+	if seen == nil || hexBytes(seen.BlockID.Hash) != trust.CometHash {
+		t.Fatal("terminal seen commit missing")
 	}
 	if blocks.LoadBlock(100002) != nil {
 		t.Fatal("invented successor block")
+	}
+	raw, e := seen.ToProto().Marshal()
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = db.SetSync([]byte("C:100001"), raw); e != nil {
+		t.Fatal(e)
+	}
+	if e = db.Close(); e != nil {
+		t.Fatal(e)
+	}
+	if e = verifyReopened(filepath.Join(home, "data"), v); e == nil {
+		t.Fatal("reopen accepted a terminal C:s that stock does not write")
 	}
 }
 
@@ -801,6 +819,13 @@ func TestReopensActualSuccessorCommitsAndPreservesMultiblockExport(t *testing.T)
 		}
 		id := types.BlockID{Hash: b.Hash(), PartSetHeader: parts.Header()}
 		stored := blocks.LoadBlockCommit(b.Height)
+		if b.Height == 100002 {
+			// Stock keeps the terminal commit only as SC:s until s+1 is saved.
+			if stored != nil {
+				t.Fatal("installed terminal C:s")
+			}
+			stored = blocks.LoadSeenCommit(b.Height)
+		}
 		if stored == nil {
 			t.Fatal("missing actual stored commit")
 		}

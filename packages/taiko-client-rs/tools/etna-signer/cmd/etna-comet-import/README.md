@@ -124,8 +124,8 @@ below the retained window. Bulk reopen/export queries require the pinned stock
 irrelevant historical proposer priorities; no slow fallback is allowed. Final
 s/s+1/s+2 are full, and post-s state uses stock
 Bootstrap. Stock SaveBlock retains each successor LastCommit and terminal
-seen-commit. The terminal verified commit also populates stock C:s because
-stock evidence's signed-header lookup requires it before s+1 exists. Evidence
+seen-commit. As on a stock node at state s, C:s is absent until s+1 is saved,
+so stock evidence's signed-header lookup at height s fails the same way. Evidence
 Pool.Update rebuilds committed markers from authenticated lists without calling
 historical ValidateBlock/CheckEvidence or fetching pre-window data. Pending
 evidence starts empty, and normal new-evidence validation uses stock APIs.

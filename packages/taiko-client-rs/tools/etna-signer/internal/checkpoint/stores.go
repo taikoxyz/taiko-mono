@@ -190,18 +190,9 @@ func installFresh(home string, v *Verified, flushTree func(string) error) (err e
 		if e != nil {
 			return e
 		}
+		// Stock SaveBlock(h) writes C:h-1 and SC:h. Like a stock node at state s,
+		// the terminal commit is only SC:s; C:s appears when s+1 is saved.
 		blocks.SaveBlock(b, parts, record.commit)
-		// Without a successor, stock has only SC:s. Its evidence signed-header lookup
-		// requires C:s; install the same verified terminal commit under that stock key.
-		if b.Height == v.state.LastBlockHeight {
-			raw, e := record.commit.ToProto().Marshal()
-			if e != nil {
-				return e
-			}
-			if e = blockDB.SetSync([]byte(fmt.Sprintf("C:%d", b.Height)), raw); e != nil {
-				return e
-			}
-		}
 		batch := stateDB.NewBatch()
 		defer batch.Close()
 		hash := record.set.Hash()
@@ -357,12 +348,24 @@ func verifyReopened(data string, v *Verified) (err error) {
 		if read == nil || !bytes.Equal(read.Hash(), b.Hash()) {
 			return errors.New("reopened block mismatch")
 		}
-		storedCommit := blocks.LoadBlockCommit(b.Height)
+		key := "C"
+		var storedCommit *types.Commit
+		if b.Height == v.state.LastBlockHeight {
+			// A stock node has no C:s before s+1, so stock evidence lookups at
+			// height s fail on both nodes alike.
+			if blocks.LoadBlockCommit(b.Height) != nil {
+				return errors.New("reopened terminal C:s diverges from stock")
+			}
+			key = "SC"
+			storedCommit = blocks.LoadSeenCommit(b.Height)
+		} else {
+			storedCommit = blocks.LoadBlockCommit(b.Height)
+		}
 		if storedCommit == nil {
-			return errors.New("missing reopened actual block commit")
+			return fmt.Errorf("missing reopened %s:%d", key, b.Height)
 		}
 		if e = record.set.VerifyCommit(v.genesis.ChainID, record.id, b.Height, storedCommit); e != nil {
-			return fmt.Errorf("invalid reopened C:%d: %w", b.Height, e)
+			return fmt.Errorf("invalid reopened %s:%d: %w", key, b.Height, e)
 		}
 		storedBytes, e := storedCommit.ToProto().Marshal()
 		if e != nil {
