@@ -210,13 +210,54 @@ async fn four_validator_native_consensus_fees_fi_epoch_landing_and_restart() -> 
         .await?;
     assert_eq!(p.get_balance(f.admin).await?, treasury_before + fi_fee);
     mine_l1_blocks(p, 3).await?;
+    // Landing observes peer 0. The other three can decide a block before peer 3 has
+    // executed it, so establish the offline validator's own durable baseline before stopping.
+    let first_height = first.batch.input.lastHeight.to::<u64>();
+    let history = c.app_dir(3).join(format!("comet-hash-{first_height}.json"));
+    let hrs_path = f.signer_storage.path().join("3/state.json");
+    let (peer_head, signed_height) = wait_until(
+        &format!("peer 3 to commit and sign the first landing at {first_height}"),
+        Duration::from_secs(120),
+        Duration::from_millis(100),
+        || async {
+            let app = c.peers[3].abci_status().await?;
+            let catching_up = c.peers[3].call("status", &[]).await?["sync_info"]["catching_up"]
+                .as_bool()
+                .context("peer 3 stock catching_up flag")?;
+            let signer = c.signing_state(3).with_context(|| format!("read {}", hrs_path.display()))?;
+            let signed = signer["height"].as_str().context("peer 3 HRS height")?.parse::<u64>()?;
+            ensure!(
+                app.head >= first_height && app.trust_ready && !app.syncing && !catching_up && signed >= first_height,
+                "peer 3 head={}, trust_ready={}, syncing={}, stock catching_up={catching_up}, HRS={signed}, required={first_height}",
+                app.head, app.trust_ready, app.syncing,
+            );
+            Ok(Some((app.head, signed)))
+        },
+    )
+    .await?;
+    let saved_history =
+        std::fs::read(&history).with_context(|| format!("read {}", history.display()))?;
+    let local_hash: B256 = serde_json::from_slice(&saved_history)
+        .with_context(|| format!("decode {}", history.display()))?;
+    ensure!(
+        local_hash == first.batch.input.lastCometHash,
+        "peer 3 {} holds {local_hash}, landing commits {}",
+        history.display(),
+        first.batch.input.lastCometHash
+    );
+    eprintln!(
+        "peer 3 before stop: head={peer_head} HRS={signed_height} first_landing={first_height} comet={local_hash}"
+    );
     c.stop_node(3).await?;
-    let old_state = c.signing_state(3)?;
+    let old_state =
+        c.signing_state(3).with_context(|| format!("read stopped HRS {}", hrs_path.display()))?;
     let old_height = old_state["height"].as_str().context("HRS height")?.parse::<u64>()?;
     let key_path = f.signer_storage.path().join("3/key.json");
-    let key = std::fs::read(&key_path)?;
-    let history = c.app_dir(3).join(format!("comet-hash-{}.json", first.batch.input.lastHeight));
-    let saved_history = std::fs::read(&history)?;
+    let key = std::fs::read(&key_path).with_context(|| format!("read {}", key_path.display()))?;
+    assert_eq!(
+        std::fs::read(&history).with_context(|| format!("read stopped {}", history.display()))?,
+        saved_history
+    );
     let wal = c.comet_home(3).join("data/cs.wal/wal");
     ensure!(wal.is_file(), "Comet WAL must survive node stop");
     c.wait_for_height(old_height + 8).await?;
@@ -235,7 +276,13 @@ async fn four_validator_native_consensus_fees_fi_epoch_landing_and_restart() -> 
         },
     )
     .await?;
-    assert_eq!(std::fs::read(key_path)?, key);
+    ensure!(
+        std::fs::read(&key_path)
+            .with_context(|| format!("read restarted {}", key_path.display()))? ==
+            key,
+        "registered key changed across peer 3 restart at {}",
+        key_path.display()
+    );
     // Restart never rewrites a committed Comet block ID. Commits delete one only once the
     // committed anchor's checkpoint has passed it, after saving that state, so read the file
     // before the state.
