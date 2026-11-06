@@ -25,8 +25,11 @@ on:
 permissions:
   contents: read
 
+# Workflow-level concurrency applies before the job's `if`. Adding any other label also starts
+# this workflow, and its job is then skipped; that run gets a group of its own so it cannot
+# cancel a full run that is in progress.
 concurrency:
-  group: etna-formal-full-${{ github.ref }}
+  group: etna-formal-full-${{ github.ref }}${{ github.event.action == 'labeled' && github.event.label.name != 'formal-full' && format('-{0}', github.run_id) || '' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
