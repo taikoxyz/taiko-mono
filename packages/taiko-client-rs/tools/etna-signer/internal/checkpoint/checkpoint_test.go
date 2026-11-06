@@ -454,6 +454,95 @@ func TestTerminalCommitUsesStockKeysWithoutSuccessorBlock(t *testing.T) {
 	}
 }
 
+// lightClientAttackVerdict runs stock CheckEvidence at state s on an
+// equivocation LightClientAttackEvidence whose common height is s.
+func lightClientAttackVerdict(t *testing.T, data string, vals *types.ValidatorSet) error {
+	t.Helper()
+	bd, e := dbm.NewGoLevelDB("blockstore", data)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer bd.Close()
+	sd, e := dbm.NewGoLevelDB("state", data)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer sd.Close()
+	ed, e := dbm.NewGoLevelDB("evidence", data)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer ed.Close()
+	blocks := bs.NewBlockStore(bd)
+	pool, e := evidence.NewPool(ed, sm.NewStore(sd, sm.StoreOptions{}), blocks)
+	if e != nil {
+		t.Fatal(e)
+	}
+	meta, seen := blocks.LoadBlockMeta(100001), blocks.LoadSeenCommit(100001)
+	if meta == nil || seen == nil {
+		t.Fatal("terminal block or seen commit missing")
+	}
+	// Same round as the terminal commit and a validly derived header, so this
+	// is equivocation, not amnesia or lunatic.
+	conflicting := meta.Header
+	conflicting.DataHash = bytes.Repeat([]byte{0xab}, 32)
+	id := types.BlockID{Hash: conflicting.Hash(), PartSetHeader: types.PartSetHeader{Total: 1, Hash: bytes.Repeat([]byte{4}, 32)}}
+	key := secp256k1eth.PrivKey(bytes.Repeat([]byte{7}, 32))
+	vote := &types.Vote{Type: pb.PrecommitType, Height: conflicting.Height, Round: seen.Round, BlockID: id, Timestamp: conflicting.Time, ValidatorAddress: key.PubKey().Address(), ValidatorIndex: 0}
+	if vote.Signature, e = key.Sign(types.VoteSignBytes(conflicting.ChainID, vote.ToProto())); e != nil {
+		t.Fatal(e)
+	}
+	commit := &types.Commit{Height: conflicting.Height, Round: seen.Round, BlockID: id, Signatures: []types.CommitSig{vote.CommitSig()}}
+	ev := &types.LightClientAttackEvidence{
+		ConflictingBlock:    &types.LightBlock{SignedHeader: &types.SignedHeader{Header: &conflicting, Commit: commit}, ValidatorSet: vals},
+		CommonHeight:        100001,
+		ByzantineValidators: vals.Validators,
+		TotalVotingPower:    vals.TotalVotingPower(),
+		Timestamp:           meta.Header.Time,
+	}
+	if e = ev.ValidateBasic(); e != nil {
+		t.Fatal(e)
+	}
+	return pool.CheckEvidence(types.EvidenceList{ev})
+}
+
+func TestLightClientAttackAtTerminalHeightMatchesStock(t *testing.T) {
+	p, trust, vals := fixture(t)
+	v, e := Verify(p, trust)
+	if e != nil {
+		t.Fatal(e)
+	}
+	home := filepath.Join(realTemp(t), "comet")
+	if e = Install(home, v); e != nil {
+		t.Fatal(e)
+	}
+	data := filepath.Join(home, "data")
+	// A stock node at state s has no C:s, so its signed-header lookup at
+	// common height s fails. The imported node must give the same verdict.
+	if e = lightClientAttackVerdict(t, data, vals); e == nil || !strings.Contains(e.Error(), "don't have commit at height #100001") {
+		t.Fatalf("imported verdict at state s differs from stock: %v", e)
+	}
+	// Control: with a C:s row the same evidence verifies, so only the key
+	// layout decides the verdict above.
+	db, e := dbm.NewGoLevelDB("blockstore", data)
+	if e != nil {
+		t.Fatal(e)
+	}
+	raw, e := bs.NewBlockStore(db).LoadSeenCommit(100001).ToProto().Marshal()
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = db.SetSync([]byte("C:100001"), raw); e != nil {
+		t.Fatal(e)
+	}
+	if e = db.Close(); e != nil {
+		t.Fatal(e)
+	}
+	if e = lightClientAttackVerdict(t, data, vals); e != nil {
+		t.Fatalf("control evidence rejected with C:s present: %v", e)
+	}
+}
+
 func windowFixture(t *testing.T) (*Package, Trust, []*types.ValidatorSet) {
 	t.Helper()
 	p, trust, old := fixture(t)
