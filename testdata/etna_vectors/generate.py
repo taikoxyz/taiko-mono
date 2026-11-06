@@ -16,7 +16,10 @@ equation. Proof-of-possession signatures come from `cast wallet sign --no-hash`,
 EIP-712 hashing (`cast wallet sign --data`). Vote sign bytes and their secp256k1eth signatures come
 from stock CometBFT v0.40.0 (`votegen/`, run with `go run`); each sign-byte string must equal a
 separate Python encoder written from appendix A, and each signature must recover to the key's
-address over keccak256 of the sign bytes and equal cast's signature of that digest. Forced-inclusion
+address over keccak256 of the sign bytes and equal cast's signature of that digest. Validator states
+come from stock CometBFT v0.40.0 committing blocks (`valgen/`, run with `go run`); every state must
+equal `valset_model.py`, a separate Python reading of CometBFT's validator-set arithmetic, and every
+preimage and hash must equal `cast abi-encode` and `cast keccak` of its entries. Forced-inclusion
 eligibility cases (spec 7.2) are RLP-encoded in Python and signed with `cast wallet sign --no-hash`
 over `cast keccak` signing hashes (EIP-7702 tuples must equal `cast wallet sign-auth`); each case is
 classified again from its bytes, an ineligible case must break only the rule it is labelled with,
@@ -27,11 +30,14 @@ that every value survives JSON parsing exactly.
 """
 
 import base64
+import concurrent.futures
 import functools
 import json
 import os
 import pathlib
 import subprocess
+
+import valset_model
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
@@ -1336,6 +1342,484 @@ def votes(key_list, domains):
     )
 
 
+# --- validator-state chains: CometBFT v0.40.0 (ENC-A-29a, PROOF-6.2-41a) ------------------------
+
+VALGEN = HERE / "valgen"
+VAL_STATE_SIGNATURE = (
+    "f(bytes32,uint256,(uint8,bytes32,uint64,int64)[],uint256,"
+    "(uint8,bytes32,uint64,int64)[],uint256)"
+)
+VAL_KEYS = tuple((f"c{i}", 0xC0 + i) for i in range(1, 13))  # validator keys c1..c12
+VAL_GENESIS_TIME = 1_700_000_000
+MAX_TOTAL_VOTING_POWER = (2**63 - 1) // 8  # CometBFT's MaxTotalVotingPower, appendix A's MAX
+MAX_COMMITTEE_SIZE = 4096  # n_max's upper bound (START-10-11)
+MAX_COMMITTEE_KEY = 0x10000  # member i of the maximum committee has private key 0x10000 + i
+# Rows shown from each end of a maximum-committee set; the full sets follow from the rules.
+MAX_COMMITTEE_SAMPLE = 3
+
+# Each chain is one CometBFT chain from a genesis at start height o. FinalizeBlock returns validator
+# updates only at S(t) = H(t) - 2 = t·L - 1 (4.2, 4.3; H(t) = 1 + t·L counts from block 0 for any
+# S), each the change from the pending committee to epoch t's: new members at their power, leaving
+# members at 0 and re-weighted members at their new power. `expect` names events the chain exists
+# to show: (height, step, kind, fields) that the model must log.
+VAL_CHAINS = (
+    {
+        "name": "gen0",
+        "description": (
+            "Generation 0 from the Etna start S = 0 with L = 7: genesis at 0, every single-height "
+            "increment through 48, and switches at S(1)..S(7) that add (6), remove (13), re-weight "
+            "(20), add, remove and re-weight at once (27), add (34), replace the largest member "
+            "(41) and re-weight (48). Equal powers order by address; ties go to the lower address."
+        ),
+        "generation": 0,
+        "start": 0,
+        "end": 48,
+        "epoch_length": 7,
+        "genesis": (("c1", 30), ("c2", 30), ("c3", 20), ("c4", 10)),
+        "switches": {
+            6: (("c5", 25),),
+            13: (("c4", 0),),
+            20: (("c3", 45),),
+            27: (("c6", 15), ("c2", 0), ("c1", 20)),
+            34: (("c8", 20),),
+            41: (("c3", 0), ("c9", 1)),
+            48: (("c5", 50),),
+        },
+        "expect": (
+            (0, "genesis", "tie", {"tied": ["c1", "c2"], "proposer": "c1"}),
+            (6, "update", "center", {}),
+            (27, "update", "rescale", {"fires": True}),
+            (41, "update", "rescale", {"fires": True}),
+        ),
+    },
+    {
+        "name": "gen1",
+        "description": (
+            "Generation 1 from governance recovery at c = 48 (8.4): a new genesis at 48 with a "
+            "different committee and initial height 49. Generation 0's update returned at "
+            "S(7) = 48 is discarded with the rest of its state; the next switch is S(8) = 55 "
+            "(add one member, remove another), active from H(8) = 57."
+        ),
+        "generation": 1,
+        "start": 48,
+        "end": 60,
+        "epoch_length": 7,
+        "genesis": (("c3", 40), ("c6", 15), ("c10", 25), ("c11", 25)),
+        "switches": {55: (("c12", 10), ("c6", 0))},
+        "expect": ((48, "genesis_next", "tie", {"tied": ["c10", "c11"], "proposer": "c10"}),),
+    },
+    {
+        "name": "bounds_a",
+        "description": (
+            "L = 3. At S(1) = 2 the update leaves a priority spread of exactly 2·total, so "
+            "neither UpdateWithChangeSet nor IncrementProposerPriority rescales; the increment "
+            "raises it to 2·total + 1, so height 3 rescales by 2 and then centers a sum of -1 by "
+            "floor(-1 / 4) = -1, leaving the largest residual sum, n - 1."
+        ),
+        "generation": 0,
+        "start": 0,
+        "end": 4,
+        "epoch_length": 3,
+        "genesis": (("c2", 2), ("c9", 2), ("c1", 12), ("c4", 8)),
+        "switches": {2: (("c12", 1), ("c4", 0))},
+        "expect": (
+            (2, "update", "rescale", {"fires": False}),
+            (2, "increment", "rescale", {"fires": False}),
+            (3, "increment", "rescale", {"fires": True, "ratio": 2}),
+            (3, "increment", "center", {"sum": -1, "shift": -1}),
+        ),
+    },
+    {
+        "name": "bounds_b",
+        "description": (
+            "L = 3. Height 3 rescales a spread of 2·total + 1 left by the switch at S(1) = 2; the "
+            "switch at S(2) = 5 leaves a spread of 2·total + 1 inside UpdateWithChangeSet, whose "
+            "rescale truncates negative priorities toward zero."
+        ),
+        "generation": 0,
+        "start": 0,
+        "end": 6,
+        "epoch_length": 3,
+        "genesis": (("c3", 6), ("c6", 4), ("c12", 11), ("c10", 5)),
+        "switches": {2: (("c10", 0), ("c9", 1)), 5: (("c12", 0),)},
+        "expect": (
+            (2, "update", "center", {}),
+            (3, "increment", "rescale", {"fires": True, "ratio": 2}),
+            (5, "update", "rescale", {"fires": True, "ratio": 2, "truncated": ["c6", "c9"]}),
+        ),
+    },
+    {
+        "name": "bounds_c",
+        "description": (
+            "L = 3. Three members of equal power: genesis and later increments break priority ties "
+            "by address. Height 3 has no update and increments a set whose spread is exactly "
+            "2·total, which is not rescaled."
+        ),
+        "generation": 0,
+        "start": 0,
+        "end": 4,
+        "epoch_length": 3,
+        "genesis": (("c4", 1), ("c3", 1), ("c8", 1), ("c9", 3)),
+        "switches": {2: (("c9", 0),)},
+        "expect": (
+            (0, "genesis_next", "tie", {"tied": ["c8", "c3", "c4"], "proposer": "c8"}),
+            (3, "increment", "rescale", {"fires": False}),
+        ),
+    },
+)
+
+# name, chain, origin p, last height h, origin record's validator-state hash: None for the record
+# the start write leaves at S (0), else the (chain, height) whose state the record holds.
+VAL_LANDINGS = (
+    ("gen0_from_start", "gen0", 0, 48, None),
+    ("gen0_from_24", "gen0", 24, 48, ("gen0", 24)),
+    ("gen1_from_start", "gen1", 48, 60, ("gen0", 48)),
+)
+
+
+def max_committee_power(index):
+    """2^48 + (i mod 64) - 32 for i < 4095, and the rest of MaxTotalVotingPower for i = 4095."""
+    if index < MAX_COMMITTEE_SIZE - 1:
+        return 2**48 + index % 64 - 32
+    return MAX_TOTAL_VOTING_POWER - sum(map(max_committee_power, range(MAX_COMMITTEE_SIZE - 1)))
+
+
+def run_valgen(request):
+    """CometBFT v0.40.0's states of every chain (`valgen/`, run with `go run`)."""
+    result = subprocess.run(
+        ["go", "run", "."],
+        cwd=VALGEN,
+        input=json.dumps(request),
+        capture_output=True,
+        text=True,
+        env={**os.environ, "GOFLAGS": "-mod=readonly", "GOWORK": "off"},
+    )
+    if result.returncode != 0:
+        raise SystemExit(f"valgen failed:\n{result.stderr}")
+    return json.loads(result.stdout)
+
+
+def keccak_stdin(data):
+    """`cast keccak` with the data on stdin, for inputs too large for one argument."""
+    return subprocess.run(
+        ["cast", "keccak"], input=data, capture_output=True, text=True, check=True
+    ).stdout.strip()
+
+
+def epoch_roles(epoch_length, height):
+    """`S(t)`, `S(t)+1` or `H(t)` when `height` is one of them (S(t) = t·L - 1, H(t) = t·L + 1)."""
+    roles = []
+    for name, offset in (("S", -1), ("S+1", 0), ("H", 1)):
+        t, rest = divmod(height - offset, epoch_length)
+        if rest == 0 and t >= 1:
+            roles.append(f"{name[0]}({t}){name[1:]}")
+    return roles
+
+
+def val_state_preimage(height, sets, key_info):
+    """Appendix A's preimage of valStateHash, encoded by `cast abi-encode`."""
+
+    def array(entries):
+        rows = []
+        for key, power, priority in entries:
+            info = key_info[key]
+            rows.append(f"({info['ck_prefix']},{info['ck_x']},{power},{priority})")
+        return "[" + ",".join(rows) + "]"
+
+    (current, current_proposer), (following, next_proposer) = sets
+    return abi_encode(
+        VAL_STATE_SIGNATURE,
+        tag("ETNA_VAL_STATE_V1"),
+        height,
+        array(current),
+        current_proposer,
+        array(following),
+        next_proposer,
+    )
+
+
+def check_val_states(chain, generated, key_info, address):
+    """Each CometBFT state must match the model, be in set order, and have the preimage and hash
+    that `cast` computes. Returns the states as `(height, current, cp, next, np, preimage, hash)`
+    and the model's events."""
+    updates = {h: tuple(c) for h, c in chain["switches"].items()}
+    model_states, events = valset_model.replay(
+        address, chain["start"], chain["end"], chain["genesis"], updates
+    )
+    assert len(generated) == len(model_states), chain["name"]
+    out = []
+    for state, (height, model_current, model_next) in zip(generated, model_states):
+        assert int(state["height"]) == height, (chain["name"], height)
+        sets = []
+        for side, model_set in (("current", model_current), ("next", model_next)):
+            entries = [
+                (e["key"], int(e["voting_power"]), int(e["proposer_priority"]))
+                for e in state[side]
+            ]
+            for e in state[side]:
+                info = key_info[e["key"]]
+                assert (int(e["ck_prefix"]), e["ck_x"]) == (info["ck_prefix"], info["ck_x"])
+            proposer = int(state[side + "_proposer"])
+            assert 0 <= proposer < len(entries)
+            # CometBFT's set order: voting power descending, then address ascending.
+            order = [(-power, address[key]) for key, power, _ in entries]
+            assert order == sorted(order) and len(set(order)) == len(order), (chain["name"], height)
+            if [list(e) for e in entries] != model_set.entries() or (
+                proposer != model_set.proposer_index()
+            ):
+                raise SystemExit(
+                    f"{chain['name']} height {height} {side}: CometBFT v0.40.0 and the model "
+                    f"differ\n  CometBFT: {entries} proposer {proposer}\n"
+                    f"  model:    {model_set.entries()} proposer {model_set.proposer_index()}"
+                )
+            sets.append((entries, proposer))
+        preimage = val_state_preimage(height, sets, key_info)
+        # A maximum-committee preimage (about 1 MiB) is too large for one command-line argument.
+        digest = keccak_stdin(preimage) if len(preimage) > 100_000 else keccak(preimage)
+        assert preimage == state["preimage"], (chain["name"], height)
+        assert digest == state["hash"], (chain["name"], height)
+        out.append((height, *sets[0], *sets[1], preimage, digest))
+    for height, step, kind, fields in chain.get("expect", ()):
+        matches = [
+            e
+            for e in events
+            if (e["height"], e["step"], e["kind"]) == (height, step, kind)
+            and all(e.get(k) == v for k, v in fields.items())
+        ]
+        assert len(matches) == 1, (chain["name"], height, step, kind, fields, events)
+    return out, events
+
+
+def val_state_keys():
+    """Keys c1..c12 with the fields a ValEntry needs and the address that orders a set."""
+    out = []
+    for name, k in VAL_KEYS:
+        x, y = point(k)
+        private_key = word(k)
+        ck_addr = address_of(x, y)
+        assert ck_addr == cast("wallet", "address", "--private-key", private_key).lower(), name
+        out.append(
+            {
+                "name": name,
+                "private_key": private_key,
+                "public_key": "0x" + compress(x, y).hex(),
+                "ck_prefix": 2 + (y & 1),
+                "ck_x": word(x),
+                "ck_y": word(y),
+                "ck_addr": ck_addr,
+            }
+        )
+    return out
+
+
+def max_committee_keys():
+    """The maximum committee's keys (`m0`..`m4095`, private key 0x10000 + i) by consecutive point
+    additions; every address is checked with `cast keccak`."""
+    out, current = [], point(MAX_COMMITTEE_KEY)
+    for i in range(MAX_COMMITTEE_SIZE):
+        if i:
+            current = _add(current, SECP_G)
+        x, y = current
+        out.append(
+            {
+                "name": f"m{i}",
+                "private_key": word(MAX_COMMITTEE_KEY + i),
+                "public_key": "0x" + compress(x, y).hex(),
+                "ck_prefix": 2 + (y & 1),
+                "ck_x": word(x),
+                "xy": (x, y),
+            }
+        )
+    assert current == point(MAX_COMMITTEE_KEY + MAX_COMMITTEE_SIZE - 1)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+        addresses = list(pool.map(lambda key: address_of(*key["xy"]), out))
+    for key, ck_addr in zip(out, addresses):
+        key["ck_addr"] = ck_addr
+        del key["xy"]
+    return out
+
+
+def val_state_chains(domains):
+    """Validator-state hashes that stock CometBFT v0.40.0 computes (`valgen/`), checked against
+    `valset_model.py` and appendix A's encoding."""
+    chain_ids = {
+        int(d["generation"]): d["chain_id"] for d in domains if d["inbox"] == DEPLOYMENT["inbox"]
+    }
+    keys_small = val_state_keys()
+    keys_max = max_committee_keys()
+    key_info = {k["name"]: k for k in keys_small + keys_max}
+    address = {name: info["ck_addr"][2:] for name, info in key_info.items()}
+
+    max_chain = {
+        "name": "max_committee",
+        "generation": 0,
+        "start": 0,
+        "end": 1,
+        "epoch_length": None,
+        "genesis": tuple((f"m{i}", max_committee_power(i)) for i in range(MAX_COMMITTEE_SIZE)),
+        "switches": {},
+    }
+    assert sum(p for _, p in max_chain["genesis"]) == MAX_TOTAL_VOTING_POWER
+    chains = VAL_CHAINS + (max_chain,)
+    for chain in VAL_CHAINS:
+        for height in chain["switches"]:
+            assert epoch_roles(chain["epoch_length"], height)[:1] == [
+                f"S({(height + 1) // chain['epoch_length']})"
+            ], (chain["name"], height)
+    request = {
+        "keys": [{"name": k["name"], "private_key": k["private_key"]} for k in key_info.values()],
+        "chains": [
+            {
+                "name": chain["name"],
+                "chain_id": chain_ids[chain["generation"]],
+                "start_height": str(chain["start"]),
+                "end_height": str(chain["end"]),
+                "genesis_time": str(VAL_GENESIS_TIME + chain["start"]),
+                "genesis": [{"key": k, "power": str(p)} for k, p in chain["genesis"]],
+                "updates": [
+                    {"height": str(h), "changes": [{"key": k, "power": str(p)} for k, p in c]}
+                    for h, c in sorted(chain["switches"].items())
+                ],
+            }
+            for chain in chains
+        ],
+    }
+    result = run_valgen(request)
+    for generated in result["keys"]:
+        info = key_info[generated["name"]]
+        assert generated["public_key"] == info["public_key"], generated["name"]
+        assert generated["address"] == info["ck_addr"], generated["name"]
+    generated = {c["name"]: c["states"] for c in result["chains"]}
+
+    hashes = {}
+    chain_out = []
+    for chain in VAL_CHAINS:
+        states, events = check_val_states(chain, generated[chain["name"]], key_info, address)
+        for height, *_, digest in states:
+            hashes[(chain["name"], height)] = digest
+        chain_out.append(
+            {
+                "name": chain["name"],
+                "description": chain["description"],
+                "generation": chain["generation"],
+                "start_height": chain["start"],
+                "end_height": chain["end"],
+                "epoch_length": chain["epoch_length"],
+                "genesis": [list(m) for m in chain["genesis"]],
+                "switches": [
+                    {
+                        "epoch": (height + 1) // chain["epoch_length"],
+                        "height": height,
+                        "activation_height": height + 2,
+                        "changes": [list(c) for c in changes],
+                    }
+                    for height, changes in sorted(chain["switches"].items())
+                ],
+                "start_preimage": states[0][5],
+                "states": [
+                    {
+                        "height": height,
+                        "current": [list(e) for e in current],
+                        "current_proposer": cp,
+                        "next": [list(e) for e in following],
+                        "next_proposer": np_,
+                        "hash": digest,
+                    }
+                    for height, current, cp, following, np_, _, digest in states
+                ],
+                "events": events,
+            }
+        )
+
+    landings = []
+    for name, chain_name, p, h, record in VAL_LANDINGS:
+        (chain,) = [c for c in VAL_CHAINS if c["name"] == chain_name]
+        start = chain["start"]
+        assert on_grid(DEPLOYMENT["etna_start"], p) and on_grid(DEPLOYMENT["etna_start"], h)
+        assert start <= p < h <= chain["end"]
+        record_hash = word(0) if record is None else hashes[record]
+        generation_start = p == start
+        # PROOF-6.2-40/41a: at the generation's start height the guest builds the genesis state
+        # and does not compare it with the record; at any other origin the record's preimage is
+        # the input, so the two hashes are equal.
+        assert generation_start or record_hash == hashes[(chain_name, p)]
+        assert record_hash != hashes[(chain_name, p)] or not generation_start
+        landings.append(
+            {
+                "name": name,
+                "chain": chain_name,
+                "generation": chain["generation"],
+                "parent_height": p,
+                "last_height": h,
+                "origin_is_generation_start": generation_start,
+                "parent_val_state_hash": record_hash,
+                "origin_val_state_hash": hashes[(chain_name, p)],
+                "grid_points": [
+                    {
+                        "height": x,
+                        "roles": epoch_roles(chain["epoch_length"], x),
+                        "val_state_hash": hashes[(chain_name, x)],
+                    }
+                    for x in range(p + K, h, K)
+                ],
+                "last_val_state_hash": hashes[(chain_name, h)],
+            }
+        )
+    roles = {r for landing in landings for g in landing["grid_points"] for r in g["roles"]}
+    assert {r.split("(")[0] + r.split(")")[1] for r in roles} >= {"S", "S+1", "H"}, roles
+
+    max_states, max_events = check_val_states(
+        max_chain, generated["max_committee"], key_info, address
+    )
+
+    def sample(entries):
+        return [list(e) for e in entries[:MAX_COMMITTEE_SAMPLE]], [
+            list(e) for e in entries[-MAX_COMMITTEE_SAMPLE:]
+        ]
+
+    max_out = []
+    for height, current, cp, following, np_, preimage, digest in max_states:
+        current_head, current_tail = sample(current)
+        next_head, next_tail = sample(following)
+        max_out.append(
+            {
+                "height": height,
+                "current_head": current_head,
+                "current_tail": current_tail,
+                "current_proposer": cp,
+                "next_head": next_head,
+                "next_tail": next_tail,
+                "next_proposer": np_,
+                "preimage_bytes": len(preimage) // 2 - 1,
+                "hash": digest,
+            }
+        )
+    return decimals(
+        {
+            "cometbft": "v0.40.0",
+            "keys": keys_small,
+            "chains": chain_out,
+            "landings": landings,
+            "max_committee": {
+                "description": (
+                    "4096 members (n_max's bound) at CometBFT's MaxTotalVotingPower: genesis at "
+                    "0 and one increment. Member i (0 <= i < 4096) is key mi with private key "
+                    "0x10000 + i; its power is 2^48 + (i mod 64) - 32 for i < 4095, and member "
+                    "4095 takes the rest of the total, 2^48 + 2078. Only the hash and the first "
+                    "and last rows of each set are listed."
+                ),
+                "size": MAX_COMMITTEE_SIZE,
+                "first_private_key": word(MAX_COMMITTEE_KEY),
+                "total_power": MAX_TOTAL_VOTING_POWER,
+                "last_member_power": max_committee_power(MAX_COMMITTEE_SIZE - 1),
+                "start_height": max_chain["start"],
+                "states": max_out,
+                "events": max_events,
+            },
+        }
+    )
+
+
 # --- forced-inclusion eligibility (spec 7.2) -----------------------------------------------------
 
 FICHECK = HERE / "ficheck"
@@ -2273,6 +2757,7 @@ def main():
         "registry_entries": entries,
         "committee_sets": committee_sets(entries["entries"], config),
         "validator_states": validator_states(),
+        "val_state_chains": val_state_chains(domains),
         "cuts": cut_vectors,
         "land_statements": statements,
         "land_abi": land_abi(statements),
