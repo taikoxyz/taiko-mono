@@ -209,6 +209,7 @@ where
     let mut digest = alloy_primitives::Keccak256::new();
     let mut terminal = None;
     let fixed_params_hash = abci::genesis::GenesisConsensusParams::etna_hash();
+    let mut rejected = None;
     for frame in blocks.by_ref() {
         // Cached local frames and already-ready L1 futures need not yield themselves. Give the
         // one-shot controller's cancellation/signal branch a turn between bounded native frames.
@@ -224,11 +225,8 @@ where
         if h > landing.height {
             return Err(candidate("successor block supplied beyond selected checkpoint"));
         }
-        if pair.block.header.version.block != 11 ||
-            pair.block.header.consensus_hash.as_bytes() != fixed_params_hash.as_slice()
-        {
-            return Err(candidate("native block has different protocol or consensus parameters"));
-        }
+        // Check the publisher-supplied commits, sets and links before any block rule: the rules
+        // below then read only content that the native hash chain can authenticate.
         let committee = historical_set(&frame.validators)?;
         validate::verify_native_commit(
             &pair.commit,
@@ -237,18 +235,9 @@ where
             &package.genesis.chain_id,
         )
         .map_err(candidate)?;
-        let env = if previous.is_none() && w == origin {
-            validate::verify_structure_at_origin(&pair, None, h, parent.hash_slow(), origin)
-        } else {
-            validate::verify_body_at_origin(&pair, h, parent.hash_slow(), origin)
-        }
-        .map_err(candidate)?;
         if let Some(prior) = &previous {
-            if pair.block.header.last_block_id != Some(prior.id) ||
-                pair.block.header.validators_hash != prior.header.next_validators_hash ||
-                pair.block.header.time <= prior.header.time
-            {
-                return Err(candidate("discontinuous native height/hash/validator/time chain"));
+            if pair.block.header.last_block_id != Some(prior.id) {
+                return Err(candidate("discontinuous native height/hash chain"));
             }
             let last = pair
                 .block
@@ -267,52 +256,93 @@ where
             }
         } else {
             verify_boundary(package.boundary_header.as_ref(), &pair, w, origin)?;
+            // Only w + 1's AppHash authenticates the publisher's EL header at w.
+            if pair.block.header.app_hash.as_bytes() != parent.hash_slow().as_slice() {
+                return Err(candidate("execution prefix does not link to the first window block"));
+            }
         }
-        let anchor_number = check_anchor_selection(&env, &parent, &state)?;
-        let anchor =
-            envelope_anchor(&env, anchor_number, own_l1, params, &mut anchor_cache).await?;
-        check_metadata(
-            &env,
-            MetadataContext {
-                parent: &parent,
-                anchor: &anchor,
-                previous_anchor: latest_anchor.as_ref(),
-                state: &state,
-                params,
-                bft_time: pair.block.header.time,
-            },
-        )?;
+        let content = async {
+            let env = if previous.is_none() && w == origin {
+                validate::verify_structure_at_origin(&pair, None, h, parent.hash_slow(), origin)
+            } else {
+                validate::verify_body_at_origin(&pair, h, parent.hash_slow(), origin)
+            }
+            .map_err(body_fault)?;
+            if pair.block.header.version.block != 11 ||
+                pair.block.header.consensus_hash.as_bytes() != fixed_params_hash.as_slice()
+            {
+                return Err(ContentFault::Rule(
+                    "native block has different protocol or consensus parameters".into(),
+                ));
+            }
+            if let Some(prior) = &previous &&
+                (pair.block.header.validators_hash != prior.header.next_validators_hash ||
+                    pair.block.header.time <= prior.header.time)
+            {
+                return Err(ContentFault::Rule("discontinuous native validator/time chain".into()));
+            }
+            let anchor_number = check_anchor_selection(&env, &parent, &state)?;
+            let anchor =
+                envelope_anchor(&env, anchor_number, own_l1, params, &mut anchor_cache).await?;
+            check_metadata(
+                &env,
+                MetadataContext {
+                    parent: &parent,
+                    anchor: &anchor,
+                    previous_anchor: latest_anchor.as_ref(),
+                    state: &state,
+                    params,
+                    bft_time: pair.block.header.time,
+                },
+            )?;
+            let mut derived = None;
+            if let Some(epoch) = schedule.switch_target(h) &&
+                future.contains(&epoch)
+            {
+                let witness = env
+                    .committee
+                    .as_ref()
+                    .ok_or_else(|| unavailable("required switch witness absent"))?;
+                let snapshot_number = if parent.number <= origin {
+                    state.anchor_floor()
+                } else {
+                    rules::decode_extra_data(&parent.extra_data)
+                        .map_err(candidate)?
+                        .2
+                        .max(state.anchor_floor())
+                };
+                if anchor.number < snapshot_number {
+                    return Err(ContentFault::Rule(
+                        "switch proof root predates derivation snapshot".into(),
+                    ));
+                }
+                let (record, members) = abci::committee::verify_committee_witness_at_cutoff(
+                    anchor.state_root,
+                    snapshot_number,
+                    params,
+                    witness,
+                    epoch,
+                )
+                .map_err(candidate)?;
+                derived = Some((epoch, CommitteeState { record, members }));
+            }
+            Ok((env, anchor, derived))
+        }
+        .await;
+        let (env, anchor, derived) = match content {
+            Ok(content) => content,
+            Err(ContentFault::Now(error)) => return Err(error),
+            Err(fault) => {
+                rejected = Some((h, pair.block.header.hash(), fault));
+                break;
+            }
+        };
         if env.anchor.is_some() {
             latest_anchor_height = Some(h);
             latest_witness = env.anchor.clone();
         }
-        if let Some(epoch) = schedule.switch_target(h) &&
-            future.contains(&epoch)
-        {
-            let witness = env
-                .committee
-                .as_ref()
-                .ok_or_else(|| unavailable("required switch witness absent"))?;
-            let snapshot_number = if parent.number <= origin {
-                state.anchor_floor()
-            } else {
-                rules::decode_extra_data(&parent.extra_data)
-                    .map_err(candidate)?
-                    .2
-                    .max(state.anchor_floor())
-            };
-            if anchor.number < snapshot_number {
-                return Err(candidate("switch proof root predates derivation snapshot"));
-            }
-            let (record, members) = abci::committee::verify_committee_witness_at_cutoff(
-                anchor.state_root,
-                snapshot_number,
-                params,
-                witness,
-                epoch,
-            )
-            .map_err(candidate)?;
-            expected_committees.insert(epoch, CommitteeState { record, members });
+        if let Some((epoch, committee)) = derived {
+            expected_committees.insert(epoch, committee);
         }
         heights.push((h, pair.block.header.time));
         if h >= keep_from {
@@ -333,6 +363,9 @@ where
             validators: committee,
             commit: frame.commit,
         });
+    }
+    if let Some((height, hash, fault)) = rejected {
+        return Err(confirm_landed(fault, height, hash, &mut blocks, &landing, &val_state).await);
     }
     let block_id =
         terminal.ok_or_else(|| unavailable("window ended before selected checkpoint"))?;
@@ -382,7 +415,8 @@ where
         h.number == state.anchor.inbox.last_checkpoint_height &&
             h.hash_slow() == state.anchor.inbox.last_checkpoint_hash
     }) {
-        return Err(candidate("inherited anchor checkpoint is not in authenticated EL ancestry"));
+        // Every input here is authenticated: the hash-linked EL ancestry and the own-L1 anchor.
+        return Err(safety("inherited anchor checkpoint contradicts authenticated EL ancestry"));
     }
     // Complete the authenticated comparisons before polling the publisher for trailing data.
     if let Some(trailing) = blocks.next() {
@@ -768,7 +802,7 @@ struct MetadataContext<'a> {
 fn check_metadata(
     env: &abci::EtnaEnvelope,
     context: MetadataContext<'_>,
-) -> Result<(), ImportError> {
+) -> Result<(), ContentFault> {
     let MetadataContext { parent, anchor, previous_anchor, state, params, bft_time } = context;
     let height = env.block.header.number;
     let bft_secs = u64::try_from(bft_time.unix_timestamp()).map_err(candidate)?;
@@ -777,17 +811,18 @@ fn check_metadata(
     {
         return Err(candidate(
             "execution timestamp differs from authenticated consensus/anchor rule",
-        ));
+        )
+        .into());
     }
     rules::check_fixed_fields(&env.block.header).map_err(candidate)?;
     let number = anchor.number;
     if anchor.inbox.recovery_generation != state.generation ||
         env.block.header.parent_beacon_block_root != Some(anchor.state_root)
     {
-        return Err(candidate("execution generation/anchor fields mismatch"));
+        return Err(candidate("execution generation/anchor fields mismatch").into());
     }
     if previous_anchor.is_some_and(|a| a.number == number && a != anchor) {
-        return Err(candidate("same inherited anchor has inconsistent facts"));
+        return Err(candidate("same inherited anchor has inconsistent facts").into());
     }
     rules::check_checkpoint_height(parent.number, anchor.inbox.last_checkpoint_height)
         .map_err(candidate)?;
@@ -799,7 +834,11 @@ fn check_metadata(
         env.block.header.timestamp,
         state.genesis.genesis_height,
     )
-    .map_err(candidate)?;
+    .map_err(|e| match e {
+        // As in FinalizeBlock, a ruleset this software lacks needs an upgrade, not a new source.
+        rules::RuleViolation::UnsupportedRuleset { .. } => ContentFault::Unsupported(e.to_string()),
+        _ => ContentFault::Rule(e.to_string()),
+    })?;
     rules::check_anchor_freshness(
         env.block.header.timestamp,
         anchor.timestamp,
@@ -807,7 +846,7 @@ fn check_metadata(
     )
     .map_err(candidate)?;
     if state.schedule().switch_target(height).is_some() != env.committee.is_some() {
-        return Err(candidate("committee witness presence violates switch schedule"));
+        return Err(candidate("committee witness presence violates switch schedule").into());
     }
     abci::app::check_execution_size(&env.block).map_err(candidate)?;
     Ok(())
@@ -842,6 +881,93 @@ async fn own_canonical<L: L1Source + ?Sized>(
         return Err(safety("own L1 finalized header contradicts its canonical hash"));
     }
     Ok(())
+}
+
+/// Why window content was refused. Before the native hash chain links the block to s, a
+/// publisher could have forged it, so a rule failure is classified only by [`confirm_landed`].
+#[derive(Debug)]
+enum ContentFault {
+    /// A source, own-L1 or byte-authentication result that does not wait for the chain.
+    Now(ImportError),
+    /// The content breaks a fixed rule: a contradiction if landed, else a bad candidate.
+    Rule(String),
+    /// The content selects a ruleset this software lacks: the node must upgrade if landed.
+    Unsupported(String),
+}
+
+/// Content checks report rule failures as candidate errors; those wait for the chain.
+impl From<ImportError> for ContentFault {
+    fn from(error: ImportError) -> Self {
+        match error {
+            ImportError::Candidate(detail) => Self::Rule(detail),
+            other => Self::Now(other),
+        }
+    }
+}
+
+/// Split shared block validation into byte commitments, which only a bad publisher can fail,
+/// and rules over the content those commitments authenticate.
+fn body_fault(error: validate::ValidationError) -> ContentFault {
+    match error {
+        validate::ValidationError::Commitment(
+            "genesis last commit" |
+            "parent execution app hash" |
+            "missing or conflicting previous block/commit",
+        ) |
+        validate::ValidationError::Etna(_) => ContentFault::Rule(error.to_string()),
+        _ => ContentFault::Now(candidate(error)),
+    }
+}
+
+/// Classify content refused at `height` by reading the remaining native headers. The content
+/// is authenticated only if every later header links back to it and the header at s matches
+/// the finalized landing; a broken link means the publisher forged it.
+async fn confirm_landed(
+    fault: ContentFault,
+    mut height: u64,
+    mut hash: tendermint::Hash,
+    blocks: &mut impl Iterator<Item = Result<WindowBlock, ImportError>>,
+    landing: &Landing,
+    val_state: &ValState,
+) -> ImportError {
+    while height < landing.height {
+        tokio::task::yield_now().await;
+        let header = match blocks.next() {
+            None => return unavailable("window ended before selected checkpoint"),
+            Some(Err(error)) => return error,
+            Some(Ok(frame)) => {
+                if let Err(error) = check_header_projection(&frame.block, landing, val_state) {
+                    return error;
+                }
+                match native_header(&frame.block) {
+                    Ok(header) => header,
+                    Err(error) => return error,
+                }
+            }
+        };
+        if header.height.value() != height + 1 ||
+            header.last_block_id.map(|id| id.hash) != Some(hash)
+        {
+            return candidate("refused window block is not on the landed chain");
+        }
+        height += 1;
+        hash = header.hash();
+    }
+    match fault {
+        ContentFault::Now(error) => error,
+        ContentFault::Rule(detail) => safety(format!("landed window block breaks rules: {detail}")),
+        ContentFault::Unsupported(detail) => unavailable(detail),
+    }
+}
+
+/// Decode only the native header of an original block.
+fn native_header(block: &Bytes) -> Result<tendermint::block::Header, ImportError> {
+    HeaderProjection::decode(block.as_ref())
+        .map_err(candidate)?
+        .header
+        .ok_or_else(|| candidate("missing native header"))?
+        .try_into()
+        .map_err(candidate)
 }
 
 /// Read the bounded header projection before ancillary certificate/validator decoding. Stock
@@ -895,7 +1021,9 @@ fn check_header_projection(
         return Err(candidate("terminal DataHash does not authenticate envelope"));
     }
     let transactions = txs.into_iter().map(Bytes::from).collect::<Vec<_>>();
-    let envelope = abci::single_envelope(&transactions).map_err(candidate)?;
+    // The landing's Comet hash and DataHash fix these bytes, so no publisher can repair them.
+    let envelope = abci::single_envelope(&transactions)
+        .map_err(|e| safety(format!("authenticated terminal envelope is malformed: {e}")))?;
     if envelope.block.header.hash_slow() != landing.el_hash {
         return Err(safety("authenticated terminal envelope execution hash contradicts landing"));
     }
@@ -994,7 +1122,7 @@ mod tests {
         anchor.inbox.rules_schedule =
             (U256::from(1) << 48) | (U256::from(env.block.header.timestamp) << 96);
         assert!(
-            matches!(check(&anchor), Err(ImportError::Candidate(ref message)) if message.contains("ruleset"))
+            matches!(check(&anchor), Err(ContentFault::Unsupported(ref message)) if message.contains("ruleset"))
         );
     }
 

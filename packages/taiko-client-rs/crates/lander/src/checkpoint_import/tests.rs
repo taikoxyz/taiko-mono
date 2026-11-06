@@ -433,7 +433,7 @@ async fn authenticated_terminal_el_conflict_precedes_parent_link_validation() {
 }
 
 #[tokio::test]
-async fn wrong_native_consensus_parameters_reject_even_with_valid_commits() {
+async fn landed_wrong_native_consensus_parameters_halt_even_with_valid_commits() {
     use crate::test_utils::consensus::{SigningKey, resign};
     let mut fx = Fixture::new(6, 6);
     let package = import_package(&fx, 6).await;
@@ -447,11 +447,113 @@ async fn wrong_native_consensus_parameters_reject_even_with_valid_commits() {
     let comet = B256::from_slice(pair.block.header.hash().as_bytes());
     fx.import_landings(&[(6, fx.headers[&6].hash_slow(), comet, fx.val_states[&6].hash())]);
     let fx = std::sync::Arc::new(fx);
-    assert!(matches!(
+    let result =
         authenticate_import(&package, frames(&fx, 6).into_iter(), &fx.params, &OwnL1(fx.clone()))
-            .await,
-        Err(ImportError::Candidate(_))
-    ));
+            .await;
+    assert!(
+        matches!(result, Err(ImportError::Safety(ref m)) if m.contains("consensus parameters")),
+        "{result:?}"
+    );
+}
+
+/// Re-sign `from` after a test edit, then relink and re-sign each later block through `to`.
+fn relink_after(fx: &mut Fixture, from: u64, to: u64) {
+    use crate::test_utils::consensus::{SigningKey, resign};
+    let keys =
+        [SigningKey::from_slice(&[1; 32]).unwrap(), SigningKey::from_slice(&[2; 32]).unwrap()];
+    resign(fx.blocks.get_mut(&from).unwrap(), &fx.committees[&0], &keys);
+    let mut previous = fx.blocks[&from].commit.clone();
+    for h in from + 1..=to {
+        let pair = fx.blocks.get_mut(&h).unwrap();
+        pair.block.header.last_block_id = Some(previous.block_id);
+        pair.block.header.last_commit_hash = Some(crate::validate::commit_hash(&previous));
+        pair.block.last_commit = Some(previous);
+        resign(pair, &fx.committees[&0], &keys);
+        previous = pair.commit.clone();
+    }
+}
+
+#[tokio::test]
+async fn rule_failure_below_s_halts_only_when_the_landed_chain_contains_it() {
+    for (case, landed) in
+        [("consensus", true), ("consensus", false), ("anchor", true), ("anchor", false)]
+    {
+        let mut fx = Fixture::new(6, 6);
+        let package = import_package(&fx, 6).await;
+        let pair = fx.blocks.get_mut(&3).unwrap();
+        if case == "consensus" {
+            pair.block.header.consensus_hash = tendermint::Hash::Sha256([3; 32]);
+        } else {
+            let mut env = abci::EtnaEnvelope::decode(&pair.block.data[0]).unwrap();
+            env.block.header.extra_data = Bytes::from_static(b"malformed");
+            pair.block.data[0] = env.encode().to_vec();
+            pair.block.header.data_hash = Some(crate::validate::data_hash(&pair.block.data));
+        }
+        // A forged block keeps the published successors, whose links name the original block.
+        relink_after(&mut fx, 3, if landed { 6 } else { 3 });
+        let comet = B256::from_slice(fx.blocks[&6].block.header.hash().as_bytes());
+        fx.import_landings(&[(6, fx.headers[&6].hash_slow(), comet, fx.val_states[&6].hash())]);
+        let fx = std::sync::Arc::new(fx);
+        let result = authenticate_import(
+            &package,
+            frames(&fx, 6).into_iter(),
+            &fx.params,
+            &OwnL1(fx.clone()),
+        )
+        .await;
+        if landed {
+            assert!(
+                matches!(result, Err(ImportError::Safety(ref m)) if m.contains("landed window block")),
+                "{case}: {result:?}"
+            );
+        } else {
+            assert!(
+                matches!(result, Err(ImportError::Candidate(ref m)) if m.contains("not on the landed chain")),
+                "{case}: {result:?}"
+            );
+        }
+    }
+}
+
+#[tokio::test]
+async fn rule_failure_below_s_waits_for_missing_frames_before_classifying() {
+    let mut fx = Fixture::new(6, 6);
+    let package = import_package(&fx, 6).await;
+    fx.blocks.get_mut(&3).unwrap().block.header.consensus_hash = tendermint::Hash::Sha256([3; 32]);
+    relink_after(&mut fx, 3, 6);
+    let comet = B256::from_slice(fx.blocks[&6].block.header.hash().as_bytes());
+    fx.import_landings(&[(6, fx.headers[&6].hash_slow(), comet, fx.val_states[&6].hash())]);
+    let fx = std::sync::Arc::new(fx);
+    let mut input = frames(&fx, 6);
+    input.truncate(4);
+    let result =
+        authenticate_import(&package, input.into_iter(), &fx.params, &OwnL1(fx.clone())).await;
+    assert!(matches!(result, Err(ImportError::Unavailable(_))), "{result:?}");
+}
+
+#[tokio::test]
+async fn landed_terminal_with_malformed_envelope_halts() {
+    use crate::test_utils::consensus::{SigningKey, resign};
+    let mut fx = Fixture::new(6, 6);
+    let package = import_package(&fx, 6).await;
+    let pair = fx.blocks.get_mut(&6).unwrap();
+    pair.block.data.push(vec![0xc0]);
+    pair.block.header.data_hash = Some(crate::validate::data_hash(&pair.block.data));
+    resign(
+        pair,
+        &fx.committees[&0],
+        &[SigningKey::from_slice(&[1; 32]).unwrap(), SigningKey::from_slice(&[2; 32]).unwrap()],
+    );
+    let comet = B256::from_slice(pair.block.header.hash().as_bytes());
+    fx.import_landings(&[(6, fx.headers[&6].hash_slow(), comet, fx.val_states[&6].hash())]);
+    let fx = std::sync::Arc::new(fx);
+    let result =
+        authenticate_import(&package, frames(&fx, 6).into_iter(), &fx.params, &OwnL1(fx.clone()))
+            .await;
+    assert!(
+        matches!(result, Err(ImportError::Safety(ref m)) if m.contains("envelope is malformed")),
+        "{result:?}"
+    );
 }
 
 #[tokio::test]
@@ -1020,9 +1122,9 @@ async fn review_recovery_first_consensus_block_refuses_old_generation_commit() {
     let result =
         authenticate_import(&package, frames(&fx, 12).into_iter(), &fx.params, &OwnL1(fx.clone()))
             .await;
+    // L1 landed this chain, so its old-generation LastCommit is an authenticated contradiction.
     assert!(
-        matches!(result, Err(ImportError::Candidate(_))),
-        "old generation ancestry accepted={}",
-        result.is_ok()
+        matches!(result, Err(ImportError::Safety(ref m)) if m.contains("previous block/commit")),
+        "{result:?}"
     );
 }
