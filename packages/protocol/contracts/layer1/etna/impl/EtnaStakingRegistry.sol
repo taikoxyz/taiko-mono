@@ -324,8 +324,10 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
             _setSlotValue($, slot, 0);
         }
 
-        if (amount != 0) token.safeTransfer(_to, amount);
-        emit StakeWithdrawn(_bondId, _to, amount);
+        // Nothing is paid without principal, so the event names no recipient a caller picked.
+        address to = amount == 0 ? address(0) : _to;
+        if (amount != 0) token.safeTransfer(to, amount);
+        emit StakeWithdrawn(_bondId, to, amount);
     }
 
     /// @inheritdoc IEtnaStakingRegistry

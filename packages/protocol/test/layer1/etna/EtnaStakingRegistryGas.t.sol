@@ -359,6 +359,31 @@ contract EtnaStakingRegistryFullCapGasTest is EtnaStakingRegistryGasBase {
     }
 }
 
+/// @title EtnaStakingRegistryFullCapActivateGasTest
+/// @notice With all 4,096 slots held at the minimum stake and active: activating a ready top-up
+/// of the bond in slot 0, which rewrites that slot's path through the entries tree.
+contract EtnaStakingRegistryFullCapActivateGasTest is EtnaStakingRegistryGasBase {
+    function setUp() public override {
+        super.setUp();
+        vm.roll(10);
+        _prefill(CAPACITY);
+        vm.roll(block.number + ACTIVATION_DELAY);
+        mockInbox.setInitialized(true);
+        _fund(Carol, MIN_STAKE);
+        vm.prank(Carol);
+        registry.topUp(0, MIN_STAKE);
+        vm.roll(block.number + ACTIVATION_DELAY);
+    }
+
+    function test_gas_ActivateTopUpAtFullCapacity() external {
+        EtnaStakingRegistry target = registry;
+        vm.startSnapshotGas("activate_top_up_at_4096");
+        target.activateTopUp(0);
+        _stopSnapshot("activate_top_up_at_4096");
+        assertEq(registry.entryAt(0).effStake, 2 * MIN_STAKE, "activated");
+    }
+}
+
 /// @title EtnaStakingRegistryDisplacedGasTest
 /// @notice With all 4,096 slots held: bond 0 displaced by bond 4096 and bond 1 exiting, both
 /// confirmed and past the withdrawal delay. Withdrawing the slot holder (bond 1) against

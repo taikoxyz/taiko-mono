@@ -375,9 +375,10 @@ interface IEtnaInbox {
     /// and sets its exitEffectiveL1 to min(existing, R) (`IEtnaStakingRegistry.forceExit`), so
     /// any otherwise valid exclusion reverts `InvalidEventBlock` at block.number == 2^48 - 1, the
     /// registry's no-exit sentinel. Each listed queue entry's txHash becomes keccak256("").
-    /// Increments the generation, writes origins[generation] = (c, R, block.timestamp) once and
-    /// emits `Recovered`. It then clears the planned stop and, for a non-zero _rules, sets
-    /// activeRules = nextRules = _rules and rulesTime = 0, and emits `RulesScheduleUpdated`.
+    /// Increments the generation, writes origins[generation] = (c, R, block.timestamp) once
+    /// (`OriginAlreadyWritten` if that record already exists) and emits `Recovered`. It then
+    /// clears the planned stop and, for a non-zero _rules, sets activeRules = nextRules = _rules
+    /// and rulesTime = 0, and emits `RulesScheduleUpdated`.
     /// The checkpoint, its landing record, the queue head and activeCommitteeSnapshot are kept.
     /// @param _expectedGeneration The recovery generation the call was authorized for.
     /// @param _expectedC The checkpoint height the call was authorized for.
@@ -595,6 +596,8 @@ interface IEtnaInbox {
     error StartNotWritten();
     /// @notice The Etna start is already written.
     error StartAlreadyWritten();
+    /// @notice `recover` finds the new generation's origin record already written.
+    error OriginAlreadyWritten();
     /// @notice `setOrigin` is called before `etnaForkTime()`.
     error BeforeEtnaForkTime();
     /// @notice The start height is 0 or at least 2^48, or its hash or state root is zero.

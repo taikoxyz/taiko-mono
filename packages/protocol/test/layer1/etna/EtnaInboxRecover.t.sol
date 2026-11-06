@@ -440,6 +440,23 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         _assertOrigin(_TWO_POW_48, 0, 0, 0);
     }
 
+    /// @dev RECOV-8.4-4: an origin record is written once. If an upgrade wrote the next
+    /// generation's record without advancing the generation, recovery reverts with nothing
+    /// written, including the exclusion and the blanking it lists, and the record stays.
+    function test_recover_RevertWhen_NextOriginAlreadyWritten() external {
+        uint256 slot = _originSlot(1);
+        _storeInboxWord(slot, bytes32(uint256(6)));
+        _storeInboxWord(slot + 1, bytes32(uint256(7)));
+        _storeInboxWord(slot + 2, bytes32(uint256(8)));
+
+        _expectRecoverRevert(
+            0, 0, _exclusions(1, _BOB_PK), _indices(0), IEtnaInbox.OriginAlreadyWritten.selector
+        );
+        assertEq(_inbox().recoveryGeneration(), 0, "generation kept");
+        assertEq(registry.entryAt(1).exitEffectiveL1, _NO_EXIT, "Bob keeps no exit");
+        _assertOrigin(1, 6, 7, 8);
+    }
+
     /// @dev Origin timestamps must fit 48 bits: at 2^48 recovery reverts with nothing written,
     /// including the exclusion and the blanking it lists; at 2^48 - 1 it executes.
     function test_recover_RevertWhen_TimestampOverflows48Bits() external {

@@ -74,9 +74,13 @@ The current specification baseline is main at `589b542de790861efd8b4d9bb0a4b1d06
   increments the uint256 authorization nonce. With R = `block.number`, each excluded entry's exit
   moves to min(existing, R) in the registry, each listed queue entry's hash becomes
   `keccak256("")`, the generation increments and its origin (c, R's number, R's timestamp) is
-  written once to slot 290. It then clears the planned stop and, for a non-zero `rules`, sets
-  `activeRules = nextRules = rules` and `rulesTime = 0`. The checkpoint, its record, the queue
-  head and `activeCommitteeSnapshot` are kept.
+  written once to slot 290 (`OriginAlreadyWritten` if that record exists). It then clears the
+  planned stop and, for a non-zero `rules`, sets `activeRules = nextRules = rules` and
+  `rulesTime = 0`. The checkpoint, its record, the queue head and `activeCommitteeSnapshot` are
+  kept. With all 4,096 slots held, each exclusion costs about 102,000 gas when the excluded
+  slots are spread across the entries tree (`EtnaInboxRecoverFullRegistryGasTest`), so about 160
+  fit in one transaction under EIP-7825's 2^24 gas cap. A longer list needs several
+  recoveries, each at the then-current c.
 - `scheduleRules(rules, time)` and `scheduleStop(time, grid)`: owner only after initialization;
   they write the rules schedule in slot 293 exactly as spec 10.1 steps 5a-5c, with `maxAnchorAge`
   as the deadline. A due `nextRules` is promoted first; a failed call keeps nothing. `recover`
@@ -118,8 +122,10 @@ Pause affects none of these entry points, nor the registry's (spec 1 requires th
   Registry mutations revert while the Inbox holds its lock, except its authorized `forceExit`.
 - `topUp(bondId, amount)`: the active entry's owner deposits one positive pending amount, even
   with all slots occupied or before Inbox initialization. It has no voting power or checkpoint
-  effect. `activateTopUp(bondId)` is permissionless at readiness, after `activationDelay` L1
-  blocks; activation writes the normal checkpoint and does not change historical committees.
+  effect, but it raises the slot's admission value at once, so a newcomer must outbid the
+  bond's effective plus pending principal to displace it. `activateTopUp(bondId)` is
+  permissionless at readiness, after `activationDelay` L1 blocks; activation writes the normal
+  checkpoint and does not change historical committees.
   No deposit or activation is allowed after exit is set. Withdrawal and double-sign slashing
   account for **all** remaining effective and pending principal and clear the pending state.
 - `forfeit(bondId, entryKey, incidentId, validUntil)`: registry owner only after initialization,
@@ -174,7 +180,9 @@ Pause affects none of these entry points, nor the registry's (spec 1 requires th
   delay cannot make every registration or exit request revert.
 - `maxBatchBlocks` is in [6, 65,532], with no multiple-of-6 rule. The upper end is the maximum U,
   and at that size the leaf calldata still fits one transaction's gas cap at today's EIP-7623
-  calldata floor (spec 11).
+  calldata floor (spec 11). The cap is an immutable while the calldata price is not: at 60 gas
+  per byte, for example, only about 52,000 blocks fit. Leave headroom, such as 50,000 or less;
+  a landing from c with h − c = 6 always fits.
 
 `land` accepts an opaque `lastValStateHash` after `lastCometHash`. The verifier statement
 binds the stored parent's validator-state hash and the terminal hash in 23 static words
@@ -212,7 +220,8 @@ NatSpec lists every environment variable. Run from `packages/protocol`:
 
 ```bash
 export FOUNDRY_PROFILE=layer1 S=script/layer1/etna/DeployEtnaDevnet.s.sol:DeployEtnaDevnet
-# REMOTE_SIGNAL_SERVICE is the L2 SignalService predeploy; export INBOX_PROXY and SIGNAL_SERVICE.
+# REMOTE_SIGNAL_SERVICE is the L2 SignalService predeploy, which must be the generator's address
+# for L2_CHAIN_ID; L1_CHAIN_ID must be this L1. Export INBOX_PROXY and SIGNAL_SERVICE.
 forge script $S --sig 'deployInboxProxy()' --rpc-url "$L1_RPC" --broadcast
 forge script $S --sig 'deployRegistry()' --rpc-url "$L1_RPC" --broadcast # export STAKING_REGISTRY
 # Validators register and activate; pick GENESIS_CUTOFF and compute committee 0's record hash.
@@ -241,12 +250,22 @@ in the emitted bytecode too, against the `out/layer2` artifacts of the same `pnp
 `ERC1967Proxy` runtime and point at their implementations, whose code must be the compiled
 `Anchor` and `SignalServiceL2` runtimes (neither links a library), with the Anchor's
 `etnaTimestamp` 0 and `checkpointStore` the SignalService proxy, and SignalServiceL2's syncer the
-Anchor proxy and its remote SIGNAL_SERVICE. If `out/layer2` no longer matches the alloc, for
-example after a rebuild from other sources or without the AST, it refuses until `pnpm genesis:gen`
-reruns. It replaces the base's accounts at the predeploy addresses with the generated ones,
-keeping only the account fields execution clients accept, adds the EIP-4788 and EIP-2935 system
-contracts (spec 10 step 3) and changes nothing outside `alloc`; the 100% base-fee share is the
-per-block `extraData[0] = 100` rule that nodes and guests enforce, not a genesis field.
+Anchor proxy and its remote SIGNAL_SERVICE. Every other immutable of the two implementations is
+pinned to the generator's value (UUPS `__self` the implementation itself, the configured
+`l1ChainId`, SignalServiceL2's `pauser` zero), and an immutable it does not know is refused. The
+proxies may hold only the storage the generator writes (initialized, not paused, the configured
+owner, the implementation), so a seeded signal or checkpoint is refused. No root-path address nor
+SIGNAL_SERVICE may be a precompile or system contract address, and SIGNAL_SERVICE may not be an L2
+predeploy. If `out/layer2` no longer matches the alloc, for example after a rebuild from other
+sources or without the AST, it refuses until `pnpm genesis:gen` reruns. It replaces the base's
+accounts at the predeploy addresses with the generated ones, keeping only the account fields
+execution clients accept, and adds the EIP-4788 and EIP-2935 system contracts (spec 10 step 3).
+Outside `alloc` it only drops the base's derived `stateRoot`; the 100% base-fee share is the
+per-block `extraData[0] = 100` rule that nodes and guests enforce, not a genesis field. It needs
+Python 3.9 or later, writes `--output` only on success and removes an existing one first, so a
+failed run leaves no genesis behind. `pnpm genesis:test` (CI's genesis job) runs it on real
+generator output: the default alloc and a config edited without regenerating must fail, and an
+alloc generated with `GENESIS_CONFIG` pointing at an Etna configuration must pass.
 `generate.ts` exits non-zero on failure, so a failed run cannot leave an older config/alloc pair
 behind unnoticed. After booting the EL on the genesis, also check the Anchor proxy
 (`contractAddresses.TaikoAnchor` in the generated config) at block 0:

@@ -16,18 +16,21 @@ from pathlib import Path
 PROTOCOL = Path(__file__).resolve().parents[3]
 SCRIPT = PROTOCOL / "script/layer2/build_etna_genesis.py"
 CHAIN_ID = 167001
-L1_SIGNAL_SERVICE = "0x00000000000000000000000000000000000000aa"
+L1_CHAIN_ID = 3151908
+L1_SIGNAL_SERVICE = "0x00000000000000000000000000000000000100aa"
+OWNER = "0x00000000000000000000000000000000000a11ce"
 IMPLEMENTATION_SLOT = "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc"
 ADDRESSES = {
     "TaikoAnchor": "0x1670010000000000000000000000000000010001",
     "TaikoAnchorImpl": "0x0167001000000000000000000000000000010001",
     "SignalService": "0x1670010000000000000000000000000000000005",
     "SignalServiceImpl": "0x0167001000000000000000000000000000000005",
+    "SharedResolver": "0x1670010000000000000000000000000000000006",
 }
-# AST ids of the stand-in immutables. `self` stands for UUPS `__self`, which the builder does not
-# check, and `pauser` for an immutable it does not check either.
+# AST ids of the stand-in immutables: UUPS `__self`, EssentialContract `__resolver`, the Anchor's
+# and SignalService's own.
 IDS = {
-    "checkpointStore": 11, "etnaTimestamp": 12, "self": 13,
+    "checkpointStore": 11, "etnaTimestamp": 12, "__self": 13, "__resolver": 14, "l1ChainId": 15,
     "_authorizedSyncer": 21, "_remoteSignalService": 22, "pauser": 23,
 }
 
@@ -72,22 +75,29 @@ def _artifact(name, declared, layout, bases=(), body="00"):
 
 
 def artifacts():
-    """The stand-in ERC1967Proxy, Anchor, SignalService and SignalServiceL2 artifacts. The proxy
-    has no immutables, the Anchor reads `etnaTimestamp` twice, and SignalServiceL2 inherits
-    SignalService's immutables."""
+    """The stand-in ERC1967Proxy, UUPSUpgradeable, EssentialContract, Anchor, SignalService and
+    SignalServiceL2 artifacts. The proxy has no immutables, both implementations also carry the
+    inherited `__self` and `__resolver`, the Anchor reads `etnaTimestamp` twice, and
+    SignalServiceL2 inherits SignalService's immutables."""
     return {
         "ERC1967Proxy": _artifact("ERC1967Proxy", (), (), body="363d3d373d3d3d363d00"),
+        "UUPSUpgradeable": _artifact("UUPSUpgradeable", ("__self",), ("__self",)),
+        "EssentialContract": _artifact("EssentialContract", ("__resolver",), ("__resolver",),
+                                       bases=("UUPSUpgradeable",)),
         "Anchor": _artifact(
-            "Anchor", ("checkpointStore", "etnaTimestamp", "self"),
-            ("checkpointStore", "etnaTimestamp", "self", "etnaTimestamp"),
+            "Anchor", ("checkpointStore", "etnaTimestamp", "l1ChainId"),
+            ("checkpointStore", "etnaTimestamp", "__self", "etnaTimestamp", "__resolver",
+             "l1ChainId"),
+            bases=("EssentialContract",),
         ),
         "SignalService": _artifact(
             "SignalService", ("_authorizedSyncer", "_remoteSignalService", "pauser"),
             ("_authorizedSyncer", "_remoteSignalService", "pauser"),
+            bases=("EssentialContract",),
         ),
         "SignalServiceL2": _artifact(
             "SignalServiceL2", (), ("_authorizedSyncer", "_remoteSignalService", "pauser",
-                                    "_remoteSignalService"),
+                                    "_remoteSignalService", "__self", "__resolver"),
             bases=("SignalService",),
         ),
     }
@@ -105,39 +115,55 @@ def runtime(artifact, values):
     return "0x" + code.hex()
 
 
-def proxy(implementation):
-    """A stand-in ERC-1967 proxy pointing at `implementation`."""
+def proxy(implementation, extra=None):
+    """A stand-in ERC-1967 proxy pointing at `implementation`, with the storage the generator
+    writes: initialized, the owner, not paused or entered, then any `extra` words."""
+    storage = {
+        word(0): word(1),
+        word(51): address_word(OWNER),
+        word(201): word(0x0101),
+        IMPLEMENTATION_SLOT: address_word(implementation),
+    }
+    storage.update(extra or {})
     return {"balance": "0x0", "code": runtime(artifacts()["ERC1967Proxy"], {}),
-            "storage": {IMPLEMENTATION_SLOT: address_word(implementation)}}
+            "storage": storage}
 
 
 def predeploys(**overrides):
     """The four root-path predeploys as the generator writes them for a new Etna network, with
-    immutable words replaced by name from `overrides`."""
-    values = {
+    immutable words replaced by name from `overrides` in both implementations."""
+    shared = {
         "checkpointStore": address_word(ADDRESSES["SignalService"]),
         "etnaTimestamp": word(0),
-        "self": address_word(ADDRESSES["TaikoAnchorImpl"]),
+        "l1ChainId": word(L1_CHAIN_ID),
         "_authorizedSyncer": address_word(ADDRESSES["TaikoAnchor"]),
         "_remoteSignalService": address_word(L1_SIGNAL_SERVICE),
         "pauser": word(0),
     }
-    values.update(overrides)
+    anchor = dict(shared, __self=address_word(ADDRESSES["TaikoAnchorImpl"]), __resolver=word(0))
+    signal = dict(shared, __self=address_word(ADDRESSES["SignalServiceImpl"]),
+                  __resolver=address_word(ADDRESSES["SharedResolver"]))
+    anchor.update(overrides)
+    signal.update(overrides)
     stand_ins = artifacts()
+    # The generator also writes the Anchor's `_blockState` (slots 256 and 257) as zeros.
     return {
-        ADDRESSES["TaikoAnchor"]: proxy(ADDRESSES["TaikoAnchorImpl"]),
+        ADDRESSES["TaikoAnchor"]: proxy(ADDRESSES["TaikoAnchorImpl"],
+                                        {word(256): word(0), word(257): word(0)}),
         ADDRESSES["TaikoAnchorImpl"]: {
-            "balance": "0x0", "code": runtime(stand_ins["Anchor"], values)},
+            "balance": "0x0", "code": runtime(stand_ins["Anchor"], anchor)},
         ADDRESSES["SignalService"]: proxy(ADDRESSES["SignalServiceImpl"]),
         ADDRESSES["SignalServiceImpl"]: {
-            "balance": "0x0", "code": runtime(stand_ins["SignalServiceL2"], values)},
+            "balance": "0x0", "code": runtime(stand_ins["SignalServiceL2"], signal)},
     }
 
 
 def config():
     """The generator configuration of the same run."""
     return {
+        "contractOwner": OWNER,
         "chainId": CHAIN_ID,
+        "l1ChainId": L1_CHAIN_ID,
         "etnaTimestamp": "0x0",
         "remoteSignalService": L1_SIGNAL_SERVICE,
         "contractAddresses": dict(ADDRESSES),

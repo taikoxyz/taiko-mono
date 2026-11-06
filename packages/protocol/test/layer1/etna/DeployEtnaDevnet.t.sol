@@ -13,6 +13,8 @@ import { EtnaStakingRegistry } from "src/layer1/etna/impl/EtnaStakingRegistry.so
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
+import { LibL2HoodiAddrs } from "src/layer2/hoodi/LibL2HoodiAddrs.sol";
+import { LibL2Addrs } from "src/layer2/mainnet/LibL2Addrs.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 
 /// @title DeployEtnaDevnetTest
@@ -60,6 +62,7 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         _RevertWhen_RegistryFixedToAnotherInbox();
         _RevertWhen_L2ChainIdDiffersFromTheRegistry();
         _RevertWhen_L1ChainIdMismatch();
+        _RevertWhen_ProxyStepOnAnotherL1OrRemote();
         _RevertWhen_ProofVerifierHasNoCode();
         _RevertWhen_SignalServiceHasNoCode();
         _RevertWhen_UnsettledLimitInvalid();
@@ -92,7 +95,9 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         vm.setEnv("L2_CHAIN_ID", vm.toString(L2_CHAIN_ID));
         vm.setEnv("STAKING_REGISTRY", vm.toString(address(0)));
         vm.setEnv("ETNA_PROOF_VERIFIER", vm.toString(address(landVerifier)));
-        vm.setEnv("REMOTE_SIGNAL_SERVICE", vm.toString(REMOTE_SIGNAL_SERVICE));
+        vm.setEnv(
+            "REMOTE_SIGNAL_SERVICE", vm.toString(_deployment.l2SignalServiceAddress(L2_CHAIN_ID))
+        );
         vm.setEnv("L1_CHAIN_ID", vm.toString(block.chainid));
         vm.setEnv("MAX_BATCH_BLOCKS", vm.toString(MAX_BATCH_BLOCKS));
         vm.setEnv("FORCED_INCLUSION_FEE_GWEI", vm.toString(FORCED_INCLUSION_FEE_GWEI));
@@ -128,6 +133,7 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         assertEq(signals, vm.computeCreateAddress(_scriptDeployer, nonce + 3), "SignalService");
         assertEq(EssentialContract(proxy).owner(), Bob, "configured owner");
         assertEq(SignalService(signals).owner(), Bob, "SignalService owner");
+        assertEq(SignalService(signals).pauser(), address(0), "no pauser besides the owner");
         // Only the Inbox proxy may save checkpoints, before and after its upgrade.
         ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
             blockNumber: 1, blockHash: bytes32(uint256(1)), stateRoot: bytes32(uint256(2))
@@ -265,6 +271,50 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         _registerAndPickCutoff(deployedRegistry);
         vm.setEnv("L1_CHAIN_ID", vm.toString(block.chainid + 1));
         _expectRejectedBeforeBroadcast(proxy, DeployEtnaDevnet.L1ChainIdMismatch.selector);
+    }
+
+    /// @dev Step 1 fixes the L2 SignalService in the L1 SignalService, so it runs only on the
+    /// configured L1 and only with the generator's SignalService address for L2_CHAIN_ID.
+    function _RevertWhen_ProxyStepOnAnotherL1OrRemote() private withEnvironment {
+        vm.setEnv("L1_CHAIN_ID", vm.toString(block.chainid + 1));
+        vm.expectRevert(DeployEtnaDevnet.L1ChainIdMismatch.selector);
+        _deployment.deployInboxProxy();
+
+        vm.setEnv("L1_CHAIN_ID", vm.toString(block.chainid));
+        vm.setEnv("REMOTE_SIGNAL_SERVICE", vm.toString(REMOTE_SIGNAL_SERVICE));
+        vm.expectRevert(DeployEtnaDevnet.RemoteSignalServiceMismatch.selector);
+        _deployment.deployInboxProxy();
+
+        vm.setEnv(
+            "REMOTE_SIGNAL_SERVICE",
+            vm.toString(_deployment.l2SignalServiceAddress(L2_CHAIN_ID + 1))
+        );
+        vm.expectRevert(DeployEtnaDevnet.RemoteSignalServiceMismatch.selector);
+        _deployment.deployInboxProxy();
+    }
+
+    /// @dev The derivation matches the generator's addresses and the live networks'.
+    function test_l2SignalServiceAddress_MatchesTheGenerator() external {
+        assertEq(
+            _deployment.l2SignalServiceAddress(L2_CHAIN_ID),
+            0x1670010000000000000000000000000000000005,
+            "167001"
+        );
+        assertEq(
+            _deployment.l2SignalServiceAddress(167_000), LibL2Addrs.SIGNAL_SERVICE, "mainnet"
+        );
+        assertEq(
+            _deployment.l2SignalServiceAddress(167_013),
+            LibL2HoodiAddrs.HOODI_SIGNAL_SERVICE,
+            "Hoodi"
+        );
+        assertEq(
+            _deployment.l2SignalServiceAddress(167),
+            0x1670000000000000000000000000000000000005,
+            "genesis test config"
+        );
+        vm.expectRevert(DeployEtnaDevnet.RemoteSignalServiceMismatch.selector);
+        _deployment.l2SignalServiceAddress(0);
     }
 
     function _RevertWhen_ProofVerifierHasNoCode() private withEnvironment {

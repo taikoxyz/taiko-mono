@@ -35,7 +35,10 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// also read the optional CONTRACT_OWNER, the owner of the proxies they deploy (the deployer if
 /// unset, empty or zero). An optional variable that is set but malformed reverts the call instead
 /// of falling back to its default.
-/// `deployInboxProxy()`: REMOTE_SIGNAL_SERVICE (the L2 SignalService).
+/// `deployInboxProxy()`: L1_CHAIN_ID, which must equal this chain's id; L2_CHAIN_ID; and
+/// REMOTE_SIGNAL_SERVICE (the L2 SignalService), which must be the genesis generator's
+/// SignalService address for L2_CHAIN_ID (`l2SignalServiceAddress`), because the L1
+/// SignalService fixes it as an immutable.
 /// `deployRegistry()`: INBOX_PROXY; TAIKO_TOKEN; REGISTRY_MIN_STAKE in token base units, which
 /// defaults to ETNA_S_MIN if unset, empty or zero (the two are independent parameters);
 /// REGISTRY_ACTIVATION_DELAY, REGISTRY_EXIT_DELAY and REGISTRY_WITHDRAWAL_DELAY in L1 blocks, each
@@ -52,7 +55,8 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// ETNA_VP_UNIT), ETNA_N_MAX (in [1, 4096]) and ETNA_UNSETTLED_LIMIT (U, a multiple of 6 in
 /// [6, 65,532]); FORCED_INCLUSION_DELAY (seconds, non-zero); MAX_ANCHOR_AGE (seconds, at least
 /// 1152).
-/// The script checks only SIGNAL_SERVICE's and ETNA_PROOF_VERIFIER's code and L1_CHAIN_ID itself;
+/// The script checks only SIGNAL_SERVICE's and ETNA_PROOF_VERIFIER's code, L1_CHAIN_ID and
+/// REMOTE_SIGNAL_SERVICE itself;
 /// the constructors and `init` check the other bounds listed above, so a logged owner call is
 /// validated when the owner sends it. Nothing on chain checks the rest, which the operator must ensure:
 /// MAX_ANCHOR_AGE above the L1 finality delay (spec 11), REGISTRY_WITHDRAWAL_DELAY no shorter
@@ -73,14 +77,21 @@ contract DeployEtnaDevnet is Script {
     function deployInboxProxy() external returns (address proxy_, address signalService_) {
         uint256 privateKey = _privateKey();
         address owner = _owner(privateKey);
+        require(vm.envUint("L1_CHAIN_ID") == block.chainid, L1ChainIdMismatch());
         address remoteSignalService = vm.envAddress("REMOTE_SIGNAL_SERVICE");
+        require(
+            remoteSignalService == l2SignalServiceAddress(_envUint64("L2_CHAIN_ID")),
+            RemoteSignalServiceMismatch()
+        );
 
         vm.startBroadcast(privateKey);
         address bootstrap = address(new EtnaInboxBootstrap());
         proxy_ = address(
             new ERC1967Proxy(bootstrap, abi.encodeCall(EtnaInboxBootstrap.init, (owner)))
         );
-        address signalImpl = address(new SignalService(proxy_, remoteSignalService, owner));
+        // No extra pauser: the owner can pause, and an immutable pauser would outlive a later
+        // ownership transfer.
+        address signalImpl = address(new SignalService(proxy_, remoteSignalService, address(0)));
         signalService_ =
             address(new ERC1967Proxy(signalImpl, abi.encodeCall(SignalService.init, (owner))));
         vm.stopBroadcast();
@@ -145,6 +156,26 @@ contract DeployEtnaDevnet is Script {
             console2.log("  still on the bootstrap; its owner must send it this call:");
             console2.logBytes(ownerInitCall(inboxImpl_));
         }
+    }
+
+    /// @notice Returns the L2 SignalService proxy address the genesis generator assigns to an L2
+    /// chain: the chain id's decimal digits read as hex, then zeros, then 5, as
+    /// `getConstantAddress(chainId, 5)` in `test/genesis/data/genesis_config.js`.
+    /// @param _l2ChainId The L2 chain id, non-zero.
+    /// @return The address, for example 0x1670000000000000000000000000000000000005 for 167000.
+    function l2SignalServiceAddress(uint64 _l2ChainId) public pure returns (address) {
+        require(_l2ChainId != 0, RemoteSignalServiceMismatch());
+        uint256 power = 1;
+        while (power <= _l2ChainId / 10) {
+            power *= 10;
+        }
+        uint256 prefix;
+        uint256 digits;
+        for (; power != 0; power /= 10) {
+            prefix = (prefix << 4) | ((_l2ChainId / power) % 10);
+            ++digits;
+        }
+        return address(uint160((prefix << (4 * (40 - digits))) | 5));
     }
 
     /// @notice Returns the call the Inbox proxy owner sends to INBOX_PROXY: `upgradeToAndCall` to
@@ -260,6 +291,8 @@ contract DeployEtnaDevnet is Script {
     error InvalidPrivateKey();
     /// @notice L1_CHAIN_ID is not this chain's id.
     error L1ChainIdMismatch();
+    /// @notice REMOTE_SIGNAL_SERVICE is not the L2 SignalService address for L2_CHAIN_ID.
+    error RemoteSignalServiceMismatch();
     /// @notice ETNA_PROOF_VERIFIER has no code.
     error ProofVerifierHasNoCode();
     /// @notice SIGNAL_SERVICE has no code.

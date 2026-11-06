@@ -124,16 +124,19 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
         anchor = self.addresses["TaikoAnchor"]
         implementation = self.addresses["TaikoAnchorImpl"]
         code = self.predeploys[anchor]["code"]
+        owner = self.fixture.OWNER
         self.predeploys[anchor] = {
             "contractName": "TaikoAnchor", "balance": "0x0", "code": code.upper().replace("0X", "0x"),
-            "storage": {"0x01": "0xAB", "0x" + "cd" * 32: "0x" + "00" * 31 + "02",
+            "storage": {"0x0": "0x1", "0x33": owner.upper().replace("0X", "0x"), "0xC9": "0x101",
+                        "0x100": "0x0",
                         self.fixture.IMPLEMENTATION_SLOT: implementation.upper().replace("0X", "0x")},
         }
         account = self._build()["alloc"][anchor]
+        word = self.fixture.word
         self.assertEqual(account, {
             "balance": "0x0", "code": code,
-            "storage": {"0x" + "00" * 31 + "01": "0x" + "00" * 31 + "ab",
-                        "0x" + "cd" * 32: "0x" + "00" * 31 + "02",
+            "storage": {word(0): word(1), word(51): self.fixture.address_word(owner),
+                        word(201): word(0x101), word(256): word(0),
                         self.fixture.IMPLEMENTATION_SLOT: self.fixture.address_word(implementation)},
         })
 
@@ -193,15 +196,99 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
 
     def test_rejects_wrong_root_path_immutables(self):
         other = self.fixture.address_word("0x" + "cc" * 20)
-        for immutable, name in (("checkpointStore", "TaikoAnchorImpl"),
+        # Every immutable of both implementations is pinned: a zero `__self` makes the genesis
+        # proxy unupgradeable and a non-zero `pauser` adds a pause authority over bridging.
+        for immutable, name in (("__self", "TaikoAnchorImpl"),
+                                ("__resolver", "TaikoAnchorImpl"),
+                                ("checkpointStore", "TaikoAnchorImpl"),
+                                ("l1ChainId", "TaikoAnchorImpl"),
                                 ("_authorizedSyncer", "SignalServiceImpl"),
-                                ("_remoteSignalService", "SignalServiceImpl")):
+                                ("_remoteSignalService", "SignalServiceImpl"),
+                                ("pauser", "SignalServiceImpl")):
             self.predeploys = self.fixture.predeploys(**{immutable: other})
-            with self.assertRaisesRegex(ValueError, name + " " + immutable + " is " + other):
+            with self.assertRaisesRegex(ValueError, name + " " + immutable + " is " + other
+                                        + ".*rerun `pnpm genesis:gen`"):
                 self._build()
-        # Immutables the root path does not depend on may hold anything.
-        self.predeploys = self.fixture.predeploys(self=other, pauser=other)
-        self._build()
+        # Each implementation's `__self` is its own address, and only SignalServiceL2 has a
+        # resolver.
+        anchor_self = self.fixture.address_word(self.addresses["TaikoAnchorImpl"])
+        self.predeploys = self.fixture.predeploys(__self=anchor_self, __resolver=self.fixture.word(0))
+        with self.assertRaisesRegex(ValueError, "SignalServiceImpl __self is " + anchor_self):
+            self._build()
+
+    def test_rejects_an_immutable_the_builder_does_not_check(self):
+        anchor = self.fixture.artifacts()["Anchor"]
+        anchor["deployedBytecode"]["immutableReferences"]["99"] = []
+        self.fixture.write_artifacts(self.artifacts, {"Anchor": anchor})
+        with self.assertRaisesRegex(ValueError, "Anchor has immutables the builder does not check "
+                                    r"\(AST ids 99\)"):
+            self._build()
+
+    def test_rejects_proxy_storage_the_generator_does_not_write(self):
+        word = self.fixture.word
+        cases = (
+            # A seeded received signal or checkpoint in SignalService's mappings (slots 253, 254).
+            ("SignalService", "0x" + "ab" * 32, word(1)),
+            # Paused (`__paused` = 2), uninitialized, or another owner.
+            ("SignalService", word(201), word(0x0201)),
+            ("TaikoAnchor", word(0), word(0)),
+            ("TaikoAnchor", word(51), self.fixture.address_word("0x" + "cc" * 20)),
+            # A non-zero `_blockState`.
+            ("TaikoAnchor", word(256), word(7)),
+        )
+        for proxy, slot, value in cases:
+            self.setUp()
+            self.predeploys[self.addresses[proxy]]["storage"][slot] = value
+            with self.assertRaisesRegex(ValueError, "the " + proxy + " proxy's storage slot "
+                                        + slot + " is " + value):
+                self._build()
+        self.setUp()
+        del self.predeploys[self.addresses["SignalService"]]["storage"][word(51)]
+        with self.assertRaisesRegex(ValueError, "SignalService proxy's storage slot " + word(51)):
+            self._build()
+
+    def test_rejects_reserved_and_confused_addresses(self):
+        # A root-path contract at a precompile would not run its code: at 0x02 SHA-256 answers
+        # every call with 32 bytes.
+        for name in self.builder.REQUIRED_PREDEPLOYS:
+            for reserved in ("0x" + "00" * 19 + "02", "0x" + "00" * 18 + "ffff",
+                             self.builder.ROOTS, self.builder.HISTORY):
+                config = json.loads(json.dumps(self.config))
+                config["contractAddresses"][name] = reserved
+                with self.assertRaisesRegex(ValueError, name + " " + reserved.lower()
+                                            + " is a precompile or system contract"):
+                    self._build(config=config)
+        # The L1 SignalService flag: not reserved, and not an L2 predeploy.
+        for l1, diagnostic in (("0x" + "00" * 19 + "02", "is a precompile"),
+                               (self.addresses["SignalService"], "is an L2 predeploy address")):
+            self.l1_signal_service = l1
+            self.config["remoteSignalService"] = l1
+            with self.assertRaisesRegex(ValueError, "--l1-signal-service .*" + diagnostic):
+                self._build()
+
+    def test_rejects_malformed_chain_ids_and_owner(self):
+        cases = (
+            ("chainId", True, "chainId must be a positive integer"),
+            ("l1ChainId", True, "l1ChainId must be a positive integer"),
+            ("l1ChainId", None, "l1ChainId must be a positive integer"),
+            ("l1ChainId", 0, "l1ChainId must be a positive integer"),
+            ("l1ChainId", 167001, "l1ChainId equals the L2 chain id"),
+            ("contractOwner", None, "contractOwner must be a non-zero address"),
+            ("contractOwner", "0x" + "00" * 20, "contractOwner must be a non-zero address"),
+        )
+        for field, value, diagnostic in cases:
+            config = json.loads(json.dumps(self.config))
+            config[field] = value
+            with self.assertRaisesRegex(ValueError, diagnostic):
+                self._build(config=config)
+        self.base["config"]["chainId"] = True
+        with self.assertRaisesRegex(ValueError, "base genesis: config.chainId must be"):
+            self._build()
+        self.base["config"]["chainId"] = self.fixture.CHAIN_ID
+        config = json.loads(json.dumps(self.config))
+        del config["contractAddresses"]["SharedResolver"]
+        with self.assertRaisesRegex(ValueError, "no SharedResolver address"):
+            self._build(config=config)
 
     def test_rejects_an_immutable_with_two_values(self):
         # The stand-in Anchor reads etnaTimestamp at bytes 34 and 100; set only the second.
@@ -332,6 +419,22 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
         self.config["etnaTimestamp"] = "0x0"
         self.predeploys = self.fixture.predeploys(etnaTimestamp=self.fixture.word(1))
         self._assert_cli_rejected(json.dumps(self.base), "TaikoAnchorImpl etnaTimestamp is")
+
+    def test_cli_failure_prints_one_line_and_removes_old_output(self):
+        # A failed run leaves no genesis behind, not even the one an earlier run wrote.
+        self.config["etnaTimestamp"] = "0x1"
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "genesis.json"
+            output.write_text("{}")
+            result, output = self._run_cli(directory, json.dumps(self.base))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertFalse(output.exists(), "the earlier output must be gone")
+            self.assertNotIn("Traceback", result.stderr)
+            self.assertRegex(result.stderr.strip(), r"^build_etna_genesis.py: error: predeploy "
+                             r"config: etnaTimestamp must be 0x0[^\n]*$")
+            self.assertEqual(sorted(p.name for p in Path(directory).iterdir()),
+                             ["base.json", "genesis_alloc.json", "genesis_config.json"],
+                             "no temporary file left")
 
     def test_fixture_script_builds_through_the_cli(self):
         with tempfile.TemporaryDirectory() as directory:

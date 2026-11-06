@@ -16,6 +16,7 @@ abstract contract DeployShastaL2Contracts is DeployCapability {
         address anchorProxy;
         address signalServicePauser;
         uint64 etnaTimestamp;
+        uint64 l2ChainId;
     }
 
     modifier broadcast() {
@@ -40,6 +41,21 @@ abstract contract DeployShastaL2Contracts is DeployCapability {
         require(config.l1SignalService != address(0), "L1_SIGNAL_SERVICE not set");
         require(config.l2SignalService != address(0), "L2_SIGNAL_SERVICE not set");
         require(config.anchorProxy != address(0), "ANCHOR_PROXY not set");
+        // A script run against another network would otherwise deploy an Anchor whose checkpoint
+        // store has no code, and every anchorV4 would revert once the DAO batch installs it.
+        require(block.chainid == config.l2ChainId, "Wrong L2 chain");
+        require(config.l2SignalService.code.length != 0, "L2_SIGNAL_SERVICE has no code");
+        require(config.anchorProxy.code.length != 0, "ANCHOR_PROXY has no code");
+        // The live Anchor already saves into this SignalService for this L1; the new one must too.
+        require(
+            _readWord(config.anchorProxy, "checkpointStore()")
+                == uint256(uint160(config.l2SignalService)),
+            "ANCHOR_PROXY checkpoint store mismatch"
+        );
+        require(
+            _readWord(config.anchorProxy, "l1ChainId()") == config.l1ChainId,
+            "ANCHOR_PROXY L1 chain id mismatch"
+        );
         // On a running network the gate must lie in the future, or anchorV4 would already revert.
         // This checks only deploy time. The DAO proposal's single L2 batch upgrades this Anchor
         // and SignalServiceL2 together and must execute well before the Unzen propose cutoff, so
@@ -47,6 +63,23 @@ abstract contract DeployShastaL2Contracts is DeployCapability {
         require(config.etnaTimestamp > block.timestamp, "ETNA_TIMESTAMP not in the future");
         // ETNA_FORK_TIME is a uint48 in the EtnaInbox; a larger value could never match it.
         require(config.etnaTimestamp <= type(uint48).max, "ETNA_TIMESTAMP above 2^48 - 1");
+    }
+
+    /// @dev Reads one 32-byte word from a getter of a live contract.
+    /// @param _target The contract.
+    /// @param _signature The getter's signature.
+    /// @return word_ The returned word.
+    function _readWord(
+        address _target,
+        string memory _signature
+    )
+        internal
+        view
+        returns (uint256 word_)
+    {
+        (bool ok, bytes memory ret) = _target.staticcall(abi.encodeWithSignature(_signature));
+        require(ok && ret.length == 32, "Live getter unreadable");
+        return abi.decode(ret, (uint256));
     }
 
     /// @dev Preserves an existing immutable pauser when deploying a replacement implementation.
@@ -57,6 +90,8 @@ abstract contract DeployShastaL2Contracts is DeployCapability {
         view
         returns (address pauser_)
     {
+        // A call to an address without code succeeds with no data, which would read as zero.
+        require(_signalService.code.length != 0, "L2_SIGNAL_SERVICE has no code");
         (bool ok, bytes memory ret) = _signalService.staticcall(abi.encodeWithSignature("pauser()"));
         // Older implementations have neither getter; a versioned target must expose its pauser.
         if (ret.length == 0) {

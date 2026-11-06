@@ -4,7 +4,13 @@ const path = require("path");
 const { ethers } = require("ethers");
 const { deployTaikoAnchor } = require("./taikoAnchor");
 const { deployERC20 } = require("./erc20");
-const config: Config = require("../data/genesis_config.js");
+// GENESIS_CONFIG names another configuration file; genesis.test.sh uses it to generate an Etna
+// alloc for script/layer2/build_etna_genesis.py.
+const config: Config = require(
+    process.env.GENESIS_CONFIG
+        ? path.resolve(process.env.GENESIS_CONFIG)
+        : "../data/genesis_config.js",
+);
 
 // Generate a L2 genesis JSON based on the given configurations.
 // ref: https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html

@@ -7,6 +7,7 @@ import { DeployShastaL2Mainnet } from "script/layer2/DeployShastaL2Mainnet.s.sol
 import { Anchor } from "src/layer2/core/Anchor.sol";
 import { LibL2HoodiAddrs } from "src/layer2/hoodi/LibL2HoodiAddrs.sol";
 import { LibL2Addrs } from "src/layer2/mainnet/LibL2Addrs.sol";
+import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 import { SignalServiceL2 } from "src/shared/signal/SignalServiceL2.sol";
@@ -49,19 +50,14 @@ contract TestDeployShastaL2Config is CommonTest {
 
         _checkLoader(mainnet, LibL2Addrs.SIGNAL_SERVICE);
         _checkLoader(hoodi, LibL2HoodiAddrs.HOODI_SIGNAL_SERVICE);
+        assertEq(mainnet.loadConfig().l2ChainId, LibNetwork.TAIKO_MAINNET, "mainnet L2");
+        assertEq(hoodi.loadConfig().l2ChainId, LibNetwork.TAIKO_HOODI, "Hoodi L2");
     }
 
     function test_validateConfig_RequiresAFutureUint48EtnaTimestamp() external {
         MainnetConfigLoader loader = new MainnetConfigLoader();
-        DeployShastaL2Contracts.DeploymentConfig memory config =
-            DeployShastaL2Contracts.DeploymentConfig({
-                l1ChainId: 1,
-                l1SignalService: address(1),
-                l2SignalService: address(2),
-                anchorProxy: address(3),
-                signalServicePauser: address(0),
-                etnaTimestamp: type(uint48).max
-            });
+        DeployShastaL2Contracts.DeploymentConfig memory config = _liveConfig();
+        config.etnaTimestamp = type(uint48).max;
         loader.validateConfig(config);
 
         config.etnaTimestamp = uint64(type(uint48).max) + 1;
@@ -70,6 +66,47 @@ contract TestDeployShastaL2Config is CommonTest {
 
         config.etnaTimestamp = uint64(block.timestamp);
         vm.expectRevert(bytes("ETNA_TIMESTAMP not in the future"));
+        loader.validateConfig(config);
+    }
+
+    /// @dev The script runs only on its own L2, against proxies with code, and only when the live
+    /// Anchor already saves into the configured SignalService for the configured L1. Otherwise a
+    /// run on the wrong network deploys an Anchor whose checkpoint store has no code.
+    function test_validateConfig_RejectsWrongNetworkAndWiring() external {
+        MainnetConfigLoader loader = new MainnetConfigLoader();
+        DeployShastaL2Contracts.DeploymentConfig memory config = _liveConfig();
+        loader.validateConfig(config);
+
+        config.l2ChainId = LibNetwork.TAIKO_MAINNET;
+        vm.expectRevert(bytes("Wrong L2 chain"));
+        loader.validateConfig(config);
+
+        config = _liveConfig();
+        config.l2SignalService = makeAddr("codeless");
+        vm.expectRevert(bytes("L2_SIGNAL_SERVICE has no code"));
+        loader.validateConfig(config);
+
+        config = _liveConfig();
+        config.anchorProxy = makeAddr("codeless");
+        vm.expectRevert(bytes("ANCHOR_PROXY has no code"));
+        loader.validateConfig(config);
+
+        // The live Anchor saves into another SignalService.
+        config = _liveConfig();
+        config.l2SignalService = address(new Anchor(ICheckpointStore(address(1)), 1, 1));
+        vm.expectRevert(bytes("ANCHOR_PROXY checkpoint store mismatch"));
+        loader.validateConfig(config);
+
+        // The live Anchor trusts another L1.
+        config = _liveConfig();
+        config.l1ChainId = uint64(LibNetwork.ETHEREUM_HOODI);
+        vm.expectRevert(bytes("ANCHOR_PROXY L1 chain id mismatch"));
+        loader.validateConfig(config);
+
+        // A proxy whose implementation has neither getter.
+        config = _liveConfig();
+        vm.etch(config.anchorProxy, hex"5f5ff3");
+        vm.expectRevert(bytes("Live getter unreadable"));
         loader.validateConfig(config);
     }
 
@@ -86,7 +123,8 @@ contract TestDeployShastaL2Config is CommonTest {
                 l2SignalService: makeAddr("l2SignalService"),
                 anchorProxy: makeAddr("anchorProxy"),
                 signalServicePauser: Alice,
-                etnaTimestamp: _ETNA_TIMESTAMP
+                etnaTimestamp: _ETNA_TIMESTAMP,
+                l2ChainId: uint64(block.chainid)
             });
         (address anchorImpl, address signalServiceImpl) = loader.deploy(config);
 
@@ -111,6 +149,26 @@ contract TestDeployShastaL2Config is CommonTest {
         assertEq(signalService.getCheckpoint(1).stateRoot, checkpoint.stateRoot, "saved");
     }
 
+    /// @dev A valid configuration on this chain: a SignalService with code and a live Anchor that
+    /// saves into it for L1 chain 1.
+    function _liveConfig()
+        private
+        returns (DeployShastaL2Contracts.DeploymentConfig memory config_)
+    {
+        address l2SignalService = makeAddr("l2SignalService");
+        vm.etch(l2SignalService, hex"00");
+        Anchor liveAnchor = new Anchor(ICheckpointStore(l2SignalService), 1, _ETNA_TIMESTAMP);
+        config_ = DeployShastaL2Contracts.DeploymentConfig({
+            l1ChainId: 1,
+            l1SignalService: makeAddr("l1SignalService"),
+            l2SignalService: l2SignalService,
+            anchorProxy: address(liveAnchor),
+            signalServicePauser: address(0),
+            etnaTimestamp: _ETNA_TIMESTAMP,
+            l2ChainId: uint64(block.chainid)
+        });
+    }
+
     /// @dev Whether `_code` contains `_value` as a left-padded 32-byte word, the form an immutable
     /// address takes in a runtime.
     function _embeds(bytes memory _code, address _value) private pure returns (bool) {
@@ -126,6 +184,10 @@ contract TestDeployShastaL2Config is CommonTest {
     }
 
     function _checkLoader(IDeploymentConfigLoader _loader, address _signalService) private {
+        // An address without code would answer every getter with nothing, which reads as zero.
+        vm.etch(_signalService, "");
+        _expectLoaderRevert(_loader);
+
         SignalService implementation = new SignalService(address(this), address(1), Alice);
         vm.etch(_signalService, address(implementation).code);
         _expectPauser(_loader, _signalService, Alice);

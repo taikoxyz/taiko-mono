@@ -182,7 +182,7 @@ interface IEtnaStakingRegistry {
 
     /// @notice Emitted when a bond is withdrawn.
     /// @param bondId The bond id.
-    /// @param to The recipient of the stake.
+    /// @param to The recipient of the stake; zero when nothing is paid.
     /// @param amount The stake paid out; zero for a slashed bond.
     event StakeWithdrawn(uint256 indexed bondId, address indexed to, uint256 amount);
 
@@ -325,13 +325,13 @@ interface IEtnaStakingRegistry {
     /// `confirmExit`). Requires an unwithdrawn bond, a confirmed exit and block.number >=
     /// exitConfirmedAtL1 + withdrawalDelay. Principal includes both effStake and pendingTopUp.
     /// With positive principal only the bond owner may call and the principal goes to a non-zero
-    /// `_to`; a slashed bond is withdrawn by anyone without payment. Zeros the bond's balance,
-    /// clears its owner, confirmation and pending fields and marks it withdrawn, keeping its key,
-    /// activation and exit; the key stays registered and its lifetime forfeiture flag is
-    /// retained. If the bond holds a slot, the slot becomes empty and the current block's
-    /// checkpoint is written.
+    /// `_to`; a slashed bond is withdrawn by anyone without payment, `_to` is ignored and the
+    /// event names the zero address. Zeros the bond's balance, clears its owner, confirmation
+    /// and pending fields and marks it withdrawn, keeping its key, activation and exit; the key
+    /// stays registered and its lifetime forfeiture flag is retained. If the bond holds a slot,
+    /// the slot becomes empty and the current block's checkpoint is written.
     /// @param _bondId The bond id.
-    /// @param _to The recipient of the stake.
+    /// @param _to The recipient of the stake; ignored when nothing is paid.
     function withdraw(uint256 _bondId, address _to) external;
 
     /// @notice Slashes an entry's whole stake for a same-round double sign (spec 4.1).

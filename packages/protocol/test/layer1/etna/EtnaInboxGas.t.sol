@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 import { EtnaInboxSwitchTestBase } from "./EtnaInboxSwitchTestBase.sol";
 import { EtnaLandTestBase } from "./EtnaLandTestBase.sol";
+import { EtnaTestKeys } from "./EtnaTestKeys.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
 import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
@@ -172,6 +173,103 @@ contract EtnaInboxRecoverGasTest is EtnaInboxGasBase {
         assertEq(_inbox().recoveryGeneration(), 1, "generation");
         assertEq(registry.entryAt(1).exitEffectiveL1, block.number, "forced out");
         assertEq(_inbox().getForcedInclusion(2).txHash, keccak256(""), "blanked");
+    }
+}
+
+/// @title EtnaInboxRecoverFullRegistryGasTest
+/// @notice The owner's recovery at c = 6 with all 4,096 registry slots held at the minimum stake,
+/// forcing out one bond and then 16, with no blanking: the full-registry exclusion cost of
+/// ACCEPTANCE section 7. Each exclusion rewrites its slot's path through the entries tree, so the
+/// 16 bonds sit 256 slots apart and share only the top four levels of their paths.
+contract EtnaInboxRecoverFullRegistryGasTest is EtnaInboxGasBase {
+    /// @dev The registry's capacity.
+    uint256 private constant _CAPACITY = 4096;
+
+    /// @dev The first prefilled consensus key.
+    uint256 private constant _PREFILL_KEY = 0x10000;
+
+    /// @dev Registrations per `prefillBatch` call: one call frame's memory must stay within the
+    /// transaction gas cap.
+    uint256 private constant _PREFILL_CALL = 128;
+
+    /// @dev The longest exclusion list measured; it must stay below `GAS_LIMIT`.
+    uint256 private constant _MAX_EXCLUSIONS = 16;
+
+    /// @dev The distance between the excluded bonds, which hold the slots of the same number.
+    uint256 private constant _EXCLUSION_STRIDE = _CAPACITY / _MAX_EXCLUSIONS;
+
+    /// @dev Bonds 1, 1 + `_EXCLUSION_STRIDE`, ... with their entry keys, sorted by bond id.
+    IEtnaInbox.Exclusion[] internal exclusions;
+
+    /// @notice Carol registers `_count` minimum stakes with the consensus keys `_firstKey`,
+    /// `_firstKey + 1`, ... in the current block.
+    /// @dev Called by this contract only, as an external call so each batch starts with empty
+    /// memory.
+    function prefillBatch(uint256 _firstKey, uint256 _count) external {
+        require(msg.sender == address(this), "self only");
+        for (uint256 i; i < _count; ++i) {
+            bytes memory key = EtnaTestKeys.publicKey(_firstKey + i);
+            bytes memory proof = EtnaTestKeys.popSig(_firstKey + i, registry, Carol);
+            vm.prank(Carol);
+            registry.register(key, MIN_STAKE, proof);
+        }
+    }
+
+    function setUp() public override {
+        super.setUp();
+        _landHonestly(0, 6);
+
+        uint256 count = _CAPACITY - registry.entryCount();
+        taikoToken.mint(Carol, count * MIN_STAKE);
+        vm.prank(Carol);
+        taikoToken.approve(address(registry), type(uint256).max);
+        vm.pauseGasMetering();
+        for (uint256 done; done < count; done += _PREFILL_CALL) {
+            uint256 batch = count - done < _PREFILL_CALL ? count - done : _PREFILL_CALL;
+            this.prefillBatch(_PREFILL_KEY + done, batch);
+            vm.roll(block.number + 1);
+        }
+        vm.resumeGasMetering();
+        assertEq(registry.entryCount(), _CAPACITY, "every slot used");
+        assertEq(registry.bondCount(), _CAPACITY, "one bond per slot");
+
+        for (uint256 i; i < _MAX_EXCLUSIONS; ++i) {
+            uint256 bondId = 1 + i * _EXCLUSION_STRIDE;
+            assertEq(registry.bondAt(bondId).slot, bondId, "bond in its own slot");
+            IEtnaStakingRegistry.Entry memory entry = registry.entryAt(bondId);
+            exclusions.push(
+                IEtnaInbox.Exclusion({
+                    bondId: bondId, entryKey: LibEtnaKeys.entryKey(entry.ckPrefix, entry.ckX)
+                })
+            );
+        }
+        assertEq(_inbox().owner(), address(this), "this test is the owner");
+    }
+
+    function test_gas_RecoverWithOneExclusionAtFullCapacity() external {
+        _measureRecover("recover_1_exclusion_at_4096", 1);
+    }
+
+    function test_gas_RecoverWithSixteenExclusionsAtFullCapacity() external {
+        _measureRecover("recover_16_exclusions_at_4096", _MAX_EXCLUSIONS);
+    }
+
+    /// @dev Recovers at c = 6 forcing out the first `_count` bonds of `exclusions`.
+    function _measureRecover(string memory _label, uint256 _count) private {
+        EtnaInbox target = EtnaInbox(inboxProxy);
+        IEtnaInbox.Exclusion[] memory exclusionList = new IEtnaInbox.Exclusion[](_count);
+        for (uint256 i; i < _count; ++i) {
+            exclusionList[i] = exclusions[i];
+        }
+        uint256[] memory blanks = new uint256[](0);
+        vm.startSnapshotGas(_label);
+        target.recover(0, 6, 0, type(uint256).max, exclusionList, blanks, 0);
+        _stopSnapshot(_label);
+
+        assertEq(_inbox().recoveryGeneration(), 1, "generation");
+        uint256 last = exclusions[_count - 1].bondId;
+        assertEq(registry.entryAt(last).exitEffectiveL1, block.number, "last bond forced out");
+        assertEq(registry.entryAt(last + 1).exitEffectiveL1, 2 ** 48 - 1, "neighbor kept");
     }
 }
 

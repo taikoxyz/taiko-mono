@@ -843,6 +843,9 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         require(_expectedRecoveryNonce == _recoveryNonce, RecoveryNonceMismatch());
         require(block.timestamp <= _validUntil, AuthorizationExpired());
         newGeneration_ = _toUint48(uint256(generation) + 1);
+        // RECOV-8.4-4: an origin record is written once. Only an upgrade that wrote the next
+        // generation's record without advancing the generation could trip this.
+        require(_origins[newGeneration_].l1BlockNumber == 0, OriginAlreadyWritten());
         require(
             block.number <= type(uint48).max && block.timestamp <= type(uint48).max, ValueOverflow()
         );

@@ -162,3 +162,7 @@ out = "out/genesis"
 cache_path = "cache/genesis"
 # Must match profile.layer2 — this profile builds the same L2 contracts into the genesis alloc.
 evm_version = "osaka"
+# Profiles inherit the default `no_match_path`, which excludes test/genesis/*: genesis.test.sh's
+# `--match-path test/genesis/GenerateGenesis.g.sol` would then match nothing and pass. Override it
+# with a path no test uses.
+no_match_path = "test/genesis/__none__/*"

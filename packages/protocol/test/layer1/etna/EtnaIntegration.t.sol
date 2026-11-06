@@ -335,7 +335,7 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
         assertEq(registry.exitConfirmedAtL1(1), block.number, "bond 1 confirmed");
         uint256 carolBefore = taikoToken.balanceOf(Carol);
         vm.expectEmit(address(registry));
-        emit IEtnaStakingRegistry.StakeWithdrawn(0, Carol, 0);
+        emit IEtnaStakingRegistry.StakeWithdrawn(0, address(0), 0);
         vm.prank(Carol);
         registry.withdraw(0, Carol);
         assertEq(taikoToken.balanceOf(Carol), carolBefore, "no payment");

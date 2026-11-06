@@ -240,8 +240,9 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
         bytes32 emptyLeaf = LibEntriesTree.leaf(0, zero);
         vm.expectEmit(address(registry));
         emit IEtnaStakingRegistry.CheckpointWritten(2, 130, 1, emptyLeaf);
+        // Nothing is paid, so the event names no recipient, whatever `_to` the caller passes.
         vm.expectEmit(address(registry));
-        emit IEtnaStakingRegistry.StakeWithdrawn(0, Carol, 0);
+        emit IEtnaStakingRegistry.StakeWithdrawn(0, address(0), 0);
         vm.recordLogs();
         vm.prank(Carol);
         registry.withdraw(0, Carol);
