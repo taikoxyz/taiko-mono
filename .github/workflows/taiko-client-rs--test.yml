@@ -272,8 +272,8 @@ jobs:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     name: Tests
     runs-on: ubuntu-latest
-    # Cold host/runtime builds precede the serial devnet scenarios.
-    timeout-minutes: 90
+    # Cold native builds precede serial devnets and the full-window resource gate.
+    timeout-minutes: 180
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -367,6 +367,16 @@ jobs:
         working-directory: packages/taiko-client-rs
         run: just check-features
 
+      - name: Install isolated-helper formatter
+        run: rustup toolchain install nightly-2025-09-27 --profile minimal --component rustfmt
+
+      - name: Verify local EL import helper
+        working-directory: packages/taiko-client-rs
+        env:
+          # Reuse this job's native dependency cache instead of a nested target directory.
+          CARGO_TARGET_DIR: ${{ github.workspace }}/packages/taiko-client-rs/target
+        run: just el-import-verify
+
       - uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
         with:
           tool: cargo-nextest@0.9.145
@@ -377,6 +387,11 @@ jobs:
         working-directory: packages/taiko-client-rs
         # Pull requests skip the slowest scenario; main, nightly and manual runs cover all.
         run: just ${{ github.event_name == 'pull_request' && 'test' || 'test-full' }}
+
+      - name: Verify complete checkpoint windows and resource limits
+        if: github.event_name != 'pull_request'
+        working-directory: packages/taiko-client-rs
+        run: just checkpoint-import-resources
 
       # Each scenario removes its devnet when it ends, but a job cancellation or
       # timeout can skip that; remove this run's labeled ABCI and lander resources so

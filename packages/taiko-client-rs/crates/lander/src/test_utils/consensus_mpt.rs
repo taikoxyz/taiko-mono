@@ -34,7 +34,7 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
 };
 
-#[derive(Clone)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 struct State {
     accounts: BTreeMap<Address, (BTreeMap<B256, U256>, B256)>,
     root: B256,
@@ -1589,3 +1589,61 @@ fn authenticates_301_members_from_registry_proof_through_comet_certificate() {
 
 #[path = "recovery.rs"]
 pub(crate) mod recovery;
+
+/// Make the import metadata using the fixture's actual own-L1 genesis witnesses and landed state.
+pub(crate) async fn import_package(
+    fx: &Fixture,
+    height: u64,
+) -> crate::checkpoint_import::ImportPackage {
+    use crate::checkpoint_import::ImportPackage;
+    use abci::GenesisDoc;
+    let witness = abci::GenesisWitness {
+        l1_header: fx.l1_headers[&fx.snapshot.genesis.l1_0].clone(),
+        inbox: fx.import_witness(
+            fx.params.inbox,
+            &abci::l1::layout::inbox::genesis_slots(),
+            fx.snapshot.genesis.l1_0,
+        ),
+        committee: fx
+            .committee_witness(&fx.anchors[&0], fx.snapshot.genesis.genesis_cutoff, 0)
+            .await
+            .unwrap(),
+    };
+    let genesis = GenesisDoc {
+        genesis_time: tendermint::Time::from_unix_timestamp(
+            witness.l1_header.timestamp() as i64,
+            0,
+        )
+        .unwrap()
+        .to_rfc3339(),
+        chain_id: abci::rules::chain_id_for(&fx.params, 0).unwrap(),
+        initial_height: "1".into(),
+        consensus_params: abci::genesis::GenesisConsensusParams::etna(),
+        validators: fx.committees[&0]
+            .state
+            .members
+            .iter()
+            .map(abci::genesis::GenesisValidator::from_member)
+            .collect(),
+        app_hash: alloy_primitives::hex::encode_upper(fx.snapshot.genesis.genesis_hash),
+        app_state: abci::genesis::AppStateJson::from(&witness),
+    };
+    ImportPackage {
+        schema: 1,
+        genesis,
+        checkpoint_height: height,
+        origin_header: fx.headers[&0].clone(),
+        recovery_bootstrap: None,
+        boundary_header: None,
+        validator_state: if height == 0 {
+            Bytes::new()
+        } else {
+            fx.val_states[&height].encode().into()
+        },
+        execution_headers: vec![],
+    }
+}
+
+#[cfg(test)]
+#[path = "import_resources.rs"]
+mod import_resources;

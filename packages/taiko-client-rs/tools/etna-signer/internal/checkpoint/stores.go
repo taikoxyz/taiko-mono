@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	dbm "github.com/cometbft/cometbft-db"
@@ -40,18 +41,59 @@ func checkParents(path string) error {
 	}
 	return nil
 }
-func syncDir(path string) error {
+func syncDir(path string) (err error) {
 	f, e := os.Open(path)
 	if e != nil {
 		return e
 	}
-	defer f.Close()
+	defer func() { err = errors.Join(err, f.Close()) }()
+	return f.Sync()
+}
+
+// syncStockTree flushes the closed private native files before the installer reports
+// success. Children precede their directory entries. Reject links, devices and other
+// unexpected entries instead of following an alias outside the fresh home.
+func syncStockTree(path string) (err error) {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() && (!info.Mode().IsRegular() || info.Sys().(*syscall.Stat_t).Nlink != 1) {
+		return fmt.Errorf("unexpected inode in private stock staging: %s", path)
+	}
+	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, f.Close()) }()
+	opened, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	if !os.SameFile(info, opened) {
+		return errors.New("stock staging inode changed during sync")
+	}
+	if info.IsDir() {
+		names, err := f.Readdirnames(-1)
+		if err != nil {
+			return err
+		}
+		for _, name := range names {
+			if err := syncStockTree(filepath.Join(path, name)); err != nil {
+				return err
+			}
+		}
+	}
 	return f.Sync()
 }
 
 // Install creates only a previously nonexistent home; signer keys and WAL are never read.
 // The controller must stage all other stores and publish its own completion manifest.
-func Install(home string, v *Verified) (err error) {
+func Install(home string, v *Verified) error {
+	return installFresh(home, v, syncStockTree)
+}
+
+func installFresh(home string, v *Verified, flushTree func(string) error) (err error) {
 	if v == nil {
 		return errors.New("missing verified package")
 	}
@@ -89,17 +131,21 @@ func Install(home string, v *Verified) (err error) {
 		return closeErr
 	}
 	data := filepath.Join(home, "data")
-	stateDB, err := dbm.NewGoLevelDB("state", data)
+	// Native consensus fsyncs each live commit. Here every row belongs to a fresh,
+	// unpublished image: a crash discards it. Use the same stock block/state APIs and
+	// enforce file and directory durability for the closed image as a whole.
+	options := &opt.Options{NoSync: true, ErrorIfExist: true}
+	stateDB, err := dbm.NewGoLevelDBWithOpts("state", data, options)
 	if err != nil {
 		return err
 	}
 	defer stateDB.Close()
-	blockDB, err := dbm.NewGoLevelDB("blockstore", data)
+	blockDB, err := dbm.NewGoLevelDBWithOpts("blockstore", data, options)
 	if err != nil {
 		return err
 	}
 	defer blockDB.Close()
-	evidenceDB, err := dbm.NewGoLevelDB("evidence", data)
+	evidenceDB, err := dbm.NewGoLevelDBWithOpts("evidence", data, options)
 	if err != nil {
 		return err
 	}
@@ -215,15 +261,17 @@ func Install(home string, v *Verified) (err error) {
 	if err = evidenceDB.Close(); err != nil {
 		return err
 	}
+	if err = flushTree(home); err != nil {
+		return err
+	}
 	if err = verifyReopened(data, v); err != nil {
 		return err
 	}
-	for _, path := range []string{filepath.Join(data, "state.db"), filepath.Join(data, "blockstore.db"), filepath.Join(data, "evidence.db"), data, filepath.Join(home, "config"), home, filepath.Dir(home)} {
-		if err = syncDir(path); err != nil {
-			return err
-		}
+	// Read-only reopen can still touch native diagnostics and lock files.
+	if err = flushTree(home); err != nil {
+		return err
 	}
-	return nil
+	return syncDir(filepath.Dir(home))
 }
 func openReadOnly(home, name string) (*dbm.GoLevelDB, error) {
 	path := filepath.Join(home, "data", name+".db")
@@ -260,23 +308,23 @@ func historicalValidatorLookup(store sm.Store) (func(int64) (*types.ValidatorSet
 	}
 	return fast.LoadValidatorsFast, nil
 }
-func verifyReopened(data string, v *Verified) error {
+func verifyReopened(data string, v *Verified) (err error) {
 	home := filepath.Dir(data)
 	sd, e := openReadOnly(home, "state")
 	if e != nil {
 		return e
 	}
-	defer sd.Close()
+	defer func() { err = errors.Join(err, sd.Close()) }()
 	bd, e := openReadOnly(home, "blockstore")
 	if e != nil {
 		return e
 	}
-	defer bd.Close()
+	defer func() { err = errors.Join(err, bd.Close()) }()
 	ed, e := openReadOnly(home, "evidence")
 	if e != nil {
 		return e
 	}
-	defer ed.Close()
+	defer func() { err = errors.Join(err, ed.Close()) }()
 	store := sm.NewStore(sd, sm.StoreOptions{})
 	loadValidators, e := historicalValidatorLookup(store)
 	if e != nil {

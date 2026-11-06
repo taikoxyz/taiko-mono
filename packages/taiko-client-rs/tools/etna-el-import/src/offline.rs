@@ -12,11 +12,17 @@ use std::{
 
 use reth_db::{
     DatabaseEnv,
-    mdbx::{RO, tx::Tx},
+    mdbx::{DatabaseArguments, RO, tx::Tx},
 };
 use reth_db_api::{Database, transaction::DbTx};
 
 use crate::ImportError;
+
+/// Grow only owned import/scratch datasets in 64 MiB steps. The normal 8 TiB maximum and
+/// durable transaction mode still apply. The bound runtime uses the same growth step.
+pub(crate) fn write_arguments() -> DatabaseArguments {
+    DatabaseArguments::default().with_growth_step(Some(64 * 1024 * 1024))
+}
 
 /// An offline full scan has exclusive ownership of the candidate and no interactive deadline.
 pub(crate) fn scan(db: &DatabaseEnv) -> Result<Tx<RO>, ImportError> {

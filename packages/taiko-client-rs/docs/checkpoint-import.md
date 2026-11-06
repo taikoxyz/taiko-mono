@@ -89,3 +89,17 @@ Imported signers publish denial events in a fresh private per-incarnation direct
 The launchers authenticate the client and native Comet executable against the installation. They check a fresh live app/EL response, all three database installation keys, their roles, normalized config, and filesystem identities before starting stock. Comet receives a clean environment and the checked canonical home. Configure listeners and peers in the template before prepare. Imported validators use only the bound signer executable. Container adapters and command or environment override JSON are rejected. Stop Comet/the supervisor first, then stop `run-app` so it can reap its execution process. Start `run-app` before restarting Comet. Keep the controller binaries, paths, private mounts and installation identities stable across restart.
 
 After an older import, stock P2P must reach the latest finalized target and the app must authenticate it under its own L1 before readiness/signing. Inspect the running app's `/status` or `/trust` separately; imported nodes include `execution_floor` in `/status`. `execution_floor=s` is the oldest independently installed state: there is no pre-`s` transaction, receipt, body or FI trial history in these stores. Real later blocks create normal execution history. Keep post-floor state available for FI replay. Package export covers app/consensus inputs only; public EL snapshot distribution and Unzen are outside this workflow.
+
+For sizing, use the [measured local profiles](checkpoint-import-resources.md). The offline
+helper and the owned native EL use 64 MiB MDBX growth increments for writable import
+storage. A donor may already have a much larger sparse extent; provision for its actual
+copy, scratch files, complete native window and installed indexes. The source file stays
+offline and immutable. Fresh stock stores are rebuilt under the unpublished stage. The
+installer closes the three databases, flushes all of their files and directories, checks
+the reopened stock contents, and flushes again before handing them to publication.
+
+External signer enrollment belongs to source bootstrap. Stop and reap the old validator
+before starting its imported successor with the same external key, authority and HRS
+paths. An older checkpoint requires an available peer suffix to the latest target.
+Preserve the stopped source WAL and fully replayed archive separately for historical
+proving and recovery investigation.

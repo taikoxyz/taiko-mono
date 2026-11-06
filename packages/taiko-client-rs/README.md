@@ -282,7 +282,9 @@ and automatic operator nonce repair remain excluded.
 Export, prepare and install a landed Etna checkpoint into fresh app, stock Comet and execution
 stores. See the [checkpoint import runbook](docs/checkpoint-import.md) for the separate offline EL
 dataset, original genesis, durable grid preimage archive and guarded startup. Offline status never
-grants signing readiness.
+grants signing readiness. A registered validator resumes with the original external authority
+and HRS after matching its own finalized target. The [client rule inventory](docs/etna-conformance.md)
+and [local resource measurements](docs/checkpoint-import-resources.md) describe the reproducible checks.
 
 ### `abci-recover`
 

@@ -15,7 +15,7 @@ use alloy_consensus::Header;
 use alloy_genesis::Genesis;
 use alloy_primitives::B256;
 use reth_chainspec::EthChainSpec;
-use reth_db::{DatabaseEnv, mdbx::DatabaseArguments};
+use reth_db::DatabaseEnv;
 use reth_db_api::{
     Database,
     cursor::DbCursorRO,
@@ -286,7 +286,7 @@ fn reset_directory(path: &Path) -> Result<(), ImportError> {
 
 /// Establish empty active auxiliary tables while retaining only canonical state/code leaves.
 fn sanitize_mdbx(database: &Path, storage_v2: bool) -> Result<(), ImportError> {
-    let db = reth_db::open_db(database, DatabaseArguments::default()).map_err(db_error)?;
+    let db = reth_db::open_db(database, crate::offline::write_arguments()).map_err(db_error)?;
     let tx = db.tx_mut().map_err(db_error)?;
     let (accounts, storage) = if storage_v2 {
         (tables::Tables::HashedAccounts, tables::Tables::HashedStorages)
@@ -314,7 +314,8 @@ pub(crate) fn open_factory(
     genesis: &Genesis,
 ) -> Result<ImportFactory, ImportError> {
     let db = Arc::new(
-        reth_db::open_db(data_dir.join("db"), DatabaseArguments::default()).map_err(db_error)?,
+        reth_db::open_db(data_dir.join("db"), crate::offline::write_arguments())
+            .map_err(db_error)?,
     );
     let static_files = StaticFileProviderBuilder::read_write(data_dir.join("static_files"))
         .build::<EthPrimitives>()
@@ -346,7 +347,7 @@ pub(crate) fn open_factory(
 /// Rebuild legacy hashed indexes without retaining all leaf bytes or overlapping source writes.
 fn rebuild_legacy_hashes(factory: &ImportFactory, parent: &Path) -> Result<(), ImportError> {
     let temporary = crate::offline::private_temp(".etna-hashed-", parent)?;
-    let scratch = reth_db::init_db(temporary.path().join("db"), DatabaseArguments::default())
+    let scratch = reth_db::init_db(temporary.path().join("db"), crate::offline::write_arguments())
         .map_err(db_error)?;
     {
         let source = crate::offline::scan(factory.db_ref())?;

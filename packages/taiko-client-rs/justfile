@@ -77,7 +77,7 @@ test-smoke:
 
 # Complete merge gate; smoke never substitutes for the full Docker suite.
 verify:
-  just signer-test && just supervisor-test && just fmt-check && just clippy && just unit && just el-import-verify && just check-lander-artifacts && just test-full
+  just signer-test && just supervisor-test && just fmt-check && just clippy && just unit && just el-import-verify && just check-lander-artifacts && just checkpoint-import-resources && just test-full
 
 # The local database helper is intentionally an isolated Cargo workspace.
 el-import-verify:
@@ -107,3 +107,11 @@ supervisor-test:
 # Build runtime-tools (repository-root context) or use the final client image before this smoke.
 runtime-image-test image platform:
   docker run --rm --platform {{platform}} -e ETNA_EXPECTED_PLATFORM={{platform}} --network none --entrypoint python3 -v "$PWD/tests:/app/tests:ro" {{image}} /app/tests/runtime_image_test.py
+
+# Complete height- and time-dominated evidence windows at two different prefix lengths.
+checkpoint-import-resources:
+  PYTHONDONTWRITEBYTECODE=1 python3 tests/checkpoint_import_resource_test.py
+  bash ./script/build_etna_signer.sh
+  bash ./script/build_etna_el_runtime.sh
+  bash ./script/build_etna_el_import.sh
+  python3 ./script/checkpoint_import_resources.py

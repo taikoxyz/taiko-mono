@@ -150,19 +150,60 @@ async fn checkpoint_import_fixed_origin_runs_original_stock_init_chain() -> Resu
     scenario(0, 0).await
 }
 
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "docker"]
+async fn registered_checkpoint_latest_signs_proposes_and_lands() -> Result<()> {
+    run_scenario(6, 6, Mode::Validator).await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "docker"]
+async fn registered_checkpoint_older_signs_proposes_and_lands() -> Result<()> {
+    run_scenario(6, 12, Mode::Validator).await
+}
+
 async fn scenario(height: u64, target: u64) -> Result<()> {
+    run_scenario(height, target, Mode::FullNode).await
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Mode {
+    FullNode,
+    Validator,
+    Forced,
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "docker"]
+async fn checkpoint_import_first_and_cold_post_floor_forced_skips() -> Result<()> {
+    run_scenario(6, 6, Mode::Forced).await
+}
+
+async fn run_scenario(height: u64, target: u64, mode: Mode) -> Result<()> {
     test_harness::init_tracing();
-    let f = ContractFixture::deploy_config(1, 120, 8).await?;
-    set_interval_mining(&f.anvil.provider, 1).await?;
-    let mut c = ContractConsensus::start_native(
-        f.anvil.http.clone(),
-        &f.l2,
-        f.params.clone(),
-        vec![f.signer_storage.path().join("0")],
+    let registered = mode == Mode::Validator;
+    let count = if registered { 4 } else { 1 };
+    let epoch_len = match (mode, target) {
+        (Mode::Validator, 6) => 7,
+        (Mode::Validator, 12) => 6,
+        _ => 8,
+    };
+    let f = ContractFixture::deploy_config(
+        count,
+        if mode == Mode::Forced { 6 } else { 120 },
+        epoch_len,
     )
     .await?;
+    set_interval_mining(&f.anvil.provider, 1).await?;
+    let dirs = (0..count).map(|i| f.signer_storage.path().join(i.to_string())).collect();
+    let mut c = if registered {
+        ContractConsensus::start_registered(f.anvil.http.clone(), &f.l2, f.params.clone(), dirs)
+            .await?
+    } else {
+        ContractConsensus::start_native(f.anvil.http.clone(), &f.l2, f.params.clone(), dirs).await?
+    };
     let commands = Commands::new(&f, &c)?;
-    let result = roundtrip(&f, &mut c, &commands, height, target).await;
+    let result = roundtrip(&f, &mut c, &commands, height, target, mode).await;
     if result.is_err() {
         commands.diagnostics();
         if let Ok(files) = fs::read_dir(commands.dir.path().join("import/.checkpoint-work")) {
@@ -188,9 +229,13 @@ async fn roundtrip(
     commands: &Commands,
     s: u64,
     target: u64,
+    mode: Mode,
 ) -> Result<()> {
     let base = commands.dir.path().canonicalize()?;
     c.wait_for_height(s).await?;
+    if mode == Mode::Forced {
+        forced::enqueue(f).await?;
+    }
     let archived = base.join("archived-val-state.bin");
     if s > 0 {
         let live = c.app_dir(0).join("val-state-6.bin");
@@ -243,13 +288,20 @@ async fn roundtrip(
         fs::copy(donor_dir.join("db").join(name), source.join("db").join(name))?;
     }
 
-    let (template, proxy, rp) = fullnode_template(&base, &c.comet_home(0), &c.cmt).await?;
+    let registered = c.peers.len() > 1;
+    let peer = if registered { &c.peers[1] } else { &c.cmt };
+    let (template, proxy, rp) = fullnode_template(&base, &c.comet_home(0), peer).await?;
+    if registered {
+        let mut config: toml::Table = toml::from_str(&fs::read_to_string(&template)?)?;
+        config.insert("priv_validator_laddr".into(), "unix://run/signer.sock".into());
+        fs::write(&template, toml::to_string(&config)?)?;
+    }
     let stock = package().join("target/etna-signer/etna-comet-import");
     let profile = base.join("import.json");
     write_private(
         &profile,
         serde_json::to_vec(
-            &json!({"schema":1,"l1_chain_id":f.params.l1_chain_id,"l2_chain_id":f.params.l2_chain_id,"l1_http":f.anvil.http,"chain_config":commands.chain,"archive":{"comet_http":c.cmt.url(),"l2_http":f.l2.http,"comet_genesis":c.comet_home(0).canonicalize()?.join("config/genesis.json"),"comet_helper":stock},"install":{"comet_binary":binary("ETNA_COMET_BIN","cometbft")?,"el_source":source,"el_chain":el_chain,"devnet_etna_timestamp":0,"comet_config":template,"comet_helper":stock,"el_helper":helper,"el_binary":elbin}}),
+            &json!({"schema":1,"l1_chain_id":f.params.l1_chain_id,"l2_chain_id":f.params.l2_chain_id,"l1_http":f.anvil.http,"chain_config":commands.chain,"archive":{"comet_http":c.cmt.url(),"l2_http":f.l2.http,"comet_genesis":c.comet_home(0).canonicalize()?.join("config/genesis.json"),"comet_helper":stock},"install":{"signer_binary":if registered {Some(binary("ETNA_SIGNER_BIN","etna-signer")?)} else {None},"comet_binary":binary("ETNA_COMET_BIN","cometbft")?,"el_source":source,"el_chain":el_chain,"devnet_etna_timestamp":0,"comet_config":template,"comet_helper":stock,"el_helper":helper,"el_binary":elbin}}),
         )?,
     )?;
     let package_dir = base.join("archive");
@@ -271,15 +323,57 @@ async fn roundtrip(
         db.len(),
         db.blocks() * 512
     );
-    if s < target {
+    if s < target && !registered {
         memdb_refused(&base, Path::new(profile), &package_dir)?;
         crash_stock_export(&base, Path::new(profile), &archived).await?;
+    }
+    if mode == Mode::Forced {
+        c.wait_for_height(s + 3).await?;
     }
     c.stop_node(0).await?;
     let hrs = f.signer_storage.path().join("0/state.json");
     let wal = c.comet_home(0).join("data/cs.wal/wal");
     let original = (fs::read(&hrs)?, fs::read(&wal)?);
-    if s < target {
+    if registered {
+        // The independent quorum can continue while the old validator is stopped. Wait for
+        // its absent proposer turn so at least one original post-s decision uses a later round.
+        let mut h = serde_json::from_slice::<Value>(&original.0)?["height"]
+            .as_str()
+            .unwrap()
+            .parse::<u64>()? +
+            1;
+        tokio::time::timeout(Duration::from_secs(90), async {
+            loop {
+                if c.peers[1].latest_height().await? > h {
+                    if c.peers[1].commit_round(h).await? > 0 {
+                        break;
+                    }
+                    h += 1;
+                } else {
+                    tokio::time::sleep(Duration::from_millis(100)).await;
+                }
+            }
+            Ok::<_, anyhow::Error>(())
+        })
+        .await
+        .context("independent source must decide a nonzero round")??;
+    }
+    let authority = f.signer_storage.path().join("0");
+    let marker_files = [
+        "key.json",
+        "authority/manifest.json",
+        "key.json.authority.json",
+        "state.json.authority.json",
+    ];
+    let authority_before: Vec<_> = if registered {
+        marker_files
+            .iter()
+            .map(|name| fs::read(authority.join(name)))
+            .collect::<std::io::Result<_>>()?
+    } else {
+        vec![]
+    };
+    if s < target && !registered {
         interrupted(
             &root,
             &["prepare", "--profile", profile, "--package", pkg, "--root", r],
@@ -295,9 +389,16 @@ async fn roundtrip(
             prepared["observed_latest_target"].as_u64().unwrap() == target &&
             prepared["live_trust"] == false
     );
-    if s < target {
-        interrupted(&root, &["install", "--profile", profile, "--root", r], "app/abci-state.json")
-            .await?;
+    if s < target && !registered {
+        for boundary in [
+            "comet/data/blockstore.db",
+            "el/.etna-el-import-completed.json",
+            "app/abci-state.json",
+            ".etna-checkpoint-completed.json",
+        ] {
+            interrupted(&root, &["install", "--profile", profile, "--root", r], boundary).await?;
+            ensure!(fs::read(&hrs)? == original.0 && fs::read(&wal)? == original.1);
+        }
     }
     let ready = cli(&base, "install", &["install", "--profile", profile, "--root", r]).await?;
     ensure!(
@@ -305,11 +406,41 @@ async fn roundtrip(
             ready["execution_floor"] == s &&
             ready["live_trust"] == false
     );
+    ensure!(
+        root.join("ready/el/db/mdbx.dat").metadata()?.len() <= 128 * 1024 * 1024,
+        "post-smoke native runtime expanded the small offline fixture"
+    );
+    if s < target && !registered {
+        // A caller that lost the completion acknowledgement must reopen the published group.
+        ensure!(
+            cli(&base, "install-retry", &["install", "--profile", profile, "--root", r]).await? ==
+                ready
+        );
+    }
     assert_eq!((fs::read(&hrs)?, fs::read(&wal)?), original);
-    if s < target {
+    if s < target && !registered {
         mixed_components_refused(&root, &source)?;
     }
+    if registered {
+        for (name, bytes) in marker_files.iter().zip(&authority_before) {
+            ensure!(
+                fs::read(authority.join(name))? == *bytes,
+                "checkpoint operation changed existing authority {name}"
+            );
+        }
+        return registered_follow(
+            f,
+            c,
+            commands,
+            Follow { base: &base, root: &root, s, target, generation: 0, ports: (proxy, rp) },
+            &original,
+        )
+        .await;
+    }
     c.restart_node(0).await?;
+    if mode == Mode::Forced {
+        return forced::replay(f, c, &base, &root, s, proxy).await;
+    }
     follow(
         f,
         c,
@@ -317,6 +448,162 @@ async fn roundtrip(
         Follow { base: &base, root: &root, s, target, generation: 0, ports: (proxy, rp) },
     )
     .await
+}
+
+async fn registered_follow(
+    f: &ContractFixture,
+    c: &ContractConsensus,
+    commands: &Commands,
+    context: Follow<'_>,
+    original: &(Vec<u8>, Vec<u8>),
+) -> Result<()> {
+    let Follow { base, root, s, target, ports: (proxy, rp), .. } = context;
+    let dir = f.signer_storage.path().join("0").canonicalize()?;
+    let old_height = serde_json::from_slice::<Value>(&original.0)?["height"]
+        .as_str()
+        .context("source HRS")?
+        .parse::<u64>()?;
+    let comet = root.join("ready/comet");
+    let app = root.join("ready/app");
+    let domain: Value = serde_json::from_str(&c.genesis_json)?;
+    let chain = domain["chain_id"].as_str().context("deployment chain")?;
+    let args = [
+        "abci-import",
+        "run-app",
+        "--root",
+        root.to_str().unwrap(),
+        "--profile",
+        base.join("import.json").to_str().unwrap(),
+        "--fee-recipient",
+        "0x0000000000000000000000000000000000000001",
+        "--el-http-port",
+        &port()?.to_string(),
+    ]
+    .map(str::to_owned);
+    let mut runtime = Process::spawn(Path::new(CLIENT), &args, base.join("registered-app.log"))?;
+    tokio::time::timeout(Duration::from_secs(90), async {
+        loop {
+            runtime.running()?;
+            if app.join(".owner.sock").exists() &&
+                tokio::net::TcpStream::connect(("127.0.0.1", proxy)).await.is_ok()
+            {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        Ok::<_, anyhow::Error>(())
+    })
+    .await??;
+    ensure!(fs::read(dir.join("state.json"))? == original.0);
+    let vars = [
+        format!("ETNA_COMET_HOME={}", comet.display()),
+        format!("ETNA_APP_STORE={}", app.display()),
+        format!("ETNA_PRIV_KEY={}", dir.join("key.json").display()),
+        format!("ETNA_PRIV_STATE={}", dir.join("state.json").display()),
+        format!("ETNA_AUTHORITY_ROOT={}", dir.join("authority").display()),
+        format!("ETNA_CHAIN_ID={chain}"),
+        format!("ETNA_L1_CHAIN_ID={}", f.params.l1_chain_id),
+        format!("ETNA_L2_CHAIN_ID={}", f.params.l2_chain_id),
+        format!("ETNA_INBOX={:#x}", f.params.inbox),
+        "ETNA_GENERATION=0".into(),
+        "ETNA_ENROLL_LEGACY=0".into(),
+        format!("ETNA_CLIENT_BIN={CLIENT}"),
+        "python3".into(),
+        package().join("script/etna_validator.py").display().to_string(),
+    ];
+    let mut supervisor =
+        Process::spawn(Path::new("/usr/bin/env"), &vars, base.join("registered-supervisor.log"))?;
+    let rpc = CmtClient::new(url(rp));
+    let reader = &c.peers[1];
+    let address = f.keys[0].address();
+    let new_height = tokio::time::timeout(Duration::from_secs(180), async {
+        let mut candidate = old_height + 1;
+        loop {
+            supervisor.running()?;
+            runtime.running()?;
+            if let Ok(head) = rpc.latest_height().await &&
+                head > candidate &&
+                reader.latest_height().await? > candidate
+            {
+                if reader.proposer_address(candidate).await? == address &&
+                    reader.commit_signers(candidate).await?.contains(&address)
+                {
+                    ensure!(rpc.envelope(candidate).await? == reader.envelope(candidate).await?);
+                    break Ok::<_, anyhow::Error>(candidate)
+                }
+                candidate += 1;
+                continue
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+    })
+    .await
+    .with_context(|| {
+        format!(
+            "no new registered proposal after HRS {old_height}: {} / {}",
+            supervisor.output(),
+            runtime.output()
+        )
+    })??;
+    let status = rpc.abci_status().await?;
+    ensure!(
+        status.generation == 0 &&
+            rpc.call("status", &[]).await?["node_info"]["network"] == chain &&
+            status.execution_floor == Some(s) &&
+            status.trust_ready &&
+            status.trust_target.is_some_and(|t| t.height >= target)
+    );
+    let mut later_round = false;
+    for h in s + 1..=new_height {
+        ensure!(rpc.proposer_address(h).await? == reader.proposer_address(h).await?);
+        let r = rpc.commit_round(h).await?;
+        ensure!(r == reader.commit_round(h).await?);
+        later_round |= r > 0;
+    }
+    ensure!(later_round, "stock differential includes a genuine later-round proposer");
+    let grid = new_height / 6 * 6;
+    ensure!(
+        fs::read(app.join(format!("val-state-{grid}.bin")))? ==
+            fs::read(c.app_dir(1).join(format!("val-state-{grid}.bin")))?
+    );
+    let hrs = serde_json::from_slice::<Value>(&fs::read(dir.join("state.json"))?)?["height"]
+        .as_str()
+        .context("imported HRS")?
+        .parse::<u64>()?;
+    ensure!(hrs >= new_height && new_height > old_height);
+    let auth = supervisor.output();
+    let first = auth
+        .lines()
+        .find(|l| l.contains("checkpoint_trust_authorized"))
+        .context("private signer authorization")?;
+    for field in ["committed_height", "target_height"] {
+        let raw = first
+            .split_once(&format!("{field}="))
+            .context("authorization height")?
+            .1
+            .split_whitespace()
+            .next()
+            .unwrap();
+        ensure!(raw.parse::<u64>()? >= target, "signature authorized before own current target");
+    }
+    let (http, auth) = c.execution_endpoints(1, &f.l2);
+    let mut lander = commands.lander_with_execution(f, &rpc, &http, &auth)?;
+    let next = new_height.div_ceil(6) * 6;
+    wait_checkpoint(f, &mut lander, next).await?;
+    lander.stop().await?;
+    let (landed, hash) = f.checkpoint().await?;
+    ensure!(
+        landed >= new_height &&
+            reader.envelope(landed).await?.block.header.hash_slow() == hash &&
+            rpc.envelope(landed).await?.block.header.hash_slow() == hash
+    );
+    ensure!(fs::read(c.comet_home(0).join("data/cs.wal/wal"))? == original.1);
+    eprintln!(
+        "registered_import s={s} target={target} source_hrs={old_height} imported_proposer={new_height} hrs={hrs} landed={landed} hash={hash}"
+    );
+    supervisor.stop().await?;
+    runtime.stop().await?;
+    Ok(())
 }
 
 async fn fullnode_template(
@@ -528,6 +815,10 @@ async fn follow(
             "normal restart rolled forkchoice back to imported floor"
         );
         restarted.stop().await?;
+        ensure!(
+            root.join("ready/el/db/mdbx.dat").metadata()?.len() <= 128 * 1024 * 1024,
+            "ordinary restart expanded the small imported fixture"
+        );
     }
     ensure!(
         fs::read(&sentinel)? == b"stopped old home" && fs::read_dir(&foreign)?.count() == 1,
@@ -1189,3 +1480,7 @@ async fn crash_stock_export(base: &Path, original: &Path, preimage: &Path) -> Re
     );
     Ok(())
 }
+
+mod long_fence;
+
+mod forced;

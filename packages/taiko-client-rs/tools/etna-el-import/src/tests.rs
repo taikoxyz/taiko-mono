@@ -411,6 +411,11 @@ fn installs_a_pruned_baseline_and_rejects_pre_checkpoint_state_in_both_layouts()
         let report = super::install_dataset(&data_dir, &f.genesis, &f.manifest, &f.trust).unwrap();
         assert!(report.installed);
         assert_eq!(report.state_floor, Some(900));
+        let logical = std::fs::metadata(data_dir.join("db/mdbx.dat")).unwrap().len();
+        assert!(
+            logical <= 128 * 1024 * 1024,
+            "small offline state reserved {logical} logical bytes"
+        );
         assert_eq!(report.state.state_root, f.trust.state_root);
         let factory = super::dataset::open_factory(&data_dir, &f.genesis)
             .unwrap()

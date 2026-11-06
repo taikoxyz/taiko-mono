@@ -8,6 +8,9 @@
   recovery, with offline stock Comet store bootstrap, independent local EL state verification,
   canonical retained header indexes and coordinated publication. See the
   [checkpoint import runbook](docs/checkpoint-import.md).
+- Verify imported validator signing and subsequent landing from both latest and older checkpoints,
+  cold forced-inclusion replay, and native finalized ancestry beyond the BLOCKHASH window.
+  Measure signed evidence windows with `just checkpoint-import-resources`.
 - Preserve the landed future validator sets, priorities and stored proposers, distinguish
   authenticated contradictions from incomplete input or subprocess failures, and retain an
   optional immutable preimage archive beyond live sidecar pruning.

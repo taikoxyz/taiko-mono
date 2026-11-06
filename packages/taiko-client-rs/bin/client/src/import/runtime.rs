@@ -60,6 +60,8 @@ impl OwnedEngine {
             .arg(&i.el_chain)
             .arg("--datadir")
             .arg(datadir)
+            // Match the offline helper geometry when reopening an imported MDBX environment.
+            .args(["--db.growth-step", "64MB"])
             .arg("--datadir.static-files")
             .arg(datadir.join("static_files"))
             .arg("--datadir.rocksdb")

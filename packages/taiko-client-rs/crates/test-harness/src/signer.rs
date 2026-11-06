@@ -34,6 +34,8 @@ pub(crate) struct SignerNode {
     pid: Mutex<Option<u32>>,
     /// Supported supervisor adapter: retained home and existing Docker container.
     runtime: Option<(PathBuf, Option<String>)>,
+    /// Source-bootstrap identity for registered generation-zero test authorities.
+    deployment: Option<abci::ChainParams>,
 }
 
 impl SignerNode {
@@ -62,6 +64,7 @@ impl SignerNode {
             chain_id,
             pid: Mutex::new(None),
             runtime: None,
+            deployment: None,
         })
     }
 
@@ -78,6 +81,7 @@ impl SignerNode {
             chain_id,
             pid: Mutex::new(None),
             runtime: None,
+            deployment: None,
         })
     }
 
@@ -90,6 +94,12 @@ impl SignerNode {
     /// Uses stock foreground Comet on this host, preserving the supervisor lifecycle.
     pub(crate) fn native(mut self, home: PathBuf) -> Self {
         self.runtime = Some((home, None));
+        self
+    }
+
+    /// Enroll the source fixture at genesis, before any checkpoint operation.
+    pub(crate) fn with_authority(mut self, deployment: &abci::ChainParams) -> Self {
+        self.deployment = Some(deployment.clone());
         self
     }
 
@@ -119,6 +129,15 @@ impl SignerNode {
                 .env("ETNA_PRIV_STATE", key_dir.join("state.json"))
                 .env("ETNA_CHAIN_ID", &self.chain_id)
                 .env("ETNA_SIGNER_BIN", &binary);
+            if let Some(deployment) = &self.deployment {
+                command
+                    .env("ETNA_AUTHORITY_ROOT", key_dir.join("authority"))
+                    .env("ETNA_L1_CHAIN_ID", deployment.l1_chain_id.to_string())
+                    .env("ETNA_L2_CHAIN_ID", deployment.l2_chain_id.to_string())
+                    .env("ETNA_INBOX", format!("{:#x}", deployment.inbox))
+                    .env("ETNA_GENERATION", "0")
+                    .env("ETNA_ENROLL_LEGACY", "1");
+            }
             if let Some(container) = container {
                 command.env("ETNA_COMET_CONTAINER", container);
             } else {

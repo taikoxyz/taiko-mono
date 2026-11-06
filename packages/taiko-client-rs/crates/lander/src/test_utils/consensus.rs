@@ -220,17 +220,30 @@ pub fn pair_with_envelope(
     previous: Option<&CertifiedBlock>,
 ) -> CertifiedBlock {
     let height = envelope.block.header.number;
+    let time = Time::from_unix_timestamp(100 + i64::try_from(height).unwrap(), 0).unwrap();
+    timed_pair(envelope, committee, keys, previous.map(|p| &p.commit), time, time, None)
+}
+
+/// Construct one stock-format native block, with a separately specified precommit time.
+pub fn timed_pair(
+    envelope: EtnaEnvelope,
+    committee: &AuthenticatedCommittee,
+    keys: &[SigningKey],
+    previous: Option<&Commit>,
+    time: Time,
+    vote_time: Time,
+    last_results_hash: Option<Hash>,
+) -> CertifiedBlock {
+    let height = envelope.block.header.number;
     let parent = envelope.block.header.parent_hash;
     let data = vec![envelope.encode().to_vec()];
     let header = tendermint::block::Header {
         version: Version { block: 11, app: 1 },
         chain_id: "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4".parse().unwrap(),
         height: height.try_into().unwrap(),
-        time: Time::from_unix_timestamp(100 + i64::try_from(height).unwrap(), 0).unwrap(),
-        last_block_id: previous.map(|pair| pair.commit.block_id),
-        last_commit_hash: Some(
-            previous.map(|pair| commit_hash(&pair.commit)).unwrap_or_else(|| merkle(&[])),
-        ),
+        time,
+        last_block_id: previous.map(|commit| commit.block_id),
+        last_commit_hash: Some(previous.map(commit_hash).unwrap_or_else(|| merkle(&[]))),
         data_hash: Some(merkle(
             &data.iter().map(|tx| Sha256::digest(tx).to_vec()).collect::<Vec<_>>(),
         )),
@@ -238,11 +251,11 @@ pub fn pair_with_envelope(
         next_validators_hash: committee.validators.hash(),
         consensus_hash: Hash::Sha256(abci::genesis::GenesisConsensusParams::etna_hash().0),
         app_hash: AppHash::try_from(parent.to_vec()).unwrap(),
-        last_results_hash: None,
+        last_results_hash,
         evidence_hash: Some(merkle(&[])),
         proposer_address: committee.validators.validators()[0].address,
     };
-    let block = Block { header, data, last_commit: previous.map(|pair| pair.commit.clone()) };
+    let block = Block { header, data, last_commit: previous.cloned() };
     let raw = raw_block(&block);
     let parts = block_parts(&raw);
     let commit = Commit {
@@ -252,28 +265,47 @@ pub fn pair_with_envelope(
         signatures: vec![],
     };
     let mut pair = CertifiedBlock::from_raw(raw, commit).unwrap();
-    resign(&mut pair, committee, keys);
+    resign_at(&mut pair, committee, keys, vote_time);
     pair
 }
 
 pub fn resign(pair: &mut CertifiedBlock, committee: &AuthenticatedCommittee, keys: &[SigningKey]) {
+    resign_at(pair, committee, keys, pair.block.header.time)
+}
+
+fn resign_at(
+    pair: &mut CertifiedBlock,
+    committee: &AuthenticatedCommittee,
+    keys: &[SigningKey],
+    timestamp: Time,
+) {
     let raw = raw_block(&pair.block);
     pair.raw_block = raw.encode_to_vec().into();
     pair.commit.block_id.part_set_header = block_parts(&raw);
     pair.commit.block_id.hash = pair.block.header.hash();
-    pair.commit.signatures = committee
+    sign_commit(&mut pair.commit, &pair.block.header.chain_id, committee, keys, timestamp);
+}
+
+/// Sign a source certificate, including a retained boundary's modeled predecessor.
+pub fn sign_commit(
+    commit: &mut Commit,
+    chain: &tendermint::chain::Id,
+    committee: &AuthenticatedCommittee,
+    keys: &[SigningKey],
+    timestamp: Time,
+) {
+    commit.signatures = committee
         .validators
         .validators()
         .iter()
         .enumerate()
         .map(|(index, validator)| {
             let key = keys.iter().find(|key| public_key(key) == validator.pub_key).unwrap();
-            let timestamp = pair.block.header.time;
             let vote = Vote {
                 vote_type: Type::Precommit,
-                height: pair.commit.height,
-                round: pair.commit.round,
-                block_id: Some(pair.commit.block_id),
+                height: commit.height,
+                round: commit.round,
+                block_id: Some(commit.block_id),
                 timestamp: Some(timestamp),
                 validator_address: validator.address,
                 validator_index: u32::try_from(index).unwrap().try_into().unwrap(),
@@ -283,7 +315,7 @@ pub fn resign(pair: &mut CertifiedBlock, committee: &AuthenticatedCommittee, key
             };
             let bytes = Protobuf::<RawVote>::encode_length_delimited_vec(CanonicalVote::new(
                 vote,
-                pair.block.header.chain_id.clone(),
+                chain.clone(),
             ));
             CommitSig::BlockIdFlagCommit {
                 validator_address: validator.address,

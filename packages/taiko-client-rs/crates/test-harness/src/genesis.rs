@@ -35,6 +35,8 @@ pub struct EtnaGenesis {
     pub json: String,
     /// Independently computed canonical Osaka block-zero header hash.
     pub hash: B256,
+    /// Full canonical header corresponding to the independently computed block-zero hash.
+    pub header: Header,
     /// Alloc trie root, computed without trusting the JSON stateRoot field.
     pub state_root: B256,
 }
@@ -97,7 +99,7 @@ impl EtnaGenesis {
             requests_hash: Some(EMPTY_REQUESTS_HASH),
             ..Default::default()
         };
-        Ok(Self { json, hash: header.hash_slow(), state_root })
+        Ok(Self { json, hash: header.hash_slow(), header, state_root })
     }
 
     /// Fail startup if EL ignored generated allocs, fork overrides, system code or genesis

@@ -125,14 +125,24 @@ impl Commands {
         .to_vec()
     }
     pub fn old_lander(&self, f: &ContractFixture, c: &CmtClient) -> Result<Process> {
+        self.lander_with_execution(f, c, &f.l2.http, &f.l2.auth)
+    }
+
+    pub fn lander_with_execution(
+        &self,
+        f: &ContractFixture,
+        c: &CmtClient,
+        http: &url::Url,
+        auth: &url::Url,
+    ) -> Result<Process> {
         let mut args = Self::lander_prefix(&self.key);
         args.extend([
             "--l1.http".into(),
             f.anvil.http.to_string(),
             "--l2.http".into(),
-            f.l2.http.to_string(),
+            http.to_string(),
             "--l2.auth".into(),
-            f.l2.auth.to_string(),
+            auth.to_string(),
             "--jwt.secret".into(),
             package().join("tests/docker/jwt.hex").display().to_string(),
             "--comet.http".into(),

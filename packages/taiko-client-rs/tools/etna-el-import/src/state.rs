@@ -381,8 +381,9 @@ pub(crate) fn verify_owned_state(
     } else {
         validate_leaf_encoding::<tables::PlainAccountState, tables::PlainStorageState>(&tx, 20)?;
         let temporary = crate::offline::private_temp("etna-state-", scratch_parent)?;
-        let scratch = reth_db::init_db(temporary.path().join("db"), DatabaseArguments::default())
-            .map_err(db_error)?;
+        let scratch =
+            reth_db::init_db(temporary.path().join("db"), crate::offline::write_arguments())
+                .map_err(db_error)?;
         let (accounts, storage_slots) = rehash_plain(&tx, &scratch)?;
         let hashed = crate::offline::scan(&scratch)?;
         (leaf_root(&hashed)?, accounts, storage_slots)

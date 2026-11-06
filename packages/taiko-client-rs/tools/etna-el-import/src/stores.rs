@@ -5,7 +5,6 @@ use std::{fmt::Display, fs::File, path::Path};
 use alloy_consensus::Header;
 use alloy_primitives::U256;
 use reth_codecs::Compact;
-use reth_db::mdbx::DatabaseArguments;
 use reth_db_api::{
     Database,
     models::CompactU256,
@@ -103,7 +102,7 @@ pub fn install_headers(
     }
     sync_files(static_files)?;
 
-    let db = reth_db::open_db(database, DatabaseArguments::default()).map_err(db_error)?;
+    let db = reth_db::open_db(database, crate::offline::write_arguments()).map_err(db_error)?;
     let tx = db.tx_mut().map_err(db_error)?;
     tx.clear::<tables::HeaderNumbers>().map_err(db_error)?;
     tx.clear::<tables::Headers>().map_err(db_error)?;

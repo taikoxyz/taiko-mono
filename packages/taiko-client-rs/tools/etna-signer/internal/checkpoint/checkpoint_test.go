@@ -154,6 +154,20 @@ func TestStoredProposerAtSwitch(t *testing.T) {
 	if !bytes.Equal(s.NextValidators.Proposer.Address, next.Validators[0].Address) || s.NextValidators.Validators[0].ProposerPriority != -200 {
 		t.Fatal("stored proposer or priorities were guessed")
 	}
+	// Stock's following-round proposer depends on the exact stored priorities, including
+	// normalization of a wide spread. Compare the reopened set with the independent source.
+	for round := 1; round <= 4; round++ {
+		next.IncrementProposerPriority(1)
+		s.NextValidators.IncrementProposerPriority(1)
+		if !bytes.Equal(next.GetProposer().Address, s.NextValidators.GetProposer().Address) {
+			t.Fatalf("H+2 round %d proposer", round)
+		}
+		for i, validator := range next.Validators {
+			if validator.ProposerPriority != s.NextValidators.Validators[i].ProposerPriority {
+				t.Fatalf("H+2 round %d priority %d", round, i)
+			}
+		}
+	}
 }
 
 func realTemp(t *testing.T) string {
@@ -893,5 +907,29 @@ func TestBulkHistoricalKeysAndPowersUseFastStockLookup(t *testing.T) {
 	}
 	if _, e = historicalValidatorLookup(struct{ sm.Store }{observed.Store}); e == nil {
 		t.Fatal("missing fast capability silently accepted")
+	}
+}
+
+// A fresh offline installation must fail even if the verified logical rows are all present
+// when a final durability barrier encounters an unexpected inode after reopen.
+func TestFreshInstallRequiresFinalStockFileSync(t *testing.T) {
+	p, trust, _ := fixture(t)
+	v, err := Verify(p, trust)
+	if err != nil {
+		t.Fatal(err)
+	}
+	home := filepath.Join(realTemp(t), "comet")
+	calls := 0
+	err = installFresh(home, v, func(path string) error {
+		calls++
+		if calls == 2 {
+			if err := os.Symlink(filepath.Join(path, "config", "genesis.json"), filepath.Join(path, "data", "evidence.db", "unexpected")); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return syncStockTree(path)
+	})
+	if calls != 2 || err == nil {
+		t.Fatalf("final sync failure was ignored: calls=%d err=%v", calls, err)
 	}
 }

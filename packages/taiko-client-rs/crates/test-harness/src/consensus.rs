@@ -47,7 +47,7 @@ impl ContractConsensus {
         params: ChainParams,
         signer_dirs: Vec<PathBuf>,
     ) -> Result<Self> {
-        Self::start_mode(l1_http, l2, params, signer_dirs, false).await
+        Self::start_mode(l1_http, l2, params, signer_dirs, false, false).await
     }
 
     /// Starts the pinned stock binary as foreground supervisor-owned host processes.
@@ -57,7 +57,17 @@ impl ContractConsensus {
         params: ChainParams,
         signer_dirs: Vec<PathBuf>,
     ) -> Result<Self> {
-        Self::start_mode(l1_http, l2, params, signer_dirs, true).await
+        Self::start_mode(l1_http, l2, params, signer_dirs, true, false).await
+    }
+
+    /// Start native consensus with external generation-zero authorities enrolled at source genesis.
+    pub async fn start_registered(
+        l1_http: Url,
+        l2: &StandaloneReth,
+        params: ChainParams,
+        signer_dirs: Vec<PathBuf>,
+    ) -> Result<Self> {
+        Self::start_mode(l1_http, l2, params, signer_dirs, true, true).await
     }
 
     async fn start_mode(
@@ -66,6 +76,7 @@ impl ContractConsensus {
         params: ChainParams,
         signer_dirs: Vec<PathBuf>,
         native: bool,
+        enroll: bool,
     ) -> Result<Self> {
         ensure!(!signer_dirs.is_empty(), "validators required");
         let tmp = tempfile::Builder::new().prefix("real-consensus-").tempdir_in("/tmp")?;
@@ -153,6 +164,7 @@ impl ContractConsensus {
                     .replace("tcp://0.0.0.0:26657", &format!("tcp://127.0.0.1:{rpc_port}"))
                     .replace("tcp://0.0.0.0:26656", &format!("tcp://127.0.0.1:{}", native_p2p[i]));
                 std::fs::write(path, config)?;
+                let signer = if enroll { signer.with_authority(&params) } else { signer };
                 let signer = signer.native(home);
                 signer.start(signer_port)?;
                 peers.push(CmtClient::new(local_url(rpc_port)?));
