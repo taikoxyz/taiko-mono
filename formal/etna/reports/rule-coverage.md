@@ -10,7 +10,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 
 | Type       | Count | partial | partial-via | supporting | deferred | design-pending |
 | ---------- | ----: | ------: | ----------: | ---------: | -------: | -------------: |
-| rule       |   606 |      41 |           0 |         35 |      530 |              0 |
+| rule       |   606 |      41 |           0 |         36 |      529 |              0 |
 | limitation |    21 |       0 |           0 |          0 |       21 |              0 |
 | assumption |    11 |       0 |           0 |          0 |       11 |              0 |
 
@@ -26,7 +26,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | STAKE  |    43 |      13 |           0 |          3 |       27 |              0 |
 | STOR   |    35 |       0 |           0 |          0 |       35 |              0 |
 | FI     |    31 |      11 |           0 |          6 |       14 |              0 |
-| DATA   |    30 |       0 |           0 |          3 |       27 |              0 |
+| DATA   |    30 |       0 |           0 |          4 |       26 |              0 |
 | SYNC   |    27 |       0 |           0 |          0 |       27 |              0 |
 | FORF   |    20 |       0 |           0 |          1 |       19 |              0 |
 | COMM   |    18 |       0 |           0 |          0 |       18 |              0 |
@@ -210,7 +210,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | DATA-5.3-7     | rule       | deferred   | LIVE_EN-619162911a568f58 |      4 |                                                                                                             |
 | DATA-5.3-8     | rule       | deferred   | LIVE_EN-619162911a568f58 |      4 |                                                                                                             |
 | DATA-5.3-9a    | rule       | deferred   | LIVE_EN-47d63181455aa3bf |      1 |                                                                                                             |
-| DATA-5.4-1     | rule       | deferred   | LIVE_EN-598126cd6d0d70f0 |      1 |                                                                                                             |
+| DATA-5.4-1     | rule       | supporting | LIVE_EN-598126cd6d0d70f0 |      1 | `genesis_path_ignores_val_state`                                                                            |
 | DATA-5.4-2     | rule       | deferred   | LIVE_EN-c44d6fe617b3b2e3 |      1 |                                                                                                             |
 | DATA-5.4-3     | rule       | deferred   | LIVE_EN-f8388bd6bb742449 |      1 |                                                                                                             |
 | DATA-5.4-4     | rule       | supporting | LIVE_EN-5197fc5f88162605 |      1 | `import_complete_range`, `node_import_closed`                                                               |
@@ -702,8 +702,9 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 - **STAKE-4.1-34**: Supporting exact slash principal zeroing/readiness/earlier-exit effects and bounty/sink payment intents, with conditional standard-token transfer availability. Live/positive/evidence guard facts are hypotheses of slash_exact, and generic reserve conservation gives no additional exact slash-rule credit.
 - **STAKE-4.1-36**: Every retained checkpoint after a successful decoded registry call is either an existing checkpoint or has the current L1 block and the exact resulting slot-entry list. This is the new-checkpoint fidelity component only.
 - **FORF-4.4-9**: The decoded forfeiture intent sends the entire penalty to slashSink with no bounty; principal deduction order is not this conclusion.
+- **DATA-5.4-1**: At s = o the import takes the 8.4 genesis path, so decoded inspection does not read the three validator-state results; the genesis path itself, the s > o chain_id/Comet-hash check and own-L1 authentication remain external.
 - **DATA-5.4-4**: Numeric original-header interval includes every height from max(origin, checkpoint - U + 1) through checkpoint exactly once; actual EL header contents, indexes and stock stores are deferred.
-- **DATA-5.4-5**: Finalized authenticated disagreement halts (imported envelope EL hash, the validator-state preimage's set for s + 1, or a derived committee against that preimage); an unmatched preimage rejects and an unfinalized checkpoint record retries; decoded candidate inspection only, no alert or store implementation proof.
+- **DATA-5.4-5**: Finalized authenticated disagreement halts (the imported envelope EL hash; for s > o also the validator-state preimage's set for s + 1, or a derived committee against that preimage); for s > o an unmatched preimage rejects; an unfinalized checkpoint record retries; decoded candidate inspection only, no alert or store implementation proof.
 - **DATA-5.4-7**: Successful decoded publication requires the durable flag, preserves the signer and grants no trust; actual store staging remains external.
 - **LAND-6.1-3**: An actual accepted landing with its certificate yields a decoded valid Suffix whose parent height/cut are the execution-time current checkpoint and whose terminal fields equal the landing target. This is the precise (c,h] suffix extraction; custody-chain invariants alone do not conclude atomic frontier selection or new-suffix settlement. Raw Solidity/storage/guest refinement remains separate.
 - **LAND-6.1-5**: Decoded grid acceptance uses the Etna-start offset; exact guard projection only.

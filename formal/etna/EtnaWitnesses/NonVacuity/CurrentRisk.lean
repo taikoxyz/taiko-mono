@@ -236,8 +236,12 @@ theorem risk_profile_satisfiable :
 
 /-- This dedicated publication fixture supplies the decoded adapter's positive
 authentication/material results. It exercises actual observe/import calls and the
-authorization fence; canonical decoding and stock-store installation remain external. -/
-def importCandidate : Import.Candidate := ⟨0,0,0,100,100,true,true,true,true,true,true,true,true⟩
+authorization fence; canonical decoding and stock-store installation remain external.
+The snapshot is at the origin itself (s = o = 0), so it takes the 8.4 genesis path
+(DATA-5.4-1): the start record holds validator-state hash 0, no preimage hashes to it, and the
+three validator-state results are reported false without affecting the import. The s > o case
+is `NonVacuity.windowed_import_satisfiable`. -/
+def importCandidate : Import.Candidate := ⟨0,0,0,100,100,true,true,true,true,true,false,false,false⟩
 def observed : World := Protocol.transact env (source env) (.observe 2)
 def published : World := Protocol.transact env observed (.importSnapshot importCandidate true)
 

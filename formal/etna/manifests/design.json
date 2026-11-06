@@ -534,38 +534,50 @@
     {
       "module": "EtnaProofs.Current",
       "declaration": "Etna.Design.Current.Import.invalid_val_state_rejected",
-      "type": "∀ (c : Etna.Design.Current.Import.Candidate) (generation : Nat),\n  c.valStateAuthenticated = Bool.false →\n    Etna.Design.Current.Import.inspect c generation = Etna.Design.Current.Import.Decision.reject",
+      "type": "∀ (c : Etna.Design.Current.Import.Candidate) (generation : Nat),\n  c.origin < c.height →\n    c.valStateAuthenticated = Bool.false →\n      Etna.Design.Current.Import.inspect c generation = Etna.Design.Current.Import.Decision.reject",
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
       "sources": ["LIVE_EN-87331d19f043f44c"],
-      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. A validator-state preimage that does not hash to the record value rejects the candidate; decoded inspection only, no preimage encoding or store implementation proof."
+      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. For s > o, a validator-state preimage that does not hash to the record value rejects the candidate; decoded inspection only, no preimage encoding or store implementation proof."
+    },
+    {
+      "module": "EtnaProofs.Current",
+      "declaration": "Etna.Design.Current.Import.genesis_path_ignores_val_state",
+      "type": "∀ (c : Etna.Design.Current.Import.Candidate) (generation : Nat),\n  c.height = c.origin →\n    ∀ (valState nextSet committees : Bool),\n      Etna.Design.Current.Import.inspect\n          { generation := c.generation, origin := c.origin, height := c.height, checkpointEL := c.checkpointEL,\n            envelopeEL := c.envelopeEL, checkpointAuthenticated := c.checkpointAuthenticated,\n            checkpointFinalized := c.checkpointFinalized, dataHashAuthenticated := c.dataHashAuthenticated,\n            metadataAuthenticated := c.metadataAuthenticated, materialAvailable := c.materialAvailable,\n            valStateAuthenticated := valState, nextValidatorsMatch := nextSet, committeesMatch := committees }\n          generation =\n        Etna.Design.Current.Import.inspect c generation",
+      "assumptions": [
+        "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-598126cd6d0d70f0"],
+      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. At s = o the import takes the 8.4 genesis path: decoded inspection does not read the three validator-state results; the genesis path itself, the s > o chain_id/Comet-hash check and own-L1 authentication are not modelled."
     },
     {
       "module": "EtnaProofs.Current",
       "declaration": "Etna.Design.Current.Import.next_validators_conflict_halts",
-      "type": "∀ {c : Etna.Design.Current.Import.Candidate} {generation : Nat},\n  c.generation = generation →\n    c.origin ≤ c.height →\n      c.checkpointAuthenticated = Bool.true →\n        c.checkpointFinalized = Bool.true →\n          c.dataHashAuthenticated = Bool.true →\n            c.valStateAuthenticated = Bool.true →\n              c.nextValidatorsMatch = Bool.false →\n                Etna.Design.Current.Import.inspect c generation = Etna.Design.Current.Import.Decision.halt",
+      "type": "∀ {c : Etna.Design.Current.Import.Candidate} {generation : Nat},\n  c.generation = generation →\n    c.origin < c.height →\n      c.checkpointAuthenticated = Bool.true →\n        c.checkpointFinalized = Bool.true →\n          c.dataHashAuthenticated = Bool.true →\n            c.valStateAuthenticated = Bool.true →\n              c.nextValidatorsMatch = Bool.false →\n                Etna.Design.Current.Import.inspect c generation = Etna.Design.Current.Import.Decision.halt",
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
       "sources": ["LIVE_EN-87331d19f043f44c"],
-      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. A finalized record whose validator-state preimage matches but whose set for s + 1 disagrees with header(s)'s next_validators_hash halts; decoded inspection only, no alert or CometBFT state proof."
+      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. For s > o, a finalized record whose validator-state preimage matches but whose set for s + 1 disagrees with header(s)'s next_validators_hash halts; decoded inspection only, no alert or CometBFT state proof."
     },
     {
       "module": "EtnaProofs.Current",
       "declaration": "Etna.Design.Current.Import.committee_conflict_halts",
-      "type": "∀ {c : Etna.Design.Current.Import.Candidate} {generation : Nat},\n  c.generation = generation →\n    c.origin ≤ c.height →\n      c.checkpointAuthenticated = Bool.true →\n        c.checkpointFinalized = Bool.true →\n          c.dataHashAuthenticated = Bool.true →\n            c.valStateAuthenticated = Bool.true →\n              c.envelopeEL = c.checkpointEL →\n                c.nextValidatorsMatch = Bool.true →\n                  c.materialAvailable = Bool.true →\n                    c.metadataAuthenticated = Bool.true →\n                      c.committeesMatch = Bool.false →\n                        Etna.Design.Current.Import.inspect c generation = Etna.Design.Current.Import.Decision.halt",
+      "type": "∀ {c : Etna.Design.Current.Import.Candidate} {generation : Nat},\n  c.generation = generation →\n    c.origin < c.height →\n      c.checkpointAuthenticated = Bool.true →\n        c.checkpointFinalized = Bool.true →\n          c.dataHashAuthenticated = Bool.true →\n            c.valStateAuthenticated = Bool.true →\n              c.envelopeEL = c.checkpointEL →\n                c.nextValidatorsMatch = Bool.true →\n                  c.materialAvailable = Bool.true →\n                    c.metadataAuthenticated = Bool.true →\n                      c.committeesMatch = Bool.false →\n                        Etna.Design.Current.Import.inspect c generation = Etna.Design.Current.Import.Decision.halt",
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
       "sources": ["LIVE_EN-87331d19f043f44c"],
-      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. With the window available and authenticated, a derived committee that disagrees with the matching preimage halts; decoded inspection only, no 4.3 derivation or alert proof."
+      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. For s > o, with the window available and authenticated, a derived committee that disagrees with the matching preimage halts; decoded inspection only, no 4.3 derivation or alert proof."
     },
     {
       "module": "EtnaProofs.Current",
@@ -4510,6 +4522,18 @@
       "module": "EtnaWitnesses.NonVacuity.Current",
       "role": "regression",
       "type": "Etna.Statements.Current.Premises Etna.Design.Current.Protocol.NonVacuity.env\n    Etna.Design.Current.Protocol.NonVacuity.registry Etna.Design.Current.Protocol.NonVacuity.engine ∧\n  Etna.Design.Current.Protocol.Trace Etna.Design.Current.Protocol.NonVacuity.env\n      (Etna.Design.Current.Protocol.empty Etna.Design.Current.Protocol.NonVacuity.env\n        Etna.Design.Current.Protocol.NonVacuity.registry)\n      (Etna.Design.Current.Protocol.NonVacuity.recoveredSource Etna.Design.Current.Protocol.NonVacuity.env) ∧\n    (Etna.Design.Current.Protocol.NonVacuity.recoveredSource\n              Etna.Design.Current.Protocol.NonVacuity.env).inbox.generation =\n        1 ∧\n      Etna.Design.Current.Protocol.land Etna.Design.Current.Protocol.NonVacuity.env\n            (Etna.Design.Current.Protocol.NonVacuity.recoveredSource Etna.Design.Current.Protocol.NonVacuity.env)\n            Etna.Design.Current.Protocol.NonVacuity.recoveredLanding =\n          Option.some\n            (Etna.Design.Current.Protocol.landed\n              (Etna.Design.Current.Protocol.NonVacuity.recoveredSource Etna.Design.Current.Protocol.NonVacuity.env)\n              Etna.Design.Current.Protocol.NonVacuity.recoveredLanding) ∧\n        (Etna.Design.Current.Protocol.NonVacuity.recoveredSource\n                  Etna.Design.Current.Protocol.NonVacuity.env).inbox.checkpoint.height <\n          (Etna.Design.Current.Protocol.landed\n                  (Etna.Design.Current.Protocol.NonVacuity.recoveredSource Etna.Design.Current.Protocol.NonVacuity.env)\n                  Etna.Design.Current.Protocol.NonVacuity.recoveredLanding).inbox.checkpoint.height",
+      "assumptions": [
+        "Concrete restricted new-network interpreter; globally injective ideal commitments, standard-token deployment and exact signature adapters are constructed, not assumed. This witness is not a production cryptographic/EL or switching-margin realization."
+      ],
+      "bridge_level": "spec-proved",
+      "sources": [],
+      "scope": "Restricted joint-fifteen-premise realization or witness plumbing. Exact fixed interpreters, empty archive priors, vacuous Unzen extension, genesis-only risk and self-chain honest agreement limitations are documented in reports/review-round-five.md; no standalone rule credit."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.NonVacuity.windowed_import_satisfiable",
+      "module": "EtnaWitnesses.NonVacuity.Current",
+      "role": "regression",
+      "type": "∃ e registry engine before after candidate,\n  Etna.Statements.Current.Premises e registry engine ∧\n    Etna.Design.Current.Protocol.Trace e (Etna.Design.Current.Protocol.empty e registry) before ∧\n      candidate.origin < candidate.height ∧\n        Etna.Design.Current.Protocol.nodeImport e before candidate Bool.true = Option.some after ∧\n          Etna.Design.Current.Protocol.Trace e (Etna.Design.Current.Protocol.empty e registry) after ∧\n            after.node.importedHeaders = [0, 1] ∧\n              Etna.Design.Current.Protocol.nodeImport e before\n                    { generation := candidate.generation, origin := candidate.origin, height := candidate.height,\n                      checkpointEL := candidate.checkpointEL, envelopeEL := candidate.envelopeEL,\n                      checkpointAuthenticated := candidate.checkpointAuthenticated,\n                      checkpointFinalized := candidate.checkpointFinalized,\n                      dataHashAuthenticated := candidate.dataHashAuthenticated,\n                      metadataAuthenticated := candidate.metadataAuthenticated,\n                      materialAvailable := candidate.materialAvailable, valStateAuthenticated := Bool.false,\n                      nextValidatorsMatch := candidate.nextValidatorsMatch,\n                      committeesMatch := candidate.committeesMatch }\n                    Bool.true =\n                  Option.none ∧\n                after.node.signer.ready = Bool.false ∧ after.node.trusted = Bool.false",
       "assumptions": [
         "Concrete restricted new-network interpreter; globally injective ideal commitments, standard-token deployment and exact signature adapters are constructed, not assumed. This witness is not a production cryptographic/EL or switching-margin realization."
       ],

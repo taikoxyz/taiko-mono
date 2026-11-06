@@ -43,10 +43,9 @@ are byte-identical and are re-pinned to the same commit.
   (`configOK` already requires U ≥ K ≥ 1).
 - The validator-state hash is an opaque atom. CometBFT's state-update arithmetic
   (PROOF-6.2-41a) and the preimage encoding (ENC-A-29a) are not modelled. At a generation's
-  origin, the model reads the origin header's validator-state hash as the record's stored value.
-  That makes the start-height exceptions of PROOF-6.2-40 and SYNC-9-5 hold by construction. It
-  is sound only because no later block in the model takes the origin's own validator state as an
-  input.
+  origin, the model labels the origin header with the record's stored value, so the start-height
+  exceptions of PROOF-6.2-40 and SYNC-9-5 are unobservable in the model rather than modelled.
+  The README lists the three implementation obligations this leaves outside the proofs.
 
 ## Statement changes
 
@@ -91,6 +90,43 @@ the window's sizing from evidence limits remain deferred. So do the 4.3 committe
 the window, stock-store installation (`LastHeightValidatorsChanged` and related state), alerts,
 DATA-5.4-8 availability and SYNC-9-5b's verifier-failure classification. All 46 ACCEPTANCE and
 93 ANCHORLESS clauses remain deferred.
+
+## Review follow-up (2026-11-06)
+
+A review of this revision against the same authority found one divergence and two
+under-disclosed premises. This follow-up changes them:
+
+- **Import at s = o.** DATA-5.4-1 sends a snapshot at the origin itself down the existing 8.4
+  genesis path, where the start record holds 0 (at S) or the old generation's value (at a
+  recovery origin). `inspect` applied the three validator-state checks there too, so with the
+  documented adapter meaning it rejected an import at S and could halt one at a recovery
+  origin (vector 5.4 1.b accepts it). The three checks now apply only for s > o.
+  `Import.genesis_path_ignores_val_state` proves the decision at s = o does not depend on them
+  (new DATA-5.4-1 supporting edge). `invalid_val_state_rejected`,
+  `next_validators_conflict_halts` and `committee_conflict_halts` now assume s > o.
+- **Witnesses.** The s = o import witness (`RiskNonVacuity.importCandidate`) now reports the
+  three validator-state results as false, as a real adapter would at S, and still imports. New
+  joint-premise witness `NonVacuity.windowed_import_satisfiable` imports at s = 1 > o = 0 after
+  the first landing, installs headers 0..1 and is rejected without an authenticated preimage.
+  It is a lock root. Window truncation (s ≥ o + U) is still shown only by unit regressions.
+- **Start-height exception.** The earlier text said the PROOF-6.2-40/SYNC-9-5 exception holds
+  by construction. It is not modelled: `nodeTrust` always compares the origin's
+  validator-state hash, which the origin label makes trivially equal. The README now lists the
+  three obligations this leaves to the guest and client.
+- **Premise disclosure.** `CometHeaderBinding` concludes full-header equality, and the header
+  now carries the validator-state hash, which `Blocks.Valid` does not constrain. So
+  `currentCodec` now also assumes CometBFT's validator-state update is deterministic (the
+  PROOF-6.2-41a slice H2's agreement needs), and `currentVerifierSound` certifies both
+  statement validator-state hashes. The premise table says so.
+- **Regressions and mutants.** `tests/CurrentDesign.lean` adds `import_genesis_path` (s = o
+  stages regardless of the three results; s = o + 1 still checks them). The full suite adds
+  three mutants that drop the s > o gate; all ten import mutants are rejected locally.
+- Inventory after the follow-up: 38 partial / 529 deferred clauses (unchanged); 41 partial / 36
+  supporting / 529 deferred binding rules (DATA-5.4-1 is now supporting); 645 manifest
+  contracts; 1,431 review-surface constants (the new witness root).
+- Local validation (macOS, Lean 4.35.0): every `etna-formal` gate passes (198 fast tests),
+  the full suite (`ETNA_FULL_TESTS=1`) passes 355 tests in 2,120 s, and actionlint accepts
+  the formal workflows.
 
 ## Validation
 

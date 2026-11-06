@@ -52,6 +52,7 @@ CURRENT_PROFILE_WITNESSES = (
     'Etna.Design.Current.Protocol.RiskNonVacuity.risk_profile_satisfiable',
     'Etna.Design.Current.Protocol.HonestAgreement.nonempty_honest_agreement',
     'Etna.Design.Current.Protocol.RiskNonVacuity.import_profile_satisfiable',
+    'Etna.Design.Current.Protocol.NonVacuity.windowed_import_satisfiable',
 )
 PREMISE_USE = re.compile(r'^premise use: (\S+) <- (.+)$', re.MULTILINE)
 NAME = re.compile(r'^[A-Za-z_][A-Za-z_0-9]*(\.[A-Za-z_][A-Za-z_0-9]*)*$')

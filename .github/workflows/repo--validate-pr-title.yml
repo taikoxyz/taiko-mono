@@ -29,6 +29,7 @@ jobs:
           # - main: For release-please PRs
           # - deps: For dependabot dependency update PRs
           # - deps-dev: For dependabot devDependency update PRs
+          # - formal: Formal verification models under formal/
           scopes: |
             repo
             main
@@ -38,6 +39,7 @@ jobs:
             bridge-ui
             ejector
             eventindexer
+            formal
             fork-diff
             geth-rpc-gateway
             protocol

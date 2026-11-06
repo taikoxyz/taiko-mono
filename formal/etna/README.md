@@ -6,6 +6,11 @@ The authorities are `SPEC.md`, `ACCEPTANCE.md`, `ANCHORLESS.md` and `SWITCH.md` 
 its vectors and reports were removed and remain readable at formal revision
 [`583bc2620`](https://github.com/taikoxyz/taiko-mono/tree/583bc2620258838e75ce353c11f9344616ac1020/formal/etna).
 
+Spec pull requests do not run the formal jobs, so a spec change never fails on these pins.
+When the spec moves, the next pull request that touches `formal/etna` fails on the pins until
+the model is re-aligned and re-pinned, and the nightly `etna-formal-full` job reports the
+drift.
+
 ## What is proved, and what is not
 
 This package proves **conditional, design-level safety** of the decoded Etna machine. Exact
@@ -35,11 +40,11 @@ the others are obligations on code or cryptography that this package does not ve
 | Premise field               | What it assumes                                                                                                                                  | Who must make it true                                                          |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
 | `currentPrimitives`         | Genesis header is hash-bound; equal EL hashes mean equal EL fields; a valid Unzen proof authenticates its decoded EL header before the fork time | Hash collision resistance; existing Unzen guest and verifier                   |
-| `currentVerifierSound`      | Every accepted landing proof with a sound backend certifies its statement for the selected rulesets                                              | Etna zkVM/TEE guests, proof systems, `ZkRequiredVerifier`, DAO verifier choice |
+| `currentVerifierSound`      | Every accepted landing proof with a sound backend certifies its statement, including both validator-state hashes, for the selected rulesets      | Etna zkVM/TEE guests, proof systems, `ZkRequiredVerifier`, DAO verifier choice |
 | `currentStandardToken`      | The bond token behaves as a standard ERC-20 transfer                                                                                             | Token deployment                                                               |
 | `currentSignatureAgreement` | Signed consensus bytes refine to the registry's signature check                                                                                  | Comet sign-bytes in the Rust client and the Solidity verifier                  |
 | `currentBountyBound`        | `slashBountyBps < 10000`                                                                                                                         | Registry initializer (checked on chain)                                        |
-| `currentCodec`              | Comet header/envelope codec is canonical for the fixed interpreters                                                                              | Rust client and stock CometBFT parity                                          |
+| `currentCodec`              | Comet header/envelope codec is canonical, and a valid block's Comet hash and parent fix its whole header, including the validator-state hash     | Rust client and stock CometBFT parity; CometBFT's deterministic state update   |
 | `currentVoteAttribution`    | Every commit vote is a real precommit of the engine, with honest local rules and a Byzantine minority at checked heights                         | CometBFT engine and validator operation                                        |
 | `currentClock`              | L1 time strictly increases with block number                                                                                                     | Ethereum L1                                                                    |
 | `currentCatalogueHash`      | Catalogued EL transaction bytes hash to the environment's transaction hash                                                                       | Hash function; EL catalogue                                                    |
@@ -55,14 +60,27 @@ claim that relies on them as "the claim holds, or a hash collision exists".
 
 ## Review surface and statement lock
 
-The **review surface** is what a reviewer must read to know what H1–H3 and the five witnesses
-mean: their statements and every Etna definition they use, but no proof. `review-surface.lock.json`
-records a SHA-256 of the kernel terms of each of those constants (1,430 at this revision).
-`python3 scripts/review_surface.py --check` fails if the lock is stale. In CI, the base
-revision's copy of the same script compares the lock and the gate files (`scripts/`, the
-Python tests, the lakefile, the toolchain pin and the workflow) with the base branch. Any difference fails the
-pull request until a reviewer applies the `formal-statement-change` label; the job summary
-lists the changed constants. Proof-only changes never touch the lock.
+The **review surface** is what a reviewer must read to know what H1–H3 and the six witnesses
+mean: their statements and every Etna definition they use, but no proof.
+`review-surface.lock.json` records a SHA-256 of the kernel terms of each of those constants
+(1,431 at this revision). `python3 scripts/review_surface.py --check` fails if the lock is stale;
+the `etna-formal` job runs it. Proof-only changes never touch the lock.
+
+The `etna-review-surface` job (`formal--etna-review-surface.yml`) runs on
+`pull_request_target`, so GitHub takes both the workflow file and the judge script from the
+base branch. The pull request's commits are read as git objects only; nothing from them is
+checked out or executed. The judge compares the lock and the gate files (`scripts/`, the
+Python tests, the shadowing allowlist, the lakefile, the toolchain pin and the formal
+workflows) between the merge base and the pull request head, and lists the changed constants
+in the job summary. Any difference fails the job until a reviewer applies the
+`formal-statement-change` label.
+
+The label is an acknowledgement, not access control: anyone with triage rights can apply it,
+and it stays through later pushes. What blocks a merge is the repository ruleset's code-owner
+review with last-push approval; `/formal/**` and `.github/workflows/*` have code owners. After
+applying the label, re-run `merge-gatekeeper`, which does not trigger on label events. The
+pull request that introduces the judge is not judged by it, because its base branch has no
+copy yet.
 
 ## Visual audit reader
 
@@ -113,21 +131,39 @@ position-zero inclusion from the complete decoded transaction list, actual proof
 support for every selected ruleset, exact positive fees/refunds and pending recovery bounds.
 Ordinary recovery preserves the checkpoint/records/head and constructs its exact new origin.
 Import closes readiness/trust, preserves signing state and installs the original-generation
-numeric header interval max(o, s − U + 1)..s, with U the unsettled bound (DATA-5.4-4). Its
-decoded inspection rejects a validator-state preimage that does not hash to the landed value
-and halts on an authenticated validator-state contradiction (DATA-5.4-5). Actual EL header
+numeric header interval max(o, s − U + 1)..s, with U the unsettled bound (DATA-5.4-4). For
+s > o its decoded inspection rejects a validator-state preimage that the adapter reports as not
+hashing to the landed value, and halts on an authenticated validator-state contradiction
+(DATA-5.4-5). At s = o the import takes the 8.4 genesis path (DATA-5.4-1) and those three
+checks do not apply. Actual EL header
 contents/indexes, earlier ancestor context, the window's Comet history and stock stores
 required by SPEC 5.4 remain an explicit abstraction gap.
 
 Checkpoint records, cuts, `LandInput` and the statement carry appendix A's validator-state
-hash as an opaque atom: the frontier leaf, the landed record, the statement endpoints and the
-node trust check compare it like the EL and Comet hashes. CometBFT's state-update arithmetic
-behind it (PROOF-6.2-41a) and the preimage encoding (ENC-A-29a) are not modelled. At a
-generation's origin the model reads the origin header's validator-state hash as the record's
-stored value, so the spec's start-height exception (PROOF-6.2-40, SYNC-9-5) holds by
-construction; this is sound only because no later block in the model takes the origin's own
-validator state as an input. The [PR #22338 alignment](reports/alignment-22338.md) records the changed
-clauses, evidence and boundaries.
+hash as an opaque atom. The frontier leaf, the landed record, the statement endpoints and the
+node trust check compare it. Unlike the EL hash (bound by the header hash) and the Comet hash
+(bound by signed commits), nothing in `Blocks.Valid` constrains its value: H2's "valid chains
+agree" covers it only through `currentCodec`, and a landing's value is certified only through
+`currentVerifierSound`. CometBFT's state-update arithmetic behind it (PROOF-6.2-41a) and the
+preimage encoding (ENC-A-29a) are not modelled.
+
+The spec's start-height exception (PROOF-6.2-40, SYNC-9-5) is not modelled; in the model it
+is unobservable. At a generation's origin the model labels the origin header with the
+record's stored value, so the origin always compares equal to itself. In the real system the
+start-height state is the one CometBFT builds from the generation's genesis, which differs from
+the record: the record holds 0 at S and the old generation's value at a recovery origin. Three
+implementation obligations therefore stay outside these proofs:
+
+1. The guest builds the start-height validator state from the generation's genesis, not from
+   the origin record's preimage (PROOF-6.2-41a).
+2. The node does not compare the validator-state hash at the current generation's start
+   height (SYNC-9-5). A client that transcribed `nodeTrust` literally would halt after every
+   recovery, until the new generation's first landing moves its trust target.
+3. An import at s = o takes the 8.4 genesis path (DATA-5.4-1). The model only skips the three
+   validator-state checks there; it does not model the genesis path.
+
+The [PR #22338 alignment](reports/alignment-22338.md) records the changed clauses, evidence
+and boundaries.
 
 The current registry admits `0 ≤ slashBountyBps < 10000`; zero pays no reporter
 bounty. Slashing pays `floor(balance * slashBountyBps / 10000)` to the authenticated

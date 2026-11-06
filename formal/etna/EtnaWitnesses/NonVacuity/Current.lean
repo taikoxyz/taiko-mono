@@ -55,7 +55,7 @@ def baseEnv : Environment where
   unzenValid := fun _ _ _ => false
   unzenRoot := fun _ => False
   startImplementation := fun _ => true
-  importValid := fun _ _ _ => false
+  importValid := fun _ _ _ => true
   signBytes := fun _ => 0
   token := RegistryPayments.standardEnvironment 4 9
   initialToken := ⟨fun account => if account = 8 then unit else 0,
@@ -1044,6 +1044,7 @@ theorem accepting_after_closed_reference_change :
   ⟨premises,closed_after_reference_reachable,by decide,closed_after_reference_landing⟩
 
 def firstLanded : World := landed (source env) landing
+
 def rolledBack : World :=
   (rollback env firstLanded 7 (source env).inbox.checkpoint 1).getD firstLanded
 
@@ -1060,6 +1061,36 @@ theorem first_landed_reachable : Trace env (empty env registry) firstLanded := b
   have actual : transact env (source env) (.land landing) = firstLanded := by
     simp only [transact,execute,source_landing_accepted,Option.getD_some,firstLanded]
   exact .step (source_reachable env) (actual ▸ call)
+
+/-! An import at a landed checkpoint above the origin. After the first landing, s = 1 > o = 0, so
+DATA-5.4-3/5's validator-state checks apply: the candidate reports the preimage of 301 as
+authenticated, and the same candidate without it is rejected. With U = 10 the window
+max(o, s − U + 1)..s reaches the origin; window truncation is covered by unit regressions. -/
+def landedClosed : World := transact env firstLanded (.advance 4)
+def landedObserved : World := transact env landedClosed (.observe 3)
+def windowedCandidate : Import.Candidate := ⟨0,0,1,101,101,true,true,true,true,true,true,true,true⟩
+def landedImported : World := transact env landedObserved (.importSnapshot windowedCandidate true)
+
+/-- The windowed import is realized under the complete premise record on an actual trace:
+it installs headers 0..1, grants no trust or signing readiness, and is rejected without an
+authenticated validator-state preimage. -/
+theorem windowed_import_satisfiable :
+    ∃ (e : Environment) (registry : RegistryMachine.State) (engine : Finality.Engine)
+      (before after : World) (candidate : Import.Candidate),
+      Etna.Statements.Current.Premises e registry engine ∧
+      Trace e (empty e registry) before ∧ candidate.origin < candidate.height ∧
+      nodeImport e before candidate true = some after ∧
+      Trace e (empty e registry) after ∧ after.node.importedHeaders = [0,1] ∧
+      nodeImport e before { candidate with valStateAuthenticated := false } true = none ∧
+      after.node.signer.ready = false ∧ after.node.trusted = false := by
+  have closed : Trace env (empty env registry) landedClosed :=
+    .step first_landed_reachable (Step.call firstLanded (.advance 4))
+  have observed : Trace env (empty env registry) landedObserved :=
+    .step closed (Step.call landedClosed (.observe 3))
+  have imported : Trace env (empty env registry) landedImported :=
+    .step observed (Step.call landedObserved (.importSnapshot windowedCandidate true))
+  exact ⟨env,registry,engine,landedObserved,landedImported,windowedCandidate,premises,observed,
+    by decide,rfl,imported,by decide +kernel,by decide +kernel,by decide +kernel,by decide +kernel⟩
 
 theorem rolled_back_reachable : Trace env (empty env registry) rolledBack := by
   have call := Step.call (env := env) firstLanded (.rollback 7 (source env).inbox.checkpoint 1)

@@ -17,6 +17,10 @@
       "theorems": ["Etna.Design.Current.Blocks.chain_parent_hashes"],
       "reason": "Valid decoded chain EL parentHash fields link to the predecessor EL hash; no Comet LastBlockID, cut coverage or raw decoder conclusion."
     },
+    "DATA-5.4-1": {
+      "theorems": ["Etna.Design.Current.Import.genesis_path_ignores_val_state"],
+      "reason": "At s = o the import takes the 8.4 genesis path, so decoded inspection does not read the three validator-state results; the genesis path itself, the s > o chain_id/Comet-hash check and own-L1 authentication remain external."
+    },
     "DATA-5.4-4": {
       "theorems": [
         "Etna.Design.Current.QueueIntegrity.import_complete_range",
@@ -34,7 +38,7 @@
         "Etna.Design.Current.Import.publish_boundary",
         "Etna.Design.Current.Import.unfinalized_checkpoint_retries"
       ],
-      "reason": "Finalized authenticated disagreement halts (imported envelope EL hash, the validator-state preimage's set for s + 1, or a derived committee against that preimage); an unmatched preimage rejects and an unfinalized checkpoint record retries; decoded candidate inspection only, no alert or store implementation proof."
+      "reason": "Finalized authenticated disagreement halts (the imported envelope EL hash; for s > o also the validator-state preimage's set for s + 1, or a derived committee against that preimage); for s > o an unmatched preimage rejects; an unfinalized checkpoint record retries; decoded candidate inspection only, no alert or store implementation proof."
     },
     "DATA-5.4-7": {
       "theorems": [

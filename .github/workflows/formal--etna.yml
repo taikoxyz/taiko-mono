@@ -1,30 +1,21 @@
 name: Etna formal verification
 
+# Spec documents are deliberately not trigger paths: a docs-only pull request must not fail on
+# the formal package's authority pins. Spec drift surfaces in the next formal pull request (its
+# merge commit contains the new spec) and in the nightly full suite (formal--etna-full.yml).
 on:
   pull_request:
-    types: [opened, synchronize, reopened, labeled, unlabeled]
+    types: [opened, synchronize, reopened]
     paths:
       - "formal/etna/**"
       - "testdata/etna_current_conformance/**"
-      - "packages/protocol/docs/etna/SPEC.md"
-      - "packages/protocol/docs/etna/ACCEPTANCE.md"
-      - "packages/protocol/docs/etna/ANCHORLESS.md"
-      - "packages/protocol/docs/etna/SWITCH.md"
-      - "packages/protocol/docs/etna/rules/INDEX.md"
       - ".github/workflows/formal--etna.yml"
   push:
     branches: [main]
     paths:
       - "formal/etna/**"
       - "testdata/etna_current_conformance/**"
-      - "packages/protocol/docs/etna/SPEC.md"
-      - "packages/protocol/docs/etna/ACCEPTANCE.md"
-      - "packages/protocol/docs/etna/ANCHORLESS.md"
-      - "packages/protocol/docs/etna/SWITCH.md"
-      - "packages/protocol/docs/etna/rules/INDEX.md"
       - ".github/workflows/formal--etna.yml"
-  schedule:
-    - cron: "17 3 * * *"
   workflow_dispatch:
 
 permissions:
@@ -32,55 +23,14 @@ permissions:
 
 concurrency:
   group: etna-formal-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   LEAN_VERSION: "4.35.0"
   LEAN_SHA256: "7289597a44543246c9227b8cae501767e095ce17f6d448b95fc4a8dc97268f6d"
 
 jobs:
-  # The statement lock. No Lean: the base revision's copy of review_surface.py compares this
-  # pull request's review-surface lock and gate files with the base branch.
-  etna-review-surface:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-      - name: Compare the review surface and gate files with the base branch
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          APPROVED: ${{ contains(github.event.pull_request.labels.*.name, 'formal-statement-change') }}
-        run: |
-          judge="${RUNNER_TEMP}/review_surface.py"
-          if git cat-file -e "${BASE_SHA}:formal/etna/scripts/review_surface.py" 2>/dev/null; then
-            git show "${BASE_SHA}:formal/etna/scripts/review_surface.py" > "$judge"
-          else
-            echo "::notice::The base branch has no review-surface judge; using this pull request's copy (bootstrap)"
-            cp formal/etna/scripts/review_surface.py "$judge"
-          fi
-          set +e
-          python3 -I "$judge" --against "$BASE_SHA" > "${RUNNER_TEMP}/surface.md"
-          status=$?
-          set -e
-          cat "${RUNNER_TEMP}/surface.md"
-          cat "${RUNNER_TEMP}/surface.md" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$status" -eq 0 ]; then
-            exit 0
-          fi
-          if [ "$status" -eq 3 ] && [ "$APPROVED" = "true" ]; then
-            echo "::notice::Review-surface or gate changes approved by the formal-statement-change label"
-            exit 0
-          fi
-          if [ "$status" -eq 3 ]; then
-            echo "::error::The review surface or gate files changed; a reviewer must read the job summary and apply the formal-statement-change label"
-          fi
-          exit 1
-
   etna-formal:
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     defaults:
@@ -157,60 +107,5 @@ jobs:
           if [ -n "$dirty" ]; then
             printf '%s\n' "$dirty"
             echo "::error::the audit or tests modified or created non-ignored files"
-            exit 1
-          fi
-
-  # The slow mutation suite and an independent multi-kernel replay. Nightly, on main, on
-  # manual dispatch, and on pull requests labelled formal-full.
-  etna-formal-full:
-    if: >-
-      github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
-      github.event_name == 'push' ||
-      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'formal-full'))
-    runs-on: ubuntu-24.04
-    timeout-minutes: 120
-    defaults:
-      run:
-        working-directory: formal/etna
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Install exact Lean toolchain and bubblewrap
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          etna_tools="${RUNNER_TEMP}/etna-lean"
-          archive="lean-${LEAN_VERSION}-linux.tar.zst"
-          mkdir -p "$etna_tools"
-          gh release download "v${LEAN_VERSION}" --repo leanprover/lean4 --pattern "$archive" --dir "$etna_tools"
-          echo "${LEAN_SHA256}  ${etna_tools}/${archive}" | sha256sum -c -
-          tar --zstd -xf "${etna_tools}/${archive}" -C "$etna_tools"
-          echo "${etna_tools}/lean-${LEAN_VERSION}-linux/bin" >> "$GITHUB_PATH"
-          sudo apt-get update -q
-          sudo apt-get install -y -q bubblewrap
-          # Ubuntu 24.04 restricts unprivileged user namespaces, which bubblewrap needs.
-          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-      - name: Restore the Lake build cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: formal/etna/.lake
-          key: etna-lake-${{ runner.os }}-${{ env.LEAN_VERSION }}-${{ hashFiles('formal/etna/lakefile.toml', 'formal/etna/lake-manifest.json') }}-${{ hashFiles('formal/etna/Etna*.lean', 'formal/etna/Etna*/**/*.lean') }}
-          restore-keys: |
-            etna-lake-${{ runner.os }}-${{ env.LEAN_VERSION }}-${{ hashFiles('formal/etna/lakefile.toml', 'formal/etna/lake-manifest.json') }}-
-      - name: Build
-        run: lake build
-      - name: Run the full mutation, regression and gate suite
-        env:
-          ETNA_FULL_TESTS: "1"
-        run: python3 -m unittest discover -s tests -v
-      # Five independent kernels (leanchecker-paranoid, lean4lean, nanoda, con-leche,
-      # con-ron) replay the exported project inside a bubblewrap sandbox.
-      - name: Replay the project with independent kernels
-        run: lake check --paranoid
-      - name: Require an unmodified tree
-        run: |
-          dirty="$(git status --porcelain --untracked-files=all -- .)"
-          if [ -n "$dirty" ]; then
-            printf '%s\n' "$dirty"
-            echo "::error::the full suite modified or created non-ignored files"
             exit 1
           fi

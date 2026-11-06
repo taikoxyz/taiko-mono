@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Lock the review surface: the headline/witness statements and every definition they mean.
 
-The review surface starts at the four headline theorems and the five joint-premise witnesses
+The review surface starts at the four headline theorems and the six joint-premise witnesses
 (audit_proofs.CURRENT_*). From their kernel types it follows every Etna constant they use:
 definitions, inductives, constructors and recursors contribute their type and value;
 theorems contribute their type only, so proofs never enter the surface. Init/Std constants
@@ -13,9 +13,14 @@ are recorded by name (the toolchain is pinned). Each constant's kernel terms are
   review_surface.py --against REF
                                no Lean: compare the committed lock and the gate files with
                                REF; exit 3 and print the changed constants/files if they differ
+  review_surface.py --against BASE --head HEAD
+                               the same, for the commit HEAD instead of the checkout, measured
+                               from merge-base(BASE, HEAD); reads HEAD as git objects only
 
-CI runs `--against` from the base revision's copy of this script, so a pull request cannot
-weaken the comparison it is judged by. A difference needs the `formal-statement-change` label.
+CI (formal--etna-review-surface.yml, on pull_request_target) runs `--against BASE --head HEAD`
+from the base branch's checkout, so neither the workflow nor this script comes from the pull
+request. A difference needs the `formal-statement-change` label, which acknowledges the change;
+code-owner review is the access control.
 """
 import argparse
 import hashlib
@@ -29,9 +34,10 @@ REPO = ROOT.parents[1]
 LOCK = ROOT/'review-surface.lock.json'
 LOCK_PATH = 'formal/etna/review-surface.lock.json'
 # Files that define how evidence is judged. Changing one needs the same review as a statement.
-GATE_PATHS = ('formal/etna/scripts', ':(glob)formal/etna/tests/*.py', 'formal/etna/lakefile.toml',
+GATE_PATHS = ('formal/etna/scripts', ':(glob)formal/etna/tests/*.py', ':(glob)formal/etna/*.py',
+              'formal/etna/manifests/shadowing-allowlist.json', 'formal/etna/lakefile.toml',
               'formal/etna/lean-toolchain', 'formal/etna/lake-manifest.json',
-              '.github/workflows/formal--etna.yml')
+              ':(glob).github/workflows/formal--etna*.yml')
 SCOPE = ('Kernel terms of the headline/witness statements and of every Etna definition they use; '
          'theorem proofs are excluded. A change here changes what H1-H3 or the witnesses mean.')
 
@@ -147,21 +153,34 @@ def git(repo, *args):
     return subprocess.run(['git', '-C', str(repo), *args], capture_output=True, text=True)
 
 
-def against(ref, repo=None):
-    """Compare the committed lock and gate files of the checkout in the current directory
-    with `ref`. Returns (status, markdown). Runs from any copy of this file: CI executes the
-    base revision's copy outside the checkout."""
+def against(ref, repo=None, head=None):
+    """Compare the committed lock and gate files with `ref`. Returns (status, markdown).
+    Without `head`, compares the checkout in the current directory with `ref`. With `head`,
+    compares the commit `head` with merge-base(ref, head), reading it as git objects only, so
+    CI can judge a pull request from the base branch's checkout without running its code."""
     if repo is None:
         top = subprocess.run(['git', 'rev-parse', '--show-toplevel'], capture_output=True, text=True)
         if top.returncode:
             raise ValueError('run --against inside the repository checkout')
         repo = Path(top.stdout.strip())
+    if head is not None:
+        merge_base = git(repo, 'merge-base', ref, head)
+        if merge_base.returncode:
+            raise ValueError('git merge-base failed: ' + merge_base.stderr)
+        ref = merge_base.stdout.strip()
     base = git(repo, 'show', f'{ref}:{LOCK_PATH}')
     if base.returncode:
         return 0, (f'Review surface: `{ref}` has no `{LOCK_PATH}`; this change introduces the lock '
                    '(bootstrap), so there is nothing to compare.')
-    changes = diff(json.loads(base.stdout), json.loads((repo/LOCK_PATH).read_text()))
-    files = git(repo, 'diff', '--name-only', ref, '--', *GATE_PATHS)
+    if head is None:
+        current = (repo/LOCK_PATH).read_text()
+    else:
+        shown = git(repo, 'show', f'{head}:{LOCK_PATH}')
+        if shown.returncode:
+            raise ValueError(f'`{head}` has no `{LOCK_PATH}`: ' + shown.stderr)
+        current = shown.stdout
+    changes = diff(json.loads(base.stdout), json.loads(current))
+    files = git(repo, 'diff', '--name-only', ref, *([head] if head else []), '--', *GATE_PATHS)
     if files.returncode:
         raise ValueError('git diff failed: ' + files.stderr)
     gates = [f for f in files.stdout.split('\n') if f]
@@ -170,7 +189,10 @@ def against(ref, repo=None):
     text = [f'Review surface or gate files differ from `{ref}`. A reviewer must read these changes '
             'and apply the `formal-statement-change` label.', '']
     if changes:
-        text += ['Statement surface:', *changes[:300], '']
+        text += ['Statement surface:', *changes[:300]]
+        if len(changes) > 300:
+            text.append(f'- ... and {len(changes) - 300} more')
+        text.append('')
     if gates:
         text += ['Gate files:', *(f'- `{f}`' for f in gates)]
     return 3, '\n'.join(text)
@@ -181,10 +203,13 @@ def main():
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--check', action='store_true')
     group.add_argument('--against', metavar='REF')
+    parser.add_argument('--head', metavar='REF', help='with --against: judge this commit, not the checkout')
     args = parser.parse_args()
+    if args.head and not args.against:
+        parser.error('--head requires --against')
     try:
         if args.against:
-            status, text = against(args.against)
+            status, text = against(args.against, head=args.head)
             print(text)
             return status
         lock = compute()

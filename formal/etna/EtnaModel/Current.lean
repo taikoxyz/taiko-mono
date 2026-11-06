@@ -243,7 +243,10 @@ matches; `checkpointFinalized` means that L1 block is finalized in the same view
 The last three are the validator-state checks of DATA-5.4-3/5: the supplied preimage hashes to
 the record's validator-state hash; its set for s + 1 hashes to header(s)'s
 next_validators_hash; and the committees derived under 4.3 from the window and the node's own
-L1 have the keys and powers of the preimage's sets. -/
+L1 have the keys and powers of the preimage's sets. They apply only for s > o. A snapshot at
+s = o takes the existing 8.4 genesis path (DATA-5.4-1): the record at the generation's start
+height does not hold this generation's validator state (SYNC-9-5), so `inspect` does not read
+them there. -/
 structure Candidate where
   generation : Nat
   origin : Nat
@@ -269,16 +272,17 @@ leaves synchronization incomplete until it finalizes and verification is retried
 vectors 4.f and 4.m). A validator-state preimage that does not hash to the record's value is an
 invalid candidate. Only finalized, authenticated landing data can prove a contradiction: an
 envelope EL hash or a preimage set for s + 1 that disagrees with it, or a committee derived
-from the authenticated window that disagrees with the preimage (DATA-5.4-5). -/
+from the authenticated window that disagrees with the preimage (DATA-5.4-5). The three
+validator-state checks apply only for s > o; at s = o the genesis path ignores them. -/
 def inspect (c : Candidate) (currentGeneration : Nat) : Decision :=
   if c.generation ≠ currentGeneration ∨ c.height < c.origin ∨
       c.checkpointAuthenticated = false ∨ c.dataHashAuthenticated = false ∨
-      c.valStateAuthenticated = false then .reject
+      (c.origin < c.height ∧ c.valStateAuthenticated = false) then .reject
   else if c.checkpointFinalized = false then .retry
-  else if c.envelopeEL ≠ c.checkpointEL ∨ c.nextValidatorsMatch = false then .halt
+  else if c.envelopeEL ≠ c.checkpointEL ∨ (c.origin < c.height ∧ c.nextValidatorsMatch = false) then .halt
   else if c.materialAvailable = false then .retry
   else if c.metadataAuthenticated = false then .reject
-  else if c.committeesMatch = false then .halt
+  else if c.origin < c.height ∧ c.committeesMatch = false then .halt
   else .staged
 
 structure Installed where

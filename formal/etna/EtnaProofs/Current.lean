@@ -192,26 +192,27 @@ theorem authenticated_conflict_halts {c : Candidate} {generation : Nat}
     (conflict : c.envelopeEL ≠ c.checkpointEL) : inspect c generation = .halt := by
   simp [inspect, same, Nat.not_lt.mpr height, auth, final, data, valState, conflict]
 
-/-- A preimage that hashes to the finalized record's validator-state hash but whose set for
-s + 1 differs from header(s)'s next_validators_hash is an authenticated contradiction. -/
+/-- For s > o, a preimage that hashes to the finalized record's validator-state hash but whose
+set for s + 1 differs from header(s)'s next_validators_hash is an authenticated contradiction. -/
 theorem next_validators_conflict_halts {c : Candidate} {generation : Nat}
-    (same : c.generation = generation) (height : c.origin ≤ c.height)
+    (same : c.generation = generation) (windowed : c.origin < c.height)
     (auth : c.checkpointAuthenticated = true) (final : c.checkpointFinalized = true)
     (data : c.dataHashAuthenticated = true) (valState : c.valStateAuthenticated = true)
     (conflict : c.nextValidatorsMatch = false) : inspect c generation = .halt := by
-  simp [inspect, same, Nat.not_lt.mpr height, auth, final, data, valState, conflict]
+  simp [inspect, same, Nat.not_lt.mpr (Nat.le_of_lt windowed), windowed, auth, final, data, valState, conflict]
 
-/-- With the window available and authenticated, a committee derived under 4.3 whose keys and
-powers differ from the matching preimage's set is an authenticated contradiction. -/
+/-- For s > o, with the window available and authenticated, a committee derived under 4.3
+whose keys and powers differ from the matching preimage's set is an authenticated
+contradiction. -/
 theorem committee_conflict_halts {c : Candidate} {generation : Nat}
-    (same : c.generation = generation) (height : c.origin ≤ c.height)
+    (same : c.generation = generation) (windowed : c.origin < c.height)
     (auth : c.checkpointAuthenticated = true) (final : c.checkpointFinalized = true)
     (data : c.dataHashAuthenticated = true) (valState : c.valStateAuthenticated = true)
     (envelope : c.envelopeEL = c.checkpointEL) (next : c.nextValidatorsMatch = true)
     (material : c.materialAvailable = true) (metadata : c.metadataAuthenticated = true)
     (conflict : c.committeesMatch = false) : inspect c generation = .halt := by
-  simp [inspect, same, Nat.not_lt.mpr height, auth, final, data, valState, envelope, next, material,
-    metadata, conflict]
+  simp [inspect, same, Nat.not_lt.mpr (Nat.le_of_lt windowed), windowed, auth, final, data, valState, envelope,
+    next, material, metadata, conflict]
 
 theorem unfinalized_checkpoint_retries {c : Candidate} {generation : Nat}
     (same : c.generation = generation) (height : c.origin ≤ c.height)
@@ -224,11 +225,22 @@ theorem invalid_data_rejected (c : Candidate) (generation : Nat)
     (invalid : c.dataHashAuthenticated = false) : inspect c generation = .reject := by
   simp [inspect, invalid]
 
-/-- A validator-state preimage that does not hash to the record's value is only an invalid
-candidate, even when the record is finalized and every other check would pass. -/
+/-- For s > o, a validator-state preimage that does not hash to the record's value is only an
+invalid candidate, even when the record is finalized and every other check would pass. -/
 theorem invalid_val_state_rejected (c : Candidate) (generation : Nat)
+    (windowed : c.origin < c.height)
     (invalid : c.valStateAuthenticated = false) : inspect c generation = .reject := by
-  simp [inspect, invalid]
+  simp [inspect, windowed, invalid]
+
+/-- A snapshot at s = o takes the existing 8.4 genesis path (DATA-5.4-1): the start record
+does not hold this generation's validator state, so the decision does not depend on the three
+validator-state checks. -/
+theorem genesis_path_ignores_val_state (c : Candidate) (generation : Nat)
+    (start : c.height = c.origin) (valState nextSet committees : Bool) :
+    inspect { c with valStateAuthenticated := valState
+                     nextValidatorsMatch := nextSet
+                     committeesMatch := committees } generation = inspect c generation := by
+  simp [inspect, start]
 
 theorem publish_boundary {c : Candidate} {generation unsettled : Nat} {signer : Signer.State}
     {durable : Bool} {installed : Installed}

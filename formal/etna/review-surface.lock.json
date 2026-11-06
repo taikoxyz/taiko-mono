@@ -11,9 +11,10 @@
     "Etna.Design.Current.Protocol.CurrentSwitch.accepting_switch",
     "Etna.Design.Current.Protocol.RiskNonVacuity.risk_profile_satisfiable",
     "Etna.Design.Current.Protocol.HonestAgreement.nonempty_honest_agreement",
-    "Etna.Design.Current.Protocol.RiskNonVacuity.import_profile_satisfiable"
+    "Etna.Design.Current.Protocol.RiskNonVacuity.import_profile_satisfiable",
+    "Etna.Design.Current.Protocol.NonVacuity.windowed_import_satisfiable"
   ],
-  "sha256": "7a10a0626b9129a538a5ca973303ee917cd70fa1cba2186af8b5dd6f8f69946a",
+  "sha256": "7c814821c15b73d93b96997a04fe7f93607fdea04c784de94f2ca07c828a8aeb",
   "constants": {
     "And": "external",
     "Array.size": "external",
@@ -406,7 +407,7 @@
     "Etna.Design.Current.Import.Installed.headerNumbers": "def:3d9ce07d16658b9bb72a7fbf0a08ab78caea76d10741679930149296fe8f04ee",
     "Etna.Design.Current.Import.Installed.mk": "constructor:5ec80bfea2e938548a620bb699f0bc8df897432ed3fc3ad2b6ac9e9c04c3bbe5",
     "Etna.Design.Current.Import.Installed.signer": "def:94bf07c2aa62585b5b0ea8b8da559bc1b9f122af5177ec533e5da07fd8cb52d6",
-    "Etna.Design.Current.Import.inspect": "def:1d4d26008eb8764c8ccd34dc0e1b0ff9bde5eee21fefbb381d6bff66c7605100",
+    "Etna.Design.Current.Import.inspect": "def:af9eeac230e03c506d031792ed143e9cbdaa279e42c0167f98e2812d2574a271",
     "Etna.Design.Current.Import.instDecidableEqDecision": "def:f62924bbae26c014f09d086f8c6cc62bac2e369531657782a1ac20afc1d1227a",
     "Etna.Design.Current.Import.instDecidableEqDecision._proof_1": "theorem:db894cb26f0a8b633c864f80007fbfee1ad4e81e013de16d6ca6d3504b100641",
     "Etna.Design.Current.Import.instDecidableEqDecision._proof_2": "theorem:1876ea5dab178ab6316fcfa835da0b79615f5be7763b4261e133f733a411d659",
@@ -566,7 +567,7 @@
     "Etna.Design.Current.Protocol.NodeEvent.timeout": "constructor:6f6f4222daa8d596c8015e2f5476a88094e52fdd7657fa991cf15d88f88b8a5a",
     "Etna.Design.Current.Protocol.NodeEvent.trust": "constructor:5bc3b94dcfd267a1b3bd6414629bb55917d62b880169b4d380138874ee6771fc",
     "Etna.Design.Current.Protocol.NonVacuity.advanced": "def:bb9d1d74e6b4aa53205c24aa294a8c8b56f03bdabf57c197e0d9e6ae4362cedc",
-    "Etna.Design.Current.Protocol.NonVacuity.baseEnv": "def:bb5dbff3fd03e7e7db565065be868835aff7a2192f8ed27b377d87f3d7df9091",
+    "Etna.Design.Current.Protocol.NonVacuity.baseEnv": "def:867cf64c1d4203da583e626cca1a90c1d426b5e531f774a1f81b3ce3495309ce",
     "Etna.Design.Current.Protocol.NonVacuity.beforeRecovery": "def:6c19b05f8ce00e296e47ef302dbde789e8e6527dc8a8dde370132669f9023ad6",
     "Etna.Design.Current.Protocol.NonVacuity.block": "def:b2ad5e84d4d80f000f2210342cda2ad7d5af9b4a42156242004255516f9a86c1",
     "Etna.Design.Current.Protocol.NonVacuity.body": "def:dfb9fbcbe25817d4bec8c3796c969210cf71f2b1b30bcbf64dbf6264d267d4e7",
@@ -609,6 +610,7 @@
     "Etna.Design.Current.Protocol.NonVacuity.txHash": "def:7355d0ddb4b875c23ea149ae86a28026ed18fc3e972c6d107b5e3e5fa5ea6788",
     "Etna.Design.Current.Protocol.NonVacuity.unit": "def:8f4a4a40a8c6a514cd61c41fec67da148c780ff9663ae8ec34e991b02c8f2611",
     "Etna.Design.Current.Protocol.NonVacuity.vote": "def:f080b0fa71eba2cdff3f493e01085c2b736401dde21f56de52e6cca1229961cb",
+    "Etna.Design.Current.Protocol.NonVacuity.windowed_import_satisfiable": "theorem:9cdf97b9f894c6e1aa4cb5dc206e4516718bb179e418bacdbfde924cf483f132",
     "Etna.Design.Current.Protocol.NonVacuity.witness": "def:426ab05fb53a07a7564c844cf9b77dc849c417682e81142f4331c29edab9ec18",
     "Etna.Design.Current.Protocol.Parameters": "inductive:29fd76b39c4b518924dadf71c88968c04c7c03635da2bdf22383dc4e3ba10187",
     "Etna.Design.Current.Protocol.Parameters.committee": "def:1e7db0de99b393c8bac6c4dd97879a3759c8af14bc7cf0a3edb99290d0c89d37",

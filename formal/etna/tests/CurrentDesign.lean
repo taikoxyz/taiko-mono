@@ -132,6 +132,23 @@ theorem import_validator_state :
     Import.inspect { candidate with committeesMatch := false, metadataAuthenticated := false } 2 = .reject := by
   decide +kernel
 
+/-- A snapshot at the origin itself (s = o). -/
+def atOrigin : Import.Candidate := { candidate with height := 5 }
+
+/-- DATA-5.4-1 and vector 5.4 1.b: a snapshot at s = o takes the 8.4 genesis path. Its record
+holds 0 at S and the old generation's value at a recovery origin, so the three validator-state
+results do not matter there; the envelope and finality checks still apply. One block later,
+s = o + 1, the preimage check applies again. -/
+theorem import_genesis_path :
+    Import.inspect { atOrigin with valStateAuthenticated := false } 2 = .staged ∧
+    Import.inspect { atOrigin with nextValidatorsMatch := false } 2 = .staged ∧
+    Import.inspect { atOrigin with committeesMatch := false } 2 = .staged ∧
+    Import.inspect { atOrigin with valStateAuthenticated := false, envelopeEL := 71 } 2 = .halt ∧
+    Import.inspect { atOrigin with valStateAuthenticated := false, checkpointFinalized := false } 2 = .retry ∧
+    Import.inspect { candidate with height := 6, valStateAuthenticated := false } 2 = .reject ∧
+    Import.inspect { candidate with height := 6, committeesMatch := false } 2 = .halt := by
+  decide +kernel
+
 /-- DATA-5.4-4 (#22338): the import retains EL headers from max(o, s - U + 1) through s. -/
 theorem import_retained_window :
     Import.retainedFrom candidate 1 = 400 ∧ Import.retainedFrom candidate 4 = 397 ∧
