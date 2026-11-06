@@ -169,10 +169,12 @@ pub fn verify(
         }
     }
     for header in headers.iter().filter(|h| h.number > origin) {
-        let (sharing, generation, number) = rules::decode_extra_data(&header.extra_data)
+        // Check only the deployment-core fields used here (START-10.1-2a): extraData's
+        // generation and anchor, and parentBeaconBlockRoot. The fee-sharing byte is ruleset 0's,
+        // and a later ruleset may change it.
+        let (_, generation, number) = rules::decode_extra_data(&header.extra_data)
             .map_err(|e| LanderError::Safety(e.to_string()))?;
-        if sharing != rules::BASEFEE_SHARING_PCTG ||
-            generation != input.generation ||
+        if generation != input.generation ||
             number < input.recovery.map_or(input.schedule.l1_0, |r| r.l1_number) ||
             header.parent_beacon_block_root.is_none_or(|r| r.is_zero())
         {
@@ -235,14 +237,19 @@ mod tests {
         let mut result = Vec::new();
         let mut parent = B256::repeat_byte(1);
         for number in 8..=15 {
+            let mut extra_data = rules::encode_extra_data(
+                if mutation == 1 && number == 8 { 1 } else { 0 },
+                if mutation == 2 && number == 8 { 9 } else { 11 },
+            )
+            .unwrap()
+            .to_vec();
+            if mutation == 4 && number == 8 {
+                extra_data[0] = 50;
+            }
             let header = Header {
                 number,
                 parent_hash: parent,
-                extra_data: rules::encode_extra_data(
-                    if mutation == 1 && number == 8 { 1 } else { 0 },
-                    if mutation == 2 && number == 8 { 9 } else { 11 },
-                )
-                .unwrap(),
+                extra_data: extra_data.into(),
                 parent_beacon_block_root: if mutation == 3 && number == 8 {
                     Some(B256::ZERO)
                 } else {
@@ -314,6 +321,9 @@ mod tests {
         for mutation in 1..=3 {
             assert!(verify_headers(&headers(mutation)).is_err());
         }
+        // A later ruleset may change the fee-sharing byte; history reads only generation/anchor.
+        let derived = verify_headers(&headers(4)).unwrap();
+        assert_eq!(snapshot_number(derived[&1].as_ref(), &schedule()).unwrap(), 11);
         let mut changed = valid.clone();
         changed.swap(1, 2);
         assert!(verify_headers(&changed).is_err());

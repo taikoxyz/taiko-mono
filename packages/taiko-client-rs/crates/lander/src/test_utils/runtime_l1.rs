@@ -716,35 +716,35 @@ async fn references_older_than_blockhash_window_require_actual_history_contract_
 }
 
 #[tokio::test]
-async fn checkpoint_anchor_rejects_legacy_sharing_and_malformed_generation() {
+async fn checkpoint_anchor_rejects_malformed_extra_data_and_generation_but_not_sharing() {
     let fixture = crate::test_utils::consensus_mpt::Fixture::new(18, 30);
     let provider =
         rpc(|_| json!({"__rpc_error":{"code":-32603,"message":"unexpected anchor lookup"}})).await;
     let source =
         RpcLandingSource::new(provider.provider.clone(), provider.provider.clone(), fixture.params);
     let snapshot = fixture.snapshot;
-    let mut inputs = vec![vec![0; 12], vec![0; 14]];
-    for sharing in [0, 1, 255] {
-        let mut bytes = vec![0; 13];
-        bytes[0] = sharing;
-        inputs.push(bytes);
-    }
     let mut wrong_generation = vec![0; 13];
     wrong_generation[1..7].copy_from_slice(&(snapshot.generation + 1).to_be_bytes()[2..]);
-    inputs.push(wrong_generation);
-    for extra_data in inputs {
-        let parent = crate::l1::ParentContext {
-            header: Header {
-                number: 1,
-                extra_data: extra_data.clone().into(),
-                ..Default::default()
-            },
-            grandparent_timestamp: 0,
-        };
-        let error = source.parent_anchor(&snapshot, &parent).await.unwrap_err();
+    let parent = |extra_data: &[u8]| crate::l1::ParentContext {
+        header: Header { number: 1, extra_data: extra_data.to_vec().into(), ..Default::default() },
+        grandparent_timestamp: 0,
+    };
+    for extra_data in [vec![0; 12], vec![0; 14], wrong_generation] {
+        let error = source.parent_anchor(&snapshot, &parent(&extra_data)).await.unwrap_err();
         assert!(
             matches!(error, LanderError::Safety(_)),
             "malformed checkpoint {extra_data:?} must be rejected before RPC: {error}"
+        );
+    }
+    // The fee-sharing byte is ruleset 0's (START-10.1-2a): any value reaches the anchor lookup,
+    // which this provider fails, instead of being called an authenticated contradiction.
+    for sharing in [0, 1, 255] {
+        let mut extra_data = vec![0; 13];
+        extra_data[0] = sharing;
+        let error = source.parent_anchor(&snapshot, &parent(&extra_data)).await.unwrap_err();
+        assert!(
+            !matches!(error, LanderError::Safety(_)),
+            "sharing byte {sharing} must not decide the checkpoint: {error}"
         );
     }
 }

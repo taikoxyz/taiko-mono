@@ -352,11 +352,10 @@ impl LandingSource for RpcLandingSource {
         } else if parent.header.number == 0 {
             snapshot.genesis.l1_0
         } else {
-            let (generation, anchor) = abci::rules::decode_extra_data(&parent.header.extra_data)
-                .ok()
-                .filter(|(pctg, ..)| *pctg == abci::rules::BASEFEE_SHARING_PCTG)
-                .map(|(_, generation, anchor)| (generation, anchor))
-                .ok_or_else(|| {
+            // Read only extraData's deployment-core generation and anchor fields (START-10.1-2a);
+            // the fee-sharing byte is ruleset 0's, and a later ruleset may change it.
+            let (_, generation, anchor) = abci::rules::decode_extra_data(&parent.header.extra_data)
+                .map_err(|_| {
                     LanderError::Safety("EL checkpoint has invalid Etna extraData".into())
                 })?;
             if generation != snapshot.generation {
