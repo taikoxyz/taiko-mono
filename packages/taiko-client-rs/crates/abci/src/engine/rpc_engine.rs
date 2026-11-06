@@ -6,11 +6,12 @@ use std::{path::Path, time::Duration};
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy_consensus::{Header, TxEnvelope};
 use alloy_eips::{BlockId, BlockNumberOrTag};
-use alloy_primitives::{Address, B256};
+use alloy_primitives::{Address, B256, Bytes};
 use alloy_provider::{
     Provider, RootProvider,
     transport::{RpcError, TransportError},
 };
+use alloy_rlp::Decodable;
 use alloy_rpc_types_engine::{
     ForkchoiceState, ForkchoiceUpdated, PayloadStatus, PayloadStatusEnum,
 };
@@ -26,6 +27,16 @@ use url::Url;
 
 use super::{Engine, EngineError, PayloadVerdict, block_from_payload, payload_from_block};
 use crate::envelope::ExecutionBlock;
+
+/// Pinned Reth's explicit body-history pruning error; unrelated RPC failures are not pruning.
+const PRUNED_BODY_CODE: i64 = 4444;
+/// Local capacity bound above the pinned EL's header encoding, checked before RLP decoding.
+const MAX_RAW_HEADER_BYTES: usize = 1 << 20;
+
+/// Whether an ordinary body-dependent eth_getBlock call explicitly reported pruned history.
+fn pruned_body(error: &TransportError) -> bool {
+    matches!(error, RpcError::ErrorResp(payload) if payload.code == PRUNED_BODY_CODE)
+}
 
 /// Sanitizes public recovery reads while preserving malformed-response integrity failures.
 fn recovery_read_error(error: TransportError) -> EngineError {
@@ -49,6 +60,65 @@ pub struct RpcEngine {
 }
 
 impl RpcEngine {
+    /// Read the EL's actual header-only index after a body-dependent lookup is unavailable.
+    ///
+    /// Private regular RPC must expose debug_getRawHeader for imported pruned ancestors.
+    /// Explicit missing-header/method errors leave data unavailable; malformed responses,
+    /// mismatching requested identities and unrelated errors keep their integrity/error class.
+    async fn raw_header(
+        &self,
+        selector: serde_json::Value,
+        expected_number: Option<u64>,
+        expected_hash: Option<B256>,
+    ) -> Result<Option<Header>, EngineError> {
+        let raw: Option<Bytes> =
+            match self.l2.raw_request("debug_getRawHeader".into(), (selector,)).await {
+                Ok(raw) => raw,
+                Err(RpcError::ErrorResp(payload))
+                    if matches!(payload.code, -32601 | -32004 | -32001) =>
+                {
+                    return Ok(None)
+                }
+                Err(error) => {
+                    let call = format!("debug_getRawHeader at {}", self.l2_endpoint);
+                    return Err(match transport_error(call.clone(), error) {
+                        EngineError::Transport(_) => {
+                            EngineError::Transport(format!("{call}: unavailable"))
+                        }
+                        EngineError::ErrorReply { code, .. } => EngineError::ErrorReply {
+                            call,
+                            code,
+                            message: "raw header read failed".into(),
+                        },
+                        _ => EngineError::BadReply(format!("{call}: malformed reply")),
+                    });
+                }
+            };
+        let Some(raw) = raw else {
+            return Ok(None);
+        };
+        if raw.len() > MAX_RAW_HEADER_BYTES {
+            return Err(EngineError::BadReply("raw EL header exceeds local capacity".into()));
+        }
+        let mut remaining = raw.as_ref();
+        let header = Header::decode(&mut remaining)
+            .map_err(|_| EngineError::BadReply("malformed raw EL header RLP".into()))?;
+        if !remaining.is_empty() || alloy_rlp::encode(&header).as_slice() != raw.as_ref() {
+            return Err(EngineError::BadReply("noncanonical or trailing raw EL header RLP".into()));
+        }
+        if let Some(requested) = expected_number &&
+            header.number != requested
+        {
+            return Err(EngineError::HeaderNumberMismatch { requested, got: header.number });
+        }
+        if let Some(expected) = expected_hash &&
+            header.hash_slow() != expected
+        {
+            return Err(EngineError::BlockHashMismatch { expected, computed: header.hash_slow() });
+        }
+        Ok(Some(header))
+    }
+
     /// Connects to the public endpoint `l2_http` and the Engine API endpoint `l2_auth`, signing
     /// every Engine API request with the hex JWT secret read from `jwt_secret`.
     ///
@@ -98,8 +168,9 @@ impl RpcEngine {
         ))
     }
 
-    /// Wraps already-built providers; `*_endpoint` label them in error messages.
-    pub(crate) fn from_parts(
+    /// Wraps already-built providers, including private providers bound to an owned EL process.
+    /// The caller supplies the transport trust boundary; endpoint labels appear in errors.
+    pub fn from_parts(
         l2: RootProvider,
         l2_endpoint: String,
         auth: RootProvider,
@@ -308,13 +379,15 @@ impl Engine for RpcEngine {
     /// Reads the finalized boundary without sending any Engine API mutation.
     async fn finalized_header(&self) -> Result<Option<Header>, EngineError> {
         tokio::time::timeout(Duration::from_secs(10), async {
-            let Some(block) = self
-                .l2
-                .get_block_by_number(BlockNumberOrTag::Finalized)
-                .await
-                .map_err(recovery_read_error)?
-            else {
-                return Ok(None);
+            let block = match self.l2.get_block_by_number(BlockNumberOrTag::Finalized).await {
+                Ok(Some(block)) => block,
+                Ok(None) => {
+                    return self.raw_header(serde_json::json!("finalized"), None, None).await
+                }
+                Err(error) if pruned_body(&error) => {
+                    return self.raw_header(serde_json::json!("finalized"), None, None).await
+                }
+                Err(error) => return Err(recovery_read_error(error)),
             };
             let (header, reported) = (block.header.inner, block.header.hash);
             let computed = header.hash_slow();
@@ -334,13 +407,22 @@ impl Engine for RpcEngine {
     /// Checks hash-pinned historical state without building or changing forkchoice.
     async fn historical_state_available(&self, hash: B256) -> Result<bool, EngineError> {
         tokio::time::timeout(Duration::from_secs(10), async {
-            let Some(block) = self.l2.get_block_by_hash(hash).await.map_err(recovery_read_error)?
-            else {
-                return Ok(false);
+            let header = match self.l2.get_block_by_hash(hash).await {
+                Ok(Some(block)) => {
+                    let computed = block.header.inner.hash_slow();
+                    if computed != hash || block.header.hash != hash {
+                        return Err(EngineError::BlockHashMismatch { expected: hash, computed });
+                    }
+                    Some(block.header.inner)
+                }
+                Ok(None) => self.raw_header(serde_json::json!(hash), None, Some(hash)).await?,
+                Err(error) if pruned_body(&error) => {
+                    self.raw_header(serde_json::json!(hash), None, Some(hash)).await?
+                }
+                Err(error) => return Err(recovery_read_error(error)),
             };
-            let computed = block.header.inner.hash_slow();
-            if computed != hash || block.header.hash != hash {
-                return Err(EngineError::BlockHashMismatch { expected: hash, computed });
+            if header.is_none() {
+                return Ok(false);
             }
             self.l2
                 .get_balance(Address::ZERO)
@@ -357,11 +439,32 @@ impl Engine for RpcEngine {
     /// hash ([`EngineError::HeaderHashMismatch`]) and be block `number`
     /// ([`EngineError::HeaderNumberMismatch`]).
     async fn header_by_number(&self, number: u64) -> Result<Option<Header>, EngineError> {
-        let Some(block) = self.l2.get_block_by_number(number.into()).await.map_err(|e| {
-            transport_error(format!("eth_getBlockByNumber({number}) at {}", self.l2_endpoint), e)
-        })?
-        else {
-            return Ok(None);
+        let block = match self.l2.get_block_by_number(number.into()).await {
+            Ok(Some(block)) => block,
+            Ok(None) => {
+                return self
+                    .raw_header(
+                        serde_json::json!(BlockNumberOrTag::Number(number)),
+                        Some(number),
+                        None,
+                    )
+                    .await
+            }
+            Err(error) if pruned_body(&error) => {
+                return self
+                    .raw_header(
+                        serde_json::json!(BlockNumberOrTag::Number(number)),
+                        Some(number),
+                        None,
+                    )
+                    .await
+            }
+            Err(error) => {
+                return Err(transport_error(
+                    format!("eth_getBlockByNumber({number}) at {}", self.l2_endpoint),
+                    error,
+                ))
+            }
         };
         let (header, reported) = (block.header.inner, block.header.hash);
         let computed = header.hash_slow();
@@ -976,6 +1079,7 @@ mod tests {
         assert_eq!(header.hash_slow(), hash);
 
         m.l2.push_success(&Value::Null);
+        m.l2.push_success(&Value::Null);
         assert_eq!(m.engine.header_by_number(2).await, Ok(None));
 
         let mut tampered = block;
@@ -989,6 +1093,108 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn imported_header_without_a_body_is_read_from_the_els_raw_header_index() {
+        let block = golden_block();
+        let m = mocked();
+        m.l2.push_success(&Value::Null);
+        m.l2.push_success(&alloy_primitives::Bytes::from(alloy_rlp::encode(&block.header)));
+        assert_eq!(
+            m.engine.header_by_number(block.header.number).await.unwrap(),
+            Some(block.header)
+        );
+    }
+
+    #[tokio::test]
+    async fn imported_finalized_header_does_not_require_its_pruned_body() {
+        let block = golden_block();
+        let m = mocked();
+        m.l2.push_success(&Value::Null);
+        m.l2.push_success(&alloy_primitives::Bytes::from(alloy_rlp::encode(&block.header)));
+        assert_eq!(m.engine.finalized_header().await.unwrap(), Some(block.header));
+    }
+
+    #[tokio::test]
+    async fn imported_parent_state_still_needs_a_real_state_probe_after_raw_header_lookup() {
+        let block = golden_block();
+        let hash = block.header.hash_slow();
+        let m = mocked();
+        m.l2.push_failure(
+            serde_json::from_value(json!({"code":4444,"message":"pruned history unavailable"}))
+                .unwrap(),
+        );
+        m.l2.push_success(&alloy_primitives::Bytes::from(alloy_rlp::encode(&block.header)));
+        m.l2.push_success(&"0x0");
+        assert!(m.engine.historical_state_available(hash).await.unwrap());
+        m.l2.push_success(&Value::Null);
+        m.l2.push_success(&alloy_primitives::Bytes::from(alloy_rlp::encode(&block.header)));
+        m.l2.push_failure_msg("parent state unavailable");
+        assert!(m.engine.historical_state_available(hash).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn imported_raw_headers_reject_wrong_identity_and_trailing_rlp() {
+        let block = golden_block();
+        let m = mocked();
+        let mut wrong_number = block.header.clone();
+        wrong_number.number += 1;
+        m.l2.push_success(&Value::Null);
+        m.l2.push_success(&Bytes::from(alloy_rlp::encode(&wrong_number)));
+        assert!(matches!(
+            m.engine.header_by_number(block.header.number).await,
+            Err(EngineError::HeaderNumberMismatch { .. })
+        ));
+
+        let m = mocked();
+        m.l2.push_success(&Value::Null);
+        m.l2.push_success(&Bytes::from(alloy_rlp::encode(&block.header)));
+        assert!(matches!(
+            m.engine.historical_state_available(B256::ZERO).await,
+            Err(EngineError::BlockHashMismatch { .. })
+        ));
+
+        for bytes in [
+            vec![0xc0],
+            {
+                let mut trailing = alloy_rlp::encode(&block.header);
+                trailing.push(0);
+                trailing
+            },
+            vec![0; MAX_RAW_HEADER_BYTES + 1],
+        ] {
+            let m = mocked();
+            m.l2.push_success(&Value::Null);
+            m.l2.push_success(&Bytes::from(bytes));
+            assert!(matches!(
+                m.engine.header_by_number(block.header.number).await,
+                Err(EngineError::BadReply(_))
+            ));
+        }
+    }
+
+    #[tokio::test]
+    async fn imported_raw_header_absence_remains_unavailable_and_other_errors_do_not_fallback() {
+        for code in [-32001, -32601, -32004] {
+            let m = mocked();
+            m.l2.push_success(&Value::Null);
+            m.l2.push_failure(
+                serde_json::from_value(json!({"code":code,"message":"not available"})).unwrap(),
+            );
+            assert_eq!(m.engine.header_by_number(1).await.unwrap(), None);
+        }
+        let block = golden_block();
+        let m = mocked();
+        m.l2.push_failure(
+            serde_json::from_value(json!({"code":-32603,"message":"ordinary own EL failure"}))
+                .unwrap(),
+        );
+        m.l2.push_success(&Bytes::from(alloy_rlp::encode(&block.header)));
+        assert!(matches!(
+            m.engine.header_by_number(block.header.number).await,
+            Err(EngineError::ErrorReply { code: -32603, .. })
+        ));
+    }
+
+    #[tokio::test]
     async fn recovery_reads_finalized_and_historical_state_without_engine_writes() {
         let block: Value = serde_json::from_str::<Value>(ANVIL).unwrap()["block"].clone();
         let hash: B256 = serde_json::from_value(block["hash"].clone()).unwrap();
@@ -996,10 +1202,12 @@ mod tests {
         m.l2.push_success(&block);
         assert_eq!(m.engine.finalized_header().await.unwrap().unwrap().hash_slow(), hash);
         m.l2.push_success(&Value::Null);
+        m.l2.push_success(&Value::Null);
         assert_eq!(m.engine.finalized_header().await.unwrap(), None);
         m.l2.push_success(&block);
         m.l2.push_success(&"0x0");
         assert!(m.engine.historical_state_available(hash).await.unwrap());
+        m.l2.push_success(&Value::Null);
         m.l2.push_success(&Value::Null);
         assert!(!m.engine.historical_state_available(hash).await.unwrap());
         m.l2.push_success(&block);

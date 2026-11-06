@@ -77,7 +77,11 @@ test-smoke:
 
 # Complete merge gate; smoke never substitutes for the full Docker suite.
 verify:
-  just signer-test && just supervisor-test && just fmt-check && just clippy && just unit && just check-lander-artifacts && just test-full
+  just signer-test && just supervisor-test && just fmt-check && just clippy && just unit && just el-import-verify && just check-lander-artifacts && just test-full
+
+# The local database helper is intentionally an isolated Cargo workspace.
+el-import-verify:
+  cd tools/etna-el-import && just verify
 
 gen_bindings:
   ./script/gen_bindings.sh

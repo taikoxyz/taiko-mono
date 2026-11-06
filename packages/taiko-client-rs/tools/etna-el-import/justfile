@@ -1,0 +1,16 @@
+fmt_toolchain := "nightly-2025-09-27"
+
+fmt:
+  rustup toolchain install {{fmt_toolchain}} && cargo +{{fmt_toolchain}} fmt && cargo sort --workspace --grouped
+
+fmt-check:
+  cargo +{{fmt_toolchain}} fmt --check
+
+clippy-fix:
+  cargo clippy --fix --all-targets --allow-dirty --allow-staged -- -D warnings
+
+clippy:
+  cargo clippy --lib --no-deps -- -D warnings -D missing_docs -D clippy::missing_docs_in_private_items && cargo clippy --all-targets --no-deps -- -D warnings
+
+verify:
+  just fmt-check && just clippy && cargo test --locked -- --test-threads=4
