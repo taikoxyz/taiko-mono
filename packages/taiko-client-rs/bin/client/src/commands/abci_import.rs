@@ -14,6 +14,9 @@ pub struct Command {
 #[derive(Debug, Clone, Subcommand)]
 enum Action {
     /// Serve a completed imported app with its bound native execution writer in the foreground.
+    #[command(group(
+        clap::ArgGroup::new("el_peers").args(["el_bootnodes", "el_trusted_peers"]).multiple(true)
+    ))]
     RunApp {
         /// Canonical completed operation root.
         #[arg(long)]
@@ -28,13 +31,14 @@ enum Action {
         #[arg(long)]
         el_http_port: Option<u16>,
         /// EL devp2p port (TCP and UDP). User transactions arrive only over devp2p; without it
-        /// the owned EL has no peers.
-        #[arg(long)]
+        /// the owned EL has no peers. Needs Etna `--el-bootnodes` or `--el-trusted-peers`.
+        #[arg(long, requires = "el_peers")]
         el_p2p_port: Option<u16>,
         /// EL devp2p listen address.
         #[arg(long, default_value = "0.0.0.0", requires = "el_p2p_port")]
         el_p2p_addr: std::net::IpAddr,
-        /// Comma-separated EL discovery bootnode enode URLs; defaults to the chainspec's.
+        /// Comma-separated Etna EL bootnode enode URLs for discv4 discovery. The Taiko
+        /// chainspecs have none, so without this flag discovery is off.
         #[arg(long, value_delimiter = ',', value_parser = enode, requires = "el_p2p_port")]
         el_bootnodes: Vec<String>,
         /// Comma-separated enode URLs of EL peers to keep connected.
@@ -214,10 +218,17 @@ mod tests {
         assert_eq!(el_bootnodes.len(), 2);
         assert_eq!(el_nat.as_deref(), Some("extip:203.0.113.7"));
         assert!(parse(&[]).is_ok());
+        assert!(
+            parse(&["--el-p2p-port", "30303", "--el-trusted-peers", "enode://c@10.0.0.3:30303"])
+                .is_ok()
+        );
+        let peer = "enode://a@10.0.0.1:30303";
         for bad in [
-            &["--el-bootnodes", "enode://a@10.0.0.1:30303"][..],
+            &["--el-bootnodes", peer][..],
+            // A port alone finds no Etna peer: the chainspec has no bootnodes.
+            &["--el-p2p-port", "30303"],
             &["--el-p2p-port", "30303", "--el-bootnodes", "10.0.0.1:30303"],
-            &["--el-p2p-port", "30303", "--el-nat", "extip:nope"],
+            &["--el-p2p-port", "30303", "--el-bootnodes", peer, "--el-nat", "extip:nope"],
         ] {
             assert!(parse(bad).is_err(), "{bad:?}");
         }

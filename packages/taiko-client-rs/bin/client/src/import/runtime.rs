@@ -26,7 +26,8 @@ pub(crate) struct ElP2p {
     pub addr: std::net::IpAddr,
     /// Listen port for RLPx (TCP) and discv4 (UDP).
     pub port: u16,
-    /// Discovery bootnodes; the chainspec's own apply when empty.
+    /// Etna discv4 bootnodes. Without them discovery is off: the Taiko chainspecs carry no
+    /// bootnodes, and reth would seed discovery from Ethereum mainnet's instead.
     pub bootnodes: Vec<String>,
     /// Peers to keep connected.
     pub trusted_peers: Vec<String>,
@@ -55,13 +56,21 @@ fn network_args(p2p: Option<&ElP2p>) -> Vec<String> {
     let mut args = vec![
         format!("--addr={addr}"),
         format!("--port={port}"),
-        format!("--discovery.addr={addr}"),
-        format!("--discovery.port={port}"),
         // Keep the installed datadir free of a peer file.
         "--no-persist-peers".into(),
     ];
-    if !p2p.bootnodes.is_empty() {
-        args.push(format!("--bootnodes={}", p2p.bootnodes.join(",")));
+    if p2p.bootnodes.is_empty() {
+        // Peer only with trusted and inbound peers, never via Ethereum mainnet's bootnodes.
+        args.push("--disable-discovery".into());
+    } else {
+        args.extend([
+            format!("--discovery.addr={addr}"),
+            format!("--discovery.port={port}"),
+            // reth's discv5 binds its own UDP port (default 9200), which a second EL in the same
+            // network namespace cannot also bind. discv4 on `port` is enough to find Etna peers.
+            "--disable-discv5-discovery".into(),
+            format!("--bootnodes={}", p2p.bootnodes.join(",")),
+        ]);
     }
     if !p2p.trusted_peers.is_empty() {
         args.push(format!("--trusted-peers={}", p2p.trusted_peers.join(",")));
@@ -475,14 +484,53 @@ mod tests {
             [
                 "--addr=0.0.0.0",
                 "--port=30303",
+                "--no-persist-peers",
                 "--discovery.addr=0.0.0.0",
                 "--discovery.port=30303",
-                "--no-persist-peers",
+                "--disable-discv5-discovery",
                 "--bootnodes=enode://a@10.0.0.1:30303,enode://b@10.0.0.2:30303",
                 "--trusted-peers=enode://c@10.0.0.3:30303",
                 "--nat=extip:203.0.113.7",
             ]
         );
+        // Trusted peers alone: discovery stays off rather than seeding from Ethereum mainnet.
+        let trusted = network_args(Some(&ElP2p {
+            addr: "0.0.0.0".parse().unwrap(),
+            port: 30304,
+            bootnodes: vec![],
+            trusted_peers: vec!["enode://c@10.0.0.3:30303".into()],
+            nat: None,
+        }));
+        assert_eq!(
+            trusted,
+            [
+                "--addr=0.0.0.0",
+                "--port=30304",
+                "--no-persist-peers",
+                "--disable-discovery",
+                "--trusted-peers=enode://c@10.0.0.3:30303",
+            ]
+        );
+    }
+
+    #[test]
+    fn els_in_one_network_namespace_bind_only_their_own_port() {
+        // Every listener flag names the configured port and discv5's own default port is off,
+        // so ELs on 30303 and 30304 in one namespace never share a socket.
+        for port in [30303u16, 30304] {
+            let args = network_args(Some(&ElP2p {
+                addr: "0.0.0.0".parse().unwrap(),
+                port,
+                bootnodes: vec!["enode://a@10.0.0.1:30303".into()],
+                trusted_peers: vec![],
+                nat: None,
+            }));
+            for flag in ["--port", "--discovery.port"] {
+                assert!(args.contains(&format!("{flag}={port}")), "{flag} for {port}: {args:?}");
+            }
+            assert!(args.iter().any(|a| a == "--disable-discv5-discovery"), "{args:?}");
+            assert!(!args.iter().any(|a| a.starts_with("--discovery.v5")), "{args:?}");
+        }
     }
 
     fn mocked() -> (RpcEngine, Asserter, Asserter) {
