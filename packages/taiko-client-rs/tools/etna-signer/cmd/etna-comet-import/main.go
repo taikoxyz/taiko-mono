@@ -125,6 +125,11 @@ func writeFailure(stdout, stderr io.Writer, err error) int {
 			return 2
 		}
 	}
+	var storage *checkpoint.StorageError
+	var path *os.PathError
+	if errors.As(err, &storage) || errors.As(err, &path) {
+		return 3
+	}
 	return 1
 }
 

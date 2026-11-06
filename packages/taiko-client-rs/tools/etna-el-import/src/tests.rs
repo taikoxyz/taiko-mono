@@ -83,7 +83,7 @@ fn rejects_missing_referenced_bytecode_even_when_the_account_root_matches() {
     drop(db);
     assert!(matches!(
         verify_fixture(&dir, expected),
-        Err(ImportError::Invalid("missing referenced bytecode"))
+        Err(ImportError::Incomplete("missing referenced bytecode"))
     ));
 }
 
@@ -103,7 +103,7 @@ fn refuses_an_unfinished_snap_attempt_in_a_legacy_layout() {
     drop(db);
     assert!(matches!(
         verify_fixture(&dir, expected),
-        Err(ImportError::Invalid("complete the EL's pending snap attempt before import"))
+        Err(ImportError::Incomplete("complete the EL's pending snap attempt before import"))
     ));
 }
 

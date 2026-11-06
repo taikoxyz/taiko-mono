@@ -32,8 +32,11 @@ func checkParents(path string) error {
 	}
 	for p := filepath.Dir(path); ; p = filepath.Dir(p) {
 		info, err := os.Lstat(p)
-		if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
-			return errors.New("missing or aliased parent")
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+			return errors.New("invalid or aliased parent")
 		}
 		if p == filepath.Dir(p) {
 			break
@@ -87,6 +90,13 @@ func syncStockTree(path string) (err error) {
 	return f.Sync()
 }
 
+// StorageError reports a local failure materializing already verified input in an unpublished
+// stock home. The caller must discard the stage and may retry after the storage is repaired.
+type StorageError struct{ cause error }
+
+func (e *StorageError) Error() string { return e.cause.Error() }
+func (e *StorageError) Unwrap() error { return e.cause }
+
 // Install creates only a previously nonexistent home; signer keys and WAL are never read.
 // The controller must stage all other stores and publish its own completion manifest.
 func Install(home string, v *Verified) error {
@@ -106,6 +116,9 @@ func installFresh(home string, v *Verified, flushTree func(string) error) (err e
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("stock store installation failed: %v", r)
+		}
+		if err != nil {
+			err = &StorageError{cause: err}
 		}
 	}()
 	if err = os.Mkdir(filepath.Join(home, "config"), 0700); err != nil {

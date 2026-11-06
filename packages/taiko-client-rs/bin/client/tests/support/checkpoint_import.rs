@@ -324,6 +324,14 @@ async fn roundtrip(
         db.blocks() * 512
     );
     if s < target && !registered {
+        helper_failures::code_preimages(
+            &base,
+            Path::new(profile),
+            &package_dir,
+            &source,
+            &donor_dir,
+        )
+        .await?;
         memdb_refused(&base, Path::new(profile), &package_dir)?;
         crash_stock_export(&base, Path::new(profile), &archived).await?;
     }
@@ -390,6 +398,7 @@ async fn roundtrip(
             prepared["live_trust"] == false
     );
     if s < target && !registered {
+        helper_failures::occupied_stock_output(&base, &root, profile).await?;
         for boundary in [
             "comet/data/blockstore.db",
             "el/.etna-el-import-completed.json",
@@ -1484,3 +1493,5 @@ async fn crash_stock_export(base: &Path, original: &Path, preimage: &Path) -> Re
 mod long_fence;
 
 mod forced;
+
+mod helper_failures;

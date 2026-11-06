@@ -71,6 +71,17 @@ The root archives the original package and binds its contents, local input hashe
 
 The only published runtime is `ROOT/ready/{app,comet,el}`. It appears by one atomic rename after fsync and a fresh own-finalized generation/landing check. A stopped or killed operation may leave a protected unpublished stage. A private lifetime pipe closes on controller death; the process guardian then terminates and reaps its owned helper or test EL. Failed native subprocess diagnostics remain in the unpublished stage until retry. Rerun the same operation with the same inputs and profile. A retry refuses a live lease; stop any surviving externally managed or orphaned process that demonstrably belongs to that operation before retrying. Never adopt a PID from a file, reuse a different package in the same root, or delete a signing state file. An unrelated or mismatched stage is not overwritten. A safety contradiction creates durable `ROOT/halted.json` (export uses a sibling halt record) and exits 2. Bad publisher bytes and missing input fail without latching; investigate safety evidence rather than blindly retrying. Status is local and nonmutating: **`live_trust` is always false**, including installed and halted operations.
 
+A native verifier distinguishes incomplete material or local storage errors from invalid input.
+For example, an account referring to absent bytecode leaves the operation incomplete; code
+present under the wrong hash rejects the candidate. A failed database write or final storage
+barrier also leaves an unpublished operation incomplete. The public CLI reports
+`checkpoint material unavailable` for missing code or storage failure and
+`invalid checkpoint candidate` for wrong code. Both diagnostics use public exit 1.
+Inspect the private stage diagnostic. After repairing local storage, retry the same immutable inputs.
+If obtaining missing code changes the donor bytes, use a fresh operation root for the repaired
+dataset. Native helper exit 3 denotes unavailable material/storage; only a bound stock
+contradiction receipt on exit 2 can establish a helper-reported safety halt.
+
 ## Start the installed node
 
 Start the app and its bound native execution node in one foreground process. Select the same canonical root and private profile used for installation and the normal proposed-block fee recipient.
@@ -103,3 +114,10 @@ before starting its imported successor with the same external key, authority and
 paths. An older checkpoint requires an available peer suffix to the latest target.
 Preserve the stopped source WAL and fully replayed archive separately for historical
 proving and recovery investigation.
+
+At startup, `run-app` probes the retained state at both the installation floor and the
+committed parent. Each live stock-launch challenge probes the floor again. A missing
+state or transport outage withholds admission. A malformed own-EL state reply or
+a header returned under an inconsistent hash stops the runtime, revokes the app's
+signer session and records durable evidence in `ROOT/halted.json`. Reopening that
+installation refuses while the terminal evidence is present.

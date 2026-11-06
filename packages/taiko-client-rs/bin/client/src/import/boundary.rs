@@ -237,24 +237,13 @@ pub(crate) async fn check_engine(
     let root =
         app.parent().and_then(Path::parent).ok_or_else(|| bad("missing completed import"))?;
     let plan: Plan = files::json(&root.join("plan.json"))?;
-    let h = match engine.header_by_number(plan.height).await {
-        Ok(Some(h)) => h,
-        Ok(None) => {
-            return Err(ImportError::Unavailable(
-                "runtime execution checkpoint header absent".into(),
-            ))
-        }
-        Err(e) if e.is_integrity_failure() => {
-            return latch(
-                root,
-                Err(ImportError::Safety(format!(
-                    "malformed own EL checkpoint header at {}",
-                    plan.height
-                ))),
-            )
-        }
-        Err(_) => return Err(ImportError::Unavailable("runtime execution checkpoint".into())),
-    };
+    let h = latch(
+        root,
+        super::runtime::own_header(
+            engine.header_by_number(plan.height).await,
+            format_args!("checkpoint header at {}", plan.height),
+        ),
+    )?;
     if h.hash_slow() != plan.el_hash {
         // A disk marker alone is not authenticated safety evidence. Re-open own L1 at the
         // current generation before classifying a structurally valid competing EL header.

@@ -118,7 +118,15 @@ fn main() -> ExitCode {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             eprintln!("{error}");
-            ExitCode::FAILURE
+            match error {
+                ImportError::Incomplete(_) | ImportError::Io(_) | ImportError::Database(_) => {
+                    ExitCode::from(3)
+                }
+                ImportError::Json(e) if e.is_io() => ExitCode::from(3),
+                ImportError::Invalid(_) | ImportError::StateRoot { .. } | ImportError::Json(_) => {
+                    ExitCode::FAILURE
+                }
+            }
         }
     }
 }

@@ -128,6 +128,11 @@ fn result_bytes(
                 .into(),
         ))
     }
+    if status.code() == Some(3) {
+        return Err(ImportError::Unavailable(
+            "native helper needs missing material or local storage repair; inspect its private staging diagnostic".into(),
+        ))
+    }
     if status.code() == Some(1) {
         return Err(bad("native helper rejected input; inspect its private staging diagnostic"))
     }
@@ -389,21 +394,25 @@ impl<'a> Manifest<'a> {
         let engine = owned.engine.clone();
         let last = self.headers.last().ok_or_else(|| bad("missing terminal header"))?;
         if owned.chain_id().await? != U256::from(self.chain_id) ||
-            engine.header_by_number(last.number).await.map_err(bad)?.as_ref() != Some(last) ||
+            super::runtime::own_header(
+                engine.header_by_number(last.number).await,
+                format_args!("staged header at {}", last.number),
+            )? != *last ||
             engine
                 .forkchoice(last.hash_slow(), self.finalized_hash, self.finalized_hash)
                 .await
                 .map_err(bad)? !=
                 PayloadVerdict::Valid ||
-            engine
-                .finalized_header()
-                .await
-                .map_err(bad)?
-                .is_none_or(|h| h.hash_slow() != self.finalized_hash) ||
-            !engine.historical_state_available(last.hash_slow()).await.map_err(bad)?
+            super::runtime::own_header(
+                engine.finalized_header().await,
+                "staged finalized header",
+            )?
+            .hash_slow() !=
+                self.finalized_hash
         {
             return Err(bad("normal EL rejected exact installed head/state/finality"))
         }
+        super::runtime::retained_state(&engine, last.hash_slow()).await?;
         if owned.exited()? {
             return Err(bad("normal EL exited before shutdown"))
         }

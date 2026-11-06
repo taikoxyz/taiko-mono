@@ -143,8 +143,10 @@ impl OwnedEngine {
             if result.exited()? {
                 return Err(bad("owned native execution node exited during startup"))
             }
-            if result.engine.check_capabilities().await.is_ok() && result.chain_id().await.is_ok() {
-                return Ok(result)
+            match check_owned_capabilities(&result.engine).await {
+                Ok(()) if result.chain_id().await.is_ok() => return Ok(result),
+                Err(e @ ImportError::Safety(_)) => return Err(e),
+                _ => {}
             }
             if Instant::now() >= deadline {
                 return Err(ImportError::Unavailable(
@@ -183,6 +185,52 @@ impl OwnedEngine {
             tokio::time::sleep(Duration::from_millis(50)).await;
         }
     }
+}
+/// A missing method/transport prevents startup. A malformed reply from the authenticated
+/// native Engine is a local integrity failure during both startup and subsequent launches.
+async fn check_owned_capabilities(engine: &impl Engine) -> R<()> {
+    engine.check_capabilities().await.map_err(|e| {
+        if e.is_integrity_failure() {
+            ImportError::Safety(format!("malformed own Engine capability reply: {e}"))
+        } else {
+            ImportError::Unavailable(format!("owned Engine capabilities unavailable: {e}"))
+        }
+    })
+}
+
+/// Classify reads of the owned EL's header indexes or corresponding retained state.
+/// BlockHashMismatch is terminal in this context, independently of peer-payload handling.
+pub(super) fn own_header<T>(
+    result: Result<Option<T>, abci::EngineError>,
+    what: impl std::fmt::Display,
+) -> R<T> {
+    match result {
+        Ok(Some(value)) => Ok(value),
+        Ok(None) => Err(ImportError::Unavailable(format!("owned EL has no {what}"))),
+        Err(e)
+            if e.is_integrity_failure() ||
+                matches!(e, abci::EngineError::BlockHashMismatch { .. }) =>
+        {
+            Err(ImportError::Safety(format!("inconsistent own EL {what}: {e}")))
+        }
+        Err(e) => Err(ImportError::Unavailable(format!("owned EL {what}: {e}"))),
+    }
+}
+
+/// Hash-addressed admission requires both the matching header and an actual state read.
+pub(super) async fn retained_state(engine: &impl Engine, hash: B256) -> R<()> {
+    let available =
+        engine.historical_state_available(hash).await.map(|present| present.then_some(()));
+    own_header(available, format_args!("retained state at {hash}"))
+}
+
+/// Stop admission on the first unavailable state or durable own-EL contradiction. The
+/// independently verified floor and the latest committed parent may be different after sync.
+async fn admit_retained(root: &Path, engine: &impl Engine, hashes: [B256; 2]) -> R<()> {
+    for hash in hashes {
+        latch(root, retained_state(engine, hash).await)?;
+    }
+    Ok(())
 }
 /// Start a completed installation with its real EL. This command has no external execution
 /// endpoint parameters and never sends a forkchoice at the imported height on restart.
@@ -224,7 +272,8 @@ pub(crate) async fn run(
         .ok_or_else(|| bad("missing installed ABCI address"))?;
     let (mut params, l1) = p.own().await?;
     params.fee_recipient = fee_recipient;
-    let mut owned = OwnedEngine::start(i, &ready.join("el"), &holds, http_port, None).await?;
+    let mut owned =
+        latch(root, OwnedEngine::start(i, &ready.join("el"), &holds, http_port, None).await)?;
     if owned.chain_id().await? != U256::from(params.l2_chain_id) {
         return Err(bad("owned execution chain identity differs").into())
     }
@@ -234,18 +283,7 @@ pub(crate) async fn run(
         .map_err(bad)?
         .ok_or_else(|| bad("imported runtime has no committed state"))?;
     let plan: Plan = files::json(&root.join("plan.json"))?;
-    for hash in [plan.el_hash, state.parent.hash] {
-        if !owned
-            .engine
-            .historical_state_available(hash)
-            .await
-            .map_err(|_| ImportError::Unavailable("owned EL retained state read failed".into()))?
-        {
-            return Err(
-                ImportError::Unavailable("owned EL has no retained execution state".into()).into()
-            )
-        }
-    }
+    admit_retained(root, &owned.engine, [plan.el_hash, state.parent.hash]).await?;
     let sock = app_dir.join(".owner.sock");
     if files::exists(&sock)? {
         use std::os::unix::fs::FileTypeExt;
@@ -264,11 +302,14 @@ pub(crate) async fn run(
         Store::imported(app_dir, id, floor).with_val_archive(archive_dir),
         AppOptions::default(),
     )?;
-    tokio::select! {
-        result=abci::serve(app,addr)=>result?,
-        result=live_guard(listener,owned.engine.clone(),id,plan.el_hash)=>result?,
-        failure=async{loop{if owned.exited()?{return Err::<(),ImportError>(ImportError::Unavailable("owned execution process exited".into()))}tokio::time::sleep(Duration::from_millis(100)).await;}}=>failure?
-    }
+    let result = tokio::select! {
+        result=abci::serve(app,addr)=>{result?;Ok(())},
+        result=live_guard(listener,owned.engine.clone(),id,plan.el_hash)=>result,
+        failure=async{loop{if owned.exited()?{return Err::<(),ImportError>(ImportError::Unavailable("owned execution process exited".into()))}tokio::time::sleep(Duration::from_millis(100)).await;}}=>failure
+    };
+    // Dropping the serving future revokes signer trust and aborts the ABCI/control tasks.
+    // Keep the ownership leases until permanent evidence is durable and the EL is reaped.
+    latch(root, result)?;
     owned.stop().await?;
     Ok(())
 }
@@ -338,15 +379,213 @@ async fn live_guard(
         let probe = async {
             let mut challenge = [0u8; 32];
             socket.read_exact(&mut challenge).await.map_err(io)?;
-            engine.check_capabilities().await.map_err(bad)?;
-            if !engine.historical_state_available(hash).await.map_err(bad)? {
-                return Err(bad("retained execution state unavailable"))
-            }
+            check_owned_capabilities(&engine).await?;
+            retained_state(&engine, hash).await?;
             socket
                 .write_all(keccak256([challenge.as_slice(), id.as_slice()].concat()).as_slice())
                 .await
                 .map_err(io)
         };
-        let _ = tokio::time::timeout(Duration::from_secs(12), probe).await;
+        if let Ok(Err(error @ ImportError::Safety(_))) =
+            tokio::time::timeout(Duration::from_secs(12), probe).await
+        {
+            return Err(error)
+        }
+        // A failed caller handshake, deadline or unavailable dependency denies only this launch.
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloy::transports::mock::Asserter;
+    use alloy_provider::ProviderBuilder;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    fn mocked() -> (RpcEngine, Asserter, Asserter) {
+        let public = Asserter::new();
+        let auth = Asserter::new();
+        (
+            RpcEngine::from_parts(
+                ProviderBuilder::default().connect_mocked_client(public.clone()),
+                "public".into(),
+                ProviderBuilder::default().connect_mocked_client(auth.clone()),
+                "auth".into(),
+            ),
+            public,
+            auth,
+        )
+    }
+
+    #[tokio::test]
+    async fn live_guard_exits_on_inconsistent_by_hash_after_healthy_by_number() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("owner.sock");
+        let listener = tokio::net::UnixListener::bind(&path).unwrap();
+        let (engine, public, auth) = mocked();
+        let header = alloy_consensus::Header { number: 6, ..Default::default() };
+        let hash = header.hash_slow();
+        public.push_success(&Value::Null);
+        public.push_success(&alloy_primitives::Bytes::from(alloy_rlp::encode(&header)));
+        assert_eq!(engine.header_by_number(6).await.unwrap(), Some(header.clone()));
+        let changed = alloy_consensus::Header { state_root: B256::repeat_byte(5), ..header };
+        public.push_success(&Value::Null);
+        public.push_success(&alloy_primitives::Bytes::from(alloy_rlp::encode(changed)));
+        auth.push_success(&rpc::auth::REQUIRED_ENGINE_METHODS);
+        let id = B256::repeat_byte(2);
+        let client = async {
+            let mut s = tokio::net::UnixStream::connect(&path).await.unwrap();
+            s.write_all(&[1; 32]).await.unwrap();
+            let mut reply = vec![];
+            s.read_to_end(&mut reply).await.unwrap();
+            assert!(reply.is_empty());
+        };
+        let (result, ()) = tokio::join!(
+            tokio::time::timeout(Duration::from_secs(2), live_guard(listener, engine, id, hash)),
+            client
+        );
+        assert!(
+            matches!(result, Ok(Err(ImportError::Safety(_)))),
+            "live guard must terminate: {result:?}"
+        );
+    }
+    fn root_with_intent(dir: &Path) -> PathBuf {
+        use std::os::unix::fs::PermissionsExt;
+        let root = dir.canonicalize().unwrap();
+        fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).unwrap();
+        let intent = Intent {
+            schema: 1,
+            root: root.clone(),
+            source: root.join("source"),
+            profile_hash: B256::ZERO,
+            package: [B256::ZERO; 2],
+            inputs: Default::default(),
+        };
+        files::put(&root.join("intent.json"), &intent).unwrap();
+        fs::create_dir_all(root.join("ready/app")).unwrap();
+        root
+    }
+
+    #[tokio::test]
+    async fn startup_checks_floor_and_advanced_parent_and_latches_integrity_failures() {
+        let floor = alloy_consensus::Header { number: 6, ..Default::default() };
+        let advanced =
+            alloy_consensus::Header { number: 7, parent_hash: floor.hash_slow(), ..floor.clone() };
+        for problem in ["missing", "transport", "malformed", "mismatch"] {
+            let dir = tempfile::tempdir().unwrap();
+            let root = root_with_intent(dir.path());
+            let (engine, public, _) = mocked();
+            public.push_success(&Value::Null);
+            public.push_success(&alloy_primitives::Bytes::from(alloy_rlp::encode(&floor)));
+            public.push_success(&"0x0");
+            public.push_success(&Value::Null);
+            match problem {
+                "missing" => public.push_success(&Value::Null),
+                "transport" => public.push_failure_msg("state source offline"),
+                "malformed" => public.push_success(&alloy_primitives::Bytes::from_static(&[0xc0])),
+                _ => public.push_success(&alloy_primitives::Bytes::from(alloy_rlp::encode(&floor))),
+            }
+            let hashes = [floor.hash_slow(), advanced.hash_slow()];
+            let r = admit_retained(&root, &engine, hashes).await;
+            if matches!(problem, "missing" | "transport") {
+                assert!(matches!(r, Err(ImportError::Unavailable(_))), "{problem}: {r:?}");
+                check_latch(&root).unwrap();
+                // Same bound engine and unchanged durable root may recover when its state does.
+                for h in [&floor, &advanced] {
+                    public.push_success(&Value::Null);
+                    public.push_success(&alloy_primitives::Bytes::from(alloy_rlp::encode(h)));
+                    public.push_success(&"0x0");
+                }
+                admit_retained(&root, &engine, hashes).await.unwrap();
+            } else {
+                assert!(matches!(r, Err(ImportError::Safety(_))), "{problem}: {r:?}");
+                let restart = boundary::check(&root.join("ready/app"));
+                assert!(
+                    matches!(&restart,Err(ImportError::Safety(detail)) if detail.contains(&advanced.hash_slow().to_string())),
+                    "{restart:?}"
+                );
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn live_guard_denies_missing_or_transport_then_recovers_and_stops_on_malformed_state() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = root_with_intent(dir.path());
+        let path = root.join("probe.sock");
+        let listener = tokio::net::UnixListener::bind(&path).unwrap();
+        let (engine, public, auth) = mocked();
+        let h = alloy_consensus::Header { number: 6, ..Default::default() };
+        for _ in 0..4 {
+            auth.push_success(&rpc::auth::REQUIRED_ENGINE_METHODS);
+        }
+        public.push_success(&Value::Null);
+        public.push_success(&Value::Null);
+        public.push_failure_msg("transport unavailable");
+        public.push_success(&Value::Null);
+        public.push_success(&alloy_primitives::Bytes::from(alloy_rlp::encode(&h)));
+        public.push_success(&"0x0");
+        public.push_success(&Value::Null);
+        public.push_success(&alloy_primitives::Bytes::from_static(&[0xc0]));
+        let id = B256::repeat_byte(3);
+        let client = async {
+            for i in 0..4 {
+                let mut socket = tokio::net::UnixStream::connect(&path).await.unwrap();
+                let challenge = [i; 32];
+                socket.write_all(&challenge).await.unwrap();
+                let mut response = vec![];
+                socket.read_to_end(&mut response).await.unwrap();
+                if i == 2 {
+                    assert_eq!(
+                        response,
+                        keccak256([challenge.as_slice(), id.as_slice()].concat()).as_slice()
+                    );
+                } else {
+                    assert!(response.is_empty());
+                }
+                if i < 3 {
+                    check_latch(&root).unwrap();
+                }
+            }
+        };
+        let guard = async { latch(&root, live_guard(listener, engine, id, h.hash_slow()).await) };
+        let ((), result) =
+            tokio::time::timeout(Duration::from_secs(3), async { tokio::join!(client, guard) })
+                .await
+                .unwrap();
+        assert!(matches!(result, Err(ImportError::Safety(_))));
+        let restart = boundary::check(&root.join("ready/app"));
+        assert!(matches!(restart, Err(ImportError::Safety(_))), "{restart:?}");
+    }
+    #[tokio::test]
+    async fn own_numbered_and_finalized_header_integrity_is_distinct_from_unavailable() {
+        use alloy_primitives::Bytes;
+        for finalized in [false, true] {
+            let (engine, public, _) = mocked();
+            let read = || async {
+                let result = if finalized {
+                    engine.finalized_header().await
+                } else {
+                    engine.header_by_number(6).await
+                };
+                own_header(result, "probe header")
+            };
+            public.push_success(&Value::Null);
+            public.push_success(&Value::Null);
+            assert!(matches!(read().await, Err(ImportError::Unavailable(_))));
+            public.push_failure_msg("EL transport down");
+            assert!(matches!(read().await, Err(ImportError::Unavailable(_))));
+            public.push_success(&Value::Null);
+            public.push_success(&Bytes::from_static(&[0xc0]));
+            assert!(matches!(read().await, Err(ImportError::Safety(_))));
+            let mut block = serde_json::from_str::<Value>(include_str!(
+                "../../../../crates/abci/src/l1/testdata/anvil_get_proof.json"
+            ))
+            .unwrap()["block"]
+                .clone();
+            block["hash"] = json!(B256::repeat_byte(0x44));
+            public.push_success(&block);
+            assert!(matches!(read().await, Err(ImportError::Safety(_))));
+        }
     }
 }

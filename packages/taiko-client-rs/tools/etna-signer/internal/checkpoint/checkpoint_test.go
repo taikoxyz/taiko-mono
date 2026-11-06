@@ -615,6 +615,10 @@ func TestCLIProcessVerifyInstallAndContradictionExit(t *testing.T) {
 	if output, e = exec.Command(binaryPath, args...).CombinedOutput(); e != nil {
 		t.Fatalf("install: %v %s", e, output)
 	}
+	// Same certified input and trust; only the local fresh-install destination is occupied.
+	if output, e = exec.Command(binaryPath, args...).Output(); e == nil || e.(*exec.ExitError).ExitCode() != 3 || len(output) != 0 {
+		t.Fatalf("storage error must exit unavailable: %v %s", e, output)
+	}
 	changed := vals.Copy()
 	changed.Validators[0].VotingPower = 11
 	pre := makePreimage(100001, changed, changed, 0, 0)
@@ -929,7 +933,23 @@ func TestFreshInstallRequiresFinalStockFileSync(t *testing.T) {
 		}
 		return syncStockTree(path)
 	})
-	if calls != 2 || err == nil {
-		t.Fatalf("final sync failure was ignored: calls=%d err=%v", calls, err)
+	var unavailable *StorageError
+	if calls != 2 || !errors.As(err, &unavailable) {
+		t.Fatalf("final storage barrier must refuse with a repairable storage error: calls=%d err=%v", calls, err)
 	}
+	// A real verified/reopened image still cannot complete when fsync itself reports an
+	// exhausted storage device at the final barrier. Preserve the typed cause for the CLI.
+	full := errors.New("injected final filesystem sync failure")
+	calls = 0
+	err = installFresh(filepath.Join(realTemp(t), "comet"), v, func(path string) error {
+		calls++
+		if calls == 2 {
+			return full
+		}
+		return syncStockTree(path)
+	})
+	if calls != 2 || !errors.As(err, &unavailable) || !errors.Is(err, full) {
+		t.Fatalf("lost final sync classification: %v", err)
+	}
+
 }

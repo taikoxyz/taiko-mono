@@ -70,8 +70,12 @@ inside the original raw `genesis` object is retained and affects this binding.
 It detects corruption,
 not authority. Export writes the complete package to `--output` and no report.
 
-Exit 0 means the requested offline operation completed. Exit 1 rejects malformed,
-missing or unsupported material, source/store errors, and ordinary bad candidates.
+Exit 0 means the requested offline operation completed. Exit 1 rejects invalid or
+unsupported package data, such as malformed native frames or a preimage that
+does not match its trusted hash. Exit 3 reports unavailable local files or an
+installation storage failure, including a failed write, close or final fsync.
+Inspect stderr, restore the missing material or repair the local storage, then
+retry with fresh unpublished staging.
 For a verified contradiction, exit 2 is accompanied by one strict JSON stdout
 receipt with `schema=1`, `kind=authenticated_contradiction`,
 `reason=validator_state_next_hash_mismatch`, `height`, `comet_hash`, `el_hash`,

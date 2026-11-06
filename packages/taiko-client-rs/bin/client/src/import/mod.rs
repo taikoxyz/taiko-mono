@@ -614,7 +614,7 @@ pub async fn operate(profile: &Path, source: Option<&Path>, root: &Path) -> R<Va
         files::write(&dir.join("app/anchor-witness.rlp"), w)?;
     }
     store.save(v.state()).map_err(bad)?;
-    manifest.smoke(i, dir, &holds, &params, &l1).await?;
+    latch(root, manifest.smoke(i, dir, &holds, &params, &l1).await)?;
     if files::exists(&stock)? {
         fs::remove_file(&stock).map_err(io)?;
     }

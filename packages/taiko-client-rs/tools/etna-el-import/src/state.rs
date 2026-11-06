@@ -38,7 +38,10 @@ pub enum ImportError {
     /// A pinned storage API refused the dataset.
     #[error("EL import database: {0}")]
     Database(String),
-    /// Required source material or a local invariant is absent.
+    /// Required local material has not yet been obtained or completed.
+    #[error("incomplete EL import: {0}")]
+    Incomplete(&'static str),
+    /// Source bytes, schema, identity or a local invariant failed validation.
     #[error("invalid EL import: {0}")]
     Invalid(&'static str),
     /// Actual state leaves disagree with the authenticated terminal header.
@@ -73,7 +76,7 @@ fn db_error(error: impl Display) -> ImportError {
 
 /// Reject path aliases before opening the dataset; callers must pass canonical absolute paths.
 pub(crate) fn existing_directory(path: &Path) -> Result<(), ImportError> {
-    if !path.is_absolute() || !path.is_dir() || path.canonicalize()? != path {
+    if !path.is_absolute() || !path.metadata()?.is_dir() || path.canonicalize()? != path {
         return Err(ImportError::Invalid("dataset path must be a canonical absolute directory"));
     }
     for ancestor in path.ancestors() {
@@ -101,7 +104,7 @@ fn layout<T: DbTx>(tx: &T) -> Result<StorageSettings, ImportError> {
         }
         let attempt: SnapAttempt = serde_json::from_value(json)?;
         if !attempt.is_verified() {
-            return Err(ImportError::Invalid(
+            return Err(ImportError::Incomplete(
                 "complete the EL's pending snap attempt before import",
             ));
         }
@@ -145,7 +148,15 @@ pub(crate) fn checked_tables<K: TransactionKind>(
         .map(|table| (table.name(), table.is_dupsort()))
         .chain(extensions.iter().map(|&name| (name, false)))
         .map(|(name, dupsort)| {
-            let dbi = tx.get_dbi_raw(name).map_err(db_error)?;
+            let dbi = tx.get_dbi_raw(name).map_err(|e| match &e {
+                reth_db::DatabaseError::Open(info)
+                    if reth_db::mdbx::Error::from_err_code(info.code) ==
+                        reth_db::mdbx::Error::NotFound =>
+                {
+                    ImportError::Invalid("missing table in physical database schema")
+                }
+                _ => db_error(e),
+            })?;
             let flags = native.db_flags(dbi).map_err(db_error)?;
             let required = if dupsort { DatabaseFlags::DUP_SORT } else { DatabaseFlags::empty() };
             if flags.bits() != required.bits() {
@@ -231,7 +242,7 @@ where
         if nonce > 8 ||
             balance > 32 ||
             body.len() != nonce + balance + 32 * usize::from(flags.bytecode_hash_len()) ||
-            RawValue::new(value.value().map_err(db_error)?).raw_value() != raw
+            RawValue::new(value.value().map_err(|_| INVALID)?).raw_value() != raw
         {
             return Err(INVALID);
         }
@@ -260,7 +271,7 @@ fn check_code<T: DbTx>(tx: &T, account: &Account) -> Result<(), ImportError> {
         hash != KECCAK256_EMPTY &&
         tx.get::<RawTable<tables::Bytecodes>>(hash.into()).map_err(db_error)?.is_none()
     {
-        return Err(ImportError::Invalid("missing referenced bytecode"));
+        return Err(ImportError::Incomplete("missing referenced bytecode"));
     }
     Ok(())
 }
@@ -366,10 +377,35 @@ pub(crate) fn verify_owned_state(
     scratch_parent: &Path,
 ) -> Result<StateReport, ImportError> {
     existing_directory(database)?;
-    reth_db::version::check_db_version_file(database)
-        .map_err(|_| ImportError::Invalid("unsupported database version"))?;
+    use reth_db::version::DatabaseVersionError;
+    reth_db::version::check_db_version_file(database).map_err(|e| match e {
+        DatabaseVersionError::IORead { err, .. }
+            if err.kind() == std::io::ErrorKind::InvalidData =>
+        {
+            ImportError::Invalid("malformed database version")
+        }
+        DatabaseVersionError::IORead { err, .. } => ImportError::Io(err),
+        DatabaseVersionError::MissingFile => ImportError::Incomplete("missing database version"),
+        DatabaseVersionError::MalformedFile | DatabaseVersionError::VersionMismatch { .. } => {
+            ImportError::Invalid("unsupported database version")
+        }
+    })?;
     let source =
-        reth_db::open_db_read_only(database, DatabaseArguments::default()).map_err(db_error)?;
+        DatabaseEnv::open(database, reth_db::DatabaseEnvKind::RO, DatabaseArguments::default())
+            .map_err(|e| match &e {
+                reth_db::DatabaseError::Open(info)
+                    if matches!(
+                        reth_db::mdbx::Error::from_err_code(info.code),
+                        reth_db::mdbx::Error::Invalid |
+                            reth_db::mdbx::Error::Corrupted |
+                            reth_db::mdbx::Error::VersionMismatch |
+                            reth_db::mdbx::Error::Incompatible
+                    ) =>
+                {
+                    ImportError::Invalid("malformed or incompatible MDBX source")
+                }
+                _ => db_error(e),
+            })?;
     let tx = crate::offline::scan(&source)?;
     checked_tables(&tx)?;
     let settings = layout(&tx)?;

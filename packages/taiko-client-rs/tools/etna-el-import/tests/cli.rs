@@ -154,3 +154,49 @@ fn review_verifies_readonly_source_with_private_external_scratch() {
         std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700)).unwrap();
     }
 }
+
+#[test]
+fn missing_code_is_incomplete_and_present_wrong_code_is_bad_input() {
+    use alloy_primitives::{Address, Bytes, keccak256};
+    use reth_db_api::{
+        Database, tables,
+        transaction::{DbTx, DbTxMut},
+    };
+    use reth_primitives_traits::{Account, Bytecode};
+    let f = fixture();
+    let hash = keccak256([0x60, 0x01]);
+    let set = |wrong_code| {
+        let db = reth_db::open_db(f.data.join("db"), DatabaseArguments::test()).unwrap();
+        let tx = db.tx_mut().unwrap();
+        tx.put::<tables::PlainAccountState>(
+            Address::repeat_byte(0x34),
+            Account { bytecode_hash: Some(hash), ..Default::default() },
+        )
+        .unwrap();
+        if wrong_code {
+            tx.put::<tables::Bytecodes>(hash, Bytecode::new_raw(Bytes::from_static(&[0x60, 0x02])))
+                .unwrap();
+        }
+        tx.commit().unwrap();
+    };
+    set(false);
+    let missing = command(&f, "verify", true).output().unwrap();
+    assert_eq!(missing.status.code(), Some(3), "{}", String::from_utf8_lossy(&missing.stderr));
+    assert!(String::from_utf8_lossy(&missing.stderr).contains("missing referenced bytecode"));
+    set(true);
+    let wrong = command(&f, "verify", true).output().unwrap();
+    assert_eq!(wrong.status.code(), Some(1), "{}", String::from_utf8_lossy(&wrong.stderr));
+    assert!(String::from_utf8_lossy(&wrong.stderr).contains("bytecode content does not match"));
+}
+
+#[test]
+fn malformed_database_version_is_a_candidate_but_missing_file_is_unavailable() {
+    let f = fixture();
+    let version = f.data.join("db/database.version");
+    std::fs::write(&version, [0xff]).unwrap();
+    let bad = command(&f, "verify", true).output().unwrap();
+    assert_eq!(bad.status.code(), Some(1), "{}", String::from_utf8_lossy(&bad.stderr));
+    std::fs::remove_file(version).unwrap();
+    let missing = command(&f, "verify", true).output().unwrap();
+    assert_eq!(missing.status.code(), Some(3), "{}", String::from_utf8_lossy(&missing.stderr));
+}
