@@ -225,6 +225,14 @@ where
         if h > landing.height {
             return Err(candidate("successor block supplied beyond selected checkpoint"));
         }
+        // The hash chain authenticates these header fields. Check them before the commit, whose
+        // own APP_VERSION and chain id checks would call a landed header a bad certificate.
+        if let Some(fault) =
+            fixed_header_fault(&pair.block.header, &package.genesis.chain_id, fixed_params_hash)
+        {
+            rejected = Some((h, pair.block.header.hash(), fault));
+            break;
+        }
         // Check the publisher-supplied commits, sets and links before any block rule: the rules
         // below then read only content that the native hash chain can authenticate.
         let committee = historical_set(&frame.validators)?;
@@ -268,13 +276,6 @@ where
                 validate::verify_body_at_origin(&pair, h, parent.hash_slow(), origin)
             }
             .map_err(body_fault)?;
-            if pair.block.header.version.block != 11 ||
-                pair.block.header.consensus_hash.as_bytes() != fixed_params_hash.as_slice()
-            {
-                return Err(ContentFault::Rule(
-                    "native block has different protocol or consensus parameters".into(),
-                ));
-            }
             if let Some(prior) = &previous &&
                 (pair.block.header.validators_hash != prior.header.next_validators_hash ||
                     pair.block.header.time <= prior.header.time)
@@ -893,6 +894,26 @@ enum ContentFault {
     Rule(String),
     /// The content selects a ruleset this software lacks: the node must upgrade if landed.
     Unsupported(String),
+}
+
+/// Native header fields fixed for the whole generation (CONS-3.1-9, START-10-21): block protocol
+/// 11, `APP_VERSION`, the chain id and the fixed consensus params. No ruleset changes them
+/// (START-10.1-3d), so a landed header that breaks one is a contradiction.
+fn fixed_header_fault(
+    header: &tendermint::block::Header,
+    chain_id: &str,
+    params_hash: B256,
+) -> Option<ContentFault> {
+    (header.version.block != 11 ||
+        header.version.app != abci::app::APP_VERSION ||
+        header.chain_id.as_str() != chain_id ||
+        header.consensus_hash.as_bytes() != params_hash.as_slice())
+    .then(|| {
+        ContentFault::Rule(
+            "native block has different protocol, app version, chain id or consensus parameters"
+                .into(),
+        )
+    })
 }
 
 /// Content checks report rule failures as candidate errors; those wait for the chain.

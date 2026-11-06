@@ -432,28 +432,46 @@ async fn authenticated_terminal_el_conflict_precedes_parent_link_validation() {
     );
 }
 
+/// Break one generation-fixed native header field of a test block.
+fn break_fixed_header_field(header: &mut tendermint::block::Header, field: &str) {
+    match field {
+        "consensus" => header.consensus_hash = tendermint::Hash::Sha256([3; 32]),
+        "app" => header.version.app = 0,
+        "chain" => header.chain_id = "etna-other".parse().unwrap(),
+        _ => unreachable!("{field}"),
+    }
+}
+
 #[tokio::test]
-async fn landed_wrong_native_consensus_parameters_halt_even_with_valid_commits() {
+async fn landed_wrong_fixed_native_header_fields_halt_even_with_valid_commits() {
     use crate::test_utils::consensus::{SigningKey, resign};
-    let mut fx = Fixture::new(6, 6);
-    let package = import_package(&fx, 6).await;
-    let pair = fx.blocks.get_mut(&6).unwrap();
-    pair.block.header.consensus_hash = tendermint::Hash::Sha256([3; 32]);
-    resign(
-        pair,
-        &fx.committees[&0],
-        &[SigningKey::from_slice(&[1; 32]).unwrap(), SigningKey::from_slice(&[2; 32]).unwrap()],
-    );
-    let comet = B256::from_slice(pair.block.header.hash().as_bytes());
-    fx.import_landings(&[(6, fx.headers[&6].hash_slow(), comet, fx.val_states[&6].hash())]);
-    let fx = std::sync::Arc::new(fx);
-    let result =
-        authenticate_import(&package, frames(&fx, 6).into_iter(), &fx.params, &OwnL1(fx.clone()))
-            .await;
-    assert!(
-        matches!(result, Err(ImportError::Safety(ref m)) if m.contains("consensus parameters")),
-        "{result:?}"
-    );
+    // The native commit check also refuses another APP_VERSION or chain id; at the landed s
+    // those are authenticated contradictions, not a bad certificate.
+    for field in ["consensus", "app", "chain"] {
+        let mut fx = Fixture::new(6, 6);
+        let package = import_package(&fx, 6).await;
+        let pair = fx.blocks.get_mut(&6).unwrap();
+        break_fixed_header_field(&mut pair.block.header, field);
+        resign(
+            pair,
+            &fx.committees[&0],
+            &[SigningKey::from_slice(&[1; 32]).unwrap(), SigningKey::from_slice(&[2; 32]).unwrap()],
+        );
+        let comet = B256::from_slice(pair.block.header.hash().as_bytes());
+        fx.import_landings(&[(6, fx.headers[&6].hash_slow(), comet, fx.val_states[&6].hash())]);
+        let fx = std::sync::Arc::new(fx);
+        let result = authenticate_import(
+            &package,
+            frames(&fx, 6).into_iter(),
+            &fx.params,
+            &OwnL1(fx.clone()),
+        )
+        .await;
+        assert!(
+            matches!(result, Err(ImportError::Safety(ref m)) if m.contains("consensus parameters")),
+            "{field}: {result:?}"
+        );
+    }
 }
 
 /// Re-sign `from` after a test edit, then relink and re-sign each later block through `to`.
@@ -475,19 +493,20 @@ fn relink_after(fx: &mut Fixture, from: u64, to: u64) {
 
 #[tokio::test]
 async fn rule_failure_below_s_halts_only_when_the_landed_chain_contains_it() {
-    for (case, landed) in
-        [("consensus", true), ("consensus", false), ("anchor", true), ("anchor", false)]
+    for (case, landed) in ["consensus", "app", "chain", "anchor"]
+        .into_iter()
+        .flat_map(|case| [(case, true), (case, false)])
     {
         let mut fx = Fixture::new(6, 6);
         let package = import_package(&fx, 6).await;
         let pair = fx.blocks.get_mut(&3).unwrap();
-        if case == "consensus" {
-            pair.block.header.consensus_hash = tendermint::Hash::Sha256([3; 32]);
-        } else {
+        if case == "anchor" {
             let mut env = abci::EtnaEnvelope::decode(&pair.block.data[0]).unwrap();
             env.block.header.extra_data = Bytes::from_static(b"malformed");
             pair.block.data[0] = env.encode().to_vec();
             pair.block.header.data_hash = Some(crate::validate::data_hash(&pair.block.data));
+        } else {
+            break_fixed_header_field(&mut pair.block.header, case);
         }
         // A forged block keeps the published successors, whose links name the original block.
         relink_after(&mut fx, 3, if landed { 6 } else { 3 });
