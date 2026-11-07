@@ -89,6 +89,7 @@ impl LanderMetrics {
             LanderError::Temporary(_) => "rpc_or_finality",
             LanderError::Unavailable(_) => "history_unavailable",
             LanderError::Stale(_) => "competing_checkpoint_or_reference",
+            LanderError::UnsupportedRuleset { .. } => "unsupported_ruleset",
             _ => return,
         };
         METRICS.retries.with_label_values(&[reason]).inc();
@@ -143,9 +144,13 @@ static METRICS: LazyLock<Metrics> = LazyLock::new(|| {
         )
         .expect("valid retry metric"),
     );
-    for reason in
-        ["rpc_or_finality", "history_unavailable", "competing_checkpoint_or_reference", "fatal"]
-    {
+    for reason in [
+        "rpc_or_finality",
+        "history_unavailable",
+        "competing_checkpoint_or_reference",
+        "unsupported_ruleset",
+        "fatal",
+    ] {
         let _ = retries.with_label_values(&[reason]);
     }
     let pending_nonce = gauge("lander_pending_nonce", "Outstanding sender nonce; -1 when absent");

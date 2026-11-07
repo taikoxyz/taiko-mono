@@ -18,10 +18,9 @@ import (
 
 // The state directory remains writable/searchable, so stock FilePV can replace
 // its HRS file, but opening the directory for fsync must fail. Exercise the actual
-// default generation-zero process: a synchronization failure withholds the wire
-// signature and exits. An explicit restart after inspecting retained state can
-// return its cached signature (RECOV-8.2-3).
-func TestLegacySignerStopsSigningAfterDirectorySyncFails(t *testing.T) {
+// default generation-zero process: failure to durably arm the fence withholds the
+// wire signature before FilePV can mutate HRS. An inspected restart may then sign.
+func TestLegacySignerFenceArmFailureWithholdsSignature(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("root bypasses the directory-read permission fault")
 	}
@@ -125,8 +124,11 @@ func TestLegacySignerStopsSigningAfterDirectorySyncFails(t *testing.T) {
 			}
 			// Inspect the retained stock state before explicitly restarting the signer.
 			inspected := privval.LoadFilePV(key, state)
-			if inspected.LastSignState.Height != 1 || len(inspected.LastSignState.Signature) != 65 {
-				t.Fatal("uncertain signature lost its retained HRS")
+			if inspected.LastSignState.Height != 0 || len(inspected.LastSignState.Signature) != 0 {
+				t.Fatal("FilePV mutated HRS before its fence became durable")
+			}
+			if err := os.Remove(uncertaintyPath(state)); err != nil {
+				t.Fatal(err)
 			}
 			// A restarted Comet owns a fresh listener, without queued connections from
 			// the terminated signer's transport-reconnect loop.
@@ -154,7 +156,7 @@ func TestLegacySignerStopsSigningAfterDirectorySyncFails(t *testing.T) {
 				signature = signed.Vote.Signature
 			}
 			persisted := privval.LoadFilePV(key, state)
-			if len(signature) != 65 || !bytes.Equal(signature, inspected.LastSignState.Signature) || !bytes.Equal(signature, persisted.LastSignState.Signature) || persisted.LastSignState.Height != 1 {
+			if len(signature) != 65 || !bytes.Equal(signature, persisted.LastSignState.Signature) || persisted.LastSignState.Height != 1 {
 				t.Fatal("successful reply did not match persisted HRS/signature")
 			}
 		})
@@ -232,6 +234,14 @@ func TestDurableFilePVStopsSigningAfterStateSyncFails(t *testing.T) {
 				}
 			}
 			restarted := loadDurableFilePV(key, state)
+			if signature, err := sign(restarted, false); !errors.Is(err, errStateUncertain) || len(signature) != 0 {
+				t.Fatalf("restart bypassed durable uncertainty fence: %v", err)
+			}
+			// Only operator inspection/removal of the fence permits a fresh process.
+			if err := os.Remove(state + ".uncertain"); err != nil {
+				t.Fatal(err)
+			}
+			restarted = loadDurableFilePV(key, state)
 			if signature, err := sign(restarted, true); err == nil || errors.Is(err, errStateUncertain) || len(signature) != 0 {
 				t.Fatalf("restart lost double-sign protection: %v", err)
 			}
@@ -256,7 +266,7 @@ func TestAuthorityStopsSigningAfterStateSyncFails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	domain, r := readyDomain(t, c, 0)
+	domain, r := readyDomain(t, c, 2)
 	signer, err := a.authorize(domain, r)
 	if err != nil {
 		t.Fatal(err)
@@ -266,14 +276,14 @@ func TestAuthorityStopsSigningAfterStateSyncFails(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { os.Chmod(directory, 0700) })
-	vote := authorityVote(5)
+	vote := authorityVote(7)
 	if err = signer.SignVote(domain, vote); !errors.Is(err, errStateUncertain) || len(vote.Signature) != 0 {
 		t.Fatalf("failed directory sync released a signature: %v", err)
 	}
 	if err = os.Chmod(directory, 0700); err != nil {
 		t.Fatal(err)
 	}
-	vote = authorityVote(5)
+	vote = authorityVote(7)
 	if err = signer.SignVote(domain, vote); err == nil || len(vote.Signature) != 0 {
 		t.Fatal("authority signed after a failed synchronization")
 	}
@@ -281,6 +291,9 @@ func TestAuthorityStopsSigningAfterStateSyncFails(t *testing.T) {
 		t.Fatal("authority authorized a domain after a failed synchronization")
 	}
 	a.Close()
+	if err := os.Remove(uncertaintyPath(c.LegacyState)); err != nil {
+		t.Fatal(err)
+	}
 	a, err = openAuthority(c)
 	if err != nil {
 		t.Fatal(err)
@@ -289,12 +302,12 @@ func TestAuthorityStopsSigningAfterStateSyncFails(t *testing.T) {
 	if signer, err = a.authorize(domain, r); err != nil {
 		t.Fatal(err)
 	}
-	conflict := authorityVote(5)
+	conflict := authorityVote(7)
 	conflict.BlockID = tm.BlockID{Hash: bytes.Repeat([]byte{1}, 32), PartSetHeader: tm.PartSetHeader{Total: 1, Hash: bytes.Repeat([]byte{2}, 32)}}
 	if err = signer.SignVote(domain, conflict); err == nil || len(conflict.Signature) != 0 {
 		t.Fatal("restart lost double-sign protection")
 	}
-	vote = authorityVote(5)
+	vote = authorityVote(7)
 	if err = signer.SignVote(domain, vote); err != nil || len(vote.Signature) != 65 {
 		t.Fatalf("restarted cached retry failed: %v", err)
 	}

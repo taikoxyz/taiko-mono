@@ -26,6 +26,8 @@ var errStateUncertain = errors.New("signing state persistence uncertain; restart
 type durableFilePV struct {
 	*privval.FilePV
 	state string
+	// fence is shared by all generations of an authority's original HRS.
+	fence string
 	// syncFile flushes the opened state file; tests replace it to fail as a disk does.
 	syncFile func(*os.File) error
 	// uncertain is the first synchronization failure; nothing is signed after it.
@@ -33,7 +35,7 @@ type durableFilePV struct {
 }
 
 func loadDurableFilePV(key, state string) *durableFilePV {
-	return &durableFilePV{FilePV: privval.LoadFilePV(key, state), state: state, syncFile: (*os.File).Sync}
+	return &durableFilePV{FilePV: privval.LoadFilePV(key, state), state: state, fence: uncertaintyPath(state), syncFile: (*os.File).Sync}
 }
 
 // syncState also runs for cached signatures: a prior synchronization may have
@@ -59,14 +61,20 @@ func (p *durableFilePV) signDurably(sign func() error) error {
 	if p.uncertain != nil {
 		return fmt.Errorf("%w: %w", errStateUncertain, p.uncertain)
 	}
-	if err := sign(); err != nil {
+	if err := armUncertainty(p.fence, "FilePV signing", p.state); err != nil {
+		p.uncertain = err
 		return err
 	}
+	err := sign() // A stock persistence panic deliberately leaves the fence armed.
 	if err := p.syncState(); err != nil {
 		p.uncertain = err
 		return fmt.Errorf("%w: %w", errStateUncertain, err)
 	}
-	return nil
+	if finishErr := finishUncertainty(p.fence); finishErr != nil {
+		p.uncertain = finishErr
+		return finishErr
+	}
+	return err
 }
 
 func (p *durableFilePV) SignVote(chain string, vote *tm.Vote) error {

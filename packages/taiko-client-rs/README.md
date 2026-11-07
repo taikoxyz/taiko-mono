@@ -275,6 +275,10 @@ before any operator action; never delete the journal or allocate a replacement n
 
 Canonical ordinary reverts stop once after clearing the spent job. A gas-exhausted landing may
 rebuild once with fresh estimation; repeated gas exhaustion on the same checkpoint stops.
+An authenticated unsupported ruleset pauses preparation until the software is upgraded. The
+log reports `software upgrade required`, and
+`lander_retries_total{reason="unsupported_ruleset"}` records this separately from RPC or
+finality waits.
 Use one active lander per signing account and preserve journals across restarts. Keep unpruned
 Comet blocks/commits, EL ancestry/execution state and historical L1 headers/proofs/registry
 snapshots. Governance recovery and old-generation nonce reconciliation are covered in the
@@ -450,7 +454,8 @@ these contracts. Build the allocation with the
 [pinned Etna genesis builder](https://github.com/taikoxyz/taiko-mono/blob/35e2f8f191132e87d9a223554d0b699f4203f2e3/packages/protocol/script/layer2/build_etna_genesis.py)
 and use the same
 resulting block-0 hash/state root when initializing the Inbox; `InitChain` verifies both
-predeploy runtimes and refuses an incomplete allocation.
+commitments against the local EL. Validate both predeploy runtimes in the allocation before
+committing those values to the Inbox.
 
 5. **Start the app**, then the **guarded signer and CometBFT**. The app must listen first:
 
@@ -526,7 +531,12 @@ predeploy runtimes and refuses an incomplete allocation.
    trust; PubKey/Ping and safe catchup remain available while signing waits for revalidation.
    Halted trust, stale generation/domain, signer exit, or unexplained Comet exit creates
    `<data-dir>/validator-supervisor.halted` and leaves the supervisor alive and quiescent.
-   The latch survives container restart: `restartAlways` cannot reopen the signing path.
+   Before changing signing state or authority metadata, the helper durably arms
+   `<priv-state>.uncertain` beside the original HRS. It removes that fence only after the
+   changed state and metadata have been synchronized. A retained fence blocks startup across
+   generations, including when the supervisor was killed before writing its app-store latch.
+   If that latch cannot be written, the supervisor stops its children, stays quiescent and
+   retries persistence. Container restart cannot clear a retained signer fence or halt latch.
    A Comet EOF following observed control/trust loss also recovers after private Ready;
    a repeated configuration failure with continuously Ready trust stays latched. Exact app
    shutdown revocations wait for a fresh app incarnation; they never authorize signing.

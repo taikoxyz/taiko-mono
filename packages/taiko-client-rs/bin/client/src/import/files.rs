@@ -1,4 +1,4 @@
-//! Canonical, single-link inputs and private, fsynced output files.
+//! Canonical regular inputs, single-link import artifacts and private, fsynced output files.
 use super::*;
 use serde::de::DeserializeOwned;
 use std::{
@@ -30,6 +30,14 @@ pub(super) fn parent(path: &Path) -> R<&Path> {
 }
 /// Open an input without following aliases or special files.
 pub(super) fn file(path: &Path) -> R<File> {
+    let f = regular_file(path)?;
+    if f.metadata().map_err(io)?.nlink() != 1 {
+        return Err(bad("expected singly linked regular file"))
+    }
+    Ok(f)
+}
+/// Open a canonical regular file without following a replaced final symlink or blocking on a FIFO.
+fn regular_file(path: &Path) -> R<File> {
     canonical(path)?;
     let f = OpenOptions::new()
         .read(true)
@@ -37,8 +45,8 @@ pub(super) fn file(path: &Path) -> R<File> {
         .open(path)
         .map_err(io)?;
     let m = f.metadata().map_err(io)?;
-    if !m.is_file() || m.nlink() != 1 {
-        return Err(bad("expected singly linked regular file"))
+    if !m.is_file() {
+        return Err(bad("expected regular file"))
     }
     Ok(f)
 }
@@ -98,9 +106,17 @@ pub(super) fn keccak_file(path: &Path) -> R<B256> {
 /// between bounded chunks so the outer cancellation path retains and then drops all leases.
 /// Copy into an independent inode when requested, keeping zero-filled MDBX capacity sparse.
 pub(super) async fn local_digest(source: &Path, dest: Option<&Path>) -> R<B256> {
+    digest(file(source)?, dest).await
+}
+/// Bind the read-only running client bytes, allowing Cargo's hardlink into target/deps.
+/// Canonical paths, no-follow opening and regular-file validation still apply.
+pub(super) async fn client_digest(source: &Path) -> R<B256> {
+    digest(regular_file(source)?, None).await
+}
+/// Stream an already validated descriptor into its digest and optional independent copy.
+async fn digest(mut f: File, dest: Option<&Path>) -> R<B256> {
     use std::io::{Seek, SeekFrom};
     let mut hash = ring::digest::Context::new(&ring::digest::SHA256);
-    let mut f = file(source)?;
     let mut out = dest.map(create).transpose()?;
     let mut len = 0u64;
     let mut buf = vec![0; 256 << 10];
@@ -296,6 +312,28 @@ pub(super) fn assign_tree(p: &Path, uid: u32, gid: u32) -> R<()> {
 mod tests {
     use super::*;
     use std::io::{Seek, SeekFrom};
+
+    #[tokio::test]
+    async fn hardlinked_client_bytes_remain_bound_without_relaxing_import_artifacts() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path().canonicalize().unwrap();
+        let source = root.join("client");
+        fs::write(&source, b"abc").unwrap();
+        fs::hard_link(&source, root.join("cargo-deps-client")).unwrap();
+        assert_eq!(source.metadata().unwrap().nlink(), 2);
+        let expected: B256 =
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad".parse().unwrap();
+        assert_eq!(client_digest(&source).await.unwrap(), expected);
+        assert!(local_digest(&source, None).await.is_err());
+        let destination = root.join("installed-artifact");
+        assert!(local_digest(&source, Some(&destination)).await.is_err());
+        assert!(!destination.exists());
+        let alias = root.join("symlink");
+        std::os::unix::fs::symlink(&source, &alias).unwrap();
+        assert!(client_digest(&alias).await.is_err());
+        assert!(client_digest(&root).await.is_err());
+    }
+
     #[tokio::test]
     async fn sparse_mdbx_copy_preserves_logical_digest_and_owns_an_independent_inode() {
         let tmp = tempfile::tempdir().unwrap();

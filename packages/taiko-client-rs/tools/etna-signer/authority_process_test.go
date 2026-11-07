@@ -40,6 +40,9 @@ func TestAuthorityCrashHelper(t *testing.T) {
 	d := authorityDomain{Generation: 2, Chain: chain, State: filepath.Join(a.config.Root, chain+".json"), Origin: r.RecoveryOrigin}
 	stage := os.Getenv("ETNA_AUTHORITY_CRASH_STAGE")
 	if stage != "before-intent" {
+		if e = armUncertainty(uncertaintyPath(c.LegacyState), "authority transition", d.State); e != nil {
+			t.Fatal(e)
+		}
 		if e = a.recordIntent(d); e != nil {
 			t.Fatal(e)
 		}
@@ -55,6 +58,16 @@ func TestAuthorityCrashHelper(t *testing.T) {
 		}
 	}
 	if stage == "signature" {
+		if e = os.Remove(a.intentPath()); e != nil {
+			t.Fatal(e)
+		}
+		if e = syncDirectory(a.config.Root); e != nil {
+			t.Fatal(e)
+		}
+		a.pending = nil
+		if e = finishUncertainty(uncertaintyPath(c.LegacyState)); e != nil {
+			t.Fatal(e)
+		}
 		p, e := a.authorize(chain, r)
 		if e != nil {
 			t.Fatal(e)
@@ -128,6 +141,15 @@ func TestAuthoritySIGKILLTransitionBoundaries(t *testing.T) {
 			child.Process.Kill()
 			if e = child.Wait(); e == nil {
 				t.Fatal("child was not killed")
+			}
+			if stage == "intent" || stage == "state" || stage == "manifest" {
+				if other, err := openAuthority(c); err == nil {
+					other.Close()
+					t.Fatal("interrupted authority mutation resumed without fence inspection")
+				}
+				if err := os.Remove(uncertaintyPath(c.LegacyState)); err != nil {
+					t.Fatal(err)
+				}
 			}
 			a, e = openAuthority(c)
 			if e != nil {

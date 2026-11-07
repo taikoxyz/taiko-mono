@@ -18,6 +18,12 @@ pub enum LanderError {
     /// A temporary endpoint or finality condition; safe to retry.
     #[error("temporary lander failure: {0}")]
     Temporary(String),
+    /// An authenticated block selects rules requiring a software upgrade before preparation.
+    #[error("ruleset {rules} is unsupported; upgrade the lander to continue")]
+    UnsupportedRuleset {
+        /// Protocol ruleset selected by the block's authenticated anchor.
+        rules: u64,
+    },
     /// Data cannot be represented within the explicit configured limits.
     #[error("lander capacity exceeded: {0}")]
     Capacity(String),
@@ -38,7 +44,13 @@ pub enum LanderError {
 impl LanderError {
     /// Whether the runner may retry this condition with bounded backoff.
     pub const fn is_retryable(&self) -> bool {
-        matches!(self, Self::Temporary(_) | Self::Unavailable(_) | Self::Stale(_))
+        matches!(
+            self,
+            Self::Temporary(_) |
+                Self::Unavailable(_) |
+                Self::Stale(_) |
+                Self::UnsupportedRuleset { .. }
+        )
     }
 }
 

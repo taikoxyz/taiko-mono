@@ -933,8 +933,8 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             },
         )
         .map_err(|e| match e {
-            crate::validate::ValidationError::UnsupportedRuleset { .. } => {
-                LanderError::Temporary(e.to_string())
+            crate::validate::ValidationError::UnsupportedRuleset { rules } => {
+                LanderError::UnsupportedRuleset { rules }
             }
             other => LanderError::Safety(other.to_string()),
         })?;
@@ -2587,12 +2587,36 @@ mod tests {
             )
             .await
             .unwrap_err();
-        assert!(matches!(error, LanderError::Temporary(_)), "{error}");
+        assert!(matches!(error, LanderError::UnsupportedRuleset { rules: 1 }), "{error}");
         assert!(
             error.to_string().contains("ruleset 1") && error.to_string().contains("upgrade"),
             "{error}"
         );
         assert_eq!(state.parent.number, 1, "refusal never advances the authenticated state");
+        let upgrade_retries = || {
+            prometheus::gather()
+                .into_iter()
+                .find(|family| family.get_name() == "lander_retries_total")
+                .and_then(|family| {
+                    family
+                        .get_metric()
+                        .iter()
+                        .find(|metric| {
+                            metric.get_label().iter().any(|label| {
+                                label.get_name() == "reason" &&
+                                    label.get_value() == "unsupported_ruleset"
+                            })
+                        })
+                        .map(|metric| metric.get_counter().get_value())
+                })
+                .unwrap_or(0.0)
+        };
+        let before = upgrade_retries();
+        crate::metrics::LanderMetrics::retry(&error);
+        assert!(
+            upgrade_retries() >= before + 1.0,
+            "upgrade waits have a distinct operational signal"
+        );
     }
 
     /// Operators can distinguish a decoded contradictory state from endpoint availability waits.
@@ -3530,13 +3554,22 @@ mod tests {
 
             // Block 1 peeks at the due entry; block 2 consumes it too late.
             let absent = Arc::new(Fixture::with_forced(0, 6, due(vec![2])));
-            let error = builder(absent.clone(), limits(6))
-                .prepare(absent.snapshot.clone())
-                .await
-                .unwrap_err();
+            let env = abci::EtnaEnvelope::decode(&absent.blocks[&1].block.data[0]).unwrap();
+            let mut singleton = env.block.clone();
+            singleton.transactions = vec![env.forced.unwrap().tx];
+            singleton.header.transactions_root =
+                alloy_trie::root::ordered_trie_root_encoded(&singleton.transactions);
+            let mut b = builder(absent.clone(), limits(6));
+            b.engine = Arc::new(test_harness::unavailable_engine::ProbeEngine {
+                parent: absent.headers[&0].clone(),
+                parent_reply: None,
+                result: Ok(singleton),
+                delay: Duration::ZERO,
+            });
+            let error = b.prepare(absent.snapshot.clone()).await.unwrap_err();
             assert!(
-                matches!(error, LanderError::Safety(_)),
-                "a fixture EL without configured execution state requires repair: {error}"
+                matches!(&error, LanderError::Safety(reason) if reason.contains("singleton build retained a transaction")),
+                "the due transaction could have been included in block 1: {error}"
             );
             // Block 1 carries no forced witness at all.
             let mut fixture = Fixture::with_forced(0, 6, due(vec![1]));

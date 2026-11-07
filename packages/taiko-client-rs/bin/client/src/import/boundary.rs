@@ -192,21 +192,7 @@ pub(crate) async fn check_pair(app: &Path, comet: &Path) -> R<Value> {
     let Some((id, _)) = a else { return Ok(json!({"live_trust":false,"comet_identity":null})) };
     let d: Boundary = files::json(&comet.join(".etna-checkpoint.json"))?;
     let intent = Intent::load(d.ready.parent().ok_or_else(|| bad("missing checkpoint root"))?)?;
-    if std::env::current_exe().map_err(io)?.canonicalize().map_err(io)? != d.client_binary {
-        return Err(bad("different runtime client executable"))
-    }
-    for (name, path) in [
-        ("client_binary", &d.client_binary),
-        ("comet_binary", &d.native_comet),
-        ("comet_helper", &d.stock_helper),
-    ]
-    .into_iter()
-    .chain(d.native_signer.as_ref().map(|p| ("signer_binary", p)))
-    {
-        if intent.inputs.get(name) != Some(&files::local_digest(path, None).await?) {
-            return Err(bad("native stock executable changed since prepare"))
-        }
-    }
+    check_programs(&intent, &d).await?;
     let out = tokio::process::Command::new(&d.stock_helper)
         .env_clear()
         .args(["check-stores", "--home"])
@@ -224,6 +210,26 @@ pub(crate) async fn check_pair(app: &Path, comet: &Path) -> R<Value> {
     Ok(
         json!({"live_trust":false,"installation_id":id,"comet_identity":d.comet_identity,"comet_binary":d.native_comet,"signer_binary":d.native_signer}),
     )
+}
+
+/// Recheck the bound native launch programs before consulting or starting their stores.
+async fn check_programs(intent: &Intent, d: &Boundary) -> R<()> {
+    if std::env::current_exe().map_err(io)?.canonicalize().map_err(io)? != d.client_binary {
+        return Err(bad("different runtime client executable"))
+    }
+    for (name, path) in [
+        ("client_binary", &d.client_binary),
+        ("comet_binary", &d.native_comet),
+        ("comet_helper", &d.stock_helper),
+    ]
+    .into_iter()
+    .chain(d.native_signer.as_ref().map(|p| ("signer_binary", p)))
+    {
+        if intent.inputs.get(name) != Some(&input_digest(name, path).await?) {
+            return Err(bad("native stock executable changed since prepare"))
+        }
+    }
+    Ok(())
 }
 
 /// Confirm the configured runtime actually serves the authenticated execution floor before
@@ -265,4 +271,63 @@ pub(crate) async fn check_engine(
         )
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn runtime_program_bindings_allow_only_the_client_hardlink() {
+        let client = std::env::current_exe().unwrap().canonicalize().unwrap();
+        let temp = tempfile::tempdir_in(client.parent().unwrap()).unwrap();
+        let root = temp.path().canonicalize().unwrap();
+        fs::hard_link(&client, root.join("cargo-deps-client")).unwrap();
+        assert!(client.metadata().unwrap().nlink() >= 2);
+        let program = root.join("bound-native-program");
+        fs::write(&program, b"bound program bytes").unwrap();
+        let hash = |path: &Path| {
+            B256::from_slice(
+                ring::digest::digest(&ring::digest::SHA256, &fs::read(path).unwrap()).as_ref(),
+            )
+        };
+        let program_hash = hash(&program);
+        let intent = Intent {
+            schema: 1,
+            root: root.clone(),
+            source: root.clone(),
+            profile_hash: B256::ZERO,
+            package: [B256::ZERO; 2],
+            inputs: BTreeMap::from([
+                ("client_binary".into(), hash(&client)),
+                ("comet_binary".into(), program_hash),
+                ("comet_helper".into(), program_hash),
+            ]),
+        };
+        let boundary = Boundary {
+            schema: 1,
+            installation_id: intent.id(),
+            ready: root.join("ready"),
+            components: BTreeMap::new(),
+            client_binary: client,
+            native_signer: None,
+            native_comet: program.clone(),
+            stock_helper: program,
+            comet_identity: (0, 0),
+            height: 0,
+            chain_id: "bound-chain".into(),
+            genesis_hash: B256::ZERO,
+            config_hash: B256::ZERO,
+            state_hash: B256::ZERO,
+        };
+        check_programs(&intent, &boundary).await.unwrap();
+        fs::hard_link(&boundary.native_comet, root.join("aliased-native-program")).unwrap();
+        let error = check_programs(&intent, &boundary).await.unwrap_err();
+        let ImportError::Unavailable(detail) = error else {
+            panic!("native program alias must remain a local failure: {error}")
+        };
+        assert!(detail.contains("local input comet_binary"), "{detail}");
+        assert!(detail.contains(boundary.native_comet.to_str().unwrap()), "{detail}");
+        assert!(detail.contains("singly linked regular file"), "{detail}");
+    }
 }

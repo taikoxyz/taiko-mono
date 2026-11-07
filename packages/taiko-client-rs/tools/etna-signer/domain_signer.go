@@ -40,7 +40,9 @@ func (p *authorizedPV) sign(chain string, sign func(*durableFilePV) error) error
 	if _, err := validateHRS(p.domain.State, chain, a.native.PubKey()); err != nil {
 		return err
 	}
-	err := sign(loadDurableFilePV(a.config.Key, p.domain.State))
+	pv := loadDurableFilePV(a.config.Key, p.domain.State)
+	pv.fence = uncertaintyPath(a.config.LegacyState)
+	err := sign(pv)
 	if errors.Is(err, errStateUncertain) {
 		// Each request reloads the state, so latch the failure here: no domain signs
 		// again until a restart inspects the durable state (RECOV-8.2-3).

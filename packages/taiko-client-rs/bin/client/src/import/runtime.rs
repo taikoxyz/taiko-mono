@@ -308,7 +308,7 @@ pub(crate) async fn run(
         .into_iter()
         .chain(p.chain_config.as_ref().map(|c| ("chain_config", c)))
     {
-        if intent.inputs.get(name) != Some(&files::local_digest(path, None).await?) {
+        if intent.inputs.get(name) != Some(&input_digest(name, path).await?) {
             return Err(bad("runtime executable or chainspec changed since prepare").into())
         }
     }

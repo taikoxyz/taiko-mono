@@ -102,6 +102,15 @@ that is behind regains trust only after Comet syncs. Every new transport still b
 closed session. Terminal trust/domain failures persist a latch and leave the supervisor
 alive and quiescent, including after container restart. See the package README for the
 supported combined image and separate app/supervisor container commands.
+If the halt cannot be written or synchronized, the supervisor still stops/reaps its
+children, retains the halt in memory, and stays alive retrying persistence. The signer
+closes its owned transport before stock server shutdown, so a blocked stock read cannot
+delay terminal or signal shutdown until the transport deadline.
+
+Observation publishing uses an exclusive random temporary file. A safe private regular
+single-link `signer-denial.json.tmp` left by an older signer is preserved and ignored,
+including a truncated write; it is never reused. Unsafe aliases still fail startup.
+This diagnostic exception does not apply to signing uncertainty or halt evidence.
 
 ## Generation authority
 
@@ -172,19 +181,33 @@ Ready with the configured domain and consistent checkpoint/origin.
 An authenticated transition fsyncs an intent that permanently fences older
 generations, exclusively creates an unsigned stock state named `<chain-id>.json`,
 and atomically publishes enrollment plus the generation watermark before any
-signature. Generations may be skipped. A restart can finish a matching intent
-with absent or provably unsigned staging, after obtaining fresh authorization.
+signature. Generations may be skipped. After inspecting any interrupted operation's
+uncertainty fence, an operator restart can finish a matching intent with absent or
+provably unsigned staging, after obtaining fresh authorization.
 Signed orphan state, missing/corrupt enrolled state, changed binding or changed
 origin fails closed. Preserve the entire registry and every historical state;
 never delete metadata to retry recovery. Stock FilePV still owns HRS checks and
 signing, with directory fsync completed before the transport receives a signature.
-A failed state or directory fsync withholds that signature and stops all signing in
-the process, cached retries included, because a later fsync can succeed although the
-earlier write was lost. The signer exits nonzero on this typed uncertainty; the supported
-supervisor records a durable halt instead of rearming it as a temporary trust refusal,
-including when the exit races with an observation or ordered rearm. Inspect the state and
-resolve the supervisor halt before an explicit operator restart. Never restore an older
-HRS or authority backup to resume the identity.
+Before any FilePV signing step, enrollment metadata write, or authority transition,
+the signer exclusively creates and fsyncs `<original-priv-state>.uncertain` and its
+parent directory. This write-ahead fence lives in the existing writable original-HRS
+namespace, remains shared across all generations, and is removed only after the changed
+HRS and metadata are durable. Failure to arm it prevents the mutation. A failed state or
+directory fsync, a stock persistence panic, or SIGKILL during a mutation leaves
+signer-owned evidence before the supervisor can observe the exit; no post-failure disk
+write is needed to block restart. Cached retries are fenced too. An idle SIGKILL leaves
+no operation fence and can restart normally.
+
+Every existing fence inode fails startup, including malformed, unreadable, or aliased
+evidence. Both signer and supervisor refuse to rearm it across app/container restarts or
+generation changes, and a supersession latch cannot acknowledge this uncertainty. The
+signer exits nonzero on typed persistence uncertainty. After stopping all owners, inspect
+and preserve the fence, original HRS, all per-generation HRS, manifest/intent/markers, and
+supervisor/app first-cause evidence. An interrupted operation may be fully durable; the
+fence deliberately still requires inspection. Only an explicit operator repair after
+that inspection may remove the fence and resolve the supervisor halt. Never restore an
+older HRS or authority backup, reset signed bytes, or delete authority metadata to resume
+the identity.
 
 ## Recovery controller and retention
 

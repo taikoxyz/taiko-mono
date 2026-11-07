@@ -135,6 +135,10 @@ func openAuthority(c authorityConfig) (_ *authority, err error) {
 	if err = a.lock(c.LegacyState + ".lock"); err != nil {
 		return nil, err
 	}
+	if err = clearUncertainty(uncertaintyPath(c.LegacyState)); err != nil {
+		return nil, err
+	}
+	enrolling := false
 	// Existing external markers require the original registry to exist, even with enrollment set.
 	var markers []*authorityBinding
 	for _, p := range a.markerPaths() {
@@ -203,6 +207,10 @@ func openAuthority(c authorityConfig) (_ *authority, err error) {
 			return nil, e
 		}
 		a.manifest = authorityManifest{Binding: a.binding, MarkersPending: true, LegacyDigest: hex.EncodeToString(keccak(raw)), Domains: []authorityDomain{{Generation: 0, Chain: legacyChain, State: c.LegacyState}}}
+		if err = armUncertainty(uncertaintyPath(c.LegacyState), "authority enrollment", c.LegacyState); err != nil {
+			return nil, err
+		}
+		enrolling = true
 		if err = publishAuthority(a.manifestPath(), a.manifest); err != nil {
 			return nil, err
 		}
@@ -222,6 +230,12 @@ func openAuthority(c authorityConfig) (_ *authority, err error) {
 		}
 		if hex.EncodeToString(keccak(raw)) != a.manifest.LegacyDigest {
 			return nil, errors.New("legacy HRS changed during enrollment")
+		}
+		if !enrolling {
+			if err = armUncertainty(uncertaintyPath(c.LegacyState), "authority enrollment", c.LegacyState); err != nil {
+				return nil, err
+			}
+			enrolling = true
 		}
 		data, _ := json.Marshal(a.binding)
 		for i, p := range a.markerPaths() {
@@ -314,6 +328,11 @@ func openAuthority(c authorityConfig) (_ *authority, err error) {
 		}
 	}
 
+	if enrolling {
+		if err = finishUncertainty(uncertaintyPath(c.LegacyState)); err != nil {
+			return nil, err
+		}
+	}
 	return a, nil
 }
 func (a *authority) authorize(chain string, r *trustResponse) (_ types.PrivValidator, err error) {
@@ -364,6 +383,9 @@ func (a *authority) authorize(chain string, r *trustResponse) (_ types.PrivValid
 		}
 	}()
 	d := authorityDomain{Generation: g, Chain: chain, State: filepath.Join(a.config.Root, chain+".json"), Origin: r.RecoveryOrigin}
+	if err = armUncertainty(uncertaintyPath(a.config.LegacyState), "authority transition", d.State); err != nil {
+		return nil, err
+	}
 	if err = a.recordIntent(d); err != nil {
 		return nil, err
 	}
@@ -377,6 +399,9 @@ func (a *authority) authorize(chain string, r *trustResponse) (_ types.PrivValid
 		return nil, err
 	}
 	if err = syncDirectory(a.config.Root); err != nil {
+		return nil, err
+	}
+	if err = finishUncertainty(uncertaintyPath(a.config.LegacyState)); err != nil {
 		return nil, err
 	}
 	a.pending = nil

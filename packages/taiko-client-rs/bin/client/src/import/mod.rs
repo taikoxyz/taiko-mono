@@ -313,6 +313,22 @@ pub fn status(root: &Path) -> R<Value> {
     )
 }
 
+/// Bind local inputs with the same policy during preparation and runtime checks.
+/// Only the read-only current client permits Cargo's executable hardlinks.
+async fn input_digest(name: &str, path: &Path) -> R<B256> {
+    let result = if name == "client_binary" {
+        files::client_digest(path).await
+    } else {
+        files::local_digest(path, None).await
+    };
+    result.map_err(|error| match error {
+        ImportError::Candidate(detail) | ImportError::Unavailable(detail) => {
+            ImportError::Unavailable(format!("local input {name} at {}: {detail}", path.display()))
+        }
+        safety @ ImportError::Safety(_) => safety,
+    })
+}
+
 /// Rehash immutable external inputs. Databases must come from stopped isolated copies;
 /// stock's writer lock is an extra refusal signal, never permission to adopt an existing node.
 async fn inputs(
@@ -339,7 +355,7 @@ async fn inputs(
     .chain(profile.chain_config.clone().map(|p| ("chain_config", p)))
     .chain(i.signer_binary.clone().map(|p| ("signer_binary", p)))
     {
-        hashes.insert(name.to_owned(), files::local_digest(&path, None).await?);
+        hashes.insert(name.to_owned(), input_digest(name, &path).await?);
     }
     Ok(hashes)
 }
@@ -665,6 +681,60 @@ fn sync_tree(path: &Path) -> R<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn local_inputs(root: &Path) -> Profile {
+        fs::create_dir_all(root.join("offline/db")).unwrap();
+        for name in ["offline/db/mdbx.dat", "offline/db/database.version", "local-file"] {
+            fs::write(root.join(name), b"local input").unwrap();
+        }
+        let local = root.join("local-file");
+        serde_json::from_value(json!({
+            "schema": 1,
+            "l1_chain_id": "0x1",
+            "l2_chain_id": 167001,
+            "l1_http": "http://127.0.0.1:1",
+            "install": {
+                "el_source": root.join("offline"),
+                "el_chain": local,
+                "comet_config": local,
+                "el_helper": local,
+                "comet_helper": local,
+                "comet_binary": local,
+                "el_binary": local
+            }
+        }))
+        .unwrap()
+    }
+
+    #[tokio::test]
+    async fn local_inputs_accept_the_cargo_hardlinked_client_executable() {
+        use std::os::unix::fs::MetadataExt;
+        let client = std::env::current_exe().unwrap().canonicalize().unwrap();
+        let temp = tempfile::tempdir_in(client.parent().unwrap()).unwrap();
+        let root = temp.path().canonicalize().unwrap();
+        fs::hard_link(&client, root.join("cargo-client-alias")).unwrap();
+        assert!(client.metadata().unwrap().nlink() >= 2);
+        let profile = local_inputs(&root);
+        let hashes = inputs(&profile, profile.install.as_ref().unwrap()).await.unwrap();
+        assert_ne!(hashes["client_binary"], B256::ZERO);
+    }
+
+    #[tokio::test]
+    async fn local_inputs_identify_the_hardlinked_dataset_as_a_local_failure() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().canonicalize().unwrap();
+        let profile = local_inputs(&root);
+        let database = root.join("offline/db/mdbx.dat");
+        fs::hard_link(&database, root.join("database-alias")).unwrap();
+        let error = inputs(&profile, profile.install.as_ref().unwrap()).await.unwrap_err();
+        let ImportError::Unavailable(detail) = error else {
+            panic!("local dataset failure must not blame checkpoint candidate: {error}")
+        };
+        assert!(detail.contains("local input database"), "{detail}");
+        assert!(detail.contains(database.to_str().unwrap()), "{detail}");
+        assert!(detail.contains("singly linked regular file"), "{detail}");
+    }
+
     #[test]
     fn crashes_cannot_select_partial_component_writes_or_consume_foreign_state() {
         let temp = tempfile::tempdir().unwrap();

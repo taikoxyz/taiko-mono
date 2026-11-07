@@ -21,6 +21,10 @@ use crate::{
 use alloy_primitives::{Address, B256, keccak256};
 use serde::{Deserialize, Serialize};
 
+#[cfg(test)]
+#[path = "valstate_vectors.rs"]
+mod stock_vectors;
+
 /// CometBFT's `MaxTotalVotingPower`, `MaxInt64 / 8`: the largest power and total power.
 const MAX_TOTAL_VOTING_POWER: i64 = i64::MAX / 8;
 
@@ -60,18 +64,11 @@ pub struct ValSet {
 
 impl ValSet {
     /// The stock native keys/powers commitment used by Comet header validator hashes.
-    /// This excludes proposer priorities and the stored proposer index.
+    /// This excludes proposer priorities and the stored proposer index. Entries must retain
+    /// the canonical order established by genesis, changesets or [`ValState::decode`].
     pub fn validators_hash(&self) -> Result<B256, crate::key::KeyError> {
-        crate::wire::validators_hash(
-            &self
-                .entries
-                .iter()
-                .map(|entry| crate::types::Member {
-                    pubkey: entry.key,
-                    power: entry.power as u64,
-                    eff_stake: alloy_primitives::U256::ZERO,
-                })
-                .collect::<Vec<_>>(),
+        crate::wire::validators_hash_in_order(
+            self.entries.iter().map(|entry| (entry.key, entry.power as u64)),
         )
     }
 }

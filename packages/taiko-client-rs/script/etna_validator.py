@@ -144,6 +144,9 @@ class Supervisor:
         self.was_ready = False
         self.awaiting = None  # last logged wait state of a recovery signer
         self.owner_fds = []
+        self.halted = False
+        self.halt_retry = None
+        self.halt_error = None
 
     @staticmethod
     def read_observation(path):
@@ -182,12 +185,21 @@ class Supervisor:
         if parent.st_uid not in (0, os.geteuid()) or parent.st_mode & 0o022:
             raise ValueError("unprotected signer diagnostic parent")
         for path in (route, route.with_name(route.name + ".tmp")):
-            if (path in (self.key, self.state) or path.is_relative_to(self.home)
+            if (path in (self.key, self.state, self.state.with_name(self.state.name + ".uncertain")) or path.is_relative_to(self.home)
                     or (authority_root and path.is_relative_to(Path(authority_root).resolve()))
                     or (route != default and path.is_relative_to(self.store)) or path.is_symlink()):
                 raise ValueError("signer diagnostic aliases protected state")
-        if os.path.lexists(route.with_name(route.name + ".tmp")):
-            raise ValueError("existing signer diagnostic temporary file requires inspection")
+        temporary = route.with_name(route.name + ".tmp")
+        if os.path.lexists(temporary):
+            # Old signers used this fixed name. It is never reused or removed:
+            # even a torn diagnostic write is harmless, but aliases stay unsafe.
+            descriptor = os.open(temporary, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+            with os.fdopen(descriptor, "rb") as source:
+                metadata = os.fstat(source.fileno())
+                if (not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1
+                        or metadata.st_uid != os.geteuid() or metadata.st_mode & 0o022
+                        or metadata.st_size > 16384):
+                    raise ValueError("unsafe legacy signer diagnostic temporary inode")
         self.read_observation(route)
         return route
 
@@ -413,6 +425,10 @@ class Supervisor:
 
     def start(self, await_trust=False):
         """Start a fresh signer, and Comet with it unless the signer must first be trusted."""
+        if self.signer_uncertain():
+            self.record_signer_failure()
+            self.halt("retained signer uncertainty fence; inspect signing authority")
+            return
         if self.imported:
             etna_import_guard.launch_info(self.store, self.home)
         self.validate_denial_route(os.environ.get("ETNA_AUTHORITY_ROOT", ""))
@@ -522,40 +538,98 @@ class Supervisor:
         try:
             descriptor = os.open(self.latch, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
         except FileNotFoundError:
-            self.persist_latch("signer exited; inspect diagnostics\n")
+            self.retain_latch("signer exited; inspect diagnostics\n")
             return
-        with os.fdopen(descriptor, "rb") as file:
-            metadata = os.fstat(file.fileno())
-            if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > 1024 * 1024:
-                return  # These records already fail recovery's bounded JSON check.
-            raw = file.read(1024 * 1024 + 1)
+        except OSError:
+            self.retain_latch("signer exited; inspect diagnostics\n")
+            return
+        try:
+            with os.fdopen(descriptor, "rb") as file:
+                metadata = os.fstat(file.fileno())
+                if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > 1024 * 1024:
+                    return  # These records already fail recovery's bounded JSON check.
+                raw = file.read(1024 * 1024 + 1)
+        except OSError:
+            self.retain_latch("signer exited; inspect diagnostics\n")
+            return
         try:
             value = json.loads(raw)
         except ValueError:
             return
         if isinstance(value, dict) and value.get("kind") == "expected-generation-supersession":
-            self.persist_latch("signer exited; inspect diagnostics\n", replace=True)
+            self.retain_latch("signer exited; inspect diagnostics\n", replace=True)
+
+    def retain_latch(self, text, replace=False):
+        """Keep the owner alive and quiescent if terminal evidence cannot be flushed."""
+        self.halted = True
+        self.halt_retry = (text, replace)
+        return self.retry_latch()
+
+    def retry_latch(self):
+        """Retry durability without overwriting any existing generic first cause."""
+        if getattr(self, "halt_retry", None) is None:
+            return True
+        text, replace = self.halt_retry
+        try:
+            if not replace and os.path.lexists(self.latch):
+                descriptor = os.open(self.latch, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+                with os.fdopen(descriptor, "rb") as source:
+                    if not stat.S_ISREG(os.fstat(source.fileno()).st_mode):
+                        raise ValueError("terminal latch is not regular")
+                    os.fsync(source.fileno())
+                descriptor = os.open(self.store, os.O_RDONLY | os.O_DIRECTORY)
+                try:
+                    os.fsync(descriptor)
+                finally:
+                    os.close(descriptor)
+            else:
+                self.persist_latch(text, replace=replace)
+        except (OSError, ValueError) as error:
+            message = str(error)
+            if getattr(self, "halt_error", None) != message:
+                print(f"etna_supervisor_halt_persistence_pending: {message}", flush=True)
+                self.halt_error = message
+            return False
+        self.halt_retry = None
+        self.halt_error = None
+        return True
+
+    def signer_uncertain(self):
+        """The original HRS sibling fence applies to every authority generation."""
+        try:
+            self.state.with_name(self.state.name + ".uncertain").lstat()
+        except FileNotFoundError:
+            return False
+        except OSError:
+            return True
+        return True
 
     def halt(self, reason, terminal_snapshot=None):
+        self.halted = True
         pending = reason + "\n"
-        created = not self.latch.exists()
+        created = not os.path.lexists(self.latch)
         evidence = self.expected_supersession(terminal_snapshot) if created else None
+        durable = False
         if created:
-            self.persist_latch(pending)
+            durable = self.retain_latch(pending)
         signer_failed = self.stop()
         # A generic durable marker blocks acknowledgement throughout shutdown and
         # after any crash. Only a clean join and unchanged first-cause bytes allow
         # the exact expected supersession to become acknowledgeable.
-        if (created and evidence and not signer_failed
-                and self.expected_supersession(terminal_snapshot) == evidence
-                and self.latch.read_bytes() == pending.encode()):
-            self.persist_latch(json.dumps(evidence, sort_keys=True) + "\n", replace=True)
+        try:
+            if (created and durable and evidence and not signer_failed and not self.signer_uncertain()
+                    and self.expected_supersession(terminal_snapshot) == evidence
+                    and self.latch.read_bytes() == pending.encode()):
+                self.retain_latch(json.dumps(evidence, sort_keys=True) + "\n", replace=True)
+        except OSError:
+            self.retain_latch(pending)
         print("etna_supervisor_halted: operator repair required", flush=True)
 
     def tick(self):
-        if self.latch.exists():
+        if getattr(self, "halted", False) or os.path.lexists(self.latch):
             if self.comet is not None or self.signer is not None:
                 self.stop()
+            self.retry_latch()
             return
         observed = self.read_observation(self.events)
         if observed is not None and observed[0] != self.prior_observation:
@@ -670,7 +744,10 @@ class Supervisor:
         signal.signal(signal.SIGTERM, shutdown)
         signal.signal(signal.SIGINT, shutdown)
         try:
-            if not self.latch.exists():
+            if self.signer_uncertain():
+                self.record_signer_failure()
+                self.halt("retained signer uncertainty fence; inspect signing authority")
+            elif not os.path.lexists(self.latch):
                 self.start()
             while self.running:
                 self.tick()
@@ -678,6 +755,8 @@ class Supervisor:
         finally:
             if self.stop():
                 self.halt("signer exited during shutdown; inspect diagnostics")
+            while not self.retry_latch():
+                time.sleep(.1)
             for descriptor in self.owner_fds:
                 os.close(descriptor)
             self.owner_fds = []

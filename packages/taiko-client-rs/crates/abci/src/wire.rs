@@ -426,11 +426,20 @@ pub fn validators_hash(
 ) -> Result<alloy_primitives::B256, KeyError> {
     let mut sorted = members.iter().collect::<Vec<_>>();
     sorted.sort_by_key(|m| (core::cmp::Reverse(m.power), m.pubkey.address()));
-    let leaves = sorted
+    validators_hash_in_order(sorted.into_iter().map(|member| (member.pubkey, member.power)))
+}
+
+/// Hashes native keys/powers already in stock power-descending, address-ascending order.
+/// The canonical validator-state replica maintains that order, so header checks need neither
+/// sort entries nor decompress their keys again. Powers retain the wire API's int64 check.
+pub(crate) fn validators_hash_in_order(
+    members: impl IntoIterator<Item = (ConsensusKey, u64)>,
+) -> Result<alloy_primitives::B256, KeyError> {
+    let leaves = members
         .into_iter()
-        .map(|m| {
-            let power = m.power.try_into().map_err(|_| KeyError)?;
-            Ok(ValidatorUpdate { pub_key: m.pubkey, power }.encode())
+        .map(|(pub_key, power)| {
+            let power = power.try_into().map_err(|_| KeyError)?;
+            Ok(ValidatorUpdate { pub_key, power }.encode())
         })
         .collect::<Result<Vec<_>, KeyError>>()?;
     Ok(tendermint::merkle::simple_hash_from_byte_vectors::<tendermint::crypto::default::Sha256>(
@@ -459,9 +468,25 @@ mod validator_hash_tests {
                 eff_stake: alloy_primitives::U256::ZERO,
             })
             .collect::<Vec<_>>();
+        let expected =
+            oracle["validators_hash"].as_str().unwrap().parse::<alloy_primitives::B256>().unwrap();
+        // This API accepts arbitrary member order, unlike ValSet's already canonical entries.
+        for order in [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]] {
+            let permuted = order.map(|index| members[index].clone());
+            assert_eq!(validators_hash(&permuted).unwrap(), expected, "order {order:?}");
+        }
+        let mut invalid = members;
+        invalid[0].power = 1_u64 << 63;
+        assert!(validators_hash(&invalid).is_err());
+    }
+
+    #[test]
+    fn empty_native_set_retains_the_stock_empty_merkle_hash() {
         assert_eq!(
-            validators_hash(&members).unwrap(),
-            oracle["validators_hash"].as_str().unwrap().parse::<alloy_primitives::B256>().unwrap()
+            validators_hash(&[]).unwrap(),
+            alloy_primitives::b256!(
+                "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            )
         );
     }
 }

@@ -92,6 +92,9 @@ func run() error {
 	if err := singleLinkState(*state); err != nil {
 		return err
 	}
+	if err := clearUncertainty(uncertaintyPath(*state)); err != nil {
+		return err
+	}
 	var signer types.PrivValidator
 	if *root != "" {
 		config := authorityConfig{Root: *root, Key: *key, LegacyState: *state, L1ChainID: *l1, L2ChainID: *l2, Inbox: *inbox, EnrollLegacy: *enroll}
@@ -123,6 +126,9 @@ func run() error {
 			return err
 		}
 		defer stateLock.Close()
+		if err := clearUncertainty(uncertaintyPath(*state)); err != nil {
+			return err
+		}
 		for _, p := range []string{*key + ".authority.json", *state + ".authority.json"} {
 			if _, err := os.Lstat(p); !os.IsNotExist(err) {
 				return errors.New("enrolled signer requires authority mode; missing or uncertain registry requires investigation")
@@ -180,6 +186,7 @@ func awaitSignerShutdown(server *privval.SignerServer, gate *gate, signals <-cha
 	case <-signals:
 	case terminal = <-gate.terminal:
 	}
+	gate.closeTransports()
 	stopErr := server.Stop()
 	// Stock Stop only closes transport. SetRequestHandler holds the stock handler
 	// mutex until an active request finishes and fences any already-decoded request

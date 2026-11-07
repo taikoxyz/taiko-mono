@@ -10,6 +10,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -71,6 +72,9 @@ type gate struct {
 	denialPath  string
 	denials     uint64
 	observation sync.Mutex
+	transportMu sync.Mutex
+	transports  map[*trackedConn]struct{}
+	stopping    bool
 	// terminal distinguishes uncertain signing persistence from recoverable trust loss.
 	terminal chan error
 }
@@ -234,6 +238,9 @@ func trusted(r *trustResponse, chain string) error {
 	return nil
 }
 func (g *gate) check(chain string) (*trustResponse, error) {
+	if g.isStopping() {
+		return nil, errors.New("signer stopped")
+	}
 	sessionPtr := g.session.Load()
 	if sessionPtr == nil {
 		g.begin()
@@ -275,11 +282,19 @@ func (g *gate) publishObservation(denied bool) {
 		session = *current
 	}
 	data, _ := json.Marshal(map[string]any{"sequence": g.denials, "session_id": session})
-	temporary := g.denialPath + ".tmp"
-	if err := os.WriteFile(temporary, data, 0600); err != nil {
+	temporary, err := os.CreateTemp(filepath.Dir(g.denialPath), ".signer-observation-")
+	if err != nil {
 		panic("cannot persist signer observation")
 	}
-	if err := os.Rename(temporary, g.denialPath); err != nil {
+	defer os.Remove(temporary.Name())
+	if _, err := temporary.Write(data); err != nil {
+		temporary.Close()
+		panic("cannot persist signer observation")
+	}
+	if err := temporary.Close(); err != nil {
+		panic("cannot close signer observation")
+	}
+	if err := os.Rename(temporary.Name(), g.denialPath); err != nil {
 		panic("cannot publish signer observation")
 	}
 }
@@ -287,6 +302,9 @@ func (g *gate) publishObservation(denied bool) {
 // BeginSession follows the official transport handshake and precedes exposing the
 // transport to SignerServer, including every reconnection. It returns the new session.
 func (g *gate) begin() (string, error) {
+	if g.isStopping() {
+		return "", errors.New("signer stopped")
+	}
 	g.session.Store(nil)
 	response, err := g.query("begin_session", "")
 	if err != nil {
@@ -295,7 +313,13 @@ func (g *gate) begin() (string, error) {
 	if response.Ready || !response.Syncing {
 		return "", errors.New("begin_session did not close trust")
 	}
+	g.transportMu.Lock()
+	if g.stopping {
+		g.transportMu.Unlock()
+		return "", errors.New("signer stopped")
+	}
 	g.session.Store(&response.SessionID)
+	g.transportMu.Unlock()
 	g.publishObservation(false)
 	return response.SessionID, nil
 }
@@ -304,8 +328,15 @@ func (g *gate) begin() (string, error) {
 // startup GetPubKey succeeds even when trust can only return after Comet has synced.
 func (g *gate) dialer(base privval.SocketDialer) privval.SocketDialer {
 	return func() (net.Conn, error) {
+		if g.isStopping() {
+			return nil, errors.New("signer stopped")
+		}
 		g.session.Store(nil)
 		conn, err := base()
+		if err != nil {
+			return nil, err
+		}
+		conn, err = g.trackTransport(conn)
 		if err != nil {
 			return nil, err
 		}
@@ -333,6 +364,9 @@ func (g *gate) trustedDialer(base privval.SocketDialer, chain string) privval.So
 	reconnect := g.dialer(base)
 	pending, connected := "", false // pending: begun, not yet exposed to Comet
 	return func() (net.Conn, error) {
+		if g.isStopping() {
+			return nil, errors.New("signer stopped")
+		}
 		if connected {
 			return reconnect()
 		}
@@ -346,6 +380,10 @@ func (g *gate) trustedDialer(base privval.SocketDialer, chain string) privval.So
 					return nil, fmt.Errorf("awaiting checkpoint trust before connecting to Comet: %w", err)
 				}
 				conn, err := base()
+				if err != nil {
+					return nil, err
+				}
+				conn, err = g.trackTransport(conn)
 				if err != nil {
 					return nil, err
 				}

@@ -165,6 +165,36 @@ class SupervisorTests(unittest.TestCase):
         self.assertTrue(lifecycle.exists(), "terminal SIGINT bypassed ordered supervisor stop")
         self.assertEqual(lifecycle.read_text().splitlines()[-2:], ["comet_reaped", "signer_stopped"])
 
+    def test_terminal_latch_write_failure_quiesces_and_retries(self):
+        """A read-only app store cannot turn a terminal stop into process restart."""
+        if os.geteuid() == 0:
+            self.skipTest("root bypasses directory-write permission faults")
+        self.store.chmod(0o500)
+        try:
+            self.phase = "halted"
+            self.wait(lambda: (self.root / "lifecycle").exists())
+            self.assertIsNone(self.proc.poll(), "failed halt persistence exited the supervisor")
+            self.assertEqual((self.root / "lifecycle").read_text().splitlines()[-2:],
+                             ["comet_reaped", "signer_stopped"])
+        finally:
+            self.store.chmod(0o700)
+        self.wait(lambda: (self.store / "validator-supervisor.halted").exists())
+        self.assertEqual(self.starts(), 1)
+        self.assertEqual(len(self.signers()), 1)
+
+    def test_stale_observation_temporary_does_not_block_restart(self):
+        """An interrupted diagnostic publish is neither terminal evidence nor signing state."""
+        self.proc.terminate()
+        self.assertEqual(self.proc.wait(timeout=5), 0)
+        temporary = self.events.with_name(self.events.name + ".tmp")
+        # A crash can leave even a truncated write. Preserve it without reusing it.
+        temporary.write_bytes(b'{"sequence":')
+        temporary.chmod(0o600)
+        self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")],
+                                     env=self.env, stdout=self.log, stderr=self.log)
+        self.wait(lambda: self.starts() == 2 and len(self.signers()) == 2)
+        self.assertEqual(temporary.read_bytes(), b'{"sequence":')
+
     def test_supervisor_sigterm_retains_signer_failure_for_restart(self):
         """A signer failure discovered during external shutdown must survive restartAlways."""
         self.proc.terminate()
@@ -474,6 +504,29 @@ class RecoveredSupervisorTests(SupervisorTests):
                            l1_timestamp=123, el_hash="0x" + "23" * 32,
                            comet_hash="0x" + "34" * 32, forced_cursor=2,
                            committee_hash="0x" + "45" * 32)
+
+    def test_later_generation_cannot_acknowledge_retained_signer_fence(self):
+        self.proc.terminate()
+        self.assertEqual(self.proc.wait(timeout=5), 0)
+        fence = self.state.with_name(self.state.name + ".uncertain")
+        evidence = b'{"operation":"interrupted FilePV signing"'
+        fence.write_bytes(evidence)
+        latch = self.store / "validator-supervisor.halted"
+        latch.write_text(json.dumps(dict(schema=1, kind="expected-generation-supersession",
+                                        chain_id=self.chain, previous_generation=1, current_generation=2,
+                                        evidence_digest="ab" * 32)))
+        self.env["ETNA_GENERATION"] = "2"
+        self.generation = 2
+        self.origin["generation"] = 2
+        self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")],
+                                     env=self.env, stdout=self.log, stderr=self.log)
+        self.wait(lambda: latch.read_bytes() == b"signer exited; inspect diagnostics\n")
+        self.assertIsNone(self.proc.poll())
+        self.assertEqual(self.starts(), 1)
+        self.assertEqual(len(self.signers()), 1)
+        self.assertEqual(fence.read_bytes(), evidence)
+        self.assertEqual(self.key.read_text(), "existing key")
+        self.assertEqual(self.state.read_text(), "authoritative HRS")
 
     def test_generation_one_start_retains_flags_while_trust_closes(self):
         """Check supervisor flags with sleeping peers; native recovery covers the handshake."""
@@ -873,6 +926,7 @@ class TypedSupersessionTests(unittest.TestCase):
         store = Path(directory)
         runtime = object.__new__(module.Supervisor)
         runtime.store, runtime.chain, runtime.generation = store, "old-chain", 0
+        runtime.state = store / "hrs.json"
         runtime.latch = store / "validator-supervisor.halted"
         runtime.imported, runtime.container, runtime.event_scratch = None, None, None
         state = json.dumps(dict(chain_id="old-chain", generation=0, inbox="0x01")).encode()
@@ -998,6 +1052,7 @@ class TypedSupersessionTests(unittest.TestCase):
                 store = Path(directory)
                 runtime = object.__new__(module.Supervisor)
                 runtime.store, runtime.chain, runtime.generation = store, "old-chain", 0
+                runtime.state = store / "hrs.json"
                 runtime.latch = store / "validator-supervisor.halted"
                 runtime.stop = lambda: None
                 state = json.dumps(dict(chain_id="old-chain", generation=0, inbox="0x01")).encode()

@@ -218,7 +218,15 @@ impl Runner {
                 }
                 Err(error) if error.is_retryable() => {
                     LanderMetrics::retry(&error);
-                    tracing::warn!(%error, retry_seconds=retry_delay.as_secs_f64(), "lander retrying classified temporary failure");
+                    if let LanderError::UnsupportedRuleset { rules } = &error {
+                        tracing::warn!(
+                            rules,
+                            retry_seconds = retry_delay.as_secs_f64(),
+                            "lander preparation paused; software upgrade required"
+                        );
+                    } else {
+                        tracing::warn!(%error, retry_seconds=retry_delay.as_secs_f64(), "lander retrying classified temporary failure");
+                    }
                     tokio::time::sleep(retry_delay).await;
                     retry_delay = retry_delay.saturating_mul(2).min(self.config.retry_max_delay);
                 }
