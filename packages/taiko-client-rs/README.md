@@ -792,7 +792,7 @@ and retain one documented height-bound divergence; they do not establish conform
 to the latest Etna specification. Current registry admission vectors belong to the
 contract harness.
 
-- `just unit` runs all unit tests and the `native_cli` process tests, then protocol
+- `just unit` runs all unit tests and Docker-free CLI startup/shutdown and entrypoint cleanup process tests, then protocol
   tests without default features and the abci doctests. No docker needed. It builds only those
   targets, and without extra arguments runs lander's library tests in one `cargo test` process,
   which loads the KZG trusted setup once instead of once per test.
@@ -812,12 +812,15 @@ contract harness.
   CometBFT collection, and actual-CLI SIGKILL/SIGTERM restarts, minimum/timeout batching, and
   pressure/epoch flushes; runner and store unit tests cover receipt reorgs and journal restarts.
   Each scenario boots its own devnet through the docker CLI (anvil as L1, alethia-reth,
-  CometBFT), with phases that need the same history sharing one, so they run one at a time; the
-  suite takes about ten minutes. Extra
+  CometBFT), with phases that need the same history sharing one, so they run one at a time.
+  CI runs two independent serial partitions. Extra
   arguments go to `cargo nextest run`, e.g. `just test restart` runs one scenario. Pull requests
   skip the slowest scenario, the L1 finality stall, whose halt-and-resume rule unit tests cover;
   `just test-full` runs every scenario, as CI does on main, nightly and on manual dispatch.
-  `tests/entrypoint.sh` pulls the images first; override them with `ANVIL_IMAGE`,
+  `tests/entrypoint.sh` lists selected cases before Docker checks and builds only the native
+  helpers they need, including the recovery image for its two Linux consumers. Unsupported
+  nextest run-only options conservatively prepare all helpers. It pulls images before the
+  tests; override them with `ANVIL_IMAGE`,
   `ALETHIA_RETH_IMAGE`, `COMETBFT_IMAGE` and `LANDER_ANVIL_IMAGE`, or set
   `PULL_POLICY=missing` to reuse local images. `just unit` also verifies the pinned contract
   artifact hashes.

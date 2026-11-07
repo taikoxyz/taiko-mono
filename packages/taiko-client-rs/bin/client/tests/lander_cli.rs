@@ -478,9 +478,8 @@ async fn lander_cli_flushes_backpressure_and_switch_witnesses_before_batch_deadl
 }
 
 /// Exercise the actual startup wiring without contracts, history or a pending forced skip.
-/// Grouped with the CLI integration suite so the standard test entrypoint runs it.
+/// Runs in the Docker-free unit lane alongside the other CLI process regressions.
 #[tokio::test]
-#[ignore = "docker"]
 async fn lander_cli_checks_engine_before_opening_journal_or_running() -> Result<()> {
     use axum::http::StatusCode;
     use std::sync::atomic::Ordering;

@@ -41,7 +41,6 @@ async fn response(stream: &mut TcpStream) -> Result<pb::Response> {
 
 /// Open connections and a partial frame must not retain the CLI after SIGTERM.
 #[tokio::test]
-#[ignore = "integration"]
 async fn abci_sigterm_closes_live_connections_and_exits() -> Result<()> {
     let rpc_listener = TcpListener::bind("127.0.0.1:0").await?;
     let endpoint = format!("http://{}", rpc_listener.local_addr()?);

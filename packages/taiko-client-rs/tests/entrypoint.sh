@@ -1,7 +1,7 @@
 #!/bin/bash
 #
-# Runs the ABCI, lander, and CLI docker scenarios (all marked
-# `#[ignore = "docker"]`). Each scenario boots its own devnet through the docker CLI
+# Runs the selected ignored ABCI, lander, and CLI integration scenarios. Most
+# scenarios boot their own devnet through the Docker CLI
 # (`crates/test-harness`: anvil as L1, alethia-reth, CometBFT) and removes it
 # afterwards, so this script only checks docker, pre-pulls the images and runs the
 # scenarios one at a time. Extra arguments are forwarded to `cargo nextest run`,
@@ -19,15 +19,6 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # regardless of the caller's working directory.
 cd "$DIR/.."
 
-bash ./script/build_etna_signer.sh
-export ETNA_SIGNER_BIN="$PWD/target/etna-signer/etna-signer"
-bash ./script/build_stock_comet.sh
-export ETNA_COMET_BIN="$PWD/target/etna-signer/cometbft"
-bash ./script/build_etna_el_import.sh
-export ETNA_EL_IMPORT_BIN="${ETNA_EL_IMPORT_BIN:-$PWD/target/etna-signer/etna-el-import}"
-bash ./script/build_etna_el_runtime.sh
-export ETNA_EL_BIN="${ETNA_EL_BIN:-$PWD/target/etna-signer/alethia-reth}"
-
 # Internal selectors used by the fixed `just test-smoke` and `just test-full` recipes. Shift only
 # this leading flag so all remaining arguments retain their nextest meaning. By default the
 # slowest scenario is left to the full run (main, nightly, `just verify`): the L1 finality stall
@@ -42,23 +33,47 @@ elif [[ "${1:-}" == "--full" ]]; then
     filter='kind(test)'
 fi
 
+# Use the same build/selection arguments for discovery and execution. Repeated -E expressions
+# retain nextest's OR semantics; never parse or reconstruct user filter expressions here.
+common=(-p abci -p lander -p taiko-client -p test-harness --all-features --profile integration
+        --run-ignored only -E "$filter")
+list_args=("${common[@]}" --message-format json)
+after_separator=0
+run_reporter=0
+for arg in "$@"; do
+    if [[ "$after_separator" == 0 ]]; then
+        case "$arg" in
+            --) after_separator=1 ;;
+            --no-capture) continue ;;
+            --message-format|--message-format=*) run_reporter=1 ;;
+            --help|-h|--no-run) exec cargo nextest run "${common[@]}" "$@" ;;
+        esac
+    fi
+    list_args+=("$arg")
+done
+
 # Every harness child inherits this label. Cleanup stays scoped to this invocation, including
 # lander fixtures, even when cancellation bypasses the harness's normal Drop cleanup.
 export TAIKO_CLIENT_RS_TEST_RUN=${TAIKO_CLIENT_RS_TEST_RUN:-local-$$-$RANDOM}
+selection_dir=$(mktemp -d)
 recovery_image_built=0
+docker_ready=0
 cleanup_devnets() {
     local status=$?
     trap - EXIT INT TERM
     local failed=0
     local containers networks
-    containers=$(docker ps -aq --filter "label=taiko-client-rs.test-run=$TAIKO_CLIENT_RS_TEST_RUN") || failed=1
-    networks=$(docker network ls -q --filter "label=taiko-client-rs.test-run=$TAIKO_CLIENT_RS_TEST_RUN") || failed=1
-    if [[ -n "$containers" ]]; then
-        # Docker IDs contain no shell whitespace; xargs handles both Linux and macOS empty input.
-        printf '%s\n' "$containers" | xargs docker rm -f -v || failed=1
-    fi
-    if [[ -n "$networks" ]]; then
-        printf '%s\n' "$networks" | xargs docker network rm || failed=1
+    rm -rf "$selection_dir" || failed=1
+    if [[ "$docker_ready" == 1 ]]; then
+        containers=$(docker ps -aq --filter "label=taiko-client-rs.test-run=$TAIKO_CLIENT_RS_TEST_RUN") || failed=1
+        networks=$(docker network ls -q --filter "label=taiko-client-rs.test-run=$TAIKO_CLIENT_RS_TEST_RUN") || failed=1
+        if [[ -n "$containers" ]]; then
+            # Docker IDs contain no shell whitespace; xargs handles Linux and macOS empty input.
+            printf '%s\n' "$containers" | xargs docker rm -f -v || failed=1
+        fi
+        if [[ -n "$networks" ]]; then
+            printf '%s\n' "$networks" | xargs docker network rm || failed=1
+        fi
     fi
     if [[ "$recovery_image_built" == 1 ]]; then
         docker image rm "$ETNA_RECOVERY_IMAGE" > /dev/null || failed=1
@@ -66,7 +81,66 @@ cleanup_devnets() {
     if [[ "$status" == 0 && "$failed" != 0 ]]; then status=1; fi
     exit "$status"
 }
+terminate_tree() {
+    local process=$1 child
+    for child in $(pgrep -P "$process" || true); do
+        terminate_tree "$child"
+    done
+    kill -TERM "$process" 2>/dev/null || true
+}
+stop_scenarios() {
+    local status=$1
+    trap - INT TERM
+    if [[ -n "${scenario_pid:-}" ]]; then
+        terminate_tree "$scenario_pid"
+        wait "$scenario_pid" || true
+    fi
+    exit "$status"
+}
+run_child() {
+    local status=0
+    "$@" &
+    scenario_pid=$!
+    wait "$scenario_pid" || status=$?
+    scenario_pid=''
+    return "$status"
+}
+trap cleanup_devnets EXIT
+trap 'stop_scenarios 130' INT
+trap 'stop_scenarios 143' TERM
 
+if [[ "$run_reporter" == 1 ]]; then
+    # run's result reporter has a different format vocabulary and must not override list JSON.
+    echo "Preparing all helpers: preserving the requested nextest run reporter" >&2
+    dependencies='docker signer comet el recovery'
+elif run_child cargo nextest list "${list_args[@]}" \
+    > "$selection_dir/tests.json" 2> "$selection_dir/list.err"; then
+    cat "$selection_dir/list.err" >&2
+    dependencies=$(python3 ./tests/selected_dependencies.py < "$selection_dir/tests.json")
+else
+    status=$?
+    cat "$selection_dir/list.err" >&2
+    # list deliberately lacks runner/reporter flags. Recognize only their clap error, then
+    # preserve the old all-helper preparation rather than maintain a second argv parser.
+    unsupported=$(sed -n "s/^error: unexpected argument '\([^']*\)' found$/\1/p" "$selection_dir/list.err")
+    case "$status:$unsupported" in
+        2:--retries|2:--test-threads|2:--jobs|2:-j|2:--fail-fast|2:--ff|2:--no-fail-fast|2:--nff|\
+        2:--max-fail|2:--no-tests|2:--failure-output|2:--success-output|2:--status-level|\
+        2:--final-status-level|2:--no-output-indent|2:--hide-progress-bar|2:--no-input-handler|\
+        2:--message-format-version|2:--stress-count|2:--stress-duration|2:--debugger|2:--tracer|\
+        2:--flaky-result|2:--max-progress-running|2:--rerun|2:-R)
+            echo "Preparing all helpers: nextest list does not support $unsupported" >&2
+            dependencies='docker signer comet el recovery'
+            ;;
+        *) exit "$status" ;;
+    esac
+fi
+
+# An empty selection keeps nextest's own no-tests result (including --no-tests/env overrides).
+if [[ -z "$dependencies" ]]; then
+    run_child cargo nextest run "${common[@]}" "$@"
+    exit 0
+fi
 if ! command -v docker > /dev/null 2>&1; then
     echo "ERROR: required command 'docker' not found in PATH"
     exit 1
@@ -75,9 +149,22 @@ if ! docker info > /dev/null 2>&1; then
     echo "ERROR: the docker daemon is not reachable"
     exit 1
 fi
-trap cleanup_devnets EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM
+docker_ready=1
+
+if [[ " $dependencies " == *' signer '* ]]; then
+    run_child bash ./script/build_etna_signer.sh
+    export ETNA_SIGNER_BIN="$PWD/target/etna-signer/etna-signer"
+fi
+if [[ " $dependencies " == *' comet '* ]]; then
+    run_child bash ./script/build_stock_comet.sh
+    export ETNA_COMET_BIN="$PWD/target/etna-signer/cometbft"
+fi
+if [[ " $dependencies " == *' el '* ]]; then
+    run_child bash ./script/build_etna_el_import.sh
+    export ETNA_EL_IMPORT_BIN="${ETNA_EL_IMPORT_BIN:-$PWD/target/etna-signer/etna-el-import}"
+    run_child bash ./script/build_etna_el_runtime.sh
+    export ETNA_EL_BIN="${ETNA_EL_BIN:-$PWD/target/etna-signer/alethia-reth}"
+fi
 
 # Pinned to the anvil release the scenarios are verified with: a moving tag could change its
 # JSON-RPC behaviour under them (e.g. whether it serves debug_getRawHeader).
@@ -94,39 +181,17 @@ for image in "$ANVIL_IMAGE" "$LANDER_ANVIL_IMAGE" "$ALETHIA_RETH_IMAGE" "$COMETB
         echo "Using local image $image"
     else
         echo "Pulling $image"
-        docker pull --quiet "$image"
+        run_child docker pull --quiet "$image"
     fi
 done
 
-# The distinct-UID scenario runs the entire controller and its native children in Linux.
-# An explicit image override is useful for an already rebuilt local source snapshot. Otherwise
-# build before nextest so image compilation does not consume a scenario's bounded timeout.
-# Arbitrary nextest substring/filterset arguments may select recovery cases, so conservatively
-# prepare the runtime for every invocation except the fixed smoke tier.
-if [[ -z "${ETNA_RECOVERY_IMAGE:-}" ]] && \
-    [[ "$filter" != *single_validator_produces_blocks_by_the_header_rules* ]]; then
+# Only these selected consumers need the complete Linux runtime. Never remove an explicit
+# caller-owned override; build before running so compilation does not consume test timeouts.
+if [[ " $dependencies " == *' recovery '* && -z "${ETNA_RECOVERY_IMAGE:-}" ]]; then
     export ETNA_RECOVERY_IMAGE="etna-client-recovery-test:$TAIKO_CLIENT_RS_TEST_RUN"
-    bash ./script/build_recovery_runtime.sh
+    run_child bash ./script/build_recovery_runtime.sh
     recovery_image_built=1
 fi
 
 echo "Running the ABCI, lander, and CLI docker scenarios"
-terminate_tree() {
-    local process=$1 child
-    for child in $(pgrep -P "$process" || true); do
-        terminate_tree "$child"
-    done
-    kill -TERM "$process" 2>/dev/null || true
-}
-stop_scenarios() {
-    local status=$1
-    trap - INT TERM
-    terminate_tree "$scenario_pid"
-    wait "$scenario_pid" || true
-    exit "$status"
-}
-cargo nextest run -p abci -p lander -p taiko-client -p test-harness --all-features --profile integration --run-ignored only -E "$filter" "$@" &
-scenario_pid=$!
-trap 'stop_scenarios 130' INT
-trap 'stop_scenarios 143' TERM
-wait "$scenario_pid"
+run_child cargo nextest run "${common[@]}" "$@"

@@ -7,7 +7,6 @@ use tokio::{io::AsyncReadExt, net::TcpListener};
 
 /// A cancelled output-producing command must not look like a successful empty report.
 #[tokio::test]
-#[ignore = "integration"]
 async fn interrupted_one_shot_commands_exit_unsuccessfully() -> Result<()> {
     for command in ["abci-genesis", "abci-committee-record"] {
         for signal in ["-INT", "-TERM"] {

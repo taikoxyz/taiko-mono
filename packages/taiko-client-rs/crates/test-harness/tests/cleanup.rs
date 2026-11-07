@@ -10,7 +10,6 @@ const CHILD_READY: &str = "TAIKO_HARNESS_CLEANUP_CHILD_READY";
 
 /// Cancelling just the entrypoint must forward termination and run its label-scoped fallback.
 #[tokio::test]
-#[ignore = "integration"]
 async fn entrypoint_sigterm_forwards_to_children_and_cleans_only_its_run() -> Result<()> {
     use std::os::unix::fs::PermissionsExt;
 
@@ -27,7 +26,17 @@ if [[ "$1" == ps ]]; then echo owned-container; fi
 if [[ "$1 $2" == 'network ls' ]]; then echo owned-network; fi
 "#,
     )?;
-    std::fs::write(&fake_cargo, "#!/bin/bash\ntouch \"$READY\"\nsleep 3\n")?;
+    std::fs::write(
+        &fake_cargo,
+        r#"#!/bin/bash
+if [[ "$2" == list ]]; then
+    echo '{"rust-suites":{"cleanup":{"package-name":"test-harness","binary-name":"cleanup","status":"listed","testcases":{"sigterm_removes_owned_resources_and_preserves_sibling_devnets":{"filter-match":{"status":"matches"}}}}}}'
+else
+    touch "$READY"
+    sleep 3
+fi
+"#,
+    )?;
     for path in [&fake_docker, &fake_cargo] {
         std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755))?;
     }
@@ -43,8 +52,7 @@ if [[ "$1 $2" == 'network ls' ]]; then echo owned-network; fi
         .stderr(std::process::Stdio::null())
         .kill_on_drop(true)
         .spawn()?;
-    // Before it reaches cargo, the entrypoint builds the Go helpers for real, which can take
-    // several seconds on a loaded host under `nice`; only the termination below is timed.
+    // This Docker-only cleanup fixture needs no native helpers. Only termination is timed.
     tokio::time::timeout(Duration::from_secs(60), async {
         while !ready.exists() {
             tokio::time::sleep(Duration::from_millis(10)).await;
