@@ -122,6 +122,7 @@ class Supervisor:
             if self.container:
                 raise ValueError("the host Docker adapter requires a tcp:// signer transport")
             self.unix_run = self.home / "run"
+            self.run_owner = int(os.environ.get("ETNA_COMET_UID", os.geteuid()))
             sample = self.unix_run / (SIGNER_SOCKET_PREFIX + "0" * 16 + SIGNER_SOCKET_SUFFIX)
             if len(os.fsencode(sample)) > MAX_UNIX_SOCKET_PATH:
                 raise ValueError("Comet home too long for a Unix signer socket")
@@ -350,9 +351,10 @@ class Supervisor:
     def fresh_transport(self):
         """Return the next pair's signer address, after removing stale Unix rendezvous names.
 
-        Both children are reaped and the home owner lock is held, so no listener of this
-        home can remain. Names with the signer prefix are the supervisor's own namespace:
-        they are unlinked through the opened run/ without type, inode or liveness checks.
+        Runs with both children reaped and the home owner lock held. Names with the signer
+        prefix are the supervisor's own namespace: they are unlinked through the opened run/
+        without type, inode or liveness checks. Only names in the supervisor's namespace are
+        removed; a live orphan can only lose its name.
         """
         if self.comet is not None or self.signer is not None:
             raise ValueError("signer transport cleanup requires reaped children")
@@ -361,6 +363,13 @@ class Supervisor:
         # Never follow a substituted run/; a missing one fails startup.
         descriptor = os.open(self.unix_run, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
         try:
+            # Refuse a misconfigured run/ at every start, not after the first unclean Comet
+            # exit: without CAP_FOWNER a sticky run/ keeps Comet's stale socket.
+            metadata = os.fstat(descriptor)
+            if metadata.st_mode & stat.S_ISVTX:
+                raise ValueError(f"{self.unix_run} must not be sticky")
+            if metadata.st_uid != self.run_owner:
+                raise ValueError(f"{self.unix_run} must be owned by the Comet UID {self.run_owner}, not {metadata.st_uid}")
             for name in os.listdir(descriptor):
                 if name.startswith(SIGNER_SOCKET_PREFIX) and name.endswith(SIGNER_SOCKET_SUFFIX):
                     os.unlink(name, dir_fd=descriptor)  # Errors (e.g. a directory) fail closed.

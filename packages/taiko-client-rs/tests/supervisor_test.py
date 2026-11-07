@@ -761,6 +761,35 @@ class UnixSupervisorTests(SupervisorTests):
         self.assert_refused()
         self.assertFalse(os.path.lexists(self.home / "run"))
 
+    def assert_misconfigured_run_refused(self, message):
+        """Refuse before removing anything, so the first start reports the misconfiguration."""
+        run = self.home / "run"
+        before = {entry.name: entry.lstat().st_ino for entry in run.iterdir()}
+        self.assertTrue(before, "the previous listener must remain as a stale entry")
+        self.assert_refused()
+        self.assertIn(message, Path(self.log.name).read_text(errors="replace"))
+        self.assertEqual({entry.name: entry.lstat().st_ino for entry in run.iterdir()}, before)
+
+    def test_sticky_run_directory_is_refused(self):
+        # Without CAP_FOWNER a sticky run/ would block removing Comet's stale socket.
+        self.stop_supervisor()
+        (self.home / "run").chmod(0o1700)
+        self.assert_misconfigured_run_refused(f"{self.home.resolve() / 'run'} must not be sticky")
+
+    def test_run_directory_not_owned_by_comet_uid_is_refused(self):
+        self.stop_supervisor()
+        other = os.geteuid() + 1
+        self.env = dict(self.env, ETNA_COMET_UID=str(other), ETNA_COMET_GID=str(os.getegid()))
+        self.assert_misconfigured_run_refused(
+            f"{self.home.resolve() / 'run'} must be owned by the Comet UID {other}, not {os.geteuid()}")
+
+    def test_unremovable_prefixed_entry_is_refused(self):
+        self.stop_supervisor()
+        blocker = self.home / "run" / "signer-dddd.sock"
+        blocker.mkdir()
+        self.assert_refused()
+        self.assertTrue(blocker.is_dir())
+
     def test_overlong_socket_path_is_refused_before_children(self):
         self.stop_supervisor()
         home = self.root / ("x" * 80) / "comet"
@@ -784,7 +813,7 @@ def cap_eff(pid):
 DOCUMENTED_CAPS = (1 << 1) | (1 << 5) | (1 << 6) | (1 << 7)  # DAC_OVERRIDE|KILL|SETGID|SETUID == 0xe2
 
 
-@unittest.skipUnless(sys.platform == "linux" and os.geteuid() == 0 and os.environ.get("ETNA_MIN_CAPS_TEST") == "1",
+@unittest.skipUnless(os.environ.get("ETNA_MIN_CAPS_TEST") == "1",
                      "needs Linux root holding only the documented capabilities; run just supervisor-caps-test")
 class MinimalCapabilityTests(TrustPeer, unittest.TestCase):
     """Restart stock-like Comet under the documented supervisor capability set only."""
@@ -792,6 +821,9 @@ class MinimalCapabilityTests(TrustPeer, unittest.TestCase):
     COMET_UID = 10001
 
     def setUp(self):
+        # An explicit request must never pass vacuously.
+        if sys.platform != "linux" or os.geteuid() != 0:
+            self.fail("ETNA_MIN_CAPS_TEST=1 needs Linux root holding only the documented capabilities")
         self.tmp = tempfile.TemporaryDirectory(prefix="etna-caps-", dir="/tmp")
         self.root = Path(self.tmp.name)
         self.root.chmod(0o755)
@@ -894,6 +926,14 @@ class MinimalCapabilityTests(TrustPeer, unittest.TestCase):
         self.wait(lambda: len(self.comets()) >= count and len(self.connected()) >= count)
         return Path(self.comets()[count - 1]["path"])
 
+    def served(self, phase):
+        """The supervisor's latest observation carried this phase.
+
+        A tick polls Comet before it observes, and ticks run one at a time, so the tick that
+        received this answer finishes before any later tick can see a Comet exit.
+        """
+        return bool(self.observations) and self.observations[-1]["phase"] == phase
+
     def test_unclean_comet_exit_stale_socket_supervisor_restarts_pair(self):
         self.assertEqual(cap_eff(self.proc.pid), DOCUMENTED_CAPS)
         stale = self.wait_socket(1)
@@ -901,10 +941,14 @@ class MinimalCapabilityTests(TrustPeer, unittest.TestCase):
         if Path("/proc/sys/fs/protected_hardlinks").read_text().strip() == "1":
             with self.assertRaises(PermissionError):  # the old inode pin needed CAP_FOWNER
                 os.link(stale, self.root / "pin")
+        self.wait(lambda: self.served("ready"))  # the loss below follows observed trust
         self.phase = "acquiring"
-        time.sleep(.3)  # observed trust loss
-        os.kill(self.comet_pid(), signal.SIGKILL)  # stock leaves its socket inode
-        time.sleep(.3)  # the supervisor sees the exit while trust is still lost
+        self.wait(lambda: self.served("acquiring"))  # observed trust loss
+        comet = self.comet_pid()
+        os.kill(comet, signal.SIGKILL)  # stock leaves its socket inode
+        # Every earlier tick still read the loss, so the tick that reaps Comet sees its exit
+        # with the loss observed, whatever phase it then reads.
+        self.wait(lambda: not Path(f"/proc/{comet}").exists())
         self.phase = "ready"
         self.publish_recovery_session()
         fresh = self.wait_socket(2)
@@ -913,6 +957,9 @@ class MinimalCapabilityTests(TrustPeer, unittest.TestCase):
         self.assertEqual(self.connected()[-1], str(fresh))
         self.assertFalse(self.latch.exists())
         self.assertIsNone(self.proc.poll())
+        # CAP_KILL suffices to stop the UID-10001 Comet before the root signer.
+        self.proc.terminate()
+        self.assertEqual(self.proc.wait(timeout=20), 0, Path(self.log.name).read_text(errors="replace"))
 
     def test_killed_runtime_restarts_over_stale_socket(self):
         stale = self.wait_socket(1)

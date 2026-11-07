@@ -498,7 +498,9 @@ committing those values to the Inbox.
    state mounts; do not expose the socket outside the pod. The image runs supervisor/signer
    as root and drops the stock Comet child to UID/GID 10001 (`ETNA_COMET_UID/GID`). Prepare
    its persistent home owned by 10001, with `<comet-home>/run` owned by 10001, mode 0700 and
-   not sticky; keep registered key/HRS root-owned 0600 in a private directory outside that
+   not sticky (the supervisor refuses a sticky `run/` or one not owned by the Comet UID;
+   without CAP_FOWNER it could not remove Comet's stale socket from a sticky `run/`); keep
+   registered key/HRS root-owned 0600 in a private directory outside that
    home. The Unix signer listener lives in that `run/`, never in the app's 0700 private
    store. This prevents the Comet child from reading registered signing secrets. The
    supervisor needs root with exactly CAP_SETUID and CAP_SETGID (start Comet as
@@ -560,9 +562,12 @@ committing those values to the Inbox.
    `signer-*.sock` entry through that directory. These names are the supervisor's own
    namespace, so the stale socket of an unclean Comet exit is removed without type, inode
    or liveness checks; other names in `run/` are left alone. A missing or symlinked `run/`,
-   a prefixed entry that cannot be unlinked (such as a directory), and a Comet home whose
-   socket path would exceed 103 bytes (the macOS `sun_path` limit, checked at startup) all
-   fail startup.
+   a sticky `run/`, a `run/` not owned by `ETNA_COMET_UID` (by default the supervisor's
+   effective UID), a prefixed entry that cannot be unlinked (such as a directory), and a
+   Comet home whose socket path would exceed 103 bytes (the macOS `sun_path` limit, checked
+   at startup) all fail startup. The `run/` checks run before every start, so a
+   misconfigured `run/` fails the first start rather than the restart after an unclean
+   Comet exit.
    Signing state, WAL, app history, the private trust socket and the durable halt latch remain
    untouched.
 
