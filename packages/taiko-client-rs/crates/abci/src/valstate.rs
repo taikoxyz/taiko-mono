@@ -270,6 +270,45 @@ impl ValState {
     }
 }
 
+/// What stock CometBFT's `LoadValidators` rebuilds for a height `steps` blocks after the one
+/// whose full `set` it stored: one `IncrementProposerPriority(steps)`, so one
+/// `RescalePriorities(2 · total)` and centring, then `steps` proposer rounds, the last round's
+/// proposer stored. `steps` must be positive, as Go panics otherwise.
+#[cfg(test)]
+pub(crate) fn stock_lookup(set: &ValSet, steps: u64) -> ValSet {
+    assert!(steps > 0, "IncrementProposerPriority needs a positive count");
+    let mut vals = ValidatorSet::from_val_set(set);
+    vals.rescale_priorities(PRIORITY_WINDOW_SIZE_FACTOR.wrapping_mul(vals.total_voting_power()));
+    vals.shift_by_avg_proposer_priority();
+    let mut proposer = 0;
+    for _ in 0..steps {
+        proposer = vals.increment_once();
+    }
+    vals.into_val_set(proposer)
+}
+
+/// The PROOF-6.2-41a.i/j state at `height`: powers A = B = C = 33 and N = 1, priorities A −26,
+/// B 71, C 67, N −110 in both sets, B the stored proposer. A < B < C are `test_key(1..=3)` by
+/// address and N is `test_key(4)`.
+#[cfg(test)]
+pub(crate) fn spec_41a_state(height: u64) -> ValState {
+    use crate::test_utils::test_key;
+    let mut big = [test_key(1), test_key(2), test_key(3)];
+    big.sort_by_key(|k| k.address());
+    let [a, b, c] = big;
+    let entry = |key, power, priority| ValEntry { key, power, priority };
+    let set = ValSet {
+        entries: vec![
+            entry(a, 33, -26),
+            entry(b, 33, 71),
+            entry(c, 33, 67),
+            entry(test_key(4), 1, -110),
+        ],
+        proposer: 1,
+    };
+    ValState { height, current: set.clone(), next: set }
+}
+
 /// Reads one set's array (its length, then its entries) from the front of `rest`, and checks
 /// the entries and the `proposer` index as [`ValState::decode`] describes. Only the low eight
 /// bytes of each integer word are read; the caller's re-encoding checks the rest.
@@ -872,6 +911,27 @@ mod tests {
         assert_eq!(bulk.len(), live_priorities.len());
         assert_ne!(bulk, live_priorities, "seed {}: the rebuild matches the live state", rpc.seed);
         assert!(rpc.bulk_proposer < bulk.len());
+    }
+
+    /// The entry priorities of `set`, in entry order.
+    fn priorities(set: &ValSet) -> Vec<i64> {
+        set.entries.iter().map(|e| e.priority).collect()
+    }
+
+    /// PROOF-6.2-41a.i/j, SYNC-9-5c 5c.b.
+    #[test]
+    fn per_height_increments_rescale_where_the_stock_rebuild_does_not() {
+        let x = spec_41a_state(100);
+        let once = x.advance(&[]).unwrap();
+        assert_eq!(priorities(&once.next), [7, 4, 100, -109]); // spread 209 > 2·100
+        assert_eq!(once.next.proposer, 1); // B
+        let twice = once.advance(&[]).unwrap();
+        assert_eq!(twice.height, 102);
+        assert_eq!(priorities(&twice.next), [36, 35, -17, -53]); // 41a.i
+        assert_eq!(twice.next.proposer, 2); // C
+        let bulk = stock_lookup(&x.next, 2);
+        assert_eq!(priorities(&bulk), [40, 37, 33, -108]); // 41a.j
+        assert_ne!(bulk, twice.next);
     }
 
     #[test]
