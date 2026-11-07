@@ -87,12 +87,14 @@ async fn transaction_count_and_garbage_are_rejected() {
         (vec![Bytes::from_static(&[0x02, 0xc0])], "wrong version", "envelope"),
     ];
     for (txs, case, label) in cases {
-        let resp = process(&mut app, process_req(h, t, txs)).await;
+        let req = process_req(&app, h, t, txs);
+        let resp = process(&mut app, req).await;
         assert_eq!(resp, response::ProcessProposal::Reject, "{case}");
         assert_eq!(app.halt.as_deref(), Some(label), "{case}");
     }
     let txs = vec![env.encode()];
-    let resp = process(&mut app, process_req(h, t, txs.clone())).await;
+    let req = process_req(&app, h, t, txs.clone());
+    let resp = process(&mut app, req).await;
     assert_eq!(resp, response::ProcessProposal::Accept, "the untouched envelope passes");
     assert_eq!(app.halt, None, "an accepted proposal clears the halt reason");
     assert_eq!(
@@ -113,7 +115,8 @@ async fn empty_proposal_keeps_the_recorded_halt_reason() {
     let reject = response::ProcessProposal::Reject;
 
     // Nothing recorded yet: the empty proposal itself is the reason.
-    assert_eq!(process(&mut app, process_req(h, t, vec![])).await, reject);
+    let req = process_req(&app, h, t, vec![]);
+    assert_eq!(process(&mut app, req).await, reject);
     assert_eq!(app.status().unwrap().halt_reason.as_deref(), Some("empty_proposal"));
 
     // The node's own build fails, so it proposes nothing; judging that empty proposal keeps the
@@ -121,12 +124,14 @@ async fn empty_proposal_keeps_the_recorded_halt_reason() {
     app.l1().state().fail = Some(L1Error::Rpc("down".into()));
     assert!(prepare(&mut app, prepare_req(h, t)).await.is_empty());
     assert_eq!(app.halt.as_deref(), Some("l1_error"));
-    assert_eq!(process(&mut app, process_req(h, t, vec![])).await, reject);
+    let req = process_req(&app, h, t, vec![]);
+    assert_eq!(process(&mut app, req).await, reject);
     assert_eq!(app.status().unwrap().halt_reason.as_deref(), Some("l1_error"));
 
     // A malformed, non-empty proposal is news and replaces it.
     let garbage = vec![Bytes::from_static(&[0x01, 0xff, 0x00])];
-    assert_eq!(process(&mut app, process_req(h, t, garbage)).await, reject);
+    let req = process_req(&app, h, t, garbage);
+    assert_eq!(process(&mut app, req).await, reject);
     assert_eq!(app.halt.as_deref(), Some("envelope"));
 }
 
@@ -137,7 +142,7 @@ async fn wrong_height_number_and_parent_are_rejected() {
     let (mut app, env) = plain(&fx, dir.path()).await;
 
     // The request names another height than the committed head's successor.
-    let req = process_req(next_height(&app) + 1, bft_time(&app), vec![env.encode()]);
+    let req = process_req(&app, next_height(&app) + 1, bft_time(&app), vec![env.encode()]);
     assert_eq!(process(&mut app, req).await, response::ProcessProposal::Reject);
     assert_eq!(app.halt.as_deref(), Some("height_mismatch"));
 
@@ -261,7 +266,7 @@ async fn unparseable_anchor_the_own_l1_cannot_confirm_is_rejected_without_waitin
     for (anchor, label) in
         [(finalized + 1, "anchor_not_final"), ((1 << 48) - 1, "anchor_not_final"), (1, "envelope")]
     {
-        let req = process_req(h, t, vec![unparseable_anchor_envelope(&env, anchor)]);
+        let req = process_req(&app, h, t, vec![unparseable_anchor_envelope(&env, anchor)]);
         let resp = tokio::time::timeout(Duration::from_secs(60), process(&mut app, req.clone()))
             .await
             .unwrap_or_else(|_| panic!("ProcessProposal waits forever for L1 block {anchor}"));
@@ -286,7 +291,7 @@ async fn unparseable_anchor_with_an_own_l1_integrity_failure_halts() {
     let malformed = L1Error::MalformedResponse("block without `hash`".into());
     app.l1().state().canonical_script.push_back(Err(malformed));
     let tx = unparseable_anchor_envelope(&env, finalized);
-    let req = process_req(next_height(&app), bft_time(&app), vec![tx]);
+    let req = process_req(&app, next_height(&app), bft_time(&app), vec![tx]);
     let result = app.handle(Request::ProcessProposal(req)).await;
     assert!(matches!(result, Err(AbciError::SafetyHalt(_))), "{result:?}");
 }
@@ -497,7 +502,7 @@ async fn stale_anchor_proposal_is_rejected() {
         validate(&app, &env).map(|_| ()),
         Err(Rejection::Rule(RuleViolation::AnchorTooOld { age: max + 1, max }))
     );
-    let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
+    let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
     assert_eq!(process(&mut app, req.clone()).await, response::ProcessProposal::Reject);
     assert_eq!(app.halt.as_deref(), Some("anchor_too_old"));
     fx.advance_l1(app.l1(), 10_066, &fx.inbox, &fx.registry);
@@ -520,7 +525,7 @@ async fn finalized_head_advance_does_not_expire_proposal_or_require_cached_accep
         let env = propose(&mut hot).await;
         assert_eq!(env.anchor.is_some(), moves_anchor);
         let parent = hot.state().unwrap().clone();
-        let req = process_req(next_height(&hot), bft_time(&hot), vec![env.encode()]);
+        let req = process_req(&hot, next_height(&hot), bft_time(&hot), vec![env.encode()]);
         assert_eq!(process(&mut hot, req.clone()).await, response::ProcessProposal::Accept);
 
         // Keep the entire request, parent and anchor fixed while finalized L1 advances by
@@ -819,7 +824,7 @@ async fn proposals_before_init_chain_are_errors() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = fx.app(dir.path());
-    let req = process_req(1_001, 0, vec![]);
+    let req = process_req(&app, 1_001, 0, vec![]);
     let err = app.handle(Request::ProcessProposal(req)).await.expect_err("not initialized");
     assert!(matches!(err, AbciError::Uninitialized("ProcessProposal")), "{err:?}");
     let req = super::proposal::prepare_req(1_001, 0);
@@ -910,7 +915,7 @@ async fn historical_state_unavailable_halts_every_handler_and_survives_restart()
             code: -38100,
             message: "historical state unavailable".into(),
         };
-        let request = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
+        let request = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
         let request = match method {
             "prepare" => {
                 app.engine().state().build_script.push_back(Err(error));
@@ -971,7 +976,7 @@ async fn canonical_unsupported_anchor_rejects_process_but_finalize_waits() {
             list(&[alloy_rlp::encode(Bytes::from(raw.clone())), alloy_rlp::encode(&witness.inbox)]);
         let body = list(&[alloy_rlp::encode(&env.block), list(&[anchor]), list(&[]), list(&[])]);
         let tx: Bytes = [vec![crate::envelope::ENVELOPE_VERSION], body].concat().into();
-        let req = process_req(next_height(&app), bft_time(&app), vec![tx]);
+        let req = process_req(&app, next_height(&app), bft_time(&app), vec![tx]);
         if canonical {
             app.l1().state().canonical_script.push_back(Ok(alloy_primitives::keccak256(&raw)));
             assert_eq!(
@@ -1012,7 +1017,7 @@ async fn malformed_own_l1_reply_is_a_safety_halt_in_process_and_finalize() {
         let dir = tempfile::tempdir().unwrap();
         let mut app = initialized(&fx, dir.path()).await;
         let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), fx.genesis.l1_0)), None);
-        let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
+        let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
         app.l1()
             .state()
             .canonical_script
@@ -1050,7 +1055,7 @@ async fn review_singleton_incomplete_results_wait_without_consuming_cursor() {
         Err(EngineError::BuildNotStarted(crate::engine::PayloadVerdict::Valid)),
         Ok(env.block.clone()),
     ]);
-    let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
+    let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
     let store = app.store.clone();
     {
         let pending = app.handle(Request::ProcessProposal(req));
@@ -1088,7 +1093,7 @@ async fn review_own_el_bad_reply_halts_durably_but_peer_proof_rejects() {
         } else {
             env.anchor.as_mut().unwrap().inbox.storage[0].value += U256::from(1);
         }
-        let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
+        let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
         let result = app.handle(Request::ProcessProposal(req)).await;
         if own_el {
             assert!(matches!(result, Err(AbciError::SafetyHalt(_))), "{result:?}");
@@ -1134,7 +1139,7 @@ async fn review_singleton_invalid_is_definitive_in_process_and_finalize() {
         app.engine().state().build_script.push_back(Err(EngineError::BuildNotStarted(
             crate::engine::PayloadVerdict::Invalid("bad parent".into()),
         )));
-        let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
+        let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
         let request = if cold {
             Request::FinalizeBlock(finalize_req(&req))
         } else {

@@ -51,8 +51,14 @@ pub(super) fn prepare_req(height: u64, time: u64) -> request::PrepareProposal {
 }
 
 /// A `ProcessProposal` request for `txs` at `height` and BFT time `time`; its block hash is
-/// derived from the height and the transactions.
-pub(super) fn process_req(height: u64, time: u64, txs: Vec<Bytes>) -> request::ProcessProposal {
+/// derived from the height and the transactions. The next-set hash is explicit native Comet
+/// header metadata from the fixture state, never repaired by the execution helper.
+pub(super) fn process_req(
+    app: &App<MockL1, MockEngine>,
+    height: u64,
+    time: u64,
+    txs: Vec<Bytes>,
+) -> request::ProcessProposal {
     let mut preimage = height.to_be_bytes().to_vec();
     for tx in &txs {
         preimage.extend_from_slice(tx);
@@ -64,7 +70,9 @@ pub(super) fn process_req(height: u64, time: u64, txs: Vec<Bytes>) -> request::P
         hash: Hash::Sha256(keccak256(preimage).0),
         height: Height::try_from(height).unwrap(),
         time: Time::from_unix_timestamp(i64::try_from(time).unwrap(), 0).unwrap(),
-        next_validators_hash: Hash::None,
+        next_validators_hash: app.state().map_or(Hash::None, |state| {
+            Hash::Sha256(state.val_state.next.validators_hash().unwrap().0)
+        }),
         proposer_address: proposer(),
     }
 }
@@ -113,7 +121,7 @@ pub(super) async fn judge(
     app: &mut App<MockL1, MockEngine>,
     env: &EtnaEnvelope,
 ) -> (response::ProcessProposal, request::ProcessProposal) {
-    let req = process_req(next_height(app), bft_time(app), vec![env.encode()]);
+    let req = process_req(app, next_height(app), bft_time(app), vec![env.encode()]);
     (process(app, req.clone()).await, req)
 }
 
@@ -710,7 +718,7 @@ async fn proposal_unknown_certified_proposer_fails_closed() {
         "unknown proposer cannot build or reuse an EL result"
     );
     assert_eq!(app.halt.as_deref(), Some("proposer_unknown"));
-    let mut req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
+    let mut req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
     req.proposer_address = account::Id::new([0xff; 20]);
     assert_eq!(process(&mut app, req.clone()).await, response::ProcessProposal::Reject);
     assert_eq!(app.halt.as_deref(), Some("proposer_unknown"));

@@ -29,7 +29,7 @@ fn target(app: &App<MockL1, MockEngine>, fx: &Fixture, height: u64, hash: B256) 
                 if next() {
                     let env = next_envelope(app, fx);
                     B256::from_slice(
-                        process_req(height, bft_time(app), vec![env.encode()]).hash.as_bytes(),
+                        process_req(app, height, bft_time(app), vec![env.encode()]).hash.as_bytes(),
                     )
                 } else {
                     B256::repeat_byte(8)
@@ -138,7 +138,7 @@ async fn future_target_allows_info_and_replay_but_finalize_does_not_unlock() {
             .value(),
         GRID_INTERVAL - 1
     );
-    let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
+    let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
     finalize(&mut app, finalize_req(&req)).await.unwrap();
     assert!(!app.trust.snapshot().trust_ready);
     assert!(app.engine().calls().iter().any(|call| matches!(call,
@@ -158,7 +158,7 @@ async fn conflicting_decided_checkpoint_halts_before_settle_or_pending() {
     target(&app, &fx, 1, B256::repeat_byte(7));
     app.refresh_trust().await.unwrap();
     let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), fx.genesis.l1_0)), None);
-    let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
+    let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
     let before = app.engine().calls().len();
     let error = finalize(&mut app, finalize_req(&req)).await.unwrap_err();
     assert!(matches!(error, AbciError::SafetyHalt(_)), "{error}");
@@ -240,7 +240,7 @@ async fn target_is_pinned_until_match_then_refresh_can_extend_catchup() {
     app.l1().set_finalized(101);
     app.refresh_trust().await.unwrap();
     assert_eq!(app.trust.snapshot().target.unwrap().height, GRID_INTERVAL);
-    let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
+    let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
     finalize(&mut app, finalize_req(&req)).await.unwrap();
     commit(&mut app).await.unwrap();
     app.refresh_trust().await.unwrap();
@@ -255,7 +255,7 @@ async fn restart_checks_contiguous_ancestry_not_presence_of_genuine_checkpoint()
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
     let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), fx.genesis.l1_0)), None);
-    let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
+    let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
     finalize(&mut app, finalize_req(&req)).await.unwrap();
     commit(&mut app).await.unwrap();
     target(&app, &fx, 0, fx.genesis_hash());
@@ -355,7 +355,7 @@ async fn failed_commit_never_authorizes_and_keeps_original_durable_head() {
     let hash = env.block.header.hash_slow();
     target(&app, &fx, 1, hash);
     app.refresh_trust().await.unwrap();
-    let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
+    let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
     finalize(&mut app, finalize_req(&req)).await.unwrap();
     // An occupied temp path causes the actual atomic store write to fail.
     std::fs::create_dir(dir.path().join(crate::store::TMP_FILE)).unwrap();
@@ -460,7 +460,7 @@ async fn refreshed_lower_checkpoint_never_downgrades_pinned_target() {
     let hash = env.block.header.hash_slow();
     target(&app, &fx, GRID_INTERVAL, hash);
     app.refresh_trust().await.unwrap();
-    let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
+    let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
     finalize(&mut app, finalize_req(&req)).await.unwrap();
     commit(&mut app).await.unwrap();
     fx.plant_l1_block(app.l1(), 101, &fx.inbox, &fx.registry);
@@ -548,7 +548,7 @@ async fn ready_session_keeps_fixed_target_and_labels_valid_candidates_safe() {
     assert_eq!(app.l1().calls().len(), reads, "ready sessions do not chase moving finality");
     let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), fx.genesis.l1_0)), None);
     let hash = env.block.header.hash_slow();
-    let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
+    let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
     finalize(&mut app, finalize_req(&req)).await.unwrap();
     assert!(app.engine().calls().iter().any(|call| matches!(call,
         EngineCall::Forkchoice { head, safe, finalized } if *head == hash && *safe == hash && *finalized == fx.genesis_hash())));
@@ -763,7 +763,7 @@ async fn committed_comet_history_is_required_and_survives_restart() {
     for i in 0..=GRID_INTERVAL {
         let anchor = (i == 0).then(|| fx.anchor_witness(app.l1(), fx.genesis.l1_0));
         let env = hand_envelope(&app, anchor, None);
-        let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
+        let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
         finalize(&mut app, finalize_req(&req)).await.unwrap();
         assert!(app.store.load_comet_hash(req.height.value()).unwrap().is_none());
         commit(&mut app).await.unwrap();
@@ -826,7 +826,7 @@ async fn decided_comet_hash_mismatch_halts_before_settle_even_when_el_matches() 
     fx.plant_l1_block(app.l1(), 100, &inbox, &fx.registry);
     app.l1().set_finalized(100);
     app.refresh_trust().await.unwrap();
-    let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
+    let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
     let calls = app.engine().calls().len();
     assert!(matches!(finalize(&mut app, finalize_req(&req)).await, Err(AbciError::SafetyHalt(_))));
     assert!(app.pending.is_none());
@@ -838,7 +838,7 @@ async fn decided_comet_hash_mismatch_halts_before_settle_even_when_el_matches() 
 async fn commit_next(app: &mut App<MockL1, MockEngine>, fx: &Fixture, anchor: Option<u64>) -> B256 {
     let witness = anchor.map(|number| fx.anchor_witness(app.l1(), number));
     let env = hand_envelope(app, witness, None);
-    let req = process_req(next_height(app), bft_time(app), vec![env.encode()]);
+    let req = process_req(app, next_height(app), bft_time(app), vec![env.encode()]);
     finalize(app, finalize_req(&req)).await.unwrap();
     commit(app).await.unwrap();
     B256::from_slice(req.hash.as_bytes())
@@ -897,7 +897,7 @@ async fn pinned_target_below_the_comet_history_floor_is_reacquired() {
     let mut app = initialized(&fx, dir.path()).await;
     commit_to(&mut app, &fx, GRID_INTERVAL - 1).await;
     let env = next_envelope(&app, &fx);
-    let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
+    let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
     let inbox = InboxStorage {
         last_checkpoint_comet_hash: B256::from_slice(req.hash.as_bytes()),
         last_checkpoint_val_state_hash: next_val_state_hash(&app),
@@ -1055,7 +1055,7 @@ async fn pinned_target_changing_only_val_state_is_rejected() {
         target(&app, &fx, GRID_INTERVAL, env.block.header.hash_slow());
         app.refresh_trust().await.unwrap();
         assert_eq!(app.trust.snapshot().target.unwrap().height, GRID_INTERVAL);
-        let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
+        let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
         finalize(&mut app, finalize_req(&req)).await.unwrap();
         commit(&mut app).await.unwrap();
         let changed = InboxStorage {
@@ -1082,7 +1082,7 @@ async fn check_trust_candidate_compares_val_state() {
     let mut app = initialized(&fx, dir.path()).await;
     commit_to(&mut app, &fx, GRID_INTERVAL - 1).await;
     let env = next_envelope(&app, &fx);
-    let req = process_req(next_height(&app), bft_time(&app), vec![env.encode()]);
+    let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
     let inbox = InboxStorage {
         last_checkpoint_comet_hash: B256::from_slice(req.hash.as_bytes()),
         last_checkpoint_val_state_hash: B256::repeat_byte(0x5a),

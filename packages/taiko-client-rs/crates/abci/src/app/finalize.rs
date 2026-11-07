@@ -57,6 +57,18 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let Some(state) = &self.state else {
             return Err(AbciError::Uninitialized("FinalizeBlock"));
         };
+        // At h the decided header commits the set signing h+1, before this response's
+        // updates take effect at h+2. Its hash checks keys/powers, not proposer priorities.
+        let next_validators_hash = state
+            .val_state
+            .next
+            .validators_hash()
+            .map_err(|error| safety_halt(height, "next_validators_hash", error))?;
+        if req.next_validators_hash.as_bytes() != next_validators_hash.as_slice() {
+            return Err(AbciError::SafetyHalt(format!(
+                "height {height}: next_validators_hash contradicts the validator-state replica"
+            )));
+        }
         let bft_secs = unix_secs(req.time);
         let txs: Vec<Bytes> = req.txs.iter().cloned().map(Bytes::from).collect();
         let env = match single_envelope(&txs) {

@@ -84,7 +84,7 @@ async fn refusals_count_by_reason_and_raise_halted() {
     assert_eq!(AbciMetrics::proposals_empty().get(), empty + 1);
     assert_eq!(AbciMetrics::halted().get(), 1);
 
-    let req = process_req(next_height(&app), bft_time(&app), vec![]);
+    let req = process_req(&app, next_height(&app), bft_time(&app), vec![]);
     assert_eq!(process(&mut app, req).await, response::ProcessProposal::Reject);
     assert_eq!(rejected("empty_proposal"), empty_proposals + 1);
     assert_eq!(AbciMetrics::process_seconds().get_sample_count(), processed + 1);

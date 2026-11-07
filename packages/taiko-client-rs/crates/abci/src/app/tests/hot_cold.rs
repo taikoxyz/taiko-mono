@@ -266,7 +266,7 @@ impl Run {
         // Hot: ProcessProposal completes the decision, executes the block and caches the verdict;
         // FinalizeBlock reuses it without probing, executing or reading L1 again.
         script(&self.hot, singleton.as_ref());
-        let proposal = process_req(height, block.bft, vec![block.env.encode()]);
+        let proposal = process_req(&self.hot, height, block.bft, vec![block.env.encode()]);
         let before = self.hot.engine().calls().len();
         let accepted = process(&mut self.hot, proposal.clone()).await;
         prop_assert_eq!(

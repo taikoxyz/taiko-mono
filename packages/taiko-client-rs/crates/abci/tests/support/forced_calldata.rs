@@ -102,7 +102,11 @@ pub fn now() -> Time {
     )
     .unwrap()
 }
-pub fn process_request(env: &EtnaEnvelope, time: Time) -> request::ProcessProposal {
+pub fn process_request(
+    env: &EtnaEnvelope,
+    time: Time,
+    parent: &AppState,
+) -> request::ProcessProposal {
     request::ProcessProposal {
         txs: vec![env.encode().0],
         proposed_last_commit: None,
@@ -110,14 +114,14 @@ pub fn process_request(env: &EtnaEnvelope, time: Time) -> request::ProcessPropos
         hash: Hash::Sha256(keccak256(env.encode()).0),
         height: Height::try_from(env.block.header.number).unwrap(),
         time,
-        next_validators_hash: Hash::None,
+        next_validators_hash: Hash::Sha256(parent.val_state.next.validators_hash().unwrap().0),
         proposer_address: account::Id::new(
             test_harness::validator_keys(1)[0].pubkey().address().into_array(),
         ),
     }
 }
-pub fn finalize_request(env: &EtnaEnvelope, time: Time) -> Request {
-    let p = process_request(env, time);
+pub fn finalize_request(env: &EtnaEnvelope, time: Time, parent: &AppState) -> Request {
+    let p = process_request(env, time, parent);
     Request::FinalizeBlock(request::FinalizeBlock {
         txs: p.txs,
         decided_last_commit: CommitInfo { round: Round::default(), votes: vec![] },
@@ -130,7 +134,8 @@ pub fn finalize_request(env: &EtnaEnvelope, time: Time) -> Request {
     })
 }
 pub async fn prepare<E: Engine>(app: &mut App<RpcL1Source, E>, time: Time) -> Result<EtnaEnvelope> {
-    let height = app.state().context("parent")?.last_height + 1;
+    let parent = app.state().context("parent")?;
+    let height = parent.last_height + 1;
     let r = request::PrepareProposal {
         max_tx_bytes: 22_020_096,
         txs: vec![],
@@ -138,7 +143,7 @@ pub async fn prepare<E: Engine>(app: &mut App<RpcL1Source, E>, time: Time) -> Re
         misbehavior: vec![],
         height: Height::try_from(height)?,
         time,
-        next_validators_hash: Hash::None,
+        next_validators_hash: Hash::Sha256(parent.val_state.next.validators_hash()?.0),
         proposer_address: account::Id::new(
             test_harness::validator_keys(1)[0].pubkey().address().into_array(),
         ),
@@ -154,13 +159,14 @@ pub async fn accept<E: Engine>(
     env: &EtnaEnvelope,
     time: Time,
 ) -> Result<()> {
-    let Response::ProcessProposal(r) =
-        app.handle(Request::ProcessProposal(process_request(env, time))).await?
-    else {
+    let parent = app.state().context("parent")?;
+    let proposal = process_request(env, time, parent);
+    let decided = finalize_request(env, time, parent);
+    let Response::ProcessProposal(r) = app.handle(Request::ProcessProposal(proposal)).await? else {
         anyhow::bail!("wrong response")
     };
     ensure!(r == response::ProcessProposal::Accept, "rejected: {:?}", app.status());
-    app.handle(finalize_request(env, time)).await?;
+    app.handle(decided).await?;
     app.handle(Request::Commit).await?;
     Ok(())
 }

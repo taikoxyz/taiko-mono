@@ -128,7 +128,7 @@ async fn mixed(due: bool) -> Result<()> {
     engine.unavailable.store(true, Ordering::SeqCst);
     let attempts = engine.attempts.clone();
     let mut cold = d.detached_app(0, replay_store, engine)?;
-    cold.handle(finalize_request(&env, time)).await?;
+    cold.handle(finalize_request(&env, time, &parent)).await?;
     cold.handle(Request::Commit).await?;
     assert_eq!(attempts.load(Ordering::SeqCst), 0);
     assert_eq!(cold.state(), app.state());
@@ -182,7 +182,7 @@ async fn forced_same_nonce_replacement_rejected() -> Result<()> {
     // The honest included proposal omitted its duplicate preimage. After replacing tx[0],
     // that omission cannot authorize skipping the original due entry.
     assert!(env.forced.as_ref().unwrap().tx.is_empty());
-    let result = app.handle(Request::ProcessProposal(process_request(&env, time))).await?;
+    let result = app.handle(Request::ProcessProposal(process_request(&env, time, &parent))).await?;
     assert!(matches!(result, Response::ProcessProposal(response::ProcessProposal::Reject)));
     assert_eq!(app.status().unwrap().halt_reason.as_deref(), Some("forced_inclusion"));
     assert_eq!(app.state(), Some(&parent));
@@ -190,7 +190,7 @@ async fn forced_same_nonce_replacement_rejected() -> Result<()> {
     // Supplying the correct preimage reaches the singleton checker, which still retains the
     // original transaction on this parent. A same-nonce replacement cannot justify that skip.
     env.forced.as_mut().unwrap().tx = tx.encoded_2718().into();
-    let result = app.handle(Request::ProcessProposal(process_request(&env, time))).await?;
+    let result = app.handle(Request::ProcessProposal(process_request(&env, time, &parent))).await?;
     assert!(matches!(result, Response::ProcessProposal(response::ProcessProposal::Reject)));
     assert_eq!(app.status().unwrap().halt_reason.as_deref(), Some("forced_skip_invalid"));
     assert_eq!(app.state(), Some(&parent), "rejected candidate never advances cursor or parent");
@@ -389,7 +389,7 @@ async fn forced_invalid_skip_keeps_mempool() -> Result<()> {
             let mut fatal = d.detached_app(0, fatal_store.clone(), engine)?;
             assert!(
                 matches!(
-                    fatal.handle(finalize_request(&env, time)).await,
+                    fatal.handle(finalize_request(&env, time, &parent)).await,
                     Err(abci::AbciError::SafetyHalt(_))
                 ),
                 "{name}: -38100 is never a legal skip"
@@ -409,7 +409,7 @@ async fn forced_invalid_skip_keeps_mempool() -> Result<()> {
         unavailable.store(true, Ordering::SeqCst);
         let mut cold = d.detached_app(0, cold_store.clone(), engine)?;
         if requires_singleton {
-            let request = finalize_request(&env, time);
+            let request = finalize_request(&env, time, &parent);
             use tracing::instrument::WithSubscriber;
             let logs = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
             let sink = logs.clone();
@@ -458,7 +458,7 @@ async fn forced_invalid_skip_keeps_mempool() -> Result<()> {
             assert_eq!(cold_store.load()?, Some(parent.clone()));
             unavailable.store(false, Ordering::SeqCst);
         }
-        cold.handle(finalize_request(&env, time)).await?;
+        cold.handle(finalize_request(&env, time, &parent)).await?;
         cold.handle(Request::Commit).await?;
         if !requires_singleton {
             assert_eq!(
@@ -657,7 +657,7 @@ async fn raw_execution_boundary_124000_accepts_124001_rejects() -> Result<()> {
         full.block.length()
     );
     let Response::ProcessProposal(verdict) =
-        app.handle(Request::ProcessProposal(process_request(&full, time))).await?
+        app.handle(Request::ProcessProposal(process_request(&full, time, &parent))).await?
     else {
         anyhow::bail!("process response")
     };
@@ -667,7 +667,7 @@ async fn raw_execution_boundary_124000_accepts_124001_rejects() -> Result<()> {
     over.block = blocks.pop().unwrap();
     assert_eq!(over.block.length(), 124_001);
     let Response::ProcessProposal(verdict) =
-        app.handle(Request::ProcessProposal(process_request(&over, time))).await?
+        app.handle(Request::ProcessProposal(process_request(&over, time, &parent))).await?
     else {
         anyhow::bail!("process response")
     };
@@ -675,7 +675,7 @@ async fn raw_execution_boundary_124000_accepts_124001_rejects() -> Result<()> {
     let (_fatal_dir, fatal_store) = saved_store(&parent)?;
     let mut fatal = d.detached_app(0, fatal_store.clone(), d.rpc_engine(0)?)?;
     assert!(matches!(
-        fatal.handle(finalize_request(&over, time)).await,
+        fatal.handle(finalize_request(&over, time, &parent)).await,
         Err(abci::AbciError::SafetyHalt(_))
     ));
     assert_eq!(fatal_store.load()?, Some(parent.clone()));

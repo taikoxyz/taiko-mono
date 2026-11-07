@@ -458,7 +458,7 @@ async fn the_switch_witness_is_prefetched_before_the_parent_anchor_state_is_prun
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
     let mut app = before_switch(&fx, dir.path()).await;
-    let req = super::proposal::process_req(next_height(&app), bft_time(&app), vec![]);
+    let req = super::proposal::process_req(&app, next_height(&app), bft_time(&app), vec![]);
     assert_eq!(super::proposal::process(&mut app, req).await, response::ProcessProposal::Reject);
     let state = app.state().unwrap().clone();
     let target = state.schedule().switch_target(state.last_height + 1).unwrap();

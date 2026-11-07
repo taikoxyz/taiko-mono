@@ -413,7 +413,8 @@ async fn execution_failures_of_a_decided_block_are_safety_halts() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
     let env = propose(&mut app).await;
-    let req = finalize_req(&process_req(next_height(&app), bft_time(&app), vec![env.encode()]));
+    let req =
+        finalize_req(&process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]));
     let committed = app.state().cloned();
 
     let new_payload = [
@@ -442,7 +443,8 @@ async fn el_error_replies_on_a_decided_block_are_safety_halts() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
     let env = propose(&mut app).await;
-    let req = finalize_req(&process_req(next_height(&app), bft_time(&app), vec![env.encode()]));
+    let req =
+        finalize_req(&process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]));
     let reply = |code: i64, message: &str| EngineError::ErrorReply {
         call: "engine_x at http://el.test/".into(),
         code,
@@ -491,7 +493,8 @@ async fn transient_el_error_replies_are_retried_until_the_block_finalizes() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
     let env = propose(&mut app).await;
-    let req = finalize_req(&process_req(next_height(&app), bft_time(&app), vec![env.encode()]));
+    let req =
+        finalize_req(&process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]));
     let reply = |code: i64, message: &str| EngineError::ErrorReply {
         call: "engine_x at http://el.test/".into(),
         code,
@@ -548,7 +551,8 @@ async fn rpc_engine_invalid_without_a_validation_error_is_a_safety_halt() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
     let env = propose(&mut app).await;
-    let req = finalize_req(&process_req(next_height(&app), bft_time(&app), vec![env.encode()]));
+    let req =
+        finalize_req(&process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]));
     Store::volatile(dir.path().to_path_buf()).save(app.state().unwrap()).unwrap();
     drop(app);
 
@@ -638,13 +642,14 @@ async fn a_decided_block_failing_validation_is_a_safety_halt() {
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
     let mut env = propose(&mut app).await;
     env.block.header.timestamp += 1;
-    let req = finalize_req(&process_req(next_height(&app), bft_time(&app), vec![env.encode()]));
+    let req =
+        finalize_req(&process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]));
     let before = app.engine().calls().len();
     let msg = safety_halt(finalize(&mut app, req).await);
     assert!(msg.contains("timestamp"), "{msg}");
     assert_eq!(engine_calls_since(&app, before), [], "the EL is not touched");
 
-    let garbage = finalize_req(&process_req(next_height(&app), bft_time(&app), vec![]));
+    let garbage = finalize_req(&process_req(&app, next_height(&app), bft_time(&app), vec![]));
     safety_halt(finalize(&mut app, garbage).await);
     assert_eq!(app.pending, None);
 }
@@ -658,7 +663,8 @@ async fn a_safety_halt_survives_a_failure_to_persist_its_evidence() {
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
     let mut env = propose(&mut app).await;
     env.block.header.timestamp += 1;
-    let req = finalize_req(&process_req(next_height(&app), bft_time(&app), vec![env.encode()]));
+    let req =
+        finalize_req(&process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]));
     // A directory where the evidence file belongs makes every read and write of it fail.
     std::fs::create_dir(dir.path().join("fatal-evidence.txt")).unwrap();
     let logs = LogCapture::start();
@@ -682,7 +688,8 @@ async fn cold_finalize_of_stale_anchor_block_halts() {
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
     set_anchor_age(&mut app, max + 1);
     let env = hand_envelope(&app, None, None);
-    let req = finalize_req(&process_req(next_height(&app), bft_time(&app), vec![env.encode()]));
+    let req =
+        finalize_req(&process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]));
     let before = app.engine().calls().len();
     let msg = safety_halt(finalize(&mut app, req).await);
     let violation = crate::rules::RuleViolation::AnchorTooOld { age: max + 1, max };
@@ -887,7 +894,8 @@ async fn a_cold_block_without_an_anchor_witness_needs_no_l1() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
     let env = hand_envelope(&app, None, None);
-    let req = finalize_req(&process_req(next_height(&app), bft_time(&app), vec![env.encode()]));
+    let req =
+        finalize_req(&process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]));
     {
         let mut l1 = app.l1().state();
         l1.fail = Some(L1Error::Rpc("down".into()));
@@ -912,7 +920,8 @@ async fn cold_finalize_halts_on_an_anchored_checkpoint_conflicting_with_the_loca
         let mut app = mid_epoch(&fx, dir.path(), 5).await;
         fx.advance_l1(app.l1(), number, &inbox, &fx.registry);
         let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), number)), None);
-        let req = finalize_req(&process_req(next_height(&app), bft_time(&app), vec![env.encode()]));
+        let req =
+            finalize_req(&process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]));
         let committed = app.state().cloned();
         let msg = safety_halt(finalize(&mut app, req).await);
         assert!(msg.contains("lastCheckpoint"), "checkpoint {height}: {msg}");
@@ -934,7 +943,8 @@ async fn cold_finalize_waits_until_the_el_serves_the_checkpoint_block() {
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
     fx.advance_l1(app.l1(), 66, &fx.inbox_with(3), &fx.registry);
     let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66)), None);
-    let req = finalize_req(&process_req(next_height(&app), bft_time(&app), vec![env.encode()]));
+    let req =
+        finalize_req(&process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]));
     let block = app.engine().state().chain.remove(&3).expect("the local chain holds block 3");
     let waited = tokio::time::timeout(Duration::from_secs(60), finalize(&mut app, req.clone()));
     assert!(waited.await.is_err(), "waits for the EL");
@@ -975,7 +985,8 @@ async fn syncing_and_transport_errors_are_retried_with_backoff() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
     let env = propose(&mut app).await;
-    let req = finalize_req(&process_req(next_height(&app), bft_time(&app), vec![env.encode()]));
+    let req =
+        finalize_req(&process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]));
     {
         let mut engine = app.engine().state();
         engine.new_payload_script.push_back(Ok(PayloadVerdict::Syncing));
@@ -1010,7 +1021,8 @@ async fn a_syncing_payload_is_followed_by_a_forkchoice_nudge() {
     let hash = env.block.header.hash_slow();
     let finalized = app.state().unwrap().anchor.inbox.last_checkpoint_hash;
     let fcu = EngineCall::Forkchoice { head: hash, safe: B256::ZERO, finalized };
-    let req = finalize_req(&process_req(next_height(&app), bft_time(&app), vec![env.encode()]));
+    let req =
+        finalize_req(&process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]));
 
     // An EL without the block (this node built it, so drop it from the mock EL's blocks):
     // SYNCING twice, each nudge answered SYNCING too, then the payload executes and the
@@ -1050,7 +1062,8 @@ async fn a_failed_forkchoice_nudge_logs_its_own_error() {
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
     let env = propose(&mut app).await;
     let hash = env.block.header.hash_slow();
-    let req = finalize_req(&process_req(next_height(&app), bft_time(&app), vec![env.encode()]));
+    let req =
+        finalize_req(&process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]));
     let slow = app.opts.engine_timeout + Duration::from_secs(1);
     {
         // newPayload answers SYNCING three times; the nudges after it fail on the transport,
@@ -1079,7 +1092,8 @@ async fn a_slow_engine_is_retried() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
     let env = propose(&mut app).await;
-    let req = finalize_req(&process_req(next_height(&app), bft_time(&app), vec![env.encode()]));
+    let req =
+        finalize_req(&process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]));
     let timeout = app.opts.engine_timeout;
     let slow = timeout + Duration::from_secs(1);
     app.engine().state().delay_script.extend([slow, slow]);
@@ -1180,7 +1194,7 @@ async fn forced_block(fx: &Fixture, dir: &Path) -> (App<MockL1, MockEngine>, Etn
 /// The `FinalizeBlock` request of `env` decided as the next height of `app`, which never judged
 /// it.
 fn cold_req(app: &App<MockL1, MockEngine>, env: &EtnaEnvelope) -> request::FinalizeBlock {
-    finalize_req(&process_req(next_height(app), bft_time(app), vec![env.encode()]))
+    finalize_req(&process_req(app, next_height(app), bft_time(app), vec![env.encode()]))
 }
 
 /// Cold included replay executes the ordinary mixed payload without probing forced input.
@@ -1394,7 +1408,7 @@ async fn finalize_before_init_chain_is_an_error() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = fx.app(dir.path());
-    let req = finalize_req(&process_req(1_001, 0, vec![]));
+    let req = finalize_req(&process_req(&app, 1_001, 0, vec![]));
     let err = finalize(&mut app, req).await.expect_err("not initialized");
     assert!(matches!(err, AbciError::Uninitialized("FinalizeBlock")), "{err:?}");
 }

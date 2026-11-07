@@ -6,6 +6,7 @@
 - Keep signer persistence uncertainty terminal under supervised restarts.
 - Preserve retryable dependency failures and unsupported-ruleset pauses while halting on nonretryable decided-block Engine failures.
 - Carry typed generation-zero supersession into governance recovery and keep optional cache writes out of proposal validity.
+- Cross-check every decided Comet header's next validator hash against the pre-update replica.
 - Refresh pinned Etna contracts/vectors and CI action pins; run the validator supervisor suite in CI.
 
 ## Unreleased

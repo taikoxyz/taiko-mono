@@ -9,7 +9,9 @@ use tendermint::abci::Code;
 
 use super::{
     finalize::{multi_epoch_run, share_l1_chain, short_epochs, updates_of},
-    proposal::{commit, finalize, finalize_req, judge, propose, step},
+    proposal::{
+        bft_time, commit, finalize, finalize_req, judge, next_height, process_req, propose, step,
+    },
     *,
 };
 use crate::{
@@ -42,6 +44,76 @@ async fn init_chain_sets_the_genesis_validator_state() {
     assert_eq!(state.val_state.height, state.last_height);
     let saved = Store::volatile(dir.path().into()).load().unwrap().unwrap();
     assert_eq!(saved.val_state, expected);
+}
+
+/// A decided header must commit the replica's next signing set even when its execution verdict
+/// is cached. Missing or contradictory native hashes halt before any further EL work.
+#[tokio::test]
+async fn finalize_block_checks_the_decided_next_validator_hash_before_execution() {
+    for cached in [false, true] {
+        for hash in [tendermint::Hash::None, tendermint::Hash::Sha256([0x55; 32])] {
+            let fx = Fixture::genesis(2);
+            let dir = tempfile::tempdir().unwrap();
+            let mut app = initialized(&fx, dir.path()).await;
+            let env = propose(&mut app).await;
+            let req = if cached {
+                judge(&mut app, &env).await.1
+            } else {
+                process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()])
+            };
+            let mut decided = finalize_req(&req);
+            decided.next_validators_hash = hash;
+            let committed = app.state().unwrap().clone();
+            let calls = app.engine().calls();
+            let l1_calls = app.l1().calls();
+
+            let error = finalize(&mut app, decided).await.expect_err("the hash contradicts Comet");
+            assert!(
+                matches!(&error, AbciError::SafetyHalt(reason) if reason.contains("next_validators_hash")),
+                "cached={cached}, hash={hash}: {error}"
+            );
+            assert_eq!(app.engine().calls(), calls, "no EL call after the contradiction");
+            assert_eq!(app.l1().calls(), l1_calls, "no L1 call after the contradiction");
+            assert_eq!(app.state(), Some(&committed));
+            assert!(app.pending.is_none());
+            assert_eq!(app.store.load().unwrap(), Some(committed));
+            assert!(app.store.fatal_evidence().unwrap().unwrap().contains("next_validators_hash"));
+        }
+    }
+}
+
+/// A response's updates affect h+2; the decided h header still names the old h+1 set.
+#[tokio::test]
+async fn finalize_block_next_validator_hash_does_not_apply_its_own_updates_early() {
+    let fx = short_epochs();
+    let source_dir = tempfile::tempdir().unwrap();
+    let (source, decided) = multi_epoch_run(&fx, source_dir.path()).await;
+    let switch = decided.iter().position(|(_, response)| !updates_of(response).is_empty()).unwrap();
+
+    for use_future_hash in [false, true] {
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = replica(&fx, &source, dir.path()).await;
+        for (req, _) in &decided[..switch] {
+            finalize(&mut app, req.clone()).await.unwrap();
+            commit(&mut app).await.unwrap();
+        }
+        let (req, response) = &decided[switch];
+        let future = app.state().unwrap().val_state.advance(&updates_of(response)).unwrap();
+        let future_hash = tendermint::Hash::Sha256(future.next.validators_hash().unwrap().0);
+        assert_ne!(req.next_validators_hash, future_hash, "the switch changes keys/powers");
+        if use_future_hash {
+            let mut req = req.clone();
+            req.next_validators_hash = future_hash;
+            assert!(matches!(finalize(&mut app, req).await, Err(AbciError::SafetyHalt(_))));
+            assert!(app.pending.is_none());
+        } else {
+            finalize(&mut app, req.clone()).await.unwrap();
+            commit(&mut app).await.unwrap();
+            let (following, _) = &decided[switch + 1];
+            assert_eq!(following.next_validators_hash, future_hash);
+            finalize(&mut app, following.clone()).await.unwrap();
+        }
+    }
 }
 
 /// Across the switches of a multi-epoch run (one of which adds a validator), every

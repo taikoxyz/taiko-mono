@@ -58,6 +58,24 @@ pub struct ValSet {
     pub proposer: usize,
 }
 
+impl ValSet {
+    /// The stock native keys/powers commitment used by Comet header validator hashes.
+    /// This excludes proposer priorities and the stored proposer index.
+    pub fn validators_hash(&self) -> Result<B256, crate::key::KeyError> {
+        crate::wire::validators_hash(
+            &self
+                .entries
+                .iter()
+                .map(|entry| crate::types::Member {
+                    pubkey: entry.key,
+                    power: entry.power as u64,
+                    eff_stake: alloy_primitives::U256::ZERO,
+                })
+                .collect::<Vec<_>>(),
+        )
+    }
+}
+
 /// The validator state stock CometBFT holds after committing `height`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
