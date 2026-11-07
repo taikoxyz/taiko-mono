@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.9.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.8.0...taiko-alethia-client-v2.9.0) (2026-11-07)
+
+
+### Features
+
+* **taiko-client:** add a prover flag to pair ZK proofs with SGX_RETH instead of SGX_GETH ([#22279](https://github.com/taikoxyz/taiko-mono/issues/22279)) ([9a87427](https://github.com/taikoxyz/taiko-mono/commit/9a87427c77d0729abdf8982103ca4117cc8b94ab))
+
+
+### Bug Fixes
+
+* **taiko-client:** stop on the first shutdown signal when metrics are enabled ([#22334](https://github.com/taikoxyz/taiko-mono/issues/22334)) ([4bcd0b4](https://github.com/taikoxyz/taiko-mono/commit/4bcd0b45a46f6bcfcfd7de2c888033b0c80b9e3f))
+
+
+### Code Refactoring
+
+* **taiko-client:** use SP1 for ZK proving ([#22297](https://github.com/taikoxyz/taiko-mono/issues/22297)) ([7471d53](https://github.com/taikoxyz/taiko-mono/commit/7471d53d7ac15e76eb7eb353e4c155e2d1410261))
+
 ## [2.8.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.7.0...taiko-alethia-client-v2.8.0) (2026-10-09)
 
 
