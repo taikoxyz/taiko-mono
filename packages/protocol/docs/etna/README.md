@@ -63,7 +63,7 @@ The Etna block-production and validation rules are in
 
 ### Key review points
 
-- **Snapshot startup:** EL-only backends, validators and full nodes may start from authenticated checkpoint snapshots at launch or later. App nodes also install the proposer priorities proven in the checkpoint's landed validator-state hash and authenticate only a bounded window of consensus history ending at the checkpoint, without pre-checkpoint EL execution or a scan from genesis, then use stock CometBFT P2P from s+1. Fixed genesis, latest-checkpoint trust and signer HRS remain mandatory; the trust check also compares the landed validator-state hash with the node's own state and halts for safety on a mismatch. Keep genesis and the current origin publicly recoverable, keep the full consensus history archived so fixed-genesis replay stays possible, and preserve complete EL/app snapshot-to-latest paths; full genesis blob replay is optional (5.3, 5.4, 6.2, 8.4, 9.1).
+- **Snapshot startup:** EL-only backends, validators and full nodes may start from authenticated checkpoint snapshots at launch or later. App nodes also install the proposer priorities proven in the checkpoint's landed validator-state hash and authenticate only a bounded window of consensus history ending at the checkpoint, without pre-checkpoint EL execution or a scan from genesis, then use stock CometBFT P2P from s+1. Fixed genesis, latest-checkpoint trust and signer HRS remain mandatory; the trust check also compares the landed validator-state hash with the state the node recorded when it committed that height (never stock CometBFT's historical lookup) and halts for safety on a mismatch. Keep genesis and the current origin publicly recoverable, keep the full consensus history archived so fixed-genesis replay stays possible, and preserve complete EL/app snapshot-to-latest paths; full genesis blob replay is optional (5.3, 5.4, 6.2, 8.4, 9.1).
 - **Consensus and signing:** stock CometBFT v0.40.0 with secp256k1eth keys, a
   signing domain bound to the deployment and recovery generation, committee
   changes activated two heights after they are derived, and an external signer
@@ -103,8 +103,11 @@ The Etna block-production and validation rules are in
   activation, exits and punishment can change selection before the end of R,
   whose finalized snapshot nodes and signers must authenticate. A verifier
   failure is not handled by `recover`: its
-  settlement rollback runs in the same DAO upgrade of the Inbox and registry
-  that replaces the verifier.
+  settlement rollback runs in the same DAO upgrade that replaces the verifier.
+  That upgrade also makes signals cached and bridge messages left `RETRIABLE`
+  since the first bad landing unusable until they are proven again, without
+  taking a legitimate message's payment; `SignalService` and the Bridge stay
+  paused until it executes.
 - **Upgrades:** rule changes take effect at an L2 timestamp from one Inbox slot
   that only the DAO writes, at least `maxAnchorAge` ahead, so every later block's
   anchor shows it. Nodes and guests select each block's ruleset from its anchor
