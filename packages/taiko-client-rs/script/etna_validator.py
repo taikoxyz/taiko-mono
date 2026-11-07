@@ -346,10 +346,11 @@ class Supervisor:
     def fresh_transport(self):
         """Return the next pair's signer address, after removing stale Unix rendezvous names.
 
-        Runs with both children reaped and the home owner lock held. Names with the signer
-        prefix are the supervisor's own namespace: they are unlinked through the opened run/
-        without type, inode or liveness checks. Only names in the supervisor's namespace are
-        removed; a live orphan can only lose its name.
+        Runs with both children reaped and the home owner lock held. Refuses a missing,
+        symlinked or sticky run/, one not owned by the Comet UID, and a prefixed entry that
+        cannot be unlinked. Names with the signer prefix are the supervisor's own namespace:
+        they are unlinked through the opened run/ without type, inode or liveness checks, so a
+        live orphan can only lose its name.
         """
         if self.comet is not None or self.signer is not None:
             raise ValueError("signer transport cleanup requires reaped children")

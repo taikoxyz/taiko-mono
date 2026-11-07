@@ -837,6 +837,7 @@ class UnixSupervisorTests(SupervisorTests):
         blocker = self.home / "run" / "signer-dddd.sock"
         blocker.mkdir()
         self.assert_refused()
+        self.assertIn("signer-dddd.sock", Path(self.log.name).read_text(errors="replace"))
         self.assertTrue(blocker.is_dir())
 
     def test_overlong_socket_path_is_refused_before_children(self):
@@ -870,9 +871,11 @@ class MinimalCapabilityTests(TrustPeer, unittest.TestCase):
     COMET_UID = 10001
 
     def setUp(self):
-        # An explicit request must never pass vacuously.
+        # An explicit request must never pass vacuously, for example as full root.
         if sys.platform != "linux" or os.geteuid() != 0:
             self.fail("ETNA_MIN_CAPS_TEST=1 needs Linux root holding only the documented capabilities")
+        self.assertEqual(cap_eff(os.getpid()), DOCUMENTED_CAPS,
+                         "ETNA_MIN_CAPS_TEST=1 needs exactly SETUID, SETGID, KILL and DAC_OVERRIDE")
         self.tmp = tempfile.TemporaryDirectory(prefix="etna-caps-", dir="/tmp")
         self.root = Path(self.tmp.name)
         self.root.chmod(0o755)

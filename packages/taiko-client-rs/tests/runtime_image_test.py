@@ -114,9 +114,10 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
     server.start()
     # Actual stock Comet must bind again over the same retained home and authority,
     # each time at the fresh run/signer-<16 hex>.sock its supervisor assigns. Both
-    # supervisors hold only the documented capabilities: an exec'd root process gets
-    # exactly its bounding set as permitted and effective capabilities.
-    supervisor_command = ["setpriv", "--bounding-set=-all,+setuid,+setgid,+kill,+dac_override",
+    # supervisors hold only the documented capabilities: with empty inheritable and ambient
+    # sets, an exec'd root process gets exactly its bounding set as permitted and effective.
+    supervisor_command = ["setpriv", "--inh-caps=-all", "--ambient-caps=-all",
+                          "--bounding-set=-all,+setuid,+setgid,+kill,+dac_override",
                           "--", "python3", "/app/script/etna_validator.py"]
     documented_caps = 0xe2  # DAC_OVERRIDE | KILL | SETGID | SETUID
     stale = home / "run/signer-deadbeefdeadbeef.sock"
@@ -206,6 +207,6 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
                           publicKey=public["publicKey"], child_uids=observed,
                           comet_cannot_read_registered_key=True, HRS_unchanged=True,
                           unused_local_identity_never_signed=True, stock_unix_restart_with_retained_authority=True,
-                          fresh_signer_socket_per_start=True, supervisor_cap_eff=hex(documented_caps),
+                          fresh_signer_socket_per_start=True, supervisor_cap_eff=hex(cap_eff),
                           stale_comet_socket_removed_under_documented_caps=True,
                           missing_key_or_HRS_aborts_before_Comet=True)))

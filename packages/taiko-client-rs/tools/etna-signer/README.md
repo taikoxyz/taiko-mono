@@ -50,7 +50,7 @@ Keep the existing guarded serve flags:
 
 ```sh
 ./target/etna-signer/etna-signer \
-  --comet-signer-addr unix:///absolute/path/run/comet-sign.sock \
+  --comet-signer-addr unix:///absolute/comet-home/run/signer-0123456789abcdef.sock \
   --trust-socket /absolute/path/app-store/checkpoint-trust.sock \
   --chain-id "$ETNA_CHAIN_ID" \
   --priv-key /absolute/private/priv_validator_key.json \
@@ -68,8 +68,12 @@ configured Comet home after starting the ABCI app. The script runs `cometbft sta
 directly. Container callers must likewise invoke the stock binary directly with
 `--entrypoint /usr/bin/cometbft`; the image's default entrypoint can initialize
 files and must not be used for validator runtime. Its `priv_validator_laddr` is
-mandatory. Keep the registered private key inaccessible to Comet. Node P2P and
-SecretConnection transport identities remain separate Ed25519 keys.
+mandatory. A `unix://` value only selects Unix mode: for every signer+Comet start the
+supervisor names a fresh `<comet-home>/run/signer-<16 hex>.sock`, passes it to Comet as
+`--priv_validator_laddr` and to the signer as `--comet-signer-addr`. With a `tcp://`
+value Comet listens on that address and the signer dials it. Keep the registered private
+key inaccessible to Comet. Node P2P and SecretConnection transport identities remain
+separate Ed25519 keys.
 
 Every transport connection opens a fresh closed trust session. Every signature,
 including a cached same-HRS retry, checks that private session again. PubKey and
