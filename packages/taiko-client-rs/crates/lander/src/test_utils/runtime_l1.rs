@@ -749,18 +749,21 @@ async fn snapshot_cannot_mix_inbox_generations_config_and_checkpoint_across_live
 }
 
 #[tokio::test]
-async fn reference_later_than_last_anchor_authenticates_inherited_and_parent_context() {
+async fn reference_only_fetches_and_the_pure_check_rejects_contradictions() {
     let (source, _l1, _l2, headers) = source(18, false).await;
     let snapshot = snapshot(&headers);
     let anchors = vec![anchor(&headers[&12]), anchor(&headers[&15]), anchor(&headers[&15])];
-    let verified = source.reference(&snapshot, &anchors).await.unwrap();
-    assert_eq!(verified[0].number(), 18);
-    assert_eq!(verified.last().unwrap().number(), 12);
-    assert_eq!(verified.len(), 7);
+    let expected = (12..=18).rev().map(|number| headers[&number].clone()).collect::<Vec<_>>();
+    let fetched = source.reference(&snapshot, &anchors).await.unwrap();
+    assert_eq!(fetched, expected);
+    crate::batch::verify_reference_chain(&fetched, &anchors).unwrap();
+    // The fetch does not compare anchors; the single pure check does (PROOF-6.2-33).
     let mut contradictory = anchors.clone();
     contradictory[1].state_root = B256::ZERO;
+    let fetched = source.reference(&snapshot, &contradictory).await.unwrap();
+    assert_eq!(fetched, expected);
     assert!(matches!(
-        source.reference(&snapshot, &contradictory).await,
+        crate::batch::verify_reference_chain(&fetched, &contradictory),
         Err(LanderError::Safety(_))
     ));
 }
@@ -779,9 +782,14 @@ async fn finality_lag_expired_reference_and_wrong_fork_are_distinct_errors() {
         source.validate_reference(&expired, 15, headers[&15].hash()).await,
         Err(LanderError::Stale(_))
     ));
+    // A fork in the fetched chain is fetched as is and rejected by the pure link check
+    // (PROOF-6.2-34).
     let (wrong, _a, _b, headers) = self::source(18, true).await;
+    let anchors = [anchor(&headers[&12])];
+    let forked = wrong.reference(&self::snapshot(&headers), &anchors).await.unwrap();
+    assert_eq!(forked.len(), 7);
     assert!(matches!(
-        wrong.reference(&self::snapshot(&headers), &[anchor(&headers[&12])]).await,
+        crate::batch::verify_reference_chain(&forked, &anchors),
         Err(LanderError::Safety(_))
     ));
 }

@@ -82,7 +82,11 @@ pub trait LandingSource: Send + Sync {
         snapshot_number: u64,
         epoch: u64,
     ) -> Result<CommitteeWitness>;
-    /// Authenticate all consumed anchors along a descending finalized reference chain.
+    /// Fetch the descending raw L1 headers from the reference tip, the finalized block below
+    /// the snapshot, down to the oldest consumed anchor: `Temporary` while finality is behind
+    /// the newest anchor, `Capacity` above `MAX_REFERENCE_HEADERS` (BATCH-6.3-6). Fetch
+    /// only: the caller verifies the links and anchors with
+    /// [`crate::batch::verify_reference_chain`] and the tip with [`Self::validate_reference`].
     async fn reference(
         &self,
         snapshot: &LandingSnapshot,
@@ -440,26 +444,9 @@ impl LandingSource for RpcLandingSource {
         }
         let mut headers =
             Vec::with_capacity(usize::try_from(tip - min + 1).expect("bounded header count"));
-        let mut expected = None;
         for number in (min..=tip).rev() {
-            let header = self.anchors.header(number).await.map_err(anchor_error)?;
-            if expected.is_some_and(|hash| hash != header.hash()) {
-                return Err(LanderError::Safety(format!("L1 reference chain fork at {number}")));
-            }
-            for anchor in anchors.iter().filter(|a| a.number == number) {
-                if anchor.hash != header.hash() ||
-                    anchor.state_root != header.state_root() ||
-                    anchor.timestamp != header.timestamp()
-                {
-                    return Err(LanderError::Safety(format!(
-                        "consumed anchor {number} differs from L1 reference ancestry"
-                    )));
-                }
-            }
-            expected = Some(header.parent_hash());
-            headers.push(header);
+            headers.push(self.anchors.header(number).await.map_err(anchor_error)?);
         }
-        self.validate_reference(snapshot, tip, headers[0].hash()).await?;
         Ok(headers)
     }
 

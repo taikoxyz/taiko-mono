@@ -1606,10 +1606,11 @@ fn force_epoch(schedule: &Schedule, tip: u64, checkpoint: u64) -> bool {
         epoch > 0 && switch_height(epoch).is_some_and(|current| current > checkpoint)
 }
 
-/// Independently checks the exact descending header chain and every consumed anchor.
+/// Checks the exact descending header chain and every consumed anchor (PROOF-6.2-33/34).
 ///
-/// The source authenticates finality/canonicality; this pure check prevents an adapter from
-/// silently changing a per-block anchor while selecting a newer L1 reference.
+/// The source only fetches the chain from a finalized tip; this pure check is the one
+/// verification of its links and anchors, and `validate_reference` then authenticates the
+/// tip's canonicality.
 pub fn verify_reference_chain(
     headers: &[abci::RawL1Header],
     anchors: &[AnchorState],
@@ -3181,6 +3182,30 @@ mod tests {
         let mut wrong = headers.clone();
         wrong.swap(0, 1);
         assert!(verify_reference_chain(&wrong, &anchors).is_err());
+    }
+
+    #[tokio::test]
+    async fn prepare_refuses_a_fetched_reference_chain_that_breaks_ancestry() {
+        // `reference` only fetches, so `prepare` is the single place the fetched links are
+        // checked (PROOF-6.2-34). The reference tip is not an anchor, so the earlier
+        // canonical-anchor checks still pass.
+        let mut fixture = Fixture::new(24, 30);
+        let tip = fixture.snapshot.l1_block_number - 1;
+        assert!(fixture.anchors.values().all(|anchor| anchor.number != tip));
+        let mut header: alloy_consensus::Header =
+            alloy_rlp::decode_exact(fixture.l1_headers[&tip].raw()).unwrap();
+        header.parent_hash = alloy_primitives::B256::ZERO;
+        fixture.l1_headers.insert(tip, abci::RawL1Header::from(&header));
+        let fixture = Arc::new(fixture);
+        let error = builder(fixture.clone(), limits(6))
+            .prepare(fixture.snapshot.clone())
+            .await
+            .unwrap_err();
+        assert!(matches!(error, LanderError::Safety(_)), "{error}");
+        assert!(
+            error.to_string().contains("reference header ancestry is discontinuous"),
+            "{error}"
+        );
     }
     /// Rewrites one block's envelope, then reseals it and relinks every later block so the
     /// tampered history stays a consistently linked, genuinely signed chain.

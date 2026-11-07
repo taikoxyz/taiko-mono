@@ -2,7 +2,6 @@
 
 use super::consensus::{SigningKey, pair_with_envelope, parameters, public_key};
 use crate::{
-    batch::verify_reference_chain,
     comet::{CometSource, CometStatus},
     committee::AuthenticatedCommittee,
     error::{LanderError, Result},
@@ -1134,12 +1133,10 @@ impl LandingSource for Fixture {
         anchors: &[AnchorState],
     ) -> Result<Vec<RawL1Header>> {
         let min = anchors.iter().map(|anchor| anchor.number).min().unwrap();
-        let headers = (min..self.snapshot.l1_block_number)
+        Ok((min..self.snapshot.l1_block_number)
             .rev()
             .map(|number| self.l1_headers[&number].clone())
-            .collect::<Vec<_>>();
-        verify_reference_chain(&headers, anchors)?;
-        Ok(headers)
+            .collect())
     }
     async fn deployment(&self, _: &LandingSnapshot) -> Result<Deployment> {
         if self.mismatch_statement.load(Ordering::Relaxed) {
