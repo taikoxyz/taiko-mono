@@ -95,6 +95,7 @@ supervisor-test:
   python3 tests/supervisor_test.py
   PYTHONDONTWRITEBYTECODE=1 python3 tests/entrypoint_test.py
   PYTHONDONTWRITEBYTECODE=1 python3 tests/checkpoint_import_resource_test.py
+  PYTHONDONTWRITEBYTECODE=1 python3 tests/runtime_build_test.py
 
 # Linux root holding only the documented supervisor capabilities (SETUID, SETGID, KILL,
 # DAC_OVERRIDE) restarts Comet over its stale signer socket. Needs Docker.

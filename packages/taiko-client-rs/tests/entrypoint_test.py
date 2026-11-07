@@ -31,7 +31,8 @@ class Entrypoint(unittest.TestCase):
         self.log = self.root / "calls"
         self.env = dict(os.environ, PATH=f"{self.root / 'bin'}:{os.environ['PATH']}",
                         CALLS=str(self.log), SELECTION='{}', TAIKO_CLIENT_RS_TEST_RUN="fixture-run")
-        for key in ("ETNA_RECOVERY_IMAGE", "ETNA_EL_BIN", "ETNA_EL_IMPORT_BIN", "NEXTEST_PROFILE"):
+        for key in ("ETNA_RECOVERY_IMAGE", "ETNA_EL_BIN", "ETNA_EL_IMPORT_BIN", "NEXTEST_PROFILE",
+                    "ALETHIA_RETH_IMAGE", "PULL_POLICY"):
             self.env.pop(key, None)
         self.executable("bin/cargo", '''#!/usr/bin/env python3
 import json, os, pathlib, sys, time
@@ -129,6 +130,10 @@ printf '["build", "{name}"]\\n' >> "$CALLS"
         result = self.run_entrypoint()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(set(self.builds()), {"etna_signer", "stock_comet", "etna_el_import", "etna_el_runtime"})
+        # The Linux EL copy reuses the pulled alethia-reth image instead of pulling it again.
+        alethia = (ROOT / "Dockerfile").read_text().splitlines()[0].removeprefix("ARG ALETHIA_RETH_IMAGE=")
+        calls = self.calls()
+        self.assertLess(calls.index(["docker", "pull", "--quiet", alethia]), calls.index(["build", "etna_el_runtime"]))
 
     def test_both_recovery_image_consumers_and_override(self):
         for name in ("governance_recovery_linux_comet_uid_reads_p2p_and_cannot_read_registered_key",

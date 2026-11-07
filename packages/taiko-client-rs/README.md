@@ -831,7 +831,9 @@ contract harness.
   skip the slowest scenario, the L1 finality stall, whose halt-and-resume rule unit tests cover;
   `just test-full` runs every scenario, as CI does on main, nightly and on manual dispatch.
   `tests/entrypoint.sh` lists selected cases before Docker checks and builds only the native
-  helpers they need, including the recovery image for its two Linux consumers. Unsupported
+  helpers they need, including the recovery image for its two Linux consumers. On Linux the
+  native EL binary is copied from the pinned alethia-reth image; elsewhere it is built from the
+  pinned source. Unsupported
   nextest run-only options conservatively prepare all helpers. It pulls images before the
   tests; override them with `ANVIL_IMAGE`,
   `ALETHIA_RETH_IMAGE`, `COMETBFT_IMAGE` and `LANDER_ANVIL_IMAGE`, or set
