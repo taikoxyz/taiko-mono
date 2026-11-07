@@ -59,7 +59,7 @@ asks the app's private control socket before every signature (see
 | `bin/client/`          | The `taiko-client` binary (`abci`, `abci-genesis`, `abci-committee-record`, `abci-recover`, `abci-import`, `lander`) |
 | `crates/lander/`       | Permissionless batch/blob construction, proof trait and durable L1 submission                                        |
 | `crates/abci/`         | The ABCI++ application of the Etna PoS chain                                                                         |
-| `crates/protocol/`     | Shared helpers; `shasta` and `FixedKSigner` serve raiko2                                                             |
+| `crates/protocol/`     | Shared helpers: blob coder, mix hash, Etna `extraData`, EIP-4396 base fee                                            |
 | `crates/rpc/`          | Engine API and JWT helpers                                                                                           |
 | `crates/bindings/`     | Generated Anchor contract bindings, kept for protocol's anchor builder (raiko2)                                      |
 | `crates/test-harness/` | Docker devnet (anvil, alethia-reth, CometBFT) and calldata admission fixtures                                        |

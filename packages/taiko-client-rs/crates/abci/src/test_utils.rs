@@ -341,6 +341,13 @@ pub(crate) fn sample_transactions() -> Vec<TxEnvelope> {
     ]
 }
 
+/// The secp256k1 key that signs test transactions whose sender is recovered (the same key as the
+/// Etna conformance vectors' forced transactions).
+pub(crate) fn tx_signer() -> alloy::signers::local::PrivateKeySigner {
+    alloy::signers::local::PrivateKeySigner::from_bytes(&B256::repeat_byte(0x42))
+        .expect("signing key")
+}
+
 /// A sample genesis record with every field distinct and non-zero (the genesis cutoff is the
 /// block before `L1_0`; forced inclusion delay 1 h, maximum anchor age 2 h).
 pub(crate) fn sample_genesis_record() -> GenesisRecord {

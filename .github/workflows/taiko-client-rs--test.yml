@@ -6,7 +6,6 @@ on:
   push:
     branches: [main]
     paths:
-      - "testdata/derivation_vectors/**"
       - "testdata/etna_vectors/**"
       - "packages/taiko-client-rs/**"
       - ".github/workflows/taiko-client-rs--test.yml"
@@ -14,7 +13,6 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
-      - "testdata/derivation_vectors/**"
       - "testdata/etna_vectors/**"
       - "packages/taiko-client-rs/**"
       - ".github/workflows/taiko-client-rs--test.yml"
@@ -224,9 +222,6 @@ jobs:
           cache-key: taiko-client-rs-unit
           save-cache: ${{ github.ref == 'refs/heads/main' }}
           nextest: "true"
-      - name: Check protocol feature isolation
-        working-directory: packages/taiko-client-rs
-        run: just check-features
       - name: Run unit tests
         working-directory: packages/taiko-client-rs
         run: just unit

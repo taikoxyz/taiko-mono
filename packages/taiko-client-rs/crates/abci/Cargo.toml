@@ -33,7 +33,7 @@ tower-abci = { workspace = true }
 
 # taiko
 alethia-reth-primitives = { workspace = true }
-protocol = { path = "../protocol", default-features = false }
+protocol = { path = "../protocol" }
 rpc = { path = "../rpc" }
 
 # observability

@@ -20,7 +20,6 @@ alloy-trie = { workspace = true, features = ["ethereum"] }
 # taiko
 abci = { path = "../abci" }
 alethia-reth-primitives = { workspace = true }
-protocol = { path = "../protocol", default-features = false }
 rpc = { path = "../rpc" }
 
 # observability

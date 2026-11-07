@@ -1,9 +1,10 @@
 use super::*;
 use crate::{
     forced::ForcedError,
-    test_utils::{TestState, sample_transactions},
+    test_utils::{TestState, sample_transactions, tx_signer},
     types::{AnchorState, InboxFacts},
 };
+use alloy::signers::SignerSync;
 use alloy_consensus::{SignableTransaction, TxEip1559, TxEip2930, TxEip7702, TxEnvelope, TxLegacy};
 use alloy_eips::eip2718::Encodable2718;
 use alloy_primitives::{Address, B256, Bytes, TxKind, U256, address, keccak256};
@@ -58,7 +59,7 @@ fn canonical_tx() -> Bytes {
 }
 
 fn fee_cap_transactions(fee_cap: u128) -> Vec<Bytes> {
-    let signer = protocol::FixedKSigner::golden_touch().unwrap();
+    let signer = tx_signer();
     let legacy = TxLegacy {
         gas_price: fee_cap,
         gas_limit: 21_000,
@@ -86,7 +87,7 @@ fn fee_cap_transactions(fee_cap: u128) -> Vec<Bytes> {
         to: INBOX,
         ..Default::default()
     };
-    let signature = |hash: B256| signer.sign_with_predefined_k(&hash.0).unwrap().signature;
+    let signature = |hash: B256| signer.sign_hash_sync(&hash).unwrap();
     vec![
         TxEnvelope::Legacy(legacy.clone().into_signed(signature(legacy.signature_hash()))),
         TxEnvelope::Eip2930(
@@ -371,9 +372,9 @@ fn rule_does_not_count_same_nonce_replacement_or_later_transaction_as_inclusion(
         ..Default::default()
     };
     let replacement = TxLegacy { gas_price: 1_000_000_001, ..original.clone() };
-    let signer = protocol::FixedKSigner::golden_touch().unwrap();
+    let signer = tx_signer();
     let sign = |tx: TxLegacy| -> TxEnvelope {
-        let signature = signer.sign_with_predefined_k(&tx.signature_hash().0).unwrap().signature;
+        let signature = signer.sign_hash_sync(&tx.signature_hash()).unwrap();
         tx.into_signed(signature).into()
     };
     let tx = sign(original);

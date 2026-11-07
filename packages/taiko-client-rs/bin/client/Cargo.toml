@@ -33,7 +33,7 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 # taiko
 abci = { path = "../../crates/abci" }
 lander = { path = "../../crates/lander" }
-protocol = { path = "../../crates/protocol", default-features = false }
+protocol = { path = "../../crates/protocol" }
 rpc = { path = "../../crates/rpc" }
 
 # types

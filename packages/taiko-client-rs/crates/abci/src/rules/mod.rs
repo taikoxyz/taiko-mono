@@ -20,9 +20,8 @@ use alloy_consensus::{EMPTY_OMMER_ROOT_HASH, EMPTY_ROOT_HASH, Header};
 use alloy_eips::eip7685::EMPTY_REQUESTS_HASH;
 use alloy_primitives::{Address, B64, B256, Bytes, U256};
 use protocol::shasta::{
-    PayloadAttributesInput, ProtocolError, build_payload_attributes_with_id,
-    calculate_shasta_mix_hash, constants::calculate_next_block_eip4396_base_fee_for_parent,
-    encode_etna_extra_data,
+    PayloadAttributesInput, ProtocolError, build_payload_attributes, calculate_shasta_mix_hash,
+    constants::calculate_next_block_eip4396_base_fee_for_parent, encode_etna_extra_data,
 };
 
 use crate::{
@@ -311,12 +310,11 @@ pub fn block_timestamp(parent_ts: u64, bft_secs: u64, anchor_ts: u64) -> u64 {
 /// Fails with [`RuleViolation::ExtraDataOverflow`] when `generation` or `anchor` exceeds
 /// `uint48`.
 pub fn encode_extra_data(generation: u64, anchor: u64) -> Result<Bytes, RuleViolation> {
-    encode_etna_extra_data(BASEFEE_SHARING_PCTG, generation, anchor).map_err(|err| match err {
-        ProtocolError::EtnaExtraDataFieldOverflow { field, value } => {
+    encode_etna_extra_data(BASEFEE_SHARING_PCTG, generation, anchor).map_err(
+        |ProtocolError::EtnaExtraDataFieldOverflow { field, value }| {
             RuleViolation::ExtraDataOverflow { field, value }
-        }
-        other => unreachable!("encode_etna_extra_data fails only on uint48 overflow: {other}"),
-    })
+        },
+    )
 }
 
 /// Decodes an Etna `extraData` into `(basefeeSharingPctg, generation, anchorNumber)`.
@@ -487,25 +485,22 @@ pub fn payload_attributes(
     let (_, _, anchor_number) = decode_extra_data(&e.extra_data)
         .expect("ExpectedHeader::extra_data is the 13-byte Etna layout");
     let is_forced_inclusion = tx_list.is_some();
-    let mut attrs = build_payload_attributes_with_id(
-        PayloadAttributesInput {
-            beneficiary: e.beneficiary,
-            timestamp: e.timestamp,
-            mix_hash: e.mix_hash,
-            gas_limit: e.gas_limit,
-            tx_list,
-            extra_data: e.extra_data.clone(),
-            base_fee_per_gas: U256::from(e.base_fee),
-            block_number: e.number,
-            l1_block_height: Some(U256::from(anchor_number)),
-            l1_block_hash: Some(anchor_hash),
-            is_forced_inclusion,
-            signature: [0; 65],
-            parent_beacon_block_root: Some(e.parent_beacon_block_root),
-            anchor_transaction: None,
-        },
-        &e.parent_hash,
-    );
+    let mut attrs = build_payload_attributes(PayloadAttributesInput {
+        beneficiary: e.beneficiary,
+        timestamp: e.timestamp,
+        mix_hash: e.mix_hash,
+        gas_limit: e.gas_limit,
+        tx_list,
+        extra_data: e.extra_data.clone(),
+        base_fee_per_gas: U256::from(e.base_fee),
+        block_number: e.number,
+        l1_block_height: Some(U256::from(anchor_number)),
+        l1_block_hash: Some(anchor_hash),
+        is_forced_inclusion,
+        signature: [0; 65],
+        parent_beacon_block_root: Some(e.parent_beacon_block_root),
+        anchor_transaction: None,
+    });
     // The EL enforces the consensus block size bound while it selects transactions, measuring
     // the block as `check_execution_size` does: every transaction, legacy included, counts as
     // an RLP byte string of its EIP-2718 bytes, like the envelope.

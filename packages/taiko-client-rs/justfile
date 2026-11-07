@@ -17,10 +17,6 @@ fmt-check:
   rustup toolchain install {{fmt_toolchain}} && \
   cargo +{{fmt_toolchain}} fmt --check
 
-check-features:
-  cargo check -p protocol --no-default-features --locked && \
-  cargo check -p protocol --locked
-
 # Two passes: doc lints apply to library code only, while the second pass lints
 # every target (unit/integration tests, test-harness included) so dead test
 # helpers and unused test deps can't accumulate unseen.
@@ -52,11 +48,9 @@ test-full *ARGS:
 # the other Docker-only binaries stay out of this lane; ignored Docker siblings are skipped. Without
 # extra args, lander's lib tests run in one `cargo test` process instead of one process per
 # test: each process would otherwise rebuild the KZG trusted setup, which dominates their
-# time. The protocol pass also compiles and runs its tests without default features so
-# test-only feature leaks stay covered in CI; it has no filterset, so it also runs protocol's
-# (docker-free) integration binary. nextest skips doctests, so abci's (e.g. its
-# `compile_fail` checks) run in a last `cargo test --doc` pass. Extra args are forwarded to
-# nextest, which then runs lander's lib tests too.
+# time. nextest skips doctests, so abci's (e.g. its `compile_fail` checks) run in a last
+# `cargo test --doc` pass. Extra args are forwarded to nextest, which then runs lander's lib
+# tests too.
 unit *ARGS:
   #!/usr/bin/env bash
   set -euo pipefail
@@ -67,7 +61,6 @@ unit *ARGS:
   else
     cargo nextest run "${targets[@]}" "$@"
   fi
-  cargo nextest run -p protocol --no-default-features "$@"
   cargo test -p abci --doc
 
 # Four representative Docker scenarios for local iteration. Use `test` for subsets

@@ -834,9 +834,10 @@ async fn proposals_before_init_chain_are_errors() {
 
 #[tokio::test]
 async fn same_sender_nonce_replacement_and_later_position_cannot_skip_retained_forced_tx() {
+    use alloy::signers::SignerSync;
     use alloy_consensus::{SignableTransaction, TxEnvelope, TxLegacy};
     use alloy_eips::eip2718::Encodable2718;
-    let signer = protocol::signer::FixedKSigner::golden_touch().unwrap();
+    let signer = crate::test_utils::tx_signer();
     let signed = |price| {
         let tx = TxLegacy {
             chain_id: Some(167001),
@@ -845,7 +846,7 @@ async fn same_sender_nonce_replacement_and_later_position_cannot_skip_retained_f
             gas_price: price,
             ..Default::default()
         };
-        let signature = signer.sign_with_predefined_k(&tx.signature_hash().0).unwrap().signature;
+        let signature = signer.sign_hash_sync(&tx.signature_hash()).unwrap();
         TxEnvelope::Legacy(tx.into_signed(signature))
     };
     let forced = signed(1_000_000_000);

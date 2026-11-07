@@ -45,13 +45,11 @@ alloy-consensus = { version = "2.4.2", default-features = false, features = [
     "serde",
 ] }
 alloy-eips = { version = "2.4.2", default-features = false }
-alloy-hardforks = { version = "0.4.8", default-features = false }
 alloy-primitives = { version = "1.6.1", default-features = false }
 alloy-provider = { version = "2.4.2", default-features = false }
 alloy-rlp = { version = "0.3.16", default-features = false }
 alloy-rpc-types = { version = "2.4.2", default-features = false }
 alloy-rpc-types-engine = { version = "2.4.2", default-features = false }
-alloy-rpc-types-engine-2 = { package = "alloy-rpc-types-engine", version = "2.4.2", default-features = false }
 alloy-transport = { version = "2.4.2", default-features = false }
 alloy-transport-http = { version = "2.4.2", features = ["hyper", "jwt-auth"] }
 alloy-trie = { version = "0.9.5", default-features = false }

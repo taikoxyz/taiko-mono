@@ -23,7 +23,7 @@ futures = { workspace = true }
 libz-sys = { workspace = true }
 prometheus = { workspace = true }
 prost = { workspace = true }
-protocol = { path = "../protocol", default-features = false }
+protocol = { path = "../protocol" }
 reqwest = { workspace = true, features = ["stream"] }
 rpc = { path = "../rpc" }
 serde = { workspace = true }

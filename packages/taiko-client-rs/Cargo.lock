@@ -4617,18 +4617,9 @@ dependencies = [
  "alloy",
  "alloy-consensus",
  "alloy-eips",
- "alloy-hardforks",
- "alloy-primitives",
- "alloy-provider",
  "alloy-rlp",
  "alloy-rpc-types-engine",
- "bindings",
- "flate2",
- "k256",
- "serde",
- "serde_json",
  "thiserror 2.0.18",
- "tracing",
 ]
 
 [[package]]
@@ -7167,7 +7158,6 @@ dependencies = [
  "base64",
  "ed25519-dalek",
  "k256",
- "protocol",
  "reqwest",
  "rpc",
  "serde",
