@@ -732,15 +732,17 @@ class UnixSupervisorTests(SupervisorTests):
         spec = importlib.util.spec_from_file_location("etna_validator_under_test", ROOT / "script/etna_validator.py")
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        real_fstat = os.fstat
+        real_rename = os.rename
         replaced = []
-        directory = self.transport.parent.stat()
+        cwd = Path.cwd()
         with socket.socket(socket.AF_UNIX) as listener:
-            def replace_after_endpoint_stat(descriptor):
-                observed = real_fstat(descriptor)
-                if not replaced and (observed.st_dev, observed.st_ino) == (directory.st_dev, directory.st_ino):
-                    # fstat is the final directory check, after endpoint identity
-                    # validation. Exercise a real replacement in that exact gap.
+            def replace_after_endpoint_stat(source, destination, *args, **kwargs):
+                if not replaced and source == self.transport.name and destination == "endpoint":
+                    # Replace after validation, immediately before capture. A held
+                    # link must prevent reuse of the old socket's inode number.
+                    if kind == "socket":
+                        self.assertGreater(self.transport.lstat().st_nlink, 1,
+                                           "checked socket must remain pinned during selection")
                     self.transport.unlink()
                     if kind == "file":
                         self.transport.write_text("concurrent replacement must survive")
@@ -750,11 +752,12 @@ class UnixSupervisorTests(SupervisorTests):
                         listener.bind(str(self.transport))
                         listener.listen()
                     replaced.append(self.transport.lstat().st_ino)
-                return observed
-            with patch.dict(os.environ, self.env), patch.object(module.os, "fstat", replace_after_endpoint_stat):
+                return real_rename(source, destination, *args, **kwargs)
+            with patch.dict(os.environ, self.env), patch.object(module.os, "rename", replace_after_endpoint_stat):
                 supervisor = module.Supervisor()
                 with self.assertRaisesRegex(ValueError, "preserved at"):
                     supervisor.prepare_transport()
+            self.assertEqual(Path.cwd(), cwd)
             self.assertTrue(replaced, "replacement interleaving was not exercised")
             self.assertEqual(self.transport.lstat().st_ino, replaced[0])
             if kind == "file":
@@ -782,6 +785,65 @@ class UnixSupervisorTests(SupervisorTests):
 
     def test_live_socket_replacement_after_final_stat_survives(self):
         self.assert_replacement_after_final_stat_survives("socket")
+
+    def test_live_socket_cannot_hide_behind_stale_public_name_during_probe(self):
+        self.stop_supervisor()
+        spec = importlib.util.spec_from_file_location("etna_validator_under_test", ROOT / "script/etna_validator.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        self.transport.unlink()
+        stale = self.transport.with_name("stale.sock")
+        held = self.transport.with_name("held.sock")
+        with socket.socket(socket.AF_UNIX) as old:
+            old.bind(str(stale))
+        real_connect = socket.socket.connect
+        assessed = []
+        cwd = Path.cwd()
+        with socket.socket(socket.AF_UNIX) as listener:
+            listener.bind(str(self.transport))
+            listener.listen()
+            original = self.transport.lstat().st_ino
+            def hide_live_socket(peer, address):
+                # A public-path probe would see only this stale substitute. Put
+                # the same live inode back before any post-probe identity check.
+                self.transport.rename(held)
+                stale.rename(self.transport)
+                try:
+                    assessed.append(True)
+                    return real_connect(peer, address)
+                finally:
+                    self.transport.rename(stale)
+                    held.rename(self.transport)
+            with patch.dict(os.environ, self.env), patch.object(module.socket.socket, "connect", hide_live_socket):
+                with self.assertRaisesRegex(ValueError, "live listener"):
+                    module.Supervisor().prepare_transport()
+            self.assertTrue(assessed, "probe interleaving was not exercised")
+            self.assertEqual(Path.cwd(), cwd)
+            self.assertEqual(self.transport.lstat().st_ino, original)
+            with socket.socket(socket.AF_UNIX) as peer:
+                peer.connect(str(self.transport))
+        self.assertEqual(self.state.read_text(), "authoritative HRS")
+        self.assertEqual(self.key.read_text(), "existing key")
+
+    def test_private_socket_probe_restores_cwd_on_success_and_uncertainty(self):
+        self.stop_supervisor()
+        spec = importlib.util.spec_from_file_location("etna_validator_under_test", ROOT / "script/etna_validator.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        cwd = Path.cwd()
+        inode = self.transport.lstat().st_ino
+        with patch.dict(os.environ, self.env):
+            supervisor = module.Supervisor()
+            with patch.object(module.socket.socket, "connect", side_effect=PermissionError("uncertain probe")):
+                with self.assertRaisesRegex(PermissionError, "uncertain probe"):
+                    supervisor.prepare_transport()
+            self.assertEqual(Path.cwd(), cwd)
+            self.assertEqual(self.transport.lstat().st_ino, inode)
+            supervisor.prepare_transport()
+            self.assertEqual(Path.cwd(), cwd)
+            self.assertFalse(self.transport.exists())
+        self.assertEqual(self.state.read_text(), "authoritative HRS")
+        self.assertEqual(self.key.read_text(), "existing key")
 
     def test_substituted_quarantine_preserves_prior_evidence(self):
         self.stop_supervisor()

@@ -359,24 +359,7 @@ class Supervisor:
                 return
             if not stat.S_ISSOCK(original.st_mode):
                 raise ValueError("Unix signer transport is not a socket")
-            with socket.socket(socket.AF_UNIX) as peer:
-                peer.settimeout(1)
-                try:
-                    peer.connect(str(self.transport))
-                except OSError as error:
-                    if error.errno != errno.ECONNREFUSED:
-                        raise  # Timeouts, permissions and all uncertainty fail closed.
-                else:
-                    raise ValueError("Unix signer transport still has a live listener")
-            current = os.stat(self.transport.name, dir_fd=descriptor, follow_symlinks=False)
-            current_directory = directory.lstat()
             opened_directory = os.fstat(descriptor)
-            if (not stat.S_ISSOCK(current.st_mode)
-                    or (original.st_dev, original.st_ino) != (current.st_dev, current.st_ino)
-                    or not stat.S_ISDIR(current_directory.st_mode)
-                    or (current_directory.st_dev, current_directory.st_ino)
-                    != (opened_directory.st_dev, opened_directory.st_ino)):
-                raise ValueError("Unix signer transport changed during stale-socket check")
             # Atomically select the actual object before destroying anything.
             # The Comet UID can replace names in run/, but cannot mutate entries
             # in a supervisor-owned private capture directory.
@@ -400,6 +383,42 @@ class Supervisor:
                 capture = os.open("capture", os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
                                   dir_fd=private)
                 try:
+                    # Pin before observing identity: an unlinked socket's inode
+                    # number can be reused immediately by a foreign live socket.
+                    os.link(self.transport.name, "candidate", src_dir_fd=descriptor,
+                            dst_dir_fd=capture, follow_symlinks=False)
+                    original = os.stat("candidate", dir_fd=capture, follow_symlinks=False)
+                    if not stat.S_ISSOCK(original.st_mode):
+                        raise ValueError("Unix signer transport is not a socket")
+                    # This supervisor is single-threaded and children are reaped.
+                    # Probe the protected inode, not a replaceable public name.
+                    # A short relative address avoids the Unix socket path limit
+                    # on both Linux and macOS; always restore the held cwd.
+                    cwd = os.open(".", os.O_RDONLY | os.O_DIRECTORY)
+                    try:
+                        os.fchdir(capture)
+                        with socket.socket(socket.AF_UNIX) as peer:
+                            peer.settimeout(1)
+                            try:
+                                peer.connect("candidate")
+                            except OSError as error:
+                                if error.errno != errno.ECONNREFUSED:
+                                    raise  # All uncertainty fails closed.
+                            else:
+                                raise ValueError("Unix signer transport still has a live listener")
+                    finally:
+                        try:
+                            os.fchdir(cwd)
+                        finally:
+                            os.close(cwd)
+                    current = os.stat(self.transport.name, dir_fd=descriptor, follow_symlinks=False)
+                    current_directory = directory.lstat()
+                    if (not stat.S_ISSOCK(current.st_mode)
+                            or (original.st_dev, original.st_ino) != (current.st_dev, current.st_ino)
+                            or not stat.S_ISDIR(current_directory.st_mode)
+                            or (current_directory.st_dev, current_directory.st_ino)
+                            != (opened_directory.st_dev, opened_directory.st_ino)):
+                        raise ValueError("Unix signer transport changed during stale-socket check")
                     os.rename(self.transport.name, "endpoint", src_dir_fd=descriptor, dst_dir_fd=capture)
                     selected = os.stat("endpoint", dir_fd=capture, follow_symlinks=False)
                     if (not stat.S_ISSOCK(selected.st_mode)
@@ -414,6 +433,7 @@ class Supervisor:
                             pass
                         raise ValueError(f"Unix transport changed; preserved at {directory / quarantine / 'capture' / 'endpoint'}")
                     os.unlink("endpoint", dir_fd=capture)
+                    os.unlink("candidate", dir_fd=capture)
                     # Do not recursively clean quarantine contents or unlink through
                     # its mutable parent name. Empty private directories are retained.
                 finally:
