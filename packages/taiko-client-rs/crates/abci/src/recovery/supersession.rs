@@ -46,6 +46,7 @@ impl SupersessionEvidence {
         }
     }
     /// Check exact original state/fatal bytes and typed domain, without mutating either.
+    #[cfg(test)]
     pub fn validates(&self, state_bytes: &[u8], fatal: &[u8]) -> bool {
         self.validates_installation(state_bytes, fatal, None)
     }

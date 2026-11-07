@@ -18,7 +18,7 @@ use crate::{
         mpt::{MptError, verify_account_witness},
     },
     schedule::Schedule,
-    types::{AnchorState, CommitteeRecord, Member, RegistryEntry},
+    types::{CommitteeRecord, Member, RegistryEntry},
 };
 
 /// Upper bound on a committee's total voting power: CometBFT's `MaxTotalVotingPower`,
@@ -349,10 +349,11 @@ pub fn derive(
     Ok((record, members))
 }
 
-/// Verifies a witness when the snapshot cutoff and proving anchor are the same L1 block.
-/// Runtime switches with a moved anchor use verify_committee_witness_at_cutoff instead.
+/// Test shorthand for [`verify_committee_witness_at_cutoff`] when the snapshot cutoff and
+/// proving anchor are the same L1 block.
+#[cfg(test)]
 pub fn verify_committee_witness(
-    parent_anchor: &AnchorState,
+    parent_anchor: &crate::types::AnchorState,
     params: &ChainParams,
     w: &CommitteeWitness,
     target_epoch: u64,

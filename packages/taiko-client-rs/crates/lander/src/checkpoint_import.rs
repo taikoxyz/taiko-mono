@@ -121,12 +121,8 @@ pub struct VerifiedImport {
     first_height: Option<u64>,
     /// Parent-linked canonical EL installation range, in ascending order.
     execution_headers: Vec<Header>,
-    /// Fixed original deployment EL genesis header, retained separately from the range.
-    origin_header: Header,
     /// Recovery evidence that must be persisted before AppState.
     recovery_bootstrap: Option<abci::recovery::RecoveryBootstrap>,
-    /// Exact last anchor witness RLP, retained for archive and metadata provenance.
-    anchor_witness: Option<Bytes>,
     /// Digest of exact length-framed input blocks/commits/keys/powers, for local staging identity.
     window_hash: B256,
 }
@@ -163,17 +159,9 @@ impl VerifiedImport {
     pub fn execution_headers(&self) -> &[Header] {
         &self.execution_headers
     }
-    /// Fixed origin header bound by immutable deployment/recovery evidence.
-    pub fn origin_header(&self) -> &Header {
-        &self.origin_header
-    }
     /// Required recovery sidecar, absent for generation zero.
     pub fn recovery_bootstrap(&self) -> Option<&abci::recovery::RecoveryBootstrap> {
         self.recovery_bootstrap.as_ref()
-    }
-    /// Last retained anchor witness, whose derived state is in AppState.anchor.
-    pub fn anchor_witness(&self) -> Option<&Bytes> {
-        self.anchor_witness.as_ref()
     }
     /// Identity of the exact streamed native frames; not Go's differently encoded package hash.
     pub fn window_hash(&self) -> B256 {

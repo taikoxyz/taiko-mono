@@ -214,6 +214,7 @@ pub fn block_parts(block: &RawBlock) -> tendermint::block::parts::Header {
 ///
 /// This is also necessary for an already-landed checkpoint: a genuine certificate signs the
 /// header's roots, not an arbitrary body an RPC response happens to return beside it.
+#[cfg(test)]
 pub fn verify_body(
     pair: &CertifiedBlock,
     expected_height: u64,

@@ -249,7 +249,7 @@ async fn recovery_origin_uses_retained_boundary_and_r_committee() {
         let r_committee = &snapshot.recovery.as_ref().unwrap().committee;
         let old_landing_comet_hash = snapshot.checkpoint_comet_hash;
         assert_eq!(snapshot.origin_height(), 6);
-        assert_eq!(snapshot.origin_comet_hash(), old_landing_comet_hash);
+        assert_eq!(snapshot.recovery.as_ref().unwrap().comet_hash, old_landing_comet_hash);
         assert_eq!(snapshot.initial_committee(), Some(r_committee));
         let prepared = builder(f.clone()).prepare(snapshot.clone()).await.unwrap().unwrap();
         prepared.batch.validate_statement().unwrap();

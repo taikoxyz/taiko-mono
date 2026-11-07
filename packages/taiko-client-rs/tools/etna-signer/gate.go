@@ -259,8 +259,6 @@ func (g *gate) check(chain string) (*trustResponse, error) {
 	return r, nil
 }
 
-func (g *gate) authorize(chain string) error { _, err := g.check(chain); return err }
-
 // publishObservation never contains private signing data or grants authorization. Failure
 // stops this process rather than silently disabling the supervisor's refusal detection.
 func (g *gate) publishObservation(denied bool) {

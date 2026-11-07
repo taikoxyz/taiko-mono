@@ -171,9 +171,7 @@ where
             terminal_time: None,
             first_height: None,
             execution_headers: headers,
-            origin_header: package.origin_header.clone(),
             recovery_bootstrap: package.recovery_bootstrap.clone(),
-            anchor_witness: None,
             window_hash: keccak256([]),
         });
     }
@@ -204,7 +202,6 @@ where
     let mut heights = Vec::new();
     let mut latest_anchor_height = None;
     let mut latest_anchor = None;
-    let mut latest_witness = None;
     let mut anchor_cache = BTreeMap::new();
     let mut digest = alloy_primitives::Keccak256::new();
     let mut terminal = None;
@@ -343,7 +340,6 @@ where
         };
         if env.anchor.is_some() {
             latest_anchor_height = Some(h);
-            latest_witness = env.anchor.clone();
         }
         if let Some((epoch, committee)) = derived {
             expected_committees.insert(epoch, committee);
@@ -408,7 +404,6 @@ where
     {
         return Err(safety("landed FI cursor contradicts inherited authenticated queue bounds"));
     }
-    let witness = latest_witness.expect("window includes anchor witness");
     let install_from = landing
         .height
         .saturating_sub(255)
@@ -436,9 +431,7 @@ where
         terminal_time: Some(heights.last().expect("authenticated terminal height").1),
         first_height: Some(first_height),
         execution_headers: retained,
-        origin_header: package.origin_header.clone(),
         recovery_bootstrap: package.recovery_bootstrap.clone(),
-        anchor_witness: Some(alloy_rlp::encode(witness).into()),
         window_hash: digest.finalize(),
     })
 }

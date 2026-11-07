@@ -240,7 +240,7 @@ func TestMalformedAndTimeoutBounded(t *testing.T) {
 			g := armed(path)
 			g.timeout = 30 * time.Millisecond
 			start := time.Now()
-			if err := g.authorize(chain); err == nil {
+			if _, err := g.check(chain); err == nil {
 				t.Fatal("malformed/timeout accepted")
 			}
 			if time.Since(start) > time.Second {
@@ -278,7 +278,7 @@ func TestDialBeginsEachTransportAndRearmsAppRestart(t *testing.T) {
 	}
 	old := "previous-process:7"
 	g.session.Store(&old)
-	if err := g.authorize(chain); err == nil {
+	if _, err := g.check(chain); err == nil {
 		t.Fatal("old session accepted")
 	}
 	if begins.Load() != 3 || g.session.Load() == nil || *g.session.Load() != "test:7" {
@@ -677,7 +677,7 @@ func TestRecoveryAuthorizationIsStrict(t *testing.T) {
 			}
 			path := control(t, func(map[string]any) any { return r })
 			g := armed(path)
-			err := g.authorize(next)
+			_, err := g.check(next)
 			if mode == "valid" && err != nil {
 				t.Fatal(err)
 			}

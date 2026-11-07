@@ -125,10 +125,6 @@ impl LandingSnapshot {
     pub fn origin_height(&self) -> u64 {
         self.recovery.as_ref().map_or(self.genesis.genesis_height, |r| r.height)
     }
-    /// Retained historical Comet boundary, distinct from a new generation's empty LastCommit.
-    pub fn origin_comet_hash(&self) -> B256 {
-        self.recovery.as_ref().map_or(B256::ZERO, |r| r.comet_hash)
-    }
     /// R-selected initial committee, independent of the old parent execution header.
     pub fn initial_committee(&self) -> Option<&CommitteeState> {
         self.recovery.as_ref().map(|r| &r.committee)

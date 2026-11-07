@@ -629,9 +629,6 @@ pub async fn operate(profile: &Path, source: Option<&Path>, root: &Path) -> R<Va
         store.save_comet_hash(plan.height, v.landing().comet_hash).map_err(bad)?;
         store.save_val_state(&v.state().val_state).map_err(bad)?
     }
-    if let Some(w) = v.anchor_witness() {
-        files::write(&dir.join("app/anchor-witness.rlp"), w)?;
-    }
     store.save(v.state()).map_err(bad)?;
     latch(root, manifest.smoke(i, dir, &holds, &params, &l1).await)?;
     if files::exists(&stock)? {
