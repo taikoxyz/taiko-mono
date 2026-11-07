@@ -1,7 +1,6 @@
 //! Atomic, exclusively owned transaction journal; chain state remains the source of progress.
 
 use crate::{
-    codec::{self, PublishedBlock},
     error::{LanderError, Result},
     proof::ProofRequest,
     tx::{LandingReceipt, SignedTransaction},
@@ -210,46 +209,7 @@ impl Store {
         {
             return Err(LanderError::Journal("job chain/contract identity mismatch".into()));
         }
-        let batch = &job.request.batch;
-        batch.validate_statement()?;
-        let limits = crate::types::Limits {
-            max_blocks: 100_000,
-            max_blobs: 128,
-            max_payload_bytes: MAX_JOURNAL_BYTES as usize,
-            max_message_bytes: MAX_JOURNAL_BYTES as usize,
-            max_decompressed_bytes: MAX_JOURNAL_BYTES as usize,
-        };
-        let payload = crate::blob::decode(batch.blobs.sidecar.blobs(), &limits)
-            .map_err(|e| LanderError::Journal(format!("job blobs: {e}")))?;
-        // Compressed bytes are not canonical, so compare the blocks the payload carries.
-        let range = codec::LandedRange {
-            parent_height: snapshot.checkpoint_height,
-            parent_hash: snapshot.checkpoint_hash,
-            last_height: crate::types::protocol_u48(batch.input.lastHeight)?,
-            last_block_hash: batch.input.lastBlockHash,
-            last_state_root: batch.input.lastStateRoot,
-        };
-        let published = codec::decode_landed(&payload, &range)
-            .map_err(|e| LanderError::Journal(format!("job block codec: {e}")))?;
-        let expected = batch
-            .blocks
-            .iter()
-            .map(|pair| {
-                PublishedBlock::try_from(pair)
-                    .map_err(|e| LanderError::Journal(format!("job block pair: {e}")))
-            })
-            .collect::<Result<Vec<_>>>()?;
-        if payload.len() != batch.blobs.payload_bytes || published != expected {
-            return Err(LanderError::Journal("job blocks differ from bound blob payload".into()));
-        }
-        batch
-            .blobs
-            .sidecar
-            .validate(
-                &batch.blobs.versioned_hashes,
-                alloy_eips::eip4844::env_settings::EnvKzgSettings::Default.get(),
-            )
-            .map_err(|e| LanderError::Journal(format!("job KZG commitments: {e}")))?;
+        job.request.batch.verify_restored()?;
         if let Some(transaction) = transaction {
             if transaction.sender != self.identity.sender {
                 return Err(LanderError::Journal("job sender identity mismatch".into()));
@@ -420,86 +380,6 @@ mod tests {
         assert_eq!(std::fs::read(path).unwrap(), bytes);
     }
 
-    #[test]
-    fn restored_job_rejects_cutoff_tampering_even_with_recomputed_digest() {
-        let mut request = crate::test_utils::runtime::request();
-        request.batch.input.activeCommitteeSnapshot += U256::from(1);
-        let reference =
-            abci::RawL1Header::from_raw(request.batch.reference_headers[0].clone()).unwrap();
-        request.batch.statement_hash = crate::statement::hash(
-            &request.batch.snapshot,
-            &request.batch.input,
-            reference.hash(),
-            &request.batch.blobs.versioned_hashes,
-            &request.batch.leaves,
-        );
-        let id = JournalIdentity {
-            l1_chain_id: request.batch.snapshot.l1_chain_id,
-            l2_chain_id: request.batch.snapshot.l2_chain_id,
-            inbox: request.batch.snapshot.inbox,
-            registry: request.batch.snapshot.registry,
-            sender: Address::repeat_byte(5),
-        };
-        let state = JournalState::Prepared {
-            job: Box::new(ProvedJob { request, proof: Bytes::from_static(&[0]) }),
-        };
-        let bytes = serde_json::to_vec(
-            &serde_json::json!({ "version": JOURNAL_VERSION, "identity": id, "state": state }),
-        )
-        .unwrap();
-        let directory = tempfile::tempdir().unwrap();
-        let path = directory.path().join("lander-state.json");
-        std::fs::write(&path, &bytes).unwrap();
-        let error = Store::open(directory.path(), id).err().expect("altered cutoff rejected");
-        assert!(error.to_string().contains("active committee snapshot"), "{error}");
-        assert_eq!(std::fs::read(path).unwrap(), bytes);
-    }
-
-    /// A restored job's starting validator state is recomputed (the genesis state at this
-    /// job's origin checkpoint), so one changed priority refuses the journal, digest rebound or
-    /// not, and leaves its file unchanged.
-    #[test]
-    fn restored_job_rejects_a_tampered_starting_state() {
-        let original = crate::test_utils::runtime::request();
-        for rebind in [false, true] {
-            let mut request = original.clone();
-            request.batch.start_val_state.current.entries[0].priority += 1;
-            if rebind {
-                let reference =
-                    abci::RawL1Header::from_raw(request.batch.reference_headers[0].clone())
-                        .unwrap();
-                request.batch.statement_hash = crate::statement::hash(
-                    &request.batch.snapshot,
-                    &request.batch.input,
-                    reference.hash(),
-                    &request.batch.blobs.versioned_hashes,
-                    &request.batch.leaves,
-                );
-            }
-            let id = JournalIdentity {
-                l1_chain_id: request.batch.snapshot.l1_chain_id,
-                l2_chain_id: request.batch.snapshot.l2_chain_id,
-                inbox: request.batch.snapshot.inbox,
-                registry: request.batch.snapshot.registry,
-                sender: Address::repeat_byte(5),
-            };
-            let state = JournalState::Prepared {
-                job: Box::new(ProvedJob { request, proof: Bytes::from_static(&[0]) }),
-            };
-            let bytes = serde_json::to_vec(
-                &serde_json::json!({ "version": JOURNAL_VERSION, "identity": id, "state": state }),
-            )
-            .unwrap();
-            let directory = tempfile::tempdir().unwrap();
-            let path = directory.path().join("lander-state.json");
-            std::fs::write(&path, &bytes).unwrap();
-            let error = Store::open(directory.path(), id).err().expect("tampered state rejected");
-            assert!(matches!(error, LanderError::Journal(_)), "{error}");
-            assert!(error.to_string().contains("starting validator state"), "{error}");
-            assert_eq!(std::fs::read(path).unwrap(), bytes);
-        }
-    }
-
     #[tokio::test]
     async fn journal_and_standalone_transaction_reject_bound_invalid_kzg_proofs() {
         use crate::{
@@ -536,11 +416,7 @@ mod tests {
             }
             let transaction = signed(&request, &proof, 0).await;
             assert!(
-                transaction
-                    .validate(&request, &proof)
-                    .unwrap_err()
-                    .to_string()
-                    .contains("signed sidecar")
+                transaction.validate(&request, &proof).unwrap_err().to_string().contains("KZG")
             );
             let state =
                 JournalState::Pending { job: Box::new(ProvedJob { request, proof }), transaction };
@@ -662,18 +538,16 @@ mod tests {
     #[test]
     fn v1_journal_rejects_rebound_cut_leaves_and_cursor() {
         use crate::test_utils::runtime::{limits, rebind, request};
-        for mutation in 0..4 {
+        for mutation in 1..=2 {
             let mut request = request();
             let payload = crate::codec::encode(&request.batch.blocks, &limits()).unwrap();
             match mutation {
-                0 => request.batch.leaves[0][0] ^= 1,
                 1 => request.batch.leaves.clear(),
                 2 => request.batch.leaves.push(B256::ZERO),
-                3 => request.batch.input.forcedInclusionHead += U256::from(1),
                 _ => unreachable!(),
             }
             rebind(&mut request, &payload);
-            assert!(request.batch.validate_statement().is_err(), "rebound mutation {mutation}");
+            assert!(request.batch.verify_restored().is_err(), "rebound mutation {mutation}");
         }
     }
 
@@ -758,7 +632,7 @@ mod tests {
             0,
             crate::test_utils::runtime::val_states(&large.batch.start_val_state, 6)[6].hash(),
         )];
-        let payload = codec::encode(&large.batch.blocks, &cap).unwrap();
+        let payload = crate::codec::encode(&large.batch.blocks, &cap).unwrap();
         rebind(&mut large, &payload);
         let list_growth = list_len(&large) - list_len(&small);
         let journal_growth = journal_len(&large) - journal_len(&small);

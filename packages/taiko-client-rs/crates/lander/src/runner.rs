@@ -384,9 +384,11 @@ impl Runner {
         Ok(())
     }
 
-    /// Recheck checkpoint and reference before signing or scheduling a first broadcast. The
-    /// statement hash needs no recheck here: the store recomputes it whenever it loads or saves
-    /// the job, and signing recomputes it again.
+    /// Recheck checkpoint and reference before signing or scheduling a first broadcast. The job
+    /// itself needs no recheck here: the builder checked it before proving, and the store reruns
+    /// [`crate::types::PreparedBatch::verify_restored`] (shape, terminal Comet hash, reference
+    /// number, statement hash and blob/KZG binding; not the proof witnesses) on every journal
+    /// load and save.
     async fn unbroadcast_current(
         &self,
         snapshot: &LandingSnapshot,

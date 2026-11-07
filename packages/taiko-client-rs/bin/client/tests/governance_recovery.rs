@@ -813,7 +813,7 @@ async fn governance_recovery_reconciles_old_pending_nonce_after_receipt_reorg() 
             serde_json::from_slice(&fs::read(commands.journal.join("lander-state.json"))?)?;
         let old_job: lander::store::ProvedJob =
             serde_json::from_value(old_journal["state"]["job"].clone())?;
-        old_job.request.batch.validate_statement()?;
+        old_job.request.batch.verify_restored()?;
         assert_eq!(old_job.request.batch.snapshot.generation, 0);
         c.stop_node(0).await?;
         let old_hash: alloy_primitives::B256 =

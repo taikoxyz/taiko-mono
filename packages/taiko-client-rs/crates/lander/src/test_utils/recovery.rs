@@ -252,7 +252,7 @@ async fn recovery_origin_uses_retained_boundary_and_r_committee() {
         assert_eq!(snapshot.recovery.as_ref().unwrap().comet_hash, old_landing_comet_hash);
         assert_eq!(snapshot.initial_committee(), Some(r_committee));
         let prepared = builder(f.clone()).prepare(snapshot.clone()).await.unwrap().unwrap();
-        prepared.batch.validate_statement().unwrap();
+        prepared.batch.verify_restored().unwrap();
         assert_eq!(prepared.batch.input.activeCommitteeSnapshot, U256::from(20));
         assert!(prepared.batch.anchors.iter().all(|a| a.number >= 20));
         assert!(prepared.batch.blocks[0].block.last_commit.is_none());
@@ -296,7 +296,7 @@ async fn recovered_origin_starts_from_genesis_but_binds_the_stored_parent_word()
             &batch.leaves,
         );
         assert_eq!(&words[9 * 32..10 * 32], stored.as_slice(), "length {length}");
-        batch.validate_statement().unwrap();
+        batch.verify_restored().unwrap();
     }
 }
 
@@ -309,7 +309,7 @@ async fn recovery_later_checkpoint_and_epoch_crossing_keep_authenticated_origin(
         assert_eq!(prepared.batch.input.parentHeight, U256::from(checkpoint));
         assert_eq!(prepared.batch.input.lastHeight, U256::from(18));
         assert_eq!(prepared.batch.input.activeCommitteeSnapshot, U256::from(21));
-        prepared.batch.validate_statement().unwrap();
+        prepared.batch.verify_restored().unwrap();
         if checkpoint == 6 {
             terminal_leaves.insert(
                 length,
@@ -330,9 +330,21 @@ async fn recovery_later_checkpoint_and_epoch_crossing_keep_authenticated_origin(
             );
         }
         // The chain must reach its oldest consumed anchor; dropping that header is refused.
-        let mut truncated = prepared.batch.clone();
-        truncated.reference_headers.pop();
-        assert!(truncated.validate_statement().is_err());
+        let b = &prepared.batch;
+        let mut anchors = crate::batch::consumed_anchors(
+            &b.snapshot,
+            &b.parent_anchor,
+            &b.anchors,
+            b.committees.iter().map(|c| c.record.target_epoch),
+        )
+        .unwrap();
+        anchors.extend(b.committee_witnesses.iter().map(|context| context.anchor.clone()));
+        let headers = |raw: &[alloy_primitives::Bytes]| {
+            raw.iter().map(|h| RawL1Header::from_raw(h.clone()).unwrap()).collect::<Vec<_>>()
+        };
+        crate::batch::verify_reference_chain(&headers(&b.reference_headers), &anchors).unwrap();
+        let truncated = &b.reference_headers[..b.reference_headers.len() - 1];
+        assert!(crate::batch::verify_reference_chain(&headers(truncated), &anchors).is_err());
         assert!(
             prepared
                 .batch
@@ -366,7 +378,7 @@ async fn recovery_root_is_consumed_only_while_recovery_material_is_used() {
         let oldest = prepared.batch.reference_headers.last().unwrap().clone();
         let oldest = RawL1Header::from_raw(oldest).unwrap().number();
         assert_eq!(oldest, if uses_r { 20 } else { 21 }, "length {length}, p {checkpoint}");
-        prepared.batch.validate_statement().unwrap();
+        prepared.batch.verify_restored().unwrap();
     }
 }
 

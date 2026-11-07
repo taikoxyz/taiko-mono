@@ -313,50 +313,51 @@ pub struct PreparedBatch {
     pub statement_hash: B256,
 }
 
+/// Fixed bounds for decoding a restored job's blobs, independent of operator limits: the journal
+/// allocation bound caps every byte count.
+const RESTORE_LIMITS: Limits = Limits {
+    max_blocks: 100_000,
+    max_blobs: 128,
+    max_payload_bytes: crate::store::MAX_JOURNAL_BYTES as usize,
+    max_message_bytes: crate::store::MAX_JOURNAL_BYTES as usize,
+    max_decompressed_bytes: crate::store::MAX_JOURNAL_BYTES as usize,
+};
+
 impl PreparedBatch {
-    /// Reconstruct the V1 range, cut leaves, cursors and digest before restoration or signing.
-    /// Batch construction authenticates headers; a real proof guest must independently execute.
-    pub fn validate_statement(&self) -> Result<()> {
-        let headers = self
-            .blocks
-            .iter()
-            .map(|pair| {
-                pair.block
-                    .data
-                    .first()
-                    .ok_or_else(|| LanderError::Journal("job has no envelope".into()))
-                    .and_then(|bytes| {
-                        abci::EtnaEnvelope::decode(bytes)
-                            .map_err(|error| LanderError::Journal(format!("job envelope: {error}")))
-                    })
-                    .map(|envelope| envelope.block.header)
-            })
-            .collect::<Result<Vec<_>>>()?;
-        if self.blocks.iter().any(|pair| pair.block.header.version.app != abci::app::APP_VERSION) {
-            return Err(LanderError::Journal("job has unsupported Etna APP_VERSION".into()));
-        }
-        let parent = protocol_u48(self.input.parentHeight)?;
-        let last = protocol_u48(self.input.lastHeight)?;
+    /// Recheck a restored job against what its statement and signed transaction bind, cheapest
+    /// check first: the V1 shape (LAND-6.1-5/7), the terminal Comet hash (PROOF-6.2-15), the
+    /// reference number, the statement hash, the blob payload against the retained blocks
+    /// (PROOF-6.2-21/37) and the KZG sidecar (PROOF-6.2-35).
+    ///
+    /// Proof witnesses (the starting validator state, execution history, committees and their
+    /// witnesses, anchors and the starting Inbox witness) are not re-derived. A restored job is
+    /// at least Prepared, so its proof already exists and nothing reads them again; the builder
+    /// checked every one before proving.
+    pub fn verify_restored(&self) -> Result<()> {
+        let u48 = |value: U256| {
+            protocol_u48(value)
+                .map_err(|_| LanderError::Journal("job ABI integer exceeds uint48".into()))
+        };
+        let parent = u48(self.input.parentHeight)?;
+        let last = u48(self.input.lastHeight)?;
         for value in [
             self.input.l1ReferenceBlockNumber,
             self.input.forcedInclusionHead,
             self.input.activeCommitteeSnapshot,
         ] {
-            protocol_u48(value)?;
+            u48(value)?;
         }
         if parent != self.snapshot.checkpoint_height ||
             parent >= last ||
             !parent.is_multiple_of(GRID_INTERVAL) ||
             !last.is_multiple_of(GRID_INTERVAL) ||
-            self.snapshot.generation >= (1u64 << 48) ||
-            (self.snapshot.generation != 0 &&
-                (self.snapshot.recovery.is_none() ||
-                    self.snapshot.recovery_witness.is_none())) ||
-            self.snapshot.origin_height() > parent ||
             self.blocks.len() as u64 != last - parent
         {
+            return Err(LanderError::Journal("job has an invalid V1 grid interval".into()));
+        }
+        if self.leaves.len() as u64 != (last - parent) / GRID_INTERVAL - 1 {
             return Err(LanderError::Journal(
-                "job has invalid V1 grid interval or generation".into(),
+                "job cut leaf count differs from its grid interval".into(),
             ));
         }
         if self.blocks.last().is_none_or(|pair| {
@@ -364,288 +365,56 @@ impl PreparedBatch {
         }) {
             return Err(LanderError::Journal("job terminal Comet hash mismatch".into()));
         }
-        let schedule = abci::Schedule::from_genesis(&self.snapshot.genesis);
-        schedule.validate().map_err(|error| {
-            LanderError::Journal(format!("job execution history schedule: {error}"))
-        })?;
-        // Genesis has no earlier execution ancestry; existing origin jobs may carry no
-        // separate header history. Every supplied history is authenticated before use.
-        if parent != 0 || !self.execution_history.is_empty() {
-            crate::history::verify(
-                crate::history::HistoryInput {
-                    recovery: self.snapshot.recovery.as_ref(),
-                    height: self.snapshot.checkpoint_height,
-                    hash: self.snapshot.checkpoint_hash,
-                    generation: self.snapshot.generation,
-                    schedule: &schedule,
-                },
-                &self.execution_history,
-            )
-            .map_err(|error| LanderError::Journal(format!("job execution history: {error}")))?;
-        }
-        self.validate_cuts()?;
-        self.validate_switch_anchors(&headers)?;
-        self.validate_active_committee_snapshot(&headers)?;
         let raw = self
             .reference_headers
             .first()
             .ok_or_else(|| LanderError::Journal("job has no L1 reference".into()))?;
-        let header = abci::RawL1Header::from_raw(raw.clone())
+        let reference = RawL1Header::from_raw(raw.clone())
             .map_err(|error| LanderError::Journal(format!("job reference: {error}")))?;
-        if self.input.l1ReferenceBlockNumber != header.number() ||
-            crate::statement::hash(
-                &self.snapshot,
-                &self.input,
-                header.hash(),
-                &self.blobs.versioned_hashes,
-                &self.leaves,
-            ) != self.statement_hash
+        if self.input.l1ReferenceBlockNumber != reference.number() {
+            return Err(LanderError::Journal(
+                "job L1 reference number differs from its reference header".into(),
+            ));
+        }
+        if crate::statement::hash(
+            &self.snapshot,
+            &self.input,
+            reference.hash(),
+            &self.blobs.versioned_hashes,
+            &self.leaves,
+        ) != self.statement_hash
         {
             return Err(LanderError::Journal("job V1 statement identity mismatch".into()));
         }
-        Ok(())
-    }
-
-    /// Reconstruct every committed cursor, validator state and cut from the retained
-    /// authenticated envelopes. A canonical skip was executed by the builder; restoration checks
-    /// its unchanged pure classification and witness, while a real proof guest must execute that
-    /// skip itself. The validator state is replayed from [`Self::start_val_state`], which must be
-    /// the generation's genesis state at its origin and otherwise hash to the checkpoint's word 4,
-    /// with the job's committees and the genesis schedule, as the builder replayed it.
-    fn validate_cuts(&self) -> Result<()> {
-        use abci::forced::{ForcedContext, ForcedDecision, check};
-        if self.anchors.len() != self.blocks.len() {
-            return Err(LanderError::Journal("job anchor count differs from blocks".into()));
-        }
-        let journal = |e: LanderError| LanderError::Journal(format!("job validator state: {e}"));
-        let schedule = abci::Schedule::from_genesis(&self.snapshot.genesis);
-        let committee =
-            |epoch: u64| self.committees.iter().find(|c| c.record.target_epoch == epoch);
-        let consistent = if self.snapshot.checkpoint_height == self.snapshot.origin_height() {
-            crate::batch::origin_val_state(&self.snapshot, &schedule, committee).map_err(journal)? ==
-                self.start_val_state
-        } else {
-            self.start_val_state.height == self.snapshot.checkpoint_height &&
-                self.start_val_state.hash() == self.snapshot.checkpoint_val_state_hash
-        };
-        if !consistent {
+        let payload = crate::blob::decode(self.blobs.sidecar.blobs(), &RESTORE_LIMITS)
+            .map_err(|e| LanderError::Journal(format!("job blobs: {e}")))?;
+        if payload.len() != self.blobs.payload_bytes {
             return Err(LanderError::Journal(
-                "job starting validator state contradicts its checkpoint".into(),
+                "job blob payload length differs from its record".into(),
             ));
         }
-        let mut val_state = self.start_val_state.clone();
-        let mut cursor = self.snapshot.forced_inclusion_head;
-        let mut leaves = Vec::new();
-        for (pair, anchor) in self.blocks.iter().zip(&self.anchors) {
-            let envelope = abci::EtnaEnvelope::decode(&pair.block.data[0])
-                .map_err(|e| LanderError::Journal(format!("job envelope: {e}")))?;
-            let decision = check(
-                ForcedContext {
-                    cursor,
-                    anchor,
-                    delay: self.snapshot.genesis.forced_inclusion_delay,
-                    inbox: self.snapshot.inbox,
-                    l2_chain_id: self.snapshot.l2_chain_id,
-                    block_gas_limit: envelope.block.header.gas_limit,
-                },
-                envelope.forced.as_ref(),
-                envelope.block.transactions.first().map(|tx| tx.as_ref()),
-            )
-            .map_err(|e| LanderError::Journal(format!("job forced cursor: {e}")))?;
-            if !matches!(decision, ForcedDecision::Ordinary) {
-                cursor = cursor
-                    .checked_add(1)
-                    .ok_or_else(|| LanderError::Journal("job cursor overflow".into()))?;
-            }
-            let height = envelope.block.header.number;
-            val_state = crate::batch::next_val_state(
-                &val_state,
-                &self.snapshot,
-                &schedule,
-                height,
-                committee,
-            )
-            .map_err(journal)?;
-            if height.is_multiple_of(GRID_INTERVAL) && U256::from(height) < self.input.lastHeight {
-                leaves.push(crate::statement::cut_leaf(
-                    height,
-                    envelope.block.header.hash_slow(),
-                    B256::from_slice(pair.block.header.hash().as_bytes()),
-                    cursor,
-                    val_state.hash(),
-                ));
-            }
-        }
-        if leaves != self.leaves ||
-            U256::from(cursor) != self.input.forcedInclusionHead ||
-            val_state.hash() != self.input.lastValStateHash
-        {
-            return Err(LanderError::Journal(
-                "job V1 cut leaves, terminal cursor or validator state mismatch".into(),
-            ));
-        }
-        Ok(())
-    }
-
-    /// Bind every ordinary committee's proving root to its authenticated switch header,
-    /// including pending sets and switches preceding this batch's starting checkpoint.
-    fn validate_switch_anchors(&self, headers: &[Header]) -> Result<()> {
-        let invalid = || LanderError::Journal("job committee switch anchor mismatch".into());
-        let schedule = abci::Schedule::from_genesis(&self.snapshot.genesis);
-        for context in &self.committee_witnesses {
-            let epoch = context.witness.record.target_epoch;
-            if epoch == 0 ||
-                self.snapshot
-                    .recovery
-                    .as_ref()
-                    .is_some_and(|origin| origin.committee.record.target_epoch == epoch)
-            {
-                continue;
-            }
-            let switch_height = schedule
-                .checked_h_first(epoch)
-                .and_then(|height| height.checked_sub(2))
-                .ok_or_else(invalid)?;
-            let source = if switch_height <= self.snapshot.checkpoint_height {
-                &self.execution_history
-            } else {
-                headers
-            };
-            let switch =
-                source.iter().find(|header| header.number == switch_height).ok_or_else(invalid)?;
-            let (_, generation, number) =
-                abci::rules::decode_extra_data(&switch.extra_data).map_err(|_| invalid())?;
-            if generation != self.snapshot.generation ||
-                context.anchor.number != number ||
-                switch.parent_beacon_block_root != Some(context.anchor.state_root)
-            {
-                return Err(invalid());
-            }
-        }
-        Ok(())
-    }
-
-    /// Recover the terminal committee cutoff from committed execution ancestry and retained
-    /// registry provenance. A recomputed digest cannot authorize a different cutoff or epoch.
-    fn validate_active_committee_snapshot(&self, headers: &[Header]) -> Result<()> {
-        let invalid =
-            || LanderError::Journal("job active committee snapshot provenance mismatch".into());
-        let schedule = abci::Schedule::from_genesis(&self.snapshot.genesis);
-        schedule.validate().map_err(|_| invalid())?;
-        let terminal = headers.last().ok_or_else(invalid)?;
-        if self.input.lastHeight != terminal.number ||
-            terminal.hash_slow() != self.input.lastBlockHash ||
-            terminal.state_root != self.input.lastStateRoot
-        {
-            return Err(invalid());
-        }
-        let mut parent_height = self.snapshot.checkpoint_height;
-        let mut parent_hash = self.snapshot.checkpoint_hash;
-        for header in headers {
-            if parent_height.checked_add(1) != Some(header.number) ||
-                header.parent_hash != parent_hash
-            {
-                return Err(invalid());
-            }
-            parent_height = header.number;
-            parent_hash = header.hash_slow();
-        }
-        let epoch = schedule
-            .active_committee_epoch(terminal.number, self.snapshot.origin_height())
-            .ok_or_else(invalid)?;
-        let cutoff = if let Some(origin) =
-            self.snapshot.recovery.as_ref().filter(|r| r.committee.record.target_epoch == epoch)
-        {
-            let committee = self
-                .committees
-                .iter()
-                .find(|c| c.record.target_epoch == epoch)
-                .ok_or_else(invalid)?;
-            let context = self
-                .committee_witnesses
-                .iter()
-                .find(|c| c.witness.record.target_epoch == epoch)
-                .ok_or_else(invalid)?;
-            if committee != &origin.committee ||
-                context.witness.record != committee.record ||
-                context.derivation_parent.is_some() ||
-                context.anchor.number != origin.l1_number
-            {
-                return Err(invalid());
-            }
-            let reference = self
-                .reference_headers
-                .iter()
-                .map(|raw| RawL1Header::from_raw(raw.clone()).map_err(|_| invalid()))
-                .collect::<Result<Vec<_>>>()?;
-            crate::batch::verify_reference_chain(&reference, std::slice::from_ref(&context.anchor))
-                .map_err(|_| invalid())?;
-            origin.l1_number
-        } else if epoch == 0 {
-            schedule.genesis_cutoff
-        } else {
-            let derivation_height = schedule.derivation_parent_height(epoch).ok_or_else(invalid)?;
-            let derivation = if derivation_height <= self.snapshot.checkpoint_height {
-                self.execution_history
-                    .iter()
-                    .find(|header| header.number == derivation_height)
-                    .ok_or_else(invalid)?
-            } else {
-                headers
-                    .iter()
-                    .find(|header| header.number == derivation_height)
-                    .ok_or_else(invalid)?
-            };
-            let mut contexts = self
-                .committee_witnesses
-                .iter()
-                .filter(|context| context.witness.record.target_epoch == epoch);
-            let context = contexts.next().ok_or_else(invalid)?;
-            let mut committees =
-                self.committees.iter().filter(|committee| committee.record.target_epoch == epoch);
-            let committee = committees.next().ok_or_else(invalid)?;
-            if contexts.next().is_some() ||
-                committees.next().is_some() ||
-                context.derivation_parent.as_ref() != Some(derivation) ||
-                context.witness.record != committee.record
-            {
-                return Err(invalid());
-            }
-            let cutoff = crate::history::snapshot_number_at_origin(
-                Some(derivation),
-                &schedule,
-                self.snapshot.recovery.as_ref(),
-            )
-            .map_err(|_| invalid())?;
-            let mut anchors = crate::batch::consumed_anchors(
-                &self.snapshot,
-                &self.parent_anchor,
-                &self.anchors,
-                self.committees.iter().map(|committee| committee.record.target_epoch),
-            )
-            .map_err(|_| invalid())?;
-            anchors.extend(self.committee_witnesses.iter().map(|context| context.anchor.clone()));
-            let reference = self
-                .reference_headers
-                .iter()
-                .map(|raw| RawL1Header::from_raw(raw.clone()).map_err(|_| invalid()))
-                .collect::<Result<Vec<_>>>()?;
-            crate::batch::verify_reference_chain(&reference, &anchors).map_err(|_| invalid())?;
-            if context.witness.record.cutoff_l1_block != cutoff ||
-                context.anchor.number < cutoff ||
-                !anchors.contains(&context.anchor)
-            {
-                return Err(invalid());
-            }
-            cutoff
+        // Compressed bytes are not canonical, so compare the blocks the payload carries.
+        let range = crate::codec::LandedRange {
+            parent_height: parent,
+            parent_hash: self.snapshot.checkpoint_hash,
+            last_height: last,
+            last_block_hash: self.input.lastBlockHash,
+            last_state_root: self.input.lastStateRoot,
         };
-        if self.input.activeCommitteeSnapshot != cutoff ||
-            cutoff < schedule.genesis_cutoff ||
-            self.input.l1ReferenceBlockNumber < U256::from(cutoff)
-        {
-            return Err(invalid());
+        let published = crate::codec::decode_landed(&payload, &range)
+            .map_err(|e| LanderError::Journal(format!("job block codec: {e}")))?;
+        let expected = self
+            .blocks
+            .iter()
+            .map(|pair| {
+                crate::codec::PublishedBlock::try_from(pair)
+                    .map_err(|e| LanderError::Journal(format!("job block pair: {e}")))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        if published != expected {
+            return Err(LanderError::Journal("job blocks differ from bound blob payload".into()));
         }
-        Ok(())
+        crate::blob::verify(&self.blobs)
     }
 }
 
@@ -684,13 +453,13 @@ mod tests {
     #[test]
     fn prepared_statement_rejects_every_terminal_comet_bit_even_with_rebound_digest() {
         let request = crate::test_utils::runtime::request();
-        request.batch.validate_statement().unwrap();
+        request.batch.verify_restored().unwrap();
         let reference =
             abci::RawL1Header::from_raw(request.batch.reference_headers[0].clone()).unwrap();
         for bit in 0..256 {
             let mut changed = request.batch.clone();
             changed.input.lastCometHash[bit / 8] ^= 1 << (bit % 8);
-            assert!(changed.validate_statement().is_err(), "stale digest bit {bit}");
+            assert!(changed.verify_restored().is_err(), "stale digest bit {bit}");
             changed.statement_hash = crate::statement::hash(
                 &changed.snapshot,
                 &changed.input,
@@ -698,13 +467,75 @@ mod tests {
                 &changed.blobs.versioned_hashes,
                 &changed.leaves,
             );
-            assert!(changed.validate_statement().is_err(), "rebound digest bit {bit}");
+            assert!(changed.verify_restored().is_err(), "rebound digest bit {bit}");
         }
         let mut changed = request.batch.clone();
         changed.statement_hash = B256::ZERO;
-        assert!(changed.validate_statement().is_err());
+        assert!(changed.verify_restored().is_err());
         let mut changed = request.batch;
         changed.input.lastCometHash = B256::ZERO;
-        assert!(changed.validate_statement().is_err());
+        assert!(changed.verify_restored().is_err());
+    }
+
+    /// Restoration rechecks what the signed transaction and the statement bind: the shape, the
+    /// terminal Comet hash, the reference, the statement hash, the blob payload and its KZG
+    /// sidecar. It does not re-derive proof witnesses: a restored job's proof already exists, and
+    /// the builder checked them all before proving.
+    #[test]
+    fn restore_rechecks_the_statement_shape_and_blob_binding_but_not_proof_witnesses() {
+        use crate::test_utils::runtime::{limits, rebind, request};
+        use alloy_eips::eip7594::BlobTransactionSidecarVariant;
+        let original = request();
+        original.batch.verify_restored().unwrap();
+        let mut witnesses = original.batch.clone();
+        witnesses.start_val_state.current.entries[0].priority += 1;
+        witnesses.anchors.clear();
+        witnesses.execution_history.clear();
+        witnesses.committee_witnesses.clear();
+        witnesses.verify_restored().unwrap();
+
+        let reference =
+            abci::RawL1Header::from_raw(original.batch.reference_headers[0].clone()).unwrap();
+        let rebound = |batch: &mut PreparedBatch| {
+            batch.statement_hash = crate::statement::hash(
+                &batch.snapshot,
+                &batch.input,
+                reference.hash(),
+                &batch.blobs.versioned_hashes,
+                &batch.leaves,
+            );
+        };
+        let mut cases: Vec<(&str, PreparedBatch)> = Vec::new();
+        let mut batch = original.batch.clone();
+        batch.statement_hash = B256::ZERO;
+        cases.push(("statement", batch));
+        let mut batch = original.batch.clone();
+        batch.leaves.push(B256::ZERO);
+        rebound(&mut batch);
+        cases.push(("leaf", batch));
+        let mut batch = original.batch.clone();
+        batch.input.lastCometHash[0] ^= 1;
+        rebound(&mut batch);
+        cases.push(("Comet", batch));
+        let mut batch = original.batch.clone();
+        batch.input.l1ReferenceBlockNumber += U256::from(1);
+        rebound(&mut batch);
+        cases.push(("reference", batch));
+        let mut first = original.clone();
+        let payload = crate::codec::encode(&first.batch.blocks[..1], &limits()).unwrap();
+        rebind(&mut first, &payload);
+        cases.push(("exact landed checkpoint interval", first.batch));
+        let mut batch = original.batch.clone();
+        let BlobTransactionSidecarVariant::Eip4844(sidecar) = &mut batch.blobs.sidecar else {
+            panic!("the runtime request carries an EIP-4844 sidecar");
+        };
+        sidecar.proofs[0][0] ^= 1;
+        cases.push(("KZG", batch));
+
+        for (expected, batch) in cases {
+            let error = batch.verify_restored().unwrap_err();
+            assert!(matches!(error, LanderError::Journal(_)), "{expected}: {error}");
+            assert!(error.to_string().contains(expected), "{expected}: {error}");
+        }
     }
 }

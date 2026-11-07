@@ -1456,7 +1456,7 @@ fn committee_epoch(snapshot: &LandingSnapshot, schedule: &Schedule, height: u64)
 /// CometBFT's genesis validator state at the generation origin `o` (ENC-A-29a, PROOF-6.2-41a):
 /// the two sets built from the generation's initial committee, the one signing `o + 1`, which
 /// `committee` resolves by epoch. No query answers it: the app writes no sidecar at the origin.
-pub(crate) fn origin_val_state<'a>(
+fn origin_val_state<'a>(
     snapshot: &LandingSnapshot,
     schedule: &Schedule,
     committee: impl Fn(u64) -> Option<&'a CommitteeState>,
@@ -1479,7 +1479,7 @@ pub(crate) fn origin_val_state<'a>(
 /// other height none.
 /// `committee` resolves an authenticated committee by epoch. A missing committee or an update
 /// CometBFT refuses is a safety error, as it halts the app.
-pub(crate) fn next_val_state<'a>(
+fn next_val_state<'a>(
     state: &ValState,
     snapshot: &LandingSnapshot,
     schedule: &Schedule,
@@ -2220,7 +2220,7 @@ mod tests {
                 Some(U256::from(expected).to_be_bytes::<32>().as_slice()),
                 "checkpoint {checkpoint}, terminal {tip}: ninth ABI word must name the active committee snapshot"
             );
-            request.batch.validate_statement().unwrap();
+            request.batch.verify_restored().unwrap();
         }
     }
 
@@ -2238,72 +2238,10 @@ mod tests {
                 .batch;
             assert_eq!(batch.input.activeCommitteeSnapshot, expected, "{checkpoint}..{tip}");
             assert_eq!(batch.input.lastHeight, tip);
-            batch.validate_statement().unwrap();
+            batch.verify_restored().unwrap();
             let restored: PreparedBatch =
                 serde_json::from_slice(&serde_json::to_vec(&batch).unwrap()).unwrap();
-            restored.validate_statement().unwrap();
-        }
-    }
-
-    #[tokio::test]
-    async fn durable_cutoff_rejects_rebound_digest_and_forged_committee_provenance() {
-        for checkpoint in [6, 12, 24] {
-            let fixture = Arc::new(if checkpoint == 24 {
-                Fixture::new(24, 30)
-            } else {
-                Fixture::with_epoch(checkpoint, checkpoint + 6, 0, 12)
-            });
-            let batch = builder(fixture.clone(), limits(6))
-                .prepare(fixture.snapshot.clone())
-                .await
-                .unwrap()
-                .unwrap()
-                .batch;
-            batch.validate_statement().unwrap();
-            let reference =
-                abci::RawL1Header::from_raw(batch.reference_headers[0].clone()).unwrap();
-            for bit in 0..64 {
-                let mut changed = batch.clone();
-                changed.input.activeCommitteeSnapshot ^= U256::from(1) << bit;
-                changed.statement_hash = statement::hash(
-                    &changed.snapshot,
-                    &changed.input,
-                    reference.hash(),
-                    &changed.blobs.versioned_hashes,
-                    &changed.leaves,
-                );
-                assert!(
-                    changed.validate_statement().is_err(),
-                    "checkpoint {checkpoint}, cutoff bit {bit}"
-                );
-            }
-            if checkpoint != 6 {
-                let epoch = Schedule::from_genesis(&batch.snapshot.genesis)
-                    .epoch_of(crate::types::protocol_u48(batch.input.lastHeight).unwrap());
-                for mutation in 0..5 {
-                    let mut changed = batch.clone();
-                    let provenance = changed
-                        .committee_witnesses
-                        .iter_mut()
-                        .find(|context| context.witness.record.target_epoch == epoch)
-                        .unwrap();
-                    match mutation {
-                        0 => provenance.derivation_parent = None,
-                        1 => provenance.derivation_parent.as_mut().unwrap().number += 1,
-                        2 => provenance.witness.record.cutoff_l1_block += 1,
-                        3 => {
-                            provenance.derivation_parent.as_mut().unwrap().extra_data =
-                                rules::encode_extra_data(0, 12).unwrap()
-                        }
-                        4 => provenance.anchor.hash = B256::ZERO,
-                        _ => unreachable!(),
-                    }
-                    assert!(
-                        changed.validate_statement().is_err(),
-                        "checkpoint {checkpoint}, provenance mutation {mutation}"
-                    );
-                }
-            }
+            restored.verify_restored().unwrap();
         }
     }
 
@@ -2339,56 +2277,7 @@ mod tests {
         assert_ne!(batch.parent_anchor.state_root, switch.parent_beacon_block_root.unwrap());
         assert_eq!(context.anchor.state_root, switch.parent_beacon_block_root.unwrap());
         assert_eq!(context.anchor.number, rules::decode_extra_data(&switch.extra_data).unwrap().2);
-        batch.validate_statement().unwrap();
-    }
-
-    #[tokio::test]
-    async fn starting_committee_rejects_valid_registry_proof_rebound_to_checkpoint_anchor() {
-        let fixture = Arc::new(Fixture::with_progressing_epochs(18, 24));
-        let mut batch = builder(fixture.clone(), limits(6))
-            .prepare(fixture.snapshot.clone())
-            .await
-            .unwrap()
-            .unwrap()
-            .batch;
-        let context = batch
-            .committee_witnesses
-            .iter_mut()
-            .find(|context| context.witness.record.target_epoch == 1)
-            .unwrap();
-        context.anchor = batch.parent_anchor.clone();
-        context.witness = fixture
-            .committee_witness(&context.anchor, context.witness.record.cutoff_l1_block, 1)
-            .await
-            .unwrap();
-        assert!(batch.validate_statement().is_err());
-    }
-
-    #[tokio::test]
-    async fn starting_committee_history_cannot_shadow_a_switch_inside_the_batch() {
-        let fixture = Arc::new(Fixture::with_epoch(6, 12, 0, 13));
-        let mut batch = builder(fixture.clone(), limits(6))
-            .prepare(fixture.snapshot.clone())
-            .await
-            .unwrap()
-            .unwrap()
-            .batch;
-        batch.validate_statement().unwrap();
-        let context = batch
-            .committee_witnesses
-            .iter_mut()
-            .find(|context| context.witness.record.target_epoch == 1)
-            .unwrap();
-        context.anchor = fixture.anchors[&11].clone();
-        context.witness = fixture
-            .committee_witness(&context.anchor, context.witness.record.cutoff_l1_block, 1)
-            .await
-            .unwrap();
-        let mut forged_switch = fixture.headers[&12].clone();
-        forged_switch.extra_data = rules::encode_extra_data(0, context.anchor.number).unwrap();
-        forged_switch.parent_beacon_block_root = Some(context.anchor.state_root);
-        batch.execution_history.push(forged_switch);
-        assert!(batch.validate_statement().is_err());
+        batch.verify_restored().unwrap();
     }
 
     #[tokio::test]
@@ -2750,7 +2639,7 @@ mod tests {
         *source.fixture.write().unwrap() = Arc::new(Fixture::new(24, 30));
         let batch = b.prepare(snapshot.clone()).await.unwrap().unwrap().batch;
         assert_eq!(batch.start_val_state, source.fixture().val_states[&24]);
-        batch.validate_statement().unwrap();
+        batch.verify_restored().unwrap();
         assert_eq!(context_reads(), built);
         // The start at c and the guard at h.
         assert_eq!(val_state_reads(), 4);
@@ -2853,8 +2742,7 @@ mod tests {
     }
 
     /// The starting validator state comes from the app only when it hashes to the checkpoint
-    /// record's word 4 and is the state after c; a restored job whose starting state differs is
-    /// refused.
+    /// record's word 4 and is the state after c.
     #[tokio::test]
     async fn starting_state_is_accepted_only_against_the_landed_word() {
         let mut fixture = Fixture::new(6, 12);
@@ -2866,11 +2754,7 @@ mod tests {
         let batch = prepared(Fixture::new(6, 12), 6).await.unwrap().unwrap().batch;
         assert_eq!(batch.start_val_state, at_c);
         assert_eq!(batch.snapshot.checkpoint_val_state_hash, at_c.hash());
-        batch.validate_statement().unwrap();
-        let mut tampered = batch;
-        tampered.start_val_state.current.entries[0].priority += 1;
-        let error = tampered.validate_statement().unwrap_err();
-        assert!(matches!(error, LanderError::Journal(_)), "{error}");
+        batch.verify_restored().unwrap();
     }
 
     /// No answer, an undecodable one or the state after another height waits: nothing lands.
@@ -2904,7 +2788,7 @@ mod tests {
         assert_eq!(batch.start_val_state, genesis);
         assert_eq!(batch.snapshot.checkpoint_val_state_hash, B256::ZERO);
         assert_eq!(source.val_state_reads.load(Ordering::Relaxed), 1);
-        batch.validate_statement().unwrap();
+        batch.verify_restored().unwrap();
     }
 
     /// Across the switch to epoch 1 at height 23, which adds a validator, the leaves and
@@ -2940,7 +2824,7 @@ mod tests {
         assert_eq!(batch.start_val_state, replica[18]);
         assert_eq!(batch.leaves, vec![leaf]);
         assert_eq!(batch.input.lastValStateHash, replica[30].hash());
-        batch.validate_statement().unwrap();
+        batch.verify_restored().unwrap();
     }
 
     /// The app's own state at h must agree with the replay before any proof is requested.
@@ -2980,7 +2864,7 @@ mod tests {
                     .extra_data[0] ==
                     100)
             );
-            batch.validate_statement().unwrap();
+            batch.verify_restored().unwrap();
         }
     }
 
@@ -3109,21 +2993,7 @@ mod tests {
         let restored: PreparedBatch =
             serde_json::from_slice(&serde_json::to_vec(batch).unwrap()).unwrap();
         assert_eq!(&restored, batch);
-        restored.validate_statement().unwrap();
-        let mut wrong = restored;
-        wrong
-            .committee_witnesses
-            .iter_mut()
-            .find(|context| context.witness.record.target_epoch == 1)
-            .unwrap()
-            .derivation_parent
-            .as_mut()
-            .unwrap()
-            .number = 21;
-        assert!(
-            wrong.validate_statement().is_err(),
-            "old D=21 cannot authorize the restored batch"
-        );
+        restored.verify_restored().unwrap();
     }
 
     #[tokio::test]

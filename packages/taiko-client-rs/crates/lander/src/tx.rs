@@ -78,20 +78,11 @@ pub struct SignedTransaction {
 }
 
 impl SignedTransaction {
-    /// Decode and bind every signed input and sidecar to the journal's immutable job.
+    /// Bind every signed input and the exact sidecar to the job, and verify the sidecar's KZG
+    /// binding. The job's statement is the store's to recheck ([`PreparedBatch::verify_restored`]).
     pub fn validate(&self, request: &ProofRequest, proof: &Bytes) -> Result<()> {
-        request.batch.validate_statement()?;
         self.validate_binding(request, proof)?;
-        let batch = &request.batch;
-        batch
-            .blobs
-            .sidecar
-            .validate(
-                &batch.blobs.versioned_hashes,
-                alloy_eips::eip4844::env_settings::EnvKzgSettings::Default.get(),
-            )
-            .map_err(|e| LanderError::Journal(format!("signed sidecar: {e}")))?;
-        Ok(())
+        crate::blob::verify(&request.batch.blobs)
     }
 
     /// Check signed fields and exact sidecar equality only. The caller must separately
@@ -241,7 +232,6 @@ impl TransactionTransport for RpcTransactionTransport {
             ));
         }
         let nonce = self.nonce_state().await?;
-        request.batch.validate_statement()?;
         nonce.validate()?;
         let nonce = nonce.pending;
         let input: Bytes = land_calldata(batch, proof).into();

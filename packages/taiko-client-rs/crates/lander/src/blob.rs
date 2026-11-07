@@ -71,6 +71,18 @@ pub fn build(payload: &[u8], limits: &Limits, mode: SidecarMode) -> Result<Prepa
     Ok(PreparedBlobs { payload_bytes: payload.len(), sidecar, versioned_hashes })
 }
 
+/// Verify that the sidecar's KZG commitments and proofs bind its blobs to the ordered versioned
+/// hashes (PROOF-6.2-35). This is the only place the lander runs the KZG sidecar check.
+pub fn verify(blobs: &PreparedBlobs) -> Result<()> {
+    blobs
+        .sidecar
+        .validate(
+            &blobs.versioned_hashes,
+            alloy_eips::eip4844::env_settings::EnvKzgSettings::Default.get(),
+        )
+        .map_err(|e| LanderError::Journal(format!("sidecar fails KZG verification: {e}")))
+}
+
 /// Decode canonical Kona chunks in transaction order, bounded before allocating payload bytes.
 pub fn decode(blobs: &[Blob], limits: &Limits) -> Result<Vec<u8>> {
     use protocol::shasta::BlobCoder;
