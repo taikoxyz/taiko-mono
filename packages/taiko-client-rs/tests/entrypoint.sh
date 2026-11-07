@@ -24,11 +24,12 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$DIR/.."
 
 # Internal selectors used by the fixed `just test-smoke` and `just test-full` recipes. Shift only
-# this leading flag so all remaining arguments retain their nextest meaning. By default the
-# slowest scenario is left to the full run (main, nightly, `just verify`): the L1 finality stall
-# needs about 1,150 L2 blocks to age past the 1152 s anchor floor. Unit tests cover its
-# halt-and-resume rule.
-filter='kind(test) & !test(=stale_l1_finality_pauses_and_resumes_l2)'
+# this leading flag so all remaining arguments retain their nextest meaning. By default three slow
+# scenarios are left to the full run (main, nightly, `just verify`). The L1 finality stall needs
+# about 1,150 L2 blocks to age past the 1152 s anchor floor; unit tests cover its halt-and-resume
+# rule. The L=7 recovery grid repeats the grid case L=6 already covers. The four-boundary recovery
+# SIGKILL scenario takes about 95 s.
+filter='kind(test) & !test(=stale_l1_finality_pauses_and_resumes_l2) & !test(=governance_recovery_l7_overlap_preserves_global_grid) & !test(=governance_recovery_sigkill_boundaries_replay_without_duplicate_owners)'
 if [[ "${1:-}" == "--smoke" ]]; then
     shift
     filter='kind(test) & (test(=single_validator_produces_blocks_by_the_header_rules) | test(=epoch_switch_adds_the_joining_validator) | test(=four_validator_native_consensus_fees_fi_epoch_landing_and_restart) | test(=lander_cli_recovers_from_sigkill_and_resumes_after_sigterm))'

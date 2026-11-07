@@ -829,8 +829,9 @@ contract harness.
   CI runs two serial lanes: `native` (the `governance_recovery` binary: stock Comet, native EL
   and the recovery test image) and `devnet` (all other scenarios); set
   `TAIKO_CLIENT_RS_TEST_LANE` to run one locally. Extra arguments go to `cargo nextest run`, e.g. `just test restart` runs one scenario. Pull requests
-  skip the slowest scenario, the L1 finality stall, whose halt-and-resume rule unit tests cover;
-  `just test-full` runs every scenario, as CI does on main, nightly and on manual dispatch.
+  skip the L1 finality stall, the L=7 recovery grid (L=6 covers the same grid case) and the
+  four-boundary recovery SIGKILL scenario; `just test-full` runs every scenario, as CI does on
+  main, nightly and on manual dispatch.
   `tests/entrypoint.sh` lists selected cases before Docker checks and builds only the native
   helpers they need, including the recovery image for its two Linux consumers. On an ubuntu or
   debian Linux host, that image is the test-only `tests/docker/recovery-runtime.Dockerfile` on

@@ -223,6 +223,15 @@ python3 -c 'import json, os, sys; open(os.environ["CALLS"], "a").write(json.dump
         self.assertEqual(run[run.index("-E") + 1], listed[listed.index("-E") + 1])
         return listed[listed.index("-E") + 1]
 
+    def test_pull_request_tier_leaves_full_only_scenarios(self):
+        pr_filter = self.tier_filter()
+        for name in ("stale_l1_finality_pauses_and_resumes_l2",
+                     "governance_recovery_l7_overlap_preserves_global_grid",
+                     "governance_recovery_sigkill_boundaries_replay_without_duplicate_owners"):
+            with self.subTest(name=name):
+                self.assertIn(f"!test(={name})", pr_filter)
+        self.assertEqual(self.tier_filter("--full"), "kind(test)")
+
     def test_lanes_split_on_the_native_suite(self):
         # The lane term must bind to the whole tier filter, whatever operators the tier uses.
         bases = set()
