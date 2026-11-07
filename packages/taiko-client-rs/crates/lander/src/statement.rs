@@ -90,7 +90,7 @@ pub fn preimage(
         cut_hash(snapshot.generation, input.parentHeight, input.lastHeight, leaves).0,
     ];
     let mut out = [0; PREIMAGE_BYTES];
-    for (word, target) in words.iter().zip(out.chunks_exact_mut(32)) {
+    for (word, target) in words.iter().zip(out.as_chunks_mut::<32>().0.iter_mut()) {
         target.copy_from_slice(word);
     }
     out

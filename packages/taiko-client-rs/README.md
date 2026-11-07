@@ -72,9 +72,14 @@ Fresh deployment starts at generation zero; it migrates no earlier state format.
 [governance recovery](docs/governance-recovery.md) authenticates a later generation and
 creates fresh app/Comet stores while preserving registered signing authority and old history. It is aligned with protocol commit `35e2f8f191132e87d9a223554d0b699f4203f2e3` (the
 Inbox, staking registry and the pinned contract artifacts) and alethia-reth commit
-`6ac93d4b38e1cd72b993cef1ed1dc2cb0affa7b4`. Start the EL and verify its block 0 before the Inbox
+`20a9282a24b14567ebad82c427f8ceeeaf40aab4`. Start the EL and verify its block 0 before the Inbox
 is initialized (spec section 10, Startup and deployment). The proof provider is a dummy `0x00`,
 so run the client only on disposable development chains.
+
+The client Dockerfile builds that exact EL source by default, and `just test` builds its
+`execution-runtime` target as the local default test image. `ALETHIA_RETH_IMAGE` remains an
+explicit override (a Docker build argument or test environment variable); use a binary built
+from the same pinned revision. The client and isolated import helper require Rust 1.99.
 
 Validators sign with stock CometBFT v0.40.0 `secp256k1eth` consensus keys; node P2P keys stay
 separate Ed25519 identities. The CometBFT chain ID is the 48-byte `etna-` deployment domain that
@@ -141,7 +146,7 @@ section 7 (Forced inclusion) gives the rules for including or skipping it. For o
 
 ## Prerequisites
 
-- Rust toolchain (1.95 or later)
+- Rust toolchain (1.99 or later)
 - [Just](https://github.com/casey/just) and [cargo-nextest](https://nexte.st) 0.9.145 or later
 - Docker (for the integration tests)
 

@@ -43,7 +43,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
         with:
-          toolchain: 1.95.0
+          toolchain: 1.99.0
 
       - name: Check Cargo.lock
         working-directory: packages/taiko-client-rs
@@ -90,7 +90,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
         with:
-          toolchain: 1.95.0
+          toolchain: 1.99.0
           components: clippy
 
       - name: Setup Rust cache

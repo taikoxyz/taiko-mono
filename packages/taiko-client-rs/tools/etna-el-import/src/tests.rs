@@ -730,7 +730,7 @@ fn installed_native_version_history_accepts_the_actual_versioned_startup_path() 
     super::install_dataset(&data, &f.genesis, &f.manifest, &f.trust).unwrap();
     let version = ClientVersion {
         version: "etna-test".into(),
-        git_sha: "6ac93d4".into(),
+        git_sha: "20a9282".into(),
         build_timestamp: "test".into(),
     };
     let db = reth_db::init_db(

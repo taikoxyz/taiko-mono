@@ -10,5 +10,9 @@ trap 'rm -rf "$context"' EXIT
 git ls-files -z packages/taiko-client-rs | tar --null -T - -cf - | tar -xf - -C "$context"
 arch=$(docker info --format '{{.Architecture}}')
 case "$arch" in aarch64|arm64) arch=arm64 ;; x86_64|amd64) arch=amd64 ;; *) exit 1 ;; esac
+set --
+if [[ -n "${ETNA_BUILD_TARGET:-}" ]]; then
+    set -- --target "$ETNA_BUILD_TARGET"
+fi
 docker build --platform "linux/$arch" -f "$context/packages/taiko-client-rs/Dockerfile" \
-    --label "taiko-client-rs.test-run=${TAIKO_CLIENT_RS_TEST_RUN:?owned run label}" -t "$image" "$context"
+    "$@" --label "taiko-client-rs.test-run=${TAIKO_CLIENT_RS_TEST_RUN:?owned run label}" -t "$image" "$context"

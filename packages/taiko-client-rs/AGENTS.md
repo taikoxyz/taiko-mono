@@ -27,7 +27,7 @@
 
 ## Coding Style & Naming Conventions
 
-- Target MSRV 1.95 (`rust-version` in `Cargo.toml`).
+- Target MSRV 1.99 (`rust-version` in `Cargo.toml`).
 - Follow idiomatic Rust naming: snake_case for modules and functions, PascalCase for types, `SCREAMING_SNAKE_CASE` for constants. Prefer explicit `pub(crate)` boundaries.
 - Respect the shared `rustfmt.toml` and rely on `just fmt`; never bulk-format `crates/bindings/src`. Document intentional deviations with a brief comment.
 - Never add `#[allow(clippy::too_many_arguments)]` (including crate/module-level forms). When a function exceeds argument limits, introduce a named params struct and update call sites to pass that struct.

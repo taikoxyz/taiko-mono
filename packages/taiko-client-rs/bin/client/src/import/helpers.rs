@@ -370,7 +370,7 @@ impl<'a> Manifest<'a> {
         {
             return Err(bad("EL state verification report mismatch"))
         }
-        let expected = json!({"schema":1,"installation_id":self.installation_id,"helper_version":"0.1.0","alethia_revision":"6ac93d4b38e1cd72b993cef1ed1dc2cb0affa7b4","reth_revision":"d9bd9875fe88dcc0183d78b187ce2ceab0c93e93","manifest_hash":keccak256(bytes),"chain_id":self.chain_id,"genesis_hash":v.state().genesis.genesis_hash,"height":last.number,"block_hash":last.hash_slow(),"state_root":last.state_root,"finalized_height":self.finalized_height,"finalized_hash":self.finalized_hash,"first_header":self.headers[0].number,"last_header":last.number,"header_count":self.headers.len(),"state_floor":install.then_some(last.number),"installed":install,"state":state});
+        let expected = json!({"schema":1,"installation_id":self.installation_id,"helper_version":"0.1.0","alethia_revision":"20a9282a24b14567ebad82c427f8ceeeaf40aab4","reth_revision":"3c5f2f11c4e5a5647e6e911cd131ccf1bada4f25","manifest_hash":keccak256(bytes),"chain_id":self.chain_id,"genesis_hash":v.state().genesis.genesis_hash,"height":last.number,"block_hash":last.hash_slow(),"state_root":last.state_root,"finalized_height":self.finalized_height,"finalized_hash":self.finalized_hash,"first_header":self.headers[0].number,"last_header":last.number,"header_count":self.headers.len(),"state_floor":install.then_some(last.number),"installed":install,"state":state});
         if expected != r {
             return Err(bad("EL helper report disagrees with authenticated headers"))
         }

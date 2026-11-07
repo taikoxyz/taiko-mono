@@ -13,14 +13,14 @@ resolver = "2"
 [workspace.package]
 version = "2.3.0"
 edition = "2024"
-rust-version = "1.95"
+rust-version = "1.99"
 authors = ["Taiko Labs"]
 license = "MIT"
 repository = "https://github.com/taikoxyz/taiko-mono"
 
 [workspace.dependencies]
 # async
-async-trait = "0.1"
+async-trait = "0.1.92"
 futures = { version = "0.3", default-features = false, features = ["std"] }
 serde = { version = "1", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
@@ -58,9 +58,9 @@ alloy-trie = { version = "0.9.5", default-features = false }
 k256 = { version = "0.13", default-features = false, features = ["arithmetic"] }
 
 # taiko
-alethia-reth-chainspec = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-chainspec", rev = "6ac93d4b38e1cd72b993cef1ed1dc2cb0affa7b4", default-features = false }
-alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", rev = "6ac93d4b38e1cd72b993cef1ed1dc2cb0affa7b4", default-features = false }
-alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", rev = "6ac93d4b38e1cd72b993cef1ed1dc2cb0affa7b4", default-features = false, features = [
+alethia-reth-chainspec = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-chainspec", rev = "20a9282a24b14567ebad82c427f8ceeeaf40aab4", default-features = false }
+alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", rev = "20a9282a24b14567ebad82c427f8ceeeaf40aab4", default-features = false }
+alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", rev = "20a9282a24b14567ebad82c427f8ceeeaf40aab4", default-features = false, features = [
     "serde",
 ] }
 

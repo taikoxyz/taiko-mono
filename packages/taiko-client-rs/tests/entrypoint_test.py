@@ -25,7 +25,7 @@ class Entrypoint(unittest.TestCase):
         self.log = self.root / "calls"
         self.env = dict(os.environ, PATH=f"{self.root / 'bin'}:{os.environ['PATH']}",
                         CALLS=str(self.log), SELECTION='{}', TAIKO_CLIENT_RS_TEST_RUN="fixture-run")
-        for key in ("ETNA_RECOVERY_IMAGE", "ETNA_EL_BIN", "ETNA_EL_IMPORT_BIN", "NEXTEST_PROFILE"):
+        for key in ("ETNA_RECOVERY_IMAGE", "ETNA_EL_BIN", "ETNA_EL_IMPORT_BIN", "NEXTEST_PROFILE", "ALETHIA_RETH_IMAGE"):
             self.env.pop(key, None)
         self.executable("bin/cargo", '''#!/usr/bin/env python3
 import json, os, pathlib, sys, time
@@ -51,12 +51,13 @@ else:
 import json, os, sys
 with open(os.environ['CALLS'], 'a') as f: f.write(json.dumps(['docker'] + sys.argv[1:]) + '\\n')
 if sys.argv[1] == 'info' and os.environ.get('NO_DOCKER'): sys.exit(1)
+if sys.argv[1:3] == ['image', 'inspect'] and sys.argv[3].startswith('alethia-reth:etna-') and os.environ.get('EL_IMAGE_MISSING'): sys.exit(1)
 if sys.argv[1] == 'ps': print('owned-container')
 if sys.argv[1:3] == ['network', 'ls']: print('owned-network')
 ''')
         for name in ("etna_signer", "stock_comet", "etna_el_import", "etna_el_runtime", "recovery_runtime"):
             self.executable(f"script/build_{name}.sh", f'''#!/bin/bash
-printf '["build", "{name}"]\\n' >> "$CALLS"
+printf '["build", "{name}", "%s", "%s"]\\n' "${{ETNA_BUILD_TARGET:-}}" "${{ETNA_RECOVERY_IMAGE:-}}" >> "$CALLS"
 ''')
 
     def executable(self, name, contents):
@@ -102,6 +103,27 @@ printf '["build", "{name}"]\\n' >> "$CALLS"
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.builds(), [])
         self.assertIn(["docker", "info"], self.calls())
+
+    def test_missing_default_el_image_builds_the_pinned_runtime(self):
+        self.select("standalone_reth", "occupied_initial_auth_port_recovers_and_preserves_restart_endpoints")
+        self.env["EL_IMAGE_MISSING"] = "1"
+        result = self.run_entrypoint()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        builds = [row for row in self.calls() if row[:2] == ["build", "recovery_runtime"]]
+        self.assertEqual(len(builds), 1)
+        self.assertEqual(builds[0][2], "execution-runtime")
+        self.assertTrue(builds[0][3].startswith("alethia-reth:etna-"))
+        self.assertFalse(any(row[:2] == ["docker", "pull"] and row[-1] == builds[0][3] for row in self.calls()))
+
+    def test_explicit_el_image_keeps_the_callers_override(self):
+        self.select("standalone_reth", "occupied_initial_auth_port_recovers_and_preserves_restart_endpoints")
+        self.env["EL_IMAGE_MISSING"] = "1"
+        self.env["ALETHIA_RETH_IMAGE"] = "reviewed:external"
+        self.env["PULL_POLICY"] = "always"
+        result = self.run_entrypoint()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.builds(), [])
+        self.assertIn(["docker", "pull", "--quiet", "reviewed:external"], self.calls())
 
     def test_native_checkpoint_prepares_el_and_comet_without_recovery_image(self):
         self.select("governance_recovery", "support::checkpoint_import::registered_checkpoint_latest_signs_proposes_and_lands")
@@ -210,6 +232,46 @@ printf '["build", "{name}"]\\n' >> "$CALLS"
         self.assertIn(["docker", "ps", "-aq", "--filter", "label=taiko-client-rs.test-run=fixture-run"], self.calls())
         self.assertIn(["docker", "rm", "-f", "-v", "owned-container"], self.calls())
         self.assertIn(["docker", "network", "rm", "owned-network"], self.calls())
+
+
+class RuntimeImageBuild(unittest.TestCase):
+    def test_actual_builder_accepts_empty_and_explicit_targets(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            package = root / "packages/taiko-client-rs"
+            (package / "script").mkdir(parents=True)
+            script = package / "script/build_recovery_runtime.sh"
+            shutil.copy(ROOT / "script/build_recovery_runtime.sh", script)
+            (package / "Dockerfile").write_text("FROM scratch\n")
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            subprocess.run(["git", "-C", str(root), "add", "packages"], check=True)
+            (root / "bin").mkdir()
+            docker = root / "bin/docker"
+            docker.write_text('''#!/usr/bin/env python3
+import json, os, sys
+if sys.argv[1] == 'info': print('arm64')
+else:
+    with open(os.environ['CALLS'], 'w') as output: json.dump(sys.argv[1:], output)
+''')
+            docker.chmod(0o755)
+            calls = root / "calls.json"
+            env = dict(os.environ, PATH=f"{root / 'bin'}:{os.environ['PATH']}",
+                       CALLS=str(calls), ETNA_RECOVERY_IMAGE="owned:test",
+                       TAIKO_CLIENT_RS_TEST_RUN="builder-test")
+            for target in ("", "execution-runtime"):
+                with self.subTest(target=target):
+                    result = subprocess.run(["/bin/bash", str(script)],
+                                            env=dict(env, ETNA_BUILD_TARGET=target),
+                                            text=True, capture_output=True)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertTrue(calls.is_file(), f"builder never invoked Docker: {result.stderr}")
+                    args = json.loads(calls.read_text())
+                    self.assertEqual(args[:3], ["build", "--platform", "linux/arm64"])
+                    if target:
+                        self.assertEqual(args[args.index("--target") + 1], target)
+                    else:
+                        self.assertNotIn("--target", args)
+                    self.assertEqual(args[args.index("-t") + 1], "owned:test")
 
 
 if __name__ == "__main__":

@@ -176,20 +176,20 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     transport = home / "run/signer.sock"
-    directory = transport.parent.stat()
-    real_fstat = os.fstat
+    real_rename = os.rename
     replaced = []
-    def replace_after_endpoint_stat(descriptor):
-        observed_directory = real_fstat(descriptor)
-        if not replaced and (observed_directory.st_dev, observed_directory.st_ino) == (directory.st_dev, directory.st_ino):
+    def replace_before_endpoint_capture(source, destination, *args, **kwargs):
+        if not replaced and source == transport.name and destination == "endpoint":
+            # Replace after the protected candidate is pinned and checked, just
+            # before capture, matching the supervisor's final-selection race.
             subprocess.run(["python3", "-c",
                             "import os,pathlib,sys; assert os.getuid()==10001; "
                             "assert int(next(l.split()[1] for l in pathlib.Path('/proc/self/status').read_text().splitlines() if l.startswith('CapEff:')),16)==0; "
                             "p=pathlib.Path(sys.argv[1]); p.unlink(); p.write_text('raced replacement')", str(transport)],
                            user=10001, group=10001, extra_groups=[], check=True)
             replaced.append(transport.stat().st_ino)
-        return observed_directory
-    with patch.dict(os.environ, environment), patch.object(module.os, "fstat", replace_after_endpoint_stat):
+        return real_rename(source, destination, *args, **kwargs)
+    with patch.dict(os.environ, environment), patch.object(module.os, "rename", replace_before_endpoint_capture):
         try:
             module.Supervisor().prepare_transport()
         except ValueError as error:

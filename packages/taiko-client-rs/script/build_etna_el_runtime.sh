@@ -7,7 +7,7 @@ if [[ -n "${ETNA_EL_BIN:-}" ]]; then
   test -x "$ETNA_EL_BIN"
   exit 0
 fi
-TASK_PINNED_REVISION=6ac93d4b38e1cd72b993cef1ed1dc2cb0affa7b4
+TASK_PINNED_REVISION=20a9282a24b14567ebad82c427f8ceeeaf40aab4
 TASK_PINNED_SOURCE=$(cargo metadata --locked --format-version=1 | python3 -c '
 import json,pathlib,sys
 data=json.load(sys.stdin)

@@ -33,7 +33,7 @@ The EL account state is a small real devnet alloc with 64 accounts, 95 storage s
 
 ## Measurements
 
-Host Mac16,8, 14 logical CPUs, 24 GiB RAM, macOS 27.0.1. Rust 1.95.0 compiled the resource fixture in release mode and the native EL runtime/importer in their normal local debug profiles. Go 1.27.2 built the release-style stock v0.40.0 helper. Alethia revision `6ac93d4b38e1cd72b993cef1ed1dc2cb0affa7b4` uses reth `d9bd9875fe88dcc0183d78b187ce2ceab0c93e93`. Single observations on a shared development machine include concurrent development/process tests. They do not establish latency percentiles.
+Host Mac16,8, 14 logical CPUs, 24 GiB RAM, macOS 27.0.1. Rust 1.95.0 compiled the resource fixture in release mode and the native EL runtime/importer in their normal local debug profiles. Go 1.27.2 built the release-style stock v0.40.0 helper. Alethia revision `6ac93d4b38e1cd72b993cef1ed1dc2cb0affa7b4` uses reth `d9bd9875fe88dcc0183d78b187ce2ceab0c93e93`. These are historical measurements; the current source pin is `20a9282a24b14567ebad82c427f8ceeeaf40aab4` with Rust 1.99 and reth `3c5f2f11c4e5a5647e6e911cd131ccf1bada4f25`. Single observations on a shared development machine include concurrent development/process tests. They do not establish latency percentiles.
 
 Measured scopes as seconds wall / seconds CPU (user + system) / peak RSS MiB. Elapsed time includes local filesystem work; CPU and RSS are per process. The stock installer verifies the full input a second time and reopens every native record before returning.
 
