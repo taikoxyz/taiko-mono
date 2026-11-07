@@ -46,31 +46,43 @@ pub struct HistoryRequirements {
     pub oldest: u64,
 }
 
-/// Check schedule arithmetic and the epoch-sized ancestry bound before allocating headers.
-pub fn requirements(height: u64, schedule: &Schedule) -> Result<HistoryRequirements> {
-    if schedule.epoch_len < 3 {
-        return Err(LanderError::Safety("invalid execution history epoch length".into()));
+/// Bound starting history to the committees active at the checkpoint and two heights later.
+///
+/// `origin` is the generation's fixed origin: genesis height 0, or c after a recovery. The
+/// checkpoint cannot precede it (BATCH-6.3-9). The initial set, `floor(origin / L)`, needs no
+/// derivation parent: the genesis snapshot or R selects it (PROOF-6.2-14). Every other starting
+/// set needs its D(t), which must lie in this generation at or below the checkpoint. The history
+/// stays within L+2 headers (PROOF-6.2-13) and the journal header budget. Two starting sets need
+/// not be adjacent epochs: a recovery may discard the next switch.
+pub fn requirements(height: u64, schedule: &Schedule, origin: u64) -> Result<HistoryRequirements> {
+    if height < origin || schedule.epoch_len < 3 {
+        return Err(LanderError::Safety(
+            "checkpoint predates generation origin or invalid schedule".into(),
+        ));
     }
     let future = height
         .checked_add(2)
         .ok_or_else(|| LanderError::Safety("checkpoint height overflow".into()))?;
-    let current = schedule.epoch_of(height.max(1));
-    let next = schedule.epoch_of(future);
-    if next.saturating_sub(current) > 1 {
-        return Err(LanderError::Safety("starting epochs are not adjacent".into()));
-    }
+    let initial = origin / schedule.epoch_len;
+    let current = schedule
+        .active_committee_epoch(height.max(origin + 1), origin)
+        .ok_or_else(|| LanderError::Safety("invalid committee height".into()))?;
+    let next = schedule
+        .active_committee_epoch(future, origin)
+        .ok_or_else(|| LanderError::Safety("invalid future committee height".into()))?;
     let mut epochs = vec![current];
     if next != current && schedule.derivation_parent_height(next).is_some_and(|d| d <= height) {
         epochs.push(next);
     }
     let mut oldest = height.saturating_sub(1);
-    for epoch in &epochs {
-        if let Some(d) = schedule.derivation_parent_height(*epoch) {
-            if d > height {
-                return Err(LanderError::Safety("uncommitted starting derivation parent".into()));
-            }
-            oldest = oldest.min(d);
+    for epoch in epochs.iter().filter(|&&epoch| epoch != initial) {
+        let d = schedule
+            .derivation_parent_height(*epoch)
+            .ok_or_else(|| LanderError::Safety("missing starting derivation parent".into()))?;
+        if d < origin || d > height {
+            return Err(LanderError::Safety("invalid starting derivation height".into()));
         }
+        oldest = oldest.min(d);
     }
     let bound = schedule
         .epoch_len
@@ -78,51 +90,6 @@ pub fn requirements(height: u64, schedule: &Schedule) -> Result<HistoryRequireme
         .ok_or_else(|| LanderError::Safety("history bound overflow".into()))?;
     if height - oldest > bound {
         return Err(LanderError::Capacity("starting execution history exceeds epoch bound".into()));
-    }
-    if height - oldest >= MAX_EXECUTION_HISTORY_HEADERS {
-        return Err(LanderError::Capacity("execution history exceeds journal header budget".into()));
-    }
-    Ok(HistoryRequirements { epochs, oldest })
-}
-
-/// Bounds starting derivation history to switches committed after the recovery origin.
-pub fn requirements_at_origin(
-    height: u64,
-    schedule: &Schedule,
-    origin: u64,
-) -> Result<HistoryRequirements> {
-    if origin == 0 {
-        return requirements(height, schedule);
-    }
-    if height < origin || schedule.epoch_len < 3 {
-        return Err(LanderError::Safety(
-            "checkpoint predates recovery origin or invalid schedule".into(),
-        ));
-    }
-    let future = height
-        .checked_add(2)
-        .ok_or_else(|| LanderError::Safety("checkpoint height overflow".into()))?;
-    let current = schedule
-        .active_committee_epoch(height.max(origin + 1), origin)
-        .ok_or_else(|| LanderError::Safety("invalid recovery committee height".into()))?;
-    let next = schedule
-        .active_committee_epoch(future, origin)
-        .ok_or_else(|| LanderError::Safety("invalid future recovery committee height".into()))?;
-    let mut epochs = vec![current];
-    if next != current && schedule.derivation_parent_height(next).is_some_and(|d| d <= height) {
-        epochs.push(next);
-    }
-    let mut oldest = height.saturating_sub(1);
-    for epoch in &epochs {
-        if *epoch != origin / schedule.epoch_len {
-            let d = schedule
-                .derivation_parent_height(*epoch)
-                .ok_or_else(|| LanderError::Safety("missing recovery derivation parent".into()))?;
-            if d < origin || d > height {
-                return Err(LanderError::Safety("invalid recovery derivation height".into()));
-            }
-            oldest = oldest.min(d);
-        }
     }
     if height - oldest >= MAX_EXECUTION_HISTORY_HEADERS {
         return Err(LanderError::Capacity("execution history exceeds journal header budget".into()));
@@ -139,7 +106,7 @@ pub fn verify(
     headers: &[Header],
 ) -> Result<BTreeMap<u64, Option<Header>>> {
     let origin = input.recovery.map_or(0, |r| r.height);
-    let required = requirements_at_origin(input.height, input.schedule, origin)?;
+    let required = requirements(input.height, input.schedule, origin)?;
     let count = input.height - required.oldest + 1;
     if headers.len() as u64 != count {
         return Err(LanderError::Safety(format!(
@@ -302,14 +269,29 @@ mod tests {
             (20, vec![1, 2], 8),
             (21, vec![2], 18),
         ] {
-            let req = requirements(p, &schedule()).unwrap();
+            let req = requirements(p, &schedule(), 0).unwrap();
             assert_eq!(req.epochs, epochs);
             assert_eq!(req.oldest, oldest);
         }
-        assert!(requirements(u64::MAX, &schedule()).is_err());
+        assert!(requirements(u64::MAX, &schedule(), 0).is_err());
         let mut oversized = schedule();
         oversized.epoch_len = u64::MAX;
-        assert!(requirements(0, &oversized).is_err());
+        assert!(requirements(0, &oversized, 0).is_err());
+    }
+
+    #[test]
+    fn recovery_origin_requirements_follow_the_active_committee() {
+        for (height, epochs, oldest) in [
+            (19, vec![1], 18),
+            (24, vec![1], 23),
+            (29, vec![1, 3], 28),
+            (30, vec![1, 3], 28),
+            (36, vec![3], 28),
+        ] {
+            let r = requirements(height, &schedule(), 19).unwrap();
+            assert_eq!((r.epochs, r.oldest), (epochs, oldest), "height {height}");
+        }
+        assert!(matches!(requirements(18, &schedule(), 19), Err(LanderError::Safety(_))));
     }
     #[test]
     fn history_binds_order_number_hash_generation_and_anchor_without_hints() {

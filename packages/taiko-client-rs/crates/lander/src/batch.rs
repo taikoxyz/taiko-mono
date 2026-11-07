@@ -599,11 +599,8 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         schedule: &Schedule,
         committees: &mut BTreeMap<u64, AuthenticatedCommittee>,
     ) -> Result<Arc<BatchStart>> {
-        let required = history::requirements_at_origin(
-            snapshot.checkpoint_height,
-            schedule,
-            snapshot.origin_height(),
-        )?;
+        let required =
+            history::requirements(snapshot.checkpoint_height, schedule, snapshot.origin_height())?;
         let identity = CheckpointIdentity::from_snapshot(snapshot);
         if snapshot.recovery.is_some() {
             self.check_proving_anchor_canonicality(&recovery_anchor(snapshot)?).await?;
