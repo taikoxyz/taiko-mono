@@ -166,8 +166,9 @@ impl Store {
         if bytes.len() as u64 > MAX_JOURNAL_BYTES {
             return Err(LanderError::Journal("journal grew beyond allocation limit".into()));
         }
-        let journal: Journal = serde_json::from_slice(&bytes)
-            .map_err(|e| LanderError::Journal(format!("corrupt journal: {e}")))?;
+        let journal: Journal = serde_json::from_slice(&bytes).map_err(|e| {
+            LanderError::Journal(format!("unreadable journal (retained unchanged): {e}"))
+        })?;
         if journal.version != JOURNAL_VERSION {
             return Err(LanderError::Journal(format!(
                 "incompatible journal schema {} (expected {JOURNAL_VERSION}); signed transaction \
@@ -347,7 +348,6 @@ mod tests {
                     block_number: 30,
                     block_hash: alloy_primitives::B256::repeat_byte(30),
                     success: true,
-                    gas_used: 21_000,
                 },
             },
         ];
@@ -360,23 +360,9 @@ mod tests {
         assert!(store.save(&JournalState::Prepared { job: altered }).is_err());
         drop(store);
         assert!(matches!(
-            Store::open(directory.path(), identity.clone()).unwrap().load().unwrap(),
+            Store::open(directory.path(), identity).unwrap().load().unwrap(),
             JournalState::Confirming { .. }
         ));
-        // A schema-9 Confirming journal written before receipts recorded `gas_used` still loads,
-        // reading it as zero.
-        let path = directory.path().join("lander-state.json");
-        let mut journal: serde_json::Value =
-            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
-        let receipt = journal["state"]["receipt"].as_object_mut().unwrap();
-        assert_eq!(receipt.remove("gas_used"), Some(serde_json::json!(21_000)));
-        std::fs::write(&path, serde_json::to_vec(&journal).unwrap()).unwrap();
-        let JournalState::Confirming { receipt, .. } =
-            Store::open(directory.path(), identity).unwrap().load().unwrap()
-        else {
-            panic!("expected the Confirming phase");
-        };
-        assert_eq!((receipt.block_number, receipt.gas_used), (30, 0));
     }
 
     /// The store's own exclusive lock is its only marker; nothing else appears before a save.
@@ -899,7 +885,11 @@ mod tests {
         let mut other = identity();
         other.sender = Address::repeat_byte(6);
         assert!(Store::open(directory.path(), other).is_err());
-        std::fs::write(directory.path().join("lander-state.json"), b"{corrupt").unwrap();
-        assert!(Store::open(directory.path(), identity()).is_err());
+        // An unreadable journal is refused and kept byte for byte, as an other-schema one is.
+        let path = directory.path().join("lander-state.json");
+        std::fs::write(&path, b"{corrupt").unwrap();
+        let error = Store::open(directory.path(), identity()).err().expect("unreadable refused");
+        assert!(error.to_string().contains("unreadable journal (retained unchanged): "), "{error}");
+        assert_eq!(std::fs::read(&path).unwrap(), b"{corrupt");
     }
 }

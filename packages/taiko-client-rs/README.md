@@ -281,8 +281,9 @@ and nonce and waits; restarting cannot repair it. Investigate the account and jo
 the [nonce reconciliation procedure](docs/governance-recovery.md#enrollment-waits-and-interruption)
 before any operator action; never delete the journal or allocate a replacement nonce to bypass it.
 
-Canonical ordinary reverts stop once after clearing the spent job. A gas-exhausted landing may
-rebuild once with fresh estimation; repeated gas exhaustion on the same checkpoint stops.
+A canonical revert at the confirmation depth, out-of-gas included, persists Idle and stops;
+restart after fixing the cause (a deterministic revert then stops at gas estimation, before
+signing).
 An authenticated unsupported ruleset pauses preparation until the software is upgraded. The
 log reports `software upgrade required`, and
 `lander_retries_total{reason="unsupported_ruleset"}` records this separately from RPC or

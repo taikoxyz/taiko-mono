@@ -147,17 +147,12 @@ impl Fixture {
         control.snapshot.checkpoint_val_state_hash = val_state_hash(&self.request, height);
     }
     fn mine(&self, transaction: &SignedTransaction, success: bool) {
-        self.mine_using(transaction, success, 100_000);
-    }
-    /// Mine `transaction` with `gas_used`; its signed limit is 500,000.
-    fn mine_using(&self, transaction: &SignedTransaction, success: bool, gas_used: u64) {
         let mut control = self.control.lock().unwrap();
         control.receipt = Some(LandingReceipt {
             transaction_hash: transaction.hash,
             block_number: 30,
             block_hash: control.canonical_receipt,
             success,
-            gas_used,
         });
         control.nonce =
             NonceState { confirmed: transaction.nonce + 1, pending: transaction.nonce + 1 };
@@ -483,9 +478,9 @@ async fn receipt_reorg_returns_to_pending_and_never_authorizes_false_progress() 
     assert_eq!(fixture.control.lock().unwrap().signs, 1);
 }
 
-/// A confirmed revert with the checkpoint unchanged stops the runner once, with the journal
-/// already Idle, so the next run builds a fresh job instead of re-reading the receipt; a revert
-/// a competing landing caused settles.
+/// A confirmed revert with the checkpoint unchanged, out-of-gas included, stops the runner once,
+/// with the journal already Idle, so the next run builds a fresh job instead of re-reading the
+/// receipt; a revert a competing landing caused settles.
 #[tokio::test]
 async fn unchanged_checkpoint_revert_stops_once_but_competing_revert_can_settle() {
     for competition in [false, true] {
@@ -505,117 +500,13 @@ async fn unchanged_checkpoint_revert_stops_once_but_competing_revert_can_settle(
         if competition {
             assert_eq!(outcome.unwrap(), StepOutcome::Settled);
         } else {
-            assert!(matches!(outcome, Err(LanderError::Reverted(_))));
+            assert!(matches!(outcome, Err(LanderError::Reverted(_))), "{outcome:?}");
             assert!(matches!(runner.state(), JournalState::Idle));
             drop(runner);
             assert!(matches!(fixture.runner().state(), JournalState::Idle), "persisted");
         }
         assert_eq!(fixture.control.lock().unwrap().signs, 1);
     }
-}
-
-/// A canonical revert that used at least 15/16 of its gas limit ran out of gas, so the runner
-/// persists Idle and continues: the next steps rebuild, re-estimate and sign a new job at the next
-/// nonce. A revert using less still stops.
-#[tokio::test]
-async fn unchanged_checkpoint_out_of_gas_rebuilds_but_other_reverts_stop() {
-    // An out-of-gas behind the Inbox and pool proxies refunds the gas the outer frames kept: 63/64
-    // of the limit for one proxy level, as anvil measures; then the edge of the 15/16 window and a
-    // deterministic revert well inside the limit.
-    for (gas_used, out_of_gas) in
-        [(492_188, true), (500_000, true), (468_750, true), (468_749, false), (100_000, false)]
-    {
-        let fixture = Fixture::new();
-        let mut runner = fixture.runner();
-        for _ in 0..3 {
-            runner.step().await.unwrap();
-        }
-        let tx = pending_transaction(&runner);
-        let limit = tx.gas_limit().unwrap();
-        assert_eq!(limit, 500_000);
-        assert_eq!(super::ran_out_of_gas(gas_used, limit), out_of_gas, "{gas_used}");
-        fixture.mine_using(&tx, false, gas_used);
-        assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
-        assert!(matches!(runner.state(), JournalState::Confirming { .. }));
-        fixture.control.lock().unwrap().snapshot.l1_block_number = 31;
-        let outcome = runner.step().await;
-        assert!(matches!(runner.state(), JournalState::Idle));
-        let saved: serde_json::Value = serde_json::from_slice(
-            &std::fs::read(fixture.directory.path().join("lander-state.json")).unwrap(),
-        )
-        .unwrap();
-        assert_eq!(saved["state"]["phase"], "idle", "persisted");
-        if !out_of_gas {
-            assert!(matches!(outcome, Err(LanderError::Reverted(_))), "{outcome:?}");
-            assert_eq!(fixture.control.lock().unwrap().signs, 1);
-            continue;
-        }
-        assert_eq!(outcome.unwrap(), StepOutcome::Rebuild);
-        // The same runner keeps going: prove, sign and broadcast a rebuilt job at nonce + 1.
-        fixture.control.lock().unwrap().receipt = None;
-        for _ in 0..3 {
-            assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
-        }
-        let retry = pending_transaction(&runner);
-        assert_eq!(retry.nonce, tx.nonce + 1);
-        let control = fixture.control.lock().unwrap();
-        assert_eq!((control.signs, control.broadcasts.len()), (2, 2));
-    }
-}
-
-/// Drives the runner from Idle through a canonical out-of-gas landing on the fixture's checkpoint
-/// and returns the outcome of the step that confirms it; the runner must be Idle with no receipt.
-async fn land_out_of_gas(fixture: &Fixture, runner: &mut Runner) -> Result<StepOutcome> {
-    fixture.control.lock().unwrap().receipt = None;
-    for _ in 0..3 {
-        assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
-    }
-    let tx = pending_transaction(runner);
-    fixture.mine_using(&tx, false, tx.gas_limit().unwrap());
-    assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
-    fixture.control.lock().unwrap().snapshot.l1_block_number = 31;
-    let outcome = runner.step().await;
-    assert!(matches!(runner.state(), JournalState::Idle));
-    outcome
-}
-
-/// The first out-of-gas landing on a checkpoint is rebuilt and lands again at the next nonce; a
-/// second in a row on the same checkpoint stops with `Reverted`, the journal already Idle, instead
-/// of rebuilding a third landing.
-#[tokio::test]
-async fn second_consecutive_out_of_gas_on_one_checkpoint_stops() {
-    let fixture = Fixture::new();
-    let mut runner = fixture.runner();
-    assert_eq!(land_out_of_gas(&fixture, &mut runner).await.unwrap(), StepOutcome::Rebuild);
-    let outcome = land_out_of_gas(&fixture, &mut runner).await;
-    assert!(matches!(outcome, Err(LanderError::Reverted(_))), "{outcome:?}");
-    drop(runner);
-    assert!(matches!(fixture.runner().state(), JournalState::Idle), "persisted");
-    let control = fixture.control.lock().unwrap();
-    assert_eq!((control.signs, control.broadcasts.len()), (2, 2));
-    assert_eq!(control.nonce.confirmed, 2, "both landings spent their nonces");
-}
-
-/// A checkpoint change between two out-of-gas landings resets the count, so the second is rebuilt
-/// too. Here the checkpoint moves away and back, so the mock can rebuild the same job.
-#[tokio::test]
-async fn out_of_gas_count_resets_when_the_checkpoint_changes() {
-    let fixture = Fixture::new();
-    let mut runner = fixture.runner();
-    assert_eq!(land_out_of_gas(&fixture, &mut runner).await.unwrap(), StepOutcome::Rebuild);
-    fixture.compete(6);
-    assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
-    {
-        let mut control = fixture.control.lock().unwrap();
-        control.snapshot.checkpoint_height = fixture.request.batch.snapshot.checkpoint_height;
-        control.snapshot.checkpoint_hash = fixture.request.batch.snapshot.checkpoint_hash;
-        control.snapshot.checkpoint_comet_hash =
-            fixture.request.batch.snapshot.checkpoint_comet_hash;
-        control.snapshot.checkpoint_val_state_hash =
-            fixture.request.batch.snapshot.checkpoint_val_state_hash;
-    }
-    assert_eq!(land_out_of_gas(&fixture, &mut runner).await.unwrap(), StepOutcome::Rebuild);
-    assert_eq!(fixture.control.lock().unwrap().signs, 2);
 }
 
 #[tokio::test]

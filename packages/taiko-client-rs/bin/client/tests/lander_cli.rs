@@ -231,7 +231,7 @@ async fn lander_cli_refuses_locks_corrupt_journals_and_invalid_caps_before_signi
             CliProcess::spawn(Path::new(CLIENT), &args, directory.path().join("corrupt.log"), &[])?;
         ensure!(!corrupt.wait_exit().await?.success(), "corrupt main journal was discarded");
         ensure!(
-            corrupt.output().contains("corrupt journal"),
+            corrupt.output().contains("unreadable journal (retained unchanged)"),
             "unexpected corruption error: {}",
             corrupt.output()
         );

@@ -1,34 +1,23 @@
 //! Actual pinned-contract landing scenarios. Docker scenarios use real Osaka blob transactions.
 mod support;
 
-use alloy::{
-    consensus::Transaction, rpc::types::TransactionReceipt, signers::SignerSync, sol_types::SolCall,
-};
-use alloy_consensus::{
-    SignableTransaction, TxEip4844, TxEip4844Variant, TxEip4844WithSidecar, TxEnvelope,
-};
+use alloy::{consensus::Transaction, rpc::types::TransactionReceipt, sol_types::SolCall};
 use alloy_eips::eip2718::Encodable2718;
 use alloy_primitives::{B256, Bytes, U256, keccak256};
 use alloy_provider::Provider;
-use alloy_rpc_types::TransactionRequest;
 use anyhow::{Context, Result};
 use lander::{
     DummyProofProvider, ProofProvider, ProofRequest, SidecarMode,
     comet::CometSource,
     contracts::IEtnaInbox::landCall,
-    runner::ran_out_of_gas,
-    tx::{
-        FeeCaps, RpcTransactionTransport, SignedTransaction, TransactionTransport, land_calldata,
-    },
+    tx::{FeeCaps, RpcTransactionTransport, SignedTransaction, TransactionTransport},
 };
 use support::{
     ContractFixture,
-    contracts::{
-        EPOCH_LEN, EtnaInbox, EtnaStakingRegistry, SignalService, receipt, transact, view,
-    },
+    contracts::{EtnaInbox, EtnaStakingRegistry, SignalService, receipt, transact, view},
     fixtures::FixtureChain,
 };
-use test_harness::{anvil_request, dev_signer, mine_l1_blocks};
+use test_harness::{dev_signer, mine_l1_blocks};
 
 /// The transport's fee caps.
 const FEES: FeeCaps = FeeCaps {
@@ -39,60 +28,6 @@ const FEES: FeeCaps = FeeCaps {
 
 fn transport(fixture: &ContractFixture) -> Result<RpcTransactionTransport> {
     Ok(RpcTransactionTransport::new(fixture.anvil.provider.clone(), dev_signer(), FEES)?)
-}
-
-/// Signs `request`'s landing as the production signer does, except that the gas limit is the
-/// deliberately insufficient execution gas. Returns the normal estimate too.
-async fn sign_with_insufficient_gas(
-    fixture: &ContractFixture,
-    request: &ProofRequest,
-    proof: &Bytes,
-) -> Result<(u64, SignedTransaction)> {
-    let p = &fixture.anvil.provider;
-    let sender = dev_signer().address();
-    let batch = &request.batch;
-    let mut tx = TxEip4844 {
-        chain_id: p.get_chain_id().await?,
-        nonce: p.get_transaction_count(sender).await?,
-        gas_limit: 0,
-        max_fee_per_gas: FEES.max_fee_per_gas,
-        max_priority_fee_per_gas: FEES.max_priority_fee_per_gas,
-        to: fixture.inbox,
-        value: U256::ZERO,
-        access_list: Default::default(),
-        blob_versioned_hashes: batch.blobs.versioned_hashes.clone(),
-        max_fee_per_blob_gas: FEES.max_fee_per_blob_gas,
-        input: land_calldata(batch, proof).into(),
-    };
-    let mut estimate = TransactionRequest::from_transaction(tx.clone()).from(sender);
-    estimate.gas = None;
-    let estimated = p.estimate_gas(estimate).await?;
-    tx.gas_limit = estimated * 3 / 4;
-    let variant: TxEip4844Variant =
-        TxEip4844WithSidecar::from_tx_and_sidecar(tx.clone(), batch.blobs.sidecar.clone()).into();
-    let signature = dev_signer().sign_hash_sync(&variant.signature_hash())?;
-    let signed = variant.into_signed(signature);
-    let hash = *signed.hash();
-    let network_bytes = TxEnvelope::Eip4844(signed).encoded_2718().into();
-    Ok((estimated, SignedTransaction { network_bytes, hash, sender, nonce: tx.nonce }))
-}
-
-/// Lands the fixture through `last`, visiting derivation and late-epoch checkpoints to
-/// exercise historical committee reconstruction before the next test extends the range.
-async fn land_through(
-    fixture: &ContractFixture,
-    chain: &mut FixtureChain,
-    last: u64,
-) -> Result<()> {
-    assert!(last <= EPOCH_LEN);
-    for cut in (6..=last).step_by(6) {
-        mine_l1_blocks(&fixture.anvil.provider, 3).await?;
-        chain.extend(fixture, cut).await?;
-        let request = chain.prepare(fixture, cut, SidecarMode::Eip7594).await?;
-        fixture.expect_statement(request.batch.statement_hash).await?;
-        assert_landed(fixture, chain, &request, &sign(fixture, &request).await?).await?;
-    }
-    Ok(())
 }
 
 async fn sign(fixture: &ContractFixture, request: &ProofRequest) -> Result<SignedTransaction> {
@@ -290,39 +225,6 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
         fixture.expect_statement(next.batch.statement_hash).await?;
         assert_landed(&fixture, &chain, &next, &sign(&fixture, &next).await?).await?;
     }
-    fixture.anvil.stop().await
-}
-
-/// An underfunded execution attempt consumes its nonce but leaves the checkpoint untouched;
-/// rebuilding retains ordinary gas estimation and lands at the next nonce.
-#[tokio::test]
-#[ignore = "requires Docker: actual Etna contracts on Osaka anvil"]
-async fn lander_out_of_gas_landing_is_rebuilt_and_lands() -> Result<()> {
-    let fixture = ContractFixture::deploy().await?;
-    let p = &fixture.anvil.provider;
-    let mut chain = FixtureChain::new(&fixture).await?;
-    land_through(&fixture, &mut chain, 12).await?;
-    mine_l1_blocks(p, 3).await?;
-    chain.extend(&fixture, 18).await?;
-    let request = chain.prepare(&fixture, 18, SidecarMode::Eip7594).await?;
-    fixture.expect_statement(request.batch.statement_hash).await?;
-    let proof = Bytes::from(vec![0]);
-    let production = transport(&fixture)?.sign(&request, &proof).await?;
-    let (estimated, bare) = sign_with_insufficient_gas(&fixture, &request, &proof).await?;
-    assert_eq!(production.gas_limit()?, estimated + estimated.div_ceil(5));
-    let before: String = anvil_request(p, "evm_snapshot", serde_json::json!([])).await?;
-    assert_landed(&fixture, &chain, &request, &production).await?;
-    assert!(anvil_request::<bool>(p, "evm_revert", serde_json::json!([before])).await?);
-    transport(&fixture)?.broadcast(&bare).await?;
-    let failed = receipt(p, bare.hash).await?;
-    assert!(!failed.status());
-    assert!(ran_out_of_gas(failed.gas_used, bare.gas_limit()?));
-    assert_eq!(fixture.checkpoint().await?.0, 12);
-    let rebuilt = chain.prepare(&fixture, 18, SidecarMode::Eip7594).await?;
-    fixture.expect_statement(rebuilt.batch.statement_hash).await?;
-    let signed = sign(&fixture, &rebuilt).await?;
-    assert_eq!(signed.nonce, bare.nonce + 1);
-    assert_landed(&fixture, &chain, &rebuilt, &signed).await?;
     fixture.anvil.stop().await
 }
 
