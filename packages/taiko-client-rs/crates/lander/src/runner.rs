@@ -119,7 +119,8 @@ pub struct Runner {
 }
 
 impl Runner {
-    /// Resume a fully validated journal; no broadcast or signing occurs during construction.
+    /// Resume the journal, which [`Store::load`] validates here once; no broadcast or signing
+    /// occurs during construction.
     pub fn new(
         batches: Arc<dyn BatchSource>,
         l1: Arc<dyn LandingSource>,
@@ -315,6 +316,15 @@ impl Runner {
                     }
                     Err(error) => return Err(error),
                 };
+                // BATCH-6.3-13: only validated bytes become durable. Whatever the transport, this
+                // is the one check between signing and saving: the bytes come from the journal's
+                // sender and bind this job, its proof and its KZG-verified sidecar.
+                if transaction.sender != self.store.identity().sender {
+                    return Err(LanderError::Journal(
+                        "signed transaction sender differs from journal sender".into(),
+                    ));
+                }
+                transaction.validate(&job.request, &job.proof)?;
                 self.transition(JournalState::Signed { job, transaction })?;
                 Ok(StepOutcome::Progress)
             }
@@ -385,10 +395,10 @@ impl Runner {
     }
 
     /// Recheck checkpoint and reference before signing or scheduling a first broadcast. The job
-    /// itself needs no recheck here: the builder checked it before proving, and the store reruns
-    /// [`crate::types::PreparedBatch::verify_restored`] (shape, terminal Comet hash, reference
-    /// number, statement hash and blob/KZG binding; not the proof witnesses) on every journal
-    /// load and save.
+    /// itself needs no recheck here: the builder checked it before proving, and a restored job
+    /// passed [`crate::types::PreparedBatch::verify_restored`] (shape, terminal Comet hash,
+    /// reference number, statement hash and blob/KZG binding; not the proof witnesses) when the
+    /// journal was loaded at startup.
     async fn unbroadcast_current(
         &self,
         snapshot: &LandingSnapshot,

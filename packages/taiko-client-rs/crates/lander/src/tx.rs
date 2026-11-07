@@ -79,7 +79,8 @@ pub struct SignedTransaction {
 
 impl SignedTransaction {
     /// Bind every signed input and the exact sidecar to the job, and verify the sidecar's KZG
-    /// binding. The job's statement is the store's to recheck ([`PreparedBatch::verify_restored`]).
+    /// binding: the runner's gate before signed bytes become durable (BATCH-6.3-13). The job's
+    /// statement is checked by the builder and, on restore, by [`PreparedBatch::verify_restored`].
     pub fn validate(&self, request: &ProofRequest, proof: &Bytes) -> Result<()> {
         self.validate_binding(request, proof)?;
         crate::blob::verify(&request.batch.blobs)
@@ -169,7 +170,8 @@ pub trait TransactionTransport: Send + Sync {
     /// Configured signing identity; private material is never exposed.
     fn sender(&self) -> Address;
     /// Estimate, reserve rounded-up 20% execution gas, cap the limit
-    /// at [`MAX_TX_GAS`], and sign with the pending nonce without submitting.
+    /// at [`MAX_TX_GAS`], and sign with the pending nonce without submitting. The output is not
+    /// validated here: the runner checks it with [`SignedTransaction::validate`] before saving it.
     async fn sign(&self, request: &ProofRequest, proof: &Bytes) -> Result<SignedTransaction>;
     /// Submit the already-persisted network bytes; no filling, replacement, or signing occurs.
     async fn broadcast(&self, transaction: &SignedTransaction) -> Result<B256>;
@@ -262,9 +264,7 @@ impl TransactionTransport for RpcTransactionTransport {
         let signed = variant.into_signed(signature);
         let hash = *signed.hash();
         let network_bytes = TxEnvelope::Eip4844(signed).encoded_2718().into();
-        let transaction = SignedTransaction { network_bytes, hash, sender: self.sender(), nonce };
-        transaction.validate(request, proof)?;
-        Ok(transaction)
+        Ok(SignedTransaction { network_bytes, hash, sender: self.sender(), nonce })
     }
 
     async fn broadcast(&self, transaction: &SignedTransaction) -> Result<B256> {

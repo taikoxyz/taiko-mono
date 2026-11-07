@@ -105,6 +105,16 @@ pub(crate) fn rebind(request: &mut ProofRequest, payload: &[u8]) {
 }
 
 pub(crate) async fn signed(request: &ProofRequest, proof: &Bytes, nonce: u64) -> SignedTransaction {
+    signed_by(&signer(), request, proof, nonce).await
+}
+
+/// [`signed`] under another account's key.
+pub(crate) async fn signed_by(
+    signer: &PrivateKeySigner,
+    request: &ProofRequest,
+    proof: &Bytes,
+    nonce: u64,
+) -> SignedTransaction {
     let batch = &request.batch;
     let tx = TxEip4844 {
         chain_id: u64::try_from(batch.snapshot.l1_chain_id).unwrap(),
@@ -127,7 +137,6 @@ pub(crate) async fn signed(request: &ProofRequest, proof: &Bytes, nonce: u64) ->
     };
     let variant: TxEip4844Variant =
         TxEip4844WithSidecar::from_tx_and_sidecar(tx, batch.blobs.sidecar.clone()).into();
-    let signer = signer();
     let signature = signer.sign_hash(&variant.signature_hash()).await.unwrap();
     let signed = variant.into_signed(signature);
     SignedTransaction {

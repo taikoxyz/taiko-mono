@@ -1954,6 +1954,21 @@ mod tests {
         }
     }
 
+    /// Validation and observation run no KZG; preparation verifies the sidecar it built once
+    /// (PROOF-6.2-35/38).
+    #[tokio::test]
+    async fn prepare_verifies_its_built_sidecar_exactly_once() {
+        let source = TrackingSource::new(Fixture::new(24, 30));
+        let b = source.builder(6);
+        let snapshot = source.fixture().snapshot.clone();
+        let before = crate::blob::kzg_verifications();
+        b.validate_checkpoint(&snapshot).await.unwrap();
+        let preview = b.observe(&snapshot).await.unwrap();
+        assert_eq!(crate::blob::kzg_verifications(), before);
+        b.prepare_observed(snapshot, preview).await.unwrap().unwrap();
+        assert_eq!(crate::blob::kzg_verifications(), before + 1);
+    }
+
     #[tokio::test]
     async fn unchanged_checkpoint_reuses_history_across_validation_observation_and_preparation() {
         let source = TrackingSource::new(Fixture::new(24, 30));

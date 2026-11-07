@@ -6,7 +6,7 @@ use crate::{
     proof::{ProofError, ProofProvider, ProofRequest},
     runner::{Runner, RunnerConfig, StepOutcome},
     store::{JournalIdentity, JournalState, ProvedJob, Store},
-    test_utils::runtime::{request, signed, signer},
+    test_utils::runtime::{request, signed, signed_by, signer},
     tx::{LandingReceipt, NonceState, SignedTransaction, TransactionTransport},
     types::LandingSnapshot,
 };
@@ -41,6 +41,7 @@ struct Control {
     checkpoint_error: bool,
     prepare_empty: bool,
     corrupt_signature: bool,
+    foreign_signer: bool,
     broadcasts: Vec<Bytes>,
     events: Vec<&'static str>,
 }
@@ -75,6 +76,7 @@ impl Fixture {
             checkpoint_error: false,
             prepare_empty: false,
             corrupt_signature: false,
+            foreign_signer: false,
             broadcasts: vec![],
             events: vec![],
         };
@@ -284,7 +286,13 @@ impl TransactionTransport for MockTx {
                 return Err(LanderError::Reverted("estimation reverted".into()));
             }
         }
-        let mut transaction = signed(request, proof, nonce).await;
+        let foreign = self.control.lock().unwrap().foreign_signer;
+        let mut transaction = if foreign {
+            let other = "0000000000000000000000000000000000000000000000000000000000000002";
+            signed_by(&other.parse().unwrap(), request, proof, nonce).await
+        } else {
+            signed(request, proof, nonce).await
+        };
         if self.control.lock().unwrap().corrupt_signature {
             transaction.hash = B256::ZERO;
         }
@@ -332,18 +340,30 @@ fn pending_transaction(runner: &Runner) -> SignedTransaction {
     }
 }
 
+/// The pre-sign gate is the one check between signing and saving (BATCH-6.3-13): bytes that do
+/// not bind the job, or that another account validly signed, never become durable.
 #[tokio::test]
 async fn invalid_signed_transport_result_leaves_prepared_journal_and_never_broadcasts() {
-    let fixture = Fixture::new();
-    let mut runner = fixture.runner();
-    assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
-    let path = fixture.directory.path().join("lander-state.json");
-    let prepared = std::fs::read(&path).unwrap();
-    fixture.control.lock().unwrap().corrupt_signature = true;
-    assert!(matches!(runner.step().await, Err(LanderError::Journal(_))));
-    assert!(matches!(runner.state(), JournalState::Prepared { .. }));
-    assert_eq!(std::fs::read(path).unwrap(), prepared);
-    assert!(fixture.control.lock().unwrap().broadcasts.is_empty());
+    for foreign in [false, true] {
+        let fixture = Fixture::new();
+        let mut runner = fixture.runner();
+        assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+        let path = fixture.directory.path().join("lander-state.json");
+        let prepared = std::fs::read(&path).unwrap();
+        {
+            let mut control = fixture.control.lock().unwrap();
+            control.corrupt_signature = !foreign;
+            control.foreign_signer = foreign;
+        }
+        let outcome = runner.step().await;
+        assert!(matches!(outcome, Err(LanderError::Journal(_))), "{outcome:?}");
+        if foreign {
+            assert!(format!("{outcome:?}").contains("sender"), "{outcome:?}");
+        }
+        assert!(matches!(runner.state(), JournalState::Prepared { .. }));
+        assert_eq!(std::fs::read(path).unwrap(), prepared);
+        assert!(fixture.control.lock().unwrap().broadcasts.is_empty());
+    }
 }
 
 #[tokio::test]
@@ -363,6 +383,41 @@ async fn happy_path_is_journal_first_and_waits_for_canonical_confirmation_depth(
     let control = fixture.control.lock().unwrap();
     assert_eq!(control.signs, 1);
     assert_eq!(control.broadcasts.len(), 1);
+}
+
+/// A landing whose sidecar `blob::build` already verified runs KZG once more, in the pre-sign
+/// gate; saving Prepared, Signed, Pending, Confirming and Idle verifies nothing (BATCH-6.3-13).
+#[tokio::test]
+async fn happy_path_verifies_kzg_once_before_signing_and_never_on_save() {
+    let fixture = Fixture::new();
+    let before = crate::blob::kzg_verifications();
+    let mut runner = fixture.runner();
+    for _ in 0..3 {
+        assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+    }
+    let transaction = pending_transaction(&runner);
+    fixture.mine(&transaction, true);
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
+    fixture.control.lock().unwrap().snapshot.l1_block_number = 31;
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Settled);
+    assert_eq!(crate::blob::kzg_verifications() - before, 1);
+}
+
+/// A restart validates its non-Idle journal, KZG included, exactly once.
+#[tokio::test]
+async fn restart_verifies_the_restored_job_once() {
+    let fixture = Fixture::new();
+    let mut runner = fixture.runner();
+    for _ in 0..3 {
+        assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+    }
+    assert!(matches!(runner.state(), JournalState::Pending { .. }));
+    drop(runner);
+    let before = crate::blob::kzg_verifications();
+    let resumed = fixture.runner();
+    assert_eq!(crate::blob::kzg_verifications() - before, 1);
+    assert!(matches!(resumed.state(), JournalState::Pending { .. }));
 }
 
 #[tokio::test(start_paused = true)]

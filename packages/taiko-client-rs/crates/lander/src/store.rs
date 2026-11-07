@@ -96,12 +96,13 @@ pub struct Store {
     directory: PathBuf,
     /// The open locked file owns the OS lock until this store is dropped.
     _lock: File,
-    /// Expected identities used on every load and save.
+    /// Expected identities: checked on load and written on save.
     identity: JournalIdentity,
 }
 
 impl Store {
-    /// Lock an existing or empty lander directory; validate the journal before returning.
+    /// Lock an existing or empty lander directory. The journal is not read here; [`Self::load`]
+    /// is its only validation.
     pub fn open(path: impl AsRef<Path>, identity: JournalIdentity) -> Result<Self> {
         std::fs::create_dir_all(path.as_ref()).map_err(io_error)?;
         let directory = std::fs::canonicalize(path.as_ref()).map_err(io_error)?;
@@ -116,9 +117,7 @@ impl Store {
             LanderError::Journal(format!("data directory already locked or cannot be locked: {e}"))
         })?;
         File::open(&directory).map_err(io_error)?.sync_all().map_err(io_error)?;
-        let store = Self { directory, _lock: lock, identity };
-        store.load()?;
-        Ok(store)
+        Ok(Self { directory, _lock: lock, identity })
     }
 
     /// Current public identity, suitable for comparison with freshly read chain facts.
@@ -126,7 +125,8 @@ impl Store {
         &self.identity
     }
 
-    /// Read only the committed file. An interrupted temporary write does not supersede it.
+    /// Read and validate only the committed file; an interrupted temporary write does not
+    /// supersede it. This is the journal's only validation, run once at startup.
     pub fn load(&self) -> Result<JournalState> {
         let path = self.directory.join("lander-state.json");
         let file = match File::open(&path) {
@@ -163,9 +163,10 @@ impl Store {
         Ok(journal.state)
     }
 
-    /// Atomically commit a phase, returning only after all durability barriers.
+    /// Atomically commit a phase, returning only after all durability barriers. The state is not
+    /// validated: the runner derives it from a loaded or freshly built job, and checks signed bytes
+    /// before they reach here (BATCH-6.3-13).
     pub fn save(&self, state: &JournalState) -> Result<()> {
-        self.validate(state)?;
         let journal = Journal {
             version: JOURNAL_VERSION,
             identity: self.identity.clone(),
@@ -190,7 +191,8 @@ impl Store {
         Ok(())
     }
 
-    /// Refuse altered public inputs, sidecars, signatures, identities, or receipt associations.
+    /// Refuse altered public inputs, sidecars, signatures, identities, or receipt associations
+    /// in a loaded journal.
     fn validate(&self, state: &JournalState) -> Result<()> {
         let (job, transaction, receipt) = match state {
             JournalState::Idle => return Ok(()),
@@ -281,12 +283,34 @@ mod tests {
         }
         let mut altered = job;
         altered.request.batch.statement_hash = alloy_primitives::B256::ZERO;
-        assert!(store.save(&JournalState::Prepared { job: altered }).is_err());
+        store.save(&JournalState::Prepared { job: altered }).unwrap();
         drop(store);
-        assert!(matches!(
-            Store::open(directory.path(), identity).unwrap().load().unwrap(),
-            JournalState::Confirming { .. }
-        ));
+        let error = Store::open(directory.path(), identity).unwrap().load().unwrap_err();
+        assert!(error.to_string().contains("statement"), "{error}");
+    }
+
+    /// Saving writes without validating, and opening only locks; loading is the only check.
+    #[test]
+    fn save_does_not_validate_and_load_rejects() {
+        let mut request = crate::test_utils::runtime::request();
+        request.batch.statement_hash = B256::ZERO;
+        let snapshot = &request.batch.snapshot;
+        let identity = JournalIdentity {
+            l1_chain_id: snapshot.l1_chain_id,
+            l2_chain_id: snapshot.l2_chain_id,
+            inbox: snapshot.inbox,
+            registry: snapshot.registry,
+            sender: Address::repeat_byte(5),
+        };
+        let directory = tempfile::tempdir().unwrap();
+        let store = Store::open(directory.path(), identity.clone()).unwrap();
+        let job = Box::new(ProvedJob { request, proof: Bytes::from_static(&[0]) });
+        store.save(&JournalState::Prepared { job }).unwrap();
+        drop(store);
+        let store = Store::open(directory.path(), identity).unwrap();
+        let error = store.load().unwrap_err();
+        assert!(matches!(error, LanderError::Journal(_)), "{error}");
+        assert!(error.to_string().contains("statement"), "{error}");
     }
 
     /// The store's own exclusive lock is its only marker; nothing else appears before a save.
@@ -328,7 +352,7 @@ mod tests {
         let path = directory.path().join("lander-state.json");
         std::fs::write(&path, &bytes).unwrap();
 
-        let error = Store::open(directory.path(), id).err().expect("other schema refused");
+        let error = Store::open(directory.path(), id).unwrap().load().unwrap_err();
         assert!(
             error
                 .to_string()
@@ -375,7 +399,7 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("lander-state.json");
         std::fs::write(&path, &bytes).unwrap();
-        let error = Store::open(directory.path(), id).err().expect("private envelope rejected");
+        let error = Store::open(directory.path(), id).unwrap().load().unwrap_err();
         assert!(error.to_string().contains("data hash"), "{error}");
         assert_eq!(std::fs::read(path).unwrap(), bytes);
     }
@@ -408,8 +432,6 @@ mod tests {
                 transaction: valid,
             };
             store.save(&state).unwrap();
-            let path = directory.path().join("lander-state.json");
-            let original = std::fs::read(&path).unwrap();
             match &mut request.batch.blobs.sidecar {
                 BlobTransactionSidecarVariant::Eip4844(sidecar) => sidecar.proofs[0][0] ^= 1,
                 BlobTransactionSidecarVariant::Eip7594(sidecar) => sidecar.cell_proofs[0][0] ^= 1,
@@ -420,18 +442,16 @@ mod tests {
             );
             let state =
                 JournalState::Pending { job: Box::new(ProvedJob { request, proof }), transaction };
-            assert!(store.save(&state).unwrap_err().to_string().contains("KZG"));
-            assert_eq!(std::fs::read(&path).unwrap(), original);
-            // A damaged on-disk sidecar must also be rejected on restoration.
-            let journal =
-                Journal { version: JOURNAL_VERSION, identity: store.identity.clone(), state };
-            std::fs::write(path, serde_json::to_vec(&journal).unwrap()).unwrap();
+            // Saving does not verify; a damaged durable sidecar is rejected on restoration.
+            store.save(&state).unwrap();
             assert!(store.load().unwrap_err().to_string().contains("KZG"));
         }
     }
 
+    /// The journal keeps only the private protobuf, so a restore rebuilds the block from it; a
+    /// changed proposer then no longer matches the block id its commit signed.
     #[test]
-    fn journal_rejects_private_protobuf_disagreement_without_replacing_prior_state() {
+    fn journal_load_rejects_private_protobuf_disagreement() {
         use crate::test_utils::runtime::request;
         let request = request();
         let snapshot = &request.batch.snapshot;
@@ -451,16 +471,16 @@ mod tests {
             job: Box::new(ProvedJob { request, proof: Bytes::from_static(&[0]) }),
         };
         store.save(&state).unwrap();
-        let path = directory.path().join("lander-state.json");
-        let original = std::fs::read(&path).unwrap();
+        assert_eq!(store.load().unwrap(), state);
         let JournalState::Prepared { job } = &mut state else { unreachable!() };
         let pair = &mut job.request.batch.blocks[0];
         let mut raw = pair.block_proto().unwrap();
         raw.header.as_mut().unwrap().proposer_address[0] ^= 1;
         pair.raw_block = prost::Message::encode_to_vec(&raw).into();
-        let error = store.save(&state).unwrap_err();
-        assert!(error.to_string().contains("original block differs"), "{error}");
-        assert_eq!(std::fs::read(path).unwrap(), original);
+        store.save(&state).unwrap();
+        let error = store.load().unwrap_err();
+        assert!(matches!(error, LanderError::Journal(_)), "{error}");
+        assert!(error.to_string().contains("block/commit disagreement at height 1"), "{error}");
     }
 
     /// The blobs must carry exactly the job's published blocks; their compressed bytes need not
@@ -497,11 +517,11 @@ mod tests {
         // A canonical payload of only the first block binds different blocks.
         let first = crate::codec::encode(&request.batch.blocks[..1], &limits()).unwrap();
         rebind(&mut request, &first);
-        let error = store
+        store
             .save(&JournalState::Prepared { job: Box::new(ProvedJob { request, proof }) })
-            .unwrap_err();
+            .unwrap();
+        let error = store.load().unwrap_err();
         assert!(error.to_string().contains("exact landed checkpoint interval"), "{error}");
-        assert_eq!(store.load().unwrap(), job);
     }
 
     /// Even a recomputed statement cannot authorize a journal amount absent from its headers.
@@ -524,19 +544,19 @@ mod tests {
             job: Box::new(ProvedJob { request: request.clone(), proof: proof.clone() }),
         };
         store.save(&valid).unwrap();
-        let original = std::fs::read(directory.path().join("lander-state.json")).unwrap();
+        assert_eq!(store.load().unwrap(), valid);
         let payload = crate::codec::encode(&request.batch.blocks, &limits()).unwrap();
         request.batch.input.lastCometHash[0] ^= 1;
         rebind(&mut request, &payload);
-        let error = store
+        store
             .save(&JournalState::Prepared { job: Box::new(ProvedJob { request, proof }) })
-            .unwrap_err();
+            .unwrap();
+        let error = store.load().unwrap_err();
         assert!(error.to_string().contains("Comet"), "{error}");
-        assert_eq!(std::fs::read(directory.path().join("lander-state.json")).unwrap(), original);
     }
 
     #[test]
-    fn v1_journal_rejects_rebound_cut_leaves_and_cursor() {
+    fn v1_journal_rejects_rebound_cut_leaf_counts() {
         use crate::test_utils::runtime::{limits, rebind, request};
         for mutation in 1..=2 {
             let mut request = request();
@@ -672,11 +692,11 @@ mod tests {
         drop(store);
         let mut other = identity();
         other.sender = Address::repeat_byte(6);
-        assert!(Store::open(directory.path(), other).is_err());
+        assert!(Store::open(directory.path(), other).unwrap().load().is_err());
         // An unreadable journal is refused and kept byte for byte, as an other-schema one is.
         let path = directory.path().join("lander-state.json");
         std::fs::write(&path, b"{corrupt").unwrap();
-        let error = Store::open(directory.path(), identity()).err().expect("unreadable refused");
+        let error = Store::open(directory.path(), identity()).unwrap().load().unwrap_err();
         assert!(error.to_string().contains("unreadable journal (retained unchanged): "), "{error}");
         assert_eq!(std::fs::read(&path).unwrap(), b"{corrupt");
     }

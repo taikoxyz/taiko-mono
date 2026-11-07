@@ -531,6 +531,20 @@ mod tests {
         };
         sidecar.proofs[0][0] ^= 1;
         cases.push(("KZG", batch));
+        // The statement binds no block count, so a rebound statement cannot hide a dropped block.
+        let mut batch = original.batch.clone();
+        batch.blocks.pop();
+        rebound(&mut batch);
+        cases.push(("invalid V1 grid interval", batch));
+        let mut batch = original.batch.clone();
+        batch.input.parentHeight = U256::from(1u64 << 48);
+        cases.push(("uint48", batch));
+        let mut batch = original.batch.clone();
+        batch.reference_headers.clear();
+        cases.push(("no L1 reference", batch));
+        let mut batch = original.batch.clone();
+        batch.blobs.payload_bytes += 1;
+        cases.push(("payload length", batch));
 
         for (expected, batch) in cases {
             let error = batch.verify_restored().unwrap_err();

@@ -272,10 +272,12 @@ the Inbox's `VERSION`, initialization, L2 chain id, registry, committee config h
 frontier and the reference block.
 
 `lander-state.json` uses schema 16 and is protected by `lander.lock`; other schemas are refused
-and left intact. Signed bytes and blob sidecars are durably written before
-broadcast. For an original range (p,h] and competing checkpoint p<=c<h, the original input,
-leaves, proof, blobs, nonce and signed bytes remain unchanged. At c>=h, never-broadcast work
-can finish; possibly-broadcast work remains pending until canonical receipt/nonce reconciliation.
+and left intact. The journal is verified once at startup (statement hash, blob and KZG binding,
+signed bytes); later writes are not re-verified. Signed bytes and blob sidecars are durably
+written before broadcast. For an original range (p,h] and competing checkpoint p<=c<h, the
+original input, leaves, proof, blobs, nonce and signed bytes remain unchanged. At c>=h,
+never-broadcast work can finish; possibly-broadcast work remains pending until canonical
+receipt/nonce reconciliation.
 An ambiguous send or dropped transaction never authorizes recycling its nonce.
 If a transaction remains dropped or underpriced, the lander keeps its original signed bytes
 and nonce and waits; restarting cannot repair it. Investigate the account and journal using

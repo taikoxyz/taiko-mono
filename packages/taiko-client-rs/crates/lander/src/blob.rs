@@ -38,7 +38,8 @@ pub const fn required_blobs(payload_bytes: usize) -> usize {
     if payload_bytes == 0 { 0 } else { (payload_bytes - 1) / PAYLOAD_BYTES_PER_BLOB + 1 }
 }
 
-/// Build exactly one sidecar for an already selected complete V6 payload.
+/// Build exactly one sidecar for an already selected complete V6 payload and verify it; a sidecar
+/// that fails its own KZG check is a safety error.
 pub fn build(payload: &[u8], limits: &Limits, mode: SidecarMode) -> Result<PreparedBlobs> {
     use alloy_eips::eip4844::builder::SidecarBuilder;
     use protocol::shasta::BlobCoder;
@@ -68,12 +69,32 @@ pub fn build(payload: &[u8], limits: &Limits, mode: SidecarMode) -> Result<Prepa
         ));
     }
     let versioned_hashes = sidecar.versioned_hashes().collect();
-    Ok(PreparedBlobs { payload_bytes: payload.len(), sidecar, versioned_hashes })
+    let prepared = PreparedBlobs { payload_bytes: payload.len(), sidecar, versioned_hashes };
+    // The hashes enter the statement only once the sidecar verifies (PROOF-6.2-35/38).
+    verify(&prepared).map_err(|error| LanderError::Safety(format!("built blob {error}")))?;
+    Ok(prepared)
+}
+
+#[cfg(test)]
+thread_local! {
+    /// KZG sidecar checks [`verify`] ran on this thread. Lander lib tests run on current-thread
+    /// runtimes and KZG never runs in `spawn_blocking`, so a test sees exactly its own checks.
+    static KZG_VERIFICATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// Number of KZG sidecar checks run so far on the calling thread.
+#[cfg(test)]
+pub(crate) fn kzg_verifications() -> usize {
+    KZG_VERIFICATIONS.with(std::cell::Cell::get)
 }
 
 /// Verify that the sidecar's KZG commitments and proofs bind its blobs to the ordered versioned
-/// hashes (PROOF-6.2-35). This is the only place the lander runs the KZG sidecar check.
+/// hashes (PROOF-6.2-35). This is the only place the lander runs the KZG sidecar check. A landing
+/// runs it twice: in [`build`] and in the runner's gate before signed bytes become durable
+/// (BATCH-6.3-13); a restart with a non-Idle journal runs it once more, on load.
 pub fn verify(blobs: &PreparedBlobs) -> Result<()> {
+    #[cfg(test)]
+    KZG_VERIFICATIONS.with(|count| count.set(count.get() + 1));
     blobs
         .sidecar
         .validate(
