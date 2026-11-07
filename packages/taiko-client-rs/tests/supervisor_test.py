@@ -142,7 +142,11 @@ class SupervisorTests(unittest.TestCase):
         deadline = time.monotonic() + 5
         while not predicate() and time.monotonic() < deadline:
             time.sleep(.05)
-        self.assertTrue(predicate(), "supervisor did not perform the expected lifecycle transition")
+        if not predicate():
+            # A separate reader leaves the child's shared stdout offset untouched.
+            runtime = Path(self.log.name).read_text(errors="replace")
+            self.fail("supervisor did not perform the expected lifecycle transition; "
+                      f"supervisor exit status: {self.proc.poll()}\nruntime.log:\n{runtime}")
 
     def tearDown(self):
         self.proc.terminate()
