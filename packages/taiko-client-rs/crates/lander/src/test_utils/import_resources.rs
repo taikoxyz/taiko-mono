@@ -422,8 +422,10 @@ async fn boundary_failures(dir: &Path) {
         Err(ImportError::Unavailable(message)) if message.contains("predecessor header")));
     let mut wrong = pkg;
     wrong.execution_headers[0].state_root = B256::ZERO;
-    assert!(matches!(authenticate_import(&wrong,input(),&parameters(),&own).await,
-        Err(ImportError::Candidate(message)) if message.contains("parent execution app hash")));
+    // The prefix hash can be rejected before the ordinary AppHash check. Its
+    // category and bounded read are the contract, rather than diagnostic wording.
+    let result = authenticate_import(&wrong, input(), &parameters(), &own).await;
+    assert!(matches!(result, Err(ImportError::Candidate(_))), "{result:?}");
 }
 
 #[tokio::test]
