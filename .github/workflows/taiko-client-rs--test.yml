@@ -284,6 +284,88 @@ jobs:
           docker ps -aq --filter "label=taiko-client-rs.test-run=$TAIKO_CLIENT_RS_TEST_RUN" | xargs -r docker rm -f -v
           docker network ls -q --filter "label=taiko-client-rs.test-run=$TAIKO_CLIENT_RS_TEST_RUN" | xargs -r docker network rm
 
+  # Builds and smokes the production Dockerfile, which the test lanes no longer
+  # build. Deliberately non-blocking and outside the Tests / Unit Tests
+  # aggregators: the steps a broken Dockerfile can fail continue on error, so
+  # the check stays green for the merge gatekeeper, and the last step reports
+  # their outcomes in the job summary and as warnings.
+  # taiko-client-rs--docker.yml still gates the image on main. Only the push
+  # run on main writes the gha cache.
+  image:
+    if: ${{ (github.event_name == 'pull_request' && github.event.pull_request.draft == false && !startsWith(github.head_ref, 'release-please')) || github.event_name == 'push' }}
+    name: Production Image
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Free space for native and Docker builds
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup
+          df -h /
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        with:
+          version: v0.29.1
+          cache-binary: false
+      - name: Build production image
+        id: build
+        continue-on-error: true
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: packages/taiko-client-rs/Dockerfile
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: taiko-client-rs:ci-${{ github.run_id }}
+          # The runner has 4 vCPUs; the Dockerfile default of 2 takes ~33 min.
+          build-args: CARGO_BUILD_JOBS=4
+          cache-from: type=gha,scope=taiko-client-rs-image-amd64
+          cache-to: ${{ github.event_name == 'push' && 'type=gha,mode=max,scope=taiko-client-rs-image-amd64' || '' }}
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+        with:
+          just-version: 1.5.0
+      - name: Smoke the image entrypoint
+        id: help
+        if: ${{ steps.build.outcome == 'success' }}
+        continue-on-error: true
+        run: docker run --rm --network none taiko-client-rs:ci-${{ github.run_id }} --help
+      - name: Run runtime image checks
+        id: runtime
+        if: ${{ steps.build.outcome == 'success' }}
+        continue-on-error: true
+        working-directory: packages/taiko-client-rs
+        run: just runtime-image-test taiko-client-rs:ci-${{ github.run_id }} linux/amd64
+      - name: Report production image outcome
+        if: ${{ always() }}
+        shell: bash
+        env:
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+          HELP_OUTCOME: ${{ steps.help.outcome }}
+          RUNTIME_OUTCOME: ${{ steps.runtime.outcome }}
+        run: |
+          set -euo pipefail
+          {
+            echo "### Production image (non-blocking)"
+            echo
+            echo "| Step | Outcome |"
+            echo "| --- | --- |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          report() {
+            local outcome="${2:-not run}"
+            echo "| $1 | $outcome |" >> "$GITHUB_STEP_SUMMARY"
+            if [ "$outcome" != success ]; then
+              echo "::warning title=Production image::$1: $outcome"
+            fi
+          }
+          report "Build production image" "$BUILD_OUTCOME"
+          report "Smoke the image entrypoint" "$HELP_OUTCOME"
+          report "Run runtime image checks" "$RUNTIME_OUTCOME"
+
   resources:
     if: ${{ github.event_name != 'pull_request' && github.event.pull_request.draft == false && !startsWith(github.head_ref, 'release-please') }}
     name: Checkpoint Resources
