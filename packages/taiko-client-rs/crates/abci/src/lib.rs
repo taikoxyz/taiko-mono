@@ -79,7 +79,7 @@ pub use envelope::{
 pub use genesis::{
     AppStateJson, BootstrapWitness, CommitteeRecordError, GenesisCommitteeRecord, GenesisDoc,
     GenesisError, GenesisValidator, GenesisWitness, build_committee_record, build_genesis,
-    decode_app_state, decode_bootstrap_state,
+    decode_bootstrap_state,
 };
 pub use l1::{
     CommitteeL1Source, FetchError, L1Error, L1HeaderError, L1Source, RawL1Header, RpcL1Source,

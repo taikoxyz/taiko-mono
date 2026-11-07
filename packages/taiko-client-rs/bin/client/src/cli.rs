@@ -147,34 +147,27 @@ where
     }
 }
 
-/// Resolve with the name of the first shutdown signal received: SIGINT, or SIGTERM on Unix.
+/// Resolve with the name of the first shutdown signal received: SIGINT or SIGTERM.
 ///
 /// Fails with [`CliError::SignalHandler`] if a handler cannot be installed or the SIGTERM
 /// stream closes. Tokio registers handlers process-wide and never removes them, so a partially
 /// installed set must not be left behind silently: the caller treats this error as fatal.
 async fn shutdown_signal() -> Result<&'static str> {
-    #[cfg(unix)]
-    {
-        use tokio::signal::unix::{SignalKind, signal};
+    use tokio::signal::unix::{SignalKind, signal};
 
-        let mut sigterm = signal(SignalKind::terminate()).map_err(CliError::SignalHandler)?;
-        tokio::select! {
-            result = tokio::signal::ctrl_c() => {
-                result.map(|()| "SIGINT").map_err(CliError::SignalHandler)
-            }
-            received = sigterm.recv() => match received {
-                Some(()) => Ok("SIGTERM"),
-                // Tokio never closes this stream today, but a closed stream would mean SIGTERM
-                // can no longer stop the client, which is exactly the failure this error is for.
-                None => Err(CliError::SignalHandler(std::io::Error::other(
-                    "the SIGTERM signal stream closed",
-                ))),
-            },
+    let mut sigterm = signal(SignalKind::terminate()).map_err(CliError::SignalHandler)?;
+    tokio::select! {
+        result = tokio::signal::ctrl_c() => {
+            result.map(|()| "SIGINT").map_err(CliError::SignalHandler)
         }
-    }
-    #[cfg(not(unix))]
-    {
-        tokio::signal::ctrl_c().await.map(|()| "SIGINT").map_err(CliError::SignalHandler)
+        received = sigterm.recv() => match received {
+            Some(()) => Ok("SIGTERM"),
+            // Tokio never closes this stream today, but a closed stream would mean SIGTERM
+            // can no longer stop the client, which is exactly the failure this error is for.
+            None => Err(CliError::SignalHandler(std::io::Error::other(
+                "the SIGTERM signal stream closed",
+            ))),
+        },
     }
 }
 
@@ -282,14 +275,12 @@ mod tests {
     }
 
     /// Set in the child process that `sigterm_resolves_shutdown_signal` re-executes itself in.
-    #[cfg(unix)]
     const SIGNAL_TEST_CHILD_ENV: &str = "TAIKO_CLIENT_SIGNAL_TEST_CHILD";
 
     // Installing the shutdown handlers changes the process-wide SIGINT and SIGTERM dispositions
     // for good, because tokio never removes them. So the real-signal check runs in a child
     // process that re-executes this test alone, and the shared test binary keeps its default
     // dispositions: later signal tests and Ctrl+C on a stalled run keep working.
-    #[cfg(unix)]
     #[tokio::test]
     async fn sigterm_resolves_shutdown_signal() {
         if std::env::var_os(SIGNAL_TEST_CHILD_ENV).is_some() {
@@ -318,7 +309,6 @@ mod tests {
 
     /// The child-process half of `sigterm_resolves_shutdown_signal`: install the handlers, raise
     /// a real SIGTERM against this process and expect the shutdown signal to resolve.
-    #[cfg(unix)]
     async fn raise_sigterm_and_expect_shutdown() {
         let mut shutdown = Box::pin(shutdown_signal());
         // Poll once so the SIGTERM handler is installed before the signal is raised; without a

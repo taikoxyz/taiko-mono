@@ -10,6 +10,7 @@ use std::{
     collections::BTreeMap,
     fs::{File, OpenOptions},
     io::{Read, Write},
+    os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt},
     path::{Path, PathBuf},
 };
 
@@ -23,11 +24,7 @@ fn open_file(path: &Path, create_new: bool) -> Result<File, RecoveryCommandError
     if create_new {
         options.write(true).create_new(true);
     }
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        options.mode(0o600).custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
-    }
+    options.mode(0o600).custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
     let file = options.open(path).map_err(|_| RecoveryCommandError::Io("open regular file"))?;
     if !file.metadata().map_err(|_| RecoveryCommandError::Io("file metadata"))?.is_file() {
         return Err(RecoveryCommandError::Parse("file type"));
@@ -52,11 +49,7 @@ pub fn read_bounded(path: &Path, limit: u64) -> Result<Vec<u8>, RecoveryCommandE
 pub(super) fn private_dir(path: &Path) -> Result<(), RecoveryCommandError> {
     if !path.exists() {
         let mut builder = std::fs::DirBuilder::new();
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::DirBuilderExt;
-            builder.mode(0o700);
-        }
+        builder.mode(0o700);
         builder.create(path).map_err(|_| RecoveryCommandError::Io("create private directory"))?;
     }
     check_private_dir(path)
@@ -68,12 +61,8 @@ pub(super) fn check_private_dir(path: &Path) -> Result<(), RecoveryCommandError>
     if !metadata.is_dir() {
         return Err(RecoveryCommandError::Parse("private directory"));
     }
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        if metadata.permissions().mode() & 0o077 != 0 {
-            return Err(RecoveryCommandError::Parse("private directory permissions"));
-        }
+    if metadata.permissions().mode() & 0o077 != 0 {
+        return Err(RecoveryCommandError::Parse("private directory permissions"));
     }
     Ok(())
 }
@@ -196,11 +185,7 @@ impl RecoveryStore {
             return Err(RecoveryCommandError::Busy);
         }
         let mut builder = std::fs::DirBuilder::new();
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::DirBuilderExt;
-            builder.mode(0o700);
-        }
+        builder.mode(0o700);
         builder.create(&stage).map_err(|error| {
             if error.kind() == std::io::ErrorKind::AlreadyExists {
                 RecoveryCommandError::Busy
@@ -293,14 +278,8 @@ pub fn check_private_file(path: &Path) -> Result<(), RecoveryCommandError> {
     if !metadata.is_file() {
         return Err(RecoveryCommandError::Parse("private profile file"));
     }
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        if metadata.permissions().mode() & 0o077 != 0 {
-            return Err(RecoveryCommandError::Parse(
-                "private profile permissions (require mode 0600)",
-            ));
-        }
+    if metadata.permissions().mode() & 0o077 != 0 {
+        return Err(RecoveryCommandError::Parse("private profile permissions (require mode 0600)"));
     }
     Ok(())
 }

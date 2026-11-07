@@ -199,7 +199,6 @@ async fn answers_echo_and_info_over_tcp() {
 }
 
 /// Connects to the unix socket at `path`, retrying until the server listens.
-#[cfg(unix)]
 async fn connect_unix(
     path: &Path,
     server: &JoinHandle<Result<(), ServerError>>,
@@ -219,7 +218,6 @@ async fn connect_unix(
 
 /// A process that exits (e.g. after a safety halt) leaves its socket file behind; the next
 /// start replaces that stale socket instead of failing to bind with `AddrInUse`.
-#[cfg(unix)]
 #[tokio::test]
 async fn serves_over_unix_replacing_a_stale_socket() {
     let dir = tempfile::tempdir().unwrap();
@@ -244,7 +242,6 @@ async fn serves_over_unix_replacing_a_stale_socket() {
 
 /// Only a stale socket is removed: a regular file at the path, or a socket another process
 /// still listens on, is left alone and the server refuses to start.
-#[cfg(unix)]
 #[tokio::test]
 async fn refuses_a_unix_path_that_is_no_stale_socket() {
     let dir = tempfile::tempdir().unwrap();
@@ -271,7 +268,6 @@ async fn refuses_a_unix_path_that_is_no_stale_socket() {
 /// Only a refused connection proves a socket stale: a socket the server cannot even probe (here
 /// one without write permission, `EACCES`) may still belong to a live process, so it is left in
 /// place and the server refuses to start.
-#[cfg(unix)]
 #[tokio::test]
 async fn refuses_a_socket_it_cannot_probe() {
     use std::os::unix::fs::PermissionsExt;

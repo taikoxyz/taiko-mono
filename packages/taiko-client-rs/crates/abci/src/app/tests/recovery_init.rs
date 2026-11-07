@@ -336,18 +336,16 @@ async fn recovery_init_future_target_requires_replay_and_both_committed_hashes()
 
 #[test]
 fn recovery_bootstrap_codec_is_disjoint_and_strict_without_changing_genesis_bytes() {
-    use crate::{BootstrapWitness, decode_app_state, decode_bootstrap_state};
+    use crate::{BootstrapWitness, decode_bootstrap_state};
     let (fx, _, _, mut w) = recovery_fixture(1, 6, 1);
     let initial = serde_json::to_vec(&AppStateJson::from(&fx.witness)).unwrap();
     assert_eq!(
         decode_bootstrap_state(&initial).unwrap(),
         BootstrapWitness::Initial(fx.witness.clone())
     );
-    assert_eq!(decode_app_state(&initial).unwrap(), fx.witness.clone());
     assert_eq!(AppStateJson::from(&fx.witness).witness.as_ref(), alloy_rlp::encode(&fx.witness));
     let bytes = serde_json::to_vec(&AppStateJson::from(&w)).unwrap();
     assert_eq!(decode_bootstrap_state(&bytes).unwrap(), BootstrapWitness::Recovery(w.clone()));
-    assert!(decode_app_state(&bytes).is_err());
     let mut malformed = AppStateJson::from(&w);
     malformed.witness = [malformed.witness.as_ref(), &[0]].concat().into();
     assert!(decode_bootstrap_state(&serde_json::to_vec(&malformed).unwrap()).is_err());

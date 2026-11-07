@@ -205,14 +205,6 @@ pub enum AbciError {
     /// A CometBFT `chain_id` differs from this chain's 48-byte `etna-` deployment-domain digest.
     #[error(transparent)]
     ChainId(#[from] RuleViolation),
-    /// The `chain_id` generation differs from the Inbox's `recoveryGeneration`.
-    #[error("chain_id generation {chain_id} differs from the inbox recoveryGeneration {inbox}")]
-    GenerationMismatch {
-        /// The generation authenticated by the genesis signing domain.
-        chain_id: u64,
-        /// The Inbox's `recoveryGeneration` at `L1_0`.
-        inbox: u64,
-    },
     /// The first consensus height differs from the authenticated generation origin plus one.
     #[error("initial_height {got} must be {expected} for this generation")]
     InitialHeight {

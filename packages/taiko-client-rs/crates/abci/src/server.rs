@@ -40,7 +40,6 @@ use crate::{
 };
 
 /// Independent private Unix session control.
-#[cfg(unix)]
 mod trust_control;
 
 /// The process exit code after a safety halt.
@@ -50,7 +49,6 @@ pub const SAFETY_HALT_EXIT_CODE: i32 = 2;
 pub const DEFAULT_ADDR: &str = "tcp://127.0.0.1:26658";
 
 /// How long [`remove_stale_socket`] waits for its probe connection to an existing socket file.
-#[cfg(unix)]
 const SOCKET_PROBE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(1);
 
 /// Errors of [`serve`]. The server only returns when it fails.
@@ -247,7 +245,6 @@ pub async fn serve_with<H: AbciHandler, K: HaltHook>(
         remove_stale_socket(addr, path).await?;
     }
     let control = handler.checkpoint_control();
-    #[cfg(unix)]
     let control_task = if let Some((trust, path)) = &control {
         let listener = trust_control::bind(path).await?;
         let trust = trust.clone();
@@ -259,19 +256,13 @@ pub async fn serve_with<H: AbciHandler, K: HaltHook>(
     } else {
         None
     };
-    #[cfg(not(unix))]
-    if control.is_some() {
-        return Err(ServerError::WorkerStopped("checkpoint control requires Unix sockets".into()));
-    }
     let (service, worker) = AppService::spawn(handler, halt);
     let mut tasks = vec![worker.abort_handle()];
-    #[cfg(unix)]
     if let Some(task) = &control_task {
         tasks.push(task.abort_handle());
     }
     let _lifecycle = ServerTasks { tasks, trust: control.map(|(trust, _)| trust) };
     let listen = listen_native(listen_addr, service);
-    #[cfg(unix)]
     let control_watch = async move {
         match control_task {
             Some(task) => {
@@ -280,8 +271,6 @@ pub async fn serve_with<H: AbciHandler, K: HaltHook>(
             None => std::future::pending::<()>().await,
         }
     };
-    #[cfg(not(unix))]
-    let control_watch = std::future::pending::<()>();
     tokio::select! {
         _ = control_watch => Err(ServerError::WorkerStopped("checkpoint control listener stopped".into())),
         result = listen => Err(ServerError::Listen {
@@ -324,7 +313,6 @@ impl Drop for ServerTasks {
 /// within [`SOCKET_PROBE_TIMEOUT`]. Failing to inspect or remove the path is
 /// [`ServerError::Listen`]. (On macOS a full backlog also refuses connections, so a live
 /// listener with a full backlog looks stale there.)
-#[cfg(unix)]
 async fn remove_stale_socket(addr: &str, path: &Path) -> Result<(), ServerError> {
     use std::{io::ErrorKind, os::unix::fs::FileTypeExt};
 
@@ -360,12 +348,6 @@ async fn remove_stale_socket(addr: &str, path: &Path) -> Result<(), ServerError>
     }
     tracing::info!(path = %path.display(), "removing the stale ABCI socket");
     std::fs::remove_file(path).map_err(listen_error)
-}
-
-/// Without unix sockets nothing is ever left at a `unix://` path (serving one fails later).
-#[cfg(not(unix))]
-async fn remove_stale_socket(_addr: &str, _path: &Path) -> Result<(), ServerError> {
-    Ok(())
 }
 
 /// The app worker: answers `queue` one request at a time with `handler`, in queue order.
@@ -473,7 +455,6 @@ async fn listen_native(addr: ListenAddr, service: AppService) -> Result<(), BoxE
                 }
             }
         }
-        #[cfg(unix)]
         ListenAddr::Unix(path) => {
             let listener = tokio::net::UnixListener::bind(path)?;
             loop {
@@ -486,8 +467,6 @@ async fn listen_native(addr: ListenAddr, service: AppService) -> Result<(), BoxE
                 }
             }
         }
-        #[cfg(not(unix))]
-        ListenAddr::Unix(_) => Err("Unix sockets require Unix".into()),
     }
 }
 

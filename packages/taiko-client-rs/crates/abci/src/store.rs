@@ -624,7 +624,7 @@ impl Store {
     /// Persists `s` atomically, replacing any previous state.
     ///
     /// Creates the data directory if needed, writes [`TMP_FILE`], fsyncs it, renames it to
-    /// [`STATE_FILE`] and (on unix) fsyncs the directory so the rename is durable.
+    /// [`STATE_FILE`] and fsyncs the directory so the rename is durable.
     pub fn save(&self, s: &AppState) -> Result<(), StoreError> {
         if let Some(archive) = &self.archive &&
             s.has_generation_commit() &&
@@ -798,13 +798,9 @@ fn io_err(op: &'static str, path: &Path, source: io::Error) -> StoreError {
     StoreError::Io { op, path: path.to_path_buf(), source }
 }
 
-/// Fsyncs `dir` so a rename inside it survives a crash (unix only; a no-op elsewhere).
+/// Fsyncs `dir` so a rename inside it survives a crash.
 fn sync_dir(dir: &Path) -> Result<(), StoreError> {
-    #[cfg(unix)]
-    File::open(dir).and_then(|d| d.sync_all()).map_err(|source| io_err("fsync", dir, source))?;
-    #[cfg(not(unix))]
-    let _ = dir;
-    Ok(())
+    File::open(dir).and_then(|d| d.sync_all()).map_err(|source| io_err("fsync", dir, source))
 }
 
 #[cfg(test)]

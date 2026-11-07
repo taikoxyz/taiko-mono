@@ -4,8 +4,8 @@
 //! `genesis.json`'s `app_state` is the JSON object `{"witness": "0x<hex>"}`, where the hex string
 //! is the RLP of a [`GenesisWitness`]: the raw `L1_0` header, the Inbox proofs of the genesis
 //! slots, `genesisCutoff` and `genesisCommitteeRecordHash`, and the committee witness of epoch
-//! `e_0`. `InitChain` decodes it with [`decode_app_state`] and re-verifies every fact against the
-//! node's own L1; nothing in it is trusted.
+//! `e_0`. `InitChain` decodes it with [`decode_bootstrap_state`] and re-verifies every fact against
+//! the node's own L1; nothing in it is trusted.
 //!
 //! [`build_genesis`] reads the Ethereum-final genesis record and the `e_0` committee from the
 //! node's own L1, checks them as `InitChain` will, and assembles the whole CometBFT v0.40
@@ -109,15 +109,17 @@ impl From<&crate::recovery::RecoveryWitness> for AppStateJson {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppStateJson {
-    /// Legacy witness RLP or `0x01 || rlp(RecoveryWitness)`, encoded as a `0x`-prefixed hex
-    /// string.
+    /// Generation-zero witness RLP or `0x01 || rlp(RecoveryWitness)`, encoded as a `0x`-prefixed
+    /// hex string.
     pub witness: Bytes,
 }
 
 /// Why the genesis `app_state` could not be decoded, or a genesis could not be built.
 ///
-/// [`decode_app_state`] yields only [`GenesisError::Json`], [`GenesisError::Rlp`] and
-/// [`GenesisError::TrailingBytes`]; the other variants come from [`build_genesis`].
+/// [`decode_bootstrap_state`] yields only [`GenesisError::Json`], [`GenesisError::Rlp`],
+/// [`GenesisError::TrailingBytes`] and, for an unsupported recovery witness version,
+/// [`GenesisError::UnsupportedRecovery`]; the other variants come from building or verifying a
+/// genesis.
 #[derive(Debug, thiserror::Error)]
 pub enum GenesisError {
     /// Unsupported bootstrap encoding, or recovery evidence passed to the generation-zero path.
@@ -218,20 +220,6 @@ impl From<CommitteeError> for GenesisError {
     }
 }
 
-/// Decodes the genesis `app_state` JSON into its [`GenesisWitness`].
-///
-/// Rejects anything but the exact JSON object `{"witness": "0x<hex>"}`, malformed witness RLP and
-/// trailing bytes after the witness. Verifies none of the witness's facts.
-pub fn decode_app_state(bytes: &[u8]) -> Result<GenesisWitness, GenesisError> {
-    let json: AppStateJson = serde_json::from_slice(bytes).map_err(GenesisError::Json)?;
-    let mut buf = json.witness.as_ref();
-    let witness = GenesisWitness::decode(&mut buf)?;
-    if !buf.is_empty() {
-        return Err(GenesisError::TrailingBytes(buf.len()));
-    }
-    Ok(witness)
-}
-
 impl From<&GenesisWitness> for AppStateJson {
     /// The `app_state` carrying `rlp(w)`.
     fn from(w: &GenesisWitness) -> Self {
@@ -302,7 +290,10 @@ mod tests {
     #[test]
     fn app_state_round_trips() {
         let w = witness();
-        assert_eq!(decode_app_state(&encode_app_state(&w)).expect("decodes"), w);
+        assert_eq!(
+            decode_bootstrap_state(&encode_app_state(&w)).expect("decodes"),
+            BootstrapWitness::Initial(w)
+        );
     }
 
     #[test]
@@ -346,7 +337,11 @@ mod tests {
             Ok(raw.as_ref()),
             "the first field is the raw header as a byte string"
         );
-        let decoded = decode_app_state(&encode_app_state(&w)).expect("decodes");
+        let BootstrapWitness::Initial(decoded) =
+            decode_bootstrap_state(&encode_app_state(&w)).expect("decodes")
+        else {
+            panic!("a generation-zero witness decodes as Initial");
+        };
         assert_eq!(decoded.l1_header.hash(), keccak256(&raw));
         assert_eq!(decoded, w);
     }
@@ -364,7 +359,7 @@ mod tests {
             format!("{{\"witness\": \"{hex}\", \"extra\": 1}}").into_bytes(),
         ];
         for bytes in bad {
-            let err = decode_app_state(&bytes).expect_err("must reject");
+            let err = decode_bootstrap_state(&bytes).expect_err("must reject");
             assert!(
                 matches!(err, GenesisError::Json(_)),
                 "{:?}: {err:?}",
@@ -377,7 +372,7 @@ mod tests {
     fn malformed_witness_rlp_is_rejected() {
         for witness in [bytes!(""), bytes!("c0"), bytes!("c3010203"), bytes!("f9")] {
             let json = serde_json::to_vec(&AppStateJson { witness }).unwrap();
-            assert!(matches!(decode_app_state(&json), Err(GenesisError::Rlp(_))));
+            assert!(matches!(decode_bootstrap_state(&json), Err(GenesisError::Rlp(_))));
         }
     }
 
@@ -386,7 +381,7 @@ mod tests {
         let mut rlp = alloy_rlp::encode(witness());
         rlp.extend([0x80, 0x80]);
         let json = serde_json::to_vec(&AppStateJson { witness: rlp.into() }).unwrap();
-        assert!(matches!(decode_app_state(&json), Err(GenesisError::TrailingBytes(2))));
+        assert!(matches!(decode_bootstrap_state(&json), Err(GenesisError::TrailingBytes(2))));
     }
 }
 

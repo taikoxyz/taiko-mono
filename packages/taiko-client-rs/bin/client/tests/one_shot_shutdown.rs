@@ -1,5 +1,3 @@
-#![cfg(unix)]
-
 use std::{process::Stdio, time::Duration};
 
 use anyhow::{Context, Result, ensure};

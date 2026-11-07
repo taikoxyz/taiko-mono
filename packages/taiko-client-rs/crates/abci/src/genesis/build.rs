@@ -72,7 +72,7 @@ mod tests {
     use super::*;
     use crate::{
         committee::{CommitteeError, record_hash},
-        genesis::decode_app_state,
+        genesis::{BootstrapWitness, decode_bootstrap_state},
         l1::{FetchError, L1Error, WitnessError, layout::inbox},
         test_utils::{Fixture, GenesisSpec, L1Call},
     };
@@ -162,7 +162,11 @@ mod tests {
         let req = init_chain_from(&doc);
         assert_eq!(req.validators, fx.request.validators);
         assert_eq!(req.app_state_bytes, fx.request.app_state_bytes);
-        let witness = decode_app_state(&req.app_state_bytes).expect("decodes");
+        let BootstrapWitness::Initial(witness) =
+            decode_bootstrap_state(&req.app_state_bytes).expect("decodes")
+        else {
+            panic!("the built genesis carries a generation-zero witness");
+        };
         assert_eq!(witness.committee.record.cutoff_l1_block, 63);
         let registry_reads: Vec<u64> = l1
             .calls()

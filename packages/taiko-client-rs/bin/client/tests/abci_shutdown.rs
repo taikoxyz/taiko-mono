@@ -1,5 +1,4 @@
 //! Real ABCI CLI termination with live socket-protocol connections.
-#![cfg(unix)]
 
 use std::{io::ErrorKind, process::Stdio, time::Duration};
 

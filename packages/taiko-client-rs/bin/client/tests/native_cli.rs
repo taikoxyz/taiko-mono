@@ -3,6 +3,7 @@
 use axum::{Json, Router, routing::post};
 use serde_json::{Value, json};
 use std::{
+    os::unix::fs::PermissionsExt,
     process::Output,
     sync::{Arc, Mutex},
 };
@@ -222,11 +223,7 @@ async fn recovery_rejects_zero_before_profile_or_network_and_redacts_private_inp
         "l1_http = 'https://alice:password@example.test/secret-token'\nunknown = 'PRIVATE-KEY'\n",
     )
     .unwrap();
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&profile, std::fs::Permissions::from_mode(0o600)).unwrap();
-    }
+    std::fs::set_permissions(&profile, std::fs::Permissions::from_mode(0o600)).unwrap();
     let root = dir.path().join("not-created");
     let result = run(&[
         "abci-recover",
@@ -463,7 +460,6 @@ async fn copied_import_journal_refuses_supervisor_before_signer() {
 
 #[tokio::test]
 async fn halted_import_stays_terminal_even_if_sources_are_offline() {
-    use std::os::unix::fs::PermissionsExt;
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path().canonicalize().unwrap();
     std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700)).unwrap();

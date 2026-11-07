@@ -1,5 +1,3 @@
-#![cfg(unix)]
-
 use std::time::Duration;
 
 use alloy_provider::Provider;
