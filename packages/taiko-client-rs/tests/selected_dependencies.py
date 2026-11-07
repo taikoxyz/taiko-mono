@@ -33,7 +33,11 @@ def dependencies(data):
             if recovery and name == LONG_FENCE:
                 needed.add("el")
                 continue
-            if suite["binary-name"] != "cleanup":
+            docker_only = (suite["package-name"], suite["binary-name"]) in {
+                ("test-harness", "cleanup"),
+                ("test-harness", "standalone_reth"),
+            }
+            if not docker_only:
                 needed.add("signer")
             if recovery:
                 needed.add("comet")

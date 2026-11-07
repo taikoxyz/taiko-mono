@@ -153,23 +153,44 @@ impl StandaloneReth {
 
     /// Start a fresh EL with canonical generated system predeploys and no obsolete fee vault.
     pub async fn start() -> Result<Self> {
+        Self::start_with_ports(|| Ok((crate::app::free_port()?, crate::app::free_port()?))).await
+    }
+
+    /// Start with caller-supplied explicit HTTP/auth port pairs for initial Docker publication.
+    /// Make at most three initial attempts, removing the exact failed container and network
+    /// before requesting a fresh pair after a Docker port conflict. The winning pair stays fixed
+    /// across restart. Readiness and genesis failures are returned without another attempt.
+    pub async fn start_with_ports(mut ports: impl FnMut() -> Result<(u16, u16)>) -> Result<Self> {
         let genesis = EtnaGenesis::build()?;
         let tmp = tempfile::Builder::new().prefix("etna-el-").tempdir()?;
         let name = tmp.path().file_name().unwrap().to_string_lossy().to_string();
-        let mut docker = DockerEnv::create(format!("{name}-net")).await?;
         let path = tmp.path().join("genesis.json");
         fs::write(&path, &genesis.json)?;
         let mount = format!("{}:/genesis.json:ro", path.display());
         let jwt_mount = format!("{}:/jwt.hex:ro", jwt_path()?.display());
         let image = std::env::var("ALETHIA_RETH_IMAGE").unwrap_or_else(|_| RETH_IMAGE.into());
-        // Recovery profiles bind these endpoints immutably. Docker reallocates anonymous
-        // published ports on restart, so reserve explicit owned loopback ports instead.
-        let http_port = format!("127.0.0.1:{}:8545", crate::app::free_port()?);
-        let auth_port = format!("127.0.0.1:{}:8551", crate::app::free_port()?);
-        let mut args =
-            vec!["-p", &http_port, "-p", &auth_port, "-v", &mount, "-v", &jwt_mount, &image];
-        args.extend(RETH_CMD.split_whitespace());
-        docker.run(&name, &args).await?;
+        // Recovery profiles bind these endpoints immutably. Keep explicit loopback mappings;
+        // free_port only observes availability, so initial Docker acquisition can still race.
+        let mut attempt = 0;
+        let docker = loop {
+            attempt += 1;
+            let pair = ports()?;
+            let http_port = format!("127.0.0.1:{}:8545", pair.0);
+            let auth_port = format!("127.0.0.1:{}:8551", pair.1);
+            let mut args =
+                vec!["-p", &http_port, "-p", &auth_port, "-v", &mount, "-v", &jwt_mount, &image];
+            args.extend(RETH_CMD.split_whitespace());
+            let mut docker = DockerEnv::create(format!("{name}-net")).await?;
+            match docker.run(&name, &args).await {
+                Ok(()) => break docker,
+                Err(error) if attempt < 3 && is_initial_port_conflict(&error, pair) => {
+                    docker.cleanup().await.with_context(|| {
+                        format!("cleaning failed initial EL publication after {error:#}")
+                    })?;
+                }
+                Err(error) => return Err(error),
+            }
+        };
         let http = local_url(host_port(&name, 8545).await?)?;
         let auth = local_url(host_port(&name, 8551).await?)?;
         let provider = connect_http_with_timeout(http.clone(), DEFAULT_HTTP_TIMEOUT);
@@ -205,10 +226,61 @@ impl StandaloneReth {
     }
 }
 
+/// Whether initial Docker publication failed because one of this attempt's host ports is busy.
+fn is_initial_port_conflict(error: &anyhow::Error, ports: (u16, u16)) -> bool {
+    let message = error.to_string();
+    let Some((_, stderr)) = message.strip_prefix("docker run ").and_then(|message| {
+        message.split_once(" failed (exit status: 125): docker: Error response from daemon: ")
+    }) else {
+        return false;
+    };
+    [ports.0, ports.1].into_iter().any(|port| {
+        stderr.contains(&format!(
+            "failed to bind host port 127.0.0.1:{port}/tcp: address already in use"
+        )) || (stderr.contains(&format!(
+            "ports are not available: exposing port TCP 127.0.0.1:{port} -> "
+        )) && stderr.contains(&format!(
+            "listen tcp4 127.0.0.1:{port}: bind: address already in use"
+        ))) || stderr.contains(&format!(
+            "Bind for 127.0.0.1:{port} failed: port is already allocated"
+        ))
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use alloy_primitives::Bytes;
+    #[test]
+    fn initial_port_conflicts_are_narrowly_classified() {
+        let bridge = "failed to set up container networking: driver failed programming external connectivity on endpoint etna: failed to bind host port 127.0.0.1:58107/tcp: address already in use";
+        let desktop = "ports are not available: exposing port TCP 127.0.0.1:58106 -> 127.0.0.1:0: listen tcp4 127.0.0.1:58106: bind: address already in use";
+        let allocated = "Bind for 127.0.0.1:58107 failed: port is already allocated";
+        for (status, stderr, expected) in [
+            (125, bridge.to_owned(), true),
+            (125, desktop.to_owned(), true),
+            (125, allocated.to_owned(), true),
+            (125, bridge.replace("58107", "58108"), false),
+            (125, bridge.replace("127.0.0.1", "0.0.0.0"), false),
+            (125, desktop.replace("58106 ->", "58108 ->"), false),
+            (125, allocated.replace("58107", "58108"), false),
+            (126, bridge.to_owned(), false),
+            (125, "network not found".to_owned(), false),
+            (125, "manifest unknown".to_owned(), false),
+            (125, "invalid reference format".to_owned(), false),
+            (125, "unrelated bind: address already in use".to_owned(), false),
+            (125, "validation failed: custom genesis mismatch".to_owned(), false),
+            (125, "authentication failed".to_owned(), false),
+        ] {
+            let error = anyhow::anyhow!(
+                "docker run --name etna failed (exit status: {status}): docker: Error response from daemon: {stderr}"
+            );
+            assert_eq!(is_initial_port_conflict(&error, (58106, 58107)), expected, "{error}");
+        }
+        let unrelated = anyhow::anyhow!("readiness: {bridge}");
+        assert!(!is_initial_port_conflict(&unrelated, (58106, 58107)));
+    }
+
     #[test]
     fn genesis_preserves_non_alloc_and_predeploys_change_header() {
         let mut original: Value = serde_json::from_str(BASE).unwrap();

@@ -65,7 +65,8 @@ printf '["build", "{name}"]\\n' >> "$CALLS"
         path.chmod(0o755)
 
     def select(self, binary, *names):
-        package = "taiko-client" if binary == "governance_recovery" else "abci"
+        package = {"governance_recovery": "taiko-client", "cleanup": "test-harness",
+                   "standalone_reth": "test-harness"}.get(binary, "abci")
         self.env["SELECTION"] = json.dumps({"rust-suites": {"fixture": {
             "package-name": package, "binary-name": binary, "status": "listed",
             "testcases": {name: {"filter-match": {"status": "matches"}} for name in names}}}})
@@ -94,6 +95,13 @@ printf '["build", "{name}"]\\n' >> "$CALLS"
         self.assertNotIn("--no-capture", listed)
         self.assertIn("test(a) | test(b)", listed)
         self.assertEqual(run[3:run.index("--no-capture")], listed[3:listed.index("--message-format")])
+
+    def test_standalone_reth_only_prepares_docker(self):
+        self.select("standalone_reth", "occupied_initial_auth_port_recovers_and_preserves_restart_endpoints")
+        result = self.run_entrypoint()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.builds(), [])
+        self.assertIn(["docker", "info"], self.calls())
 
     def test_native_checkpoint_prepares_el_and_comet_without_recovery_image(self):
         self.select("governance_recovery", "support::checkpoint_import::registered_checkpoint_latest_signs_proposes_and_lands")
