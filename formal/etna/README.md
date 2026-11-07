@@ -45,7 +45,7 @@ the others are obligations on code or cryptography that this package does not ve
 | `currentSignatureAgreement` | Signed consensus bytes refine to the registry's signature check                                                                                  | Comet sign-bytes in the Rust client and the Solidity verifier                  |
 | `currentBountyBound`        | `slashBountyBps < 10000`                                                                                                                         | Registry initializer (checked on chain)                                        |
 | `currentCodec`              | Comet header/envelope codec is canonical, and a valid block's Comet hash and parent fix its whole header, including the validator-state hash     | Rust client and stock CometBFT parity; CometBFT's deterministic state update   |
-| `currentVoteAttribution`    | Every commit vote is a real precommit of the engine, with honest local rules and a Byzantine minority at checked heights                         | CometBFT engine and validator operation                                        |
+| `currentVoteAttribution`    | Every commit vote is attributed to a real precommit of the fixed engine                                                                          | CometBFT engine and validator operation                                        |
 | `currentClock`              | L1 time strictly increases with block number                                                                                                     | Ethereum L1                                                                    |
 | `currentCatalogueHash`      | Catalogued EL transaction bytes hash to the environment's transaction hash                                                                       | Hash function; EL catalogue                                                    |
 | `currentReferenceBinding`   | Equal L1 block hashes imply equal L1 prefixes                                                                                                    | Hash collision resistance (modeled as an injective map)                        |
@@ -54,6 +54,10 @@ the others are obligations on code or cryptography that this package does not ve
 | `currentSelfAllowance`      | The registry has no allowance to itself at genesis                                                                                               | Token deployment                                                               |
 | `currentUnzenExtension`     | A valid Unzen proof extends its decoded parent to a higher height                                                                                | Existing Unzen guest                                                           |
 | `currentEvidenceWindow`     | `0 < evidenceWindow ≤ withdrawalDelay`                                                                                                           | Deployment parameters                                                          |
+
+H2's chain-agreement clause additionally assumes `ProtocolFinality.HonestExecutions`.
+This separate antecedent supplies honest local locking rules and a Byzantine minority at
+the checked heights.
 
 Hash premises are a standard idealization: the models treat commitments as injective. Read a
 claim that relies on them as "the claim holds, or a hash collision exists".
