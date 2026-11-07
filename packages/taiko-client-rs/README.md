@@ -85,25 +85,32 @@ Never reset signed state or Comet history to force a start. The app writes
 landed checkpoint, before each commit. Trust never reads one below the committed anchor's last
 checkpoint, so commits delete those; back-pressure keeps at most `unsettled_limit + 1` files.
 Do not delete the others by hand. At each grid height (a multiple of 6) the app also writes
-`val-state-{height}.bin`, its copy of the validator state CometBFT holds after that height, and
-deletes those below the same checkpoint. Do not delete these by hand either: without the file at
-its target, checkpoint trust waits instead of completing, and a node missing one cannot serve as
-a lander's source. The lander queries the app at the checkpoint a batch starts from, for the
-starting state (except at the generation's start height, where it uses the genesis state), and
-at the batch's last height, to check its own replay; it builds no batch while either query
-fails, but keeps following a landing it already sent. `fatal-evidence.txt` survives restarts
-and records the first safety failure, such as an unknown-execution-state Engine error
+`val-state-{height}.bin`, its record of the validator state CometBFT holds after that height;
+`InitChain` records the generation's start state the same way, and a checkpoint import the
+state at its checkpoint. At every epoch switch height it writes `val-updates-{height}.bin`, the
+validator updates that height returned, an empty list included. Each record starts with the
+keccak256 checksum of the rest. Below the same checkpoint the app keeps only the newest valid
+state record, as the base to recompute from, and the update records above it. A missing record,
+or one that fails its checksum or decoding (set aside as `val-state-{height}.bin.corrupt`), is
+recomputed with CometBFT's per-height arithmetic from an earlier record and the update records
+since, and written again (spec SYNC-9-5c). Do not delete these by hand either: without those
+inputs, checkpoint trust at that height waits instead of completing, and the node cannot serve
+as a lander's source there. The lander queries the app at the checkpoint a batch starts from,
+for the starting state (except at the generation's start height, where it uses the genesis
+state), and at the batch's last height, to check its own replay; it builds no batch while either
+query fails, but keeps following a landing it already sent. `fatal-evidence.txt` survives
+restarts and records the first safety failure, such as an unknown-execution-state Engine error
 (`-38100`); repair its cause before restarting. An L1 header shape the node cannot parse makes
 `ProcessProposal` reject and `FinalizeBlock` wait, without a safety halt: upgrade the client.
 
 Each landing record also holds the hash of the CometBFT validator state after its height: the
 validator set that signs the next height and the one after it, with their voting powers,
-proposer priorities and stored proposers (spec appendix A). The app keeps its own copy of that
-state, computed with stock CometBFT v0.40.0's arithmetic from the validator updates it returns,
-and checkpoint trust compares its hash with the landed one (spec section 9, Sync and weak
-subjectivity). The record at the generation's own start height does not hold this generation's
-state and is not compared. A mismatch is a safety halt whose reason starts with
-`validator_state_mismatch`: either this node's state or the landed value is wrong, and a wrong
+proposer priorities and stored proposers (spec appendix A). The app computes that state with
+stock CometBFT v0.40.0's per-height arithmetic from the validator updates it returns, and
+checkpoint trust compares the hash of the record it made when it committed the target height
+with the landed one (spec section 9, Sync and weak subjectivity). The landing record at the
+generation's own start height does not hold this generation's state and is not compared. A
+mismatch is a safety halt whose reason starts with `validator_state_mismatch`: either this node's state or the landed value is wrong, and a wrong
 landed value means the proofs accepted a wrong result. The ABCI query `/val_state/<height>`,
 with a decimal height, returns the raw state encoding at a grid height from the latest
 checkpoint the committed anchor proves through the head. It refuses other heights, and the

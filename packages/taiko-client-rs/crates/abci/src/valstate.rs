@@ -896,6 +896,7 @@ mod tests {
         assert_eq!(twice.next.proposer, 2); // C
         let bulk = stock_lookup(&x.next, 2);
         assert_eq!(priorities(&bulk), [40, 37, 33, -108]); // 41a.j
+        assert_eq!(bulk.proposer, 2); // C
         assert_ne!(bulk, twice.next);
     }
 

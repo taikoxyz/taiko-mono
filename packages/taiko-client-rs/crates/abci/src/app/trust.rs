@@ -708,10 +708,13 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// target somewhere else in the EL cannot satisfy this chain. Missing history is retryable.
     ///
     /// Above the generation origin, once the EL ancestry links, the landed validator-state hash
-    /// must equal the hash of the state the node's own replica holds after the target
-    /// (SYNC-9-5, SYNC-9-5b). The origin's record does not hold this generation's state and is
-    /// not compared. A mismatch halts; a preimage the node cannot read keeps it untrusted and
-    /// retrying, like missing Comet history.
+    /// must equal the hash of the node's own validator state there (SYNC-9-5): the head state,
+    /// or the record it made when it committed that height, recomputed from an earlier exact
+    /// record and the update records since when that record is missing or corrupt
+    /// ([`App::val_state_preimage`], SYNC-9-5c). Stock CometBFT's stored validator-set lookup
+    /// is never a source. The origin's record does not hold this generation's state and is not
+    /// compared. A mismatch halts (SYNC-9-5b); a state the node cannot record or recompute is
+    /// missing data and keeps it untrusted and retrying, like missing Comet history (SYNC-9-7).
     async fn verify_link(
         &self,
         state: &AppState,
@@ -783,7 +786,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if target.height != state.origin_height() {
             let preimage = self.val_state_preimage(target.height).map_err(|error| {
                 AbciError::TrustControl(format!(
-                    "committed validator state unavailable at {}: {error}",
+                    "validator state unavailable at {}: {error} (SYNC-9-5c)",
                     target.height
                 ))
             })?;

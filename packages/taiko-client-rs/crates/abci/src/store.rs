@@ -704,7 +704,8 @@ struct HeightFile {
 /// The committed Comet block IDs: `comet-hash-{height}.json`.
 const COMET_HASH_FILE: HeightFile = HeightFile { prefix: "comet-hash-", suffix: ".json" };
 
-/// The grid heights' [`frame`]d validator-state records: `val-state-{height}.bin`.
+/// The [`frame`]d validator-state records (origin, import and grid heights):
+/// `val-state-{height}.bin`.
 const VAL_STATE_FILE: HeightFile = HeightFile { prefix: "val-state-", suffix: ".bin" };
 
 /// Corrupt validator-state records set aside by [`Store::save_val_state`]:
@@ -1390,6 +1391,13 @@ mod comet_history_tests {
         assert_eq!(sidecars(&store), [6, 12, 18]);
         assert!(matches!(store.load_val_state(12).unwrap(), Record::Corrupt(_)));
         assert_eq!(records(dir.path()), [10, 14, 20]);
+
+        // A floor at a recorded height keeps that record; the base is the one below it.
+        let (dir, store) = setup(&[]);
+        assert_eq!(store.prune_val_records(12).unwrap(), 5);
+        assert_eq!(sidecars(&store), [6, 12, 18]);
+        assert_eq!(records(dir.path()), [10, 14, 20]);
+        assert_eq!(store.load_val_state(12).unwrap(), Record::Valid(val_state(12, 1)));
 
         // No valid sidecar below the floor: nothing is deleted.
         let (dir, store) = setup(&[0, 6, 12]);

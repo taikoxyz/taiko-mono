@@ -16,13 +16,17 @@
   optional immutable preimage archive beyond live sidecar pruning.
 - Verify historical committee witnesses under the switch block's own anchor root while keeping
   the derivation parent's selected snapshot, including pending committees and recovery.
-- Check the CometBFT validator state at checkpoint trust. The app keeps its own copy of stock
-  CometBFT v0.40.0's validator sets, proposer priorities and stored proposers, records it at
-  each grid height in an immutable `val-state-{height}.bin`, and serves it as the ABCI query
-  `/val_state/<height>`. Landings carry its hash as the fourth word of each landing record, and
-  a node whose own state differs from the landed hash halts for safety
-  (`validator_state_mismatch`). App state schemas are now 17 (generation zero) and 18
-  (recovery), and lander journals 16; older stores are refused. Upgrade `etna-signer` together
+- Check the CometBFT validator state at checkpoint trust. The app computes stock CometBFT
+  v0.40.0's validator sets, proposer priorities and stored proposers with its per-height
+  arithmetic, records them at the generation's start and at each grid height in an immutable,
+  checksummed `val-state-{height}.bin`, records the validator updates of every epoch switch
+  height in `val-updates-{height}.bin`, and serves the state as the ABCI query
+  `/val_state/<height>`. Below the trust checkpoint it keeps the newest valid state record as
+  the recompute base; a missing or corrupt record (set aside as `.corrupt`) is recomputed from
+  an earlier record and the updates since (SYNC-9-5c). Landings carry the state's hash as the
+  fourth word of each landing record, and a node whose own state differs from the landed hash
+  halts for safety (`validator_state_mismatch`). App state schemas are now 17 (generation
+  zero) and 18 (recovery), and lander journals 16; older stores are refused. Upgrade `etna-signer` together
   with the app: trust targets now carry `val_state_hash`, which an older signer refuses as an
   unknown field, so it would refuse every signature.
 - Align with protocol `b6e765b0f` and the current Etna specification: authenticate slot 293,

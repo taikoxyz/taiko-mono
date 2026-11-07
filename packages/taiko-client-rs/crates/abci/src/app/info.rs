@@ -13,7 +13,8 @@ use crate::{
     GRID_INTERVAL,
     engine::Engine,
     l1::L1Source,
-    store::{AppState, Record},
+    store::{AppState, Record, Store, StoreError},
+    valstate::ValState,
 };
 
 /// Response code of a rejected `CheckTx` and of a failed `Query`.
@@ -151,17 +152,22 @@ impl<L: L1Source, E: Engine> App<L, E> {
         serde_json::to_vec(committee).map_err(|e| e.to_string())
     }
 
-    /// The validator-state preimage ([`ValState::encode`](crate::valstate::ValState::encode))
-    /// after the committed grid `height`: the head state's when `height` is the last committed
-    /// height, else its durable sidecar's.
+    /// The validator-state preimage ([`ValState::encode`]) after the committed grid `height`:
+    /// the head state's when `height` is the last committed height, else the record the node
+    /// made when it committed that height (SYNC-9-5c).
     ///
     /// Only grid heights (multiples of [`GRID_INTERVAL`]) within the retained range
     /// `[comet_history_floor, last_height]` answer; any other height, a state not yet
-    /// initialized, the generation origin once a block follows it (its sidecar is only a
-    /// recompute base; its landing record does not hold this generation's state, SYNC-9-5),
-    /// and a sidecar that is missing, unreadable or corrupt ([`Record::Corrupt`]: a failed
-    /// checksum, a failed decoding or another height) are errors naming the cause. A failing
-    /// sidecar means lost durable state and is logged as a warning.
+    /// initialized, and the generation origin once a block follows it (its record is only a
+    /// recompute base; its landing record does not hold this generation's state, SYNC-9-5) are
+    /// errors naming the cause.
+    ///
+    /// A record that is missing or corrupt ([`Record::Corrupt`]: a failed checksum, a failed
+    /// decoding or another height) is recomputed with [`recompute_val_state`] from an earlier
+    /// record and the update records since, then recorded again (a corrupt file is set aside
+    /// first; a failed write only warns) and served. Stock CometBFT's stored validator-set
+    /// lookup is never a source. Without those inputs, or when the record cannot be read, the
+    /// state is missing data (SYNC-9-7): an error, logged as a warning.
     pub fn val_state_preimage(&self, height: u64) -> Result<Vec<u8>, String> {
         let state = self.state.as_ref().ok_or("the app is not initialized")?;
         if !height.is_multiple_of(GRID_INTERVAL) {
@@ -184,25 +190,44 @@ impl<L: L1Source, E: Engine> App<L, E> {
                  once a block follows it"
             ));
         }
-        let sidecar = match self.store.load_val_state(height) {
-            Ok(Record::Valid(recorded)) => Ok(recorded.encode()),
-            Ok(Record::Missing) => {
-                Err(format!("the validator-state sidecar of retained height {height} is missing"))
+        let lost = match self.store.load_val_state(height) {
+            Ok(Record::Valid(recorded)) => return Ok(recorded.encode()),
+            Ok(Record::Missing) => "missing".to_string(),
+            Ok(Record::Corrupt(reason)) => format!("corrupt ({reason})"),
+            Err(error) => {
+                let reason = format!("cannot read the validator state at height {height}: {error}");
+                tracing::warn!(height, %reason, "validator state at {height} is missing data");
+                return Err(reason);
             }
-            Ok(Record::Corrupt(reason)) => {
-                Err(format!("the validator-state sidecar of height {height} is corrupt: {reason}"))
-            }
-            Err(e) => Err(format!("cannot read the validator state at height {height}: {e}")),
         };
-        if let Err(reason) = &sidecar {
-            tracing::warn!(
-                height,
-                %reason,
-                "lost durable validator state: checkpoint trust and landings at this height wait \
-                 until the sidecar is restored"
-            );
+        let schedule = state.schedule();
+        match recompute_val_state(&self.store, height, |k| schedule.switch_target(k).is_some()) {
+            Ok(recomputed) => {
+                tracing::warn!(
+                    height,
+                    record = %lost,
+                    "recomputed the lost validator-state record at {height} from an earlier \
+                     record and the update records since (SYNC-9-5c)"
+                );
+                if let Err(error) = self.store.save_val_state(&recomputed) {
+                    tracing::warn!(height, %error, "cannot record the recomputed validator state");
+                }
+                Ok(recomputed.encode())
+            }
+            Err(reason) => {
+                tracing::warn!(
+                    height,
+                    record = %lost,
+                    %reason,
+                    "validator state at {height} is missing data; recomputing needs an earlier \
+                     record and the update records since (SYNC-9-5c)"
+                );
+                Err(format!(
+                    "the validator-state record of height {height} is {lost} and cannot be \
+                     recomputed: {reason}"
+                ))
+            }
         }
-        sidecar
     }
 
     /// Handles `CheckTx`: rejects every transaction (the CometBFT mempool is `nop`; user
@@ -214,4 +239,55 @@ impl<L: L1Source, E: Engine> App<L, E> {
             ..Default::default()
         }
     }
+}
+
+/// Recomputes the validator state after `height` from the records in `store` (SYNC-9-5c), with
+/// CometBFT v0.40.0's per-height arithmetic ([`ValState::advance`], PROOF-6.2-41a): from the
+/// newest record below `height` that loads valid, one advance per height up to `height`, by
+/// the validator updates recorded at that height when `is_switch` says it is a switch height
+/// (an empty list included) and by none otherwise.
+///
+/// No valid record below `height`, a switch height in between whose update record is missing
+/// or corrupt, an unreadable record or updates the arithmetic refuses are missing data
+/// (SYNC-9-7): an error naming the cause. Grid, range and origin checks are the caller's.
+pub(super) fn recompute_val_state(
+    store: &Store,
+    height: u64,
+    is_switch: impl Fn(u64) -> bool,
+) -> Result<ValState, String> {
+    let unreadable = |error: StoreError| format!("cannot read the validator records: {error}");
+    let mut base = None;
+    let heights = store.val_state_heights().map_err(unreadable)?;
+    for recorded in heights.into_iter().rev().filter(|&recorded| recorded < height) {
+        if let Record::Valid(state) = store.load_val_state(recorded).map_err(unreadable)? {
+            base = Some(state);
+            break;
+        }
+    }
+    let mut state =
+        base.ok_or_else(|| format!("no valid validator-state record below height {height}"))?;
+    while state.height < height {
+        let next = state.height + 1;
+        let updates = if is_switch(next) {
+            match store.load_val_updates(next).map_err(unreadable)? {
+                Record::Valid(updates) => updates,
+                Record::Missing => {
+                    return Err(format!(
+                        "the validator-update record of switch height {next} is missing"
+                    ));
+                }
+                Record::Corrupt(reason) => {
+                    return Err(format!(
+                        "the validator-update record of switch height {next} is corrupt: {reason}"
+                    ));
+                }
+            }
+        } else {
+            vec![]
+        };
+        state = state
+            .advance(&updates)
+            .map_err(|error| format!("cannot advance the validator state to {next}: {error}"))?;
+    }
+    Ok(state)
 }

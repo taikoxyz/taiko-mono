@@ -1,8 +1,8 @@
 //! The CometBFT validator-state replica: the genesis state `InitChain` builds, its advance by
 //! exactly the updates `FinalizeBlock` returns, its persistence across restarts, the records
 //! `InitChain` and `Commit` write (the origin and grid sidecars and the switch heights' update
-//! records) and the one base retention keeps below the Comet history floor, and the
-//! `/val_state/<height>` query.
+//! records), the one base retention keeps below the Comet history floor, the recompute of a
+//! lost record from them, and the `/val_state/<height>` query.
 
 use std::collections::BTreeMap;
 
@@ -17,11 +17,11 @@ use super::{
 };
 use crate::{
     GRID_INTERVAL,
-    app::CODE_REJECTED,
+    app::{CODE_REJECTED, info::recompute_val_state},
     key::ConsensusKey,
     store::{Record, StoreError},
-    test_utils::powers,
-    valstate::ValState,
+    test_utils::{powers, test_key},
+    valstate::{ValState, spec_41a_state, stock_lookup},
 };
 
 /// A fresh app in `dir`, initialized like `source`, whose own L1 holds `source`'s chain, so it
@@ -395,8 +395,7 @@ async fn replayed_commit_rewrites_identical_update_records() {
 
 /// `/val_state/<height>` answers the raw preimage at a retained grid height, from the head
 /// state or from its sidecar, and rejects a non-grid height, one below the floor or above the
-/// head, the origin once a block follows it (though its sidecar exists), a malformed number,
-/// and a retained height whose sidecar is missing or corrupt.
+/// head, the origin once a block follows it (though its sidecar exists) and a malformed number.
 #[tokio::test]
 async fn val_state_query_rejects_unretained_heights() {
     let fx = short_epochs();
@@ -474,19 +473,109 @@ async fn val_state_query_rejects_unretained_heights() {
         assert!(answer.value.is_empty(), "{path}");
         assert!(!answer.log.is_empty(), "{path}");
     }
+}
 
-    // A retained grid height never answers from a missing or corrupt sidecar: junk, the bare
-    // preimage without its checksum, or the well-formed record of another height.
+/// SYNC-9-5c: a lost record is recomputed from the newest valid record below it with
+/// CometBFT's per-height arithmetic and the update records of the switch heights since: two
+/// increments, the second rescaling, never stock CometBFT's one bulk lookup (PROOF-6.2-41a.i/j,
+/// 5c.b, 5c.d). A switch height without its update record, or no valid record below, is
+/// missing data (5c.e).
+#[test]
+fn recompute_follows_per_height_arithmetic() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::volatile(dir.path().into());
+    let x = spec_41a_state(100);
+    store.save_val_state(&x).unwrap();
+
+    let recomputed = recompute_val_state(&store, 102, |_| false).unwrap();
+    assert_eq!(recomputed.height, 102);
+    let priorities: Vec<i64> = recomputed.next.entries.iter().map(|e| e.priority).collect();
+    assert_eq!(priorities, [36, 35, -17, -53]); // 41a.i
+    assert_ne!(recomputed.next, stock_lookup(&x.next, 2)); // 41a.j
+    assert_eq!(recomputed, x.advance(&[]).unwrap().advance(&[]).unwrap());
+
+    // 101 is a switch height: its update record is required, an empty list included.
+    let error = recompute_val_state(&store, 102, |k| k == 101).unwrap_err();
+    assert!(error.contains("switch height 101"), "{error}");
+    let n = test_key(4);
+    store.save_val_updates(101, &[(n, 0)]).unwrap();
+    assert_eq!(
+        recompute_val_state(&store, 102, |k| k == 101).unwrap(),
+        x.advance(&[(n, 0)]).unwrap().advance(&[]).unwrap()
+    );
+
+    // A corrupt record is no base: the newest valid one below it is.
+    std::fs::write(dir.path().join("val-state-100.bin"), b"corrupt").unwrap();
+    let earlier = spec_41a_state(94);
+    store.save_val_state(&earlier).unwrap();
+    let expected = (95..=102).try_fold(earlier, |state, _| state.advance(&[])).unwrap();
+    assert_eq!(recompute_val_state(&store, 102, |_| false).unwrap(), expected);
+
+    // Nothing recorded below the height: there is nothing to recompute from.
+    let error = recompute_val_state(&store, 94, |_| false).unwrap_err();
+    assert!(error.contains("below height 94"), "{error}");
+}
+
+/// SYNC-9-5c: a retained grid height whose record is missing or corrupt (junk, the bare
+/// preimage without its checksum, or the well-formed record of another height) answers the
+/// state recomputed from the base below the floor and the update records since, and records it
+/// again byte for byte, a corrupt file set aside first (5c.d). Without an update record it
+/// needs, here the empty one of the switch to epoch 3, the state is missing data: refused and
+/// not recorded, until the update record is back (5c.e).
+#[tokio::test]
+async fn val_state_query_recomputes_lost_records_and_waits_without_their_inputs() {
+    let fx = short_epochs();
+    let source_dir = tempfile::tempdir().unwrap();
+    let (source, decided) = multi_epoch_run(&fx, source_dir.path()).await;
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = replica(&fx, &source, dir.path()).await;
+    let grid = 2 * GRID_INTERVAL;
+    for (req, _) in decided.iter().take_while(|(req, _)| req.height.value() <= grid + 1) {
+        finalize(&mut app, req.clone()).await.unwrap();
+        commit(&mut app).await.unwrap();
+    }
+    let state = app.state().unwrap();
+    assert_eq!(state.last_height, grid + 1);
+    let floor = state.comet_history_floor();
+    assert!(GRID_INTERVAL < floor && floor <= grid, "floor {floor}");
+    assert!(matches!(app.store.load_val_state(GRID_INTERVAL).unwrap(), Record::Valid(_)));
+    let switch = grid - 1;
+    assert_eq!(fx.schedule().switch_target(switch), Some(3));
+    assert_eq!(app.store.load_val_updates(switch).unwrap(), Record::Valid(vec![]));
+
+    let path = format!("/val_state/{grid}");
     let sidecar = dir.path().join(format!("val-state-{grid}.bin"));
+    let recorded = std::fs::read(&sidecar).unwrap();
+    let Record::Valid(at_grid) = app.store.load_val_state(grid).unwrap() else {
+        panic!("the grid height is recorded")
+    };
+    let answers = async |app: &mut App<MockL1, MockEngine>| {
+        let answer = query(app, &path).await;
+        assert_eq!(answer.code, Code::Ok, "{}", answer.log);
+        assert_eq!(answer.value.as_ref(), at_grid.encode());
+        assert_eq!(std::fs::read(&sidecar).unwrap(), recorded, "recorded again");
+    };
+
+    std::fs::remove_file(&sidecar).unwrap();
+    answers(&mut app).await;
+
+    let set_aside = dir.path().join(format!("val-state-{grid}.bin.corrupt"));
     let other_height = std::fs::read(dir.path().join(format!("val-state-{GRID_INTERVAL}.bin")));
     for bytes in [b"junk".to_vec(), at_grid.encode(), other_height.unwrap()] {
-        std::fs::write(&sidecar, bytes).unwrap();
-        let error = app.val_state_preimage(grid).expect_err("corrupt sidecar");
-        assert!(error.contains(&grid.to_string()), "{error}");
-        let answer = query(&mut app, &format!("/val_state/{grid}")).await;
-        assert_eq!(answer.code, Code::from(CODE_REJECTED));
+        std::fs::write(&sidecar, &bytes).unwrap();
+        answers(&mut app).await;
+        assert_eq!(std::fs::read(&set_aside).unwrap(), bytes);
     }
+
     std::fs::remove_file(&sidecar).unwrap();
-    let error = app.val_state_preimage(grid).expect_err("missing sidecar");
-    assert!(error.contains("missing"), "{error}");
+    std::fs::remove_file(dir.path().join(format!("val-updates-{switch}.bin"))).unwrap();
+    let error = app.val_state_preimage(grid).expect_err("an update record is missing");
+    assert!(error.contains(&format!("switch height {switch}")), "{error}");
+    let answer = query(&mut app, &path).await;
+    assert_eq!(answer.code, Code::from(CODE_REJECTED));
+    assert!(answer.value.is_empty() && !answer.log.is_empty());
+    assert!(!sidecar.exists(), "nothing is recorded without the inputs");
+
+    app.store.save_val_updates(switch, &[]).unwrap();
+    answers(&mut app).await;
 }
