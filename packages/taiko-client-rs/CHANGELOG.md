@@ -1,5 +1,64 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+- Add authenticated bounded-window checkpoint import for fresh Etna generations and governance
+  recovery, with offline stock Comet store bootstrap, independent local EL state verification,
+  canonical retained header indexes and coordinated publication. See the
+  [checkpoint import runbook](docs/checkpoint-import.md).
+- Verify imported validator signing and subsequent landing from both latest and older checkpoints,
+  cold forced-inclusion replay, and native finalized ancestry beyond the BLOCKHASH window.
+  Measure signed evidence windows with `just checkpoint-import-resources`.
+- Preserve the landed future validator sets, priorities and stored proposers, distinguish
+  authenticated contradictions from incomplete input or subprocess failures, and retain an
+  optional immutable preimage archive beyond live sidecar pruning.
+- Verify historical committee witnesses under the switch block's own anchor root while keeping
+  the derivation parent's selected snapshot, including pending committees and recovery.
+- Check the CometBFT validator state at checkpoint trust. The app keeps its own copy of stock
+  CometBFT v0.40.0's validator sets, proposer priorities and stored proposers, records it at
+  each grid height in an immutable `val-state-{height}.bin`, and serves it as the ABCI query
+  `/val_state/<height>`. Landings carry its hash as the fourth word of each landing record, and
+  a node whose own state differs from the landed hash halts for safety
+  (`validator_state_mismatch`). App state schemas are now 17 (generation zero) and 18
+  (recovery), and lander journals 16; older stores are refused. Upgrade `etna-signer` together
+  with the app: trust targets now carry `val_state_hash`, which an older signer refuses as an
+  unknown field, so it would refuse every signature.
+- Align with protocol `b6e765b0f` and the current Etna specification: authenticate slot 293,
+  enforce ruleset selection/refusal and planned stops, and retain fixed recovery origins
+  across later schedule writes. Reproduce schema-5 vectors and the updated recovery ABI.
+- Read registry entries by slot independently of permanent bond IDs, including displacement
+  and reuse; reject older app and lander stores without modifying their signed state.
+
+- Add explicit L1-authenticated governance recovery preparation, foreground activation/resume
+  and redacted offline status for validators and full nodes with usable local EL origin state.
+- Preserve registered keys, per-generation FilePV authority, old Comet history and immutable
+  pending lander bytes while retaining global committee/landing schedules. See the
+  [recovery runbook](docs/governance-recovery.md). The lander still uses dummy proofs; real
+  proving, Unzen switching, public EL snapshot distribution and production deployment acceptance
+  are outside this change.
+
+### Bug Fixes
+
+- Replace empty derivation sources with a single default block before and after Unzen,
+  matching the clarified source validation rules in protocol #22335. Regenerate contract
+  fixtures and shared vectors from the protocol revision enforcing the strict bounty bound.
+
+- Resume the first recovered committee switch from a fixed R snapshot across proposal
+  deadlines and reuse its verified witness after restart or anchor advancement.
+- Authenticate proposal anchors before caching committee witnesses, and distinguish unavailable
+  advisory L1 lookups from invalid anchor witnesses while keeping conservative publication urgency.
+- Persist the FilePV state file and its parent directory before returning any signature,
+  including generation-zero signing and cached HRS retries; after a failed synchronization,
+  refuse every signature until a restart.
+- Acquire the first recovered switch's R snapshot in the background, so a slow archive read
+  no longer has to fit inside one proposal round, and keep the remembered tip anchor when a
+  newer own-L1 lookup is unavailable.
+- Delete committed Comet block IDs below the committed anchor's checkpoint, which trust never
+  reads, so the app directory stays within `unsettled_limit + 1` of them instead of growing one
+  file per height until the volume runs out of inodes; trust re-acquires a checkpoint below it.
+
 ## [2.3.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-rs-v2.2.0...taiko-alethia-client-rs-v2.3.0) (2026-09-28)
 
 

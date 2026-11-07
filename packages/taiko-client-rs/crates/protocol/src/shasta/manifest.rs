@@ -110,7 +110,8 @@ impl DerivationSourceManifest {
         Self::decompress_and_decode_with_max_blocks(bytes, offset, DERIVATION_SOURCE_MAX_BLOCKS)
     }
 
-    /// Decompress and decode a derivation source manifest with a caller-selected block limit.
+    /// Decompress and decode a source with a caller-selected block limit, replacing an empty
+    /// or oversized block list with the default single-block manifest.
     pub fn decompress_and_decode_with_max_blocks(
         bytes: &[u8],
         offset: usize,
@@ -141,11 +142,11 @@ impl DerivationSourceManifest {
             return Ok(DerivationSourceManifest::default());
         }
 
-        if manifest.blocks.len() > max_blocks {
+        if manifest.blocks.is_empty() || manifest.blocks.len() > max_blocks {
             warn!(
                 blocks = manifest.blocks.len(),
                 max = max_blocks,
-                "manifest contains too many blocks; returning default manifest"
+                "manifest block count is outside the allowed range; returning default manifest"
             );
             return Ok(DerivationSourceManifest::default());
         }
@@ -558,14 +559,22 @@ mod tests {
     }
 
     #[test]
-    fn test_derivation_manifest_empty_blocks_decodes_as_empty() {
-        // Pins current behavior on a cross-client parity surface: an empty `blocks` list
-        // decodes as-is instead of degrading to the default single-block manifest.
+    fn test_derivation_manifest_empty_blocks_defaults_to_single_block() {
+        use crate::shasta::constants::UNZEN_DERIVATION_SOURCE_MAX_BLOCKS;
+
         let manifest = DerivationSourceManifest { blocks: vec![] };
         let encoded = manifest.encode_and_compress().unwrap();
 
-        let decoded = DerivationSourceManifest::decompress_and_decode(&encoded, 0).unwrap();
-        assert!(decoded.blocks.is_empty());
+        // Every source must derive a block, before and after Unzen alike.
+        for max_blocks in [DERIVATION_SOURCE_MAX_BLOCKS, UNZEN_DERIVATION_SOURCE_MAX_BLOCKS] {
+            let decoded = DerivationSourceManifest::decompress_and_decode_with_max_blocks(
+                &encoded, 0, max_blocks,
+            )
+            .unwrap();
+            assert_eq!(decoded.blocks.len(), 1);
+            assert_eq!(decoded.blocks[0].gas_limit, 0);
+            assert!(decoded.blocks[0].transactions.is_empty());
+        }
     }
 
     #[test]

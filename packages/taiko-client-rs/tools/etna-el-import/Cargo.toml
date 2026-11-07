@@ -1,0 +1,51 @@
+[package]
+name = "etna-el-import"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+publish = false
+license = "MIT"
+description = "Offline verification and canonical header installation for Etna app imports"
+
+[workspace]
+resolver = "2"
+
+[dependencies]
+alethia-reth-chainspec = { git = "https://github.com/taikoxyz/alethia-reth", rev = "6ac93d4b38e1cd72b993cef1ed1dc2cb0affa7b4", default-features = false }
+alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", rev = "6ac93d4b38e1cd72b993cef1ed1dc2cb0affa7b4", default-features = false, features = ["net"] }
+alloy-consensus = { version = "2.4.2", features = ["serde"] }
+alloy-genesis = "2.4.2"
+alloy-primitives = { version = "1.6.1", features = ["serde"] }
+alloy-rlp = "0.3.16"
+clap = { version = "4", features = ["derive"] }
+libc = "0.2"
+reth-chainspec = { git = "https://github.com/ethereum-optimism/reth", rev = "d9bd9875fe88dcc0183d78b187ce2ceab0c93e93" }
+reth-codecs = "0.7.0"
+reth-db = { git = "https://github.com/ethereum-optimism/reth", rev = "d9bd9875fe88dcc0183d78b187ce2ceab0c93e93" }
+reth-db-api = { git = "https://github.com/ethereum-optimism/reth", rev = "d9bd9875fe88dcc0183d78b187ce2ceab0c93e93" }
+reth-ethereum-primitives = { git = "https://github.com/ethereum-optimism/reth", rev = "d9bd9875fe88dcc0183d78b187ce2ceab0c93e93" }
+reth-nippy-jar = { git = "https://github.com/ethereum-optimism/reth", rev = "d9bd9875fe88dcc0183d78b187ce2ceab0c93e93" }
+reth-node-types = { git = "https://github.com/ethereum-optimism/reth", rev = "d9bd9875fe88dcc0183d78b187ce2ceab0c93e93" }
+reth-primitives-traits = "0.7.1"
+reth-provider = { git = "https://github.com/ethereum-optimism/reth", rev = "d9bd9875fe88dcc0183d78b187ce2ceab0c93e93" }
+reth-prune-types = { git = "https://github.com/ethereum-optimism/reth", rev = "d9bd9875fe88dcc0183d78b187ce2ceab0c93e93" }
+reth-stages-types = { git = "https://github.com/ethereum-optimism/reth", rev = "d9bd9875fe88dcc0183d78b187ce2ceab0c93e93" }
+reth-static-file-types = { git = "https://github.com/ethereum-optimism/reth", rev = "d9bd9875fe88dcc0183d78b187ce2ceab0c93e93" }
+reth-tasks = { git = "https://github.com/ethereum-optimism/reth", rev = "d9bd9875fe88dcc0183d78b187ce2ceab0c93e93" }
+reth-trie = { git = "https://github.com/ethereum-optimism/reth", rev = "d9bd9875fe88dcc0183d78b187ce2ceab0c93e93" }
+reth-trie-db = { git = "https://github.com/ethereum-optimism/reth", rev = "d9bd9875fe88dcc0183d78b187ce2ceab0c93e93" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tempfile = "3"
+thiserror = "2"
+
+[dev-dependencies]
+alloy-eips = "2.4.2"
+alloy-trie = { version = "0.9.5", features = ["ethereum"] }
+
+[profile.dev]
+debug = "line-tables-only"
+split-debuginfo = "unpacked"
+
+[profile.release]
+overflow-checks = true

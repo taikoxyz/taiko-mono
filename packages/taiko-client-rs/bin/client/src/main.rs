@@ -6,19 +6,40 @@ pub mod cli;
 pub mod commands;
 pub mod error;
 pub mod flags;
+/// Offline landed checkpoint import.
+pub mod import;
 pub mod metrics;
+pub mod recovery;
 
 fn main() {
     use clap::Parser;
+    let mut args = std::env::args_os().skip(1);
+    if args.next().is_some_and(|v| v == import::guardian::ARG) {
+        let result = import::guardian::run(args);
+        // Child launch failure or termination by signal leaves the helper result unavailable.
+        std::process::exit(result.ok().and_then(|status| status.code()).unwrap_or(3));
+    }
 
     // Enable backtraces unless a RUST_BACKTRACE value has already been explicitly provided.
     if std::env::var_os("RUST_BACKTRACE").is_none() {
         unsafe { std::env::set_var("RUST_BACKTRACE", "1") };
     }
 
-    // Run the subcommand.
+    // Run the subcommand. Print the message chain, not `Debug`: the messages carry the
+    // operator hints.
     if let Err(err) = cli::Cli::parse().run() {
-        eprintln!("Error: {err:?}");
-        std::process::exit(1);
+        eprintln!("Error: {}", err.report());
+        std::process::exit(
+            if matches!(
+                err,
+                error::CliError::CheckpointImport(lander::checkpoint_import::ImportError::Safety(
+                    _
+                ))
+            ) {
+                2
+            } else {
+                1
+            },
+        );
     }
 }
