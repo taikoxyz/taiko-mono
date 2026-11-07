@@ -320,6 +320,9 @@ jobs:
       - name: Build production image
         id: build
         continue-on-error: true
+        # Below the 75-minute job timeout, so a slow build fails this step,
+        # which continue-on-error absorbs, instead of turning the job red.
+        timeout-minutes: 65
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
@@ -339,7 +342,7 @@ jobs:
         id: help
         if: ${{ steps.build.outcome == 'success' }}
         continue-on-error: true
-        run: docker run --rm --network none taiko-client-rs:ci-${{ github.run_id }} --help
+        run: docker run --rm --network none --platform linux/amd64 taiko-client-rs:ci-${{ github.run_id }} --help
       - name: Run runtime image checks
         id: runtime
         if: ${{ steps.build.outcome == 'success' }}
