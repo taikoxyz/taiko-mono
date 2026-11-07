@@ -34,6 +34,10 @@ if sys.argv[2] == 'list':
     if os.environ.get('LIST_WAIT'):
         pathlib.Path(os.environ['LIST_WAIT']).touch()
         time.sleep(60)
+    for flag in ('--nocapture', '--no-capture'):
+        if flag in sys.argv:
+            print(f"error: unexpected argument '{flag}' found", file=sys.stderr)
+            sys.exit(2)
     if '--message-format=human' in sys.argv:
         print('human listing')
         sys.exit(0)
@@ -95,6 +99,15 @@ printf '["build", "{name}"]\\n' >> "$CALLS"
         self.assertNotIn("--no-capture", listed)
         self.assertIn("test(a) | test(b)", listed)
         self.assertEqual(run[3:run.index("--no-capture")], listed[3:listed.index("--message-format")])
+
+    def test_nocapture_alias_is_run_only(self):
+        self.select("single_validator", "single_validator_produces_blocks_by_the_header_rules")
+        result = self.run_entrypoint("--nocapture", "restart")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        listed = self.calls()[0]
+        run = next(row for row in self.calls() if row[:3] == ["cargo", "nextest", "run"])
+        self.assertNotIn("--nocapture", listed)
+        self.assertEqual(run[-2:], ["--nocapture", "restart"])
 
     def test_standalone_reth_only_prepares_docker(self):
         self.select("standalone_reth", "occupied_initial_auth_port_recovers_and_preserves_restart_endpoints")

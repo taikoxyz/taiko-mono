@@ -44,7 +44,7 @@ for arg in "$@"; do
     if [[ "$after_separator" == 0 ]]; then
         case "$arg" in
             --) after_separator=1 ;;
-            --no-capture) continue ;;
+            --no-capture|--nocapture) continue ;;
             --message-format|--message-format=*) run_reporter=1 ;;
             --help|-h|--no-run) exec cargo nextest run "${common[@]}" "$@" ;;
         esac
