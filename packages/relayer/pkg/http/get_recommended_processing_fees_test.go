@@ -60,13 +60,15 @@ func TestGetCost_ClampsInvalidMultiplier(t *testing.T) {
 }
 
 func TestFeeTypeGasLimits(t *testing.T) {
+	// Bridge minimum (815,360 / 815,872 / 819,456 for these data sizes) plus the bridge-ui
+	// gasLimitConfig budget for each token type.
 	assert.Equal(t, uint64(806657), uint64(Eth))
-	assert.Equal(t, uint64(1315360), uint64(ERC20Deployed))
-	assert.Equal(t, uint64(1565360), uint64(ERC20NotDeployed))
-	assert.Equal(t, uint64(1915872), uint64(ERC721Deployed))
-	assert.Equal(t, uint64(3215872), uint64(ERC721NotDeployed))
-	assert.Equal(t, uint64(1919456), uint64(ERC1155Deployed))
-	assert.Equal(t, uint64(3419456), uint64(ERC1155NotDeployed))
+	assert.Equal(t, uint64(1515360), uint64(ERC20Deployed))
+	assert.Equal(t, uint64(4515360), uint64(ERC20NotDeployed))
+	assert.Equal(t, uint64(2115872), uint64(ERC721Deployed))
+	assert.Equal(t, uint64(6115872), uint64(ERC721NotDeployed))
+	assert.Equal(t, uint64(2019456), uint64(ERC1155Deployed))
+	assert.Equal(t, uint64(6619456), uint64(ERC1155NotDeployed))
 }
 
 func TestGetDestChainBaseFee_Layer2UsesHeaderBaseFee(t *testing.T) {
