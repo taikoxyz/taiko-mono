@@ -1,0 +1,95 @@
+name: Etna formal verification (full)
+
+# The slow mutation suite, an independent multi-kernel replay and a check that the pinned spec
+# authorities are still current. Nightly, on main, on manual dispatch, and on pull requests
+# labelled formal-full. It is a separate workflow so that label events never re-run or cancel
+# the fast etna-formal job, and so that pushes to main and the nightly run queue instead of
+# cancelling each other.
+on:
+  pull_request:
+    types: [labeled, synchronize, reopened]
+    paths:
+      - "formal/etna/**"
+      - "testdata/etna_current_conformance/**"
+      - ".github/workflows/formal--etna-full.yml"
+  push:
+    branches: [main]
+    paths:
+      - "formal/etna/**"
+      - "testdata/etna_current_conformance/**"
+      - ".github/workflows/formal--etna-full.yml"
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Workflow-level concurrency applies before the job's `if`. Adding any other label also starts
+# this workflow, and its job is then skipped; that run gets a group of its own so it cannot
+# cancel a full run that is in progress.
+concurrency:
+  group: etna-formal-full-${{ github.ref }}${{ github.event.action == 'labeled' && github.event.label.name != 'formal-full' && format('-{0}', github.run_id) || '' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  LEAN_VERSION: "4.35.0"
+  LEAN_SHA256: "7289597a44543246c9227b8cae501767e095ce17f6d448b95fc4a8dc97268f6d"
+
+jobs:
+  etna-formal-full:
+    # On pull requests, only with the formal-full label, and not again when some other label
+    # is added.
+    if: >-
+      github.event_name != 'pull_request' ||
+      (contains(github.event.pull_request.labels.*.name, 'formal-full') &&
+       (github.event.action != 'labeled' || github.event.label.name == 'formal-full'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: formal/etna
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install exact Lean toolchain and bubblewrap
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          etna_tools="${RUNNER_TEMP}/etna-lean"
+          archive="lean-${LEAN_VERSION}-linux.tar.zst"
+          mkdir -p "$etna_tools"
+          gh release download "v${LEAN_VERSION}" --repo leanprover/lean4 --pattern "$archive" --dir "$etna_tools"
+          echo "${LEAN_SHA256}  ${etna_tools}/${archive}" | sha256sum -c -
+          tar --zstd -xf "${etna_tools}/${archive}" -C "$etna_tools"
+          echo "${etna_tools}/lean-${LEAN_VERSION}-linux/bin" >> "$GITHUB_PATH"
+          sudo apt-get update -q
+          sudo apt-get install -y -q bubblewrap
+          # Ubuntu 24.04 restricts unprivileged user namespaces, which bubblewrap needs.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      # No build cache: the independent replay starts from a clean build of this revision.
+      - name: Build
+        run: lake build
+      - name: Run the full mutation, regression and gate suite
+        env:
+          ETNA_FULL_TESTS: "1"
+        run: python3 -m unittest discover -s tests -v
+      # Five independent kernels (leanchecker-paranoid, lean4lean, nanoda, con-leche,
+      # con-ron) replay the exported project inside a bubblewrap sandbox.
+      - name: Replay the project with independent kernels
+        run: lake check --paranoid
+      # Spec pull requests do not run the formal jobs, so this is where a spec change that
+      # the formal package has not yet been re-pinned to shows up.
+      - name: Check the pinned spec authorities are still current
+        run: |
+          python3 scripts/check_spec_coverage.py
+          python3 scripts/rule_coverage.py --check
+      - name: Require an unmodified tree
+        run: |
+          dirty="$(git status --porcelain --untracked-files=all -- .)"
+          if [ -n "$dirty" ]; then
+            printf '%s\n' "$dirty"
+            echo "::error::the full suite modified or created non-ignored files"
+            exit 1
+          fi

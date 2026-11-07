@@ -1,0 +1,181 @@
+{
+  "schema_version": 1,
+  "scope": "Reviewed Etna declarations that make a name, written inside their namespace, resolve to them instead of an existing outer declaration or alias. The audit fails on any unlisted or stale pair.",
+  "entries": [
+    {
+      "declaration": "Etna.Design.BlockValidity.Block.singleton",
+      "shadows": "singleton",
+      "reason": "Block field holding the forced-inclusion singleton result; Init's Singleton.singleton is never meant inside namespace Block."
+    },
+    {
+      "declaration": "Etna.Design.Forced.Singleton",
+      "shadows": "Singleton",
+      "reason": "Forced-inclusion singleton execution outcome type; Forced theorems and manifest types intentionally mean this type, not Init's Singleton class."
+    },
+    {
+      "declaration": "Etna.Design.Signal.hash",
+      "shadows": "hash",
+      "reason": "SignalService checkpoint hash field; Hashable.hash is never meant inside namespace Signal."
+    },
+    {
+      "declaration": "Etna.Design.Signer.State",
+      "shadows": "Etna.Design.State",
+      "reason": "Durable signer high-water-mark state; Signer statements intentionally mean this State, not the inbox State."
+    },
+    {
+      "declaration": "Etna.Design.Signer.instDecidableEqState",
+      "shadows": "Etna.Design.instDecidableEqState",
+      "reason": "Derived DecidableEq instance for Signer.State; instances are found by type class resolution, not by this name."
+    },
+    {
+      "declaration": "Etna.Design.Signer.instReprState",
+      "shadows": "Etna.Design.instReprState",
+      "reason": "Derived Repr instance for Signer.State; instances are found by type class resolution, not by this name."
+    },
+    {
+      "declaration": "Etna.Design.Current.Registry.State",
+      "shadows": "Etna.Design.State",
+      "reason": "Current permanent-bond ledger, distinct from the historical inbox State; no unqualified inbox State is intended in this namespace."
+    },
+    {
+      "declaration": "Etna.Design.Current.Start.State",
+      "shadows": "Etna.Design.State",
+      "reason": "Current initialization/origin-write state, distinct from the historical inbox State."
+    },
+    {
+      "declaration": "Etna.Design.Current.Start.Origin",
+      "shadows": "Etna.Design.Origin",
+      "reason": "Current fixed origin record with explicit timestamp, distinct from the historical origin type."
+    },
+    {
+      "declaration": "Etna.Design.Current.Start.instReprOrigin",
+      "shadows": "Etna.Design.instReprOrigin",
+      "reason": "Derived representation instance owned by the current Start.Origin type."
+    },
+    {
+      "declaration": "Etna.Design.Current.Start.instDecidableEqOrigin",
+      "shadows": "Etna.Design.instDecidableEqOrigin",
+      "reason": "Derived equality instance owned by the current Start.Origin type."
+    },
+    {
+      "declaration": "Etna.Design.Current.Registry.modify",
+      "shadows": "modify",
+      "reason": "Issued-id-checked bond edit primitive; this namespace does not use the outer monadic modify helper."
+    },
+    {
+      "declaration": "Etna.Design.Current.RegistryMachine.State",
+      "shadows": "Etna.Design.State",
+      "reason": "Current version-specific decoded state, transition or headline has the conventional historical name; separate namespace and exact theorem types prevent authority substitution."
+    },
+    {
+      "declaration": "Etna.Design.Current.RegistryPayments.State",
+      "shadows": "Etna.Design.State",
+      "reason": "Current version-specific decoded state, transition or headline has the conventional historical name; separate namespace and exact theorem types prevent authority substitution."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.Call.unzenProve",
+      "shadows": "Etna.Design.Current.Protocol.unzenProve",
+      "reason": "Current closed-machine call constructor shares its operation name; match branches and actual functions remain typed and fully qualified."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.Call.invalidate",
+      "shadows": "Etna.Design.Current.Protocol.invalidate",
+      "reason": "Current closed-machine call constructor shares its operation name; match branches and actual functions remain typed and fully qualified."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.Call.scheduleStop",
+      "shadows": "Etna.Design.Current.Protocol.scheduleStop",
+      "reason": "Current closed-machine call constructor shares its operation name; match branches and actual functions remain typed and fully qualified."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.Call.observe",
+      "shadows": "Etna.Design.Current.Protocol.observe",
+      "reason": "Current closed-machine call constructor shares its operation name; match branches and actual functions remain typed and fully qualified."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.Call.initializeInbox",
+      "shadows": "Etna.Design.Current.Protocol.initializeInbox",
+      "reason": "Current closed-machine call constructor shares its operation name; match branches and actual functions remain typed and fully qualified."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.Call.correctStart",
+      "shadows": "Etna.Design.Current.Protocol.correctStart",
+      "reason": "Current closed-machine call constructor shares its operation name; match branches and actual functions remain typed and fully qualified."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.Call.advance",
+      "shadows": "Etna.Design.Current.Protocol.advance",
+      "reason": "Current closed-machine call constructor shares its operation name; match branches and actual functions remain typed and fully qualified."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.Call.recover",
+      "shadows": "Etna.Design.Current.Protocol.recover",
+      "reason": "Current closed-machine call constructor shares its operation name; match branches and actual functions remain typed and fully qualified."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.StartData.hash",
+      "shadows": "hash",
+      "reason": "Current version-specific decoded state, transition or headline has the conventional historical name; separate namespace and exact theorem types prevent authority substitution."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.Call.land",
+      "shadows": "Etna.Design.Current.Protocol.land",
+      "reason": "Current closed-machine call constructor shares its operation name; match branches and actual functions remain typed and fully qualified."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.Call.sweep",
+      "shadows": "Etna.Design.Current.Protocol.sweep",
+      "reason": "Current closed-machine call constructor shares its operation name; match branches and actual functions remain typed and fully qualified."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.Call.scheduleRules",
+      "shadows": "Etna.Design.Current.Protocol.scheduleRules",
+      "reason": "Current closed-machine call constructor shares its operation name; match branches and actual functions remain typed and fully qualified."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.Call.enqueue",
+      "shadows": "Etna.Design.Current.Protocol.enqueue",
+      "reason": "Current closed-machine call constructor shares its operation name; match branches and actual functions remain typed and fully qualified."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.Call.rollback",
+      "shadows": "Etna.Design.Current.Protocol.rollback",
+      "reason": "Current closed-machine call constructor shares its operation name; match branches and actual functions remain typed and fully qualified."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.Call.setOrigin",
+      "shadows": "Etna.Design.Current.Protocol.setOrigin",
+      "reason": "Current closed-machine call constructor shares its operation name; match branches and actual functions remain typed and fully qualified."
+    },
+    {
+      "declaration": "Etna.Design.Current.Encoding.optional",
+      "shadows": "optional",
+      "reason": "Structural Option encoder used explicitly inside Current.Encoding; it does not refer to the parser combinator optional."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.NonVacuity.TemplateContext.config",
+      "shadows": "Etna.Design.Current.Protocol.config",
+      "reason": "Equality field recording the fixed ordinary-template configuration; its type explicitly invokes Protocol.config before entering the field namespace."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.NonVacuity.RecoveredContext.config",
+      "shadows": "Etna.Design.Current.Protocol.config",
+      "reason": "Equality field recording the fixed recovered-template configuration; its type explicitly invokes Protocol.config before entering the field namespace."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.Governance.execute",
+      "shadows": "Etna.Design.Current.Protocol.execute",
+      "reason": "Ghost-erased DAO history adapter; its ordinary branch and refinement explicitly name Protocol.execute, keeping normative admissibility separate."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.Governance.transact",
+      "shadows": "Etna.Design.Current.Protocol.transact",
+      "reason": "Raw DAO history atomic adapter over Governance.execute; normative Protocol.transact and the historical State adapter are explicitly qualified where needed."
+    },
+    {
+      "declaration": "Etna.Design.Current.CheckpointRisk.NormalRun.trans",
+      "shadows": "trans",
+      "reason": "Transitivity of the actual normal execution relation, intentionally selected inside its namespace instead of the generic trans relation helper."
+    }
+  ]
+}

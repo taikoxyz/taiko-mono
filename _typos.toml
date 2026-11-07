@@ -14,6 +14,12 @@ extend-ignore-identifiers-re = [
   "TTKOt",
   "J64QPL3oYpZ75230YMfbLfKcUEqlIyWW8",
   "consts",
+  # Lean theorem keyword fragment in formal/etna
+  "thm",
+]
+# formal/etna clause identifiers are hex digests
+extend-ignore-re = [
+  "LIVE_EN-[0-9a-f]{16}",
 ]
 
 [files]

@@ -1,0 +1,125 @@
+{
+  "schema_version": 4,
+  "scope": "conditional decoded specification property only",
+  "source": {
+    "path": "packages/protocol/docs/etna/SPEC.md",
+    "revision": "2026-11-05",
+    "commit": "589b542de790861efd8b4d9bb0a4b1d066c2685f",
+    "sha256": "681295c748692a69c230b5d0d1be9e17928d95ba6c1985a7093aab239250982d"
+  },
+  "boundaries": {
+    "current": "Conditional decoded current safety under fifteen raw primitive/deployment premises; external PARAM-11-11 evidence-window sizing is assumed and immutable transport is derived. Image certificates contain no live footprint: actual fresh trace and pure statement binding derive it. H1 exports the postlanding S partition for legacy signals emitted from the modeled empty lane; predeployment SignalService data are absent. H2 whole-committee/overlap retention is above-checkpoint and excludes any rollback since fresh genesis, with no restart theorem. Complete semantic archive ancestry is stronger than an L+2-only guest; bounded suffix extraction is proved but accepted guest refinement is deferred. Profile restrictions include generation1 first switching landing, vacuous upstream extension, genesis risk, self-chain round0 honest agreement and empty accepted prior lists. Raw DAO histories require instrumented per-history authorization. Production/retarget/availability/launch refinements remain separate."
+  },
+  "design_pending": [],
+  "claims": [
+    {
+      "id": "CURRENT-01",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "Along successful current scheduleRules/scheduleStop traces, all five schedule fields remain within their 48-bit bounds, from a fitting initial schedule.",
+      "assumptions": [
+        "current"
+      ],
+      "evidence": {
+        "LIVE_EN-f3360a370c6978e1": [
+          "Etna.Design.Current.Rules.trace_fields_fit"
+        ]
+      }
+    },
+    {
+      "id": "CURRENT-02",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "The lifetime issuance counter never decreases across current registration, bond modifications and withdrawals. This is not a proof of token custody.",
+      "assumptions": [
+        "current"
+      ],
+      "evidence": {
+        "LIVE_EN-4eeb66cec75465ce": [
+          "Etna.Design.Current.Registry.trace_issuance_monotone"
+        ]
+      }
+    },
+    {
+      "id": "CURRENT-03",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "Every existing key-to-bond-id lookup survives current registration, bond modifications and withdrawals; numeric zero is a valid present id.",
+      "assumptions": [
+        "current"
+      ],
+      "evidence": {
+        "LIVE_EN-4eeb66cec75465ce": [
+          "Etna.Design.Current.Registry.trace_keys_permanent"
+        ]
+      }
+    },
+    {
+      "id": "CURRENT-H1",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "Coherent retained modeled signal custody, reachable roots and actual suffixes, one-shot/frozen starts, pairwise legacy/Etna separation and explicit postlanding S partition; fresh-history pure-certificate bindings derive live storage consistency. Predeployment legacy SignalService history is outside the model.",
+      "assumptions": [
+        "current"
+      ],
+      "evidence": {
+        "LIVE_EN-806e818366c6b783": [
+          "Etna.Design.Current.Headlines.fund_safety",
+          "Etna.Design.Current.Headlines.deployed_claims"
+        ]
+      }
+    },
+    {
+      "id": "CURRENT-H2",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "Historical funded liabilities and above-checkpoint rollback-free fresh-deployment overlap/whole-valid-committee retention. Bond and snapshot/cutoff status facts are derived; evidence-window sizing is an external deployment premise transported through immutable configuration. No post-rollback restart or original principal replenishment is promised; honest agreement retains its stated execution assumptions.",
+      "assumptions": [
+        "current"
+      ],
+      "evidence": {
+        "LIVE_EN-fb39b71e9b4c760c": [
+          "Etna.Design.Current.Headlines.accountable_finality"
+        ],
+        "LIVE_EN-8863d8019505caf8": [
+          "Etna.Design.Current.Headlines.accountable_finality"
+        ],
+        "LIVE_EN-c36e4d0d76a728b6": [
+          "Etna.Design.Current.Headlines.accountable_finality"
+        ]
+      }
+    },
+    {
+      "id": "CURRENT-H3",
+      "status": "proved",
+      "scope": "conditional decoded specification property only",
+      "description": "Actual closed-journal FIFO service has due-qualified skips, fixed-hash decoded payload position zero, no early skip, head bounds, exact pending recovery guards, supported-image batches, admission/refund accounting and closed importer readiness/range.",
+      "assumptions": [
+        "current"
+      ],
+      "evidence": {
+        "LIVE_EN-7fdd2e21c46727ee": [
+          "Etna.Design.Current.Headlines.forced_inclusion_integrity"
+        ]
+      }
+    }
+  ],
+  "acceptance_source": {
+    "path": "packages/protocol/docs/etna/ACCEPTANCE.md",
+    "revision": "2026-11-05",
+    "commit": "589b542de790861efd8b4d9bb0a4b1d066c2685f",
+    "sha256": "ba20eb052b788234d7b93f2bb4844a222fe0156f1e0a15307f8d3e6381a6f218"
+  },
+  "anchorless_source": {
+    "path": "packages/protocol/docs/etna/ANCHORLESS.md",
+    "revision": "2026-11-05",
+    "commit": "589b542de790861efd8b4d9bb0a4b1d066c2685f",
+    "sha256": "08f6c75a3fb8183ff986a22f56c14379990bb4a527e42d1be12387195152c717"
+  },
+  "switch_source": {
+    "path": "packages/protocol/docs/etna/SWITCH.md",
+    "revision": "2026-11-05",
+    "commit": "589b542de790861efd8b4d9bb0a4b1d066c2685f",
+    "sha256": "d3ac501093465320105523f1b71337c315148df66a7a1b9b99f8f875d3fdf502"
+  }
+}
