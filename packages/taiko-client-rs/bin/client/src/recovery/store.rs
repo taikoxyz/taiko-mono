@@ -3,7 +3,7 @@ use super::{
     RecoveryCommandError,
     plan::{RecoveryPlan, valid_artifact},
     profile::RecoveryProfile,
-    status::RecoveryJournal,
+    status::ActivationJournal,
 };
 use alloy_primitives::{B256, keccak256};
 use std::{
@@ -242,12 +242,15 @@ impl RecoveryStore {
         result
     }
     /// Reads a bounded schema/identity-checked journal, absent before activation.
-    pub fn load_journal(&self, id: B256) -> Result<Option<RecoveryJournal>, RecoveryCommandError> {
+    pub fn load_journal(
+        &self,
+        id: B256,
+    ) -> Result<Option<ActivationJournal>, RecoveryCommandError> {
         let path = self.plan_dir(id).join("journal.json");
         if !path.exists() {
             return Ok(None);
         }
-        let journal: RecoveryJournal = serde_json::from_slice(&read_bounded(&path, 1024 * 1024)?)
+        let journal: ActivationJournal = serde_json::from_slice(&read_bounded(&path, 1024 * 1024)?)
             .map_err(|_| RecoveryCommandError::Parse("journal"))?;
         if journal.schema != 1 || journal.plan_id != id {
             return Err(RecoveryCommandError::PlanMismatch);
@@ -256,7 +259,7 @@ impl RecoveryStore {
     }
     /// Serializes journal writes with an exclusive file lock and fsyncs atomic replacements.
     /// A journal remains an observation; callers must own and recheck live services separately.
-    pub fn save_journal(&self, journal: &RecoveryJournal) -> Result<(), RecoveryCommandError> {
+    pub fn save_journal(&self, journal: &ActivationJournal) -> Result<(), RecoveryCommandError> {
         self.load_plan(journal.plan_id)?;
         if journal.schema != 1 {
             return Err(RecoveryCommandError::Parse("journal schema"));

@@ -181,7 +181,7 @@ class Supervisor:
         return (meta.st_dev, meta.st_ino, meta.st_ctime_ns), value
 
     def validate_denial_route(self, authority_root):
-        """Check the destination and the signer's temporary sibling before any child can write."""
+        """Check the signer's diagnostic destination before any child can write."""
         default = self.store / "signer-denial.json"
         requested = Path(os.environ.get("ETNA_DENIAL_FILE", str(default)))
         if not requested.is_absolute() or ".." in requested.parts:
@@ -194,22 +194,10 @@ class Supervisor:
         parent = route.parent.stat()
         if parent.st_uid not in (0, os.geteuid()) or parent.st_mode & 0o022:
             raise ValueError("unprotected signer diagnostic parent")
-        for path in (route, route.with_name(route.name + ".tmp")):
-            if (path in (self.key, self.state, self.state.with_name(self.state.name + ".uncertain")) or path.is_relative_to(self.home)
-                    or (authority_root and path.is_relative_to(Path(authority_root).resolve()))
-                    or (route != default and path.is_relative_to(self.store)) or path.is_symlink()):
-                raise ValueError("signer diagnostic aliases protected state")
-        temporary = route.with_name(route.name + ".tmp")
-        if os.path.lexists(temporary):
-            # Old signers used this fixed name. It is never reused or removed:
-            # even a torn diagnostic write is harmless, but aliases stay unsafe.
-            descriptor = os.open(temporary, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
-            with os.fdopen(descriptor, "rb") as source:
-                metadata = os.fstat(source.fileno())
-                if (not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1
-                        or metadata.st_uid != os.geteuid() or metadata.st_mode & 0o022
-                        or metadata.st_size > 16384):
-                    raise ValueError("unsafe legacy signer diagnostic temporary inode")
+        if (route in (self.key, self.state, self.state.with_name(self.state.name + ".uncertain")) or route.is_relative_to(self.home)
+                or (authority_root and route.is_relative_to(Path(authority_root).resolve()))
+                or (route != default and route.is_relative_to(self.store)) or route.is_symlink()):
+            raise ValueError("signer diagnostic aliases protected state")
         self.read_observation(route)
         return route
 

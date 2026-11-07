@@ -1030,7 +1030,7 @@ async fn recovery_activation_private_sessions_fullnode_only_and_incarnation_fail
 }
 
 #[tokio::test]
-async fn recovery_activation_rejects_legacy_empty_pv_bundle_and_live_owner_before_probe() {
+async fn recovery_activation_rejects_a_live_owner_before_probe() {
     use crate::recovery::activate::activate_with;
     let dir = tempfile::tempdir_in(short_temp_parent()).unwrap();
     let source = Source::new();
@@ -1038,7 +1038,6 @@ async fn recovery_activation_rejects_legacy_empty_pv_bundle_and_live_owner_befor
     let root = dir.path().join("r");
     let plan =
         prepare::prepare(&profile, 1, &root, &source, &ReadEngine::new(&source)).await.unwrap();
-    let store = RecoveryStore::new(&root);
     let engine = ProbeEngine {
         reader: ReadEngine::new(&source),
         built_on: Mutex::new(vec![]),
@@ -1046,37 +1045,10 @@ async fn recovery_activation_rejects_legacy_empty_pv_bundle_and_live_owner_befor
     };
     let lease = abci::ownership::acquire_activation(&root, plan.id()).unwrap();
     assert!(matches!(
-        activate_with(
-            profile.clone(),
-            root.clone(),
-            plan.id(),
-            &source,
-            &engine,
-            std::future::pending()
-        )
-        .await,
+        activate_with(profile, root, plan.id(), &source, &engine, std::future::pending()).await,
         Err(RecoveryCommandError::Busy)
     ));
     drop(lease);
-    let mut old = plan.clone();
-    let mut artifacts: BTreeMap<String, Vec<u8>> = plan
-        .artifacts
-        .keys()
-        .map(|name| (name.clone(), std::fs::read(store.plan_dir(plan.id()).join(name)).unwrap()))
-        .collect();
-    let mut config: toml::Table =
-        toml::from_str(std::str::from_utf8(&artifacts["comet/config/config.toml"]).unwrap())
-            .unwrap();
-    config.insert("priv_validator_key_file".into(), toml::Value::String(String::new()));
-    artifacts
-        .insert("comet/config/config.toml".into(), toml::to_string(&config).unwrap().into_bytes());
-    old.artifacts =
-        artifacts.iter().map(|(name, bytes)| (name.clone(), keccak256(bytes))).collect();
-    store.publish_plan(&old, &profile, &artifacts).unwrap();
-    assert!(matches!(
-        activate_with(profile, root, old.id(), &source, &engine, std::future::pending()).await,
-        Err(RecoveryCommandError::Missing("stock local FilePV paths; prepare again"))
-    ));
     assert!(engine.built_on.lock().unwrap().is_empty());
     assert!(!dir.path().join("children.log").exists());
 }

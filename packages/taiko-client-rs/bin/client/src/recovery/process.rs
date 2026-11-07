@@ -288,7 +288,6 @@ fn wait_child(child: &mut Child, timeout: Duration) -> Result<bool, RecoveryComm
 }
 
 /// Check stock-only immutable paths and mandatory external signing before runtime effects.
-/// Old bundles with empty local FilePV paths require reprepare; their hashes are never rewritten.
 pub(super) fn validated_template(
     profile: &super::profile::RecoveryProfile,
     store: &super::store::RecoveryStore,
@@ -303,14 +302,6 @@ pub(super) fn validated_template(
     if config.get("db_backend").and_then(toml::Value::as_str).unwrap_or("goleveldb") != "goleveldb"
     {
         return Err(RecoveryCommandError::Missing("goleveldb read-only inspector backend"))
-    }
-    for (name, expected) in [
-        ("priv_validator_key_file", "config/priv_validator_key.json"),
-        ("priv_validator_state_file", "data/priv_validator_state.json"),
-    ] {
-        if config.get(name).and_then(toml::Value::as_str) != Some(expected) {
-            return Err(RecoveryCommandError::Missing("stock local FilePV paths; prepare again"))
-        }
     }
     let expected = if profile.signer.is_some() { "unix://run/signer.sock" } else { "" };
     if config.get("priv_validator_laddr").and_then(toml::Value::as_str).unwrap_or("") != expected {

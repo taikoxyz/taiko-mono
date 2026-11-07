@@ -19,7 +19,7 @@ pub struct ActivationJournal {
     /// Exact immutable plan whose operation is observed.
     pub plan_id: B256,
     /// Last durable operation phase.
-    pub phase: RecoveryPhase,
+    pub phase: ActivationPhase,
     /// Last active selector observed by this operation; never startup authorization.
     #[serde(default)]
     pub active: Option<super::store::ActiveDescriptor>,
@@ -33,10 +33,6 @@ pub struct ActivationJournal {
     #[serde(default)]
     pub components: Vec<String>,
 }
-/// Compatibility name for the prepared observation journal.
-pub type RecoveryJournal = ActivationJournal;
-/// Compatibility name for recovery operation phases.
-pub type RecoveryPhase = ActivationPhase;
 impl ActivationJournal {
     /// Fresh observation without process, trust or signing authority.
     pub fn prepared(plan_id: B256) -> Self {
@@ -85,7 +81,7 @@ pub struct RecoveryStatus {
     /// Fixed L1 recovery execution block R.
     pub recovery_l1_block: u64,
     /// Durable local phase, not a trust claim.
-    pub phase: RecoveryPhase,
+    pub phase: ActivationPhase,
     /// Last authenticated L1-finalized checkpoint height, not a runtime commitment.
     pub landed_height: u64,
     /// Authenticated checkpoint the future runtime must meet before trust can be observed.

@@ -330,16 +330,16 @@ async fn recovery_rejects_aliased_staged_directories_and_journal_mismatches() {
     let engine = ReadEngine::new(&source);
     let plan = prepare::prepare(&p, 1, &root, &source, &engine).await.unwrap();
     let store = RecoveryStore::new(&root);
-    let journal = RecoveryJournal::prepared(plan.id());
+    let journal = ActivationJournal::prepared(plan.id());
     store.save_journal(&journal).unwrap();
     assert_eq!(store.load_journal(plan.id()).unwrap(), Some(journal));
     std::fs::write(
         store.plan_dir(plan.id()).join("journal.json"),
-        serde_json::to_vec(&RecoveryJournal {
+        serde_json::to_vec(&ActivationJournal {
             schema: 1,
             plan_id: B256::ZERO,
-            phase: RecoveryPhase::Prepared,
-            ..RecoveryJournal::prepared(plan.id())
+            phase: ActivationPhase::Prepared,
+            ..ActivationJournal::prepared(plan.id())
         })
         .unwrap(),
     )
@@ -428,7 +428,7 @@ async fn recovery_missing_state_reports_prerequisite_and_does_not_touch_signer_o
     );
     assert_eq!(config["priv_validator_laddr"].as_str(), Some("unix://run/signer.sock"));
     let report = status(&RecoveryStore::new(&root), plan.id()).unwrap();
-    assert_eq!(report.phase, RecoveryPhase::Prepared);
+    assert_eq!(report.phase, ActivationPhase::Prepared);
     assert!(report.prerequisites.contains(&Prerequisite::HistoricalState));
     assert!(report.prerequisites.contains(&Prerequisite::ActivationBuildProbe));
     assert!(!child_marker.exists());
@@ -699,7 +699,7 @@ async fn recovery_profile_changes_create_new_id_and_short_names_check_full_ident
     assert_eq!(store.plan_dir(first.id()), store.plan_dir(collision));
     assert!(store.load_plan(collision).is_err());
     assert_eq!(store.load_plan(first.id()).unwrap(), first);
-    let journal = RecoveryJournal::prepared(first.id());
+    let journal = ActivationJournal::prepared(first.id());
     store.save_journal(&journal).unwrap();
     let lock = std::fs::File::open(store.plan_dir(first.id()).join("journal.lock")).unwrap();
     lock.try_lock().unwrap();

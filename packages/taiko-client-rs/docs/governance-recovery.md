@@ -115,7 +115,7 @@ For a full node, change `role = "full-node"` and remove `[signer]`,
 It has no registered signing authority. Stock Comet creates an unregistered local FilePV
 in the fresh standard paths for both roles before selecting the external signer on a
 validator. The validator's local dummy never signs; do not copy a registered key there or
-clear its local paths. Older prepared bundles with empty local PV paths require reprepare.
+clear its local paths.
 
 To let activation own a separate lander process, append this optional profile section.
 The signing-key file supplies the existing funded account; use the same original journal

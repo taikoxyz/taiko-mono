@@ -68,8 +68,9 @@ class TrustPeer:
 
     def publish(self, sequence, session):
         """Publish a signer observation atomically, as the real signer does."""
-        temporary = self.events.with_name(self.events.name + ".tmp")
-        temporary.write_text(json.dumps(dict(sequence=sequence, session_id=session)))
+        descriptor, temporary = tempfile.mkstemp(prefix=".signer-observation-", dir=self.events.parent)
+        with os.fdopen(descriptor, "w") as out:
+            out.write(json.dumps(dict(sequence=sequence, session_id=session)))
         os.replace(temporary, self.events)
 
     def signers(self):
@@ -242,19 +243,6 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
         self.wait(lambda: (self.store / "validator-supervisor.halted").exists())
         self.assertEqual(self.starts(), 1)
         self.assertEqual(len(self.signers()), 1)
-
-    def test_stale_observation_temporary_does_not_block_restart(self):
-        """An interrupted diagnostic publish is neither terminal evidence nor signing state."""
-        self.proc.terminate()
-        self.assertEqual(self.proc.wait(timeout=5), 0)
-        temporary = self.events.with_name(self.events.name + ".tmp")
-        # A crash can leave even a truncated write. Preserve it without reusing it.
-        temporary.write_bytes(b'{"sequence":')
-        temporary.chmod(0o600)
-        self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")],
-                                     env=self.env, stdout=self.log, stderr=self.log)
-        self.wait(lambda: self.starts() == 2 and len(self.signers()) == 2)
-        self.assertEqual(temporary.read_bytes(), b'{"sequence":')
 
     def test_supervisor_sigterm_retains_signer_failure_for_restart(self):
         """A signer failure discovered during external shutdown must survive restartAlways."""
@@ -1104,8 +1092,8 @@ class LauncherPathTests(unittest.TestCase):
 
     def test_denial_routes_preserve_keys_state_wal_and_uncertain_files(self):
         module = self.load_module()
-        for case in ("key", "state", "old-wal", "default-key", "default-state", "scratch-hardlink",
-                     "scratch-symlink", "default-foreign", "ordinary-foreign", "ordinary-live-wal"):
+        for case in ("key", "state", "old-wal", "default-key", "default-state", "default-foreign",
+                     "ordinary-foreign", "ordinary-live-wal"):
             with self.subTest(case=case), tempfile.TemporaryDirectory() as tmp:
                 base = Path(tmp).resolve()
                 store, home = base / "app", base / "home"
@@ -1121,8 +1109,6 @@ class LauncherPathTests(unittest.TestCase):
                            ETNA_PRIV_STATE=str(state), ETNA_CHAIN_ID="test", ETNA_SIGNER_BIN="/usr/bin/true")
                 if case in ("key","state","old-wal","ordinary-live-wal"):
                     env["ETNA_DENIAL_FILE"] = str({"key":key,"state":state}.get(case,wal))
-                if case == "scratch-hardlink": os.link(state, str(default)+".tmp")
-                if case == "scratch-symlink": Path(str(default)+".tmp").symlink_to(key)
                 if case in ("default-foreign","ordinary-foreign"): default.write_bytes(b"foreign preserved bytes")
                 saved = {p: p.read_bytes() for p in (key,state,wal,default) if p.exists()}
                 imported = None if case.startswith("ordinary-") else dict(signer_binary="/usr/bin/true",comet_binary="/usr/bin/true",comet_identity=[os.geteuid(),os.getegid()])

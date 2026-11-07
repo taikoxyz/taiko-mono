@@ -111,10 +111,8 @@ children, retains the halt in memory, and stays alive retrying persistence. The 
 closes its owned transport before stock server shutdown, so a blocked stock read cannot
 delay terminal or signal shutdown until the transport deadline.
 
-Observation publishing uses an exclusive random temporary file. A safe private regular
-single-link `signer-denial.json.tmp` left by an older signer is preserved and ignored,
-including a truncated write; it is never reused. Unsafe aliases still fail startup.
-This diagnostic exception does not apply to signing uncertainty or halt evidence.
+Observation publishing writes an exclusive random temporary file and renames it over the
+denial file; it never opens a fixed temporary name.
 
 ## Generation authority
 
