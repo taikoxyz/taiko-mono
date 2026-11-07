@@ -265,8 +265,10 @@ margin within EIP-7825's 16,777,216 cap; no automatic fee or nonce replacement i
 
 The public blob payload carries execution blocks only (spec section 5.2, Blob payload);
 `--sidecar eip4844` or `eip7594` selects the sidecar format for the same payload. The `land`
-input and statement are spec section 6.1 (land). Before signing or sending, the lander checks the
-deployed Inbox implementation and its immutable getters.
+input and statement are spec section 6.1 (land). At startup and for each batch the lander reads
+the Inbox's `VERSION`, initialization, L2 chain id, registry, committee config hash,
+`GRID_INTERVAL` and `maxBatchBlocks`. Before signing or resending it rechecks the checkpoint
+frontier and the reference block.
 
 `lander-state.json` uses schema 16 and is protected by `lander.lock`; other schemas are refused
 and left intact. Signed bytes and blob sidecars are durably written before

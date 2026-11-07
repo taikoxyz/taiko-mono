@@ -50,9 +50,6 @@ pub struct ParentContext {
 /// What the deployment reads establish about the executing Inbox.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Deployment {
-    /// Hash of every deployment boundary read and of the implementation code: code or
-    /// configuration changes change it, pauses and landing progress do not.
-    pub identity: B256,
     /// The Inbox's `maxBatchBlocks`: the most blocks one landing may cover, above which it reverts
     /// `BatchTooLarge`.
     pub max_batch_blocks: u64,
@@ -83,16 +80,17 @@ pub trait LandingSource: Send + Sync {
         epoch: u64,
     ) -> Result<CommitteeWitness>;
     /// Fetch the descending raw L1 headers from the reference tip, the finalized block below
-    /// the snapshot, down to the oldest consumed anchor: `Temporary` while finality is behind
-    /// the newest anchor, `Capacity` above `MAX_REFERENCE_HEADERS` (BATCH-6.3-6). Fetch
-    /// only: the caller verifies the links and anchors with
-    /// [`crate::batch::verify_reference_chain`] and the tip with [`Self::validate_reference`].
+    /// the snapshot, down to the oldest consumed anchor: `Safety` for an empty anchor slice,
+    /// `Temporary` while finality is behind the newest anchor, `Capacity` above
+    /// `MAX_REFERENCE_HEADERS` (BATCH-6.3-6). Fetch only: the caller verifies the links and
+    /// anchors with [`crate::batch::verify_reference_chain`] and the tip with
+    /// [`Self::validate_reference`].
     async fn reference(
         &self,
         snapshot: &LandingSnapshot,
         anchors: &[AnchorState],
     ) -> Result<Vec<RawL1Header>>;
-    /// Authenticate V1 initialization/configuration and identify the executing deployment.
+    /// Authenticate V1 initialization/configuration and read the Inbox's `maxBatchBlocks`.
     async fn deployment(&self, snapshot: &LandingSnapshot) -> Result<Deployment>;
     /// The canonical L1 hash at a requested number, including receipt blocks.
     async fn canonical_hash(&self, number: u64) -> Result<B256>;
@@ -450,11 +448,12 @@ impl LandingSource for RpcLandingSource {
         Ok(headers)
     }
 
-    /// Read actual current ABI boundaries at one canonical L1 block; no hashing RPC exists. An
-    /// Inbox whose `GRID_INTERVAL` is not [`abci::GRID_INTERVAL`] is a configuration error.
+    /// Read the checked V1 getters and `maxBatchBlocks` at one canonical L1 block: seven
+    /// `eth_call`s and no code read, since no rule pins the implementation (PROOF-6.2-2). An
+    /// Inbox whose `GRID_INTERVAL` is not [`abci::GRID_INTERVAL`] is a configuration error
+    /// (PARAM-11-9).
     async fn deployment(&self, snapshot: &LandingSnapshot) -> Result<Deployment> {
         authenticate_snapshot(snapshot, &self.params)?;
-        let mut identity = Vec::new();
         macro_rules! read {
             ($call:ident) => {{
                 let call = IEtnaInbox::$call {};
@@ -468,10 +467,8 @@ impl LandingSource for RpcLandingSource {
                     .block(BlockId::hash_canonical(snapshot.l1_block_hash))
                     .await
                     .map_err(rpc_error)?;
-                let value = IEtnaInbox::$call::abi_decode_returns(&bytes)
-                    .map_err(|_| LanderError::Configuration("invalid Inbox ABI response".into()))?;
-                identity.extend_from_slice(&bytes);
-                value
+                IEtnaInbox::$call::abi_decode_returns(&bytes)
+                    .map_err(|_| LanderError::Configuration("invalid Inbox ABI response".into()))?
             }};
         }
         let version = read!(VERSIONCall);
@@ -496,28 +493,7 @@ impl LandingSource for RpcLandingSource {
                 "Inbox V1 deployment/configuration mismatch".into(),
             ));
         }
-        let implementation = read!(implCall);
-        if implementation.is_zero() {
-            return Err(LanderError::Configuration("Inbox implementation address is zero".into()));
-        }
-        let _ = read!(proofVerifierCall);
-        let _ = read!(signalServiceCall);
-        let max_batch_blocks = read!(maxBatchBlocksCall);
-        let _ = read!(forcedInclusionFeeInGweiCall);
-        let _ = read!(forcedInclusionFeeDoubleThresholdCall);
-        let _ = read!(protocolFeeRecipientCall);
-        let code = self
-            .l1
-            .get_code_at(implementation)
-            .block_id(BlockId::hash_canonical(snapshot.l1_block_hash))
-            .await
-            .map_err(rpc_error)?;
-        if code.is_empty() {
-            return Err(LanderError::Configuration("Inbox implementation has no code".into()));
-        }
-        identity.extend_from_slice(alloy_primitives::keccak256(code).as_slice());
-        identity.extend_from_slice(snapshot.inbox_witness.code_hash.as_slice());
-        Ok(Deployment { identity: alloy_primitives::keccak256(identity), max_batch_blocks })
+        Ok(Deployment { max_batch_blocks: read!(maxBatchBlocksCall) })
     }
 
     async fn canonical_hash(&self, number: u64) -> Result<B256> {

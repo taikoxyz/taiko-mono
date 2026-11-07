@@ -1140,9 +1140,9 @@ impl LandingSource for Fixture {
     }
     async fn deployment(&self, _: &LandingSnapshot) -> Result<Deployment> {
         if self.mismatch_statement.load(Ordering::Relaxed) {
-            return Err(LanderError::Configuration("deployment identity mismatch".into()));
+            return Err(LanderError::Configuration("deployment configuration mismatch".into()));
         }
-        Ok(Deployment { identity: B256::repeat_byte(0xdd), max_batch_blocks: MAX_BATCH_BLOCKS })
+        Ok(Deployment { max_batch_blocks: MAX_BATCH_BLOCKS })
     }
     async fn canonical_hash(&self, number: u64) -> Result<B256> {
         Ok(self.l1_headers[&number].hash())

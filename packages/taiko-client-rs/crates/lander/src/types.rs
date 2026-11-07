@@ -307,8 +307,6 @@ pub struct PreparedBatch {
     pub start_val_state: ValState,
     /// Ordered cut leaves for the interior grid points ([`GRID_INTERVAL`]) of the immutable range.
     pub leaves: Vec<B256>,
-    /// Executing deployment/config identity rechecked before signing or rebroadcasting.
-    pub deployment_identity: B256,
     /// Sidecar and ordered versioned blob hashes binding the V6 payload.
     pub blobs: PreparedBlobs,
     /// Identity of this job: the exact V1 public statement hash.

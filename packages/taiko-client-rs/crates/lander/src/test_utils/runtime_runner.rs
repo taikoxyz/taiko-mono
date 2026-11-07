@@ -28,7 +28,6 @@ struct Control {
     nonce: NonceState,
     known: bool,
     ambiguous_send: bool,
-    helper_mismatch: bool,
     estimate_revert: bool,
     compete_during_estimate: bool,
     signs: usize,
@@ -63,7 +62,6 @@ impl Fixture {
             nonce: NonceState { confirmed: 0, pending: 0 },
             known: false,
             ambiguous_send: false,
-            helper_mismatch: false,
             estimate_revert: false,
             compete_during_estimate: false,
             signs: 0,
@@ -247,12 +245,7 @@ impl LandingSource for MockL1 {
         Ok(vec![])
     }
     async fn deployment(&self, _: &LandingSnapshot) -> Result<crate::l1::Deployment> {
-        let identity = if self.control.lock().unwrap().helper_mismatch {
-            B256::ZERO
-        } else {
-            self.request.batch.deployment_identity
-        };
-        Ok(crate::l1::Deployment { identity, max_batch_blocks: u64::MAX })
+        unreachable!("the runner reads no deployment getters")
     }
     async fn canonical_hash(&self, number: u64) -> Result<B256> {
         let control = self.control.lock().unwrap();
@@ -687,25 +680,15 @@ async fn partial_or_full_checkpoint_after_dropped_send_never_spends_a_new_nonce(
 }
 
 #[tokio::test]
-async fn changed_proxy_statement_or_unchanged_checkpoint_committee_stops_before_signing() {
-    for committee_change in [false, true] {
-        let fixture = Fixture::new();
-        let mut runner = fixture.runner();
-        runner.step().await.unwrap();
-        {
-            let mut control = fixture.control.lock().unwrap();
-            if committee_change {
-                control.snapshot.committee_config_hash = B256::ZERO;
-            } else {
-                control.helper_mismatch = true;
-            }
-        }
-        let result = runner.step().await;
-        assert!(matches!(result, Err(LanderError::Safety(_)) | Err(LanderError::Configuration(_))));
-        let control = fixture.control.lock().unwrap();
-        assert_eq!(control.signs, 0);
-        assert_eq!(control.broadcasts.len(), 0);
-    }
+async fn changed_checkpoint_committee_config_stops_before_signing() {
+    let fixture = Fixture::new();
+    let mut runner = fixture.runner();
+    runner.step().await.unwrap();
+    fixture.control.lock().unwrap().snapshot.committee_config_hash = B256::ZERO;
+    assert!(matches!(runner.step().await, Err(LanderError::Safety(_))));
+    let control = fixture.control.lock().unwrap();
+    assert_eq!(control.signs, 0);
+    assert_eq!(control.broadcasts.len(), 0);
 }
 
 struct CountingProof {
@@ -1268,7 +1251,7 @@ async fn v1_completed_settlement_keeps_pending_nonce_across_restart_until_canoni
 
 #[tokio::test]
 async fn v1_overlap_identity_mutations_preserve_signed_journal_and_stop_broadcast() {
-    for mutation in 0..5 {
+    for mutation in 0..4 {
         let fixture = Fixture::new();
         let mut runner = fixture.runner();
         runner.step().await.unwrap();
@@ -1283,8 +1266,7 @@ async fn v1_overlap_identity_mutations_preserve_signed_journal_and_stop_broadcas
                 0 => control.snapshot.checkpoint_hash[0] ^= 1,
                 1 => control.snapshot.checkpoint_comet_hash[0] ^= 1,
                 2 => control.snapshot.forced_inclusion_head += 1,
-                3 => control.helper_mismatch = true,
-                4 => control.snapshot.checkpoint_val_state_hash[0] ^= 1,
+                3 => control.snapshot.checkpoint_val_state_hash[0] ^= 1,
                 _ => unreachable!(),
             }
         }

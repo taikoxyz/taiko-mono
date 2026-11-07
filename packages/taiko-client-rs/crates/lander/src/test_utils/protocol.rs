@@ -89,7 +89,6 @@ pub(crate) fn request() -> ProofRequest {
             committees: vec![],
             committee_witnesses: vec![],
             leaves: vec![],
-            deployment_identity: B256::repeat_byte(0xdd),
             input: LandInput {
                 parentHeight: U256::ZERO,
                 lastCometHash: B256::repeat_byte(7),

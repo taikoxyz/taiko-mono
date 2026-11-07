@@ -1373,7 +1373,6 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 input,
                 start_val_state,
                 leaves,
-                deployment_identity: deployment.identity,
                 blobs,
                 statement_hash: hash,
             },
@@ -1609,7 +1608,7 @@ fn force_epoch(schedule: &Schedule, tip: u64, checkpoint: u64) -> bool {
 /// Checks the exact descending header chain and every consumed anchor (PROOF-6.2-33/34).
 ///
 /// The source only fetches the chain from a finalized tip; this pure check is the one
-/// verification of its links and anchors, and `validate_reference` then authenticates the
+/// fetch-time check of its links and anchors, and `validate_reference` then authenticates the
 /// tip's canonicality.
 pub fn verify_reference_chain(
     headers: &[abci::RawL1Header],
@@ -1793,9 +1792,9 @@ mod tests {
         }
 
         async fn deployment(&self, snapshot: &LandingSnapshot) -> Result<crate::l1::Deployment> {
-            let deployment = self.fixture().deployment(snapshot).await?;
+            self.fixture().deployment(snapshot).await?;
             let max_batch_blocks = self.max_batch_blocks.load(Ordering::Relaxed);
-            Ok(crate::l1::Deployment { max_batch_blocks, ..deployment })
+            Ok(crate::l1::Deployment { max_batch_blocks })
         }
         async fn canonical_hash(&self, number: u64) -> Result<alloy_primitives::B256> {
             if self.canonical_unavailable.load(Ordering::Relaxed) {
@@ -3165,7 +3164,7 @@ mod tests {
             .await
             .unwrap_err();
         assert!(matches!(error, LanderError::Configuration(_)), "{error}");
-        assert!(error.to_string().contains("deployment identity"), "{error}");
+        assert!(error.to_string().contains("deployment configuration mismatch"), "{error}");
     }
 
     #[test]

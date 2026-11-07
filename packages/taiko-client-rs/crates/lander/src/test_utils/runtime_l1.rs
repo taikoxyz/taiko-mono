@@ -764,7 +764,7 @@ async fn reference_only_fetches_and_the_pure_check_rejects_contradictions() {
     assert_eq!(fetched, expected);
     assert!(matches!(
         crate::batch::verify_reference_chain(&fetched, &contradictory),
-        Err(LanderError::Safety(_))
+        Err(LanderError::Safety(message)) if message == "reference chain contradicts anchor 15"
     ));
 }
 
@@ -790,7 +790,7 @@ async fn finality_lag_expired_reference_and_wrong_fork_are_distinct_errors() {
     assert_eq!(forked.len(), 7);
     assert!(matches!(
         crate::batch::verify_reference_chain(&forked, &anchors),
-        Err(LanderError::Safety(_))
+        Err(LanderError::Safety(message)) if message == "reference header ancestry is discontinuous"
     ));
 }
 
@@ -869,12 +869,13 @@ async fn checkpoint_anchor_rejects_malformed_extra_data_and_generation_but_not_s
     }
 }
 
-/// Pause/checkpoint changes do not change settlement authorization; code/config changes do.
+/// The deployment reads are the checked getters and `maxBatchBlocks` only, each pinned to the
+/// snapshot block; pauses and landing progress do not change them.
 #[tokio::test]
-async fn v1_deployment_identity_uses_real_pinned_boundaries_and_ignores_pause_and_progress() {
+async fn v1_deployment_reads_only_checked_getters_and_max_batch_blocks() {
     use crate::contracts::IEtnaInbox;
     use alloy::sol_types::{SolCall, SolValue};
-    use alloy_primitives::{Address, Bytes};
+    use alloy_primitives::Bytes;
     use std::sync::atomic::{AtomicU8, Ordering};
     let fixture = crate::test_utils::consensus_mpt::Fixture::new(0, 12);
     let advanced = crate::test_utils::consensus_mpt::Fixture::new(18, 30);
@@ -894,14 +895,6 @@ async fn v1_deployment_identity_uses_real_pinned_boundaries_and_ignores_pause_an
                 .any(|hash| pin == &json!({"blockHash": hash, "requireCanonical": true}))
         );
         match request["method"].as_str().unwrap() {
-            "eth_getCode" => {
-                assert_eq!(request["params"][0], json!(Address::repeat_byte(0x42)));
-                json!(Bytes::from(if mode == 4 {
-                    vec![]
-                } else {
-                    vec![0x60, if mode == 2 { 1 } else { 0 }]
-                }))
-            }
             "eth_call" => {
                 let input = request["params"][0]
                     .get("input")
@@ -921,34 +914,31 @@ async fn v1_deployment_identity_uses_real_pinned_boundaries_and_ignores_pause_an
                 answer!(stakingRegistryCall, registry);
                 answer!(committeeConfigHashCall, if mode == 5 { B256::ZERO } else { config });
                 answer!(GRID_INTERVALCall, U256::from(if mode == 7 { 12 } else { 6 }));
-                answer!(
-                    implCall,
-                    if mode == 6 { Address::ZERO } else { Address::repeat_byte(0x42) }
-                );
-                answer!(proofVerifierCall, Address::repeat_byte(0x43));
-                answer!(signalServiceCall, Address::repeat_byte(0x44));
                 answer!(maxBatchBlocksCall, U256::from(120));
-                answer!(forcedInclusionFeeInGweiCall, U256::from(1));
-                answer!(forcedInclusionFeeDoubleThresholdCall, U256::from(10));
-                answer!(protocolFeeRecipientCall, Address::repeat_byte(0x45));
                 // Even though this deployment can be paused, landing is not pause-gated.
                 answer!(pausedCall, mode == 1);
                 panic!("invented or unexpected ABI getter: {input}");
             }
-            method => panic!("unexpected identity RPC {method}"),
+            method => panic!("unexpected deployment RPC {method}"),
         }
     })
     .await;
     let source =
         RpcLandingSource::new(server.provider.clone(), server.provider.clone(), fixture.params);
-    let original = source.deployment(&fixture.snapshot).await.unwrap();
-    assert_eq!(original.max_batch_blocks, 120, "the deployed maxBatchBlocks is kept");
-    mode.store(1, Ordering::Relaxed);
-    assert_eq!(source.deployment(&fixture.snapshot).await.unwrap(), original);
-    assert_eq!(source.deployment(&advanced.snapshot).await.unwrap(), original);
-    mode.store(2, Ordering::Relaxed);
-    assert_ne!(source.deployment(&fixture.snapshot).await.unwrap().identity, original.identity);
-    for invalid in [3, 4, 5, 6, 7] {
+    let calls = || server.requests.lock().unwrap().len();
+    for (paused, snapshot) in
+        [(0, &fixture.snapshot), (1, &fixture.snapshot), (1, &advanced.snapshot)]
+    {
+        mode.store(paused, Ordering::Relaxed);
+        let before = calls();
+        assert_eq!(
+            source.deployment(snapshot).await.unwrap(),
+            crate::l1::Deployment { max_batch_blocks: 120 }
+        );
+        assert_eq!(calls() - before, 7, "exactly the seven checked getters, no eth_getCode");
+    }
+    assert!(server.requests.lock().unwrap().iter().all(|request| request["method"] == "eth_call"));
+    for invalid in [3, 5, 7] {
         mode.store(invalid, Ordering::Relaxed);
         assert!(matches!(
             source.deployment(&fixture.snapshot).await,

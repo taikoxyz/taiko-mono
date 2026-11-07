@@ -452,71 +452,24 @@ impl Runner {
         Ok(())
     }
 
-    /// Recheck checkpoint and reference before signing or scheduling a first broadcast.
+    /// Recheck checkpoint and reference before signing or scheduling a first broadcast. The
+    /// statement hash needs no recheck here: the store recomputes it whenever it loads or saves
+    /// the job, and signing recomputes it again.
     async fn unbroadcast_current(
         &self,
         snapshot: &LandingSnapshot,
         job: &ProvedJob,
     ) -> Result<bool> {
-        if !overlapping_frontier(snapshot, &job.request.batch)? {
+        let batch = &job.request.batch;
+        if !overlapping_frontier(snapshot, batch)? {
             return Ok(false);
         }
-        let batch = &job.request.batch;
-        if snapshot.genesis != batch.snapshot.genesis ||
-            snapshot.committee_config_hash != batch.snapshot.committee_config_hash
-        {
-            return Err(LanderError::Safety(
-                "unchanged checkpoint has changed genesis or committee identity".into(),
-            ));
-        }
-        let reference = batch
-            .reference_headers
-            .first()
-            .ok_or_else(|| LanderError::Journal("job has no reference header".into()))?;
-        let raw = abci::l1::header::RawL1Header::from_raw(reference.clone())
-            .map_err(|e| LanderError::Journal(format!("reference header: {e}")))?;
-        match self
-            .l1
-            .validate_reference(
-                snapshot,
-                crate::types::protocol_u48(batch.input.l1ReferenceBlockNumber)?,
-                raw.hash(),
-            )
-            .await
-        {
-            Ok(()) => {
-                self.crosscheck(snapshot, job, raw.hash()).await?;
-                Ok(true)
-            }
+        let (number, hash) = job_reference(batch)?;
+        match self.l1.validate_reference(snapshot, number, hash).await {
+            Ok(()) => Ok(true),
             Err(LanderError::Stale(_)) => Ok(false),
             Err(error) => Err(error),
         }
-    }
-
-    /// Detect contract implementation/configuration drift before signing or sending immutable
-    /// bytes.
-    async fn crosscheck(
-        &self,
-        snapshot: &LandingSnapshot,
-        job: &ProvedJob,
-        reference_hash: alloy_primitives::B256,
-    ) -> Result<()> {
-        let batch = &job.request.batch;
-        let identity = self.l1.deployment(snapshot).await?.identity;
-        if identity != batch.deployment_identity ||
-            crate::statement::hash(
-                &batch.snapshot,
-                &batch.input,
-                reference_hash,
-                &batch.blobs.versioned_hashes,
-                &batch.leaves,
-            ) != batch.statement_hash
-        {
-            return Err(LanderError::Configuration(
-                "executing Inbox or immutable statement identity changed".into(),
-            ));
-        }
-        Ok(())
     }
 
     /// Drop only work whose signed bytes have never been scheduled for broadcast.
@@ -617,28 +570,14 @@ impl Runner {
             tracing::warn!(transaction_hash=%transaction.hash,pending_nonce=transaction.nonce,"lander outstanding nonce unresolved after competing checkpoint; operator reconciliation may be required");
             return Ok(StepOutcome::Waiting);
         }
-        let reference =
-            job.request.batch.reference_headers.first().ok_or_else(|| {
-                LanderError::Journal("pending job has no reference header".into())
-            })?;
-        let raw = abci::l1::header::RawL1Header::from_raw(reference.clone())
-            .map_err(|e| LanderError::Journal(format!("pending reference: {e}")))?;
-        if let Err(error) = self
-            .l1
-            .validate_reference(
-                &snapshot,
-                crate::types::protocol_u48(job.request.batch.input.l1ReferenceBlockNumber)?,
-                raw.hash(),
-            )
-            .await
-        {
+        let (number, hash) = job_reference(&job.request.batch)?;
+        if let Err(error) = self.l1.validate_reference(&snapshot, number, hash).await {
             if matches!(error, LanderError::Stale(_)) {
                 tracing::warn!(transaction_hash=%transaction.hash,pending_nonce=transaction.nonce,"lander dropped transaction has expired reference; outstanding nonce requires operator reconciliation");
                 return Ok(StepOutcome::Waiting);
             }
             return Err(error);
         }
-        self.crosscheck(&snapshot, &job, raw.hash()).await?;
         self.broadcast(&transaction).await?;
         Ok(StepOutcome::Waiting)
     }
@@ -838,6 +777,18 @@ fn overlapping_frontier(
         }
     }
     Ok(true)
+}
+
+/// The job's L1 reference: its input number and the hash of its newest reference header, which
+/// the statement binds.
+fn job_reference(batch: &crate::types::PreparedBatch) -> Result<(u64, B256)> {
+    let reference = batch
+        .reference_headers
+        .first()
+        .ok_or_else(|| LanderError::Journal("job has no reference header".into()))?;
+    let raw = abci::l1::header::RawL1Header::from_raw(reference.clone())
+        .map_err(|e| LanderError::Journal(format!("job reference header: {e}")))?;
+    Ok((crate::types::protocol_u48(batch.input.l1ReferenceBlockNumber)?, raw.hash()))
 }
 
 /// Compare the exact receipt context when deciding whether a canonical revert made no progress.
