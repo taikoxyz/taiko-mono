@@ -88,8 +88,9 @@ check-lander-artifacts:
 signer:
   bash ./script/build_etna_signer.sh
 
-# Every test that re-execs the test binary lives in a `*_process_test.go` file. Those tests
-# run in a second pass without -race, so their children are not race-instrumented.
+# Every test that re-execs the test binary, and its `Test…Helper` entry point, must live in a
+# `*_process_test.go` file. Every Test in those files runs in a second pass without -race, so
+# only re-exec tests and their helpers belong there; all other tests stay in the -race pass.
 signer-test:
   #!/usr/bin/env bash
   set -euo pipefail

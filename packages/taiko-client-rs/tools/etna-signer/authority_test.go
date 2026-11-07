@@ -3,13 +3,18 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"github.com/cometbft/cometbft/privval"
 	pv "github.com/cometbft/cometbft/proto/tendermint/privval"
 	tm "github.com/cometbft/cometbft/proto/tendermint/types"
+	"github.com/cometbft/cometbft/types"
+	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -487,5 +492,87 @@ func TestAuthorityRecoveryCannotSignAtOrBeforeOrigin(t *testing.T) {
 	}
 	if e = p.SignVote(next, authorityVote(6)); e == nil {
 		t.Fatal("recovery signed retained prefix")
+	}
+}
+func TestAuthorityNativeProcessHandshakeAndSignature(t *testing.T) {
+	binary := signerBinary(t)
+	c := authorityFixture(t)
+	old, _ := readyDomain(t, c, 0)
+	p := privval.LoadFilePV(c.Key, c.LegacyState)
+	if e := p.SignVote(old, authorityVote(20)); e != nil {
+		t.Fatal(e)
+	}
+	before, _ := os.ReadFile(c.LegacyState)
+	chain, r := readyDomain(t, c, 2)
+	var ready atomic.Bool
+	var begins atomic.Uint64
+	path := control(t, func(req map[string]any) any {
+		if req["schema_version"] != float64(1) {
+			return map[string]any{}
+		}
+		if req["op"] == "begin_session" {
+			begins.Add(1)
+			ready.Store(false)
+		}
+		snapshot := *r
+		snapshot.SessionID = fmt.Sprintf("authority:%d", begins.Load())
+		snapshot.Ready = ready.Load()
+		snapshot.Syncing = !snapshot.Ready
+		if !snapshot.Ready {
+			snapshot.Phase = "acquiring"
+		}
+		return snapshot
+	})
+	socket := filepath.Join(shortTemp(t), "comet.sock")
+	listener, e := net.ListenUnix("unix", &net.UnixAddr{Name: socket, Net: "unix"})
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer listener.Close()
+	listener.SetDeadline(time.Now().Add(10 * time.Second))
+	child := exec.Command(binary, "--comet-signer-addr", "unix://"+socket, "--trust-socket", path, "--chain-id", chain, "--priv-key", c.Key, "--priv-state", c.LegacyState, "--authority-root", c.Root, "--l1-chain-id", c.L1ChainID, "--l2-chain-id", c.L2ChainID, "--inbox", c.Inbox, "--generation", "2", "--enroll-legacy")
+	if e = child.Start(); e != nil {
+		t.Fatal(e)
+	}
+	defer func() { child.Process.Kill(); child.Wait() }()
+	conn := acceptSigner(t, listener)
+	pub := pv.Message{Sum: &pv.Message_PubKeyRequest{PubKeyRequest: &pv.PubKeyRequest{ChainId: chain}}}
+	response := signerExchange(t, conn, pub)
+	if response.GetPubKeyResponse() == nil || response.GetPubKeyResponse().Error != nil {
+		t.Fatal("closed authority handshake failed")
+	}
+	if _, e = os.Stat(filepath.Join(c.Root, chain+".json")); !os.IsNotExist(e) {
+		t.Fatal("handshake created new HRS")
+	}
+	ready.Store(true)
+	req := pv.Message{Sum: &pv.Message_SignVoteRequest{SignVoteRequest: &pv.SignVoteRequest{ChainId: chain, Vote: authorityVote(7)}}}
+	response = signerExchange(t, conn, req)
+	signed := response.GetSignedVoteResponse()
+	if signed == nil || signed.Error != nil || len(signed.Vote.Signature) != 65 {
+		t.Fatal("ready authority signing failed", signed)
+	}
+	native, e := loadNativeKey(c.Key)
+	if e != nil || !native.PubKey().VerifySignature(types.VoteSignBytes(chain, &signed.Vote), signed.Vote.Signature) {
+		t.Fatal("invalid stock signature", e)
+	}
+	conn.Close()
+	conn = acceptSigner(t, listener)
+	response = signerExchange(t, conn, pub)
+	if response.GetPubKeyResponse() == nil || response.GetPubKeyResponse().Error != nil {
+		t.Fatal("reconnect pubkey failed")
+	}
+	response = signerExchange(t, conn, req)
+	if response.GetSignedVoteResponse().Error == nil {
+		t.Fatal("new closed session reused signature")
+	}
+	ready.Store(true)
+	response = signerExchange(t, conn, req)
+	retry := response.GetSignedVoteResponse()
+	if retry.Error != nil || !bytes.Equal(signed.Vote.Signature, retry.Vote.Signature) {
+		t.Fatal("fresh-session retry changed signature")
+	}
+	after, _ := os.ReadFile(c.LegacyState)
+	if !bytes.Equal(before, after) {
+		t.Fatal("native process modified legacy HRS")
 	}
 }
