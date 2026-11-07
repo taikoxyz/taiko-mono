@@ -105,9 +105,9 @@ The Etna block-production and validation rules are in
   failure is not handled by `recover`: its
   settlement rollback runs in the same DAO upgrade that replaces the verifier.
   That upgrade also makes signals cached and bridge messages left `RETRIABLE`
-  since the first bad landing unusable until they are proven again, without
-  taking a legitimate message's payment; `SignalService` and the Bridge stay
-  paused until it executes.
+  since the first bad landing unusable until they are proven again; legitimate
+  ones then complete without paying a fee twice, and the L1 `SignalService` and
+  Bridge stay paused until it executes.
 - **Upgrades:** rule changes take effect at an L2 timestamp from one Inbox slot
   that only the DAO writes, at least `maxAnchorAge` ahead, so every later block's
   anchor shows it. Nodes and guests select each block's ruleset from its anchor
