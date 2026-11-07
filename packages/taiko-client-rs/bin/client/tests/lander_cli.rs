@@ -8,7 +8,7 @@ mod support {
 
 use std::{
     path::Path,
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant},
 };
 
 use alloy_primitives::U256;
@@ -280,36 +280,20 @@ async fn lander_cli_refuses_locks_corrupt_journals_and_invalid_caps_before_signi
     result
 }
 
-async fn wait_batch_marker(
-    process: &mut CliProcess,
-    directory: &Path,
-) -> Result<serde_json::Value> {
-    tokio::time::timeout(Duration::from_secs(5), async {
-        loop {
-            process.assert_running()?;
-            if let Ok(bytes) = std::fs::read(directory.join("lander-state.json")) &&
-                let Ok(journal) = serde_json::from_slice::<serde_json::Value>(&bytes) &&
-                journal["state"]["phase"] == "idle" &&
-                journal["waiting"].is_object()
-            {
-                return Ok(journal["waiting"].clone());
-            }
-            tokio::time::sleep(Duration::from_millis(25)).await;
-        }
-    })
-    .await
-    .map_err(|error| {
-        let observed = std::fs::read(directory.join("lander-state.json"))
-            .ok()
-            .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok())
-            .map(|journal| json!({"phase": journal["state"]["phase"], "waiting": journal["waiting"]}));
-        anyhow::anyhow!("no durable batch wait marker: {error}; journal {observed:?}\n{}", process.output())
-    })?
+/// The latest batch-trigger log line of a process; matching the message alone keeps the check
+/// independent of the log format.
+fn threshold_line(process: &CliProcess) -> Result<String> {
+    process
+        .output()
+        .lines()
+        .rfind(|line| line.contains("lander batch collection threshold reached"))
+        .map(str::to_owned)
+        .with_context(|| format!("no batch trigger logged\n{}", process.output()))
 }
 
 #[tokio::test]
 #[ignore = "docker"]
-async fn lander_cli_submits_at_minimum_or_timeout_and_keeps_wait_after_sigkill() -> Result<()> {
+async fn lander_cli_submits_at_minimum_or_timeout_and_restarts_wait_after_sigkill() -> Result<()> {
     let fixture = ContractFixture::deploy_config(1, 120, 60).await?;
     let result = async {
         let mut chain = FixtureChain::new(&fixture).await?;
@@ -344,10 +328,6 @@ async fn lander_cli_submits_at_minimum_or_timeout_and_keeps_wait_after_sigkill()
         mine_l1_blocks(&fixture.anvil.provider, 3).await?;
         chain.extend(&fixture, 12).await?;
         rpc.replace(rpc_data(&chain)).await;
-        let waiting = wait_batch_marker(&mut first, &args.data)
-            .await
-            .context("initial checkpoint-1 backlog")?;
-        ensure!(waiting["checkpoint_height"] == 6, "wait attached to wrong checkpoint");
         tokio::time::sleep(Duration::from_millis(500)).await;
         first.assert_running()?;
         ensure!(fixture.checkpoint().await?.0 == 6, "submitted before minimum or deadline");
@@ -360,35 +340,39 @@ async fn lander_cli_submits_at_minimum_or_timeout_and_keeps_wait_after_sigkill()
         // Three publishable blocks trigger before the twenty-second timer.
         // The fifteen-second observation window includes real signing and inclusion overhead.
         wait_checkpoint_before(&fixture, &mut first, 18, Duration::from_secs(15)).await?;
-        let first_seen = waiting["first_seen_unix_ms"]
-            .as_u64()
-            .context("durable waiting timer has no observation timestamp")?;
-        let age_ms = SystemTime::now()
-            .duration_since(UNIX_EPOCH)?
-            .as_millis()
-            .saturating_sub(u128::from(first_seen));
+        let trigger = threshold_line(&first)?;
         ensure!(
-            age_ms < 20_000,
-            "minimum test reached the timer deadline instead of the count gate"
+            trigger.contains("minimum"),
+            "count gate landed on another trigger: {trigger}\n{}",
+            first.output()
         );
         mine_l1_blocks(&fixture.anvil.provider, 3).await?;
         chain.extend(&fixture, 24).await?;
         rpc.replace(rpc_data(&chain)).await;
-        let original_wait =
-            wait_batch_marker(&mut first, &args.data).await.context("checkpoint-4 backlog")?;
-        ensure!(original_wait["checkpoint_height"] == 18, "new backlog retained old checkpoint");
+        // The first process sees the checkpoint-18 backlog and starts its in-memory timer, which
+        // SIGKILL discards: the restarted process waits the full twenty seconds again.
+        tokio::time::sleep(Duration::from_secs(2)).await;
+        ensure!(fixture.checkpoint().await?.0 == 18, "landed before the batch deadline");
         ensure!(!first.signal(libc::SIGKILL).await?.success(), "SIGKILL should be abrupt");
+        let restarted = Instant::now();
         let mut second = CliProcess::spawn(
             Path::new(CLIENT),
             &args,
             directory.path().join("batch-restarted.log"),
             &policy,
         )?;
-        let restored_wait = wait_batch_marker(&mut second, &args.data)
-            .await
-            .context("restored checkpoint-4 backlog")?;
-        ensure!(restored_wait == original_wait, "restart reset the durable batching timer");
         wait_checkpoint_before(&fixture, &mut second, 24, Duration::from_secs(50)).await?;
+        ensure!(
+            restarted.elapsed() >= Duration::from_secs(19),
+            "restart kept the earlier batch timer: landed after {:?}",
+            restarted.elapsed()
+        );
+        let trigger = threshold_line(&second)?;
+        ensure!(
+            trigger.contains("timeout"),
+            "restarted wait landed on another trigger: {trigger}\n{}",
+            second.output()
+        );
         ensure!(
             fixture.checkpoint().await? == (24, chain.headers[24].hash_slow()),
             "timeout checkpoint differs"

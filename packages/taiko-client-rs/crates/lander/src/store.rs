@@ -6,7 +6,7 @@ use crate::{
     proof::ProofRequest,
     tx::{LandingReceipt, SignedTransaction},
 };
-use alloy_primitives::{Address, B256, Bytes, U256};
+use alloy_primitives::{Address, Bytes, U256};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{File, OpenOptions},
@@ -80,19 +80,6 @@ pub enum JournalState {
     },
 }
 
-/// First local observation of backlog at one coherent checkpoint, durable across restarts.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct BatchWait {
-    /// Height of the checkpoint above which decided backlog was first observed.
-    pub checkpoint_height: u64,
-    /// Checkpoint block identity; a same-height competing block starts a new wait.
-    pub checkpoint_hash: B256,
-    /// Inbox recovery generation; recovery cannot inherit an earlier checkpoint's timer.
-    pub generation: u64,
-    /// Unix milliseconds of first local backlog observation, used to restore elapsed wait.
-    pub first_seen_unix_ms: u64,
-}
-
 /// Versioned disk envelope so identities are checked even when the state is idle.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct Journal {
@@ -102,9 +89,6 @@ struct Journal {
     identity: JournalIdentity,
     /// Resumable phase.
     state: JournalState,
-    /// Optional Idle-only backlog timer; absence allows a timer-free V5 journal.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    waiting: Option<BatchWait>,
 }
 
 /// Holds the exclusive directory lock throughout every signing and broadcast operation.
@@ -145,16 +129,11 @@ impl Store {
 
     /// Read only the committed file. An interrupted temporary write does not supersede it.
     pub fn load(&self) -> Result<JournalState> {
-        self.load_with_wait().map(|(state, _)| state)
-    }
-
-    /// Read the committed phase and optional backlog timer as one validated disk snapshot.
-    pub fn load_with_wait(&self) -> Result<(JournalState, Option<BatchWait>)> {
         let path = self.directory.join("lander-state.json");
         let file = match File::open(&path) {
             Ok(file) => file,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                return Ok((JournalState::Idle, None))
+                return Ok(JournalState::Idle)
             }
             Err(error) => return Err(io_error(error)),
         };
@@ -181,25 +160,17 @@ impl Store {
                 "journal chain/contract/sender identity differs from configuration".into(),
             ));
         }
-        self.validate_wait(&journal.state, journal.waiting.as_ref())?;
         self.validate(&journal.state)?;
-        Ok((journal.state, journal.waiting))
+        Ok(journal.state)
     }
 
-    /// Commit a phase and clear any backlog timer before returning after all durability barriers.
+    /// Atomically commit a phase, returning only after all durability barriers.
     pub fn save(&self, state: &JournalState) -> Result<()> {
-        self.save_with_wait(state, None)
-    }
-
-    /// Atomically commit an Idle backlog timer or a timer-free transaction phase, then fsync.
-    pub fn save_with_wait(&self, state: &JournalState, waiting: Option<&BatchWait>) -> Result<()> {
-        self.validate_wait(state, waiting)?;
         self.validate(state)?;
         let journal = Journal {
             version: JOURNAL_VERSION,
             identity: self.identity.clone(),
             state: state.clone(),
-            waiting: waiting.cloned(),
         };
         let bytes = serde_json::to_vec(&journal)
             .map_err(|e| LanderError::Journal(format!("serialize journal: {e}")))?;
@@ -217,14 +188,6 @@ impl Store {
         file.sync_all().map_err(io_error)?;
         std::fs::rename(temporary, self.directory.join("lander-state.json")).map_err(io_error)?;
         File::open(&self.directory).map_err(io_error)?.sync_all().map_err(io_error)?;
-        Ok(())
-    }
-
-    /// Refuse a timer attached to any phase that already owns an immutable transaction job.
-    fn validate_wait(&self, state: &JournalState, waiting: Option<&BatchWait>) -> Result<()> {
-        if waiting.is_some() && !matches!(state, JournalState::Idle) {
-            return Err(LanderError::Journal("batch wait marker is only valid in Idle".into()));
-        }
         Ok(())
     }
 
@@ -310,6 +273,7 @@ fn io_error(error: std::io::Error) -> LanderError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloy_primitives::B256;
     fn identity() -> JournalIdentity {
         JournalIdentity {
             l1_chain_id: U256::from(1),
@@ -417,24 +381,6 @@ mod tests {
         assert_eq!(kept["state"]["phase"], "pending");
         assert_eq!(kept["state"]["transaction"]["nonce"], 7);
         assert!(!directory.path().join("lander-state.json.tmp").exists());
-    }
-
-    #[test]
-    fn idle_wait_roundtrip_and_phase_save_clears_the_marker() {
-        let directory = tempfile::tempdir().unwrap();
-        let store = Store::open(directory.path(), identity()).unwrap();
-        let waiting = BatchWait {
-            checkpoint_height: 12,
-            checkpoint_hash: B256::repeat_byte(12),
-            generation: 4,
-            first_seen_unix_ms: 1234,
-        };
-        store.save_with_wait(&JournalState::Idle, Some(&waiting)).unwrap();
-        drop(store);
-        let store = Store::open(directory.path(), identity()).unwrap();
-        assert_eq!(store.load_with_wait().unwrap(), (JournalState::Idle, Some(waiting)));
-        store.save(&JournalState::Idle).unwrap();
-        assert_eq!(store.load_with_wait().unwrap(), (JournalState::Idle, None));
     }
 
     #[test]
@@ -601,12 +547,8 @@ mod tests {
             assert!(store.save(&state).unwrap_err().to_string().contains("KZG"));
             assert_eq!(std::fs::read(&path).unwrap(), original);
             // A damaged on-disk sidecar must also be rejected on restoration.
-            let journal = Journal {
-                version: JOURNAL_VERSION,
-                identity: store.identity.clone(),
-                state,
-                waiting: None,
-            };
+            let journal =
+                Journal { version: JOURNAL_VERSION, identity: store.identity.clone(), state };
             std::fs::write(path, serde_json::to_vec(&journal).unwrap()).unwrap();
             assert!(store.load().unwrap_err().to_string().contains("KZG"));
         }
@@ -827,34 +769,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn wait_marker_on_prepared_journal_is_rejected() {
-        let request = crate::test_utils::runtime::request();
-        let snapshot = &request.batch.snapshot;
-        let identity = JournalIdentity {
-            l1_chain_id: snapshot.l1_chain_id,
-            l2_chain_id: snapshot.l2_chain_id,
-            inbox: snapshot.inbox,
-            registry: snapshot.registry,
-            sender: Address::repeat_byte(5),
-        };
-        let directory = tempfile::tempdir().unwrap();
-        let journal = serde_json::json!({
-            "version": JOURNAL_VERSION,
-            "identity": identity,
-            "state": JournalState::Prepared {
-                job: Box::new(ProvedJob { request, proof: Bytes::from_static(&[0]) }),
-            },
-            "waiting": {
-                "checkpoint_height": 0,
-                "checkpoint_hash": alloy_primitives::B256::repeat_byte(1),
-                "generation": 0,
-                "first_seen_unix_ms": 1234,
-            },
-        });
-        std::fs::write(directory.path().join("lander-state.json"), journal.to_string()).unwrap();
-        assert!(Store::open(directory.path(), identity).is_err());
-    }
     #[test]
     fn lock_is_exclusive_and_released_on_drop() {
         let directory = tempfile::tempdir().unwrap();

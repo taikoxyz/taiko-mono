@@ -246,8 +246,9 @@ blobs, a fixed constant (LAND-6.1 step 5).
 `--min-blocks` defaults to 1 and `--max-batch-wait` to 30 seconds, but neither permits a partial
 segment. The minimum is 1 through that batch cap: the lander refuses to start with a higher
 one, which no batch could reach. Wait expiry or consensus pressure can flush an available
-complete prefix below it. Batches can cross epoch transitions; batch timing and
-back-pressure follow spec sections 6.3 (Batches) and 6.4 (Back-pressure).
+complete prefix below it. The wait is kept in memory from the first backlog this process sees at
+the current checkpoint; a restart starts it again. Batches can cross epoch transitions; batch
+timing and back-pressure follow spec sections 6.3 (Batches) and 6.4 (Back-pressure).
 
 `--chain-config` uses the same authenticated parameters as ABCI. L1 identity is read as full
 uint256 from the actual endpoint; an explicit `l1_chain_id` must match. L2 IDs above uint64 are
@@ -281,9 +282,9 @@ and nonce and waits; restarting cannot repair it. Investigate the account and jo
 the [nonce reconciliation procedure](docs/governance-recovery.md#enrollment-waits-and-interruption)
 before any operator action; never delete the journal or allocate a replacement nonce to bypass it.
 
-A canonical revert at the confirmation depth, out-of-gas included, persists Idle and stops;
-restart after fixing the cause (a deterministic revert then stops at gas estimation, before
-signing).
+A canonical revert that leaves the checkpoint unchanged, out-of-gas included, persists Idle and
+stops; restart after fixing the cause (a deterministic revert then stops at gas estimation, before
+signing). A revert where a competing landing moved the parent settles and continues.
 An authenticated unsupported ruleset pauses preparation until the software is upgraded. The
 log reports `software upgrade required`, and
 `lander_retries_total{reason="unsupported_ruleset"}` records this separately from RPC or

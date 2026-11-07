@@ -604,7 +604,7 @@ async fn batch_waits_for_minimum_or_first_backlog_deadline_without_preparing() {
         let control = fixture.control.lock().unwrap();
         assert_eq!((control.prepares, control.proofs, control.signs), (0, 0, 0));
     }
-    let original = disk_wait(&fixture).unwrap();
+    let original = waiting(&runner).unwrap();
     tokio::time::advance(Duration::from_secs(20)).await;
     {
         let mut control = fixture.control.lock().unwrap();
@@ -612,22 +612,37 @@ async fn batch_waits_for_minimum_or_first_backlog_deadline_without_preparing() {
         control.decided_height = 3;
     }
     assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
-    assert_eq!(disk_wait(&fixture), Some(original));
+    assert_eq!(waiting(&runner), Some(original));
     tokio::time::advance(Duration::from_secs(9)).await;
     assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
     tokio::time::advance(Duration::from_secs(1)).await;
     assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
     assert!(matches!(runner.state(), JournalState::Prepared { .. }));
     assert_eq!(fixture.control.lock().unwrap().proofs, 1);
-    assert!(disk_wait(&fixture).is_none());
+    assert!(waiting(&runner).is_none());
 }
 
-fn disk_wait(fixture: &Fixture) -> Option<crate::store::BatchWait> {
-    let journal: serde_json::Value = serde_json::from_slice(
-        &std::fs::read(fixture.directory.path().join("lander-state.json")).unwrap(),
-    )
-    .unwrap();
-    journal.get("waiting").map(|waiting| serde_json::from_value(waiting.clone()).unwrap())
+fn waiting(r: &Runner) -> Option<(super::CheckpointId, tokio::time::Instant)> {
+    r.waiting
+}
+
+#[tokio::test(start_paused = true)]
+async fn batch_wait_lives_in_memory_and_restarts_with_the_process() {
+    let fixture = Fixture::new();
+    let policy = BatchPolicy { min_blocks: 4, max_wait: Duration::from_secs(30) };
+    let mut first = fixture.with_policy(policy);
+    assert_eq!(first.step().await.unwrap(), StepOutcome::Waiting);
+    assert!(waiting(&first).is_some());
+    tokio::time::advance(Duration::from_secs(25)).await;
+    assert_eq!(first.step().await.unwrap(), StepOutcome::Waiting);
+    drop(first);
+    assert!(!fixture.directory.path().join("lander-state.json").exists(), "waiting writes nothing");
+    let mut second = fixture.with_policy(policy);
+    assert_eq!(second.step().await.unwrap(), StepOutcome::Waiting);
+    tokio::time::advance(Duration::from_secs(29)).await;
+    assert_eq!(second.step().await.unwrap(), StepOutcome::Waiting);
+    tokio::time::advance(Duration::from_secs(1)).await;
+    assert_eq!(second.step().await.unwrap(), StepOutcome::Progress);
 }
 
 #[tokio::test(start_paused = true)]
@@ -639,7 +654,7 @@ async fn minimum_is_sufficient_without_waiting_for_the_deadline() {
     assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
     fixture.control.lock().unwrap().publishable_blocks = 2;
     assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
-    assert!(disk_wait(&fixture).is_none());
+    assert!(waiting(&runner).is_none());
 }
 
 #[tokio::test(start_paused = true)]
@@ -649,11 +664,11 @@ async fn incomplete_backlog_retains_its_timer_until_a_complete_prefix_is_availab
     fixture.control.lock().unwrap().publishable_blocks = 0;
     let mut runner = fixture.with_policy(policy);
     assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
-    let marker = disk_wait(&fixture).unwrap();
+    let marker = waiting(&runner).unwrap();
     tokio::time::advance(Duration::from_secs(31)).await;
     assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
     assert_eq!(fixture.control.lock().unwrap().prepares, 0);
-    assert_eq!(disk_wait(&fixture), Some(marker));
+    assert_eq!(waiting(&runner), Some(marker));
     fixture.control.lock().unwrap().publishable_blocks = 1;
     assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
 }
@@ -665,7 +680,7 @@ async fn transient_observation_and_checkpoint_errors_preserve_wait_age() {
         let policy = BatchPolicy { min_blocks: 4, max_wait: Duration::from_secs(30) };
         let mut runner = fixture.with_policy(policy);
         assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
-        let marker = disk_wait(&fixture).unwrap();
+        let marker = waiting(&runner).unwrap();
         tokio::time::advance(Duration::from_secs(20)).await;
         {
             let mut control = fixture.control.lock().unwrap();
@@ -673,7 +688,7 @@ async fn transient_observation_and_checkpoint_errors_preserve_wait_age() {
             control.checkpoint_error = checkpoint_error;
         }
         assert!(matches!(runner.step().await, Err(LanderError::Temporary(_))));
-        assert_eq!(disk_wait(&fixture), Some(marker));
+        assert_eq!(waiting(&runner), Some(marker));
         tokio::time::advance(Duration::from_secs(10)).await;
         {
             let mut control = fixture.control.lock().unwrap();
@@ -685,50 +700,6 @@ async fn transient_observation_and_checkpoint_errors_preserve_wait_age() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn restart_restores_elapsed_age_and_keeps_the_existing_wall_marker() {
-    let fixture = Fixture::new();
-    let policy = BatchPolicy { min_blocks: 4, max_wait: Duration::from_secs(30) };
-    let mut first = fixture.with_policy(policy);
-    assert_eq!(first.step().await.unwrap(), StepOutcome::Waiting);
-    drop(first);
-    let store = Store::open(fixture.directory.path(), fixture.identity()).unwrap();
-    let (_, mut waiting) = store.load_with_wait().unwrap();
-    let marker = waiting.as_mut().unwrap();
-    marker.first_seen_unix_ms = super::unix_milliseconds().unwrap() - 25_000;
-    store.save_with_wait(&JournalState::Idle, waiting.as_ref()).unwrap();
-    drop(store);
-    let marker = disk_wait(&fixture).unwrap();
-    let mut resumed = fixture.with_policy(policy);
-    assert_eq!(resumed.step().await.unwrap(), StepOutcome::Waiting);
-    tokio::time::advance(Duration::from_secs(4)).await;
-    assert_eq!(resumed.step().await.unwrap(), StepOutcome::Waiting);
-    assert_eq!(disk_wait(&fixture), Some(marker));
-    tokio::time::advance(Duration::from_secs(1)).await;
-    assert_eq!(resumed.step().await.unwrap(), StepOutcome::Progress);
-}
-
-#[tokio::test(start_paused = true)]
-async fn future_wall_marker_is_clamped_once_and_monotonic_wait_remains_bounded() {
-    let fixture = Fixture::new();
-    let policy = BatchPolicy { min_blocks: 4, max_wait: Duration::from_secs(30) };
-    let store = Store::open(fixture.directory.path(), fixture.identity()).unwrap();
-    let future = crate::store::BatchWait {
-        checkpoint_height: fixture.request.batch.snapshot.checkpoint_height,
-        checkpoint_hash: fixture.request.batch.snapshot.checkpoint_hash,
-        generation: fixture.request.batch.snapshot.generation,
-        first_seen_unix_ms: u64::MAX,
-    };
-    store.save_with_wait(&JournalState::Idle, Some(&future)).unwrap();
-    drop(store);
-    let mut runner = fixture.with_policy(policy);
-    let clamped = disk_wait(&fixture).unwrap();
-    assert!(clamped.first_seen_unix_ms < future.first_seen_unix_ms);
-    assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
-    tokio::time::advance(Duration::from_secs(30)).await;
-    assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
-}
-
-#[tokio::test(start_paused = true)]
 async fn empty_backlog_discards_the_prior_deadline() {
     let fixture = Fixture::new();
     let policy = BatchPolicy { min_blocks: 4, max_wait: Duration::from_secs(30) };
@@ -737,7 +708,7 @@ async fn empty_backlog_discards_the_prior_deadline() {
     tokio::time::advance(Duration::from_secs(20)).await;
     fixture.control.lock().unwrap().decided_height = 0;
     assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
-    assert!(disk_wait(&fixture).is_none());
+    assert!(waiting(&runner).is_none());
     fixture.control.lock().unwrap().decided_height = 2;
     assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
     tokio::time::advance(Duration::from_secs(10)).await;
@@ -767,7 +738,7 @@ async fn checkpoint_identity_change_discards_wait_even_when_following_rpc_fails(
                 control.checkpoint_error = checkpoint_error;
             }
             assert!(matches!(runner.step().await, Err(LanderError::Temporary(_))));
-            assert!(disk_wait(&fixture).is_none());
+            assert!(waiting(&runner).is_none());
             {
                 let mut control = fixture.control.lock().unwrap();
                 control.snapshot = fixture.request.batch.snapshot.clone();
@@ -797,7 +768,7 @@ async fn consensus_pressure_and_epoch_progress_bypass_high_threshold_and_long_wa
         assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
         assert!(matches!(runner.state(), JournalState::Prepared { .. }));
         assert_eq!(fixture.control.lock().unwrap().proofs, 1);
-        assert!(disk_wait(&fixture).is_none());
+        assert!(waiting(&runner).is_none());
     }
 }
 
@@ -810,7 +781,7 @@ async fn lower_prepared_tip_does_not_bypass_the_minimum_threshold() {
     assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
     assert_eq!(runner.state(), &JournalState::Idle);
     assert_eq!(fixture.control.lock().unwrap().proofs, 0);
-    assert!(disk_wait(&fixture).is_some());
+    assert!(waiting(&runner).is_some());
     tokio::time::advance(Duration::from_secs(30)).await;
     assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
 }
@@ -824,7 +795,7 @@ async fn empty_fresh_preparation_clears_an_expired_backlog_timer() {
     tokio::time::advance(Duration::from_secs(30)).await;
     fixture.control.lock().unwrap().prepare_empty = true;
     assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
-    assert!(disk_wait(&fixture).is_none());
+    assert!(waiting(&runner).is_none());
     fixture.control.lock().unwrap().prepare_empty = false;
     assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
     tokio::time::advance(Duration::from_secs(29)).await;

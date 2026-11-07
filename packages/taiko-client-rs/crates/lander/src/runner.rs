@@ -7,15 +7,12 @@ use crate::{
     l1::LandingSource,
     metrics::{LanderMetrics, TransactionPhase},
     proof::{ProofError, ProofProvider},
-    store::{BatchWait, JournalIdentity, JournalState, ProvedJob, Store},
+    store::{JournalIdentity, JournalState, ProvedJob, Store},
     tx::{LandingReceipt, SignedTransaction, TransactionTransport},
     types::LandingSnapshot,
 };
 use alloy_primitives::{B256, U256};
-use std::{
-    sync::Arc,
-    time::{Duration, SystemTime, UNIX_EPOCH},
-};
+use std::{sync::Arc, time::Duration};
 use tokio::time::{Instant, timeout};
 
 /// How long a consumed nonce may lack its own transaction's receipt before the account is treated
@@ -76,27 +73,25 @@ pub enum StepOutcome {
     Settled,
 }
 
-/// Durable backlog identity plus monotonic age, independent of arrivals and RPC retries.
-struct BatchWaiting {
-    /// Checkpoint identity and wall time restored from the Idle journal.
-    marker: BatchWait,
-    /// Already elapsed wall time at startup; later clock changes cannot extend the wait.
-    restored_elapsed: Duration,
-    /// Monotonic start of this process's contribution to backlog age.
-    started_at: Instant,
+/// Exact checkpoint a batch wait or a reverted landing is measured against.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct CheckpointId {
+    /// Inbox recovery generation; recovery cannot inherit an earlier checkpoint's wait.
+    generation: u64,
+    /// Checkpoint height.
+    height: u64,
+    /// Checkpoint block hash; a same-height competing block is a different checkpoint.
+    hash: B256,
 }
 
-impl BatchWaiting {
-    /// Elapsed age including downtime and this process's monotonic runtime.
-    fn elapsed(&self) -> Duration {
-        self.restored_elapsed.saturating_add(self.started_at.elapsed())
-    }
-
-    /// Check whether a coherent checkpoint can retain the existing first-backlog observation.
-    fn matches(&self, snapshot: &LandingSnapshot) -> bool {
-        self.marker.checkpoint_height == snapshot.checkpoint_height &&
-            self.marker.checkpoint_hash == snapshot.checkpoint_hash &&
-            self.marker.generation == snapshot.generation
+impl CheckpointId {
+    /// The checkpoint a coherent snapshot reads.
+    fn of(snapshot: &LandingSnapshot) -> Self {
+        Self {
+            generation: snapshot.generation,
+            height: snapshot.checkpoint_height,
+            hash: snapshot.checkpoint_hash,
+        }
     }
 }
 
@@ -114,8 +109,9 @@ pub struct Runner {
     store: Store,
     /// Current phase, mirrored on disk at every network mutation boundary.
     state: JournalState,
-    /// First local backlog age; present only while the durable phase is Idle.
-    waiting: Option<BatchWaiting>,
+    /// Checkpoint and monotonic start of this process's first backlog observation there; kept
+    /// only in memory and only while the phase is Idle, so a restart starts the wait again.
+    waiting: Option<(CheckpointId, Instant)>,
     /// Outstanding transaction whose nonce was first seen consumed without a receipt, and when.
     unindexed_receipt: Option<(B256, Instant)>,
     /// Time and confirmation bounds.
@@ -138,22 +134,7 @@ impl Runner {
                 "configured signer differs from journal sender".into(),
             ));
         }
-        let (state, marker) = store.load_with_wait()?;
-        let waiting = if let Some(mut marker) = marker {
-            let now_unix_ms = unix_milliseconds()?;
-            if marker.first_seen_unix_ms > now_unix_ms {
-                // Persist the clamp so a future timestamp cannot restart the full wait forever.
-                marker.first_seen_unix_ms = now_unix_ms;
-                store.save_with_wait(&state, Some(&marker))?;
-            }
-            Some(BatchWaiting {
-                restored_elapsed: Duration::from_millis(now_unix_ms - marker.first_seen_unix_ms),
-                marker,
-                started_at: Instant::now(),
-            })
-        } else {
-            None
-        };
+        let state = store.load()?;
         observe_state(&state);
         Ok(Self {
             batches,
@@ -162,7 +143,7 @@ impl Runner {
             proofs,
             store,
             state,
-            waiting,
+            waiting: None,
             unindexed_receipt: None,
             config,
         })
@@ -205,8 +186,8 @@ impl Runner {
 
     /// Poll no later than a pending backlog deadline, retaining ordinary polling once it expires.
     fn poll_delay(&self) -> Duration {
-        if let Some(waiting) = &self.waiting {
-            let remaining = self.config.batch_policy.max_wait.saturating_sub(waiting.elapsed());
+        if let Some((_, started)) = self.waiting {
+            let remaining = self.config.batch_policy.max_wait.saturating_sub(started.elapsed());
             if !remaining.is_zero() {
                 return self.config.poll_interval.min(remaining);
             }
@@ -218,7 +199,7 @@ impl Runner {
     pub async fn step(&mut self) -> Result<StepOutcome> {
         let snapshot = self.l1.snapshot().await?;
         self.validate_identity(&snapshot)?;
-        self.reconcile_wait_checkpoint(&snapshot)?;
+        self.reconcile_wait_checkpoint(&snapshot);
         // A possibly broadcast transaction owns its nonce even while recovered Comet history
         // is unavailable. Its canonical receipt/account reconciliation precedes new work.
         let recovering_nonce = match &self.state {
@@ -240,11 +221,11 @@ impl Runner {
                 let preview = self.batches.observe(&snapshot).await?;
                 let observation = preview.observation;
                 if observation.decided_height <= snapshot.checkpoint_height {
-                    self.clear_wait()?;
+                    self.clear_wait();
                     return Ok(StepOutcome::Waiting);
                 }
-                self.start_wait(&snapshot)?;
-                let elapsed = self.waiting.as_ref().map_or(Duration::ZERO, BatchWaiting::elapsed);
+                self.start_wait(&snapshot);
+                let elapsed = self.wait_elapsed();
                 tracing::debug!(
                     decided_height = observation.decided_height,
                     publishable_blocks = observation.publishable_blocks,
@@ -262,10 +243,10 @@ impl Runner {
                     return Ok(StepOutcome::Waiting);
                 }
                 let Some(request) = self.batches.prepare_observed(snapshot, preview).await? else {
-                    self.clear_wait()?;
+                    self.clear_wait();
                     return Ok(StepOutcome::Waiting);
                 };
-                let elapsed = self.waiting.as_ref().map_or(Duration::ZERO, BatchWaiting::elapsed);
+                let elapsed = self.wait_elapsed();
                 if request.batch.blocks.len() < self.config.batch_policy.min_blocks &&
                     elapsed < self.config.batch_policy.max_wait &&
                     !observation.force_backpressure &&
@@ -366,39 +347,25 @@ impl Runner {
     }
 
     /// Discard an old timer before subsequent checkpoint/observation reads can fail transiently.
-    fn reconcile_wait_checkpoint(&mut self, snapshot: &LandingSnapshot) -> Result<()> {
-        if self.waiting.as_ref().is_some_and(|waiting| !waiting.matches(snapshot)) {
-            self.clear_wait()?;
+    fn reconcile_wait_checkpoint(&mut self, snapshot: &LandingSnapshot) {
+        if self.waiting.is_some_and(|(checkpoint, _)| checkpoint != CheckpointId::of(snapshot)) {
+            self.clear_wait();
         }
-        Ok(())
     }
 
-    /// Persist the first nonempty local backlog observation before any batch construction.
-    fn start_wait(&mut self, snapshot: &LandingSnapshot) -> Result<()> {
-        if self.waiting.is_none() {
-            let marker = BatchWait {
-                checkpoint_height: snapshot.checkpoint_height,
-                checkpoint_hash: snapshot.checkpoint_hash,
-                generation: snapshot.generation,
-                first_seen_unix_ms: unix_milliseconds()?,
-            };
-            self.store.save_with_wait(&self.state, Some(&marker))?;
-            self.waiting = Some(BatchWaiting {
-                marker,
-                restored_elapsed: Duration::ZERO,
-                started_at: Instant::now(),
-            });
-        }
-        Ok(())
+    /// Start the wait at this process's first backlog observation at the current checkpoint.
+    fn start_wait(&mut self, snapshot: &LandingSnapshot) {
+        self.waiting.get_or_insert_with(|| (CheckpointId::of(snapshot), Instant::now()));
+    }
+
+    /// Age of the current wait, zero when none is running.
+    fn wait_elapsed(&self) -> Duration {
+        self.waiting.map_or(Duration::ZERO, |(_, started)| started.elapsed())
     }
 
     /// Clear a completed or replaced backlog timer without changing the transaction phase.
-    fn clear_wait(&mut self) -> Result<()> {
-        if self.waiting.is_some() {
-            self.store.save(&self.state)?;
-            self.waiting = None;
-        }
-        Ok(())
+    fn clear_wait(&mut self) {
+        self.waiting = None;
     }
 
     /// The fresh source must preserve every configured statement identity.
@@ -607,7 +574,7 @@ impl Runner {
                     "successful canonical receipt did not advance the Inbox checkpoint".into(),
                 ));
             }
-        } else if same_parent(&snapshot, &job.request.batch.snapshot) {
+        } else if CheckpointId::of(&snapshot) == CheckpointId::of(&job.request.batch.snapshot) {
             // The revert is canonical at the confirmation depth, so its nonce is spent and
             // nothing of this job can land any more. Every such revert, out-of-gas included,
             // stops the runner. Persist Idle first: a restart then rebuilds from the current
@@ -623,15 +590,6 @@ impl Runner {
         self.transition(JournalState::Idle)?;
         Ok(StepOutcome::Settled)
     }
-}
-
-/// Capture a portable wall timestamp for restart continuity; in-process waiting is monotonic.
-fn unix_milliseconds() -> Result<u64> {
-    let elapsed = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_err(|e| LanderError::Journal(format!("wall clock precedes Unix epoch: {e}")))?;
-    u64::try_from(elapsed.as_millis())
-        .map_err(|_| LanderError::Journal("wall clock milliseconds exceed journal range".into()))
 }
 
 /// Publish restored as well as newly committed phases without exposing transaction identifiers.
@@ -715,13 +673,6 @@ fn job_reference(batch: &crate::types::PreparedBatch) -> Result<(u64, B256)> {
     let raw = abci::l1::header::RawL1Header::from_raw(reference.clone())
         .map_err(|e| LanderError::Journal(format!("job reference header: {e}")))?;
     Ok((crate::types::protocol_u48(batch.input.l1ReferenceBlockNumber)?, raw.hash()))
-}
-
-/// Compare the exact receipt context when deciding whether a canonical revert made no progress.
-fn same_parent(current: &LandingSnapshot, prepared: &LandingSnapshot) -> bool {
-    current.generation == prepared.generation &&
-        current.checkpoint_height == prepared.checkpoint_height &&
-        current.checkpoint_hash == prepared.checkpoint_hash
 }
 
 /// Preserve backend retryability without treating rejected proofs as temporary transport failures.
