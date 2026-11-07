@@ -11,6 +11,10 @@
 #   ANVIL_IMAGE, LANDER_ANVIL_IMAGE, ALETHIA_RETH_IMAGE, COMETBFT_IMAGE override the images.
 #   PULL_POLICY=missing  reuse images already present on the daemon instead of
 #                        pulling them on every run.
+#   TAIKO_CLIENT_RS_TEST_LANE=native|devnet  run one of CI's two lanes within the selected
+#                        tier: `native` is the governance_recovery binary (stock Comet, native
+#                        EL and the recovery test image), `devnet` every other scenario. Unset
+#                        runs both.
 
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -32,6 +36,18 @@ elif [[ "${1:-}" == "--full" ]]; then
     shift
     filter='kind(test)'
 fi
+# The lane term joins the listing too, so helper preparation follows the lane. Only the
+# governance_recovery binary (NATIVE_SUITE in selected_dependencies.py) needs stock Comet, the
+# native EL or the recovery image; splitting on it keeps those builds out of the devnet lane.
+case "${TAIKO_CLIENT_RS_TEST_LANE:-}" in
+    '') ;;
+    native) filter="$filter & binary_id(taiko-client::governance_recovery)" ;;
+    devnet) filter="$filter & !binary_id(taiko-client::governance_recovery)" ;;
+    *)
+        echo "ERROR: TAIKO_CLIENT_RS_TEST_LANE must be native or devnet, not '$TAIKO_CLIENT_RS_TEST_LANE'" >&2
+        exit 2
+        ;;
+esac
 
 # Use the same build/selection arguments for discovery and execution. Repeated -E expressions
 # retain nextest's OR semantics; never parse or reconstruct user filter expressions here.

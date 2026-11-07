@@ -1,6 +1,7 @@
 """Exercise the real entrypoint with disposable Cargo/Docker/helper executables, and keep its
 hand-listed test selection attached to the Rust test tree."""
 from collections import namedtuple
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -208,6 +209,29 @@ python3 -c 'import json, os, sys; open(os.environ["CALLS"], "a").write(json.dump
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(set(self.builds()), {"etna_signer", "stock_comet", "etna_el_import", "etna_el_runtime", "recovery_runtime"})
         self.assert_lists_once_without_caller_arguments("--message-format=human")
+
+    def test_lanes_split_on_the_native_suite(self):
+        pr_filter = "kind(test) & !test(=stale_l1_finality_pauses_and_resumes_l2)"
+        for lane, term in (("native", "binary_id(taiko-client::governance_recovery)"),
+                           ("devnet", "!binary_id(taiko-client::governance_recovery)")):
+            with self.subTest(lane=lane):
+                self.log.unlink(missing_ok=True)
+                self.select("single_validator", "single_validator_produces_blocks_by_the_header_rules")
+                self.env["TAIKO_CLIENT_RS_TEST_LANE"] = lane
+                result = self.run_entrypoint()
+                self.assertEqual(result.returncode, 0, result.stderr)
+                calls = self.calls()
+                listed = calls[0]
+                self.assertEqual(listed[:3], ["cargo", "nextest", "list"])
+                self.assertEqual(listed[listed.index("-E") + 1], f"{pr_filter} & {term}")
+                run = next(row for row in calls if row[:3] == ["cargo", "nextest", "run"])
+                self.assertEqual(run[run.index("-E") + 1], f"{pr_filter} & {term}")
+
+    def test_unknown_lane_fails_before_listing(self):
+        self.env["TAIKO_CLIENT_RS_TEST_LANE"] = "shard1"
+        result = self.run_entrypoint()
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertEqual(self.calls(), [])
 
     def test_native_fence_only_prepares_el(self):
         self.select("governance_recovery", "support::checkpoint_import::long_fence::native_long_fence_restarts_and_executes_with_body_pruned_parents")
@@ -469,6 +493,14 @@ class SelectionDrift(unittest.TestCase):
         self.assertTrue(names)
         defined = {qualified for path in rust_test_files() for qualified in column_zero_fns(path)}
         self.assertEqual(names - defined, set(), "entrypoint filters name missing tests")
+
+    def test_lane_suite_matches_dependency_mapping(self):
+        spec = importlib.util.spec_from_file_location("lane_dependencies", ROOT / "tests/selected_dependencies.py")
+        mapping = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mapping)
+        suites = set(re.findall(r"binary_id\(([^)]+)\)", (ROOT / "tests/entrypoint.sh").read_text()))
+        self.assertEqual(suites, {"::".join(mapping.NATIVE_SUITE)},
+                         "the native lane must select exactly the suite mapped to comet, el and recovery")
 
 
 if __name__ == "__main__":

@@ -4,6 +4,9 @@ import json
 import os
 import sys
 
+# The only (package, binary) whose cases need stock Comet, the native EL or the recovery image.
+# The entrypoint's `native` lane selects exactly this binary; widen both together.
+NATIVE_SUITE = ("taiko-client", "governance_recovery")
 RECOVERY_IMAGE = {
     "governance_recovery_linux_comet_uid_reads_p2p_and_cannot_read_registered_key",
     "governance_recovery_sigkill_boundaries_replay_without_duplicate_owners",
@@ -31,7 +34,7 @@ def dependencies(data):
             if case["filter-match"]["status"] != "matches":
                 continue
             needed.add("docker")
-            recovery = (suite["package-name"], suite["binary-name"]) == ("taiko-client", "governance_recovery")
+            recovery = (suite["package-name"], suite["binary-name"]) == NATIVE_SUITE
             if recovery and name == LONG_FENCE:
                 needed.add("el")
                 continue

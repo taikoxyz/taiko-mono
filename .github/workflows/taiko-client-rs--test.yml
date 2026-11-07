@@ -248,15 +248,19 @@ jobs:
 
   docker:
     if: ${{ github.event.pull_request.draft == false && !startsWith(github.head_ref, 'release-please') }}
-    name: Docker Tests (${{ matrix.shard }}/2)
+    name: Docker Tests (${{ matrix.lane }})
     runs-on: ubuntu-latest
     timeout-minutes: 180
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        # `native` is the governance_recovery binary, the only suite that needs
+        # stock Comet, the native EL and the recovery test image; `devnet` is
+        # every other scenario. Hash shards built those helpers on both runners.
+        lane: [devnet, native]
     env:
-      TAIKO_CLIENT_RS_TEST_RUN: ci-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-${{ matrix.shard }}
+      TAIKO_CLIENT_RS_TEST_LANE: ${{ matrix.lane }}
+      TAIKO_CLIENT_RS_TEST_RUN: ci-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-${{ matrix.lane }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -270,12 +274,14 @@ jobs:
       - uses: ./.github/actions/setup-taiko-client-rs
         with:
           cache-key: taiko-client-rs-docker
-          save-cache: ${{ github.ref == 'refs/heads/main' && matrix.shard == 1 }}
+          # Both lanes build the same packages, so the native lane's target
+          # directory is a superset of the devnet lane's.
+          save-cache: ${{ github.ref == 'refs/heads/main' && matrix.lane == 'native' }}
           nextest: "true"
           go: "true"
-      - name: Run serial Docker partition
+      - name: Run serial Docker lane
         working-directory: packages/taiko-client-rs
-        run: just ${{ github.event_name == 'pull_request' && 'test' || 'test-full' }} --partition hash:${{ matrix.shard }}/2
+        run: just ${{ github.event_name == 'pull_request' && 'test' || 'test-full' }}
       - name: Remove leftover devnet containers
         if: always()
         shell: bash

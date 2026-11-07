@@ -826,8 +826,9 @@ contract harness.
   pressure/epoch flushes; runner and store unit tests cover receipt reorgs and journal restarts.
   Each scenario boots its own devnet through the docker CLI (anvil as L1, alethia-reth,
   CometBFT), with phases that need the same history sharing one, so they run one at a time.
-  CI runs two independent serial partitions. Extra
-  arguments go to `cargo nextest run`, e.g. `just test restart` runs one scenario. Pull requests
+  CI runs two serial lanes: `native` (the `governance_recovery` binary: stock Comet, native EL
+  and the recovery test image) and `devnet` (all other scenarios); set
+  `TAIKO_CLIENT_RS_TEST_LANE` to run one locally. Extra arguments go to `cargo nextest run`, e.g. `just test restart` runs one scenario. Pull requests
   skip the slowest scenario, the L1 finality stall, whose halt-and-resume rule unit tests cover;
   `just test-full` runs every scenario, as CI does on main, nightly and on manual dispatch.
   `tests/entrypoint.sh` lists selected cases before Docker checks and builds only the native
