@@ -466,10 +466,8 @@ pub async fn legacy_quiescent(
         }
     }
     if let Some(lander) = &profile.lander {
-        for name in ["lander.lock", "transaction-store.lock"] {
-            check_legacy_lock(&lander.data_dir.join(name))
-                .map_err(|_| RecoveryCommandError::Busy)?;
-        }
+        check_legacy_lock(&lander.data_dir.join("lander.lock"))
+            .map_err(|_| RecoveryCommandError::Busy)?;
     }
     for home in homes {
         let path = home.join("config/config.toml");

@@ -14,28 +14,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-/// Journal schema version; incompatible formats stop rather than discard outstanding nonces.
-///
-/// Schema 16 binds the validator state (#22338): five-word cut leaves, the twenty-three-word
-/// statement, the nine-field `LandInput`, the checkpoint record's word 4 in the snapshot and the
-/// job's starting validator state.
-/// Schema 15 proves the generation's origin record in the starting witness and reaches R in the
-/// reference chain only while a batch uses recovery material.
-/// Schema 14 authenticates slot 293 and retains the immutable signed bytes on old-schema refusal.
-/// Schema 13 binds native private protobufs, V1 grid cuts and deployment identity.
-/// Schema 12 binds V10 execution-only DA; old signed jobs remain untouched on rejection.
-/// Schema 11 adds the proof-bound active committee snapshot in the twenty-one-word V9 statement
-/// and nine-field canonical ABI input. Schema 10 signed jobs are rejected without migration.
-/// Schema 10 jobs bind the twenty-word V8 statement and eight-field canonical ABI input,
-/// signing `land(input, proof)`. Schema 9 participation-era journals are rejected intact.
-/// Schema 8 binds calldata FI envelope v5 and payload v4 under the V6 statement.
-/// Schema 7 journals the paired commit as a protobuf too: schema 6 kept it in the domain JSON
-/// form, which reads a Unix-epoch vote time as absent and cannot restore such a certificate.
-/// Schema 6 additionally preserves authoritative original Comet protobuf block bytes. Schema 5
-/// jobs used lossy Tendermint domain block serialization and bound the eighteen-word V6 statement
-/// over a six-field `LandInput` (forced inclusion head after the batch and fee recipient included),
-/// compressed V3 blob payloads and snapshots carrying the forced inclusion queue; schema 4 bound V5
-/// statements over uncompressed V2 payloads and schema 3 complete V1 blocks.
+/// Journal schema version; any other version is refused with its file unchanged (START-10-24).
 const JOURNAL_VERSION: u8 = 16;
 /// Hard allocation bound before reading or decoding an untrusted journal.
 pub(crate) const MAX_JOURNAL_BYTES: u64 = 256 * 1024 * 1024;
@@ -114,13 +93,6 @@ pub struct BatchWait {
     pub first_seen_unix_ms: u64,
 }
 
-/// Minimal schema opening checked before incompatible outstanding jobs are decoded.
-#[derive(Deserialize)]
-struct JournalSchema {
-    /// Wire/protocol discriminator; old signed transactions are never migrated.
-    version: u8,
-}
-
 /// Versioned disk envelope so identities are checked even when the state is idle.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct Journal {
@@ -141,8 +113,6 @@ pub struct Store {
     directory: PathBuf,
     /// The open locked file owns the OS lock until this store is dropped.
     _lock: File,
-    /// Shared directory guard prevents claim/landing marker races.
-    _directory_lock: File,
     /// Expected identities used on every load and save.
     identity: JournalIdentity,
 }
@@ -150,7 +120,8 @@ pub struct Store {
 impl Store {
     /// Lock an existing or empty lander directory; validate the journal before returning.
     pub fn open(path: impl AsRef<Path>, identity: JournalIdentity) -> Result<Self> {
-        let (directory, directory_lock) = lock_transaction_directory(path.as_ref())?;
+        std::fs::create_dir_all(path.as_ref()).map_err(io_error)?;
+        let directory = std::fs::canonicalize(path.as_ref()).map_err(io_error)?;
         let lock = OpenOptions::new()
             .read(true)
             .write(true)
@@ -162,7 +133,7 @@ impl Store {
             LanderError::Journal(format!("data directory already locked or cannot be locked: {e}"))
         })?;
         File::open(&directory).map_err(io_error)?.sync_all().map_err(io_error)?;
-        let store = Self { directory, _lock: lock, _directory_lock: directory_lock, identity };
+        let store = Self { directory, _lock: lock, identity };
         store.load()?;
         Ok(store)
     }
@@ -195,21 +166,18 @@ impl Store {
         if bytes.len() as u64 > MAX_JOURNAL_BYTES {
             return Err(LanderError::Journal("journal grew beyond allocation limit".into()));
         }
-        let schema: JournalSchema = serde_json::from_slice(&bytes)
-            .map_err(|e| LanderError::Journal(format!("corrupt journal schema: {e}")))?;
-        if schema.version != JOURNAL_VERSION {
+        let journal: Journal = serde_json::from_slice(&bytes)
+            .map_err(|e| LanderError::Journal(format!("corrupt journal: {e}")))?;
+        if journal.version != JOURNAL_VERSION {
             return Err(LanderError::Journal(format!(
                 "incompatible journal schema {} (expected {JOURNAL_VERSION}); signed transaction \
                  retained unchanged",
-                schema.version
+                journal.version
             )));
         }
-        let journal: Journal = serde_json::from_slice(&bytes)
-            .map_err(|e| LanderError::Journal(format!("corrupt journal: {e}")))?;
-        if journal.version != JOURNAL_VERSION || journal.identity != self.identity {
+        if journal.identity != self.identity {
             return Err(LanderError::Journal(
-                "journal schema or chain/contract/sender identity differs from configuration"
-                    .into(),
+                "journal chain/contract/sender identity differs from configuration".into(),
             ));
         }
         self.validate_wait(&journal.state, journal.waiting.as_ref())?;
@@ -338,37 +306,6 @@ fn io_error(error: std::io::Error) -> LanderError {
     LanderError::Journal(error.to_string())
 }
 
-/// Preserve exclusive ownership and reject directories containing obsolete claim state.
-/// The shared OS lock closes the check/create race; durable per-kind lock markers cover reopening
-/// in either order, including symlink aliases and directories whose state file was never written.
-fn lock_transaction_directory(path: &Path) -> Result<(PathBuf, File)> {
-    std::fs::create_dir_all(path).map_err(io_error)?;
-    let directory = std::fs::canonicalize(path).map_err(io_error)?;
-    reject_foreign_directory(&directory)?;
-    let lock = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .truncate(false)
-        .open(directory.join("transaction-store.lock"))
-        .map_err(io_error)?;
-    lock.try_lock()
-        .map_err(|_| LanderError::Journal("transaction directory already locked".into()))?;
-    reject_foreign_directory(&directory)?;
-    Ok((directory, lock))
-}
-
-/// Reject foreign markers both before creating a guard and after acquiring it.
-fn reject_foreign_directory(directory: &Path) -> Result<()> {
-    let incompatible = ["claim.lock", "claim-state.json"];
-    if incompatible.iter().any(|name| directory.join(name).exists()) {
-        return Err(LanderError::Journal(
-            "incompatible legacy claim store; retained unchanged".into(),
-        ));
-    }
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -441,17 +378,59 @@ mod tests {
         };
         assert_eq!((receipt.block_number, receipt.gas_used), (30, 0));
     }
+
+    /// The store's own exclusive lock is its only marker; nothing else appears before a save.
     #[test]
-    fn obsolete_claim_directory_is_rejected_without_mutating_its_nonce_record() {
-        for marker in ["claim.lock", "claim-state.json"] {
-            let directory = tempfile::tempdir().unwrap();
-            let path = directory.path().join(marker);
-            let bytes = b"legacy signed nonce record";
-            std::fs::write(&path, bytes).unwrap();
-            assert!(Store::open(directory.path(), identity()).is_err());
-            assert_eq!(std::fs::read(path).unwrap(), bytes);
-            assert!(!directory.path().join("lander-state.json").exists());
-        }
+    fn open_creates_only_the_lander_lock() {
+        let directory = tempfile::tempdir().unwrap();
+        let _store = Store::open(directory.path(), identity()).unwrap();
+        let mut names = std::fs::read_dir(directory.path())
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+            .collect::<Vec<_>>();
+        names.sort();
+        assert_eq!(names, ["lander.lock"]);
+    }
+
+    /// A journal of any other schema, here a real Pending job signed at nonce 7, is refused and
+    /// kept byte for byte, nonce included: no migration and no temporary rewrite.
+    #[tokio::test]
+    async fn other_journal_version_is_refused_intact() {
+        use crate::test_utils::runtime::{request, signed};
+        let request = request();
+        let proof = Bytes::from_static(&[0]);
+        let transaction = signed(&request, &proof, 7).await;
+        let id = JournalIdentity {
+            l1_chain_id: request.batch.snapshot.l1_chain_id,
+            l2_chain_id: request.batch.snapshot.l2_chain_id,
+            inbox: request.batch.snapshot.inbox,
+            registry: request.batch.snapshot.registry,
+            sender: transaction.sender,
+        };
+        let state =
+            JournalState::Pending { job: Box::new(ProvedJob { request, proof }), transaction };
+        let version = JOURNAL_VERSION + 1;
+        let bytes = serde_json::to_vec(
+            &serde_json::json!({ "version": version, "identity": id, "state": state }),
+        )
+        .unwrap();
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("lander-state.json");
+        std::fs::write(&path, &bytes).unwrap();
+
+        let error = Store::open(directory.path(), id).err().expect("other schema refused");
+        assert!(
+            error
+                .to_string()
+                .contains(&format!("incompatible journal schema {version} (expected 16)")),
+            "{error}"
+        );
+        assert_eq!(std::fs::read(&path).unwrap(), bytes);
+        let kept: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        assert_eq!(kept["state"]["phase"], "pending");
+        assert_eq!(kept["state"]["transaction"]["nonce"], 7);
+        assert!(!directory.path().join("lander-state.json.tmp").exists());
     }
 
     #[test]
@@ -470,38 +449,6 @@ mod tests {
         assert_eq!(store.load_with_wait().unwrap(), (JournalState::Idle, Some(waiting)));
         store.save(&JournalState::Idle).unwrap();
         assert_eq!(store.load_with_wait().unwrap(), (JournalState::Idle, None));
-    }
-
-    /// Schema 2 holds V4 statements, schema 3 complete-block V1 blob payloads and schema 4
-    /// uncompressed V2 payloads; schema 5 used lossy domain block serialization, schema 6
-    /// domain JSON commits, schema 8 V6 statements without participation and schema 15 jobs
-    /// without the validator state.
-    #[test]
-    fn legacy_journals_are_rejected_without_modifying_their_files() {
-        for version in 2..=15 {
-            let directory = tempfile::tempdir().unwrap();
-            let journal = serde_json::json!({
-                "version": version,
-                "identity": identity(),
-                "state": { "phase": "idle" },
-            });
-            std::fs::write(directory.path().join("lander-state.json"), journal.to_string())
-                .unwrap();
-            let error = match Store::open(directory.path(), identity()) {
-                Err(e) => e,
-                Ok(_) => panic!("schema {version} must be rejected"),
-            };
-            assert!(
-                error
-                    .to_string()
-                    .contains(&format!("incompatible journal schema {version} (expected 16)")),
-                "{error}"
-            );
-            assert_eq!(
-                std::fs::read_to_string(directory.path().join("lander-state.json")).unwrap(),
-                journal.to_string()
-            );
-        }
     }
 
     #[test]
@@ -619,76 +566,6 @@ mod tests {
             assert!(error.to_string().contains("starting validator state"), "{error}");
             assert_eq!(std::fs::read(path).unwrap(), bytes);
         }
-    }
-
-    #[tokio::test]
-    async fn legacy_pending_journal_retains_exact_signed_bytes_and_nonce_on_rejection() {
-        let request = crate::test_utils::runtime::request();
-        let proof = Bytes::from_static(&[0]);
-        let transaction = crate::test_utils::runtime::signed(&request, &proof, 7).await;
-        let id = JournalIdentity {
-            l1_chain_id: request.batch.snapshot.l1_chain_id,
-            l2_chain_id: request.batch.snapshot.l2_chain_id,
-            inbox: request.batch.snapshot.inbox,
-            registry: request.batch.snapshot.registry,
-            sender: transaction.sender,
-        };
-        let state =
-            JournalState::Pending { job: Box::new(ProvedJob { request, proof }), transaction };
-        for version in 2..=15 {
-            let directory = tempfile::tempdir().unwrap();
-            let bytes = serde_json::to_vec(
-                &serde_json::json!({ "version": version, "identity": id, "state": state }),
-            )
-            .unwrap();
-            let path = directory.path().join("lander-state.json");
-            std::fs::write(&path, &bytes).unwrap();
-            let error = match Store::open(directory.path(), id.clone()) {
-                Err(e) => e,
-                Ok(_) => panic!("schema {version} must be rejected"),
-            };
-            assert!(error.to_string().contains("incompatible journal schema"), "{error}");
-            assert_eq!(std::fs::read(path).unwrap(), bytes);
-        }
-    }
-
-    /// A schema-10 V8 job signed at nonce 7 stays on disk byte for byte, nonce
-    /// included, and the store
-    /// refuses to open it.
-    #[tokio::test]
-    async fn journal_v10_signed_job_is_refused_intact() {
-        let request = crate::test_utils::runtime::request();
-        let proof = Bytes::from_static(&[0]);
-        let transaction = crate::test_utils::runtime::signed(&request, &proof, 7).await;
-        let id = JournalIdentity {
-            l1_chain_id: request.batch.snapshot.l1_chain_id,
-            l2_chain_id: request.batch.snapshot.l2_chain_id,
-            inbox: request.batch.snapshot.inbox,
-            registry: request.batch.snapshot.registry,
-            sender: transaction.sender,
-        };
-        let state =
-            JournalState::Signed { job: Box::new(ProvedJob { request, proof }), transaction };
-        let journal = serde_json::json!({ "version": 10, "identity": id, "state": state });
-        let bytes = serde_json::to_vec(&journal).unwrap();
-        let directory = tempfile::tempdir().unwrap();
-        let path = directory.path().join("lander-state.json");
-        std::fs::write(&path, &bytes).unwrap();
-
-        let error = match Store::open(directory.path(), id.clone()) {
-            Err(e) => e,
-            Ok(_) => panic!("schema 10 must be rejected"),
-        };
-        assert!(
-            error.to_string().contains("incompatible journal schema 10 (expected 16)"),
-            "{error}"
-        );
-        assert_eq!(std::fs::read(&path).unwrap(), bytes);
-        let kept: serde_json::Value =
-            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
-        assert_eq!(kept["state"]["phase"], "signed");
-        assert_eq!(kept["state"]["transaction"]["nonce"], 7);
-        assert!(!directory.path().join("lander-state.json.tmp").exists());
     }
 
     #[tokio::test]

@@ -21,6 +21,24 @@ fn lander_artifacts_match_pinned_compiler_and_recorded_hashes() -> Result<()> {
     Ok(())
 }
 
+/// The generator's only protocol pin is the revision the checked-in manifest records, so a re-pin
+/// without regeneration fails offline here, not only in `just check-lander-artifacts`.
+#[test]
+fn generator_pin_matches_the_manifest_revision() -> Result<()> {
+    let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let script =
+        std::fs::read_to_string(manifest_dir.join("../../script/gen_lander_artifacts.sh"))?;
+    let pinned = script
+        .lines()
+        .find_map(|line| line.strip_prefix("PINNED_REVISION="))
+        .context("PINNED_REVISION line")?;
+    let manifest: serde_json::Value = serde_json::from_slice(&std::fs::read(
+        manifest_dir.join("tests/fixtures/contracts/manifest.json"),
+    )?)?;
+    assert_eq!(manifest["protocolRevision"], pinned);
+    Ok(())
+}
+
 /// The shared Etna vectors (`testdata/etna_vectors`, which the abci and lander tests read) are
 /// exactly the files the generator copied from the pinned protocol revision: no file is missing,
 /// added or changed.
