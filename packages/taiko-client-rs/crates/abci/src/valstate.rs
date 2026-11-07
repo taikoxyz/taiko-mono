@@ -233,41 +233,6 @@ impl ValState {
         }
         Ok(state)
     }
-
-    /// The height of the preimage `bytes`, checking only its frame: whole words, the tag, a
-    /// height word holding a `u64`, and head offsets and set lengths that span exactly `bytes`.
-    /// Unlike [`Self::decode`] it reads no entry, so it checks no key, power, order or proposer
-    /// index and costs no key decompression; it suits bytes [`Self::encode`] wrote, such as the
-    /// app's own sidecars, whose readers authenticate the hash anyway.
-    pub fn framed_height(bytes: &[u8]) -> Result<u64, ValStateError> {
-        let (words, []) = bytes.as_chunks::<32>() else {
-            return Err(ValStateError::Malformed("not a whole number of words"));
-        };
-        let Some((head, rest)) = words.split_first_chunk::<HEAD_WORDS>() else {
-            return Err(ValStateError::Malformed("truncated head"));
-        };
-        // The words of the set whose length word is `rest[at]`: that word and its entries.
-        let span = |at: usize| {
-            let length = rest.get(at)?;
-            let entries = usize::try_from(low_u64(length)).ok()?;
-            (word(entries).0 == *length)
-                .then_some(entries)?
-                .checked_mul(ENTRY_WORDS)?
-                .checked_add(1)
-        };
-        let current = span(0).ok_or(ValStateError::Malformed("set runs past the end"))?;
-        let next = span(current).ok_or(ValStateError::Malformed("set runs past the end"))?;
-        let height = low_u64(&head[1]);
-        if head[0] != VAL_STATE_TAG.0 ||
-            head[1] != word(height).0 ||
-            head[2] != word(32 * HEAD_WORDS).0 ||
-            head[4] != word(32 * (HEAD_WORDS + current)).0 ||
-            current.checked_add(next) != Some(rest.len())
-        {
-            return Err(ValStateError::Malformed("not a validator-state preimage frame"));
-        }
-        Ok(height)
-    }
 }
 
 /// What stock CometBFT's `LoadValidators` rebuilds for a height `steps` blocks after the one
@@ -999,7 +964,6 @@ mod tests {
         let preimage = hex::decode(str_at(&shared_field("preimage"))).unwrap();
         assert_eq!(state.encode(), preimage);
         assert_eq!(ValState::decode(&preimage), Ok(state.clone()));
-        assert_eq!(ValState::framed_height(&preimage), Ok(state.height));
         assert_eq!(state.hash(), b256_at(&shared_field("hash")));
         // The generator's proposer changes: current 0 with next 0, then current 1 with next 1.
         state.current.proposer = 0;
@@ -1020,7 +984,6 @@ mod tests {
                 let entries = state.current.entries.len() + state.next.entries.len();
                 assert_eq!(bytes.len(), 32 * (8 + 4 * entries), "{}", case.name);
                 assert_eq!(ValState::decode(&bytes), Ok(state.clone()), "{}", case.name);
-                assert_eq!(ValState::framed_height(&bytes), Ok(state.height), "{}", case.name);
                 assert_eq!(state.hash(), keccak256(&bytes), "{}", case.name);
                 states += 1;
             }
@@ -1028,8 +991,7 @@ mod tests {
         assert!(states > 100, "only {states} states");
     }
 
-    /// [`ValState::decode`] rejects every non-canonical preimage; [`ValState::framed_height`]
-    /// rejects those whose frame is broken and, reading no entry, accepts the others.
+    /// [`ValState::decode`] rejects every non-canonical preimage.
     #[test]
     fn decode_rejects_non_canonical_bytes() {
         let state = shared_vector_state();
@@ -1052,42 +1014,34 @@ mod tests {
         let trailing_word = [&bytes[..], &[0; 32]].concat();
         let mut height_above_u64 = word(state.height);
         height_above_u64.0[23] = 1;
-        // (name, bytes, whether the frame is broken)
         let cases = [
-            ("wrong tag", with_word(0, tag(b"ETNA_VAL_STATE_V2")), true),
-            ("height above u64", with_word(1, height_above_u64), true),
-            ("wrong current offset", with_word(2, word(0xe0)), true),
-            ("wrong next offset", with_word(4, word(0x1e0 + 32)), true),
-            ("trailing byte", trailing_byte, true),
-            ("trailing word", trailing_word, true),
-            ("truncated", bytes[..bytes.len() - 32].to_vec(), true),
-            ("huge length", with_word(6, B256::repeat_byte(0xff)), true),
-            ("unsorted pair", with_state(&|s| s.current.entries.swap(0, 1)), false),
+            ("wrong tag", with_word(0, tag(b"ETNA_VAL_STATE_V2"))),
+            ("height above u64", with_word(1, height_above_u64)),
+            ("wrong current offset", with_word(2, word(0xe0))),
+            ("wrong next offset", with_word(4, word(0x1e0 + 32))),
+            ("trailing byte", trailing_byte),
+            ("trailing word", trailing_word),
+            ("truncated", bytes[..bytes.len() - 32].to_vec()),
+            ("huge length", with_word(6, B256::repeat_byte(0xff))),
+            ("unsorted pair", with_state(&|s| s.current.entries.swap(0, 1))),
             (
                 "duplicate key",
                 with_state(&|s| s.current.entries[1] = ValEntry { key: k1, power: 9, priority: 0 }),
-                false,
             ),
-            ("prefix byte 4", with_word(7, word(4)), false),
-            ("power 0", with_state(&|s| s.current.entries[1].power = 0), false),
-            ("power above int64", with_word(9, word(u64::MAX)), false),
-            ("current proposer index = len", with_state(&|s| s.current.proposer = 2), false),
-            ("next proposer index = len", with_state(&|s| s.next.proposer = 2), false),
+            ("prefix byte 4", with_word(7, word(4))),
+            ("power 0", with_state(&|s| s.current.entries[1].power = 0)),
+            ("power above int64", with_word(9, word(u64::MAX))),
+            ("current proposer index = len", with_state(&|s| s.current.proposer = 2)),
+            ("next proposer index = len", with_state(&|s| s.next.proposer = 2)),
             // current[0]'s priority -5 zero-extended, as a uint64 would be written.
-            ("priority not sign-extended", with_word(10, word((-5i64) as u64)), false),
+            ("priority not sign-extended", with_word(10, word((-5i64) as u64))),
         ];
-        for (name, bytes, frame) in cases {
+        for (name, bytes) in cases {
             assert!(
                 matches!(ValState::decode(&bytes), Err(ValStateError::Malformed(_))),
                 "{name}: {:?}",
                 ValState::decode(&bytes)
             );
-            let framed = ValState::framed_height(&bytes);
-            if frame {
-                assert!(matches!(framed, Err(ValStateError::Malformed(_))), "{name}: {framed:?}");
-            } else {
-                assert_eq!(framed, Ok(state.height), "{name}");
-            }
         }
     }
 

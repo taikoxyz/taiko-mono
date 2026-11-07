@@ -9,7 +9,12 @@ use tendermint::{
 use super::{
     APP_NAME, APP_VERSION, AbciError, App, app_hash, at_generation_origin, cometbft_height, within,
 };
-use crate::{GRID_INTERVAL, engine::Engine, l1::L1Source, store::AppState, valstate::ValState};
+use crate::{
+    GRID_INTERVAL,
+    engine::Engine,
+    l1::L1Source,
+    store::{AppState, Record},
+};
 
 /// Response code of a rejected `CheckTx` and of a failed `Query`.
 pub const CODE_REJECTED: u32 = 1;
@@ -146,16 +151,16 @@ impl<L: L1Source, E: Engine> App<L, E> {
         serde_json::to_vec(committee).map_err(|e| e.to_string())
     }
 
-    /// The validator-state preimage ([`ValState::encode`]) after the committed grid `height`: the
-    /// head state's when `height` is the last committed height, else its durable sidecar.
+    /// The validator-state preimage ([`ValState::encode`](crate::valstate::ValState::encode))
+    /// after the committed grid `height`: the head state's when `height` is the last committed
+    /// height, else its durable sidecar's.
     ///
     /// Only grid heights (multiples of [`GRID_INTERVAL`]) within the retained range
     /// `[comet_history_floor, last_height]` answer; any other height, a state not yet
-    /// initialized, and a sidecar that is missing, unreadable or not framed as a preimage of that
-    /// very height ([`ValState::framed_height`]) are errors naming the cause. The sidecar's
-    /// entries are not decoded again on this serial worker: the app wrote them, and every reader
-    /// authenticates the hash. A failing sidecar at a retained height other than the generation
-    /// origin (which no Commit writes) means lost durable state and is logged as a warning.
+    /// initialized, and a sidecar that is missing, unreadable or corrupt ([`Record::Corrupt`]:
+    /// a failed checksum, a failed decoding or another height) are errors naming the cause. A
+    /// failing sidecar at a retained height other than the generation origin (which no Commit
+    /// writes) means lost durable state and is logged as a warning.
     pub fn val_state_preimage(&self, height: u64) -> Result<Vec<u8>, String> {
         let state = self.state.as_ref().ok_or("the app is not initialized")?;
         if !height.is_multiple_of(GRID_INTERVAL) {
@@ -172,24 +177,16 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if height == last {
             return Ok(state.val_state.encode());
         }
-        let sidecar = self
-            .store
-            .load_val_state(height)
-            .map_err(|e| format!("cannot read the validator state at height {height}: {e}"))
-            .and_then(|loaded| {
-                let preimage = loaded.ok_or_else(|| {
-                    format!("the validator-state sidecar of retained height {height} is missing")
-                })?;
-                match ValState::framed_height(&preimage) {
-                    Ok(framed) if framed == height => Ok(preimage),
-                    Ok(framed) => Err(format!(
-                        "the validator-state sidecar of height {height} holds height {framed}"
-                    )),
-                    Err(e) => Err(format!(
-                        "the validator-state sidecar of height {height} is corrupt: {e}"
-                    )),
-                }
-            });
+        let sidecar = match self.store.load_val_state(height) {
+            Ok(Record::Valid(recorded)) => Ok(recorded.encode()),
+            Ok(Record::Missing) => {
+                Err(format!("the validator-state sidecar of retained height {height} is missing"))
+            }
+            Ok(Record::Corrupt(reason)) => {
+                Err(format!("the validator-state sidecar of height {height} is corrupt: {reason}"))
+            }
+            Err(e) => Err(format!("cannot read the validator state at height {height}: {e}")),
+        };
         if let Err(reason) = &sidecar &&
             height != state.origin_height()
         {

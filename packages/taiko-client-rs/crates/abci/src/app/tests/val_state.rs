@@ -15,7 +15,11 @@ use super::{
     *,
 };
 use crate::{
-    GRID_INTERVAL, app::CODE_REJECTED, key::ConsensusKey, store::StoreError, test_utils::powers,
+    GRID_INTERVAL,
+    app::CODE_REJECTED,
+    key::ConsensusKey,
+    store::{Record, StoreError},
+    test_utils::powers,
     valstate::ValState,
 };
 
@@ -162,9 +166,11 @@ async fn finalize_block_advances_with_the_returned_updates() {
 }
 
 /// The replica is part of the persisted state: a restarted app resumes from the committed one
-/// and keeps advancing it. A grid sidecar is immutable: saving the same bytes again (a replay
-/// after a crash before the state was saved) succeeds, other bytes conflict, and a Commit that
-/// meets a conflicting sidecar fails before it persists its state.
+/// and keeps advancing it. A grid sidecar is immutable: saving the same state again (a replay
+/// after a crash before the state was saved) succeeds and another state conflicts. A Commit
+/// that meets a corrupt sidecar sets it aside and writes its own (a corrupt record is missing
+/// data, SYNC-9-7), while one that meets a well-formed sidecar of another state fails before
+/// it persists its state.
 #[tokio::test]
 async fn val_state_survives_restart_and_sidecar_is_immutable() {
     let fx = Fixture::genesis(2);
@@ -175,8 +181,8 @@ async fn val_state_survives_restart_and_sidecar_is_immutable() {
     }
     let committed = app.state().unwrap().clone();
     assert_eq!(committed.last_height, GRID_INTERVAL);
-    let preimage = committed.val_state.encode();
-    assert_eq!(app.store.load_val_state(GRID_INTERVAL).unwrap(), Some(preimage.clone()));
+    let recorded = Record::Valid(committed.val_state.clone());
+    assert_eq!(app.store.load_val_state(GRID_INTERVAL).unwrap(), recorded);
 
     let engine = app.engine().reopen();
     drop(app);
@@ -186,33 +192,58 @@ async fn val_state_survives_restart_and_sidecar_is_immutable() {
     step(&mut app).await;
     assert_eq!(app.state().unwrap().val_state, committed.val_state.advance(&[]).unwrap());
 
-    app.store.save_val_state(GRID_INTERVAL, &preimage).unwrap();
-    let mut other = preimage.clone();
-    other[63] ^= 1; // the height word
+    app.store.save_val_state(&committed.val_state).unwrap();
+    let mut other = committed.val_state.clone();
+    other.next.entries[0].priority += 1;
     assert!(matches!(
-        app.store.save_val_state(GRID_INTERVAL, &other),
+        app.store.save_val_state(&other),
         Err(StoreError::ValStateConflict(GRID_INTERVAL))
     ));
-    assert_eq!(app.store.load_val_state(GRID_INTERVAL).unwrap(), Some(preimage));
+    assert_eq!(app.store.load_val_state(GRID_INTERVAL).unwrap(), recorded);
 
-    // A conflicting sidecar at the next grid height stops its Commit before the state is saved.
-    let dir = tempfile::tempdir().unwrap();
-    let mut app = initialized(&fx, dir.path()).await;
-    for _ in 1..GRID_INTERVAL {
-        step(&mut app).await;
+    // At the first grid height of a fresh run: a corrupt sidecar is set aside and replaced; a
+    // well-formed one of another state stops the Commit before the state is saved.
+    for corrupt in [true, false] {
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = initialized(&fx, dir.path()).await;
+        for _ in 1..GRID_INTERVAL {
+            step(&mut app).await;
+        }
+        let before = app.state().unwrap().clone();
+        let sidecar = dir.path().join(format!("val-state-{GRID_INTERVAL}.bin"));
+        if corrupt {
+            std::fs::write(&sidecar, b"conflicting").unwrap();
+        } else {
+            let mut other = before.val_state.advance(&[]).unwrap();
+            other.next.entries[0].priority += 1;
+            app.store.save_val_state(&other).unwrap();
+        }
+        let planted = std::fs::read(&sidecar).unwrap();
+        let env = propose(&mut app).await;
+        let (_, req) = judge(&mut app, &env).await;
+        finalize(&mut app, finalize_req(&req)).await.unwrap();
+        let result = commit(&mut app).await;
+        if corrupt {
+            result.expect("a corrupt sidecar is replaced");
+            let state = app.state().unwrap();
+            assert_eq!(state.last_height, GRID_INTERVAL);
+            let set_aside = dir.path().join(format!("val-state-{GRID_INTERVAL}.bin.corrupt"));
+            assert_eq!(std::fs::read(set_aside).unwrap(), planted);
+            assert_eq!(
+                app.store.load_val_state(GRID_INTERVAL).unwrap(),
+                Record::Valid(state.val_state.clone())
+            );
+        } else {
+            let err = result.expect_err("the sidecar conflicts");
+            assert!(
+                matches!(err, AbciError::Store(StoreError::ValStateConflict(GRID_INTERVAL))),
+                "{err:?}"
+            );
+            assert_eq!(app.state(), Some(&before));
+            assert_eq!(Store::volatile(dir.path().into()).load().unwrap(), Some(before));
+            assert_eq!(std::fs::read(&sidecar).unwrap(), planted);
+        }
     }
-    let before = app.state().unwrap().clone();
-    app.store.save_val_state(GRID_INTERVAL, b"conflicting").unwrap();
-    let env = propose(&mut app).await;
-    let (_, req) = judge(&mut app, &env).await;
-    finalize(&mut app, finalize_req(&req)).await.unwrap();
-    let err = commit(&mut app).await.expect_err("the sidecar conflicts");
-    assert!(
-        matches!(err, AbciError::Store(StoreError::ValStateConflict(GRID_INTERVAL))),
-        "{err:?}"
-    );
-    assert_eq!(app.state(), Some(&before));
-    assert_eq!(Store::volatile(dir.path().into()).load().unwrap(), Some(before));
 }
 
 /// Commit writes a sidecar holding the full preimage at grid heights only and deletes those
@@ -229,13 +260,16 @@ async fn grid_sidecars_are_written_and_pruned_with_the_comet_floor() {
 
     let mut written = BTreeMap::new();
     let mut pruned = vec![];
-    let retained = |app: &App<MockL1, MockEngine>, written: &BTreeMap<u64, Vec<u8>>| {
+    let retained = |app: &App<MockL1, MockEngine>, written: &BTreeMap<u64, ValState>| {
         let state = app.state().unwrap();
         let (last, floor) = (state.last_height, state.comet_history_floor());
         for height in 0..=last + GRID_INTERVAL {
-            let expected = written.get(&height).filter(|_| (floor..=last).contains(&height));
+            let expected = written
+                .get(&height)
+                .filter(|_| (floor..=last).contains(&height))
+                .map_or(Record::Missing, |recorded| Record::Valid(recorded.clone()));
             assert_eq!(
-                app.store.load_val_state(height).unwrap().as_ref(),
+                app.store.load_val_state(height).unwrap(),
                 expected,
                 "sidecar {height} at head {last} (floor {floor})"
             );
@@ -246,7 +280,7 @@ async fn grid_sidecars_are_written_and_pruned_with_the_comet_floor() {
         commit(&mut app).await.unwrap();
         let state = app.state().unwrap();
         if state.last_height.is_multiple_of(GRID_INTERVAL) {
-            written.insert(state.last_height, state.val_state.encode());
+            written.insert(state.last_height, state.val_state.clone());
         }
         pruned.extend(written.keys().filter(|&&h| h < state.comet_history_floor()));
         retained(&app, &written);
@@ -273,7 +307,7 @@ async fn val_state_query_rejects_unretained_heights() {
         finalize(&mut app, req.clone()).await.unwrap();
         commit(&mut app).await.unwrap();
         if req.height.value() == GRID_INTERVAL {
-            pruned = Some(app.state().unwrap().val_state.encode());
+            pruned = Some(app.state().unwrap().val_state.clone());
         }
         if req.height.value() == grid {
             let head = app.state().unwrap().val_state.clone();
@@ -298,12 +332,12 @@ async fn val_state_query_rejects_unretained_heights() {
 
     // Valid preimages outside the retained range are still refused: the one pruned below the
     // floor, restored, and one of a future grid height.
-    app.store.save_val_state(GRID_INTERVAL, &pruned.unwrap()).unwrap();
+    app.store.save_val_state(&pruned.unwrap()).unwrap();
     let mut future = at_grid.clone();
     while future.height < 3 * GRID_INTERVAL {
         future = future.advance(&[]).unwrap();
     }
-    app.store.save_val_state(3 * GRID_INTERVAL, &future.encode()).unwrap();
+    app.store.save_val_state(&future).unwrap();
     for height in [grid + 1, GRID_INTERVAL, 0, 3 * GRID_INTERVAL] {
         assert!(app.val_state_preimage(height).is_err(), "height {height}");
     }
@@ -327,11 +361,11 @@ async fn val_state_query_rejects_unretained_heights() {
         assert!(!answer.log.is_empty(), "{path}");
     }
 
-    // A retained grid height never answers from a missing or corrupt sidecar.
+    // A retained grid height never answers from a missing or corrupt sidecar: junk, the bare
+    // preimage without its checksum, or the well-formed record of another height.
     let sidecar = dir.path().join(format!("val-state-{grid}.bin"));
-    let mut corrupt = at_grid.encode();
-    corrupt[63] ^= 1; // the height word: a valid preimage of another height
-    for bytes in [b"junk".to_vec(), corrupt] {
+    let other_height = std::fs::read(dir.path().join(format!("val-state-{GRID_INTERVAL}.bin")));
+    for bytes in [b"junk".to_vec(), at_grid.encode(), other_height.unwrap()] {
         std::fs::write(&sidecar, bytes).unwrap();
         let error = app.val_state_preimage(grid).expect_err("corrupt sidecar");
         assert!(error.contains(&grid.to_string()), "{error}");

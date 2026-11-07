@@ -627,7 +627,7 @@ pub async fn operate(profile: &Path, source: Option<&Path>, root: &Path) -> R<Va
     }
     if v.first_height().is_some() {
         store.save_comet_hash(plan.height, v.landing().comet_hash).map_err(bad)?;
-        store.save_val_state(plan.height, &v.state().val_state.encode()).map_err(bad)?
+        store.save_val_state(&v.state().val_state).map_err(bad)?
     }
     if let Some(w) = v.anchor_witness() {
         files::write(&dir.join("app/anchor-witness.rlp"), w)?;

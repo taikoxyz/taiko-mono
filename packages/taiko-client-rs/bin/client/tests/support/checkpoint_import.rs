@@ -238,15 +238,18 @@ async fn roundtrip(
     }
     let archived = base.join("archived-val-state.bin");
     if s > 0 {
-        let live = c.app_dir(0).join("val-state-6.bin");
-        tokio::time::timeout(Duration::from_secs(20), async {
-            while !live.is_file() {
+        // The app's sidecar is checksummed; its query answers the raw preimage the export takes.
+        let preimage = tokio::time::timeout(Duration::from_secs(20), async {
+            loop {
+                if let Some(preimage) = c.cmt.abci_query("/val_state/6").await? {
+                    return anyhow::Ok(preimage)
+                }
                 tokio::time::sleep(Duration::from_millis(50)).await
             }
         })
         .await
-        .context("source app must commit preimage 6")?;
-        fs::copy(&live, &archived).context("archive live validator-state preimage")?;
+        .context("source app must commit preimage 6")??;
+        fs::write(&archived, preimage).context("archive live validator-state preimage")?;
         let mut lander = commands.old_lander(f, &c.cmt)?;
         wait_checkpoint(f, &mut lander, target).await?;
         lander.stop().await?;

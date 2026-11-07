@@ -219,15 +219,16 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// new head's gauges, and answers `retain_height = 0` (no block pruning). When the new
     /// state raises [`AppState::comet_history_floor`], the Comet block IDs below it are deleted
     /// after the state is durable; a failed deletion only logs, and the next raise retries it.
-    /// At a grid height the validator state's preimage is saved as an immutable sidecar before
-    /// the state, and the sidecars follow the Comet block IDs' floor.
+    /// At a grid height the validator state is saved as an immutable checksummed sidecar before
+    /// the state (a corrupt one is set aside and replaced; a well-formed one of another state
+    /// fails the Commit), and the sidecars follow the Comet block IDs' floor.
     /// Errors: [`AbciError::NothingToCommit`] without a pending state; [`AbciError::Store`]
     /// when it cannot be persisted (it then stays pending).
     pub(super) fn commit(&mut self) -> Result<response::Commit, AbciError> {
         let pending = self.pending.as_ref().ok_or(AbciError::NothingToCommit)?;
         self.store.save_comet_hash(pending.last_height, pending.last_comet_hash)?;
         if pending.last_height.is_multiple_of(GRID_INTERVAL) {
-            self.store.save_val_state(pending.last_height, &pending.val_state.encode())?;
+            self.store.save_val_state(&pending.val_state)?;
         }
         self.store.save(pending)?;
         let floor = pending.comet_history_floor();

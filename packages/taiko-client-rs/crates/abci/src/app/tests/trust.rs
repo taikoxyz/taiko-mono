@@ -984,6 +984,7 @@ async fn trust_waits_when_the_committed_validator_state_is_unavailable() {
     commit_to(&mut app, &fx, GRID_INTERVAL + 1).await;
     finalize_landing(&app, &fx, 100, GRID_INTERVAL);
     let preimage = app.val_state_preimage(GRID_INTERVAL).unwrap();
+    let recorded = crate::valstate::ValState::decode(&preimage).unwrap();
     std::fs::remove_file(dir.path().join(format!("val-state-{GRID_INTERVAL}.bin"))).unwrap();
     app.refresh_trust().await.unwrap();
     let snapshot = app.trust.snapshot();
@@ -996,7 +997,7 @@ async fn trust_waits_when_the_committed_validator_state_is_unavailable() {
     );
     assert!(reason.contains("sidecar of retained height"), "{reason}");
     assert!(app.store.fatal_evidence().unwrap().is_none());
-    app.store.save_val_state(GRID_INTERVAL, &preimage).unwrap();
+    app.store.save_val_state(&recorded).unwrap();
     app.refresh_trust().await.unwrap();
     assert!(app.trust.snapshot().trust_ready, "{:?}", app.trust.snapshot().reason);
 }
