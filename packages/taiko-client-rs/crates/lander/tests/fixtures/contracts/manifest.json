@@ -1399,19 +1399,8 @@
       }
     }
   },
-  "bindings": {
-    "projection": {
-      "path": "contracts/EtnaInbox.json",
-      "sha256": "a1bd7ac74bdc980f36c2addf2befe6e8009ab1e77e260158b81ca97530bf0f67"
-    },
-    "sourceArtifact": "EtnaInbox.json"
-  },
   "foundryVersion": ["Commit SHA: 4072e48705af9d93e3c0f6e29e93b5e9a40caed8"],
   "generator": "script/gen_lander_artifacts.sh",
-  "interface": {
-    "sha256": "058f523fc4a1dec1b65d411ad7be26cf2333e0508ff7e9873907b01c5fc35aec",
-    "source": "packages/protocol/contracts/layer1/etna/iface/IEtnaInbox.sol"
-  },
   "protocolRevision": "35e2f8f191132e87d9a223554d0b699f4203f2e3",
   "vectors": {
     "files": {

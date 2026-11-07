@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Reproduce the Etna landing ABI and actual-contract integration artifacts, and copy the Etna
-# vectors shared with the contracts (testdata/etna_vectors) from the same protocol revision.
+# Reproduce the Etna contract artifacts (the lander's Inbox bindings and the actual-contract
+# integration fixtures), and copy the Etna vectors shared with the contracts (testdata/etna_vectors)
+# from the same protocol revision. `PINNED_REVISION` is the only protocol pin: a re-pin edits it
+# and regenerates.
 # `script/check_lander_artifacts.sh` (`just check-lander-artifacts`) checks that this reproduces
 # the committed files.
 set -euo pipefail
@@ -97,19 +99,6 @@ for name, relative in artifacts.items():
         "settings": settings,
         "sources": sources,
     }
-# The binding is the complete Inbox ABI.
-inbox_artifact = json.loads((output / "EtnaInbox.json").read_text())
-bindings_path = client / "crates/lander/contracts/EtnaInbox.json"
-bindings_path.write_text(json.dumps({"abi": inbox_artifact["abi"]}, indent=2, sort_keys=True) + "\n")
-subprocess.run(["pnpm", "exec", "prettier", "--write", str(bindings_path)], cwd=checkout, check=True)
-manifest["bindings"] = {
-    "sourceArtifact": "EtnaInbox.json",
-    "projection": {"path": "contracts/EtnaInbox.json", "sha256": hashlib.sha256(bindings_path.read_bytes()).hexdigest()},
-}
-interface_path = "contracts/layer1/etna/iface/IEtnaInbox.sol"
-interface = (protocol / interface_path).read_bytes()
-(client / "crates/lander/contracts/IEtnaInbox.sol").write_bytes(interface)
-manifest["interface"] = {"source": f"packages/protocol/{interface_path}", "sha256": hashlib.sha256(interface).hexdigest()}
 # The shared vectors: a byte-identical copy at the same repository path, stale files removed.
 vectors_dir = "testdata/etna_vectors"
 source_vectors, client_vectors = checkout / vectors_dir, client.parents[1] / vectors_dir
@@ -135,5 +124,5 @@ for relative in relative_vectors:
 manifest["vectors"] = {"source": vectors_dir, "files": vector_files}
 (output / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
 subprocess.run(["pnpm", "exec", "prettier", "--write", str(output / "manifest.json")], cwd=checkout, check=True)
-print(f"exported {len(artifacts)} artifacts, IEtnaInbox and {len(vector_files)} vector files from {revision}")
+print(f"exported {len(artifacts)} artifacts and {len(vector_files)} vector files from {revision}")
 PYTHON

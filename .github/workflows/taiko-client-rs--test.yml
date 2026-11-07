@@ -126,7 +126,7 @@ jobs:
         working-directory: packages/taiko-client-rs
         run: just clippy
 
-  # The lander contract fixtures, the IEtnaInbox copy and the shared Etna vectors must be what
+  # The lander contract fixtures and the shared Etna vectors must be what
   # script/gen_lander_artifacts.sh produces from the pinned protocol revision.
   lander-artifacts:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}

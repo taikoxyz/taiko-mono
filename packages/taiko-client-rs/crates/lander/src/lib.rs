@@ -8,7 +8,7 @@ pub mod blob;
 pub mod codec;
 /// zlib helpers of the V6 landing payload.
 pub mod compression;
-/// Generated bindings from the pinned Etna Inbox interface snapshot.
+/// Generated bindings from the pinned Etna Inbox artifact.
 pub mod contracts;
 /// Classified errors shared by the lander's components.
 pub mod error;

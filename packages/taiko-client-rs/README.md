@@ -69,9 +69,9 @@ asks the app's private control socket before every signature (see
 
 Fresh deployment starts at generation zero; it migrates no earlier state format. Explicit
 [governance recovery](docs/governance-recovery.md) authenticates a later generation and
-creates fresh app/Comet stores while preserving registered signing authority and old history. It is aligned with protocol commit `35e2f8f191132e87d9a223554d0b699f4203f2e3` (the
-Inbox, staking registry and the pinned contract artifacts) and alethia-reth commit
-`6ac93d4b38e1cd72b993cef1ed1dc2cb0affa7b4`. Start the EL and verify its block 0 before the Inbox
+creates fresh app/Comet stores while preserving registered signing authority and old history. It is aligned with the protocol revision `PINNED_REVISION` in
+`script/gen_lander_artifacts.sh` (the Inbox, staking registry and the pinned contract artifacts)
+and alethia-reth commit `6ac93d4b38e1cd72b993cef1ed1dc2cb0affa7b4`. Start the EL and verify its block 0 before the Inbox
 is initialized (spec section 10, Startup and deployment). The proof provider is a dummy `0x00`,
 so run the client only on disposable development chains.
 
@@ -457,8 +457,8 @@ or config opening differs.
 `alloc` and include the canonical EIP-4788 beacon-roots and EIP-2935 history-storage
 predeploy code at their protocol addresses. The timestamp override alone does not install
 these contracts. Build the allocation with the
-[pinned Etna genesis builder](https://github.com/taikoxyz/taiko-mono/blob/35e2f8f191132e87d9a223554d0b699f4203f2e3/packages/protocol/script/layer2/build_etna_genesis.py)
-and use the same
+pinned Etna genesis builder, `packages/protocol/script/layer2/build_etna_genesis.py` at
+`PINNED_REVISION`, and use the same
 resulting block-0 hash/state root when initializing the Inbox; `InitChain` verifies both
 commitments against the local EL. Validate both predeploy runtimes in the allocation before
 committing those values to the Inbox.
@@ -858,7 +858,7 @@ contract harness.
 Regenerate lander ABI/deployment fixtures only when their inputs change, with
 `script/gen_lander_artifacts.sh /path/to/taiko-mono-at-pinned-protocol-revision`.
 The script requires the pinned protocol revision (see Fresh deployment; `PINNED_REVISION` in the
-script and `PROTOCOL_REVISION` in `crates/lander/src/contracts.rs`) as HEAD, installs pnpm
+script) as HEAD, installs pnpm
 dependencies before Foundry, builds `EtnaInboxBootstrap`, the Inbox, registry and
 SignalService with their test fixtures, verifies compiler source hashes,
 formats generated JSON, and records ABI/bytecode/compiler provenance. It also copies the Etna

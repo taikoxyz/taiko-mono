@@ -1,16 +1,13 @@
-//! Types generated from a provenance-checked projection of the pinned real Inbox ABI.
-//! The full interface snapshot and unmodified real artifacts remain available for verification.
+//! Types generated from the pinned real Inbox artifact (`tests/fixtures/contracts/EtnaInbox.json`,
+//! reproduced by `script/gen_lander_artifacts.sh` at its `PINNED_REVISION`).
 
 use alloy::sol;
 
 sol!(
     #[sol(all_derives)]
     IEtnaInbox,
-    "contracts/EtnaInbox.json"
+    "tests/fixtures/contracts/EtnaInbox.json"
 );
-
-/// Protocol revision from which the interface and contract fixtures are generated.
-pub const PROTOCOL_REVISION: &str = "35e2f8f191132e87d9a223554d0b699f4203f2e3";
 
 /// Journal representation of the generated nine-field `LandInput` as canonical ABI bytes.
 pub(crate) mod abi_serde {

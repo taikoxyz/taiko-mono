@@ -76,9 +76,9 @@ verify:
 el-import-verify:
   cd tools/etna-el-import && just verify
 
-# Regenerates the lander contract fixtures, the IEtnaInbox copy and the shared Etna vectors
-# (testdata/etna_vectors) from the pinned protocol revision in a temporary git worktree and fails
-# unless they equal the committed files. Needs a Foundry build of the fixtures' commit, pnpm,
+# Regenerates the lander contract fixtures and the shared Etna vectors (testdata/etna_vectors)
+# from the pinned protocol revision in a temporary git worktree and fails unless they equal the
+# committed files. Needs a Foundry build of the fixtures' commit, pnpm,
 # python3 and network access for `pnpm install` (see script/check_lander_artifacts.sh).
 check-lander-artifacts:
   ./script/check_lander_artifacts.sh

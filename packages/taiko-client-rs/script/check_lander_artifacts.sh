@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Check that script/gen_lander_artifacts.sh, run on the pinned protocol revision, reproduces the
-# committed lander contract fixtures, the IEtnaInbox interface copy and the shared Etna vectors
-# (testdata/etna_vectors) byte for byte.
+# committed lander contract fixtures and the shared Etna vectors (testdata/etna_vectors) byte for
+# byte.
 #
 # The pinned revision is checked out in a temporary git worktree (fetched from origin when it is
 # not local; with `--depth=1` only when the repository is already shallow, so a full clone stays
@@ -19,7 +19,6 @@ REVISION="$(sed -n 's/^PINNED_REVISION=//p' "$SCRIPT_DIR/gen_lander_artifacts.sh
 MANIFEST="$CLIENT_DIR/crates/lander/tests/fixtures/contracts/manifest.json"
 GENERATED=(
     packages/taiko-client-rs/crates/lander/tests/fixtures/contracts
-    packages/taiko-client-rs/crates/lander/contracts
     testdata/etna_vectors
 )
 

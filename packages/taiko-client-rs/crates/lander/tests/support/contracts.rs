@@ -23,7 +23,7 @@ use std::{path::PathBuf, process::Command};
 use test_harness::{StandaloneAnvil, StandaloneReth, ValidatorKey, dev_signer, mine_l1_blocks};
 
 sol!(EtnaInboxBootstrap, "../../crates/lander/tests/fixtures/contracts/EtnaInboxBootstrap.json");
-sol!(EtnaInbox, "../../crates/lander/contracts/EtnaInbox.json");
+sol!(EtnaInbox, "../../crates/lander/tests/fixtures/contracts/EtnaInbox.json");
 sol!(EtnaStakingRegistry, "../../crates/lander/tests/fixtures/contracts/EtnaStakingRegistry.json");
 sol!(SignalService, "../../crates/lander/tests/fixtures/contracts/SignalService.json");
 sol!(ERC1967Proxy, "../../crates/lander/tests/fixtures/contracts/ERC1967Proxy.json");
