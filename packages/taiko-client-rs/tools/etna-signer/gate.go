@@ -438,6 +438,9 @@ func (g *gate) handle(signer types.PrivValidator, req pv.Message, chain string) 
 			if err == nil {
 				if domain, ok := signer.(*domainSigner); ok {
 					signer, err = domain.authority.authorize(chain, response)
+				} else if *response.Generation != 0 {
+					// Without --authority-root the only HRS is generation zero's (RECOV-8.2-1/8.2-5).
+					err = errors.New("recovered generations require authority mode")
 				}
 			}
 		}

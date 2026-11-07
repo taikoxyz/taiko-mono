@@ -687,3 +687,32 @@ func TestRecoveryAuthorizationIsStrict(t *testing.T) {
 		})
 	}
 }
+
+// A signer without --authority-root holds only the generation-zero HRS: a Ready recovered
+// generation must never sign into it, even with a valid origin and a matching chain ID.
+func TestLegacyGateRefusesRecoveryGeneration(t *testing.T) {
+	c := authorityFixture(t)
+	for _, generation := range []uint64{0, 1} {
+		t.Run(fmt.Sprint(generation), func(t *testing.T) {
+			domain, ready := readyDomain(t, c, generation)
+			g := armed(control(t, func(map[string]any) any { return ready }))
+			signer, _, state := filePV(t)
+			before, _ := os.ReadFile(state)
+			req := pv.Message{Sum: &pv.Message_SignVoteRequest{SignVoteRequest: &pv.SignVoteRequest{ChainId: domain, Vote: authorityVote(7)}}}
+			res, err := g.handle(signer, req, domain)
+			after, _ := os.ReadFile(state)
+			if generation == 0 {
+				if err != nil || res.GetSignedVoteResponse().Error != nil {
+					t.Fatalf("generation zero legacy signing: %v", err)
+				}
+				return
+			}
+			if err == nil || res.GetSignedVoteResponse().Error == nil || !strings.Contains(err.Error(), "authority mode") {
+				t.Fatalf("legacy signer authorized a recovered generation: %v", err)
+			}
+			if !bytes.Equal(before, after) {
+				t.Fatal("denial changed generation-zero HRS")
+			}
+		})
+	}
+}
