@@ -43,7 +43,7 @@ class Entrypoint(unittest.TestCase):
                         CALLS=str(self.log), TAIKO_CLIENT_RS_TEST_RUN="fixture-run",
                         SELECTION=json.dumps({"rust-build-meta": build_meta(CLIENT_BIN), "rust-suites": {}}))
         for key in ("ETNA_RECOVERY_IMAGE", "ETNA_EL_BIN", "ETNA_EL_IMPORT_BIN", "NEXTEST_PROFILE",
-                    "ALETHIA_RETH_IMAGE", "PULL_POLICY"):
+                    "ALETHIA_RETH_IMAGE", "PULL_POLICY", "TAIKO_CLIENT_RS_TEST_LANE"):
             self.env.pop(key, None)
         self.executable("bin/cargo", '''#!/usr/bin/env python3
 import json, os, pathlib, sys, time
@@ -210,22 +210,32 @@ python3 -c 'import json, os, sys; open(os.environ["CALLS"], "a").write(json.dump
         self.assertEqual(set(self.builds()), {"etna_signer", "stock_comet", "etna_el_import", "etna_el_runtime", "recovery_runtime"})
         self.assert_lists_once_without_caller_arguments("--message-format=human")
 
+    def tier_filter(self, *args):
+        """The `-E` expression the entrypoint lists and runs with; both must agree."""
+        self.log.unlink(missing_ok=True)
+        self.select("single_validator", "single_validator_produces_blocks_by_the_header_rules")
+        result = self.run_entrypoint(*args)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        calls = self.calls()
+        listed = calls[0]
+        self.assertEqual(listed[:3], ["cargo", "nextest", "list"])
+        run = next(row for row in calls if row[:3] == ["cargo", "nextest", "run"])
+        self.assertEqual(run[run.index("-E") + 1], listed[listed.index("-E") + 1])
+        return listed[listed.index("-E") + 1]
+
     def test_lanes_split_on_the_native_suite(self):
-        pr_filter = "kind(test) & !test(=stale_l1_finality_pauses_and_resumes_l2)"
-        for lane, term in (("native", "binary_id(taiko-client::governance_recovery)"),
-                           ("devnet", "!binary_id(taiko-client::governance_recovery)")):
-            with self.subTest(lane=lane):
-                self.log.unlink(missing_ok=True)
-                self.select("single_validator", "single_validator_produces_blocks_by_the_header_rules")
-                self.env["TAIKO_CLIENT_RS_TEST_LANE"] = lane
-                result = self.run_entrypoint()
-                self.assertEqual(result.returncode, 0, result.stderr)
-                calls = self.calls()
-                listed = calls[0]
-                self.assertEqual(listed[:3], ["cargo", "nextest", "list"])
-                self.assertEqual(listed[listed.index("-E") + 1], f"{pr_filter} & {term}")
-                run = next(row for row in calls if row[:3] == ["cargo", "nextest", "run"])
-                self.assertEqual(run[run.index("-E") + 1], f"{pr_filter} & {term}")
+        # The lane term must bind to the whole tier filter, whatever operators the tier uses.
+        bases = set()
+        for tier in ((), ("--smoke",), ("--full",)):
+            self.env.pop("TAIKO_CLIENT_RS_TEST_LANE", None)
+            base = self.tier_filter(*tier)
+            bases.add(base)
+            for lane, term in (("native", "binary_id(taiko-client::governance_recovery)"),
+                               ("devnet", "!binary_id(taiko-client::governance_recovery)")):
+                with self.subTest(tier=tier, lane=lane):
+                    self.env["TAIKO_CLIENT_RS_TEST_LANE"] = lane
+                    self.assertEqual(self.tier_filter(*tier), f"({base}) & {term}")
+        self.assertEqual(len(bases), 3, "each tier selects its own filter")
 
     def test_unknown_lane_fails_before_listing(self):
         self.env["TAIKO_CLIENT_RS_TEST_LANE"] = "shard1"

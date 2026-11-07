@@ -39,10 +39,11 @@ fi
 # The lane term joins the listing too, so helper preparation follows the lane. Only the
 # governance_recovery binary (NATIVE_SUITE in selected_dependencies.py) needs stock Comet, the
 # native EL or the recovery image; splitting on it keeps those builds out of the devnet lane.
+# Parenthesize the tier filter so the lane term binds to all of it, even across a top-level `|`.
 case "${TAIKO_CLIENT_RS_TEST_LANE:-}" in
     '') ;;
-    native) filter="$filter & binary_id(taiko-client::governance_recovery)" ;;
-    devnet) filter="$filter & !binary_id(taiko-client::governance_recovery)" ;;
+    native) filter="($filter) & binary_id(taiko-client::governance_recovery)" ;;
+    devnet) filter="($filter) & !binary_id(taiko-client::governance_recovery)" ;;
     *)
         echo "ERROR: TAIKO_CLIENT_RS_TEST_LANE must be native or devnet, not '$TAIKO_CLIENT_RS_TEST_LANE'" >&2
         exit 2
