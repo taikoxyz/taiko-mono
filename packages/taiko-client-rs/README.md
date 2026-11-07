@@ -756,12 +756,12 @@ committing those values to the Inbox.
   result. Engine builds are not universally read-only, especially on noncanonical parents.
 - Retain execution state over the entire replay/landing distance, or use an archive node. A later
   snapshot may lack the required old state. Retryable unavailable-build RPC errors are
-  non-consuming and logged with `method="forced_rebuild_unavailable"`; the `reason` diagnostic
+  non-consuming and logged with `method="forced_skip_probe"`; the `reason` diagnostic
   includes the parent number/hash and a qualified historical-state hint. A generic internal RPC
   error does not confirm pruning. Unknown payload IDs (`-38001`) restart the build to obtain a
   fresh ID. When state becomes available, retry resumes without advancing the cursor prematurely.
   Nonretryable Engine build failures stop through the safety-halt path, whose log uses
-  `reason="forced_rebuild_unavailable"`. Restore the required state/history before restarting a
+  `reason="forced_skip_probe"`. Restore the required state/history before restarting a
   halted app and CometBFT.
 
 ### Future validity proof boundary

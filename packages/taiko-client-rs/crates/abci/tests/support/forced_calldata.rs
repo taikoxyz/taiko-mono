@@ -275,7 +275,7 @@ impl std::io::Write for LogWriter {
         let mut captured = self.bytes.lock().unwrap();
         captured.extend_from_slice(bytes);
         if captured.ends_with(b"\n") &&
-            String::from_utf8_lossy(&captured).contains("forced_rebuild_unavailable")
+            String::from_utf8_lossy(&captured).contains("forced_skip_probe")
         {
             self.retry_recorded.notify_one();
         }

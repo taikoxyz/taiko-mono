@@ -442,7 +442,7 @@ async fn forced_invalid_skip_keeps_mempool() -> Result<()> {
             }
             let diagnostic = String::from_utf8(logs.lock().unwrap().clone())?;
             assert!(
-                diagnostic.contains("forced_rebuild_unavailable"),
+                diagnostic.contains("forced_skip_probe"),
                 "missing unavailable label: {diagnostic}"
             );
             assert!(

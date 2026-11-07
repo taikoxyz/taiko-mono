@@ -490,7 +490,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// early peeks and invalid-byte skips need no singleton build. Canonical skips require the
     /// committed parent's historical state and an empty singleton result with matching headers.
     /// Retryable errors and timeouts wait; permanent availability errors halt under
-    /// `forced_rebuild_unavailable`. Never submit or canonicalize the singleton result.
+    /// [`FORCED_SKIP_PROBE`]. Never submit or canonicalize the singleton result.
     /// Keep the pinned EL's `allow-unwind-canonical-header` disabled for historical probes.
     async fn confirm_forced(
         &self,
@@ -513,7 +513,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 Ok(Err(ForcedBuildError::Engine(e))) => {
                     return Err(safety_halt(
                         height,
-                        "forced_rebuild_unavailable",
+                        FORCED_SKIP_PROBE,
                         format!(
                             "{}: {e}; restore historical parent state before replay",
                             cannot_build_on(&state.parent)
@@ -524,7 +524,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 Err(_) => format!("timed out after {limit:?}"),
             };
             let diagnostic = format!("{}: {reason}", cannot_build_on(&state.parent));
-            backoff.wait(FORCED_SKIP_CHECK, &diagnostic).await;
+            backoff.wait(FORCED_SKIP_PROBE, &diagnostic).await;
         }
     }
 
@@ -558,9 +558,10 @@ const FCU: &str = "engine_forkchoiceUpdated";
 /// Minimum continuous suspicion interval before repeated L1 disagreements justify a halt.
 const ANCHOR_OFF_CHAIN_WINDOW: Duration = Duration::from_secs(5);
 
-/// Legacy diagnostic label retained for cold canonical-skip probes so recovery alerts remain
-/// compatible. A probe builds only the singleton; it does not reconstruct the proposed block.
-const FORCED_SKIP_CHECK: &str = "forced_rebuild_unavailable";
+/// Diagnostic label for cold canonical-skip probes, used as the retry `method` and the
+/// safety-halt `reason`. A probe builds only the singleton; it does not reconstruct the proposed
+/// block.
+const FORCED_SKIP_PROBE: &str = "forced_skip_probe";
 
 /// Why the EL may not probe a forced transaction on `parent`: it lacks the parent block, or
 /// the parent's state (pruned, or skipped by a snapshot restore).

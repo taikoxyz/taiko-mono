@@ -1253,7 +1253,7 @@ async fn cold_forced_skip_failures_retry_or_halt() {
     let retries = logs.at("WARN");
     assert_eq!(retries.len(), 3, "{}", logs.text());
     for line in &retries {
-        assert!(line.contains("method=\"forced_rebuild_unavailable\""), "{line}");
+        assert!(line.contains("method=\"forced_skip_probe\""), "{line}");
         assert!(line.contains(&on_parent), "{line}");
         assert!(line.contains("may lack"), "{line}");
     }
@@ -1281,7 +1281,7 @@ async fn cold_forced_skip_failures_retry_or_halt() {
     assert!(msg.contains("historical state"), "{msg}");
     let halts = logs.at("ERROR");
     assert!(
-        halts.iter().any(|line| line.contains("reason=\"forced_rebuild_unavailable\"")),
+        halts.iter().any(|line| line.contains("reason=\"forced_skip_probe\"")),
         "{}",
         logs.text()
     );
