@@ -88,8 +88,15 @@ check-lander-artifacts:
 signer:
   bash ./script/build_etna_signer.sh
 
+# Every test that re-execs the test binary lives in a `*_process_test.go` file. Those tests
+# run in a second pass without -race, so their children are not race-instrumented.
 signer-test:
-  cd tools/etna-signer && go test -mod=readonly -race ./...
+  #!/usr/bin/env bash
+  set -euo pipefail
+  cd tools/etna-signer
+  process="^($(sed -n 's/^func \(Test[A-Za-z0-9_]*\)(.*/\1/p' *_process_test.go | paste -sd'|' -))\$"
+  go test -mod=readonly -race -skip "$process" ./...
+  go test -mod=readonly -run "$process" .
 
 # Lifecycle regression with real child processes and private observation sockets.
 supervisor-test:

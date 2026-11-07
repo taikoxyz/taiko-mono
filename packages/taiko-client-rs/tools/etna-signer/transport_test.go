@@ -21,14 +21,6 @@ import (
 	tm "github.com/cometbft/cometbft/proto/tendermint/types"
 )
 
-func buildSigner(t *testing.T) string {
-	t.Helper()
-	binary := filepath.Join(t.TempDir(), "etna-signer")
-	if output, err := exec.Command("go", "build", "-mod=readonly", "-o", binary, ".").CombinedOutput(); err != nil {
-		t.Fatalf("build helper: %v %s", err, output)
-	}
-	return binary
-}
 func signerExchange(t *testing.T, conn net.Conn, request pv.Message) pv.Message {
 	t.Helper()
 	if err := conn.SetDeadline(time.Now().Add(3 * time.Second)); err != nil {
@@ -56,7 +48,7 @@ func acceptSigner(t *testing.T, listener net.Listener) net.Conn {
 // Restart neither the helper nor its FilePV. Only the Comet-owned transport is
 // closed; each replacement must BeginSession and deny even an already signed HRS.
 func TestTransportOnlyDisconnectRearmsSameHelper(t *testing.T) {
-	binary := buildSigner(t)
+	binary := signerBinary(t)
 	for _, transport := range []string{"unix", "tcp"} {
 		t.Run(transport, func(t *testing.T) {
 			var begins atomic.Int64

@@ -11,10 +11,7 @@ import (
 )
 
 func TestProductionStartupNeverCreatesSigningFilesAndLocksExistingState(t *testing.T) {
-	binary := filepath.Join(t.TempDir(), "etna-signer")
-	if output, err := exec.Command("go", "build", "-mod=readonly", "-o", binary, ".").CombinedOutput(); err != nil {
-		t.Fatalf("build helper: %v %s", err, output)
-	}
+	binary := signerBinary(t)
 	signerDir := t.TempDir()
 	key, state := filepath.Join(signerDir, "key.json"), filepath.Join(signerDir, "state.json")
 	args := []string{"--comet-signer-addr", "unix:///nonexistent-comet.sock", "--trust-socket", "/nonexistent-trust.sock", "--chain-id", chain, "--priv-key", key, "--priv-state", state}
@@ -51,7 +48,7 @@ func TestProductionStartupNeverCreatesSigningFilesAndLocksExistingState(t *testi
 }
 
 func TestStateSymlinkUsesCanonicalOwnerLock(t *testing.T) {
-	binary := buildSigner(t)
+	binary := signerBinary(t)
 	_, key, state := filePV(t)
 	alias := filepath.Join(t.TempDir(), "state-alias.json")
 	if err := os.Symlink(state, alias); err != nil {
@@ -95,7 +92,7 @@ func TestStateSymlinkUsesCanonicalOwnerLock(t *testing.T) {
 }
 
 func TestHardlinkedStateCannotSplitSigningHistory(t *testing.T) {
-	binary := buildSigner(t)
+	binary := signerBinary(t)
 	_, key, state := filePV(t)
 	alias := filepath.Join(t.TempDir(), "state-hardlink.json")
 	if err := os.Link(state, alias); err != nil {
@@ -130,7 +127,7 @@ func TestHardlinkedStateCannotSplitSigningHistory(t *testing.T) {
 }
 
 func TestLegacyModeCannotBypassAuthorityMarker(t *testing.T) {
-	binary := buildSigner(t)
+	binary := signerBinary(t)
 	c := authorityFixture(t)
 	a, e := openAuthority(c)
 	if e != nil {

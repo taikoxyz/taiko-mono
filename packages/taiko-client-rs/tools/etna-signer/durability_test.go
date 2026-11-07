@@ -24,7 +24,7 @@ func TestLegacySignerFenceArmFailureWithholdsSignature(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("root bypasses the directory-read permission fault")
 	}
-	binary := buildSigner(t)
+	binary := signerBinary(t)
 	for _, family := range []string{"prevote", "precommit", "proposal"} {
 		t.Run(family, func(t *testing.T) {
 			_, key, state := filePV(t)

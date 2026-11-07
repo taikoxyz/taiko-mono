@@ -37,7 +37,7 @@ func commandJSON(t *testing.T, binary string, args ...string) map[string]string 
 }
 
 func TestKeygenCreatesExclusiveNativeFilePV(t *testing.T) {
-	binary := buildSigner(t)
+	binary := signerBinary(t)
 	dir := t.TempDir()
 	key, state := filepath.Join(dir, "key.json"), filepath.Join(dir, "state.json")
 	out := commandJSON(t, binary, "keygen", "--priv-key", key, "--priv-state", state)
@@ -109,7 +109,7 @@ func fromHex(t *testing.T, s string) []byte {
 }
 
 func TestPopMatchesCanonicalContractVectorsAndRecoversEthereumAddress(t *testing.T) {
-	binary := buildSigner(t)
+	binary := signerBinary(t)
 	// The shared Etna vectors at the repository root, which the contracts check too.
 	raw, err := os.ReadFile("../../../../testdata/etna_vectors/vectors.json")
 	if err != nil {
@@ -179,7 +179,7 @@ func TestPopMatchesCanonicalContractVectorsAndRecoversEthereumAddress(t *testing
 }
 
 func TestPopRejectsInvalidInputsAndLegacyKeys(t *testing.T) {
-	binary := buildSigner(t)
+	binary := signerBinary(t)
 	_, key, state := filePV(t)
 	base := []string{"pop", "--priv-key", key, "--owner", "0x" + strings.Repeat("a", 40), "--registry", "0x" + strings.Repeat("2", 40), "--l1-chain-id", "1"}
 	before, _ := os.ReadFile(state)
@@ -205,7 +205,7 @@ func TestPopRejectsInvalidInputsAndLegacyKeys(t *testing.T) {
 }
 
 func TestRuntimeRefusesLegacyConsensusIdentity(t *testing.T) {
-	binary := buildSigner(t)
+	binary := signerBinary(t)
 	dir := t.TempDir()
 	key, state := filepath.Join(dir, "key"), filepath.Join(dir, "state")
 	p := privval.NewFilePV(ed25519.GenPrivKey(), key, state)

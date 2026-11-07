@@ -31,7 +31,7 @@ func TestSupervisorLatchesUncertainSigningStateAcrossRestart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	binary := buildSigner(t)
+	binary := signerBinary(t)
 	for _, mode := range []string{"legacy", "authority-zero", "authority-recovered", "authority-transition"} {
 		t.Run(mode, func(t *testing.T) {
 			c := authorityFixture(t)

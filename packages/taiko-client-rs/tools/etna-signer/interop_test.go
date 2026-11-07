@@ -141,7 +141,7 @@ func TestNativeFilePVPublicKeyLowSInteropBoundary(t *testing.T) {
 }
 
 func TestRuntimeNeverRecreatesMissingStateForExistingNativeKey(t *testing.T) {
-	binary := buildSigner(t)
+	binary := signerBinary(t)
 	_, key, state := filePV(t)
 	before, err := os.ReadFile(key)
 	if err != nil {

@@ -189,7 +189,7 @@ func TestAuthoritySIGKILLTransitionBoundaries(t *testing.T) {
 }
 
 func TestAuthorityNativeProcessHandshakeAndSignature(t *testing.T) {
-	binary := buildSigner(t)
+	binary := signerBinary(t)
 	c := authorityFixture(t)
 	old, _ := readyDomain(t, c, 0)
 	p := privval.LoadFilePV(c.Key, c.LegacyState)
