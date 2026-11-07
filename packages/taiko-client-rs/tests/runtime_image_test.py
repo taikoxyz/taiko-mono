@@ -66,9 +66,10 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
     home = root / "comet"
     (home / "config").mkdir(parents=True)
     (home / "data").mkdir()
-    (home / "run").mkdir()
+    (home / "run").mkdir(mode=0o700)
     chain = "etna-runtime-smoke"
-    config = f'proxy_app = "kvstore"\npriv_validator_laddr = "unix://{home}/run/signer.sock"\n'
+    # The configured path only selects Unix mode; the supervisor names each pair's socket.
+    config = 'proxy_app = "kvstore"\npriv_validator_laddr = "unix://run/signer.sock"\n'
     (home / "config/config.toml").write_text(config)
     assert tomllib.loads(config)["priv_validator_laddr"].startswith("unix://")
     # Only public registered metadata is installed in the Comet home.
@@ -112,12 +113,22 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
     server = threading.Thread(target=serve_control, daemon=True)
     server.start()
     # Actual stock Comet must bind again over the same retained home and authority,
-    # each time at the fresh run/signer-<16 hex>.sock its supervisor assigns.
+    # each time at the fresh run/signer-<16 hex>.sock its supervisor assigns. Both
+    # supervisors hold only the documented capabilities: an exec'd root process gets
+    # exactly its bounding set as permitted and effective capabilities.
+    supervisor_command = ["setpriv", "--bounding-set=-all,+setuid,+setgid,+kill,+dac_override",
+                          "--", "python3", "/app/script/etna_validator.py"]
+    documented_caps = 0xe2  # DAC_OVERRIDE | KILL | SETGID | SETUID
+    stale = home / "run/signer-deadbeefdeadbeef.sock"
     listeners = []
     for incarnation in range(2):
+        if incarnation == 1:
+            # The stale socket of an unclean stock exit: Comet-owned, bound and closed.
+            subprocess.run(["python3", "-c", "import socket,sys;s=socket.socket(socket.AF_UNIX);s.bind(sys.argv[1]);s.close()",
+                            str(stale)], user=10001, group=10001, extra_groups=[], check=True)
+            assert stale.is_socket() and stale.lstat().st_uid == 10001
         with (root / "runtime.log").open("w+") as log:
-            supervisor = subprocess.Popen(["python3", "/app/script/etna_validator.py"],
-                                          env=environment, stdout=log, stderr=log)
+            supervisor = subprocess.Popen(supervisor_command, env=environment, stdout=log, stderr=log)
             try:
                 deadline = time.monotonic() + 8
                 observed = {}
@@ -148,6 +159,13 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
                     time.sleep(.05)
                 assert observed.get("cometbft") == "10001" and observed.get("etna-signer") == "0", observed
                 assert listening, "stock Comet did not open its Unix signer listener"
+                # The children exist, so setpriv has exec'd the supervisor.
+                status = Path(f"/proc/{supervisor.pid}/status").read_text().splitlines()
+                cap_eff = int(next(line.split()[1] for line in status if line.startswith("CapEff:")), 16)
+                assert cap_eff == documented_caps, hex(cap_eff)
+                assert listening != stale and listening not in listeners, (listening, listeners)
+                if incarnation == 1:
+                    assert not os.path.lexists(stale), "stale signer socket survived the restart"
                 listeners.append(listening)
                 time.sleep(.3)
                 assert not (app / "validator-supervisor.halted").exists(), "runtime child failed during smoke"
@@ -168,6 +186,7 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
     control.close()
     assert len(sessions) >= 2, "each stock Unix incarnation must open a fresh closed session"
     assert listeners[0] != listeners[1], "each signer+Comet pair must use a fresh socket name"
+    assert not os.path.lexists(stale), "stale signer socket survived the restart"
     assert before == (key.read_bytes(), state.read_bytes()), "runtime must not reset HRS"
     # Stock DefaultNewNode creates a dummy FilePV before replacing it with SocketPV.
     # It must be an unregistered identity and must never sign or substitute for the helper.
@@ -187,4 +206,6 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
                           publicKey=public["publicKey"], child_uids=observed,
                           comet_cannot_read_registered_key=True, HRS_unchanged=True,
                           unused_local_identity_never_signed=True, stock_unix_restart_with_retained_authority=True,
-                          fresh_signer_socket_per_start=True, missing_key_or_HRS_aborts_before_Comet=True)))
+                          fresh_signer_socket_per_start=True, supervisor_cap_eff=hex(documented_caps),
+                          stale_comet_socket_removed_under_documented_caps=True,
+                          missing_key_or_HRS_aborts_before_Comet=True)))
