@@ -1030,6 +1030,26 @@ class LauncherPathTests(unittest.TestCase):
         spec.loader.exec_module(module)
         return module
 
+    def test_import_guard_admits_only_the_one_app_state_schema(self):
+        guard = self.load_module().etna_import_guard
+        state = dict.fromkeys(("app_version", "chain_id", "generation", "inbox", "genesis", "last_height",
+                               "last_comet_hash", "parent", "anchor", "forced_cursor", "committees",
+                               "val_state"), 0)
+        state.update(schema_version=19, recovery=None)
+        missing = {key: value for key, value in state.items() if key != "recovery"}
+        with tempfile.TemporaryDirectory() as tmp:
+            app, home = Path(tmp) / "app", Path(tmp) / "comet"
+            app.mkdir(); home.mkdir()
+            def selected(journal):
+                (app / "abci-state.json").write_text(json.dumps(journal))
+                return guard.selected(app, home)
+            self.assertFalse(selected(state))
+            self.assertFalse(selected(dict(state, generation=1, recovery={"height": 6})))
+            for journal in (missing, dict(state, schema_version=17), dict(state, schema_version=18),
+                            dict(state, schema_version=True), dict(state, recovery=1), dict(state, extra=0)):
+                with self.subTest(journal=journal), self.assertRaisesRegex(ValueError, "unknown app journal format"):
+                    selected(journal)
+
     def test_both_launchers_refuse_late_escaped_detached_journal_before_children(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp).resolve()

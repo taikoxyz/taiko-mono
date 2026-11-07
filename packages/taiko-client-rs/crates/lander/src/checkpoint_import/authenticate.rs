@@ -116,7 +116,7 @@ where
     let (latest, landing) =
         own_landing(own_l1, params, package.checkpoint_height, &fixed, recovery_witness).await?;
     let mut state = AppState {
-        schema_version: if generation == 0 { 17 } else { 18 },
+        schema_version: abci::store::STATE_SCHEMA_VERSION,
         app_version: abci::app::APP_VERSION,
         chain_id: package.genesis.chain_id.clone(),
         generation,
@@ -1123,7 +1123,7 @@ mod tests {
         let mut env = abci::EtnaEnvelope::decode(&fx.blocks[&6].block.data[0]).unwrap();
         let mut anchor = fx.anchors[&6].clone();
         let state = AppState {
-            schema_version: 17,
+            schema_version: abci::store::STATE_SCHEMA_VERSION,
             app_version: 1,
             chain_id: fx.blocks[&6].block.header.chain_id.to_string(),
             generation: 0,

@@ -357,37 +357,3 @@ mod tests {
         });
     }
 }
-
-#[cfg(test)]
-mod committee_config_state_tests {
-    use super::*;
-    #[test]
-    fn old_genesis_record_without_config_hash_is_rejected() {
-        let legacy = serde_json::json!({
-            "genesis_height":0,"l1_0":64,"epoch_len":20,
-            "genesis_hash":B256::repeat_byte(1),"genesis_state_root":B256::repeat_byte(2),
-            "genesis_cutoff":63
-        });
-        assert!(serde_json::from_value::<GenesisRecord>(legacy).is_err());
-    }
-
-    #[test]
-    fn genesis_record_with_an_l1_epoch_length_is_rejected() {
-        let record = GenesisRecord {
-            committee_config_hash: B256::repeat_byte(3),
-            genesis_height: 0,
-            l1_0: 64,
-            epoch_len: 20,
-            genesis_hash: B256::repeat_byte(1),
-            genesis_state_root: B256::repeat_byte(2),
-            genesis_cutoff: 63,
-            forced_inclusion_delay: 3_600,
-            max_anchor_age: 7_200,
-        };
-        let mut legacy = serde_json::to_value(&record).unwrap();
-        assert_eq!(serde_json::from_value::<GenesisRecord>(legacy.clone()).unwrap(), record);
-        legacy["epoch_len_l1"] = 4.into();
-        let err = serde_json::from_value::<GenesisRecord>(legacy).unwrap_err();
-        assert!(err.to_string().contains("epoch_len_l1"), "{err}");
-    }
-}

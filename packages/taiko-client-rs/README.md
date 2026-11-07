@@ -128,7 +128,7 @@ This release supports new networks with Etna start S = 0 and their governance re
 [Checkpoint import](docs/checkpoint-import.md) uses a separately obtained offline EL dataset.
 The [Unzen switch](../protocol/docs/etna/SWITCH.md) and public EL snapshot tooling require
 separate implementations. A nonzero Etna start is refused.
-App state schemas are 17 (generation zero) and 18 (recovery); lander journals use schema 16.
+App state uses schema 19; lander journals use schema 16.
 Older stores and witnesses are refused without rewriting signed jobs or FilePV state.
 
 ## Forced inclusion

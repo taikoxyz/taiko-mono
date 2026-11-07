@@ -367,7 +367,7 @@ impl Fixture {
             0
         };
         AppState {
-            schema_version: 17,
+            schema_version: crate::store::STATE_SCHEMA_VERSION,
             recovery: None,
             app_version: crate::app::APP_VERSION,
             chain_id: self.request.chain_id.clone(),

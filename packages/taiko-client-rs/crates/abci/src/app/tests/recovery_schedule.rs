@@ -21,7 +21,6 @@ fn recovered(epoch_len: u64) -> (Fixture, MockL1, AppState) {
     let origin = verify_recovery_witness(&witness, &fx.params).unwrap();
     let mut state = fx.expected_state();
     state.anchor = verify_anchor_witness(&fx.anchor_witness(&l1, 64), fx.params.inbox).unwrap();
-    state.schema_version = 18;
     state.generation = 1;
     state.chain_id = chain_id_for(&fx.params, 1).unwrap();
     state.last_height = 6;
@@ -164,43 +163,42 @@ fn recovery_schedule_rejects_missing_switch_after_recovery() {
 }
 
 #[test]
-fn recovery_schedule_schema_is_explicit_and_generation_zero_bytes_stay_unchanged() {
-    let (fx, _, state) = recovered(7);
-    assert!(super::super::check_stored_state(&state, &fx.params).is_ok());
-    // Generation zero's schema, and the schemas before the validator state, are refused.
-    for schema in [15, 16, 17] {
-        let mut wrong = state.clone();
-        wrong.schema_version = schema;
-        assert!(super::super::check_stored_state(&wrong, &fx.params).is_err(), "{schema}");
+fn stored_state_has_one_schema_and_a_consistent_recovery_origin() {
+    use crate::store::{STATE_FILE, STATE_SCHEMA_VERSION};
+    let (fx, _, recovered) = recovered(7);
+    let check = |state: &AppState| super::super::check_stored_state(state, &fx.params);
+    let genesis = fx.expected_state();
+    for state in [&recovered, &genesis] {
+        assert_eq!(state.schema_version, STATE_SCHEMA_VERSION);
+        assert!(check(state).is_ok());
+        for schema in [STATE_SCHEMA_VERSION - 1, STATE_SCHEMA_VERSION + 1] {
+            let mut wrong = state.clone();
+            wrong.schema_version = schema;
+            assert!(check(&wrong).is_err(), "{schema}");
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().into());
+        store.save(state).unwrap();
+        let on_disk = std::fs::read(dir.path().join(STATE_FILE)).unwrap();
+        // The key is always written: `null` at generation zero, the origin after recovery.
+        let json: serde_json::Value = serde_json::from_slice(&on_disk).unwrap();
+        assert!(json.as_object().unwrap().contains_key("recovery"));
+        assert_eq!(json["recovery"].is_null(), state.recovery.is_none());
+        let loaded = store.load().unwrap().unwrap();
+        assert_eq!(&loaded, state);
+        store.save(&loaded).unwrap();
+        assert_eq!(std::fs::read(dir.path().join(STATE_FILE)).unwrap(), on_disk);
     }
-    for schema in [15, 16, 18] {
-        let mut wrong = fx.expected_state();
-        wrong.schema_version = schema;
-        assert!(super::super::check_stored_state(&wrong, &fx.params).is_err(), "{schema}");
-    }
-    assert!(super::super::check_stored_state(&fx.expected_state(), &fx.params).is_ok());
-    let mut wrong = state.clone();
+    // The recovery origin alone distinguishes generation zero from a recovery generation.
+    let mut wrong = recovered.clone();
     wrong.recovery = None;
-    assert!(super::super::check_stored_state(&wrong, &fx.params).is_err());
-    let mut mismatched = state.clone();
+    assert!(check(&wrong).is_err());
+    let mut wrong = genesis.clone();
+    wrong.recovery = recovered.recovery.clone();
+    assert!(check(&wrong).is_err());
+    let mut mismatched = recovered.clone();
     mismatched.recovery.as_mut().unwrap().generation = 2;
-    assert!(super::super::check_stored_state(&mismatched, &fx.params).is_err());
-    let old = fx.expected_state();
-    let before = serde_json::to_vec(&old).unwrap();
-    assert!(!serde_json::to_value(&old).unwrap().as_object().unwrap().contains_key("recovery"));
-    let decoded: AppState = serde_json::from_slice(&before).unwrap();
-    assert_eq!(serde_json::to_vec(&decoded).unwrap(), before);
-    assert_eq!(decoded.schema_version, 17);
-    let dir = tempfile::tempdir().unwrap();
-    let store = Store::new(dir.path().into());
-    store.save(&old).unwrap();
-    let on_disk = std::fs::read(dir.path().join(crate::store::STATE_FILE)).unwrap();
-    assert_eq!(store.load().unwrap(), Some(old));
-    assert_eq!(std::fs::read(dir.path().join(crate::store::STATE_FILE)).unwrap(), on_disk);
-    let recovery_dir = tempfile::tempdir().unwrap();
-    let recovery_store = Store::new(recovery_dir.path().into());
-    recovery_store.save(&state).unwrap();
-    assert_eq!(recovery_store.load().unwrap(), Some(state));
+    assert!(check(&mismatched).is_err());
 }
 
 /// Runs the actual proposal validation, validator updates and pruning over a skipped epoch.

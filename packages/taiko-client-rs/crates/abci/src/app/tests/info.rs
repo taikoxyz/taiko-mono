@@ -363,12 +363,12 @@ async fn app_new_rejects_an_inconsistent_stored_state() {
     let mut bad_height = good.clone();
     bad_height.last_height = u64::MAX;
     bad_height.parent.number = u64::MAX;
-    let mut old_schema = good.clone();
-    old_schema.schema_version = 15;
+    let mut bad_schema = good.clone();
+    bad_schema.schema_version = crate::store::STATE_SCHEMA_VERSION + 1;
     let mut bad_val_state = good.clone();
     bad_val_state.val_state = good.val_state.advance(&[]).unwrap();
 
-    for state in [bad_generation, bad_genesis, bad_parent, bad_height, old_schema, bad_val_state] {
+    for state in [bad_generation, bad_genesis, bad_parent, bad_height, bad_schema, bad_val_state] {
         store.save(&state).unwrap();
         let err =
             App::new(fx.l1(), fx.engine(), fx.params.clone(), store.clone(), AppOptions::default())

@@ -32,7 +32,7 @@ use crate::{
     metrics::{AbciMetrics, set_u64},
     rules::{RuleViolation, check_chain_id},
     schedule::ScheduleError,
-    store::{AppState, Store, StoreError},
+    store::{AppState, STATE_SCHEMA_VERSION, Store, StoreError},
 };
 
 /// Checkpoint ancestry of anchor witnesses against the local chain.
@@ -684,9 +684,9 @@ fn at_generation_origin(state: &AppState) -> bool {
 
 /// Rejects a persisted state that `params` or the state itself contradicts (see [`App::new`]).
 fn check_stored_state(state: &AppState, params: &ChainParams) -> Result<(), AbciError> {
-    if !matches!((state.schema_version, state.recovery.as_ref()), (17, None) | (18, Some(_))) {
+    if state.schema_version != STATE_SCHEMA_VERSION {
         return Err(AbciError::StoredState(format!(
-            "unsupported journal schema {} or recovery origin (expected 17 without origin or 18 with origin)",
+            "unsupported app state schema {} (expected {STATE_SCHEMA_VERSION})",
             state.schema_version
         )));
     }

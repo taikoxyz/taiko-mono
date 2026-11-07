@@ -16,7 +16,7 @@ use crate::{
     l1::L1Source,
     rules::check_chain_id,
     schedule::Schedule,
-    store::AppState,
+    store::{AppState, STATE_SCHEMA_VERSION},
     types::{GenesisRecord, Member, ParentInfo},
     valstate::ValState,
 };
@@ -169,7 +169,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let val_state = genesis_val_state(0, &committee.members)?;
         let parent = self.genesis_parent(&context.genesis).await?;
         Ok(AppState {
-            schema_version: 17,
+            schema_version: STATE_SCHEMA_VERSION,
             recovery: None,
             app_version: crate::app::APP_VERSION,
             chain_id: req.chain_id.clone(),
@@ -242,7 +242,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         )?
         .genesis;
         let state = AppState {
-            schema_version: 18,
+            schema_version: STATE_SCHEMA_VERSION,
             app_version: super::APP_VERSION,
             chain_id: req.chain_id.clone(),
             generation: origin.generation,

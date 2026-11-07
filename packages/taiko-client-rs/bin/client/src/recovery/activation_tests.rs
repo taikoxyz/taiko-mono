@@ -653,7 +653,7 @@ async fn initialized_state(
     )
     .unwrap();
     let state = abci::store::AppState {
-        schema_version: 18,
+        schema_version: abci::store::STATE_SCHEMA_VERSION,
         app_version: abci::app::APP_VERSION,
         chain_id: abci::rules::chain_id_for(&plan.deployment.params().unwrap(), 1).unwrap(),
         generation: 1,
@@ -1092,7 +1092,6 @@ async fn recovery_activation_accepts_only_exact_prior_supersession_evidence() {
     let plan =
         prepare::prepare(&profile, 1, &root, &source, &ReadEngine::new(&source)).await.unwrap();
     let mut old = initialized_state(&RecoveryStore::new(&root), &plan, &source).await;
-    old.schema_version = 17;
     old.generation = 0;
     old.recovery = None;
     old.chain_id = abci::rules::chain_id_for(&plan.deployment.params().unwrap(), 0).unwrap();
@@ -1226,7 +1225,6 @@ async fn recovery_activation_repeated_generation_preserves_historical_supersessi
     for name in [abci::store::STATE_FILE, "recovery-bootstrap.json"] {
         std::fs::remove_file(store.plan_dir(plan1.id()).join("app").join(name)).unwrap();
     }
-    old.schema_version = 17;
     old.generation = 0;
     old.recovery = None;
     old.chain_id = abci::rules::chain_id_for(&plan1.deployment.params().unwrap(), 0).unwrap();

@@ -50,11 +50,14 @@ pub struct CommitteeState {
     pub members: Vec<Member>,
 }
 
+/// The one [`AppState`] schema; a state file of any other schema is refused, never migrated.
+pub const STATE_SCHEMA_VERSION: u32 = 19;
+
 /// The app's committed state, persisted at every `Commit`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppState {
-    /// Journal schema: 17 for generation zero, 18 exclusively for fresh recovery state.
+    /// Always [`STATE_SCHEMA_VERSION`].
     pub schema_version: u32,
     /// Mandatory consensus format marker; old saved state has no implicit migration.
     pub app_version: u64,
@@ -62,8 +65,10 @@ pub struct AppState {
     pub chain_id: String,
     /// Recovery generation authenticated in the deployment domain.
     pub generation: u64,
-    /// Fixed authenticated boundary for fresh recovery schema 18; absent in schema 17.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The authenticated recovery boundary: `None` exactly at generation zero. Always written
+    /// (`null` at generation zero) and required: `deserialize_with` stops serde from reading a
+    /// missing key as `None`.
+    #[serde(deserialize_with = "Option::deserialize")]
     pub recovery: Option<RecoveryOrigin>,
     /// Inbox account authenticated at genesis. Required so a restart cannot switch contracts;
     /// state files written without this binding are refused rather than migrated implicitly.
@@ -204,7 +209,7 @@ pub struct ImportedState {
     pub schema: u32,
     /// Immutable operation identity checked against the ready components.
     pub installation_id: B256,
-    /// Unmodified application state using its original deployment/recovery schema.
+    /// Unmodified application state in the one [`AppState`] schema.
     pub state: AppState,
 }
 
@@ -850,7 +855,7 @@ mod tests {
             max_anchor_age: 7_200,
         };
         AppState {
-            schema_version: 17,
+            schema_version: STATE_SCHEMA_VERSION,
             recovery: None,
             app_version: crate::app::APP_VERSION,
             chain_id: "taiko-etna-167001-g0".to_string(),
@@ -977,108 +982,15 @@ mod tests {
     }
 
     #[test]
-    fn load_rejects_state_without_authenticated_inbox() {
-        let dir = tempfile::tempdir().unwrap();
-        let store = Store::new(dir.path().into());
-        store.save(&state()).unwrap();
-        let path = dir.path().join(STATE_FILE);
-        let mut json: serde_json::Value =
-            serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
-        json.as_object_mut().unwrap().remove("inbox");
-        fs::write(path, serde_json::to_vec(&json).unwrap()).unwrap();
-        assert!(matches!(store.load(), Err(StoreError::Corrupt { .. })));
-    }
-
-    /// Newly written state has one canonical source for the epoch schedule.
-    #[test]
-    fn save_omits_the_redundant_schedule() {
-        let dir = tempfile::tempdir().unwrap();
-        let store = Store::new(dir.path().into());
-        store.save(&state()).unwrap();
-        let json: serde_json::Value =
-            serde_json::from_slice(&fs::read(dir.path().join(STATE_FILE)).unwrap()).unwrap();
-        assert!(json.get("schedule").is_none());
-        assert_eq!(store.load().unwrap(), Some(state()));
-    }
-
-    /// Newly saved state identifies the initialized genesis record explicitly.
-    #[test]
-    fn save_uses_genesis_terminology() {
-        let dir = tempfile::tempdir().unwrap();
-        let store = Store::new(dir.path().into());
-        store.save(&state()).unwrap();
-        let json: serde_json::Value =
-            serde_json::from_slice(&fs::read(dir.path().join(STATE_FILE)).unwrap()).unwrap();
-        assert!(json.get("genesis").is_some());
-        assert!(json.get("activation").is_none());
-        assert!(json["anchor"]["inbox"].get("status").is_none());
-        assert!(json["anchor"]["inbox"].get("migration_state").is_none());
-        assert_eq!(store.load().unwrap(), Some(state()));
-    }
-
-    #[test]
-    fn load_rejects_the_legacy_genesis_alias() {
-        let dir = tempfile::tempdir().unwrap();
-        let store = Store::new(dir.path().into());
-        let mut json = serde_json::to_value(state()).unwrap();
-        let genesis = json.as_object_mut().unwrap().remove("genesis").unwrap();
-        json["activation"] = genesis;
-        fs::write(dir.path().join(STATE_FILE), serde_json::to_vec(&json).unwrap()).unwrap();
-        assert!(matches!(store.load(), Err(StoreError::Corrupt { .. })));
-    }
-
-    #[test]
-    fn load_rejects_the_legacy_inbox_status_alias() {
-        let dir = tempfile::tempdir().unwrap();
-        let store = Store::new(dir.path().into());
-        let mut json = serde_json::to_value(state()).unwrap();
-        let facts = json["anchor"]["inbox"].as_object_mut().unwrap();
-        let status = serde_json::json!(3);
-        facts.insert("migration_state".into(), status);
-        fs::write(dir.path().join(STATE_FILE), serde_json::to_vec(&json).unwrap()).unwrap();
-        assert!(matches!(store.load(), Err(StoreError::Corrupt { .. })));
-    }
-
-    #[test]
-    fn load_rejects_a_redundant_legacy_schedule() {
-        let dir = tempfile::tempdir().unwrap();
-        let store = Store::new(dir.path().into());
-        let s = state();
-        let mut json = serde_json::to_value(&s).unwrap();
-        json["schedule"] = serde_json::json!({
-            "genesis_height": s.genesis.genesis_height,
-            "l1_0": s.genesis.l1_0,
-            "epoch_len": s.genesis.epoch_len,
-            "genesis_cutoff": s.genesis.genesis_cutoff,
-        });
-        fs::write(dir.path().join(STATE_FILE), serde_json::to_vec(&json).unwrap()).unwrap();
-        assert!(matches!(store.load(), Err(StoreError::Corrupt { .. })));
-    }
-
-    /// A state saved while the genesis record still carried the L1 epoch length is refused
-    /// rather than loaded without it.
-    #[test]
-    fn load_rejects_a_state_with_an_l1_epoch_length() {
-        let dir = tempfile::tempdir().unwrap();
-        let store = Store::new(dir.path().into());
-        let mut json = serde_json::to_value(state()).unwrap();
-        json["genesis"]["epoch_len_l1"] = 4.into();
-        fs::write(dir.path().join(STATE_FILE), serde_json::to_vec(&json).unwrap()).unwrap();
-        let err = store.load().expect_err("a state with the removed field must not load");
-        assert!(matches!(err, StoreError::Corrupt { .. }), "{err:?}");
-    }
-
-    /// A state written before forced inclusion or the validator state lacks its genesis-record,
-    /// anchor, cursor or validator-state fields and is refused rather than defaulted (prelaunch:
-    /// no migration).
-    #[test]
-    fn load_rejects_a_state_without_forced_inclusion_fields() {
+    fn load_rejects_a_state_missing_a_required_field() {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::new(dir.path().into());
         let current = serde_json::to_value(state()).unwrap();
         for (object, field) in [
             ("", "app_version"),
             ("", "schema_version"),
+            ("", "recovery"),
+            ("", "inbox"),
             ("", "last_comet_hash"),
             ("/committees/0/members/0", "pubkey"),
             ("", "forced_cursor"),

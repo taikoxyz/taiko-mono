@@ -48,13 +48,12 @@ def selected(app, home):
         return True
     # Only the established top-level ordinary state layout may take the legacy launch
     # path. App::new independently validates its complete typed contents.
-    required = {"schema_version", "app_version", "chain_id", "generation", "inbox", "genesis",
-                "last_height", "last_comet_hash", "parent", "anchor", "forced_cursor",
+    required = {"schema_version", "app_version", "chain_id", "generation", "recovery", "inbox",
+                "genesis", "last_height", "last_comet_hash", "parent", "anchor", "forced_cursor",
                 "committees", "val_state"}
-    if (set(journal) - {"recovery"} != required or journal["schema_version"] not in (17, 18)
-            or type(journal["schema_version"]) is not int
-            or (journal["schema_version"] == 17 and journal.get("recovery") is not None)
-            or (journal["schema_version"] == 18 and not isinstance(journal.get("recovery"), dict))):
+    if (set(journal) != required or type(journal["schema_version"]) is not int
+            or journal["schema_version"] != 19
+            or not (journal["recovery"] is None or isinstance(journal["recovery"], dict))):
         raise ValueError("unknown app journal format")
     return False
 
