@@ -104,8 +104,10 @@ printf '["build", "{name}"]\\n' >> "$CALLS"
         self.select("single_validator", "single_validator_produces_blocks_by_the_header_rules")
         result = self.run_entrypoint("--nocapture", "restart")
         self.assertEqual(result.returncode, 0, result.stderr)
-        listed = self.calls()[0]
-        run = next(row for row in self.calls() if row[:3] == ["cargo", "nextest", "run"])
+        calls = self.calls()
+        listed = calls[0]
+        self.assertEqual(listed[:3], ["cargo", "nextest", "list"])
+        run = next(row for row in calls if row[:3] == ["cargo", "nextest", "run"])
         self.assertNotIn("--nocapture", listed)
         self.assertEqual(run[-2:], ["--nocapture", "restart"])
 
