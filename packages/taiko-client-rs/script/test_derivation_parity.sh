@@ -28,7 +28,7 @@ if [[ -z "${TAIKO_GO_DRIVER_BIN:-}" ]]; then
     export TAIKO_GO_DRIVER_BIN="$PARITY_TMP/taiko-client"
     (
         cd "$PARITY_REPO_ROOT"
-        GOTOOLCHAIN=go1.26.0 CGO_CFLAGS="-O -D__BLST_PORTABLE__" \
+        GOTOOLCHAIN=go1.26.0+auto CGO_CFLAGS="-O -D__BLST_PORTABLE__" \
             CGO_CFLAGS_ALLOW="-O -D__BLST_PORTABLE__" \
             go build -o "$TAIKO_GO_DRIVER_BIN" ./packages/taiko-client/cmd
     )
