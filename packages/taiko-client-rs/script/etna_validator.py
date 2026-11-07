@@ -52,7 +52,7 @@ MAX_UNIX_SOCKET_PATH = 103  # macOS sun_path holds 104 bytes with the terminatin
 class Supervisor:
     @staticmethod
     def command_prefix(variable, fallback):
-        """Read an explicit executable prefix without shell expansion."""
+        """Read an explicit JSON argv without shell expansion."""
         value = os.environ.get(variable)
         if value is None:
             return fallback
@@ -115,12 +115,9 @@ class Supervisor:
         address = config.get("priv_validator_laddr", "")
         if json.loads((self.home / "config/genesis.json").read_text())["chain_id"] != self.chain:
             raise ValueError("signer chain ID differs from Comet genesis")
-        self.container = os.environ.get("ETNA_COMET_CONTAINER")  # host Docker test adapter
         if address.startswith("unix://"):
             # The configured path only selects Unix mode. Every pair start gets a fresh
             # name in run/, so no Comet-owned stale inode ever needs to be pinned or probed.
-            if self.container:
-                raise ValueError("the host Docker adapter requires a tcp:// signer transport")
             self.unix_run = self.home / "run"
             self.run_owner = int(os.environ.get("ETNA_COMET_UID", os.geteuid()))
             sample = self.unix_run / (SIGNER_SOCKET_PREFIX + "0" * 16 + SIGNER_SOCKET_SUFFIX)
@@ -129,7 +126,7 @@ class Supervisor:
             self.address = None
         elif address.startswith("tcp://"):
             self.unix_run = None
-            self.address = os.environ.get("ETNA_SIGNER_ADDR", address)
+            self.address = address  # Comet listens here; the signer dials it.
         else:
             raise ValueError("validator startup requires explicit priv_validator_laddr")
         self.latch = self.store / "validator-supervisor.halted"
@@ -141,8 +138,9 @@ class Supervisor:
             "--trust-socket", str(self.store / "checkpoint-trust.sock"),
             "--chain-id", self.chain, "--priv-key", str(self.key),
             "--priv-state", str(self.state)] + authority_args
-        self.comet_command = (["docker", "start", "--attach", self.container] if self.container else
-                              self.command_prefix("ETNA_COMET_COMMAND_JSON", [os.environ.get("ETNA_COMET_BIN", "cometbft"), "start"]) + ["--home", str(self.home)])
+        # Comet's complete argv. start_comet() appends only the Unix pair's --priv_validator_laddr.
+        self.comet_command = self.command_prefix("ETNA_COMET_COMMAND_JSON", [
+            os.environ.get("ETNA_COMET_BIN", "cometbft"), "start", "--home", str(self.home)])
         if self.imported:
             self.comet_command = [self.imported["comet_binary"], "start", "--home", str(self.home)]
         self.signer = self.comet = None
@@ -318,10 +316,7 @@ class Supervisor:
         # Bound and reap Comet before removing the signer. Never touch HRS/WAL/history.
         signer_failed = False
         if self.comet is not None:
-            if self.container:
-                subprocess.run(["docker", "stop", "--time", "10", self.container],
-                               stdout=subprocess.DEVNULL, check=False, timeout=20)
-            elif self.comet.poll() is None:
+            if self.comet.poll() is None:
                 self.comet.terminate()
             try:
                 self.comet.wait(timeout=12)
@@ -414,20 +409,15 @@ class Supervisor:
         command = self.comet_command
         if self.unix_run is not None:
             command = command + ["--priv_validator_laddr", self.address]
-        if self.container:
-            running = subprocess.check_output(["docker", "inspect", "-f", "{{.State.Running}}", self.container], text=True).strip()
-            if running == "true":
-                command = ["docker", "attach", "--sig-proxy=false", self.container]
         identity = {}
-        if not self.container and "ETNA_COMET_UID" in os.environ:
+        if "ETNA_COMET_UID" in os.environ:
             # The supported image keeps registered FilePV secrets inaccessible to Comet.
             uid, gid = int(os.environ["ETNA_COMET_UID"]), int(os.environ["ETNA_COMET_GID"])
             # A same-identity unprivileged local runner cannot call setgroups. Preserve its
             # existing identity; privileged/different-identity launches still drop all groups.
             if os.geteuid() == 0 or uid != os.geteuid() or gid != os.getegid():
                 identity = dict(user=uid, group=gid, extra_groups=[])
-        self.comet = subprocess.Popen(command, cwd=None if self.container else self.home,
-                                      **identity, **self.child_options("ETNA_COMET_ENV_JSON"))
+        self.comet = subprocess.Popen(command, cwd=self.home, **identity, **self.child_options("ETNA_COMET_ENV_JSON"))
 
     def expected_supersession(self, snapshot):
         """Classify only typed first-cause bytes; generic latch/reason text never authorizes it."""

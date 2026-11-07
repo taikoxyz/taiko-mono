@@ -4,8 +4,8 @@ use crate::{
     app::{AppConfig, AppNode, free_port},
     boot::{RethNode, host_user, jwt_path, local_url, make_world_writable},
     cometbft::{HomeConfig, write_home},
-    docker::{DockerEnv, host_port},
-    signer::SignerNode,
+    docker::{DockerEnv, docker},
+    signer::{CometLaunch, SignerNode},
     wait_until,
 };
 use abci::{ChainParams, RpcL1Source, build_genesis};
@@ -36,8 +36,8 @@ pub struct ContractConsensus {
     tmp: TempDir,
     /// Suppresses failure diagnostics after clean teardown.
     stopped: bool,
-    /// Native peers retain their loopback signer ports across restart.
-    native_ports: Option<Vec<u16>>,
+    /// Whether Comet runs on this host rather than in the `names` containers.
+    native: bool,
 }
 impl ContractConsensus {
     /// Start one independently executing validator for each authoritative bootstrap directory.
@@ -96,7 +96,6 @@ impl ContractConsensus {
         let image = std::env::var("COMETBFT_IMAGE").unwrap_or_else(|_| "cometbft/cometbft:v0.40.0@sha256:0703fb881dac0987c8e41a5810cc09dbcb503bb59ac91705f6936c4b972ac798".into());
         let user = host_user().await?;
         let native_p2p = (0..n).map(|_| free_port()).collect::<Result<Vec<_>>>()?;
-        let mut native_ports = Vec::new();
         for i in 0..n {
             if i > 0 {
                 extra_el.push(StandaloneReth::start().await?);
@@ -131,10 +130,13 @@ impl ContractConsensus {
                 if native { "127.0.0.1" } else { "host.docker.internal" },
                 app.port()
             );
+            // Native Comet uses the production Unix transport: this marker only selects it, and
+            // the supervisor assigns each start a fresh run/signer-<16 hex>.sock. Docker Comet
+            // listens in its container; the host signer dials the configured published port.
             let signer_address = if native {
-                format!("tcp://127.0.0.1:{signer_port}")
+                "unix://run/signer.sock".into()
             } else {
-                "tcp://0.0.0.0:26659".into()
+                format!("tcp://127.0.0.1:{signer_port}")
             };
             write_home(
                 &home,
@@ -166,20 +168,19 @@ impl ContractConsensus {
                 std::fs::write(path, config)?;
                 let signer = if enroll { signer.with_authority(&params) } else { signer };
                 let signer = signer.native(home);
-                signer.start(signer_port)?;
+                signer.start()?;
                 peers.push(CmtClient::new(local_url(rpc_port)?));
                 apps.push(app);
                 signers.push(signer);
-                native_ports.push(signer_port);
                 continue;
             }
-            let signer = signer.supervised(home.clone(), names[i].clone());
+            let signer = signer.supervised(home.clone(), CometLaunch::Docker(names[i].clone()));
             make_world_writable(&home)?;
             let mount = format!("{}:/cometbft", home.display());
-            let rpc = format!("127.0.0.1:{}:26657", free_port()?);
-            let pv = format!("127.0.0.1:{}:26659", free_port()?);
+            let rpc = format!("127.0.0.1:{rpc_port}:26657");
+            let pv = format!("127.0.0.1:{signer_port}:26659");
             docker
-                .run(
+                .create_container(
                     &names[i],
                     &[
                         "--add-host",
@@ -198,11 +199,13 @@ impl ContractConsensus {
                         "start",
                         "--home",
                         "/cometbft",
+                        "--priv_validator_laddr",
+                        "tcp://0.0.0.0:26659",
                     ],
                 )
                 .await?;
-            signer.start(host_port(&names[i], 26659).await?)?;
-            peers.push(CmtClient::new(local_url(host_port(&names[i], 26657).await?)?));
+            signer.start()?;
+            peers.push(CmtClient::new(local_url(rpc_port)?));
             apps.push(app);
             signers.push(signer);
         }
@@ -217,7 +220,7 @@ impl ContractConsensus {
             docker,
             tmp,
             stopped: false,
-            native_ports: native.then_some(native_ports),
+            native,
         };
         this.wait_for_height(1).await?;
         Ok(this)
@@ -249,22 +252,23 @@ impl ContractConsensus {
         self.signers[i].state()
     }
 
-    /// A controlled restart retains exact authoritative HRS, Comet WAL and app history.
+    /// A controlled restart retains exact authoritative HRS, Comet WAL and app history. A
+    /// supervisor that had to kill its Docker client can leave the container running, so it
+    /// is stopped too.
     pub async fn stop_node(&mut self, i: usize) -> Result<()> {
         self.signers[i].stop();
+        let stopped = if self.native {
+            Ok(())
+        } else {
+            docker(&["stop", "--time", "10", &self.names[i]]).await.map(drop)
+        };
         self.apps[i].stop().await;
-        Ok(())
+        stopped
     }
     /// Restarts app then supervised consensus, preserving every storage directory.
     pub async fn restart_node(&mut self, i: usize) -> Result<()> {
         self.apps[i].launch().await?;
-        if let Some(ports) = &self.native_ports {
-            self.signers[i].start(ports[i])?;
-        } else {
-            crate::docker::docker(&["start", &self.names[i]]).await?;
-            self.signers[i].start(host_port(&self.names[i], 26659).await?)?;
-        }
-        Ok(())
+        self.signers[i].start()
     }
     /// Waits for the first validator while surfacing terminal app failures.
     pub async fn wait_for_height(&self, height: u64) -> Result<()> {

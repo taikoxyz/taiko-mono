@@ -1424,6 +1424,15 @@ async fn recovery_process_specifications_encode_canonical_signer_deployment() {
     let specs =
         crate::recovery::process::specifications(&profile, &store, &plan, &installed).unwrap();
     let supervisor = &specs[1].executable.env;
+    // ETNA_COMET_COMMAND_JSON is Comet's complete argv: the supervisor adds no --home.
+    let comet = std::iter::once(profile.comet.program.display().to_string())
+        .chain(profile.comet.argv.iter().cloned())
+        .chain(["--home".into(), installed.home.display().to_string()])
+        .collect::<Vec<_>>();
+    assert_eq!(
+        serde_json::from_str::<Vec<String>>(&supervisor["ETNA_COMET_COMMAND_JSON"]).unwrap(),
+        comet
+    );
     assert_eq!(supervisor["ETNA_INBOX"], inbox);
     assert_eq!(supervisor["ETNA_L1_CHAIN_ID"], plan.deployment.l1_chain_id.to_string());
     assert_eq!(

@@ -22,9 +22,9 @@ use url::Url;
 
 use crate::{
     app::AppNode,
-    boot::{POLL, RPC_TIMEOUT, RethNode, VALIDATOR_STAKE, boot, local_url},
+    boot::{POLL, RPC_TIMEOUT, RethNode, VALIDATOR_STAKE, boot},
     cometbft::{CmtClient, CmtStatus},
-    docker::{DockerEnv, docker, host_port},
+    docker::{DockerEnv, docker},
     keys::ValidatorKey,
     l1::set_interval_mining,
     lander::Lander,
@@ -276,10 +276,9 @@ impl Devnet {
         Ok(())
     }
 
-    /// Restarts CometBFT node `i`'s container (`docker restart`; it also starts a container that
-    /// exited, e.g. after losing its ABCI connection) and waits until its RPC answers again,
-    /// i.e. until its handshake with the app (and any block replay) is done. The published RPC
-    /// port changes on restart; every clone of [`Devnet::cmt`]`(i)` follows it.
+    /// Restarts CometBFT node `i` (see [`Devnet::cmt_restart_begin`]; this also restarts a
+    /// container that exited, e.g. after losing its ABCI connection) and waits until its RPC
+    /// answers again, i.e. until its handshake with the app (and any block replay) is done.
     pub async fn cmt_restart(&self, i: usize) -> Result<()> {
         self.cmt_restart_begin(i).await?;
         let name = self.cmt_container(i);
@@ -293,13 +292,13 @@ impl Devnet {
 
     /// Starts a Comet/helper restart without waiting for handshake completion. Failure-path
     /// tests can observe an app safety halt instead of waiting for an RPC that cannot start.
+    /// Stops the supervisor, then the container, which a supervisor that had to kill its Docker
+    /// client can leave running; a new supervisor starts it again on its fixed host ports.
     pub async fn cmt_restart_begin(&self, i: usize) -> Result<()> {
         let name = self.cmt_container(i);
         self.signers[i].stop();
-        docker(&["restart", "-t", "10", &name]).await?;
-        self.signers[i].start(host_port(&name, 26659).await?)?;
-        self.cmt[i].set_url(local_url(host_port(&name, 26657).await?)?);
-        Ok(())
+        docker(&["stop", "--time", "10", &name]).await?;
+        self.signers[i].start()
     }
 
     /// The actual FilePV anti-double-sign state outside the Comet-mounted home.

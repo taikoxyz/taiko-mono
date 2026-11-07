@@ -86,14 +86,6 @@ impl OwnedRuntime {
         role: ComponentRole,
         spec: &ProcessSpec,
     ) -> Result<(), RecoveryCommandError> {
-        if role == ComponentRole::Supervisor &&
-            (spec.executable.env.contains_key("ETNA_COMET_CONTAINER") ||
-                std::env::var_os("ETNA_COMET_CONTAINER").is_some())
-        {
-            return Err(RecoveryCommandError::Missing(
-                "local foreground supervisor without container adapter",
-            ));
-        }
         let mut guard = self.state.lock().map_err(|_| RecoveryCommandError::Busy)?;
         let state = guard.as_mut().ok_or(RecoveryCommandError::Busy)?;
         if role != spec.paths.role || state.children.iter().any(|child| child.role == role) {
@@ -369,6 +361,9 @@ pub fn specifications(
         paths: ComponentPaths::new(ComponentRole::App, &bundle.join("app"))
             .map_err(|_| RecoveryCommandError::Busy)?,
     }];
+    // Stock Comet's complete argv, run directly or as ETNA_COMET_COMMAND_JSON by the supervisor.
+    let mut comet = profile.comet.clone();
+    comet.argv.extend(["--home".into(), installed.home.display().to_string()]);
     let (role, mut executable) = if let Some(signer) = &profile.signer {
         let mut supervisor = signer.supervisor.clone();
         let chain = abci::rules::chain_id_for(&plan.deployment.params()?, plan.origin.generation)
@@ -385,15 +380,11 @@ pub fn specifications(
             ("ETNA_L2_CHAIN_ID", plan.deployment.l2_chain_id.to_string()),
             ("ETNA_INBOX", format!("{:#x}", plan.deployment.inbox)),
             ("ETNA_ENROLL_LEGACY", "1".into()),
-            (
-                "ETNA_SIGNER_ADDR",
-                format!("unix://{}", installed.home.join("run/signer.sock").display()),
-            ),
             ("ETNA_DENIAL_FILE", bundle.join("app/signer-denial.json").display().to_string()),
         ] {
             supervisor.env.insert(key.into(), value);
         }
-        for (name, command) in [("SIGNER", &signer.executable), ("COMET", &profile.comet)] {
+        for (name, command) in [("SIGNER", &signer.executable), ("COMET", &comet)] {
             let prefix: Vec<_> = std::iter::once(command.program.display().to_string())
                 .chain(command.argv.iter().cloned())
                 .collect();
@@ -410,8 +401,6 @@ pub fn specifications(
         }
         (ComponentRole::Supervisor, supervisor)
     } else {
-        let mut comet = profile.comet.clone();
-        comet.argv.extend(["--home".into(), installed.home.display().to_string()]);
         (ComponentRole::Comet, comet)
     };
     executable.env.insert("ETNA_COMET_UID".into(), installed.uid.to_string());
@@ -582,14 +571,6 @@ mod tests {
         };
         let root = Path::new(&root);
         let mut runtime = OwnedRuntime::new(acquire_activation(root, B256::ZERO).unwrap());
-        if std::env::var_os("ETNA_TASK8_CONTAINER_TEST").is_some() {
-            let supervisor = spec(root, ComponentRole::Supervisor);
-            runtime.fence(&supervisor.paths).unwrap();
-            let result = runtime.spawn(ComponentRole::Supervisor, &supervisor);
-            runtime.stop().await.unwrap();
-            assert!(result.is_err(), "inherited Docker adapter must be rejected");
-            return;
-        }
         if std::env::var_os("ETNA_TASK8_INTERRUPT_TEST").is_some() {
             let mut interrupt =
                 tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt()).unwrap();
@@ -640,29 +621,6 @@ mod tests {
             std::fs::read_to_string(root.path().join("order")).unwrap_or_default(),
             "lander\ncomet\napp\n"
         );
-    }
-    #[tokio::test]
-    async fn recovery_local_owner_refuses_configured_or_inherited_container_adapter() {
-        let root = tempfile::tempdir().unwrap();
-        let mut runtime = OwnedRuntime::new(acquire_activation(root.path(), B256::ZERO).unwrap());
-        let mut supervisor = spec(root.path(), ComponentRole::Supervisor);
-        supervisor
-            .executable
-            .env
-            .insert("ETNA_COMET_CONTAINER".into(), "external-container".into());
-        runtime.fence(&supervisor.paths).unwrap();
-        let result = runtime.spawn(ComponentRole::Supervisor, &supervisor);
-        runtime.stop().await.unwrap();
-        assert!(result.is_err(), "configured Docker adapter must be rejected");
-        let status = Command::new(std::env::current_exe().unwrap())
-            .args(["--exact", "recovery::process::tests::recovery_owned_controller_fixture"])
-            .env("ETNA_TASK8_TEST_ROOT", root.path())
-            .env("ETNA_TASK8_CONTAINER_TEST", "1")
-            .env("ETNA_COMET_CONTAINER", "external-container")
-            .status()
-            .await
-            .unwrap();
-        assert!(status.success());
     }
     #[tokio::test]
     async fn recovery_sigkill_controller_keeps_surviving_child_busy() {

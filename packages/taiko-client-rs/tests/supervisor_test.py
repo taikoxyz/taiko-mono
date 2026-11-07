@@ -158,10 +158,55 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
         (self.home / "config/config.toml").write_text('priv_validator_laddr = "tcp://127.0.0.1:26659"\n')
 
     def comet_body(self):
-        return 'from pathlib import Path\nimport os,time\np=Path(os.environ["STARTS"])\np.open("a").write("start\\n")\nPath(os.environ["COMET_PID"]).write_text(str(os.getpid()))\n\nwhile not Path(os.environ["COMET_PID"]).with_name("release_comet").exists(): time.sleep(.05)'
+        # Record the argv and working directory each Comet start receives.
+        return ('from pathlib import Path\nimport json,os,sys,time\n'
+                'with Path(os.environ["COMET_PID"]).with_name("comets").open("a") as out:\n'
+                ' out.write(json.dumps(dict(argv=sys.argv[1:],cwd=os.getcwd()))+"\\n")\n'
+                'p=Path(os.environ["STARTS"])\np.open("a").write("start\\n")\nPath(os.environ["COMET_PID"]).write_text(str(os.getpid()))\n\n'
+                'while not Path(os.environ["COMET_PID"]).with_name("release_comet").exists(): time.sleep(.05)')
 
     def starts(self):
         return len(self.count.read_text().splitlines()) if self.count.exists() else 0
+
+    def comets(self):
+        path = self.root / "comets"
+        return [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
+
+    def signer_address(self, index):
+        argv = self.signers()[index]["argv"]
+        return argv[argv.index("--comet-signer-addr") + 1]
+
+    def listener_args(self, index):
+        """What the supervisor appends to pair `index`'s Comet argv: nothing over TCP."""
+        return []
+
+    def comet_listener(self, index):
+        """Over TCP, Comet listens on its configured address."""
+        return "tcp://127.0.0.1:26659"
+
+    def restart_with(self, **changes):
+        """Restart the supervisor with a changed environment; wait for its first pair."""
+        self.proc.terminate()
+        self.assertEqual(self.proc.wait(timeout=5), 0)
+        self.env.update(changes)
+        self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")],
+                                     env=self.env, stdout=self.log, stderr=self.log)
+        self.wait(lambda: self.starts() == 2 and len(self.signers()) == 2)
+
+    def test_default_comet_argv(self):
+        """Without ETNA_COMET_COMMAND_JSON, Comet runs `cometbft start --home <home>` in the home."""
+        home = str(self.home.resolve())
+        self.assertEqual(self.comets(), [dict(argv=["start", "--home", home] + self.listener_args(0), cwd=home)])
+
+    def test_comet_command_json_is_the_complete_argv(self):
+        """The supervisor adds no --home to an explicit Comet argv."""
+        self.restart_with(ETNA_COMET_COMMAND_JSON=json.dumps([str(self.bin / "cometbft"), "custom", "argv"]))
+        self.assertEqual(self.comets()[-1]["argv"], ["custom", "argv"] + self.listener_args(-1))
+
+    def test_signer_address_override_is_gone(self):
+        """ETNA_SIGNER_ADDR no longer exists: the signer dials Comet's own listener."""
+        self.restart_with(ETNA_SIGNER_ADDR="tcp://127.0.0.1:1")
+        self.assertEqual(self.signer_address(-1), self.comet_listener(-1))
 
     def tearDown(self):
         self.proc.terminate()
@@ -663,16 +708,20 @@ class UnixSupervisorTests(SupervisorTests):
 
     def comet_body(self):
         # Bind the assigned listener and never unlink it, as after an unclean stock exit.
-        return ('import json,os,socket,sys\nfrom pathlib import Path\n'
+        return ('import socket,sys\n'
                 'address=sys.argv[sys.argv.index("--priv_validator_laddr")+1]\n'
                 's=socket.socket(socket.AF_UNIX)\ns.bind(address.removeprefix("unix://"))\ns.listen()\n'
-                'with Path(os.environ["COMET_PID"]).with_name("comets").open("a") as out:\n'
-                ' out.write(json.dumps(dict(argv=sys.argv[1:],cwd=os.getcwd()))+"\\n")\n'
                 + super().comet_body())
 
-    def comets(self):
-        path = self.root / "comets"
-        return [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
+    def listener_args(self, index):
+        """Unix mode appends only the pair's fresh listener, which its signer dials."""
+        address = self.signer_address(index)
+        self.assertRegex(address, "^unix://" + re.escape(str(self.home.resolve() / "run"))
+                         + r"/signer-[0-9a-f]{16}\.sock$")
+        return ["--priv_validator_laddr", address]
+
+    def comet_listener(self, index):
+        return self.comets()[index]["argv"][-1]
 
     def listener(self, index):
         return self.comets()[index]["argv"][-1].removeprefix("unix://")
@@ -1073,7 +1122,7 @@ class TypedSupersessionTests(unittest.TestCase):
         runtime.store, runtime.chain, runtime.generation = store, "old-chain", 0
         runtime.state = store / "hrs.json"
         runtime.latch = store / "validator-supervisor.halted"
-        runtime.imported, runtime.container, runtime.event_scratch = None, None, None
+        runtime.imported, runtime.event_scratch = None, None
         state = json.dumps(dict(chain_id="old-chain", generation=0, inbox="0x01")).encode()
         fatal = b"authenticated higher recovery generation"
         evidence = dict(schema=1, chain_id="old-chain", previous_generation=0, current_generation=1,
@@ -1150,7 +1199,7 @@ class TypedSupersessionTests(unittest.TestCase):
         spec.loader.exec_module(module)
         runtime = object.__new__(module.Supervisor)
         runtime.imported = None
-        runtime.container, runtime.home, runtime.unix_run = None, Path("/private/runtime"), None
+        runtime.home, runtime.unix_run = Path("/private/runtime"), None
         runtime.comet_command = ["/cometbft", "start"]
         runtime.child_options = lambda _: {}
         for current_uid, current_gid, uid, gid, expected in [

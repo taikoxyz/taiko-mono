@@ -28,7 +28,7 @@ use crate::{
     l1::finalized_number,
     lander::{Lander, LanderCtx},
     planter::{InboxValues, Planter, registry_entry},
-    signer::SignerNode,
+    signer::{CometLaunch, SignerNode},
     wait::wait_until,
 };
 
@@ -219,8 +219,13 @@ pub(crate) async fn boot(
     let user = host_user().await?;
     let cmt_names: Vec<String> = (0..n).map(|i| format!("abci-{id}-cmt-{i}")).collect();
     let mut signers = Vec::with_capacity(n);
+    let mut rpc_ports = Vec::with_capacity(n);
     for i in 0..n {
         let home = tmp.join(format!("cmt-{i}"));
+        // Fixed host ports survive container restarts. Comet listens in the container; the
+        // host supervisor's signer dials the configured published address.
+        let rpc_port = free_port()?;
+        let signer_port = free_port()?;
         let peers = (0..n)
             .filter(|j| *j != i)
             .map(|j| format!("{}@{}:26656", node_keys[j].node_id(), cmt_names[j]))
@@ -234,7 +239,7 @@ pub(crate) async fn boot(
                 timeout_commit_ms: spec.timeout_commit_ms,
                 persistent_peers: &peers,
                 genesis_json: &genesis_json,
-                signer_addr: "tcp://0.0.0.0:26659",
+                signer_addr: &format!("tcp://127.0.0.1:{signer_port}"),
                 node: &node_keys[i],
             },
         )?;
@@ -244,20 +249,20 @@ pub(crate) async fn boot(
             genesis_doc.chain_id.clone(),
             &keys[i],
         )?
-        .supervised(home.clone(), cmt_names[i].clone());
+        .supervised(home.clone(), CometLaunch::Docker(cmt_names[i].clone()));
         make_world_writable(&home)?;
         let mount = format!("{}:/cometbft", home.display());
-        let rpc_port = format!("127.0.0.1:{}:26657", free_port()?);
-        let signer_port = format!("127.0.0.1:{}:26659", free_port()?);
+        let rpc = format!("127.0.0.1:{rpc_port}:26657");
+        let pv = format!("127.0.0.1:{signer_port}:26659");
         let args = [
             "--add-host",
             "host.docker.internal:host-gateway",
             "--user",
             &user,
             "-p",
-            &rpc_port,
+            &rpc,
             "-p",
-            &signer_port,
+            &pv,
             "-v",
             &mount,
             "--entrypoint",
@@ -266,15 +271,19 @@ pub(crate) async fn boot(
             "start",
             "--home",
             "/cometbft",
+            "--priv_validator_laddr",
+            "tcp://0.0.0.0:26659",
         ];
-        docker.run(&cmt_names[i], &args).await?;
-        // Comet owns the listener and waits for PubKey before its ABCI handshake.
-        signer.start(host_port(&cmt_names[i], 26659).await?)?;
+        docker.create_container(&cmt_names[i], &args).await?;
+        // The supervisor starts Comet, which owns the listener and waits for PubKey before its
+        // ABCI handshake.
+        signer.start()?;
         signers.push(signer);
+        rpc_ports.push(rpc_port);
     }
     let mut cmt = Vec::with_capacity(n);
-    for name in &cmt_names {
-        let client = CmtClient::new(local_url(host_port(name, 26657).await?)?);
+    for (name, port) in cmt_names.iter().zip(rpc_ports) {
+        let client = CmtClient::new(local_url(port)?);
         wait_until(&format!("{name} RPC"), RPC_TIMEOUT, POLL, || async {
             Ok(Some(client.latest_height().await?))
         })

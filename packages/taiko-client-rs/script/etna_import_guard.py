@@ -82,8 +82,8 @@ def launch_info(app, home):
         digest = hashlib.file_digest(binary, "sha256").hexdigest()
     if "0x" + digest != intent["inputs"]["client_binary"]:
         raise ValueError("native launch guard differs from installation")
-    for variable in ("ETNA_COMET_CONTAINER", "ETNA_COMET_COMMAND_JSON", "ETNA_COMET_ENV_JSON",
-                     "ETNA_SIGNER_COMMAND_JSON", "ETNA_SIGNER_ENV_JSON", "ETNA_SIGNER_ADDR"):
+    for variable in ("ETNA_COMET_COMMAND_JSON", "ETNA_COMET_ENV_JSON",
+                     "ETNA_SIGNER_COMMAND_JSON", "ETNA_SIGNER_ENV_JSON"):
         if variable in os.environ:
             raise ValueError("imported node refuses launch override " + variable)
     guard = subprocess.run([str(client), "abci-import", "check-runtime", "--live",

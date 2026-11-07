@@ -1231,14 +1231,8 @@ fn native_config_controls(base: &Path) -> Result<PathBuf> {
 
 fn refuse_ambiguous_launchers(base: &Path, app: &Path, comet: &Path) -> Result<()> {
     for (script, overrides) in [
-        (
-            "script/start_etna_full_node.py",
-            &["ETNA_COMET_ENV_JSON", "ETNA_COMET_CONTAINER", "ETNA_COMET_COMMAND_JSON"][..],
-        ),
-        (
-            "script/etna_validator.py",
-            &["ETNA_SIGNER_COMMAND_JSON", "ETNA_COMET_ENV_JSON", "ETNA_SIGNER_ADDR"][..],
-        ),
+        ("script/start_etna_full_node.py", &["ETNA_COMET_ENV_JSON", "ETNA_COMET_COMMAND_JSON"][..]),
+        ("script/etna_validator.py", &["ETNA_SIGNER_COMMAND_JSON", "ETNA_COMET_ENV_JSON"][..]),
     ] {
         for name in overrides {
             let out = std::process::Command::new("python3")

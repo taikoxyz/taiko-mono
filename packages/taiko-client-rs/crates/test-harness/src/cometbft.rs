@@ -1,11 +1,6 @@
 //! CometBFT node homes and a minimal CometBFT RPC client.
 
-use std::{
-    fs,
-    path::Path,
-    sync::{Arc, RwLock},
-    time::Duration,
-};
+use std::{fs, os::unix::fs::DirBuilderExt, path::Path, time::Duration};
 
 use abci::{
     CommitteeState, EtnaEnvelope, Status, key::ConsensusKey, single_envelope, valstate::ValEntry,
@@ -36,13 +31,15 @@ pub(crate) struct HomeConfig<'a> {
 }
 
 /// Writes a CometBFT home into `dir`: a minimal `config/config.toml`, `config/genesis.json`,
-/// the node key, and a mandatory remote signer listener. The real FilePV files live elsewhere.
+/// the node key, a mandatory remote signer listener and the supervisor's private `run/` for
+/// Unix signer sockets. The real FilePV files live elsewhere.
 pub(crate) fn write_home(dir: &Path, c: &HomeConfig<'_>) -> Result<()> {
     ensure!(!c.signer_addr.is_empty(), "validator harness requires priv_validator_laddr");
     let config = dir.join("config");
     let data = dir.join("data");
     fs::create_dir_all(&config)?;
     fs::create_dir_all(&data)?;
+    fs::DirBuilder::new().mode(0o700).create(dir.join("run"))?;
     let toml = format!(
         r#"proxy_app = "{proxy_app}"
 moniker = "{moniker}"
@@ -97,15 +94,12 @@ pub struct CmtStatus {
 }
 
 /// A minimal client of CometBFT's JSON-RPC (URI over HTTP GET).
-///
-/// Clones share the base URL, so [`CmtClient::set_url`] (after a container restart moved the
-/// published port) redirects every clone.
 #[derive(Clone, Debug)]
 pub struct CmtClient {
     /// The HTTP client.
     http: reqwest::Client,
-    /// The RPC base URL (`http://host:port/`), shared by clones.
-    base: Arc<RwLock<Url>>,
+    /// The RPC base URL (`http://host:port/`); a restarted node keeps its fixed host port.
+    base: Url,
 }
 
 impl CmtClient {
@@ -115,17 +109,12 @@ impl CmtClient {
             .timeout(Duration::from_secs(5))
             .build()
             .expect("a reqwest client with a timeout builds");
-        Self { http, base: Arc::new(RwLock::new(base)) }
+        Self { http, base }
     }
 
     /// The RPC base URL.
     pub fn url(&self) -> Url {
-        self.base.read().expect("CometBFT URL lock").clone()
-    }
-
-    /// Points this client and all its clones at `base`.
-    pub fn set_url(&self, base: Url) {
-        *self.base.write().expect("CometBFT URL lock") = base;
+        self.base.clone()
     }
 
     /// `GET <base>/<method>?<query>` and its JSON-RPC `result`.

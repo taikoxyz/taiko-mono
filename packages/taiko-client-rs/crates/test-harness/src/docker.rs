@@ -1,6 +1,7 @@
 //! The docker CLI: one private network and the containers started on it, removed on drop.
 
 use std::{
+    path::PathBuf,
     process::{Command, Output},
     sync::atomic::{AtomicBool, Ordering},
 };
@@ -40,6 +41,14 @@ fn check(args: &[&str], output: Output) -> Result<String> {
         );
     }
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+/// The absolute `docker` executable on `PATH`, for commands run by other processes.
+pub(crate) fn docker_executable() -> Result<PathBuf> {
+    std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default())
+        .map(|dir| dir.join("docker"))
+        .find(|path| path.is_absolute() && path.is_file())
+        .context("no docker executable on PATH")
 }
 
 /// The host port docker published for `container_port/tcp` of `container`.
@@ -92,12 +101,25 @@ impl DockerEnv {
     /// `docker run -d --name <name> --network <network> <args…>`; the container is removed with
     /// the environment even when `run` fails.
     pub(crate) async fn run(&mut self, name: &str, args: &[&str]) -> Result<()> {
+        self.add_container(&["run", "-d"], name, args)
+    }
+
+    /// `docker create --name <name> --network <network> <args…>`: a stopped container that
+    /// another process starts later. It is removed with the environment even when `create`
+    /// fails.
+    pub(crate) async fn create_container(&mut self, name: &str, args: &[&str]) -> Result<()> {
+        self.add_container(&["create"], name, args)
+    }
+
+    /// Registers `name` for removal, then runs `docker <command> --label … --name <name>
+    /// --network <network> <args…>`.
+    fn add_container(&mut self, command: &[&str], name: &str, args: &[&str]) -> Result<()> {
         let mut owned = cleanup::resources().lock().unwrap();
         self.containers.push(name.to_string());
         owned.entry(self.network.clone()).or_default().push(name.to_string());
         let label = cleanup::run_label();
-        let mut full =
-            vec!["run", "-d", "--label", &label, "--name", name, "--network", &self.network];
+        let mut full = command.to_vec();
+        full.extend_from_slice(&["--label", &label, "--name", name, "--network", &self.network]);
         full.extend_from_slice(args);
         docker_blocking(&full).map(drop)
     }
