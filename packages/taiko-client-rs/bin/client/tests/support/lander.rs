@@ -199,8 +199,6 @@ impl CliInputs {
             self.chain_config.display().to_string(),
             "--max-blocks".into(),
             self.max_blocks.to_string(),
-            "--max-blobs".into(),
-            "6".into(),
             "--max-fee-per-gas".into(),
             "100000000000".into(),
             "--max-priority-fee-per-gas".into(),

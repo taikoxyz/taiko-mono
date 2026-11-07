@@ -29,8 +29,8 @@ use alloy_eips::eip4844::{BYTES_PER_BLOB, Blob};
 /// Kona-compatible capacity: 127 usable bytes per four field elements, minus four header bytes.
 pub const PAYLOAD_BYTES_PER_BLOB: usize = BYTES_PER_BLOB * 127 / 128 - 4;
 
-/// The blobs one landing carries: the six Fusaka permits per transaction, which the configured
-/// `max_blobs` must equal.
+/// The most blobs one landing carries (LAND-6.1 step 5): the six Fusaka permits per transaction.
+/// The lander always uses this cap; it is not an operator setting.
 pub const MAX_LANDING_BLOBS: usize = 6;
 
 /// Number of blobs needed for a payload; does not allocate or compute KZG proofs.

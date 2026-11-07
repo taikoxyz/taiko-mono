@@ -222,17 +222,16 @@ transactions. `DummyProofProvider` returns exactly `0x00`; use an explicitly com
 verifier on a disposable devnet. This does not establish validity-proof soundness.
 
 Required inputs are `--l1.http`, `--l2.http`, `--l2.auth`, `--jwt.secret`, `--comet.http`, a
-`--signing-key` file containing a hex key, an exclusive `--data-dir`, `--max-blocks`,
-`--max-blobs`, all three positive fee caps and `--sidecar`. Landing pays the lander nothing:
-execution fees go to each block's beneficiary, and forced inclusion fees stay in the Inbox until
-`sweepProtocolFees()`.
+`--signing-key` file containing a hex key, an exclusive `--data-dir`, `--max-blocks`, all three
+positive fee caps and `--sidecar`. Landing pays the lander nothing: execution fees go to each
+block's beneficiary, and forced inclusion fees stay in the Inbox until `sweepProtocolFees()`.
 
 ```sh
 taiko-client lander --l1.http http://l1-node:8545 \
   --l2.http http://localhost:8545 --l2.auth http://localhost:8551 --jwt.secret ./jwt.hex \
   --comet.http http://localhost:26657 --chain-config ./chain.toml \
   --signing-key ./lander.key --data-dir ./lander-data \
-  --min-blocks 60 --max-blocks 120 --max-batch-wait 300 --max-blobs 6 --sidecar eip7594 \
+  --min-blocks 60 --max-blocks 120 --max-batch-wait 300 --sidecar eip7594 \
   --max-fee-per-gas "$LANDER_MAX_FEE_PER_GAS" \
   --max-priority-fee-per-gas "$LANDER_MAX_PRIORITY_FEE_PER_GAS" \
   --max-fee-per-blob-gas "$LANDER_MAX_FEE_PER_BLOB_GAS"
@@ -242,7 +241,8 @@ A batch must fit a complete K=6 segment, so `--max-blocks` must be at least 6; e
 grid heights. At startup the lander reads the Inbox's `maxBatchBlocks` and `GRID_INTERVAL`: it
 refuses an Inbox whose grid interval differs from 6, and caps every batch at the lower of
 `--max-blocks` and `maxBatchBlocks`, rounded down to whole segments (logging when the Inbox
-lowers it), refusing to start when that is below one segment. `--max-blobs` is exactly 6.
+lowers it), refusing to start when that is below one segment. Each landing carries at most six
+blobs, a fixed constant (LAND-6.1 step 5).
 `--min-blocks` defaults to 1 and `--max-batch-wait` to 30 seconds, but neither permits a partial
 segment. The minimum is 1 through that batch cap: the lander refuses to start with a higher
 one, which no batch could reach. Wait expiry or consensus pressure can flush an available

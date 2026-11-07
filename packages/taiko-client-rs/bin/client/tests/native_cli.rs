@@ -325,8 +325,6 @@ async fn recovery_lander_refuses_external_owner_before_key_or_rpc() {
         directory.to_str().unwrap(),
         "--max-blocks",
         "6",
-        "--max-blobs",
-        "6",
         "--max-fee-per-gas",
         "2",
         "--max-priority-fee-per-gas",

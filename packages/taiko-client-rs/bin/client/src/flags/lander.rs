@@ -5,7 +5,7 @@ use std::{path::PathBuf, time::Duration};
 use clap::Parser;
 use lander::{
     Limits, SidecarMode,
-    blob::PAYLOAD_BYTES_PER_BLOB,
+    blob::{MAX_LANDING_BLOBS, PAYLOAD_BYTES_PER_BLOB},
     config::{
         BatchPolicy, COMET_BLOCK_MAX_BYTES, FeeCaps, LanderConfig, MAX_TIMEOUT_SECS, Timeouts,
     },
@@ -56,10 +56,6 @@ pub struct LanderArgs {
     /// Maximum wait for a below-threshold batch, in seconds; positive and at most one hour.
     #[clap(long = "max-batch-wait", env = "LANDER_MAX_BATCH_WAIT", default_value_t = 30, value_parser = clap::value_parser!(u64).range(1..=MAX_TIMEOUT_SECS))]
     pub max_batch_wait_secs: u64,
-    /// Blobs per transaction: exactly 6, the capacity one decided block may need and the
-    /// Fusaka per-transaction maximum.
-    #[clap(long = "max-blobs", env = "LANDER_MAX_BLOBS", required = true, value_parser = positive_usize)]
-    pub max_blobs: usize,
     /// Maximum execution fee per gas in wei, without an inferred budget.
     #[clap(long = "max-fee-per-gas", env = "LANDER_MAX_FEE_PER_GAS", required = true, value_parser = positive_u128)]
     pub max_fee_per_gas: u128,
@@ -95,14 +91,10 @@ pub struct LanderArgs {
 impl LanderArgs {
     /// Build and validate the shared runtime configuration before accessing any endpoint.
     ///
-    /// The compressed payload fills at most `--max-blobs` blobs; each message is bounded by the
-    /// CometBFT block size, and the decompressed list by the lesser of the fixed 64 MiB protocol
-    /// ceiling and that size times `--max-blocks`.
+    /// The compressed payload fills at most six blobs (`MAX_LANDING_BLOBS`); each message is
+    /// bounded by the CometBFT block size, and the decompressed list by the lesser of the fixed
+    /// 64 MiB protocol ceiling and that size times `--max-blocks`.
     pub fn config(&self) -> lander::Result<LanderConfig> {
-        let max_payload_bytes =
-            self.max_blobs.checked_mul(PAYLOAD_BYTES_PER_BLOB).ok_or_else(|| {
-                lander::LanderError::Configuration("blob payload capacity overflows usize".into())
-            })?;
         let max_decompressed_bytes = COMET_BLOCK_MAX_BYTES
             .checked_mul(self.max_blocks)
             .ok_or_else(|| {
@@ -122,8 +114,8 @@ impl LanderArgs {
             chain_config: self.chain_config.clone(),
             limits: Limits {
                 max_blocks: self.max_blocks,
-                max_blobs: self.max_blobs,
-                max_payload_bytes,
+                max_blobs: MAX_LANDING_BLOBS,
+                max_payload_bytes: MAX_LANDING_BLOBS * PAYLOAD_BYTES_PER_BLOB,
                 max_message_bytes: COMET_BLOCK_MAX_BYTES,
                 max_decompressed_bytes,
             },
@@ -152,7 +144,7 @@ impl LanderArgs {
     }
 }
 
-/// Parse a nonzero batch/blob allocation limit.
+/// Parse a nonzero batch limit.
 fn positive_usize(value: &str) -> Result<usize, String> {
     value
         .parse::<usize>()
@@ -200,7 +192,6 @@ mod tests {
             "LANDER_MAX_BLOCKS",
             "LANDER_MIN_BLOCKS",
             "LANDER_MAX_BATCH_WAIT",
-            "LANDER_MAX_BLOBS",
             "LANDER_MAX_FEE_PER_GAS",
             "LANDER_MAX_PRIORITY_FEE_PER_GAS",
             "LANDER_MAX_FEE_PER_BLOB_GAS",
@@ -239,8 +230,6 @@ mod tests {
             "/data/lander",
             "--max-blocks",
             "16",
-            "--max-blobs",
-            "6",
             "--max-fee-per-gas",
             "100",
             "--max-priority-fee-per-gas",
@@ -275,7 +264,6 @@ mod tests {
         let cmd = parse(argv()).unwrap();
         let c = cmd.lander_flags.config().unwrap();
         assert_eq!(c.limits.max_blocks, 16);
-        assert_eq!(c.limits.max_blobs, 6);
         assert_eq!(c.timeouts, Timeouts::default());
         assert_eq!(c.batch_policy.min_blocks, 1);
         assert_eq!(c.batch_policy.max_wait, Duration::from_secs(30));
@@ -320,13 +308,15 @@ mod tests {
     }
 
     #[test]
-    fn rejects_fewer_blobs_than_one_transaction_permits() {
+    fn blobs_per_landing_are_fixed_and_not_a_flag() {
         let _lock = ENV_LOCK.lock().unwrap();
         let _clear = clear_env();
+        let c = parse(argv()).unwrap().lander_flags.config().unwrap();
+        assert_eq!(c.limits.max_blobs, lander::blob::MAX_LANDING_BLOBS);
+        assert_eq!(c.limits.max_payload_bytes, 6 * 130_044);
         let mut args = argv();
-        let i = args.iter().position(|v| *v == "--max-blobs").unwrap();
-        args[i + 1] = "5";
-        assert!(parse(args).unwrap().lander_flags.config().is_err());
+        args.extend(["--max-blobs", "6"]);
+        assert_eq!(parse(args).unwrap_err().kind(), ErrorKind::UnknownArgument);
     }
 
     #[test]
@@ -426,7 +416,6 @@ mod tests {
             "--signing-key",
             "--data-dir",
             "--max-blocks",
-            "--max-blobs",
             "--max-fee-per-gas",
             "--max-priority-fee-per-gas",
             "--max-fee-per-blob-gas",
@@ -447,7 +436,6 @@ mod tests {
         let _clear = clear_env();
         for (flag, value) in [
             ("--max-blocks", "0"),
-            ("--max-blobs", "0"),
             ("--max-fee-per-gas", "0"),
             ("--max-priority-fee-per-gas", "0"),
             ("--max-fee-per-blob-gas", "0"),

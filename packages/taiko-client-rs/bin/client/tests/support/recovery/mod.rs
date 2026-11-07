@@ -106,8 +106,6 @@ impl Commands {
             &key.display().to_string(),
             "--max-blocks",
             "6",
-            "--max-blobs",
-            "6",
             "--sidecar",
             "eip7594",
             "--poll.interval",

@@ -128,7 +128,7 @@ data_dir = "/var/lib/taiko/lander"
 
 [lander.executable]
 program = "/opt/taiko/taiko-client"
-argv = ["lander", "--signing-key", "/var/lib/taiko/private/lander.key", "--max-blocks", "6", "--max-blobs", "6", "--max-fee-per-gas", "2000000000", "--max-priority-fee-per-gas", "1000000000", "--max-fee-per-blob-gas", "1000000000", "--sidecar", "eip7594"]
+argv = ["lander", "--signing-key", "/var/lib/taiko/private/lander.key", "--max-blocks", "6", "--max-fee-per-gas", "2000000000", "--max-priority-fee-per-gas", "1000000000", "--max-fee-per-blob-gas", "1000000000", "--sidecar", "eip7594"]
 env = {}
 ```
 

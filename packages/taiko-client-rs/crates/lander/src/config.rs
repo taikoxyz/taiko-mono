@@ -7,7 +7,6 @@ use url::Url;
 
 use crate::{
     Limits, SidecarMode,
-    blob::MAX_LANDING_BLOBS,
     error::{LanderError, Result},
 };
 
@@ -179,14 +178,6 @@ impl LanderConfig {
         {
             return Err(LanderError::Configuration("poll interval must be positive and at most one hour; confirmations must be nonzero".into()));
         }
-        // Batches are sized for the six blobs Fusaka permits per transaction; the 124,000-byte
-        // block rule keeps every decided block within one blob.
-        if self.limits.max_blobs != MAX_LANDING_BLOBS {
-            return Err(LanderError::Configuration(format!(
-                "maximum blobs must equal {MAX_LANDING_BLOBS}, the blobs Fusaka permits per \
-                 transaction"
-            )));
-        }
         Ok(())
     }
 }
@@ -307,24 +298,6 @@ mod tests {
         for c in configs {
             assert!(c.validate().is_err(), "configuration accepted: {c:?}");
         }
-    }
-
-    /// The lander takes exactly `MAX_LANDING_BLOBS` blobs; fewer are refused.
-    #[test]
-    fn rejects_fewer_blobs_than_one_transaction_permits() {
-        let mut c = valid();
-        c.limits.max_blobs = MAX_LANDING_BLOBS;
-        c.validate().unwrap();
-        c.limits.max_blobs = MAX_LANDING_BLOBS - 1;
-        assert!(matches!(c.validate(), Err(LanderError::Configuration(_))));
-    }
-
-    /// Fusaka permits at most six blobs in a single transaction.
-    #[test]
-    fn rejects_more_blobs_than_one_transaction_permits() {
-        let mut c = valid();
-        c.limits.max_blobs = MAX_LANDING_BLOBS + 1;
-        assert!(matches!(c.validate(), Err(LanderError::Configuration(_))));
     }
 
     /// Payload V3 compresses, so one envelope may exceed the compressed payload bound.
