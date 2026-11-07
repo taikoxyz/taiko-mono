@@ -65,7 +65,42 @@ pub struct BatchObservation {
     pub force_epoch: bool,
 }
 
+/// One observation and its optional, owned selection work, consumed by preparation.
+/// A preview never authenticates its blocks and is not retained between runner steps.
+#[derive(Debug)]
+pub struct BatchPreview {
+    /// Copyable publication-policy facts, independent of the retained selection.
+    pub observation: BatchObservation,
+    /// Private selection bound to the snapshot, tip and producing capacity budgets.
+    selected: Option<ObservedPrefix>,
+}
+
+impl BatchPreview {
+    /// Wrap facts from a source that prepares independently, without retained selection work.
+    pub fn from_observation(observation: BatchObservation) -> Self {
+        Self { observation, selected: None }
+    }
+}
+
+/// Selection work that is reusable only under its original snapshot, tip and capacity limits.
+#[derive(Debug)]
+struct ObservedPrefix {
+    /// Complete coherent inputs used to select the prefix.
+    snapshot: LandingSnapshot,
+    /// Fresh decided height required before consuming this selection.
+    decided_height: u64,
+    /// Producing public/private codec bounds, including the list budget.
+    limits: Limits,
+    /// Producing deployment block cap.
+    max_batch_blocks: u64,
+    /// Producing per-selection deflate work budget.
+    deflate_budget: usize,
+    /// Already checked and encoded complete prefix, still awaiting full authentication.
+    prefix: PublishablePrefix,
+}
+
 /// Canonical complete-block prefix shared by readiness preview and authenticated preparation.
+#[derive(Debug)]
 struct PublishablePrefix {
     /// Exact complete pairs selected without computing signatures, witnesses or KZG proofs.
     blocks: Vec<CertifiedBlock>,
@@ -204,9 +239,18 @@ impl ForwardState {
 #[async_trait]
 pub trait BatchSource: Send + Sync {
     /// Preview complete-prefix capacity and authenticated urgency without building a proof job.
-    async fn observe(&self, snapshot: &LandingSnapshot) -> Result<BatchObservation>;
+    async fn observe(&self, snapshot: &LandingSnapshot) -> Result<BatchPreview>;
     /// Build the largest complete publishable prefix above this coherent checkpoint.
     async fn prepare(&self, snapshot: LandingSnapshot) -> Result<Option<ProofRequest>>;
+    /// Consume same-iteration observation work when supported; other sources prepare afresh.
+    async fn prepare_observed(
+        &self,
+        snapshot: LandingSnapshot,
+        preview: BatchPreview,
+    ) -> Result<Option<ProofRequest>> {
+        drop(preview);
+        self.prepare(snapshot).await
+    }
     /// Ensure the current L1 checkpoint identifies this node's certified execution chain.
     async fn validate_checkpoint(&self, snapshot: &LandingSnapshot) -> Result<()>;
 }
@@ -1194,50 +1238,12 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         let canonical = self.l1.canonical_hash(anchor.number).await?;
         Ok((canonical == anchor.hash).then_some(anchor))
     }
-}
-
-#[async_trait]
-impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBuilder<C, L> {
-    /// Authenticate the coherent checkpoint against this source's certified chain. Reads only
-    /// CometBFT, L1 and the EL, never the app's validator state
-    /// ([`BatchBuilder::start_val_state`]), so the runner's reconciliation of a sent landing,
-    /// which this gates, never waits on the app.
-    async fn validate_checkpoint(&self, snapshot: &LandingSnapshot) -> Result<()> {
-        let schedule = self.schedule(snapshot)?;
-        self.status(snapshot).await?;
-        self.checkpoint(snapshot, &schedule, &mut BTreeMap::new()).await?;
-        Ok(())
-    }
-
-    /// Preview capacity and the tip's authenticated anchor for urgency decisions, without
-    /// verifying the decided blocks: `prepare` authenticates the ones a batch selects.
-    async fn observe(&self, snapshot: &LandingSnapshot) -> Result<BatchObservation> {
-        let schedule = self.schedule(snapshot)?;
-        let status = self.status(snapshot).await?;
-        if status.height == snapshot.checkpoint_height {
-            return Ok(BatchObservation {
-                decided_height: status.height,
-                publishable_blocks: 0,
-                force_backpressure: false,
-                force_epoch: false,
-            });
-        }
-        let prefix = self.publishable_prefix(snapshot, status.height).await?;
-        let start = self.checkpoint(snapshot, &schedule, &mut BTreeMap::new()).await?;
-        let anchor =
-            self.tip_anchor(&start.anchor, snapshot.checkpoint_height, status.height).await?;
-        Ok(BatchObservation {
-            decided_height: status.height,
-            publishable_blocks: prefix.blocks.len(),
-            force_backpressure: status.height.saturating_sub(anchor.inbox.last_checkpoint_height) >=
-                self.params.unsettled_cap().saturating_sub(1),
-            // A decided switch witness justifies publication even outside this prefix.
-            force_epoch: force_epoch(&schedule, status.height, snapshot.checkpoint_height),
-        })
-    }
-
-    /// Authenticate the selected prefix and construct its immutable statement and sidecar.
-    async fn prepare(&self, snapshot: LandingSnapshot) -> Result<Option<ProofRequest>> {
+    /// Prepare with fresh chain context, consuming selection only when all inputs still match.
+    async fn prepare_inner(
+        &self,
+        snapshot: LandingSnapshot,
+        selected: Option<ObservedPrefix>,
+    ) -> Result<Option<ProofRequest>> {
         let schedule = self.schedule(&snapshot)?;
         let status = self.status(&snapshot).await?;
         if status.height == snapshot.checkpoint_height {
@@ -1246,7 +1252,17 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
         let mut committees = BTreeMap::new();
         let start = self.checkpoint(&snapshot, &schedule, &mut committees).await?;
         let start_val_state = self.start_val_state(&snapshot, &schedule, &committees).await?;
-        let prefix = self.publishable_prefix(&snapshot, status.height).await?;
+        let selected = selected.filter(|selected| {
+            selected.snapshot == snapshot &&
+                selected.decided_height == status.height &&
+                selected.limits == self.selection_limits() &&
+                selected.max_batch_blocks == self.max_batch_blocks &&
+                selected.deflate_budget == self.deflate_budget
+        });
+        let prefix = match selected {
+            Some(selected) => selected.prefix,
+            None => self.publishable_prefix(&snapshot, status.height).await?,
+        };
         let (anchors, leaves, end) = self
             .authenticate_blocks(
                 &snapshot,
@@ -1365,6 +1381,72 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
                 statement_hash: hash,
             },
         }))
+    }
+}
+
+#[async_trait]
+impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBuilder<C, L> {
+    /// Authenticate the coherent checkpoint against this source's certified chain. Reads only
+    /// CometBFT, L1 and the EL, never the app's validator state
+    /// ([`BatchBuilder::start_val_state`]), so the runner's reconciliation of a sent landing,
+    /// which this gates, never waits on the app.
+    async fn validate_checkpoint(&self, snapshot: &LandingSnapshot) -> Result<()> {
+        let schedule = self.schedule(snapshot)?;
+        self.status(snapshot).await?;
+        self.checkpoint(snapshot, &schedule, &mut BTreeMap::new()).await?;
+        Ok(())
+    }
+
+    /// Preview capacity and the tip's authenticated anchor for urgency decisions, without
+    /// verifying the decided blocks: `prepare` authenticates the ones a batch selects.
+    async fn observe(&self, snapshot: &LandingSnapshot) -> Result<BatchPreview> {
+        let schedule = self.schedule(snapshot)?;
+        let status = self.status(snapshot).await?;
+        if status.height == snapshot.checkpoint_height {
+            return Ok(BatchPreview::from_observation(BatchObservation {
+                decided_height: status.height,
+                publishable_blocks: 0,
+                force_backpressure: false,
+                force_epoch: false,
+            }));
+        }
+        let prefix = self.publishable_prefix(snapshot, status.height).await?;
+        let start = self.checkpoint(snapshot, &schedule, &mut BTreeMap::new()).await?;
+        let anchor =
+            self.tip_anchor(&start.anchor, snapshot.checkpoint_height, status.height).await?;
+        let observation = BatchObservation {
+            decided_height: status.height,
+            publishable_blocks: prefix.blocks.len(),
+            force_backpressure: status.height.saturating_sub(anchor.inbox.last_checkpoint_height) >=
+                self.params.unsettled_cap().saturating_sub(1),
+            // A decided switch witness justifies publication even outside this prefix.
+            force_epoch: force_epoch(&schedule, status.height, snapshot.checkpoint_height),
+        };
+        Ok(BatchPreview {
+            observation,
+            selected: Some(ObservedPrefix {
+                snapshot: snapshot.clone(),
+                decided_height: status.height,
+                limits: self.selection_limits(),
+                max_batch_blocks: self.max_batch_blocks,
+                deflate_budget: self.deflate_budget,
+                prefix,
+            }),
+        })
+    }
+
+    /// Authenticate the selected prefix and construct its immutable statement and sidecar.
+    async fn prepare(&self, snapshot: LandingSnapshot) -> Result<Option<ProofRequest>> {
+        self.prepare_inner(snapshot, None).await
+    }
+
+    /// Authenticate a preview with fresh context, discarding changed selection inputs.
+    async fn prepare_observed(
+        &self,
+        snapshot: LandingSnapshot,
+        preview: BatchPreview,
+    ) -> Result<Option<ProofRequest>> {
+        self.prepare_inner(snapshot, preview.selected).await
     }
 }
 
@@ -1764,6 +1846,118 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn observed_prefix_is_consumed_without_repeating_block_reads() {
+        let source = TrackingSource::new(Fixture::new(24, 30));
+        let b = source.builder(6);
+        let snapshot = source.fixture().snapshot.clone();
+        let preview = b.observe(&snapshot).await.unwrap();
+        source.block_reads.store(0, Ordering::Relaxed);
+        let parent_reads = source.parent_reads.load(Ordering::Relaxed);
+        let status_reads = source.status_reads.load(Ordering::Relaxed);
+        let request = b.prepare_observed(snapshot.clone(), preview).await.unwrap().unwrap();
+        assert_eq!(request.batch.blocks.len(), 6);
+        assert_eq!(source.block_reads.load(Ordering::Relaxed), 0);
+        assert_eq!(source.parent_reads.load(Ordering::Relaxed), parent_reads + 1);
+        assert_eq!(source.status_reads.load(Ordering::Relaxed), status_reads + 1);
+    }
+
+    #[tokio::test]
+    async fn observed_prefix_reselects_when_the_fresh_tip_changes() {
+        for fresh_tip in [0, 6, 18] {
+            let mut fixture = Fixture::new(0, 18);
+            fixture.headers.retain(|height, _| *height <= 12);
+            let source = TrackingSource::new(fixture);
+            let b = source.builder(18);
+            let snapshot = source.fixture().snapshot.clone();
+            let preview = b.observe(&snapshot).await.unwrap();
+            assert_eq!(preview.observation.publishable_blocks, 12);
+            let mut fresh = Fixture::new(0, 18);
+            fresh.headers.retain(|height, _| *height <= fresh_tip);
+            *source.fixture.write().unwrap() = Arc::new(fresh);
+            source.block_reads.store(0, Ordering::Relaxed);
+            let result = b.prepare_observed(snapshot, preview).await.unwrap();
+            assert_eq!(
+                result.as_ref().map(|r| r.batch.blocks.len()),
+                (fresh_tip != 0).then_some(fresh_tip as usize)
+            );
+            assert_eq!(source.block_reads.load(Ordering::Relaxed), fresh_tip as usize);
+        }
+    }
+
+    #[tokio::test]
+    async fn observed_prefix_from_different_selection_inputs_is_reselected() {
+        for changed in 0..5 {
+            let source = TrackingSource::new(Fixture::new(0, 12));
+            let snapshot = source.fixture().snapshot.clone();
+            let mut preview = source.builder(12).observe(&snapshot).await.unwrap();
+            let mut other = source.builder(12);
+            match changed {
+                0 => other.limits.max_blocks = 6,
+                1 => other.max_batch_blocks = 6,
+                2 => other.list_budget = 1,
+                3 => other.deflate_budget = 0,
+                4 => preview.selected.as_mut().unwrap().snapshot.forced_inclusion_head += 1,
+                _ => unreachable!(),
+            }
+            source.block_reads.store(0, Ordering::Relaxed);
+            let result = other.prepare_observed(snapshot, preview).await;
+            if changed == 2 {
+                assert!(matches!(result, Err(LanderError::Capacity(_))));
+            } else {
+                let expected = if changed < 2 { 6 } else { 12 };
+                assert_eq!(result.unwrap().unwrap().batch.blocks.len(), expected);
+            }
+            assert!(source.block_reads.load(Ordering::Relaxed) > 0, "input {changed}");
+        }
+    }
+
+    #[tokio::test]
+    async fn observed_prefix_keeps_fresh_checkpoint_checks() {
+        for changed in 0..4 {
+            let source = TrackingSource::new(Fixture::new(24, 30));
+            let b = source.builder(6);
+            let snapshot = source.fixture().snapshot.clone();
+            let preview = b.observe(&snapshot).await.unwrap();
+            match changed {
+                0 => source.parent_changed.store(true, Ordering::Relaxed),
+                1 => source.anchor_reorg.store(true, Ordering::Relaxed),
+                2 => source.snapshot_reorg.store(true, Ordering::Relaxed),
+                3 => source.canonical_unavailable.store(true, Ordering::Relaxed),
+                _ => unreachable!(),
+            }
+            let error = b.prepare_observed(snapshot, preview).await.unwrap_err();
+            match changed {
+                0 | 1 => assert!(matches!(error, LanderError::Safety(_)), "{error}"),
+                2 => assert!(matches!(error, LanderError::Stale(_)), "{error}"),
+                3 => assert!(matches!(error, LanderError::Temporary(_)), "{error}"),
+                _ => unreachable!(),
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn observed_prefix_still_authenticates_private_blocks_and_certificates() {
+        for corrupt_certificate in [false, true] {
+            let source = TrackingSource::new(Fixture::new(24, 30));
+            let b = source.builder(6);
+            let snapshot = source.fixture().snapshot.clone();
+            let mut preview = b.observe(&snapshot).await.unwrap();
+            let pair = &mut preview.selected.as_mut().unwrap().prefix.blocks[0];
+            if corrupt_certificate {
+                pair.commit.signatures.clear();
+            } else {
+                pair.block.data[0].push(0);
+            }
+            source.block_reads.store(0, Ordering::Relaxed);
+            assert!(matches!(
+                b.prepare_observed(snapshot, preview).await,
+                Err(LanderError::Safety(_))
+            ));
+            assert_eq!(source.block_reads.load(Ordering::Relaxed), 0);
+        }
+    }
+
+    #[tokio::test]
     async fn unchanged_checkpoint_reuses_history_across_validation_observation_and_preparation() {
         let source = TrackingSource::new(Fixture::new(24, 30));
         let b = source.builder(6);
@@ -1871,7 +2065,7 @@ mod tests {
         let first = b.observe(&snapshot).await.unwrap();
         // At least the one-block prefix and the walk back from block 30 to block 23.
         assert!(source.block_reads.swap(0, Ordering::Relaxed) > 8);
-        assert_eq!(b.observe(&snapshot).await.unwrap(), first);
+        assert_eq!(b.observe(&snapshot).await.unwrap().observation, first.observation);
         // The one-block prefix and the remembered tip.
         assert_eq!(source.block_reads.load(Ordering::Relaxed), 2);
     }
@@ -1989,7 +2183,10 @@ mod tests {
         for (max_batch_blocks, expected) in [(120, 18), (17, 12), (12, 12), (7, 6)] {
             let builder = builder_with(fixture.clone(), limits(18), max_batch_blocks);
             let observed = builder.observe(&fixture.snapshot).await.unwrap();
-            assert_eq!(observed.publishable_blocks, expected, "maxBatchBlocks {max_batch_blocks}");
+            assert_eq!(
+                observed.observation.publishable_blocks, expected,
+                "maxBatchBlocks {max_batch_blocks}"
+            );
             let batch = builder.prepare(fixture.snapshot.clone()).await.unwrap().unwrap().batch;
             assert_eq!(batch.blocks.len(), expected, "maxBatchBlocks {max_batch_blocks}");
             assert_eq!(batch.input.lastHeight, U256::from(expected));
@@ -2322,8 +2519,8 @@ mod tests {
             let fixture = Arc::new(Fixture::new(checkpoint, 30));
             let observed =
                 builder(fixture.clone(), limits(20)).observe(&fixture.snapshot).await.unwrap();
-            assert!(!observed.force_epoch, "{checkpoint}");
-            assert!(!observed.force_backpressure, "{checkpoint}");
+            assert!(!observed.observation.force_epoch, "{checkpoint}");
+            assert!(!observed.observation.force_backpressure, "{checkpoint}");
         }
     }
 
@@ -2335,9 +2532,9 @@ mod tests {
         let fixture = Arc::new(Fixture::new(18, 30));
         let observed =
             builder(fixture.clone(), limits(1)).observe(&fixture.snapshot).await.unwrap();
-        assert_eq!(observed.publishable_blocks, 0);
-        assert_eq!(observed.decided_height, 30);
-        assert!(observed.force_epoch);
+        assert_eq!(observed.observation.publishable_blocks, 0);
+        assert_eq!(observed.observation.decided_height, 30);
+        assert!(observed.observation.force_epoch);
         let mut missing_witness = Fixture::new(18, 30);
         alter_envelope(&mut missing_witness, 23, |e| e.committee = None);
         let mut unsigned = Fixture::new(18, 30);
@@ -2345,8 +2542,12 @@ mod tests {
         for fixture in [missing_witness, unsigned] {
             let fixture = Arc::new(fixture);
             assert_eq!(
-                builder(fixture.clone(), limits(1)).observe(&fixture.snapshot).await.unwrap(),
-                observed
+                builder(fixture.clone(), limits(1))
+                    .observe(&fixture.snapshot)
+                    .await
+                    .unwrap()
+                    .observation,
+                observed.observation
             );
             assert!(matches!(
                 builder(fixture.clone(), limits(12)).prepare(fixture.snapshot.clone()).await,
@@ -2369,9 +2570,9 @@ mod tests {
         let fixture = Arc::new(fixture);
         let observed =
             builder(fixture.clone(), limits(1)).observe(&fixture.snapshot).await.unwrap();
-        assert_eq!(observed.publishable_blocks, 0);
-        assert!(observed.force_epoch);
-        assert!(observed.force_backpressure);
+        assert_eq!(observed.observation.publishable_blocks, 0);
+        assert!(observed.observation.force_epoch);
+        assert!(observed.observation.force_backpressure);
     }
 
     /// An unavailable lookup above a remembered tip yields the checkpoint's anchor without
@@ -2451,7 +2652,7 @@ mod tests {
         let fixture = Arc::new(Fixture::with_max_anchor_age(0, 6, 1251));
         let violation = abci::rules::RuleViolation::AnchorTooOld { age: 1252, max: 1251 };
         let b = builder(fixture.clone(), limits(6));
-        assert_eq!(b.observe(&fixture.snapshot).await.unwrap().publishable_blocks, 6);
+        assert_eq!(b.observe(&fixture.snapshot).await.unwrap().observation.publishable_blocks, 6);
         let error = b.prepare(fixture.snapshot.clone()).await.unwrap_err();
         assert!(matches!(error, LanderError::Safety(_)), "{error}");
         assert!(error.to_string().contains(&violation.to_string()), "{error}");

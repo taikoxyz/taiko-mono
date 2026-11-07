@@ -1266,10 +1266,10 @@ mod readiness {
             let fixture = Arc::new(Fixture::new(checkpoint, checkpoint));
             let observed =
                 builder(fixture.clone(), limits(12)).observe(&fixture.snapshot).await.unwrap();
-            assert_eq!(observed.decided_height, checkpoint);
-            assert_eq!(observed.publishable_blocks, 0);
-            assert!(!observed.force_backpressure);
-            assert!(!observed.force_epoch);
+            assert_eq!(observed.observation.decided_height, checkpoint);
+            assert_eq!(observed.observation.publishable_blocks, 0);
+            assert!(!observed.observation.force_backpressure);
+            assert!(!observed.observation.force_epoch);
         }
     }
 
@@ -1281,10 +1281,10 @@ mod readiness {
         let fixture = Arc::new(fixture);
         let observed =
             builder(fixture.clone(), limits(12)).observe(&fixture.snapshot).await.unwrap();
-        assert_eq!(observed.decided_height, 12);
-        assert_eq!(observed.publishable_blocks, 12);
-        assert!(!observed.force_backpressure);
-        assert!(!observed.force_epoch);
+        assert_eq!(observed.observation.decided_height, 12);
+        assert_eq!(observed.observation.publishable_blocks, 12);
+        assert!(!observed.observation.force_backpressure);
+        assert!(!observed.observation.force_epoch);
     }
 
     #[tokio::test]
@@ -1294,10 +1294,10 @@ mod readiness {
         let fixture = Arc::new(fixture);
         let observed =
             builder(fixture.clone(), limits(12)).observe(&fixture.snapshot).await.unwrap();
-        assert_eq!(observed.publishable_blocks, 6);
+        assert_eq!(observed.observation.publishable_blocks, 6);
         // U=20, tip=20, tip anchor CP=1: depth 19 forces publication despite latest CP=19.
-        assert!(observed.force_backpressure);
-        assert!(!observed.force_epoch);
+        assert!(observed.observation.force_backpressure);
+        assert!(!observed.observation.force_epoch);
     }
 
     #[tokio::test]
@@ -1308,10 +1308,10 @@ mod readiness {
         let observed =
             builder(fixture.clone(), limits(12)).observe(&fixture.snapshot).await.unwrap();
         // U=20, tip=19, tip anchor CP=1: depth 18 stays below the urgent threshold.
-        assert_eq!(observed.decided_height, 16);
-        assert_eq!(observed.publishable_blocks, 6);
-        assert!(!observed.force_backpressure);
-        assert!(!observed.force_epoch);
+        assert_eq!(observed.observation.decided_height, 16);
+        assert_eq!(observed.observation.publishable_blocks, 6);
+        assert!(!observed.observation.force_backpressure);
+        assert!(!observed.observation.force_epoch);
     }
 
     #[tokio::test]
@@ -1320,10 +1320,10 @@ mod readiness {
         let mut bound = limits(6);
         bound.max_blobs = 1;
         let observed = builder(fixture.clone(), bound).observe(&fixture.snapshot).await.unwrap();
-        assert_eq!(observed.decided_height, 30);
-        assert_eq!(observed.publishable_blocks, 0);
-        assert!(observed.force_epoch); // h_first(1)=25 is beyond the single-block prefix at 21.
-        assert!(!observed.force_backpressure); // The tip anchor CP=20 gives depth 6 < 19.
+        assert_eq!(observed.observation.decided_height, 30);
+        assert_eq!(observed.observation.publishable_blocks, 0);
+        assert!(observed.observation.force_epoch); // h_first(1)=25 is beyond the single-block prefix at 21.
+        assert!(!observed.observation.force_backpressure); // The tip anchor CP=20 gives depth 6 < 19.
         assert!(
             builder(fixture.clone(), bound)
                 .prepare(fixture.snapshot.clone())
@@ -1339,7 +1339,7 @@ mod readiness {
         let mut bound = limits(12);
         bound.max_blobs = 1;
         let observed = builder(fixture.clone(), bound).observe(&fixture.snapshot).await.unwrap();
-        assert_eq!(observed.publishable_blocks, 0);
+        assert_eq!(observed.observation.publishable_blocks, 0);
         let first = codec::encode(&[fixture.blocks[&1].clone()], &bound).unwrap();
         assert_eq!(blob::required_blobs(first.len()), 1);
         bound.max_payload_bytes = first.len() - 1;
@@ -1354,6 +1354,7 @@ mod readiness {
                 .observe(&fixture.snapshot)
                 .await
                 .unwrap()
+                .observation
                 .publishable_blocks,
             0
         );
@@ -1381,7 +1382,11 @@ mod readiness {
                 if expected == 0 {
                     assert!(matches!(observed, Err(LanderError::Capacity(_))), "{bound:?}");
                 } else {
-                    assert_eq!(observed.unwrap().publishable_blocks, expected / 6 * 6, "{bound:?}");
+                    assert_eq!(
+                        observed.unwrap().observation.publishable_blocks,
+                        expected / 6 * 6,
+                        "{bound:?}"
+                    );
                 }
             }
         }
@@ -1405,7 +1410,7 @@ mod readiness {
                 .observe(&fixture.snapshot)
                 .await
                 .unwrap();
-            assert_eq!(observed.publishable_blocks, expected, "list budget {budget}");
+            assert_eq!(observed.observation.publishable_blocks, expected, "list budget {budget}");
         }
         let error = builder(fixture.clone(), bound)
             .with_selection_budgets(lists[0] - 1, usize::MAX)
@@ -1450,7 +1455,10 @@ mod readiness {
                 .observe(&fixture.snapshot)
                 .await
                 .unwrap();
-            assert_eq!(observed.publishable_blocks, expected, "deflate budget {budget}");
+            assert_eq!(
+                observed.observation.publishable_blocks, expected,
+                "deflate budget {budget}"
+            );
         }
         // Prefixes whose worst-case payload fits are accepted without deflating anything.
         let fixture = Arc::new(Fixture::with_calldata(0, 12, 10_000));
@@ -1461,7 +1469,13 @@ mod readiness {
             .observe(&fixture.snapshot)
             .await
             .unwrap();
-        assert_eq!(observed.publishable_blocks, 12);
+        assert_eq!(observed.observation.publishable_blocks, 12);
+        let b = builder(fixture.clone(), bound).with_selection_budgets(usize::MAX, twelve);
+        let preview = b.observe(&fixture.snapshot).await.unwrap();
+        let observed =
+            b.prepare_observed(fixture.snapshot.clone(), preview).await.unwrap().unwrap();
+        let independent = b.prepare(fixture.snapshot.clone()).await.unwrap().unwrap();
+        assert_eq!(observed, independent);
     }
 
     /// A malformed body or an unsigned certificate past the selected prefix leaves observation
@@ -1484,8 +1498,8 @@ mod readiness {
             let fixture = Arc::new(fixture);
             let observed =
                 builder(fixture.clone(), limits(1)).observe(&fixture.snapshot).await.unwrap();
-            assert_eq!(observed.publishable_blocks, 0);
-            assert_eq!(observed.force_backpressure, pressure);
+            assert_eq!(observed.observation.publishable_blocks, 0);
+            assert_eq!(observed.observation.force_backpressure, pressure);
             assert!(matches!(
                 builder(fixture.clone(), limits(12)).prepare(fixture.snapshot.clone()).await,
                 Err(LanderError::Safety(_))

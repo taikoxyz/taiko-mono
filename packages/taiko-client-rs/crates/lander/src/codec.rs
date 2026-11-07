@@ -97,6 +97,7 @@ pub(crate) const fn payload_bound(list_len: usize) -> usize {
 
 /// A V6 payload's RLP list, built one validated block at a time so prefix selection checks and
 /// encodes each block once rather than once per candidate prefix.
+#[derive(Debug)]
 pub(crate) struct PayloadList {
     /// Bounds applied to every appended block and to the whole list.
     limits: Limits,

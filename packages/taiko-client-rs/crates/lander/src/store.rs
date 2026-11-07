@@ -289,10 +289,6 @@ impl Store {
         };
         let payload = crate::blob::decode(batch.blobs.sidecar.blobs(), &limits)
             .map_err(|e| LanderError::Journal(format!("job blobs: {e}")))?;
-        for pair in &batch.blocks {
-            codec::validate_pair(pair)
-                .map_err(|e| LanderError::Journal(format!("job block pair: {e}")))?;
-        }
         // Compressed bytes are not canonical, so compare the blocks the payload carries.
         let range = codec::LandedRange {
             parent_height: snapshot.checkpoint_height,
@@ -303,8 +299,14 @@ impl Store {
         };
         let published = codec::decode_landed(&payload, &range)
             .map_err(|e| LanderError::Journal(format!("job block codec: {e}")))?;
-        let expected =
-            batch.blocks.iter().map(PublishedBlock::try_from).collect::<Result<Vec<_>>>()?;
+        let expected = batch
+            .blocks
+            .iter()
+            .map(|pair| {
+                PublishedBlock::try_from(pair)
+                    .map_err(|e| LanderError::Journal(format!("job block pair: {e}")))
+            })
+            .collect::<Result<Vec<_>>>()?;
         if payload.len() != batch.blobs.payload_bytes || published != expected {
             return Err(LanderError::Journal("job blocks differ from bound blob payload".into()));
         }
@@ -320,7 +322,7 @@ impl Store {
             if transaction.sender != self.identity.sender {
                 return Err(LanderError::Journal("job sender identity mismatch".into()));
             }
-            transaction.validate(&job.request, &job.proof)?;
+            transaction.validate_binding(&job.request, &job.proof)?;
             if receipt.is_some_and(|r| r.transaction_hash != transaction.hash) {
                 return Err(LanderError::Journal(
                     "receipt does not identify the outstanding transaction".into(),
@@ -687,6 +689,97 @@ mod tests {
         assert_eq!(kept["state"]["phase"], "signed");
         assert_eq!(kept["state"]["transaction"]["nonce"], 7);
         assert!(!directory.path().join("lander-state.json.tmp").exists());
+    }
+
+    #[tokio::test]
+    async fn journal_and_standalone_transaction_reject_bound_invalid_kzg_proofs() {
+        use crate::{
+            test_utils::runtime::{limits, request, signed},
+            types::SidecarMode,
+        };
+        use alloy_eips::eip7594::BlobTransactionSidecarVariant;
+        for mode in [SidecarMode::Eip4844, SidecarMode::Eip7594] {
+            let mut request = request();
+            let payload = crate::codec::encode(&request.batch.blocks, &limits()).unwrap();
+            request.batch.blobs = crate::blob::build(&payload, &limits(), mode).unwrap();
+            let proof = Bytes::from_static(&[0]);
+            let valid = signed(&request, &proof, 0).await;
+            let snapshot = &request.batch.snapshot;
+            let identity = JournalIdentity {
+                l1_chain_id: snapshot.l1_chain_id,
+                l2_chain_id: snapshot.l2_chain_id,
+                inbox: snapshot.inbox,
+                registry: snapshot.registry,
+                sender: valid.sender,
+            };
+            let directory = tempfile::tempdir().unwrap();
+            let store = Store::open(directory.path(), identity).unwrap();
+            let state = JournalState::Signed {
+                job: Box::new(ProvedJob { request: request.clone(), proof: proof.clone() }),
+                transaction: valid,
+            };
+            store.save(&state).unwrap();
+            let path = directory.path().join("lander-state.json");
+            let original = std::fs::read(&path).unwrap();
+            match &mut request.batch.blobs.sidecar {
+                BlobTransactionSidecarVariant::Eip4844(sidecar) => sidecar.proofs[0][0] ^= 1,
+                BlobTransactionSidecarVariant::Eip7594(sidecar) => sidecar.cell_proofs[0][0] ^= 1,
+            }
+            let transaction = signed(&request, &proof, 0).await;
+            assert!(
+                transaction
+                    .validate(&request, &proof)
+                    .unwrap_err()
+                    .to_string()
+                    .contains("signed sidecar")
+            );
+            let state =
+                JournalState::Pending { job: Box::new(ProvedJob { request, proof }), transaction };
+            assert!(store.save(&state).unwrap_err().to_string().contains("KZG"));
+            assert_eq!(std::fs::read(&path).unwrap(), original);
+            // A damaged on-disk sidecar must also be rejected on restoration.
+            let journal = Journal {
+                version: JOURNAL_VERSION,
+                identity: store.identity.clone(),
+                state,
+                waiting: None,
+            };
+            std::fs::write(path, serde_json::to_vec(&journal).unwrap()).unwrap();
+            assert!(store.load().unwrap_err().to_string().contains("KZG"));
+        }
+    }
+
+    #[test]
+    fn journal_rejects_private_protobuf_disagreement_without_replacing_prior_state() {
+        use crate::test_utils::runtime::request;
+        let request = request();
+        let snapshot = &request.batch.snapshot;
+        let directory = tempfile::tempdir().unwrap();
+        let store = Store::open(
+            directory.path(),
+            JournalIdentity {
+                l1_chain_id: snapshot.l1_chain_id,
+                l2_chain_id: snapshot.l2_chain_id,
+                inbox: snapshot.inbox,
+                registry: snapshot.registry,
+                sender: Address::repeat_byte(5),
+            },
+        )
+        .unwrap();
+        let mut state = JournalState::Prepared {
+            job: Box::new(ProvedJob { request, proof: Bytes::from_static(&[0]) }),
+        };
+        store.save(&state).unwrap();
+        let path = directory.path().join("lander-state.json");
+        let original = std::fs::read(&path).unwrap();
+        let JournalState::Prepared { job } = &mut state else { unreachable!() };
+        let pair = &mut job.request.batch.blocks[0];
+        let mut raw = pair.block_proto().unwrap();
+        raw.header.as_mut().unwrap().proposer_address[0] ^= 1;
+        pair.raw_block = prost::Message::encode_to_vec(&raw).into();
+        let error = store.save(&state).unwrap_err();
+        assert!(error.to_string().contains("original block differs"), "{error}");
+        assert_eq!(std::fs::read(path).unwrap(), original);
     }
 
     /// The blobs must carry exactly the job's published blocks; their compressed bytes need not

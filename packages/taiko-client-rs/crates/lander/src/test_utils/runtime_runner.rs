@@ -1,6 +1,6 @@
 use crate::{
     LanderError, Result,
-    batch::{BatchObservation, BatchSource},
+    batch::{BatchObservation, BatchPreview, BatchSource},
     config::BatchPolicy,
     l1::{LandingSource, ParentContext},
     proof::{ProofError, ProofProvider, ProofRequest},
@@ -41,6 +41,7 @@ struct Control {
     observation_error: bool,
     checkpoint_error: bool,
     prepare_empty: bool,
+    corrupt_signature: bool,
     broadcasts: Vec<Bytes>,
     events: Vec<&'static str>,
 }
@@ -75,6 +76,7 @@ impl Fixture {
             observation_error: false,
             checkpoint_error: false,
             prepare_empty: false,
+            corrupt_signature: false,
             broadcasts: vec![],
             events: vec![],
         };
@@ -175,17 +177,17 @@ struct MockBatch {
 }
 #[async_trait]
 impl BatchSource for MockBatch {
-    async fn observe(&self, _: &LandingSnapshot) -> Result<BatchObservation> {
+    async fn observe(&self, _: &LandingSnapshot) -> Result<BatchPreview> {
         let control = self.control.lock().unwrap();
         if control.observation_error {
             return Err(LanderError::Temporary("decided RPC temporarily unavailable".into()));
         }
-        Ok(BatchObservation {
+        Ok(BatchPreview::from_observation(BatchObservation {
             decided_height: control.decided_height,
             publishable_blocks: control.publishable_blocks,
             force_backpressure: control.force_backpressure,
             force_epoch: control.force_epoch,
-        })
+        }))
     }
     async fn prepare(&self, snapshot: LandingSnapshot) -> Result<Option<ProofRequest>> {
         let mut control = self.control.lock().unwrap();
@@ -294,7 +296,11 @@ impl TransactionTransport for MockTx {
                 return Err(LanderError::Reverted("estimation reverted".into()));
             }
         }
-        Ok(signed(request, proof, nonce).await)
+        let mut transaction = signed(request, proof, nonce).await;
+        if self.control.lock().unwrap().corrupt_signature {
+            transaction.hash = B256::ZERO;
+        }
+        Ok(transaction)
     }
     async fn broadcast(&self, transaction: &SignedTransaction) -> Result<B256> {
         let saved: serde_json::Value = serde_json::from_slice(
@@ -336,6 +342,20 @@ fn pending_transaction(runner: &Runner) -> SignedTransaction {
         JournalState::Confirming { transaction, .. } => transaction.clone(),
         _ => panic!("expected outstanding transaction"),
     }
+}
+
+#[tokio::test]
+async fn invalid_signed_transport_result_leaves_prepared_journal_and_never_broadcasts() {
+    let fixture = Fixture::new();
+    let mut runner = fixture.runner();
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+    let path = fixture.directory.path().join("lander-state.json");
+    let prepared = std::fs::read(&path).unwrap();
+    fixture.control.lock().unwrap().corrupt_signature = true;
+    assert!(matches!(runner.step().await, Err(LanderError::Journal(_))));
+    assert!(matches!(runner.state(), JournalState::Prepared { .. }));
+    assert_eq!(std::fs::read(path).unwrap(), prepared);
+    assert!(fixture.control.lock().unwrap().broadcasts.is_empty());
 }
 
 #[tokio::test]

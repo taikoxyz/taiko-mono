@@ -81,6 +81,22 @@ impl SignedTransaction {
     /// Decode and bind every signed input and sidecar to the journal's immutable job.
     pub fn validate(&self, request: &ProofRequest, proof: &Bytes) -> Result<()> {
         request.batch.validate_statement()?;
+        self.validate_binding(request, proof)?;
+        let batch = &request.batch;
+        batch
+            .blobs
+            .sidecar
+            .validate(
+                &batch.blobs.versioned_hashes,
+                alloy_eips::eip4844::env_settings::EnvKzgSettings::Default.get(),
+            )
+            .map_err(|e| LanderError::Journal(format!("signed sidecar: {e}")))?;
+        Ok(())
+    }
+
+    /// Check signed fields and exact sidecar equality only. The caller must separately
+    /// authenticate the batch statement and KZG sidecar before trusting this binding.
+    pub(crate) fn validate_binding(&self, request: &ProofRequest, proof: &Bytes) -> Result<()> {
         let mut remaining = self.network_bytes.as_ref();
         let envelope = TxEnvelope::decode_2718(&mut remaining)
             .map_err(|e| LanderError::Journal(format!("signed envelope: {e}")))?;
@@ -117,14 +133,6 @@ impl SignedTransaction {
                 "signed transaction differs from immutable job".into(),
             ));
         }
-        batch
-            .blobs
-            .sidecar
-            .validate(
-                &batch.blobs.versioned_hashes,
-                alloy_eips::eip4844::env_settings::EnvKzgSettings::Default.get(),
-            )
-            .map_err(|e| LanderError::Journal(format!("signed sidecar: {e}")))?;
         Ok(())
     }
 

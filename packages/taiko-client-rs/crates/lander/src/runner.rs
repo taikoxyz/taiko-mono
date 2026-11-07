@@ -272,7 +272,8 @@ impl Runner {
         );
         match self.state.clone() {
             JournalState::Idle => {
-                let observation = self.batches.observe(&snapshot).await?;
+                let preview = self.batches.observe(&snapshot).await?;
+                let observation = preview.observation;
                 if observation.decided_height <= snapshot.checkpoint_height {
                     self.clear_wait()?;
                     return Ok(StepOutcome::Waiting);
@@ -295,7 +296,7 @@ impl Runner {
                 {
                     return Ok(StepOutcome::Waiting);
                 }
-                let Some(request) = self.batches.prepare(snapshot).await? else {
+                let Some(request) = self.batches.prepare_observed(snapshot, preview).await? else {
                     self.clear_wait()?;
                     return Ok(StepOutcome::Waiting);
                 };
@@ -368,7 +369,6 @@ impl Runner {
                     }
                     Err(error) => return Err(error),
                 };
-                transaction.validate(&job.request, &job.proof)?;
                 self.transition(JournalState::Signed { job, transaction })?;
                 Ok(StepOutcome::Progress)
             }
