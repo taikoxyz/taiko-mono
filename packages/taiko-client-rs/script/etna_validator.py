@@ -628,9 +628,9 @@ class Supervisor:
             print("etna_supervisor_awaiting_trust: Comet starts after the signer's fresh session is Ready", flush=True)
 
     def ready(self, status):
+        """The app's trust phase is its only readiness signal (SYNC-9-15), bound to this identity."""
         origin = status.get("recovery_origin")
-        return (status.get("trust_ready") is True and status.get("syncing") is False
-                and status.get("phase") == "ready" and status.get("chain_id") == self.chain
+        return (status.get("phase") == "ready" and status.get("chain_id") == self.chain
                 and status.get("generation") == self.generation
                 and (self.generation == 0 or
                      (isinstance(origin, dict) and origin.get("generation") == self.generation)))

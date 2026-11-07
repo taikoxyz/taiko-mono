@@ -343,7 +343,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Closed startup sessions never label an untrusted candidate safe. Zero means unknown;
     /// the historical anchor-derived finalized ancestry fence is passed independently.
     fn trusted_safe(&self, hash: B256) -> B256 {
-        if self.trust.snapshot().trust_ready { hash } else { B256::ZERO }
+        if self.trust.snapshot().is_ready() { hash } else { B256::ZERO }
     }
 
     /// Confirms, for the decided block at `height` this node never judged, that its anchor

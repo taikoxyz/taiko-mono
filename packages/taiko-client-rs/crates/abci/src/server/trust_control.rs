@@ -134,7 +134,10 @@ async fn connection(stream: UnixStream, trust: TrustHandle) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{app::trust::TrustSnapshot, test_utils::Fixture};
+    use crate::{
+        app::trust::{TrustPhase, TrustSnapshot},
+        test_utils::Fixture,
+    };
     use std::os::unix::fs::PermissionsExt;
 
     async fn exchange(path: &Path, request: &[u8]) -> io::Result<TrustSnapshot> {
@@ -160,14 +163,14 @@ mod tests {
         let second =
             exchange(&path, b"{\"schema_version\":1,\"op\":\"begin_session\"}\n").await.unwrap();
         assert_ne!(first.session_id, second.session_id);
-        assert!(second.syncing && !second.trust_ready);
+        assert_eq!(second.phase, TrustPhase::Acquiring);
         let request = format!(
             "{{\"schema_version\":1,\"op\":\"check_session\",\"session_id\":\"{}\"}}\n",
             first.session_id
         );
         let stale = exchange(&path, request.as_bytes()).await.unwrap();
         assert_eq!(stale.session_id, second.session_id);
-        assert!(!stale.trust_ready);
+        assert_eq!(stale.phase, TrustPhase::Acquiring);
         for invalid in [
             b"{\"schema_version\":2,\"op\":\"begin_session\"}\n".as_slice(),
             b"{\"schema_version\":3,\"op\":\"begin_session\"}\n",
@@ -180,6 +183,54 @@ mod tests {
         let oversized = vec![b'x'; MAX_LINE as usize + 1];
         assert!(exchange(&path, &oversized).await.is_err());
         assert_eq!(trust.snapshot().session_id, second.session_id);
+        task.abort();
+    }
+
+    /// Sends one request and returns the raw JSON answer, so its exact key set is visible.
+    async fn exchange_wire(path: &Path, request: &[u8]) -> serde_json::Value {
+        let mut stream = UnixStream::connect(path).await.unwrap();
+        stream.write_all(request).await.unwrap();
+        let mut line = Vec::new();
+        BufReader::new(stream).read_until(b'\n', &mut line).await.unwrap();
+        serde_json::from_slice(&line).unwrap()
+    }
+
+    /// Readiness is the phase alone (SYNC-9-10/9-15): no second flag can disagree with it.
+    #[tokio::test]
+    async fn snapshot_wire_has_only_phase_readiness() {
+        let dir = tempfile::Builder::new().prefix("etna-t-").tempdir_in("/tmp").unwrap();
+        let app = Fixture::genesis(1).app(dir.path());
+        let path = app.trust_control_path();
+        let listener = bind(&path).await.unwrap();
+        let task = tokio::spawn(run(listener, app.trust_handle()));
+        let begin = b"{\"schema_version\":1,\"op\":\"begin_session\"}\n";
+        let old = exchange_wire(&path, begin).await;
+        let current = exchange_wire(&path, begin).await;
+        let check = |session: &serde_json::Value| {
+            format!("{{\"schema_version\":1,\"op\":\"check_session\",\"session_id\":{session}}}\n")
+        };
+        let checked = exchange_wire(&path, check(&current["session_id"]).as_bytes()).await;
+        let stale = exchange_wire(&path, check(&old["session_id"]).as_bytes()).await;
+        let expected = std::collections::BTreeSet::from([
+            "schema_version",
+            "session_id",
+            "chain_id",
+            "generation",
+            "recovery_origin",
+            "phase",
+            "target",
+            "committed_head",
+            "trusted_consensus_head",
+            "reason",
+        ]);
+        for answer in [&old, &current, &checked, &stale] {
+            let keys = answer.as_object().unwrap().keys().map(String::as_str).collect();
+            assert_eq!(expected, keys, "{answer}");
+            assert_eq!(answer["phase"], "acquiring");
+        }
+        assert_eq!(stale["session_id"], current["session_id"]);
+        assert_eq!(stale["reason"], "stale trust session");
+        assert!(stale["trusted_consensus_head"].is_null());
         task.abort();
     }
 
@@ -252,9 +303,9 @@ mod tests {
                 .await
                 .unwrap()
                 .unwrap();
-        assert!(!checked.trust_ready && checked.syncing);
+        assert_eq!(checked.phase, TrustPhase::Acquiring);
         task.abort();
         let _ = task.await;
-        assert_eq!(trust.snapshot().phase, crate::app::trust::TrustPhase::Halted);
+        assert_eq!(trust.snapshot().phase, TrustPhase::Halted);
     }
 }

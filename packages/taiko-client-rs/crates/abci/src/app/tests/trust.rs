@@ -85,8 +85,24 @@ async fn trust_query_is_closed_and_available_before_init() {
     assert!(response.code.is_ok(), "trust status must be available before init");
     let value: serde_json::Value = serde_json::from_slice(&response.value).unwrap();
     assert_eq!(value["schema_version"], 1);
-    assert_eq!(value["trust_ready"], false);
-    assert_eq!(value["syncing"], true);
+    assert_eq!(value["phase"], "acquiring");
+    // The phase is the only readiness field: no second flag can disagree with it.
+    let keys = value.as_object().unwrap().keys().map(String::as_str).collect();
+    assert_eq!(
+        std::collections::BTreeSet::from([
+            "schema_version",
+            "session_id",
+            "chain_id",
+            "generation",
+            "recovery_origin",
+            "phase",
+            "target",
+            "committed_head",
+            "trusted_consensus_head",
+            "reason",
+        ]),
+        keys
+    );
     assert!(value["chain_id"].is_null());
     assert!(value["trusted_consensus_head"].is_null());
 }
@@ -98,12 +114,12 @@ async fn ready_requires_authenticated_checkpoint_and_durable_genesis() {
     let mut app = fx.app(dir.path());
     target(&app, &fx, 0, fx.genesis_hash());
     app.refresh_trust().await.unwrap();
-    assert!(!app.trust.snapshot().trust_ready);
+    assert!(!app.trust.snapshot().is_ready());
     assert_eq!(app.trust.snapshot().target.unwrap().l1_number, 100);
     init_chain(&mut app, fx.request.clone()).await.unwrap();
-    assert!(!app.trust.snapshot().trust_ready);
+    assert!(!app.trust.snapshot().is_ready());
     app.refresh_trust().await.unwrap();
-    assert!(app.trust.snapshot().trust_ready);
+    assert!(app.trust.snapshot().is_ready());
     assert_eq!(app.trust.snapshot().trusted_consensus_head.unwrap().hash, fx.genesis_hash());
     assert!(Store::volatile(dir.path().into()).load().unwrap().is_some());
     assert!(
@@ -142,13 +158,13 @@ async fn future_target_allows_info_and_replay_but_finalize_does_not_unlock() {
     );
     let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
     finalize(&mut app, finalize_req(&req)).await.unwrap();
-    assert!(!app.trust.snapshot().trust_ready);
+    assert!(!app.trust.snapshot().is_ready());
     assert!(app.engine().calls().iter().any(|call| matches!(call,
         EngineCall::Forkchoice { head, safe, finalized } if *head == hash && safe.is_zero() && *finalized == fx.genesis_hash())));
     commit(&mut app).await.unwrap();
-    assert!(!app.trust.snapshot().trust_ready);
+    assert!(!app.trust.snapshot().is_ready());
     app.refresh_trust().await.unwrap();
-    assert!(app.trust.snapshot().trust_ready);
+    assert!(app.trust.snapshot().is_ready());
     assert_eq!(Store::volatile(dir.path().into()).load().unwrap().unwrap().parent.hash, hash);
 }
 
@@ -168,7 +184,7 @@ async fn conflicting_decided_checkpoint_halts_before_settle_or_pending() {
     assert!(app.pending.is_none());
     assert_eq!(app.engine().calls().len(), before);
     assert_eq!(app.trust.snapshot().phase, TrustPhase::Halted);
-    assert!(!app.trust.begin_session().trust_ready);
+    assert!(!app.trust.begin_session().is_ready());
     assert_eq!(app.trust.snapshot().phase, TrustPhase::Halted);
 }
 
@@ -180,15 +196,15 @@ async fn proof_errors_and_timeout_stay_closed_and_retry_recovers_without_blocks(
     target(&app, &fx, 0, fx.genesis_hash());
     app.l1().state().proof_fail = Some(L1Error::Rpc("unavailable".into()));
     app.refresh_trust().await.unwrap();
-    assert!(!app.trust.snapshot().trust_ready);
+    assert!(!app.trust.snapshot().is_ready());
     app.l1().state().proof_fail = None;
     app.opts.l1_timeout = Duration::from_millis(1);
     app.l1().state().proof_delay = Some(Duration::from_millis(20));
     app.refresh_trust().await.unwrap();
-    assert!(!app.trust.snapshot().trust_ready);
+    assert!(!app.trust.snapshot().is_ready());
     app.l1().state().proof_delay = None;
     app.refresh_trust().await.unwrap();
-    assert!(app.trust.snapshot().trust_ready);
+    assert!(app.trust.snapshot().is_ready());
 }
 
 #[tokio::test]
@@ -217,7 +233,7 @@ async fn checkpoint_proof_root_canonical_status_and_generation_are_authenticated
             app.l1().insert_header(crate::l1::RawL1Header::from(&header));
         }
         assert!(matches!(app.refresh_trust().await, Err(AbciError::SafetyHalt(_))), "case {case}");
-        assert!(!app.trust.snapshot().trust_ready);
+        assert!(!app.trust.snapshot().is_ready());
     }
 }
 
@@ -247,7 +263,7 @@ async fn target_is_pinned_until_match_then_refresh_can_extend_catchup() {
     commit(&mut app).await.unwrap();
     app.refresh_trust().await.unwrap();
     let snapshot = app.trust.snapshot();
-    assert!(!snapshot.trust_ready);
+    assert!(!snapshot.is_ready());
     assert_eq!(snapshot.target.unwrap().height, 2 * GRID_INTERVAL);
 }
 
@@ -262,7 +278,7 @@ async fn restart_checks_contiguous_ancestry_not_presence_of_genuine_checkpoint()
     commit(&mut app).await.unwrap();
     target(&app, &fx, 0, fx.genesis_hash());
     app.refresh_trust().await.unwrap();
-    assert!(app.trust.snapshot().trust_ready);
+    assert!(app.trust.snapshot().is_ready());
     let mut broken = env.block.header.clone();
     broken.parent_hash = B256::repeat_byte(3);
     let mut state = app.state().unwrap().clone();
@@ -273,7 +289,7 @@ async fn restart_checks_contiguous_ancestry_not_presence_of_genuine_checkpoint()
     let mut restarted =
         app_with(fx.l1(), engine, fx.params.clone(), dir.path(), AppOptions::default());
     target(&restarted, &fx, 0, fx.genesis_hash());
-    assert!(!restarted.trust.snapshot().trust_ready);
+    assert!(!restarted.trust.snapshot().is_ready());
     assert_ne!(restarted.trust.snapshot().session_id, app.trust.snapshot().session_id);
     assert!(matches!(restarted.refresh_trust().await, Err(AbciError::SafetyHalt(_))));
 }
@@ -286,21 +302,26 @@ async fn missing_ancestry_retries_and_sessions_revoke_ready_without_stale_reuse(
     target(&app, &fx, 0, fx.genesis_hash());
     let header = app.engine().state().chain.remove(&0).unwrap();
     app.refresh_trust().await.unwrap();
-    assert!(!app.trust.snapshot().trust_ready);
+    assert!(!app.trust.snapshot().is_ready());
     app.engine().state().chain.insert(0, header);
     app.refresh_trust().await.unwrap();
     let old = app.trust.snapshot();
-    assert!(old.trust_ready);
+    assert!(old.is_ready());
     let new = app.trust.begin_session();
-    assert!(!new.trust_ready);
+    assert!(!new.is_ready());
     assert_ne!(new.session_id, old.session_id);
-    assert!(!app.trust.check_session(&old.session_id).trust_ready);
+    assert!(!app.trust.check_session(&old.session_id).is_ready());
     app.refresh_trust().await.unwrap();
-    assert!(app.trust.check_session(&new.session_id).trust_ready);
-    assert!(!app.trust.check_session(&old.session_id).trust_ready);
+    assert!(app.trust.check_session(&new.session_id).is_ready());
+    // A stale answer reports acquiring in its own copy and never closes the current session.
+    let stale = app.trust.check_session(&old.session_id);
+    assert_eq!(stale.phase, TrustPhase::Acquiring);
+    assert!(stale.trusted_consensus_head.is_none());
+    assert_eq!(app.trust.snapshot().phase, TrustPhase::Ready);
+    assert!(app.trust.check_session(&new.session_id).trusted_consensus_head.is_some());
     let handle = app.trust_handle();
     drop(app);
-    assert!(!handle.snapshot().trust_ready);
+    assert!(!handle.snapshot().is_ready());
 }
 
 #[tokio::test]
@@ -316,10 +337,10 @@ async fn begin_session_during_io_cannot_receive_stale_ready_result() {
         handle.begin_session()
     });
     result.unwrap();
-    assert!(!handle.check_session(&session.session_id).trust_ready);
+    assert!(!handle.check_session(&session.session_id).is_ready());
     app.l1().state().proof_delay = None;
     app.refresh_trust().await.unwrap();
-    assert!(handle.check_session(&session.session_id).trust_ready);
+    assert!(handle.check_session(&session.session_id).is_ready());
 }
 
 #[tokio::test]
@@ -333,10 +354,10 @@ async fn background_retry_recovers_genesis_without_signed_blocks() {
     let trust = app.trust_handle();
     let (_service, worker) = crate::server::AppService::spawn(app, |_: &str| {});
     tokio::time::sleep(Duration::from_millis(30)).await;
-    assert!(!trust.snapshot().trust_ready);
+    assert!(!trust.snapshot().is_ready());
     l1.state().proof_fail = None;
     tokio::time::timeout(Duration::from_secs(3), async {
-        while !trust.snapshot().trust_ready {
+        while !trust.snapshot().is_ready() {
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
     })
@@ -345,7 +366,7 @@ async fn background_retry_recovers_genesis_without_signed_blocks() {
     assert_eq!(trust.snapshot().committed_head.unwrap().height, 0);
     worker.abort();
     let _ = worker.await;
-    assert!(!trust.snapshot().trust_ready);
+    assert!(!trust.snapshot().is_ready());
 }
 
 #[tokio::test]
@@ -362,7 +383,7 @@ async fn failed_commit_never_authorizes_and_keeps_original_durable_head() {
     // An occupied temp path causes the actual atomic store write to fail.
     std::fs::create_dir(dir.path().join(crate::store::TMP_FILE)).unwrap();
     assert!(matches!(commit(&mut app).await, Err(AbciError::Store(_))));
-    assert!(!app.trust.snapshot().trust_ready);
+    assert!(!app.trust.snapshot().is_ready());
     assert_eq!(app.trust.snapshot().committed_head.unwrap().height, 0);
     assert_eq!(app.state().unwrap().last_height, 0);
     let saved: crate::store::AppState =
@@ -378,7 +399,7 @@ async fn higher_generation_proposal_revokes_even_without_finalize_error() {
     let mut app = initialized(&fx, dir.path()).await;
     target(&app, &fx, 0, fx.genesis_hash());
     app.refresh_trust().await.unwrap();
-    assert!(app.trust.snapshot().trust_ready);
+    assert!(app.trust.snapshot().is_ready());
     let mut inbox = fx.inbox.clone();
     inbox.recovery_generation = 1;
     fx.plant_l1_block(app.l1(), 101, &inbox, &fx.registry);
@@ -387,7 +408,7 @@ async fn higher_generation_proposal_revokes_even_without_finalize_error() {
     let (response, _) = super::proposal::judge(&mut app, &env).await;
     assert_eq!(response, response::ProcessProposal::Reject);
     assert!(app.superseded);
-    assert!(!app.trust.snapshot().trust_ready);
+    assert!(!app.trust.snapshot().is_ready());
     assert_eq!(app.trust.snapshot().phase, TrustPhase::Halted);
     assert!(
         dir.path().join("generation-superseded.json").is_file(),
@@ -442,12 +463,12 @@ async fn trust_forkchoice_invalid_state_halts_but_transient_replies_retry() {
             assert!(dir.path().join("fatal-evidence.txt").is_file());
         } else {
             result.unwrap();
-            assert!(!app.trust.snapshot().trust_ready);
+            assert!(!app.trust.snapshot().is_ready());
             assert!(!dir.path().join("fatal-evidence.txt").exists());
             for _ in 0..2 {
                 app.refresh_trust().await.unwrap();
             }
-            assert!(app.trust.snapshot().trust_ready, "code {code}");
+            assert!(app.trust.snapshot().is_ready(), "code {code}");
         }
     }
 }
@@ -468,7 +489,7 @@ async fn refreshed_lower_checkpoint_never_downgrades_pinned_target() {
     fx.plant_l1_block(app.l1(), 101, &fx.inbox, &fx.registry);
     app.l1().set_finalized(101);
     app.refresh_trust().await.unwrap();
-    assert!(!app.trust.snapshot().trust_ready);
+    assert!(!app.trust.snapshot().is_ready());
     assert_eq!(app.trust.snapshot().target.unwrap().height, GRID_INTERVAL);
 }
 
@@ -479,13 +500,13 @@ async fn reconnect_never_forgets_an_authenticated_unreached_checkpoint() {
     let mut app = initialized(&fx, dir.path()).await;
     target(&app, &fx, 2, B256::repeat_byte(8));
     app.refresh_trust().await.unwrap();
-    assert!(!app.trust.snapshot().trust_ready);
+    assert!(!app.trust.snapshot().is_ready());
     fx.plant_l1_block(app.l1(), 101, &fx.inbox, &fx.registry);
     app.l1().set_finalized(101);
     app.trust.begin_session();
     app.refresh_trust().await.unwrap();
     assert!(
-        !app.trust.snapshot().trust_ready,
+        !app.trust.snapshot().is_ready(),
         "reconnect must not lower an unreached authenticated checkpoint"
     );
 }
@@ -501,14 +522,14 @@ async fn initial_l1_outage_does_not_permanently_poison_genesis_trust() {
             .await
             .is_err()
     );
-    assert!(!app.trust.snapshot().trust_ready);
+    assert!(!app.trust.snapshot().is_ready());
     assert!(!dir.path().join("fatal-evidence.txt").exists());
     app.l1().state().fail = None;
     target(&app, &fx, 0, fx.genesis_hash());
     init_chain(&mut app, fx.request.clone()).await.unwrap();
     app.refresh_trust().await.unwrap();
     assert!(
-        app.trust.snapshot().trust_ready,
+        app.trust.snapshot().is_ready(),
         "successful startup retry must recover without a signed block"
     );
 }
@@ -522,7 +543,7 @@ async fn closed_reconnect_recovers_only_committed_head_without_jumping_to_future
     app.engine().state().chain.remove(&0);
     let before = app.engine().calls().len();
     app.refresh_trust().await.unwrap();
-    assert!(!app.trust.snapshot().trust_ready);
+    assert!(!app.trust.snapshot().is_ready());
     assert!(app.engine().calls()[before..].iter().any(|call| matches!(call,
         EngineCall::Forkchoice { head, safe, finalized } if *head == fx.genesis_hash() && safe.is_zero() && finalized.is_zero())));
     assert!(!app.engine().calls()[before..].iter().any(|call| matches!(call,
@@ -536,7 +557,7 @@ async fn ready_session_keeps_fixed_target_and_labels_valid_candidates_safe() {
     let mut app = initialized(&fx, dir.path()).await;
     target(&app, &fx, 0, fx.genesis_hash());
     app.refresh_trust().await.unwrap();
-    assert!(app.trust.snapshot().trust_ready);
+    assert!(app.trust.snapshot().is_ready());
     let inbox = InboxStorage {
         last_checkpoint_height: 2,
         last_checkpoint_hash: B256::repeat_byte(8),
@@ -556,7 +577,7 @@ async fn ready_session_keeps_fixed_target_and_labels_valid_candidates_safe() {
         EngineCall::Forkchoice { head, safe, finalized } if *head == hash && *safe == hash && *finalized == fx.genesis_hash())));
     commit(&mut app).await.unwrap();
     let snapshot = app.trust.snapshot();
-    assert!(snapshot.trust_ready);
+    assert!(snapshot.is_ready());
     assert_eq!(snapshot.target.unwrap().height, 0);
     assert_eq!(snapshot.trusted_consensus_head.unwrap().hash, hash);
 }
@@ -577,9 +598,9 @@ async fn restart_equal_and_above_checkpoint_require_fresh_proof_and_linked_histo
             AppOptions::default(),
         );
         target(&restarted, &fx, checkpoint, hash);
-        assert!(!restarted.trust.snapshot().trust_ready);
+        assert!(!restarted.trust.snapshot().is_ready());
         restarted.refresh_trust().await.unwrap();
-        assert!(restarted.trust.snapshot().trust_ready);
+        assert!(restarted.trust.snapshot().is_ready());
         assert_eq!(restarted.trust.snapshot().committed_head.unwrap().height, 2 * GRID_INTERVAL);
     }
     let mut restarted = app_with(
@@ -593,17 +614,17 @@ async fn restart_equal_and_above_checkpoint_require_fresh_proof_and_linked_histo
     let missing = restarted.engine().state().chain.remove(&1).unwrap();
     restarted.refresh_trust().await.unwrap();
     assert!(
-        !restarted.trust.snapshot().trust_ready,
+        !restarted.trust.snapshot().is_ready(),
         "missing intermediate history does not establish ancestry"
     );
     restarted.engine().state().chain.insert(1, missing);
     restarted.refresh_trust().await.unwrap();
-    assert!(restarted.trust.snapshot().trust_ready);
+    assert!(restarted.trust.snapshot().is_ready());
     let json: serde_json::Value =
         serde_json::from_slice(&std::fs::read(dir.path().join(crate::store::STATE_FILE)).unwrap())
             .unwrap();
     assert!(
-        json.get("trust_ready").is_none() &&
+        json.get("phase").is_none() &&
             json.get("target").is_none() &&
             json.get("session_id").is_none()
     );
@@ -626,7 +647,7 @@ async fn wrong_account_and_slot_set_in_latest_checkpoint_proofs_halt() {
         let error = app.refresh_trust().await.unwrap_err();
         assert!(matches!(error, AbciError::SafetyHalt(_)));
         assert!(error.to_string().contains("invalid checkpoint proof"));
-        assert!(!app.trust.snapshot().trust_ready);
+        assert!(!app.trust.snapshot().is_ready());
     }
 }
 
@@ -667,7 +688,7 @@ async fn typed_l1_adapter_integrity_errors_latch_halt_across_recovery_and_reconn
         app.l1().state().header_fail = None;
         app.trust.begin_session();
         app.refresh_trust().await.unwrap();
-        assert!(!app.trust.snapshot().trust_ready);
+        assert!(!app.trust.snapshot().is_ready());
         assert_eq!(app.trust.snapshot().reason, reason, "first integrity failure remains sticky");
     }
 }
@@ -709,11 +730,11 @@ async fn typed_source_unavailability_and_capability_errors_remain_retryable() {
         target(&app, &fx, 0, fx.genesis_hash());
         app.l1().state().header_fail = Some(error);
         app.refresh_trust().await.unwrap();
-        assert!(!app.trust.snapshot().trust_ready);
+        assert!(!app.trust.snapshot().is_ready());
         assert_ne!(app.trust.snapshot().phase, TrustPhase::Halted);
         app.l1().state().header_fail = None;
         app.refresh_trust().await.unwrap();
-        assert!(app.trust.snapshot().trust_ready);
+        assert!(app.trust.snapshot().is_ready());
     }
 }
 
@@ -741,7 +762,7 @@ async fn stale_adapter_integrity_failure_does_not_stop_new_session_recovery() {
     app.l1().state().header_fail = None;
     app.l1().state().delay = None;
     app.refresh_trust().await.unwrap();
-    assert!(handle.check_session(&current.session_id).trust_ready);
+    assert!(handle.check_session(&current.session_id).is_ready());
 }
 
 #[tokio::test]
@@ -754,7 +775,7 @@ async fn authenticated_genesis_landing_requires_zero_comet_hash() {
     fx.plant_l1_block(app.l1(), 100, &inbox, &fx.registry);
     app.l1().set_finalized(100);
     assert!(matches!(app.refresh_trust().await, Err(AbciError::SafetyHalt(_))));
-    assert!(!app.trust.snapshot().trust_ready);
+    assert!(!app.trust.snapshot().is_ready());
 }
 
 #[tokio::test]
@@ -787,11 +808,11 @@ async fn committed_comet_history_is_required_and_survives_restart() {
     let path = dir.path().join(format!("comet-hash-{GRID_INTERVAL}.json"));
     std::fs::remove_file(&path).unwrap();
     restarted.refresh_trust().await.unwrap();
-    assert!(!restarted.trust.snapshot().trust_ready);
+    assert!(!restarted.trust.snapshot().is_ready());
     assert!(restarted.trust.snapshot().reason.unwrap().contains("missing committed Comet"));
     restarted.store.save_comet_hash(GRID_INTERVAL, comet).unwrap();
     restarted.refresh_trust().await.unwrap();
-    assert!(restarted.trust.snapshot().trust_ready);
+    assert!(restarted.trust.snapshot().is_ready());
     restarted.trust.begin_session();
     let inbox = InboxStorage {
         last_checkpoint_comet_hash: B256::repeat_byte(0xaa),
@@ -881,12 +902,12 @@ async fn lagging_own_finality_waits_for_a_checkpoint_with_retained_comet_history
 
     app.l1().set_finalized(65);
     app.refresh_trust().await.unwrap();
-    assert!(!app.trust.snapshot().trust_ready);
+    assert!(!app.trust.snapshot().is_ready());
 
     app.l1().set_finalized(66);
     app.refresh_trust().await.unwrap();
     let snapshot = app.trust.snapshot();
-    assert!(snapshot.trust_ready, "{:?}", snapshot.reason);
+    assert!(snapshot.is_ready(), "{:?}", snapshot.reason);
     assert_eq!(snapshot.target.unwrap().height, 2 * GRID_INTERVAL);
 }
 
@@ -922,7 +943,7 @@ async fn pinned_target_below_the_comet_history_floor_is_reacquired() {
 
     app.refresh_trust().await.unwrap();
     let snapshot = app.trust.snapshot();
-    assert!(snapshot.trust_ready, "{:?}", snapshot.reason);
+    assert!(snapshot.is_ready(), "{:?}", snapshot.reason);
     assert_eq!(snapshot.target.unwrap().height, 2 * GRID_INTERVAL);
 }
 
@@ -1029,7 +1050,7 @@ fn val_state_record(dir: &Path, height: u64) -> std::path::PathBuf {
 /// Asserts that `app`'s trust is ready at the target `height`.
 fn assert_ready_at(app: &App<MockL1, MockEngine>, height: u64) {
     let snapshot = app.trust.snapshot();
-    assert!(snapshot.trust_ready, "{:?}", snapshot.reason);
+    assert!(snapshot.is_ready(), "{:?}", snapshot.reason);
     assert_eq!(snapshot.target.unwrap().height, height);
 }
 
@@ -1101,7 +1122,7 @@ async fn trust_waits_while_the_record_cannot_be_recomputed() {
     }
     app.refresh_trust().await.unwrap();
     let snapshot = app.trust.snapshot();
-    assert!(!snapshot.trust_ready);
+    assert!(!snapshot.is_ready());
     assert_ne!(snapshot.phase, TrustPhase::Halted);
     let reason = snapshot.reason.unwrap();
     assert!(reason.contains(&format!("validator state unavailable at {grid}")), "{reason}");
@@ -1173,7 +1194,7 @@ async fn trust_accepts_a_matching_validator_state() {
         finalize_landing(&app, &fx, 100, GRID_INTERVAL);
         app.refresh_trust().await.unwrap();
         let snapshot = app.trust.snapshot();
-        assert!(snapshot.trust_ready, "head {head}: {:?}", snapshot.reason);
+        assert!(snapshot.is_ready(), "head {head}: {:?}", snapshot.reason);
         let target = snapshot.target.unwrap();
         assert_eq!(target.height, GRID_INTERVAL);
         assert_eq!(target.val_state_hash, val_state_hash(&app, GRID_INTERVAL));
@@ -1195,7 +1216,7 @@ async fn start_record_with_nonzero_val_state_is_invalid() {
     let error = app.refresh_trust().await.unwrap_err();
     assert!(matches!(error, AbciError::SafetyHalt(_)), "{error}");
     assert!(error.to_string().contains("invalid checkpoint landing record"), "{error}");
-    assert!(!app.trust.snapshot().trust_ready);
+    assert!(!app.trust.snapshot().is_ready());
 }
 
 /// A pinned target's landing record cannot change: a later proof of the same height whose

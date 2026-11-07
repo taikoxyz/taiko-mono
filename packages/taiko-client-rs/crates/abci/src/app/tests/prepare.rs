@@ -1306,7 +1306,7 @@ async fn review_own_l1_invalid_mpt_proof_halts_durably() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
     app.refresh_trust().await.unwrap();
-    assert!(app.trust.snapshot().trust_ready);
+    assert!(app.trust.snapshot().is_ready());
     fx.advance_l1(app.l1(), 66, &fx.inbox, &fx.registry);
     let mut proof = fx.anchor_witness(app.l1(), 66).inbox;
     proof.storage[0].value += alloy_primitives::U256::from(1);
@@ -1314,7 +1314,7 @@ async fn review_own_l1_invalid_mpt_proof_halts_durably() {
     let request = prepare_req(next_height(&app), bft_time(&app));
     let result = app.handle(Request::PrepareProposal(request)).await;
     assert!(matches!(result, Err(AbciError::SafetyHalt(_))), "{result:?}");
-    assert!(!app.trust.snapshot().trust_ready);
+    assert!(!app.trust.snapshot().is_ready());
     assert!(app.store.fatal_evidence().unwrap().is_some());
     assert!(matches!(
         App::new(fx.l1(), fx.engine(), fx.params.clone(), app.store.clone(), AppOptions::default()),

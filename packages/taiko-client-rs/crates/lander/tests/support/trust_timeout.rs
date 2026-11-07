@@ -35,7 +35,7 @@ impl TrustTimeout {
         let path = store.join("checkpoint-trust.sock");
         let backend = store.join("trust-backend.sock");
         let before = observe(&path).await?;
-        ensure!(before["trust_ready"] == true, "timeout begins on a ready app");
+        ensure!(before["phase"] == "ready", "timeout begins on a ready app");
         std::fs::rename(&path, &backend)?;
         let listener = UnixListener::bind(&path)?;
         let fired = Arc::new(AtomicBool::new(false));
@@ -60,7 +60,7 @@ impl TrustTimeout {
                                 let request: serde_json::Value = serde_json::from_str(&line)?;
                                 if request["op"] == "check_session" && !triggered.swap(true, Ordering::SeqCst) {
                                     let status = observe(&target).await?;
-                                    observed.store(status["trust_ready"] == true, Ordering::SeqCst);
+                                    observed.store(status["phase"] == "ready", Ordering::SeqCst);
                                     // Beyond the actual signer's one-second private-control deadline.
                                     tokio::time::sleep(Duration::from_millis(1500)).await;
                                 }
@@ -89,7 +89,7 @@ impl TrustTimeout {
                 let current = observe(&self.backend).await?;
                 let session = current["session_id"].as_str().context("opaque private session")?;
                 Ok((self.fired.load(Ordering::SeqCst) &&
-                    current["trust_ready"] == true &&
+                    current["phase"] == "ready" &&
                     session != old_session)
                     .then(|| session.to_owned()))
             },

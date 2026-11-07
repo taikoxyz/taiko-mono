@@ -18,7 +18,7 @@ async fn trust(devnet: &Devnet, node: usize) -> Result<serde_json::Value> {
 async fn ready(devnet: &Devnet, node: usize) -> Result<serde_json::Value> {
     wait_until("Etna checkpoint Ready", WAIT, POLL, || async {
         let snapshot = trust(devnet, node).await?;
-        Ok((snapshot["trust_ready"] == true).then_some(snapshot))
+        Ok((snapshot["phase"] == "ready").then_some(snapshot))
     })
     .await
 }
@@ -49,7 +49,7 @@ async fn checkpoint_trust_first_start_comet_reconnect_and_app_crash_fail_closed(
     devnet.app_start(0).await?;
     let old = second["session_id"].as_str().unwrap();
     let response = devnet.trust_control(0, old).await?;
-    assert_eq!(response["trust_ready"], false);
+    assert_eq!(response["phase"], "acquiring", "a stale session answers closed");
     assert_ne!(
         response["session_id"], second["session_id"],
         "app-only restart changes incarnation"
@@ -71,7 +71,6 @@ async fn checkpoint_trust_first_start_comet_reconnect_and_app_crash_fail_closed(
     devnet.cmt_restart(0).await?;
     tokio::time::sleep(Duration::from_secs(3)).await;
     let unavailable = trust(&devnet, 0).await?;
-    assert_eq!(unavailable["trust_ready"], false);
     assert_eq!(unavailable["phase"], "acquiring");
     assert_eq!(before_l1, devnet.signer_state(0)?);
     assert_eq!(calls, devnet.signer_authorizations(0)?);
@@ -106,7 +105,6 @@ async fn checkpoint_trust_ahead_keeps_short_local_tip_nonsigning() -> Result<()>
     devnet.cmt_restart(0).await?;
     tokio::time::sleep(Duration::from_secs(4)).await;
     let snapshot = trust(&devnet, 0).await?;
-    assert_eq!(snapshot["trust_ready"], false);
     assert_eq!(snapshot["phase"], "catching_up");
     assert_eq!(snapshot["trusted_consensus_head"], serde_json::Value::Null);
     assert_eq!(snapshot["target"]["height"], head + 50);
@@ -194,7 +192,7 @@ async fn catch_up_with_local_voting_power(validators: usize, initial: usize) -> 
     wait_until("real Comet high-power checkpoint catch-up", WAIT, POLL, || async {
         let count = devnet.signer_authorizations(observer)?;
         let snapshot = trust(&devnet, observer).await?;
-        if snapshot["trust_ready"] != true {
+        if snapshot["phase"] != "ready" {
             ensure!(count == delegated, "FilePV received a request before checkpoint match");
             return Ok(None);
         }

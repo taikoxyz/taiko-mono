@@ -54,7 +54,6 @@ async fn generation_bump_supersedes_the_chain() -> anyhow::Result<()> {
         assert_eq!(devnet.signer_state(0)?, state);
         assert_eq!(devnet.signer_authorizations(0)?, delegated);
         let trust = devnet.trust_control(0, "unregistered-observer").await?;
-        assert_eq!(trust["trust_ready"], false);
         assert_eq!(trust["phase"], "halted");
         assert!(latch.is_file());
         tokio::time::sleep(Duration::from_millis(250)).await;

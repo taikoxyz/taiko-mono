@@ -67,7 +67,7 @@ func TestSupervisorLatchesUncertainSigningStateAcrossRestart(t *testing.T) {
 					response[key] = value
 				}
 				if request["op"] == "begin_session" {
-					response["trust_ready"], response["syncing"], response["phase"] = false, true, "acquiring"
+					response["phase"] = "acquiring"
 				}
 				return response
 			})

@@ -81,7 +81,7 @@ pub async fn join_after_landing(
             loop {
                 process.running()?;
                 if let Ok(status) = comet.abci_status().await &&
-                    status.trust_ready
+                    status.trust_phase == abci::app::trust::TrustPhase::Ready
                 {
                     return Ok::<_, anyhow::Error>(status);
                 }
@@ -89,7 +89,11 @@ pub async fn join_after_landing(
             }
         })
         .await??;
-        assert!(status.trust_ready, "delayed full node must authenticate its own finalized target");
+        assert_eq!(
+            status.trust_phase,
+            abci::app::trust::TrustPhase::Ready,
+            "delayed full node must authenticate its own finalized target"
+        );
         assert!(status.trust_target.as_ref().unwrap().height >= 12);
         assert_eq!(status.generation, 1);
         let active: Value = serde_json::from_slice(&fs::read(commands.root.join("active.json"))?)?;

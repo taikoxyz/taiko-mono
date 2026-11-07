@@ -565,7 +565,7 @@ async fn registered_follow(
         status.generation == 0 &&
             rpc.call("status", &[]).await?["node_info"]["network"] == chain &&
             status.execution_floor == Some(s) &&
-            status.trust_ready &&
+            status.trust_phase == abci::app::trust::TrustPhase::Ready &&
             status.trust_target.is_some_and(|t| t.height >= target)
     );
     let mut later_round = false;
@@ -751,7 +751,7 @@ async fn follow(
             if let Ok(status) = rpc.abci_status().await &&
                 status.execution_floor == Some(s) &&
                 status.generation == generation &&
-                status.trust_ready &&
+                status.trust_phase == abci::app::trust::TrustPhase::Ready &&
                 status.trust_target.is_some_and(|t| t.height >= target)
             {
                 break

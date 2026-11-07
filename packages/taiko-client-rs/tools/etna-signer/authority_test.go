@@ -310,8 +310,6 @@ func TestAuthorityHandshakeDoesNotCreateDomain(t *testing.T) {
 	}
 	defer a.Close()
 	chain, r := readyDomain(t, c, 1)
-	r.Ready = false
-	r.Syncing = true
 	r.Phase = "acquiring"
 	path := control(t, func(map[string]any) any { return r })
 	g := armed(path)
@@ -516,9 +514,7 @@ func TestAuthorityNativeProcessHandshakeAndSignature(t *testing.T) {
 		}
 		snapshot := *r
 		snapshot.SessionID = fmt.Sprintf("authority:%d", begins.Load())
-		snapshot.Ready = ready.Load()
-		snapshot.Syncing = !snapshot.Ready
-		if !snapshot.Ready {
+		if !ready.Load() {
 			snapshot.Phase = "acquiring"
 		}
 		return snapshot

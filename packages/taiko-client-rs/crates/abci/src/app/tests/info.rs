@@ -265,7 +265,7 @@ async fn info_forkchoice_invalid_state_halts_but_transient_replies_recover() {
         if code == -38002 {
             assert!(matches!(result, Err(AbciError::SafetyHalt(_))), "{result:?}");
             assert!(dir.path().join("fatal-evidence.txt").is_file());
-            assert!(!app.trust.snapshot().trust_ready);
+            assert!(!app.trust.snapshot().is_ready());
         } else {
             assert_eq!(result.unwrap().last_block_height.value(), 0, "code {code}");
             assert!(!dir.path().join("fatal-evidence.txt").exists());
@@ -397,8 +397,6 @@ async fn status_query_reports_the_committed_head() {
             anchor: fx.genesis.l1_0,
             halt_reason: None,
             superseded: false,
-            trust_ready: false,
-            syncing: true,
             trust_phase: crate::app::trust::TrustPhase::Acquiring,
             trust_target: None,
             trusted_consensus_head: None,

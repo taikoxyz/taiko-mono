@@ -113,11 +113,8 @@ pub struct TrustSnapshot {
     /// Recovery evidence summary, always on the wire: null for generation zero and before
     /// authentication.
     pub recovery_origin: Option<RecoveryTrustOrigin>,
-    /// Only true after durable committed-chain verification and refresh.
-    pub trust_ready: bool,
-    /// True whenever signing must remain closed.
-    pub syncing: bool,
-    /// Current local phase.
+    /// Current local phase; [`TrustPhase::Ready`] is the only phase that authorizes signing
+    /// and serving (SYNC-9-10/9-15).
     pub phase: TrustPhase,
     /// Authenticated checkpoint pinned for this catch-up attempt.
     pub target: Option<CheckpointTarget>,
@@ -130,14 +127,18 @@ pub struct TrustSnapshot {
 }
 
 impl TrustSnapshot {
+    /// Whether this snapshot authorizes signing and serving: only after durable committed-chain
+    /// verification and refresh, which is exactly [`TrustPhase::Ready`].
+    pub fn is_ready(&self) -> bool {
+        self.phase == TrustPhase::Ready
+    }
+
     /// Latches the first fatal reason and revokes this snapshot. Callers hold the state mutex.
     /// Returns false when an earlier fatal failure already revoked authorization.
     fn halt(&mut self, reason: String) -> bool {
         if self.phase == TrustPhase::Halted {
             return false;
         }
-        self.trust_ready = false;
-        self.syncing = true;
         self.phase = TrustPhase::Halted;
         self.trusted_consensus_head = None;
         self.reason = Some(bounded_reason(reason));
@@ -148,7 +149,7 @@ impl TrustSnapshot {
     /// Reports only bounded numeric readiness metadata; detailed failure reasons stay in status.
     fn publish_metrics(&self) {
         use crate::metrics::{AbciMetrics, set_u64};
-        AbciMetrics::checkpoint_trust_ready().set(i64::from(self.trust_ready));
+        AbciMetrics::checkpoint_trust_ready().set(i64::from(self.is_ready()));
         AbciMetrics::checkpoint_trust_phase().set(match self.phase {
             TrustPhase::Acquiring => 0,
             TrustPhase::CatchingUp => 1,
@@ -206,8 +207,6 @@ impl TrustHandle {
             chain_id: state.map(|s| s.chain_id.clone()),
             generation: state.map(|s| s.generation),
             recovery_origin: None,
-            trust_ready: false,
-            syncing: true,
             phase: TrustPhase::Acquiring,
             target: None,
             committed_head: head,
@@ -262,8 +261,6 @@ impl TrustHandle {
                 state.snapshot.reason = Some("session counter exhausted".into());
             }
         }
-        state.snapshot.trust_ready = false;
-        state.snapshot.syncing = true;
         state.snapshot.trusted_consensus_head = None;
         state.snapshot.publish_metrics();
         let snapshot = state.snapshot.clone();
@@ -281,18 +278,18 @@ impl TrustHandle {
             snapshot.phase = TrustPhase::Acquiring;
             snapshot.reason = Some(bounded_reason(reason));
         }
-        snapshot.trust_ready = false;
-        snapshot.syncing = true;
         snapshot.trusted_consensus_head = None;
         snapshot.publish_metrics();
     }
 
-    /// Returns closed for a stale session without altering the current session.
+    /// Returns closed for a stale session without altering the current session: only the
+    /// returned copy reports [`TrustPhase::Acquiring`]; a fatal halt stays visible.
     pub(crate) fn check_session(&self, session: &str) -> TrustSnapshot {
         let mut snapshot = self.snapshot();
         if snapshot.session_id != session {
-            snapshot.trust_ready = false;
-            snapshot.syncing = true;
+            if snapshot.phase != TrustPhase::Halted {
+                snapshot.phase = TrustPhase::Acquiring;
+            }
             snapshot.trusted_consensus_head = None;
             snapshot.reason = Some("stale trust session".into());
         }
@@ -373,7 +370,7 @@ impl TrustHandle {
         snapshot.generation = Some(state.generation);
         snapshot.committed_head =
             Some(BlockRef { height: state.last_height, hash: state.parent.hash });
-        if snapshot.trust_ready {
+        if snapshot.is_ready() {
             snapshot.trusted_consensus_head = snapshot.committed_head.clone();
         }
         snapshot.publish_metrics();
@@ -426,8 +423,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
             }
             Err(error) => {
                 if self.state.as_ref().is_some_and(|s| s.recovery.is_some()) {
-                    snapshot.trust_ready = false;
-                    snapshot.syncing = true;
                     snapshot.phase = TrustPhase::Acquiring;
                     snapshot.trusted_consensus_head = None;
                 }
@@ -549,8 +544,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
         }
         self.verify_link(state, &refreshed).await?;
         snapshot.phase = TrustPhase::Ready;
-        snapshot.trust_ready = true;
-        snapshot.syncing = false;
         snapshot.trusted_consensus_head = snapshot.committed_head.clone();
         snapshot.reason = None;
         Ok(())
@@ -938,5 +931,7 @@ mod session_tests {
         assert!(!trust.revoke_if_session(&current.session_id, "later fatal result".into()));
         assert_eq!(trust.snapshot().reason.as_deref(), Some("current fatal proof result"));
         assert_eq!(trust.begin_session().phase, TrustPhase::Halted);
+        // A stale answer never hides a fatal halt behind a retryable phase.
+        assert_eq!(trust.check_session(&current.session_id).phase, TrustPhase::Halted);
     }
 }

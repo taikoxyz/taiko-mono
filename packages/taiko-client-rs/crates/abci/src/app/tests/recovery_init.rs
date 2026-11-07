@@ -55,19 +55,19 @@ async fn recovery_init_preserves_guarded_signer_session_on_first_and_replayed_ha
     let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
     let doc = document(&fx, &w);
     let first = app.trust.begin_session();
-    assert!(!first.trust_ready);
+    assert!(!first.is_ready());
     init_chain(&mut app, request(&doc)).await.unwrap();
     assert_eq!(app.trust.snapshot().session_id, first.session_id);
     app.refresh_trust().await.unwrap();
-    assert!(app.trust.snapshot().trust_ready);
+    assert!(app.trust.snapshot().is_ready());
     // Stock Comet replays InitChain while app Info still reports zero at the origin.
     let rearmed = app.trust.begin_session();
     app.refresh_trust().await.unwrap();
-    assert!(app.trust.snapshot().trust_ready);
+    assert!(app.trust.snapshot().is_ready());
     init_chain(&mut app, request(&doc)).await.unwrap();
     assert_eq!(app.trust.snapshot().session_id, rearmed.session_id);
     app.refresh_trust().await.unwrap();
-    assert!(app.trust.snapshot().trust_ready);
+    assert!(app.trust.snapshot().is_ready());
 }
 
 #[tokio::test]
@@ -82,7 +82,7 @@ async fn recovery_init_replay_closes_unavailable_history_without_replacing_signe
     app.refresh_trust().await.unwrap();
     let trust = app.trust_handle();
     let session = trust.snapshot().session_id;
-    assert!(trust.snapshot().trust_ready);
+    assert!(trust.snapshot().is_ready());
     let l1 = app.l1.clone();
     let finalized = l1.state().finalized;
     l1.set_finalized(w.recovery_header.number() - 1);
@@ -93,15 +93,15 @@ async fn recovery_init_replay_closes_unavailable_history_without_replacing_signe
             result = &mut pending => panic!("unavailable history must wait: {result:?}"),
             _ = tokio::time::sleep(std::time::Duration::from_millis(30)) => {}
         }
-        assert!(!trust.snapshot().trust_ready);
+        assert!(!trust.snapshot().is_ready());
         assert_eq!(trust.snapshot().session_id, session);
         l1.set_finalized(finalized);
         tokio::time::timeout(std::time::Duration::from_secs(3), pending).await.unwrap().unwrap();
     }
     assert_eq!(trust.snapshot().session_id, session);
-    assert!(!trust.snapshot().trust_ready);
+    assert!(!trust.snapshot().is_ready());
     app.refresh_trust().await.unwrap();
-    assert!(trust.snapshot().trust_ready);
+    assert!(trust.snapshot().is_ready());
 }
 
 #[tokio::test]
@@ -243,15 +243,15 @@ async fn recovery_init_origin_trust_uses_retained_boundary_without_fabricating_c
     let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
     // Before InitChain there is no authenticated reason to accept an older landing generation.
     app.refresh_trust().await.unwrap();
-    assert!(!app.trust.snapshot().trust_ready);
+    assert!(!app.trust.snapshot().is_ready());
     init_chain(&mut app, request(&document(&fx, &w))).await.unwrap();
     app.refresh_trust().await.unwrap();
-    assert!(app.trust.snapshot().trust_ready);
+    assert!(app.trust.snapshot().is_ready());
     assert_eq!(app.store.load_comet_hash(6).unwrap(), None);
     assert_eq!(app.state().unwrap().last_comet_hash, B256::ZERO);
     checkpoint(&fx, app.l1(), &w, 6, retained(&w), 2);
     assert!(matches!(app.refresh_trust().await, Err(AbciError::SafetyHalt(_))));
-    assert!(!app.trust.snapshot().trust_ready);
+    assert!(!app.trust.snapshot().is_ready());
 }
 
 /// SYNC-9-5: the record at the generation's start height does not hold this generation's
@@ -266,7 +266,7 @@ async fn trust_skips_the_validator_state_at_the_generation_origin() {
     assert_eq!(fx.inbox.last_checkpoint_val_state_hash, B256::ZERO);
     assert_ne!(app.state().unwrap().val_state.hash(), B256::ZERO);
     app.refresh_trust().await.unwrap();
-    assert!(app.trust.snapshot().trust_ready, "{:?}", app.trust.snapshot().reason);
+    assert!(app.trust.snapshot().is_ready(), "{:?}", app.trust.snapshot().reason);
     assert_eq!(app.trust.snapshot().target.unwrap().val_state_hash, B256::ZERO);
 
     let (fx, l1, engine, w) = recovery_fixture(1, 6, 1);
@@ -278,7 +278,7 @@ async fn trust_skips_the_validator_state_at_the_generation_origin() {
     assert_eq!(origin.val_state_hash, retained(&w)[2]);
     assert_ne!(app.state().unwrap().val_state.hash(), origin.val_state_hash);
     app.refresh_trust().await.unwrap();
-    assert!(app.trust.snapshot().trust_ready, "{:?}", app.trust.snapshot().reason);
+    assert!(app.trust.snapshot().is_ready(), "{:?}", app.trust.snapshot().reason);
     assert_eq!(app.trust.snapshot().target.unwrap().val_state_hash, origin.val_state_hash);
 }
 
@@ -320,18 +320,18 @@ async fn recovery_init_future_target_requires_replay_and_both_committed_hashes()
     replay.l1().insert_header(anchor_header);
     replay.l1().set_finalized(121);
     replay.refresh_trust().await.unwrap();
-    assert!(!replay.trust.snapshot().trust_ready);
+    assert!(!replay.trust.snapshot().is_ready());
     for req in requests {
         decide(&mut replay, &req).await;
     }
-    assert!(!replay.trust.snapshot().trust_ready);
+    assert!(!replay.trust.snapshot().is_ready());
     replay.refresh_trust().await.unwrap();
-    assert!(replay.trust.snapshot().trust_ready);
+    assert!(replay.trust.snapshot().is_ready());
     replay.trust.begin_session();
     std::fs::remove_file(replay_dir.path().join("comet-hash-12.json")).unwrap();
     replay.state.as_mut().unwrap().last_comet_hash = B256::repeat_byte(0xff);
     assert!(matches!(replay.refresh_trust().await, Err(AbciError::SafetyHalt(_))));
-    assert!(!replay.trust.snapshot().trust_ready);
+    assert!(!replay.trust.snapshot().is_ready());
 }
 
 #[test]
@@ -378,7 +378,7 @@ async fn recovery_genesis_is_identical_when_latest_admission_target_advances() {
     init_chain(&mut app, request(&next)).await.unwrap();
     app.refresh_trust().await.unwrap();
     assert_eq!(app.trust.snapshot().target.unwrap().height, 18);
-    assert!(!app.trust.snapshot().trust_ready);
+    assert!(!app.trust.snapshot().is_ready());
 }
 
 #[tokio::test]
@@ -401,7 +401,7 @@ async fn recovery_init_rejects_changed_domain_time_validators_and_config() {
         let mut app = app_with(l1, engine, params, dir.path(), AppOptions::default());
         assert!(init_chain(&mut app, req).await.is_err(), "case {case}");
         assert_not_initialized(&app, dir.path());
-        assert!(!app.trust.snapshot().trust_ready);
+        assert!(!app.trust.snapshot().is_ready());
         assert!(app.store.load_recovery_bootstrap().unwrap().is_none());
     }
 }
@@ -493,13 +493,13 @@ async fn recovery_init_waits_on_the_same_request_for_historical_evidence() {
     }
     assert!(store.load().unwrap().is_none());
     assert!(store.load_recovery_bootstrap().unwrap().is_none());
-    assert!(!trust.snapshot().trust_ready);
+    assert!(!trust.snapshot().is_ready());
     shared_l1.state().states.insert(64, historical);
     let result =
         tokio::time::timeout(std::time::Duration::from_secs(3), pending).await.unwrap().unwrap();
     assert_eq!(result.app_hash.as_bytes(), w.el_header.hash_slow().as_slice());
     assert_eq!(store.load().unwrap().unwrap().last_height, 6);
-    assert!(!trust.snapshot().trust_ready);
+    assert!(!trust.snapshot().is_ready());
 }
 
 #[tokio::test]
@@ -528,7 +528,7 @@ async fn recovery_init_restart_reuses_authenticated_historical_sidecar_when_stat
             .unwrap();
     assert_eq!(repeated, first);
     app.refresh_trust().await.unwrap();
-    assert!(!app.trust.snapshot().trust_ready, "the later target still needs replay");
+    assert!(!app.trust.snapshot().is_ready(), "the later target still needs replay");
 }
 
 #[tokio::test]
@@ -551,7 +551,7 @@ async fn recovery_init_never_trusts_an_old_generation_header_above_the_origin() 
     assert!(
         matches!(app.refresh_trust().await, Err(AbciError::SafetyHalt(reason)) if reason.contains("old-generation"))
     );
-    assert!(!app.trust.snapshot().trust_ready);
+    assert!(!app.trust.snapshot().is_ready());
 }
 
 #[tokio::test]
@@ -592,7 +592,7 @@ async fn recovered_trust_summary_uses_verified_recovery_header() {
     init_chain(&mut app, request(&doc)).await.unwrap();
     app.refresh_trust().await.unwrap();
     let snapshot = app.trust_handle().snapshot();
-    assert!(snapshot.trust_ready);
+    assert!(snapshot.is_ready());
     let wire = serde_json::to_value(&snapshot).unwrap();
     assert_eq!(wire["recovery_origin"]["generation"], 1);
     assert_eq!(wire["recovery_origin"]["height"], 6);

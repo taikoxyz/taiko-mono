@@ -932,7 +932,7 @@ async fn historical_state_unavailable_halts_every_handler_and_survives_restart()
             }
         };
         assert!(matches!(app.handle(request).await, Err(AbciError::SafetyHalt(_))), "{method}");
-        assert!(!app.trust.snapshot().trust_ready);
+        assert!(!app.trust.snapshot().is_ready());
         assert!(app.store.fatal_evidence().unwrap().unwrap().contains("-38100"));
         assert!(matches!(
             App::new(
@@ -1084,7 +1084,7 @@ async fn review_own_el_bad_reply_halts_durably_but_peer_proof_rejects() {
         let dir = tempfile::tempdir().unwrap();
         let mut app = initialized(&fx, dir.path()).await;
         app.refresh_trust().await.unwrap();
-        assert!(app.trust.snapshot().trust_ready);
+        assert!(app.trust.snapshot().is_ready());
         let mut env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), fx.genesis.l1_0)), None);
         if own_el {
             app.engine()
@@ -1098,7 +1098,7 @@ async fn review_own_el_bad_reply_halts_durably_but_peer_proof_rejects() {
         let result = app.handle(Request::ProcessProposal(req)).await;
         if own_el {
             assert!(matches!(result, Err(AbciError::SafetyHalt(_))), "{result:?}");
-            assert!(!app.trust.snapshot().trust_ready);
+            assert!(!app.trust.snapshot().is_ready());
             assert!(app.store.fatal_evidence().unwrap().is_some());
             assert!(matches!(
                 App::new(
@@ -1116,7 +1116,7 @@ async fn review_own_el_bad_reply_halts_durably_but_peer_proof_rejects() {
                 Ok(Response::ProcessProposal(response::ProcessProposal::Reject))
             ));
             assert!(app.store.fatal_evidence().unwrap().is_none());
-            assert!(app.trust.snapshot().trust_ready);
+            assert!(app.trust.snapshot().is_ready());
         }
     }
 }

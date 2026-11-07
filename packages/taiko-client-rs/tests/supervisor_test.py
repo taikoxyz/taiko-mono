@@ -54,9 +54,8 @@ class TrustPeer:
                 self.ops.append(request["op"])
                 self.requests.append(request)
                 response = dict(schema_version=1, session_id=self.session, chain_id=self.chain,
-                                generation=self.generation, phase=self.phase, trust_ready=self.ready,
-                                syncing=not self.ready, target=None, committed_head=None,
-                                trusted_consensus_head=None, reason=None,
+                                generation=self.generation, phase=self.phase, target=None,
+                                committed_head=None, trusted_consensus_head=None, reason=None,
                                 recovery_origin=self.origin if self.ready else None)
                 response.update(self.extra)
                 self.observations.append(response)
@@ -401,6 +400,25 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
                 for descriptor in runtime.owner_fds:
                     os.close(descriptor)
                 self.observation_hold = None
+
+    def test_ready_is_phase_and_identity(self):
+        """Readiness is the app's trust phase plus this deployment's identity (SYNC-9-15)."""
+        spec = importlib.util.spec_from_file_location("etna_ready_phase", ROOT / "script/etna_validator.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        runtime = object.__new__(module.Supervisor)
+        runtime.chain, runtime.generation = self.chain, self.generation
+        ready = dict(schema_version=1, session_id=self.session, chain_id=self.chain,
+                     generation=self.generation, recovery_origin=self.origin, phase="ready",
+                     target=None, committed_head=None, trusted_consensus_head=None, reason=None)
+        self.assertTrue(runtime.ready(ready))
+        for phase in ("acquiring", "catching_up", "halted", "Ready", "", None):
+            self.assertFalse(runtime.ready(dict(ready, phase=phase)), phase)
+        self.assertFalse(runtime.ready({key: value for key, value in ready.items() if key != "phase"}))
+        self.assertFalse(runtime.ready(dict(ready, chain_id="other-chain")))
+        self.assertFalse(runtime.ready(dict(ready, generation=self.generation + 1)))
+        if self.generation:
+            self.assertFalse(runtime.ready(dict(ready, recovery_origin=None)))
 
     def test_initial_transport_session_does_not_restart_healthy_comet(self):
         self.session = "fresh-session"

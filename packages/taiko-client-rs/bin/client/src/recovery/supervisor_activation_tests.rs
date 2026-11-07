@@ -16,7 +16,7 @@ while True:
   with (root/'operations').open('a') as out:out.write(request['op']+'\n')
   if request['op']=='begin_session':counter+=1
   mode=json.loads((root/'mode.json').read_text()); ready=mode['ready_session']==counter
-  response=dict(base,session_id='boot:'+str(counter),phase='ready' if ready else 'acquiring',trust_ready=ready,syncing=not ready)
+  response=dict(base,session_id='boot:'+str(counter),phase='ready' if ready else 'acquiring')
   if not ready:response['trusted_consensus_head']=None
   peer.sendall((json.dumps(response)+'\n').encode())
 "#;
@@ -105,7 +105,7 @@ async fn recovery_controller_owned_supervisor_recovers_initial_and_later_refusal
     let o = &plan.origin;
     let chain = abci::rules::chain_id_for(&plan.deployment.params().unwrap(), 1).unwrap();
     let landing = crate::recovery::activate::finalized_landing(&source, &plan).await.unwrap();
-    let snapshot = serde_json::json!({"schema_version":1,"session_id":"boot:0","chain_id":chain,"generation":1,"recovery_origin":{"generation":1,"height":o.height,"l1_number":o.l1_number,"l1_hash":plan.validate().unwrap().recovery_header.hash(),"l1_timestamp":o.l1_timestamp,"el_hash":o.el_hash,"comet_hash":o.comet_hash,"forced_cursor":o.forced_cursor,"committee_hash":o.committee.record.set_root},"trust_ready":false,"syncing":true,"phase":"acquiring","target":landing.target,"committed_head":{"height":o.height,"hash":o.el_hash},"trusted_consensus_head":{"height":o.height,"hash":o.el_hash},"reason":null});
+    let snapshot = serde_json::json!({"schema_version":1,"session_id":"boot:0","chain_id":chain,"generation":1,"recovery_origin":{"generation":1,"height":o.height,"l1_number":o.l1_number,"l1_hash":plan.validate().unwrap().recovery_header.hash(),"l1_timestamp":o.l1_timestamp,"el_hash":o.el_hash,"comet_hash":o.comet_hash,"forced_cursor":o.forced_cursor,"committee_hash":o.committee.record.set_root},"phase":"acquiring","target":landing.target,"committed_head":{"height":o.height,"hash":o.el_hash},"trusted_consensus_head":{"height":o.height,"hash":o.el_hash},"reason":null});
     atomic_json(&base.join("snapshot.json"), &snapshot);
     atomic_json(&base.join("mode.json"), &serde_json::json!({"ready_session":0}));
     let engine = ProbeEngine {

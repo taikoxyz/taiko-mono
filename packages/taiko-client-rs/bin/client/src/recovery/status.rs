@@ -277,9 +277,7 @@ pub(super) fn record_observation(
     {
         return Err(RecoveryCommandError::Invalid);
     }
-    let trusted = snapshot.trust_ready &&
-        !snapshot.syncing &&
-        snapshot.phase == TrustPhase::Ready &&
+    let trusted = snapshot.phase == TrustPhase::Ready &&
         snapshot.trusted_consensus_head == snapshot.committed_head &&
         committed.is_some_and(|head| head.height >= target.height) &&
         committed.is_some_and(|head| head.height >= landing.target.height) &&

@@ -88,7 +88,8 @@ impl AbciMetrics {
         &METRICS.l1_finality_lag
     }
 
-    /// `abci_checkpoint_trust_ready`: one only for a verified current session.
+    /// `abci_checkpoint_trust_ready`: one only while the trust phase is `ready`, i.e. for a
+    /// verified current session.
     pub fn checkpoint_trust_ready() -> &'static IntGauge {
         &METRICS.checkpoint_trust_ready
     }

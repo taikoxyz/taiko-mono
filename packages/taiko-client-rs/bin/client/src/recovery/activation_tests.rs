@@ -282,8 +282,6 @@ async fn recovery_activation_trust_requires_exact_private_session_and_settlement
         ),
         generation: Some(o.generation),
         recovery_origin: Some(origin),
-        trust_ready: true,
-        syncing: false,
         phase: TrustPhase::Ready,
         target: Some(target.clone()),
         committed_head: Some(head.clone()),
@@ -306,8 +304,6 @@ async fn recovery_activation_trust_requires_exact_private_session_and_settlement
     snapshot.target = Some(landing.target.clone());
     record_observation(&plan, &mut journal, &snapshot, "opaque:1", &landing).unwrap();
     assert_eq!(journal.phase, ActivationPhase::Settled);
-    snapshot.trust_ready = false;
-    snapshot.syncing = true;
     snapshot.phase = TrustPhase::CatchingUp;
     snapshot.trusted_consensus_head = None;
     record_observation(&plan, &mut journal, &snapshot, "opaque:1", &landing).unwrap();
@@ -796,8 +792,6 @@ async fn recovery_activation_private_sessions_fullnode_only_and_incarnation_fail
                 forced_cursor: o.forced_cursor,
                 committee_hash: o.committee.record.set_root,
             }),
-            trust_ready: false,
-            syncing: true,
             phase: TrustPhase::Acquiring,
             target: None,
             committed_head: None,

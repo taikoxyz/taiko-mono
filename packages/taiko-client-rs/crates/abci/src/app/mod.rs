@@ -149,11 +149,8 @@ pub struct Status {
     pub halt_reason: Option<String>,
     /// Whether L1 records a larger recovery generation than the running chain's.
     pub superseded: bool,
-    /// True only after checkpoint trust has been established for this session.
-    pub trust_ready: bool,
-    /// Whether the node is withholding signing pending checkpoint authentication.
-    pub syncing: bool,
-    /// Node-local checkpoint phase, separate from the proposal liveness halt.
+    /// Node-local checkpoint phase, separate from the proposal liveness halt. Only
+    /// [`trust::TrustPhase::Ready`] means trusted (SYNC-9-15).
     pub trust_phase: trust::TrustPhase,
     /// Own-finalized checkpoint pinned for this startup attempt.
     pub trust_target: Option<trust::CheckpointTarget>,
@@ -469,8 +466,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
             anchor: state.anchor.number,
             halt_reason: self.halt.clone(),
             superseded: self.superseded,
-            trust_ready: trust.trust_ready,
-            syncing: trust.syncing,
             trust_phase: trust.phase,
             trust_target: trust.target,
             trusted_consensus_head: trust.trusted_consensus_head,

@@ -227,9 +227,9 @@ async fn four_validator_native_consensus_fees_fi_epoch_landing_and_restart() -> 
             let signer = c.signing_state(3).with_context(|| format!("read {}", hrs_path.display()))?;
             let signed = signer["height"].as_str().context("peer 3 HRS height")?.parse::<u64>()?;
             ensure!(
-                app.head >= first_height && app.trust_ready && !app.syncing && !catching_up && signed >= first_height,
-                "peer 3 head={}, trust_ready={}, syncing={}, stock catching_up={catching_up}, HRS={signed}, required={first_height}",
-                app.head, app.trust_ready, app.syncing,
+                app.head >= first_height && app.trust_phase == abci::app::trust::TrustPhase::Ready && !catching_up && signed >= first_height,
+                "peer 3 head={}, trust_phase={:?}, stock catching_up={catching_up}, HRS={signed}, required={first_height}",
+                app.head, app.trust_phase,
             );
             Ok(Some((app.head, signed)))
         },

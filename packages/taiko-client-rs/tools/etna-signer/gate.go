@@ -58,8 +58,6 @@ type trustResponse struct {
 	SessionID      string          `json:"session_id"`
 	ChainID        *string         `json:"chain_id"`
 	Generation     *uint64         `json:"generation"`
-	Ready          bool            `json:"trust_ready"`
-	Syncing        bool            `json:"syncing"`
 	Phase          string          `json:"phase"`
 	Target         *target         `json:"target"`
 	Committed      *blockRef       `json:"committed_head"`
@@ -125,19 +123,19 @@ func (g *gate) query(op string, session string) (*trustResponse, error) {
 	if len(line) > maxControlFrame {
 		return nil, errors.New("oversize control response")
 	}
-	// Unknown fields, trailing JSON, absent booleans and duplicate keys fail closed.
+	// Unknown fields, trailing JSON, absent fields and duplicate keys fail closed.
 	var fields map[string]json.RawMessage
 	if err = json.Unmarshal(line, &fields); err != nil {
 		return nil, err
 	}
 	// recovery_origin is always present and nullable; trusted binds it to the generation.
-	required := []string{"schema_version", "session_id", "chain_id", "generation", "recovery_origin", "trust_ready", "syncing", "phase", "target", "committed_head", "trusted_consensus_head", "reason"}
+	required := []string{"schema_version", "session_id", "chain_id", "generation", "recovery_origin", "phase", "target", "committed_head", "trusted_consensus_head", "reason"}
 	for _, field := range required {
 		if _, ok := fields[field]; !ok {
 			return nil, fmt.Errorf("missing %s", field)
 		}
 	}
-	for _, field := range []string{"schema_version", "session_id", "trust_ready", "syncing", "phase"} {
+	for _, field := range []string{"schema_version", "session_id", "phase"} {
 		if bytes.Equal(bytes.TrimSpace(fields[field]), []byte("null")) {
 			return nil, fmt.Errorf("null %s", field)
 		}
@@ -212,12 +210,14 @@ func validRecovery(r *trustResponse) error {
 	return nil
 }
 
-// trusted is shared by every signature and the post-refusal reconnect gate.
+// trusted is shared by every signature and the post-refusal reconnect gate. The phase is the
+// app's only readiness field: every value other than the exact string "ready" denies
+// (SYNC-9-10/9-11).
 func trusted(r *trustResponse, chain string) error {
 	if r == nil || r.SessionID == "" || r.SchemaVersion != controlSchema {
 		return errors.New("invalid private authorization")
 	}
-	if r.ChainID == nil || *r.ChainID != chain || !r.Ready || r.Syncing || r.Phase != "ready" || r.Generation == nil || r.Target == nil || !validHead(r.Committed) || !validHead(r.Trusted) {
+	if r.ChainID == nil || *r.ChainID != chain || r.Phase != "ready" || r.Generation == nil || r.Target == nil || !validHead(r.Committed) || !validHead(r.Trusted) {
 		return errors.New("checkpoint trust is closed or belongs to another session/chain")
 	}
 	t := r.Target
@@ -303,7 +303,7 @@ func (g *gate) begin() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if response.Ready || !response.Syncing {
+	if response.Phase == "ready" {
 		return "", errors.New("begin_session did not close trust")
 	}
 	g.transportMu.Lock()

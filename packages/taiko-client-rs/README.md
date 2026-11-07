@@ -707,10 +707,11 @@ committing those values to the Inbox.
 - Every app start and every signer session start closed. The app pins one block of its own L1
   `finalized` view and authenticates the Inbox's latest checkpoint there: the L1 header and
   state root, exact account and storage proofs, canonicality, generation and both the checkpoint EL hash and slot-285 Comet hash.
-  While closed, `/trust` and `/status` report `trust_ready = false`, `syncing = true` and no
-  `trusted_consensus_head`; `trust_target` shows the pinned checkpoint and `trust_reason` why
-  trust is still closed. Info, InitChain and historical Finalize/Commit replay continue
-  normally meanwhile.
+  Readiness is the trust phase alone: `/trust` reports it as `phase` and `/status` as
+  `trust_phase`, one of `acquiring`, `catching_up`, `ready` or `halted`, and only `ready`
+  means trusted. While closed, neither reports a `trusted_consensus_head`; `trust_target`
+  shows the pinned checkpoint and `trust_reason` why trust is still closed. Info, InitChain
+  and historical Finalize/Commit replay continue normally meanwhile.
 - Trust opens only after both target hashes match durable committed history. A committed head already
   above the target must prove its complete `parentHash` ancestry down to the target; finding
   the target in alethia-reth is not enough. Readiness opens after the matching state is durable

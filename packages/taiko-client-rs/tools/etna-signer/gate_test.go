@@ -74,7 +74,7 @@ func control(t *testing.T, reply func(map[string]any) any) string {
 }
 func snapshot(ready bool) map[string]any {
 	hash := "0x" + strings.Repeat("b", 64)
-	return map[string]any{"schema_version": 1, "session_id": "test:7", "chain_id": chain, "generation": 0, "trust_ready": ready, "syncing": !ready, "phase": map[bool]string{true: "ready", false: "catching_up"}[ready], "target": map[string]any{"l1_number": 10, "l1_hash": "0x" + strings.Repeat("a", 64), "height": 0, "hash": hash, "comet_hash": "0x" + strings.Repeat("c", 64), "val_state_hash": "0x" + strings.Repeat("e", 64), "generation": 0, "inbox": "0x" + strings.Repeat("1", 40)}, "committed_head": map[string]any{"height": 0, "hash": hash}, "trusted_consensus_head": map[string]any{"height": 0, "hash": hash}, "reason": nil, "recovery_origin": nil}
+	return map[string]any{"schema_version": 1, "session_id": "test:7", "chain_id": chain, "generation": 0, "phase": map[bool]string{true: "ready", false: "catching_up"}[ready], "target": map[string]any{"l1_number": 10, "l1_hash": "0x" + strings.Repeat("a", 64), "height": 0, "hash": hash, "comet_hash": "0x" + strings.Repeat("c", 64), "val_state_hash": "0x" + strings.Repeat("e", 64), "generation": 0, "inbox": "0x" + strings.Repeat("1", 40)}, "committed_head": map[string]any{"height": 0, "hash": hash}, "trusted_consensus_head": map[string]any{"height": 0, "hash": hash}, "reason": nil, "recovery_origin": nil}
 }
 func filePV(t *testing.T) (*privval.FilePV, string, string) {
 	t.Helper()
@@ -170,7 +170,7 @@ func TestReadyIsFreshAndFilePVPersistsDoubleSignProtection(t *testing.T) {
 	}
 }
 func TestControlFailuresDeny(t *testing.T) {
-	for _, test := range []string{"version", "session", "chain", "null_sync", "missing", "missing_origin", "generation", "target", "trusted", "unknown", "auth_error", "app_dead"} {
+	for _, test := range []string{"version", "session", "chain", "null_phase", "missing", "missing_origin", "generation", "target", "trusted", "unknown", "auth_error", "app_dead"} {
 		t.Run(test, func(t *testing.T) {
 			path := control(t, func(req map[string]any) any {
 				r := snapshot(true)
@@ -181,10 +181,10 @@ func TestControlFailuresDeny(t *testing.T) {
 					r["session_id"] = "other:1"
 				case "chain":
 					r["chain_id"] = "wrong"
-				case "null_sync":
-					r["syncing"] = nil
+				case "null_phase":
+					r["phase"] = nil
 				case "missing":
-					delete(r, "syncing")
+					delete(r, "phase")
 				case "missing_origin":
 					delete(r, "recovery_origin")
 				case "generation":
@@ -217,9 +217,58 @@ func TestControlFailuresDeny(t *testing.T) {
 		})
 	}
 }
+
+// Readiness is the phase alone (SYNC-9-10/9-11): every phase other than the exact string
+// "ready" denies before FilePV, and begin_session must answer a phase that is not "ready".
+func TestReadinessIsPhaseOnly(t *testing.T) {
+	const absent = "<absent>"
+	for _, phase := range []any{"ready", "acquiring", "catching_up", "halted", "READY", " ready", "ready\n", "unknown", "", nil, absent} {
+		with := func(r map[string]any) map[string]any {
+			if phase == absent {
+				delete(r, "phase")
+			} else {
+				r["phase"] = phase
+			}
+			return r
+		}
+		name := fmt.Sprintf("%#v", phase)
+		t.Run("sign/"+name, func(t *testing.T) {
+			path := control(t, func(map[string]any) any { return with(snapshot(true)) })
+			backend, _, state := filePV(t)
+			signer := &recordingPV{FilePV: backend}
+			before, _ := os.ReadFile(state)
+			res, err := armed(path).handle(signer, voteRequest(tm.PrecommitType, 0, false), chain)
+			if phase == "ready" {
+				if err != nil || res.GetSignedVoteResponse().Error != nil || len(res.GetSignedVoteResponse().Vote.Signature) != 65 {
+					t.Fatalf("ready phase refused: %v %v", res, err)
+				}
+				return
+			}
+			if err == nil || res.GetSignedVoteResponse().Error == nil {
+				t.Fatal("non-ready phase signed")
+			}
+			after, _ := os.ReadFile(state)
+			if signer.calls.Load() != 0 || !bytes.Equal(before, after) {
+				t.Fatal("non-ready phase reached FilePV")
+			}
+		})
+		t.Run("begin/"+name, func(t *testing.T) {
+			path := control(t, func(map[string]any) any { return with(snapshot(false)) })
+			g := newGate(path, time.Second)
+			session, err := g.begin()
+			closed := phase != "ready" && phase != nil && phase != absent
+			if closed != (err == nil) {
+				t.Fatalf("begin_session phase %q: session %q err %v", phase, session, err)
+			}
+			if !closed && g.session.Load() != nil {
+				t.Fatal("refused begin_session armed a session")
+			}
+		})
+	}
+}
 func TestMalformedAndTimeoutBounded(t *testing.T) {
 	encoded, _ := json.Marshal(snapshot(true))
-	duplicate := strings.Replace(string(encoded), `"trust_ready":true`, `"trust_ready":false,"trust_ready":true`, 1) + "\n"
+	duplicate := strings.Replace(string(encoded), `"phase":"ready"`, `"phase":"acquiring","phase":"ready"`, 1) + "\n"
 	for _, payload := range []string{"{bad}\n", duplicate, strings.Repeat("x", maxControlFrame+1) + "\n", ""} {
 		t.Run(string(rune(len(payload))), func(t *testing.T) {
 			path := filepath.Join(shortTemp(t), "s")

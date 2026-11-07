@@ -141,7 +141,7 @@ async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool, with_import: bool)
             let private_trust = commands.private_trust(&plan).await?;
             assert_eq!(private_trust["schema_version"], 1);
             assert_eq!(private_trust["generation"], 1);
-            assert_eq!(private_trust["trust_ready"], true);
+            assert_eq!(private_trust["phase"], "ready");
             assert_eq!(private_trust["recovery_origin"]["height"], 6);
             let first = c.cmt.call("block", &[("height", "7".into())]).await?;
             let first_comet: tendermint::Block = serde_json::from_value(first["block"].clone())?;
