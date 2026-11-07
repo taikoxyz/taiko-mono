@@ -250,8 +250,29 @@ ITEM = re.compile(r"^(?:#!?\[|//|(?:pub(?:\([^)]*\))? )?(?:(?:async|const|unsafe
 CALL = re.compile(r"(?<![.\w])(?:(\w+)::)?(\w+)\s*\(")
 
 
-def rust_test_files():
-    return sorted(TESTS.rglob("*.rs")) + sorted((ROOT / "crates").glob("*/tests/**/*.rs"))
+def rust_test_files(root=ROOT):
+    return sorted((root / "bin/client/tests").rglob("*.rs")) + sorted((root / "crates").glob("*/tests/**/*.rs"))
+
+
+def native_sources(root):
+    """governance_recovery.rs and the support modules it declares (`X.rs`, `X/**`), keyed under bin/client/tests."""
+    tests = root / "bin/client/tests"
+    block = re.search(r"^mod support \{$(.*?)^\}$", (tests / "governance_recovery.rs").read_text(), re.M | re.S)
+    if not block:
+        raise AssertionError("governance_recovery.rs declares no `mod support { … }` block; extend the guard")
+    paths = [tests / "governance_recovery.rs"]
+    for name in re.findall(r"\bmod (\w+);", block.group(1)):
+        module = tests / "support" / name
+        paths += [path for path in [module.with_suffix(".rs")] if path.exists()] + sorted(module.rglob("*.rs"))
+    return {path.relative_to(tests).as_posix(): path.read_text() for path in paths}
+
+
+def stray_native_markers(root, native):
+    """Native markers in any test file outside the governance_recovery binary's own modules."""
+    tests = root / "bin/client/tests"
+    return [f"{path.relative_to(root).as_posix()}:{line}: {key}" for path in rust_test_files(root)
+            if not (path.is_relative_to(tests) and path.relative_to(tests).as_posix() in native)
+            for line, key in native_markers(path.read_text())]
 
 
 def module_prefix(relative):
@@ -375,20 +396,35 @@ class SelectionDrift(unittest.TestCase):
         with self.assertRaisesRegex(AssertionError, r"support/x\.rs:2: .*move it into a free fn or extend the guard"):
             scan_native_consumers({"support/x.rs": '/// "ETNA_EL_BIN" in a comment is ignored.\nconst BIN: &str = "ETNA_EL_BIN";\n'})
 
+    def test_markers_outside_declared_governance_recovery_modules_are_stray(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            files = {
+                "bin/client/tests/governance_recovery.rs": "mod support {\n    pub mod checkpoint_import;\n    pub mod recovery;\n}\n",
+                "bin/client/tests/support/checkpoint_import.rs": 'fn el() {\n    let _ = "ETNA_EL_BIN";\n}\n',
+                "bin/client/tests/support/checkpoint_import/long_fence.rs": 'fn el() {\n    let _ = "ETNA_EL_IMPORT_BIN";\n}\n',
+                "bin/client/tests/support/recovery/mod.rs": 'fn comet() {\n    let _ = "ETNA_COMET_BIN";\n}\n',
+                "bin/client/tests/lander_cli.rs": "mod support {\n    pub mod lander;\n}\n",
+                "bin/client/tests/support/lander.rs": 'pub fn start() {\n    let _ = "ETNA_COMET_BIN";\n}\n',
+                "crates/lander/tests/staking.rs": "fn start() {\n    ContractConsensus::start(url);\n}\n",
+            }
+            for name, text in files.items():
+                (root / name).parent.mkdir(parents=True, exist_ok=True)
+                (root / name).write_text(text)
+            native = native_sources(root)
+            self.assertEqual(set(native), {"governance_recovery.rs", "support/checkpoint_import.rs",
+                                           "support/checkpoint_import/long_fence.rs", "support/recovery/mod.rs"})
+            self.assertEqual(stray_native_markers(root, native), ["bin/client/tests/support/lander.rs:2: comet_or_signer"])
+
     def test_listed_native_consumers_exist_and_cover_every_marker(self):
-        support = TESTS / "support"
-        native = {"governance_recovery.rs"} | {path.relative_to(TESTS).as_posix() for path in support.rglob("*.rs")}
-        sources = {name: (TESTS / name).read_text() for name in sorted(native)}
+        sources = native_sources(ROOT)
         listed = RECOVERY_IMAGE | NATIVE_EL | {LONG_FENCE}
         self.assertEqual(listed - docker_tests(sources), set(), "listed consumers must be docker tests at that module path")
         scanned = scan_native_consumers(sources)
         self.assertEqual(scanned["recovery"], RECOVERY_IMAGE)
         self.assertEqual(scanned["el"] - (NATIVE_EL | {LONG_FENCE}), set(), "unlisted EL consumers")
         self.assertNotIn(LONG_FENCE, scanned["comet_or_signer"])
-        outside = [f"{path.relative_to(ROOT)}:{line}: {key}"
-                   for path in rust_test_files() if path != TESTS / "governance_recovery.rs" and support not in path.parents
-                   for line, key in native_markers(path.read_text())]
-        self.assertEqual(outside, [], "native markers outside governance_recovery.rs and its support modules")
+        self.assertEqual(stray_native_markers(ROOT, sources), [], "native markers outside the governance_recovery binary")
 
     def test_entrypoint_filter_names_exist(self):
         names = set(re.findall(r"test\(=([^)]+)\)", (ROOT / "tests/entrypoint.sh").read_text()))
