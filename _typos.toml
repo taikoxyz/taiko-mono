@@ -29,7 +29,6 @@ extend-exclude = [
   "packages/protocol/contracts/layer1/automata-attestation/**",
   "packages/protocol/deployments/**",
   # Auto-generated bindings
-  "packages/taiko-client-rs/crates/bindings/**",
   "packages/taiko-client/bindings/ontake/**",
   "packages/taiko-client/bindings/pacaya/**",
   "packages/taiko-client/bindings/shasta/**",

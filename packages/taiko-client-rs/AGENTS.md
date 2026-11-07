@@ -6,7 +6,6 @@
 - `crates/abci` is the ABCI++ application of the Etna PoS chain (CometBFT + `taiko-client abci` + alethia-reth). Keep `envelope`, `rules`, `schedule`, `committee` and `forced` (the forced inclusion rule) free of I/O so they can later move unchanged into a no_std crate for the guest. The envelope is version 6; validators enforce forced inclusion and anchor freshness per block.
 - `crates/lander` authenticates CometBFT batches and historical committee ancestry, builds V6 blobs and the twenty-three-word V1 statement, obtains a proof through a trait (dummy `0x00` only), and durably submits nonpayable `land(input, leaves, proof)`. Fees and payouts are not consensus inputs. Never replace an outstanding nonce automatically.
 - `crates/protocol` holds shared protocol helpers; `crates/rpc` holds the Engine API / JWT provider helpers. FI bytes are authenticated calldata from exact-block admission events. Document shared traits whenever exposing cross-crate APIs.
-- `crates/bindings/` is kept only for protocol's anchor builder, which raiko2 uses. It is generated via `just gen_bindings` (Solidity sources in `../protocol`); never hand-edit or reformat files under `crates/bindings/src`.
 - `crates/test-harness` boots docker devnets (anvil as L1, alethia-reth, CometBFT) through the docker CLI, with calldata admission fixtures. The Docker scenarios live in `crates/abci/tests/`, `crates/lander/tests/` and `bin/client/tests/` and are marked `#[ignore = "docker"]`.
 - `tools/etna-signer` is a standalone Go 1.27.2 module pinned to stock CometBFT v0.40.0. It owns FilePV signing files outside Comet mounts and gates every signature with a fresh session-bound private trust query; PubKey/Ping remain ungated. Never implement signing cryptography, reset existing signing state or add a local validator fallback.
 - `tests/` holds `tests/entrypoint.sh` (run by `just test`) and the test JWT secret `tests/docker/jwt.hex`.
@@ -20,7 +19,6 @@
 - `just fmt` installs toolchain `nightly-2025-09-27`, runs `cargo +nightly fmt`, then `cargo sort --workspace --grouped`. Use `just fmt-check` for CI parity.
 - Always use `just fmt` (never call `cargo fmt` directly) so the nightly toolchain and `cargo sort` stay in sync with CI.
 - `just clippy` runs two passes: library targets with doc lints, then `--all-targets` (tests and test-harness included) with `-D warnings`; reserve `just clippy-fix` for mechanical cleanups.
-- `just gen_bindings` executes `script/gen_bindings.sh` to refresh contract bindings whenever ABIs change.
 - After each coherent batch of code changes, run `just fmt && just clippy-fix` locally so the workspace stays formatted and lint-clean. Use targeted tests while iterating.
 - Before declaring work complete, run `just verify` once on the final change batch and require it to finish without warnings or errors. It checks formatting, strict lint, fast tests, committed artifact reproduction and all Docker scenarios (`just test-full`).
 
@@ -28,7 +26,7 @@
 
 - Target MSRV 1.95 (`rust-version` in `Cargo.toml`).
 - Follow idiomatic Rust naming: snake_case for modules and functions, PascalCase for types, `SCREAMING_SNAKE_CASE` for constants. Prefer explicit `pub(crate)` boundaries.
-- Respect the shared `rustfmt.toml` and rely on `just fmt`; never bulk-format `crates/bindings/src`. Document intentional deviations with a brief comment.
+- Respect the shared `rustfmt.toml` and rely on `just fmt`. Document intentional deviations with a brief comment.
 - Never add `#[allow(clippy::too_many_arguments)]` (including crate/module-level forms). When a function exceeds argument limits, introduce a named params struct and update call sites to pass that struct.
 
 ## Documentation Policy (Mandatory)
@@ -37,7 +35,6 @@
 - Trait-implementation methods must also be documented (for example `Display::fmt`, `From::from`, `Default::default`, and `TryFrom::try_from`), even when rustdoc/clippy does not enforce them automatically.
 - Comments must explain purpose and contract, not restate identifiers. Include units/invariants for fields and side effects or error semantics where relevant.
 - Exclusions:
-  - `crates/bindings/**` (generated code; never hand-edit)
   - `crates/test-harness/**`
   - files under `tests/**`
   - `#[cfg(test)]` items and test-only helpers

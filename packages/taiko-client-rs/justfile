@@ -21,11 +21,11 @@ fmt-check:
 # every target (unit/integration tests, test-harness included) so dead test
 # helpers and unused test deps can't accumulate unseen.
 clippy:
-  cargo clippy --workspace --all-features --no-deps --exclude bindings --exclude test-harness -- -D warnings -D missing_docs -D clippy::missing_docs_in_private_items && \
-  cargo clippy --workspace --all-targets --all-features --no-deps --exclude bindings -- -D warnings
+  cargo clippy --workspace --all-features --no-deps --exclude test-harness -- -D warnings -D missing_docs -D clippy::missing_docs_in_private_items && \
+  cargo clippy --workspace --all-targets --all-features --no-deps -- -D warnings
 
 clippy-fix:
-  cargo clippy --fix --workspace --all-features --no-deps --exclude bindings --allow-dirty --allow-staged -- -D warnings
+  cargo clippy --fix --workspace --all-features --no-deps --allow-dirty --allow-staged -- -D warnings
 
 udeps:
   rustup toolchain install {{udeps_toolchain}} --profile minimal && \
@@ -54,7 +54,7 @@ test-full *ARGS:
 unit *ARGS:
   #!/usr/bin/env bash
   set -euo pipefail
-  targets=(--workspace --exclude bindings --all-features --lib --bins --test native_cli --test etna_conformance --test abci_shutdown --test one_shot_shutdown --test lander_cli --test cleanup)
+  targets=(--workspace --all-features --lib --bins --test native_cli --test etna_conformance --test abci_shutdown --test one_shot_shutdown --test lander_cli --test cleanup)
   if [[ $# -eq 0 ]]; then
     cargo nextest run "${targets[@]}" -E '!(package(lander) & kind(lib))'
     cargo test -p lander --all-features --lib
@@ -75,9 +75,6 @@ verify:
 # The local database helper is intentionally an isolated Cargo workspace.
 el-import-verify:
   cd tools/etna-el-import && just verify
-
-gen_bindings:
-  ./script/gen_bindings.sh
 
 # Regenerates the lander contract fixtures, the IEtnaInbox copy and the shared Etna vectors
 # (testdata/etna_vectors) from the pinned protocol revision in a temporary git worktree and fails

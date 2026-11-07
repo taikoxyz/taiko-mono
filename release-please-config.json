@@ -105,11 +105,6 @@
         },
         {
           "type": "toml",
-          "path": "crates/bindings/Cargo.toml",
-          "jsonpath": "$.package.version"
-        },
-        {
-          "type": "toml",
           "path": "Cargo.lock",
           "jsonpath": "$.package[?(@.name.value == \"taiko-client\" && !@.source)].version"
         },
@@ -122,11 +117,6 @@
           "type": "toml",
           "path": "Cargo.lock",
           "jsonpath": "$.package[?(@.name.value == \"lander\" && !@.source)].version"
-        },
-        {
-          "type": "toml",
-          "path": "Cargo.lock",
-          "jsonpath": "$.package[?(@.name.value == \"bindings\" && !@.source)].version"
         },
         {
           "type": "toml",

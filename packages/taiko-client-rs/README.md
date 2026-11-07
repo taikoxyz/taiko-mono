@@ -61,9 +61,8 @@ asks the app's private control socket before every signature (see
 | `crates/abci/`         | The ABCI++ application of the Etna PoS chain                                                                         |
 | `crates/protocol/`     | Shared helpers: blob coder, mix hash, Etna `extraData`, EIP-4396 base fee                                            |
 | `crates/rpc/`          | Engine API and JWT helpers                                                                                           |
-| `crates/bindings/`     | Generated Anchor contract bindings, kept for protocol's anchor builder (raiko2)                                      |
 | `crates/test-harness/` | Docker devnet (anvil, alethia-reth, CometBFT) and calldata admission fixtures                                        |
-| `script/`              | Maintenance scripts (binding generation)                                                                             |
+| `script/`              | Maintenance scripts (artifact generation, signer builds)                                                             |
 | `tests/`               | The integration test entrypoint and the test JWT secret                                                              |
 
 ## Fresh deployment
@@ -864,8 +863,8 @@ dependencies before Foundry, builds `EtnaInboxBootstrap`, the Inbox, registry an
 SignalService with their test fixtures, verifies compiler source hashes,
 formats generated JSON, and records ABI/bytecode/compiler provenance. It also copies the Etna
 vectors shared with the contracts (`testdata/etna_vectors`, which the `abci` and `lander` unit
-tests read) from that revision and records their hashes. It leaves
-the existing Anchor bindings unchanged. Run it twice and require identical generated output.
+tests read) from that revision and records their hashes. Run it twice and require identical
+generated output.
 `just check-lander-artifacts` (the CI job "Lander artifacts") runs it on the pinned revision in a
 temporary git worktree and fails unless every generated file equals the committed one.
 Regenerate test-only `InboxSetter`, `ZkGasFixture` and `FeeRoutingFixture` artifacts with

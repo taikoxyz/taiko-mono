@@ -1511,14 +1511,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bindings"
-version = "2.3.0"
-dependencies = [
- "alloy",
- "serde",
-]
-
-[[package]]
 name = "bitcoin-io"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
