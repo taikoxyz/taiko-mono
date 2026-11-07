@@ -568,7 +568,10 @@ pub async fn operate(profile: &Path, source: Option<&Path>, root: &Path) -> R<Va
     let stock = dir.join("stock.json");
     let stock_hash = if v.first_height().is_some() {
         let hash = package::stock(&root.join("package"), &stock, &v).await?;
-        Some(latch(root, helpers::comet(&i.comet_helper, &stock, hash, None, &v, &holds).await)?)
+        if !install {
+            latch(root, helpers::comet(&i.comet_helper, &stock, hash, None, &v, &holds).await)?;
+        }
+        Some(hash)
     } else {
         None
     };
@@ -591,8 +594,8 @@ pub async fn operate(profile: &Path, source: Option<&Path>, root: &Path) -> R<Va
     }
     copy_dataset(i, dir, &intent).await?;
     let manifest = latch(root, helpers::Manifest::new(id, &params, &v))?;
-    manifest.run(i, dir, &v, &holds, false).await?;
     if !install {
+        manifest.run(i, dir, &v, &holds, false).await?;
         if old.is_none() {
             files::put(&root.join("plan.json"), &plan)?
         }
