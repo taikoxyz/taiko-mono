@@ -152,9 +152,6 @@ func run() error {
 	logger := log.NewTMLogger(log.NewSyncWriter(os.Stderr))
 	gate := newGate(*control, *timeout)
 	gate.denialPath = *denial
-	if *root != "" {
-		gate.schema = 2
-	}
 	gate.authorized = func(r *trustResponse) {
 		logger.Info("checkpoint_trust_authorized", "session", r.SessionID, "committed_height", *r.Committed.Height, "target_height", *r.Target.Height)
 	}

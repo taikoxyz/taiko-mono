@@ -25,8 +25,8 @@
   the recompute base; a missing or corrupt record (set aside as `.corrupt`) is recomputed from
   an earlier record and the updates since (SYNC-9-5c). Landings carry the state's hash as the
   fourth word of each landing record, and a node whose own state differs from the landed hash
-  halts for safety (`validator_state_mismatch`). App state schemas are now 17 (generation
-  zero) and 18 (recovery), and lander journals 16; older stores are refused. Upgrade `etna-signer` together
+  halts for safety (`validator_state_mismatch`). App state now uses schema 19, and lander
+  journals 16; older stores are refused. Upgrade `etna-signer` together
   with the app: trust targets now carry `val_state_hash`, which an older signer refuses as an
   unknown field, so it would refuse every signature.
 - Align with protocol `b6e765b0f` and the current Etna specification: authenticate slot 293,

@@ -53,13 +53,12 @@ class TrustPeer:
                 request = json.loads(peer.makefile("rb").readline())
                 self.ops.append(request["op"])
                 self.requests.append(request)
-                response = dict(schema_version=self.schema, session_id=self.session, chain_id=self.chain,
+                response = dict(schema_version=1, session_id=self.session, chain_id=self.chain,
                                 generation=self.generation, phase=self.phase, trust_ready=self.ready,
                                 syncing=not self.ready, target=None, committed_head=None,
-                                trusted_consensus_head=None, reason=None)
+                                trusted_consensus_head=None, reason=None,
+                                recovery_origin=self.origin if self.ready else None)
                 response.update(self.extra)
-                if self.schema == 2:
-                    response["recovery_origin"] = self.origin if self.ready else None
                 self.observations.append(response)
                 held = self.observation_hold
                 if held is not None:
@@ -104,7 +103,7 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
         self.home = self.root / "comet"
         (self.home / "config").mkdir(parents=True)
         self.configure_transport()
-        self.chain, self.generation, self.schema = "etna-test", 0, 1
+        self.chain, self.generation, self.origin = "etna-test", 0, None
         self.identity_env = {}
         self.configure_identity()
         (self.home / "config/genesis.json").write_text(json.dumps(dict(chain_id=self.chain)))
@@ -557,7 +556,7 @@ class RecoveredSupervisorTests(SupervisorTests):
     """Repeat the lifecycle gates for an explicitly configured recovered domain."""
 
     def configure_identity(self):
-        self.chain, self.generation, self.schema = "etna-recovered-test-domain", 1, 2
+        self.chain, self.generation = "etna-recovered-test-domain", 1
         self.authority = self.root / "private/authority"
         self.identity_env = dict(ETNA_GENERATION="1", ETNA_AUTHORITY_ROOT=str(self.authority),
                                  ETNA_L1_CHAIN_ID="31337", ETNA_L2_CHAIN_ID="167001",
@@ -603,7 +602,7 @@ class RecoveredSupervisorTests(SupervisorTests):
         self.ready, self.phase = True, "ready"
         time.sleep(.3)
         self.assertFalse((self.store / "validator-supervisor.halted").exists())
-        self.assertEqual({request["schema_version"] for request in self.requests}, {2})
+        self.assertEqual({request["schema_version"] for request in self.requests}, {1})
 
     def test_generation_one_trust_restart_preserves_signing_state(self):
         self.authority.mkdir(parents=True)
@@ -881,7 +880,7 @@ class MinimalCapabilityTests(TrustPeer, unittest.TestCase):
         self.root.chmod(0o755)
         self.home = self.root / "comet"
         (self.home / "config").mkdir(parents=True)
-        self.chain, self.generation, self.schema = "etna-test", 0, 1
+        self.chain, self.generation, self.origin = "etna-test", 0, None
         (self.home / "config/config.toml").write_text('priv_validator_laddr = "unix://run/signer.sock"\n')
         (self.home / "config/genesis.json").write_text(json.dumps(dict(chain_id=self.chain)))
         # Without CAP_CHOWN, let the Comet UID create its own private run/ in a briefly open home.

@@ -201,7 +201,8 @@ pub async fn private_snapshot(
             .await
             .map_err(|_| RecoveryCommandError::Runtime("private app control"))?;
         let op = if begin { "begin_session" } else { "observe" };
-        let request = format!("{{\"schema_version\":2,\"op\":\"{op}\"}}\n");
+        let schema = abci::app::trust::CONTROL_SCHEMA_VERSION;
+        let request = format!("{{\"schema_version\":{schema},\"op\":\"{op}\"}}\n");
         stream
             .write_all(request.as_bytes())
             .await
@@ -230,9 +231,12 @@ pub(super) fn record_observation(
     landing: &FinalizedLanding,
 ) -> Result<(), RecoveryCommandError> {
     use super::status::{ActivationPhase, ActivationProgress};
-    use abci::app::trust::{RecoveryTrustOrigin, TrustPhase};
+    use abci::app::trust::{CONTROL_SCHEMA_VERSION, RecoveryTrustOrigin, TrustPhase};
     clear_observation(journal);
-    if snapshot.schema_version != 2 || session.is_empty() || snapshot.session_id != session {
+    if snapshot.schema_version != CONTROL_SCHEMA_VERSION ||
+        session.is_empty() ||
+        snapshot.session_id != session
+    {
         return Err(RecoveryCommandError::Runtime("current private session"));
     }
     let o = &plan.origin;

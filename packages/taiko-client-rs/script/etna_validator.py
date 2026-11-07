@@ -47,6 +47,9 @@ APP_LIFECYCLE_STOPS = ("ABCI server stopped", "app worker stopped", "checkpoint 
 SIGNER_SOCKET_PREFIX = "signer-"
 SIGNER_SOCKET_SUFFIX = ".sock"
 MAX_UNIX_SOCKET_PATH = 103  # macOS sun_path holds 104 bytes with the terminating NUL
+# The app's one private trust-control version. Every response carries recovery_origin:
+# null for generation zero, the authenticated origin after recovery.
+CONTROL_SCHEMA = 1
 
 
 class Supervisor:
@@ -90,7 +93,6 @@ class Supervisor:
         enrollment = os.environ.get("ETNA_ENROLL_LEGACY", "0")
         if enrollment not in ("0", "1"):
             raise ValueError("ETNA_ENROLL_LEGACY must be 0 or 1")
-        self.schema = 2 if root else 1
         authority_args = []
         if root:
             if "ETNA_GENERATION" not in os.environ or not all(deployment):
@@ -301,14 +303,14 @@ class Supervisor:
         with socket.socket(socket.AF_UNIX) as peer:
             peer.settimeout(1)
             peer.connect(str(self.store / "checkpoint-trust.sock"))
-            peer.sendall((json.dumps(dict(schema_version=self.schema, op="observe")) + "\n").encode())
+            peer.sendall((json.dumps(dict(schema_version=CONTROL_SCHEMA, op="observe")) + "\n").encode())
             data = peer.makefile("rb").readline(16385)
             if len(data) > 16384 or not data.endswith(b"\n"):
                 raise ValueError("invalid private observation frame")
             value = json.loads(data)
-            if (value.get("schema_version") != self.schema
+            if (value.get("schema_version") != CONTROL_SCHEMA
                     or not isinstance(value.get("session_id"), str)
-                    or (self.schema == 2 and "recovery_origin" not in value)):
+                    or "recovery_origin" not in value):
                 raise ValueError("invalid private observation schema")
             return value
 

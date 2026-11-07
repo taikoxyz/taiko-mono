@@ -213,8 +213,8 @@ The controller continues monitoring after settlement and clears observed trust o
 Validator activation explicitly supplies `ETNA_ENROLL_LEGACY=1` with the same registered key,
 original generation-zero HRS and permanent authority root. This one-time binding is idempotent
 on exact retries. Once markers exist, standalone legacy serving refuses that key/state.
-Only fresh private schema-two Ready can create/enroll a recovered domain. PubKey/Ping work
-while closed and create no recovered HRS. Each signature/retry checks Ready again.
+Only fresh private Ready with the authenticated origin can create/enroll a recovered domain.
+PubKey/Ping work while closed and create no recovered HRS. Each signature/retry checks Ready again.
 A durable transition intent fences all older generations before a new HRS can sign; retain
 the intent, manifest, watermark, both external markers and every historical state. See the
 [signer operations](../tools/etna-signer/README.md#generation-authority) for persistence rules.

@@ -77,9 +77,10 @@ separate Ed25519 keys.
 
 Every transport connection opens a fresh closed trust session. Every signature,
 including a cached same-HRS retry, checks that private session again. PubKey and
-Ping remain available while closed. Trust schema 1 requires canonical 32-byte
-`target.comet_hash` and `target.val_state_hash` alongside the EL checkpoint hash;
-absent, null, malformed, unknown or duplicate fields fail closed. Denial never invokes FilePV signing.
+Ping remain available while closed. Private trust control has one schema, 1. It requires
+canonical 32-byte `target.comet_hash` and `target.val_state_hash` alongside the EL
+checkpoint hash, and an always-present, nullable `recovery_origin`; absent, null,
+malformed, unknown or duplicate fields fail closed. Denial never invokes FilePV signing.
 Only stock FilePV writes signing state after authorization.
 
 Run `just signer-test` for Go race/process/native interop tests. No Cargo build is
@@ -89,8 +90,7 @@ The supported supervisor adds `--denial-file <app-store>/signer-denial.json`.
 It is a private atomic observation, not signing state or authorization: sequence zero
 publishes a fresh session ID, and positive sequence increments capture every signing
 refusal, including a local-control timeout while the app remains Ready. The supervisor
-uses nonmutating `observe` (schema 1 for legacy, schema 2 for authority mode), waits for
-exact private Ready, then reaps Comet and
+uses nonmutating `observe`, waits for exact private Ready, then reaps Comet and
 the signer with unchanged HRS/WAL/history. Stock Comet never retries a refused request;
 only a restarted Comet's WAL replay asks for that step again. So the supervisor first
 restarts the signer alone with `--await-trust`: it begins the fresh closed session for its
@@ -133,8 +133,7 @@ export ETNA_ENROLL_LEGACY=1
 `ETNA_CHAIN_ID` must exactly match the installed Comet genesis. The signer checks
 the full canonical domain against generation and deployment before opening
 authority. Nonzero generations require authority mode; authority mode requires
-all deployment fields and an explicit decimal uint48 generation. Without authority
-options, existing generation-zero environments continue using schema 1.
+all deployment fields and an explicit decimal uint48 generation.
 `ETNA_PRIV_STATE` always names the original generation-zero HRS. The authority root,
 key and original state must remain outside the Comet home/mounts and disposable app
 store. The supervisor canonicalizes these paths and passes them to the signer.
@@ -172,12 +171,12 @@ enrolled HRS require investigation. Neither enrollment nor a prepared recovery
 plan grants permission to sign. Once either external enrollment marker exists,
 standalone serve mode refuses that key/state.
 
-Authority mode requests private control schema 2. Its `recovery_origin` contains
+A recovered generation's `recovery_origin` contains
 `generation`, `height`, `l1_number`, `l1_hash`, `l1_timestamp`, `el_hash`,
 `comet_hash`, `forced_cursor`, and `committee_hash` (the initial committee set
 root). The app derives this summary from independently verified bootstrap
-witnesses and refuses schema-1 control requests once initialized for recovery.
-Schema 2 includes a null origin before authentication or for generation zero.
+witnesses. It is null before authentication and for generation zero; generation zero
+signs only with a null origin, a recovered generation only with its own origin.
 PubKey/Ping and the initial Comet handshake work while trust is closed and do not
 create a recovered HRS. Every signature and retry requires fresh private session
 Ready with the configured domain and consistent checkpoint/origin.

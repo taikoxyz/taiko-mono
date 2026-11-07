@@ -95,10 +95,14 @@ pub struct RecoveryTrustOrigin {
     pub committee_hash: B256,
 }
 
+/// The one private trust-control wire version, for generation zero and recovery alike.
+/// Requests carrying any other version are refused; every snapshot carries this version.
+pub const CONTROL_SCHEMA_VERSION: u32 = 1;
+
 /// Versioned read-only signing/readiness snapshot. Null identity is always closed.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TrustSnapshot {
-    /// Private control protocol version.
+    /// Private control protocol version; always [`CONTROL_SCHEMA_VERSION`].
     pub schema_version: u32,
     /// Opaque process nonce and session counter; never reused across process restarts.
     pub session_id: String,
@@ -106,8 +110,8 @@ pub struct TrustSnapshot {
     pub chain_id: Option<String>,
     /// Verified AppState generation; absent before InitChain.
     pub generation: Option<u64>,
-    /// Recovery evidence summary; absent for generation zero and before authentication.
-    #[serde(default)]
+    /// Recovery evidence summary, always on the wire: null for generation zero and before
+    /// authentication.
     pub recovery_origin: Option<RecoveryTrustOrigin>,
     /// Only true after durable committed-chain verification and refresh.
     pub trust_ready: bool,
@@ -197,7 +201,7 @@ impl TrustHandle {
         let nonce = nonce.iter().map(|b| format!("{b:02x}")).collect::<String>();
         let head = state.map(|s| BlockRef { height: s.last_height, hash: s.parent.hash });
         let snapshot = TrustSnapshot {
-            schema_version: 1,
+            schema_version: CONTROL_SCHEMA_VERSION,
             session_id: format!("{nonce}:0"),
             chain_id: state.map(|s| s.chain_id.clone()),
             generation: state.map(|s| s.generation),
@@ -367,7 +371,6 @@ impl TrustHandle {
         let snapshot = &mut inner.snapshot;
         snapshot.chain_id = Some(state.chain_id.clone());
         snapshot.generation = Some(state.generation);
-        snapshot.schema_version = if state.generation == 0 { 1 } else { 2 };
         snapshot.committed_head =
             Some(BlockRef { height: state.last_height, hash: state.parent.hash });
         if snapshot.trust_ready {
@@ -446,7 +449,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
             if self.state.as_ref().and_then(|state| state.recovery.as_ref()) != Some(&origin) {
                 return Err(AbciError::SafetyHalt("recovery trust evidence changed".into()));
             }
-            snapshot.schema_version = 2;
             snapshot.recovery_origin = Some(RecoveryTrustOrigin {
                 generation: origin.generation,
                 height: origin.height,

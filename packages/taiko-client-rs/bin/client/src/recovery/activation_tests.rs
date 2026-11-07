@@ -275,7 +275,7 @@ async fn recovery_activation_trust_requires_exact_private_session_and_settlement
     };
     let head = BlockRef { height: o.height, hash: o.el_hash };
     let mut snapshot = TrustSnapshot {
-        schema_version: 2,
+        schema_version: 1,
         session_id: "opaque:1".into(),
         chain_id: Some(
             abci::rules::chain_id_for(&plan.deployment.params().unwrap(), o.generation).unwrap(),
@@ -779,7 +779,7 @@ async fn recovery_activation_private_sessions_fullnode_only_and_incarnation_fail
         let app = store.plan_dir(plan.id()).join("app");
         let o = &plan.origin;
         let snapshot = Arc::new(Mutex::new(TrustSnapshot {
-            schema_version: 2,
+            schema_version: 1,
             session_id: "boot:0".into(),
             chain_id: Some(
                 abci::rules::chain_id_for(&plan.deployment.params().unwrap(), 1).unwrap(),

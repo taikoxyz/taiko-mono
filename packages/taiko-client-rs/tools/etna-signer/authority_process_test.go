@@ -201,7 +201,7 @@ func TestAuthorityNativeProcessHandshakeAndSignature(t *testing.T) {
 	var ready atomic.Bool
 	var begins atomic.Uint64
 	path := control(t, func(req map[string]any) any {
-		if req["schema_version"] != float64(2) {
+		if req["schema_version"] != float64(1) {
 			return map[string]any{}
 		}
 		if req["op"] == "begin_session" {

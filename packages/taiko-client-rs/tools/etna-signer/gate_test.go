@@ -74,7 +74,7 @@ func control(t *testing.T, reply func(map[string]any) any) string {
 }
 func snapshot(ready bool) map[string]any {
 	hash := "0x" + strings.Repeat("b", 64)
-	return map[string]any{"schema_version": 1, "session_id": "test:7", "chain_id": chain, "generation": 0, "trust_ready": ready, "syncing": !ready, "phase": map[bool]string{true: "ready", false: "catching_up"}[ready], "target": map[string]any{"l1_number": 10, "l1_hash": "0x" + strings.Repeat("a", 64), "height": 0, "hash": hash, "comet_hash": "0x" + strings.Repeat("c", 64), "val_state_hash": "0x" + strings.Repeat("e", 64), "generation": 0, "inbox": "0x" + strings.Repeat("1", 40)}, "committed_head": map[string]any{"height": 0, "hash": hash}, "trusted_consensus_head": map[string]any{"height": 0, "hash": hash}, "reason": nil}
+	return map[string]any{"schema_version": 1, "session_id": "test:7", "chain_id": chain, "generation": 0, "trust_ready": ready, "syncing": !ready, "phase": map[bool]string{true: "ready", false: "catching_up"}[ready], "target": map[string]any{"l1_number": 10, "l1_hash": "0x" + strings.Repeat("a", 64), "height": 0, "hash": hash, "comet_hash": "0x" + strings.Repeat("c", 64), "val_state_hash": "0x" + strings.Repeat("e", 64), "generation": 0, "inbox": "0x" + strings.Repeat("1", 40)}, "committed_head": map[string]any{"height": 0, "hash": hash}, "trusted_consensus_head": map[string]any{"height": 0, "hash": hash}, "reason": nil, "recovery_origin": nil}
 }
 func filePV(t *testing.T) (*privval.FilePV, string, string) {
 	t.Helper()
@@ -170,7 +170,7 @@ func TestReadyIsFreshAndFilePVPersistsDoubleSignProtection(t *testing.T) {
 	}
 }
 func TestControlFailuresDeny(t *testing.T) {
-	for _, test := range []string{"version", "session", "chain", "null_sync", "missing", "generation", "target", "trusted", "unknown", "auth_error", "app_dead"} {
+	for _, test := range []string{"version", "session", "chain", "null_sync", "missing", "missing_origin", "generation", "target", "trusted", "unknown", "auth_error", "app_dead"} {
 		t.Run(test, func(t *testing.T) {
 			path := control(t, func(req map[string]any) any {
 				r := snapshot(true)
@@ -185,6 +185,8 @@ func TestControlFailuresDeny(t *testing.T) {
 					r["syncing"] = nil
 				case "missing":
 					delete(r, "syncing")
+				case "missing_origin":
+					delete(r, "recovery_origin")
 				case "generation":
 					r["generation"] = nil
 				case "target":
@@ -642,20 +644,20 @@ func TestDenialSignalIncludesTimeoutWithoutChangingHRS(t *testing.T) {
 	}
 }
 
-func TestSchemaTwoRecoveryAuthorizationIsStrict(t *testing.T) {
+func TestRecoveryAuthorizationIsStrict(t *testing.T) {
 	c := authorityFixture(t)
 	next, ready := readyDomain(t, c, 1)
 	raw, _ := json.Marshal(ready)
 	var base map[string]any
 	json.Unmarshal(raw, &base)
-	for _, mode := range []string{"valid", "downgrade", "absent-origin", "null-origin", "null-height", "unknown-origin", "wrong-generation", "checkpoint-before-origin", "changed-el", "stale-session"} {
+	for _, mode := range []string{"valid", "other-schema", "absent-origin", "null-origin", "null-height", "unknown-origin", "wrong-generation", "checkpoint-before-origin", "changed-el", "stale-session"} {
 		t.Run(mode, func(t *testing.T) {
 			var r map[string]any
 			json.Unmarshal(raw, &r)
 			o := r["recovery_origin"].(map[string]any)
 			switch mode {
-			case "downgrade":
-				r["schema_version"] = 1
+			case "other-schema":
+				r["schema_version"] = 2
 			case "absent-origin":
 				delete(r, "recovery_origin")
 			case "null-origin":
@@ -675,7 +677,6 @@ func TestSchemaTwoRecoveryAuthorizationIsStrict(t *testing.T) {
 			}
 			path := control(t, func(map[string]any) any { return r })
 			g := armed(path)
-			g.schema = 2
 			err := g.authorize(next)
 			if mode == "valid" && err != nil {
 				t.Fatal(err)

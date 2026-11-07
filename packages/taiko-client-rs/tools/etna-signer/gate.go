@@ -23,6 +23,10 @@ import (
 
 const maxControlFrame = 16 * 1024
 
+// controlSchema is the app's one private trust-control wire version. Every response carries
+// recovery_origin: null for generation zero, the authenticated origin after recovery.
+const controlSchema = 1
+
 type blockRef struct {
 	Height *uint64 `json:"height"`
 	Hash   string  `json:"hash"`
@@ -49,7 +53,7 @@ type recoveryOrigin struct {
 	CommitteeHash string  `json:"committee_hash"`
 }
 type trustResponse struct {
-	RecoveryOrigin *recoveryOrigin `json:"recovery_origin,omitempty"`
+	RecoveryOrigin *recoveryOrigin `json:"recovery_origin"`
 	SchemaVersion  uint64          `json:"schema_version"`
 	SessionID      string          `json:"session_id"`
 	ChainID        *string         `json:"chain_id"`
@@ -64,7 +68,6 @@ type trustResponse struct {
 }
 type gate struct {
 	path        string
-	schema      uint64
 	timeout     time.Duration
 	session     atomic.Pointer[string]
 	authorized  func(*trustResponse)
@@ -108,11 +111,7 @@ func (g *gate) query(op string, session string) (*trustResponse, error) {
 	if err = c.SetDeadline(deadline); err != nil {
 		return nil, err
 	}
-	version := g.schema
-	if version == 0 {
-		version = 1
-	}
-	request := map[string]any{"schema_version": version, "op": op}
+	request := map[string]any{"schema_version": controlSchema, "op": op}
 	if op == "check_session" {
 		request["session_id"] = session
 	}
@@ -131,12 +130,8 @@ func (g *gate) query(op string, session string) (*trustResponse, error) {
 	if err = json.Unmarshal(line, &fields); err != nil {
 		return nil, err
 	}
-	required := []string{"schema_version", "session_id", "chain_id", "generation", "trust_ready", "syncing", "phase", "target", "committed_head", "trusted_consensus_head", "reason"}
-	if version == 2 {
-		required = append(required, "recovery_origin")
-	} else if _, ok := fields["recovery_origin"]; ok {
-		return nil, errors.New("schema one recovery field")
-	}
+	// recovery_origin is always present and nullable; trusted binds it to the generation.
+	required := []string{"schema_version", "session_id", "chain_id", "generation", "recovery_origin", "trust_ready", "syncing", "phase", "target", "committed_head", "trusted_consensus_head", "reason"}
 	for _, field := range required {
 		if _, ok := fields[field]; !ok {
 			return nil, fmt.Errorf("missing %s", field)
@@ -153,7 +148,7 @@ func (g *gate) query(op string, session string) (*trustResponse, error) {
 	if err = decoder.Decode(&res); err != nil {
 		return nil, err
 	}
-	if res.SchemaVersion != version || res.SessionID == "" {
+	if res.SchemaVersion != controlSchema || res.SessionID == "" {
 		return nil, errors.New("invalid control version/session")
 	}
 	// Decode into tokens too, rejecting duplicate object keys at every nesting level.
@@ -208,7 +203,7 @@ func validHead(h *blockRef) bool { return h != nil && h.Height != nil && canonic
 // validRecovery binds the fixed authenticated origin independently of the moving checkpoint.
 func validRecovery(r *trustResponse) error {
 	o := r.RecoveryOrigin
-	if r.SchemaVersion != 2 || o == nil || o.Generation == nil || r.Generation == nil || *o.Generation != *r.Generation || *o.Generation == 0 || *o.Generation >= 1<<48 || o.Height == nil || *o.Height >= 1<<48 || o.L1Number == nil || o.L1Timestamp == nil || o.ForcedCursor == nil || *o.ForcedCursor >= 1<<48 || !canonicalHex(o.L1Hash, 32) || !canonicalHex(o.ELHash, 32) || !canonicalHex(o.CometHash, 32) || !canonicalHex(o.CommitteeHash, 32) || r.Target == nil || r.Target.Height == nil || r.Target.L1Number == nil || *r.Target.Height < *o.Height || *r.Target.L1Number < *o.L1Number {
+	if o == nil || o.Generation == nil || r.Generation == nil || *o.Generation != *r.Generation || *o.Generation == 0 || *o.Generation >= 1<<48 || o.Height == nil || *o.Height >= 1<<48 || o.L1Number == nil || o.L1Timestamp == nil || o.ForcedCursor == nil || *o.ForcedCursor >= 1<<48 || !canonicalHex(o.L1Hash, 32) || !canonicalHex(o.ELHash, 32) || !canonicalHex(o.CometHash, 32) || !canonicalHex(o.CommitteeHash, 32) || r.Target == nil || r.Target.Height == nil || r.Target.L1Number == nil || *r.Target.Height < *o.Height || *r.Target.L1Number < *o.L1Number {
 		return errors.New("missing or inconsistent authenticated recovery origin")
 	}
 	if *r.Target.Height == *o.Height && (r.Target.Hash != o.ELHash || r.Target.CometHash != o.CometHash) {
@@ -219,7 +214,7 @@ func validRecovery(r *trustResponse) error {
 
 // trusted is shared by every signature and the post-refusal reconnect gate.
 func trusted(r *trustResponse, chain string) error {
-	if r == nil || r.SessionID == "" || (r.SchemaVersion != 1 && r.SchemaVersion != 2) {
+	if r == nil || r.SessionID == "" || r.SchemaVersion != controlSchema {
 		return errors.New("invalid private authorization")
 	}
 	if r.ChainID == nil || *r.ChainID != chain || !r.Ready || r.Syncing || r.Phase != "ready" || r.Generation == nil || r.Target == nil || !validHead(r.Committed) || !validHead(r.Trusted) {

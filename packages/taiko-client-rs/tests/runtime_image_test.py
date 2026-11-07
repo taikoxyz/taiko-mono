@@ -108,7 +108,8 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
                 response = dict(schema_version=1, session_id=f"closed-{len(sessions)}",
                                 chain_id=chain, generation=0, trust_ready=False, syncing=True,
                                 phase="acquiring", target=None, committed_head=None,
-                                trusted_consensus_head=None, reason="image smoke denies signing")
+                                trusted_consensus_head=None, reason="image smoke denies signing",
+                                recovery_origin=None)
                 peer.sendall((json.dumps(response) + "\n").encode())
     server = threading.Thread(target=serve_control, daemon=True)
     server.start()

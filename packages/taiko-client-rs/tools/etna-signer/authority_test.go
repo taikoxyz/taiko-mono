@@ -26,7 +26,6 @@ func readyDomain(t *testing.T, c authorityConfig, g uint64) (string, *trustRespo
 		t.Fatal(err)
 	}
 	value := snapshot(true)
-	value["schema_version"] = 2
 	value["chain_id"] = chain
 	value["generation"] = g
 	target := value["target"].(map[string]any)
@@ -311,7 +310,6 @@ func TestAuthorityHandshakeDoesNotCreateDomain(t *testing.T) {
 	r.Phase = "acquiring"
 	path := control(t, func(map[string]any) any { return r })
 	g := armed(path)
-	g.schema = 2
 	s := &domainSigner{authority: a}
 	req := pv.Message{Sum: &pv.Message_PubKeyRequest{PubKeyRequest: &pv.PubKeyRequest{ChainId: chain}}}
 	if _, e = g.handle(s, req, chain); e != nil {

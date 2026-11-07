@@ -28,7 +28,7 @@ while True:
   peer=socket.socket(socket.AF_UNIX);peer.connect(control);break
  except OSError:peer.close();time.sleep(.01)
 with peer:
- peer.sendall(b'{"schema_version":2,"op":"begin_session"}\n');snapshot=json.loads(peer.makefile('rb').readline())
+ peer.sendall(b'{"schema_version":1,"op":"begin_session"}\n');snapshot=json.loads(peer.makefile('rb').readline())
 session=snapshot['session_id'];sequence=1 if session=='boot:1' else 0
 pending=events.with_suffix('.pending');pending.write_text(json.dumps(dict(sequence=sequence,session_id=session)));pending.chmod(0o600);os.replace(pending,events)
 with (root/'signer-starts').open('a') as out:out.write(session+'\n')
@@ -105,7 +105,7 @@ async fn recovery_controller_owned_supervisor_recovers_initial_and_later_refusal
     let o = &plan.origin;
     let chain = abci::rules::chain_id_for(&plan.deployment.params().unwrap(), 1).unwrap();
     let landing = crate::recovery::activate::finalized_landing(&source, &plan).await.unwrap();
-    let snapshot = serde_json::json!({"schema_version":2,"session_id":"boot:0","chain_id":chain,"generation":1,"recovery_origin":{"generation":1,"height":o.height,"l1_number":o.l1_number,"l1_hash":plan.validate().unwrap().recovery_header.hash(),"l1_timestamp":o.l1_timestamp,"el_hash":o.el_hash,"comet_hash":o.comet_hash,"forced_cursor":o.forced_cursor,"committee_hash":o.committee.record.set_root},"trust_ready":false,"syncing":true,"phase":"acquiring","target":landing.target,"committed_head":{"height":o.height,"hash":o.el_hash},"trusted_consensus_head":{"height":o.height,"hash":o.el_hash},"reason":null});
+    let snapshot = serde_json::json!({"schema_version":1,"session_id":"boot:0","chain_id":chain,"generation":1,"recovery_origin":{"generation":1,"height":o.height,"l1_number":o.l1_number,"l1_hash":plan.validate().unwrap().recovery_header.hash(),"l1_timestamp":o.l1_timestamp,"el_hash":o.el_hash,"comet_hash":o.comet_hash,"forced_cursor":o.forced_cursor,"committee_hash":o.committee.record.set_root},"trust_ready":false,"syncing":true,"phase":"acquiring","target":landing.target,"committed_head":{"height":o.height,"hash":o.el_hash},"trusted_consensus_head":{"height":o.height,"hash":o.el_hash},"reason":null});
     atomic_json(&base.join("snapshot.json"), &snapshot);
     atomic_json(&base.join("mode.json"), &serde_json::json!({"ready_session":0}));
     let engine = ProbeEngine {

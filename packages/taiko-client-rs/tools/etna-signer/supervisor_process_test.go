@@ -47,9 +47,6 @@ func TestSupervisorLatchesUncertainSigningStateAcrossRestart(t *testing.T) {
 				if err := json.Unmarshal(raw, &ready); err != nil {
 					t.Fatal(err)
 				}
-				if generation == 0 {
-					ready["recovery_origin"] = nil
-				}
 				a, err := openAuthority(c)
 				if err != nil {
 					t.Fatal(err)
