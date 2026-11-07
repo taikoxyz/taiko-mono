@@ -1,6 +1,5 @@
 """Smoke the actual Linux runtime-tools stage without compiling the Rust app."""
 import hashlib
-import importlib.util
 import json
 import os
 from pathlib import Path
@@ -12,7 +11,6 @@ import tempfile
 import threading
 import time
 import tomllib
-from unittest.mock import patch
 
 assert os.getuid() == 0, "supported supervisor uses root to drop Comet privileges"
 assert os.environ["ETNA_COMET_UID"] == os.environ["ETNA_COMET_GID"] == "10001"
@@ -113,7 +111,9 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
                 peer.sendall((json.dumps(response) + "\n").encode())
     server = threading.Thread(target=serve_control, daemon=True)
     server.start()
-    # Actual stock Comet must bind again over the same retained home and authority.
+    # Actual stock Comet must bind again over the same retained home and authority,
+    # each time at the fresh run/signer-<16 hex>.sock its supervisor assigns.
+    listeners = []
     for incarnation in range(2):
         with (root / "runtime.log").open("w+") as log:
             supervisor = subprocess.Popen(["python3", "/app/script/etna_validator.py"],
@@ -132,14 +132,23 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
                             observed[name] = uid
                         except FileNotFoundError:
                             pass
-                    listening = any(line.split()[-1] == str(home / "run/signer.sock")
-                                    and line.split()[3] == "00010000"
-                                    for line in Path("/proc/net/unix").read_text().splitlines()[1:])
+                    listening = None
+                    for line in Path("/proc/net/unix").read_text().splitlines()[1:]:
+                        fields = line.split()
+                        path = Path(fields[-1])
+                        if (len(fields) == 8 and fields[3] == "00010000" and path.parent == home / "run"
+                                and path.name.startswith("signer-") and path.name.endswith(".sock")):
+                            try:
+                                if path.lstat().st_uid == 10001:
+                                    listening = path
+                            except FileNotFoundError:
+                                pass
                     if listening and observed.get("cometbft") == "10001" and observed.get("etna-signer") == "0":
                         break
                     time.sleep(.05)
                 assert observed.get("cometbft") == "10001" and observed.get("etna-signer") == "0", observed
                 assert listening, "stock Comet did not open its Unix signer listener"
+                listeners.append(listening)
                 time.sleep(.3)
                 assert not (app / "validator-supervisor.halted").exists(), "runtime child failed during smoke"
                 assert len(Path(f"/proc/{supervisor.pid}/task/{supervisor.pid}/children").read_text().split()) == 2
@@ -158,87 +167,13 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
     server.join(timeout=2)
     control.close()
     assert len(sessions) >= 2, "each stock Unix incarnation must open a fresh closed session"
+    assert listeners[0] != listeners[1], "each signer+Comet pair must use a fresh socket name"
     assert before == (key.read_bytes(), state.read_bytes()), "runtime must not reset HRS"
     # Stock DefaultNewNode creates a dummy FilePV before replacing it with SocketPV.
     # It must be an unregistered identity and must never sign or substitute for the helper.
     unused = json.loads((home / "config/priv_validator_key.json").read_bytes())
     assert unused["pub_key"] != native
     assert json.loads((home / "data/priv_validator_state.json").read_bytes())["height"] == "0"
-    empty_quarantines = list((home / "run").glob(".etna-transport-*"))
-    assert empty_quarantines, "successful stale cleanup must retain its empty private directory"
-    for quarantine in empty_quarantines:
-        assert list(quarantine.iterdir()) == [quarantine / "capture"]
-        for private_directory in [quarantine, quarantine / "capture"]:
-            assert private_directory.stat().st_uid == 0 and private_directory.stat().st_mode & 0o777 == 0o700
-        assert not list((quarantine / "capture").iterdir())
-    # Reproduce the reviewed race with an actual unprivileged Comet-UID writer.
-    spec = importlib.util.spec_from_file_location("etna_validator_under_test", "/app/script/etna_validator.py")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    transport = home / "run/signer.sock"
-    directory = transport.parent.stat()
-    real_fstat = os.fstat
-    replaced = []
-    def replace_after_endpoint_stat(descriptor):
-        observed_directory = real_fstat(descriptor)
-        if not replaced and (observed_directory.st_dev, observed_directory.st_ino) == (directory.st_dev, directory.st_ino):
-            subprocess.run(["python3", "-c",
-                            "import os,pathlib,sys; assert os.getuid()==10001; "
-                            "assert int(next(l.split()[1] for l in pathlib.Path('/proc/self/status').read_text().splitlines() if l.startswith('CapEff:')),16)==0; "
-                            "p=pathlib.Path(sys.argv[1]); p.unlink(); p.write_text('raced replacement')", str(transport)],
-                           user=10001, group=10001, extra_groups=[], check=True)
-            replaced.append(transport.stat().st_ino)
-        return observed_directory
-    with patch.dict(os.environ, environment), patch.object(module.os, "fstat", replace_after_endpoint_stat):
-        try:
-            module.Supervisor().prepare_transport()
-        except ValueError as error:
-            assert "preserved at" in str(error), error
-        else:
-            raise AssertionError("changed endpoint must refuse startup")
-    assert replaced and transport.read_text() == "raced replacement"
-    retained = list((home / "run").glob(".etna-transport-*/capture/endpoint"))
-    assert len(retained) == 1 and retained[0].stat().st_ino == replaced[0]
-    assert retained[0].parent.stat().st_uid == 0 and retained[0].parent.stat().st_mode & 0o777 == 0o700
-    denied = subprocess.run(["python3", "-c", "import os,sys; os.unlink(sys.argv[1])", str(retained[0])],
-                            user=10001, group=10001, extra_groups=[], capture_output=True)
-    assert denied.returncode != 0 and b"PermissionError" in denied.stderr
-    subprocess.run(["python3", "-c", "import os,sys; os.unlink(sys.argv[1])", str(transport)],
-                   user=10001, group=10001, extra_groups=[], check=True)
-    assert retained[0].read_text() == "raced replacement", "protected backup must survive loss of restored public name"
-    assert before == (key.read_bytes(), state.read_bytes())
-    # A Comet-UID writer can also substitute an old root-owned quarantine
-    # between its public-name mkdir and open. Its prior evidence must survive.
-    subprocess.run(["python3", "-c", "import socket,sys; s=socket.socket(socket.AF_UNIX); s.bind(sys.argv[1]); s.close()", str(transport)],
-                   user=10001, group=10001, extra_groups=[], check=True)
-    stale_inode = transport.stat().st_ino
-    old_quarantine = home / "run/retained-prior-quarantine"
-    old_quarantine.mkdir(mode=0o700)
-    (old_quarantine / "endpoint").write_text("prior mismatch evidence")
-    prior_inode = (old_quarantine / "endpoint").stat().st_ino
-    real_open = os.open
-    substituted = []
-    def substitute_before_open(path, flags, *args, **kwargs):
-        if not substituted and isinstance(path, str) and path.startswith(".etna-transport-"):
-            destination = home / "run" / path
-            subprocess.run(["python3", "-c",
-                            "import os,pathlib,sys; assert os.getuid()==10001; "
-                            "assert int(next(l.split()[1] for l in pathlib.Path('/proc/self/status').read_text().splitlines() if l.startswith('CapEff:')),16)==0; "
-                            "os.rename(sys.argv[1],sys.argv[2])", str(old_quarantine), str(destination)],
-                           user=10001, group=10001, extra_groups=[], check=True)
-            substituted.append(destination)
-        return real_open(path, flags, *args, **kwargs)
-    with patch.dict(os.environ, environment), patch.object(module.os, "open", substitute_before_open):
-        try:
-            module.Supervisor().prepare_transport()
-        except ValueError as error:
-            assert "nonempty Unix quarantine" in str(error), error
-        else:
-            raise AssertionError("substituted prior quarantine must refuse startup")
-    assert substituted and (substituted[0] / "endpoint").read_text() == "prior mismatch evidence"
-    assert (substituted[0] / "endpoint").stat().st_ino == prior_inode
-    assert transport.stat().st_ino == stale_inode
-    assert before == (key.read_bytes(), state.read_bytes())
     for missing in [key, state]:
         saved = missing.with_suffix(".saved")
         missing.rename(saved)
@@ -252,6 +187,4 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
                           publicKey=public["publicKey"], child_uids=observed,
                           comet_cannot_read_registered_key=True, HRS_unchanged=True,
                           unused_local_identity_never_signed=True, stock_unix_restart_with_retained_authority=True,
-                          replacement_preserved_against_unprivileged_writer=True,
-                          prior_quarantine_preserved_against_substitution=True,
-                          missing_key_or_HRS_aborts_before_Comet=True)))
+                          fresh_signer_socket_per_start=True, missing_key_or_HRS_aborts_before_Comet=True)))

@@ -433,7 +433,7 @@ or config opening differs.
 
    ```toml
    proxy_app = "tcp://127.0.0.1:26658"   # taiko-client abci's --abci.addr
-   priv_validator_laddr = "unix:///absolute/path/run/comet-sign.sock" # mandatory for validators
+   priv_validator_laddr = "unix://run/signer.sock"   # validator marker; the supervisor assigns run/signer-<nonce>.sock
 
    [mempool]
    type = "nop"                          # user transactions travel over the EL's devp2p
@@ -496,18 +496,22 @@ committing those values to the Inbox.
    `command: ["python3", "/app/script/etna_validator.py"]` with the same environment below.
    Run the app in a separate container sharing the private app-store socket and persisted
    state mounts; do not expose the socket outside the pod. The image runs supervisor/signer
-   as root and drops the stock Comet child to UID/GID10001 (`ETNA_COMET_UID/GID`). Prepare
-   its persistent home and signer-listener directory owned by10001; keep registered key/HRS
-   root-owned0600 in a private directory outside that home. Put the Unix signer listener
-   directly inside `<comet-home>/run`, not the app's0700 private store. This prevents the Comet
-   child from reading registered signing secrets. Supervisor needs root with SETUID, SETGID,
-   KILL and DAC_OVERRIDE capabilities: the root signer must connect to the Comet-owned Unix
-   socket. Comet runs as UID10001 with zero effective capabilities. Persistent Comet volume
-   ownership is prepared separately. HRS
+   as root and drops the stock Comet child to UID/GID 10001 (`ETNA_COMET_UID/GID`). Prepare
+   its persistent home owned by 10001, with `<comet-home>/run` owned by 10001, mode 0700 and
+   not sticky; keep registered key/HRS root-owned 0600 in a private directory outside that
+   home. The Unix signer listener lives in that `run/`, never in the app's 0700 private
+   store. This prevents the Comet child from reading registered signing secrets. The
+   supervisor needs root with exactly CAP_SETUID and CAP_SETGID (start Comet as
+   `ETNA_COMET_UID/GID` without supplementary groups), CAP_KILL (stop that Comet) and
+   CAP_DAC_OVERRIDE (traverse the Comet-owned home and `run/`, connect the root signer to
+   Comet's socket, and remove stale `run/signer-*.sock`); it needs no CAP_FOWNER or
+   CAP_CHOWN. Comet runs as UID 10001 with zero effective capabilities. Persistent Comet
+   volume ownership is prepared separately. HRS
    and its parent must be writable for atomic replacement, even when the key is read-only.
    The supervisor requires
    `priv_validator_laddr`, existing signing files outside the Comet
-   home, and matching genesis chain ID. UNIX is preferred; `tcp://` uses CometBFT's official
+   home, and matching genesis chain ID. A `unix://` value only selects Unix mode and is
+   preferred; `tcp://` uses CometBFT's official
    encrypted SecretConnection, never raw signer protobuf over TCP. A nonvalidator full node
    may run stock Comet without the helper, using an unregistered local identity.
 
@@ -549,18 +553,16 @@ committing those values to the Inbox.
    shutdown revocations wait for a fresh app incarnation; they never authorize signing.
    Repair the underlying cause and review durable evidence before explicitly removing it.
    Missing registered signing state fails closed; startup never creates replacement HRS.
-   Before spawning a new local Unix pair, after the old children are reaped, the supervisor
-   atomically moves a disconnected socket from `<comet-home>/run` into a fresh supervisor-owned
-   0700 `capture` directory inside a held private `.etna-transport-*` directory, and verifies
-   the selected inode before deleting it. A nonempty outer directory is refused; the fresh
-   inner capture destination is created only under its protected parent.
-   Live listeners, symlinks, non-socket files, changed inodes and uncertain connection errors
-   fail closed. A raced replacement is preserved as `capture/endpoint` in that private directory;
-   restoring its original name never removes this protected backup. Both directories after
-   successful cleanup are retained too, avoiding unsafe name-based directory deletion.
-   This adds two small directories per stale-socket restart; capture directories are
-   always newly created and prior outer contents are never reused. Optional manual cleanup requires the validator fully stopped and each directory
-   inspected; preserve mismatch evidence for repair. No automatic garbage collector runs.
+   Each signer+Comet start gets a fresh `<comet-home>/run/signer-<16 hex>.sock`: Comet is
+   started with `--priv_validator_laddr unix://<that path>` and the signer dials the same
+   address. Before each start, with both old children reaped and the home owner lock held,
+   the supervisor opens `run/` without following a symlink and unlinks every
+   `signer-*.sock` entry through that directory. These names are the supervisor's own
+   namespace, so the stale socket of an unclean Comet exit is removed without type, inode
+   or liveness checks; other names in `run/` are left alone. A missing or symlinked `run/`,
+   a prefixed entry that cannot be unlinked (such as a directory), and a Comet home whose
+   socket path would exceed 103 bytes (the macOS `sun_path` limit, checked at startup) all
+   fail startup.
    Signing state, WAL, app history, the private trust socket and the durable halt latch remain
    untouched.
 

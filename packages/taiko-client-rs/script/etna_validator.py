@@ -21,12 +21,12 @@ restart the app's check. The exception is a pinned checkpoint above the committe
 head, which only Comet can reach; the supervisor then starts the signer and Comet
 together as on a first start, and a refusal there recovers again once Ready.
 """
-import errno
 import fcntl
 import hashlib
 import json
 import os
 from pathlib import Path
+import secrets
 import signal
 import socket
 import stat
@@ -35,7 +35,6 @@ import sys
 import time
 import tempfile
 import tomllib
-import uuid
 
 # Resolve only the companion shipped beside this supervisor (also used by importlib tests).
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -43,6 +42,11 @@ import etna_import_guard
 
 # These exact process-lifecycle revocations are transient only across app restart.
 APP_LIFECYCLE_STOPS = ("ABCI server stopped", "app worker stopped", "checkpoint control listener stopped")
+# Each signer+Comet pair rendezvouses at <home>/run/signer-<16 hex>.sock. Names with this
+# prefix and suffix belong to the supervisor; stale ones are removed before every start.
+SIGNER_SOCKET_PREFIX = "signer-"
+SIGNER_SOCKET_SUFFIX = ".sock"
+MAX_UNIX_SOCKET_PATH = 103  # macOS sun_path holds 104 bytes with the terminating NUL
 
 
 class Supervisor:
@@ -109,28 +113,33 @@ class Supervisor:
                 raise ValueError("existing registered key/state must be outside the Comet home")
         config = tomllib.loads((self.home / "config/config.toml").read_text())
         address = config.get("priv_validator_laddr", "")
-        if not address.startswith(("unix://", "tcp://")):
-            raise ValueError("validator startup requires explicit priv_validator_laddr")
         if json.loads((self.home / "config/genesis.json").read_text())["chain_id"] != self.chain:
             raise ValueError("signer chain ID differs from Comet genesis")
         self.container = os.environ.get("ETNA_COMET_CONTAINER")  # host Docker test adapter
-        self.transport = Path(address[7:]) if not self.container and address.startswith("unix://") else None
-        if self.transport is not None:
-            # Prepared bundles hash this exact safe relative transport; never rewrite config.
-            if not self.transport.is_absolute():
-                if address != "unix://run/signer.sock":
-                    raise ValueError("unsafe relative Unix signer transport")
-                self.transport = self.home / "run/signer.sock"
-            address = "unix://" + str(self.transport)
-        address = os.environ.get("ETNA_SIGNER_ADDR", address)
+        if address.startswith("unix://"):
+            # The configured path only selects Unix mode. Every pair start gets a fresh
+            # name in run/, so no Comet-owned stale inode ever needs to be pinned or probed.
+            if self.container:
+                raise ValueError("the host Docker adapter requires a tcp:// signer transport")
+            self.unix_run = self.home / "run"
+            sample = self.unix_run / (SIGNER_SOCKET_PREFIX + "0" * 16 + SIGNER_SOCKET_SUFFIX)
+            if len(os.fsencode(sample)) > MAX_UNIX_SOCKET_PATH:
+                raise ValueError("Comet home too long for a Unix signer socket")
+            self.address = None
+        elif address.startswith("tcp://"):
+            self.unix_run = None
+            self.address = os.environ.get("ETNA_SIGNER_ADDR", address)
+        else:
+            raise ValueError("validator startup requires explicit priv_validator_laddr")
         self.latch = self.store / "validator-supervisor.halted"
         binary = os.environ.get("ETNA_SIGNER_BIN", str(Path(__file__).resolve().parents[1] / "etna-signer"))
         if self.imported:
             binary = self.imported["signer_binary"]
-        self.signer_command = self.command_prefix("ETNA_SIGNER_COMMAND_JSON", [binary]) + ["--comet-signer-addr", address,
-                               "--trust-socket", str(self.store / "checkpoint-trust.sock"),
-                               "--chain-id", self.chain, "--priv-key", str(self.key),
-                               "--priv-state", str(self.state)] + authority_args
+        # start() adds each pair's --comet-signer-addr.
+        self.signer_command = self.command_prefix("ETNA_SIGNER_COMMAND_JSON", [binary]) + [
+            "--trust-socket", str(self.store / "checkpoint-trust.sock"),
+            "--chain-id", self.chain, "--priv-key", str(self.key),
+            "--priv-state", str(self.state)] + authority_args
         self.comet_command = (["docker", "start", "--attach", self.container] if self.container else
                               self.command_prefix("ETNA_COMET_COMMAND_JSON", [os.environ.get("ETNA_COMET_BIN", "cometbft"), "start"]) + ["--home", str(self.home)])
         if self.imported:
@@ -338,110 +347,27 @@ class Supervisor:
             self.event_scratch = None
         return signer_failed
 
-    def prepare_transport(self):
-        """Remove only a disconnected local transport inode after old children are reaped."""
-        if self.transport is None:
-            return  # TCP and the host Docker adapter own no local Unix endpoint.
-        directory = self.home / "run"
-        if (not self.transport.is_absolute() or self.transport.parent.is_symlink()
-                or self.transport.parent.resolve() != directory):
-            raise ValueError("Unix signer transport must be directly inside Comet home/run")
-        self.transport = directory / self.transport.name
+    def fresh_transport(self):
+        """Return the next pair's signer address, after removing stale Unix rendezvous names.
+
+        Both children are reaped and the home owner lock is held, so no listener of this
+        home can remain. Names with the signer prefix are the supervisor's own namespace:
+        they are unlinked through the opened run/ without type, inode or liveness checks.
+        """
         if self.comet is not None or self.signer is not None:
-            raise ValueError("Unix transport cleanup requires reaped children")
-        # Do not follow a substituted run directory, or unlink through a path
-        # which changes while checking a potentially foreign listener.
-        descriptor = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            raise ValueError("signer transport cleanup requires reaped children")
+        if self.unix_run is None:
+            return self.address  # Comet listens on the configured TCP address.
+        # Never follow a substituted run/; a missing one fails startup.
+        descriptor = os.open(self.unix_run, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
         try:
-            try:
-                original = os.stat(self.transport.name, dir_fd=descriptor, follow_symlinks=False)
-            except FileNotFoundError:
-                return
-            if not stat.S_ISSOCK(original.st_mode):
-                raise ValueError("Unix signer transport is not a socket")
-            opened_directory = os.fstat(descriptor)
-            # Atomically select the actual object before destroying anything.
-            # The Comet UID can replace names in run/, but cannot mutate entries
-            # in a supervisor-owned private capture directory.
-            quarantine = ".etna-transport-" + uuid.uuid4().hex
-            os.mkdir(quarantine, mode=0o700, dir_fd=descriptor)
-            private = os.open(quarantine, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
-                              dir_fd=descriptor)
-            try:
-                owned = os.fstat(private)
-                if (not stat.S_ISDIR(owned.st_mode) or owned.st_uid != os.geteuid()
-                        or stat.S_IMODE(owned.st_mode) != 0o700
-                        or owned.st_dev != opened_directory.st_dev):
-                    raise ValueError("unsafe Unix transport quarantine")
-                # A writer can substitute an older root-owned outer directory
-                # between mkdir and open. Never reuse its contents. Create the
-                # actual capture destination only under this held private parent,
-                # where the Comet UID cannot replace its name or prefill it.
-                if os.listdir(private):
-                    raise ValueError(f"nonempty Unix quarantine; preserved at {directory / quarantine}")
-                os.mkdir("capture", mode=0o700, dir_fd=private)
-                capture = os.open("capture", os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
-                                  dir_fd=private)
-                try:
-                    # Pin before observing identity: an unlinked socket's inode
-                    # number can be reused immediately by a foreign live socket.
-                    os.link(self.transport.name, "candidate", src_dir_fd=descriptor,
-                            dst_dir_fd=capture, follow_symlinks=False)
-                    original = os.stat("candidate", dir_fd=capture, follow_symlinks=False)
-                    if not stat.S_ISSOCK(original.st_mode):
-                        raise ValueError("Unix signer transport is not a socket")
-                    # This supervisor is single-threaded and children are reaped.
-                    # Probe the protected inode, not a replaceable public name.
-                    # A short relative address avoids the Unix socket path limit
-                    # on both Linux and macOS; always restore the held cwd.
-                    cwd = os.open(".", os.O_RDONLY | os.O_DIRECTORY)
-                    try:
-                        os.fchdir(capture)
-                        with socket.socket(socket.AF_UNIX) as peer:
-                            peer.settimeout(1)
-                            try:
-                                peer.connect("candidate")
-                            except OSError as error:
-                                if error.errno != errno.ECONNREFUSED:
-                                    raise  # All uncertainty fails closed.
-                            else:
-                                raise ValueError("Unix signer transport still has a live listener")
-                    finally:
-                        try:
-                            os.fchdir(cwd)
-                        finally:
-                            os.close(cwd)
-                    current = os.stat(self.transport.name, dir_fd=descriptor, follow_symlinks=False)
-                    current_directory = directory.lstat()
-                    if (not stat.S_ISSOCK(current.st_mode)
-                            or (original.st_dev, original.st_ino) != (current.st_dev, current.st_ino)
-                            or not stat.S_ISDIR(current_directory.st_mode)
-                            or (current_directory.st_dev, current_directory.st_ino)
-                            != (opened_directory.st_dev, opened_directory.st_ino)):
-                        raise ValueError("Unix signer transport changed during stale-socket check")
-                    os.rename(self.transport.name, "endpoint", src_dir_fd=descriptor, dst_dir_fd=capture)
-                    selected = os.stat("endpoint", dir_fd=capture, follow_symlinks=False)
-                    if (not stat.S_ISSOCK(selected.st_mode)
-                            or (selected.st_dev, selected.st_ino) != (original.st_dev, original.st_ino)):
-                        # Restore the public name only if still absent. Retain the
-                        # protected backup even when this succeeds: another writer
-                        # can unlink the restored name immediately afterwards.
-                        try:
-                            os.link("endpoint", self.transport.name, src_dir_fd=capture,
-                                    dst_dir_fd=descriptor, follow_symlinks=False)
-                        except OSError:
-                            pass
-                        raise ValueError(f"Unix transport changed; preserved at {directory / quarantine / 'capture' / 'endpoint'}")
-                    os.unlink("endpoint", dir_fd=capture)
-                    os.unlink("candidate", dir_fd=capture)
-                    # Do not recursively clean quarantine contents or unlink through
-                    # its mutable parent name. Empty private directories are retained.
-                finally:
-                    os.close(capture)
-            finally:
-                os.close(private)
+            for name in os.listdir(descriptor):
+                if name.startswith(SIGNER_SOCKET_PREFIX) and name.endswith(SIGNER_SOCKET_SUFFIX):
+                    os.unlink(name, dir_fd=descriptor)  # Errors (e.g. a directory) fail closed.
         finally:
             os.close(descriptor)
+        name = SIGNER_SOCKET_PREFIX + secrets.token_hex(8) + SIGNER_SOCKET_SUFFIX
+        return "unix://" + str(self.unix_run / name)
 
     def start(self, await_trust=False):
         """Start a fresh signer, and Comet with it unless the signer must first be trusted."""
@@ -452,7 +378,7 @@ class Supervisor:
         if self.imported:
             etna_import_guard.launch_info(self.store, self.home)
         self.validate_denial_route(os.environ.get("ETNA_AUTHORITY_ROOT", ""))
-        self.prepare_transport()
+        self.address = self.fresh_transport()
         # Never unlink an operator-selected file. Imported signers write only into a
         # fresh private directory owned by this supervisor. Ordinary deployments may
         # still use their existing diagnostic path; ignore its old inode on restart.
@@ -462,7 +388,7 @@ class Supervisor:
         previous = self.read_observation(self.events)
         self.prior_observation = previous[0] if previous is not None else None
         self.last_event = None
-        args = self.signer_command + ["--denial-file", str(self.events)]
+        args = self.signer_command + ["--comet-signer-addr", self.address, "--denial-file", str(self.events)]
         self.signer = subprocess.Popen(args + (["--await-trust"] if await_trust else []), **self.child_options("ETNA_SIGNER_ENV_JSON"))
         self.pending = False
         self.session = None
@@ -477,6 +403,8 @@ class Supervisor:
         if self.imported:
             etna_import_guard.launch_info(self.store, self.home)
         command = self.comet_command
+        if self.unix_run is not None:
+            command = command + ["--priv_validator_laddr", self.address]
         if self.container:
             running = subprocess.check_output(["docker", "inspect", "-f", "{{.State.Running}}", self.container], text=True).strip()
             if running == "true":

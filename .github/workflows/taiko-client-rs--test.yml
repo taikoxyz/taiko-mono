@@ -206,6 +206,9 @@ jobs:
       - name: Run Python process regressions
         working-directory: packages/taiko-client-rs
         run: just supervisor-test
+      - name: Run minimal-capability supervisor regression
+        working-directory: packages/taiko-client-rs
+        run: just supervisor-caps-test
 
   rust-unit:
     if: ${{ github.event.pull_request.draft == false && !startsWith(github.head_ref, 'release-please') }}

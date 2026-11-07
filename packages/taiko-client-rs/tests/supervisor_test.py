@@ -4,9 +4,12 @@ import fcntl
 import json
 import os
 from pathlib import Path
+import re
+import shutil
 import socket
 import signal
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -16,7 +19,85 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 
 
-class SupervisorTests(unittest.TestCase):
+class TrustPeer:
+    """The app's private trust socket and the signer's published observations."""
+
+    def start_peer(self):
+        self.ready = True
+        self.phase = "ready"
+        self.session = "same-session"
+        self.extra = {}
+        self.ops = []
+        self.observation_hold = None
+        self.requests, self.observations = [], []
+        self.socket = socket.socket(socket.AF_UNIX)
+        self.socket.bind(str(self.store / "checkpoint-trust.sock"))
+        self.socket.listen()
+        self.socket.settimeout(.1)
+        self.done = threading.Event()
+        self.server = threading.Thread(target=self.serve)
+        self.server.start()
+
+    def stop_peer(self):
+        self.done.set()
+        self.server.join()
+        self.socket.close()
+
+    def serve(self):
+        while not self.done.is_set():
+            try:
+                peer, _ = self.socket.accept()
+            except socket.timeout:
+                continue
+            with peer:
+                request = json.loads(peer.makefile("rb").readline())
+                self.ops.append(request["op"])
+                self.requests.append(request)
+                response = dict(schema_version=self.schema, session_id=self.session, chain_id=self.chain,
+                                generation=self.generation, phase=self.phase, trust_ready=self.ready,
+                                syncing=not self.ready, target=None, committed_head=None,
+                                trusted_consensus_head=None, reason=None)
+                response.update(self.extra)
+                if self.schema == 2:
+                    response["recovery_origin"] = self.origin if self.ready else None
+                self.observations.append(response)
+                held = self.observation_hold
+                if held is not None:
+                    held[0].set()
+                    held[1].wait(timeout=5)
+                peer.sendall((json.dumps(response) + "\n").encode())
+
+    def publish(self, sequence, session):
+        """Publish a signer observation atomically, as the real signer does."""
+        temporary = self.events.with_name(self.events.name + ".tmp")
+        temporary.write_text(json.dumps(dict(sequence=sequence, session_id=session)))
+        os.replace(temporary, self.events)
+
+    def signers(self):
+        path = self.root / "signers"
+        return [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
+
+    def publish_recovery_session(self, session="recovered-session", ready=True, phase=None):
+        """Play the recovery signer, which begins a fresh session and publishes it."""
+        self.wait(lambda: len(self.signers()) == 2)
+        self.assertIn("--await-trust", self.signers()[1]["argv"])
+        self.ready = ready
+        self.phase = phase or ("ready" if ready else "acquiring")
+        self.session = session
+        self.publish(0, session)
+
+    def wait(self, predicate):
+        deadline = time.monotonic() + 5
+        while not predicate() and time.monotonic() < deadline:
+            time.sleep(.05)
+        if not predicate():
+            # A separate reader leaves the child's shared stdout offset untouched.
+            runtime = Path(self.log.name).read_text(errors="replace")
+            self.fail("supervisor did not perform the expected lifecycle transition; "
+                      f"supervisor exit status: {self.proc.poll()}\nruntime.log:\n{runtime}")
+
+
+class SupervisorTests(TrustPeer, unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(prefix="etna-supervisor-", dir="/tmp")
         self.root = Path(self.tmp.name)
@@ -35,20 +116,7 @@ class SupervisorTests(unittest.TestCase):
         self.state.write_text("authoritative HRS")
         self.count = self.root / "starts"
         self.events = self.root / "denial.json"
-        self.ready = True
-        self.phase = "ready"
-        self.session = "same-session"
-        self.extra = {}
-        self.ops = []
-        self.observation_hold = None
-        self.requests, self.observations = [], []
-        self.socket = socket.socket(socket.AF_UNIX)
-        self.socket.bind(str(self.store / "checkpoint-trust.sock"))
-        self.socket.listen()
-        self.socket.settimeout(.1)
-        self.done = threading.Event()
-        self.server = threading.Thread(target=self.serve)
-        self.server.start()
+        self.start_peer()
         self.bin = self.root / "bin"
         self.bin.mkdir()
         for name, body in {
@@ -92,61 +160,8 @@ class SupervisorTests(unittest.TestCase):
     def comet_body(self):
         return 'from pathlib import Path\nimport os,time\np=Path(os.environ["STARTS"])\np.open("a").write("start\\n")\nPath(os.environ["COMET_PID"]).write_text(str(os.getpid()))\n\nwhile not Path(os.environ["COMET_PID"]).with_name("release_comet").exists(): time.sleep(.05)'
 
-    def serve(self):
-        while not self.done.is_set():
-            try:
-                peer, _ = self.socket.accept()
-            except socket.timeout:
-                continue
-            with peer:
-                request = json.loads(peer.makefile("rb").readline())
-                self.ops.append(request["op"])
-                self.requests.append(request)
-                response = dict(schema_version=self.schema, session_id=self.session, chain_id=self.chain,
-                                generation=self.generation, phase=self.phase, trust_ready=self.ready,
-                                syncing=not self.ready, target=None, committed_head=None,
-                                trusted_consensus_head=None, reason=None)
-                response.update(self.extra)
-                if self.schema == 2:
-                    response["recovery_origin"] = self.origin if self.ready else None
-                self.observations.append(response)
-                held = self.observation_hold
-                if held is not None:
-                    held[0].set()
-                    held[1].wait(timeout=5)
-                peer.sendall((json.dumps(response) + "\n").encode())
-
     def starts(self):
         return len(self.count.read_text().splitlines()) if self.count.exists() else 0
-
-    def publish(self, sequence, session):
-        """Publish a signer observation atomically, as the real signer does."""
-        temporary = self.events.with_name(self.events.name + ".tmp")
-        temporary.write_text(json.dumps(dict(sequence=sequence, session_id=session)))
-        os.replace(temporary, self.events)
-
-    def signers(self):
-        path = self.root / "signers"
-        return [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
-
-    def publish_recovery_session(self, session="recovered-session", ready=True, phase=None):
-        """Play the recovery signer, which begins a fresh session and publishes it."""
-        self.wait(lambda: len(self.signers()) == 2)
-        self.assertIn("--await-trust", self.signers()[1]["argv"])
-        self.ready = ready
-        self.phase = phase or ("ready" if ready else "acquiring")
-        self.session = session
-        self.publish(0, session)
-
-    def wait(self, predicate):
-        deadline = time.monotonic() + 5
-        while not predicate() and time.monotonic() < deadline:
-            time.sleep(.05)
-        if not predicate():
-            # A separate reader leaves the child's shared stdout offset untouched.
-            runtime = Path(self.log.name).read_text(errors="replace")
-            self.fail("supervisor did not perform the expected lifecycle transition; "
-                      f"supervisor exit status: {self.proc.poll()}\nruntime.log:\n{runtime}")
 
     def tearDown(self):
         self.proc.terminate()
@@ -155,9 +170,7 @@ class SupervisorTests(unittest.TestCase):
         except subprocess.TimeoutExpired:
             self.proc.kill()
             self.proc.wait()
-        self.done.set()
-        self.server.join()
-        self.socket.close()
+        self.stop_peer()
         self.log.close()
         self.tmp.cleanup()
 
@@ -641,22 +654,33 @@ class RecoveredSupervisorTests(SupervisorTests):
 
 
 class UnixSupervisorTests(SupervisorTests):
-    """Repeat lifecycle gates with a real listener which leaves its socket inode."""
+    """Repeat lifecycle gates over Unix sockets; like stock Comet, the listener leaves its inode."""
 
     def configure_transport(self):
-        (self.home / "run").mkdir()
-        self.transport = self.home / "run/signer.sock"
-        (self.home / "config/config.toml").write_text(f'priv_validator_laddr = "unix://{self.transport}"\n')
+        (self.home / "run").mkdir(mode=0o700)
+        # Only the scheme matters: the supervisor assigns every pair its own socket name.
+        (self.home / "config/config.toml").write_text('priv_validator_laddr = "unix://run/signer.sock"\n')
 
     def comet_body(self):
-        # Like stock Comet, this listener leaves its transport inode after exit.
-        return (f'import socket\ns=socket.socket(socket.AF_UNIX)\ns.bind({str(self.transport)!r})\ns.listen()\n'
+        # Bind the assigned listener and never unlink it, as after an unclean stock exit.
+        return ('import json,os,socket,sys\nfrom pathlib import Path\n'
+                'address=sys.argv[sys.argv.index("--priv_validator_laddr")+1]\n'
+                's=socket.socket(socket.AF_UNIX)\ns.bind(address.removeprefix("unix://"))\ns.listen()\n'
+                'with Path(os.environ["COMET_PID"]).with_name("comets").open("a") as out:\n'
+                ' out.write(json.dumps(dict(argv=sys.argv[1:],cwd=os.getcwd()))+"\\n")\n'
                 + super().comet_body())
+
+    def comets(self):
+        path = self.root / "comets"
+        return [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
+
+    def listener(self, index):
+        return self.comets()[index]["argv"][-1].removeprefix("unix://")
 
     def stop_supervisor(self):
         self.proc.terminate()
         self.proc.wait(timeout=5)
-        self.assertTrue(self.transport.is_socket())
+        self.assertTrue(Path(self.listener(-1)).is_socket())
 
     def restart_supervisor(self):
         self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")],
@@ -666,230 +690,238 @@ class UnixSupervisorTests(SupervisorTests):
         self.restart_supervisor()
         self.assertNotEqual(self.proc.wait(timeout=5), 0)
         self.assertEqual(self.starts(), 1)
+        self.assertEqual(len(self.signers()), 1)
         self.assertEqual(self.state.read_text(), "authoritative HRS")
         self.assertEqual(self.key.read_text(), "existing key")
 
-    def test_unsafe_relative_transports_are_rejected_without_state_changes(self):
-        self.stop_supervisor()
-        latch = self.store / "validator-supervisor.halted"
-        latch.write_text("retained safety latch")
-        for address in ("../run/signer.sock", "run/../run/signer.sock", "outside/signer.sock", "run/nested/signer.sock"):
-            (self.home / "config/config.toml").write_text('priv_validator_laddr = "unix://' + address + '"\n')
-            self.assert_refused()
-            self.assertEqual(latch.read_text(), "retained safety latch")
+    def test_each_pair_start_uses_one_fresh_socket(self):
+        self.publish(1, self.session)
+        self.publish_recovery_session()
+        self.wait(lambda: self.starts() == 2)
+        pattern = re.escape(str(self.home.resolve() / "run")) + r"/signer-[0-9a-f]{16}\.sock"
+        addresses = []
+        for comet, signer in zip(self.comets(), self.signers(), strict=True):
+            address = comet["argv"][-1]
+            self.assertEqual(comet["argv"][-2:], ["--priv_validator_laddr", address])
+            self.assertRegex(address, "^unix://" + pattern + "$")
+            self.assertEqual(comet["cwd"], str(self.home.resolve()))
+            argv = signer["argv"]
+            self.assertEqual(argv[argv.index("--comet-signer-addr") + 1], address)
+            addresses.append(address)
+        self.assertNotEqual(*addresses)
+        self.assertFalse(os.path.lexists(addresses[0].removeprefix("unix://")))
 
-    def test_relative_prepared_transport_uses_home_cwd(self):
+    def test_stale_prefixed_entries_are_removed_before_start(self):
         self.stop_supervisor()
-        (self.home / "config/config.toml").write_text('priv_validator_laddr = "unix://run/signer.sock"\n')
-        comet = self.bin / "cometbft"
-        comet.write_text("#!/usr/bin/env python3\nimport os\nassert os.getcwd() == " + repr(str(self.home.resolve())) + "\n" + self.comet_body())
+        run = self.home / "run"
+        previous = self.listener(-1)
+        with socket.socket(socket.AF_UNIX) as stale:
+            stale.bind(str(run / "signer-aaaa.sock"))
+        (run / "signer-bbbb.sock").write_text("stale regular file")
+        (run / "signer-cccc.sock").symlink_to(self.key)
+        for name in ("other.sock", "signer.sock"):
+            with socket.socket(socket.AF_UNIX) as foreign:
+                foreign.bind(str(run / name))
+        kept = {name: (run / name).lstat().st_ino for name in ("other.sock", "signer.sock")}
         self.restart_supervisor()
         self.wait(lambda: self.starts() == 2)
-        signer_args = self.signers()[-1]["argv"]
-        self.assertEqual(signer_args[signer_args.index("--comet-signer-addr") + 1],
-                         "unix://" + str(self.transport.resolve()))
+        for path in (previous, run / "signer-aaaa.sock", run / "signer-bbbb.sock", run / "signer-cccc.sock"):
+            self.assertFalse(os.path.lexists(path), path)
+        self.assertEqual(self.key.read_text(), "existing key")
+        self.assertEqual({name: (run / name).lstat().st_ino for name in kept}, kept)
+        self.assertTrue(Path(self.listener(-1)).is_socket())
 
-    def test_stale_socket_restart_retains_authority(self):
+    def test_configured_unix_path_is_only_a_marker(self):
         self.stop_supervisor()
+        elsewhere = self.root / "elsewhere"
+        elsewhere.mkdir()
+        with socket.socket(socket.AF_UNIX) as stale:
+            stale.bind(str(elsewhere / "signer-dddd.sock"))
+        before = {entry.name: entry.lstat().st_ino for entry in elsewhere.iterdir()}
+        (self.home / "config/config.toml").write_text(f'priv_validator_laddr = "unix://{elsewhere / "x.sock"}"\n')
         self.restart_supervisor()
         self.wait(lambda: self.starts() == 2)
-        self.assertEqual(self.state.read_text(), "authoritative HRS")
-        self.assertEqual(self.key.read_text(), "existing key")
-        self.assertFalse((self.store / "validator-supervisor.halted").exists())
+        self.assertEqual({entry.name: entry.lstat().st_ino for entry in elsewhere.iterdir()}, before)
+        self.assertEqual(Path(self.listener(-1)).parent, self.home.resolve() / "run")
 
-    def test_live_socket_is_never_removed(self):
-        self.stop_supervisor()
-        self.transport.unlink()
-        with socket.socket(socket.AF_UNIX) as listener:
-            listener.bind(str(self.transport))
-            listener.listen()
-            inode = self.transport.lstat().st_ino
-            self.assert_refused()
-            self.assertEqual(self.transport.lstat().st_ino, inode)
-
-    def test_regular_file_is_never_removed(self):
-        self.stop_supervisor()
-        self.transport.unlink()
-        self.transport.write_text("foreign transport file")
-        self.assert_refused()
-        self.assertEqual(self.transport.read_text(), "foreign transport file")
-
-    def test_symlink_is_never_followed_or_removed(self):
-        self.stop_supervisor()
-        self.transport.unlink()
-        self.transport.symlink_to(self.key)
-        self.assert_refused()
-        self.assertTrue(self.transport.is_symlink())
-
-    def test_outside_run_socket_is_never_removed(self):
-        self.stop_supervisor()
-        outside = self.root / "foreign.sock"
-        with socket.socket(socket.AF_UNIX) as listener:
-            listener.bind(str(outside))
-        (self.home / "config/config.toml").write_text(f'priv_validator_laddr = "unix://{outside}"\n')
-        inode = outside.lstat().st_ino
-        self.assert_refused()
-        self.assertEqual(outside.lstat().st_ino, inode)
-
-    def assert_replacement_after_final_stat_survives(self, kind):
-        self.stop_supervisor()
-        spec = importlib.util.spec_from_file_location("etna_validator_under_test", ROOT / "script/etna_validator.py")
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        real_rename = os.rename
-        replaced = []
-        cwd = Path.cwd()
-        with socket.socket(socket.AF_UNIX) as listener:
-            def replace_after_endpoint_stat(source, destination, *args, **kwargs):
-                if not replaced and source == self.transport.name and destination == "endpoint":
-                    # Replace after validation, immediately before capture. A held
-                    # link must prevent reuse of the old socket's inode number.
-                    if kind == "socket":
-                        self.assertGreater(self.transport.lstat().st_nlink, 1,
-                                           "checked socket must remain pinned during selection")
-                    self.transport.unlink()
-                    if kind == "file":
-                        self.transport.write_text("concurrent replacement must survive")
-                    elif kind == "symlink":
-                        self.transport.symlink_to(self.key)
-                    else:
-                        listener.bind(str(self.transport))
-                        listener.listen()
-                    replaced.append(self.transport.lstat().st_ino)
-                return real_rename(source, destination, *args, **kwargs)
-            with patch.dict(os.environ, self.env), patch.object(module.os, "rename", replace_after_endpoint_stat):
-                supervisor = module.Supervisor()
-                with self.assertRaisesRegex(ValueError, "preserved at"):
-                    supervisor.prepare_transport()
-            self.assertEqual(Path.cwd(), cwd)
-            self.assertTrue(replaced, "replacement interleaving was not exercised")
-            self.assertEqual(self.transport.lstat().st_ino, replaced[0])
-            if kind == "file":
-                self.assertEqual(self.transport.read_text(), "concurrent replacement must survive")
-            elif kind == "symlink":
-                self.assertTrue(self.transport.is_symlink())
-            else:
-                with socket.socket(socket.AF_UNIX) as peer:
-                    peer.connect(str(self.transport))
-            backups = list(self.transport.parent.glob(".etna-transport-*/capture/endpoint"))
-            self.assertEqual(len(backups), 1)
-            self.assertEqual(backups[0].lstat().st_ino, replaced[0])
-            # A writer can remove the restored public name; protected evidence
-            # must still survive for operator diagnosis.
-            self.transport.unlink()
-            self.assertEqual(backups[0].lstat().st_ino, replaced[0])
-        self.assertEqual(self.state.read_text(), "authoritative HRS")
-        self.assertEqual(self.key.read_text(), "existing key")
-
-    def test_file_replacement_after_final_stat_survives(self):
-        self.assert_replacement_after_final_stat_survives("file")
-
-    def test_symlink_replacement_after_final_stat_survives(self):
-        self.assert_replacement_after_final_stat_survives("symlink")
-
-    def test_live_socket_replacement_after_final_stat_survives(self):
-        self.assert_replacement_after_final_stat_survives("socket")
-
-    def test_live_socket_cannot_hide_behind_stale_public_name_during_probe(self):
-        self.stop_supervisor()
-        spec = importlib.util.spec_from_file_location("etna_validator_under_test", ROOT / "script/etna_validator.py")
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        self.transport.unlink()
-        stale = self.transport.with_name("stale.sock")
-        held = self.transport.with_name("held.sock")
-        with socket.socket(socket.AF_UNIX) as old:
-            old.bind(str(stale))
-        real_connect = socket.socket.connect
-        assessed = []
-        cwd = Path.cwd()
-        with socket.socket(socket.AF_UNIX) as listener:
-            listener.bind(str(self.transport))
-            listener.listen()
-            original = self.transport.lstat().st_ino
-            def hide_live_socket(peer, address):
-                # A public-path probe would see only this stale substitute. Put
-                # the same live inode back before any post-probe identity check.
-                self.transport.rename(held)
-                stale.rename(self.transport)
-                try:
-                    assessed.append(True)
-                    return real_connect(peer, address)
-                finally:
-                    self.transport.rename(stale)
-                    held.rename(self.transport)
-            with patch.dict(os.environ, self.env), patch.object(module.socket.socket, "connect", hide_live_socket):
-                with self.assertRaisesRegex(ValueError, "live listener"):
-                    module.Supervisor().prepare_transport()
-            self.assertTrue(assessed, "probe interleaving was not exercised")
-            self.assertEqual(Path.cwd(), cwd)
-            self.assertEqual(self.transport.lstat().st_ino, original)
-            with socket.socket(socket.AF_UNIX) as peer:
-                peer.connect(str(self.transport))
-        self.assertEqual(self.state.read_text(), "authoritative HRS")
-        self.assertEqual(self.key.read_text(), "existing key")
-
-    def test_private_socket_probe_restores_cwd_on_success_and_uncertainty(self):
-        self.stop_supervisor()
-        spec = importlib.util.spec_from_file_location("etna_validator_under_test", ROOT / "script/etna_validator.py")
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        cwd = Path.cwd()
-        inode = self.transport.lstat().st_ino
-        with patch.dict(os.environ, self.env):
-            supervisor = module.Supervisor()
-            with patch.object(module.socket.socket, "connect", side_effect=PermissionError("uncertain probe")):
-                with self.assertRaisesRegex(PermissionError, "uncertain probe"):
-                    supervisor.prepare_transport()
-            self.assertEqual(Path.cwd(), cwd)
-            self.assertEqual(self.transport.lstat().st_ino, inode)
-            supervisor.prepare_transport()
-            self.assertEqual(Path.cwd(), cwd)
-            self.assertFalse(self.transport.exists())
-        self.assertEqual(self.state.read_text(), "authoritative HRS")
-        self.assertEqual(self.key.read_text(), "existing key")
-
-    def test_substituted_quarantine_preserves_prior_evidence(self):
-        self.stop_supervisor()
-        spec = importlib.util.spec_from_file_location("etna_validator_under_test", ROOT / "script/etna_validator.py")
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        old = self.transport.parent / "retained-quarantine"
-        old.mkdir(mode=0o700)
-        (old / "endpoint").write_text("prior mismatch evidence")
-        evidence_inode = (old / "endpoint").stat().st_ino
-        socket_inode = self.transport.stat().st_ino
-        real_open = os.open
-        substituted = []
-        def substitute_before_open(path, flags, *args, **kwargs):
-            if not substituted and isinstance(path, str) and path.startswith(".etna-transport-"):
-                descriptor = kwargs["dir_fd"]
-                os.rename(old.name, path, src_dir_fd=descriptor, dst_dir_fd=descriptor)
-                substituted.append(old.parent / path)
-            return real_open(path, flags, *args, **kwargs)
-        with patch.dict(os.environ, self.env), patch.object(module.os, "open", substitute_before_open):
-            error = None
-            try:
-                module.Supervisor().prepare_transport()
-            except (OSError, ValueError) as failure:
-                error = failure
-        self.assertTrue(substituted, "mkdir-to-open substitution was not exercised")
-        evidence = substituted[0] / "endpoint"
-        self.assertTrue(evidence.exists(), "cleanup overwrote prior quarantine evidence")
-        self.assertEqual(evidence.read_text(), "prior mismatch evidence")
-        self.assertEqual(evidence.stat().st_ino, evidence_inode)
-        self.assertIsNotNone(error, "startup must refuse a nonempty substituted quarantine")
-        self.assertEqual(self.transport.stat().st_ino, socket_inode)
-        self.assertEqual(self.state.read_text(), "authoritative HRS")
-
-    def test_symlinked_run_directory_is_never_followed(self):
+    def test_symlinked_run_directory_is_refused(self):
         self.stop_supervisor()
         directory = self.home / "run"
         moved = self.home / "real-run"
         directory.rename(moved)
         directory.symlink_to(moved, target_is_directory=True)
+        before = {entry.name: entry.lstat().st_ino for entry in moved.iterdir()}
+        self.assertTrue(before, "the previous listener must remain as a stale entry")
         self.assert_refused()
-        self.assertTrue((moved / "signer.sock").is_socket())
+        self.assertEqual({entry.name: entry.lstat().st_ino for entry in moved.iterdir()}, before)
+
+    def test_missing_run_directory_is_refused(self):
+        self.stop_supervisor()
+        shutil.rmtree(self.home / "run")
+        self.assert_refused()
+        self.assertFalse(os.path.lexists(self.home / "run"))
+
+    def test_overlong_socket_path_is_refused_before_children(self):
+        self.stop_supervisor()
+        home = self.root / ("x" * 80) / "comet"
+        (home / "run").mkdir(mode=0o700, parents=True)
+        shutil.copytree(self.home / "config", home / "config")
+        refused = subprocess.run(["bash", str(ROOT / "script/start_etna_validator.sh")],
+                                 env=dict(self.env, ETNA_COMET_HOME=str(home)), capture_output=True, timeout=5)
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertIn(b"Comet home too long for a Unix signer socket", refused.stderr)
+        self.assertEqual(self.starts(), 1)
+        self.assertEqual(len(self.signers()), 1)
+        self.assertEqual(os.listdir(home / "run"), [])
+
+
+def cap_eff(pid):
+    """Effective capability mask of a live Linux process."""
+    status = Path(f"/proc/{pid}/status").read_text().splitlines()
+    return int(next(line.split()[1] for line in status if line.startswith("CapEff:")), 16)
+
+
+DOCUMENTED_CAPS = (1 << 1) | (1 << 5) | (1 << 6) | (1 << 7)  # DAC_OVERRIDE|KILL|SETGID|SETUID == 0xe2
+
+
+@unittest.skipUnless(sys.platform == "linux" and os.geteuid() == 0 and os.environ.get("ETNA_MIN_CAPS_TEST") == "1",
+                     "needs Linux root holding only the documented capabilities; run just supervisor-caps-test")
+class MinimalCapabilityTests(TrustPeer, unittest.TestCase):
+    """Restart stock-like Comet under the documented supervisor capability set only."""
+
+    COMET_UID = 10001
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix="etna-caps-", dir="/tmp")
+        self.root = Path(self.tmp.name)
+        self.root.chmod(0o755)
+        self.home = self.root / "comet"
+        (self.home / "config").mkdir(parents=True)
+        self.chain, self.generation, self.schema = "etna-test", 0, 1
+        (self.home / "config/config.toml").write_text('priv_validator_laddr = "unix://run/signer.sock"\n')
+        (self.home / "config/genesis.json").write_text(json.dumps(dict(chain_id=self.chain)))
+        # Without CAP_CHOWN, let the Comet UID create its own private run/ in a briefly open home.
+        self.home.chmod(0o777)
+        subprocess.run([sys.executable, "-c", "import os,sys; os.mkdir(sys.argv[1], 0o700)", str(self.home / "run")],
+                       user=self.COMET_UID, group=self.COMET_UID, extra_groups=[], check=True)
+        self.home.chmod(0o755)
+        self.observed = self.root / "observed"
+        self.observed.mkdir()
+        self.observed.chmod(0o777)
+        self.store = self.root / "app"
+        self.store.mkdir()
+        self.key, self.state = self.root / "key.json", self.root / "state.json"
+        self.key.write_text("existing key")
+        self.state.write_text("authoritative HRS")
+        self.events = self.root / "denial.json"
+        self.latch = self.store / "validator-supervisor.halted"
+        self.bin = self.root / "bin"
+        self.bin.mkdir()
+        for name, body in {
+            # Unprivileged stock-like Comet: bind the assigned listener, record it, never unlink it.
+            "cometbft": ('import json,os,socket,sys,time\n'
+                         'path=sys.argv[sys.argv.index("--priv_validator_laddr")+1].removeprefix("unix://")\n'
+                         's=socket.socket(socket.AF_UNIX)\ns.bind(path)\ns.listen()\n'
+                         'with open(os.path.join(os.environ["OBSERVED"],"comets"),"a") as out:\n'
+                         ' out.write(json.dumps(dict(pid=os.getpid(),path=path))+"\\n")\n'
+                         'while True: time.sleep(1)'),
+            # Root signer: connect to Comet's listener, as the real signer dials it.
+            "signer": ('import json,os,socket,sys,time\n'
+                       'argv=sys.argv[1:]\n'
+                       'open(os.environ["SIGNERS"],"a").write(json.dumps(dict(pid=os.getpid(),argv=argv))+"\\n")\n'
+                       'path=argv[argv.index("--comet-signer-addr")+1].removeprefix("unix://")\n'
+                       'while True:\n'
+                       ' peer=socket.socket(socket.AF_UNIX)\n'
+                       ' try: peer.connect(path); break\n'
+                       ' except OSError: peer.close(); time.sleep(.05)\n'
+                       'with open(os.path.join(os.environ["OBSERVED"],"connected"),"a") as out:\n'
+                       ' out.write("connected "+path+"\\n")\n'
+                       'while True: time.sleep(1)'),
+        }.items():
+            path = self.bin / name
+            path.write_text("#!/usr/bin/env python3\n" + body + "\n")
+            path.chmod(0o755)
+        self.env = dict(os.environ, ETNA_COMET_HOME=str(self.home), ETNA_APP_STORE=str(self.store),
+                        ETNA_PRIV_KEY=str(self.key), ETNA_PRIV_STATE=str(self.state),
+                        ETNA_CHAIN_ID=self.chain, ETNA_SIGNER_BIN=str(self.bin / "signer"),
+                        ETNA_DENIAL_FILE=str(self.events), ETNA_COMET_UID=str(self.COMET_UID),
+                        ETNA_COMET_GID=str(self.COMET_UID), OBSERVED=str(self.observed),
+                        SIGNERS=str(self.root / "signers"), PATH=str(self.bin) + os.pathsep + os.environ["PATH"])
+        self.log = (self.root / "runtime.log").open("w+")
+        self.proc = None
+        self.start_peer()
+        self.start_supervisor()
+
+    def tearDown(self):
+        if self.proc.poll() is None:
+            self.proc.terminate()
+        try:
+            self.proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            self.proc.kill()
+            self.proc.wait()
+        for pid in [comet["pid"] for comet in self.comets()] + [signer["pid"] for signer in self.signers()]:
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        self.stop_peer()
+        self.log.close()
+        self.tmp.cleanup()
+
+    def start_supervisor(self):
+        if self.proc is not None:
+            self.proc.wait(timeout=5)
+        self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")], env=self.env,
+                                     stdout=self.log, stderr=self.log, start_new_session=True)
+
+    def comets(self):
+        path = self.observed / "comets"
+        return [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
+
+    def connected(self):
+        path = self.observed / "connected"
+        return [line.removeprefix("connected ") for line in path.read_text().splitlines()] if path.exists() else []
+
+    def comet_pid(self):
+        return self.comets()[-1]["pid"]
+
+    def signer_pid(self):
+        return self.signers()[-1]["pid"]
+
+    def wait_socket(self, count):
+        """Return the count-th Comet listener once the root signer has connected to it."""
+        self.wait(lambda: len(self.comets()) >= count and len(self.connected()) >= count)
+        return Path(self.comets()[count - 1]["path"])
+
+    def test_unclean_comet_exit_stale_socket_supervisor_restarts_pair(self):
+        self.assertEqual(cap_eff(self.proc.pid), DOCUMENTED_CAPS)
+        stale = self.wait_socket(1)
+        self.assertEqual(stale.lstat().st_uid, self.COMET_UID)
+        if Path("/proc/sys/fs/protected_hardlinks").read_text().strip() == "1":
+            with self.assertRaises(PermissionError):  # the old inode pin needed CAP_FOWNER
+                os.link(stale, self.root / "pin")
+        self.phase = "acquiring"
+        time.sleep(.3)  # observed trust loss
+        os.kill(self.comet_pid(), signal.SIGKILL)  # stock leaves its socket inode
+        time.sleep(.3)  # the supervisor sees the exit while trust is still lost
+        self.phase = "ready"
+        self.publish_recovery_session()
+        fresh = self.wait_socket(2)
+        self.assertNotEqual(fresh, stale)
+        self.assertFalse(os.path.lexists(stale))
+        self.assertEqual(self.connected()[-1], str(fresh))
+        self.assertFalse(self.latch.exists())
+        self.assertIsNone(self.proc.poll())
+
+    def test_killed_runtime_restarts_over_stale_socket(self):
+        stale = self.wait_socket(1)
+        for pid in (self.proc.pid, self.comet_pid(), self.signer_pid()):
+            os.kill(pid, signal.SIGKILL)
+        self.start_supervisor()
+        fresh = self.wait_socket(2)
+        self.assertFalse(os.path.lexists(stale))
+        self.assertEqual(self.connected()[-1], str(fresh))
 
 
 class LauncherPathTests(unittest.TestCase):
@@ -1071,7 +1103,7 @@ class TypedSupersessionTests(unittest.TestCase):
         spec.loader.exec_module(module)
         runtime = object.__new__(module.Supervisor)
         runtime.imported = None
-        runtime.container, runtime.home = None, Path("/private/runtime")
+        runtime.container, runtime.home, runtime.unix_run = None, Path("/private/runtime"), None
         runtime.comet_command = ["/cometbft", "start"]
         runtime.child_options = lambda _: {}
         for current_uid, current_gid, uid, gid, expected in [
