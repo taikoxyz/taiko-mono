@@ -1,7 +1,8 @@
 //go:build ignore
 
 // Regenerate with: GOTOOLCHAIN=go1.26.0+auto go run ./testdata/derivation_vectors/generate.go
-// (+auto moves up to the patch release go.mod requires but never to a newer minor release).
+// (+auto starts at go1.26.0 and moves up to whatever go.mod requires, so a newer local toolchain
+// such as go1.27 is not used unless go.mod asks for it).
 package main
 
 import (
