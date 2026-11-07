@@ -1,6 +1,8 @@
 //go:build ignore
 
-// Regenerate with: GOTOOLCHAIN=go1.26.0 go run ./testdata/derivation_vectors/generate.go
+// Regenerate with: GOTOOLCHAIN=go1.26.0+auto go run ./testdata/derivation_vectors/generate.go
+// (+auto starts at go1.26.0 and moves up to whatever go.mod requires, so a newer local toolchain
+// such as go1.27 is not used unless go.mod asks for it).
 package main
 
 import (
@@ -13,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -106,8 +109,10 @@ func tx(kind int, field string, n *big.Int) *types.Transaction {
 }
 
 func main() {
-	if runtime.Version() != "go1.26.0" {
-		panic("regenerate with GOTOOLCHAIN=go1.26.0 for reproducible zlib bytes")
+	// zlib output is stable across patch releases (go1.26.0 and go1.26.10 write identical
+	// vectors), so pin the minor release only and let go.mod pick the patch.
+	if !strings.HasPrefix(runtime.Version(), "go1.26.") {
+		panic("regenerate with GOTOOLCHAIN=go1.26.0+auto for reproducible zlib bytes")
 	}
 	cases := []vector{}
 	defaultManifest := &manifest.DerivationSourceManifest{Blocks: []*manifest.BlockManifest{{}}}
