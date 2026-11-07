@@ -109,10 +109,11 @@ trap cleanup_devnets EXIT
 trap 'stop_scenarios 130' INT
 trap 'stop_scenarios 143' TERM
 
+all_helpers=0
 if [[ "$run_reporter" == 1 ]]; then
     # run's result reporter has a different format vocabulary and must not override list JSON.
     echo "Preparing all helpers: preserving the requested nextest run reporter" >&2
-    dependencies='docker signer comet el recovery'
+    all_helpers=1
 elif run_child cargo nextest list "${list_args[@]}" \
     > "$selection_dir/tests.json" 2> "$selection_dir/list.err"; then
     cat "$selection_dir/list.err" >&2
@@ -130,10 +131,15 @@ else
         2:--message-format-version|2:--stress-count|2:--stress-duration|2:--debugger|2:--tracer|\
         2:--flaky-result|2:--max-progress-running|2:--rerun|2:-R)
             echo "Preparing all helpers: nextest list does not support $unsupported" >&2
-            dependencies='docker signer comet el recovery'
+            all_helpers=1
             ;;
         *) exit "$status" ;;
     esac
+fi
+if [[ "$all_helpers" == 1 ]]; then
+    # Listing without the caller's arguments still builds every binary and records the client's path.
+    run_child cargo nextest list "${common[@]}" --message-format json > "$selection_dir/tests.json"
+    dependencies='docker signer comet el recovery'
 fi
 
 # An empty selection keeps nextest's own no-tests result (including --no-tests/env overrides).
@@ -188,9 +194,11 @@ fi
 
 # Only these selected consumers need the complete Linux runtime. Never remove an explicit
 # caller-owned override; build before running so compilation does not consume test timeouts.
+# The image runs the client that the listing above built.
 if [[ " $dependencies " == *' recovery '* && -z "${ETNA_RECOVERY_IMAGE:-}" ]]; then
+    client_bin=$(python3 ./tests/selected_dependencies.py --client-bin < "$selection_dir/tests.json")
     export ETNA_RECOVERY_IMAGE="etna-client-recovery-test:$TAIKO_CLIENT_RS_TEST_RUN"
-    run_child bash ./script/build_recovery_runtime.sh
+    run_child bash ./script/build_recovery_runtime.sh "$client_bin"
     recovery_image_built=1
 fi
 

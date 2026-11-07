@@ -16,6 +16,15 @@ from selected_dependencies import LONG_FENCE, NATIVE_EL, RECOVERY_IMAGE
 
 ROOT = Path(__file__).resolve().parents[1]
 TESTS = ROOT / "bin/client/tests"
+# The `rust-build-meta` shape of `cargo nextest list --message-format json` (nextest 0.9.148): non-test
+# binaries keyed by package ID, each path relative to target-directory.
+CLIENT_ID = "path+file:///t/bin/client#taiko-client@2.3.0"
+CLIENT_BIN = {"name": "taiko-client", "kind": "bin-exe", "path": "debug/taiko-client", "build-platform": "target"}
+
+
+def build_meta(*binaries):
+    return {"target-directory": "/t", "build-directory": "/t", "base-output-directories": ["debug"],
+            "non-test-binaries": {CLIENT_ID: list(binaries)} if binaries else {}}
 
 
 class Entrypoint(unittest.TestCase):
@@ -30,7 +39,8 @@ class Entrypoint(unittest.TestCase):
                 shutil.copy(source, self.root / "tests" / source.name)
         self.log = self.root / "calls"
         self.env = dict(os.environ, PATH=f"{self.root / 'bin'}:{os.environ['PATH']}",
-                        CALLS=str(self.log), SELECTION='{}', TAIKO_CLIENT_RS_TEST_RUN="fixture-run")
+                        CALLS=str(self.log), TAIKO_CLIENT_RS_TEST_RUN="fixture-run",
+                        SELECTION=json.dumps({"rust-build-meta": build_meta(CLIENT_BIN), "rust-suites": {}}))
         for key in ("ETNA_RECOVERY_IMAGE", "ETNA_EL_BIN", "ETNA_EL_IMPORT_BIN", "NEXTEST_PROFILE",
                     "ALETHIA_RETH_IMAGE", "PULL_POLICY"):
             self.env.pop(key, None)
@@ -41,7 +51,7 @@ if sys.argv[2] == 'list':
     if os.environ.get('LIST_WAIT'):
         pathlib.Path(os.environ['LIST_WAIT']).touch()
         time.sleep(60)
-    for flag in ('--nocapture', '--no-capture'):
+    for flag in ('--nocapture', '--no-capture', '--retries'):
         if flag in sys.argv:
             print(f"error: unexpected argument '{flag}' found", file=sys.stderr)
             sys.exit(2)
@@ -67,7 +77,7 @@ if sys.argv[1:3] == ['network', 'ls']: print('owned-network')
 ''')
         for name in ("etna_signer", "stock_comet", "etna_el_import", "etna_el_runtime", "recovery_runtime"):
             self.executable(f"script/build_{name}.sh", f'''#!/bin/bash
-printf '["build", "{name}"]\\n' >> "$CALLS"
+python3 -c 'import json, os, sys; open(os.environ["CALLS"], "a").write(json.dumps(["build"] + sys.argv[1:]) + "\\n")' {name} "$@"
 ''')
 
     def executable(self, name, contents):
@@ -78,7 +88,7 @@ printf '["build", "{name}"]\\n' >> "$CALLS"
     def select(self, binary, *names):
         package = {"governance_recovery": "taiko-client", "cleanup": "test-harness",
                    "standalone_reth": "test-harness"}.get(binary, "abci")
-        self.env["SELECTION"] = json.dumps({"rust-suites": {"fixture": {
+        self.env["SELECTION"] = json.dumps({"rust-build-meta": build_meta(CLIENT_BIN), "rust-suites": {"fixture": {
             "package-name": package, "binary-name": binary, "status": "listed",
             "testcases": {name: {"filter-match": {"status": "matches"}} for name in names}}}})
 
@@ -91,6 +101,16 @@ printf '["build", "{name}"]\\n' >> "$CALLS"
 
     def builds(self):
         return [row[1] for row in self.calls() if row[0] == "build"]
+
+    def assert_lists_once_without_caller_arguments(self, *args):
+        """Fallback preparation still builds the binaries and records their paths, before any helper."""
+        calls = self.calls()
+        run = next(row for row in calls if row[:3] == ["cargo", "nextest", "run"])
+        self.assertEqual(run[-len(args):], list(args))
+        plain = ["cargo", "nextest", "list", *run[3:-len(args)], "--message-format", "json"]
+        self.assertEqual([row for row in calls if row[:3] == ["cargo", "nextest", "list"] and not set(args) & set(row)], [plain])
+        self.assertLess(calls.index(plain), min(index for index, row in enumerate(calls) if row[0] == "build"))
+        self.assertIn(["build", "recovery_runtime", "/t/debug/taiko-client"], calls)
 
     def test_ordinary_scenario_avoids_native_builds_and_preserves_run_arguments(self):
         self.select("single_validator", "single_validator_produces_blocks_by_the_header_rules")
@@ -150,6 +170,8 @@ printf '["build", "{name}"]\\n' >> "$CALLS"
                     self.assertEqual(result.returncode, 0, result.stderr)
                     self.assertEqual(set(self.builds()), {"etna_signer", "stock_comet"} |
                                      (set() if override else {"recovery_runtime"}))
+                    if not override:
+                        self.assertIn(["build", "recovery_runtime", "/t/debug/taiko-client"], self.calls())
                     removed = [row for row in self.calls() if row[:3] == ["docker", "image", "rm"]]
                     self.assertEqual(len(removed), 0 if override else 1)
 
@@ -175,20 +197,17 @@ printf '["build", "{name}"]\\n' >> "$CALLS"
         self.assertEqual(self.builds(), [])
 
     def test_run_only_option_falls_back_without_losing_argv(self):
-        self.env["LIST_ERROR"] = "error: unexpected argument '--retries' found"
         result = self.run_entrypoint("--retries", "1", "restart")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(set(self.builds()), {"etna_signer", "stock_comet", "etna_el_import", "etna_el_runtime", "recovery_runtime"})
-        run = next(row for row in self.calls() if row[:3] == ["cargo", "nextest", "run"])
-        self.assertEqual(run[-3:], ["--retries", "1", "restart"])
+        self.assert_lists_once_without_caller_arguments("--retries", "1", "restart")
 
     def test_run_reporter_uses_conservative_preparation(self):
         self.select("single_validator", "single_validator_produces_blocks_by_the_header_rules")
         result = self.run_entrypoint("--message-format=human")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(set(self.builds()), {"etna_signer", "stock_comet", "etna_el_import", "etna_el_runtime", "recovery_runtime"})
-        run = next(row for row in self.calls() if row[:3] == ["cargo", "nextest", "run"])
-        self.assertEqual(run[-1], "--message-format=human")
+        self.assert_lists_once_without_caller_arguments("--message-format=human")
 
     def test_native_fence_only_prepares_el(self):
         self.select("governance_recovery", "support::checkpoint_import::long_fence::native_long_fence_restarts_and_executes_with_body_pruned_parents")
@@ -219,6 +238,20 @@ printf '["build", "{name}"]\\n' >> "$CALLS"
                 self.env.update(LIST_ERROR=error, LIST_STATUS=status, SELECTION=selection)
                 self.assertNotEqual(self.run_entrypoint().returncode, 0)
                 self.assertEqual(len(self.calls()), 1)
+
+    def test_client_binary_comes_from_listing(self):
+        other = {"name": "etna-el-import", "kind": "bin-exe", "path": "debug/etna-el-import", "build-platform": "target"}
+        for binaries, expected in (((other, CLIENT_BIN), "/t/debug/taiko-client\n"), ((CLIENT_BIN, CLIENT_BIN), None),
+                                   ((other,), None), ((), None)):
+            with self.subTest(binaries=binaries):
+                result = subprocess.run(["python3", str(ROOT / "tests/selected_dependencies.py"), "--client-bin"],
+                                        input=json.dumps({"rust-build-meta": build_meta(*binaries), "rust-suites": {}}),
+                                        text=True, capture_output=True, timeout=15)
+                if expected:
+                    self.assertEqual((result.returncode, result.stdout), (0, expected), result.stderr)
+                else:
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(result.stdout, "")
 
     def test_sigterm_forwards_and_cleans_only_its_run(self):
         self.select("cleanup", "sigterm_removes_owned_resources_and_preserves_sibling_devnets")

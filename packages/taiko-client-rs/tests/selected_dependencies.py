@@ -1,5 +1,7 @@
-"""Map nextest's matched cases to the native runtimes they actually use."""
+"""Map nextest's matched cases to the native runtimes they actually use. With --client-bin, print
+the taiko-client executable that the listing's build produced instead."""
 import json
+import os
 import sys
 
 RECOVERY_IMAGE = {
@@ -48,5 +50,19 @@ def dependencies(data):
     return " ".join(sorted(needed))
 
 
+def client_binary(data):
+    """The one taiko-client `bin-exe` among the listing's non-test binaries, whose path is relative to
+    the target directory. The recovery runtime image runs this host-built executable."""
+    meta = data["rust-build-meta"]
+    paths = [binary["path"] for binaries in meta["non-test-binaries"].values() for binary in binaries
+             if binary["name"] == "taiko-client" and binary["kind"] == "bin-exe"]
+    if len(paths) != 1:
+        raise SystemExit(f"expected one taiko-client bin-exe in the nextest listing, found {len(paths)}")
+    return os.path.join(meta["target-directory"], paths[0])
+
+
 if __name__ == "__main__":
-    print(dependencies(json.load(sys.stdin)))
+    if sys.argv[1:] not in ([], ["--client-bin"]):
+        raise SystemExit("usage: selected_dependencies.py [--client-bin] < nextest-list.json")
+    listing = json.load(sys.stdin)
+    print(client_binary(listing) if sys.argv[1:] else dependencies(listing))
