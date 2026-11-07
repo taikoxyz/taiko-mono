@@ -146,3 +146,79 @@ FOUNDRY_PROFILE=genesis forge test \
   --no-storage-caching \
   --match-path test/genesis/GenerateGenesis.g.sol \
   --block-gas-limit 1000000000
+
+# The Etna genesis builder on real generator output (Etna SPEC 10 step 3). The default
+# configuration leaves anchorV4 ungated, so the builder must refuse its alloc, both as configured
+# and with only the configuration JSON edited to an Etna one; an alloc generated from the Etna
+# configuration must pass.
+echo ""
+echo "Testing the Etna genesis builder on generated predeploys..."
+
+BUILDER="script/layer2/build_etna_genesis.py"
+L1_SIGNAL_SERVICE="0x00000000000000000000000000000000000100aa"
+WORK="$(mktemp -d)"
+cp "$DIR/data/genesis_config.json" "$WORK/default_config.json"
+cp "$DIR/data/genesis_alloc.json" "$WORK/default_alloc.json"
+
+# Puts back the default run's outputs, so a local run does not leave the Etna ones behind.
+function restoreDefaultGenesis {
+  if [ -d "$WORK" ]; then
+    cp "$WORK/default_config.json" "$DIR/data/genesis_config.json"
+    cp "$WORK/default_alloc.json" "$DIR/data/genesis_alloc.json"
+    rm -rf "$WORK"
+  fi
+}
+trap 'restoreDefaultGenesis; docker compose -f "$TESTNET_CONFIG" down -v' EXIT INT KILL ERR
+
+function buildEtnaGenesis {
+  python3 "$BUILDER" --base "$GENESIS_JSON" --predeploys "$DIR/data/genesis_alloc.json" \
+    --predeploy-config "$1" --l1-signal-service "$L1_SIGNAL_SERVICE" --output "$WORK/genesis.json"
+}
+
+function expectBuilderRejects {
+  local diagnostic="$1"
+  if buildEtnaGenesis "$2" > "$WORK/builder.log" 2>&1; then
+    echo "ERROR: the Etna genesis builder accepted a genesis it must refuse"
+    cat "$WORK/builder.log"
+    return 1
+  fi
+  if ! grep -qF "$diagnostic" "$WORK/builder.log" || [ -e "$WORK/genesis.json" ]; then
+    echo "ERROR: the Etna genesis builder failed without \"$diagnostic\" or left output"
+    cat "$WORK/builder.log"
+    return 1
+  fi
+}
+
+expectBuilderRejects "etnaTimestamp must be 0x0" "$DIR/data/genesis_config.json"
+
+python3 -I - "$DIR/data/genesis_config.json" "$WORK/edited_config.json" "$L1_SIGNAL_SERVICE" <<'EOF'
+import json, sys
+config = json.load(open(sys.argv[1]))
+config.update(etnaTimestamp="0x0", remoteSignalService=sys.argv[3])
+json.dump(config, open(sys.argv[2], "w"))
+EOF
+expectBuilderRejects "TaikoAnchorImpl etnaTimestamp is 0x" "$WORK/edited_config.json"
+
+cat > "$WORK/etna_config.js" <<EOF
+"use strict";
+const base = require("$DIR/data/genesis_config.js");
+module.exports = {
+  ...base,
+  etnaTimestamp: "0x0",
+  remoteSignalService: "$L1_SIGNAL_SERVICE",
+};
+EOF
+GENESIS_CONFIG="$WORK/etna_config.js" pnpm run genesis:gen
+if ! buildEtnaGenesis "$DIR/data/genesis_config.json"; then
+  echo "ERROR: the Etna genesis builder refused the Etna alloc"
+  exit 1
+fi
+python3 -I - "$WORK/genesis.json" <<'EOF'
+import json, sys
+alloc = json.load(open(sys.argv[1]))["alloc"]
+for system in ("0x000f3df6d732807ef1319fb7b8bb8522d0beac02",
+               "0x0000f90827f1c53a10cb7a02335b175320002935"):
+    assert alloc[system]["code"] != "0x", system
+EOF
+restoreDefaultGenesis
+echo "The Etna genesis builder accepts only the Etna alloc."

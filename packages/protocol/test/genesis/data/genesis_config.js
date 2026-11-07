@@ -13,6 +13,10 @@ module.exports = {
   ],
   // Owner Chain ID, Security Council, and Timelock Controller
   l1ChainId: 31337,
+  // First L2 block timestamp at which the Etna fork is active. A hex string, because a JS number
+  // cannot hold 2^64 - 1: "0xffffffffffffffff" = never, "0x0" = from genesis. A new Etna network
+  // must use "0x0"; script/layer2/build_etna_genesis.py refuses anything else.
+  etnaTimestamp: "0xffffffffffffffff",
   ownerSecurityCouncil: "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39",
   ownerTimelockController: "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39",
   get contractAddresses() {
