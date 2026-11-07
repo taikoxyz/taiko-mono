@@ -889,7 +889,7 @@ pub(super) fn classify_trust_error(error: AbciError) -> AbciError {
         AbciError::Engine(error) | AbciError::ElSync(crate::elsync::ElSyncError::Engine(error)) => {
             matches!(
                 error,
-                EngineError::ErrorReply { code: -38100, .. } |
+                EngineError::ErrorReply { code: -38100 | -38002, .. } |
                     EngineError::HeaderHashMismatch { .. } |
                     EngineError::HeaderNumberMismatch { .. } |
                     EngineError::BadReply(_)

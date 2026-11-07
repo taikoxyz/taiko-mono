@@ -421,6 +421,36 @@ async fn generation_zero_startup_supersession_retains_typed_recovery_evidence() 
 }
 
 #[tokio::test]
+async fn trust_forkchoice_invalid_state_halts_but_transient_replies_retry() {
+    for code in [-38002, -32603, -32000] {
+        let fx = Fixture::genesis(1);
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = initialized(&fx, dir.path()).await;
+        target(&app, &fx, 0, fx.genesis_hash());
+        app.engine().state().chain.clear();
+        app.engine().state().forkchoice_script.push_back(Err(crate::EngineError::ErrorReply {
+            call: "engine_forkchoiceUpdatedV3".into(),
+            code,
+            message: "fixture refusal".into(),
+        }));
+        let result = app.refresh_trust().await;
+        if code == -38002 {
+            assert!(matches!(result, Err(AbciError::SafetyHalt(_))), "{result:?}");
+            assert_eq!(app.trust.snapshot().phase, TrustPhase::Halted);
+            assert!(dir.path().join("fatal-evidence.txt").is_file());
+        } else {
+            result.unwrap();
+            assert!(!app.trust.snapshot().trust_ready);
+            assert!(!dir.path().join("fatal-evidence.txt").exists());
+            for _ in 0..2 {
+                app.refresh_trust().await.unwrap();
+            }
+            assert!(app.trust.snapshot().trust_ready, "code {code}");
+        }
+    }
+}
+
+#[tokio::test]
 async fn refreshed_lower_checkpoint_never_downgrades_pinned_target() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();

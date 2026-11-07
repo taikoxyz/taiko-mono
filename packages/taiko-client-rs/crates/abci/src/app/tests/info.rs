@@ -246,6 +246,33 @@ async fn info_halts_when_the_el_rejects_the_committed_block() {
     assert!(matches!(err, AbciError::SafetyHalt(_)), "{err:?}");
 }
 
+#[tokio::test(start_paused = true)]
+async fn info_forkchoice_invalid_state_halts_but_transient_replies_recover() {
+    for code in [-38002, -32603, -32000] {
+        let fx = Fixture::genesis(1);
+        let dir = tempfile::tempdir().unwrap();
+        drop(initialized(&fx, dir.path()).await);
+        let engine = MockEngine::with_chain(fx.el_chain.clone());
+        engine.state().chain.clear();
+        engine.state().forkchoice_script.push_back(Err(crate::EngineError::ErrorReply {
+            call: "engine_forkchoiceUpdatedV3".into(),
+            code,
+            message: "fixture refusal".into(),
+        }));
+        let mut app =
+            app_with(fx.l1(), engine, fx.params.clone(), dir.path(), AppOptions::default());
+        let result = info(&mut app).await;
+        if code == -38002 {
+            assert!(matches!(result, Err(AbciError::SafetyHalt(_))), "{result:?}");
+            assert!(dir.path().join("fatal-evidence.txt").is_file());
+            assert!(!app.trust.snapshot().trust_ready);
+        } else {
+            assert_eq!(result.unwrap().last_block_height.value(), 0, "code {code}");
+            assert!(!dir.path().join("fatal-evidence.txt").exists());
+        }
+    }
+}
+
 #[test]
 fn app_new_rejects_invalid_parameters() {
     let fx = Fixture::genesis(1);

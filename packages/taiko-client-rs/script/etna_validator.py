@@ -319,6 +319,8 @@ class Supervisor:
             signer_failed = self.signer.returncode not in (0, -signal.SIGTERM)
             self.signer = None
 
+        if signer_failed:
+            self.record_signer_failure()
         if self.event_scratch is not None:
             self.event_scratch.cleanup()
             self.event_scratch = None
@@ -491,19 +493,63 @@ class Supervisor:
         except (OSError, ValueError, KeyError, TypeError):
             return None
 
-    def halt(self, reason, terminal_snapshot=None):
-        if not self.latch.exists():
-            evidence = self.expected_supersession(terminal_snapshot)
-            with self.latch.open("x") as file:
-                file.write((json.dumps(evidence, sort_keys=True) if evidence else reason) + "\n")
+    def persist_latch(self, text, replace=False):
+        """Durably create a halt, or atomically replace its classification after joined shutdown."""
+        temporary = None
+        try:
+            if replace:
+                descriptor, temporary = tempfile.mkstemp(prefix=".validator-halt-", dir=self.store)
+                target = os.fdopen(descriptor, "w")
+            else:
+                target = self.latch.open("x")
+            with target as file:
+                file.write(text)
                 file.flush()
                 os.fsync(file.fileno())
+            if replace:
+                os.replace(temporary, self.latch)
             directory = os.open(self.store, os.O_RDONLY)
             try:
                 os.fsync(directory)
             finally:
                 os.close(directory)
-        self.stop()
+        finally:
+            if temporary is not None and os.path.exists(temporary):
+                os.unlink(temporary)
+
+    def record_signer_failure(self):
+        """Block recovery acknowledgement without replacing an existing generic first cause."""
+        try:
+            descriptor = os.open(self.latch, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        except FileNotFoundError:
+            self.persist_latch("signer exited; inspect diagnostics\n")
+            return
+        with os.fdopen(descriptor, "rb") as file:
+            metadata = os.fstat(file.fileno())
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > 1024 * 1024:
+                return  # These records already fail recovery's bounded JSON check.
+            raw = file.read(1024 * 1024 + 1)
+        try:
+            value = json.loads(raw)
+        except ValueError:
+            return
+        if isinstance(value, dict) and value.get("kind") == "expected-generation-supersession":
+            self.persist_latch("signer exited; inspect diagnostics\n", replace=True)
+
+    def halt(self, reason, terminal_snapshot=None):
+        pending = reason + "\n"
+        created = not self.latch.exists()
+        evidence = self.expected_supersession(terminal_snapshot) if created else None
+        if created:
+            self.persist_latch(pending)
+        signer_failed = self.stop()
+        # A generic durable marker blocks acknowledgement throughout shutdown and
+        # after any crash. Only a clean join and unchanged first-cause bytes allow
+        # the exact expected supersession to become acknowledgeable.
+        if (created and evidence and not signer_failed
+                and self.expected_supersession(terminal_snapshot) == evidence
+                and self.latch.read_bytes() == pending.encode()):
+            self.persist_latch(json.dumps(evidence, sort_keys=True) + "\n", replace=True)
         print("etna_supervisor_halted: operator repair required", flush=True)
 
     def tick(self):
@@ -630,7 +676,8 @@ class Supervisor:
                 self.tick()
                 time.sleep(.1)
         finally:
-            self.stop()
+            if self.stop():
+                self.halt("signer exited during shutdown; inspect diagnostics")
             for descriptor in self.owner_fds:
                 os.close(descriptor)
             self.owner_fds = []

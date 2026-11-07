@@ -165,6 +165,32 @@ class SupervisorTests(unittest.TestCase):
         self.assertTrue(lifecycle.exists(), "terminal SIGINT bypassed ordered supervisor stop")
         self.assertEqual(lifecycle.read_text().splitlines()[-2:], ["comet_reaped", "signer_stopped"])
 
+    def test_supervisor_sigterm_retains_signer_failure_for_restart(self):
+        """A signer failure discovered during external shutdown must survive restartAlways."""
+        self.proc.terminate()
+        self.assertEqual(self.proc.wait(timeout=5), 0)
+        latch = self.store / "validator-supervisor.halted"
+        self.assertFalse(latch.exists(), "healthy signal shutdown became terminal")
+        signer = self.bin / "signer"
+        signer.write_text(signer.read_text().replace("sys.exit(0)", "sys.exit(1)"))
+        self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")],
+                                     env=self.env, stdout=self.log, stderr=self.log)
+        self.wait(lambda: self.starts() == 2 and len(self.signers()) == 2)
+        self.proc.terminate()
+        self.assertEqual(self.proc.wait(timeout=5), 0)
+        self.assertTrue(latch.exists(), "external supervisor shutdown discarded the signer failure")
+        evidence = latch.read_bytes()
+        self.assertEqual((self.root / "lifecycle").read_text().splitlines()[-2:],
+                         ["comet_reaped", "signer_stopped"])
+        self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")],
+                                     env=self.env, stdout=self.log, stderr=self.log)
+        time.sleep(.4)
+        self.assertIsNone(self.proc.poll())
+        self.assertEqual(self.starts(), 2, "restartAlways rearmed failed signing authority")
+        self.assertEqual(latch.read_bytes(), evidence)
+        self.assertEqual(self.state.read_text(), "authoritative HRS")
+        self.assertEqual(self.key.read_text(), "existing key")
+
     def test_inherited_scoped_grant_and_lifetime_reach_stock_children(self):
         self.proc.terminate()
         self.proc.wait(timeout=5)
@@ -838,6 +864,87 @@ class LauncherPathTests(unittest.TestCase):
 
 
 class TypedSupersessionTests(unittest.TestCase):
+    def supersession_with_children(self, directory, signer_status):
+        """Create authentic first-cause bytes and real children with controlled exit status."""
+        import hashlib
+        spec = importlib.util.spec_from_file_location("etna_supersession_stop", ROOT / "script/etna_validator.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        store = Path(directory)
+        runtime = object.__new__(module.Supervisor)
+        runtime.store, runtime.chain, runtime.generation = store, "old-chain", 0
+        runtime.latch = store / "validator-supervisor.halted"
+        runtime.imported, runtime.container, runtime.event_scratch = None, None, None
+        state = json.dumps(dict(chain_id="old-chain", generation=0, inbox="0x01")).encode()
+        fatal = b"authenticated higher recovery generation"
+        evidence = dict(schema=1, chain_id="old-chain", previous_generation=0, current_generation=1,
+                        inbox="0x01", state_digest=hashlib.sha256(state).hexdigest(),
+                        fatal_digest=hashlib.sha256(fatal).hexdigest())
+        preserved = {"abci-state.json": state, "fatal-evidence.txt": fatal,
+                     "generation-superseded.json": json.dumps(evidence).encode(),
+                     "key.json": b"registered key", "hrs.json": b"retained HRS"}
+        for name, raw in preserved.items():
+            (store / name).write_bytes(raw)
+        children = []
+        for name, status in (("comet", 0), ("signer", signer_status)):
+            ready, observed = store / (name + ".ready"), store / (name + ".halt")
+            body = ("import signal,sys,time\nfrom pathlib import Path\n"
+                    "def stop(*_):\n"
+                    " p=Path(sys.argv[1]); Path(sys.argv[2]).write_bytes(p.read_bytes() if p.exists() else b'absent')\n"
+                    " sys.exit(int(sys.argv[4]))\n"
+                    "signal.signal(signal.SIGTERM,stop)\n"
+                    "Path(sys.argv[3]).touch()\ntime.sleep(30)\n")
+            child = subprocess.Popen([os.sys.executable, "-c", body, str(runtime.latch), str(observed), str(ready), str(status)])
+            children.append(child)
+            setattr(runtime, name, child)
+            deadline = time.monotonic() + 3
+            while not ready.exists() and time.monotonic() < deadline:
+                time.sleep(.01)
+            self.assertTrue(ready.exists(), "child did not install its stop handler")
+        def cleanup():
+            for child in children:
+                if child.poll() is None:
+                    child.kill()
+                child.wait(timeout=3)
+        self.addCleanup(cleanup)
+        return runtime, preserved
+
+    def test_supersession_publication_waits_for_clean_signer_shutdown(self):
+        for signer_status in (0, 1):
+            with self.subTest(signer_status=signer_status), tempfile.TemporaryDirectory() as directory:
+                runtime, preserved = self.supersession_with_children(directory, signer_status)
+                reason = "terminal app trust or deployment identity"
+                runtime.halt(reason, dict(phase="halted", chain_id="old-chain", generation=0))
+                self.assertEqual((runtime.store / "signer.halt").read_bytes(), (reason + "\n").encode(),
+                                 "recovery became acknowledgeable before signer shutdown completed")
+                if signer_status == 0:
+                    latch = json.loads(runtime.latch.read_bytes())
+                    self.assertEqual(latch["kind"], "expected-generation-supersession")
+                else:
+                    self.assertEqual(runtime.latch.read_bytes(), (reason + "\n").encode(),
+                                     "failed signing authority left an acknowledgeable supersession")
+                for name, raw in preserved.items():
+                    self.assertEqual((runtime.store / name).read_bytes(), raw)
+
+    def test_existing_latch_cannot_hide_signer_failure_during_stop(self):
+        for generic in (False, True):
+            with self.subTest(generic=generic), tempfile.TemporaryDirectory() as directory:
+                runtime, preserved = self.supersession_with_children(directory, 1)
+                if generic:
+                    original = b"original generic safety halt\n"
+                else:
+                    original = json.dumps(runtime.expected_supersession(
+                        dict(phase="halted", chain_id="old-chain", generation=0))).encode()
+                runtime.latch.write_bytes(original)
+                runtime.tick()
+                if generic:
+                    self.assertEqual(runtime.latch.read_bytes(), original)
+                else:
+                    with self.assertRaises(ValueError):
+                        json.loads(runtime.latch.read_bytes())
+                for name, raw in preserved.items():
+                    self.assertEqual((runtime.store / name).read_bytes(), raw)
+
     def test_comet_identity_keeps_privileged_group_drop_and_same_uid_native_path(self):
         spec = importlib.util.spec_from_file_location("etna_identity_supervisor", ROOT / "script/etna_validator.py")
         module = importlib.util.module_from_spec(spec)
