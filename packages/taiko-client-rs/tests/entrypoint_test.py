@@ -1,7 +1,10 @@
-"""Exercise the real entrypoint with disposable Cargo/Docker/helper executables."""
+"""Exercise the real entrypoint with disposable Cargo/Docker/helper executables, and keep its
+hand-listed test selection attached to the Rust test tree."""
+from collections import namedtuple
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import signal
 import subprocess
@@ -9,7 +12,10 @@ import tempfile
 import time
 import unittest
 
+from selected_dependencies import LONG_FENCE, NATIVE_EL, RECOVERY_IMAGE
+
 ROOT = Path(__file__).resolve().parents[1]
+TESTS = ROOT / "bin/client/tests"
 
 
 class Entrypoint(unittest.TestCase):
@@ -225,6 +231,170 @@ printf '["build", "{name}"]\\n' >> "$CALLS"
         self.assertIn(["docker", "ps", "-aq", "--filter", "label=taiko-client-rs.test-run=fixture-run"], self.calls())
         self.assertIn(["docker", "rm", "-f", "-v", "owned-container"], self.calls())
         self.assertIn(["docker", "network", "rm", "owned-network"], self.calls())
+
+
+# Only callers that pass `with_import = true` reach `support::checkpoint_import::recovered`, and
+# those callers are listed in NATIVE_EL by hand.
+CONDITIONAL_EL_HELPERS = {"checkpoint_roundtrip"}
+# Lander tests call `ContractConsensus::start` with docker Comet; only the native starts need the
+# stock binary.
+NATIVE_MARKERS = {
+    "recovery": re.compile(r"\bLinuxRuntime::start\b"),
+    "el": re.compile(r'"ETNA_EL_BIN"|"ETNA_EL_IMPORT_BIN"'),
+    "comet_or_signer": re.compile(r'"ETNA_COMET_BIN"|\bContractConsensus::start_(?:native|registered)\b'),
+}
+FN = re.compile(r"^(?:pub(?:\(\w+\))? )?(?:async )?fn (\w+)", re.M)
+ITEM = re.compile(r"^(?:#!?\[|//|(?:pub(?:\([^)]*\))? )?(?:(?:async|const|unsafe|extern) )*"
+                  r"(?:(?:fn|impl|struct|enum|union|mod|use|const|static|type|trait)\b|macro_rules!))")
+# `x::B(` calls B (and an associated fn of type x); `.B(` method calls never add an edge.
+CALL = re.compile(r"(?<![.\w])(?:(\w+)::)?(\w+)\s*\(")
+
+
+def rust_test_files():
+    return sorted(TESTS.rglob("*.rs")) + sorted((ROOT / "crates").glob("*/tests/**/*.rs"))
+
+
+def module_prefix(relative):
+    """`governance_recovery.rs` is a crate root; `support/a.rs` is `support::a::`; `mod.rs` is its directory."""
+    parts = list(Path(relative).with_suffix("").parts)
+    if parts[-1] == "mod":
+        parts.pop()
+    elif len(parts) == 1:
+        parts = []
+    return "".join(f"{part}::" for part in parts)
+
+
+def column_zero_fns(path):
+    tests = TESTS if TESTS in path.parents else ROOT / "crates" / path.relative_to(ROOT / "crates").parts[0] / "tests"
+    prefix = module_prefix(path.relative_to(tests))
+    return {prefix + match.group(1) for match in FN.finditer(path.read_text())}
+
+
+def native_markers(text):
+    """(line, marker) for every native runtime marker outside `//` comment lines."""
+    for number, line in enumerate(text.splitlines(), 1):
+        if not line.lstrip().startswith("//"):
+            yield from ((number, key) for key, marker in NATIVE_MARKERS.items() if marker.search(line))
+
+
+RustItem = namedtuple("RustItem", "kind name qualified docker code")
+
+
+def rust_items(path, text):
+    """Column-0 free fns and impl blocks. An impl block is one unit that any `Type::f(` call
+    reaches (`Commands::for_node` reads ETNA_COMET_BIN); method calls on its values add no edge."""
+    lines, items, attributes, covered, index = text.splitlines(), [], [], set(), 0
+    while index < len(lines):
+        line = lines[index]
+        header = FN.match(line)
+        if header or line.startswith("impl"):
+            end = index
+            while not lines[end].startswith("}") and end + 1 < len(lines) and not ITEM.match(lines[end + 1]):
+                end += 1
+            code = "\n".join(row for row in lines[index:end + 1] if not row.lstrip().startswith("//"))
+            if header:
+                docker = any(a.startswith("#[tokio::test") for a in attributes) and '#[ignore = "docker"]' in attributes
+                items.append(RustItem("fn", header.group(1), module_prefix(path) + header.group(1), docker, code))
+            else:
+                target = line.split("{")[0].split(" for ")[-1]
+                target = re.sub(r"^impl\s*(<[^>]*>)?", "", target).split("<")[0]
+                items.append(RustItem("impl", re.findall(r"\w+", target)[-1], None, False, code))
+            covered.update(range(index + 1, end + 2))
+            attributes, index = [], end + 1
+            continue
+        if line.startswith(("#[", "//")):
+            attributes.append(line)
+        elif line.strip():
+            attributes = []
+        index += 1
+    for number, key in native_markers(text):
+        if number not in covered:
+            raise AssertionError(f"{path}:{number}: {key} marker outside a column-0 fn or impl block; "
+                                 "move it into a free fn or extend the guard")
+    return items
+
+
+def docker_tests(sources):
+    return {item.qualified for path, text in sources.items() for item in rust_items(path, text) if item.docker}
+
+
+def scan_native_consumers(sources):
+    """Docker tests per native marker they can reach; names are global, so this over-approximates."""
+    items = [item for path, text in sources.items() for item in rust_items(path, text)]
+    reached = [{key for _, key in native_markers(item.code)} for item in items]
+    callees = []
+    for item in items:
+        calls = CALL.findall(item.code)
+        called = {("fn", name) for _, name in calls if name not in CONDITIONAL_EL_HELPERS}
+        called |= {("impl", owner) for owner, _ in calls if owner}
+        callees.append([other for other, callee in enumerate(items) if (callee.kind, callee.name) in called])
+    changed = True
+    while changed:
+        changed = False
+        for index, edges in enumerate(callees):
+            merged = reached[index].union(*(reached[other] for other in edges))
+            changed |= merged != reached[index]
+            reached[index] = merged
+    return {key: {item.qualified for item, found in zip(items, reached) if item.docker and key in found}
+            for key in NATIVE_MARKERS}
+
+
+class SelectionDrift(unittest.TestCase):
+    """Keep the hand-listed native consumers and entrypoint filters attached to the Rust tests."""
+
+    @staticmethod
+    def docker_test(name, body):
+        return f'#[tokio::test(flavor = "multi_thread")]\n#[ignore = "docker"]\nasync fn {name}() -> Result<()> {{\n    {body}\n}}\n'
+
+    def test_scanner_flags_renamed_and_unlisted_consumers(self):
+        helper = 'fn h() -> Option<std::ffi::OsString> {\n    std::env::var_os("ETNA_EL_BIN")\n}\n'
+        scanned = scan_native_consumers({"governance_recovery.rs": self.docker_test("a", "h();"), "support/x.rs": helper})
+        self.assertEqual(scanned["el"], {"a"})
+        self.assertEqual(scanned["recovery"], set())
+        scanned = scan_native_consumers({"governance_recovery.rs": self.docker_test("b", "LinuxRuntime::start(&f, &c, &commands)?;")})
+        self.assertEqual(scanned["recovery"], {"b"})
+        self.assertEqual(scanned["el"], set())
+
+    def test_scanner_module_paths_edges_and_unscannable_markers(self):
+        commands = ('pub struct Commands;\nimpl Commands {\n    pub fn new() -> Self {\n'
+                    '        let _ = std::env::var_os("ETNA_COMET_BIN");\n        Self\n    }\n}\n')
+        scanned = scan_native_consumers({
+            "governance_recovery.rs": self.docker_test("method_only", "x.h();") + self.docker_test("conditional", "checkpoint_roundtrip(true);")
+            + self.docker_test("docker_comet", "ContractConsensus::start(url).await?;")
+            + self.docker_test("native_comet", "ContractConsensus::start_native(url).await?;")
+            + "async fn checkpoint_roundtrip(with_import: bool) {\n    support::checkpoint_import::recovered();\n}\n",
+            "support/checkpoint_import.rs": 'pub fn recovered() {\n    let _ = "ETNA_EL_IMPORT_BIN";\n}\n'
+            + self.docker_test("direct", "recovered();"),
+            "support/checkpoint_import/nested.rs": self.docker_test("nested", "super::recovered();"),
+            "support/recovery/mod.rs": commands + self.docker_test("uses_commands", "support::recovery::Commands::new();"),
+            "support/x.rs": 'fn h() {\n    let _ = "ETNA_EL_BIN";\n}\n',
+        })
+        self.assertEqual(scanned["el"], {"support::checkpoint_import::direct", "support::checkpoint_import::nested::nested"})
+        self.assertEqual(scanned["comet_or_signer"], {"native_comet", "support::recovery::uses_commands"})
+        self.assertEqual(scanned["recovery"], set())
+        with self.assertRaisesRegex(AssertionError, r"support/x\.rs:2: .*move it into a free fn or extend the guard"):
+            scan_native_consumers({"support/x.rs": '/// "ETNA_EL_BIN" in a comment is ignored.\nconst BIN: &str = "ETNA_EL_BIN";\n'})
+
+    def test_listed_native_consumers_exist_and_cover_every_marker(self):
+        support = TESTS / "support"
+        native = {"governance_recovery.rs"} | {path.relative_to(TESTS).as_posix() for path in support.rglob("*.rs")}
+        sources = {name: (TESTS / name).read_text() for name in sorted(native)}
+        listed = RECOVERY_IMAGE | NATIVE_EL | {LONG_FENCE}
+        self.assertEqual(listed - docker_tests(sources), set(), "listed consumers must be docker tests at that module path")
+        scanned = scan_native_consumers(sources)
+        self.assertEqual(scanned["recovery"], RECOVERY_IMAGE)
+        self.assertEqual(scanned["el"] - (NATIVE_EL | {LONG_FENCE}), set(), "unlisted EL consumers")
+        self.assertNotIn(LONG_FENCE, scanned["comet_or_signer"])
+        outside = [f"{path.relative_to(ROOT)}:{line}: {key}"
+                   for path in rust_test_files() if path != TESTS / "governance_recovery.rs" and support not in path.parents
+                   for line, key in native_markers(path.read_text())]
+        self.assertEqual(outside, [], "native markers outside governance_recovery.rs and its support modules")
+
+    def test_entrypoint_filter_names_exist(self):
+        names = set(re.findall(r"test\(=([^)]+)\)", (ROOT / "tests/entrypoint.sh").read_text()))
+        self.assertTrue(names)
+        defined = {qualified for path in rust_test_files() for qualified in column_zero_fns(path)}
+        self.assertEqual(names - defined, set(), "entrypoint filters name missing tests")
 
 
 if __name__ == "__main__":
