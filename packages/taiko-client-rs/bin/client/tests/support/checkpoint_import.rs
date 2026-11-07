@@ -241,22 +241,25 @@ async fn roundtrip(
         // The app's sidecar is checksummed; its query answers the raw preimage the export takes.
         let preimage = tokio::time::timeout(Duration::from_secs(20), async {
             loop {
-                if let Some(preimage) = c.cmt.abci_query("/val_state/6").await? {
-                    return anyhow::Ok(preimage)
+                // A transient RPC error keeps polling, as a refusal does.
+                if let Some(preimage) = c.cmt.abci_query("/val_state/6").await.ok().flatten() {
+                    return preimage
                 }
                 tokio::time::sleep(Duration::from_millis(50)).await
             }
         })
         .await
-        .context("source app must commit preimage 6")??;
+        .context("source app must commit preimage 6")?;
         fs::write(&archived, preimage).context("archive live validator-state preimage")?;
         let mut lander = commands.old_lander(f, &c.cmt)?;
         wait_checkpoint(f, &mut lander, target).await?;
         lander.stop().await?;
         mine_l1_blocks(&f.anvil.provider, 4).await?;
         if target > s {
+            // Node 0 may keep the sidecar of 6 as the recompute base below its floor, but its
+            // query refuses 6 once the floor passes it.
             tokio::time::timeout(Duration::from_secs(90), async {
-                while c.app_dir(0).join("val-state-6.bin").exists() {
+                while !matches!(c.cmt.abci_answer("/val_state/6").await, Ok(Err(_))) {
                     tokio::time::sleep(Duration::from_millis(100)).await
                 }
             })

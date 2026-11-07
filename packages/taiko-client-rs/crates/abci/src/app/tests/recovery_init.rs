@@ -9,7 +9,8 @@ use crate::{
 };
 use alloy_primitives::B256;
 
-fn document(fx: &Fixture, w: &RecoveryWitness) -> GenesisDoc {
+/// The recovery genesis document of `w` over `fx`'s deployment.
+pub(super) fn document(fx: &Fixture, w: &RecoveryWitness) -> GenesisDoc {
     let origin = verify_recovery_witness(w, &fx.params).unwrap();
     let mut canonical = w.clone();
     canonical.finalized_header = w.recovery_header.clone();
@@ -27,7 +28,8 @@ fn document(fx: &Fixture, w: &RecoveryWitness) -> GenesisDoc {
     }
 }
 
-fn request(doc: &GenesisDoc) -> request::InitChain {
+/// The `InitChain` request CometBFT sends for `doc`.
+pub(super) fn request(doc: &GenesisDoc) -> request::InitChain {
     request::InitChain {
         time: doc.genesis_time.parse().unwrap(),
         chain_id: doc.chain_id.clone(),

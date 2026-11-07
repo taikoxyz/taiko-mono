@@ -839,7 +839,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
     /// The validator state CometBFT holds after the checkpoint, which the replay starts from.
     /// At the generation origin it is the generation's genesis state ([`origin_val_state`]) of
     /// the starting `committees`, whatever the origin record's word 4 holds (PROOF-6.2-41a), and
-    /// no app is queried: none holds a sidecar there. Otherwise it is the app's answer, accepted
+    /// no app is queried: the app refuses that height. Otherwise it is the app's answer, accepted
     /// only as [`BatchBuilder::app_val_state`] checks it against the checkpoint record's word 4,
     /// and kept per checkpoint identity.
     ///

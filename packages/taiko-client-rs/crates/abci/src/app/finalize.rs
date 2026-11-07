@@ -128,12 +128,13 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if cold {
             validated.forced = self.confirm_forced(state, height, &validated).await?;
         }
-        let (mut next, updates) = next_state(state, &validated, height)?;
+        let (mut next, val_updates) = next_state(state, &validated, height)?;
+        let updates = val_updates.as_deref().unwrap_or_default();
         // CometBFT applies exactly the updates this response returns; a change set it would
         // refuse halts it, so the replica halts first.
         next.val_state = state
             .val_state
-            .advance(&updates)
+            .advance(updates)
             .map_err(|error| safety_halt(height, "validator_state", error))?;
         next.last_comet_hash = match req.hash {
             tendermint::Hash::Sha256(hash) => B256::from(hash),
@@ -142,8 +143,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
             }
         };
         let validator_updates = updates
-            .into_iter()
-            .map(|update| validator_update(height, update))
+            .iter()
+            .map(|&update| validator_update(height, update))
             .collect::<Result<Vec<_>, _>>()?;
 
         let hash = next.parent.hash;
@@ -161,6 +162,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             "block finalized"
         );
         self.pending = Some(next);
+        self.pending_val_updates = val_updates;
         Ok(response::FinalizeBlock {
             events: vec![],
             tx_results: vec![ExecTxResult { code: Code::Ok, ..Default::default() }],
@@ -219,9 +221,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// new head's gauges, and answers `retain_height = 0` (no block pruning). When the new
     /// state raises [`AppState::comet_history_floor`], the Comet block IDs below it are deleted
     /// after the state is durable; a failed deletion only logs, and the next raise retries it.
-    /// At a grid height the validator state is saved as an immutable checksummed sidecar before
-    /// the state (a corrupt one is set aside and replaced; a well-formed one of another state
-    /// fails the Commit), and the sidecars follow the Comet block IDs' floor.
+    /// Before the state, in the same barrier (SYNC-9-5c): at a grid height the validator state
+    /// is saved as an immutable checksummed record, and at a switch height the validator updates
+    /// `FinalizeBlock` returned, an empty list included (a corrupt record is set aside and
+    /// replaced; a well-formed one holding something else fails the Commit). The validator
+    /// records follow the Comet block IDs' floor, keeping the newest valid state below it as
+    /// the recompute base ([`Store::prune_val_records`](crate::store::Store::prune_val_records)).
     /// Errors: [`AbciError::NothingToCommit`] without a pending state; [`AbciError::Store`]
     /// when it cannot be persisted (it then stays pending).
     pub(super) fn commit(&mut self) -> Result<response::Commit, AbciError> {
@@ -230,14 +235,17 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if pending.last_height.is_multiple_of(GRID_INTERVAL) {
             self.store.save_val_state(&pending.val_state)?;
         }
+        if let Some(updates) = &self.pending_val_updates {
+            self.store.save_val_updates(pending.last_height, updates)?;
+        }
         self.store.save(pending)?;
         let floor = pending.comet_history_floor();
         if self.state.as_ref().is_none_or(|state| state.comet_history_floor() < floor) {
             if let Err(error) = self.store.prune_comet_hashes(floor) {
                 tracing::warn!(%error, floor, "could not prune committed Comet history");
             }
-            if let Err(error) = self.store.prune_val_states(floor) {
-                tracing::warn!(%error, floor, "could not prune committed validator states");
+            if let Err(error) = self.store.prune_val_records(floor) {
+                tracing::warn!(%error, floor, "could not prune committed validator records");
             }
         }
         tracing::info!(
@@ -246,6 +254,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             "block committed"
         );
         self.state = self.pending.take();
+        self.pending_val_updates = None;
         self.verdicts.clear();
         self.discovery.clear();
         let state = self.state.as_ref().expect("just committed");
@@ -646,7 +655,8 @@ impl Backoff {
 }
 
 /// The state after committing `v` at `height` on top of `state`, and the `(pubkey, power)`
-/// validator updates the height emits.
+/// validator updates the height emits: `Some` exactly at a switch height, possibly empty, and
+/// `None` elsewhere.
 ///
 /// The parent becomes the block's header summary (its grandparent timestamp the old parent's)
 /// and the anchor the block's; the forced inclusion cursor advances by one when the block
@@ -659,7 +669,7 @@ fn next_state(
     state: &AppState,
     v: &Validated,
     height: u64,
-) -> Result<(AppState, Vec<(crate::key::ConsensusKey, u64)>), AbciError> {
+) -> Result<(AppState, Option<ValidatorUpdates>), AbciError> {
     let header = &v.block.header;
     let mut next = state.clone();
     next.last_height = height;
@@ -696,7 +706,7 @@ fn next_state(
     }
 
     let Some(t) = state.schedule().switch_target(height) else {
-        return Ok((next, vec![]));
+        return Ok((next, None));
     };
     let set = |epoch: u64| {
         next.committees.get(&epoch).ok_or_else(|| {
@@ -709,8 +719,11 @@ fn next_state(
     })?;
     let updates = committee::validator_updates(&outgoing.members, &set(t)?.members);
     next.prune_committees(t - 1);
-    Ok((next, updates))
+    Ok((next, Some(updates)))
 }
+
+/// The `(pubkey, power)` validator updates a switch height returns, in response order.
+type ValidatorUpdates = Vec<(crate::key::ConsensusKey, u64)>;
 
 /// The CometBFT validator update setting `pubkey`'s power to `power` (0 removes it).
 ///

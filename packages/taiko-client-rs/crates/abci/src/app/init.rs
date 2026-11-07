@@ -28,7 +28,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// before the first PoS block is committed. An app already holding a state answers only
     /// while that state is still at its generation origin (B* or c): the request is verified again
     /// and must yield exactly the stored state, which is then answered as before without being
-    /// rewritten. A state past its origin, or a request yielding another state, is
+    /// rewritten. Either way the origin's validator state is recorded first
+    /// ([`Store::save_val_state`](crate::store::Store::save_val_state); a well-formed record of
+    /// another state fails). A state past its origin, or a request yielding another state, is
     /// [`AbciError::AlreadyInitialized`]. Temporary L1/EL acquisition failures keep the same
     /// request pending; authenticated contradictions still fail for safety.
     ///
@@ -58,10 +60,14 @@ impl<L: L1Source, E: Engine> App<L, E> {
             }
         };
         let origin_hash = state.parent.hash;
+        if restart && self.state.as_ref() != Some(&state) {
+            return Err(AbciError::AlreadyInitialized);
+        }
+        // The origin's genesis validator state, recorded before the state and again (unchanged,
+        // or where a store imported at the origin lacks it) on a re-sent InitChain: the exact
+        // state later records are recomputed from (SYNC-9-5c).
+        self.store.save_val_state(&state.val_state)?;
         if restart {
-            if self.state.as_ref() != Some(&state) {
-                return Err(AbciError::AlreadyInitialized);
-            }
             tracing::info!(chain_id = %state.chain_id, "InitChain re-sent at genesis; re-verified");
         } else {
             self.store.save(&state)?;

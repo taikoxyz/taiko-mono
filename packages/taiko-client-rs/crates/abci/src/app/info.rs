@@ -157,10 +157,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
     ///
     /// Only grid heights (multiples of [`GRID_INTERVAL`]) within the retained range
     /// `[comet_history_floor, last_height]` answer; any other height, a state not yet
-    /// initialized, and a sidecar that is missing, unreadable or corrupt ([`Record::Corrupt`]:
-    /// a failed checksum, a failed decoding or another height) are errors naming the cause. A
-    /// failing sidecar at a retained height other than the generation origin (which no Commit
-    /// writes) means lost durable state and is logged as a warning.
+    /// initialized, the generation origin once a block follows it (its sidecar is only a
+    /// recompute base; its landing record does not hold this generation's state, SYNC-9-5),
+    /// and a sidecar that is missing, unreadable or corrupt ([`Record::Corrupt`]: a failed
+    /// checksum, a failed decoding or another height) are errors naming the cause. A failing
+    /// sidecar means lost durable state and is logged as a warning.
     pub fn val_state_preimage(&self, height: u64) -> Result<Vec<u8>, String> {
         let state = self.state.as_ref().ok_or("the app is not initialized")?;
         if !height.is_multiple_of(GRID_INTERVAL) {
@@ -177,6 +178,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if height == last {
             return Ok(state.val_state.encode());
         }
+        if height == state.origin_height() {
+            return Err(format!(
+                "the validator state at the generation's start height {height} is not served \
+                 once a block follows it"
+            ));
+        }
         let sidecar = match self.store.load_val_state(height) {
             Ok(Record::Valid(recorded)) => Ok(recorded.encode()),
             Ok(Record::Missing) => {
@@ -187,9 +194,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             }
             Err(e) => Err(format!("cannot read the validator state at height {height}: {e}")),
         };
-        if let Err(reason) = &sidecar &&
-            height != state.origin_height()
-        {
+        if let Err(reason) = &sidecar {
             tracing::warn!(
                 height,
                 %reason,

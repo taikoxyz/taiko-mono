@@ -301,6 +301,10 @@ pub struct App<L: L1Source, E: Engine> {
     /// The state `FinalizeBlock` derived for the decided block; persisted and made the
     /// committed state by `Commit`.
     pending: Option<AppState>,
+    /// The validator updates `FinalizeBlock` returned for the decided block when it is a switch
+    /// height (`None` elsewhere), set together with [`App::pending`]; `Commit` records them
+    /// before the state and clears them.
+    pending_val_updates: Option<Vec<(crate::key::ConsensusKey, u64)>>,
     /// The latest `ProcessProposal` ACCEPT verdicts (at most [`MAX_VERDICTS`]), for
     /// `FinalizeBlock`; cleared at `Commit`.
     verdicts: Verdicts,
@@ -422,6 +426,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             opts,
             state,
             pending: None,
+            pending_val_updates: None,
             verdicts: Verdicts::default(),
             committee_cache: Mutex::new(committee_cache),
             discovery: DiscoveryProgress::default(),

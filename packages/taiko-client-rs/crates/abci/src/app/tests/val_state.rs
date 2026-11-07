@@ -1,6 +1,7 @@
 //! The CometBFT validator-state replica: the genesis state `InitChain` builds, its advance by
-//! exactly the updates `FinalizeBlock` returns, its persistence across restarts, the grid
-//! sidecars `Commit` writes and prunes with the Comet history floor, and the
+//! exactly the updates `FinalizeBlock` returns, its persistence across restarts, the records
+//! `InitChain` and `Commit` write (the origin and grid sidecars and the switch heights' update
+//! records) and the one base retention keeps below the Comet history floor, and the
 //! `/val_state/<height>` query.
 
 use std::collections::BTreeMap;
@@ -246,53 +247,156 @@ async fn val_state_survives_restart_and_sidecar_is_immutable() {
     }
 }
 
-/// Commit writes a sidecar holding the full preimage at grid heights only and deletes those
-/// below the Comet history floor once the floor passes them, so the sidecars on disk are
-/// exactly the committed grid heights in `[floor, last_height]`, on the proposer and on a
-/// replaying node alike.
+/// The records a node keeps, as [`val_records_keep_one_valid_base_below_the_floor`] tracks
+/// them: the validator states recorded so far (InitChain's origin state, then every committed
+/// grid height's) and the updates every committed switch height returned.
+#[derive(Default)]
+struct Written {
+    /// The recorded validator states by height.
+    states: BTreeMap<u64, ValState>,
+    /// The returned validator updates by switch height.
+    updates: BTreeMap<u64, Vec<(ConsensusKey, u64)>>,
+}
+
+impl Written {
+    /// Asserts that `app` keeps exactly the records retention leaves (SYNC-9-5c): the base, the
+    /// newest recorded state below the Comet history floor, the recorded states in
+    /// `[floor, last_height]` and the updates of the switch heights above the base.
+    fn assert_retained(&self, app: &App<MockL1, MockEngine>) {
+        let state = app.state().unwrap();
+        let (last, floor) = (state.last_height, state.comet_history_floor());
+        let base = self.states.range(..floor).next_back().map(|(&height, _)| height);
+        for height in 0..=last + GRID_INTERVAL {
+            let kept = base == Some(height) || (floor..=last).contains(&height);
+            let expected = self
+                .states
+                .get(&height)
+                .filter(|_| kept)
+                .map_or(Record::Missing, |recorded| Record::Valid(recorded.clone()));
+            assert_eq!(
+                app.store.load_val_state(height).unwrap(),
+                expected,
+                "sidecar {height} at head {last} (floor {floor}, base {base:?})"
+            );
+            let expected = self
+                .updates
+                .get(&height)
+                .filter(|_| base.is_none_or(|base| height > base))
+                .map_or(Record::Missing, |updates| Record::Valid(updates.clone()));
+            assert_eq!(
+                app.store.load_val_updates(height).unwrap(),
+                expected,
+                "update record {height} at head {last} (floor {floor}, base {base:?})"
+            );
+        }
+    }
+}
+
+/// InitChain records the origin state and Commit the state at every grid height and the
+/// updates at every switch height, an empty list included. Retention keeps one base below the
+/// Comet history floor, the newest recorded state there, so that the state at any retained
+/// height can be recomputed from it and the updates above it: after every commit, on a
+/// replaying node and on the proposer alike, the sidecars on disk are the base and the
+/// recorded grid heights in `[floor, last_height]`, and the update records those of the
+/// switch heights above the base.
 #[tokio::test]
-async fn grid_sidecars_are_written_and_pruned_with_the_comet_floor() {
+async fn val_records_keep_one_valid_base_below_the_floor() {
     let fx = short_epochs();
     let source_dir = tempfile::tempdir().unwrap();
     let (source, decided) = multi_epoch_run(&fx, source_dir.path()).await;
     let dir = tempfile::tempdir().unwrap();
     let mut app = replica(&fx, &source, dir.path()).await;
+    let schedule = fx.schedule();
 
-    let mut written = BTreeMap::new();
-    let mut pruned = vec![];
-    let retained = |app: &App<MockL1, MockEngine>, written: &BTreeMap<u64, ValState>| {
-        let state = app.state().unwrap();
-        let (last, floor) = (state.last_height, state.comet_history_floor());
-        for height in 0..=last + GRID_INTERVAL {
-            let expected = written
-                .get(&height)
-                .filter(|_| (floor..=last).contains(&height))
-                .map_or(Record::Missing, |recorded| Record::Valid(recorded.clone()));
-            assert_eq!(
-                app.store.load_val_state(height).unwrap(),
-                expected,
-                "sidecar {height} at head {last} (floor {floor})"
-            );
-        }
-    };
-    for (req, _) in &decided {
+    let mut written = Written::default();
+    let origin = app.state().unwrap();
+    written.states.insert(origin.last_height, origin.val_state.clone());
+    written.assert_retained(&app);
+    let mut bases = vec![];
+    for (req, response) in &decided {
         finalize(&mut app, req.clone()).await.unwrap();
         commit(&mut app).await.unwrap();
         let state = app.state().unwrap();
-        if state.last_height.is_multiple_of(GRID_INTERVAL) {
-            written.insert(state.last_height, state.val_state.clone());
+        let height = state.last_height;
+        if height.is_multiple_of(GRID_INTERVAL) {
+            written.states.insert(height, state.val_state.clone());
         }
-        pruned.extend(written.keys().filter(|&&h| h < state.comet_history_floor()));
-        retained(&app, &written);
+        if schedule.switch_target(height).is_some() {
+            written.updates.insert(height, updates_of(response));
+        }
+        written.assert_retained(&app);
+        let floor = state.comet_history_floor();
+        bases.extend(written.states.range(..floor).next_back().map(|(&height, _)| height));
     }
-    assert_eq!(written.keys().copied().collect::<Vec<_>>(), [GRID_INTERVAL, 2 * GRID_INTERVAL]);
-    assert!(pruned.contains(&GRID_INTERVAL) && pruned.contains(&(2 * GRID_INTERVAL)));
-    retained(&source, &written);
+    assert_eq!(written.states.keys().copied().collect::<Vec<_>>(), [0, 6, 12]);
+    assert_eq!(written.updates.keys().copied().collect::<Vec<_>>(), [3, 7, 11, 15]);
+    for (height, updates) in &written.updates {
+        assert_eq!(updates.is_empty(), *height != 7, "switch {height}");
+    }
+    bases.dedup();
+    assert_eq!(bases, [0, 6, 12], "the base follows the floor through every recorded state");
+    written.assert_retained(&source);
+}
+
+/// A crash after Commit wrote a switch height's records but before it saved the state makes
+/// CometBFT replay that height: FinalizeBlock and Commit over the reopened store derive the
+/// same records, whose re-save succeeds and leaves their bytes unchanged.
+#[tokio::test]
+async fn replayed_commit_rewrites_identical_update_records() {
+    let fx = short_epochs();
+    let source_dir = tempfile::tempdir().unwrap();
+    let (source, decided) = multi_epoch_run(&fx, source_dir.path()).await;
+    let schedule = fx.schedule();
+    // The first switch height (no change) and the one adding a validator.
+    let switches = decided
+        .iter()
+        .enumerate()
+        .filter(|(_, (req, _))| schedule.switch_target(req.height.value()).is_some())
+        .map(|(index, _)| index)
+        .take(2)
+        .collect::<Vec<_>>();
+    assert_eq!(switches.len(), 2);
+
+    for switch in switches {
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = replica(&fx, &source, dir.path()).await;
+        for (req, _) in &decided[..switch] {
+            finalize(&mut app, req.clone()).await.unwrap();
+            commit(&mut app).await.unwrap();
+        }
+        let committed = app.state().unwrap().clone();
+        let state_file = dir.path().join(crate::store::STATE_FILE);
+        let saved = std::fs::read(&state_file).unwrap();
+        let (req, response) = &decided[switch];
+        let height = req.height.value();
+        finalize(&mut app, req.clone()).await.unwrap();
+        commit(&mut app).await.unwrap();
+        let record = dir.path().join(format!("val-updates-{height}.bin"));
+        let bytes = std::fs::read(&record).unwrap();
+        let expected = Record::Valid(updates_of(response));
+        assert_eq!(app.store.load_val_updates(height).unwrap(), expected, "height {height}");
+
+        // The crash: the records stay, the state file holds the previous height.
+        std::fs::write(&state_file, saved).unwrap();
+        let engine = app.engine().reopen();
+        drop(app);
+        let mut app =
+            app_with(fx.l1(), engine, fx.params.clone(), dir.path(), AppOptions::default());
+        share_l1_chain(source.l1(), app.l1());
+        assert_eq!(app.state(), Some(&committed));
+        info(&mut app).await.unwrap();
+        assert_eq!(&finalize(&mut app, req.clone()).await.unwrap(), response, "height {height}");
+        commit(&mut app).await.expect("the identical records are saved again");
+        assert_eq!(app.state().unwrap().last_height, height);
+        assert_eq!(std::fs::read(&record).unwrap(), bytes, "height {height}");
+        assert_eq!(app.store.load_val_updates(height).unwrap(), expected, "height {height}");
+    }
 }
 
 /// `/val_state/<height>` answers the raw preimage at a retained grid height, from the head
 /// state or from its sidecar, and rejects a non-grid height, one below the floor or above the
-/// head, a malformed number, and a retained height whose sidecar is missing or corrupt.
+/// head, the origin once a block follows it (though its sidecar exists), a malformed number,
+/// and a retained height whose sidecar is missing or corrupt.
 #[tokio::test]
 async fn val_state_query_rejects_unretained_heights() {
     let fx = short_epochs();
@@ -302,12 +406,22 @@ async fn val_state_query_rejects_unretained_heights() {
     let mut app = replica(&fx, &source, dir.path()).await;
 
     let grid = 2 * GRID_INTERVAL;
-    let (mut at_grid, mut pruned) = (None, None);
+    let (mut at_grid, mut base) = (None, None);
     for (req, _) in decided.iter().take_while(|(req, _)| req.height.value() <= grid + 1) {
         finalize(&mut app, req.clone()).await.unwrap();
         commit(&mut app).await.unwrap();
+        if req.height.value() == 1 {
+            // The origin is within the retained range and InitChain recorded its state as a
+            // recompute base, but once a block follows it the query refuses it.
+            assert_eq!(app.state().unwrap().comet_history_floor(), 0);
+            assert!(matches!(app.store.load_val_state(0).unwrap(), Record::Valid(_)));
+            assert!(app.val_state_preimage(0).is_err());
+            let answer = query(&mut app, "/val_state/0").await;
+            assert_eq!(answer.code, Code::from(CODE_REJECTED));
+            assert!(answer.value.is_empty() && !answer.log.is_empty());
+        }
         if req.height.value() == GRID_INTERVAL {
-            pruned = Some(app.state().unwrap().val_state.clone());
+            base = Some(app.state().unwrap().val_state.clone());
         }
         if req.height.value() == grid {
             let head = app.state().unwrap().val_state.clone();
@@ -330,9 +444,9 @@ async fn val_state_query_rejects_unretained_heights() {
     assert_eq!(decoded.hash(), at_grid.hash());
     assert_eq!(app.val_state_preimage(grid), Ok(answer.value.to_vec()));
 
-    // Valid preimages outside the retained range are still refused: the one pruned below the
-    // floor, restored, and one of a future grid height.
-    app.store.save_val_state(&pruned.unwrap()).unwrap();
+    // Valid preimages outside the retained range are still refused: the one kept below the
+    // floor as the recompute base, and one of a future grid height.
+    assert_eq!(app.store.load_val_state(GRID_INTERVAL).unwrap(), Record::Valid(base.unwrap()));
     let mut future = at_grid.clone();
     while future.height < 3 * GRID_INTERVAL {
         future = future.advance(&[]).unwrap();
@@ -343,7 +457,7 @@ async fn val_state_query_rejects_unretained_heights() {
     }
     let rejected = [
         format!("/val_state/{}", grid + 1),          // not a grid height
-        format!("/val_state/{GRID_INTERVAL}"),       // below the floor, sidecar restored
+        format!("/val_state/{GRID_INTERVAL}"),       // below the floor, kept as the base
         "/val_state/0".to_string(),                  // the origin, below the floor
         format!("/val_state/{}", 3 * GRID_INTERVAL), // above the head, sidecar planted
         "/val_state/".to_string(),

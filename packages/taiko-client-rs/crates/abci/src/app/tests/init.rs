@@ -190,6 +190,48 @@ async fn init_chain_is_idempotent_at_genesis() {
     assert!(resp.validators.is_empty());
 }
 
+/// InitChain records the generation's genesis validator state at its origin as an immutable
+/// sidecar, the base later states are recomputed from (SYNC-9-5c). A re-sent InitChain at the
+/// origin saves it again, unchanged, and writes it when it is missing, as over a store
+/// imported at the origin. A recovery InitChain records it at the recovery origin.
+#[tokio::test]
+async fn init_chain_records_the_genesis_validator_state() {
+    use crate::{
+        recovery::verify_recovery_witness,
+        store::Record,
+        test_utils::{powers, recovery_fixture},
+        valstate::ValState,
+    };
+    let fx = Fixture::genesis(3);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    let origin = fx.genesis.genesis_height;
+    let genesis = Record::Valid(ValState::genesis(origin, &powers(&fx.members)).unwrap());
+    assert_eq!(app.store.load_val_state(origin).unwrap(), genesis);
+    let path = dir.path().join(format!("val-state-{origin}.bin"));
+    let recorded = std::fs::read(&path).unwrap();
+
+    init_chain(&mut app, fx.request.clone()).await.expect("re-sent InitChain");
+    let mut app = fx.app(dir.path());
+    init_chain(&mut app, fx.request.clone()).await.expect("re-sent after a restart");
+    assert_eq!(std::fs::read(&path).unwrap(), recorded);
+    std::fs::remove_file(&path).unwrap();
+    init_chain(&mut app, fx.request.clone()).await.expect("re-sent without the record");
+    assert_eq!(std::fs::read(&path).unwrap(), recorded);
+
+    let (fx, l1, engine, w) = recovery_fixture(1, 6, 1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let req = super::recovery_init::request(&super::recovery_init::document(&fx, &w));
+    init_chain(&mut app, req.clone()).await.expect("recovery InitChain");
+    let origin = verify_recovery_witness(&w, &fx.params).unwrap();
+    assert_eq!(app.state().unwrap().origin_height(), origin.height);
+    let genesis = ValState::genesis(origin.height, &powers(&origin.committee.members)).unwrap();
+    assert_eq!(app.store.load_val_state(origin.height).unwrap(), Record::Valid(genesis.clone()));
+    init_chain(&mut app, req).await.expect("re-sent at the recovery origin");
+    assert_eq!(app.store.load_val_state(origin.height).unwrap(), Record::Valid(genesis));
+}
+
 #[tokio::test]
 async fn init_chain_with_another_genesis_is_rejected() {
     let fx = Fixture::genesis(2);
