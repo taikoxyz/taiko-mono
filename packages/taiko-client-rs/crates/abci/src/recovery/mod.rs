@@ -24,7 +24,7 @@ mod tests {
     use super::*;
     use crate::{
         l1::{RawL1Header, layout::inbox},
-        test_utils::{EngineCall, l1_header, recovery_fixture as fixture},
+        test_utils::{EngineCall, L1Call, l1_header, recovery_fixture as fixture},
     };
     use alloy_primitives::{B256, U256};
 
@@ -108,6 +108,29 @@ mod tests {
         assert!(engine.calls().iter().all(|c| matches!(c, EngineCall::HeaderByNumber(_))));
         check_recovery_canonicality(&l1, &fx.params, &w).await.unwrap();
         l1.set_finalized(99);
+        assert!(matches!(
+            check_recovery_canonicality(&l1, &fx.params, &w).await,
+            Err(RecoveryError::Unavailable(_))
+        ));
+    }
+
+    /// One finalized read bounds the retained headers and the current observation alike, so a
+    /// receding own-L1 answer is missing data (SYNC-9-7): a later answer below R is never read,
+    /// where proving the pre-recovery Inbox there would look like an invalid origin; and an
+    /// answer below R itself leaves R not final.
+    #[tokio::test]
+    async fn recovery_recheck_reads_finality_once_and_receding_below_r_is_unavailable() {
+        let (fx, l1, _, w) = fixture(1, 6, 1);
+        let below_r = fx.genesis.l1_0;
+        assert!(below_r < w.recovery_header.number());
+        // Three answers at the finalized head, then one that recedes below R.
+        l1.state().finalized_script.extend([Ok(110), Ok(110), Ok(110), Ok(below_r)]);
+        check_recovery_canonicality(&l1, &fx.params, &w).await.unwrap();
+        let reads = l1.calls().iter().filter(|c| matches!(c, L1Call::Finalized)).count();
+        assert_eq!(reads, 1, "one finalized read per recheck");
+
+        l1.state().finalized_script.clear();
+        l1.set_finalized(below_r);
         assert!(matches!(
             check_recovery_canonicality(&l1, &fx.params, &w).await,
             Err(RecoveryError::Unavailable(_))

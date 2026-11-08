@@ -314,22 +314,20 @@ async fn recovery_activation_trust_requires_exact_private_session_and_settlement
     );
 }
 
-/// Own-finality reads per `check_recovery_canonicality` (one revalidation): one per retained
-/// header (three), then the current finalized number and its `own_finality` reread.
-const CHECK_READS: usize = 5;
-
 #[tokio::test]
 async fn recovery_activation_rechecks_generation_before_and_after_locks() {
-    for checks_before in [0, 1] {
+    for initial_reads in [0, 1] {
         let dir = tempfile::tempdir_in(short_temp_parent()).unwrap();
         let source = Source::new();
         let p = configured_profile(dir.path(), &source);
         let root = dir.path().join("recovery");
         let plan =
             prepare::prepare(&p, 1, &root, &source, &ReadEngine::new(&source)).await.unwrap();
-        source.finalized.lock().unwrap().extend(
-            std::iter::repeat_n(110, checks_before * CHECK_READS).chain([130; CHECK_READS]),
-        );
+        source
+            .finalized
+            .lock()
+            .unwrap()
+            .extend(std::iter::repeat_n(110, initial_reads).chain([130]));
         assert!(matches!(
             crate::recovery::activate::isolate(&p, &root, &plan, &source).await,
             Err(RecoveryCommandError::Superseded { requested: 1, current: 2 })
@@ -344,11 +342,7 @@ async fn recovery_activation_same_generation_target_advances_without_changing_ge
     let p = configured_profile(dir.path(), &source);
     let root = dir.path().join("recovery");
     let plan = prepare::prepare(&p, 1, &root, &source, &ReadEngine::new(&source)).await.unwrap();
-    source
-        .finalized
-        .lock()
-        .unwrap()
-        .extend([110; CHECK_READS].into_iter().chain([120; CHECK_READS]));
+    source.finalized.lock().unwrap().extend([110, 120]);
     let mut runtime = crate::recovery::activate::isolate(&p, &root, &plan, &source).await.unwrap();
     assert_eq!(RecoveryStore::new(&root).load_plan(plan.id()).unwrap().genesis, plan.genesis);
     runtime.stop().await.unwrap();

@@ -354,22 +354,13 @@ async fn recovery_rejects_aliased_staged_directories_and_journal_mismatches() {
 
 #[tokio::test]
 async fn recovery_new_generation_at_second_or_final_check_aborts_without_publication() {
-    // Own-finality reads per `check_recovery_canonicality`: one per retained header (three),
-    // then the current finalized number and its `own_finality` reread. Before the final check,
-    // each of the two acquisitions reads the finalized number once and then checks, and the
-    // c-anchor bootstrap reads it once.
-    const CHECK: usize = 5;
-    for first_reads in [1, 1 + CHECK + 1 + CHECK + 1] {
+    for first_reads in [1, 5] {
         let dir = tempfile::tempdir().unwrap();
         let source = Source::new();
         let p = configured_profile(dir.path(), &source);
         let engine = ReadEngine::new(&source);
         let root = dir.path().join("recovery");
-        source
-            .finalized
-            .lock()
-            .unwrap()
-            .extend(std::iter::repeat_n(110, first_reads).chain([130; CHECK]));
+        source.finalized.lock().unwrap().extend(std::iter::repeat_n(110, first_reads).chain([130]));
         assert!(matches!(
             prepare::prepare(&p, 1, &root, &source, &engine).await,
             Err(RecoveryCommandError::Superseded { requested: 1, current: 2 })

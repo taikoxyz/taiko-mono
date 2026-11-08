@@ -442,6 +442,18 @@ pub async fn own_finality<L: L1Source + ?Sized>(
     hash: B256,
 ) -> Result<OwnFinality, L1Error> {
     let finalized = l1.finalized_number().await?;
+    own_finality_at(l1, finalized, number, hash).await
+}
+
+/// [`own_finality`] against a `finalized` number the caller already read from `l1`, so that
+/// several checks share one finality observation and a later, receding answer cannot bound some
+/// of them differently. Reads only the canonical hash, and only when `number <= finalized`.
+pub async fn own_finality_at<L: L1Source + ?Sized>(
+    l1: &L,
+    finalized: u64,
+    number: u64,
+    hash: B256,
+) -> Result<OwnFinality, L1Error> {
     if finalized < number {
         return Ok(OwnFinality::NotFinal { finalized });
     }
@@ -838,6 +850,23 @@ mod tests {
             l1.calls().iter().all(|call| !matches!(call, L1Call::Header(_))),
             "only the canonical hash is read, never the raw header"
         );
+    }
+
+    /// The variant takes the finalized number as given: it never reads it, and reads the
+    /// canonical hash only at or below it.
+    #[tokio::test]
+    async fn own_finality_at_bounds_by_the_given_finalized_number() {
+        let header = RawL1Header::from(&l1_header(10, 100));
+        let l1 = MockL1::new(12);
+        l1.insert_header(header.clone());
+
+        assert_eq!(
+            own_finality_at(&l1, 9, 10, header.hash()).await,
+            Ok(OwnFinality::NotFinal { finalized: 9 })
+        );
+        assert!(l1.calls().is_empty(), "nothing read below the given finality");
+        assert_eq!(own_finality_at(&l1, 10, 10, header.hash()).await, Ok(OwnFinality::Canonical));
+        assert_eq!(l1.calls(), [L1Call::CanonicalHash(10)], "the finalized number is not reread");
     }
 
     #[tokio::test]
