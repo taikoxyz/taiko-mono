@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-- `bin/client/` hosts the CLI entry point (`abci`, `abci-genesis`, `abci-committee-record`, `abci-recover`, `lander`); keep orchestration light and delegate protocol logic to the crates.
+- `bin/client/` hosts the CLI entry point (`abci`, `abci-genesis`, `abci-committee-record`, `abci-recover`, `abci-import`, `lander`); keep orchestration light and delegate protocol logic to the crates.
 - `crates/abci` is the ABCI++ application of the Etna PoS chain (CometBFT + `taiko-client abci` + alethia-reth). Keep `envelope`, `rules`, `schedule`, `committee` and `forced` (the forced inclusion rule) free of I/O so they can later move unchanged into a no_std crate for the guest. The envelope is version 6; validators enforce forced inclusion and anchor freshness per block.
 - `crates/lander` authenticates CometBFT batches and historical committee ancestry, builds V6 blobs and the twenty-three-word V1 statement, obtains a proof through a trait (dummy `0x00` only), and durably submits nonpayable `land(input, leaves, proof)`. Fees and payouts are not consensus inputs. Never replace an outstanding nonce automatically.
 - `crates/protocol` holds shared protocol helpers; `crates/rpc` holds the Engine API / JWT provider helpers. FI bytes are authenticated calldata from exact-block admission events. Document shared traits whenever exposing cross-crate APIs.
@@ -13,14 +13,14 @@
 
 ## Build, Test, and Development Commands
 
-- `just supervisor-test` runs supervisor, entrypoint selection/cancellation and resource-meter Python regressions without Docker or native builds.
-- `just signer` builds the host guarded signer; `just signer-test` runs its race tests. Docker test entrypoints build the helper before starting devnets. Production images package `/app/etna-signer`; use `script/start_etna_validator.sh` with existing external key/state paths for validators.
+- `just supervisor-test` runs the supervisor, entrypoint selection/cancellation, resource-meter and runtime build script Python regressions without Docker or native builds.
+- `just signer` builds the host guarded signer; `just signer-test` runs its tests with `-race`, then its re-exec process tests without it. Docker test entrypoints build the helper before starting devnets. Production images package `/app/etna-signer`; use `script/start_etna_validator.sh` with existing external key/state paths for validators.
 - `cargo build --workspace` (add `--release` for production binaries).
 - `just fmt` installs toolchain `nightly-2025-09-27`, runs `cargo +nightly fmt`, then `cargo sort --workspace --grouped`. Use `just fmt-check` for CI parity.
 - Always use `just fmt` (never call `cargo fmt` directly) so the nightly toolchain and `cargo sort` stay in sync with CI.
 - `just clippy` runs two passes: library targets with doc lints, then `--all-targets` (tests and test-harness included) with `-D warnings`; reserve `just clippy-fix` for mechanical cleanups.
 - After each coherent batch of code changes, run `just fmt && just clippy-fix` locally so the workspace stays formatted and lint-clean. Use targeted tests while iterating.
-- Before declaring work complete, run `just verify` once on the final change batch and require it to finish without warnings or errors. It checks formatting, strict lint, fast tests, committed artifact reproduction and all Docker scenarios (`just test-full`).
+- Before declaring work complete, run `just verify` once on the final change batch and require it to finish without warnings or errors. It runs the signer and supervisor tests and checks formatting, strict lint, fast tests, the EL import helper, committed artifact reproduction, the checkpoint-import resource profiles and all Docker scenarios (`just test-full`).
 
 ## Coding Style & Naming Conventions
 
@@ -43,8 +43,8 @@
 
 ## Testing Guidelines
 
-- `just unit` runs unit tests plus Docker-free CLI startup/shutdown and entrypoint cleanup process tests, then protocol tests without default features and abci doctests — use it for fast iteration. It builds only those targets; without extra args, lander's lib tests run in one `cargo test` process so the KZG trusted setup loads once. Unit tests live next to the code (`#[cfg(test)] mod tests`); abci's shared builders live in `crates/abci/src/test_utils*`.
-- `just test` runs the ABCI, lander and CLI Docker scenarios through `tests/entrypoint.sh`: it enumerates selected cases, checks docker before building only their native helpers, pulls the anvil, alethia-reth and CometBFT images (override with `ANVIL_IMAGE`, `ALETHIA_RETH_IMAGE`, `COMETBFT_IMAGE`, `LANDER_ANVIL_IMAGE`; `PULL_POLICY=missing` reuses local images) and runs the scenarios serially with the nextest `integration` profile, since each boots its own devnet. Extra args go to nextest, e.g. `just test restart` for one scenario. It skips two slow scenarios (the L1 finality stall and the L=7 recovery grid); `just test-full` runs both, as CI does on main, nightly and manual dispatch.
+- `just unit` runs unit tests plus Docker-free CLI startup/shutdown and entrypoint cleanup process tests and abci's Etna conformance vectors, then abci doctests — use it for fast iteration. It builds only those targets; without extra args, lander's lib tests run in one `cargo test` process so the KZG trusted setup loads once. Unit tests live next to the code (`#[cfg(test)] mod tests`); abci's shared builders live in `crates/abci/src/test_utils*`.
+- `just test` runs the ABCI, lander and CLI Docker scenarios through `tests/entrypoint.sh`: it enumerates selected cases, checks docker before building only their native helpers, builds the pinned alethia-reth source once into a local image unless `ALETHIA_RETH_IMAGE` names one, pulls the anvil and CometBFT images (override with `ANVIL_IMAGE`, `ALETHIA_RETH_IMAGE`, `COMETBFT_IMAGE`, `LANDER_ANVIL_IMAGE`; `PULL_POLICY=missing` reuses local images) and runs the scenarios serially with the nextest `integration` profile, since each boots its own devnet. Extra args go to nextest, e.g. `just test restart` for one scenario. It skips two slow scenarios (the L1 finality stall and the L=7 recovery grid); `just test-full` runs both, as CI does on main, nightly and manual dispatch.
 - Name tests after observable behavior (e.g., `handles_invalid_proposal`). The harness prints every container's log tail when a scenario fails (panics, returns an error or times out waiting for a height) or its devnet fails to boot; keep that output for any failing integration case.
 - `just test-smoke` runs exactly four Docker scenarios: single-validator header rules, epoch switch, four-validator native consensus/direct fees/FI/epoch/landing/restart, and lander CLI SIGKILL/SIGTERM restarts. This fixed recipe accepts no arguments; use `just test` for targeted filters or output options. Smoke is for iteration and never replaces the full merge gate.
 - Targeted verification is fine while iterating; completion requires one final `just verify` pass with clean output. Regenerate artifacts only when their inputs change; `just verify` always checks reproduction of the committed artifacts.
@@ -95,6 +95,9 @@
   on unavailable evidence. The signer has one mode: one stock HRS per full chain_id, created
   only by `etna-signer init-state` and listed in a domains log on another volume; a new
   generation runs `init-state` for its new chain_id. Preserve the domains log, every chain's
-  HRS, generic fatal evidence and latches. A superseded generation halts with only the generic fatal
-  evidence and the plain-text supervisor latch in its old app store; `install` never reuses that
-  store, so no later generation reads them.
+  HRS, generic fatal evidence and latches. A superseded generation halts with the generic fatal
+  evidence in its old app store. The supervisor adds its plain-text latch there only when it
+  observes the app's halted phase; when the app exits on a safety halt instead (a decided block
+  or a startup, InitChain or trust check finding another generation), observation fails and
+  nothing is latched, but signing stays refused. `install` never reuses that store, so no later
+  generation reads either.

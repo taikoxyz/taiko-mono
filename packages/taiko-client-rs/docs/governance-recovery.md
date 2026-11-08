@@ -159,9 +159,9 @@ for the refusal rules.
 
 Start in this order (START-10-6):
 
-1. the EL, then the app on the new directory: `taiko-client abci --data-dir
-/var/lib/taiko/app-g1` with the same endpoint, `--chain-config`, `--abci.addr` and
-   `--fee-recipient` flags as before;
+1. the EL, then the app on the new directory,
+   `taiko-client abci --data-dir /var/lib/taiko/app-g1`, with the same endpoint,
+   `--chain-config`, `--abci.addr` and `--fee-recipient` flags as before;
 2. the supervisor with the environment of step 4; it starts the signer, then Comet on the new
    home;
 3. the lander with its unchanged journal (`--data-dir`) and `--comet.http` at the new home's

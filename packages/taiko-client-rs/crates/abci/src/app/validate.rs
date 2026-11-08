@@ -6,9 +6,11 @@
 //! [`validate_block`] judges a decoded envelope against a [`ChainContext`] alone: no L1, no EL,
 //! in its steps (a)–(j). The app fills the context from its committed [`AppState`]
 //! ([`AppState::chain_context`]); the lander fills it from the chain it authenticates from L1
-//! and certified CometBFT blocks. [`check_candidate`] holds the witness steps (b)–(h);
-//! `PrepareProposal` runs its two halves ([`check_candidate_anchor`], [`finish_candidate`]) on
-//! its own witnesses before it asks the EL to build.
+//! and certified CometBFT blocks. [`check_candidate`] holds the witness steps (b)–(h):
+//! [`check_candidate_anchor`], the rules schedule, one verification of the committee witness
+//! ([`VerifiedWitness`](crate::committee::VerifiedWitness)) and [`finish_candidate`].
+//! `PrepareProposal` runs the same steps on its own anchor and an already verified witness
+//! before it asks the EL to build.
 //! All consensus handlers enforce the raw execution block RLP limit of 124000 bytes.
 //! The authenticated forced decision is completed by the shared asynchronous singleton checker
 //! before any handler advances the queue cursor. Ordinary execution remains independent.

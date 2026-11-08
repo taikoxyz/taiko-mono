@@ -210,10 +210,7 @@ pub fn block_parts(block: &RawBlock) -> tendermint::block::parts::Header {
     .expect("nonempty protobuf block yields a nonempty SHA-256 part set")
 }
 
-/// Recomputes every CometBFT body commitment and checks its decoded EL height/parent link.
-///
-/// This is also necessary for an already-landed checkpoint: a genuine certificate signs the
-/// header's roots, not an arbitrary body an RPC response happens to return beside it.
+/// [`verify_body_at_origin`] for generation zero, whose fixed origin is height 0.
 #[cfg(test)]
 pub fn verify_body(
     pair: &CertifiedBlock,
@@ -223,7 +220,11 @@ pub fn verify_body(
     verify_body_at_origin(pair, expected_height, parent_el_hash, 0)
 }
 
-/// Checks body commitments and permits empty consensus ancestry only at the fixed origin + 1.
+/// Recomputes every CometBFT body commitment and checks its decoded EL height/parent link;
+/// empty consensus ancestry is permitted only at the fixed origin + 1.
+///
+/// This is also necessary for an already-landed checkpoint: a genuine certificate signs the
+/// header's roots, not an arbitrary body an RPC response happens to return beside it.
 pub fn verify_body_at_origin(
     pair: &CertifiedBlock,
     expected_height: u64,

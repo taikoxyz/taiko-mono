@@ -36,7 +36,7 @@ taiko-client abci-import export … --height 600 --out /srv/etna/archive/cp-600 
 
 ## Prepare the EL source
 
-Import copies the EL state at the checkpoint from a **stopped** EL datadir: `--el-source` must hold `db/mdbx.dat` and `db/database.version` at exactly that height. Stop and reap the alethia-reth that owns it first, and run nothing on it until the import finishes. The helper copies the files and never writes the source. A copy torn by a live writer fails the state-root check and is rejected; it is never installed. A filesystem snapshot of a stopped node also works.
+Import copies the EL state at the checkpoint from a **stopped** EL datadir: `--el-source` must hold `db/mdbx.dat` and `db/database.version` at exactly that height. Stop and reap the alethia-reth that owns it first, and run nothing on it until the import finishes. The helper copies the files and never writes the source. A copy torn by a live writer is never installed: it fails the state-root check (an invalid candidate) or leaves a database the helper cannot read (unavailable). A filesystem snapshot of a stopped node also works.
 
 ## Import
 
@@ -53,7 +53,7 @@ taiko-client abci-import import --l1.http http://127.0.0.1:8545 --l2.chain-id 16
 - `--comet-config` is the stock `config.toml`. It is copied verbatim to `ready/comet/config/config.toml`. Its `db_backend` must be absent or `goleveldb`. Set listeners, peers and any `priv_validator_laddr` here.
 - No input may lie inside `--root`.
 
-`import` creates `--root` (mode 0700) if needed and runs these steps:
+`--root` is dedicated to this import: every run replaces `ROOT/stage`. Run `import` as root or as the owner of ROOT, which it must chmod when it publishes; another user fails only at that last step. `import` creates ROOT and any missing parent with mode 0700, so create the parents yourself first, searchable by the Comet UID (see Run the imported node). `import` creates ROOT if needed and runs these steps:
 
 1. Takes the `ROOT/import.lock` flock. A busy lock is reported as unavailable.
 2. Refuses a root with `ROOT/halted.json`.
@@ -83,7 +83,7 @@ Errors:
 
 - `invalid checkpoint candidate` (exit 1): the package or an input is wrong. Use another package or fix the input.
 - `checkpoint material unavailable` (exit 1): something missing, a busy root, a local storage error or a helper failure. Helpers write their diagnostics to stderr. Fix the cause and rerun.
-- `authenticated checkpoint contradiction` (exit 2): your own L1 and data it authenticates contradict each other. One example is a landed window block that breaks a block rule; no other publisher can supply different bytes for it. The import writes `ROOT/halted.json` and refuses every rerun of that root. Investigate; do not just delete the file.
+- `authenticated checkpoint contradiction` (exit 2): your own L1 and data it authenticates contradict each other. One example is a landed window block that breaks a block rule; no other publisher can supply different bytes for it. The import writes `ROOT/halted.json`, keeps the halted run's stage as evidence and refuses every rerun of that root. Investigate; do not just delete the file. Because your own L1 authenticated the contradiction, another package of the same landed window cannot clear it: check your L1 node first, then escalate it as a possible bad landing. Leave the halted root in place and import any other checkpoint into a new root.
 
 ```sh
 taiko-client abci-import status --root /srv/etna/import-600
@@ -95,9 +95,9 @@ taiko-client abci-import status --root /srv/etna/import-600
 
 Keep the three stores in `ROOT/ready`, or move them together while every process is stopped, under parents the Comet UID can traverse. They are ordinary stores:
 
-1. **EL.** Run alethia-reth on `ready/el` with the original chain and with `--http.api eth,net,debug`. `abci` reads pruned imported ancestors through `debug_getRawHeader`; keep that API private. Keep the historical state at the checkpoint s readable and do not prune it: the app checks it at every start, and a pruned state makes every restart wait as missing data (DATA-5.4-6).
+1. **EL.** Run alethia-reth on `ready/el` with the original chain and with `--http.api eth,net,debug`. `abci` reads pruned imported ancestors through `debug_getRawHeader`; keep that API private. Keep the state at the checkpoint s, and the parent state of every block executed after it, readable (DATA-5.4-6): the app checks the state at s at every start, and a pruned one makes every restart wait as missing data; replaying a canonical forced-inclusion skip builds on the parent's state, and a parent state that is gone for good is a safety halt (RECOV-8-13). Run it without `--full` and without account- or storage-history pruning (`--prune.account-history.*`, `--prune.storage-history.*` or the same settings in a `[prune]` config section).
 2. **App.** Run plain `taiko-client abci --data-dir ROOT/ready/app` with the usual `--l1.http`, `--l2.http`, `--l2.auth`, `--jwt.secret`, `--abci.addr` and `--fee-recipient` flags. It starts from the installed state and checks once that the EL serves the block and state at `execution_floor`. Add `--checkpoint-archive-dir PATH` to preserve later grid preimages.
-3. **Comet.** Run stock `cometbft start --home ROOT/ready/comet`. Or set `ETNA_COMET_HOME=ROOT/ready/comet` for `start_etna_full_node.py`, or that and `ETNA_APP_STORE=ROOT/ready/app` for the validator supervisor. Both start Comet like on any other store, as `ETNA_COMET_UID:ETNA_COMET_GID` when set (the image sets 10001:10001; set both or neither). Before that, `chown -R ETNA_COMET_UID:ETNA_COMET_GID ROOT/ready/comet`, as for any Comet home. ROOT and `ROOT/ready` are traverse-only, so that UID reaches `ready/comet` and nothing else in the root.
+3. **Comet.** Run stock `cometbft start --home ROOT/ready/comet`. Or set `ETNA_COMET_HOME=ROOT/ready/comet` for `start_etna_full_node.py`, or that and `ETNA_APP_STORE=ROOT/ready/app` for the validator supervisor. Both start Comet like on any other store, as `ETNA_COMET_UID:ETNA_COMET_GID` when set (the image sets 10001:10001; set both or neither). Before that, `chown -R ETNA_COMET_UID:ETNA_COMET_GID ROOT/ready/comet`, as for any Comet home. ROOT and `ROOT/ready` are traverse-only, so that UID reaches `ready/comet` and nothing else in the root. Run the launcher itself as the user that ran `import` (root included): it takes its writer lease `ready/.comet.etna-owner.lock` beside the Comet home and refuses a `ready` owned by anyone but itself or root. The launchers pass their environment to Comet, which also reads configuration from its environment (Viper), so start them without Comet environment overrides. `import` checks only `db_backend` in `--comet-config` and copies everything else unchanged, so write the config in Comet's own lowercase keys.
 
 Comet syncs blocks from s + 1 over stock P2P, and the app executes each through normal FinalizeBlock and all of its checks (DATA-5.4-6). After an older import, Comet must first reach the latest finalized target, and the app must authenticate it against your own L1, before it reports ready. `/status` shows `execution_floor`. There is no transaction, receipt, body or FI trial history before it in these stores.
 

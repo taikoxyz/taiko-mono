@@ -107,6 +107,10 @@ or resets HRS. The locks are held while serving, so two signers sharing these fi
 serve (RECOV-8.2-2); another host is outside their reach (see Failover). Preserve the key, every state, the log, the Comet WAL and app history on
 restart; never use `keygen` or `init-state` as a recovery action.
 
+The signer creates `<key>.lock` beside the key and `<state>.lock` beside the state, so both
+directories must be writable by the signer. The key file itself may be read-only, but a
+read-only key directory, such as a Kubernetes Secret volume, fails startup with exit 1.
+
 ### Refusal matrix and exit codes
 
 | Code  | Meaning                                                                                                                                           | Supervisor action                            |
@@ -295,8 +299,10 @@ supervisor, lander and their restart controllers, installs fresh stores, runs `i
 the new generation's `chain_id` with the same key, state directory and log, then restarts the
 EL and app, the supervisor and the lander in that order. Every older chain's HRS stays in the
 state directory, unchanged and never served again. A superseded generation leaves the app's
-generic fatal evidence and the supervisor's plain-text latch in its old app store, which
-`install` never reuses; leave those bytes in place.
+generic fatal evidence in its old app store, which `install` never reuses; leave those bytes in
+place. The supervisor adds its plain-text latch there only when it observes the app's halted
+phase. When the app exits on a safety halt instead, observation fails and nothing is latched;
+signing stays refused all the same, because trust control is unavailable.
 
 Stock Comet creates its own disposable, unregistered FilePV in fresh standard local paths
 before replacing it with the mandatory guarded external signer. That dummy never signs for

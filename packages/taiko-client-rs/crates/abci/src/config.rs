@@ -26,7 +26,8 @@ pub struct ChainParams {
     pub unsettled_limit: u64,
     /// Local execution beneficiary chosen by this proposer; not committee authentication data.
     pub fee_recipient: Address,
-    /// `VP_UNIT`: effective stake per unit of voting power, in TAIKO base units; `> 0`.
+    /// `VP_UNIT`: effective stake per unit of voting power, in TAIKO base units; at least the
+    /// START-10-12 floor ([`ChainParams::validate`]).
     pub vp_unit: U256,
     /// `S_min`: minimum effective stake of an eligible entry, in TAIKO base units; `>= vp_unit`.
     pub s_min: U256,

@@ -3,12 +3,14 @@
 # Runs the selected ignored ABCI, lander, and CLI integration scenarios. Most
 # scenarios boot their own devnet through the Docker CLI
 # (`crates/test-harness`: anvil as L1, alethia-reth, CometBFT) and removes it
-# afterwards, so this script only checks docker, pre-pulls the images and runs the
+# afterwards, so this script only checks docker, prepares the images and runs the
 # scenarios one at a time. Extra arguments are forwarded to `cargo nextest run`,
 # e.g. `just test --no-capture` or `just test restart` (a test-name filter).
 #
 # Environment:
 #   ANVIL_IMAGE, LANDER_ANVIL_IMAGE, ALETHIA_RETH_IMAGE, COMETBFT_IMAGE override the images.
+#                        Without ALETHIA_RETH_IMAGE the pinned EL source is built once into a
+#                        local image, which is reused and never pulled.
 #   PULL_POLICY=missing  reuse images already present on the daemon instead of
 #                        pulling them on every run.
 #   TAIKO_CLIENT_RS_TEST_LANE=native|devnet  run one of CI's two lanes within the selected

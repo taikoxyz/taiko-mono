@@ -459,9 +459,10 @@ class Supervisor:
     def halt(self, reason):
         """Latch the first cause durably, then stop Comet and the signer.
 
-        A superseded generation (RECOV-8-14/16) is one such cause: the app reports "halted",
-        and this plain-text latch and the app's fatal evidence stay in the old store, which
-        `abci-recover install` never reuses.
+        A superseded generation (RECOV-8-14/16) is one such cause when the app reports "halted":
+        this plain-text latch and the app's fatal evidence stay in the old store, which
+        `abci-recover install` never reuses. An app that exits on the safety halt instead leaves
+        observation failing, so nothing is latched, and signing stays refused.
         """
         self.retain_latch(reason + "\n")
         self.stop()

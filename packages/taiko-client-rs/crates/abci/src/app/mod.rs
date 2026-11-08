@@ -719,7 +719,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
 /// `FinalizeBlock` takes the verdict under its decided block hash without validating the block
 /// again. The hash commits to every request input [`validate_block`] reads: the height, BFT time,
 /// proposer and transactions. Its other inputs are the committed state and the chain parameters,
-/// and only `Commit` changes the state, clearing the cache. A hit therefore means the same
+/// and only `Commit` changes a committed state, clearing the cache (`InitChain` sets the first
+/// one before any verdict can exist). A hit therefore means the same
 /// inputs on the same committed state, so `FinalizeBlock` derives what `ProcessProposal` derived
 /// (CONS-3.4-1). The verdict also holds the node-local checks a cold `FinalizeBlock` repeats:
 /// own-L1 anchor finality, which a later finalized head cannot undo (CONS-3.3-5, CONS-3.4-12),

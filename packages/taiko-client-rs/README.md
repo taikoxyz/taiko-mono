@@ -389,7 +389,7 @@ timestamp deadline and remains usable across landing and recovery. Withdrawal an
 slashing cover both balances. Exercise the response budget before lawful withdrawal; seven days
 is not automatically enough for governance execution.
 
-Recovery now binds `expectedRecoveryNonce` and `validUntil` in addition to generation and c;
+Recovery binds `expectedRecoveryNonce` and `validUntil` in addition to generation and c;
 the owner may invalidate the nonce explicitly. Recovery does not punish principal itself or
 invalidate forfeiture authorization. Estimate recovery economics before authorization and reassess
 finalized R, including activated top-ups. Economic shortfalls or expired valuation require alerts,
@@ -431,10 +431,14 @@ or config opening differs.
    [native signer instructions](tools/etna-signer/README.md). They emit public JSON
    for deployment tooling. Never use keygen to recover an existing validator.
 
-   Keep the registered validator's existing `priv_validator_key.json` and its existing
-   `priv_validator_state.json` together in a private signer directory outside the Comet home
-   and outside every separate Comet container mount. Preserve the state across every restart; never
-   initialize, reset or replace it to recover consensus. The local key created by `cometbft init`
+   Keep the registered validator's existing `priv_validator_key.json`, its HRS state directory
+   (one stock `<chain_id>.json` per chain) and its domains log in private directories outside
+   the Comet home, every separate Comet container mount and the app store, with the log on
+   another volume than the states (see the
+   [signer bootstrap](tools/etna-signer/README.md#bootstrap-a-new-validator)). The key's
+   directory must be writable by the signer, which creates its owner lock `<key>.lock` there.
+   Preserve every state across every restart; never initialize, reset or replace one to recover
+   consensus. The local key created by `cometbft init`
    is an unused random identity: do not replace it with the registered key. Stock
    `DefaultNewNode` also creates this dummy when absent, then replaces it with SocketPV
    for the mandatory listener; remote setup errors abort, with no local fallback. The
@@ -534,9 +538,10 @@ committing those values to the Inbox.
    CAP_DAC_OVERRIDE (traverse the Comet-owned home and `run/`, connect the root signer to
    Comet's socket, and remove stale `run/signer-*.sock`); it needs no CAP_FOWNER or
    CAP_CHOWN. Comet runs as UID 10001 with zero effective capabilities. Persistent Comet
-   volume ownership is prepared separately. HRS
-   and its parent must be writable for atomic replacement, even when the key is read-only.
-   The supervisor requires
+   volume ownership is prepared separately. The HRS state and its directory must be writable
+   for atomic replacement. The key file may be read-only, but its directory must be writable for
+   the signer's `<key>.lock`, so a read-only mount such as a Kubernetes Secret volume cannot
+   hold the key directly: the signer exits 1. The supervisor requires
    `priv_validator_laddr`, signing paths outside the Comet home and app store, and a matching
    genesis chain ID. A `unix://` value only selects Unix mode and is
    preferred; `tcp://` uses CometBFT's official
@@ -547,10 +552,11 @@ committing those values to the Inbox.
    mode-0600 `<data-dir>/checkpoint-trust.sock`. PubKey and Ping work while closed so the ABCI
    handshake can proceed. Each proposal, prevote or precommit (including nil votes, locked
    blocks, retained proposals and already signed retries) needs a fresh bounded CheckSession
-   response with the exact opaque session and verified chain ID, Ready and committed checkpoint
-   evidence. Unavailable/malformed control, proof/history failure or a stale session denies
-   signing without touching FilePV. The helper locks the existing state against a second
-   helper process. No local signing fallback exists in the validator startup recipe.
+   reply for the transport's current session that names the served chain ID and phase `ready`;
+   the app reports `ready` only after its checkpoint, validator-state and InitChain checks.
+   Unavailable or malformed control, a closed or halted phase and a stale session deny signing
+   without touching FilePV. The helper locks the existing state against a second helper
+   process. No local signing fallback exists in the validator startup recipe.
 
    The helper atomically publishes private `signer-denial.json` observations: sequence zero
    establishes the current session; a positive sequence records a refused or timed-out
@@ -645,7 +651,8 @@ committing those values to the Inbox.
   L1 block and the current generation's L1 origin (`L1_0`, or R after a recovery), and its
   proofs verify under `S(t)`'s own anchor state root (spec section 4.3); `S(t)` keeps its
   parent's anchor unless it carries a newer one. An L1 finality stall keeps that anchor for up to
-  `maxAnchorAge` (planned 2 h, about 600 L1 blocks), far beyond a geth full node's 128-block state window, so nodes
+  `maxAnchorAge`, a per-deployment value of at least 1152 s (spec START-10-9); at 12 s per L1
+  block, a 2 h value is 600 blocks, beyond a geth full node's 128-block state window. So nodes
   discover the witness as soon as they commit the anchor (see below). That needs the
   L1 proof window to cover the finality lag plus one discovery and its retries; a node that was
   not live when the anchor was adopted, or restarted since, still needs historical state. The own
@@ -655,18 +662,20 @@ committing those values to the Inbox.
   memory only; nothing is written to the app data directory. Every node discovers the upcoming
   switch witness in the background under each committed anchor that can still be `D(t)`'s,
   starting with the live `Commit` of the block adopting it, and keeps it while the anchor stays.
-  Every `ProcessProposal`, empty proposals included, and every live `Commit` start a missing
-  discovery and restart a failed one once its backoff has passed (2 s, doubling per failure under
-  the same anchor up to 60 s, so an L1 that cannot serve the state or rate-limits it sees one
-  attempt per pause). A discovery cut short by an RPC error or a deadline resumes from its
-  finished reads; a finished discovery, a malformed answer or a registry or derivation error
-  forgets them. An anchor can be `D(t)`'s only while `D(t)` passes back-pressure against the
+  Every `PrepareProposal` and `ProcessProposal`, empty proposals included, and every live
+  `Commit` start a missing discovery and restart a failed one, from scratch, once its backoff has
+  passed (2 s, doubling per failure under the same anchor up to 60 s, so an L1 that cannot serve
+  the state or rate-limits it sees one attempt per pause). A running discovery is never
+  restarted: a proposer that needs the witness joins it and waits within its own deadline, and
+  the discovery runs on past that deadline. An unreachable, lagging or timed-out own L1 leaves
+  the witness unavailable, a liveness pause; malformed or contradictory replies from it halt the
+  node (spec SYNC-9-7). An anchor can be `D(t)`'s only while `D(t)` passes back-pressure against the
   anchor's last checkpoint height and stays within `maxAnchorAge` of the anchor at one second per
   height at least, so this costs about one discovery per adopted anchor (one per L1 epoch) in the
   last `unsettled_limit` heights before each `D(t)`. An L1 finality stall that holds the anchor
   through `D(t)`, an anchor freshness stall or an outage therefore does not leave a running node's
   `S(t)` waiting on pruned state, provided the anchor's state was still served when it was
-  adopted; a proposal shares a running discovery rather than repeating it. A restart keeps no
+  adopted. A restart keeps no
   witness: the restarted node re-discovers it from its own L1, reading historical `eth_getProof`
   and registry state at the snapshot block. That block is fixed by the committed `D(t)` anchor (or
   the generation origin, spec COMM-4.3-11), not by `S(t)`'s own anchor, so it keeps ageing until
@@ -838,10 +847,10 @@ and retain one documented height-bound divergence; they do not establish conform
 to the latest Etna specification. Current registry admission vectors belong to the
 contract harness.
 
-- `just unit` runs all unit tests and Docker-free CLI startup/shutdown and entrypoint cleanup process tests, then protocol
-  tests without default features and the abci doctests. No docker needed. It builds only those
-  targets, and without extra arguments runs lander's library tests in one `cargo test` process,
-  which loads the KZG trusted setup once instead of once per test.
+- `just unit` runs all unit tests, the Docker-free CLI startup/shutdown and entrypoint cleanup
+  process tests and abci's Etna conformance vectors, then the abci doctests. No docker needed. It
+  builds only those targets, and without extra arguments runs lander's library tests in one
+  `cargo test` process, which loads the KZG trusted setup once instead of once per test.
 - `just test` runs the serial Docker integration scenarios in `crates/abci/tests`,
   `crates/lander/tests`, `crates/test-harness/tests` and `bin/client/tests`. ABCI scenarios cover single validator,
   anchor finality, restart and lost-state replay, epoch switch with and without landing, back-pressure, generation
@@ -861,7 +870,8 @@ contract harness.
   CometBFT), with phases that need the same history sharing one, so they run one at a time.
   CI runs two serial lanes: `native` (the `governance_recovery` binary: stock Comet, native EL
   and the recovery test image) and `devnet` (all other scenarios); set
-  `TAIKO_CLIENT_RS_TEST_LANE` to run one locally. Extra arguments go to `cargo nextest run`, e.g. `just test restart` runs one scenario. Pull requests
+  `TAIKO_CLIENT_RS_TEST_LANE` to run one locally. Extra arguments go to `cargo nextest run`,
+  e.g. `just test restart` runs one scenario. Pull requests
   skip the L1 finality stall and the L=7 recovery grid (L=6 covers the same grid case);
   `just test-full` runs every scenario, as CI does on main, nightly and on manual dispatch.
   `tests/entrypoint.sh` lists selected cases before Docker checks and builds only the native
@@ -871,10 +881,11 @@ contract harness.
   signer and Comet helpers; other hosts build the production `Dockerfile`, which compiles the
   release binaries. Without `ALETHIA_RETH_IMAGE`, the entrypoint builds the pinned EL source once
   into the local `alethia-reth:etna-<revision>` image (the production `execution-runtime` target)
-  and reuses it while present. On Linux the native EL binary is copied from that image; elsewhere
-  it is built from the pinned source. Unsupported
-  nextest run-only options conservatively prepare all helpers, after listing without them.
-  It pulls the other images before the tests; override them with `ANVIL_IMAGE`,
+  and reuses it while present; it never pulls that image. When the native EL is needed, a Linux
+  host whose Docker daemon has the same architecture copies it out of that image; another host,
+  an overridden `ALETHIA_RETH_IMAGE` or a missing image builds it from the pinned source.
+  Unsupported nextest run-only options conservatively prepare all helpers, after listing without
+  them. It pulls the other images before the tests; override them with `ANVIL_IMAGE`,
   `ALETHIA_RETH_IMAGE`, `COMETBFT_IMAGE` and `LANDER_ANVIL_IMAGE`, or set
   `PULL_POLICY=missing` to reuse local images. `just unit` also verifies the pinned contract
   artifact hashes.
@@ -887,14 +898,17 @@ contract harness.
 - `just test-smoke` runs exactly four representative Docker scenarios: single-validator header
   rules, epoch switch, the four-validator native acceptance flow, and lander CLI SIGKILL/SIGTERM restarts.
   This fixed recipe accepts no arguments. Use `just test` for targeted subsets or output options.
+  None of the four is in the `native` lane, so `TAIKO_CLIENT_RS_TEST_LANE=native just test-smoke`
+  selects no scenario.
 - `just runtime-image-test IMAGE linux/arm64` (or `linux/amd64`) smoke-tests the actual Linux runtime composition, native
   bootstrap, Comet UID isolation and unchanged HRS without a Rust rebuild. Build the
   `runtime-tools` Docker target with repository-root context first. Multiarch final image CI
   remains required before deployment. The smoke requires an explicit platform and checks
   Comet, signer and, in a release image, client ELF architecture before child startup.
-- `just verify` is the complete merge gate: Go signer race tests, supervisor process tests, formatting, strict clippy, fast tests, committed
-  artifact reproduction, and all Docker scenarios (`just test-full`). Smoke is an iteration aid and never replaces
-  this gate.
+- `just verify` is the complete merge gate: the Go signer tests, the supervisor and test-script
+  regressions, formatting, strict clippy, fast tests, the EL import helper's checks, committed
+  artifact reproduction, the checkpoint-import resource profiles and all Docker scenarios
+  (`just test-full`). Smoke is an iteration aid and never replaces this gate.
 
 Regenerate lander ABI/deployment fixtures only when their inputs change, with
 `script/gen_lander_artifacts.sh /path/to/taiko-mono-at-pinned-protocol-revision`.

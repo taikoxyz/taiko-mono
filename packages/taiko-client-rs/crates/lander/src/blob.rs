@@ -47,7 +47,7 @@ pub fn build(payload: &[u8], limits: &Limits, mode: SidecarMode) -> Result<Prepa
     let count = required_blobs(payload.len());
     if count == 0 || count > limits.max_blobs || payload.len() > limits.max_payload_bytes {
         return Err(LanderError::Capacity(format!(
-            "payload {} bytes needs {count} blobs; configured maximum {}",
+            "payload {} bytes needs {count} blobs; a landing carries at most {}",
             payload.len(),
             limits.max_blobs
         )));
@@ -110,7 +110,7 @@ pub fn decode(blobs: &[Blob], limits: &Limits) -> Result<Vec<u8>> {
     let limits = crate::codec::bounded_limits(limits)?;
     if blobs.is_empty() || blobs.len() > limits.max_blobs {
         return Err(LanderError::Capacity(
-            "blob collection is empty or exceeds configured limit".into(),
+            "blob collection is empty or exceeds the per-landing limit".into(),
         ));
     }
     let mut payload = Vec::new();
@@ -135,7 +135,9 @@ pub fn decode(blobs: &[Blob], limits: &Limits) -> Result<Vec<u8>> {
             .checked_add(chunk.len())
             .ok_or_else(|| LanderError::Capacity("decoded payload length overflow".into()))?;
         if total > limits.max_payload_bytes {
-            return Err(LanderError::Capacity("decoded payload exceeds configured limit".into()));
+            return Err(LanderError::Capacity(
+                "decoded payload exceeds the per-landing limit".into(),
+            ));
         }
         payload.extend_from_slice(&chunk);
     }

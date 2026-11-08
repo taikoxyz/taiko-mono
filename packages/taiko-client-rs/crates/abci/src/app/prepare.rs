@@ -47,8 +47,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// when every call is slow but in time; a request queued behind it waits no longer. A failed
     /// build (I/O error, timeout, a failing pre-check, an unavailable switch witness or forced
     /// admission bytes, an envelope above `max_tx_bytes` or one landing) is recorded as the halt
-    /// reason and logged, and answers empty `txs`; it is never an error. The only error is a
-    /// request before `InitChain`.
+    /// reason and logged, and answers empty `txs`. The errors are a request before `InitChain`
+    /// and a failure that needs its dependency repaired
+    /// ([`Rejection::requires_dependency_repair`]: malformed own-L1 or EL replies, or execution
+    /// state the EL does not know), a safety halt.
     pub(super) async fn prepare_proposal(
         &mut self,
         req: request::PrepareProposal,

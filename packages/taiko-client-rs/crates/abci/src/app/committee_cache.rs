@@ -291,9 +291,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// A failed discovery answers with the rejection of its cause ([`Rejection::from`] its
     /// [`FetchError`]), in the round that sees it end and in every round of its backoff alike.
     /// An own L1 that is unreachable, lags, fails a read or times out leaves the witness
-    /// unavailable: a liveness pause (RECOV-8-4, RECOV-8-5). Malformed or unverifiable data from
-    /// it ([`L1Error::is_integrity_failure`](crate::l1::L1Error::is_integrity_failure)) halts the
-    /// node for safety instead (SYNC-9-7), and the backoff never turns that into a pause.
+    /// unavailable: a liveness pause (RECOV-8-4, RECOV-8-5). Malformed or contradictory replies
+    /// from it ([`L1Error::is_integrity_failure`](crate::l1::L1Error::is_integrity_failure)) halt
+    /// the node for safety instead (SYNC-9-7), and the backoff never turns that into a pause.
     pub(super) async fn discovered_committee_witness(
         &self,
         state: &AppState,

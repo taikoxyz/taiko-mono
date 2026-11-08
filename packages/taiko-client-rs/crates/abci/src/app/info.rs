@@ -286,7 +286,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
 /// switch height (an empty list included) and by none otherwise.
 ///
 /// `origin` is the current generation's origin height. A record below it is from an earlier
-/// generation and does not count (SYNC-9-5c), even in a reused data directory.
+/// generation and does not count (SYNC-9-5c). That bound alone cannot exclude an earlier
+/// generation's records above the origin: each generation starts in an empty app directory
+/// (`abci-recover install`), and saving a record that differs from a valid kept one fails with
+/// [`StoreError::ValStateConflict`].
 ///
 /// No valid record in that range, a switch height in between whose update record is missing
 /// or corrupt, an unreadable record or updates the arithmetic refuses are missing data

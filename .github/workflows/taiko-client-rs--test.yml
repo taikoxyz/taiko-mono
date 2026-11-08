@@ -185,7 +185,7 @@ jobs:
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
         with:
           just-version: 1.5.0
-      - name: Run guarded signer race tests
+      - name: Run guarded signer tests
         working-directory: packages/taiko-client-rs
         run: just signer-test
 
@@ -256,7 +256,7 @@ jobs:
       matrix:
         # `native` is the governance_recovery binary, the only suite that needs
         # stock Comet, the native EL and the recovery test image; `devnet` is
-        # every other scenario. Hash shards built those helpers on both runners.
+        # every other scenario, so only the native runner builds those helpers.
         lane: [devnet, native]
     env:
       TAIKO_CLIENT_RS_TEST_LANE: ${{ matrix.lane }}

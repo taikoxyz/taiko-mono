@@ -495,10 +495,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
     }
 
     /// Completes a cold forced decision before deriving the next cursor. Included transactions,
-    /// early peeks and invalid-byte skips need no singleton build. Canonical skips require the
-    /// committed parent's historical state and an empty singleton result with matching headers.
-    /// Retryable errors and timeouts wait; permanent availability errors halt under
-    /// [`FORCED_SKIP_PROBE`]. Never submit or canonicalize the singleton result.
+    /// early peeks and invalid-byte skips need no singleton build. A canonical skip builds the
+    /// singleton on the committed parent's historical state and needs an empty result with
+    /// matching headers. Retryable Engine errors and timeouts wait and retry; any other Engine
+    /// error (usually the parent's state is gone) is a safety halt with reason
+    /// [`FORCED_SKIP_PROBE`] (RECOV-8-13), and a build that contradicts the skip rejects the
+    /// decided block, also a safety halt. Never submit or canonicalize the singleton result.
     /// Keep the pinned EL's `allow-unwind-canonical-header` disabled for historical probes.
     async fn confirm_forced(
         &self,
