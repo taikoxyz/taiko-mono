@@ -561,8 +561,8 @@ fn registry_reads_at(app: &App<MockL1, MockEngine>, block: u64) -> (usize, usize
 
 /// A switch-witness discovery its L1 keeps failing (a rate limit, a proof window too short) is
 /// restarted only once its backoff has passed since it failed: 2 s, doubling per failure up to
-/// 60 s, however many rounds and commits come in between. Each restart resumes from the reads
-/// already finished, and once the L1 serves proofs again the next attempt succeeds.
+/// 60 s, however many rounds and commits come in between. Each restart reads afresh, and once
+/// the L1 serves proofs again the next attempt succeeds.
 #[tokio::test(start_paused = true)]
 async fn a_failing_switch_witness_prefetch_is_restarted_after_a_growing_backoff() {
     let fx = Fixture::genesis(3);
@@ -576,23 +576,20 @@ async fn a_failing_switch_witness_prefetch_is_restarted_after_a_growing_backoff(
     decide(&mut app, &req).await;
     let state = app.state().unwrap().clone();
 
-    // `checkpoints.length` and the checkpoint head are read once; every attempt then fails on
-    // the entries read.
+    // Every attempt reads `checkpoints.length` and the checkpoint head, then fails on the
+    // entries read.
     for (attempt, pause) in [2, 4, 8, 16, 32, 60, 60].into_iter().enumerate() {
         assert!(app.prefetched_committee_witness(&state, 2).await.is_none());
-        assert_eq!(registry_reads_at(&app, 70), (2, attempt + 1));
+        let reads = (2 * (attempt + 1), attempt + 1);
+        assert_eq!(registry_reads_at(&app, 70), reads);
         tokio::time::advance(Duration::from_secs(pause) - Duration::from_millis(1)).await;
         app.prefetch_committee_witness(&state);
         tokio::task::yield_now().await;
-        assert_eq!(registry_reads_at(&app, 70), (2, attempt + 1), "within the {pause} s pause");
+        assert_eq!(registry_reads_at(&app, 70), reads, "within the {pause} s pause");
         tokio::time::advance(Duration::from_millis(1)).await;
         app.adopt_committee_prefetch(&state);
         tokio::task::yield_now().await;
-        assert_eq!(
-            registry_reads_at(&app, 70),
-            (2, attempt + 1),
-            "only a round or commit restarts"
-        );
+        assert_eq!(registry_reads_at(&app, 70), reads, "only a round or commit restarts");
         app.prefetch_committee_witness(&state);
     }
     assert!(app.prefetched_committee_witness(&state, 2).await.is_none());
@@ -600,7 +597,7 @@ async fn a_failing_switch_witness_prefetch_is_restarted_after_a_growing_backoff(
     tokio::time::advance(Duration::from_secs(60)).await;
     app.prefetch_committee_witness(&state);
     assert!(app.prefetched_committee_witness(&state, 2).await.is_some());
-    assert_eq!(registry_reads_at(&app, 70), (2, 10), "the entries and the snapshot proof");
+    assert_eq!(registry_reads_at(&app, 70), (18, 10), "a whole discovery the ninth time");
 }
 
 /// Commits the block adopting anchor 70 at `D(t)-2` (see [`before_anchor_adoption`]), that block
@@ -671,41 +668,68 @@ async fn a_committee_witness_judged_at_a_switch_is_reused_by_the_next_proposer()
     assert_eq!(own.committee, Some(witness));
 }
 
-/// `PrepareProposal`'s deadline does not grow with the round, so a discovery cut short by it
-/// keeps the registry reads it finished: the next attempt at the height resumes from them.
+/// A validator at `D(t)` that holds no switch-witness discovery (as one that reached `D(t)`
+/// without a live `Commit`, a reopened one say) gets it from the first `S(t)` `PrepareProposal`,
+/// which starts the background discovery at the committed parent anchor (COMM-4.3-11) and waits
+/// for it within its deadline. With a fast L1 it proposes from it in that round, and later rounds
+/// read nothing more. With a slow L1 the round ends empty (RECOV-8-4) while the discovery keeps
+/// reading past its deadline, and the next round proposes from it without repeating a read.
 #[tokio::test(start_paused = true)]
-async fn a_discovery_cut_short_by_the_deadline_resumes_where_it_stopped() {
+async fn prepare_starts_the_switch_discovery_when_none_runs() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
     let mut app = before_switch(&fx, dir.path()).await;
-    let registry = fx.params.registry;
-    let storage_reads = |app: &App<MockL1, MockEngine>| -> Vec<L1Call> {
-        let calls = app.l1().calls();
-        calls.into_iter().filter(|c| matches!(c, L1Call::StorageAt { .. })).collect()
-    };
+    assert!(app.committee_prefetch().is_none(), "nothing was prefetched at D(t)");
+    let env = propose(&mut app).await;
+    let state = app.state().unwrap().clone();
+    let found = app
+        .prefetched_committee_witness(&state, 2)
+        .await
+        .expect("the proposal started the background discovery");
+    assert_eq!(found.proof_anchor.0, 70, "at the committed parent anchor");
+    assert_eq!(env.committee, Some(found.witness));
+    // `checkpoints.length`, the one checkpoint head, the entries and the snapshot proof.
+    assert_eq!(registry_reads(&app), 4, "{:?}", app.l1().calls());
+    let (resp, _) = judge(&mut app, &env).await;
+    assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
+    assert_eq!(propose(&mut app).await.committee, env.committee);
+    assert_eq!(registry_reads(&app), 4, "later rounds reuse it: {:?}", app.l1().calls());
 
-    // 600 ms per read: the finalized number, `checkpoints.length` and the one checkpoint head
-    // answer by 1.8 s; the entries read is still pending at the 2 s deadline.
+    // 600 ms per read: the discovery needs 2.4 s, past the 2 s deadline of the round.
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = before_switch(&fx, dir.path()).await;
     app.l1().state().delay = Some(Duration::from_millis(600));
     assert_eq!(refused(&mut app).await, "timeout");
-    let finished = storage_reads(&app);
-    assert_eq!(finished.len(), 2, "{:?}", app.l1().calls());
-
-    // The next round reads only what is still missing: the entries and the snapshot proof.
-    app.l1().state().delay = None;
-    app.l1().state().calls.clear();
-    let env = propose(&mut app).await;
-    assert_eq!(storage_reads(&app), [], "the finished reads are not repeated");
-    assert_eq!(registry_reads(&app), 2, "{:?}", app.l1().calls());
-    let witness = crate::l1::build_committee_witness(app.l1(), &app.params, 70, 2)
-        .await
-        .expect("the witness builds");
-    assert_eq!(env.committee, Some(witness));
-    assert!(
-        finished
-            .iter()
-            .all(|c| matches!(c, L1Call::StorageAt { address, .. } if *address == registry))
+    assert_eq!(propose(&mut app).await.committee, env.committee);
+    assert_eq!(
+        registry_reads(&app),
+        4,
+        "no read is repeated across rounds: {:?}",
+        app.l1().calls()
     );
+}
+
+/// A switch-witness discovery that fails, even on a malformed own-L1 answer, leaves the witness
+/// unavailable: a liveness pause (RECOV-8-4), never a halt. A round within its backoff proposes
+/// nothing at once and reads nothing; the first round past it restarts the discovery.
+#[tokio::test(start_paused = true)]
+async fn a_failed_switch_discovery_pauses_proposals_without_halting() {
+    let fx = Fixture::genesis(3);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = before_switch(&fx, dir.path()).await;
+    let malformed = L1Error::ProofSlotMismatch { requested: vec![], got: vec![B256::ZERO] };
+    assert!(malformed.is_integrity_failure());
+    app.l1().state().proof_fail = Some(malformed);
+    assert_eq!(refused(&mut app).await, "registry_discovery");
+    assert!(app.store.fatal_evidence().unwrap().is_none(), "no halt");
+    let reads = registry_reads(&app);
+    tokio::time::advance(Duration::from_millis(1_999)).await;
+    assert_eq!(refused(&mut app).await, "registry_discovery", "within the 2 s backoff");
+    assert_eq!(registry_reads(&app), reads, "{:?}", app.l1().calls());
+
+    app.l1().state().proof_fail = None;
+    tokio::time::advance(Duration::from_millis(1)).await;
+    assert!(propose(&mut app).await.committee.is_some());
 }
 
 /// A cached witness is only reused for the same parent anchor and target epoch.
@@ -728,11 +752,25 @@ async fn a_cached_committee_witness_of_another_parent_anchor_is_not_reused() {
     assert_eq!(env.committee.expect("switch 2 carries a committee").record.cutoff_l1_block, 72);
 }
 
-/// At `H(t)-2` the cheap candidate checks run before the committee discovery: a block that
-/// cannot be proposed anyway (back-pressure, a superseded generation, a stale anchor) costs no
-/// registry read.
-#[tokio::test]
-async fn failing_pre_checks_skip_the_committee_discovery() {
+/// Prepares the next height of `app` while every registry read at its snapshot block (the
+/// committed anchor) takes a minute; expects a refusal at once and returns its label.
+async fn refused_at_once(app: &mut App<MockL1, MockEngine>) -> String {
+    let snapshot = app.state().unwrap().anchor.number;
+    app.l1().state().block_delay = Some((snapshot, Duration::from_secs(60)));
+    let start = tokio::time::Instant::now();
+    let label = refused(app).await;
+    assert_eq!(start.elapsed(), Duration::ZERO, "{label}: the round waited");
+    assert!(app.committee_prefetch().is_some(), "{label}: the discovery runs in the background");
+    label
+}
+
+/// At `H(t)-2` the cheap candidate checks run before the proposal waits for the committee
+/// witness: a block that cannot be proposed anyway (back-pressure, a superseded generation, a
+/// stale anchor) is refused for that reason at once, however long the switch-witness discovery
+/// takes. The round still starts that discovery in the background, as every `ProcessProposal`
+/// does, so it is under way once the cause clears.
+#[tokio::test(start_paused = true)]
+async fn failing_pre_checks_refuse_before_waiting_for_the_committee_witness() {
     let fx = Fixture::genesis(3);
 
     // Back-pressure: the checkpoint is still at B*, more than the cap below h_first(1).
@@ -742,9 +780,7 @@ async fn failing_pre_checks_skip_the_committee_discovery() {
     fx.advance_l1(app.l1(), 70, &fx.inbox, &fx.registry);
     let anchor = fx.anchor_state(app.l1(), 70);
     jump(&mut app, h_e - 1, anchor, &[(1, fx.committee(1))]);
-    app.l1().state().calls.clear();
-    assert_eq!(refused(&mut app).await, "back_pressure");
-    assert_eq!(registry_reads(&app), 0, "back-pressure: {:?}", app.l1().calls());
+    assert_eq!(refused_at_once(&mut app).await, "back_pressure");
 
     // Generation: the new anchor proves a later recovery generation.
     let dir = tempfile::tempdir().unwrap();
@@ -754,17 +790,13 @@ async fn failing_pre_checks_skip_the_committee_discovery() {
     fx.advance_l1(app.l1(), 70, &inbox, &fx.registry);
     let anchor = fx.anchor_state(app.l1(), fx.genesis.l1_0);
     jump(&mut app, h_e - 1, anchor, &[(1, fx.committee(1))]);
-    app.l1().state().calls.clear();
-    assert_eq!(refused(&mut app).await, "superseded");
-    assert_eq!(registry_reads(&app), 0, "generation: {:?}", app.l1().calls());
+    assert_eq!(refused_at_once(&mut app).await, "superseded");
 
     // Freshness: the finalized anchor 70 is more than maxAnchorAge older than the block.
     let dir = tempfile::tempdir().unwrap();
     let mut app = before_switch(&fx, dir.path()).await;
     set_anchor_age(&mut app, fx.genesis.max_anchor_age + 1);
-    app.l1().state().calls.clear();
-    assert_eq!(refused(&mut app).await, "anchor_too_old");
-    assert_eq!(registry_reads(&app), 0, "freshness: {:?}", app.l1().calls());
+    assert_eq!(refused_at_once(&mut app).await, "anchor_too_old");
 }
 
 /// Independent header and proof reads share one bounded preparation window.

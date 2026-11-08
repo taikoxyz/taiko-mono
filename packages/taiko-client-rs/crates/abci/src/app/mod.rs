@@ -28,7 +28,7 @@ use crate::{
     elsync::{ElSyncError, ensure_block},
     engine::{Engine, EngineError},
     genesis::GenesisError,
-    l1::{DiscoveryProgress, L1Error, L1Source},
+    l1::{L1Error, L1Source},
     metrics::{AbciMetrics, set_u64},
     rules::{RuleViolation, check_chain_id},
     schedule::ScheduleError,
@@ -298,18 +298,17 @@ pub struct App<L: L1Source, E: Engine> {
     /// `FinalizeBlock`; cleared at `Commit`.
     verdicts: Verdicts,
     /// The last committee witness verified for switch height `H(t)-2`, by `PrepareProposal` (its
-    /// own), `ProcessProposal` (another proposer's) or the background discovery under the
-    /// committed anchor ([`App::prefetch_committee_witness`]), kept so that this node's proposals
-    /// at that height reuse it instead of reading the registry again. It lives in memory only:
-    /// a restart re-discovers it from the own L1 (SYNC-9-16). It is dropped once the committed
-    /// state leaves that context (another anchor or switch). Behind a mutex as the handlers run
-    /// on `&self`.
+    /// own), `ProcessProposal` (another proposer's) or the background discovery at the snapshot
+    /// block ([`App::prefetch_committee_witness`]), kept so that this node's proposals at that
+    /// height reuse it instead of reading the registry again. It lives in memory only: a restart
+    /// re-discovers it from the own L1 (SYNC-9-16). It is dropped once the committed state leaves
+    /// that context (another anchor or switch). Behind a mutex as the handlers run on `&self`.
     committee_cache: Mutex<Option<CachedCommittee>>,
-    /// The registry reads of a committee discovery `PrepareProposal`'s deadline or a failed L1
-    /// read cut short, from which the next attempt resumes; cleared at `Commit`.
-    discovery: DiscoveryProgress,
-    /// The background discovery of the upcoming switch height's committee witness under the
-    /// committed anchor ([`App::prefetch_committee_witness`]).
+    /// The background discovery of the upcoming switch height's committee witness at the
+    /// committed state's snapshot block, the only one this node runs: `Commit`,
+    /// `ProcessProposal` and `PrepareProposal` start it ([`App::prefetch_committee_witness`]),
+    /// and a proposal needing the witness joins it ([`App::discovered_committee_witness`]). It
+    /// runs on past any request's deadline; a committed state of another context drops it.
     committee_prefetch: Mutex<Option<CommitteePrefetch>>,
     /// Bounded completed anchor, forced proof and authenticated transaction reads. Each successful
     /// stage survives an overall proposal timeout; root/hash keys prevent reuse for different
@@ -417,7 +416,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
             pending_val_updates: None,
             verdicts: Verdicts::default(),
             committee_cache: Mutex::default(),
-            discovery: DiscoveryProgress::default(),
             committee_prefetch: Mutex::default(),
             preparation_cache: Arc::default(),
             decided_live: false,

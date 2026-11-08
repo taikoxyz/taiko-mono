@@ -1,5 +1,6 @@
 //! Independently verified switch witnesses, held in memory only and separate from consensus
-//! state; a restart re-discovers them from the own L1 (SYNC-9-16).
+//! state, and the one background discovery that acquires them from the own L1; a restart
+//! re-discovers them there (SYNC-9-16).
 
 use std::{sync::Arc, time::Duration};
 
@@ -12,7 +13,7 @@ use crate::{
     config::ChainParams,
     engine::Engine,
     envelope::CommitteeWitness,
-    l1::{DiscoveryProgress, L1Source, build_committee_witness_within, header_at},
+    l1::{L1Source, build_committee_witness_within, header_at},
     rules,
     store::AppState,
     types::{AnchorState, GenesisRecord},
@@ -92,15 +93,24 @@ impl CacheKey {
 pub(super) struct CommitteePrefetch {
     /// The context the witness is discovered for.
     key: CacheKey,
-    /// The verified witness, or when discovery failed (logged with why); `None` while it runs.
-    result: watch::Receiver<Option<Result<PrefetchedCommittee, Instant>>>,
-    /// The reads finished so far, kept when a discovery for the same context restarts after a
-    /// failed read.
-    progress: Arc<DiscoveryProgress>,
+    /// The discovery's outcome; `None` while it runs.
+    result: watch::Receiver<Outcome>,
     /// The failed attempts for the same context before this one.
     failures: u32,
     /// The owned discovery.
     task: JoinHandle<()>,
+}
+
+/// What a background discovery publishes once it ends: the verified witness, or its failure.
+type Outcome = Option<Result<PrefetchedCommittee, FailedDiscovery>>;
+
+/// A background discovery that ended without a verified witness.
+#[derive(Clone, Debug)]
+struct FailedDiscovery {
+    /// When it failed; the backoff ([`prefetch_backoff`]) runs from here.
+    at: Instant,
+    /// Why, as logged.
+    reason: String,
 }
 
 /// A background discovery's verified witness and the L1 block its registry proofs verify under.
@@ -113,11 +123,12 @@ pub(super) struct PrefetchedCommittee {
     pub(super) proof_anchor: (u64, B256, B256),
 }
 
-/// The L1 block a switch-witness discovery for `state` reads and proves at: the committed
-/// parent anchor, or the generation origin R while that anchor still precedes it. Registry
-/// checkpoints are append-only, so a snapshot proven at its own cutoff stays the same snapshot
-/// under every later root.
-fn snapshot_block(state: &AppState) -> u64 {
+/// The L1 block whose registry snapshot the switch witness for `state` takes, and that the
+/// discovery reads and proves at: the committed parent anchor (that of `D(t)` at `S(t)`), or the
+/// generation origin R while that anchor still precedes it, i.e. their maximum (COMM-4.3-11). A
+/// candidate's own anchor never selects it. Registry checkpoints are append-only, so a snapshot
+/// proven at its own cutoff stays the same snapshot under every later root.
+pub(super) fn snapshot_block(state: &AppState) -> u64 {
     state.anchor.number.max(state.anchor_floor())
 }
 
@@ -163,24 +174,25 @@ fn prefetch_target(state: &AppState, params: &ChainParams) -> Option<u64> {
 }
 
 impl<L: L1Source, E: Engine> App<L, E> {
-    /// Makes sure the committee witness of the upcoming switch `S(t)` gets discovered under the
-    /// committed anchor while that L1 state is recent, whenever that anchor may still be the
-    /// parent anchor of `S(t)` ([`prefetch_target`]): unless the witness is cached, starts a
-    /// background discovery (restarting a failed one after its backoff, [`prefetch_backoff`]),
-    /// and adopts a finished one by verifying and caching it in memory
-    /// ([`App::cache_committee_witness_at_root`]). The witness is kept across
-    /// commits while the committed anchor stays.
+    /// Makes sure the committee witness of the upcoming switch `S(t)` gets discovered at its
+    /// [`snapshot_block`] while that L1 state is recent, whenever the committed anchor may still
+    /// be the parent anchor of `S(t)` ([`prefetch_target`]): unless a witness of that context is
+    /// held, starts the background discovery (restarting a failed one after its backoff,
+    /// [`prefetch_backoff`]), and adopts a finished one by verifying and caching it in memory
+    /// ([`App::cache_committee_witness_at_root`]). The witness is kept across commits while the
+    /// committed anchor stays.
     ///
-    /// Runs at a live `Commit` and at every `ProcessProposal`, which every node (full nodes
+    /// Runs at a live `Commit`, at every `ProcessProposal`, which every node (full nodes
     /// included) handles in each round that delivers a proposal while it is not locked on a block,
-    /// empty proposals included. The live `Commit` of the block adopting an anchor discovers its
-    /// witness right away, so an L1 finality stall that keeps that anchor until `D(t)` (and on
-    /// until freshness stops proposals) or an outage resumes from the cached witness even once
-    /// the L1 node pruned the anchor's state, provided that state was still served when the
-    /// discovery ran. Nothing survives a restart: the restarted node discovers the witness again
-    /// from its own L1, which must then still serve that state (SYNC-9-16). `PrepareProposal`
-    /// and a replayed `Commit` only adopt a finished discovery
-    /// ([`App::adopt_committee_prefetch`]); a proposal waits for a running one.
+    /// empty proposals included, and at every `PrepareProposal`. The live `Commit` of the block
+    /// adopting an anchor discovers its witness right away, so an L1 finality stall that keeps
+    /// that anchor until `D(t)` (and on until freshness stops proposals) or an outage resumes from
+    /// the cached witness even once the L1 node pruned the anchor's state, provided that state
+    /// was still served when the discovery ran. Nothing survives a restart: the restarted node
+    /// discovers the witness again from its own L1, which must then still serve that state
+    /// (SYNC-9-16). A replayed `Commit` only adopts a finished discovery
+    /// ([`App::adopt_committee_prefetch`]). This discovery is the only one: a proposal that needs
+    /// the witness joins it ([`App::discovered_committee_witness`]).
     pub(super) fn prefetch_committee_witness(&self, state: &AppState) {
         self.refresh_committee_prefetch(state, true);
     }
@@ -191,9 +203,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
         self.refresh_committee_prefetch(state, false);
     }
 
-    /// Adopts, drops or (when `start`) starts the switch-witness prefetch for `state`; a failed
-    /// discovery for the same context restarts once its backoff has passed since it failed, and
-    /// resumes from the reads it finished.
+    /// Adopts, drops or (when `start`) starts the switch-witness prefetch for `state`
+    /// ([`App::committee_discovery`]).
     fn refresh_committee_prefetch(&self, state: &AppState, start: bool) {
         // Before the first recovered commit the retained anchor of c precedes the generation
         // origin R. Only c + 1 can then be a switch whose snapshot this state fixes, and that
@@ -219,53 +230,92 @@ impl<L: L1Source, E: Engine> App<L, E> {
             // Committed anchors and switches only move forward: no later state uses it.
             *cache = None;
         }
-        let finished = {
-            let mut slot = self.committee_prefetch();
-            if slot.as_ref().is_some_and(|prefetch| prefetch.key != key) {
-                *slot = None;
+        let finished =
+            self.committee_discovery(key, state, target, start).and_then(|o| o.borrow().clone());
+        if let Some(Ok(found)) = finished {
+            match self.cache_committee_witness_at_root(
+                state,
+                found.proof_anchor,
+                target,
+                &found.witness,
+            ) {
+                Ok(()) => *self.committee_prefetch() = None,
+                Err(error) => tracing::warn!(%error, "prefetched committee witness not retained"),
             }
-            slot.as_ref().map(|prefetch| (prefetch.result.borrow().clone(), prefetch.failures))
-        };
-        match finished {
-            // Still running.
-            Some((None, _)) => {}
-            Some((Some(Ok(found)), _)) => {
-                match self.cache_committee_witness_at_root(
-                    state,
-                    found.proof_anchor,
-                    target,
-                    &found.witness,
-                ) {
-                    Ok(()) => *self.committee_prefetch() = None,
-                    Err(error) => {
-                        tracing::warn!(%error, "prefetched committee witness not retained");
-                    }
-                }
-            }
-            Some((Some(Err(failed_at)), failures))
-                if start && failed_at.elapsed() >= prefetch_backoff(failures) =>
-            {
-                let mut slot = self.committee_prefetch();
-                let progress = slot.take().map(|failed| Arc::clone(&failed.progress));
-                *slot = Some(self.spawn_committee_prefetch(
-                    key,
-                    state,
-                    target,
-                    progress.unwrap_or_default(),
-                    failures.saturating_add(1),
-                ));
-            }
-            None if start => {
-                *self.committee_prefetch() =
-                    Some(self.spawn_committee_prefetch(key, state, target, Arc::default(), 0));
-            }
-            Some((Some(Err(_)), _)) | None => {}
         }
     }
 
-    /// Waits for the running or finished prefetch of `target`'s witness under `state`, if any:
-    /// a proposal then shares the background discovery instead of repeating its reads. `None`
-    /// when there is none or it failed; the proposal then discovers on its own.
+    /// The outcome of the background discovery of `target`'s witness for `state` (`key` its
+    /// context), if one is held. A discovery for another context, which the committed state
+    /// left (another snapshot block or target), is dropped and so aborted first. When `start`, a
+    /// missing discovery is started and a failed one restarted, from scratch, once its backoff
+    /// has passed; a running one is never restarted.
+    fn committee_discovery(
+        &self,
+        key: CacheKey,
+        state: &AppState,
+        target: u64,
+        start: bool,
+    ) -> Option<watch::Receiver<Outcome>> {
+        let mut slot = self.committee_prefetch();
+        if slot.as_ref().is_some_and(|discovery| discovery.key != key) {
+            *slot = None;
+        }
+        let restart = match slot.as_ref() {
+            None => Some(0),
+            Some(discovery) => match &*discovery.result.borrow() {
+                Some(Err(failed))
+                    if failed.at.elapsed() >= prefetch_backoff(discovery.failures) =>
+                {
+                    Some(discovery.failures.saturating_add(1))
+                }
+                _ => None,
+            },
+        };
+        if start && let Some(failures) = restart {
+            *slot = Some(self.spawn_committee_prefetch(key, state, target, failures));
+        }
+        slot.as_ref().map(|discovery| discovery.result.clone())
+    }
+
+    /// The switch witness of `target` for `state` from the background discovery at
+    /// [`snapshot_block`]: starts it when none is held for this context (restarting a failed one
+    /// whose backoff has passed), or joins the running one, and waits for it. The wait holds no
+    /// lock and is bounded only by the caller's deadline (`PrepareProposal`'s); the discovery
+    /// goes on past it, so a later round finds it further along or done instead of starting over.
+    ///
+    /// A discovery that failed, and still backs off, is an unavailable committee witness: a
+    /// liveness pause (RECOV-8-4), so [`Rejection::Registry`] whatever the cause, never a halt.
+    pub(super) async fn discovered_committee_witness(
+        &self,
+        state: &AppState,
+        target: u64,
+    ) -> Result<PrefetchedCommittee, Rejection> {
+        let key = CacheKey::new(state, &self.params, target);
+        let mut outcome = self
+            .committee_discovery(key, state, target, true)
+            .expect("a missing discovery was just started");
+        loop {
+            let finished = outcome.borrow_and_update().clone();
+            if let Some(finished) = finished {
+                return finished.map_err(|failed| {
+                    Rejection::Registry(format!(
+                        "switch witness discovery failed ({}); it restarts after its backoff",
+                        failed.reason
+                    ))
+                });
+            }
+            if outcome.changed().await.is_err() {
+                return Err(Rejection::Registry(
+                    "the switch witness discovery stopped without a result".into(),
+                ));
+            }
+        }
+    }
+
+    /// Waits for the running or finished prefetch of `target`'s witness under `state`, if any,
+    /// without starting one. `None` when there is none or it failed.
+    #[cfg(test)]
     pub(super) async fn prefetched_committee_witness(
         &self,
         state: &AppState,
@@ -287,7 +337,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
     /// Discovers and verifies the committee witness of `target` for `state` in the background at
     /// its [`snapshot_block`], each read within the L1 deadline and all of it within
-    /// [`COMMITTEE_PREFETCH_TIMEOUT`], after `failures` failed attempts for the same context.
+    /// [`COMMITTEE_PREFETCH_TIMEOUT`], after `failures` failed attempts for the same context. The
+    /// task owns everything it reads with (the L1 handle, the parameters and the anchor), so it
+    /// takes no lock of the app and runs on whatever request the app handles meanwhile.
     ///
     /// At R the header comes from the own L1 like every other discovery read; a proposal still
     /// re-proves the witness under its own anchor, and every validator verifies it there.
@@ -296,7 +348,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
         key: CacheKey,
         state: &AppState,
         target: u64,
-        progress: Arc<DiscoveryProgress>,
         failures: u32,
     ) -> CommitteePrefetch {
         let (l1, params, anchor) =
@@ -304,7 +355,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let block = snapshot_block(state);
         let read_timeout = self.opts.l1_timeout;
         let (sender, result) = watch::channel(None);
-        let reads = Arc::clone(&progress);
         let task = tokio::spawn(async move {
             let discovery = async {
                 let proof_anchor = if block == anchor.number {
@@ -316,16 +366,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
                         .map_err(|error| error.to_string())?;
                     (header.number(), header.hash(), header.state_root())
                 };
-                let witness = build_committee_witness_within(
-                    &*l1,
-                    &params,
-                    block,
-                    target,
-                    read_timeout,
-                    &reads,
-                )
-                .await
-                .map_err(|error| error.to_string())?;
+                let witness =
+                    build_committee_witness_within(&*l1, &params, block, target, read_timeout)
+                        .await
+                        .map_err(|error| error.to_string())?;
                 verify_committee_witness_at_cutoff(
                     proof_anchor.2,
                     block,
@@ -340,24 +384,25 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 Ok(outcome) => outcome,
                 Err(_) => Err("timed out".into()),
             };
-            let outcome = outcome.map_err(|error: String| {
+            let outcome = outcome.map_err(|reason: String| {
                 tracing::warn!(
                     parent_anchor = anchor.number,
                     snapshot_block = block,
                     target_epoch = target,
                     failures = failures.saturating_add(1),
                     retry_in = ?prefetch_backoff(failures),
-                    %error,
+                    error = %reason,
                     "committee witness prefetch failed"
                 );
-                Instant::now()
+                FailedDiscovery { at: Instant::now(), reason }
             });
             let _ = sender.send(Some(outcome));
         });
-        CommitteePrefetch { key, result, progress, failures, task }
+        CommitteePrefetch { key, result, failures, task }
     }
 
     /// Returns a previously verified witness only for the same complete authenticated context.
+    #[cfg(test)]
     pub(super) fn cached_committee_witness(
         &self,
         state: &AppState,
@@ -429,8 +474,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
         )
     }
 
-    /// Verifies and retains a witness in memory under the supplied L1 header identity. Recovery
-    /// discovery uses R's root before re-proving the same snapshot under a candidate anchor.
+    /// Verifies a witness at `state`'s [`snapshot_block`] under the supplied L1 header identity
+    /// and retains it in memory. The background discovery's witness is retained under its
+    /// snapshot block's root, a candidate's under the candidate anchor's.
     pub(super) fn cache_committee_witness_at_root(
         &self,
         state: &AppState,
@@ -447,12 +493,31 @@ impl<L: L1Source, E: Engine> App<L, E> {
         }
         verify_committee_witness_at_cutoff(
             proof_anchor.2,
-            state.anchor.number.max(state.anchor_floor()),
+            snapshot_block(state),
             &self.params,
             witness,
             target_epoch,
         )?;
         *cache = Some(CachedCommittee { key, witness: witness.clone() });
         Ok(())
+    }
+
+    /// Drops the retained `witness` of `state`'s derivation context once its snapshot failed
+    /// under an authenticated candidate root: it is then no basis for a re-proof, and while it is
+    /// held the prefetch would leave the discovery that replaces it cancelled.
+    pub(super) fn forget_committee_witness(
+        &self,
+        state: &AppState,
+        target_epoch: u64,
+        witness: &CommitteeWitness,
+    ) {
+        let key = CacheKey::new(state, &self.params, target_epoch);
+        let mut cache = self.committee_cache();
+        if cache
+            .as_ref()
+            .is_some_and(|cached| key.same_context(&cached.key) && cached.witness == *witness)
+        {
+            *cache = None;
+        }
     }
 }

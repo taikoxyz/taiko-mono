@@ -214,11 +214,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Handles `Commit`: persists the state the last `FinalizeBlock` derived and makes it the
     /// committed state.
     ///
-    /// Clears the `ProcessProposal` cache, the kept reads of an unfinished committee discovery,
-    /// the proposal reads (but for the entry at the committed cursor, whose authenticated bytes
-    /// remain reusable) and the halt reason, drops a cached committee witness the new committed
-    /// state no longer needs, starts a live decision's switch-witness prefetch, publishes the
-    /// new head's gauges, and answers `retain_height = 0` (no block pruning). When the new
+    /// Clears the `ProcessProposal` cache, the proposal reads (but for the entry at the committed
+    /// cursor, whose authenticated bytes remain reusable) and the halt reason, drops a cached
+    /// committee witness or a running discovery the new committed state no longer needs, starts
+    /// a live decision's switch-witness prefetch, publishes the new head's gauges, and answers
+    /// `retain_height = 0` (no block pruning). When the new
     /// state raises [`AppState::comet_history_floor`], the Comet block IDs below it are deleted
     /// after the state is durable; a failed deletion only logs, and the next raise retries it.
     /// Before the state, in the same barrier (SYNC-9-5c): at a grid height the validator state
@@ -256,7 +256,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
         self.state = self.pending.take();
         self.pending_val_updates = None;
         self.verdicts.clear();
-        self.discovery.clear();
         let state = self.state.as_ref().expect("just committed");
         self.prepare_next_height(state);
         if self.decided_live {

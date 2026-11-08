@@ -602,10 +602,13 @@ async fn recovered_trust_summary_uses_verified_recovery_header() {
     );
 }
 
-/// The first new-generation block can itself derive an incoming committee. Its R snapshot
-/// must make progress across rounds whose total discovery exceeds PrepareProposal's budget.
+/// The first new-generation block can itself derive an incoming committee, from R's snapshot
+/// (COMM-4.3-11). Every state read at R here outlasts a whole PrepareProposal budget: the first
+/// round starts the background discovery at R and proposes nothing (RECOV-8-4, RECOV-8-10), the
+/// discovery keeps reading past that deadline, and the next round proposes from it. No registry
+/// read is repeated across rounds, and the snapshot is read at R alone.
 #[tokio::test(start_paused = true)]
-async fn recovery_first_switch_resumes_discovery_across_slow_proposal_rounds() {
+async fn recovery_first_switch_waits_for_the_background_discovery_at_r() {
     use super::proposal::{bft_time, next_height, prepare, prepare_req};
     use crate::test_utils::{GenesisSpec, L1Call, recovery_fixture_with_spec};
     use std::time::Duration;
@@ -618,43 +621,66 @@ async fn recovery_first_switch_resumes_discovery_across_slow_proposal_rounds() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
     init_chain(&mut app, request(&document(&fx, &w))).await.unwrap();
+    let floor = app.state().unwrap().anchor_floor();
     assert_eq!(app.state().unwrap().schedule().switch_target(7), Some(1));
-    assert_eq!(app.state().unwrap().anchor.number, 64);
-    assert_eq!(app.state().unwrap().anchor_floor(), 100);
+    assert!(app.state().unwrap().anchor.number < floor, "c's retained anchor precedes R");
+    let slow = Duration::from_millis(2_500);
+    assert!(
+        slow > AppOptions::default().prepare_timeout && slow < AppOptions::default().l1_timeout
+    );
+    app.l1().state().block_delay = Some((floor, slow));
     app.l1().state().calls.clear();
-    app.l1().state().delay = Some(Duration::from_millis(350));
     let mut inbox = fx.inbox_at_checkpoint(6, w.el_header.hash_slow());
     inbox.recovery_generation = 1;
     inbox.forced_inclusion_head = 3;
     inbox.forced_inclusion_tail = 3;
-    for round in 0..8 {
-        fx.advance_l1(app.l1(), 121 + round, &inbox, &fx.registry);
-        let state = app.state().unwrap().clone();
-        app.prefetch_committee_witness(&state);
-        let mut req = prepare_req(next_height(&app), bft_time(&app));
-        req.proposer_address = tendermint::account::Id::new(
-            state.committee_at(7).unwrap().members[0].pubkey.address().into_array(),
-        );
-        let txs = prepare(&mut app, req).await;
-        if let Some(tx) = txs.first() {
-            let env = crate::EtnaEnvelope::decode(tx).unwrap();
-            assert_eq!(env.committee.unwrap().record.cutoff_l1_block, 100);
-            let length = crate::l1::layout::registry::length_slot();
-            let discoveries = app
-                .l1()
-                .calls()
-                .iter()
-                .filter(|call| {
-                    matches!(call, L1Call::StorageAt { address, slot, block: 100 }
-                    if *address == fx.params.registry && *slot == length)
-                })
-                .count();
-            assert_eq!(discoveries, 1, "R discovery's completed reads are retained");
-            return;
-        }
-        assert_eq!(app.halt.as_deref(), Some("timeout"));
+    let proposer = tendermint::account::Id::new(
+        app.state().unwrap().committee_at(7).unwrap().members[0].pubkey.address().into_array(),
+    );
+    let round = |app: &App<MockL1, MockEngine>| {
+        let mut req = prepare_req(next_height(app), bft_time(app));
+        req.proposer_address = proposer;
+        req
+    };
+
+    fx.advance_l1(app.l1(), 121, &inbox, &fx.registry);
+    let req = round(&app);
+    assert!(prepare(&mut app, req).await.is_empty(), "R's reads outlast the round");
+    assert_eq!(app.halt.as_deref(), Some("timeout"));
+    // No request comes in meanwhile: the discovery the round started goes on at R.
+    tokio::time::sleep(Duration::from_secs(30)).await;
+
+    fx.advance_l1(app.l1(), 122, &inbox, &fx.registry);
+    let req = round(&app);
+    let txs = prepare(&mut app, req).await;
+    let env = crate::EtnaEnvelope::decode(txs.first().expect("the next round proposes")).unwrap();
+    assert_eq!(env.committee.unwrap().record.cutoff_l1_block, floor);
+    let registry = fx.params.registry;
+    let reads: Vec<(u64, L1Call)> = app
+        .l1()
+        .calls()
+        .into_iter()
+        .filter_map(|call| match &call {
+            L1Call::StorageAt { address, block, .. } |
+            L1Call::AccountWitness { address, block, .. }
+                if *address == registry =>
+            {
+                Some((*block, call.clone()))
+            }
+            _ => None,
+        })
+        .collect();
+    for (i, (_, call)) in reads.iter().enumerate() {
+        assert!(reads[..i].iter().all(|(_, read)| read != call), "{call:?} again: {reads:?}");
     }
-    panic!("the recovered switch never completed despite every L1 read being within its deadline");
+    let at_r = reads.iter().filter(|(block, _)| *block == floor).count();
+    assert!(at_r >= 4, "the snapshot is discovered at R: {reads:?}");
+    assert_eq!(
+        reads.iter().filter(|(block, _)| *block != floor).collect::<Vec<_>>().len(),
+        2,
+        "beside R only round 2's anchor re-proves it (count and proof): {reads:?}"
+    );
+    assert!(reads.iter().all(|(block, _)| [floor, 122].contains(block)), "{reads:?}");
 }
 
 /// A read of R's state can take longer than a whole PrepareProposal budget, so no proposal can

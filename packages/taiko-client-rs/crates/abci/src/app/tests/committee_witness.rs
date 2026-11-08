@@ -17,8 +17,8 @@ use crate::{
     engine::EngineError,
     envelope::CommitteeWitness,
     l1::{
-        DiscoveryProgress, MptError, build_committee_witness_at_cutoff,
-        build_committee_witness_within, layout::registry,
+        MptError, build_committee_witness_at_cutoff, build_committee_witness_within,
+        layout::registry,
     },
     test_utils::{L1Call, RegistryStorage, sample_entries},
     types::AnchorState,
@@ -91,8 +91,7 @@ async fn before_switch(fx: &Fixture, dir: &Path) -> (App<MockL1, MockEngine>, An
 /// The committee-2 witness an honest proposer builds at `switch 2` against the anchor
 /// `n_p`, using that parent number and its authenticated registry state.
 async fn witness_at(app: &App<MockL1, MockEngine>, n_p: u64) -> CommitteeWitness {
-    let progress = DiscoveryProgress::default();
-    build_committee_witness_within(app.l1(), &app.params, n_p, 2, app.opts.l1_timeout, &progress)
+    build_committee_witness_within(app.l1(), &app.params, n_p, 2, app.opts.l1_timeout)
         .await
         .expect("the committee witness builds")
 }

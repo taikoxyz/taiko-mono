@@ -3,16 +3,9 @@
 //! Runtime discovery selects and proves at the committed parent anchor. Explicit-cutoff discovery
 //! serves genesis and authenticated host proof jobs. The proving block must cover the cutoff.
 //! Checkpoint binary search and historical entry reads are untrusted until their complete root
-//! verifies; entries may require archive state well before the proving block. Interrupted discovery
-//! preserves completed reads for the same context.
+//! verifies; entries may require archive state well before the proving block.
 
-use std::{
-    collections::HashMap,
-    future::Future,
-    ops::Range,
-    sync::{Mutex, MutexGuard, PoisonError},
-    time::Duration,
-};
+use std::{collections::HashMap, future::Future, ops::Range, time::Duration};
 
 use alloy_primitives::{B256, U256};
 use futures::{StreamExt, TryStreamExt, stream};
@@ -65,46 +58,7 @@ pub enum FetchError {
     Committee(#[from] CommitteeError),
 }
 
-/// The finished registry reads of a committee-witness discovery against one parent anchor that
-/// has not ended yet, so that an attempt cut short (a read past its deadline, or the whole
-/// discovery dropped, as `PrepareProposal`'s overall deadline does) resumes where it stopped
-/// instead of starting over.
-///
-/// `PrepareProposal`'s deadline does not grow with the round, so without this a discovery that
-/// needs longer than it from scratch would never finish. The reads are kept by parent anchor
-/// alone, as none depends on the target epoch; another parent anchor starts afresh. They stay
-/// unproven like every discovery read (verifying the built witness still decides). A failed read
-/// (a transport or JSON-RPC error, as a rate limit or pruned state answers, an unknown block, or
-/// a read past its deadline) keeps them too, as every kept read is of the same fixed, finalized
-/// block; a discovery that ends in any other way (a witness, a malformed or mismatched answer, a
-/// registry or derivation error) forgets them, so a bad answer is not replayed.
-#[derive(Debug, Default)]
-pub(crate) struct DiscoveryProgress(Mutex<Reads>);
-
-impl DiscoveryProgress {
-    /// Forgets every kept read.
-    pub(crate) fn clear(&self) {
-        *self.lock() = Reads::default();
-    }
-
-    /// The kept reads, which hold no invariant a panicking holder could break.
-    fn lock(&self) -> MutexGuard<'_, Reads> {
-        self.0.lock().unwrap_or_else(PoisonError::into_inner)
-    }
-}
-
-/// The reads a [`DiscoveryProgress`] keeps.
-#[derive(Debug, Default)]
-struct Reads {
-    /// The parent anchor `n_p` the reads were made for; `None` before the first discovery.
-    parent_anchor: Option<u64>,
-    /// Registry storage words by slot (`checkpoints.length`, checkpoint heads) at `parent_anchor`.
-    words: HashMap<B256, U256>,
-    /// Entry batches, by the L1 block they were read at and their index range.
-    batches: HashMap<(u64, Range<u64>), Vec<RegistryEntry>>,
-}
-
-/// [`build_committee_witness_within`] without read deadlines or retained progress.
+/// [`build_committee_witness_within`] without read deadlines.
 #[cfg(test)]
 pub(crate) async fn build_committee_witness<L: L1Source + ?Sized>(
     l1: &L,
@@ -112,8 +66,7 @@ pub(crate) async fn build_committee_witness<L: L1Source + ?Sized>(
     parent_anchor: u64,
     target_epoch: u64,
 ) -> Result<CommitteeWitness, FetchError> {
-    let progress = DiscoveryProgress::default();
-    Discovery { l1, params, cutoff: None, read_timeout: None, progress: &progress }
+    Discovery { l1, params, cutoff: None, read_timeout: None }
         .witness(parent_anchor, target_epoch)
         .await
 }
@@ -140,15 +93,13 @@ pub async fn build_committee_witness_at_cutoff<L: L1Source + ?Sized>(
     cutoff: u64,
     target_epoch: u64,
 ) -> Result<CommitteeWitness, FetchError> {
-    let progress = DiscoveryProgress::default();
-    Discovery { l1, params, cutoff: Some(cutoff), read_timeout: None, progress: &progress }
+    Discovery { l1, params, cutoff: Some(cutoff), read_timeout: None }
         .witness(block, target_epoch)
         .await
 }
 
 /// Builds the committee witness for `target_epoch` against the parent anchor `parent_anchor`,
-/// bounding every single L1 read by `read_timeout` ([`FetchError::Timeout`] otherwise) and
-/// resuming from, and adding to, the reads `progress` kept for `parent_anchor`.
+/// bounding every single L1 read by `read_timeout` ([`FetchError::Timeout`] otherwise).
 ///
 /// In order:
 /// - the supplied committed parent anchor number as the snapshot cutoff;
@@ -160,17 +111,16 @@ pub async fn build_committee_witness_at_cutoff<L: L1Source + ?Sized>(
 /// discovery needs the own L1 to serve historical state (SYNC-9-16); an explicit historical
 /// snapshot is never advanced by its later proving block.
 ///
-/// A failed read (an RPC error, an unknown block or a read past its deadline) keeps `progress`;
-/// any other end clears it ([`DiscoveryProgress`]).
+/// Each call starts afresh: the app runs it once per switch context in the background, past any
+/// proposal deadline, and restarts a failed one from scratch after its backoff.
 pub(crate) async fn build_committee_witness_within<L: L1Source + ?Sized>(
     l1: &L,
     params: &ChainParams,
     parent_anchor: u64,
     target_epoch: u64,
     read_timeout: Duration,
-    progress: &DiscoveryProgress,
 ) -> Result<CommitteeWitness, FetchError> {
-    Discovery { l1, params, cutoff: None, read_timeout: Some(read_timeout), progress }
+    Discovery { l1, params, cutoff: None, read_timeout: Some(read_timeout) }
         .witness(parent_anchor, target_epoch)
         .await
 }
@@ -189,13 +139,11 @@ pub(crate) async fn reprove_committee_witness<L: L1Source + ?Sized>(
     block: u64,
     read_timeout: Duration,
 ) -> Result<CommitteeWitness, FetchError> {
-    let progress = DiscoveryProgress::default();
     let discovery = Discovery {
         l1,
         params,
         cutoff: Some(base.record.cutoff_l1_block),
         read_timeout: Some(read_timeout),
-        progress: &progress,
     };
     let length = discovery.registry_word(registry::length_slot(), block).await?;
     let index = base.record.checkpoint_index;
@@ -221,35 +169,12 @@ struct Discovery<'a, L: ?Sized> {
     cutoff: Option<u64>,
     /// The deadline of each single L1 read; `None` waits indefinitely.
     read_timeout: Option<Duration>,
-    /// The reads earlier, unfinished attempts made; every finished read is added at once.
-    progress: &'a DiscoveryProgress,
 }
 
 impl<L: L1Source + ?Sized> Discovery<'_, L> {
     /// The committee witness for `target` against the parent anchor `n_p` (see
-    /// [`build_committee_witness_within`]): resumes from the kept reads of `n_p` (forgetting those
-    /// of another parent anchor), and forgets them again unless a read failed.
+    /// [`build_committee_witness_within`]).
     async fn witness(&self, n_p: u64, target: u64) -> Result<CommitteeWitness, FetchError> {
-        {
-            let mut reads = self.progress.lock();
-            if reads.parent_anchor != Some(n_p) {
-                *reads = Reads { parent_anchor: Some(n_p), ..Reads::default() };
-            }
-        }
-        let result = self.discover(n_p, target).await;
-        let failed_read = matches!(
-            result,
-            Err(FetchError::Timeout(_) |
-                FetchError::L1(L1Error::Rpc(_) | L1Error::BlockNotFound(_)))
-        );
-        if !failed_read {
-            self.progress.clear();
-        }
-        result
-    }
-
-    /// The discovery steps of [`build_committee_witness_within`].
-    async fn discover(&self, n_p: u64, target: u64) -> Result<CommitteeWitness, FetchError> {
         let params = self.params;
         let cutoff = self.cutoff.unwrap_or(n_p);
 
@@ -260,18 +185,21 @@ impl<L: L1Source + ?Sized> Discovery<'_, L> {
         let length = u64::try_from(length).map_err(|_| {
             FetchError::Registry(format!("checkpoints.length {length} exceeds u64"))
         })?;
+        // The checkpoint heads read so far: the search's last probes are the snapshot's head and
+        // its successor's, so neither is read twice.
+        let mut heads = HashMap::new();
         // Invariant: checkpoints below `lo` are at or before the cutoff, from `hi` on after it.
         let (mut lo, mut hi) = (0u64, length);
         while lo < hi {
             let mid = lo + (hi - lo) / 2;
-            if word_u48(self.head(mid, n_p).await?, 0) <= cutoff {
+            if word_u48(self.head(mid, n_p, &mut heads).await?, 0) <= cutoff {
                 lo = mid + 1;
             } else {
                 hi = mid;
             }
         }
         let index = lo.saturating_sub(1);
-        let head = self.head(index, n_p).await?;
+        let head = self.head(index, n_p, &mut heads).await?;
         let (l1_block, count) = (word_u48(head, 0), word_u48(head, 48));
         if count > u64::from(MAX_REGISTRY_ENTRIES) {
             return Err(FetchError::Registry(format!(
@@ -283,7 +211,7 @@ impl<L: L1Source + ?Sized> Discovery<'_, L> {
         let next = index.checked_add(1).filter(|next| *next < length);
         let entries_block = match next {
             Some(next) => {
-                let next_l1_block = word_u48(self.head(next, n_p).await?, 0);
+                let next_l1_block = word_u48(self.head(next, n_p, &mut heads).await?, 0);
                 n_p.min(next_l1_block.saturating_sub(1))
             }
             None => n_p,
@@ -299,9 +227,20 @@ impl<L: L1Source + ?Sized> Discovery<'_, L> {
         Ok(CommitteeWitness { record, registry: proof, entries: snapshot.entries })
     }
 
-    /// The packed `l1Block | count << 48` word of `checkpoints[i]` as of the parent anchor `n_p`.
-    async fn head(&self, i: u64, n_p: u64) -> Result<U256, FetchError> {
-        self.registry_word(registry::checkpoint_slots(i)[0], n_p).await
+    /// The packed `l1Block | count << 48` word of `checkpoints[i]` as of the parent anchor `n_p`:
+    /// kept in `heads` once read, or read (and kept).
+    async fn head(
+        &self,
+        i: u64,
+        n_p: u64,
+        heads: &mut HashMap<u64, U256>,
+    ) -> Result<U256, FetchError> {
+        if let Some(word) = heads.get(&i) {
+            return Ok(*word);
+        }
+        let word = self.registry_word(registry::checkpoint_slots(i)[0], n_p).await?;
+        heads.insert(i, word);
+        Ok(word)
     }
 
     /// The first `count` registry entries as stored at L1 block `block`, read with one
@@ -318,8 +257,8 @@ impl<L: L1Source + ?Sized> Discovery<'_, L> {
         Ok(batches.concat())
     }
 
-    /// The registry entries with indices in `batch` as stored at L1 block `block`: kept by an
-    /// earlier attempt, or read with one `account_witness` call (and kept).
+    /// The registry entries with indices in `batch` as stored at L1 block `block`, read with one
+    /// `account_witness` call.
     ///
     /// A response for other slots than requested is [`FetchError::Registry`].
     async fn entry_batch(
@@ -327,11 +266,6 @@ impl<L: L1Source + ?Sized> Discovery<'_, L> {
         batch: Range<u64>,
         block: u64,
     ) -> Result<Vec<RegistryEntry>, FetchError> {
-        let key = (block, batch.clone());
-        let kept = self.progress.lock().batches.get(&key).cloned();
-        if let Some(entries) = kept {
-            return Ok(entries);
-        }
         let slots: Vec<B256> = batch.flat_map(registry::entry_slots).collect();
         let witness = self
             .read(
@@ -344,36 +278,26 @@ impl<L: L1Source + ?Sized> Discovery<'_, L> {
                 "the entries read at block {block} answered other slots than requested"
             )));
         }
-        let entries: Vec<RegistryEntry> = witness
+        Ok(witness
             .storage
             .chunks_exact(3)
             .map(|words| {
                 let packed = words[2].value;
-                Ok(RegistryEntry {
+                RegistryEntry {
                     ck_prefix: word_u8(packed, 0),
                     ck_x: B256::from(words[0].value),
                     eff_stake: words[1].value,
                     active_from_l1: word_u48(packed, 8),
                     exit_effective_l1: word_u48(packed, 56),
-                })
+                }
             })
-            .collect::<Result<_, FetchError>>()?;
-        self.progress.lock().batches.insert(key, entries.clone());
-        Ok(entries)
+            .collect())
     }
 
-    /// The raw registry storage word at `slot` as of the parent anchor `n_p`: kept by an earlier
-    /// read of this or an unfinished attempt, or read (and kept).
+    /// The raw registry storage word at `slot` as of the parent anchor `n_p`.
     async fn registry_word(&self, slot: B256, n_p: u64) -> Result<U256, FetchError> {
-        let kept = self.progress.lock().words.get(&slot).copied();
-        if let Some(word) = kept {
-            return Ok(word);
-        }
-        let word = self
-            .read("registry storage read", self.l1.storage_at(self.params.registry, slot, n_p))
-            .await?;
-        self.progress.lock().words.insert(slot, word);
-        Ok(word)
+        self.read("registry storage read", self.l1.storage_at(self.params.registry, slot, n_p))
+            .await
     }
 
     /// Runs one L1 read, within the per-read deadline when one is set.
@@ -675,7 +599,6 @@ mod tests {
             l1_0,
             Schedule::E0,
             Duration::from_secs(1),
-            &DiscoveryProgress::default(),
         )
         .await;
         assert_eq!(within, Ok(anchored));
@@ -695,17 +618,10 @@ mod tests {
         l1.state().delay = Some(Duration::from_secs(1));
 
         let start = tokio::time::Instant::now();
-        let progress = DiscoveryProgress::default();
-        let witness = build_committee_witness_within(
-            &l1,
-            &fx.params,
-            64,
-            1,
-            Duration::from_secs(5),
-            &progress,
-        )
-        .await
-        .expect("witness");
+        let witness =
+            build_committee_witness_within(&l1, &fx.params, 64, 1, Duration::from_secs(5))
+                .await
+                .expect("witness");
         assert_eq!(witness.entries, entries);
         assert_eq!(l1.state().max_in_flight, bound);
         // checkpoints.length, the head, two waves of entry reads, the proof: 5 s instead of 10 s.
@@ -724,127 +640,9 @@ mod tests {
             fx.genesis.l1_0,
             Schedule::E0,
             Duration::from_secs(4),
-            &DiscoveryProgress::default(),
         )
         .await;
         assert_eq!(err, Err(FetchError::Timeout("registry storage read")));
-    }
-
-    /// Discovers committee `e_0`'s witness against `n_p` on `l1` with reads bounded by `limit`,
-    /// resuming from `progress`.
-    async fn resume(
-        fx: &Fixture,
-        l1: &MockL1,
-        n_p: u64,
-        limit: Duration,
-        progress: &DiscoveryProgress,
-    ) -> Result<CommitteeWitness, FetchError> {
-        build_committee_witness_within(l1, &fx.params, n_p, Schedule::E0, limit, progress).await
-    }
-
-    /// Starts a discovery against `n_p` with one read per second and drops it after 1.5 s, once
-    /// `checkpoints.length` has answered; leaves the call log empty.
-    async fn drop_after_the_length_read(
-        fx: &Fixture,
-        l1: &MockL1,
-        n_p: u64,
-        progress: &DiscoveryProgress,
-    ) {
-        l1.state().calls.clear();
-        l1.state().delay = Some(Duration::from_secs(1));
-        let attempt = resume(fx, l1, n_p, Duration::from_secs(5), progress);
-        assert!(tokio::time::timeout(Duration::from_millis(1_500), attempt).await.is_err());
-        let calls = std::mem::take(&mut l1.state().calls);
-        assert_eq!(
-            calls,
-            [L1Call::StorageAt {
-                address: fx.params.registry,
-                slot: registry::length_slot(),
-                block: n_p
-            }]
-        );
-        l1.state().delay = None;
-    }
-
-    /// A discovery dropped midway (as `PrepareProposal`'s deadline drops it) or failing on a read
-    /// past its deadline keeps its finished reads: the next attempt against the same parent
-    /// anchor reads only the rest. A finished discovery forgets them.
-    #[tokio::test(start_paused = true)]
-    async fn an_unfinished_discovery_resumes_from_its_finished_reads() {
-        let fx = Fixture::genesis(3);
-        let l1 = fx.l1();
-        let n_p = fx.genesis.l1_0;
-        let progress = DiscoveryProgress::default();
-        let limit = Duration::from_secs(5);
-
-        let expected = build_committee_witness(&fx.l1(), &fx.params, n_p, Schedule::E0).await;
-        drop_after_the_length_read(&fx, &l1, n_p, &progress).await;
-        assert_eq!(resume(&fx, &l1, n_p, limit, &progress).await, expected);
-        assert_eq!(l1.calls().len(), 3, "the head, the entries and the proof: {:?}", l1.calls());
-        l1.state().calls.clear();
-        resume(&fx, &l1, n_p, limit, &progress).await.expect("the witness builds");
-        assert_eq!(l1.calls().len(), 4, "a finished discovery starts the next one afresh");
-
-        // The head read times out; the length read stays kept.
-        drop_after_the_length_read(&fx, &l1, n_p, &progress).await;
-        l1.state().delay = Some(Duration::from_secs(3));
-        let short = Duration::from_secs(2);
-        let err = resume(&fx, &l1, n_p, short, &progress).await;
-        assert_eq!(err, Err(FetchError::Timeout("registry storage read")));
-        l1.state().delay = None;
-        l1.state().calls.clear();
-        resume(&fx, &l1, n_p, limit, &progress).await.expect("the witness builds");
-        assert_eq!(l1.calls().len(), 3, "{:?}", l1.calls());
-    }
-
-    /// A failed L1 read keeps the finished reads like one past its deadline, so a rate-limited L1
-    /// is not asked for them again; a mismatched answer or a registry error forgets them, and so
-    /// does a discovery against another parent anchor.
-    #[tokio::test(start_paused = true)]
-    async fn l1_errors_keep_the_finished_reads_other_failures_start_afresh() {
-        let fx = Fixture::genesis(3);
-        let l1 = fx.l1();
-        let n_p = fx.genesis.l1_0;
-        let progress = DiscoveryProgress::default();
-        let limit = Duration::from_secs(5);
-
-        drop_after_the_length_read(&fx, &l1, n_p, &progress).await;
-        let limited = L1Error::Rpc("429 Too Many Requests".into());
-        l1.state().fail = Some(limited.clone());
-        assert_eq!(resume(&fx, &l1, n_p, limit, &progress).await, Err(FetchError::L1(limited)));
-        l1.state().fail = None;
-        l1.state().calls.clear();
-        resume(&fx, &l1, n_p, limit, &progress).await.expect("the witness builds");
-        assert_eq!(l1.calls().len(), 3, "the length is not read again: {:?}", l1.calls());
-
-        drop_after_the_length_read(&fx, &l1, n_p, &progress).await;
-        let mismatch = L1Error::ProofSlotMismatch { requested: vec![], got: vec![B256::ZERO] };
-        l1.state().fail = Some(mismatch.clone());
-        assert_eq!(resume(&fx, &l1, n_p, limit, &progress).await, Err(FetchError::L1(mismatch)));
-        l1.state().fail = None;
-        l1.state().calls.clear();
-        resume(&fx, &l1, n_p, limit, &progress).await.expect("the witness builds");
-        assert_eq!(l1.calls().len(), 4, "the length is read again: {:?}", l1.calls());
-
-        drop_after_the_length_read(&fx, &l1, n_p, &progress).await;
-        let claiming = registry_claiming(&fx, MAX_REGISTRY_ENTRIES + 1);
-        let served = l1.state().states.insert(n_p, claiming).expect("the anchor state is served");
-        let err = resume(&fx, &l1, n_p, limit, &progress).await;
-        assert!(matches!(err, Err(FetchError::Registry(_))), "{err:?}");
-        l1.state().states.insert(n_p, served);
-        l1.state().calls.clear();
-        resume(&fx, &l1, n_p, limit, &progress).await.expect("the witness builds");
-        assert_eq!(l1.calls().len(), 4, "the length is read again: {:?}", l1.calls());
-
-        let other = n_p + 6;
-        fx.plant_l1_block(&l1, other, &fx.inbox, &fx.registry);
-        drop_after_the_length_read(&fx, &l1, n_p, &progress).await;
-        resume(&fx, &l1, other, limit, &progress).await.expect("the witness builds");
-        assert!(l1.calls().iter().all(|c| block_of(c) == Some(other)), "{:?}", l1.calls());
-        assert_eq!(l1.calls().len(), 4, "{:?}", l1.calls());
-        l1.state().calls.clear();
-        resume(&fx, &l1, n_p, limit, &progress).await.expect("the witness builds");
-        assert_eq!(l1.calls().len(), 4, "{:?}", l1.calls());
     }
 
     /// The L1 state of a registry with one checkpoint (at L1 block 1) whose head claims `count`

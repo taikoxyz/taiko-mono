@@ -9,7 +9,9 @@ use alloy_consensus::Transaction;
 use alloy_primitives::Bytes;
 
 use super::{
-    AbciError, App, deadline, unix_secs,
+    AbciError, App,
+    committee_cache::snapshot_block,
+    deadline, unix_secs,
     validate::{
         Candidate, Rejection, check_candidate_anchor, check_execution_size, expected_header,
         finish_candidate,
@@ -21,8 +23,8 @@ use crate::{
     envelope::{AnchorWitness, CommitteeWitness, EtnaEnvelope, ForcedWitness},
     forced::{self, ForcedContext},
     l1::{
-        L1Error, L1Source, build_committee_witness_within, header_at, layout::inbox,
-        reprove_committee_witness, verify_anchor_witness,
+        L1Error, L1Source, header_at, layout::inbox, reprove_committee_witness,
+        verify_anchor_witness,
     },
     metrics::{AbciMetrics, set_u64},
     rules,
@@ -38,12 +40,15 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Handles `PrepareProposal`: one envelope, or no transactions when the node cannot or must
     /// not propose (liveness only).
     ///
-    /// The whole build runs within [`AppOptions::prepare_timeout`](super::AppOptions) (each
-    /// external call also keeps its own deadline), so the proposer answers before CometBFT's
-    /// `timeout_propose` even when every call is slow but in time. A failed build (I/O error,
-    /// timeout, a failing pre-check, unavailable forced admission bytes, an envelope above
-    /// `max_tx_bytes` or one landing) is recorded as the halt reason and logged, and answers
-    /// empty `txs`; it is never an error. The only error is a request before `InitChain`.
+    /// It first refreshes the background switch-witness discovery
+    /// ([`App::prefetch_committee_witness`]), which runs on past this request. The whole build
+    /// runs within [`AppOptions::prepare_timeout`](super::AppOptions) (each external call also
+    /// keeps its own deadline), so the proposer answers before CometBFT's `timeout_propose` even
+    /// when every call is slow but in time; a request queued behind it waits no longer. A failed
+    /// build (I/O error, timeout, a failing pre-check, an unavailable switch witness or forced
+    /// admission bytes, an envelope above `max_tx_bytes` or one landing) is recorded as the halt
+    /// reason and logged, and answers empty `txs`; it is never an error. The only error is a
+    /// request before `InitChain`.
     pub(super) async fn prepare_proposal(
         &mut self,
         req: request::PrepareProposal,
@@ -52,7 +57,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let built = match &self.state {
             None => return Err(AbciError::Uninitialized("PrepareProposal")),
             Some(state) => {
-                self.adopt_committee_prefetch(state);
+                self.prefetch_committee_witness(state);
                 deadline("PrepareProposal", self.opts.prepare_timeout, self.propose(state, &req))
                     .await
             }
@@ -83,9 +88,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// ancestry (keeping the parent anchor when a moved one conflicts, see
     /// [`App::choose_anchor`]), derives
     /// the header and checks that its timestamp keeps the anchor fresh (an anchor older than
-    /// `maxAnchorAge` proposes nothing until L1 finalizes a newer block). At `H(t)-2`, discovers
-    /// or reuses committee `t` at the snapshot cutoff (the committed parent anchor, or the
-    /// generation origin R when that is later) under the candidate anchor's state root. Then
+    /// `maxAnchorAge` proposes nothing until L1 finalizes a newer block). At `H(t)-2`, takes
+    /// committee `t`'s witness at the snapshot block (the committed parent anchor, or the
+    /// generation origin R when that is later) from memory or the background discovery, under the
+    /// candidate anchor's state root ([`App::committee_witness`]). Then
     /// verifies the candidate, collects the forced inclusion witness the anchor's
     /// queue requires ([`App::forced_inclusion`]), attempts a forced-first mixed list, confirms
     /// any required skip, restores full ordinary selection after a failed forced attempt,
@@ -367,116 +373,67 @@ impl<L: L1Source, E: Engine> App<L, E> {
         Ok((witness, anchor))
     }
 
-    /// The committee witness of `target_epoch` for a switch block anchored at `anchor`. Under
-    /// `state`'s fixed parent anchor it is [`App::parent_anchor_committee_witness`]. A block that
-    /// moves its anchor keeps the snapshot that parent anchor selects (COMM-4.3-11), and only
-    /// the proofs follow its own root (COMM-4.3-12). So a witness held for that snapshot is
-    /// re-proved under `anchor` with two reads ([`reprove_committee_witness`]) instead of
-    /// discovering the registry again. A generation origin above the parent anchor acquires
-    /// its snapshot resumably at R ([`App::recovery_committee_witness`]). Historical entries may
-    /// require state older than the cutoff; the complete witness verifies under the switch
-    /// block's own anchor root before the caller retains it in memory.
+    /// The committee witness of `target` for a switch block anchored at `anchor`. Its snapshot
+    /// is the one `state` fixes at [`snapshot_block`]: the committed parent anchor, or the
+    /// generation origin R while that anchor precedes it (COMM-4.3-11); `anchor` never selects it.
+    /// Only the proofs follow `anchor`'s root (COMM-4.3-12). In order:
+    ///
+    /// 1. a retained witness proven under `anchor`;
+    /// 2. a retained witness of the same snapshot, re-proved under `anchor` with two reads
+    ///    ([`reprove_committee_witness`]) and verified at the snapshot block there; one that does
+    ///    not hold is dropped;
+    /// 3. else the background discovery at the snapshot block, started or joined and awaited
+    ///    ([`App::discovered_committee_witness`]), retained, and re-proved under `anchor` unless it
+    ///    was proven there.
+    ///
+    /// A failed or backing-off discovery, or one still running at `PrepareProposal`'s deadline,
+    /// proposes nothing (RECOV-8-4, RECOV-8-10) while the discovery goes on. Historical entries
+    /// may require state older than the snapshot block; the complete witness verifies under the
+    /// switch block's own anchor root before the caller retains it.
     async fn committee_witness(
         &self,
         state: &AppState,
         anchor: &AnchorState,
-        target_epoch: u64,
+        target: u64,
     ) -> Result<CommitteeWitness, Rejection> {
-        if anchor.hash == state.anchor.hash {
-            return self.parent_anchor_committee_witness(state, target_epoch).await;
-        }
-        if let Some(witness) = self.cached_candidate_committee_witness(state, anchor, target_epoch)
-        {
+        if let Some(witness) = self.cached_candidate_committee_witness(state, anchor, target) {
+            tracing::debug!(
+                anchor = anchor.number,
+                target,
+                "reusing the retained committee witness"
+            );
             return Ok(witness);
         }
-        let parent_anchor = state.anchor.number;
-        let cutoff = parent_anchor.max(state.anchor_floor());
-        if cutoff != parent_anchor {
-            return self.recovery_committee_witness(state, anchor, target_epoch).await;
-        }
-        if let Some(retained) = self.context_committee_witness(state, target_epoch) {
+        let snapshot = snapshot_block(state);
+        if let Some(retained) = self.context_committee_witness(state, target) {
             let witness = self.reproved_under(&retained, anchor).await?;
             // The retained witness may have verified only under a forged proposal's root.
             match verify_committee_witness_at_cutoff(
                 anchor.state_root,
-                cutoff,
+                snapshot,
                 &self.params,
                 &witness,
-                target_epoch,
+                target,
             ) {
                 Ok(_) => return Ok(witness),
-                Err(error) => tracing::warn!(
-                    parent_anchor,
-                    anchor = anchor.number,
-                    target_epoch,
-                    %error,
-                    "the retained committee snapshot does not hold under the moved anchor"
-                ),
+                Err(error) => {
+                    tracing::warn!(
+                        snapshot,
+                        anchor = anchor.number,
+                        target,
+                        %error,
+                        "the retained committee snapshot does not hold under the candidate anchor"
+                    );
+                    self.forget_committee_witness(state, target, &retained);
+                }
             }
         }
-        let base = self.parent_anchor_committee_witness(state, target_epoch).await?;
-        self.reproved_under(&base, anchor).await
-    }
-
-    /// The first recovered switch's fixed R snapshot under `anchor`: a retained witness of the
-    /// same context re-proved there, the background discovery at R
-    /// ([`App::prefetch_committee_witness`], which no proposal deadline bounds), or a discovery
-    /// at R that resumes across bounded proposal rounds. A witness discovered here is retained
-    /// before it is re-proved, so a moved candidate anchor reuses it.
-    async fn recovery_committee_witness(
-        &self,
-        state: &AppState,
-        anchor: &AnchorState,
-        target_epoch: u64,
-    ) -> Result<CommitteeWitness, Rejection> {
-        let cutoff = state.anchor_floor();
-        if let Some(retained) = self.context_committee_witness(state, target_epoch) {
-            let witness = self.reproved_under(&retained, anchor).await?;
-            if verify_committee_witness_at_cutoff(
-                anchor.state_root,
-                cutoff,
-                &self.params,
-                &witness,
-                target_epoch,
-            )
-            .is_ok()
-            {
-                return Ok(witness);
-            }
-            tracing::warn!(
-                cutoff,
-                target_epoch,
-                "retained recovery snapshot failed under the candidate root"
-            );
-        }
-        if let Some(found) = self.prefetched_committee_witness(state, target_epoch).await {
-            tracing::debug!(cutoff, target_epoch, "using the prefetched recovery snapshot");
-            return if anchor.hash == found.proof_anchor.1 {
-                Ok(found.witness)
-            } else {
-                self.reproved_under(&found.witness, anchor).await
-            };
-        }
-        let header = self.l1_read("recovery registry header", header_at(self.l1(), cutoff)).await?;
-        let base = build_committee_witness_within(
-            self.l1(),
-            &self.params,
-            cutoff,
-            target_epoch,
-            self.opts.l1_timeout,
-            &self.discovery,
-        )
-        .await?;
-        self.cache_committee_witness_at_root(
-            state,
-            (header.number(), header.hash(), header.state_root()),
-            target_epoch,
-            &base,
-        )?;
-        if anchor.hash == header.hash() {
-            Ok(base)
+        let found = self.discovered_committee_witness(state, target).await?;
+        self.cache_committee_witness_at_root(state, found.proof_anchor, target, &found.witness)?;
+        if found.proof_anchor.1 == anchor.hash {
+            Ok(found.witness)
         } else {
-            self.reproved_under(&base, anchor).await
+            self.reproved_under(&found.witness, anchor).await
         }
     }
 
@@ -491,7 +448,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             cutoff = base.record.cutoff_l1_block,
             anchor = anchor.number,
             target_epoch = base.record.target_epoch,
-            "re-proving the committed snapshot under the moved anchor"
+            "re-proving the committed snapshot under the candidate anchor"
         );
         deadline(
             "switch registry proof",
@@ -505,35 +462,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
             ),
         )
         .await
-    }
-
-    /// The committee witness of `target_epoch` against `state`'s fixed parent anchor: a
-    /// previously verified witness whose complete identity matches, the background prefetch's, or
-    /// a bounded discovery ([`build_committee_witness_within`]) resuming the completed reads of an
-    /// earlier attempt.
-    async fn parent_anchor_committee_witness(
-        &self,
-        state: &AppState,
-        target_epoch: u64,
-    ) -> Result<CommitteeWitness, Rejection> {
-        let parent_anchor = state.anchor.number;
-        if let Some(witness) = self.cached_committee_witness(state, target_epoch) {
-            tracing::debug!(parent_anchor, target_epoch, "reusing the cached committee witness");
-            return Ok(witness);
-        }
-        if let Some(found) = self.prefetched_committee_witness(state, target_epoch).await {
-            tracing::debug!(parent_anchor, target_epoch, "using the prefetched committee witness");
-            return Ok(found.witness);
-        }
-        Ok(build_committee_witness_within(
-            self.l1(),
-            &self.params,
-            parent_anchor,
-            target_epoch,
-            self.opts.l1_timeout,
-            &self.discovery,
-        )
-        .await?)
     }
 
     /// Fetches the mandatory entry proof. Before due, spends at most one quarter of the
