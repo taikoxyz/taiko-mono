@@ -1,5 +1,6 @@
-//! Run the imported app against real stock decisions with an explicit FinalizeBlock/Commit crash
-//! boundary. The test supplies only decisions made by the independent source consensus.
+//! Run plain `abci` on an imported store against real stock decisions, with an explicit
+//! FinalizeBlock/Commit crash boundary. The test supplies only decisions made by the independent
+//! source consensus.
 use super::*;
 use abci::{App, AppOptions, EngineError, RpcL1Source, Store};
 use alloy::{
@@ -13,8 +14,9 @@ use prost::Message;
 use tendermint_proto::v0_38::abci as pb;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-/// Inject only the pinned EL's permanent missing-state reply. Permit real checkpoint
-/// header reads so the negative control must reach a singleton build against the recorded parent.
+/// Inject only the pinned EL's permanent missing-state reply. Permit real checkpoint header and
+/// floor-state reads so the negative control must reach a singleton build against the recorded
+/// parent.
 struct MissingParent {
     headers: RpcEngine,
     parent: B256,
@@ -57,8 +59,11 @@ impl Engine for MissingParent {
     async fn finalized_header(&self) -> Result<Option<alloy_consensus::Header>, EngineError> {
         self.headers.finalized_header().await
     }
-    async fn historical_state_available(&self, _: B256) -> Result<bool, EngineError> {
-        panic!("singleton reply is decisive")
+    async fn historical_state_available(&self, hash: B256) -> Result<bool, EngineError> {
+        // The startup check reads the execution floor's state (DATA-5.4-6). The missing
+        // parent's singleton reply is decisive, so its state is never probed.
+        assert_ne!(hash, self.parent, "singleton reply is decisive");
+        self.headers.historical_state_available(hash).await
     }
 }
 
@@ -132,10 +137,10 @@ async fn send(proxy: u16, request: &pb::Request) -> Result<pb::response::Value> 
 pub(super) async fn replay(
     f: &ContractFixture,
     c: &ContractConsensus,
-    base: &Path,
+    commands: &Commands,
+    x: &Fixture,
     root: &Path,
     s: u64,
-    proxy: u16,
 ) -> Result<()> {
     c.wait_for_height(s + 3).await?;
     let first = decided(&c.cmt, s + 1).await?;
@@ -143,60 +148,36 @@ pub(super) async fn replay(
     let commit = pb::Request { value: Some(pb::request::Value::Commit(pb::RequestCommit {})) };
     let store = root.join("ready/app");
     let journal = || -> Result<abci::store::AppState> {
-        Ok(serde_json::from_slice(&fs::read(store.join("abci-state.json"))?)?)
+        Ok(serde_json::from_slice(&fs::read(store.join(abci::store::STATE_FILE))?)?)
     };
     ensure!(journal()?.forced_cursor == 0 && journal()?.last_height == s);
-    let hp = port()?;
-    let args = [
-        "abci-import",
-        "run-app",
-        "--root",
-        root.to_str().unwrap(),
-        "--profile",
-        base.join("import.json").to_str().unwrap(),
-        "--fee-recipient",
-        "0x0000000000000000000000000000000000000001",
-        "--el-http-port",
-        &hp.to_string(),
-    ]
-    .map(str::to_owned);
-    let reader = rpc::client::connect_http_with_timeout(url(hp), Duration::from_secs(5));
+    // One EL on the imported store for both app launches.
+    let elbin = binary("ETNA_EL_BIN", "alethia-reth")?;
+    let (mut execution, http, auth, _) =
+        el(&elbin, &root.join("ready/el"), &x.el_chain, &x.base, "forced-el").await?;
+    let reader = rpc::client::connect_http_with_timeout(http.clone(), Duration::from_secs(5));
     for launch in 0..2 {
-        let mut runtime = Process::spawn(
-            Path::new(CLIENT),
-            &args,
-            base.join(format!("forced-import-{launch}.log")),
-        )?;
-        tokio::time::timeout(Duration::from_secs(90), async {
-            loop {
-                runtime.running()?;
-                if tokio::net::TcpStream::connect(("127.0.0.1", proxy)).await.is_ok() {
-                    break;
-                }
-                tokio::time::sleep(Duration::from_millis(100)).await;
-            }
-            Ok::<_, anyhow::Error>(())
-        })
-        .await??;
+        let log = x.base.join(format!("forced-app-{launch}.log"));
+        let mut runtime = app(f, commands, &store, (&http, &auth), x.proxy, log).await?;
         if launch == 0 {
-            ensure!(matches!(send(proxy, &first).await?, pb::response::Value::FinalizeBlock(_)));
-            ensure!(matches!(send(proxy, &commit).await?, pb::response::Value::Commit(_)));
+            ensure!(matches!(send(x.proxy, &first).await?, pb::response::Value::FinalizeBlock(_)));
+            ensure!(matches!(send(x.proxy, &commit).await?, pb::response::Value::Commit(_)));
         }
         ensure!(journal()?.forced_cursor == 1 && journal()?.last_height == s + 1);
-        ensure!(matches!(send(proxy, &later).await?, pb::response::Value::FinalizeBlock(_)));
+        ensure!(matches!(send(x.proxy, &later).await?, pb::response::Value::FinalizeBlock(_)));
         ensure!(reader.get_block_number().await? == s + 2);
         if launch == 0 {
             // Deliberately stop before ABCI Commit. EL already executed s+2, while the
             // independently stored app journal still selects the retained s+1 parent.
             runtime.stop().await?;
         } else {
-            ensure!(matches!(send(proxy, &commit).await?, pb::response::Value::Commit(_)));
+            ensure!(matches!(send(x.proxy, &commit).await?, pb::response::Value::Commit(_)));
             ensure!(journal()?.forced_cursor == 2 && journal()?.last_height == s + 2);
             runtime.stop().await?;
         }
         if launch == 0 {
             let committed = journal()?;
-            let negative = base.join("missing-parent-control");
+            let negative = x.base.join("missing-parent-control");
             let copy = Store::new(negative.clone());
             copy.save(&committed)?;
             let parent = c.cmt.envelope(s + 1).await?.block.header;
@@ -236,6 +217,7 @@ pub(super) async fn replay(
             ));
         }
     }
+    execution.stop().await?;
     let hash: B256 = journal()?.parent.hash;
     ensure!(hash == c.cmt.envelope(s + 2).await?.block.header.hash_slow());
     Ok(())

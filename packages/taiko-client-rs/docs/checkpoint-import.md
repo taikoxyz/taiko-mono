@@ -95,7 +95,7 @@ taiko-client abci-import status --root /srv/etna/import-600
 
 Keep the three stores in `ROOT/ready`, or move them together while every process is stopped. They are ordinary stores:
 
-1. **EL.** Run alethia-reth on `ready/el` with the original chain and with `--http.api eth,net,debug`. `abci` reads pruned imported ancestors through `debug_getRawHeader`; keep that API private. Keep the state at the checkpoint readable: the app checks it at every start, and a pruned state keeps the node waiting (DATA-5.4-6).
+1. **EL.** Run alethia-reth on `ready/el` with the original chain and with `--http.api eth,net,debug`. `abci` reads pruned imported ancestors through `debug_getRawHeader`; keep that API private. Keep the historical state at the checkpoint s readable and do not prune it: the app checks it at every start, and a pruned state makes every restart wait as missing data (DATA-5.4-6).
 2. **App.** Run plain `taiko-client abci --data-dir ROOT/ready/app` with the usual `--l1.http`, `--l2.http`, `--l2.auth`, `--jwt.secret`, `--abci.addr` and `--fee-recipient` flags. It starts from the installed state and checks once that the EL serves the block and state at `execution_floor`. Add `--checkpoint-archive-dir PATH` to preserve later grid preimages.
 3. **Comet.** Run stock `cometbft start --home ROOT/ready/comet`. Or set `ETNA_COMET_HOME=ROOT/ready/comet` for `start_etna_full_node.py`, or that and `ETNA_APP_STORE=ROOT/ready/app` for the validator supervisor. Both start Comet like on any other store, as `ETNA_COMET_UID/GID` when set (the image sets 10001). To run Comet under another UID, `chown -R` the published `ready/comet` to it, as for any Comet home.
 

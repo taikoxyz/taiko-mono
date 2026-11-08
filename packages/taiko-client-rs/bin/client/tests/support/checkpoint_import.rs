@@ -1,9 +1,11 @@
-//! Real CLI export, independent frozen MDBX, normal EL restart, P2P continuation and readiness.
+//! Real CLI export and import. The published stores then run as ordinary ones: a normal EL on
+//! `ready/el`, plain `abci` on `ready/app` and stock Comet on `ready/comet` (DATA-5.4-5/6).
 use super::recovery::{
     CLIENT, Commands, package, process::Process, wait_checkpoint, wait_committed, write_private,
 };
 use crate::contracts_support::ContractFixture;
-use abci::{Engine, PayloadVerdict, RpcEngine};
+use abci::{Engine, ExecutionBlock, PayloadVerdict, RpcEngine};
+use alloy_provider::Provider;
 use anyhow::{Context, Result, ensure};
 use serde_json::{Value, json};
 use std::{
@@ -78,122 +80,64 @@ async fn el(
     .await??;
     Ok((p, url(hp), url(ap), engine))
 }
-async fn cli(base: &Path, tag: &str, args: &[&str]) -> Result<Value> {
+/// One `abci-import` command. Its stderr, with the diagnostics of the helpers it runs, is kept in
+/// `<tag>.log`.
+async fn cli(base: &Path, tag: &str, args: &[String]) -> Result<Value> {
     let started = std::time::Instant::now();
-    let log = base.join(format!("{tag}.log"));
-    let cmd = std::process::Command::new(CLIENT).arg("abci-import").args(args).output()?;
-    fs::write(&log, &cmd.stderr)?;
+    let out = tokio::process::Command::new(CLIENT).arg("abci-import").args(args).output().await?;
+    fs::write(base.join(format!("{tag}.log")), &out.stderr)?;
     eprintln!(
         "checkpoint_cli phase={tag} seconds={:.3} exit={}",
         started.elapsed().as_secs_f64(),
-        cmd.status
+        out.status
     );
-    if !cmd.status.success() {
-        let work = base.join("import/.checkpoint-work");
-        if std::env::var_os("ETNA_CAPTURE_OFFLINE_FIXTURE").is_some() &&
-            work.join("el/db/mdbx.dat").is_file()
-        {
-            let captured = tempfile::Builder::new()
-                .prefix("etna-real-db-schema-")
-                .tempdir_in("/private/tmp")?
-                .keep();
-            fs::create_dir_all(captured.join("el/db"))?;
-            for name in ["mdbx.dat", "database.version"] {
-                fs::copy(
-                    base.join("offline-state/db").join(name),
-                    captured.join("el/db").join(name),
-                )?;
-            }
-            for (from, to) in [
-                (base.join("el-genesis.json"), "genesis.json"),
-                (work.join("headers.json"), "headers.json"),
-            ] {
-                fs::copy(from, captured.join(to))?;
-            }
-            eprintln!("real frozen EL reproduction: {}", captured.display());
-        }
-        for name in ["el-verify.stderr", "el-install.stderr", "el-startup.log"] {
-            if let Ok(raw) = fs::read(work.join(name)) {
-                eprintln!(
-                    "{name}: {}",
-                    String::from_utf8_lossy(&raw[raw.len().saturating_sub(8192)..])
-                );
-            }
-        }
-        if let Ok(raw) = fs::read(work.join("headers.json")) {
-            let m: Value = serde_json::from_slice(&raw)?;
-            eprintln!(
-                "manifest origin={} finalized_height={} finalized_hash={}",
-                m["origin"], m["finalized_height"], m["finalized_hash"]
-            );
-        }
-    }
-    ensure!(cmd.status.success(), "{tag}: {}", String::from_utf8_lossy(&cmd.stderr));
-    Ok(serde_json::from_slice(&cmd.stdout)?)
+    ensure!(out.status.success(), "{tag}: {}", String::from_utf8_lossy(&out.stderr));
+    Ok(serde_json::from_slice(&out.stdout)?)
 }
 
+/// The latest checkpoint, imported twice from one package (ACC §7.6, §7.7). Root A: a SIGKILL
+/// mid-EL-install publishes nothing and the rerun discards the stage (DATA-5.4-5); stock P2P from
+/// s + 1; an EL and app restart keeps the floor and the tip (DATA-5.4-6). Root B: the first post-s
+/// FI skip, a cold replay over the retained post-s parent and the missing-parent-state halt. Its
+/// checks drive ABCI by hand, so stock Comet cannot share its store.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
-async fn checkpoint_import_older_archive_restarts_and_syncs_stock_peer() -> Result<()> {
-    scenario(6, 12).await
+async fn checkpoint_import_latest_full_node_restarts_forced_skips_and_retries() -> Result<()> {
+    scenario(Scenario::Latest).await
 }
 
-#[tokio::test(flavor = "multi_thread")]
-#[ignore = "docker"]
-async fn checkpoint_import_latest_restarts_and_syncs_stock_peer() -> Result<()> {
-    scenario(6, 6).await
-}
-
-#[tokio::test(flavor = "multi_thread")]
-#[ignore = "docker"]
-async fn checkpoint_import_fixed_origin_runs_original_stock_init_chain() -> Result<()> {
-    scenario(0, 0).await
-}
-
-#[tokio::test(flavor = "multi_thread")]
-#[ignore = "docker"]
-async fn registered_checkpoint_latest_signs_proposes_and_lands() -> Result<()> {
-    run_scenario(6, 6, Mode::Validator).await
-}
-
+/// An older checkpoint (s = 6, target 12) exported with the archived validator-state preimage
+/// (DATA-5.4-3, SYNC-9-5c). The import leaves key, HRS, WAL and authority unchanged (DATA-5.4-7);
+/// the supervisor on `ready` proposes in a later round, and the chain lands its block.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
 async fn registered_checkpoint_older_signs_proposes_and_lands() -> Result<()> {
-    run_scenario(6, 12, Mode::Validator).await
+    scenario(Scenario::RegisteredOlder).await
 }
 
-async fn scenario(height: u64, target: u64) -> Result<()> {
-    run_scenario(height, target, Mode::FullNode).await
+/// s = o (DATA-5.4-1): the import installs the original genesis and no app state, and plain
+/// `abci` runs stock InitChain.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "docker"]
+async fn checkpoint_import_fixed_origin_runs_original_stock_init_chain() -> Result<()> {
+    scenario(Scenario::FixedOrigin).await
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Mode {
-    FullNode,
-    Validator,
-    Forced,
+enum Scenario {
+    Latest,
+    RegisteredOlder,
+    FixedOrigin,
 }
 
-#[tokio::test(flavor = "multi_thread")]
-#[ignore = "docker"]
-async fn checkpoint_import_first_and_cold_post_floor_forced_skips() -> Result<()> {
-    run_scenario(6, 6, Mode::Forced).await
-}
-
-async fn run_scenario(height: u64, target: u64, mode: Mode) -> Result<()> {
+async fn scenario(kind: Scenario) -> Result<()> {
     test_harness::init_tracing();
-    let registered = mode == Mode::Validator;
+    let registered = kind == Scenario::RegisteredOlder;
     let count = if registered { 4 } else { 1 };
-    let epoch_len = match (mode, target) {
-        (Mode::Validator, 6) => 7,
-        (Mode::Validator, 12) => 6,
-        _ => 8,
-    };
-    let f = ContractFixture::deploy_config(
-        count,
-        if mode == Mode::Forced { 6 } else { 120 },
-        epoch_len,
-    )
-    .await?;
+    // U = 6 holds the latest source at 6 until it lands; both FI entries then come due after s.
+    let unsettled = if kind == Scenario::Latest { 6 } else { 120 };
+    let epoch_len = if registered { 6 } else { 8 };
+    let f = ContractFixture::deploy_config(count, unsettled, epoch_len).await?;
     set_interval_mining(&f.anvil.provider, 1).await?;
     let dirs = (0..count).map(|i| f.signer_storage.path().join(i.to_string())).collect();
     let mut c = if registered {
@@ -203,316 +147,594 @@ async fn run_scenario(height: u64, target: u64, mode: Mode) -> Result<()> {
         ContractConsensus::start_native(f.anvil.http.clone(), &f.l2, f.params.clone(), dirs).await?
     };
     let commands = Commands::new(&f, &c)?;
-    let result = roundtrip(&f, &mut c, &commands, height, target, mode).await;
+    let result = match kind {
+        Scenario::Latest => latest(&f, &mut c, &commands).await,
+        Scenario::RegisteredOlder => registered_older(&f, &mut c, &commands).await,
+        Scenario::FixedOrigin => fixed_origin(&f, &c, &commands).await,
+    };
     if result.is_err() {
         commands.diagnostics();
-        if let Ok(files) = fs::read_dir(commands.dir.path().join("import/.checkpoint-work")) {
-            for f in files.flatten() {
-                if matches!(f.path().extension().and_then(|s| s.to_str()), Some("stderr" | "log")) {
-                    let raw = fs::read(f.path())?;
-                    eprintln!(
-                        "checkpoint {}: {}",
-                        f.file_name().to_string_lossy(),
-                        String::from_utf8_lossy(&raw[raw.len().saturating_sub(8192)..])
-                    );
-                }
-            }
-        }
     }
     c.stop().await?;
     result
 }
 
-async fn roundtrip(
-    f: &ContractFixture,
-    c: &mut ContractConsensus,
-    commands: &Commands,
-    s: u64,
-    target: u64,
-    mode: Mode,
-) -> Result<()> {
+async fn latest(f: &ContractFixture, c: &mut ContractConsensus, commands: &Commands) -> Result<()> {
+    let s = 6;
     let base = commands.dir.path().canonicalize()?;
     c.wait_for_height(s).await?;
-    if mode == Mode::Forced {
-        forced::enqueue(f).await?;
-    }
-    let archived = base.join("archived-val-state.bin");
-    if s > 0 {
-        // The app's sidecar is checksummed; its query answers the raw preimage the export takes.
-        let preimage = tokio::time::timeout(Duration::from_secs(20), async {
-            loop {
-                // A transient RPC error keeps polling, as a refusal does.
-                if let Some(preimage) = c.cmt.abci_query("/val_state/6").await.ok().flatten() {
-                    return preimage
-                }
-                tokio::time::sleep(Duration::from_millis(50)).await
-            }
-        })
-        .await
-        .context("source app must commit preimage 6")?;
-        fs::write(&archived, preimage).context("archive live validator-state preimage")?;
-        let mut lander = commands.old_lander(f, &c.cmt)?;
-        wait_checkpoint(f, &mut lander, target).await?;
-        lander.stop().await?;
-        mine_l1_blocks(&f.anvil.provider, 4).await?;
-        if target > s {
-            // Node 0 may keep the sidecar of 6 as the recompute base below its floor, but its
-            // query refuses 6 once the floor passes it.
-            tokio::time::timeout(Duration::from_secs(90), async {
-                while !matches!(c.cmt.abci_answer("/val_state/6").await, Ok(Err(_))) {
-                    tokio::time::sleep(Duration::from_millis(100)).await
-                }
-            })
-            .await?;
-        }
-    }
-    let elbin = binary("ETNA_EL_BIN", "alethia-reth")?;
-    let helper = std::env::var_os("ETNA_EL_IMPORT_BIN")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| package().join("target/etna-signer/etna-el-import"));
-    let el_chain = base.join("el-genesis.json");
-    fs::write(&el_chain, &f.l2.genesis.json)?;
-    let donor_dir = base.join("donor-data");
-    let (mut donor, _, _, engine) = el(&elbin, &donor_dir, &el_chain, &base, "donor").await?;
-    // Independent source acquisition by fixture operator, outside the importer. No old
-    // consensus, state execution or successor payload is supplied to the installation.
-    for h in 1..=s {
-        let b = c.cmt.envelope(h).await?.block;
-        ensure!(engine.new_payload(&b).await? == PayloadVerdict::Valid, "donor replay {h}");
-        let hash = b.header.hash_slow();
-        ensure!(
-            engine.forkchoice(hash, f.l2.genesis.hash, f.l2.genesis.hash).await? ==
-                PayloadVerdict::Valid
-        );
-    }
-    donor.stop().await?;
-    // A normal stop can leave reth's PID marker. Materialize a physically independent
-    // dataset only after reaping the donor, never remove or reinterpret its lock.
-    let source = base.join("offline-state");
-    fs::create_dir_all(source.join("db"))?;
-    for name in ["mdbx.dat", "database.version"] {
-        fs::copy(donor_dir.join("db").join(name), source.join("db").join(name))?;
-    }
-
-    let registered = c.peers.len() > 1;
-    let peer = if registered { &c.peers[1] } else { &c.cmt };
-    let (template, proxy, rp) = fullnode_template(&base, &c.comet_home(0), peer).await?;
-    if registered {
-        let mut config: toml::Table = toml::from_str(&fs::read_to_string(&template)?)?;
-        config.insert("priv_validator_laddr".into(), "unix://run/signer.sock".into());
-        fs::write(&template, toml::to_string(&config)?)?;
-    }
-    let stock = package().join("target/etna-signer/etna-comet-import");
-    let profile = base.join("import.json");
-    write_private(
-        &profile,
-        serde_json::to_vec(
-            &json!({"schema":1,"l1_chain_id":f.params.l1_chain_id,"l2_chain_id":f.params.l2_chain_id,"l1_http":f.anvil.http,"chain_config":commands.chain,"archive":{"comet_http":c.cmt.url(),"l2_http":f.l2.http,"comet_genesis":c.comet_home(0).canonicalize()?.join("config/genesis.json"),"comet_helper":stock},"install":{"signer_binary":if registered {Some(binary("ETNA_SIGNER_BIN","etna-signer")?)} else {None},"comet_binary":binary("ETNA_COMET_BIN","cometbft")?,"el_source":source,"el_chain":el_chain,"devnet_etna_timestamp":0,"comet_config":template,"comet_helper":stock,"el_helper":helper,"el_binary":elbin}}),
-        )?,
-    )?;
-    let package_dir = base.join("archive");
-    let root = base.join("import");
-    let paths = [&profile, &package_dir, &root, &archived].map(|p| p.to_str().unwrap());
-    let [profile, pkg, r, arch] = paths;
-    let hs = s.to_string();
-    let mut export = vec!["export", "--profile", profile, "--height", &hs, "--out", pkg];
-    if s < target {
-        export.extend(["--validator-state", arch]);
-    }
-    cli(&base, "export", &export).await?;
-    use std::os::unix::fs::MetadataExt;
-    let db = source.join("db/mdbx.dat").metadata()?;
-    eprintln!(
-        "checkpoint_fixture s={s} target={target} frame_bytes={} metadata_bytes={} source_mdbx_logical={} source_mdbx_allocated={}",
-        package_dir.join("blocks.jsonl").metadata()?.len(),
-        package_dir.join("package.json").metadata()?.len(),
-        db.len(),
-        db.blocks() * 512
-    );
-    if s < target && !registered {
-        helper_failures::code_preimages(
-            &base,
-            Path::new(profile),
-            &package_dir,
-            &source,
-            &donor_dir,
-        )
-        .await?;
-        memdb_refused(&base, Path::new(profile), &package_dir)?;
-        crash_stock_export(&base, Path::new(profile), &archived).await?;
-    }
-    if mode == Mode::Forced {
-        c.wait_for_height(s + 3).await?;
-    }
+    forced::enqueue(f).await?;
+    land(f, c, commands, s).await?;
+    let blocks = source_blocks(&c.cmt, s).await?;
+    let genesis = c.comet_home(0).canonicalize()?.join("config/genesis.json");
+    let export =
+        Export { s, comet_genesis: &genesis, recovery_bootstrap: None, validator_state: None };
+    let x =
+        import_fixture(f, c, commands, &base, &blocks, &c.comet_home(0), &c.cmt, export).await?;
+    // The source decides both FI skips (s + 1, s + 2) before its only validator stops.
+    c.wait_for_height(s + 3).await?;
     c.stop_node(0).await?;
     let hrs = f.signer_storage.path().join("0/state.json");
     let wal = c.comet_home(0).join("data/cs.wal/wal");
-    let original = (fs::read(&hrs)?, fs::read(&wal)?);
-    if registered {
-        // The independent quorum can continue while the old validator is stopped. Wait for
-        // its absent proposer turn so at least one original post-s decision uses a later round.
-        let mut h = serde_json::from_slice::<Value>(&original.0)?["height"]
-            .as_str()
-            .unwrap()
-            .parse::<u64>()? +
-            1;
-        tokio::time::timeout(Duration::from_secs(90), async {
-            loop {
-                if c.peers[1].latest_height().await? > h {
-                    if c.peers[1].commit_round(h).await? > 0 {
-                        break;
-                    }
-                    h += 1;
-                } else {
-                    tokio::time::sleep(Duration::from_millis(100)).await;
-                }
+    let signer = || -> Result<_> { Ok((fs::read(&hrs)?, fs::read(&wal)?)) };
+    let original = signer()?;
+    let a = base.join("import-a");
+    crash_mid_install(f, commands, &x, &a).await?;
+    ensure!(signer()? == original, "an interrupted import changed HRS or WAL");
+    let ready = import(f, commands, &x, &a, "import-a").await?;
+    ensure!(ready == json!({"phase": "ready", "generation": 0, "execution_floor": s}), "{ready}");
+    ensure!(
+        !a.join("ready/app").join(CRASH_LEFTOVER).exists(),
+        "the rerun published the interrupted stage"
+    );
+    // A lost acknowledgement: the next run answers from the published stores.
+    ensure!(import(f, commands, &x, &a, "import-a-again").await? == ready);
+    let b = base.join("import-b");
+    ensure!(import(f, commands, &x, &b, "import-b").await? == ready);
+    ensure!(signer()? == original, "the import changed HRS or WAL");
+    c.restart_node(0).await?;
+    let run = Follow { s, target: s, generation: 0, floor: Some(s), restart: true };
+    follow(f, c, commands, &x, &a, run).await?;
+    forced::replay(f, c, commands, &x, &b, s).await
+}
+
+async fn registered_older(
+    f: &ContractFixture,
+    c: &mut ContractConsensus,
+    commands: &Commands,
+) -> Result<()> {
+    let (s, target) = (6, 12);
+    let base = commands.dir.path().canonicalize()?;
+    c.wait_for_height(s).await?;
+    // The app's sidecar is checksummed; its query answers the raw preimage the export takes.
+    let preimage = tokio::time::timeout(Duration::from_secs(20), async {
+        loop {
+            // A transient RPC error keeps polling, as a refusal does.
+            if let Some(preimage) = c.cmt.abci_query("/val_state/6").await.ok().flatten() {
+                return preimage
             }
-            Ok::<_, anyhow::Error>(())
-        })
-        .await
-        .context("independent source must decide a nonzero round")??;
-    }
-    let authority = f.signer_storage.path().join("0");
-    let marker_files = [
+            tokio::time::sleep(Duration::from_millis(50)).await
+        }
+    })
+    .await
+    .context("source app must commit preimage 6")?;
+    let archived = base.join("archived-val-state.bin");
+    fs::write(&archived, preimage).context("archive live validator-state preimage")?;
+    land(f, c, commands, target).await?;
+    // Node 0 refuses 6 once its floor passes it, so the export needs the archived preimage.
+    tokio::time::timeout(Duration::from_secs(90), async {
+        while !matches!(c.cmt.abci_answer("/val_state/6").await, Ok(Err(_))) {
+            tokio::time::sleep(Duration::from_millis(100)).await
+        }
+    })
+    .await?;
+    let blocks = source_blocks(&c.cmt, s).await?;
+    let genesis = c.comet_home(0).canonicalize()?.join("config/genesis.json");
+    let export = Export {
+        s,
+        comet_genesis: &genesis,
+        recovery_bootstrap: None,
+        validator_state: Some(&archived),
+    };
+    // Node 0 stops before the import, so the imported node peers with node 1.
+    let x = import_fixture(f, c, commands, &base, &blocks, &c.comet_home(0), &c.peers[1], export)
+        .await?;
+    let mut config: toml::Table = toml::from_str(&fs::read_to_string(&x.config)?)?;
+    config.insert("priv_validator_laddr".into(), "unix://run/signer.sock".into());
+    fs::write(&x.config, toml::to_string(&config)?)?;
+    c.stop_node(0).await?;
+    let dir = f.signer_storage.path().join("0").canonicalize()?;
+    let wal = c.comet_home(0).join("data/cs.wal/wal");
+    let original = (fs::read(dir.join("state.json"))?, fs::read(&wal)?);
+    // The independent quorum can continue while the old validator is stopped. Wait for its
+    // absent proposer turn so at least one original post-s decision uses a later round.
+    let mut h =
+        serde_json::from_slice::<Value>(&original.0)?["height"].as_str().unwrap().parse::<u64>()? +
+            1;
+    tokio::time::timeout(Duration::from_secs(90), async {
+        loop {
+            if c.peers[1].latest_height().await? > h {
+                if c.peers[1].commit_round(h).await? > 0 {
+                    break;
+                }
+                h += 1;
+            } else {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
+        }
+        Ok::<_, anyhow::Error>(())
+    })
+    .await
+    .context("independent source must decide a nonzero round")??;
+    let authority = [
         "key.json",
         "authority/manifest.json",
         "key.json.authority.json",
         "state.json.authority.json",
     ];
-    let authority_before: Vec<_> = if registered {
-        marker_files
-            .iter()
-            .map(|name| fs::read(authority.join(name)))
-            .collect::<std::io::Result<_>>()?
-    } else {
-        vec![]
-    };
-    if s < target && !registered {
-        interrupted(
-            &root,
-            &["prepare", "--profile", profile, "--package", pkg, "--root", r],
-            "el/db/mdbx.dat",
-        )
-        .await?;
+    let before: Vec<_> =
+        authority.iter().map(|name| fs::read(dir.join(name))).collect::<std::io::Result<_>>()?;
+    let root = base.join("import");
+    let ready = import(f, commands, &x, &root, "import").await?;
+    ensure!(ready == json!({"phase": "ready", "generation": 0, "execution_floor": s}), "{ready}");
+    // DATA-5.4-7: signer state is never imported, and the import touches none of it.
+    ensure!((fs::read(dir.join("state.json"))?, fs::read(&wal)?) == original);
+    for (name, bytes) in authority.iter().zip(&before) {
+        ensure!(fs::read(dir.join(name))? == *bytes, "checkpoint import changed authority {name}");
     }
-    let prepared =
-        cli(&base, "prepare", &["prepare", "--profile", profile, "--package", pkg, "--root", r])
-            .await?;
-    ensure!(
-        prepared["phase"] == "prepared" &&
-            prepared["observed_latest_target"].as_u64().unwrap() == target &&
-            prepared["live_trust"] == false
-    );
-    if s < target && !registered {
-        helper_failures::occupied_stock_output(&base, &root, profile).await?;
-        for boundary in [
-            "comet/data/blockstore.db",
-            "el/.etna-el-import-completed.json",
-            "app/abci-state.json",
-            ".etna-checkpoint-completed.json",
-        ] {
-            interrupted(&root, &["install", "--profile", profile, "--root", r], boundary).await?;
-            ensure!(fs::read(&hrs)? == original.0 && fs::read(&wal)? == original.1);
-        }
-    }
-    let ready = cli(&base, "install", &["install", "--profile", profile, "--root", r]).await?;
-    ensure!(
-        ready["phase"] == "installed" &&
-            ready["execution_floor"] == s &&
-            ready["live_trust"] == false
-    );
-    ensure!(
-        root.join("ready/el/db/mdbx.dat").metadata()?.len() <= 128 * 1024 * 1024,
-        "post-smoke native runtime expanded the small offline fixture"
-    );
-    if s < target && !registered {
-        // A caller that lost the completion acknowledgement must reopen the published group.
-        ensure!(
-            cli(&base, "install-retry", &["install", "--profile", profile, "--root", r]).await? ==
-                ready
-        );
-    }
-    assert_eq!((fs::read(&hrs)?, fs::read(&wal)?), original);
-    if s < target && !registered {
-        mixed_components_refused(&root, &source)?;
-    }
-    if registered {
-        for (name, bytes) in marker_files.iter().zip(&authority_before) {
-            ensure!(
-                fs::read(authority.join(name))? == *bytes,
-                "checkpoint operation changed existing authority {name}"
-            );
-        }
-        return registered_follow(
-            f,
-            c,
-            commands,
-            Follow { base: &base, root: &root, s, target, generation: 0, ports: (proxy, rp) },
-            &original,
-        )
-        .await;
-    }
-    c.restart_node(0).await?;
-    if mode == Mode::Forced {
-        return forced::replay(f, c, &base, &root, s, proxy).await;
-    }
-    follow(
-        f,
-        c,
-        commands,
-        Follow { base: &base, root: &root, s, target, generation: 0, ports: (proxy, rp) },
-    )
-    .await
+    registered_follow(f, c, commands, &x, &root, s, target, &original).await
 }
 
+/// s = o (DATA-5.4-1): no app state is installed, and InitChain starts from the original genesis.
+async fn fixed_origin(
+    f: &ContractFixture,
+    c: &ContractConsensus,
+    commands: &Commands,
+) -> Result<()> {
+    let base = commands.dir.path().canonicalize()?;
+    let genesis = c.comet_home(0).canonicalize()?.join("config/genesis.json");
+    let export =
+        Export { s: 0, comet_genesis: &genesis, recovery_bootstrap: None, validator_state: None };
+    let x = import_fixture(f, c, commands, &base, &[], &c.comet_home(0), &c.cmt, export).await?;
+    let root = base.join("import");
+    let ready = import(f, commands, &x, &root, "import").await?;
+    ensure!(
+        ready == json!({"phase": "ready", "generation": null, "execution_floor": null}),
+        "{ready}"
+    );
+    ensure!(!root.join("ready/app").join(abci::store::STATE_FILE).exists());
+    let run = Follow { s: 0, target: 0, generation: 0, floor: None, restart: false };
+    follow(f, c, commands, &x, &root, run).await
+}
+
+/// Land `height` with the original lander, then let own L1 finalize it.
+async fn land(
+    f: &ContractFixture,
+    c: &ContractConsensus,
+    commands: &Commands,
+    height: u64,
+) -> Result<()> {
+    let mut lander = commands.old_lander(f, &c.cmt)?;
+    wait_checkpoint(f, &mut lander, height).await?;
+    lander.stop().await?;
+    mine_l1_blocks(&f.anvil.provider, 4).await
+}
+
+async fn source_blocks(cmt: &CmtClient, s: u64) -> Result<Vec<ExecutionBlock>> {
+    let mut blocks = vec![];
+    for h in 1..=s {
+        blocks.push(cmt.envelope(h).await?.block);
+    }
+    Ok(blocks)
+}
+
+/// A package exported at s and the local inputs that import it.
+struct Fixture {
+    base: PathBuf,
+    package: PathBuf,
+    /// A stopped EL datadir at s.
+    source: PathBuf,
+    el_chain: PathBuf,
+    /// The stock Comet `config.toml` the import installs.
+    config: PathBuf,
+    /// The ABCI and Comet RPC ports that `config` names.
+    proxy: u16,
+    rpc: u16,
+}
+
+/// What `export` collects.
+struct Export<'a> {
+    s: u64,
+    comet_genesis: &'a Path,
+    recovery_bootstrap: Option<&'a Path>,
+    validator_state: Option<&'a Path>,
+}
+
+/// The operator's own preparation, outside the importer, then `export`: replay `blocks` into a
+/// donor EL and copy its stopped datadir, write a full-node Comet config that peers with `peer`,
+/// and export the package at s. No old consensus or successor payload reaches the import.
+#[allow(clippy::too_many_arguments)]
+async fn import_fixture(
+    f: &ContractFixture,
+    c: &ContractConsensus,
+    commands: &Commands,
+    base: &Path,
+    blocks: &[ExecutionBlock],
+    source_home: &Path,
+    peer: &CmtClient,
+    export: Export<'_>,
+) -> Result<Fixture> {
+    let elbin = binary("ETNA_EL_BIN", "alethia-reth")?;
+    let el_chain = base.join("el-genesis.json");
+    fs::write(&el_chain, &f.l2.genesis.json)?;
+    let donor_dir = base.join("donor-data");
+    let (mut donor, _, _, engine) = el(&elbin, &donor_dir, &el_chain, base, "donor").await?;
+    for b in blocks {
+        let h = b.header.number;
+        ensure!(engine.new_payload(b).await? == PayloadVerdict::Valid, "donor replay {h}");
+        let head = b.header.hash_slow();
+        ensure!(
+            engine.forkchoice(head, f.l2.genesis.hash, f.l2.genesis.hash).await? ==
+                PayloadVerdict::Valid,
+            "donor head {h}"
+        );
+    }
+    donor.stop().await?;
+    // A normal stop can leave reth's PID marker. Copy the dataset only after reaping the donor.
+    let source = base.join("offline-state");
+    fs::create_dir_all(source.join("db"))?;
+    for name in ["mdbx.dat", "database.version"] {
+        fs::copy(donor_dir.join("db").join(name), source.join("db").join(name))?;
+    }
+    let (config, proxy, rpc) = fullnode_template(base, source_home, peer).await?;
+    let package = base.join("archive");
+    let mut args = vec!["export".to_string()];
+    args.extend(own(f, commands));
+    for (flag, value) in [
+        ("--comet.http", c.cmt.url().to_string()),
+        ("--l2.http", f.l2.http.to_string()),
+        ("--comet-genesis", export.comet_genesis.display().to_string()),
+        ("--height", export.s.to_string()),
+        ("--out", package.display().to_string()),
+    ] {
+        args.extend([flag.into(), value]);
+    }
+    if let Some(path) = export.recovery_bootstrap {
+        args.extend(["--recovery-bootstrap".into(), path.display().to_string()]);
+    }
+    if let Some(path) = export.validator_state {
+        args.extend(["--validator-state".into(), path.display().to_string()]);
+    }
+    let exported = cli(base, "export", &args).await?;
+    ensure!(exported["phase"] == "exported" && exported["height"] == export.s, "{exported}");
+    eprintln!(
+        "checkpoint_fixture s={} frame_bytes={} metadata_bytes={}",
+        export.s,
+        package.join("blocks.jsonl").metadata()?.len(),
+        package.join("package.json").metadata()?.len(),
+    );
+    Ok(Fixture { base: base.to_path_buf(), package, source, el_chain, config, proxy, rpc })
+}
+
+/// The own deployment and L1 that `export` and `import` authenticate against.
+fn own(f: &ContractFixture, commands: &Commands) -> [String; 6] {
+    [
+        "--l1.http".into(),
+        f.anvil.http.to_string(),
+        "--l2.chain-id".into(),
+        f.params.l2_chain_id.to_string(),
+        "--chain-config".into(),
+        commands.chain.display().to_string(),
+    ]
+}
+
+fn import_args(
+    f: &ContractFixture,
+    commands: &Commands,
+    x: &Fixture,
+    root: &Path,
+) -> Result<Vec<String>> {
+    let mut args = vec!["import".to_string()];
+    args.extend(own(f, commands));
+    for (flag, path) in [
+        ("--package", x.package.clone()),
+        ("--root", root.to_path_buf()),
+        ("--el-source", x.source.clone()),
+        ("--el-chain", x.el_chain.clone()),
+        ("--el-helper", binary("ETNA_EL_IMPORT_BIN", "etna-el-import")?),
+        ("--comet-helper", package().join("target/etna-signer/etna-comet-import")),
+        ("--comet-config", x.config.clone()),
+    ] {
+        args.extend([flag.into(), path.display().to_string()]);
+    }
+    Ok(args)
+}
+
+async fn import(
+    f: &ContractFixture,
+    commands: &Commands,
+    x: &Fixture,
+    root: &Path,
+    tag: &str,
+) -> Result<Value> {
+    cli(&x.base, tag, &import_args(f, commands, x, root)?).await
+}
+
+async fn status(base: &Path, root: &Path, tag: &str) -> Result<Value> {
+    cli(base, tag, &["status".into(), "--root".into(), root.display().to_string()]).await
+}
+
+/// A file left in the stage of a killed import. No published store may contain it.
+const CRASH_LEFTOVER: &str = "left-by-killed-import";
+
+/// SIGKILL `import` mid-EL-install, after the Comet stores (DATA-5.4-5, ACC §7.6). The EL helper
+/// inherited the root lock and runs on. Once it exits, nothing is published, `status` reports the
+/// root interrupted, and a marker is left in the stage for the rerun to discard.
+async fn crash_mid_install(
+    f: &ContractFixture,
+    commands: &Commands,
+    x: &Fixture,
+    root: &Path,
+) -> Result<()> {
+    let mut args = vec!["abci-import".to_string()];
+    args.extend(import_args(f, commands, x, root)?);
+    let mut killed = Process::spawn(Path::new(CLIENT), &args, x.base.join("import-killed.log"))?;
+    let el = root.join("stage/ready/el/db");
+    tokio::time::timeout(Duration::from_secs(480), async {
+        while !el.exists() {
+            killed.running()?;
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+        Ok::<_, anyhow::Error>(())
+    })
+    .await
+    .context("import never reached the EL install")??;
+    ensure!(
+        root.join("stage/ready/comet/data/blockstore.db").is_dir(),
+        "the Comet stores are installed before the EL"
+    );
+    killed.kill().await?;
+    let started = std::time::Instant::now();
+    tokio::time::timeout(Duration::from_secs(480), async {
+        while !lock_free(root)? {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+        Ok::<_, anyhow::Error>(())
+    })
+    .await
+    .context("the surviving EL helper must release the root lock")??;
+    eprintln!("checkpoint_crash seconds_to_quiescence={:.3}", started.elapsed().as_secs_f64());
+    ensure!(!root.join("ready").exists(), "a killed import published stores");
+    ensure!(status(&x.base, root, "status-killed").await?["phase"] == "interrupted");
+    fs::write(root.join("stage/ready/app").join(CRASH_LEFTOVER), b"stage of a killed import")?;
+    Ok(())
+}
+
+/// Whether nothing holds `ROOT/import.lock`: neither an import nor a helper that inherited it.
+fn lock_free(root: &Path) -> Result<bool> {
+    use std::os::fd::AsRawFd;
+    let lock = fs::File::open(root.join("import.lock"))?;
+    // SAFETY: flock on a descriptor this function owns; closing it releases the lock.
+    Ok(unsafe { libc::flock(lock.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } == 0)
+}
+
+/// Plain `abci` on `data_dir`, once it accepts connections on `proxy`.
+async fn app(
+    f: &ContractFixture,
+    commands: &Commands,
+    data_dir: &Path,
+    (http, auth): (&Url, &Url),
+    proxy: u16,
+    log: PathBuf,
+) -> Result<Process> {
+    let args = [
+        "abci".to_string(),
+        "--data-dir".into(),
+        data_dir.display().to_string(),
+        "--l1.http".into(),
+        f.anvil.http.to_string(),
+        "--l2.http".into(),
+        http.to_string(),
+        "--l2.auth".into(),
+        auth.to_string(),
+        "--jwt.secret".into(),
+        package().join("tests/docker/jwt.hex").display().to_string(),
+        "--chain-config".into(),
+        commands.chain.display().to_string(),
+        "--abci.addr".into(),
+        format!("tcp://127.0.0.1:{proxy}"),
+        "--fee-recipient".into(),
+        "0x0000000000000000000000000000000000000001".into(),
+    ];
+    let mut app = Process::spawn(Path::new(CLIENT), &args, log)?;
+    tokio::time::timeout(Duration::from_secs(150), async {
+        loop {
+            app.running()?;
+            if tokio::net::TcpStream::connect(("127.0.0.1", proxy)).await.is_ok() {
+                return Ok::<_, anyhow::Error>(())
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+    })
+    .await
+    .context("abci never listened")??;
+    Ok(app)
+}
+
+/// The EL on `ready/el` and plain `abci` on `ready/app` of a published root.
+struct Node {
+    el: Process,
+    app: Process,
+    http: Url,
+}
+impl Node {
+    async fn start(
+        f: &ContractFixture,
+        commands: &Commands,
+        x: &Fixture,
+        root: &Path,
+        label: &str,
+    ) -> Result<Self> {
+        let elbin = binary("ETNA_EL_BIN", "alethia-reth")?;
+        let ready = root.join("ready");
+        let (el, http, auth, _) =
+            el(&elbin, &ready.join("el"), &x.el_chain, &x.base, &format!("{label}-el")).await?;
+        let log = x.base.join(format!("{label}-app.log"));
+        let app = app(f, commands, &ready.join("app"), (&http, &auth), x.proxy, log).await?;
+        Ok(Self { el, app, http })
+    }
+    fn running(&mut self) -> Result<()> {
+        self.el.running()?;
+        self.app.running()
+    }
+    async fn stop(&mut self) -> Result<()> {
+        self.app.stop().await?;
+        self.el.stop().await
+    }
+}
+
+/// Stock Comet on `ready/comet` through the full-node launcher, as on any other store.
+fn full_node(x: &Fixture, root: &Path, label: &str) -> Result<Process> {
+    let vars = [
+        format!("ETNA_COMET_BIN={}", binary("ETNA_COMET_BIN", "cometbft")?.display()),
+        format!("ETNA_COMET_HOME={}", root.join("ready/comet").display()),
+        "python3".into(),
+        package().join("script/start_etna_full_node.py").display().to_string(),
+    ];
+    Process::spawn(Path::new("/usr/bin/env"), &vars, x.base.join(format!("{label}.log")))
+}
+
+/// How an imported node comes up.
+struct Follow {
+    s: u64,
+    target: u64,
+    generation: u64,
+    /// The app's execution floor: `None` at a generation origin, whose state InitChain builds.
+    floor: Option<u64>,
+    /// Restart the EL and the app once after the handover.
+    restart: bool,
+}
+
+/// Run a published root as an ordinary node. Comet syncs from s + 1 over stock P2P, the EL serves
+/// each block, and the app reaches Ready trust at the target (DATA-5.4-6, SYNC-9).
+async fn follow(
+    f: &ContractFixture,
+    c: &ContractConsensus,
+    commands: &Commands,
+    x: &Fixture,
+    root: &Path,
+    run: Follow,
+) -> Result<()> {
+    let Follow { s, target, generation, floor, restart } = run;
+    let rpc = CmtClient::new(url(x.rpc));
+    let mut node = Node::start(f, commands, x, root, "imported").await?;
+    let mut comet = full_node(x, root, "imported-comet")?;
+    wait_committed(&rpc, target + 1, &mut comet).await?;
+    trusted(&rpc, &mut comet, &mut node, generation, floor, target).await?;
+    let source = c.cmt.envelope(s + 1).await?;
+    ensure!(rpc.envelope(s + 1).await? == source, "stock P2P block s + 1");
+    let reader = rpc::client::connect_http_with_timeout(node.http.clone(), Duration::from_secs(5));
+    let served = reader.get_block_by_number((s + 1).into()).await?.context("EL block s + 1")?;
+    ensure!(served.header.inner == source.block.header);
+    handover(&rpc, &mut comet).await?;
+    if restart {
+        comet.stop().await?;
+        let tip = reader
+            .get_block_by_number(alloy_eips::BlockNumberOrTag::Latest)
+            .await?
+            .context("EL tip before the restart")?
+            .header;
+        ensure!(tip.number > s);
+        node.stop().await?;
+        node = Node::start(f, commands, x, root, "restarted").await?;
+        comet = full_node(x, root, "restarted-comet")?;
+        // Ready again: the app checked the floor at startup, before it answered Comet.
+        trusted(&rpc, &mut comet, &mut node, generation, floor, target).await?;
+        let reader =
+            rpc::client::connect_http_with_timeout(node.http.clone(), Duration::from_secs(5));
+        let kept =
+            reader.get_block_by_number(tip.number.into()).await?.context("tip after restart")?;
+        ensure!(
+            reader.get_block_number().await? >= tip.number && kept.header.hash == tip.hash,
+            "a normal restart rolled the EL back to the import floor"
+        );
+        handover(&rpc, &mut comet).await?;
+    }
+    comet.stop().await?;
+    node.stop().await?;
+    let status = status(&x.base, root, "status-after-run").await?;
+    ensure!(status["phase"] == "ready" && status["execution_floor"] == json!(floor), "{status}");
+    Ok(())
+}
+
+/// Wait until the app reports Ready trust at the target, with its generation and floor.
+async fn trusted(
+    rpc: &CmtClient,
+    comet: &mut Process,
+    node: &mut Node,
+    generation: u64,
+    floor: Option<u64>,
+    target: u64,
+) -> Result<()> {
+    tokio::time::timeout(Duration::from_secs(120), async {
+        loop {
+            comet.running()?;
+            node.running()?;
+            if let Ok(status) = rpc.abci_status().await &&
+                status.execution_floor == floor &&
+                status.generation == generation &&
+                status.trust_phase == abci::app::trust::TrustPhase::Ready &&
+                status.trust_target.is_some_and(|t| t.height >= target)
+            {
+                return Ok::<_, anyhow::Error>(())
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+    })
+    .await
+    .context("the imported node never reached Ready trust at the target")?
+}
+
+/// Stock v0.40 can race PopRequest on shutdown during active blocksync: wait for the consensus
+/// handover before stopping Comet.
+async fn handover(rpc: &CmtClient, comet: &mut Process) -> Result<()> {
+    tokio::time::timeout(Duration::from_secs(120), async {
+        loop {
+            comet.running()?;
+            if rpc.call("status", &[]).await?["sync_info"]["catching_up"] == false {
+                return Ok::<_, anyhow::Error>(())
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+    })
+    .await
+    .context("Comet never left blocksync")?
+}
+
+#[allow(clippy::too_many_arguments)]
 async fn registered_follow(
     f: &ContractFixture,
     c: &ContractConsensus,
     commands: &Commands,
-    context: Follow<'_>,
+    x: &Fixture,
+    root: &Path,
+    s: u64,
+    target: u64,
     original: &(Vec<u8>, Vec<u8>),
 ) -> Result<()> {
-    let Follow { base, root, s, target, ports: (proxy, rp), .. } = context;
     let dir = f.signer_storage.path().join("0").canonicalize()?;
     let old_height = serde_json::from_slice::<Value>(&original.0)?["height"]
         .as_str()
         .context("source HRS")?
         .parse::<u64>()?;
-    let comet = root.join("ready/comet");
-    let app = root.join("ready/app");
+    let ready = root.join("ready");
     let domain: Value = serde_json::from_str(&c.genesis_json)?;
     let chain = domain["chain_id"].as_str().context("deployment chain")?;
-    let args = [
-        "abci-import",
-        "run-app",
-        "--root",
-        root.to_str().unwrap(),
-        "--profile",
-        base.join("import.json").to_str().unwrap(),
-        "--fee-recipient",
-        "0x0000000000000000000000000000000000000001",
-        "--el-http-port",
-        &port()?.to_string(),
-    ]
-    .map(str::to_owned);
-    let mut runtime = Process::spawn(Path::new(CLIENT), &args, base.join("registered-app.log"))?;
-    tokio::time::timeout(Duration::from_secs(90), async {
-        loop {
-            runtime.running()?;
-            if app.join(".owner.sock").exists() &&
-                tokio::net::TcpStream::connect(("127.0.0.1", proxy)).await.is_ok()
-            {
-                break;
-            }
-            tokio::time::sleep(Duration::from_millis(100)).await;
-        }
-        Ok::<_, anyhow::Error>(())
-    })
-    .await??;
+    let mut node = Node::start(f, commands, x, root, "registered").await?;
     ensure!(fs::read(dir.join("state.json"))? == original.0);
     let vars = [
-        format!("ETNA_COMET_HOME={}", comet.display()),
-        format!("ETNA_APP_STORE={}", app.display()),
+        format!("ETNA_COMET_HOME={}", ready.join("comet").display()),
+        format!("ETNA_APP_STORE={}", ready.join("app").display()),
         format!("ETNA_PRIV_KEY={}", dir.join("key.json").display()),
         format!("ETNA_PRIV_STATE={}", dir.join("state.json").display()),
         format!("ETNA_AUTHORITY_ROOT={}", dir.join("authority").display()),
@@ -522,20 +744,21 @@ async fn registered_follow(
         format!("ETNA_INBOX={:#x}", f.params.inbox),
         "ETNA_GENERATION=0".into(),
         "ETNA_ENROLL_LEGACY=0".into(),
-        format!("ETNA_CLIENT_BIN={CLIENT}"),
+        format!("ETNA_SIGNER_BIN={}", binary("ETNA_SIGNER_BIN", "etna-signer")?.display()),
+        format!("ETNA_COMET_BIN={}", binary("ETNA_COMET_BIN", "cometbft")?.display()),
         "python3".into(),
         package().join("script/etna_validator.py").display().to_string(),
     ];
     let mut supervisor =
-        Process::spawn(Path::new("/usr/bin/env"), &vars, base.join("registered-supervisor.log"))?;
-    let rpc = CmtClient::new(url(rp));
+        Process::spawn(Path::new("/usr/bin/env"), &vars, x.base.join("registered-supervisor.log"))?;
+    let rpc = CmtClient::new(url(x.rpc));
     let reader = &c.peers[1];
     let address = f.keys[0].address();
     let new_height = tokio::time::timeout(Duration::from_secs(180), async {
         let mut candidate = old_height + 1;
         loop {
             supervisor.running()?;
-            runtime.running()?;
+            node.running()?;
             if let Ok(head) = rpc.latest_height().await &&
                 head > candidate &&
                 reader.latest_height().await? > candidate
@@ -557,7 +780,7 @@ async fn registered_follow(
         format!(
             "no new registered proposal after HRS {old_height}: {} / {}",
             supervisor.output(),
-            runtime.output()
+            node.app.output()
         )
     })??;
     let status = rpc.abci_status().await?;
@@ -578,7 +801,7 @@ async fn registered_follow(
     ensure!(later_round, "stock differential includes a genuine later-round proposer");
     let grid = new_height / 6 * 6;
     ensure!(
-        fs::read(app.join(format!("val-state-{grid}.bin")))? ==
+        fs::read(ready.join(format!("app/val-state-{grid}.bin")))? ==
             fs::read(c.app_dir(1).join(format!("val-state-{grid}.bin")))?
     );
     let hrs = serde_json::from_slice::<Value>(&fs::read(dir.join("state.json"))?)?["height"]
@@ -617,8 +840,7 @@ async fn registered_follow(
         "registered_import s={s} target={target} source_hrs={old_height} imported_proposer={new_height} hrs={hrs} landed={landed} hash={hash}"
     );
     supervisor.stop().await?;
-    runtime.stop().await?;
-    Ok(())
+    node.stop().await
 }
 
 async fn fullnode_template(
@@ -655,285 +877,6 @@ async fn fullnode_template(
     Ok((template, proxy, rp))
 }
 
-struct Follow<'a> {
-    base: &'a Path,
-    root: &'a Path,
-    s: u64,
-    target: u64,
-    generation: u64,
-    ports: (u16, u16),
-}
-async fn follow(
-    f: &ContractFixture,
-    c: &ContractConsensus,
-    commands: &Commands,
-    context: Follow<'_>,
-) -> Result<()> {
-    let Follow { base, root, s, target, generation, ports: (proxy, rp) } = context;
-    let r = root.to_str().unwrap();
-    let base_ready = root.join("ready");
-    let app = base_ready.join("app");
-    let comet = base_ready.join("comet");
-    let el_port = port()?;
-    let http = url(el_port);
-    if s == 0 || (generation == 1 && s == 6) {
-        fixed_origin_store_swaps(base, root, false)?;
-    }
-    let args = [
-        "abci-import",
-        "run-app",
-        "--root",
-        r,
-        "--profile",
-        base.join("import.json").to_str().unwrap(),
-        "--fee-recipient",
-        "0x0000000000000000000000000000000000000001",
-        "--el-http-port",
-        &el_port.to_string(),
-    ]
-    .map(str::to_owned);
-    let mut app_process = Process::spawn(Path::new(CLIENT), &args, base.join("imported-app.log"))?;
-    tokio::time::timeout(Duration::from_secs(150), async {
-        loop {
-            app_process.running()?;
-            if app.join(".owner.sock").exists() &&
-                tokio::net::TcpStream::connect(("127.0.0.1", proxy)).await.is_ok()
-            {
-                break
-            }
-            tokio::time::sleep(Duration::from_millis(100)).await;
-        }
-        Ok::<_, anyhow::Error>(())
-    })
-    .await??;
-    let comet_bin = binary("ETNA_COMET_BIN", "cometbft")?;
-    cli(
-        base,
-        "check",
-        &[
-            "check-runtime",
-            "--app-dir",
-            app.to_str().unwrap(),
-            "--comet-home",
-            comet.to_str().unwrap(),
-        ],
-    )
-    .await?;
-    let wrapper = package().join("script/start_etna_full_node.py");
-    let foreign = base.join("sentinel-old-comet");
-    fs::create_dir(&foreign)?;
-    let sentinel = foreign.join("wal");
-    fs::write(&sentinel, b"stopped old home")?;
-    if generation == 0 && s == 6 && target > s {
-        refuse_ambiguous_launchers(base, &app, &comet)?;
-    }
-    let vars = [
-        format!("CMTHOME={}", foreign.display()),
-        format!("TMHOME={}", foreign.display()),
-        "CMT_DB_BACKEND=memdb".into(),
-        format!("CMTDBDIR={}", foreign.display()),
-        format!("TM_DB_DIR={}", foreign.display()),
-        format!("ETNA_CLIENT_BIN={CLIENT}"),
-        format!("ETNA_COMET_BIN={}", comet_bin.display()),
-        format!("ETNA_APP_STORE={}", app.display()),
-        format!("ETNA_COMET_HOME={}", comet.display()),
-        "python3".into(),
-        wrapper.display().to_string(),
-    ];
-    let mut follower =
-        Process::spawn(Path::new("/usr/bin/env"), &vars, base.join("imported-comet.log"))?;
-    let rpc = CmtClient::new(url(rp));
-    wait_committed(&rpc, target + 1, &mut follower).await?;
-    tokio::time::timeout(Duration::from_secs(90), async {
-        loop {
-            follower.running()?;
-            app_process.running()?;
-            if let Ok(status) = rpc.abci_status().await &&
-                status.execution_floor == Some(s) &&
-                status.generation == generation &&
-                status.trust_phase == abci::app::trust::TrustPhase::Ready &&
-                status.trust_target.is_some_and(|t| t.height >= target)
-            {
-                break
-            }
-            tokio::time::sleep(Duration::from_millis(100)).await;
-        }
-        Ok::<_, anyhow::Error>(())
-    })
-    .await??;
-    ensure!(rpc.envelope(s + 1).await? == c.cmt.envelope(s + 1).await?);
-    use alloy_provider::Provider;
-    let reader = rpc::client::connect_http_with_timeout(http.clone(), Duration::from_secs(5));
-    ensure!(
-        reader
-            .get_block_by_number((s + 1).into())
-            .await?
-            .context("retained first new block")?
-            .header
-            .inner ==
-            c.cmt.envelope(s + 1).await?.block.header
-    );
-    if generation == 0 && s > 0 {
-        crosswired_refused(&app, &comet, &http, f, commands, proxy).await?;
-    }
-    // Stock v0.40 can race PopRequest on shutdown during active blocksync. Wait for
-    // the genuine consensus handover as well as the independently asserted app trust.
-    tokio::time::timeout(Duration::from_secs(120), async {
-        loop {
-            follower.running()?;
-            if rpc.call("status", &[]).await?["sync_info"]["catching_up"] == false {
-                break
-            }
-            tokio::time::sleep(Duration::from_millis(100)).await;
-        }
-        Ok::<_, anyhow::Error>(())
-    })
-    .await??;
-    follower.stop().await?;
-    let durable_tip = reader
-        .get_block_by_number(alloy_eips::BlockNumberOrTag::Latest)
-        .await?
-        .context("owned execution tip before shutdown")?
-        .header;
-    app_process.stop().await?;
-    if generation == 0 && s > 0 && s < target {
-        let mut restarted =
-            Process::spawn(Path::new(CLIENT), &args, base.join("restarted-owned-app.log"))?;
-        tokio::time::timeout(Duration::from_secs(60), async {
-            loop {
-                restarted.running()?;
-                let guard = tokio::process::Command::new(CLIENT)
-                    .args(["abci-import", "check-runtime", "--live", "--app-dir"])
-                    .arg(&app)
-                    .arg("--comet-home")
-                    .arg(&comet)
-                    .output()
-                    .await?;
-                if guard.status.success() {
-                    break
-                }
-                tokio::time::sleep(Duration::from_millis(150)).await;
-            }
-            Ok::<_, anyhow::Error>(())
-        })
-        .await??;
-        ensure!(
-            durable_tip.number > s &&
-                reader.get_block_number().await? >= durable_tip.number &&
-                reader
-                    .get_block_by_number(durable_tip.number.into())
-                    .await?
-                    .context("later head after restart")?
-                    .header
-                    .hash ==
-                    durable_tip.hash,
-            "normal restart rolled forkchoice back to imported floor"
-        );
-        restarted.stop().await?;
-        ensure!(
-            root.join("ready/el/db/mdbx.dat").metadata()?.len() <= 128 * 1024 * 1024,
-            "ordinary restart expanded the small imported fixture"
-        );
-    }
-    ensure!(
-        fs::read(&sentinel)? == b"stopped old home" && fs::read_dir(&foreign)?.count() == 1,
-        "ambient home override reached the stock child"
-    );
-    if s == 0 || (generation == 1 && s == 6) {
-        fixed_origin_store_swaps(base, root, true)?;
-    }
-
-    ensure!(cli(base, "offline-status", &["status", "--root", r]).await?["live_trust"] == false);
-    Ok(())
-}
-
-async fn interrupted(root: &Path, args: &[&str], at: &str) -> Result<()> {
-    use std::process::Stdio;
-    let started = std::time::Instant::now();
-    let mut cmd = tokio::process::Command::new(CLIENT)
-        .arg("abci-import")
-        .args(args)
-        .stdout(Stdio::null())
-        .stderr(Stdio::piped())
-        .kill_on_drop(true)
-        .spawn()?;
-    tokio::time::timeout(Duration::from_secs(480), async {
-        loop {
-            if root.join(".checkpoint-work").join(at).exists() {
-                break
-            }
-            if let Some(s) = cmd.try_wait()? {
-                use tokio::io::AsyncReadExt;
-                let mut msg = String::new();
-                cmd.stderr.take().unwrap().read_to_string(&mut msg).await?;
-                anyhow::bail!("import exited before crash boundary {at}: {s}: {msg}")
-            }
-            tokio::time::sleep(Duration::from_millis(5)).await;
-        }
-        Ok::<_, anyhow::Error>(())
-    })
-    .await??;
-    let crash_at = started.elapsed();
-    cmd.start_kill()?;
-    ensure!(!cmd.wait().await?.success());
-    tokio::time::timeout(Duration::from_secs(90), async {
-        loop {
-            if abci::ownership::acquire_activation(root, alloy_primitives::B256::ZERO).is_ok() {
-                break
-            }
-            tokio::time::sleep(Duration::from_millis(50)).await;
-        }
-    })
-    .await
-    .context("surviving helper must relinquish its inherited ownership barrier")?;
-    eprintln!(
-        "checkpoint_crash boundary={at} seconds_to_crash={:.3} seconds_to_quiescence={:.3}",
-        crash_at.as_secs_f64(),
-        (started.elapsed() - crash_at).as_secs_f64()
-    );
-    ensure!(!root.join("ready").exists(), "interrupted stage must not be published");
-    let rejected = std::process::Command::new(CLIENT)
-        .args(["abci-import", "check-runtime", "--app-dir"])
-        .arg(root.join(".checkpoint-work/app"))
-        .arg("--comet-home")
-        .arg(root.join(".checkpoint-work/comet"))
-        .output()?;
-    ensure!(!rejected.status.success());
-    Ok(())
-}
-
-fn mixed_components_refused(root: &Path, donor: &Path) -> Result<()> {
-    let ready = root.join("ready");
-    let check = || {
-        std::process::Command::new(CLIENT)
-            .args(["abci-import", "check-runtime", "--app-dir"])
-            .arg(ready.join("app"))
-            .arg("--comet-home")
-            .arg(ready.join("comet"))
-            .output()
-    };
-    let marker = ready.join("el/.etna-checkpoint.json");
-    let original = fs::read(&marker)?;
-    let mut other: Value = serde_json::from_slice(&original)?;
-    other["installation_id"] = json!(alloy_primitives::B256::ZERO);
-    fs::write(&marker, serde_json::to_vec(&other)?)?;
-    ensure!(!check()?.status.success(), "foreign component accepted");
-    fs::write(&marker, original)?;
-    let db = ready.join("el/db/mdbx.dat");
-    let held = ready.join("saved-installed-db");
-    fs::rename(&db, &held)?;
-    fs::copy(donor.join("db/mdbx.dat"), &db)?;
-    ensure!(!check()?.status.success(), "foreign database under matching directory accepted");
-    fs::rename(&held, &db)?;
-    let config = ready.join("comet/config/config.toml");
-    let bytes = fs::read(&config)?;
-    fs::write(&config, b"db_dir='/other/writable/component'")?;
-    ensure!(!check()?.status.success(), "redirected database path accepted");
-    fs::write(&config, bytes)?;
-    ensure!(check()?.status.success());
-    Ok(())
-}
-
 /// Preserve real recovery grid preimages independently of the live runtime's prune floor.
 pub fn enable_recovery_archive(commands: &Commands) -> Result<()> {
     let archive = commands.dir.path().canonicalize()?.join("grid-archive");
@@ -946,14 +889,15 @@ pub fn enable_recovery_archive(commands: &Commands) -> Result<()> {
     write_private(&commands.profile, toml::to_string(&cfg)?)
 }
 
-/// Bootstrap a real delayed generation-one full node from the fixed R boundary and from
-/// a later landing. The operator's independent donor replay is external to the importer.
+/// Import a delayed generation-one full node at the fixed recovery origin (s = 6: no app state,
+/// InitChain builds it, DATA-5.4-1 and RECOV-8.4) and at a later landing (s = 12: an ordinary
+/// import). The operator's independent donor replay is outside the importer.
 pub async fn recovered(
     f: &ContractFixture,
     c: &ContractConsensus,
     commands: &Commands,
     plan: &str,
-    old: &[abci::envelope::ExecutionBlock],
+    old: &[ExecutionBlock],
 ) -> Result<()> {
     let parent = commands.dir.path().canonicalize()?;
     let active: Value = serde_json::from_slice(&fs::read(commands.root.join("active.json"))?)?;
@@ -974,524 +918,60 @@ pub async fn recovered(
         "fixed recovery R proves q={}, historical parent context previously proved q={}",
         fixed.anchor.inbox.last_checkpoint_height, old_anchor.inbox.last_checkpoint_height
     );
+    let target = 12;
+    ensure!(f.checkpoint().await?.0 >= target, "the recovered generation landed {target}");
     let archive = parent.join("grid-archive");
     let domain = alloy_primitives::keccak256(doc.chain_id.as_bytes());
-    let elbin = binary("ETNA_EL_BIN", "alethia-reth")?;
-    let helper = binary("ETNA_EL_IMPORT_BIN", "etna-el-import")?;
-    let stock = package().join("target/etna-signer/etna-comet-import");
+    ensure!(old.len() == 6, "the original blocks 1..=6");
     for s in [6, 12] {
         let base = parent.join(format!("g1-cp-{s}"));
         fs::create_dir(&base)?;
-        let el_chain = base.join("el-genesis.json");
-        fs::write(&el_chain, &f.l2.genesis.json)?;
-        let donor_dir = base.join("donor-data");
-        let (mut donor, _, _, engine) = el(&elbin, &donor_dir, &el_chain, &base, "donor").await?;
-        for h in 1..=s {
-            let b =
-                if h <= 6 { old[(h - 1) as usize].clone() } else { c.cmt.envelope(h).await?.block };
-            ensure!(
-                engine.new_payload(&b).await? == PayloadVerdict::Valid,
-                "independent recovery donor block {h}"
-            );
-            ensure!(
-                engine
-                    .forkchoice(b.header.hash_slow(), f.l2.genesis.hash, f.l2.genesis.hash)
-                    .await? ==
-                    PayloadVerdict::Valid
-            );
+        // The recovered Comet starts at 7; the original blocks up to the origin come from `old`.
+        let mut blocks = old.to_vec();
+        for h in 7..=s {
+            blocks.push(c.cmt.envelope(h).await?.block);
         }
-        donor.stop().await?;
-        let source = base.join("offline-state");
-        fs::create_dir_all(source.join("db"))?;
-        for name in ["mdbx.dat", "database.version"] {
-            fs::copy(donor_dir.join("db").join(name), source.join("db").join(name))?;
-        }
-        let (template, proxy, rp) = fullnode_template(&base, &home, &c.cmt).await?;
-        let profile = base.join("import.json");
-        write_private(
-            &profile,
-            serde_json::to_vec(
-                &json!({"schema":1,"l1_chain_id":f.params.l1_chain_id,"l2_chain_id":f.params.l2_chain_id,"l1_http":f.anvil.http,"chain_config":commands.chain,"archive":{"comet_http":c.cmt.url(),"l2_http":f.l2.http,"comet_genesis":g,"recovery_bootstrap":bootstrap,"comet_helper":stock},"install":{"comet_binary":binary("ETNA_COMET_BIN","cometbft")?,"el_source":source,"el_chain":el_chain,"devnet_etna_timestamp":0,"comet_config":template,"comet_helper":stock,"el_helper":helper,"el_binary":elbin}}),
-            )?,
-        )?;
-        let pkg = base.join("archive");
-        let root = base.join("import");
         let preimage = archive.join(format!("{domain}-{s}.bin"));
-        let [pf, pkg_path, r] = [&profile, &pkg, &root].map(|p| p.to_str().unwrap());
-        let selected = s.to_string();
-        let mut export = vec!["export", "--profile", pf, "--height", &selected, "--out", pkg_path];
-        if s > 6 {
-            export.extend(["--validator-state", preimage.to_str().unwrap()]);
-        }
-        cli(&base, "export", &export).await?;
-        let prepared = cli(
-            &base,
-            "prepare",
-            &["prepare", "--profile", pf, "--package", pkg_path, "--root", r],
-        )
-        .await?;
-        ensure!(prepared["generation"] == 1 && prepared["execution_floor"] == s);
-        let status = cli(&base, "install", &["install", "--profile", pf, "--root", r]).await?;
-        let target = status["observed_latest_target"].as_u64().context("own latest checkpoint")?;
-        ensure!(target >= 12 && status["phase"] == "installed" && status["live_trust"] == false);
-        let installed: abci::store::AppState =
-            serde_json::from_slice(&fs::read(root.join("ready/app/abci-state.json"))?)?;
-        ensure!(installed.origin_height() == 6 && installed.last_height == s);
+        let export = Export {
+            s,
+            comet_genesis: &g,
+            recovery_bootstrap: Some(&bootstrap),
+            validator_state: (s > 6).then_some(preimage.as_path()),
+        };
+        let x = import_fixture(f, c, commands, &base, &blocks, &home, &c.cmt, export).await?;
+        let root = base.join("import");
+        let ready = import(f, commands, &x, &root, "import").await?;
         let installed: abci::GenesisDoc =
             serde_json::from_slice(&fs::read(root.join("ready/comet/config/genesis.json"))?)?;
         ensure!(installed == doc && installed.initial_height == "7");
-        follow(
-            f,
-            c,
-            commands,
-            Follow { base: &base, root: &root, s, target, generation: 1, ports: (proxy, rp) },
-        )
-        .await?;
-    }
-    Ok(())
-}
-
-/// Try the same-chain public node with a different live auth endpoint and every wrong store
-/// role. All must fail before opening a new app journal or making an Engine request.
-async fn crosswired_refused(
-    app: &Path,
-    comet: &Path,
-    http: &Url,
-    f: &ContractFixture,
-    commands: &Commands,
-    proxy: u16,
-) -> Result<()> {
-    use alloy_provider::Provider;
-    let reader = rpc::client::connect_http_with_timeout(http.clone(), Duration::from_secs(5));
-    ensure!(reader.get_chain_id().await? == f.l2.provider.get_chain_id().await?);
-    let ready = app.parent().unwrap();
-    let sibling = ready.join("wrong-sibling");
-    fs::create_dir(&sibling)?;
-    for path in [app, comet, &ready.join("el"), &sibling] {
-        let out = tokio::process::Command::new(CLIENT)
-            .args([
-                "abci",
-                "--abci.addr",
-                &format!("tcp://127.0.0.1:{proxy}"),
-                "--fee-recipient",
-                "0x0000000000000000000000000000000000000001",
-                "--data-dir",
-                path.to_str().unwrap(),
-                "--l1.http",
-                f.anvil.http.as_str(),
-                "--l2.http",
-                http.as_str(),
-                "--l2.auth",
-                f.l2.auth.as_str(),
-                "--jwt.secret",
-                package().join("tests/docker/jwt.hex").to_str().unwrap(),
-                "--chain-config",
-                commands.chain.to_str().unwrap(),
-            ])
-            .output()
-            .await?;
-        ensure!(
-            out.status.code() == Some(1) &&
-                String::from_utf8_lossy(&out.stderr).contains("checkpoint"),
-            "cross-wired engine or wrong app role: {}",
-            String::from_utf8_lossy(&out.stderr)
-        );
-        if path != app {
-            ensure!(!path.join("abci-state.json").exists())
-        }
-    }
-    Ok(())
-}
-
-fn memdb_refused(base: &Path, profile: &Path, package: &Path) -> Result<()> {
-    let mut config: Value = serde_json::from_slice(&fs::read(profile)?)?;
-    let template = Path::new(config["install"]["comet_config"].as_str().unwrap());
-    let template: toml::Table = toml::from_str(&fs::read_to_string(template)?)?;
-    let foreign = base.join("config-redirect-sentinel");
-    fs::create_dir(&foreign)?;
-    fs::write(foreign.join("wal"), b"preserved old WAL")?;
-    let aliases = [
-        ("db_backend", toml::Value::from("memdb"), "goleveldb"),
-        ("DB_BACKEND", toml::Value::from("memdb"), "ambiguous"),
-        ("DB_DIR", toml::Value::from(foreign.display().to_string()), "ambiguous"),
-        ("statesync.enable", toml::Value::from(true), "ambiguous"),
-        (
-            "consensus.wal_file",
-            toml::Value::from(foreign.join("wal").display().to_string()),
-            "ambiguous",
-        ),
-        (
-            "CONSENSUS",
-            toml::Value::Table(toml::Table::from_iter([("TIMEOUT_PROPOSE".into(), "-1s".into())])),
-            "ambiguous",
-        ),
-    ];
-    let invalid = base.join("ambiguous-template.toml");
-    let profile = base.join("ambiguous-profile.json");
-    config["install"]["comet_config"] = json!(invalid);
-    write_private(&profile, serde_json::to_vec(&config)?)?;
-    for (key, value, reason) in aliases {
-        let mut candidate = template.clone();
-        candidate.insert(key.into(), value);
-        fs::write(&invalid, toml::to_string(&candidate)?)?;
-        let root = base.join("refused-comet-template");
-        let out = std::process::Command::new(CLIENT)
-            .args(["abci-import", "prepare", "--profile"])
-            .arg(&profile)
-            .arg("--root")
-            .arg(&root)
-            .arg("--package")
-            .arg(package)
-            .output()?;
-        ensure!(
-            out.status.code() == Some(1) &&
-                String::from_utf8_lossy(&out.stderr).contains(reason) &&
-                !root.exists(),
-            "effective stock alias {key}: {}",
-            String::from_utf8_lossy(&out.stderr)
-        );
-    }
-    ensure!(
-        fs::read(foreign.join("wal"))? == b"preserved old WAL" &&
-            fs::read_dir(&foreign)?.count() == 1
-    );
-    let generated = native_config_controls(base)?;
-    config["install"]["comet_config"] = json!(generated);
-    write_private(&profile, serde_json::to_vec(&config)?)?;
-    let out = std::process::Command::new(CLIENT)
-        .args(["abci-import", "prepare", "--profile"])
-        .arg(&profile)
-        .arg("--root")
-        .arg(base.join("accepted-stock-default"))
-        .arg("--package")
-        .arg(package)
-        .output()?;
-    ensure!(
-        out.status.success(),
-        "stock-generated default configuration rejected: {}",
-        String::from_utf8_lossy(&out.stderr)
-    );
-    Ok(())
-}
-
-/// Pin this differential to the real stock process. The intentional missing genesis stops
-/// inspect immediately after native DB opening. All paths and WALs belong to the fixture.
-fn native_config_controls(base: &Path) -> Result<PathBuf> {
-    let binary = binary("ETNA_COMET_BIN", "cometbft")?;
-    for (name, config, db, error) in [
-        ("default", "", "data", "GenesisDoc"),
-        ("persistent", "db_backend='goleveldb'", "data", "GenesisDoc"),
-        ("uppercase-memdb", "DB_BACKEND='memdb'", "", "GenesisDoc"),
-        ("uppercase-directory", "DB_DIR='redirected'", "redirected", "GenesisDoc"),
-        ("dotted-sync", "\"statesync.enable\"=true\n[statesync]\nenable=false", "", "rpc_servers"),
-        ("uppercase-consensus", "[CONSENSUS]\nTIMEOUT_PROPOSE='-1s'", "", "timeout_propose"),
-    ] {
-        let home = base.join(format!("stock-parser-{name}"));
-        fs::create_dir_all(home.join("config"))?;
-        fs::write(home.join("config/config.toml"), config)?;
-        let out = std::process::Command::new(&binary)
-            .env_clear()
-            .env("HOME", &home)
-            .env("CMTHOME", &home)
-            .arg("inspect")
-            .arg("--home")
-            .arg(&home)
-            .output()?;
-        ensure!(
-            !out.status.success() && String::from_utf8_lossy(&out.stderr).contains(error),
-            "{name}: {}",
-            String::from_utf8_lossy(&out.stderr)
-        );
-        for storage in ["data", "redirected"] {
-            for role in ["state.db", "blockstore.db"] {
-                ensure!(
-                    home.join(storage).join(role).is_dir() == (db == storage),
-                    "unexpected stock {name}/{storage}/{role}"
-                );
-            }
-        }
-    }
-    let home = base.join("generated-stock-template");
-    fs::create_dir(&home)?;
-    let output = std::process::Command::new(binary)
-        .env_clear()
-        .env("HOME", &home)
-        .env("CMTHOME", &home)
-        .arg("inspect")
-        .arg("--home")
-        .arg(&home)
-        .output()?;
-    ensure!(
-        !output.status.success() && String::from_utf8_lossy(&output.stderr).contains("GenesisDoc")
-    );
-    let generated = home.join("config/config.toml");
-    ensure!(generated.metadata()?.len() > 10_000);
-    Ok(generated)
-}
-
-fn refuse_ambiguous_launchers(base: &Path, app: &Path, comet: &Path) -> Result<()> {
-    for (script, overrides) in [
-        ("script/start_etna_full_node.py", &["ETNA_COMET_ENV_JSON", "ETNA_COMET_COMMAND_JSON"][..]),
-        ("script/etna_validator.py", &["ETNA_SIGNER_COMMAND_JSON", "ETNA_COMET_ENV_JSON"][..]),
-    ] {
-        for name in overrides {
-            let out = std::process::Command::new("python3")
-                .arg(package().join(script))
-                .env("ETNA_CLIENT_BIN", CLIENT)
-                .env("ETNA_APP_STORE", app)
-                .env("ETNA_COMET_HOME", comet)
-                .env(name, "{}")
-                .output()?;
+        let app = root.join("ready/app");
+        let floor = if s == 6 {
             ensure!(
-                !out.status.success() &&
-                    String::from_utf8_lossy(&out.stderr).contains("refuses launch override"),
-                "opaque imported adapter reached signer access: {}",
-                String::from_utf8_lossy(&out.stderr)
+                ready == json!({"phase": "ready", "generation": null, "execution_floor": null}),
+                "{ready}"
             );
-        }
-    }
-    // A byte-for-byte equivalent decoded imported state remains tagged after a publisher
-    // reorders the root fields, escapes a property name or inserts legal JSON whitespace.
-    let journal: Value = serde_json::from_slice(&fs::read(app.join("abci-state.json"))?)?;
-    let alternate = format!(
-        "{}{{\"state\":{},\"schema\":1,\"installa\\u0074ion_id\":{}}}",
-        " ".repeat(2 << 20),
-        journal["state"],
-        journal["installation_id"]
-    );
-    ensure!(serde_json::from_str::<Value>(&alternate)? == journal);
-    let detached = base.join("detached-journal");
-    let empty = base.join("detached-comet");
-    fs::create_dir(&detached)?;
-    fs::create_dir_all(empty.join("config"))?;
-    fs::write(detached.join("abci-state.json"), alternate)?;
-    fs::write(empty.join("config/config.toml"), "priv_validator_laddr=''")?;
-    for script in ["start_etna_full_node.py", "etna_validator.py"] {
-        let out = std::process::Command::new("python3")
-            .arg(package().join("script").join(script))
-            .env("ETNA_APP_STORE", &detached)
-            .env("ETNA_COMET_HOME", &empty)
-            .env("ETNA_COMET_BIN", "/usr/bin/true")
-            .output()?;
-        ensure!(
-            !out.status.success() &&
-                String::from_utf8_lossy(&out.stderr)
-                    .contains("incomplete or mixed import paths"),
-            "detached full imported journal fell through to legacy launcher: {script}"
-        );
-    }
-    let shadow = comet.join("config.toml");
-    fs::write(&shadow, "db_backend = 'memdb'")?;
-    let out = std::process::Command::new(CLIENT)
-        .args(["abci-import", "check-runtime", "--app-dir"])
-        .arg(app)
-        .arg("--comet-home")
-        .arg(comet)
-        .output()?;
-    fs::rename(shadow, base.join("refused-shadow.toml"))?;
-    ensure!(!out.status.success() && String::from_utf8_lossy(&out.stderr).contains("shadowing"));
-    Ok(())
-}
-
-fn fixed_origin_store_swaps(base: &Path, root: &Path, after_progress: bool) -> Result<()> {
-    let home = root.join("ready/comet");
-    let check = || {
-        std::process::Command::new(CLIENT)
-            .args(["abci-import", "check-runtime", "--app-dir"])
-            .arg(root.join("ready/app"))
-            .arg("--comet-home")
-            .arg(&home)
-            .output()
-    };
-    let different = base.join(if after_progress { "foreign-after" } else { "foreign-before" });
-    fs::create_dir_all(different.join("data"))?;
-    let id = alloy_primitives::B256::repeat_byte(0x45);
-    write_private(
-        &different.join(".etna-stock-staging.json"),
-        serde_json::to_vec(&json!({"schema":1,"installation_id":id,"fixed_origin":true}))?,
-    )?;
-    let out = std::process::Command::new(package().join("target/etna-signer/etna-comet-import"))
-        .args(["bind-stores", "--home"])
-        .arg(&different)
-        .arg("--installation-id")
-        .arg(id.to_string())
-        .arg("--fixed-origin")
-        .output()?;
-    ensure!(
-        out.status.success(),
-        "foreign fixture creation: {}",
-        String::from_utf8_lossy(&out.stderr)
-    );
-    let roles =
-        if after_progress { &["evidence"][..] } else { &["state", "blockstore", "evidence"][..] };
-    for role in roles {
-        let db = home.join(format!("data/{role}.db"));
-        let other = different.join(format!("data/{role}.db"));
-        let save = different.join(format!("original-{role}"));
-        fs::create_dir(&save)?;
-        move_contents(&db, &save)?;
-        move_contents(&other, &db)?;
-        let out = check()?;
-        move_contents(&db, &other)?;
-        move_contents(&save, &db)?;
-        ensure!(
-            !out.status.success(),
-            "foreign {role} contents accepted inside original DB directory"
-        );
-        ensure!(
-            out.status.code() == Some(1) &&
-                String::from_utf8_lossy(&out.stderr).contains("database"),
-            "unexpected refusal for foreign {role} ({:?}): {}",
-            out.status.code(),
-            String::from_utf8_lossy(&out.stderr)
-        );
-    }
-    ensure!(check()?.status.success());
-    Ok(())
-}
-fn move_contents(from: &Path, to: &Path) -> Result<()> {
-    for entry in fs::read_dir(from)? {
-        let entry = entry?;
-        fs::rename(entry.path(), to.join(entry.file_name()))?;
-    }
-    Ok(())
-}
-
-async fn crash_stock_export(base: &Path, original: &Path, preimage: &Path) -> Result<()> {
-    use std::{
-        ffi::CString,
-        io::Write,
-        os::unix::{
-            ffi::OsStrExt,
-            fs::{OpenOptionsExt, PermissionsExt},
-        },
-        process::Stdio,
-    };
-    let mut profile: Value = serde_json::from_slice(&fs::read(original)?)?;
-    let native = profile["archive"]["comet_helper"].as_str().unwrap();
-    let fifo = base.join("crash-stock.fifo");
-    let pid = base.join("native-go.pid");
-    let inject = base.join("inject-stock");
-    fs::write(&inject, b"1")?;
-    let name = CString::new(fifo.as_os_str().as_bytes())?;
-    ensure!(unsafe { libc::mkfifo(name.as_ptr(), 0o600) } == 0);
-    let wrapper = base.join("test-stock-exec");
-    // A testing interposer changes only the input FD to a deliberately incomplete FIFO;
-    // the final executable is the actual pinned Go helper, including its signal handler.
-    let script = format!(
-        "#!/usr/bin/python3\nimport os,sys\nfrom pathlib import Path\nnative={}\nargs=[native]+sys.argv[1:]\nif Path({}).exists():\n Path({}).write_text(str(os.getpid()))\n args.extend(['--package',{}])\nos.execv(native,args)\n",
-        serde_json::to_string(native)?,
-        serde_json::to_string(&inject)?,
-        serde_json::to_string(&pid)?,
-        serde_json::to_string(&fifo)?
-    );
-    fs::write(&wrapper, script)?;
-    fs::set_permissions(&wrapper, fs::Permissions::from_mode(0o700))?;
-    profile["archive"]["comet_helper"] = json!(wrapper);
-    let pf = base.join("fault-export.json");
-    write_private(&pf, serde_json::to_vec(&profile)?)?;
-    let target = base.join("fault-archive");
-    let op = base.join(".fault-archive.etna-export");
-    let work = op.join(".checkpoint-work/go");
-    let args = [
-        "abci-import",
-        "export",
-        "--profile",
-        pf.to_str().unwrap(),
-        "--height",
-        "6",
-        "--out",
-        target.to_str().unwrap(),
-        "--validator-state",
-        preimage.to_str().unwrap(),
-    ];
-    for quit in [true, false] {
-        let mut child = tokio::process::Command::new(CLIENT)
-            .args(args)
-            .stderr(Stdio::piped())
-            .stdout(Stdio::null())
-            .kill_on_drop(true)
-            .spawn()?;
-        let mut writer = tokio::time::timeout(Duration::from_secs(40), async {
-            loop {
-                if let Ok(f) =
-                    fs::OpenOptions::new().write(true).custom_flags(libc::O_NONBLOCK).open(&fifo)
-                {
-                    return Ok::<_, anyhow::Error>(f)
-                }
-                ensure!(
-                    child.try_wait()?.is_none(),
-                    "stock export exited before reading test FIFO"
-                );
-                tokio::time::sleep(Duration::from_millis(5)).await;
-            }
-        })
-        .await??;
-        writer.write_all(
-            br#"{"schema":1,"blocks":[{"block":"0x01","commit":"0x02","validators":[]},"#,
-        )?;
-        let spool = tokio::time::timeout(Duration::from_secs(10), async {
-            loop {
-                for e in fs::read_dir(&work)? {
-                    let e = e?;
-                    if e.file_name().to_string_lossy().starts_with("etna-comet-import-") {
-                        let b = e.path().join("blocks");
-                        if b.metadata().is_ok_and(|m| m.len() > 4) {
-                            return Ok::<_, anyhow::Error>(b)
-                        }
-                    }
-                }
-                tokio::time::sleep(Duration::from_millis(5)).await
-            }
-        })
-        .await??;
-        if quit {
-            let native_pid = fs::read_to_string(&pid)?.parse()?;
-            ensure!(unsafe { libc::kill(native_pid, libc::SIGQUIT) } == 0);
+            ensure!(
+                !app.join(abci::store::STATE_FILE).exists() &&
+                    app.join("recovery-bootstrap.json").is_file(),
+                "the recovery origin installs only the bootstrap"
+            );
+            None
         } else {
-            child.start_kill()?;
-        }
-        let out = tokio::time::timeout(Duration::from_secs(20), child.wait_with_output()).await??;
-        if quit {
             ensure!(
-                out.status.code() == Some(1) &&
-                    String::from_utf8_lossy(&out.stderr)
-                        .contains("without a bound contradiction receipt"),
-                "Go crash fabricated safety: {}",
-                String::from_utf8_lossy(&out.stderr)
+                ready == json!({"phase": "ready", "generation": 1, "execution_floor": s}),
+                "{ready}"
             );
-        }
-        ensure!(
-            spool.is_file() &&
-                !target.exists() &&
-                !base.join(".fault-archive.checkpoint-halted.json").exists()
-        );
-        tokio::time::timeout(Duration::from_secs(20), async {
-            loop {
-                if abci::ownership::acquire_activation(&op, alloy_primitives::B256::ZERO).is_ok() {
-                    break
-                }
-                tokio::time::sleep(Duration::from_millis(10)).await
-            }
-        })
-        .await?;
-        drop(writer);
-        ensure!(spool.is_file(), "real native interruption must leave its spool in owned staging");
+            let installed: abci::store::AppState =
+                serde_json::from_slice(&fs::read(app.join(abci::store::STATE_FILE))?)?;
+            ensure!(installed.origin_height() == 6 && installed.last_height == s);
+            Some(s)
+        };
+        let run = Follow { s, target, generation: 1, floor, restart: false };
+        follow(f, c, commands, &x, &root, run).await?;
     }
-    fs::remove_file(inject)?;
-    let output = tokio::process::Command::new(CLIENT).args(args).output().await?;
-    ensure!(
-        output.status.success() &&
-            target.join("blocks.jsonl").is_file() &&
-            !op.join(".checkpoint-work").exists(),
-        "failed to reclaim private stock spool: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
     Ok(())
 }
 
 mod long_fence;
 
 mod forced;
-
-mod helper_failures;

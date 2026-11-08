@@ -34,6 +34,9 @@ async fn governance_recovery_l6_blanks_fi_and_lands_epoch_boundary() -> Result<(
     checkpoint_roundtrip(6, true, false).await
 }
 
+/// Imports a delayed generation-one full node at the fixed recovery origin (s = 6: no app state,
+/// InitChain builds it) and at a later landing (s = 12: an ordinary import), and runs each as an
+/// ordinary node.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
 async fn checkpoint_import_recovered_fixed_and_landed_points_continue_stock() -> Result<()> {

@@ -2,17 +2,14 @@
 use super::*;
 use abci::{AnchorState, ChainParams, HeaderInputs, InboxFacts, ParentInfo, rules};
 use alloy_consensus::Header;
-use alloy_primitives::{Address, B256, U256, keccak256};
+use alloy_primitives::{Address, B256, U256};
 use alloy_provider::Provider;
-use std::os::unix::fs::PermissionsExt;
 
+/// The helper's header manifest: the inherited fence q and the context ending at s.
 #[derive(serde::Serialize)]
 struct Manifest<'a> {
     schema: u32,
-    installation_id: B256,
     chain_id: u64,
-    origin: u64,
-    unsettled_limit: u64,
     finalized_height: u64,
     finalized_hash: B256,
     headers: &'a [Header],
@@ -32,12 +29,8 @@ async fn native_long_fence_restarts_and_executes_with_body_pruned_parents() -> R
     let zero = engine.header_by_number(0).await?.context("genesis header")?;
     ensure!(zero.hash_slow() == genesis.hash && zero.state_root == genesis.state_root);
     donor.stop().await?;
+    // The helper creates the datadir from the stopped source.
     let local = base.join("imported");
-    fs::create_dir_all(local.join("db"))?;
-    fs::set_permissions(&local, fs::Permissions::from_mode(0o700))?;
-    for name in ["database.version", "mdbx.dat"] {
-        fs::copy(source.join("db").join(name), local.join("db").join(name))?;
-    }
     let params = ChainParams::builtin(167001)?;
     let mut headers: Vec<Header> = vec![];
     let q = 606;
@@ -58,28 +51,20 @@ async fn native_long_fence_restarts_and_executes_with_body_pruned_parents() -> R
     let finalized = headers[(q - 601) as usize].hash_slow();
     let terminal = headers.last().unwrap();
     let head = terminal.hash_slow();
-    let id = B256::repeat_byte(0xc7);
+    // U = 300: the context starts at s - U + 1 = 601, the caller's header floor.
     let manifest = Manifest {
         schema: 1,
-        installation_id: id,
         chain_id: 167001,
-        origin: 0,
-        unsettled_limit: 300,
         finalized_height: q,
         finalized_hash: finalized,
         headers: &headers,
     };
-    let bytes = serde_json::to_vec(&manifest)?;
     let path = base.join("manifest.json");
-    fs::write(&path, &bytes)?;
-    write_private(
-        &local.join(".etna-el-import-staging.json"),
-        serde_json::to_vec(
-            &json!({"schema":1,"installation_id":id,"manifest_hash":keccak256(&bytes)}),
-        )?,
-    )?;
+    fs::write(&path, serde_json::to_vec(&manifest)?)?;
     let installed = std::process::Command::new(binary("ETNA_EL_IMPORT_BIN", "etna-el-import")?)
         .arg("install")
+        .arg("--source")
+        .arg(&source)
         .arg("--datadir")
         .arg(&local)
         .arg("--chain")
@@ -102,9 +87,13 @@ async fn native_long_fence_restarts_and_executes_with_body_pruned_parents() -> R
     );
     let report: Value = serde_json::from_slice(&installed.stdout)?;
     ensure!(
-        report["state_floor"] == s &&
+        report["height"] == s &&
+            report["block_hash"] == json!(head) &&
             report["finalized_height"] == q &&
-            report["finalized_hash"] == json!(finalized)
+            report["finalized_hash"] == json!(finalized) &&
+            report["first_header"] == 601 &&
+            report["last_header"] == s,
+        "{report}"
     );
     // Preserve a closed, installed floor independent of the immediate-build branch. Neither
     // database is live during this copy, and neither contains signer or consensus data.

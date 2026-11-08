@@ -147,7 +147,7 @@ python3 -c 'import json, os, sys; open(os.environ["CALLS"], "a").write(json.dump
         self.assertIn(["docker", "info"], self.calls())
 
     def test_native_checkpoint_prepares_el_and_comet_without_recovery_image(self):
-        self.select("governance_recovery", "support::checkpoint_import::registered_checkpoint_latest_signs_proposes_and_lands")
+        self.select("governance_recovery", "support::checkpoint_import::registered_checkpoint_older_signs_proposes_and_lands")
         result = self.run_entrypoint()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(set(self.builds()), {"etna_signer", "stock_comet", "etna_el_import", "etna_el_runtime"})
