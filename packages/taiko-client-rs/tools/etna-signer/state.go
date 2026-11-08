@@ -289,7 +289,8 @@ func statePlacement(chain, state, log string) error {
 // signer for this key. It refuses a logged chain and an existing state file, so an HRS is never
 // reset (RECOV-8.2-1). An interruption after the state and before the log line leaves an unlogged
 // zero state that serve and init-state both refuse: after checking it equals zeroHRS(), the
-// operator removes it and reruns this command. The log is never edited by hand.
+// operator removes it and reruns this command. The log is never edited by hand, except for the
+// torn-tail repair the README documents.
 func initState(chain, key, state, log string) error {
 	if err := statePlacement(chain, state, log); err != nil {
 		return err

@@ -55,7 +55,8 @@ If `init-state` is interrupted after creating the state and before the log line,
 state remains, and both `serve` and `init-state` refuse it. Check that the file is byte for byte
 the stock zero state (`{"height": "0", "round": 0, "step": 0}`, indented as FilePV writes it),
 remove it and rerun `init-state`. A state that is not the zero state may have signed:
-never remove it. Never edit the log by hand, except to repair a torn tail (Repairing a torn domains log).
+never remove it. Never edit the log by hand. The one documented exception is the repair of a
+torn tail (Repairing a torn domains log).
 
 Create the registration proof for the actual owner, registry and L1 chain:
 
@@ -149,19 +150,28 @@ RECOV-8.2-6).
 ### Repairing a torn domains log
 
 A log whose last byte is not a newline is torn: an `init-state` append was interrupted, and
-every serve refuses the log (exit 3). Only an operator repairs it, by hand; nothing repairs it
-automatically.
+every serve refuses the log (exit 3). This is the one documented exception to never editing the
+log by hand. Only an operator repairs it, in this order; nothing repairs it automatically.
 
 1. Stop every signer that uses the log, and every supervisor and restart controller that could
    start one.
-2. Every complete line, ending in a newline, is valid. Keep each one as it is.
-3. The bytes after the last newline are the torn tail: a prefix of the chain ID whose
-   `init-state` append was interrupted. That chain was never served, because serving needs its
-   complete line.
-4. Truncate only the bytes after the last newline, and fsync the log, for example:
+2. Identify the torn chain. Every complete line, ending in a newline, is valid: keep each one as
+   it is. The bytes after the last newline are a prefix of the chain ID whose `init-state` append
+   was interrupted. Its state is the one `<chain_id>.json` in the state directory that no
+   complete line lists. That chain was never served, because serving needs its complete line.
+3. Check that this unlogged state is byte for byte the stock zero state (see Bootstrap). If it is
+   not, if no state or more than one is unlogged, or if the torn bytes are not a prefix of its
+   chain ID, stop without truncating: the state may have signed, and it is resolved through
+   governance (RECOV-8.2-3).
+4. Copy the log byte for byte, and keep the copy as evidence.
+5. Only then truncate the bytes after the last newline, and fsync the log, for example:
    `python3 -c 'import os,sys; p=sys.argv[1]; n=open(p,"rb").read().rindex(b"\n")+1; f=os.open(p,os.O_WRONLY); os.ftruncate(f,n); os.fsync(f)' /private/domains/domains.log`
-5. For that chain, follow the interrupted-`init-state` step under Bootstrap: check that its
-   state is byte for byte the stock zero state, remove it, and rerun `init-state`.
+6. Remove the zero state and rerun `init-state` for that chain.
+7. The refusal was an exit 3: the supervisor latched it and left its signer-unsafe record in the
+   app store and the marker `<chain_id>.signer-unsafe` beside the log, for the chain_id it was
+   started with. Remove the latch, the record and the marker only under the evidence rules of
+   Supervisor restarts and latches: no fence, and no I/O error for the state volume in the kernel
+   log or in the signer's stderr.
 
 Never remove or change a complete line, and never truncate a log that ends in a newline.
 
@@ -223,7 +233,8 @@ closed session. Terminal trust/domain failures persist a latch and leave the sup
 alive and quiescent, including after container restart. See the package README for the
 supported combined image and separate app/supervisor container commands.
 If the halt cannot be written or synchronized, the supervisor still stops/reaps its
-children, retains the halt in memory, and stays alive retrying persistence. The signer
+children, retains the halt in memory, and stays alive retrying persistence; a signer it must
+kill is the exception (Supervisor restarts and latches). The signer
 closes its owned transport before stock server shutdown, so a blocked stock read cannot
 delay terminal or signal shutdown until the transport deadline.
 
@@ -275,13 +286,19 @@ NFS mount, and the supervisor may itself be killed during that wait (for example
 kubelet after `terminationGracePeriodSeconds`). So a kill is recorded before the SIGKILL is
 sent: the supervisor logs `etna_supervisor_signer_killed` (recording before SIGKILL), creates the
 record and the marker and fsyncs each with its directory, retrying both until both succeed, and
-then logs `etna_supervisor_signer_kill_recorded`. A SIGKILL from someone else during the 5 s
-grace is recorded only once the supervisor has reaped the signer. A healthy signer waiting on a
-slow app can also exceed the grace (each trust query is bounded by `--trust-timeout`, 1 s by
-default); that is recorded and latched too, which is safe. Remove the record, the marker and the
-latch only after inspection shows that no fsync failed: no fence, no I/O error for the state
-volume in the kernel log, none in the signer's stderr. Otherwise the state is uncertain and is
-resolved through governance (RECOV-8.2-3).
+then logs `etna_supervisor_signer_kill_recorded`. So the supervisor does not always stop its
+children: while the record or the marker cannot be written, it never sends the SIGKILL, the
+signer is left running (Comet is already stopped), and a SIGTERM to the supervisor waits too,
+until the kubelet's SIGKILL ends the pod. A stop takes up to 12 s for Comet plus the 5 s grace:
+set the pod's `terminationGracePeriodSeconds` above 17 s with margin for the fsyncs, for example
+the Kubernetes default of 30 s. A shorter one lets the kubelet SIGKILL a slow signer without a
+record. A SIGKILL from someone else during the 5 s grace is recorded only once the supervisor
+has reaped the signer. A healthy signer waiting on a slow app can also exceed the grace (each
+trust query is bounded by `--trust-timeout`, 1 s by default); that is recorded and latched too,
+which is safe. Remove the record, the marker and the latch only after inspection shows that no
+fsync failed: no fence, no I/O error for the state volume in the kernel log, none in the
+signer's stderr. Otherwise the state is uncertain and is resolved through governance
+(RECOV-8.2-3).
 
 The app store is not disposable while it holds this evidence. Never delete or replace an app
 store that holds a latch or a signer-unsafe record; preserve it. Before running a validator for a
@@ -316,11 +333,14 @@ for a chain that has already signed. Move, never copy:
    fence the host so its signer can never run again: power it off, or detach its volumes.
 2. With the old host's volumes attached to the standby or a maintenance host, check that its
    state directory holds no fence, its domains log's directory no signer-unsafe marker for any
-   chain_id being moved, and its app store no signer-unsafe record or unsafe or kill latch, then
-   move the key, the latest
-   `<chain_id>.json` of every chain and the domains log byte for byte from those volumes, never
-   from a backup or a snapshot of a running host. Keep the states and the log on separate
-   volumes.
+   chain_id being moved, and its app store no signer-unsafe record or unsafe or kill latch.
+   Their absence is not enough: a host that died abruptly, or a pod SIGKILLed inside the grace
+   window, leaves none of them even after a failed fsync. So, as before removing a record,
+   inspect the old host's kernel log for an I/O error on the state volume and the signer's
+   stderr for a failed fsync; if either shows one, the state is uncertain and is resolved
+   through governance (RECOV-8.2-3). Then move the key, the latest `<chain_id>.json` of every
+   chain and the domains log byte for byte from those volumes, never from a backup or a
+   snapshot of a running host. Keep the states and the log on separate volumes.
 3. Delete the state files from the old volumes, wherever they are attached, or destroy those
    volumes, before anything could start the old host again; if it does start, it then refuses
    (exit 3, logged chain without state). Then start the standby.

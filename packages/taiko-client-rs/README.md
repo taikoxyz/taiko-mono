@@ -594,8 +594,14 @@ committing those values to the Inbox.
    chain's HRS and exits 3; a crash writes no fence. A retained fence blocks startup, including
    when the supervisor was killed before writing its app-store latch.
    If that latch cannot be written, the supervisor stops its children, stays quiescent and
-   retries persistence. Container restart cannot clear a retained signer fence, signer-unsafe
-   record or marker, or halt latch.
+   retries persistence. A signer it must kill is the exception: while its signer-unsafe record
+   or marker cannot be written, the supervisor never sends the SIGKILL, so that signer is left
+   running after Comet was stopped, and a SIGTERM to the supervisor waits too, until the
+   kubelet's SIGKILL ends the pod. A stop takes up to 12 s for Comet plus the signer's 5 s
+   grace, so set `terminationGracePeriodSeconds` above 17 s with margin for the fsyncs, for
+   example the Kubernetes default of 30 s; a shorter one SIGKILLs a slow signer unrecorded.
+   Container restart cannot clear a retained signer fence, signer-unsafe record or marker, or
+   halt latch.
    A Comet EOF following observed control/trust loss also recovers after private Ready;
    a repeated configuration failure with continuously Ready trust stays latched. Exact app
    shutdown revocations wait for a fresh app incarnation; they never authorize signing.
