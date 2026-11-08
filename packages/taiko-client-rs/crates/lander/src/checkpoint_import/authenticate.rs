@@ -34,7 +34,7 @@ pub async fn select_export<L: L1Source + ?Sized>(
     for header in &fixed.l1_headers {
         canonical(l1, header).await?;
     }
-    let origin = fixed.recovery.as_ref().map_or(0, |r| r.height);
+    let origin = fixed.origin_height();
     if height < origin ||
         height > abci::schedule::UINT48_MAX ||
         !height.is_multiple_of(abci::GRID_INTERVAL)
@@ -462,7 +462,7 @@ async fn own_landing<L: L1Source + ?Sized>(
     snapshot.recovery_witness = recovery_witness;
     crate::l1::authenticate_snapshot(&snapshot, params).map_err(safety)?;
     let landing = read_landing(l1, params.inbox, &header, selected).await?;
-    let origin = fixed.recovery.as_ref().map_or(0, |r| r.height);
+    let origin = fixed.origin_height();
     validate_selected_landing(&landing, snapshot.generation, origin, snapshot.checkpoint_height)?;
     if selected > origin && selected < snapshot.checkpoint_height {
         verify_settled_suffix(l1, &snapshot, &landing, origin).await?;

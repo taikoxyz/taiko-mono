@@ -60,7 +60,7 @@ pub async fn run(profile: &Path, height: u64, out: &Path, archived: Option<&Path
         &latch_path,
         lander::checkpoint_import::select_export(&genesis, height, &params, &l1).await,
     )?;
-    let origin = fixed.recovery.as_ref().map_or(0, |r| r.height);
+    let origin = fixed.origin_height();
     let schedule = abci::Schedule::from_genesis(&fixed.genesis);
     if height < origin ||
         height > abci::schedule::UINT48_MAX ||
