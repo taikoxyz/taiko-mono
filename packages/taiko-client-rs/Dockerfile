@@ -72,7 +72,6 @@ COPY --from=build /tmp/etna-el-import ./etna-el-import
 
 COPY --from=comet /cometbft/build/cometbft /usr/bin/cometbft
 COPY packages/taiko-client-rs/script/etna_validator.py /app/script/etna_validator.py
-COPY packages/taiko-client-rs/script/etna_import_guard.py /app/script/etna_import_guard.py
 COPY packages/taiko-client-rs/script/start_etna_validator.sh /app/script/start_etna_validator.sh
 COPY packages/taiko-client-rs/script/start_etna_full_node.py /app/script/start_etna_full_node.py
 ENV ETNA_SIGNER_BIN=/app/etna-signer ETNA_EL_IMPORT_BIN=/app/etna-el-import ETNA_EL_BIN=/app/alethia-reth ETNA_COMET_UID=10001 ETNA_COMET_GID=10001

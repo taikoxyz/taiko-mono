@@ -36,10 +36,6 @@ import time
 import tempfile
 import tomllib
 
-# Resolve only the companion shipped beside this supervisor (also used by importlib tests).
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import etna_import_guard
-
 # These exact process-lifecycle revocations are transient only across app restart.
 APP_LIFECYCLE_STOPS = ("ABCI server stopped", "app worker stopped", "checkpoint control listener stopped")
 # Each signer+Comet pair rendezvouses at <home>/run/signer-<16 hex>.sock. Names with this
@@ -67,21 +63,11 @@ class Supervisor:
     def __init__(self):
         self.home = Path(os.environ["ETNA_COMET_HOME"]).resolve()
         self.store = Path(os.environ["ETNA_APP_STORE"]).resolve()
-        self.imported = etna_import_guard.launch_info(self.store, self.home)
-        if self.imported:
-            signer = self.imported["signer_binary"]
-            if not signer or os.environ.get("ETNA_SIGNER_BIN", signer) != signer:
-                raise ValueError("imported validator requires its bound native signer executable")
-            configured = [int(os.environ.get("ETNA_COMET_UID", os.geteuid())),
-                          int(os.environ.get("ETNA_COMET_GID", os.getegid()))]
-            if configured != self.imported["comet_identity"]:
-                raise ValueError("checkpoint Comet OS identity differs from supervisor")
         self.key = Path(os.environ["ETNA_PRIV_KEY"]).resolve()
         self.state = Path(os.environ["ETNA_PRIV_STATE"]).resolve()
         root = os.environ.get("ETNA_AUTHORITY_ROOT", "")
         self.denial_route = self.validate_denial_route(root)
         self.events = self.denial_route
-        self.event_scratch = None
         self.prior_observation = None
         self.chain = os.environ["ETNA_CHAIN_ID"]
         generation = os.environ.get("ETNA_GENERATION", "0")
@@ -133,8 +119,6 @@ class Supervisor:
             raise ValueError("validator startup requires explicit priv_validator_laddr")
         self.latch = self.store / "validator-supervisor.halted"
         binary = os.environ.get("ETNA_SIGNER_BIN", str(Path(__file__).resolve().parents[1] / "etna-signer"))
-        if self.imported:
-            binary = self.imported["signer_binary"]
         # start() adds each pair's --comet-signer-addr.
         self.signer_command = self.command_prefix("ETNA_SIGNER_COMMAND_JSON", [binary]) + [
             "--trust-socket", str(self.store / "checkpoint-trust.sock"),
@@ -143,8 +127,6 @@ class Supervisor:
         # Comet's complete argv. start_comet() appends only the Unix pair's --priv_validator_laddr.
         self.comet_command = self.command_prefix("ETNA_COMET_COMMAND_JSON", [
             os.environ.get("ETNA_COMET_BIN", "cometbft"), "start", "--home", str(self.home)])
-        if self.imported:
-            self.comet_command = [self.imported["comet_binary"], "start", "--home", str(self.home)]
         self.signer = self.comet = None
         self.running = True
         self.pending = False
@@ -187,10 +169,6 @@ class Supervisor:
         if not requested.is_absolute() or ".." in requested.parts:
             raise ValueError("invalid signer diagnostic path")
         route = requested.parent.resolve(strict=True) / requested.name
-        if self.imported and route != default:
-            raise ValueError("imported validator requires its app-local signer diagnostic")
-        if self.imported and any(p.is_relative_to(self.store) for p in (self.key, self.state)):
-            raise ValueError("registered key and HRS must be outside the imported app store")
         parent = route.parent.stat()
         if parent.st_uid not in (0, os.geteuid()) or parent.st_mode & 0o022:
             raise ValueError("unprotected signer diagnostic parent")
@@ -282,9 +260,6 @@ class Supervisor:
             inherited.append(descriptor)
         # A terminal interrupt must reach the supervisor first, so it can stop/reap
         # Comet before the signer. Separate sessions do not authorize group signaling.
-        if self.imported:
-            environment = (etna_import_guard.stock_env(self.home)
-                           if child_env == "ETNA_COMET_ENV_JSON" else {"PATH": os.defpath})
         return dict(pass_fds=tuple(inherited), env=environment, start_new_session=True)
 
     def observe(self):
@@ -328,9 +303,6 @@ class Supervisor:
 
         if signer_failed:
             self.record_signer_failure()
-        if self.event_scratch is not None:
-            self.event_scratch.cleanup()
-            self.event_scratch = None
         return signer_failed
 
     def fresh_transport(self):
@@ -370,16 +342,9 @@ class Supervisor:
             self.record_signer_failure()
             self.halt("retained signer uncertainty fence; inspect signing authority")
             return
-        if self.imported:
-            etna_import_guard.launch_info(self.store, self.home)
         self.validate_denial_route(os.environ.get("ETNA_AUTHORITY_ROOT", ""))
         self.address = self.fresh_transport()
-        # Never unlink an operator-selected file. Imported signers write only into a
-        # fresh private directory owned by this supervisor. Ordinary deployments may
-        # still use their existing diagnostic path; ignore its old inode on restart.
-        if self.imported:
-            self.event_scratch = tempfile.TemporaryDirectory(prefix=".signer-events-", dir=self.store)
-            self.events = Path(self.event_scratch.name) / "denial.json"
+        # Never unlink an operator-selected file; ignore its old inode on restart.
         previous = self.read_observation(self.events)
         self.prior_observation = previous[0] if previous is not None else None
         self.last_event = None
@@ -395,8 +360,6 @@ class Supervisor:
         print("etna_supervisor_started", flush=True)
 
     def start_comet(self):
-        if self.imported:
-            etna_import_guard.launch_info(self.store, self.home)
         command = self.comet_command
         if self.unix_run is not None:
             command = command + ["--priv_validator_laddr", self.address]
@@ -426,11 +389,6 @@ class Supervisor:
             evidence = json.loads(raw)
             state_bytes, fatal = bounded("abci-state.json"), bounded("fatal-evidence.txt")
             state = json.loads(state_bytes)
-            if self.imported:
-                if (set(state) != {"schema", "installation_id", "state"} or state["schema"] != 1
-                        or state["installation_id"] != self.imported["installation_id"]):
-                    return None
-                state = state["state"]
             if (set(evidence) != {"schema", "chain_id", "previous_generation", "current_generation", "inbox", "state_digest", "fatal_digest"}
                     or evidence["schema"] != 1 or evidence["chain_id"] != self.chain
                     or evidence["previous_generation"] != self.generation

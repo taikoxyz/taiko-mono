@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
-"""Check the selected import and retain the stock full-node writer lease across exec."""
+"""Retain the stock full-node writer lease across exec; an imported store starts like any other."""
 import fcntl
-import etna_import_guard
 import os
 from pathlib import Path
 import stat
 import tomllib
 
 def main():
-    app = Path(os.environ["ETNA_APP_STORE"]).resolve(strict=True)
     home = Path(os.environ["ETNA_COMET_HOME"]).resolve(strict=True)
     config = tomllib.loads((home / "config/config.toml").read_text())
     if config.get("priv_validator_laddr", ""):
@@ -24,10 +22,11 @@ def main():
         raise ValueError("invalid full-node writer lease")
     fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
     os.set_inheritable(fd, True)
-    imported = etna_import_guard.launch_info(app, home)
-    identity = imported["comet_identity"] if imported else None
     binary = os.environ.get("ETNA_COMET_BIN", "cometbft")
-    expected_uid, expected_gid = identity or (os.geteuid(), os.getegid())
+    # The same Comet OS identity the validator supervisor uses; the operator owns the home for it.
+    expected_uid, expected_gid = (os.geteuid(), os.getegid())
+    if "ETNA_COMET_UID" in os.environ:
+        expected_uid, expected_gid = int(os.environ["ETNA_COMET_UID"]), int(os.environ["ETNA_COMET_GID"])
     if (expected_uid, expected_gid) != (os.geteuid(), os.getegid()):
         if os.geteuid() != 0:
             raise ValueError("stock full node cannot assume its configured OS identity")
@@ -35,9 +34,6 @@ def main():
         os.setgid(expected_gid)
         os.setuid(expected_uid)
     os.chdir(home)
-    if imported:
-        binary = imported["comet_binary"]
-        os.execve(binary, [binary, "start", "--home", str(home)], etna_import_guard.stock_env(home))
     os.execvp(binary, [binary, "start", "--home", str(home)])
 
 if __name__ == "__main__":
