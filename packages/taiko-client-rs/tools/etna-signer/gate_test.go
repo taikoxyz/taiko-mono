@@ -72,9 +72,12 @@ func control(t *testing.T, reply func(map[string]any) any) string {
 	}()
 	return path
 }
+
+// snapshot is a trust reply for chain's session "test:7": the gate's four fields, plus the
+// nullable reason and recovery_origin keys every app snapshot carries (the supervisor's observe
+// requires recovery_origin).
 func snapshot(ready bool) map[string]any {
-	hash := "0x" + strings.Repeat("b", 64)
-	return map[string]any{"schema_version": 1, "session_id": "test:7", "chain_id": chain, "generation": 0, "phase": map[bool]string{true: "ready", false: "catching_up"}[ready], "target": map[string]any{"l1_number": 10, "l1_hash": "0x" + strings.Repeat("a", 64), "height": 0, "hash": hash, "comet_hash": "0x" + strings.Repeat("c", 64), "val_state_hash": "0x" + strings.Repeat("e", 64), "generation": 0, "inbox": "0x" + strings.Repeat("1", 40)}, "committed_head": map[string]any{"height": 0, "hash": hash}, "trusted_consensus_head": map[string]any{"height": 0, "hash": hash}, "reason": nil, "recovery_origin": nil}
+	return map[string]any{"schema_version": 1, "session_id": "test:7", "chain_id": chain, "phase": map[bool]string{true: "ready", false: "catching_up"}[ready], "reason": nil, "recovery_origin": nil}
 }
 
 // filePV is one validator initialized as an operator does: a stock native key, then
@@ -104,23 +107,17 @@ func domainsLogOf(state string) string {
 	return filepath.Join(filepath.Dir(filepath.Dir(state)), "domains", "domains.log")
 }
 
-// recoveredSnapshot is a Ready trust response for chain at recovered generation g > 0.
-func recoveredSnapshot(t *testing.T, g uint64) *trustResponse {
-	t.Helper()
+// recoveredSnapshot is the app's full Ready snapshot for chain at recovered generation g > 0.
+// The gate reads only its schema_version, session_id, chain_id and phase.
+func recoveredSnapshot(g uint64) map[string]any {
+	hash, comet := "0x"+strings.Repeat("b", 64), "0x"+strings.Repeat("c", 64)
 	value := snapshot(true)
 	value["generation"] = g
-	target := value["target"].(map[string]any)
-	target["generation"] = g
-	target["height"] = 6
-	value["committed_head"].(map[string]any)["height"] = 6
-	value["trusted_consensus_head"].(map[string]any)["height"] = 6
-	value["recovery_origin"] = map[string]any{"generation": g, "height": 6, "l1_number": 9, "l1_hash": "0x" + strings.Repeat("a", 64), "l1_timestamp": 100, "el_hash": target["hash"], "comet_hash": target["comet_hash"], "forced_cursor": 0, "committee_hash": "0x" + strings.Repeat("d", 64)}
-	raw, _ := json.Marshal(value)
-	var r trustResponse
-	if err := json.Unmarshal(raw, &r); err != nil {
-		t.Fatal(err)
-	}
-	return &r
+	value["target"] = map[string]any{"l1_number": 10, "l1_hash": "0x" + strings.Repeat("a", 64), "height": 6, "hash": hash, "comet_hash": comet, "val_state_hash": "0x" + strings.Repeat("e", 64), "generation": g, "inbox": "0x" + strings.Repeat("1", 40)}
+	value["committed_head"] = map[string]any{"height": 6, "hash": hash}
+	value["trusted_consensus_head"] = map[string]any{"height": 6, "hash": hash}
+	value["recovery_origin"] = map[string]any{"generation": g, "height": 6, "l1_number": 9, "l1_hash": "0x" + strings.Repeat("a", 64), "l1_timestamp": 100, "el_hash": hash, "comet_hash": comet, "forced_cursor": 0, "committee_hash": "0x" + strings.Repeat("d", 64)}
+	return value
 }
 func armed(path string) *gate {
 	g := newGate(path, time.Second)
@@ -207,32 +204,120 @@ func TestReadyIsFreshAndFilePVPersistsDoubleSignProtection(t *testing.T) {
 		t.Fatal("missing fresh check")
 	}
 }
+
+// The gate reads only schema_version, session_id, chain_id and phase (SYNC-9-10/9-11,
+// RECOV-8.2-4). Every other field, known or unknown, is ignored: the target and validator-state
+// comparison is app-side (SYNC-9-5). Anything but phase "ready" for this chain_id in the armed
+// session denies before FilePV, and a reply for another session also drops the armed session.
+func TestGateChecksOnlySessionChainAndPhase(t *testing.T) {
+	line := func(r map[string]any) string { raw, _ := json.Marshal(r); return string(raw) }
+	set := func(field string, value any) func(map[string]any) string {
+		return func(r map[string]any) string { r[field] = value; return line(r) }
+	}
+	for _, test := range []struct {
+		name  string
+		reply func(map[string]any) string
+		signs bool
+	}{
+		{"ready", line, true},
+		{"extra-target-field", set("target", "garbage"), true},
+		{"unknown-field", set("future", map[string]any{"x": 1}), true},
+		{"null-target", set("target", nil), true},
+		{"gate-fields-only", func(r map[string]any) string {
+			return line(map[string]any{"schema_version": r["schema_version"], "session_id": r["session_id"], "chain_id": r["chain_id"], "phase": r["phase"]})
+		}, true},
+		{"catching-up", set("phase", "catching_up"), false},
+		{"other-chain", set("chain_id", "etna-other"), false},
+		{"null-chain", set("chain_id", nil), false},
+		{"other-session", set("session_id", "other"), false},
+		{"duplicate-phase", func(r map[string]any) string {
+			return strings.Replace(line(r), `"phase":"ready"`, `"phase":"catching_up","phase":"ready"`, 1)
+		}, false},
+		{"other-schema", set("schema_version", 2), false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			path := control(t, func(map[string]any) any { return json.RawMessage(test.reply(snapshot(true))) })
+			g := armed(path)
+			backend, key, state := filePV(t)
+			signer := &recordingPV{FilePV: backend}
+			before, _ := os.ReadFile(state)
+			res, err := g.handle(signer, voteRequest(tm.PrevoteType, 0, false), chain)
+			if test.signs {
+				if err != nil || res.GetSignedVoteResponse().Error != nil || len(res.GetSignedVoteResponse().Vote.Signature) != 65 {
+					t.Fatalf("refused: %v %v", res, err)
+				}
+				if persisted := privval.LoadFilePV(key, state).LastSignState; persisted.Height != 1 {
+					t.Fatal("signature not persisted")
+				}
+				return
+			}
+			if err == nil || res.GetSignedVoteResponse().Error == nil || len(res.GetSignedVoteResponse().Vote.Signature) != 0 {
+				t.Fatalf("signed: %v", res)
+			}
+			if after, _ := os.ReadFile(state); signer.calls.Load() != 0 || !bytes.Equal(before, after) {
+				t.Fatal("denial reached FilePV")
+			}
+			if test.name == "other-session" && g.session.Load() != nil {
+				t.Fatalf("another session's reply kept session %q armed", *g.session.Load())
+			}
+		})
+	}
+}
+
+// Before InitChain the app's snapshot carries chain_id null. begin_session still arms the
+// transport's session, so Comet's startup PubKey connects, and signing on it denies.
+func TestBeginArmsSessionBeforeInitChain(t *testing.T) {
+	path := control(t, func(req map[string]any) any {
+		r := snapshot(req["op"] != "begin_session")
+		r["chain_id"] = nil
+		return r
+	})
+	g := newGate(path, time.Second)
+	if session, err := g.begin(); err != nil || session != "test:7" || g.session.Load() == nil {
+		t.Fatalf("pre-InitChain begin_session: %q %v", session, err)
+	}
+	backend, _, state := filePV(t)
+	signer := &recordingPV{FilePV: backend}
+	before, _ := os.ReadFile(state)
+	if res, err := g.handle(signer, voteRequest(tm.PrevoteType, 0, false), chain); err == nil || res.GetSignedVoteResponse().Error == nil {
+		t.Fatal("signed without a chain ID")
+	}
+	if after, _ := os.ReadFile(state); signer.calls.Load() != 0 || !bytes.Equal(before, after) {
+		t.Fatal("denial reached FilePV")
+	}
+}
+
+// A reply that cannot carry Ready for this session and chain denies before FilePV: a wrong
+// schema, an absent, null or empty session, a null phase or chain_id, an absent gate field,
+// an error reply, or an absent app.
 func TestControlFailuresDeny(t *testing.T) {
-	for _, test := range []string{"version", "session", "chain", "null_phase", "missing", "missing_origin", "generation", "target", "trusted", "unknown", "auth_error", "app_dead"} {
+	for _, test := range []string{"version", "null_version", "session", "null_session", "empty_session", "missing_session", "chain", "null_chain", "missing_chain", "null_phase", "missing", "auth_error", "app_dead"} {
 		t.Run(test, func(t *testing.T) {
 			path := control(t, func(req map[string]any) any {
 				r := snapshot(true)
 				switch test {
 				case "version":
 					r["schema_version"] = 2
+				case "null_version":
+					r["schema_version"] = nil
 				case "session":
 					r["session_id"] = "other:1"
+				case "null_session":
+					r["session_id"] = nil
+				case "empty_session":
+					r["session_id"] = ""
+				case "missing_session":
+					delete(r, "session_id")
 				case "chain":
 					r["chain_id"] = "wrong"
+				case "null_chain":
+					r["chain_id"] = nil
+				case "missing_chain":
+					delete(r, "chain_id")
 				case "null_phase":
 					r["phase"] = nil
 				case "missing":
 					delete(r, "phase")
-				case "missing_origin":
-					delete(r, "recovery_origin")
-				case "generation":
-					r["generation"] = nil
-				case "target":
-					r["target"] = nil
-				case "trusted":
-					r["trusted_consensus_head"] = nil
-				case "unknown":
-					r["future"] = true
 				case "auth_error":
 					return map[string]any{"error": "unauthorized"}
 				}
@@ -242,15 +327,16 @@ func TestControlFailuresDeny(t *testing.T) {
 				path = filepath.Join(t.TempDir(), "absent.sock")
 			}
 			g := armed(path)
-			signer, _, state := filePV(t)
+			backend, _, state := filePV(t)
+			signer := &recordingPV{FilePV: backend}
 			before, _ := os.ReadFile(state)
 			res, err := g.handle(signer, proposalRequest(), chain)
 			if err == nil || res.GetSignedProposalResponse().Error == nil {
 				t.Fatal("bad trust accepted")
 			}
 			after, _ := os.ReadFile(state)
-			if !bytes.Equal(before, after) {
-				t.Fatal("state changed")
+			if signer.calls.Load() != 0 || !bytes.Equal(before, after) {
+				t.Fatal("denial reached FilePV")
 			}
 		})
 	}
@@ -304,34 +390,64 @@ func TestReadinessIsPhaseOnly(t *testing.T) {
 		})
 	}
 }
+
+// Every trust query is bounded by the control timeout (SYNC-9-11): a malformed, duplicate-key
+// or oversize reply, an app that accepts and never answers, a listener that never accepts, and
+// a stale socket with no listener all deny a signing request within that bound, and none
+// reaches FilePV. A dead or hung trust socket never hangs or authorizes a signature.
 func TestMalformedAndTimeoutBounded(t *testing.T) {
 	encoded, _ := json.Marshal(snapshot(true))
 	duplicate := strings.Replace(string(encoded), `"phase":"ready"`, `"phase":"acquiring","phase":"ready"`, 1) + "\n"
-	for _, payload := range []string{"{bad}\n", duplicate, strings.Repeat("x", maxControlFrame+1) + "\n", ""} {
-		t.Run(string(rune(len(payload))), func(t *testing.T) {
+	for _, test := range []struct{ name, payload string }{
+		{"malformed", "{bad}\n"},
+		{"duplicate", duplicate},
+		{"oversize", strings.Repeat("x", maxControlFrame+1) + "\n"},
+		{"unterminated", string(encoded)},
+		{"silent", ""},
+		{"never-accepts", ""},
+		{"stale-socket", ""},
+	} {
+		t.Run(test.name, func(t *testing.T) {
 			path := filepath.Join(shortTemp(t), "s")
-			l, _ := net.Listen("unix", path)
+			l, err := net.ListenUnix("unix", &net.UnixAddr{Name: path, Net: "unix"})
+			if err != nil {
+				t.Fatal(err)
+			}
 			defer l.Close()
-			go func() {
-				c, e := l.Accept()
-				if e != nil {
-					return
-				}
-				defer c.Close()
-				if payload == "" {
-					time.Sleep(200 * time.Millisecond)
-				} else {
-					c.Write([]byte(payload))
-				}
-			}()
+			hold := make(chan struct{})
+			defer close(hold)
+			switch test.name {
+			case "stale-socket":
+				l.SetUnlinkOnClose(false)
+				l.Close()
+			case "never-accepts":
+			default:
+				go func() {
+					c, e := l.Accept()
+					if e != nil {
+						return
+					}
+					defer c.Close()
+					c.Write([]byte(test.payload))
+					<-hold // Keep the connection open: only the deadline ends the read.
+				}()
+			}
 			g := armed(path)
 			g.timeout = 30 * time.Millisecond
+			backend, _, state := filePV(t)
+			signer := &recordingPV{FilePV: backend}
+			before, _ := os.ReadFile(state)
 			start := time.Now()
-			if _, err := g.check(chain); err == nil {
-				t.Fatal("malformed/timeout accepted")
+			res, err := g.handle(signer, voteRequest(tm.PrecommitType, 0, false), chain)
+			if err == nil || res.GetSignedVoteResponse().Error == nil || len(res.GetSignedVoteResponse().Vote.Signature) != 0 {
+				t.Fatal("malformed, hung or dead trust authorized a signature")
 			}
-			if time.Since(start) > time.Second {
-				t.Fatal("unbounded timeout")
+			if elapsed := time.Since(start); elapsed > time.Second {
+				t.Fatalf("unbounded trust query: %v", elapsed)
+			}
+			after, _ := os.ReadFile(state)
+			if signer.calls.Load() != 0 || !bytes.Equal(before, after) {
+				t.Fatal("denial reached FilePV")
 			}
 		})
 	}
@@ -670,37 +786,6 @@ func TestMalformedReadyRequestsNeverReachFilePV(t *testing.T) {
 	}
 }
 
-func TestMandatoryCanonicalCheckpointRecordHashes(t *testing.T) {
-	for _, field := range []string{"comet_hash", "val_state_hash"} {
-		for _, value := range []any{nil, json.RawMessage("null"), "", "0x01", "0x" + strings.Repeat("A", 64), "0x" + strings.Repeat("0", 64)} {
-			t.Run(fmt.Sprint(field, "=", value), func(t *testing.T) {
-				path := control(t, func(map[string]any) any {
-					r := snapshot(true)
-					target := r["target"].(map[string]any)
-					if value == nil {
-						delete(target, field)
-					} else {
-						target[field] = value
-					}
-					return r
-				})
-				signer, _, state := filePV(t)
-				before, _ := os.ReadFile(state)
-				_, err := armed(path).handle(signer, proposalRequest(), chain)
-				// The all-zero hashes of the genesis record are canonical and are accepted.
-				valid := value == "0x"+strings.Repeat("0", 64)
-				if (err == nil) != valid {
-					t.Fatalf("%s acceptance: %v", field, err)
-				}
-				after, _ := os.ReadFile(state)
-				if !valid && !bytes.Equal(before, after) {
-					t.Fatalf("invalid %s modified HRS", field)
-				}
-			})
-		}
-	}
-}
-
 // A timeout must be observable even when the app never published a closed state.
 func TestDenialSignalIncludesTimeoutWithoutChangingHRS(t *testing.T) {
 	path := control(t, func(map[string]any) any { time.Sleep(100 * time.Millisecond); return snapshot(true) })
@@ -731,51 +816,11 @@ func TestDenialSignalIncludesTimeoutWithoutChangingHRS(t *testing.T) {
 	}
 }
 
-func TestRecoveryAuthorizationIsStrict(t *testing.T) {
-	raw, _ := json.Marshal(recoveredSnapshot(t, 1))
-	for _, mode := range []string{"valid", "other-schema", "absent-origin", "null-origin", "null-height", "unknown-origin", "wrong-generation", "checkpoint-before-origin", "changed-el", "stale-session"} {
-		t.Run(mode, func(t *testing.T) {
-			var r map[string]any
-			json.Unmarshal(raw, &r)
-			o := r["recovery_origin"].(map[string]any)
-			switch mode {
-			case "other-schema":
-				r["schema_version"] = 2
-			case "absent-origin":
-				delete(r, "recovery_origin")
-			case "null-origin":
-				r["recovery_origin"] = nil
-			case "null-height":
-				o["height"] = nil
-			case "unknown-origin":
-				o["unknown"] = true
-			case "wrong-generation":
-				o["generation"] = 2
-			case "checkpoint-before-origin":
-				o["height"] = 12
-			case "changed-el":
-				o["el_hash"] = "0x" + strings.Repeat("e", 64)
-			case "stale-session":
-				r["session_id"] = "other"
-			}
-			path := control(t, func(map[string]any) any { return r })
-			g := armed(path)
-			_, err := g.check(chain)
-			if mode == "valid" && err != nil {
-				t.Fatal(err)
-			}
-			if mode != "valid" && err == nil {
-				t.Fatal("invalid recovery authorized")
-			}
-		})
-	}
-}
-
 // A recovered generation has its own full chain_id and so its own HRS state (RECOV-8.2-1,
 // RECOV-8.2-5): once its trust is Ready the gate signs into the state the signer serves, which
 // init-state created for that chain_id, and a request for any other chain is refused.
 func TestGateSignsRecoveredGenerationIntoItsOwnState(t *testing.T) {
-	ready := recoveredSnapshot(t, 1)
+	ready := recoveredSnapshot(1)
 	g := armed(control(t, func(map[string]any) any { return ready }))
 	signer, key, state := filePV(t)
 	vote := func(chain string) pv.Message {

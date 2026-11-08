@@ -151,12 +151,17 @@ key inaccessible to Comet. Node P2P and SecretConnection transport identities re
 separate Ed25519 keys.
 
 Every transport connection opens a fresh closed trust session. Every signature,
-including a cached same-HRS retry, checks that private session again. PubKey and
-Ping remain available while closed. Private trust control has one schema, 1. It requires
-canonical 32-byte `target.comet_hash` and `target.val_state_hash` alongside the EL
-checkpoint hash, and an always-present, nullable `recovery_origin`; absent, null,
-malformed, unknown or duplicate fields fail closed. Denial never invokes FilePV signing.
-Only stock FilePV writes signing state after authorization.
+including a cached same-HRS retry, checks that private session again over its own bounded
+connection (SYNC-9-10). PubKey and Ping remain available while closed. Private trust control
+has one schema, 1, and the signer reads only `schema_version`, `session_id`, `chain_id` and
+`phase` from it: it signs only when the reply is for the transport's current session, names
+the served chain ID and reports phase `ready`. Every other field, known or unknown, is
+ignored; the app reports `ready` only after its own checkpoint target, validator-state and
+InitChain checks (SYNC-9-5, RECOV-8.2-4). A reply for another session also drops the armed
+session. A missing, null or empty session, a missing or null phase, a null or other chain ID,
+another schema, a malformed, oversize or duplicate-key reply, an absent app and a timeout all
+deny (SYNC-9-11). Denial never invokes FilePV signing. Only stock FilePV writes signing state
+after authorization.
 
 Run `just signer-test` for Go race/process/native interop tests. No Cargo build is
 needed for this helper.

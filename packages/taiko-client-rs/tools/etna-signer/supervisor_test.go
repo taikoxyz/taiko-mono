@@ -53,10 +53,7 @@ func TestSupervisorLatchesUncertainSigningStateAcrossRestart(t *testing.T) {
 			_, key, state := filePV(t)
 			ready := snapshot(true)
 			if mode == "recovered" {
-				raw, _ := json.Marshal(recoveredSnapshot(t, 2))
-				if err := json.Unmarshal(raw, &ready); err != nil {
-					t.Fatal(err)
-				}
+				ready = recoveredSnapshot(2)
 			}
 			controlPath := control(t, func(request map[string]any) any {
 				response := make(map[string]any, len(ready))

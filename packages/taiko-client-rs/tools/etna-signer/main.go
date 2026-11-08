@@ -101,10 +101,10 @@ func run() error {
 	gate := newGate(*control, *timeout)
 	gate.denialPath = *denial
 	gate.authorized = func(r *trustResponse) {
-		logger.Info("checkpoint_trust_authorized", "session", r.SessionID, "committed_height", *r.Committed.Height, "target_height", *r.Target.Height)
+		logger.Info("checkpoint_trust_authorized", "session", r.SessionID)
 	}
 	gate.connecting = func(r *trustResponse) {
-		logger.Info("checkpoint_trust_ready_connected_to_comet", "session", r.SessionID, "committed_height", *r.Committed.Height, "target_height", *r.Target.Height)
+		logger.Info("checkpoint_trust_ready_connected_to_comet", "session", r.SessionID)
 	}
 	dialer := gate.dialer(dial)
 	if *await {

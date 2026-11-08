@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,46 +22,19 @@ import (
 
 const maxControlFrame = 16 * 1024
 
-// controlSchema is the app's one private trust-control wire version. Every response carries
-// recovery_origin: null for generation zero, the authenticated origin after recovery.
+// controlSchema is the app's one private trust-control wire version.
 const controlSchema = 1
 
-type blockRef struct {
-	Height *uint64 `json:"height"`
-	Hash   string  `json:"hash"`
-}
-type target struct {
-	L1Number     *uint64 `json:"l1_number"`
-	L1Hash       string  `json:"l1_hash"`
-	Height       *uint64 `json:"height"`
-	Hash         string  `json:"hash"`
-	CometHash    string  `json:"comet_hash"`
-	ValStateHash string  `json:"val_state_hash"`
-	Generation   *uint64 `json:"generation"`
-	Inbox        string  `json:"inbox"`
-}
-type recoveryOrigin struct {
-	Generation    *uint64 `json:"generation"`
-	Height        *uint64 `json:"height"`
-	L1Number      *uint64 `json:"l1_number"`
-	L1Hash        string  `json:"l1_hash"`
-	L1Timestamp   *uint64 `json:"l1_timestamp"`
-	ELHash        string  `json:"el_hash"`
-	CometHash     string  `json:"comet_hash"`
-	ForcedCursor  *uint64 `json:"forced_cursor"`
-	CommitteeHash string  `json:"committee_hash"`
-}
+// trustResponse is the part of the app's trust snapshot that the gate reads: the session, the
+// chain ID, which binds the generation (RECOV-8.2-5), and the phase, the app's only readiness
+// field. The app reports phase "ready" only after its own checkpoint target, validator-state and
+// InitChain checks (SYNC-9-5, RECOV-8.2-4), so every other snapshot field is ignored here.
 type trustResponse struct {
-	RecoveryOrigin *recoveryOrigin `json:"recovery_origin"`
-	SchemaVersion  uint64          `json:"schema_version"`
-	SessionID      string          `json:"session_id"`
-	ChainID        *string         `json:"chain_id"`
-	Generation     *uint64         `json:"generation"`
-	Phase          string          `json:"phase"`
-	Target         *target         `json:"target"`
-	Committed      *blockRef       `json:"committed_head"`
-	Trusted        *blockRef       `json:"trusted_consensus_head"`
-	Reason         *string         `json:"reason"`
+	SchemaVersion uint64  `json:"schema_version"`
+	SessionID     string  `json:"session_id"`
+	ChainID       *string `json:"chain_id"`
+	Phase         string  `json:"phase"`
+	Reason        *string `json:"reason"`
 }
 type gate struct {
 	path        string
@@ -124,35 +96,31 @@ func (g *gate) query(op string, session string) (*trustResponse, error) {
 	if len(line) > maxControlFrame {
 		return nil, errors.New("oversize control response")
 	}
-	// Unknown fields, trailing JSON, absent fields and duplicate keys fail closed.
+	// Duplicate keys at any depth make the reply ambiguous and fail closed.
+	if err = uniqueJSON(json.NewDecoder(bytes.NewReader(line))); err != nil {
+		return nil, err
+	}
 	var fields map[string]json.RawMessage
 	if err = json.Unmarshal(line, &fields); err != nil {
 		return nil, err
 	}
-	// recovery_origin is always present and nullable; trusted binds it to the generation.
-	required := []string{"schema_version", "session_id", "chain_id", "generation", "recovery_origin", "phase", "target", "committed_head", "trusted_consensus_head", "reason"}
-	for _, field := range required {
-		if _, ok := fields[field]; !ok {
+	// Only the gate's four fields are required; other fields are ignored. chain_id is null
+	// before InitChain, so begin_session accepts it and trusted denies it.
+	for _, field := range []string{"schema_version", "session_id", "chain_id", "phase"} {
+		raw, ok := fields[field]
+		if !ok {
 			return nil, fmt.Errorf("missing %s", field)
 		}
-	}
-	for _, field := range []string{"schema_version", "session_id", "phase"} {
-		if bytes.Equal(bytes.TrimSpace(fields[field]), []byte("null")) {
+		if field != "chain_id" && bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
 			return nil, fmt.Errorf("null %s", field)
 		}
 	}
-	decoder := json.NewDecoder(bytes.NewReader(line))
-	decoder.DisallowUnknownFields()
 	var res trustResponse
-	if err = decoder.Decode(&res); err != nil {
+	if err = json.Unmarshal(line, &res); err != nil {
 		return nil, err
 	}
 	if res.SchemaVersion != controlSchema || res.SessionID == "" {
 		return nil, errors.New("invalid control version/session")
-	}
-	// Decode into tokens too, rejecting duplicate object keys at every nesting level.
-	if err = uniqueJSON(json.NewDecoder(bytes.NewReader(line))); err != nil {
-		return nil, err
 	}
 	return &res, nil
 }
@@ -185,51 +153,18 @@ func uniqueJSON(d *json.Decoder) error {
 	_, err = d.Token()
 	return err
 }
-func canonicalHex(s string, n int) bool {
-	if len(s) != 2+n*2 || s[:2] != "0x" {
-		return false
-	}
-	for _, c := range s[2:] {
-		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
-			return false
-		}
-	}
-	_, err := hex.DecodeString(s[2:])
-	return err == nil
-}
-func validHead(h *blockRef) bool { return h != nil && h.Height != nil && canonicalHex(h.Hash, 32) }
-
-// validRecovery binds the fixed authenticated origin independently of the moving checkpoint.
-func validRecovery(r *trustResponse) error {
-	o := r.RecoveryOrigin
-	if o == nil || o.Generation == nil || r.Generation == nil || *o.Generation != *r.Generation || *o.Generation == 0 || *o.Generation >= 1<<48 || o.Height == nil || *o.Height >= 1<<48 || o.L1Number == nil || o.L1Timestamp == nil || o.ForcedCursor == nil || *o.ForcedCursor >= 1<<48 || !canonicalHex(o.L1Hash, 32) || !canonicalHex(o.ELHash, 32) || !canonicalHex(o.CometHash, 32) || !canonicalHex(o.CommitteeHash, 32) || r.Target == nil || r.Target.Height == nil || r.Target.L1Number == nil || *r.Target.Height < *o.Height || *r.Target.L1Number < *o.L1Number {
-		return errors.New("missing or inconsistent authenticated recovery origin")
-	}
-	if *r.Target.Height == *o.Height && (r.Target.Hash != o.ELHash || r.Target.CometHash != o.CometHash) {
-		return errors.New("recovery checkpoint contradicts origin")
-	}
-	return nil
-}
 
 // trusted is shared by every signature and the post-refusal reconnect gate. The phase is the
 // app's only readiness field: every value other than the exact string "ready" denies
-// (SYNC-9-10/9-11).
+// (SYNC-9-10/9-11), and so does another or a null chain_id. The session is matched by the
+// caller.
 func trusted(r *trustResponse, chain string) error {
-	if r == nil || r.SessionID == "" || r.SchemaVersion != controlSchema {
-		return errors.New("invalid private authorization")
-	}
-	if r.ChainID == nil || *r.ChainID != chain || r.Phase != "ready" || r.Generation == nil || r.Target == nil || !validHead(r.Committed) || !validHead(r.Trusted) {
-		return errors.New("checkpoint trust is closed or belongs to another session/chain")
-	}
-	t := r.Target
-	if t.Generation == nil || *t.Generation != *r.Generation || t.Height == nil || t.L1Number == nil || !canonicalHex(t.L1Hash, 32) || !canonicalHex(t.Hash, 32) || !canonicalHex(t.CometHash, 32) || !canonicalHex(t.ValStateHash, 32) || !canonicalHex(t.Inbox, 20) || *r.Committed.Height < *t.Height || *r.Committed.Height != *r.Trusted.Height || r.Committed.Hash != r.Trusted.Hash || (*r.Committed.Height == *t.Height && r.Committed.Hash != t.Hash) {
-		return errors.New("inconsistent trusted checkpoint")
-	}
-	if *r.Generation > 0 {
-		return validRecovery(r)
-	}
-	if r.RecoveryOrigin != nil {
-		return errors.New("unexpected recovery origin")
+	if r == nil || r.ChainID == nil || *r.ChainID != chain || r.Phase != "ready" {
+		reason := ""
+		if r != nil && r.Reason != nil {
+			reason = ": " + *r.Reason
+		}
+		return fmt.Errorf("checkpoint trust is not ready for chain %s%s", chain, reason)
 	}
 	return nil
 }

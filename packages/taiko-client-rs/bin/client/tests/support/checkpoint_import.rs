@@ -770,7 +770,8 @@ async fn registered_follow(
             rpc.call("status", &[]).await?["node_info"]["network"] == chain &&
             status.execution_floor == Some(s) &&
             status.trust_phase == abci::app::trust::TrustPhase::Ready &&
-            status.trust_target.is_some_and(|t| t.height >= target)
+            status.trust_target.is_some_and(|t| t.height >= target) &&
+            status.trusted_consensus_head.is_some_and(|h| h.height >= target)
     );
     let mut later_round = false;
     for h in s + 1..=new_height {
@@ -790,21 +791,15 @@ async fn registered_follow(
         .context("imported HRS")?
         .parse::<u64>()?;
     ensure!(hrs >= new_height && new_height > old_height);
-    let auth = supervisor.output();
-    let first = auth
-        .lines()
-        .find(|l| l.contains("checkpoint_trust_authorized"))
-        .context("private signer authorization")?;
-    for field in ["committed_height", "target_height"] {
-        let raw = first
-            .split_once(&format!("{field}="))
-            .context("authorization height")?
-            .1
-            .split_whitespace()
-            .next()
-            .unwrap();
-        ensure!(raw.parse::<u64>()? >= target, "signature authorized before own current target");
-    }
+    // The signer authorizes on the app's Ready phase for its session and chain alone
+    // (SYNC-9-10); the target and head comparison is app-side (SYNC-9-5), checked above.
+    ensure!(
+        supervisor
+            .output()
+            .lines()
+            .any(|l| l.contains("checkpoint_trust_authorized") && l.contains("session=")),
+        "private signer authorization"
+    );
     let (http, auth) = c.execution_endpoints(1, &f.l2);
     let mut lander = commands.lander_with_execution(f, &rpc, &http, &auth)?;
     let next = new_height.div_ceil(6) * 6;
