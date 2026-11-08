@@ -274,6 +274,11 @@ func TestSupervisorLatchesRefusedSigningState(t *testing.T) {
 	if _, err := os.Lstat(domainsLogOf(state)); !os.IsNotExist(err) {
 		t.Fatal("a lost domains log was recreated")
 	}
+	// The supervisor's marker lands where this signer looks for it (TestServeRefusalMatrix), so
+	// a fresh app store cannot hide the exit 3.
+	if marker, err := os.ReadFile(unsafeMarkerPath(domainsLogOf(state), chain)); err != nil || !bytes.Contains(marker, []byte("unsafe signing state")) {
+		t.Fatalf("no signer-unsafe marker beside the domains log: %q %v", marker, err)
+	}
 }
 
 // heightVote is voteRequest at height, round 0, for the block whose hash repeats block.

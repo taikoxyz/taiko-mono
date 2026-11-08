@@ -16,11 +16,32 @@ const fenceSuffix = ".uncertain"
 // fencePath is the fence of the HRS state at state.
 func fencePath(state string) string { return state + fenceSuffix }
 
+// unsafeMarkerSuffix names the supervisor's signer-unsafe marker for one chain_id. The
+// supervisor writes it beside the domains log, on that log's own volume, whenever it records an
+// exit 3, a fence or a signer it had to kill, so the evidence survives a fresh app store.
+const unsafeMarkerSuffix = ".signer-unsafe"
+
+// unsafeMarkerPath is chain's signer-unsafe marker in the directory of the domains log at log.
+func unsafeMarkerPath(log, chain string) string {
+	return filepath.Join(filepath.Dir(log), chain+unsafeMarkerSuffix)
+}
+
 // refuseFence refuses every existing inode, including malformed records and
 // aliases. Absence must be positively established before loading signing authority.
 func refuseFence(path string) error {
+	return refuseEvidence(path, "signer fence")
+}
+
+// refuseUnsafeMarker refuses the supervisor's signer-unsafe marker by the same rule as the fence:
+// any inode, or any Lstat error but absence, is uncertain signing state (RECOV-8.2-3).
+func refuseUnsafeMarker(path string) error {
+	return refuseEvidence(path, "signer-unsafe marker")
+}
+
+// refuseEvidence is errSigningStateUnsafe unless Lstat establishes that nothing exists at path.
+func refuseEvidence(path, what string) error {
 	if _, err := os.Lstat(path); !os.IsNotExist(err) {
-		return fmt.Errorf("%w: inspect retained signer fence %s (%v)", errSigningStateUnsafe, path, err)
+		return fmt.Errorf("%w: inspect retained %s %s (%v)", errSigningStateUnsafe, what, path, err)
 	}
 	return nil
 }

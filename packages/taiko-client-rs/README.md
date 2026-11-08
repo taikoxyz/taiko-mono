@@ -582,9 +582,12 @@ committing those values to the Inbox.
    a retained fence, a signer still running 5 s after the supervisor's SIGTERM (it is
    SIGKILLed) and the fifth such exit within 600 s latch instead (SYNC-9-14); the exit count
    lives in memory, so a supervisor restart resets it. All but the crash loop also create
-   `<data-dir>/validator-supervisor.signer-unsafe`, independent of the first-cause latch; a
-   kill is recorded there, durably, before the SIGKILL is sent, and every start refuses while
-   it exists. See
+   `<data-dir>/validator-supervisor.signer-unsafe`, independent of the first-cause latch, and
+   `<chain_id>.signer-unsafe` beside the domains log, which a fresh app store cannot lose and
+   which the signer refuses with exit 3 (RECOV-8.2-3); a kill is recorded in both, durably,
+   before the SIGKILL is sent, and every start refuses while either exists. Never delete or
+   replace an app store holding a latch or record; before running a validator on a new app
+   store, check for both. See
    [the restart table](tools/etna-signer/README.md#supervisor-restarts-and-latches).
    The signer releases a signature only after it fsyncs the state file and its directory. If
    either fsync fails, it withholds the signature, writes `<priv-state>.uncertain` beside that
@@ -592,7 +595,7 @@ committing those values to the Inbox.
    when the supervisor was killed before writing its app-store latch.
    If that latch cannot be written, the supervisor stops its children, stays quiescent and
    retries persistence. Container restart cannot clear a retained signer fence, signer-unsafe
-   record or halt latch.
+   record or marker, or halt latch.
    A Comet EOF following observed control/trust loss also recovers after private Ready;
    a repeated configuration failure with continuously Ready trust stays latched. Exact app
    shutdown revocations wait for a fresh app incarnation; they never authorize signing.

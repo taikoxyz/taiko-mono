@@ -191,8 +191,9 @@ local FilePV in the new home, which never signs.
 Once an anchor shows a newer generation, the old generation can only stop: its app rejects and
 revokes trust, and a decided block or startup check that finds another generation is a terminal
 safety halt with generic fatal evidence in the old app directory (RECOV-8-14..16). Safety halts
-need investigation; preserve the fatal evidence, supervisor latches, every HRS, the domains log
-and the WAL. Run the new generation from fresh stores as above, never by clearing the old ones.
+need investigation; preserve the fatal evidence, supervisor latches and signer-unsafe records,
+every HRS, the domains log with any `<chain_id>.signer-unsafe` marker beside it, and the WAL.
+Run the new generation from fresh stores as above, never by clearing the old ones.
 
 Read trust from the app's `/status` ABCI query, not from `abci-recover status` or Comet's sync
 progress (SYNC-9-15).

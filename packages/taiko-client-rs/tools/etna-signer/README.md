@@ -100,13 +100,14 @@ opened without following symlinks under a shared lock, which must be well formed
 with its directory (so a line from an `init-state` killed before its own fsync is durable
 before any signature depends on it) and must list the chain ID; the state, which must exist
 for a logged chain, have exactly one link and resolve to `<chain_id>.json`, and its exclusive
-owner lock `<state>.lock`; the absence of the `<state>.uncertain` fence; and the HRS, which
-must be the stock zero state or carry a signature by the registered key over that chain ID's
-canonical sign bytes. Only then does it load the stock FilePV. It never creates, initializes
-or resets HRS. The locks are held while serving, so two signers sharing these files never both
-serve (RECOV-8.2-2); another host is outside their reach (see Failover). Preserve the key,
-every state, the log, the Comet WAL and app history on restart; never use `keygen` or
-`init-state` as a recovery action.
+owner lock `<state>.lock`; the absence of the `<state>.uncertain` fence and of the supervisor's
+`<chain_id>.signer-unsafe` marker beside the log; and the HRS, which must be the stock zero
+state or carry a signature by the registered key over that chain ID's canonical sign bytes.
+Only then does it load the stock FilePV. It never creates, initializes or resets HRS. The
+locks are held while serving, so two signers sharing these files never both serve
+(RECOV-8.2-2); another host is outside their reach (see Failover). Preserve the key, every
+state, the log, the Comet WAL and app history on restart; never use `keygen` or `init-state`
+as a recovery action.
 
 The signer creates `<key>.lock` beside the key and `<state>.lock` beside the state, so both
 directories must be writable by the signer. The key file itself may be read-only, but a
@@ -134,6 +135,7 @@ reset:
 | HRS ambiguous                             | a hard-linked state, a state that resolves to another chain's file, unknown or duplicate fields    |
 | HRS unauthentic                           | a signed state without a valid signature by the registered key over this chain ID                  |
 | Retained fence                            | `<state>.uncertain` exists                                                                         |
+| Retained signer-unsafe marker             | `<chain_id>.signer-unsafe` exists beside the domains log (see Supervisor restarts and latches)     |
 | Persistence failure while serving         | a state or directory fsync fails; the signer writes the fence, then exits 3                        |
 
 The domains log detects only absence: a missing log, a chain it does not list, or a logged
@@ -171,7 +173,8 @@ starting the ABCI app. Set `ETNA_COMET_HOME`, `ETNA_APP_STORE`, `ETNA_PRIV_KEY`,
 equal the installed Comet genesis. The supervisor passes `--priv-state
 <ETNA_PRIV_STATE_DIR>/<ETNA_CHAIN_ID>.json --domains-log <ETNA_DOMAINS_LOG>` and refuses a key,
 state directory or log inside the Comet home or the app store. It does not check that the
-state exists: the signer does, and exits 3. The script runs `cometbft start`
+state exists: the signer does, and exits 3. It writes its signer-unsafe marker into the log's
+directory, which must therefore be writable by the supervisor. The script runs `cometbft start`
 directly. Container callers must likewise invoke the stock binary directly with
 `--entrypoint /usr/bin/cometbft`; the image's default entrypoint can initialize
 files and must not be used for validator runtime. Its `priv_validator_laddr` is
@@ -235,9 +238,9 @@ never restarted (SYNC-9-14):
 
 | Signer exit                                                                   | Fence   | Supervisor action                                                                                                                                                                                                                                                                          |
 | ----------------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 3                                                                             | any     | Latch "signer refused unsafe signing state; inspect its stderr, `<state>.uncertain` and the domains log", and create the signer-unsafe record                                                                                                                                              |
-| any                                                                           | present | The same latch and record                                                                                                                                                                                                                                                                  |
-| still running 5 s after the supervisor's SIGTERM, so SIGKILLed                | any     | Before the SIGKILL, log `etna_supervisor_signer_killed` and create the signer-unsafe record; then latch "signer did not stop within 5s of SIGTERM and was killed; …". It may be blocked on a failing state volume after a failed fsync and before its fence                                |
+| 3                                                                             | any     | Latch "signer refused unsafe signing state; inspect its stderr, `<state>.uncertain` and the domains log", and create the signer-unsafe record and marker                                                                                                                                   |
+| any                                                                           | present | The same latch, record and marker                                                                                                                                                                                                                                                          |
+| still running 5 s after the supervisor's SIGTERM, so SIGKILLed                | any     | Before the SIGKILL, log `etna_supervisor_signer_killed` and create the signer-unsafe record and marker; then latch "signer did not stop within 5s of SIGTERM and was killed; …". It may be blocked on a failing state volume after a failed fsync and before its fence                     |
 | 0, 1, 2 or a signal, while the supervisor is not stopping it                  | absent  | Record the exit; the fifth within 600 s latches "signer exited 5 times within 600s; inspect diagnostics". Otherwise reap Comet, start a fresh signer with `--await-trust` on the same state path and a fresh transport, and start Comet once the signer's new session is Ready (SYNC-9-12) |
 | 0, 1, 2 or SIGTERM while the supervisor stops it (shutdown, recovery restart) | absent  | Normal                                                                                                                                                                                                                                                                                     |
 
@@ -259,18 +262,34 @@ reset by a successful restart; a supervisor or container restart resets it, and 
 The signer-unsafe record, `<app-store>/validator-supervisor.signer-unsafe`, is independent of
 the first-cause latch: the supervisor's start, every restart and every tick refuse while it
 exists, so repairing only another latched cause never restarts the signer. Exit 3, a fence, and
-an unsafe exit or kill found while halting for another cause all create it. A signer blocked on
-a failing volume sleeps uninterruptibly and may not be reaped for minutes, or ever on a hard
+an unsafe exit or kill found while halting for another cause all create it, together with the
+signer-unsafe marker `<chain_id>.signer-unsafe` in the domains log's directory. The marker holds
+the same text on the log's own volume, so a fresh app store cannot lose it: the supervisor
+refuses to start while either exists, and the signer refuses the marker with exit 3, like a
+fence (any inode, or any error but its absence). For a signer killed before it wrote its fence,
+or an exit 3 whose fence write failed, the record and the marker are the only evidence of an
+uncertain HRS. A marker names one chain_id, so a recovered generation's new chain_id is not
+refused by an older generation's marker. Nothing removes either automatically. A signer blocked
+on a failing volume sleeps uninterruptibly and may not be reaped for minutes, or ever on a hard
 NFS mount, and the supervisor may itself be killed during that wait (for example by the
 kubelet after `terminationGracePeriodSeconds`). So a kill is recorded before the SIGKILL is
-sent: the supervisor logs `etna_supervisor_signer_killed`, creates the record and fsyncs it and
-the store directory, retrying until that succeeds. A SIGKILL from someone else during the 5 s
+sent: the supervisor logs `etna_supervisor_signer_killed` (recording before SIGKILL), creates the
+record and the marker and fsyncs each with its directory, retrying both until both succeed, and
+then logs `etna_supervisor_signer_kill_recorded`. A SIGKILL from someone else during the 5 s
 grace is recorded only once the supervisor has reaped the signer. A healthy signer waiting on a
 slow app can also exceed the grace (each trust query is bounded by `--trust-timeout`, 1 s by
-default); that is recorded and latched too, which is safe. Remove the record and the latch only
-after inspection shows that no fsync failed: no fence, no I/O error for the state volume in the
-kernel log, none in the signer's stderr. Otherwise the state is uncertain and is resolved
-through governance (RECOV-8.2-3).
+default); that is recorded and latched too, which is safe. Remove the record, the marker and the
+latch only after inspection shows that no fsync failed: no fence, no I/O error for the state
+volume in the kernel log, none in the signer's stderr. Otherwise the state is uncertain and is
+resolved through governance (RECOV-8.2-3).
+
+The app store is not disposable while it holds this evidence. Never delete or replace an app
+store that holds a latch or a signer-unsafe record; preserve it. Before running a validator for a
+chain_id on any new app store (a re-import into a new root, cleared stores, a rebuilt pod), check
+the old app store for a signer-unsafe record or a latch for an unsafe signer exit or a killed
+signer, and the domains log's directory for `<chain_id>.signer-unsafe`. Any one of them is
+uncertain signing state for that chain_id, resolved through governance (RECOV-8.2-3), never by a
+new store (ACCEPTANCE §7.7).
 
 Residual risk: any death of the signer between a failed fsync and a durable fence leaves no
 fence and no exit 3, and the supervisor restarts it like any crash. That covers a SIGKILL from
@@ -287,16 +306,18 @@ the supervisor restarted signers.
 Moving a validator to a standby host is operational practice (RECOV-8.2-6). The key, state and
 log flocks protect one host's files only: two hosts holding copies of the key both sign, and the
 signer cannot see the other host. Never fail over uncertain state: a host with a
-`<state>.uncertain` fence, a `validator-supervisor.signer-unsafe` record, or a latch for an
-unsafe signer exit or a killed signer is resolved through governance, not moved (RECOV-8.2-3).
+`<state>.uncertain` fence, a `validator-supervisor.signer-unsafe` record, a
+`<chain_id>.signer-unsafe` marker beside the domains log, or a latch for an unsafe signer exit
+or a killed signer is resolved through governance, not moved (RECOV-8.2-3).
 Never run `init-state` (or `init-domains-log`) on the standby: it would start a second history
 for a chain that has already signed. Move, never copy:
 
 1. Stop the old host's supervisor and every restart controller that could start it again, and
    fence the host so its signer can never run again: power it off, or detach its volumes.
 2. With the old host's volumes attached to the standby or a maintenance host, check that its
-   state directory holds no fence and its app store no signer-unsafe record or unsafe or kill
-   latch, then move the key, the latest
+   state directory holds no fence, its domains log's directory no signer-unsafe marker for any
+   chain_id being moved, and its app store no signer-unsafe record or unsafe or kill latch, then
+   move the key, the latest
    `<chain_id>.json` of every chain and the domains log byte for byte from those volumes, never
    from a backup or a snapshot of a running host. Keep the states and the log on separate
    volumes.
@@ -326,16 +347,17 @@ withholds the signature and latches in memory, refusing every later request, cac
 included. It then exclusively creates `<priv-state>.uncertain` beside the HRS, recording the
 failed operation, the state path and the error, fsyncs it and its directory, and exits 3, which
 the supervisor latches. The fence makes a restarted signer refuse with exit 3 even if the
-supervisor's latch is lost; the supervisor's latch, on the app-store volume, holds even when the
-fence or its directory fsync fails. An existing inode at the fence path is kept as it is.
+supervisor's latch is lost; the supervisor's latch and record, on the app-store volume, and its
+marker, on the domains log's volume, hold even when the fence or its directory fsync fails. An
+existing inode at the fence path is kept as it is.
 
 Every existing fence inode fails startup with exit 3, including malformed, unreadable, or
 aliased evidence. Both signer and supervisor refuse to rearm it across app or container
 restarts. After stopping all owners, inspect and preserve the fence, the HRS, the domains log
 and the supervisor and app first-cause evidence, and check the disk. Only an explicit operator
 repair after that inspection may remove the fence and resolve the supervisor halt and its
-signer-unsafe record. Never restore an older HRS, reset signed bytes, or edit the log to resume
-the identity.
+signer-unsafe record and marker. Never restore an older HRS, reset signed bytes, or edit the log
+to resume the identity.
 
 ## Governance recovery
 

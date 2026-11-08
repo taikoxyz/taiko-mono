@@ -26,7 +26,9 @@ reaped, and a fresh signer with the same state path and --await-trust gets Comet
 new session is Ready. Unsafe signing state never restarts (SYNC-9-14): exit 3, a retained
 fence, a signer that had to be SIGKILLed on stop, and five exits within 600 s latch. All but
 the last also leave validator-supervisor.signer-unsafe in the app store, independent of the
-first-cause latch; a kill is recorded there before the SIGKILL is sent.
+first-cause latch, and <chain_id>.signer-unsafe beside the domains log, which survives a fresh
+app store and which the signer itself refuses (RECOV-8.2-3); a kill is recorded in both before
+the SIGKILL is sent.
 """
 import fcntl
 import json
@@ -65,8 +67,12 @@ SIGNER_UNSAFE_LATCH = ("signer refused unsafe signing state; inspect its stderr,
 # may be uncertain: a signer the supervisor kills (written before the SIGKILL), an unsafe exit, or
 # a fence. run(), start() and tick refuse while it exists; only an operator repair removes it.
 SIGNER_UNSAFE_RECORD = "validator-supervisor.signer-unsafe"
-SIGNER_UNSAFE_RECORD_LATCH = ("retained signer-unsafe record; inspect validator-supervisor.signer-unsafe, "
-                              "the signer's stderr, `<state>.uncertain` and the domains log")
+# The same evidence as <chain_id> + this suffix in the domains log's directory, on the log's own
+# volume: a fresh app store loses the record, and the signer refuses this marker with exit 3.
+SIGNER_UNSAFE_MARKER_SUFFIX = ".signer-unsafe"
+SIGNER_UNSAFE_RECORD_LATCH = ("retained signer-unsafe record or marker; inspect "
+                              "validator-supervisor.signer-unsafe, <chain_id>.signer-unsafe beside the "
+                              "domains log, the signer's stderr, `<state>.uncertain` and the domains log")
 SIGNER_KILLED_LATCH = (f"signer did not stop within {SIGNER_STOP_GRACE}s of SIGTERM and was killed; "
                        "its signing state may be uncertain; inspect its stderr, the state volume, "
                        "`<state>.uncertain` and the domains log")
@@ -98,7 +104,7 @@ class Supervisor:
         self.state = self.state_dir / (self.chain + ".json")
         self.domains_log = Path(os.environ["ETNA_DOMAINS_LOG"]).resolve()
         # Comet runs as another UID and must never reach the registered key, the HRS states or
-        # the log, and the disposable app store never holds them.
+        # the log, and the app store never holds them.
         for path in (self.key, self.state_dir, self.domains_log):
             if path.is_relative_to(self.home) or path.is_relative_to(self.store):
                 raise ValueError("registered key, signing state and domains log must be outside the Comet home and app store")
@@ -254,8 +260,10 @@ class Supervisor:
         an unsafe status (signer_unsafe). A signer still running SIGNER_STOP_GRACE seconds after
         SIGTERM may be blocked in a failed fsync or its fence write on a failing state volume
         (RECOV-8.2-3, SYNC-9-13), in D-state, where SIGKILL cannot reap it until that I/O
-        returns. So the kill is recorded durably in the app store before the SIGKILL is sent, and
-        a supervisor killed during the unbounded wait that follows still leaves that record.
+        returns. So the kill is recorded durably in the app store and beside the domains log
+        before the SIGKILL is sent, and a supervisor killed during the unbounded wait that follows
+        still leaves both. While either cannot be written, the signer is left running and stop()
+        keeps retrying, so a SIGTERM to the supervisor waits too.
         """
         code = None
         if self.comet is not None:
@@ -275,7 +283,7 @@ class Supervisor:
                 self.signer.wait(timeout=SIGNER_STOP_GRACE)
             except subprocess.TimeoutExpired:
                 self.record_signer_kill(f"signer {self.signer.pid} did not stop within {SIGNER_STOP_GRACE}s "
-                                        "of SIGTERM; recorded before SIGKILL")
+                                        "of SIGTERM; recording before SIGKILL")
                 self.signer.kill()
                 self.signer.wait()
             code = self.signer.returncode
@@ -286,11 +294,13 @@ class Supervisor:
         return code
 
     def record_signer_kill(self, detail):
-        """Mark the signer killed and make that durable, retrying until it is on disk."""
+        """Mark the signer killed and make that durable in the record and the marker, retrying
+        until both are on disk."""
         self.signer_killed = True
         print(f"etna_supervisor_signer_killed: {detail}", flush=True)
         while not self.record_unsafe_signer(SIGNER_KILLED_LATCH + "\n"):
             time.sleep(.1)
+        print(f"etna_supervisor_signer_kill_recorded: {self.unsafe_record} and {self.unsafe_marker}", flush=True)
 
     def fresh_transport(self):
         """Return the next pair's signer address, after removing stale Unix rendezvous names.
@@ -381,21 +391,45 @@ class Supervisor:
     def unsafe_record(self):
         return self.store / SIGNER_UNSAFE_RECORD
 
-    def persist_record(self, path, text):
-        """Make a plain-text record in the app store durable: create it exclusively, or keep an
-        existing one as it is; then fsync it and the store directory."""
-        if os.path.lexists(path):
+    @property
+    def unsafe_marker(self):
+        """This chain_id's signer-unsafe marker beside the domains log, where the signer checks."""
+        return self.domains_log.parent / (self.chain + SIGNER_UNSAFE_MARKER_SUFFIX)
+
+    @staticmethod
+    def present(path):
+        """Whether any inode exists at path. Only ENOENT proves absence; any other error
+        (EACCES, EIO) counts as present, as for the fence (RECOV-8.2-3)."""
+        try:
+            os.lstat(path)
+        except FileNotFoundError:
+            return False
+        except OSError:
+            return True
+        return True
+
+    def unsafe_evidence(self):
+        """The record in the app store or the marker beside the domains log exists."""
+        return self.present(self.unsafe_record) or self.present(self.unsafe_marker)
+
+    @staticmethod
+    def persist_record(path, text):
+        """Make a plain-text record durable: create it exclusively, or keep an existing one as it
+        is; then fsync it and its directory."""
+        try:
+            created = path.open("x")
+        except FileExistsError:
             descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
             with os.fdopen(descriptor, "rb") as source:
                 if not stat.S_ISREG(os.fstat(source.fileno()).st_mode):
                     raise ValueError(f"{path.name} is not regular")
                 os.fsync(source.fileno())
         else:
-            with path.open("x") as file:
+            with created as file:
                 file.write(text)
                 file.flush()
                 os.fsync(file.fileno())
-        directory = os.open(self.store, os.O_RDONLY | os.O_DIRECTORY)
+        directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
         try:
             os.fsync(directory)
         finally:
@@ -409,20 +443,28 @@ class Supervisor:
 
     def record_unsafe_signer(self, text):
         """Durably record that the signer's state may be uncertain, apart from the first-cause
-        latch, so repairing only another latched cause never restarts it (RECOV-8.2-3)."""
+        latch, so repairing only another latched cause never restarts it (RECOV-8.2-3): the
+        record in the app store, and the marker beside the domains log, which a fresh app store
+        cannot lose and which the signer refuses."""
         self.halted = True
         if getattr(self, "unsafe_retry", None) is None:
             self.unsafe_retry = text
         return self.retry_unsafe_record()
 
     def retry_unsafe_record(self):
+        """Persist the pending record and marker; True only once both are durable. Each attempt
+        tries both, so one failing volume never holds back the other's evidence."""
         text = getattr(self, "unsafe_retry", None)
         if text is None:
             return True
-        try:
-            self.persist_record(self.unsafe_record, text)
-        except (OSError, ValueError) as error:
-            self.persistence_pending(error)
+        failure = None
+        for path in (self.unsafe_record, self.unsafe_marker):
+            try:
+                self.persist_record(path, text)
+            except (OSError, ValueError) as error:
+                failure = failure or error
+        if failure is not None:
+            self.persistence_pending(failure)
             return False
         self.unsafe_retry = None
         return True
@@ -452,9 +494,9 @@ class Supervisor:
 
     def signer_unsafe(self, code):
         """Whether a signer exit forbids a restart (RECOV-8.2-3, SYNC-9-14): exit 3, a fence
-        beside the HRS, a signer that stop() had to kill, or a retained unsafe record."""
+        beside the HRS, a signer that stop() had to kill, or a retained unsafe record or marker."""
         return (code == SIGNER_UNSAFE_EXIT or getattr(self, "signer_killed", False) or self.signer_uncertain()
-                or os.path.lexists(self.unsafe_record))
+                or self.unsafe_evidence())
 
     def unsafe_reason(self):
         return SIGNER_KILLED_LATCH if getattr(self, "signer_killed", False) else SIGNER_UNSAFE_LATCH
@@ -468,11 +510,12 @@ class Supervisor:
         return True
 
     def refuse_unsafe_start(self):
-        """Halt instead of starting a signer over a fence or a retained unsafe record."""
+        """Halt instead of starting a signer over a fence or a retained unsafe record or marker,
+        including on a fresh app store that has only the marker."""
         if self.signer_uncertain():
             self.halt(SIGNER_UNSAFE_LATCH)
             return True
-        if os.path.lexists(self.unsafe_record):
+        if self.unsafe_evidence():
             self.halt(SIGNER_UNSAFE_RECORD_LATCH)
             return True
         return False
@@ -501,13 +544,7 @@ class Supervisor:
 
     def signer_uncertain(self):
         """The signer's fence beside this chain's HRS."""
-        try:
-            self.state.with_name(self.state.name + ".uncertain").lstat()
-        except FileNotFoundError:
-            return False
-        except OSError:
-            return True
-        return True
+        return self.present(self.state.with_name(self.state.name + ".uncertain"))
 
     def halt(self, reason):
         """Latch the first cause durably, then stop Comet and the signer.
@@ -524,7 +561,7 @@ class Supervisor:
         print("etna_supervisor_halted: operator repair required", flush=True)
 
     def tick(self):
-        if getattr(self, "halted", False) or os.path.lexists(self.latch) or os.path.lexists(self.unsafe_record):
+        if getattr(self, "halted", False) or self.present(self.latch) or self.unsafe_evidence():
             if self.comet is not None or self.signer is not None:
                 # An existing latch keeps its first cause, but never hides an unsafe exit.
                 if self.signer_unsafe(self.stop()):
@@ -643,7 +680,7 @@ class Supervisor:
         signal.signal(signal.SIGTERM, shutdown)
         signal.signal(signal.SIGINT, shutdown)
         try:
-            if not self.refuse_unsafe_start() and not os.path.lexists(self.latch):
+            if not self.refuse_unsafe_start() and not self.present(self.latch):
                 self.start()
             while self.running:
                 self.tick()

@@ -115,6 +115,8 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
         # init-state's layout: one HRS per chain_id, the domains log in another directory.
         self.state_dir, self.domains_log = self.root / "hrs", self.root / "domains/domains.log"
         self.state = self.state_dir / (self.chain + ".json")
+        # The supervisor's signer-unsafe marker beside the log, which the signer refuses.
+        self.marker = self.domains_log.parent / (self.chain + ".signer-unsafe")
         self.state_dir.mkdir()
         self.domains_log.parent.mkdir()
         self.key.write_text("existing key")
@@ -661,6 +663,7 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
         latch = self.store / "validator-supervisor.halted"
         self.wait(latch.exists)
         self.assertIn("unsafe signing state", latch.read_text())
+        self.assertIn("unsafe signing state", self.marker.read_text())
         time.sleep(.5)
         self.assertEqual(len(self.signers()), 2)
         self.assertEqual(self.starts(), 1)
@@ -675,6 +678,7 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
         latch = self.store / "validator-supervisor.halted"
         self.wait(latch.exists)
         self.assertIn("unsafe signing state", latch.read_text())
+        self.assertIn("unsafe signing state", self.marker.read_text())
         time.sleep(.5)
         self.assertEqual(len(self.signers()), 1)
         self.assertEqual(self.starts(), 1)
@@ -716,14 +720,16 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
         """A signer blocked in a failed fsync or its fence write on a failing volume is in D-state:
         SIGKILL cannot reap it until that I/O returns, and the supervisor may itself be killed
         during that wait (the kubelet's grace period). So the kill is recorded durably, apart from
-        any first-cause latch, before the SIGKILL is sent (RECOV-8.2-3). D-state cannot be produced
-        portably, so the signer's reap after SIGKILL never returns here: the supervisor dies in it."""
+        any first-cause latch, in the app store and beside the domains log, before the SIGKILL is
+        sent (RECOV-8.2-3). D-state cannot be produced portably, so the signer's reap after SIGKILL
+        never returns here: the supervisor dies in it."""
         self.proc.terminate()
         self.assertEqual(self.proc.wait(timeout=10), 0)
         spec = importlib.util.spec_from_file_location("etna_kill_record", ROOT / "script/etna_validator.py")
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         latch, record = self.store / "validator-supervisor.halted", self.store / "validator-supervisor.signer-unsafe"
+        marker = self.marker
         events = []
 
         class SupervisorKilled(BaseException):
@@ -738,7 +744,8 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
                 return getattr(self.child, name)
 
             def kill(self):
-                events.append(("kill", record.read_text() if record.exists() else None))
+                events.append(("kill", record.read_text() if record.exists() else None,
+                               marker.read_text() if marker.exists() else None))
                 self.child.kill()
 
             def wait(self, timeout=None):
@@ -769,8 +776,11 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
         self.assertEqual(len(events), 2, events)
         self.assertEqual(events[0][0], "kill")
         self.assertIn("did not stop", events[0][1] or "", "the kill was sent before its record existed")
+        self.assertIn("did not stop", events[0][2] or "", "the kill was sent before its marker existed")
         self.assertEqual(events[1], ("wait", True))
         self.assertIn("etna_supervisor_signer_killed", output.getvalue())
+        self.assertIn("recording before SIGKILL", output.getvalue())
+        self.assertIn("etna_supervisor_signer_kill_recorded", output.getvalue())
         self.assertFalse(latch.exists(), "the supervisor died before any latch")
         # The next supervisor refuses to start the signer over that state.
         self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")],
@@ -807,6 +817,94 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
         self.assertIn("signer-unsafe record", latch.read_text())
         self.assertEqual((self.starts(), len(self.signers())), (1, 1))
         self.assertEqual(self.state.read_text(), "authoritative HRS")
+
+    def test_fresh_app_store_with_the_same_domains_log_refuses(self):
+        """A signer the supervisor had to kill may have been stuck after a failed fsync and before
+        its fence, so the app-store record is not the only evidence: the marker beside the domains
+        log survives a fresh app store, as after a re-import, and a supervisor for the same
+        chain_id refuses it there (RECOV-8.2-3, ACCEPTANCE §7.7). The signer refuses it too
+        (TestServeRefusalMatrix)."""
+        (self.root / "signer_hang_on_term").touch()
+        self.proc.terminate()
+        self.assertEqual(self.proc.wait(timeout=15), 0)
+        self.assertIn("did not stop", self.marker.read_text())
+        fresh = self.root / "fresh-app"
+        fresh.mkdir()
+        self.env["ETNA_APP_STORE"] = str(fresh)
+        self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")],
+                                     env=self.env, stdout=self.log, stderr=self.log)
+        latch = fresh / "validator-supervisor.halted"
+        self.wait(latch.exists)
+        time.sleep(.4)
+        self.assertIsNone(self.proc.poll())
+        self.assertIn("signer-unsafe record or marker", latch.read_text())
+        self.assertTrue((fresh / "validator-supervisor.signer-unsafe").exists())
+        self.assertEqual((self.starts(), len(self.signers())), (1, 1))
+        self.assertIn("did not stop", self.marker.read_text())
+        self.assertEqual(self.state.read_text(), "authoritative HRS")
+
+    def test_unwritable_marker_holds_back_the_sigkill(self):
+        """The app-store record and the marker beside the domains log persist in one loop: while
+        the marker cannot be written, the signer is never SIGKILLed although the record already
+        exists, and the SIGKILL follows only once both are durable (RECOV-8.2-3, SYNC-9-13)."""
+        if os.geteuid() == 0:
+            self.skipTest("root bypasses directory-write permission faults")
+        self.proc.terminate()
+        self.assertEqual(self.proc.wait(timeout=10), 0)
+        spec = importlib.util.spec_from_file_location("etna_marker_loop", ROOT / "script/etna_validator.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        record, marker, domains = self.store / "validator-supervisor.signer-unsafe", self.marker, self.domains_log.parent
+        kills = []
+
+        class Watched:
+            """The real signer process, noting whether the marker existed at its SIGKILL."""
+            def __init__(self, child):
+                self.child = child
+
+            def __getattr__(self, name):
+                return getattr(self.child, name)
+
+            def kill(self):
+                kills.append(marker.exists())
+                self.child.kill()
+
+        (self.root / "signer_hang_on_term").touch()
+        output = io.StringIO()
+        with patch.dict(os.environ, self.env, clear=True):
+            runtime = module.Supervisor()
+            runtime.acquire_owner()
+            real = stopper = None
+            try:
+                runtime.start()
+                self.wait(lambda: self.starts() == 2 and len(self.signers()) == 2)
+                real = runtime.signer
+                runtime.signer = Watched(real)
+                domains.chmod(0o500)
+                with contextlib.redirect_stdout(output):
+                    stopper = threading.Thread(target=runtime.stop)
+                    stopper.start()
+                    self.wait(record.exists, timeout=15)
+                    time.sleep(1)
+                    self.assertEqual(kills, [], "SIGKILL sent while the marker could not be written")
+                    self.assertTrue(self.alive(real.pid))
+                    self.assertFalse(marker.exists())
+                    domains.chmod(0o700)
+                    stopper.join(timeout=10)
+                    self.assertFalse(stopper.is_alive())
+            finally:
+                domains.chmod(0o700)
+                if real is not None and real.poll() is None:
+                    real.kill()
+                    real.wait(timeout=5)
+                if stopper is not None:
+                    stopper.join(timeout=10)
+                for descriptor in runtime.owner_fds:
+                    os.close(descriptor)
+        self.assertEqual(kills, [True])
+        self.assertIn("did not stop", marker.read_text())
+        self.assertIn("etna_supervisor_halt_persistence_pending", output.getvalue())
+        self.assertIn("etna_supervisor_signer_kill_recorded", output.getvalue())
 
     @staticmethod
     def alive(pid):
@@ -1316,6 +1414,8 @@ class SupervisorUnitTests(unittest.TestCase):
         runtime = object.__new__(module.Supervisor)
         runtime.store, runtime.chain = store, "old-chain"
         runtime.state = store / "hrs.json"
+        runtime.domains_log = store / "domains/domains.log"
+        runtime.domains_log.parent.mkdir()
         runtime.latch = store / "validator-supervisor.halted"
         preserved = {"abci-state.json": json.dumps(dict(chain_id="old-chain", generation=0)).encode(),
                      "fatal-evidence.txt": b"authenticated higher recovery generation",
@@ -1378,8 +1478,70 @@ class SupervisorUnitTests(unittest.TestCase):
             self.assertEqual(runtime.latch.read_bytes(), original)
             self.assertTrue(runtime.halted)
             self.assertIn(b"unsafe signing state", (runtime.store / "validator-supervisor.signer-unsafe").read_bytes())
+            self.assertIn(b"unsafe signing state", (runtime.store / "domains/old-chain.signer-unsafe").read_bytes())
             for name, raw in preserved.items():
                 self.assertEqual((runtime.store / name).read_bytes(), raw)
+
+    def bare_runtime(self, directory):
+        """A supervisor without children over its own app store, state directory and domains log."""
+        spec = importlib.util.spec_from_file_location("etna_bare_supervisor", ROOT / "script/etna_validator.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        base = Path(directory)
+        runtime = object.__new__(module.Supervisor)
+        runtime.store, runtime.chain = base / "app", "etna-test"
+        runtime.state, runtime.domains_log = base / "hrs/etna-test.json", base / "domains/domains.log"
+        for path in (runtime.store, runtime.state.parent, runtime.domains_log.parent):
+            path.mkdir()
+        runtime.latch = runtime.store / "validator-supervisor.halted"
+        runtime.signer = runtime.comet = None
+        runtime.crashes = []
+        return runtime
+
+    def test_unsafe_exits_write_the_marker_before_the_restart_decision(self):
+        """Exit 3, a fence and a forced kill make the app-store record and the marker beside the
+        domains log durable before the supervisor decides against a restart; an ordinary crash
+        writes neither and restarts (RECOV-8.2-3, SYNC-9-14)."""
+        for case in ("exit-3", "fence", "killed", "crash"):
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as directory:
+                runtime = self.bare_runtime(directory)
+                record = runtime.store / "validator-supervisor.signer-unsafe"
+                marker = runtime.domains_log.parent / "etna-test.signer-unsafe"
+                decisions = []
+                runtime.halt = lambda reason: decisions.append(("halt", record.exists(), marker.exists()))
+                runtime.start = lambda await_trust=False: decisions.append(("restart", record.exists(), marker.exists()))
+                runtime.stop = lambda: None
+                if case == "fence":
+                    runtime.state.with_name(runtime.state.name + ".uncertain").write_text("fsync failed")
+                if case == "killed":
+                    runtime.signer_killed = True
+                with contextlib.redirect_stdout(io.StringIO()):
+                    runtime.signer_exited(3 if case == "exit-3" else 1)
+                if case == "crash":
+                    self.assertEqual(decisions, [("restart", False, False)])
+                else:
+                    self.assertEqual(decisions, [("halt", True, True)])
+                    self.assertEqual(marker.read_text(), record.read_text())
+
+    def test_unreadable_unsafe_evidence_counts_as_present(self):
+        """A record or marker whose absence cannot be established (EACCES here, or EIO) counts as
+        present, as a fence does: only ENOENT proves absence (RECOV-8.2-3)."""
+        if os.geteuid() == 0:
+            self.skipTest("root bypasses directory-search permission faults")
+        for unreadable in ("app store", "domains log directory"):
+            with self.subTest(unreadable=unreadable), tempfile.TemporaryDirectory() as directory:
+                runtime = self.bare_runtime(directory)
+                halts = []
+                runtime.halt = halts.append
+                path = runtime.store if unreadable == "app store" else runtime.domains_log.parent
+                path.chmod(0)
+                try:
+                    self.assertTrue(runtime.signer_unsafe(None))
+                    self.assertTrue(runtime.refuse_unsafe_start())
+                finally:
+                    path.chmod(0o700)
+                self.assertEqual(len(halts), 1)
+                self.assertIn("signer-unsafe record or marker", halts[0])
 
     def test_comet_identity_keeps_privileged_group_drop_and_same_uid_native_path(self):
         spec = importlib.util.spec_from_file_location("etna_identity_supervisor", ROOT / "script/etna_validator.py")

@@ -165,6 +165,19 @@ func TestServeRefusalMatrix(t *testing.T) {
 			return nil
 		}, 3, "etna-other.json"},
 		{"retained-fence", func(l stateLayout) []string { write(fencePath(l.state(chain)), "evidence"); return nil }, 3, "fence"},
+		// The supervisor's marker beside the domains log outlives a fresh app store: a forced
+		// kill before the fence, or an exit 3 whose fence write failed (ACCEPTANCE §7.7).
+		{"retained-signer-unsafe-marker", func(l stateLayout) []string {
+			write(unsafeMarkerPath(l.log, chain), "signer did not stop within 5s of SIGTERM and was killed\n")
+			return nil
+		}, 3, "signer-unsafe marker"},
+		// Like the fence, any inode refuses, here a dangling alias.
+		{"retained-signer-unsafe-marker-alias", func(l stateLayout) []string {
+			if err := os.Symlink(filepath.Join(t.TempDir(), "absent"), unsafeMarkerPath(l.log, chain)); err != nil {
+				t.Fatal(err)
+			}
+			return nil
+		}, 3, "signer-unsafe marker"},
 		{"missing-domains-log-flag", func(l stateLayout) []string {
 			return serveArgs(l.key, l.state(chain), l.log)[:10]
 		}, 1, "domains log"},
@@ -207,11 +220,13 @@ func TestServeRefusalMatrix(t *testing.T) {
 			}
 		})
 	}
-	// A healthy layout passes every check and keeps serving.
+	// A healthy layout passes every check and keeps serving; a marker is per chain_id, so another
+	// chain's marker, such as an older generation's, does not refuse this one.
 	l := newStateLayout(t)
 	if err := initState(chain, l.key, l.state(chain), l.log); err != nil {
 		t.Fatal(err)
 	}
+	write(unsafeMarkerPath(l.log, "etna-other"), "evidence")
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	if out, err := exec.CommandContext(ctx, signerBinary(t), serveArgs(l.key, l.state(chain), l.log)...).CombinedOutput(); ctx.Err() == nil {

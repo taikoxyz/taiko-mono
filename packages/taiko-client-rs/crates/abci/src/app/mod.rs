@@ -461,7 +461,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// updates the replica accepts halts only at S(t)+1, after they were returned and committed:
     /// CometBFT's NextValidators, the app's validator state and the immutable
     /// `val-updates-{S(t)}.bin` record then all hold the wrong set. Repairing the state file alone
-    /// is not enough; repair is a fresh import (DATA-5.4-5) or clearing all three stores.
+    /// is not enough; repair is a fresh import (DATA-5.4-5) or clearing all three stores. A
+    /// validator's app store may also hold the supervisor's latch and signer-unsafe record: before
+    /// a validator runs on any new app store, the operator checks the old one for them and the
+    /// domains log's directory for the `<chain_id>.signer-unsafe` marker. Any of them is uncertain
+    /// signing state, resolved through governance, never by a new store (RECOV-8.2-3).
     ///
     /// Forced inclusion uses authenticated calldata and requires no KZG initialization.
     pub fn new(

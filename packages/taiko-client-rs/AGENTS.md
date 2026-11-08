@@ -95,9 +95,10 @@
   on unavailable evidence. The signer has one mode: one stock HRS per full chain_id, created
   only by `etna-signer init-state` and listed in a domains log on another volume; a new
   generation runs `init-state` for its new chain_id. Preserve the domains log, every chain's
-  HRS, generic fatal evidence and latches. A superseded generation halts with the generic fatal
-  evidence in its old app store. The supervisor adds its plain-text latch there only when it
-  observes the app's halted phase; when the app exits on a safety halt instead (a decided block
-  or a startup, InitChain or trust check finding another generation), observation fails and
-  nothing is latched, but signing stays refused. `install` never reuses that store, so no later
-  generation reads either.
+  HRS, generic fatal evidence, latches and the supervisor's signer-unsafe record and its
+  `<chain_id>.signer-unsafe` marker beside the log, which the signer refuses. A superseded
+  generation halts with the generic fatal evidence in its old app store. The supervisor adds
+  its plain-text latch there only when it observes the app's halted phase; when the app exits
+  on a safety halt instead (a decided block or a startup, InitChain or trust check finding
+  another generation), observation fails and nothing is latched, but signing stays refused.
+  `install` never reuses that store, so no later generation reads either.
