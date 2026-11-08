@@ -50,7 +50,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             Some(_) => return Err(AbciError::AlreadyInitialized),
         };
         let origin = req.initial_height.value().saturating_sub(1);
-        let mut backoff = Backoff::new("InitChain", origin);
+        let mut backoff = Backoff::startup("InitChain", origin);
         let state = loop {
             match self.verify_genesis(&req).await {
                 Ok(state) => break state,
@@ -213,7 +213,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         }
         check_validators(&req.validators, &origin.committee.members)?;
         let val_state = genesis_val_state(origin.height, &origin.committee.members)?;
-        let mut backoff = Backoff::new("recovery InitChain", origin.height);
+        let mut backoff = Backoff::startup("recovery InitChain", origin.height);
         let bootstrap = loop {
             match self.recovery_inputs(w).await {
                 Ok(bootstrap) => break bootstrap,

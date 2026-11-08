@@ -319,6 +319,29 @@ async fn genesis_l1_block_above_finalized_waits_for_finality() {
     assert_eq!(app.state(), Some(&fx.expected_state()));
 }
 
+/// Waiting for genesis finality is a normal startup wait (about 13 minutes on Ethereum), not a
+/// stuck request: InitChain keeps logging its retries at WARN past `FINALIZE_RETRY_ESCALATE`,
+/// which only escalates `FinalizeBlock`'s retries to ERROR.
+#[tokio::test(start_paused = true)]
+async fn init_chain_waits_for_genesis_finality_at_warn() {
+    use crate::{app::FINALIZE_RETRY_ESCALATE, test_utils::LogCapture};
+    let fx = Fixture::genesis(2);
+    let (l1, engine, params, req) = fx.parts();
+    l1.set_finalized(fx.genesis.l1_0 - 1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = app_with(l1, engine, params, dir.path(), AppOptions::default());
+    let l1 = app.l1.clone();
+    let finalize = async {
+        tokio::time::sleep(FINALIZE_RETRY_ESCALATE * 2).await;
+        l1.set_finalized(fx.genesis.l1_0);
+    };
+    let logs = LogCapture::start();
+    let (response, ()) = tokio::join!(init_chain(&mut app, req), finalize);
+    assert!(response.is_ok(), "{response:?}");
+    assert!(logs.at("WARN").len() > 20, "{}", logs.text());
+    assert_eq!(logs.at("ERROR"), Vec::<String>::new());
+}
+
 #[tokio::test]
 async fn non_canonical_genesis_l1_header_is_rejected() {
     let fx = Fixture::genesis(2);

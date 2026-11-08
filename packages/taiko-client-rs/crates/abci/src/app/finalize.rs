@@ -610,10 +610,11 @@ impl AnchorRead {
 }
 
 /// The pause schedule of one request's retries on missing data (SYNC-9-7): a decided block's EL
-/// (or own-L1) calls in `FinalizeBlock`, or the authenticated inputs `InitChain` and the startup
-/// `Info` wait for. The first pause is [`FINALIZE_RETRY_INITIAL`], doubling up to
-/// [`FINALIZE_RETRY_MAX`]. Retries are logged at WARN, and at ERROR once the request has been
-/// retried for [`FINALIZE_RETRY_ESCALATE`].
+/// (or own-L1) calls in `FinalizeBlock` ([`Backoff::new`]), or the authenticated inputs
+/// `InitChain` and the startup `Info` wait for ([`Backoff::startup`]). The first pause is
+/// [`FINALIZE_RETRY_INITIAL`], doubling up to [`FINALIZE_RETRY_MAX`]. Retries are logged at WARN;
+/// `FinalizeBlock`'s switch to ERROR once the block has been retried for
+/// [`FINALIZE_RETRY_ESCALATE`].
 #[derive(Debug)]
 pub(super) struct Backoff {
     /// What is retried, for the logs, e.g. "the decided block".
@@ -624,17 +625,29 @@ pub(super) struct Backoff {
     since: Instant,
     /// The next pause.
     pause: Duration,
+    /// Whether retries escalate to ERROR after [`FINALIZE_RETRY_ESCALATE`].
+    escalates: bool,
 }
 
 impl Backoff {
-    /// A fresh schedule for `what` at `height`, starting now.
+    /// `FinalizeBlock`'s schedule for `what` at `height`, starting now: a decided block that
+    /// does not settle within [`FINALIZE_RETRY_ESCALATE`] is logged at ERROR.
     pub(super) fn new(what: &'static str, height: u64) -> Self {
-        Self { what, height, since: Instant::now(), pause: FINALIZE_RETRY_INITIAL }
+        Self { what, height, since: Instant::now(), pause: FINALIZE_RETRY_INITIAL, escalates: true }
     }
 
-    /// Whether the request has been retried for [`FINALIZE_RETRY_ESCALATE`] or longer.
+    /// A startup schedule (`InitChain`, the startup `Info`) for `what` at `height`, starting now:
+    /// the same pauses, but every retry stays at WARN, as normal startup waits (genesis finality,
+    /// about 13 minutes on Ethereum, recovery acquisition, the first EL sync) last far longer
+    /// than [`FINALIZE_RETRY_ESCALATE`].
+    pub(super) fn startup(what: &'static str, height: u64) -> Self {
+        Self { escalates: false, ..Self::new(what, height) }
+    }
+
+    /// Whether the schedule escalates and the request has been retried for
+    /// [`FINALIZE_RETRY_ESCALATE`] or longer.
     pub(super) fn escalated(&self) -> bool {
-        self.since.elapsed() >= FINALIZE_RETRY_ESCALATE
+        self.escalates && self.since.elapsed() >= FINALIZE_RETRY_ESCALATE
     }
 
     /// Logs that the call or check `method` is retried because of `reason` (WARN, or ERROR once

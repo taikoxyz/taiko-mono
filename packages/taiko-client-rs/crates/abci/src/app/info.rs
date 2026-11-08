@@ -49,7 +49,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             Some(state) => {
                 if !self.el_reconciled {
                     let mut backoff =
-                        super::finalize::Backoff::new("startup Info", state.last_height);
+                        super::finalize::Backoff::startup("startup Info", state.last_height);
                     while let Err(error) = self.reconcile_el(state).await {
                         self.await_startup_input(&mut backoff, "EL reconciliation", error).await?;
                     }

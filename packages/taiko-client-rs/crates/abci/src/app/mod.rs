@@ -77,19 +77,25 @@ pub const APP_VERSION: u64 = 1;
 /// Interval between EL polls while waiting for an EL sync to a trusted head.
 pub const ELSYNC_POLL: Duration = Duration::from_secs(1);
 
-/// First pause before `FinalizeBlock` retries an EL call for a decided block that answered
-/// `SYNCING`/`ACCEPTED`, exceeded the engine deadline or failed with a retryable error
-/// ([`EngineError::is_retryable`]: a transport failure, or a JSON-RPC error code a retry may
-/// cure); the pause doubles per retry of the block up to [`FINALIZE_RETRY_MAX`]. Every other
-/// engine error (an Engine API or malformed-call error code, a reply of the wrong shape) is the
-/// EL's deterministic answer and never retried: a safety halt.
+/// First pause of every retry schedule on missing data (SYNC-9-7); the pause doubles per retry
+/// up to [`FINALIZE_RETRY_MAX`]. It applies to `FinalizeBlock`'s EL calls for a decided block
+/// that answered `SYNCING`/`ACCEPTED`, exceeded the engine deadline or failed with a retryable
+/// error ([`EngineError::is_retryable`]: a transport failure, or a JSON-RPC error code a retry
+/// may cure), and to the authenticated inputs `InitChain` and the startup `Info` wait for. Every
+/// other engine error (an Engine API or malformed-call error code, a reply of the wrong shape)
+/// is the EL's deterministic answer and never retried: a safety halt. `ProcessProposal` also
+/// waits this long before re-judging a proposal whose dependency was unavailable.
 pub const FINALIZE_RETRY_INITIAL: Duration = Duration::from_millis(100);
 
-/// Cap of the doubling pause between `FinalizeBlock`'s EL retries.
+/// Cap of the doubling pause between retries: `FinalizeBlock`'s, `InitChain`'s and the startup
+/// `Info`'s. `FinalizeBlock` also waits this long between checks of a decided block whose L1
+/// header is not yet final or supported, or whose ruleset this node lacks.
 pub const FINALIZE_RETRY_MAX: Duration = Duration::from_secs(5);
 
 /// How long `FinalizeBlock` retries the EL for one decided block before it logs every further
-/// retry at ERROR instead of WARN (it keeps retrying), so operators notice a stuck EL.
+/// retry at ERROR instead of WARN (it keeps retrying), so operators notice a stuck EL. Startup
+/// retries (`InitChain`, the startup `Info`) never escalate: their normal waits, such as genesis
+/// finality, last far longer.
 pub const FINALIZE_RETRY_ESCALATE: Duration = Duration::from_secs(60);
 
 /// How many `ProcessProposal` ACCEPT verdicts the app keeps for `FinalizeBlock` at one height.

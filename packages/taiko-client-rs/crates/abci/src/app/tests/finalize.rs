@@ -636,12 +636,28 @@ async fn el_retries_escalate_after_a_minute() {
     assert_eq!(FINALIZE_RETRY_ESCALATE, Duration::from_secs(60));
 }
 
+/// A startup schedule (`InitChain`, the startup `Info`) never escalates: normal startup waits
+/// (genesis finality, recovery acquisition, the first EL sync) last far longer than a minute.
+#[tokio::test(start_paused = true)]
+async fn startup_retries_never_escalate() {
+    let start = tokio::time::Instant::now();
+    let mut backoff = Backoff::startup("InitChain", 0);
+    while start.elapsed() < FINALIZE_RETRY_ESCALATE * 3 {
+        assert!(!backoff.escalated(), "at {:?}", start.elapsed());
+        backoff.wait("genesis verification", "the genesis header is not final").await;
+    }
+    assert!(!backoff.escalated());
+}
+
 /// Every retry schedule (`FinalizeBlock`'s, `InitChain`'s and the startup `Info`'s) pauses
-/// 100 ms first, doubling up to 5 s; its label names it in the logs only.
+/// 100 ms first, doubling up to 5 s; only `FinalizeBlock`'s escalates its logs.
 #[tokio::test(start_paused = true)]
 async fn backoff_doubles_from_the_initial_pause_to_the_cap() {
-    for what in [DECIDED_BLOCK, "InitChain", "startup Info"] {
-        let mut backoff = Backoff::new(what, 7);
+    for (what, mut backoff) in [
+        (DECIDED_BLOCK, Backoff::new(DECIDED_BLOCK, 7)),
+        ("InitChain", Backoff::startup("InitChain", 7)),
+        ("startup Info", Backoff::startup("startup Info", 7)),
+    ] {
         let mut pauses = vec![];
         for _ in 0..8 {
             let before = tokio::time::Instant::now();
