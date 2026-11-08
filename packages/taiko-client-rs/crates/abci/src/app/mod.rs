@@ -367,10 +367,11 @@ pub(super) enum ErrorClass {
 /// header not yet final, an EL sync timeout, a retryable engine error
 /// ([`EngineError::is_retryable`]) and an L1 error that is no integrity failure
 /// ([`L1Error::is_integrity_failure`]). [`ErrorClass::Contradiction`] is a raised safety halt,
-/// an L1 integrity failure, a corrupt state file, conflicting durable Comet hash or recovery
-/// bootstrap, recovery evidence that is invalid, superseded or opens another configuration, and
-/// an engine reply that is malformed, names another block or is `-38100`/`-38002`. Everything
-/// else is [`ErrorClass::Other`].
+/// an L1 integrity failure, a corrupt state file, a durable Comet hash, validator state or
+/// validator updates record that disagrees with the recomputed one (SYNC-9-5c), a conflicting
+/// recovery bootstrap, recovery evidence that is invalid, superseded or opens another
+/// configuration, and an engine reply that is malformed, names another block or is
+/// `-38100`/`-38002`. Everything else is [`ErrorClass::Other`].
 pub(super) fn classify(error: &AbciError) -> ErrorClass {
     use crate::recovery::RecoveryError;
     match error {
@@ -388,6 +389,8 @@ pub(super) fn classify(error: &AbciError) -> ErrorClass {
         AbciError::Store(
             StoreError::Corrupt { .. } |
             StoreError::CometConflict(_) |
+            StoreError::ValStateConflict(_) |
+            StoreError::ValUpdatesConflict(_) |
             StoreError::BootstrapConflict,
         ) => ErrorClass::Contradiction,
         AbciError::L1(error) if error.is_integrity_failure() => ErrorClass::Contradiction,
@@ -993,6 +996,8 @@ mod classify_tests {
                 Contradiction,
             ),
             (StoreError::CometConflict(1).into(), Contradiction),
+            (StoreError::ValStateConflict(1).into(), Contradiction),
+            (StoreError::ValUpdatesConflict(1).into(), Contradiction),
             (StoreError::BootstrapConflict.into(), Contradiction),
             (AbciError::Recovery(RecoveryError::Invalid("forged".into())), Contradiction),
             (
@@ -1045,8 +1050,6 @@ mod classify_tests {
                 .into(),
                 Other,
             ),
-            (StoreError::ValStateConflict(1).into(), Other),
-            (StoreError::ValUpdatesConflict(1).into(), Other),
             (StoreError::Encode(json()).into(), Other),
             (reply(-38001).into(), Other),
             (reply(-38003).into(), Other),
