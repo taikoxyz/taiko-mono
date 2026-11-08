@@ -127,7 +127,7 @@ reset:
 | HRS ambiguous                             | a hard-linked state, a state that resolves to another chain's file, unknown or duplicate fields    |
 | HRS unauthentic                           | a signed state without a valid signature by the registered key over this chain ID                  |
 | Retained fence                            | `<state>.uncertain` exists                                                                         |
-| Persistence failure while serving         | the fence cannot be armed, or a state or directory fsync fails                                     |
+| Persistence failure while serving         | a state or directory fsync fails; the signer writes the fence, then exits 3                        |
 
 Losing both the state and the log volume, or restoring the state from an old backup together
 with an old log, cannot be detected and is operational practice: never restore signing state
@@ -189,24 +189,31 @@ delay terminal or signal shutdown until the transport deadline.
 Observation publishing writes an exclusive random temporary file and renames it over the
 denial file; it never opens a fixed temporary name.
 
-## Uncertainty fence
+## Fence on fsync failure
 
-Stock FilePV owns HRS checks and signing, and the signer completes the state file and directory
-fsync before the transport receives a signature (SYNC-9-13). Before any FilePV signing step the
-signer exclusively creates and fsyncs `<priv-state>.uncertain` and its parent directory. This
-write-ahead fence is removed only after the changed HRS is durable. Failure to arm it prevents
-the mutation. A failed state or directory fsync, a stock persistence panic, or SIGKILL during a
-mutation leaves signer-owned evidence before the supervisor can observe the exit; no
-post-failure disk write is needed to block restart. Cached retries are fenced too. An idle
-SIGKILL leaves no operation fence and can restart normally.
+Stock FilePV owns HRS checks and signing, and writes each new HRS through an `O_SYNC`
+temporary file renamed over the state. Before the transport receives a signature, cached
+same-HRS retries included, the signer fsyncs the state file and then its directory: exactly two
+fsyncs for each request that reaches FilePV (SYNC-9-13). A crash, SIGKILL or stock persistence
+panic (exit 2) writes no fence and needs none: no signature is released before both fsyncs
+succeed, and the disk holds either the old or the new HRS, so a restart continues from it and
+may sign an unreleased step again without equivocating. Stock FilePV then returns the stored
+signature for the same step and refuses conflicting data or a lower step.
+
+A failed state or directory fsync makes the latest state uncertain (RECOV-8.2-3). The signer
+withholds the signature and latches in memory, refusing every later request, cached retries
+included. It then exclusively creates `<priv-state>.uncertain` beside the HRS, recording the
+failed operation, the state path and the error, fsyncs it and its directory, and exits 3, which
+the supervisor latches. The fence makes a restarted signer refuse with exit 3 even if the
+supervisor's latch is lost; the supervisor's latch, on the app-store volume, holds even when the
+fence or its directory fsync fails. An existing inode at the fence path is kept as it is.
 
 Every existing fence inode fails startup with exit 3, including malformed, unreadable, or
 aliased evidence. Both signer and supervisor refuse to rearm it across app or container
 restarts. After stopping all owners, inspect and preserve the fence, the HRS, the domains log
-and the supervisor and app first-cause evidence. An interrupted operation may be fully durable;
-the fence deliberately still requires inspection. Only an explicit operator repair after that
-inspection may remove the fence and resolve the supervisor halt. Never restore an older HRS,
-reset signed bytes, or edit the log to resume the identity.
+and the supervisor and app first-cause evidence, and check the disk. Only an explicit operator
+repair after that inspection may remove the fence and resolve the supervisor halt. Never
+restore an older HRS, reset signed bytes, or edit the log to resume the identity.
 
 ## Governance recovery
 

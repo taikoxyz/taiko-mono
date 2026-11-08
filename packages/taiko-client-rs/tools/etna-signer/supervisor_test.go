@@ -168,14 +168,19 @@ func TestSupervisorLatchesUncertainSigningStateAcrossRestart(t *testing.T) {
 			if err != nil {
 				t.Fatal("signing-state uncertainty did not durably halt the supervisor", err)
 			}
+			fence, err := os.ReadFile(fencePath(state))
+			if err != nil {
+				t.Fatal("the failed directory fsync left no signer fence", err)
+			}
 			stopTestProcess(t, supervisor)
 			start()
 			time.Sleep(400 * time.Millisecond)
 			after, _ := os.ReadFile(state)
 			keyAfter, _ := os.ReadFile(key)
 			retainedLatch, _ := os.ReadFile(latch)
+			retainedFence, _ := os.ReadFile(fencePath(state))
 			incarnations, _ := os.ReadFile(starts)
-			if !bytes.Equal(before, after) || !bytes.Equal(keyBefore, keyAfter) || !bytes.Equal(latched, retainedLatch) {
+			if !bytes.Equal(before, after) || !bytes.Equal(keyBefore, keyAfter) || !bytes.Equal(latched, retainedLatch) || !bytes.Equal(fence, retainedFence) {
 				t.Fatal("supervisor restart changed uncertain HRS, key or terminal evidence")
 			}
 			if strings.Count(string(incarnations), "start\n") != 1 {

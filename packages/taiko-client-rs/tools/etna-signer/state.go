@@ -81,23 +81,6 @@ func syncDirectory(path string) error {
 	return f.Sync()
 }
 
-// exclusiveDurable creates a new mode-0600 file, never replacing any existing inode, and
-// returns only once its bytes and its directory entry are durable.
-func exclusiveDurable(path string, data []byte) error {
-	f, e := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
-	if e != nil {
-		return e
-	}
-	defer f.Close()
-	if _, e = f.Write(data); e != nil {
-		return e
-	}
-	if e = f.Sync(); e != nil {
-		return e
-	}
-	return syncDirectory(filepath.Dir(path))
-}
-
 // ownerLock takes a nonblocking exclusive flock on a single-link lock file (RECOV-8.2-2).
 func ownerLock(path string) (*os.File, error) {
 	f, e := os.OpenFile(path, os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW, 0600)
@@ -444,7 +427,7 @@ func openSigningState(chain, key, state, log string) (_ *durableFilePV, release 
 		return nil, nil, err
 	}
 	locks = append(locks, stateLock)
-	if err = clearUncertainty(uncertaintyPath(canonical)); err != nil {
+	if err = refuseFence(fencePath(canonical)); err != nil {
 		return nil, nil, err
 	}
 	if _, err = validateHRS(canonical, chain, native.PubKey()); err != nil {

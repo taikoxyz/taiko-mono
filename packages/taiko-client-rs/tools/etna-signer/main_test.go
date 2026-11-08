@@ -164,7 +164,7 @@ func TestServeRefusalMatrix(t *testing.T) {
 			}
 			return nil
 		}, 3, "etna-other.json"},
-		{"retained-fence", func(l stateLayout) []string { write(uncertaintyPath(l.state(chain)), "evidence"); return nil }, 3, "fence"},
+		{"retained-fence", func(l stateLayout) []string { write(fencePath(l.state(chain)), "evidence"); return nil }, 3, "fence"},
 		{"missing-domains-log-flag", func(l stateLayout) []string {
 			return serveArgs(l.key, l.state(chain), l.log)[:10]
 		}, 1, "domains log"},

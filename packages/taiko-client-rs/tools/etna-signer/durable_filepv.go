@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,26 +11,30 @@ import (
 )
 
 // durableFilePV completes stock FilePV's state persistence before publishing a
-// signature. FilePV synchronously writes and renames its state, but does not
-// fsync the containing directory, and cached HRS retries do not write at all.
+// signature. FilePV writes its state through an O_SYNC temporary file and a rename,
+// but does not fsync the containing directory, and cached HRS retries do not write
+// at all. So every signing step, cached retries included, costs exactly two fsyncs:
+// the state file and its directory (SYNC-9-13).
 //
-// The first failed synchronization refuses every later request, cached HRS retries
-// included, because the in-memory state may then be ahead of what survives a crash.
-// A failed stock write panics, so the in-memory state cannot otherwise run ahead of
-// the file.
+// A crash needs no fence: no signature is released before both fsyncs succeed, and
+// the disk holds either the old or the new HRS, so a restart that signs an
+// unreleased step again cannot equivocate. A failed fsync makes the latest state
+// uncertain (RECOV-8.2-3): the first one refuses every later request, cached HRS
+// retries included, and writes the fence that makes a restart refuse. A failed
+// stock write panics, so the in-memory state cannot otherwise run ahead of the file.
 type durableFilePV struct {
 	*privval.FilePV
 	state string
-	// fence is the write-ahead uncertainty record beside this chain's HRS.
-	fence string
 	// syncFile flushes the opened state file; tests replace it to fail as a disk does.
 	syncFile func(*os.File) error
+	// syncDir flushes the state's directory; tests replace it to count or fail.
+	syncDir func(string) error
 	// uncertain is the first synchronization failure; nothing is signed after it.
 	uncertain error
 }
 
 func loadDurableFilePV(key, state string) *durableFilePV {
-	return &durableFilePV{FilePV: privval.LoadFilePV(key, state), state: state, fence: uncertaintyPath(state), syncFile: (*os.File).Sync}
+	return &durableFilePV{FilePV: privval.LoadFilePV(key, state), state: state, syncFile: (*os.File).Sync, syncDir: syncDirectory}
 }
 
 // syncState also runs for cached signatures: a prior synchronization may have
@@ -46,27 +51,20 @@ func (p *durableFilePV) syncState() error {
 	if err = f.Close(); err != nil {
 		return err
 	}
-	return syncDirectory(filepath.Dir(p.state))
+	return p.syncDir(filepath.Dir(p.state))
 }
 
 // signDurably runs one stock signing step and succeeds only once the state it
-// recorded is durable; a failed synchronization latches errSigningStateUnsafe.
+// recorded is durable. A failed synchronization latches errSigningStateUnsafe and
+// writes the fence; a failure to write the fence never clears the latch.
 func (p *durableFilePV) signDurably(sign func() error) error {
 	if p.uncertain != nil {
 		return fmt.Errorf("%w: %w", errSigningStateUnsafe, p.uncertain)
 	}
-	if err := armUncertainty(p.fence, "FilePV signing", p.state); err != nil {
-		p.uncertain = err
-		return err
-	}
-	err := sign() // A stock persistence panic deliberately leaves the fence armed.
-	if err := p.syncState(); err != nil {
-		p.uncertain = err
-		return fmt.Errorf("%w: %w", errSigningStateUnsafe, err)
-	}
-	if finishErr := finishUncertainty(p.fence); finishErr != nil {
-		p.uncertain = finishErr
-		return finishErr
+	err := sign() // A stock persistence panic exits before any signature is released.
+	if syncErr := p.syncState(); syncErr != nil {
+		p.uncertain = syncErr
+		return fmt.Errorf("%w: fsync of signing state: %w", errSigningStateUnsafe, errors.Join(syncErr, writeFence(fencePath(p.state), syncErr)))
 	}
 	return err
 }

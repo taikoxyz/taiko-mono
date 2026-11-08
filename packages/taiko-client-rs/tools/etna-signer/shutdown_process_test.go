@@ -74,7 +74,7 @@ func TestSignerSignalDuringSyncHelper(t *testing.T) {
 
 // Choosing the normal signal branch must not hide a persistence error discovered
 // by an in-flight handler. A healthy request interrupted by the same signal still
-// shuts down successfully rather than being misclassified as fatal.
+// shuts down successfully rather than being misclassified as fatal, and leaves no fence.
 func TestSignerSignalWaitsForInFlightPersistence(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("root bypasses the directory-read permission fault")
@@ -160,6 +160,10 @@ func TestSignerSignalWaitsForInFlightPersistence(t *testing.T) {
 				}
 				if !fault && err != nil {
 					t.Fatalf("healthy signal shutdown became fatal: %v\n%s", err, contents)
+				}
+				// Only the failed fsync writes the fence; a signal during a healthy one does not.
+				if _, err := os.Lstat(fencePath(state)); fault != (err == nil) {
+					t.Fatalf("directory fault %v, fence: %v", fault, err)
 				}
 			case <-time.After(5 * time.Second):
 				child.Process.Kill()

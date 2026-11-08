@@ -565,10 +565,10 @@ committing those values to the Inbox.
    trust; PubKey/Ping and safe catchup remain available while signing waits for revalidation.
    Halted trust, another chain_id, signer exit, or unexplained Comet exit creates
    `<data-dir>/validator-supervisor.halted` and leaves the supervisor alive and quiescent.
-   Before changing signing state, the helper durably arms `<priv-state>.uncertain` beside that
-   chain's HRS. It removes that fence only after the changed state has been synchronized. A
-   retained fence blocks startup, including when the supervisor was killed before writing its
-   app-store latch.
+   The signer releases a signature only after it fsyncs the state file and its directory. If
+   either fsync fails, it withholds the signature, writes `<priv-state>.uncertain` beside that
+   chain's HRS and exits 3; a crash writes no fence. A retained fence blocks startup, including
+   when the supervisor was killed before writing its app-store latch.
    If that latch cannot be written, the supervisor stops its children, stays quiescent and
    retries persistence. Container restart cannot clear a retained signer fence or halt latch.
    A Comet EOF following observed control/trust loss also recovers after private Ready;
