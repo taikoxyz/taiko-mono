@@ -7966,15 +7966,13 @@
       "bridge_level": "spec-proved",
       "sources": [
         "LIVE_EN-8773689481af38c9",
-        "LIVE_EN-2a259f5c7013562d",
-        "LIVE_EN-516008ef31ac5963",
         "LIVE_EN-4d6ef522fb0ee3fa",
         "LIVE_EN-e4d5ea9bf749c3f7",
         "LIVE_EN-d7f8342dc8bb8e88",
         "LIVE_EN-975e406996f0fce2",
         "LIVE_EN-03cb21954a3b2213"
       ],
-      "scope": "Derived conditional decoded property: H4, recoverability (design 4.3). From every reachable, initialized state satisfying LiveAt, under RecoveryPremises, a RecoveryTrace (no rollback; one plain recovery with no exclusions, no FI blanking and no upgrade) reaches a state where land accepts a landing; if anything had landed before, that landing ends above the starting checkpoint. The path is Recovery.prepare (L1 to the window block R, the start settled, the image and verifier set, a plain recovery at R, L1 to R+2) and Recovery.segment (the new generation's first K blocks on the hash-bound header of the current checkpoint c, anchored at R). The landing runs from c to c+K with reference block R+1, committee snapshot R, the terminal's hashes, state root and FI cursor, no leaves (no grid point lies strictly between c and c+K) and one to six blobs from PayloadLive. Its statement is certified at reference R+1 (archive root c's header, no prior headers; the generation's genesis cutoff stays below R because recover keeps it across upgrades), every block's ruleset is implemented by the registered image, and ProofComplete's verifier version accepts two proofs of it. Recovery restoring progress (RECOV-8, LIMIT-12-2) and proof completeness (MODEL-1-1/1-2) as a premise are exercised; list validation, exclusions and blanking are not. Normal-operation liveness, adversarial scheduling and DAO transaction refinement are outside the claim."
+      "scope": "Derived conditional decoded property: H4, recoverability (design 4.3). From every reachable, initialized state satisfying LiveAt, under RecoveryPremises, a RecoveryTrace (no rollback; one plain recovery with no exclusions, no FI blanking and no upgrade) reaches a state where land accepts a landing; if anything had landed before, that landing ends above the starting checkpoint. The path is Recovery.prepare (L1 to the window block R, the start settled, the image and verifier set, a plain recovery at R, L1 to R+2) and Recovery.segment (the new generation's first K blocks on the hash-bound header of the current checkpoint c, anchored at R). The landing runs from c to c+K with reference block R+1, committee snapshot R, the terminal's hashes, state root and FI cursor, no leaves (no grid point lies strictly between c and c+K) and one to six blobs from PayloadLive. Its statement is certified at reference R+1 (archive root c's header, no prior headers; the generation's genesis cutoff stays below R because recover keeps it across upgrades), every block's ruleset is implemented by the registered image, and ProofComplete's verifier version accepts two proofs of it. Proof completeness (MODEL-1-1/1-2) is assumed through RecoveryPremises.proofComplete (ProofComplete), not shown. Recovery restoring progress (RECOV-8, LIMIT-12-2) is exercised; list validation, exclusions and blanking are not. Normal-operation liveness, adversarial scheduling and DAO transaction refinement are outside the claim."
     }
   ]
 }
