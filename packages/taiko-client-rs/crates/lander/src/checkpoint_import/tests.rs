@@ -120,6 +120,10 @@ async fn reconstructs_exact_post_checkpoint_without_successor_or_execution_sourc
     assert_eq!(result.genesis().initial_height, "1");
     assert_eq!(result.first_height(), Some(1));
     assert_eq!(result.execution_headers().last(), Some(&fx.headers[&6]));
+    assert_eq!(
+        result.state().execution_floor,
+        Some(abci::ExecutionFloor { number: 6, hash: fx.headers[&6].hash_slow() })
+    );
 }
 
 #[tokio::test]
@@ -147,6 +151,7 @@ async fn origin_uses_fixed_genesis_without_old_consensus_parent() {
     assert_eq!(result.state().last_comet_hash, B256::ZERO);
     assert_eq!(result.block_id(), None);
     assert_eq!(result.state().val_state, fx.val_states[&0]);
+    assert_eq!(result.state().execution_floor, None);
 }
 
 #[tokio::test]

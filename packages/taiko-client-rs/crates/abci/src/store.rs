@@ -64,6 +64,14 @@ pub struct AppState {
     /// missing key as `None`.
     #[serde(deserialize_with = "Option::deserialize")]
     pub recovery: Option<RecoveryOrigin>,
+    /// The EL block a checkpoint import installed this store at (DATA-5.4-4): the landed
+    /// checkpoint s and ELHash(s), whose header and state the own EL keeps serving
+    /// (DATA-5.4-6); `None` for a store `InitChain` started at its generation's origin. The
+    /// first reconciliation of every process checks it ([`App::new`](crate::App::new) checks
+    /// only that it lies above the origin and at or below the committed head). Always written
+    /// and required, like `recovery`.
+    #[serde(deserialize_with = "Option::deserialize")]
+    pub execution_floor: Option<ExecutionFloor>,
     /// Inbox account authenticated at genesis. Required so a restart cannot switch contracts;
     /// state files written without this binding are refused rather than migrated implicitly.
     pub inbox: Address,
@@ -88,6 +96,17 @@ pub struct AppState {
     /// generation's genesis state, advanced by every committed height's validator updates. A
     /// required field: a state file without it is refused (no migration).
     pub val_state: ValState,
+}
+
+/// The oldest EL block a checkpoint-imported store holds with its state: the landed checkpoint
+/// s and its EL hash, the import's AppHash at s (DATA-5.4-4).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExecutionFloor {
+    /// The checkpoint height s.
+    pub number: u64,
+    /// ELHash(s).
+    pub hash: B256,
 }
 
 impl AppState {
@@ -249,12 +268,6 @@ impl Store {
     /// and component identities. This selects a local format, never admission or signing.
     pub fn imported(dir: PathBuf, id: B256, floor: u64) -> Self {
         Self { import: Some((id, floor)), ..Self::new(dir) }
-    }
-
-    /// Oldest independently installed execution state; ordinary fully replayed stores have no
-    /// import floor.
-    pub fn execution_floor(&self) -> Option<u64> {
-        self.import.map(|(_, height)| height)
     }
 
     /// Retain every future grid preimage in a separate operator-managed directory. The
@@ -593,6 +606,31 @@ impl Store {
         self.save_bytes(&bytes, "recovery-bootstrap.json", "recovery-bootstrap.json.tmp")
     }
 
+    /// Installs the app store of a checkpoint import landed at `s = state.last_height`
+    /// (DATA-5.4-3, DATA-5.4-4) as `Commit` would have left it at s: the recovery `bootstrap`
+    /// when there is one, the Comet block ID of s (`state.last_comet_hash`), the validator-state
+    /// record of s, which after an import is the installed preimage (SYNC-9-5c), and last the
+    /// AppState.
+    ///
+    /// Each write is durable (the file and the directory fsynced) before the next starts, and
+    /// [`Store::load`] finds no state until the last one: a crash leaves a store that is not
+    /// installed, never a state without its records. The records are immutable, so a rerun over
+    /// such a prefix completes the install, and a conflicting record fails it before the
+    /// AppState. Creating the directory itself is not made durable here: the caller syncs the
+    /// tree it publishes.
+    pub fn install_import(
+        &self,
+        state: &AppState,
+        bootstrap: Option<&crate::recovery::RecoveryBootstrap>,
+    ) -> Result<(), StoreError> {
+        if let Some(bootstrap) = bootstrap {
+            self.save_recovery_bootstrap(bootstrap)?;
+        }
+        self.save_comet_hash(state.last_height, state.last_comet_hash)?;
+        self.save_val_state(&state.val_state)?;
+        self.save(state)
+    }
+
     /// Persists `s` atomically, replacing any previous state.
     ///
     /// Creates the data directory if needed, writes [`TMP_FILE`], fsyncs it, renames it to
@@ -860,6 +898,7 @@ mod tests {
             committees: (0..4).map(|e| (e, committee(e))).collect(),
             val_state: ValState::genesis(105, &crate::test_utils::powers(&committee(0).members))
                 .unwrap(),
+            execution_floor: None,
         }
     }
 
@@ -938,6 +977,81 @@ mod tests {
         assert_eq!(fs::read(&path).unwrap(), framed);
     }
 
+    /// A checkpoint import installs an ordinary store (DATA-5.4-4, DATA-5.4-6): the Comet block
+    /// ID and the validator-state record of s, then the AppState, which `App::new` opens like
+    /// any other, with the execution floor in its status. The record at s is the installed
+    /// preimage (SYNC-9-5c). Every prefix a crash can leave loads no state, a rerun over one
+    /// completes the install, and a conflicting record fails it before the AppState.
+    #[test]
+    fn install_import_writes_an_ordinary_store_that_app_new_loads() {
+        let fx = crate::test_utils::Fixture::genesis(1);
+        let (state, _) = fx.imported_state(12, 12);
+        let preimage = state.val_state.encode();
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().into());
+        let installed = |dir: &Path| Store::new(dir.into()).load().unwrap();
+
+        store.save_comet_hash(12, state.last_comet_hash).unwrap();
+        assert_eq!(installed(dir.path()), None);
+        store.save_val_state(&state.val_state).unwrap();
+        fs::write(dir.path().join(TMP_FILE), b"{\"half-written").unwrap();
+        assert_eq!(installed(dir.path()), None);
+
+        store.install_import(&state, None).unwrap();
+        let reopened = Store::new(dir.path().into());
+        assert_eq!(reopened.load().unwrap(), Some(state.clone()));
+        assert_eq!(reopened.load_comet_hash(12).unwrap(), Some(state.last_comet_hash));
+        assert_eq!(fs::read(dir.path().join("val-state-12.bin")).unwrap(), frame(&preimage));
+        assert_eq!(reopened.val_state_heights().unwrap(), [12]);
+        assert_eq!(reopened.load_val_state(12).unwrap(), Record::Valid(state.val_state.clone()));
+        let app = crate::App::new(
+            fx.l1(),
+            fx.engine(),
+            fx.params.clone(),
+            reopened,
+            crate::AppOptions::default(),
+        )
+        .expect("an installed import is an ordinary store");
+        assert_eq!(app.state(), Some(&state));
+        assert_eq!(app.status().unwrap().execution_floor, Some(12));
+        assert_eq!(app.val_state_preimage(12), Ok(preimage));
+
+        let mut other = state.val_state.clone();
+        other.current.entries[0].priority += 1;
+        for comet in [true, false] {
+            let dir = tempfile::tempdir().unwrap();
+            let store = Store::new(dir.path().into());
+            if comet {
+                store.save_comet_hash(12, B256::repeat_byte(0xee)).unwrap();
+            } else {
+                store.save_val_state(&other).unwrap();
+            }
+            let error = store.install_import(&state, None).expect_err("a conflicting record");
+            assert!(
+                matches!(error, StoreError::CometConflict(12) | StoreError::ValStateConflict(12)),
+                "{error:?}"
+            );
+            assert_eq!(installed(dir.path()), None);
+        }
+    }
+
+    /// The validator supervisor's supersession check (`script/etna_validator.py`) reads saved
+    /// state keys by name: each must stay a top-level key of the serialized [`AppState`].
+    #[test]
+    fn supervisor_reads_only_saved_app_state_keys() {
+        let script = include_str!("../../../script/etna_validator.py");
+        let read: Vec<_> = script
+            .split("state.get(\"")
+            .skip(1)
+            .map(|rest| rest.split('"').next().unwrap())
+            .collect();
+        assert_eq!(read, ["chain_id", "generation", "inbox"]);
+        let saved = serde_json::to_value(state()).unwrap();
+        for key in read {
+            assert!(saved.get(key).is_some(), "{key} is not a saved AppState key");
+        }
+    }
+
     #[test]
     fn save_then_load_round_trips() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -958,6 +1072,7 @@ mod tests {
             ("", "app_version"),
             ("", "schema_version"),
             ("", "recovery"),
+            ("", "execution_floor"),
             ("", "inbox"),
             ("", "last_comet_hash"),
             ("/committees/0/members/0", "pubkey"),

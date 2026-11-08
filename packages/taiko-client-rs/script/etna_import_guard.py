@@ -50,10 +50,12 @@ def selected(app, home):
     # path. App::new independently validates its complete typed contents.
     required = {"schema_version", "app_version", "chain_id", "generation", "recovery", "inbox",
                 "genesis", "last_height", "last_comet_hash", "parent", "anchor", "forced_cursor",
-                "committees", "val_state"}
+                "committees", "val_state", "execution_floor"}
+    floor = journal.get("execution_floor")
     if (set(journal) != required or type(journal["schema_version"]) is not int
             or journal["schema_version"] != 19
-            or not (journal["recovery"] is None or isinstance(journal["recovery"], dict))):
+            or not (journal["recovery"] is None or isinstance(journal["recovery"], dict))
+            or not (floor is None or isinstance(floor, dict) and set(floor) == {"number", "hash"})):
         raise ValueError("unknown app journal format")
     return False
 

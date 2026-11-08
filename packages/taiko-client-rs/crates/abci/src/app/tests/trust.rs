@@ -1282,3 +1282,75 @@ async fn check_trust_candidate_compares_val_state() {
     let evidence = app.store.fatal_evidence().unwrap().expect("fatal evidence");
     assert!(evidence.contains("validator_state_mismatch"), "{evidence}");
 }
+
+/// Restarts `app` in place as a process over its store that a checkpoint import installed at
+/// the committed head: the state gains that execution floor and the EL is not yet reconciled.
+fn restart_as_imported(app: &mut App<MockL1, MockEngine>) -> crate::store::ExecutionFloor {
+    let state = app.state.as_mut().expect("initialized");
+    let floor = crate::store::ExecutionFloor { number: state.last_height, hash: state.parent.hash };
+    state.execution_floor = Some(floor);
+    app.el_reconciled = false;
+    floor
+}
+
+/// SYNC-9-7: an imported node stays untrusted until this process checked its execution floor,
+/// however well the checkpoint matches; the startup `Info` check then lets trust proceed.
+#[tokio::test]
+async fn trust_stays_closed_until_the_execution_floor_is_checked() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    commit_to(&mut app, &fx, GRID_INTERVAL).await;
+    let floor = restart_as_imported(&mut app);
+    target(&app, &fx, GRID_INTERVAL, floor.hash);
+    app.engine().state().historical_state.insert(floor.hash);
+
+    app.refresh_trust().await.unwrap();
+    let snapshot = app.trust.snapshot();
+    assert!(!snapshot.is_ready());
+    assert!(snapshot.reason.unwrap().contains("execution floor"));
+
+    info(&mut app).await.expect("the EL serves the floor and its state");
+    app.refresh_trust().await.unwrap();
+    assert_ready_at(&app, GRID_INTERVAL);
+}
+
+/// A `FinalizeBlock` reaching an imported store before any `Info` still runs the startup
+/// execution floor check first: an EL serving another block there halts before the block is
+/// judged or executed (SYNC-9-7), and a matching EL lets it finalize.
+#[tokio::test]
+async fn finalize_block_first_checks_the_execution_floor() {
+    for matching in [false, true] {
+        let fx = Fixture::genesis(1);
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = initialized(&fx, dir.path()).await;
+        commit_to(&mut app, &fx, GRID_INTERVAL).await;
+        let env = next_envelope(&app, &fx);
+        let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
+        let floor = restart_as_imported(&mut app);
+        app.engine().state().historical_state.insert(floor.hash);
+        if !matching {
+            let mut engine = app.engine().state();
+            let other = engine.chain.get_mut(&GRID_INTERVAL).unwrap();
+            other.gas_used += 1;
+        }
+        app.engine().state().calls.clear();
+
+        let result = finalize(&mut app, finalize_req(&req)).await;
+        assert_eq!(
+            app.engine().calls().first(),
+            Some(&EngineCall::HeaderByNumber(GRID_INTERVAL)),
+            "the floor check comes first"
+        );
+        if matching {
+            result.expect("the EL serves the floor and its state");
+            assert!(app.pending.is_some());
+            assert!(app.el_reconciled);
+        } else {
+            let error = result.expect_err("the EL contradicts the import");
+            assert!(matches!(error, AbciError::SafetyHalt(ref m) if m.contains("execution floor")));
+            assert!(app.pending.is_none());
+            assert_eq!(app.engine().calls().len(), 1);
+        }
+    }
+}

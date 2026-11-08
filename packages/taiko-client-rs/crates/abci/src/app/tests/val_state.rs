@@ -475,6 +475,19 @@ async fn val_state_query_rejects_unretained_heights() {
     }
 }
 
+/// SYNC-9-5c: after a checkpoint import the record at s is the installed preimage, the base a
+/// later lost record is recomputed from.
+#[test]
+fn an_installed_import_record_is_the_recompute_base() {
+    let fx = Fixture::genesis(1);
+    let (state, _) = fx.imported_state(12, 12);
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::volatile(dir.path().into());
+    store.install_import(&state, None).unwrap();
+    let expected = (13..=18).try_fold(state.val_state.clone(), |s, _| s.advance(&[])).unwrap();
+    assert_eq!(recompute_val_state(&store, 18, |_| false), Ok(expected));
+}
+
 /// SYNC-9-5c: a lost record is recomputed from the newest valid record below it with
 /// CometBFT's per-height arithmetic and the update records of the switch heights since: two
 /// increments, the second rescaling, never stock CometBFT's one bulk lookup (PROOF-6.2-41a.i/j,

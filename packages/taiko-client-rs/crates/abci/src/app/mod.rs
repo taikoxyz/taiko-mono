@@ -138,7 +138,8 @@ impl Default for AppOptions {
 /// The app's status as served by the `/status` query.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Status {
-    /// Oldest locally installed execution state, if this node was built by checkpoint import.
+    /// The checkpoint height a checkpoint import installed this store at
+    /// ([`AppState::execution_floor`]); absent for a store `InitChain` started.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub execution_floor: Option<u64>,
     /// Last committed height (== L2 block number); `B*` right after `InitChain`.
@@ -331,10 +332,12 @@ pub struct App<L: L1Source, E: Engine> {
     halt: Option<String>,
     /// Whether L1 records a larger recovery generation than the running chain's.
     superseded: bool,
-    /// Whether this process already made sure the EL serves the committed head: set by the
-    /// first successful `Info` reconcile or successful `InitChain`. Later ordinary Info calls
-    /// answer without EL I/O. Independent signer sessions separately recheck the durable head
-    /// and ancestry through the checkpoint trust worker.
+    /// Whether this process already made sure the EL serves the committed head and any
+    /// execution floor ([`App::reconcile_el_once`]): set by the first successful reconcile
+    /// (the first `Info`, or for an imported store whichever of `Info` and `FinalizeBlock` comes
+    /// first) or a successful `InitChain`. Later ordinary Info calls answer without EL I/O, and
+    /// trust of an imported store waits for it. Independent signer sessions separately recheck
+    /// the durable head and ancestry through the checkpoint trust worker.
     el_reconciled: bool,
     /// Process-local trust and session state, never serialized into AppState.
     trust: trust::TrustHandle,
@@ -448,8 +451,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// [`Schedule::validate`](crate::schedule::Schedule::validate) and equal the one derived from
     /// its genesis record, its Inbox must match the account
     /// authenticated at genesis, its `chain_id` must name `params.l2_chain_id` and its
-    /// generation, and its last height must equal its parent's number and its validator
-    /// state's height and fit a CometBFT height. These local consistency checks do not
+    /// generation, its last height must equal its parent's number and its validator
+    /// state's height and fit a CometBFT height, and an execution floor must lie above the
+    /// generation's origin and at or below the last height. These local consistency checks do not
     /// authenticate a coherently rewritten state file. Saved committees are not re-derived: one
     /// that contradicts the decided chain halts `FinalizeBlock` (a different derived record at
     /// its switch, a certified proposer outside it, or validator updates the replica refuses or
@@ -551,7 +555,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let schedule = &state.schedule();
         let trust = self.trust.snapshot();
         Some(Status {
-            execution_floor: self.store.execution_floor(),
+            execution_floor: state.execution_floor.map(|floor| floor.number),
             head: state.last_height,
             epoch: schedule.epoch_of(state.last_height.max(schedule.h0())),
             generation: state.generation,
@@ -841,6 +845,16 @@ fn check_stored_state(state: &AppState, params: &ChainParams) -> Result<(), Abci
     if Height::try_from(state.last_height).is_err() {
         return Err(AbciError::StoredState(format!(
             "last height {} exceeds the CometBFT height range",
+            state.last_height
+        )));
+    }
+    if let Some(floor) = &state.execution_floor &&
+        !(state.origin_height() < floor.number && floor.number <= state.last_height)
+    {
+        return Err(AbciError::StoredState(format!(
+            "execution floor {} is not above the origin {} and at or below the last height {}",
+            floor.number,
+            state.origin_height(),
             state.last_height
         )));
     }

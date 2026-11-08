@@ -49,12 +49,19 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// executes through `newPayload` and becomes the forkchoice head; singleton evidence never
     /// becomes the head. State stays pending until `Commit`. Invalid decisions halt; temporary EL
     /// failures retry.
+    ///
+    /// An imported store's first request may be this one rather than `Info`: its startup
+    /// reconciliation, with the execution floor check, then runs first
+    /// ([`App::reconcile_el_once`]), so no block is judged or executed over an unchecked floor.
     pub(super) async fn finalize_block(
         &mut self,
         req: request::FinalizeBlock,
     ) -> Result<response::FinalizeBlock, AbciError> {
         let _timer = AbciMetrics::finalize_seconds().start_timer();
         let height = req.height.value();
+        if self.state.as_ref().is_some_and(|state| state.execution_floor.is_some()) {
+            self.reconcile_el_once("FinalizeBlock reconciliation").await?;
+        }
         let Some(state) = &self.state else {
             return Err(AbciError::Uninitialized("FinalizeBlock"));
         };

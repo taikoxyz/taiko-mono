@@ -96,7 +96,7 @@ pub use server::{
     AbciHandler, AppService, ExitProcess, HaltHook, ListenAddr, SAFETY_HALT_EXIT_CODE, ServerError,
     serve, serve_with,
 };
-pub use store::{AppState, CommitteeState, Store, StoreError};
+pub use store::{AppState, CommitteeState, ExecutionFloor, Store, StoreError};
 pub use types::{
     AccountWitness, AnchorState, CommitteeRecord, GenesisRecord, InboxFacts, Member, ParentInfo,
     RegistryEntry, StorageProof,

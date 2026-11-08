@@ -1040,8 +1040,9 @@ class LauncherPathTests(unittest.TestCase):
         state = dict.fromkeys(("app_version", "chain_id", "generation", "inbox", "genesis", "last_height",
                                "last_comet_hash", "parent", "anchor", "forced_cursor", "committees",
                                "val_state"), 0)
-        state.update(schema_version=19, recovery=None)
+        state.update(schema_version=19, recovery=None, execution_floor=None)
         missing = {key: value for key, value in state.items() if key != "recovery"}
+        no_floor = {key: value for key, value in state.items() if key != "execution_floor"}
         with tempfile.TemporaryDirectory() as tmp:
             app, home = Path(tmp) / "app", Path(tmp) / "comet"
             app.mkdir(); home.mkdir()
@@ -1050,8 +1051,11 @@ class LauncherPathTests(unittest.TestCase):
                 return guard.selected(app, home)
             self.assertFalse(selected(state))
             self.assertFalse(selected(dict(state, generation=1, recovery={"height": 6})))
-            for journal in (missing, dict(state, schema_version=17), dict(state, schema_version=18),
-                            dict(state, schema_version=True), dict(state, recovery=1), dict(state, extra=0)):
+            self.assertFalse(selected(dict(state, execution_floor={"number": 6, "hash": "0x" + "ab" * 32})))
+            for journal in (missing, no_floor, dict(state, schema_version=17), dict(state, schema_version=18),
+                            dict(state, schema_version=True), dict(state, recovery=1), dict(state, extra=0),
+                            dict(state, execution_floor=6), dict(state, execution_floor={"number": 6}),
+                            dict(state, execution_floor={"number": 6, "hash": "0x", "extra": 0})):
                 with self.subTest(journal=journal), self.assertRaisesRegex(ValueError, "unknown app journal format"):
                     selected(journal)
 

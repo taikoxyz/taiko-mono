@@ -12,7 +12,7 @@ use crate::{
     config::ConfigError,
     engine::PayloadVerdict,
     rules::RuleViolation,
-    store::CommitteeState,
+    store::{CommitteeState, ExecutionFloor},
     test_utils::{EngineCall, MockEngine},
     types::ParentInfo,
 };
@@ -271,6 +271,126 @@ async fn info_forkchoice_invalid_state_halts_but_transient_replies_recover() {
             assert!(!dir.path().join("fatal-evidence.txt").exists());
         }
     }
+}
+
+/// A store a checkpoint import installed at `floor` with blocks up to `head` committed since
+/// ([`Fixture::imported_state`]), saved in `dir`, and an app started over it whose EL serves
+/// `chain` and holds the state of the blocks named in `states`.
+fn imported_app(
+    fx: &Fixture,
+    dir: &std::path::Path,
+    state: &crate::store::AppState,
+    chain: Vec<Header>,
+    states: &[B256],
+) -> App<MockL1, MockEngine> {
+    Store::volatile(dir.into()).save(state).unwrap();
+    let engine = MockEngine::with_chain(chain);
+    engine.state().historical_state.extend(states.iter().copied());
+    app_with(fx.l1(), engine, fx.params.clone(), dir, AppOptions::default())
+}
+
+/// DATA-5.4-4: the first `Info` over an imported store answers the landed head and its EL hash
+/// as `LastBlockAppHash`, after checking once that the own EL serves the execution floor's block
+/// and holds its state; a later `Info` asks the EL nothing.
+#[tokio::test]
+async fn info_checks_the_execution_floor_header_and_state_once() {
+    let fx = Fixture::genesis(2);
+    let dir = tempfile::tempdir().unwrap();
+    let (state, chain) = fx.imported_state(12, 12);
+    let h12 = state.execution_floor.unwrap().hash;
+    let mut app = imported_app(&fx, dir.path(), &state, chain, &[h12]);
+
+    let resp = info(&mut app).await.expect("the EL serves the floor and the head");
+    assert_eq!(resp.last_block_height.value(), 12);
+    assert_eq!(resp.last_block_app_hash, crate::app::app_hash(h12));
+    assert_eq!(
+        app.engine().calls(),
+        [
+            EngineCall::HeaderByNumber(12),
+            EngineCall::HistoricalState(h12),
+            EngineCall::HeaderByNumber(12)
+        ],
+        "the floor check, then the head check"
+    );
+    app.engine().state().calls.clear();
+    assert_eq!(info(&mut app).await.unwrap(), resp);
+    assert_eq!(app.engine().calls(), [], "the floor is checked once per process");
+}
+
+/// SYNC-9-7: an own EL serving another block at the execution floor contradicts the landed
+/// import, even when it serves the committed head: a safety halt, recorded as fatal evidence.
+#[tokio::test]
+async fn info_halts_when_the_el_serves_another_block_at_the_execution_floor() {
+    let fx = Fixture::genesis(2);
+    let dir = tempfile::tempdir().unwrap();
+    let (state, mut chain) = fx.imported_state(12, 13);
+    let h12 = state.execution_floor.unwrap().hash;
+    let other = chain.iter_mut().find(|header| header.number == 12).unwrap();
+    other.gas_used += 1;
+    let other = other.hash_slow();
+    let mut app = imported_app(&fx, dir.path(), &state, chain, &[h12, other]);
+
+    let error = info(&mut app).await.expect_err("the EL contradicts the import");
+    let AbciError::SafetyHalt(message) = &error else { panic!("{error:?}") };
+    assert!(message.contains("execution floor"), "{message}");
+    assert!(message.contains(&other.to_string()) && message.contains(&h12.to_string()));
+    assert!(dir.path().join("fatal-evidence.txt").is_file());
+    assert!(!app.trust.snapshot().is_ready());
+    assert_eq!(app.engine().calls(), [EngineCall::HeaderByNumber(12)], "the floor comes first");
+}
+
+/// SYNC-9-7: an own EL lacking the execution floor's block, or its state, is missing data: the
+/// same `Info` stays pending and the node untrusted until the EL holds both.
+#[tokio::test(start_paused = true)]
+async fn info_waits_while_the_el_lacks_the_execution_floor_or_its_state() {
+    let fx = Fixture::genesis(2);
+    let dir = tempfile::tempdir().unwrap();
+    let (state, mut chain) = fx.imported_state(12, 12);
+    let h12 = state.execution_floor.unwrap().hash;
+    let floor = chain.pop().unwrap();
+    let mut app = imported_app(&fx, dir.path(), &state, chain, &[]);
+
+    assert!(tokio::time::timeout(Duration::from_secs(60), info(&mut app)).await.is_err());
+    assert!(!app.trust.snapshot().is_ready());
+    assert!(app.trust.snapshot().reason.unwrap().contains("height 12"));
+    assert!(!app.engine().calls().contains(&EngineCall::HistoricalState(h12)));
+    {
+        let mut engine = app.engine().state();
+        engine.known.insert(h12, floor.clone());
+        engine.chain.insert(12, floor);
+    }
+    assert!(tokio::time::timeout(Duration::from_secs(60), info(&mut app)).await.is_err());
+    assert!(!app.trust.snapshot().is_ready());
+    assert!(app.engine().calls().contains(&EngineCall::HistoricalState(h12)));
+
+    app.engine().state().historical_state.insert(h12);
+    let resp = info(&mut app).await.expect("the EL now holds the floor and its state");
+    assert_eq!(resp.last_block_height.value(), 12);
+    assert!(!dir.path().join("fatal-evidence.txt").exists());
+}
+
+/// The execution floor lies above the generation's origin and at or below the committed head:
+/// a stored state with a floor outside that range is inconsistent.
+#[test]
+fn app_new_rejects_an_execution_floor_outside_the_committed_range() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::volatile(dir.path().into());
+    let (state, _) = fx.imported_state(12, 12);
+    for number in [13, state.origin_height()] {
+        let mut bad = state.clone();
+        bad.execution_floor = Some(ExecutionFloor { number, ..state.execution_floor.unwrap() });
+        store.save(&bad).unwrap();
+        let err =
+            App::new(fx.l1(), fx.engine(), fx.params.clone(), store.clone(), AppOptions::default())
+                .expect_err("a floor outside the committed range");
+        let floor_refused =
+            matches!(err, AbciError::StoredState(ref m) if m.contains("execution floor"));
+        assert!(floor_refused, "{err:?}");
+    }
+    store.save(&state).unwrap();
+    App::new(fx.l1(), fx.engine(), fx.params.clone(), store, AppOptions::default())
+        .expect("a floor at the head is in range");
 }
 
 #[test]

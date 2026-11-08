@@ -388,6 +388,10 @@ where
     state.val_state = val_state;
     state.committees = expected_committees;
     state.anchor = latest_anchor.expect("terminal block has anchor");
+    // The installed EL block at s that startup checks the own EL still serves with its state
+    // (DATA-5.4-4, DATA-5.4-6). An origin import keeps none: InitChain starts that store.
+    state.execution_floor =
+        Some(abci::ExecutionFloor { number: landing.height, hash: state.parent.hash });
     if state.forced_cursor < state.anchor.inbox.forced_inclusion_head ||
         state.forced_cursor > state.anchor.inbox.forced_inclusion_tail
     {
@@ -1105,6 +1109,7 @@ mod tests {
             forced_cursor: 0,
             committees: BTreeMap::new(),
             val_state: fx.val_states[&5].clone(),
+            execution_floor: None,
         };
         let check = |env: &abci::EtnaEnvelope, anchor: &AnchorState| {
             check_metadata(

@@ -179,6 +179,7 @@ impl VerifiedGenesis {
                 self.committee.clone(),
             )]),
             val_state: ValState::genesis(height, &validators)?,
+            execution_floor: None,
         })
     }
 }

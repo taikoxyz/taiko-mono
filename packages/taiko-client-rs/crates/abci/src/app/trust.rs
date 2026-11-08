@@ -507,6 +507,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
         };
         let Some(state) = &self.state else { return Ok(()) };
         check_identity(state, &target)?;
+        // An imported node is trusted only once this process checked its execution floor
+        // (SYNC-9-7); the startup reconciliation does that, never this worker.
+        if state.execution_floor.is_some() && !self.el_reconciled {
+            snapshot.reason = Some("waiting for the startup execution floor check".into());
+            return Ok(());
+        }
         snapshot.phase = TrustPhase::CatchingUp;
         if !self.reconcile_trust_head(state).await? {
             snapshot.reason = Some("execution engine is recovering the committed head".into());

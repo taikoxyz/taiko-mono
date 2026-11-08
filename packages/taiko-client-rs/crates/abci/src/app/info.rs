@@ -13,7 +13,7 @@ use crate::{
     GRID_INTERVAL,
     engine::Engine,
     l1::L1Source,
-    store::{AppState, Record, Store, StoreError},
+    store::{AppState, ExecutionFloor, Record, Store, StoreError},
     valstate::ValState,
 };
 
@@ -32,8 +32,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// only accepts an app at height 0, to which it re-sends `InitChain`.
     ///
     /// With a state, the first `Info` after the process started (CometBFT's handshake) first
-    /// reconciles the EL with it ([`App::reconcile_el`]), so the handshake replays on top of an
-    /// EL that holds the committed head; temporary failures leave the same request pending
+    /// reconciles the EL with it ([`App::reconcile_el_once`]), so the handshake replays on top
+    /// of an EL that holds the committed head; temporary failures leave the same request pending
     /// until reconciliation succeeds. Once a reconcile (or `InitChain`) succeeded, `Info` answers
     /// from the committed state alone: CometBFT also sends `Info` for every RPC `/abci_info`
     /// call, on the same sequential worker as consensus, and an EL hiccup there must neither
@@ -44,23 +44,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// retain this fast once-per-process reconciliation behavior and never wait for a future
     /// checkpoint height. Missing ancestry keeps signing closed while replay can continue.
     pub(super) async fn info(&mut self, _req: request::Info) -> Result<response::Info, AbciError> {
+        self.reconcile_el_once("startup Info").await?;
         let (last_block_height, last_block_app_hash) = match &self.state {
-            None => (Height::from(0u32), AppHash::default()),
-            Some(state) => {
-                if !self.el_reconciled {
-                    let mut backoff =
-                        super::finalize::Backoff::startup("startup Info", state.last_height);
-                    while let Err(error) = self.reconcile_el(state).await {
-                        self.await_startup_input(&mut backoff, "EL reconciliation", error).await?;
-                    }
-                    self.el_reconciled = true;
-                }
-                if at_generation_origin(state) {
-                    (Height::from(0u32), AppHash::default())
-                } else {
-                    (cometbft_height(state.last_height), app_hash(state.parent.hash))
-                }
+            Some(state) if !at_generation_origin(state) => {
+                (cometbft_height(state.last_height), app_hash(state.parent.hash))
             }
+            _ => (Height::from(0u32), AppHash::default()),
         };
         Ok(response::Info {
             data: APP_NAME.to_string(),
@@ -71,14 +60,39 @@ impl<L: L1Source, E: Engine> App<L, E> {
         })
     }
 
-    /// Makes sure the EL serves the committed head `state.parent` at `state.last_height`.
+    /// Reconciles the EL with the committed state ([`App::reconcile_el`]) once per process:
+    /// a no-op without a state or once a reconcile (or `InitChain`) succeeded. Each failed
+    /// attempt is handled by its class ([`App::await_startup_input`], SYNC-9-7): missing data
+    /// keeps trust closed and retries on the same request after a [`Backoff`] pause labelled
+    /// `what`, a contradiction halts, any other error fails the request.
     ///
-    /// An EL without a block there is pointed at the head and awaited ([`App::sync_el_to`]); an
+    /// [`Backoff`]: super::finalize::Backoff
+    pub(super) async fn reconcile_el_once(&mut self, what: &'static str) -> Result<(), AbciError> {
+        let Some(state) = &self.state else { return Ok(()) };
+        if self.el_reconciled {
+            return Ok(());
+        }
+        let mut backoff = super::finalize::Backoff::startup(what, state.last_height);
+        while let Err(error) = self.reconcile_el(state).await {
+            self.await_startup_input(&mut backoff, "EL reconciliation", error).await?;
+        }
+        self.el_reconciled = true;
+        Ok(())
+    }
+
+    /// Makes sure the EL serves the execution floor of an imported store with its state
+    /// ([`App::check_execution_floor`]), then the committed head `state.parent` at
+    /// `state.last_height`.
+    ///
+    /// An EL without a block at the head is pointed at it and awaited ([`App::sync_el_to`]); an
     /// EL serving another block there, rejecting the head, or serving another block after
     /// accepting it contradicts the committed chain: [`AbciError::SafetyHalt`]. An EL ahead of
     /// the state is fine: CometBFT replays the missing heights and `FinalizeBlock` re-executes
     /// them idempotently.
     async fn reconcile_el(&self, state: &AppState) -> Result<(), AbciError> {
+        if let Some(floor) = state.execution_floor {
+            self.check_execution_floor(floor).await?;
+        }
         let (number, hash) = (state.last_height, state.parent.hash);
         let opts = self.opts;
         match within("EL header read", opts.engine_timeout, self.engine.header_by_number(number))
@@ -93,6 +107,36 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 tracing::info!(number, %hash, "execution engine lacks the committed head; syncing");
                 self.sync_el_to("EL sync to the committed head", number, hash).await
             }
+        }
+    }
+
+    /// Makes sure the own EL serves the import's execution floor, the block the import landed
+    /// (DATA-5.4-4), and still holds its state (DATA-5.4-6). An EL serving another block there
+    /// contradicts the authenticated import: [`AbciError::SafetyHalt`]. An EL without the block
+    /// or its state is missing data, [`AbciError::ElBlockMissing`], which the startup
+    /// reconciliation retries with trust closed (SYNC-9-7). Engine errors and deadlines are
+    /// classified as for the head.
+    async fn check_execution_floor(&self, floor: ExecutionFloor) -> Result<(), AbciError> {
+        let ExecutionFloor { number, hash } = floor;
+        let timeout = self.opts.engine_timeout;
+        match within("EL execution floor read", timeout, self.engine.header_by_number(number))
+            .await?
+        {
+            Some(header) if header.hash_slow() == hash => {}
+            Some(header) => {
+                return Err(AbciError::SafetyHalt(format!(
+                    "execution engine serves {} at execution floor {number}, the landed import \
+                     has {hash}",
+                    header.hash_slow()
+                )));
+            }
+            None => return Err(AbciError::ElBlockMissing(number)),
+        }
+        let state = self.engine.historical_state_available(hash);
+        if within("EL execution floor state read", timeout, state).await? {
+            Ok(())
+        } else {
+            Err(AbciError::ElBlockMissing(number))
         }
     }
 

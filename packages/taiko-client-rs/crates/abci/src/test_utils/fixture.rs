@@ -407,7 +407,31 @@ impl Fixture {
             )]),
             val_state: ValState::genesis(self.genesis.genesis_height, &powers(&self.members))
                 .expect("the e_0 committee is a CometBFT validator set"),
+            execution_floor: None,
         }
+    }
+
+    /// The state of a store a checkpoint import installed at `floor` and that has since
+    /// committed up to `head` (`floor <= head`), and the EL chain serving it: the fixture chain
+    /// up to `B*`, then a [`committed_block`] at every later height up to `head`. The execution
+    /// floor names that chain's block at `floor`; the validator state advances without updates.
+    pub(crate) fn imported_state(&self, floor: u64, head: u64) -> (AppState, Vec<Header>) {
+        let mut chain = self.el_chain.clone();
+        chain.extend((self.genesis.genesis_height + 1..=head).map(committed_block));
+        let block = |number: u64| {
+            chain.iter().find(|header| header.number == number).expect("a block of the chain")
+        };
+        let mut state = self.expected_state();
+        state.parent =
+            ParentInfo { number: head, hash: block(head).hash_slow(), ..state.parent.clone() };
+        state.last_height = head;
+        state.last_comet_hash = B256::repeat_byte(0xc0);
+        while state.val_state.height < head {
+            state.val_state = state.val_state.advance(&[]).expect("a nonempty set advances");
+        }
+        state.execution_floor =
+            Some(crate::store::ExecutionFloor { number: floor, hash: block(floor).hash_slow() });
+        (state, chain)
     }
 }
 

@@ -670,6 +670,7 @@ async fn initialized_state(
             &plan.origin.committee.members.iter().map(|m| (m.pubkey, m.power)).collect::<Vec<_>>(),
         )
         .unwrap(),
+        execution_floor: None,
     };
     abci::Store::new(store.plan_dir(plan.id()).join("app")).save(&state).unwrap();
     state
