@@ -34,12 +34,6 @@ pub const STATE_FILE: &str = "abci-state.json";
 /// interrupted save and is discarded by [`Store::load`].
 pub const TMP_FILE: &str = "abci-state.json.tmp";
 
-/// Bounded sidecar of the last fully verified runtime committee witness.
-pub const COMMITTEE_WITNESS_FILE: &str = "abci-committee-witness.json";
-
-/// Interrupted atomic save of the committee sidecar; removed before loading.
-pub const COMMITTEE_WITNESS_TMP_FILE: &str = "abci-committee-witness.json.tmp";
-
 /// One epoch's committee: its record (as deterministically derived from a fixed L1 snapshot) and
 /// members.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -572,28 +566,6 @@ impl Store {
         )
     }
 
-    /// Loads the untrusted committee sidecar bytes and discards an interrupted temporary save.
-    /// The app independently authenticates its identity and proof before reuse.
-    pub(crate) fn load_committee_witness(&self) -> Result<Option<Vec<u8>>, StoreError> {
-        let tmp = self.dir.join(COMMITTEE_WITNESS_TMP_FILE);
-        match fs::remove_file(&tmp) {
-            Ok(()) => {}
-            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
-            Err(source) => return Err(StoreError::Io { op: "remove", path: tmp, source }),
-        }
-        let path = self.dir.join(COMMITTEE_WITNESS_FILE);
-        match fs::read(&path) {
-            Ok(bytes) => Ok(Some(bytes)),
-            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
-            Err(source) => Err(StoreError::Io { op: "read", path, source }),
-        }
-    }
-
-    /// Atomically saves the complete verified committee sidecar before proposal signing.
-    pub(crate) fn save_committee_witness(&self, bytes: &[u8]) -> Result<(), StoreError> {
-        self.save_bytes(bytes, COMMITTEE_WITNESS_FILE, COMMITTEE_WITNESS_TMP_FILE)
-    }
-
     /// Loads immutable bootstrap evidence; absence is never permission to reconstruct a saved
     /// recovery.
     pub(crate) fn load_recovery_bootstrap(
@@ -1050,19 +1022,6 @@ mod tests {
         fs::write(&tmp, b"garbage").expect("writes tmp");
         assert_eq!(store.load().expect("loads"), Some(state()));
         assert!(!tmp.exists(), "load removes the leftover temp file");
-    }
-
-    #[test]
-    fn interrupted_committee_sidecar_save_preserves_the_previous_complete_witness() {
-        let dir = tempfile::tempdir().unwrap();
-        let store = Store::new(dir.path().to_path_buf());
-        store.save_committee_witness(b"complete verified witness").unwrap();
-        fs::write(dir.path().join(COMMITTEE_WITNESS_TMP_FILE), b"partial").unwrap();
-        assert_eq!(
-            store.load_committee_witness().unwrap(),
-            Some(b"complete verified witness".to_vec())
-        );
-        assert!(!dir.path().join(COMMITTEE_WITNESS_TMP_FILE).exists());
     }
 
     #[test]

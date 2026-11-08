@@ -617,38 +617,37 @@ committing those values to the Inbox.
   proofs verify under `S(t)`'s own anchor state root (spec section 4.3); `S(t)` keeps its
   parent's anchor unless it carries a newer one. An L1 finality stall keeps that anchor for up to
   `maxAnchorAge` (planned 2 h, about 600 L1 blocks), far beyond a geth full node's 128-block state window, so nodes
-  discover the witness as soon as they commit the anchor (see the sidecar below). That needs the
+  discover the witness as soon as they commit the anchor (see below). That needs the
   L1 proof window to cover the finality lag plus one discovery and its retries; a node that was
-  not live when the anchor was adopted still needs historical state. The own L1 node behind
-  `--l1.http` is the only source of these reads (spec SYNC-9-16), so configure its historical
-  proof/state retention to cover the required history.
-- Fully verified switch witnesses acquired locally or received in valid proposals are saved
-  atomically as `abci-committee-witness.json` in the app data directory before reuse. Every node
-  discovers the upcoming switch witness in the background under each committed anchor that can
-  still be `D(t)`'s, starting with the live `Commit` of the block adopting it, saves it and
-  keeps it while the anchor stays. Every `ProcessProposal`, empty proposals included, and every
-  live `Commit` start a missing discovery and restart a failed one once its backoff has passed
-  (2 s, doubling per failure under the same anchor up to 60 s, so an L1 that cannot serve the
-  state or rate-limits it sees one attempt per pause). A discovery cut short by an RPC error or
-  a deadline resumes from its finished reads; a finished discovery, a malformed answer or a
-  registry or derivation error forgets them. An anchor can be `D(t)`'s only while `D(t)` passes
-  back-pressure against the anchor's last checkpoint height and stays within `maxAnchorAge` of
-  the anchor at one second per height at least, so this costs about one discovery per adopted
-  anchor (one per L1 epoch) in the last `unsettled_limit` heights before each `D(t)`. An L1
-  finality stall that holds the anchor through `D(t)`, an anchor freshness stall, an outage or a
-  restart therefore does not leave `S(t)` waiting on pruned state, provided the anchor's state
-  was still served when it was adopted; a proposal shares a running discovery rather than
-  repeating it. On restart, the app checks the complete chain/config/epoch/anchor identity and
-  re-verifies the proof. Invalid or stale sidecars are ignored and reacquired; a sidecar write
-  failure pauses local preparation; a validator can still accept an otherwise valid peer
-  proposal without persisting this optional cache. Preserve this sidecar alongside
-  `abci-state.json`. The cache protects already acquired witnesses; a validator that was down
-  for the whole time the snapshot stayed within its L1's proof window still needs archive state,
-  or a peer's valid `S(t)` proposal carrying the witness. reth's `--rpc.eth-proof-window` also
-  limits historical proof access independently of retained state; configure it for the history
-  needed by validators and landers. Full nodes importing an older checkpoint can also need
-  historical `eth_getProof` calls to reconstruct an inherited anchor and committee snapshots;
-  retain that state and configure the proof window for the selected import history.
+  not live when the anchor was adopted, or restarted since, still needs historical state. The own
+  L1 node behind `--l1.http` is the only source of these reads (spec SYNC-9-16), so configure its
+  historical proof/state retention to cover the required history.
+- Fully verified switch witnesses acquired locally or received in valid proposals are kept in
+  memory only; nothing is written to the app data directory. Every node discovers the upcoming
+  switch witness in the background under each committed anchor that can still be `D(t)`'s,
+  starting with the live `Commit` of the block adopting it, and keeps it while the anchor stays.
+  Every `ProcessProposal`, empty proposals included, and every live `Commit` start a missing
+  discovery and restart a failed one once its backoff has passed (2 s, doubling per failure under
+  the same anchor up to 60 s, so an L1 that cannot serve the state or rate-limits it sees one
+  attempt per pause). A discovery cut short by an RPC error or a deadline resumes from its
+  finished reads; a finished discovery, a malformed answer or a registry or derivation error
+  forgets them. An anchor can be `D(t)`'s only while `D(t)` passes back-pressure against the
+  anchor's last checkpoint height and stays within `maxAnchorAge` of the anchor at one second per
+  height at least, so this costs about one discovery per adopted anchor (one per L1 epoch) in the
+  last `unsettled_limit` heights before each `D(t)`. An L1 finality stall that holds the anchor
+  through `D(t)`, an anchor freshness stall or an outage therefore does not leave a running node's
+  `S(t)` waiting on pruned state, provided the anchor's state was still served when it was
+  adopted; a proposal shares a running discovery rather than repeating it. A restart keeps no
+  witness: the restarted node re-discovers it from its own L1, which must serve historical
+  `eth_getProof` and registry state at the snapshot block for as long as `S(t)` can still need it
+  (spec SYNC-9-16), up to `maxAnchorAge` behind the L1 head during a finality stall. A validator
+  restarted or down after the snapshot left its L1's proof window still needs historical state on
+  its own L1 (SYNC-9-16) to propose `S(t)`; until then it relies on a peer's valid `S(t)` proposal
+  carrying the witness, which it can still accept. reth's `--rpc.eth-proof-window` also limits
+  historical proof access independently of retained state; configure it for the history needed by
+  validators and landers. Full nodes importing an older checkpoint can also need historical
+  `eth_getProof` calls to reconstruct an inherited anchor and committee snapshots; retain that
+  state and configure the proof window for the selected import history.
 - **Validators** (and `abci-genesis`) also read raw L1 headers with `debug_getRawHeader`, so
   enable the `debug` namespace on their L1 node (e.g. `--http.api eth,debug`). Without it the
   app re-encodes the header from `eth_getBlockByNumber`, which works only while it knows every

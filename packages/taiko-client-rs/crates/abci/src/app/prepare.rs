@@ -375,7 +375,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// discovering the registry again. A generation origin above the parent anchor acquires
     /// its snapshot resumably at R ([`App::recovery_committee_witness`]). Historical entries may
     /// require state older than the cutoff; the complete witness verifies under the switch
-    /// block's own anchor root before the caller durably retains it.
+    /// block's own anchor root before the caller retains it in memory.
     async fn committee_witness(
         &self,
         state: &AppState,

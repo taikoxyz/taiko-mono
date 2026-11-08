@@ -135,18 +135,58 @@ async fn committee_witness_uses_own_anchor_root_and_parent_cutoff() {
     assert_eq!(derived.members.len(), 3);
 }
 
+/// Another node accepts the honest moved-anchor `switch 2` proposal and retains its witness, in
+/// memory only, under the candidate anchor it was verified at.
 #[tokio::test]
-async fn valid_switch_proposal_is_accepted_when_optional_witness_cache_cannot_be_saved() {
+async fn a_valid_peer_switch_witness_is_accepted_and_retained_in_memory() {
     let fx = Fixture::genesis(3);
     let proposer_dir = tempfile::tempdir().unwrap();
     let (mut proposer, _) = before_switch(&fx, proposer_dir.path()).await;
     let env = propose(&mut proposer).await;
     let dir = tempfile::tempdir().unwrap();
-    let (mut app, _) = before_switch(&fx, dir.path()).await;
-    std::fs::create_dir(dir.path().join(crate::store::COMMITTEE_WITNESS_FILE)).unwrap();
+    let (mut app, moved) = before_switch(&fx, dir.path()).await;
     let (response, _) = judge(&mut app, &env).await;
-    assert_eq!(response, response::ProcessProposal::Accept);
+    assert_eq!(response, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
     assert!(!dir.path().join("fatal-evidence.txt").exists());
+    let state = app.state().unwrap().clone();
+    assert_eq!(app.cached_candidate_committee_witness(&state, &moved, 2), env.committee);
+    assert!(!dir.path().join("abci-committee-witness.json").exists());
+}
+
+/// The in-memory cache takes a witness only once it verifies, and serves it only for its full
+/// committed context: chain, genesis, parent anchor (number, hash, root) and target epoch.
+#[tokio::test]
+async fn the_witness_cache_holds_only_verified_witnesses_for_their_full_context() {
+    let fx = Fixture::genesis(3);
+    let dir = tempfile::tempdir().unwrap();
+    let (app, _) = before_switch(&fx, dir.path()).await;
+    let state = app.state().unwrap().clone();
+    let valid = witness_at(&app, PARENT_ANCHOR).await;
+    let mut forged = valid.clone();
+    forged.entries[1].eff_stake += U256::from(1);
+    match app.cache_committee_witness(&state, 2, &forged) {
+        Err(Rejection::Committee(CommitteeError::EntriesRootMismatch { .. })) => {}
+        other => panic!("a forged witness must not verify: {other:?}"),
+    }
+    assert_eq!(app.context_committee_witness(&state, 2), None, "nothing forged is retained");
+
+    app.cache_committee_witness(&state, 2, &valid).unwrap();
+    assert_eq!(app.cached_committee_witness(&state, 2), Some(valid));
+    assert_eq!(app.cached_committee_witness(&state, 3), None, "target epoch");
+    type Change = Box<dyn Fn(&mut crate::store::AppState)>;
+    let changes: Vec<(&str, Change)> = vec![
+        ("chain_id", Box::new(|s| s.chain_id.push_str("-other"))),
+        ("genesis", Box::new(|s| s.genesis.epoch_len += 1)),
+        ("parent anchor number", Box::new(|s| s.anchor.number += 1)),
+        ("parent anchor hash", Box::new(|s| s.anchor.hash = B256::repeat_byte(0xe1))),
+        ("parent state root", Box::new(|s| s.anchor.state_root = B256::repeat_byte(0xe1))),
+    ];
+    for (case, change) in changes {
+        let mut other = state.clone();
+        change(&mut other);
+        assert_eq!(app.cached_committee_witness(&other, 2), None, "{case}");
+        assert_eq!(app.context_committee_witness(&other, 2), None, "{case}");
+    }
 }
 
 /// (b) The candidate anchor 1030 selects the joined checkpoint and is valid there, but its
@@ -336,7 +376,6 @@ async fn a_rejected_switch_proposal_cannot_replace_the_authenticated_cache() {
         let state = app.state().unwrap().clone();
         let retained = witness_at(&app, PARENT_ANCHOR).await;
         app.cache_committee_witness(&state, 2, &retained).unwrap();
-        let before = app.store.load_committee_witness().unwrap();
         if checkpoint_conflict {
             let mut inbox = fx.inbox_with(state.last_height);
             inbox.last_checkpoint_hash = B256::repeat_byte(0xde);
@@ -355,10 +394,6 @@ async fn a_rejected_switch_proposal_cannot_replace_the_authenticated_cache() {
             "anchor_not_final"
         };
         assert_eq!(rejected(&mut app, &env).await, reason);
-        assert!(
-            app.store.load_committee_witness().unwrap() == before,
-            "rejected proposal rewrote the sidecar"
-        );
         assert_eq!(app.context_committee_witness(&state, 2), Some(retained));
     }
 }

@@ -399,62 +399,12 @@ async fn a_second_round_at_a_switch_reuses_the_committee_witness() {
     assert!(app.committee_cache.lock().unwrap().is_none(), "Commit drops the cached witness");
 }
 
-/// The fixed switch snapshot remains available after restart even when the primary L1 has
-/// pruned every historical state: the proposal still carries the independently verified witness.
-#[tokio::test]
-async fn verified_switch_witness_survives_restart_without_historical_l1_state() {
-    let fx = Fixture::genesis(3);
-    let dir = tempfile::tempdir().unwrap();
-    let mut app = before_switch(&fx, dir.path()).await;
-    app.store.save(app.state().unwrap()).expect("persists the switch parent");
-    let before = propose(&mut app).await;
-    app.l1().state().states.clear();
-    app.l1().state().calls.clear();
-    let App { l1, engine, params, store, opts, .. } = app;
-    let mut restarted =
-        App::new(Arc::try_unwrap(l1).expect("sole L1 owner"), engine, params, store, opts).unwrap();
-    let height = next_height(&restarted);
-    let time = bft_time(&restarted);
-    let txs = prepare(&mut restarted, prepare_req(height, time)).await;
-    assert_eq!(txs.len(), 1, "restart must propose; halt = {:?}", restarted.halt);
-    let after = EtnaEnvelope::decode(&txs[0]).unwrap();
-    assert_eq!(after.committee, before.committee);
-    assert_eq!(registry_reads(&restarted), 0, "durable verified witness needs no state RPC");
-}
-
-/// A peer's independently valid switch witness is persisted even when local execution refuses
-/// its block, so restart can still propose without the fixed anchor's pruned state.
-#[tokio::test]
-async fn peer_switch_witness_survives_restart_after_local_execution_refusal() {
-    let fx = Fixture::genesis(3);
-    let a_dir = tempfile::tempdir().unwrap();
-    let mut proposer = before_switch(&fx, a_dir.path()).await;
-    let env = propose(&mut proposer).await;
-    let b_dir = tempfile::tempdir().unwrap();
-    let mut node = before_switch(&fx, b_dir.path()).await;
-    node.store.save(node.state().unwrap()).unwrap();
-    node.engine()
-        .state()
-        .new_payload_script
-        .push_back(Ok(PayloadVerdict::Invalid("local execution refusal".into())));
-    assert_eq!(judge(&mut node, &env).await.0, response::ProcessProposal::Reject);
-    node.l1().state().states.clear();
-    // The judge started a background switch-witness discovery; stop it to take the sole L1.
-    *node.committee_prefetch() = None;
-    tokio::task::yield_now().await;
-    let App { l1, engine, params, store, opts, .. } = node;
-    let mut restarted =
-        App::new(Arc::try_unwrap(l1).expect("sole L1 owner"), engine, params, store, opts).unwrap();
-    assert_eq!(propose(&mut restarted).await.committee, env.committee);
-}
-
-/// A validator at `D(t)` discovers, verifies and persists the switch witness in the background
-/// as soon as it handles any round, an empty proposal included, before a proposal needs it.
-/// Once its L1 has pruned the parent anchor's state (after a stall longer than its proof
-/// window), it still proposes `S(t)` from that witness, without an archive.
+/// A validator at `D(t)` discovers, verifies and retains (in memory) the switch witness in the
+/// background as soon as it handles any round, an empty proposal included, before a proposal
+/// needs it. Once its L1 has pruned the parent anchor's state (after a stall longer than its
+/// proof window), it still proposes `S(t)` from that witness, without an archive.
 #[tokio::test]
 async fn the_switch_witness_is_prefetched_before_the_parent_anchor_state_is_pruned() {
-    use crate::store::COMMITTEE_WITNESS_FILE;
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
     let mut app = before_switch(&fx, dir.path()).await;
@@ -465,13 +415,52 @@ async fn the_switch_witness_is_prefetched_before_the_parent_anchor_state_is_prun
     let witness = app.prefetched_committee_witness(&state, target).await.map(|found| found.witness);
     assert!(witness.is_some(), "the background discovery verified the witness");
     app.adopt_committee_prefetch(&state);
-    assert!(dir.path().join(COMMITTEE_WITNESS_FILE).exists(), "and persisted it");
+    assert_eq!(app.cached_committee_witness(&state, target), witness, "and retained it");
 
     app.l1().state().states.clear();
     app.l1().state().calls.clear();
     let env = propose(&mut app).await;
     assert_eq!(env.committee, witness);
     assert_eq!(registry_reads(&app), 0, "{:?}", app.l1().calls());
+}
+
+/// The switch witness lives in memory only: a validator restarted after committing `D(t)`
+/// re-discovers it from its own L1 at the parent anchor (SYNC-9-16), and writes nothing beside
+/// the app state.
+#[tokio::test]
+async fn restart_rediscovers_the_switch_witness_from_own_l1() {
+    let fx = Fixture::genesis(3);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    let h_e = app.state().unwrap().schedule().h_first(2) - 2;
+    fx.advance_l1(app.l1(), 70, &fx.inbox_with(h_e - 6), &fx.registry);
+    let anchor = fx.anchor_state(app.l1(), 70);
+    jump(&mut app, h_e - 2, anchor, &[(1, fx.committee(1))]);
+    step(&mut app).await;
+    let state = app.state().unwrap().clone();
+    assert_eq!((state.last_height, state.anchor.number), (h_e - 1, 70), "D(t) is committed");
+    let target = state.schedule().switch_target(state.last_height + 1).unwrap();
+    let witness = app.prefetched_committee_witness(&state, target).await.map(|found| found.witness);
+    assert!(witness.is_some(), "Commit discovered the witness");
+    app.adopt_committee_prefetch(&state);
+    assert_eq!(app.cached_committee_witness(&state, target), witness, "and retained it");
+
+    let App { l1, engine, params, store, opts, .. } = app;
+    let mut restarted =
+        App::new(Arc::try_unwrap(l1).expect("sole L1 owner"), engine, params, store, opts).unwrap();
+    assert_eq!(restarted.cached_committee_witness(&state, target), None, "nothing is reloaded");
+    restarted.l1().state().calls.clear();
+    assert_eq!(propose(&mut restarted).await.committee, witness);
+    let registry = restarted.params.registry;
+    assert!(
+        restarted.l1().calls().iter().any(|c| matches!(
+            c,
+            L1Call::AccountWitness { address, block: 70, .. } if *address == registry
+        )),
+        "the witness is re-proven at the parent anchor: {:?}",
+        restarted.l1().calls()
+    );
+    assert!(!dir.path().join("abci-committee-witness.json").exists());
 }
 
 /// A live `Commit` of `D(t)` starts the switch-witness discovery on its own, before any round at
@@ -547,30 +536,6 @@ async fn committing_a_new_anchor_prefetches_the_switch_witness_it_may_have_to_pr
     let env = propose(&mut app).await;
     assert_eq!(env.committee, witness);
     assert_eq!(registry_reads(&app), 0, "{:?}", app.l1().calls());
-}
-
-/// The witness discovered under a newly adopted anchor is saved, and a restart before `D(t)`
-/// loads it: the restarted node proposes `S(t)` once its L1 has pruned that anchor's state.
-#[tokio::test]
-async fn a_switch_witness_prefetched_before_the_derivation_parent_survives_restart() {
-    let fx = Fixture::genesis(3);
-    let dir = tempfile::tempdir().unwrap();
-    let mut app = before_anchor_adoption(&fx, dir.path(), d_2(&fx) - 5).await;
-    step(&mut app).await;
-    let state = app.state().unwrap().clone();
-    let witness = app.prefetched_committee_witness(&state, 2).await.map(|found| found.witness);
-    assert!(witness.is_some());
-    app.adopt_committee_prefetch(&state);
-
-    app.l1().state().states.clear();
-    let App { l1, engine, params, store, opts, .. } = app;
-    let mut restarted =
-        App::new(Arc::try_unwrap(l1).expect("sole L1 owner"), engine, params, store, opts).unwrap();
-    step(&mut restarted).await;
-    step(&mut restarted).await;
-    restarted.l1().state().calls.clear();
-    assert_eq!(propose(&mut restarted).await.committee, witness);
-    assert_eq!(registry_reads(&restarted), 0, "{:?}", restarted.l1().calls());
 }
 
 /// The registry storage-word and proof reads at L1 block `block` that `app` made so far.
@@ -666,82 +631,6 @@ async fn adopting_an_anchor_prefetches_only_while_the_derivation_parent_can_carr
     // `D(t)` is two heights, so at least two seconds, after the adopting block.
     assert!(adopting_anchor_70_prefetches(d_t - 5, Some(max_age - 2)).await, "D(t) at maxAge");
     assert!(!adopting_anchor_70_prefetches(d_t - 5, Some(max_age - 1)).await, "D(t) past maxAge");
-}
-
-/// A saved identity cannot grant trust to a forged witness or an RLP value with trailing bytes.
-#[tokio::test]
-async fn corrupt_switch_sidecar_is_reverified_and_reacquired() {
-    use crate::store::COMMITTEE_WITNESS_FILE;
-    let fx = Fixture::genesis(3);
-    let dir = tempfile::tempdir().unwrap();
-    let mut app = before_switch(&fx, dir.path()).await;
-    app.store.save(app.state().unwrap()).unwrap();
-    let original = propose(&mut app).await.committee.unwrap();
-    let path = dir.path().join(COMMITTEE_WITNESS_FILE);
-    let saved: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
-    for trailing in [false, true] {
-        let mut forged = original.clone();
-        if !trailing {
-            forged.entries[0].eff_stake += alloy_primitives::U256::from(1);
-        }
-        let mut raw = alloy_rlp::encode(&forged);
-        if trailing {
-            raw.push(0);
-        }
-        let mut corrupt = saved.clone();
-        corrupt["witness"] = serde_json::json!(Bytes::from(raw));
-        std::fs::write(&path, serde_json::to_vec(&corrupt).unwrap()).unwrap();
-        let mut restarted = fx.app(dir.path());
-        let parent = restarted.state().unwrap().clone();
-        fx.plant_l1_block(restarted.l1(), 70, &fx.inbox_with(parent.last_height - 5), &fx.registry);
-        assert_eq!(propose(&mut restarted).await.committee, Some(original.clone()));
-        assert!(registry_reads(&restarted) > 0, "invalid cache must reacquire the witness");
-    }
-}
-
-/// A stale sidecar never reuses a witness across another chain, schedule, config, anchor or epoch.
-#[tokio::test]
-async fn switch_sidecar_requires_its_full_authenticated_identity() {
-    use crate::store::COMMITTEE_WITNESS_FILE;
-    let fx = Fixture::genesis(3);
-    let dir = tempfile::tempdir().unwrap();
-    let mut app = before_switch(&fx, dir.path()).await;
-    app.store.save(app.state().unwrap()).unwrap();
-    let original = propose(&mut app).await.committee.unwrap();
-    let path = dir.path().join(COMMITTEE_WITNESS_FILE);
-    let saved: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
-    let word = serde_json::json!(B256::repeat_byte(0xe1));
-    for (pointer, value) in [
-        ("/key/chain_id", serde_json::json!("taiko-etna-167001-g1")),
-        ("/key/genesis/epoch_len", serde_json::json!(99)),
-        ("/key/inbox", serde_json::json!(alloy_primitives::Address::repeat_byte(0xe1))),
-        ("/key/committee_config_hash", word.clone()),
-        ("/key/parent_anchor", serde_json::json!(71)),
-        ("/key/parent_anchor_hash", word.clone()),
-        ("/key/parent_state_root", word),
-        ("/key/target_epoch", serde_json::json!(3)),
-    ] {
-        let mut stale = saved.clone();
-        *stale.pointer_mut(pointer).unwrap() = value;
-        std::fs::write(&path, serde_json::to_vec(&stale).unwrap()).unwrap();
-        let mut restarted = fx.app(dir.path());
-        let parent = restarted.state().unwrap().clone();
-        fx.plant_l1_block(restarted.l1(), 70, &fx.inbox_with(parent.last_height - 5), &fx.registry);
-        assert_eq!(propose(&mut restarted).await.committee, Some(original.clone()), "{pointer}");
-        assert!(registry_reads(&restarted) > 0, "{pointer}: another context must reacquire");
-    }
-}
-
-/// A node must surface failed durable retention rather than publish a witness it would lose on
-/// restart; the sidecar is kept separate from the committed state file.
-#[tokio::test]
-async fn switch_sidecar_write_failure_refuses_the_proposal() {
-    let fx = Fixture::genesis(3);
-    let dir = tempfile::tempdir().unwrap();
-    let mut app = before_switch(&fx, dir.path()).await;
-    std::fs::create_dir(dir.path().join(crate::store::COMMITTEE_WITNESS_FILE)).unwrap();
-    assert_eq!(refused(&mut app).await, "committee_cache_error");
-    assert!(app.committee_cache.lock().unwrap().is_none());
 }
 
 /// CometBFT rotates proposers round by round: a node that judged another proposer's block at

@@ -37,7 +37,7 @@ use crate::{
 
 /// Checkpoint ancestry of anchor witnesses against the local chain.
 mod checkpoint;
-/// Durable independently verified switch witness retention.
+/// In-memory retention of independently verified switch witnesses.
 mod committee_cache;
 /// The `FinalizeBlock` and `Commit` handlers.
 mod finalize;
@@ -59,7 +59,7 @@ mod validate;
 #[cfg(test)]
 mod tests;
 
-use committee_cache::{CachedCommittee, CommitteePrefetch, load_cached_committee};
+use committee_cache::{CachedCommittee, CommitteePrefetch};
 
 pub use info::{CHECK_TX_LOG, CODE_REJECTED};
 pub use validate::{
@@ -300,10 +300,10 @@ pub struct App<L: L1Source, E: Engine> {
     /// The last committee witness verified for switch height `H(t)-2`, by `PrepareProposal` (its
     /// own), `ProcessProposal` (another proposer's) or the background discovery under the
     /// committed anchor ([`App::prefetch_committee_witness`]), kept so that this node's proposals
-    /// at that height reuse it instead of reading the registry again. Its durable sidecar is
-    /// reverified after restart against the full committed context. It is dropped once the
-    /// committed state leaves that context (another anchor or switch); the one bounded sidecar
-    /// then becomes stale and is ignored. Behind a mutex as the handlers run on `&self`.
+    /// at that height reuse it instead of reading the registry again. It lives in memory only:
+    /// a restart re-discovers it from the own L1 (SYNC-9-16). It is dropped once the committed
+    /// state leaves that context (another anchor or switch). Behind a mutex as the handlers run
+    /// on `&self`.
     committee_cache: Mutex<Option<CachedCommittee>>,
     /// The registry reads of a committee discovery `PrepareProposal`'s deadline or a failed L1
     /// read cut short, from which the next attempt resumes; cleared at `Commit`.
@@ -405,7 +405,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 ));
             }
         }
-        let committee_cache = load_cached_committee(&store, state.as_ref(), &params);
         let trust = trust::TrustHandle::new(state.as_ref())?;
         let app = Self {
             l1: Arc::new(l1),
@@ -417,7 +416,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             pending: None,
             pending_val_updates: None,
             verdicts: Verdicts::default(),
-            committee_cache: Mutex::new(committee_cache),
+            committee_cache: Mutex::default(),
             discovery: DiscoveryProgress::default(),
             committee_prefetch: Mutex::default(),
             preparation_cache: Arc::default(),

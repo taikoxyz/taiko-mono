@@ -1,9 +1,9 @@
-//! Durable, independently verified switch witnesses, separate from consensus state.
+//! Independently verified switch witnesses, held in memory only and separate from consensus
+//! state; a restart re-discovers them from the own L1 (SYNC-9-16).
 
 use std::{sync::Arc, time::Duration};
 
-use alloy_primitives::{Address, B256, Bytes};
-use serde::{Deserialize, Serialize};
+use alloy_primitives::{Address, B256};
 use tokio::{sync::watch, task::JoinHandle, time::Instant};
 
 use super::{App, Rejection};
@@ -14,7 +14,7 @@ use crate::{
     envelope::CommitteeWitness,
     l1::{DiscoveryProgress, L1Source, build_committee_witness_within, header_at},
     rules,
-    store::{AppState, Store},
+    store::AppState,
     types::{AnchorState, GenesisRecord},
 };
 
@@ -40,7 +40,7 @@ fn prefetch_backoff(failures: u32) -> Duration {
 }
 
 /// The complete context in which a runtime committee witness is valid.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct CacheKey {
     /// CometBFT chain identity, including its recovery generation.
     chain_id: String,
@@ -128,22 +128,13 @@ impl Drop for CommitteePrefetch {
     }
 }
 
-/// One verified witness held in memory after its durable sidecar is saved or reverified.
+/// One verified witness held in memory; nothing of it is written to disk.
 #[derive(Clone, Debug)]
 pub(super) struct CachedCommittee {
     /// Authentication and derivation identity.
     key: CacheKey,
     /// Complete verified registry witness, including the snapshot entries.
     witness: CommitteeWitness,
-}
-
-/// The bounded sidecar representation; its RLP witness is always untrusted on load.
-#[derive(Serialize, Deserialize)]
-struct PersistedCommittee {
-    /// Identity to compare before decoding and verifying the witness.
-    key: CacheKey,
-    /// Exact RLP witness bytes, decoded with trailing bytes forbidden.
-    witness: Bytes,
 }
 
 /// The epoch `t` whose switch witness `state`'s committed anchor may have to prove: that of the
@@ -171,75 +162,25 @@ fn prefetch_target(state: &AppState, params: &ChainParams) -> Option<u64> {
     (heights_left == 0 || reachable).then_some(target)
 }
 
-/// Loads a sidecar only for the upcoming switch's context ([`prefetch_target`]), verifies it
-/// without L1 I/O, and ignores a corrupt, stale or mismatched sidecar so ordinary acquisition can
-/// recover.
-pub(super) fn load_cached_committee(
-    store: &Store,
-    state: Option<&AppState>,
-    params: &ChainParams,
-) -> Option<CachedCommittee> {
-    let bytes = match store.load_committee_witness() {
-        Ok(bytes) => bytes?,
-        Err(error) => {
-            tracing::warn!(%error, "ignoring unreadable committee witness sidecar");
-            return None;
-        }
-    };
-    let state = state?;
-    let target = prefetch_target(state, params)?;
-    let persisted: PersistedCommittee = match serde_json::from_slice(&bytes) {
-        Ok(persisted) => persisted,
-        Err(error) => {
-            tracing::warn!(%error, "ignoring malformed committee witness sidecar");
-            return None;
-        }
-    };
-    let mut expected_key = CacheKey::new(state, params, target);
-    expected_key.proof_anchor = persisted.key.proof_anchor;
-    if persisted.key != expected_key {
-        tracing::debug!("ignoring committee witness sidecar for another context");
-        return None;
-    }
-    let witness = match alloy_rlp::decode_exact::<CommitteeWitness>(&persisted.witness) {
-        Ok(witness) => witness,
-        Err(error) => {
-            tracing::warn!(%error, "ignoring malformed cached committee witness");
-            return None;
-        }
-    };
-    if let Err(error) = verify_committee_witness_at_cutoff(
-        persisted.key.proof_anchor.2,
-        state.anchor.number.max(state.anchor_floor()),
-        params,
-        &witness,
-        target,
-    ) {
-        tracing::warn!(%error, "ignoring unverified cached committee witness");
-        return None;
-    }
-    Some(CachedCommittee { key: persisted.key, witness })
-}
-
 impl<L: L1Source, E: Engine> App<L, E> {
     /// Makes sure the committee witness of the upcoming switch `S(t)` gets discovered under the
     /// committed anchor while that L1 state is recent, whenever that anchor may still be the
     /// parent anchor of `S(t)` ([`prefetch_target`]): unless the witness is cached, starts a
     /// background discovery (restarting a failed one after its backoff, [`prefetch_backoff`]),
-    /// and adopts a finished one by verifying, persisting and caching it
-    /// ([`App::cache_committee_witness`]). The witness is kept across
+    /// and adopts a finished one by verifying and caching it in memory
+    /// ([`App::cache_committee_witness_at_root`]). The witness is kept across
     /// commits while the committed anchor stays.
     ///
     /// Runs at a live `Commit` and at every `ProcessProposal`, which every node (full nodes
     /// included) handles in each round that delivers a proposal while it is not locked on a block,
     /// empty proposals included. The live `Commit` of the block adopting an anchor discovers its
     /// witness right away, so an L1 finality stall that keeps that anchor until `D(t)` (and on
-    /// until freshness stops proposals), an outage or a restart at `D(t)` resumes from the
-    /// durable witness even once the L1 node pruned the anchor's state, without an archive,
-    /// provided that state was still served when the discovery ran. The sidecar is written on
-    /// the handler only, so it has a single writer. `PrepareProposal` and a replayed `Commit` only
-    /// adopt a finished discovery ([`App::adopt_committee_prefetch`]); a proposal waits for a
-    /// running one.
+    /// until freshness stops proposals) or an outage resumes from the cached witness even once
+    /// the L1 node pruned the anchor's state, provided that state was still served when the
+    /// discovery ran. Nothing survives a restart: the restarted node discovers the witness again
+    /// from its own L1, which must then still serve that state (SYNC-9-16). `PrepareProposal`
+    /// and a replayed `Commit` only adopt a finished discovery
+    /// ([`App::adopt_committee_prefetch`]); a proposal waits for a running one.
     pub(super) fn prefetch_committee_witness(&self, state: &AppState) {
         self.refresh_committee_prefetch(state, true);
     }
@@ -428,9 +369,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
             .and_then(|cached| (cached.key == key).then(|| cached.witness.clone()))
     }
 
-    /// Verifies and durably saves a switch witness proven under the committed parent anchor
-    /// before retaining it for later proposal rounds. A write failure refuses this proposal with a
-    /// node-local liveness error; no unverified or partially acquired reads enter the sidecar.
+    /// Verifies a switch witness proven under the committed parent anchor and retains it in
+    /// memory for later proposal rounds; no unverified or partially acquired reads enter the
+    /// cache.
     #[cfg(test)]
     pub(super) fn cache_committee_witness(
         &self,
@@ -471,7 +412,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
             .map(|cached| cached.witness.clone())
     }
 
-    /// Persists a candidate's proof under its own root and the committed derivation cutoff.
+    /// Verifies and retains a candidate's proof under its own root and the committed derivation
+    /// cutoff.
     pub(super) fn cache_candidate_committee_witness(
         &self,
         state: &AppState,
@@ -487,7 +429,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         )
     }
 
-    /// Verifies and retains a witness under the supplied L1 header identity. Recovery
+    /// Verifies and retains a witness in memory under the supplied L1 header identity. Recovery
     /// discovery uses R's root before re-proving the same snapshot under a candidate anchor.
     pub(super) fn cache_committee_witness_at_root(
         &self,
@@ -510,13 +452,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
             witness,
             target_epoch,
         )?;
-        let persisted =
-            PersistedCommittee { key: key.clone(), witness: alloy_rlp::encode(witness).into() };
-        let bytes = serde_json::to_vec(&persisted)
-            .map_err(|error| Rejection::CommitteeCache(error.to_string()))?;
-        self.store
-            .save_committee_witness(&bytes)
-            .map_err(|error| Rejection::CommitteeCache(error.to_string()))?;
         *cache = Some(CachedCommittee { key, witness: witness.clone() });
         Ok(())
     }

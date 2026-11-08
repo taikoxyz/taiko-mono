@@ -704,36 +704,57 @@ async fn recovery_first_switch_completes_when_each_r_read_outlasts_the_proposal_
     panic!("the recovered switch never completed although every L1 read is within its deadline");
 }
 
+/// The first recovered switch's snapshot is fixed at R (COMM-4.3-11) and kept in memory: a later
+/// round whose anchor advanced re-proves it with that anchor's registry proof alone. Nothing
+/// survives a restart, so the restarted node discovers the same R snapshot again from its own L1
+/// (SYNC-9-16) and proves it under the advanced anchor.
 #[tokio::test]
-async fn recovery_first_switch_reuses_snapshot_after_restart_and_anchor_advance() {
+async fn recovery_first_switch_reuses_snapshot_on_anchor_advance_and_rediscovers_after_restart() {
     use super::proposal::propose;
     use crate::test_utils::{GenesisSpec, L1Call, recovery_fixture_with_spec};
     let mut spec = GenesisSpec::new(2);
     spec.epoch_len = 8;
-    let (fx, l1, engine, w) = recovery_fixture_with_spec(spec, 1, 6, 1);
+    let (fx, l1, engine, w) = recovery_fixture_with_spec(spec.clone(), 1, 6, 1);
     checkpoint(&fx, &l1, &w, 6, retained(&w), 1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
     init_chain(&mut app, request(&document(&fx, &w))).await.unwrap();
     let first = propose(&mut app).await.committee.unwrap();
-    drop(app);
-    let mut spec = GenesisSpec::new(2);
-    spec.epoch_len = 8;
-    let (_, l1, engine, _) = recovery_fixture_with_spec(spec, 1, 6, 1);
-    checkpoint(&fx, &l1, &w, 6, retained(&w), 1);
-    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let floor = app.state().unwrap().anchor_floor();
     let mut inbox = fx.inbox_at_checkpoint(6, w.el_header.hash_slow());
     inbox.recovery_generation = 1;
     inbox.forced_inclusion_head = 3;
     inbox.forced_inclusion_tail = 3;
+    let registry = fx.params.registry;
+    let registry_reads = |app: &App<MockL1, MockEngine>| -> Vec<L1Call> {
+        app.l1().calls().into_iter().filter(|call| {
+            matches!(call, L1Call::StorageAt { address, .. } | L1Call::AccountWitness { address, .. }
+                if *address == registry)
+        }).collect()
+    };
+
     fx.advance_l1(app.l1(), 121, &inbox, &fx.registry);
     app.l1().state().calls.clear();
     let next = propose(&mut app).await.committee.unwrap();
-    assert_eq!(next.record, first.record);
-    assert_eq!(next.entries, first.entries);
-    let reads: Vec<_> = app.l1().calls().into_iter().filter(|call| {
-        matches!(call, L1Call::StorageAt { address, .. } | L1Call::AccountWitness { address, .. }
-            if *address == fx.params.registry)
-    }).collect();
+    assert_eq!((&next.record, &next.entries), (&first.record, &first.entries));
+    let reads = registry_reads(&app);
     assert_eq!(reads.len(), 2, "only the new anchor's registry proof is fetched: {reads:?}");
+    drop(app);
+
+    let (_, l1, engine, _) = recovery_fixture_with_spec(spec, 1, 6, 1);
+    checkpoint(&fx, &l1, &w, 6, retained(&w), 1);
+    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    fx.advance_l1(app.l1(), 121, &inbox, &fx.registry);
+    app.l1().state().calls.clear();
+    let restarted = propose(&mut app).await.committee.unwrap();
+    assert_eq!((&restarted.record, &restarted.entries), (&first.record, &first.entries));
+    let reads = registry_reads(&app);
+    for block in [floor, 121] {
+        assert!(
+            reads
+                .iter()
+                .any(|c| matches!(c, L1Call::AccountWitness { block: at, .. } if *at == block)),
+            "the restart proves the R snapshot at {block}: {reads:?}"
+        );
+    }
 }
