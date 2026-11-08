@@ -190,11 +190,14 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
         (self.home / "config/config.toml").write_text('priv_validator_laddr = "tcp://127.0.0.1:26659"\n')
 
     def comet_body(self):
-        # Record the argv and working directory each Comet start receives.
+        # Record the argv and working directory each Comet start receives. The pid file is
+        # replaced atomically: a signer started with this Comet reads it concurrently.
         return ('from pathlib import Path\nimport json,os,sys,time\n'
                 'with Path(os.environ["COMET_PID"]).with_name("comets").open("a") as out:\n'
                 ' out.write(json.dumps(dict(argv=sys.argv[1:],cwd=os.getcwd()))+"\\n")\n'
-                'p=Path(os.environ["STARTS"])\np.open("a").write("start\\n")\nPath(os.environ["COMET_PID"]).write_text(str(os.getpid()))\n\n'
+                'p=Path(os.environ["STARTS"])\np.open("a").write("start\\n")\n'
+                'c=Path(os.environ["COMET_PID"]);t=c.with_name(".comet.pid.%d"%os.getpid())\n'
+                't.write_text(str(os.getpid()));os.replace(t,c)\n\n'
                 'while not Path(os.environ["COMET_PID"]).with_name("release_comet").exists(): time.sleep(.05)')
 
     def starts(self):
