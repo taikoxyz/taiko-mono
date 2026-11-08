@@ -63,7 +63,7 @@ taiko-client abci-import import --l1.http http://127.0.0.1:8545 --l2.chain-id 16
 6. Installs the stock Comet stores (`etna-comet-import`), or at the generation origin only the original `genesis.json`.
 7. Installs the EL store once from `--el-source` (`etna-el-import`), with every authenticated header from the header floor through the checkpoint.
 8. Installs the app store at the checkpoint, with its execution floor. At the generation origin it writes only the recovery bootstrap, if any: InitChain builds the origin state (DATA-5.4-1).
-9. fsyncs `stage/ready` and publishes it as `ROOT/ready` by one rename.
+9. Makes `stage/ready` and ROOT traverse-only (0711), fsyncs them, and publishes `stage/ready` as `ROOT/ready` by one rename. `ready/app`, `ready/el`, the stage, `import.lock` and `halted.json` stay owner-only.
 
 Each helper inherits the root lock and writes only into the stage. Its receipt must name exactly the authenticated window, state and header range. On success, `import` prints one JSON line, the same as `status`:
 
@@ -93,11 +93,11 @@ taiko-client abci-import status --root /srv/etna/import-600
 
 ## Run the imported node
 
-Keep the three stores in `ROOT/ready`, or move them together while every process is stopped. They are ordinary stores:
+Keep the three stores in `ROOT/ready`, or move them together while every process is stopped, under parents the Comet UID can traverse. They are ordinary stores:
 
 1. **EL.** Run alethia-reth on `ready/el` with the original chain and with `--http.api eth,net,debug`. `abci` reads pruned imported ancestors through `debug_getRawHeader`; keep that API private. Keep the historical state at the checkpoint s readable and do not prune it: the app checks it at every start, and a pruned state makes every restart wait as missing data (DATA-5.4-6).
 2. **App.** Run plain `taiko-client abci --data-dir ROOT/ready/app` with the usual `--l1.http`, `--l2.http`, `--l2.auth`, `--jwt.secret`, `--abci.addr` and `--fee-recipient` flags. It starts from the installed state and checks once that the EL serves the block and state at `execution_floor`. Add `--checkpoint-archive-dir PATH` to preserve later grid preimages.
-3. **Comet.** Run stock `cometbft start --home ROOT/ready/comet`. Or set `ETNA_COMET_HOME=ROOT/ready/comet` for `start_etna_full_node.py`, or that and `ETNA_APP_STORE=ROOT/ready/app` for the validator supervisor. Both start Comet like on any other store, as `ETNA_COMET_UID/GID` when set (the image sets 10001). To run Comet under another UID, `chown -R` the published `ready/comet` to it, as for any Comet home.
+3. **Comet.** Run stock `cometbft start --home ROOT/ready/comet`. Or set `ETNA_COMET_HOME=ROOT/ready/comet` for `start_etna_full_node.py`, or that and `ETNA_APP_STORE=ROOT/ready/app` for the validator supervisor. Both start Comet like on any other store, as `ETNA_COMET_UID:ETNA_COMET_GID` when set (the image sets 10001:10001; set both or neither). Before that, `chown -R ETNA_COMET_UID:ETNA_COMET_GID ROOT/ready/comet`, as for any Comet home. ROOT and `ROOT/ready` are traverse-only, so that UID reaches `ready/comet` and nothing else in the root.
 
 Comet syncs blocks from s + 1 over stock P2P, and the app executes each through normal FinalizeBlock and all of its checks (DATA-5.4-6). After an older import, Comet must first reach the latest finalized target, and the app must authenticate it against your own L1, before it reports ready. `/status` shows `execution_floor`. There is no transaction, receipt, body or FI trial history before it in these stores.
 

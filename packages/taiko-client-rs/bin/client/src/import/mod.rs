@@ -9,13 +9,17 @@
 //! - `ROOT/stage/`: the private 0700 working tree (`ready/{app,comet,el}`, `stock/`,
 //!   `headers.json`, `scratch/`).
 //! - `ROOT/ready/{app,comet,el}`: published by one `rename(stage/ready, ROOT/ready)`.
+//!
+//! Publication makes ROOT and `ready` traverse-only ([`TRAVERSE_ONLY`]), so stock Comet can run as
+//! its own UID once the operator owns `ready/comet` for it. The lock, the latch, the stage and the
+//! app and EL stores stay owner-only.
 use alloy_primitives::B256;
 use lander::checkpoint_import::{ImportError, VerifiedImport};
 use serde_json::{Value, json};
 use std::{
     fs::{self, File, OpenOptions},
     io::{Read, Write},
-    os::unix::fs::{DirBuilderExt, OpenOptionsExt},
+    os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt},
     path::{Path, PathBuf},
 };
 use url::Url;
@@ -204,13 +208,25 @@ fn begin(root: &Path, inputs: &[&Path]) -> R<Begun> {
     Ok(Begun::Stage(lock, stage))
 }
 
+/// The mode of ROOT and `ready` once published: others may traverse them to reach `ready/comet`,
+/// never list or write them.
+const TRAVERSE_ONLY: u32 = 0o711;
+
 /// Make the complete `stage/ready` durable, publish it as `ROOT/ready` by one rename, then drop
 /// the rest of the stage. The caller holds the root lock.
+///
+/// ROOT and `ready` become [`TRAVERSE_ONLY`] before the rename, each durably: `ready` inside the
+/// still-private stage, ROOT before it holds `ready`. A crash before the rename leaves only a
+/// traversable ROOT over owner-only entries; once `ready` is published its path is traversable.
 fn publish(root: &Path) -> R<()> {
     let stage = root.join("stage");
-    // Also flushes stage/ready itself, whose entries the helpers created.
-    sync_tree(&stage.join("ready"))?;
-    fs::rename(stage.join("ready"), root.join("ready")).map_err(io)?;
+    let ready = stage.join("ready");
+    chmod(&ready, TRAVERSE_ONLY)?;
+    // Also flushes stage/ready itself, whose entries the helpers created, and its new mode.
+    sync_tree(&ready)?;
+    chmod(root, TRAVERSE_ONLY)?;
+    sync(root)?;
+    fs::rename(&ready, root.join("ready")).map_err(io)?;
     sync(root)?;
     remove_tree(&stage)?;
     sync(root)
@@ -363,6 +379,11 @@ fn mkdir(path: &Path) -> R<()> {
     fs::DirBuilder::new().mode(0o700).create(path).map_err(io)
 }
 
+/// Set a mode exactly, whatever the umask. Durability comes from the caller's next sync.
+fn chmod(path: &Path, mode: u32) -> R<()> {
+    fs::set_permissions(path, fs::Permissions::from_mode(mode)).map_err(io)
+}
+
 /// Create a new private file. Durability comes from [`sync_tree`] before publication.
 fn create(path: &Path) -> R<File> {
     OpenOptions::new().create_new(true).write(true).mode(0o600).open(path).map_err(io)
@@ -483,6 +504,33 @@ mod tests {
         assert_eq!(status(&root).unwrap()["phase"], "ready");
     }
 
+    /// Stock Comet may run as its own UID and must reach `ready/comet` through ROOT and `ready`,
+    /// which become traverse-only at publication. Everything else stays owner-only: the stage
+    /// while it exists, the app and EL stores and the lock.
+    #[test]
+    fn publish_makes_root_and_ready_traverse_only_and_keeps_the_rest_private() {
+        let mode = |path: &Path| path.metadata().unwrap().permissions().mode() & 0o777;
+        let (_dir, root) = root();
+        // As `import` creates it.
+        fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).unwrap();
+        let (lock, stage) = staged(begin(&root, &[]).unwrap());
+        assert_eq!(mode(&stage), 0o700);
+        let ready = stage.join("ready");
+        mkdir(&ready).unwrap();
+        for store in ["app", "comet", "el"] {
+            mkdir(&ready.join(store)).unwrap();
+        }
+        publish(&root).unwrap();
+        drop(lock);
+        let ready = root.join("ready");
+        assert_eq!((mode(&root), mode(&ready)), (0o711, 0o711));
+        for store in ["app", "el"] {
+            assert_eq!(mode(&ready.join(store)), 0o700, "{store}");
+        }
+        assert_eq!(mode(&root.join("import.lock")) & 0o077, 0);
+        assert!(!root.join("stage").exists());
+    }
+
     /// Only an authenticated contradiction is terminal (SYNC-9-7); it survives every rerun.
     #[test]
     fn halted_latch_survives_and_blocks_every_rerun() {
@@ -496,6 +544,8 @@ mod tests {
         assert_eq!(latch::<()>(&root, Err(fatal.clone())), Err(fatal.clone()));
         let later = ImportError::Safety("a later contradiction".into());
         assert_eq!(latch::<()>(&root, Err(later.clone())), Err(later));
+        let latched = root.join("halted.json").metadata().unwrap();
+        assert_eq!(latched.permissions().mode() & 0o077, 0, "the latch is owner-only");
         for _ in 0..2 {
             assert_eq!(begin(&root, &[]).err(), Some(fatal.clone()));
         }

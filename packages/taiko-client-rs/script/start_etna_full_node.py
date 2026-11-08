@@ -4,9 +4,35 @@ import fcntl
 import os
 from pathlib import Path
 import stat
+import sys
 import tomllib
 
+
+def comet_identity():
+    """The Comet OS identity the validator supervisor also uses: ETNA_COMET_UID and
+    ETNA_COMET_GID together, else the caller's own. The operator owns the home for it."""
+    uid, gid = os.environ.get("ETNA_COMET_UID"), os.environ.get("ETNA_COMET_GID")
+    if uid is None and gid is None:
+        return os.geteuid(), os.getegid()
+    if uid is None or gid is None:
+        raise ValueError("ETNA_COMET_UID and ETNA_COMET_GID must be set together")
+    return int(uid), int(gid)
+
+
+def assume_comet_identity(uid, gid):
+    """Drop a privileged launcher to the Comet identity without supplementary groups. A
+    same-identity caller keeps its own; an unprivileged one cannot become another."""
+    if (uid, gid) == (os.geteuid(), os.getegid()):
+        return
+    if os.geteuid() != 0:
+        raise ValueError("stock full node cannot assume its configured OS identity")
+    os.setgroups([])
+    os.setgid(gid)
+    os.setuid(uid)
+
+
 def main():
+    identity = comet_identity()
     home = Path(os.environ["ETNA_COMET_HOME"]).resolve(strict=True)
     config = tomllib.loads((home / "config/config.toml").read_text())
     if config.get("priv_validator_laddr", ""):
@@ -23,18 +49,14 @@ def main():
     fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
     os.set_inheritable(fd, True)
     binary = os.environ.get("ETNA_COMET_BIN", "cometbft")
-    # The same Comet OS identity the validator supervisor uses; the operator owns the home for it.
-    expected_uid, expected_gid = (os.geteuid(), os.getegid())
-    if "ETNA_COMET_UID" in os.environ:
-        expected_uid, expected_gid = int(os.environ["ETNA_COMET_UID"]), int(os.environ["ETNA_COMET_GID"])
-    if (expected_uid, expected_gid) != (os.geteuid(), os.getegid()):
-        if os.geteuid() != 0:
-            raise ValueError("stock full node cannot assume its configured OS identity")
-        os.setgroups([])
-        os.setgid(expected_gid)
-        os.setuid(expected_uid)
+    assume_comet_identity(*identity)
     os.chdir(home)
     os.execvp(binary, [binary, "start", "--home", str(home)])
 
+
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (OSError, ValueError, KeyError) as error:
+        print(f"etna full node: {error}", file=sys.stderr)
+        sys.exit(1)

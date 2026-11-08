@@ -1058,6 +1058,79 @@ class LauncherPathTests(unittest.TestCase):
             self.assertIn(b"full-node startup refuses validator configuration", proc.stderr)
             self.assertFalse(argv.exists())
 
+    def load_launcher(self):
+        spec = importlib.util.spec_from_file_location("etna_full_node_launcher", ROOT / "script/start_etna_full_node.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    def test_full_node_launcher_keeps_privileged_group_drop_and_same_uid_native_path(self):
+        module = self.load_launcher()
+        pair = {"ETNA_COMET_UID": "10001", "ETNA_COMET_GID": "10001"}
+        for current_uid, current_gid, env, expected in [
+                (501, 20, {}, []),
+                (501, 20, {"ETNA_COMET_UID": "501", "ETNA_COMET_GID": "20"}, []),
+                (0, 0, pair, [("setgroups", []), ("setgid", 10001), ("setuid", 10001)]),
+                # Half a configuration and a foreign identity without privilege fail closed.
+                (0, 0, {"ETNA_COMET_UID": "10001"}, "ETNA_COMET_UID and ETNA_COMET_GID must be set together"),
+                (0, 0, {"ETNA_COMET_GID": "10001"}, "ETNA_COMET_UID and ETNA_COMET_GID must be set together"),
+                (501, 20, pair, "cannot assume its configured OS identity")]:
+            calls = []
+            with self.subTest(current_uid=current_uid, env=env), patch.dict(os.environ, env, clear=True), \
+                    patch.object(module.os, "geteuid", return_value=current_uid), \
+                    patch.object(module.os, "getegid", return_value=current_gid), \
+                    patch.object(module.os, "setgroups", lambda groups: calls.append(("setgroups", groups))), \
+                    patch.object(module.os, "setgid", lambda gid: calls.append(("setgid", gid))), \
+                    patch.object(module.os, "setuid", lambda uid: calls.append(("setuid", uid))):
+                if isinstance(expected, str):
+                    with self.assertRaisesRegex(ValueError, expected):
+                        module.assume_comet_identity(*module.comet_identity())
+                    self.assertEqual(calls, [])
+                else:
+                    module.assume_comet_identity(*module.comet_identity())
+                    self.assertEqual(calls, expected)
+
+    def test_full_node_launcher_refuses_half_a_comet_identity_before_its_lease(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            ready = Path(tmp).resolve() / "ready"
+            (ready / "comet/config").mkdir(parents=True)
+            (ready / "comet/config/config.toml").write_text('priv_validator_laddr = ""\n')
+            env = dict(ETNA_COMET_HOME=str(ready / "comet"), ETNA_COMET_BIN="/usr/bin/true",
+                       ETNA_COMET_UID=str(os.geteuid()), PATH=os.defpath)
+            proc = subprocess.run([sys.executable, str(ROOT / "script/start_etna_full_node.py")],
+                                  env=env, capture_output=True, timeout=30)
+            self.assertEqual(proc.returncode, 1, proc.stderr)
+            self.assertIn(b"ETNA_COMET_UID and ETNA_COMET_GID must be set together", proc.stderr)
+            self.assertNotIn(b"Traceback", proc.stderr)
+            self.assertFalse((ready / ".comet.etna-owner.lock").exists())
+
+    @unittest.skipUnless(os.geteuid() == 0 and sys.platform.startswith("linux"), "needs root to switch to another UID")
+    def test_full_node_launcher_reaches_a_traverse_only_home_as_the_comet_uid(self):
+        uid = gid = 65534
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp).resolve()
+            os.chmod(base, 0o711)
+            root, ready, home = base / "root", base / "root/ready", base / "root/ready/comet"
+            (home / "config").mkdir(parents=True)
+            (home / "config/config.toml").write_text('priv_validator_laddr = ""\n')
+            for path in (home, home / "config", home / "config/config.toml"):
+                os.chown(path, uid, gid)
+            stub = base / "cometbft"
+            stub.write_text('#!/bin/sh\nid -u > launched\n')
+            stub.chmod(0o755)
+            env = dict(ETNA_COMET_HOME=str(home), ETNA_COMET_BIN=str(stub), ETNA_COMET_UID=str(uid),
+                       ETNA_COMET_GID=str(gid), PATH=os.defpath)
+            launcher = [sys.executable, str(ROOT / "script/start_etna_full_node.py")]
+            # A private import root keeps the Comet UID out; the published traverse-only one lets it in.
+            for mode, reached in ((0o700, False), (0o711, True)):
+                with self.subTest(mode=oct(mode)):
+                    os.chmod(root, mode)
+                    os.chmod(ready, mode)
+                    proc = subprocess.run(launcher, env=env, capture_output=True, timeout=30)
+                    self.assertEqual(proc.returncode == 0, reached, proc.stderr)
+                    self.assertEqual((home / "launched").exists(), reached)
+            self.assertEqual((home / "launched").read_text().strip(), str(uid))
+
     def test_denial_routes_preserve_keys_state_wal_and_uncertain_files(self):
         module = self.load_module()
         for case in ("key", "state", "default-key", "default-state", "foreign", "live-wal"):
