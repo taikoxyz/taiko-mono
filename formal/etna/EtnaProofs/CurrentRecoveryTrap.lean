@@ -2,11 +2,15 @@ import EtnaModel.CurrentRecovery
 import EtnaProofs.Current
 import EtnaProofs.CurrentCoherentCustody
 
-/-! The rollback-across-K-change trap (design section 5): once a landed, started state's
-frontier is off the current grid, no rollback-free sequence of calls lands again. `land`
-needs the frontier on the grid; `recover` without an upgrade needs the same; `recover` with
-an upgrade needs the frontier on the scheduled stop grid, which is a multiple of the current
-K. `LiveAt.grid` excludes this state; the reachable instance is
+/-! The rollback-across-K-change trap of the model (reports/recoverability.md): once a landed,
+started state's frontier is off the current grid, no rollback-free sequence of calls lands
+again. `land` needs the frontier on the grid; `recover` without an upgrade needs the same
+(RECOV-8.3-3a); the model's `recover` with an upgrade also needs the frontier on the scheduled
+stop grid, which is a multiple of the current K. That last check is stricter than SPEC 8.3,
+which checks only the new K (START-10.1-14e also recovers from a checkpoint below the stop
+point), so in the spec a structural recovery that installs a K whose grid holds the frontier
+exits. With plain recoveries only, H4's path class, the state is a dead end in the spec too.
+`LiveAt.grid` excludes this state; the reachable instance is
 `RollbackGridTrap.rollback_grid_trap`. -/
 namespace Etna.Design.Current.Protocol.Recovery
 
@@ -285,7 +289,9 @@ private theorem execute_trapped {env : Environment} {u t : World} {call : Call} 
     obtain ⟨grid,checkpoint,_⟩ := execute_plain (by exact trivial) ok
     exact ⟨congrArg Checkpoint.height checkpoint,grid⟩
 
-/-- An off-grid frontier never lands again without a rollback. -/
+/-- In the model, an off-grid frontier never lands again without a rollback. The model's
+upgrade check is stricter than SPEC 8.3; in the spec a structural recovery with a compatible K
+exits, while plain recoveries and `land` stay blocked (RECOV-8.3-3a). -/
 theorem offgrid_no_landing {env : Environment} {registry : RegistryMachine.State} {w : World}
     {start : StartData} (trace : Trace env (empty env registry) w) (started : w.start = some start)
     (landed : w.everLanded = true)

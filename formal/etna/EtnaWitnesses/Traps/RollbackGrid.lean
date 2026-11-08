@@ -1,10 +1,13 @@
 import EtnaProofs.CurrentRecoveryTrap
 
-/-! A reachable rollback-across-K-change trap (design section 5). A new network with K = 2
-lands 0→2, 2→4 and 4→6, schedules a stop on grid 2, passes the stop time and upgrades to
-K = 3 at c = 6. A verifier-failure rollback then restores the height-2 landing: c = 2 is on
-the old grid but not on the new one, so no rollback-free continuation lands again
-(`Recovery.offgrid_no_landing`). A second rollback, to the start record, escapes. The
+/-! A reachable rollback-across-K-change trap of the model (reports/recoverability.md). A new
+network with K = 2 lands 0→2, 2→4 and 4→6, schedules a stop on grid 6 (a multiple of both the
+old and the new K, as START-10.1-14e asks), passes the stop time and upgrades to K = 3 at
+c = 6. A verifier-failure rollback then restores the height-2 landing: c = 2 is on the old grid
+but not on the new one, so in the model no rollback-free continuation lands again
+(`Recovery.offgrid_no_landing`). In the spec a structural recovery from c = 2 that installs
+K = 2 exits, since SPEC 8.3 checks only the new K; with plain recoveries only, the state is a
+dead end there too. A second rollback, to the start record, escapes in the model. The
 environment's verifier accepts every proof, which is the failure the rollback exists for, so
 the environment satisfies no premise record. -/
 namespace Etna.Design.Current.Protocol.RollbackGridTrap
@@ -69,11 +72,11 @@ def recordTwo : Checkpoint :=
   { height := 2, elHash := 102, cometHash := 202, cursor := 0, generation := 0, parent := 0, valStateHash := 302 }
 
 /-- Register a bond, initialize at S = 0, register image 11, land to 6 on K = 2, stop on
-grid 2 at L1 time 7296 and pass it, recover at c = 6 with the K = 3 upgrade (6 is on both
+grid 6 at L1 time 7296 and pass it, recover at c = 6 with the K = 3 upgrade (6 is on both
 grids), then roll back to the height-2 landing. -/
 def setup : List Call :=
   [.registry 8 (.register 7 8 unit 1),.advance 2,.initializeInbox 7,.image 7 11 true,.advance 3,
-    .land (batch 0 2),.land (batch 2 4),.land (batch 4 6),.scheduleStop 7 7296 2,.advance 4,
+    .land (batch 0 2),.land (batch 2 4),.land (batch 4 6),.scheduleStop 7 7296 6,.advance 4,
     .recover
       { caller := 7, expectedGeneration := 0, expectedCheckpoint := 6, expectedNonce := 0,
         validUntil := 10000, exclusions := [], clear := [], rules := 1, upgrade := some upgraded },
@@ -101,10 +104,12 @@ private theorem trapped_state : trapped.start = some ⟨0,100,10⟩ ∧ trapped.
 private theorem escape_checks : LandingChecks env escaped (batch 0 3) := by
   decide +kernel
 
-/-- The verifier-failure scenario (RECOV-8-24..34): an off-grid frontier after a rollback
-across a K change is reachable and never lands again along a rollback-free path. RECOV-8-34
-requires a recovery after the rollback, and RECOV-8.3-3a's grid condition blocks it. A second
-rollback, which RECOV-8-28 and RECOV-8-58 forbid, escapes. -/
+/-- The verifier-failure scenario (RECOV-8-24..34) in the model: an off-grid frontier after a
+rollback across a K change is reachable and never lands again along a rollback-free path.
+The model's upgrade check is stricter than SPEC 8.3: in the spec, the recovery RECOV-8-34
+requires can be a structural one that installs a K whose grid holds c, while a plain recovery
+stays blocked by RECOV-8.3-3a. A second rollback, which RECOV-8-28 and RECOV-8-58 forbid,
+escapes in the model. -/
 theorem rollback_grid_trap :
     ∃ env registry w, Trace env (empty env registry) w ∧
       (∀ u, CallTrace env NoRollback w u → ∀ a, land env u a = none) ∧

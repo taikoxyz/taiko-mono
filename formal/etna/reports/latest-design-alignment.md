@@ -9,6 +9,12 @@ max(o, s − U + 1); its inspection handles the validator-state preimage
 ([#22338 alignment](alignment-22338.md)). The sections below describe the current-only package
 and statement lock introduced before that.
 
+This revision also adds H4, recoverability ([report](recoverability.md)): from every
+reachable, initialized state that meets `LiveAt`, a path with no rollback and only plain
+recoveries reaches an accepted landing. `recover`'s structural upgrade now keeps the stored
+`genesisCutoff`, as the spec requires; this narrows the machine that H1–H3 describe. The
+counts below are those after #22338.
+
 ## Current-only package
 
 The archived 2026-10-30 layer was removed. It remains readable at formal revision

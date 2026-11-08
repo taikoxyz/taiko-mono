@@ -7909,8 +7909,8 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-1079277c334a4883", "LIVE_EN-7bda477553dde1bb"],
-      "scope": "Derived conditional decoded property. From a reachable landed, started state whose frontier is off its current K grid, rollback-free calls keep the frontier and K, so no landing is accepted: land needs the frontier on the grid; recover needs it on the grid without an upgrade (RECOV-8.3-3a) and on the scheduled stop grid with one, and scheduleStop makes that a multiple of the current K. So the recovery RECOV-8-34 requires after a verifier-failure rollback across a K change cannot execute. Not a liveness result; the reachable instance is RollbackGridTrap.rollback_grid_trap."
+      "sources": ["LIVE_EN-7bda477553dde1bb"],
+      "scope": "Derived conditional decoded property of the model. From a reachable landed, started state whose frontier is off its current K grid, rollback-free calls keep the frontier and K, so no landing is accepted: land needs the frontier on the grid; a plain recover needs it on the grid (RECOV-8.3-3a); the model's recover with an upgrade also needs it on the scheduled stop grid, and scheduleStop makes that a multiple of the current K. That upgrade check is stricter than SPEC 8.3, which checks only the new K (START-10.1-14e also recovers from a checkpoint below the stop point, vector 14e.k), so in the spec a structural recovery that installs a K whose grid holds the frontier exits; with plain recoveries only, as on H4's path, the state is a dead end in the spec too. Not a liveness result and not evidence for RECOV-8-34; the reachable instance is RollbackGridTrap.rollback_grid_trap."
     },
     {
       "declaration": "Etna.Design.Current.Protocol.RollbackGridTrap.rollback_grid_trap",
@@ -7922,7 +7922,7 @@
       ],
       "bridge_level": "spec-proved",
       "sources": [],
-      "scope": "Reachable trap witness in a verifier-failure environment: the verifier accepts every proof, so no premise record holds; this is the verifier failure the RECOV-8-24..34 rollback handles. K = 2 landings to 6, a stop on grid 2, a recovery at 6 that upgrades K to 3 and a rollback to the height-2 landing leave c = 2 off the K = 3 grid; no rollback-free continuation lands. A second rollback to the start record, a plain recovery and a 0→3 landing escape, which RECOV-8-28 and RECOV-8-58 forbid. Shows that the state LiveAt.grid excludes is reachable in the model, here under a failed verifier; no standalone rule credit."
+      "scope": "Reachable model trap witness in a verifier-failure environment: the verifier accepts every proof, so no premise record holds; this is the verifier failure the RECOV-8-24..34 rollback handles. K = 2 landings to 6, a stop on grid 6, a recovery at 6 that upgrades K to 3 and a rollback to the height-2 landing leave c = 2 off the K = 3 grid; in the model no rollback-free continuation lands, because the model's upgrading recover also needs c on the stop grid. That check is stricter than SPEC 8.3 and START-10.1-14e (vector 14e.k): in the spec a structural recovery from c = 2 that installs K = 2 exits, and only plain recoveries stay blocked (RECOV-8.3-3a). A second rollback to the start record, a plain recovery and a 0→3 landing escape in the model, which RECOV-8-28 and RECOV-8-58 forbid. Shows that the state LiveAt.grid excludes is reachable in the model, here under a failed verifier; no standalone rule credit."
     },
     {
       "declaration": "Etna.Design.Current.Protocol.RecoveryNonVacuity.all_premises_satisfiable",
