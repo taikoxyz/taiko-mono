@@ -234,6 +234,20 @@ func TestGateChecksOnlySessionChainAndPhase(t *testing.T) {
 			return strings.Replace(line(r), `"phase":"ready"`, `"phase":"catching_up","phase":"ready"`, 1)
 		}, false},
 		{"other-schema", set("schema_version", 2), false},
+		{"empty-chain", set("chain_id", ""), false},
+		// Keys are exact: a case-folded duplicate after the real key never overrides it.
+		{"case-folded-phase", func(r map[string]any) string {
+			return strings.Replace(line(r), `"phase":"ready"`, `"phase":"catching_up","Phase":"ready"`, 1)
+		}, false},
+		{"case-folded-chain", func(r map[string]any) string {
+			return strings.Replace(line(r), `"chain_id":"`+chain+`"`, `"chain_id":"etna-other","CHAIN_ID":"`+chain+`"`, 1)
+		}, false},
+		{"case-folded-session", func(r map[string]any) string {
+			return strings.Replace(line(r), `"session_id":"test:7"`, `"session_id":"other","Session_ID":"test:7"`, 1)
+		}, false},
+		{"case-folded-only", func(r map[string]any) string {
+			return strings.Replace(line(r), `"phase":"ready"`, `"Phase":"ready"`, 1)
+		}, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			path := control(t, func(map[string]any) any { return json.RawMessage(test.reply(snapshot(true))) })

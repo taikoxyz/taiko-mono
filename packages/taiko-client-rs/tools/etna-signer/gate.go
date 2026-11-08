@@ -115,9 +115,15 @@ func (g *gate) query(op string, session string) (*trustResponse, error) {
 			return nil, fmt.Errorf("null %s", field)
 		}
 	}
+	// Decode from the exact keys only: encoding/json matches struct fields case-insensitively,
+	// so a later "Phase" or "CHAIN_ID" would otherwise override the real key.
 	var res trustResponse
-	if err = json.Unmarshal(line, &res); err != nil {
-		return nil, err
+	for field, target := range map[string]any{"schema_version": &res.SchemaVersion, "session_id": &res.SessionID, "chain_id": &res.ChainID, "phase": &res.Phase, "reason": &res.Reason} {
+		if raw, ok := fields[field]; ok {
+			if err = json.Unmarshal(raw, target); err != nil {
+				return nil, fmt.Errorf("%s: %w", field, err)
+			}
+		}
 	}
 	if res.SchemaVersion != controlSchema || res.SessionID == "" {
 		return nil, errors.New("invalid control version/session")
