@@ -269,13 +269,16 @@ home='/comet-homes/g1'
 protected=['/fixture/signer/key.json','/fixture/signer/domains/domains.log','/fixture/app-g1']+glob.glob('/fixture/signer/hrs/*.json')
 assert len(protected)==5, protected
 assert os.stat(home).st_uid==10001
-# Check actual stock Comet process identity, including its supplementary groups.
+# Check actual stock Comet process identity, including its supplementary groups. The supervisor
+# runs `cometbft` from PATH, which resolves to the image's /usr/bin/cometbft.
+import shutil
+assert shutil.which('cometbft')=='/usr/bin/cometbft', shutil.which('cometbft')
 found=[]
 for pid in os.listdir('/proc'):
  if pid.isdigit():
   try:
    args=open('/proc/'+pid+'/cmdline','rb').read().split(b'\0')
-   if args[0]==b'/usr/bin/cometbft' and b'start' in args: found.append(open('/proc/'+pid+'/status').read())
+   if args[0] in (b'cometbft',b'/usr/bin/cometbft') and b'start' in args: found.append(open('/proc/'+pid+'/status').read())
   except (FileNotFoundError,ProcessLookupError): pass
 assert len(found)==1, found
 assert 'Uid:\t10001\t10001\t10001\t10001' in found[0], found
