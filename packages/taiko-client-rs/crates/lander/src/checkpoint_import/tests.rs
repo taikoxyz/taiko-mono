@@ -942,6 +942,100 @@ async fn terminal_own_commit_cannot_authenticate_a_publisher_changed_last_commit
     );
 }
 
+/// DATA-5.4-2: only the own-L1 landing ties the window to the real chain. A terminal header the
+/// committee keys re-signed, changed in a field no other check reads, must still be refused.
+#[tokio::test]
+async fn terminal_comet_hash_must_equal_the_own_l1_finalized_landing() {
+    use crate::test_utils::consensus::{SigningKey, resign};
+    let mut fx = Fixture::new(6, 6);
+    let package = import_package(&fx, 6).await;
+    let pair = fx.blocks.get_mut(&6).unwrap();
+    let landed = pair.block.header.hash();
+    pair.block.header.last_results_hash = Some(tendermint::Hash::Sha256([0xab; 32]));
+    resign(
+        pair,
+        &fx.committees[&0],
+        &[SigningKey::from_slice(&[1; 32]).unwrap(), SigningKey::from_slice(&[2; 32]).unwrap()],
+    );
+    assert_ne!(pair.block.header.hash(), landed);
+    let fx = std::sync::Arc::new(fx);
+    let result =
+        authenticate_import(&package, frames(&fx, 6).into_iter(), &fx.params, &OwnL1(fx.clone()))
+            .await;
+    assert!(
+        matches!(result, Err(ImportError::Candidate(ref m)) if m.contains("terminal Comet hash differs from finalized landing")),
+        "{result:?}"
+    );
+}
+
+/// DATA-5.4-2: the frame's keys and powers must hash to the signed header's ValidatorsHash, so
+/// real signatures cannot certify forged powers.
+#[tokio::test]
+async fn frame_validators_must_match_the_header_validators_hash() {
+    let fx = std::sync::Arc::new(Fixture::new(6, 6));
+    let package = import_package(&fx, 6).await;
+    for height in [3usize, 6] {
+        let mut input = frames(&fx, 6);
+        let validators = &mut input[height - 1].as_mut().unwrap().validators;
+        // Raise the first stock slot, which keeps it first, so the slot order still matches.
+        let first = (0..validators.len())
+            .min_by_key(|&i| (std::cmp::Reverse(validators[i].power), validators[i].key.address()))
+            .unwrap();
+        validators[first].power += 1;
+        let result =
+            authenticate_import(&package, input.into_iter(), &fx.params, &OwnL1(fx.clone())).await;
+        assert!(
+            matches!(result, Err(ImportError::Candidate(ref m)) if m.contains("validator set commitment")),
+            "{height}: {result:?}"
+        );
+    }
+}
+
+/// DATA-5.4-2: each window block's ValidatorsHash must equal its predecessor's NextValidatorsHash
+/// and its time must follow the predecessor's. A landed break halts; an unlanded one is refused.
+#[tokio::test]
+async fn window_validator_and_time_links_halt_only_when_the_landed_chain_contains_them() {
+    for (case, landed) in
+        ["validators", "time"].into_iter().flat_map(|case| [(case, true), (case, false)])
+    {
+        let mut fx = Fixture::new(6, 6);
+        let package = import_package(&fx, 6).await;
+        // Both cases break the link from block 2 to block 3 and leave each block's own
+        // certificate valid.
+        let from = if case == "validators" {
+            fx.blocks.get_mut(&2).unwrap().block.header.next_validators_hash =
+                tendermint::Hash::Sha256([5; 32]);
+            2
+        } else {
+            let prior = fx.blocks[&2].block.header.time;
+            fx.blocks.get_mut(&3).unwrap().block.header.time = prior;
+            3
+        };
+        relink_after(&mut fx, from, if landed { 6 } else { 3 });
+        let comet = B256::from_slice(fx.blocks[&6].block.header.hash().as_bytes());
+        fx.import_landings(&[(6, fx.headers[&6].hash_slow(), comet, fx.val_states[&6].hash())]);
+        let fx = std::sync::Arc::new(fx);
+        let result = authenticate_import(
+            &package,
+            frames(&fx, 6).into_iter(),
+            &fx.params,
+            &OwnL1(fx.clone()),
+        )
+        .await;
+        if landed {
+            assert!(
+                matches!(result, Err(ImportError::Safety(ref m)) if m.contains("discontinuous native validator/time chain")),
+                "{case}: {result:?}"
+            );
+        } else {
+            assert!(
+                matches!(result, Err(ImportError::Candidate(ref m)) if m.contains("not on the landed chain")),
+                "{case}: {result:?}"
+            );
+        }
+    }
+}
+
 #[tokio::test]
 async fn publisher_reader_cannot_inject_an_authenticated_safety_halt() {
     let fx = std::sync::Arc::new(Fixture::new(6, 6));
