@@ -7861,6 +7861,30 @@
       "role": "supporting",
       "sources": [],
       "scope": "Shared semantic pin on a definition the current statements use (reviewed plumbing in scripts/check_spec_coverage.py SHARED). It carries no clause credit of its own. Original scope: Unfolded semantic contract closed by Iff.rfl/rfl (structure pins by field reconstruction), root-qualified names; weakening the definition without editing this pin fails. Pins Consensus.epoch, switchHeight, selected, initial, normal and activeAt."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.Recovery.offgrid_no_landing",
+      "module": "EtnaProofs.CurrentRecoveryTrap",
+      "role": "property",
+      "type": "∀ {env : Etna.Design.Current.Protocol.Environment} {registry : Etna.Design.Current.RegistryMachine.State}\n  {w : Etna.Design.Current.Protocol.World} {start : Etna.Design.Current.Protocol.StartData},\n  Etna.Design.Current.Protocol.Trace env (Etna.Design.Current.Protocol.empty env registry) w →\n    w.start = Option.some start →\n      w.everLanded = Bool.true →\n        Etna.Design.Current.Start.onGrid start.height w.inbox.gridK w.inbox.checkpoint.height = Bool.false →\n          ∀ (u : Etna.Design.Current.Protocol.World),\n            Etna.Design.Current.Protocol.CallTrace env Etna.Design.Current.Protocol.NoRollback w u →\n              ∀ (a : Etna.Design.Current.Protocol.Landing), Etna.Design.Current.Protocol.land env u a = Option.none",
+      "assumptions": [
+        "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
+      ],
+      "bridge_level": "spec-proved",
+      "sources": ["LIVE_EN-1079277c334a4883", "LIVE_EN-7bda477553dde1bb"],
+      "scope": "Derived conditional decoded property. From a reachable landed, started state whose frontier is off its current K grid, rollback-free calls keep the frontier and K, so no landing is accepted: land needs the frontier on the grid; recover needs it on the grid without an upgrade (RECOV-8.3-3a) and on the scheduled stop grid with one, and scheduleStop makes that a multiple of the current K. So the recovery RECOV-8-34 requires after a verifier-failure rollback across a K change cannot execute. Not a liveness result; the reachable instance is RollbackGridTrap.rollback_grid_trap."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.RollbackGridTrap.rollback_grid_trap",
+      "module": "EtnaWitnesses.Traps.RollbackGrid",
+      "role": "regression",
+      "type": "∃ env registry w,\n  Etna.Design.Current.Protocol.Trace env (Etna.Design.Current.Protocol.empty env registry) w ∧\n    (∀ (u : Etna.Design.Current.Protocol.World),\n        Etna.Design.Current.Protocol.CallTrace env Etna.Design.Current.Protocol.NoRollback w u →\n          ∀ (a : Etna.Design.Current.Protocol.Landing), Etna.Design.Current.Protocol.land env u a = Option.none) ∧\n      ∃ u a t, Etna.Design.Current.Protocol.Trace env w u ∧ Etna.Design.Current.Protocol.land env u a = Option.some t",
+      "assumptions": [
+        "Concrete new-network interpreter with a verifier that accepts every proof and fixed zero commitments; it realizes no premise record and no cryptographic, EL or guest component."
+      ],
+      "bridge_level": "spec-proved",
+      "sources": [],
+      "scope": "Reachable trap witness in a verifier-failure environment: the verifier accepts every proof, so no premise record holds; this is the verifier failure the RECOV-8-24..34 rollback handles. K = 2 landings to 6, a stop on grid 2, a recovery at 6 that upgrades K to 3 and a rollback to the height-2 landing leave c = 2 off the K = 3 grid; no rollback-free continuation lands. A second rollback to the start record, a plain recovery and a 0→3 landing escape, which RECOV-8-28 and RECOV-8-58 forbid. Shows LiveAt's grid hypothesis is needed; no standalone rule credit."
     }
   ]
 }
