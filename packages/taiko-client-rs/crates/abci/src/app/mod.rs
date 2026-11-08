@@ -453,7 +453,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// authenticate a coherently rewritten state file. Saved committees are not re-derived: one
     /// that contradicts the decided chain halts `FinalizeBlock` (a different derived record at
     /// its switch, a certified proposer outside it, or validator updates the replica refuses or
-    /// whose `next_validators_hash` disagrees).
+    /// whose `next_validators_hash` disagrees). A wrong outgoing set at switch height S(t) whose
+    /// updates the replica accepts halts only at S(t)+1, after they were returned and committed:
+    /// CometBFT's NextValidators, the app's validator state and the immutable
+    /// `val-updates-{S(t)}.bin` record then all hold the wrong set. Repairing the state file alone
+    /// is not enough; repair is a fresh import (DATA-5.4-5) or clearing all three stores.
     ///
     /// Forced inclusion uses authenticated calldata and requires no KZG initialization.
     pub fn new(
