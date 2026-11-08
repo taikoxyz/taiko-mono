@@ -1,12 +1,9 @@
 import EtnaStatements
-import EtnaProofs.CurrentRecoveryTrap
-import EtnaWitnesses.Traps.RollbackGrid
 
 /-! H4 statement surface, pinned before the review-surface lock covers it: which calls
 `RecoveryCall` admits (no rollback, only plain recoveries, every other call), the trace class
 `RecoveryTrace`, the conclusion `RecoverableAt`, the claim `Recoverability`, and the field
-names, types and order of `LiveAt` and `RecoveryPremises`; then the rollback-across-K-change trap
-that `LiveAt.grid` excludes. -/
+names, types and order of `LiveAt` and `RecoveryPremises`. -/
 namespace Etna.CurrentRecoveryRegression
 open Etna.Design Etna.Design.Current Etna.Design.Current.Protocol Etna.Statements.Current
 
@@ -66,17 +63,5 @@ example (env : Environment) (registry : RegistryMachine.State) (f : FundPremises
     RecoveryPremises env registry :=
   { toFundPremises := f, recoveryClock := a, recoveryCatalogueHash := b, proofComplete := c,
     payloadLive := d, unzenStart := e }
-
--- The rollback-across-K-change trap: an off-grid frontier never lands again without a rollback,
--- and a reachable instance exists (LiveAt's `grid` field excludes it).
-example := @Etna.Design.Current.Protocol.Recovery.offgrid_no_landing
-example : ∃ env registry w, Trace env (empty env registry) w ∧
-    (∀ u, CallTrace env NoRollback w u → ∀ a, land env u a = none) ∧
-    ∃ u a t, Trace env w u ∧ land env u a = some t :=
-  Etna.Design.Current.Protocol.RollbackGridTrap.rollback_grid_trap
--- The trapped state: c = 2 is off the K = 3 grid, in generation 1 whose origin 6 is above c.
-example : RollbackGridTrap.trapped.inbox.checkpoint.height = 2 ∧ RollbackGridTrap.trapped.inbox.gridK = 3 ∧
-    RollbackGridTrap.trapped.inbox.generation = 1 ∧ RollbackGridTrap.trapped.inbox.origin.height = 6 := by
-  decide +kernel
 
 end Etna.CurrentRecoveryRegression

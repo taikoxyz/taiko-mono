@@ -1,4 +1,4 @@
-"""The current non-vacuity witnesses build and are audited.
+"""The current non-vacuity and trap witnesses build and are audited.
 
 `EtnaWitnesses/NonVacuity` shows the current headline premise record and the switch, risk,
 import and honest-agreement profiles are jointly satisfiable by concrete accepting runs, and

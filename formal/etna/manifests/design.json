@@ -7884,7 +7884,7 @@
       ],
       "bridge_level": "spec-proved",
       "sources": [],
-      "scope": "Reachable trap witness in a verifier-failure environment: the verifier accepts every proof, so no premise record holds; this is the verifier failure the RECOV-8-24..34 rollback handles. K = 2 landings to 6, a stop on grid 2, a recovery at 6 that upgrades K to 3 and a rollback to the height-2 landing leave c = 2 off the K = 3 grid; no rollback-free continuation lands. A second rollback to the start record, a plain recovery and a 0→3 landing escape, which RECOV-8-28 and RECOV-8-58 forbid. Shows LiveAt's grid hypothesis is needed; no standalone rule credit."
+      "scope": "Reachable trap witness in a verifier-failure environment: the verifier accepts every proof, so no premise record holds; this is the verifier failure the RECOV-8-24..34 rollback handles. K = 2 landings to 6, a stop on grid 2, a recovery at 6 that upgrades K to 3 and a rollback to the height-2 landing leave c = 2 off the K = 3 grid; no rollback-free continuation lands. A second rollback to the start record, a plain recovery and a 0→3 landing escape, which RECOV-8-28 and RECOV-8-58 forbid. Shows that the state LiveAt.grid excludes is reachable in the model, here under a failed verifier; no standalone rule credit."
     },
     {
       "declaration": "Etna.Design.Current.Protocol.RecoveryNonVacuity.all_premises_satisfiable",

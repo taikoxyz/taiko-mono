@@ -63,8 +63,10 @@ def batch (parent last : Nat) : Landing :=
   ⟨⟨parent,last,100+last,200+last,300+last,400+last,2,0,1⟩,[],[1],[⟨.sgx,11,1⟩,⟨.sp1,11,2⟩]⟩
 
 /-- The start record and the record the 0→2 landing writes (generation 0). -/
-def recordZero : Checkpoint := ⟨0,100,0,0,0,0,0⟩
-def recordTwo : Checkpoint := ⟨2,102,202,0,0,0,302⟩
+def recordZero : Checkpoint :=
+  { height := 0, elHash := 100, cometHash := 0, cursor := 0, generation := 0, parent := 0, valStateHash := 0 }
+def recordTwo : Checkpoint :=
+  { height := 2, elHash := 102, cometHash := 202, cursor := 0, generation := 0, parent := 0, valStateHash := 302 }
 
 /-- Register a bond, initialize at S = 0, register image 11, land to 6 on K = 2, stop on
 grid 2 at L1 time 7296 and pass it, recover at c = 6 with the K = 3 upgrade (6 is on both
@@ -72,14 +74,20 @@ grids), then roll back to the height-2 landing. -/
 def setup : List Call :=
   [.registry 8 (.register 7 8 unit 1),.advance 2,.initializeInbox 7,.image 7 11 true,.advance 3,
     .land (batch 0 2),.land (batch 2 4),.land (batch 4 6),.scheduleStop 7 7296 2,.advance 4,
-    .recover ⟨7,0,6,0,10000,[],[],1,some upgraded⟩,.rollback 7 recordTwo 1]
+    .recover
+      { caller := 7, expectedGeneration := 0, expectedCheckpoint := 6, expectedNonce := 0,
+        validUntil := 10000, exclusions := [], clear := [], rules := 1, upgrade := some upgraded },
+    .rollback 7 recordTwo 1]
 
 /-- The trapped state: c = 2, K = 3, generation 1 with origin 6, landed. -/
 def trapped : World := run (empty env registry) setup
 
 /-- The escape a second rollback gives: back to the start record, then a plain recovery at
 c = 0, which is on the K = 3 grid. -/
-def escaped : World := run trapped [.rollback 7 recordZero 1,.recover ⟨7,1,0,3,10000,[],[],0,none⟩]
+def escaped : World := run trapped [.rollback 7 recordZero 1,
+  .recover
+    { caller := 7, expectedGeneration := 1, expectedCheckpoint := 0, expectedNonce := 3,
+      validUntil := 10000, exclusions := [], clear := [], rules := 0, upgrade := none }]
 
 private theorem run_trace (w : World) (calls : List Call) : Trace env w (run w calls) := by
   induction calls generalizing w with

@@ -206,6 +206,21 @@ private theorem stop_grid_on_grid {start grid stopGrid height : Nat} (nonzero : 
   simp only [Start.onGrid,decide_eq_true_eq]
   exact ⟨positive,above,Nat.mod_eq_zero_of_dvd divides⟩
 
+/-- `land` needs the frontier on the grid, so an off-grid frontier rejects every batch. -/
+private theorem land_off_grid {env : Environment} {u : World} {start : StartData}
+    (started : u.start = some start)
+    (offGrid : Start.onGrid start.height u.inbox.gridK u.inbox.checkpoint.height = false) (a : Landing) :
+    land env u a = none := by
+  unfold Protocol.land
+  split
+  next checks =>
+    have frontier := checks.frontierGrid
+    rw [started] at frontier
+    change Start.onGrid start.height u.inbox.gridK u.inbox.checkpoint.height = true at frontier
+    rw [offGrid] at frontier
+    cases frontier
+  next => rfl
+
 /-- From a landed, started state whose frontier is off its grid, no call but `rollback`
 moves the frontier or changes K. -/
 private theorem execute_trapped {env : Environment} {u t : World} {call : Call} {start : StartData}
@@ -264,15 +279,8 @@ private theorem execute_trapped {env : Environment} {u t : World} {call : Call} 
   | rollback caller trusted restored => exact allowed.elim
   | land a =>
     change Protocol.land env u a = some t at ok
-    unfold Protocol.land at ok
-    split at ok
-    next checks =>
-      have frontier := checks.frontierGrid
-      rw [started] at frontier
-      change Start.onGrid start.height u.inbox.gridK u.inbox.checkpoint.height = true at frontier
-      rw [offGrid] at frontier
-      cases frontier
-    next => simp at ok
+    rw [land_off_grid started offGrid a] at ok
+    cases ok
   | _ =>
     obtain ⟨grid,checkpoint,_⟩ := execute_plain (by exact trivial) ok
     exact ⟨congrArg Checkpoint.height checkpoint,grid⟩
@@ -315,14 +323,8 @@ theorem offgrid_no_landing {env : Environment} {registry : RegistryMachine.State
         exact ⟨step.1.trans height,step.2.trans grid⟩
   intro a
   have frozen := Custody.trace_start_frozen trace landed kept.1
-  unfold Protocol.land
-  split
-  next checks =>
-    have frontier := checks.frontierGrid
-    rw [frozen.1,started,kept.2.1,kept.2.2] at frontier
-    change Start.onGrid start.height w.inbox.gridK w.inbox.checkpoint.height = true at frontier
-    rw [offGrid] at frontier
-    cases frontier
-  next => rfl
+  apply land_off_grid (frozen.1.trans started)
+  rw [kept.2.1,kept.2.2]
+  exact offGrid
 
 end Etna.Design.Current.Protocol.Recovery
