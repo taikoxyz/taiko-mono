@@ -37,7 +37,8 @@ makes, against its own L1 and EL.
   `prepare` checks that the state at c is readable; it never builds a block. Keep
   `--engine.allow-unwind-canonical-header` disabled. The old EL head may stay above c until the
   recovered app commits its first block through normal Engine calls.
-- Never copy, restore or reset signing state (RECOV-8.2-1..3). The signer keeps one HRS state per
+- Never copy, restore or reset signing state (RECOV-8.2-1..3); only a failover moves the latest
+  state, with the old host stopped (signer README, Failover). The signer keeps one HRS state per
   full `chain_id` and never lowers it. A backup can omit signatures already released, so an older
   HRS, FilePV state or domains-log backup must never resume the same validator identity; nothing
   detects such a rollback, because the domains log records chain IDs, never heights. If

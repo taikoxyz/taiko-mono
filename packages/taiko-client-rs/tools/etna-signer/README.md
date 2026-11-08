@@ -103,8 +103,8 @@ for a logged chain, have exactly one link and resolve to `<chain_id>.json`, and 
 owner lock `<state>.lock`; the absence of the `<state>.uncertain` fence; and the HRS, which
 must be the stock zero state or carry a signature by the registered key over that chain ID's
 canonical sign bytes. Only then does it load the stock FilePV. It never creates, initializes
-or resets HRS. The locks are held while serving, so two signers never share the key or the
-state (RECOV-8.2-2). Preserve the key, every state, the log, the Comet WAL and app history on
+or resets HRS. The locks are held while serving, so two signers sharing these files never both
+serve (RECOV-8.2-2); another host is outside their reach (see Failover). Preserve the key, every state, the log, the Comet WAL and app history on
 restart; never use `keygen` or `init-state` as a recovery action.
 
 ### Refusal matrix and exit codes
@@ -239,6 +239,26 @@ supervisor latch dies with it. A SIGKILL that arrives while the supervisor is st
 signer is latched like its own. A healthy signer can also exceed the 5 s grace while it waits
 on a slow app (each trust query is bounded by `--trust-timeout`, 1 s by default); that latches
 too, which is safe.
+
+### Failover
+
+Moving a validator to a standby host is operational practice (RECOV-8.2-6). The key, state and
+log flocks protect one host's files only: two hosts holding copies of the key both sign, and the
+signer cannot see the other host. Move, never copy:
+
+1. Stop the old host's supervisor and every restart controller that could start it again, and
+   make sure its signer can never run again (power it off or detach its volumes).
+2. Move the key, the latest `<chain_id>.json` of every chain and the domains log byte for byte
+   from the stopped host, never from a backup or a snapshot of a running host. Keep the states
+   and the log on separate volumes.
+3. Delete the old host's state, so that host refuses to serve (exit 3, logged chain without
+   state), then start the standby.
+
+The standby continues from the moved HRS: it returns the stored signature for the same step and
+refuses conflicting data and lower steps (`TestHRSSurvivesCrashRestartAndFailover`, ACCEPTANCE
+§2.4). A move of the state without its log, even with a newly initialized log, or of the log
+without the state, refuses with exit 3. An older state cannot be detected and double-signs
+(RECOV-8.2-1/2).
 
 ## Fence on fsync failure
 
