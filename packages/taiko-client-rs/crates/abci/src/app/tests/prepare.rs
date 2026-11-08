@@ -709,22 +709,47 @@ async fn prepare_starts_the_switch_discovery_when_none_runs() {
     );
 }
 
-/// A switch-witness discovery that fails, even on a malformed own-L1 answer, leaves the witness
-/// unavailable: a liveness pause (RECOV-8-4), never a halt. A round within its backoff proposes
-/// nothing at once and reads nothing; the first round past it restarts the discovery.
+/// Malformed data from the own L1 during the switch-witness discovery (here the entries read
+/// answering for other slots) halts the proposer for safety with durable fatal evidence
+/// (SYNC-9-7), as it does anywhere else in a proposal. The failure keeps its class through the
+/// backoff: a round within it observes the same failed discovery, without a new read, and halts
+/// again rather than pausing.
 #[tokio::test(start_paused = true)]
-async fn a_failed_switch_discovery_pauses_proposals_without_halting() {
+async fn a_malformed_own_l1_answer_during_switch_discovery_halts() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
     let mut app = before_switch(&fx, dir.path()).await;
     let malformed = L1Error::ProofSlotMismatch { requested: vec![], got: vec![B256::ZERO] };
     assert!(malformed.is_integrity_failure());
     app.l1().state().proof_fail = Some(malformed);
-    assert_eq!(refused(&mut app).await, "registry_discovery");
+    let mut reads = None;
+    for round in ["the failing round", "a round within the backoff"] {
+        let request = prepare_req(next_height(&app), bft_time(&app));
+        let result = app.handle(Request::PrepareProposal(request)).await;
+        assert!(matches!(&result, Err(AbciError::SafetyHalt(_))), "{round}: {result:?}");
+        assert!(app.store.fatal_evidence().unwrap().is_some(), "{round}");
+        let now = registry_reads(&app);
+        assert_eq!(*reads.get_or_insert(now), now, "{round}: {:?}", app.l1().calls());
+    }
+}
+
+/// A switch-witness discovery that fails on an unavailable own L1 (here a rate limit) leaves the
+/// witness unavailable: a liveness pause (RECOV-8-4, RECOV-8-5) labelled as the L1 error, never
+/// a halt. A round within its backoff proposes nothing at once and reads nothing; the first round
+/// past it restarts the discovery.
+#[tokio::test(start_paused = true)]
+async fn an_unavailable_own_l1_during_switch_discovery_pauses_proposals() {
+    let fx = Fixture::genesis(3);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = before_switch(&fx, dir.path()).await;
+    let limited = L1Error::Rpc("429 Too Many Requests".into());
+    assert!(!limited.is_integrity_failure());
+    app.l1().state().proof_fail = Some(limited);
+    assert_eq!(refused(&mut app).await, "l1_error");
     assert!(app.store.fatal_evidence().unwrap().is_none(), "no halt");
     let reads = registry_reads(&app);
     tokio::time::advance(Duration::from_millis(1_999)).await;
-    assert_eq!(refused(&mut app).await, "registry_discovery", "within the 2 s backoff");
+    assert_eq!(refused(&mut app).await, "l1_error", "within the 2 s backoff");
     assert_eq!(registry_reads(&app), reads, "{:?}", app.l1().calls());
 
     app.l1().state().proof_fail = None;

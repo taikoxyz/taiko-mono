@@ -386,8 +386,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
     ///    ([`App::discovered_committee_witness`]), retained, and re-proved under `anchor` unless it
     ///    was proven there.
     ///
-    /// A failed or backing-off discovery, or one still running at `PrepareProposal`'s deadline,
-    /// proposes nothing (RECOV-8-4, RECOV-8-10) while the discovery goes on. Historical entries
+    /// A discovery still running at `PrepareProposal`'s deadline, or a failed or backing-off one
+    /// whose own L1 was unavailable, proposes nothing (RECOV-8-4, RECOV-8-5, RECOV-8-10) while
+    /// the discovery goes on; malformed data from the own L1 halts (SYNC-9-7). Historical entries
     /// may require state older than the snapshot block; the complete witness verifies under the
     /// switch block's own anchor root before the caller retains it.
     async fn committee_witness(

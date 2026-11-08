@@ -13,7 +13,7 @@ use crate::{
     config::ChainParams,
     engine::Engine,
     envelope::CommitteeWitness,
-    l1::{L1Source, build_committee_witness_within, header_at},
+    l1::{FetchError, L1Source, build_committee_witness_within, header_at},
     rules,
     store::AppState,
     types::{AnchorState, GenesisRecord},
@@ -109,8 +109,10 @@ type Outcome = Option<Result<PrefetchedCommittee, FailedDiscovery>>;
 struct FailedDiscovery {
     /// When it failed; the backoff ([`prefetch_backoff`]) runs from here.
     at: Instant,
-    /// Why, as logged.
-    reason: String,
+    /// Why, in the class a proposal maps it by ([`Rejection::from`]): an own-L1 read error,
+    /// which may be malformed data (SYNC-9-7); a read or the whole discovery past its deadline;
+    /// an unusable registry word; or a snapshot from which no committee derives or verifies.
+    cause: FetchError,
 }
 
 /// A background discovery's verified witness and the L1 block its registry proofs verify under.
@@ -284,8 +286,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// lock and is bounded only by the caller's deadline (`PrepareProposal`'s); the discovery
     /// goes on past it, so a later round finds it further along or done instead of starting over.
     ///
-    /// A discovery that failed, and still backs off, is an unavailable committee witness: a
-    /// liveness pause (RECOV-8-4), so [`Rejection::Registry`] whatever the cause, never a halt.
+    /// A failed discovery answers with the rejection of its cause ([`Rejection::from`] its
+    /// [`FetchError`]), in the round that sees it end and in every round of its backoff alike.
+    /// An own L1 that is unreachable, lags, fails a read or times out leaves the witness
+    /// unavailable: a liveness pause (RECOV-8-4, RECOV-8-5). Malformed or unverifiable data from
+    /// it ([`L1Error::is_integrity_failure`](crate::l1::L1Error::is_integrity_failure)) halts the
+    /// node for safety instead (SYNC-9-7), and the backoff never turns that into a pause.
     pub(super) async fn discovered_committee_witness(
         &self,
         state: &AppState,
@@ -298,12 +304,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         loop {
             let finished = outcome.borrow_and_update().clone();
             if let Some(finished) = finished {
-                return finished.map_err(|failed| {
-                    Rejection::Registry(format!(
-                        "switch witness discovery failed ({}); it restarts after its backoff",
-                        failed.reason
-                    ))
-                });
+                return finished.map_err(|failed| failed.cause.into());
             }
             if outcome.changed().await.is_err() {
                 return Err(Rejection::Registry(
@@ -362,39 +363,36 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 } else {
                     let header = tokio::time::timeout(read_timeout, header_at(&*l1, block))
                         .await
-                        .map_err(|_| "registry header read timed out".to_string())?
-                        .map_err(|error| error.to_string())?;
+                        .map_err(|_| FetchError::Timeout("registry header read"))??;
                     (header.number(), header.hash(), header.state_root())
                 };
                 let witness =
                     build_committee_witness_within(&*l1, &params, block, target, read_timeout)
-                        .await
-                        .map_err(|error| error.to_string())?;
+                        .await?;
                 verify_committee_witness_at_cutoff(
                     proof_anchor.2,
                     block,
                     &params,
                     &witness,
                     target,
-                )
-                .map_err(|error| error.to_string())?;
-                Ok(PrefetchedCommittee { witness, proof_anchor })
+                )?;
+                Ok::<_, FetchError>(PrefetchedCommittee { witness, proof_anchor })
             };
             let outcome = match tokio::time::timeout(COMMITTEE_PREFETCH_TIMEOUT, discovery).await {
                 Ok(outcome) => outcome,
-                Err(_) => Err("timed out".into()),
+                Err(_) => Err(FetchError::Timeout("switch witness discovery")),
             };
-            let outcome = outcome.map_err(|reason: String| {
+            let outcome = outcome.map_err(|cause| {
                 tracing::warn!(
                     parent_anchor = anchor.number,
                     snapshot_block = block,
                     target_epoch = target,
                     failures = failures.saturating_add(1),
                     retry_in = ?prefetch_backoff(failures),
-                    error = %reason,
+                    error = %cause,
                     "committee witness prefetch failed"
                 );
-                FailedDiscovery { at: Instant::now(), reason }
+                FailedDiscovery { at: Instant::now(), cause }
             });
             let _ = sender.send(Some(outcome));
         });

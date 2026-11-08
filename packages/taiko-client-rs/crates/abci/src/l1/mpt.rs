@@ -57,6 +57,40 @@ pub enum MptError {
     MalformedProof,
 }
 
+impl Clone for MptError {
+    /// A field-by-field copy, as `alloy_trie`'s [`ProofVerificationError`] is not `Clone`.
+    fn clone(&self) -> Self {
+        match self {
+            Self::Account(error) => Self::Account(clone_proof_error(error)),
+            Self::SlotSet { expected, got } => {
+                Self::SlotSet { expected: expected.clone(), got: got.clone() }
+            }
+            Self::Storage { slot, source } => {
+                Self::Storage { slot: *slot, source: Box::new(clone_proof_error(source)) }
+            }
+            Self::MalformedProof => Self::MalformedProof,
+        }
+    }
+}
+
+/// A copy of `error`, which `alloy_trie` does not make `Clone`.
+fn clone_proof_error(error: &ProofVerificationError) -> ProofVerificationError {
+    match error {
+        ProofVerificationError::RootMismatch { got, expected } => {
+            ProofVerificationError::RootMismatch { got: *got, expected: *expected }
+        }
+        ProofVerificationError::ValueMismatch { path, got, expected } => {
+            ProofVerificationError::ValueMismatch {
+                path: *path,
+                got: got.clone(),
+                expected: expected.clone(),
+            }
+        }
+        ProofVerificationError::UnexpectedEmptyRoot => ProofVerificationError::UnexpectedEmptyRoot,
+        ProofVerificationError::Rlp(error) => ProofVerificationError::Rlp(*error),
+    }
+}
+
 /// Storage words proven by [`verify_account_witness`], keyed by un-hashed slot.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerifiedStorage {

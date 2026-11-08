@@ -37,7 +37,7 @@ const SET_NODE_TAG: B256 = tag(b"ETNA_SET_NODE");
 const RECORD_TAG: B256 = tag(b"ETNA_COMMITTEE_V1");
 
 /// Why a committee witness, snapshot or derivation was rejected.
-#[derive(Debug, thiserror::Error, PartialEq, Eq)]
+#[derive(Clone, Debug, thiserror::Error, PartialEq, Eq)]
 pub enum CommitteeError {
     /// An eligible entry carries an invalid consensus key.
     #[error(transparent)]

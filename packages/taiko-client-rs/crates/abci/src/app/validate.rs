@@ -246,7 +246,8 @@ pub enum Rejection {
     /// ¹ An external call exceeded its deadline.
     #[error("{0} timed out")]
     Timeout(&'static str),
-    /// The registry storage read while discovering a snapshot is unusable.
+    /// The registry storage read while discovering a snapshot is unusable, or the background
+    /// discovery stopped without a result.
     #[error("registry discovery failed: {0}")]
     Registry(String),
     /// `PrepareProposal`: the envelope exceeds CometBFT's `max_tx_bytes`.

@@ -42,7 +42,7 @@ const ENTRY_READS_IN_FLIGHT: usize = 4;
 pub const MAX_REGISTRY_ENTRIES: u32 = 4096;
 
 /// Why a committee witness could not be built.
-#[derive(Debug, thiserror::Error, PartialEq, Eq)]
+#[derive(Clone, Debug, thiserror::Error, PartialEq, Eq)]
 pub enum FetchError {
     /// An L1 read failed.
     #[error(transparent)]
