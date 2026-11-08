@@ -286,8 +286,9 @@ def recover (env : Environment) (w : World) (a : RecoveryRequest) : Option World
         (a.upgrade.isSome = true → parameters.valid = true ∧ a.rules ≠ 0 ∧
           w.schedule.stopTime ≠ 0 ∧ w.schedule.stopTime ≤ env.timestampOf w.inbox.checkpoint.elHash ∧ w.inbox.checkpoint.height ≥ start.height ∧
           (w.inbox.checkpoint.height-start.height) % w.schedule.stopGrid = 0 ∧
-          -- genesisCutoff (slot 279) is generation 0's genesis, set once at Inbox initialization
-          -- (PARAM-11-4); only a new-Inbox migration changes it (START-10.1-2a), never an upgrade.
+          -- genesisCutoff (slot 279) is committee 0's snapshot (COMM-4.3-9) and part of
+          -- generation 0's genesis. It is set once at Inbox initialization (PARAM-11-4), and only
+          -- a migration to a new Inbox changes it (START-10.1-2a), never a structural upgrade.
           parameters.genesisCutoff = w.inbox.genesisCutoff) then
       (Rules.recover w.schedule a.rules).bind fun schedule =>
       (RegistryMachine.execute w.registry.registry (registryView env w) w.number

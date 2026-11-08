@@ -9,12 +9,12 @@ import EtnaProofs.CurrentReference
 import EtnaProofs.CurrentRecoveryPath
 import EtnaProofs.CurrentRecoverySegment
 
-/-! The landing half of the recovery path (design 4.3, steps 6-7). After `Recovery.prepare`
-reaches `u` (one plain recovery at L1 block R, L1 advanced to R+2), the closed certificate world
-`x := certificateWorld env u (R+1)` shows `u`'s storage, so `Recovery.segment` builds the new
-generation's first K blocks on the batch parent `p`. Their statement is certified at reference
-R+1 with archive root `p` and no prior headers, the image `prepare` registered implements every
-block's ruleset, and the complete verifier accepts two proofs of it, so `land` accepts the
+/-! The landing half of the recovery path (reports/recoverability.md, The path, step 7). After
+`Recovery.prepare` reaches `u` (one plain recovery at L1 block R, L1 advanced to R+2), the closed
+certificate world `x := certificateWorld env u (R+1)` shows `u`'s storage, so `Recovery.segment`
+builds the new generation's first K blocks on the batch parent `p`. Their statement is certified at
+reference R+1 with archive root `p` and no prior headers, the image `prepare` registered implements
+every block's ruleset, and the complete verifier accepts two proofs of it, so `land` accepts the
 segment's landing from `c` to `c+K`. `Recovery.recoverable` (H4) composes `prepare` with this
 landing. The reachable-state facts it needs beyond the existing journals are `Settled`: the rule
 schedule fits its slots, and the genesis cutoff stays below every origin block. -/
@@ -364,9 +364,9 @@ private theorem no_leaves {K c : Nat} (grid : 0 < K) : gridCount K c (c+K) = 0 :
 
 /-! ### The landing -/
 
-/-- The landing of the recovered generation's first segment (design 4.3, step 7): parent and
-origin at the current checkpoint `c`, last height `c+K` with the terminal `last`'s hashes, state
-root and FI cursor, reference block `R+1`, committee snapshot `R`, no leaves
+/-- The landing of the recovered generation's first segment (reports/recoverability.md, The path,
+step 7): parent and origin at the current checkpoint `c`, last height `c+K` with the terminal
+`last`'s hashes, state root and FI cursor, reference block `R+1`, committee snapshot `R`, no leaves
 (`gridCount K c (c+K) = 0`), the blobs and the proofs. -/
 private def segmentLanding (u : World) (last : Header) (R : Nat) (blobs : List Hash) (proofs : List Proof) :
     Landing :=
@@ -663,11 +663,12 @@ private theorem lands {env : Environment} {registry : RegistryMachine.State} {w 
 
 /-! ### H4 -/
 
-/-- H4, recoverability (design 4.3). From every reachable, initialized state satisfying `LiveAt`,
-under `RecoveryPremises`, a `RecoveryTrace` (no rollback; one plain recovery with no exclusions,
-no FI blanking and no upgrade) reaches a state where `land` accepts the recovered generation's
-first K-block segment from the current checkpoint `c` to `c+K`. If anything had landed before,
-the recovery kept `c`, so the new checkpoint is above the starting one. -/
+/-- H4, recoverability (reports/recoverability.md, The claim and The path). From every reachable,
+initialized state satisfying `LiveAt`, under `RecoveryPremises`, a `RecoveryTrace` (no rollback; one
+plain recovery with no exclusions, no FI blanking and no upgrade) reaches a state where `land`
+accepts the recovered generation's first K-block segment from the current checkpoint `c` to `c+K`.
+If anything had landed before, the recovery kept `c`, so the new checkpoint is above the starting
+one. -/
 theorem recoverable : Etna.Statements.Current.Recoverability := by
   intro env registry premises w trace initialized live
   obtain ⟨u,p,R,keys,image,prepared⟩ := prepare premises trace initialized live

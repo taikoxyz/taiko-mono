@@ -4,12 +4,12 @@ import EtnaProofs.CurrentReference
 import EtnaProofs.CurrentRecoveryLanding
 import EtnaWitnesses.NonVacuity.Current
 
-/-! The premises of H1–H4 can hold of one deployment (design 4.6): one concrete environment,
-registry and engine satisfy H1–H3's fifteen `Premises` and H4's `RecoveryPremises` together,
-and a reachable initialized world in it satisfies `LiveAt`. It shows that the premises are
-jointly satisfiable, not the claims; `live_recovers` then applies H4's proof
-(`Recovery.recoverable`) there, so the recovery path does reach an accepted landing in this
-environment.
+/-! The premises of H1–H4 can hold of one deployment (reports/recoverability.md, Joint witness):
+one concrete environment, registry and engine satisfy H1–H3's fifteen `Premises` and H4's
+`RecoveryPremises` together, and a reachable initialized world in it satisfies `LiveAt`. It
+shows that the premises are jointly satisfiable, not the claims; `live_recovers` then applies
+H4's proof (`Recovery.recoverable`) there, so the recovery path does reach an accepted landing
+in this environment.
 
 The environment is a new network (no Unzen inbox, so the Unzen premises and `LiveAt.unzen`
 are vacuous) with one online key and a single catalogue definition:
@@ -314,9 +314,9 @@ private theorem live_at : Etna.Statements.Current.LiveAt env live := by
   · intro switching
     exact (switching rfl).elim
 
-/-- The premises of H1–H4 can hold of one deployment (design 4.6): one environment, registry and
-engine satisfy H1–H3's `Premises` and H4's `RecoveryPremises` together, with a reachable
-initialized world that satisfies `LiveAt`. -/
+/-- The premises of H1–H4 can hold of one deployment (reports/recoverability.md, Joint witness): one
+environment, registry and engine satisfy H1–H3's `Premises` and H4's `RecoveryPremises` together,
+with a reachable initialized world that satisfies `LiveAt`. -/
 theorem all_premises_satisfiable :
     ∃ e registry engine w, Etna.Statements.Current.Premises e registry engine ∧
       Etna.Statements.Current.RecoveryPremises e registry ∧

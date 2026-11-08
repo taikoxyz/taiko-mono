@@ -221,7 +221,7 @@ structure RecoveryPremises (env : Environment) (registry : RegistryMachine.State
   payloadLive : PayloadLive env
   unzenStart : UnzenStartUsable env
 
-/-- Per-state conditions of H4 (design 4.5). -/
+/-- Per-state conditions of H4 (reports/recoverability.md, Per-state hypotheses). -/
 structure LiveAt (env : Environment) (w : World) : Prop where
   /-- Excludes the rollback-across-K-change trap (`RollbackGridTrap.rollback_grid_trap`). -/
   grid : ∀ start, w.start = some start →

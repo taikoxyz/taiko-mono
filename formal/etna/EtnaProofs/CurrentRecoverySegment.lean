@@ -1,9 +1,9 @@
 import EtnaModel.CurrentRecoveryInterface
 import EtnaProofs.Forced
 
-/-! The first K blocks of the new generation after a plain recovery (design 4.3, step 5).
-`Recovery.segment` builds them on the batch parent `p` from `SegmentContext` and proves each one
-`Blocks.Valid` under the closed certificate world's policy at reference `R+1`.
+/-! The first K blocks of the new generation after a plain recovery (reports/recoverability.md,
+The path, step 6). `Recovery.segment` builds them on the batch parent `p` from `SegmentContext`
+and proves each one `Blocks.Valid` under the closed certificate world's policy at reference `R+1`.
 
 Every block anchors to the snapshot `s` at `R`. Its timestamp is `max (parent + 1) (time R)` (BFT
 time 0), so block `i` is `i-1` seconds past its anchor. It commits in round 0 with votes from the
@@ -540,12 +540,12 @@ private theorem build (hash : ∀ id d, env.catalogue id = some d → d.bytes.ha
 
 end
 
-/-- The first K blocks of the new generation after a plain recovery at L1 block `R` (design 4.3,
-step 5): from the batch parent `p`, a valid chain under the closed certificate world's policy at
-reference `R+1`, archived by its own headers. It ends at height `p.height+K` with an FI cursor at
-most K entries past the head and not past the tail; it is physically linked from `p`; and every
-block is hash-bound, anchored at `R`, within the block size bound and selects a ruleset `image`
-implements. -/
+/-- The first K blocks of the new generation after a plain recovery at L1 block `R`
+(reports/recoverability.md, The path, step 6): from the batch parent `p`, a valid chain under the
+closed certificate world's policy at reference `R+1`, archived by its own headers. It ends at height
+`p.height+K` with an FI cursor at most K entries past the head and not past the tail; it is
+physically linked from `p`; and every block is hash-bound, anchored at `R`, within the block size
+bound and selects a ruleset `image` implements. -/
 theorem segment {env : Environment} {x : World} {p : Header} {R : Nat} {keys : List Hash} {image : Hash}
     (hash : ∀ id d, env.catalogue id = some d → d.bytes.hashBytes = env.txHash)
     (context : SegmentContext env x p R keys image) :

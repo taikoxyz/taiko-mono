@@ -3,13 +3,13 @@ import EtnaStatements.Current
 import EtnaProofs.Current
 import EtnaProofs.CurrentUnzen
 
-/-! The L1 half of the recovery path (design 4.3, steps 1-4). From a reachable, initialized
-state satisfying `LiveAt`, five steps of calls, numbered so below: (1) advance L1 to the window
-block R; (2) on a switching network, write, correct or prove the start where needed; (3) register
-an image and select the complete verifier version; (4) one plain recovery at R; (5) advance L1
-to R+2. `Recovery.prepare` returns the reached state with the facts the landing proof needs
-(`Recovery.Prepared`). The reachable-state facts it needs beyond the existing journals are
-`Reach`, proved by induction over `Trace` from `empty`. -/
+/-! The L1 half of the recovery path (reports/recoverability.md, The path, steps 1-5). From a
+reachable, initialized state satisfying `LiveAt`, five steps of calls, numbered so below: (1)
+advance L1 to the window block R; (2) on a switching network, write, correct or prove the start
+where needed; (3) register an image and select the complete verifier version; (4) one plain recovery
+at R; (5) advance L1 to R+2. `Recovery.prepare` returns the reached state with the facts the landing
+proof needs (`Recovery.Prepared`). The reachable-state facts it needs beyond the existing journals
+are `Reach`, proved by induction over `Trace` from `empty`. -/
 namespace Etna.Design.Current.Protocol.Recovery
 open Etna.Statements.Current
 
@@ -963,10 +963,11 @@ private theorem finish {env : Environment} {registry : RegistryMachine.State} {w
 /-! ### The L1 half -/
 
 /-- From every reachable, initialized state satisfying `LiveAt`, the plain-recovery path of
-design 4.3 (no rollback, no exclusions, no blanking, no upgrade) reaches a state with a settled
-start, a fresh recovered generation whose origin is the current checkpoint at the window block
-R, the snapshots at R and R+1 closed, a live committee and ruleset, a registered image and a
-complete verifier, and a hash-bound parent header early enough for K blocks anchored at R. -/
+reports/recoverability.md (The path, steps 1-5; no rollback, no exclusions, no blanking, no upgrade)
+reaches a state with a settled start, a fresh recovered generation whose origin is the current
+checkpoint at the window block R, the snapshots at R and R+1 closed, a live committee and ruleset, a
+registered image and a complete verifier, and a hash-bound parent header early enough for K blocks
+anchored at R. -/
 theorem prepare {env : Environment} {registry : RegistryMachine.State} {w : World}
     (premises : Etna.Statements.Current.RecoveryPremises env registry)
     (trace : Trace env (empty env registry) w) (initialized : w.initialized = true)

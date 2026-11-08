@@ -1,9 +1,9 @@
 import EtnaStatements
 
-/-! H4 statement surface, pinned before the review-surface lock covers it: which calls
-`RecoveryCall` admits (no rollback, only plain recoveries, every other call), the trace class
-`RecoveryTrace`, the conclusion `RecoverableAt`, the claim `Recoverability`, and the field
-names, types and order of `LiveAt` and `RecoveryPremises`. -/
+/-! H4 statement surface: which calls `RecoveryCall` admits (no rollback, only plain
+recoveries, every other call), the trace class `RecoveryTrace`, the conclusion `RecoverableAt`,
+the claim `Recoverability`, and the field names, types and order of `LiveAt` and
+`RecoveryPremises`. -/
 namespace Etna.CurrentRecoveryRegression
 open Etna.Design Etna.Design.Current Etna.Design.Current.Protocol Etna.Statements.Current
 
