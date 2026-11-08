@@ -552,8 +552,7 @@ fn select(
 }
 
 /// Computes canonical positive voting power from eligible stake, with checked narrowing.
-/// Shared by authenticated derivation and local persisted-state consistency checks.
-pub(crate) fn member_power(
+fn member_power(
     pubkey: ConsensusKey,
     eff_stake: U256,
     params: &ChainParams,
