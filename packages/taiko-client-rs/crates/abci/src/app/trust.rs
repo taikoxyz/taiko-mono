@@ -17,9 +17,9 @@ use crate::{
     engine::Engine,
     envelope::AnchorWitness,
     l1::{
-        L1Source, RawL1Header,
+        L1Source, OwnFinality, RawL1Header,
         layout::{inbox, word_u48},
-        verify_account_witness, verify_anchor_witness,
+        own_finality, verify_account_witness, verify_anchor_witness,
     },
     store::AppState,
     valstate::ValState,
@@ -461,27 +461,22 @@ impl<L: L1Source, E: Engine> App<L, E> {
                     .map_err(AbciError::Recovery)
             })
             .await?;
-            if within(
+            match within(
                 "trust historical anchor finality",
                 self.opts.l1_timeout,
-                self.l1.finalized_number(),
+                own_finality(self.l1(), anchor.number, anchor.hash),
             )
-            .await? <
-                anchor.number
+            .await?
             {
-                return Err(AbciError::TrustControl(
-                    "historical anchor is not final in own L1".into(),
-                ));
-            }
-            if within(
-                "trust historical anchor canonicality",
-                self.opts.l1_timeout,
-                self.l1.canonical_hash(anchor.number),
-            )
-            .await? !=
-                anchor.hash
-            {
-                return Err(AbciError::SafetyHalt("historical recovery anchor changed".into()));
+                OwnFinality::Canonical => {}
+                OwnFinality::NotFinal { .. } => {
+                    return Err(AbciError::TrustControl(
+                        "historical anchor is not final in own L1".into(),
+                    ));
+                }
+                OwnFinality::OffChain { .. } => {
+                    return Err(AbciError::SafetyHalt("historical recovery anchor changed".into()));
+                }
             }
         }
         // A ready session already authenticates its sequentially committed head. Recheck
@@ -643,22 +638,24 @@ impl<L: L1Source, E: Engine> App<L, E> {
     }
 
     /// Reconfirms own-finalized canonicality after the proofs used for this target or typed
-    /// supersession have been read. A receding observation leaves the session closed.
+    /// supersession have been read. A receding observation leaves the session closed; a
+    /// different hash at a number still final is a contradiction (SYNC-9-7).
     async fn confirm_target_header(&self, header: &RawL1Header) -> Result<(), AbciError> {
-        let timeout = self.opts.l1_timeout;
-        let canonical =
-            within("trust canonical L1", timeout, self.l1.canonical_hash(header.number())).await?;
-        if canonical != header.hash() {
-            return Err(AbciError::SafetyHalt("checkpoint finalized L1 hash changed".into()));
-        }
-        if within("trust reconfirm finalized L1", timeout, self.l1.finalized_number()).await? <
-            header.number()
+        match within(
+            "trust reconfirm finalized L1",
+            self.opts.l1_timeout,
+            own_finality(self.l1(), header.number(), header.hash()),
+        )
+        .await?
         {
-            return Err(AbciError::TrustControl(
+            OwnFinality::Canonical => Ok(()),
+            OwnFinality::NotFinal { .. } => Err(AbciError::TrustControl(
                 "own finalized L1 regressed during checkpoint acquisition".into(),
-            ));
+            )),
+            OwnFinality::OffChain { .. } => {
+                Err(AbciError::SafetyHalt("checkpoint finalized L1 hash changed".into()))
+            }
         }
-        Ok(())
     }
 
     /// Rechecks the actual committed head on every closed-session attempt, including Comet-only

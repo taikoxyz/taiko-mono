@@ -82,8 +82,8 @@ pub use genesis::{
     decode_bootstrap_state,
 };
 pub use l1::{
-    FetchError, L1Error, L1HeaderError, L1Source, RawL1Header, RpcL1Source,
-    build_committee_witness_at_cutoff, header_at, is_final_canonical,
+    FetchError, L1Error, L1HeaderError, L1Source, OwnFinality, RawL1Header, RpcL1Source,
+    build_committee_witness_at_cutoff, header_at, own_finality,
 };
 pub use metrics::AbciMetrics;
 pub use recovery::{

@@ -5,7 +5,7 @@
 //! `PrepareProposal`, `ProcessProposal` (its node-local checks), `InitChain` and the
 //! `abci-genesis` builder use it. `FinalizeBlock` and replay read no L1 state, as every L1 fact a
 //! block consumes travels in it; for a block the node never judged they only confirm that a moved
-//! anchor header is final and canonical in the own L1 ([`is_final_canonical`]'s check).
+//! anchor header is final and canonical in the own L1 ([`own_finality`]).
 
 use std::collections::BTreeSet;
 
@@ -411,19 +411,42 @@ pub async fn header_at<L: L1Source + ?Sized>(l1: &L, number: u64) -> Result<RawL
     Ok(header)
 }
 
-/// Whether `header` is final and canonical in the node's own L1 view: the node's `finalized`
-/// number is at least `header.number()` and the node's canonical block hash at
-/// `header.number()` is `header.hash()`, i.e. `keccak256` of the raw header.
+/// What the node's own L1 view says about the block `(number, hash)` ([`own_finality`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum OwnFinality {
+    /// `number` is above the own `finalized` number, `finalized`; no canonical hash was read.
+    NotFinal {
+        /// The own `finalized` number that was read.
+        finalized: u64,
+    },
+    /// `number` is final and the own canonical block there is `hash`.
+    Canonical,
+    /// `number` is final but the own canonical block there is `own`, not `hash`.
+    OffChain {
+        /// The own canonical block hash at `number`.
+        own: B256,
+    },
+}
+
+/// Whether the block `(number, hash)` is final and canonical in the node's own L1 view: the
+/// node's `finalized` number is at least `number` and its canonical block hash at `number` is
+/// `hash`. Each caller maps the [`OwnFinality`] itself (retry, unavailable, reject or halt).
 ///
-/// The canonical hash is only fetched once the header's number is final.
-pub async fn is_final_canonical<L: L1Source + ?Sized>(
+/// The `finalized` number is read first and the canonical hash only once `number` is at or below
+/// it, so the hash compared is one the node had already finalized when asked: finality advancing
+/// between the two reads cannot turn a hash read at a then non-final number into a final one.
+/// Read errors are the node's, unchanged.
+pub async fn own_finality<L: L1Source + ?Sized>(
     l1: &L,
-    header: &RawL1Header,
-) -> Result<bool, L1Error> {
-    if l1.finalized_number().await? < header.number() {
-        return Ok(false);
+    number: u64,
+    hash: B256,
+) -> Result<OwnFinality, L1Error> {
+    let finalized = l1.finalized_number().await?;
+    if finalized < number {
+        return Ok(OwnFinality::NotFinal { finalized });
     }
-    Ok(l1.canonical_hash(header.number()).await? == header.hash())
+    let own = l1.canonical_hash(number).await?;
+    Ok(if own == hash { OwnFinality::Canonical } else { OwnFinality::OffChain { own } })
 }
 
 #[cfg(test)]
@@ -762,16 +785,55 @@ mod tests {
         );
     }
 
+    /// Ports the cases of the helper it replaced: above the own finalized number the block is
+    /// `NotFinal` (carrying that number) without a canonical-hash read; at or below it the own
+    /// canonical hash decides `Canonical` or `OffChain` (carrying the own hash). The finalized
+    /// number is always read first, and the raw header never.
     #[tokio::test]
-    async fn final_canonical_header_is_accepted() {
+    async fn own_finality_separates_not_final_canonical_and_off_chain() {
         let header = RawL1Header::from(&l1_header(10, 100));
-        let l1 = MockL1::new(12);
-        l1.insert_header(header.clone());
-
-        assert_eq!(is_final_canonical(&l1, &header).await, Ok(true));
         let at_finalized = RawL1Header::from(&l1_header(12, 124));
-        l1.insert_header(at_finalized.clone());
-        assert_eq!(is_final_canonical(&l1, &at_finalized).await, Ok(true), "finalized == n");
+        let later = RawL1Header::from(&l1_header(13, 100));
+        let l1 = MockL1::new(12);
+        for h in [&header, &at_finalized, &later] {
+            l1.insert_header(h.clone());
+        }
+
+        assert_eq!(own_finality(&l1, 10, header.hash()).await, Ok(OwnFinality::Canonical));
+        assert_eq!(l1.calls(), [L1Call::Finalized, L1Call::CanonicalHash(10)], "finality first");
+        assert_eq!(
+            own_finality(&l1, 12, at_finalized.hash()).await,
+            Ok(OwnFinality::Canonical),
+            "finalized == n"
+        );
+
+        l1.state().calls.clear();
+        assert_eq!(
+            own_finality(&l1, 13, later.hash()).await,
+            Ok(OwnFinality::NotFinal { finalized: 12 })
+        );
+        assert_eq!(
+            own_finality(&l1, u64::MAX, later.hash()).await,
+            Ok(OwnFinality::NotFinal { finalized: 12 })
+        );
+        assert_eq!(
+            l1.calls(),
+            [L1Call::Finalized, L1Call::Finalized],
+            "no canonical hash read before finality holds"
+        );
+        l1.set_finalized(13);
+        assert_eq!(
+            own_finality(&l1, 13, later.hash()).await,
+            Ok(OwnFinality::Canonical),
+            "finality advanced"
+        );
+
+        let fork = RawL1Header::from(&l1_header(10, 101));
+        assert_ne!(fork.hash(), header.hash());
+        assert_eq!(
+            own_finality(&l1, 10, fork.hash()).await,
+            Ok(OwnFinality::OffChain { own: header.hash() })
+        );
         assert!(
             l1.calls().iter().all(|call| !matches!(call, L1Call::Header(_))),
             "only the canonical hash is read, never the raw header"
@@ -779,39 +841,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn header_above_the_finality_bound_is_not_final() {
-        let l1 = MockL1::new(12);
-        let later = RawL1Header::from(&l1_header(13, 100));
-        l1.insert_header(later.clone());
-
-        assert_eq!(is_final_canonical(&l1, &later).await, Ok(false));
-        let last = RawL1Header::from(&l1_header(u64::MAX, 100));
-        assert_eq!(is_final_canonical(&l1, &last).await, Ok(false));
-        assert!(
-            !l1.calls().iter().any(|call| matches!(call, L1Call::CanonicalHash(_))),
-            "no canonical hash read before finality holds"
-        );
-
-        l1.set_finalized(13);
-        assert_eq!(is_final_canonical(&l1, &later).await, Ok(true), "finality advanced");
-    }
-
-    #[tokio::test]
-    async fn non_canonical_header_is_rejected() {
-        let canonical = RawL1Header::from(&l1_header(10, 100));
-        let l1 = MockL1::new(12);
-        l1.insert_header(canonical.clone());
-
-        let fork = RawL1Header::from(&l1_header(10, 101));
-        assert_ne!(fork.hash(), canonical.hash());
-        assert_eq!(is_final_canonical(&l1, &fork).await, Ok(false));
-    }
-
-    #[tokio::test]
     async fn unknown_canonical_header_is_an_error() {
         let l1 = MockL1::new(12);
         assert_eq!(
-            is_final_canonical(&l1, &RawL1Header::from(&l1_header(10, 100))).await,
+            own_finality(&l1, 10, RawL1Header::from(&l1_header(10, 100)).hash()).await,
             Err(L1Error::BlockNotFound(BlockNumberOrTag::Number(10)))
         );
     }
@@ -823,6 +856,6 @@ mod tests {
         let l1 = MockL1::new(5);
         l1.insert_header(header.clone());
         let dyn_l1: &dyn L1Source = &l1;
-        assert_eq!(is_final_canonical(dyn_l1, &header).await, Ok(true));
+        assert_eq!(own_finality(dyn_l1, 5, header.hash()).await, Ok(OwnFinality::Canonical));
     }
 }

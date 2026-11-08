@@ -3,6 +3,7 @@ use super::{RecoveryError, authenticate_recovery, verify::invalid, verify_recove
 use crate::{
     ChainParams, Engine, GenesisDoc, L1Source,
     genesis::{AppStateJson, GenesisConsensusParams, GenesisValidator, genesis_time},
+    l1::{OwnFinality, own_finality},
     rules::chain_id_for,
 };
 
@@ -128,11 +129,14 @@ pub(crate) async fn recovery_bootstrap<L: L1Source + ?Sized>(
         let (_, _, number) =
             crate::rules::decode_extra_data(&witness.el_header.extra_data).map_err(invalid)?;
         let header = crate::l1::header_at(l1, number).await?;
-        if number > l1.finalized_number().await? {
-            return Err(RecoveryError::Unavailable("historical c anchor is not final".into()));
-        }
-        if l1.canonical_hash(number).await? != header.hash() {
-            return Err(invalid("historical c anchor is not canonical"));
+        match own_finality(l1, number, header.hash()).await? {
+            OwnFinality::Canonical => {}
+            OwnFinality::NotFinal { .. } => {
+                return Err(RecoveryError::Unavailable("historical c anchor is not final".into()));
+            }
+            OwnFinality::OffChain { .. } => {
+                return Err(invalid("historical c anchor is not canonical"));
+            }
         }
         let inbox = l1
             .account_witness(params.inbox, &crate::l1::layout::inbox::anchor_slots(), number)

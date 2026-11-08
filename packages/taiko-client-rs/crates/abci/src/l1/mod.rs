@@ -26,5 +26,5 @@ pub use fetch::{FetchError, build_committee_witness_at_cutoff};
 pub(crate) use fetch::{build_committee_witness_within, reprove_committee_witness};
 pub use header::{L1HeaderError, RawL1Header};
 pub use mpt::{MptError, VerifiedStorage, verify_account_witness};
-pub use source::{L1Error, L1Source, RpcL1Source, header_at, is_final_canonical};
+pub use source::{L1Error, L1Source, OwnFinality, RpcL1Source, header_at, own_finality};
 pub use witness::{WitnessError, verify_anchor_witness, verify_genesis_inbox};

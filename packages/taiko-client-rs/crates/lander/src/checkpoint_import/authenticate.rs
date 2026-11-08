@@ -10,9 +10,10 @@ use crate::{
 use abci::{
     AnchorState, AnchorWitness, Member,
     l1::{
+        OwnFinality,
         layout::{inbox, word_u48},
         mpt::verify_account_witness,
-        verify_anchor_witness,
+        own_finality, verify_anchor_witness,
     },
     rules,
 };
@@ -105,8 +106,16 @@ where
                         abci::recovery::RecoveryError::Superseded { .. } => candidate(e),
                         _ => safety(e),
                     })?;
-                if own_l1.canonical_hash(anchor.number).await.map_err(own_error)? != anchor.hash {
-                    return Err(candidate("recovery historical anchor is off own L1"));
+                match own_finality(own_l1, anchor.number, anchor.hash).await.map_err(own_error)? {
+                    OwnFinality::Canonical => {}
+                    OwnFinality::NotFinal { .. } => {
+                        return Err(unavailable(
+                            "recovery historical anchor is not final in own L1",
+                        ));
+                    }
+                    OwnFinality::OffChain { .. } => {
+                        return Err(candidate("recovery historical anchor is off own L1"));
+                    }
                 }
                 let parent = abci::recovery::recovery_parent(&witness);
                 (Some(alloy_rlp::encode(&witness).into()), anchor, parent)
@@ -565,13 +574,11 @@ async fn canonical<L: L1Source + ?Sized>(
     l1: &L,
     header: &abci::RawL1Header,
 ) -> Result<(), ImportError> {
-    if l1.finalized_number().await.map_err(own_error)? < header.number() {
-        return Err(unavailable("required L1 header is not finalized"));
+    match own_finality(l1, header.number(), header.hash()).await.map_err(own_error)? {
+        OwnFinality::Canonical => Ok(()),
+        OwnFinality::NotFinal { .. } => Err(unavailable("required L1 header is not finalized")),
+        OwnFinality::OffChain { .. } => Err(candidate("publisher L1 header is not canonical")),
     }
-    if l1.canonical_hash(header.number()).await.map_err(own_error)? != header.hash() {
-        return Err(candidate("publisher L1 header is not canonical"));
-    }
-    Ok(())
 }
 
 /// Decode canonical original protobuf without normalizing away evidence or native key bytes.
@@ -879,13 +886,13 @@ async fn own_canonical<L: L1Source + ?Sized>(
     l1: &L,
     header: &abci::RawL1Header,
 ) -> Result<(), ImportError> {
-    if l1.finalized_number().await.map_err(own_error)? < header.number() {
-        return Err(unavailable("own L1 finalized observation receded"));
+    match own_finality(l1, header.number(), header.hash()).await.map_err(own_error)? {
+        OwnFinality::Canonical => Ok(()),
+        OwnFinality::NotFinal { .. } => Err(unavailable("own L1 finalized observation receded")),
+        OwnFinality::OffChain { .. } => {
+            Err(safety("own L1 finalized header contradicts its canonical hash"))
+        }
     }
-    if l1.canonical_hash(header.number()).await.map_err(own_error)? != header.hash() {
-        return Err(safety("own L1 finalized header contradicts its canonical hash"));
-    }
-    Ok(())
 }
 
 /// Why window content was refused. Before the native hash chain links the block to s, a

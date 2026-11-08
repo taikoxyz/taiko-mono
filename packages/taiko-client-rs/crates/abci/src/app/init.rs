@@ -13,7 +13,7 @@ use crate::{
         BootstrapWitness, GenesisConsensusParams, decode_bootstrap_state, genesis_time,
         verify_committee, verify_context,
     },
-    l1::L1Source,
+    l1::{L1Source, OwnFinality, own_finality},
     rules::check_chain_id,
     schedule::Schedule,
     store::{AppState, STATE_SCHEMA_VERSION},
@@ -125,29 +125,23 @@ impl<L: L1Source, E: Engine> App<L, E> {
             return Err(AbciError::GenesisConsensusParamsMismatch);
         }
 
-        let finalized = within(
+        let (number, hash) = (l1_header.number(), l1_header.hash());
+        match within(
             "L1 finality check of the genesis header",
             self.opts.l1_timeout,
-            self.l1().finalized_number(),
+            own_finality(self.l1(), number, hash),
         )
-        .await?;
-        if finalized < l1_header.number() {
-            return Err(AbciError::GenesisNotFinal {
-                number: l1_header.number(),
-                hash: l1_header.hash(),
-            });
-        }
-        if within(
-            "L1 canonicality check of the genesis header",
-            self.opts.l1_timeout,
-            self.l1().canonical_hash(l1_header.number()),
-        )
-        .await? !=
-            l1_header.hash()
+        .await?
         {
-            return Err(AbciError::SafetyHalt(
-                "genesis header differs from own finalized L1".into(),
-            ));
+            OwnFinality::Canonical => {}
+            OwnFinality::NotFinal { .. } => {
+                return Err(AbciError::GenesisNotFinal { number, hash });
+            }
+            OwnFinality::OffChain { .. } => {
+                return Err(AbciError::SafetyHalt(
+                    "genesis header differs from own finalized L1".into(),
+                ));
+            }
         }
 
         let context = verify_context(l1_header, &w.inbox, params)?;
@@ -283,27 +277,25 @@ impl<L: L1Source, E: Engine> App<L, E> {
                         "recovery request differs from immutable bootstrap".into(),
                     ));
                 }
-                let finalized = within(
+                match within(
                     "recovery historical finality",
                     self.opts.l1_timeout,
-                    self.l1.finalized_number(),
+                    own_finality(self.l1(), anchor.number, anchor.hash),
                 )
-                .await?;
-                if finalized < anchor.number {
-                    return Err(crate::RecoveryError::Unavailable(
-                        "historical recovery anchor is not final".into(),
-                    )
-                    .into());
-                }
-                if within(
-                    "recovery historical canonicality",
-                    self.opts.l1_timeout,
-                    self.l1.canonical_hash(anchor.number),
-                )
-                .await? !=
-                    anchor.hash
+                .await?
                 {
-                    return Err(AbciError::SafetyHalt("historical recovery anchor changed".into()));
+                    OwnFinality::Canonical => {}
+                    OwnFinality::NotFinal { .. } => {
+                        return Err(crate::RecoveryError::Unavailable(
+                            "historical recovery anchor is not final".into(),
+                        )
+                        .into());
+                    }
+                    OwnFinality::OffChain { .. } => {
+                        return Err(AbciError::SafetyHalt(
+                            "historical recovery anchor changed".into(),
+                        ));
+                    }
                 }
                 bootstrap
             }

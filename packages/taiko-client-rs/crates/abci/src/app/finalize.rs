@@ -33,7 +33,7 @@ use crate::{
     GRID_INTERVAL, committee,
     engine::{Engine, EngineError, PayloadVerdict},
     envelope::{EtnaEnvelope, single_envelope},
-    l1::{L1Source, RawL1Header},
+    l1::{L1Source, OwnFinality, RawL1Header, own_finality},
     metrics::AbciMetrics,
     store::AppState,
     types::ParentInfo,
@@ -458,18 +458,15 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// later one is waited for.
     async fn read_anchor(&self, header: &RawL1Header) -> AnchorRead {
         let (number, limit) = (header.number(), self.opts.l1_timeout);
-        let finalized = match deadline("L1 finalized", limit, self.l1.finalized_number()).await {
-            Ok(finalized) => finalized,
+        let finality = own_finality(self.l1(), number, header.hash());
+        let finalized = match deadline("L1 finality", limit, finality).await {
+            Ok(OwnFinality::NotFinal { finalized }) => finalized,
+            Ok(OwnFinality::Canonical) => return AnchorRead::Confirmed,
+            Ok(OwnFinality::OffChain { own }) => {
+                return AnchorRead::OffChain(format!("the own L1 holds {own} at that number"));
+            }
             Err(rejection) => return AnchorRead::failed(rejection),
         };
-        if finalized >= number {
-            return match deadline("L1 canonical hash", limit, self.l1.canonical_hash(number)).await
-            {
-                Ok(own) if own == header.hash() => AnchorRead::Confirmed,
-                Ok(own) => AnchorRead::OffChain(format!("the own L1 holds {own} at that number")),
-                Err(rejection) => AnchorRead::failed(rejection),
-            };
-        }
         let own = match deadline("L1 header", limit, self.l1.header(finalized)).await {
             Ok(own) => own,
             Err(rejection) => return AnchorRead::failed(rejection),

@@ -1040,6 +1040,66 @@ async fn review_substituted_recovery_sidecar_is_a_candidate_error() {
     assert!(matches!(err, ImportError::Candidate(_)), "{err}");
 }
 
+/// An own L1 whose finalized number recedes to `receded` once the recovery canonicality check
+/// has read its Inbox proof, i.e. just before the historical recovery anchor is checked.
+struct RecedesAfterRecoveryCheck {
+    own: OwnL1,
+    receded: u64,
+    proof_read: std::sync::atomic::AtomicBool,
+}
+#[async_trait]
+impl L1Source for RecedesAfterRecoveryCheck {
+    async fn finalized_number(&self) -> Result<u64, L1Error> {
+        if self.proof_read.load(std::sync::atomic::Ordering::SeqCst) {
+            return Ok(self.receded);
+        }
+        self.own.finalized_number().await
+    }
+    async fn canonical_hash(&self, n: u64) -> Result<B256, L1Error> {
+        self.own.canonical_hash(n).await
+    }
+    async fn header(&self, n: u64) -> Result<RawL1Header, L1Error> {
+        self.own.header(n).await
+    }
+    async fn account_witness(
+        &self,
+        address: Address,
+        slots: &[B256],
+        n: u64,
+    ) -> Result<AccountWitness, L1Error> {
+        self.proof_read.store(true, std::sync::atomic::Ordering::SeqCst);
+        self.own.account_witness(address, slots, n).await
+    }
+    async fn forced_transaction(&self, a: Address, i: u64, n: u64) -> Result<Bytes, L1Error> {
+        self.own.forced_transaction(a, i, n).await
+    }
+    async fn storage_at(&self, a: Address, s: B256, n: u64) -> Result<U256, L1Error> {
+        self.own.storage_at(a, s, n).await
+    }
+}
+
+/// The historical recovery anchor is authenticated from the own finalized L1 (DATA-5.4-1): one
+/// the own L1 has not finalized is missing material, not a bad candidate (DATA-5.4-5).
+#[tokio::test]
+async fn recovery_historical_anchor_not_final_in_own_l1_is_unavailable() {
+    let fx =
+        std::sync::Arc::new(crate::test_utils::consensus_mpt::recovery::fixture(6, 6, 6).await);
+    let package = recovery_package(&fx, 6).await;
+    let (_, anchor) = package.recovery_bootstrap.as_ref().unwrap().verify(&fx.params).unwrap();
+    let own_l1 = RecedesAfterRecoveryCheck {
+        own: OwnL1(fx.clone()),
+        receded: anchor.number - 1,
+        proof_read: Default::default(),
+    };
+    let err = authenticate_import(&package, frames(&fx, 6).into_iter(), &fx.params, &own_l1)
+        .await
+        .unwrap_err();
+    assert!(
+        matches!(&err, ImportError::Unavailable(m) if m.contains("historical anchor is not final")),
+        "{err}"
+    );
+}
+
 struct BeforeDeployment {
     own: OwnL1,
     header: RawL1Header,

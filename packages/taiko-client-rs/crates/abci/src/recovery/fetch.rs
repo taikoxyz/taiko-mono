@@ -8,8 +8,9 @@ use super::{
 use crate::{
     ChainParams, Engine, FetchError, GenesisWitness, L1Source,
     l1::{
-        build_committee_witness_at_cutoff, header_at,
+        OwnFinality, build_committee_witness_at_cutoff, header_at,
         layout::{inbox, word_u48},
+        own_finality,
     },
 };
 use alloy_consensus::Header;
@@ -160,21 +161,32 @@ pub async fn check_recovery_canonicality<L: L1Source + ?Sized>(
     w: &RecoveryWitness,
 ) -> Result<(), RecoveryError> {
     verify_recovery_witness(w, params)?;
-    let finalized = l1.finalized_number().await?;
     for header in [&w.genesis.l1_header, &w.recovery_header, &w.finalized_header] {
-        if header.number() > finalized {
-            return Err(RecoveryError::Unavailable(format!(
-                "L1 header {} is not final at {finalized}",
-                header.number()
-            )));
-        }
-        if l1.canonical_hash(header.number()).await? != header.hash() {
-            return Err(invalid("retained L1 header is not canonical"));
+        match own_finality(l1, header.number(), header.hash()).await? {
+            OwnFinality::Canonical => {}
+            OwnFinality::NotFinal { finalized } => {
+                return Err(RecoveryError::Unavailable(format!(
+                    "L1 header {} is not final at {finalized}",
+                    header.number()
+                )));
+            }
+            OwnFinality::OffChain { .. } => {
+                return Err(invalid("retained L1 header is not canonical"));
+            }
         }
     }
+    let finalized = l1.finalized_number().await?;
     let header = header_at(l1, finalized).await?;
-    if l1.canonical_hash(finalized).await? != header.hash() {
-        return Err(invalid("current finalized header is not canonical"));
+    match own_finality(l1, finalized, header.hash()).await? {
+        OwnFinality::Canonical => {}
+        OwnFinality::NotFinal { finalized: now } => {
+            return Err(RecoveryError::Unavailable(format!(
+                "own L1 finalized {now} receded below {finalized}"
+            )));
+        }
+        OwnFinality::OffChain { .. } => {
+            return Err(invalid("current finalized header is not canonical"));
+        }
     }
     let proof = l1
         .account_witness(

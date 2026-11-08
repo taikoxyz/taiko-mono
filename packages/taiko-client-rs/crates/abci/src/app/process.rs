@@ -12,7 +12,7 @@ use super::{
 use crate::{
     engine::{Engine, PayloadVerdict},
     envelope::{AnchorWitness, single_envelope},
-    l1::{L1Source, is_final_canonical},
+    l1::{L1Source, OwnFinality, own_finality},
     metrics::AbciMetrics,
     store::AppState,
 };
@@ -176,22 +176,22 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// waits on this check, since it rejects whatever the own L1 answers.
     pub(super) async fn check_header_format(&self, txs: &[Bytes]) -> Result<(), Rejection> {
         if let Some((number, raw)) = crate::envelope::undecodable_anchor(txs) {
-            let finalized =
-                deadline("L1 finalized head", self.opts.l1_timeout, self.l1().finalized_number())
-                    .await?;
-            if number > finalized {
-                return Err(Rejection::AnchorNotFinal { number });
-            }
-            let canonical = deadline(
-                "L1 canonical header",
+            let hash = alloy_primitives::keccak256(&raw);
+            match deadline(
+                "L1 anchor header finality",
                 self.opts.l1_timeout,
-                self.l1().canonical_hash(number),
+                own_finality(self.l1(), number, hash),
             )
-            .await?;
-            if alloy_primitives::keccak256(&raw) == canonical {
-                let error =
-                    crate::l1::RawL1Header::from_raw(raw).expect_err("unrecognized header shape");
-                return Err(crate::l1::L1Error::UnsupportedHeaderFormat { number, error }.into());
+            .await?
+            {
+                OwnFinality::NotFinal { .. } => return Err(Rejection::AnchorNotFinal { number }),
+                OwnFinality::Canonical => {
+                    let error = crate::l1::RawL1Header::from_raw(raw)
+                        .expect_err("unrecognized header shape");
+                    return Err(crate::l1::L1Error::UnsupportedHeaderFormat { number, error }.into());
+                }
+                // Not the own block: the caller's envelope decode error stands.
+                OwnFinality::OffChain { .. } => {}
             }
         }
         Ok(())
@@ -200,16 +200,18 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// ¹ Requires the anchor header of `w` to be final and canonical in the own L1 view, within
     /// the L1 deadline.
     async fn check_anchor_final(&self, w: &AnchorWitness) -> Result<(), Rejection> {
-        let is_final = deadline(
+        let number = w.l1_header.number();
+        match deadline(
             "L1 finality check",
             self.opts.l1_timeout,
-            is_final_canonical(self.l1(), &w.l1_header),
+            own_finality(self.l1(), number, w.l1_header.hash()),
         )
-        .await?;
-        if is_final {
-            Ok(())
-        } else {
-            Err(Rejection::AnchorNotFinal { number: w.l1_header.number() })
+        .await?
+        {
+            OwnFinality::Canonical => Ok(()),
+            OwnFinality::NotFinal { .. } | OwnFinality::OffChain { .. } => {
+                Err(Rejection::AnchorNotFinal { number })
+            }
         }
     }
 }
