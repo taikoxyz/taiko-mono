@@ -1,4 +1,4 @@
-# Offline stock Comet checkpoint helper
+# Offline stock Comet checkpoint installer
 
 Build from `tools/etna-signer` using the module's pinned Go toolchain:
 
@@ -8,124 +8,86 @@ go test -race -mod=readonly ./...
 ```
 
 Package this binary beside `etna-signer` and `etna-comet-inspect` in runtime
-images. It uses unmodified CometBFT v0.40.0 and GoLevelDB. It starts no service,
-loads no signing keys and never reads/writes FilePV state or consensus WAL.
+images. It uses unmodified CometBFT v0.40.0 and GoLevelDB (DATA-5.4-5). It
+starts no service, loads no signing keys and never reads or writes FilePV state
+or the consensus WAL.
 
 ```sh
-etna-comet-import verify --package checkpoint.json \
-  --trusted-comet-hash 0x... --trusted-el-hash 0x... \
-  --trusted-val-state-hash 0x...
-etna-comet-import install --package checkpoint.json --home /absolute/fresh/home \
-  --trusted-comet-hash 0x... --trusted-el-hash 0x... \
-  --trusted-val-state-hash 0x...
-etna-comet-import export --home /absolute/offline/home \
-  --validator-state terminal-preimage.bin --first-height 100 --last-height 120 \
-  --output checkpoint.json
+etna-comet-import install --home /absent/stock/home \
+  --stock-dir /stage/stock --app-hash 0x<ELHash(s), 32 bytes>
 ```
 
-The three trusted hashes must come from the Rust own-finalized-L1 verifier.
-The package cannot supply them. `--trusted-el-hash` installs post-s State.AppHash;
-the terminal header's AppHash still identifies s-1. The Rust verifier separately
-authenticates the terminal Etna envelope's execution-header hash.
+The helper only installs. The Rust caller's `authenticate_import` is the one
+window authentication (DATA-5.4-2). It authenticates the original genesis and
+generation against its own finalized L1, proves the window is complete (a longer
+window is accepted), and checks every native commit, embedded LastCommit, chain
+link, validator set, envelope and EL link. It then writes the stock dir and runs
+this helper. The helper does not check any of those again.
 
-Version-1 package, block and validator fields use strict JSON with no unknown
-or duplicate keys. The original stock genesis object is preserved:
+## Stock dir
+
+`--stock-dir` holds three files written by the Rust caller:
+
+- `genesis.json`: the original stock GenesisDoc, with Etna's fixed consensus
+  parameters and its original positive `initial_height`.
+- `validator-state.bin`: the raw canonical appendix-A preimage at s.
+- `blocks.jsonl`: one JSON object per line, ascending from w+1 to s:
 
 ```json
 {
-  "schema": 1,
-  "genesis": { "chain_id": "original-chain-id", "initial_height": "71" },
-  "blocks": [
-    {
-      "block": "0x<original canonical stock block protobuf>",
-      "commit": "0x<original canonical own-height commit protobuf>",
-      "validators": [{ "key": "0x<33-byte compressed SEC1>", "power": 10 }]
-    }
-  ],
-  "validator_state": "0x<canonical appendix-A ABI preimage>"
+  "block": "0x<original stock block protobuf>",
+  "commit": "0x<own-height commit protobuf>",
+  "validators": [{ "key": "0x<33-byte compressed SEC1>", "power": 10 }]
 }
 ```
 
-The genesis object above is abbreviated: the actual original stock genesis JSON,
-with Etna's fixed consensus parameters and validator entries, is required. Block
-heights are contiguous, each has its own full-ID commit, and the terminal height
-must equal the preimage height. Every nonterminal `commit` must be byte-for-byte
-identical to the successor block's embedded LastCommit. Both native signatures and
-the preceding full BlockID are verified for these embedded commits. Only the
-first retained block's LastCommit is exempt, since its preceding signing set may
-be outside the window. The terminal `commit` is independently supplied and
-verified; no successor block is needed. The helper checks
-stock block structure/DataHash/evidence hashes, full canonical part sets, native
-secp256k1eth commits, chain linkage, historical signing-set hashes, exact preimage
-encoding and the terminal next-validators commitment. It preserves the preimage's
-priorities and stored proposers, rather than recomputing them from RPC state.
+Each line is one Rust `WindowBlock`. The helper rejects noncanonical protobuf
+bytes, a malformed preimage, an unsupported genesis and a terminal height that
+differs from the preimage height. These are decode checks, not authentication.
 
-Verification/install output has `schema`, `first_height`, `last_height`,
-`block_id` (`hash`, `parts.total`, `parts.hash`), `terminal_time` (RFC3339),
-`chain_id`, `initial_height`, `validators_hash` (s+1), `next_validators_hash`
-(s+2), and `package_hash`. Hash strings are lowercase 0x hex. `package_hash` is
-Keccak-256 of Go `json.Marshal(Package)` output, with the field order above;
-JSON whitespace and outer package field order do not affect it. Property order
-inside the original raw `genesis` object is retained and affects this binding.
-It detects corruption,
-not authority. Export writes the complete package to `--output` and no report.
+## Install
 
-Exit 0 means the requested offline operation completed. Exit 1 rejects invalid or
-unsupported package data, such as malformed native frames or a preimage that
-does not match its trusted hash. Exit 3 reports unavailable local files or an
-installation storage failure, including a failed write, close or final fsync.
-Inspect stderr, restore the missing material or repair the local storage, then
-retry with fresh unpublished staging.
-For a verified contradiction, exit 2 is accompanied by one strict JSON stdout
-receipt with `schema=1`, `kind=authenticated_contradiction`,
-`reason=validator_state_next_hash_mismatch`, `height`, `comet_hash`, `el_hash`,
-`val_state_hash`, and `package_hash`. The controller must match all identity fields
-to its separately verified landing and input before durably safety-halting.
-Exit 2 alone is insufficient: a Go runtime crash or SIGQUIT can also return it.
-Rust handles independently derived committee and terminal EL contradictions.
+`--home` must not exist. The helper creates it with `config/genesis.json` (the
+original bytes) and the stock `state`, `blockstore` and `evidence` databases
+under `data/` (DATA-5.4-3):
 
-The CLI streams one bounded block at a time into a private spool. Its default
-aggregate disk profile is 1 TiB, configurable downward with `--max-package-bytes`
-for verification/install. The lifecycle passes `--spool-parent` pointing to its
-private discardable work directory, so interrupted child spools are reclaimed
-with that operation. Each block JSON value is bounded to 128 MiB and each
-metadata value to 64 MiB. Exceeding a bound rejects the entire package, without
-shortening the window. The internal in-memory `Read`/`Verify` convenience API is
-for small packages and has a 1 GiB decoding profile. Export streams directly
-from read-only stock stores. No production budget has been measured here.
+- Stock `SaveBlock` stores each block, its successor's LastCommit and the
+  terminal seen commit. As on a stock node at state s, C:s is absent until s+1
+  is saved, so stock evidence's signed-header lookup at height s fails the same
+  way.
+- Historical records use the pinned public ValidatorsInfo/ConsensusParamsInfo
+  protobufs and stock key formats: full validator sets at the first height,
+  at changes and at periodic 100,000-height checkpoints. Metadata never points
+  below the window.
+- Evidence `Pool.Update` records a committed-evidence marker for each evidence
+  item the blocks carry, without validating it again. Pending evidence starts
+  empty, and new evidence is validated by stock APIs.
+- Stock `Bootstrap` installs the post-s state (DATA-5.4-4): LastBlockHeight s,
+  the terminal BlockID and time, Last/Current/NextValidators with the
+  preimage's priorities and stored proposers, LastHeightValidatorsChanged s+2,
+  LastHeightConsensusParamsChanged s+1, AppHash `--app-hash` (the terminal
+  header's AppHash still identifies s-1), the fixed LastResultsHash and the
+  original InitialHeight. `SetOfflineStateSyncHeight(s)` follows.
 
-The Rust caller authenticates original genesis/generation, chooses and proves
-the shortest complete evidence/switch/anchor window, checks envelope and EL
-links, derives s+1/s+2 committees, verifies local EL state, owns offline leases,
-and stages/publishes the durable cross-store manifest. `EvidenceExpired` exposes
-stock's strict AND age rule using committed post-s height/time, never wall time.
-The helper cannot infer a missing predecessor header's time from the package.
+The helper then fsyncs every file and directory, reopens the databases
+read-only and checks them against a second read of the stock dir: the state
+bytes, each block hash, each stored commit's bytes against the input commit,
+each height's validator hash through the stock `LoadValidatorsFast` path (no
+slow fallback), the evidence markers, the consensus params and the terminal
+seen commit. It fsyncs the tree and the parent directory once more before it
+reports success.
 
-Installation requires a nonexistent absolute home with no symlinked ancestors.
-It writes only config/genesis.json and stock state/blockstore/evidence databases,
-flushes them, closes and reopens them through stock APIs, and fsyncs directories.
-A crash leaves an unpublished partial home; the parent controller may remove
-only its own staging and retry. Existing destinations are always refused.
+On success, stdout carries one JSON line:
 
-Before publication, the controller uses `bind-stores --home ...
---installation-id 0x...` to bind one private role-specific identity key inside
-each state/blockstore/evidence GoLevelDB. `--fixed-origin` creates all three
-empty databases before stock InitChain. Binding requires the controller's private
-`.etna-stock-staging.json` claim, refuses existing identities, and consumes that
-claim on success. `check-stores` with the same home/id opens all three read-only
-and verifies their identity before runtime startup, including after progress.
-These commands return `{}` on success and never authorize signing.
+```json
+{
+  "first_height": 100,
+  "last_height": 120,
+  "block_id": { "hash": "0x…", "parts": { "total": 1, "hash": "0x…" } }
+}
+```
 
-Historical records use the pinned public ValidatorsInfo/ConsensusParamsInfo
-protobufs and stock key formats: full validator sets at the first retained
-height, changes and periodic 100,000-height checkpoints; metadata never points
-below the retained window. Bulk reopen/export queries require the pinned stock
-`LoadValidatorsFast` capability, which loads keys/powers without replaying
-irrelevant historical proposer priorities; no slow fallback is allowed. Final
-s/s+1/s+2 are full, and post-s state uses stock
-Bootstrap. Stock SaveBlock retains each successor LastCommit and terminal
-seen-commit. As on a stock node at state s, C:s is absent until s+1 is saved,
-so stock evidence's signed-header lookup at height s fails the same way. Evidence
-Pool.Update rebuilds committed markers from authenticated lists without calling
-historical ValidateBlock/CheckEvidence or fetching pre-window data. Pending
-evidence starts empty, and normal new-evidence validation uses stock APIs.
+The caller compares it with the window it authenticated. Exit 0 means the home
+is installed and durable. Exit 1 means any failure, with the reason on stderr.
+A failed or interrupted run leaves an unpublished partial home: the caller
+discards its whole stage and reruns.

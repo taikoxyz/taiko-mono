@@ -1,6 +1,7 @@
 package checkpoint
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -9,9 +10,9 @@ import (
 	"os"
 	"path/filepath"
 	"syscall"
-	"time"
 
 	dbm "github.com/cometbft/cometbft-db"
+	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/evidence"
 	statepb "github.com/cometbft/cometbft/proto/tendermint/state"
 	sm "github.com/cometbft/cometbft/state"
@@ -21,29 +22,115 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 
-// EvidenceExpired uses the post-s state exactly as stock evidence verification at s+1 does.
-func EvidenceExpired(postHeight int64, postTime time.Time, evidenceHeight int64, evidenceTime time.Time) bool {
-	return evidence.IsEvidenceExpired(postHeight, postTime, evidenceHeight, evidenceTime, types.EvidenceParams{MaxAgeNumBlocks: 100000, MaxAgeDuration: 48 * time.Hour})
+// The stock dir the Rust caller writes after authenticate_import accepts the window.
+const (
+	// genesisFile holds the original GenesisDoc JSON.
+	genesisFile = "genesis.json"
+	// validatorStateFile holds the raw appendix-A preimage at s.
+	validatorStateFile = "validator-state.bin"
+	// blocksFile holds one Block JSON object per line, ascending from w+1 to s.
+	blocksFile = "blocks.jsonl"
+)
+
+// stockInput is one decoded stock dir. Its blocks stay on disk: install streams them once to
+// write the stores and once more to check the reopened stores.
+type stockInput struct {
+	genesisRaw []byte
+	genesis    *types.GenesisDoc
+	// height is s, the preimage height.
+	height int64
+	// current and next are the s+1 and s+2 sets with their landed priorities and proposers.
+	current, next *types.ValidatorSet
+	// appHash is ELHash(s), the post-s AppHash.
+	appHash []byte
+	// blocks is the path of blocksFile.
+	blocks string
 }
 
-func checkParents(path string) error {
-	if !filepath.IsAbs(path) || filepath.Clean(path) != path {
-		return errors.New("home must be absolute and clean")
+// readStock decodes the stock dir's genesis and preimage; blocks are read by walk.
+func readStock(dir string, appHash []byte) (*stockInput, error) {
+	if len(appHash) != 32 {
+		return nil, errors.New("app hash must have 32 bytes")
 	}
-	for p := filepath.Dir(path); ; p = filepath.Dir(p) {
-		info, err := os.Lstat(p)
+	raw, err := os.ReadFile(filepath.Join(dir, genesisFile))
+	if err != nil {
+		return nil, err
+	}
+	g, err := decodeGenesis(raw)
+	if err != nil {
+		return nil, err
+	}
+	preimage, err := os.ReadFile(filepath.Join(dir, validatorStateFile))
+	if err != nil {
+		return nil, err
+	}
+	height, current, next, err := DecodeValState(preimage)
+	if err != nil {
+		return nil, err
+	}
+	return &stockInput{genesisRaw: raw, genesis: g, height: height, current: current, next: next, appHash: bytes.Clone(appHash), blocks: filepath.Join(dir, blocksFile)}, nil
+}
+
+// walk decodes blocksFile one line at a time and visits each height in file order.
+func (in *stockInput) walk(visit func(*blockRecord) error) error {
+	f, err := os.Open(in.blocks)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	reader := bufio.NewReaderSize(f, 64<<10)
+	for {
+		line, readErr := reader.ReadBytes('\n')
+		if readErr != nil && readErr != io.EOF {
+			return readErr
+		}
+		if len(line) == 0 && readErr == io.EOF {
+			return nil
+		}
+		var item Block
+		if err = json.Unmarshal(line, &item); err != nil {
+			return err
+		}
+		record, err := decodeBlock(in.genesis, item)
 		if err != nil {
 			return err
 		}
-		if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
-			return errors.New("invalid or aliased parent")
+		if err = visit(record); err != nil {
+			return err
 		}
-		if p == filepath.Dir(p) {
-			break
+		if readErr == io.EOF {
+			return nil
 		}
 	}
-	return nil
 }
+
+// state builds the post-s state (DATA-5.4-4): the terminal BlockID, time and signing set,
+// the preimage's s+1 and s+2 sets, AppHash = ELHash(s) and the original InitialHeight.
+func (in *stockInput) state(terminal *blockRecord) (sm.State, error) {
+	if terminal == nil {
+		return sm.State{}, errors.New("empty consensus window")
+	}
+	if terminal.block.Height != in.height {
+		return sm.State{}, errors.New("terminal height differs from the validator-state preimage")
+	}
+	s, err := sm.MakeGenesisState(in.genesis)
+	if err != nil {
+		return sm.State{}, err
+	}
+	s.Version.Consensus.App = 1
+	s.LastBlockHeight = in.height
+	s.LastBlockID = terminal.id
+	s.LastBlockTime = terminal.block.Time
+	s.LastValidators = terminal.set.Copy()
+	s.Validators = in.current.Copy()
+	s.NextValidators = in.next.Copy()
+	s.LastHeightValidatorsChanged = in.height + 2
+	s.LastHeightConsensusParamsChanged = in.height + 1
+	s.LastResultsHash = types.NewResults([]*abci.ExecTxResult{{}}).Hash()
+	s.AppHash = bytes.Clone(in.appHash)
+	return s, nil
+}
+
 func syncDir(path string) (err error) {
 	f, e := os.Open(path)
 	if e != nil {
@@ -90,77 +177,85 @@ func syncStockTree(path string) (err error) {
 	return f.Sync()
 }
 
-// StorageError reports a local failure materializing already verified input in an unpublished
-// stock home. The caller must discard the stage and may retry after the storage is repaired.
-type StorageError struct{ cause error }
-
-func (e *StorageError) Error() string { return e.cause.Error() }
-func (e *StorageError) Unwrap() error { return e.cause }
-
-// Install creates only a previously nonexistent home; signer keys and WAL are never read.
-// The controller must stage all other stores and publish its own completion manifest.
-func Install(home string, v *Verified) error {
-	return installFresh(home, v, syncStockTree)
+// Install decodes the stock dir, creates the absent home with config/genesis.json and the stock
+// state, blockstore and evidence databases, then reopens them read-only and checks them. Signer
+// keys and WAL are never read. The caller stages the other stores and publishes them together.
+func Install(home, stockDir string, appHash []byte) (Report, error) {
+	return installFresh(home, stockDir, appHash, syncStockTree)
 }
 
-func installFresh(home string, v *Verified, flushTree func(string) error) (err error) {
-	if v == nil {
-		return errors.New("missing verified package")
-	}
-	if err = checkParents(home); err != nil {
-		return err
-	}
-	if err = os.Mkdir(home, 0700); err != nil {
-		return err
-	}
+func installFresh(home, stockDir string, appHash []byte, flushTree func(string) error) (report Report, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("stock store installation failed: %v", r)
 		}
 		if err != nil {
-			err = &StorageError{cause: err}
+			report = Report{}
 		}
 	}()
+	in, err := readStock(stockDir, appHash)
+	if err != nil {
+		return Report{}, err
+	}
+	if err = os.Mkdir(home, 0700); err != nil {
+		return Report{}, err
+	}
 	if err = os.Mkdir(filepath.Join(home, "config"), 0700); err != nil {
-		return err
+		return Report{}, err
 	}
 	if err = os.Mkdir(filepath.Join(home, "data"), 0700); err != nil {
-		return err
+		return Report{}, err
 	}
 	f, err := os.OpenFile(filepath.Join(home, "config", "genesis.json"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
-		return err
+		return Report{}, err
 	}
-	_, writeErr := f.Write(v.genesisRaw)
+	_, writeErr := f.Write(in.genesisRaw)
 	syncErr := f.Sync()
 	closeErr := f.Close()
-	if writeErr != nil {
-		return writeErr
+	if err = errors.Join(writeErr, syncErr, closeErr); err != nil {
+		return Report{}, err
 	}
-	if syncErr != nil {
-		return syncErr
+	if report, err = writeStores(filepath.Join(home, "data"), in); err != nil {
+		return Report{}, err
 	}
-	if closeErr != nil {
-		return closeErr
+	if err = flushTree(home); err != nil {
+		return Report{}, err
 	}
-	data := filepath.Join(home, "data")
+	if err = verifyReopened(home, in); err != nil {
+		return Report{}, err
+	}
+	// Read-only reopen can still touch native diagnostics and lock files.
+	if err = flushTree(home); err != nil {
+		return Report{}, err
+	}
+	if err = syncDir(filepath.Dir(home)); err != nil {
+		return Report{}, err
+	}
+	return report, nil
+}
+
+// writeStores saves every window block and commit through stock SaveBlock, the historical
+// validator and params records, a committed-evidence marker per evidence item without
+// validating it again (DATA-5.4-3), and the post-s state through stock Bootstrap.
+func writeStores(data string, in *stockInput) (Report, error) {
 	// Native consensus fsyncs each live commit. Here every row belongs to a fresh,
 	// unpublished image: a crash discards it. Use the same stock block/state APIs and
 	// enforce file and directory durability for the closed image as a whole.
 	options := &opt.Options{NoSync: true, ErrorIfExist: true}
 	stateDB, err := dbm.NewGoLevelDBWithOpts("state", data, options)
 	if err != nil {
-		return err
+		return Report{}, err
 	}
 	defer stateDB.Close()
 	blockDB, err := dbm.NewGoLevelDBWithOpts("blockstore", data, options)
 	if err != nil {
-		return err
+		return Report{}, err
 	}
 	defer blockDB.Close()
 	evidenceDB, err := dbm.NewGoLevelDBWithOpts("evidence", data, options)
 	if err != nil {
-		return err
+		return Report{}, err
 	}
 	defer evidenceDB.Close()
 	store := sm.NewStore(stateDB, sm.StoreOptions{})
@@ -168,33 +263,37 @@ func installFresh(home string, v *Verified, flushTree func(string) error) (err e
 	// The public Bootstrap API has no historical-record-only operation. Use the
 	// pinned public protobuf records and stock key formats, with bounded metadata pointers.
 	// Reopening through LoadValidatorsFast/LoadConsensusParams checks compatibility.
-	initial, err := sm.MakeGenesisState(v.genesis)
+	initial, err := sm.MakeGenesisState(in.genesis)
 	if err != nil {
-		return err
+		return Report{}, err
 	}
 	initial.Version.Consensus.App = 1
 	temporary := sm.NewStore(dbm.NewMemDB(), sm.StoreOptions{})
 	if err = temporary.Bootstrap(initial); err != nil {
-		return err
+		return Report{}, err
 	}
 	pool, err := evidence.NewPool(evidenceDB, temporary, blocks)
 	if err != nil {
-		return err
+		return Report{}, err
 	}
+	params := in.genesis.ConsensusParams.ToProto()
+	var first int64
+	var last *blockRecord
 	var lastEvidence types.Evidence
 	var previousHash []byte
 	var changed int64
-	err = v.walk(func(record *blockRecord) error {
+	err = in.walk(func(record *blockRecord) error {
 		b := record.block
-		parts, e := b.MakePartSet(types.BlockPartSizeBytes)
-		if e != nil {
-			return e
+		if last == nil {
+			first = b.Height
 		}
+		last = record
 		// Stock SaveBlock(h) writes C:h-1 and SC:h. Like a stock node at state s,
 		// the terminal commit is only SC:s; C:s appears when s+1 is saved.
-		blocks.SaveBlock(b, parts, record.commit)
+		blocks.SaveBlock(b, record.parts, record.commit)
 		batch := stateDB.NewBatch()
 		defer batch.Close()
+		var e error
 		hash := record.set.Hash()
 		if !bytes.Equal(hash, previousHash) {
 			changed = b.Height
@@ -214,9 +313,9 @@ func installFresh(home string, v *Verified, flushTree func(string) error) (err e
 		if e = batch.Set([]byte(fmt.Sprintf("validatorsKey:%d", b.Height)), raw); e != nil {
 			return e
 		}
-		cp := statepb.ConsensusParamsInfo{LastHeightChanged: v.report.FirstHeight}
-		if b.Height == v.report.FirstHeight {
-			cp.ConsensusParams = v.state.ConsensusParams.ToProto()
+		cp := statepb.ConsensusParamsInfo{LastHeightChanged: first}
+		if b.Height == first {
+			cp.ConsensusParams = params
 		}
 		raw, e = cp.Marshal()
 		if e != nil {
@@ -228,8 +327,8 @@ func installFresh(home string, v *Verified, flushTree func(string) error) (err e
 		if e = batch.WriteSync(); e != nil {
 			return e
 		}
-		// Public Update marks authenticated evidence without historical verification.
-		post := v.state.Copy()
+		// Public Update marks committed evidence without historical verification.
+		post := initial.Copy()
 		post.LastBlockHeight = b.Height
 		post.LastBlockTime = b.Time
 		pool.Update(post, b.Evidence.Evidence)
@@ -239,65 +338,35 @@ func installFresh(home string, v *Verified, flushTree func(string) error) (err e
 		return nil
 	})
 	if err != nil {
-		return err
+		return Report{}, err
+	}
+	state, err := in.state(last)
+	if err != nil {
+		return Report{}, err
 	}
 	if lastEvidence != nil {
 		key, raw, e := evidenceMarker(lastEvidence)
 		if e != nil {
-			return e
+			return Report{}, e
 		}
 		if e = evidenceDB.SetSync(key, raw); e != nil {
-			return e
+			return Report{}, e
 		}
 	}
-	if err = store.Bootstrap(v.state); err != nil {
-		return err
+	if err = store.Bootstrap(state); err != nil {
+		return Report{}, err
 	}
-	if err = store.SetOfflineStateSyncHeight(v.state.LastBlockHeight); err != nil {
-		return err
+	if err = store.SetOfflineStateSyncHeight(state.LastBlockHeight); err != nil {
+		return Report{}, err
 	}
-	if err = stateDB.Close(); err != nil {
-		return err
+	if err = errors.Join(stateDB.Close(), blockDB.Close(), evidenceDB.Close()); err != nil {
+		return Report{}, err
 	}
-	if err = blockDB.Close(); err != nil {
-		return err
-	}
-	if err = evidenceDB.Close(); err != nil {
-		return err
-	}
-	if err = flushTree(home); err != nil {
-		return err
-	}
-	if err = verifyReopened(data, v); err != nil {
-		return err
-	}
-	// Read-only reopen can still touch native diagnostics and lock files.
-	if err = flushTree(home); err != nil {
-		return err
-	}
-	return syncDir(filepath.Dir(home))
+	id := state.LastBlockID
+	return Report{FirstHeight: first, LastHeight: state.LastBlockHeight, BlockID: BlockID{Hash: hexBytes(id.Hash), Parts: PartSet{Total: id.PartSetHeader.Total, Hash: hexBytes(id.PartSetHeader.Hash)}}}, nil
 }
+
 func openReadOnly(home, name string) (*dbm.GoLevelDB, error) {
-	path := filepath.Join(home, "data", name+".db")
-	if err := checkParents(filepath.Join(path, "child")); err != nil {
-		return nil, err
-	}
-	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() && !info.Mode().IsRegular() {
-			return errors.New("aliased database entry")
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	info, err := os.Lstat(filepath.Join(path, "LOCK"))
-	if err != nil || !info.Mode().IsRegular() {
-		return nil, errors.New("missing database lock inode")
-	}
 	return dbm.NewGoLevelDBWithOpts(name, filepath.Join(home, "data"), &opt.Options{ReadOnly: true, ErrorIfMissing: true})
 }
 
@@ -312,8 +381,11 @@ func historicalValidatorLookup(store sm.Store) (func(int64) (*types.ValidatorSet
 	}
 	return fast.LoadValidatorsFast, nil
 }
-func verifyReopened(data string, v *Verified) (err error) {
-	home := filepath.Dir(data)
+
+// verifyReopened reads the closed stores back through stock APIs and compares them with a
+// second decode of the stock dir. It re-verifies no commit: the stored bytes must equal the
+// input bytes that authenticate_import already verified.
+func verifyReopened(home string, in *stockInput) (err error) {
 	sd, e := openReadOnly(home, "state")
 	if e != nil {
 		return e
@@ -338,11 +410,10 @@ func verifyReopened(data string, v *Verified) (err error) {
 	if e != nil {
 		return e
 	}
-	if !bytes.Equal(s.Bytes(), v.state.Bytes()) {
-		return errors.New("reopened stock state mismatch")
-	}
 	blocks := bs.NewBlockStore(bd)
-	if e = v.walk(func(record *blockRecord) error {
+	var last *blockRecord
+	if e = in.walk(func(record *blockRecord) error {
+		last = record
 		b := record.block
 		read := blocks.LoadBlock(b.Height)
 		if read == nil || !bytes.Equal(read.Hash(), b.Hash()) {
@@ -350,7 +421,7 @@ func verifyReopened(data string, v *Verified) (err error) {
 		}
 		key := "C"
 		var storedCommit *types.Commit
-		if b.Height == v.state.LastBlockHeight {
+		if b.Height == in.height {
 			// A stock node has no C:s before s+1, so stock evidence lookups at
 			// height s fail on both nodes alike.
 			if blocks.LoadBlockCommit(b.Height) != nil {
@@ -364,19 +435,16 @@ func verifyReopened(data string, v *Verified) (err error) {
 		if storedCommit == nil {
 			return fmt.Errorf("missing reopened %s:%d", key, b.Height)
 		}
-		if e = record.set.VerifyCommit(v.genesis.ChainID, record.id, b.Height, storedCommit); e != nil {
-			return fmt.Errorf("invalid reopened %s:%d: %w", key, b.Height, e)
-		}
 		storedBytes, e := storedCommit.ToProto().Marshal()
 		if e != nil {
 			return e
 		}
-		expectedBytes, e := record.commit.ToProto().Marshal()
+		inputBytes, e := record.commit.ToProto().Marshal()
 		if e != nil {
 			return e
 		}
-		if !bytes.Equal(storedBytes, expectedBytes) {
-			return errors.New("reopened actual commit representation mismatch")
+		if !bytes.Equal(storedBytes, inputBytes) {
+			return fmt.Errorf("reopened %s:%d differs from the input commit", key, b.Height)
 		}
 		vals, e := loadValidators(b.Height)
 		if e != nil || !bytes.Equal(vals.Hash(), record.set.Hash()) {
@@ -403,161 +471,16 @@ func verifyReopened(data string, v *Verified) (err error) {
 	}); e != nil {
 		return e
 	}
-	c := blocks.LoadSeenCommit(s.LastBlockHeight)
-	if c == nil || !c.BlockID.Equals(s.LastBlockID) {
-		return errors.New("missing reopened terminal seen commit")
-	}
-	return nil
-}
-
-// Export reads an offline stock home without writing or creating lock files.
-// Explicit bounds and terminal preimage are required; the caller authenticates the result.
-func Export(home string, first, last int64, preimage []byte) (*Package, error) {
-	var p *Package
-	err := exportSource(home, first, last, preimage, func(meta *Package) error { p = meta; return nil }, func(item Block) error { p.Blocks = append(p.Blocks, item); return nil }, MaxPackageBytes)
-	return p, err
-}
-
-// ExportTo streams the requested complete window from read-only stock stores.
-// It never reads a block before first or after last, nor an external signer store.
-func ExportTo(w io.Writer, home string, first, last int64, preimage []byte) error {
-	firstItem := true
-	err := exportSource(home, first, last, preimage, func(p *Package) error {
-		prefix, e := json.Marshal(struct {
-			Schema  uint32          `json:"schema"`
-			Genesis json.RawMessage `json:"genesis"`
-		}{p.Schema, p.Genesis})
-		if e != nil {
-			return e
-		}
-		if _, e = w.Write(prefix[:len(prefix)-1]); e != nil {
-			return e
-		}
-		_, e = io.WriteString(w, `,"blocks":[`)
-		return e
-	}, func(item Block) error {
-		raw, e := json.Marshal(item)
-		if e != nil {
-			return e
-		}
-		if !firstItem {
-			if _, e = io.WriteString(w, ","); e != nil {
-				return e
-			}
-		}
-		firstItem = false
-		_, e = w.Write(raw)
-		return e
-	}, MaxStreamPackageBytes)
-	if err != nil {
-		return err
-	}
-	suffix, err := json.Marshal(hexBytes(preimage))
-	if err != nil {
-		return err
-	}
-	if _, err = io.WriteString(w, `],"validator_state":`); err != nil {
-		return err
-	}
-	if _, err = w.Write(suffix); err != nil {
-		return err
-	}
-	_, err = io.WriteString(w, "}\n")
-	return err
-}
-func exportSource(home string, first, last int64, preimage []byte, init func(*Package) error, visit func(Block) error, limit int64) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("corrupt stock export source: %v", r)
-		}
-	}()
-	if first < 1 || last < first || last > int64(^uint64(0)>>1)-2 {
-		return errors.New("invalid export range")
-	}
-	if height, _, _, e := DecodeValState(preimage); e != nil || height != last {
-		return errors.New("terminal export preimage height mismatch")
-	}
-	if err = checkParents(filepath.Join(home, "child")); err != nil {
-		return err
-	}
-	genesisPath := filepath.Join(home, "config", "genesis.json")
-	if err = checkParents(genesisPath); err != nil {
-		return err
-	}
-	info, err := os.Lstat(genesisPath)
-	if err != nil || !info.Mode().IsRegular() {
-		return errors.New("missing or aliased original genesis")
-	}
-	if info.Size() > maxMetadataJSON {
-		return errors.New("oversized original genesis")
-	}
-	raw, err := os.ReadFile(genesisPath)
-	if err != nil {
-		return err
-	}
-	sd, err := openReadOnly(home, "state")
-	if err != nil {
-		return err
-	}
-	defer sd.Close()
-	bd, err := openReadOnly(home, "blockstore")
-	if err != nil {
-		return err
-	}
-	defer bd.Close()
-	store := sm.NewStore(sd, sm.StoreOptions{})
-	loadValidators, e := historicalValidatorLookup(store)
+	want, e := in.state(last)
 	if e != nil {
 		return e
 	}
-	blocks := bs.NewBlockStore(bd)
-	p := &Package{Schema: 1, Genesis: raw, ValidatorState: hexBytes(preimage), Blocks: []Block{}}
-	if err = init(p); err != nil {
-		return err
+	if !bytes.Equal(s.Bytes(), want.Bytes()) {
+		return errors.New("reopened stock state mismatch")
 	}
-	var size int64
-	for h := first; h <= last; h++ {
-		b := blocks.LoadBlock(h)
-		if b == nil {
-			return fmt.Errorf("missing window block %d", h)
-		}
-		var c *types.Commit
-		if h < blocks.Height() {
-			c = blocks.LoadBlockCommit(h)
-		}
-		if c == nil {
-			c = blocks.LoadSeenCommit(h)
-		}
-		if c == nil {
-			return fmt.Errorf("missing commit %d", h)
-		}
-		vals, e := loadValidators(h)
-		if e != nil {
-			return e
-		}
-		pb, e := b.ToProto()
-		if e != nil {
-			return e
-		}
-		bb, e := pb.Marshal()
-		if e != nil {
-			return e
-		}
-		cb, e := c.ToProto().Marshal()
-		if e != nil {
-			return e
-		}
-		size += int64(2 * (len(bb) + len(cb)))
-		if size > limit {
-			return errors.New("export exceeds package resource profile")
-		}
-		item := Block{Block: hexBytes(bb), Commit: hexBytes(cb), Validators: []Validator{}}
-		for _, v := range vals.Validators {
-			item.Validators = append(item.Validators, Validator{Key: hexBytes(v.PubKey.Bytes()), Power: v.VotingPower})
-		}
-		if err = visit(item); err != nil {
-			return err
-		}
+	c := blocks.LoadSeenCommit(s.LastBlockHeight)
+	if c == nil || !c.BlockID.Equals(s.LastBlockID) {
+		return errors.New("missing reopened terminal seen commit")
 	}
 	return nil
 }
