@@ -7919,6 +7919,45 @@
         "LIVE_EN-a0a126e4b8ea2b61"
       ],
       "scope": "Derived conditional decoded property: the L1 half of H4's recovery path (design 4.3). From a reachable, initialized state satisfying LiveAt, under RecoveryPremises, a RecoveryTrace (no rollback; one plain recovery with no exclusions, no FI blanking and no upgrade) advances L1 to the window block R; on a switching network it writes the start with setOrigin, rewrites a start that differs from the final Unzen header with correctStart (only before any landing) and proves the final Unzen proposal with unzenProve unless the lane is finalized; it registers an image implementing every selected ruleset, selects ProofComplete's verifier version, recovers at R with the current generation, checkpoint and nonce, keeping the schedule (rules 0) or installing ruleset next+1, and advances L1 to R+2. The reached state's facts (Recovery.Prepared) include a hash-bound header of the current checkpoint whose timestamp is at least K+1 seconds before R's, the first-landing fence, the snapshots at R and R+1 closed, and a live committee elected at R. The segment, certificate and landing are proved separately; DAO transaction refinement is outside the model."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.Recovery.segment",
+      "module": "EtnaProofs.CurrentRecoverySegment",
+      "role": "property",
+      "type": "∀ {env : Etna.Design.Current.Protocol.Environment} {x : Etna.Design.Current.Protocol.World}\n  {p : Etna.Design.Current.Protocol.Header} {R : Nat} {keys : List Etna.Design.Hash} {image : Etna.Design.Hash},\n  (∀ (id : Nat) (d : Etna.Design.Current.Blocks.Definition), env.catalogue id = Option.some d → d.bytes.hashBytes = env.txHash) →\n    Etna.Design.Current.Protocol.Recovery.SegmentContext env x p R keys image →\n      ∃ bs,\n        bs.length = x.inbox.gridK ∧\n          Etna.Design.Current.Blocks.Chain\n              (Etna.Design.Current.Protocol.policy env x (List.map Etna.Design.Current.Blocks.Block.header bs) (R + 1))\n              p bs ∧\n            (Etna.Design.Current.Blocks.terminal p bs).height = p.height + x.inbox.gridK ∧\n              x.inbox.head ≤ (Etna.Design.Current.Blocks.terminal p bs).cursor ∧\n                (Etna.Design.Current.Blocks.terminal p bs).cursor ≤ x.inbox.tail ∧\n                  (Etna.Design.Current.Blocks.terminal p bs).cursor - x.inbox.head ≤ x.inbox.gridK ∧\n                    Etna.Design.Current.Archive.Linked env.headerParent p\n                        (List.map Etna.Design.Current.Blocks.Block.header bs) ∧\n                      ∀ (b : Etna.Design.Current.Protocol.Block),\n                        b ∈ bs →\n                          Etna.Design.Current.Protocol.HashBound env (Etna.Design.Current.Blocks.Block.header b) ∧\n                            env.headerParent (Etna.Design.Current.Blocks.Block.header b).elHash = b.body.parentHash ∧\n                              b.body.blockBytes ≤ 124000 ∧\n                                (Etna.Design.Current.Blocks.Block.header b).anchor.number = R ∧\n                                  Etna.Design.Current.Blocks.selectedRules b ∈ env.imageRules image",
+      "assumptions": [
+        "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
+      ],
+      "bridge_level": "spec-proved",
+      "sources": [
+        "LIVE_EN-66df2264f7aa82a1",
+        "LIVE_EN-f5b810144f31f649",
+        "LIVE_EN-2fc53b9651494399",
+        "LIVE_EN-c8ae3732c0a10efe",
+        "LIVE_EN-3b812626c096f9f5",
+        "LIVE_EN-a80aee38ffc500c7",
+        "LIVE_EN-d362a17243658f1b",
+        "LIVE_EN-ece0c98a6dac43c2",
+        "LIVE_EN-8d1801078c3862d8",
+        "LIVE_EN-97a85deb922765e1",
+        "LIVE_EN-ced8c7aa78799681",
+        "LIVE_EN-7bc8d5003506136e",
+        "LIVE_EN-287b470870b50710",
+        "LIVE_EN-1e8d3744485e2a29",
+        "LIVE_EN-29468a34f68ca4c6",
+        "LIVE_EN-af33164a1858c781",
+        "LIVE_EN-b8d78ca3f1f77e84",
+        "LIVE_EN-d8189cd72ebd5832",
+        "LIVE_EN-2e7fa6e510a4d3cb",
+        "LIVE_EN-136c3f345da4a399",
+        "LIVE_EN-6f5b8a710969bc1c",
+        "LIVE_EN-a0d7e057533c65e9",
+        "LIVE_EN-7412e58b89f2e1dd",
+        "LIVE_EN-ece14be2916f0686",
+        "LIVE_EN-e47ed8b1032eaf71",
+        "LIVE_EN-3a4063c2936a95e5"
+      ],
+      "scope": "Derived conditional decoded property: the segment step of H4's recovery path (design 4.3, step 5). Given SegmentContext for the closed certificate world x at reference R+1 (the generation's origin is the batch parent p at L1 block R; x's history holds the closed snapshot at R; parameters are valid; the selected rulesets are live and implemented by image; CommitteeLive at R; every queued entry has hash-matching raw bytes) and the catalogue's byte hash, there are K blocks from p that form a Blocks.Chain under policy env x (their own headers) (R+1). Each block anchors to the snapshot at R (the first carries the anchor witness, later blocks inherit it; at most K-1 seconds of anchor age; back-pressure holds since K <= U); its header has height parent+1, parentHash, the timestamp max(parent+1, BFT time 0, anchor time), fee share 100, the anchor's root as parent beacon root and the active committee hashes; it commits in round 0 with distinct online members holding more than 2/3 of the power of the committee elected at R, which is both the recovery committee (target floor(c/L)) and every normal rotation inside the segment (snapshot max(D(t)'s anchor, origin) = R); a switch-height block carries the normal record proved under its anchor's root; its schedule is the anchored snapshot's, unstopped; the forced-inclusion head is included at position zero when canonical and executable, skipped when due and non-canonical or its singleton trial completes empty, otherwise left in place. The terminal is at height p+K with an FI cursor between the head and the tail, at most K past the head; the chain is physically linked from p and every block is hash-bound, anchored at R, within the size bound and selects a ruleset image implements. EL execution, payload and singleton outcomes come from ExecutionLive (existential headers), signatures from CommitteeLive; the block size field is set, not computed from content; L1 finality and proposer fetching are outside the model. The certificate and landing are proved separately."
     }
   ]
 }

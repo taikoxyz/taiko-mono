@@ -1,11 +1,14 @@
 import EtnaStatements
 import EtnaProofs.CurrentRecoveryPath
+import EtnaProofs.CurrentRecoverySegment
 
 /-! H4 statement surface, pinned before the review-surface lock covers it: which calls
 `RecoveryCall` admits (no rollback, only plain recoveries, every other call), the trace class
 `RecoveryTrace`, the conclusion `RecoverableAt`, the claim `Recoverability`, and the field
 names, types and order of `LiveAt` and `RecoveryPremises`. Then the L1 half of the path:
-`Recovery.prepare`'s type and the names and types of its handoff record `Recovery.Prepared`. -/
+`Recovery.prepare`'s type and the names and types of its handoff record `Recovery.Prepared`. Then
+the K-block segment: `Recovery.segment`'s type and the names and types of its input record
+`Recovery.SegmentContext`. -/
 namespace Etna.CurrentRecoveryRegression
 open Etna.Design Etna.Design.Current Etna.Design.Current.Protocol Etna.Statements.Current
 
@@ -110,5 +113,48 @@ example (env : Environment) (registry : RegistryMachine.State) (w u : World) (p 
     Recovery.Prepared env registry w u p R keys image :=
   ⟨x.path,x.reachable,x.number,x.progress,x.recovered,x.closed,x.parent,x.parentTime,x.grid,x.fence,x.stop,
     x.rules,x.proofs,x.committee,x.initialized,x.entered,x.params,x.queue⟩
+
+-- The K-block segment after recovery (`Recovery.segment`) over the closed certificate world.
+-- Pin `SegmentContext`'s exact fields (the landing proof builds it field by field): types, then names.
+example (env : Environment) (x : World) (p : Header) (R : Nat) (keys : List Hash) (image : Hash)
+    (origin : x.inbox.origin.height = p.height ∧ x.inbox.origin.l1Block = R ∧ 0 < x.inbox.generation)
+    (parent : Custody.HeaderOf x.inbox.checkpoint p ∧ HashBound env p ∧ p.cursor = x.inbox.head)
+    (closed : ∃ s ∈ x.history, s.number = R ∧ s.inbox = x.inbox ∧ s.schedule = x.schedule ∧
+      s.queue = x.queue ∧ s.registryHistory = x.registry.registry.history ∧ s.start = x.start)
+    (numbers : x.history.map Snapshot.number = List.range (R+2))
+    (timed : ∀ s ∈ x.history, s.timestamp = env.time s.number)
+    (time : p.timestamp+x.inbox.gridK+1 ≤ env.time R ∧ env.time R+8 < limit256 ∧ R+2 < limit48)
+    (params : (parametersOf x.inbox).valid = true ∧ x.inbox.committeeConfig = env.configHash
+      (Encoding.configWords x.inbox.domain.l2ChainId x.inbox.domain.registry x.inbox.configuration.unit
+        x.inbox.configuration.minimum x.inbox.configuration.nMax x.inbox.configuration.unsettled))
+    (grid : ∃ start, x.start = some start ∧ Start.onGrid start.height x.inbox.gridK p.height = true ∧
+      p.height+x.inbox.gridK < limit48)
+    (stop : x.schedule.stopTime = 0) (fits : Rules.fits x.schedule)
+    (rules : ∀ t, RulesetLive env (Rules.select x.schedule t) ∧ Rules.select x.schedule t ∈ env.imageRules image)
+    (committee : CommitteeLive env x R keys)
+    (queue : x.inbox.head ≤ x.inbox.tail ∧ (∀ i, x.inbox.head ≤ i → i < x.inbox.tail → ∃ e, (i,e) ∈ x.queue) ∧
+      ∀ i e, (i,e) ∈ x.queue → ∃ raw : Blocks.Bytes, env.txHash raw = e.txHash ∧ raw.length ≤ 8192) :
+    Recovery.SegmentContext env x p R keys image :=
+  { origin := origin, parent := parent, closed := closed, numbers := numbers, timed := timed, time := time,
+    params := params, grid := grid, stop := stop, fits := fits, rules := rules, committee := committee,
+    queue := queue }
+example (env : Environment) (x : World) (p : Header) (R : Nat) (keys : List Hash) (image : Hash)
+    (c : Recovery.SegmentContext env x p R keys image) : Recovery.SegmentContext env x p R keys image :=
+  ⟨c.origin,c.parent,c.closed,c.numbers,c.timed,c.time,c.params,c.grid,c.stop,c.fits,c.rules,c.committee,c.queue⟩
+
+-- `Recovery.segment`'s type.
+example : ∀ {env : Environment} {x : World} {p : Header} {R : Nat} {keys : List Hash} {image : Hash},
+    (∀ id d, env.catalogue id = some d → d.bytes.hashBytes = env.txHash) →
+    Recovery.SegmentContext env x p R keys image →
+    ∃ bs : List Block, bs.length = x.inbox.gridK ∧
+      Blocks.Chain (policy env x (bs.map Blocks.Block.header) (R+1)) p bs ∧
+      (Blocks.terminal p bs).height = p.height+x.inbox.gridK ∧
+      x.inbox.head ≤ (Blocks.terminal p bs).cursor ∧ (Blocks.terminal p bs).cursor ≤ x.inbox.tail ∧
+      (Blocks.terminal p bs).cursor-x.inbox.head ≤ x.inbox.gridK ∧
+      Archive.Linked env.headerParent p (bs.map Blocks.Block.header) ∧
+      ∀ b ∈ bs, HashBound env b.header ∧ env.headerParent b.header.elHash = b.body.parentHash ∧
+        b.body.blockBytes ≤ 124000 ∧ b.header.anchor.number = R ∧
+        Blocks.selectedRules b ∈ env.imageRules image :=
+  @Etna.Design.Current.Protocol.Recovery.segment
 
 end Etna.CurrentRecoveryRegression
