@@ -14,11 +14,19 @@ use std::collections::BTreeMap;
 
 /// Own-L1 authentication, bounded reconstruction and native block verification.
 mod authenticate;
-/// Evidence expiry and exact minimal suffix proof.
+/// Evidence expiry and complete suffix proof.
 mod window;
 
 pub use authenticate::{authenticate_import, select_export};
 pub use window::evidence_expired;
+
+/// Oldest canonical EL header an import at `height` installs: the lower of the 5.3 BLOCKHASH
+/// context from s-255 and DATA-5.4-4's U ancestry fence from max(o, s-U+1). It keeps s-U: the
+/// inherited post-s anchor can still name that boundary, even though the next block must
+/// advance its own checkpoint to at least s-U+1. Subtraction saturates at zero.
+pub fn header_floor(origin: u64, height: u64, unsettled_limit: u64) -> u64 {
+    height.saturating_sub(255).min(origin.max(height.saturating_sub(unsettled_limit)))
+}
 
 /// Import failures keep publisher faults distinct from authenticated contradictions.
 #[derive(Clone, Debug, thiserror::Error, Serialize, Deserialize, PartialEq, Eq)]
@@ -53,10 +61,9 @@ pub struct ImportPackage {
     pub boundary_header: Option<tendermint::block::Header>,
     /// Exact appendix-A preimage; empty only for fixed-origin initialization.
     pub validator_state: Bytes,
-    /// Ascending linked EL prefix from min(w, s-255, max(o,s-U)) through w, with subtraction
-    /// saturated at zero. Empty is allowed when that range is only the separately supplied
-    /// origin header. The extra s-U header permits proving the inherited anchor before terminal
-    /// metadata is seen; output trims an unnecessary extra boundary. No execution state or
+    /// Ascending linked EL prefix from min(w, [`header_floor`]) through w. Empty is allowed
+    /// when that range is only the separately supplied origin header. The s-U header permits
+    /// proving the inherited anchor before terminal metadata is seen. No execution state or
     /// trusted cache is accepted here.
     pub execution_headers: Vec<Header>,
 }
@@ -119,7 +126,7 @@ pub struct VerifiedImport {
     terminal_time: Option<tendermint::Time>,
     /// First retained consensus height, absent at the fixed origin.
     first_height: Option<u64>,
-    /// Parent-linked canonical EL installation range, in ascending order.
+    /// Parent-linked canonical EL installation range from [`header_floor`], in ascending order.
     execution_headers: Vec<Header>,
     /// Recovery evidence that must be persisted before AppState.
     recovery_bootstrap: Option<abci::recovery::RecoveryBootstrap>,

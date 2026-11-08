@@ -4,7 +4,7 @@ use super::*;
 use alloy_consensus::Header;
 use alloy_provider::Provider;
 use lander::{
-    checkpoint_import::{ImportPackage, WindowBlock, evidence_expired},
+    checkpoint_import::{ImportPackage, WindowBlock, evidence_expired, header_floor},
     comet::{CometSource, HttpCometSource},
 };
 use prost::Message;
@@ -159,9 +159,7 @@ pub async fn run(profile: &Path, height: u64, out: &Path, archived: Option<&Path
     }
     frames.sync_all().map_err(io)?;
     let mut prefix = Vec::new();
-    let start = w.min(
-        height.saturating_sub(255).min(origin.max(height.saturating_sub(params.unsettled_limit))),
-    );
+    let start = w.min(header_floor(origin, height, params.unsettled_limit));
     for n in start..=w {
         prefix.push(header(&el, n).await?)
     }

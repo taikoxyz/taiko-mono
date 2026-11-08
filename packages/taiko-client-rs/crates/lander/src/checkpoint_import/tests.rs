@@ -286,7 +286,7 @@ fn fast_blocks_require_more_than_height_limit_and_boundary_equality_is_not_expir
         boundary.height = w.try_into().unwrap();
         boundary.time =
             tendermint::Time::from_unix_timestamp((w * seconds_per_block) as i64, 0).unwrap();
-        window::verify_minimal_window(
+        window::verify_complete_window(
             w,
             &heights,
             Some(&boundary),
@@ -300,7 +300,7 @@ fn fast_blocks_require_more_than_height_limit_and_boundary_equality_is_not_expir
         )
         .unwrap();
         assert!(matches!(
-            window::verify_minimal_window(
+            window::verify_complete_window(
                 w,
                 &heights,
                 None,
@@ -318,7 +318,7 @@ fn fast_blocks_require_more_than_height_limit_and_boundary_equality_is_not_expir
             tendermint::Time::from_unix_timestamp(200_000 * seconds_per_block as i64 - 172_800, 0)
                 .unwrap();
         assert!(matches!(
-            window::verify_minimal_window(
+            window::verify_complete_window(
                 w,
                 &heights,
                 Some(&boundary),
@@ -784,43 +784,46 @@ async fn matching_current_set_contradicting_terminal_next_hash_halts() {
 }
 
 #[test]
-fn shortest_suffix_extends_to_derivation_parent_or_latest_anchor() {
+fn header_floor_covers_blockhash_and_the_inherited_fence() {
+    assert_eq!(header_floor(0, 900, 300), 600); // s-U: q may still be s-U at s
+    assert_eq!(header_floor(0, 1000, 100), 745); // s-255 (BLOCKHASH) dominates
+    assert_eq!(header_floor(600, 900, 3600), 600); // origin bound
+    assert_eq!(header_floor(700, 900, 300), 645); // BLOCKHASH context may precede o (5.3)
+    assert_eq!(header_floor(0, 6, 3600), 0);
+}
+
+#[test]
+fn window_must_reach_required_heights_and_may_be_longer() {
     let schedule = Schedule { l1_0: 10, genesis_cutoff: 1, epoch_len: 300_000 };
     let fx = Fixture::new(0, 1);
-    for (w, latest_anchor) in [(299_997u64, 450_000u64), (249_999, 250_000)] {
-        let heights = (w + 1..=500_000)
-            .map(|h| (h, tendermint::Time::from_unix_timestamp((h * 4) as i64, 0).unwrap()))
-            .collect::<Vec<_>>();
+    let time = |h: u64| tendermint::Time::from_unix_timestamp((h * 4) as i64, 0).unwrap();
+    // The window (first - 1, s] as (height, time) pairs, starting at `first`.
+    let heights_from = |first: u64| (first..=500_000).map(|h| (h, time(h))).collect::<Vec<_>>();
+    let boundary_at = |w: u64| {
         let mut boundary = fx.blocks[&1].block.header.clone();
         boundary.height = w.try_into().unwrap();
-        boundary.time = tendermint::Time::from_unix_timestamp((w * 4) as i64, 0).unwrap();
-        window::verify_minimal_window(
-            w,
-            &heights,
-            Some(&boundary),
-            window::WindowContext {
-                origin: 0,
-                terminal: 500_000,
-                schedule: &schedule,
-                future: &[1, 1],
-                latest_anchor,
-            },
-        )
-        .unwrap();
-        boundary.height = (w + 1).try_into().unwrap();
-        boundary.time = heights[0].1;
+        boundary.time = time(w);
+        boundary
+    };
+    for (w, latest_anchor) in [(299_997u64, 450_000u64), (249_999, 250_000)] {
+        let ctx = || window::WindowContext {
+            origin: 0,
+            terminal: 500_000,
+            schedule: &schedule,
+            future: &[1, 1],
+            latest_anchor,
+        };
+        window::verify_complete_window(w, &heights_from(w + 1), Some(&boundary_at(w)), ctx())
+            .unwrap();
+        // ACC 7.5 rejects only a shorter window: one more leading block is still complete.
+        window::verify_complete_window(w - 1, &heights_from(w), Some(&boundary_at(w - 1)), ctx())
+            .unwrap();
         assert!(matches!(
-            window::verify_minimal_window(
+            window::verify_complete_window(
                 w + 1,
-                &heights[1..],
-                Some(&boundary),
-                window::WindowContext {
-                    origin: 0,
-                    terminal: 500_000,
-                    schedule: &schedule,
-                    future: &[1, 1],
-                    latest_anchor
-                }
+                &heights_from(w + 2),
+                Some(&boundary_at(w + 1)),
+                ctx()
             ),
             Err(ImportError::Unavailable(_))
         ));

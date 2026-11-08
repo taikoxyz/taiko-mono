@@ -15,9 +15,11 @@ pub fn evidence_expired(
             .is_ok_and(|age| age > std::time::Duration::from_secs(172_800))
 }
 
-/// Prove completeness with authenticated w time, then prove no unnecessary first block remains.
+/// Prove the window (w, s] holds every height DATA-5.4-2 requires, using the authenticated time
+/// at w. ACCEPTANCE 7.5 rejects only a shorter window, so a longer one is accepted: the caller
+/// still checks w >= o, and evidence at w must still be expired.
 /// Only timestamps and heights are retained; no older block/set/commit is ever requested.
-pub(super) fn verify_minimal_window(
+pub(super) fn verify_complete_window(
     w: u64,
     heights: &[(u64, tendermint::Time)],
     boundary: Option<&tendermint::block::Header>,
@@ -58,13 +60,10 @@ pub(super) fn verify_minimal_window(
     if first <= w {
         return Err(unavailable("window omits required switch/derivation/anchor height"));
     }
-    if first != w + 1 {
-        return Err(candidate("window is not the shortest complete suffix"));
-    }
     Ok(())
 }
 
-/// Independently authenticated generation/switch facts required to prove the shortest window.
+/// Independently authenticated generation/switch facts required to prove the window complete.
 pub(super) struct WindowContext<'a> {
     /// Fixed generation origin, never a selected checkpoint.
     pub origin: u64,

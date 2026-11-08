@@ -185,7 +185,7 @@ where
     let mut headers = execution_prefix(package, w, landing.height, params)?;
     let mut parent =
         headers.last().cloned().ok_or_else(|| unavailable("missing execution boundary"))?;
-    let keep_from = execution_floor(origin, landing.height, params);
+    let keep_from = header_floor(origin, landing.height, params.unsettled_limit);
     let mut retained = headers.drain(..).filter(|h| h.number >= keep_from).collect::<Vec<_>>();
     let mut previous: Option<PreviousHeight> = None;
     let mut heights = Vec::new();
@@ -370,7 +370,7 @@ where
             ));
         }
     }
-    super::window::verify_minimal_window(
+    super::window::verify_complete_window(
         w,
         &heights,
         package.boundary_header.as_ref(),
@@ -393,12 +393,7 @@ where
     {
         return Err(safety("landed FI cursor contradicts inherited authenticated queue bounds"));
     }
-    let install_from = landing
-        .height
-        .saturating_sub(255)
-        .min(origin.max(landing.height.saturating_sub(params.unsettled_limit - 1)))
-        .min(state.anchor.inbox.last_checkpoint_height);
-    retained.retain(|header| header.number >= install_from);
+    // `retained` already starts at the header floor, which back-pressure keeps at or below q.
     if !retained.iter().any(|h| {
         h.number == state.anchor.inbox.last_checkpoint_height &&
             h.hash_slow() == state.anchor.inbox.last_checkpoint_hash
@@ -664,13 +659,6 @@ fn future_epochs(schedule: &Schedule, origin: u64, height: u64) -> Result<[u64; 
     Ok([get(1)?, get(2)?])
 }
 
-/// Oldest canonical EL header demanded by BLOCKHASH and the app's U ancestry fence.
-/// Include s-U as well: the inherited post-s anchor can still name that boundary, even though
-/// the next block must advance its own checkpoint to at least s-U+1.
-fn execution_floor(origin: u64, height: u64, params: &ChainParams) -> u64 {
-    height.saturating_sub(255).min(origin.max(height.saturating_sub(params.unsettled_limit)))
-}
-
 /// Authenticate the exact ascending EL prefix, terminating at w and linked later by w+1.
 fn execution_prefix(
     package: &ImportPackage,
@@ -679,7 +667,7 @@ fn execution_prefix(
     params: &ChainParams,
 ) -> Result<Vec<Header>, ImportError> {
     let origin = package.origin_header.number;
-    let first = execution_floor(origin, height, params).min(w);
+    let first = header_floor(origin, height, params.unsettled_limit).min(w);
     let mut headers = package.execution_headers.clone();
     if headers.is_empty() && first == origin && w == origin {
         headers.push(package.origin_header.clone());
