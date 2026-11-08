@@ -11,6 +11,8 @@ use test_harness::ContractConsensus;
 const HOME: &str = "/comet-homes/g1";
 const APP: &str = "/fixture/app-g1";
 const PLAN: &str = "/fixture/plan-g1.json";
+/// The transplanted validator directory: `key.json`, `hrs/<chain_id>.json`, `domains/domains.log`.
+const SIGNER: &str = "/fixture/signer";
 
 pub struct LinuxRuntime {
     name: String,
@@ -55,19 +57,18 @@ impl LinuxRuntime {
         this.docker(&["network", "connect", f.l2.docker_network(), &this.name])?;
         this.exec(&["mkdir", "-m", "700", "/fixture"])?;
         this.exec(&["mkdir", "-m", "755", "/comet-homes"])?;
-        // These are stopped, unenrolled legacy inputs, copied unchanged before any enrollment.
-        // This fixture transplant is not a production app or signing-state importer.
+        // These are stopped inputs, copied unchanged: the registered key, every chain's HRS and
+        // the domains log move together. This fixture transplant is not a production app or
+        // signing-state importer.
         let signer = f.signer_storage.path().join("0");
         ensure!(
-            !signer.join("authority").exists() &&
-                !signer.join("key.json.authority.json").exists() &&
-                !signer.join("state.json.authority.json").exists(),
-            "never transplant an enrolled authority"
+            test_harness::signer_domains_log(&signer).is_file() && signer.join("hrs").is_dir(),
+            "transplant an initialized signer directory"
         );
         for (source, target) in [
             (c.app_dir(0), "/fixture/original-app"),
             (c.comet_home(0), "/fixture/original-comet"),
-            (signer, "/fixture/signer"),
+            (signer, SIGNER),
             (commands.chain.clone(), "/fixture/chain.toml"),
             (commands.key.clone(), "/fixture/account.hex"),
             (package().join("tests/docker/jwt.hex"), "/fixture/jwt.hex"),
@@ -170,8 +171,32 @@ impl LinuxRuntime {
             report["installed"] == true && report["origin_height"] == commands.origin,
             "{report}"
         );
+        // The runbook's signer step: init-state for the new chain_id with the same key, state
+        // directory and domains log (RECOV-8.2-1/8.2-5).
+        let chain = self.chain_id()?;
+        let hrs = format!("{SIGNER}/hrs/{chain}.json");
+        let log = format!("{SIGNER}/domains/domains.log");
+        let key = format!("{SIGNER}/key.json");
+        self.exec(&[
+            "/app/etna-signer",
+            "init-state",
+            "--chain-id",
+            &chain,
+            "--priv-key",
+            &key,
+            "--priv-state",
+            &hrs,
+            "--domains-log",
+            &log,
+        ])?;
         self.exec(&["chown", "-R", "10001:10001", HOME])?;
         Ok(())
+    }
+    /// The installed generation's chain ID, from its genesis.
+    fn chain_id(&self) -> Result<String> {
+        let genesis: abci::GenesisDoc =
+            serde_json::from_slice(&self.read(&format!("{HOME}/config/genesis.json"))?)?;
+        Ok(genesis.chain_id)
     }
     /// The operator's restart inside the runtime (START-10-6): app, supervisor, lander.
     pub async fn start_recovered(
@@ -207,16 +232,13 @@ impl LinuxRuntime {
         })
         .await
         .context("recovered app never listened")??;
-        let genesis: abci::GenesisDoc =
-            serde_json::from_slice(&self.read(&format!("{HOME}/config/genesis.json"))?)?;
         // The supervisor's environment from the one harness definition; the image supplies
         // ETNA_SIGNER_BIN and the Comet UID.
         let env: Vec<(String, String)> = test_harness::supervisor_command(
             Path::new(HOME),
             Path::new(APP),
-            Path::new("/fixture/signer"),
-            &genesis.chain_id,
-            Some((&f.params, 1)),
+            Path::new(SIGNER),
+            &self.chain_id()?,
         )
         .get_envs()
         .filter_map(|(key, value)| Some((key.to_str()?.to_owned(), value?.to_str()?.to_owned())))
@@ -241,8 +263,11 @@ impl LinuxRuntime {
         Ok(RecoveredNode::new(app, supervisor, Some(lander)))
     }
     pub fn assert_uid_boundary(&self) -> Result<()> {
-        self.exec(&["python3", "-c", r#"import os
+        self.exec(&["python3", "-c", r#"import glob,os
 home='/comet-homes/g1'
+# Listed as root: the registered key, every chain's HRS, the domains log and the app store.
+protected=['/fixture/signer/key.json','/fixture/signer/domains/domains.log','/fixture/app-g1']+glob.glob('/fixture/signer/hrs/*.json')
+assert len(protected)==5, protected
 assert os.stat(home).st_uid==10001
 # Check actual stock Comet process identity, including its supplementary groups.
 found=[]
@@ -257,7 +282,7 @@ assert 'Uid:\t10001\t10001\t10001\t10001' in found[0], found
 os.setgroups([]); os.setgid(10001); os.setuid(10001)
 import json
 json.load(open(home+'/config/node_key.json'))
-for path in ['/fixture/signer/key.json','/fixture/signer/state.json','/fixture/app-g1']:
+for path in protected:
  try: open(path,'rb').read(); raise AssertionError('Comet could read '+path)
  except PermissionError: pass
 "#])?;

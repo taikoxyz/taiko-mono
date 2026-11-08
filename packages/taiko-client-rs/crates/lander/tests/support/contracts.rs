@@ -19,7 +19,7 @@ use alloy_eips::{BlockId, eip2718::Encodable2718};
 use alloy_primitives::{Address, B256, Bytes, U256};
 use alloy_provider::{Provider, RootProvider};
 use anyhow::{Context, Result, ensure};
-use std::{path::PathBuf, process::Command};
+use std::process::Command;
 use test_harness::{StandaloneAnvil, StandaloneReth, ValidatorKey, dev_signer, mine_l1_blocks};
 
 sol!(EtnaInboxBootstrap, "../../crates/lander/tests/fixtures/contracts/EtnaInboxBootstrap.json");
@@ -145,30 +145,24 @@ impl ContractFixture {
         )
         .await?;
         let l1_chain_id: U256 = p.raw_request("eth_chainId".into(), ()).await?;
-        let signer_storage =
-            tempfile::Builder::new().prefix("etna-authority-").tempdir_in("/tmp")?;
-        let binary = std::env::var_os("ETNA_SIGNER_BIN").map(PathBuf::from).unwrap_or_else(|| {
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../target/etna-signer/etna-signer")
-        });
+        let signer_storage = tempfile::Builder::new().prefix("etna-signer-").tempdir_in("/tmp")?;
+        let binary = test_harness::signer_binary()?;
         let mut keys = Vec::new();
         let mut entries = Vec::new();
         for i in 0..count {
+            // An operator's bootstrap: the key, then the domains log. Consensus start runs
+            // `init-state` once the genesis chain ID is known.
             let dir = signer_storage.path().join(i.to_string());
             std::fs::create_dir(&dir)?;
             let key_file = dir.join("key.json");
-            let state_file = dir.join("state.json");
-            let generated = Command::new(&binary)
-                .arg("keygen")
-                .arg("--priv-key")
-                .arg(&key_file)
-                .arg("--priv-state")
-                .arg(&state_file)
-                .output()?;
+            let generated =
+                Command::new(&binary).arg("keygen").arg("--priv-key").arg(&key_file).output()?;
             ensure!(
                 generated.status.success(),
                 "explicit keygen failed: {}",
                 String::from_utf8_lossy(&generated.stderr)
             );
+            test_harness::init_signer_domains_log(&dir)?;
             let key = ValidatorKey::from_file(&key_file)?;
             let proof = Command::new(&binary)
                 .arg("pop")

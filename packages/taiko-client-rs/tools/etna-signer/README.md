@@ -7,23 +7,55 @@ Build the standalone helper with Go 1.27.2 using `just signer` from
 
 ## Bootstrap a new validator
 
-Create a private directory outside the Comet home and every Comet mount. Run
-these commands only for a new identity, before registration and genesis creation:
+Keep three private locations outside the Comet home, every Comet mount and the app store:
+the registered key, the HRS state directory and the domains log. Put the domains log on a
+**different volume** from the state directory (its own PVC in Kubernetes): the log is the
+evidence that a state existed, so losing the state volume is detected instead of looking like a
+fresh start. The signer only checks that the two directories differ; separate volumes are the
+operator's duty. Run these commands only for a new identity, before registration and genesis
+creation:
 
 ```sh
 umask 077
-mkdir ./private-validator
-./target/etna-signer/etna-signer keygen \
-  --priv-key ./private-validator/priv_validator_key.json \
-  --priv-state ./private-validator/priv_validator_state.json
+mkdir -p /private/key /private/hrs /private/domains
+./target/etna-signer/etna-signer keygen --priv-key /private/key/priv_validator_key.json
+./target/etna-signer/etna-signer init-domains-log --domains-log /private/domains/domains.log
 ```
 
-Success writes two exclusive, mode-0600, stock FilePV JSON files and prints one
-JSON object with `publicKey` (0x-prefixed compressed 33-byte SEC1 key) and `address`
-(0x-prefixed 20-byte Ethereum consensus address). Either existing output,
-including a symlink, causes failure without replacing it. Parent directories must
-already exist. Bootstrap uses stock OS-random `secp256k1eth` key generation. It
-never exports a private key to stdout.
+`keygen` writes one exclusive, mode-0600, stock FilePV key and prints one JSON object with
+`publicKey` (0x-prefixed compressed 33-byte SEC1 key) and `address` (0x-prefixed 20-byte
+Ethereum consensus address). It writes no HRS state. An existing output, including a symlink,
+causes failure without replacing it. Parent directories must already exist. Bootstrap uses
+stock OS-random `secp256k1eth` key generation. It never exports a private key to stdout.
+
+`init-domains-log` creates the log with only its header line `etna-signer-domains-v1`
+(exclusive create, mode 0600, file and directory fsync); it refuses an existing path or symlink.
+Run it once per key.
+
+Once the genesis is known, and again for every new generation after a governance recovery,
+create that `chain_id`'s HRS state with the signer stopped:
+
+```sh
+./target/etna-signer/etna-signer init-state --chain-id "$ETNA_CHAIN_ID" \
+  --priv-key /private/key/priv_validator_key.json \
+  --priv-state "/private/hrs/$ETNA_CHAIN_ID.json" \
+  --domains-log /private/domains/domains.log
+```
+
+`init-state` checks that the chain ID matches `[A-Za-z0-9_-]{1,50}` (stock `MaxChainIDLen`;
+an Etna chain ID is `etna-<base64url>`), that the state file is named `<chain_id>.json` and that
+the log is in another directory. It takes the key's owner lock and an exclusive lock on the log,
+refuses a chain ID already in the log and an existing state file, then exclusively creates the
+stock unsigned HRS and fsyncs it and its directory, and only then appends `<chain_id>` to the
+log in one write and fsyncs the log and its directory. It reports success only once the log
+line is durable. A full `chain_id` gets exactly one HRS state, which is never reset or rolled
+back (RECOV-8.2-1).
+
+If `init-state` is interrupted after creating the state and before the log line, an unlogged
+state remains, and both `serve` and `init-state` refuse it. Check that the file is byte for byte
+the stock zero state (`{"height": "0", "round": 0, "step": 0}`, indented as FilePV writes it),
+remove it and rerun `init-state`. A state that is not the zero state may have signed:
+never remove it. Never edit the log by hand.
 
 Create the registration proof for the actual owner, registry and L1 chain:
 
@@ -44,27 +76,70 @@ owner)`. The helper passes `0x1901 || domainSeparator || structHash` to stock
 nor writes consensus HRS state and can run offline. Registering on L1 is a separate
 operator/deployment action.
 
-## Serve using existing authoritative files
-
-Keep the existing guarded serve flags:
+## Serve one chain_id
 
 ```sh
 ./target/etna-signer/etna-signer \
   --comet-signer-addr unix:///absolute/comet-home/run/signer-0123456789abcdef.sock \
   --trust-socket /absolute/path/app-store/checkpoint-trust.sock \
   --chain-id "$ETNA_CHAIN_ID" \
-  --priv-key /absolute/private/priv_validator_key.json \
-  --priv-state /absolute/private/priv_validator_state.json
+  --priv-key /private/key/priv_validator_key.json \
+  --priv-state "/private/hrs/$ETNA_CHAIN_ID.json" \
+  --domains-log /private/domains/domains.log
 ```
 
-Serve requires both existing regular files and a native `secp256k1eth` FilePV
-identity with matching public metadata. It canonicalizes symlinks, refuses
-hard-linked state and takes the existing state owner lock before loading the
-stock FilePV. It never initializes or resets HRS. Preserve both signing files,
-Comet WAL and app history on restart; never use `keygen` as a recovery action.
+Serve is the default command and has one mode: it signs only for `--chain-id`, into that chain
+ID's own HRS state. A recovered generation has a new full `chain_id`, so it is served with its
+own state from `init-state` and the same key and log (RECOV-8.2-5/8.2-6). The optional flags are
+`--denial-file`, `--trust-timeout` and `--await-trust`.
 
-Use `script/start_etna_validator.sh` to supervise existing key/state paths and a
-configured Comet home after starting the ABCI app. The script runs `cometbft start`
+Before serving, the signer checks, in this order: the chain ID, the state's `<chain_id>.json`
+name and the log's directory; the key (an existing single-link native `secp256k1eth` FilePV
+identity with matching public metadata) and its exclusive owner lock `<key>.lock`; the log,
+opened without following symlinks under a shared lock, which must be well formed and list the
+chain ID; the state, which must exist for a logged chain, have exactly one link and resolve to
+`<chain_id>.json`, and its exclusive owner lock `<state>.lock`; the absence of the
+`<state>.uncertain` fence; and the HRS, which must be the stock zero state or carry a signature
+by the registered key over that chain ID's canonical sign bytes. Only then does it load the
+stock FilePV. It never creates, initializes or resets HRS. The locks are held while serving, so
+two signers never share the key or the state (RECOV-8.2-2). Preserve the key, every state, the
+log, the Comet WAL and app history on restart; never use `keygen` or `init-state` as a recovery
+action.
+
+### Refusal matrix and exit codes
+
+| Code  | Meaning                                                                                                                                           | Supervisor action |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| 0     | Signal stop                                                                                                                                       | —                 |
+| 1     | Configuration, transport or lock error (a missing flag or key, a wrong state name, the log in the state directory, another signer holding a lock) | Halt (latch)      |
+| 2     | Go panic, for example a failed stock FilePV state write; no signature was released                                                                | Halt (latch)      |
+| **3** | Signing state lost or uncertain (RECOV-8.2-3)                                                                                                     | Halt (latch)      |
+
+Exit 3 covers every case where the state cannot be trusted, and nothing is created, repaired or
+reset:
+
+| Case                                      | Example                                                                                            |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Domains log missing or not a regular file | the log volume is lost, or the path is a symlink                                                   |
+| Domains log malformed                     | wrong header, torn last line (no final newline), blank or invalid line, duplicate line, over 1 MiB |
+| Chain ID not in the log                   | `init-state` never ran for it, or was interrupted before its log line                              |
+| Chain ID logged, state missing            | the state file or the state volume is lost                                                         |
+| HRS ambiguous                             | a hard-linked state, a state that resolves to another chain's file, unknown or duplicate fields    |
+| HRS unauthentic                           | a signed state without a valid signature by the registered key over this chain ID                  |
+| Retained fence                            | `<state>.uncertain` exists                                                                         |
+| Persistence failure while serving         | the fence cannot be armed, or a state or directory fsync fails                                     |
+
+Losing both the state and the log volume, or restoring the state from an old backup together
+with an old log, cannot be detected and is operational practice: never restore signing state
+from a backup (RECOV-8.2-6).
+
+Use `script/start_etna_validator.sh` to supervise the signer and a configured Comet home after
+starting the ABCI app. Set `ETNA_COMET_HOME`, `ETNA_APP_STORE`, `ETNA_PRIV_KEY`,
+`ETNA_PRIV_STATE_DIR` (the state directory), `ETNA_DOMAINS_LOG` and `ETNA_CHAIN_ID`, which must
+equal the installed Comet genesis. The supervisor passes `--priv-state
+<ETNA_PRIV_STATE_DIR>/<ETNA_CHAIN_ID>.json --domains-log <ETNA_DOMAINS_LOG>` and refuses a key,
+state directory or log inside the Comet home or the app store. It does not check that the
+state exists: the signer does, and exits 3. The script runs `cometbft start`
 directly. Container callers must likewise invoke the stock binary directly with
 `--entrypoint /usr/bin/cometbft`; the image's default entrypoint can initialize
 files and must not be used for validator runtime. Its `priv_validator_laddr` is
@@ -114,116 +189,35 @@ delay terminal or signal shutdown until the transport deadline.
 Observation publishing writes an exclusive random temporary file and renames it over the
 denial file; it never opens a fixed temporary name.
 
-## Generation authority
+## Uncertainty fence
 
-For `script/start_etna_validator.sh`, set the existing `ETNA_COMET_HOME`,
-`ETNA_APP_STORE`, `ETNA_PRIV_KEY`, `ETNA_PRIV_STATE`, and `ETNA_CHAIN_ID`, plus:
+Stock FilePV owns HRS checks and signing, and the signer completes the state file and directory
+fsync before the transport receives a signature (SYNC-9-13). Before any FilePV signing step the
+signer exclusively creates and fsyncs `<priv-state>.uncertain` and its parent directory. This
+write-ahead fence is removed only after the changed HRS is durable. Failure to arm it prevents
+the mutation. A failed state or directory fsync, a stock persistence panic, or SIGKILL during a
+mutation leaves signer-owned evidence before the supervisor can observe the exit; no
+post-failure disk write is needed to block restart. Cached retries are fenced too. An idle
+SIGKILL leaves no operation fence and can restart normally.
 
-```sh
-export ETNA_GENERATION=2
-export ETNA_AUTHORITY_ROOT=/absolute/private/authority
-export ETNA_L1_CHAIN_ID=1 ETNA_L2_CHAIN_ID=167001
-export ETNA_INBOX=0x1111111111111111111111111111111111111111
-# Only explicit activation after fencing the previous owner may request enrollment:
-export ETNA_ENROLL_LEGACY=1
-```
+Every existing fence inode fails startup with exit 3, including malformed, unreadable, or
+aliased evidence. Both signer and supervisor refuse to rearm it across app or container
+restarts. After stopping all owners, inspect and preserve the fence, the HRS, the domains log
+and the supervisor and app first-cause evidence. An interrupted operation may be fully durable;
+the fence deliberately still requires inspection. Only an explicit operator repair after that
+inspection may remove the fence and resolve the supervisor halt. Never restore an older HRS,
+reset signed bytes, or edit the log to resume the identity.
 
-`ETNA_CHAIN_ID` must exactly match the installed Comet genesis. The signer checks
-the full canonical domain against generation and deployment before opening
-authority. Nonzero generations require authority mode; authority mode requires
-all deployment fields and an explicit decimal uint48 generation.
-`ETNA_PRIV_STATE` always names the original generation-zero HRS. The authority root,
-key and original state must remain outside the Comet home/mounts and disposable app
-store. The supervisor canonicalizes these paths and passes them to the signer.
-
-`ETNA_ENROLL_LEGACY` accepts only `0` (default) or `1`; matching activation retries
-may retain `1`. The supervisor never infers enrollment or changes generations from
-observations. A same-generation refusal restart retains the configured flags and
-requires the new signer's session to become Ready before restarting Comet. A new
-generation observation halts the configured instance. Existing durable halt latches
-remain in place across explicit generation changes and restartAlways restarts;
-independent safety evidence requires operator investigation and repair.
-
-After the previous signer has stopped, use the same registered key and original
-state path with these additional serve options:
-
-```sh
---authority-root /absolute/private/authority \
---l1-chain-id 1 --l2-chain-id 167001 \
---inbox 0x1111111111111111111111111111111111111111 \
---generation 2 --enroll-legacy
-```
-
-`--chain-id` must equal the canonical domain derived from both full decimal
-uint256 chain IDs, Inbox and generation. Keep the authority directory, key,
-original state and their adjacent `.lock` / `.authority.json` files outside
-Comet mounts and all disposable app/recovery directories. The canonical key,
-original state and authority root have exclusive owner locks. Symlink aliases
-share ownership; hard-linked signing files are refused.
-
-`--enroll-legacy` explicitly enrolls the existing generation-zero HRS once,
-checking any signed bytes against that domain without rewriting the key or HRS.
-Repeating the flag with exactly the same binding is idempotent. Incomplete marker
-publication requires this flag to resume; missing completed markers, registry or
-enrolled HRS require investigation. Neither enrollment nor a prepared recovery
-plan grants permission to sign. Once either external enrollment marker exists,
-standalone serve mode refuses that key/state.
-
-A recovered generation's `recovery_origin` contains
-`generation`, `height`, `l1_number`, `l1_hash`, `l1_timestamp`, `el_hash`,
-`comet_hash`, `forced_cursor`, and `committee_hash` (the initial committee set
-root). The app derives this summary from independently verified bootstrap
-witnesses. It is null before authentication and for generation zero; generation zero
-signs only with a null origin, a recovered generation only with its own origin.
-PubKey/Ping and the initial Comet handshake work while trust is closed and do not
-create a recovered HRS. Every signature and retry requires fresh private session
-Ready with the configured domain and consistent checkpoint/origin.
-
-An authenticated transition fsyncs an intent that permanently fences older
-generations, exclusively creates an unsigned stock state named `<chain-id>.json`,
-and atomically publishes enrollment plus the generation watermark before any
-signature. Generations may be skipped. After inspecting any interrupted operation's
-uncertainty fence, an operator restart can finish a matching intent with absent or
-provably unsigned staging, after obtaining fresh authorization.
-Signed orphan state, missing/corrupt enrolled state, changed binding or changed
-origin fails closed. Preserve the entire registry and every historical state;
-never delete metadata to retry recovery. Stock FilePV still owns HRS checks and
-signing, with directory fsync completed before the transport receives a signature.
-Before any FilePV signing step, enrollment metadata write, or authority transition,
-the signer exclusively creates and fsyncs `<original-priv-state>.uncertain` and its
-parent directory. This write-ahead fence lives in the existing writable original-HRS
-namespace, remains shared across all generations, and is removed only after the changed
-HRS and metadata are durable. Failure to arm it prevents the mutation. A failed state or
-directory fsync, a stock persistence panic, or SIGKILL during a mutation leaves
-signer-owned evidence before the supervisor can observe the exit; no post-failure disk
-write is needed to block restart. Cached retries are fenced too. An idle SIGKILL leaves
-no operation fence and can restart normally.
-
-Every existing fence inode fails startup, including malformed, unreadable, or aliased
-evidence. Both signer and supervisor refuse to rearm it across app/container restarts or
-generation changes. The signer exits nonzero on typed persistence uncertainty. After
-stopping all owners, inspect and preserve the fence, original HRS, all per-generation
-HRS, manifest/intent/markers, and supervisor/app first-cause evidence. An interrupted
-operation may be fully durable; the fence deliberately still requires inspection. Only
-an explicit operator repair after that inspection may remove the fence and resolve the
-supervisor halt. Never restore an older HRS or authority backup, reset signed bytes, or
-delete authority metadata to resume the identity.
-
-## Recovery controller and retention
+## Governance recovery
 
 Use the [governance recovery runbook](../../docs/governance-recovery.md) for the
 `abci-recover prepare`, `install` and `status` commands. The operator stops the old app,
-supervisor, lander and their restart controllers, installs fresh stores, then restarts the
-EL and app, the supervisor and the lander in that order.
-
-The operator supplies explicit enrollment and canonical lowercase `ETNA_INBOX` to the
-supervisor, with the registered key and original generation-zero HRS paths unchanged across
-every generation.
-Keep both external authority markers, registry manifest/intent/watermark and every domain
-state together with their locks. Missing enrolled files, ambiguous signed staging or generic
-fatal/latch evidence require investigation and repair, never replacement files or resets.
-A superseded generation leaves the app's generic fatal evidence and the supervisor's plain-text
-latch in its old app store, which `install` never reuses; leave those bytes in place.
+supervisor, lander and their restart controllers, installs fresh stores, runs `init-state` for
+the new generation's `chain_id` with the same key, state directory and log, then restarts the
+EL and app, the supervisor and the lander in that order. Every older chain's HRS stays in the
+state directory, unchanged and never served again. A superseded generation leaves the app's
+generic fatal evidence and the supervisor's plain-text latch in its old app store, which
+`install` never reuses; leave those bytes in place.
 
 Stock Comet creates its own disposable, unregistered FilePV in fresh standard local paths
 before replacing it with the mandatory guarded external signer. That dummy never signs for

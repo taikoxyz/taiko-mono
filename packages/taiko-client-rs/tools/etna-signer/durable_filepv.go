@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,11 +8,6 @@ import (
 	"github.com/cometbft/cometbft/privval"
 	tm "github.com/cometbft/cometbft/proto/tendermint/types"
 )
-
-// errStateUncertain marks a signature withheld because the latest HRS state may not be
-// durable. The signer then stops signing (RECOV-8.2-3): a later fsync can report success
-// although an earlier write was lost, so only a restart after inspecting the state resumes.
-var errStateUncertain = errors.New("signing state persistence uncertain; restart after inspecting it")
 
 // durableFilePV completes stock FilePV's state persistence before publishing a
 // signature. FilePV synchronously writes and renames its state, but does not
@@ -26,7 +20,7 @@ var errStateUncertain = errors.New("signing state persistence uncertain; restart
 type durableFilePV struct {
 	*privval.FilePV
 	state string
-	// fence is shared by all generations of an authority's original HRS.
+	// fence is the write-ahead uncertainty record beside this chain's HRS.
 	fence string
 	// syncFile flushes the opened state file; tests replace it to fail as a disk does.
 	syncFile func(*os.File) error
@@ -56,10 +50,10 @@ func (p *durableFilePV) syncState() error {
 }
 
 // signDurably runs one stock signing step and succeeds only once the state it
-// recorded is durable; a failed synchronization latches errStateUncertain.
+// recorded is durable; a failed synchronization latches errSigningStateUnsafe.
 func (p *durableFilePV) signDurably(sign func() error) error {
 	if p.uncertain != nil {
-		return fmt.Errorf("%w: %w", errStateUncertain, p.uncertain)
+		return fmt.Errorf("%w: %w", errSigningStateUnsafe, p.uncertain)
 	}
 	if err := armUncertainty(p.fence, "FilePV signing", p.state); err != nil {
 		p.uncertain = err
@@ -68,7 +62,7 @@ func (p *durableFilePV) signDurably(sign func() error) error {
 	err := sign() // A stock persistence panic deliberately leaves the fence armed.
 	if err := p.syncState(); err != nil {
 		p.uncertain = err
-		return fmt.Errorf("%w: %w", errStateUncertain, err)
+		return fmt.Errorf("%w: %w", errSigningStateUnsafe, err)
 	}
 	if finishErr := finishUncertainty(p.fence); finishErr != nil {
 		p.uncertain = finishErr

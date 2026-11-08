@@ -66,8 +66,8 @@
 
 - Every validator harness/runtime startup must set `priv_validator_laddr` and use the guarded
   signer with the actual private key outside the Comet home/mount. Preserve FilePV state and
-  Comet WAL on restart. Only new-identity bootstrap or freshly authorized guarded generation
-  enrollment creates signing files; never initialize replacements for existing state. Every new
+  Comet WAL on restart. Only `keygen` for a new identity and `init-state` for a chain_id not yet
+  in the domains log create signing files; never initialize replacements for existing state. Every new
   Comet transport begins a closed opaque trust session; app-only restart invalidates it.
   Unavailable trust control denies signatures and leaves signing state unchanged. Stop/reap
   Comet before stopping the signer and app. Full nodes use an unregistered local identity.
@@ -92,7 +92,9 @@
   [docs/governance-recovery.md](docs/governance-recovery.md). `install` never reuses an old app
   directory or home and never copies a registered key or HRS; never reset uncertain state.
 - Recovery InitChain preserves the guarded signer session, closing readiness in that session
-  on unavailable evidence. Preserve authority markers/manifest/intent, all per-generation HRS,
-  generic fatal evidence and latches. A superseded generation halts with only the generic fatal
+  on unavailable evidence. The signer has one mode: one stock HRS per full chain_id, created
+  only by `etna-signer init-state` and listed in a domains log on another volume; a new
+  generation runs `init-state` for its new chain_id. Preserve the domains log, every chain's
+  HRS, generic fatal evidence and latches. A superseded generation halts with only the generic fatal
   evidence and the plain-text supervisor latch in its old app store; `install` never reuses that
   store, so no later generation reads them.

@@ -47,74 +47,52 @@ func loadNativeKey(path string) (secp256k1eth.PrivKey, error) {
 	return native, nil
 }
 
-// keygen is the only command allowed to create new signing files. It encodes
-// stock FilePV structures, but never uses Save's replace-existing semantics.
+// keygen creates a new registered key only. It encodes the stock FilePV key, but never uses
+// Save's replace-existing semantics. HRS state is created per chain_id by init-state.
 func keygen(args []string, out io.Writer) error {
 	flags := flag.NewFlagSet("keygen", flag.ContinueOnError)
 	keyPath := flags.String("priv-key", "", "new FilePV private key path (must not exist)")
-	statePath := flags.String("priv-state", "", "new FilePV state path (must not exist)")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
-	if *keyPath == "" || *statePath == "" || flags.NArg() != 0 {
-		return errors.New("keygen requires --priv-key and --priv-state only")
+	if *keyPath == "" || flags.NArg() != 0 {
+		return errors.New("keygen requires --priv-key only")
 	}
-	pv := privval.NewFilePV(secp256k1eth.GenPrivKey(), *keyPath, *statePath)
+	// The state path is never written: only the key is saved.
+	pv := privval.NewFilePV(secp256k1eth.GenPrivKey(), *keyPath, "")
 	keyBytes, err := cmtjson.MarshalIndent(pv.Key, "", "  ")
 	if err != nil {
 		return err
 	}
-	stateBytes, err := cmtjson.MarshalIndent(pv.LastSignState, "", "  ")
-	if err != nil {
-		return err
-	}
-	if err = createSigningFiles(*keyPath, *statePath, keyBytes, stateBytes); err != nil {
+	if err = createKeyFile(*keyPath, keyBytes); err != nil {
 		return err
 	}
 	return json.NewEncoder(out).Encode(publicIdentity{"0x" + hex.EncodeToString(pv.Key.PubKey.Bytes()), "0x" + hex.EncodeToString(pv.Key.Address)})
 }
 
-// createSigningFiles reserves both paths exclusively before writing either file.
-// Any failure removes only files this invocation created; existing files and
-// symlinks are never overwritten. Parents must already exist in private storage.
-func createSigningFiles(keyPath, statePath string, keyBytes, stateBytes []byte) (err error) {
-	paths := []string{keyPath, statePath}
-	var opened []*os.File
+// createKeyFile exclusively creates the key, durably. Any failure removes only the file this
+// invocation created; an existing file or symlink is never overwritten. The parent must
+// already exist in private storage.
+func createKeyFile(keyPath string, keyBytes []byte) (err error) {
+	file, err := os.OpenFile(keyPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return fmt.Errorf("exclusive bootstrap output: %w", err)
+	}
 	defer func() {
-		for i, file := range opened {
-			file.Close()
-			if err != nil {
-				os.Remove(paths[i])
-			}
+		if closeErr := file.Close(); err == nil {
+			err = closeErr
+		}
+		if err != nil {
+			os.Remove(keyPath)
 		}
 	}()
-	for _, path := range paths {
-		file, e := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
-		if e != nil {
-			return fmt.Errorf("exclusive bootstrap output: %w", e)
-		}
-		opened = append(opened, file)
+	if _, err = file.Write(keyBytes); err != nil {
+		return err
 	}
-	for i, data := range [][]byte{keyBytes, stateBytes} {
-		if _, err = opened[i].Write(data); err != nil {
-			return err
-		}
-		if err = opened[i].Sync(); err != nil {
-			return err
-		}
+	if err = file.Sync(); err != nil {
+		return err
 	}
-	for _, path := range paths {
-		dir, e := os.Open(filepath.Dir(path))
-		if e != nil {
-			return e
-		}
-		e = dir.Sync()
-		dir.Close()
-		if e != nil {
-			return e
-		}
-	}
-	return nil
+	return syncDirectory(filepath.Dir(keyPath))
 }
 
 // keccak returns the Ethereum legacy Keccak-256 hash, not FIPS SHA3-256.

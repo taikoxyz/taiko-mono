@@ -110,9 +110,14 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
         self.store = self.root / "app"
         self.store.mkdir()
         self.key = self.root / "key.json"
-        self.state = self.root / "state.json"
+        # init-state's layout: one HRS per chain_id, the domains log in another directory.
+        self.state_dir, self.domains_log = self.root / "hrs", self.root / "domains/domains.log"
+        self.state = self.state_dir / (self.chain + ".json")
+        self.state_dir.mkdir()
+        self.domains_log.parent.mkdir()
         self.key.write_text("existing key")
         self.state.write_text("authoritative HRS")
+        self.domains_log.write_text("etna-signer-domains-v1\n" + self.chain + "\n")
         self.count = self.root / "starts"
         self.events = self.root / "denial.json"
         self.start_peer()
@@ -134,7 +139,8 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
             path.write_text("#!/usr/bin/env python3\n" + body + "\n")
             path.chmod(0o755)
         self.env = dict(os.environ, ETNA_COMET_HOME=str(self.home), ETNA_APP_STORE=str(self.store),
-                        ETNA_PRIV_KEY=str(self.key), ETNA_PRIV_STATE=str(self.state),
+                        ETNA_PRIV_KEY=str(self.key), ETNA_PRIV_STATE_DIR=str(self.state_dir),
+                        ETNA_DOMAINS_LOG=str(self.domains_log),
                         ETNA_CHAIN_ID=self.chain, ETNA_SIGNER_BIN=str(self.bin / "signer"),
                         ETNA_DENIAL_FILE=str(self.events), STARTS=str(self.count), COMET_PID=str(self.root / "comet.pid"),
                         SIGNERS=str(self.root / "signers"),
@@ -365,12 +371,16 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
                 self.observation_hold = None
 
     def test_ready_is_phase_and_identity(self):
-        """Readiness is the app's trust phase plus this deployment's identity (SYNC-9-15)."""
+        """Readiness is the app's trust phase plus this chain_id (SYNC-9-15).
+
+        The full chain_id binds the generation, so a recovered generation is Ready under its
+        own chain_id like any other (RECOV-8.2-5).
+        """
         spec = importlib.util.spec_from_file_location("etna_ready_phase", ROOT / "script/etna_validator.py")
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         runtime = object.__new__(module.Supervisor)
-        runtime.chain, runtime.generation = self.chain, self.generation
+        runtime.chain = self.chain
         ready = dict(schema_version=1, session_id=self.session, chain_id=self.chain,
                      generation=self.generation, recovery_origin=self.origin, phase="ready",
                      target=None, committed_head=None, trusted_consensus_head=None, reason=None)
@@ -379,9 +389,9 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
             self.assertFalse(runtime.ready(dict(ready, phase=phase)), phase)
         self.assertFalse(runtime.ready({key: value for key, value in ready.items() if key != "phase"}))
         self.assertFalse(runtime.ready(dict(ready, chain_id="other-chain")))
-        self.assertFalse(runtime.ready(dict(ready, generation=self.generation + 1)))
-        if self.generation:
-            self.assertFalse(runtime.ready(dict(ready, recovery_origin=None)))
+        self.assertFalse(runtime.ready({key: value for key, value in ready.items() if key != "chain_id"}))
+        recovered = dict(ready, generation=3, recovery_origin=dict(generation=3, height=6))
+        self.assertTrue(runtime.ready(recovered))
 
     def test_initial_transport_session_does_not_restart_healthy_comet(self):
         self.session = "fresh-session"
@@ -401,28 +411,58 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
         self.assertIsNone(self.proc.poll())
         self.assertEqual(self.starts(), 1)
 
-    def test_stale_generation_latches_across_supervisor_restart(self):
-        configured = self.generation
-        self.generation += 1
-        self.wait(lambda: (self.store / "validator-supervisor.halted").exists())
+    def test_other_chain_observation_latches(self):
+        """Another chain_id, such as another generation's, is a terminal identity mismatch.
+
+        The latch survives a supervisor restart; the HRS is never touched.
+        """
+        configured = self.chain
+        self.chain = "etna-other"
+        latch = self.store / "validator-supervisor.halted"
+        self.wait(latch.exists)
+        self.assertEqual(latch.read_text(), "terminal deployment identity\n")
         self.proc.terminate()
         self.proc.wait(timeout=5)
-        self.generation = configured
+        self.chain = configured
         self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")],
                                      env=self.env, stdout=self.log, stderr=self.log)
         time.sleep(.5)
         self.assertIsNone(self.proc.poll())
         self.assertEqual(self.starts(), 1)
+        self.assertEqual(len(self.signers()), 1)
+        self.assertEqual(self.state.read_text(), "authoritative HRS")
 
-    def test_missing_authoritative_state_fails_closed(self):
+    def test_signer_gets_state_path_and_domains_log(self):
+        """The signer serves <ETNA_PRIV_STATE_DIR>/<chain_id>.json, checked against the log.
+
+        The complete argv: no generation, deployment or enrollment option exists.
+        """
+        root = self.root.resolve()
+        self.assertEqual(self.signers()[0]["argv"], [
+            "--trust-socket", str(self.store.resolve() / "checkpoint-trust.sock"),
+            "--chain-id", self.chain, "--priv-key", str(root / "key.json"),
+            "--priv-state", str(root / "hrs" / (self.chain + ".json")),
+            "--domains-log", str(root / "domains/domains.log"),
+            "--comet-signer-addr", self.signer_address(0), "--denial-file", str(self.events.resolve())])
+
+    def test_domains_log_inside_comet_home_or_app_store_is_refused(self):
+        """Comet's UID never reaches signer storage, and the app store is disposable."""
         self.proc.terminate()
-        self.proc.wait(timeout=5)
-        self.state.unlink()
-        self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")],
-                                     env=self.env, stdout=self.log, stderr=self.log)
-        self.assertNotEqual(self.proc.wait(timeout=5), 0)
+        self.assertEqual(self.proc.wait(timeout=5), 0)
+        for variable, inside in [("ETNA_DOMAINS_LOG", self.home / "domains.log"),
+                                 ("ETNA_DOMAINS_LOG", self.store / "domains/domains.log"),
+                                 ("ETNA_PRIV_STATE_DIR", self.home / "hrs"),
+                                 ("ETNA_PRIV_STATE_DIR", self.store),
+                                 ("ETNA_PRIV_KEY", self.home / "key.json")]:
+            with self.subTest(variable=variable, path=inside):
+                refused = subprocess.run(["bash", str(ROOT / "script/start_etna_validator.sh")],
+                                         env=dict(self.env, **{variable: str(inside)}), capture_output=True, timeout=5)
+                self.assertNotEqual(refused.returncode, 0)
+                self.assertIn(b"must be outside the Comet home and app store", refused.stderr)
         self.assertEqual(self.starts(), 1)
-        self.assertFalse(self.state.exists())
+        self.assertEqual(len(self.signers()), 1)
+        self.assertEqual(self.state.read_text(), "authoritative HRS")
+        self.assertEqual(self.domains_log.read_text(), "etna-signer-domains-v1\n" + self.chain + "\n")
 
     def test_fresh_session_closes_trust_until_revalidated(self):
         self.publish(1, "same-session")
@@ -519,148 +559,6 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
         self.assertEqual(len(self.signers()), 3)
         self.assertNotIn("--await-trust", self.signers()[2]["argv"])
         self.assertFalse((self.store / "validator-supervisor.halted").exists())
-
-
-class RecoveredSupervisorTests(SupervisorTests):
-    """Repeat the lifecycle gates for an explicitly configured recovered domain."""
-
-    def configure_identity(self):
-        self.chain, self.generation = "etna-recovered-test-domain", 1
-        self.authority = self.root / "private/authority"
-        self.identity_env = dict(ETNA_GENERATION="1", ETNA_AUTHORITY_ROOT=str(self.authority),
-                                 ETNA_L1_CHAIN_ID="31337", ETNA_L2_CHAIN_ID="167001",
-                                 ETNA_INBOX="0x" + "11" * 20)
-        self.origin = dict(generation=1, height=7, l1_number=10, l1_hash="0x" + "12" * 32,
-                           l1_timestamp=123, el_hash="0x" + "23" * 32,
-                           comet_hash="0x" + "34" * 32, forced_cursor=2,
-                           committee_hash="0x" + "45" * 32)
-
-    def test_retained_signer_fence_latches_later_generation(self):
-        self.proc.terminate()
-        self.assertEqual(self.proc.wait(timeout=5), 0)
-        fence = self.state.with_name(self.state.name + ".uncertain")
-        evidence = b'{"operation":"interrupted FilePV signing"'
-        fence.write_bytes(evidence)
-        latch = self.store / "validator-supervisor.halted"
-        self.env["ETNA_GENERATION"] = "2"
-        self.generation = 2
-        self.origin["generation"] = 2
-        self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")],
-                                     env=self.env, stdout=self.log, stderr=self.log)
-        self.wait(lambda: latch.exists() and latch.read_bytes() == b"signer exited; inspect diagnostics\n")
-        self.assertIsNone(self.proc.poll())
-        self.assertEqual(self.starts(), 1)
-        self.assertEqual(len(self.signers()), 1)
-        self.assertEqual(fence.read_bytes(), evidence)
-        self.assertEqual(self.key.read_text(), "existing key")
-        self.assertEqual(self.state.read_text(), "authoritative HRS")
-
-    def test_generation_one_start_retains_flags_while_trust_closes(self):
-        """Check supervisor flags with sleeping peers; native recovery covers the handshake."""
-        self.ready, self.phase = False, "acquiring"
-        time.sleep(.3)
-        args = self.signers()[0]["argv"]
-        self.assertEqual(args[args.index("--generation") + 1], "1")
-        self.assertEqual(args[args.index("--authority-root") + 1], str(self.authority.resolve()))
-        self.assertNotIn("--await-trust", args)
-        self.assertNotIn("--enroll-legacy", args)
-        self.assertEqual(self.starts(), 1)
-        self.ready, self.phase = True, "ready"
-        time.sleep(.3)
-        self.assertFalse((self.store / "validator-supervisor.halted").exists())
-        self.assertEqual({request["schema_version"] for request in self.requests}, {1})
-
-    def test_generation_one_trust_restart_preserves_signing_state(self):
-        self.authority.mkdir(parents=True)
-        recovered_state = self.authority / (self.chain + ".json")
-        recovered_state.write_text("existing generation-one HRS")
-        hrs_before_restart = self.state.read_bytes(), recovered_state.read_bytes()
-        self.ready, self.phase = False, "acquiring"
-        self.publish(1, self.session)
-        time.sleep(.3)
-        self.assertEqual(self.starts(), 1)
-        self.ready, self.phase = True, "ready"
-        self.publish_recovery_session()
-        self.wait(lambda: self.starts() == 2)
-        observation = self.observations[-1]
-        self.assertEqual(observation["generation"], 1)
-        hrs_after_restart = self.state.read_bytes(), recovered_state.read_bytes()
-        self.assertEqual(hrs_before_restart, hrs_after_restart)
-        events = (self.root / "lifecycle").read_text().splitlines()
-        self.assertEqual(events.index("comet_reaped") < events.index("signer_stopped"), True)
-
-    def test_generation_two_observation_never_switches_or_enrolls(self):
-        self.assert_observed_generation_halts(2)
-
-    def test_old_generation_zero_observation_never_switches_or_enrolls(self):
-        self.assert_observed_generation_halts(0)
-
-    def assert_observed_generation_halts(self, generation):
-        self.generation = generation
-        self.wait(lambda: (self.store / "validator-supervisor.halted").exists())
-        self.assertEqual(len(self.signers()), 1)
-        self.assertEqual(self.starts(), 1)
-        self.assertFalse(self.authority.exists())
-        self.assertEqual(self.state.read_text(), "authoritative HRS")
-
-    def test_restart_always_preserves_unrelated_fatal_latch(self):
-        self.phase = "halted"
-        self.extra = dict(reason="contradictory finalized checkpoint")
-        latch = self.store / "validator-supervisor.halted"
-        self.wait(latch.exists)
-        evidence = latch.read_bytes()
-        self.proc.terminate()
-        self.proc.wait(timeout=5)
-        self.env["ETNA_GENERATION"] = "2"
-        self.generation = 2
-        self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")],
-                                     env=self.env, stdout=self.log, stderr=self.log)
-        time.sleep(.4)
-        self.assertEqual(self.starts(), 1)
-        self.assertEqual(latch.read_bytes(), evidence)
-
-    def test_explicit_generation_two_starts_with_its_own_identity(self):
-        self.proc.terminate()
-        self.proc.wait(timeout=5)
-        self.generation = 2
-        self.origin["generation"] = 2
-        self.env["ETNA_GENERATION"] = "2"
-        self.env["ETNA_ENROLL_LEGACY"] = "1"
-        self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")],
-                                     env=self.env, stdout=self.log, stderr=self.log)
-        self.wait(lambda: self.starts() == 2 and len(self.signers()) == 2)
-        args = self.signers()[1]["argv"]
-        self.assertEqual(args[args.index("--generation") + 1], "2")
-        self.assertIn("--enroll-legacy", args)
-        time.sleep(.3)
-        self.assertFalse((self.store / "validator-supervisor.halted").exists())
-
-    def assert_configuration_refused(self, changes):
-        self.proc.terminate()
-        self.proc.wait(timeout=5)
-        self.env.update(changes)
-        self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")],
-                                     env=self.env, stdout=self.log, stderr=self.log)
-        self.assertNotEqual(self.proc.wait(timeout=5), 0)
-        self.assertEqual(self.starts(), 1)
-
-    def test_recovery_requires_complete_authority_configuration(self):
-        self.assert_configuration_refused(dict(ETNA_AUTHORITY_ROOT=""))
-
-    def test_generation_must_be_uint48(self):
-        self.assert_configuration_refused(dict(ETNA_GENERATION=str(1 << 48)))
-
-    def test_authority_root_must_be_outside_disposable_app_store(self):
-        self.assert_configuration_refused(dict(ETNA_AUTHORITY_ROOT=str(self.store / "authority")))
-
-    def test_incomplete_authority_tuple_fails_before_children_start(self):
-        self.assert_configuration_refused(dict(ETNA_L2_CHAIN_ID=""))
-
-    def test_enrollment_flag_must_be_explicit_boolean(self):
-        self.assert_configuration_refused(dict(ETNA_ENROLL_LEGACY="yes"))
-
-    def test_configured_chain_must_equal_genesis(self):
-        self.assert_configuration_refused(dict(ETNA_CHAIN_ID="other-generation-domain"))
 
 
 class UnixSupervisorTests(SupervisorTests):
@@ -859,9 +757,13 @@ class MinimalCapabilityTests(TrustPeer, unittest.TestCase):
         self.observed.chmod(0o777)
         self.store = self.root / "app"
         self.store.mkdir()
-        self.key, self.state = self.root / "key.json", self.root / "state.json"
+        self.key, self.state_dir = self.root / "key.json", self.root / "hrs"
+        self.state, self.domains_log = self.state_dir / (self.chain + ".json"), self.root / "domains/domains.log"
+        self.state_dir.mkdir()
+        self.domains_log.parent.mkdir()
         self.key.write_text("existing key")
         self.state.write_text("authoritative HRS")
+        self.domains_log.write_text("etna-signer-domains-v1\n" + self.chain + "\n")
         self.events = self.root / "denial.json"
         self.latch = self.store / "validator-supervisor.halted"
         self.bin = self.root / "bin"
@@ -891,7 +793,8 @@ class MinimalCapabilityTests(TrustPeer, unittest.TestCase):
             path.write_text("#!/usr/bin/env python3\n" + body + "\n")
             path.chmod(0o755)
         self.env = dict(os.environ, ETNA_COMET_HOME=str(self.home), ETNA_APP_STORE=str(self.store),
-                        ETNA_PRIV_KEY=str(self.key), ETNA_PRIV_STATE=str(self.state),
+                        ETNA_PRIV_KEY=str(self.key), ETNA_PRIV_STATE_DIR=str(self.state_dir),
+                        ETNA_DOMAINS_LOG=str(self.domains_log),
                         ETNA_CHAIN_ID=self.chain, ETNA_SIGNER_BIN=str(self.bin / "signer"),
                         ETNA_DENIAL_FILE=str(self.events), ETNA_COMET_UID=str(self.COMET_UID),
                         ETNA_COMET_GID=str(self.COMET_UID), OBSERVED=str(self.observed),
@@ -1093,28 +996,32 @@ class LauncherPathTests(unittest.TestCase):
 
     def test_denial_routes_preserve_keys_state_wal_and_uncertain_files(self):
         module = self.load_module()
-        for case in ("key", "state", "default-key", "default-state", "foreign", "live-wal"):
+        for case in ("key", "state", "other-chain-state", "fence", "domains-log", "default-key", "foreign", "live-wal"):
             with self.subTest(case=case), tempfile.TemporaryDirectory() as tmp:
                 base = Path(tmp).resolve()
-                store, home = base / "app", base / "home"
-                store.mkdir(); (home / "config").mkdir(parents=True)
+                store, home, hrs, domains = base / "app", base / "home", base / "hrs", base / "domains"
+                store.mkdir(); (home / "config").mkdir(parents=True); hrs.mkdir(); domains.mkdir()
                 (home / "config/config.toml").write_text('priv_validator_laddr="tcp://127.0.0.1:12345"')
                 (home / "config/genesis.json").write_text('{"chain_id":"test"}')
                 default = store / "signer-denial.json"
                 key = default if case == "default-key" else base / "key"
-                state = default if case == "default-state" else base / "state"
+                state, log = hrs / "test.json", domains / "domains.log"
                 wal = (home if case == "live-wal" else base / "older") / "data/cs.wal/wal"
                 wal.parent.mkdir(parents=True);wal.write_bytes(b"old wal");key.write_bytes(b"registered key");state.write_bytes(b"authoritative HRS")
+                log.write_bytes(b"etna-signer-domains-v1\ntest\n"); (hrs / "other.json").write_bytes(b"other HRS")
                 env = dict(ETNA_APP_STORE=str(store), ETNA_COMET_HOME=str(home),ETNA_PRIV_KEY=str(key),
-                           ETNA_PRIV_STATE=str(state), ETNA_CHAIN_ID="test", ETNA_SIGNER_BIN="/usr/bin/true")
-                if case in ("key","state","live-wal"):
-                    env["ETNA_DENIAL_FILE"] = str({"key":key,"state":state}.get(case,wal))
+                           ETNA_PRIV_STATE_DIR=str(hrs), ETNA_DOMAINS_LOG=str(log), ETNA_CHAIN_ID="test", ETNA_SIGNER_BIN="/usr/bin/true")
+                routes = {"key": key, "state": state, "other-chain-state": hrs / "other.json",
+                          "fence": hrs / "test.json.uncertain", "domains-log": log, "live-wal": wal}
+                if case in routes:
+                    env["ETNA_DENIAL_FILE"] = str(routes[case])
                 if case == "foreign": default.write_bytes(b"foreign preserved bytes")
-                saved = {p: p.read_bytes() for p in (key,state,wal,default) if p.exists()}
+                saved = {p: p.read_bytes() for p in (key,state,log,hrs / "other.json",wal,default) if p.exists()}
                 with patch.dict(os.environ,env,clear=True), patch.object(module.subprocess,"Popen") as spawn:
                     with self.assertRaises(ValueError): module.Supervisor().start()
                     spawn.assert_not_called()
                 for p, expected in saved.items(): self.assertEqual(p.read_bytes(),expected)
+                self.assertFalse((hrs / "test.json.uncertain").exists())
 
 
 class SupervisorUnitTests(unittest.TestCase):
@@ -1125,7 +1032,7 @@ class SupervisorUnitTests(unittest.TestCase):
         spec.loader.exec_module(module)
         store = Path(directory)
         runtime = object.__new__(module.Supervisor)
-        runtime.store, runtime.chain, runtime.generation = store, "old-chain", 0
+        runtime.store, runtime.chain = store, "old-chain"
         runtime.state = store / "hrs.json"
         runtime.latch = store / "validator-supervisor.halted"
         preserved = {"abci-state.json": json.dumps(dict(chain_id="old-chain", generation=0)).encode(),

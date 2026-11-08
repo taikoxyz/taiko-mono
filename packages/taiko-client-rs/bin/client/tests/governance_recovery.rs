@@ -88,7 +88,8 @@ async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool, with_import: bool)
                     .context("old block7")?
                     .header
                     .hash;
-            let old_hrs_path = f.signer_storage.path().join("0/state.json");
+            let old_chain = c.chain_id()?;
+            let old_hrs_path = c.signing_state_path(0);
             let old_key_path = f.signer_storage.path().join("0/key.json");
             let old_wal_path = c.comet_home(0).join("data/cs.wal/wal");
             let old_hrs = fs::read(&old_hrs_path)?;
@@ -138,7 +139,18 @@ async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool, with_import: bool)
             }
             // The operator's restart on fresh stores: install, then app, supervisor and lander.
             let installed = commands.install_command(&plan, "first").await?;
-            let mut node = commands.start_recovered(&installed, 1, "first").await?;
+            // Runbook step 4: init-state gave the new chain_id its own zero HRS and log line
+            // beside the old chain's, whose HRS keeps its bytes (RECOV-8.2-1/8.2-5).
+            let new_chain = installed.chain_id()?;
+            assert_ne!(new_chain, old_chain);
+            assert_eq!(
+                fs::read_to_string(test_harness::signer_domains_log(
+                    &f.signer_storage.path().join("0")
+                ))?,
+                format!("etna-signer-domains-v1\n{old_chain}\n{new_chain}\n")
+            );
+            assert_eq!(fs::read(&old_hrs_path)?, old_hrs);
+            let mut node = commands.start_recovered(&installed, "first").await?;
             wait_committed(&c.cmt, 7, &mut node).await?;
             node.running()?;
             let private_trust = commands.private_trust(&installed).await?;
@@ -268,7 +280,7 @@ async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool, with_import: bool)
             assert_eq!(dummy["height"], "0", "stock local dummy never signs");
             // An ordinary restart of the same stores, as after any operator stop.
             f.l2.restart().await?;
-            let mut restarted = commands.start_recovered(&installed, 1, "restart").await?;
+            let mut restarted = commands.start_recovered(&installed, "restart").await?;
             wait_committed(&c.cmt, 14, &mut restarted).await?;
             let canonical_restarted_hash =
                 f.l2.provider.get_block_by_number(7.into()).await?.unwrap().header.hash;
@@ -375,7 +387,8 @@ async fn governance_recovery_zero_origin_and_second_generation_preserve_archives
     let mut commands = Commands::new(&f, &c)?;
     commands.origin = 0;
     c.stop_node(0).await?;
-    let old_state = f.signer_storage.path().join("0/state.json");
+    let old_chain = c.chain_id()?;
+    let old_state = c.signing_state_path(0);
     let old_hrs = fs::read(&old_state)?;
     let old_wal = fs::read(c.comet_home(0).join("data/cs.wal/wal"))?;
     let result: Result<()> = async {
@@ -384,8 +397,7 @@ async fn governance_recovery_zero_origin_and_second_generation_preserve_archives
         commands.lander = false;
         let first_plan = commands.prepare_command(1).await?;
         let first_installed = commands.install_command(&first_plan, "g1").await?;
-        let mut first =
-            commands.start_recovered(&first_installed, 1, "generation-one-zero").await?;
+        let mut first = commands.start_recovered(&first_installed, "generation-one-zero").await?;
         wait_committed(&c.cmt, 1, &mut first).await?;
         first.stop().await?;
         assert_eq!(f.checkpoint().await?.0, 0, "no landing before second recovery");
@@ -399,8 +411,7 @@ async fn governance_recovery_zero_origin_and_second_generation_preserve_archives
         assert_ne!(fs::read(&first_plan)?, fs::read(&second_plan)?);
         // A new generation always gets fresh stores; the old ones stay as archives (RECOV-8-14).
         let second_installed = commands.install_command(&second_plan, "g2").await?;
-        let mut second =
-            commands.start_recovered(&second_installed, 2, "generation-two-zero").await?;
+        let mut second = commands.start_recovered(&second_installed, "generation-two-zero").await?;
         wait_committed(&c.cmt, 1, &mut second).await?;
         let block: tendermint::Block = serde_json::from_value(
             c.cmt.call("block", &[("height", "1".into())]).await?["block"].clone(),
@@ -427,6 +438,17 @@ async fn governance_recovery_zero_origin_and_second_generation_preserve_archives
         for (path, bytes) in first_domain {
             assert_eq!(fs::read(path)?, bytes);
         }
+        // One HRS per full chain_id, in initialization order; none is ever reset.
+        assert_eq!(
+            fs::read_to_string(test_harness::signer_domains_log(
+                &f.signer_storage.path().join("0")
+            ))?,
+            format!(
+                "etna-signer-domains-v1\n{old_chain}\n{}\n{}\n",
+                first_installed.chain_id()?,
+                second_installed.chain_id()?
+            )
+        );
         assert_eq!(
             support::recovery::snapshot(&[&first_installed.home, &first_installed.app])?,
             first_stores,
@@ -442,20 +464,11 @@ async fn governance_recovery_zero_origin_and_second_generation_preserve_archives
     result
 }
 
+/// Every chain_id's HRS state of validator 0, one `<chain_id>.json` per initialized chain.
 fn archived_domain_states(f: &ContractFixture) -> Result<Vec<(std::path::PathBuf, Vec<u8>)>> {
-    let manifest: serde_json::Value = serde_json::from_slice(&fs::read(
-        f.signer_storage.path().join("0/authority/manifest.json"),
-    )?)?;
-    manifest["domains"]
-        .as_array()
-        .context("signer authority domains")?
-        .iter()
-        .map(|domain| {
-            let path =
-                std::path::PathBuf::from(domain["state"].as_str().context("domain HRS path")?);
-            Ok((path.clone(), fs::read(path)?))
-        })
-        .collect()
+    let mut states = snapshot(&[&f.signer_storage.path().join("0/hrs")])?;
+    states.retain(|(path, _)| path.extension().is_some_and(|ext| ext == "json"));
+    Ok(states)
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -475,9 +488,10 @@ async fn governance_recovery_linux_comet_uid_reads_p2p_and_cannot_read_registere
     let mut commands = Commands::new(&f, &c)?;
     commands.origin = 0;
     c.stop_node(0).await?;
+    let fixture_hrs = format!("/fixture/signer/hrs/{}.json", c.chain_id()?);
     let archives = [
         f.signer_storage.path().join("0/key.json"),
-        f.signer_storage.path().join("0/state.json"),
+        c.signing_state_path(0),
         c.comet_home(0).join("data/cs.wal/wal"),
         c.app_dir(0).join("abci-state.json"),
     ]
@@ -487,7 +501,7 @@ async fn governance_recovery_linux_comet_uid_reads_p2p_and_cannot_read_registere
     let runtime = support::recovery::linux::LinuxRuntime::start(&f, &c, &commands)?;
     for ((_, bytes), remote) in archives.iter().zip([
         "/fixture/signer/key.json",
-        "/fixture/signer/state.json",
+        &fixture_hrs,
         "/fixture/original-comet/data/cs.wal/wal",
         "/fixture/original-app/abci-state.json",
     ]) {
@@ -513,7 +527,7 @@ async fn governance_recovery_linux_comet_uid_reads_p2p_and_cannot_read_registere
         assert_eq!(snapshot.generation, 1);
         assert!(snapshot.checkpoint_height > 0);
         node.stop().await?;
-        assert_eq!(runtime.read("/fixture/signer/state.json")?, archives[1].1);
+        assert_eq!(runtime.read(&fixture_hrs)?, archives[1].1);
         assert_eq!(runtime.read("/fixture/original-comet/data/cs.wal/wal")?, archives[2].1);
         for (path, bytes) in &archives {
             assert_eq!(fs::read(path)?, *bytes);
@@ -593,7 +607,7 @@ async fn standby_recovery(clear_fi: bool) -> Result<()> {
         assert_eq!(retained.committees.get(&1), Some(&old_pending));
         let archives = (0..2)
             .map(|i| {
-                let path = f.signer_storage.path().join(format!("{i}/state.json"));
+                let path = c.signing_state_path(i);
                 Ok((path.clone(), fs::read(path)?))
             })
             .collect::<Result<Vec<_>>>()?;
@@ -617,7 +631,7 @@ async fn standby_recovery(clear_fi: bool) -> Result<()> {
         .await?;
         let plan = commands.prepare_command(1).await?;
         let installed = commands.install_command(&plan, "standby").await?;
-        let mut node = commands.start_recovered(&installed, 1, "standby").await?;
+        let mut node = commands.start_recovered(&installed, "standby").await?;
         wait_committed(&peer, 7, &mut node).await?;
         let validators = peer.validators(Some(7)).await?;
         assert_eq!(validators.len(), 1);
@@ -646,8 +660,12 @@ async fn standby_recovery(clear_fi: bool) -> Result<()> {
             assert_eq!(fs::read(path)?, bytes);
         }
         assert!(
-            !f.signer_storage.path().join(format!("{active}/authority")).exists(),
-            "excluded key never enrolls or signs in the recovered domain"
+            !test_harness::signer_hrs(
+                &f.signer_storage.path().join(active.to_string()),
+                &installed.chain_id()?
+            )
+            .exists(),
+            "excluded key never gets a state for, or signs in, the recovered chain_id"
         );
         Ok(())
     }
@@ -756,7 +774,7 @@ async fn governance_recovery_reconciles_old_pending_nonce_after_receipt_reorg() 
         assert_eq!(before["state"]["transaction"], pending);
         let plan = commands.prepare_command(1).await?;
         let installed = commands.install_command(&plan, "old-pending-reorg").await?;
-        let mut node = commands.start_recovered(&installed, 1, "old-pending-reorg").await?;
+        let mut node = commands.start_recovered(&installed, "old-pending-reorg").await?;
         tokio::time::timeout(std::time::Duration::from_secs(30), async {
             loop {
                 node.running()?;

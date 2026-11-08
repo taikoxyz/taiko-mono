@@ -21,7 +21,7 @@ import (
 )
 
 type shutdownFixture struct {
-	Key, State, Control, Comet, Entered, Release string
+	Key, State, Log, Control, Comet, Entered, Release string
 }
 
 // The child runs the production shutdown path with stock transport and FilePV.
@@ -40,7 +40,11 @@ func TestSignerSignalDuringSyncHelper(t *testing.T) {
 	if err := json.Unmarshal(raw, &fixture); err != nil {
 		t.Fatal(err)
 	}
-	signer := loadDurableFilePV(fixture.Key, fixture.State)
+	signer, release, err := openSigningState(chain, fixture.Key, fixture.State, fixture.Log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer release()
 	signer.syncFile = func(file *os.File) error {
 		if err := os.WriteFile(fixture.Entered, nil, 0600); err != nil {
 			return err
@@ -80,7 +84,7 @@ func TestSignerSignalWaitsForInFlightPersistence(t *testing.T) {
 			_, key, state := filePV(t)
 			root := shortTemp(t)
 			fixture := shutdownFixture{
-				Key: key, State: state, Control: control(t, func(request map[string]any) any { return snapshot(request["op"] != "begin_session") }),
+				Key: key, State: state, Log: domainsLogOf(state), Control: control(t, func(request map[string]any) any { return snapshot(request["op"] != "begin_session") }),
 				Comet: filepath.Join(root, "comet.sock"), Entered: filepath.Join(root, "entered"), Release: filepath.Join(root, "release"),
 			}
 			raw, err := net.ListenUnix("unix", &net.UnixAddr{Name: fixture.Comet, Net: "unix"})
@@ -151,7 +155,7 @@ func TestSignerSignalWaitsForInFlightPersistence(t *testing.T) {
 			select {
 			case err := <-done:
 				contents, _ := os.ReadFile(logs.Name())
-				if fault && (err == nil || !strings.Contains(string(contents), errStateUncertain.Error())) {
+				if fault && (err == nil || !strings.Contains(string(contents), errSigningStateUnsafe.Error())) {
 					t.Fatalf("signal hid in-flight persistence uncertainty: exit %v\n%s", err, contents)
 				}
 				if !fault && err != nil {

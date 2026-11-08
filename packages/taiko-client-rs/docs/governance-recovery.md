@@ -39,11 +39,11 @@ makes, against its own L1 and EL.
   recovered app commits its first block through normal Engine calls.
 - Never copy, restore or reset signing state (RECOV-8.2-1..3). The signer keeps one HRS state per
   full `chain_id` and never lowers it. A backup can omit signatures already released, so an older
-  HRS, FilePV state or signing-authority backup must never resume the same validator identity. If
+  HRS, FilePV state or domains-log backup must never resume the same validator identity. If
   the latest state is lost or uncertain, stop signing and resolve the identity through governance.
   Restoring app, EL or Comet data never authorizes rolling back signer state.
-- Keep the registered key, the HRS states and the authority directory outside every Comet home.
-  `install` never reads them.
+- Keep the registered key, the HRS state directory and the domains log outside every Comet home
+  and app store, with the log on another volume than the states. `install` never reads them.
 
 ## 1. Stop the old services
 
@@ -121,30 +121,37 @@ This illustrative report uses c=6, R=100 and a later authenticated checkpoint at
 
 ## 4. Signer state for the new chain_id
 
-<!-- P9: replace with the signer init command and --domains-log -->
-
-A validator runs the supervisor with the same registered key, HRS file and authority root as
-before, and the new generation's identity. The authority creates the generation-N domain state,
-which starts at c+1 (RECOV-8.2-5); the generation-zero state and every older domain stay as they
-are. Read `ETNA_CHAIN_ID` from the plan's `chain_id`.
+A new generation is a new full `chain_id`, so it gets its own stock HRS state, which starts
+empty and signs from c+1 (RECOV-8.2-1/8.2-5). With the old signer stopped, create it with the
+same registered key, state directory and domains log as before. Read the chain ID from the
+plan's `chain_id`:
 
 ```text
+etna-signer init-state \
+  --chain-id <chain_id from the plan> \
+  --priv-key /var/lib/taiko/private/key/registered-key.json \
+  --priv-state /var/lib/taiko/private/hrs/<chain_id from the plan>.json \
+  --domains-log /var/lib/taiko/domains/domains.log
+
 ETNA_COMET_HOME=/var/lib/taiko/comet-g1
 ETNA_APP_STORE=/var/lib/taiko/app-g1
-ETNA_PRIV_KEY=/var/lib/taiko/private/registered-key.json
-ETNA_PRIV_STATE=/var/lib/taiko/private/original-generation-zero-hrs.json
-ETNA_AUTHORITY_ROOT=/var/lib/taiko/private/authority
-ETNA_GENERATION=1
+ETNA_PRIV_KEY=/var/lib/taiko/private/key/registered-key.json
+ETNA_PRIV_STATE_DIR=/var/lib/taiko/private/hrs
+ETNA_DOMAINS_LOG=/var/lib/taiko/domains/domains.log
 ETNA_CHAIN_ID=<chain_id from the plan>
-ETNA_L1_CHAIN_ID=<full L1 chain ID>
-ETNA_L2_CHAIN_ID=<L2 chain ID>
-ETNA_INBOX=<Inbox address>
-ETNA_ENROLL_LEGACY=1
 ```
 
-The signer answers PubKey and Ping while trust is closed and signs only once the new app is
-trusted. See the [signer operations](../tools/etna-signer/README.md#generation-authority) for
-the persistence rules.
+`init-state` refuses a chain ID already in the domains log and an existing state file, so it can
+never reset a state. It appends the new chain ID to the log only after the new state is durable;
+every older chain's state stays in the directory unchanged and is never served again. The
+supervisor environment then names the new chain ID; the key, state directory and log stay the
+same. Keep the domains log on another volume than the state directory.
+
+If `init-state` was interrupted, rerunning it may refuse an unlogged state file for the new
+chain ID. Check that the file equals the stock zero state, remove it and rerun; any other file
+needs investigation. The signer answers PubKey and Ping while trust is closed and signs only
+once the new app is trusted. See the [signer operations](../tools/etna-signer/README.md#refusal-matrix-and-exit-codes)
+for the refusal rules.
 
 ## 5. Start the new services
 
@@ -182,8 +189,8 @@ local FilePV in the new home, which never signs.
 Once an anchor shows a newer generation, the old generation can only stop: its app rejects and
 revokes trust, and a decided block or startup check that finds another generation is a terminal
 safety halt with generic fatal evidence in the old app directory (RECOV-8-14..16). Safety halts
-need investigation; preserve the fatal evidence, supervisor latches, HRS, WAL and authority
-files. Run the new generation from fresh stores as above, never by clearing the old ones.
+need investigation; preserve the fatal evidence, supervisor latches, every HRS, the domains log
+and the WAL. Run the new generation from fresh stores as above, never by clearing the old ones.
 
 Read trust from the app's `/status` ABCI query, not from `abci-recover status` or Comet's sync
 progress (SYNC-9-15).

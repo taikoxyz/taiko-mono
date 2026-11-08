@@ -101,6 +101,6 @@ Keep the three stores in `ROOT/ready`, or move them together while every process
 
 Comet syncs blocks from s + 1 over stock P2P, and the app executes each through normal FinalizeBlock and all of its checks (DATA-5.4-6). After an older import, Comet must first reach the latest finalized target, and the app must authenticate it against your own L1, before it reports ready. `/status` shows `execution_floor`. There is no transaction, receipt, body or FI trial history before it in these stores.
 
-Signer state is never imported (DATA-5.4-7). A registered validator resumes with its existing external key, HRS and authority storage, outside the import root, once its own node has matched the target. Stop the old validator before starting the imported one with the same key. See the [authority enrollment and rollback procedures](governance-recovery.md).
+Signer state is never imported (DATA-5.4-7). A registered validator resumes with its registered key, the same chain_id's HRS and its domains log, all outside the import root, once its own node has matched the target. Stop the old validator before starting the imported one with the same key. See the [signer state rules](../tools/etna-signer/README.md#refusal-matrix-and-exit-codes).
 
 For sizing, use the [measured local profiles](checkpoint-import-resources.md). Provision space for the EL copy, the helper scratch, the stock window and the installed indexes. Keep the original history separately for full replay and investigation: these bounded stores do not reconstruct the consensus prefix.

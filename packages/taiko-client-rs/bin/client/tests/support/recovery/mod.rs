@@ -295,15 +295,18 @@ impl Commands {
         self.cli(args, &format!("install-{name}")).await?;
         let report = self.status(plan, Some(&home), &format!("installed-{name}")).await?;
         ensure!(report["installed"] == true, "install completes: {report}");
-        Ok(Installed { home, app })
+        let installed = Installed { home, app };
+        if let Some(key_dir) = &self.signer {
+            init_signer_state(key_dir, &installed.chain_id()?)?;
+        }
+        Ok(installed)
     }
     /// The operator's restart on the installed stores (START-10-6): the app on the new
-    /// directory, then the supervisor with generation `generation` (or stock Comet for a full
-    /// node), then the lander on its original journal.
+    /// directory, then the supervisor on the new chain_id (or stock Comet for a full node), then
+    /// the lander on its original journal.
     pub async fn start_recovered(
         &self,
         installed: &Installed,
-        generation: u64,
         name: &str,
     ) -> Result<RecoveredNode> {
         let config = installed.config()?;
@@ -343,7 +346,6 @@ impl Commands {
                     &installed.app,
                     key_dir,
                     &installed.chain_id()?,
-                    Some((&self.params, generation)),
                 );
                 supervisor
                     .env("ETNA_SIGNER_BIN", helper("ETNA_SIGNER_BIN", "etna-signer"))
@@ -397,6 +399,27 @@ impl Commands {
             }
         }
     }
+}
+
+/// The runbook's signer step for a new generation (RECOV-8.2-1/8.2-5): `etna-signer init-state`
+/// for the new chain_id with the same key, state directory and domains log, the old signer
+/// stopped. It adds exactly the new chain's zero HRS and log line; every earlier HRS keeps its
+/// bytes and is never reused.
+pub fn init_signer_state(key_dir: &Path, chain_id: &str) -> Result<()> {
+    let log = test_harness::signer_domains_log(key_dir);
+    let hrs = key_dir.join("hrs");
+    let (log_before, states_before) = (fs::read(&log)?, snapshot(&[&hrs])?);
+    test_harness::init_signer_state(key_dir, chain_id)?;
+    let mut expected = log_before;
+    expected.extend_from_slice(format!("{chain_id}\n").as_bytes());
+    ensure!(fs::read(&log)? == expected, "init-state appends exactly the new chain_id");
+    let created = test_harness::signer_hrs(key_dir, chain_id);
+    let zero: Value = serde_json::from_slice(&fs::read(&created)?)?;
+    ensure!(zero == serde_json::json!({"height": "0", "round": 0, "step": 0}), "{zero}");
+    let mut states_after = snapshot(&[&hrs])?;
+    states_after.retain(|(path, _)| *path != created);
+    ensure!(states_after == states_before, "init-state changed an earlier generation's HRS");
+    Ok(())
 }
 
 /// Every regular file under `dirs` with its bytes, to show later that nothing rewrote them.

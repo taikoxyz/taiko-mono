@@ -140,12 +140,9 @@ async fn scenario(kind: Scenario) -> Result<()> {
     let f = ContractFixture::deploy_config(count, unsettled, epoch_len).await?;
     set_interval_mining(&f.anvil.provider, 1).await?;
     let dirs = (0..count).map(|i| f.signer_storage.path().join(i.to_string())).collect();
-    let mut c = if registered {
-        ContractConsensus::start_registered(f.anvil.http.clone(), &f.l2, f.params.clone(), dirs)
-            .await?
-    } else {
-        ContractConsensus::start_native(f.anvil.http.clone(), &f.l2, f.params.clone(), dirs).await?
-    };
+    let mut c =
+        ContractConsensus::start_native(f.anvil.http.clone(), &f.l2, f.params.clone(), dirs)
+            .await?;
     let commands = Commands::new(&f, &c)?;
     let result = match kind {
         Scenario::Latest => latest(&f, &mut c, &commands).await,
@@ -174,7 +171,7 @@ async fn latest(f: &ContractFixture, c: &mut ContractConsensus, commands: &Comma
     // The source decides both FI skips (s + 1, s + 2) before its only validator stops.
     c.wait_for_height(s + 3).await?;
     c.stop_node(0).await?;
-    let hrs = f.signer_storage.path().join("0/state.json");
+    let hrs = c.signing_state_path(0);
     let wal = c.comet_home(0).join("data/cs.wal/wal");
     let signer = || -> Result<_> { Ok((fs::read(&hrs)?, fs::read(&wal)?)) };
     let original = signer()?;
@@ -244,8 +241,9 @@ async fn registered_older(
     fs::write(&x.config, toml::to_string(&config)?)?;
     c.stop_node(0).await?;
     let dir = f.signer_storage.path().join("0").canonicalize()?;
+    let hrs = c.signing_state_path(0);
     let wal = c.comet_home(0).join("data/cs.wal/wal");
-    let original = (fs::read(dir.join("state.json"))?, fs::read(&wal)?);
+    let original = (fs::read(&hrs)?, fs::read(&wal)?);
     // The independent quorum can continue while the old validator is stopped. Wait for its
     // absent proposer turn so at least one original post-s decision uses a later round.
     let mut h =
@@ -266,21 +264,15 @@ async fn registered_older(
     })
     .await
     .context("independent source must decide a nonzero round")??;
-    let authority = [
-        "key.json",
-        "authority/manifest.json",
-        "key.json.authority.json",
-        "state.json.authority.json",
-    ];
-    let before: Vec<_> =
-        authority.iter().map(|name| fs::read(dir.join(name))).collect::<std::io::Result<_>>()?;
+    let signer_files = [dir.join("key.json"), test_harness::signer_domains_log(&dir)];
+    let before: Vec<_> = signer_files.iter().map(fs::read).collect::<std::io::Result<_>>()?;
     let root = base.join("import");
     let ready = import(f, commands, &x, &root, "import").await?;
     ensure!(ready == json!({"phase": "ready", "generation": 0, "execution_floor": s}), "{ready}");
     // DATA-5.4-7: signer state is never imported, and the import touches none of it.
-    ensure!((fs::read(dir.join("state.json"))?, fs::read(&wal)?) == original);
-    for (name, bytes) in authority.iter().zip(&before) {
-        ensure!(fs::read(dir.join(name))? == *bytes, "checkpoint import changed authority {name}");
+    ensure!((fs::read(&hrs)?, fs::read(&wal)?) == original);
+    for (path, bytes) in signer_files.iter().zip(&before) {
+        ensure!(fs::read(path)? == *bytes, "checkpoint import changed {}", path.display());
     }
     registered_follow(f, c, commands, &x, &root, s, target, &original).await
 }
@@ -728,29 +720,18 @@ async fn registered_follow(
         .context("source HRS")?
         .parse::<u64>()?;
     let ready = root.join("ready");
-    let domain: Value = serde_json::from_str(&c.genesis_json)?;
-    let chain = domain["chain_id"].as_str().context("deployment chain")?;
+    let chain = c.chain_id()?;
+    let hrs = test_harness::signer_hrs(&dir, &chain);
     let mut node = Node::start(f, commands, x, root, "registered").await?;
-    ensure!(fs::read(dir.join("state.json"))? == original.0);
-    let vars = [
-        format!("ETNA_COMET_HOME={}", ready.join("comet").display()),
-        format!("ETNA_APP_STORE={}", ready.join("app").display()),
-        format!("ETNA_PRIV_KEY={}", dir.join("key.json").display()),
-        format!("ETNA_PRIV_STATE={}", dir.join("state.json").display()),
-        format!("ETNA_AUTHORITY_ROOT={}", dir.join("authority").display()),
-        format!("ETNA_CHAIN_ID={chain}"),
-        format!("ETNA_L1_CHAIN_ID={}", f.params.l1_chain_id),
-        format!("ETNA_L2_CHAIN_ID={}", f.params.l2_chain_id),
-        format!("ETNA_INBOX={:#x}", f.params.inbox),
-        "ETNA_GENERATION=0".into(),
-        "ETNA_ENROLL_LEGACY=0".into(),
-        format!("ETNA_SIGNER_BIN={}", binary("ETNA_SIGNER_BIN", "etna-signer")?.display()),
-        format!("ETNA_COMET_BIN={}", binary("ETNA_COMET_BIN", "cometbft")?.display()),
-        "python3".into(),
-        package().join("script/etna_validator.py").display().to_string(),
-    ];
-    let mut supervisor =
-        Process::spawn(Path::new("/usr/bin/env"), &vars, x.base.join("registered-supervisor.log"))?;
+    ensure!(fs::read(&hrs)? == original.0);
+    // The same chain_id keeps its one HRS state: the imported stores run the same signer
+    // configuration as before the import (DATA-5.4-7, RECOV-8.2-1).
+    let mut command =
+        test_harness::supervisor_command(&ready.join("comet"), &ready.join("app"), &dir, &chain);
+    command
+        .env("ETNA_SIGNER_BIN", binary("ETNA_SIGNER_BIN", "etna-signer")?)
+        .env("ETNA_COMET_BIN", binary("ETNA_COMET_BIN", "cometbft")?);
+    let mut supervisor = Process::spawn_command(command, x.base.join("registered-supervisor.log"))?;
     let rpc = CmtClient::new(url(x.rpc));
     let reader = &c.peers[1];
     let address = f.keys[0].address();
@@ -804,7 +785,7 @@ async fn registered_follow(
         fs::read(ready.join(format!("app/val-state-{grid}.bin")))? ==
             fs::read(c.app_dir(1).join(format!("val-state-{grid}.bin")))?
     );
-    let hrs = serde_json::from_slice::<Value>(&fs::read(dir.join("state.json"))?)?["height"]
+    let hrs = serde_json::from_slice::<Value>(&fs::read(&hrs)?)?["height"]
         .as_str()
         .context("imported HRS")?
         .parse::<u64>()?;

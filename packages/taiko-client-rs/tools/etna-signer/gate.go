@@ -84,10 +84,11 @@ func newGate(path string, timeout time.Duration) *gate {
 	return &gate{path: path, timeout: timeout, terminal: make(chan error, 1)}
 }
 
-// stopIfUncertain asks the process owner to exit, so the supervisor durably halts
-// instead of automatically restarting a signer whose latest state needs inspection.
+// stopIfUncertain asks the process owner to exit with exitSigningStateUnsafe, so the
+// supervisor durably halts instead of automatically restarting a signer whose latest state
+// needs inspection (RECOV-8.2-3).
 func (g *gate) stopIfUncertain(err error) bool {
-	if !errors.Is(err, errStateUncertain) {
+	if !errors.Is(err, errSigningStateUnsafe) {
 		return false
 	}
 	select {
@@ -431,16 +432,11 @@ func (g *gate) handle(signer types.PrivValidator, req pv.Message, chain string) 
 		if invalid || requestChain != chain {
 			err = errors.New("invalid signing request or chain ID")
 		} else {
-			var response *trustResponse
-			response, err = g.check(chain)
-			if err == nil {
-				if domain, ok := signer.(*domainSigner); ok {
-					signer, err = domain.authority.authorize(chain, response)
-				} else if *response.Generation != 0 {
-					// Without --authority-root the only HRS is generation zero's (RECOV-8.2-1/8.2-5).
-					err = errors.New("recovered generations require authority mode")
-				}
-			}
+			// The signer serves exactly one full chain_id, whose own HRS state init-state
+			// created; a recovered generation is another chain_id with another state
+			// (RECOV-8.2-1/8.2-5). So the request's chain, matched above, and this fresh
+			// check bind every signature to that state (RECOV-8.2-4, SYNC-9-10).
+			_, err = g.check(chain)
 		}
 		if err != nil {
 			if !g.stopIfUncertain(err) {

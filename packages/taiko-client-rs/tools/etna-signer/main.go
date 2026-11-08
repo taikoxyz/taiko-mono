@@ -1,5 +1,6 @@
 // etna-signer delegates signing and anti-double-sign persistence to CometBFT's
-// pinned FilePV, authorizing each signature against the local app trust session.
+// pinned FilePV, authorizing each signature against the local app trust session. It serves
+// one full chain_id from that chain's own HRS state, which init-state created and logged.
 package main
 
 import (
@@ -70,79 +71,22 @@ func run() error {
 	}
 	addr := flag.String("comet-signer-addr", "", "Comet-owned signer listener (unix:// or tcp:// SecretConnection)")
 	control := flag.String("trust-socket", "", "private <app-store>/checkpoint-trust.sock")
-	chain := flag.String("chain-id", "", "verified Comet chain ID")
-	key := flag.String("priv-key", "", "existing Comet FilePV private key")
-	state := flag.String("priv-state", "", "existing Comet FilePV anti-double-sign state (never reset)")
-	root := flag.String("authority-root", "", "private durable deployment/key authority directory")
-	l1 := flag.String("l1-chain-id", "", "full decimal deployment L1 uint256 ID")
-	l2 := flag.String("l2-chain-id", "", "full decimal deployment L2 uint256 ID")
-	inbox := flag.String("inbox", "", "canonical 0x lowercase deployment Inbox")
-	generation := flag.Uint64("generation", 0, "explicit generation for authority-mode chain ID")
-	enroll := flag.Bool("enroll-legacy", false, "explicit one-time legacy enrollment; matching completed enrollment resumes idempotently")
+	chain := flag.String("chain-id", "", "verified full Comet chain ID; the signer serves only this signing domain")
+	key := flag.String("priv-key", "", "existing registered Comet FilePV private key")
+	state := flag.String("priv-state", "", "existing <state-dir>/<chain-id>.json HRS that init-state created (never reset)")
+	domains := flag.String("domains-log", "", "existing domains log listing every initialized chain ID, outside the state directory")
 	denial := flag.String("denial-file", "", "private atomic refusal event file for the local supervisor")
 	timeout := flag.Duration("trust-timeout", time.Second, "per-request private control deadline (0 < timeout <= 10s)")
 	await := flag.Bool("await-trust", false, "recovery restart after a refused signing request, once trust has returned: connect to Comet only after the first transport's fresh trust session is Ready, so WAL replay's re-request of the refused step is authorized; later reconnects dial at once; never for a first start, where trust may return only after Comet syncs")
 	flag.Parse()
-	if flag.NArg() != 0 || *addr == "" || *control == "" || *chain == "" || *key == "" || *state == "" || *timeout <= 0 || *timeout > 10*time.Second {
-		return errors.New("all addresses, chain ID and existing key/state paths are required; timeout must be in (0,10s]")
+	if flag.NArg() != 0 || *addr == "" || *control == "" || *chain == "" || *key == "" || *state == "" || *domains == "" || *timeout <= 0 || *timeout > 10*time.Second {
+		return errors.New("all addresses, chain ID, existing key/state paths and the domains log are required; timeout must be in (0,10s]")
 	}
-	for _, path := range []*string{key, state} {
-		canonical, err := existingFile(*path)
-		if err != nil {
-			return fmt.Errorf("existing signing file %s: %w", *path, err)
-		}
-		*path = canonical
-	}
-	if err := singleLinkState(*state); err != nil {
+	signer, release, err := openSigningState(*chain, *key, *state, *domains)
+	if err != nil {
 		return err
 	}
-	if err := clearUncertainty(uncertaintyPath(*state)); err != nil {
-		return err
-	}
-	var signer types.PrivValidator
-	if *root != "" {
-		config := authorityConfig{Root: *root, Key: *key, LegacyState: *state, L1ChainID: *l1, L2ChainID: *l2, Inbox: *inbox, EnrollLegacy: *enroll}
-		expected, err := config.chainID(*generation)
-		if err != nil || expected != *chain {
-			return errors.New("authority generation/deployment does not match chain ID")
-		}
-		authority, err := openAuthority(config)
-		if err != nil {
-			return err
-		}
-		defer authority.Close()
-		signer = &domainSigner{authority: authority}
-	} else {
-		if *enroll || *l1 != "" || *l2 != "" || *inbox != "" || *generation != 0 {
-			return errors.New("authority options require --authority-root")
-		}
-		// Key ownership prevents two different state paths using the same native key.
-		if err := singleLinkState(*key); err != nil {
-			return err
-		}
-		keyLock, err := ownerLock(*key + ".lock")
-		if err != nil {
-			return err
-		}
-		defer keyLock.Close()
-		stateLock, err := ownerLock(*state + ".lock")
-		if err != nil {
-			return err
-		}
-		defer stateLock.Close()
-		if err := clearUncertainty(uncertaintyPath(*state)); err != nil {
-			return err
-		}
-		for _, p := range []string{*key + ".authority.json", *state + ".authority.json"} {
-			if _, err := os.Lstat(p); !os.IsNotExist(err) {
-				return errors.New("enrolled signer requires authority mode; missing or uncertain registry requires investigation")
-			}
-		}
-		if _, err := loadNativeKey(*key); err != nil {
-			return err
-		}
-		signer = loadDurableFilePV(*key, *state)
-	}
+	defer release()
 	var dial privval.SocketDialer
 	protocol, address := cmtnet.ProtocolAndAddress(*addr)
 	switch protocol {
@@ -206,6 +150,9 @@ func awaitSignerShutdown(server *privval.SignerServer, gate *gate, signals <-cha
 func main() {
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
+		if errors.Is(err, errSigningStateUnsafe) {
+			os.Exit(exitSigningStateUnsafe)
+		}
 		os.Exit(1)
 	}
 }

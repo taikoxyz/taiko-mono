@@ -303,7 +303,8 @@ stores with one `import` command, published together as `ROOT/ready/{app,comet,e
 `abci`, the EL and stock Comet then run those stores. See the
 [checkpoint import runbook](docs/checkpoint-import.md) for the stopped EL source, original genesis,
 grid preimage archive and startup. An import grants no signing readiness. A registered validator
-resumes with the original external authority and HRS after matching its own finalized target.
+resumes with its registered key and the same chain_id's HRS after matching its own finalized
+target.
 The [client rule inventory](docs/etna-conformance.md) and
 [local resource measurements](docs/checkpoint-import-resources.md) describe the reproducible checks.
 
@@ -483,14 +484,26 @@ committing those values to the Inbox.
    ```sh
    # Build the host helper with Go 1.27.2 (also packaged as /app/etna-signer in the image).
    just signer
+   # Once per chain_id, with the signer stopped: create its HRS and log it. The domains log
+   # was created once with `init-domains-log`, on another volume than the HRS directory.
+   ./target/etna-signer/etna-signer init-state --chain-id "$(jq -r .chain_id genesis.json)" \
+     --priv-key /private/key/priv_validator_key.json \
+     --priv-state "/private/hrs/$(jq -r .chain_id genesis.json).json" \
+     --domains-log /private/domains/domains.log
    # In another terminal, supervise the signer and stock Comet together.
    ETNA_COMET_HOME="$PWD/cmt" ETNA_APP_STORE="$PWD/abci-data" \
      ETNA_SIGNER_BIN="$PWD/target/etna-signer/etna-signer" \
-     ETNA_PRIV_KEY=/private/validator/priv_validator_key.json \
-     ETNA_PRIV_STATE=/private/validator/priv_validator_state.json \
+     ETNA_PRIV_KEY=/private/key/priv_validator_key.json \
+     ETNA_PRIV_STATE_DIR=/private/hrs \
+     ETNA_DOMAINS_LOG=/private/domains/domains.log \
      ETNA_CHAIN_ID="$(jq -r .chain_id genesis.json)" \
      bash script/start_etna_validator.sh
    ```
+
+   The signer serves only `<ETNA_PRIV_STATE_DIR>/<ETNA_CHAIN_ID>.json`, one stock HRS per full
+   chain_id, and refuses with exit 3 a missing or malformed domains log, a chain_id the log does
+   not list, a logged chain_id whose state is missing and an unauthentic or ambiguous HRS
+   (RECOV-8.2-1..3); see [the signer README](tools/etna-signer/README.md#refusal-matrix-and-exit-codes).
 
    The host supervisor requires Bash and Python 3.11+ (`tomllib`); the production image
    includes Python, the signer, this supervisor and a native build of unmodified stock
@@ -508,8 +521,8 @@ committing those values to the Inbox.
    its persistent home owned by 10001, with `<comet-home>/run` owned by 10001, mode 0700 and
    not sticky (the supervisor refuses a sticky `run/` or one not owned by the Comet UID;
    without CAP_FOWNER it could not remove Comet's stale socket from a sticky `run/`); keep
-   registered key/HRS root-owned 0600 in a private directory outside that
-   home. The Unix signer listener lives in that `run/`, never in the app's 0700 private
+   registered key, HRS directory and domains log root-owned 0600 in private directories outside
+   that home and the app store. The Unix signer listener lives in that `run/`, never in the app's 0700 private
    store. This prevents the Comet child from reading registered signing secrets. The
    supervisor needs root with exactly CAP_SETUID and CAP_SETGID (start Comet as
    `ETNA_COMET_UID/GID` without supplementary groups), CAP_KILL (stop that Comet) and
@@ -519,8 +532,8 @@ committing those values to the Inbox.
    volume ownership is prepared separately. HRS
    and its parent must be writable for atomic replacement, even when the key is read-only.
    The supervisor requires
-   `priv_validator_laddr`, existing signing files outside the Comet
-   home, and matching genesis chain ID. A `unix://` value only selects Unix mode and is
+   `priv_validator_laddr`, signing paths outside the Comet home and app store, and a matching
+   genesis chain ID. A `unix://` value only selects Unix mode and is
    preferred; `tcp://` uses CometBFT's official
    encrypted SecretConnection, never raw signer protobuf over TCP. A nonvalidator full node
    may run stock Comet without the helper, using an unregistered local identity.
@@ -550,12 +563,12 @@ committing those values to the Inbox.
    runs both together without `--await-trust`: a node that is behind regains trust only after
    Comet syncs, and Comet's startup needs the signer. Its new transport initially closes
    trust; PubKey/Ping and safe catchup remain available while signing waits for revalidation.
-   Halted trust, stale generation/domain, signer exit, or unexplained Comet exit creates
+   Halted trust, another chain_id, signer exit, or unexplained Comet exit creates
    `<data-dir>/validator-supervisor.halted` and leaves the supervisor alive and quiescent.
-   Before changing signing state or authority metadata, the helper durably arms
-   `<priv-state>.uncertain` beside the original HRS. It removes that fence only after the
-   changed state and metadata have been synchronized. A retained fence blocks startup across
-   generations, including when the supervisor was killed before writing its app-store latch.
+   Before changing signing state, the helper durably arms `<priv-state>.uncertain` beside that
+   chain's HRS. It removes that fence only after the changed state has been synchronized. A
+   retained fence blocks startup, including when the supervisor was killed before writing its
+   app-store latch.
    If that latch cannot be written, the supervisor stops its children, stays quiescent and
    retries persistence. Container restart cannot clear a retained signer fence or halt latch.
    A Comet EOF following observed control/trust loss also recovers after private Ready;

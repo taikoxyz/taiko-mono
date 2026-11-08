@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -38,7 +37,7 @@ func TestSupervisorSIGKILLBeforeHaltRetainsSignerFence(t *testing.T) {
 		}
 	}
 	fixture := shutdownFixture{
-		Key: key, State: state, Control: control(t, func(request map[string]any) any { return snapshot(request["op"] != "begin_session") }),
+		Key: key, State: state, Log: domainsLogOf(state), Control: control(t, func(request map[string]any) any { return snapshot(request["op"] != "begin_session") }),
 		Comet: filepath.Join(root, "comet.sock"), Entered: filepath.Join(root, "entered"), Release: filepath.Join(root, "release"),
 	}
 	if err := os.Symlink(fixture.Control, filepath.Join(store, "checkpoint-trust.sock")); err != nil {
@@ -62,14 +61,7 @@ func TestSupervisorSIGKILLBeforeHaltRetainsSignerFence(t *testing.T) {
 	starts, cometPID := filepath.Join(root, "starts"), filepath.Join(root, "comet.pid")
 	cometCommand, _ := json.Marshal([]string{python, "-c", "import os,time; open(os.environ['COMET_PID'],'w').write(str(os.getpid())); open(os.environ['COMET_STARTS'],'a').write('start\\n'); time.sleep(300)"})
 	signerCommand, _ := json.Marshal([]string{os.Args[0], "-test.run=^TestSignerSignalDuringSyncHelper$", "--"})
-	environment := []string{}
-	for _, value := range os.Environ() {
-		if !strings.HasPrefix(value, "ETNA_") {
-			environment = append(environment, value)
-		}
-	}
-	environment = append(environment, "ETNA_COMET_HOME="+home, "ETNA_APP_STORE="+store,
-		"ETNA_PRIV_KEY="+key, "ETNA_PRIV_STATE="+state, "ETNA_CHAIN_ID="+chain,
+	environment := supervisorEnvironment(home, store, key, state,
 		"ETNA_SIGNER_COMMAND_JSON="+string(signerCommand), "ETNA_SIGNER_SHUTDOWN_CONFIG="+configPath,
 		"ETNA_COMET_COMMAND_JSON="+string(cometCommand), "COMET_STARTS="+starts, "COMET_PID="+cometPID)
 	logs, err := os.Create(filepath.Join(root, "supervisor.log"))
@@ -134,7 +126,7 @@ func TestSupervisorSIGKILLBeforeHaltRetainsSignerFence(t *testing.T) {
 	}
 	waitFor("signer did not report actual fsync failure", func() bool {
 		contents, _ := os.ReadFile(logs.Name())
-		return bytes.Contains(contents, []byte(errStateUncertain.Error()))
+		return bytes.Contains(contents, []byte(errSigningStateUnsafe.Error()))
 	})
 	if err := supervisor.Process.Kill(); err != nil {
 		t.Fatal(err)

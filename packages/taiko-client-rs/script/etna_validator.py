@@ -62,41 +62,23 @@ class Supervisor:
         self.home = Path(os.environ["ETNA_COMET_HOME"]).resolve()
         self.store = Path(os.environ["ETNA_APP_STORE"]).resolve()
         self.key = Path(os.environ["ETNA_PRIV_KEY"]).resolve()
-        self.state = Path(os.environ["ETNA_PRIV_STATE"]).resolve()
-        root = os.environ.get("ETNA_AUTHORITY_ROOT", "")
-        self.denial_route = self.validate_denial_route(root)
+        self.chain = os.environ["ETNA_CHAIN_ID"]
+        # One stock HRS per full chain_id: the chain_id binds the generation, and init-state
+        # created <ETNA_PRIV_STATE_DIR>/<chain_id>.json and logged it in ETNA_DOMAINS_LOG
+        # (RECOV-8.2-1). Their existence is the signer's check: it exits 3 on a lost state.
+        if not self.chain or "/" in self.chain or self.chain in (".", ".."):
+            raise ValueError("ETNA_CHAIN_ID must name one signing state file")
+        self.state_dir = Path(os.environ["ETNA_PRIV_STATE_DIR"]).resolve()
+        self.state = self.state_dir / (self.chain + ".json")
+        self.domains_log = Path(os.environ["ETNA_DOMAINS_LOG"]).resolve()
+        # Comet runs as another UID and must never reach the registered key, the HRS states or
+        # the log, and the disposable app store never holds them.
+        for path in (self.key, self.state_dir, self.domains_log):
+            if path.is_relative_to(self.home) or path.is_relative_to(self.store):
+                raise ValueError("registered key, signing state and domains log must be outside the Comet home and app store")
+        self.denial_route = self.validate_denial_route()
         self.events = self.denial_route
         self.prior_observation = None
-        self.chain = os.environ["ETNA_CHAIN_ID"]
-        generation = os.environ.get("ETNA_GENERATION", "0")
-        if not generation.isascii() or not generation.isdecimal() or int(generation) >= 1 << 48:
-            raise ValueError("ETNA_GENERATION must be a decimal uint48")
-        self.generation = int(generation)
-        deployment = [os.environ.get(name, "") for name in
-                      ("ETNA_L1_CHAIN_ID", "ETNA_L2_CHAIN_ID", "ETNA_INBOX")]
-        enrollment = os.environ.get("ETNA_ENROLL_LEGACY", "0")
-        if enrollment not in ("0", "1"):
-            raise ValueError("ETNA_ENROLL_LEGACY must be 0 or 1")
-        authority_args = []
-        if root:
-            if "ETNA_GENERATION" not in os.environ or not all(deployment):
-                raise ValueError("authority mode requires explicit generation and complete deployment identity")
-            authority = Path(root).resolve()
-            for path in (authority, self.key, self.state):
-                if path.is_relative_to(self.home) or path.is_relative_to(self.store):
-                    raise ValueError("authority storage must be outside Comet home and app store")
-            # The native signer validates the canonical full chain domain against these
-            # IDs before opening authority. Never infer enrollment from observations.
-            authority_args = ["--authority-root", str(authority),
-                              "--l1-chain-id", deployment[0], "--l2-chain-id", deployment[1],
-                              "--inbox", deployment[2], "--generation", str(self.generation)]
-            if enrollment == "1":
-                authority_args.append("--enroll-legacy")
-        elif self.generation or any(deployment) or enrollment == "1":
-            raise ValueError("generation and authority options require ETNA_AUTHORITY_ROOT")
-        for path in (self.key, self.state):
-            if not path.is_file() or path.is_relative_to(self.home):
-                raise ValueError("existing registered key/state must be outside the Comet home")
         config = tomllib.loads((self.home / "config/config.toml").read_text())
         address = config.get("priv_validator_laddr", "")
         if json.loads((self.home / "config/genesis.json").read_text())["chain_id"] != self.chain:
@@ -121,7 +103,7 @@ class Supervisor:
         self.signer_command = self.command_prefix("ETNA_SIGNER_COMMAND_JSON", [binary]) + [
             "--trust-socket", str(self.store / "checkpoint-trust.sock"),
             "--chain-id", self.chain, "--priv-key", str(self.key),
-            "--priv-state", str(self.state)] + authority_args
+            "--priv-state", str(self.state), "--domains-log", str(self.domains_log)]
         # Comet's complete argv. start_comet() appends only the Unix pair's --priv_validator_laddr.
         self.comet_command = self.command_prefix("ETNA_COMET_COMMAND_JSON", [
             os.environ.get("ETNA_COMET_BIN", "cometbft"), "start", "--home", str(self.home)])
@@ -160,8 +142,11 @@ class Supervisor:
             raise ValueError("unrecognized signer diagnostic; preserving existing file")
         return (meta.st_dev, meta.st_ino, meta.st_ctime_ns), value
 
-    def validate_denial_route(self, authority_root):
-        """Check the signer's diagnostic destination before any child can write."""
+    def validate_denial_route(self):
+        """Check the signer's diagnostic destination before any child can write.
+
+        It never replaces the key, any chain's HRS or fence, or the domains log.
+        """
         default = self.store / "signer-denial.json"
         requested = Path(os.environ.get("ETNA_DENIAL_FILE", str(default)))
         if not requested.is_absolute() or ".." in requested.parts:
@@ -170,8 +155,8 @@ class Supervisor:
         parent = route.parent.stat()
         if parent.st_uid not in (0, os.geteuid()) or parent.st_mode & 0o022:
             raise ValueError("unprotected signer diagnostic parent")
-        if (route in (self.key, self.state, self.state.with_name(self.state.name + ".uncertain")) or route.is_relative_to(self.home)
-                or (authority_root and route.is_relative_to(Path(authority_root).resolve()))
+        if (route == self.key or route.is_relative_to(self.state_dir) or route.is_relative_to(self.home)
+                or route.is_relative_to(self.domains_log.parent)
                 or (route != default and route.is_relative_to(self.store)) or route.is_symlink()):
             raise ValueError("signer diagnostic aliases protected state")
         self.read_observation(route)
@@ -295,7 +280,7 @@ class Supervisor:
             self.record_signer_failure()
             self.halt("retained signer uncertainty fence; inspect signing authority")
             return
-        self.validate_denial_route(os.environ.get("ETNA_AUTHORITY_ROOT", ""))
+        self.validate_denial_route()
         self.address = self.fresh_transport()
         # Never unlink an operator-selected file; ignore its old inode on restart.
         previous = self.read_observation(self.events)
@@ -378,7 +363,7 @@ class Supervisor:
         return True
 
     def signer_uncertain(self):
-        """The original HRS sibling fence applies to every authority generation."""
+        """The signer's fence beside this chain's HRS."""
         try:
             self.state.with_name(self.state.name + ".uncertain").lstat()
         except FileNotFoundError:
@@ -427,8 +412,9 @@ class Supervisor:
             self.pending = self.pending or comet_exited
             return  # Unavailable observation never authorizes recovery.
         # Authenticated contradictions and every halted reason but an app lifecycle stop
-        # remain sticky.
-        if status.get("generation") not in (None, self.generation) or status.get("chain_id") not in (None, self.chain):
+        # remain sticky. The chain_id binds the generation, so another generation is another
+        # chain_id.
+        if status.get("chain_id") not in (None, self.chain):
             self.halt("terminal deployment identity")
             return
         lifecycle_stop = status.get("reason") in APP_LIFECYCLE_STOPS
@@ -463,12 +449,8 @@ class Supervisor:
             print("etna_supervisor_awaiting_trust: Comet starts after the signer's fresh session is Ready", flush=True)
 
     def ready(self, status):
-        """The app's trust phase is its only readiness signal (SYNC-9-15), bound to this identity."""
-        origin = status.get("recovery_origin")
-        return (status.get("phase") == "ready" and status.get("chain_id") == self.chain
-                and status.get("generation") == self.generation
-                and (self.generation == 0 or
-                     (isinstance(origin, dict) and origin.get("generation") == self.generation)))
+        """The app's trust phase is its only readiness signal (SYNC-9-15), bound to this chain_id."""
+        return status.get("phase") == "ready" and status.get("chain_id") == self.chain
 
     def start_comet_once_trusted(self):
         """Recovery: start Comet only when the signer's own published session is Ready.
@@ -480,7 +462,7 @@ class Supervisor:
             status = self.observe()
         except (OSError, ValueError, KeyError):
             return  # Unavailable observation never authorizes starting Comet.
-        if status.get("generation") not in (None, self.generation) or status.get("chain_id") not in (None, self.chain):
+        if status.get("chain_id") not in (None, self.chain):
             self.halt("terminal deployment identity")
             return
         if status.get("phase") == "halted":

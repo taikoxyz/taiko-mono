@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,6 +25,22 @@ import (
 // lives on a different volume from the HRS states, so losing a state file is detectable: a
 // logged chain without its state is lost signing state, never a fresh start (RECOV-8.2-1/3).
 const domainsLogHeader = "etna-signer-domains-v1"
+
+// errSigningStateUnsafe marks signing state that is lost or whose latest value is uncertain:
+// a missing or malformed domains log, a chain absent from it, a logged chain's missing state,
+// an unauthentic or ambiguous HRS, a retained fence or a failed fsync. The signer stops signing
+// and exits exitSigningStateUnsafe, which the supervisor latches; deleting or recreating state
+// never restores service (RECOV-8.2-3).
+var errSigningStateUnsafe = errors.New("signing state lost or uncertain (RECOV-8.2-3)")
+
+// exitSigningStateUnsafe is the exit status for errSigningStateUnsafe. Configuration, transport
+// and lock errors exit 1.
+const exitSigningStateUnsafe = 3
+
+// unsafeState wraps a refusal of the signing state as errSigningStateUnsafe.
+func unsafeState(format string, args ...any) error {
+	return fmt.Errorf("%w: %s", errSigningStateUnsafe, fmt.Sprintf(format, args...))
+}
 
 // maxDomainsLog bounds the log a signer reads.
 const maxDomainsLog = 1 << 20
@@ -351,6 +368,89 @@ func createZeroState(state string) (err error) {
 		return err
 	}
 	return syncDirectory(filepath.Dir(state))
+}
+
+// openSigningState opens chain's HRS for serving, in this order: the chain ID, the state's
+// name and the log's directory (configuration, exit 1); the key and its owner flock (exit 1 on
+// contention); the domains log under a shared flock, which must list chain; the state, which a
+// logged chain must have, and its owner flock; the fence; and the HRS, authenticated by the key
+// for chain. A refusal of the state itself is errSigningStateUnsafe: nothing is created or reset,
+// and a lost state is never mistaken for a fresh start (RECOV-8.2-1..3). release closes the
+// locks, which the caller holds while serving (RECOV-8.2-2).
+func openSigningState(chain, key, state, log string) (_ *durableFilePV, release func(), err error) {
+	if err = statePlacement(chain, state, log); err != nil {
+		return nil, nil, err
+	}
+	var locks []*os.File
+	unlock := func() {
+		for i := len(locks) - 1; i >= 0; i-- {
+			locks[i].Close()
+		}
+	}
+	defer func() {
+		if err != nil {
+			unlock()
+		}
+	}()
+	// Key ownership prevents two state paths, or two hosts sharing a volume, using one key.
+	canonicalKey, err := existingFile(key)
+	if err != nil {
+		return nil, nil, fmt.Errorf("existing signing file %s: %w", key, err)
+	}
+	key = canonicalKey
+	if err = singleLinkState(key); err != nil {
+		return nil, nil, err
+	}
+	native, err := loadNativeKey(key)
+	if err != nil {
+		return nil, nil, err
+	}
+	keyLock, err := ownerLock(key + ".lock")
+	if err != nil {
+		return nil, nil, err
+	}
+	locks = append(locks, keyLock)
+	journal, err := os.OpenFile(log, os.O_RDONLY|syscall.O_NOFOLLOW, 0)
+	if err != nil {
+		return nil, nil, unsafeState("domains log %s: %v", log, err)
+	}
+	locks = append(locks, journal)
+	if err = syscall.Flock(int(journal.Fd()), syscall.LOCK_SH|syscall.LOCK_NB); err != nil {
+		return nil, nil, fmt.Errorf("another signer owns the domains log: %w", err)
+	}
+	logged, err := readDomainsLog(journal)
+	if err != nil {
+		return nil, nil, unsafeState("domains log %s: %v", log, err)
+	}
+	if !logged[chain] {
+		return nil, nil, unsafeState("chain %s is not initialized in domains log %s; a state that init-state did not log is never used", chain, log)
+	}
+	canonical, err := existingFile(state)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil, unsafeState("signing state %s of logged chain %s is missing: %v", state, chain, err)
+	}
+	if err != nil {
+		return nil, nil, unsafeState("signing state %s: %v", state, err)
+	}
+	// An alias must resolve to this chain's own state, never another chain's.
+	if filepath.Base(canonical) != chain+".json" {
+		return nil, nil, unsafeState("signing state %s resolves to %s, not %s.json", state, canonical, chain)
+	}
+	if err = singleLinkState(canonical); err != nil {
+		return nil, nil, unsafeState("signing state %s: %v", canonical, err)
+	}
+	stateLock, err := ownerLock(canonical + ".lock")
+	if err != nil {
+		return nil, nil, err
+	}
+	locks = append(locks, stateLock)
+	if err = clearUncertainty(uncertaintyPath(canonical)); err != nil {
+		return nil, nil, err
+	}
+	if _, err = validateHRS(canonical, chain, native.PubKey()); err != nil {
+		return nil, nil, unsafeState("HRS %s: %v", canonical, err)
+	}
+	return loadDurableFilePV(key, canonical), unlock, nil
 }
 
 // initDomainsLogCommand is `etna-signer init-domains-log --domains-log L`, run once per key.

@@ -76,13 +76,51 @@ func snapshot(ready bool) map[string]any {
 	hash := "0x" + strings.Repeat("b", 64)
 	return map[string]any{"schema_version": 1, "session_id": "test:7", "chain_id": chain, "generation": 0, "phase": map[bool]string{true: "ready", false: "catching_up"}[ready], "target": map[string]any{"l1_number": 10, "l1_hash": "0x" + strings.Repeat("a", 64), "height": 0, "hash": hash, "comet_hash": "0x" + strings.Repeat("c", 64), "val_state_hash": "0x" + strings.Repeat("e", 64), "generation": 0, "inbox": "0x" + strings.Repeat("1", 40)}, "committed_head": map[string]any{"height": 0, "hash": hash}, "trusted_consensus_head": map[string]any{"height": 0, "hash": hash}, "reason": nil, "recovery_origin": nil}
 }
+
+// filePV is one validator initialized as an operator does: a stock native key, then
+// init-domains-log and init-state for chain, with <d>/key.json, <d>/hrs/<chain>.json and
+// <d>/domains/domains.log (domainsLogOf).
 func filePV(t *testing.T) (*privval.FilePV, string, string) {
 	t.Helper()
 	d := t.TempDir()
-	key, state := filepath.Join(d, "key.json"), filepath.Join(d, "state.json")
-	p := privval.NewFilePV(secp256k1eth.GenPrivKey(), key, state)
-	p.Save()
-	return p, key, state
+	key, state := filepath.Join(d, "key.json"), filepath.Join(d, "hrs", chain+".json")
+	for _, dir := range []string{filepath.Dir(state), filepath.Dir(domainsLogOf(state))} {
+		if err := os.Mkdir(dir, 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	privval.NewFilePV(secp256k1eth.GenPrivKey(), key, state).Key.Save()
+	if err := initDomainsLog(domainsLogOf(state)); err != nil {
+		t.Fatal(err)
+	}
+	if err := initState(chain, key, state, domainsLogOf(state)); err != nil {
+		t.Fatal(err)
+	}
+	return privval.LoadFilePV(key, state), key, state
+}
+
+// domainsLogOf is filePV's domains log for its state path.
+func domainsLogOf(state string) string {
+	return filepath.Join(filepath.Dir(filepath.Dir(state)), "domains", "domains.log")
+}
+
+// recoveredSnapshot is a Ready trust response for chain at recovered generation g > 0.
+func recoveredSnapshot(t *testing.T, g uint64) *trustResponse {
+	t.Helper()
+	value := snapshot(true)
+	value["generation"] = g
+	target := value["target"].(map[string]any)
+	target["generation"] = g
+	target["height"] = 6
+	value["committed_head"].(map[string]any)["height"] = 6
+	value["trusted_consensus_head"].(map[string]any)["height"] = 6
+	value["recovery_origin"] = map[string]any{"generation": g, "height": 6, "l1_number": 9, "l1_hash": "0x" + strings.Repeat("a", 64), "l1_timestamp": 100, "el_hash": target["hash"], "comet_hash": target["comet_hash"], "forced_cursor": 0, "committee_hash": "0x" + strings.Repeat("d", 64)}
+	raw, _ := json.Marshal(value)
+	var r trustResponse
+	if err := json.Unmarshal(raw, &r); err != nil {
+		t.Fatal(err)
+	}
+	return &r
 }
 func armed(path string) *gate {
 	g := newGate(path, time.Second)
@@ -694,11 +732,7 @@ func TestDenialSignalIncludesTimeoutWithoutChangingHRS(t *testing.T) {
 }
 
 func TestRecoveryAuthorizationIsStrict(t *testing.T) {
-	c := authorityFixture(t)
-	next, ready := readyDomain(t, c, 1)
-	raw, _ := json.Marshal(ready)
-	var base map[string]any
-	json.Unmarshal(raw, &base)
+	raw, _ := json.Marshal(recoveredSnapshot(t, 1))
 	for _, mode := range []string{"valid", "other-schema", "absent-origin", "null-origin", "null-height", "unknown-origin", "wrong-generation", "checkpoint-before-origin", "changed-el", "stale-session"} {
 		t.Run(mode, func(t *testing.T) {
 			var r map[string]any
@@ -726,7 +760,7 @@ func TestRecoveryAuthorizationIsStrict(t *testing.T) {
 			}
 			path := control(t, func(map[string]any) any { return r })
 			g := armed(path)
-			_, err := g.check(next)
+			_, err := g.check(chain)
 			if mode == "valid" && err != nil {
 				t.Fatal(err)
 			}
@@ -737,31 +771,29 @@ func TestRecoveryAuthorizationIsStrict(t *testing.T) {
 	}
 }
 
-// A signer without --authority-root holds only the generation-zero HRS: a Ready recovered
-// generation must never sign into it, even with a valid origin and a matching chain ID.
-func TestLegacyGateRefusesRecoveryGeneration(t *testing.T) {
-	c := authorityFixture(t)
-	for _, generation := range []uint64{0, 1} {
-		t.Run(fmt.Sprint(generation), func(t *testing.T) {
-			domain, ready := readyDomain(t, c, generation)
-			g := armed(control(t, func(map[string]any) any { return ready }))
-			signer, _, state := filePV(t)
-			before, _ := os.ReadFile(state)
-			req := pv.Message{Sum: &pv.Message_SignVoteRequest{SignVoteRequest: &pv.SignVoteRequest{ChainId: domain, Vote: authorityVote(7)}}}
-			res, err := g.handle(signer, req, domain)
-			after, _ := os.ReadFile(state)
-			if generation == 0 {
-				if err != nil || res.GetSignedVoteResponse().Error != nil {
-					t.Fatalf("generation zero legacy signing: %v", err)
-				}
-				return
-			}
-			if err == nil || res.GetSignedVoteResponse().Error == nil || !strings.Contains(err.Error(), "authority mode") {
-				t.Fatalf("legacy signer authorized a recovered generation: %v", err)
-			}
-			if !bytes.Equal(before, after) {
-				t.Fatal("denial changed generation-zero HRS")
-			}
-		})
+// A recovered generation has its own full chain_id and so its own HRS state (RECOV-8.2-1,
+// RECOV-8.2-5): once its trust is Ready the gate signs into the state the signer serves, which
+// init-state created for that chain_id, and a request for any other chain is refused.
+func TestGateSignsRecoveredGenerationIntoItsOwnState(t *testing.T) {
+	ready := recoveredSnapshot(t, 1)
+	g := armed(control(t, func(map[string]any) any { return ready }))
+	signer, key, state := filePV(t)
+	vote := func(chain string) pv.Message {
+		return pv.Message{Sum: &pv.Message_SignVoteRequest{SignVoteRequest: &pv.SignVoteRequest{ChainId: chain, Vote: &tm.Vote{Type: tm.PrevoteType, Height: 7, Timestamp: time.Unix(100, 0)}}}}
+	}
+	before, _ := os.ReadFile(state)
+	res, err := g.handle(signer, vote("etna-other"), chain)
+	if err == nil || res.GetSignedVoteResponse().Error == nil {
+		t.Fatal("another chain's request signed")
+	}
+	if after, _ := os.ReadFile(state); !bytes.Equal(before, after) {
+		t.Fatal("refused chain changed the HRS")
+	}
+	res, err = g.handle(signer, vote(chain), chain)
+	if err != nil || res.GetSignedVoteResponse().Error != nil || len(res.GetSignedVoteResponse().Vote.Signature) != 65 {
+		t.Fatalf("recovered generation refused: %v %v", res, err)
+	}
+	if persisted := privval.LoadFilePV(key, state); persisted.LastSignState.Height != 7 {
+		t.Fatal("signature not persisted in the chain's own HRS")
 	}
 }

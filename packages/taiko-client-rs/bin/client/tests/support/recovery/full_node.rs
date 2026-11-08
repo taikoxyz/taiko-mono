@@ -66,7 +66,7 @@ pub async fn join_after_landing(
         // prepare reads the EL state at c from this node's own EL (SYNC-9-16).
         let plan = commands.prepare_command(1).await?;
         let installed = commands.install_command(&plan, "delayed-full-node").await?;
-        let mut node = commands.start_recovered(&installed, 1, "delayed-full-node").await?;
+        let mut node = commands.start_recovered(&installed, "delayed-full-node").await?;
         let comet = CmtClient::new(format!("http://127.0.0.1:{rpc}").parse()?);
         super::wait_committed(&comet, 13, &mut node).await?;
         let status = tokio::time::timeout(std::time::Duration::from_secs(90), async {

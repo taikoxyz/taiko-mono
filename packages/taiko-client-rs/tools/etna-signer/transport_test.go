@@ -83,7 +83,7 @@ func TestTransportOnlyDisconnectRearmsSameHelper(t *testing.T) {
 			}
 			defer listener.Close()
 			var logs bytes.Buffer
-			helper := exec.Command(binary, "--comet-signer-addr", addr, "--trust-socket", path, "--chain-id", chain, "--priv-key", key, "--priv-state", state)
+			helper := exec.Command(binary, "--comet-signer-addr", addr, "--trust-socket", path, "--chain-id", chain, "--priv-key", key, "--priv-state", state, "--domains-log", domainsLogOf(state))
 			helper.Stdout = &logs
 			helper.Stderr = &logs
 			if err := helper.Start(); err != nil {

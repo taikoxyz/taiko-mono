@@ -9,7 +9,7 @@ use crate::{
     wait_until,
 };
 use abci::{ChainParams, RpcL1Source, build_genesis};
-use anyhow::{Result, ensure};
+use anyhow::{Context, Result, ensure};
 use std::{path::PathBuf, time::Duration};
 use tempfile::TempDir;
 use url::Url;
@@ -47,7 +47,7 @@ impl ContractConsensus {
         params: ChainParams,
         signer_dirs: Vec<PathBuf>,
     ) -> Result<Self> {
-        Self::start_mode(l1_http, l2, params, signer_dirs, false, false).await
+        Self::start_mode(l1_http, l2, params, signer_dirs, false).await
     }
 
     /// Starts the pinned stock binary as foreground supervisor-owned host processes.
@@ -57,26 +57,18 @@ impl ContractConsensus {
         params: ChainParams,
         signer_dirs: Vec<PathBuf>,
     ) -> Result<Self> {
-        Self::start_mode(l1_http, l2, params, signer_dirs, true, false).await
+        Self::start_mode(l1_http, l2, params, signer_dirs, true).await
     }
 
-    /// Start native consensus with external generation-zero authorities enrolled at source genesis.
-    pub async fn start_registered(
-        l1_http: Url,
-        l2: &StandaloneReth,
-        params: ChainParams,
-        signer_dirs: Vec<PathBuf>,
-    ) -> Result<Self> {
-        Self::start_mode(l1_http, l2, params, signer_dirs, true, true).await
-    }
-
+    /// Each signer directory holds a registered key and an initialized domains log; once the
+    /// genesis chain ID is known, `init-state` creates that chain's HRS in it, as an operator does
+    /// before the first start.
     async fn start_mode(
         l1_http: Url,
         l2: &StandaloneReth,
         params: ChainParams,
         signer_dirs: Vec<PathBuf>,
         native: bool,
-        enroll: bool,
     ) -> Result<Self> {
         ensure!(!signer_dirs.is_empty(), "validators required");
         let tmp = tempfile::Builder::new().prefix("real-consensus-").tempdir_in("/tmp")?;
@@ -150,6 +142,7 @@ impl ContractConsensus {
                     node: &nodes[i],
                 },
             )?;
+            crate::signer::init_signer_state(&signer_dirs[i], &genesis_doc.chain_id)?;
             let signer = SignerNode::existing(
                 signer_dirs[i].clone(),
                 tmp.path().join(format!("app-{i}/checkpoint-trust.sock")),
@@ -166,7 +159,6 @@ impl ContractConsensus {
                     .replace("tcp://0.0.0.0:26657", &format!("tcp://127.0.0.1:{rpc_port}"))
                     .replace("tcp://0.0.0.0:26656", &format!("tcp://127.0.0.1:{}", native_p2p[i]));
                 std::fs::write(path, config)?;
-                let signer = if enroll { signer.with_authority(&params) } else { signer };
                 let signer = signer.native(home);
                 signer.start()?;
                 peers.push(CmtClient::new(local_url(rpc_port)?));
@@ -250,6 +242,17 @@ impl ContractConsensus {
     /// Reads authoritative HRS without modifying it.
     pub fn signing_state(&self, i: usize) -> Result<serde_json::Value> {
         self.signers[i].state()
+    }
+
+    /// Validator `i`'s HRS path for this chain, `<signer dir>/hrs/<chain_id>.json`.
+    pub fn signing_state_path(&self, i: usize) -> PathBuf {
+        self.signers[i].state_path()
+    }
+
+    /// The genesis chain ID every validator signs for.
+    pub fn chain_id(&self) -> Result<String> {
+        let genesis: serde_json::Value = serde_json::from_str(&self.genesis_json)?;
+        Ok(genesis["chain_id"].as_str().context("genesis chain_id")?.to_owned())
     }
 
     /// A controlled restart retains exact authoritative HRS, Comet WAL and app history. A

@@ -214,7 +214,7 @@ async fn four_validator_native_consensus_fees_fi_epoch_landing_and_restart() -> 
     // executed it, so establish the offline validator's own durable baseline before stopping.
     let first_height = first.batch.input.lastHeight.to::<u64>();
     let history = c.app_dir(3).join(format!("comet-hash-{first_height}.json"));
-    let hrs_path = f.signer_storage.path().join("3/state.json");
+    let hrs_path = c.signing_state_path(3);
     let (peer_head, signed_height) = wait_until(
         &format!("peer 3 to commit and sign the first landing at {first_height}"),
         Duration::from_secs(120),

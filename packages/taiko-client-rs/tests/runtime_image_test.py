@@ -41,33 +41,39 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
     root.chmod(0o755)
     private = root / "private"
     private.mkdir(mode=0o700)
-    key, state = private / "key.json", private / "state.json"
+    # The operator's bootstrap: the key, the domains log on its own volume (here its own
+    # directory), then init-state for the chain_id.
+    key, hrs, domains = private / "key.json", private / "hrs", private / "domains"
+    hrs.mkdir(mode=0o700)
+    domains.mkdir(mode=0o700)
+    chain = "etna-runtime-smoke"
+    state, log = hrs / (chain + ".json"), domains / "domains.log"
     public = json.loads(subprocess.check_output([
-        "/app/etna-signer", "keygen", "--priv-key", str(key), "--priv-state", str(state)]))
+        "/app/etna-signer", "keygen", "--priv-key", str(key)]))
     pop = json.loads(subprocess.check_output([
         "/app/etna-signer", "pop", "--priv-key", str(key), "--owner", "0x" + "11" * 20,
         "--registry", "0x" + "22" * 20, "--l1-chain-id", "31337"]))
     assert pop["publicKey"] == public["publicKey"] and len(pop["signature"]) == 132
-    before = key.read_bytes(), state.read_bytes()
-    # Verify the packaged native parser accepts every supervisor authority flag,
-    # then rejects an inconsistent generation/domain before creating authority.
-    invalid_authority = private / "authority"
+    subprocess.check_call(["/app/etna-signer", "init-domains-log", "--domains-log", str(log)])
+    subprocess.check_call(["/app/etna-signer", "init-state", "--chain-id", chain, "--priv-key", str(key),
+                           "--priv-state", str(state), "--domains-log", str(log)])
+    assert log.read_text() == "etna-signer-domains-v1\n" + chain + "\n"
+    before = key.read_bytes(), state.read_bytes(), log.read_bytes()
+    # The packaged signer refuses a chain_id the log does not list with exit 3, creating nothing.
+    unlogged = hrs / "etna-unlogged.json"
     refused_domain = subprocess.run([
         "/app/etna-signer", "--comet-signer-addr", "tcp://127.0.0.1:26659",
-        "--trust-socket", str(root / "not-started.sock"), "--chain-id", "wrong-domain",
-        "--priv-key", str(key), "--priv-state", str(state),
-        "--authority-root", str(invalid_authority), "--l1-chain-id", "31337",
-        "--l2-chain-id", "167001", "--inbox", "0x" + "11" * 20,
-        "--generation", "1", "--enroll-legacy"], capture_output=True, timeout=5)
-    assert refused_domain.returncode != 0, "mismatched generation/domain must refuse startup"
-    assert b"authority generation/deployment does not match chain ID" in refused_domain.stderr
-    assert not invalid_authority.exists()
-    assert before == (key.read_bytes(), state.read_bytes())
+        "--trust-socket", str(root / "not-started.sock"), "--chain-id", "etna-unlogged",
+        "--priv-key", str(key), "--priv-state", str(unlogged), "--domains-log", str(log)],
+        capture_output=True, timeout=5)
+    assert refused_domain.returncode == 3, refused_domain
+    assert b"not initialized" in refused_domain.stderr
+    assert not unlogged.exists()
+    assert before == (key.read_bytes(), state.read_bytes(), log.read_bytes())
     home = root / "comet"
     (home / "config").mkdir(parents=True)
     (home / "data").mkdir()
     (home / "run").mkdir(mode=0o700)
-    chain = "etna-runtime-smoke"
     # The configured path only selects Unix mode; the supervisor names each pair's socket.
     config = 'proxy_app = "kvstore"\npriv_validator_laddr = "unix://run/signer.sock"\n'
     (home / "config/config.toml").write_text(config)
@@ -86,7 +92,8 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
                             user=10001, group=10001, extra_groups=[], capture_output=True)
     assert denied.returncode != 0 and b"PermissionError" in denied.stderr
     environment = dict(os.environ, ETNA_COMET_HOME=str(home), ETNA_APP_STORE=str(app),
-                       ETNA_PRIV_KEY=str(key), ETNA_PRIV_STATE=str(state), ETNA_CHAIN_ID=chain)
+                       ETNA_PRIV_KEY=str(key), ETNA_PRIV_STATE_DIR=str(hrs),
+                       ETNA_DOMAINS_LOG=str(log), ETNA_CHAIN_ID=chain)
     # The stock node uses its built-in kvstore only to complete startup. This
     # private peer always closes/denies signing trust; no synthetic authorization.
     control = socket.socket(socket.AF_UNIX)
@@ -188,19 +195,33 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
     assert len(sessions) >= 2, "each stock Unix incarnation must open a fresh closed session"
     assert listeners[0] != listeners[1], "each signer+Comet pair must use a fresh socket name"
     assert not os.path.lexists(stale), "stale signer socket survived the restart"
-    assert before == (key.read_bytes(), state.read_bytes()), "runtime must not reset HRS"
+    assert before == (key.read_bytes(), state.read_bytes(), log.read_bytes()), "runtime must not reset HRS"
     # Stock DefaultNewNode creates a dummy FilePV before replacing it with SocketPV.
     # It must be an unregistered identity and must never sign or substitute for the helper.
     unused = json.loads((home / "config/priv_validator_key.json").read_bytes())
     assert unused["pub_key"] != native
     assert json.loads((home / "data/priv_validator_state.json").read_bytes())["height"] == "0"
-    for missing in [key, state]:
+    # The real signer refuses a lost key, HRS or domains log (exit 1, or 3 for lost signing
+    # state, RECOV-8.2-3), and the supervisor latches; nothing is regenerated.
+    latch = app / "validator-supervisor.halted"
+    for missing in [key, state, log]:
         saved = missing.with_suffix(".saved")
         missing.rename(saved)
-        denied_start = subprocess.run(["python3", "/app/script/etna_validator.py"],
-                                      env=environment, capture_output=True, timeout=5)
-        assert denied_start.returncode != 0 and b"etna_supervisor_started" not in denied_start.stdout
+        with (root / "refused.log").open("w+") as refused_log:
+            refused = subprocess.Popen(["python3", "/app/script/etna_validator.py"], env=environment,
+                                       stdout=refused_log, stderr=refused_log)
+            try:
+                deadline = time.monotonic() + 8
+                while not latch.exists() and time.monotonic() < deadline:
+                    assert refused.poll() is None, "a latching supervisor stays alive"
+                    time.sleep(.05)
+                refused_log.seek(0)
+                assert latch.exists(), refused_log.read()
+            finally:
+                refused.send_signal(signal.SIGTERM)
+                refused.wait(timeout=20)
         assert not missing.exists(), "missing authoritative files must never regenerate"
+        latch.unlink()
         saved.rename(missing)
     print(json.dumps(dict(architecture=os.uname().machine, expected_platform=expected_platform, binary_elf_machines=binary_machines, comet_source_tag="v0.40.0", comet_version_label=version, python=os.sys.version.split()[0],
                           comet_sha256=hashlib.sha256(Path("/usr/bin/cometbft").read_bytes()).hexdigest(),
@@ -209,4 +230,4 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
                           unused_local_identity_never_signed=True, stock_unix_restart_with_retained_authority=True,
                           fresh_signer_socket_per_start=True, supervisor_cap_eff=hex(cap_eff),
                           stale_comet_socket_removed_under_documented_caps=True,
-                          missing_key_or_HRS_aborts_before_Comet=True)))
+                          missing_key_HRS_or_domains_log_latches=True)))

@@ -1,9 +1,10 @@
-//! Host guarded-signer processes; only ephemeral test initialization creates FilePV files.
+//! Host guarded-signer processes; only ephemeral test initialization creates a key, and every
+//! HRS state comes from `etna-signer init-state`.
 
 use std::{
     collections::BTreeMap,
     fs,
-    os::unix::fs::PermissionsExt,
+    os::unix::fs::{DirBuilderExt, PermissionsExt},
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
     sync::{Mutex, OnceLock},
@@ -33,17 +34,80 @@ pub(crate) enum CometLaunch {
     Native,
 }
 
+/// A validator directory's per-chain HRS state, `<key_dir>/hrs/<chain_id>.json`.
+pub fn signer_hrs(key_dir: &Path, chain_id: &str) -> PathBuf {
+    key_dir.join("hrs").join(format!("{chain_id}.json"))
+}
+
+/// A validator directory's domains log, `<key_dir>/domains/domains.log`, kept in another
+/// directory than the HRS states, as `etna-signer` requires.
+pub fn signer_domains_log(key_dir: &Path) -> PathBuf {
+    key_dir.join("domains/domains.log")
+}
+
+/// The `etna-signer` binary: `ETNA_SIGNER_BIN` or the `just signer` output.
+pub fn signer_binary() -> Result<PathBuf> {
+    let binary = std::env::var_os("ETNA_SIGNER_BIN").map(PathBuf::from).unwrap_or_else(|| {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/etna-signer/etna-signer")
+    });
+    ensure!(
+        binary.is_file(),
+        "guarded signer missing at {}; run just signer or tests/entrypoint.sh",
+        binary.display()
+    );
+    Ok(binary)
+}
+
+/// Runs one `etna-signer` command to success.
+fn run_signer(args: &[&std::ffi::OsStr]) -> Result<()> {
+    let output = Command::new(signer_binary()?).args(args).output()?;
+    ensure!(
+        output.status.success(),
+        "etna-signer {:?}: {}",
+        args.first(),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    Ok(())
+}
+
+/// `etna-signer init-domains-log` in `key_dir`, run once per key, after creating the private
+/// `hrs/` and `domains/` directories.
+pub fn init_signer_domains_log(key_dir: &Path) -> Result<()> {
+    for dir in [key_dir.join("hrs"), key_dir.join("domains")] {
+        fs::DirBuilder::new().mode(0o700).create(&dir)?;
+    }
+    let log = signer_domains_log(key_dir);
+    run_signer(&["init-domains-log".as_ref(), "--domains-log".as_ref(), log.as_os_str()])
+}
+
+/// `etna-signer init-state` for `chain_id` in `key_dir`, as an operator runs it once per
+/// chain_id with that key's signer stopped: it creates the zero HRS and logs the chain, and
+/// refuses a chain already initialized (RECOV-8.2-1).
+pub fn init_signer_state(key_dir: &Path, chain_id: &str) -> Result<()> {
+    let (key, hrs, log) =
+        (key_dir.join("key.json"), signer_hrs(key_dir, chain_id), signer_domains_log(key_dir));
+    run_signer(&[
+        "init-state".as_ref(),
+        "--chain-id".as_ref(),
+        chain_id.as_ref(),
+        "--priv-key".as_ref(),
+        key.as_os_str(),
+        "--priv-state".as_ref(),
+        hrs.as_os_str(),
+        "--domains-log".as_ref(),
+        log.as_os_str(),
+    ])
+}
+
 /// The guarded validator supervisor (`script/etna_validator.py`) for Comet `home`, the app's
-/// `app_store` and the key/HRS in `key_dir`. With `authority`, the signer runs under the
-/// authority root in `key_dir` for that deployment and generation and enrolls the legacy key and
-/// HRS (an exact retry is idempotent). The caller adds `ETNA_SIGNER_BIN` and how Comet is run.
-/// The one place the tests spell the supervisor's environment.
+/// `app_store` and the registered key, HRS states and domains log in `key_dir`, serving
+/// `chain_id`. The caller adds `ETNA_SIGNER_BIN` and how Comet is run. The one place the Rust
+/// tests spell the supervisor's environment.
 pub fn supervisor_command(
     home: &Path,
     app_store: &Path,
     key_dir: &Path,
     chain_id: &str,
-    authority: Option<(&abci::ChainParams, u64)>,
 ) -> Command {
     let mut command = Command::new("python3");
     command
@@ -51,17 +115,9 @@ pub fn supervisor_command(
         .env("ETNA_COMET_HOME", home)
         .env("ETNA_APP_STORE", app_store)
         .env("ETNA_PRIV_KEY", key_dir.join("key.json"))
-        .env("ETNA_PRIV_STATE", key_dir.join("state.json"))
+        .env("ETNA_PRIV_STATE_DIR", key_dir.join("hrs"))
+        .env("ETNA_DOMAINS_LOG", signer_domains_log(key_dir))
         .env("ETNA_CHAIN_ID", chain_id);
-    if let Some((deployment, generation)) = authority {
-        command
-            .env("ETNA_AUTHORITY_ROOT", key_dir.join("authority"))
-            .env("ETNA_L1_CHAIN_ID", deployment.l1_chain_id.to_string())
-            .env("ETNA_L2_CHAIN_ID", deployment.l2_chain_id.to_string())
-            .env("ETNA_INBOX", format!("{:#x}", deployment.inbox))
-            .env("ETNA_GENERATION", generation.to_string())
-            .env("ETNA_ENROLL_LEGACY", "1");
-    }
     command
 }
 
@@ -78,7 +134,7 @@ pub(crate) struct SignerNode {
     dir: PathBuf,
     /// App-owned private trust socket.
     control: PathBuf,
-    /// Authoritative key/HRS directory, never a Comet home.
+    /// Authoritative key, HRS and domains-log directory, never a Comet home.
     key_dir: Mutex<PathBuf>,
     /// Exact deployment-domain Comet chain ID.
     chain_id: String,
@@ -86,12 +142,11 @@ pub(crate) struct SignerNode {
     pid: Mutex<Option<u32>>,
     /// The supervised Comet: its retained home and how the supervisor launches it.
     runtime: Option<(PathBuf, CometLaunch)>,
-    /// Source-bootstrap identity for registered generation-zero test authorities.
-    deployment: Option<abci::ChainParams>,
 }
 
 impl SignerNode {
-    /// Initializes ephemeral test signing files once; production startup never does this.
+    /// Initializes an ephemeral test validator once, as an operator does: the key, then
+    /// `init-domains-log` and `init-state` for `chain_id`. Production startup never does this.
     pub(crate) fn ephemeral(
         dir: PathBuf,
         control: PathBuf,
@@ -105,25 +160,19 @@ impl SignerNode {
             dir.join("key.json"),
             serde_json::to_vec_pretty(&key.priv_validator_key_json())?,
         )?;
-        fs::write(dir.join("state.json"), r#"{"height":"0","round":0,"step":0}"#)?;
-        for name in ["key.json", "state.json"] {
-            fs::set_permissions(dir.join(name), fs::Permissions::from_mode(0o600))?;
-        }
-        Ok(Self {
-            key_dir: Mutex::new(dir.clone()),
-            dir,
-            control,
-            chain_id,
-            pid: Mutex::new(None),
-            runtime: None,
-            deployment: None,
-        })
+        fs::set_permissions(dir.join("key.json"), fs::Permissions::from_mode(0o600))?;
+        init_signer_domains_log(&dir)?;
+        init_signer_state(&dir, &chain_id)?;
+        Self::existing(dir, control, chain_id)
     }
 
-    /// Uses already bootstrapped signing files; no runtime creation or height-zero fallback.
+    /// Uses an already initialized validator directory; no runtime creation or height-zero
+    /// fallback.
     pub(crate) fn existing(dir: PathBuf, control: PathBuf, chain_id: String) -> Result<Self> {
         ensure!(
-            dir.join("key.json").is_file() && dir.join("state.json").is_file(),
+            dir.join("key.json").is_file() &&
+                signer_hrs(&dir, &chain_id).is_file() &&
+                signer_domains_log(&dir).is_file(),
             "authoritative signer files missing"
         );
         Ok(Self {
@@ -133,7 +182,6 @@ impl SignerNode {
             chain_id,
             pid: Mutex::new(None),
             runtime: None,
-            deployment: None,
         })
     }
 
@@ -148,24 +196,11 @@ impl SignerNode {
         self.supervised(home, CometLaunch::Native)
     }
 
-    /// Enroll the source fixture at genesis, before any checkpoint operation.
-    pub(crate) fn with_authority(mut self, deployment: &abci::ChainParams) -> Self {
-        self.deployment = Some(deployment.clone());
-        self
-    }
-
     /// Starts the supervisor, which starts the signer and Comet, retaining the same signing state.
     pub(crate) fn start(&self) -> Result<()> {
         self.stop();
         let (home, launch) = self.runtime.as_ref().context("signer has no supervised Comet")?;
-        let binary = std::env::var_os("ETNA_SIGNER_BIN").map(PathBuf::from).unwrap_or_else(|| {
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/etna-signer/etna-signer")
-        });
-        ensure!(
-            binary.is_file(),
-            "guarded signer missing at {}; run just signer or tests/entrypoint.sh",
-            binary.display()
-        );
+        let binary = signer_binary()?;
         let log =
             fs::OpenOptions::new().create(true).append(true).open(self.dir.join("signer.log"))?;
         let key_dir = self.key_dir.lock().expect("signer key directory").clone();
@@ -174,7 +209,6 @@ impl SignerNode {
             self.control.parent().expect("app store"),
             &key_dir,
             &self.chain_id,
-            self.deployment.as_ref().map(|deployment| (deployment, 0)),
         );
         command.env("ETNA_SIGNER_BIN", &binary);
         match launch {
@@ -219,11 +253,14 @@ impl SignerNode {
         }
     }
 
+    /// This chain's HRS path in the current key directory.
+    pub(crate) fn state_path(&self) -> PathBuf {
+        signer_hrs(&self.key_dir.lock().expect("signer key directory"), &self.chain_id)
+    }
+
     /// The actual anti-double-sign record, retained independently of the Comet home.
     pub(crate) fn state(&self) -> Result<serde_json::Value> {
-        Ok(serde_json::from_slice(&fs::read(
-            self.key_dir.lock().expect("signer key directory").join("state.json"),
-        )?)?)
+        Ok(serde_json::from_slice(&fs::read(self.state_path())?)?)
     }
 
     /// Swap two existing ephemeral identities between stopped helpers. Each identity keeps

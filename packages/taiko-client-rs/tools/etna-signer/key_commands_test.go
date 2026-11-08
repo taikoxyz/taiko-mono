@@ -36,63 +36,51 @@ func commandJSON(t *testing.T, binary string, args ...string) map[string]string 
 	return result
 }
 
-func TestKeygenCreatesExclusiveNativeFilePV(t *testing.T) {
+// keygen writes only the key: a signing state exists only once init-state logs its chain_id.
+func TestKeygenWritesOnlyKey(t *testing.T) {
 	binary := signerBinary(t)
 	dir := t.TempDir()
-	key, state := filepath.Join(dir, "key.json"), filepath.Join(dir, "state.json")
-	out := commandJSON(t, binary, "keygen", "--priv-key", key, "--priv-state", state)
-	pv := privval.LoadFilePV(key, state)
-	if pv.Key.PrivKey.Type() != secp256k1eth.KeyType || len(pv.Key.PubKey.Bytes()) != 33 {
-		t.Fatal("bootstrap did not create a stock native key")
+	key := filepath.Join(dir, "key.json")
+	out := commandJSON(t, binary, "keygen", "--priv-key", key)
+	native, err := loadNativeKey(key)
+	if err != nil || len(native.PubKey().Bytes()) != 33 {
+		t.Fatalf("bootstrap did not create a stock native key: %v", err)
 	}
-	if len(out) != 2 || out["publicKey"] != "0x"+hex.EncodeToString(pv.Key.PubKey.Bytes()) || out["address"] != "0x"+hex.EncodeToString(pv.Key.Address) {
+	if len(out) != 2 || out["publicKey"] != "0x"+hex.EncodeToString(native.PubKey().Bytes()) || out["address"] != "0x"+hex.EncodeToString(native.PubKey().Address()) {
 		t.Fatalf("unexpected public output: %v", out)
 	}
-	if pv.LastSignState.Height != 0 || pv.LastSignState.Round != 0 || pv.LastSignState.Step != 0 || len(pv.LastSignState.Signature) != 0 || len(pv.LastSignState.SignBytes) != 0 {
-		t.Fatal("new bootstrap state is not empty")
+	if info, err := os.Stat(key); err != nil || info.Mode().Perm() != 0600 {
+		t.Fatalf("key permissions: %v %v", info, err)
 	}
-	for _, p := range []string{key, state} {
-		info, err := os.Stat(p)
-		if err != nil || info.Mode().Perm() != 0600 {
-			t.Fatalf("signing file permissions: %v %v", info, err)
-		}
+	if entries, _ := os.ReadDir(dir); len(entries) != 1 {
+		t.Fatalf("keygen wrote more than the key: %v", entries)
 	}
-	for _, which := range []string{"key", "state", "both", "same", "symlink"} {
+	other := t.TempDir()
+	cmd := exec.Command(binary, "keygen", "--priv-key", filepath.Join(other, "key.json"), "--priv-state", filepath.Join(other, "state.json"))
+	if output, err := cmd.CombinedOutput(); err == nil || !strings.Contains(string(output), "flag provided but not defined: -priv-state") {
+		t.Fatalf("keygen accepted --priv-state: %v %s", err, output)
+	}
+	if entries, _ := os.ReadDir(other); len(entries) != 0 {
+		t.Fatalf("refused keygen wrote files: %v", entries)
+	}
+	for _, which := range []string{"existing", "symlink"} {
 		t.Run(which, func(t *testing.T) {
 			dir := t.TempDir()
-			k, s := filepath.Join(dir, "key"), filepath.Join(dir, "state")
+			k := filepath.Join(dir, "key")
 			sentinel := []byte("must survive")
-			if which == "key" || which == "both" {
+			if which == "existing" {
 				os.WriteFile(k, sentinel, 0600)
-			}
-			if which == "state" || which == "both" {
-				os.WriteFile(s, sentinel, 0600)
-			}
-			if which == "same" {
-				s = k
-			}
-			if which == "symlink" {
+			} else {
 				os.Symlink(filepath.Join(dir, "absent"), k)
 			}
-			cmd := exec.Command(binary, "keygen", "--priv-key", k, "--priv-state", s)
-			if output, err := cmd.Output(); err == nil || len(output) != 0 {
+			if output, err := exec.Command(binary, "keygen", "--priv-key", k).Output(); err == nil || len(output) != 0 {
 				t.Fatalf("existing/alias output accepted: %v %s", err, output)
 			}
-			for _, p := range []string{k, s} {
-				b, err := os.ReadFile(p)
-				if err == nil && !bytes.Equal(b, sentinel) {
-					t.Fatal("exclusive failure replaced existing output")
-				}
+			if b, err := os.ReadFile(k); err == nil && !bytes.Equal(b, sentinel) {
+				t.Fatal("exclusive failure replaced existing output")
 			}
-			if which == "key" || which == "symlink" {
-				if _, err := os.Lstat(s); !os.IsNotExist(err) {
-					t.Fatal("failure left new state")
-				}
-			}
-			if which == "state" || which == "same" {
-				if _, err := os.Lstat(k); !os.IsNotExist(err) {
-					t.Fatal("failure left new key")
-				}
+			if _, err := os.Lstat(filepath.Join(dir, "absent")); !os.IsNotExist(err) {
+				t.Fatal("keygen followed the symlink")
 			}
 		})
 	}
@@ -206,12 +194,10 @@ func TestPopRejectsInvalidInputsAndLegacyKeys(t *testing.T) {
 
 func TestRuntimeRefusesLegacyConsensusIdentity(t *testing.T) {
 	binary := signerBinary(t)
-	dir := t.TempDir()
-	key, state := filepath.Join(dir, "key"), filepath.Join(dir, "state")
-	p := privval.NewFilePV(ed25519.GenPrivKey(), key, state)
-	p.Save()
+	_, key, state := filePV(t)
+	privval.NewFilePV(ed25519.GenPrivKey(), key, state).Key.Save()
 	// Unsupported transport makes even a buggy legacy loader exit promptly.
-	out, err := exec.Command(binary, "--comet-signer-addr", "bad://transport", "--trust-socket", "/absent", "--chain-id", chain, "--priv-key", key, "--priv-state", state).CombinedOutput()
+	out, err := exec.Command(binary, "--comet-signer-addr", "bad://transport", "--trust-socket", "/absent", "--chain-id", chain, "--priv-key", key, "--priv-state", state, "--domains-log", domainsLogOf(state)).CombinedOutput()
 	if err == nil || !strings.Contains(string(out), "secp256k1eth") {
 		t.Fatalf("legacy consensus key reached runtime: %v %s", err, out)
 	}

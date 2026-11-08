@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"math/big"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -140,8 +139,9 @@ func TestNativeFilePVPublicKeyLowSInteropBoundary(t *testing.T) {
 	}
 }
 
+// A logged chain whose state is missing is lost signing state (RECOV-8.2-3): serving exits 3
+// and never recreates it, even for an existing registered key.
 func TestRuntimeNeverRecreatesMissingStateForExistingNativeKey(t *testing.T) {
-	binary := signerBinary(t)
 	_, key, state := filePV(t)
 	before, err := os.ReadFile(key)
 	if err != nil {
@@ -150,9 +150,9 @@ func TestRuntimeNeverRecreatesMissingStateForExistingNativeKey(t *testing.T) {
 	if err = os.Remove(state); err != nil {
 		t.Fatal(err)
 	}
-	args := []string{"--comet-signer-addr", "bad://transport", "--trust-socket", "/absent", "--chain-id", chain, "--priv-key", key, "--priv-state", state}
-	if out, err := exec.Command(binary, args...).CombinedOutput(); err == nil || !strings.Contains(string(out), "existing signing file") {
-		t.Fatalf("missing state accepted: %v %s", err, out)
+	args := []string{"--comet-signer-addr", "bad://transport", "--trust-socket", "/absent", "--chain-id", chain, "--priv-key", key, "--priv-state", state, "--domains-log", domainsLogOf(state)}
+	if code, stderr := runSigner(t, args...); code != exitSigningStateUnsafe || !strings.Contains(stderr, "missing") {
+		t.Fatalf("missing state accepted: exit %d %s", code, stderr)
 	}
 	if _, err = os.Stat(state); !os.IsNotExist(err) {
 		t.Fatal("runtime initialized missing HRS")
