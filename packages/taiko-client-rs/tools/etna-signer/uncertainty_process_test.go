@@ -186,13 +186,15 @@ func TestSupervisorSIGKILLBeforeHaltRetainsSignerFence(t *testing.T) {
 	}
 }
 
-// A plain crash needs no fence (RECOV-8.2-3: uncertain means a failed fsync). The re-executed
-// helper is SIGKILLed inside its state fsync, after stock FilePV synchronously wrote and renamed
-// the new HRS, before the transport received any signature. The restarted real signer finds no
-// fence and continues from the HRS on disk: the identical step returns the stored signature (a
-// fresh one only if the rename was lost, which needs a host crash), a different block at the
-// same HRS is refused as conflicting data, and the next height signs (RECOV-8.2-1, SYNC-9-13).
-func TestSIGKILLMidSignRestartsWithoutFence(t *testing.T) {
+// The re-executed helper is SIGKILLed inside its state fsync, after stock FilePV synchronously
+// wrote and renamed the new HRS, before the transport received any signature. That fsync might
+// have failed before the fence was written, so it leaves no fence but this boot's inflight
+// marker, and a restart on the same boot exits 3 without touching the HRS (RECOV-8.2-3). After
+// a reboot, here a marker naming another boot, the real signer continues from the HRS on disk:
+// the identical step returns the stored signature (a fresh one only if the rename was lost,
+// which needs a host crash), a different block at the same HRS is refused as conflicting data,
+// and the next height signs (RECOV-8.2-1, SYNC-9-13).
+func TestSIGKILLMidSignRefusesTheSameBootAndResumesAfterReboot(t *testing.T) {
 	_, key, state := filePV(t)
 	root := shortTemp(t)
 	trust := control(t, func(request map[string]any) any { return snapshot(request["op"] != "begin_session") })
@@ -245,9 +247,22 @@ func TestSIGKILLMidSignRestartsWithoutFence(t *testing.T) {
 	if _, err := os.Lstat(fencePath(state)); !os.IsNotExist(err) {
 		t.Fatal("a crash left a signer fence", err)
 	}
+	if marker, err := os.ReadFile(inflightPath(state)); err != nil || string(marker) != bootID()+"\n" {
+		t.Fatalf("the killed synchronization left no marker naming this boot: %q %v", marker, err)
+	}
 	stored := privval.LoadFilePV(key, state).LastSignState
 	listener.Close()
 	args := []string{"--comet-signer-addr", "unix://" + fixture.Comet, "--trust-socket", trust, "--chain-id", chain, "--priv-key", key, "--priv-state", state, "--domains-log", domainsLogOf(state)}
+	before := readFile(t, state)
+	if code, stderr := runSigner(t, args...); code != exitSigningStateUnsafe || !strings.Contains(stderr, "inflight marker") {
+		t.Fatalf("same-boot restart over the marker exited %d: %s", code, stderr)
+	}
+	if !bytes.Equal(before, readFile(t, state)) {
+		t.Fatal("refused restart changed the HRS")
+	}
+	if err := os.WriteFile(inflightPath(state), []byte("earlier-boot\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
 	_, conn = serveDirectly(t, listenComet(t, fixture.Comet), logs, args)
 	signature, remote := released(signerExchange(t, conn, voteRequest(tm.PrevoteType, 0, false)))
 	persisted := privval.LoadFilePV(key, state).LastSignState
@@ -268,5 +283,8 @@ func TestSIGKILLMidSignRestartsWithoutFence(t *testing.T) {
 	}
 	if _, err := os.Lstat(fencePath(state)); !os.IsNotExist(err) {
 		t.Fatal("restarted signing wrote a fence", err)
+	}
+	if _, err := os.Lstat(inflightPath(state)); !os.IsNotExist(err) {
+		t.Fatal("restarted signing left an inflight marker", err)
 	}
 }

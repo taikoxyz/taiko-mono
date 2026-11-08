@@ -165,6 +165,8 @@ func TestServeRefusalMatrix(t *testing.T) {
 			return nil
 		}, 3, "etna-other.json"},
 		{"retained-fence", func(l stateLayout) []string { write(fencePath(l.state(chain)), "evidence"); return nil }, 3, "fence"},
+		// A signer that died while synchronizing its state on this boot (RECOV-8.2-3).
+		{"inflight-this-boot", func(l stateLayout) []string { write(inflightPath(l.state(chain)), bootID()+"\n"); return nil }, 3, "inflight marker"},
 		// The supervisor's marker beside the domains log outlives a fresh app store: a forced
 		// kill before the fence, or an exit 3 whose fence write failed (ACCEPTANCE §7.7).
 		{"retained-signer-unsafe-marker", func(l stateLayout) []string {
@@ -221,12 +223,14 @@ func TestServeRefusalMatrix(t *testing.T) {
 		})
 	}
 	// A healthy layout passes every check and keeps serving; a marker is per chain_id, so another
-	// chain's marker, such as an older generation's, does not refuse this one.
+	// chain's marker, such as an older generation's, does not refuse this one, and an inflight
+	// marker from an earlier boot is stale.
 	l := newStateLayout(t)
 	if err := initState(chain, l.key, l.state(chain), l.log); err != nil {
 		t.Fatal(err)
 	}
 	write(unsafeMarkerPath(l.log, "etna-other"), "evidence")
+	write(inflightPath(l.state(chain)), "earlier-boot\n")
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	if out, err := exec.CommandContext(ctx, signerBinary(t), serveArgs(l.key, l.state(chain), l.log)...).CombinedOutput(); ctx.Err() == nil {

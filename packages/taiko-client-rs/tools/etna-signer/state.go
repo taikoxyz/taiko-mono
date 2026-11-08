@@ -366,8 +366,9 @@ func createZeroState(state string) (err error) {
 // openSigningState opens chain's HRS for serving, in this order: the chain ID, the state's
 // name and the log's directory (configuration, exit 1); the key and its owner flock (exit 1 on
 // contention); the domains log under a shared flock, which is fsynced and must list chain; the
-// state, which a logged chain must have, and its owner flock; the fence; the supervisor's
-// `<chain>.signer-unsafe` marker beside the log; and the HRS, authenticated by the key for
+// state, which a logged chain must have, and its owner flock; the fence; an inflight marker
+// this boot left; the supervisor's `<chain>.signer-unsafe` marker beside the log; and the HRS,
+// authenticated by the key for
 // chain. A refusal of the state itself is errSigningStateUnsafe:
 // nothing is created or reset, and a lost state is never mistaken for a fresh start
 // (RECOV-8.2-1..3). release closes the locks, which the caller holds while serving
@@ -446,6 +447,9 @@ func openSigningState(chain, key, state, log string) (_ *durableFilePV, release 
 	}
 	locks = append(locks, stateLock)
 	if err = refuseFence(fencePath(canonical)); err != nil {
+		return nil, nil, err
+	}
+	if err = refuseInflight(inflightPath(canonical)); err != nil {
 		return nil, nil, err
 	}
 	// The supervisor's marker for a forced kill or an unsafe exit outlives a fresh app store.

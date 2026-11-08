@@ -101,8 +101,9 @@ opened without following symlinks under a shared lock, which must be well formed
 with its directory (so a line from an `init-state` killed before its own fsync is durable
 before any signature depends on it) and must list the chain ID; the state, which must exist
 for a logged chain, have exactly one link and resolve to `<chain_id>.json`, and its exclusive
-owner lock `<state>.lock`; the absence of the `<state>.uncertain` fence and of the supervisor's
-`<chain_id>.signer-unsafe` marker beside the log; and the HRS, which must be the stock zero
+owner lock `<state>.lock`; the absence of the `<state>.uncertain` fence, of a `<state>.inflight`
+marker naming this boot and of the supervisor's `<chain_id>.signer-unsafe` marker beside the
+log; and the HRS, which must be the stock zero
 state or carry a signature by the registered key over that chain ID's canonical sign bytes.
 Only then does it load the stock FilePV. It never creates, initializes or resets HRS. The
 locks are held while serving, so two signers sharing these files never both serve
@@ -136,6 +137,7 @@ reset:
 | HRS ambiguous                             | a hard-linked state, a state that resolves to another chain's file, unknown or duplicate fields    |
 | HRS unauthentic                           | a signed state without a valid signature by the registered key over this chain ID                  |
 | Retained fence                            | `<state>.uncertain` exists                                                                         |
+| Died while synchronizing, same boot       | `<state>.inflight` names this kernel boot, or is not a small regular file                          |
 | Retained signer-unsafe marker             | `<chain_id>.signer-unsafe` exists beside the domains log (see Supervisor restarts and latches)     |
 | Persistence failure while serving         | a state or directory fsync fails; the signer writes the fence, then exits 3                        |
 
@@ -309,15 +311,17 @@ exit or a killed signer, and the domains log's directory for `<chain_id>.signer-
 of them is uncertain signing state for that chain_id, resolved through governance (RECOV-8.2-3),
 never by a new store (ACCEPTANCE §7.7).
 
-Residual risk: any death of the signer between a failed fsync and a durable fence leaves no
-fence and no exit 3, and the supervisor restarts it like any crash. That covers a SIGKILL from
-outside the supervisor (the OOM killer, `kill -9`) and a Go runtime fatal error (exit 2) inside
-`writeFence`. On Linux the failed write-back's error may already have been reported and the
-dirty pages dropped, so a cached retry's fsync can succeed over state that never reached disk
-(SYNC-9-13). The HRS then rolls back after a host crash, or after the kernel evicts those pages
-and the signer restarts. Never SIGKILL the signer, and give it enough memory that neither the
-OOM killer nor a failed Go allocation ends it. A killed container had the same window before
-the supervisor restarted signers.
+A death between a failed fsync and a durable fence (a SIGKILL from the OOM killer or
+`kill -9`, or a Go runtime fatal error) leaves no fence. On Linux the failed write-back's error
+is reported once, so on the same boot a restarted signer's fsync can succeed over state that
+never reached disk, and the HRS rolls back after a host crash or a page eviction (SYNC-9-13).
+So every state synchronization runs under `<state>.inflight`, which names the kernel boot
+(`/proc/sys/kernel/random/boot_id`) and is removed once both fsyncs succeed. It costs no fsync.
+A restart on the same boot that finds it exits 3, and the supervisor latches. A marker from an
+earlier boot is ignored: the reboot dropped the page cache, and the disk holds the last durable
+HRS. A signer killed while synchronizing therefore needs an operator unless the host reboots;
+one killed between signatures restarts on its own. Remove a same-boot `<state>.inflight` only
+under the evidence rules above: no I/O error in the kernel log or the signer's stderr.
 
 ### Failover
 
@@ -339,7 +343,9 @@ for a chain that has already signed. Move, never copy:
    window, leaves none of them even after a failed fsync. So, as before removing a record,
    inspect the old host's kernel log for an I/O error on the state volume and the signer's
    stderr for a failed fsync; if either shows one, the state is uncertain and is resolved
-   through governance (RECOV-8.2-3). Then move the key, the latest `<chain_id>.json` of every
+   through governance (RECOV-8.2-3). A `<state>.inflight` naming the old host's boot is not
+   evidence by itself: the standby runs another boot and reads only what reached the disk.
+   Then move the key, the latest `<chain_id>.json` of every
    chain and the domains log byte for byte from those volumes, never from a backup or a
    snapshot of a running host. Keep the states and the log on separate volumes.
 3. Delete the state files from the old volumes, wherever they are attached, or destroy those
@@ -357,11 +363,13 @@ without the state, refuses with exit 3. An older state cannot be detected and do
 Stock FilePV owns HRS checks and signing, and writes each new HRS through an `O_SYNC`
 temporary file renamed over the state. Before the transport receives a signature, cached
 same-HRS retries included, the signer fsyncs the state file and then its directory: exactly two
-fsyncs for each request that reaches FilePV (SYNC-9-13). A crash, SIGKILL or stock persistence
-panic (exit 2) writes no fence and needs none: no signature is released before both fsyncs
-succeed, and the disk holds either the old or the new HRS, so a restart continues from it and
-may sign an unreleased step again without equivocating. Stock FilePV then returns the stored
-signature for the same step and refuses conflicting data or a lower step.
+fsyncs for each request that reaches FilePV (SYNC-9-13). Both run under `<state>.inflight`
+(see Supervisor restarts and latches). A crash, SIGKILL or stock persistence panic (exit 2)
+writes no fence. Outside the two fsyncs it needs none: no signature is released before both
+fsyncs succeed, and the disk holds either the old or the new HRS, so a restart continues from
+it and may sign an unreleased step again without equivocating. Stock FilePV then returns the
+stored signature for the same step and refuses conflicting data or a lower step. A death during
+them leaves the inflight marker, which refuses a restart on the same boot.
 
 A failed state or directory fsync makes the latest state uncertain (RECOV-8.2-3). The signer
 withholds the signature and latches in memory, refusing every later request, cached retries

@@ -36,7 +36,9 @@ older stores are refused, never migrated (START-10-24).
   do exit 3, a `<state>.uncertain` fence and a signer it had to SIGKILL on stop. These three also
   leave `validator-supervisor.signer-unsafe` in the app store and `<chain_id>.signer-unsafe`
   beside the domains log, which the supervisor and the signer refuse until an operator repair;
-  a new app store never clears them (RECOV-8.2-3).
+  a new app store never clears them (RECOV-8.2-3). A signer that dies while fsyncing its state
+  leaves `<state>.inflight` naming the kernel boot; a restart on the same boot refuses it with
+  exit 3, and one after a reboot ignores it.
 - The lander stops on any canonical revert at confirmation depth, out-of-gas included; a
   restart rebuilds from the current checkpoint. The `--max-batch-wait` timer lives in memory, so
   a restart starts the wait again.

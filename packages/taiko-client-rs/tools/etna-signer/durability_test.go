@@ -87,9 +87,13 @@ func readFence(t *testing.T, state string) fenceRecord {
 
 // A signature costs exactly two fsyncs, the state file's and its directory's, after stock
 // FilePV's synchronous write and rename, and no fence is written while signing (SYNC-9-13).
-// A cached same-HRS retry is synchronized the same way, since an earlier synchronization may
-// have failed after FilePV updated its in-memory state.
+// Both run under an inflight marker naming this boot, removed once they succeed. A cached
+// same-HRS retry is synchronized the same way, since an earlier synchronization may have failed
+// after FilePV updated its in-memory state.
 func TestSigningSyncsStateAndDirectoryOnceWithoutFence(t *testing.T) {
+	if bootID() == "" {
+		t.Fatal("no boot identity on this platform")
+	}
 	for _, family := range signingFamilies {
 		t.Run(family, func(t *testing.T) {
 			_, key, state := filePV(t)
@@ -98,6 +102,9 @@ func TestSigningSyncsStateAndDirectoryOnceWithoutFence(t *testing.T) {
 			unfenced := func() {
 				if _, err := os.Lstat(fencePath(state)); !os.IsNotExist(err) {
 					t.Errorf("fence present while signing: %v", err)
+				}
+				if marker, err := os.ReadFile(inflightPath(state)); err != nil || string(marker) != bootID()+"\n" {
+					t.Errorf("synchronized without this boot's inflight marker: %q %v", marker, err)
 				}
 			}
 			signer.syncFile = func(file *os.File) error {
@@ -128,8 +135,13 @@ func TestSigningSyncsStateAndDirectoryOnceWithoutFence(t *testing.T) {
 				} else if !bytes.Equal(first[:65], signature[:65]) {
 					t.Fatal("cached retry changed the signature")
 				}
+				if _, err := os.Lstat(inflightPath(state)); !os.IsNotExist(err) {
+					t.Fatalf("%s signature left its inflight marker: %v", step, err)
+				}
 			}
-			unfenced()
+			if _, err := os.Lstat(fencePath(state)); !os.IsNotExist(err) {
+				t.Fatalf("signing wrote a fence: %v", err)
+			}
 			persisted := privval.LoadFilePV(key, state).LastSignState
 			if persisted.Height != 1 || !bytes.Equal(persisted.Signature, first[:65]) {
 				t.Fatalf("signed state %d does not hold the released signature", persisted.Height)
@@ -186,8 +198,15 @@ func TestStateSyncFailureWritesFenceLatchesAndStops(t *testing.T) {
 			if _, _, err := openSigningState(chain, key, state, domainsLogOf(state)); !errors.Is(err, errSigningStateUnsafe) || !strings.Contains(err.Error(), "fence") {
 				t.Fatalf("restart bypassed the fence: %v", err)
 			}
-			// Only an operator's removal of the fence lets a new process sign, from the HRS on disk.
+			// The inflight marker stays as same-boot evidence beside the fence.
 			if err := os.Remove(fencePath(state)); err != nil {
+				t.Fatal(err)
+			}
+			if _, _, err := openSigningState(chain, key, state, domainsLogOf(state)); !errors.Is(err, errSigningStateUnsafe) || !strings.Contains(err.Error(), "inflight marker") {
+				t.Fatalf("restart bypassed this boot's inflight marker: %v", err)
+			}
+			// Only an operator's removal of both lets a new process sign, from the HRS on disk.
+			if err := os.Remove(inflightPath(state)); err != nil {
 				t.Fatal(err)
 			}
 			restarted, release, err := openSigningState(chain, key, state, domainsLogOf(state))
@@ -205,6 +224,70 @@ func TestStateSyncFailureWritesFenceLatchesAndStops(t *testing.T) {
 			}
 		})
 	}
+}
+
+// A death between starting to synchronize the state and either finishing or writing the fence
+// leaves only the inflight marker. A restart on the same boot refuses it, since that boot's page
+// cache may show a state whose failed fsync was already reported and cleared; a marker from
+// another boot is stale and ignored, since a reboot drops that cache (RECOV-8.2-3, SYNC-9-13).
+// Anything else at the marker's path refuses, and a marker that cannot be written latches like
+// a failed fsync, before any fsync or signature.
+func TestInflightMarkerRefusesOnlyTheSameBoot(t *testing.T) {
+	for _, c := range []struct {
+		name   string
+		setup  func(marker string)
+		refuse bool
+	}{
+		{"this-boot", func(marker string) { os.WriteFile(marker, []byte(bootID()+"\n"), 0600) }, true},
+		{"empty", func(marker string) { os.WriteFile(marker, nil, 0600) }, true},
+		{"oversized", func(marker string) { os.WriteFile(marker, bytes.Repeat([]byte("a"), 129), 0600) }, true},
+		{"directory", func(marker string) { os.Mkdir(marker, 0700) }, true},
+		{"symlink-to-another-boot", func(marker string) {
+			other := filepath.Join(t.TempDir(), "other")
+			os.WriteFile(other, []byte("earlier-boot\n"), 0600)
+			os.Symlink(other, marker)
+		}, true},
+		{"another-boot", func(marker string) { os.WriteFile(marker, []byte("earlier-boot\n"), 0600) }, false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			_, key, state := filePV(t)
+			c.setup(inflightPath(state))
+			signer, release, err := openSigningState(chain, key, state, domainsLogOf(state))
+			if c.refuse {
+				if !errors.Is(err, errSigningStateUnsafe) || !strings.Contains(err.Error(), "inflight marker") {
+					t.Fatalf("restart accepted the marker: %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer release()
+			if signature, err := signFamily(signer, familyRequest("prevote", false)); err != nil || len(signature) != 65 {
+				t.Fatalf("stale marker blocked signing: %v", err)
+			}
+			if _, err := os.Lstat(inflightPath(state)); !os.IsNotExist(err) {
+				t.Fatalf("signing left the stale marker: %v", err)
+			}
+		})
+	}
+	t.Run("unwritable", func(t *testing.T) {
+		_, key, state := filePV(t)
+		signer := loadDurableFilePV(key, state)
+		if err := os.Mkdir(inflightPath(state), 0700); err != nil {
+			t.Fatal(err)
+		}
+		signer.syncFile = func(*os.File) error { t.Error("synchronized without a marker"); return nil }
+		if signature, err := signFamily(signer, familyRequest("prevote", false)); !errors.Is(err, errSigningStateUnsafe) || len(signature) != 0 {
+			t.Fatalf("unmarked synchronization released a signature: %v", err)
+		}
+		if record := readFence(t, state); !strings.Contains(record.Error, "inflight marker") {
+			t.Fatalf("fence %+v", record)
+		}
+		if err := signer.signDurably(func() error { t.Error("stock signing ran after the latch"); return nil }); !errors.Is(err, errSigningStateUnsafe) {
+			t.Fatalf("latch: %v", err)
+		}
+	})
 }
 
 // listenComet is a fresh Comet-owned privval listener at socket.
