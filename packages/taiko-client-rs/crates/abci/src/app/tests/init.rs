@@ -7,7 +7,7 @@ use tendermint::{Time, block::Height, vote};
 
 use super::*;
 use crate::{
-    committee::{self, CommitteeError, verify_committee_witness_at_cutoff},
+    committee::{self, CommitteeError, VerifiedWitness},
     engine::PayloadVerdict,
     genesis::GenesisError,
     l1::{RawL1Header, witness::WitnessError},
@@ -81,14 +81,15 @@ async fn the_genesis_committee_is_derived_at_the_genesis_cutoff() {
     // entry is active yet.
     let earlier = 59;
     assert_eq!(
-        verify_committee_witness_at_cutoff(
+        VerifiedWitness::verify(
             fx.witness.l1_header.state_root(),
             earlier,
             &fx.params,
-            &fx.witness.committee,
+            fx.witness.committee.clone(),
             Schedule::E0
-        ),
-        Err(CommitteeError::Empty)
+        )
+        .err(),
+        Some(CommitteeError::Empty)
     );
 
     let dir = tempfile::tempdir().unwrap();

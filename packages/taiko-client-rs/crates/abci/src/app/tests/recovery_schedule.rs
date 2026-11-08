@@ -3,7 +3,7 @@
 use super::*;
 use crate::{
     app::validate::{self, Rejection, WitnessKind},
-    committee::{Snapshot, derive},
+    committee::{Snapshot, VerifiedWitness, derive},
     l1::verify_anchor_witness,
     recovery::verify_recovery_witness,
     rules::chain_id_for,
@@ -76,9 +76,10 @@ fn recovery_schedule_keeps_initial_set_when_old_switch_was_discarded() {
     assert_eq!(state.committee_at(15), None, "a switch within this generation cannot be skipped");
     let witness = committee_at_r(&fx, &l1, 2, state.parent.hash);
     let anchor = verify_anchor_witness(&fx.anchor_witness(&l1, 101), fx.params.inbox).unwrap();
+    // The snapshot is R (block 100), which floors the retained anchor 64.
+    let witness = VerifiedWitness::verify(anchor.state_root, 100, &fx.params, witness, 2).unwrap();
     let facts =
-        validate::finish_candidate(&state.chain_context(), &fx.params, 13, Some(&witness), anchor)
-            .unwrap();
+        validate::finish_candidate(&state.chain_context(), 13, Some(&witness), anchor).unwrap();
     let (epoch, epoch_two_committee) = facts.derived.unwrap();
     assert_eq!(epoch, 2);
     state.committees.insert(epoch, epoch_two_committee.clone());
@@ -96,14 +97,10 @@ fn recovery_schedule_first_block_switch_uses_r_floor_and_activates_at_nine() {
     assert_eq!(state.schedule().switch_target(7), Some(1));
     let witness = committee_at_r(&fx, &l1, 1, state.parent.hash);
     let anchor = verify_anchor_witness(&fx.anchor_witness(&l1, 101), fx.params.inbox).unwrap();
-    let facts = validate::finish_candidate(
-        &state.chain_context(),
-        &fx.params,
-        7,
-        Some(&witness),
-        anchor.clone(),
-    )
-    .unwrap();
+    let witness = VerifiedWitness::verify(anchor.state_root, 100, &fx.params, witness, 1).unwrap();
+    let facts =
+        validate::finish_candidate(&state.chain_context(), 7, Some(&witness), anchor.clone())
+            .unwrap();
     let (_, incoming) = facts.derived.unwrap();
     assert_eq!(incoming.record.cutoff_l1_block, 100, "old D(1) anchor 64 is floored by R");
     state.committees.insert(1, incoming.clone());
@@ -112,18 +109,10 @@ fn recovery_schedule_first_block_switch_uses_r_floor_and_activates_at_nine() {
     assert_eq!(state.committee_at(9), Some(&incoming));
     let wrong_root = fx.expected_state().anchor;
     assert!(
-        validate::finish_candidate(
-            &state.chain_context(),
-            &fx.params,
-            7,
-            Some(&witness),
-            wrong_root
-        )
-        .is_err()
+        validate::finish_candidate(&state.chain_context(), 7, Some(&witness), wrong_root).is_err()
     );
     assert_eq!(
-        validate::finish_candidate(&state.chain_context(), &fx.params, 7, None, anchor)
-            .unwrap_err(),
+        validate::finish_candidate(&state.chain_context(), 7, None, anchor).unwrap_err(),
         Rejection::MissingWitness(WitnessKind::Committee)
     );
 }

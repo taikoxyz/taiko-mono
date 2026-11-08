@@ -1,4 +1,4 @@
-//! `ProcessProposal`: the deterministic checks of [`validate_block`], then the
+//! `ProcessProposal`: the deterministic checks of [`validate_proposal`], then the
 //! node-local ¹ checks (anchor finality in the own L1 view, checkpoint ancestry against the local
 //! chain, EL execution), with the EL rebuild of canonical forced skips before normal execution.
 
@@ -7,7 +7,7 @@ use alloy_primitives::Bytes;
 
 use super::{
     AbciError, App, deadline, unix_secs,
-    validate::{Rejection, Validated, validate_block},
+    validate::{Rejection, Validated, validate_proposal},
 };
 use crate::{
     engine::{Engine, PayloadVerdict},
@@ -69,7 +69,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     ///
     /// In order: a superseded chain rejects everything; no transaction at all is an
     /// [`Rejection::EmptyProposal`]; the transactions must be exactly one envelope;
-    /// [`validate_block`] with the request's BFT time, whose first check is the block size bound
+    /// [`validate_proposal`] with the request's BFT time, whose first check is the block size bound
     /// ([`check_execution_size`](super::validate::check_execution_size)); a present
     /// anchor witness must be final and canonical in the own L1 view (L1 is not called when it is
     /// absent), and its proven `lastCheckpoint` must name a block of the local chain
@@ -81,9 +81,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// and canonical, since a forged header could claim a later generation. Verified committee
     /// witness retention, in memory only, happens at its switch height only after own-L1
     /// finality and checkpoint ancestry pass, even if a later execution check refuses the block;
-    /// the proofs bind the candidate root and the committed parent cutoff.
+    /// the proofs bind the candidate root and the committed parent cutoff. The witness is verified
+    /// once, in [`validate_proposal`]; a peer witness that fails there rejects the block.
     ///
-    /// Anchor age is measured against the fixed derived block timestamp in [`validate_block`],
+    /// Anchor age is measured against the fixed derived block timestamp in [`validate_proposal`],
     /// never against a moving local finalized head. Once final and canonical, an anchor does not
     /// expire merely because more L1 blocks finalize, including on a node without a cached verdict.
     async fn judge(
@@ -110,7 +111,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             }
         };
         let (height, bft_secs) = (req.height.value(), unix_secs(req.time));
-        let mut validated = match validate_block(
+        let (mut validated, verified) = match validate_proposal(
             &state.chain_context(),
             &self.params,
             &env,
@@ -131,9 +132,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
             self.check_anchor_final(w).await?;
             self.check_anchor_checkpoint(state, &validated.anchor).await?;
         }
-        if let (Some((target_epoch, _)), Some(witness)) = (&validated.derived, &env.committee) {
-            // Validation already verified this witness under the same root and cutoff, so the
-            // in-memory retention re-runs a check that passed and cannot refuse the block.
+        if let (Some((target_epoch, _)), Some(witness)) = (&validated.derived, &verified) {
+            // Validation verified this witness under the same root, cutoff and target, so the
+            // in-memory retention only matches that context and cannot refuse the block.
             self.cache_candidate_committee_witness(
                 state,
                 &validated.anchor,

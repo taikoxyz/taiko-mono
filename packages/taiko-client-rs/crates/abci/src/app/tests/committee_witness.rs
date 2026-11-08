@@ -12,8 +12,10 @@ use super::{
     *,
 };
 use crate::{
-    app::validate::Rejection,
-    committee::{CommitteeError, entries_root, snapshot_slots, verify_committee_witness},
+    app::validate::{Rejection, finish_candidate},
+    committee::{
+        CommitteeError, VerifiedWitness, entries_root, snapshot_slots, verify_committee_witness,
+    },
     engine::EngineError,
     envelope::CommitteeWitness,
     l1::{
@@ -148,7 +150,8 @@ async fn a_valid_peer_switch_witness_is_accepted_and_retained_in_memory() {
     assert_eq!(response, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
     assert!(!dir.path().join("fatal-evidence.txt").exists());
     let state = app.state().unwrap().clone();
-    assert_eq!(app.cached_candidate_committee_witness(&state, &moved, 2), env.committee);
+    let retained = app.cached_candidate_committee_witness(&state, &moved, 2);
+    assert_eq!(retained.map(VerifiedWitness::into_witness), env.committee);
     assert!(!dir.path().join("abci-committee-witness.json").exists());
 }
 
@@ -213,6 +216,59 @@ async fn committee_witness_cannot_select_a_newer_cutoff() {
         other => panic!("expected the registry account proof to fail at the parent: {other:?}"),
     }
     assert_eq!(rejected(&mut app, &env).await, "committee_witness");
+}
+
+/// A witness is verified once, for exactly one (root, cutoff, target epoch). The one verified
+/// under the committed parent anchor's root is refused when offered for a candidate that moved
+/// its anchor, by `finish_candidate` and by the cache alike, as verified for another context:
+/// it is never re-verified under the new root (that would fail its registry proof instead).
+/// Only re-proving it there gives a new verified witness (COMM-4.3-11, COMM-4.3-12).
+#[tokio::test]
+async fn a_witness_verified_under_another_root_is_rejected() {
+    let fx = Fixture::genesis(3);
+    let dir = tempfile::tempdir().unwrap();
+    let (app, moved) = before_switch(&fx, dir.path()).await;
+    let state = app.state().unwrap().clone();
+    let (switch, parent) = (state.last_height + 1, state.anchor.clone());
+    let raw = witness_at(&app, PARENT_ANCHOR).await;
+    let verified =
+        VerifiedWitness::verify(parent.state_root, PARENT_ANCHOR, &app.params, raw.clone(), 2)
+            .unwrap();
+    assert_eq!(verified.witness(), &raw);
+    assert!(verified.verified_under(parent.state_root, PARENT_ANCHOR, 2));
+    for (case, root, cutoff, target) in [
+        ("root", moved.state_root, PARENT_ANCHOR, 2),
+        ("cutoff", parent.state_root, NEW_ANCHOR, 2),
+        ("target epoch", parent.state_root, PARENT_ANCHOR, 3),
+    ] {
+        assert!(!verified.verified_under(root, cutoff, target), "{case}");
+    }
+
+    let chain = state.chain_context();
+    let facts = finish_candidate(&chain, switch, Some(&verified), parent).unwrap();
+    assert_eq!(facts.derived, Some((2, verified.committee().clone())));
+    match finish_candidate(&chain, switch, Some(&verified), moved.clone()) {
+        Err(Rejection::Committee(CommitteeError::NotVerifiedUnder {
+            root,
+            cutoff,
+            target_epoch,
+        })) => assert_eq!((root, cutoff, target_epoch), (moved.state_root, PARENT_ANCHOR, 2)),
+        other => panic!("a witness verified under the parent root must be refused: {other:?}"),
+    }
+    match app.cache_candidate_committee_witness(&state, &moved, 2, &verified) {
+        Err(Rejection::Committee(CommitteeError::NotVerifiedUnder { .. })) => {}
+        other => panic!("the cache must refuse it too: {other:?}"),
+    }
+    assert_eq!(app.context_committee_witness(&state, 2), None, "nothing is retained");
+
+    let reproved =
+        build_committee_witness_at_cutoff(app.l1(), &app.params, NEW_ANCHOR, PARENT_ANCHOR, 2)
+            .await
+            .unwrap();
+    let verified =
+        VerifiedWitness::verify(moved.state_root, PARENT_ANCHOR, &app.params, reproved, 2).unwrap();
+    let facts = finish_candidate(&chain, switch, Some(&verified), moved).unwrap();
+    assert_eq!(facts.derived, Some((2, verified.committee().clone())));
 }
 
 /// A forgery applied in place to a valid committee witness.
@@ -354,6 +410,9 @@ async fn a_retained_witness_that_fails_under_the_new_root_gives_way_to_the_paren
     let forged =
         build_committee_witness_at_cutoff(app.l1(), &app.params, FORGED_ANCHOR, PARENT_ANCHOR, 2)
             .await
+            .unwrap();
+    let forged =
+        VerifiedWitness::verify(forged_anchor.state_root, PARENT_ANCHOR, &app.params, forged, 2)
             .unwrap();
     let state = app.state().unwrap().clone();
     app.cache_candidate_committee_witness(&state, &forged_anchor, 2, &forged).unwrap();

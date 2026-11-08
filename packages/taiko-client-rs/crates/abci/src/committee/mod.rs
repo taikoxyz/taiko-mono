@@ -18,6 +18,7 @@ use crate::{
         mpt::{MptError, verify_account_witness},
     },
     schedule::Schedule,
+    store::CommitteeState,
     types::{CommitteeRecord, Member, RegistryEntry},
 };
 
@@ -158,6 +159,19 @@ pub enum CommitteeError {
         claimed: Box<CommitteeRecord>,
         /// The record derived from the proven snapshot.
         derived: Box<CommitteeRecord>,
+    },
+    /// A [`VerifiedWitness`] was offered for a root, cutoff or target epoch other than the one it
+    /// was verified for; it is refused, never verified again there.
+    #[error(
+        "witness was not verified under root {root} at cutoff {cutoff} for epoch {target_epoch}"
+    )]
+    NotVerifiedUnder {
+        /// The L1 state root the witness was required under.
+        root: B256,
+        /// The snapshot cutoff it was required at.
+        cutoff: u64,
+        /// The target epoch it was required for.
+        target_epoch: u64,
     },
 }
 
@@ -386,6 +400,78 @@ pub fn verify_committee_witness_at_cutoff(
         });
     }
     Ok((record, members))
+}
+
+/// A runtime committee witness verified once ([`verify_committee_witness_at_cutoff`]) for exactly
+/// one context: the L1 state root its registry proofs verify under (COMM-4.3-12), the snapshot
+/// cutoff (COMM-4.3-11) and the target epoch, with the committee derived there. Its fields are
+/// private and [`VerifiedWitness::verify`] is its only constructor, so holding one means that
+/// verification passed; callers check the context with [`VerifiedWitness::verified_under`]
+/// instead of verifying the raw witness again. The chain parameters are not part of that
+/// context: a node verifies every witness with its own fixed ones.
+///
+/// ```compile_fail,E0451
+/// use abci::{committee::VerifiedWitness, envelope::CommitteeWitness, store::CommitteeState};
+/// use alloy_primitives::B256;
+///
+/// fn forge(witness: CommitteeWitness, committee: CommitteeState) -> VerifiedWitness {
+///     VerifiedWitness { witness, root: B256::ZERO, cutoff: 0, target_epoch: 0, committee }
+/// }
+/// ```
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VerifiedWitness {
+    /// The verified witness.
+    witness: CommitteeWitness,
+    /// The L1 state root its registry proofs verify under.
+    root: B256,
+    /// The snapshot cutoff its checkpoint was selected at.
+    cutoff: u64,
+    /// The epoch whose committee it derives.
+    target_epoch: u64,
+    /// The committee derived from it, whose record equals the witness's.
+    committee: CommitteeState,
+}
+
+impl VerifiedWitness {
+    /// Verifies `witness` under `root` at `cutoff` for `target_epoch`
+    /// ([`verify_committee_witness_at_cutoff`]) and keeps it with that context and its committee.
+    pub fn verify(
+        root: B256,
+        cutoff: u64,
+        params: &ChainParams,
+        witness: CommitteeWitness,
+        target_epoch: u64,
+    ) -> Result<Self, CommitteeError> {
+        let (record, members) =
+            verify_committee_witness_at_cutoff(root, cutoff, params, &witness, target_epoch)?;
+        Ok(Self {
+            witness,
+            root,
+            cutoff,
+            target_epoch,
+            committee: CommitteeState { record, members },
+        })
+    }
+
+    /// The verified witness.
+    pub fn witness(&self) -> &CommitteeWitness {
+        &self.witness
+    }
+
+    /// The verified witness, by value.
+    pub fn into_witness(self) -> CommitteeWitness {
+        self.witness
+    }
+
+    /// The committee derived from the witness.
+    pub fn committee(&self) -> &CommitteeState {
+        &self.committee
+    }
+
+    /// Whether the witness was verified under exactly `root`, `cutoff` and `target_epoch`.
+    pub fn verified_under(&self, root: B256, cutoff: u64, target_epoch: u64) -> bool {
+        (self.root, self.cutoff, self.target_epoch) == (root, cutoff, target_epoch)
+    }
 }
 
 /// Produces native key/power updates, including zero-power removals, sorted by key.

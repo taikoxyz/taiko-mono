@@ -20,7 +20,7 @@ use alloy_primitives::B256;
 use protocol::shasta::constants::min_base_fee_for_chain;
 
 use crate::{
-    committee::{CommitteeError, verify_committee_witness_at_cutoff},
+    committee::{CommitteeError, VerifiedWitness},
     config::ChainParams,
     engine::EngineError,
     envelope::{AnchorWitness, CommitteeWitness, EnvelopeError, EtnaEnvelope, ExecutionBlock},
@@ -183,7 +183,8 @@ pub enum Rejection {
     /// An Inbox proof fetched from the own L1 failed authentication, unlike a peer witness.
     #[error("own L1 anchor proof rejected: {0}")]
     OwnWitness(#[source] WitnessError),
-    /// The committee witness does not verify, or no committee can be derived from it.
+    /// The committee witness does not verify, no committee can be derived from it, or a verified
+    /// one is offered for another root, cutoff or target epoch.
     #[error("committee witness rejected: {0}")]
     Committee(#[from] CommitteeError),
     /// The Inbox records a later recovery generation than the chain's: the chain is superseded.
@@ -413,6 +414,21 @@ pub fn validate_block(
     bft_secs: u64,
     proposer: tendermint::account::Id,
 ) -> Result<Validated, Rejection> {
+    validate_proposal(chain, params, env, height, bft_secs, proposer)
+        .map(|(validated, _)| validated)
+}
+
+/// [`validate_block`], also returning the switch height's committee witness as it verified it,
+/// once, under the block's own anchor root at the committed snapshot block, so that
+/// `ProcessProposal` retains it without verifying it again.
+pub(crate) fn validate_proposal(
+    chain: &ChainContext<'_>,
+    params: &ChainParams,
+    env: &EtnaEnvelope,
+    height: u64,
+    bft_secs: u64,
+    proposer: tendermint::account::Id,
+) -> Result<(Validated, Option<VerifiedWitness>), Rejection> {
     check_execution_size(&env.block)?;
     let header = &env.block.header;
     if chain.parent.number.checked_add(1) != Some(height) {
@@ -421,7 +437,7 @@ pub fn validate_block(
     check_link(header, height, chain.parent.hash)?;
 
     let (_, extra_generation, extra_anchor) = rules::decode_extra_data(&header.extra_data)?;
-    let facts = check_candidate(
+    let (facts, committee) = check_candidate(
         chain,
         params,
         height,
@@ -454,7 +470,7 @@ pub fn validate_block(
         env.forced.as_ref(),
         env.block.transactions.first().map(|tx| tx.as_ref()),
     )?;
-    Ok(Validated {
+    let validated = Validated {
         envelope_hash: alloy_primitives::keccak256(env.encode()),
         proposer,
         parent_cursor: chain.forced_cursor,
@@ -465,7 +481,8 @@ pub fn validate_block(
         expected,
         forced: None,
         executed: false,
-    })
+    };
+    Ok((validated, committee))
 }
 
 /// The derived header fields of the block at `height` on top of `chain` with `anchor` and BFT
@@ -500,14 +517,16 @@ pub(crate) fn expected_header(
 }
 
 /// Steps (b)–(h) of [`validate_block`] on a candidate's witnesses and `extraData` claims:
-/// [`check_candidate_anchor`], then [`finish_candidate`].
+/// [`check_candidate_anchor`], the one verification of its committee witness
+/// ([`verify_candidate_committee`]), then [`finish_candidate`]. Also returns that verified
+/// witness.
 fn check_candidate(
     chain: &ChainContext<'_>,
     params: &ChainParams,
     height: u64,
     bft_secs: u64,
     c: &Candidate<'_>,
-) -> Result<CandidateFacts, Rejection> {
+) -> Result<(CandidateFacts, Option<VerifiedWitness>), Rejection> {
     let anchor = check_candidate_anchor(chain, params, height, c)?;
     rules::check_rules_schedule(
         anchor.inbox.rules_schedule,
@@ -515,7 +534,9 @@ fn check_candidate(
         rules::block_timestamp(chain.parent.timestamp, bft_secs, anchor.timestamp),
         chain.genesis.genesis_height,
     )?;
-    finish_candidate(chain, params, height, c.committee, anchor)
+    let committee = verify_candidate_committee(chain, params, height, c.committee, &anchor)?;
+    let facts = finish_candidate(chain, height, committee.as_ref(), anchor)?;
+    Ok((facts, committee))
 }
 
 /// Authenticates a supplied anchor or inherits the parent's anchor, then checks anchor progress,
@@ -545,17 +566,17 @@ pub(crate) fn check_candidate_anchor(
     Ok(anchor)
 }
 
-/// Derives the incoming committee at switch height `H(t)-2` and requires the outgoing local
-/// active committee to exist. No L1 committee publication or checkpoint coverage of a prior
-/// derivation is required; back-pressure was already checked on the anchor.
+/// Derives the incoming committee at switch height `H(t)-2` from its already verified witness
+/// ([`candidate_committee`]) and requires the outgoing local active committee to exist. No L1
+/// committee publication or checkpoint coverage of a prior derivation is required;
+/// back-pressure was already checked on the anchor.
 pub(crate) fn finish_candidate(
     chain: &ChainContext<'_>,
-    params: &ChainParams,
     height: u64,
-    committee: Option<&CommitteeWitness>,
+    committee: Option<&VerifiedWitness>,
     anchor: AnchorState,
 ) -> Result<CandidateFacts, Rejection> {
-    let derived = candidate_committee(chain, params, height, committee, &anchor)?;
+    let derived = candidate_committee(chain, height, committee, &anchor)?;
     if chain.schedule().switch_target(height).is_some() && chain.committee_at(height).is_none() {
         let epoch = chain
             .schedule()
@@ -597,15 +618,46 @@ fn candidate_anchor(
     }
 }
 
-/// Derives committee `t` only at its switch height `H(t)-2`: the snapshot cutoff is the committed
-/// parent's anchor number floored by the generation origin, and registry proofs verify against
-/// this block's own anchor
-/// `stateRoot`. Non-switch heights forbid runtime committee witnesses.
-fn candidate_committee(
+/// The snapshot cutoff of a switch on top of `chain`: the committed parent's anchor number
+/// floored by the generation origin (COMM-4.3-11).
+fn snapshot_cutoff(chain: &ChainContext<'_>) -> u64 {
+    chain.anchor.number.max(chain.anchor_floor())
+}
+
+/// Verifies a candidate's raw committee witness, the one time it is verified: only at its switch
+/// height `H(t)-2`, under this block's own anchor `stateRoot` (COMM-4.3-12) at the
+/// [`snapshot_cutoff`] (COMM-4.3-11). A witness at any other height is refused unverified; a
+/// missing one is left to [`candidate_committee`].
+fn verify_candidate_committee(
     chain: &ChainContext<'_>,
     params: &ChainParams,
     height: u64,
     w: Option<&CommitteeWitness>,
+    anchor: &AnchorState,
+) -> Result<Option<VerifiedWitness>, Rejection> {
+    let Some(w) = w else { return Ok(None) };
+    let target = chain
+        .schedule()
+        .switch_target(height)
+        .ok_or(Rejection::UnexpectedWitness(WitnessKind::Committee))?;
+    let verified = VerifiedWitness::verify(
+        anchor.state_root,
+        snapshot_cutoff(chain),
+        params,
+        w.clone(),
+        target,
+    )?;
+    Ok(Some(verified))
+}
+
+/// Derives committee `t` only at its switch height `H(t)-2`, from a witness verified for exactly
+/// this block's own anchor `stateRoot`, the [`snapshot_cutoff`] and `t`; one verified for any
+/// other context is refused, never verified again. Non-switch heights forbid runtime committee
+/// witnesses.
+fn candidate_committee(
+    chain: &ChainContext<'_>,
+    height: u64,
+    w: Option<&VerifiedWitness>,
     anchor: &AnchorState,
 ) -> Result<Option<(u64, CommitteeState)>, Rejection> {
     match (chain.schedule().switch_target(height), w) {
@@ -613,14 +665,13 @@ fn candidate_committee(
         (None, Some(_)) => Err(Rejection::UnexpectedWitness(WitnessKind::Committee)),
         (Some(_), None) => Err(Rejection::MissingWitness(WitnessKind::Committee)),
         (Some(target), Some(w)) => {
-            let (record, members) = verify_committee_witness_at_cutoff(
-                anchor.state_root,
-                chain.anchor.number.max(chain.anchor_floor()),
-                params,
-                w,
-                target,
-            )?;
-            Ok(Some((target, CommitteeState { record, members })))
+            let (root, cutoff) = (anchor.state_root, snapshot_cutoff(chain));
+            if !w.verified_under(root, cutoff, target) {
+                return Err(
+                    CommitteeError::NotVerifiedUnder { root, cutoff, target_epoch: target }.into()
+                );
+            }
+            Ok(Some((target, w.committee().clone())))
         }
     }
 }

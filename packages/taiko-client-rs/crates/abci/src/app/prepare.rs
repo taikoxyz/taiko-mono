@@ -18,7 +18,7 @@ use super::{
     },
 };
 use crate::{
-    committee::verify_committee_witness_at_cutoff,
+    committee::VerifiedWitness,
     engine::Engine,
     envelope::{AnchorWitness, CommitteeWitness, EtnaEnvelope, ForcedWitness},
     forced::{self, ForcedContext},
@@ -146,8 +146,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
             None => None,
         };
         let witness = committee.as_ref().map(|(_, w)| w);
-        let facts =
-            finish_candidate(&state.chain_context(), params, height, witness, anchor_state)?;
+        // The witness was verified once, for this anchor's root, cutoff and target; neither the
+        // candidate check nor the retention verifies it again.
+        let facts = finish_candidate(&state.chain_context(), height, witness, anchor_state)?;
         if let Some((target_epoch, witness)) = &committee {
             self.cache_candidate_committee_witness(state, &facts.anchor, *target_epoch, witness)?;
         }
@@ -272,7 +273,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             witness.tx = Bytes::new();
         }
 
-        let committee = committee.map(|(_, w)| w);
+        let committee = committee.map(|(_, w)| w.into_witness());
         let envelope = EtnaEnvelope { block, anchor, committee, forced };
         let encoded = envelope.encode();
         if !i64::try_from(encoded.len()).is_ok_and(|len| len <= req.max_tx_bytes) {
@@ -378,13 +379,16 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// generation origin R while that anchor precedes it (COMM-4.3-11); `anchor` never selects it.
     /// Only the proofs follow `anchor`'s root (COMM-4.3-12). In order:
     ///
-    /// 1. a retained witness proven under `anchor`;
+    /// 1. a retained witness verified under `anchor`, served as verified;
     /// 2. a retained witness of the same snapshot, re-proved under `anchor` with two reads
     ///    ([`reprove_committee_witness`]) and verified at the snapshot block there; one that does
     ///    not hold is dropped;
     /// 3. else the background discovery at the snapshot block, started or joined and awaited
-    ///    ([`App::discovered_committee_witness`]), retained, and re-proved under `anchor` unless it
-    ///    was proven there.
+    ///    ([`App::discovered_committee_witness`]), retained as it verified it, and re-proved and
+    ///    verified under `anchor` unless it was proven there.
+    ///
+    /// Each witness is verified once for (`anchor`'s root, snapshot block, `target`)
+    /// ([`VerifiedWitness::verify`]); the caller carries that value instead of verifying again.
     ///
     /// A discovery still running at `PrepareProposal`'s deadline, or a failed or backing-off one
     /// whose own L1 was unavailable, proposes nothing (RECOV-8-4, RECOV-8-5, RECOV-8-10) while
@@ -396,7 +400,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         state: &AppState,
         anchor: &AnchorState,
         target: u64,
-    ) -> Result<CommitteeWitness, Rejection> {
+    ) -> Result<VerifiedWitness, Rejection> {
         if let Some(witness) = self.cached_candidate_committee_witness(state, anchor, target) {
             tracing::debug!(
                 anchor = anchor.number,
@@ -409,14 +413,14 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if let Some(retained) = self.context_committee_witness(state, target) {
             let witness = self.reproved_under(&retained, anchor).await?;
             // The retained witness may have verified only under a forged proposal's root.
-            match verify_committee_witness_at_cutoff(
+            match VerifiedWitness::verify(
                 anchor.state_root,
                 snapshot,
                 &self.params,
-                &witness,
+                witness,
                 target,
             ) {
-                Ok(_) => return Ok(witness),
+                Ok(verified) => return Ok(verified),
                 Err(error) => {
                     tracing::warn!(
                         snapshot,
@@ -432,10 +436,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let found = self.discovered_committee_witness(state, target).await?;
         self.cache_committee_witness_at_root(state, found.proof_anchor, target, &found.witness)?;
         if found.proof_anchor.1 == anchor.hash {
-            Ok(found.witness)
-        } else {
-            self.reproved_under(&found.witness, anchor).await
+            return Ok(found.witness);
         }
+        let witness = self.reproved_under(found.witness.witness(), anchor).await?;
+        Ok(VerifiedWitness::verify(anchor.state_root, snapshot, &self.params, witness, target)?)
     }
 
     /// `base` re-proved under `anchor`'s root ([`reprove_committee_witness`]), within the L1

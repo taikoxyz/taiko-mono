@@ -9,7 +9,7 @@ use tokio::{sync::watch, task::JoinHandle, time::Instant};
 
 use super::{App, Rejection};
 use crate::{
-    committee::{committee_config_hash, verify_committee_witness_at_cutoff},
+    committee::{CommitteeError, VerifiedWitness, committee_config_hash},
     config::ChainParams,
     engine::Engine,
     envelope::CommitteeWitness,
@@ -118,8 +118,8 @@ struct FailedDiscovery {
 /// A background discovery's verified witness and the L1 block its registry proofs verify under.
 #[derive(Clone, Debug)]
 pub(super) struct PrefetchedCommittee {
-    /// The verified witness.
-    pub(super) witness: CommitteeWitness,
+    /// The witness, verified under `proof_anchor`'s root at its [`snapshot_block`].
+    pub(super) witness: VerifiedWitness,
     /// `(number, hash, stateRoot)` of the block whose root the proofs verify under: the parent
     /// anchor, or R before the first recovered commit ([`snapshot_block`]).
     pub(super) proof_anchor: (u64, B256, B256),
@@ -146,8 +146,9 @@ impl Drop for CommitteePrefetch {
 pub(super) struct CachedCommittee {
     /// Authentication and derivation identity.
     key: CacheKey,
-    /// Complete verified registry witness, including the snapshot entries.
-    witness: CommitteeWitness,
+    /// Complete registry witness, including the snapshot entries, verified under the root of
+    /// `key`'s proof anchor at the snapshot block for `key`'s target epoch.
+    witness: VerifiedWitness,
 }
 
 /// The epoch `t` whose switch witness `state`'s committed anchor may have to prove: that of the
@@ -180,9 +181,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// [`snapshot_block`] while that L1 state is recent, whenever the committed anchor may still
     /// be the parent anchor of `S(t)` ([`prefetch_target`]): unless a witness of that context is
     /// held, starts the background discovery (restarting a failed one after its backoff,
-    /// [`prefetch_backoff`]), and adopts a finished one by verifying and caching it in memory
-    /// ([`App::cache_committee_witness_at_root`]). The witness is kept across commits while the
-    /// committed anchor stays.
+    /// [`prefetch_backoff`]), and adopts a finished one by caching the witness it verified in
+    /// memory ([`App::cache_committee_witness_at_root`]). The witness is kept across commits while
+    /// the committed anchor stays.
     ///
     /// Runs at a live `Commit`, at every `ProcessProposal`, which every node (full nodes
     /// included) handles in each round that delivers a proposal while it is not locked on a block,
@@ -369,13 +370,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 let witness =
                     build_committee_witness_within(&*l1, &params, block, target, read_timeout)
                         .await?;
-                verify_committee_witness_at_cutoff(
-                    proof_anchor.2,
-                    block,
-                    &params,
-                    &witness,
-                    target,
-                )?;
+                let witness =
+                    VerifiedWitness::verify(proof_anchor.2, block, &params, witness, target)?;
                 Ok::<_, FetchError>(PrefetchedCommittee { witness, proof_anchor })
             };
             let outcome = match tokio::time::timeout(COMMITTEE_PREFETCH_TIMEOUT, discovery).await {
@@ -409,7 +405,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let key = CacheKey::new(state, &self.params, target_epoch);
         self.committee_cache()
             .as_ref()
-            .and_then(|cached| (cached.key == key).then(|| cached.witness.clone()))
+            .and_then(|cached| (cached.key == key).then(|| cached.witness.witness().clone()))
     }
 
     /// Verifies a switch witness proven under the committed parent anchor and retains it in
@@ -422,16 +418,24 @@ impl<L: L1Source, E: Engine> App<L, E> {
         target_epoch: u64,
         witness: &CommitteeWitness,
     ) -> Result<(), Rejection> {
-        self.cache_candidate_committee_witness(state, &state.anchor, target_epoch, witness)
+        let anchor = &state.anchor;
+        let verified = VerifiedWitness::verify(
+            anchor.state_root,
+            snapshot_block(state),
+            &self.params,
+            witness.clone(),
+            target_epoch,
+        )?;
+        self.cache_candidate_committee_witness(state, anchor, target_epoch, &verified)
     }
 
-    /// Returns a snapshot proof only when both the cutoff and candidate anchor match.
+    /// Returns a verified snapshot proof only when both the cutoff and candidate anchor match.
     pub(super) fn cached_candidate_committee_witness(
         &self,
         state: &AppState,
         anchor: &AnchorState,
         target_epoch: u64,
-    ) -> Option<CommitteeWitness> {
+    ) -> Option<VerifiedWitness> {
         let mut key = CacheKey::new(state, &self.params, target_epoch);
         key.proof_anchor = (anchor.number, anchor.hash, anchor.state_root);
         self.committee_cache()
@@ -452,17 +456,17 @@ impl<L: L1Source, E: Engine> App<L, E> {
         self.committee_cache()
             .as_ref()
             .filter(|cached| key.same_context(&cached.key))
-            .map(|cached| cached.witness.clone())
+            .map(|cached| cached.witness.witness().clone())
     }
 
-    /// Verifies and retains a candidate's proof under its own root and the committed derivation
+    /// Retains a candidate's proof verified under its own root and the committed derivation
     /// cutoff.
     pub(super) fn cache_candidate_committee_witness(
         &self,
         state: &AppState,
         anchor: &AnchorState,
         target_epoch: u64,
-        witness: &CommitteeWitness,
+        witness: &VerifiedWitness,
     ) -> Result<(), Rejection> {
         self.cache_committee_witness_at_root(
             state,
@@ -472,16 +476,21 @@ impl<L: L1Source, E: Engine> App<L, E> {
         )
     }
 
-    /// Verifies a witness at `state`'s [`snapshot_block`] under the supplied L1 header identity
-    /// and retains it in memory. The background discovery's witness is retained under its
+    /// Retains in memory a witness verified at `state`'s [`snapshot_block`] under the root of the
+    /// supplied L1 header identity for `target_epoch`; one verified for any other context is
+    /// refused, never verified again. The background discovery's witness is retained under its
     /// snapshot block's root, a candidate's under the candidate anchor's.
     pub(super) fn cache_committee_witness_at_root(
         &self,
         state: &AppState,
         proof_anchor: (u64, B256, B256),
         target_epoch: u64,
-        witness: &CommitteeWitness,
+        witness: &VerifiedWitness,
     ) -> Result<(), Rejection> {
+        let (root, cutoff) = (proof_anchor.2, snapshot_block(state));
+        if !witness.verified_under(root, cutoff, target_epoch) {
+            return Err(CommitteeError::NotVerifiedUnder { root, cutoff, target_epoch }.into());
+        }
         let mut key = CacheKey::new(state, &self.params, target_epoch);
         key.proof_anchor = proof_anchor;
 
@@ -489,13 +498,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if cache.as_ref().is_some_and(|cached| cached.key == key && cached.witness == *witness) {
             return Ok(());
         }
-        verify_committee_witness_at_cutoff(
-            proof_anchor.2,
-            snapshot_block(state),
-            &self.params,
-            witness,
-            target_epoch,
-        )?;
         *cache = Some(CachedCommittee { key, witness: witness.clone() });
         Ok(())
     }
@@ -511,10 +513,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
     ) {
         let key = CacheKey::new(state, &self.params, target_epoch);
         let mut cache = self.committee_cache();
-        if cache
-            .as_ref()
-            .is_some_and(|cached| key.same_context(&cached.key) && cached.witness == *witness)
-        {
+        if cache.as_ref().is_some_and(|cached| {
+            key.same_context(&cached.key) && cached.witness.witness() == witness
+        }) {
             *cache = None;
         }
     }
