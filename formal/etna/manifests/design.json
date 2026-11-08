@@ -7885,6 +7885,18 @@
       "bridge_level": "spec-proved",
       "sources": [],
       "scope": "Reachable trap witness in a verifier-failure environment: the verifier accepts every proof, so no premise record holds; this is the verifier failure the RECOV-8-24..34 rollback handles. K = 2 landings to 6, a stop on grid 2, a recovery at 6 that upgrades K to 3 and a rollback to the height-2 landing leave c = 2 off the K = 3 grid; no rollback-free continuation lands. A second rollback to the start record, a plain recovery and a 0→3 landing escape, which RECOV-8-28 and RECOV-8-58 forbid. Shows LiveAt's grid hypothesis is needed; no standalone rule credit."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.RecoveryNonVacuity.all_premises_satisfiable",
+      "module": "EtnaWitnesses.NonVacuity.CurrentRecovery",
+      "role": "regression",
+      "type": "∃ e registry engine w,\n  Etna.Statements.Current.Premises e registry engine ∧\n    Etna.Statements.Current.RecoveryPremises e registry ∧\n      Etna.Design.Current.Protocol.Trace e (Etna.Design.Current.Protocol.empty e registry) w ∧\n        w.initialized = Bool.true ∧ Etna.Statements.Current.LiveAt e w",
+      "assumptions": [
+        "Concrete restricted new-network interpreter with ideal unbounded Nat commitments, a classically decided ideal verifier and a classical physical-parent decoder; the standard-token deployment and signature adapters are constructed, not assumed. Not a production cryptographic, EL, guest or switching realization."
+      ],
+      "bridge_level": "spec-proved",
+      "sources": [],
+      "scope": "Joint realization (design 4.6): one environment, registry and engine satisfy H1-H3's fifteen Premises and H4's RecoveryPremises together, with a reachable initialized world satisfying LiveAt, so all four claims can hold of one deployment. Restrictions: a new network only (no Unzen inbox, so the Unzen premises and LiveAt.unzen are vacuous); one online key, which signs every vote, backs the only registered bond and alone forms every committee; a single catalogue definition for every ruleset, which checks only that a block's EL hash is the injective code of its EL fields and its Comet hash the injective code of the other header fields, and accepts every payload; a classical verifier that is an ideal sound-and-complete checker (it accepts exactly the statements an image certifies over the L1 prefix their reference hash commits to), not an oracle for a World. The world has not landed yet; no standalone rule credit."
     }
   ]
 }
