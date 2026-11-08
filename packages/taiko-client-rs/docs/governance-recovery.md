@@ -1,232 +1,164 @@
 # Governance recovery operations
 
-`taiko-client abci-recover` prepares and activates an explicitly requested, L1-finalized
-Etna generation using usable local EL state at the retained height **c**. It supports
-validators and consensus full nodes, with an optional lander using its original account
-journal. It does not execute the governance transaction. Use only disposable development
-chains: the lander still uses `DummyProofProvider` (`0x00`); the end-to-end fixtures use an
-explicit disposable `MockVerifier`. Real proving, snapshot/app import, Unzen migration,
-upgrade activation and verifier-failure rollback are outside this workflow.
+`taiko-client abci-recover` has three one-shot commands. `prepare` authenticates an explicitly
+requested, L1-finalized Etna generation and writes a plan file. `install` writes a fresh Comet
+home and an empty app directory from that plan. `status` summarizes a plan offline. None of them
+starts, stops or signals a service: the operator stops the old services and starts the new ones.
+The commands do not execute the governance transaction.
 
-Recovery authenticates the full deployment domain, generation and recovery execution block
-**R** against the operator's own finalized L1. Fresh Comet genesis uses the full generation
-chain ID, `initial_height=c+1`, `genesis_time=R.timestamp` and `app_hash=ELHash(c)`. Its first
-block has empty LastBlockID/LastCommit. The global epoch schedule `H(t)=1+t*L` and global
-K grid continue unchanged; the initial committee is the R snapshot for `floor(c/L)`,
-effective at c+1. Old pending committee updates are discarded. The app's validator state
-starts at c as stock CometBFT's genesis state for that committee. The landing record at c keeps
-its original generation's EL, Comet and validator-state hashes; checkpoint trust does not
-compare that validator-state hash, and the first new-generation landing starts from the genesis
-state instead. No registered key, prior HRS, old Comet WAL/history or signed landing transaction
-is copied into a new generation.
+Use only disposable development chains: the lander still uses `DummyProofProvider` (`0x00`),
+and the end-to-end fixtures use an explicit disposable `MockVerifier`. Real proving, Unzen
+migration, upgrade activation and verifier-failure rollback are outside this workflow.
 
-## Before preparation
+## Scope
 
-- Retain usable canonical EL state at c, old EL ancestry, own L1 headers/storage proofs and
-  required registry/admission history. Preparation makes read-only availability checks;
-  activation performs a real unpromoted build on c. Keep
-  `--engine.allow-unwind-canonical-header` disabled. The old EL head may remain above c
-  until the recovered app commits its first branch through normal Engine calls.
-- Stop original systemd/container/Kubernetes services and their restart controllers before
-  activation. The local controller can stop only children it owns. It cannot adopt detached
-  processes, infer ownership from saved PIDs, stop arbitrary services or detect an unrelated
-  writer against the same EL when its store was not declared.
-- Preserve the original app, Comet and optional lander directories. Retain the registered
-  key, original generation-zero HRS, authority registry, all historical domain states and
-  adjacent `.lock`/`.authority.json` files outside every Comet mount and disposable root.
-  Keep backups protected with the same care as the key. Never initialize replacement HRS.
-  Never restore an older HRS, FilePV state, or signing-authority backup to resume the same
-  validator identity: a backup can omit signatures already released. If the latest state
-  is lost or uncertain, stop signing and resolve the identity through governance; restoring
-  app/EL/Comet data does not authorize rolling back signer state.
-- All participating packaged processes must share the same protected persistent **parent**
-  mount/inode namespace for adjacent ownership leases. Separate component-directory mounts
-  alone do not share those locks. The installation parent must be protected and searchable
-  by the actual Comet UID; a different UID/GID requires sufficient controller privileges.
-- Supply a stock Comet v0.40.0 `goleveldb` config and the original Ed25519 P2P
-  `config/node_key.json`. P2P identity is separate from the registered consensus key.
-  Custom node-key paths, Unix RPC/ABCI endpoints, active state sync and custom TLS layouts
-  require a supported template and a new preparation. A missing P2P identity is a prerequisite,
-  never permission to silently replace it.
+A recovery starts a new generation from the retained landing at height **c**, executed on L1 at
+block **R**. Every node authenticates c and R from its own finalized L1 view (RECOV-8.4-2) and
+builds the same genesis (RECOV-8.4-7..9):
 
-## Private validator profile
+- `chain_id` is the full chain ID of the new generation;
+- `initial_height = c+1` and `genesis_time = R.timestamp`;
+- InitChain returns `app_hash = ELHash(c)`, and the EL state must match c's authenticated hash
+  and state root;
+- the validators are the committee selected on R's registry snapshot for epoch `floor(c/L)`.
 
-Write `/etc/taiko/recovery.toml` with mode 0600 (no group/other permissions). All path
-values must be absolute. Replace the illustrative deployment, endpoints and paths below;
-`chain.toml` must describe the actual deployment, including matching Inbox/registry and
-chain identities. The profile is private, including executable prefixes and environment.
-Programs execute directly with literal arguments; no shell expansion occurs.
+The first block uses stock genesis's empty LastBlockID/LastCommit (RECOV-8.4-10). The FI cursor
+starts at the authenticated origin head (RECOV-8.4-11). Every anchor and L1 root the new
+generation uses is at or after R (RECOV-8.4-12/13). The global epoch schedule and checkpoint
+grid continue unchanged, and old pending committee updates are discarded. Votes in different
+generations use different signing domains and are not double signs; the new generation keeps
+its own HRS state from c+1 (RECOV-8.2-5/6). The app's InitChain repeats every check `prepare`
+makes, against its own L1 and EL.
 
-```toml
-schema = 1
-role = "validator"
-l1_chain_id = "0x1"
-l2_chain_id = 167001
-chain_config = "/etc/taiko/chain.toml"
-l1_http = "http://127.0.0.1:8545"
-l2_http = "http://127.0.0.1:8546"
-l2_auth = "http://127.0.0.1:8551"
-jwt_secret = "/var/lib/taiko/private/jwt.hex"
-app_data_dir = "/var/lib/taiko/app"
-comet_home = "/var/lib/taiko/comet"
-installation_parent = "/var/lib/taiko/consensus"
-peers = ["0123456789012345678901234567890123456789@peer.example:26656"]
+## Before you start
 
-[app]
-program = "/opt/taiko/taiko-client"
-argv = ["abci"]
-env = {}
+- Keep usable canonical EL state at c and the old EL ancestry. Keep own-L1 headers back to
+  `L1_0` and the historical `eth_getProof` and `debug_getRawHeader` the checks need (SYNC-9-16).
+  `prepare` checks that the state at c is readable; it never builds a block. Keep
+  `--engine.allow-unwind-canonical-header` disabled. The old EL head may stay above c until the
+  recovered app commits its first block through normal Engine calls.
+- Never copy, restore or reset signing state (RECOV-8.2-1..3). The signer keeps one HRS state per
+  full `chain_id` and never lowers it. A backup can omit signatures already released, so an older
+  HRS, FilePV state or signing-authority backup must never resume the same validator identity. If
+  the latest state is lost or uncertain, stop signing and resolve the identity through governance.
+  Restoring app, EL or Comet data never authorizes rolling back signer state.
+- Keep the registered key, the HRS states and the authority directory outside every Comet home.
+  `install` never reads them.
 
-[comet]
-program = "/opt/taiko/cometbft"
-argv = ["start"]
-env = {}
+## 1. Stop the old services
 
-[inspector]
-program = "/opt/taiko/etna-comet-inspect"
-argv = []
-env = {}
+Stop the old app, the supervisor (signer and Comet), the lander and every restart controller
+that could start them again (systemd, Kubernetes, containers). Fencing and failover are
+operational practice (RECOV-8.2-6): nothing in `abci-recover` can stop a process it did not
+start. Leave the old app directory, Comet home and lander journal untouched as archives. They are
+never reused: a superseded generation's app directory keeps its safety latches, and its records
+must not count for the new generation.
 
-[signer]
-key = "/var/lib/taiko/private/registered-key.json"
-state = "/var/lib/taiko/private/original-generation-zero-hrs.json"
-authority = "/var/lib/taiko/private/authority"
+## 2. Prepare the plan
 
-[signer.executable]
-program = "/opt/taiko/etna-signer"
-argv = []
-env = {}
-
-[signer.supervisor]
-program = "/usr/bin/python3"
-argv = ["/opt/taiko/script/etna_validator.py"]
-env = {}
-```
-
-Use Python 3.11+ for the supervisor. `just signer` builds both pinned native Go helpers;
-packaged paths are `/app/etna-signer`, `/app/etna-comet-inspect`,
-`/app/script/etna_validator.py`, `/app/taiko-client` and `/usr/bin/cometbft`.
-The inspector must be selected before prepare because the profile digest binds it.
-The controller appends owned RPC, ChainParams, data-dir, signer and Comet-home arguments.
-Do not add conflicting owned flags or enrollment/session overrides to prefixes.
-
-For a full node, change `role = "full-node"` and remove `[signer]`,
-`[signer.executable]` and `[signer.supervisor]` entirely; retain app, Comet and inspector.
-It has no registered signing authority. Stock Comet creates an unregistered local FilePV
-in the fresh standard paths for both roles before selecting the external signer on a
-validator. The validator's local dummy never signs; do not copy a registered key there or
-clear its local paths.
-
-To let activation own a separate lander process, append this optional profile section.
-The signing-key file supplies the existing funded account; use the same original journal
-and one active lander per account. Set explicit fee budgets and the sidecar format for your
-disposable deployment; the values below are illustrative.
-
-```toml
-[lander]
-data_dir = "/var/lib/taiko/lander"
-
-[lander.executable]
-program = "/opt/taiko/taiko-client"
-argv = ["lander", "--signing-key", "/var/lib/taiko/private/lander.key", "--max-blocks", "6", "--max-fee-per-gas", "2000000000", "--max-priority-fee-per-gas", "1000000000", "--max-fee-per-blob-gas", "1000000000", "--sidecar", "eip7594"]
-env = {}
-```
-
-Alternatively omit `[lander]` and run a separately supervised `taiko-client lander` using
-its unchanged journal and documented lander flags after recovery starts. Stop that service
-before any later activation. Both modes authenticate the current generation and preserve
-original pending signed bytes. Another honest lander may produce the finalized landing.
-
-## Prepare, inspect and activate
-
-Choose a short private root with an existing protected parent, disjoint from original
-component/input/signer paths. New directories are private 0700 and files 0600. Canonical Unix
-socket paths must fit 103 bytes; `runtime-socket-path` means use a shorter root and prepare
-again. Do not edit published profile/artifacts. Changes require a new plan.
-
-The commands below use generation 1 and an illustrative full 32-byte plan ID. Replace it
-with `plan_id` from prepare output; never infer it from a generation, phase or directory name.
+Run `prepare` with the node's own endpoints, spelled as for `abci`, and the same chain config
+the app uses. The plan file must not exist yet.
 
 ```sh
-taiko-client abci-recover prepare --profile /etc/taiko/recovery.toml --generation 1 --root /var/lib/taiko/r --json
+taiko-client abci-recover prepare --l1.http http://127.0.0.1:8545 --l2.http http://127.0.0.1:8546 --l2.auth http://127.0.0.1:8551 --jwt.secret /var/lib/taiko/private/jwt.hex --chain-config /etc/taiko/chain.toml --generation 1 --out /var/lib/taiko/recovery/plan-g1.json --json
 ```
 
-Prepare checks chain identities, historical proofs, current finalized generation and fixed
-c/R, then publishes an immutable bundle. It starts no child and makes no Engine build,
-newPayload/forkchoice, key/HRS or lander-journal mutation. Public reports contain no endpoint
-credentials, signer paths, argv or private environment. Private `profile.json` stays protected.
-An identical published plan is idempotent; a conflicting/corrupt bundle is refused.
-Directories use the first 16 hex digits for pathname space, but every load validates the full ID.
+`prepare` checks the L1 and L2 chain IDs, authenticates generation N, c, R and the reselected
+committee on own finalized L1 (RECOV-8.2-4), checks the EL state at c, rechecks own finality and
+the current generation, and only then writes the plan with mode 0600. A newer generation on own
+L1 fails with `superseded`. The plan holds the deployment parameters, the canonical witness, the
+origin and the exact genesis bytes; it holds no endpoint, path or credential.
+
+`prepare` prints the same summary as `status`. Compare `genesis_hash` with the other operators
+(ACC §2.2): every honest node of the generation has the same genesis. A later checkpoint never
+changes the genesis or the origin, only `observed_checkpoint_height`.
+
+## 3. Install the new stores
 
 ```sh
-taiko-client abci-recover status --root /var/lib/taiko/r --plan 0x1111111111111111111111111111111111111111111111111111111111111111 --json
+taiko-client abci-recover install --plan /var/lib/taiko/recovery/plan-g1.json --comet-config /var/lib/taiko/comet/config/config.toml --node-key /var/lib/taiko/comet/config/node_key.json --home /var/lib/taiko/comet-g1 --app-dir /var/lib/taiko/app-g1
 ```
 
-This illustrative prepared-status object uses c=6, R=100 and a later authenticated checkpoint
-at 12. Actual plan IDs/heights/prerequisites depend on authenticated evidence and local inputs.
+`--comet-config` is the node's stock Comet v0.40 config, used as a template; `--node-key` is
+its existing Ed25519 P2P key. P2P identity is separate from the registered consensus key, and a
+FilePV or secp256k1 key is refused (RECOV-8.2-2). `install` keeps the template's listeners and
+peers and points every path at the new home. A validator template (non-empty
+`priv_validator_laddr`) gets the Unix placeholder `unix://run/signer.sock`; the supervisor gives
+each start its own socket in `run/`. Unix RPC/ABCI listeners, active state sync, custom TLS files
+and a custom `home` are refused.
+
+The new home and app directory must be absent or empty, except for files an interrupted
+`install` of the same plan wrote: rerun the same command and it completes, and a repeated
+install changes nothing. A home holding another genesis is refused. Directories are created with
+mode 0700 and files with 0600; `genesis.json` is written last and marks a complete install. Unix
+socket paths must fit 103 bytes: `<home>/run/signer-<16 hex>.sock` for a validator and
+`<app dir>/checkpoint-trust.sock`, so choose short paths.
+
+The packaged image runs Comet as `ETNA_COMET_UID=10001`. Hand it the new home, for example
+`chown -R 10001:10001 /var/lib/taiko/comet-g1`. Then confirm the install:
+
+```sh
+taiko-client abci-recover status --plan /var/lib/taiko/recovery/plan-g1.json --home /var/lib/taiko/comet-g1 --json
+```
+
+This illustrative report uses c=6, R=100 and a later authenticated checkpoint at 12.
 
 ```json
 {
-  "plan_id": "0x1111111111111111111111111111111111111111111111111111111111111111",
   "generation": 1,
+  "chain_id": "etna-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
   "origin_height": 6,
   "recovery_l1_block": 100,
-  "phase": "prepared",
-  "landed_height": 12,
-  "trust_target_height": 12,
-  "component_state": "not-observed",
-  "committed_height": null,
-  "prerequisites": ["activation-build-probe", "comet-node-key"],
-  "live_trust": false,
-  "last_observation": null,
-  "blocker": null
+  "genesis_time": "2026-11-08T00:00:00Z",
+  "genesis_hash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+  "validators": 2,
+  "observed_checkpoint_height": 12,
+  "installed": true
 }
 ```
 
-Offline status never queries a live private session. `live_trust` is always false;
-`last_observation` and committed/landed heights may be historical. Prepared prerequisites
-remain immutable even after activation. They are observations, not signing authority.
+`status` reads only the plan and the home's `genesis.json`; it never queries a running service.
 
-After stopping all external original services, activate in the foreground:
+## 4. Signer state for the new chain_id
 
-```sh
-taiko-client abci-recover activate --profile /etc/taiko/recovery.toml --root /var/lib/taiko/r --plan 0x1111111111111111111111111111111111111111111111111111111111111111
+<!-- P9: replace with the signer init command and --domains-log -->
+
+A validator runs the supervisor with the same registered key, HRS file and authority root as
+before, and the new generation's identity. The authority creates the generation-N domain state,
+which starts at c+1 (RECOV-8.2-5); the generation-zero state and every older domain stay as they
+are. Read `ETNA_CHAIN_ID` from the plan's `chain_id`.
+
+```text
+ETNA_COMET_HOME=/var/lib/taiko/comet-g1
+ETNA_APP_STORE=/var/lib/taiko/app-g1
+ETNA_PRIV_KEY=/var/lib/taiko/private/registered-key.json
+ETNA_PRIV_STATE=/var/lib/taiko/private/original-generation-zero-hrs.json
+ETNA_AUTHORITY_ROOT=/var/lib/taiko/private/authority
+ETNA_GENERATION=1
+ETNA_CHAIN_ID=<chain_id from the plan>
+ETNA_L1_CHAIN_ID=<full L1 chain ID>
+ETNA_L2_CHAIN_ID=<L2 chain ID>
+ETNA_INBOX=<Inbox address>
+ETNA_ENROLL_LEGACY=1
 ```
 
-Activation reauthenticates the plan against own finalized L1, fences declared original and
-previous/current stores, inspects safety/native crash evidence, probes usable c state,
-installs a separate Comet home, atomically selects it and starts owned app, supervisor/Comet
-and optional lander. Registered files and old stores remain in place. SIGINT/SIGTERM await
-ordered lander → supervisor/Comet → app shutdown while retaining ownership leases.
-Keep the controller supervised as a foreground process; do not background/adopt its children.
+The signer answers PubKey and Ping while trust is closed and signs only once the new app is
+trusted. See the [signer operations](../tools/etna-signer/README.md#generation-authority) for
+the persistence rules.
 
-The journal phases are `prepared`, `stopping`, `isolated`, `el-origin-ready`, `installed`,
-`running`, `trusted`, `settled`. Phases are checked against real facts on every resume.
-`trusted` requires the exact private session/domain/origin and current authenticated target;
-logical c alone is not a new commit. `settled` additionally requires an own-L1-finalized
-new-generation landing above c, matching canonical EL, local committed Comet history and the
-app's validator state.
-The controller continues monitoring after settlement and clears observed trust on uncertainty.
+## 5. Start the new services
 
-## Enrollment, waits and interruption
+Start in this order (START-10-6):
 
-Validator activation explicitly supplies `ETNA_ENROLL_LEGACY=1` with the same registered key,
-original generation-zero HRS and permanent authority root. This one-time binding is idempotent
-on exact retries. Once markers exist, standalone legacy serving refuses that key/state.
-Only fresh private Ready with the authenticated origin can create/enroll a recovered domain.
-PubKey/Ping work while closed and create no recovered HRS. Each signature/retry checks Ready again.
-A durable transition intent fences all older generations before a new HRS can sign; retain
-the intent, manifest, watermark, both external markers and every historical state. See the
-[signer operations](../tools/etna-signer/README.md#generation-authority) for persistence rules.
+1. the EL, then the app on the new directory: `taiko-client abci --data-dir
+/var/lib/taiko/app-g1` with the same endpoint, `--chain-config`, `--abci.addr` and
+   `--fee-recipient` flags as before;
+2. the supervisor with the environment of step 4; it starts the signer, then Comet on the new
+   home;
+3. the lander with its unchanged journal (`--data-dir`) and `--comet.http` at the new home's
+   `rpc.laddr`.
 
-On first start the signer connects without `--await-trust` so closed PubKey/Ping permits
-InitChain and sync. Successful/replayed InitChain preserves that private signer session.
-Unavailable authentication closes readiness in the same session; integrity failure halts.
-A signing refusal causes the owned supervisor to quiesce Comet/signer, start a fresh signer
-with `--await-trust`, wait for its exact Ready session and restart Comet for WAL replay.
-The controller may reobserve that verified same-app-boot signer incarnation; an app boot
-change, counter rollback, malformed/domain-mismatched session or unexpected full-node rearm
-fails closed. Denial files, journal phases and public `/trust` are never signing authority.
+The app runs InitChain at c+1, and its checkpoint trust is the ordinary section 9 check.
 
 The lander preserves each old job's proof, blobs, account nonce and signed network bytes.
 Never-broadcast obsolete work can finish; possibly broadcast work must reconcile canonical
@@ -238,19 +170,20 @@ original signed network bytes**; an old-generation call can revert under the new
 and consume that nonce. Normal receipt/account reconciliation can then allow new work.
 No fee replacement, journal editing, nonce reset or new account-path bypass is implied.
 
-To resume an interruption, stop and reap any surviving owned descendants through the actual
-service owner, then rerun the exact activate command/profile/root/full ID. Live inherited
-leases or uncertain ownership return Busy; saved PID records do not authorize signaling or
-adoption. An incomplete `.stage-<16hex>` publication also returns Busy and retains evidence.
-Inspect it before repair; never delete unverified staging to force progress.
+## Full nodes
 
-`external-owner`, `evidence-unavailable` and `waiting-for-trust` describe closed waiting;
-`component-exited` stops the owned runtime, and `stopped` records ordered cancellation.
-`safety-halt` requires investigation. Preserve fatal evidence,
-supervisor latches, original HRS/WAL and authority files. Missing/corrupt enrolled HRS,
-ambiguous signed staging, a lost registry/marker or a generic old fatal/latch is operator
-repair, never a reset instruction or permission to choose a fresh generation path.
-Expected historical supersession is acknowledged only with matching typed proof-authenticated
-sidecar/state/fatal/latch bytes and a freshly authenticated later generation; those files
-are retained. A newly created current fatal/latch halts immediately. Resolve unsupported
-layout, local state, ownership and safety prerequisites before a new attempt.
+A full node follows the same steps without step 4. Its template has an empty
+`priv_validator_laddr`, and it starts stock Comet (`cometbft start --home <new home>`) instead
+of the supervisor. It has no registered signing authority; stock Comet creates an unregistered
+local FilePV in the new home, which never signs.
+
+## Failures
+
+Once an anchor shows a newer generation, the old generation can only stop: its app rejects and
+revokes trust, and a decided block or startup check that finds another generation is a terminal
+safety halt with generic fatal evidence in the old app directory (RECOV-8-14..16). Safety halts
+need investigation; preserve the fatal evidence, supervisor latches, HRS, WAL and authority
+files. Run the new generation from fresh stores as above, never by clearing the old ones.
+
+Read trust from the app's `/status` ABCI query, not from `abci-recover status` or Comet's sync
+progress (SYNC-9-15).

@@ -18,7 +18,7 @@ const LANDING_HEIGHTS: u64 = 1_000;
 #[ignore = "manual fixture regeneration"]
 fn regenerate_cli_recovery_fixtures() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../bin/client/src/recovery/testdata");
-    for name in ["recovery", "activation", "repeated", "session"] {
+    for name in ["recovery"] {
         let path = root.join(format!("{name}.json"));
         let mut fixture: serde_json::Value =
             serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();

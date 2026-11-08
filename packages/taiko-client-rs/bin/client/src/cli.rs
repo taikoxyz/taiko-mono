@@ -28,7 +28,7 @@ const RUNTIME_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(10);
 pub enum Commands {
     /// Export, authenticate and install an offline landed checkpoint.
     AbciImport(Box<crate::commands::abci_import::Command>),
-    /// Prepare immutable recovery plans and inspect redacted operation status.
+    /// Prepare a governance recovery plan, install its fresh stores, or summarize it.
     AbciRecover(Box<AbciRecoverSubCommand>),
     /// Run the ABCI++ application of the Etna PoS chain for CometBFT.
     Abci(Box<AbciSubCommand>),
@@ -54,21 +54,7 @@ impl Cli {
     pub fn run(self) -> Result<()> {
         match self.subcommand {
             Commands::AbciImport(cmd) => Self::run_one_shot(cmd.run()),
-            Commands::AbciRecover(cmd) => {
-                if matches!(
-                    cmd.action,
-                    crate::commands::abci_recover::RecoveryAction::Activate { .. }
-                ) {
-                    // Activation owns signals and must await ordered child shutdown before the
-                    // runtime exits. An outer cancellation race would detach its descendants.
-                    let runtime = Self::tokio_runtime()?;
-                    let result = runtime.block_on(cmd.run());
-                    runtime.shutdown_timeout(RUNTIME_SHUTDOWN_TIMEOUT);
-                    result
-                } else {
-                    Self::run_one_shot(cmd.run())
-                }
-            }
+            Commands::AbciRecover(cmd) => Self::run_one_shot(cmd.run()),
             Commands::Abci(cmd) => Self::run_until_shutdown(cmd.run()),
             Commands::Lander(cmd) => Self::run_until_shutdown(cmd.run()),
             Commands::AbciGenesis(cmd) => Self::run_one_shot(cmd.run()),
@@ -184,32 +170,29 @@ mod tests {
 
     #[test]
     fn recovery_prepare_requires_explicit_target() {
-        assert!(
-            Cli::try_parse_from([
+        let prepare = |generation: &[&str]| {
+            let mut argv = vec![
                 "taiko-client",
                 "abci-recover",
                 "prepare",
-                "--profile",
-                "node.toml",
-                "--generation",
-                "1",
-                "--root",
-                "private"
-            ])
-            .is_ok()
-        );
-        assert!(
-            Cli::try_parse_from([
-                "taiko-client",
-                "abci-recover",
-                "prepare",
-                "--profile",
-                "node.toml",
-                "--root",
-                "private"
-            ])
-            .is_err()
-        );
+                "--l1.http",
+                "http://127.0.0.1:8545",
+                "--l2.http",
+                "http://127.0.0.1:8546",
+                "--l2.auth",
+                "http://127.0.0.1:8551",
+                "--jwt.secret",
+                "jwt.hex",
+                "--chain-config",
+                "chain.toml",
+                "--out",
+                "plan.json",
+            ];
+            argv.extend_from_slice(generation);
+            Cli::try_parse_from(argv)
+        };
+        assert!(prepare(&["--generation", "1"]).is_ok());
+        assert!(prepare(&[]).is_err());
     }
 
     /// Sets its flag when dropped.

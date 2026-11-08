@@ -8,6 +8,4 @@ if [[ "$(go env GOVERSION)" != "go1.27.2" ]]; then
 fi
 mkdir -p ../../target/etna-signer
 CGO_ENABLED=0 go build -mod=readonly -trimpath -buildvcs=false -ldflags='-s -w -buildid=' -o ../../target/etna-signer/etna-signer .
-
-CGO_ENABLED=0 go build -mod=readonly -trimpath -buildvcs=false -ldflags='-s -w -buildid=' -o ../../target/etna-signer/etna-comet-inspect ./cmd/etna-comet-inspect
 CGO_ENABLED=0 go build -mod=readonly -trimpath -buildvcs=false -ldflags='-s -w -buildid=' -o ../../target/etna-signer/etna-comet-import ./cmd/etna-comet-import

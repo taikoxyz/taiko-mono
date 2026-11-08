@@ -280,7 +280,7 @@ receipt/nonce reconciliation.
 An ambiguous send or dropped transaction never authorizes recycling its nonce.
 If a transaction remains dropped or underpriced, the lander keeps its original signed bytes
 and nonce and waits; restarting cannot repair it. Investigate the account and journal using
-the [nonce reconciliation procedure](docs/governance-recovery.md#enrollment-waits-and-interruption)
+the [nonce reconciliation procedure](docs/governance-recovery.md#5-start-the-new-services)
 before any operator action; never delete the journal or allocate a replacement nonce to bypass it.
 
 A canonical revert that leaves the checkpoint unchanged, out-of-gas included, persists Idle and
@@ -293,7 +293,7 @@ finality waits.
 Use one active lander per signing account and preserve journals across restarts. Keep unpruned
 Comet blocks/commits, EL ancestry/execution state and historical L1 headers/proofs/registry
 snapshots. Governance recovery and old-generation nonce reconciliation are covered in the
-[recovery runbook](docs/governance-recovery.md#enrollment-waits-and-interruption). Real proving
+[recovery runbook](docs/governance-recovery.md#5-start-the-new-services). Real proving
 and automatic operator nonce repair remain excluded.
 
 ### `abci-import`
@@ -309,11 +309,13 @@ The [client rule inventory](docs/etna-conformance.md) and
 
 ### `abci-recover`
 
-Prepare an immutable private plan, activate/resume its owned foreground runtime, or inspect
-redacted offline status. Follow the [governance recovery runbook](docs/governance-recovery.md)
-for validator/full-node profiles, optional lander, exact CLI/JSON examples, external-service
-stopping, private authority retention and interrupted activation. Recovery requires usable
-local EL state at c; it imports no snapshots and retains the dummy-proof development scope.
+Three one-shot commands: `prepare` authenticates a requested generation on own finalized L1 and
+writes a plan file, `install` writes a fresh Comet home and an empty app directory from it, and
+`status` summarizes a plan offline. The operator stops the old services and starts the new ones;
+no command starts, stops or signals a process. Follow the
+[governance recovery runbook](docs/governance-recovery.md) for the exact commands, the signer
+environment of the new generation, the start order and full nodes. Recovery requires usable local
+EL state at c; it imports no snapshots and retains the dummy-proof development scope.
 
 ### `abci-genesis`
 

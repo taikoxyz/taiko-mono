@@ -164,7 +164,7 @@ class RecoveryImage(FakeHost, unittest.TestCase):
         (self.package / "tests/docker").mkdir(parents=True)
         shutil.copy(ROOT / "tests/docker/recovery-runtime.Dockerfile", self.package / "tests/docker")
         shutil.copy(ROOT / "Dockerfile", self.package)
-        for name in ("etna-signer", "etna-comet-inspect", "etna-comet-import", "cometbft"):
+        for name in ("etna-signer", "etna-comet-import", "cometbft"):
             self.executable(f"packages/taiko-client-rs/target/etna-signer/{name}", f"#!/bin/sh\necho {name}\n")
         self.client = self.root / "cargo-target/debug/taiko-client"
         self.executable("cargo-target/debug/taiko-client", "#!/bin/sh\necho host-built client\n")

@@ -7,7 +7,7 @@ go build -mod=readonly -o etna-comet-import ./cmd/etna-comet-import
 go test -race -mod=readonly ./...
 ```
 
-Package this binary beside `etna-signer` and `etna-comet-inspect` in runtime
+Package this binary beside `etna-signer` in runtime
 images. It uses unmodified CometBFT v0.40.0 and GoLevelDB (DATA-5.4-5). It
 starts no service, loads no signing keys and never reads or writes FilePV state
 or the consensus WAL.

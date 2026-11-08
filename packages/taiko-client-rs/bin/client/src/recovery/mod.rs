@@ -1,14 +1,11 @@
-//! Immutable operator recovery preparation; persisted observations never grant authority.
+//! Governance recovery as three operator commands: `prepare` authenticates a generation on the
+//! node's own finalized L1 and writes a plan file, `install` writes fresh stores from it, and
+//! `status` summarizes it offline. The operator stops and starts services.
 
-pub mod activate;
-pub mod inspect;
 pub mod install;
 pub mod plan;
 pub mod prepare;
-pub mod process;
-pub mod profile;
 pub mod status;
-pub mod store;
 
 use abci::recovery::RecoveryError;
 
@@ -21,13 +18,10 @@ pub enum RecoveryCommandError {
     /// Filesystem operation failed; retain only its public operation label.
     #[error("recovery storage operation failed: {0}")]
     Io(&'static str),
-    /// Another operation owns the exclusive publication/journal marker.
-    #[error("recovery operation is busy")]
-    Busy,
-    /// Persisted bytes disagree with the selected immutable identity.
-    #[error("recovery plan or staged artifact mismatch")]
+    /// Stored bytes disagree with the plan.
+    #[error("recovery plan or installed file mismatch")]
     PlanMismatch,
-    /// Missing material prevents preparation or activation.
+    /// Missing material prevents preparation or installation.
     #[error("recovery prerequisite missing: {0}")]
     Missing(&'static str),
     /// Authenticated evidence contradicts the requested recovery.
@@ -36,15 +30,6 @@ pub enum RecoveryCommandError {
     /// Configured identity differs from authenticated identity.
     #[error("recovery deployment configuration mismatch")]
     ConfigMismatch,
-    /// Exact private app/signer incarnation changed; explicit resume must revalidate stores.
-    #[error("recovery private session changed; stopped for explicit resume")]
-    SessionChanged,
-    /// A directly retained runtime child exited, including an optional lander.
-    #[error("owned recovery component exited")]
-    ComponentExited,
-    /// Preserved prior safety evidence requires investigation, never automatic reset.
-    #[error("recovery blocked by preserved safety evidence")]
-    Halted,
     /// Own finalized L1 has a newer generation.
     #[error("recovery generation {requested} superseded by {current}")]
     Superseded {
@@ -53,9 +38,6 @@ pub enum RecoveryCommandError {
         /// Authenticated current generation.
         current: u64,
     },
-    /// A bounded runtime read did not finish or returned an unavailable result.
-    #[error("recovery runtime read unavailable: {0}")]
-    Runtime(&'static str),
 }
 
 impl From<RecoveryError> for RecoveryCommandError {

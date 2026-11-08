@@ -485,7 +485,7 @@ fn an_installed_import_record_is_the_recompute_base() {
     let store = Store::volatile(dir.path().into());
     store.install_import(&state, None).unwrap();
     let expected = (13..=18).try_fold(state.val_state.clone(), |s, _| s.advance(&[])).unwrap();
-    assert_eq!(recompute_val_state(&store, 18, |_| false), Ok(expected));
+    assert_eq!(recompute_val_state(&store, 0, 18, |_| false), Ok(expected));
 }
 
 /// SYNC-9-5c: a lost record is recomputed from the newest valid record below it with
@@ -500,7 +500,7 @@ fn recompute_follows_per_height_arithmetic() {
     let x = spec_41a_state(100);
     store.save_val_state(&x).unwrap();
 
-    let recomputed = recompute_val_state(&store, 102, |_| false).unwrap();
+    let recomputed = recompute_val_state(&store, 0, 102, |_| false).unwrap();
     assert_eq!(recomputed.height, 102);
     let priorities: Vec<i64> = recomputed.next.entries.iter().map(|e| e.priority).collect();
     assert_eq!(priorities, [36, 35, -17, -53]); // 41a.i
@@ -508,12 +508,12 @@ fn recompute_follows_per_height_arithmetic() {
     assert_eq!(recomputed, x.advance(&[]).unwrap().advance(&[]).unwrap());
 
     // 101 is a switch height: its update record is required, an empty list included.
-    let error = recompute_val_state(&store, 102, |k| k == 101).unwrap_err();
+    let error = recompute_val_state(&store, 0, 102, |k| k == 101).unwrap_err();
     assert!(error.contains("switch height 101"), "{error}");
     let n = test_key(4);
     store.save_val_updates(101, &[(n, 0)]).unwrap();
     assert_eq!(
-        recompute_val_state(&store, 102, |k| k == 101).unwrap(),
+        recompute_val_state(&store, 0, 102, |k| k == 101).unwrap(),
         x.advance(&[(n, 0)]).unwrap().advance(&[]).unwrap()
     );
 
@@ -522,11 +522,17 @@ fn recompute_follows_per_height_arithmetic() {
     let earlier = spec_41a_state(94);
     store.save_val_state(&earlier).unwrap();
     let expected = (95..=102).try_fold(earlier, |state, _| state.advance(&[])).unwrap();
-    assert_eq!(recompute_val_state(&store, 102, |_| false).unwrap(), expected);
+    assert_eq!(recompute_val_state(&store, 0, 102, |_| false).unwrap(), expected);
 
     // Nothing recorded below the height: there is nothing to recompute from.
-    let error = recompute_val_state(&store, 94, |_| false).unwrap_err();
+    let error = recompute_val_state(&store, 0, 94, |_| false).unwrap_err();
     assert!(error.contains("below height 94"), "{error}");
+
+    // A valid record below the generation's origin is an earlier generation's and does not
+    // count (5c): with the only valid one at 94 and the origin at 95 there is no base.
+    let error = recompute_val_state(&store, 95, 102, |_| false).unwrap_err();
+    assert!(error.contains("below height 102 from the generation's origin 95"), "{error}");
+    assert_eq!(recompute_val_state(&store, 94, 102, |_| false).unwrap(), expected);
 }
 
 /// SYNC-9-5c: a retained grid height whose record is missing or corrupt (junk, the bare

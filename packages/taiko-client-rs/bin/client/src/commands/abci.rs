@@ -37,7 +37,7 @@ impl AbciSubCommand {
 }
 
 /// `eth_chainId` of the L2 execution engine's public endpoint `url`.
-async fn l2_chain_id(url: &Url) -> Result<u64> {
+pub(super) async fn l2_chain_id(url: &Url) -> Result<u64> {
     super::rpc_chain_id(url, "l2.http").await?.try_into().map_err(|_| {
         CliError::from(RpcClientError::RpcMessage(
             "l2.http chain id exceeds the supported uint64 EVM chain range".into(),

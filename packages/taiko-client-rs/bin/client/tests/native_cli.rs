@@ -193,69 +193,73 @@ async fn explicit_l1_domain_mismatch_refuses_bootstrap_before_contract_reads() {
 
 #[tokio::test]
 async fn recovery_prepare_requires_explicit_target() {
-    let output =
-        run(&["abci-recover", "prepare", "--profile", "node.toml", "--root", "private"]).await;
+    let output = run(&[
+        "abci-recover",
+        "prepare",
+        "--l1.http",
+        "http://127.0.0.1:1/",
+        "--l2.http",
+        "http://127.0.0.1:1/",
+        "--l2.auth",
+        "http://127.0.0.1:1/",
+        "--jwt.secret",
+        "/missing-jwt",
+        "--out",
+        "/not-created/plan.json",
+    ])
+    .await;
     assert!(!output.status.success());
     assert!(stderr(&output).contains("--generation"), "{}", stderr(&output));
-    let output = run(&["abci-recover", "status", "--help"]).await;
-    assert!(output.status.success());
+    for action in ["install", "status"] {
+        let output = run(&["abci-recover", action, "--help"]).await;
+        assert!(output.status.success(), "{action}: {}", stderr(&output));
+    }
 }
 
 #[tokio::test]
-async fn recovery_rejects_zero_before_profile_or_network_and_redacts_private_input() {
-    let zero = run(&[
-        "abci-recover",
-        "prepare",
-        "--profile",
-        "/missing-private-profile",
-        "--generation",
-        "0",
-        "--root",
-        "/not-created",
-    ])
-    .await;
+async fn recovery_rejects_zero_before_network_and_redacts_private_input() {
+    // L2 answers eth_chainId (167001), so the failure is on the credential-bearing L1 endpoint.
+    let l2 = rpc("0x28c59").await;
+    let dir = tempfile::tempdir().unwrap();
+    let out = dir.path().join("plan.json");
+    let out = out.to_str().unwrap();
+    let prepare = |l1: &'static str, generation: &'static str| {
+        let args = [
+            "abci-recover",
+            "prepare",
+            "--l1.http",
+            l1,
+            "--l2.http",
+            &l2.url,
+            "--l2.auth",
+            "http://127.0.0.1:1/",
+            "--jwt.secret",
+            "/missing-jwt",
+            "--generation",
+            generation,
+            "--out",
+            out,
+            "--json",
+        ]
+        .map(str::to_owned);
+        async move { run(&args.iter().map(String::as_str).collect::<Vec<_>>()).await }
+    };
+    let zero = prepare("http://127.0.0.1:1/", "0").await;
     assert!(!zero.status.success());
     assert!(stderr(&zero).contains("nonzero"), "{}", stderr(&zero));
-    let dir = tempfile::tempdir().unwrap();
-    let profile = dir.path().join("profile.toml");
-    std::fs::write(
-        &profile,
-        "l1_http = 'https://alice:password@example.test/secret-token'\nunknown = 'PRIVATE-KEY'\n",
-    )
-    .unwrap();
-    std::fs::set_permissions(&profile, std::fs::Permissions::from_mode(0o600)).unwrap();
-    let root = dir.path().join("not-created");
-    let result = run(&[
-        "abci-recover",
-        "prepare",
-        "--profile",
-        profile.to_str().unwrap(),
-        "--generation",
-        "1",
-        "--root",
-        root.to_str().unwrap(),
-        "--json",
-    ])
-    .await;
+    assert!(l2.methods.lock().unwrap().is_empty(), "the generation is checked before any RPC");
+    let result = prepare("http://alice:password@127.0.0.1:1/secret-token", "1").await;
     assert!(!result.status.success());
     assert!(result.stdout.is_empty());
-    assert!(!root.exists());
-    for secret in ["alice", "password", "secret-token", "PRIVATE-KEY"] {
-        assert!(!stderr(&result).contains(secret));
+    assert!(stderr(&result).contains("l1.http"), "{}", stderr(&result));
+    for secret in ["alice", "password", "secret-token"] {
+        assert!(!stderr(&result).contains(secret), "{}", stderr(&result));
     }
-    let result = run(&[
-        "abci-recover",
-        "status",
-        "--root",
-        root.to_str().unwrap(),
-        "--plan",
-        "0x0000000000000000000000000000000000000000000000000000000000000000",
-        "--json",
-    ])
-    .await;
+    assert_eq!(*l2.methods.lock().unwrap(), ["eth_chainId"]);
+    assert!(!std::path::Path::new(out).exists());
+    let result = run(&["abci-recover", "status", "--plan", "/missing", "--json"]).await;
     assert!(!result.status.success());
     assert!(result.stdout.is_empty());
-    assert!(!root.exists());
 }
 
 #[tokio::test]
@@ -392,27 +396,6 @@ async fn recovery_native_app_joins_only_its_matching_inherited_grant() {
     );
     assert!(!stderr(&output).contains("ownership is busy"));
     assert!(ComponentLease::acquire(&paths, None).is_err());
-}
-
-#[tokio::test]
-async fn recovery_activate_native_cli_requires_exact_plan_and_stays_explicit() {
-    let help = run(&["abci-recover", "activate", "--help"]).await;
-    assert!(help.status.success(), "{}", stderr(&help));
-    let text = String::from_utf8_lossy(&help.stdout);
-    assert!(text.contains("--plan") && text.contains("--root") && text.contains("--profile"));
-    let invalid = run(&[
-        "abci-recover",
-        "activate",
-        "--root",
-        "/not-created",
-        "--plan",
-        "0x01",
-        "--profile",
-        "/missing-private-profile",
-    ])
-    .await;
-    assert!(!invalid.status.success());
-    assert!(invalid.stdout.is_empty());
 }
 
 /// `status` only reads: it reports an absent or interrupted root and never creates, locks or

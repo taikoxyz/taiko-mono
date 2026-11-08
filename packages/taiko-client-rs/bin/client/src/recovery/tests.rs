@@ -1,15 +1,23 @@
-use super::{plan::*, profile::*, status::*, store::*, *};
+use super::{
+    install::{install, normalized_comet_config, parse_comet_template},
+    plan::*,
+    prepare::prepare,
+    status::*,
+    *,
+};
 use abci::{
-    AccountWitness, Engine, EngineError, ExecutionBlock, L1Error, L1Source, RawL1Header,
+    AccountWitness, ChainParams, Engine, EngineError, ExecutionBlock, L1Error, L1Source,
+    RawL1Header,
     engine::{PayloadVerdict, PoolSelection},
-    recovery::{RecoveryWitness, verify_recovery_witness},
+    recovery::RecoveryWitness,
 };
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy_consensus::{Header, TxEnvelope};
 use alloy_primitives::{Address, B256, Bytes, U256, keccak256};
 use serde::Deserialize;
 use std::{
-    collections::{BTreeMap, VecDeque},
+    collections::VecDeque,
+    os::unix::fs::{MetadataExt, PermissionsExt},
     path::{Path, PathBuf},
     sync::Mutex,
 };
@@ -49,6 +57,9 @@ impl Source {
     }
     fn witness(&self) -> RecoveryWitness {
         alloy_rlp::decode_exact(&self.fixture.witness).unwrap()
+    }
+    fn params(&self) -> ChainParams {
+        self.fixture.params.params().unwrap()
     }
     fn block(&self, n: u64) -> Result<&Block, L1Error> {
         self.fixture
@@ -147,10 +158,11 @@ impl Engine for ReadEngine {
         panic!("no forkchoice during prepare")
     }
     async fn finalized_header(&self) -> Result<Option<Header>, EngineError> {
-        Ok(self.headers.first().cloned())
+        panic!("prepare reads only the exact origin state, never the EL's finalized tag")
     }
     async fn historical_state_available(&self, h: B256) -> Result<bool, EngineError> {
         assert!(self.headers.iter().any(|p| p.hash_slow() == h));
+        self.calls.lock().unwrap().push(format!("state:{h}"));
         Ok(self.available)
     }
     async fn header_by_number(&self, n: u64) -> Result<Option<Header>, EngineError> {
@@ -158,294 +170,379 @@ impl Engine for ReadEngine {
         Ok(self.headers.iter().find(|h| h.number == n).cloned())
     }
 }
-fn profile(dir: &Path) -> RecoveryProfile {
-    let executable = Executable {
-        program: "/bin/false".into(),
-        argv: vec!["secret-argument".into()],
-        env: BTreeMap::new(),
-    };
-    let profile = RecoveryProfile {
-        schema: 1,
-        role: NodeRole::FullNode,
-        l1_chain_id: U256::from(1),
-        l2_chain_id: 167001,
-        chain_config: dir.join("chain.toml"),
-        l1_http: "http://alice:password@l1.test/secret-token".into(),
-        l2_http: "http://el.test/".into(),
-        l2_auth: "http://el.test:8551/".into(),
-        jwt_secret: dir.join("jwt.hex"),
-        app_data_dir: dir.join("old-app"),
-        comet_home: dir.join("old-comet"),
-        app: executable.clone(),
-        comet: executable,
-        peers: vec![],
-        signer: None,
-        lander: None,
-        installation_parent: None,
-        inspector: None,
-    };
-    std::fs::write(&profile.chain_config,"l1_chain_id = '1'\ninbox = '0x1111111111111111111111111111111111111111'\nregistry = '0x2222222222222222222222222222222222222222'\n").unwrap();
-    std::fs::create_dir_all(profile.comet_home.join("config")).unwrap();
-    std::fs::create_dir_all(&profile.app_data_dir).unwrap();
-    std::fs::write(profile.comet_home.join("config/config.toml"),"proxy_app = 'tcp://127.0.0.1:26658'\npriv_validator_laddr = ''\n[p2p]\npersistent_peers = ''\n").unwrap();
-    profile
+
+/// The fixture's generation-one plan: c = 6, R = 100, later finalized observation at 12.
+async fn fixture_plan(source: &Source) -> RecoveryPlan {
+    prepare(&source.params(), 1, source, &ReadEngine::new(source)).await.unwrap()
 }
-async fn plan(profile: &RecoveryProfile, source: &Source) -> RecoveryPlan {
-    let w = source.witness();
-    let genesis = abci::recovery::build_recovery_genesis(
-        source,
-        &ReadEngine::new(source),
-        &source.fixture.params.params().unwrap(),
-        1,
-    )
-    .await
-    .unwrap()
-    .to_json_pretty()
-    .into_bytes();
-    RecoveryPlan {
-        schema: 1,
-        profile_digest: profile.digest(),
-        deployment: source.fixture.params.clone(),
-        witness: source.fixture.witness.clone(),
-        origin: verify_recovery_witness(&w, &source.fixture.params.params().unwrap()).unwrap(),
-        genesis: genesis.clone().into(),
-        artifacts: BTreeMap::from([
-            ("comet/config/genesis.json".into(), keccak256(&genesis)),
-            ("app-chain.toml".into(), keccak256(toml::to_string(&source.fixture.params).unwrap())),
-        ]),
-        prerequisites: vec![
-            Prerequisite::ActivationBuildProbe,
-            Prerequisite::CometTemplate,
-            Prerequisite::CometNodeKey,
-        ],
-        client_version: env!("CARGO_PKG_VERSION").into(),
-    }
+
+fn mode(path: &Path) -> u32 {
+    std::fs::symlink_metadata(path).unwrap().permissions().mode() & 0o7777
 }
-#[test]
-fn recovery_profile_rejects_unknown_role_combinations_and_secret_errors() {
-    let dir = tempfile::tempdir().unwrap();
-    let mut p = profile(dir.path());
-    assert!(p.validate().is_ok());
-    p.role = NodeRole::Validator;
-    assert!(p.validate().is_err(), "validator requires original private signer bindings");
-    let bad = dir.path().join("bad.toml");
-    std::fs::write(&bad, "credential_password = 'DO-NOT-PRINT'\n").unwrap();
-    let e = RecoveryProfile::load(&bad).err().unwrap();
-    assert!(!format!("{e:?} {e}").contains("DO-NOT-PRINT"));
+
+/// A stock validator template: the signer address only selects the external-signer role.
+const VALIDATOR_TEMPLATE: &str = "proxy_app = 'tcp://127.0.0.1:26658'\npriv_validator_laddr = 'tcp://127.0.0.1:26659'\ndb_dir = '/old-private/database'\nnode_key_file = '/old-private/key'\n[rpc]\nladdr = 'tcp://127.0.0.1:26657'\n[p2p]\nladdr = 'tcp://0.0.0.0:26656'\npersistent_peers = 'abcd@peer.example:26656'\naddr_book_file = '/old-private/addrbook'\n[mempool]\nwal_dir = '/old-private/mempool'\n[consensus]\nwal_file = '/old-private/wal'\n[statesync]\nenable = false\ntemp_dir = '/old-private/snapshots'\n";
+/// A full-node template has no signer.
+const FULL_NODE_TEMPLATE: &str = "proxy_app = 'tcp://127.0.0.1:26658'\npriv_validator_laddr = ''\n[p2p]\npersistent_peers = ''\n";
+
+/// Operator inputs beside a fresh home and app directory, all under one short private parent.
+struct Inputs {
+    dir: tempfile::TempDir,
+    template: PathBuf,
+    node_key: PathBuf,
+    home: PathBuf,
+    app: PathBuf,
 }
-#[tokio::test]
-async fn recovery_publication_is_immutable_idempotent_and_bounded() {
-    let dir = tempfile::tempdir().unwrap();
-    let p = profile(dir.path());
-    let s = Source::new();
-    let p1 = plan(&p, &s).await;
-    let store = RecoveryStore::new(&dir.path().join("recovery"));
-    let artifacts = BTreeMap::from([
-        ("comet/config/genesis.json".into(), p1.genesis.to_vec()),
-        ("app-chain.toml".into(), toml::to_string(&s.fixture.params).unwrap().into_bytes()),
-    ]);
-    store.publish_plan(&p1, &p, &artifacts).unwrap();
-    store.publish_plan(&p1, &p, &artifacts).unwrap();
-    assert_eq!(store.load_plan(p1.id()).unwrap(), p1);
-    let mut changed = p1.clone();
-    changed.profile_digest = B256::repeat_byte(9);
-    assert_ne!(changed.id(), p1.id());
-    changed = p1.clone();
-    changed.witness = [changed.witness.as_ref(), &[1]].concat().into();
-    assert_ne!(changed.id(), p1.id());
-    let path = store.plan_dir(p1.id()).join("plan.json");
-    for bad in [b"{}".to_vec(), b"{\"schema\":".to_vec(), vec![b' '; MAX_PLAN_BYTES as usize + 1]] {
-        std::fs::write(&path, bad).unwrap();
-        assert!(store.load_plan(p1.id()).is_err());
-        assert!(store.publish_plan(&p1, &p, &artifacts).is_err());
-    }
-}
-#[tokio::test]
-async fn recovery_prepare_authenticates_and_preserves_original_state() {
-    let dir = tempfile::tempdir().unwrap();
-    let mut p = profile(dir.path());
-    let source = Source::new();
-    let chain = source.fixture.params.params().unwrap();
-    p.l1_chain_id = chain.l1_chain_id;
+fn inputs(template: &str) -> Inputs {
+    let dir = tempfile::Builder::new().prefix("ri-").tempdir_in(short_temp_parent()).unwrap();
+    let template_path = dir.path().join("config.toml");
+    std::fs::write(&template_path, template).unwrap();
+    let node_key = dir.path().join("node_key.json");
     std::fs::write(
-        &p.chain_config,
-        format!(
-            "l1_chain_id = '{}'\ninbox = '{}'\nregistry = '{}'\nunsettled_limit = {}\n",
-            chain.l1_chain_id, chain.inbox, chain.registry, chain.unsettled_limit
-        ),
+        &node_key,
+        serde_json::to_vec(&test_harness::node_keys(1)[0].node_key_json()).unwrap(),
     )
     .unwrap();
-    let marker = p.app_data_dir.join("original-state");
-    std::fs::write(&marker, b"untouched").unwrap();
+    let home = dir.path().join("comet-g1");
+    let app = dir.path().join("app-g1");
+    Inputs { dir, template: template_path, node_key, home, app }
+}
+impl Inputs {
+    fn install(&self, plan: &RecoveryPlan) -> Result<(), RecoveryCommandError> {
+        install(plan, &self.template, &self.node_key, &self.home, &self.app)
+    }
+    /// The exact config.toml install writes: the shared template helper's output.
+    fn expected_config(&self) -> Vec<u8> {
+        normalized_comet_config(
+            parse_comet_template(&std::fs::read(&self.template).unwrap()).unwrap(),
+        )
+        .unwrap()
+    }
+    /// Every entry beside the operator inputs, so a test sees anything install leaves behind.
+    fn entries(&self) -> Vec<String> {
+        let mut names: Vec<_> = std::fs::read_dir(self.dir.path())
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        names
+    }
+}
+
+#[tokio::test]
+async fn prepare_authenticates_fixed_origin_and_genesis() {
+    // RECOV-8.2-4, RECOV-8.4-2/7/9, START-10-15
+    let source = Source::new();
+    let params = source.params();
     let engine = ReadEngine::new(&source);
-    let root = dir.path().join("recovery");
-    let prepared = prepare::prepare(&p, 1, &root, &source, &engine).await.unwrap();
+    let plan = prepare(&params, 1, &source, &engine).await.unwrap();
+    assert_eq!((plan.origin.generation, plan.origin.height, plan.origin.l1_number), (1, 6, 100));
+    let doc: abci::GenesisDoc = serde_json::from_slice(&plan.genesis).unwrap();
+    assert_eq!(doc.chain_id, abci::rules::chain_id_for(&params, 1).unwrap());
+    assert_eq!(doc.chain_id.len(), 48);
+    assert_eq!(doc.initial_height, "7"); // c + 1
+    assert_eq!(doc.app_hash, alloy_primitives::hex::encode_upper(plan.origin.el_hash)); // ELHash(c)
     assert_eq!(
-        (prepared.origin.generation, prepared.origin.height, prepared.origin.l1_number),
-        (1, 6, 100)
+        doc.genesis_time,
+        tendermint::Time::from_unix_timestamp(plan.origin.l1_timestamp as i64, 0)
+            .unwrap()
+            .to_rfc3339()
     );
-    assert!(prepared.prerequisites.contains(&Prerequisite::ActivationBuildProbe));
-    assert_eq!(std::fs::read(marker).unwrap(), b"untouched");
-    let report =
-        serde_json::to_string(&status(&RecoveryStore::new(&root), prepared.id()).unwrap()).unwrap();
-    for secret in ["alice", "password", "secret-token", "secret-argument"] {
-        assert!(!report.contains(secret));
-    }
-}
-
-fn configured_profile(dir: &Path, source: &Source) -> RecoveryProfile {
-    let mut p = profile(dir);
-    p.l1_chain_id = source.fixture.params.l1_chain_id;
-    std::fs::write(&p.chain_config, toml::to_string(&source.fixture.params).unwrap()).unwrap();
-    p
-}
-
-#[test]
-fn recovery_private_profiles_require_private_permissions_and_reject_aliases() {
-    use std::os::unix::fs::{PermissionsExt, symlink};
-    let dir = tempfile::tempdir().unwrap();
-    let mut p = profile(dir.path());
-    let file = dir.path().join("private.toml");
-    std::fs::write(&file, toml::to_string(&p).unwrap()).unwrap();
-    std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o644)).unwrap();
+    assert_eq!(doc.validators.len(), plan.origin.committee.members.len());
+    // The only EL state read is the exact origin c; no build, payload or forkchoice.
     assert!(
-        RecoveryProfile::load(&file).is_err(),
-        "profile credentials must not be world readable"
+        engine.calls.lock().unwrap().contains(&format!("state:{}", plan.origin.el_hash)),
+        "prepare requires usable EL state at c"
     );
-    std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o600)).unwrap();
-    assert!(RecoveryProfile::load(&file).is_ok());
-    let alias = dir.path().join("alias");
-    symlink(&p.comet_home, &alias).unwrap();
-    p.app_data_dir = alias;
-    assert!(p.validate().is_err(), "aliases cannot create parallel component ownership");
-}
-
-#[tokio::test]
-async fn recovery_rejects_aliased_staged_directories_and_journal_mismatches() {
-    use std::os::unix::fs::symlink;
     let dir = tempfile::tempdir().unwrap();
-    let source = Source::new();
-    let p = configured_profile(dir.path(), &source);
-    let root = dir.path().join("recovery");
-    let engine = ReadEngine::new(&source);
-    let plan = prepare::prepare(&p, 1, &root, &source, &engine).await.unwrap();
-    let store = RecoveryStore::new(&root);
-    let journal = ActivationJournal::prepared(plan.id());
-    store.save_journal(&journal).unwrap();
-    assert_eq!(store.load_journal(plan.id()).unwrap(), Some(journal));
-    std::fs::write(
-        store.plan_dir(plan.id()).join("journal.json"),
-        serde_json::to_vec(&ActivationJournal {
-            schema: 1,
-            plan_id: B256::ZERO,
-            phase: ActivationPhase::Prepared,
-            ..ActivationJournal::prepared(plan.id())
-        })
-        .unwrap(),
-    )
-    .unwrap();
-    assert!(status(&store, plan.id()).is_err());
-    let config = store.plan_dir(plan.id()).join("comet/config");
-    let saved = store.plan_dir(plan.id()).join("saved-config");
-    std::fs::rename(&config, &saved).unwrap();
-    symlink(&saved, &config).unwrap();
-    assert!(store.load_plan(plan.id()).is_err(), "staged config directory must not be an alias");
+    let out = dir.path().join("plan.json");
+    plan.write_new(&out).unwrap();
+    assert_eq!(mode(&out) & 0o777, 0o600);
+    assert!(plan.write_new(&out).is_err(), "never clobbers an existing plan");
+    assert_eq!(RecoveryPlan::load(&out).unwrap(), plan);
+    // The plan never carries endpoints, a JWT path or credentials: these four fields only.
+    let value: serde_json::Value = serde_json::from_slice(&std::fs::read(&out).unwrap()).unwrap();
+    let mut keys: Vec<_> = value.as_object().unwrap().keys().cloned().collect();
+    keys.sort();
+    assert_eq!(keys, ["deployment", "genesis", "origin", "witness"]);
+    // A torn or edited file never loads.
+    let torn = dir.path().join("torn.json");
+    let bytes = std::fs::read(&out).unwrap();
+    std::fs::write(&torn, &bytes[..bytes.len() / 2]).unwrap();
+    assert!(RecoveryPlan::load(&torn).is_err());
+    let mut unknown = value.clone();
+    unknown["l1_http"] = "http://alice:password@l1.test/".into();
+    std::fs::write(&torn, serde_json::to_vec(&unknown).unwrap()).unwrap();
+    assert!(RecoveryPlan::load(&torn).is_err(), "single strict format");
 }
 
 #[tokio::test]
-async fn recovery_new_generation_at_second_or_final_check_aborts_without_publication() {
+async fn prepare_superseded_at_final_check_returns_no_plan() {
+    // RECOV-8-14: a newer generation on own finalized L1, at a second read or the final recheck.
     for first_reads in [1, 5] {
-        let dir = tempfile::tempdir().unwrap();
         let source = Source::new();
-        let p = configured_profile(dir.path(), &source);
         let engine = ReadEngine::new(&source);
-        let root = dir.path().join("recovery");
         source.finalized.lock().unwrap().extend(std::iter::repeat_n(110, first_reads).chain([130]));
         assert!(matches!(
-            prepare::prepare(&p, 1, &root, &source, &engine).await,
+            prepare(&source.params(), 1, &source, &engine).await,
             Err(RecoveryCommandError::Superseded { requested: 1, current: 2 })
         ));
-        assert!(!root.exists(), "superseded preparation must not publish or activate");
     }
 }
 
 #[tokio::test]
-async fn recovery_later_checkpoint_keeps_fixed_genesis_and_changes_observation_id() {
-    let dir = tempfile::tempdir().unwrap();
+async fn prepare_later_checkpoint_keeps_fixed_genesis() {
+    // RECOV-8.4-15, SYNC-9-9: a later finalized observation never moves the genesis or origin.
     let source = Source::new();
-    let p = configured_profile(dir.path(), &source);
     let engine = ReadEngine::new(&source);
-    let root = dir.path().join("recovery");
-    let first = prepare::prepare(&p, 1, &root, &source, &engine).await.unwrap();
+    let first = prepare(&source.params(), 1, &source, &engine).await.unwrap();
     source.finalized.lock().unwrap().extend(std::iter::repeat_n(120, 20));
-    let later = prepare::prepare(&p, 1, &root, &source, &engine).await.unwrap();
+    let later = prepare(&source.params(), 1, &source, &engine).await.unwrap();
     assert_eq!(first.genesis, later.genesis);
     assert_eq!(first.origin, later.origin);
-    assert_ne!(first.id(), later.id());
-    assert_eq!(RecoveryStore::new(&root).load_plan(first.id()).unwrap(), first);
+    assert_ne!(first.witness, later.witness, "the latest observation is still recorded");
 }
 
 #[tokio::test]
-async fn recovery_missing_state_reports_prerequisite_and_does_not_touch_signer_or_start_child() {
-    let dir = tempfile::tempdir().unwrap();
+async fn prepare_requires_el_state_at_origin() {
+    // SYNC-9-16, RECOV-8.4-8
     let source = Source::new();
-    let mut p = configured_profile(dir.path(), &source);
     let mut engine = ReadEngine::new(&source);
     engine.available = false;
-    let key = dir.path().join("registered-key.json");
-    let state = dir.path().join("original-hrs.json");
-    let authority = dir.path().join("private-authority");
-    std::fs::write(&key, b"registered-key").unwrap();
-    std::fs::write(&state, b"never lower HRS").unwrap();
-    std::fs::create_dir(&authority).unwrap();
-    std::fs::write(authority.join("authority.json"), b"original-authority").unwrap();
-    let child_marker = dir.path().join("child-started");
-    p.app.program = "/usr/bin/touch".into();
-    p.app.argv = vec![child_marker.to_string_lossy().into_owned()];
-    p.signer = Some(SignerProfile {
-        key: key.clone(),
-        state: state.clone(),
-        authority: authority.clone(),
-        executable: p.comet.clone(),
-        supervisor: p.comet.clone(),
-    });
-    assert!(p.validate().is_err(), "full node forbids registered signer");
-    p.role = NodeRole::Validator;
-    std::fs::write(p.comet_home.join("config/config.toml"),"proxy_app='tcp://127.0.0.1:26658'\npriv_validator_laddr='unix://run/old.sock'\n[p2p]\npersistent_peers=''\n").unwrap();
-    let root = dir.path().join("recovery");
-    let plan = prepare::prepare(&p, 1, &root, &source, &engine).await.unwrap();
-    let config: toml::Table = toml::from_str(
-        &std::fs::read_to_string(
-            RecoveryStore::new(&root).plan_dir(plan.id()).join("comet/config/config.toml"),
-        )
-        .unwrap(),
-    )
-    .unwrap();
-    assert_eq!(config["priv_validator_key_file"].as_str(), Some("config/priv_validator_key.json"));
-    assert_eq!(
-        config["priv_validator_state_file"].as_str(),
-        Some("data/priv_validator_state.json")
-    );
-    assert_eq!(config["priv_validator_laddr"].as_str(), Some("unix://run/signer.sock"));
-    let report = status(&RecoveryStore::new(&root), plan.id()).unwrap();
-    assert_eq!(report.phase, ActivationPhase::Prepared);
-    assert!(report.prerequisites.contains(&Prerequisite::HistoricalState));
-    assert!(report.prerequisites.contains(&Prerequisite::ActivationBuildProbe));
-    assert!(!child_marker.exists());
-    assert_eq!(std::fs::read(key).unwrap(), b"registered-key");
-    assert_eq!(std::fs::read(state).unwrap(), b"never lower HRS");
-    assert_eq!(std::fs::read(authority.join("authority.json")).unwrap(), b"original-authority");
-    let public = serde_json::to_string(&plan).unwrap();
-    for secret in [
-        "registered-key.json",
-        "original-hrs.json",
-        "private-authority",
-        "alice",
-        "password",
-        "secret-token",
-    ] {
-        assert!(!public.contains(secret));
+    assert!(matches!(
+        prepare(&source.params(), 1, &source, &engine).await,
+        Err(RecoveryCommandError::Missing(_))
+    ));
+    for generation in [0, 1 << 48] {
+        assert!(matches!(
+            prepare(&source.params(), generation, &source, &ReadEngine::new(&source)).await,
+            Err(RecoveryCommandError::Parse(_))
+        ));
     }
+}
+
+#[tokio::test]
+async fn install_writes_genesis_config_and_p2p_key_into_fresh_stores() {
+    let source = Source::new();
+    let plan = fixture_plan(&source).await;
+    for (template, validator) in [(VALIDATOR_TEMPLATE, true), (FULL_NODE_TEMPLATE, false)] {
+        let x = inputs(template);
+        let node_key = std::fs::read(&x.node_key).unwrap();
+        x.install(&plan).unwrap();
+        let read = |name: &str| std::fs::read(x.home.join(name)).unwrap();
+        assert_eq!(read("config/genesis.json"), plan.genesis);
+        assert_eq!(read("config/node_key.json"), node_key);
+        assert_eq!(read("config/config.toml"), x.expected_config());
+        let config: toml::Table =
+            toml::from_str(&String::from_utf8(read("config/config.toml")).unwrap()).unwrap();
+        // The signer address only selects the role; the supervisor assigns the real socket.
+        let signer = if validator { "unix://run/signer.sock" } else { "" };
+        assert_eq!(config["priv_validator_laddr"].as_str(), Some(signer));
+        assert_eq!(
+            config["priv_validator_key_file"].as_str(),
+            Some("config/priv_validator_key.json")
+        );
+        assert_eq!(
+            config["priv_validator_state_file"].as_str(),
+            Some("data/priv_validator_state.json")
+        );
+        assert!(!String::from_utf8(read("config/config.toml")).unwrap().contains("/old-private"));
+        if validator {
+            assert_eq!(config["p2p"]["persistent_peers"].as_str(), Some("abcd@peer.example:26656"));
+        }
+        // Fresh stores only: no registered key, HRS, WAL or history enters the new home.
+        let names = |dir: &Path| {
+            let mut names: Vec<_> = std::fs::read_dir(dir)
+                .unwrap()
+                .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+                .collect();
+            names.sort();
+            names
+        };
+        assert_eq!(names(&x.home), ["config", "data", "run"]);
+        assert_eq!(names(&x.home.join("config")), ["config.toml", "genesis.json", "node_key.json"]);
+        assert!(names(&x.home.join("data")).is_empty() && names(&x.home.join("run")).is_empty());
+        assert!(x.app.is_dir() && x.app.read_dir().unwrap().next().is_none());
+        // I3: run/ always exists, private, for the supervisor's per-start signer sockets.
+        for dir in
+            [&x.home, &x.home.join("config"), &x.home.join("data"), &x.home.join("run"), &x.app]
+        {
+            assert_eq!(mode(dir), 0o700, "{}", dir.display());
+        }
+        for file in ["config.toml", "genesis.json", "node_key.json"] {
+            assert_eq!(mode(&x.home.join("config").join(file)), 0o600, "{file}");
+        }
+        // Nothing outside home/app is created or changed.
+        assert_eq!(x.entries(), ["app-g1", "comet-g1", "config.toml", "node_key.json"]);
+        assert_eq!(std::fs::read_to_string(&x.template).unwrap(), template);
+        assert_eq!(std::fs::read(&x.node_key).unwrap(), node_key);
+    }
+}
+
+#[tokio::test]
+async fn install_is_idempotent_and_completes_after_interruption() {
+    let source = Source::new();
+    let plan = fixture_plan(&source).await;
+    let x = inputs(VALIDATOR_TEMPLATE);
+    // An interrupted install: config.toml already written, a torn temporary genesis, no marker.
+    std::fs::create_dir_all(x.home.join("config")).unwrap();
+    std::fs::write(x.home.join("config/config.toml"), x.expected_config()).unwrap();
+    std::fs::write(x.home.join("config/.genesis.json.tmp"), b"torn").unwrap();
+    x.install(&plan).unwrap();
+    assert_eq!(std::fs::read(x.home.join("config/genesis.json")).unwrap(), plan.genesis);
+    assert!(!x.home.join("config/.genesis.json.tmp").exists());
+    let inode = |name: &str| std::fs::metadata(x.home.join(name)).unwrap().ino();
+    let before: Vec<_> =
+        ["config/config.toml", "config/node_key.json", "config/genesis.json"].map(inode).to_vec();
+    // A second install is a no-op: nothing is rewritten.
+    x.install(&plan).unwrap();
+    let after: Vec<_> =
+        ["config/config.toml", "config/node_key.json", "config/genesis.json"].map(inode).to_vec();
+    assert_eq!(before, after);
+    assert!(x.app.read_dir().unwrap().next().is_none());
+}
+
+#[tokio::test]
+async fn install_refuses_foreign_home_used_app_store_tampered_plan_or_registered_key() {
+    let source = Source::new();
+    let plan = fixture_plan(&source).await;
+
+    // A home holding another genesis is never overwritten, and nothing else is written there.
+    let x = inputs(VALIDATOR_TEMPLATE);
+    std::fs::create_dir_all(x.home.join("config")).unwrap();
+    std::fs::write(x.home.join("config/genesis.json"), b"{\"chain_id\":\"other\"}").unwrap();
+    assert!(matches!(x.install(&plan), Err(RecoveryCommandError::PlanMismatch)));
+    assert_eq!(
+        std::fs::read(x.home.join("config/genesis.json")).unwrap(),
+        b"{\"chain_id\":\"other\"}"
+    );
+    assert_eq!(std::fs::read_dir(x.home.join("config")).unwrap().count(), 1);
+    assert!(!x.app.exists());
+
+    // A home a Comet already ran in is not fresh.
+    let x = inputs(VALIDATOR_TEMPLATE);
+    std::fs::create_dir_all(x.home.join("data")).unwrap();
+    std::fs::write(x.home.join("data/priv_validator_state.json"), b"{}").unwrap();
+    assert!(x.install(&plan).is_err());
+    assert!(!x.home.join("config").exists() && !x.app.exists());
+
+    // An app dir from an earlier generation keeps its latches and records: never reused
+    // (RECOV-8-14/16; SYNC-9-5c: a record from an earlier generation does not count).
+    for latch in ["fatal-evidence.txt", "validator-supervisor.halted", "val-state-6.bin"] {
+        let x = inputs(VALIDATOR_TEMPLATE);
+        std::fs::create_dir(&x.app).unwrap();
+        std::fs::write(x.app.join(latch), b"old generation").unwrap();
+        assert!(x.install(&plan).is_err(), "{latch}");
+        assert!(!x.home.exists(), "{latch}: refused before the home is created");
+        assert_eq!(std::fs::read(x.app.join(latch)).unwrap(), b"old generation");
+    }
+
+    // A tampered plan is refused before anything is created.
+    let mut doc: serde_json::Value = serde_json::from_slice(&plan.genesis).unwrap();
+    doc["initial_height"] = "8".into();
+    let mut edited_genesis = plan.clone();
+    edited_genesis.genesis = serde_json::to_vec_pretty(&doc).unwrap().into();
+    let mut witness = plan.witness.to_vec();
+    let last = witness.len() - 1;
+    witness[last] ^= 1;
+    let mut edited_witness = plan.clone();
+    edited_witness.witness = witness.into();
+    for tampered in [edited_genesis, edited_witness] {
+        let x = inputs(VALIDATOR_TEMPLATE);
+        assert!(matches!(x.install(&tampered), Err(RecoveryCommandError::PlanMismatch)));
+        assert!(!x.home.exists() && !x.app.exists());
+    }
+
+    // RECOV-8.2-2: the registered consensus key (FilePV, secp256k1) is never a P2P identity.
+    let x = inputs(VALIDATOR_TEMPLATE);
+    let registered = test_harness::validator_keys(1)[0].priv_validator_key_json();
+    let transport_shaped = serde_json::json!({"priv_key": registered["priv_key"].clone()});
+    for key in [registered, transport_shaped] {
+        std::fs::write(&x.node_key, serde_json::to_vec(&key).unwrap()).unwrap();
+        assert!(
+            matches!(x.install(&plan), Err(RecoveryCommandError::Parse(m)) if m.starts_with("Comet node key")),
+            "{key}"
+        );
+        assert!(!x.home.exists() && !x.app.exists());
+    }
+
+    // Unsupported templates: state sync, Unix listeners, custom TLS, a custom home.
+    let template = FULL_NODE_TEMPLATE.replace("[p2p]", "[statesync]\nenable = true\n[p2p]");
+    let mut unsupported = vec![template];
+    for listeners in [
+        "grpc_laddr = 'unix:///old-comet/run/grpc.sock'",
+        "laddr = 'tcp://127.0.0.1:26657,unix:///old-comet/run/rpc.sock'",
+        "laddr = '  unix:///old-comet/run/rpc.sock  '",
+        "laddr = 'unixpacket:///old-comet/run/rpc.sock'",
+        "tls_key_file = 'key.pem'",
+    ] {
+        unsupported.push(format!("{FULL_NODE_TEMPLATE}[rpc]\n{listeners}\n"));
+    }
+    unsupported.push(format!("home = '/old-comet'\n{FULL_NODE_TEMPLATE}"));
+    for template in unsupported {
+        let x = inputs(&template);
+        assert!(x.install(&plan).is_err(), "{template}");
+        assert!(!x.home.exists() && !x.app.exists());
+    }
+    let x = inputs(&format!(
+        "{FULL_NODE_TEMPLATE}[rpc]\nladdr = ' tcp://127.0.0.1:26657 , tcp://127.0.0.1:26659 '\n"
+    ));
+    x.install(&plan).unwrap();
+}
+
+#[tokio::test]
+async fn install_refuses_socket_paths_beyond_the_unix_limit() {
+    // Unix socket paths hold at most 103 bytes plus NUL on macOS (108 on Linux). The supervisor
+    // binds home/run/signer-<16 hex>.sock and the app binds app/checkpoint-trust.sock.
+    let source = Source::new();
+    let plan = fixture_plan(&source).await;
+    let x = inputs(VALIDATOR_TEMPLATE);
+    let parent = x.dir.path().to_path_buf();
+    let room = |suffix: usize| 103 - parent.as_os_str().len() - 1 - suffix;
+    let long_home = parent.join("h".repeat(room("/run/signer-0000000000000000.sock".len()) + 1));
+    let fitting_home = parent.join("h".repeat(room("/run/signer-0000000000000000.sock".len())));
+    let long_app = parent.join("a".repeat(room("/checkpoint-trust.sock".len()) + 1));
+    assert!(matches!(
+        install(&plan, &x.template, &x.node_key, &long_home, &x.app),
+        Err(RecoveryCommandError::Missing(_))
+    ));
+    assert!(!long_home.exists() && !x.app.exists());
+    assert!(matches!(
+        install(&plan, &x.template, &x.node_key, &x.home, &long_app),
+        Err(RecoveryCommandError::Missing(_))
+    ));
+    assert!(!x.home.exists() && !long_app.exists());
+    install(&plan, &x.template, &x.node_key, &fitting_home, &x.app).unwrap();
+    // A full node never binds the signer socket, so only the app's socket bounds it.
+    let full = inputs(FULL_NODE_TEMPLATE);
+    let full_home = full.dir.path().join("h".repeat(80));
+    install(&plan, &full.template, &full.node_key, &full_home, &full.app).unwrap();
+}
+
+#[tokio::test]
+async fn status_is_offline_and_reports_install_state() {
+    let source = Source::new();
+    let plan = fixture_plan(&source).await;
+    let x = inputs(VALIDATOR_TEMPLATE);
+    let s = status(&plan, None).unwrap();
+    assert_eq!(
+        (s.generation, s.origin_height, s.recovery_l1_block, s.observed_checkpoint_height),
+        (1, 6, 100, 12)
+    );
+    assert_eq!(s.genesis_hash, keccak256(&plan.genesis));
+    let doc: abci::GenesisDoc = serde_json::from_slice(&plan.genesis).unwrap();
+    assert_eq!(
+        (s.chain_id.as_str(), s.genesis_time.as_str()),
+        (&*doc.chain_id, &*doc.genesis_time)
+    );
+    assert_eq!(s.validators, plan.origin.committee.members.len());
+    assert_eq!(s.installed, None);
+    assert_eq!(status(&plan, Some(&x.home)).unwrap().installed, Some(false));
+    assert!(!x.home.exists(), "status never writes");
+    x.install(&plan).unwrap();
+    assert_eq!(status(&plan, Some(&x.home)).unwrap().installed, Some(true));
+    std::fs::write(x.home.join("config/genesis.json"), b"{}").unwrap();
+    assert!(matches!(status(&plan, Some(&x.home)), Err(RecoveryCommandError::PlanMismatch)));
 }
 
 #[test]
@@ -463,46 +560,6 @@ fn recovery_errors_never_render_nested_provider_credentials() {
             assert!(!format!("{error:?}").contains(secret));
         }
     }
-}
-
-#[tokio::test]
-async fn recovery_staged_chain_must_match_the_authenticated_deployment() {
-    let dir = tempfile::tempdir().unwrap();
-    let source = Source::new();
-    let p = configured_profile(dir.path(), &source);
-    let engine = ReadEngine::new(&source);
-    let root = dir.path().join("recovery");
-    let original = prepare::prepare(&p, 1, &root, &source, &engine).await.unwrap();
-    let store = RecoveryStore::new(&root);
-    let mut artifacts: BTreeMap<String, Vec<u8>> = original
-        .artifacts
-        .keys()
-        .map(|n| (n.clone(), std::fs::read(store.plan_dir(original.id()).join(n)).unwrap()))
-        .collect();
-    let mut tampered = original.clone();
-    let bytes = b"l1_chain_id = '999'\n".to_vec();
-    tampered.artifacts.insert("app-chain.toml".into(), keccak256(&bytes));
-    artifacts.insert("app-chain.toml".into(), bytes);
-    assert!(
-        store.publish_plan(&tampered, &p, &artifacts).is_err(),
-        "hashing an unrelated config cannot make a consistent bundle"
-    );
-}
-
-#[tokio::test]
-async fn recovery_status_reports_proven_checkpoint_without_claiming_runtime_trust() {
-    let dir = tempfile::tempdir().unwrap();
-    let source = Source::new();
-    let p = configured_profile(dir.path(), &source);
-    let engine = ReadEngine::new(&source);
-    let root = dir.path().join("recovery");
-    let plan = prepare::prepare(&p, 1, &root, &source, &engine).await.unwrap();
-    let report =
-        serde_json::to_value(status(&RecoveryStore::new(&root), plan.id()).unwrap()).unwrap();
-    assert_eq!(report["landed_height"], 12);
-    assert_eq!(report["trust_target_height"], 12);
-    assert!(report["committed_height"].is_null());
-    assert_eq!(report["component_state"], "not-observed");
 }
 
 #[tokio::test]
@@ -580,245 +637,6 @@ async fn recovery_engine_read_deadlines_bound_a_stalled_public_endpoint() {
     task.abort();
 }
 
-#[tokio::test]
-async fn recovery_comet_staging_replaces_old_runtime_paths_and_rejects_state_sync() {
-    let dir = tempfile::tempdir().unwrap();
-    let source = Source::new();
-    let p = configured_profile(dir.path(), &source);
-    let engine = ReadEngine::new(&source);
-    let root = dir.path().join("recovery");
-    let template = "proxy_app='tcp://127.0.0.1:26658'\npriv_validator_laddr=''\ndb_dir='/old-private/database'\nnode_key_file='/old-private/key'\n[p2p]\naddr_book_file='/old-private/addrbook'\n[mempool]\nwal_dir='/old-private/mempool'\n[consensus]\nwal_file='/old-private/wal'\n[statesync]\nenable=false\ntemp_dir='/old-private/snapshots'\n";
-    let config_path = p.comet_home.join("config/config.toml");
-    std::fs::write(&config_path, template).unwrap();
-    let plan = prepare::prepare(&p, 1, &root, &source, &engine).await.unwrap();
-    let store = RecoveryStore::new(&root);
-    let staged = String::from_utf8(
-        std::fs::read(store.plan_dir(plan.id()).join("comet/config/config.toml")).unwrap(),
-    )
-    .unwrap();
-    assert!(!staged.contains("/old-private"), "new config must never write to old runtime paths");
-    assert_eq!(std::fs::read_to_string(&config_path).unwrap(), template);
-    std::fs::write(&config_path, template.replace("enable=false", "enable=true")).unwrap();
-    let plan = prepare::prepare(&p, 1, &root, &source, &engine).await.unwrap();
-    assert!(plan.prerequisites.contains(&Prerequisite::CometTemplate));
-    assert!(!plan.artifacts.contains_key("comet/config/config.toml"));
-
-    let mut accepted = Vec::new();
-    for (case, listeners) in [
-        ("grpc", "grpc_laddr='unix:///old-comet/run/grpc.sock'"),
-        ("mixed RPC", "laddr='tcp://127.0.0.1:26657,unix:///old-comet/run/rpc.sock'"),
-        ("trimmed RPC", "laddr='  unix:///old-comet/run/rpc.sock  '"),
-        ("trimmed grpc", "grpc_laddr='  unix:///old-comet/run/grpc.sock  '"),
-        (
-            "trimmed mixed RPC",
-            "laddr='  tcp://127.0.0.1:26657  ,  unix:///old-comet/run/rpc.sock  '",
-        ),
-        ("Unix-first RPC", "laddr='unix:///old-comet/run/rpc.sock,tcp://127.0.0.1:26657'"),
-        ("packet RPC", "laddr='unixpacket:///old-comet/run/rpc.sock'"),
-        ("mixed packet RPC", "laddr='tcp://127.0.0.1:26657,unixpacket:///old-comet/run/rpc.sock'"),
-        ("trimmed packet grpc", "grpc_laddr='  unixpacket:///old-comet/run/grpc.sock  '"),
-    ] {
-        std::fs::write(&config_path, format!("{template}[rpc]\n{listeners}\n")).unwrap();
-        let plan = prepare::prepare(&p, 1, &root, &source, &engine).await.unwrap();
-        if !plan.prerequisites.contains(&Prerequisite::CometTemplate) ||
-            plan.artifacts.contains_key("comet/config/config.toml") ||
-            store.plan_dir(plan.id()).join("comet/config/config.toml").exists()
-        {
-            accepted.push(case);
-        }
-    }
-    assert!(accepted.is_empty(), "unsafe Unix listener templates published: {accepted:?}");
-
-    std::fs::write(&config_path, format!("{template}[rpc]\nladdr=' tcp://127.0.0.1:26657 , tcp://127.0.0.1:26659 '\ngrpc_laddr=' tcp://127.0.0.1:26660 '\n")).unwrap();
-    let plan = prepare::prepare(&p, 1, &root, &source, &engine).await.unwrap();
-    assert!(!plan.prerequisites.contains(&Prerequisite::CometTemplate));
-    assert!(plan.artifacts.contains_key("comet/config/config.toml"));
-}
-
-#[tokio::test]
-async fn recovery_optional_lander_is_pending_without_touching_its_journal() {
-    let dir = tempfile::tempdir().unwrap();
-    let source = Source::new();
-    let mut p = configured_profile(dir.path(), &source);
-    let engine = ReadEngine::new(&source);
-    let root = dir.path().join("recovery");
-    let journal_dir = dir.path().join("original-lander");
-    std::fs::create_dir(&journal_dir).unwrap();
-    let journal = journal_dir.join("journal.json");
-    std::fs::write(&journal, b"immutable signed transaction bytes").unwrap();
-    p.lander = Some(LanderProfile { data_dir: journal_dir, executable: p.comet.clone() });
-    let plan = prepare::prepare(&p, 1, &root, &source, &engine).await.unwrap();
-    assert!(plan.prerequisites.contains(&Prerequisite::LanderReconciliation));
-    assert_eq!(std::fs::read(journal).unwrap(), b"immutable signed transaction bytes");
-}
-
-#[test]
-fn recovery_profile_unknown_fields_and_full_width_deployment_are_strict() {
-    use std::os::unix::fs::PermissionsExt;
-    let dir = tempfile::tempdir().unwrap();
-    let p = profile(dir.path());
-    let file = dir.path().join("profile.toml");
-    let text = toml::to_string(&p).unwrap();
-    std::fs::write(&file, format!("unexpected = 'SECRET-UNKNOWN'\n{text}")).unwrap();
-    std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o600)).unwrap();
-    assert!(RecoveryProfile::load(&file).is_err());
-    assert!(!RecoveryProfile::load(&file).err().unwrap().to_string().contains("SECRET-UNKNOWN"));
-    let source = Source::new();
-    let mut deployment = source.fixture.params;
-    deployment.l1_chain_id = U256::MAX;
-    let encoded = serde_json::to_vec(&deployment).unwrap();
-    let decoded: Deployment = serde_json::from_slice(&encoded).unwrap();
-    assert_eq!(decoded.params().unwrap().l1_chain_id, U256::MAX);
-    assert_eq!(Deployment::from(&decoded.params().unwrap()), deployment);
-}
-
-#[tokio::test]
-async fn recovery_profile_changes_create_new_id_and_short_names_check_full_identity() {
-    use std::os::unix::fs::PermissionsExt;
-    let dir = tempfile::tempdir().unwrap();
-    let source = Source::new();
-    let mut p = configured_profile(dir.path(), &source);
-    let engine = ReadEngine::new(&source);
-    let root = dir.path().join("recovery");
-    let first = prepare::prepare(&p, 1, &root, &source, &engine).await.unwrap();
-    p.peers.push("0123456789012345678901234567890123456789@127.0.0.1:26656".into());
-    let second = prepare::prepare(&p, 1, &root, &source, &engine).await.unwrap();
-    assert_ne!(first.id(), second.id());
-    assert_eq!(first.genesis, second.genesis);
-    let store = RecoveryStore::new(&root);
-    assert_eq!(
-        std::fs::metadata(store.plan_dir(first.id()).join("profile.json"))
-            .unwrap()
-            .permissions()
-            .mode() &
-            0o777,
-        0o600
-    );
-    let mut collision = first.id();
-    collision[31] ^= 1;
-    assert_eq!(store.plan_dir(first.id()), store.plan_dir(collision));
-    assert!(store.load_plan(collision).is_err());
-    assert_eq!(store.load_plan(first.id()).unwrap(), first);
-    let journal = ActivationJournal::prepared(first.id());
-    store.save_journal(&journal).unwrap();
-    let lock = std::fs::File::open(store.plan_dir(first.id()).join("journal.lock")).unwrap();
-    lock.try_lock().unwrap();
-    assert!(matches!(store.save_journal(&journal), Err(RecoveryCommandError::Busy)));
-}
-
-#[tokio::test]
-async fn recovery_socket_paths_report_overlong_roots_and_keep_short_roots_usable() {
-    let dir = tempfile::Builder::new().prefix("r7").tempdir_in(short_temp_parent()).unwrap();
-    let source = Source::new();
-    let p = configured_profile(dir.path(), &source);
-    let engine = ReadEngine::new(&source);
-    let root = dir.path().join("r");
-    let short = prepare::prepare(&p, 1, &root, &source, &engine).await.unwrap();
-    assert!(!short.prerequisites.contains(&Prerequisite::RuntimeSocketPath));
-    assert!(
-        RecoveryStore::new(&root)
-            .plan_dir(short.id())
-            .join("app/checkpoint-trust.sock")
-            .as_os_str()
-            .as_encoded_bytes()
-            .len() <=
-            103
-    );
-    let long =
-        prepare::prepare(&p, 1, &dir.path().join("x".repeat(120)), &source, &engine).await.unwrap();
-    assert!(long.prerequisites.contains(&Prerequisite::RuntimeSocketPath));
-}
-
-#[test]
-fn recovery_rejects_unresolvable_signer_aliases() {
-    use std::os::unix::fs::symlink;
-    let dir = tempfile::tempdir().unwrap();
-    let mut p = profile(dir.path());
-    p.role = NodeRole::Validator;
-    let dangling = dir.path().join("signer-link");
-    symlink(p.comet_home.join("missing-key"), &dangling).unwrap();
-    p.signer = Some(SignerProfile {
-        key: dangling,
-        state: dir.path().join("hrs"),
-        authority: dir.path().join("authority"),
-        executable: p.comet.clone(),
-        supervisor: p.comet.clone(),
-    });
-    assert!(p.validate().is_err(), "an unresolved alias may hide a signer key inside Comet mounts");
-}
-
-#[tokio::test]
-async fn recovery_preserves_p2p_peer_identity_privately_and_requires_missing_keys() {
-    use std::os::unix::fs::PermissionsExt;
-    let dir = tempfile::tempdir().unwrap();
-    let source = Source::new();
-    let mut p = configured_profile(dir.path(), &source);
-    let engine = ReadEngine::new(&source);
-    let root = dir.path().join("recovery");
-    let key = test_harness::node_keys(1).remove(0);
-    let key_json = key.node_key_json();
-    let key_bytes = serde_json::to_vec(&key_json).unwrap();
-    let key_path = p.comet_home.join("config/node_key.json");
-    std::fs::write(&key_path, &key_bytes).unwrap();
-    std::fs::set_permissions(&key_path, std::fs::Permissions::from_mode(0o600)).unwrap();
-    p.peers.push(format!("{}@127.0.0.1:26656", key.node_id()));
-    let plan = prepare::prepare(&p, 1, &root, &source, &engine).await.unwrap();
-    let bundle = RecoveryStore::new(&root).plan_dir(plan.id());
-    assert_eq!(std::fs::read(bundle.join("comet/config/node_key.json")).unwrap(), key_bytes);
-    assert_eq!(
-        std::fs::metadata(bundle.join("comet/config/node_key.json")).unwrap().permissions().mode() &
-            0o777,
-        0o600
-    );
-    let config: toml::Table =
-        toml::from_str(&std::fs::read_to_string(bundle.join("comet/config/config.toml")).unwrap())
-            .unwrap();
-    assert_eq!(config["p2p"]["persistent_peers"].as_str().unwrap(), p.peers[0]);
-    assert!(
-        !serde_json::to_string(&plan)
-            .unwrap()
-            .contains(key_json["priv_key"]["value"].as_str().unwrap())
-    );
-    std::fs::remove_file(&key_path).unwrap();
-    let missing = prepare::prepare(&p, 1, &root, &source, &engine).await.unwrap();
-    assert!(missing.prerequisites.contains(&Prerequisite::CometNodeKey));
-    std::fs::write(
-        &key_path,
-        serde_json::to_vec(&test_harness::validator_keys(1)[0].priv_validator_key_json()).unwrap(),
-    )
-    .unwrap();
-    std::fs::set_permissions(&key_path, std::fs::Permissions::from_mode(0o600)).unwrap();
-    let invalid = prepare::prepare(&p, 1, &root, &source, &engine).await.unwrap();
-    assert!(invalid.prerequisites.contains(&Prerequisite::CometNodeKey));
-}
-
-#[tokio::test]
-async fn recovery_publication_enforces_the_same_profile_bound_as_loading() {
-    let dir = tempfile::tempdir().unwrap();
-    let source = Source::new();
-    let mut p = configured_profile(dir.path(), &source);
-    let engine = ReadEngine::new(&source);
-    let root = dir.path().join("recovery");
-    let original = prepare::prepare(&p, 1, &root, &source, &engine).await.unwrap();
-    let store = RecoveryStore::new(&root);
-    let artifacts = original
-        .artifacts
-        .keys()
-        .map(|n| (n.clone(), std::fs::read(store.plan_dir(original.id()).join(n)).unwrap()))
-        .collect();
-    p.app.env.insert("PRIVATE_ENV".into(), "x".repeat(1024 * 1024));
-    let mut oversized = original.clone();
-    oversized.profile_digest = p.digest();
-    assert!(
-        store.publish_plan(&oversized, &p, &artifacts).is_err(),
-        "publication must not create a bundle the bounded reader cannot load"
-    );
-    assert!(!store.plan_dir(oversized.id()).exists());
-}
-
-#[path = "activation_tests.rs"]
-mod activation_tests;
-
 const RUNBOOK: &str = include_str!("../../../../docs/governance-recovery.md");
 
 fn runbook_blocks(language: &str) -> Vec<&str> {
@@ -830,75 +648,43 @@ fn runbook_blocks(language: &str) -> Vec<&str> {
 }
 
 #[test]
-fn recovery_runbook_commands_profiles_and_lander_prefix_parse_exactly() {
+fn recovery_runbook_commands_parse_exactly() {
+    use crate::{
+        cli::{Cli, Commands},
+        commands::abci_recover::RecoveryAction,
+    };
     use clap::Parser;
     let commands = runbook_blocks("sh");
-    assert_eq!(commands.len(), 3);
-    for command in commands {
-        crate::cli::Cli::try_parse_from(command.split_whitespace()).unwrap();
-    }
-    let profiles = runbook_blocks("toml");
-    assert_eq!(profiles.len(), 2);
-    let mut validator: RecoveryProfile = toml::from_str(profiles[0]).unwrap();
-    validator.validate().unwrap();
-    assert_eq!(validator.role, NodeRole::Validator);
-    assert_eq!(validator.app.argv, ["abci"]);
-    assert_eq!(validator.comet.argv, ["start"]);
-    assert!(validator.inspector.is_some());
-    let with_lander = format!("{}\n{}", profiles[0], profiles[1]);
-    validator = toml::from_str(&with_lander).unwrap();
-    validator.validate().unwrap();
-    let lander = validator.lander.as_ref().unwrap();
-    let mut argv = vec![lander.executable.program.display().to_string()];
-    argv.extend(lander.executable.argv.clone());
-    for (flag, value) in [
-        ("--l1.http", validator.l1_http.as_str()),
-        ("--l2.http", validator.l2_http.as_str()),
-        ("--l2.auth", validator.l2_auth.as_str()),
-        ("--jwt.secret", validator.jwt_secret.to_str().unwrap()),
-        ("--comet.http", "http://127.0.0.1:26657"),
-        ("--data-dir", lander.data_dir.to_str().unwrap()),
-    ] {
-        argv.extend([flag.to_owned(), value.to_owned()]);
-    }
-    crate::cli::Cli::try_parse_from(argv).unwrap();
-    let mut full_node: toml::Table = toml::from_str(profiles[0]).unwrap();
-    full_node.insert("role".into(), "full-node".into());
-    full_node.remove("signer");
-    let full_node: RecoveryProfile = full_node.try_into().unwrap();
-    full_node.validate().unwrap();
-    assert!(full_node.signer.is_none());
+    assert_eq!(commands.len(), 3, "exactly prepare, install and status");
+    let actions: Vec<_> = commands
+        .iter()
+        .map(|command| match Cli::try_parse_from(command.split_whitespace()).unwrap().subcommand {
+            Commands::AbciRecover(command) => command.action,
+            other => panic!("not a recovery command: {other:?}"),
+        })
+        .collect();
+    assert!(matches!(
+        actions.as_slice(),
+        [
+            RecoveryAction::Prepare { .. },
+            RecoveryAction::Install { .. },
+            RecoveryAction::Status { home: Some(_), json: true, .. }
+        ]
+    ));
 }
 
 #[tokio::test]
-async fn recovery_runbook_json_matches_actual_status_and_redacts_all_private_inputs() {
-    let dir = tempfile::Builder::new().prefix("rb-").tempdir_in("/tmp").unwrap();
+async fn recovery_runbook_status_json_matches_actual_output() {
     let source = Source::new();
-    let mut p = configured_profile(dir.path(), &source);
-    p.app.env.insert("PRIVATE_TOKEN".into(), "secret-environment".into());
-    let root = dir.path().join("recovery");
-    let plan = prepare::prepare(&p, 1, &root, &source, &ReadEngine::new(&source)).await.unwrap();
-    let store = RecoveryStore::new(&root);
-    let report = status(&store, plan.id()).unwrap();
-    let mut actual = serde_json::to_value(&report).unwrap();
+    let plan = fixture_plan(&source).await;
+    let x = inputs(VALIDATOR_TEMPLATE);
+    x.install(&plan).unwrap();
+    let mut actual = serde_json::to_value(status(&plan, Some(&x.home)).unwrap()).unwrap();
     let example: serde_json::Value = serde_json::from_str(runbook_blocks("json")[0]).unwrap();
-    actual["plan_id"] = example["plan_id"].clone();
+    // Illustrative values that depend on the real deployment and R.
+    for field in ["chain_id", "genesis_hash", "genesis_time"] {
+        actual[field] = example[field].clone();
+    }
     assert_eq!(actual, example);
     let _: RecoveryStatus = serde_json::from_value(example).unwrap();
-    let public = format!(
-        "{} {}",
-        serde_json::to_string(&report).unwrap(),
-        serde_json::to_string(&plan).unwrap()
-    );
-    for private in [
-        "alice",
-        "password",
-        "secret-token",
-        "secret-argument",
-        "secret-environment",
-        "PRIVATE_TOKEN",
-        dir.path().to_str().unwrap(),
-    ] {
-        assert!(!public.contains(private), "private input leaked: {private}");
-    }
 }

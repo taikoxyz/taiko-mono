@@ -212,14 +212,14 @@ the identity.
 
 ## Recovery controller and retention
 
-Use the [governance recovery runbook](../../docs/governance-recovery.md) for the exact
-private validator/full-node profiles and prepare/activate/status commands. Activation is
-foreground and starts the supported supervisor after fencing declared old owners. Stop
-external services and their restart controllers first. Share protected persistent parent
-mounts for adjacent leases; a component-only mount does not provide shared ownership.
+Use the [governance recovery runbook](../../docs/governance-recovery.md) for the
+`abci-recover prepare`, `install` and `status` commands. The operator stops the old app,
+supervisor, lander and their restart controllers, installs fresh stores, then restarts the
+EL and app, the supervisor and the lander in that order.
 
-The controller supplies explicit enrollment and canonical lowercase `ETNA_INBOX`. It
-retains the registered key and original generation-zero HRS paths across every generation.
+The operator supplies explicit enrollment and canonical lowercase `ETNA_INBOX` to the
+supervisor, with the registered key and original generation-zero HRS paths unchanged across
+every generation.
 Keep both external authority markers, registry manifest/intent/watermark and every domain
 state together with their locks. Missing enrolled files, ambiguous signed staging or generic
 fatal/latch evidence require investigation and repair, never replacement files or resets.
@@ -232,7 +232,5 @@ a validator. Do not copy registered key/HRS into Comet, clear those standard pat
 a registered local fallback. The installed P2P node key remains a separate private identity.
 
 Successful or replayed recovery InitChain keeps the signer-established private session.
-Unavailable evidence closes readiness in that same session; contradictions halt. The owned
-controller can observe a supervisor-rearmed same-boot session only when its private signer
-incarnation matches, then must see fresh Ready. An app boot change or conflicting domain
-fails closed. Offline status and persisted phases never authorize a signature.
+Unavailable evidence closes readiness in that same session; contradictions halt. Offline
+`abci-recover status` and plan files never authorize a signature.

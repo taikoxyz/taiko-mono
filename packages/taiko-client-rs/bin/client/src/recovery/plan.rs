@@ -1,12 +1,20 @@
-//! Content-addressed public recovery evidence and exhaustive deployment parameters.
+//! The recovery plan file: authenticated public evidence and the exact genesis, nothing private.
 use super::RecoveryCommandError;
 use abci::{
     ChainParams,
     recovery::{RecoveryOrigin, RecoveryWitness},
 };
-use alloy_primitives::{Address, B256, Bytes, U256, keccak256};
+use alloy_primitives::{Address, Bytes, U256};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::{
+    fs::{File, OpenOptions},
+    io::{Read, Write},
+    os::unix::fs::OpenOptionsExt,
+    path::Path,
+};
+
+/// Maximum accepted plan size in bytes.
+const MAX_PLAN_BYTES: u64 = 16 * 1024 * 1024;
 
 /// Exhaustive serializable ChainParams, validated through the consensus implementation.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -70,66 +78,34 @@ impl Deployment {
     }
 }
 
-/// Public missing prerequisite; none of these observations is signing authorization.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum Prerequisite {
-    /// Stateful origin build requires fencing and is always deferred from prepare.
-    ActivationBuildProbe,
-    /// Nonmutating origin state read was unsuccessful or unavailable.
-    HistoricalState,
-    /// Finalized EL boundary could not be observed.
-    FinalizedHeader,
-    /// Comet template is missing or unsupported for the requested role.
-    CometTemplate,
-    /// Choose a shorter private root so future Unix sockets fit platform sockaddr bounds.
-    RuntimeSocketPath,
-    /// Optional sender must reconcile its original account journal after ownership fencing.
-    LanderReconciliation,
-    /// Existing stock P2P node identity must be supplied before activation; never rotate it.
-    CometNodeKey,
-}
-
-/// Schema-one immutable plan; its ID is computed from canonical serialization of all fields.
+/// What `prepare` authenticated on the node's own finalized L1, as one strict JSON document.
+/// It holds no endpoint, path or credential, so operators can compare and share it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RecoveryPlan {
-    /// Exactly one; incompatible formats are never migrated.
-    pub schema: u32,
-    /// Commitment to the privately stored original profile.
-    pub profile_digest: B256,
     /// Complete configured deployment identity.
     pub deployment: Deployment,
-    /// Canonical RecoveryWitness RLP, including latest authenticated observation.
+    /// Canonical RecoveryWitness RLP, including the latest authenticated observation.
     pub witness: Bytes,
-    /// Independently verified fixed generation boundary.
+    /// Independently verified fixed generation boundary (c, R and the reselected committee).
     pub origin: RecoveryOrigin,
     /// Exact deterministic Comet genesis JSON bytes.
     pub genesis: Bytes,
-    /// Relative immutable staged artifact names mapped to their keccak256 hashes.
-    pub artifacts: BTreeMap<String, B256>,
-    /// Preliminary observations which must be resolved after fencing.
-    pub prerequisites: Vec<Prerequisite>,
-    /// Software version used to derive the staged bundle.
-    pub client_version: String,
 }
 
 impl RecoveryPlan {
-    /// Hashes canonical fields; no self-ID, timestamps or private credentials are serialized.
-    pub fn id(&self) -> B256 {
-        keccak256(serde_json::to_vec(self).expect("fixed plan serialization"))
-    }
-
-    /// Decodes canonical evidence and verifies the deployment, origin and artifact manifest.
+    /// Decodes the canonical witness and checks that the deployment, origin and genesis are
+    /// exactly what it proves (RECOV-8.4-7..10): chain_id of the generation, initial_height
+    /// c+1, genesis_time R.timestamp, app_hash ELHash(c), the R committee and the R witness.
     pub fn validate(&self) -> Result<RecoveryWitness, RecoveryCommandError> {
-        if self.schema != 1 || !self.prerequisites.contains(&Prerequisite::ActivationBuildProbe) {
-            return Err(RecoveryCommandError::PlanMismatch);
-        }
         let params = self.deployment.params()?;
         let witness: RecoveryWitness = alloy_rlp::decode_exact(&self.witness)
             .map_err(|_| RecoveryCommandError::PlanMismatch)?;
+        // A witness that no longer verifies is an edited plan, whatever the proof error.
         if alloy_rlp::encode(&witness).as_slice() != self.witness.as_ref() ||
-            abci::recovery::verify_recovery_witness(&witness, &params)? != self.origin
+            abci::recovery::verify_recovery_witness(&witness, &params)
+                .map_err(|_| RecoveryCommandError::PlanMismatch)? !=
+                self.origin
         {
             return Err(RecoveryCommandError::PlanMismatch);
         }
@@ -162,27 +138,80 @@ impl RecoveryPlan {
         {
             return Err(RecoveryCommandError::PlanMismatch);
         }
-        if self.artifacts.get("comet/config/genesis.json") != Some(&keccak256(&self.genesis)) ||
-            !self.artifacts.contains_key("app-chain.toml") ||
-            (!self.artifacts.contains_key("comet/config/config.toml") &&
-                !self.prerequisites.contains(&Prerequisite::CometTemplate)) ||
-            (!self.artifacts.contains_key("comet/config/node_key.json") &&
-                !self.prerequisites.contains(&Prerequisite::CometNodeKey)) ||
-            self.artifacts.keys().any(|name| !valid_artifact(name))
-        {
-            return Err(RecoveryCommandError::PlanMismatch);
-        }
         Ok(witness)
+    }
+
+    /// Creates `path` (never an existing one) with mode 0600, and makes its contents and its
+    /// directory entry durable. A crash can leave a torn file, which [`Self::load`] refuses.
+    pub fn write_new(&self, path: &Path) -> Result<(), RecoveryCommandError> {
+        let bytes =
+            serde_json::to_vec_pretty(self).map_err(|_| RecoveryCommandError::Parse("plan"))?;
+        write_new(path, &bytes)?;
+        sync_dir(parent(path))
+    }
+
+    /// Reads a bounded plan file and validates it.
+    pub fn load(path: &Path) -> Result<Self, RecoveryCommandError> {
+        let plan: Self = serde_json::from_slice(&read_bounded(path, MAX_PLAN_BYTES)?)
+            .map_err(|_| RecoveryCommandError::Parse("plan"))?;
+        plan.validate()?;
+        Ok(plan)
     }
 }
 
-/// Only fixed configuration filenames may enter the immutable manifest; never arbitrary paths.
-pub fn valid_artifact(name: &str) -> bool {
-    matches!(
-        name,
-        "comet/config/genesis.json" |
-            "comet/config/config.toml" |
-            "comet/config/node_key.json" |
-            "app-chain.toml"
-    )
+/// The directory holding `path`; a bare file name is in the current directory.
+pub(super) fn parent(path: &Path) -> &Path {
+    match path.parent() {
+        Some(parent) if !parent.as_os_str().is_empty() => parent,
+        _ => Path::new("."),
+    }
+}
+
+/// Opens a regular file without following its final symlink.
+fn open_regular(path: &Path) -> Result<File, RecoveryCommandError> {
+    let file = OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .open(path)
+        .map_err(|_| RecoveryCommandError::Io("open regular file"))?;
+    if !file.metadata().map_err(|_| RecoveryCommandError::Io("file metadata"))?.is_file() {
+        return Err(RecoveryCommandError::Parse("file type"));
+    }
+    Ok(file)
+}
+
+/// Reads a regular file with an allocation bound, detecting a concurrent size change.
+pub(super) fn read_bounded(path: &Path, limit: u64) -> Result<Vec<u8>, RecoveryCommandError> {
+    let file = open_regular(path)?;
+    let size = file.metadata().map_err(|_| RecoveryCommandError::Io("file metadata"))?.len();
+    if size > limit {
+        return Err(RecoveryCommandError::Parse("file size"));
+    }
+    let mut bytes = Vec::new();
+    file.take(limit + 1).read_to_end(&mut bytes).map_err(|_| RecoveryCommandError::Io("read"))?;
+    if bytes.len() as u64 != size {
+        return Err(RecoveryCommandError::Parse("file size"));
+    }
+    Ok(bytes)
+}
+
+/// Creates a new private (0600) file, writes all of `bytes` and syncs them.
+pub(super) fn write_new(path: &Path, bytes: &[u8]) -> Result<(), RecoveryCommandError> {
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(path)
+        .map_err(|_| RecoveryCommandError::Io("create new file"))?;
+    file.write_all(bytes)
+        .and_then(|()| file.sync_all())
+        .map_err(|_| RecoveryCommandError::Io("write and sync"))
+}
+
+/// Makes a directory's entries durable.
+pub(super) fn sync_dir(path: &Path) -> Result<(), RecoveryCommandError> {
+    File::open(path)
+        .and_then(|f| f.sync_all())
+        .map_err(|_| RecoveryCommandError::Io("sync directory"))
 }

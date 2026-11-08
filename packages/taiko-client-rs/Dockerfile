@@ -27,7 +27,6 @@ COPY packages/taiko-client-rs/tools/etna-signer/*.go ./
 COPY packages/taiko-client-rs/tools/etna-signer/cmd ./cmd
 COPY packages/taiko-client-rs/tools/etna-signer/internal ./internal
 RUN CGO_ENABLED=0 go build -mod=readonly -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /etna-signer . && \
-    CGO_ENABLED=0 go build -mod=readonly -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /etna-comet-inspect ./cmd/etna-comet-inspect && \
     CGO_ENABLED=0 go build -mod=readonly -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /etna-comet-import ./cmd/etna-comet-import
 
 FROM rust:1.95.0-bookworm AS build
@@ -65,7 +64,6 @@ RUN apt-get update && \
 WORKDIR /app
 
 COPY --from=signer-build /etna-signer ./etna-signer
-COPY --from=signer-build /etna-comet-inspect ./etna-comet-inspect
 COPY --from=signer-build /etna-comet-import ./etna-comet-import
 COPY --from=execution-runtime /app/alethia-reth ./alethia-reth
 COPY --from=build /tmp/etna-el-import ./etna-el-import

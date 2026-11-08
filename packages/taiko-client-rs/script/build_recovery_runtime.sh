@@ -53,7 +53,7 @@ if [[ -n "$base_image" ]]; then
   # Every input is checked before docker build. The staged set must equal what the production
   # runtime stages COPY, minus /app/etna-el-import (RecoveryImage tests enforce it).
   stage "$client_bin" app/taiko-client
-  for helper in etna-signer etna-comet-inspect etna-comet-import; do
+  for helper in etna-signer etna-comet-import; do
     stage "target/etna-signer/$helper" "app/$helper"
   done
   stage target/etna-signer/cometbft usr/bin/cometbft

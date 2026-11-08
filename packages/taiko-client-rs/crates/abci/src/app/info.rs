@@ -237,7 +237,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
             }
         };
         let schedule = state.schedule();
-        match recompute_val_state(&self.store, height, |k| schedule.switch_target(k).is_some()) {
+        match recompute_val_state(&self.store, state.origin_height(), height, |k| {
+            schedule.switch_target(k).is_some()
+        }) {
             Ok(recomputed) => {
                 tracing::warn!(
                     height,
@@ -279,29 +281,38 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
 /// Recomputes the validator state after `height` from the records in `store` (SYNC-9-5c), with
 /// CometBFT v0.40.0's per-height arithmetic ([`ValState::advance`], PROOF-6.2-41a): from the
-/// newest record below `height` that loads valid, one advance per height up to `height`, by
-/// the validator updates recorded at that height when `is_switch` says it is a switch height
-/// (an empty list included) and by none otherwise.
+/// newest record in `[origin, height)` that loads valid, one advance per height up to
+/// `height`, by the validator updates recorded at that height when `is_switch` says it is a
+/// switch height (an empty list included) and by none otherwise.
 ///
-/// No valid record below `height`, a switch height in between whose update record is missing
+/// `origin` is the current generation's origin height. A record below it is from an earlier
+/// generation and does not count (SYNC-9-5c), even in a reused data directory.
+///
+/// No valid record in that range, a switch height in between whose update record is missing
 /// or corrupt, an unreadable record or updates the arithmetic refuses are missing data
-/// (SYNC-9-7): an error naming the cause. Grid, range and origin checks are the caller's.
+/// (SYNC-9-7): an error naming the cause. Grid and range checks are the caller's.
 pub(super) fn recompute_val_state(
     store: &Store,
+    origin: u64,
     height: u64,
     is_switch: impl Fn(u64) -> bool,
 ) -> Result<ValState, String> {
     let unreadable = |error: StoreError| format!("cannot read the validator records: {error}");
     let mut base = None;
     let heights = store.val_state_heights().map_err(unreadable)?;
-    for recorded in heights.into_iter().rev().filter(|&recorded| recorded < height) {
+    for recorded in heights.into_iter().rev().filter(|recorded| (origin..height).contains(recorded))
+    {
         if let Record::Valid(state) = store.load_val_state(recorded).map_err(unreadable)? {
             base = Some(state);
             break;
         }
     }
-    let mut state =
-        base.ok_or_else(|| format!("no valid validator-state record below height {height}"))?;
+    let mut state = base.ok_or_else(|| {
+        format!(
+            "no valid validator-state record below height {height} from the generation's \
+             origin {origin} on"
+        )
+    })?;
     while state.height < height {
         let next = state.height + 1;
         let updates = if is_switch(next) {

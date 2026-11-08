@@ -86,14 +86,12 @@
   Terminal trust/domain failures durably latch and quiesce across restartAlways restarts.
   Include `just supervisor-test` in the full verification gate.
 
-- Governance recovery operations and private profile/CLI/status examples live in
-  [docs/governance-recovery.md](docs/governance-recovery.md). Activation is foreground and
-  retains actual owned child handles and inherited leases through ordered shutdown; external
-  services must be stopped first. Packaged participants must share the protected persistent
-  parent/inode namespace for adjacent leases. Never adopt PIDs or reset uncertain state.
+- Governance recovery is `abci-recover prepare` (plan file), `install` (fresh Comet home and
+  empty app directory) and `status` (offline summary); the operator stops and starts services.
+  The runbook and its tested CLI/JSON examples live in
+  [docs/governance-recovery.md](docs/governance-recovery.md). `install` never reuses an old app
+  directory or home and never copies a registered key or HRS; never reset uncertain state.
 - Recovery InitChain preserves the guarded signer session, closing readiness in that session
-  on unavailable evidence. The controller may observe a verified supervisor-rearmed signer
-  session in the same app boot; changed boot/domain or unexpected full-node rearm fails closed.
-  Offline status always reports `live_trust=false`. Preserve authority markers/manifest/intent,
-  all per-generation HRS, generic fatal evidence and latches across retries. A freshly
-  authenticated later generation acknowledges only exact typed historical supersession.
+  on unavailable evidence. Preserve authority markers/manifest/intent, all per-generation HRS,
+  generic fatal evidence and latches. A freshly authenticated later generation acknowledges
+  only exact typed historical supersession.
