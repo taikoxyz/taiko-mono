@@ -14,7 +14,7 @@
     "Etna.Design.Current.Protocol.RiskNonVacuity.import_profile_satisfiable",
     "Etna.Design.Current.Protocol.NonVacuity.windowed_import_satisfiable"
   ],
-  "sha256": "76e88128ac1ecd86f3a813900ad098fef53fcccab987427079d08a5d4e850c8d",
+  "sha256": "98d867969a71da2365a95b19d9b10a6604d0c13034530a495288a22019d336de",
   "constants": {
     "And": "external",
     "Array.size": "external",
@@ -726,8 +726,8 @@
     "Etna.Design.Current.Protocol.publicRegistry": "def:74f301e16d998df3531aaba4e09dfbc8fa8090b96da4180ca29037a6d278a7e8",
     "Etna.Design.Current.Protocol.publicRegistry._sparseCasesOn_1": "def:2f5d8f87b62db166909c77ad86bfec3d99cbe0644f5e9331e4b59cc50c434a13",
     "Etna.Design.Current.Protocol.publicRegistry.match_1": "def:b31367d5616ccd97c9eef20db78d86dba8a74e1cd7b1dc488d46ecf90c9ae67d",
-    "Etna.Design.Current.Protocol.recover": "def:808492eff865d0b3fc2017b85f94927ce30f12e7ceec2a1f5867d2ffaa3b3b7a",
-    "Etna.Design.Current.Protocol.recover.match_1": "def:7a456227b19cd181b8d4144dcedc99413c64fcb7740bc97a2f233840dbe723f2",
+    "Etna.Design.Current.Protocol.recover": "def:346a0aef6cc995b71077ed29bf12ea887584b1f904afc00b0393c9e8c56a5d2a",
+    "Etna.Design.Current.Protocol.recover.match_1": "def:5fa5cdbf70ae1688cf1c0ac2a91a2886165a8c0985649b784550bf7aef99c619",
     "Etna.Design.Current.Protocol.referenceHash": "def:ab36a13d9f77ccc34569e2a42e23d4a1f62a12f7d5ae0e612defc4c65fcb5943",
     "Etna.Design.Current.Protocol.referencePrefix": "def:37aa530d92442f18a0501fdd3dcfac59d9cd20c6272777b5668a4cace675bfe9",
     "Etna.Design.Current.Protocol.registryCall": "def:74ae4b6cd24145952c165f29eb79718f94a6e6813e4eb83b83c6d08413258484",

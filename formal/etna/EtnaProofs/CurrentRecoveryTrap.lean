@@ -271,7 +271,7 @@ private theorem execute_trapped {env : Environment} {u t : World} {call : Call} 
     · split at ok
       next guard =>
         obtain ⟨-,-,-,-,-,-,-,-,-,-,-,-,-,-,upgrade⟩ := guard
-        obtain ⟨-,-,running,-,above,onStop⟩ := upgrade trivial
+        obtain ⟨-,-,running,-,above,onStop,-⟩ := upgrade trivial
         obtain ⟨nonzero,multiple⟩ := stop running
         rw [stop_grid_on_grid nonzero multiple above onStop] at offGrid
         cases offGrid
