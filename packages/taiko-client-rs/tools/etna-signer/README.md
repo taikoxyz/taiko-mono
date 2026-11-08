@@ -109,12 +109,12 @@ restart; never use `keygen` or `init-state` as a recovery action.
 
 ### Refusal matrix and exit codes
 
-| Code  | Meaning                                                                                                                                           | Supervisor action |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| 0     | Signal stop                                                                                                                                       | —                 |
-| 1     | Configuration, transport or lock error (a missing flag or key, a wrong state name, the log in the state directory, another signer holding a lock) | Halt (latch)      |
-| 2     | Go panic, for example a failed stock FilePV state write; no signature was released                                                                | Halt (latch)      |
-| **3** | Signing state lost or uncertain (RECOV-8.2-3)                                                                                                     | Halt (latch)      |
+| Code  | Meaning                                                                                                                                           | Supervisor action                            |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| 0     | Signal stop                                                                                                                                       | —                                            |
+| 1     | Configuration, transport or lock error (a missing flag or key, a wrong state name, the log in the state directory, another signer holding a lock) | Restart; the fifth exit within 600 s latches |
+| 2     | Go panic, for example a failed stock FilePV state write; no signature was released                                                                | Restart; counts toward the same limit        |
+| **3** | Signing state lost or uncertain (RECOV-8.2-3)                                                                                                     | Halt (latch), never restarted                |
 
 Exit 3 covers every case where the state cannot be trusted, and nothing is created, repaired or
 reset:
@@ -199,6 +199,46 @@ delay terminal or signal shutdown until the transport deadline.
 
 Observation publishing writes an exclusive random temporary file and renames it over the
 denial file; it never opens a fixed temporary name.
+
+### Supervisor restarts and latches
+
+A healthy signer exits only when the supervisor stops it. Every other exit is either a crash,
+which restarts the signer and Comet as a pair, or unsafe signing state, which latches and is
+never restarted (SYNC-9-14):
+
+| Signer exit                                                                   | Fence   | Supervisor action                                                                                                                                                                                                                                                                          |
+| ----------------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 3                                                                             | any     | Latch "signer refused unsafe signing state; inspect its stderr, `<state>.uncertain` and the domains log"                                                                                                                                                                                   |
+| any                                                                           | present | The same latch                                                                                                                                                                                                                                                                             |
+| still running 5 s after the supervisor's SIGTERM, so SIGKILLed                | any     | Latch "signer did not stop within 5s of SIGTERM and was killed; …": it may be blocked on a failing state volume after a failed fsync and before its fence                                                                                                                                  |
+| 0, 1, 2 or a signal, while the supervisor is not stopping it                  | absent  | Record the exit; the fifth within 600 s latches "signer exited 5 times within 600s; inspect diagnostics". Otherwise reap Comet, start a fresh signer with `--await-trust` on the same state path and a fresh transport, and start Comet once the signer's new session is Ready (SYNC-9-12) |
+| 0, 1, 2 or SIGTERM while the supervisor stops it (shutdown, recovery restart) | absent  | Normal                                                                                                                                                                                                                                                                                     |
+
+A restart is safe because it changes nothing the signer relies on. The new signer serves the
+same `<chain_id>.json` and repeats every startup check; stock FilePV continues from the HRS on
+disk, returns the stored signature for the same step and refuses conflicting data or a lower
+step (RECOV-8.2-1, SYNC-9-13). No signature leaves the signer before both fsyncs, so a crash,
+a SIGKILL or a stock persistence panic (exit 2, whose temporary file is never renamed over the
+state) released nothing that the HRS on disk does not cover. The dead signer is reaped, which
+closes its descriptors and releases its key and state flocks, and Comet is reaped before the
+new signer starts: two signers never overlap (RECOV-8.2-2). Each pair begins a new closed trust
+session on its own transport; in Unix mode it never reuses the dead pair's socket.
+
+Each restart costs one Comet restart and one trust re-authentication. Five exits within ten
+minutes are a persistent fault and latch. The count lives in the supervisor's memory and is not
+reset by a successful restart; a supervisor or container restart resets it, and the container's
+`CrashLoopBackOff` bounds that case.
+
+Residual risk: a SIGKILL from outside the supervisor (the OOM killer, `kill -9`) that lands
+after a failed fsync and before the fence is durable leaves no fence and no exit 3, and the
+supervisor restarts the signer. On Linux the failed write-back's error may already have been
+reported, so a cached retry's fsync can then succeed over state that never reached disk, and a
+later host crash rolls the HRS back. Never SIGKILL the signer, and give it enough memory that
+the OOM killer never picks it. The same window existed before for a killed container, whose
+supervisor latch dies with it. A SIGKILL that arrives while the supervisor is stopping the
+signer is latched like its own. A healthy signer can also exceed the 5 s grace while it waits
+on a slow app (each trust query is bounded by `--trust-timeout`, 1 s by default); that latches
+too, which is safe.
 
 ## Fence on fsync failure
 

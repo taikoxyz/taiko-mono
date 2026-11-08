@@ -563,8 +563,15 @@ committing those values to the Inbox.
    runs both together without `--await-trust`: a node that is behind regains trust only after
    Comet syncs, and Comet's startup needs the signer. Its new transport initially closes
    trust; PubKey/Ping and safe catchup remain available while signing waits for revalidation.
-   Halted trust, another chain_id, signer exit, or unexplained Comet exit creates
+   Halted trust, another chain_id, an unsafe signer exit or unexplained Comet exit creates
    `<data-dir>/validator-supervisor.halted` and leaves the supervisor alive and quiescent.
+   Any other signer exit (0, 1, 2 or a signal that the supervisor did not send) restarts the
+   pair like a refusal: Comet is reaped, a fresh signer on the same state path begins a new
+   closed session with `--await-trust`, and Comet starts once that session is Ready. Exit 3,
+   a retained fence, a signer still running 5 s after the supervisor's SIGTERM (it is
+   SIGKILLed) and the fifth such exit within 600 s latch instead (SYNC-9-14); the exit count
+   lives in memory, so a supervisor restart resets it. See
+   [the restart table](tools/etna-signer/README.md#supervisor-restarts-and-latches).
    The signer releases a signature only after it fsyncs the state file and its directory. If
    either fsync fails, it withholds the signature, writes `<priv-state>.uncertain` beside that
    chain's HRS and exits 3; a crash writes no fence. A retained fence blocks startup, including

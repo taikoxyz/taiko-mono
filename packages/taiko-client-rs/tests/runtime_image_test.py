@@ -201,8 +201,10 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
     unused = json.loads((home / "config/priv_validator_key.json").read_bytes())
     assert unused["pub_key"] != native
     assert json.loads((home / "data/priv_validator_state.json").read_bytes())["height"] == "0"
-    # The real signer refuses a lost key, HRS or domains log (exit 1, or 3 for lost signing
-    # state, RECOV-8.2-3), and the supervisor latches; nothing is regenerated.
+    # The real signer refuses a lost key, HRS or domains log, and nothing is regenerated. A lost
+    # HRS or log is lost signing state (exit 3, RECOV-8.2-3), which latches at once; a lost key
+    # is a configuration error (exit 1), which the supervisor restarts until the fifth exit
+    # within 600 s latches.
     latch = app / "validator-supervisor.halted"
     for missing in [key, state, log]:
         saved = missing.with_suffix(".saved")
@@ -211,7 +213,7 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
             refused = subprocess.Popen(["python3", "/app/script/etna_validator.py"], env=environment,
                                        stdout=refused_log, stderr=refused_log)
             try:
-                deadline = time.monotonic() + 8
+                deadline = time.monotonic() + 30
                 while not latch.exists() and time.monotonic() < deadline:
                     assert refused.poll() is None, "a latching supervisor stays alive"
                     time.sleep(.05)

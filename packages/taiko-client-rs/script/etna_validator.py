@@ -20,6 +20,11 @@ logged, without a restart: another restart would begin another session and
 restart the app's check. The exception is a pinned checkpoint above the committed
 head, which only Comet can reach; the supervisor then starts the signer and Comet
 together as on a first start, and a refusal there recovers again once Ready.
+
+A signer exit the supervisor did not ask for restarts the pair the same way: Comet is
+reaped, and a fresh signer with the same state path and --await-trust gets Comet once its
+new session is Ready. Unsafe signing state never restarts (SYNC-9-14): exit 3, a retained
+fence, a signer that had to be SIGKILLed on stop, and five exits within 600 s latch.
 """
 import fcntl
 import json
@@ -44,6 +49,19 @@ MAX_UNIX_SOCKET_PATH = 103  # macOS sun_path holds 104 bytes with the terminatin
 # The app's one private trust-control version. Every response carries recovery_origin:
 # null for generation zero, the authenticated origin after recovery.
 CONTROL_SCHEMA = 1
+# The signer's exit status for lost or uncertain signing state (RECOV-8.2-3). It, a retained
+# fence and a signer the supervisor had to SIGKILL latch; every other exit restarts the pair,
+# up to SIGNER_CRASH_LIMIT exits within SIGNER_CRASH_WINDOW seconds (SYNC-9-14).
+SIGNER_UNSAFE_EXIT = 3
+SIGNER_CRASH_LIMIT = 5
+SIGNER_CRASH_WINDOW = 600.0
+# Seconds a signer has to exit after SIGTERM before stop() kills it.
+SIGNER_STOP_GRACE = 5
+SIGNER_UNSAFE_LATCH = ("signer refused unsafe signing state; inspect its stderr, `<state>.uncertain` "
+                       "and the domains log")
+SIGNER_KILLED_LATCH = (f"signer did not stop within {SIGNER_STOP_GRACE}s of SIGTERM and was killed; "
+                       "its signing state may be uncertain; inspect its stderr, the state volume, "
+                       "`<state>.uncertain` and the domains log")
 
 
 class Supervisor:
@@ -83,11 +101,13 @@ class Supervisor:
         address = config.get("priv_validator_laddr", "")
         if json.loads((self.home / "config/genesis.json").read_text())["chain_id"] != self.chain:
             raise ValueError("signer chain ID differs from Comet genesis")
+        # Refuse half a Comet identity before any child starts.
+        identity = self.comet_identity()
         if address.startswith("unix://"):
             # The configured path only selects Unix mode. Every pair start gets a fresh
             # name in run/, so no Comet-owned stale inode ever needs to be pinned or probed.
             self.unix_run = self.home / "run"
-            self.run_owner = int(os.environ.get("ETNA_COMET_UID", os.geteuid()))
+            self.run_owner = identity[0] if identity is not None else os.geteuid()
             sample = self.unix_run / (SIGNER_SOCKET_PREFIX + "0" * 16 + SIGNER_SOCKET_SUFFIX)
             if len(os.fsencode(sample)) > MAX_UNIX_SOCKET_PATH:
                 raise ValueError("Comet home too long for a Unix signer socket")
@@ -119,6 +139,10 @@ class Supervisor:
         self.halted = False
         self.halt_retry = None
         self.halt_error = None
+        # Monotonic times of non-unsafe signer exits; in memory only, so a supervisor restart
+        # resets it and container CrashLoopBackOff bounds that case.
+        self.crashes = []
+        self.signer_killed = False  # stop() had to SIGKILL a running signer
 
     @staticmethod
     def read_observation(path):
@@ -216,8 +240,14 @@ class Supervisor:
             return value
 
     def stop(self):
-        # Bound and reap Comet before removing the signer. Never touch HRS/WAL/history.
-        signer_failed = False
+        """Reap Comet, then the signer, and return the signer's exit status (None if none ran).
+
+        Never touches HRS, WAL or history, and never latches: callers latch an unsafe status
+        (signer_unsafe). A signer still running SIGNER_STOP_GRACE seconds after SIGTERM is
+        killed and recorded in signer_killed: one that hangs on stop may be blocked on a failing
+        state volume after a failed fsync and before its fence (RECOV-8.2-3).
+        """
+        code = None
         if self.comet is not None:
             if self.comet.poll() is None:
                 self.comet.terminate()
@@ -228,20 +258,20 @@ class Supervisor:
                 self.comet.wait()
             self.comet = None
         if self.signer is not None:
-            self.signer.terminate()
+            running = self.signer.poll() is None
+            if running:
+                self.signer.terminate()
             try:
-                self.signer.wait(timeout=5)
+                self.signer.wait(timeout=SIGNER_STOP_GRACE)
             except subprocess.TimeoutExpired:
                 self.signer.kill()
                 self.signer.wait()
-            # A fatal signer exit can race tick's poll while observe or Comet's
-            # shutdown is in progress. Reaping must retain that failure before rearm.
-            signer_failed = self.signer.returncode not in (0, -signal.SIGTERM)
+            code = self.signer.returncode
+            # Ours or another SIGKILL within the grace period: the signer did not stop by itself.
+            if running and code == -signal.SIGKILL:
+                self.signer_killed = True
             self.signer = None
-
-        if signer_failed:
-            self.record_signer_failure()
-        return signer_failed
+        return code
 
     def fresh_transport(self):
         """Return the next pair's signer address, after removing stale Unix rendezvous names.
@@ -275,10 +305,13 @@ class Supervisor:
         return "unix://" + str(self.unix_run / name)
 
     def start(self, await_trust=False):
-        """Start a fresh signer, and Comet with it unless the signer must first be trusted."""
+        """Start a fresh signer, and Comet with it unless the signer must first be trusted.
+
+        Runs only with both earlier children reaped, so their flocks are released, and never
+        while a fence exists. Every start gets a fresh transport (fresh_transport).
+        """
         if self.signer_uncertain():
-            self.record_signer_failure()
-            self.halt("retained signer uncertainty fence; inspect signing authority")
+            self.halt(SIGNER_UNSAFE_LATCH)
             return
         self.validate_denial_route()
         self.address = self.fresh_transport()
@@ -297,14 +330,28 @@ class Supervisor:
             self.start_comet()
         print("etna_supervisor_started", flush=True)
 
+    @staticmethod
+    def comet_identity():
+        """ETNA_COMET_UID and ETNA_COMET_GID together, or neither (None: the supervisor's own).
+
+        Half a configuration fails closed, as in the full-node launcher.
+        """
+        uid, gid = os.environ.get("ETNA_COMET_UID"), os.environ.get("ETNA_COMET_GID")
+        if uid is None and gid is None:
+            return None
+        if uid is None or gid is None:
+            raise ValueError("ETNA_COMET_UID and ETNA_COMET_GID must be set together")
+        return int(uid), int(gid)
+
     def start_comet(self):
         command = self.comet_command
         if self.unix_run is not None:
             command = command + ["--priv_validator_laddr", self.address]
         identity = {}
-        if "ETNA_COMET_UID" in os.environ:
+        configured = self.comet_identity()
+        if configured is not None:
             # The supported image keeps registered FilePV secrets inaccessible to Comet.
-            uid, gid = int(os.environ["ETNA_COMET_UID"]), int(os.environ["ETNA_COMET_GID"])
+            uid, gid = configured
             # A same-identity unprivileged local runner cannot call setgroups. Preserve its
             # existing identity; privileged/different-identity launches still drop all groups.
             if os.geteuid() == 0 or uid != os.geteuid() or gid != os.getegid():
@@ -323,14 +370,14 @@ class Supervisor:
         finally:
             os.close(directory)
 
-    def record_signer_failure(self):
-        """Latch a signer exit, keeping an existing first cause."""
-        self.retain_latch("signer exited; inspect diagnostics\n")
-
     def retain_latch(self, text):
-        """Keep the owner alive and quiescent if terminal evidence cannot be flushed."""
+        """Keep the owner alive and quiescent if terminal evidence cannot be flushed.
+
+        A first cause still waiting for persistence is kept; a later cause never replaces it.
+        """
         self.halted = True
-        self.halt_retry = text
+        if getattr(self, "halt_retry", None) is None:
+            self.halt_retry = text
         return self.retry_latch()
 
     def retry_latch(self):
@@ -362,6 +409,43 @@ class Supervisor:
         self.halt_error = None
         return True
 
+    def signer_unsafe(self, code):
+        """Whether a signer exit forbids a restart (RECOV-8.2-3, SYNC-9-14): exit 3, a fence
+        beside the HRS, or a signer that stop() had to kill."""
+        return code == SIGNER_UNSAFE_EXIT or getattr(self, "signer_killed", False) or self.signer_uncertain()
+
+    def unsafe_reason(self):
+        return SIGNER_KILLED_LATCH if getattr(self, "signer_killed", False) else SIGNER_UNSAFE_LATCH
+
+    def halt_if_unsafe(self, code):
+        """Latch an unsafe signer exit status; True if it did."""
+        if not self.signer_unsafe(code):
+            return False
+        self.halt(self.unsafe_reason())
+        return True
+
+    def signer_exited(self, code):
+        """Handle a signer exit the supervisor did not ask for.
+
+        Exit 3, a fence and a crash loop latch. Any other exit (0, 1, 2 or a signal) restarts the
+        pair: Comet is reaped, then a fresh signer with the same HRS path begins a new closed
+        session on a fresh transport and dials Comet only once that session is Ready; Comet
+        starts then (start_comet_once_trusted, SYNC-9-12). Stock FilePV continues from the HRS
+        on disk: no signature was released before both fsyncs (SYNC-9-13).
+        """
+        if self.halt_if_unsafe(code):
+            return
+        now = time.monotonic()
+        self.crashes = [at for at in self.crashes if now - at < SIGNER_CRASH_WINDOW] + [now]
+        if len(self.crashes) >= SIGNER_CRASH_LIMIT:
+            self.halt(f"signer exited {SIGNER_CRASH_LIMIT} times within {SIGNER_CRASH_WINDOW:g}s; inspect diagnostics")
+            return
+        print(f"etna_supervisor_signer_restart: exit status {code}, {len(self.crashes)} of {SIGNER_CRASH_LIMIT} "
+              f"within {SIGNER_CRASH_WINDOW:g}s", flush=True)
+        if self.halt_if_unsafe(self.stop()):
+            return
+        self.start(await_trust=True)
+
     def signer_uncertain(self):
         """The signer's fence beside this chain's HRS."""
         try:
@@ -386,7 +470,9 @@ class Supervisor:
     def tick(self):
         if getattr(self, "halted", False) or os.path.lexists(self.latch):
             if self.comet is not None or self.signer is not None:
-                self.stop()
+                # An existing latch keeps its first cause, but never hides an unsafe exit.
+                if self.signer_unsafe(self.stop()):
+                    self.retain_latch(self.unsafe_reason() + "\n")
             self.retry_latch()
             return
         observed = self.read_observation(self.events)
@@ -397,9 +483,11 @@ class Supervisor:
             if sequence > 0 and sequence != self.last_event:
                 self.pending = True
                 self.last_event = sequence
-        # A signer exit is never authorization to bootstrap or retry broken signing state.
-        if self.signer.poll() is not None:
-            self.halt("signer exited; inspect diagnostics")
+        # A signer exit never authorizes bootstrapping or resetting signing state; only an
+        # ordinary crash restarts the pair with the same state (signer_exited).
+        code = self.signer.poll()
+        if code is not None:
+            self.signer_exited(code)
             return
         if self.comet is None:
             self.start_comet_once_trusted()
@@ -442,8 +530,7 @@ class Supervisor:
             if not self.pending:
                 self.observed_loss = False
         if self.pending and ready:
-            if self.stop():
-                self.halt("signer exited during recovery; inspect diagnostics")
+            if self.halt_if_unsafe(self.stop()):
                 return
             self.start(await_trust=True)
             print("etna_supervisor_awaiting_trust: Comet starts after the signer's fresh session is Ready", flush=True)
@@ -482,8 +569,7 @@ class Supervisor:
                 and head["height"] < target["height"]):
             # Only Comet can commit up to this checkpoint, so waiting could never end.
             print("etna_supervisor_trust_needs_comet: starting signer and Comet together", flush=True)
-            if self.stop():
-                self.halt("signer exited during recovery; inspect diagnostics")
+            if self.halt_if_unsafe(self.stop()):
                 return
             self.start()
             return
@@ -500,16 +586,15 @@ class Supervisor:
         signal.signal(signal.SIGINT, shutdown)
         try:
             if self.signer_uncertain():
-                self.record_signer_failure()
-                self.halt("retained signer uncertainty fence; inspect signing authority")
+                self.halt(SIGNER_UNSAFE_LATCH)
             elif not os.path.lexists(self.latch):
                 self.start()
             while self.running:
                 self.tick()
                 time.sleep(.1)
         finally:
-            if self.stop():
-                self.halt("signer exited during shutdown; inspect diagnostics")
+            # A restartAlways supervisor restarts the signer, so an unsafe exit at shutdown latches.
+            self.halt_if_unsafe(self.stop())
             while not self.retry_latch():
                 time.sleep(.1)
             for descriptor in self.owner_fds:

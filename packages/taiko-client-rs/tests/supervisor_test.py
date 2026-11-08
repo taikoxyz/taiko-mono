@@ -85,8 +85,8 @@ class TrustPeer:
         self.session = session
         self.publish(0, session)
 
-    def wait(self, predicate):
-        deadline = time.monotonic() + 5
+    def wait(self, predicate, timeout=5):
+        deadline = time.monotonic() + timeout
         while not predicate() and time.monotonic() < deadline:
             time.sleep(.05)
         if not predicate():
@@ -125,15 +125,38 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
         self.bin.mkdir()
         for name, body in {
             "cometbft": self.comet_body(),
+            # The control files signer_exit_on_start and signer_exit_on_term hold the exit code
+            # the next signer uses right after starting, or when the supervisor stops it;
+            # signer_exit_now makes the running signer exit with its code once, as a crash, and
+            # signer_hang_on_term makes it ignore the supervisor's SIGTERM. Each start records
+            # which earlier signers and which Comet were still alive.
             "signer": ('import json,os,signal,sys,time\nfrom pathlib import Path\n'
+                       'root=Path(os.environ["COMET_PID"]).parent\n'
+                       'def code(name):\n'
+                       ' p=root/name\n'
+                       ' return int(p.read_text()) if p.exists() else None\n'
+                       'def alive(pid):\n'
+                       ' try: os.kill(pid,0); return True\n'
+                       ' except ProcessLookupError: return False\n'
                        'def stop(*_):\n'
                        ' p=Path(os.environ["COMET_PID"])\n'
-                       ' try: os.kill(int(p.read_text()),0); event="comet_alive"\n'
-                       ' except ProcessLookupError: event="comet_reaped"\n'
+                       ' event="comet_alive" if alive(int(p.read_text())) else "comet_reaped"\n'
                        ' with p.with_name("lifecycle").open("a") as out: out.write(event+"\\nsigner_stopped\\n")\n'
-                       ' sys.exit(0)\n'
+                       ' if (root/"signer_hang_on_term").exists():\n'
+                       '  while True: time.sleep(1)\n'
+                       ' sys.exit(code("signer_exit_on_term") or 0)\n'
                        'signal.signal(signal.SIGTERM,stop)\n'
-                       'open(os.environ["SIGNERS"],"a").write(json.dumps(dict(pid=os.getpid(),argv=sys.argv[1:]))+"\\n")\nwhile not Path(os.environ["COMET_PID"]).with_name("release_signer").exists(): time.sleep(.05)'),
+                       'signers=Path(os.environ["SIGNERS"])\n'
+                       'earlier=[json.loads(line)["pid"] for line in signers.read_text().splitlines()] if signers.exists() else []\n'
+                       'comet=Path(os.environ["COMET_PID"])\n'
+                       'record=dict(pid=os.getpid(),argv=sys.argv[1:],alive=[pid for pid in earlier if alive(pid)],\n'
+                       ' comet_alive=comet.exists() and alive(int(comet.read_text())))\n'
+                       'signers.open("a").write(json.dumps(record)+"\\n")\n'
+                       'if code("signer_exit_on_start") is not None: sys.exit(code("signer_exit_on_start"))\n'
+                       'while not Path(os.environ["COMET_PID"]).with_name("release_signer").exists():\n'
+                       ' now=code("signer_exit_now")\n'
+                       ' if now is not None: (root/"signer_exit_now").unlink(); sys.exit(now)\n'
+                       ' time.sleep(.05)'),
         }.items():
             path = self.bin / name
             path.write_text("#!/usr/bin/env python3\n" + body + "\n")
@@ -250,30 +273,54 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
         self.assertEqual(len(self.signers()), 1)
 
     def test_supervisor_sigterm_retains_signer_failure_for_restart(self):
-        """A signer failure discovered during external shutdown must survive restartAlways."""
-        self.proc.terminate()
-        self.assertEqual(self.proc.wait(timeout=5), 0)
+        """An unsafe signer exit, or a signer needing SIGKILL, during external shutdown must
+        survive restartAlways; an ordinary exit 1 there is restarted like any crash."""
         latch = self.store / "validator-supervisor.halted"
+        def stop_and_restart(starts):
+            self.proc.terminate()
+            self.assertEqual(self.proc.wait(timeout=10), 0)
+            self.assertEqual((self.root / "lifecycle").read_text().splitlines()[-2:],
+                             ["comet_reaped", "signer_stopped"])
+            self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")],
+                                         env=self.env, stdout=self.log, stderr=self.log)
+            if starts is not None:
+                self.wait(lambda: self.starts() == starts and len(self.signers()) == starts)
+        stop_and_restart(2)
         self.assertFalse(latch.exists(), "healthy signal shutdown became terminal")
-        signer = self.bin / "signer"
-        signer.write_text(signer.read_text().replace("sys.exit(0)", "sys.exit(1)"))
-        self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")],
-                                     env=self.env, stdout=self.log, stderr=self.log)
-        self.wait(lambda: self.starts() == 2 and len(self.signers()) == 2)
-        self.proc.terminate()
-        self.assertEqual(self.proc.wait(timeout=5), 0)
-        self.assertTrue(latch.exists(), "external supervisor shutdown discarded the signer failure")
+        (self.root / "signer_exit_on_term").write_text("1")
+        stop_and_restart(3)
+        self.assertFalse(latch.exists(), "an ordinary signer exit during shutdown became terminal")
+        (self.root / "signer_exit_on_term").write_text("3")
+        stop_and_restart(None)
+        self.assertTrue(latch.exists(), "external supervisor shutdown discarded the unsafe signer exit")
+        self.assertIn("unsafe signing state", latch.read_text())
         evidence = latch.read_bytes()
+        time.sleep(.4)
+        self.assertIsNone(self.proc.poll())
+        self.assertEqual(self.starts(), 3, "restartAlways rearmed failed signing authority")
+        self.assertEqual(len(self.signers()), 3)
+        self.assertEqual(latch.read_bytes(), evidence)
+        self.assertEqual(self.state.read_text(), "authoritative HRS")
+        self.assertEqual(self.key.read_text(), "existing key")
+
+    def test_supervisor_sigterm_latches_a_signer_it_must_kill(self):
+        """A signer still running 5 s after the shutdown SIGTERM may be blocked on a failing state
+        volume, past a failed fsync but before its fence (M1): the latch survives restartAlways."""
+        (self.root / "signer_hang_on_term").touch()
+        self.proc.terminate()
+        self.assertEqual(self.proc.wait(timeout=15), 0)
+        latch = self.store / "validator-supervisor.halted"
+        self.assertTrue(latch.exists(), "a signer killed at shutdown was not latched")
+        self.assertIn("did not stop", latch.read_text())
         self.assertEqual((self.root / "lifecycle").read_text().splitlines()[-2:],
                          ["comet_reaped", "signer_stopped"])
         self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")],
                                      env=self.env, stdout=self.log, stderr=self.log)
         time.sleep(.4)
         self.assertIsNone(self.proc.poll())
-        self.assertEqual(self.starts(), 2, "restartAlways rearmed failed signing authority")
-        self.assertEqual(latch.read_bytes(), evidence)
+        self.assertEqual(self.starts(), 1)
+        self.assertEqual(len(self.signers()), 1)
         self.assertEqual(self.state.read_text(), "authoritative HRS")
-        self.assertEqual(self.key.read_text(), "existing key")
 
     def test_sigkill_supervisor_retains_descendant_ownership(self):
         self.proc.kill()
@@ -329,8 +376,12 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
         self.assertTrue(self.ops)
         self.assertEqual(set(self.ops), {"observe"})
 
-    def test_signer_exit_during_observation_cannot_be_rearmed(self):
-        """A signer dying after tick's first poll must halt before a pending restart."""
+    def test_signer_exit_during_observation_restarts_signer(self):
+        """A signer killed after tick's first poll is reaped by the recovery stop, then restarted.
+
+        The kill is not the supervisor's, so the pair restarts with a fresh --await-trust signer;
+        Comet waits for its session, and the HRS is untouched.
+        """
         self.proc.terminate()
         self.proc.wait(timeout=5)
         spec = importlib.util.spec_from_file_location("etna_guard_exit_race", ROOT / "script/etna_validator.py")
@@ -357,9 +408,13 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
                 release.set()
                 worker.join(timeout=5)
                 self.assertFalse(worker.is_alive(), "supervisor recovery did not finish")
-                self.assertTrue((self.store / "validator-supervisor.halted").exists(),
-                                "a signer exit during observation bypassed the terminal latch")
-                self.assertEqual(self.starts(), 2, "supervisor restarted abnormal signing authority")
+                self.assertFalse((self.store / "validator-supervisor.halted").exists(),
+                                 "an ordinary signer crash during observation latched")
+                self.wait(lambda: len(self.signers()) == 3)
+                self.assertIn("--await-trust", self.signers()[2]["argv"])
+                self.assertEqual(self.signers()[2]["alive"], [])
+                self.assertFalse(self.signers()[2]["comet_alive"])
+                self.assertEqual(self.starts(), 2, "Comet started before the new session was Ready")
                 self.assertEqual(self.state.read_text(), "authoritative HRS")
             finally:
                 release.set()
@@ -536,17 +591,143 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
         self.assertFalse((self.store / "validator-supervisor.halted").exists())
         self.assertEqual(self.state.read_text(), "authoritative HRS")
 
-    def test_signer_exit_while_awaiting_trust_halts(self):
+    def test_signer_exit_while_awaiting_trust_restarts(self):
+        """A recovery signer that exits while awaiting trust is replaced by another fresh one."""
         self.publish(1, self.session)
         self.publish_recovery_session(ready=False)
         os.kill(self.signers()[1]["pid"], signal.SIGTERM)
-        self.wait(lambda: (self.store / "validator-supervisor.halted").exists())
-        self.ready = True
-        self.phase = "ready"
-        time.sleep(.4)
+        self.wait(lambda: len(self.signers()) == 3)
+        self.assertIn("--await-trust", self.signers()[2]["argv"])
+        self.assertEqual(self.signers()[2]["alive"], [])
+        self.assertFalse((self.store / "validator-supervisor.halted").exists())
         self.assertEqual(self.starts(), 1)
-        self.assertEqual(len(self.signers()), 2)
+        self.ready, self.phase, self.session = True, "ready", "third-session"
+        self.publish(0, "third-session")
+        self.wait(lambda: self.starts() == 2)
+        self.assertEqual(len(self.signers()), 3)
         self.assertIsNone(self.proc.poll())
+        self.assertEqual(self.state.read_text(), "authoritative HRS")
+
+    def test_signer_sigkill_restarts_pair_with_fresh_session(self):
+        """A crashed signer restarts with its pair: Comet is reaped first, the new signer begins a
+        new closed session, and Comet starts only once that session is Ready (SYNC-9-12/14). The
+        HRS path is the same and its bytes are untouched (RECOV-8.2-1)."""
+        os.kill(self.signers()[0]["pid"], signal.SIGKILL)
+        self.wait(lambda: len(self.signers()) == 2)
+        self.assertIn("--await-trust", self.signers()[1]["argv"])
+        # No overlap: the dead signer was reaped and Comet stopped before the new signer ran.
+        self.assertEqual(self.signers()[1]["alive"], [])
+        self.assertFalse(self.signers()[1]["comet_alive"])
+        self.assertEqual(self.signers()[1]["argv"][:10], self.signers()[0]["argv"][:10])
+        time.sleep(.3)
+        self.assertEqual(self.starts(), 1, "Comet restarted before the new session was Ready")
+        self.publish_recovery_session()
+        self.wait(lambda: self.starts() == 2)
+        time.sleep(.3)
+        self.assertEqual((self.starts(), len(self.signers())), (2, 2))
+        self.assertFalse((self.store / "validator-supervisor.halted").exists())
+        self.assertEqual(self.state.read_text(), "authoritative HRS")
+        self.assertEqual(self.signer_address(1), self.comet_listener(1))
+        if self.listener_args(1):  # Unix: the restarted pair never reuses the dead pair's socket
+            self.assertNotEqual(self.comet_listener(0), self.comet_listener(1))
+            self.assertFalse(os.path.lexists(self.comet_listener(0).removeprefix("unix://")))
+
+    def assert_crash_restarts(self, code):
+        (self.root / "signer_exit_now").write_text(str(code))
+        self.wait(lambda: len(self.signers()) == 2)
+        self.assertFalse((self.root / "signer_exit_now").exists())
+        self.publish_recovery_session()
+        self.wait(lambda: self.starts() == 2)
+        self.assertFalse((self.store / "validator-supervisor.halted").exists())
+        self.assertEqual(self.state.read_text(), "authoritative HRS")
+        self.assertIsNone(self.proc.poll())
+
+    def test_signer_exit_one_restarts_pair(self):
+        """A configuration, transport or lock error (exit 1) is a crash: restart."""
+        self.assert_crash_restarts(1)
+
+    def test_signer_exit_two_restarts_pair(self):
+        """A Go panic (exit 2), such as a failed stock state write, released no signature: restart."""
+        self.assert_crash_restarts(2)
+
+    def test_signer_unsafe_exit_latches_without_restart(self):
+        """Exit 3 is unsafe signing state (RECOV-8.2-3): latch, never restart (SYNC-9-14)."""
+        (self.root / "signer_exit_on_start").write_text("3")
+        os.kill(self.signers()[0]["pid"], signal.SIGKILL)
+        latch = self.store / "validator-supervisor.halted"
+        self.wait(latch.exists)
+        self.assertIn("unsafe signing state", latch.read_text())
+        time.sleep(.5)
+        self.assertEqual(len(self.signers()), 2)
+        self.assertEqual(self.starts(), 1)
+        self.assertIsNone(self.proc.poll())
+        self.assertEqual(self.state.read_text(), "authoritative HRS")
+
+    def test_retained_fence_latches_after_ordinary_exit(self):
+        """A fence beside the HRS makes any signer exit unsafe: latch, never restart."""
+        fence = self.state.with_name(self.state.name + ".uncertain")
+        fence.write_text("fsync failed")
+        os.kill(self.signers()[0]["pid"], signal.SIGKILL)
+        latch = self.store / "validator-supervisor.halted"
+        self.wait(latch.exists)
+        self.assertIn("unsafe signing state", latch.read_text())
+        time.sleep(.5)
+        self.assertEqual(len(self.signers()), 1)
+        self.assertEqual(self.starts(), 1)
+        self.assertIsNone(self.proc.poll())
+        self.assertEqual(fence.read_text(), "fsync failed")
+        self.assertEqual(self.state.read_text(), "authoritative HRS")
+
+    def test_signer_crash_loop_latches_after_limit(self):
+        """Five non-unsafe exits within 600 s latch instead of restarting again (SYNC-9-14)."""
+        (self.root / "signer_exit_on_start").write_text("1")
+        os.kill(self.signers()[0]["pid"], signal.SIGKILL)
+        latch = self.store / "validator-supervisor.halted"
+        self.wait(latch.exists)
+        self.assertTrue(latch.read_text().startswith("signer exited 5 times within 600s"), latch.read_text())
+        time.sleep(.5)
+        self.assertEqual(len(self.signers()), 5)  # the initial signer and four restarts
+        self.assertEqual(self.starts(), 1)
+        self.assertIsNone(self.proc.poll())
+        self.assertEqual(self.state.read_text(), "authoritative HRS")
+
+    def test_signer_needing_sigkill_during_recovery_stop_latches(self):
+        """A signer still running 5 s after the recovery stop's SIGTERM is SIGKILLed and latched,
+        never restarted: it may be blocked on a failing state volume after a failed fsync and
+        before its fence, and a restart on this boot could see that fsync error consumed (M1)."""
+        (self.root / "signer_hang_on_term").touch()
+        self.publish(1, self.session)
+        latch = self.store / "validator-supervisor.halted"
+        self.wait(latch.exists, timeout=15)
+        self.assertIn("did not stop", latch.read_text())
+        time.sleep(.5)
+        self.assertEqual(len(self.signers()), 1)
+        self.assertEqual(self.starts(), 1)
+        self.assertIsNone(self.proc.poll())
+        self.assertFalse(any(signer for signer in self.signers() if self.alive(signer["pid"])))
+        self.assertEqual(self.state.read_text(), "authoritative HRS")
+
+    @staticmethod
+    def alive(pid):
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return False
+        return True
+
+    def test_half_a_comet_identity_is_refused_before_children(self):
+        """ETNA_COMET_UID and ETNA_COMET_GID are set together or not at all, as for the full node."""
+        for variable, value in (("ETNA_COMET_UID", os.geteuid()), ("ETNA_COMET_GID", os.getegid())):
+            with self.subTest(variable=variable):
+                env = {key: item for key, item in self.env.items() if key not in ("ETNA_COMET_UID", "ETNA_COMET_GID")}
+                env[variable] = str(value)
+                refused = subprocess.run(["bash", str(ROOT / "script/start_etna_validator.sh")],
+                                         env=env, capture_output=True, timeout=5)
+                self.assertEqual(refused.returncode, 1, refused.stderr)
+                self.assertIn(b"ETNA_COMET_UID and ETNA_COMET_GID must be set together", refused.stderr)
+                self.assertNotIn(b"Traceback", refused.stderr)
+        self.assertEqual(self.starts(), 1)
+        self.assertEqual(len(self.signers()), 1)
 
     def test_checkpoint_above_committed_head_starts_comet_without_waiting(self):
         # Only Comet can commit up to such a checkpoint, so awaiting trust could never end.
@@ -1087,9 +1268,9 @@ class SupervisorUnitTests(unittest.TestCase):
             for name, raw in preserved.items():
                 self.assertEqual((runtime.store / name).read_bytes(), raw)
 
-    def test_existing_latch_cannot_hide_signer_failure_during_stop(self):
+    def test_existing_latch_cannot_hide_unsafe_signer_exit_during_stop(self):
         with tempfile.TemporaryDirectory() as directory:
-            runtime, preserved = self.supersession_with_children(directory, 1)
+            runtime, preserved = self.supersession_with_children(directory, 3)
             original = b"original generic safety halt\n"
             runtime.latch.write_bytes(original)
             runtime.tick()
