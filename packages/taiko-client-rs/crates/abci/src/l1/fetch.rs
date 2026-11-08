@@ -157,8 +157,8 @@ pub async fn build_committee_witness_at_cutoff<L: L1Source + ?Sized>(
 /// - checkpoint and successor storage proofs at the proving block.
 ///
 /// Every result is independently checked by the pure committee verifier. Historical entry
-/// discovery may need archive RPC; an explicit historical snapshot is never advanced by its later
-/// proving block.
+/// discovery needs the own L1 to serve historical state (SYNC-9-16); an explicit historical
+/// snapshot is never advanced by its later proving block.
 ///
 /// A failed read (an RPC error, an unknown block or a read past its deadline) keeps `progress`;
 /// any other end clears it ([`DiscoveryProgress`]).

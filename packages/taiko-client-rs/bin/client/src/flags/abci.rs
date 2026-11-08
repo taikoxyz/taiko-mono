@@ -4,9 +4,6 @@ use std::{path::PathBuf, time::Duration};
 
 use abci::{AppOptions, ListenAddr, server::DEFAULT_ADDR};
 use clap::Parser;
-use url::Url;
-
-use crate::flags::common::http_url;
 
 /// Upper bound of every `abci` timeout flag, in seconds: an hour, far above any useful
 /// deadline, so that adding deadlines to each other or to an `Instant` cannot overflow.
@@ -39,16 +36,6 @@ pub struct AbciArgs {
         help = "Directory of the persisted app state (abci-state.json); created when missing"
     )]
     pub data_dir: PathBuf,
-    /// Optional HTTP(S) archive endpoint for historical committee registry state only.
-    /// Finality and canonical headers remain authorized solely by `--l1.http`.
-    #[clap(
-        long = "l1.archive",
-        env = "ABCI_L1_ARCHIVE",
-        value_parser = http_url,
-        help = "Optional HTTP(S) archive RPC for committee registry state at the fixed parent \
-                anchor; finality and canonical headers always come from --l1.http"
-    )]
-    pub l1_archive_endpoint: Option<Url>,
     /// Optional TOML file overriding the built-in chain parameters (devnet only).
     #[clap(
         long = "chain-config",
@@ -136,7 +123,6 @@ mod tests {
             "ABCI_ADDR",
             "ABCI_DATA_DIR",
             "ABCI_CHAIN_CONFIG",
-            "ABCI_L1_ARCHIVE",
             "ABCI_L1_TIMEOUT",
             "ABCI_ENGINE_TIMEOUT",
             "ABCI_ELSYNC_TIMEOUT",
@@ -198,7 +184,6 @@ mod tests {
         assert_eq!(flags.addr, DEFAULT_ADDR);
         assert_eq!(flags.data_dir, PathBuf::from("/var/lib/abci"));
         assert_eq!(flags.chain_config, None);
-        assert_eq!(flags.l1_archive_endpoint, None);
         assert_eq!(flags.app_options(), AppOptions::default());
         assert_eq!(cmd.common_flags.l2_http_endpoint.as_str(), "http://localhost:28545/");
     }
@@ -214,8 +199,6 @@ mod tests {
             "unix:///run/abci.sock",
             "--chain-config",
             "/etc/chain.toml",
-            "--l1.archive",
-            "https://archive.example/rpc",
             "--l1.timeout",
             "4",
             "--engine.timeout",
@@ -230,10 +213,6 @@ mod tests {
         let flags = &cmd.abci_flags;
         assert_eq!(flags.addr, "unix:///run/abci.sock");
         assert_eq!(flags.chain_config, Some(PathBuf::from("/etc/chain.toml")));
-        assert_eq!(
-            flags.l1_archive_endpoint.as_ref().unwrap().as_str(),
-            "https://archive.example/rpc"
-        );
         assert_eq!(
             flags.app_options(),
             AppOptions {
@@ -254,7 +233,6 @@ mod tests {
             EnvGuard::set("ABCI_ADDR", "tcp://0.0.0.0:36658"),
             EnvGuard::set("ABCI_DATA_DIR", "/env/data"),
             EnvGuard::set("ABCI_CHAIN_CONFIG", "/env/chain.toml"),
-            EnvGuard::set("ABCI_L1_ARCHIVE", "https://archive.example/rpc"),
             EnvGuard::set("ABCI_L1_TIMEOUT", "7"),
             EnvGuard::set("ABCI_ENGINE_TIMEOUT", "8"),
             EnvGuard::set("ABCI_ELSYNC_TIMEOUT", "9"),
@@ -270,10 +248,6 @@ mod tests {
         assert_eq!(flags.addr, "tcp://0.0.0.0:36658");
         assert_eq!(flags.data_dir, PathBuf::from("/env/data"));
         assert_eq!(flags.chain_config, Some(PathBuf::from("/env/chain.toml")));
-        assert_eq!(
-            flags.l1_archive_endpoint.as_ref().unwrap().as_str(),
-            "https://archive.example/rpc"
-        );
         assert_eq!(
             flags.app_options(),
             AppOptions {
@@ -293,17 +267,6 @@ mod tests {
         let err = parse(argv(&["--data-dir", "/data", "--no-such-flag", "1"]))
             .expect_err("an unknown flag fails parsing");
         assert_eq!(err.kind(), ErrorKind::UnknownArgument);
-    }
-
-    #[test]
-    fn parses_optional_committee_archive_endpoint() {
-        let _lock = ENV_LOCK.lock().expect("env lock poisoned");
-        let _clear = clear_env();
-        parse(argv(&["--data-dir", "/data", "--l1.archive", "https://archive.example/rpc"]))
-            .expect("an optional committee archive endpoint parses");
-        let err = parse(argv(&["--data-dir", "/data", "--l1.archive", "ws://archive.example/rpc"]))
-            .expect_err("archive state reads require HTTP(S)");
-        assert_eq!(err.kind(), ErrorKind::ValueValidation);
     }
 
     #[test]

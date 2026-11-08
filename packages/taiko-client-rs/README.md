@@ -175,7 +175,6 @@ Serves the ABCI++ application to a CometBFT node.
 | `--data-dir`                            | `ABCI_DATA_DIR`        | Directory of the persisted app state (`abci-state.json`), required             |
 | `--chain-config`                        | `ABCI_CHAIN_CONFIG`    | Optional TOML overriding the built-in chain parameters (devnet only)           |
 | `--l1.http`                             | `L1_HTTP`              | The operator's own L1 node, HTTP(S) only, required (see L1 node requirements)  |
-| `--l1.archive`                          | `ABCI_L1_ARCHIVE`      | Optional archive RPC for fixed committee registry snapshots only               |
 | `--l2.http`                             | `L2_HTTP`              | alethia-reth's JSON-RPC endpoint, required                                     |
 | `--l2.auth`                             | `L2_AUTH`              | alethia-reth's Engine API endpoint, plain `http` only, required                |
 | `--jwt.secret`                          | `JWT_SECRET`           | Engine API JWT secret file, required                                           |
@@ -620,14 +619,9 @@ committing those values to the Inbox.
   `maxAnchorAge` (planned 2 h, about 600 L1 blocks), far beyond a geth full node's 128-block state window, so nodes
   discover the witness as soon as they commit the anchor (see the sidecar below). That needs the
   L1 proof window to cover the finality lag plus one discovery and its retries; a node that was
-  not live when the anchor was adopted still needs historical state. Configure historical proof/state retention to cover the
-  required history, or supply `--l1.archive` (`ABCI_L1_ARCHIVE`) as an HTTP(S) archive fallback
-  for committee registry reads. Archive state reads use the exact requested block; their
-  complete witness still verifies under the anchor's state root. Finality, canonical
-  hashes, headers and Inbox proofs continue to use only `--l1.http`. With an archive configured,
-  the primary gets a head start of at most 100 milliseconds before the archive state read also
-  starts; the first successful response supplies discovery data. If one source fails, the other
-  stays in flight under the unchanged read/prepare deadlines.
+  not live when the anchor was adopted still needs historical state. The own L1 node behind
+  `--l1.http` is the only source of these reads (spec SYNC-9-16), so configure its historical
+  proof/state retention to cover the required history.
 - Fully verified switch witnesses acquired locally or received in valid proposals are saved
   atomically as `abci-committee-witness.json` in the app data directory before reuse. Every node
   discovers the upcoming switch witness in the background under each committed anchor that can

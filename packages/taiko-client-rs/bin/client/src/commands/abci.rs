@@ -1,10 +1,6 @@
 //! `abci` subcommand: serves the Etna PoS chain's ABCI++ app to CometBFT.
 
-use std::sync::Arc;
-
-use abci::{
-    AbciMetrics, App, CommitteeL1Source, Engine, L1Source, RpcEngine, RpcL1Source, Store, serve,
-};
+use abci::{AbciMetrics, App, Engine, RpcEngine, RpcL1Source, Store, serve};
 use async_trait::async_trait;
 use clap::Parser;
 use rpc::{
@@ -105,13 +101,6 @@ impl Subcommand for AbciSubCommand {
             common.l1_http_endpoint.clone(),
             http_timeout_for(opts.l1_timeout),
         ));
-        let archive = flags.l1_archive_endpoint.as_ref().map(|endpoint| {
-            Arc::new(RpcL1Source::new(connect_http_with_timeout(
-                endpoint.clone(),
-                http_timeout_for(opts.l1_timeout),
-            ))) as Arc<dyn L1Source>
-        });
-        let l1 = CommitteeL1Source::new(l1, archive, params.registry, opts.l1_timeout);
         let store = Store::new(flags.data_dir.clone())
             .with_val_archive(flags.checkpoint_archive_dir.clone());
         let app = App::new(l1, engine, params, store, opts)?;

@@ -5,8 +5,6 @@
 //!
 //! `header`, `layout`, `mpt` and `witness` perform no I/O.
 
-/// Committee-only archive state fallback with own-L1 finality authority.
-pub mod archive;
 /// Committee-witness discovery from the node's own L1 (proposers and the genesis builder).
 pub mod fetch;
 /// Exact-block calldata forced inclusion event acquisition.
@@ -22,7 +20,6 @@ pub mod source;
 /// Anchor and genesis Inbox witness verification into facts.
 pub mod witness;
 
-pub use archive::CommitteeL1Source;
 #[cfg(test)]
 pub(crate) use fetch::build_committee_witness;
 pub(crate) use fetch::{

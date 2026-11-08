@@ -172,8 +172,8 @@ fn prefetch_target(state: &AppState, params: &ChainParams) -> Option<u64> {
 }
 
 /// Loads a sidecar only for the upcoming switch's context ([`prefetch_target`]), verifies it
-/// without L1 I/O, and ignores a corrupt, stale or mismatched sidecar so ordinary acquisition or
-/// archive fallback can recover.
+/// without L1 I/O, and ignores a corrupt, stale or mismatched sidecar so ordinary acquisition can
+/// recover.
 pub(super) fn load_cached_committee(
     store: &Store,
     state: Option<&AppState>,
