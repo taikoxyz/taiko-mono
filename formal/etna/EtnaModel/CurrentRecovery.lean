@@ -25,25 +25,34 @@ def RecoveryCall : Call → Prop
 
 abbrev RecoveryTrace (env : Environment) : World → World → Prop := CallTrace env RecoveryCall
 
-/-- `h` is a child of `parent` for these producer inputs and transaction list: hash-bound,
-physically linked, and accepted by execution and payload checks for every body carrying it. -/
+/-- `h` is a child of `parent` for these producer inputs, witness bytes `raw` and transaction list
+`txs`. Its height, FI cursor, timestamp and anchor are the given ones; it is hash-bound and its EL
+hash names `parent`'s as the physical parent. Both checks accept it: `executionValid` and
+`payloadValid` at exactly `raw` and `txs` hold for every body that carries `h`, names `parent`'s EL
+hash as its parent hash, pays a fee share of 100 and carries the anchor's state root as its parent
+beacon root (the body fields the EL reads, 3.2). The other body fields (consensus votes, round,
+committee and forced witnesses, singleton trial, block size and so on) are left free. -/
 def Executes (env : Environment) (d : Blocks.Definition) (parent : Header) (cursor timestamp : Nat)
-    (anchor : BlockValidity.Anchor) (txs : List Blocks.Bytes) (h : Header) : Prop :=
+    (anchor : BlockValidity.Anchor) (raw : Blocks.Bytes) (txs : List Blocks.Bytes) (h : Header) : Prop :=
   h.height = parent.height+1 ∧ h.cursor = cursor ∧ h.timestamp = timestamp ∧ h.anchor = anchor ∧
   HashBound env h ∧ env.headerParent h.elHash = parent.elHash ∧
-  ∀ (body : BlockValidity.Block) (raw : Blocks.Bytes), body.header = h →
-    body.parentHash = parent.elHash →
+  ∀ body : BlockValidity.Block, body.header = h → body.parentHash = parent.elHash →
+    body.feeShare = 100 → body.parentBeaconRoot = anchor.stateRoot →
     d.executionValid parent body = true ∧ d.payloadValid body raw txs = true
 
-/-- A live ruleset definition (MODEL-1-1 on the EL side, 7.2 single-transaction trial):
-for every producer choice some child exists for the empty list, and every canonical
-forced transaction is either executable at position zero or its trial completes empty. -/
+/-- A live ruleset definition (MODEL-1-1 on the EL side, 7.2 single-transaction trial). For
+every parent, FI cursor, timestamp above the parent's, anchor and witness bytes `raw` a block
+producer picks, some quiet child executes the empty transaction list with `raw`. When `raw` is a
+canonical forced transaction of at most 8,192 bytes, either some child executes `[raw]` with `raw`
+or `raw`'s single-transaction trial on the quiet child completes empty. A block producer passes a
+forced transaction's bytes as `raw`, and `[]` for a block without a forced witness. -/
 def ExecutionLive (env : Environment) (d : Blocks.Definition) : Prop :=
-  ∀ (parent : Header) (cursor timestamp : Nat) (anchor : BlockValidity.Anchor),
-    ∃ quiet, Executes env d parent cursor timestamp anchor [] quiet ∧
-      ∀ raw : Blocks.Bytes, d.bytes.canonical raw = true → raw.length ≤ 8192 →
-        (∃ h, Executes env d parent cursor timestamp anchor [raw] h) ∨
-        d.bytes.buildSingleton parent quiet raw = .completedEmpty
+  ∀ (parent : Header) (cursor timestamp : Nat) (anchor : BlockValidity.Anchor) (raw : Blocks.Bytes),
+    parent.timestamp < timestamp →
+    ∃ quiet, Executes env d parent cursor timestamp anchor raw [] quiet ∧
+      (d.bytes.canonical raw = true → raw.length ≤ 8192 →
+        (∃ h, Executes env d parent cursor timestamp anchor raw [raw] h) ∨
+        d.bytes.buildSingleton parent quiet raw = .completedEmpty)
 
 def RulesetLive (env : Environment) (m : Nat) : Prop :=
   ∃ d, env.catalogue m = some d ∧ ExecutionLive env d

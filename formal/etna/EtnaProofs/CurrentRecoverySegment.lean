@@ -337,9 +337,9 @@ private theorem assemble (setup : Setup env x p R keys image s) {i : Nat} {q : H
     (room : i < x.inbox.gridK) (parent : Parent env x p s i q) {d : Blocks.Definition}
     (cat : env.catalogue (Rules.select x.schedule (max (max (q.timestamp+1) 0) s.timestamp)) = some d)
     (implemented : Rules.select x.schedule (max (max (q.timestamp+1) 0) s.timestamp) ∈ env.imageRules image)
-    {cursor : Nat} {txs : List Blocks.Bytes} {h : Header}
-    (exec : Executes env d q cursor (max (max (q.timestamp+1) 0) s.timestamp) (anchor env s) txs h)
-    {slot : Option (Nat × Forced.Entry)} {raw : Blocks.Bytes} {first : Option Blocks.Bytes}
+    {cursor : Nat} {raw : Blocks.Bytes} {txs : List Blocks.Bytes} {h : Header}
+    (exec : Executes env d q cursor (max (max (q.timestamp+1) 0) s.timestamp) (anchor env s) raw txs h)
+    {slot : Option (Nat × Forced.Entry)} {first : Option Blocks.Bytes}
     (stored : ∀ entry, slot = some entry → entry ∈ x.queue)
     (step : Forced.step q.cursor x.inbox.tail s.timestamp x.inbox.forcedDelay
       (slot.map fun entry => forcedWitness d.bytes entry.1 entry.2 raw first) (d.bytes.buildSingleton q h raw) =
@@ -348,6 +348,8 @@ private theorem assemble (setup : Setup env x p R keys image s) {i : Nat} {q : H
     ∃ b : Block, Blocks.Valid (policy env x [] (R+1)) q b ∧ Parent env x p s (i+1) b.header ∧
       env.headerParent b.header.elHash = q.elHash ∧ Facts env image R b := by
   obtain ⟨height,cursorEq,stamp,anchored,bound',linked,accepts⟩ := exec
+  have accepted := accepts (segmentBody env x R keys d q h slot raw first) rfl rfl rfl
+    (congrArg BlockValidity.Anchor.stateRoot anchored)
   obtain ⟨configured,small,unsettled,age⟩ := valid_params setup.context.params.1
   have number := setup.number
   have time := setup_time setup
@@ -445,9 +447,9 @@ private theorem assemble (setup : Setup env x p R keys image s) {i : Nat} {q : H
   · show Rules.stopped x.schedule _ q.height q.timestamp = false
     simp [Rules.stopped,setup.context.stop]
   · rw [defn]
-    exact (accepts _ raw rfl rfl).1
+    exact accepted.1
   · rw [defn]
-    exact (accepts _ raw rfl rfl).2
+    exact accepted.2
   · intro w carried
     rw [defn]
     obtain ⟨entry,-,rfl⟩ := Option.map_eq_some_iff.mp carried
@@ -481,6 +483,7 @@ private theorem next_block (hash : ∀ id d, env.catalogue id = some d → d.byt
       env.headerParent b.header.elHash = q.elHash ∧ Facts env image R b := by
   obtain ⟨⟨d,cat,live⟩,implemented⟩ := setup.context.rules (max (max (q.timestamp+1) 0) s.timestamp)
   obtain ⟨-,present,raws⟩ := setup.context.queue
+  have later : q.timestamp < max (max (q.timestamp+1) 0) s.timestamp := by omega
   by_cases open_ : q.cursor < x.inbox.tail
   · obtain ⟨e,queued⟩ := present q.cursor parent.head open_
     obtain ⟨raw,hashed,short⟩ := raws _ _ queued
@@ -488,31 +491,32 @@ private theorem next_block (hash : ∀ id d, env.catalogue id = some d → d.byt
     have stored : ∀ entry, some (q.cursor,e) = some entry → entry ∈ x.queue := by
       rintro _ ⟨⟩
       exact queued
-    obtain ⟨quiet,quietExec,choice⟩ := live q (q.cursor+1) (max (max (q.timestamp+1) 0) s.timestamp) (anchor env s)
-    obtain ⟨still,stillExec,-⟩ := live q q.cursor (max (max (q.timestamp+1) 0) s.timestamp) (anchor env s)
+    obtain ⟨quiet,quietExec,choice⟩ :=
+      live q (q.cursor+1) (max (max (q.timestamp+1) 0) s.timestamp) (anchor env s) raw later
+    obtain ⟨still,stillExec,-⟩ := live q q.cursor (max (max (q.timestamp+1) 0) s.timestamp) (anchor env s) raw later
     have skip : e.timestamp+x.inbox.forcedDelay ≤ s.timestamp →
         (d.bytes.canonical raw = false ∨ d.bytes.buildSingleton q quiet raw = .completedEmpty) →
         ∃ b : Block, Blocks.Valid (policy env x [] (R+1)) q b ∧ Parent env x p s (i+1) b.header ∧
           env.headerParent b.header.elHash = q.elHash ∧ Facts env image R b := fun due skippable =>
-      assemble setup room parent cat implemented quietExec (slot := some (q.cursor,e)) (raw := raw) (first := none)
+      assemble setup room parent cat implemented quietExec (slot := some (q.cursor,e)) (first := none)
         stored (step_skip open_ hashed short due skippable) rfl open_
     have wait : s.timestamp < e.timestamp+x.inbox.forcedDelay →
         ∃ b : Block, Blocks.Valid (policy env x [] (R+1)) q b ∧ Parent env x p s (i+1) b.header ∧
           env.headerParent b.header.elHash = q.elHash ∧ Facts env image R b := fun early =>
-      assemble setup room parent cat implemented stillExec (slot := some (q.cursor,e)) (raw := raw) (first := none)
+      assemble setup room parent cat implemented stillExec (slot := some (q.cursor,e)) (first := none)
         stored (step_wait open_ hashed short early) rfl (Nat.le_of_lt open_)
     cases canonical : d.bytes.canonical raw
     · by_cases due : e.timestamp+x.inbox.forcedDelay ≤ s.timestamp
       · exact skip due (.inl canonical)
       · exact wait (Nat.lt_of_not_le due)
-    · rcases choice raw canonical short with ⟨h,exec⟩ | empty
-      · exact assemble setup room parent cat implemented exec (slot := some (q.cursor,e)) (raw := raw)
-          (first := some raw) stored (step_include open_ hashed short canonical) rfl open_
+    · rcases choice canonical short with ⟨h,exec⟩ | empty
+      · exact assemble setup room parent cat implemented exec (slot := some (q.cursor,e)) (first := some raw)
+          stored (step_include open_ hashed short canonical) rfl open_
       · by_cases due : e.timestamp+x.inbox.forcedDelay ≤ s.timestamp
         · exact skip due (.inr empty)
         · exact wait (Nat.lt_of_not_le due)
-  · obtain ⟨quiet,quietExec,-⟩ := live q q.cursor (max (max (q.timestamp+1) 0) s.timestamp) (anchor env s)
-    exact assemble setup room parent cat implemented quietExec (slot := none) (raw := []) (first := none)
+  · obtain ⟨quiet,quietExec,-⟩ := live q q.cursor (max (max (q.timestamp+1) 0) s.timestamp) (anchor env s) [] later
+    exact assemble setup room parent cat implemented quietExec (slot := none) (first := none)
       (fun _ absent => nomatch absent) (step_closed (Nat.le_of_not_lt open_)) rfl parent.tail
 
 /-- The remaining `n` blocks from a parent `i` blocks into the segment. -/

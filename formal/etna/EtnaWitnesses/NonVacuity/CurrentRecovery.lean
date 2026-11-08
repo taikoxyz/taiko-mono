@@ -273,10 +273,10 @@ private theorem child_parent (parent : Header) (cursor timestamp : Nat) (anchor 
   exact (Encoding.pair_injective (root.symm.trans fields.2.1)).1
 
 private theorem child_executes (parent : Header) (cursor timestamp : Nat) (anchor : BlockValidity.Anchor)
-    (txs : List Blocks.Bytes) :
-    Executes env definition parent cursor timestamp anchor txs (child parent cursor timestamp anchor) := by
+    (raw : Blocks.Bytes) (txs : List Blocks.Bytes) :
+    Executes env definition parent cursor timestamp anchor raw txs (child parent cursor timestamp anchor) := by
   refine ⟨rfl,rfl,rfl,rfl,child_bound parent cursor timestamp anchor,child_parent parent cursor timestamp anchor,?_⟩
-  intro body raw header _
+  intro body header _ _ _
   refine ⟨?_,rfl⟩
   change decide (body.header.cometHash = cometCode body.header ∧ body.header.elHash = Encoding.headerHash body.header) = true
   rw [header]
@@ -284,9 +284,9 @@ private theorem child_executes (parent : Header) (cursor timestamp : Nat) (ancho
 
 private theorem ruleset_live (m : Nat) : RulesetLive env m := by
   refine ⟨definition,rfl,?_⟩
-  intro parent cursor timestamp anchor
-  exact ⟨child parent cursor timestamp anchor,child_executes parent cursor timestamp anchor [],
-    fun raw _ _ => .inl ⟨_,child_executes parent cursor timestamp anchor [raw]⟩⟩
+  intro parent cursor timestamp anchor raw _
+  exact ⟨child parent cursor timestamp anchor,child_executes parent cursor timestamp anchor raw [],
+    fun _ _ => .inl ⟨_,child_executes parent cursor timestamp anchor raw [raw]⟩⟩
 
 /-! The reachable world and `LiveAt`. -/
 
