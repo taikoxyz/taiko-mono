@@ -7909,13 +7909,9 @@
       "bridge_level": "spec-proved",
       "sources": [
         "LIVE_EN-4d6ef522fb0ee3fa",
-        "LIVE_EN-6674a50cc097257d",
-        "LIVE_EN-47c9c7d7edef31c4",
-        "LIVE_EN-e83bfb4c2586fe1b",
         "LIVE_EN-e4d5ea9bf749c3f7",
         "LIVE_EN-7bda477553dde1bb",
         "LIVE_EN-a563a899ed3d4c6b",
-        "LIVE_EN-73cb2e63a07656eb",
         "LIVE_EN-a0a126e4b8ea2b61"
       ],
       "scope": "Derived conditional decoded property: the L1 half of H4's recovery path (design 4.3). From a reachable, initialized state satisfying LiveAt, under RecoveryPremises, a RecoveryTrace (no rollback; one plain recovery with no exclusions, no FI blanking and no upgrade) advances L1 to the window block R; on a switching network it writes the start with setOrigin, rewrites a start that differs from the final Unzen header with correctStart (only before any landing) and proves the final Unzen proposal with unzenProve unless the lane is finalized; it registers an image implementing every selected ruleset, selects ProofComplete's verifier version, recovers at R with the current generation, checkpoint and nonce, keeping the schedule (rules 0) or installing ruleset next+1, and advances L1 to R+2. The reached state's facts (Recovery.Prepared) include a hash-bound header of the current checkpoint whose timestamp is at least K+1 seconds before R's, the first-landing fence, the snapshots at R and R+1 closed, and a live committee elected at R. The segment, certificate and landing are proved separately; DAO transaction refinement is outside the model."
