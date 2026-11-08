@@ -62,6 +62,10 @@ func run() error {
 			return keygen(os.Args[2:], os.Stdout)
 		case "pop":
 			return pop(os.Args[2:], os.Stdout)
+		case "init-domains-log":
+			return initDomainsLogCommand(os.Args[2:])
+		case "init-state":
+			return initStateCommand(os.Args[2:])
 		}
 	}
 	addr := flag.String("comet-signer-addr", "", "Comet-owned signer listener (unix:// or tcp:// SecretConnection)")
