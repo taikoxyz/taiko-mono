@@ -34,7 +34,8 @@ makes, against its own L1 and EL.
 
 - Keep usable canonical EL state at c and the old EL ancestry. Keep own-L1 headers back to
   `L1_0` and the historical `eth_getProof` and `debug_getRawHeader` the checks need (SYNC-9-16).
-  `prepare` checks that the state at c is readable; it never builds a block. Keep
+  `prepare` checks that the state at c is readable; it never builds a block. The recovered
+  app's InitChain checks it again and waits, with trust closed, while it is missing. Keep
   `--engine.allow-unwind-canonical-header` disabled. The old EL head may stay above c until the
   recovered app commits its first block through normal Engine calls.
 - Never copy, restore or reset signing state (RECOV-8.2-1..3); only a failover moves the latest

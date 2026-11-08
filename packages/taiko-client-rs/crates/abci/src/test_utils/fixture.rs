@@ -575,6 +575,8 @@ pub(crate) fn recovery_fixture_with_spec(
     } else {
         vec![parent.clone(), el.clone()]
     });
+    // `prepare` requires readable state at c, and recovery InitChain checks it again.
+    engine.state().historical_state.insert(el.hash_slow());
     let mut storage = fx.inbox_with(c + 6);
     storage.recovery_generation = generation;
     storage.forced_inclusion_head = 8;

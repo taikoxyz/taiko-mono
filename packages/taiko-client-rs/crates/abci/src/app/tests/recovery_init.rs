@@ -486,6 +486,42 @@ async fn recovery_init_waits_on_the_same_request_for_historical_evidence() {
     assert!(!trust.snapshot().is_ready());
 }
 
+/// An EL that lost c's state after `prepare` (pruned, or replaced by another EL serving the same
+/// headers) is missing data (SYNC-9-7): InitChain stays pending with trust closed and stores
+/// nothing, instead of reporting Ready and halting on the first execution, and completes once
+/// the EL serves that state again.
+#[tokio::test]
+async fn recovery_init_waits_with_trust_closed_until_the_el_serves_origin_state() {
+    let (fx, l1, engine, w) = recovery_fixture(1, 6, 1);
+    let origin = w.el_header.hash_slow();
+    assert!(engine.state().historical_state.remove(&origin));
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let trust = app.trust_handle();
+    let req = request(&document(&fx, &w));
+    let waiting = tokio::time::timeout(
+        std::time::Duration::from_millis(30),
+        init_chain(&mut app, req.clone()),
+    )
+    .await;
+    assert!(waiting.is_err(), "missing origin state must keep InitChain pending: {waiting:?}");
+    assert!(app.store.load().unwrap().is_none());
+    assert!(app.store.fatal_evidence().unwrap().is_none(), "missing state is not a halt");
+    let closed = trust.snapshot();
+    assert!(!closed.is_ready());
+    assert!(
+        closed.reason.as_deref().is_some_and(|reason| reason.contains("lacks the state")),
+        "{closed:?}"
+    );
+    app.engine.state().historical_state.insert(origin);
+    let result = tokio::time::timeout(std::time::Duration::from_secs(3), init_chain(&mut app, req))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(result.app_hash.as_bytes(), origin.as_slice());
+    assert_eq!(app.store.load().unwrap().unwrap().last_height, 6);
+}
+
 #[tokio::test]
 async fn recovery_init_restart_reuses_authenticated_historical_sidecar_when_state_is_pruned() {
     let (fx, l1, engine, w) = recovery_fixture(1, 6, 1);

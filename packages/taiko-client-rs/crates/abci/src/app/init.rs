@@ -190,7 +190,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// from the immutable sidecar a previous attempt stored (which must retain `w` exactly, with
     /// its anchor still final and canonical) or fetches it from the own L1
     /// ([`recovery_bootstrap`]); and requires the EL to serve c and its parent exactly as `w`
-    /// authenticates them. Returns the sidecar to store and what its verification authenticates.
+    /// authenticates them, and c's state. Returns the sidecar to store and what its verification
+    /// authenticates.
     ///
     /// [`check_recovery_canonicality`]: crate::recovery::check_recovery_canonicality
     /// [`recovery_bootstrap`]: crate::recovery::recovery_bootstrap
@@ -256,6 +257,17 @@ impl<L: L1Source, E: Engine> App<L, E> {
             return Err(AbciError::SafetyHalt(
                 "EL contradicts authenticated recovery parent".into(),
             ));
+        }
+        // The first recovered block executes on c's state. An EL that pruned it after
+        // `prepare`, or was replaced since, is missing data: InitChain waits with trust closed
+        // instead of reporting Ready and halting on that first execution (SYNC-9-7).
+        let state = self.engine.historical_state_available(w.el_header.hash_slow());
+        if !within("EL recovery origin state read", self.opts.engine_timeout, state).await? {
+            return Err(crate::RecoveryError::Unavailable(format!(
+                "execution engine lacks the state of recovery origin {}",
+                w.el_header.number
+            ))
+            .into());
         }
         Ok((bootstrap, history))
     }
