@@ -55,7 +55,7 @@ If `init-state` is interrupted after creating the state and before the log line,
 state remains, and both `serve` and `init-state` refuse it. Check that the file is byte for byte
 the stock zero state (`{"height": "0", "round": 0, "step": 0}`, indented as FilePV writes it),
 remove it and rerun `init-state`. A state that is not the zero state may have signed:
-never remove it. Never edit the log by hand.
+never remove it. Never edit the log by hand, except to repair a torn tail (Repairing a torn domains log).
 
 Create the registration proof for the actual owner, registry and L1 chain:
 
@@ -104,8 +104,9 @@ owner lock `<state>.lock`; the absence of the `<state>.uncertain` fence; and the
 must be the stock zero state or carry a signature by the registered key over that chain ID's
 canonical sign bytes. Only then does it load the stock FilePV. It never creates, initializes
 or resets HRS. The locks are held while serving, so two signers sharing these files never both
-serve (RECOV-8.2-2); another host is outside their reach (see Failover). Preserve the key, every state, the log, the Comet WAL and app history on
-restart; never use `keygen` or `init-state` as a recovery action.
+serve (RECOV-8.2-2); another host is outside their reach (see Failover). Preserve the key,
+every state, the log, the Comet WAL and app history on restart; never use `keygen` or
+`init-state` as a recovery action.
 
 The signer creates `<key>.lock` beside the key and `<state>.lock` beside the state, so both
 directories must be writable by the signer. The key file itself may be read-only, but a
@@ -142,6 +143,27 @@ registered key for a logged chain: it passes every check and is served. Losing b
 and the log volume likewise looks like a fresh deployment. Neither can be detected; both are
 forbidden operational practice: never restore any signing state from a backup (RECOV-8.2-1,
 RECOV-8.2-6).
+
+### Repairing a torn domains log
+
+A log whose last byte is not a newline is torn: an `init-state` append was interrupted, and
+every serve refuses the log (exit 3). Only an operator repairs it, by hand; nothing repairs it
+automatically.
+
+1. Stop every signer that uses the log, and every supervisor and restart controller that could
+   start one.
+2. Every complete line, ending in a newline, is valid. Keep each one as it is.
+3. The bytes after the last newline are the torn tail: a prefix of the chain ID whose
+   `init-state` append was interrupted. That chain was never served, because serving needs its
+   complete line.
+4. Truncate only the bytes after the last newline, and fsync the log, for example:
+   `python3 -c 'import os,sys; p=sys.argv[1]; n=open(p,"rb").read().rindex(b"\n")+1; f=os.open(p,os.O_WRONLY); os.ftruncate(f,n); os.fsync(f)' /private/domains/domains.log`
+5. For that chain, follow the interrupted-`init-state` step under Bootstrap: check that its
+   state is byte for byte the stock zero state, remove it, and rerun `init-state`.
+
+Never remove or change a complete line, and never truncate a log that ends in a newline.
+
+### Supervision and trust
 
 Use `script/start_etna_validator.sh` to supervise the signer and a configured Comet home after
 starting the ABCI app. Set `ETNA_COMET_HOME`, `ETNA_APP_STORE`, `ETNA_PRIV_KEY`,
@@ -213,9 +235,9 @@ never restarted (SYNC-9-14):
 
 | Signer exit                                                                   | Fence   | Supervisor action                                                                                                                                                                                                                                                                          |
 | ----------------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 3                                                                             | any     | Latch "signer refused unsafe signing state; inspect its stderr, `<state>.uncertain` and the domains log"                                                                                                                                                                                   |
-| any                                                                           | present | The same latch                                                                                                                                                                                                                                                                             |
-| still running 5 s after the supervisor's SIGTERM, so SIGKILLed                | any     | Latch "signer did not stop within 5s of SIGTERM and was killed; …": it may be blocked on a failing state volume after a failed fsync and before its fence                                                                                                                                  |
+| 3                                                                             | any     | Latch "signer refused unsafe signing state; inspect its stderr, `<state>.uncertain` and the domains log", and create the signer-unsafe record                                                                                                                                              |
+| any                                                                           | present | The same latch and record                                                                                                                                                                                                                                                                  |
+| still running 5 s after the supervisor's SIGTERM, so SIGKILLed                | any     | Before the SIGKILL, log `etna_supervisor_signer_killed` and create the signer-unsafe record; then latch "signer did not stop within 5s of SIGTERM and was killed; …". It may be blocked on a failing state volume after a failed fsync and before its fence                                |
 | 0, 1, 2 or a signal, while the supervisor is not stopping it                  | absent  | Record the exit; the fifth within 600 s latches "signer exited 5 times within 600s; inspect diagnostics". Otherwise reap Comet, start a fresh signer with `--await-trust` on the same state path and a fresh transport, and start Comet once the signer's new session is Ready (SYNC-9-12) |
 | 0, 1, 2 or SIGTERM while the supervisor stops it (shutdown, recovery restart) | absent  | Normal                                                                                                                                                                                                                                                                                     |
 
@@ -234,30 +256,53 @@ minutes are a persistent fault and latch. The count lives in the supervisor's me
 reset by a successful restart; a supervisor or container restart resets it, and the container's
 `CrashLoopBackOff` bounds that case.
 
-Residual risk: a SIGKILL from outside the supervisor (the OOM killer, `kill -9`) that lands
-after a failed fsync and before the fence is durable leaves no fence and no exit 3, and the
-supervisor restarts the signer. On Linux the failed write-back's error may already have been
-reported, so a cached retry's fsync can then succeed over state that never reached disk, and a
-later host crash rolls the HRS back. Never SIGKILL the signer, and give it enough memory that
-the OOM killer never picks it. The same window existed before for a killed container, whose
-supervisor latch dies with it. A SIGKILL that arrives while the supervisor is stopping the
-signer is latched like its own. A healthy signer can also exceed the 5 s grace while it waits
-on a slow app (each trust query is bounded by `--trust-timeout`, 1 s by default); that latches
-too, which is safe.
+The signer-unsafe record, `<app-store>/validator-supervisor.signer-unsafe`, is independent of
+the first-cause latch: the supervisor's start, every restart and every tick refuse while it
+exists, so repairing only another latched cause never restarts the signer. Exit 3, a fence, and
+an unsafe exit or kill found while halting for another cause all create it. A signer blocked on
+a failing volume sleeps uninterruptibly and may not be reaped for minutes, or ever on a hard
+NFS mount, and the supervisor may itself be killed during that wait (for example by the
+kubelet after `terminationGracePeriodSeconds`). So a kill is recorded before the SIGKILL is
+sent: the supervisor logs `etna_supervisor_signer_killed`, creates the record and fsyncs it and
+the store directory, retrying until that succeeds. A SIGKILL from someone else during the 5 s
+grace is recorded only once the supervisor has reaped the signer. A healthy signer waiting on a
+slow app can also exceed the grace (each trust query is bounded by `--trust-timeout`, 1 s by
+default); that is recorded and latched too, which is safe. Remove the record and the latch only
+after inspection shows that no fsync failed: no fence, no I/O error for the state volume in the
+kernel log, none in the signer's stderr. Otherwise the state is uncertain and is resolved
+through governance (RECOV-8.2-3).
+
+Residual risk: any death of the signer between a failed fsync and a durable fence leaves no
+fence and no exit 3, and the supervisor restarts it like any crash. That covers a SIGKILL from
+outside the supervisor (the OOM killer, `kill -9`) and a Go runtime fatal error (exit 2) inside
+`writeFence`. On Linux the failed write-back's error may already have been reported and the
+dirty pages dropped, so a cached retry's fsync can succeed over state that never reached disk
+(SYNC-9-13). The HRS then rolls back after a host crash, or after the kernel evicts those pages
+and the signer restarts. Never SIGKILL the signer, and give it enough memory that neither the
+OOM killer nor a failed Go allocation ends it. A killed container had the same window before
+the supervisor restarted signers.
 
 ### Failover
 
 Moving a validator to a standby host is operational practice (RECOV-8.2-6). The key, state and
 log flocks protect one host's files only: two hosts holding copies of the key both sign, and the
-signer cannot see the other host. Move, never copy:
+signer cannot see the other host. Never fail over uncertain state: a host with a
+`<state>.uncertain` fence, a `validator-supervisor.signer-unsafe` record, or a latch for an
+unsafe signer exit or a killed signer is resolved through governance, not moved (RECOV-8.2-3).
+Never run `init-state` (or `init-domains-log`) on the standby: it would start a second history
+for a chain that has already signed. Move, never copy:
 
 1. Stop the old host's supervisor and every restart controller that could start it again, and
-   make sure its signer can never run again (power it off or detach its volumes).
-2. Move the key, the latest `<chain_id>.json` of every chain and the domains log byte for byte
-   from the stopped host, never from a backup or a snapshot of a running host. Keep the states
-   and the log on separate volumes.
-3. Delete the old host's state, so that host refuses to serve (exit 3, logged chain without
-   state), then start the standby.
+   fence the host so its signer can never run again: power it off, or detach its volumes.
+2. With the old host's volumes attached to the standby or a maintenance host, check that its
+   state directory holds no fence and its app store no signer-unsafe record or unsafe or kill
+   latch, then move the key, the latest
+   `<chain_id>.json` of every chain and the domains log byte for byte from those volumes, never
+   from a backup or a snapshot of a running host. Keep the states and the log on separate
+   volumes.
+3. Delete the state files from the old volumes, wherever they are attached, or destroy those
+   volumes, before anything could start the old host again; if it does start, it then refuses
+   (exit 3, logged chain without state). Then start the standby.
 
 The standby continues from the moved HRS: it returns the stored signature for the same step and
 refuses conflicting data and lower steps (`TestHRSSurvivesCrashRestartAndFailover`, ACCEPTANCE
@@ -288,8 +333,9 @@ Every existing fence inode fails startup with exit 3, including malformed, unrea
 aliased evidence. Both signer and supervisor refuse to rearm it across app or container
 restarts. After stopping all owners, inspect and preserve the fence, the HRS, the domains log
 and the supervisor and app first-cause evidence, and check the disk. Only an explicit operator
-repair after that inspection may remove the fence and resolve the supervisor halt. Never
-restore an older HRS, reset signed bytes, or edit the log to resume the identity.
+repair after that inspection may remove the fence and resolve the supervisor halt and its
+signer-unsafe record. Never restore an older HRS, reset signed bytes, or edit the log to resume
+the identity.
 
 ## Governance recovery
 

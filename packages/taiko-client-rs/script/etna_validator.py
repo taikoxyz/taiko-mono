@@ -24,7 +24,9 @@ together as on a first start, and a refusal there recovers again once Ready.
 A signer exit the supervisor did not ask for restarts the pair the same way: Comet is
 reaped, and a fresh signer with the same state path and --await-trust gets Comet once its
 new session is Ready. Unsafe signing state never restarts (SYNC-9-14): exit 3, a retained
-fence, a signer that had to be SIGKILLed on stop, and five exits within 600 s latch.
+fence, a signer that had to be SIGKILLed on stop, and five exits within 600 s latch. All but
+the last also leave validator-supervisor.signer-unsafe in the app store, independent of the
+first-cause latch; a kill is recorded there before the SIGKILL is sent.
 """
 import fcntl
 import json
@@ -59,6 +61,12 @@ SIGNER_CRASH_WINDOW = 600.0
 SIGNER_STOP_GRACE = 5
 SIGNER_UNSAFE_LATCH = ("signer refused unsafe signing state; inspect its stderr, `<state>.uncertain` "
                        "and the domains log")
+# The durable record, beside and independent of the first-cause latch, that the signer's state
+# may be uncertain: a signer the supervisor kills (written before the SIGKILL), an unsafe exit, or
+# a fence. run(), start() and tick refuse while it exists; only an operator repair removes it.
+SIGNER_UNSAFE_RECORD = "validator-supervisor.signer-unsafe"
+SIGNER_UNSAFE_RECORD_LATCH = ("retained signer-unsafe record; inspect validator-supervisor.signer-unsafe, "
+                              "the signer's stderr, `<state>.uncertain` and the domains log")
 SIGNER_KILLED_LATCH = (f"signer did not stop within {SIGNER_STOP_GRACE}s of SIGTERM and was killed; "
                        "its signing state may be uncertain; inspect its stderr, the state volume, "
                        "`<state>.uncertain` and the domains log")
@@ -242,10 +250,12 @@ class Supervisor:
     def stop(self):
         """Reap Comet, then the signer, and return the signer's exit status (None if none ran).
 
-        Never touches HRS, WAL or history, and never latches: callers latch an unsafe status
-        (signer_unsafe). A signer still running SIGNER_STOP_GRACE seconds after SIGTERM is
-        killed and recorded in signer_killed: one that hangs on stop may be blocked on a failing
-        state volume after a failed fsync and before its fence (RECOV-8.2-3).
+        Never touches HRS, WAL or history, and never writes the first-cause latch: callers latch
+        an unsafe status (signer_unsafe). A signer still running SIGNER_STOP_GRACE seconds after
+        SIGTERM may be blocked in a failed fsync or its fence write on a failing state volume
+        (RECOV-8.2-3, SYNC-9-13), in D-state, where SIGKILL cannot reap it until that I/O
+        returns. So the kill is recorded durably in the app store before the SIGKILL is sent, and
+        a supervisor killed during the unbounded wait that follows still leaves that record.
         """
         code = None
         if self.comet is not None:
@@ -264,14 +274,23 @@ class Supervisor:
             try:
                 self.signer.wait(timeout=SIGNER_STOP_GRACE)
             except subprocess.TimeoutExpired:
+                self.record_signer_kill(f"signer {self.signer.pid} did not stop within {SIGNER_STOP_GRACE}s "
+                                        "of SIGTERM; recorded before SIGKILL")
                 self.signer.kill()
                 self.signer.wait()
             code = self.signer.returncode
-            # Ours or another SIGKILL within the grace period: the signer did not stop by itself.
-            if running and code == -signal.SIGKILL:
-                self.signer_killed = True
+            if running and code == -signal.SIGKILL and not getattr(self, "signer_killed", False):
+                # Another party's SIGKILL during the grace period, recorded once reaped.
+                self.record_signer_kill(f"signer {self.signer.pid} was SIGKILLed while stopping")
             self.signer = None
         return code
+
+    def record_signer_kill(self, detail):
+        """Mark the signer killed and make that durable, retrying until it is on disk."""
+        self.signer_killed = True
+        print(f"etna_supervisor_signer_killed: {detail}", flush=True)
+        while not self.record_unsafe_signer(SIGNER_KILLED_LATCH + "\n"):
+            time.sleep(.1)
 
     def fresh_transport(self):
         """Return the next pair's signer address, after removing stale Unix rendezvous names.
@@ -308,10 +327,10 @@ class Supervisor:
         """Start a fresh signer, and Comet with it unless the signer must first be trusted.
 
         Runs only with both earlier children reaped, so their flocks are released, and never
-        while a fence exists. Every start gets a fresh transport (fresh_transport).
+        while a fence or the unsafe record exists. Every start gets a fresh transport
+        (fresh_transport).
         """
-        if self.signer_uncertain():
-            self.halt(SIGNER_UNSAFE_LATCH)
+        if self.refuse_unsafe_start():
             return
         self.validate_denial_route()
         self.address = self.fresh_transport()
@@ -358,17 +377,55 @@ class Supervisor:
                 identity = dict(user=uid, group=gid, extra_groups=[])
         self.comet = subprocess.Popen(command, cwd=self.home, **identity, **self.child_options())
 
-    def persist_latch(self, text):
-        """Durably create the halt latch; an existing one is never replaced."""
-        with self.latch.open("x") as file:
-            file.write(text)
-            file.flush()
-            os.fsync(file.fileno())
-        directory = os.open(self.store, os.O_RDONLY)
+    @property
+    def unsafe_record(self):
+        return self.store / SIGNER_UNSAFE_RECORD
+
+    def persist_record(self, path, text):
+        """Make a plain-text record in the app store durable: create it exclusively, or keep an
+        existing one as it is; then fsync it and the store directory."""
+        if os.path.lexists(path):
+            descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+            with os.fdopen(descriptor, "rb") as source:
+                if not stat.S_ISREG(os.fstat(source.fileno()).st_mode):
+                    raise ValueError(f"{path.name} is not regular")
+                os.fsync(source.fileno())
+        else:
+            with path.open("x") as file:
+                file.write(text)
+                file.flush()
+                os.fsync(file.fileno())
+        directory = os.open(self.store, os.O_RDONLY | os.O_DIRECTORY)
         try:
             os.fsync(directory)
         finally:
             os.close(directory)
+
+    def persistence_pending(self, error):
+        message = str(error)
+        if getattr(self, "halt_error", None) != message:
+            print(f"etna_supervisor_halt_persistence_pending: {message}", flush=True)
+            self.halt_error = message
+
+    def record_unsafe_signer(self, text):
+        """Durably record that the signer's state may be uncertain, apart from the first-cause
+        latch, so repairing only another latched cause never restarts it (RECOV-8.2-3)."""
+        self.halted = True
+        if getattr(self, "unsafe_retry", None) is None:
+            self.unsafe_retry = text
+        return self.retry_unsafe_record()
+
+    def retry_unsafe_record(self):
+        text = getattr(self, "unsafe_retry", None)
+        if text is None:
+            return True
+        try:
+            self.persist_record(self.unsafe_record, text)
+        except (OSError, ValueError) as error:
+            self.persistence_pending(error)
+            return False
+        self.unsafe_retry = None
+        return True
 
     def retain_latch(self, text):
         """Keep the owner alive and quiescent if terminal evidence cannot be flushed.
@@ -384,26 +441,10 @@ class Supervisor:
         """Retry durability without overwriting any existing first cause."""
         if getattr(self, "halt_retry", None) is None:
             return True
-        text = self.halt_retry
         try:
-            if os.path.lexists(self.latch):
-                descriptor = os.open(self.latch, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
-                with os.fdopen(descriptor, "rb") as source:
-                    if not stat.S_ISREG(os.fstat(source.fileno()).st_mode):
-                        raise ValueError("terminal latch is not regular")
-                    os.fsync(source.fileno())
-                descriptor = os.open(self.store, os.O_RDONLY | os.O_DIRECTORY)
-                try:
-                    os.fsync(descriptor)
-                finally:
-                    os.close(descriptor)
-            else:
-                self.persist_latch(text)
+            self.persist_record(self.latch, self.halt_retry)
         except (OSError, ValueError) as error:
-            message = str(error)
-            if getattr(self, "halt_error", None) != message:
-                print(f"etna_supervisor_halt_persistence_pending: {message}", flush=True)
-                self.halt_error = message
+            self.persistence_pending(error)
             return False
         self.halt_retry = None
         self.halt_error = None
@@ -411,8 +452,9 @@ class Supervisor:
 
     def signer_unsafe(self, code):
         """Whether a signer exit forbids a restart (RECOV-8.2-3, SYNC-9-14): exit 3, a fence
-        beside the HRS, or a signer that stop() had to kill."""
-        return code == SIGNER_UNSAFE_EXIT or getattr(self, "signer_killed", False) or self.signer_uncertain()
+        beside the HRS, a signer that stop() had to kill, or a retained unsafe record."""
+        return (code == SIGNER_UNSAFE_EXIT or getattr(self, "signer_killed", False) or self.signer_uncertain()
+                or os.path.lexists(self.unsafe_record))
 
     def unsafe_reason(self):
         return SIGNER_KILLED_LATCH if getattr(self, "signer_killed", False) else SIGNER_UNSAFE_LATCH
@@ -421,8 +463,19 @@ class Supervisor:
         """Latch an unsafe signer exit status; True if it did."""
         if not self.signer_unsafe(code):
             return False
+        self.record_unsafe_signer(self.unsafe_reason() + "\n")
         self.halt(self.unsafe_reason())
         return True
+
+    def refuse_unsafe_start(self):
+        """Halt instead of starting a signer over a fence or a retained unsafe record."""
+        if self.signer_uncertain():
+            self.halt(SIGNER_UNSAFE_LATCH)
+            return True
+        if os.path.lexists(self.unsafe_record):
+            self.halt(SIGNER_UNSAFE_RECORD_LATCH)
+            return True
+        return False
 
     def signer_exited(self, code):
         """Handle a signer exit the supervisor did not ask for.
@@ -465,16 +518,20 @@ class Supervisor:
         observation failing, so nothing is latched, and signing stays refused.
         """
         self.retain_latch(reason + "\n")
-        self.stop()
+        # A signer killed, or exiting unsafe, while halting for another cause keeps its own record.
+        if self.signer_unsafe(self.stop()):
+            self.record_unsafe_signer(self.unsafe_reason() + "\n")
         print("etna_supervisor_halted: operator repair required", flush=True)
 
     def tick(self):
-        if getattr(self, "halted", False) or os.path.lexists(self.latch):
+        if getattr(self, "halted", False) or os.path.lexists(self.latch) or os.path.lexists(self.unsafe_record):
             if self.comet is not None or self.signer is not None:
                 # An existing latch keeps its first cause, but never hides an unsafe exit.
                 if self.signer_unsafe(self.stop()):
-                    self.retain_latch(self.unsafe_reason() + "\n")
+                    self.record_unsafe_signer(self.unsafe_reason() + "\n")
+            self.halted = True
             self.retry_latch()
+            self.retry_unsafe_record()
             return
         observed = self.read_observation(self.events)
         if observed is not None and observed[0] != self.prior_observation:
@@ -586,9 +643,7 @@ class Supervisor:
         signal.signal(signal.SIGTERM, shutdown)
         signal.signal(signal.SIGINT, shutdown)
         try:
-            if self.signer_uncertain():
-                self.halt(SIGNER_UNSAFE_LATCH)
-            elif not os.path.lexists(self.latch):
+            if not self.refuse_unsafe_start() and not os.path.lexists(self.latch):
                 self.start()
             while self.running:
                 self.tick()
@@ -596,7 +651,7 @@ class Supervisor:
         finally:
             # A restartAlways supervisor restarts the signer, so an unsafe exit at shutdown latches.
             self.halt_if_unsafe(self.stop())
-            while not self.retry_latch():
+            while not (self.retry_latch() and self.retry_unsafe_record()):
                 time.sleep(.1)
             for descriptor in self.owner_fds:
                 os.close(descriptor)

@@ -581,14 +581,18 @@ committing those values to the Inbox.
    closed session with `--await-trust`, and Comet starts once that session is Ready. Exit 3,
    a retained fence, a signer still running 5 s after the supervisor's SIGTERM (it is
    SIGKILLed) and the fifth such exit within 600 s latch instead (SYNC-9-14); the exit count
-   lives in memory, so a supervisor restart resets it. See
+   lives in memory, so a supervisor restart resets it. All but the crash loop also create
+   `<data-dir>/validator-supervisor.signer-unsafe`, independent of the first-cause latch; a
+   kill is recorded there, durably, before the SIGKILL is sent, and every start refuses while
+   it exists. See
    [the restart table](tools/etna-signer/README.md#supervisor-restarts-and-latches).
    The signer releases a signature only after it fsyncs the state file and its directory. If
    either fsync fails, it withholds the signature, writes `<priv-state>.uncertain` beside that
    chain's HRS and exits 3; a crash writes no fence. A retained fence blocks startup, including
    when the supervisor was killed before writing its app-store latch.
    If that latch cannot be written, the supervisor stops its children, stays quiescent and
-   retries persistence. Container restart cannot clear a retained signer fence or halt latch.
+   retries persistence. Container restart cannot clear a retained signer fence, signer-unsafe
+   record or halt latch.
    A Comet EOF following observed control/trust loss also recovers after private Ready;
    a repeated configuration failure with continuously Ready trust stays latched. Exact app
    shutdown revocations wait for a fresh app incarnation; they never authorize signing.

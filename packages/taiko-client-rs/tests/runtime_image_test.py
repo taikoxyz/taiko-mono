@@ -204,8 +204,9 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
     # The real signer refuses a lost key, HRS or domains log, and nothing is regenerated. A lost
     # HRS or log is lost signing state (exit 3, RECOV-8.2-3), which latches at once; a lost key
     # is a configuration error (exit 1), which the supervisor restarts until the fifth exit
-    # within 600 s latches.
-    latch = app / "validator-supervisor.halted"
+    # within 600 s latches. Exit 3 also leaves the signer-unsafe record, which this smoke clears
+    # with the latch before the next case, as an operator repair would.
+    latch, unsafe = app / "validator-supervisor.halted", app / "validator-supervisor.signer-unsafe"
     for missing in [key, state, log]:
         saved = missing.with_suffix(".saved")
         missing.rename(saved)
@@ -223,7 +224,9 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
                 refused.send_signal(signal.SIGTERM)
                 refused.wait(timeout=20)
         assert not missing.exists(), "missing authoritative files must never regenerate"
+        assert unsafe.exists() == (missing != key), "only lost signing state is recorded unsafe"
         latch.unlink()
+        unsafe.unlink(missing_ok=True)
         saved.rename(missing)
     print(json.dumps(dict(architecture=os.uname().machine, expected_platform=expected_platform, binary_elf_machines=binary_machines, comet_source_tag="v0.40.0", comet_version_label=version, python=os.sys.version.split()[0],
                           comet_sha256=hashlib.sha256(Path("/usr/bin/cometbft").read_bytes()).hexdigest(),

@@ -1,6 +1,8 @@
 """Real child-process supervision with a controlled private trust peer."""
+import contextlib
 import importlib.util
 import fcntl
+import io
 import json
 import os
 from pathlib import Path
@@ -312,6 +314,8 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
         latch = self.store / "validator-supervisor.halted"
         self.assertTrue(latch.exists(), "a signer killed at shutdown was not latched")
         self.assertIn("did not stop", latch.read_text())
+        self.assertIn("did not stop", (self.store / "validator-supervisor.signer-unsafe").read_text())
+        self.assertIn("etna_supervisor_signer_killed", Path(self.log.name).read_text(errors="replace"))
         self.assertEqual((self.root / "lifecycle").read_text().splitlines()[-2:],
                          ["comet_reaped", "signer_stopped"])
         self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")],
@@ -700,11 +704,108 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
         latch = self.store / "validator-supervisor.halted"
         self.wait(latch.exists, timeout=15)
         self.assertIn("did not stop", latch.read_text())
+        self.assertIn("did not stop", (self.store / "validator-supervisor.signer-unsafe").read_text())
         time.sleep(.5)
         self.assertEqual(len(self.signers()), 1)
         self.assertEqual(self.starts(), 1)
         self.assertIsNone(self.proc.poll())
         self.assertFalse(any(signer for signer in self.signers() if self.alive(signer["pid"])))
+        self.assertEqual(self.state.read_text(), "authoritative HRS")
+
+    def test_kill_record_is_durable_before_the_sigkill_and_survives_supervisor_death(self):
+        """A signer blocked in a failed fsync or its fence write on a failing volume is in D-state:
+        SIGKILL cannot reap it until that I/O returns, and the supervisor may itself be killed
+        during that wait (the kubelet's grace period). So the kill is recorded durably, apart from
+        any first-cause latch, before the SIGKILL is sent (RECOV-8.2-3). D-state cannot be produced
+        portably, so the signer's reap after SIGKILL never returns here: the supervisor dies in it."""
+        self.proc.terminate()
+        self.assertEqual(self.proc.wait(timeout=10), 0)
+        spec = importlib.util.spec_from_file_location("etna_kill_record", ROOT / "script/etna_validator.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        latch, record = self.store / "validator-supervisor.halted", self.store / "validator-supervisor.signer-unsafe"
+        events = []
+
+        class SupervisorKilled(BaseException):
+            pass
+
+        class Unreapable:
+            """The real signer process, except that the wait after SIGKILL never returns."""
+            def __init__(self, child):
+                self.child = child
+
+            def __getattr__(self, name):
+                return getattr(self.child, name)
+
+            def kill(self):
+                events.append(("kill", record.read_text() if record.exists() else None))
+                self.child.kill()
+
+            def wait(self, timeout=None):
+                if timeout is not None:
+                    return self.child.wait(timeout=timeout)
+                events.append(("wait", record.exists()))
+                raise SupervisorKilled()
+
+        (self.root / "signer_hang_on_term").touch()
+        output = io.StringIO()
+        with patch.dict(os.environ, self.env, clear=True):
+            runtime = module.Supervisor()
+            runtime.acquire_owner()
+            real = None
+            try:
+                runtime.start()
+                self.wait(lambda: self.starts() == 2 and len(self.signers()) == 2)
+                real = runtime.signer
+                runtime.signer = Unreapable(real)
+                with contextlib.redirect_stdout(output), self.assertRaises(SupervisorKilled):
+                    runtime.stop()
+            finally:
+                if real is not None:
+                    real.kill()
+                    real.wait(timeout=5)
+                for descriptor in runtime.owner_fds:
+                    os.close(descriptor)
+        self.assertEqual(len(events), 2, events)
+        self.assertEqual(events[0][0], "kill")
+        self.assertIn("did not stop", events[0][1] or "", "the kill was sent before its record existed")
+        self.assertEqual(events[1], ("wait", True))
+        self.assertIn("etna_supervisor_signer_killed", output.getvalue())
+        self.assertFalse(latch.exists(), "the supervisor died before any latch")
+        # The next supervisor refuses to start the signer over that state.
+        self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")],
+                                     env=self.env, stdout=self.log, stderr=self.log)
+        self.wait(latch.exists)
+        time.sleep(.4)
+        self.assertIsNone(self.proc.poll())
+        self.assertIn("signer-unsafe record", latch.read_text())
+        self.assertIn("did not stop", record.read_text())
+        self.assertEqual((self.starts(), len(self.signers())), (2, 2))
+        self.assertEqual(self.state.read_text(), "authoritative HRS")
+
+    def test_kill_inside_halt_is_recorded_beside_the_first_cause(self):
+        """A signer that must be killed while halting for another cause leaves its kill record
+        beside that first cause, so repairing only the first cause never restarts it."""
+        (self.root / "signer_hang_on_term").touch()
+        self.phase = "halted"
+        latch, record = self.store / "validator-supervisor.halted", self.store / "validator-supervisor.signer-unsafe"
+        self.wait(record.exists, timeout=15)
+        self.wait(lambda: "etna_supervisor_halted" in Path(self.log.name).read_text(errors="replace"), timeout=15)
+        self.assertEqual(latch.read_text(), "terminal app trust or deployment identity\n")
+        self.assertIn("did not stop", record.read_text())
+        self.assertIn("etna_supervisor_signer_killed", Path(self.log.name).read_text(errors="replace"))
+        # The operator repairs only the app cause.
+        self.proc.terminate()
+        self.assertEqual(self.proc.wait(timeout=10), 0)
+        latch.unlink()
+        self.phase = "ready"
+        self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")],
+                                     env=self.env, stdout=self.log, stderr=self.log)
+        self.wait(latch.exists)
+        time.sleep(.4)
+        self.assertIsNone(self.proc.poll())
+        self.assertIn("signer-unsafe record", latch.read_text())
+        self.assertEqual((self.starts(), len(self.signers())), (1, 1))
         self.assertEqual(self.state.read_text(), "authoritative HRS")
 
     @staticmethod
@@ -1276,6 +1377,7 @@ class SupervisorUnitTests(unittest.TestCase):
             runtime.tick()
             self.assertEqual(runtime.latch.read_bytes(), original)
             self.assertTrue(runtime.halted)
+            self.assertIn(b"unsafe signing state", (runtime.store / "validator-supervisor.signer-unsafe").read_bytes())
             for name, raw in preserved.items():
                 self.assertEqual((runtime.store / name).read_bytes(), raw)
 
