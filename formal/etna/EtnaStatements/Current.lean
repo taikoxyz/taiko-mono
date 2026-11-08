@@ -4,6 +4,7 @@ import EtnaModel.CurrentQueueIntegrity
 import EtnaModel.CurrentUnzen
 import EtnaModel.CurrentGovernance
 import EtnaModel.CurrentCheckpointRisk
+import EtnaModel.CurrentRecovery
 
 /-! Current conditional safety over a closed decoded machine. Raw deployment,
 commitment and cryptographic facts remain explicit; their joint accepting realization
@@ -176,6 +177,71 @@ def ForcedInclusionAt (env : Environment) (w : World) : Prop :=
 def ForcedInclusionIntegrity : Prop :=
   ∀ env registry engine, Premises env registry engine → ∀ w, Trace env (empty env registry) w →
     ForcedInclusionAt env w
+
+/-- MODEL-1-1/1-2: one verifier version proves every batch an image certifies, with two
+proofs of that image, at least one ZK. -/
+def ProofComplete (env : Environment) : Prop :=
+  ∃ version, ∀ w image d, ImageCertifies env w image d →
+    ∃ proofs : List Proof, dualOK (proofs.map fun p => (p.backend,true)) = true ∧
+      ∀ p ∈ proofs, p.image = image ∧ env.verify version p.backend image p.bytes d = true
+
+/-- DA (5.2, 6.3): up to six blocks within the 3.4 size bound fit in one to six blobs. -/
+def PayloadLive (env : Environment) : Prop :=
+  ∀ bs : List Blocks.Block, bs.length ≤ 6 → (∀ b ∈ bs, b.body.blockBytes ≤ 124000) →
+    ∃ blobs : List Hash, 1 ≤ blobs.length ∧ blobs.length ≤ 6 ∧ env.payload blobs bs = true
+
+/-- LIMIT-12-9, START-10-5: every header a valid proof of the Unzen Inbox's final proposal
+authenticates is a usable Etna start. -/
+def UnzenStartUsable (env : Environment) : Prop :=
+  env.core.unzenInbox ≠ 0 → ∀ h proof, env.unzenValid (env.unzenNextProposal-1) h proof = true →
+    0 < h.height ∧ h.height+6 < limit48 ∧ h.elHash ≠ 0 ∧ h.stateRoot ≠ 0 ∧
+    env.startImplementation h.stateRoot = true ∧ ∀ s, Custody.StartsAt s h → HashBound env s
+
+/-- LIMIT-12-9: the Unzen lane has finalized its last proposal, or can from where it is. -/
+def UnzenLaneLive (env : Environment) (w : World) : Prop :=
+  env.core.unzenInbox ≠ 0 →
+    (w.unzen.checkpointExists = true ∧ w.unzen.nextProposal = w.unzen.finalizedProposal+1) ∨
+    ∃ h proof, env.unzenValid (w.unzen.nextProposal-1) h proof = true ∧
+      w.unzen.finalizedProposal < w.unzen.nextProposal-1 ∧
+      env.unzenParent w.unzen.finalizedProposal (w.unzen.nextProposal-1) h proof = w.unzen.finalizedHash
+
+/-- START-10.1, LIMIT-12-21: the current rulesets work, or ruleset next+1 does. -/
+def LiveRules (env : Environment) (w : World) : Prop :=
+  (RulesetLive env w.schedule.active ∧ RulesetLive env w.schedule.next ∧
+    ∃ image, w.schedule.active ∈ env.imageRules image ∧ w.schedule.next ∈ env.imageRules image) ∨
+  (RulesetLive env (w.schedule.next+1) ∧ ∃ image, w.schedule.next+1 ∈ env.imageRules image)
+
+/-- The premises H4 adds to H1's. -/
+structure RecoveryPremises (env : Environment) (registry : RegistryMachine.State) : Prop
+    extends FundPremises env registry where
+  recoveryClock : ∀ m n, m < n → env.time m < env.time n
+  recoveryCatalogueHash : CatalogueHash env
+  proofComplete : ProofComplete env
+  payloadLive : PayloadLive env
+  unzenStart : UnzenStartUsable env
+
+/-- Per-state conditions of H4 (design 4.5). -/
+structure LiveAt (env : Environment) (w : World) : Prop where
+  /-- Excludes the rollback-across-K-change trap (`RollbackGridTrap.rollback_grid_trap`). -/
+  grid : ∀ start, w.start = some start →
+    Start.onGrid start.height w.inbox.gridK w.inbox.checkpoint.height = true
+  generation : w.inbox.generation+2 < limit48
+  nonce : w.inbox.recoveryNonce+1 < limit256
+  rules : w.schedule.next+1 < limit48
+  height : w.inbox.checkpoint.height+w.inbox.gridK < limit48
+  window : ∃ n keys, w.number < n ∧ n+4 < limit48 ∧ WindowBound env w ≤ env.time n ∧
+    env.time n+8 < limit256 ∧ CommitteeLive env w n keys
+  ruleset : LiveRules env w
+  unzen : UnzenLaneLive env w
+
+def RecoverableAt (env : Environment) (w : World) : Prop :=
+  ∃ u a t, RecoveryTrace env w u ∧ land env u a = some t ∧
+    (w.everLanded = true → w.inbox.checkpoint.height < t.inbox.checkpoint.height)
+
+def Recoverability : Prop :=
+  ∀ env registry, RecoveryPremises env registry → ∀ w,
+    Trace env (empty env registry) w → w.initialized = true → LiveAt env w →
+    RecoverableAt env w
 
 def Claims : Prop := FundSafety ∧ AccountableFinality ∧ ForcedInclusionIntegrity
 
