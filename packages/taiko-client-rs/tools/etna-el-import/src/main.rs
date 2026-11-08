@@ -6,7 +6,7 @@ use alloy_primitives::B256;
 use clap::{Args, Parser, Subcommand};
 use etna_el_import::{
     DatasetReport, ElTrust, HeaderManifest, ImportError, install_dataset,
-    install_dataset_with_scratch, verify_dataset, verify_dataset_with_scratch,
+    install_dataset_with_scratch,
 };
 use std::{
     fs::File,
@@ -22,27 +22,30 @@ const JSON_LIMIT: u64 = 256 * 1024 * 1024;
 #[derive(Parser)]
 #[command(version, about)]
 struct Cli {
-    /// Read-only verification or installation into privately claimed unpublished staging.
+    /// One installation from a stopped source into a fresh datadir.
     #[command(subcommand)]
     operation: Operation,
 }
 
-/// Every successful operation still leaves chain trust and signing to the parent application.
+/// A successful install still leaves chain trust and signing to the parent application.
 #[derive(Subcommand)]
 enum Operation {
-    /// Recompute actual account/storage/code state without adopting old histories.
-    Verify(Inputs),
-    /// Build a pruned normal-provider-compatible component in owned offline staging.
+    /// Copy a stopped EL datadir, verify its state against the trusted root and build a pruned
+    /// normal-provider-compatible datadir, without adopting old histories.
     Install(Inputs),
 }
 
 /// Separate trusted roots are mandatory and cannot default to publisher metadata.
 #[derive(Args)]
 struct Inputs {
-    /// Canonical effective EL directory, with a private lifecycle claim for install.
+    /// Stopped EL datadir whose `db/{mdbx.dat,database.version}` are copied; never written.
+    #[arg(long)]
+    source: PathBuf,
+    /// Absent absolute directory that the install creates.
     #[arg(long)]
     datadir: PathBuf,
-    /// Existing external directory for private offline work, cleaned on success or failure.
+    /// Existing directory outside the source for private offline work, cleaned on success or
+    /// failure; defaults to the new datadir.
     #[arg(long)]
     scratch_parent: Option<PathBuf>,
     /// Operator's original EL runtime Genesis JSON, distinct from Comet genesis.
@@ -80,12 +83,9 @@ fn load<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T, ImportError> {
     serde_json::from_slice(&bytes).map_err(|_| ImportError::Invalid("invalid local JSON input"))
 }
 
-/// Dispatch one complete offline operation with independently supplied expected identities.
+/// Run one complete offline install with independently supplied expected identities.
 fn execute(operation: Operation) -> Result<DatasetReport, ImportError> {
-    let (inputs, install) = match operation {
-        Operation::Verify(inputs) => (inputs, false),
-        Operation::Install(inputs) => (inputs, true),
-    };
+    let Operation::Install(inputs) = operation;
     let genesis: Genesis = load(&inputs.chain)?;
     let manifest: HeaderManifest = load(&inputs.manifest)?;
     let trust = ElTrust {
@@ -94,15 +94,12 @@ fn execute(operation: Operation) -> Result<DatasetReport, ImportError> {
         terminal_hash: inputs.trusted_el_hash,
         state_root: inputs.trusted_state_root,
     };
-    match (install, inputs.scratch_parent.as_deref()) {
-        (true, Some(parent)) => {
-            install_dataset_with_scratch(&inputs.datadir, &genesis, &manifest, &trust, parent)
+    let (source, datadir) = (&inputs.source, &inputs.datadir);
+    match inputs.scratch_parent.as_deref() {
+        Some(parent) => {
+            install_dataset_with_scratch(source, datadir, &genesis, &manifest, &trust, parent)
         }
-        (false, Some(parent)) => {
-            verify_dataset_with_scratch(&inputs.datadir, &genesis, &manifest, &trust, parent)
-        }
-        (true, None) => install_dataset(&inputs.datadir, &genesis, &manifest, &trust),
-        (false, None) => verify_dataset(&inputs.datadir, &genesis, &manifest, &trust),
+        None => install_dataset(source, datadir, &genesis, &manifest, &trust),
     }
 }
 

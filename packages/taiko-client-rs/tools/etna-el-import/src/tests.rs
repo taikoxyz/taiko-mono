@@ -1,4 +1,4 @@
-use super::{ImportError, StateReport, verify_state};
+use crate::{ImportError, StateCounts, state::verify_state};
 use alloy_primitives::{Address, B256, U256, keccak256};
 use alloy_trie::{HashBuilder, Nibbles, TrieAccount};
 use reth_db::{DatabaseEnv, mdbx::DatabaseArguments};
@@ -34,12 +34,8 @@ fn fixture(root: &std::path::Path) -> (DatabaseEnv, Address, Account, B256) {
     (db, address, account, account_root(address, account))
 }
 
-fn verify_fixture(dir: &tempfile::TempDir, expected: B256) -> Result<StateReport, ImportError> {
-    verify_state(
-        &dir.path().join("db").canonicalize().unwrap(),
-        expected,
-        &dir.path().canonicalize().unwrap(),
-    )
+fn verify_fixture(root: &std::path::Path, expected: B256) -> Result<StateCounts, ImportError> {
+    verify_state(&root.join("db").canonicalize().unwrap(), expected, &root.canonicalize().unwrap())
 }
 
 #[test]
@@ -51,8 +47,7 @@ fn verifies_plain_accounts_independently_of_a_forged_hashed_index() {
         .unwrap();
     tx.commit().unwrap();
     drop(db);
-    let report = verify_fixture(&dir, expected).unwrap();
-    assert_eq!(report.state_root, expected);
+    let report = verify_fixture(dir.path(), expected).unwrap();
     assert_eq!(report.accounts, 1);
     assert!(!report.storage_v2);
 }
@@ -67,7 +62,7 @@ fn rejects_changed_plain_balance_despite_a_matching_claimed_root() {
     tx.commit().unwrap();
     drop(db);
     assert!(
-        matches!(verify_fixture(&dir, expected), Err(ImportError::StateRoot { expected: root, .. }) if root == expected)
+        matches!(verify_fixture(dir.path(), expected), Err(ImportError::StateRoot { expected: root, .. }) if root == expected)
     );
 }
 
@@ -82,7 +77,7 @@ fn rejects_missing_referenced_bytecode_even_when_the_account_root_matches() {
     tx.commit().unwrap();
     drop(db);
     assert!(matches!(
-        verify_fixture(&dir, expected),
+        verify_fixture(dir.path(), expected),
         Err(ImportError::Incomplete("missing referenced bytecode"))
     ));
 }
@@ -102,7 +97,7 @@ fn refuses_an_unfinished_snap_attempt_in_a_legacy_layout() {
     tx.commit().unwrap();
     drop(db);
     assert!(matches!(
-        verify_fixture(&dir, expected),
+        verify_fixture(dir.path(), expected),
         Err(ImportError::Incomplete("complete the EL's pending snap attempt before import"))
     ));
 }
@@ -119,9 +114,7 @@ fn v2_verifies_canonical_hashed_leaves_instead_of_obsolete_plain_state() {
         .unwrap();
     tx.commit().unwrap();
     drop(db);
-    let report = verify_fixture(&dir, expected).unwrap();
-    assert!(report.storage_v2);
-    assert_eq!(report.state_root, expected);
+    assert!(verify_fixture(dir.path(), expected).unwrap().storage_v2);
 }
 
 #[test]
@@ -142,7 +135,7 @@ fn accepts_a_verified_snap_record_after_independent_leaf_verification() {
         .unwrap();
     tx.commit().unwrap();
     drop(db);
-    assert_eq!(verify_fixture(&dir, expected).unwrap().state_root, expected);
+    verify_fixture(dir.path(), expected).unwrap();
 }
 
 #[test]
@@ -158,7 +151,7 @@ fn verifies_referenced_code_and_rejects_changed_bytes_under_the_same_key() {
     tx.put::<tables::Bytecodes>(code_hash, Bytecode::new_raw(code)).unwrap();
     tx.commit().unwrap();
     drop(db);
-    assert_eq!(verify_fixture(&dir, expected).unwrap().bytecodes, 1);
+    assert_eq!(verify_fixture(dir.path(), expected).unwrap().bytecodes, 1);
     let db = reth_db::open_db(dir.path().join("db"), DatabaseArguments::test()).unwrap();
     let tx = db.tx_mut().unwrap();
     tx.put::<tables::Bytecodes>(
@@ -169,7 +162,7 @@ fn verifies_referenced_code_and_rejects_changed_bytes_under_the_same_key() {
     tx.commit().unwrap();
     drop(db);
     assert!(matches!(
-        verify_fixture(&dir, expected),
+        verify_fixture(dir.path(), expected),
         Err(ImportError::Invalid("bytecode content does not match its hash"))
     ));
 }
@@ -187,7 +180,7 @@ fn authenticates_storage_values_and_rejects_orphan_storage() {
     tx.put::<tables::PlainStorageState>(address, StorageEntry { key: slot, value }).unwrap();
     tx.commit().unwrap();
     drop(db);
-    assert_eq!(verify_fixture(&dir, expected).unwrap().storage_slots, 1);
+    assert_eq!(verify_fixture(dir.path(), expected).unwrap().storage_slots, 1);
     let db = reth_db::open_db(dir.path().join("db"), DatabaseArguments::test()).unwrap();
     let tx = db.tx_mut().unwrap();
     tx.put::<tables::PlainStorageState>(
@@ -198,7 +191,7 @@ fn authenticates_storage_values_and_rejects_orphan_storage() {
     tx.commit().unwrap();
     drop(db);
     assert!(matches!(
-        verify_fixture(&dir, expected),
+        verify_fixture(dir.path(), expected),
         Err(ImportError::Invalid("zero or orphan storage row"))
     ));
 }
@@ -215,7 +208,7 @@ fn rejects_an_added_storage_value_when_the_authenticated_account_had_empty_stora
     .unwrap();
     tx.commit().unwrap();
     drop(db);
-    assert!(matches!(verify_fixture(&dir, expected), Err(ImportError::StateRoot { .. })));
+    assert!(matches!(verify_fixture(dir.path(), expected), Err(ImportError::StateRoot { .. })));
 }
 
 fn header_manifest() -> (super::HeaderManifest, super::ElTrust) {
@@ -240,10 +233,7 @@ fn header_manifest() -> (super::HeaderManifest, super::ElTrust) {
     };
     let manifest = super::HeaderManifest {
         schema: 1,
-        installation_id: B256::repeat_byte(0xa1),
         chain_id: trust.chain_id,
-        origin: 600,
-        unsettled_limit: 3600,
         finalized_height: 610,
         finalized_hash: headers[10].hash_slow(),
         headers,
@@ -261,26 +251,39 @@ fn retains_a_finalized_ancestor_more_than_255_headers_behind_the_import() {
 }
 
 #[test]
-fn refuses_a_255_only_header_window_and_a_rebound_finalized_hash() {
+fn refuses_a_rebound_finalized_hash_and_broken_links() {
     let (manifest, trust) = header_manifest();
-    let mut shortened = manifest.clone();
-    shortened.headers.retain(|header| header.number >= 645);
-    assert!(shortened.verify(&trust).is_err());
-    let mut rebound = manifest;
+    let mut rebound = manifest.clone();
     rebound.finalized_hash = trust.terminal_hash;
     assert!(rebound.verify(&trust).is_err());
+    let mut above_q = manifest.clone();
+    above_q.headers.retain(|header| header.number > 610);
+    assert!(above_q.verify(&trust).is_err(), "q must lie inside the range");
+    let mut gap = manifest.clone();
+    gap.headers.remove(100);
+    assert!(gap.verify(&trust).is_err(), "a number gap breaks the range");
+    let mut relinked = manifest.clone();
+    relinked.headers[100].parent_hash = B256::repeat_byte(0x66);
+    assert!(relinked.verify(&trust).is_err(), "a changed parent hash breaks the range");
+    let mut short_terminal = manifest;
+    short_terminal.headers.pop();
+    assert!(short_terminal.verify(&trust).is_err(), "the range must end at the trusted terminal");
 }
 
+/// The Rust caller's `header_floor` is authoritative: with U > 255 it starts the range at s-U,
+/// one header below the helper's former max(o, s-U+1) floor.
 #[test]
-fn retains_the_inherited_fence_at_s_minus_u_until_the_next_anchor_advances() {
-    let (mut manifest, trust) = header_manifest();
-    manifest.origin = 0;
-    manifest.unsettled_limit = 300;
-    manifest.finalized_height = 600;
-    manifest.finalized_hash = manifest.headers[0].hash_slow();
-    let verified = manifest.verify(&trust).unwrap();
-    assert_eq!(verified.finalized().number, 600);
-    assert_eq!(verified.headers().first().unwrap().number, 600);
+fn accepts_any_linked_range_ending_at_s_that_holds_the_finalized_checkpoint() {
+    let (manifest, trust) = header_manifest();
+    // header_floor(o = 0, s = 900, U = 300) = min(900 - 255, max(0, 900 - 300)) = 600, q = 601.
+    let mut floor = manifest.clone();
+    floor.finalized_height = 601;
+    floor.finalized_hash = floor.headers[1].hash_slow();
+    let verified = floor.verify(&trust).unwrap();
+    assert_eq!((verified.headers()[0].number, verified.finalized().number), (600, 601));
+    let mut at_q = manifest;
+    at_q.headers.retain(|header| header.number >= 610);
+    assert_eq!(at_q.verify(&trust).unwrap().headers()[0].number, 610);
 }
 
 #[test]
@@ -343,7 +346,11 @@ fn reopens_sparse_static_headers_and_real_hash_number_indexes() {
 }
 
 struct DatasetFixture {
-    dir: tempfile::TempDir,
+    _dir: tempfile::TempDir,
+    /// Stopped EL datadir holding the downloaded `db`.
+    source: std::path::PathBuf,
+    /// Absent install target beside the source.
+    data: std::path::PathBuf,
     genesis: alloy_genesis::Genesis,
     manifest: super::HeaderManifest,
     trust: super::ElTrust,
@@ -353,10 +360,10 @@ struct DatasetFixture {
 
 fn dataset_fixture(storage_v2: bool) -> DatasetFixture {
     use reth_chainspec::EthChainSpec;
-    use std::os::unix::fs::PermissionsExt;
     let dir = tempfile::tempdir().unwrap();
-    std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
-    let (db, address, account, root) = fixture(&dir.path().join("db"));
+    let source = dir.path().canonicalize().unwrap().join("source");
+    let data = dir.path().canonicalize().unwrap().join("el");
+    let (db, address, account, root) = fixture(&source.join("db"));
     let tx = db.tx_mut().unwrap();
     if storage_v2 {
         tx.put::<tables::Metadata>("storage_settings".into(), br#"{"storage_v2":true}"#.to_vec())
@@ -386,20 +393,75 @@ fn dataset_fixture(storage_v2: bool) -> DatasetFixture {
     trust.terminal_hash = parent;
     trust.state_root = root;
     manifest.finalized_hash = manifest.headers[10].hash_slow();
-    let verified = manifest.verify(&trust).unwrap();
-    let marker = serde_json::json!({"schema":1,"installation_id":manifest.installation_id,
-        "manifest_hash":verified.manifest_hash().unwrap()});
-    std::fs::write(
-        dir.path().join(".etna-el-import-staging.json"),
-        serde_json::to_vec(&marker).unwrap(),
-    )
-    .unwrap();
-    std::fs::set_permissions(
-        dir.path().join(".etna-el-import-staging.json"),
-        std::fs::Permissions::from_mode(0o600),
-    )
-    .unwrap();
-    DatasetFixture { dir, genesis, manifest, trust, address, account }
+    manifest.verify(&trust).unwrap();
+    DatasetFixture { _dir: dir, source, data, genesis, manifest, trust, address, account }
+}
+
+impl DatasetFixture {
+    fn install(&self) -> Result<super::DatasetReport, ImportError> {
+        super::install_dataset(&self.source, &self.data, &self.genesis, &self.manifest, &self.trust)
+    }
+
+    fn source_db(&self) -> DatabaseEnv {
+        reth_db::open_db(self.source.join("db"), DatabaseArguments::test()).unwrap()
+    }
+}
+
+#[test]
+fn install_copies_the_stopped_source_and_never_writes_it() {
+    use std::os::unix::fs::PermissionsExt;
+    let f = dataset_fixture(false);
+    let db = f.source.join("db");
+    let lock = db.join("mdbx.lck");
+    if lock.exists() {
+        std::fs::remove_file(lock).unwrap();
+    }
+    let entries = |path: &std::path::Path| {
+        let mut names: Vec<_> =
+            std::fs::read_dir(path).unwrap().map(|e| e.unwrap().file_name()).collect();
+        names.sort();
+        names
+    };
+    let (before, listed) = (std::fs::read(db.join("mdbx.dat")).unwrap(), entries(&db));
+    // A read-write open of the source would fail on these modes (outside a root container).
+    for path in [&db, &f.source] {
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o500)).unwrap();
+    }
+    let installed = f.install();
+    let again = f.install();
+    for path in [&db, &f.source] {
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700)).unwrap();
+    }
+    installed.unwrap();
+    assert_eq!(std::fs::read(db.join("mdbx.dat")).unwrap(), before);
+    assert_eq!(entries(&db), listed);
+    assert!(f.data.join("db/mdbx.dat").is_file());
+    assert!(matches!(again, Err(ImportError::Invalid(_))), "an existing datadir is refused");
+    let nested =
+        super::install_dataset(&f.source, &f.source.join("el"), &f.genesis, &f.manifest, &f.trust);
+    assert!(matches!(nested, Err(ImportError::Invalid(_))), "the source tree is never written");
+    assert!(!f.source.join("el").exists());
+}
+
+#[test]
+fn install_rejects_a_changed_balance_through_the_single_root_check() {
+    for storage_v2 in [false, true] {
+        let f = dataset_fixture(storage_v2);
+        let db = f.source_db();
+        let tx = db.tx_mut().unwrap();
+        let changed = Account { balance: U256::from(20), ..f.account };
+        if storage_v2 {
+            tx.put::<tables::HashedAccounts>(keccak256(f.address), changed).unwrap();
+        } else {
+            tx.put::<tables::PlainAccountState>(f.address, changed).unwrap();
+        }
+        tx.commit().unwrap();
+        drop(db);
+        assert!(
+            matches!(f.install(), Err(ImportError::StateRoot { expected, .. }) if expected == f.trust.state_root),
+            "storage_v2 = {storage_v2}"
+        );
+    }
 }
 
 #[test]
@@ -407,17 +469,16 @@ fn installs_a_pruned_baseline_and_rejects_pre_checkpoint_state_in_both_layouts()
     use reth_provider::StateProviderFactory;
     for storage_v2 in [false, true] {
         let f = dataset_fixture(storage_v2);
-        let data_dir = f.dir.path().canonicalize().unwrap();
-        let report = super::install_dataset(&data_dir, &f.genesis, &f.manifest, &f.trust).unwrap();
-        assert!(report.installed);
-        assert_eq!(report.state_floor, Some(900));
+        let data_dir = &f.data;
+        let report = f.install().unwrap();
+        assert_eq!((report.height, report.first_header, report.finalized_height), (900, 600, 610));
         let logical = std::fs::metadata(data_dir.join("db/mdbx.dat")).unwrap().len();
         assert!(
             logical <= 128 * 1024 * 1024,
             "small offline state reserved {logical} logical bytes"
         );
-        assert_eq!(report.state.state_root, f.trust.state_root);
-        let factory = super::dataset::open_factory(&data_dir, &f.genesis)
+        assert_eq!(report.state_root, f.trust.state_root);
+        let factory = super::dataset::open_factory(data_dir, &f.genesis)
             .unwrap()
             .assert_consistent()
             .unwrap();
@@ -452,13 +513,8 @@ fn verifies_canonical_devnet_alloc_variants_with_the_runtime_fork_table() {
         .clone_with_devnet_etna_timestamp(0)
         .unwrap();
     f.trust.genesis_hash = configured.genesis_header().hash_slow();
-    let report = super::verify_dataset(
-        &f.dir.path().canonicalize().unwrap(),
-        &canonical,
-        &f.manifest,
-        &f.trust,
-    )
-    .unwrap();
+    let report =
+        super::install_dataset(&f.source, &f.data, &canonical, &f.manifest, &f.trust).unwrap();
     assert_eq!(report.genesis_hash, f.trust.genesis_hash);
     assert_eq!(report.state_root, f.trust.state_root);
 }
@@ -483,7 +539,7 @@ fn review_rejects_foreign_bytecode_analysis_and_malformed_compact_data() {
         tx.put::<RawTable<tables::Bytecodes>>(hash.into(), RawValue::from_vec(bad)).unwrap();
         tx.commit().unwrap();
         drop(db);
-        assert!(verify_fixture(&dir, expected).is_err(), "invalid compact bytecode accepted");
+        assert!(verify_fixture(dir.path(), expected).is_err(), "invalid compact bytecode accepted");
     }
 }
 
@@ -497,7 +553,7 @@ fn review_accepts_checked_native_eip7702_bytecode() {
     tx.put::<tables::Bytecodes>(keccak256(code.original_byte_slice()), code).unwrap();
     tx.commit().unwrap();
     drop(db);
-    assert_eq!(verify_fixture(&dir, expected).unwrap().bytecodes, 1);
+    assert_eq!(verify_fixture(dir.path(), expected).unwrap().bytecodes, 1);
 }
 
 #[test]
@@ -514,7 +570,7 @@ fn review_rejects_noncanonical_physical_table_schema() {
     tx.put::<tables::PlainAccountState>(address, account).unwrap();
     tx.commit().unwrap();
     drop(db);
-    assert!(verify_fixture(&dir, expected).is_err(), "unexpected native DB flags accepted");
+    assert!(verify_fixture(dir.path(), expected).is_err(), "unexpected native DB flags accepted");
 }
 
 #[test]
@@ -542,8 +598,7 @@ fn install_multichunk_state(storage_v2: bool) {
     use std::collections::BTreeMap;
     const N: u64 = 75_011;
     let mut f = dataset_fixture(storage_v2);
-    let data = f.dir.path().canonicalize().unwrap();
-    let db = reth_db::open_db(data.join("db"), DatabaseArguments::test()).unwrap();
+    let db = f.source_db();
     let mut tx = db.tx_mut().unwrap();
     let mut accounts = BTreeMap::new();
     let mut slots = BTreeMap::new();
@@ -584,19 +639,10 @@ fn install_multichunk_state(storage_v2: bool) {
     last.state_root = expected;
     f.trust.state_root = expected;
     f.trust.terminal_hash = last.hash_slow();
-    let digest = f.manifest.verify(&f.trust).unwrap().manifest_hash().unwrap();
-    std::fs::write(
-        data.join(".etna-el-import-staging.json"),
-        serde_json::to_vec(&serde_json::json!({
-            "schema":1, "installation_id": f.manifest.installation_id, "manifest_hash": digest
-        }))
-        .unwrap(),
-    )
-    .unwrap();
-    let report = super::install_dataset(&data, &f.genesis, &f.manifest, &f.trust).unwrap();
+    let report = f.install().unwrap();
     assert_eq!((report.state.accounts, report.state.storage_slots), (N + 1, N));
     let factory =
-        super::dataset::open_factory(&data, &f.genesis).unwrap().assert_consistent().unwrap();
+        super::dataset::open_factory(&f.data, &f.genesis).unwrap().assert_consistent().unwrap();
     let provider = factory.provider().unwrap();
     let tx = provider.tx_ref();
     let cache_nodes = tx.entries::<tables::AccountsTrie>().unwrap() +
@@ -628,7 +674,7 @@ fn multichunk_v2_reopened_provider_state_and_proofs() {
 fn rejects_two_values_for_one_canonical_storage_slot_in_both_layouts() {
     for v2 in [false, true] {
         let f = dataset_fixture(v2);
-        let db = reth_db::open_db(f.dir.path().join("db"), DatabaseArguments::test()).unwrap();
+        let db = f.source_db();
         let tx = db.tx_mut().unwrap();
         let key = B256::repeat_byte(5);
         for n in 1..=2 {
@@ -642,7 +688,7 @@ fn rejects_two_values_for_one_canonical_storage_slot_in_both_layouts() {
         tx.commit().unwrap();
         drop(db);
         assert!(matches!(
-            verify_fixture(&f.dir, f.trust.state_root),
+            verify_fixture(&f.source, f.trust.state_root),
             Err(ImportError::Invalid("invalid canonical state encoding"))
         ));
     }
@@ -662,7 +708,7 @@ fn rejects_malformed_account_fields_before_pinned_compact_decode() {
     tx.commit().unwrap();
     drop(db);
     assert!(matches!(
-        verify_fixture(&dir, expected),
+        verify_fixture(dir.path(), expected),
         Err(ImportError::Invalid("invalid canonical state encoding"))
     ));
 }
@@ -716,8 +762,7 @@ fn installed_native_version_history_accepts_the_actual_versioned_startup_path() 
         tables::{RawTable, RawValue},
     };
     let f = dataset_fixture(false);
-    let data = f.dir.path().canonicalize().unwrap();
-    let db = reth_db::open_db(data.join("db"), DatabaseArguments::test()).unwrap();
+    let db = f.source_db();
     let tx = db.tx_mut().unwrap();
     tx.put::<RawTable<tables::VersionHistory>>(1u64.into(), RawValue::from_vec(vec![0])).unwrap();
     tx.put::<RawTable<tables::HeaderTerminalDifficulties>>(
@@ -727,14 +772,14 @@ fn installed_native_version_history_accepts_the_actual_versioned_startup_path() 
     .unwrap();
     tx.commit().unwrap();
     drop(db);
-    super::install_dataset(&data, &f.genesis, &f.manifest, &f.trust).unwrap();
+    f.install().unwrap();
     let version = ClientVersion {
         version: "etna-test".into(),
         git_sha: "6ac93d4".into(),
         build_timestamp: "test".into(),
     };
     let db = reth_db::init_db(
-        data.join("db"),
+        f.data.join("db"),
         DatabaseArguments::new(version.clone())
             .with_geometry_max_size(Some(64 << 20))
             .with_growth_step(Some(4 << 20)),
@@ -756,12 +801,9 @@ fn installs_pinned_alethia_catalog_and_discards_foreign_origin_rows() {
     let names = ["StoredL1OriginTable", "StoredL1HeadOriginTable", "BatchToLastBlock"];
     for v2 in [false, true] {
         let f = dataset_fixture(v2);
-        let data = f.dir.path().canonicalize().unwrap();
-        let db = reth_db::open_db(data.join("db"), DatabaseArguments::test()).unwrap();
-        add_native_tables(&db, &names, None);
-        drop(db);
-        super::install_dataset(&data, &f.genesis, &f.manifest, &f.trust).unwrap();
-        let db = reth_db::open_db_read_only(data.join("db"), DatabaseArguments::test()).unwrap();
+        add_native_tables(&f.source_db(), &names, None);
+        f.install().unwrap();
+        let db = reth_db::open_db_read_only(f.data.join("db"), DatabaseArguments::test()).unwrap();
         let tx = db.tx().unwrap();
         for name in names {
             let dbi = tx.get_dbi_raw(name).unwrap();
@@ -769,7 +811,7 @@ fn installs_pinned_alethia_catalog_and_discards_foreign_origin_rows() {
         }
         drop(tx);
         drop(db);
-        let factory = super::dataset::open_factory(&data, &f.genesis).unwrap();
+        let factory = super::dataset::open_factory(&f.data, &f.genesis).unwrap();
         assert_eq!(factory.latest().unwrap().basic_account(&f.address).unwrap(), Some(f.account));
     }
 }
@@ -785,9 +827,33 @@ fn rejects_partial_substituted_or_wrong_flag_alethia_catalogs() {
         ),
     ] {
         let f = dataset_fixture(false);
-        let db = reth_db::open_db(f.dir.path().join("db"), DatabaseArguments::test()).unwrap();
-        add_native_tables(&db, &names, bad_flag);
-        drop(db);
-        assert!(verify_fixture(&f.dir, f.trust.state_root).is_err());
+        add_native_tables(&f.source_db(), &names, bad_flag);
+        assert!(verify_fixture(&f.source, f.trust.state_root).is_err());
     }
+}
+
+#[test]
+fn rejects_an_unsupported_database_format_even_if_leaf_state_matches() {
+    let dir = tempfile::tempdir().unwrap();
+    let database = dir.path().join("db");
+    drop(reth_db::init_db(&database, DatabaseArguments::default()).unwrap());
+    std::fs::write(database.join("database.version"), b"99999999").unwrap();
+    assert!(matches!(
+        verify_fixture(dir.path(), alloy_trie::EMPTY_ROOT_HASH),
+        Err(ImportError::Invalid("unsupported database version"))
+    ));
+}
+
+#[test]
+fn verifies_a_fresh_copy_without_importing_the_sources_reader_lock() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("source");
+    drop(reth_db::init_db(&source, DatabaseArguments::default()).unwrap());
+    let target = dir.path().join("db");
+    std::fs::create_dir(&target).unwrap();
+    for name in ["mdbx.dat", "database.version"] {
+        std::fs::copy(source.join(name), target.join(name)).unwrap();
+    }
+    assert!(!target.join("mdbx.lck").exists());
+    verify_fixture(dir.path(), alloy_trie::EMPTY_ROOT_HASH).unwrap();
 }

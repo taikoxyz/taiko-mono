@@ -2,9 +2,8 @@
 
 use std::{
     fmt::Display,
-    fs::{File, OpenOptions},
-    io::{Read, Write},
-    os::unix::fs::{MetadataExt, OpenOptionsExt},
+    fs::{DirBuilder, File},
+    os::unix::fs::DirBuilderExt,
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -15,7 +14,7 @@ use alloy_consensus::Header;
 use alloy_genesis::Genesis;
 use alloy_primitives::B256;
 use reth_chainspec::EthChainSpec;
-use reth_db::DatabaseEnv;
+use reth_db::{DatabaseEnv, mdbx::DatabaseArguments};
 use reth_db_api::{
     Database,
     cursor::DbCursorRO,
@@ -35,19 +34,11 @@ use reth_static_file_types::StaticFileSegment;
 use reth_tasks::{RayonConfig, RuntimeBuilder, RuntimeConfig, TokioConfig};
 use reth_trie::{StateRoot, StateRootProgress, trie_cursor::noop::NoopTrieCursorFactory};
 use reth_trie_db::DatabaseHashedCursorFactory;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
+use tempfile::TempDir;
 
-use crate::{
-    ElTrust, HeaderManifest, ImportError, StateReport, VerifiedHeaders, install_headers,
-    verify_state,
-};
+use crate::{ElTrust, HeaderManifest, ImportError, StateCounts, VerifiedHeaders, install_headers};
 
-/// Private lifecycle claim, issued only after creating a fresh unpublished component directory.
-const STAGING_MARKER: &str = ".etna-el-import-staging.json";
-/// A completed component is never rebuilt over subsequent runtime progress.
-const COMPLETED_MARKER: &str = ".etna-el-import-completed.json";
-/// Exclusive in-progress filename; a crash leaves uncertainty for the outer owner to discard.
-const RUNNING_MARKER: &str = ".etna-el-import-running";
 /// Pinned consensus-side EL library revision.
 const ALETHIA_REVISION: &str = "6ac93d4b38e1cd72b993cef1ed1dc2cb0affa7b4";
 /// Pinned backing database/static-file implementation revision.
@@ -60,33 +51,17 @@ type ImportTypes = AnyNodeTypes<EthPrimitives, TaikoChainSpec, EthStorage, Taiko
 /// Provider backed by the candidate's owned MDBX environment and fresh auxiliary stores.
 type ImportFactory = ProviderFactory<NodeTypesWithDBAdapter<ImportTypes, Arc<DatabaseEnv>>>;
 
-/// Strict private claim binding staging to one local plan and exact authenticated header input.
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct StagingClaim {
-    /// Supported local claim format.
-    schema: u32,
-    /// Opaque lifecycle installation identity, never signing authority.
-    installation_id: B256,
-    /// Deterministic digest of the helper's typed header manifest.
-    manifest_hash: B256,
-}
-
-/// Receipt of offline work; even installed=true grants no application trust or signing right.
+/// Receipt of a completed install; it grants no application trust or signing right.
 #[derive(Clone, Debug, Serialize)]
 pub struct DatasetReport {
     /// Supported local receipt schema.
     pub schema: u32,
-    /// Opaque local operation binding.
-    pub installation_id: B256,
     /// Exact helper package version.
     pub helper_version: &'static str,
     /// Actual pinned EL source dependency.
     pub alethia_revision: &'static str,
     /// Actual pinned database/static-file source dependency.
     pub reth_revision: &'static str,
-    /// Digest of the typed header context used for this operation.
-    pub manifest_hash: B256,
     /// Runtime L2 chain identifier checked against the local chainspec.
     pub chain_id: u64,
     /// Authenticated original EL genesis hash.
@@ -95,7 +70,7 @@ pub struct DatasetReport {
     pub height: u64,
     /// Exact selected EL hash.
     pub block_hash: B256,
-    /// Independently verified state root.
+    /// Trusted state root, equal to the single root recomputed from the installed leaves.
     pub state_root: B256,
     /// Exact inherited checkpoint height retained by the EL finality fence.
     pub finalized_height: u64,
@@ -105,14 +80,10 @@ pub struct DatasetReport {
     pub first_header: u64,
     /// Last retained context header.
     pub last_header: u64,
-    /// Number of authenticated context headers installed or requested.
+    /// Number of authenticated context headers installed.
     pub header_count: usize,
-    /// Lowest independently available post-state after installation; absent for read-only verify.
-    pub state_floor: Option<u64>,
-    /// Whether all local baseline writes and normal provider checks completed.
-    pub installed: bool,
-    /// Actual account/storage/code enumeration and leaf-root measurements.
-    pub state: StateReport,
+    /// Actual account/storage/code enumeration.
+    pub state: StateCounts,
 }
 
 /// Preserve the pinned storage error without guessing that it proves history pruning.
@@ -144,19 +115,12 @@ fn runtime_spec(genesis: &Genesis) -> TaikoChainSpec {
 }
 
 /// Construct an immutable receipt only from verified local results and trusted expectations.
-fn report(
-    state: StateReport,
-    headers: &VerifiedHeaders<'_>,
-    trust: &ElTrust,
-    installed: bool,
-) -> Result<DatasetReport, ImportError> {
-    Ok(DatasetReport {
+fn report(state: StateCounts, headers: &VerifiedHeaders<'_>, trust: &ElTrust) -> DatasetReport {
+    DatasetReport {
         schema: 1,
-        installation_id: headers.installation_id(),
         helper_version: env!("CARGO_PKG_VERSION"),
         alethia_revision: ALETHIA_REVISION,
         reth_revision: RETH_REVISION,
-        manifest_hash: headers.manifest_hash()?,
         chain_id: trust.chain_id,
         genesis_hash: trust.genesis_hash,
         height: headers.terminal().number,
@@ -167,121 +131,44 @@ fn report(
         first_header: headers.headers()[0].number,
         last_header: headers.terminal().number,
         header_count: headers.headers().len(),
-        state_floor: installed.then_some(headers.terminal().number),
-        installed,
         state,
-    })
-}
-
-/// Verify complete local state/code read-only; this does not validate or publish foreign histories.
-pub fn verify_dataset(
-    data_dir: &Path,
-    genesis: &Genesis,
-    manifest: &HeaderManifest,
-    trust: &ElTrust,
-) -> Result<DatasetReport, ImportError> {
-    verify_dataset_with_scratch(data_dir, genesis, manifest, trust, &std::env::temp_dir())
-}
-
-/// Verify an offline source without writing to it, keeping reader locks and hashed leaves below
-/// an independent scratch parent owned by the calling lifecycle.
-pub fn verify_dataset_with_scratch(
-    data_dir: &Path,
-    genesis: &Genesis,
-    manifest: &HeaderManifest,
-    trust: &ElTrust,
-    scratch_parent: &Path,
-) -> Result<DatasetReport, ImportError> {
-    external_scratch(data_dir, scratch_parent)?;
-    let headers = manifest.verify(trust)?;
-    chain(genesis, trust)?;
-    let state = verify_state(&data_dir.join("db"), trust.state_root, scratch_parent)?;
-    report(state, &headers, trust, false)
-}
-
-/// The caller may own the dataset's parent, but scratch may not be created in the source itself.
-fn external_scratch(data_dir: &Path, scratch_parent: &Path) -> Result<(), ImportError> {
-    if scratch_parent.canonicalize()?.starts_with(data_dir.canonicalize()?) {
-        return Err(ImportError::Invalid("scratch parent overlaps the EL dataset"));
     }
-    Ok(())
 }
 
-/// Refuse aliases/special files before deleting or rebuilding a component-owned directory.
-fn check_tree(path: &Path) -> Result<(), ImportError> {
-    let meta = path.symlink_metadata()?;
-    if meta.file_type().is_symlink() ||
-        (!meta.is_file() && !meta.is_dir()) ||
-        (meta.is_file() && meta.nlink() != 1)
-    {
-        return Err(ImportError::Invalid("aliased or special dataset artifact"));
-    }
-    if meta.is_dir() {
-        for entry in std::fs::read_dir(path)? {
-            check_tree(&entry?.path())?;
+/// Neither the fresh datadir nor scratch may sit inside the stopped source, which is never written.
+fn outside_source(
+    source: &Path,
+    data_dir: &Path,
+    scratch_parent: Option<&Path>,
+) -> Result<(), ImportError> {
+    let source = source.canonicalize()?;
+    let parent = data_dir
+        .parent()
+        .filter(|_| data_dir.is_absolute())
+        .ok_or(ImportError::Invalid("EL datadir must be an absolute path"))?;
+    for path in std::iter::once(parent).chain(scratch_parent) {
+        if path.canonicalize()?.starts_with(&source) {
+            return Err(ImportError::Invalid("EL install target overlaps the stopped source"));
         }
     }
     Ok(())
 }
 
-/// Read a protected local claim without following a substituted final inode.
-fn check_claim(data_dir: &Path, headers: &VerifiedHeaders<'_>) -> Result<(), ImportError> {
-    let meta = data_dir.symlink_metadata()?;
-    // SAFETY: geteuid has no preconditions or side effects.
-    let uid = unsafe { libc::geteuid() };
-    if !data_dir.is_absolute() ||
-        data_dir.canonicalize()? != data_dir ||
-        !meta.is_dir() ||
-        meta.mode() & 0o077 != 0 ||
-        meta.uid() != uid
-    {
-        return Err(ImportError::Invalid("EL install requires private canonical owned staging"));
+/// Create the absent private datadir and copy only the source's MDBX data and version into it.
+fn copy_source(source: &Path, data_dir: &Path) -> Result<PathBuf, ImportError> {
+    DirBuilder::new().mode(0o700).create(data_dir).map_err(|e| match e.kind() {
+        std::io::ErrorKind::AlreadyExists => ImportError::Invalid("EL datadir already exists"),
+        _ => e.into(),
+    })?;
+    let data_dir = data_dir.canonicalize()?;
+    std::fs::create_dir(data_dir.join("db"))?;
+    for name in ["mdbx.dat", "database.version"] {
+        crate::offline::sparse_copy(
+            &source.join("db").join(name),
+            &data_dir.join("db").join(name),
+        )?;
     }
-    if data_dir.join(COMPLETED_MARKER).symlink_metadata().is_ok() {
-        return Err(ImportError::Invalid("EL component is already installed"));
-    }
-    for entry in std::fs::read_dir(data_dir)? {
-        let entry = entry?;
-        let name = entry.file_name();
-        if !["db", "static_files", "rocksdb", STAGING_MARKER].iter().any(|allowed| name == *allowed)
-        {
-            return Err(ImportError::Invalid("unexpected artifact in fresh EL staging"));
-        }
-        check_tree(&entry.path())?;
-    }
-    let mut file = OpenOptions::new()
-        .read(true)
-        .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
-        .open(data_dir.join(STAGING_MARKER))?;
-    let meta = file.metadata()?;
-    if !meta.is_file() ||
-        meta.mode() & 0o077 != 0 ||
-        meta.uid() != uid ||
-        meta.nlink() != 1 ||
-        meta.len() > 4096
-    {
-        return Err(ImportError::Invalid("unprotected EL staging claim"));
-    }
-    let mut bytes = Vec::new();
-    file.read_to_end(&mut bytes)?;
-    let claim: StagingClaim = serde_json::from_slice(&bytes)?;
-    if claim.schema != 1 ||
-        claim.installation_id != headers.installation_id() ||
-        claim.manifest_hash != headers.manifest_hash()?
-    {
-        return Err(ImportError::Invalid("EL staging claim belongs to another input"));
-    }
-    Ok(())
-}
-
-/// Remove only copied, alias-free, unpublished auxiliary data and create a fresh component.
-fn reset_directory(path: &Path) -> Result<(), ImportError> {
-    if path.symlink_metadata().is_ok() {
-        check_tree(path)?;
-        std::fs::remove_dir_all(path)?;
-    }
-    std::fs::create_dir(path)?;
-    Ok(())
+    Ok(data_dir)
 }
 
 /// Establish empty active auxiliary tables while retaining only canonical state/code leaves.
@@ -344,15 +231,12 @@ pub(crate) fn open_factory(
         .map_err(db_error)
 }
 
-/// Rebuild legacy hashed indexes without retaining all leaf bytes or overlapping source writes.
-fn rebuild_legacy_hashes(factory: &ImportFactory, parent: &Path) -> Result<(), ImportError> {
-    let temporary = crate::offline::private_temp(".etna-hashed-", parent)?;
-    let scratch = reth_db::init_db(temporary.path().join("db"), crate::offline::write_arguments())
-        .map_err(db_error)?;
-    {
-        let source = crate::offline::scan(factory.db_ref())?;
-        crate::state::rehash_plain(&source, &scratch)?;
-    }
+/// Rebuild legacy hashed indexes from the v1 leaves already rehashed and checked by
+/// `verify_owned_state`; sanitizing kept the plain leaves and code they were derived from.
+fn rebuild_legacy_hashes(factory: &ImportFactory, hashed: &TempDir) -> Result<(), ImportError> {
+    let scratch =
+        reth_db::open_db_read_only(hashed.path().join("db"), DatabaseArguments::default())
+            .map_err(db_error)?;
     let source = crate::offline::scan(&scratch)?;
     let mut target = factory.provider_rw().map_err(db_error)?;
     let mut count = 0u64;
@@ -380,7 +264,9 @@ fn rebuild_legacy_hashes(factory: &ImportFactory, parent: &Path) -> Result<(), I
     Ok(())
 }
 
-/// Recompute and materialize compatible v1/v2 trie caches in bounded progress chunks.
+/// The single state-root computation: recompute the root from the installed leaves only
+/// (DATA-5.3-4), compare it to the trusted root and materialize v1/v2 trie caches in bounded
+/// progress chunks.
 fn rebuild_tries(factory: &ImportFactory, expected: B256) -> Result<(), ImportError> {
     let mut intermediate = None;
     loop {
@@ -469,7 +355,7 @@ fn set_frontiers(factory: &ImportFactory, height: u64) -> Result<(), ImportError
     Ok(())
 }
 
-/// Flush all owned native stores before publishing a component completion receipt.
+/// Flush all owned native stores before returning the install receipt.
 fn sync_tree(path: &Path) -> Result<(), ImportError> {
     if path.is_dir() {
         for entry in std::fs::read_dir(path)? {
@@ -480,84 +366,51 @@ fn sync_tree(path: &Path) -> Result<(), ImportError> {
     Ok(())
 }
 
-/// Guard against simultaneous helper invocations; uncertain crash residue is not adopted.
-struct RunningGuard {
-    /// Only the newly created operation filename may be removed by this invocation.
-    path: PathBuf,
-    /// Retain the fresh private file until every native writer has closed.
-    file: File,
-}
-impl RunningGuard {
-    /// Acquire a new filename inside already authenticated private staging.
-    fn acquire(data_dir: &Path) -> Result<Self, ImportError> {
-        let path = data_dir.join(RUNNING_MARKER);
-        let file = OpenOptions::new().write(true).create_new(true).mode(0o600).open(&path)?;
-        file.sync_all()?;
-        File::open(data_dir)?.sync_all()?;
-        Ok(Self { path, file })
-    }
-    /// Remove our exact named inode after completion; failure keeps the outer operation closed.
-    fn finish(self) -> Result<(), ImportError> {
-        std::fs::remove_file(&self.path)?;
-        File::open(self.path.parent().expect("private staging parent"))?.sync_all()?;
-        Ok(())
-    }
-}
-impl Drop for RunningGuard {
-    /// Best-effort removal only of this invocation's inode; a failure leaves an unusable staging
-    /// path.
-    fn drop(&mut self) {
-        if let (Ok(named), Ok(opened)) = (self.path.symlink_metadata(), self.file.metadata()) &&
-            named.dev() == opened.dev() &&
-            named.ino() == opened.ino()
-        {
-            let _ = std::fs::remove_file(&self.path);
-        }
-    }
-}
-
-/// Build a complete normal-provider-compatible baseline in fresh, offline, unpublished staging.
+/// Build a complete normal-provider-compatible baseline in a fresh datadir from a stopped source.
 ///
-/// Caller owns the operation and preserves original sources and signing state elsewhere.
-/// Every through-s body/transaction/receipt/history row is unavailable after this baseline;
-/// future normal execution writes genuine post-s data. An interruption never publishes it.
+/// The source is only read. The caller owns the operation and discards a failed or interrupted
+/// datadir. Every through-s body/transaction/receipt/history row is unavailable after this
+/// baseline; future normal execution writes genuine post-s data.
 pub fn install_dataset(
+    source: &Path,
     data_dir: &Path,
     genesis: &Genesis,
     manifest: &HeaderManifest,
     trust: &ElTrust,
 ) -> Result<DatasetReport, ImportError> {
-    install(data_dir, genesis, manifest, trust, data_dir)
+    install(source, data_dir, genesis, manifest, trust, None)
 }
 
-/// Install into claimed private staging, allocating heavy transient state under owned scratch.
+/// Install as `install_dataset`, allocating heavy transient state under owned scratch.
 pub fn install_dataset_with_scratch(
+    source: &Path,
     data_dir: &Path,
     genesis: &Genesis,
     manifest: &HeaderManifest,
     trust: &ElTrust,
     scratch_parent: &Path,
 ) -> Result<DatasetReport, ImportError> {
-    external_scratch(data_dir, scratch_parent)?;
-    install(data_dir, genesis, manifest, trust, scratch_parent)
+    install(source, data_dir, genesis, manifest, trust, Some(scratch_parent))
 }
 
-/// Only a successfully checked local claim permits writes and an in-place MDBX reader lock.
+/// Copy the stopped source into a fresh datadir, check it and install it once; scratch defaults
+/// to the new datadir.
 fn install(
+    source: &Path,
     data_dir: &Path,
     genesis: &Genesis,
     manifest: &HeaderManifest,
     trust: &ElTrust,
-    scratch_parent: &Path,
+    scratch_parent: Option<&Path>,
 ) -> Result<DatasetReport, ImportError> {
     let headers = manifest.verify(trust)?;
     let (_, genesis_header) = chain(genesis, trust)?;
-    check_claim(data_dir, &headers)?;
-    let running = RunningGuard::acquire(data_dir)?;
-    let state =
-        crate::state::verify_owned_state(&data_dir.join("db"), trust.state_root, scratch_parent)?;
-    reset_directory(&data_dir.join("static_files"))?;
-    reset_directory(&data_dir.join("rocksdb"))?;
+    outside_source(source, data_dir, scratch_parent)?;
+    let data_dir = &copy_source(source, data_dir)?;
+    let scratch_parent = scratch_parent.unwrap_or(data_dir);
+    let (state, hashed) = crate::state::verify_owned_state(&data_dir.join("db"), scratch_parent)?;
+    std::fs::create_dir(data_dir.join("static_files"))?;
+    std::fs::create_dir(data_dir.join("rocksdb"))?;
     sanitize_mdbx(&data_dir.join("db"), state.storage_v2)?;
     install_headers(
         &data_dir.join("db"),
@@ -567,8 +420,8 @@ fn install(
     )?;
     seed_static_frontiers(data_dir, headers.terminal().number)?;
     let factory = open_factory(data_dir, genesis)?;
-    if !state.storage_v2 {
-        rebuild_legacy_hashes(&factory, scratch_parent)?;
+    if let Some(hashed) = hashed {
+        rebuild_legacy_hashes(&factory, &hashed)?;
     }
     rebuild_tries(&factory, trust.state_root)?;
     set_frontiers(&factory, headers.terminal().number)?;
@@ -585,18 +438,6 @@ fn install(
     }
     drop(provider);
     drop(factory);
-    sync_tree(&data_dir.join("db"))?;
-    sync_tree(&data_dir.join("static_files"))?;
-    sync_tree(&data_dir.join("rocksdb"))?;
-    let receipt = report(state, &headers, trust, true)?;
-    let mut completed = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .mode(0o600)
-        .open(data_dir.join(COMPLETED_MARKER))?;
-    completed.write_all(&serde_json::to_vec(&receipt)?)?;
-    completed.sync_all()?;
-    File::open(data_dir)?.sync_all()?;
-    running.finish()?;
-    Ok(receipt)
+    sync_tree(data_dir)?;
+    Ok(report(state, &headers, trust))
 }

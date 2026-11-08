@@ -1,4 +1,4 @@
-//! Recompute the leaf root without reading downloaded trie or historical indexes.
+//! Check downloaded leaves and code without reading downloaded trie or historical indexes.
 
 use std::{fmt::Display, path::Path};
 
@@ -19,9 +19,8 @@ use reth_primitives_traits::{
     Account, Bytecode, StorageEntry,
     account::{AccountFlags, compact_ids::*},
 };
-use reth_trie::{StateRoot, trie_cursor::noop::NoopTrieCursorFactory};
-use reth_trie_db::DatabaseHashedCursorFactory;
 use serde::Serialize;
+use tempfile::TempDir;
 
 /// Maximum leaf writes retained in one scratch MDBX transaction.
 const SCRATCH_BATCH: u64 = 10_000;
@@ -54,11 +53,9 @@ pub enum ImportError {
     },
 }
 
-/// Result of complete local leaf/code verification; this alone does not publish an import.
+/// Counts from complete local leaf/code checks; the state root is checked once at install.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct StateReport {
-    /// Independently recomputed Ethereum state root.
-    pub state_root: B256,
+pub struct StateCounts {
     /// Number of canonical account leaves examined.
     pub accounts: u64,
     /// Number of nonzero canonical storage leaves examined.
@@ -277,17 +274,17 @@ fn check_code<T: DbTx>(tx: &T, account: &Account) -> Result<(), ImportError> {
 }
 
 /// Compute a root from complete hashed leaves, with no access to imported intermediate nodes.
-fn leaf_root<T: DbTx>(tx: &T) -> Result<B256, ImportError> {
+#[cfg(test)]
+pub(crate) fn leaf_root<T: DbTx>(tx: &T) -> Result<B256, ImportError> {
+    use reth_trie::{StateRoot, trie_cursor::noop::NoopTrieCursorFactory};
+    use reth_trie_db::DatabaseHashedCursorFactory;
     StateRoot::new(NoopTrieCursorFactory::default(), DatabaseHashedCursorFactory::new(tx))
         .root()
         .map_err(db_error)
 }
 
 /// Rehash legacy plain leaves into a private scratch database in bounded write batches.
-pub(crate) fn rehash_plain<T: DbTx>(
-    source: &T,
-    scratch: &DatabaseEnv,
-) -> Result<(u64, u64), ImportError> {
+fn rehash_plain<T: DbTx>(source: &T, scratch: &DatabaseEnv) -> Result<(u64, u64), ImportError> {
     let mut accounts = 0;
     let mut storage_slots = 0;
     let mut write = scratch.tx_mut().map_err(db_error)?;
@@ -349,16 +346,13 @@ fn verify_hashed<T: DbTx>(tx: &T) -> Result<(u64, u64), ImportError> {
     Ok((accounts, storage_slots))
 }
 
-/// Verify actual local state/code against a trusted header root without modifying its database.
-///
-/// Legacy hashed indexes and all imported trie nodes are ignored. V1 state is rehashed into a
-/// private temporary database under `scratch_parent`; v2 state is read directly. The source
-/// must be offline and its canonical database directory must already exist.
-pub fn verify_state(
+/// Test-only read-only check of a copy against a root; install checks the root in `rebuild_tries`.
+#[cfg(test)]
+pub(crate) fn verify_state(
     database: &Path,
     expected_root: B256,
     scratch_parent: &Path,
-) -> Result<StateReport, ImportError> {
+) -> Result<StateCounts, ImportError> {
     existing_directory(database)?;
     if scratch_parent.canonicalize()?.starts_with(database) {
         return Err(ImportError::Invalid("verification scratch overlaps the source database"));
@@ -367,15 +361,27 @@ pub fn verify_state(
     for name in ["database.version", "mdbx.dat"] {
         crate::offline::sparse_copy(&database.join(name), &private.path().join(name))?;
     }
-    verify_owned_state(&private.path().canonicalize()?, expected_root, scratch_parent)
+    let copy = private.path().canonicalize()?;
+    let (counts, hashed) = verify_owned_state(&copy, scratch_parent)?;
+    let leaves = hashed.as_ref().map_or(copy, |scratch| scratch.path().join("db"));
+    let leaves =
+        reth_db::open_db_read_only(leaves, DatabaseArguments::default()).map_err(db_error)?;
+    let computed = leaf_root(&crate::offline::scan(&leaves)?)?;
+    if computed != expected_root {
+        return Err(ImportError::StateRoot { expected: expected_root, computed });
+    }
+    Ok(counts)
 }
 
-/// An owned offline database may create its reader lock locally. Never open the operator's source.
+/// Check an owned offline copy's code, leaf encoding and orphans; it may create a local reader
+/// lock. Never open the operator's source.
+///
+/// V1 plain leaves are rehashed into a private database under `scratch_parent`, returned for
+/// install to reuse; v2 hashed leaves are canonical in place. No state root is computed here.
 pub(crate) fn verify_owned_state(
     database: &Path,
-    expected_root: B256,
     scratch_parent: &Path,
-) -> Result<StateReport, ImportError> {
+) -> Result<(StateCounts, Option<TempDir>), ImportError> {
     existing_directory(database)?;
     use reth_db::version::DatabaseVersionError;
     reth_db::version::check_db_version_file(database).map_err(|e| match e {
@@ -410,10 +416,10 @@ pub(crate) fn verify_owned_state(
     checked_tables(&tx)?;
     let settings = layout(&tx)?;
     let bytecodes = verify_bytecodes(&tx)?;
-    let (computed, accounts, storage_slots) = if settings.use_hashed_state() {
+    let (hashed, accounts, storage_slots) = if settings.use_hashed_state() {
         validate_leaf_encoding::<tables::HashedAccounts, tables::HashedStorages>(&tx, 32)?;
         let (accounts, storage_slots) = verify_hashed(&tx)?;
-        (leaf_root(&tx)?, accounts, storage_slots)
+        (None, accounts, storage_slots)
     } else {
         validate_leaf_encoding::<tables::PlainAccountState, tables::PlainStorageState>(&tx, 20)?;
         let temporary = crate::offline::private_temp("etna-state-", scratch_parent)?;
@@ -421,17 +427,9 @@ pub(crate) fn verify_owned_state(
             reth_db::init_db(temporary.path().join("db"), crate::offline::write_arguments())
                 .map_err(db_error)?;
         let (accounts, storage_slots) = rehash_plain(&tx, &scratch)?;
-        let hashed = crate::offline::scan(&scratch)?;
-        (leaf_root(&hashed)?, accounts, storage_slots)
+        (Some(temporary), accounts, storage_slots)
     };
-    if computed != expected_root {
-        return Err(ImportError::StateRoot { expected: expected_root, computed });
-    }
-    Ok(StateReport {
-        state_root: computed,
-        accounts,
-        storage_slots,
-        bytecodes,
-        storage_v2: settings.storage_v2,
-    })
+    let counts =
+        StateCounts { accounts, storage_slots, bytecodes, storage_v2: settings.storage_v2 };
+    Ok((counts, hashed))
 }
