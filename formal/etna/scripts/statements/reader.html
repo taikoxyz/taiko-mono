@@ -9,7 +9,7 @@
     />
     <meta
       name="description"
-      content="Etna's conditional H1–H3 claims beside their exact Lean definitions, premises, theorem contracts and source code."
+      content="Etna's conditional H1–H4 claims beside their exact Lean definitions, premises, theorem contracts and source code."
     />
     <title>Etna · Lean audit reader</title>
     <!-- @@STYLE@@ -->
@@ -32,8 +32,8 @@
           <p class="eyebrow">FORMAL / ETNA / STATEMENTS</p>
           <h1>Etna, stated in Lean.</h1>
           <p class="lede">
-            Read the conditional safety claims alongside their definitions,
-            assumptions and source code.
+            Read the conditional safety and recoverability claims alongside
+            their definitions, assumptions and source code.
           </p>
           <p class="intro-note">
             Select a Lean name to inspect its source. The catalogue includes
@@ -45,14 +45,14 @@
             <strong>What this page establishes.</strong> This reader reproduces
             source and reviewed theorem contracts. Conditional decoded-design
             proofs do not establish production implementation conformance,
-            liveness or launch acceptance. Counts below are inventories, not
-            coverage percentages.
+            normal-operation liveness or launch acceptance. Counts below are
+            inventories, not coverage percentages.
           </div>
         </section>
         <section id="claims">
           <div class="section-heading">
             <p class="eyebrow">01 / CURRENT CLAIMS</p>
-            <h2>Three claims, two nested premise records</h2>
+            <h2>Four claims, three premise records</h2>
           </div>
           <p>
             H1 quantifies over
@@ -61,9 +61,16 @@
             >, five premises with none about consensus; H2 and H3 quantify over
             <a href="#decl=Etna.Statements.Current.Premises" class="name"
               >Current.Premises</a
-            >, which extends it. Each also takes an actual decoded execution
-            from a fresh registry. The exact quantifiers and extra conditions
-            remain visible in Lean.
+            >, which extends it. H4 quantifies over
+            <a href="#decl=Etna.Statements.Current.RecoveryPremises" class="name"
+              >Current.RecoveryPremises</a
+            >, which extends it with five more, and takes the per-state
+            hypotheses
+            <a href="#decl=Etna.Statements.Current.LiveAt" class="name"
+              >Current.LiveAt</a
+            >. Each also takes an actual decoded execution from a fresh
+            registry. The exact quantifiers and extra conditions remain visible
+            in Lean.
           </p>
           <div class="claims">
             <article class="claim">
@@ -145,25 +152,66 @@
                 >
               </div>
             </article>
+            <article class="claim">
+              <div class="claim-top">
+                <span class="number">H4</span
+                ><span class="badge property">Conditional recovery</span>
+              </div>
+              <h3>Recoverability</h3>
+              <p>
+                From every reachable, initialized state that meets the per-state
+                hypotheses, a sequence of calls with no rollback and only plain
+                recoveries reaches an accepted landing, above the starting
+                checkpoint whenever something had landed. The K blocks and their
+                certificate are constructed; proof completeness is assumed.
+              </p>
+              <p class="caveat">
+                An existence result with every caller cooperating. It does not
+                show normal-operation liveness, resistance to adversarial
+                scheduling or when the DAO should recover. The grid hypothesis
+                excludes a reachable trap after a verifier-failure rollback
+                across a K change.
+              </p>
+              <div class="actions">
+                <a href="#decl=Etna.Statements.Current.RecoverableAt"
+                  >Definition ↗</a
+                ><a href="#decl=Etna.Statements.Current.Recoverability"
+                  >Quantified claim ↗</a
+                ><a href="#decl=Etna.Design.Current.Headlines.recoverability"
+                  >Proof ↗</a
+                >
+              </div>
+            </article>
           </div>
           <div class="flow" aria-label="Reading order">
             <span>Environment + deployment premises</span
             ><b aria-hidden="true">→</b><span>Actual decoded trace</span
-            ><b aria-hidden="true">→</b><span>Conditional H1–H3</span>
+            ><b aria-hidden="true">→</b><span>Conditional H1–H4</span>
           </div>
         </section>
         <section id="premises">
           <div class="section-heading">
             <p class="eyebrow">02 / ASSUMPTIONS</p>
-            <h2>The current premise record</h2>
+            <h2>The current premise records</h2>
           </div>
           <p>
-            These are assumptions supplied to the joint headline proofs. Their
+            These are assumptions supplied to the headline proofs: H1's five
+            fund premises, the ten more H2 and H3 use, the five more H4 uses,
+            and H4's per-state hypotheses, marked LiveAt, which are conditions
+            on the starting state rather than on the environment. Their
             component definitions specify the actual obligations; this list does
             not discharge them.
           </p>
           <a class="source-button" href="#decl=Etna.Statements.Current.Premises"
-            >Inspect the full premise record ↗</a
+            >Inspect the H1–H3 premise record ↗</a
+          >
+          <a
+            class="source-button"
+            href="#decl=Etna.Statements.Current.RecoveryPremises"
+            >Inspect H4's premise record ↗</a
+          >
+          <a class="source-button" href="#decl=Etna.Statements.Current.LiveAt"
+            >Inspect H4's hypotheses ↗</a
           >
           <dl class="premise-list" id="premise-list"></dl>
         </section>
@@ -259,8 +307,9 @@
               <p>
                 The joint-premise profiles use restricted interpreters. All
                 accepted certificate fixtures have empty prebatch prior lists;
-                agreement compares a chain with itself. They are not complete
-                launch rehearsals.
+                agreement compares a chain with itself; the joint H1–H4 profile
+                uses an ideal, classically decided verifier. They are not
+                complete launch rehearsals.
               </p>
               <a href="reports/review-round-five.md"
                 >Read the round-five report ↗</a
@@ -307,7 +356,7 @@
           </details>
         </section>
         <footer>
-          <span>ETNA / CONDITIONAL DECODED-DESIGN SAFETY</span
+          <span>ETNA / CONDITIONAL DECODED-DESIGN CLAIMS</span
           ><a href="README.md">Package README ↗</a>
         </footer>
       </main>

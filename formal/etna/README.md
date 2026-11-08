@@ -13,11 +13,13 @@ drift.
 
 ## What is proved, and what is not
 
-This package proves **conditional, design-level safety** of the decoded Etna machine. Exact
-claims live in `EtnaStatements/Current.lean` (182 lines); composition is in
+This package proves **conditional, design-level safety and recoverability** of the decoded
+Etna machine. Exact claims live in `EtnaStatements/Current.lean` (251 lines); composition is in
 `EtnaProofs/Headline/Current.lean`. Every claim holds for every reachable `Trace` from a
 fresh deployment under explicit premises: **H1 assumes the five fields of `FundPremises`;
-H2 and H3 assume all fifteen fields of `Premises`**, which extends `FundPremises` (below).
+H2 and H3 assume all fifteen fields of `Premises`**, which extends `FundPremises`; **H4
+assumes `RecoveryPremises`**, which extends `FundPremises` with five more fields, and the
+eight per-state hypotheses of `LiveAt` (below).
 
 - **H1, fund safety.** Every accepted landing extends one hash-bound checkpoint chain from an
   authenticated root; Etna and legacy (Unzen) signals stay disjoint; the start is written once.
@@ -31,16 +33,29 @@ H2 and H3 assume all fifteen fields of `Premises`**, which extends `FundPremises
 - **H3, forced-inclusion integrity.** No valid landing skips a due forced inclusion: FIFO
   service, due-only skips, no early skip, and only `land` advances the head. This is a safety
   property of landings. It does **not** promise that a due inclusion is ever landed.
+- **H4, recoverability.** From every reachable, initialized state that meets `LiveAt`, some
+  sequence of modelled calls with no `rollback` and only plain recoveries (no exclusions, no
+  forced-inclusion blanking, no structural upgrade) reaches an accepted `land`; if anything had
+  landed before, that landing ends above the starting checkpoint. L2 block production is
+  constructed, not assumed: the proof builds the K valid blocks and their certificate from
+  hypotheses about execution, signing and data availability. Proof completeness
+  (MODEL-1-1/1-2) is a premise, so it is assumed, not shown. The
+  [recoverability report](reports/recoverability.md) explains the path, each premise and
+  hypothesis, and a reachable trap that one hypothesis excludes.
 
-Not covered here: liveness (no permanent halt, landings continue, recovery completes),
-refinement to the Solidity contracts, the Rust client or the zkVM guests, CometBFT's
+Not covered here: normal-operation liveness (landings continue without governance);
+adversarial scheduling, since H4's path is one that exists when every caller cooperates; the
+DAO's recovery policy in SPEC 8.1 (when to recover, and the checks before it), since H4 shows
+that the recovery mechanism works from every such state, not that the DAO should use it there;
+refinement to the Solidity contracts, the Rust client or the zkVM guests; CometBFT's
 implementation, cryptography, data availability, and economic security. Cross-round
 equivocation (amnesia) is outside H2, as the spec states.
 
 ## Premises and who must discharge them
 
-H1–H3 are only as strong as these premises. Six describe the environment or deployment;
-the others are obligations on code or cryptography that this package does not verify.
+H1–H4 are only as strong as these premises and hypotheses. Of the fifteen rows in the first
+table, six describe the environment or deployment; the others are obligations on code or
+cryptography that this package does not verify.
 
 The first five rows form `FundPremises`, the record H1 is stated over. The audit requires
 H1's own proof to read each of them, so a premise H1 stops needing must leave the record.
@@ -68,16 +83,45 @@ H2's chain-agreement clause additionally assumes `ProtocolFinality.HonestExecuti
 This separate antecedent supplies honest local locking rules and a Byzantine minority at
 the checked heights.
 
+H4's record, `RecoveryPremises`, extends `FundPremises` with the five fields below. The first
+two repeat `currentClock` and `currentCatalogueHash`, so that each headline names exactly
+what it rests on. The audit requires H4's proof to read every field of `RecoveryPremises`.
+H4 depends on neither `Premises` nor any honesty or vote-attribution definition.
+
+| Premise field           | What it assumes                                                                                                                                                                                                                                                                                                    | Who must make it true                                                                       |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `recoveryClock`         | L1 time strictly increases with block number                                                                                                                                                                                                                                                                       | Ethereum L1                                                                                 |
+| `recoveryCatalogueHash` | Catalogued EL transaction bytes hash to the environment's transaction hash                                                                                                                                                                                                                                         | Hash function; EL catalogue                                                                 |
+| `proofComplete`         | One verifier version accepts, for every statement an image certifies, two proofs of that image, at least one of them ZK (MODEL-1-1/1-2)                                                                                                                                                                            | Etna zkVM/TEE guests and provers within their resource limits; the DAO's verifier choice    |
+| `payloadLive`           | Up to six blocks of at most 124,000 bytes each fit in one to six blobs that the payload check accepts                                                                                                                                                                                                              | Blob encoding and Ethereum data availability                                                |
+| `unzenStart`            | On a switching network, every header that a valid proof of the Unzen Inbox's final proposal authenticates is a usable Etna start: nonzero height, hash and state root, room for six more heights, a state root that passes the start-implementation check, and a hash-bound start header with Etna's zeroed fields | The switching deployment (the Etna `Anchor` in place at S, SWITCH.md); existing Unzen guest |
+
+H4 also takes `LiveAt`, eight conditions on the starting state rather than on the
+environment. The audit requires H4's proof to read each of them too. K is the current grid
+(the landing interval), c the checkpoint height and S the start height.
+
+| `LiveAt` field | What it assumes about the starting state                                                                                                                                                                                                                                                                                                    | Who must make it true                                                                                                          |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `grid`         | Once a start is written, c − S is a multiple of K. This excludes the rollback grid trap in the report                                                                                                                                                                                                                                       | Breaks after a verifier-failure rollback across a K change, and the spec has no way out yet                                    |
+| `generation`   | generation + 2 < 2^48                                                                                                                                                                                                                                                                                                                       | Counter headroom; no realistic deployment exhausts it                                                                          |
+| `nonce`        | recoveryNonce + 1 < 2^256                                                                                                                                                                                                                                                                                                                   | Counter headroom; no realistic deployment exhausts it                                                                          |
+| `rules`        | nextRules + 1 < 2^48                                                                                                                                                                                                                                                                                                                        | Counter headroom; no realistic deployment exhausts it                                                                          |
+| `height`       | c + K < 2^48                                                                                                                                                                                                                                                                                                                                | Height headroom; no realistic deployment exhausts it                                                                           |
+| `window`       | A later L1 block R, with room in 48 bits, whose time is more than K seconds past each of: the current L1 time plus the largest `maxAnchorAge`, `forkTime`, and the genesis timestamp; at R the election succeeds and online keys that sign every vote hold more than 2/3 of the elected power (`CommitteeLive`)                             | Ethereum L1; the deployer (a genesis timestamp and `forkTime` that L1 reaches); online validators; eligible stake (LIMIT-12-6) |
+| `ruleset`      | The active and next rulesets are live and share an image, or ruleset nextRules + 1 is live and has an image. A live ruleset's EL builds a valid empty child of every parent for every choice a block producer makes, and each canonical forced transaction either executes at position zero or its single-transaction trial completes empty | Ruleset EL and guest images; the DAO and validators for rule upgrades (LIMIT-12-21)                                            |
+| `unzen`        | On a switching network, the Unzen lane has finalized its last proposal, or a valid proof of that proposal exists from the current lane state                                                                                                                                                                                                | Unzen provers and the existing Unzen guest (LIMIT-12-9)                                                                        |
+
 Hash premises are a standard idealization: the models treat commitments as injective. Read a
 claim that relies on them as "the claim holds, or a hash collision exists".
 
 ## Review surface and statement lock
 
-The **review surface** is what a reviewer must read to know what H1–H3 and the six witnesses
-mean: their statements and every Etna definition they use, but no proof.
-`review-surface.lock.json` records a SHA-256 of the kernel terms of each of those constants
-(1,433 at this revision). `python3 scripts/review_surface.py --check` fails if the lock is stale;
-the `etna-formal` job runs it. Proof-only changes never touch the lock.
+The **review surface** is what a reviewer must read to know what H1–H4, the seven
+joint-premise witnesses and the trap witness mean: their statements and every Etna definition
+they use, but no proof. `review-surface.lock.json` records a SHA-256 of the kernel terms of
+each of those constants (1,464 at this revision). `python3 scripts/review_surface.py --check`
+fails if the lock is stale; the `etna-formal` job runs it. Proof-only changes never touch the
+lock.
 
 The `etna-review-surface` job (`formal--etna-review-surface.yml`) runs on
 `pull_request_target`, so GitHub takes both the workflow file and the judge script from the
@@ -99,10 +143,10 @@ copy yet.
 
 `python3 scripts/generate_statements.py` writes `STATEMENTS.html`, a self-contained offline
 reader inspired by [FlashProve's statements page](https://github.com/anthropics/FlashProve/blob/main/lean/STATEMENTS.html).
-It is not tracked; CI uploads it as the `etna-statements` workflow artifact. It puts H1–H3
-and their scope beside exact Lean source, lists the fifteen premises, and searches named
-declarations, reviewed theorem types and exact rule-evidence edges. It is a source index, not
-a compiler-resolved dependency graph or a proof result.
+It is not tracked; CI uploads it as the `etna-statements` workflow artifact. It puts H1–H4
+and their scope beside exact Lean source, lists the fields of all three premise records and
+of `LiveAt`, and searches named declarations, reviewed theorem types and exact rule-evidence
+edges. It is a source index, not a compiler-resolved dependency graph or a proof result.
 
 ## Current safety contracts
 
@@ -225,7 +269,8 @@ represent DAO implementation upgrades, not public Solidity functions that can re
 ghost fields `everLanded` or `activeSnapshots`. `Governance.DeployedTrace` exposes raw
 upgrade execution; a separate **per-history** `AuthorizedUpgrades` condition records the
 historical correction/restore duties. `Headlines.deployed_claims` derives initialized
-endpoint claims through that explicit refinement. Owner identity alone is insufficient.
+endpoint claims through that explicit refinement, and `Headlines.deployed_recoverability`
+derives H4 the same way. Owner identity alone is insufficient.
 It does not authenticate the complete last-trusted-before-first-bad target-selection policy.
 
 The main profile starts with raw empty `RegistryMachine.Genesis`. It does not cover the
@@ -235,24 +280,31 @@ provenance or prove that deployment procedure.
 
 ## Joint-premise realizations
 
-All fifteen primitive/deployment premises hold together in independently checked profiles.
-Their restrictions are part of the evidence, not production implementations:
+All fifteen primitive/deployment premises hold together in independently checked profiles,
+and `NonVacuity.CurrentRecovery` adds H4's five. Their restrictions are part of the evidence,
+not production implementations:
 
-| Profile                       | Nonempty conclusion                                                                                                                            | Deliberate restrictions                                                                                                                                                                                                                                                   |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `NonVacuity.Current`          | Paid registration/FI, accepted landing, recovery then generation-1 landing, reachable rollback then landing                                    | One funded key, ruleset 0/image 11, two static statement templates and two authenticated votes; Unzen/import adapters refuse; base engine is not honest. It does not positively exercise conflicting quorums, agreement or import.                                        |
-| `NonVacuity.CurrentSwitch`    | Actual legacy proof, recovery into generation 1 before the first Etna landing, disjoint legacy/Etna checkpoints and paid FI advancement        | Fixed upstream proposal set and one legacy proof; `UnzenExtension` has no true antecedent in this profile; one static Etna statement/image, ruleset 0; import refuses and base engine is not honest. No running Unzen implementation or complete switch rehearsal.        |
-| `NonVacuity.CurrentRisk`      | Real paid stake and conflicting quorums above the genesis checkpoint; at-risk overlap and successful decoded import with readiness/trust false | L1 proofs and EL catalogue refuse; Byzantine engine; fixed key/votes/parameters. Import adapter accepts decoded authenticated flags; only numeric header publication is represented. It does not demonstrate EL landing, post-landing snapshot derivation or real stores. |
-| `NonVacuity.CurrentAgreement` | All fifteen premises, honest locking/attribution/minority, and agreement of a nonempty valid chain with itself                                 | Same restricted base environment; separate all-honest single-value round-0 engine. It is a decoded execution normalization, not a production CometBFT refinement; no distinct chain inputs or later-round unlock is positively exercised.                                 |
+| Profile                       | Nonempty conclusion                                                                                                                                                         | Deliberate restrictions                                                                                                                                                                                                                                                                                                      |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NonVacuity.Current`          | Paid registration/FI, accepted landing, recovery then generation-1 landing, reachable rollback then landing                                                                 | One funded key, ruleset 0/image 11, two static statement templates and two authenticated votes; Unzen/import adapters refuse; base engine is not honest. It does not positively exercise conflicting quorums, agreement or import.                                                                                           |
+| `NonVacuity.CurrentSwitch`    | Actual legacy proof, recovery into generation 1 before the first Etna landing, disjoint legacy/Etna checkpoints and paid FI advancement                                     | Fixed upstream proposal set and one legacy proof; `UnzenExtension` has no true antecedent in this profile; one static Etna statement/image, ruleset 0; import refuses and base engine is not honest. No running Unzen implementation or complete switch rehearsal.                                                           |
+| `NonVacuity.CurrentRisk`      | Real paid stake and conflicting quorums above the genesis checkpoint; at-risk overlap and successful decoded import with readiness/trust false                              | L1 proofs and EL catalogue refuse; Byzantine engine; fixed key/votes/parameters. Import adapter accepts decoded authenticated flags; only numeric header publication is represented. It does not demonstrate EL landing, post-landing snapshot derivation or real stores.                                                    |
+| `NonVacuity.CurrentAgreement` | All fifteen premises, honest locking/attribution/minority, and agreement of a nonempty valid chain with itself                                                              | Same restricted base environment; separate all-honest single-value round-0 engine. It is a decoded execution normalization, not a production CometBFT refinement; no distinct chain inputs or later-round unlock is positively exercised.                                                                                    |
+| `NonVacuity.CurrentRecovery`  | All fifteen premises and H4's five, a reachable initialized world that meets `LiveAt`, and H4 applied there: an accepted landing after one plain recovery (`live_recovers`) | New network only, so no Unzen lane or start write is exercised; one online key that signs every vote; one catalogue definition for every ruleset; the classical verifier described below; an engine that attributes every precommit; a payload check that accepts any one to six blobs. The forced-inclusion queue is empty. |
 
 Header/state/prefix commitments in these profiles have globally injective structural Nat
 interpretations. They are ideal models, not fixed-width Keccak implementations. Their
 verifiers are fixed functions of proof inputs/statements, with global reachable-world
 soundness proofs. No verifier is an oracle for a desired World or headline outcome.
+`NonVacuity.CurrentRecovery`'s verifier is an ideal sound and complete checker: it accepts a
+statement exactly when some image certifies it over the L1 prefix that its reference hash
+commits to, decided classically, and it ignores version, backend and proof bytes. It decides
+certification of the statement, not a desired World.
 All positive accepted certificate fixtures use empty prebatch `prior` lists. None
 positively exercises a nonempty archive prefix or ordinary L+2 cutoff selection.
-The accepting, switching, equivocation, import and honest-agreement contracts are mandatory
-audit obligations. Finite ordinary fixtures using fewer premises are not substitutes.
+The accepting, switching, equivocation, import, honest-agreement and joint H1–H4 contracts,
+and the rollback grid trap, are mandatory audit obligations. Finite ordinary fixtures using
+fewer premises are not substitutes.
 
 ## Exact traceability and deferred scope
 
@@ -265,8 +317,8 @@ the current proofs reuse, and fourteen semantic pins (`EtnaProofs/Contracts.lean
 `Consensus.election_valid_iff`) that fail the build if a shared definition the statements use
 is weakened without editing its pin.
 
-The inventory is **38 partial / 530 deferred clauses**, and **41 narrow partial /
-36 supporting / 531 deferred binding rules**, plus 32 deferred assumption/limitation rows.
+The inventory is **61 partial / 507 deferred clauses**, and **44 narrow partial /
+36 supporting / 528 deferred binding rules**, plus 32 deferred assumption/limitation rows.
 SWITCH has narrow first-fence/root evidence. All 93 ANCHORLESS and 47 ACCEPTANCE
 clauses remain deferred. Margin arithmetic, bridge resolver/EIP-4788/storage migration,
 production parsing/crypto/EL/guest/token/Solidity/Comet/store refinement, operational
@@ -297,9 +349,11 @@ ETNA_FULL_TESTS=1 python3 -m unittest discover -s tests   # adds the slow mutati
 The audit checks exact types, mechanical roles, allowed transitive axioms, premise use,
 mandatory joint-premise profiles and fresh whole-kernel replay.
 
-CI (`.github/workflows/formal--etna.yml`) runs three jobs. `etna-formal` runs every gate
+CI runs three jobs. `etna-formal` (`.github/workflows/formal--etna.yml`) runs every gate
 above with the fast suite on each pull request, with a Lake build cache. `etna-review-surface`
 needs no Lean: it applies the statement lock against the base branch. `etna-formal-full`
-runs the full mutation suite and `lake check --paranoid` (five independent kernels in a
-bubblewrap sandbox) nightly, on pushes to main, on manual dispatch and on pull requests
-labelled `formal-full`.
+(`formal--etna-full.yml`) runs the full mutation suite and `lake check --paranoid` (five
+independent kernels in a bubblewrap sandbox) nightly, on pushes to main, on manual dispatch
+and on pull requests labelled `formal-full`. Before the kernels it adds a 16 GB swap file and
+logs memory use every 30 seconds: two earlier runs were killed about two minutes into the
+third kernel, after every test and two kernels had passed.

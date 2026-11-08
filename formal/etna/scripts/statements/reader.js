@@ -60,6 +60,12 @@
       "The fifteen primitive and deployment obligations supplied to H2 and H3: H1's five (FundPremises) and ten more. Inspect every field and its component definition before applying the headlines.",
     "Etna.Statements.Current.FundPremises":
       "The five premises H1 is stated over. None concerns consensus, so H1 holds whatever the committee signs.",
+    "Etna.Statements.Current.RecoveryPremises":
+      "The ten premises H4 is stated over: H1's five (FundPremises) and five more, including assumed proof completeness. It does not include Premises or any honesty or vote-attribution assumption.",
+    "Etna.Statements.Current.LiveAt":
+      "H4's eight per-state hypotheses on the starting state: the checkpoint on the current grid, counter headroom, a later L1 window block with a live committee, live rulesets and a live Unzen lane.",
+    "Etna.Statements.Current.RecoverableAt":
+      "Some rollback-free sequence of calls with only plain recoveries reaches an accepted landing, above the starting checkpoint whenever something had landed.",
     "Etna.Statements.Current.NormalAccountability":
       "Live risk for quorum-overlap members above the actual checkpoint, under an authenticated candidate and an execution with no rollback since fresh deployment.",
     "Etna.Statements.Current.NormalCommitteeRetention":
@@ -99,15 +105,38 @@
       "Accepted decoded Unzen headers extend the physical header parent chain.",
     currentEvidenceWindow:
       "Deployment policy: a positive evidence window no longer than the immutable withdrawal delay. This is not a contract initialization check.",
+    recoveryClock:
+      "H4's copy of currentClock: strictly increasing L1 block times.",
+    recoveryCatalogueHash:
+      "H4's copy of currentCatalogueHash: ruleset byte primitives use the environment's transaction hash.",
+    proofComplete:
+      "MODEL-1-1/1-2, assumed: one verifier version accepts two proofs, at least one ZK, of every statement an image certifies.",
+    payloadLive:
+      "Up to six blocks within the block size bound fit in one to six blobs that the payload check accepts.",
+    unzenStart:
+      "On a switching network, every header a valid final Unzen proof authenticates is a usable Etna start.",
+    grid:
+      "LiveAt: once a start is written, the checkpoint is on the current grid. Excludes the rollback grid trap.",
+    generation: "LiveAt: generation + 2 fits 48 bits.",
+    nonce: "LiveAt: recoveryNonce + 1 fits 256 bits.",
+    rules: "LiveAt: nextRules + 1 fits 48 bits.",
+    height: "LiveAt: checkpoint height + K fits 48 bits.",
+    window:
+      "LiveAt: a later L1 block past the anchor-age, fork-time and genesis bounds, where online keys hold more than 2/3 of the elected power.",
+    ruleset:
+      "LiveAt: the current rulesets, or ruleset nextRules + 1, are live and implemented by an image.",
+    unzen:
+      "LiveAt: on a switching network, the Unzen lane has finalized its last proposal or can prove it.",
   };
-  // H1's own record first, then the fields Premises adds to it.
+  // H1's own record first, then the fields Premises and RecoveryPremises add
+  // to it, then H4's per-state hypotheses (LiveAt).
   const fieldsOf = (name) => {
     const entry = entries.get(name);
     const source = data.files[entry.file].text
       .split("\n")
       .slice(entry.line - 1, entry.endLine)
       .join("\n");
-    return [...source.matchAll(/^  (current\w+)\s*:/gm)].map((match) => [
+    return [...source.matchAll(/^  (\w+)\s*:/gm)].map((match) => [
       entry.name,
       match[1],
     ]);
@@ -115,10 +144,12 @@
   const premiseFields = [
     ...fieldsOf("Etna.Statements.Current.FundPremises"),
     ...fieldsOf("Etna.Statements.Current.Premises"),
+    ...fieldsOf("Etna.Statements.Current.RecoveryPremises"),
   ];
+  const hypothesisFields = fieldsOf("Etna.Statements.Current.LiveAt");
   for (const [count, label] of [
     [data.counts.current, "current named declarations"],
-    [premiseFields.length, "joint current premises"],
+    [premiseFields.length, "current premise fields"],
     [
       data.declarations.filter((entry) => entry.contract).length,
       "reviewed theorem contracts · all profiles",
@@ -132,7 +163,7 @@
         node("span", {}, label),
       ),
     );
-  for (const [record, field] of premiseFields)
+  for (const [record, field] of [...premiseFields, ...hypothesisFields])
     $("premise-list").append(
       node(
         "div",
