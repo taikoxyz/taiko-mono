@@ -64,18 +64,12 @@ pub enum ConfigError {
         /// The consensus constant whose override differed from its built-in value.
         parameter: &'static str,
     },
-    /// Back-pressure must allow at least the first block.
-    #[error("unsettled_limit must be positive")]
-    ZeroUnsettledLimit,
     /// U must be a [`GRID_INTERVAL`] multiple within the protocol unsettled-depth bounds.
     #[error("unsettled_limit must be a multiple of {k} in {k}..=65536", k = GRID_INTERVAL)]
     InvalidUnsettledLimit,
     /// Voting power units must respect the token-supply safety bound.
     #[error("vp_unit must be at least 867361738 base units")]
     VpUnitTooSmall,
-    /// `vp_unit == 0`.
-    #[error("vp_unit must be > 0")]
-    ZeroVpUnit,
     /// `n_max == 0`.
     #[error("n_max must be >= 1")]
     ZeroNMax,
@@ -162,16 +156,10 @@ impl ChainParams {
     /// capacity, positive block gas limit and s_min >= vp_unit. Returns the first invalid
     /// deployment parameter.
     pub fn validate(&self) -> Result<(), ConfigError> {
-        if self.unsettled_limit == 0 {
-            return Err(ConfigError::ZeroUnsettledLimit);
-        }
         if !(GRID_INTERVAL..=65_536).contains(&self.unsettled_limit) ||
             !self.unsettled_limit.is_multiple_of(GRID_INTERVAL)
         {
             return Err(ConfigError::InvalidUnsettledLimit);
-        }
-        if self.vp_unit.is_zero() {
-            return Err(ConfigError::ZeroVpUnit);
         }
         if self.vp_unit < U256::from(867_361_738) {
             return Err(ConfigError::VpUnitTooSmall);
@@ -275,6 +263,17 @@ mod tests {
         ] {
             assert!(p.validate().is_err());
         }
+    }
+    #[test]
+    fn zero_values_hit_the_range_checks() {
+        assert!(matches!(
+            ChainParams { unsettled_limit: 0, ..devnet() }.validate(),
+            Err(ConfigError::InvalidUnsettledLimit)
+        ));
+        assert!(matches!(
+            ChainParams { vp_unit: U256::ZERO, ..devnet() }.validate(),
+            Err(ConfigError::VpUnitTooSmall)
+        ));
     }
     #[test]
     fn malformed_unknown_and_retargeted_overrides_fail() {
