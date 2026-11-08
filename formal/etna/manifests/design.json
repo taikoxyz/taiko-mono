@@ -2706,7 +2706,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Composition of the exact current conditional H1-H3 statements; no additional per-rule proof."
+      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Composition of the exact current conditional H1-H4 statements; no additional per-rule proof."
     },
     {
       "declaration": "Etna.Design.Current.Headlines.forced_inclusion_integrity",
@@ -6507,6 +6507,44 @@
       "scope": "The actual chosen raw DAO history yields the current conditional H1/H2/H3 endpoint claims only with per-successful-upgrade historical authorization. Owner identity alone does not imply those duties; arbitrary implementation upgrades and recovery of bad-checkpoint payouts are not proved."
     },
     {
+      "declaration": "Etna.Design.Current.Headlines.recoverability",
+      "module": "EtnaProofs.Headline.Current",
+      "role": "property",
+      "type": "Etna.Statements.Current.Recoverability",
+      "assumptions": [
+        "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
+      ],
+      "bridge_level": "spec-proved",
+      "sources": [
+        "LIVE_EN-8773689481af38c9",
+        "LIVE_EN-4d6ef522fb0ee3fa",
+        "LIVE_EN-e4d5ea9bf749c3f7",
+        "LIVE_EN-d7f8342dc8bb8e88",
+        "LIVE_EN-975e406996f0fce2",
+        "LIVE_EN-03cb21954a3b2213"
+      ],
+      "scope": "Derived conditional decoded property: the exact current H4 statement (Recoverability), proved by Recovery.recoverable. From every reachable, initialized state satisfying LiveAt, under RecoveryPremises, a RecoveryTrace (no rollback; one plain recovery with no exclusions, no FI blanking and no upgrade) reaches a state where land accepts a landing; if anything had landed before, that landing ends above the starting checkpoint. Proof completeness (MODEL-1-1/1-2) is assumed through RecoveryPremises.proofComplete (ProofComplete), not shown. Recovery restoring progress (RECOV-8, LIMIT-12-2) is exercised; list validation, exclusions and blanking are not. Normal-operation liveness, adversarial scheduling and DAO transaction refinement are outside the claim."
+    },
+    {
+      "declaration": "Etna.Design.Current.Headlines.deployed_recoverability",
+      "module": "EtnaProofs.Headline.Current",
+      "role": "property",
+      "type": "∀ {env : Etna.Design.Current.Protocol.Environment} {registry : Etna.Design.Current.RegistryMachine.State}\n  {w : Etna.Design.Current.Protocol.World},\n  Etna.Statements.Current.RecoveryPremises env registry →\n    ∀\n      (history :\n        Etna.Design.Current.Protocol.Governance.DeployedTrace env (Etna.Design.Current.Protocol.empty env registry) w),\n      Etna.Design.Current.Protocol.Governance.AuthorizedUpgrades history →\n        w.initialized = Bool.true →\n          Etna.Statements.Current.LiveAt env w → Etna.Statements.Current.RecoverableAt env w",
+      "assumptions": [
+        "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. DAO transaction refinement is outside the model."
+      ],
+      "bridge_level": "spec-proved",
+      "sources": [
+        "LIVE_EN-8773689481af38c9",
+        "LIVE_EN-4d6ef522fb0ee3fa",
+        "LIVE_EN-e4d5ea9bf749c3f7",
+        "LIVE_EN-d7f8342dc8bb8e88",
+        "LIVE_EN-975e406996f0fce2",
+        "LIVE_EN-03cb21954a3b2213"
+      ],
+      "scope": "The actual chosen raw DAO history yields H4 (RecoverableAt) only with per-successful-upgrade historical authorization, the same condition as deployed_claims (Governance.authorized_trace_refines). Owner identity alone does not imply those duties; arbitrary implementation upgrades are not proved. Otherwise the scope of recoverability: a rollback-free path with one plain recovery (no exclusions, no FI blanking, no upgrade) reaches an accepted landing, above the starting checkpoint whenever one had landed. Proof completeness (MODEL-1-1/1-2) is assumed through RecoveryPremises.proofComplete (ProofComplete), not shown. Recovery restoring progress (RECOV-8, LIMIT-12-2) is exercised; list validation, exclusions and blanking are not. Normal-operation liveness, adversarial scheduling and DAO transaction refinement are outside the claim."
+    },
+    {
       "declaration": "Etna.Design.Current.Protocol.NonVacuity.recovered_pure_certificate",
       "module": "EtnaWitnesses.NonVacuity.Current",
       "role": "regression",
@@ -7899,6 +7937,18 @@
       "scope": "Joint realization (design 4.6): one environment, registry and engine satisfy H1-H3's fifteen Premises and H4's RecoveryPremises together, with a reachable initialized world satisfying LiveAt, so all four claims can hold of one deployment. Restrictions: a new network only (no Unzen inbox, so the Unzen premises and LiveAt.unzen are vacuous); one online key, which signs every vote, backs the only registered bond and alone forms every committee; a single catalogue definition for every ruleset, which checks only that a block's EL hash is the injective code of its EL fields and its Comet hash the injective code of the other header fields, and accepts every payload; a classical verifier that is an ideal sound-and-complete checker (it accepts exactly the statements an image certifies over the L1 prefix their reference hash commits to), not an oracle for a World. Some premises hold trivially by permissive choices: the engine attributes every precommit (currentVoteAttribution), env.payload accepts any one to six blobs whatever the blocks (PayloadLive), and the verifier ignores version, backend and proof bytes. The world has not landed yet; no standalone rule credit."
     },
     {
+      "declaration": "Etna.Design.Current.Protocol.RecoveryNonVacuity.live_recovers",
+      "module": "EtnaWitnesses.NonVacuity.CurrentRecovery",
+      "role": "regression",
+      "type": "∃ u a t,\n  Etna.Design.Current.Protocol.RecoveryTrace Etna.Design.Current.Protocol.RecoveryNonVacuity.env\n      Etna.Design.Current.Protocol.RecoveryNonVacuity.live u ∧\n    Etna.Design.Current.Protocol.land Etna.Design.Current.Protocol.RecoveryNonVacuity.env u a = Option.some t",
+      "assumptions": [
+        "Concrete restricted new-network interpreter with ideal unbounded Nat commitments, a classically decided ideal verifier and a classical physical-parent decoder; the standard-token deployment and signature adapters are constructed, not assumed. Not a production cryptographic, EL, guest or switching realization."
+      ],
+      "bridge_level": "spec-proved",
+      "sources": [],
+      "scope": "Regression: H4 applied in the joint realization. Recovery.recoverable, given that environment's RecoveryPremises and its reachable, initialized LiveAt world live (all_premises_satisfiable), yields a RecoveryTrace from live to a state where land accepts a landing, so the recovery path, its certificate and its landing are reached in an environment that also satisfies H1-H3's Premises. live has not landed, so the conclusion's above-the-checkpoint conjunct is vacuous there and is dropped; the restrictions of all_premises_satisfiable apply; no standalone rule credit."
+    },
+    {
       "declaration": "Etna.Design.Current.Protocol.Recovery.prepare",
       "module": "EtnaProofs.CurrentRecoveryPath",
       "role": "property",
@@ -7937,6 +7987,7 @@
         "LIVE_EN-8d1801078c3862d8",
         "LIVE_EN-97a85deb922765e1",
         "LIVE_EN-ced8c7aa78799681",
+        "LIVE_EN-f33ce83257cb2c96",
         "LIVE_EN-7bc8d5003506136e",
         "LIVE_EN-287b470870b50710",
         "LIVE_EN-1e8d3744485e2a29",
@@ -7953,7 +8004,7 @@
         "LIVE_EN-e47ed8b1032eaf71",
         "LIVE_EN-3a4063c2936a95e5"
       ],
-      "scope": "Derived conditional decoded property: the segment step of H4's recovery path (design 4.3, step 5). Given SegmentContext for the closed certificate world x at reference R+1 (the generation's origin is the batch parent p at L1 block R; x's history holds the closed snapshot at R; parameters are valid; the selected rulesets are live and implemented by image; CommitteeLive at R; every queued entry has hash-matching raw bytes) and the catalogue's byte hash, there are K blocks from p that form a Blocks.Chain under policy env x (their own headers) (R+1). Each block anchors to the snapshot at R (the first carries the anchor witness, later blocks inherit it; at most K-1 seconds of anchor age; back-pressure holds since K <= U); its header has height parent+1, parentHash, the timestamp max(parent+1, BFT time 0, anchor time), fee share 100, the anchor's root as parent beacon root and the active committee hashes; it commits in round 0 with distinct online members holding more than 2/3 of the power of the committee elected at R, which is both the recovery committee (target floor(c/L)) and every normal rotation inside the segment (snapshot max(D(t)'s anchor, origin) = R); a switch-height block carries the normal record proved under its anchor's root; its schedule is the anchored snapshot's, unstopped; the forced-inclusion head is included at position zero when canonical and executable, skipped when due and non-canonical or its singleton trial completes empty, otherwise left in place. The terminal is at height p+K with an FI cursor between the head and the tail, at most K past the head; the chain is physically linked from p and every block is hash-bound, anchored at R, within the size bound and selects a ruleset image implements. EL execution, payload and singleton outcomes come from ExecutionLive (existential headers), signatures from CommitteeLive; the block size field is set, not computed from content; L1 finality and proposer fetching are outside the model. The certificate and landing are proved separately."
+      "scope": "Derived conditional decoded property: the segment step of H4's recovery path (design 4.3, step 5). Given SegmentContext for the closed certificate world x at reference R+1 (the generation's origin is the batch parent p at L1 block R; x's history holds the closed snapshot at R; parameters are valid; the selected rulesets are live and implemented by image; CommitteeLive at R; every queued entry has hash-matching raw bytes) and the catalogue's byte hash, there are K blocks from p that form a Blocks.Chain under policy env x (their own headers) (R+1). Each block anchors to the snapshot at R (the first carries the anchor witness, later blocks inherit it; at most K-1 seconds of anchor age; back-pressure holds since K <= U); its header has height parent+1, parentHash, the timestamp max(parent+1, BFT time 0, anchor time), fee share 100, the anchor's root as parent beacon root and the active committee hashes; it commits in round 0 with distinct online members holding more than 2/3 of the power of the committee elected at R, which is both the recovery committee (target floor(c/L)) and every normal rotation inside the segment (snapshot max(D(t)'s anchor, origin) = R); a switch-height block carries the normal record proved under its anchor's root; its schedule is the anchored snapshot's, unstopped; under the forced inclusion rules of block validity (3.4 rule 8, section 7) the forced-inclusion head is included at position zero when canonical and executable, skipped when due and non-canonical or its singleton trial completes empty, otherwise left in place. The terminal is at height p+K with an FI cursor between the head and the tail, at most K past the head; the chain is physically linked from p and every block is hash-bound, anchored at R, within the size bound and selects a ruleset image implements. EL execution, payload and singleton outcomes come from ExecutionLive (existential headers), signatures from CommitteeLive; the block size field is set, not computed from content; L1 finality and proposer fetching are outside the model. The certificate and landing are proved separately."
     },
     {
       "declaration": "Etna.Design.Current.Protocol.Recovery.recoverable",

@@ -13,9 +13,17 @@
     "sha256": "6b64400fde065038f64e2af378788214698c7bf07d4432ddacbf1be4380127c5"
   },
   "evidence": {
+    "CONS-3.2-2": {
+      "theorems": ["Etna.Design.Current.Protocol.Recovery.segment"],
+      "reason": "Recovery.segment builds the K blocks after a plain recovery with header heights parent + 1 and parentHash the parent's EL hash, linked from c's hash-bound header; an existence result for that segment, not a check that every valid header is built this way."
+    },
     "CONS-3.4-2": {
       "theorems": ["Etna.Design.Current.Blocks.chain_parent_hashes"],
       "reason": "Valid decoded chain EL parentHash fields link to the predecessor EL hash; no Comet LastBlockID, cut coverage or raw decoder conclusion."
+    },
+    "CONS-3.4-9": {
+      "theorems": ["Etna.Design.Current.Protocol.Recovery.segment"],
+      "reason": "Recovery.segment's K post-recovery blocks form a decoded chain valid under the block rules, the forced inclusion rules of section 7 among them, with the FI cursor ending between head and tail and at most K past the head; an existence result on the recovery path, not that the section 7 rules hold of arbitrary blocks."
     },
     "DATA-5.4-1": {
       "theorems": ["Etna.Design.Current.Import.genesis_path_ignores_val_state"],
@@ -381,9 +389,20 @@
       ],
       "reason": "Supporting exact successful ordinary-recovery state value preserves the pre-call checkpoint, complete existing Inbox records and FI head together; the head-only corollary states the consumed head equality separately. No physical Solidity/external-call atomicity or storage-layout refinement is proved."
     },
+    "RECOV-8-58": {
+      "theorems": [
+        "Etna.Design.Current.Headlines.recoverability",
+        "Etna.Design.Current.Protocol.Recovery.recoverable"
+      ],
+      "reason": "H4: when something had landed, the rollback-free path with one plain recovery ends in an accepted landing above the starting checkpoint c, so settlement after that recovery continues past c rather than rewinding below it; about that path only. Discarding the unsettled suffix (RECOV-8-56) and the recover call's own effects are not shown."
+    },
     "RECOV-8.4-12": {
       "theorems": ["Etna.Design.Current.Blocks.first_anchor_witness"],
       "reason": "The generation first block carries its own anchor witness; freshness/authentication remain the other validity fields."
+    },
+    "RECOV-8.4-13": {
+      "theorems": ["Etna.Design.Current.Protocol.Recovery.segment"],
+      "reason": "Every block of the K-block segment the recovery path builds anchors at the recovery block R exactly, so none uses an anchor earlier than R; shown for that segment, not required of every block of the new generation."
     },
     "RECOV-8.4-3": {
       "clause": "LIVE_EN-1d7a0cb1eb3d5efb",

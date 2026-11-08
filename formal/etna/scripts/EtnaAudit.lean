@@ -514,8 +514,9 @@ partial def premiseReads (s : Name) (fields : Array Name) (c : Name) :
 /-- Every field of the premise structure `premises` is read by the proof of at least one of
 `theorems` (newline-separated), through the Etna source theorems it uses (`premiseReads`):
 a premise no headline proof needs is an assumption the claims do not rest on. Logs one
-`premise use: field <- theorem …` line per read field, in field order, then fails naming
-every unread field. -/
+`premise use: Structure.field <- theorem …` line per read field, in field order (`Structure` is
+the structure's last name component, so records that share a field name, such as an inherited
+`toFundPremises`, report apart), then fails naming every unread field. -/
 def checkPremiseUse (premises theorems : String) : CoreM Unit := do
   let s := premises.toName
   let some info := getStructureInfo? (← getEnv) s | throwError "premise use: {s} is not a structure"
@@ -525,7 +526,7 @@ def checkPremiseUse (premises theorems : String) : CoreM Unit := do
   for f in info.fieldNames do
     let readers := reads.filter (·.2.contains f) |>.map (·.1.toString)
     if readers.isEmpty then unread := unread.push f
-    else logInfo m!"premise use: {f} <- {" ".intercalate readers}"
+    else logInfo m!"premise use: {s.getString!}.{f} <- {" ".intercalate readers}"
   unless unread.isEmpty do
     throwError "premise fields of {s} read by no headline proof (after unused bindings are removed): \
       {unread.toList}; every premise must be needed by one of {names}"

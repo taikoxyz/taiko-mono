@@ -9,6 +9,7 @@ import EtnaProofs.CurrentQueueIntegrity
 import EtnaProofs.CurrentUnzen
 import EtnaProofs.CurrentGovernance
 import EtnaProofs.CurrentCheckpointRisk
+import EtnaProofs.CurrentRecoveryLanding
 
 namespace Etna.Design.Current.Headlines
 open Protocol Etna.Statements.Current
@@ -116,6 +117,21 @@ theorem deployed_claims {env : Environment} {registry : RegistryMachine.State} {
     accountable_finality env registry engine premises w trace initialized,
     forced_inclusion_integrity env registry engine premises w trace⟩
 
-theorem claims : Claims := ⟨fund_safety,accountable_finality,forced_inclusion_integrity⟩
+/-- H4: from every reachable, initialized state satisfying `LiveAt`, under `RecoveryPremises`, a
+rollback-free path with one plain recovery reaches an accepted landing, above the starting
+checkpoint whenever one had landed (`Recovery.recoverable`). -/
+theorem recoverability : Recoverability := Recovery.recoverable
+
+/-- H4 for an actual instrumented raw DAO upgrade history, under the same explicit historical
+authorization as `deployed_claims`. -/
+theorem deployed_recoverability {env : Environment} {registry : RegistryMachine.State} {w : World}
+    (premises : RecoveryPremises env registry)
+    (history : Governance.DeployedTrace env (empty env registry) w)
+    (authorization : Governance.AuthorizedUpgrades history) (initialized : w.initialized = true)
+    (live : LiveAt env w) : RecoverableAt env w :=
+  recoverability env registry premises w (Governance.authorized_trace_refines history authorization)
+    initialized live
+
+theorem claims : Claims := ⟨fund_safety,accountable_finality,forced_inclusion_integrity,recoverability⟩
 
 end Etna.Design.Current.Headlines

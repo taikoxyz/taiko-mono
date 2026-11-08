@@ -32,7 +32,7 @@ SOURCED = next(e for e in MANIFEST['theorems'] if e['sources'])
 # A current derived (induction) property and a current closed regression witness.
 PROPERTY = 'Etna.Design.Current.Registry.trace_issuance_monotone'
 REGRESSION = 'Etna.Design.Current.Protocol.NonVacuity.premises_satisfiable'
-H1, H2, H3 = AUDIT.CURRENT_HEADLINES
+H1, H2, H3, H4 = AUDIT.CURRENT_HEADLINES
 
 
 def scratch():
@@ -574,8 +574,8 @@ end Etna.Design.AuditProbe
         failed, output = self.lean(call, ('EtnaProofs', 'EtnaProofs.AuditProbe'))
         self.assertTrue(failed, output)
         uses, _ = AUDIT.premise_uses(output)
-        self.assertEqual(uses, {'direct': ['Etna.Design.AuditProbe.headline_direct'],
-                                'viaLemma': ['Etna.Design.AuditProbe.headline_indirect']})
+        self.assertEqual(uses, {'Assumed.direct': ['Etna.Design.AuditProbe.headline_direct'],
+                                'Assumed.viaLemma': ['Etna.Design.AuditProbe.headline_indirect']})
         self.assertIn('read by no headline proof (after unused bindings are removed): [deadOnly, unused]',
                       ' '.join(output.split()))
 

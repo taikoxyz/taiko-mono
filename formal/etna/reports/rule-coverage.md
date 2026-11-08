@@ -10,7 +10,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 
 | Type       | Count | partial | partial-via | supporting | deferred | design-pending |
 | ---------- | ----: | ------: | ----------: | ---------: | -------: | -------------: |
-| rule       |   608 |      41 |           0 |         36 |      531 |              0 |
+| rule       |   608 |      45 |           0 |         36 |      527 |              0 |
 | limitation |    21 |       0 |           0 |          0 |       21 |              0 |
 | assumption |    11 |       0 |           0 |          0 |       11 |              0 |
 
@@ -18,9 +18,9 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 
 | Family | Rules | partial | partial-via | supporting | deferred | design-pending |
 | ------ | ----: | ------: | ----------: | ---------: | -------: | -------------: |
-| RECOV  |   114 |       2 |           0 |          8 |      104 |              0 |
+| RECOV  |   114 |       4 |           0 |          8 |      102 |              0 |
 | ENC    |    59 |       0 |           0 |          0 |       59 |              0 |
-| CONS   |    53 |       1 |           0 |          0 |       52 |              0 |
+| CONS   |    53 |       3 |           0 |          0 |       50 |              0 |
 | START  |    52 |       4 |           0 |          4 |       44 |              0 |
 | PROOF  |    50 |       7 |           0 |          7 |       36 |              0 |
 | STAKE  |    43 |      13 |           0 |          3 |       27 |              0 |
@@ -72,7 +72,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | CONS-3.1-16    | rule       | deferred   | LIVE_EN-ce76cfbd09942349 |      5 |                                                                                                             |
 | CONS-3.1-17    | rule       | deferred   | LIVE_EN-ce76cfbd09942349 |      5 |                                                                                                             |
 | CONS-3.2-1     | rule       | deferred   | LIVE_EN-5431294475dcde05 |      1 |                                                                                                             |
-| CONS-3.2-2     | rule       | deferred   | LIVE_EN-66df2264f7aa82a1 |      1 |                                                                                                             |
+| CONS-3.2-2     | rule       | partial    | LIVE_EN-66df2264f7aa82a1 |      1 | `segment`                                                                                                   |
 | CONS-3.2-3     | rule       | deferred   | LIVE_EN-f5b810144f31f649 |      1 |                                                                                                             |
 | CONS-3.2-4     | rule       | deferred   | LIVE_EN-4d1c581f8980cdc9 |      1 |                                                                                                             |
 | CONS-3.2-5     | rule       | deferred   | LIVE_EN-2fc53b9651494399 |      1 |                                                                                                             |
@@ -98,7 +98,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | CONS-3.4-6     | rule       | deferred   | LIVE_EN-8d1801078c3862d8 |      1 |                                                                                                             |
 | CONS-3.4-7     | rule       | deferred   | LIVE_EN-97a85deb922765e1 |      1 |                                                                                                             |
 | CONS-3.4-8     | rule       | deferred   | LIVE_EN-ced8c7aa78799681 |      1 |                                                                                                             |
-| CONS-3.4-9     | rule       | deferred   | LIVE_EN-f33ce83257cb2c96 |      1 |                                                                                                             |
+| CONS-3.4-9     | rule       | partial    | LIVE_EN-f33ce83257cb2c96 |      1 | `segment`                                                                                                   |
 | CONS-3.4-10    | rule       | deferred   | LIVE_EN-c11a64536e05aa27 |      2 |                                                                                                             |
 | CONS-3.4-11    | rule       | deferred   | LIVE_EN-c11a64536e05aa27 |      2 |                                                                                                             |
 | CONS-3.4-11a   | rule       | deferred   | LIVE_EN-7bc8d5003506136e |      1 |                                                                                                             |
@@ -403,7 +403,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | RECOV-8-55     | rule       | deferred   | LIVE_EN-6eed3016601c5cd3 |      5 |                                                                                                             |
 | RECOV-8-56     | rule       | deferred   | LIVE_EN-d7f8342dc8bb8e88 |      3 |                                                                                                             |
 | RECOV-8-57     | rule       | deferred   | LIVE_EN-d7f8342dc8bb8e88 |      3 |                                                                                                             |
-| RECOV-8-58     | rule       | deferred   | LIVE_EN-d7f8342dc8bb8e88 |      3 |                                                                                                             |
+| RECOV-8-58     | rule       | partial    | LIVE_EN-d7f8342dc8bb8e88 |      3 | `recoverability`, `recoverable`                                                                             |
 | RECOV-8.1-1    | rule       | deferred   | LIVE_EN-3504917df70d4bf8 |      2 |                                                                                                             |
 | RECOV-8.1-2    | rule       | deferred   | LIVE_EN-3504917df70d4bf8 |      2 |                                                                                                             |
 | RECOV-8.1-3    | rule       | deferred   | LIVE_EN-975e406996f0fce2 |      3 |                                                                                                             |
@@ -454,7 +454,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | RECOV-8.4-10   | rule       | deferred   | LIVE_EN-d8189cd72ebd5832 |      4 |                                                                                                             |
 | RECOV-8.4-11   | rule       | deferred   | LIVE_EN-d8189cd72ebd5832 |      4 |                                                                                                             |
 | RECOV-8.4-12   | rule       | supporting | LIVE_EN-d8189cd72ebd5832 |      4 | `first_anchor_witness`                                                                                      |
-| RECOV-8.4-13   | rule       | deferred   | LIVE_EN-d8189cd72ebd5832 |      4 |                                                                                                             |
+| RECOV-8.4-13   | rule       | partial    | LIVE_EN-d8189cd72ebd5832 |      4 | `segment`                                                                                                   |
 | RECOV-8.4-14a  | rule       | deferred   | LIVE_EN-d970803101987a32 |      2 |                                                                                                             |
 | RECOV-8.4-15   | rule       | deferred   | LIVE_EN-d970803101987a32 |      2 |                                                                                                             |
 | SYNC-9-1       | rule       | deferred   | LIVE_EN-9a03b957332fc15a |      2 |                                                                                                             |
@@ -686,7 +686,9 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 
 ## Narrow evidence scopes
 
+- **CONS-3.2-2**: Recovery.segment builds the K blocks after a plain recovery with header heights parent + 1 and parentHash the parent's EL hash, linked from c's hash-bound header; an existence result for that segment, not a check that every valid header is built this way.
 - **CONS-3.4-2**: Valid decoded chain EL parentHash fields link to the predecessor EL hash; no Comet LastBlockID, cut coverage or raw decoder conclusion.
+- **CONS-3.4-9**: Recovery.segment's K post-recovery blocks form a decoded chain valid under the block rules, the forced inclusion rules of section 7 among them, with the FI cursor ending between head and tail and at most K past the head; an existence result on the recovery path, not that the section 7 rules hold of arbitrary blocks.
 - **STAKE-4.1-13a**: Permanent issued bond/key identity and displacement preservation only; no 4096-slot admission algorithm verification.
 - **STAKE-4.1-14a**: The actual search covers slots 0..4095, chooses the global least balance (effStake+pending), breaks ties by lowest index and, for a successful occupied-slot registration, requires a strictly larger amount. These theorems do not independently establish minStake rejection, full rejected-state atomicity, PoP or gas/index feasibility.
 - **STAKE-4.1-14b**: A successful actual displacement replaces the globally minimum slot, clears the displaced bond slot association, preserves its key/owner/full principal and sets exit=min(old,current block). Closed historical selection history/committee authority is preserved. BondDisplaced event emission and full production lifecycle/index implementation remain separate.
@@ -752,9 +754,11 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 - **RECOV-8-45**: Unlisted queue entries survive decoded recovery unchanged. No proof of the DAO unprovability judgment, eventual consumption, or liveness is claimed.
 - **RECOV-8-47a**: Successful decoded recovery clears stopTime and stopGrid; not a fee/refund or complete rules-installation proof.
 - **RECOV-8-48**: Supporting exact successful ordinary-recovery state value preserves the pre-call checkpoint, complete existing Inbox records and FI head together; the head-only corollary states the consumed head equality separately. No physical Solidity/external-call atomicity or storage-layout refinement is proved.
+- **RECOV-8-58**: H4: when something had landed, the rollback-free path with one plain recovery ends in an accepted landing above the starting checkpoint c, so settlement after that recovery continues past c rather than rewinding below it; about that path only. Discarding the unsettled suffix (RECOV-8-56) and the recover call's own effects are not shown.
 - **RECOV-8.4-3**: Supporting exact ordinary-recovery construction: generation increments and the new origin tuple is (pre-call checkpoint height, this call L1 block, this call timestamp), with the prior origin list retained and one new-generation record appended. It does not establish generation-0 start construction, correction exceptions, source authentication, slot-290 byte layout or all-future mapping permanence.
 - **RECOV-8.4-4**: Each successful ordinary recovery preserves the existing decoded origin list verbatim and appends one new-generation origin. Actual reached same-generation traces/closed snapshots preserve the active origin, and the separate Start correction trace preserves older origin-map values. This is call-specific append and partial immutability evidence; global uniqueness and permanence of every Protocol mapping entry over all future calls remain separate.
 - **RECOV-8.4-12**: The generation first block carries its own anchor witness; freshness/authentication remain the other validity fields.
+- **RECOV-8.4-13**: Every block of the K-block segment the recovery path builds anchors at the recovery block R exactly, so none uses an anchor earlier than R; shown for that segment, not required of every block of the new generation.
 - **START-10-5**: Retained legacy signals form a prefix below every retained Etna signal on actual switching traces. This is compatibility of decoded lanes only, not SignalService storage/version, initialization, all treasury/configuration fields or arbitrary upgrade safety.
 - **START-10-5a**: Switching-network origin write is one-shot in the decoded start model.
 - **START-10-5c**: Decoded start correction increments generations and preserves prior origin data; no broad SignalService implementation claim.

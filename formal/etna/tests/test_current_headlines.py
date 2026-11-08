@@ -18,29 +18,37 @@ HEADLINES = {
     'Etna.Design.Current.Headlines.fund_safety': 'Etna.Statements.Current.FundSafety',
     'Etna.Design.Current.Headlines.accountable_finality': 'Etna.Statements.Current.AccountableFinality',
     'Etna.Design.Current.Headlines.forced_inclusion_integrity': 'Etna.Statements.Current.ForcedInclusionIntegrity',
+    'Etna.Design.Current.Headlines.recoverability': 'Etna.Statements.Current.Recoverability',
 }
 PREMISES = 'Etna.Statements.Current.Premises'
 FUND_PREMISES = 'Etna.Statements.Current.FundPremises'
-H1, H2, H3 = HEADLINES
+RECOVERY_PREMISES = 'Etna.Statements.Current.RecoveryPremises'
+LIVE_AT = 'Etna.Statements.Current.LiveAt'
+H1, H2, H3, H4 = HEADLINES
 # Premises extends FundPremises: H2 and H3 read H1's five fields through `toFundPremises`,
-# and H1's proof alone must read each of the five.
+# and H1's proof alone must read each of the five. H4 reads none of Premises; its own record
+# RecoveryPremises (FundPremises plus five) and every LiveAt conjunct are read by H4's proof.
 PREMISE_USES = {
-    'toFundPremises': [H2,H3],
-    'currentStandardToken': [H2],
-    'currentSignatureAgreement': [H2],
-    'currentBountyBound': [H2],
-    'currentCodec': [H2],
-    'currentVoteAttribution': [H2],
-    'currentClock': [H3],
-    'currentCatalogueHash': [H3],
-    'currentSignatureSound': [H2],
-    'currentSelfAllowance': [H2],
-    'currentEvidenceWindow': [H2],
-    'currentPrimitives': [H1],
-    'currentVerifierSound': [H1],
-    'currentReferenceBinding': [H1],
-    'currentRegistryGenesis': [H1],
-    'currentUnzenExtension': [H1],
+    'Premises.toFundPremises': [H2,H3],
+    'Premises.currentStandardToken': [H2],
+    'Premises.currentSignatureAgreement': [H2],
+    'Premises.currentBountyBound': [H2],
+    'Premises.currentCodec': [H2],
+    'Premises.currentVoteAttribution': [H2],
+    'Premises.currentClock': [H3],
+    'Premises.currentCatalogueHash': [H3],
+    'Premises.currentSignatureSound': [H2],
+    'Premises.currentSelfAllowance': [H2],
+    'Premises.currentEvidenceWindow': [H2],
+    'FundPremises.currentPrimitives': [H1],
+    'FundPremises.currentVerifierSound': [H1],
+    'FundPremises.currentReferenceBinding': [H1],
+    'FundPremises.currentRegistryGenesis': [H1],
+    'FundPremises.currentUnzenExtension': [H1],
+    **{'RecoveryPremises.'+field: [H4] for field in (
+        'toFundPremises', 'recoveryClock', 'recoveryCatalogueHash', 'proofComplete', 'payloadLive', 'unzenStart')},
+    **{'LiveAt.'+field: [H4] for field in (
+        'grid', 'generation', 'nonce', 'rules', 'height', 'window', 'ruleset', 'unzen')},
 }
 
 
@@ -109,7 +117,7 @@ class CurrentHeadlineTests(unittest.TestCase):
         result = self.checked('\n'.join(AUDIT.render_headline_check(CLAIMS, HEADLINES, PREMISES)))
         self.assert_success(result, silent=False)
         uses, rest = AUDIT.premise_uses(result.stdout + result.stderr)
-        self.assertEqual(len(uses), 16, 'current headline audit lost a primitive field')
+        self.assertEqual(len(uses), 30, 'current headline audit lost a primitive field or hypothesis')
         self.assertEqual(uses, PREMISE_USES)
         self.assertEqual(rest.strip(), '')
 
@@ -179,10 +187,12 @@ class CurrentHeadlineTests(unittest.TestCase):
     def test_complete_renderer_executes_current_exact_and_premise_checks(self):
         entries = contract_fixture()['theorems']
         rendered = AUDIT.render_audit(entries, complete=True, libraries=[])
+        records = (PREMISES, FUND_PREMISES, RECOVERY_PREMISES, LIVE_AT)
         current_checks = [line for line in rendered.splitlines()
                           if ('EtnaAudit.checkHeadline ' in line and CLAIMS[1] in line)
-                          or ('EtnaAudit.checkPremiseUse ' in line and (PREMISES in line or FUND_PREMISES in line))]
-        self.assertEqual(len(current_checks), 3, 'complete audit omitted current headline checks')
+                          or ('EtnaAudit.checkPremiseUse ' in line
+                              and any(AUDIT.lean_string(r) in line for r in records))]
+        self.assertEqual(len(current_checks), 5, 'complete audit omitted current headline checks')
         result = self.checked('\n'.join(current_checks))
         self.assert_success(result, silent=False)
         uses, rest = AUDIT.premise_uses(result.stdout + result.stderr)
@@ -230,7 +240,7 @@ class CurrentHeadlineTests(unittest.TestCase):
         self.assertIn('premise fields of Etna.Statements.Current.FundPremises read by no headline proof '
                       '(after unused bindings are removed): [currentReferenceBinding, currentUnzenExtension]', output)
         uses, _ = AUDIT.premise_uses(result.stdout + result.stderr)
-        self.assertEqual(uses, {field: [H2] for field in
+        self.assertEqual(uses, {'FundPremises.'+field: [H2] for field in
                                 ('currentPrimitives', 'currentVerifierSound', 'currentRegistryGenesis')})
 
     def test_h1_rests_on_no_consensus_premise(self):
@@ -273,7 +283,8 @@ class CurrentHeadlineTests(unittest.TestCase):
     def test_definitionally_equal_restatement_still_fails_exact_type_contract(self):
         proof = '''namespace Etna.CurrentHeadlineProbe
  theorem restated : Etna.Statements.Current.FundSafety ∧ Etna.Statements.Current.AccountableFinality ∧
-     Etna.Statements.Current.ForcedInclusionIntegrity := Etna.Design.Current.Headlines.claims
+     Etna.Statements.Current.ForcedInclusionIntegrity ∧ Etna.Statements.Current.Recoverability :=
+   Etna.Design.Current.Headlines.claims
  end Etna.CurrentHeadlineProbe
 '''
         check = AUDIT.render_headline_check(('Etna.CurrentHeadlineProbe.restated', CLAIMS[1]), HEADLINES, PREMISES)[0]

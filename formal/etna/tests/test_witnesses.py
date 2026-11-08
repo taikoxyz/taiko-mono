@@ -2,7 +2,8 @@
 
 `EtnaWitnesses/NonVacuity` shows the current headline premise record and the switch, risk,
 import and honest-agreement profiles are jointly satisfiable by concrete accepting runs, and
-(`NonVacuity/CurrentRecovery`) that one environment meets H1-H3's and H4's premises together;
+(`NonVacuity/CurrentRecovery`) that one environment meets H1-H3's and H4's premises together,
+where H4's proof reaches an accepted landing;
 `EtnaWitnesses/Traps/RollbackGrid` reaches the rollback-across-K-change trap. Every
 module builds without warnings, and every public theorem in them has a `regression` manifest
 entry (so none backs a proof claim or changes a clause's status) that passes the proof audit's
@@ -31,8 +32,8 @@ AUDIT = load('witnesses_audit', 'scripts/audit_proofs.py')
 MODULES = [*(f'EtnaWitnesses.NonVacuity.{n}' for n in ('Current', 'CurrentAgreement', 'CurrentRecovery', 'CurrentRisk',
                                                           'CurrentSwitch')),
            'EtnaWitnesses.Traps.RollbackGrid']
-# The accepting witness and the profile witnesses the proof audit requires.
-EXPECTED = {AUDIT.CURRENT_ACCEPTING_WITNESS, *AUDIT.CURRENT_PROFILE_WITNESSES}
+# The accepting witness and the profile and trap witnesses the proof audit requires.
+EXPECTED = {AUDIT.CURRENT_ACCEPTING_WITNESS, *AUDIT.CURRENT_PROFILE_WITNESSES, *AUDIT.CURRENT_TRAP_WITNESSES}
 
 
 def witness_entries():

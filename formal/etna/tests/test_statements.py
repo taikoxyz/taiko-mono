@@ -59,7 +59,8 @@ class HeadlineProofTests(unittest.TestCase):
             'Etna.Design.Current.Headlines.fund_safety': 'Etna.Statements.Current.FundSafety',
             'Etna.Design.Current.Headlines.accountable_finality': 'Etna.Statements.Current.AccountableFinality',
             'Etna.Design.Current.Headlines.forced_inclusion_integrity':
-                'Etna.Statements.Current.ForcedInclusionIntegrity'})
+                'Etna.Statements.Current.ForcedInclusionIntegrity',
+            'Etna.Design.Current.Headlines.recoverability': 'Etna.Statements.Current.Recoverability'})
 
     def test_h1_proved(self):
         self.audit_headline('Etna.Design.Current.Headlines.fund_safety', 'Etna.Statements.Current.FundSafety')
@@ -71,6 +72,9 @@ class HeadlineProofTests(unittest.TestCase):
     def test_h3_proved(self):
         self.audit_headline('Etna.Design.Current.Headlines.forced_inclusion_integrity',
                             'Etna.Statements.Current.ForcedInclusionIntegrity')
+
+    def test_h4_proved(self):
+        self.audit_headline('Etna.Design.Current.Headlines.recoverability', 'Etna.Statements.Current.Recoverability')
 
 
 if __name__ == '__main__':

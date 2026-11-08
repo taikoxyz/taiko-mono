@@ -41,6 +41,6 @@ import EtnaProofs.CurrentFootprintHistory
 import EtnaProofs.CurrentHistory
 import EtnaProofs.Contracts
 
-/-! Etna proofs: the theorems about `EtnaModel` and the H1–H3 composition in
+/-! Etna proofs: the theorems about `EtnaModel` and the H1–H4 composition in
 `EtnaProofs.Headline.Current`. Modules outside `Current*` hold the shared lemmas the
 current proofs reuse. -/

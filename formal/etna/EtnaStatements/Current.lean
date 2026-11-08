@@ -6,9 +6,10 @@ import EtnaModel.CurrentGovernance
 import EtnaModel.CurrentCheckpointRisk
 import EtnaModel.CurrentRecovery
 
-/-! Current conditional safety over a closed decoded machine. Raw deployment,
-commitment and cryptographic facts remain explicit; their joint accepting realization
-is checked in EtnaWitnesses.NonVacuity.Current. -/
+/-! Current conditional safety (H1–H3) and recoverability (H4) over a closed decoded machine.
+Raw deployment, commitment and cryptographic facts remain explicit; their joint accepting
+realization is checked in EtnaWitnesses.NonVacuity.Current, and one environment meeting H1–H3's
+and H4's premises together in EtnaWitnesses.NonVacuity.CurrentRecovery. -/
 namespace Etna.Statements.Current
 open Etna.Design Etna.Design.Current Etna.Design.Current.Protocol
 
@@ -243,6 +244,8 @@ def Recoverability : Prop :=
     Trace env (empty env registry) w → w.initialized = true → LiveAt env w →
     RecoverableAt env w
 
-def Claims : Prop := FundSafety ∧ AccountableFinality ∧ ForcedInclusionIntegrity
+/-- The four headline claims: H1 fund safety, H2 accountable finality, H3 forced-inclusion
+integrity and H4 recoverability. -/
+def Claims : Prop := FundSafety ∧ AccountableFinality ∧ ForcedInclusionIntegrity ∧ Recoverability
 
 end Etna.Statements.Current

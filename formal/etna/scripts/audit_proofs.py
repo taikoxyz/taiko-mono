@@ -11,10 +11,11 @@ tests/, each kernel-replayed.
 
 The generated module checks every manifest entry (exact type, mechanical role, axioms), the
 package (namespaces, manifest modules, axioms, shadowing, library contents and manifest
-completeness) and the headline layer. The conjunction and the three headline theorems must
+completeness) and the headline layer. The conjunction and the four headline theorems must
 have exactly its statement-layer constant as type and only standard axioms; every field of
-the explicit premise record must be read by a headline proof, and every field of H1's own
-record `FundPremises` by H1's proof.
+the explicit premise record must be read by a headline proof, every field of H1's own record
+`FundPremises` by H1's proof, and every field of H4's record `RecoveryPremises` and every
+conjunct of its per-state hypothesis `LiveAt` by H4's proof.
 """
 import argparse
 import importlib.util
@@ -45,17 +46,29 @@ CURRENT_HEADLINES = {
     'Etna.Design.Current.Headlines.fund_safety': 'Etna.Statements.Current.FundSafety',
     'Etna.Design.Current.Headlines.accountable_finality': 'Etna.Statements.Current.AccountableFinality',
     'Etna.Design.Current.Headlines.forced_inclusion_integrity': 'Etna.Statements.Current.ForcedInclusionIntegrity',
+    'Etna.Design.Current.Headlines.recoverability': 'Etna.Statements.Current.Recoverability',
 }
 CURRENT_PREMISES = 'Etna.Statements.Current.Premises'
 # H1 is stated over this sub-record of Premises; each of its fields must be needed by H1 itself.
 CURRENT_FUND_PREMISES = ('Etna.Statements.Current.FundPremises', 'Etna.Design.Current.Headlines.fund_safety')
+# H4 is stated over its own record (FundPremises plus five more) and a per-state hypothesis;
+# H4's proof alone must need each field of both.
+CURRENT_RECOVERY_PREMISES = ('Etna.Statements.Current.RecoveryPremises', 'Etna.Design.Current.Headlines.recoverability')
+CURRENT_LIVE_HYPOTHESES = ('Etna.Statements.Current.LiveAt', 'Etna.Design.Current.Headlines.recoverability')
 CURRENT_ACCEPTING_WITNESS = 'Etna.Design.Current.Protocol.NonVacuity.premises_satisfiable'
+# Mandatory joint-premise realizations: each shows a premise profile is jointly satisfiable.
 CURRENT_PROFILE_WITNESSES = (
     'Etna.Design.Current.Protocol.CurrentSwitch.accepting_switch',
     'Etna.Design.Current.Protocol.RiskNonVacuity.risk_profile_satisfiable',
     'Etna.Design.Current.Protocol.HonestAgreement.nonempty_honest_agreement',
     'Etna.Design.Current.Protocol.RiskNonVacuity.import_profile_satisfiable',
     'Etna.Design.Current.Protocol.NonVacuity.windowed_import_satisfiable',
+    'Etna.Design.Current.Protocol.RecoveryNonVacuity.all_premises_satisfiable',
+)
+# Mandatory trap witnesses: reachable states a hypothesis must exclude, in environments that
+# realize no premise record (so they are not premise profiles).
+CURRENT_TRAP_WITNESSES = (
+    'Etna.Design.Current.Protocol.RollbackGridTrap.rollback_grid_trap',
 )
 PREMISE_USE = re.compile(r'^premise use: (\S+) <- (.+)$', re.MULTILINE)
 NAME = re.compile(r'^[A-Za-z_][A-Za-z_0-9]*(\.[A-Za-z_][A-Za-z_0-9]*)*$')
@@ -132,8 +145,8 @@ def validate_contract(manifest, root=ROOT):
         raise ValueError('design manifest schema/version required')
     validate_entries(manifest['theorems'])
     names = {e['declaration'] for e in manifest['theorems']}
-    for name in (CURRENT_CLAIMS[0], *CURRENT_HEADLINES,
-                 CURRENT_ACCEPTING_WITNESS, *CURRENT_PROFILE_WITNESSES, *COVERAGE.UNSOURCED):
+    for name in (CURRENT_CLAIMS[0], *CURRENT_HEADLINES, CURRENT_ACCEPTING_WITNESS,
+                 *CURRENT_PROFILE_WITNESSES, *CURRENT_TRAP_WITNESSES, *COVERAGE.UNSOURCED):
         if name not in names:
             raise ValueError('missing manifest entry: '+name)
 
@@ -167,16 +180,19 @@ def render_package_check(entries, shadows=None):
 
 
 def render_headline_check(claims=CURRENT_CLAIMS, headlines=None, premises=CURRENT_PREMISES,
-                          fund=CURRENT_FUND_PREMISES):
+                          fund=CURRENT_FUND_PREMISES, recovery=CURRENT_RECOVERY_PREMISES,
+                          live=CURRENT_LIVE_HYPOTHESES):
     """The headline layer: exact claim types and axioms, then premise use (one
-    `premise use: field <- theorem …` line per field): the full record against all
-    headlines, then H1's record against H1 alone."""
+    `premise use: Structure.field <- theorem …` line per field): the full record against all
+    headlines, H1's record against H1 alone, then H4's record and H4's per-state hypothesis
+    against H4 alone."""
     headlines = CURRENT_HEADLINES if headlines is None else headlines
     rows = '\n'.join(' '.join(pair) for pair in (claims, *headlines.items()))
     theorems = '\n'.join(headlines)
     return [f'run_elab _root_.EtnaAudit.checkHeadline {lean_string(rows)}',
             f'run_elab _root_.EtnaAudit.checkPremiseUse {lean_string(premises)} {lean_string(theorems)}',
-            f'run_elab _root_.EtnaAudit.checkPremiseUse {lean_string(fund[0])} {lean_string(fund[1])}']
+            *(f'run_elab _root_.EtnaAudit.checkPremiseUse {lean_string(record)} {lean_string(theorem)}'
+              for record, theorem in (fund, recovery, live))]
 
 
 def render_audit(entries, complete=True, shadows=None, libraries=None):
@@ -232,8 +248,8 @@ def check_axioms(entries, output):
 
 
 def premise_uses(output):
-    """`({field: [theorem, ...]}, output without those lines)` from the headline check's
-    `premise use:` report."""
+    """`({Structure.field: [theorem, ...]}, output without those lines)` from the headline
+    check's `premise use:` report."""
     uses = {m[1]: m[2].split() for m in PREMISE_USE.finditer(output)}
     if len(uses) != len(PREMISE_USE.findall(output)):
         raise ValueError('duplicate premise use report')
@@ -368,6 +384,7 @@ def main():
                       headline=dict(claims=' : '.join(CURRENT_CLAIMS), theorems=CURRENT_HEADLINES,
                                     accepting_witness=CURRENT_ACCEPTING_WITNESS,
                                     profile_witnesses=CURRENT_PROFILE_WITNESSES,
+                                    trap_witnesses=CURRENT_TRAP_WITNESSES,
                                     premise_use=uses),
                       vectors='testdata/etna_current_conformance equals a fresh lake exe etna-vectors run',
                       axioms=sorted(ALLOWED_AXIOMS),scope='conditional decoded specification only')
@@ -375,7 +392,7 @@ def main():
         print(f'Audited {len(manifest["theorems"])} full theorem contracts; source lint, fresh vectors, fresh kernel '
               f'replay, exact types, mechanical roles, shadowing, library contents, headline claims and transitive '
               f'axioms pass; {len(tests)} Lean regression modules replayed.')
-        print(f'Every one of the {len(uses)} premise fields is read by a headline proof: '
+        print(f'Every one of the {len(uses)} premise fields and hypotheses is read by a headline proof: '
               + '; '.join(f'{field} <- {", ".join(t.rsplit(".", 1)[1] for t in by)}' for field, by in uses.items()))
         print(f'Recorded {summarize_chains(chains)} in .scratch/generated/derivation-chains.json.')
         return 0

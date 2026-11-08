@@ -1,12 +1,15 @@
 import EtnaStatements.Current
 import EtnaProofs.CurrentEncoding
 import EtnaProofs.CurrentReference
+import EtnaProofs.CurrentRecoveryLanding
 import EtnaWitnesses.NonVacuity.Current
 
 /-! The premises of H1–H4 can hold of one deployment (design 4.6): one concrete environment,
 registry and engine satisfy H1–H3's fifteen `Premises` and H4's `RecoveryPremises` together,
 and a reachable initialized world in it satisfies `LiveAt`. It shows that the premises are
-jointly satisfiable, not the claims.
+jointly satisfiable, not the claims; `live_recovers` then applies H4's proof
+(`Recovery.recoverable`) there, so the recovery path does reach an accepted landing in this
+environment.
 
 The environment is a new network (no Unzen inbox, so the Unzen premises and `LiveAt.unzen`
 are vacuous) with one online key and a single catalogue definition:
@@ -319,5 +322,12 @@ theorem all_premises_satisfiable :
       Etna.Statements.Current.RecoveryPremises e registry ∧
       Trace e (empty e registry) w ∧ w.initialized = true ∧ Etna.Statements.Current.LiveAt e w :=
   ⟨env,registry,NonVacuity.engine,live,premises,recovery_premises,live_trace,by decide +kernel,live_at⟩
+
+/-- H4 is not vacuous here: applied to this environment and `live`, `Recovery.recoverable` gives a
+rollback-free path with one plain recovery to a state where `land` accepts a landing. -/
+theorem live_recovers : ∃ u a t, RecoveryTrace env live u ∧ land env u a = some t := by
+  obtain ⟨u,a,t,path,accepted,_⟩ :=
+    Recovery.recoverable env registry recovery_premises live live_trace (by decide +kernel) live_at
+  exact ⟨u,a,t,path,accepted⟩
 
 end Etna.Design.Current.Protocol.RecoveryNonVacuity

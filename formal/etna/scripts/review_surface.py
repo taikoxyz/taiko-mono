@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Lock the review surface: the headline/witness statements and every definition they mean.
 
-The review surface starts at the four headline theorems and the six joint-premise witnesses
-(audit_proofs.CURRENT_*). From their kernel types it follows every Etna constant they use:
-definitions, inductives, constructors and recursors contribute their type and value;
-theorems contribute their type only, so proofs never enter the surface. Init/Std constants
-are recorded by name (the toolchain is pinned). Each constant's kernel terms are hashed
-(SHA-256 of their `repr`) into review-surface.lock.json.
+The review surface starts at the five headline theorems (the conjunction and H1-H4), the seven
+joint-premise witnesses and the trap witness (audit_proofs.CURRENT_*). From their kernel types it
+follows every Etna constant they use: definitions, inductives, constructors and recursors
+contribute their type and value; theorems contribute their type only, so proofs never enter the
+surface. Init/Std constants are recorded by name (the toolchain is pinned). Each constant's
+kernel terms are hashed (SHA-256 of their `repr`) into review-surface.lock.json.
 
   review_surface.py            recompute and write review-surface.lock.json (after lake build)
   review_surface.py --check    recompute and require the committed lock to match
@@ -39,7 +39,7 @@ GATE_PATHS = ('formal/etna/scripts', ':(glob)formal/etna/tests/*.py', ':(glob)fo
               'formal/etna/lean-toolchain', 'formal/etna/lake-manifest.json',
               ':(glob).github/workflows/formal--etna*.yml')
 SCOPE = ('Kernel terms of the headline/witness statements and of every Etna definition they use; '
-         'theorem proofs are excluded. A change here changes what H1-H3 or the witnesses mean.')
+         'theorem proofs are excluded. A change here changes what H1-H4 or the witnesses mean.')
 
 PROGRAM = r'''import Lean
 import EtnaModel
@@ -96,7 +96,7 @@ def _audit():
 def roots():
     audit = _audit()
     return [audit.CURRENT_CLAIMS[0], *audit.CURRENT_HEADLINES, audit.CURRENT_ACCEPTING_WITNESS,
-            *audit.CURRENT_PROFILE_WITNESSES]
+            *audit.CURRENT_PROFILE_WITNESSES, *audit.CURRENT_TRAP_WITNESSES]
 
 
 def lean_string(text):

@@ -2,7 +2,8 @@
 """Check the pinned spec revision and explicit theorem/claim evidence edges.
 
 This is a traceability report and its consistency check, not the verification result. The
-results are the exact H1–H3 composition under `Etna.Statements.Current.Premises` (README). A
+results are the exact H1–H3 composition under `Etna.Statements.Current.Premises` and H4 under
+`Etna.Statements.Current.RecoveryPremises` and `LiveAt` (README). A
 clause marked partial has an edge from some `property` or `constant` theorem; it is not proved.
 
 Roles: `property` (Rule P: with every leading `∀`/hypothesis binder stripped, each atom of
