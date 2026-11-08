@@ -300,13 +300,14 @@ fsync failed: no fence, no I/O error for the state volume in the kernel log, non
 signer's stderr. Otherwise the state is uncertain and is resolved through governance
 (RECOV-8.2-3).
 
-The app store is not disposable while it holds this evidence. Never delete or replace an app
-store that holds a latch or a signer-unsafe record; preserve it. Before running a validator for a
-chain_id on any new app store (a re-import into a new root, cleared stores, a rebuilt pod), check
-the old app store for a signer-unsafe record or a latch for an unsafe signer exit or a killed
-signer, and the domains log's directory for `<chain_id>.signer-unsafe`. Any one of them is
-uncertain signing state for that chain_id, resolved through governance (RECOV-8.2-3), never by a
-new store (ACCEPTANCE §7.7).
+The app store is not disposable while it holds this evidence. Never discard an old app store that
+holds a latch or a signer-unsafe record, nor a `<chain_id>.signer-unsafe` marker; keep them as
+evidence. Running on a new app store is fine once the checks below pass. Before running a
+validator for a chain_id on any new app store (a re-import into a new root, cleared stores, a
+rebuilt pod), check the old app store for a signer-unsafe record or a latch for an unsafe signer
+exit or a killed signer, and the domains log's directory for `<chain_id>.signer-unsafe`. Any one
+of them is uncertain signing state for that chain_id, resolved through governance (RECOV-8.2-3),
+never by a new store (ACCEPTANCE §7.7).
 
 Residual risk: any death of the signer between a failed fsync and a durable fence leaves no
 fence and no exit 3, and the supervisor restarts it like any crash. That covers a SIGKILL from

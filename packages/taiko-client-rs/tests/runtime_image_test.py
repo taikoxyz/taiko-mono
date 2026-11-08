@@ -135,8 +135,8 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
             subprocess.run(["python3", "-c", "import socket,sys;s=socket.socket(socket.AF_UNIX);s.bind(sys.argv[1]);s.close()",
                             str(stale)], user=10001, group=10001, extra_groups=[], check=True)
             assert stale.is_socket() and stale.lstat().st_uid == 10001
-        with (root / "runtime.log").open("w+") as log:
-            supervisor = subprocess.Popen(supervisor_command, env=environment, stdout=log, stderr=log)
+        with (root / "runtime.log").open("w+") as runtime_log:
+            supervisor = subprocess.Popen(supervisor_command, env=environment, stdout=runtime_log, stderr=runtime_log)
             try:
                 deadline = time.monotonic() + 8
                 observed = {}
@@ -179,15 +179,15 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
                 assert not (app / "validator-supervisor.halted").exists(), "runtime child failed during smoke"
                 assert len(Path(f"/proc/{supervisor.pid}/task/{supervisor.pid}/children").read_text().split()) == 2
             except BaseException:
-                log.flush()
-                log.seek(0)
-                print(log.read(), flush=True)
+                runtime_log.flush()
+                runtime_log.seek(0)
+                print(runtime_log.read(), flush=True)
                 raise
             finally:
                 supervisor.send_signal(signal.SIGTERM)
                 supervisor.wait(timeout=20)
-                log.seek(0)
-                diagnostics = log.read()
+                runtime_log.seek(0)
+                diagnostics = runtime_log.read()
             assert supervisor.returncode == 0, diagnostics
     done.set()
     server.join(timeout=2)
@@ -204,9 +204,11 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
     # The real signer refuses a lost key, HRS or domains log, and nothing is regenerated. A lost
     # HRS or log is lost signing state (exit 3, RECOV-8.2-3), which latches at once; a lost key
     # is a configuration error (exit 1), which the supervisor restarts until the fifth exit
-    # within 600 s latches. Exit 3 also leaves the signer-unsafe record, which this smoke clears
-    # with the latch before the next case, as an operator repair would.
+    # within 600 s latches. Exit 3 also leaves the signer-unsafe record in the app store and the
+    # <chain_id>.signer-unsafe marker beside the domains log, which the signer itself refuses; this
+    # smoke clears both with the latch before the next case, as an operator repair would.
     latch, unsafe = app / "validator-supervisor.halted", app / "validator-supervisor.signer-unsafe"
+    marker = log.parent / (chain + ".signer-unsafe")
     for missing in [key, state, log]:
         saved = missing.with_suffix(".saved")
         missing.rename(saved)
@@ -224,9 +226,10 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
                 refused.send_signal(signal.SIGTERM)
                 refused.wait(timeout=20)
         assert not missing.exists(), "missing authoritative files must never regenerate"
-        assert unsafe.exists() == (missing != key), "only lost signing state is recorded unsafe"
+        assert unsafe.exists() == marker.exists() == (missing != key), "only lost signing state is recorded unsafe"
         latch.unlink()
         unsafe.unlink(missing_ok=True)
+        marker.unlink(missing_ok=True)
         saved.rename(missing)
     print(json.dumps(dict(architecture=os.uname().machine, expected_platform=expected_platform, binary_elf_machines=binary_machines, comet_source_tag="v0.40.0", comet_version_label=version, python=os.sys.version.split()[0],
                           comet_sha256=hashlib.sha256(Path("/usr/bin/cometbft").read_bytes()).hexdigest(),

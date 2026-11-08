@@ -11,8 +11,8 @@ older stores are refused, never migrated (START-10-24).
 - The lander's `--max-blobs` (`LANDER_MAX_BLOBS`) and the app's `--l1.archive`
   (`ABCI_L1_ARCHIVE`) are removed. A removed flag is now an unknown argument, so a deployment
   that still passes it crash-loops; a removed environment variable is ignored. The lander uses
-  six blobs per landing, and the own L1 node serves the committee history a validator needs
-  (SYNC-9-16).
+  one to six blobs per landing (cap fixed at six), and the own L1 node serves the committee
+  history a validator needs (SYNC-9-16).
 - `etna-signer` serves one chain_id and requires `--chain-id`, `--priv-key`,
   `--priv-state <state-dir>/<chain_id>.json` and `--domains-log`; the authority-root flags are
   gone. Before the first start, run `etna-signer init-domains-log` once per key, and
@@ -29,9 +29,10 @@ older stores are refused, never migrated (START-10-24).
   run. `prepare`, `install`, `run-app`, `check-runtime` and the JSON `--profile` are gone.
 - `abci-recover prepare`, `install` and `status` replace `activate`. The operator stops and
   starts services; nothing in the client fences them (RECOV-8.2-6).
-- The validator supervisor needs `ETNA_PRIV_STATE_DIR` and `ETNA_DOMAINS_LOG`, and an existing
-  `<comet-home>/run/` owned by the Comet UID. It restarts a signer that exits on its own (0, 1, 2
-  or a signal) without a fence (SYNC-9-12, SYNC-9-14). Five such exits within 600 s latch, and so
+- The validator supervisor needs `ETNA_PRIV_STATE_DIR` and `ETNA_DOMAINS_LOG`. In Unix-socket mode
+  (a `unix://` `priv_validator_laddr`) it also needs an existing `<comet-home>/run/` owned by the
+  Comet UID; TCP mode needs no `run/`. It restarts a signer that exits on its own (0, 1, 2 or a
+  signal) without a fence (SYNC-9-12, SYNC-9-14). Five such exits within 600 s latch, and so
   do exit 3, a `<state>.uncertain` fence and a signer it had to SIGKILL on stop. These three also
   leave `validator-supervisor.signer-unsafe` in the app store and `<chain_id>.signer-unsafe`
   beside the domains log, which the supervisor and the signer refuse until an operator repair;

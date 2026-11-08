@@ -541,7 +541,9 @@ committing those values to the Inbox.
    volume ownership is prepared separately. The HRS state and its directory must be writable
    for atomic replacement. The key file may be read-only, but its directory must be writable for
    the signer's `<key>.lock`, so a read-only mount such as a Kubernetes Secret volume cannot
-   hold the key directly: the signer exits 1. The supervisor requires
+   hold the key directly: the signer exits 1. The domains log's directory must be writable too:
+   the supervisor writes the `<chain_id>.signer-unsafe` marker beside the log, and the signer
+   holds a lock on the log while it serves. The supervisor requires
    `priv_validator_laddr`, signing paths outside the Comet home and app store, and a matching
    genesis chain ID. A `unix://` value only selects Unix mode and is
    preferred; `tcp://` uses CometBFT's official
