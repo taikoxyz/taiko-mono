@@ -1278,17 +1278,17 @@ class LauncherPathTests(unittest.TestCase):
         spec.loader.exec_module(module)
         return module
 
-    def test_full_node_launcher_execs_stock_comet_on_an_imported_store(self):
+    def test_full_node_launcher_execs_stock_comet_and_refuses_a_validator_config(self):
+        """The full-node launcher execs `cometbft start --home <home>` as is, and refuses a Comet
+        config that names a priv_validator_laddr; it reads nothing from the app store."""
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp).resolve()
-            app, home = base / "ready/app", base / "ready/comet"
-            app.mkdir(parents=True); (home / "config").mkdir(parents=True)
-            floor = {"number": 6, "hash": "0x" + "ab" * 32}
-            (app / "abci-state.json").write_text(json.dumps({"execution_floor": floor}))
+            home = base / "ready/comet"
+            (home / "config").mkdir(parents=True)
             argv, stub = base / "argv", base / "cometbft"
             stub.write_text(f'#!/bin/sh\nprintf "%s\\n" "$0" "$@" > "{argv}"\n')
             stub.chmod(0o700)
-            env = dict(ETNA_APP_STORE=str(app), ETNA_COMET_HOME=str(home), ETNA_COMET_BIN=str(stub), PATH=os.defpath)
+            env = dict(ETNA_COMET_HOME=str(home), ETNA_COMET_BIN=str(stub), PATH=os.defpath)
             launcher = [sys.executable, str(ROOT / "script/start_etna_full_node.py")]
             (home / "config/config.toml").write_text('priv_validator_laddr = ""\n')
             proc = subprocess.run(launcher, env=env, capture_output=True, timeout=30)

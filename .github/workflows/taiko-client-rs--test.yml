@@ -261,6 +261,9 @@ jobs:
     env:
       TAIKO_CLIENT_RS_TEST_LANE: ${{ matrix.lane }}
       TAIKO_CLIENT_RS_TEST_RUN: ci-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-${{ matrix.lane }}
+      # The runner has 4 vCPUs. Both lanes build the pinned alethia-reth inside Docker
+      # (the Dockerfile's execution-runtime target), whose default is 2 jobs.
+      CARGO_BUILD_JOBS: 4
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -290,11 +293,11 @@ jobs:
           docker ps -aq --filter "label=taiko-client-rs.test-run=$TAIKO_CLIENT_RS_TEST_RUN" | xargs -r docker rm -f -v
           docker network ls -q --filter "label=taiko-client-rs.test-run=$TAIKO_CLIENT_RS_TEST_RUN" | xargs -r docker network rm
 
-  # Builds and smokes the production Dockerfile, which the test lanes no longer
-  # build. Deliberately non-blocking and outside the Tests / Unit Tests
-  # aggregators: the steps a broken Dockerfile can fail continue on error, so
-  # the check stays green for the merge gatekeeper, and the last step reports
-  # their outcomes in the job summary and as warnings.
+  # Builds and smokes the production Dockerfile, of which the test lanes build
+  # only the execution-runtime target. Deliberately non-blocking and outside
+  # the Tests / Unit Tests aggregators: the steps a broken Dockerfile can fail
+  # continue on error, so the check stays green for the merge gatekeeper, and
+  # the last step reports their outcomes in the job summary and as warnings.
   # taiko-client-rs--docker.yml still gates the image on main. Only the push
   # run on main writes the gha cache.
   image:
@@ -331,7 +334,8 @@ jobs:
           push: false
           load: true
           tags: taiko-client-rs:ci-${{ github.run_id }}
-          # The runner has 4 vCPUs; the Dockerfile default of 2 takes ~33 min.
+          # The runner has 4 vCPUs, as in the docker job; the Dockerfile default of 2
+          # takes ~33 min for the whole image.
           build-args: CARGO_BUILD_JOBS=4
           cache-from: type=gha,scope=taiko-client-rs-image-amd64
           cache-to: ${{ github.event_name == 'push' && 'type=gha,mode=max,scope=taiko-client-rs-image-amd64' || '' }}

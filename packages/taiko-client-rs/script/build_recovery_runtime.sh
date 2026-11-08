@@ -10,6 +10,7 @@
 #
 # ETNA_BUILD_TARGET=<stage> builds only that stage of the production Dockerfile on every host and
 # takes no client argument; tests/entrypoint.sh uses it for the default execution-runtime image.
+# A set CARGO_BUILD_JOBS is passed to every production Dockerfile build as its build argument.
 set -euo pipefail
 target=${ETNA_BUILD_TARGET:-}
 client_bin=''
@@ -83,11 +84,15 @@ cd ../..
 # Only this package is copied by its Dockerfile. Exclude caches, .build and unrelated packages.
 # Read current worktree bytes so the tested runtime includes uncommitted implementation fixes.
 git ls-files -z packages/taiko-client-rs | tar --null -T - -cf - | tar -xf - -C "$context"
-# Reuse the positional parameters for the optional target: an empty array would trip `set -u` in
-# Bash 3.2.
+# Reuse the positional parameters for the optional target and build jobs: an empty array would
+# trip `set -u` in Bash 3.2.
 set --
 if [[ -n "$target" ]]; then
   set -- --target "$target"
+fi
+# The Dockerfile's release builds default to 2 jobs; CI runners pass their own count.
+if [[ -n "${CARGO_BUILD_JOBS:-}" ]]; then
+  set -- "$@" --build-arg "CARGO_BUILD_JOBS=$CARGO_BUILD_JOBS"
 fi
 docker build --platform "linux/$arch" -f "$context/packages/taiko-client-rs/Dockerfile" \
   "$@" --label "$run_label" -t "$image" "$context"

@@ -33,7 +33,6 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 # taiko
 abci = { path = "../../crates/abci" }
 lander = { path = "../../crates/lander" }
-protocol = { path = "../../crates/protocol" }
 rpc = { path = "../../crates/rpc" }
 
 # types
@@ -55,6 +54,7 @@ alloy-eips = { workspace = true }
 anyhow = { workspace = true }
 base64 = { workspace = true }
 http-body-util = { workspace = true }
+protocol = { path = "../../crates/protocol" }
 sha2 = { workspace = true }
 test-harness = { path = "../../crates/test-harness" }
 tokio = { workspace = true, features = ["test-util"] }

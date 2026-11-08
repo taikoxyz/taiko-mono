@@ -654,19 +654,19 @@ async fn standby_recovery(clear_fi: bool) -> Result<()> {
         assert_eq!(origin.committee.members.len(), 1);
         assert_eq!(origin.committee.members[0].pubkey, f.keys[standby].pubkey());
         assert_eq!(origin.committee.record.cutoff_l1_block, origin.l1_number);
+        // The excluded key is outside the recovered generation's validator set, in Comet at c+1
+        // and in the landed R committee, so the new chain_id never asks it to sign.
+        let excluded = f.keys[active].pubkey();
+        assert!(
+            validators.iter().all(|v| v.pubkey != excluded) &&
+                origin.committee.members.iter().all(|m| m.pubkey != excluded),
+            "the excluded key is in the recovered generation's validator set"
+        );
         assert!(snapshot.checkpoint_height > 6);
         node.stop().await?;
         for (path, bytes) in archives {
             assert_eq!(fs::read(path)?, bytes);
         }
-        assert!(
-            !test_harness::signer_hrs(
-                &f.signer_storage.path().join(active.to_string()),
-                &installed.chain_id()?
-            )
-            .exists(),
-            "excluded key never gets a state for, or signs in, the recovered chain_id"
-        );
         Ok(())
     }
     .await;
