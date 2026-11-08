@@ -21,10 +21,6 @@
       "theorems": ["Etna.Design.Current.Blocks.chain_parent_hashes"],
       "reason": "Valid decoded chain EL parentHash fields link to the predecessor EL hash; no Comet LastBlockID, cut coverage or raw decoder conclusion."
     },
-    "CONS-3.4-9": {
-      "theorems": ["Etna.Design.Current.Protocol.Recovery.segment"],
-      "reason": "Recovery.segment's K post-recovery blocks form a decoded chain valid under the block rules, the forced inclusion rules of section 7 among them, with the FI cursor ending between head and tail and at most K past the head; an existence result on the recovery path, not that the section 7 rules hold of arbitrary blocks."
-    },
     "DATA-5.4-1": {
       "theorems": ["Etna.Design.Current.Import.genesis_path_ignores_val_state"],
       "reason": "At s = o the import takes the 8.4 genesis path, so decoded inspection does not read the three validator-state results; the genesis path itself, the s > o chain_id/Comet-hash check and own-L1 authentication remain external."

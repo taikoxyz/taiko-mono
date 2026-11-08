@@ -323,11 +323,15 @@ theorem all_premises_satisfiable :
       Trace e (empty e registry) w ∧ w.initialized = true ∧ Etna.Statements.Current.LiveAt e w :=
   ⟨env,registry,NonVacuity.engine,live,premises,recovery_premises,live_trace,by decide +kernel,live_at⟩
 
-/-- H4 is not vacuous here: applied to this environment and `live`, `Recovery.recoverable` gives a
-rollback-free path with one plain recovery to a state where `land` accepts a landing. -/
-theorem live_recovers : ∃ u a t, RecoveryTrace env live u ∧ land env u a = some t := by
-  obtain ⟨u,a,t,path,accepted,_⟩ :=
-    Recovery.recoverable env registry recovery_premises live live_trace (by decide +kernel) live_at
-  exact ⟨u,a,t,path,accepted⟩
+/-- H4 at the joint witness: this environment and registry meet `RecoveryPremises`, `live` is
+reachable, initialized and meets `LiveAt`, and `Recovery.recoverable` gives `RecoverableAt` there,
+a rollback-free path with one plain recovery to a state where `land` accepts a landing. -/
+theorem live_recovers :
+    Etna.Statements.Current.RecoveryPremises env registry ∧ Trace env (empty env registry) live ∧
+      live.initialized = true ∧ Etna.Statements.Current.LiveAt env live ∧
+      Etna.Statements.Current.RecoverableAt env live :=
+  have initialized : live.initialized = true := by decide +kernel
+  ⟨recovery_premises,live_trace,initialized,live_at,
+    Recovery.recoverable env registry recovery_premises live live_trace initialized live_at⟩
 
 end Etna.Design.Current.Protocol.RecoveryNonVacuity

@@ -111,7 +111,7 @@ private def Keeps : Call → Prop
   | .land .. | .unzenProve .. => False
   | _ => True
 
-private theorem execute_same {env : Environment} {w t : World} {call : Call} (plain : Keeps call)
+private theorem execute_same {env : Environment} {w t : World} {call : Call} (keeps : Keeps call)
     (ok : execute env w call = some t) : Same w t := by
   cases call with
   | advance number =>
@@ -187,7 +187,7 @@ private theorem execute_same {env : Environment} {w t : World} {call : Call} (pl
     obtain ⟨result,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact ⟨rfl,rfl,rfl,rfl,rfl,⟨rfl,rfl⟩,rfl,rfl,rfl,rfl,Nat.le_refl _,rfl,rfl⟩
   | initializeInbox | setOrigin | correctStart | enqueue | recover | rollback | land | unzenProve =>
-    exact (plain : False).elim
+    exact (keeps : False).elim
 
 private theorem parameters_install (s : Etna.Design.State) (p : Parameters) (configHash : List Encoding.Word → Hash) :
     parametersOf (install s p configHash) = p := by

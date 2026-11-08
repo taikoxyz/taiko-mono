@@ -10,7 +10,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 
 | Type       | Count | partial | partial-via | supporting | deferred | design-pending |
 | ---------- | ----: | ------: | ----------: | ---------: | -------: | -------------: |
-| rule       |   608 |      45 |           0 |         36 |      527 |              0 |
+| rule       |   608 |      44 |           0 |         36 |      528 |              0 |
 | limitation |    21 |       0 |           0 |          0 |       21 |              0 |
 | assumption |    11 |       0 |           0 |          0 |       11 |              0 |
 
@@ -20,7 +20,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | ------ | ----: | ------: | ----------: | ---------: | -------: | -------------: |
 | RECOV  |   114 |       4 |           0 |          8 |      102 |              0 |
 | ENC    |    59 |       0 |           0 |          0 |       59 |              0 |
-| CONS   |    53 |       3 |           0 |          0 |       50 |              0 |
+| CONS   |    53 |       2 |           0 |          0 |       51 |              0 |
 | START  |    52 |       4 |           0 |          4 |       44 |              0 |
 | PROOF  |    50 |       7 |           0 |          7 |       36 |              0 |
 | STAKE  |    43 |      13 |           0 |          3 |       27 |              0 |
@@ -98,7 +98,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | CONS-3.4-6     | rule       | deferred   | LIVE_EN-8d1801078c3862d8 |      1 |                                                                                                             |
 | CONS-3.4-7     | rule       | deferred   | LIVE_EN-97a85deb922765e1 |      1 |                                                                                                             |
 | CONS-3.4-8     | rule       | deferred   | LIVE_EN-ced8c7aa78799681 |      1 |                                                                                                             |
-| CONS-3.4-9     | rule       | partial    | LIVE_EN-f33ce83257cb2c96 |      1 | `segment`                                                                                                   |
+| CONS-3.4-9     | rule       | deferred   | LIVE_EN-f33ce83257cb2c96 |      1 |                                                                                                             |
 | CONS-3.4-10    | rule       | deferred   | LIVE_EN-c11a64536e05aa27 |      2 |                                                                                                             |
 | CONS-3.4-11    | rule       | deferred   | LIVE_EN-c11a64536e05aa27 |      2 |                                                                                                             |
 | CONS-3.4-11a   | rule       | deferred   | LIVE_EN-7bc8d5003506136e |      1 |                                                                                                             |
@@ -688,7 +688,6 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 
 - **CONS-3.2-2**: Recovery.segment builds the K blocks after a plain recovery with header heights parent + 1 and parentHash the parent's EL hash, linked from c's hash-bound header; an existence result for that segment, not a check that every valid header is built this way.
 - **CONS-3.4-2**: Valid decoded chain EL parentHash fields link to the predecessor EL hash; no Comet LastBlockID, cut coverage or raw decoder conclusion.
-- **CONS-3.4-9**: Recovery.segment's K post-recovery blocks form a decoded chain valid under the block rules, the forced inclusion rules of section 7 among them, with the FI cursor ending between head and tail and at most K past the head; an existence result on the recovery path, not that the section 7 rules hold of arbitrary blocks.
 - **STAKE-4.1-13a**: Permanent issued bond/key identity and displacement preservation only; no 4096-slot admission algorithm verification.
 - **STAKE-4.1-14a**: The actual search covers slots 0..4095, chooses the global least balance (effStake+pending), breaks ties by lowest index and, for a successful occupied-slot registration, requires a strictly larger amount. These theorems do not independently establish minStake rejection, full rejected-state atomicity, PoP or gas/index feasibility.
 - **STAKE-4.1-14b**: A successful actual displacement replaces the globally minimum slot, clears the displaced bond slot association, preserves its key/owner/full principal and sets exit=min(old,current block). Closed historical selection history/committee authority is preserved. BondDisplaced event emission and full production lifecycle/index implementation remain separate.

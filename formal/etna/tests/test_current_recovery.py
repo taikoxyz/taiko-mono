@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 import re
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -90,19 +91,26 @@ class CurrentRecoveryAuditTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('H4 must not depend on', result.stdout + result.stderr)
 
-    def test_trap_and_joint_witness_are_mandatory(self):
+    def test_trap_and_joint_witness_tuples(self):
         # The joint realization is a premise profile; the trap realizes no premise record.
         self.assertIn(JOINT, AUDIT.CURRENT_PROFILE_WITNESSES)
         self.assertNotIn(TRAP, AUDIT.CURRENT_PROFILE_WITNESSES)
         self.assertIn(TRAP, AUDIT.CURRENT_TRAP_WITNESSES)
+
+    def test_trap_and_joint_witness_are_mandatory(self):
         manifest = json.loads((ROOT/'manifests/design.json').read_text())
         AUDIT.validate_contract(manifest)
         for name in (JOINT, TRAP, H4):
             with self.subTest(name=name):
                 changed = deepcopy(manifest)
                 changed['theorems'] = [e for e in changed['theorems'] if e['declaration'] != name]
-                with self.assertRaisesRegex(ValueError, 'missing manifest entry: ' + re.escape(name)):
-                    AUDIT.validate_contract(changed)
+                # Both witnesses are also current plumbing, which validate_contract requires on
+                # its own; take the name out of UNSOURCED so only the mandatory headline and
+                # witness tuples can reject the removal.
+                with mock.patch.dict(AUDIT.COVERAGE.UNSOURCED):
+                    AUDIT.COVERAGE.UNSOURCED.pop(name, None)
+                    with self.assertRaisesRegex(ValueError, 'missing manifest entry: ' + re.escape(name)):
+                        AUDIT.validate_contract(changed)
 
     def test_h4_and_both_witnesses_are_lock_roots(self):
         roots = SURFACE.roots()

@@ -12,9 +12,13 @@ example : ∃ e registry engine w, Etna.Statements.Current.Premises e registry e
     Trace e (empty e registry) w ∧ w.initialized = true ∧ Etna.Statements.Current.LiveAt e w :=
   Etna.Design.Current.Protocol.RecoveryNonVacuity.all_premises_satisfiable
 
--- H4 applied there: the recovery path reaches an accepted landing in this environment.
-example : ∃ u a t, RecoveryTrace RecoveryNonVacuity.env RecoveryNonVacuity.live u ∧
-    land RecoveryNonVacuity.env u a = some t :=
+-- H4 at the joint witness: its premises and hypotheses hold of `env`, `registry` and `live`,
+-- and so does its conclusion.
+example : Etna.Statements.Current.RecoveryPremises RecoveryNonVacuity.env RecoveryNonVacuity.registry ∧
+    Trace RecoveryNonVacuity.env (empty RecoveryNonVacuity.env RecoveryNonVacuity.registry) RecoveryNonVacuity.live ∧
+    RecoveryNonVacuity.live.initialized = true ∧
+    Etna.Statements.Current.LiveAt RecoveryNonVacuity.env RecoveryNonVacuity.live ∧
+    Etna.Statements.Current.RecoverableAt RecoveryNonVacuity.env RecoveryNonVacuity.live :=
   Etna.Design.Current.Protocol.RecoveryNonVacuity.live_recovers
 
 -- The world: one bond for the online key, initialized at S = 0 on K = 1 at L1 block 2, nothing
