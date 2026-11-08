@@ -147,13 +147,13 @@ theorem vote_attribution (w : World) : ProtocolFinality.VoteAttribution engine e
   trivial
 
 theorem premises : Etna.Statements.Current.Premises env registry engine := by
-  refine ⟨primitives,verifier_sound,rfl,signature_refinement,by decide,
-    fun w _ => codec_sound w,fun w _ => vote_attribution w,fun _ _ h => h,?_,
-    reference_binding,registry_genesis,signature_sound,by decide,?_,by decide +kernel⟩
-  · intro id selected present
-    cases present
+  refine ⟨⟨primitives,verifier_sound,reference_binding,registry_genesis,?_⟩,rfl,signature_refinement,
+    by decide,fun w _ => codec_sound w,fun w _ => vote_attribution w,fun _ _ h => h,?_,
+    signature_sound,by decide,by decide +kernel⟩
   · intro boundary proposal header proof parent earlier accepted
     cases accepted
+  · intro id selected present
+    cases present
 
 def candidate : CheckpointRisk.Candidate env (source env) 1 where
   root := genesis

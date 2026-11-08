@@ -20,10 +20,12 @@ HEADLINES = {
     'Etna.Design.Current.Headlines.forced_inclusion_integrity': 'Etna.Statements.Current.ForcedInclusionIntegrity',
 }
 PREMISES = 'Etna.Statements.Current.Premises'
+FUND_PREMISES = 'Etna.Statements.Current.FundPremises'
 H1, H2, H3 = HEADLINES
+# Premises extends FundPremises: H2 and H3 read H1's five fields through `toFundPremises`,
+# and H1's proof alone must read each of the five.
 PREMISE_USES = {
-    'currentPrimitives': [H1,H2],
-    'currentVerifierSound': [H1,H2,H3],
+    'toFundPremises': [H2,H3],
     'currentStandardToken': [H2],
     'currentSignatureAgreement': [H2],
     'currentBountyBound': [H2],
@@ -31,12 +33,14 @@ PREMISE_USES = {
     'currentVoteAttribution': [H2],
     'currentClock': [H3],
     'currentCatalogueHash': [H3],
-    'currentReferenceBinding': [H1],
-    'currentRegistryGenesis': [H1,H2,H3],
     'currentSignatureSound': [H2],
     'currentSelfAllowance': [H2],
-    'currentUnzenExtension': [H1],
     'currentEvidenceWindow': [H2],
+    'currentPrimitives': [H1],
+    'currentVerifierSound': [H1],
+    'currentReferenceBinding': [H1],
+    'currentRegistryGenesis': [H1],
+    'currentUnzenExtension': [H1],
 }
 
 
@@ -105,7 +109,7 @@ class CurrentHeadlineTests(unittest.TestCase):
         result = self.checked('\n'.join(AUDIT.render_headline_check(CLAIMS, HEADLINES, PREMISES)))
         self.assert_success(result, silent=False)
         uses, rest = AUDIT.premise_uses(result.stdout + result.stderr)
-        self.assertEqual(len(uses), 15, 'current headline audit lost a primitive field')
+        self.assertEqual(len(uses), 16, 'current headline audit lost a primitive field')
         self.assertEqual(uses, PREMISE_USES)
         self.assertEqual(rest.strip(), '')
 
@@ -177,8 +181,8 @@ class CurrentHeadlineTests(unittest.TestCase):
         rendered = AUDIT.render_audit(entries, complete=True, libraries=[])
         current_checks = [line for line in rendered.splitlines()
                           if ('EtnaAudit.checkHeadline ' in line and CLAIMS[1] in line)
-                          or ('EtnaAudit.checkPremiseUse ' in line and PREMISES in line)]
-        self.assertEqual(len(current_checks), 2, 'complete audit omitted current headline checks')
+                          or ('EtnaAudit.checkPremiseUse ' in line and (PREMISES in line or FUND_PREMISES in line))]
+        self.assertEqual(len(current_checks), 3, 'complete audit omitted current headline checks')
         result = self.checked('\n'.join(current_checks))
         self.assert_success(result, silent=False)
         uses, rest = AUDIT.premise_uses(result.stdout + result.stderr)
@@ -206,15 +210,45 @@ class CurrentHeadlineTests(unittest.TestCase):
         self.assertIn('currentClock', output)
         self.assertIn('currentCatalogueHash', output)
 
-    def test_without_h2_raw_genesis_and_reverse_signature_are_unconsumed(self):
+    def test_without_h2_token_and_reverse_signature_are_unconsumed(self):
         partial = {name: claim for name, claim in HEADLINES.items() if name != H2}
         body = AUDIT.render_headline_check(CLAIMS, partial, PREMISES)[1]
         result = self.checked(body)
         self.assertNotEqual(result.returncode, 0)
         output = ' '.join((result.stdout + result.stderr).split())
         self.assertIn('read by no headline proof', output)
-        for field in ('currentRegistryGenesis', 'currentSignatureSound', 'currentSelfAllowance'):
+        for field in ('currentStandardToken', 'currentSignatureSound', 'currentSelfAllowance'):
             self.assertIn(field, output)
+
+    def test_every_fund_premise_is_needed_by_h1_itself(self):
+        # H2 reads three of H1's fields through toFundPremises, but only H1 needs the
+        # reference binding and the Unzen extension: checking H1's record against H2 fails.
+        body = AUDIT.render_headline_check(fund=(FUND_PREMISES, H2))[2]
+        result = self.checked(body)
+        self.assertNotEqual(result.returncode, 0)
+        output = ' '.join((result.stdout + result.stderr).split())
+        self.assertIn('premise fields of Etna.Statements.Current.FundPremises read by no headline proof '
+                      '(after unused bindings are removed): [currentReferenceBinding, currentUnzenExtension]', output)
+        uses, _ = AUDIT.premise_uses(result.stdout + result.stderr)
+        self.assertEqual(uses, {field: [H2] for field in
+                                ('currentPrimitives', 'currentVerifierSound', 'currentRegistryGenesis')})
+
+    def test_h1_rests_on_no_consensus_premise(self):
+        body = '''run_elab do
+  let reached ← EtnaAudit.dependencies [`Etna] [`Etna.Statements.Current.FundSafety]
+  for forbidden in [`Etna.Statements.Current.Premises,
+      `Etna.Design.Current.Finality.SignatureSound,
+      `Etna.Design.Current.Finality.SignatureRefinement,
+      `Etna.Design.Current.ProtocolFinality.CodecSound,
+      `Etna.Design.Current.ProtocolFinality.VoteAttribution,
+      `Etna.Design.Current.ProtocolFinality.HonestExecutions,
+      `Etna.Design.Locking.HonestRules, `Etna.Design.Locking.Minority] do
+    unless (← Lean.getEnv).contains forbidden do
+      throwError "unknown probe constant {forbidden}"
+    if reached.contains forbidden then
+      throwError "H1 must not depend on {forbidden}"
+'''
+        self.assert_success(self.checked(body))
 
     def test_cross_record_headline_mapping_is_rejected(self):
         crossed = dict(HEADLINES)

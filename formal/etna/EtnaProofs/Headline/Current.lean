@@ -25,7 +25,7 @@ theorem catalogue_bytes {env : Environment} {w : World} {archive : List Blocks.H
   rfl
 
 theorem fund_safety : FundSafety := by
-  intro env registry engine premises w trace
+  intro env registry premises w trace
   refine ⟨Custody.trace_coherent premises.currentRegistryGenesis premises.currentPrimitives premises.currentVerifierSound trace,
     Custody.trace_legacy_authenticated premises.currentPrimitives trace,?_,?_,?_,?_,?_,?_⟩
   · intro a t accepted
@@ -112,7 +112,7 @@ theorem deployed_claims {env : Environment} {registry : RegistryMachine.State} {
     (authorization : Governance.AuthorizedUpgrades history) (initialized : w.initialized = true) :
     FundSafetyAt env registry w ∧ AccountableFinalityAt env registry engine w ∧ ForcedInclusionAt env w := by
   have trace := Governance.authorized_trace_refines history authorization
-  exact ⟨fund_safety env registry engine premises w trace,
+  exact ⟨fund_safety env registry premises.toFundPremises w trace,
     accountable_finality env registry engine premises w trace initialized,
     forced_inclusion_integrity env registry engine premises w trace⟩
 

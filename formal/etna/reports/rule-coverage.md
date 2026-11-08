@@ -10,7 +10,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 
 | Type       | Count | partial | partial-via | supporting | deferred | design-pending |
 | ---------- | ----: | ------: | ----------: | ---------: | -------: | -------------: |
-| rule       |   606 |      41 |           0 |         36 |      529 |              0 |
+| rule       |   608 |      41 |           0 |         36 |      531 |              0 |
 | limitation |    21 |       0 |           0 |          0 |       21 |              0 |
 | assumption |    11 |       0 |           0 |          0 |       11 |              0 |
 
@@ -18,7 +18,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 
 | Family | Rules | partial | partial-via | supporting | deferred | design-pending |
 | ------ | ----: | ------: | ----------: | ---------: | -------: | -------------: |
-| RECOV  |   113 |       2 |           0 |          8 |      103 |              0 |
+| RECOV  |   114 |       2 |           0 |          8 |      104 |              0 |
 | ENC    |    59 |       0 |           0 |          0 |       59 |              0 |
 | CONS   |    53 |       1 |           0 |          0 |       52 |              0 |
 | START  |    52 |       4 |           0 |          4 |       44 |              0 |
@@ -27,7 +27,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | STOR   |    35 |       0 |           0 |          0 |       35 |              0 |
 | FI     |    31 |      11 |           0 |          6 |       14 |              0 |
 | DATA   |    30 |       0 |           0 |          4 |       26 |              0 |
-| SYNC   |    27 |       0 |           0 |          0 |       27 |              0 |
+| SYNC   |    28 |       0 |           0 |          0 |       28 |              0 |
 | FORF   |    20 |       0 |           0 |          1 |       19 |              0 |
 | COMM   |    18 |       0 |           0 |          0 |       18 |              0 |
 | PARAM  |    18 |       0 |           0 |          0 |       18 |              0 |
@@ -43,9 +43,9 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 
 | ID             | Type       | Status     | Clause                   | Shared | Theorems                                                                                                    |
 | -------------- | ---------- | ---------- | ------------------------ | -----: | ----------------------------------------------------------------------------------------------------------- |
-| MODEL-1-1      | rule       | deferred   | LIVE_EN-519f69d065c96fa9 |      3 |                                                                                                             |
-| MODEL-1-2      | rule       | deferred   | LIVE_EN-519f69d065c96fa9 |      3 |                                                                                                             |
-| MODEL-1-3      | rule       | deferred   | LIVE_EN-519f69d065c96fa9 |      3 |                                                                                                             |
+| MODEL-1-1      | rule       | deferred   | LIVE_EN-2a259f5c7013562d |      3 |                                                                                                             |
+| MODEL-1-2      | rule       | deferred   | LIVE_EN-2a259f5c7013562d |      3 |                                                                                                             |
+| MODEL-1-3      | rule       | deferred   | LIVE_EN-2a259f5c7013562d |      3 |                                                                                                             |
 | COMP-2-1       | rule       | deferred   | LIVE_EN-046ce7c90b2cdbf8 |      1 |                                                                                                             |
 | COMP-2-2a      | rule       | deferred   | LIVE_EN-02bfa50e094f9134 |      1 |                                                                                                             |
 | COMP-2-2b      | rule       | deferred   | LIVE_EN-1cbb0a2fa71f0180 |      1 |                                                                                                             |
@@ -217,7 +217,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | DATA-5.4-5     | rule       | supporting | LIVE_EN-87331d19f043f44c |      1 | `authenticated_conflict_halts`, `committee_conflict_halts`, `invalid_data_rejected` +4                      |
 | DATA-5.4-6     | rule       | deferred   | LIVE_EN-a858259d2f3e7bac |      1 |                                                                                                             |
 | DATA-5.4-7     | rule       | supporting | LIVE_EN-f98242f5400aa7f7 |      1 | `publish_boundary`, `node_import_closed`                                                                    |
-| DATA-5.4-8     | rule       | deferred   | LIVE_EN-a2f631afde50460a |      1 |                                                                                                             |
+| DATA-5.4-8     | rule       | deferred   | LIVE_EN-8ebd4ced6de830cf |      1 |                                                                                                             |
 | LAND-6.1-1     | rule       | deferred   | LIVE_EN-a563a899ed3d4c6b |     10 |                                                                                                             |
 | LAND-6.1-2     | rule       | deferred   | LIVE_EN-a563a899ed3d4c6b |     10 |                                                                                                             |
 | LAND-6.1-3     | rule       | partial    | LIVE_EN-a563a899ed3d4c6b |     10 | `accepted_suffix_from_certificate`                                                                          |
@@ -312,13 +312,13 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | BACKP-6.4-14   | rule       | deferred   | LIVE_EN-1de188a398da3093 |      6 |                                                                                                             |
 | BACKP-6.4-15   | rule       | deferred   | LIVE_EN-cbbdfbb2b889af8b |      2 |                                                                                                             |
 | BACKP-6.4-16   | rule       | deferred   | LIVE_EN-cbbdfbb2b889af8b |      2 |                                                                                                             |
-| FI-7.1-1       | rule       | supporting | LIVE_EN-eb5074ad77d4a985 |      7 | `admission_exact`, `forced_admission_accounting`                                                            |
-| FI-7.1-2       | rule       | supporting | LIVE_EN-eb5074ad77d4a985 |      7 | `admission_exact`                                                                                           |
-| FI-7.1-3       | rule       | deferred   | LIVE_EN-eb5074ad77d4a985 |      7 |                                                                                                             |
-| FI-7.1-4       | rule       | supporting | LIVE_EN-eb5074ad77d4a985 |      7 | `admission_exact`, `forced_admission_accounting`                                                            |
-| FI-7.1-5       | rule       | deferred   | LIVE_EN-eb5074ad77d4a985 |      7 |                                                                                                             |
-| FI-7.1-6       | rule       | deferred   | LIVE_EN-eb5074ad77d4a985 |      7 |                                                                                                             |
-| FI-7.1-7       | rule       | supporting | LIVE_EN-eb5074ad77d4a985 |      7 | `admission_failure_atomic`, `refund_failure_rejected`, `underpayment_rejected`                              |
+| FI-7.1-1       | rule       | supporting | LIVE_EN-9a631b0ede20a8dd |      7 | `admission_exact`, `forced_admission_accounting`                                                            |
+| FI-7.1-2       | rule       | supporting | LIVE_EN-9a631b0ede20a8dd |      7 | `admission_exact`                                                                                           |
+| FI-7.1-3       | rule       | deferred   | LIVE_EN-9a631b0ede20a8dd |      7 |                                                                                                             |
+| FI-7.1-4       | rule       | supporting | LIVE_EN-9a631b0ede20a8dd |      7 | `admission_exact`, `forced_admission_accounting`                                                            |
+| FI-7.1-5       | rule       | deferred   | LIVE_EN-9a631b0ede20a8dd |      7 |                                                                                                             |
+| FI-7.1-6       | rule       | deferred   | LIVE_EN-9a631b0ede20a8dd |      7 |                                                                                                             |
+| FI-7.1-7       | rule       | supporting | LIVE_EN-9a631b0ede20a8dd |      7 | `admission_failure_atomic`, `refund_failure_rejected`, `underpayment_rejected`                              |
 | FI-7.1-8       | rule       | deferred   | LIVE_EN-f3138a4a28d8137f |      6 |                                                                                                             |
 | FI-7.1-9       | rule       | deferred   | LIVE_EN-f3138a4a28d8137f |      6 |                                                                                                             |
 | FI-7.1-10      | rule       | deferred   | LIVE_EN-f3138a4a28d8137f |      6 |                                                                                                             |
@@ -367,19 +367,20 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | RECOV-8-22     | rule       | deferred   | LIVE_EN-479f660acfdfa1db |      3 |                                                                                                             |
 | RECOV-8-23     | rule       | deferred   | LIVE_EN-73955e550a82715b |      1 |                                                                                                             |
 | RECOV-8-23a    | rule       | deferred   | LIVE_EN-6c0f8b206341edd0 |      1 |                                                                                                             |
-| RECOV-8-24     | rule       | deferred   | LIVE_EN-ce821167c4d49d35 |     13 |                                                                                                             |
-| RECOV-8-25     | rule       | deferred   | LIVE_EN-ce821167c4d49d35 |     13 |                                                                                                             |
-| RECOV-8-26     | rule       | deferred   | LIVE_EN-ce821167c4d49d35 |     13 |                                                                                                             |
-| RECOV-8-27     | rule       | partial    | LIVE_EN-ce821167c4d49d35 |     13 | `coherent_signal_bounded`, `rollback_coherent`, `rollback_snapshot_provenance`                              |
-| RECOV-8-28     | rule       | deferred   | LIVE_EN-ce821167c4d49d35 |     13 |                                                                                                             |
-| RECOV-8-29     | rule       | deferred   | LIVE_EN-ce821167c4d49d35 |     13 |                                                                                                             |
-| RECOV-8-30     | rule       | deferred   | LIVE_EN-ce821167c4d49d35 |     13 |                                                                                                             |
-| RECOV-8-31     | rule       | deferred   | LIVE_EN-ce821167c4d49d35 |     13 |                                                                                                             |
-| RECOV-8-32     | rule       | deferred   | LIVE_EN-ce821167c4d49d35 |     13 |                                                                                                             |
-| RECOV-8-33     | rule       | deferred   | LIVE_EN-ce821167c4d49d35 |     13 |                                                                                                             |
-| RECOV-8-34     | rule       | deferred   | LIVE_EN-ce821167c4d49d35 |     13 |                                                                                                             |
-| RECOV-8-35     | rule       | deferred   | LIVE_EN-ce821167c4d49d35 |     13 |                                                                                                             |
-| RECOV-8-36     | rule       | deferred   | LIVE_EN-ce821167c4d49d35 |     13 |                                                                                                             |
+| RECOV-8-24     | rule       | deferred   | LIVE_EN-1079277c334a4883 |     14 |                                                                                                             |
+| RECOV-8-25     | rule       | deferred   | LIVE_EN-1079277c334a4883 |     14 |                                                                                                             |
+| RECOV-8-26     | rule       | deferred   | LIVE_EN-1079277c334a4883 |     14 |                                                                                                             |
+| RECOV-8-27     | rule       | partial    | LIVE_EN-1079277c334a4883 |     14 | `coherent_signal_bounded`, `rollback_coherent`, `rollback_snapshot_provenance`                              |
+| RECOV-8-27a    | rule       | deferred   | LIVE_EN-1079277c334a4883 |     14 |                                                                                                             |
+| RECOV-8-28     | rule       | deferred   | LIVE_EN-1079277c334a4883 |     14 |                                                                                                             |
+| RECOV-8-29     | rule       | deferred   | LIVE_EN-1079277c334a4883 |     14 |                                                                                                             |
+| RECOV-8-30     | rule       | deferred   | LIVE_EN-1079277c334a4883 |     14 |                                                                                                             |
+| RECOV-8-31     | rule       | deferred   | LIVE_EN-1079277c334a4883 |     14 |                                                                                                             |
+| RECOV-8-32     | rule       | deferred   | LIVE_EN-1079277c334a4883 |     14 |                                                                                                             |
+| RECOV-8-33     | rule       | deferred   | LIVE_EN-1079277c334a4883 |     14 |                                                                                                             |
+| RECOV-8-34     | rule       | deferred   | LIVE_EN-1079277c334a4883 |     14 |                                                                                                             |
+| RECOV-8-35     | rule       | deferred   | LIVE_EN-1079277c334a4883 |     14 |                                                                                                             |
+| RECOV-8-36     | rule       | deferred   | LIVE_EN-1079277c334a4883 |     14 |                                                                                                             |
 | RECOV-8-37a    | rule       | deferred   | LIVE_EN-4d6ef522fb0ee3fa |      2 |                                                                                                             |
 | RECOV-8-38     | rule       | supporting | LIVE_EN-4d6ef522fb0ee3fa |      2 | `recovery_pending_guards`                                                                                   |
 | RECOV-8-39     | rule       | deferred   | LIVE_EN-6674a50cc097257d |      1 |                                                                                                             |
@@ -459,14 +460,15 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | SYNC-9-1       | rule       | deferred   | LIVE_EN-9a03b957332fc15a |      2 |                                                                                                             |
 | SYNC-9-2       | rule       | deferred   | LIVE_EN-9a03b957332fc15a |      2 |                                                                                                             |
 | SYNC-9-3       | rule       | deferred   | LIVE_EN-5e38116b9d70c82a |      1 |                                                                                                             |
-| SYNC-9-4       | rule       | deferred   | LIVE_EN-55a0bf17db032158 |      8 |                                                                                                             |
-| SYNC-9-5       | rule       | deferred   | LIVE_EN-55a0bf17db032158 |      8 |                                                                                                             |
-| SYNC-9-5a      | rule       | deferred   | LIVE_EN-55a0bf17db032158 |      8 |                                                                                                             |
-| SYNC-9-5b      | rule       | deferred   | LIVE_EN-55a0bf17db032158 |      8 |                                                                                                             |
-| SYNC-9-6       | rule       | deferred   | LIVE_EN-55a0bf17db032158 |      8 |                                                                                                             |
-| SYNC-9-7       | rule       | deferred   | LIVE_EN-55a0bf17db032158 |      8 |                                                                                                             |
-| SYNC-9-8       | rule       | deferred   | LIVE_EN-55a0bf17db032158 |      8 |                                                                                                             |
-| SYNC-9-9       | rule       | deferred   | LIVE_EN-55a0bf17db032158 |      8 |                                                                                                             |
+| SYNC-9-4       | rule       | deferred   | LIVE_EN-926574b7e8b2e1e6 |      9 |                                                                                                             |
+| SYNC-9-5       | rule       | deferred   | LIVE_EN-926574b7e8b2e1e6 |      9 |                                                                                                             |
+| SYNC-9-5a      | rule       | deferred   | LIVE_EN-926574b7e8b2e1e6 |      9 |                                                                                                             |
+| SYNC-9-5b      | rule       | deferred   | LIVE_EN-926574b7e8b2e1e6 |      9 |                                                                                                             |
+| SYNC-9-5c      | rule       | deferred   | LIVE_EN-926574b7e8b2e1e6 |      9 |                                                                                                             |
+| SYNC-9-6       | rule       | deferred   | LIVE_EN-926574b7e8b2e1e6 |      9 |                                                                                                             |
+| SYNC-9-7       | rule       | deferred   | LIVE_EN-926574b7e8b2e1e6 |      9 |                                                                                                             |
+| SYNC-9-8       | rule       | deferred   | LIVE_EN-926574b7e8b2e1e6 |      9 |                                                                                                             |
+| SYNC-9-9       | rule       | deferred   | LIVE_EN-926574b7e8b2e1e6 |      9 |                                                                                                             |
 | SYNC-9-10      | rule       | deferred   | LIVE_EN-db2211d5e333707d |      6 |                                                                                                             |
 | SYNC-9-11      | rule       | deferred   | LIVE_EN-db2211d5e333707d |      6 |                                                                                                             |
 | SYNC-9-12      | rule       | deferred   | LIVE_EN-db2211d5e333707d |      6 |                                                                                                             |
@@ -743,7 +745,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 - **FI-7.3-1**: Actual current due queue-head bytes are included or legally skipped under the selected interpreter.
 - **FI-7.3-2**: The inclusive block-time age bound implies due service under the selected interpreter.
 - **FI-7.3-4**: A valid decoded block/every actual consecutive cut edge of a valid chain consumes at most one queue entry. This is per-block cardinality only; aggregate endpoint bounds do not supply this pointwise conclusion, and linear fee growth/sender balances are separate.
-- **RECOV-8-27**: Rollback truncates retained signal/custody associations at the trusted checkpoint; no governance mechanism proof.
+- **RECOV-8-27**: Rollback truncates retained signal/custody associations at the trusted checkpoint; no governance mechanism proof. Modelled signals are SignalService checkpoints only: the receive cache and Bridge RETRIABLE messages of RECOV-8-27a are not modelled.
 - **RECOV-8-38**: Successful recovery has a strictly sorted FI clear list entirely within the pending execution-time queue interval; no nonce/generation conclusion.
 - **RECOV-8-43**: Successful recovery has a strictly sorted FI clear list entirely within the pending execution-time queue interval; no nonce/generation conclusion.
 - **RECOV-8-44**: Successful decoded recovery clears exactly listed transaction hashes via fixed hashBytes([]), retaining timestamps/enqueue blocks. This is the queue transformation only; keccak implementation and authorization are separate.

@@ -2,15 +2,15 @@
   "schema_version": 2,
   "spec": {
     "path": "packages/protocol/docs/etna/SPEC.md",
-    "revision": "2026-11-05",
-    "commit": "589b542de790861efd8b4d9bb0a4b1d066c2685f",
-    "sha256": "808304718c34f4e90e250a8a1313d4767ceb7ba457899863c796c70cf64d20f3"
+    "revision": "2026-11-07",
+    "commit": "49df560256c3f20f0868f6c6e555443c2b1fd669",
+    "sha256": "8417d29f4fb0c740bcc5f29c51abfe62b8542f5f7d3165bb2ce782d20cb4367d"
   },
   "index": {
     "path": "packages/protocol/docs/etna/rules/INDEX.md",
-    "revision": "2026-11-05",
-    "commit": "589b542de790861efd8b4d9bb0a4b1d066c2685f",
-    "sha256": "96ad4c1a66bf2b5c042686e37133f11a63468031f3c1a945ed393fd2fb755df5"
+    "revision": "2026-11-07",
+    "commit": "49df560256c3f20f0868f6c6e555443c2b1fd669",
+    "sha256": "6b64400fde065038f64e2af378788214698c7bf07d4432ddacbf1be4380127c5"
   },
   "evidence": {
     "CONS-3.4-2": {
@@ -345,7 +345,7 @@
         "Etna.Design.Current.Protocol.Custody.rollback_coherent",
         "Etna.Design.Current.Protocol.Custody.rollback_snapshot_provenance"
       ],
-      "reason": "Rollback truncates retained signal/custody associations at the trusted checkpoint; no governance mechanism proof."
+      "reason": "Rollback truncates retained signal/custody associations at the trusted checkpoint; no governance mechanism proof. Modelled signals are SignalService checkpoints only: the receive cache and Bridge RETRIABLE messages of RECOV-8-27a are not modelled."
     },
     "RECOV-8-38": {
       "theorems": [

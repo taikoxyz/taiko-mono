@@ -1,6 +1,6 @@
 {
   "schema": "etna-current-registry-admission-1",
-  "authorityCommit": "589b542de790861efd8b4d9bb0a4b1d066c2685f",
+  "authorityCommit": "49df560256c3f20f0868f6c6e555443c2b1fd669",
   "model": "Etna.Design.Current.RegistryPayments.executeTransaction",
   "keyMeaning": "Distinct valid test keys with valid PoP; numbers are fixture identities, not raw public-key bytes.",
   "vectors": [

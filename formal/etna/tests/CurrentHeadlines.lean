@@ -10,6 +10,15 @@ example : Claims = (FundSafety ∧ AccountableFinality ∧ ForcedInclusionIntegr
 example : FundSafety := Headlines.fund_safety
 example : AccountableFinality := Headlines.accountable_finality
 
+-- H1 is stated over the five fund premises alone, with no engine and no consensus premise;
+-- the full record supplies them.
+example : FundSafety =
+    (∀ env registry, FundPremises env registry → ∀ w,
+      Trace env (empty env registry) w → FundSafetyAt env registry w) := rfl
+example (env : Environment) (registry : RegistryMachine.State) (engine : Finality.Engine)
+    (premises : Premises env registry engine) : FundPremises env registry :=
+  premises.toFundPremises
+
 -- Honest execution is an explicit antecedent of cross-round agreement only.
 example : AccountableFinality =
     (∀ env registry engine, Premises env registry engine → ∀ w,
@@ -23,8 +32,8 @@ example : ForcedInclusionIntegrity := Headlines.forced_inclusion_integrity
 -- All universally quantified public claims compose under the same primitive record.
 example : Claims := by
   refine ⟨?_,?_,?_⟩
-  · intro env registry engine premises w trace
-    exact Headlines.fund_safety env registry engine premises w trace
+  · intro env registry premises w trace
+    exact Headlines.fund_safety env registry premises w trace
   · intro env registry engine premises w trace initialized
     exact Headlines.accountable_finality env registry engine premises w trace initialized
   · intro env registry engine premises w trace
@@ -41,14 +50,14 @@ example (env : Environment) (registry : RegistryMachine.State) (engine : Finalit
       Custody.Linked env (empty env registry) w.start H w.activeRecords ∧
       ∀ signal ∈ w.inbox.signals, ∃ cp ∈ w.activeRecords,
         cp.height = signal.height ∧ cp.elHash = signal.hash ∧ (H cp).stateRoot = signal.stateRoot :=
-  (Headlines.claims.1 env registry engine premises w run).1
+  (Headlines.claims.1 env registry premises.toFundPremises w run).1
 
 example (env : Environment) (registry : RegistryMachine.State) (engine : Finality.Engine)
     (premises : Premises env registry engine) (w other : World)
     (run : Trace env (empty env registry) w) (a : Landing)
     (same : statement env other a = statement env w a) :
     referencePrefix other a.input.l1ReferenceBlockNumber = referencePrefix w a.input.l1ReferenceBlockNumber :=
-  (Headlines.claims.1 env registry engine premises w run).2.2.2.2.1 other a same
+  (Headlines.claims.1 env registry premises.toFundPremises w run).2.2.2.2.1 other a same
 
 -- The full15 primitive profile also rejects start rewriting and prevents a legacy
 -- checkpoint from reaching any Etna checkpoint on a switching deployment.
@@ -56,14 +65,14 @@ example (env : Environment) (registry : RegistryMachine.State) (engine : Finalit
     (premises : Premises env registry engine) (w : World)
     (run : Trace env (empty env registry) w) (start : StartData) (written : w.start = some start)
     (caller height hash root : Nat) : setOrigin env w caller height hash root = none :=
-  (Headlines.fund_safety env registry engine premises w run).2.2.2.2.2.2.1
+  (Headlines.fund_safety env registry premises.toFundPremises w run).2.2.2.2.2.2.1
     start written caller height hash root
 
 example (env : Environment) (registry : RegistryMachine.State) (engine : Finality.Engine)
     (premises : Premises env registry engine) (w : World)
     (run : Trace env (empty env registry) w) (switching : env.core.unzenInbox ≠ 0) :
     Custody.LegacyEtnaDisjoint w :=
-  ((Headlines.fund_safety env registry engine premises w run).2.2.2.2.2.2.2 switching).1
+  ((Headlines.fund_safety env registry premises.toFundPremises w run).2.2.2.2.2.2.2 switching).1
 
 example (env : Environment) (registry : RegistryMachine.State) (engine : Finality.Engine)
     (premises : Premises env registry engine) (w : World)
@@ -97,7 +106,7 @@ example (env : Environment) (registry : RegistryMachine.State) (engine : Finalit
     (∃ segment : Suffix env w a, Custody.Path env (empty env registry) segment.parent ∧
       Custody.Path env (empty env registry) (Blocks.terminal segment.parent segment.blocks)) ∧
     LandingService env w t a :=
-  ⟨(Headlines.claims.1 env registry engine premises w run).2.2.1 a t accepted,
+  ⟨(Headlines.claims.1 env registry premises.toFundPremises w run).2.2.1 a t accepted,
     (Headlines.claims.2.2 env registry engine premises w run).2.2.1 a t accepted⟩
 
 example (env : Environment) (registry : RegistryMachine.State) (engine : Finality.Engine)
@@ -217,6 +226,6 @@ example (env : Environment) (registry : RegistryMachine.State) (engine : Finalit
     (premises : Premises env registry engine) (w : World)
     (run : Trace env (empty env registry) w) (switching : env.core.unzenInbox ≠ 0) :
     Custody.SwitchingFence env w :=
-  ((Headlines.fund_safety env registry engine premises w run).2.2.2.2.2.2.2 switching).2
+  ((Headlines.fund_safety env registry premises.toFundPremises w run).2.2.2.2.2.2.2 switching).2
 
 end Etna.CurrentHeadlineRegression

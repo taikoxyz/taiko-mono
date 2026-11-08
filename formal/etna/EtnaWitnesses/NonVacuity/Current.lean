@@ -924,15 +924,15 @@ theorem verifier_sound : VerifierSound env (empty env registry) := by
     · exact recovered_image_certifies trace recovered
 
 theorem premises : Etna.Statements.Current.Premises env registry engine := by
-  refine ⟨primitives,verifier_sound,rfl,signature_refinement,by decide,
-    fun w _ => codec_sound w,fun w _ => vote_attribution w,fun _ _ h => h,?_,
-    reference_binding,registry_genesis,signature_sound,by decide,?_,by decide +kernel⟩
+  refine ⟨⟨primitives,verifier_sound,reference_binding,registry_genesis,?_⟩,rfl,signature_refinement,
+    by decide,fun w _ => codec_sound w,fun w _ => vote_attribution w,fun _ _ h => h,?_,
+    signature_sound,by decide,by decide +kernel⟩
+  · intro boundary proposal h proof parent earlier accepted
+    cases accepted
   · intro id selected present
     have same : selected = definition := by simpa [env,baseEnv] using present.symm
     subst selected
     rfl
-  · intro boundary proposal h proof parent earlier accepted
-    cases accepted
 
 def AcceptingDeployment : Prop :=
   ∃ e registry engine w t a, Etna.Statements.Current.Premises e registry engine ∧

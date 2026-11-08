@@ -17,10 +17,18 @@ def CatalogueHash (env : Environment) : Prop :=
 def bytes (env : Environment) (definition : Blocks.Definition) : ActualQueue.Primitives :=
   { definition.bytes with hashBytes := env.txHash }
 
-structure Premises (env : Environment) (registry : RegistryMachine.State)
-    (engine : Finality.Engine) : Prop where
+/-- The five premises H1 rests on. None concerns consensus: no signature soundness, codec,
+vote attribution or honesty, so H1 holds whatever the committee signs. -/
+structure FundPremises (env : Environment) (registry : RegistryMachine.State) : Prop where
   currentPrimitives : Custody.Primitives env
   currentVerifierSound : VerifierSound env (empty env registry)
+  currentReferenceBinding : ReferenceBinding env
+  currentRegistryGenesis : RegistryMachine.Genesis registry
+  currentUnzenExtension : Custody.UnzenExtension env env.unzenParent
+
+/-- All fifteen premises: H1's five and the ten more that H2 and H3 use. -/
+structure Premises (env : Environment) (registry : RegistryMachine.State)
+    (engine : Finality.Engine) : Prop extends FundPremises env registry where
   currentStandardToken : ProtocolFinality.StandardToken env
   currentSignatureAgreement : Finality.SignatureRefinement registry env.signature
   currentBountyBound : registry.config.slashBountyBps < 10000
@@ -28,11 +36,8 @@ structure Premises (env : Environment) (registry : RegistryMachine.State)
   currentVoteAttribution : ∀ w, Trace env (empty env registry) w → ProtocolFinality.VoteAttribution engine env w
   currentClock : ∀ m n, m < n → env.time m < env.time n
   currentCatalogueHash : CatalogueHash env
-  currentReferenceBinding : ReferenceBinding env
-  currentRegistryGenesis : RegistryMachine.Genesis registry
   currentSignatureSound : Finality.SignatureSound registry env.signature
   currentSelfAllowance : env.initialToken.allowances env.token.registryAddress env.token.registryAddress = 0
-  currentUnzenExtension : Custody.UnzenExtension env env.unzenParent
   /-- PARAM-11-11 deployment policy; not an initializeInbox contract check. -/
   currentEvidenceWindow : 0 < env.evidenceWindow ∧ env.evidenceWindow ≤ registry.config.withdrawalDelay
 
@@ -57,8 +62,9 @@ def FundSafetyAt (env : Environment) (registry : RegistryMachine.State) (w : Wor
       setOrigin env w caller height hash root = none) ∧
     (env.core.unzenInbox ≠ 0 → Custody.LegacyEtnaDisjoint w ∧ Custody.SwitchingFence env w)
 
+/-- H1 needs only `FundPremises`, not the full `Premises` record. -/
 def FundSafety : Prop :=
-  ∀ env registry engine, Premises env registry engine → ∀ w, Trace env (empty env registry) w →
+  ∀ env registry, FundPremises env registry → ∀ w, Trace env (empty env registry) w →
     FundSafetyAt env registry w
 
 /-- General historical identity/liability result. This alone does not assert that a

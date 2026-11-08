@@ -268,9 +268,9 @@ instance : Decidable (Blocks.HeaderValid pol legacy block) := inferInstanceAs (D
     exact template_image_certifies trace same
 
  theorem premises : Etna.Statements.Current.Premises env registry engine := by
-  refine ⟨primitives,verifier_sound,rfl,NonVacuity.signature_refinement,by decide,
-    fun w _ => codec_sound w,fun w _ => vote_attribution w,fun _ _ h => h,?_,
-    reference_binding,NonVacuity.registry_genesis,NonVacuity.signature_sound,by decide,unzen_extension,by decide +kernel⟩
+  refine ⟨⟨primitives,verifier_sound,reference_binding,NonVacuity.registry_genesis,unzen_extension⟩,rfl,
+    NonVacuity.signature_refinement,by decide,fun w _ => codec_sound w,fun w _ => vote_attribution w,
+    fun _ _ h => h,?_,NonVacuity.signature_sound,by decide,by decide +kernel⟩
   intro id selected present
   have same : selected = definition := by simpa [env] using present.symm
   subst selected

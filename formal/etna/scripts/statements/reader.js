@@ -57,7 +57,9 @@
     "Etna.Design.Current.Protocol.Custody.Coherent":
       "All retained Etna signal headers share one retained authenticated chain. This is stronger than separately supplying a path for each signal.",
     "Etna.Statements.Current.Premises":
-      "The fifteen primitive and deployment obligations supplied jointly to current H1–H3. Inspect every field and its component definition before applying the headlines.",
+      "The fifteen primitive and deployment obligations supplied to H2 and H3: H1's five (FundPremises) and ten more. Inspect every field and its component definition before applying the headlines.",
+    "Etna.Statements.Current.FundPremises":
+      "The five premises H1 is stated over. None concerns consensus, so H1 holds whatever the committee signs.",
     "Etna.Statements.Current.NormalAccountability":
       "Live risk for quorum-overlap members above the actual checkpoint, under an authenticated candidate and an execution with no rollback since fresh deployment.",
     "Etna.Statements.Current.NormalCommitteeRetention":
@@ -98,14 +100,22 @@
     currentEvidenceWindow:
       "Deployment policy: a positive evidence window no longer than the immutable withdrawal delay. This is not a contract initialization check.",
   };
-  const premise = entries.get("Etna.Statements.Current.Premises");
-  const premiseSource = data.files[premise.file].text
-    .split("\n")
-    .slice(premise.line - 1, premise.endLine)
-    .join("\n");
+  // H1's own record first, then the fields Premises adds to it.
+  const fieldsOf = (name) => {
+    const entry = entries.get(name);
+    const source = data.files[entry.file].text
+      .split("\n")
+      .slice(entry.line - 1, entry.endLine)
+      .join("\n");
+    return [...source.matchAll(/^  (current\w+)\s*:/gm)].map((match) => [
+      entry.name,
+      match[1],
+    ]);
+  };
   const premiseFields = [
-    ...premiseSource.matchAll(/^  (current\w+)\s*:/gm),
-  ].map((match) => match[1]);
+    ...fieldsOf("Etna.Statements.Current.FundPremises"),
+    ...fieldsOf("Etna.Statements.Current.Premises"),
+  ];
   for (const [count, label] of [
     [data.counts.current, "current named declarations"],
     [premiseFields.length, "joint current premises"],
@@ -122,12 +132,12 @@
         node("span", {}, label),
       ),
     );
-  for (const field of premiseFields)
+  for (const [record, field] of premiseFields)
     $("premise-list").append(
       node(
         "div",
         { class: "premise-row" },
-        node("dt", {}, declarationLink(premise.name, field)),
+        node("dt", {}, declarationLink(record, field)),
         node(
           "dd",
           {},

@@ -13,7 +13,8 @@ The generated module checks every manifest entry (exact type, mechanical role, a
 package (namespaces, manifest modules, axioms, shadowing, library contents and manifest
 completeness) and the headline layer. The conjunction and the three headline theorems must
 have exactly its statement-layer constant as type and only standard axioms; every field of
-the explicit premise record must be read by a headline proof.
+the explicit premise record must be read by a headline proof, and every field of H1's own
+record `FundPremises` by H1's proof.
 """
 import argparse
 import importlib.util
@@ -46,6 +47,8 @@ CURRENT_HEADLINES = {
     'Etna.Design.Current.Headlines.forced_inclusion_integrity': 'Etna.Statements.Current.ForcedInclusionIntegrity',
 }
 CURRENT_PREMISES = 'Etna.Statements.Current.Premises'
+# H1 is stated over this sub-record of Premises; each of its fields must be needed by H1 itself.
+CURRENT_FUND_PREMISES = ('Etna.Statements.Current.FundPremises', 'Etna.Design.Current.Headlines.fund_safety')
 CURRENT_ACCEPTING_WITNESS = 'Etna.Design.Current.Protocol.NonVacuity.premises_satisfiable'
 CURRENT_PROFILE_WITNESSES = (
     'Etna.Design.Current.Protocol.CurrentSwitch.accepting_switch',
@@ -163,14 +166,17 @@ def render_package_check(entries, shadows=None):
             f'{lean_string(model)}')
 
 
-def render_headline_check(claims=CURRENT_CLAIMS, headlines=None, premises=CURRENT_PREMISES):
+def render_headline_check(claims=CURRENT_CLAIMS, headlines=None, premises=CURRENT_PREMISES,
+                          fund=CURRENT_FUND_PREMISES):
     """The headline layer: exact claim types and axioms, then premise use (one
-    `premise use: field <- theorem …` line per field)."""
+    `premise use: field <- theorem …` line per field): the full record against all
+    headlines, then H1's record against H1 alone."""
     headlines = CURRENT_HEADLINES if headlines is None else headlines
     rows = '\n'.join(' '.join(pair) for pair in (claims, *headlines.items()))
     theorems = '\n'.join(headlines)
     return [f'run_elab _root_.EtnaAudit.checkHeadline {lean_string(rows)}',
-            f'run_elab _root_.EtnaAudit.checkPremiseUse {lean_string(premises)} {lean_string(theorems)}']
+            f'run_elab _root_.EtnaAudit.checkPremiseUse {lean_string(premises)} {lean_string(theorems)}',
+            f'run_elab _root_.EtnaAudit.checkPremiseUse {lean_string(fund[0])} {lean_string(fund[1])}']
 
 
 def render_audit(entries, complete=True, shadows=None, libraries=None):

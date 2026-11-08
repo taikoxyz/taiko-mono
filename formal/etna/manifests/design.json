@@ -2777,8 +2777,8 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-ce821167c4d49d35"],
-      "scope": "Derived conditional decoded property. Rollback truncates retained signal/custody associations at the trusted checkpoint; no governance mechanism proof."
+      "sources": ["LIVE_EN-1079277c334a4883"],
+      "scope": "Derived conditional decoded property. Rollback truncates retained signal/custody associations at the trusted checkpoint; no governance mechanism proof. Signals are SignalService checkpoints only; RECOV-8-27a derived authorizations are not modelled."
     },
     {
       "declaration": "Etna.Design.Current.Protocol.Custody.correction_before_any_landing",
@@ -2957,8 +2957,8 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-ce821167c4d49d35"],
-      "scope": "Derived conditional decoded property. Rollback truncates retained signal/custody associations at the trusted checkpoint; no governance mechanism proof."
+      "sources": ["LIVE_EN-1079277c334a4883"],
+      "scope": "Derived conditional decoded property. Rollback truncates retained signal/custody associations at the trusted checkpoint; no governance mechanism proof. Signals are SignalService checkpoints only; RECOV-8-27a derived authorizations are not modelled."
     },
     {
       "declaration": "Etna.Design.Current.Protocol.Custody.rollback_snapshot_exact",
@@ -2981,7 +2981,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-ce821167c4d49d35"],
+      "sources": ["LIVE_EN-1079277c334a4883"],
       "scope": "Derived conditional decoded property. Rollback restores the exact snapshot associated with its retained trusted checkpoint and recheck source."
     },
     {
@@ -3800,7 +3800,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-eb5074ad77d4a985"],
+      "sources": ["LIVE_EN-9a631b0ede20a8dd"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Exact successful decoded fee, refund, balance/revenue, cursor and appended hash/time/block accounting; no event encoder proof."
     },
     {
@@ -3812,7 +3812,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-eb5074ad77d4a985"],
+      "sources": ["LIVE_EN-9a631b0ede20a8dd"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Underpayment or failed refund reverts all admission state, including fee revenue and queue entries."
     },
     {
@@ -3824,7 +3824,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-eb5074ad77d4a985"],
+      "sources": ["LIVE_EN-9a631b0ede20a8dd"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Exact successful decoded fee, refund, balance/revenue, cursor and appended hash/time/block accounting; no event encoder proof."
     },
     {
@@ -3902,7 +3902,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-eb5074ad77d4a985"],
+      "sources": ["LIVE_EN-9a631b0ede20a8dd"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Underpayment or failed refund reverts all admission state, including fee revenue and queue entries."
     },
     {
@@ -3926,7 +3926,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-eb5074ad77d4a985"],
+      "sources": ["LIVE_EN-9a631b0ede20a8dd"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Underpayment or failed refund reverts all admission state, including fee revenue and queue entries."
     },
     {

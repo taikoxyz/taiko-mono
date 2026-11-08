@@ -1,8 +1,8 @@
 # Etna design verification
 
 The authorities are `SPEC.md`, `ACCEPTANCE.md`, `ANCHORLESS.md` and `SWITCH.md` under
-`packages/protocol/docs/etna`, pinned to main `589b542de790861efd8b4d9bb0a4b1d066c2685f`
-(2026-11-05, after #22338). This package contains only the current design; the archived 2026-10-30 model,
+`packages/protocol/docs/etna`, pinned to main `49df560256c3f20f0868f6c6e555443c2b1fd669`
+(2026-11-07, after #22341). This package contains only the current design; the archived 2026-10-30 model,
 its vectors and reports were removed and remain readable at formal revision
 [`583bc2620`](https://github.com/taikoxyz/taiko-mono/tree/583bc2620258838e75ce353c11f9344616ac1020/formal/etna).
 
@@ -14,12 +14,17 @@ drift.
 ## What is proved, and what is not
 
 This package proves **conditional, design-level safety** of the decoded Etna machine. Exact
-claims live in `EtnaStatements/Current.lean` (176 lines); composition is in
+claims live in `EtnaStatements/Current.lean` (182 lines); composition is in
 `EtnaProofs/Headline/Current.lean`. Every claim holds for every reachable `Trace` from a
-fresh deployment, **assuming the fifteen fields of `Premises`** below.
+fresh deployment under explicit premises: **H1 assumes the five fields of `FundPremises`;
+H2 and H3 assume all fifteen fields of `Premises`**, which extends `FundPremises` (below).
 
 - **H1, fund safety.** Every accepted landing extends one hash-bound checkpoint chain from an
   authenticated root; Etna and legacy (Unzen) signals stay disjoint; the start is written once.
+  None of H1's five premises concerns consensus (signature soundness, codec, vote attribution
+  or honesty), so H1 holds whatever the committee signs. This is the formal form of SPEC
+  section 1's statement that even a committee acting maliciously as a whole cannot take funds
+  on L1.
 - **H2, accountable finality.** Two conflicting commits at the same height and round imply an
   overlap of more than one third of the voting power with authentic evidence and an executable
   funded slash; with honest locking and a Byzantine minority, valid chains agree.
@@ -37,10 +42,17 @@ equivocation (amnesia) is outside H2, as the spec states.
 H1–H3 are only as strong as these premises. Six describe the environment or deployment;
 the others are obligations on code or cryptography that this package does not verify.
 
+The first five rows form `FundPremises`, the record H1 is stated over. The audit requires
+H1's own proof to read each of them, so a premise H1 stops needing must leave the record.
+`Premises` extends `FundPremises` with the other ten rows, which H2 and H3 use.
+
 | Premise field               | What it assumes                                                                                                                                  | Who must make it true                                                          |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
 | `currentPrimitives`         | Genesis header is hash-bound; equal EL hashes mean equal EL fields; a valid Unzen proof authenticates its decoded EL header before the fork time | Hash collision resistance; existing Unzen guest and verifier                   |
 | `currentVerifierSound`      | Every accepted landing proof with a sound backend certifies its statement, including both validator-state hashes, for the selected rulesets      | Etna zkVM/TEE guests, proof systems, `ZkRequiredVerifier`, DAO verifier choice |
+| `currentReferenceBinding`   | Equal L1 block hashes imply equal L1 prefixes                                                                                                    | Hash collision resistance (modeled as an injective map)                        |
+| `currentRegistryGenesis`    | The registry starts fresh, with no prior identities or history                                                                                   | Deployment procedure                                                           |
+| `currentUnzenExtension`     | A valid Unzen proof extends its decoded parent to a higher height                                                                                | Existing Unzen guest                                                           |
 | `currentStandardToken`      | The bond token behaves as a standard ERC-20 transfer                                                                                             | Token deployment                                                               |
 | `currentSignatureAgreement` | Signed consensus bytes refine to the registry's signature check                                                                                  | Comet sign-bytes in the Rust client and the Solidity verifier                  |
 | `currentBountyBound`        | `slashBountyBps < 10000`                                                                                                                         | Registry initializer (checked on chain)                                        |
@@ -48,11 +60,8 @@ the others are obligations on code or cryptography that this package does not ve
 | `currentVoteAttribution`    | Every commit vote is attributed to a real precommit of the fixed engine                                                                          | CometBFT engine and validator operation                                        |
 | `currentClock`              | L1 time strictly increases with block number                                                                                                     | Ethereum L1                                                                    |
 | `currentCatalogueHash`      | Catalogued EL transaction bytes hash to the environment's transaction hash                                                                       | Hash function; EL catalogue                                                    |
-| `currentReferenceBinding`   | Equal L1 block hashes imply equal L1 prefixes                                                                                                    | Hash collision resistance (modeled as an injective map)                        |
-| `currentRegistryGenesis`    | The registry starts fresh, with no prior identities or history                                                                                   | Deployment procedure                                                           |
 | `currentSignatureSound`     | An accepted signature authenticates the key holder                                                                                               | secp256k1 verification in Solidity                                             |
 | `currentSelfAllowance`      | The registry has no allowance to itself at genesis                                                                                               | Token deployment                                                               |
-| `currentUnzenExtension`     | A valid Unzen proof extends its decoded parent to a higher height                                                                                | Existing Unzen guest                                                           |
 | `currentEvidenceWindow`     | `0 < evidenceWindow ≤ withdrawalDelay`                                                                                                           | Deployment parameters                                                          |
 
 H2's chain-agreement clause additionally assumes `ProtocolFinality.HonestExecutions`.
@@ -67,7 +76,7 @@ claim that relies on them as "the claim holds, or a hash collision exists".
 The **review surface** is what a reviewer must read to know what H1–H3 and the six witnesses
 mean: their statements and every Etna definition they use, but no proof.
 `review-surface.lock.json` records a SHA-256 of the kernel terms of each of those constants
-(1,431 at this revision). `python3 scripts/review_surface.py --check` fails if the lock is stale;
+(1,433 at this revision). `python3 scripts/review_surface.py --check` fails if the lock is stale;
 the `etna-formal` job runs it. Proof-only changes never touch the lock.
 
 The `etna-review-surface` job (`formal--etna-review-surface.yml`) runs on
@@ -124,6 +133,9 @@ locking/minority, signature attribution and codec assumptions.
 
 Exceptional verifier-failure rollback is outside that normal retention result. As
 RECOV-8-35 states, money already withdrawn using a bad checkpoint cannot be recovered.
+The modelled rollback truncates the retained signals, which are SignalService checkpoints.
+The SignalService receive cache and Bridge messages left `RETRIABLE`, which RECOV-8-27a
+makes the rollback upgrade invalidate until they are proven again, are not modelled.
 A regression constructs that loss and rejects treating it as normal execution.
 There is no restart theorem after a rollback; the normal guarantee then remains
 inapplicable for that deployment. The normal result covers heights above the actual
@@ -166,7 +178,13 @@ implementation obligations therefore stay outside these proofs:
 3. An import at s = o takes the 8.4 genesis path (DATA-5.4-1). The model only skips the three
    validator-state checks there; it does not model the genesis path.
 
-The [PR #22338 alignment](reports/alignment-22338.md) records the changed clauses, evidence
+At other heights the node compares the landed value with the validator state it recorded when
+it committed that height in the current generation, never stock CometBFT's historical lookup
+(SYNC-9-5c). The model reads the node's own header value, so where that value comes from is a
+fourth implementation obligation.
+
+The [PR #22341 alignment](reports/alignment-22341.md) records the latest re-pin and the H1
+restatement. The [PR #22338 alignment](reports/alignment-22338.md) records the changed clauses, evidence
 and boundaries.
 
 The current registry admits `0 ≤ slashBountyBps < 10000`; zero pays no reporter
@@ -247,9 +265,9 @@ the current proofs reuse, and fourteen semantic pins (`EtnaProofs/Contracts.lean
 `Consensus.election_valid_iff`) that fail the build if a shared definition the statements use
 is weakened without editing its pin.
 
-The inventory is **38 partial / 529 deferred clauses**, and **41 narrow partial /
-36 supporting / 529 deferred binding rules**, plus 32 deferred assumption/limitation rows.
-SWITCH has narrow first-fence/root evidence. All 93 ANCHORLESS and 46 ACCEPTANCE
+The inventory is **38 partial / 530 deferred clauses**, and **41 narrow partial /
+36 supporting / 531 deferred binding rules**, plus 32 deferred assumption/limitation rows.
+SWITCH has narrow first-fence/root evidence. All 93 ANCHORLESS and 47 ACCEPTANCE
 clauses remain deferred. Margin arithmetic, bridge resolver/EIP-4788/storage migration,
 production parsing/crypto/EL/guest/token/Solidity/Comet/store refinement, operational
 availability, measured resources and full launch/switch/recovery acceptance remain separate.
