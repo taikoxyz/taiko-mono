@@ -1,129 +1,76 @@
-//! Offline installation is a source-verification operation, never a signing authority.
-use abci::ownership::{ActivationLease, acquire_activation};
-use alloy_primitives::{B256, U256, keccak256};
+//! Offline checkpoint import (DATA-5.4-5): authenticate a package against own finalized L1,
+//! install fresh app, stock Comet and EL stores in a private stage, then publish them together by
+//! one rename. The import never reads or writes signer files, and completion alone grants no
+//! signing authority (DATA-5.4-7): the published stores run as ordinary ones.
+//!
+//! Root layout:
+//! - `ROOT/import.lock`: the one flock. `import` holds it and its helper children inherit it.
+//! - `ROOT/halted.json`: the Safety latch, the serialized [`ImportError`].
+//! - `ROOT/stage/`: the private 0700 working tree (`ready/{app,comet,el}`, `stock/`,
+//!   `headers.json`, `scratch/`).
+//! - `ROOT/ready/{app,comet,el}`: published by one `rename(stage/ready, ROOT/ready)`.
+use alloy_primitives::B256;
 use lander::checkpoint_import::{ImportError, VerifiedImport};
-use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{
-    fs,
+    fs::{self, File, OpenOptions},
+    io::{Read, Write},
+    os::unix::fs::{DirBuilderExt, OpenOptionsExt},
     path::{Path, PathBuf},
 };
 use url::Url;
 
-/// Component publication and runtime selection guards.
-pub(crate) mod boundary;
 /// Collection of publishable app packages from read-only archive RPC.
 pub mod export;
-/// Private canonical filesystem primitives.
-mod files;
-/// Private lifetime guard for the normal EL smoke process.
-pub(crate) mod guardian;
-/// Independent verifier processes and normal EL startup probe.
+/// The stock Comet and EL install helpers.
 mod helpers;
-/// Bounded portable input and stock framing.
+/// Bounded package input and the stock dir.
 mod package;
-/// Supported live app and private owned EL runtime.
-pub(crate) mod runtime;
 
-/// Candidate/unavailable failures never create a terminal latch.
+/// Candidate and unavailable failures never create a terminal latch.
 type R<T> = Result<T, ImportError>;
-/// Reject untrusted or inconsistent local inputs.
+/// Reject untrusted or inconsistent inputs.
 fn bad(m: impl ToString) -> ImportError {
     ImportError::Candidate(m.to_string())
 }
+/// Missing material or a local failure: retry without advancing the import.
+fn unavailable(m: impl ToString) -> ImportError {
+    ImportError::Unavailable(m.to_string())
+}
 /// Storage diagnostics disclose only portable I/O kinds.
 fn io(e: std::io::Error) -> ImportError {
-    ImportError::Unavailable(format!("storage: {:?}", e.kind()))
+    unavailable(format!("storage: {:?}", e.kind()))
 }
-/// Private schema-one deployment and archive endpoints.
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Profile {
-    /// Only schema one has defined source and process semantics.
-    schema: u32,
-    /// Explicit deployment L1 identity, including high bits.
-    l1_chain_id: U256,
-    /// Explicit local EL chain ID.
-    l2_chain_id: u64,
-    /// Own L1 provider, never a package hint.
-    l1_http: Url,
-    /// Optional consensus configuration override.
-    chain_config: Option<PathBuf>,
-    /// Export-only archival sources.
-    archive: Option<Archive>,
-    /// Local offline EL inputs and pinned helpers.
-    install: Option<Installation>,
+
+/// The Safety latch beside the stage.
+const HALTED: &str = "halted.json";
+
+/// The deployment and own L1 the import and export authenticate against. The L1 endpoint must be
+/// the operator's own node: it supplies every finality and proof read.
+#[derive(clap::Args, Clone, Debug)]
+pub struct Own {
+    /// HTTP RPC endpoint of the operator's own L1 node. It must serve the finalized Inbox proofs
+    /// and the historical L1 headers the checkpoint needs.
+    #[arg(long = "l1.http", value_parser = crate::flags::common::http_url)]
+    pub l1_http: Url,
+    /// L2 chain id selecting the built-in chain parameters.
+    #[arg(long = "l2.chain-id")]
+    pub l2_chain_id: u64,
+    /// Optional TOML file overriding the built-in chain parameters (devnet only).
+    #[arg(long = "chain-config")]
+    pub chain_config: Option<PathBuf>,
 }
-/// Archival endpoints and fixed original genesis inputs.
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Archive {
-    /// Pinned stock helper for independent archival verification.
-    comet_helper: PathBuf,
-    /// Stock read-only Comet RPC.
-    comet_http: Url,
-    /// Canonical EL archive, header reads only.
-    l2_http: Url,
-    /// Original stock genesis.json for this generation.
-    comet_genesis: PathBuf,
-    /// Required for a recovery generation; raw stored bootstrap JSON.
-    recovery_bootstrap: Option<PathBuf>,
-}
-/// Programs and immutable offline inputs; arbitrary child argv are intentionally unavailable.
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Installation {
-    /// Optional explicit OS identity for a separately privileged stock Comet process.
-    comet_uid: Option<u32>,
-    /// Primary group of that stock process; both fields must be provided together.
-    comet_gid: Option<u32>,
-    /// Effective stopped EL directory containing db/mdbx.dat.
-    el_source: PathBuf,
-    /// Original deployment EL chain specification used by the runtime.
-    el_chain: PathBuf,
-    /// Native guarded signer for validator templates, absent for a full-node runtime.
-    signer_binary: Option<PathBuf>,
-    /// Approved native stock Comet server executable.
-    comet_binary: PathBuf,
-    /// Pinned stock verifier/installer executable.
-    comet_helper: PathBuf,
-    /// Pinned native execution state/index installer.
-    el_helper: PathBuf,
-    /// Reviewed normal execution node executable for the private post-install startup.
-    el_binary: PathBuf,
-    /// Whether the original execution chain activates Etna by devnet timestamp override.
-    devnet_etna_timestamp: Option<u64>,
-    /// Operator-approved, non-secret stock runtime settings (no key material is imported).
-    comet_config: PathBuf,
-}
-impl Profile {
-    /// Read protected configuration without exposing credentials in diagnostics.
-    fn load(p: &Path) -> R<(Self, B256)> {
-        crate::recovery::store::check_private_file(p)
-            .map_err(|_| bad("private profile required"))?;
-        let b = files::read(p, 1 << 20)?;
-        let profile: Self =
-            serde_json::from_slice(&b).map_err(|_| bad("invalid import profile"))?;
-        if profile.schema != 1 {
-            return Err(bad("unsupported profile schema"))
-        }
-        Ok((profile, keccak256(b)))
-    }
-    /// Recheck actual own endpoint identity before constructing the proof-reading source.
-    async fn own(&self) -> R<(abci::ChainParams, abci::RpcL1Source)> {
-        if let Some(p) = &self.chain_config {
-            files::file(p)?;
-        }
+
+impl Own {
+    /// Bind the chain parameters to the endpoint's full-width L1 chain id and connect to it.
+    async fn connect(&self) -> R<(abci::ChainParams, abci::RpcL1Source)> {
         let (mut params, expected) =
             crate::commands::load_chain_params(self.l2_chain_id, self.chain_config.as_deref())
-                .map_err(|_| bad("deployment configuration"))?;
+                .map_err(|e| bad(format!("deployment configuration: {e}")))?;
         let actual = crate::commands::rpc_chain_id(&self.l1_http, "l1.http")
             .await
-            .map_err(|_| ImportError::Unavailable("own L1 chain ID".into()))?;
-        if actual != self.l1_chain_id || expected.is_some_and(|id| id != actual) {
-            return Err(bad("own L1 chain ID mismatch"))
-        }
-        params.l1_chain_id = actual;
+            .map_err(|_| unavailable("own L1 chain id (l1.http)"))?;
+        crate::commands::bind_l1_chain_id(&mut params, expected, actual).map_err(bad)?;
         Ok((
             params,
             abci::RpcL1Source::new(rpc::client::connect_http_with_limits(
@@ -134,667 +81,497 @@ impl Profile {
         ))
     }
 }
-/// Stable operation bindings fixed before preparation; no deserializable trust token.
-#[derive(Deserialize, Serialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields)]
-struct Intent {
-    /// Strict lifecycle version.
-    schema: u32,
-    /// Canonical operation root, also bound into all components.
-    root: PathBuf,
-    /// Original strict package source; only named files are ever archived.
-    source: PathBuf,
-    /// Exact private operator profile bytes.
-    profile_hash: B256,
-    /// Metadata and original ascending frame file hashes.
-    package: [B256; 2],
-    /// Immutable program/config/dataset contents, including remote-independent chain overrides.
-    inputs: std::collections::BTreeMap<String, B256>,
+
+/// The local inputs of one import. None of them may lie inside ROOT.
+#[derive(clap::Args, Clone, Debug)]
+pub struct Inputs {
+    /// Package directory holding `package.json` and `blocks.jsonl` (from `export`).
+    #[arg(long)]
+    pub package: PathBuf,
+    /// A stopped EL datadir holding the state at the checkpoint. No alethia-reth may run on it
+    /// for the duration of the import; it is copied and never written.
+    #[arg(long)]
+    pub el_source: PathBuf,
+    /// The original deployment's EL chain JSON (alethia-reth `--chain`).
+    #[arg(long)]
+    pub el_chain: PathBuf,
+    /// The `etna-el-import` helper.
+    #[arg(long)]
+    pub el_helper: PathBuf,
+    /// The `etna-comet-import` helper.
+    #[arg(long)]
+    pub comet_helper: PathBuf,
+    /// Stock Comet `config.toml`, copied verbatim to `ready/comet/config/config.toml`. Its
+    /// `db_backend` must be absent or `goleveldb`.
+    #[arg(long)]
+    pub comet_config: PathBuf,
 }
-impl Intent {
-    /// Installation identity covers exact paths, source content and process inputs.
-    fn id(&self) -> B256 {
-        keccak256(serde_json::to_vec(self).expect("plain metadata"))
-    }
-    /// Validate strict local schema and path binding on every resume.
-    fn load(root: &Path) -> R<Self> {
-        files::protected_root(root)?;
-        let intent: Self = files::json(&root.join("intent.json"))?;
-        if intent.schema != 1 || intent.root != root {
-            return Err(bad("unknown intent schema or moved root"))
-        }
-        Ok(intent)
-    }
-}
-/// Local record of an independent finalized observation; advisory only on restart.
-#[derive(Serialize, Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields)]
-struct Plan {
-    /// Strict plan version.
-    schema: u32,
-    /// Binding of immutable source, binaries and local paths.
-    installation_id: B256,
-    /// Current generation when independently authenticated.
-    generation: u64,
-    /// Selected checkpoint/execution floor.
-    height: u64,
-    /// Authenticated EL hash at the execution floor; startup checks the actual engine.
-    el_hash: B256,
-    /// Own L1 proof root observation block hash.
-    l1_hash: B256,
-    /// Own L1 proof observation block number.
-    l1_number: u64,
-    /// Latest independently observed admission target.
-    target: u64,
-    /// Original app state, terminal identity and fixed genesis digest.
-    state_hash: B256,
-    /// Rust digest of full verified frame sequence.
-    window_hash: B256,
-    /// Independently verified stock package identity (none at fixed genesis).
-    stock_hash: Option<B256>,
-}
-impl Plan {
-    /// Compare immutable facts while allowing latest finalized observations to advance.
-    fn agrees(&self, other: &Self) -> bool {
-        self.schema == 1 &&
-            self.installation_id == other.installation_id &&
-            self.generation == other.generation &&
-            self.height == other.height &&
-            self.el_hash == other.el_hash &&
-            self.state_hash == other.state_hash &&
-            self.window_hash == other.window_hash &&
-            self.stock_hash == other.stock_hash
+
+impl Inputs {
+    /// Every input path, for the ROOT overlap check.
+    fn paths(&self) -> [&Path; 6] {
+        [
+            &self.package,
+            &self.el_source,
+            &self.el_chain,
+            &self.el_helper,
+            &self.comet_helper,
+            &self.comet_config,
+        ]
     }
 }
-/// Historical observation made immediately before committing the group. Offline status never
-/// treats it as current trust.
-#[derive(Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Observation {
-    /// Local receipt format.
-    schema: u32,
-    /// Source/binary/path binding of the installation.
-    installation_id: B256,
-    /// Own-finalized generation at the observation.
-    generation: u64,
-    /// Finalized L1 block containing the landing proof.
-    l1_number: u64,
-    /// Exact canonical L1 block hash.
-    l1_hash: B256,
-    /// Latest landed height at that pinned block, possibly ahead of the installed state.
-    target: u64,
-}
-/// Reject a foreign or unknown plan before any stage or helper process is started.
-fn load_plan(root: &Path, id: B256) -> R<Option<Plan>> {
-    if !files::exists(&root.join("plan.json"))? {
-        return Ok(None)
+
+/// Open and exclusively lock `ROOT/import.lock` without waiting. A held lock means another import
+/// or a helper of an earlier, killed one still runs: it is reported as unavailable.
+pub fn lock_root(root: &Path) -> R<File> {
+    use std::os::fd::AsRawFd;
+    let lock = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .mode(0o600)
+        .open(root.join("import.lock"))
+        .map_err(io)?;
+    // SAFETY: flock on a descriptor this function owns.
+    if unsafe { libc::flock(lock.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
+        let error = std::io::Error::last_os_error();
+        return Err(if error.kind() == std::io::ErrorKind::WouldBlock {
+            unavailable(
+                "import root is busy: another import, or a helper of an interrupted one, holds \
+                 ROOT/import.lock; rerun once it exits",
+            )
+        } else {
+            io(error)
+        });
     }
-    let plan: Plan = files::json(&root.join("plan.json"))?;
-    if plan.schema != 1 || plan.installation_id != id {
-        return Err(bad("plan identity"))
-    }
-    Ok(Some(plan))
+    Ok(lock)
 }
-/// Persist only verifier-derived contradictions, outside all disposable stage directories.
-fn latch<T>(root: &Path, r: R<T>) -> R<T> {
-    if let Err(e @ ImportError::Safety(detail)) = &r {
-        let path = root.join("halted.json");
-        let save = || -> R<()> {
-            if !files::exists(&path)? {
-                files::put(&path, e)?;
+
+/// A helper process that inherits the root lock: until the helper exits, no rerun can discard
+/// the stage it writes, even if this process is killed. stdout carries the helper's receipt and
+/// stderr its diagnostics.
+pub fn helper_command(lock: &File, program: &Path) -> tokio::process::Command {
+    use std::os::fd::AsRawFd;
+    let fd = lock.as_raw_fd();
+    let mut command = tokio::process::Command::new(program);
+    command
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::inherit())
+        .kill_on_drop(true);
+    // SAFETY: only the async-signal-safe fcntl runs in the forked child.
+    unsafe {
+        command.pre_exec(move || {
+            if libc::fcntl(fd, libc::F_SETFD, 0) < 0 {
+                return Err(std::io::Error::last_os_error());
             }
             Ok(())
-        };
-        if let Err(storage) = save() {
-            if let Err(prior @ ImportError::Safety(_)) = check_latch(root) {
-                return Err(prior)
-            }
+        });
+    }
+    command
+}
+
+/// Where a run under the root lock starts.
+enum Begun {
+    /// The held root lock and a fresh, empty, private stage.
+    Stage(File, PathBuf),
+    /// An earlier run already published `ready`: a lost acknowledgement is answered from it.
+    AlreadyReady,
+}
+
+/// Take the root lock, then: refuse a halted root; answer a published one; refuse `inputs` that
+/// overlap ROOT; and discard any interrupted stage for a fresh one (DATA-5.4-5: "discard its
+/// staging area").
+fn begin(root: &Path, inputs: &[&Path]) -> R<Begun> {
+    let lock = lock_root(root)?;
+    check_latch(root)?;
+    let stage = root.join("stage");
+    if exists(&root.join("ready"))? {
+        // A crash between the publishing rename and the stage removal leaves the rest behind.
+        remove_tree(&stage)?;
+        return Ok(Begun::AlreadyReady);
+    }
+    for input in inputs {
+        let path = fs::canonicalize(input)
+            .map_err(|e| unavailable(format!("local input {}: {:?}", input.display(), e.kind())))?;
+        if path.starts_with(root) || root.starts_with(&path) {
+            return Err(bad(format!("input {} overlaps the import root", input.display())));
+        }
+    }
+    remove_tree(&stage)?;
+    mkdir(&stage)?;
+    Ok(Begun::Stage(lock, stage))
+}
+
+/// Make the complete `stage/ready` durable, publish it as `ROOT/ready` by one rename, then drop
+/// the rest of the stage. The caller holds the root lock.
+fn publish(root: &Path) -> R<()> {
+    let stage = root.join("stage");
+    // Also flushes stage/ready itself, whose entries the helpers created.
+    sync_tree(&stage.join("ready"))?;
+    fs::rename(stage.join("ready"), root.join("ready")).map_err(io)?;
+    sync(root)?;
+    remove_tree(&stage)?;
+    sync(root)
+}
+
+/// Persist an authenticated contradiction as the root's first cause; other failures pass through.
+fn latch<T>(root: &Path, r: R<T>) -> R<T> {
+    if let Err(e @ ImportError::Safety(detail)) = &r {
+        let bytes = serde_json::to_vec(e).expect("plain error");
+        if let Err(storage) = write_first(&root.join(HALTED), &bytes) {
             return Err(ImportError::Safety(format!(
-                "{detail}; failed to persist terminal evidence: {storage}"
-            )))
+                "{detail}; failed to persist {HALTED}: {storage}"
+            )));
         }
     }
     r
 }
-/// Refuse all further mutation after an authenticated contradiction.
+
+/// Refuse every run of a root that holds authenticated contradiction evidence.
 fn check_latch(root: &Path) -> R<()> {
-    if files::exists(&root.join("halted.json"))? {
-        let e: ImportError = files::json(&root.join("halted.json"))?;
-        return Err(match e {
-            ImportError::Safety(_) => e,
-            _ => bad("invalid safety latch"),
-        })
+    let path = root.join(HALTED);
+    if !exists(&path)? {
+        return Ok(());
     }
-    Ok(())
+    match serde_json::from_slice(&read(&path, 1 << 20)?) {
+        Ok(e @ ImportError::Safety(_)) => Err(e),
+        _ => Err(bad(format!("invalid safety latch {}", path.display()))),
+    }
 }
-/// Nonmutating inspection of a prepared, interrupted, completed, or halted installation.
+
+/// The root's phase, and the generation and execution floor of a published app store, as one
+/// JSON object. A fixed-origin import has no AppState until InitChain, so both are null.
+/// Read-only: it takes no lock and changes nothing.
 pub fn status(root: &Path) -> R<Value> {
-    let i = Intent::load(root)?;
-    let id = i.id();
-    let plan = load_plan(root, id)?;
-    let ready = files::exists(&root.join("ready"))?;
-
-    let halted = match check_latch(root) {
-        Err(ImportError::Safety(_)) => true,
-        Ok(()) => false,
+    let ready = root.join("ready");
+    let phase = match check_latch(root) {
+        Err(ImportError::Safety(_)) => "halted",
         Err(e) => return Err(e),
+        Ok(()) if exists(&ready)? => "ready",
+        Ok(()) if exists(&root.join("stage"))? => "interrupted",
+        Ok(()) => "absent",
     };
-    if ready && !halted {
-        boundary::check(&root.join("ready/app"))?;
-    }
-    let observation = if ready {
-        let observed: Observation = files::json(&root.join("ready/publication-observation.json"))?;
-        if observed.schema != 1 ||
-            observed.installation_id != id ||
-            plan.as_ref().is_none_or(|p| {
-                p.generation != observed.generation || p.height > observed.target
-            })
-        {
-            return Err(bad("publication observation mismatch"))
-        }
-        Some(observed)
+    // A plain read: `Store::load` would remove a running app's in-flight temporary file.
+    let path = ready.join("app").join(abci::store::STATE_FILE);
+    let state: Option<abci::store::AppState> = if phase == "ready" && exists(&path)? {
+        let bytes = read(&path, 64 << 20)?;
+        Some(serde_json::from_slice(&bytes).map_err(|e| bad(format!("installed app state: {e}")))?)
     } else {
         None
     };
-    let interrupted = files::exists(&root.join(".checkpoint-work"))?;
-    let phase = if halted {
-        "halted"
-    } else if ready {
-        "installed"
-    } else if plan.is_some() && interrupted {
-        "staging"
-    } else if plan.is_some() {
-        "prepared"
-    } else {
-        "preparing"
-    };
-    Ok(
-        json!({"schema":1,"phase":phase,"installation_id":id,"generation":plan.as_ref().map(|p|p.generation),"execution_floor":plan.as_ref().map(|p|p.height),"observed_latest_target":observation.as_ref().map(|o|o.target).or_else(||plan.as_ref().map(|p|p.target)),"observed_l1_hash":observation.as_ref().map(|o|o.l1_hash).or_else(||plan.as_ref().map(|p|p.l1_hash)),"observed_l1_number":observation.as_ref().map(|o|o.l1_number).or_else(||plan.as_ref().map(|p|p.l1_number)),"live_trust":false}),
-    )
+    Ok(json!({
+        "phase": phase,
+        "generation": state.as_ref().map(|s| s.generation),
+        "execution_floor": state.and_then(|s| s.execution_floor).map(|f| f.number),
+    }))
 }
 
-/// Bind local inputs with the same policy during preparation and runtime checks.
-/// Only the read-only current client permits Cargo's executable hardlinks.
-async fn input_digest(name: &str, path: &Path) -> R<B256> {
-    let result = if name == "client_binary" {
-        files::client_digest(path).await
-    } else {
-        files::local_digest(path, None).await
+/// Import one checkpoint package into `ROOT/ready` (DATA-5.4-5), or answer an earlier
+/// publication. Every step writes only inside the stage; `ready` appears by one rename at the end.
+pub async fn import(own: &Own, inputs: &Inputs, root: &Path) -> R<Value> {
+    fs::DirBuilder::new().recursive(true).mode(0o700).create(root).map_err(io)?;
+    let root = &fs::canonicalize(root).map_err(io)?;
+    let (lock, stage) = match begin(root, &inputs.paths())? {
+        Begun::Stage(lock, stage) => (lock, stage),
+        Begun::AlreadyReady => return status(root),
     };
-    result.map_err(|error| match error {
-        ImportError::Candidate(detail) | ImportError::Unavailable(detail) => {
-            ImportError::Unavailable(format!("local input {name} at {}: {detail}", path.display()))
-        }
-        safety @ ImportError::Safety(_) => safety,
-    })
-}
-
-/// Rehash immutable external inputs. Databases must come from stopped isolated copies;
-/// stock's writer lock is an extra refusal signal, never permission to adopt an existing node.
-async fn inputs(
-    profile: &Profile,
-    i: &Installation,
-) -> R<std::collections::BTreeMap<String, B256>> {
-    let mut hashes = std::collections::BTreeMap::new();
-    files::canonical(&i.el_source)?;
-    if files::exists(&i.el_source.join("db/lock"))? {
-        return Err(bad("EL dataset has a writer lock; require quiesced offline data"))
-    }
-    for (name, path) in [
-        ("client_binary", std::env::current_exe().map_err(io)?.canonicalize().map_err(io)?),
-        ("database", i.el_source.join("db/mdbx.dat")),
-        ("database_version", i.el_source.join("db/database.version")),
-        ("el_chain", i.el_chain.clone()),
-        ("comet_config", i.comet_config.clone()),
-        ("el_helper", i.el_helper.clone()),
-        ("comet_helper", i.comet_helper.clone()),
-        ("comet_binary", i.comet_binary.clone()),
-        ("el_binary", i.el_binary.clone()),
-    ]
-    .into_iter()
-    .chain(profile.chain_config.clone().map(|p| ("chain_config", p)))
-    .chain(i.signer_binary.clone().map(|p| ("signer_binary", p)))
-    {
-        hashes.insert(name.to_owned(), input_digest(name, &path).await?);
-    }
-    Ok(hashes)
-}
-/// Archive the original package before authenticating it. The entire root, including its
-/// immutable intent, first appears by no-replace rename; an unrelated root cannot be adopted.
-async fn initialize(
-    root: &Path,
-    source: &Path,
-    i: &Installation,
-    profile_hash: B256,
-    hashes: &std::collections::BTreeMap<String, B256>,
-) -> R<()> {
-    let parent = files::parent(root)?;
-    for x in [source, &i.el_source] {
-        if root.starts_with(x) || x.starts_with(root) {
-            return Err(bad("input and output directories overlap"))
-        }
-    }
-    let intent = Intent {
-        schema: 1,
-        root: root.to_owned(),
-        source: source.to_owned(),
-        profile_hash,
-        package: package::identity(source).await?,
-        inputs: hashes.clone(),
-    };
-    if files::exists(root)? {
-        if Intent::load(root)? != intent {
-            return Err(bad("root belongs to another import"))
-        }
-        return Ok(())
-    }
-    let separate = files::comet_identity(i, parent)?.is_some();
-    let stage = files::stage(parent, ".checkpoint-init-")?;
-    if separate {
-        files::searchable(stage.path())?;
-    }
-    files::put(&stage.path().join("intent.json"), &intent)?;
-    files::publish_dir(stage.path(), root)?;
-    files::sync(parent)
-}
-/// Copy the original portable bytes under the root lease. Large interrupted copies are
-/// already in an identifiable owned tree and never need to be recovered by filename alone.
-async fn archive_package(root: &Path, intent: &Intent) -> R<()> {
-    let id = intent.id();
-    let stage = files::restart_stage(root, id)?;
-    let source = &intent.source;
-    let archive = stage.join("package");
-    files::mkdir(&archive)?;
-    for (name, hash) in ["package.json", "blocks.jsonl"].into_iter().zip(intent.package) {
-        if files::local_digest(&source.join(name), Some(&archive.join(name))).await? != hash {
-            return Err(bad("package changed during archival copy"))
-        }
-    }
-    files::sync(&archive)?;
-    files::publish_dir(&archive, &root.join("package"))?;
-    files::sync(root)?;
-    files::discard(root, id)
-}
-/// Copy the only allowed state artifacts into a completely independent destination, validating
-/// the bytes while copying. No mutable MDBX file is ever hardlinked to the source.
-async fn copy_dataset(i: &Installation, work: &Path, intent: &Intent) -> R<()> {
-    let db = work.join("el/db");
-    files::mkdir(&db)?;
-    for (name, key) in [("mdbx.dat", "database"), ("database.version", "database_version")] {
-        if files::local_digest(&i.el_source.join("db").join(name), Some(&db.join(name))).await? !=
-            intent.inputs[key]
-        {
-            return Err(bad("stopped EL source changed during copy"))
-        }
-    }
-    if files::exists(&i.el_source.join("db/lock"))? {
-        return Err(bad("EL source writer appeared"))
-    }
-    files::sync(&db)
-}
-/// Validate the actual template before creating a plan. Stock database installation is
-/// compatible only with Comet's persistent GoLevelDB backend.
-fn stock_config(i: &Installation) -> R<Vec<u8>> {
-    let config = files::read(&i.comet_config, 1 << 20)?;
-    let table = crate::recovery::prepare::parse_comet_template(&config).map_err(bad)?;
-    if table.get("db_backend").is_some_and(|v| v.as_str() != Some("goleveldb")) {
-        return Err(bad("checkpoint import requires db_backend=goleveldb"))
-    }
-    let validator = table
-        .get("priv_validator_laddr")
-        .and_then(toml::Value::as_str)
-        .is_some_and(|a| !a.is_empty());
-    if validator != i.signer_binary.is_some() {
-        return Err(bad(
-            "validator templates require a bound signer_binary; full nodes require no signer",
-        ))
-    }
-    if let Some(signer) = &i.signer_binary {
-        native_program(signer)?;
-    }
-    crate::recovery::prepare::normalized_comet_config(table, validator, None).map_err(bad)
-}
-/// Reject scripts, command prefixes and non-native launch adapters before binding the program.
-fn native_program(binary: &Path) -> R<()> {
-    let mut magic = [0; 4];
-    {
-        use std::io::Read;
-        files::file(binary)?.read_exact(&mut magic).map_err(io)?;
-    }
-    if !matches!(
-        u32::from_be_bytes(magic),
-        0x7f454c46 | 0xfeedfacf | 0xcffaedfe | 0xcafebabe | 0xcafebabf
-    ) {
-        return Err(bad("checkpoint runtime requires a native executable"))
-    }
-    Ok(())
-}
-/// Check the pinned stock build and protocol versions in a disposable home. Both the
-/// upstream Makefile's abbreviated git stamp and the host builder's full stamp are accepted.
-async fn verify_stock_program(binary: &Path) -> R<()> {
-    const REVISION: &str = "0880b4d378f347ab16e54ec677ff50d803f37d62";
-    native_program(binary)?;
-    let private =
-        files::stage(&std::env::temp_dir().canonicalize().map_err(io)?, "stock-version-")?;
-    let output = tokio::time::timeout(
-        std::time::Duration::from_secs(10),
-        tokio::process::Command::new(binary)
-            .args(["version", "--verbose"])
-            .env_clear()
-            .env("HOME", private.path())
-            .env("CMTHOME", private.path())
-            .current_dir(private.path())
-            .kill_on_drop(true)
-            .output(),
-    )
-    .await
-    .map_err(|_| bad("stock version check timed out"))?
-    .map_err(io)?;
-    let version: Value = serde_json::from_slice(&output.stdout)
-        .map_err(|_| bad("invalid native Comet version report"))?;
-    let stamp = version["cometbft"].as_str().and_then(|v| v.strip_prefix("0.39.0+")).unwrap_or("");
-    if !output.status.success() ||
-        stamp.len() < 7 ||
-        !REVISION.starts_with(stamp) ||
-        version["abci"] != "2.0.0" ||
-        version["block_protocol"] != 11 ||
-        version["p2p_protocol"] != 8
-    {
-        return Err(bad("checkpoint import requires pinned stock Comet v0.40.0"))
-    }
-    Ok(())
-}
-/// Driver for an explicit prepare or install. Rechecks external bytes, retained bytes,
-/// binaries and live own-finalized generation on every call (including installed retries).
-pub async fn operate(profile: &Path, source: Option<&Path>, root: &Path) -> R<Value> {
-    // Terminal evidence is actionable even if the donor, profile or own L1 has disappeared.
-    if files::exists(root)? {
-        Intent::load(root)?;
-        check_latch(root)?;
-    }
-    let (p, profile_hash) = Profile::load(profile)?;
-    let i = p.install.as_ref().ok_or_else(|| bad("install profile required"))?;
-    native_program(&i.el_binary)?;
-    verify_stock_program(&i.comet_binary).await?;
-    let config = stock_config(i)?;
-    files::canonical(&i.el_source)?;
-    let source_lease = abci::ownership::ComponentLease::acquire(
-        &abci::ownership::ComponentPaths::new(
-            abci::ownership::ComponentRole::Execution,
-            &i.el_source,
-        )
-        .map_err(bad)?,
-        None,
-    )
-    .map_err(bad)?;
-    let hashes = inputs(&p, i).await?;
-    if let Some(source) = source {
-        initialize(root, source, i, profile_hash, &hashes).await?
-    }
-    let intent = Intent::load(root)?;
-    let id = intent.id();
-    let activation = acquire_activation(root, id).map_err(bad)?;
-    check_latch(root)?;
-    let old = load_plan(root, id)?;
-    let install = source.is_none();
-    if install && old.is_none() {
-        return Err(bad("prepare must complete before install"))
-    }
-    if !files::exists(&root.join("package"))? {
-        if source.is_none() || intent.profile_hash != profile_hash {
-            return Err(bad("prepare must finish archival first"))
-        }
-        archive_package(root, &intent).await?;
-    }
-    if intent.profile_hash != profile_hash ||
-        intent.inputs != hashes ||
-        intent.package != package::identity(&root.join("package")).await?
-    {
-        return Err(bad("immutable inputs, binary or profile changed"))
-    }
-    let (params, l1) = p.own().await?;
-    let v = latch(root, package::verify(&root.join("package"), &params, &l1).await)?;
-    let published = files::exists(&root.join("ready"))?;
-    if published {
-        boundary::check(&root.join("ready/app"))?;
-        files::sync(root)?;
-        return status(root)
-    }
-    // No stage is ever adopted. A SIGKILL can leave private unpublished trees; exact owner
-    // and inode are bound in their claim. All children retain the activation descriptor.
-    let work = files::restart_stage(root, id)?;
-    let dir = work.as_path();
-    let holds = helpers::Holds::acquire(&activation, dir, vec![source_lease])?;
-    let stock = dir.join("stock.json");
-    let stock_hash = if v.first_height().is_some() {
-        let hash = package::stock(&root.join("package"), &stock, &v).await?;
-        if !install {
-            latch(root, helpers::comet(&i.comet_helper, &stock, hash, None, &v, &holds).await)?;
-        }
-        Some(hash)
-    } else {
-        None
-    };
-    let target = v.admission_target();
-    let plan = Plan {
-        schema: 1,
-        installation_id: id,
-        generation: v.state().generation,
-        height: v.landing().height,
-        el_hash: v.landing().el_hash,
-        l1_hash: target.l1_block_hash,
-        l1_number: target.l1_block_number,
-        target: target.checkpoint_height,
-        state_hash: keccak256(serde_json::to_vec(v.state()).map_err(bad)?),
-        window_hash: v.window_hash(),
-        stock_hash,
-    };
-    if old.as_ref().is_some_and(|o| !o.agrees(&plan)) {
-        return Err(bad("authenticated checkpoint no longer matches prepared operation"))
-    }
-    copy_dataset(i, dir, &intent).await?;
-    let manifest = latch(root, helpers::Manifest::new(id, &params, &v))?;
-    if !install {
-        manifest.run(i, dir, &v, &holds, false).await?;
-        if old.is_none() {
-            files::put(&root.join("plan.json"), &plan)?
-        }
-        files::discard(root, id)?;
-        return status(root)
-    }
-    let home = dir.join("comet");
-    if let Some(expected) = stock_hash {
-        if latch(
-            root,
-            helpers::comet(&i.comet_helper, &stock, expected, Some(&home), &v, &holds).await,
-        )? != expected
-        {
-            return Err(bad("stock verify/install identity mismatch"))
-        }
-    } else {
-        files::mkdir(&home)?;
-        files::mkdir(&home.join("config"))?;
-        files::mkdir(&home.join("data"))?;
-        files::put(&home.join("config/genesis.json"), v.genesis())?;
-    }
-    helpers::bind_stock(&i.comet_helper, &home, id, v.first_height().is_none(), &holds).await?;
-    files::mkdir(&home.join("run"))?;
-    files::write(&home.join("config/config.toml"), &config)?;
-    manifest.run(i, dir, &v, &holds, true).await?;
-    let store = abci::Store::imported(dir.join("app"), id, plan.height);
-    if let Some(bootstrap) = v.recovery_bootstrap() {
-        store.save_recovery_bootstrap(bootstrap).map_err(bad)?
-    }
+    let config = comet_config(&inputs.comet_config)?;
+    let (params, l1) = own.connect().await?;
+    let stock = stage.join("stock");
+    mkdir(&stock)?;
+    // The one authentication (DATA-5.4-2). It writes stock/blocks.jsonl from exactly the frames
+    // it verifies, so nothing is read from the package again.
+    let v = latch(root, package::verify(&inputs.package, &params, &l1, Some(&stock)).await)?;
+    let ready = stage.join("ready");
+    mkdir(&ready)?;
+    mkdir(&ready.join("app"))?;
+    let comet = ready.join("comet");
     if v.first_height().is_some() {
-        store.save_comet_hash(plan.height, v.landing().comet_hash).map_err(bad)?;
-        store.save_val_state(&v.state().val_state).map_err(bad)?
+        package::write_stock_dir(&stock, &v)?;
+        helpers::comet_install(&lock, &inputs.comet_helper, &comet, &stock, &v).await?;
+    } else {
+        // DATA-5.4-1: s = o starts from the original genesis through stock InitChain.
+        mkdir(&comet)?;
+        mkdir(&comet.join("config"))?;
+        mkdir(&comet.join("data"))?;
+        write_new(
+            &comet.join("config/genesis.json"),
+            &serde_json::to_vec(v.genesis()).map_err(bad)?,
+        )?;
     }
-    store.save(v.state()).map_err(bad)?;
-    latch(root, manifest.smoke(i, dir, &holds, &params, &l1).await)?;
-    if files::exists(&stock)? {
-        fs::remove_file(&stock).map_err(io)?;
-    }
-    sync_tree(dir)?;
-    boundary::seal(dir, root, &plan, &v, i)?;
-    if let Some((uid, gid)) = files::comet_identity(i, files::parent(root)?)? {
-        files::assign_tree(&dir.join("comet"), uid, gid)?;
-        files::searchable(dir)?;
-    }
-    // Reopen the actual immutable source before final publication. A later generation, or
-    // a removed/rolled-back landing, must never authorize publishing the old operation.
-    if intent.inputs != inputs(&p, i).await? ||
-        intent.package != package::identity(&root.join("package")).await?
-    {
-        return Err(bad("immutable inputs changed before publication"))
-    }
-    let (params, l1) = p.own().await?;
-    let last = latch(root, v.current_landing(&params, &l1).await)?;
-    files::put(
-        &dir.join("publication-observation.json"),
-        &Observation {
-            schema: 1,
-            installation_id: id,
-            generation: plan.generation,
-            l1_hash: last.l1_block_hash,
-            l1_number: last.l1_block_number,
-            target: last.checkpoint_height,
-        },
-    )?;
-    files::sync(dir)?;
-    files::publish_dir(dir, &root.join("ready"))?;
-    files::sync(root)?;
+    mkdir(&comet.join("run"))?;
+    write_new(&comet.join("config/config.toml"), &config)?;
+    mkdir(&stage.join("scratch"))?;
+    let manifest = latch(root, helpers::Manifest::new(&params, &v))?;
+    helpers::el_install(&lock, inputs, &stage, &manifest, &params, &v).await?;
+    let store = abci::Store::new(ready.join("app"));
+    let stored = if v.first_height().is_some() {
+        store.install_import(v.state(), v.recovery_bootstrap())
+    } else {
+        // InitChain authenticates the origin itself (DATA-5.4-1, RECOV-8.4).
+        v.recovery_bootstrap().map_or(Ok(()), |b| store.save_recovery_bootstrap(b))
+    };
+    stored.map_err(|e| unavailable(format!("app store: {e}")))?;
+    publish(root)?;
+    drop(lock);
     status(root)
 }
-/// Flush closed native stores and parent directory entries before selecting the group.
+
+/// Read the stock Comet config to install. Checkpoint stores are GoLevelDB; CometBFT reads its
+/// keys case-insensitively, so every spelling of `db_backend` must name it.
+fn comet_config(path: &Path) -> R<Vec<u8>> {
+    let bytes = read(path, 1 << 20)?;
+    let table: toml::Table = std::str::from_utf8(&bytes)
+        .ok()
+        .and_then(|text| text.parse().ok())
+        .ok_or_else(|| bad("invalid Comet config TOML"))?;
+    if table.iter().any(|(key, value)| {
+        key.eq_ignore_ascii_case("db_backend") && value.as_str() != Some("goleveldb")
+    }) {
+        return Err(bad("checkpoint import requires db_backend = \"goleveldb\""));
+    }
+    Ok(bytes)
+}
+
+/// Read at most `limit` bytes of a local file.
+fn read(path: &Path, limit: u64) -> R<Vec<u8>> {
+    let mut bytes = Vec::new();
+    File::open(path)
+        .map_err(|e| unavailable(format!("local input {}: {:?}", path.display(), e.kind())))?
+        .take(limit + 1)
+        .read_to_end(&mut bytes)
+        .map_err(io)?;
+    if bytes.len() as u64 > limit {
+        return Err(bad(format!("{} exceeds {limit} bytes", path.display())));
+    }
+    Ok(bytes)
+}
+
+/// Whether `path` exists; an inaccessible path is an error, not absence.
+fn exists(path: &Path) -> R<bool> {
+    match fs::symlink_metadata(path) {
+        Ok(_) => Ok(true),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(e) => Err(io(e)),
+    }
+}
+
+/// Create one private directory; an existing one is refused.
+fn mkdir(path: &Path) -> R<()> {
+    fs::DirBuilder::new().mode(0o700).create(path).map_err(io)
+}
+
+/// Create a new private file. Durability comes from [`sync_tree`] before publication.
+fn create(path: &Path) -> R<File> {
+    OpenOptions::new().create_new(true).write(true).mode(0o600).open(path).map_err(io)
+}
+
+/// Create a new private file holding `bytes`.
+fn write_new(path: &Path, bytes: &[u8]) -> R<()> {
+    create(path)?.write_all(bytes).map_err(io)
+}
+
+/// Durably create `path` holding `bytes` through a fsynced temporary file and its directory. An
+/// existing `path` is kept unchanged: the first write wins.
+fn write_first(path: &Path, bytes: &[u8]) -> R<()> {
+    let dir = path.parent().expect("a file in a directory");
+    let mut file = tempfile::NamedTempFile::new_in(dir).map_err(io)?;
+    file.write_all(bytes).and_then(|()| file.as_file().sync_all()).map_err(io)?;
+    match file.persist_noclobber(path) {
+        Err(e) if e.error.kind() != std::io::ErrorKind::AlreadyExists => return Err(io(e.error)),
+        _ => {}
+    }
+    sync(dir)
+}
+
+/// Remove a directory tree, if present. Links are removed, never followed.
+fn remove_tree(path: &Path) -> R<()> {
+    match fs::remove_dir_all(path) {
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(io(e)),
+        _ => Ok(()),
+    }
+}
+
+/// Make a file's contents, or a directory's entries, durable.
+fn sync(path: &Path) -> R<()> {
+    File::open(path).and_then(|f| f.sync_all()).map_err(io)
+}
+
+/// fsync every file and directory under `path`, children before their directory, then `path`.
 fn sync_tree(path: &Path) -> R<()> {
     let meta = fs::symlink_metadata(path).map_err(io)?;
     if meta.is_dir() {
-        for e in fs::read_dir(path).map_err(io)? {
-            sync_tree(&e.map_err(io)?.path())?
+        for entry in fs::read_dir(path).map_err(io)? {
+            sync_tree(&entry.map_err(io)?.path())?;
         }
     } else if !meta.is_file() {
-        return Err(bad("unexpected alias or special file in staged stores"))
+        return Err(unavailable(format!("unexpected link or special file {}", path.display())));
     }
-    files::sync(path)
+    sync(path)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::os::unix::fs::PermissionsExt;
 
-    fn local_inputs(root: &Path) -> Profile {
-        fs::create_dir_all(root.join("offline/db")).unwrap();
-        for name in ["offline/db/mdbx.dat", "offline/db/database.version", "local-file"] {
-            fs::write(root.join(name), b"local input").unwrap();
+    /// A fresh canonical ROOT inside a temporary parent that holds neighbouring operator files.
+    fn root() -> (tempfile::TempDir, PathBuf) {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().canonicalize().unwrap().join("root");
+        fs::create_dir(&root).unwrap();
+        (dir, root)
+    }
+
+    fn staged(begun: Begun) -> (std::fs::File, PathBuf) {
+        match begun {
+            Begun::Stage(lock, stage) => (lock, stage),
+            Begun::AlreadyReady => panic!("expected a fresh stage"),
         }
-        let local = root.join("local-file");
-        serde_json::from_value(json!({
-            "schema": 1,
-            "l1_chain_id": "0x1",
-            "l2_chain_id": 167001,
-            "l1_http": "http://127.0.0.1:1",
-            "install": {
-                "el_source": root.join("offline"),
-                "el_chain": local,
-                "comet_config": local,
-                "el_helper": local,
-                "comet_helper": local,
-                "comet_binary": local,
-                "el_binary": local
-            }
-        }))
-        .unwrap()
     }
 
-    #[tokio::test]
-    async fn local_inputs_accept_the_cargo_hardlinked_client_executable() {
-        use std::os::unix::fs::MetadataExt;
-        let client = std::env::current_exe().unwrap().canonicalize().unwrap();
-        let temp = tempfile::tempdir_in(client.parent().unwrap()).unwrap();
-        let root = temp.path().canonicalize().unwrap();
-        fs::hard_link(&client, root.join("cargo-client-alias")).unwrap();
-        assert!(client.metadata().unwrap().nlink() >= 2);
-        let profile = local_inputs(&root);
-        let hashes = inputs(&profile, profile.install.as_ref().unwrap()).await.unwrap();
-        assert_ne!(hashes["client_binary"], B256::ZERO);
-    }
-
-    #[tokio::test]
-    async fn local_inputs_identify_the_hardlinked_dataset_as_a_local_failure() {
-        let temp = tempfile::tempdir().unwrap();
-        let root = temp.path().canonicalize().unwrap();
-        let profile = local_inputs(&root);
-        let database = root.join("offline/db/mdbx.dat");
-        fs::hard_link(&database, root.join("database-alias")).unwrap();
-        let error = inputs(&profile, profile.install.as_ref().unwrap()).await.unwrap_err();
-        let ImportError::Unavailable(detail) = error else {
-            panic!("local dataset failure must not blame checkpoint candidate: {error}")
-        };
-        assert!(detail.contains("local input database"), "{detail}");
-        assert!(detail.contains(database.to_str().unwrap()), "{detail}");
-        assert!(detail.contains("singly linked regular file"), "{detail}");
+    /// DATA-5.4-5: an interrupted import discards its staging area and never publishes it.
+    #[test]
+    fn rerun_discards_an_interrupted_stage_and_never_publishes_it() {
+        let (dir, root) = root();
+        let outside = dir.path().join("outside");
+        fs::create_dir(&outside).unwrap();
+        fs::write(outside.join("sentinel"), b"operator data").unwrap();
+        assert_eq!(status(&root).unwrap()["phase"], "absent");
+        for component in ["app", "comet", "el"] {
+            let path = root.join("stage/ready").join(component);
+            fs::create_dir_all(&path).unwrap();
+            fs::write(path.join("junk"), b"interrupted").unwrap();
+        }
+        // Discarding the stage removes a link, never what it points at.
+        std::os::unix::fs::symlink(&outside, root.join("stage/ready/el/link")).unwrap();
+        assert_eq!(
+            status(&root).unwrap(),
+            json!({"phase":"interrupted","generation":null,"execution_floor":null})
+        );
+        let (_lock, stage) = staged(begin(&root, &[]).unwrap());
+        assert_eq!(stage, root.join("stage"));
+        assert_eq!(fs::read_dir(&stage).unwrap().count(), 0);
+        assert_eq!(stage.metadata().unwrap().permissions().mode() & 0o777, 0o700);
+        assert!(!root.join("ready").exists());
+        assert_eq!(fs::read(outside.join("sentinel")).unwrap(), b"operator data");
     }
 
     #[test]
-    fn crashes_cannot_select_partial_component_writes_or_consume_foreign_state() {
-        let temp = tempfile::tempdir().unwrap();
-        let root = temp.path().canonicalize().unwrap();
-        fs::set_permissions(&root, std::os::unix::fs::PermissionsExt::from_mode(0o700)).unwrap();
-        let intent = Intent {
-            schema: 1,
-            root: root.clone(),
-            source: root.join("source"),
-            profile_hash: B256::ZERO,
-            package: [B256::ZERO; 2],
-            inputs: Default::default(),
-        };
-        files::put(&root.join("intent.json"), &intent).unwrap();
-        let hrs = root.join("original-hrs");
-        let wal = root.join("old-wal");
-        fs::write(&hrs, b"signed-round").unwrap();
-        fs::write(&wal, b"old consensus wal").unwrap();
-        let lease = acquire_activation(&root, intent.id()).unwrap();
-        for stop in 0..5 {
-            let stage = files::restart_stage(&root, intent.id()).unwrap();
-            let components = ["app", "comet", "el", ".etna-checkpoint-completed.json"];
-            for c in components.iter().take(stop) {
-                fs::write(stage.join(c), b"interrupted component").unwrap()
-            }
-            assert!(!root.join("ready").exists());
-            assert!(boundary::check(&stage.join("app")).is_err());
-            assert_eq!(status(&root).unwrap()["live_trust"], false);
-            assert_eq!(fs::read(&hrs).unwrap(), b"signed-round");
-            assert_eq!(fs::read(&wal).unwrap(), b"old consensus wal");
-        }
-        let stage = root.join(".checkpoint-work");
-        fs::write(stage.join("owner.json"), b"{}").unwrap();
-        assert!(files::restart_stage(&root, intent.id()).is_err());
-        assert!(stage.join("el").exists());
-        drop(lease);
+    fn publish_renames_the_complete_stage_and_reruns_report_ready() {
+        let (_dir, root) = root();
+        let (lock, stage) = staged(begin(&root, &[]).unwrap());
+        fs::create_dir_all(stage.join("ready/app")).unwrap();
+        fs::write(stage.join("ready/app/x"), b"x").unwrap();
+        fs::create_dir(stage.join("stock")).unwrap();
+        publish(&root).unwrap();
+        drop(lock);
+        assert_eq!(fs::read(root.join("ready/app/x")).unwrap(), b"x");
+        assert!(!root.join("stage").exists());
+        // A fixed-origin import has no AppState yet.
+        assert_eq!(
+            status(&root).unwrap(),
+            json!({"phase":"ready","generation":null,"execution_floor":null})
+        );
+        // A crash after the rename leaves the rest of the stage; a rerun only removes it.
+        fs::create_dir_all(root.join("stage/stock")).unwrap();
+        assert!(matches!(begin(&root, &[]).unwrap(), Begun::AlreadyReady));
+        assert!(!root.join("stage").exists());
+        assert_eq!(fs::read(root.join("ready/app/x")).unwrap(), b"x");
+        assert_eq!(status(&root).unwrap()["phase"], "ready");
     }
+
+    /// Only an authenticated contradiction is terminal (SYNC-9-7); it survives every rerun.
     #[test]
-    fn only_authenticated_safety_survives_stage_reconstruction() {
-        let temp = tempfile::tempdir().unwrap();
-        let root = temp.path().canonicalize().unwrap();
+    fn halted_latch_survives_and_blocks_every_rerun() {
+        let (_dir, root) = root();
         for error in [bad("publisher"), ImportError::Unavailable("missing state".into())] {
             assert_eq!(latch::<()>(&root, Err(error.clone())), Err(error));
-            assert!(!root.join("halted.json").exists())
+            assert!(!root.join("halted.json").exists());
         }
+        assert!(matches!(begin(&root, &[]), Ok(Begun::Stage(..))));
         let fatal = ImportError::Safety("own finalized contradiction".into());
         assert_eq!(latch::<()>(&root, Err(fatal.clone())), Err(fatal.clone()));
-        assert_eq!(check_latch(&root), Err(fatal));
+        let later = ImportError::Safety("a later contradiction".into());
+        assert_eq!(latch::<()>(&root, Err(later.clone())), Err(later));
+        for _ in 0..2 {
+            assert_eq!(begin(&root, &[]).err(), Some(fatal.clone()));
+        }
+        // The halted run's stage is evidence: it is kept, not discarded.
+        assert!(root.join("stage").exists());
+        assert_eq!(status(&root).unwrap()["phase"], "halted");
+        fs::write(root.join("halted.json"), br#"{"class":"candidate","detail":"x"}"#).unwrap();
+        assert!(matches!(begin(&root, &[]), Err(ImportError::Candidate(_))));
     }
+
+    /// Without inheritance, a SIGKILLed import could have its stage deleted by a rerun while one
+    /// of its helpers still writes there.
     #[tokio::test]
-    async fn package_refuses_aliases_and_never_silently_accepts_short_last_frame() {
-        let temp = tempfile::tempdir().unwrap();
-        let dir = temp.path().canonicalize().unwrap();
-        fs::write(dir.join("package.json"), b"{}").unwrap();
-        fs::write(dir.join("blocks.jsonl"), b"{}").unwrap();
-        assert!(package::frames(&dir).unwrap().next().unwrap().is_err());
-        fs::hard_link(dir.join("blocks.jsonl"), dir.join("alias")).unwrap();
-        assert!(package::identity(&dir).await.is_err());
-        let external = tempfile::tempdir().unwrap();
-        fs::rename(dir.join("alias"), external.path().join("foreign")).unwrap();
-        assert!(package::identity(&dir).await.is_err());
+    async fn helpers_inherit_the_root_lock_until_they_exit() {
+        let (_dir, root) = root();
+        let lock = lock_root(&root).unwrap();
+        assert!(matches!(lock_root(&root), Err(ImportError::Unavailable(_))));
+        let mut child =
+            helper_command(&lock, Path::new("/bin/sh")).args(["-c", "sleep 2"]).spawn().unwrap();
+        drop(lock);
+        assert!(matches!(lock_root(&root), Err(ImportError::Unavailable(_))));
+        assert!(matches!(begin(&root, &[]), Err(ImportError::Unavailable(_))));
+        assert!(child.wait().await.unwrap().success());
+        drop(lock_root(&root).unwrap());
+    }
+
+    #[test]
+    fn comet_config_requires_goleveldb_stores() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        for (body, accepted) in [
+            ("", true),
+            ("moniker = \"a\"\n[p2p]\nladdr = \"tcp://0.0.0.0:26656\"\n", true),
+            ("db_backend = \"goleveldb\"\n", true),
+            ("db_backend = \"memdb\"\n", false),
+            // CometBFT reads config keys case-insensitively.
+            ("DB_Backend = \"memdb\"\n", false),
+            ("db_backend = = \"goleveldb\"\n", false),
+        ] {
+            fs::write(&path, body).unwrap();
+            match comet_config(&path) {
+                Ok(bytes) if accepted => assert_eq!(bytes, body.as_bytes()),
+                Err(ImportError::Candidate(_)) if !accepted => {}
+                other => panic!("{body:?}: {other:?}"),
+            }
+        }
+    }
+
+    /// The import owns ROOT: an input there could be deleted with the stage.
+    #[test]
+    fn inputs_inside_root_are_refused() {
+        let (dir, root) = root();
+        let outside = dir.path().join("package");
+        fs::create_dir(&outside).unwrap();
+        fs::create_dir_all(root.join("stage/el-source")).unwrap();
+        fs::create_dir_all(root.join("package")).unwrap();
+        let alias = dir.path().join("alias");
+        std::os::unix::fs::symlink(root.join("package"), &alias).unwrap();
+        for inside in [
+            root.join("stage/el-source"),
+            root.join("package"),
+            root.clone(),
+            alias,
+            dir.path().into(),
+        ] {
+            assert!(
+                matches!(begin(&root, &[&outside, &inside]), Err(ImportError::Candidate(_))),
+                "{}",
+                inside.display()
+            );
+        }
+        assert!(root.join("stage/el-source").exists());
+        assert!(matches!(
+            begin(&root, &[&dir.path().join("absent")]),
+            Err(ImportError::Unavailable(_))
+        ));
+        assert!(matches!(begin(&root, &[&outside]), Ok(Begun::Stage(..))));
     }
 }

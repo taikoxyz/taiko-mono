@@ -1050,7 +1050,7 @@ mod classify_tests {
             (AbciError::GenesisValidatorsMismatch("x".into()), Other),
             (ConfigError::NotConfigured { chain_id: 1 }.into(), Other),
             (AbciError::StoredState("x".into()), Other),
-            (StoreError::ImportIdentity.into(), Other),
+            (StoreError::Import("x").into(), Other),
             (
                 StoreError::Io {
                     op: "read",

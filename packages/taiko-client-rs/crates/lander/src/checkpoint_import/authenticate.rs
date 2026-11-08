@@ -54,9 +54,10 @@ pub async fn select_export<L: L1Source + ?Sized>(
 /// yields once per frame, even for cache hits; dropping it discards partial reconstruction.
 /// A synchronous iterator read or native check already in progress is not preempted.
 ///
-/// Callers must retain immutable copies of the streamed bytes for the stock helper. Its report
-/// must match `landing`, `block_id`, `first_height`, original genesis and both landed future
-/// hashes. This result never permits signing: admission must reacquire the latest own-L1 target.
+/// This is the only window authentication (DATA-5.4-2): the stock installer checks nothing again,
+/// so callers must hand it exactly the frames consumed here, and its report must match
+/// `first_height`, `landing` and `block_id`. This result never permits signing: admission must
+/// reacquire the latest own-L1 target.
 pub async fn authenticate_import<L, I>(
     package: &ImportPackage,
     blocks: I,
@@ -121,7 +122,7 @@ where
             }
             _ => return Err(candidate("recovery bootstrap presence differs from original genesis")),
         };
-    let (latest, landing) =
+    let landing =
         own_landing(own_l1, params, package.checkpoint_height, &fixed, recovery_witness).await?;
     // The origin state InitChain persists for the same genesis (DATA-5.4-1, RECOV-8.4-7).
     let mut state = fixed
@@ -155,13 +156,10 @@ where
             state,
             genesis: package.genesis.clone(),
             landing,
-            admission_target: latest,
             block_id: None,
-            terminal_time: None,
             first_height: None,
             execution_headers: headers,
             recovery_bootstrap: package.recovery_bootstrap.clone(),
-            window_hash: keccak256([]),
         });
     }
     let val_state =
@@ -192,7 +190,6 @@ where
     let mut latest_anchor_height = None;
     let mut latest_anchor = None;
     let mut anchor_cache = BTreeMap::new();
-    let mut digest = alloy_primitives::Keccak256::new();
     let mut terminal = None;
     let fixed_params_hash = abci::genesis::GenesisConsensusParams::etna_hash();
     let mut rejected = None;
@@ -205,7 +202,6 @@ where
         if frame.commit.len() > 2_000_000 || frame.validators.len() > params.n_max {
             return Err(candidate("native frame exceeds consensus resource bounds"));
         }
-        digest_frame(&mut digest, &frame);
         let (pair, same_commit) = decode_frame(&frame, previous.as_ref().map(|p| &p.commit))?;
         let h = parent.number.checked_add(1).ok_or_else(|| candidate("height overflow"))?;
         if h > landing.height {
@@ -414,24 +410,22 @@ where
         state,
         genesis: package.genesis.clone(),
         landing,
-        admission_target: latest,
         block_id: Some(block_id),
-        terminal_time: Some(heights.last().expect("authenticated terminal height").1),
         first_height: Some(first_height),
         execution_headers: retained,
         recovery_bootstrap: package.recovery_bootstrap.clone(),
-        window_hash: digest.finalize(),
     })
 }
 
-/// Read the latest and selected landing under one own-finalized state root, never a publisher root.
+/// Read the selected landing under the own-finalized state root that authenticates the latest
+/// one, never a publisher root.
 async fn own_landing<L: L1Source + ?Sized>(
     l1: &L,
     params: &ChainParams,
     selected: u64,
     fixed: &abci::genesis::VerifiedGenesis,
     recovery_witness: Option<Bytes>,
-) -> Result<(crate::LandingSnapshot, Landing), ImportError> {
+) -> Result<Landing, ImportError> {
     let finalized = l1.finalized_number().await.map_err(own_error)?;
     let header = abci::l1::source::header_at(l1, finalized).await.map_err(own_error)?;
     own_canonical(l1, &header).await?;
@@ -472,7 +466,7 @@ async fn own_landing<L: L1Source + ?Sized>(
         verify_settled_suffix(l1, &snapshot, &landing, origin).await?;
     }
     own_canonical(l1, &header).await?;
-    Ok((snapshot, landing))
+    Ok(landing)
 }
 
 /// Authenticate all four words of an individual landing against the same pinned finalized root.
@@ -615,19 +609,6 @@ fn historical_set(entries: &[ImportValidator]) -> Result<Validators, ImportError
             .collect::<Vec<_>>(),
     )
     .map_err(candidate)
-}
-
-/// Bind all native input bytes and set fields to a deterministic local staging identity.
-fn digest_frame(hash: &mut alloy_primitives::Keccak256, frame: &WindowBlock) {
-    for bytes in [&frame.block, &frame.commit] {
-        hash.update((bytes.len() as u64).to_be_bytes());
-        hash.update(bytes);
-    }
-    hash.update((frame.validators.len() as u64).to_be_bytes());
-    for validator in &frame.validators {
-        hash.update(validator.key.as_bytes());
-        hash.update(validator.power.to_be_bytes());
-    }
 }
 
 /// Header-only framing never requires w's block, certificate, evidence or validator set.
@@ -1035,38 +1016,6 @@ fn check_header_projection(
         return Err(safety("authenticated terminal envelope execution hash contradicts landing"));
     }
     Ok(height)
-}
-
-impl VerifiedImport {
-    /// Immediately before publishing an already authenticated installation, pin a fresh
-    /// finalized snapshot and re-open the actual settled ancestry to the same selected
-    /// landing. This check is independent of consensus window length and never accepts a
-    /// serialized receipt. A generation transition or superseded selection refuses publication.
-    pub async fn current_landing<L: L1Source + ?Sized>(
-        &self,
-        params: &ChainParams,
-        l1: &L,
-    ) -> Result<crate::LandingSnapshot, ImportError> {
-        // This earlier finalized header came from this in-memory verification, not a receipt.
-        own_canonical(l1, &self.admission_target.l1_header).await?;
-        let fixed =
-            abci::genesis::verify_original_genesis(self.genesis(), params).map_err(candidate)?;
-        for h in &fixed.l1_headers {
-            canonical(l1, h).await?
-        }
-        let (snapshot, landing) = own_landing(
-            l1,
-            params,
-            self.landing.height,
-            &fixed,
-            self.admission_target.recovery_witness.clone(),
-        )
-        .await?;
-        if landing != self.landing {
-            return Err(candidate("selected landing changed before publication"))
-        }
-        Ok(snapshot)
-    }
 }
 
 #[cfg(test)]

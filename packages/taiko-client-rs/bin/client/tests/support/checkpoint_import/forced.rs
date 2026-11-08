@@ -142,10 +142,10 @@ pub(super) async fn replay(
     let later = decided(&c.cmt, s + 2).await?;
     let commit = pb::Request { value: Some(pb::request::Value::Commit(pb::RequestCommit {})) };
     let store = root.join("ready/app");
-    let journal = || -> Result<abci::store::ImportedState> {
+    let journal = || -> Result<abci::store::AppState> {
         Ok(serde_json::from_slice(&fs::read(store.join("abci-state.json"))?)?)
     };
-    ensure!(journal()?.state.forced_cursor == 0 && journal()?.state.last_height == s);
+    ensure!(journal()?.forced_cursor == 0 && journal()?.last_height == s);
     let hp = port()?;
     let args = [
         "abci-import",
@@ -182,7 +182,7 @@ pub(super) async fn replay(
             ensure!(matches!(send(proxy, &first).await?, pb::response::Value::FinalizeBlock(_)));
             ensure!(matches!(send(proxy, &commit).await?, pb::response::Value::Commit(_)));
         }
-        ensure!(journal()?.state.forced_cursor == 1 && journal()?.state.last_height == s + 1);
+        ensure!(journal()?.forced_cursor == 1 && journal()?.last_height == s + 1);
         ensure!(matches!(send(proxy, &later).await?, pb::response::Value::FinalizeBlock(_)));
         ensure!(reader.get_block_number().await? == s + 2);
         if launch == 0 {
@@ -191,16 +191,16 @@ pub(super) async fn replay(
             runtime.stop().await?;
         } else {
             ensure!(matches!(send(proxy, &commit).await?, pb::response::Value::Commit(_)));
-            ensure!(journal()?.state.forced_cursor == 2 && journal()?.state.last_height == s + 2);
+            ensure!(journal()?.forced_cursor == 2 && journal()?.last_height == s + 2);
             runtime.stop().await?;
         }
         if launch == 0 {
             let committed = journal()?;
             let negative = base.join("missing-parent-control");
-            let copy = Store::imported(negative.clone(), committed.installation_id, s);
-            copy.save(&committed.state)?;
+            let copy = Store::new(negative.clone());
+            copy.save(&committed)?;
             let parent = c.cmt.envelope(s + 1).await?.block.header;
-            ensure!(parent.hash_slow() == committed.state.parent.hash);
+            ensure!(parent.hash_slow() == committed.parent.hash);
             let build = || -> Result<MissingParent> {
                 Ok(MissingParent { headers: f.l2.engine()?, parent: parent.hash_slow() })
             };
@@ -223,7 +223,7 @@ pub(super) async fn replay(
                     error.to_string().contains("-38100"),
                 "missing post-s parent: {error}"
             );
-            ensure!(copy.load()? == Some(committed.state));
+            ensure!(copy.load()? == Some(committed));
             let fatal = fs::read_to_string(negative.join("fatal-evidence.txt"))?;
             ensure!(
                 fatal.contains("-38100") &&
@@ -236,7 +236,7 @@ pub(super) async fn replay(
             ));
         }
     }
-    let hash: B256 = journal()?.state.parent.hash;
+    let hash: B256 = journal()?.parent.hash;
     ensure!(hash == c.cmt.envelope(s + 2).await?.block.header.hash_slow());
     Ok(())
 }

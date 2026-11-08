@@ -1034,9 +1034,9 @@ pub async fn recovered(
         let status = cli(&base, "install", &["install", "--profile", pf, "--root", r]).await?;
         let target = status["observed_latest_target"].as_u64().context("own latest checkpoint")?;
         ensure!(target >= 12 && status["phase"] == "installed" && status["live_trust"] == false);
-        let tagged: abci::store::ImportedState =
+        let installed: abci::store::AppState =
             serde_json::from_slice(&fs::read(root.join("ready/app/abci-state.json"))?)?;
-        ensure!(tagged.state.origin_height() == 6 && tagged.state.last_height == s);
+        ensure!(installed.origin_height() == 6 && installed.last_height == s);
         let installed: abci::GenesisDoc =
             serde_json::from_slice(&fs::read(root.join("ready/comet/config/genesis.json"))?)?;
         ensure!(installed == doc && installed.initial_height == "7");

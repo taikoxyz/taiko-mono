@@ -298,12 +298,14 @@ and automatic operator nonce repair remain excluded.
 
 ### `abci-import`
 
-Export, prepare and install a landed Etna checkpoint into fresh app, stock Comet and execution
-stores. See the [checkpoint import runbook](docs/checkpoint-import.md) for the separate offline EL
-dataset, original genesis, durable grid preimage archive and guarded startup. Offline status never
-grants signing readiness. A registered validator resumes with the original external authority
-and HRS after matching its own finalized target. The [client rule inventory](docs/etna-conformance.md)
-and [local resource measurements](docs/checkpoint-import-resources.md) describe the reproducible checks.
+Export a landed Etna checkpoint package, then import it into fresh app, stock Comet and execution
+stores with one `import` command, published together as `ROOT/ready/{app,comet,el}`. Plain
+`abci`, the EL and stock Comet then run those stores. See the
+[checkpoint import runbook](docs/checkpoint-import.md) for the stopped EL source, original genesis,
+grid preimage archive and startup. An import grants no signing readiness. A registered validator
+resumes with the original external authority and HRS after matching its own finalized target.
+The [client rule inventory](docs/etna-conformance.md) and
+[local resource measurements](docs/checkpoint-import-resources.md) describe the reproducible checks.
 
 ### `abci-recover`
 

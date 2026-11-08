@@ -39,7 +39,6 @@ rpc = { path = "../../crates/rpc" }
 # types
 libc = "0.2"
 prost = { workspace = true }
-ring = "0.17"
 serde = { workspace = true }
 serde_json = { workspace = true }
 tempfile = { workspace = true }

@@ -374,6 +374,9 @@ fn anchor(raw: &RawL1Header, height: u64, hash: B256, queue: &Queue) -> AnchorSt
 struct EpochFixture {
     length: u64,
     advances: bool,
+    /// The last checkpoint hash every L1 state above the genesis anchor (10) records instead of
+    /// the EL header's: an own-L1 anchor that contradicts the EL ancestry.
+    checkpoint_hash: Option<B256>,
 }
 
 impl Fixture {
@@ -590,7 +593,7 @@ impl Fixture {
             tip,
             bytes,
             true,
-            EpochFixture { length: 24, advances: false },
+            EpochFixture { length: 24, advances: false, checkpoint_hash: None },
             7_200,
             &ForcedPlan::default(),
         )
@@ -602,7 +605,7 @@ impl Fixture {
             tip,
             bytes,
             false,
-            EpochFixture { length: epoch_len, advances: false },
+            EpochFixture { length: epoch_len, advances: false, checkpoint_hash: None },
             7_200,
             &ForcedPlan::default(),
         )
@@ -615,7 +618,7 @@ impl Fixture {
             tip,
             0,
             false,
-            EpochFixture { length: 12, advances: true },
+            EpochFixture { length: 12, advances: true, checkpoint_hash: None },
             7_200,
             &ForcedPlan::default(),
         )
@@ -630,9 +633,24 @@ impl Fixture {
             tip,
             0,
             false,
-            EpochFixture { length: 24, advances: false },
+            EpochFixture { length: 24, advances: false, checkpoint_hash: None },
             7_200,
             &plan,
+        )
+    }
+
+    /// As [`Fixture::new`], but every L1 state above the genesis anchor records `hash` as the last
+    /// checkpoint hash. The chain is built over those anchors, so only their checkpoint hash
+    /// contradicts the EL ancestry.
+    pub fn with_inherited_checkpoint_hash(checkpoint: u64, tip: u64, hash: B256) -> Self {
+        Self::build(
+            checkpoint,
+            tip,
+            0,
+            false,
+            EpochFixture { length: 24, advances: false, checkpoint_hash: Some(hash) },
+            7_200,
+            &ForcedPlan::default(),
         )
     }
 
@@ -645,7 +663,7 @@ impl Fixture {
             tip,
             0,
             false,
-            EpochFixture { length: 24, advances: false },
+            EpochFixture { length: 24, advances: false, checkpoint_hash: None },
             max_anchor_age,
             &ForcedPlan::default(),
         )
@@ -783,7 +801,7 @@ impl Fixture {
                     &entries,
                     (
                         cp,
-                        headers[&cp].hash_slow(),
+                        epochs.checkpoint_hash.unwrap_or_else(|| headers[&cp].hash_slow()),
                         blocks.get(&cp).map_or(B256::ZERO, |pair| {
                             B256::from_slice(pair.block.header.hash().as_bytes())
                         }),
@@ -797,7 +815,10 @@ impl Fixture {
                 states.insert(number, state);
                 l1_headers.insert(number, raw);
             }
-            let cp_hash = headers[&cp].hash_slow();
+            let cp_hash = match epochs.checkpoint_hash {
+                Some(hash) if number > 10 => hash,
+                _ => headers[&cp].hash_slow(),
+            };
             let forced = height == 1;
             let changing = anchors[&(height - 1)].number != number;
             let raw = &l1_headers[&number];

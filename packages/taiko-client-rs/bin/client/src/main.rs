@@ -13,12 +13,6 @@ pub mod recovery;
 
 fn main() {
     use clap::Parser;
-    let mut args = std::env::args_os().skip(1);
-    if args.next().is_some_and(|v| v == import::guardian::ARG) {
-        let result = import::guardian::run(args);
-        // Child launch failure or termination by signal leaves the helper result unavailable.
-        std::process::exit(result.ok().and_then(|status| status.code()).unwrap_or(3));
-    }
 
     // Enable backtraces unless a RUST_BACKTRACE value has already been explicitly provided.
     if std::env::var_os("RUST_BACKTRACE").is_none() {

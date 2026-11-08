@@ -162,9 +162,10 @@ impl AppState {
 /// Why the state could not be loaded or saved.
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {
-    /// A checkpoint journal was moved or restored beside another installation.
-    #[error("checkpoint import state identity mismatch")]
-    ImportIdentity,
+    /// A checkpoint import installs only a landed state with its execution floor at s, and
+    /// never over a different installed state.
+    #[error("checkpoint import refused: {0}")]
+    Import(&'static str),
     /// A filesystem operation failed.
     #[error("cannot {op} {}: {source}", path.display())]
     Io {
@@ -214,35 +215,10 @@ pub enum Record<T> {
     Valid(T),
 }
 
-/// Explicit imported journal container; ordinary stores reject this structural format.
-#[derive(Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ImportedState {
-    /// Local journal envelope version.
-    pub schema: u32,
-    /// Immutable operation identity checked against the ready components.
-    pub installation_id: B256,
-    /// Unmodified application state in the one [`AppState`] schema.
-    pub state: AppState,
-}
-
-/// Decode a single exact durable image using the caller's verified distinction between
-/// ordinary and imported storage. No general state migration or automatic tag adoption.
-pub(crate) fn decode_journal(
-    bytes: &[u8],
-    installation: Option<B256>,
-    path: &Path,
-) -> Result<AppState, StoreError> {
-    let corrupt = |source| StoreError::Corrupt { path: path.to_owned(), source };
-    if let Some(id) = installation {
-        let tagged: ImportedState = serde_json::from_slice(bytes).map_err(corrupt)?;
-        if tagged.schema != 1 || tagged.installation_id != id {
-            return Err(StoreError::ImportIdentity)
-        }
-        Ok(tagged.state)
-    } else {
-        serde_json::from_slice(bytes).map_err(corrupt)
-    }
+/// Decode one exact durable image of the single [`AppState`] schema, with no migration.
+pub(crate) fn decode_journal(bytes: &[u8], path: &Path) -> Result<AppState, StoreError> {
+    serde_json::from_slice(bytes)
+        .map_err(|source| StoreError::Corrupt { path: path.to_owned(), source })
 }
 
 /// Atomic JSON file store for [`AppState`] in one data directory.
@@ -252,8 +228,6 @@ pub struct Store {
     dir: PathBuf,
     /// Whether saves fsync the file and its directory. Only [`Store::volatile`] clears it.
     durable: bool,
-    /// Install identity for imported journals; ordinary legacy state is never rewritten.
-    import: Option<(B256, u64)>,
     /// Optional independent archive of immutable landed-candidate grid preimages.
     archive: Option<PathBuf>,
 }
@@ -261,13 +235,7 @@ pub struct Store {
 impl Store {
     /// A store over `dir`. Touches nothing on disk.
     pub fn new(dir: PathBuf) -> Self {
-        Self { dir, durable: true, import: None, archive: None }
-    }
-
-    /// Open an imported journal only after the caller checked the complete publication
-    /// and component identities. This selects a local format, never admission or signing.
-    pub fn imported(dir: PathBuf, id: B256, floor: u64) -> Self {
-        Self { import: Some((id, floor)), ..Self::new(dir) }
+        Self { dir, durable: true, archive: None }
     }
 
     /// Retain every future grid preimage in a separate operator-managed directory. The
@@ -281,7 +249,7 @@ impl Store {
     /// blocks without testing durability. This module's own tests keep [`Store::new`].
     #[cfg(test)]
     pub(crate) fn volatile(dir: PathBuf) -> Self {
-        Self { dir, durable: false, import: None, archive: None }
+        Self { dir, durable: false, archive: None }
     }
 
     /// Directory for node-local sidecars and private checkpoint control.
@@ -310,7 +278,7 @@ impl Store {
             Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(None),
             Err(source) => return Err(StoreError::Io { op: "read", path, source }),
         };
-        let state = decode_journal(&bytes, self.import.map(|(id, _)| id), &path)?;
+        let state = decode_journal(&bytes, &path)?;
         Ok(Some(state))
     }
 
@@ -565,8 +533,7 @@ impl Store {
             path,
             source,
         })?;
-        let persisted =
-            decode_journal(&bytes, self.import.map(|(id, _)| id), &self.dir.join(STATE_FILE))?;
+        let persisted = decode_journal(&bytes, &self.dir.join(STATE_FILE))?;
         if &persisted != state || current <= state.generation {
             return Err(StoreError::BootstrapConflict);
         }
@@ -618,11 +585,25 @@ impl Store {
     /// such a prefix completes the install, and a conflicting record fails it before the
     /// AppState. Creating the directory itself is not made durable here: the caller syncs the
     /// tree it publishes.
+    ///
+    /// Only a state landed above its origin is installed: its execution floor must be s and its
+    /// hash ELHash(s). An origin import (s = o) has no floor and installs no AppState, since
+    /// InitChain builds it (DATA-5.4-1). An already installed AppState is never replaced by a
+    /// different one; reinstalling the same state is a no-op rerun.
     pub fn install_import(
         &self,
         state: &AppState,
         bootstrap: Option<&crate::recovery::RecoveryBootstrap>,
     ) -> Result<(), StoreError> {
+        if state
+            .execution_floor
+            .is_none_or(|f| f.number != state.last_height || f.hash != state.parent.hash)
+        {
+            return Err(StoreError::Import("the state has no execution floor at its own height"));
+        }
+        if self.load()?.is_some_and(|installed| installed != *state) {
+            return Err(StoreError::Import("a different app state is already installed"));
+        }
         if let Some(bootstrap) = bootstrap {
             self.save_recovery_bootstrap(bootstrap)?;
         }
@@ -642,15 +623,7 @@ impl Store {
         {
             archive_preimage(archive, s)?;
         }
-        let json = match self.import {
-            Some((id, _)) => serde_json::to_vec_pretty(&ImportedState {
-                schema: 1,
-                installation_id: id,
-                state: s.clone(),
-            }),
-            None => serde_json::to_vec_pretty(s),
-        }
-        .map_err(StoreError::Encode)?;
+        let json = serde_json::to_vec_pretty(s).map_err(StoreError::Encode)?;
         self.save_bytes(&json, STATE_FILE, TMP_FILE)
     }
 
@@ -675,14 +648,6 @@ impl Store {
 /// Publish an immutable grid preimage in the archive filesystem before its corresponding
 /// live journal commit. Equal retries are safe; a conflicting copy is never replaced.
 fn archive_preimage(archive: &Path, s: &AppState) -> Result<(), StoreError> {
-    use std::os::unix::fs::MetadataExt;
-    let metadata = archive.symlink_metadata().map_err(|e| io_err("stat archive", archive, e))?;
-    if archive.canonicalize().ok().as_deref() != Some(archive) ||
-        !metadata.is_dir() ||
-        metadata.mode() & 0o022 != 0
-    {
-        return Err(StoreError::ImportIdentity)
-    }
     let domain = alloy_primitives::keccak256(s.chain_id.as_bytes());
     let path = archive.join(format!("{domain}-{}.bin", s.last_height));
     let bytes = s.val_state.encode();
@@ -903,14 +868,13 @@ mod tests {
     }
 
     #[test]
-    fn detached_import_is_not_legacy_state_and_archived_preimage_survives_pruning() {
+    fn archived_preimage_survives_pruning() {
         let tmp = tempfile::tempdir().unwrap();
         let root = tmp.path().canonicalize().unwrap();
         let dir = root.join("app");
         let archive = root.join("archive");
         fs::create_dir(&archive).unwrap();
-        let id = B256::repeat_byte(9);
-        let store = Store::imported(dir.clone(), id, 108).with_val_archive(Some(archive.clone()));
+        let store = Store::new(dir.clone()).with_val_archive(Some(archive.clone()));
         let mut s = state();
         s.last_height = 108;
         s.parent.number = 108;
@@ -918,8 +882,6 @@ mod tests {
         store.save_val_state(&s.val_state).unwrap();
         store.save(&s).unwrap();
         assert_eq!(store.load().unwrap(), Some(s.clone()));
-        assert!(Store::new(dir.clone()).load().is_err());
-        assert!(Store::imported(dir.clone(), B256::ZERO, 108).load().is_err());
         // 108 is the base below floor 115 until 114 replaces it.
         assert_eq!(store.prune_val_records(115).unwrap(), 0);
         let mut later = s.val_state.clone();
@@ -1033,6 +995,36 @@ mod tests {
             );
             assert_eq!(installed(dir.path()), None);
         }
+    }
+
+    /// Only a state landed above its origin is installed (DATA-5.4-1: an origin import has no
+    /// floor, and InitChain builds its state), and a rerun never replaces a different installed
+    /// AppState. Refusals write nothing.
+    #[test]
+    fn install_import_refuses_an_origin_state_and_a_different_installed_state() {
+        let fx = crate::test_utils::Fixture::genesis(1);
+        let (state, _) = fx.imported_state(12, 12);
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().into());
+        let floor = |number, hash| {
+            let mut refused = state.clone();
+            refused.execution_floor = Some(ExecutionFloor { number, hash });
+            refused
+        };
+        let mut origin = state.clone();
+        origin.execution_floor = None;
+        for refused in [origin, floor(11, state.parent.hash), floor(12, B256::repeat_byte(1))] {
+            let error = store.install_import(&refused, None).expect_err("not a landed import");
+            assert!(matches!(error, StoreError::Import(_)), "{error:?}");
+            assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 0);
+        }
+        store.install_import(&state, None).unwrap();
+        store.install_import(&state, None).expect("a rerun of the same install");
+        let mut other = state.clone();
+        other.forced_cursor += 1;
+        let error = store.install_import(&other, None).expect_err("a different installed state");
+        assert!(matches!(error, StoreError::Import(_)), "{error:?}");
+        assert_eq!(store.load().unwrap(), Some(state));
     }
 
     /// The validator supervisor's supersession check (`script/etna_validator.py`) reads saved

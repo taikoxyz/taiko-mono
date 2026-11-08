@@ -126,8 +126,9 @@ async fn reconstructs_exact_post_checkpoint_without_successor_or_execution_sourc
     );
 }
 
+/// A retained checkpoint below the latest finalized landing imports (ACC §7.7 older).
 #[tokio::test]
-async fn older_retained_checkpoint_keeps_latest_admission_target() {
+async fn older_retained_checkpoint_below_the_latest_landing_imports() {
     let mut fx = Fixture::new(6, 18);
     fx.advance_import_frontier(12, 6, 0);
     fx.advance_import_frontier(18, 12, 0);
@@ -138,7 +139,7 @@ async fn older_retained_checkpoint_keeps_latest_admission_target() {
             .await
             .unwrap();
     assert_eq!(result.landing().height, 6);
-    assert_eq!(result.admission_target().checkpoint_height, 18);
+    assert_eq!(result.state().last_height, 6);
 }
 
 #[tokio::test]
@@ -744,19 +745,9 @@ async fn current_generation_change_rejects_before_any_consensus_reads() {
     )
     .await
     .unwrap();
-    assert_eq!(
-        verified
-            .current_landing(&previous.params, &OwnL1(previous.clone()))
-            .await
-            .unwrap()
-            .checkpoint_height,
-        6
-    );
+    assert_eq!(verified.landing().height, 6);
     let current =
         std::sync::Arc::new(crate::test_utils::consensus_mpt::recovery::fixture(8, 12, 12).await);
-    assert!(
-        matches!(verified.current_landing(&current.params,&OwnL1(current.clone())).await,Err(ImportError::Candidate(ref m)) if m.contains("current finalized generation"))
-    );
     assert!(matches!(
         select_export(&package.genesis, 6, &current.params, &OwnL1(current.clone())).await,
         Err(ImportError::Candidate(_))
@@ -1036,6 +1027,27 @@ async fn window_validator_and_time_links_halt_only_when_the_landed_chain_contain
     }
 }
 
+/// DATA-5.4-4: the EL fence q the post-s anchor inherits must be one of the authenticated EL
+/// headers the import retains. Own L1 here records another hash for checkpoint 6 at every anchor
+/// above genesis, and the landed chain is built over those anchors, so every other check passes:
+/// both inputs are authenticated, and the contradiction halts.
+#[tokio::test]
+async fn inherited_checkpoint_absent_from_the_authenticated_ancestry_halts() {
+    let forged = B256::repeat_byte(0xee);
+    let fx = std::sync::Arc::new(Fixture::with_inherited_checkpoint_hash(12, 12, forged));
+    assert_eq!(fx.anchors[&12].inbox.last_checkpoint_height, 6);
+    assert_eq!(fx.anchors[&12].inbox.last_checkpoint_hash, forged);
+    assert_ne!(fx.headers[&6].hash_slow(), forged);
+    let package = import_package(&fx, 12).await;
+    let result =
+        authenticate_import(&package, frames(&fx, 12).into_iter(), &fx.params, &OwnL1(fx.clone()))
+            .await;
+    assert!(
+        matches!(result, Err(ImportError::Safety(ref m)) if m.contains("inherited anchor checkpoint")),
+        "{result:?}"
+    );
+}
+
 #[tokio::test]
 async fn publisher_reader_cannot_inject_an_authenticated_safety_halt() {
     let fx = std::sync::Arc::new(Fixture::new(6, 6));
@@ -1118,10 +1130,7 @@ async fn same_generation_rollback_orphan_is_not_a_retained_settled_import_origin
         authenticate_import(&package, frames(&fx, 12).into_iter(), &fx.params, &OwnL1(fx.clone()))
             .await
             .unwrap();
-    assert_eq!(
-        (accepted.landing().height, accepted.admission_target().checkpoint_height),
-        (12, 42)
-    );
+    assert_eq!(accepted.landing().height, 12);
 }
 
 #[tokio::test]

@@ -415,54 +415,42 @@ async fn recovery_activate_native_cli_requires_exact_plan_and_stays_explicit() {
     assert!(invalid.stdout.is_empty());
 }
 
+/// `status` only reads: it reports an absent or interrupted root and never creates, locks or
+/// changes anything beside it.
 #[tokio::test]
-async fn checkpoint_import_status_never_adopts_unowned_or_unknown_schema() {
+async fn import_status_reports_absent_and_interrupted_roots_without_touching_neighbours() {
     let dir = tempfile::tempdir().unwrap();
-    let root = dir.path().canonicalize().unwrap();
-    let hrs = root.join("priv_validator_state.json");
-    let wal = root.join("wal");
+    let parent = dir.path().canonicalize().unwrap();
+    let hrs = parent.join("priv_validator_state.json");
+    let wal = parent.join("wal");
     std::fs::write(&hrs, b"existing signing state").unwrap();
     std::fs::write(&wal, b"existing consensus wal").unwrap();
-    std::fs::write(root.join("intent.json"), br#"{"schema":2}"#).unwrap();
-    let out = run(&["abci-import", "status", "--root", root.to_str().unwrap()]).await;
-    assert_eq!(out.status.code(), Some(1), "{}", stderr(&out));
-    assert!(stderr(&out).contains("checkpoint import"));
+    let root = parent.join("import");
+    let args = ["abci-import", "status", "--root", root.to_str().unwrap()];
+    let status = || run(&args);
+    let out = status().await;
+    assert!(out.status.success(), "{}", stderr(&out));
+    let view: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(view, json!({"phase":"absent","generation":null,"execution_floor":null}));
+    assert!(!root.exists());
+    std::fs::create_dir_all(root.join("stage/ready/app")).unwrap();
+    std::fs::write(root.join("stage/ready/app/abci-state.json"), b"{\"half").unwrap();
+    let out = status().await;
+    assert!(out.status.success(), "{}", stderr(&out));
+    let view: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(view, json!({"phase":"interrupted","generation":null,"execution_floor":null}));
+    assert!(!root.join("import.lock").exists());
+    assert!(!root.join("ready").exists());
     assert_eq!(std::fs::read(&hrs).unwrap(), b"existing signing state");
     assert_eq!(std::fs::read(&wal).unwrap(), b"existing consensus wal");
 }
 
-#[tokio::test]
-async fn copied_import_journal_refuses_supervisor_before_signer() {
-    let dir = tempfile::tempdir().unwrap();
-    let root = dir.path().canonicalize().unwrap();
-    let app = root.join("app");
-    let home = root.join("comet");
-    std::fs::create_dir(&app).unwrap();
-    std::fs::create_dir(&home).unwrap();
-    std::fs::write(
-        app.join("abci-state.json"),
-        br#"{"schema":1,"installation_id":"copied","state":{}}"#,
-    )
-    .unwrap();
-    let output = run(&[
-        "abci-import",
-        "check-runtime",
-        "--app-dir",
-        app.to_str().unwrap(),
-        "--comet-home",
-        home.to_str().unwrap(),
-    ])
-    .await;
-    assert_eq!(output.status.code(), Some(1), "detached imported journal must not start a signer");
-}
-
+/// A Safety latch is terminal: `import` refuses before reading any input or contacting L1.
 #[tokio::test]
 async fn halted_import_stays_terminal_even_if_sources_are_offline() {
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path().canonicalize().unwrap();
     std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700)).unwrap();
-    let z = alloy_primitives::B256::ZERO;
-    std::fs::write(root.join("intent.json"),serde_json::to_vec(&json!({"schema":1,"root":root,"source":root.join("offline"),"profile_hash":z,"package":[z,z],"inputs":{}})).unwrap()).unwrap();
     std::fs::write(
         root.join("halted.json"),
         br#"{"class":"safety","detail":"conflicting authenticated roots"}"#,
@@ -470,50 +458,33 @@ async fn halted_import_stays_terminal_even_if_sources_are_offline() {
     .unwrap();
     let out = run(&[
         "abci-import",
-        "install",
-        "--profile",
-        "/nonexistent",
+        "import",
+        "--l1.http",
+        "http://127.0.0.1:1",
+        "--l2.chain-id",
+        "167001",
+        "--package",
+        "/nonexistent/package",
         "--root",
         root.to_str().unwrap(),
+        "--el-source",
+        "/nonexistent/el",
+        "--el-chain",
+        "/nonexistent/chain.json",
+        "--el-helper",
+        "/nonexistent/etna-el-import",
+        "--comet-helper",
+        "/nonexistent/etna-comet-import",
+        "--comet-config",
+        "/nonexistent/config.toml",
     ])
     .await;
     assert_eq!(out.status.code(), Some(2), "{}", stderr(&out));
+    assert!(stderr(&out).contains("conflicting authenticated roots"), "{}", stderr(&out));
+    assert!(out.stdout.is_empty());
+    assert!(!root.join("stage").exists());
     let status = run(&["abci-import", "status", "--root", root.to_str().unwrap()]).await;
     assert!(status.status.success());
     let view: Value = serde_json::from_slice(&status.stdout).unwrap();
     assert_eq!(view["phase"], "halted");
-    assert_eq!(view["live_trust"], false);
-}
-
-#[tokio::test]
-async fn checkpoint_process_guard_reaps_the_owned_writer_after_controller_eof() {
-    use std::{process::Stdio, time::Duration};
-    let dir = tempfile::tempdir().unwrap();
-    let ready = dir.path().join("ready");
-    let stopped = dir.path().join("stopped");
-    let script = "import pathlib, signal, sys, time\ndef stop(*args):\n pathlib.Path(sys.argv[2]).write_text('stopped'); sys.exit(0)\nsignal.signal(signal.SIGTERM, stop)\npathlib.Path(sys.argv[1]).write_text('ready')\nwhile True: time.sleep(.01)";
-    let mut guard = Command::new(env!("CARGO_BIN_EXE_taiko-client"))
-        .args(["__etna-checkpoint-el-guardian", "python3", "-c", script])
-        .arg(&ready)
-        .arg(&stopped)
-        .stdin(Stdio::piped())
-        .kill_on_drop(true)
-        .spawn()
-        .unwrap();
-    tokio::time::timeout(Duration::from_secs(10), async {
-        while !ready.exists() {
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
-    })
-    .await
-    .unwrap();
-    drop(guard.stdin.take());
-    assert!(
-        tokio::time::timeout(Duration::from_secs(10), guard.wait())
-            .await
-            .unwrap()
-            .unwrap()
-            .success()
-    );
-    assert_eq!(std::fs::read(stopped).unwrap(), b"stopped");
 }

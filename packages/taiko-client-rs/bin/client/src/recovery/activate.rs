@@ -342,9 +342,6 @@ pub(super) fn check_prior_halt(
 ) -> Result<(), RecoveryCommandError> {
     use super::store::{MAX_PLAN_BYTES, read_bounded};
     use abci::recovery::supersession::{SUPERSESSION_FILE, SupersessionEvidence, digest};
-    let installation = crate::import::boundary::check(directory)
-        .map_err(|_| RecoveryCommandError::Halted)?
-        .map(|(id, _)| id);
     let fatal = directory.join("fatal-evidence.txt");
     let evidence = directory.join(SUPERSESSION_FILE);
     let latch = directory.join("validator-supervisor.halted");
@@ -361,7 +358,7 @@ pub(super) fn check_prior_halt(
         let state = read_bounded(&directory.join(abci::store::STATE_FILE), MAX_PLAN_BYTES)?;
         let chain = rules::chain_id_for(&plan.deployment.params()?, evidence.previous_generation)
             .map_err(|_| RecoveryCommandError::Halted)?;
-        if !evidence.validates_installation(&state, &fatal_bytes, installation) ||
+        if !evidence.validates(&state, &fatal_bytes) ||
             evidence.current_generation > plan.origin.generation ||
             evidence.chain_id != chain ||
             evidence.inbox != plan.deployment.inbox

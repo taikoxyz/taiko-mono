@@ -46,21 +46,9 @@ impl SupersessionEvidence {
         }
     }
     /// Check exact original state/fatal bytes and typed domain, without mutating either.
-    #[cfg(test)]
     pub fn validates(&self, state_bytes: &[u8], fatal: &[u8]) -> bool {
-        self.validates_installation(state_bytes, fatal, None)
-    }
-    /// Verify first-cause evidence against the complete original bytes, including an imported
-    /// journal envelope only when the caller independently selected that installation ID.
-    pub fn validates_installation(
-        &self,
-        state_bytes: &[u8],
-        fatal: &[u8],
-        installation: Option<alloy_primitives::B256>,
-    ) -> bool {
         let Ok(state) = crate::store::decode_journal(
             state_bytes,
-            installation,
             std::path::Path::new(crate::store::STATE_FILE),
         ) else {
             return false;
@@ -113,29 +101,5 @@ mod tests {
             "lost fatal bytes cannot be regenerated"
         );
         assert!(!fresh.path().join("fatal-evidence.txt").exists());
-    }
-    #[test]
-    fn imported_supersession_preserves_exact_journal_and_rejects_wrong_installation() {
-        let dir = tempfile::tempdir().unwrap();
-        let id = alloy_primitives::B256::repeat_byte(1);
-        let state = Fixture::genesis(1).expected_state();
-        let store = Store::imported(dir.path().into(), id, 0);
-        store.save(&state).unwrap();
-        store.record_supersession(&state, 1, "superseded").unwrap();
-        let bytes = std::fs::read(dir.path().join(crate::store::STATE_FILE)).unwrap();
-        let evidence: SupersessionEvidence =
-            serde_json::from_slice(&std::fs::read(dir.path().join(SUPERSESSION_FILE)).unwrap())
-                .unwrap();
-        assert_eq!(evidence.state_digest, digest(&bytes));
-        assert!(!evidence.validates(&bytes, b"superseded"));
-        assert!(evidence.validates_installation(&bytes, b"superseded", Some(id)));
-        assert!(!evidence.validates_installation(
-            &bytes,
-            b"superseded",
-            Some(alloy_primitives::B256::ZERO)
-        ));
-        let mut altered = bytes;
-        altered.push(b' ');
-        assert!(!evidence.validates_installation(&altered, b"superseded", Some(id)));
     }
 }

@@ -7053,7 +7053,6 @@ dependencies = [
  "prometheus",
  "prost 0.13.5",
  "protocol",
- "ring",
  "rpc",
  "serde",
  "serde_json",

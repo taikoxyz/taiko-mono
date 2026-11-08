@@ -53,7 +53,6 @@ impl Cli {
     /// Run the subcommand.
     pub fn run(self) -> Result<()> {
         match self.subcommand {
-            Commands::AbciImport(cmd) if cmd.is_server() => Self::run_until_shutdown(cmd.run()),
             Commands::AbciImport(cmd) => Self::run_one_shot(cmd.run()),
             Commands::AbciRecover(cmd) => {
                 if matches!(

@@ -2,6 +2,7 @@
 //! them forwards. Only a constant number of complete blocks need to be resident.
 use super::*;
 use alloy_consensus::Header;
+use alloy_primitives::U256;
 use alloy_provider::Provider;
 use lander::{
     checkpoint_import::{ImportPackage, WindowBlock, evidence_expired, header_floor},
@@ -9,10 +10,37 @@ use lander::{
 };
 use prost::Message;
 use std::{
-    io::{Read, Seek, SeekFrom, Write},
+    io::{Seek, SeekFrom},
+    os::unix::fs::PermissionsExt,
     time::Duration,
 };
 use tendermint_proto::v0_38::types::Commit as RawCommit;
+
+/// The archive node's sources and the selected checkpoint of one export.
+#[derive(clap::Args, Clone, Debug)]
+pub struct Request {
+    /// Stock read-only Comet RPC of an archive node of this generation.
+    #[arg(long = "comet.http", value_parser = crate::flags::common::http_url)]
+    pub comet_http: Url,
+    /// Canonical EL RPC of that node; only `debug_getRawHeader` and `eth_chainId` are read.
+    #[arg(long = "l2.http", value_parser = crate::flags::common::http_url)]
+    pub l2_http: Url,
+    /// The generation's original stock `genesis.json`.
+    #[arg(long)]
+    pub comet_genesis: PathBuf,
+    /// The stored recovery bootstrap JSON; required for a recovery generation.
+    #[arg(long)]
+    pub recovery_bootstrap: Option<PathBuf>,
+    /// The selected landed checkpoint height s.
+    #[arg(long)]
+    pub height: u64,
+    /// The package directory to create; it must be absent.
+    #[arg(long)]
+    pub out: PathBuf,
+    /// The archived raw validator-state preimage at s, for a source app that already pruned it.
+    #[arg(long)]
+    pub validator_state: Option<PathBuf>,
+}
 
 /// Read the canonical execution header at a named number, never historical execution state.
 async fn header(provider: &alloy_provider::RootProvider, n: u64) -> R<Header> {
@@ -27,65 +55,48 @@ async fn header(provider: &alloy_provider::RootProvider, n: u64) -> R<Header> {
     }
     Ok(h)
 }
-/// Collect and verify a portable package. It contains neither EL state nor validator secrets.
-pub async fn run(profile: &Path, height: u64, out: &Path, archived: Option<&Path>) -> R<Value> {
-    let (p, profile_hash) = Profile::load(profile)?;
-    let archive = p.archive.as_ref().ok_or_else(|| bad("archive profile absent"))?;
-    let parent = files::parent(out)?;
-    if files::exists(out)? {
-        return Err(bad("export destination must be absent"))
+/// Collect a portable package for `request.height`, authenticate it against own finalized L1
+/// exactly as `import` will (DATA-5.4-2) and publish it at `request.out` by one rename. It holds
+/// neither EL state nor validator secrets. An interrupted export leaves only a private
+/// `.<out>.export-*` directory beside `out`, which may be deleted.
+pub async fn run(own: &Own, request: &Request) -> R<Value> {
+    let (out, height, archived) =
+        (&request.out, request.height, request.validator_state.as_deref());
+    let name = out.file_name().ok_or_else(|| bad("--out must name a directory"))?;
+    let parent = match out.parent() {
+        Some(p) if !p.as_os_str().is_empty() => p,
+        _ => Path::new("."),
+    };
+    if exists(out)? {
+        return Err(bad("export destination must be absent"));
     }
-    let latch_path = parent
-        .join(format!(".{}.checkpoint-halted.json", out.file_name().unwrap().to_string_lossy()));
-    if files::exists(&latch_path)? {
-        return Err(files::json(&latch_path)?)
-    }
-    let (params, l1) = p.own().await?;
-    if crate::commands::rpc_chain_id(&archive.l2_http, "l2.http")
+    let (params, l1) = own.connect().await?;
+    if crate::commands::rpc_chain_id(&request.l2_http, "l2.http")
         .await
-        .map_err(|_| ImportError::Unavailable("archive EL chain ID".into()))? !=
-        U256::from(p.l2_chain_id)
+        .map_err(|_| unavailable("archive EL chain ID"))? !=
+        U256::from(params.l2_chain_id)
     {
-        return Err(bad("archive EL chain ID mismatch"))
+        return Err(bad("archive EL chain ID mismatch"));
     }
     let el = rpc::client::connect_http_with_limits(
-        archive.l2_http.clone(),
+        request.l2_http.clone(),
         Duration::from_secs(30),
         8 << 20,
     );
-    let comet = HttpCometSource::new(archive.comet_http.clone(), Duration::from_secs(30), 64 << 20)
+    let comet = HttpCometSource::new(request.comet_http.clone(), Duration::from_secs(30), 64 << 20)
         .map_err(bad)?;
-    let genesis: abci::GenesisDoc = files::json(&archive.comet_genesis)?;
-    let fixed = export_result(
-        &latch_path,
-        lander::checkpoint_import::select_export(&genesis, height, &params, &l1).await,
-    )?;
+    let genesis: abci::GenesisDoc =
+        serde_json::from_slice(&read(&request.comet_genesis, 16 << 20)?)
+            .map_err(|_| bad("invalid --comet-genesis"))?;
+    let fixed = lander::checkpoint_import::select_export(&genesis, height, &params, &l1).await?;
     let origin = fixed.origin_height();
     let schedule = abci::Schedule::from_genesis(&fixed.genesis);
-    if height < origin ||
-        height > abci::schedule::UINT48_MAX ||
-        !height.is_multiple_of(abci::GRID_INTERVAL)
-    {
-        return Err(bad("invalid checkpoint selection"))
-    }
-    let id = keccak256(serde_json::to_vec(&(out, profile_hash, height, archived)).map_err(bad)?);
-    let export_root =
-        parent.join(format!(".{}.etna-export", out.file_name().unwrap().to_string_lossy()));
-    if !files::exists(&export_root)? {
-        let fresh = files::stage(parent, ".export-claim-")?;
-        files::put(&fresh.path().join("export.json"), &id)?;
-        files::publish_dir(fresh.path(), &export_root)?;
-        files::sync(parent)?;
-    }
-    files::protected_root(&export_root)?;
-    if files::json::<B256>(&export_root.join("export.json"))? != id {
-        return Err(bad("unrelated archived export operation"))
-    }
-    let lease = acquire_activation(&export_root, id).map_err(bad)?;
-    let work = files::restart_stage(&export_root, id)?;
-    let stage = work.join("package");
-    files::mkdir(&stage)?;
-    let mut spool = tempfile::tempfile_in(&stage).map_err(io)?;
+    let stage = tempfile::Builder::new()
+        .prefix(&format!(".{}.export-", name.to_string_lossy()))
+        .permissions(fs::Permissions::from_mode(0o700))
+        .tempdir_in(parent)
+        .map_err(io)?;
+    let mut spool = tempfile::tempfile_in(stage.path()).map_err(io)?;
     let mut offsets = Vec::new();
     let mut boundary = None;
     let mut w = height;
@@ -149,7 +160,7 @@ pub async fn run(profile: &Path, height: u64, out: &Path, archived: Option<&Path
             w -= 1;
         }
     }
-    let mut frames = files::create(&stage.join("blocks.jsonl"))?;
+    let mut frames = create(&stage.path().join("blocks.jsonl"))?;
     for (offset, len) in offsets.into_iter().rev() {
         tokio::task::yield_now().await;
         spool.seek(SeekFrom::Start(offset)).map_err(io)?;
@@ -157,6 +168,7 @@ pub async fn run(profile: &Path, height: u64, out: &Path, archived: Option<&Path
             return Err(bad("short spool frame"))
         }
     }
+    drop(spool);
     frames.sync_all().map_err(io)?;
     let mut prefix = Vec::new();
     let start = w.min(header_floor(origin, height, params.unsettled_limit));
@@ -174,62 +186,42 @@ pub async fn run(profile: &Path, height: u64, out: &Path, archived: Option<&Path
         }
         Vec::new()
     } else if let Some(p) = archived {
-        files::read(p, 16 << 20)?
+        read(p, 16 << 20)?
     } else {
         comet.val_state(height).await.map_err(source)?
+    };
+    let recovery_bootstrap = match &request.recovery_bootstrap {
+        Some(p) => Some(
+            serde_json::from_slice(&read(p, 16 << 20)?)
+                .map_err(|_| bad("invalid --recovery-bootstrap"))?,
+        ),
+        None => None,
     };
     let meta = ImportPackage {
         schema: 1,
         genesis,
         checkpoint_height: height,
         origin_header,
-        recovery_bootstrap: archive
-            .recovery_bootstrap
-            .as_ref()
-            .map(|p| files::json(p))
-            .transpose()?,
+        recovery_bootstrap,
         boundary_header: boundary,
         validator_state: preimage.into(),
         execution_headers: prefix,
     };
-    files::put(&stage.join("package.json"), &meta)?;
-    let verified = export_result(&latch_path, package::verify(&stage, &params, &l1).await)?;
+    let mut package = create(&stage.path().join("package.json"))?;
+    let bytes = serde_json::to_vec(&meta).map_err(|e| bad(format!("package metadata: {e}")))?;
+    package.write_all(&bytes).and_then(|()| package.sync_all()).map_err(io)?;
+    // The same authentication `import` runs, before anything is published.
+    let verified = package::verify(stage.path(), &params, &l1, None).await?;
     let generation = verified.state().generation;
-    // Nonterminal successor LastCommit bytes are checked independently by the stock reader.
-    if verified.first_height().is_some() {
-        let work = work.join("go");
-        files::mkdir(&work)?;
-        let stock = work.join("stock.json");
-        let hash = package::stock(&stage, &stock, &verified).await?;
-        let child = helpers::Holds::acquire(&lease, &work, vec![])?;
-        match helpers::comet(&archive.comet_helper, &stock, hash, None, &verified, &child).await {
-            Err(e @ ImportError::Safety(_)) => {
-                files::put(&latch_path, &e)?;
-                return Err(e)
-            }
-            other => {
-                other?;
-            }
-        }
-        // Drop the full duplicate before publishing. Even a crash immediately after
-        // rename can now leave only small control files beside the visible package.
-        std::fs::remove_file(stock).map_err(io)?;
-        files::sync(&work)?;
+    sync(stage.path())?;
+    let staged = stage.keep();
+    if let Err(e) = fs::rename(&staged, out) {
+        let _ = fs::remove_dir_all(&staged);
+        return Err(io(e));
     }
-    files::sync(&stage)?;
-    files::publish_dir(&stage, out)?;
-    files::sync(parent)?;
-    files::discard(&export_root, id)?;
-    Ok(json!({"phase":"exported","height":height,"generation":generation,"live_trust":false}))
+    sync(parent)?;
+    Ok(json!({"phase":"exported","height":height,"generation":generation}))
 }
-/// Persist only authenticated exporter contradictions alongside its intended output.
-fn export_result<T>(path: &Path, result: R<T>) -> R<T> {
-    if let Err(e @ ImportError::Safety(_)) = &result {
-        files::put(path, e)?
-    }
-    result
-}
-
 /// Untrusted history has no authority to promote defects to a durable safety latch.
 fn source(e: lander::LanderError) -> ImportError {
     match e {

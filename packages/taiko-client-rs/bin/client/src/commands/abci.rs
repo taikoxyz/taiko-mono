@@ -68,14 +68,6 @@ impl Subcommand for AbciSubCommand {
 
         let common = &self.common_flags;
         let flags = &self.abci_flags;
-        let imported = crate::import::boundary::check(&flags.data_dir)?;
-        if imported.is_some() {
-            return Err(lander::checkpoint_import::ImportError::Candidate(
-                "imported ABCI requires abci-import run-app with its bound native execution owner"
-                    .into(),
-            )
-            .into());
-        }
         self.init_metrics()?;
         let _ownership = abci::ownership::ComponentLease::standalone(
             abci::ownership::ComponentRole::App,

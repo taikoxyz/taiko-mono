@@ -118,20 +118,14 @@ pub struct VerifiedImport {
     genesis: GenesisDoc,
     /// Selected retained landing.
     landing: Landing,
-    /// Latest own-finalized checkpoint, still required for session admission.
-    admission_target: crate::LandingSnapshot,
     /// Full terminal native ID, absent on the fixed-genesis path.
     block_id: Option<tendermint::block::Id>,
-    /// Exact native terminal time used by stock post-s evidence semantics.
-    terminal_time: Option<tendermint::Time>,
     /// First retained consensus height, absent at the fixed origin.
     first_height: Option<u64>,
     /// Parent-linked canonical EL installation range from [`header_floor`], in ascending order.
     execution_headers: Vec<Header>,
     /// Recovery evidence that must be persisted before AppState.
     recovery_bootstrap: Option<abci::recovery::RecoveryBootstrap>,
-    /// Digest of exact length-framed input blocks/commits/keys/powers, for local staging identity.
-    window_hash: B256,
 }
 impl VerifiedImport {
     /// Verified state to stage; completion alone never grants trust or signing authority.
@@ -142,21 +136,13 @@ impl VerifiedImport {
     pub fn genesis(&self) -> &GenesisDoc {
         &self.genesis
     }
-    /// Trusted arguments for the stock helper, authenticated independently of its report.
+    /// The own-L1 landing at s that the stock and EL install receipts are checked against.
     pub fn landing(&self) -> &Landing {
         &self.landing
     }
-    /// Latest finalized target; startup must reacquire it and recheck generation.
-    pub fn admission_target(&self) -> &crate::LandingSnapshot {
-        &self.admission_target
-    }
-    /// Full terminal ID for matching the stock-helper report; None means fixed-genesis startup.
+    /// Full terminal ID the stock install receipt must name; None means fixed-genesis startup.
     pub fn block_id(&self) -> Option<tendermint::block::Id> {
         self.block_id
-    }
-    /// Exact terminal native timestamp for matching the stock helper report.
-    pub fn terminal_time(&self) -> Option<tendermint::Time> {
-        self.terminal_time
     }
     /// First consensus height the stock package must contain.
     pub fn first_height(&self) -> Option<u64> {
@@ -169,10 +155,6 @@ impl VerifiedImport {
     /// Required recovery sidecar, absent for generation zero.
     pub fn recovery_bootstrap(&self) -> Option<&abci::recovery::RecoveryBootstrap> {
         self.recovery_bootstrap.as_ref()
-    }
-    /// Identity of the exact streamed native frames; not Go's differently encoded package hash.
-    pub fn window_hash(&self) -> B256 {
-        self.window_hash
     }
 }
 
