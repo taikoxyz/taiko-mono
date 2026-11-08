@@ -355,4 +355,4 @@ needs no Lean: it applies the statement lock against the base branch. `etna-form
 (`formal--etna-full.yml`) runs the full mutation suite and `lake check --paranoid` (five
 independent kernels in a bubblewrap sandbox) nightly, on pushes to main, on manual dispatch
 and on pull requests labelled `formal-full`. Before the kernels it adds a 16 GB swap file and
-logs memory use every 30 seconds.
+logs memory and swap use every 30 seconds.

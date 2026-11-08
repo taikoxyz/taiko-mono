@@ -75,8 +75,8 @@ jobs:
         env:
           ETNA_FULL_TESTS: "1"
         run: python3 -m unittest discover -s tests -v
-      # Both runs on 4620534d4 and 25d0cb4b8 were killed ("runner received a shutdown signal")
-      # about two minutes into the nanoda kernel, after all tests and two kernels passed.
+      # Likely out of memory: earlier runs were killed ("runner received a shutdown signal")
+      # during the third kernel, after all tests and the first two kernels had passed.
       - name: Add swap for the independent kernels
         working-directory: .
         run: |
@@ -89,10 +89,11 @@ jobs:
           free -h
       # Five independent kernels (leanchecker-paranoid, lean4lean, nanoda, con-leche,
       # con-ron) replay the exported project inside a bubblewrap sandbox. A background loop logs
-      # memory use every 30 s and is killed on exit; the step's status is still the replay's.
+      # memory and swap use every 30 s and is killed on exit; the step's status is still the
+      # replay's.
       - name: Replay the project with independent kernels
         run: |
-          ( while sleep 30; do free -m | awk 'NR==2{print "mem used MiB: "$3" / "$2}'; done ) &
+          ( while sleep 30; do free -m | awk 'NR==2{m=$3"/"$2} NR==3{s=$3"/"$2} END{print "used MiB: mem "m", swap "s}'; done ) &
           logger=$!
           trap 'kill "$logger" 2>/dev/null || true' EXIT
           lake check --paranoid
