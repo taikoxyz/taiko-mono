@@ -17,9 +17,10 @@ regains trust only after Comet syncs, and Comet's startup needs the signer.
 
 While the recovery signer waits, trust staying closed only keeps it waiting,
 logged, without a restart: another restart would begin another session and
-restart the app's check. The exception is a pinned checkpoint above the committed
-head, which only Comet can reach; the supervisor then starts the signer and Comet
-together as on a first start, and a refusal there recovers again once Ready.
+restart the app's check. The exceptions are an app before InitChain, which only Comet
+can initialize, and a pinned checkpoint above the committed head, which only Comet can
+reach; the supervisor then starts the signer and Comet together as on a first start, and
+a refusal there recovers again once Ready.
 
 A signer exit the supervisor did not ask for restarts the pair the same way: Comet is
 reaped, and a fresh signer with the same state path and --await-trust gets Comet once its
@@ -659,10 +660,13 @@ class Supervisor:
             print("etna_supervisor_recovered_after_refusal", flush=True)
             return
         target, head = status.get("target"), status.get("committed_head")
-        if (status.get("phase") == "catching_up" and isinstance(target, dict) and isinstance(head, dict)
+        uninitialized = status.get("chain_id") is None
+        if uninitialized or (
+                status.get("phase") == "catching_up" and isinstance(target, dict) and isinstance(head, dict)
                 and isinstance(target.get("height"), int) and isinstance(head.get("height"), int)
                 and head["height"] < target["height"]):
-            # Only Comet can commit up to this checkpoint, so waiting could never end.
+            # Only Comet can run InitChain, or commit up to this checkpoint, so waiting could
+            # never end. The signer still refuses every signature until trust is Ready.
             print("etna_supervisor_trust_needs_comet: starting signer and Comet together", flush=True)
             if self.halt_if_unsafe(self.stop()):
                 return

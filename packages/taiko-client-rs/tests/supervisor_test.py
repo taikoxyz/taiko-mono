@@ -931,6 +931,20 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
         self.assertEqual(self.starts(), 1)
         self.assertEqual(len(self.signers()), 1)
 
+    def test_signer_crash_before_init_chain_starts_comet_with_the_signer(self):
+        """Before InitChain the app reports no chain_id and is never Ready, since only Comet can
+        initialize it: a signer that crashes then restarts with Comet as on a first start
+        instead of waiting for trust forever."""
+        self.extra = dict(chain_id=None)
+        os.kill(self.signers()[0]["pid"], signal.SIGKILL)
+        self.publish_recovery_session(ready=False)
+        self.wait(lambda: self.starts() == 2 and len(self.signers()) == 3)
+        time.sleep(.4)
+        self.assertEqual((self.starts(), len(self.signers())), (2, 3))
+        self.assertNotIn("--await-trust", self.signers()[2]["argv"])
+        self.assertFalse((self.store / "validator-supervisor.halted").exists())
+        self.assertEqual(self.state.read_text(), "authoritative HRS")
+
     def test_checkpoint_above_committed_head_starts_comet_without_waiting(self):
         # Only Comet can commit up to such a checkpoint, so awaiting trust could never end.
         self.publish(1, self.session)
