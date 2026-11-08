@@ -309,7 +309,7 @@ async fn recovery_lander_refuses_external_owner_before_key_or_rpc() {
     let directory = root.path().join("lander");
     std::fs::create_dir(&directory).unwrap();
     let paths = ComponentPaths::new(ComponentRole::Lander, &directory).unwrap();
-    let _owner = ComponentLease::acquire(&paths, None).unwrap();
+    let _owner = ComponentLease::acquire(&paths).unwrap();
     std::fs::write(directory.join("lander-state.json"), "immutable signed landing bytes").unwrap();
     let output = run(&[
         "lander",
@@ -345,57 +345,6 @@ async fn recovery_lander_refuses_external_owner_before_key_or_rpc() {
         std::fs::read_to_string(directory.join("lander-state.json")).unwrap(),
         "immutable signed landing bytes"
     );
-}
-
-#[tokio::test]
-async fn recovery_native_app_joins_only_its_matching_inherited_grant() {
-    use abci::ownership::{
-        ComponentLease, ComponentPaths, ComponentRole, OwnerGrant, acquire_activation,
-    };
-    use alloy_primitives::B256;
-    let root = tempfile::tempdir().unwrap();
-    let directory = root.path().join("app");
-    std::fs::create_dir(&directory).unwrap();
-    let activation = acquire_activation(root.path(), B256::ZERO).unwrap();
-    let paths = ComponentPaths::new(ComponentRole::App, &directory).unwrap();
-    let leases = [ComponentLease::acquire(&paths, None).unwrap()];
-    let grant = OwnerGrant::for_child(&activation, &leases, 0).unwrap();
-    let descriptors = grant.descriptors();
-    let mut command = Command::new(env!("CARGO_BIN_EXE_taiko-client"));
-    command.env_clear().envs(grant.environment()).args([
-        "abci",
-        "--l1.http",
-        "http://127.0.0.1:1",
-        "--l2.http",
-        "http://127.0.0.1:1",
-        "--l2.auth",
-        "http://127.0.0.1:1",
-        "--jwt.secret",
-        "/not-read",
-        "--data-dir",
-        directory.to_str().unwrap(),
-        "--fee-recipient",
-        "0x7777777777777777777777777777777777777777",
-    ]);
-    unsafe {
-        command.pre_exec(move || {
-            for fd in &descriptors {
-                if libc::fcntl(*fd, libc::F_SETFD, 0) == -1 {
-                    return Err(std::io::Error::last_os_error());
-                }
-            }
-            Ok(())
-        });
-    }
-    let output = command.output().await.unwrap();
-    assert!(!output.status.success());
-    assert!(
-        stderr(&output).contains("l2.http"),
-        "matching grant must reach RPC: {}",
-        stderr(&output)
-    );
-    assert!(!stderr(&output).contains("ownership is busy"));
-    assert!(ComponentLease::acquire(&paths, None).is_err());
 }
 
 /// `status` only reads: it reports an absent or interrupted root and never creates, locks or

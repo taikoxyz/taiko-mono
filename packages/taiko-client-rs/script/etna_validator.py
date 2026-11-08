@@ -178,87 +178,42 @@ class Supervisor:
         return route
 
     def acquire_owner(self):
-        """Retain canonical sibling ownership, including inherited all-reservation barriers."""
+        """Hold the Comet home's sibling owner lock for the supervisor's lifetime.
+
+        Every child inherits this one description (child_options), so while this supervisor or a
+        surviving child of an earlier one lives, another supervisor for the home is refused.
+        """
         parent = self.home.parent
         metadata = parent.stat()
         if (metadata.st_mode & 0o022 or metadata.st_uid not in (0, os.geteuid())):
             raise ValueError("component ownership is busy; unsafe owner directory")
         path = parent / ("." + self.home.name + ".etna-owner.lock")
         descriptor = os.open(path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
-        retained = []
         try:
             opened, named = os.fstat(descriptor), path.lstat()
             if (not stat.S_ISREG(opened.st_mode) or opened.st_mode & 0o077
                     or opened.st_uid != os.geteuid() or opened.st_nlink != 1
                     or (opened.st_dev, opened.st_ino) != (named.st_dev, named.st_ino)):
                 raise ValueError("component ownership is busy; unsafe owner inode")
-            holds, join = os.environ.get("ETNA_OWNER_FDS"), os.environ.get("ETNA_OWNER_JOIN")
-            if holds is None and join is None:
-                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                retained.append(descriptor)
-                descriptor = None
-            else:
-                if not holds or not join or len(holds.split(",")) > 64:
-                    raise ValueError("component ownership is busy; invalid owner grant")
-                role, selected = join.split(":")
-                selected = int(selected)
-                if role != "supervisor" or selected < 3:
-                    raise ValueError("component ownership is busy; wrong owner grant")
-                found = False
-                for value in holds.split(","):
-                    original = int(value)
-                    if original < 3:
-                        raise ValueError("component ownership is busy; invalid owner descriptor")
-                    duplicate = os.dup(original)
-                    retained.append(duplicate)
-                    item = os.fstat(duplicate)
-                    if (not stat.S_ISREG(item.st_mode) or item.st_mode & 0o077
-                            or item.st_uid != os.geteuid() or item.st_nlink != 1):
-                        raise ValueError("component ownership is busy; unsafe inherited inode")
-                    if original == selected:
-                        found = (item.st_dev, item.st_ino) == (opened.st_dev, opened.st_ino)
-                if not found:
-                    raise ValueError("component ownership is busy; mismatched owner grant")
-                try:
-                    fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                except BlockingIOError:
-                    pass
-                else:
-                    raise ValueError("component ownership is busy; unheld owner grant")
-                fcntl.flock(selected, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            self.owner_fds = retained
-            retained = []
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as error:
+            os.close(descriptor)
             raise ValueError("component ownership is busy; stop external owner or surviving children") from error
-        finally:
-            if descriptor is not None:
-                os.close(descriptor)
-            for held in retained:
-                os.close(held)
+        except BaseException:
+            os.close(descriptor)
+            raise
+        self.owner_fds = [descriptor]
 
-    def child_options(self, child_env=None):
-        """Stock descendants inherit hold-only locks, without participant join capabilities."""
+    def child_options(self):
+        """Run a child with the owner lock, in its own session, without the argv overrides."""
         environment = dict(os.environ)
-        lifetime = environment.get("ETNA_OWNER_LIFETIME_FD")
-        if child_env is not None:
-            overrides = json.loads(os.environ.get(child_env, "{}"))
-            if not isinstance(overrides, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in overrides.items()):
-                raise ValueError("invalid child environment")
-            environment.update(overrides)
-        for name in ("ETNA_SIGNER_COMMAND_JSON", "ETNA_COMET_COMMAND_JSON", "ETNA_SIGNER_ENV_JSON", "ETNA_COMET_ENV_JSON"):
+        for name in ("ETNA_SIGNER_COMMAND_JSON", "ETNA_COMET_COMMAND_JSON"):
             environment.pop(name, None)
-        environment.pop("ETNA_OWNER_FDS", None)
-        environment.pop("ETNA_OWNER_JOIN", None)
-        environment.pop("ETNA_OWNER_LIFETIME_FD", None)
-        inherited = list(self.owner_fds)
-        if lifetime is not None:
-            descriptor = int(lifetime)
-            if descriptor < 3 or not stat.S_ISSOCK(os.fstat(descriptor).st_mode):
-                raise ValueError("invalid descendant lifetime descriptor")
-            inherited.append(descriptor)
-        # A terminal interrupt must reach the supervisor first, so it can stop/reap
-        # Comet before the signer. Separate sessions do not authorize group signaling.
-        return dict(pass_fds=tuple(inherited), env=environment, start_new_session=True)
+        # Inheriting the owner lock keeps "supervisor lock held => no child of an earlier
+        # supervisor survives", which the signer socket cleanup in fresh_transport relies on.
+        # A terminal interrupt must reach the supervisor first, so it can stop/reap Comet
+        # before the signer. Separate sessions do not authorize group signaling.
+        return dict(pass_fds=tuple(self.owner_fds), env=environment, start_new_session=True)
 
     def observe(self):
         with socket.socket(socket.AF_UNIX) as peer:
@@ -347,7 +302,7 @@ class Supervisor:
         self.prior_observation = previous[0] if previous is not None else None
         self.last_event = None
         args = self.signer_command + ["--comet-signer-addr", self.address, "--denial-file", str(self.events)]
-        self.signer = subprocess.Popen(args + (["--await-trust"] if await_trust else []), **self.child_options("ETNA_SIGNER_ENV_JSON"))
+        self.signer = subprocess.Popen(args + (["--await-trust"] if await_trust else []), **self.child_options())
         self.pending = False
         self.session = None
         self.observed_loss = False
@@ -369,7 +324,7 @@ class Supervisor:
             # existing identity; privileged/different-identity launches still drop all groups.
             if os.geteuid() == 0 or uid != os.geteuid() or gid != os.getegid():
                 identity = dict(user=uid, group=gid, extra_groups=[])
-        self.comet = subprocess.Popen(command, cwd=self.home, **identity, **self.child_options("ETNA_COMET_ENV_JSON"))
+        self.comet = subprocess.Popen(command, cwd=self.home, **identity, **self.child_options())
 
     def persist_latch(self, text):
         """Durably create the halt latch; an existing one is never replaced."""

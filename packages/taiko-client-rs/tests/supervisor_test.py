@@ -128,7 +128,7 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
                        ' with p.with_name("lifecycle").open("a") as out: out.write(event+"\\nsigner_stopped\\n")\n'
                        ' sys.exit(0)\n'
                        'signal.signal(signal.SIGTERM,stop)\n'
-                       'open(os.environ["SIGNERS"],"a").write(json.dumps(dict(pid=os.getpid(),argv=sys.argv[1:],owner_join=os.environ.get("ETNA_OWNER_JOIN"),owner_fds=os.environ.get("ETNA_OWNER_FDS"),owner_lifetime=os.environ.get("ETNA_OWNER_LIFETIME_FD")))+"\\n")\nwhile not Path(os.environ["COMET_PID"]).with_name("release_signer").exists(): time.sleep(.05)'),
+                       'open(os.environ["SIGNERS"],"a").write(json.dumps(dict(pid=os.getpid(),argv=sys.argv[1:]))+"\\n")\nwhile not Path(os.environ["COMET_PID"]).with_name("release_signer").exists(): time.sleep(.05)'),
         }.items():
             path = self.bin / name
             path.write_text("#!/usr/bin/env python3\n" + body + "\n")
@@ -268,43 +268,6 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
         self.assertEqual(latch.read_bytes(), evidence)
         self.assertEqual(self.state.read_text(), "authoritative HRS")
         self.assertEqual(self.key.read_text(), "existing key")
-
-    def test_inherited_scoped_grant_and_lifetime_reach_stock_children(self):
-        self.proc.terminate()
-        self.proc.wait(timeout=5)
-        lock_path = self.home.parent / ("." + self.home.name + ".etna-owner.lock")
-        owner = os.open(lock_path, os.O_RDWR)
-        fcntl.flock(owner, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        read_end, hold_end = socket.socketpair()
-        read_end.settimeout(.2)
-        environment = dict(self.env, ETNA_OWNER_FDS=str(owner),
-                           ETNA_OWNER_JOIN="supervisor:" + str(owner),
-                           ETNA_OWNER_LIFETIME_FD=str(hold_end.fileno()))
-        try:
-            self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")],
-                                         env=environment, pass_fds=(owner, hold_end.fileno()),
-                                         stdout=self.log, stderr=self.log)
-            hold_end.close()
-            os.close(owner)
-            owner = None
-            self.wait(lambda: self.starts() == 2 and len(self.signers()) == 2)
-            self.proc.kill()
-            self.proc.wait(timeout=5)
-            # Only descendants remain. A dropped supervisor must not manufacture EOF.
-            with self.assertRaises(socket.timeout):
-                read_end.recv(1)
-            self.assertEqual(self.signers()[-1]["owner_join"], None)
-            self.assertEqual(self.signers()[-1]["owner_fds"], None)
-            self.assertEqual(self.signers()[-1]["owner_lifetime"], None)
-        finally:
-            if owner is not None:
-                os.close(owner)
-            hold_end.close()
-            (self.root / "release_comet").touch()
-            (self.root / "release_signer").touch()
-            read_end.settimeout(3)
-            self.assertEqual(read_end.recv(1), b"")
-            read_end.close()
 
     def test_sigkill_supervisor_retains_descendant_ownership(self):
         self.proc.kill()
@@ -1235,7 +1198,7 @@ class SupervisorUnitTests(unittest.TestCase):
         runtime = object.__new__(module.Supervisor)
         runtime.home, runtime.unix_run = Path("/private/runtime"), None
         runtime.comet_command = ["/cometbft", "start"]
-        runtime.child_options = lambda _: {}
+        runtime.child_options = lambda: {}
         for current_uid, current_gid, uid, gid, expected in [
                 (501, 20, 501, 20, {}),
                 (0, 0, 10001, 10001, dict(user=10001, group=10001, extra_groups=[])),
@@ -1254,20 +1217,6 @@ class SupervisorUnitTests(unittest.TestCase):
         with patch.dict(os.environ, {"ETNA_SIGNER_COMMAND_JSON": "{bad}"}):
             with self.assertRaises(ValueError):
                 module.Supervisor.command_prefix("ETNA_SIGNER_COMMAND_JSON", ["/etna-signer"])
-
-    def test_child_overrides_cannot_replace_ownership_lifetime(self):
-        spec = importlib.util.spec_from_file_location("etna_env_supervisor", ROOT / "script/etna_validator.py")
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        runtime = object.__new__(module.Supervisor)
-        runtime.owner_fds = []
-        lifetime, peer = socket.socketpair()
-        with lifetime, peer:
-            with patch.dict(os.environ, {"ETNA_OWNER_LIFETIME_FD": str(lifetime.fileno()), "ETNA_COMET_ENV_JSON": json.dumps({"ETNA_OWNER_LIFETIME_FD":"99999", "ETNA_OWNER_JOIN":"foreign"})}):
-                options = runtime.child_options("ETNA_COMET_ENV_JSON")
-                self.assertEqual(options["pass_fds"], (lifetime.fileno(),))
-                self.assertNotIn("ETNA_OWNER_LIFETIME_FD", options["env"])
-                self.assertNotIn("ETNA_OWNER_JOIN", options["env"])
 
 
 if __name__ == "__main__":

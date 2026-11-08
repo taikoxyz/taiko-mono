@@ -551,7 +551,7 @@ async fn lander_cli_checks_engine_before_opening_journal_or_running() -> Result<
             abci::ownership::ComponentRole::Lander,
             &args.data,
         )?;
-        let _lease = abci::ownership::ComponentLease::acquire(&paths, None)
+        let _lease = abci::ownership::ComponentLease::acquire(&paths)
             .context("startup retained ownership after failure or cancellation")?;
         assert_key_absent(&process);
     }
