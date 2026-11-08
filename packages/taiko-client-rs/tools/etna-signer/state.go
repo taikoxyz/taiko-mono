@@ -81,6 +81,15 @@ func syncDirectory(path string) error {
 	return f.Sync()
 }
 
+// syncDomainsLog flushes the opened domains log and then its directory, before serving.
+// Tests replace it to count or fail.
+var syncDomainsLog = func(f *os.File) error {
+	if err := f.Sync(); err != nil {
+		return err
+	}
+	return syncDirectory(filepath.Dir(f.Name()))
+}
+
 // ownerLock takes a nonblocking exclusive flock on a single-link lock file (RECOV-8.2-2).
 func ownerLock(path string) (*os.File, error) {
 	f, e := os.OpenFile(path, os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW, 0600)
@@ -355,11 +364,12 @@ func createZeroState(state string) (err error) {
 
 // openSigningState opens chain's HRS for serving, in this order: the chain ID, the state's
 // name and the log's directory (configuration, exit 1); the key and its owner flock (exit 1 on
-// contention); the domains log under a shared flock, which must list chain; the state, which a
-// logged chain must have, and its owner flock; the fence; and the HRS, authenticated by the key
-// for chain. A refusal of the state itself is errSigningStateUnsafe: nothing is created or reset,
-// and a lost state is never mistaken for a fresh start (RECOV-8.2-1..3). release closes the
-// locks, which the caller holds while serving (RECOV-8.2-2).
+// contention); the domains log under a shared flock, which is fsynced and must list chain; the
+// state, which a logged chain must have, and its owner flock; the fence; and the HRS,
+// authenticated by the key for chain. A refusal of the state itself is errSigningStateUnsafe:
+// nothing is created or reset, and a lost state is never mistaken for a fresh start
+// (RECOV-8.2-1..3). release closes the locks, which the caller holds while serving
+// (RECOV-8.2-2).
 func openSigningState(chain, key, state, log string) (_ *durableFilePV, release func(), err error) {
 	if err = statePlacement(chain, state, log); err != nil {
 		return nil, nil, err
@@ -404,6 +414,12 @@ func openSigningState(chain, key, state, log string) (_ *durableFilePV, release 
 	logged, err := readDomainsLog(journal)
 	if err != nil {
 		return nil, nil, unsafeState("domains log %s: %v", log, err)
+	}
+	// An init-state killed after its append and before its own fsync leaves a line the page
+	// cache shows and a host crash can lose. Make the log as read durable before any signature
+	// depends on it; a failed fsync leaves it uncertain (RECOV-8.2-3).
+	if err = syncDomainsLog(journal); err != nil {
+		return nil, nil, unsafeState("domains log %s: fsync: %v", log, err)
 	}
 	if !logged[chain] {
 		return nil, nil, unsafeState("chain %s is not initialized in domains log %s; a state that init-state did not log is never used", chain, log)

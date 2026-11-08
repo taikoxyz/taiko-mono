@@ -96,15 +96,16 @@ own state from `init-state` and the same key and log (RECOV-8.2-5/8.2-6). The op
 Before serving, the signer checks, in this order: the chain ID, the state's `<chain_id>.json`
 name and the log's directory; the key (an existing single-link native `secp256k1eth` FilePV
 identity with matching public metadata) and its exclusive owner lock `<key>.lock`; the log,
-opened without following symlinks under a shared lock, which must be well formed and list the
-chain ID; the state, which must exist for a logged chain, have exactly one link and resolve to
-`<chain_id>.json`, and its exclusive owner lock `<state>.lock`; the absence of the
-`<state>.uncertain` fence; and the HRS, which must be the stock zero state or carry a signature
-by the registered key over that chain ID's canonical sign bytes. Only then does it load the
-stock FilePV. It never creates, initializes or resets HRS. The locks are held while serving, so
-two signers never share the key or the state (RECOV-8.2-2). Preserve the key, every state, the
-log, the Comet WAL and app history on restart; never use `keygen` or `init-state` as a recovery
-action.
+opened without following symlinks under a shared lock, which must be well formed, is fsynced
+with its directory (so a line from an `init-state` killed before its own fsync is durable
+before any signature depends on it) and must list the chain ID; the state, which must exist
+for a logged chain, have exactly one link and resolve to `<chain_id>.json`, and its exclusive
+owner lock `<state>.lock`; the absence of the `<state>.uncertain` fence; and the HRS, which
+must be the stock zero state or carry a signature by the registered key over that chain ID's
+canonical sign bytes. Only then does it load the stock FilePV. It never creates, initializes
+or resets HRS. The locks are held while serving, so two signers never share the key or the
+state (RECOV-8.2-2). Preserve the key, every state, the log, the Comet WAL and app history on
+restart; never use `keygen` or `init-state` as a recovery action.
 
 ### Refusal matrix and exit codes
 
@@ -122,6 +123,7 @@ reset:
 | ----------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | Domains log missing or not a regular file | the log volume is lost, or the path is a symlink                                                   |
 | Domains log malformed                     | wrong header, torn last line (no final newline), blank or invalid line, duplicate line, over 1 MiB |
+| Domains log uncertain                     | the log or its directory fails its startup fsync                                                   |
 | Chain ID not in the log                   | `init-state` never ran for it, or was interrupted before its log line                              |
 | Chain ID logged, state missing            | the state file or the state volume is lost                                                         |
 | HRS ambiguous                             | a hard-linked state, a state that resolves to another chain's file, unknown or duplicate fields    |
@@ -129,9 +131,13 @@ reset:
 | Retained fence                            | `<state>.uncertain` exists                                                                         |
 | Persistence failure while serving         | a state or directory fsync fails; the signer writes the fence, then exits 3                        |
 
-Losing both the state and the log volume, or restoring the state from an old backup together
-with an old log, cannot be detected and is operational practice: never restore signing state
-from a backup (RECOV-8.2-6).
+The domains log detects only absence: a missing log, a chain it does not list, or a logged
+chain whose state is missing. It never detects rollback. It records chain IDs, never heights,
+so an older HRS restored from a backup, with or without the log, is still signed by the
+registered key for a logged chain: it passes every check and is served. Losing both the state
+and the log volume likewise looks like a fresh deployment. Neither can be detected; both are
+forbidden operational practice: never restore any signing state from a backup (RECOV-8.2-1,
+RECOV-8.2-6).
 
 Use `script/start_etna_validator.sh` to supervise the signer and a configured Comet home after
 starting the ABCI app. Set `ETNA_COMET_HOME`, `ETNA_APP_STORE`, `ETNA_PRIV_KEY`,

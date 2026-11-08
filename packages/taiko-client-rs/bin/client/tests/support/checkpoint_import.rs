@@ -107,8 +107,9 @@ async fn checkpoint_import_latest_full_node_restarts_forced_skips_and_retries() 
 }
 
 /// An older checkpoint (s = 6, target 12) exported with the archived validator-state preimage
-/// (DATA-5.4-3, SYNC-9-5c). The import leaves key, HRS, WAL and authority unchanged (DATA-5.4-7);
-/// the supervisor on `ready` proposes in a later round, and the chain lands its block.
+/// (DATA-5.4-3, SYNC-9-5c). The import leaves the key, HRS, domains log and WAL unchanged
+/// (DATA-5.4-7); the supervisor on `ready` proposes in a later round, and the chain lands its
+/// block.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
 async fn registered_checkpoint_older_signs_proposes_and_lands() -> Result<()> {

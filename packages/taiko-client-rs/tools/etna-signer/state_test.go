@@ -299,3 +299,50 @@ func TestInitCommandsCreateLogAndState(t *testing.T) {
 		t.Fatalf("incomplete init-state flags accepted: %s", out)
 	}
 }
+
+// Serving makes the domains log durable after reading it and before any signature depends on
+// it: an init-state killed after its append and before its own fsync leaves a line that only
+// the page cache holds. A failed fsync of the log is uncertain signing state, refused with exit
+// 3 before the HRS is opened, and leaves the log, the HRS and every lock as they were.
+func TestServeSyncsDomainsLogBeforeServing(t *testing.T) {
+	l := newStateLayout(t)
+	// The interrupted init-state: a durable zero HRS, then an append that was never fsynced.
+	if err := createZeroState(l.state(chain)); err != nil {
+		t.Fatal(err)
+	}
+	journal, err := os.OpenFile(l.log, os.O_WRONLY|os.O_APPEND, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = journal.Write([]byte(chain + "\n")); err != nil {
+		t.Fatal(err)
+	}
+	journal.Close()
+	original := syncDomainsLog
+	t.Cleanup(func() { syncDomainsLog = original })
+	log, state := readFile(t, l.log), readFile(t, l.state(chain))
+	syncDomainsLog = func(*os.File) error { return syscall.EIO }
+	if _, _, err := openSigningState(chain, l.key, l.state(chain), l.log); !errors.Is(err, errSigningStateUnsafe) || !strings.Contains(err.Error(), "fsync") {
+		t.Fatalf("a failed domains-log fsync served: %v", err)
+	}
+	if !bytes.Equal(readFile(t, l.log), log) || !bytes.Equal(readFile(t, l.state(chain)), state) {
+		t.Fatal("a refused start changed the log or the HRS")
+	}
+	var synced []string
+	syncDomainsLog = func(f *os.File) error {
+		raw, err := os.ReadFile(f.Name())
+		if err != nil {
+			return err
+		}
+		synced = append(synced, string(raw))
+		return original(f)
+	}
+	signer, release, err := openSigningState(chain, l.key, l.state(chain), l.log)
+	if err != nil {
+		t.Fatal("the refused start left a lock or changed the layout:", err)
+	}
+	defer release()
+	if signer == nil || len(synced) != 1 || synced[0] != domainsLogHeader+"\n"+chain+"\n" {
+		t.Fatalf("serving did not fsync the log it read exactly once: %q", synced)
+	}
+}

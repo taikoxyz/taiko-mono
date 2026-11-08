@@ -39,7 +39,8 @@ makes, against its own L1 and EL.
   recovered app commits its first block through normal Engine calls.
 - Never copy, restore or reset signing state (RECOV-8.2-1..3). The signer keeps one HRS state per
   full `chain_id` and never lowers it. A backup can omit signatures already released, so an older
-  HRS, FilePV state or domains-log backup must never resume the same validator identity. If
+  HRS, FilePV state or domains-log backup must never resume the same validator identity; nothing
+  detects such a rollback, because the domains log records chain IDs, never heights. If
   the latest state is lost or uncertain, stop signing and resolve the identity through governance.
   Restoring app, EL or Comet data never authorizes rolling back signer state.
 - Keep the registered key, the HRS state directory and the domains log outside every Comet home
