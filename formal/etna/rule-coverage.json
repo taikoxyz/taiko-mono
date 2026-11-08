@@ -385,13 +385,6 @@
       ],
       "reason": "Supporting exact successful ordinary-recovery state value preserves the pre-call checkpoint, complete existing Inbox records and FI head together; the head-only corollary states the consumed head equality separately. No physical Solidity/external-call atomicity or storage-layout refinement is proved."
     },
-    "RECOV-8-58": {
-      "theorems": [
-        "Etna.Design.Current.Headlines.recoverability",
-        "Etna.Design.Current.Protocol.Recovery.recoverable"
-      ],
-      "reason": "H4: when something had landed, the rollback-free path with one plain recovery ends in an accepted landing above the starting checkpoint c, so settlement after that recovery continues past c rather than rewinding below it; about that path only. Discarding the unsettled suffix (RECOV-8-56) and the recover call's own effects are not shown."
-    },
     "RECOV-8.4-12": {
       "theorems": ["Etna.Design.Current.Blocks.first_anchor_witness"],
       "reason": "The generation first block carries its own anchor witness; freshness/authentication remain the other validity fields."

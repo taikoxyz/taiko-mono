@@ -317,8 +317,8 @@ the current proofs reuse, and fourteen semantic pins (`EtnaProofs/Contracts.lean
 `Consensus.election_valid_iff`) that fail the build if a shared definition the statements use
 is weakened without editing its pin.
 
-The inventory is **61 partial / 507 deferred clauses**, and **44 narrow partial /
-36 supporting / 528 deferred binding rules**, plus 32 deferred assumption/limitation rows.
+The inventory is **60 partial / 508 deferred clauses**, and **43 narrow partial /
+36 supporting / 529 deferred binding rules**, plus 32 deferred assumption/limitation rows.
 SWITCH has narrow first-fence/root evidence. All 93 ANCHORLESS and 47 ACCEPTANCE
 clauses remain deferred. Margin arithmetic, bridge resolver/EIP-4788/storage migration,
 production parsing/crypto/EL/guest/token/Solidity/Comet/store refinement, operational

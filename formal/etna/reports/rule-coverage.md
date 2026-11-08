@@ -10,7 +10,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 
 | Type       | Count | partial | partial-via | supporting | deferred | design-pending |
 | ---------- | ----: | ------: | ----------: | ---------: | -------: | -------------: |
-| rule       |   608 |      44 |           0 |         36 |      528 |              0 |
+| rule       |   608 |      43 |           0 |         36 |      529 |              0 |
 | limitation |    21 |       0 |           0 |          0 |       21 |              0 |
 | assumption |    11 |       0 |           0 |          0 |       11 |              0 |
 
@@ -18,7 +18,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 
 | Family | Rules | partial | partial-via | supporting | deferred | design-pending |
 | ------ | ----: | ------: | ----------: | ---------: | -------: | -------------: |
-| RECOV  |   114 |       4 |           0 |          8 |      102 |              0 |
+| RECOV  |   114 |       3 |           0 |          8 |      103 |              0 |
 | ENC    |    59 |       0 |           0 |          0 |       59 |              0 |
 | CONS   |    53 |       2 |           0 |          0 |       51 |              0 |
 | START  |    52 |       4 |           0 |          4 |       44 |              0 |
@@ -403,7 +403,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | RECOV-8-55     | rule       | deferred   | LIVE_EN-6eed3016601c5cd3 |      5 |                                                                                                             |
 | RECOV-8-56     | rule       | deferred   | LIVE_EN-d7f8342dc8bb8e88 |      3 |                                                                                                             |
 | RECOV-8-57     | rule       | deferred   | LIVE_EN-d7f8342dc8bb8e88 |      3 |                                                                                                             |
-| RECOV-8-58     | rule       | partial    | LIVE_EN-d7f8342dc8bb8e88 |      3 | `recoverability`, `recoverable`                                                                             |
+| RECOV-8-58     | rule       | deferred   | LIVE_EN-d7f8342dc8bb8e88 |      3 |                                                                                                             |
 | RECOV-8.1-1    | rule       | deferred   | LIVE_EN-3504917df70d4bf8 |      2 |                                                                                                             |
 | RECOV-8.1-2    | rule       | deferred   | LIVE_EN-3504917df70d4bf8 |      2 |                                                                                                             |
 | RECOV-8.1-3    | rule       | deferred   | LIVE_EN-975e406996f0fce2 |      3 |                                                                                                             |
@@ -753,7 +753,6 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 - **RECOV-8-45**: Unlisted queue entries survive decoded recovery unchanged. No proof of the DAO unprovability judgment, eventual consumption, or liveness is claimed.
 - **RECOV-8-47a**: Successful decoded recovery clears stopTime and stopGrid; not a fee/refund or complete rules-installation proof.
 - **RECOV-8-48**: Supporting exact successful ordinary-recovery state value preserves the pre-call checkpoint, complete existing Inbox records and FI head together; the head-only corollary states the consumed head equality separately. No physical Solidity/external-call atomicity or storage-layout refinement is proved.
-- **RECOV-8-58**: H4: when something had landed, the rollback-free path with one plain recovery ends in an accepted landing above the starting checkpoint c, so settlement after that recovery continues past c rather than rewinding below it; about that path only. Discarding the unsettled suffix (RECOV-8-56) and the recover call's own effects are not shown.
 - **RECOV-8.4-3**: Supporting exact ordinary-recovery construction: generation increments and the new origin tuple is (pre-call checkpoint height, this call L1 block, this call timestamp), with the prior origin list retained and one new-generation record appended. It does not establish generation-0 start construction, correction exceptions, source authentication, slot-290 byte layout or all-future mapping permanence.
 - **RECOV-8.4-4**: Each successful ordinary recovery preserves the existing decoded origin list verbatim and appends one new-generation origin. Actual reached same-generation traces/closed snapshots preserve the active origin, and the separate Start correction trace preserves older origin-map values. This is call-specific append and partial immutability evidence; global uniqueness and permanence of every Protocol mapping entry over all future calls remain separate.
 - **RECOV-8.4-12**: The generation first block carries its own anchor witness; freshness/authentication remain the other validity fields.

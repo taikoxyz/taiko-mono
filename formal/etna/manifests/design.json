@@ -6520,7 +6520,6 @@
         "LIVE_EN-4d6ef522fb0ee3fa",
         "LIVE_EN-e4d5ea9bf749c3f7",
         "LIVE_EN-d7f8342dc8bb8e88",
-        "LIVE_EN-975e406996f0fce2",
         "LIVE_EN-03cb21954a3b2213"
       ],
       "scope": "Derived conditional decoded property: the exact current H4 statement (Recoverability), proved by Recovery.recoverable. From every reachable, initialized state satisfying LiveAt, under RecoveryPremises, a RecoveryTrace (no rollback; one plain recovery with no exclusions, no FI blanking and no upgrade) reaches a state where land accepts a landing; if anything had landed before, that landing ends above the starting checkpoint. Proof completeness (MODEL-1-1/1-2) is assumed through RecoveryPremises.proofComplete (ProofComplete), not shown. Recovery restoring progress (RECOV-8, LIMIT-12-2) is exercised; list validation, exclusions and blanking are not. Normal-operation liveness, adversarial scheduling and DAO transaction refinement are outside the claim."
@@ -6539,7 +6538,6 @@
         "LIVE_EN-4d6ef522fb0ee3fa",
         "LIVE_EN-e4d5ea9bf749c3f7",
         "LIVE_EN-d7f8342dc8bb8e88",
-        "LIVE_EN-975e406996f0fce2",
         "LIVE_EN-03cb21954a3b2213"
       ],
       "scope": "The actual chosen raw DAO history yields H4 (RecoverableAt) only with per-successful-upgrade historical authorization, the same condition as deployed_claims (Governance.authorized_trace_refines). Owner identity alone does not imply those duties; arbitrary implementation upgrades are not proved. Otherwise the scope of recoverability: a rollback-free path with one plain recovery (no exclusions, no FI blanking, no upgrade) reaches an accepted landing, above the starting checkpoint whenever one had landed. Proof completeness (MODEL-1-1/1-2) is assumed through RecoveryPremises.proofComplete (ProofComplete), not shown. Recovery restoring progress (RECOV-8, LIMIT-12-2) is exercised; list validation, exclusions and blanking are not. Normal-operation liveness, adversarial scheduling and DAO transaction refinement are outside the claim."
@@ -7909,8 +7907,8 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-7bda477553dde1bb"],
-      "scope": "Derived conditional decoded property of the model. From a reachable landed, started state whose frontier is off its current K grid, rollback-free calls keep the frontier and K, so no landing is accepted: land needs the frontier on the grid; a plain recover needs it on the grid (RECOV-8.3-3a); the model's recover with an upgrade also needs it on the scheduled stop grid, and scheduleStop makes that a multiple of the current K. That upgrade check is stricter than SPEC 8.3, which checks only the new K (START-10.1-14e also recovers from a checkpoint below the stop point, vector 14e.k), so in the spec a structural recovery that installs a K whose grid holds the frontier exits; with plain recoveries only, as on H4's path, the state is a dead end in the spec too. Not a liveness result and not evidence for RECOV-8-34; the reachable instance is RollbackGridTrap.rollback_grid_trap."
+      "sources": [],
+      "scope": "Model-divergence theorem, no clause credit: its conclusion is false under SPEC 8.3, so it is evidence for no spec clause. From a reachable landed, started state whose frontier is off its current K grid, rollback-free calls keep the frontier and K, so no landing is accepted: land needs the frontier on the grid (6.1, BATCH-6.3-1); a plain recover needs it on the grid (RECOV-8.3-3a); the model's recover with an upgrade also needs it on the scheduled stop grid, and scheduleStop makes that a multiple of the current K. That upgrade check is stricter than SPEC 8.3, which checks only the new K (START-10.1-14e also recovers from a checkpoint below the stop point, vector 14e.k), so in the spec a structural recovery that installs a K whose grid holds the frontier exits; with plain recoveries only, as on H4's path, the state is a dead end in the spec too. Not a liveness result; the reachable instance is RollbackGridTrap.rollback_grid_trap."
     },
     {
       "declaration": "Etna.Design.Current.Protocol.RollbackGridTrap.rollback_grid_trap",
@@ -8019,7 +8017,6 @@
         "LIVE_EN-4d6ef522fb0ee3fa",
         "LIVE_EN-e4d5ea9bf749c3f7",
         "LIVE_EN-d7f8342dc8bb8e88",
-        "LIVE_EN-975e406996f0fce2",
         "LIVE_EN-03cb21954a3b2213"
       ],
       "scope": "Derived conditional decoded property: H4, recoverability (design 4.3). From every reachable, initialized state satisfying LiveAt, under RecoveryPremises, a RecoveryTrace (no rollback; one plain recovery with no exclusions, no FI blanking and no upgrade) reaches a state where land accepts a landing; if anything had landed before, that landing ends above the starting checkpoint. The path is Recovery.prepare (L1 to the window block R, the start settled, the image and verifier set, a plain recovery at R, L1 to R+2) and Recovery.segment (the new generation's first K blocks on the hash-bound header of the current checkpoint c, anchored at R). The landing runs from c to c+K with reference block R+1, committee snapshot R, the terminal's hashes, state root and FI cursor, no leaves (no grid point lies strictly between c and c+K) and one to six blobs from PayloadLive. Its statement is certified at reference R+1 (archive root c's header, no prior headers; the generation's genesis cutoff stays below R because recover keeps it across upgrades), every block's ruleset is implemented by the registered image, and ProofComplete's verifier version accepts two proofs of it. Proof completeness (MODEL-1-1/1-2) is assumed through RecoveryPremises.proofComplete (ProofComplete), not shown. Recovery restoring progress (RECOV-8, LIMIT-12-2) is exercised; list validation, exclusions and blanking are not. Normal-operation liveness, adversarial scheduling and DAO transaction refinement are outside the claim."

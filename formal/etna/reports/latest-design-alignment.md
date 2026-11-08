@@ -12,8 +12,9 @@ and statement lock introduced before that.
 This revision also adds H4, recoverability ([report](recoverability.md)): from every
 reachable, initialized state that meets `LiveAt`, a path with no rollback and only plain
 recoveries reaches an accepted landing. `recover`'s structural upgrade now keeps the stored
-`genesisCutoff`, as the spec requires; this narrows the machine that H1–H3 describe. The
-counts below are those after #22338.
+`genesisCutoff`, as the spec requires; this narrows the machine that H1–H3 describe. With H4,
+the evidence is 60 partial / 508 deferred clauses and 43 partial / 36 supporting / 529
+deferred binding rules. The counts below are those after #22338.
 
 ## Current-only package
 

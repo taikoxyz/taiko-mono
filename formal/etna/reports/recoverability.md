@@ -368,16 +368,15 @@ Commitments are ideal unbounded Nat codes, not Keccak.
   liveness bullet and of LIMIT-12-2, under a new `recovery` boundary that lists the premises,
   hypotheses and limits above.
 - **Narrow rule edges.** CONS-3.2-2 (block number and parent hash) and RECOV-8.4-13 (anchors no
-  earlier than R) cite `Recovery.segment`; RECOV-8-58 (do not rewind the settled prefix) cites
-  `Recovery.recoverable` and `Headlines.recoverability`. Each is an existence result about the
-  path's own segment or landing, not a check on every block or recovery.
-- **Trap theorem.** `Recovery.offgrid_no_landing` cites only the 8.3 checks clause, for
-  RECOV-8.3-3a's grid check on plain recovery and landing. It no longer cites the
-  verifier-failure clause: in the spec, the recovery RECOV-8-34 requires can be a structural
-  one, so the theorem is not evidence for RECOV-8-34. Clause totals are unchanged, because
-  other theorems also cite that clause.
-- **Totals.** 61 partial / 507 deferred clauses (38 / 530 before H4), and 44 narrow partial /
-  36 supporting / 528 deferred binding rules (41 / 36 / 531 before), plus 32 deferred
+  earlier than R) cite `Recovery.segment`. Each is an existence result about the path's own
+  segment, not a check on every block.
+- **Trap theorem.** `Recovery.offgrid_no_landing` cites no clause. It is a model-divergence
+  theorem: under SPEC 8.3 a structural recovery leaves the trapped state, so its conclusion is
+  false in the spec and it is evidence for no spec clause. It is listed as reviewed unsourced
+  plumbing (`scripts/current-plumbing.json`). Clause totals are unchanged, because
+  `Recovery.prepare` also cites the 8.3 checks clause.
+- **Totals.** 60 partial / 508 deferred clauses (38 / 530 before H4), and 43 narrow partial /
+  36 supporting / 529 deferred binding rules (41 / 36 / 531 before), plus 32 deferred
   assumption and limitation rows.
 
 H4 adds no evidence for these:
@@ -393,6 +392,11 @@ H4 adds no evidence for these:
 - RECOV-8-39, RECOV-8-40a to 8-42 and RECOV-8-43 to 8-46 (list validation, exclusions and
   blanking): the path uses only empty lists.
 - MODEL-1-1 and MODEL-1-2: assumed as `proofComplete`.
+- RECOV-8-58 (do not rewind the settled prefix): H4's statement does not show it. The
+  supporting theorems `Governance.recover_origin_exact` and `Governance.recovery_preserves_head`
+  show that a recovery keeps the checkpoint; they are cited for RECOV-8-48.
+- RECOV-8.1-3 to 8.1-5 (recovery timing and the DAO's policy): H4 says nothing about how soon
+  a recovery runs, and SPEC 8.1 policy is outside the claim (see What H4 does not say).
 
 The review-surface lock grows from 1,433 to 1,464 constants: the H4 statement definitions,
 the new headline and witness roots and their model closure. `Claims` and `recover` change.
