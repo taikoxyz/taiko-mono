@@ -106,12 +106,12 @@ private theorem reach_same {env : Environment} {w t : World} (held : Reach env w
     · exact Or.inr ⟨above,timed_mono timed number (by unfold maxAges; rw [configs]; exact Nat.le_refl _)⟩
 
 /-- Calls that keep every field `Reach` reads. -/
-private def Plain : Call → Prop
+private def Keeps : Call → Prop
   | .initializeInbox .. | .setOrigin .. | .correctStart .. | .enqueue .. | .recover .. | .rollback ..
   | .land .. | .unzenProve .. => False
   | _ => True
 
-private theorem execute_same {env : Environment} {w t : World} {call : Call} (plain : Plain call)
+private theorem execute_same {env : Environment} {w t : World} {call : Call} (plain : Keeps call)
     (ok : execute env w call = some t) : Same w t := by
   cases call with
   | advance number =>
