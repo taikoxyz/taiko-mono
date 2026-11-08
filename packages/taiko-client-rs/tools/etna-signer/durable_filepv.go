@@ -77,8 +77,8 @@ func (p *durableFilePV) signDurably(sign func() error) error {
 		p.uncertain = syncErr
 		return fmt.Errorf("%w: fsync of signing state: %w", errSigningStateUnsafe, errors.Join(syncErr, writeFence(fencePath(p.state), syncErr)))
 	}
-	// The state is durable whatever happens to the marker: one left behind only makes a
-	// restart on this boot refuse, which fails closed.
+	// The state is durable whatever happens to the marker. One left behind makes the next
+	// step's exclusive create latch and a restart on this boot refuse: both fail closed.
 	_ = os.Remove(inflightPath(p.state))
 	return err
 }

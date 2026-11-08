@@ -228,34 +228,45 @@ func TestStateSyncFailureWritesFenceLatchesAndStops(t *testing.T) {
 
 // A death between starting to synchronize the state and either finishing or writing the fence
 // leaves only the inflight marker. A restart on the same boot refuses it, since that boot's page
-// cache may show a state whose failed fsync was already reported and cleared; a marker from
-// another boot is stale and ignored, since a reboot drops that cache (RECOV-8.2-3, SYNC-9-13).
-// Anything else at the marker's path refuses, and a marker that cannot be written latches like
-// a failed fsync, before any fsync or signature.
+// cache may show a state whose failed fsync was already reported and cleared (RECOV-8.2-3,
+// SYNC-9-13). On that boot the page cache shows exactly this boot's ID, or nothing if the signer
+// died before writing it, before any fsync. So an empty or zero-filled marker, which is what a
+// host crash leaves when the directory fsync committed the name but not the data, and another
+// boot's marker are removed and ignored. Any other inode, or an oversized one, refuses, and a
+// hard link to the state is refused as a second link to it. A marker that cannot be written latches like a failed
+// fsync, before any fsync or signature.
 func TestInflightMarkerRefusesOnlyTheSameBoot(t *testing.T) {
 	for _, c := range []struct {
 		name   string
-		setup  func(marker string)
-		refuse bool
+		setup  func(marker, state string)
+		refuse string
 	}{
-		{"this-boot", func(marker string) { os.WriteFile(marker, []byte(bootID()+"\n"), 0600) }, true},
-		{"empty", func(marker string) { os.WriteFile(marker, nil, 0600) }, true},
-		{"oversized", func(marker string) { os.WriteFile(marker, bytes.Repeat([]byte("a"), 129), 0600) }, true},
-		{"directory", func(marker string) { os.Mkdir(marker, 0700) }, true},
-		{"symlink-to-another-boot", func(marker string) {
+		{"this-boot", func(marker, _ string) { os.WriteFile(marker, []byte(bootID()+"\n"), 0600) }, "inflight marker"},
+		{"this-boot-unterminated", func(marker, _ string) { os.WriteFile(marker, []byte(bootID()), 0600) }, "inflight marker"},
+		{"oversized", func(marker, _ string) { os.WriteFile(marker, bytes.Repeat([]byte("a"), 129), 0600) }, "inflight marker"},
+		{"directory", func(marker, _ string) { os.Mkdir(marker, 0700) }, "inflight marker"},
+		{"symlink-to-another-boot", func(marker, _ string) {
 			other := filepath.Join(t.TempDir(), "other")
 			os.WriteFile(other, []byte("earlier-boot\n"), 0600)
 			os.Symlink(other, marker)
-		}, true},
-		{"another-boot", func(marker string) { os.WriteFile(marker, []byte("earlier-boot\n"), 0600) }, false},
+		}, "inflight marker"},
+		// A hard link is refused before the marker is read, by the state's single-link check.
+		{"hard-link-to-the-state", func(marker, state string) { os.Link(state, marker) }, "exactly one filesystem link"},
+		{"empty-after-host-crash", func(marker, _ string) { os.WriteFile(marker, nil, 0600) }, ""},
+		{"zero-filled-after-host-crash", func(marker, _ string) { os.WriteFile(marker, make([]byte, 37), 0600) }, ""},
+		{"another-boot", func(marker, _ string) { os.WriteFile(marker, []byte("earlier-boot\n"), 0600) }, ""},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			_, key, state := filePV(t)
-			c.setup(inflightPath(state))
+			c.setup(inflightPath(state), state)
+			before := readFile(t, state)
 			signer, release, err := openSigningState(chain, key, state, domainsLogOf(state))
-			if c.refuse {
-				if !errors.Is(err, errSigningStateUnsafe) || !strings.Contains(err.Error(), "inflight marker") {
+			if c.refuse != "" {
+				if !errors.Is(err, errSigningStateUnsafe) || !strings.Contains(err.Error(), c.refuse) {
 					t.Fatalf("restart accepted the marker: %v", err)
+				}
+				if !bytes.Equal(before, readFile(t, state)) {
+					t.Fatal("refusal changed the HRS")
 				}
 				return
 			}
@@ -263,11 +274,17 @@ func TestInflightMarkerRefusesOnlyTheSameBoot(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer release()
+			if _, err := os.Lstat(inflightPath(state)); !os.IsNotExist(err) {
+				t.Fatalf("startup kept the stale marker: %v", err)
+			}
+			if !bytes.Equal(before, readFile(t, state)) {
+				t.Fatal("removing the stale marker changed the HRS")
+			}
 			if signature, err := signFamily(signer, familyRequest("prevote", false)); err != nil || len(signature) != 65 {
 				t.Fatalf("stale marker blocked signing: %v", err)
 			}
 			if _, err := os.Lstat(inflightPath(state)); !os.IsNotExist(err) {
-				t.Fatalf("signing left the stale marker: %v", err)
+				t.Fatalf("signing left its marker: %v", err)
 			}
 		})
 	}
@@ -281,7 +298,7 @@ func TestInflightMarkerRefusesOnlyTheSameBoot(t *testing.T) {
 		if signature, err := signFamily(signer, familyRequest("prevote", false)); !errors.Is(err, errSigningStateUnsafe) || len(signature) != 0 {
 			t.Fatalf("unmarked synchronization released a signature: %v", err)
 		}
-		if record := readFence(t, state); !strings.Contains(record.Error, "inflight marker") {
+		if record := readFence(t, state); !strings.Contains(record.Error, "inflight marker") || !strings.Contains(record.Error, "exists") {
 			t.Fatalf("fence %+v", record)
 		}
 		if err := signer.signDurably(func() error { t.Error("stock signing ran after the latch"); return nil }); !errors.Is(err, errSigningStateUnsafe) {

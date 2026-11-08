@@ -137,7 +137,7 @@ reset:
 | HRS ambiguous                             | a hard-linked state, a state that resolves to another chain's file, unknown or duplicate fields    |
 | HRS unauthentic                           | a signed state without a valid signature by the registered key over this chain ID                  |
 | Retained fence                            | `<state>.uncertain` exists                                                                         |
-| Died while synchronizing, same boot       | `<state>.inflight` names this kernel boot, or is not a small regular file                          |
+| Died while synchronizing, same boot       | `<state>.inflight` holds this kernel boot's ID, or is not a regular file of at most 128 bytes      |
 | Retained signer-unsafe marker             | `<chain_id>.signer-unsafe` exists beside the domains log (see Supervisor restarts and latches)     |
 | Persistence failure while serving         | a state or directory fsync fails; the signer writes the fence, then exits 3                        |
 
@@ -251,7 +251,7 @@ never restarted (SYNC-9-14):
 
 | Signer exit                                                                   | Fence   | Supervisor action                                                                                                                                                                                                                                                                          |
 | ----------------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 3                                                                             | any     | Latch "signer refused unsafe signing state; inspect its stderr, `<state>.uncertain` and the domains log", and create the signer-unsafe record and marker                                                                                                                                   |
+| 3                                                                             | any     | Latch "signer refused unsafe signing state; inspect its stderr, `<state>.uncertain`, `<state>.inflight` and the domains log", and create the signer-unsafe record and marker                                                                                                               |
 | any                                                                           | present | The same latch, record and marker                                                                                                                                                                                                                                                          |
 | still running 5 s after the supervisor's SIGTERM, so SIGKILLed                | any     | Before the SIGKILL, log `etna_supervisor_signer_killed` and create the signer-unsafe record and marker; then latch "signer did not stop within 5s of SIGTERM and was killed; …". It may be blocked on a failing state volume after a failed fsync and before its fence                     |
 | 0, 1, 2 or a signal, while the supervisor is not stopping it                  | absent  | Record the exit; the fifth within 600 s latches "signer exited 5 times within 600s; inspect diagnostics". Otherwise reap Comet, start a fresh signer with `--await-trust` on the same state path and a fresh transport, and start Comet once the signer's new session is Ready (SYNC-9-12) |
@@ -317,11 +317,16 @@ is reported once, so on the same boot a restarted signer's fsync can succeed ove
 never reached disk, and the HRS rolls back after a host crash or a page eviction (SYNC-9-13).
 So every state synchronization runs under `<state>.inflight`, which names the kernel boot
 (`/proc/sys/kernel/random/boot_id`) and is removed once both fsyncs succeed. It costs no fsync.
-A restart on the same boot that finds it exits 3, and the supervisor latches. A marker from an
-earlier boot is ignored: the reboot dropped the page cache, and the disk holds the last durable
-HRS. A signer killed while synchronizing therefore needs an operator unless the host reboots;
-one killed between signatures restarts on its own. Remove a same-boot `<state>.inflight` only
-under the evidence rules above: no I/O error in the kernel log or the signer's stderr.
+A restart on the same boot that finds this boot's ID in it exits 3, and the supervisor latches.
+On that boot the page cache holds exactly what the signer wrote, so any other content is not
+evidence: an earlier boot's ID, or the empty or zero-filled file a host crash leaves when the
+directory fsync committed the name before the data. Startup removes such a marker and serves:
+the reboot dropped the page cache, and the disk holds the last durable HRS. A signer killed
+while synchronizing therefore needs an operator unless the host reboots; one killed between
+signatures restarts on its own. Remove a same-boot `<state>.inflight` only under the evidence
+rules above: no I/O error in the kernel log or the signer's stderr. Run the signer on the host
+kernel (runc): a sandboxed runtime such as gVisor or Kata has its own boot ID while the host
+may keep the page cache, so the marker could not tell a restarted sandbox from a reboot.
 
 ### Failover
 
@@ -384,8 +389,8 @@ Every existing fence inode fails startup with exit 3, including malformed, unrea
 aliased evidence. Both signer and supervisor refuse to rearm it across app or container
 restarts. After stopping all owners, inspect and preserve the fence, the HRS, the domains log
 and the supervisor and app first-cause evidence, and check the disk. Only an explicit operator
-repair after that inspection may remove the fence and resolve the supervisor halt and its
-signer-unsafe record and marker. Never restore an older HRS, reset signed bytes, or edit the log
+repair after that inspection may remove the fence, a same-boot `<state>.inflight` beside it,
+and resolve the supervisor halt and its signer-unsafe record and marker. Never restore an older HRS, reset signed bytes, or edit the log
 to resume the identity.
 
 ## Governance recovery

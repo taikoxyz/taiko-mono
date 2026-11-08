@@ -110,6 +110,12 @@ older stores are refused, never migrated (START-10-24).
   restart, and the supervisor latches (RECOV-8.2-3).
 - Restart Comet over its stale signer socket without CAP_FOWNER: every signer and Comet start
   meets at a fresh `<comet-home>/run/signer-<16 hex>.sock`.
+- Start Comet together with a restarted signer while the app has not run InitChain, which only
+  Comet can trigger, instead of waiting forever for trust.
+- Recovery InitChain also requires the EL to serve the origin's state and waits with trust
+  closed while it is missing, instead of reporting Ready and halting on the first block.
+- Halt when the own L1's registry proof fails under its own state root during switch-witness
+  discovery (SYNC-9-7); a peer's failing proof still only rejects its proposal.
 - Delete committed Comet block IDs below the committed anchor's checkpoint, which trust never
   reads, so the app directory stays within `unsettled_limit + 1` of them instead of growing one
   file per height until the volume runs out of inodes; trust re-acquires a checkpoint below it.

@@ -62,8 +62,8 @@ SIGNER_CRASH_LIMIT = 5
 SIGNER_CRASH_WINDOW = 600.0
 # Seconds a signer has to exit after SIGTERM before stop() kills it.
 SIGNER_STOP_GRACE = 5
-SIGNER_UNSAFE_LATCH = ("signer refused unsafe signing state; inspect its stderr, `<state>.uncertain` "
-                       "and the domains log")
+SIGNER_UNSAFE_LATCH = ("signer refused unsafe signing state; inspect its stderr, `<state>.uncertain`, "
+                       "`<state>.inflight` and the domains log")
 # The durable record, beside and independent of the first-cause latch, that the signer's state
 # may be uncertain: a signer the supervisor kills (written before the SIGKILL), an unsafe exit, or
 # a fence. run(), start() and tick refuse while it exists; only an operator repair removes it.
@@ -660,7 +660,7 @@ class Supervisor:
             print("etna_supervisor_recovered_after_refusal", flush=True)
             return
         target, head = status.get("target"), status.get("committed_head")
-        uninitialized = status.get("chain_id") is None
+        uninitialized = "chain_id" in status and status["chain_id"] is None
         if uninitialized or (
                 status.get("phase") == "catching_up" and isinstance(target, dict) and isinstance(head, dict)
                 and isinstance(target.get("height"), int) and isinstance(head.get("height"), int)
