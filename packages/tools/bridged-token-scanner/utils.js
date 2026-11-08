@@ -1,6 +1,5 @@
 // utils.js
 import { promises as fs } from "fs";
-import { JsonRpcProvider } from "ethers";
 
 /**
  * Finds the deployment block of a contract by checking when its code became non-empty.
@@ -69,8 +68,8 @@ export async function saveCSV(filename, rows, headers) {
     const lines = rows.map(row => {
       return headers.map(field => {
         let value = row[field];
-        // If the value contains a comma or newline, wrap it in quotes (basic CSV escaping)
-        if (typeof value === 'string' && (value.includes(',') || value.includes('\n'))) {
+        // Quote fields containing CSV delimiters, line breaks or quotes
+        if (typeof value === 'string' && /[",\r\n]/.test(value)) {
           value = `"${value.replace(/"/g, '""')}"`;  // also double-up any quotes inside
         }
         return value !== undefined ? value : '';
