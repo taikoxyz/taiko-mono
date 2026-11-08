@@ -46,6 +46,7 @@ pub use keys::{NodeKey, ValidatorKey, node_keys, validator_keys};
 pub use l1::{anvil_request, block_number, finalized_number, mine_l1_blocks, set_interval_mining};
 pub use l2::{DEV_KEY, anchor_of, dev_signer, extra_data_of, send_transfer, sign_transfer};
 pub use planter::{InboxValues, NextBlock, PlantedEntry, Planter, registry_entry};
+pub use signer::supervisor_command;
 pub use wait::{Fatal, wait_until};
 
 /// Explicitly unavailable EL for tests that must never require execution evidence.

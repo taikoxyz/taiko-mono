@@ -1,13 +1,23 @@
-//! Complete native recovery controller and roles inside one disposable Linux runtime.
-use super::{Commands, package, process::Process, write_private};
+//! The recovery commands and the restarted roles inside one disposable Linux runtime, with stock
+//! Comet as the packaged Comet UID.
+use super::{Commands, RecoveredNode, package, process::Process};
 use crate::contracts_support::ContractFixture;
 use anyhow::{Context, Result, ensure};
-use serde_json::{Value, json};
-use std::{fs, path::Path, process::Command};
+use serde_json::Value;
+use std::{path::Path, process::Command};
 use test_harness::ContractConsensus;
+
+/// The new generation's stores inside the runtime.
+const HOME: &str = "/comet-homes/g1";
+const APP: &str = "/fixture/app-g1";
+const PLAN: &str = "/fixture/plan-g1.json";
 
 pub struct LinuxRuntime {
     name: String,
+    l1: String,
+    l2: String,
+    l2_auth: String,
+    rpc: u16,
 }
 impl LinuxRuntime {
     pub fn start(f: &ContractFixture, c: &ContractConsensus, commands: &Commands) -> Result<Self> {
@@ -15,8 +25,14 @@ impl LinuxRuntime {
             .context("tests/entrypoint.sh must build ETNA_RECOVERY_IMAGE")?;
         let name =
             format!("recovery-{}", commands.dir.path().file_name().unwrap().to_string_lossy());
-        let this = Self { name };
         let rpc = c.cmt.url().port().context("Comet port")?;
+        let this = Self {
+            name,
+            l1: format!("http://{}:8545", f.anvil.docker_container()),
+            l2: format!("http://{}:8545", f.l2.docker_container()),
+            l2_auth: format!("http://{}:8551", f.l2.docker_container()),
+            rpc,
+        };
         let label =
             format!("taiko-client-rs.test-run={}", std::env::var("TAIKO_CLIENT_RS_TEST_RUN")?);
         this.docker(&[
@@ -61,41 +77,6 @@ impl LinuxRuntime {
         // Only the original transport template changes, before prepare; no persisted app,
         // Comet store, signing state or contract slot is edited.
         this.exec(&["python3", "-c", "from pathlib import Path; p=Path('/fixture/original-comet/config/config.toml'); p.write_text(p.read_text().replace('tcp://127.0.0.1:', 'tcp://0.0.0.0:')); p=Path('/fixture/original-comet/config/node_key.json'); p.chmod(0o600)"])?;
-        let mut profile: toml::Table = toml::from_str(&fs::read_to_string(&commands.profile)?)?;
-        for (key, value) in [
-            ("l1_http", format!("http://{}:8545", f.anvil.docker_container())),
-            ("l2_http", format!("http://{}:8545", f.l2.docker_container())),
-            ("l2_auth", format!("http://{}:8551", f.l2.docker_container())),
-            ("chain_config", "/fixture/chain.toml".into()),
-            ("jwt_secret", "/fixture/jwt.hex".into()),
-            ("app_data_dir", "/fixture/original-app".into()),
-            ("comet_home", "/fixture/original-comet".into()),
-            ("installation_parent", "/comet-homes".into()),
-        ] {
-            profile.insert(key.into(), toml::Value::String(value));
-        }
-        let executable = |program: &str, argv: &[&str], env: Value| -> Result<toml::Value> {
-            Ok(toml::Value::try_from(json!({"program": program, "argv":argv, "env":env}))?)
-        };
-        profile.insert("app".into(), executable("/app/taiko-client", &["abci"], json!({}))?);
-        profile.insert(
-            "comet".into(),
-            executable(
-                "/usr/bin/cometbft",
-                &["start"],
-                json!({"ETNA_COMET_UID":"10001", "ETNA_COMET_GID":"10001"}),
-            )?,
-        );
-        profile.insert("inspector".into(), executable("/app/etna-comet-inspect", &[], json!({}))?);
-        profile.insert("signer".into(), toml::Value::try_from(json!({
-            "key":"/fixture/signer/key.json", "state":"/fixture/signer/state.json", "authority":"/fixture/signer/authority",
-            "executable":{"program":"/app/etna-signer","argv":[],"env":{}},
-            "supervisor":{"program":"/usr/bin/python3","argv":["/app/script/etna_validator.py"],"env":{}}
-        }))?);
-        profile.insert("lander".into(), toml::Value::try_from(json!({"data_dir":"/fixture/lander", "executable":{"program":"/app/taiko-client", "argv":Commands::lander_prefix(Path::new("/fixture/account.hex")), "env":{}}}))?);
-        let input = commands.dir.path().join("linux-profile.toml");
-        write_private(&input, toml::to_string(&profile)?)?;
-        this.copy(&input, "/fixture/profile.toml")?;
         this.exec(&["mkdir", "-m", "700", "/fixture/lander"])?;
         Ok(this)
     }
@@ -126,53 +107,142 @@ impl LinuxRuntime {
         ])?;
         Ok(alloy_primitives::hex::decode(encoded.trim())?)
     }
-    pub async fn prepare(&self, commands: &Commands) -> Result<String> {
+    /// The in-container node's own endpoint flags, spelled as for `abci`.
+    fn endpoints(&self) -> Vec<String> {
+        [
+            "--l1.http",
+            &self.l1,
+            "--l2.http",
+            &self.l2,
+            "--l2.auth",
+            &self.l2_auth,
+            "--jwt.secret",
+            "/fixture/jwt.hex",
+            "--chain-config",
+            "/fixture/chain.toml",
+        ]
+        .map(String::from)
+        .to_vec()
+    }
+    /// One-shot `abci-recover` inside the runtime.
+    async fn recover(&self, commands: &Commands, args: Vec<String>, log: &str) -> Result<String> {
+        Process::in_container(
+            &self.name,
+            "/app/taiko-client",
+            &args,
+            &[],
+            commands.dir.path().join(format!("{log}.log")),
+        )?
+        .completed()
+        .await
+    }
+    /// `prepare` and `install` inside the runtime, then hand the home to the Comet UID as the
+    /// packaged runbook does.
+    pub async fn prepare_and_install(&self, commands: &Commands) -> Result<()> {
+        let mut args = vec!["abci-recover".to_string(), "prepare".into()];
+        args.extend(self.endpoints());
+        args.extend(["--generation", "1", "--out", PLAN].map(String::from));
+        self.recover(commands, args, "linux-prepare").await?;
         let args = [
             "abci-recover",
-            "prepare",
-            "--profile",
-            "/fixture/profile.toml",
-            "--root",
-            "/fixture/recovery",
-            "--generation",
-            "1",
-            "--json",
-        ]
-        .map(String::from);
-        let mut process = Process::in_container(
-            &self.name,
-            &args,
-            commands.dir.path().join("linux-prepare.log"),
-        )?;
-        let output = process.completed().await?;
+            "install",
+            "--plan",
+            PLAN,
+            "--comet-config",
+            "/fixture/original-comet/config/config.toml",
+            "--node-key",
+            "/fixture/original-comet/config/node_key.json",
+            "--home",
+            HOME,
+            "--app-dir",
+            APP,
+        ];
+        self.recover(commands, args.map(String::from).to_vec(), "linux-install").await?;
+        let args = ["abci-recover", "status", "--plan", PLAN, "--home", HOME, "--json"];
+        let output =
+            self.recover(commands, args.map(String::from).to_vec(), "linux-status").await?;
         let report: Value = output
             .lines()
             .rev()
             .find_map(|line| serde_json::from_str(line).ok())
-            .context("Linux prepare report")?;
-        Ok(report["plan_id"].as_str().context("Linux plan")?.into())
+            .context("Linux status report")?;
+        ensure!(
+            report["installed"] == true && report["origin_height"] == commands.origin,
+            "{report}"
+        );
+        self.exec(&["chown", "-R", "10001:10001", HOME])?;
+        Ok(())
     }
-    pub fn activate(&self, commands: &Commands, plan: &str) -> Result<Process> {
-        Process::in_container(
-            &self.name,
-            &[
-                "abci-recover",
-                "activate",
-                "--profile",
-                "/fixture/profile.toml",
-                "--root",
-                "/fixture/recovery",
-                "--plan",
-                plan,
-            ]
-            .map(String::from),
-            commands.dir.path().join("linux-activate.log"),
+    /// The operator's restart inside the runtime (START-10-6): app, supervisor, lander.
+    pub async fn start_recovered(
+        &self,
+        f: &ContractFixture,
+        commands: &Commands,
+    ) -> Result<RecoveredNode> {
+        let log = |role: &str| commands.dir.path().join(format!("linux-{role}.log"));
+        let config: toml::Table =
+            toml::from_str(&String::from_utf8(self.read(&format!("{HOME}/config/config.toml"))?)?)?;
+        let proxy = config["proxy_app"].as_str().context("installed proxy_app")?.to_owned();
+        let mut args = vec!["abci".to_string(), "--data-dir".into(), APP.into()];
+        args.extend(self.endpoints());
+        args.extend([
+            "--abci.addr".into(),
+            proxy.clone(),
+            "--fee-recipient".into(),
+            f.params.fee_recipient.to_string(),
+        ]);
+        let mut app =
+            Process::in_container(&self.name, "/app/taiko-client", &args, &[], log("app"))?;
+        let port = proxy.rsplit(':').next().context("proxy port")?.to_owned();
+        tokio::time::timeout(std::time::Duration::from_secs(150), async {
+            loop {
+                app.running()?;
+                let probe =
+                    format!("import socket; socket.create_connection(('127.0.0.1', {port}), 1)");
+                if self.exec(&["python3", "-c", &probe]).is_ok() {
+                    return Ok::<_, anyhow::Error>(());
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+            }
+        })
+        .await
+        .context("recovered app never listened")??;
+        let genesis: abci::GenesisDoc =
+            serde_json::from_slice(&self.read(&format!("{HOME}/config/genesis.json"))?)?;
+        // The supervisor's environment from the one harness definition; the image supplies
+        // ETNA_SIGNER_BIN and the Comet UID.
+        let env: Vec<(String, String)> = test_harness::supervisor_command(
+            Path::new(HOME),
+            Path::new(APP),
+            Path::new("/fixture/signer"),
+            &genesis.chain_id,
+            Some((&f.params, 1)),
         )
+        .get_envs()
+        .filter_map(|(key, value)| Some((key.to_str()?.to_owned(), value?.to_str()?.to_owned())))
+        .collect();
+        let supervisor = Process::in_container(
+            &self.name,
+            "/usr/bin/python3",
+            &["/app/script/etna_validator.py".into()],
+            &env,
+            log("supervisor"),
+        )?;
+        let mut args = Commands::lander_prefix(Path::new("/fixture/account.hex"));
+        args.extend(self.endpoints());
+        args.extend([
+            "--comet.http".into(),
+            format!("http://127.0.0.1:{}", self.rpc),
+            "--data-dir".into(),
+            "/fixture/lander".into(),
+        ]);
+        let lander =
+            Process::in_container(&self.name, "/app/taiko-client", &args, &[], log("lander"))?;
+        Ok(RecoveredNode::new(app, supervisor, Some(lander)))
     }
     pub fn assert_uid_boundary(&self) -> Result<()> {
-        self.exec(&["python3", "-c", r#"import json,os
-active=json.load(open('/fixture/recovery/active.json')); home=active['installation']['home']
-assert active['installation']['uid']==10001
+        self.exec(&["python3", "-c", r#"import os
+home='/comet-homes/g1'
 assert os.stat(home).st_uid==10001
 # Check actual stock Comet process identity, including its supplementary groups.
 found=[]
@@ -185,57 +255,13 @@ for pid in os.listdir('/proc'):
 assert len(found)==1, found
 assert 'Uid:\t10001\t10001\t10001\t10001' in found[0], found
 os.setgroups([]); os.setgid(10001); os.setuid(10001)
+import json
 json.load(open(home+'/config/node_key.json'))
-for path in ['/fixture/signer/key.json','/fixture/signer/state.json','/fixture/recovery']:
+for path in ['/fixture/signer/key.json','/fixture/signer/state.json','/fixture/app-g1']:
  try: open(path,'rb').read(); raise AssertionError('Comet could read '+path)
  except PermissionError: pass
 "#])?;
         Ok(())
-    }
-
-    pub fn crash_and_quiesce(&self, plan: &str) -> Result<()> {
-        self.exec(&["python3", "-c", r#"import os,signal,select,subprocess,sys
-parent=int(open('/fixture/linux-activate.pid').read())
-assert b'abci-recover\0activate' in open('/proc/'+str(parent)+'/cmdline','rb').read()
-records={}
-for pid in os.listdir('/proc'):
- if pid.isdigit():
-  try:
-   stat=open('/proc/'+pid+'/stat').read(); ppid=int(stat.rsplit(')',1)[1].split()[1])
-   records[int(pid)]=(ppid,open('/proc/'+pid+'/cmdline','rb').read())
-  except (FileNotFoundError,ProcessLookupError): pass
-owned={parent}
-while True:
- children={pid for pid,(ppid,_) in records.items() if ppid in owned}
- if children<=owned: break
- owned|=children
-# Retain kernel process handles before killing anything; never signal a reusable PID.
-fds={pid:os.pidfd_open(pid) for pid in owned}
-signal.pidfd_send_signal(fds[parent],signal.SIGKILL)
-assert select.select([fds[parent]],[],[],10)[0]
-busy=subprocess.run(['/app/taiko-client','abci-recover','activate','--profile','/fixture/profile.toml','--root','/fixture/recovery','--plan',sys.argv[1]],capture_output=True,timeout=20)
-assert busy.returncode and b'busy' in busy.stderr, busy.stderr
-def stop(pid):
- fd=fds[pid]
- if not select.select([fd],[],[],0)[0]: signal.pidfd_send_signal(fd,signal.SIGTERM)
- assert select.select([fd],[],[],20)[0], records[pid]
-# Lander first, then supervisor's real ordered Comet/signer shutdown, app last.
-for tag in [b'lander\0',b'etna_validator.py',b'abci\0']:
- for pid in owned-{parent}:
-  if tag in records[pid][1]: stop(pid)
-for pid in owned: assert select.select([fds[pid]],[],[],20)[0], records[pid]
-for fd in fds.values(): os.close(fd)
-"#, plan])?;
-        Ok(())
-    }
-
-    pub fn signed_height(&self) -> Result<u64> {
-        let manifest: Value =
-            serde_json::from_slice(&self.read("/fixture/signer/authority/manifest.json")?)?;
-        let path =
-            manifest["domains"].as_array().unwrap().last().unwrap()["state"].as_str().unwrap();
-        let state: Value = serde_json::from_slice(&self.read(path)?)?;
-        Ok(state["height"].as_str().context("signed native HRS")?.parse()?)
     }
 }
 impl Drop for LinuxRuntime {

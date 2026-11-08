@@ -1,5 +1,5 @@
 //! Delayed recovered full node with an independent EL imported through the normal Engine API.
-use super::{Commands, process::Process, write_private};
+use super::{Commands, Liveness, write_private};
 use crate::contracts_support::ContractFixture;
 use abci::{Engine, PayloadVerdict, envelope::ExecutionBlock};
 use anyhow::{Context, Result};
@@ -25,14 +25,12 @@ pub async fn join_after_landing(
         let hash = block.header.hash_slow();
         assert_eq!(engine.forkchoice(hash, hash, hash).await?, PayloadVerdict::Valid);
     }
-    let commands = Commands::new(f, c)?;
-    let home = commands.dir.path().join("full-node-template");
-    fs::create_dir_all(home.join("config"))?;
-    let app = commands.dir.path().join("original-full-node-app");
-    fs::create_dir(&app)?;
-    fs::copy(c.comet_home(0).join("config/genesis.json"), home.join("config/genesis.json"))?;
+    let mut commands = Commands::new(f, c)?;
+    // The full node's own stock template: no signer, the validator as its persistent peer.
+    let template = commands.dir.path().join("full-node-template");
+    fs::create_dir_all(template.join("config"))?;
     write_private(
-        &home.join("config/node_key.json"),
+        &template.join("config/node_key.json"),
         serde_json::to_vec(&test_harness::node_keys(2)[1].node_key_json())?,
     )?;
     let mut config: toml::Table =
@@ -46,13 +44,6 @@ pub async fn join_after_landing(
         .as_table_mut()
         .unwrap()
         .insert("laddr".into(), format!("tcp://127.0.0.1:{rpc}").into());
-    config
-        .get_mut("p2p")
-        .unwrap()
-        .as_table_mut()
-        .unwrap()
-        .insert("laddr".into(), format!("tcp://127.0.0.1:{}", port()?).into());
-    fs::write(home.join("config/config.toml"), toml::to_string(&config)?)?;
     let status = c.cmt.call("status", &[]).await?;
     let peer = format!(
         "{}@{}",
@@ -62,24 +53,25 @@ pub async fn join_after_landing(
             .context("validator P2P address")?
             .trim_start_matches("tcp://")
     );
-    let mut profile: toml::Table = toml::from_str(&fs::read_to_string(&commands.profile)?)?;
-    profile.remove("signer");
-    profile.remove("lander");
-    profile.insert("role".into(), "full-node".into());
-    profile.insert("app_data_dir".into(), app.to_string_lossy().to_string().into());
-    profile.insert("comet_home".into(), home.to_string_lossy().to_string().into());
-    profile.insert("l2_http".into(), el.http.to_string().into());
-    profile.insert("l2_auth".into(), el.auth.to_string().into());
-    profile.insert("peers".into(), vec![peer].into());
-    write_private(&commands.profile, toml::to_string(&profile)?)?;
-    let plan = commands.prepare_command(1).await?;
-    let mut process: Process = commands.activate_command(&plan, "delayed-full-node")?;
-    let comet = CmtClient::new(format!("http://127.0.0.1:{rpc}").parse()?);
+    let p2p = config.get_mut("p2p").unwrap().as_table_mut().unwrap();
+    p2p.insert("laddr".into(), format!("tcp://127.0.0.1:{}", port()?).into());
+    p2p.insert("persistent_peers".into(), peer.into());
+    fs::write(template.join("config/config.toml"), toml::to_string(&config)?)?;
+    commands.old_home = template.canonicalize()?;
+    commands.signer = None;
+    commands.lander = false;
+    commands.l2_http = el.http.clone();
+    commands.l2_auth = el.auth.clone();
     let result = async {
-        super::wait_committed(&comet, 13, &mut process).await?;
+        // prepare reads the EL state at c from this node's own EL (SYNC-9-16).
+        let plan = commands.prepare_command(1).await?;
+        let installed = commands.install_command(&plan, "delayed-full-node").await?;
+        let mut node = commands.start_recovered(&installed, 1, "delayed-full-node").await?;
+        let comet = CmtClient::new(format!("http://127.0.0.1:{rpc}").parse()?);
+        super::wait_committed(&comet, 13, &mut node).await?;
         let status = tokio::time::timeout(std::time::Duration::from_secs(90), async {
             loop {
-                process.running()?;
+                node.running()?;
                 if let Ok(status) = comet.abci_status().await &&
                     status.trust_phase == abci::app::trust::TrustPhase::Ready
                 {
@@ -96,19 +88,15 @@ pub async fn join_after_landing(
         );
         assert!(status.trust_target.as_ref().unwrap().height >= 12);
         assert_eq!(status.generation, 1);
-        let active: Value = serde_json::from_slice(&fs::read(commands.root.join("active.json"))?)?;
-        let dummy = std::path::Path::new(active["installation"]["home"].as_str().unwrap())
-            .join("data/priv_validator_state.json");
+        let dummy = installed.home.join("data/priv_validator_state.json");
         let hrs: Value = serde_json::from_slice(&fs::read(dummy)?)?;
         assert_eq!(hrs["height"], "0", "unregistered local dummy never signs");
-        process.stop().await?;
-        Ok(())
+        node.stop().await
     }
     .await;
     if result.is_err() {
         commands.diagnostics();
     }
-    drop(process);
     el.stop().await?;
     result
 }

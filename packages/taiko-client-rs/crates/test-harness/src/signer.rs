@@ -33,6 +33,38 @@ pub(crate) enum CometLaunch {
     Native,
 }
 
+/// The guarded validator supervisor (`script/etna_validator.py`) for Comet `home`, the app's
+/// `app_store` and the key/HRS in `key_dir`. With `authority`, the signer runs under the
+/// authority root in `key_dir` for that deployment and generation and enrolls the legacy key and
+/// HRS (an exact retry is idempotent). The caller adds `ETNA_SIGNER_BIN` and how Comet is run.
+/// The one place the tests spell the supervisor's environment.
+pub fn supervisor_command(
+    home: &Path,
+    app_store: &Path,
+    key_dir: &Path,
+    chain_id: &str,
+    authority: Option<(&abci::ChainParams, u64)>,
+) -> Command {
+    let mut command = Command::new("python3");
+    command
+        .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../script/etna_validator.py"))
+        .env("ETNA_COMET_HOME", home)
+        .env("ETNA_APP_STORE", app_store)
+        .env("ETNA_PRIV_KEY", key_dir.join("key.json"))
+        .env("ETNA_PRIV_STATE", key_dir.join("state.json"))
+        .env("ETNA_CHAIN_ID", chain_id);
+    if let Some((deployment, generation)) = authority {
+        command
+            .env("ETNA_AUTHORITY_ROOT", key_dir.join("authority"))
+            .env("ETNA_L1_CHAIN_ID", deployment.l1_chain_id.to_string())
+            .env("ETNA_L2_CHAIN_ID", deployment.l2_chain_id.to_string())
+            .env("ETNA_INBOX", format!("{:#x}", deployment.inbox))
+            .env("ETNA_GENERATION", generation.to_string())
+            .env("ETNA_ENROLL_LEGACY", "1");
+    }
+    command
+}
+
 /// Process-owned children, shared with signal cleanup before the test runtime disappears.
 pub(crate) fn processes() -> &'static Mutex<BTreeMap<u32, Child>> {
     static CHILDREN: OnceLock<Mutex<BTreeMap<u32, Child>>> = OnceLock::new();
@@ -137,24 +169,14 @@ impl SignerNode {
         let log =
             fs::OpenOptions::new().create(true).append(true).open(self.dir.join("signer.log"))?;
         let key_dir = self.key_dir.lock().expect("signer key directory").clone();
-        let mut command = Command::new("python3");
-        command
-            .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../script/etna_validator.py"))
-            .env("ETNA_COMET_HOME", home)
-            .env("ETNA_APP_STORE", self.control.parent().expect("app store"))
-            .env("ETNA_PRIV_KEY", key_dir.join("key.json"))
-            .env("ETNA_PRIV_STATE", key_dir.join("state.json"))
-            .env("ETNA_CHAIN_ID", &self.chain_id)
-            .env("ETNA_SIGNER_BIN", &binary);
-        if let Some(deployment) = &self.deployment {
-            command
-                .env("ETNA_AUTHORITY_ROOT", key_dir.join("authority"))
-                .env("ETNA_L1_CHAIN_ID", deployment.l1_chain_id.to_string())
-                .env("ETNA_L2_CHAIN_ID", deployment.l2_chain_id.to_string())
-                .env("ETNA_INBOX", format!("{:#x}", deployment.inbox))
-                .env("ETNA_GENERATION", "0")
-                .env("ETNA_ENROLL_LEGACY", "1");
-        }
+        let mut command = supervisor_command(
+            home,
+            self.control.parent().expect("app store"),
+            &key_dir,
+            &self.chain_id,
+            self.deployment.as_ref().map(|deployment| (deployment, 0)),
+        );
+        command.env("ETNA_SIGNER_BIN", &binary);
         match launch {
             CometLaunch::Docker(container) => {
                 let docker = docker_executable()?.display().to_string();

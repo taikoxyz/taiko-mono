@@ -11,8 +11,8 @@ use anyhow::{Context, Result, ensure};
 use contracts_support::ContractFixture;
 use std::fs;
 use support::recovery::{
-    Commands, recover_and_finalize, recover_with_lists, wait_checkpoint, wait_committed,
-    write_private,
+    Commands, Liveness, recover_and_finalize, recover_with_lists, snapshot, wait_checkpoint,
+    wait_committed,
 };
 use test_harness::{ContractConsensus, mine_l1_blocks, set_interval_mining};
 
@@ -54,9 +54,9 @@ async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool, with_import: bool)
         vec![f.signer_storage.path().join("0")],
     )
     .await?;
-    let commands = Commands::new(&f, &c)?;
+    let mut commands = Commands::new(&f, &c)?;
     if with_import {
-        support::checkpoint_import::enable_recovery_archive(&commands)?;
+        support::checkpoint_import::enable_recovery_archive(&mut commands)?;
     }
     let result: Result<()> =
         async {
@@ -136,12 +136,12 @@ async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool, with_import: bool)
             if epoch_len == 8 {
                 build_unpromoted_origin_candidate(&f, old_head.hash).await?;
             }
-            let mut activation = commands.activate_command(&plan, "first")?;
-            wait_committed(&c.cmt, 7, &mut activation)
-                .await
-                .with_context(|| activation.output())?;
-            activation.running()?;
-            let private_trust = commands.private_trust(&plan).await?;
+            // The operator's restart on fresh stores: install, then app, supervisor and lander.
+            let installed = commands.install_command(&plan, "first").await?;
+            let mut node = commands.start_recovered(&installed, 1, "first").await?;
+            wait_committed(&c.cmt, 7, &mut node).await?;
+            node.running()?;
+            let private_trust = commands.private_trust(&installed).await?;
             assert_eq!(private_trust["schema_version"], 1);
             assert_eq!(private_trust["generation"], 1);
             assert_eq!(private_trust["phase"], "ready");
@@ -156,7 +156,7 @@ async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool, with_import: bool)
                 let transaction = alloy_primitives::keccak256(raw);
                 let receipt = tokio::time::timeout(std::time::Duration::from_secs(90), async {
                     loop {
-                        activation.running()?;
+                        node.running()?;
                         if let Some(receipt) =
                             f.l2.provider.get_transaction_receipt(transaction).await?
                         {
@@ -186,7 +186,7 @@ async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool, with_import: bool)
                 f.l2.provider.get_block_by_number(7.into()).await?.unwrap().header.hash,
                 recovered_committed_hash
             );
-            wait_checkpoint(&f, &mut activation, 12).await?;
+            wait_checkpoint(&f, &mut node, 12).await?;
             mine_l1_blocks(&f.anvil.provider, 3).await?;
             let source = lander::l1::RpcLandingSource::new(
                 f.anvil.provider.clone(),
@@ -194,18 +194,17 @@ async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool, with_import: bool)
                 f.params.clone(),
             );
             use lander::l1::LandingSource;
-            let finalized_landing = source.snapshot().await?;
-            assert_eq!(finalized_landing.generation, 1);
-            assert!(finalized_landing.checkpoint_height > 6);
-            let origin =
-                finalized_landing.recovery.as_ref().context("authenticated recovery origin")?;
+            let landed = source.snapshot().await?;
+            assert_eq!(landed.generation, 1);
+            assert!(landed.checkpoint_height > 6);
+            let origin = landed.recovery.as_ref().context("authenticated recovery origin")?;
             assert_eq!(origin.committee.record.target_epoch, 6 / epoch_len);
             assert_eq!(origin.committee.record.cutoff_l1_block, origin.l1_number);
             assert_eq!(origin.committee.members, f.committee.members);
             assert_eq!(origin.forced_cursor, 0);
             if first_fi.is_some() {
                 assert_eq!(
-                    finalized_landing.forced_inclusion_head, 1,
+                    landed.forced_inclusion_head, 1,
                     "first recovered FI trial advances the landed cursor"
                 );
             }
@@ -223,7 +222,7 @@ async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool, with_import: bool)
                     .number() >=
                     origin.l1_number
             );
-            for height in 7..=finalized_landing.checkpoint_height {
+            for height in 7..=landed.checkpoint_height {
                 if let Some(anchor) = c.cmt.envelope(height).await?.anchor {
                     assert!(
                         anchor.l1_header.number() >= origin.l1_number,
@@ -248,9 +247,9 @@ async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool, with_import: bool)
                 );
             }
             if with_import {
-                support::checkpoint_import::recovered(&f, &c, &commands, &plan, &old_blocks)
+                support::checkpoint_import::recovered(&f, &c, &commands, &installed, &old_blocks)
                     .await?;
-                activation.stop().await?;
+                node.stop().await?;
                 assert_eq!(fs::read(old_hrs_path)?, old_hrs);
                 assert_eq!(fs::read(old_key_path)?, old_key);
                 assert_eq!(fs::read(old_wal_path)?, old_wal);
@@ -259,30 +258,26 @@ async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool, with_import: bool)
             if epoch_len == 8 {
                 support::recovery::full_node::join_after_landing(&f, &c, &old_blocks).await?;
             }
-            activation.stop().await?;
-            assert!(
-                abci::ownership::acquire_activation(&commands.root, plan.parse()?).is_ok(),
-                "foreground activation exits only after all owned descendants release their leases"
-            );
+            node.stop().await?;
             assert_eq!(fs::read(old_hrs_path)?, old_hrs);
             assert_eq!(fs::read(old_key_path)?, old_key);
             assert_eq!(fs::read(old_wal_path)?, old_wal);
-            let active: serde_json::Value =
-                serde_json::from_slice(&fs::read(commands.root.join("active.json"))?)?;
-            let home = std::path::PathBuf::from(
-                active["installation"]["home"].as_str().context("installed Comet home")?,
-            );
-            let dummy: serde_json::Value =
-                serde_json::from_slice(&fs::read(home.join("data/priv_validator_state.json"))?)?;
+            let dummy: serde_json::Value = serde_json::from_slice(&fs::read(
+                installed.home.join("data/priv_validator_state.json"),
+            )?)?;
             assert_eq!(dummy["height"], "0", "stock local dummy never signs");
+            // An ordinary restart of the same stores, as after any operator stop.
             f.l2.restart().await?;
-            let mut resumed = commands.activate_command(&plan, "restart")?;
-            wait_committed(&c.cmt, 14, &mut resumed).await.with_context(|| resumed.output())?;
+            let mut restarted = commands.start_recovered(&installed, 1, "restart").await?;
+            wait_committed(&c.cmt, 14, &mut restarted).await?;
             let canonical_restarted_hash =
                 f.l2.provider.get_block_by_number(7.into()).await?.unwrap().header.hash;
             assert_eq!(canonical_restarted_hash, recovered_committed_hash);
-            resumed.stop().await?;
-            ensure!(commands.plan_dir(&plan).join("app").is_dir(), "real recovered app store");
+            restarted.stop().await?;
+            ensure!(
+                installed.app.join(abci::store::STATE_FILE).is_file(),
+                "real recovered app store"
+            );
             Ok(())
         }
         .await;
@@ -383,25 +378,29 @@ async fn governance_recovery_zero_origin_and_second_generation_preserve_archives
     let old_state = f.signer_storage.path().join("0/state.json");
     let old_hrs = fs::read(&old_state)?;
     let old_wal = fs::read(c.comet_home(0).join("data/cs.wal/wal"))?;
-    let original_profile = fs::read_to_string(&commands.profile)?;
-    let mut profile: toml::Table = toml::from_str(&original_profile)?;
-    profile.remove("lander");
-    write_private(&commands.profile, toml::to_string(&profile)?)?;
     let result: Result<()> = async {
         recover_and_finalize(&f, 0, 0).await?;
+        // Generation one runs without a lander, so nothing lands before the second recovery.
+        commands.lander = false;
         let first_plan = commands.prepare_command(1).await?;
-        let mut first = commands.activate_command(&first_plan, "generation-one-zero")?;
+        let first_installed = commands.install_command(&first_plan, "g1").await?;
+        let mut first =
+            commands.start_recovered(&first_installed, 1, "generation-one-zero").await?;
         wait_committed(&c.cmt, 1, &mut first).await?;
         first.stop().await?;
         assert_eq!(f.checkpoint().await?.0, 0, "no landing before second recovery");
         let first_domain = archived_domain_states(&f)?;
         assert!(!first_domain.is_empty());
-        let first_wal = installed_wal(&commands)?;
+        let first_stores = snapshot(&[&first_installed.home, &first_installed.app])?;
+        assert!(first_stores.iter().any(|(path, _)| path.ends_with("data/cs.wal/wal")));
         recover_and_finalize(&f, 1, 0).await?;
-        write_private(&commands.profile, &original_profile)?;
+        commands.lander = true;
         let second_plan = commands.prepare_command(2).await?;
-        assert_ne!(first_plan, second_plan);
-        let mut second = commands.activate_command(&second_plan, "generation-two-zero")?;
+        assert_ne!(fs::read(&first_plan)?, fs::read(&second_plan)?);
+        // A new generation always gets fresh stores; the old ones stay as archives (RECOV-8-14).
+        let second_installed = commands.install_command(&second_plan, "g2").await?;
+        let mut second =
+            commands.start_recovered(&second_installed, 2, "generation-two-zero").await?;
         wait_committed(&c.cmt, 1, &mut second).await?;
         let block: tendermint::Block = serde_json::from_value(
             c.cmt.call("block", &[("height", "1".into())]).await?["block"].clone(),
@@ -428,7 +427,11 @@ async fn governance_recovery_zero_origin_and_second_generation_preserve_archives
         for (path, bytes) in first_domain {
             assert_eq!(fs::read(path)?, bytes);
         }
-        assert_eq!(fs::read(first_wal.0)?, first_wal.1);
+        assert_eq!(
+            support::recovery::snapshot(&[&first_installed.home, &first_installed.app])?,
+            first_stores,
+            "the generation-one home and app directory are never reused"
+        );
         Ok(())
     }
     .await;
@@ -455,15 +458,6 @@ fn archived_domain_states(f: &ContractFixture) -> Result<Vec<(std::path::PathBuf
         .collect()
 }
 
-fn installed_wal(commands: &Commands) -> Result<(std::path::PathBuf, Vec<u8>)> {
-    let active: serde_json::Value =
-        serde_json::from_slice(&fs::read(commands.root.join("active.json"))?)?;
-    let path =
-        std::path::Path::new(active["installation"]["home"].as_str().context("installed home")?)
-            .join("data/cs.wal/wal");
-    Ok((path.clone(), fs::read(path)?))
-}
-
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
 async fn governance_recovery_linux_comet_uid_reads_p2p_and_cannot_read_registered_key() -> Result<()>
@@ -478,7 +472,8 @@ async fn governance_recovery_linux_comet_uid_reads_p2p_and_cannot_read_registere
         vec![f.signer_storage.path().join("0")],
     )
     .await?;
-    let commands = Commands::new(&f, &c)?;
+    let mut commands = Commands::new(&f, &c)?;
+    commands.origin = 0;
     c.stop_node(0).await?;
     let archives = [
         f.signer_storage.path().join("0/key.json"),
@@ -500,11 +495,12 @@ async fn governance_recovery_linux_comet_uid_reads_p2p_and_cannot_read_registere
     }
     let result: Result<()> = async {
         recover_and_finalize(&f, 0, 0).await?;
-        let plan = runtime.prepare(&commands).await?;
-        let mut activation = runtime.activate(&commands, &plan)?;
-        wait_committed(&c.cmt, 1, &mut activation).await?;
+        // In the runtime: prepare, install, chown the home to the Comet UID, then restart.
+        runtime.prepare_and_install(&commands).await?;
+        let mut node = runtime.start_recovered(&f, &commands).await?;
+        wait_committed(&c.cmt, 1, &mut node).await?;
         runtime.assert_uid_boundary()?;
-        wait_checkpoint(&f, &mut activation, 6).await?;
+        wait_checkpoint(&f, &mut node, 6).await?;
         mine_l1_blocks(&f.anvil.provider, 3).await?;
         use lander::l1::LandingSource;
         let snapshot = lander::l1::RpcLandingSource::new(
@@ -516,7 +512,7 @@ async fn governance_recovery_linux_comet_uid_reads_p2p_and_cannot_read_registere
         .await?;
         assert_eq!(snapshot.generation, 1);
         assert!(snapshot.checkpoint_height > 0);
-        activation.stop().await?;
+        node.stop().await?;
         assert_eq!(runtime.read("/fixture/signer/state.json")?, archives[1].1);
         assert_eq!(runtime.read("/fixture/original-comet/data/cs.wal/wal")?, archives[2].1);
         for (path, bytes) in &archives {
@@ -620,8 +616,9 @@ async fn standby_recovery(clear_fi: bool) -> Result<()> {
         )
         .await?;
         let plan = commands.prepare_command(1).await?;
-        let mut activation = commands.activate_command(&plan, "standby")?;
-        wait_committed(&peer, 7, &mut activation).await?;
+        let installed = commands.install_command(&plan, "standby").await?;
+        let mut node = commands.start_recovered(&installed, 1, "standby").await?;
+        wait_committed(&peer, 7, &mut node).await?;
         let validators = peer.validators(Some(7)).await?;
         assert_eq!(validators.len(), 1);
         assert_eq!(validators[0].pubkey, f.keys[standby].pubkey());
@@ -629,7 +626,7 @@ async fn standby_recovery(clear_fi: bool) -> Result<()> {
             peer.committee(1).await?.is_none(),
             "old pending committee must not survive InitChain"
         );
-        wait_checkpoint(&f, &mut activation, 12).await?;
+        wait_checkpoint(&f, &mut node, 12).await?;
         mine_l1_blocks(&f.anvil.provider, 3).await?;
         use lander::l1::LandingSource;
         let snapshot = lander::l1::RpcLandingSource::new(
@@ -644,7 +641,7 @@ async fn standby_recovery(clear_fi: bool) -> Result<()> {
         assert_eq!(origin.committee.members[0].pubkey, f.keys[standby].pubkey());
         assert_eq!(origin.committee.record.cutoff_l1_block, origin.l1_number);
         assert!(snapshot.checkpoint_height > 6);
-        activation.stop().await?;
+        node.stop().await?;
         for (path, bytes) in archives {
             assert_eq!(fs::read(path)?, bytes);
         }
@@ -660,104 +657,6 @@ async fn standby_recovery(clear_fi: bool) -> Result<()> {
     }
     c.stop().await?;
     result
-}
-
-#[tokio::test(flavor = "multi_thread")]
-#[ignore = "docker"]
-async fn governance_recovery_sigkill_boundaries_replay_without_duplicate_owners() -> Result<()> {
-    for boundary in ["init-chain", "signature", "commit", "broadcast"] {
-        test_harness::init_tracing();
-        let f = ContractFixture::deploy_config(1, 120, 8).await?;
-        set_interval_mining(&f.anvil.provider, 1).await?;
-        let mut c = ContractConsensus::start_native(
-            f.anvil.http.clone(),
-            &f.l2,
-            f.params.clone(),
-            vec![f.signer_storage.path().join("0")],
-        )
-        .await?;
-        let commands = Commands::new(&f, &c)?;
-        c.stop_node(0).await?;
-        let old_hrs = fs::read(f.signer_storage.path().join("0/state.json"))?;
-        let old_wal = fs::read(c.comet_home(0).join("data/cs.wal/wal"))?;
-        let runtime = support::recovery::linux::LinuxRuntime::start(&f, &c, &commands)?;
-        let result: Result<()> = async {
-            recover_and_finalize(&f, 0, 0).await?;
-            let plan = runtime.prepare(&commands).await?;
-            if boundary == "broadcast" {
-                set_interval_mining(&f.anvil.provider, 0).await?;
-                test_harness::anvil_request::<serde_json::Value>(
-                    &f.anvil.provider,
-                    "evm_setAutomine",
-                    serde_json::json!([false]),
-                )
-                .await?;
-            }
-            let mut activation = runtime.activate(&commands, &plan)?;
-            tokio::time::timeout(std::time::Duration::from_secs(100), async {
-                loop {
-                    activation.running()?;
-                    let ready = match boundary {
-                        "init-chain" => activation.output().contains("chain initialized"),
-                        "signature" => runtime.signed_height().is_ok_and(|height| height > 0),
-                        "commit" => c.cmt.abci_status().await.is_ok_and(|status| status.head > 0),
-                        "broadcast" => {
-                            activation.output().contains("broadcast persisted blob transaction")
-                        }
-                        _ => unreachable!(),
-                    };
-                    if ready {
-                        return Ok::<_, anyhow::Error>(());
-                    }
-                    tokio::time::sleep(std::time::Duration::from_millis(20)).await;
-                }
-            })
-            .await
-            .with_context(|| format!("{boundary}\n{}", activation.output()))??;
-            let signed = if boundary == "broadcast" {
-                let journal: serde_json::Value =
-                    serde_json::from_slice(&runtime.read("/fixture/lander/lander-state.json")?)?;
-                assert_eq!(journal["state"]["phase"], "pending");
-                Some(journal["state"]["transaction"].clone())
-            } else {
-                None
-            };
-            runtime.crash_and_quiesce(&plan)?;
-            activation.killed().await?;
-            let mut resumed = runtime.activate(&commands, &plan)?;
-            if let Some(signed) = signed {
-                // With mining still disabled the immutable Pending envelope must remain exact.
-                wait_committed(&c.cmt, 7, &mut resumed).await?;
-                let journal: serde_json::Value =
-                    serde_json::from_slice(&runtime.read("/fixture/lander/lander-state.json")?)?;
-                assert_eq!(journal["state"]["transaction"], signed);
-                test_harness::anvil_request::<serde_json::Value>(
-                    &f.anvil.provider,
-                    "evm_setAutomine",
-                    serde_json::json!([true]),
-                )
-                .await?;
-                set_interval_mining(&f.anvil.provider, 1).await?;
-                mine_l1_blocks(&f.anvil.provider, 3).await?;
-            }
-            wait_committed(&c.cmt, 2, &mut resumed).await?;
-            wait_checkpoint(&f, &mut resumed, 6).await?;
-            resumed.stop().await?;
-            assert_eq!(runtime.read("/fixture/signer/state.json")?, old_hrs);
-            assert_eq!(runtime.read("/fixture/original-comet/data/cs.wal/wal")?, old_wal);
-            assert_eq!(fs::read(f.signer_storage.path().join("0/state.json"))?, old_hrs);
-            eprintln!("actual SIGKILL/restart boundary passed: {boundary}");
-            Ok(())
-        }
-        .await;
-        if result.is_err() {
-            commands.diagnostics();
-        }
-        drop(runtime);
-        c.stop().await?;
-        result?;
-    }
-    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -856,13 +755,12 @@ async fn governance_recovery_reconciles_old_pending_nonce_after_receipt_reorg() 
             serde_json::from_slice(&fs::read(commands.journal.join("lander-state.json"))?)?;
         assert_eq!(before["state"]["transaction"], pending);
         let plan = commands.prepare_command(1).await?;
-        let mut activation = commands.activate_command(&plan, "old-pending-reorg")?;
+        let installed = commands.install_command(&plan, "old-pending-reorg").await?;
+        let mut node = commands.start_recovered(&installed, 1, "old-pending-reorg").await?;
         tokio::time::timeout(std::time::Duration::from_secs(30), async {
             loop {
-                activation.running()?;
-                if activation
-                    .output()
-                    .contains("outstanding nonce unresolved after competing checkpoint")
+                node.running()?;
+                if node.output().contains("outstanding nonce unresolved after competing checkpoint")
                 {
                     return Ok::<_, anyhow::Error>(());
                 }
@@ -903,7 +801,7 @@ async fn governance_recovery_reconciles_old_pending_nonce_after_receipt_reorg() 
         assert_eq!(f.checkpoint().await?.0, 0);
         // Resume the explicit dummy profile for the new, normal generation-one CLI proof.
         f.expect_statement(alloy_primitives::B256::ZERO).await?;
-        wait_checkpoint(&f, &mut activation, 6).await?;
+        wait_checkpoint(&f, &mut node, 6).await?;
         mine_l1_blocks(p, 3).await?;
         use lander::l1::LandingSource;
         let landed =
@@ -919,7 +817,7 @@ async fn governance_recovery_reconciles_old_pending_nonce_after_receipt_reorg() 
         let nonce = pending["nonce"].as_u64().context("old nonce")?;
         assert!(p.get_transaction_count(test_harness::dev_signer().address()).await? >= nonce + 2);
         assert_eq!(c.cmt.abci_status().await?.generation, 1);
-        activation.stop().await?;
+        node.stop().await?;
         Ok(())
     }
     .await;

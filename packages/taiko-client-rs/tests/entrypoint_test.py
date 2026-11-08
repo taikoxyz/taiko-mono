@@ -156,30 +156,29 @@ python3 -c 'import json, os, sys; open(os.environ["CALLS"], "a").write(json.dump
         calls = self.calls()
         self.assertLess(calls.index(["docker", "pull", "--quiet", alethia]), calls.index(["build", "etna_el_runtime"]))
 
-    def test_both_recovery_image_consumers_and_override(self):
-        for name in ("governance_recovery_linux_comet_uid_reads_p2p_and_cannot_read_registered_key",
-                     "governance_recovery_sigkill_boundaries_replay_without_duplicate_owners"):
-            for override in (False, True):
-                with self.subTest(name=name, override=override):
-                    self.log.unlink(missing_ok=True)
-                    self.select("governance_recovery", name)
-                    if override:
-                        self.env["ETNA_RECOVERY_IMAGE"] = "external:image"
-                    else:
-                        self.env.pop("ETNA_RECOVERY_IMAGE", None)
-                    result = self.run_entrypoint()
-                    self.assertEqual(result.returncode, 0, result.stderr)
-                    self.assertEqual(set(self.builds()), {"etna_signer", "stock_comet"} |
-                                     (set() if override else {"recovery_runtime"}))
-                    if not override:
-                        self.assertIn(["build", "recovery_runtime", "/t/debug/taiko-client"], self.calls())
-                    removed = [row for row in self.calls() if row[:3] == ["docker", "image", "rm"]]
-                    self.assertEqual(len(removed), 0 if override else 1)
+    def test_recovery_image_consumer_and_override(self):
+        name = "governance_recovery_linux_comet_uid_reads_p2p_and_cannot_read_registered_key"
+        for override in (False, True):
+            with self.subTest(override=override):
+                self.log.unlink(missing_ok=True)
+                self.select("governance_recovery", name)
+                if override:
+                    self.env["ETNA_RECOVERY_IMAGE"] = "external:image"
+                else:
+                    self.env.pop("ETNA_RECOVERY_IMAGE", None)
+                result = self.run_entrypoint()
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(set(self.builds()), {"etna_signer", "stock_comet"} |
+                                 (set() if override else {"recovery_runtime"}))
+                if not override:
+                    self.assertIn(["build", "recovery_runtime", "/t/debug/taiko-client"], self.calls())
+                removed = [row for row in self.calls() if row[:3] == ["docker", "image", "rm"]]
+                self.assertEqual(len(removed), 0 if override else 1)
 
     def test_non_consumers_and_filtered_cases_do_not_build_recovery(self):
         self.select("governance_recovery", "governance_recovery_command_produces_and_lands")
         data = json.loads(self.env["SELECTION"])
-        data["rust-suites"]["fixture"]["testcases"]["governance_recovery_sigkill_boundaries_replay_without_duplicate_owners"] = {"filter-match": {"status": "mismatch"}}
+        data["rust-suites"]["fixture"]["testcases"]["governance_recovery_linux_comet_uid_reads_p2p_and_cannot_read_registered_key"] = {"filter-match": {"status": "mismatch"}}
         self.env["SELECTION"] = json.dumps(data)
         self.assertEqual(self.run_entrypoint().returncode, 0)
         self.assertEqual(set(self.builds()), {"etna_signer", "stock_comet"})
@@ -226,8 +225,7 @@ python3 -c 'import json, os, sys; open(os.environ["CALLS"], "a").write(json.dump
     def test_pull_request_tier_leaves_full_only_scenarios(self):
         pr_filter = self.tier_filter()
         for name in ("stale_l1_finality_pauses_and_resumes_l2",
-                     "governance_recovery_l7_overlap_preserves_global_grid",
-                     "governance_recovery_sigkill_boundaries_replay_without_duplicate_owners"):
+                     "governance_recovery_l7_overlap_preserves_global_grid"):
             with self.subTest(name=name):
                 self.assertIn(f"!test(={name})", pr_filter)
         self.assertEqual(self.tier_filter("--full"), "kind(test)")

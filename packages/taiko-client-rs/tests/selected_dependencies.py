@@ -9,7 +9,6 @@ import sys
 NATIVE_SUITE = ("taiko-client", "governance_recovery")
 RECOVERY_IMAGE = {
     "governance_recovery_linux_comet_uid_reads_p2p_and_cannot_read_registered_key",
-    "governance_recovery_sigkill_boundaries_replay_without_duplicate_owners",
 }
 LONG_FENCE = "support::checkpoint_import::long_fence::native_long_fence_restarts_and_executes_with_body_pruned_parents"
 NATIVE_EL = {

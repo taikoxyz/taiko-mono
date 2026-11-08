@@ -33,8 +33,8 @@ udeps:
 
 # The docker scenarios (`#[ignore = "docker"]`), one at a time; each boots its own
 # anvil + alethia-reth + CometBFT devnet. Needs a running docker daemon. This is the
-# pull-request tier: it leaves three slow scenarios (the L1 finality stall, the L=7 recovery
-# grid and the recovery SIGKILL boundaries) to `test-full`.
+# pull-request tier: it leaves two slow scenarios (the L1 finality stall and the L=7 recovery
+# grid) to `test-full`.
 # Extra args are forwarded to nextest (e.g. `just test restart` runs one scenario).
 test *ARGS:
   ./tests/entrypoint.sh "$@"

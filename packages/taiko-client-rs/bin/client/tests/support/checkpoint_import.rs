@@ -1,7 +1,7 @@
 //! Real CLI export and import. The published stores then run as ordinary ones: a normal EL on
 //! `ready/el`, plain `abci` on `ready/app` and stock Comet on `ready/comet` (DATA-5.4-5/6).
 use super::recovery::{
-    CLIENT, Commands, package, process::Process, wait_checkpoint, wait_committed, write_private,
+    CLIENT, Commands, Installed, package, process::Process, wait_checkpoint, wait_committed,
 };
 use crate::contracts_support::ContractFixture;
 use abci::{Engine, ExecutionBlock, PayloadVerdict, RpcEngine};
@@ -878,15 +878,11 @@ async fn fullnode_template(
 }
 
 /// Preserve real recovery grid preimages independently of the live runtime's prune floor.
-pub fn enable_recovery_archive(commands: &Commands) -> Result<()> {
+pub fn enable_recovery_archive(commands: &mut Commands) -> Result<()> {
     let archive = commands.dir.path().canonicalize()?.join("grid-archive");
     fs::create_dir(&archive)?;
-    let mut cfg: toml::Table = toml::from_str(&fs::read_to_string(&commands.profile)?)?;
-    cfg["app"]["argv"]
-        .as_array_mut()
-        .context("recovery app argv")?
-        .extend(["--checkpoint-archive-dir".into(), archive.to_string_lossy().to_string().into()]);
-    write_private(&commands.profile, toml::to_string(&cfg)?)
+    commands.archive = Some(archive);
+    Ok(())
 }
 
 /// Import a delayed generation-one full node at the fixed recovery origin (s = 6: no app state,
@@ -896,16 +892,14 @@ pub async fn recovered(
     f: &ContractFixture,
     c: &ContractConsensus,
     commands: &Commands,
-    plan: &str,
+    installed: &Installed,
     old: &[ExecutionBlock],
 ) -> Result<()> {
     let parent = commands.dir.path().canonicalize()?;
-    let active: Value = serde_json::from_slice(&fs::read(commands.root.join("active.json"))?)?;
-    let home =
-        PathBuf::from(active["installation"]["home"].as_str().context("installed recovered home")?);
+    let home = &installed.home;
     let g = home.join("config/genesis.json");
     let doc: abci::GenesisDoc = serde_json::from_slice(&fs::read(&g)?)?;
-    let bootstrap = commands.plan_dir(plan).join("app/recovery-bootstrap.json");
+    let bootstrap = installed.app.join("recovery-bootstrap.json");
     let history: abci::recovery::RecoveryBootstrap =
         serde_json::from_slice(&fs::read(&bootstrap)?)?;
     let old_anchor = history.verify(&f.params)?.anchor;
@@ -938,7 +932,7 @@ pub async fn recovered(
             recovery_bootstrap: Some(&bootstrap),
             validator_state: (s > 6).then_some(preimage.as_path()),
         };
-        let x = import_fixture(f, c, commands, &base, &blocks, &home, &c.cmt, export).await?;
+        let x = import_fixture(f, c, commands, &base, &blocks, home, &c.cmt, export).await?;
         let root = base.join("import");
         let ready = import(f, commands, &x, &root, "import").await?;
         let installed: abci::GenesisDoc =
