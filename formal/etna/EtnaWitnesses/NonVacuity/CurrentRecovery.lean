@@ -3,9 +3,10 @@ import EtnaProofs.CurrentEncoding
 import EtnaProofs.CurrentReference
 import EtnaWitnesses.NonVacuity.Current
 
-/-! H1–H4 hold of one deployment (design 4.6): one concrete environment, registry and engine
-satisfy H1–H3's fifteen `Premises` and H4's `RecoveryPremises` together, and a reachable
-initialized world in it satisfies `LiveAt`.
+/-! The premises of H1–H4 can hold of one deployment (design 4.6): one concrete environment,
+registry and engine satisfy H1–H3's fifteen `Premises` and H4's `RecoveryPremises` together,
+and a reachable initialized world in it satisfies `LiveAt`. It shows that the premises are
+jointly satisfiable, not the claims.
 
 The environment is a new network (no Unzen inbox, so the Unzen premises and `LiveAt.unzen`
 are vacuous) with one online key and a single catalogue definition:
@@ -51,9 +52,10 @@ noncomputable def parentOf (hash : Hash) : Hash :=
 
 def genesis : Header := { NonVacuity.genesisBase with elHash := Encoding.headerHash NonVacuity.genesisBase }
 
-/-- The environment without its verifier (`env` adds it, since it reads certification here).
-New network (`unzenInbox = 0`), owner 7, K = 1, epoch length 10, genesis cutoff 1, one-seat
-committee with U = 10, maxAnchorAge 1152; L1 block n has time 12n + 1000. -/
+/-- Every field but the verifier. `env` adds a verifier that reads certification under `base`,
+which avoids self-reference; certification reads no verifier, so both environments certify
+the same statements. New network (`unzenInbox = 0`), owner 7, K = 1, epoch length 10, genesis
+cutoff 1, one-seat committee with U = 10, maxAnchorAge 1152; L1 block n has time 12n + 1000. -/
 noncomputable def base : Environment where
   core := ⟨NonVacuity.domain,7,8,0,2,9⟩
   parameters := ⟨1,10,1,⟨NonVacuity.unit,NonVacuity.unit,1,10⟩,1,1152,10,1,1,9⟩
@@ -101,11 +103,12 @@ noncomputable def registered : World := transact env (empty env registry) (.regi
 noncomputable def activated : World := transact env registered (.advance 2)
 noncomputable def live : World := transact env activated (.initializeInbox 7)
 
-/-- The child of `parent` for these producer inputs: its state root carries the parent's EL
-hash, its EL hash is `headerHash`, and its Comet hash codes the rest. -/
+/-- A child's EL part: its state root carries the parent's EL hash and its EL hash is `headerHash`. -/
 def elChild (parent : Header) (cursor timestamp : Nat) (anchor : BlockValidity.Anchor) : Header :=
   let fields : Header := ⟨parent.height+1,0,Encoding.pair parent.elHash 0,0,cursor,timestamp,anchor,0⟩
   { fields with elHash := Encoding.headerHash fields }
+/-- The child of `parent` for these producer inputs: `elChild`, whose state root carries the
+parent's EL hash and whose EL hash is `headerHash`, with the Comet hash coding the rest. -/
 def child (parent : Header) (cursor timestamp : Nat) (anchor : BlockValidity.Anchor) : Header :=
   { elChild parent cursor timestamp anchor with cometHash := cometCode (elChild parent cursor timestamp anchor) }
 
@@ -308,8 +311,9 @@ private theorem live_at : Etna.Statements.Current.LiveAt env live := by
   · intro switching
     exact (switching rfl).elim
 
-/-- One deployment satisfies H1–H3's premises and H4's, with a reachable initialized world that
-satisfies `LiveAt` (design 4.6): all four claims hold of it together. -/
+/-- The premises of H1–H4 can hold of one deployment (design 4.6): one environment, registry and
+engine satisfy H1–H3's `Premises` and H4's `RecoveryPremises` together, with a reachable
+initialized world that satisfies `LiveAt`. -/
 theorem all_premises_satisfiable :
     ∃ e registry engine w, Etna.Statements.Current.Premises e registry engine ∧
       Etna.Statements.Current.RecoveryPremises e registry ∧

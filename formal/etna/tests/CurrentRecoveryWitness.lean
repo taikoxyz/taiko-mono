@@ -1,8 +1,8 @@
 import EtnaWitnesses
 
-/-! H1–H4 hold of one deployment (design 4.6): a single environment, registry and engine satisfy
-H1–H3's `Premises` and H4's `RecoveryPremises` together, with a reachable initialized world
-that satisfies `LiveAt`. -/
+/-! The premises of H1–H4 can hold of one deployment (design 4.6): a single environment,
+registry and engine satisfy H1–H3's `Premises` and H4's `RecoveryPremises` together, with a
+reachable initialized world that satisfies `LiveAt`. -/
 namespace Etna.CurrentRecoveryWitnessRegression
 open Etna.Design Etna.Design.Current Etna.Design.Current.Protocol
 
