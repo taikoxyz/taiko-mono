@@ -154,10 +154,6 @@ async fn generate(dir: &Path, s: u64, period: u64) {
     vs.height = s;
     fx.val_states.insert(s, vs.clone());
     let mut pkg = import_package(&fx, s).await;
-    let mut stock = BufWriter::new(File::create_new(dir.join("stock.json")).unwrap());
-    stock.write_all(br#"{"schema":1,"genesis":"#).unwrap();
-    serde_json::to_writer(&mut stock, &pkg.genesis).unwrap();
-    stock.write_all(br#","blocks":["#).unwrap();
     let mut frames = BufWriter::new(File::create_new(dir.join("blocks.jsonl")).unwrap());
     let keys = [SigningKey::from_slice(&[1; 32]).unwrap()];
     let validators = fx.committees[&0]
@@ -274,13 +270,8 @@ async fn generate(dir: &Path, s: u64, period: u64) {
                     .into(),
                 validators: validators.clone(),
             };
-            let bytes = serde_json::to_vec(&frame).unwrap();
-            frames.write_all(&bytes).unwrap();
+            serde_json::to_writer(&mut frames, &frame).unwrap();
             frames.write_all(b"\n").unwrap();
-            if h > w + 1 {
-                stock.write_all(b",").unwrap();
-            }
-            stock.write_all(&bytes).unwrap();
         }
         parent = ParentInfo {
             number: h,
@@ -297,10 +288,6 @@ async fn generate(dir: &Path, s: u64, period: u64) {
     vs.height = s;
     let comet = B256::from_slice(prior.block_id.hash.as_bytes());
     observe(&mut fx, a.number + 1, time(s), (s, parent.hash, comet, vs.hash()));
-    stock.write_all(br#"],"validator_state":"#).unwrap();
-    serde_json::to_writer(&mut stock, &pkg.validator_state).unwrap();
-    stock.write_all(b"}").unwrap();
-    stock.flush().unwrap();
     frames.flush().unwrap();
     write_json(&dir.join("package.json"), &pkg);
     write_json(
@@ -313,14 +300,11 @@ async fn generate(dir: &Path, s: u64, period: u64) {
     );
 }
 
-// Serialization order is the official helper manifest's durable digest contract.
+/// The EL helper's header manifest (`etna-el-import install --manifest`).
 #[derive(Serialize)]
 struct HeaderManifest<'a> {
     schema: u32,
-    installation_id: B256,
     chain_id: u64,
-    origin: u64,
-    unsettled_limit: u64,
     finalized_height: u64,
     finalized_hash: B256,
     headers: &'a [Header],
@@ -333,14 +317,25 @@ async fn verify(dir: &Path, s: u64, period: u64) {
     let w = s - if period == 4 { 100_001 } else { 172_801 };
     assert_eq!(pkg.execution_headers.len(), 1);
     assert_eq!(pkg.execution_headers[0].number, w);
+    // As `abci-import import` does, the one authentication pass writes the stock dir's frames
+    // from exactly the frames it verifies; the stock install reads only the stock dir.
+    let stock = dir.join("stock");
+    std::fs::create_dir(&stock).unwrap();
+    let mut copy = BufWriter::new(File::create_new(stock.join("blocks.jsonl")).unwrap());
     let mut count = 0;
     let frames =
         BufReader::new(File::open(dir.join("blocks.jsonl")).unwrap()).lines().map(|line| {
             count += 1;
             assert!(count <= s - w, "successor frame requested");
-            Ok(serde_json::from_str(&line.unwrap()).unwrap())
+            let frame: WindowBlock = serde_json::from_str(&line.unwrap()).unwrap();
+            serde_json::to_writer(&mut copy, &frame).unwrap();
+            copy.write_all(b"\n").unwrap();
+            Ok(frame)
         });
     let v = authenticate_import(&pkg, frames, &params, &own).await.unwrap();
+    copy.flush().unwrap();
+    std::fs::write(stock.join("genesis.json"), serde_json::to_vec(v.genesis()).unwrap()).unwrap();
+    std::fs::write(stock.join("validator-state.bin"), v.state().val_state.encode()).unwrap();
     assert_eq!(count, s - w);
     assert_eq!(v.first_height(), Some(w + 1));
     let headers = v.execution_headers();
@@ -360,21 +355,14 @@ async fn verify(dir: &Path, s: u64, period: u64) {
             .any(|(tag, n, slots)| tag == "proof" && *n == 11 && *slots == inbox::anchor_slots())
     );
     write_json(&dir.join("l1-requests.json"), &*calls);
-    let id = B256::repeat_byte(0x6f);
     let manifest = HeaderManifest {
         schema: 1,
-        installation_id: id,
         chain_id: params.l2_chain_id,
-        origin: 0,
-        unsettled_limit: U,
         finalized_height: s - U,
         finalized_hash: headers[0].hash_slow(),
         headers,
     };
-    let encoded = serde_json::to_vec(&manifest).unwrap();
-    let manifest_hash = keccak256(&encoded);
-    std::fs::write(dir.join("headers.json"), encoded).unwrap();
-    let set_hash = abci::wire::validators_hash(&v.state().committees[&0].members).unwrap();
+    write_json(&dir.join("headers.json"), &manifest);
     let parts = v.block_id().unwrap().part_set_header;
     write_json(
         &dir.join("verified.json"),
@@ -383,15 +371,10 @@ async fn verify(dir: &Path, s: u64, period: u64) {
             "last_height": s,
             "el_hash": v.landing().el_hash,
             "comet_hash": v.landing().comet_hash,
-            "val_state_hash": v.landing().val_state_hash,
-            "chain_id": pkg.genesis.chain_id,
             "part_hash": parts.hash.to_string(),
             "part_total": parts.total,
-            "set_hash": set_hash,
             "state_root": headers.last().unwrap().state_root,
             "genesis_hash": pkg.origin_header.hash_slow(),
-            "manifest_hash": manifest_hash,
-            "installation_id": id,
             "finalized_hash": headers[0].hash_slow(),
             "l1_calls": calls.len(),
             "frames": count,

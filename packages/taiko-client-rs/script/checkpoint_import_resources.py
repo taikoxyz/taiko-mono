@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Measure complete signed windows through Rust authentication and the pinned stock stores."""
+"""Measure complete signed windows through Rust authentication and the install-only helpers."""
 import hashlib
 import json
 import os
 from pathlib import Path
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -82,12 +81,9 @@ def profile(directory, executable, helper, height, period):
         measure(phase, [executable, TEST, "--exact", "--ignored", "--nocapture"],
                 directory, dict(env, ETNA_RESOURCE_PHASE=phase))
     v = json.loads((directory / "verified.json").read_text())
-    # These anchors come only from successful own-finalized-L1 Rust authentication.
-    trust = ["--trusted-el-hash", v["el_hash"], "--trusted-comet-hash", v["comet_hash"],
-             "--trusted-val-state-hash", v["val_state_hash"]]
     # The canonical devnet alloc materializes the synthetic terminal account state; no
-    # historical transaction execution or snapshot download occurs. Install only into an
-    # independently owned copy of MDBX, exactly like the real importer.
+    # historical transaction execution or snapshot download occurs. Like the real importer, one
+    # helper run copies the stopped source into an absent datadir, verifies and installs it.
     source = directory / "source"
     el = directory / "el"
     el_bin = os.environ.get("ETNA_EL_BIN", ROOT / "target/etna-signer/alethia-reth")
@@ -95,63 +91,34 @@ def profile(directory, executable, helper, height, period):
     measure("el-source", [el_bin, "init", "--datadir", source, "--chain",
                           directory / "el-genesis.json", "--db.growth-step", "128MB"], directory, env)
     source_digest = file_digest(source / "db/mdbx.dat")
-    el.mkdir(mode=0o700)
-    (el / "db").mkdir()
-    for name in ("database.version", "mdbx.dat"):
-        shutil.copyfile(source / "db" / name, el / "db" / name)
-    for phase in ("verify", "install"):
-        if phase == "install":
-            marker = el / ".etna-el-import-staging.json"
-            marker.write_text(json.dumps(dict(schema=1, installation_id=v["installation_id"],
-                                              manifest_hash=v["manifest_hash"])))
-            marker.chmod(0o600)
-        receipt = json.loads(measure("el-" + phase, [el_helper, phase, "--datadir", el,
-            "--chain", directory / "el-genesis.json", "--manifest", directory / "headers.json",
-            "--chain-id", "167001", "--trusted-el-hash", v["el_hash"],
-            "--trusted-state-root", v["state_root"], "--trusted-genesis-hash", v["genesis_hash"],
-            "--scratch-parent", directory / "spool"], directory, env))
-        assert receipt["header_count"] == 65_533 and receipt["first_header"] == v["terminal_q"]
-        assert receipt["finalized_hash"] == v["finalized_hash"] and receipt["block_hash"] == v["el_hash"]
-        assert receipt["installed"] == (phase == "install")
+    receipt = json.loads(measure("el-install", [el_helper, "install", "--source", source,
+        "--datadir", el, "--chain", directory / "el-genesis.json",
+        "--manifest", directory / "headers.json", "--chain-id", "167001",
+        "--trusted-el-hash", v["el_hash"], "--trusted-state-root", v["state_root"],
+        "--trusted-genesis-hash", v["genesis_hash"], "--scratch-parent", directory / "spool"],
+        directory, env))
+    assert receipt["header_count"] == 65_533 and receipt["first_header"] == v["terminal_q"]
+    assert receipt["finalized_hash"] == v["finalized_hash"] and receipt["block_hash"] == v["el_hash"]
+    assert receipt["height"] == height and receipt["state_root"] == v["state_root"]
     assert file_digest(source / "db/mdbx.dat") == source_digest
     print("el_installed", json.dumps(dict(whole_el_bytes=disk(el),
           static_file_bytes=disk(el / "static_files"),
           manifest_bytes=(directory / "headers.json").stat().st_size)), flush=True)
-    results = []
+    # Rust authentication wrote the stock dir from exactly the frames it verified. The install
+    # reopens the stores it wrote for its own read-back checks before it reports.
+    stock = directory / "stock"
     installed = directory / "comet"
-    for phase in ("verify", "install"):
-        command = [helper, phase, "--package", directory / "stock.json",
-                   "--spool-parent", directory / "spool", *trust]
-        if phase == "install":
-            command.extend(["--home", installed])
-        results.append(json.loads(measure("stock-" + phase, command, directory, env)))
-    r = results[0]
-    assert results[0] == results[1]
-    assert (r["first_height"], r["last_height"], r["initial_height"], r["chain_id"]) == (
-        v["first_height"], height, 1, v["chain_id"])
+    r = json.loads(measure("stock-install", [helper, "install", "--home", installed,
+                                             "--stock-dir", stock, "--app-hash", v["el_hash"]],
+                           directory, env))
+    assert (r["first_height"], r["last_height"]) == (v["first_height"], height)
     assert r["block_id"]["hash"].removeprefix("0x").lower() == v["comet_hash"][2:]
-    assert r["validators_hash"] == r["next_validators_hash"] == v["set_hash"]
     assert r["block_id"]["parts"]["total"] == v["part_total"]
-    assert r["block_id"]["parts"]["hash"][2:].lower() == v["part_hash"].lower()
-    # Reopen the actual installed database through stock export. Read the terminal fixture
-    # frame from a stream (no full export or in-memory block array).
-    pkg = json.loads((directory / "package.json").read_text())
-    preimage = directory / "preimage"
-    preimage.write_bytes(bytes.fromhex(pkg["validator_state"][2:]))
-    reopened = directory / "reopened.json"
-    measure("reopen", [helper, "export", "--home", installed, "--first-height", str(height),
-                       "--last-height", str(height), "--validator-state", preimage,
-                       "--output", reopened], directory, env)
-    with (directory / "blocks.jsonl").open("rb") as frames:
-        for line in frames:
-            last = line
-    output = json.loads(reopened.read_text())
-    assert output["blocks"] == [json.loads(last)] and output["genesis"] == pkg["genesis"]
-    assert output["validator_state"] == pkg["validator_state"]
+    assert r["block_id"]["parts"]["hash"].removeprefix("0x").lower() == v["part_hash"].lower()
     print("profile", json.dumps(dict(s=height, period=period, frames=v["frames"],
           el_prefix_headers=v["el_prefix_headers"], terminal_q=v["terminal_q"],
           l1_calls=v["l1_calls"], blocks_bytes=(directory/"blocks.jsonl").stat().st_size,
-          stock_bytes=(directory/"stock.json").stat().st_size, installed_bytes=disk(installed),
+          stock_bytes=disk(stock), installed_bytes=disk(installed),
           total_bytes=disk(directory))), flush=True)
     return v["l1_calls"]
 
