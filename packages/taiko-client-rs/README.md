@@ -638,16 +638,20 @@ committing those values to the Inbox.
   through `D(t)`, an anchor freshness stall or an outage therefore does not leave a running node's
   `S(t)` waiting on pruned state, provided the anchor's state was still served when it was
   adopted; a proposal shares a running discovery rather than repeating it. A restart keeps no
-  witness: the restarted node re-discovers it from its own L1, which must serve historical
-  `eth_getProof` and registry state at the snapshot block for as long as `S(t)` can still need it
-  (spec SYNC-9-16), up to `maxAnchorAge` behind the L1 head during a finality stall. A validator
-  restarted or down after the snapshot left its L1's proof window still needs historical state on
-  its own L1 (SYNC-9-16) to propose `S(t)`; until then it relies on a peer's valid `S(t)` proposal
-  carrying the witness, which it can still accept. reth's `--rpc.eth-proof-window` also limits
-  historical proof access independently of retained state; configure it for the history needed by
-  validators and landers. Full nodes importing an older checkpoint can also need historical
-  `eth_getProof` calls to reconstruct an inherited anchor and committee snapshots; retain that
-  state and configure the proof window for the selected import history.
+  witness: the restarted node re-discovers it from its own L1, reading historical `eth_getProof`
+  and registry state at the snapshot block. That block is fixed by the committed `D(t)` anchor (or
+  the generation origin, spec COMM-4.3-11), not by `S(t)`'s own anchor, so it keeps ageing until
+  `S(t)` commits, even when `S(t)` carries a newer anchor. Plan for at least `maxAnchorAge` plus
+  the L1 finality lag of history, growing with any pause between committing `D(t)` and committing
+  `S(t)`, an L1 finality stall longer than `maxAnchorAge` included. A restarted validator still
+  needs that historical state on its own L1 (spec SYNC-9-16) to propose `S(t)`; otherwise it can
+  only accept a peer's valid `S(t)` proposal, which needs some peer that still holds the witness.
+  If every validator restarts, `S(t)` waits for an L1 node that has that history. Size the
+  retained state and reth's `--rpc.eth-proof-window` (which limits historical proof access
+  independently of retained state) for the longest pause you want a restart to survive, as well as
+  for the history validators and landers need otherwise. Full nodes importing an older checkpoint
+  can also need historical `eth_getProof` calls to reconstruct an inherited anchor and committee
+  snapshots; retain that state and configure the proof window for the selected import history.
 - **Validators** (and `abci-genesis`) also read raw L1 headers with `debug_getRawHeader`, so
   enable the `debug` namespace on their L1 node (e.g. `--http.api eth,debug`). Without it the
   app re-encodes the header from `eth_getBlockByNumber`, which works only while it knows every
