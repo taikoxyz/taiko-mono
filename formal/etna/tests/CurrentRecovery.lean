@@ -1,9 +1,11 @@
 import EtnaStatements
+import EtnaProofs.CurrentRecoveryPath
 
 /-! H4 statement surface, pinned before the review-surface lock covers it: which calls
 `RecoveryCall` admits (no rollback, only plain recoveries, every other call), the trace class
 `RecoveryTrace`, the conclusion `RecoverableAt`, the claim `Recoverability`, and the field
-names, types and order of `LiveAt` and `RecoveryPremises`. -/
+names, types and order of `LiveAt` and `RecoveryPremises`. Then the L1 half of the path:
+`Recovery.prepare`'s type and the names and types of its handoff record `Recovery.Prepared`. -/
 namespace Etna.CurrentRecoveryRegression
 open Etna.Design Etna.Design.Current Etna.Design.Current.Protocol Etna.Statements.Current
 
@@ -63,5 +65,50 @@ example (env : Environment) (registry : RegistryMachine.State) (f : FundPremises
     RecoveryPremises env registry :=
   { toFundPremises := f, recoveryClock := a, recoveryCatalogueHash := b, proofComplete := c,
     payloadLive := d, unzenStart := e }
+
+-- The L1 half of the path (`Recovery.prepare`) and its handoff record.
+example : ∀ {env : Environment} {registry : RegistryMachine.State} {w : World},
+    RecoveryPremises env registry → Trace env (empty env registry) w → w.initialized = true →
+    LiveAt env w → ∃ u p R keys image, Recovery.Prepared env registry w u p R keys image :=
+  @Etna.Design.Current.Protocol.Recovery.prepare
+
+-- Pin `Prepared`'s exact fields (the landing proof reads them by name): types, then names.
+example (env : Environment) (registry : RegistryMachine.State) (w u : World) (p : Header) (R : Nat)
+    (keys : List Hash) (image : Hash)
+    (path : RecoveryTrace env w u) (reachable : Trace env (empty env registry) u)
+    (number : u.number = R+2 ∧ R+4 < limit48)
+    (progress : w.everLanded = true → u.inbox.checkpoint.height = w.inbox.checkpoint.height)
+    (recovered : 0 < u.inbox.generation ∧ u.inbox.origin.height = u.inbox.checkpoint.height ∧
+      u.inbox.origin.l1Block = R)
+    (closed : ∀ s ∈ u.history, R ≤ s.number → s.inbox = u.inbox ∧ s.schedule = u.schedule ∧
+      s.queue = u.queue ∧ s.registryHistory = u.registry.registry.history ∧ s.start = u.start)
+    (parent : Custody.HeaderOf u.inbox.checkpoint p ∧ HashBound env p)
+    (parentTime : p.timestamp+u.inbox.gridK+1 ≤ env.time R ∧ env.time R+8 < limit256)
+    (grid : ∃ start, u.start = some start ∧
+      Start.onGrid start.height u.inbox.gridK u.inbox.checkpoint.height = true ∧
+      u.inbox.checkpoint.height+u.inbox.gridK < limit48 ∧
+      (env.core.unzenInbox ≠ 0 → p.height = start.height → env.startImplementation p.stateRoot = true))
+    (fence : firstFence env u = true) (stop : u.schedule.stopTime = 0)
+    (rules : ∀ t, RulesetLive env (Rules.select u.schedule t) ∧ Rules.select u.schedule t ∈ env.imageRules image)
+    (proofs : image ∈ u.images ∧ ∀ w' image' d, ImageCertifies env w' image' d →
+      ∃ proofs : List Proof, dualOK (proofs.map fun q => (q.backend,true)) = true ∧
+        ∀ q ∈ proofs, q.image = image' ∧ env.verify u.verifier q.backend image' q.bytes d = true)
+    (committee : CommitteeLive env u R keys) (initialized : u.initialized = true)
+    (entered : u.inbox.entered = false)
+    (params : (parametersOf u.inbox).valid = true ∧
+      u.inbox.committeeConfig = env.configHash (Encoding.configWords u.inbox.domain.l2ChainId
+        u.inbox.domain.registry u.inbox.configuration.unit u.inbox.configuration.minimum
+        u.inbox.configuration.nMax u.inbox.configuration.unsettled))
+    (queue : ∀ i e, (i,e) ∈ u.queue → ∃ raw : Blocks.Bytes, env.txHash raw = e.txHash ∧ raw.length ≤ 8192) :
+    Recovery.Prepared env registry w u p R keys image :=
+  { path := path, reachable := reachable, number := number, progress := progress, recovered := recovered,
+    closed := closed, parent := parent, parentTime := parentTime, grid := grid, fence := fence, stop := stop,
+    rules := rules, proofs := proofs, committee := committee, initialized := initialized, entered := entered,
+    params := params, queue := queue }
+example (env : Environment) (registry : RegistryMachine.State) (w u : World) (p : Header) (R : Nat)
+    (keys : List Hash) (image : Hash) (x : Recovery.Prepared env registry w u p R keys image) :
+    Recovery.Prepared env registry w u p R keys image :=
+  ⟨x.path,x.reachable,x.number,x.progress,x.recovered,x.closed,x.parent,x.parentTime,x.grid,x.fence,x.stop,
+    x.rules,x.proofs,x.committee,x.initialized,x.entered,x.params,x.queue⟩
 
 end Etna.CurrentRecoveryRegression

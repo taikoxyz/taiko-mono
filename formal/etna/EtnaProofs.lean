@@ -23,6 +23,7 @@ import EtnaProofs.CurrentProtocolFinality
 import EtnaProofs.CurrentJournal
 import EtnaProofs.CurrentCustody
 import EtnaProofs.CurrentRecoveryTrap
+import EtnaProofs.CurrentRecoveryPath
 import EtnaProofs.Headline.Current
 import EtnaProofs.Landing
 import EtnaProofs.Staking
