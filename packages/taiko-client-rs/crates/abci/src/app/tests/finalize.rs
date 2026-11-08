@@ -112,6 +112,35 @@ async fn finalize_after_process_uses_the_cached_verdict() {
     assert_eq!(app.pending.as_ref().map(|s| s.parent.hash), Some(hash));
 }
 
+/// The decided Comet block hash alone selects the verdict: it commits to the height, BFT time,
+/// proposer and transactions `ProcessProposal` judged, and `Commit` clears the cache, so the
+/// verdict is not validated again. A verdict planted under that hash (test-only) that
+/// validation would not derive decides the pending state as it is.
+#[tokio::test]
+async fn a_cached_verdict_is_reused_without_revalidation() {
+    let fx = Fixture::genesis(2);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = anchor_moving(&fx, dir.path()).await;
+    let env = propose(&mut app).await;
+    let (resp, req) = judge(&mut app, &env).await;
+    assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
+    let mut planted = app.verdicts.get(&req.hash).cloned().expect("the verdict is cached");
+    planted.anchor.inbox.last_checkpoint_height -= 1;
+    assert_ne!(validate(&app, &env).unwrap().anchor, planted.anchor, "validation differs");
+    app.verdicts.insert(req.hash, planted.clone());
+
+    app.l1().state().calls.clear();
+    finalize(&mut app, finalize_req(&req)).await.expect("finalizes");
+    assert_eq!(
+        app.pending.as_ref().map(|s| &s.anchor),
+        Some(&planted.anchor),
+        "the planted verdict decides the pending state"
+    );
+    assert!(app.decided_live, "a hit is a live decision");
+    assert!(app.l1().calls().is_empty(), "a hit confirms no anchor in the own L1");
+    assert!(app.verdicts.is_empty(), "the verdict is taken");
+}
+
 /// A height that takes many rounds keeps only the latest [`MAX_VERDICTS`] accepted proposals,
 /// and a decided block whose verdict was evicted is re-validated and executed like one
 /// `ProcessProposal` never saw.
@@ -1720,19 +1749,6 @@ async fn switch_replay_survives_crashes_before_and_after_commit() {
         }
     }
     assert_eq!(switches, [1, 2, 3, 4]);
-}
-
-#[tokio::test]
-async fn cached_verdict_is_bound_to_exact_proposal_bytes() {
-    let fx = Fixture::genesis(1);
-    let dir = tempfile::tempdir().unwrap();
-    let (mut app, env) = forced_block(&fx, dir.path()).await;
-    let (_, req) = judge(&mut app, &env).await;
-    let replacement = with_extra_transaction(env);
-    let mut final_req = finalize_req(&req);
-    final_req.txs = vec![replacement.encode().0];
-    finalize(&mut app, final_req).await.unwrap();
-    assert_eq!(app.pending.as_ref().unwrap().parent.hash, replacement.block.header.hash_slow());
 }
 
 /// Cold canonical skips must preserve the consumed cursor through crash replay and Commit.

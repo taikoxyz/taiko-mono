@@ -301,8 +301,8 @@ pub struct App<L: L1Source, E: Engine> {
     /// height (`None` elsewhere), set together with [`App::pending`]; `Commit` records them
     /// before the state and clears them.
     pending_val_updates: Option<Vec<(crate::key::ConsensusKey, u64)>>,
-    /// The latest `ProcessProposal` ACCEPT verdicts (at most [`MAX_VERDICTS`]), for
-    /// `FinalizeBlock`; cleared at `Commit`.
+    /// The latest `ProcessProposal` ACCEPT verdicts (at most [`MAX_VERDICTS`]) by CometBFT block
+    /// hash, which `FinalizeBlock` reuses without validating again; cleared at `Commit`.
     verdicts: Verdicts,
     /// The last committee witness verified for switch height `H(t)-2`, by `PrepareProposal` (its
     /// own), `ProcessProposal` (another proposer's) or the background discovery at the snapshot
@@ -706,6 +706,18 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
 /// The latest `ProcessProposal` ACCEPT verdicts by CometBFT block hash, oldest first, at most
 /// [`MAX_VERDICTS`].
+///
+/// `FinalizeBlock` takes the verdict under its decided block hash without validating the block
+/// again. The hash commits to every request input [`validate_block`] reads: the height, BFT time,
+/// proposer and transactions. Its other inputs are the committed state and the chain parameters,
+/// and only `Commit` changes the state, clearing the cache. A hit therefore means the same
+/// inputs on the same committed state, so `FinalizeBlock` derives what `ProcessProposal` derived
+/// (CONS-3.4-1). The verdict also holds the node-local checks a cold `FinalizeBlock` repeats:
+/// own-L1 anchor finality, which a later finalized head cannot undo (CONS-3.3-5, CONS-3.4-12),
+/// checkpoint ancestry (CONS-3.4-16), the completed forced decision (FI-7.2-9) and execution
+/// (CONS-3.4-10); SYNC-9-1 asks them again only of a block the node did not judge live. A REJECT
+/// stores nothing, so a block this node never accepted finalizes through full validation. This
+/// trusts the local CometBFT to send the fields its block hash commits to.
 #[derive(Debug, Default)]
 struct Verdicts(VecDeque<(Hash, Validated)>);
 

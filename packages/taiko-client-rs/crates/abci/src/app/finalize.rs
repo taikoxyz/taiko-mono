@@ -41,12 +41,13 @@ use crate::{
 
 impl<L: L1Source, E: Engine> App<L, E> {
     /// Authenticates a decided envelope against the committed context and settles its payload.
-    /// A cached verdict is reused only for identical certified proposer, envelope bytes, expected
-    /// header, parent cursor and authenticated facts. Cold decisions confirm moved anchors and
-    /// their checkpoint ancestry and complete any canonical skip probe before deriving the next
-    /// state. The candidate executes
-    /// through `newPayload` and becomes the forkchoice head; singleton evidence never becomes
-    /// the head. State stays pending until `Commit`. Invalid decisions halt; temporary EL
+    ///
+    /// The `ProcessProposal` ACCEPT verdict cached under the decided Comet block hash is taken as
+    /// it is, a live decision: the hash binds every input that verdict was judged on to the same
+    /// committed state (see [`Verdicts`](super::Verdicts)). Without one (crash replay, block sync,
+    /// an evicted verdict) the block is validated cold ([`App::validate_cold`]). The candidate
+    /// executes through `newPayload` and becomes the forkchoice head; singleton evidence never
+    /// becomes the head. State stays pending until `Commit`. Invalid decisions halt; temporary EL
     /// failures retry.
     pub(super) async fn finalize_block(
         &mut self,
@@ -69,65 +70,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 "height {height}: next_validators_hash contradicts the validator-state replica"
             )));
         }
-        let bft_secs = unix_secs(req.time);
-        let txs: Vec<Bytes> = req.txs.iter().cloned().map(Bytes::from).collect();
-        let env = match single_envelope(&txs) {
-            Ok(env) => env,
-            Err(error) => {
-                loop {
-                    match self.check_header_format(&txs).await {
-                        Ok(()) => break,
-                        Err(reason) if reason.requires_dependency_repair() => {
-                            return Err(AbciError::SafetyHalt(reason.to_string()));
-                        }
-                        Err(reason) => {
-                            tracing::warn!(height, %reason, "waiting for L1 finality or header support");
-                            tokio::time::sleep(FINALIZE_RETRY_MAX).await;
-                        }
-                    }
-                }
-                return Err(invalid_block(height, &Rejection::from(error)));
-            }
+        let (validated, cold) = match self.verdicts.remove(&req.hash) {
+            Some(verdict) => (verdict, false),
+            None => (self.validate_cold(state, &req, height).await?, true),
         };
-        let fresh = loop {
-            match validate_block(
-                &state.chain_context(),
-                &self.params,
-                &env,
-                height,
-                bft_secs,
-                req.proposer_address,
-            ) {
-                Ok(validated) => break validated,
-                Err(Rejection::Rule(crate::rules::RuleViolation::UnsupportedRuleset { rules })) => {
-                    self.confirm_unsupported_rules(state, height, bft_secs, &env).await?;
-                    tracing::warn!(height, rules, "waiting for ruleset support; upgrade the node");
-                    tokio::time::sleep(FINALIZE_RETRY_MAX).await;
-                }
-                Err(error) => return Err(invalid_block(height, &error)),
-            }
-        };
-        let cached = self.verdicts.remove(&req.hash).filter(|v| {
-            v.proposer == fresh.proposer &&
-                v.envelope_hash == fresh.envelope_hash &&
-                v.parent_cursor == fresh.parent_cursor &&
-                v.expected == fresh.expected &&
-                v.anchor == fresh.anchor &&
-                v.derived == fresh.derived &&
-                v.decision == fresh.decision
-        });
-        let (mut validated, cold) = if let Some(cached) = cached {
-            (cached, false)
-        } else {
-            if let Some(witness) = &env.anchor {
-                self.confirm_anchor(height, &witness.l1_header).await?;
-                self.confirm_checkpoint(state, height, &fresh.anchor).await?;
-            }
-            (fresh, true)
-        };
-        if cold {
-            validated.forced = self.confirm_forced(state, height, &validated).await?;
-        }
         let (mut next, val_updates) = next_state(state, &validated, height)?;
         let updates = val_updates.as_deref().unwrap_or_default();
         // CometBFT applies exactly the updates this response returns; a change set it would
@@ -170,6 +116,65 @@ impl<L: L1Source, E: Engine> App<L, E> {
             consensus_param_updates: None,
             app_hash: app_hash(hash),
         })
+    }
+
+    /// Validates the decided block of `req` at `height` on the committed `state` without a
+    /// `ProcessProposal` verdict, as SYNC-9-1 requires of a block this node did not judge live:
+    /// [`validate_block`] (waiting while this node lacks the block's ruleset), a moved anchor's
+    /// own-L1 finality ([`App::confirm_anchor`]) and checkpoint ancestry
+    /// ([`App::confirm_checkpoint`]), then the forced decision ([`App::confirm_forced`]).
+    /// Transactions that are not exactly one envelope wait while their anchor header is not yet
+    /// final or supported (RECOV-8-6). A failed check is a safety halt.
+    async fn validate_cold(
+        &self,
+        state: &AppState,
+        req: &request::FinalizeBlock,
+        height: u64,
+    ) -> Result<Validated, AbciError> {
+        let bft_secs = unix_secs(req.time);
+        let txs: Vec<Bytes> = req.txs.iter().cloned().map(Bytes::from).collect();
+        let env = match single_envelope(&txs) {
+            Ok(env) => env,
+            Err(error) => {
+                loop {
+                    match self.check_header_format(&txs).await {
+                        Ok(()) => break,
+                        Err(reason) if reason.requires_dependency_repair() => {
+                            return Err(AbciError::SafetyHalt(reason.to_string()));
+                        }
+                        Err(reason) => {
+                            tracing::warn!(height, %reason, "waiting for L1 finality or header support");
+                            tokio::time::sleep(FINALIZE_RETRY_MAX).await;
+                        }
+                    }
+                }
+                return Err(invalid_block(height, &Rejection::from(error)));
+            }
+        };
+        let mut validated = loop {
+            match validate_block(
+                &state.chain_context(),
+                &self.params,
+                &env,
+                height,
+                bft_secs,
+                req.proposer_address,
+            ) {
+                Ok(validated) => break validated,
+                Err(Rejection::Rule(crate::rules::RuleViolation::UnsupportedRuleset { rules })) => {
+                    self.confirm_unsupported_rules(state, height, bft_secs, &env).await?;
+                    tracing::warn!(height, rules, "waiting for ruleset support; upgrade the node");
+                    tokio::time::sleep(FINALIZE_RETRY_MAX).await;
+                }
+                Err(error) => return Err(invalid_block(height, &error)),
+            }
+        };
+        if let Some(witness) = &env.anchor {
+            self.confirm_anchor(height, &witness.l1_header).await?;
+            self.confirm_checkpoint(state, height, &validated.anchor).await?;
+        }
+        validated.forced = self.confirm_forced(state, height, &validated).await?;
+        Ok(validated)
     }
 
     /// Authenticates the fixed-core facts before waiting for software support. A proof under
