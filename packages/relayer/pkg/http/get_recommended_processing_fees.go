@@ -27,15 +27,18 @@ type fee struct {
 
 type FeeType uint64
 
-// gas limits
+// Message gas limits: the bridge's own minimum plus the vault invocation budget. The budgets
+// must match `gasLimitConfig` in packages/bridge-ui/src/app.config.ts, which sizes them for
+// EIP-8037 (Glamsterdam) state-creation pricing; app.config.test.ts holds the derivation. A
+// budget below what the vault needs makes the invocation fail and the message RETRIABLE.
 var (
 	Eth                FeeType = FeeType(messageMinGasLimit(0) + 1)
-	ERC20NotDeployed   FeeType = FeeType(messageMinGasLimit(516) + 750_000)
-	ERC20Deployed      FeeType = FeeType(messageMinGasLimit(516) + 500_000)
-	ERC721NotDeployed  FeeType = FeeType(messageMinGasLimit(548) + 2_400_000)
-	ERC721Deployed     FeeType = FeeType(messageMinGasLimit(548) + 1_100_000)
-	ERC1155NotDeployed FeeType = FeeType(messageMinGasLimit(772) + 2_600_000)
-	ERC1155Deployed    FeeType = FeeType(messageMinGasLimit(772) + 1_100_000)
+	ERC20NotDeployed   FeeType = FeeType(messageMinGasLimit(516) + 3_700_000)
+	ERC20Deployed      FeeType = FeeType(messageMinGasLimit(516) + 700_000)
+	ERC721NotDeployed  FeeType = FeeType(messageMinGasLimit(548) + 5_300_000)
+	ERC721Deployed     FeeType = FeeType(messageMinGasLimit(548) + 1_300_000)
+	ERC1155NotDeployed FeeType = FeeType(messageMinGasLimit(772) + 5_800_000)
+	ERC1155Deployed    FeeType = FeeType(messageMinGasLimit(772) + 1_200_000)
 )
 
 var (
