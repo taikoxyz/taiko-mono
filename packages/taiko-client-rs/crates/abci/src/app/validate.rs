@@ -619,8 +619,10 @@ fn candidate_anchor(
 }
 
 /// The snapshot cutoff of a switch on top of `chain`: the committed parent's anchor number
-/// floored by the generation origin (COMM-4.3-11).
-fn snapshot_cutoff(chain: &ChainContext<'_>) -> u64 {
+/// floored by the generation origin (COMM-4.3-11). The committee cache's
+/// [`snapshot_block`](super::committee_cache::snapshot_block) is this formula, so a witness it
+/// verified is one this check accepts.
+pub(super) fn snapshot_cutoff(chain: &ChainContext<'_>) -> u64 {
     chain.anchor.number.max(chain.anchor_floor())
 }
 

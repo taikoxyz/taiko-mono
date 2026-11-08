@@ -7,7 +7,7 @@ use std::{sync::Arc, time::Duration};
 use alloy_primitives::{Address, B256};
 use tokio::{sync::watch, task::JoinHandle, time::Instant};
 
-use super::{App, Rejection};
+use super::{App, Rejection, validate::snapshot_cutoff};
 use crate::{
     committee::{CommitteeError, VerifiedWitness, committee_config_hash},
     config::ChainParams,
@@ -129,9 +129,10 @@ pub(super) struct PrefetchedCommittee {
 /// discovery reads and proves at: the committed parent anchor (that of `D(t)` at `S(t)`), or the
 /// generation origin R while that anchor still precedes it, i.e. their maximum (COMM-4.3-11). A
 /// candidate's own anchor never selects it. Registry checkpoints are append-only, so a snapshot
-/// proven at its own cutoff stays the same snapshot under every later root.
+/// proven at its own cutoff stays the same snapshot under every later root. It is the cutoff
+/// block validation verifies a witness at ([`snapshot_cutoff`]), computed by that one formula.
 pub(super) fn snapshot_block(state: &AppState) -> u64 {
-    state.anchor.number.max(state.anchor_floor())
+    snapshot_cutoff(&state.chain_context())
 }
 
 impl Drop for CommitteePrefetch {
