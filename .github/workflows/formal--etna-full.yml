@@ -75,10 +75,27 @@ jobs:
         env:
           ETNA_FULL_TESTS: "1"
         run: python3 -m unittest discover -s tests -v
+      # Both runs on 4620534d4 and 25d0cb4b8 were killed ("runner received a shutdown signal")
+      # about two minutes into the nanoda kernel, after all tests and two kernels passed.
+      - name: Add swap for the independent kernels
+        working-directory: .
+        run: |
+          free -h
+          sudo swapoff -a || true
+          sudo fallocate -l 16G /mnt/etna-swap
+          sudo chmod 600 /mnt/etna-swap
+          sudo mkswap /mnt/etna-swap
+          sudo swapon /mnt/etna-swap
+          free -h
       # Five independent kernels (leanchecker-paranoid, lean4lean, nanoda, con-leche,
-      # con-ron) replay the exported project inside a bubblewrap sandbox.
+      # con-ron) replay the exported project inside a bubblewrap sandbox. A background loop logs
+      # memory use every 30 s and is killed on exit; the step's status is still the replay's.
       - name: Replay the project with independent kernels
-        run: lake check --paranoid
+        run: |
+          ( while sleep 30; do free -m | awk 'NR==2{print "mem used MiB: "$3" / "$2}'; done ) &
+          logger=$!
+          trap 'kill "$logger" 2>/dev/null || true' EXIT
+          lake check --paranoid
       # Spec pull requests do not run the formal jobs, so this is where a spec change that
       # the formal package has not yet been re-pinned to shows up.
       - name: Check the pinned spec authorities are still current
