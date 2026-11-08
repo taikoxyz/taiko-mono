@@ -743,6 +743,27 @@ async fn a_malformed_own_l1_answer_during_switch_discovery_halts() {
     }
 }
 
+/// The own L1 answering the discovery for the requested registry account and slots, but with an
+/// account proof that does not verify under the state root it also served, contradicts itself:
+/// the proposer halts with durable fatal evidence (SYNC-9-7) instead of pausing with trust Ready.
+/// The same failure in a peer's proposal only rejects it
+/// (`forged_committee_witnesses_are_rejected`).
+#[tokio::test(start_paused = true)]
+async fn an_own_l1_proof_failing_under_its_own_root_during_switch_discovery_halts() {
+    let fx = Fixture::genesis(3);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = before_switch(&fx, dir.path()).await;
+    app.l1().state().proof_tamper = true;
+    let request = prepare_req(next_height(&app), bft_time(&app));
+    let result = app.handle(Request::PrepareProposal(request)).await;
+    assert!(
+        matches!(&result, Err(AbciError::SafetyHalt(reason))
+            if reason.contains("does not verify under its own state root")),
+        "{result:?}"
+    );
+    assert!(app.store.fatal_evidence().unwrap().is_some());
+}
+
 /// A switch-witness discovery that fails on an unavailable own L1 (here a rate limit) leaves the
 /// witness unavailable: a liveness pause (RECOV-8-4, RECOV-8-5) labelled as the L1 error, never
 /// a halt. A round within its backoff proposes nothing at once and reads nothing; the first round

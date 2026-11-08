@@ -78,6 +78,9 @@ pub(crate) struct MockL1State {
     pub(crate) proof_fail: Option<L1Error>,
     /// Overrides a proof response to exercise wrong-account and wrong-slot validation.
     pub(crate) proof_override: Option<AccountWitness>,
+    /// Answers every proof read for the requested account and slots, but with a balance its
+    /// account proof does not commit to, as an L1 node whose proofs fail under its own headers.
+    pub(crate) proof_tamper: bool,
     /// Every call, in order.
     pub(crate) calls: Vec<L1Call>,
     /// Calls currently in progress (started, not yet answered or dropped).
@@ -253,7 +256,11 @@ impl L1Source for MockL1 {
         if let Some(proof) = &state.proof_override {
             return Ok(proof.clone());
         }
-        Ok(Self::state_at(&state, address, block)?.witness(address, slots))
+        let mut witness = Self::state_at(&state, address, block)?.witness(address, slots);
+        if state.proof_tamper {
+            witness.balance += U256::from(1);
+        }
+        Ok(witness)
     }
 
     async fn forced_transaction(

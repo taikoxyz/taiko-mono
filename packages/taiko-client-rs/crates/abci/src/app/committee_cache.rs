@@ -13,7 +13,7 @@ use crate::{
     config::ChainParams,
     engine::Engine,
     envelope::CommitteeWitness,
-    l1::{FetchError, L1Source, build_committee_witness_within, header_at},
+    l1::{FetchError, L1Error, L1Source, MptError, build_committee_witness_within, header_at},
     rules,
     store::AppState,
     types::{AnchorState, GenesisRecord},
@@ -38,6 +38,23 @@ fn prefetch_backoff(failures: u32) -> Duration {
     COMMITTEE_PREFETCH_BACKOFF
         .saturating_mul(2u32.saturating_pow(failures))
         .min(COMMITTEE_PREFETCH_MAX_BACKOFF)
+}
+
+/// Classifies a discovered witness that fails verification. The own L1 served both the proofs,
+/// for the registry account and slots the discovery asked for (it already refuses another
+/// address or slot), and the state root they are checked against. So an account or storage proof
+/// that does not verify there is a malformed own-L1 reply, which halts (SYNC-9-7), unlike the
+/// same failure in a peer's proposal, which only rejects it. Every other failure, including a
+/// slot set the verifier disagrees with, keeps its committee reason.
+fn own_l1_proof_failure(error: CommitteeError) -> FetchError {
+    match error {
+        CommitteeError::Mpt(proof) if !matches!(proof, MptError::SlotSet { .. }) => {
+            FetchError::L1(L1Error::MalformedResponse(format!(
+                "own L1 registry proof does not verify under its own state root: {proof}"
+            )))
+        }
+        other => other.into(),
+    }
 }
 
 /// The complete context in which a runtime committee witness is valid.
@@ -372,7 +389,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
                     build_committee_witness_within(&*l1, &params, block, target, read_timeout)
                         .await?;
                 let witness =
-                    VerifiedWitness::verify(proof_anchor.2, block, &params, witness, target)?;
+                    VerifiedWitness::verify(proof_anchor.2, block, &params, witness, target)
+                        .map_err(own_l1_proof_failure)?;
                 Ok::<_, FetchError>(PrefetchedCommittee { witness, proof_anchor })
             };
             let outcome = match tokio::time::timeout(COMMITTEE_PREFETCH_TIMEOUT, discovery).await {
