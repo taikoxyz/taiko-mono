@@ -921,6 +921,11 @@ mod classify_tests {
         vec![
             // Missing data: unavailable, not yet final, timed out or transient.
             (RecoveryError::Unavailable("history".into()).into(), MissingData),
+            // `init.rs` converts bootstrap evidence errors with `?` through this `From`.
+            (
+                GenesisError::Recovery(RecoveryError::Unavailable("history".into())).into(),
+                MissingData,
+            ),
             (AbciError::Timeout { what: "w", after: Duration::from_secs(1) }, MissingData),
             (AbciError::ElBlockMissing(7), MissingData),
             (AbciError::GenesisNotFinal { number: 1, hash }, MissingData),
@@ -974,6 +979,7 @@ mod classify_tests {
             (StoreError::ValUpdatesConflict(1).into(), Contradiction),
             (StoreError::BootstrapConflict.into(), Contradiction),
             (AbciError::Recovery(RecoveryError::Invalid("forged".into())), Contradiction),
+            (GenesisError::Recovery(RecoveryError::Invalid("forged".into())).into(), Contradiction),
             (
                 AbciError::Recovery(RecoveryError::Superseded { requested: 1, current: 2 }),
                 Contradiction,
