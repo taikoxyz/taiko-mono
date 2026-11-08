@@ -280,7 +280,9 @@ impl<L: L1Source + ?Sized> Discovery<'_, L> {
         }
         Ok(witness
             .storage
-            .chunks_exact(3)
+            .as_chunks::<3>()
+            .0
+            .iter()
             .map(|words| {
                 let packed = words[2].value;
                 RegistryEntry {

@@ -180,13 +180,23 @@ export ANVIL_IMAGE=${ANVIL_IMAGE:-ghcr.io/foundry-rs/foundry:v1.5.1}
 # The reviewed alethia-reth image supports canonical-config alloc-only Etna genesis.
 # Real contracts require canonical zero-storage proofs and modern EIP-7594 wrappers.
 export LANDER_ANVIL_IMAGE=${LANDER_ANVIL_IMAGE:-ghcr.io/foundry-rs/foundry:v1.8.5}
-export ALETHIA_RETH_IMAGE=${ALETHIA_RETH_IMAGE:-us-docker.pkg.dev/evmchain/images/alethia-reth:sha-6ac93d4@sha256:a92fca2305a657d4a9267e61ba198531db52c3a173d236fc3dc14984d66d2e3d}
+# Without an explicit override, build the pinned EL source into a local image once; it is reused
+# while present and never pulled.
+default_el_image=alethia-reth:etna-20a9282a24b14567ebad82c427f8ceeeaf40aab4
+if [[ -z "${ALETHIA_RETH_IMAGE:-}" ]]; then
+    export ALETHIA_RETH_IMAGE="$default_el_image"
+    if ! docker image inspect "$ALETHIA_RETH_IMAGE" > /dev/null 2>&1; then
+        ETNA_BUILD_TARGET=execution-runtime ETNA_RECOVERY_IMAGE="$ALETHIA_RETH_IMAGE" \
+            run_child bash ./script/build_recovery_runtime.sh
+    fi
+fi
 export COMETBFT_IMAGE=${COMETBFT_IMAGE:-cometbft/cometbft:v0.40.0@sha256:0703fb881dac0987c8e41a5810cc09dbcb503bb59ac91705f6936c4b972ac798}
 
-# Pull before the first scenario so downloads don't eat into its readiness deadlines, and before
-# the helpers so the Linux EL runtime copies out of the alethia-reth image pulled here.
+# Pull before the first scenario so downloads don't eat into its readiness deadlines. The EL image
+# is ready before the helpers, so the Linux EL runtime can copy out of the default image.
 for image in "$ANVIL_IMAGE" "$LANDER_ANVIL_IMAGE" "$ALETHIA_RETH_IMAGE" "$COMETBFT_IMAGE"; do
-    if [[ "${PULL_POLICY:-always}" == "missing" ]] && docker image inspect "$image" > /dev/null 2>&1; then
+    if [[ "$image" == "$default_el_image" ]] || \
+        { [[ "${PULL_POLICY:-always}" == "missing" ]] && docker image inspect "$image" > /dev/null 2>&1; }; then
         echo "Using local image $image"
     else
         echo "Pulling $image"

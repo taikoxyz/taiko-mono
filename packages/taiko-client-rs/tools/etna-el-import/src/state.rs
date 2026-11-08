@@ -120,7 +120,7 @@ fn layout<T: DbTx>(tx: &T) -> Result<StorageSettings, ImportError> {
 }
 
 /// The pinned Alethia CLI's TaikoTables adds these ordinary MDBX tables to Reth Tables::ALL
-/// (alethia-reth 6ac93d4, crates/cli/src/tables.rs and crates/db/src/model.rs). We inspect
+/// (alethia-reth 20a9282, crates/cli/src/tables.rs and crates/db/src/model.rs). We inspect
 /// only their native names/flags and never interpret or retain publisher origin records.
 const ALETHIA_TABLES: [&str; 3] =
     ["StoredL1OriginTable", "StoredL1HeadOriginTable", "BatchToLastBlock"];

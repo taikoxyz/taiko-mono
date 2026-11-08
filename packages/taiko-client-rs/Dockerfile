@@ -1,4 +1,26 @@
-ARG ALETHIA_RETH_IMAGE=us-docker.pkg.dev/evmchain/images/alethia-reth:sha-6ac93d4@sha256:a92fca2305a657d4a9267e61ba198531db52c3a173d236fc3dc14984d66d2e3d
+ARG ALETHIA_RETH_IMAGE=execution-source
+
+FROM rust:1.99.0-bookworm AS execution-build
+RUN apt-get update && apt-get install -y git libclang-dev pkg-config build-essential && \
+    rm -rf /var/lib/apt/lists/*
+WORKDIR /execution
+RUN git init . && git remote add origin https://github.com/taikoxyz/alethia-reth.git && \
+    git fetch --depth=1 origin 20a9282a24b14567ebad82c427f8ceeeaf40aab4 && \
+    git checkout --detach FETCH_HEAD && \
+    test "$(git rev-parse HEAD)" = 20a9282a24b14567ebad82c427f8ceeeaf40aab4
+ARG CARGO_BUILD_JOBS=2
+ARG TARGETARCH
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/usr/local/cargo/git \
+    --mount=type=cache,id=etna-execution-bookworm-${TARGETARCH},target=/execution/target \
+    CARGO_BUILD_JOBS="$CARGO_BUILD_JOBS" cargo build --release --locked -p alethia-reth-bin && \
+    cp target/release/alethia-reth /alethia-reth
+
+FROM debian:bookworm-slim AS execution-source
+RUN apt-get update && apt-get install -y jq curl ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY --from=execution-build /alethia-reth ./alethia-reth
 
 FROM ${ALETHIA_RETH_IMAGE} AS execution-runtime
 
@@ -29,7 +51,7 @@ COPY packages/taiko-client-rs/tools/etna-signer/internal ./internal
 RUN CGO_ENABLED=0 go build -mod=readonly -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /etna-signer . && \
     CGO_ENABLED=0 go build -mod=readonly -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o /etna-comet-import ./cmd/etna-comet-import
 
-FROM rust:1.95.0-bookworm AS build
+FROM rust:1.99.0-bookworm AS build
 
 WORKDIR /app
 

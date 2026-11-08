@@ -109,7 +109,7 @@ supervisor-test:
 # Linux root holding only the documented supervisor capabilities (SETUID, SETGID, KILL,
 # DAC_OVERRIDE) restarts Comet over its stale signer socket. Needs Docker.
 supervisor-caps-test:
-  docker run --rm --network none --cap-drop ALL --cap-add SETUID --cap-add SETGID --cap-add KILL --cap-add DAC_OVERRIDE -e ETNA_MIN_CAPS_TEST=1 -v "$PWD":/src:ro rust:1.95.0-bookworm bash -c 'mkdir -p /w && cp -r /src/tests /src/script /w/ && cd /w && python3 tests/supervisor_test.py MinimalCapabilityTests'
+  docker run --rm --network none --cap-drop ALL --cap-add SETUID --cap-add SETGID --cap-add KILL --cap-add DAC_OVERRIDE -e ETNA_MIN_CAPS_TEST=1 -v "$PWD":/src:ro rust:1.99.0-bookworm bash -c 'mkdir -p /w && cp -r /src/tests /src/script /w/ && cd /w && python3 tests/supervisor_test.py MinimalCapabilityTests'
 
 # Build runtime-tools (repository-root context) or use the final client image before this smoke.
 runtime-image-test image platform:

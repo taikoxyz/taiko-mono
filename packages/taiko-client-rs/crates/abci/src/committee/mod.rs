@@ -196,7 +196,12 @@ pub fn entries_root(entries: &[RegistryEntry]) -> B256 {
     let mut level: Vec<B256> = entries.iter().enumerate().map(|(i, e)| entry_leaf(i, e)).collect();
     level.resize(level.len().next_power_of_two(), B256::ZERO);
     while level.len() > 1 {
-        level = level.chunks_exact(2).map(|pair| keccak256([pair[0], pair[1]].concat())).collect();
+        level = level
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|pair| keccak256([pair[0], pair[1]].concat()))
+            .collect();
     }
     level[0]
 }

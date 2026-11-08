@@ -71,9 +71,14 @@ Fresh deployment starts at generation zero; it migrates no earlier state format.
 [governance recovery](docs/governance-recovery.md) authenticates a later generation and
 creates fresh app/Comet stores while preserving registered signing authority and old history. It is aligned with the protocol revision `PINNED_REVISION` in
 `script/gen_lander_artifacts.sh` (the Inbox, staking registry and the pinned contract artifacts)
-and alethia-reth commit `6ac93d4b38e1cd72b993cef1ed1dc2cb0affa7b4`. Start the EL and verify its block 0 before the Inbox
+and alethia-reth commit `20a9282a24b14567ebad82c427f8ceeeaf40aab4`. Start the EL and verify its block 0 before the Inbox
 is initialized (spec section 10, Startup and deployment). The proof provider is a dummy `0x00`,
 so run the client only on disposable development chains.
+
+The client Dockerfile builds that exact EL source by default, and `just test` builds its
+`execution-runtime` target as the local default test image. `ALETHIA_RETH_IMAGE` remains an
+explicit override (a Docker build argument or test environment variable); use a binary built
+from the same pinned revision. The client and isolated import helper require Rust 1.99.
 
 Validators sign with stock CometBFT v0.40.0 `secp256k1eth` consensus keys; node P2P keys stay
 separate Ed25519 identities. The CometBFT chain ID is the 48-byte `etna-` deployment domain that
@@ -147,7 +152,7 @@ section 7 (Forced inclusion) gives the rules for including or skipping it. For o
 
 ## Prerequisites
 
-- Rust toolchain (1.95 or later)
+- Rust toolchain (1.99 or later)
 - [Just](https://github.com/casey/just) and [cargo-nextest](https://nexte.st) 0.9.145 or later
 - Docker (for the integration tests)
 
@@ -863,12 +868,13 @@ contract harness.
   helpers they need, including the recovery image for its Linux consumer. On an ubuntu or
   debian Linux host, that image is the test-only `tests/docker/recovery-runtime.Dockerfile` on
   the host's own distribution, holding the client binary the listing built and the host-built
-  signer and Comet helpers; other hosts build the production `Dockerfile`, which compiles two
-  release binaries. On Linux the
-  native EL binary is copied from the pinned alethia-reth image; elsewhere it is built from the
-  pinned source. Unsupported
+  signer and Comet helpers; other hosts build the production `Dockerfile`, which compiles the
+  release binaries. Without `ALETHIA_RETH_IMAGE`, the entrypoint builds the pinned EL source once
+  into the local `alethia-reth:etna-<revision>` image (the production `execution-runtime` target)
+  and reuses it while present. On Linux the native EL binary is copied from that image; elsewhere
+  it is built from the pinned source. Unsupported
   nextest run-only options conservatively prepare all helpers, after listing without them.
-  It pulls images before the tests; override them with `ANVIL_IMAGE`,
+  It pulls the other images before the tests; override them with `ANVIL_IMAGE`,
   `ALETHIA_RETH_IMAGE`, `COMETBFT_IMAGE` and `LANDER_ANVIL_IMAGE`, or set
   `PULL_POLICY=missing` to reuse local images. `just unit` also verifies the pinned contract
   artifact hashes.

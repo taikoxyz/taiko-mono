@@ -12,8 +12,10 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-ARG = "ARG ALETHIA_RETH_IMAGE="
-PINNED = (ROOT / "Dockerfile").read_text().splitlines()[0].removeprefix(ARG)
+REVISION = re.search(r"^TASK_PINNED_REVISION=([0-9a-f]{40})$",
+                     (ROOT / "script/build_etna_el_runtime.sh").read_text(), re.M).group(1)
+# The local image tests/entrypoint.sh builds from the production Dockerfile's execution-runtime target.
+PINNED = f"alethia-reth:etna-{REVISION}"
 LOG = "with open(os.environ['CALLS'], 'a') as f: f.write(json.dumps([{name!r}] + sys.argv[1:]) + '\\n')\n"
 
 
@@ -64,7 +66,6 @@ class ElRuntime(FakeHost, unittest.TestCase):
         self.fake_host()
         (self.root / "script").mkdir()
         shutil.copy(ROOT / "script/build_etna_el_runtime.sh", self.root / "script")
-        shutil.copy(ROOT / "Dockerfile", self.root)
         self.output = self.root / "target/etna-signer/alethia-reth"
         for name in ("cargo", "git"):
             self.executable(f"bin/{name}", "#!/usr/bin/env python3\nimport json, os, sys\n" + LOG.format(name=name) + "sys.exit(1)\n")
@@ -75,7 +76,7 @@ class ElRuntime(FakeHost, unittest.TestCase):
         return subprocess.run(["bash", str(self.root / "script/build_etna_el_runtime.sh")],
                               env={**self.env, **env}, text=True, capture_output=True, timeout=15)
 
-    def test_linux_copies_the_pinned_image_without_cargo(self):
+    def test_linux_copies_the_default_image_without_cargo(self):
         for machine, platform, image in (("x86_64", "linux/amd64", None), ("x86_64", "linux/amd64", PINNED),
                                          ("aarch64", "linux/arm64", None)):
             with self.subTest(machine=machine, image=image):
@@ -102,22 +103,19 @@ class ElRuntime(FakeHost, unittest.TestCase):
                 self.assertFalse(self.output.exists())
                 self.assertFalse(self.output.with_name("alethia-reth.tmp").exists())
 
-    def test_missing_image_is_pulled_first(self):
-        result = self.run_script(MISSING_IMAGE="1")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        calls = self.calls()
-        create = next(index for index, row in enumerate(calls) if row[:2] == ["docker", "create"])
-        self.assertLess(calls.index(["docker", "pull", "--quiet", PINNED]), create)
-
-    def test_macos_and_overridden_images_build_from_source(self):
+    def test_macos_overridden_and_missing_images_build_from_source(self):
+        info = ["docker", "info", "--format", "{{.Architecture}}"]
+        # The default image is local only; a missing one is built from source, never pulled.
         for env, before in (({"UNAME_S": "Darwin"}, []), ({"ALETHIA_RETH_IMAGE": "other:tag"}, []),
-                            ({"DOCKER_ARCH": "aarch64"}, [["docker", "info", "--format", "{{.Architecture}}"]])):
+                            ({"DOCKER_ARCH": "aarch64"}, [info]),
+                            ({"MISSING_IMAGE": "1"}, [info, ["docker", "image", "inspect", PINNED]])):
             with self.subTest(**env):
                 self.run_script(**env)
                 calls = [row for row in self.calls() if row[0] != "uname"]
                 self.assertEqual(calls[:len(before)], before)
                 self.assertEqual(calls[len(before)][:2], ["cargo", "metadata"])
                 self.assertNotIn(["docker", "create"], [row[:2] for row in calls])
+                self.assertNotIn(["docker", "pull"], [row[:2] for row in calls])
 
     def test_alethia_pins_agree(self):
         def pin(path, pattern):
@@ -125,14 +123,15 @@ class ElRuntime(FakeHost, unittest.TestCase):
             self.assertIsNotNone(match, f"{path} no longer matches {pattern}")
             return match.group(1)
 
-        self.assertTrue((ROOT / "Dockerfile").read_text().startswith(ARG))
-        self.assertEqual(pin("tests/entrypoint.sh", r"^export ALETHIA_RETH_IMAGE=\$\{ALETHIA_RETH_IMAGE:-([^}]+)\}$"), PINNED)
+        # The production Dockerfile builds the pinned source unless ALETHIA_RETH_IMAGE overrides it.
+        dockerfile = (ROOT / "Dockerfile").read_text()
+        self.assertTrue(dockerfile.startswith("ARG ALETHIA_RETH_IMAGE=execution-source\n"))
+        source_build = " ".join(dict(dockerfile_stages(ROOT / "Dockerfile"))["execution-build"])
+        self.assertEqual(set(re.findall(r"\b[0-9a-f]{40}\b", source_build)), {REVISION})
+        self.assertEqual(pin("tests/entrypoint.sh", r"^default_el_image=(\S+)$"), PINNED)
         self.assertEqual(pin("crates/test-harness/src/boot.rs", r'^pub\(crate\) const RETH_IMAGE: &str = "([^"]+)";$'), PINNED)
-        tag = re.fullmatch(r"[^:@]+/alethia-reth:sha-([0-9a-f]{7})@sha256:[0-9a-f]{64}", PINNED)
-        self.assertIsNotNone(tag, PINNED)
-        revision = pin("script/build_etna_el_runtime.sh", r"^TASK_PINNED_REVISION=([0-9a-f]{40})$")
-        self.assertEqual(pin("Cargo.toml", r'^alethia-reth-chainspec = \{.*\brev = "([0-9a-f]{40})"'), revision)
-        self.assertEqual(tag.group(1), revision[:7])
+        self.assertEqual(pin("Cargo.toml", r'^alethia-reth-chainspec = \{.*\brev = "([0-9a-f]{40})"'), REVISION)
+        self.assertEqual(pin("tools/etna-el-import/Cargo.toml", r'^alethia-reth-chainspec = \{.*\brev = "([0-9a-f]{40})"'), REVISION)
 
 
 def dockerfile_stages(path):
@@ -172,12 +171,13 @@ class RecoveryImage(FakeHost, unittest.TestCase):
         os_release.write_text('PRETTY_NAME="Ubuntu 26.04 LTS"\nID_LIKE=debian\nID=ubuntu\nVERSION_ID="26.04"\n')
         self.context = self.root / "context"
         self.env.update(ETNA_HOST_OS_RELEASE=str(os_release), CONTEXT_COPY=str(self.context),
-                        ETNA_RECOVERY_IMAGE="etna-client-recovery-test:fixture-run")
+                        ETNA_RECOVERY_IMAGE="etna-client-recovery-test:fixture-run", ALETHIA_RETH_IMAGE=PINNED)
 
-    def run_script(self, client=None, **env):
+    def run_script(self, client=None, bash="bash", **env):
         self.log.unlink(missing_ok=True)
         shutil.rmtree(self.context, ignore_errors=True)
-        return subprocess.run(["bash", str(self.package / "script/build_recovery_runtime.sh"), str(client or self.client)],
+        argv = [] if env.get("ETNA_BUILD_TARGET") else [str(client or self.client)]
+        return subprocess.run([bash, str(self.package / "script/build_recovery_runtime.sh"), *argv],
                               env={**self.env, **env}, text=True, capture_output=True, timeout=30)
 
     def build(self):
@@ -242,6 +242,7 @@ class RecoveryImage(FakeHost, unittest.TestCase):
         (self.root / "cometbft").rename(cometbft)
         missing_client = self.root / "nowhere/taiko-client"
         assert_fails_before_build(self.run_script(client=missing_client), str(missing_client))
+        assert_fails_before_build(self.run_script(ALETHIA_RETH_IMAGE=""), "ALETHIA_RETH_IMAGE")
 
     def test_other_hosts_build_the_production_dockerfile(self):
         subprocess.run(["git", "init", "-q"], cwd=self.root, check=True)
@@ -258,6 +259,20 @@ class RecoveryImage(FakeHost, unittest.TestCase):
                 self.assertEqual([arg for arg in build if arg.startswith("BASE_IMAGE=")], [])
                 self.assertOption(build, "--label", "taiko-client-rs.test-run=fixture-run")
                 self.assertOption(build, "-t", "etna-client-recovery-test:fixture-run")
+                self.assertNotIn("--target", build)
+
+    def test_build_target_builds_only_that_production_stage(self):
+        # Even on a host that would stage host binaries; /bin/bash is Bash 3.2 on macOS.
+        subprocess.run(["git", "init", "-q"], cwd=self.root, check=True)
+        subprocess.run(["git", "add", "-A"], cwd=self.root, check=True)
+        result = self.run_script(bash="/bin/bash", ETNA_BUILD_TARGET="execution-runtime", ETNA_RECOVERY_IMAGE=PINNED)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        build = self.build()
+        self.assertEqual(build[:4], ["docker", "build", "--platform", "linux/amd64"])
+        self.assertEqual(build[build.index("-f") + 1], f"{build[-1]}/packages/taiko-client-rs/Dockerfile")
+        self.assertOption(build, "--target", "execution-runtime")
+        self.assertOption(build, "-t", PINNED)
+        self.assertEqual([arg for arg in build if arg.startswith(("BASE_IMAGE=", "ALETHIA_RETH_IMAGE="))], [])
 
 
 if __name__ == "__main__":

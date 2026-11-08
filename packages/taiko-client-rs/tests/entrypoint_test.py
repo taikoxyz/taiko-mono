@@ -21,6 +21,7 @@ TESTS = ROOT / "bin/client/tests"
 # binaries keyed by package ID, each path relative to target-directory.
 CLIENT_ID = "path+file:///t/bin/client#taiko-client@2.3.0"
 CLIENT_BIN = {"name": "taiko-client", "kind": "bin-exe", "path": "debug/taiko-client", "build-platform": "target"}
+DEFAULT_EL_IMAGE = re.search(r"^default_el_image=(\S+)$", (ROOT / "tests/entrypoint.sh").read_text(), re.M).group(1)
 
 
 def build_meta(*binaries):
@@ -73,12 +74,13 @@ else:
 import json, os, sys
 with open(os.environ['CALLS'], 'a') as f: f.write(json.dumps(['docker'] + sys.argv[1:]) + '\\n')
 if sys.argv[1] == 'info' and os.environ.get('NO_DOCKER'): sys.exit(1)
+if sys.argv[1:3] == ['image', 'inspect'] and sys.argv[3].startswith('alethia-reth:etna-') and os.environ.get('EL_IMAGE_MISSING'): sys.exit(1)
 if sys.argv[1] == 'ps': print('owned-container')
 if sys.argv[1:3] == ['network', 'ls']: print('owned-network')
 ''')
         for name in ("etna_signer", "stock_comet", "etna_el_import", "etna_el_runtime", "recovery_runtime"):
             self.executable(f"script/build_{name}.sh", f'''#!/bin/bash
-python3 -c 'import json, os, sys; open(os.environ["CALLS"], "a").write(json.dumps(["build"] + sys.argv[1:]) + "\\n")' {name} "$@"
+python3 -c 'import json, os, sys; target = os.environ.get("ETNA_BUILD_TARGET"); open(os.environ["CALLS"], "a").write(json.dumps(["build"] + sys.argv[1:] + ([{{"target": target, "image": os.environ.get("ETNA_RECOVERY_IMAGE")}}] if target else [])) + "\\n")' {name} "$@"
 ''')
 
     def executable(self, name, contents):
@@ -146,15 +148,36 @@ python3 -c 'import json, os, sys; open(os.environ["CALLS"], "a").write(json.dump
         self.assertEqual(self.builds(), [])
         self.assertIn(["docker", "info"], self.calls())
 
+    def test_missing_default_el_image_builds_the_pinned_runtime(self):
+        self.select("standalone_reth", "occupied_initial_auth_port_recovers_and_preserves_restart_endpoints")
+        self.env["EL_IMAGE_MISSING"] = "1"
+        result = self.run_entrypoint()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        builds = [row for row in self.calls() if row[:2] == ["build", "recovery_runtime"]]
+        self.assertEqual(builds, [["build", "recovery_runtime", {"target": "execution-runtime", "image": DEFAULT_EL_IMAGE}]])
+        self.assertNotIn(["docker", "pull", "--quiet", DEFAULT_EL_IMAGE], self.calls())
+        # Cleanup removes only a recovery image this run built, never the reusable EL image.
+        self.assertEqual([row for row in self.calls() if row[:3] == ["docker", "image", "rm"]], [])
+
+    def test_explicit_el_image_keeps_the_callers_override(self):
+        self.select("standalone_reth", "occupied_initial_auth_port_recovers_and_preserves_restart_endpoints")
+        self.env["EL_IMAGE_MISSING"] = "1"
+        self.env["ALETHIA_RETH_IMAGE"] = "reviewed:external"
+        self.env["PULL_POLICY"] = "always"
+        result = self.run_entrypoint()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.builds(), [])
+        self.assertIn(["docker", "pull", "--quiet", "reviewed:external"], self.calls())
+
     def test_native_checkpoint_prepares_el_and_comet_without_recovery_image(self):
         self.select("governance_recovery", "support::checkpoint_import::registered_checkpoint_older_signs_proposes_and_lands")
         result = self.run_entrypoint()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(set(self.builds()), {"etna_signer", "stock_comet", "etna_el_import", "etna_el_runtime"})
-        # The Linux EL copy reuses the pulled alethia-reth image instead of pulling it again.
-        alethia = (ROOT / "Dockerfile").read_text().splitlines()[0].removeprefix("ARG ALETHIA_RETH_IMAGE=")
+        # The default EL image is ready before the Linux EL copy reads it, and is never pulled.
         calls = self.calls()
-        self.assertLess(calls.index(["docker", "pull", "--quiet", alethia]), calls.index(["build", "etna_el_runtime"]))
+        self.assertLess(calls.index(["docker", "image", "inspect", DEFAULT_EL_IMAGE]), calls.index(["build", "etna_el_runtime"]))
+        self.assertNotIn(["docker", "pull", "--quiet", DEFAULT_EL_IMAGE], calls)
 
     def test_recovery_image_consumer_and_override(self):
         name = "governance_recovery_linux_comet_uid_reads_p2p_and_cannot_read_registered_key"

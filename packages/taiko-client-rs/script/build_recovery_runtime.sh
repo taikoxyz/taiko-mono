@@ -4,18 +4,22 @@
 #
 # On a Linux host of the Docker daemon's architecture whose os-release ID is ubuntu or debian, the
 # image is tests/docker/recovery-runtime.Dockerfile on the host's own distribution, holding the
-# host-built client, the Go helpers and stock Comet from target/etna-signer, and the runtime scripts,
-# so the host-built glibc client runs unchanged. Any other host builds the production Dockerfile,
-# which compiles two release binaries.
+# host-built client, the Go helpers and stock Comet from target/etna-signer, the runtime scripts and
+# the EL from ALETHIA_RETH_IMAGE, so the host-built glibc client runs unchanged. Any other host
+# builds the production Dockerfile, which compiles the release binaries.
+#
+# ETNA_BUILD_TARGET=<stage> builds only that stage of the production Dockerfile on every host and
+# takes no client argument; tests/entrypoint.sh uses it for the default execution-runtime image.
 set -euo pipefail
-client_bin=${1:?usage: build_recovery_runtime.sh <host-built taiko-client>}
-if [[ "$client_bin" != /* ]]; then client_bin="$PWD/$client_bin"; fi
+target=${ETNA_BUILD_TARGET:-}
+client_bin=''
+if [[ -z "$target" ]]; then
+  client_bin=${1:?usage: build_recovery_runtime.sh <host-built taiko-client>}
+  if [[ "$client_bin" != /* ]]; then client_bin="$PWD/$client_bin"; fi
+fi
 image=${ETNA_RECOVERY_IMAGE:?ETNA_RECOVERY_IMAGE must name this run image}
 run_label="taiko-client-rs.test-run=${TAIKO_CLIENT_RS_TEST_RUN:?owned run label}"
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
-# The production Dockerfile's ARG default is the image pin; this script keeps no copy of it.
-alethia_image=${ALETHIA_RETH_IMAGE:-$(sed -n '1s/^ARG ALETHIA_RETH_IMAGE=//p' Dockerfile)}
-: "${alethia_image:?ALETHIA_RETH_IMAGE must name the alethia-reth image}"
 context=$(mktemp -d)
 trap 'rm -rf "$context"' EXIT
 
@@ -33,7 +37,7 @@ fi
 
 base_image=''
 os_release=${ETNA_HOST_OS_RELEASE:-/etc/os-release}
-if [[ "$(uname -s)" == Linux && "$(linux_arch "$(uname -m)")" == "$arch" && -r "$os_release" ]]; then
+if [[ -z "$target" && "$(uname -s)" == Linux && "$(linux_arch "$(uname -m)")" == "$arch" && -r "$os_release" ]]; then
   os_id=$(sed -n 's/^ID=//p' "$os_release" | tr -d "\"'")
   os_version=$(sed -n 's/^VERSION_ID=//p' "$os_release" | tr -d "\"'")
   if [[ "$os_id" =~ ^(ubuntu|debian)$ && -n "$os_version" ]]; then
@@ -42,6 +46,11 @@ if [[ "$(uname -s)" == Linux && "$(linux_arch "$(uname -m)")" == "$arch" && -r "
 fi
 
 if [[ -n "$base_image" ]]; then
+  # Not ${…:?}: after it fails, Bash 3.2 exits through the EXIT trap with status 0.
+  if [[ -z "${ALETHIA_RETH_IMAGE:-}" ]]; then
+    echo "ALETHIA_RETH_IMAGE must name the alethia-reth image the scenarios run" >&2
+    exit 1
+  fi
   stage() {
     if [[ ! -f "$1" ]]; then
       echo "missing recovery runtime input: $1" >&2
@@ -66,7 +75,7 @@ if [[ -n "$base_image" ]]; then
   cp tests/docker/recovery-runtime.Dockerfile "$context/Dockerfile"
   echo "Building $image from host binaries on $base_image (linux/$arch)"
   docker build --platform "linux/$arch" --build-arg "BASE_IMAGE=$base_image" \
-    --build-arg "ALETHIA_RETH_IMAGE=$alethia_image" --label "$run_label" -t "$image" "$context"
+    --build-arg "ALETHIA_RETH_IMAGE=$ALETHIA_RETH_IMAGE" --label "$run_label" -t "$image" "$context"
   exit 0
 fi
 
@@ -74,5 +83,11 @@ cd ../..
 # Only this package is copied by its Dockerfile. Exclude caches, .build and unrelated packages.
 # Read current worktree bytes so the tested runtime includes uncommitted implementation fixes.
 git ls-files -z packages/taiko-client-rs | tar --null -T - -cf - | tar -xf - -C "$context"
+# Reuse the positional parameters for the optional target: an empty array would trip `set -u` in
+# Bash 3.2.
+set --
+if [[ -n "$target" ]]; then
+  set -- --target "$target"
+fi
 docker build --platform "linux/$arch" -f "$context/packages/taiko-client-rs/Dockerfile" \
-  --label "$run_label" -t "$image" "$context"
+  "$@" --label "$run_label" -t "$image" "$context"
