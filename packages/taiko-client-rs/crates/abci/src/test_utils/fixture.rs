@@ -479,6 +479,25 @@ pub(crate) fn el_chain() -> Vec<Header> {
     }]
 }
 
+/// The `InitChain` request CometBFT sends for `doc`.
+pub(crate) fn init_chain_request(doc: &crate::GenesisDoc) -> InitChain {
+    InitChain {
+        time: doc.genesis_time.parse().unwrap(),
+        chain_id: doc.chain_id.clone(),
+        consensus_params: crate::genesis::GenesisConsensusParams::abci(),
+        validators: doc
+            .validators
+            .iter()
+            .map(|v| crate::wire::ValidatorUpdate {
+                pub_key: v.pub_key.0,
+                power: v.power.parse::<u64>().unwrap().try_into().unwrap(),
+            })
+            .collect(),
+        app_state_bytes: serde_json::to_vec(&doc.app_state).unwrap().into(),
+        initial_height: doc.initial_height.parse::<u64>().unwrap().try_into().unwrap(),
+    }
+}
+
 /// CometBFT consensus parameters as the genesis builder writes them.
 pub(crate) fn consensus_params() -> tendermint_proto::v0_38::types::ConsensusParams {
     crate::genesis::GenesisConsensusParams::abci()

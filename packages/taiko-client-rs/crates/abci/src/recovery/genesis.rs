@@ -1,5 +1,8 @@
 //! Unique recovery genesis, independent of a node's moving admission checkpoint.
-use super::{RecoveryError, authenticate_recovery, verify::invalid, verify_recovery_witness};
+use super::{
+    RecoveryError, VerifiedRecovery, authenticate_recovery, verify::invalid, verify_recovery,
+    verify_recovery_witness,
+};
 use crate::{
     ChainParams, Engine, GenesisDoc, L1Source,
     genesis::{AppStateJson, GenesisConsensusParams, GenesisValidator, genesis_time},
@@ -45,12 +48,24 @@ pub struct RecoveryBootstrap {
     pub(crate) anchor: Option<alloy_primitives::Bytes>,
 }
 
+/// What [`RecoveryBootstrap::verify`] authenticates from a retained sidecar.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VerifiedBootstrap {
+    /// The canonical R-observation witness the sidecar retains.
+    pub witness: super::RecoveryWitness,
+    /// The anchor the origin EL block c inherited: its historical anchor, or the deployment's
+    /// initialization anchor at c = 0. Never R, which is only the new generation's floor.
+    pub anchor: crate::types::AnchorState,
+    /// The fixed recovery origin ([`verify_recovery_witness`] of `witness`).
+    pub origin: super::RecoveryOrigin,
+    /// The immutable deployment genesis record proven at `L1_0`.
+    pub genesis: crate::types::GenesisRecord,
+}
+
 impl RecoveryBootstrap {
-    /// Authenticates stored proofs and their exact linkage to the retained origin header.
-    pub fn verify(
-        &self,
-        params: &ChainParams,
-    ) -> Result<(super::RecoveryWitness, crate::types::AnchorState), RecoveryError> {
+    /// Authenticates stored proofs and their exact linkage to the retained origin header, with
+    /// one witness verification (which checks the deployment context once).
+    pub fn verify(&self, params: &ChainParams) -> Result<VerifiedBootstrap, RecoveryError> {
         use alloy_rlp::Decodable;
         if self.version != 1 {
             return Err(invalid("unsupported recovery bootstrap sidecar"));
@@ -63,13 +78,8 @@ impl RecoveryBootstrap {
         {
             return Err(invalid("bootstrap witness is not the canonical R observation"));
         }
-        let origin = verify_recovery_witness(&witness, params)?;
-        let context = crate::genesis::verify_deployment_context(
-            &witness.genesis.l1_header,
-            &witness.genesis.inbox,
-            params,
-        )
-        .map_err(invalid)?;
+        let VerifiedRecovery { origin, context, landing_generation } =
+            verify_recovery(&witness, params)?;
         let anchor = match (&self.anchor, origin.height) {
             (None, 0) => context.anchor,
             (Some(bytes), height) if height > 0 => {
@@ -83,14 +93,8 @@ impl RecoveryBootstrap {
                 let (pctg, old_generation, number) =
                     crate::rules::decode_extra_data(&witness.el_header.extra_data)
                         .map_err(invalid)?;
-                let retained = super::verify::observation(
-                    &witness.recovery_header,
-                    &witness.recovery_inbox,
-                    &witness,
-                    params,
-                )?;
                 if pctg != crate::rules::BASEFEE_SHARING_PCTG ||
-                    old_generation != retained.landing_generation ||
+                    old_generation != landing_generation ||
                     anchor.inbox.recovery_generation != old_generation ||
                     anchor.number != number ||
                     anchor.number < context.genesis.l1_0 ||
@@ -98,8 +102,7 @@ impl RecoveryBootstrap {
                     witness.el_header.parent_beacon_block_root != Some(anchor.state_root)
                 {
                     return Err(invalid(format!(
-                        "historical c anchor contradicts authenticated EL header/landing: pctg={pctg}, header generation={old_generation}, landing generation={}, anchor generation={}, number={number}/{}, L1_0={}, R={}, root={:?}/{}",
-                        retained.landing_generation,
+                        "historical c anchor contradicts authenticated EL header/landing: pctg={pctg}, header generation={old_generation}, landing generation={landing_generation}, anchor generation={}, number={number}/{}, L1_0={}, R={}, root={:?}/{}",
                         anchor.inbox.recovery_generation,
                         anchor.number,
                         context.genesis.l1_0,
@@ -112,17 +115,18 @@ impl RecoveryBootstrap {
             }
             _ => return Err(invalid("historical anchor presence contradicts origin height")),
         };
-        Ok((witness, anchor))
+        Ok(VerifiedBootstrap { witness, anchor, origin, genesis: context.genesis })
     }
 }
 
-/// Fetches historical c provenance without confusing it with the R floor for new blocks.
+/// Fetches historical c provenance without confusing it with the R floor for new blocks, and
+/// returns the sidecar with what its verification authenticates.
 /// c=0 has no Etna header anchor and uses the immutable deployment context explicitly.
 pub(crate) async fn recovery_bootstrap<L: L1Source + ?Sized>(
     l1: &L,
     params: &ChainParams,
     witness: &super::RecoveryWitness,
-) -> Result<RecoveryBootstrap, RecoveryError> {
+) -> Result<(RecoveryBootstrap, VerifiedBootstrap), RecoveryError> {
     let anchor = if witness.el_header.number == 0 {
         None
     } else {
@@ -145,8 +149,8 @@ pub(crate) async fn recovery_bootstrap<L: L1Source + ?Sized>(
     };
     let bootstrap =
         RecoveryBootstrap { version: 1, witness: alloy_rlp::encode(witness).into(), anchor };
-    bootstrap.verify(params)?;
-    Ok(bootstrap)
+    let verified = bootstrap.verify(params)?;
+    Ok((bootstrap, verified))
 }
 
 /// Reconstructs the parent summary exclusively from the authenticated origin and its parent.
@@ -161,5 +165,39 @@ pub fn recovery_parent(w: &super::RecoveryWitness) -> crate::types::ParentInfo {
         base_fee: header.base_fee_per_gas.unwrap_or(0),
         difficulty: header.difficulty,
         grandparent_timestamp: w.parent_headers.first().map_or(0, |parent| parent.timestamp),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{genesis::verify_deployment_context, test_utils::recovery_fixture};
+
+    /// One verification of the sidecar returns what its callers used to re-derive with a second
+    /// `verify_recovery_witness` and deployment-context check: the fixed origin, the deployment
+    /// genesis record and the authenticated witness, with the historical anchor (the deployment
+    /// anchor at c = 0).
+    #[tokio::test]
+    async fn bootstrap_verify_returns_origin_and_genesis() {
+        for c in [0, 6] {
+            let (fx, l1, _, mut w) = recovery_fixture(1, c, 1);
+            w.finalized_header = w.recovery_header.clone();
+            w.finalized_inbox = w.recovery_inbox.clone();
+            let (sidecar, fetched) = recovery_bootstrap(&l1, &fx.params, &w).await.unwrap();
+            let verified = sidecar.verify(&fx.params).unwrap();
+            assert_eq!(verified, fetched, "c = {c}");
+            assert_eq!(verified.witness, w);
+            assert_eq!(verified.origin, verify_recovery_witness(&w, &fx.params).unwrap());
+            let context =
+                verify_deployment_context(&w.genesis.l1_header, &w.genesis.inbox, &fx.params)
+                    .unwrap();
+            assert_eq!(verified.genesis, context.genesis);
+            assert_eq!(verified.genesis, fx.genesis);
+            if c == 0 {
+                assert_eq!(verified.anchor, context.anchor);
+            } else {
+                assert_eq!(verified.anchor, fx.anchor_state(&l1, fx.genesis.l1_0));
+            }
+        }
     }
 }

@@ -13,15 +13,15 @@ use super::{
 use crate::{
     engine::Engine,
     genesis::{
-        BootstrapWitness, GenesisConsensusParams, decode_bootstrap_state, genesis_time,
-        verify_committee, verify_context,
+        BootstrapWitness, GenesisConsensusParams, GenesisExpectation, decode_bootstrap_state,
+        verify_bootstrap,
     },
     l1::{L1Source, OwnFinality, own_finality},
-    rules::check_chain_id,
-    schedule::Schedule,
-    store::{AppState, STATE_SCHEMA_VERSION},
+    recovery::{RecoveryBootstrap, RecoveryWitness, VerifiedBootstrap, recovery_parent},
+    rules::RuleViolation,
+    store::AppState,
     types::{GenesisRecord, Member, ParentInfo},
-    valstate::ValState,
+    valstate::ValStateError,
 };
 
 impl<L: L1Source, E: Engine> App<L, E> {
@@ -95,128 +95,56 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
     /// Verifies an `InitChain` request and returns the state it starts.
     ///
-    /// Recovery evidence dispatches to `verify_recovery_genesis`; the following checks describe
-    /// unchanged generation-zero initialization.
-    /// In order: decodes the `app_state` witness; requires the request's time to equal the
-    /// initialization timestamp and its representable consensus parameters to be canonical;
-    /// requires its L1 header to be final and
-    /// canonical in the own L1 view; verifies the Inbox witness (initialized Inbox, genesis
-    /// record, `genesisCutoff < L1_0`) and that the header is block `L1_0`; validates the
-    /// schedule; requires the `chain_id` generation to equal the Inbox's `recoveryGeneration` and
-    /// `initial_height == 1`; recomputes the `e_0` committee from its witness (proofs against
-    /// `L1_0`'s state root, snapshot cutoff `genesisCutoff` as is, without the cutoff lag and
-    /// grid that apply from `e_0 + 1` on) and requires its record hash to equal
-    /// `genesisCommitteeRecordHash` and its members to be exactly the genesis validators; makes
-    /// sure the EL serves `B*` with hash `H*` and state root `S*` (EL sync if needed).
-    /// Persists the authenticated Inbox address. The state has `last = (B*,
-    /// H*)`, forced inclusion cursor 0 and CometBFT's genesis validator state of `e_0` at `B*`.
+    /// In order: decodes the `app_state` witness; verifies it once with [`verify_bootstrap`]
+    /// (generation zero: the Inbox witness at `L1_0`, the schedule and the `e_0` committee at
+    /// `genesisCutoff` with its record hash; recovery: the fixed origin, R's observation and
+    /// committee and the deployment context, embedding R as the finalized observation); requires
+    /// the request's time, canonical consensus parameters, `chain_id`, initial height and
+    /// validators to be exactly the ones that evidence determines ([`check_request`]); then
+    /// acquires the inputs the evidence leaves to the own L1 and EL. At generation zero: the
+    /// `L1_0` header must be final and canonical in the own L1 view, and the EL must serve `B*`
+    /// with hash `H*` and state root `S*` (EL sync if needed). For a recovery, the inputs come
+    /// from [`App::recovery_inputs`], retried here while unavailable. The state is
+    /// [`VerifiedGenesis::origin_state`](crate::genesis::VerifiedGenesis::origin_state), as for
+    /// an import at the origin: `last = (B*, H*)` with the `L1_0` anchor, or c with its
+    /// historical anchor; the origin's forced inclusion cursor; and CometBFT's genesis validator
+    /// state of the initial committee at the origin height. A recovery's immutable bootstrap
+    /// sidecar is durable before this returns, so before the state is published.
     async fn verify_genesis(&self, req: &request::InitChain) -> Result<AppState, AbciError> {
-        let w = match decode_bootstrap_state(&req.app_state_bytes)? {
-            BootstrapWitness::Initial(w) => w,
-            BootstrapWitness::Recovery(w) => return self.verify_recovery_genesis(req, &w).await,
+        let witness = decode_bootstrap_state(&req.app_state_bytes)?;
+        let (verified, expected) = verify_bootstrap(&witness, &self.params)?;
+        check_request(req, &expected, self.params.l2_chain_id)?;
+        let chain_id = req.chain_id.clone();
+        let BootstrapWitness::Recovery(w) = &witness else {
+            for header in &verified.l1_headers {
+                let (number, hash) = (header.number(), header.hash());
+                match within(
+                    "L1 finality check of the genesis header",
+                    self.opts.l1_timeout,
+                    own_finality(self.l1(), number, hash),
+                )
+                .await?
+                {
+                    OwnFinality::Canonical => {}
+                    OwnFinality::NotFinal { .. } => {
+                        return Err(AbciError::GenesisNotFinal { number, hash });
+                    }
+                    OwnFinality::OffChain { .. } => {
+                        return Err(AbciError::SafetyHalt(
+                            "genesis header differs from own finalized L1".into(),
+                        ));
+                    }
+                }
+            }
+            let parent = self.genesis_parent(&verified.genesis).await?;
+            return verified
+                .origin_state(chain_id, parent, verified.anchor.clone())
+                .map_err(not_a_validator_set);
         };
-        let params = &self.params;
-        let l1_header = &w.l1_header;
-        let expected = genesis_time(l1_header.timestamp())?;
-        if req.time != expected {
-            return Err(AbciError::GenesisTimeMismatch { got: req.time, expected });
-        }
-        if req.consensus_params != GenesisConsensusParams::abci() {
-            return Err(AbciError::GenesisConsensusParamsMismatch);
-        }
-
-        let (number, hash) = (l1_header.number(), l1_header.hash());
-        match within(
-            "L1 finality check of the genesis header",
-            self.opts.l1_timeout,
-            own_finality(self.l1(), number, hash),
-        )
-        .await?
-        {
-            OwnFinality::Canonical => {}
-            OwnFinality::NotFinal { .. } => {
-                return Err(AbciError::GenesisNotFinal { number, hash });
-            }
-            OwnFinality::OffChain { .. } => {
-                return Err(AbciError::SafetyHalt(
-                    "genesis header differs from own finalized L1".into(),
-                ));
-            }
-        }
-
-        let context = verify_context(l1_header, &w.inbox, params)?;
-        let schedule = Schedule::from_genesis(&context.genesis);
-        let generation = context.anchor.inbox.recovery_generation;
-        if generation != 0 {
-            return Err(AbciError::StoredState(
-                "unsupported recovery generation: fresh generation 0 only".into(),
-            ));
-        }
-        check_chain_id(&req.chain_id, params, generation)?;
-        let initial_height = req.initial_height.value();
-        if initial_height != schedule.h0() {
-            return Err(AbciError::InitialHeight { got: initial_height, expected: schedule.h0() });
-        }
-
-        let committee = verify_committee(&context, &w.committee, params)?;
-        check_validators(&req.validators, &committee.members)?;
-        let val_state = genesis_val_state(0, &committee.members)?;
-        let parent = self.genesis_parent(&context.genesis).await?;
-        Ok(AppState {
-            schema_version: STATE_SCHEMA_VERSION,
-            recovery: None,
-            app_version: crate::app::APP_VERSION,
-            chain_id: req.chain_id.clone(),
-            generation,
-            inbox: w.inbox.address,
-            genesis: context.genesis,
-            last_height: 0,
-            last_comet_hash: alloy_primitives::B256::ZERO,
-            parent,
-            anchor: context.anchor,
-            forced_cursor: 0,
-            committees: BTreeMap::from([(Schedule::E0, committee)]),
-            val_state,
-        })
-    }
-
-    /// Independently authenticates fixed recovery evidence, historical anchor and local EL
-    /// boundary. The immutable sidecar is durable before callers can publish the corresponding
-    /// AppState. The generation starts from CometBFT's genesis validator state of the origin
-    /// committee at the origin height.
-    async fn verify_recovery_genesis(
-        &self,
-        req: &request::InitChain,
-        w: &crate::RecoveryWitness,
-    ) -> Result<AppState, AbciError> {
-        use crate::recovery::verify_recovery_witness;
-        let origin = verify_recovery_witness(w, &self.params)?;
-        if w.finalized_header != w.recovery_header || w.finalized_inbox != w.recovery_inbox {
-            return Err(crate::RecoveryError::Invalid(
-                "recovery genesis must embed the canonical R observation".into(),
-            )
-            .into());
-        }
-        let expected = genesis_time(origin.l1_timestamp)?;
-        if req.time != expected {
-            return Err(AbciError::GenesisTimeMismatch { got: req.time, expected });
-        }
-        if req.consensus_params != GenesisConsensusParams::abci() {
-            return Err(AbciError::GenesisConsensusParamsMismatch);
-        }
-        check_chain_id(&req.chain_id, &self.params, origin.generation)?;
-        if req.initial_height.value() != origin.height + 1 {
-            return Err(AbciError::InitialHeight {
-                got: req.initial_height.value(),
-                expected: origin.height + 1,
-            });
-        }
-        check_validators(&req.validators, &origin.committee.members)?;
-        let val_state = genesis_val_state(origin.height, &origin.committee.members)?;
-        let mut backoff = Backoff::startup("recovery InitChain", origin.height);
-        let bootstrap = loop {
+        let mut backoff = Backoff::startup("recovery InitChain", verified.origin_height());
+        let (bootstrap, history) = loop {
             match self.recovery_inputs(w).await {
-                Ok(bootstrap) => break bootstrap,
+                Ok(inputs) => break inputs,
                 // The guarded signer owns the session. A successful stock InitChain replay must
                 // not rotate it, while unavailable inputs immediately close readiness.
                 Err(error) => {
@@ -225,32 +153,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 }
             }
         };
-        let (_, anchor) = bootstrap.verify(&self.params)?;
-        let genesis = crate::genesis::verify_deployment_context(
-            &w.genesis.l1_header,
-            &w.genesis.inbox,
-            &self.params,
-        )?
-        .genesis;
-        let state = AppState {
-            schema_version: STATE_SCHEMA_VERSION,
-            app_version: super::APP_VERSION,
-            chain_id: req.chain_id.clone(),
-            generation: origin.generation,
-            inbox: self.params.inbox,
-            genesis,
-            last_height: origin.height,
-            last_comet_hash: alloy_primitives::B256::ZERO,
-            parent: crate::recovery::recovery_parent(w),
-            anchor,
-            forced_cursor: origin.forced_cursor,
-            committees: BTreeMap::from([(
-                origin.committee.record.target_epoch,
-                origin.committee.clone(),
-            )]),
-            val_state,
-            recovery: Some(origin),
-        };
+        let state = verified
+            .origin_state(chain_id, recovery_parent(w), history.anchor)
+            .map_err(not_a_validator_set)?;
         self.store.save_recovery_bootstrap(&bootstrap)?;
         Ok(state)
     }
@@ -279,24 +184,35 @@ impl<L: L1Source, E: Engine> App<L, E> {
     }
 
     /// One bounded recovery acquisition attempt; unavailable history is retried by InitChain.
+    ///
+    /// Reauthenticates the retained headers, the current generation and the fixed origin in
+    /// the own finalized L1 view ([`check_recovery_canonicality`]); takes the historical anchor
+    /// from the immutable sidecar a previous attempt stored (which must retain `w` exactly, with
+    /// its anchor still final and canonical) or fetches it from the own L1
+    /// ([`recovery_bootstrap`]); and requires the EL to serve c and its parent exactly as `w`
+    /// authenticates them. Returns the sidecar to store and what its verification authenticates.
+    ///
+    /// [`check_recovery_canonicality`]: crate::recovery::check_recovery_canonicality
+    /// [`recovery_bootstrap`]: crate::recovery::recovery_bootstrap
     async fn recovery_inputs(
         &self,
-        w: &crate::RecoveryWitness,
-    ) -> Result<crate::recovery::RecoveryBootstrap, AbciError> {
+        w: &RecoveryWitness,
+    ) -> Result<(RecoveryBootstrap, VerifiedBootstrap), AbciError> {
         within(
             "recovery own-L1 authentication",
             self.opts.l1_timeout,
             crate::recovery::check_recovery_canonicality(self.l1(), &self.params, w),
         )
         .await?;
-        let bootstrap = match self.store.load_recovery_bootstrap()? {
+        let (bootstrap, history) = match self.store.load_recovery_bootstrap()? {
             Some(bootstrap) => {
-                let (retained, anchor) = bootstrap.verify(&self.params)?;
-                if retained != *w {
+                let history = bootstrap.verify(&self.params)?;
+                if history.witness != *w {
                     return Err(AbciError::SafetyHalt(
                         "recovery request differs from immutable bootstrap".into(),
                     ));
                 }
+                let anchor = &history.anchor;
                 match within(
                     "recovery historical finality",
                     self.opts.l1_timeout,
@@ -317,7 +233,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
                         ));
                     }
                 }
-                bootstrap
+                (bootstrap, history)
             }
             None => {
                 within(
@@ -341,7 +257,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 "EL contradicts authenticated recovery parent".into(),
             ));
         }
-        Ok(bootstrap)
+        Ok((bootstrap, history))
     }
 
     /// Makes sure the EL serves the genesis anchor `B*` with hash `H*` (syncing it over devp2p
@@ -388,6 +304,38 @@ impl<L: L1Source, E: Engine> App<L, E> {
     }
 }
 
+/// Requires the request's representable fields to be exactly the ones its bootstrap evidence
+/// determines (START-10-20/21, RECOV-8.4-7/9), in this order: the genesis time, the canonical
+/// consensus parameters, the `chain_id`, the initial height and the validators.
+fn check_request(
+    req: &request::InitChain,
+    expected: &GenesisExpectation,
+    l2_chain_id: u64,
+) -> Result<(), AbciError> {
+    if req.time != expected.genesis_time {
+        return Err(AbciError::GenesisTimeMismatch {
+            got: req.time,
+            expected: expected.genesis_time,
+        });
+    }
+    if req.consensus_params != GenesisConsensusParams::abci() {
+        return Err(AbciError::GenesisConsensusParamsMismatch);
+    }
+    if req.chain_id != expected.chain_id {
+        return Err(
+            RuleViolation::InvalidChainId { chain_id: req.chain_id.clone(), l2_chain_id }.into()
+        );
+    }
+    let initial_height = req.initial_height.value();
+    if initial_height != expected.initial_height {
+        return Err(AbciError::InitialHeight {
+            got: initial_height,
+            expected: expected.initial_height,
+        });
+    }
+    check_validators(&req.validators, &expected.validators)
+}
+
 /// Requires the genesis validators to be exactly `members`: the same native secp256k1eth keys with
 /// the same powers, in any order, without duplicates.
 fn check_validators(
@@ -420,12 +368,8 @@ fn check_validators(
     }
 }
 
-/// CometBFT's genesis validator state at the origin `height` of the validators `members`, which
-/// [`check_validators`] matched against the request. CometBFT refuses a genesis set it cannot
-/// build, so neither can the app.
-fn genesis_val_state(height: u64, members: &[Member]) -> Result<ValState, AbciError> {
-    let validators: Vec<_> = members.iter().map(|m| (m.pubkey, m.power)).collect();
-    ValState::genesis(height, &validators).map_err(|error| {
-        AbciError::GenesisValidatorsMismatch(format!("not a CometBFT validator set: {error}"))
-    })
+/// The error of an initial committee that is not a CometBFT validator set: CometBFT refuses a
+/// genesis set it cannot build, so neither can the app.
+fn not_a_validator_set(error: ValStateError) -> AbciError {
+    AbciError::GenesisValidatorsMismatch(format!("not a CometBFT validator set: {error}"))
 }

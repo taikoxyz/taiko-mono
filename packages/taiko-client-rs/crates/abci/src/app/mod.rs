@@ -188,8 +188,9 @@ pub enum AbciError {
     #[error("InitChain on an already initialized app")]
     AlreadyInitialized,
     /// The genesis `app_state` does not decode or its authenticated facts do not verify.
+    /// Recovery evidence errors convert as [`AbciError::Recovery`] does instead.
     #[error(transparent)]
-    Genesis(#[from] GenesisError),
+    Genesis(GenesisError),
     /// Recovery evidence is unavailable, superseded, or invalid.
     #[error(transparent)]
     Recovery(crate::recovery::RecoveryError),
@@ -341,6 +342,17 @@ pub struct App<L: L1Source, E: Engine> {
     _trust_lifetime: trust::TrustLifetime,
 }
 
+impl From<GenesisError> for AbciError {
+    /// Recovery evidence converts as a [`RecoveryError`](crate::recovery::RecoveryError) does,
+    /// keeping its class; other genesis errors stay [`AbciError::Genesis`].
+    fn from(error: GenesisError) -> Self {
+        match error {
+            GenesisError::Recovery(error) => error.into(),
+            error => Self::Genesis(error),
+        }
+    }
+}
+
 impl From<crate::recovery::RecoveryError> for AbciError {
     /// Unavailability stays retryable; authenticated recovery contradictions halt durably.
     fn from(error: crate::recovery::RecoveryError) -> Self {
@@ -462,19 +474,13 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 let evidence = store.load_recovery_bootstrap()?.ok_or_else(|| {
                     AbciError::StoredState("missing immutable recovery bootstrap".into())
                 })?;
-                let (witness, anchor) = evidence.verify(&params)?;
-                let verified = crate::recovery::verify_recovery_witness(&witness, &params)?;
-                let genesis = crate::genesis::verify_deployment_context(
-                    &witness.genesis.l1_header,
-                    &witness.genesis.inbox,
-                    &params,
-                )?
-                .genesis;
-                if *origin != verified ||
-                    state.genesis != genesis ||
+                let history = evidence.verify(&params)?;
+                if *origin != history.origin ||
+                    state.genesis != history.genesis ||
                     (!state.has_generation_commit() &&
-                        (state.anchor != anchor ||
-                            state.parent != crate::recovery::recovery_parent(&witness) ||
+                        (state.anchor != history.anchor ||
+                            state.parent !=
+                                crate::recovery::recovery_parent(&history.witness) ||
                             state.forced_cursor != origin.forced_cursor ||
                             state.last_comet_hash != alloy_primitives::B256::ZERO))
                 {

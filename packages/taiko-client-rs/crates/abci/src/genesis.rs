@@ -39,7 +39,9 @@ mod record;
 mod verify;
 
 pub(crate) use doc::genesis_time;
-pub(crate) use verify::{verify_committee, verify_context, verify_deployment_context};
+pub(crate) use verify::{
+    GenesisContext, verify_committee, verify_context, verify_deployment_context,
+};
 
 pub use build::build_genesis;
 pub use doc::{
@@ -197,6 +199,10 @@ pub enum GenesisError {
     /// The `L1_0` timestamp (Unix seconds) is not a valid CometBFT genesis time.
     #[error("L1_0 timestamp {0} is not a valid genesis time")]
     GenesisTime(u64),
+    /// Recovery bootstrap evidence is unavailable, superseded or invalid; it keeps its own
+    /// class, so `InitChain` retries or halts on it as on any recovery evidence.
+    #[error(transparent)]
+    Recovery(#[from] crate::recovery::RecoveryError),
 }
 
 impl From<WitnessError> for GenesisError {
@@ -385,6 +391,6 @@ mod tests {
     }
 }
 
-/// Pure authentication of immutable genesis documents for offline import.
+/// Pure bootstrap verification shared by `InitChain` and offline import.
 mod import;
-pub use import::{VerifiedGenesis, verify_original_genesis};
+pub use import::{GenesisExpectation, VerifiedGenesis, verify_bootstrap, verify_original_genesis};

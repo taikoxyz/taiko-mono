@@ -442,8 +442,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
             let bootstrap = self.store.load_recovery_bootstrap()?.ok_or_else(|| {
                 AbciError::SafetyHalt("missing recovery bootstrap evidence".into())
             })?;
-            let (witness, anchor) = bootstrap.verify(&self.params)?;
-            let origin = crate::recovery::verify_recovery_witness(&witness, &self.params)?;
+            let crate::recovery::VerifiedBootstrap { witness, anchor, origin, .. } =
+                bootstrap.verify(&self.params)?;
             if self.state.as_ref().and_then(|state| state.recovery.as_ref()) != Some(&origin) {
                 return Err(AbciError::SafetyHalt("recovery trust evidence changed".into()));
             }

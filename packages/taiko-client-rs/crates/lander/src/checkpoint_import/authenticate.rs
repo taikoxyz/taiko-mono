@@ -76,9 +76,7 @@ where
     for header in &fixed.l1_headers {
         canonical(own_l1, header).await?;
     }
-    let origin = fixed.recovery.as_ref().map_or(0, |r| r.height);
-    let generation = fixed.recovery.as_ref().map_or(0, |r| r.generation);
-    let origin_hash = fixed.recovery.as_ref().map_or(fixed.genesis.genesis_hash, |r| r.el_hash);
+    let (origin, origin_hash) = (fixed.origin_height(), fixed.origin_hash());
     if package.origin_header.number != origin ||
         package.origin_header.hash_slow() != origin_hash ||
         (origin == 0 && package.origin_header.state_root != fixed.genesis.genesis_state_root)
@@ -89,7 +87,8 @@ where
         match (&fixed.recovery, &package.recovery_bootstrap) {
             (None, None) => (None, fixed.anchor.clone(), parent_info(&package.origin_header, 0)?),
             (Some(_), Some(bootstrap)) => {
-                let (witness, anchor) = bootstrap.verify(params).map_err(candidate)?;
+                let abci::recovery::VerifiedBootstrap { witness, anchor, .. } =
+                    bootstrap.verify(params).map_err(candidate)?;
                 // The projected origin does not commit R's parent hash. Bind the full duplicate
                 // witness to the already authenticated genesis before checking own-node integrity.
                 if abci::genesis::AppStateJson::from(&witness) != package.genesis.app_state ||
@@ -124,29 +123,10 @@ where
         };
     let (latest, landing) =
         own_landing(own_l1, params, package.checkpoint_height, &fixed, recovery_witness).await?;
-    let mut state = AppState {
-        schema_version: abci::store::STATE_SCHEMA_VERSION,
-        app_version: abci::app::APP_VERSION,
-        chain_id: package.genesis.chain_id.clone(),
-        generation,
-        recovery: fixed.recovery.clone(),
-        inbox: params.inbox,
-        genesis: fixed.genesis.clone(),
-        last_height: origin,
-        last_comet_hash: B256::ZERO,
-        parent: origin_parent,
-        anchor: origin_anchor,
-        forced_cursor: fixed.recovery.as_ref().map_or(0, |r| r.forced_cursor),
-        committees: BTreeMap::from([(
-            fixed.committee.record.target_epoch,
-            fixed.committee.clone(),
-        )]),
-        val_state: ValState::genesis(
-            origin,
-            &fixed.committee.members.iter().map(|m| (m.pubkey, m.power)).collect::<Vec<_>>(),
-        )
-        .map_err(candidate)?,
-    };
+    // The origin state InitChain persists for the same genesis (DATA-5.4-1, RECOV-8.4-7).
+    let mut state = fixed
+        .origin_state(package.genesis.chain_id.clone(), origin_parent, origin_anchor)
+        .map_err(candidate)?;
     // Source errors have no authority to assert a protocol contradiction; only checks against
     // own-finalized L1 and data authenticated by it can produce a terminal Safety classification.
     let mut blocks = blocks

@@ -15,9 +15,10 @@ pub use fetch::{
     authenticate_recovery, authenticate_recovery_with_headers, check_recovery_canonicality,
 };
 pub(crate) use genesis::recovery_bootstrap;
-pub use genesis::{RecoveryBootstrap, build_recovery_genesis, recovery_parent};
+pub use genesis::{RecoveryBootstrap, VerifiedBootstrap, build_recovery_genesis, recovery_parent};
 pub use types::{RecoveryError, RecoveryOrigin, RecoveryWitness};
 pub use verify::verify_recovery_witness;
+pub(crate) use verify::{VerifiedRecovery, verify_recovery};
 
 #[cfg(test)]
 mod tests {

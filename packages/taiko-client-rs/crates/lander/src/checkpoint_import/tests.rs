@@ -411,6 +411,37 @@ async fn recovery_origin_and_later_import_preserve_r_floor_and_historical_anchor
     }
 }
 
+/// An import at the generation's origin installs the state InitChain persists for the same
+/// genesis: `VerifiedGenesis::origin_state` of the verified original genesis, over the origin
+/// EL header and, for a recovery, the sidecar's historical anchor rather than R (DATA-5.4-1).
+#[tokio::test]
+async fn origin_import_installs_the_verified_genesis_origin_state() {
+    let fx = std::sync::Arc::new(Fixture::new(0, 0));
+    let package = import_package(&fx, 0).await;
+    let imported =
+        authenticate_import(&package, std::iter::empty(), &fx.params, &OwnL1(fx.clone()))
+            .await
+            .unwrap();
+    let fixed = abci::genesis::verify_original_genesis(&package.genesis, &fx.params).unwrap();
+    let parent = parent_info(&package.origin_header, 0).unwrap();
+    let origin = fixed.origin_state(package.genesis.chain_id.clone(), parent, fixed.anchor.clone());
+    assert_eq!(imported.state(), &origin.unwrap());
+
+    let fx =
+        std::sync::Arc::new(crate::test_utils::consensus_mpt::recovery::fixture(6, 6, 6).await);
+    let package = recovery_package(&fx, 6).await;
+    let imported =
+        authenticate_import(&package, frames(&fx, 6).into_iter(), &fx.params, &OwnL1(fx.clone()))
+            .await
+            .unwrap();
+    let fixed = abci::genesis::verify_original_genesis(&package.genesis, &fx.params).unwrap();
+    let history = package.recovery_bootstrap.as_ref().unwrap().verify(&fx.params).unwrap();
+    assert_ne!(history.anchor, fixed.anchor);
+    let parent = abci::recovery::recovery_parent(&history.witness);
+    let origin = fixed.origin_state(package.genesis.chain_id.clone(), parent, history.anchor);
+    assert_eq!(imported.state(), &origin.unwrap());
+}
+
 #[test]
 fn matching_preimage_with_excessive_stock_power_is_safety_error() {
     let fx = Fixture::new(6, 6);
@@ -1023,7 +1054,7 @@ async fn review_substituted_recovery_sidecar_is_a_candidate_error() {
         std::sync::Arc::new(crate::test_utils::consensus_mpt::recovery::fixture(8, 12, 12).await);
     let mut package = recovery_package(&fx, 12).await;
     let bootstrap = package.recovery_bootstrap.as_ref().unwrap();
-    let (mut witness, _) = bootstrap.verify(&fx.params).unwrap();
+    let mut witness = bootstrap.verify(&fx.params).unwrap().witness;
     let mut header = Header::decode(&mut witness.recovery_header.raw().as_ref()).unwrap();
     header.parent_hash = B256::repeat_byte(0xaa);
     witness.recovery_header = RawL1Header::from(&header);
@@ -1085,7 +1116,7 @@ async fn recovery_historical_anchor_not_final_in_own_l1_is_unavailable() {
     let fx =
         std::sync::Arc::new(crate::test_utils::consensus_mpt::recovery::fixture(6, 6, 6).await);
     let package = recovery_package(&fx, 6).await;
-    let (_, anchor) = package.recovery_bootstrap.as_ref().unwrap().verify(&fx.params).unwrap();
+    let anchor = package.recovery_bootstrap.as_ref().unwrap().verify(&fx.params).unwrap().anchor;
     let own_l1 = RecedesAfterRecoveryCheck {
         own: OwnL1(fx.clone()),
         receded: anchor.number - 1,

@@ -4,7 +4,7 @@ use super::{RecoveryError, RecoveryOrigin, RecoveryWitness};
 use crate::{
     AccountWitness, ChainParams, CommitteeState, GenesisError,
     committee::verify_committee_witness_at_cutoff,
-    genesis::{verify_committee, verify_deployment_context},
+    genesis::{GenesisContext, verify_committee, verify_deployment_context},
     l1::{
         RawL1Header,
         layout::{inbox, word_u48},
@@ -184,6 +184,26 @@ pub fn verify_recovery_witness(
     w: &RecoveryWitness,
     params: &ChainParams,
 ) -> Result<RecoveryOrigin, RecoveryError> {
+    verify_recovery(w, params).map(|verified| verified.origin)
+}
+
+/// What one [`verify_recovery`] authenticates, with the facts it derived them from, so callers
+/// need not derive them again.
+pub(crate) struct VerifiedRecovery {
+    /// The fixed recovery origin, as [`verify_recovery_witness`] returns it.
+    pub(crate) origin: RecoveryOrigin,
+    /// The immutable deployment context proven at `L1_0`, checked once.
+    pub(crate) context: GenesisContext,
+    /// The generation that originally created the retained landing at c.
+    pub(super) landing_generation: u64,
+}
+
+/// [`verify_recovery_witness`], also returning the deployment context and the retained
+/// landing's generation it authenticated on the way.
+pub(crate) fn verify_recovery(
+    w: &RecoveryWitness,
+    params: &ChainParams,
+) -> Result<VerifiedRecovery, RecoveryError> {
     check_generation(w.generation)?;
     if w.version != 1 {
         return Err(invalid("unsupported recovery witness version"));
@@ -229,16 +249,20 @@ pub fn verify_recovery_witness(
         origin.height / context.genesis.epoch_len,
     )
     .map_err(invalid)?;
-    Ok(RecoveryOrigin {
-        generation: w.generation,
-        height: origin.height,
-        l1_number: origin.number,
-        l1_timestamp: origin.timestamp,
-        el_hash: origin.el_hash,
-        state_root: w.el_header.state_root,
-        comet_hash: origin.comet_hash,
-        val_state_hash: origin.val_state_hash,
-        forced_cursor: origin.cursor,
-        committee: CommitteeState { record, members },
+    Ok(VerifiedRecovery {
+        origin: RecoveryOrigin {
+            generation: w.generation,
+            height: origin.height,
+            l1_number: origin.number,
+            l1_timestamp: origin.timestamp,
+            el_hash: origin.el_hash,
+            state_root: w.el_header.state_root,
+            comet_hash: origin.comet_hash,
+            val_state_hash: origin.val_state_hash,
+            forced_cursor: origin.cursor,
+            committee: CommitteeState { record, members },
+        },
+        context,
+        landing_generation: origin.landing_generation,
     })
 }

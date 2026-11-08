@@ -964,7 +964,7 @@ pub async fn recovered(
     let bootstrap = commands.plan_dir(plan).join("app/recovery-bootstrap.json");
     let history: abci::recovery::RecoveryBootstrap =
         serde_json::from_slice(&fs::read(&bootstrap)?)?;
-    let (_, old_anchor) = history.verify(&f.params)?;
+    let old_anchor = history.verify(&f.params)?.anchor;
     let fixed = abci::genesis::verify_original_genesis(&doc, &f.params)?;
     ensure!(
         fixed.anchor.inbox.last_checkpoint_height == 6 &&

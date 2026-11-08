@@ -52,8 +52,8 @@ mod recovery_fixtures;
 pub(crate) mod vectors;
 
 pub(crate) use fixture::{
-    Fixture, GenesisSpec, committed_block, powers, recovery_fixture, recovery_fixture_with_spec,
-    validator_updates,
+    Fixture, GenesisSpec, committed_block, init_chain_request, powers, recovery_fixture,
+    recovery_fixture_with_spec, validator_updates,
 };
 pub(crate) use mocks::{EngineCall, L1Call, MockEngine, MockL1, simple_block};
 

@@ -127,9 +127,9 @@ pub fn validate_stores(
         let bootstrap: abci::recovery::RecoveryBootstrap =
             serde_json::from_slice(&read_bounded(&bootstrap, MAX_PLAN_BYTES)?)
                 .map_err(|_| RecoveryCommandError::PlanMismatch)?;
-        let (witness, anchor) = bootstrap.verify(&params)?;
-        bootstrap_anchor = Some(anchor);
-        if abci::recovery::verify_recovery_witness(&witness, &params)? != plan.origin {
+        let verified = bootstrap.verify(&params)?;
+        bootstrap_anchor = Some(verified.anchor);
+        if verified.origin != plan.origin {
             return Err(RecoveryCommandError::PlanMismatch)
         }
     } else if state.is_some() {

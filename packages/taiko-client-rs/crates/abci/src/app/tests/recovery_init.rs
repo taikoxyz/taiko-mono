@@ -28,24 +28,8 @@ pub(super) fn document(fx: &Fixture, w: &RecoveryWitness) -> GenesisDoc {
     }
 }
 
-/// The `InitChain` request CometBFT sends for `doc`.
-pub(super) fn request(doc: &GenesisDoc) -> request::InitChain {
-    request::InitChain {
-        time: doc.genesis_time.parse().unwrap(),
-        chain_id: doc.chain_id.clone(),
-        consensus_params: GenesisConsensusParams::abci(),
-        validators: doc
-            .validators
-            .iter()
-            .map(|v| crate::wire::ValidatorUpdate {
-                pub_key: v.pub_key.0,
-                power: v.power.parse::<u64>().unwrap().try_into().unwrap(),
-            })
-            .collect(),
-        app_state_bytes: serde_json::to_vec(&doc.app_state).unwrap().into(),
-        initial_height: doc.initial_height.parse::<u64>().unwrap().try_into().unwrap(),
-    }
-}
+/// The `InitChain` request CometBFT sends for a genesis document.
+pub(super) use crate::test_utils::init_chain_request as request;
 
 #[tokio::test]
 async fn recovery_init_preserves_guarded_signer_session_on_first_and_replayed_handshake() {
