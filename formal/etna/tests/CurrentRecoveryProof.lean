@@ -1,9 +1,11 @@
 import EtnaProofs.CurrentRecoveryPath
 import EtnaProofs.CurrentRecoverySegment
+import EtnaProofs.CurrentRecoveryLanding
 
 /-! H4's proof interfaces: `Recovery.prepare`'s type and the names and types of its handoff
 record `Recovery.Prepared` (the L1 half of the path), then `Recovery.segment`'s type and the names
-and types of its input record `Recovery.SegmentContext` (the K-block segment). Kept apart from
+and types of its input record `Recovery.SegmentContext` (the K-block segment), and H4's proof
+`Recovery.recoverable` (certificate and landing). Kept apart from
 tests/CurrentRecovery.lean so the H4 statement pins never depend on a proof build. -/
 namespace Etna.CurrentRecoveryProofRegression
 open Etna.Design Etna.Design.Current Etna.Design.Current.Protocol Etna.Statements.Current
@@ -95,5 +97,8 @@ example : ∀ {env : Environment} {x : World} {p : Header} {R : Nat} {keys : Lis
         b.body.blockBytes ≤ 124000 ∧ b.header.anchor.number = R ∧
         Blocks.selectedRules b ∈ env.imageRules image :=
   @Etna.Design.Current.Protocol.Recovery.segment
+
+-- H4 itself: the certificate and the landing close the path (`Recovery.recoverable`).
+example : Recoverability := Etna.Design.Current.Protocol.Recovery.recoverable
 
 end Etna.CurrentRecoveryProofRegression
