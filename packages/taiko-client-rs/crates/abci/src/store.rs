@@ -512,40 +512,6 @@ impl Store {
         Ok(())
     }
 
-    /// Retain typed supersession only when no previous fatal cause exists. A crash after the
-    /// fatal write but before this sidecar intentionally requires manual investigation.
-    pub(crate) fn record_supersession(
-        &self,
-        state: &AppState,
-        current: u64,
-        reason: &str,
-    ) -> Result<(), StoreError> {
-        use crate::recovery::supersession::{SUPERSESSION_FILE, SupersessionEvidence};
-        if self.fatal_evidence()?.is_some() {
-            return Ok(());
-        }
-        if fs::symlink_metadata(self.dir.join(SUPERSESSION_FILE)).is_ok() {
-            return Err(StoreError::BootstrapConflict);
-        }
-        let path = self.dir.join(STATE_FILE);
-        let bytes = fs::read(&path).map_err(|source| StoreError::Io {
-            op: "read superseded state",
-            path,
-            source,
-        })?;
-        let persisted = decode_journal(&bytes, &self.dir.join(STATE_FILE))?;
-        if &persisted != state || current <= state.generation {
-            return Err(StoreError::BootstrapConflict);
-        }
-        self.record_fatal(reason)?;
-        let evidence = SupersessionEvidence::new(state, current, &bytes, reason.as_bytes());
-        self.save_bytes(
-            &serde_json::to_vec(&evidence).map_err(StoreError::Encode)?,
-            SUPERSESSION_FILE,
-            "generation-superseded.pending",
-        )
-    }
-
     /// Loads immutable bootstrap evidence; absence is never permission to reconstruct a saved
     /// recovery.
     pub(crate) fn load_recovery_bootstrap(
@@ -1025,23 +991,6 @@ mod tests {
         let error = store.install_import(&other, None).expect_err("a different installed state");
         assert!(matches!(error, StoreError::Import(_)), "{error:?}");
         assert_eq!(store.load().unwrap(), Some(state));
-    }
-
-    /// The validator supervisor's supersession check (`script/etna_validator.py`) reads saved
-    /// state keys by name: each must stay a top-level key of the serialized [`AppState`].
-    #[test]
-    fn supervisor_reads_only_saved_app_state_keys() {
-        let script = include_str!("../../../script/etna_validator.py");
-        let read: Vec<_> = script
-            .split("state.get(\"")
-            .skip(1)
-            .map(|rest| rest.split('"').next().unwrap())
-            .collect();
-        assert_eq!(read, ["chain_id", "generation", "inbox"]);
-        let saved = serde_json::to_value(state()).unwrap();
-        for key in read {
-            assert!(saved.get(key).is_some(), "{key} is not a saved AppState key");
-        }
     }
 
     #[test]

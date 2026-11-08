@@ -4,8 +4,6 @@
 mod fetch;
 /// Deterministic recovery genesis and historical bootstrap provenance.
 mod genesis;
-/// Typed first-cause terminal metadata for expected generation supersession.
-pub mod supersession;
 /// Versioned evidence and authenticated result types.
 mod types;
 /// Pure proof verification.

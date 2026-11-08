@@ -93,5 +93,6 @@
   directory or home and never copies a registered key or HRS; never reset uncertain state.
 - Recovery InitChain preserves the guarded signer session, closing readiness in that session
   on unavailable evidence. Preserve authority markers/manifest/intent, all per-generation HRS,
-  generic fatal evidence and latches. A freshly authenticated later generation acknowledges
-  only exact typed historical supersession.
+  generic fatal evidence and latches. A superseded generation halts with only the generic fatal
+  evidence and the plain-text supervisor latch in its old app store; `install` never reuses that
+  store, so no later generation reads them.

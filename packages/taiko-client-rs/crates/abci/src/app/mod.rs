@@ -644,14 +644,15 @@ impl<L: L1Source, E: Engine> App<L, E> {
         } else {
             tracing::warn!(method, height, reason, error = %rejection, "proposal refused");
         }
-        if let Rejection::Superseded { chain, inbox } = rejection {
+        if matches!(rejection, Rejection::Superseded { .. }) {
+            // RECOV-8-15: reject and revoke while the process keeps running. The generic fatal
+            // record only makes the restart refuse (RECOV-8-16).
             self.superseded = true;
             let reason = "authenticated higher recovery generation";
             if self.trust.revoke(reason) &&
-                let Some(state) = self.state.as_ref().filter(|state| state.generation == *chain) &&
-                let Err(error) = self.store.record_supersession(state, *inbox, reason)
+                let Err(error) = self.store.record_fatal(reason)
             {
-                tracing::error!(%error, "could not persist typed supersession; recovery stays closed");
+                tracing::error!(%error, "could not persist the supersession fatal evidence; the halt stands");
             }
         }
         if matches!(rejection, Rejection::EmptyProposal) && self.halt.is_some() {

@@ -572,22 +572,19 @@ class RecoveredSupervisorTests(SupervisorTests):
                            comet_hash="0x" + "34" * 32, forced_cursor=2,
                            committee_hash="0x" + "45" * 32)
 
-    def test_later_generation_cannot_acknowledge_retained_signer_fence(self):
+    def test_retained_signer_fence_latches_later_generation(self):
         self.proc.terminate()
         self.assertEqual(self.proc.wait(timeout=5), 0)
         fence = self.state.with_name(self.state.name + ".uncertain")
         evidence = b'{"operation":"interrupted FilePV signing"'
         fence.write_bytes(evidence)
         latch = self.store / "validator-supervisor.halted"
-        latch.write_text(json.dumps(dict(schema=1, kind="expected-generation-supersession",
-                                        chain_id=self.chain, previous_generation=1, current_generation=2,
-                                        evidence_digest="ab" * 32)))
         self.env["ETNA_GENERATION"] = "2"
         self.generation = 2
         self.origin["generation"] = 2
         self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")],
                                      env=self.env, stdout=self.log, stderr=self.log)
-        self.wait(lambda: latch.read_bytes() == b"signer exited; inspect diagnostics\n")
+        self.wait(lambda: latch.exists() and latch.read_bytes() == b"signer exited; inspect diagnostics\n")
         self.assertIsNone(self.proc.poll())
         self.assertEqual(self.starts(), 1)
         self.assertEqual(len(self.signers()), 1)
@@ -1157,10 +1154,9 @@ class LauncherPathTests(unittest.TestCase):
                 for p, expected in saved.items(): self.assertEqual(p.read_bytes(),expected)
 
 
-class TypedSupersessionTests(unittest.TestCase):
+class SupervisorUnitTests(unittest.TestCase):
     def supersession_with_children(self, directory, signer_status):
-        """Create authentic first-cause bytes and real children with controlled exit status."""
-        import hashlib
+        """Create a superseded app store and real children with controlled exit status."""
         spec = importlib.util.spec_from_file_location("etna_supersession_stop", ROOT / "script/etna_validator.py")
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
@@ -1169,13 +1165,8 @@ class TypedSupersessionTests(unittest.TestCase):
         runtime.store, runtime.chain, runtime.generation = store, "old-chain", 0
         runtime.state = store / "hrs.json"
         runtime.latch = store / "validator-supervisor.halted"
-        state = json.dumps(dict(chain_id="old-chain", generation=0, inbox="0x01")).encode()
-        fatal = b"authenticated higher recovery generation"
-        evidence = dict(schema=1, chain_id="old-chain", previous_generation=0, current_generation=1,
-                        inbox="0x01", state_digest=hashlib.sha256(state).hexdigest(),
-                        fatal_digest=hashlib.sha256(fatal).hexdigest())
-        preserved = {"abci-state.json": state, "fatal-evidence.txt": fatal,
-                     "generation-superseded.json": json.dumps(evidence).encode(),
+        preserved = {"abci-state.json": json.dumps(dict(chain_id="old-chain", generation=0)).encode(),
+                     "fatal-evidence.txt": b"authenticated higher recovery generation",
                      "key.json": b"registered key", "hrs.json": b"retained HRS"}
         for name, raw in preserved.items():
             (store / name).write_bytes(raw)
@@ -1203,41 +1194,39 @@ class TypedSupersessionTests(unittest.TestCase):
         self.addCleanup(cleanup)
         return runtime, preserved
 
-    def test_supersession_publication_waits_for_clean_signer_shutdown(self):
-        for signer_status in (0, 1):
-            with self.subTest(signer_status=signer_status), tempfile.TemporaryDirectory() as directory:
-                runtime, preserved = self.supersession_with_children(directory, signer_status)
-                reason = "terminal app trust or deployment identity"
-                runtime.halt(reason, dict(phase="halted", chain_id="old-chain", generation=0))
-                self.assertEqual((runtime.store / "signer.halt").read_bytes(), (reason + "\n").encode(),
-                                 "recovery became acknowledgeable before signer shutdown completed")
-                if signer_status == 0:
-                    latch = json.loads(runtime.latch.read_bytes())
-                    self.assertEqual(latch["kind"], "expected-generation-supersession")
-                else:
-                    self.assertEqual(runtime.latch.read_bytes(), (reason + "\n").encode(),
-                                     "failed signing authority left an acknowledgeable supersession")
-                for name, raw in preserved.items():
-                    self.assertEqual((runtime.store / name).read_bytes(), raw)
+    def test_superseded_halt_writes_generic_latch_and_preserves_store(self):
+        """A halted app, e.g. a superseded generation (RECOV-8-16), gets only the generic latch.
+
+        The latch is durable before Comet and then the signer are stopped, and every byte of the
+        old store stays as it was; `abci-recover install` never reuses that store.
+        """
+        with tempfile.TemporaryDirectory() as directory:
+            runtime, preserved = self.supersession_with_children(directory, 0)
+            runtime.events, runtime.prior_observation = runtime.store / "absent-denial.json", None
+            runtime.observe = lambda: dict(
+                schema_version=1, session_id="old-session", phase="halted", chain_id="old-chain",
+                generation=0, reason="recovery generation 0 superseded by 1", recovery_origin=None)
+            runtime.tick()
+            reason = b"terminal app trust or deployment identity\n"
+            self.assertEqual(runtime.latch.read_bytes(), reason)
+            for name in ("comet", "signer"):
+                self.assertEqual((runtime.store / (name + ".halt")).read_bytes(), reason,
+                                 f"{name} was stopped before the latch was durable")
+            self.assertIsNone(runtime.comet)
+            self.assertIsNone(runtime.signer)
+            for name, raw in preserved.items():
+                self.assertEqual((runtime.store / name).read_bytes(), raw)
 
     def test_existing_latch_cannot_hide_signer_failure_during_stop(self):
-        for generic in (False, True):
-            with self.subTest(generic=generic), tempfile.TemporaryDirectory() as directory:
-                runtime, preserved = self.supersession_with_children(directory, 1)
-                if generic:
-                    original = b"original generic safety halt\n"
-                else:
-                    original = json.dumps(runtime.expected_supersession(
-                        dict(phase="halted", chain_id="old-chain", generation=0))).encode()
-                runtime.latch.write_bytes(original)
-                runtime.tick()
-                if generic:
-                    self.assertEqual(runtime.latch.read_bytes(), original)
-                else:
-                    with self.assertRaises(ValueError):
-                        json.loads(runtime.latch.read_bytes())
-                for name, raw in preserved.items():
-                    self.assertEqual((runtime.store / name).read_bytes(), raw)
+        with tempfile.TemporaryDirectory() as directory:
+            runtime, preserved = self.supersession_with_children(directory, 1)
+            original = b"original generic safety halt\n"
+            runtime.latch.write_bytes(original)
+            runtime.tick()
+            self.assertEqual(runtime.latch.read_bytes(), original)
+            self.assertTrue(runtime.halted)
+            for name, raw in preserved.items():
+                self.assertEqual((runtime.store / name).read_bytes(), raw)
 
     def test_comet_identity_keeps_privileged_group_drop_and_same_uid_native_path(self):
         spec = importlib.util.spec_from_file_location("etna_identity_supervisor", ROOT / "script/etna_validator.py")
@@ -1279,43 +1268,6 @@ class TypedSupersessionTests(unittest.TestCase):
                 self.assertEqual(options["pass_fds"], (lifetime.fileno(),))
                 self.assertNotIn("ETNA_OWNER_LIFETIME_FD", options["env"])
                 self.assertNotIn("ETNA_OWNER_JOIN", options["env"])
-
-    def test_only_exact_first_cause_evidence_gets_structured_latch(self):
-        import hashlib
-        spec = importlib.util.spec_from_file_location("etna_typed_supervisor", ROOT / "script/etna_validator.py")
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        for changed in (None, "missing", "fatal", "state", "domain", "generic"):
-            with self.subTest(changed=changed), tempfile.TemporaryDirectory() as directory:
-                store = Path(directory)
-                runtime = object.__new__(module.Supervisor)
-                runtime.store, runtime.chain, runtime.generation = store, "old-chain", 0
-                runtime.state = store / "hrs.json"
-                runtime.latch = store / "validator-supervisor.halted"
-                runtime.stop = lambda: None
-                state = json.dumps(dict(chain_id="old-chain", generation=0, inbox="0x01")).encode()
-                fatal = b"authenticated higher recovery generation"
-                evidence = dict(schema=1, chain_id="old-chain", previous_generation=0,
-                                current_generation=1, inbox="0x01", state_digest=hashlib.sha256(state).hexdigest(),
-                                fatal_digest=hashlib.sha256(fatal).hexdigest())
-                (store / "abci-state.json").write_bytes(state)
-                (store / "fatal-evidence.txt").write_bytes(fatal)
-                sidecar = store / "generation-superseded.json"
-                sidecar.write_text(json.dumps(evidence))
-                if changed == "missing": sidecar.unlink()
-                if changed == "fatal": (store / "fatal-evidence.txt").write_text("unrelated safety failure")
-                if changed == "state": (store / "abci-state.json").write_bytes(state + b" ")
-                if changed == "domain": runtime.chain = "foreign"
-                if changed == "generic": runtime.latch.write_text("terminal app trust or deployment identity\n")
-                snapshot = dict(phase="halted", chain_id="old-chain", generation=0)
-                runtime.halt("terminal app trust or deployment identity", snapshot)
-                if changed is None:
-                    latch = json.loads(runtime.latch.read_text())
-                    self.assertEqual(latch["kind"], "expected-generation-supersession")
-                    self.assertEqual(latch["evidence_digest"], hashlib.sha256(sidecar.read_bytes()).hexdigest())
-                else:
-                    self.assertEqual(runtime.latch.read_text(), "terminal app trust or deployment identity\n")
-                self.assertTrue((store / "fatal-evidence.txt").exists())
 
 
 if __name__ == "__main__":

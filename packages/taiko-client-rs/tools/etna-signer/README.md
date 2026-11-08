@@ -201,14 +201,13 @@ no operation fence and can restart normally.
 
 Every existing fence inode fails startup, including malformed, unreadable, or aliased
 evidence. Both signer and supervisor refuse to rearm it across app/container restarts or
-generation changes, and a supersession latch cannot acknowledge this uncertainty. The
-signer exits nonzero on typed persistence uncertainty. After stopping all owners, inspect
-and preserve the fence, original HRS, all per-generation HRS, manifest/intent/markers, and
-supervisor/app first-cause evidence. An interrupted operation may be fully durable; the
-fence deliberately still requires inspection. Only an explicit operator repair after
-that inspection may remove the fence and resolve the supervisor halt. Never restore an
-older HRS or authority backup, reset signed bytes, or delete authority metadata to resume
-the identity.
+generation changes. The signer exits nonzero on typed persistence uncertainty. After
+stopping all owners, inspect and preserve the fence, original HRS, all per-generation
+HRS, manifest/intent/markers, and supervisor/app first-cause evidence. An interrupted
+operation may be fully durable; the fence deliberately still requires inspection. Only
+an explicit operator repair after that inspection may remove the fence and resolve the
+supervisor halt. Never restore an older HRS or authority backup, reset signed bytes, or
+delete authority metadata to resume the identity.
 
 ## Recovery controller and retention
 
@@ -223,8 +222,8 @@ every generation.
 Keep both external authority markers, registry manifest/intent/watermark and every domain
 state together with their locks. Missing enrolled files, ambiguous signed staging or generic
 fatal/latch evidence require investigation and repair, never replacement files or resets.
-Historical expected supersession is accepted only with matching typed authenticated evidence;
-its original fatal/sidecar/latch bytes remain in place.
+A superseded generation leaves the app's generic fatal evidence and the supervisor's plain-text
+latch in its old app store, which `install` never reuses; leave those bytes in place.
 
 Stock Comet creates its own disposable, unregistered FilePV in fresh standard local paths
 before replacing it with the mandatory guarded external signer. That dummy never signs for

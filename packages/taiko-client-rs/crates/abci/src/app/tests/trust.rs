@@ -392,6 +392,33 @@ async fn failed_commit_never_authorizes_and_keeps_original_durable_head() {
     assert_eq!(saved.last_height, 0);
 }
 
+/// The names in the app store `dir`.
+fn store_files(dir: &std::path::Path) -> std::collections::BTreeSet<String> {
+    std::fs::read_dir(dir).unwrap().map(|e| e.unwrap().file_name().into_string().unwrap()).collect()
+}
+
+/// A superseded generation adds only the generic fatal record to its store, and that record
+/// makes the next start refuse (RECOV-8-16).
+fn assert_superseded_store(
+    fx: &Fixture,
+    dir: &std::path::Path,
+    before: &std::collections::BTreeSet<String>,
+) {
+    let added: Vec<_> = store_files(dir).difference(before).cloned().collect();
+    assert_eq!(added, ["fatal-evidence.txt"], "supersession must use only the generic fatal latch");
+    let restart = App::new(
+        fx.l1(),
+        fx.engine(),
+        fx.params.clone(),
+        Store::volatile(dir.into()),
+        AppOptions::default(),
+    );
+    assert!(matches!(restart, Err(AbciError::SafetyHalt(_))));
+}
+
+/// RECOV-8-15: a proposal whose final anchor shows a later generation is rejected and trust is
+/// revoked while the process keeps running. The generic fatal record only makes a restart
+/// refuse (RECOV-8-16), and the halted session cannot be reopened by a signer reconnect.
 #[tokio::test]
 async fn higher_generation_proposal_revokes_even_without_finalize_error() {
     let fx = Fixture::genesis(1);
@@ -404,43 +431,37 @@ async fn higher_generation_proposal_revokes_even_without_finalize_error() {
     inbox.recovery_generation = 1;
     fx.plant_l1_block(app.l1(), 101, &inbox, &fx.registry);
     app.l1().set_finalized(101);
+    let before = store_files(dir.path());
     let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 101)), None);
     let (response, _) = super::proposal::judge(&mut app, &env).await;
     assert_eq!(response, response::ProcessProposal::Reject);
     assert!(app.superseded);
     assert!(!app.trust.snapshot().is_ready());
     assert_eq!(app.trust.snapshot().phase, TrustPhase::Halted);
-    assert!(
-        dir.path().join("generation-superseded.json").is_file(),
-        "expected supersession must retain typed evidence"
-    );
     assert!(app.store.fatal_evidence().unwrap().is_some());
+    assert_superseded_store(&fx, dir.path(), &before);
+    assert_eq!(app.trust.begin_session().phase, TrustPhase::Halted);
 }
 
+/// RECOV-8-16: a startup trust check that finds a later Inbox generation is a safety halt. It
+/// keeps the AppState bytes, records the generic fatal evidence and makes the restart refuse.
 #[tokio::test]
-async fn generation_zero_startup_supersession_retains_typed_recovery_evidence() {
-    use crate::recovery::supersession::{SUPERSESSION_FILE, SupersessionEvidence};
+async fn generation_zero_startup_supersession_records_generic_fatal() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     drop(initialized(&fx, dir.path()).await);
     let original = std::fs::read(dir.path().join(crate::store::STATE_FILE)).unwrap();
+    let before = store_files(dir.path());
     let mut app = fx.app(dir.path());
     let inbox = InboxStorage { recovery_generation: 1, ..fx.inbox.clone() };
     fx.plant_l1_block(app.l1(), 101, &inbox, &fx.registry);
     app.l1().set_finalized(101);
     assert!(matches!(app.refresh_trust().await, Err(AbciError::SafetyHalt(_))));
     assert_eq!(app.trust.snapshot().phase, TrustPhase::Halted);
-    let evidence: SupersessionEvidence = serde_json::from_slice(
-        &std::fs::read(dir.path().join(SUPERSESSION_FILE))
-            .expect("startup supersession must be acknowledgeable by authenticated recovery"),
-    )
-    .unwrap();
-    assert_eq!((evidence.previous_generation, evidence.current_generation), (0, 1));
-    assert!(
-        evidence
-            .validates(&original, &std::fs::read(dir.path().join("fatal-evidence.txt")).unwrap(),)
-    );
+    assert!(app.store.fatal_evidence().unwrap().is_some());
+    assert_superseded_store(&fx, dir.path(), &before);
     assert_eq!(std::fs::read(dir.path().join(crate::store::STATE_FILE)).unwrap(), original);
+    assert_eq!(app.trust.begin_session().phase, TrustPhase::Halted);
 }
 
 #[tokio::test]

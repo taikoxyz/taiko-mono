@@ -22,7 +22,6 @@ head, which only Comet can reach; the supervisor then starts the signer and Come
 together as on a first start, and a refusal there recovers again once Ready.
 """
 import fcntl
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -33,7 +32,6 @@ import stat
 import subprocess
 import sys
 import time
-import tempfile
 import tomllib
 
 # These exact process-lifecycle revocations are transient only across app restart.
@@ -373,101 +371,35 @@ class Supervisor:
                 identity = dict(user=uid, group=gid, extra_groups=[])
         self.comet = subprocess.Popen(command, cwd=self.home, **identity, **self.child_options("ETNA_COMET_ENV_JSON"))
 
-    def expected_supersession(self, snapshot):
-        """Classify only typed first-cause bytes; generic latch/reason text never authorizes it."""
-        if not snapshot or snapshot.get("phase") != "halted" or snapshot.get("chain_id") != self.chain or snapshot.get("generation") != self.generation:
-            return None
-        def bounded(name):
-            descriptor = os.open(self.store / name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
-            with os.fdopen(descriptor, "rb") as source:
-                metadata = os.fstat(source.fileno())
-                if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > 16 * 1024 * 1024:
-                    raise ValueError("invalid terminal evidence")
-                return source.read(16 * 1024 * 1024 + 1)
+    def persist_latch(self, text):
+        """Durably create the halt latch; an existing one is never replaced."""
+        with self.latch.open("x") as file:
+            file.write(text)
+            file.flush()
+            os.fsync(file.fileno())
+        directory = os.open(self.store, os.O_RDONLY)
         try:
-            raw = bounded("generation-superseded.json")
-            evidence = json.loads(raw)
-            state_bytes, fatal = bounded("abci-state.json"), bounded("fatal-evidence.txt")
-            state = json.loads(state_bytes)
-            if (set(evidence) != {"schema", "chain_id", "previous_generation", "current_generation", "inbox", "state_digest", "fatal_digest"}
-                    or evidence["schema"] != 1 or evidence["chain_id"] != self.chain
-                    or evidence["previous_generation"] != self.generation
-                    or not isinstance(evidence["current_generation"], int)
-                    or not self.generation < evidence["current_generation"] < 1 << 48
-                    or state.get("chain_id") != self.chain or state.get("generation") != self.generation
-                    or state.get("inbox") != evidence["inbox"]
-                    or hashlib.sha256(state_bytes).hexdigest() != evidence["state_digest"]
-                    or hashlib.sha256(fatal).hexdigest() != evidence["fatal_digest"]):
-                return None
-            return dict(schema=1, kind="expected-generation-supersession", chain_id=self.chain,
-                        previous_generation=self.generation, current_generation=evidence["current_generation"],
-                        evidence_digest=hashlib.sha256(raw).hexdigest())
-        except (OSError, ValueError, KeyError, TypeError):
-            return None
-
-    def persist_latch(self, text, replace=False):
-        """Durably create a halt, or atomically replace its classification after joined shutdown."""
-        temporary = None
-        try:
-            if replace:
-                descriptor, temporary = tempfile.mkstemp(prefix=".validator-halt-", dir=self.store)
-                target = os.fdopen(descriptor, "w")
-            else:
-                target = self.latch.open("x")
-            with target as file:
-                file.write(text)
-                file.flush()
-                os.fsync(file.fileno())
-            if replace:
-                os.replace(temporary, self.latch)
-            directory = os.open(self.store, os.O_RDONLY)
-            try:
-                os.fsync(directory)
-            finally:
-                os.close(directory)
+            os.fsync(directory)
         finally:
-            if temporary is not None and os.path.exists(temporary):
-                os.unlink(temporary)
+            os.close(directory)
 
     def record_signer_failure(self):
-        """Block recovery acknowledgement without replacing an existing generic first cause."""
-        try:
-            descriptor = os.open(self.latch, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
-        except FileNotFoundError:
-            self.retain_latch("signer exited; inspect diagnostics\n")
-            return
-        except OSError:
-            self.retain_latch("signer exited; inspect diagnostics\n")
-            return
-        try:
-            with os.fdopen(descriptor, "rb") as file:
-                metadata = os.fstat(file.fileno())
-                if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > 1024 * 1024:
-                    return  # These records already fail recovery's bounded JSON check.
-                raw = file.read(1024 * 1024 + 1)
-        except OSError:
-            self.retain_latch("signer exited; inspect diagnostics\n")
-            return
-        try:
-            value = json.loads(raw)
-        except ValueError:
-            return
-        if isinstance(value, dict) and value.get("kind") == "expected-generation-supersession":
-            self.retain_latch("signer exited; inspect diagnostics\n", replace=True)
+        """Latch a signer exit, keeping an existing first cause."""
+        self.retain_latch("signer exited; inspect diagnostics\n")
 
-    def retain_latch(self, text, replace=False):
+    def retain_latch(self, text):
         """Keep the owner alive and quiescent if terminal evidence cannot be flushed."""
         self.halted = True
-        self.halt_retry = (text, replace)
+        self.halt_retry = text
         return self.retry_latch()
 
     def retry_latch(self):
-        """Retry durability without overwriting any existing generic first cause."""
+        """Retry durability without overwriting any existing first cause."""
         if getattr(self, "halt_retry", None) is None:
             return True
-        text, replace = self.halt_retry
+        text = self.halt_retry
         try:
-            if not replace and os.path.lexists(self.latch):
+            if os.path.lexists(self.latch):
                 descriptor = os.open(self.latch, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
                 with os.fdopen(descriptor, "rb") as source:
                     if not stat.S_ISREG(os.fstat(source.fileno()).st_mode):
@@ -479,7 +411,7 @@ class Supervisor:
                 finally:
                     os.close(descriptor)
             else:
-                self.persist_latch(text, replace=replace)
+                self.persist_latch(text)
         except (OSError, ValueError) as error:
             message = str(error)
             if getattr(self, "halt_error", None) != message:
@@ -500,25 +432,15 @@ class Supervisor:
             return True
         return True
 
-    def halt(self, reason, terminal_snapshot=None):
-        self.halted = True
-        pending = reason + "\n"
-        created = not os.path.lexists(self.latch)
-        evidence = self.expected_supersession(terminal_snapshot) if created else None
-        durable = False
-        if created:
-            durable = self.retain_latch(pending)
-        signer_failed = self.stop()
-        # A generic durable marker blocks acknowledgement throughout shutdown and
-        # after any crash. Only a clean join and unchanged first-cause bytes allow
-        # the exact expected supersession to become acknowledgeable.
-        try:
-            if (created and durable and evidence and not signer_failed and not self.signer_uncertain()
-                    and self.expected_supersession(terminal_snapshot) == evidence
-                    and self.latch.read_bytes() == pending.encode()):
-                self.retain_latch(json.dumps(evidence, sort_keys=True) + "\n", replace=True)
-        except OSError:
-            self.retain_latch(pending)
+    def halt(self, reason):
+        """Latch the first cause durably, then stop Comet and the signer.
+
+        A superseded generation (RECOV-8-14/16) is one such cause: the app reports "halted",
+        and this plain-text latch and the app's fatal evidence stay in the old store, which
+        `abci-recover install` never reuses.
+        """
+        self.retain_latch(reason + "\n")
+        self.stop()
         print("etna_supervisor_halted: operator repair required", flush=True)
 
     def tick(self):
@@ -560,7 +482,7 @@ class Supervisor:
             self.pending = True
             return
         if status.get("phase") == "halted":
-            self.halt("terminal app trust or deployment identity", status)
+            self.halt("terminal app trust or deployment identity")
             return
         # Session changes after app restart also leave stock Comet at a refused step.
         session = status["session_id"]
@@ -608,7 +530,7 @@ class Supervisor:
             return
         if status.get("phase") == "halted":
             if status.get("reason") not in APP_LIFECYCLE_STOPS:
-                self.halt("terminal app trust or deployment identity", status)
+                self.halt("terminal app trust or deployment identity")
             return
         if self.session is None or status["session_id"] != self.session:
             return  # The signer has not published the session it begins for this transport.
