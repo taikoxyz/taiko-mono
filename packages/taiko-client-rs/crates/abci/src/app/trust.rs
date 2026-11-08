@@ -12,7 +12,7 @@ use alloy_primitives::{Address, B256, keccak256};
 use serde::{Deserialize, Serialize};
 use tokio::sync::Notify;
 
-use super::{AbciError, App, within};
+use super::{AbciError, App, ErrorClass, classify, contradiction_halt, within};
 use crate::{
     engine::Engine,
     envelope::AnchorWitness,
@@ -390,7 +390,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
     }
 
     /// Performs one bounded retry of local trust acquisition/reconciliation. Network/history
-    /// unavailability remains closed. Contradictions are fatal, independently of proposal halt.
+    /// unavailability remains closed. Contradictions are fatal, independently of proposal halt:
+    /// an error [`classify`] calls [`ErrorClass::Contradiction`] halts (SYNC-9-7), any other is
+    /// published as the retry reason.
     pub(crate) async fn refresh_trust(&mut self) -> Result<(), AbciError> {
         let mut snapshot = self.trust.snapshot();
         if snapshot.phase == TrustPhase::Halted ||
@@ -408,9 +410,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
             }
             _ => None,
         };
-        match result.map_err(classify_trust_error) {
+        match result {
             Ok(()) => self.trust.publish(snapshot),
-            Err(error @ AbciError::SafetyHalt(_)) => {
+            Err(error) if classify(&error) == ErrorClass::Contradiction => {
+                let error = contradiction_halt(error);
                 // A stale result cannot halt or authorize a newer session.
                 if self.trust.revoke_if_session(&snapshot.session_id, error.to_string()) {
                     if let (Some(current), Some(state)) = (superseded, self.state.as_ref()) {
@@ -861,42 +864,6 @@ impl Drop for TrustLifetime {
 /// Bounds status/control diagnostics so external RPC error text cannot exceed the wire budget.
 fn bounded_reason(reason: String) -> String {
     reason.chars().take(512).collect()
-}
-
-/// Adapter integrity failures must have the same fatal boundary as successful-but-invalid
-/// proof/header values. Transport, missing history and unsupported-header capabilities remain
-/// retryable: lack of data cannot prove a contradiction. Startup initialization and EL
-/// reconciliation use this same integrity boundary.
-pub(super) fn classify_trust_error(error: AbciError) -> AbciError {
-    use crate::{engine::EngineError, store::StoreError};
-    let integrity = match &error {
-        AbciError::L1(error) => error.is_integrity_failure(),
-        AbciError::Store(
-            StoreError::Corrupt { .. } |
-            StoreError::CometConflict(_) |
-            StoreError::BootstrapConflict,
-        ) => true,
-        AbciError::Recovery(
-            crate::RecoveryError::Invalid(_) |
-            crate::RecoveryError::Superseded { .. } |
-            crate::RecoveryError::ConfigMismatch { .. },
-        ) => true,
-        AbciError::Engine(error) | AbciError::ElSync(crate::elsync::ElSyncError::Engine(error)) => {
-            matches!(
-                error,
-                EngineError::ErrorReply { code: -38100 | -38002, .. } |
-                    EngineError::HeaderHashMismatch { .. } |
-                    EngineError::HeaderNumberMismatch { .. } |
-                    EngineError::BadReply(_)
-            )
-        }
-        _ => false,
-    };
-    if integrity {
-        AbciError::SafetyHalt(format!("checkpoint source integrity failure: {error}"))
-    } else {
-        error
-    }
 }
 
 #[cfg(test)]

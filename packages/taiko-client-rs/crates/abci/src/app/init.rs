@@ -6,7 +6,10 @@ use std::collections::BTreeMap;
 
 use alloy_consensus::Header;
 
-use super::{AbciError, App, app_hash, at_generation_origin, within};
+use super::{
+    AbciError, App, ErrorClass, app_hash, at_generation_origin, classify, contradiction_halt,
+    finalize::Backoff, within,
+};
 use crate::{
     engine::Engine,
     genesis::{
@@ -46,17 +49,14 @@ impl<L: L1Source, E: Engine> App<L, E> {
             Some(state) if at_generation_origin(state) => true,
             Some(_) => return Err(AbciError::AlreadyInitialized),
         };
-        let mut pause = super::FINALIZE_RETRY_INITIAL;
+        let origin = req.initial_height.value().saturating_sub(1);
+        let mut backoff = Backoff::new("InitChain", origin);
         let state = loop {
             match self.verify_genesis(&req).await {
                 Ok(state) => break state,
-                Err(error) if startup_input_unavailable(&error) => {
-                    self.trust.await_authentication(error.to_string());
-                    tracing::warn!(%error, ?pause, "initialization waits for authenticated L1/EL inputs");
-                    tokio::time::sleep(pause).await;
-                    pause = (pause * 2).min(super::FINALIZE_RETRY_MAX);
+                Err(error) => {
+                    self.await_startup_input(&mut backoff, "genesis verification", error).await?
                 }
-                Err(error) => return Err(super::trust::classify_trust_error(error)),
             }
         };
         let origin_hash = state.parent.hash;
@@ -213,19 +213,16 @@ impl<L: L1Source, E: Engine> App<L, E> {
         }
         check_validators(&req.validators, &origin.committee.members)?;
         let val_state = genesis_val_state(origin.height, &origin.committee.members)?;
-        let mut pause = super::FINALIZE_RETRY_INITIAL;
+        let mut backoff = Backoff::new("recovery InitChain", origin.height);
         let bootstrap = loop {
             match self.recovery_inputs(w).await {
                 Ok(bootstrap) => break bootstrap,
-                Err(error) if startup_input_unavailable(&error) => {
-                    // The guarded signer owns the session. A successful stock InitChain replay
-                    // must not rotate it, while unavailable inputs immediately close readiness.
-                    self.trust.await_authentication(error.to_string());
-                    tracing::warn!(height = origin.height, %error, ?pause, "recovery initialization waits for authenticated history");
-                    tokio::time::sleep(pause).await;
-                    pause = (pause * 2).min(super::FINALIZE_RETRY_MAX);
+                // The guarded signer owns the session. A successful stock InitChain replay must
+                // not rotate it, while unavailable inputs immediately close readiness.
+                Err(error) => {
+                    self.await_startup_input(&mut backoff, "recovery history acquisition", error)
+                        .await?
                 }
-                Err(error) => return Err(super::trust::classify_trust_error(error)),
             }
         };
         let (_, anchor) = bootstrap.verify(&self.params)?;
@@ -256,6 +253,29 @@ impl<L: L1Source, E: Engine> App<L, E> {
         };
         self.store.save_recovery_bootstrap(&bootstrap)?;
         Ok(state)
+    }
+
+    /// Handles `error` of one startup acquisition (`InitChain`) or EL reconciliation (the first
+    /// `Info`) attempt by its [`classify`] class (SYNC-9-7): missing data closes readiness with
+    /// the error as the reason and waits out `backoff` before the caller retries the same
+    /// request; a contradiction is a safety halt ([`contradiction_halt`]); any other error fails
+    /// the request as it is.
+    pub(super) async fn await_startup_input(
+        &self,
+        backoff: &mut Backoff,
+        method: &'static str,
+        error: AbciError,
+    ) -> Result<(), AbciError> {
+        match classify(&error) {
+            ErrorClass::MissingData => {
+                let reason = error.to_string();
+                self.trust.await_authentication(reason.clone());
+                backoff.wait(method, &reason).await;
+                Ok(())
+            }
+            ErrorClass::Contradiction => Err(contradiction_halt(error)),
+            ErrorClass::Other => Err(error),
+        }
     }
 
     /// One bounded recovery acquisition attempt; unavailable history is retried by InitChain.
@@ -408,20 +428,4 @@ fn genesis_val_state(height: u64, members: &[Member]) -> Result<ValState, AbciEr
     ValState::genesis(height, &validators).map_err(|error| {
         AbciError::GenesisValidatorsMismatch(format!("not a CometBFT validator set: {error}"))
     })
-}
-
-/// Only acquisition failures keep startup ABCI requests pending on the same connection.
-/// Authenticated contradictions and malformed own-source replies still fail for safety.
-pub(super) fn startup_input_unavailable(error: &AbciError) -> bool {
-    match error {
-        AbciError::Recovery(crate::RecoveryError::Unavailable(_)) |
-        AbciError::Timeout { .. } |
-        AbciError::ElBlockMissing(_) |
-        AbciError::GenesisNotFinal { .. } |
-        AbciError::ElSync(crate::elsync::ElSyncError::Timeout { .. }) => true,
-        AbciError::Engine(error) => error.is_retryable(),
-        AbciError::ElSync(crate::elsync::ElSyncError::Engine(error)) => error.is_retryable(),
-        AbciError::L1(error) => !error.is_integrity_failure(),
-        _ => false,
-    }
 }

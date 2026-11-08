@@ -48,18 +48,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
             None => (Height::from(0u32), AppHash::default()),
             Some(state) => {
                 if !self.el_reconciled {
-                    let mut pause = super::FINALIZE_RETRY_INITIAL;
-                    loop {
-                        match self.reconcile_el(state).await {
-                            Ok(()) => break,
-                            Err(error) if super::init::startup_input_unavailable(&error) => {
-                                self.trust.await_authentication(error.to_string());
-                                tracing::warn!(%error, ?pause, "startup reconciliation waits for the execution engine");
-                                tokio::time::sleep(pause).await;
-                                pause = (pause * 2).min(super::FINALIZE_RETRY_MAX);
-                            }
-                            Err(error) => return Err(super::trust::classify_trust_error(error)),
-                        }
+                    let mut backoff =
+                        super::finalize::Backoff::new("startup Info", state.last_height);
+                    while let Err(error) = self.reconcile_el(state).await {
+                        self.await_startup_input(&mut backoff, "EL reconciliation", error).await?;
                     }
                     self.el_reconciled = true;
                 }

@@ -345,6 +345,81 @@ impl From<crate::recovery::RecoveryError> for AbciError {
     }
 }
 
+/// What a failed startup acquisition, startup EL reconciliation or trust refresh does next
+/// (SYNC-9-7), from [`classify`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum ErrorClass {
+    /// Unavailable, not yet final, timed out or transient input: the node stays untrusted and
+    /// retries. A hash-authenticated L1 header this client cannot parse is here too: it needs an
+    /// upgrade, not a halt (SYNC-9-8).
+    MissingData,
+    /// An authenticated contradiction, or malformed or unverifiable data from the own L1 node,
+    /// EL or store, which the node cannot tell apart from forgery: a safety halt
+    /// ([`contradiction_halt`]).
+    Contradiction,
+    /// Neither: startup requests fail with the error itself; the trust worker retries with it
+    /// as the reason.
+    Other,
+}
+
+/// The SYNC-9-7 class of `error`. Only acquisition failures are [`ErrorClass::MissingData`]:
+/// a recovery input reported unavailable, an elapsed deadline, a missing EL block, a genesis
+/// header not yet final, an EL sync timeout, a retryable engine error
+/// ([`EngineError::is_retryable`]) and an L1 error that is no integrity failure
+/// ([`L1Error::is_integrity_failure`]). [`ErrorClass::Contradiction`] is a raised safety halt,
+/// an L1 integrity failure, a corrupt state file, conflicting durable Comet hash or recovery
+/// bootstrap, recovery evidence that is invalid, superseded or opens another configuration, and
+/// an engine reply that is malformed, names another block or is `-38100`/`-38002`. Everything
+/// else is [`ErrorClass::Other`].
+pub(super) fn classify(error: &AbciError) -> ErrorClass {
+    use crate::recovery::RecoveryError;
+    match error {
+        AbciError::SafetyHalt(_) => ErrorClass::Contradiction,
+        AbciError::Recovery(RecoveryError::Unavailable(_)) |
+        AbciError::Timeout { .. } |
+        AbciError::ElBlockMissing(_) |
+        AbciError::GenesisNotFinal { .. } |
+        AbciError::ElSync(ElSyncError::Timeout { .. }) => ErrorClass::MissingData,
+        AbciError::Recovery(
+            RecoveryError::Invalid(_) |
+            RecoveryError::Superseded { .. } |
+            RecoveryError::ConfigMismatch { .. },
+        ) |
+        AbciError::Store(
+            StoreError::Corrupt { .. } |
+            StoreError::CometConflict(_) |
+            StoreError::BootstrapConflict,
+        ) => ErrorClass::Contradiction,
+        AbciError::L1(error) if error.is_integrity_failure() => ErrorClass::Contradiction,
+        AbciError::L1(_) => ErrorClass::MissingData,
+        AbciError::Engine(error) | AbciError::ElSync(ElSyncError::Engine(error)) => {
+            if error.is_retryable() {
+                ErrorClass::MissingData
+            } else if matches!(
+                error,
+                EngineError::ErrorReply { code: -38100 | -38002, .. } |
+                    EngineError::HeaderHashMismatch { .. } |
+                    EngineError::HeaderNumberMismatch { .. } |
+                    EngineError::BadReply(_)
+            ) {
+                ErrorClass::Contradiction
+            } else {
+                ErrorClass::Other
+            }
+        }
+        _ => ErrorClass::Other,
+    }
+}
+
+/// The safety halt of an [`ErrorClass::Contradiction`]: a raised [`AbciError::SafetyHalt`] as
+/// it is, any other error as a checkpoint source integrity failure naming it.
+pub(super) fn contradiction_halt(error: AbciError) -> AbciError {
+    match error {
+        halt @ AbciError::SafetyHalt(_) => halt,
+        error => AbciError::SafetyHalt(format!("checkpoint source integrity failure: {error}")),
+    }
+}
+
 impl<L: L1Source, E: Engine> App<L, E> {
     /// Creates the app, validating `params` and loading any persisted state from `store`.
     ///
@@ -827,4 +902,182 @@ fn cometbft_height(h: u64) -> Height {
 /// The 32 bytes of `hash` as a CometBFT app hash.
 fn app_hash(hash: B256) -> AppHash {
     AppHash::try_from(hash.to_vec()).expect("any byte string is a valid AppHash")
+}
+
+#[cfg(test)]
+mod classify_tests {
+    use std::{io, path::PathBuf};
+
+    use alloy_eips::BlockNumberOrTag;
+    use alloy_primitives::Address;
+
+    use super::*;
+    use crate::{
+        genesis::GenesisError, l1::L1HeaderError, recovery::RecoveryError, schedule::ScheduleError,
+    };
+
+    /// Every error the startup tables and the trust table named before they were merged, and
+    /// the own-L1 and recovery classes P6 settled (integrity vs transport, `Unavailable` vs
+    /// `Invalid`), land in their SYNC-9-7 class: missing data retries, a contradiction or
+    /// malformed own-source data halts, anything else is the call site's (SYNC-9-8: a
+    /// hash-authenticated header this client cannot parse needs an upgrade, so it retries).
+    #[test]
+    fn classification_follows_sync_9_7() {
+        for (error, expected) in &cases() {
+            assert_eq!(classify(error), *expected, "{error:?}");
+        }
+    }
+
+    /// Each error with its expected class.
+    fn cases() -> Vec<(AbciError, ErrorClass)> {
+        use ErrorClass::{Contradiction, MissingData, Other};
+        let reply = |code| EngineError::ErrorReply {
+            call: "engine_x at http://el.test/".into(),
+            code,
+            message: "m".into(),
+        };
+        let json = || serde_json::from_str::<u8>("x").unwrap_err();
+        let header = || L1HeaderError::TrailingBytes(1);
+        let (hash, other) = (B256::ZERO, B256::repeat_byte(1));
+        let el_hash_mismatch =
+            || EngineError::HeaderHashMismatch { number: 1, reported: hash, computed: other };
+        vec![
+            // Missing data: unavailable, not yet final, timed out or transient.
+            (RecoveryError::Unavailable("history".into()).into(), MissingData),
+            (AbciError::Timeout { what: "w", after: Duration::from_secs(1) }, MissingData),
+            (AbciError::ElBlockMissing(7), MissingData),
+            (AbciError::GenesisNotFinal { number: 1, hash }, MissingData),
+            (
+                AbciError::ElSync(ElSyncError::Timeout {
+                    number: 1,
+                    hash,
+                    timeout: Duration::from_secs(1),
+                    last_error: None,
+                }),
+                MissingData,
+            ),
+            (EngineError::Transport("down".into()).into(), MissingData),
+            (reply(-32603).into(), MissingData),
+            (reply(-32000).into(), MissingData),
+            (reply(1).into(), MissingData),
+            (
+                AbciError::ElSync(ElSyncError::Engine(EngineError::Transport("t".into()))),
+                MissingData,
+            ),
+            (AbciError::ElSync(ElSyncError::Engine(reply(-32603))), MissingData),
+            (L1Error::Rpc("transport".into()).into(), MissingData),
+            (L1Error::DataUnavailable("pruned".into()).into(), MissingData),
+            (L1Error::BlockNotFound(BlockNumberOrTag::Finalized).into(), MissingData),
+            (L1Error::UnsupportedHeaderFormat { number: 1, error: header() }.into(), MissingData),
+            (L1Error::UnknownHeaderFields { number: 1, fields: vec![] }.into(), MissingData),
+            // Contradictions and malformed or unverifiable own-source data.
+            (AbciError::SafetyHalt("halt".into()), Contradiction),
+            (L1Error::MalformedResponse("shape".into()).into(), Contradiction),
+            (L1Error::MalformedHeader { number: 1, error: header() }.into(), Contradiction),
+            (
+                L1Error::HeaderHashMismatch { number: 1, reported: hash, computed: other }.into(),
+                Contradiction,
+            ),
+            (L1Error::HeaderNumberMismatch { requested: 1, got: 2 }.into(), Contradiction),
+            (
+                L1Error::ProofAddressMismatch { requested: Address::ZERO, got: Address::ZERO }
+                    .into(),
+                Contradiction,
+            ),
+            (
+                L1Error::ProofSlotMismatch { requested: vec![], got: vec![hash] }.into(),
+                Contradiction,
+            ),
+            (
+                StoreError::Corrupt { path: PathBuf::from("s"), source: json() }.into(),
+                Contradiction,
+            ),
+            (StoreError::CometConflict(1).into(), Contradiction),
+            (StoreError::BootstrapConflict.into(), Contradiction),
+            (AbciError::Recovery(RecoveryError::Invalid("forged".into())), Contradiction),
+            (
+                AbciError::Recovery(RecoveryError::Superseded { requested: 1, current: 2 }),
+                Contradiction,
+            ),
+            (
+                AbciError::Recovery(RecoveryError::ConfigMismatch { local: hash, proven: other }),
+                Contradiction,
+            ),
+            (reply(-38100).into(), Contradiction),
+            (reply(-38002).into(), Contradiction),
+            (el_hash_mismatch().into(), Contradiction),
+            (EngineError::HeaderNumberMismatch { requested: 1, got: 2 }.into(), Contradiction),
+            (EngineError::BadReply("shape".into()).into(), Contradiction),
+            (AbciError::ElSync(ElSyncError::Engine(reply(-38100))), Contradiction),
+            (AbciError::ElSync(ElSyncError::Engine(reply(-38002))), Contradiction),
+            (AbciError::ElSync(ElSyncError::Engine(el_hash_mismatch())), Contradiction),
+            (
+                AbciError::ElSync(ElSyncError::Engine(EngineError::BadReply("x".into()))),
+                Contradiction,
+            ),
+            // Neither: startup fails the request, the trust worker retries with the reason.
+            (AbciError::TrustControl("not final".into()), Other),
+            (AbciError::NothingToCommit, Other),
+            (AbciError::Uninitialized("FinalizeBlock"), Other),
+            (AbciError::AlreadyInitialized, Other),
+            (GenesisError::UnsupportedRecovery("x".into()).into(), Other),
+            (ScheduleError::EpochTooShort { epoch_len: 1 }.into(), Other),
+            (RuleViolation::UnsupportedRuleset { rules: 9 }.into(), Other),
+            (AbciError::InitialHeight { got: 2, expected: 1 }, Other),
+            (
+                AbciError::GenesisTimeMismatch {
+                    got: Time::unix_epoch(),
+                    expected: Time::unix_epoch(),
+                },
+                Other,
+            ),
+            (AbciError::GenesisConsensusParamsMismatch, Other),
+            (AbciError::GenesisValidatorsMismatch("x".into()), Other),
+            (ConfigError::NotConfigured { chain_id: 1 }.into(), Other),
+            (AbciError::StoredState("x".into()), Other),
+            (StoreError::ImportIdentity.into(), Other),
+            (
+                StoreError::Io {
+                    op: "read",
+                    path: PathBuf::from("s"),
+                    source: io::Error::other("x"),
+                }
+                .into(),
+                Other,
+            ),
+            (StoreError::ValStateConflict(1).into(), Other),
+            (StoreError::ValUpdatesConflict(1).into(), Other),
+            (StoreError::Encode(json()).into(), Other),
+            (reply(-38001).into(), Other),
+            (reply(-38003).into(), Other),
+            (reply(-38005).into(), Other),
+            (reply(-32700).into(), Other),
+            (reply(-32602).into(), Other),
+            (EngineError::Setup("jwt".into()).into(), Other),
+            (EngineError::Withdrawals(1).into(), Other),
+            (AbciError::ElSync(ElSyncError::Engine(reply(-38001))), Other),
+            (AbciError::ElSync(ElSyncError::Rejected { hash, reason: "bad".into() }), Other),
+            (
+                AbciError::ElSync(ElSyncError::Conflict {
+                    number: 1,
+                    expected: hash,
+                    found: other,
+                }),
+                Other,
+            ),
+        ]
+    }
+
+    /// A contradiction halts with its own message; a halt already raised is kept as it is.
+    #[test]
+    fn contradiction_halt_keeps_a_raised_halt() {
+        let halt = contradiction_halt(AbciError::SafetyHalt("EL contradicts".into()));
+        assert_eq!(halt.to_string(), "safety halt: EL contradicts");
+        let halt = contradiction_halt(StoreError::BootstrapConflict.into());
+        assert_eq!(
+            halt.to_string(),
+            "safety halt: checkpoint source integrity failure: conflicting immutable recovery \
+             bootstrap"
+        );
+    }
 }

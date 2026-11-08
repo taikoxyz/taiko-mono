@@ -291,7 +291,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     async fn settle(&self, height: u64, v: &Validated, finalized: B256) -> Result<(), AbciError> {
         let hash = v.block.header.hash_slow();
         let mut executed = v.executed;
-        let mut backoff = Backoff::new(height);
+        let mut backoff = Backoff::new(DECIDED_BLOCK, height);
         loop {
             let (method, reason) = if executed {
                 let method = FCU;
@@ -365,7 +365,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let off_chain = |detail: String| {
             invalid_block(height, &Rejection::AnchorOffChain { number, hash, detail })
         };
-        let mut backoff = Backoff::new(height);
+        let mut backoff = Backoff::new(DECIDED_BLOCK, height);
         let mut suspect_since = None;
         loop {
             let reason = match self.read_anchor(header).await {
@@ -404,7 +404,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         height: u64,
         anchor: &crate::types::AnchorState,
     ) -> Result<(), AbciError> {
-        let mut backoff = Backoff::new(height);
+        let mut backoff = Backoff::new(DECIDED_BLOCK, height);
         loop {
             let reason = match self.check_anchor_checkpoint(state, anchor).await {
                 Ok(()) => return Ok(()),
@@ -496,7 +496,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     ) -> Result<Option<u64>, AbciError> {
         use crate::engine::forced::{ForcedBuildContext, ForcedBuildError, verify_forced};
         let limit = self.opts.engine_timeout;
-        let mut backoff = Backoff::new(height);
+        let mut backoff = Backoff::new(DECIDED_BLOCK, height);
         loop {
             let build = verify_forced(
                 self.engine(),
@@ -550,6 +550,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
 /// The Engine API method name of a forkchoice update, for logs and safety-halt messages.
 const FCU: &str = "engine_forkchoiceUpdated";
+
+/// What `FinalizeBlock`'s [`Backoff`] retries, for its logs.
+pub(super) const DECIDED_BLOCK: &str = "the decided block";
 
 /// Minimum continuous suspicion interval before repeated L1 disagreements justify a halt.
 const ANCHOR_OFF_CHAIN_WINDOW: Duration = Duration::from_secs(5);
@@ -606,12 +609,16 @@ impl AnchorRead {
     }
 }
 
-/// The pause schedule of one decided block's EL (or own-L1) retries in `FinalizeBlock`: the first
-/// pause is [`FINALIZE_RETRY_INITIAL`], doubling up to [`FINALIZE_RETRY_MAX`]. Retries are logged
-/// at WARN, and at ERROR once the block has been retried for [`FINALIZE_RETRY_ESCALATE`].
+/// The pause schedule of one request's retries on missing data (SYNC-9-7): a decided block's EL
+/// (or own-L1) calls in `FinalizeBlock`, or the authenticated inputs `InitChain` and the startup
+/// `Info` wait for. The first pause is [`FINALIZE_RETRY_INITIAL`], doubling up to
+/// [`FINALIZE_RETRY_MAX`]. Retries are logged at WARN, and at ERROR once the request has been
+/// retried for [`FINALIZE_RETRY_ESCALATE`].
 #[derive(Debug)]
 pub(super) struct Backoff {
-    /// The decided block's height, for the logs.
+    /// What is retried, for the logs, e.g. "the decided block".
+    what: &'static str,
+    /// The height the retried request is about, for the logs.
     height: u64,
     /// When the retries started.
     since: Instant,
@@ -620,20 +627,21 @@ pub(super) struct Backoff {
 }
 
 impl Backoff {
-    /// A fresh schedule for the decided block at `height`, starting now.
-    pub(super) fn new(height: u64) -> Self {
-        Self { height, since: Instant::now(), pause: FINALIZE_RETRY_INITIAL }
+    /// A fresh schedule for `what` at `height`, starting now.
+    pub(super) fn new(what: &'static str, height: u64) -> Self {
+        Self { what, height, since: Instant::now(), pause: FINALIZE_RETRY_INITIAL }
     }
 
-    /// Whether the block has been retried for [`FINALIZE_RETRY_ESCALATE`] or longer.
+    /// Whether the request has been retried for [`FINALIZE_RETRY_ESCALATE`] or longer.
     pub(super) fn escalated(&self) -> bool {
         self.since.elapsed() >= FINALIZE_RETRY_ESCALATE
     }
 
-    /// Logs that the EL or L1 call `method` is retried because of `reason` (WARN, or ERROR once
+    /// Logs that the call or check `method` is retried because of `reason` (WARN, or ERROR once
     /// [`Backoff::escalated`]) and sleeps the current pause, doubling the next one up to the cap.
     pub(super) async fn wait(&mut self, method: &'static str, reason: &str) {
-        let (height, retry_in, retrying_for) = (self.height, self.pause, self.since.elapsed());
+        let (what, height) = (self.what, self.height);
+        let (retry_in, retrying_for) = (self.pause, self.since.elapsed());
         if self.escalated() {
             tracing::error!(
                 height,
@@ -641,13 +649,13 @@ impl Backoff {
                 %reason,
                 ?retrying_for,
                 ?retry_in,
-                "the decided block still does not settle; retrying"
+                "{what} still does not settle; retrying"
             );
         } else {
-            tracing::warn!(height, method, %reason, ?retry_in, "retrying the decided block");
+            tracing::warn!(height, method, %reason, ?retry_in, "retrying {what}");
         }
         tokio::time::sleep(self.pause).await;
-        self.pause = (self.pause * 2).min(FINALIZE_RETRY_MAX);
+        self.pause = self.pause.saturating_mul(2).min(FINALIZE_RETRY_MAX);
     }
 }
 

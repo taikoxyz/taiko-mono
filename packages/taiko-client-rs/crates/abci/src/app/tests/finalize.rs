@@ -17,7 +17,8 @@ use super::{
 };
 use crate::{
     app::{
-        FINALIZE_RETRY_ESCALATE, MAX_VERDICTS,
+        FINALIZE_RETRY_ESCALATE, FINALIZE_RETRY_INITIAL, FINALIZE_RETRY_MAX, MAX_VERDICTS,
+        finalize::{Backoff, DECIDED_BLOCK},
         validate::{Rejection, Validated},
     },
     committee::{self, Snapshot},
@@ -623,7 +624,7 @@ async fn forkchoice_syncing_after_a_cached_verdict_resends_the_payload() {
 #[tokio::test(start_paused = true)]
 async fn el_retries_escalate_after_a_minute() {
     let start = tokio::time::Instant::now();
-    let mut backoff = super::super::finalize::Backoff::new(7);
+    let mut backoff = Backoff::new(DECIDED_BLOCK, 7);
     let mut log = vec![];
     while start.elapsed() < Duration::from_secs(70) {
         log.push((start.elapsed(), backoff.escalated()));
@@ -633,6 +634,28 @@ async fn el_retries_escalate_after_a_minute() {
     assert!(log.iter().any(|(_, escalated)| !escalated));
     assert!(log.iter().any(|(_, escalated)| *escalated));
     assert_eq!(FINALIZE_RETRY_ESCALATE, Duration::from_secs(60));
+}
+
+/// Every retry schedule (`FinalizeBlock`'s, `InitChain`'s and the startup `Info`'s) pauses
+/// 100 ms first, doubling up to 5 s; its label names it in the logs only.
+#[tokio::test(start_paused = true)]
+async fn backoff_doubles_from_the_initial_pause_to_the_cap() {
+    for what in [DECIDED_BLOCK, "InitChain", "startup Info"] {
+        let mut backoff = Backoff::new(what, 7);
+        let mut pauses = vec![];
+        for _ in 0..8 {
+            let before = tokio::time::Instant::now();
+            backoff.wait("method", "reason").await;
+            pauses.push(before.elapsed());
+        }
+        let ms = Duration::from_millis;
+        assert_eq!(
+            pauses,
+            [ms(100), ms(200), ms(400), ms(800), ms(1600), ms(3200), ms(5000), ms(5000)],
+            "{what}"
+        );
+        assert_eq!((FINALIZE_RETRY_INITIAL, FINALIZE_RETRY_MAX), (ms(100), ms(5000)));
+    }
 }
 
 #[tokio::test]
