@@ -6,8 +6,8 @@ import EtnaProofs.CurrentUnzen
 /-! The L1 half of the recovery path (reports/recoverability.md, The path, steps 1-5). From a
 reachable, initialized state satisfying `LiveAt`, five steps of calls, numbered so below: (1)
 advance L1 to the window block R; (2) on a switching network, write, correct or prove the start
-where needed; (3) register an image and select the complete verifier version; (4) one plain recovery
-at R; (5) advance L1 to R+2. `Recovery.prepare` returns the reached state with the facts the landing
+where needed; (3) register an image and select the complete verifier version; (4) one recovery at
+R, plain when c is on the grid and otherwise structural, installing K = 1; (5) advance L1 to R+2. `Recovery.prepare` returns the reached state with the facts the landing
 proof needs (`Recovery.Prepared`). The reachable-state facts it needs beyond the existing journals
 are `Reach`, proved by induction over `Trace` from `empty`. -/
 namespace Etna.Design.Current.Protocol.Recovery
@@ -523,13 +523,13 @@ private theorem trace_reach {env : Environment} {registry : RegistryMachine.Stat
 /-! ### Path steps -/
 
 /-- A `CallTrace` is a `Trace`. -/
-private theorem CallTrace.toTrace {env : Environment} {allowed : Call → Prop} {w u : World}
+private theorem CallTrace.toTrace {env : Environment} {allowed : World → Call → Prop} {w u : World}
     (path : CallTrace env allowed w u) : Trace env w u := by
   induction path with
   | refl => exact .refl _
   | call _ call _ ih => exact .step ih (.call _ call)
 
-private theorem CallTrace.append {env : Environment} {allowed : Call → Prop} {a b c : World}
+private theorem CallTrace.append {env : Environment} {allowed : World → Call → Prop} {a b c : World}
     (first : CallTrace env allowed a b) (second : CallTrace env allowed b c) : CallTrace env allowed a c := by
   induction second with
   | refl => exact first
@@ -537,7 +537,7 @@ private theorem CallTrace.append {env : Environment} {allowed : Call → Prop} {
 
 /-- One accepted path call extends the path to its result. -/
 private theorem extend {env : Environment} {w v t : World} {call : Call}
-    (path : RecoveryTrace env w v) (ok : execute env v call = some t) (allowed : RecoveryCall call) :
+    (path : RecoveryTrace env w v) (ok : execute env v call = some t) (allowed : RecoveryCall v call) :
     RecoveryTrace env w t := by
   have step := CallTrace.call path call allowed
   rwa [transact,ok,Option.getD_some] at step
@@ -568,16 +568,18 @@ private theorem kept_trans {u v w : World} (first : Kept u v) (second : Kept v w
     second.configuration.trans first.configuration,second.schedule.trans first.schedule,
     second.registry.trans first.registry,second.initialized.trans first.initialized⟩
 
-/-- The state `v` at block `n` after steps 1-2, with the start settled and its batch parent `p`. -/
+/-- The state `v` at block `n` after steps 1-2, with the start settled at or below c and its
+batch parent `p`. c stays on the grid if it was (`grid`). -/
 private structure Started (env : Environment) (w v : World) (p : Header) (n : Nat) : Prop where
   path : RecoveryTrace env w v
   number : v.number = n
   kept : Kept w v
   generation : v.inbox.generation+1 < limit48
   progress : w.everLanded = true → v.inbox.checkpoint.height = w.inbox.checkpoint.height
-  start : ∃ s, v.start = some s ∧ Start.onGrid s.height v.inbox.gridK v.inbox.checkpoint.height = true ∧
+  start : ∃ s, v.start = some s ∧ s.height ≤ v.inbox.checkpoint.height ∧
     v.inbox.checkpoint.height+v.inbox.gridK < limit48 ∧
     (env.core.unzenInbox ≠ 0 → p.height = s.height → env.startImplementation p.stateRoot = true)
+  grid : OnGrid w → OnGrid v
   fence : firstFence env v = true
   parent : Custody.HeaderOf v.inbox.checkpoint p ∧ HashBound env p
   time : p.timestamp+w.inbox.gridK+1 ≤ env.time n
@@ -615,8 +617,8 @@ private theorem fixed_parent {env : Environment} {registry : RegistryMachine.Sta
     (premises : RecoveryPremises env registry) (trace : Trace env (empty env registry) w)
     (initialized : w.initialized = true) (held : Reach env w)
     (fixed : env.core.unzenInbox = 0 ∨ w.everLanded = true) :
-    ∃ s p, w.start = some s ∧ Custody.HeaderOf w.inbox.checkpoint p ∧ HashBound env p ∧
-      (p.timestamp ≤ env.time w.number+maxAges w ∨ p.timestamp ≤ env.core.forkTime ∨
+    ∃ s p, w.start = some s ∧ s.height ≤ w.inbox.checkpoint.height ∧ Custody.HeaderOf w.inbox.checkpoint p ∧
+      HashBound env p ∧ (p.timestamp ≤ env.time w.number+maxAges w ∨ p.timestamp ≤ env.core.forkTime ∨
         p.timestamp ≤ env.genesisHeader.timestamp) ∧
       (env.core.unzenInbox ≠ 0 → p.height = s.height → env.startImplementation p.stateRoot = true) ∧
       firstFence env w = true := by
@@ -636,7 +638,7 @@ private theorem fixed_parent {env : Environment} {registry : RegistryMachine.Sta
       rw [started] at st
       cases st
       obtain ⟨ch,ce,cc,cu,cv⟩ := root
-      refine ⟨_,env.genesisHeader,started,⟨height.trans ch.symm,?_⟩,premises.currentPrimitives.genesis,
+      refine ⟨_,env.genesisHeader,started,Nat.le_of_eq ch.symm,⟨height.trans ch.symm,?_⟩,premises.currentPrimitives.genesis,
         Or.inr (Or.inr (Nat.le_refl _)),fun switching => (switching newNetwork).elim,?_⟩
       · simp only [BlockValidity.Header.cut,ce,cc,cu,cv,comet,cursor,val]
       · simp [firstFence,started,Start.firstLanding,newNetwork]
@@ -651,10 +653,10 @@ private theorem fixed_parent {env : Environment} {registry : RegistryMachine.Sta
       rw [final] at valid
       obtain ⟨_,_,_,_,implementation,bound⟩ := premises.unzenStart newNetwork h proof valid
       have early := (premises.currentPrimitives.unzen _ _ _ valid).2.2
-      refine ⟨_,zeroed h,started,zeroed_header root hh he,bound _ (zeroed_starts h),
+      refine ⟨_,zeroed h,started,Nat.le_of_eq root.1.symm,zeroed_header root hh he,bound _ (zeroed_starts h),
         Or.inr (Or.inl (Nat.le_of_lt early)),fun _ _ => implementation,?_⟩
       simp [firstFence,started,Start.firstLanding,closed,finalized,present,level,hash,stateRoot]
-  · refine ⟨s,T,started,header,bound,Or.inl ?_,?_,?_⟩
+  · refine ⟨s,T,started,Nat.le_of_lt above,header,bound,Or.inl ?_,?_,?_⟩
     · have := premises.recoveryClock m w.number below
       omega
     · intro _ height
@@ -669,12 +671,13 @@ private theorem fixed_started {env : Environment} {registry : RegistryMachine.St
     (fixed : env.core.unzenInbox = 0 ∨ w.everLanded = true)
     (later : w.number < n) (fits : n+4 < limit48) (bound : WindowBound env w ≤ env.time n) :
     ∃ v p, Started env w v p n := by
-  obtain ⟨s,p,started,header,hashBound,below,implementation,fence⟩ :=
+  obtain ⟨s,p,started,settled,header,hashBound,below,implementation,fence⟩ :=
     fixed_parent premises trace initialized held fixed
   have generation := live.generation
   exact ⟨closedAt env w n,p,extend (.refl w) (advance_ok premises.recoveryClock later (by omega)) trivial,rfl,
     ⟨rfl,rfl,rfl,rfl,rfl,rfl⟩,by show w.inbox.generation+1 < limit48; omega,fun _ => rfl,
-    ⟨s,started,live.grid s started,live.height,implementation⟩,fence,⟨header,hashBound⟩,window_time bound below⟩
+    ⟨s,started,settled,live.height,implementation⟩,fun onGrid => onGrid,fence,⟨header,hashBound⟩,
+    window_time bound below⟩
 
 /-- The final lane header: the retained one when the lane is finalized, else the one whose
 proof `UnzenLaneLive` supplies. Either is a valid proof of the final proposal. -/
@@ -808,8 +811,8 @@ private theorem unlanded_started {env : Environment} {registry : RegistryMachine
   have positiveK : 0 < w.inbox.gridK := gridPositive
   have smallK : w.inbox.gridK ≤ 6 := gridSmall
   refine ⟨v,zeroed h,?_,vnumber.trans ynumber,kept,?_,fun ever => ?_,
-    ⟨_,vstart.trans ystart,?_,?_,fun _ _ => implementation⟩,fence,⟨?_,startsBound _ (zeroed_starts h)⟩,
-    window_time bound (Or.inr (Or.inl (Nat.le_of_lt early)))⟩
+    ⟨_,vstart.trans ystart,Nat.le_of_eq height.symm,?_,fun _ _ => implementation⟩,fun _ s started => ?_,fence,
+    ⟨?_,startsBound _ (zeroed_starts h)⟩,window_time bound (Or.inr (Or.inl (Nat.le_of_lt early)))⟩
   · exact CallTrace.append (extend (.refl w) (advance_ok premises.recoveryClock later (by omega)) trivial)
       (CallTrace.append toY toV)
   · rw [vinbox]
@@ -817,30 +820,21 @@ private theorem unlanded_started {env : Environment} {registry : RegistryMachine
   · rw [unlanded] at ever
     cases ever
   · rw [height,kept.gridK]
+    omega
+  · rw [vstart.trans ystart] at started
+    cases started
+    rw [height,kept.gridK]
     simp only [Start.onGrid,Nat.sub_self,Nat.zero_mod,Nat.le_refl,and_true,decide_eq_true_eq]
     exact positiveK
-  · rw [height,kept.gridK]
-    omega
   · rw [vinbox]
     exact zeroed_header yrecord rfl rfl
 
-/-- The rules argument of step 4 and the image of step 3: keep the schedule (`rules = 0`) when
-its rulesets are live, otherwise install ruleset next+1; the image implements every ruleset the
-resulting schedule selects. -/
-private theorem recovery_rules {env : Environment} {w : World} (live : LiveAt env w) :
-    ∃ rules image schedule, Rules.recover w.schedule rules = some schedule ∧
-      ∀ t, RulesetLive env (Rules.select schedule t) ∧ Rules.select schedule t ∈ env.imageRules image := by
-  rcases live.ruleset with ⟨active,next,image,inActive,inNext⟩ | ⟨fresh,image,inFresh⟩
-  · refine ⟨0,image,{ w.schedule with stopTime := 0, stopGrid := 0 },rfl,fun t => ?_⟩
-    unfold Rules.select
-    split
-    · exact ⟨next,inNext⟩
-    · exact ⟨active,inActive⟩
-  · refine ⟨w.schedule.next+1,image,⟨w.schedule.next+1,w.schedule.next+1,0,0,0⟩,?_,fun t => ?_⟩
-    · unfold Rules.recover
-      rw [ite_eq_right (Nat.succ_ne_zero _),ite_eq_left ⟨rfl,live.rules⟩]
-    · unfold Rules.select
-      split <;> exact ⟨fresh,inFresh⟩
+/-- `rules` = next+1 installs ruleset next+1 as both active and next, with no stop (the second
+case of `LiveRules`). -/
+private theorem fresh_rules {s : Rules.Schedule} (fits : s.next+1 < limit48) :
+    Rules.recover s (s.next+1) = some ⟨s.next+1,s.next+1,0,0,0⟩ := by
+  unfold Rules.recover
+  rw [ite_eq_right (Nat.succ_ne_zero _),ite_eq_left ⟨rfl,fits⟩]
 
 /-- `image` registered and the complete verifier version selected (step 3). -/
 private def configured (v : World) (image version : Nat) : World :=
@@ -873,15 +867,32 @@ private def plainRequest (env : Environment) (w : World) (rules : Nat) : Recover
     expectedCheckpoint := w.inbox.checkpoint.height, expectedNonce := w.inbox.recoveryNonce,
     validUntil := env.time w.number, exclusions := [], clear := [], rules := rules }
 
-/-- The state the plain recovery writes. -/
-private def recovered (env : Environment) (w : World) (schedule : Rules.Schedule) : World :=
+/-- `w`'s parameters with K = 1, whose grid holds every c at or above S. -/
+private def unitGrid (w : World) : Parameters := { parametersOf w.inbox with gridK := 1 }
+
+/-- K = 1 is valid whenever the current parameters are: `Committee.configOK` needs only
+1 ≤ K ≤ 6, K ≤ U and U a multiple of K, and `Parameters.valid` K ≤ maxBatchBlocks. -/
+private theorem unit_valid {w : World} (valid : (parametersOf w.inbox).valid = true) : (unitGrid w).valid = true := by
+  show ({ parametersOf w.inbox with gridK := 1 } : Parameters).valid = true
+  simp only [Parameters.valid,Committee.configOK,Bool.and_eq_true,decide_eq_true_eq] at valid ⊢
+  omega
+
+/-- The structural recovery of step 4 off the grid: the plain request with ruleset next+1 that
+also installs K = 1, keeping every other parameter. -/
+private def unitRequest (env : Environment) (w : World) : RecoveryRequest :=
+  { plainRequest env w (w.schedule.next+1) with upgrade := some (unitGrid w) }
+
+/-- The state a recovery from `w` writes, with storage `inbox` (`w.inbox`, or the installed
+upgrade) and generation parameters `parameters`. -/
+private def recovered (env : Environment) (w : World) (inbox : Etna.Design.State) (parameters : Parameters)
+    (schedule : Rules.Schedule) : World :=
   { w with
     inbox :=
-      { w.inbox with
+      { inbox with
         generation := w.inbox.generation+1, recoveryNonce := w.inbox.recoveryNonce+1,
         origin := ⟨w.inbox.checkpoint.height,w.number,env.time w.number⟩,
         origins := w.inbox.origins ++ [(w.inbox.generation+1,⟨w.inbox.checkpoint.height,w.number,env.time w.number⟩)] },
-    schedule := schedule, configurations := (w.inbox.generation+1,parametersOf w.inbox) :: w.configurations }
+    schedule := schedule, configurations := (w.inbox.generation+1,parameters) :: w.configurations }
 
 private theorem recover_ok {env : Environment} {w : World} {start : StartData} {rules : Nat}
     {schedule : Rules.Schedule} (started : w.start = some start) (initialized : w.initialized = true)
@@ -889,8 +900,9 @@ private theorem recover_ok {env : Environment} {w : World} {start : StartData} {
     (stamp : env.time w.number < limit256) (generation : w.inbox.generation+1 < limit48)
     (grid : Start.onGrid start.height w.inbox.gridK w.inbox.checkpoint.height = true)
     (scheduled : Rules.recover w.schedule rules = some schedule) :
-    execute env w (.recover (plainRequest env w rules)) = some (recovered env w schedule) := by
-  show recover env w (plainRequest env w rules) = some (recovered env w schedule)
+    execute env w (.recover (plainRequest env w rules)) =
+      some (recovered env w w.inbox (parametersOf w.inbox) schedule) := by
+  show recover env w (plainRequest env w rules) = some (recovered env w w.inbox (parametersOf w.inbox) schedule)
   unfold recover
   rw [started,Option.bind_some]
   simp only [show (plainRequest env w rules).upgrade = none from rfl,Option.isSome_none,Option.getD_none,
@@ -906,6 +918,39 @@ private theorem recover_ok {env : Environment} {w : World} {start : StartData} {
     exact (refused ⟨rfl,initialized,entered,rfl,rfl,rfl,nonce,Nat.le_refl _,stamp,generation,grid,List.Pairwise.nil,
       List.Pairwise.nil,fun _ absent => absurd absent List.not_mem_nil,by intro absent; cases absent⟩).elim
 
+/-- Step 4 off the grid: `recover` accepts the structural request, because K = 1 is valid
+whenever `w`'s parameters are and its grid holds every c ≥ S (RECOV-8.3-3a), `rules` is nonzero
+(vector 14e.g) and the genesis cutoff is kept. -/
+private theorem restructure_ok {env : Environment} {w : World} {start : StartData} {schedule : Rules.Schedule}
+    (started : w.start = some start) (initialized : w.initialized = true)
+    (entered : w.inbox.entered = false) (nonce : w.inbox.recoveryNonce+1 < limit256)
+    (stamp : env.time w.number < limit256) (generation : w.inbox.generation+1 < limit48)
+    (below : start.height ≤ w.inbox.checkpoint.height) (valid : (parametersOf w.inbox).valid = true)
+    (scheduled : Rules.recover w.schedule (w.schedule.next+1) = some schedule) :
+    execute env w (.recover (unitRequest env w)) =
+      some (recovered env w (install w.inbox (unitGrid w) env.configHash) (unitGrid w) schedule) := by
+  have unitValid := unit_valid valid
+  have onGrid : Start.onGrid start.height (unitGrid w).gridK w.inbox.checkpoint.height = true := by
+    simp only [unitGrid,Start.onGrid,Nat.mod_one,and_true,decide_eq_true_eq]
+    exact ⟨Nat.one_pos,below⟩
+  show recover env w (unitRequest env w) =
+    some (recovered env w (install w.inbox (unitGrid w) env.configHash) (unitGrid w) schedule)
+  unfold recover
+  rw [started,Option.bind_some]
+  simp only [show (unitRequest env w).upgrade = some (unitGrid w) from rfl,Option.isSome_some,Option.getD_some,
+    ↓reduceIte]
+  split
+  next =>
+    simp only [unitRequest,plainRequest,scheduled,Option.bind_some,
+      exclude_none w.registry.registry (registryView env w) w.number entered initialized,Option.map_some,
+      List.not_mem_nil,↓reduceIte]
+    rw [show (fun x : Nat × Forced.Entry => (x.fst,x.snd)) = id from rfl,List.map_id,← started]
+    rfl
+  next refused =>
+    exact (refused ⟨rfl,initialized,entered,rfl,rfl,rfl,nonce,Nat.le_refl _,stamp,generation,onGrid,
+      List.Pairwise.nil,List.Pairwise.nil,fun _ absent => absurd absent List.not_mem_nil,
+      fun _ => ⟨unitValid,Nat.succ_ne_zero _,rfl⟩⟩).elim
+
 private theorem committee_transfer {env : Environment} {w x : World} {cutoff : Nat} {keys : List Hash}
     (configuration : x.inbox.configuration = w.inbox.configuration) (registry : x.registry = w.registry)
     (live : CommitteeLive env w cutoff keys) : CommitteeLive env x cutoff keys := by
@@ -913,63 +958,131 @@ private theorem committee_transfer {env : Environment} {w x : World} {cutoff : N
   rw [configuration,registry]
   exact live
 
-/-- Steps 3-5 from a settled start: image, verifier, the plain recovery at block `n`, and
-L1 advanced to `n+2`. -/
+/-- Step 5 and the handoff: from the recovered state `r` at block `n`, L1 advances to `n+2`, so
+the snapshots at `n` and `n+1` are closed. K, the committee configuration and the parameters are
+read from `r`, after any upgrade the recovery installed. -/
+private theorem settle {env : Environment} {registry : RegistryMachine.State} {w r : World} {p : Header}
+    {n : Nat} {keys : List Hash} {image : Hash} (premises : RecoveryPremises env registry)
+    (trace : Trace env (empty env registry) w) (toR : RecoveryTrace env w r) (number : r.number = n)
+    (fits : n+4 < limit48) (stamp : env.time n+8 < limit256)
+    (progress : w.everLanded = true → r.inbox.checkpoint.height = w.inbox.checkpoint.height)
+    (recovered : 0 < r.inbox.generation ∧ r.inbox.origin.height = r.inbox.checkpoint.height ∧
+      r.inbox.origin.l1Block = n)
+    (parent : Custody.HeaderOf r.inbox.checkpoint p ∧ HashBound env p)
+    (time : p.timestamp+r.inbox.gridK+1 ≤ env.time n)
+    (grid : ∃ start, r.start = some start ∧
+      Start.onGrid start.height r.inbox.gridK r.inbox.checkpoint.height = true ∧
+      r.inbox.checkpoint.height+r.inbox.gridK < limit48 ∧
+      (env.core.unzenInbox ≠ 0 → p.height = start.height → env.startImplementation p.stateRoot = true))
+    (fence : firstFence env r = true) (stop : r.schedule.stopTime = 0)
+    (rules : ∀ t, RulesetLive env (Rules.select r.schedule t) ∧ Rules.select r.schedule t ∈ env.imageRules image)
+    (proofs : image ∈ r.images ∧ ∀ w' image' d, ImageCertifies env w' image' d →
+      ∃ proofs : List Proof, dualOK (proofs.map fun q => (q.backend,true)) = true ∧
+        ∀ q ∈ proofs, q.image = image' ∧ env.verify r.verifier q.backend image' q.bytes d = true)
+    (committee : CommitteeLive env r n keys) (initialized : r.initialized = true) :
+    Prepared env registry w (closedAt env r (n+2)) p n keys image := by
+  have toU := extend toR (advance_ok (number := n+2) premises.recoveryClock
+    (by rw [number]; omega) (by omega)) trivial
+  have reachR := Custody.trace_append trace (CallTrace.toTrace toR)
+  have reachU := Custody.trace_append trace (CallTrace.toTrace toU)
+  have heldU := trace_reach premises.toFundPremises reachU
+  have ready : (closedAt env r (n+2)).initialized = true := initialized
+  obtain ⟨⟨g,member⟩,valid⟩ := heldU.params ready
+  refine ⟨toU,reachU,⟨rfl,fits⟩,progress,recovered,?_,parent,⟨time,stamp⟩,grid,fence,stop,rules,proofs,committee,
+    ready,heldU.entered,⟨valid _ member,heldU.committed⟩,heldU.queue⟩
+  intro snap mem above
+  rcases List.mem_append.mp mem with old | fresh
+  · obtain ⟨_,below,_⟩ := (Journal.trace_invariant reachR).snapshots snap old
+    omega
+  · obtain ⟨m,_,rfl⟩ := List.mem_map.mp fresh
+    exact ⟨rfl,rfl,rfl,rfl,rfl⟩
+
+/-- Steps 3-5 from a settled start: image, verifier, one recovery at block `n`, and L1 advanced to
+`n+2`. The recovery keeps the current rulesets when `LiveRules`' first case holds, else installs
+ruleset next+1. It is plain when c is on the grid. Off the grid it is structural and installs
+K = 1 (RECOV-8.3-3a), which `LiveRules`' second case allows: a K change rides in a new ruleset. -/
 private theorem finish {env : Environment} {registry : RegistryMachine.State} {w v : World} {p : Header}
     {n : Nat} {keys : List Hash} (premises : RecoveryPremises env registry)
     (trace : Trace env (empty env registry) w) (initialized : w.initialized = true) (live : LiveAt env w)
     (fits : n+4 < limit48) (stamp : env.time n+8 < limit256) (committee : CommitteeLive env w n keys)
     (started : Started env w v p n) : ∃ u image, Prepared env registry w u p n keys image := by
-  obtain ⟨path,number,kept,generation,progress,⟨s,written,grid,height,implementation⟩,fence,parent,time⟩ :=
-    started
+  obtain ⟨path,number,kept,generation,progress,⟨s,written,settled,height,implementation⟩,keptGrid,fence,parent,
+    time⟩ := started
   have heldV := trace_reach premises.toFundPremises (Custody.trace_append trace (CallTrace.toTrace path))
   obtain ⟨version,complete⟩ := premises.proofComplete
-  obtain ⟨rules,image,schedule,scheduled,selected⟩ := recovery_rules live
-  have recovery : execute env (configured v image version)
-      (.recover (plainRequest env (configured v image version) rules)) =
-      some (recovered env (configured v image version) schedule) := by
-    refine recover_ok (start := s) written (kept.initialized.trans initialized) heldV.entered ?_ ?_ generation grid ?_
-    · show v.inbox.recoveryNonce+1 < limit256
-      rw [kept.nonce]
-      exact live.nonce
-    · show env.time v.number < limit256
-      rw [number]
-      omega
-    · show Rules.recover v.schedule rules = some schedule
-      rw [kept.schedule]
-      exact scheduled
-  have toR := extend (configure path image version) recovery ⟨rfl,rfl,rfl⟩
-  have toU := extend toR (advance_ok (number := n+2) premises.recoveryClock
-    (by show v.number < n+2; omega) (by omega)) trivial
-  have reachR := Custody.trace_append trace (CallTrace.toTrace toR)
-  have reachU := Custody.trace_append trace (CallTrace.toTrace toU)
-  have heldU := trace_reach premises.toFundPremises reachU
-  have ready : (closedAt env (recovered env (configured v image version) schedule) (n+2)).initialized = true :=
-    kept.initialized.trans initialized
-  obtain ⟨⟨g,member⟩,valid⟩ := heldU.params ready
-  refine ⟨_,image,toU,reachU,⟨rfl,fits⟩,progress,⟨Nat.succ_pos _,rfl,number⟩,?_,parent,⟨?_,stamp⟩,
-    ⟨s,written,grid,height,implementation⟩,fence,(Rules.recover_clears_stop scheduled).1,selected,
-    ⟨List.mem_cons_self,complete⟩,committee_transfer kept.configuration kept.registry committee,ready,
-    heldU.entered,⟨valid _ member,heldU.committed⟩,heldU.queue⟩
-  · intro snap mem above
-    rcases List.mem_append.mp mem with old | fresh
-    · obtain ⟨_,below,_⟩ := (Journal.trace_invariant reachR).snapshots snap old
-      change snap.number < v.number at below
-      omega
-    · obtain ⟨m,_,rfl⟩ := List.mem_map.mp fresh
-      exact ⟨rfl,rfl,rfl,rfl,rfl⟩
-  · show p.timestamp+v.inbox.gridK+1 ≤ env.time n
+  have ready : v.initialized = true := kept.initialized.trans initialized
+  have nonce : v.inbox.recoveryNonce+1 < limit256 := by
+    rw [kept.nonce]
+    exact live.nonce
+  have early : env.time v.number < limit256 := by
+    rw [number]
+    omega
+  have timed : p.timestamp+v.inbox.gridK+1 ≤ env.time n := by
     rw [kept.gridK]
     exact time
+  -- The plain recovery (step 4 on the grid) for a rule schedule whose rulesets `image` implements.
+  have plain : ∀ rules image schedule, Rules.recover w.schedule rules = some schedule →
+      (∀ t, RulesetLive env (Rules.select schedule t) ∧ Rules.select schedule t ∈ env.imageRules image) →
+      Start.onGrid s.height v.inbox.gridK v.inbox.checkpoint.height = true →
+      ∃ u image, Prepared env registry w u p n keys image := by
+    intro rules image schedule scheduled selected grid
+    have keptRules : Rules.recover v.schedule rules = some schedule := by
+      rw [kept.schedule]
+      exact scheduled
+    have recovery := recover_ok (env := env) (w := configured v image version) (rules := rules) (schedule := schedule)
+      written ready heldV.entered nonce early generation grid keptRules
+    exact ⟨_,image,settle premises trace (extend (configure path image version) recovery ⟨rfl,rfl,.inl rfl⟩) number
+      fits stamp progress ⟨Nat.succ_pos _,rfl,number⟩ parent timed ⟨s,written,grid,height,implementation⟩ fence
+      (Rules.recover_clears_stop scheduled).1 selected ⟨List.mem_cons_self,complete⟩
+      (committee_transfer kept.configuration kept.registry committee) ready⟩
+  rcases live.ruleset with ⟨onGrid,active,next,image,inActive,inNext⟩ | ⟨fresh,image,inFresh⟩
+  · -- First case: keep the rule schedule (`rules` = 0); c is on the grid.
+    refine plain 0 image { w.schedule with stopTime := 0, stopGrid := 0 } rfl (fun t => ?_) (keptGrid onGrid s written)
+    unfold Rules.select
+    split
+    · exact ⟨next,inNext⟩
+    · exact ⟨active,inActive⟩
+  · -- Second case: install ruleset next+1.
+    have scheduled := fresh_rules live.rules
+    have selected : ∀ t, RulesetLive env (Rules.select ⟨w.schedule.next+1,w.schedule.next+1,0,0,0⟩ t) ∧
+        Rules.select ⟨w.schedule.next+1,w.schedule.next+1,0,0,0⟩ t ∈ env.imageRules image := by
+      intro t
+      unfold Rules.select
+      split <;> exact ⟨fresh,inFresh⟩
+    by_cases grid : Start.onGrid s.height v.inbox.gridK v.inbox.checkpoint.height = true
+    · exact plain _ image _ scheduled selected grid
+    · -- Off the grid: the structural recovery installing K = 1.
+      obtain ⟨⟨g,member⟩,valid⟩ := heldV.params ready
+      have positive : 0 < w.inbox.gridK := by
+        rw [← kept.gridK]
+        exact (valid_grid (valid _ member)).1
+      have keptRules : Rules.recover v.schedule (v.schedule.next+1) = some ⟨w.schedule.next+1,w.schedule.next+1,0,0,0⟩ := by
+        rw [kept.schedule]
+        exact scheduled
+      have recovery := restructure_ok (env := env) (w := configured v image version) written ready heldV.entered
+        nonce early generation settled (valid _ member) keptRules
+      refine ⟨_,image,settle premises trace (extend (configure path image version) recovery ⟨rfl,rfl,.inr ⟨1,rfl⟩⟩)
+        number fits stamp progress ⟨Nat.succ_pos _,rfl,number⟩ parent ?_
+        ⟨s,written,?_,?_,implementation⟩ fence (Rules.recover_clears_stop scheduled).1 selected
+        ⟨List.mem_cons_self,complete⟩ (committee_transfer kept.configuration kept.registry committee) ready⟩
+      · show p.timestamp+1+1 ≤ env.time n
+        omega
+      · show Start.onGrid s.height 1 v.inbox.checkpoint.height = true
+        simp only [Start.onGrid,Nat.mod_one,and_true,decide_eq_true_eq]
+        exact ⟨Nat.one_pos,settled⟩
+      · show v.inbox.checkpoint.height+1 < limit48
+        rw [kept.gridK] at height
+        omega
 
 /-! ### The L1 half -/
 
-/-- From every reachable, initialized state satisfying `LiveAt`, the plain-recovery path of
-reports/recoverability.md (The path, steps 1-5; no rollback, no exclusions, no blanking, no upgrade)
-reaches a state with a settled start, a fresh recovered generation whose origin is the current
-checkpoint at the window block R, the snapshots at R and R+1 closed, a live committee and ruleset, a
-registered image and a complete verifier, and a hash-bound parent header early enough for K blocks
-anchored at R. -/
+/-- From every reachable, initialized state satisfying `LiveAt`, the recovery path of
+reports/recoverability.md (The path, steps 1-5; no rollback, no exclusions, no blanking, and a
+structural upgrade only off the grid, installing K = 1) reaches a state with a settled start, a
+fresh recovered generation whose origin is the current checkpoint at the window block R, the
+snapshots at R and R+1 closed, a live committee and ruleset, a registered image and a complete
+verifier, and a hash-bound parent header early enough for K blocks anchored at R, K being the
+recovered generation's. -/
 theorem prepare {env : Environment} {registry : RegistryMachine.State} {w : World}
     (premises : Etna.Statements.Current.RecoveryPremises env registry)
     (trace : Trace env (empty env registry) w) (initialized : w.initialized = true)

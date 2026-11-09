@@ -10,7 +10,7 @@ import EtnaProofs.CurrentRecoveryPath
 import EtnaProofs.CurrentRecoverySegment
 
 /-! The landing half of the recovery path (reports/recoverability.md, The path, step 7). After
-`Recovery.prepare` reaches `u` (one plain recovery at L1 block R, L1 advanced to R+2), the closed
+`Recovery.prepare` reaches `u` (one recovery at L1 block R, L1 advanced to R+2), the closed
 certificate world `x := certificateWorld env u (R+1)` shows `u`'s storage, so `Recovery.segment`
 builds the new generation's first K blocks on the batch parent `p`. Their statement is certified at
 reference R+1 with archive root `p` and no prior headers, the image `prepare` registered implements
@@ -665,8 +665,9 @@ private theorem lands {env : Environment} {registry : RegistryMachine.State} {w 
 
 /-- H4, recoverability (reports/recoverability.md, The claim and The path). From every reachable,
 initialized state satisfying `LiveAt`, under `RecoveryPremises`, a `RecoveryTrace` (no rollback; one
-plain recovery with no exclusions, no FI blanking and no upgrade) reaches a state where `land`
-accepts the recovered generation's first K-block segment from the current checkpoint `c` to `c+K`.
+recovery with no exclusions and no FI blanking, plain when `c` is on the grid and otherwise
+structural, installing K = 1) reaches a state where `land` accepts the recovered generation's first
+K-block segment from the current checkpoint `c` to `c+K`, K being the recovered generation's.
 If anything had landed before, the recovery kept `c`, so the new checkpoint is above the starting
 one. -/
 theorem recoverable : Etna.Statements.Current.Recoverability := by

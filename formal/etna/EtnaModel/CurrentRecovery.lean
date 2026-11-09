@@ -1,29 +1,32 @@
 import EtnaModel.CurrentProtocol
 import EtnaModel.CurrentFinality
 
-/-! Vocabulary of the recoverability claim (H4): call-restricted traces, the plain-recovery
-path, live ruleset definitions, a live committee and the L1 time a recovery block must reach.
+/-! Vocabulary of the recoverability claim (H4): call-restricted traces, the recovery path's
+calls, live ruleset definitions, a live committee and the L1 time a recovery block must reach.
 Definitions only; the claim itself is in `EtnaStatements.Current`. -/
 namespace Etna.Design.Current.Protocol
 
-/-- Traces whose every call satisfies `allowed`; no node events. -/
-inductive CallTrace (env : Environment) (allowed : Call → Prop) : World → World → Prop
+/-- Traces whose every call satisfies `allowed` in the state it applies to; no node events. -/
+inductive CallTrace (env : Environment) (allowed : World → Call → Prop) : World → World → Prop
   | refl (w : World) : CallTrace env allowed w w
   | call {first w : World} (prior : CallTrace env allowed first w) (call : Call)
-      (ok : allowed call) : CallTrace env allowed first (transact env w call)
+      (ok : allowed w call) : CallTrace env allowed first (transact env w call)
 
-/-- H4's path: no `rollback` (RECOV-8-28, RECOV-8-58) and only plain recoveries, with no
-exclusions, no forced-inclusion blanking (RECOV-8-45) and no structural upgrade. -/
-def RecoveryCall : Call → Prop
+/-- H4's path calls in state `w`: no `rollback` (RECOV-8-28, RECOV-8-58), and every `recover`
+has no exclusions and no forced-inclusion blanking (RECOV-8-45). A `recover` is plain (no
+upgrade) or structural with one change only: it installs `w`'s parameters with a new K. -/
+def RecoveryCall (w : World) : Call → Prop
   | .rollback .. => False
-  | .recover request => request.exclusions = [] ∧ request.clear = [] ∧ request.upgrade = none
+  | .recover request => request.exclusions = [] ∧ request.clear = [] ∧
+      (request.upgrade = none ∨ ∃ k, request.upgrade = some { parametersOf w.inbox with gridK := k })
   | _ => True
 
 abbrev RecoveryTrace (env : Environment) : World → World → Prop := CallTrace env RecoveryCall
 
-/-- Calls with no `rollback` and no structural upgrade: every `recover` keeps the parameters,
-so K. The rollback grid trap (`Recovery.offgrid_no_landing`) is stated over these calls. -/
-def NoRollbackOrUpgrade : Call → Prop
+/-- Calls with no `rollback` and no structural upgrade, whatever the state: every `recover`
+keeps the parameters, so K. The rollback grid trap (`Recovery.offgrid_no_landing`) is stated
+over these calls. -/
+def NoRollbackOrUpgrade (_ : World) : Call → Prop
   | .rollback .. => False
   | .recover request => request.upgrade = none
   | _ => True

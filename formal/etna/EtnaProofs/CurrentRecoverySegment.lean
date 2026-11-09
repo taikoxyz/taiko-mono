@@ -1,7 +1,7 @@
 import EtnaModel.CurrentRecoveryInterface
 import EtnaProofs.Forced
 
-/-! The first K blocks of the new generation after a plain recovery (reports/recoverability.md,
+/-! The first K blocks of the new generation after a recovery (reports/recoverability.md,
 The path, step 6). `Recovery.segment` builds them on the batch parent `p` from `SegmentContext`
 and proves each one `Blocks.Valid` under the closed certificate world's policy at reference `R+1`.
 
@@ -540,7 +540,7 @@ private theorem build (hash : ∀ id d, env.catalogue id = some d → d.bytes.ha
 
 end
 
-/-- The first K blocks of the new generation after a plain recovery at L1 block `R`
+/-- The first K blocks of the new generation after a recovery at L1 block `R`
 (reports/recoverability.md, The path, step 6): from the batch parent `p`, a valid chain under the
 closed certificate world's policy at reference `R+1`, archived by its own headers. It ends at height
 `p.height+K` with an FI cursor at most K entries past the head and not past the tail; it is

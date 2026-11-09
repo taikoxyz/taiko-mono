@@ -63,9 +63,11 @@
     "Etna.Statements.Current.RecoveryPremises":
       "The ten premises H4 is stated over: H1's five (FundPremises) and five more, including assumed proof completeness. It does not include Premises or any honesty or vote-attribution assumption.",
     "Etna.Statements.Current.LiveAt":
-      "H4's eight per-state hypotheses on the starting state: the checkpoint on the current grid, counter headroom, a later L1 window block with a live committee, live rulesets and a live Unzen lane.",
+      "H4's seven per-state hypotheses on the starting state: counter headroom, a later L1 window block with a live committee, live rulesets (LiveRules) and a live Unzen lane.",
+    "Etna.Statements.Current.LiveRules":
+      "Either the checkpoint is on the current grid (OnGrid) and the current rulesets are live with one image, or ruleset nextRules + 1 is live with an image and the checkpoint may be off the grid. A plain recovery keeps K, so it needs the grid; off it, the path's structural recovery installs K = 1, and a K change rides in a new ruleset.",
     "Etna.Statements.Current.RecoverableAt":
-      "Some rollback-free sequence of calls with only plain recoveries reaches an accepted landing, above the starting checkpoint whenever something had landed.",
+      "Some rollback-free sequence of calls, whose recoveries have no exclusions, no blanking and no structural change other than K, reaches an accepted landing, above the starting checkpoint whenever something had landed.",
     "Etna.Statements.Current.NormalAccountability":
       "Live risk for quorum-overlap members above the actual checkpoint, under an authenticated candidate and an execution with no rollback since fresh deployment.",
     "Etna.Statements.Current.NormalCommitteeRetention":
@@ -115,8 +117,6 @@
       "Up to six blocks within the block size bound fit in one to six blobs that the payload check accepts.",
     unzenStart:
       "On a switching network, every header a valid final Unzen proof authenticates is a usable Etna start.",
-    grid:
-      "LiveAt: once a start is written, the checkpoint is on the current grid. Excludes the rollback grid trap.",
     generation: "LiveAt: generation + 2 fits 48 bits.",
     nonce: "LiveAt: recoveryNonce + 1 fits 256 bits.",
     rules: "LiveAt: nextRules + 1 fits 48 bits.",
@@ -124,7 +124,7 @@
     window:
       "LiveAt: a later L1 block past the anchor-age, fork-time and genesis bounds, where online keys hold more than 2/3 of the elected power.",
     ruleset:
-      "LiveAt: the current rulesets, or ruleset nextRules + 1, are live and implemented by an image.",
+      "LiveAt: the current rulesets are live with one image and the checkpoint is on the grid, or ruleset nextRules + 1 is live with an image, wherever the checkpoint is.",
     unzen:
       "LiveAt: on a switching network, the Unzen lane has finalized its last proposal or can prove it.",
   };

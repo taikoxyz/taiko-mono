@@ -303,10 +303,12 @@ private theorem committee_live : CommitteeLive env live 100 [onlineKey] := by
   · decide +kernel
   · decide +kernel
 
+/-- `LiveAt` by `LiveRules`' first case: c = S = 0 is on the K = 1 grid and the current rulesets
+are live, so H4's path runs a plain recovery here. -/
 private theorem live_at : Etna.Statements.Current.LiveAt env live := by
-  refine ⟨?_,by decide +kernel,by decide +kernel,by decide +kernel,by decide +kernel,
+  refine ⟨by decide +kernel,by decide +kernel,by decide +kernel,by decide +kernel,
     ⟨100,[onlineKey],by decide +kernel,by decide +kernel,by decide +kernel,by decide +kernel,committee_live⟩,
-    .inl ⟨ruleset_live _,ruleset_live _,0,by decide +kernel,by decide +kernel⟩,?_⟩
+    .inl ⟨?_,ruleset_live _,ruleset_live _,0,by decide +kernel,by decide +kernel⟩,?_⟩
   · intro start started
     rw [live_start] at started
     cases started

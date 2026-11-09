@@ -7,9 +7,11 @@ model because `EtnaProofs` holds only theorems and private helpers. -/
 namespace Etna.Design.Current.Protocol.Recovery
 
 /-- What the L1 half of the recovery path (`Recovery.prepare`) hands to the landing proof. From
-`w`, the plain-recovery path `path` reached `u`: L1 advanced to block `R`, the start was written,
-corrected or proven where needed, `image` and the verifier version were set, one plain
-recovery ran at `R`, and L1 advanced to `R+2`, so the snapshots at `R` and `R+1` are closed.
+`w`, the recovery path `path` reached `u`: L1 advanced to block `R`, the start was written,
+corrected or proven where needed, `image` and the verifier version were set, one recovery ran at
+`R` (plain on the grid, otherwise structural with K = 1), and L1 advanced to `R+2`, so the
+snapshots at `R` and `R+1` are closed. K, the committee configuration and the parameters are
+`u`'s, after the recovery.
 
 `p` is the batch parent: a hash-bound header of the current checkpoint whose timestamp leaves
 K+1 seconds of L1 time before `R`. `keys` are the online keys of the committee elected at `R`.

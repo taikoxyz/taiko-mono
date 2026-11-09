@@ -6,9 +6,10 @@ import EtnaProofs.CurrentCoherentCustody
 state's frontier is off the current grid, nothing lands again until a structural recovery or a
 rollback. `land` needs the frontier on the grid (6.1, BATCH-6.3-1), and a plain `recover` keeps K
 and needs the same (RECOV-8.3-3a). A structural recovery that installs a K whose grid holds the
-frontier exits, as SPEC 8.3 allows (`RollbackGridTrap.rollback_grid_escape`); H4's path uses
-plain recoveries only, so `LiveAt.grid` excludes the state. The reachable instance is
-`RollbackGridTrap.rollback_grid_trap`. -/
+frontier exits, as SPEC 8.3 allows (`RollbackGridTrap.rollback_grid_escape`). H4's path takes
+that exit off the grid: a structural recovery that installs K = 1, in a new ruleset, so H4 covers
+the state when ruleset nextRules + 1 is live (`LiveRules`' second case). The reachable instance
+is `RollbackGridTrap.rollback_grid_trap`. -/
 namespace Etna.Design.Current.Protocol.Recovery
 
 /-- Calls that never change K, the checkpoint or the rule schedule. -/
@@ -115,7 +116,7 @@ private theorem execute_trapped {env : Environment} {u t : World} {call : Call} 
     (initialized : u.initialized = true) (started : u.start = some start)
     (landed : u.everLanded = true)
     (offGrid : Start.onGrid start.height u.inbox.gridK u.inbox.checkpoint.height = false)
-    (allowed : NoRollbackOrUpgrade call) (ok : execute env u call = some t) :
+    (allowed : NoRollbackOrUpgrade u call) (ok : execute env u call = some t) :
     t.inbox.checkpoint.height = u.inbox.checkpoint.height ∧ t.inbox.gridK = u.inbox.gridK := by
   cases call with
   | initializeInbox caller =>

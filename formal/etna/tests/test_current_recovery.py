@@ -37,7 +37,7 @@ ESCAPE = 'Etna.Design.Current.Protocol.RollbackGridTrap.rollback_grid_escape'
 # Every field of H4's own premise record, then every conjunct of its per-state hypothesis.
 RECOVERY_FIELDS = ('toFundPremises', 'recoveryClock', 'recoveryCatalogueHash', 'proofComplete', 'payloadLive',
                    'unzenStart')
-LIVE_FIELDS = ('grid', 'generation', 'nonce', 'rules', 'height', 'window', 'ruleset', 'unzen')
+LIVE_FIELDS = ('generation', 'nonce', 'rules', 'height', 'window', 'ruleset', 'unzen')
 
 
 _HARNESS = HEADLINES.CurrentHeadlineTests.__dict__

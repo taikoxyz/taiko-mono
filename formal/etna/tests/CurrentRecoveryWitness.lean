@@ -21,6 +21,17 @@ example : Etna.Statements.Current.RecoveryPremises RecoveryNonVacuity.env Recove
     Etna.Statements.Current.RecoverableAt RecoveryNonVacuity.env RecoveryNonVacuity.live :=
   Etna.Design.Current.Protocol.RecoveryNonVacuity.live_recovers
 
+-- `LiveAt` holds there by `LiveRules`' first case: c = S = 0 is on the K = 1 grid, so the path
+-- runs a plain recovery and the structural branch is not exercised.
+example : Etna.Statements.Current.OnGrid RecoveryNonVacuity.live := by
+  intro start started
+  have written : RecoveryNonVacuity.live.start =
+      some ⟨0,RecoveryNonVacuity.genesis.elHash,RecoveryNonVacuity.genesis.stateRoot⟩ := by
+    decide +kernel
+  rw [written] at started
+  cases started
+  decide +kernel
+
 -- The world: one bond for the online key, initialized at S = 0 on K = 1 at L1 block 2, nothing
 -- landed yet, on the initial rulesets 0/0.
 example : RecoveryNonVacuity.live.registry.registry.ledger.nextId = 1 ∧ RecoveryNonVacuity.live.number = 2 ∧

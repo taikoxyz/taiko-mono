@@ -170,8 +170,9 @@ theorem deployed_rollback_free {env : Environment} {registry : RegistryMachine.S
     exact .node (ih (by simpa only [Governance.AuthorizedUpgrades] using authorization)) after event
 
 /-- H4: from every reachable, initialized state satisfying `LiveAt`, under `RecoveryPremises`, a
-rollback-free path with one plain recovery reaches an accepted landing, above the starting
-checkpoint whenever one had landed (`Recovery.recoverable`). -/
+rollback-free path with one recovery (no exclusions, no blanking; structural only off the grid,
+installing K = 1) reaches an accepted landing, above the starting checkpoint whenever one had
+landed (`Recovery.recoverable`). -/
 theorem recoverability : Recoverability := Recovery.recoverable
 
 /-- H4 for an actual instrumented raw DAO upgrade history, under the same explicit historical

@@ -9,5 +9,5 @@ import EtnaWitnesses.Traps.RollbackGrid
 environments in which all fifteen premises hold together and the headline conclusions are
 exercised nonvacuously. `NonVacuity.CurrentRecovery` is one environment that satisfies the
 fifteen and H4's premises together, with a reachable world satisfying `LiveAt` from which H4's
-proof reaches an accepted landing. `Traps` holds reachable states that a liveness hypothesis
-must exclude, in environments that satisfy no premise record. -/
+proof reaches an accepted landing. `Traps` holds reachable states that only a particular
+recovery leaves, and that way out, in environments that satisfy no premise record. -/

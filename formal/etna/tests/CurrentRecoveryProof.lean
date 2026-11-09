@@ -101,4 +101,20 @@ example : ∀ {env : Environment} {x : World} {p : Header} {R : Nat} {keys : Lis
 -- H4 itself: the certificate and the landing close the path (`Recovery.recoverable`).
 example : Recoverability := Etna.Design.Current.Protocol.Recovery.recoverable
 
+-- H4 reaches off-grid states. With ruleset nextRules + 1 live and implemented (`LiveRules`'
+-- second case), `LiveAt` holds with no grid condition, so it covers a c off the current grid,
+-- such as the rollback grid trap's, and `Recovery.recoverable` gives an accepted landing there.
+example {env : Environment} {registry : RegistryMachine.State} {w : World}
+    (premises : RecoveryPremises env registry) (trace : Trace env (empty env registry) w)
+    (initialized : w.initialized = true) (generation : w.inbox.generation+2 < limit48)
+    (nonce : w.inbox.recoveryNonce+1 < limit256) (rules : w.schedule.next+1 < limit48)
+    (height : w.inbox.checkpoint.height+w.inbox.gridK < limit48)
+    (window : ∃ n keys, w.number < n ∧ n+4 < limit48 ∧ WindowBound env w ≤ env.time n ∧
+      env.time n+8 < limit256 ∧ CommitteeLive env w n keys)
+    (fresh : RulesetLive env (w.schedule.next+1)) (image : Hash)
+    (implemented : w.schedule.next+1 ∈ env.imageRules image) (unzen : UnzenLaneLive env w) :
+    RecoverableAt env w :=
+  Etna.Design.Current.Protocol.Recovery.recoverable env registry premises w trace initialized
+    ⟨generation,nonce,rules,height,window,.inr ⟨fresh,image,implemented⟩,unzen⟩
+
 end Etna.CurrentRecoveryProofRegression

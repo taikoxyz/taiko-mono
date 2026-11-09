@@ -1,22 +1,24 @@
+import EtnaStatements.Current
 import EtnaProofs.CurrentRecoveryTrap
 import EtnaWitnesses.Traps.RollbackGrid
 
-/-! The rollback-across-K-change trap that `LiveAt.grid` excludes: an off-grid frontier never
-lands again along calls with no rollback and no structural recovery, such a state is reachable
-in the model, here under a failed verifier, and a structural recovery that installs a K whose
-grid holds the frontier exits it, as SPEC 8.3 allows. Kept apart from tests/CurrentRecovery.lean
-so the H4 statement pins never depend on a witness build. -/
+/-! The rollback-across-K-change trap: an off-grid frontier never lands again along calls with
+no rollback and no structural recovery, such a state is reachable in the model, here under a
+failed verifier, and a structural recovery that installs a K whose grid holds the frontier exits
+it, as SPEC 8.3 allows. H4's call class `RecoveryCall` admits that exit, so H4's conclusion
+holds at the trapped state. Kept apart from tests/CurrentRecovery.lean so the H4 statement pins
+never depend on a witness build. -/
 namespace Etna.CurrentRecoveryTrapRegression
 open Etna.Design Etna.Design.Current Etna.Design.Current.Protocol
 
 -- The trap's call class: rollback and structural recoveries are out; a plain recovery and the
 -- catch-all arm are in.
-example (caller : Nat) (trusted : Checkpoint) (snapshot : Nat) :
-    ¬ NoRollbackOrUpgrade (.rollback caller trusted snapshot) := id
-example (r : RecoveryRequest) (p : Current.Protocol.Parameters) :
-    ¬ NoRollbackOrUpgrade (.recover { r with upgrade := some p }) := fun h => nomatch h
-example (r : RecoveryRequest) (plain : r.upgrade = none) : NoRollbackOrUpgrade (.recover r) := plain
-example (n : Nat) : NoRollbackOrUpgrade (.advance n) := trivial
+example (w : World) (caller : Nat) (trusted : Checkpoint) (snapshot : Nat) :
+    ¬ NoRollbackOrUpgrade w (.rollback caller trusted snapshot) := id
+example (w : World) (r : RecoveryRequest) (p : Current.Protocol.Parameters) :
+    ¬ NoRollbackOrUpgrade w (.recover { r with upgrade := some p }) := fun h => nomatch h
+example (w : World) (r : RecoveryRequest) (plain : r.upgrade = none) : NoRollbackOrUpgrade w (.recover r) := plain
+example (w : World) (n : Nat) : NoRollbackOrUpgrade w (.advance n) := trivial
 
 example : ∀ {env : Environment} {registry : RegistryMachine.State} {w : World} {start : StartData},
     Trace env (empty env registry) w → w.start = some start → w.everLanded = true →
@@ -44,5 +46,20 @@ example : RollbackGridTrap.trapped.inbox.checkpoint.height = 2 ∧ RollbackGridT
 example : RollbackGridTrap.restarted.inbox.gridK = 2 ∧ RollbackGridTrap.restarted.inbox.generation = 2 ∧
     RollbackGridTrap.restarted.inbox.origin.height = 2 ∧ RollbackGridTrap.restarted.schedule.active = 2 := by
   decide +kernel
+
+-- H4's call class admits the escape: it changes only K and has no exclusions and no blanking.
+example : RecoveryCall RollbackGridTrap.trapped (.recover RollbackGridTrap.structural) := ⟨rfl,rfl,.inr ⟨2,rfl⟩⟩
+
+-- So H4's conclusion holds at the trapped state: a `RecoveryTrace` (that recovery) reaches the
+-- accepted 2 → 4 landing, above the trapped c = 2. The environment meets no premise record, so
+-- this is the conclusion only, not H4 applied.
+example : Etna.Statements.Current.RecoverableAt RollbackGridTrap.env RollbackGridTrap.trapped := by
+  have checks : LandingChecks RollbackGridTrap.env RollbackGridTrap.restarted (RollbackGridTrap.batch 2 4) := by
+    decide +kernel
+  refine ⟨RollbackGridTrap.restarted,RollbackGridTrap.batch 2 4,
+    landed RollbackGridTrap.restarted (RollbackGridTrap.batch 2 4),
+    .call (.refl _) (.recover RollbackGridTrap.structural) ⟨rfl,rfl,.inr ⟨2,rfl⟩⟩,?_,fun _ => ?_⟩
+  · simp only [Protocol.land,checks,ite_true]
+  · decide +kernel
 
 end Etna.CurrentRecoveryTrapRegression

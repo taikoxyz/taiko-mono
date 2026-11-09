@@ -10,8 +10,8 @@ from every reachable state, under named premises and hypotheses, there is a way 
 accepted landing. It is proved in Lean with no new axioms.
 
 This report says what H4 claims, how the proof reaches a landing, what each premise and
-hypothesis assumes and who must make it true, a trap, reachable in the model, that one
-hypothesis excludes and the structural recovery that leaves it, two changes to `recover`, and
+hypothesis assumes and who must make it true, a trap, reachable in the model, that only a
+structural recovery leaves and that H4's path leaves the same way, two changes to `recover`, and
 what H4 does not say.
 
 Terms used below:
@@ -27,7 +27,8 @@ Terms used below:
   from the current checkpoint c, reselects the committee at the L1 block R where it executes,
   and discards unsettled blocks above c. A **plain recovery** has no exclusions, blanks no
   forced-inclusion entry and makes no structural upgrade. A **structural upgrade** is a
-  recovery that also installs new parameters, such as a new K (SPEC 10.1).
+  recovery that also installs new parameters, such as a new K (SPEC 10.1); such a recovery is
+  a **structural recovery**.
 - **Verifier-failure rollback** (`rollback`, RECOV-8-24 to 8-34): a DAO Inbox upgrade that
   restores the checkpoint written by the last trusted landing after a bad proof was accepted.
 
@@ -36,7 +37,7 @@ Terms used below:
 | What                       | Lean                                                                                                                                                                                                                             |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Claim                      | `Recoverability`, `RecoverableAt`, `RecoveryPremises`, `LiveAt` in `EtnaStatements/Current.lean`                                                                                                                                 |
-| Vocabulary                 | `CallTrace`, `RecoveryCall`, `RecoveryTrace`, `ExecutionLive`, `RulesetLive`, `CommitteeLive`, `WindowBound` in `EtnaModel/CurrentRecovery.lean`                                                                                 |
+| Vocabulary                 | `CallTrace`, `RecoveryCall`, `RecoveryTrace`, `ExecutionLive`, `RulesetLive`, `CommitteeLive`, `WindowBound` in `EtnaModel/CurrentRecovery.lean`; `OnGrid`, `LiveRules` in `EtnaStatements/Current.lean`                         |
 | Proof                      | `Recovery.prepare` (L1 calls), `Recovery.segment` (L2 blocks), `Recovery.recoverable` (certificate and landing) in `EtnaProofs/CurrentRecovery*.lean`                                                                            |
 | Headlines                  | `Headlines.recoverability`, `Headlines.deployed_recoverability` and the four-part `Headlines.claims` in `EtnaProofs/Headline/Current.lean`                                                                                       |
 | Joint witness              | `RecoveryNonVacuity.all_premises_satisfiable` and `live_recovers` in `EtnaWitnesses/NonVacuity/CurrentRecovery.lean`                                                                                                             |
@@ -61,11 +62,22 @@ w that a fresh deployment can reach, whose Inbox is initialized and that meets `
 some sequence of calls leads from w to a state u where `land` accepts a landing. If anything
 had landed before w, the new checkpoint is above w's.
 
-`RecoveryTrace` fixes which calls that sequence may use. Each step is one modelled call. Every
-call is allowed except `rollback`, and `recover` is allowed only as a plain recovery: no
-exclusions, an empty forced-inclusion blanking list and no upgrade. The claim itself therefore
-keeps to the DAO's call-level limits: no rollback, no exclusions, and no blanking of provable
-forced-inclusion entries (RECOV-8-45).
+`RecoveryTrace` fixes which calls that sequence may use. Each step is one modelled call, and
+`RecoveryCall` judges it in the state it applies to:
+
+```lean
+def RecoveryCall (w : World) : Call → Prop
+  | .rollback .. => False
+  | .recover request => request.exclusions = [] ∧ request.clear = [] ∧
+      (request.upgrade = none ∨ ∃ k, request.upgrade = some { parametersOf w.inbox with gridK := k })
+  | _ => True
+```
+
+Every call is allowed except `rollback`. A `recover` must have no exclusions and an empty
+forced-inclusion blanking list. It is either plain (no upgrade) or a structural recovery whose
+only change is K: its upgrade installs the current parameters with a new K. The claim itself
+therefore keeps to the DAO's call-level limits: no rollback, no exclusions, no blanking of
+provable forced-inclusion entries (RECOV-8-45), and no structural change other than K.
 
 Two parts of the conclusion need explaining.
 
@@ -92,7 +104,7 @@ What the proof builds and what it takes from premises:
 
 - **Built:** every L1 call; K L2 blocks, each valid under the model's block-validity rules
   (`Blocks.Valid`), with their committee votes; the batch certificate; and the landing
-  checks.
+  checks. K is the recovered generation's: the current K, or 1 after a structural recovery.
 - **Supplied by hypotheses, existentially:** each block's execution header and hashes (the
   `ruleset` hypothesis), the online validators' signatures (`window`) and the blob list
   (`payloadLive`). The proof chooses inputs; these say that execution, signing and data
@@ -130,13 +142,25 @@ From w, the proof builds these steps in order. The owner is the DAO.
    schedule will select (`image`) and selects the verifier version that `proofComplete` names
    (`verifier`).
 4. **Recovery.** The owner calls `recover` at R with the current generation, checkpoint c and
-   nonce, `validUntil` set to R's time, no exclusions, an empty blanking list and no upgrade.
-   It keeps the rule schedule (`rules` = 0) when the current rulesets are live, and otherwise
-   installs ruleset nextRules + 1.
+   nonce, `validUntil` set to R's time, no exclusions and an empty blanking list.
+
+   - When `LiveRules`' first case holds (c on the grid, the current rulesets live), it is a
+     plain recovery that keeps the rule schedule (`rules` = 0).
+   - Otherwise ruleset nextRules + 1 is live, and the recovery installs it (`rules` =
+     nextRules + 1). If c is on the grid, the recovery is plain.
+   - If c is off the grid, the recovery is structural: one DAO transaction installs the current
+     parameters with K = 1 and calls `recover`. K = 1 is valid whenever the current parameters
+     are: `Committee.configOK` needs only 1 ≤ K ≤ 6, K ≤ U and U a multiple of K, and
+     `Parameters.valid` needs K ≤ maxBatchBlocks. Its grid holds every c at or above S, so
+     RECOV-8.3-3a passes. A K change rides in a new ruleset (START-10.1-14e; vector 14e.g
+     rejects `rules` = 0), which is why this branch needs `LiveRules`' second case. The
+     recovery keeps the genesis cutoff and the committee configuration, and the rest of the
+     path reads K, the committee configuration and the parameters from the recovered state.
 5. **Close R.** Advance L1 to R + 2, so the model's L1 snapshots at R and R + 1 are closed.
 6. **Blocks.** Build K blocks at heights c + 1 to c + K on c's header, which H1 shows is
    retained and hash-bound (on a switching network at c = S, the Unzen final header with
-   Etna's zeroed fields).
+   Etna's zeroed fields). K is the recovered generation's. The `height` and `window`
+   hypotheses are stated with the starting K, which is at least 1, so they also bound K = 1.
    - Every block anchors at R. Block timestamps are max(parent + 1, R's time), so block i is
      i − 1 seconds past its anchor.
    - Every committee in the segment is elected at R, including at an epoch switch inside it,
@@ -150,9 +174,10 @@ From w, the proof builds these steps in order. The owner is the DAO.
    rooted at c's header and no earlier headers. `proofComplete` gives two accepted proofs and
    `payloadLive` a blob list, so `land` accepts the landing from c to c + K.
 
-The path never calls `rollback`, `scheduleRules` or `scheduleStop`. It needs no rollback
-because `VerifierSound`, one of H1's premises, makes every landed checkpoint genuine, so a
-recovery from the current c suffices. This is also why `RecoveryPremises` extends
+The path never calls `rollback`, `scheduleRules` or `scheduleStop`, and its only structural
+upgrade is the K = 1 one off the grid. It needs no rollback because `VerifierSound`, one of
+H1's premises, makes every landed checkpoint genuine, so a recovery from the current c
+suffices. This is also why `RecoveryPremises` extends
 `FundPremises`: the path uses H1's conclusion that c's header is retained and hash-bound.
 
 ## Premises
@@ -172,19 +197,18 @@ on. The audit requires H4's proof to read every field of `RecoveryPremises`.
 
 ## Per-state hypotheses
 
-`LiveAt` holds eight conditions on the starting state w, not on the environment. The audit
+`LiveAt` holds seven conditions on the starting state w, not on the environment. The audit
 requires H4's proof to read each of them.
 
-| Field        | What it assumes about w                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Spec                                                                      | Who must make it true                                                                                                                          |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `grid`       | Once a start is written, c is on the current grid                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | 6.1 (landings end at grid points), BATCH-6.3-1, RECOV-8.3-3a              | Breaks after a verifier-failure rollback across a K change. Only a structural recovery, which H4's path does not use, gets out (next section)  |
-| `generation` | generation + 2 < 2^48 (the path may run both `correctStart` and `recover`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | RECOV-8-47                                                                | Counter headroom; no realistic deployment exhausts it                                                                                          |
-| `nonce`      | recoveryNonce + 1 < 2^256                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | RECOV-8.3-11                                                              | Counter headroom                                                                                                                               |
-| `rules`      | nextRules + 1 < 2^48                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | RECOV-8-47a, appendix A's `recover(…, uint48 rules)`, STOR-B-15a          | Counter headroom                                                                                                                               |
-| `height`     | c + K < 2^48                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | 6.1 land (48-bit heights)                                                 | Height headroom                                                                                                                                |
-| `window`     | Some later L1 block R, with room in 48 bits, whose time is more than K seconds past each of: the current L1 time plus the largest `maxAnchorAge` of any generation so far, `forkTime`, and the genesis timestamp. At R, the election over the registry succeeds, and a set of online keys that can sign every vote holds more than 2/3 of the elected power (`CommitteeLive`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | 3.4 rule 7 (anchor age), START-10-5a, 4.3, RECOV-8-17 to 8-21, LIMIT-12-6 | Ethereum L1; the deployer, by picking a genesis timestamp and `forkTime` that L1 reaches; validators online and signing; enough eligible stake |
-| `ruleset`    | Either the active and next rulesets are live and one image implements both, or ruleset nextRules + 1 is live and some image implements it. A ruleset is live (`ExecutionLive`) when, for every parent header and every FI cursor, timestamp above the parent's, anchor and witness bytes a block producer picks, its EL accepts some hash-bound child with an empty transaction list; and when the witness bytes are a canonical forced transaction of at most 8,192 bytes, that transaction either executes as the only transaction or its single-transaction trial completes empty. The witness bytes are the queue head's raw bytes in a block that carries a forced-inclusion witness, and empty otherwise. The EL accepts a child when its execution and payload checks pass, at those witness bytes, for every block body that names the parent's hash, pays a fee share of 100 and carries the anchor's state root as its parent beacon root (the body fields the EL reads, 3.2); the other body fields are left free | MODEL-1-1 (EL side), 7.2 trial, START-10.1, LIMIT-12-21                   | The ruleset's EL and guest images; the DAO and validators for rule upgrades                                                                    |
-| `unzen`      | On a switching network, the Unzen lane has finalized its last proposal, or a valid proof of that proposal, linked to the lane's last finalized hash, exists from the current lane state                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | LIMIT-12-9, LAND-6.1-8a                                                   | Unzen provers and the existing Unzen guest                                                                                                     |
+| Field        | What it assumes about w                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Spec                                                                                       | Who must make it true                                                                                                                          |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `generation` | generation + 2 < 2^48 (the path may run both `correctStart` and `recover`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | RECOV-8-47                                                                                 | Counter headroom; no realistic deployment exhausts it                                                                                          |
+| `nonce`      | recoveryNonce + 1 < 2^256                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | RECOV-8.3-11                                                                               | Counter headroom                                                                                                                               |
+| `rules`      | nextRules + 1 < 2^48                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | RECOV-8-47a, appendix A's `recover(…, uint48 rules)`, STOR-B-15a                           | Counter headroom                                                                                                                               |
+| `height`     | c + K < 2^48                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | 6.1 land (48-bit heights)                                                                  | Height headroom                                                                                                                                |
+| `window`     | Some later L1 block R, with room in 48 bits, whose time is more than K seconds past each of: the current L1 time plus the largest `maxAnchorAge` of any generation so far, `forkTime`, and the genesis timestamp. At R, the election over the registry succeeds, and a set of online keys that can sign every vote holds more than 2/3 of the elected power (`CommitteeLive`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | 3.4 rule 7 (anchor age), START-10-5a, 4.3, RECOV-8-17 to 8-21, LIMIT-12-6                  | Ethereum L1; the deployer, by picking a genesis timestamp and `forkTime` that L1 reaches; validators online and signing; enough eligible stake |
+| `ruleset`    | `LiveRules`: either c is on the grid once a start is written (`OnGrid`), and the active and next rulesets are live and one image implements both; or ruleset nextRules + 1 is live and some image implements it, with no grid condition. A ruleset is live (`ExecutionLive`) when, for every parent header and every FI cursor, timestamp above the parent's, anchor and witness bytes a block producer picks, its EL accepts some hash-bound child with an empty transaction list; and when the witness bytes are a canonical forced transaction of at most 8,192 bytes, that transaction either executes as the only transaction or its single-transaction trial completes empty. The witness bytes are the queue head's raw bytes in a block that carries a forced-inclusion witness, and empty otherwise. The EL accepts a child when its execution and payload checks pass, at those witness bytes, for every block body that names the parent's hash, pays a fee share of 100 and carries the anchor's state root as its parent beacon root (the body fields the EL reads, 3.2); the other body fields are left free | MODEL-1-1 (EL side), 7.2 trial, START-10.1, START-10.1-14e, LIMIT-12-21, 6.1, RECOV-8.3-3a | The ruleset's EL and guest images; the DAO and validators for rule upgrades; off the grid, the DAO's K change in a new ruleset                 |
+| `unzen`      | On a switching network, the Unzen lane has finalized its last proposal, or a valid proof of that proposal, linked to the lane's last finalized hash, exists from the current lane state                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | LIMIT-12-9, LAND-6.1-8a                                                                    | Unzen provers and the existing Unzen guest                                                                                                     |
 
 Why `window` has those three bounds: the batch parent's timestamp is bounded by its anchor's
 L1 time plus that generation's `maxAnchorAge` (for c above S), by `forkTime` (a switching
@@ -192,16 +216,22 @@ start) or by the genesis timestamp (a new network at S = 0). R must be late enou
 new blocks, anchored at R, keep their timestamps after the parent and within the anchor-age
 limit. `WindowBound` takes all three bounds on every network, whichever case applies.
 
-Why `grid` is needed: by their own checks, `land` and `recover` keep c on the grid, and the
-start writes set c = S. The model has no separate theorem that the condition holds on every
-history, and the next section shows a reachable state where it fails.
+Why `ruleset` mentions the grid: a plain recovery keeps K, and RECOV-8.3-3a then needs c on
+the grid. By their own checks, `land` and `recover` keep c on the grid, and the start writes
+set c = S, but the next section shows a reachable state where c is off it. From there only a
+structural recovery that installs a K whose grid holds c gets out, and a K change needs a new
+ruleset (START-10.1-14e, vector 14e.g). So the first case, which keeps the current rulesets,
+needs c on the grid, and the second, which installs ruleset nextRules + 1, does not. The
+statement names the grid condition `OnGrid`. Before this change, `LiveAt` had a separate
+`grid` field, which excluded every off-grid state.
 
 ## The rollback grid trap
 
 After a structural recovery changes K, a verifier-failure rollback can restore a checkpoint
 that is off the new grid. From there, nothing lands until a structural recovery installs a K
-whose grid holds c. Plain recoveries, the only kind H4's path uses, stay blocked, in the model
-as in the spec. That is why H4 keeps the `grid` hypothesis.
+whose grid holds c. Plain recoveries stay blocked, in the model as in the spec. H4's path
+leaves the state with a structural recovery that installs K = 1, so H4 covers it whenever
+ruleset nextRules + 1 is live and implemented by an image.
 
 **The trace** (`RollbackGridTrap.rollback_grid_trap`, a new network with S = 0):
 
@@ -250,10 +280,15 @@ no stop scheduled and from c = 2 below a scheduled stop point (14e.k). Three mut
 `tests/test_current_protocol.py` each put back one part of the old stop check, and the
 regression rejects each of them.
 
-**Why H4 still needs `grid`.** H4's path uses only plain recoveries (`RecoveryCall`). A plain
-recovery keeps K, so RECOV-8.3-3a rejects it while c is off the current grid. From the trapped
-state no path of H4's class lands. `LiveAt.grid` excludes the state; it is the narrowest
-condition that does. The next change to H4 uses the structural escape above for an off-grid c.
+**How H4 covers the trap.** `RecoveryCall` admits a structural recovery whose only change is
+K, and off the grid H4's path uses one: it installs K = 1 with `rules` = nextRules + 1, which
+passes RECOV-8.3-3a for every c at or above S. So H4 applies to the trapped state, and to any
+other off-grid state, when `LiveRules`' second case holds: ruleset nextRules + 1 is live and an
+image implements it. When it does not, H4 says nothing about an off-grid state, because the
+first case needs c on the grid. The witness above installs K = 2 rather than K = 1; both pass
+RECOV-8.3-3a there. `tests/CurrentRecoveryTrap.lean` checks that `RecoveryCall` admits the
+witness's structural recovery in the trapped state, and that H4's conclusion, `RecoverableAt`,
+holds there through it. Only the conclusion: the trap environment meets no premise record.
 
 **The rollback target rule.** In the normative machine, `rollback` accepts any retained landing
 record at or below c. A second rollback to the start record (c = 0, on every grid) escapes: the
@@ -335,10 +370,11 @@ They get no Lean counterexample. For each, here is who must make it true.
   final-proof part is the `unzen` hypothesis above.
 - **LIMIT-12-21, upgrades depend on the DAO and validators.** A defective ruleset that has
   taken effect is replaced by recovery's `rules`. The path does this when the current
-  rulesets are not live, which needs ruleset nextRules + 1 to be live and implemented by an
-  image (`LiveAt.ruleset`). Validators holding more than 2/3 of the power must also run that
-  ruleset's software. The model has no software versions, so this is part of what the online
-  keys of `CommitteeLive` stand for.
+  rulesets are not live, and when c is off the grid, since the structural recovery that
+  installs K = 1 rides in a new ruleset. Both need ruleset nextRules + 1 to be live and
+  implemented by an image (`LiveAt.ruleset`). Validators holding more than 2/3 of the power
+  must also run that ruleset's software. The model has no software versions, so this is part
+  of what the online keys of `CommitteeLive` stand for.
 
 ## What H4 does not say
 
@@ -356,11 +392,17 @@ They get no Lean counterexample. For each, here is who must make it true.
   DAO duties the model does not encode. H4 shows the recovery mechanism works from every
   state that meets `LiveAt`; it does not say the DAO should use it in that state. The path
   recovers even from healthy states, discarding any unsettled blocks above c (RECOV-8-56).
-- **Recoveries that need exclusions or blanking.** The path uses only plain recoveries. When
-  the committee elected at R is not live without excluding members (LIMIT-12-2), `LiveAt`
-  does not hold. When a queued transaction must be blanked, either the EL can neither execute
-  it nor complete its single-transaction trial empty, which fails `LiveAt.ruleset`, or the
-  guests cannot prove it, which fails `proofComplete`. Either way H4 says nothing.
+- **Recoveries that need exclusions or blanking.** The path uses no exclusions and no
+  blanking. When the committee elected at R is not live without excluding members
+  (LIMIT-12-2), `LiveAt` does not hold. When a queued transaction must be blanked, either the
+  EL can neither execute it nor complete its single-transaction trial empty, which fails
+  `LiveAt.ruleset`, or the guests cannot prove it, which fails `proofComplete`. Either way H4
+  says nothing.
+- **Other structural upgrades, and an off-grid c with no new ruleset.** The path's only
+  structural upgrade installs K = 1, off the grid; it never changes another parameter. When c
+  is off the grid and ruleset nextRules + 1 is not live, `LiveAt.ruleset` fails and H4 says
+  nothing: the recovery that leaves the state must change K, and a K change rides in a new
+  ruleset (START-10.1-14e).
 - **Uninitialized deployments.** H4 assumes `initializeInbox` has succeeded. A
   misconfigured deployment whose initialization fails is a failed deploy.
 
@@ -373,8 +415,9 @@ environment the path does reach an accepted landing. The witness is restricted:
 
 - a new network only: `initializeInbox` writes S = 0, and `setOrigin`, `correctStart`,
   `unzenProve` and the Unzen premises are not exercised;
-- K = 1, so the landed segment is one block, `grid` holds trivially and no epoch switch falls
-  inside the segment;
+- K = 1, so the landed segment is one block and no epoch switch falls inside the segment;
+- c = S = 0 is on the grid, so `LiveAt.ruleset` holds by `LiveRules`' first case and the path
+  runs a plain recovery; the structural branch for an off-grid c is not exercised;
 - one online key, which signs every vote;
 - one catalogue definition, used for every ruleset number, and every image implements only
   ruleset 0;
@@ -393,6 +436,11 @@ environment the path does reach an accepted landing. The witness is restricted:
 There is no switching-network environment either. Mainnet takes over from the Unzen rollup, so
 it is a switching network, and a joint witness for one is a worthwhile follow-up.
 
+No environment that meets the premises reaches an off-grid state yet: that needs several
+concrete landings, a structural recovery and a rollback. `tests/CurrentRecoveryProof.lean`
+instead applies `Recovery.recoverable` under `LiveRules`' second case with no grid
+hypothesis, so H4's conclusion follows wherever c is.
+
 Commitments are ideal unbounded Nat codes, not Keccak.
 
 ## Evidence
@@ -408,6 +456,11 @@ Commitments are ideal unbounded Nat codes, not Keccak.
   recovery leaves the trapped state (`RollbackGridTrap.rollback_grid_escape`). Both, and the
   trap witness, are listed as reviewed unsourced plumbing (`scripts/current-plumbing.json`).
   Clause totals are unchanged, because `Recovery.prepare` also cites the 8.3 checks clause.
+- **RECOV-8.3-3a stays deferred.** H4's path builds one structural recovery that passes the
+  check with K = 1. That is a fact about the path, not a statement of the rule for every
+  recovery, so no statement credits it. `recover` makes the check: `Recovery.offgrid_no_landing`
+  uses it to reject a plain recovery off the grid, and `tests/CurrentProtocol.lean` checks that
+  a structural recovery installing K = 1 passes it.
 - **Totals.** 60 partial / 508 deferred clauses (38 / 530 before H4), and 43 narrow partial /
   36 supporting / 529 deferred binding rules (41 / 36 / 531 before), plus 32 deferred
   assumption and limitation rows.
@@ -431,5 +484,7 @@ H4 adds no evidence for these:
 - RECOV-8.1-3 to 8.1-5 (recovery timing and the DAO's policy): H4 says nothing about how soon
   a recovery runs, and SPEC 8.1 policy is outside the claim (see What H4 does not say).
 
-The review-surface lock grows from 1,433 to 1,464 constants: the H4 statement definitions,
-the new headline and witness roots and their model closure. `Claims` and `recover` change.
+The review-surface lock grew from 1,433 to 1,464 constants when H4 was added: the H4 statement
+definitions, the new headline and witness roots and their model closure. `Claims` and `recover`
+changed. It has 1,467 at this revision. Letting H4 leave an off-grid state added `OnGrid` and
+changed `CallTrace`, `RecoveryCall`, `NoRollbackOrUpgrade`, `LiveRules` and `LiveAt`.

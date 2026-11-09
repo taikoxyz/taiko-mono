@@ -6,8 +6,9 @@ K, as START-10.1-14e asks), passes the stop time and upgrades to K = 3 at c = 6.
 verifier-failure rollback then restores the height-2 landing: c = 2 is on the old grid but not
 on the new one, so no continuation without a rollback or a structural recovery lands again
 (`Recovery.offgrid_no_landing`). A structural recovery from c = 2 that installs K = 2 exits, as
-SPEC 8.3 allows (`rollback_grid_escape`); with plain recoveries only, the state is a dead end. A
-second rollback, to the start record, also escapes in the model, though RECOV-8-28 forbids it.
+SPEC 8.3 allows (`rollback_grid_escape`); with plain recoveries only, the state is a dead end.
+H4's path leaves such a state the same way, installing K = 1, when ruleset nextRules + 1 is live.
+A second rollback, to the start record, also escapes in the model, though RECOV-8-28 forbids it.
 The environment's verifier accepts every proof, which is the failure the rollback exists for, so
 the environment satisfies no premise record. -/
 namespace Etna.Design.Current.Protocol.RollbackGridTrap

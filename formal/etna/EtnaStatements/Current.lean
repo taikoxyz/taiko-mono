@@ -215,9 +215,19 @@ def UnzenLaneLive (env : Environment) (w : World) : Prop :=
       w.unzen.finalizedProposal < w.unzen.nextProposal-1 ∧
       env.unzenParent w.unzen.finalizedProposal (w.unzen.nextProposal-1) h proof = w.unzen.finalizedHash
 
-/-- START-10.1, LIMIT-12-21: the current rulesets work, or ruleset next+1 does. -/
+/-- 6.1, BATCH-6.3-1: once a start S is written, the checkpoint c is on the current grid, so
+c − S is a multiple of K. -/
+def OnGrid (w : World) : Prop :=
+  ∀ start, w.start = some start → Start.onGrid start.height w.inbox.gridK w.inbox.checkpoint.height = true
+
+/-- START-10.1, LIMIT-12-21, RECOV-8.3-3a: a recovery from `w` can leave live rulesets.
+First case: c is on the grid, and the current rulesets are live with one image for both. A plain
+recovery keeps them and K, and RECOV-8.3-3a needs c on the grid of the K it keeps. Second case:
+ruleset nextRules + 1 is live with an image, and c may be off the grid. Off the grid only a
+structural recovery that installs a K whose grid holds c gets out, and a K change rides in a new
+ruleset (START-10.1-14e; vector 14e.g rejects `rules` = 0), so that recovery needs this case. -/
 def LiveRules (env : Environment) (w : World) : Prop :=
-  (RulesetLive env w.schedule.active ∧ RulesetLive env w.schedule.next ∧
+  (OnGrid w ∧ RulesetLive env w.schedule.active ∧ RulesetLive env w.schedule.next ∧
     ∃ image, w.schedule.active ∈ env.imageRules image ∧ w.schedule.next ∈ env.imageRules image) ∨
   (RulesetLive env (w.schedule.next+1) ∧ ∃ image, w.schedule.next+1 ∈ env.imageRules image)
 
@@ -232,15 +242,13 @@ structure RecoveryPremises (env : Environment) (registry : RegistryMachine.State
 
 /-- Per-state conditions of H4 (reports/recoverability.md, Per-state hypotheses). -/
 structure LiveAt (env : Environment) (w : World) : Prop where
-  /-- Excludes the rollback-across-K-change trap (`RollbackGridTrap.rollback_grid_trap`). -/
-  grid : ∀ start, w.start = some start →
-    Start.onGrid start.height w.inbox.gridK w.inbox.checkpoint.height = true
   generation : w.inbox.generation+2 < limit48
   nonce : w.inbox.recoveryNonce+1 < limit256
   rules : w.schedule.next+1 < limit48
   height : w.inbox.checkpoint.height+w.inbox.gridK < limit48
   window : ∃ n keys, w.number < n ∧ n+4 < limit48 ∧ WindowBound env w ≤ env.time n ∧
     env.time n+8 < limit256 ∧ CommitteeLive env w n keys
+  /-- Covers an off-grid c (`RollbackGridTrap.rollback_grid_trap`) only in its second case. -/
   ruleset : LiveRules env w
   unzen : UnzenLaneLive env w
 
