@@ -1,0 +1,22 @@
+name = "derivation"
+version = "0.1.0"
+defaultTargets = ["DerivationModel", "DerivationStatements", "DerivationProofs", "DerivationWitnesses", "DerivationVectors", "vectors"]
+
+[[lean_lib]]
+name = "DerivationModel"
+
+[[lean_lib]]
+name = "DerivationStatements"
+
+[[lean_lib]]
+name = "DerivationProofs"
+
+[[lean_lib]]
+name = "DerivationWitnesses"
+
+[[lean_lib]]
+name = "DerivationVectors"
+
+[[lean_exe]]
+name = "vectors"
+root = "DerivationVectors.Main"
