@@ -115,8 +115,12 @@ older stores are refused, never migrated (START-10-24).
   Comet can trigger, instead of waiting forever for trust.
 - Recovery InitChain also requires the EL to serve the origin's state and waits with trust
   closed while it is missing, instead of reporting Ready and halting on the first block.
-- Halt when the own L1's registry proof fails under its own state root during switch-witness
-  discovery (SYNC-9-7); a peer's failing proof still only rejects its proposal.
+- Halt when the own L1's registry proof fails under its own state root, in switch-witness
+  discovery or in a re-proof under the candidate anchor (SYNC-9-7); a peer's failing proof still
+  only rejects its proposal. A background discovery's own-L1 integrity failure is kept and halts
+  whichever handler sees it first, not only a waiting proposer.
+- Treat an own-EL block that does not hash to the requested hash during startup and trust,
+  such as in the recovery origin-state and import floor probes, as a contradiction that halts.
 - Delete committed Comet block IDs below the committed anchor's checkpoint, which trust never
   reads, so the app directory stays within `unsettled_limit + 1` of them instead of growing one
   file per height until the volume runs out of inodes; trust re-acquires a checkpoint below it.
