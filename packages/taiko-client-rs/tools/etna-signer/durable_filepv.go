@@ -68,7 +68,8 @@ func (p *durableFilePV) syncState() error {
 // panics like a failed stock write (exit 2, which the supervisor restarts). A failed
 // fsync of the marker, or of the state after the step, latches errSigningStateUnsafe
 // and writes the fence: the HRS volume is failing. A failure to write the fence never
-// clears the latch, and the inflight marker stays as same-boot evidence.
+// clears the latch, and the inflight marker stays as same-boot evidence. A stock panic
+// removes the step's marker first (signUnderMarker), so it restarts too.
 func (p *durableFilePV) signDurably(sign func() error) error {
 	if p.uncertain != nil {
 		return fmt.Errorf("%w: %w", errSigningStateUnsafe, p.uncertain)
@@ -80,15 +81,33 @@ func (p *durableFilePV) signDurably(sign func() error) error {
 		p.uncertain = markErr
 		return fmt.Errorf("%w: %w", errSigningStateUnsafe, errors.Join(markErr, writeFence(fencePath(p.state), markErr)))
 	}
-	err := sign() // A stock persistence panic exits before any signature is released.
+	err := p.signUnderMarker(sign)
 	if syncErr := p.syncState(); syncErr != nil {
 		p.uncertain = syncErr
 		return fmt.Errorf("%w: fsync of signing state: %w", errSigningStateUnsafe, errors.Join(syncErr, writeFence(fencePath(p.state), syncErr)))
 	}
 	// The state is durable whatever happens to the marker. One left behind makes the next
-	// step's exclusive create latch and a restart on this boot refuse: both fail closed.
-	_ = os.Remove(inflightPath(p.state))
+	// step's exclusive create panic and the restart on this boot refuse: both fail closed.
+	if rmErr := os.Remove(inflightPath(p.state)); rmErr != nil {
+		fmt.Fprintf(os.Stderr, "inflight marker not removed after a durable signing step: %v\n", rmErr)
+	}
 	return err
+}
+
+// signUnderMarker runs one stock signing step under its durable inflight marker. A stock
+// persistence panic (a failed temporary write or rename, or a corrupt last-sign state) comes
+// at or before FilePV's atomic rename, so the HRS on disk and in the page cache is unchanged
+// and none of this step's state fsyncs ran: there is nothing uncertain for the marker to
+// record. It is removed before the panic goes on, so the process exits 2 and the supervisor
+// restarts it like any crash, without an operator. No signature is released either way.
+func (p *durableFilePV) signUnderMarker(sign func() error) error {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			_ = os.Remove(inflightPath(p.state))
+			panic(recovered)
+		}
+	}()
+	return sign()
 }
 
 func (p *durableFilePV) SignVote(chain string, vote *tm.Vote) error {

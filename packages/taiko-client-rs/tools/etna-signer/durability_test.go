@@ -120,6 +120,9 @@ func TestSigningMakesTheMarkerDurableThenSyncsTheStateWithoutFence(t *testing.T)
 			}
 			signer.syncDir = func(directory string) error {
 				marked("directory fsync")
+				if len(order) == 1 && !bytes.Equal(before, readFile(t, state)) {
+					t.Error("stock FilePV wrote between the marker's file and directory fsyncs")
+				}
 				order = append(order, "directory")
 				if directory != filepath.Dir(state) {
 					t.Errorf("synchronized %s, not the state's directory", directory)
@@ -273,15 +276,14 @@ func TestStateSyncFailureWritesFenceLatchesAndStops(t *testing.T) {
 	}
 }
 
-// A death between starting to synchronize the state and either finishing or writing the fence
-// leaves only the inflight marker. A restart on the same boot refuses it, since that boot's page
-// cache may show a state whose failed fsync was already reported and cleared (RECOV-8.2-3,
-// SYNC-9-13). On that boot the page cache shows exactly this boot's ID, or nothing if the signer
-// died before writing it, before any fsync. So an empty or zero-filled marker, which is what a
-// host crash leaves when the directory fsync committed the name but not the data, and another
-// boot's marker are removed and ignored. Any other inode, or an oversized one, refuses, and a
-// hard link to the state is refused as a second link to it. A marker that cannot be written latches like a failed
-// fsync, before any fsync or signature.
+// A death after the inflight marker is durable and before the step finished or wrote the fence
+// leaves the marker naming this boot, and a restart on that boot refuses it: its page cache may
+// show a state whose failed fsync was already reported and cleared (RECOV-8.2-3, SYNC-9-13). Any
+// other content means the step never got past the marker's own fsync, with the HRS unchanged: an
+// empty or zero-filled marker, what a host crash leaves when only the name reached the disk, and
+// another boot's marker are removed and ignored. Any other inode, or an oversized one, refuses,
+// and a hard link to the state is refused as a second link to it. A marker that cannot be
+// created panics before any fsync or stock write.
 func TestInflightMarkerRefusesOnlyTheSameBoot(t *testing.T) {
 	for _, c := range []struct {
 		name   string
@@ -335,9 +337,9 @@ func TestInflightMarkerRefusesOnlyTheSameBoot(t *testing.T) {
 			}
 		})
 	}
-	// A marker that cannot be created (here an existing inode) panics before any fsync or stock
-	// write, like a failed stock write: exit 2, which the supervisor restarts from the unchanged
-	// HRS, and no fence.
+	// A marker that cannot be created (here an existing directory) panics before any fsync or
+	// stock write, like a failed stock write (exit 2), and writes no fence. The supervisor's
+	// restart then refuses the inode left at the marker's path (refuseInflight).
 	t.Run("uncreatable", func(t *testing.T) {
 		_, key, state := filePV(t)
 		signer := loadDurableFilePV(key, state)
@@ -361,7 +363,51 @@ func TestInflightMarkerRefusesOnlyTheSameBoot(t *testing.T) {
 		if _, err := os.Lstat(fencePath(state)); !os.IsNotExist(err) {
 			t.Fatalf("an unwritten marker wrote a fence: %v", err)
 		}
+		if _, _, err := openSigningState(chain, key, state, domainsLogOf(state)); !errors.Is(err, errSigningStateUnsafe) || !strings.Contains(err.Error(), "inflight marker") {
+			t.Fatalf("restart accepted the inode at the marker's path: %v", err)
+		}
 	})
+}
+
+// A stock persistence panic (a failed temporary write or rename, or a corrupt last-sign state)
+// comes at or before FilePV's atomic rename, with the HRS unchanged and none of the step's state
+// fsyncs run. The step removes its durable marker before the panic goes on, so the process exits
+// 2 without a fence and the supervisor's restart on this boot serves the unchanged HRS.
+func TestStockPanicRemovesTheMarkerSoTheRestartServes(t *testing.T) {
+	_, key, state := filePV(t)
+	signer := loadDurableFilePV(key, state)
+	before := readFile(t, state)
+	var recovered any
+	func() {
+		defer func() { recovered = recover() }()
+		signer.signDurably(func() error {
+			if marker, err := os.ReadFile(inflightPath(state)); err != nil || string(marker) != bootID()+"\n" {
+				t.Errorf("stock signing ran without this boot's durable marker: %q %v", marker, err)
+			}
+			panic("stock write failed")
+		})
+		t.Error("the stock panic did not propagate")
+	}()
+	if recovered != "stock write failed" {
+		t.Fatalf("panic %v", recovered)
+	}
+	if _, err := os.Lstat(inflightPath(state)); !os.IsNotExist(err) {
+		t.Fatalf("a stock panic left the marker: %v", err)
+	}
+	if _, err := os.Lstat(fencePath(state)); !os.IsNotExist(err) {
+		t.Fatalf("a stock panic wrote a fence: %v", err)
+	}
+	if !bytes.Equal(before, readFile(t, state)) {
+		t.Fatal("the HRS changed")
+	}
+	restarted, release, err := openSigningState(chain, key, state, domainsLogOf(state))
+	if err != nil {
+		t.Fatalf("the restart after a stock panic refused: %v", err)
+	}
+	defer release()
+	if signature, err := signFamily(restarted, familyRequest("prevote", false)); err != nil || len(signature) != 65 {
+		t.Fatalf("the restart did not sign: %v", err)
+	}
 }
 
 // listenComet is a fresh Comet-owned privval listener at socket.

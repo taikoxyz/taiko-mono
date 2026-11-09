@@ -321,8 +321,11 @@ the marker, without an fsync, once the state is durable. A step costs four fsync
 evidence does not depend on an unsynced page cache: its fsync either put it on disk or failed,
 and a failed one refuses the step with the HRS unchanged and latches like any failed fsync. A
 marker that cannot be created or written panics before any fsync, like a failed stock write
-(exit 2), and the supervisor restarts the signer from the unchanged HRS. A
-restart on the same boot that finds this boot's ID in it exits 3, and the supervisor latches.
+(exit 2), and the supervisor restarts the signer from the unchanged HRS. A stock persistence
+panic comes at or before FilePV's atomic rename, with the HRS unchanged, so the step removes its
+marker before the panic goes on and that restart serves too. A failed removal after a durable
+step is logged to stderr. A restart on the same boot that finds this boot's ID in it exits 3,
+and the supervisor latches.
 Any other content is not evidence: an empty or partial marker is from a death or a refusal
 before stock FilePV wrote, and an earlier boot's ID is stale, since the reboot dropped the page
 cache and the disk holds the last durable HRS. Startup removes such a marker and serves. A
@@ -379,7 +382,7 @@ released before the state fsyncs succeed, and the disk holds either the old or t
 a restart continues from it and may sign an unreleased step again without equivocating. Stock
 FilePV then returns the stored signature for the same step and refuses conflicting data or a
 lower step. A death during a step leaves the inflight marker, which refuses a restart on the
-same boot.
+same boot; a stock persistence panic removes it first, as the HRS is unchanged.
 
 A failed state or directory fsync makes the latest state uncertain (RECOV-8.2-3). The signer
 withholds the signature and latches in memory, refusing every later request, cached retries
