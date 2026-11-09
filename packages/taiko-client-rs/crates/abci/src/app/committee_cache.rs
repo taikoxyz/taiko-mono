@@ -7,7 +7,7 @@ use std::{sync::Arc, time::Duration};
 use alloy_primitives::{Address, B256};
 use tokio::{sync::watch, task::JoinHandle, time::Instant};
 
-use super::{App, Rejection, validate::snapshot_cutoff};
+use super::{AbciError, App, Rejection, validate::snapshot_cutoff};
 use crate::{
     committee::{CommitteeError, VerifiedWitness, committee_config_hash},
     config::ChainParams,
@@ -130,6 +130,14 @@ struct FailedDiscovery {
     cause: FetchError,
 }
 
+impl FailedDiscovery {
+    /// Whether the own L1 contradicted itself ([`L1Error::is_integrity_failure`]): such a
+    /// failure halts whichever request first sees it, and is never restarted or dropped.
+    fn integrity(&self) -> bool {
+        matches!(&self.cause, FetchError::L1(error) if error.is_integrity_failure())
+    }
+}
+
 /// A background discovery's verified witness and the L1 block its registry proofs verify under.
 #[derive(Clone, Debug)]
 pub(super) struct PrefetchedCommittee {
@@ -199,7 +207,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// held, starts the background discovery (restarting a failed one after its backoff,
     /// [`prefetch_backoff`]), and adopts a finished one by caching the witness it verified in
     /// memory ([`App::cache_committee_witness_at_root`]). The witness is kept across commits while
-    /// the committed anchor stays.
+    /// the committed anchor stays. A discovery that ended in an own-L1 integrity failure is a
+    /// safety halt for the caller, whichever handler sees it first (SYNC-9-7).
     ///
     /// Runs at a live `Commit`, at every `ProcessProposal`, which every node (full nodes
     /// included) handles in each round that delivers a proposal while it is not locked on a block,
@@ -212,19 +221,30 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// (SYNC-9-16). A replayed `Commit` only adopts a finished discovery
     /// ([`App::adopt_committee_prefetch`]). This discovery is the only one: a proposal that needs
     /// the witness joins it ([`App::discovered_committee_witness`]).
-    pub(super) fn prefetch_committee_witness(&self, state: &AppState) {
-        self.refresh_committee_prefetch(state, true);
+    pub(super) fn prefetch_committee_witness(&self, state: &AppState) -> Result<(), AbciError> {
+        self.refresh_committee_prefetch(state, true)
     }
 
     /// [`App::prefetch_committee_witness`] without starting a discovery: adopts a finished one,
     /// and drops a witness or discovery the cache or the committed state made obsolete.
-    pub(super) fn adopt_committee_prefetch(&self, state: &AppState) {
-        self.refresh_committee_prefetch(state, false);
+    pub(super) fn adopt_committee_prefetch(&self, state: &AppState) -> Result<(), AbciError> {
+        self.refresh_committee_prefetch(state, false)
     }
 
     /// Adopts, drops or (when `start`) starts the switch-witness prefetch for `state`
-    /// ([`App::committee_discovery`]).
-    fn refresh_committee_prefetch(&self, state: &AppState, start: bool) {
+    /// ([`App::committee_discovery`]). A held discovery that ended in an own-L1 integrity
+    /// failure, for any context, is returned as a safety halt before anything could restart or
+    /// drop it.
+    fn refresh_committee_prefetch(&self, state: &AppState, start: bool) -> Result<(), AbciError> {
+        let contradiction = self.committee_prefetch().as_ref().and_then(|discovery| {
+            match &*discovery.result.borrow() {
+                Some(Err(failed)) if failed.integrity() => Some(failed.cause.clone()),
+                _ => None,
+            }
+        });
+        if let Some(cause) = contradiction {
+            return Err(AbciError::SafetyHalt(Rejection::from(cause).to_string()));
+        }
         // Before the first recovered commit the retained anchor of c precedes the generation
         // origin R. Only c + 1 can then be a switch whose snapshot this state fixes, and that
         // snapshot is R's (COMM-4.3-11), so the discovery runs at R ([`snapshot_block`]).
@@ -236,7 +256,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let Some(target) = target else {
             *self.committee_cache() = None;
             *self.committee_prefetch() = None;
-            return;
+            return Ok(());
         };
         let key = CacheKey::new(state, &self.params, target);
         {
@@ -244,7 +264,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             if cache.as_ref().is_some_and(|cached| key.same_context(&cached.key)) {
                 drop(cache);
                 *self.committee_prefetch() = None;
-                return;
+                return Ok(());
             }
             // Committed anchors and switches only move forward: no later state uses it.
             *cache = None;
@@ -262,6 +282,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 Err(error) => tracing::warn!(%error, "prefetched committee witness not retained"),
             }
         }
+        Ok(())
     }
 
     /// The outcome of the background discovery of `target`'s witness for `state` (`key` its
@@ -284,7 +305,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
             None => Some(0),
             Some(discovery) => match &*discovery.result.borrow() {
                 Some(Err(failed))
-                    if failed.at.elapsed() >= prefetch_backoff(discovery.failures) =>
+                    if !failed.integrity() &&
+                        failed.at.elapsed() >= prefetch_backoff(discovery.failures) =>
                 {
                     Some(discovery.failures.saturating_add(1))
                 }

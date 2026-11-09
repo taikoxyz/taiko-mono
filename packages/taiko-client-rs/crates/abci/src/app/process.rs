@@ -35,7 +35,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let verdict = match &self.state {
             None => return Err(AbciError::Uninitialized("ProcessProposal")),
             Some(state) => {
-                self.prefetch_committee_witness(state);
+                self.prefetch_committee_witness(state)?;
                 loop {
                     let result = self.judge(state, &req).await;
                     if result.as_ref().err().is_some_and(Rejection::retryable_dependency) {

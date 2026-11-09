@@ -417,7 +417,7 @@ async fn the_switch_witness_is_prefetched_before_the_parent_anchor_state_is_prun
         .await
         .map(|found| found.witness.into_witness());
     assert!(witness.is_some(), "the background discovery verified the witness");
-    app.adopt_committee_prefetch(&state);
+    app.adopt_committee_prefetch(&state).unwrap();
     assert_eq!(app.cached_committee_witness(&state, target), witness, "and retained it");
 
     app.l1().state().states.clear();
@@ -448,7 +448,7 @@ async fn restart_rediscovers_the_switch_witness_from_own_l1() {
         .await
         .map(|found| found.witness.into_witness());
     assert!(witness.is_some(), "Commit discovered the witness");
-    app.adopt_committee_prefetch(&state);
+    app.adopt_committee_prefetch(&state).unwrap();
     assert_eq!(app.cached_committee_witness(&state, target), witness, "and retained it");
 
     let App { l1, engine, params, store, opts, .. } = app;
@@ -593,19 +593,19 @@ async fn a_failing_switch_witness_prefetch_is_restarted_after_a_growing_backoff(
         let reads = (2 * (attempt + 1), attempt + 1);
         assert_eq!(registry_reads_at(&app, 70), reads);
         tokio::time::advance(Duration::from_secs(pause) - Duration::from_millis(1)).await;
-        app.prefetch_committee_witness(&state);
+        app.prefetch_committee_witness(&state).unwrap();
         tokio::task::yield_now().await;
         assert_eq!(registry_reads_at(&app, 70), reads, "within the {pause} s pause");
         tokio::time::advance(Duration::from_millis(1)).await;
-        app.adopt_committee_prefetch(&state);
+        app.adopt_committee_prefetch(&state).unwrap();
         tokio::task::yield_now().await;
         assert_eq!(registry_reads_at(&app, 70), reads, "only a round or commit restarts");
-        app.prefetch_committee_witness(&state);
+        app.prefetch_committee_witness(&state).unwrap();
     }
     assert!(app.prefetched_committee_witness(&state, 2).await.is_none());
     app.l1().state().proof_fail = None;
     tokio::time::advance(Duration::from_secs(60)).await;
-    app.prefetch_committee_witness(&state);
+    app.prefetch_committee_witness(&state).unwrap();
     assert!(app.prefetched_committee_witness(&state, 2).await.is_some());
     assert_eq!(registry_reads_at(&app, 70), (18, 10), "a whole discovery the ninth time");
 }
@@ -741,6 +741,35 @@ async fn a_malformed_own_l1_answer_during_switch_discovery_halts() {
         let now = registry_reads(&app);
         assert_eq!(*reads.get_or_insert(now), now, "{round}: {:?}", app.l1().calls());
     }
+}
+
+/// A background switch-witness discovery that met malformed own-L1 data halts whichever request
+/// first sees it, not only a proposer waiting on it (SYNC-9-7). A node that only validates and
+/// commits sees it at its next ProcessProposal, and the failure is never restarted after its
+/// backoff or dropped, so a later request halts as well, without new registry reads.
+#[tokio::test(start_paused = true)]
+async fn a_malformed_own_l1_answer_in_the_background_discovery_halts_any_handler() {
+    let fx = Fixture::genesis(3);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = before_switch(&fx, dir.path()).await;
+    app.l1().state().proof_fail =
+        Some(L1Error::ProofSlotMismatch { requested: vec![], got: vec![B256::ZERO] });
+    let state = app.state().unwrap().clone();
+    app.prefetch_committee_witness(&state).unwrap();
+    assert!(app.prefetched_committee_witness(&state, 2).await.is_none(), "the discovery failed");
+    let reads = registry_reads(&app);
+    tokio::time::advance(Duration::from_secs(120)).await;
+    for attempt in ["Commit's refresh", "after the backoff"] {
+        let result = app.adopt_committee_prefetch(&state);
+        assert!(matches!(&result, Err(AbciError::SafetyHalt(_))), "{attempt}: {result:?}");
+        let result = app.prefetch_committee_witness(&state);
+        assert!(matches!(&result, Err(AbciError::SafetyHalt(_))), "{attempt}: {result:?}");
+    }
+    let request = super::proposal::process_req(&app, next_height(&app), bft_time(&app), vec![]);
+    let result = app.handle(Request::ProcessProposal(request)).await;
+    assert!(matches!(&result, Err(AbciError::SafetyHalt(_))), "{result:?}");
+    assert!(app.store.fatal_evidence().unwrap().is_some());
+    assert_eq!(registry_reads(&app), reads, "{:?}", app.l1().calls());
 }
 
 /// The own L1 answering the discovery for the requested registry account and slots, but with an

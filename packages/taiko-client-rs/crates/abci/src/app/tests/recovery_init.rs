@@ -758,7 +758,7 @@ async fn recovery_first_switch_completes_when_each_r_read_outlasts_the_proposal_
         fx.advance_l1(app.l1(), 121 + round, &inbox, &fx.registry);
         let state = app.state().unwrap().clone();
         // As every ProcessProposal of the round does, empty proposals included.
-        app.prefetch_committee_witness(&state);
+        app.prefetch_committee_witness(&state).unwrap();
         let mut req = prepare_req(next_height(&app), bft_time(&app));
         req.proposer_address = tendermint::account::Id::new(
             state.committee_at(7).unwrap().members[0].pubkey.address().into_array(),

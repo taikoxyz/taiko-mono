@@ -270,14 +270,17 @@ impl<L: L1Source, E: Engine> App<L, E> {
         self.verdicts.clear();
         let state = self.state.as_ref().expect("just committed");
         self.prepare_next_height(state);
-        if self.decided_live {
-            self.prefetch_committee_witness(state);
+        // The commit is durable either way; an own-L1 integrity failure the switch-witness
+        // discovery met halts once the commit's bookkeeping is done (SYNC-9-7).
+        let prefetched = if self.decided_live {
+            self.prefetch_committee_witness(state)
         } else {
-            self.adopt_committee_prefetch(state);
-        }
+            self.adopt_committee_prefetch(state)
+        };
         self.clear_halt();
         self.publish_state_metrics();
         self.trust.committed(self.state.as_ref().expect("committed state"));
+        prefetched?;
         Ok(response::Commit { data: Default::default(), retain_height: Height::from(0u32) })
     }
 

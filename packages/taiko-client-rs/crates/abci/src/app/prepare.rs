@@ -59,7 +59,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let built = match &self.state {
             None => return Err(AbciError::Uninitialized("PrepareProposal")),
             Some(state) => {
-                self.prefetch_committee_witness(state);
+                self.prefetch_committee_witness(state)?;
                 deadline("PrepareProposal", self.opts.prepare_timeout, self.propose(state, &req))
                     .await
             }
