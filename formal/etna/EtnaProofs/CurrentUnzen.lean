@@ -180,7 +180,7 @@ theorem legacy_prefix_extended {env : Environment} {w : World} {proposal : Nat} 
     (held : LegacyPrefix env w) (bound : HashBound env h)
     (extension : ∀ parent, w.unzenHeader = some parent → HashBound env parent → parent.height < h.height) :
     LegacyPrefix env { w with
-      unzen := ⟨w.unzen.nextProposal,proposal,h.elHash,true,h.elHash,h.stateRoot⟩,
+      unzen := ⟨w.unzen.nextProposal,proposal,h.elHash,true,h.height,h.elHash,h.stateRoot⟩,
       unzenHeader := some h,legacySignals := w.legacySignals ++ [⟨h.height,h.elHash,h.stateRoot⟩] } := by
   refine Or.inr ⟨h,rfl,rfl,bound,rfl,?_⟩
   intro signal member
@@ -203,7 +203,7 @@ theorem legacy_bounded_at_first_fence {env : Environment} {w : World} {h : Heade
     (primitive : Primitives env) (held : LegacyPrefix env w)
     (fence : FirstFence env w h) (bound : HashBound env h) :
     ∀ signal ∈ w.legacySignals, signal.height ≤ h.height := by
-  obtain ⟨start,_,_,_,_,finalized,present,_,_,_,hash,_,_,_⟩ := fence
+  obtain ⟨start,_,_,_,_,finalized,present,_,_,_,_,hash,_,_,_⟩ := fence
   rcases held with ⟨_,absent,_⟩ | ⟨last,_,_,lastBound,lastHash,previous⟩
   · simp [absent] at present
   · have same := primitive.separation h last bound lastBound
@@ -484,7 +484,7 @@ theorem execute_nonlanding_effect {env : Environment} {w t : World} {call : Call
         obtain ⟨fence,_⟩ := pending_parent_fence primitive reach ok
           (trace_invariant genesis primitive soundness reach) segment cursor record pending certificate
         have bounded := legacy_bounded_at_first_fence primitive prefixHeld fence segment.parentHashBound
-        obtain ⟨start,written,atStart,_,closed,_,_,_,_,height,_,_,_,_⟩ := fence
+        obtain ⟨start,written,atStart,_,closed,_,_,_,_,_,height,_,_,_,_⟩ := fence
         obtain ⟨_,rfl⟩ := land_success ok
         refine Or.inr ⟨rfl,start,written,closed,?_,?_⟩
         · change ∀ legacy ∈ w.legacySignals, legacy.height ≤ start.height

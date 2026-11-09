@@ -69,6 +69,7 @@ MUTATIONS = [
     ('unissued_id_rejected', 'if id < s.nextId then\n    (s.bonds id).bind fun b => (f b).map', 'if True then\n    (s.bonds id).bind fun b => (f b).map', False),
     ('first_unzen_fully_finalized', 'u.nextProposal = u.finalizedProposal+1', 'True', False),
     ('first_unzen_state_root', 'u.checkpointRoot = root)', 'u.checkpointRoot = u.checkpointRoot ∧ root = root)', False),
+    ('first_unzen_checkpoint_height', 'u.checkpointHeight = start ∧', 'u.checkpointHeight = u.checkpointHeight ∧', False),
     ('origin_fork_time', 's.unzenInbox ≠ 0 ∧ s.forkTime ≤ now', 's.unzenInbox ≠ 0 ∧ True', True),
     ('correction_new_generation', 'generation := s.generation+1, origins', 'generation := s.generation, origins', False),
     ('import_datahash_authentication', 'c.dataHashAuthenticated = false ∨\n', 'False ∨\n', False),

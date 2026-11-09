@@ -183,18 +183,27 @@ def epochHeight (epoch len : Nat) : Nat := 1+epoch*len
 def anchorAllowed (origin index parentAnchor anchor originL1 : Nat) : Bool :=
   decide (originL1 ≤ anchor ∧ (index = 1 ∨ parentAnchor ≤ anchor) ∧ origin < limit48)
 
+/-- The Unzen Inbox's core state (`getCoreState()`) and the SignalService checkpoint saved by its
+last accepted proof: its L2 height, block hash and stateRoot. The model keeps only that latest
+checkpoint, whose hash is the last finalized hash. The contract reads the checkpoint stored at
+S, which an earlier proof may have saved. LAND-6.1-8a also requires the last finalized hash to
+be the start hash, so the two readings agree whenever a block hash fixes the block's height. -/
 structure Unzen where
   nextProposal : Nat
   finalizedProposal : Nat
   finalizedHash : Hash
   checkpointExists : Bool
+  checkpointHeight : Nat
   checkpointHash : Hash
   checkpointRoot : Hash
   deriving DecidableEq, Repr
 
+/-- LAND-6.1-8a: while c is S on a switching network, every Unzen proposal is finalized, the
+last finalized hash is the start hash, and the SignalService checkpoint at S
+(`getCheckpoint(uint48(S))`) exists with the start hash and stateRoot. -/
 def firstLanding (switching : Bool) (start checkpoint hash root : Nat) (u : Unzen) : Bool :=
   !switching || checkpoint != start || decide (u.nextProposal = u.finalizedProposal+1 ∧
-    u.finalizedHash = hash ∧ u.checkpointExists = true ∧
+    u.finalizedHash = hash ∧ u.checkpointExists = true ∧ u.checkpointHeight = start ∧
     u.checkpointHash = hash ∧ u.checkpointRoot = root)
 
 structure Origin where

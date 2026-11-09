@@ -169,6 +169,9 @@ class CurrentSwitchingProofMutationTests(unittest.TestCase):
     def test_missing_checkpoint_root_breaks_first_fence_derivation(self):
         self.reject('u.checkpointRoot = root)', 'root = root)', 'pending_parent_fence')
 
+    def test_missing_checkpoint_height_breaks_first_fence_derivation(self):
+        self.reject('u.checkpointHeight = start ∧', 'start = start ∧', 'pending_parent_fence')
+
 
 if __name__ == '__main__':
     unittest.main()

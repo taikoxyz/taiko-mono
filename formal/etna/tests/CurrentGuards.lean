@@ -76,9 +76,30 @@ example : firstFence env { source with unzen := { source.unzen with finalizedHas
   decide +kernel
 example : firstFence env { source with unzen := { source.unzen with checkpointExists := false } } = false := by
   decide +kernel
+example : firstFence env { source with unzen := { source.unzen with checkpointHeight := 0 } } = false := by
+  decide +kernel
 example : firstFence env { source with unzen := { source.unzen with checkpointHash := 0 } } = false := by
   decide +kernel
 example : firstFence env { source with unzen := { source.unzen with checkpointRoot := 0 } } = false := by
+  decide +kernel
+
+-- LAND-6.1-8a reads the SignalService checkpoint at S. A start S = 5 written with the hash and
+-- stateRoot of the Unzen block at height 10 is refused. Every other landing check passes: the
+-- same world with the checkpoint's height set to 5 lands, as this world did before the model
+-- recorded that height.
+def legacy10 : Header := { legacy with height := 10 }
+def proven10 := transact env initialized (.unzenProve 1 legacy10 77)
+def shiftedStarted := transact env proven10 (.setOrigin 8 5 101 11)
+def shiftedImaged := transact env shiftedStarted (.image 7 11 true)
+def shiftedSource := transact env shiftedImaged (.advance 3)
+def shiftedLanding : Landing := ⟨⟨5,6,102,202,33,22,2,0,0⟩,[],[1],[⟨.sgx,11,1⟩,⟨.sp1,11,2⟩]⟩
+
+example : shiftedSource.start = some ⟨5,101,11⟩ ∧ shiftedSource.unzen.checkpointHeight = 10 ∧
+    shiftedSource.unzen.checkpointHash = 101 ∧ shiftedSource.unzen.checkpointRoot = 11 ∧
+    firstFence env shiftedSource = false ∧ (land env shiftedSource shiftedLanding).isNone = true := by
+  decide +kernel
+example : (land env { shiftedSource with unzen := { shiftedSource.unzen with checkpointHeight := 5 } }
+    shiftedLanding).isSome = true := by
   decide +kernel
 
 end Etna.CurrentGuardRegression

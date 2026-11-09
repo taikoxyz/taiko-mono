@@ -4,7 +4,9 @@ These assertions exercise each fence conjunct on raw synthetic Unzen records;
 they do not recompile proofs or establish each guard independently necessary on
 reachable traces. Reachable finalizedHash and checkpointHash are always equal,
 so their two equality guards imply one another. A nonzero switching start hash
-also rules out the initial, checkpointExists=false Unzen state. Substantive
+also rules out the initial, checkpointExists=false Unzen state. The checkpoint
+height guard is not implied by the others: the fixture reaches a start whose hash
+and stateRoot match an Unzen checkpoint at another height. Substantive
 switching derivations are recompiled in test_current_switching_proof_mutations.
 """
 from pathlib import Path
@@ -86,6 +88,9 @@ class CurrentGuardTests(unittest.TestCase):
 
     def test_fence_checkpoint_exists(self):
         self.reject('u.checkpointExists = true', 'u.checkpointExists = u.checkpointExists')
+
+    def test_fence_checkpoint_height(self):
+        self.reject('u.checkpointHeight = start', 'u.checkpointHeight = u.checkpointHeight')
 
     def test_fence_checkpoint_hash(self):
         self.reject('u.checkpointHash = hash', 'u.checkpointHash = u.checkpointHash')

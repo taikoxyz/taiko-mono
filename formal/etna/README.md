@@ -122,7 +122,7 @@ claim that relies on them as "the claim holds, or a hash collision exists".
 The **review surface** is what a reviewer must read to know what H1–H4, the seven
 joint-premise witnesses and the trap witness mean: their statements and every Etna definition
 they use, but no proof. `review-surface.lock.json` records a SHA-256 of the kernel terms of
-each of those constants (1,466 at this revision). `python3 scripts/review_surface.py --check`
+each of those constants (1,467 at this revision). `python3 scripts/review_surface.py --check`
 fails if the lock is stale; the `etna-formal` job runs it. Proof-only changes never touch the
 lock.
 
@@ -167,6 +167,14 @@ are at or below the current start S and Etna heights are above S. The Unzen lane
 with no legacy signals, zero finalized/checkpoint data and the configured nextProposal;
 pre-deployment SignalService checkpoints are not represented.
 Unzen proposal creation/DAO recovery and actual Unzen guest execution remain external.
+While the checkpoint is still S, the model's `land` checks all three conditions of
+LAND-6.1-8a: every Unzen proposal is finalized, the last finalized hash is the start hash, and
+the SignalService checkpoint at S exists with the start hash and stateRoot. The Unzen record
+keeps the height of the checkpoint that the last Unzen proof saved, and `land` compares it with
+S, so a start written with the right hash and stateRoot at the wrong height is refused
+(`tests/CurrentGuards.lean`). Before, the model compared only the hash and stateRoot. That gap
+was in the model of `land`, not in H1: H1's root at S needs a hash-bound header at S, and equal
+hashes of hash-bound headers mean equal heights (`currentPrimitives`).
 
 H2 separates general historical identity/funding from normal at-risk accountability.
 For an entire execution with no rollback since fresh deployment, and a physical candidate

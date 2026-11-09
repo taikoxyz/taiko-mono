@@ -27,9 +27,14 @@ theorem offset_grid_and_absolute_epoch : Start.onGrid 5 3 8 = true ∧
 theorem first_anchor_uses_origin : Start.anchorAllowed 8 1 20 8 8 = true ∧
     Start.anchorAllowed 8 2 20 8 8 = false := by decide +kernel
 
-theorem unzen_fence : Start.firstLanding true 5 5 70 80 ⟨4,3,70,true,70,80⟩ = true ∧
-    Start.firstLanding true 5 5 70 80 ⟨5,3,70,true,70,80⟩ = false ∧
-    Start.firstLanding true 5 5 70 80 ⟨4,3,70,true,70,81⟩ = false := by decide +kernel
+theorem unzen_fence : Start.firstLanding true 5 5 70 80 ⟨4,3,70,true,5,70,80⟩ = true ∧
+    Start.firstLanding true 5 5 70 80 ⟨5,3,70,true,5,70,80⟩ = false ∧
+    Start.firstLanding true 5 5 70 80 ⟨4,3,70,true,5,70,81⟩ = false := by decide +kernel
+
+-- LAND-6.1-8a reads the SignalService checkpoint at S: matching hash and stateRoot saved at
+-- another height do not pass.
+theorem unzen_fence_checkpoint_height :
+    Start.firstLanding true 5 5 70 80 ⟨4,3,70,true,10,70,80⟩ = false := by decide +kernel
 
 theorem cancelling_stop_checks_arithmetic_not_unstored_field_width :
     Rules.scheduleStop ⟨true,7,10,3⟩ ⟨0,0,0,0,0⟩ 7 (Etna.Design.limit48-10) 0 0 =

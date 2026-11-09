@@ -462,14 +462,14 @@
     {
       "module": "EtnaProofs.Current",
       "declaration": "Etna.Design.Current.Start.first_landing_fenced",
-      "type": "∀ {start hash root : Nat} {u : Etna.Design.Current.Start.Unzen},\n  Etna.Design.Current.Start.firstLanding Bool.true start start hash root u = Bool.true →\n    u.nextProposal = u.finalizedProposal + 1 ∧\n      u.finalizedHash = hash ∧ u.checkpointExists = Bool.true ∧ u.checkpointHash = hash ∧ u.checkpointRoot = root",
+      "type": "∀ {start hash root : Nat} {u : Etna.Design.Current.Start.Unzen},\n  Etna.Design.Current.Start.firstLanding Bool.true start start hash root u = Bool.true →\n    u.nextProposal = u.finalizedProposal + 1 ∧\n      u.finalizedHash = hash ∧\n        u.checkpointExists = Bool.true ∧ u.checkpointHeight = start ∧ u.checkpointHash = hash ∧ u.checkpointRoot = root",
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
       "sources": ["LIVE_EN-a563a899ed3d4c6b"],
-      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. The decoded first switching landing requires the Unzen checkpoint fence."
+      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. The decoded first switching landing requires the Unzen checkpoint fence, including the checkpoint's height."
     },
     {
       "module": "EtnaProofs.Current",
@@ -5853,7 +5853,7 @@
       "declaration": "Etna.Design.Current.Protocol.Custody.legacy_prefix_extended",
       "module": "EtnaProofs.CurrentUnzen",
       "role": "supporting",
-      "type": "∀ {env : Etna.Design.Current.Protocol.Environment} {w : Etna.Design.Current.Protocol.World} {proposal : Nat}\n  {h : Etna.Design.Current.Protocol.Header},\n  Etna.Design.Current.Protocol.Custody.LegacyPrefix env w →\n    Etna.Design.Current.Protocol.HashBound env h →\n      (∀ (parent : Etna.Design.Current.Blocks.Header),\n          w.unzenHeader = Option.some parent →\n            Etna.Design.Current.Protocol.HashBound env parent → parent.height < h.height) →\n        Etna.Design.Current.Protocol.Custody.LegacyPrefix env\n          { inbox := w.inbox, initialized := w.initialized, start := w.start, schedule := w.schedule,\n            registry := w.registry, queue := w.queue, activeRecords := w.activeRecords,\n            legacySignals := w.legacySignals ++ [{ height := h.height, hash := h.elHash, stateRoot := h.stateRoot }],\n            unzen :=\n              { nextProposal := w.unzen.nextProposal, finalizedProposal := proposal, finalizedHash := h.elHash,\n                checkpointExists := Bool.true, checkpointHash := h.elHash, checkpointRoot := h.stateRoot },\n            unzenHeader := Option.some h, images := w.images, verifier := w.verifier, node := w.node,\n            number := w.number, history := w.history, configurations := w.configurations, everLanded := w.everLanded,\n            receipts := w.receipts, activeSnapshots := w.activeSnapshots }",
+      "type": "∀ {env : Etna.Design.Current.Protocol.Environment} {w : Etna.Design.Current.Protocol.World} {proposal : Nat}\n  {h : Etna.Design.Current.Protocol.Header},\n  Etna.Design.Current.Protocol.Custody.LegacyPrefix env w →\n    Etna.Design.Current.Protocol.HashBound env h →\n      (∀ (parent : Etna.Design.Current.Blocks.Header),\n          w.unzenHeader = Option.some parent →\n            Etna.Design.Current.Protocol.HashBound env parent → parent.height < h.height) →\n        Etna.Design.Current.Protocol.Custody.LegacyPrefix env\n          { inbox := w.inbox, initialized := w.initialized, start := w.start, schedule := w.schedule,\n            registry := w.registry, queue := w.queue, activeRecords := w.activeRecords,\n            legacySignals := w.legacySignals ++ [{ height := h.height, hash := h.elHash, stateRoot := h.stateRoot }],\n            unzen :=\n              { nextProposal := w.unzen.nextProposal, finalizedProposal := proposal, finalizedHash := h.elHash,\n                checkpointExists := Bool.true, checkpointHeight := h.height, checkpointHash := h.elHash,\n                checkpointRoot := h.stateRoot },\n            unzenHeader := Option.some h, images := w.images, verifier := w.verifier, node := w.node,\n            number := w.number, history := w.history, configurations := w.configurations, everLanded := w.everLanded,\n            receipts := w.receipts, activeSnapshots := w.activeSnapshots }",
       "assumptions": [
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],

@@ -115,11 +115,12 @@ From w, the proof builds these steps in order. The owner is the DAO.
 
    - If no start is written, the origin writer calls `setOrigin` with the Unzen lane's final
      header.
-   - If the written start differs from that header and nothing has landed, the owner calls
-     `correctStart` with it.
+   - If the written start differs from that header in height, hash or state root and nothing
+     has landed, the owner calls `correctStart` with it.
    - If the Unzen lane has not finalized its last proposal, anyone calls `unzenProve` with the
      proof that the `unzen` hypothesis supplies, so the first-landing check (LAND-6.1-8a)
-     passes.
+     passes. That check also compares the height of the Unzen checkpoint with S; it holds
+     because the checkpoint and the start both come from the lane's final header.
 
    Once something has landed, H1's first-landing fence already shows that the start is the
    Unzen lane's final header.

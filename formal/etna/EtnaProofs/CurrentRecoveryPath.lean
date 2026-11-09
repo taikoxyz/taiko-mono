@@ -56,8 +56,8 @@ private structure Reach (env : Environment) (w : World) : Prop where
   queue : ∀ i e, (i,e) ∈ w.queue → ∃ raw : Blocks.Bytes, env.txHash raw = e.txHash ∧ raw.length ≤ 8192
   fenced : w.everLanded = true → env.core.unzenInbox ≠ 0 → ∃ s h, w.start = some s ∧ w.unzenHeader = some h ∧
     w.unzen.nextProposal = w.unzen.finalizedProposal+1 ∧ w.unzen.finalizedHash = s.hash ∧
-    w.unzen.checkpointExists = true ∧ w.unzen.checkpointHash = s.hash ∧ w.unzen.checkpointRoot = s.stateRoot ∧
-    h.height = s.height ∧ h.elHash = s.hash ∧ h.stateRoot = s.stateRoot
+    w.unzen.checkpointExists = true ∧ w.unzen.checkpointHeight = s.height ∧ w.unzen.checkpointHash = s.hash ∧
+    w.unzen.checkpointRoot = s.stateRoot ∧ h.height = s.height ∧ h.elHash = s.hash ∧ h.stateRoot = s.stateRoot
   records : ∀ cp ∈ w.activeRecords, ∃ s, w.start = some s ∧
     (StartRecord s cp ∨ (s.height < cp.height ∧ Timed env w cp))
 
@@ -434,8 +434,8 @@ private theorem land_reach {env : Environment} {registry : RegistryMachine.State
         · obtain ⟨fence,legacy,retained,_,starts⟩ := Custody.pending_parent_fence premises.currentPrimitives reach ok
             (Custody.trace_invariant premises.currentRegistryGenesis premises.currentPrimitives
               premises.currentVerifierSound reach) segment frontier.2.2 frontier.2.1 pending certificate
-          obtain ⟨start,written,_,_,closed,finalized,present,hash,root,height,elHash,stateRoot,_⟩ := fence
-          exact ⟨start,legacy,written,retained,closed,finalized,present,hash,root,starts.1.symm.trans height,
+          obtain ⟨start,written,_,_,closed,finalized,present,level,hash,root,height,elHash,stateRoot,_⟩ := fence
+          exact ⟨start,legacy,written,retained,closed,finalized,present,level,hash,root,starts.1.symm.trans height,
             starts.2.1.symm.trans elHash,starts.2.2.1.symm.trans stateRoot⟩
       · rw [ever] at landed
         cases landed
@@ -640,7 +640,7 @@ private theorem fixed_parent {env : Environment} {registry : RegistryMachine.Sta
         Or.inr (Or.inr (Nat.le_refl _)),fun switching => (switching newNetwork).elim,?_⟩
       · simp only [BlockValidity.Header.cut,ce,cc,cu,cv,comet,cursor,val]
       · simp [firstFence,started,Start.firstLanding,newNetwork]
-    · obtain ⟨s'',h,st,retained,closed,finalized,present,hash,stateRoot,hh,he,hr⟩ :=
+    · obtain ⟨s'',h,st,retained,closed,finalized,present,level,hash,stateRoot,hh,he,hr⟩ :=
         held.fenced (fixed.resolve_left newNetwork) newNetwork
       rw [started] at st
       cases st
@@ -653,7 +653,7 @@ private theorem fixed_parent {env : Environment} {registry : RegistryMachine.Sta
       have early := (premises.currentPrimitives.unzen _ _ _ valid).2.2
       refine ⟨_,zeroed h,started,zeroed_header root hh he,bound _ (zeroed_starts h),
         Or.inr (Or.inl (Nat.le_of_lt early)),fun _ _ => implementation,?_⟩
-      simp [firstFence,started,Start.firstLanding,closed,finalized,present,hash,stateRoot]
+      simp [firstFence,started,Start.firstLanding,closed,finalized,present,level,hash,stateRoot]
   · refine ⟨s,T,started,header,bound,Or.inl ?_,?_,?_⟩
     · have := premises.recoveryClock m w.number below
       omega
@@ -683,19 +683,20 @@ private theorem lane_header {env : Environment} {registry : RegistryMachine.Stat
     (switching : env.core.unzenInbox ≠ 0) (live : UnzenLaneLive env w) :
     ∃ h proof, env.unzenValid (env.unzenNextProposal-1) h proof = true ∧
       ((w.unzen.checkpointExists = true ∧ w.unzen.nextProposal = w.unzen.finalizedProposal+1 ∧
-          w.unzen.finalizedHash = h.elHash ∧ w.unzen.checkpointHash = h.elHash ∧ w.unzen.checkpointRoot = h.stateRoot) ∨
+          w.unzen.finalizedHash = h.elHash ∧ w.unzen.checkpointHeight = h.height ∧ w.unzen.checkpointHash = h.elHash ∧
+          w.unzen.checkpointRoot = h.stateRoot) ∨
         (w.unzen.finalizedProposal < w.unzen.nextProposal-1 ∧
           env.unzenParent w.unzen.finalizedProposal (w.unzen.nextProposal-1) h proof = w.unzen.finalizedHash ∧
           env.unzenValid (w.unzen.nextProposal-1) h proof = true)) := by
   rcases live switching with ⟨present,closed⟩ | ⟨h,proof,valid,below,parent⟩
-  · obtain ⟨h,retained,_,_,finalized,hash,root,_⟩ := (Custody.trace_invariant premises.currentRegistryGenesis
+  · obtain ⟨h,retained,_,_,finalized,level,hash,root,_⟩ := (Custody.trace_invariant premises.currentRegistryGenesis
       premises.currentPrimitives premises.currentVerifierSound trace).unzen present
     obtain ⟨proof,valid⟩ := held.retained h retained
     have final : w.unzen.finalizedProposal = env.unzenNextProposal-1 := by
       have := held.proposals
       omega
     rw [final] at valid
-    exact ⟨h,proof,valid,Or.inl ⟨present,closed,finalized,hash,root⟩⟩
+    exact ⟨h,proof,valid,Or.inl ⟨present,closed,finalized,level,hash,root⟩⟩
   · have final := valid
     rw [held.proposals] at final
     exact ⟨h,proof,final,Or.inr ⟨below,parent,valid⟩⟩
@@ -742,17 +743,18 @@ the first-landing fence holds at the start. -/
 private theorem close_lane {env : Environment} {y : World} {h : Header} {proof : Hash}
     (switching : env.core.unzenInbox ≠ 0) (started : y.start = some ⟨h.height,h.elHash,h.stateRoot⟩)
     (lane : (y.unzen.checkpointExists = true ∧ y.unzen.nextProposal = y.unzen.finalizedProposal+1 ∧
-        y.unzen.finalizedHash = h.elHash ∧ y.unzen.checkpointHash = h.elHash ∧ y.unzen.checkpointRoot = h.stateRoot) ∨
+        y.unzen.finalizedHash = h.elHash ∧ y.unzen.checkpointHeight = h.height ∧ y.unzen.checkpointHash = h.elHash ∧
+        y.unzen.checkpointRoot = h.stateRoot) ∨
       (y.unzen.finalizedProposal < y.unzen.nextProposal-1 ∧
         env.unzenParent y.unzen.finalizedProposal (y.unzen.nextProposal-1) h proof = y.unzen.finalizedHash ∧
         env.unzenValid (y.unzen.nextProposal-1) h proof = true)) :
     ∃ v, RecoveryTrace env y v ∧ firstFence env v = true ∧ v.start = y.start ∧ v.inbox = y.inbox ∧
       v.number = y.number ∧ Kept y v := by
-  rcases lane with ⟨present,closed,finalized,hash,root⟩ | ⟨below,parent,valid⟩
+  rcases lane with ⟨present,closed,finalized,level,hash,root⟩ | ⟨below,parent,valid⟩
   · refine ⟨y,.refl y,?_,rfl,rfl,rfl,⟨rfl,rfl,rfl,rfl,rfl,rfl⟩⟩
-    simp [firstFence,started,Start.firstLanding,closed,finalized,present,hash,root]
+    simp [firstFence,started,Start.firstLanding,closed,finalized,present,level,hash,root]
   · refine ⟨{ y with
-          unzen := ⟨y.unzen.nextProposal,y.unzen.nextProposal-1,h.elHash,true,h.elHash,h.stateRoot⟩,
+          unzen := ⟨y.unzen.nextProposal,y.unzen.nextProposal-1,h.elHash,true,h.height,h.elHash,h.stateRoot⟩,
           unzenHeader := some h,legacySignals := y.legacySignals ++ [⟨h.height,h.elHash,h.stateRoot⟩] },
       extend (.refl y) (call := .unzenProve (y.unzen.nextProposal-1) h proof) ?_ trivial,?_,rfl,rfl,rfl,
       ⟨rfl,rfl,rfl,rfl,rfl,rfl⟩⟩

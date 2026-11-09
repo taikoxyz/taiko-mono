@@ -228,7 +228,7 @@
         "Etna.Design.Current.Protocol.Custody.unzen_closed",
         "Etna.Design.Current.Protocol.Custody.trace_switching_fence"
       ],
-      "reason": "The first switching landing enforces the existing Unzen checkpoint/proposal fence; after closure no ordinary modeled Unzen proof can progress, and retained legacy/Etna heights remain on their respective sides of S. Existing Unzen proof/header extension and pure guest soundness are explicit primitive boundaries."
+      "reason": "The first switching landing checks all three LAND-6.1-8a conditions: every Unzen proposal finalized, the last finalized hash equal to the start hash, and the Unzen proof's SignalService checkpoint at height S with the start hash and stateRoot (the model keeps the latest Unzen checkpoint, with its height). After closure no ordinary modeled Unzen proof can progress, and retained legacy/Etna heights remain on their respective sides of S. Existing Unzen proof/header extension and pure guest soundness are explicit primitive boundaries."
     },
     "LAND-6.1-9": {
       "clause": "LIVE_EN-a563a899ed3d4c6b",

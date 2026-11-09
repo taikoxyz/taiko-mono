@@ -158,7 +158,7 @@ theorem grid_offset {start grid height : Nat} (ok : onGrid start grid height = t
 theorem first_landing_fenced {start hash root : Nat} {u : Unzen}
     (ok : firstLanding true start start hash root u = true) :
     u.nextProposal = u.finalizedProposal+1 ∧ u.finalizedHash = hash ∧
-    u.checkpointExists = true ∧ u.checkpointHash = hash ∧ u.checkpointRoot = root := by
+    u.checkpointExists = true ∧ u.checkpointHeight = start ∧ u.checkpointHash = hash ∧ u.checkpointRoot = root := by
   simpa [firstLanding] using ok
 
 theorem origin_written_once (s : State) (caller now l1Block height hash root : Nat)

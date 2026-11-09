@@ -146,7 +146,7 @@ def bareInbox (core : Core) : Etna.Design.State where
 
 def empty (env : Environment) (registry : RegistryMachine.State) : World :=
   ⟨install (bareInbox env.core) env.parameters env.configHash,false,none,⟨0,0,0,0,0⟩,
-    ⟨registry,env.initialToken⟩,[],[],[],⟨env.unzenNextProposal,0,0,false,0,0⟩,none,[],0,
+    ⟨registry,env.initialToken⟩,[],[],[],⟨env.unzenNextProposal,0,0,false,0,0,0⟩,none,[],0,
     ⟨{ env.initialSigner with ready := false },env.initialSigner.activeGeneration,none,[],false,false,false⟩,
     0,[],[],false,[],[]⟩
 
@@ -493,7 +493,7 @@ def unzenProve (env : Environment) (w : World) (proposal : Nat) (h : Header) (pr
       w.unzen.finalizedProposal < proposal ∧ proposal < w.unzen.nextProposal ∧
       env.unzenParent w.unzen.finalizedProposal proposal h proof = w.unzen.finalizedHash ∧
       (w.start = none ∨ h.height ≤ (w.start.map StartData.height).getD 0) then
-    some { w with unzen := ⟨w.unzen.nextProposal,proposal,h.elHash,true,h.elHash,h.stateRoot⟩,       unzenHeader := some h,legacySignals := w.legacySignals ++ [⟨h.height,h.elHash,h.stateRoot⟩] }
+    some { w with unzen := ⟨w.unzen.nextProposal,proposal,h.elHash,true,h.height,h.elHash,h.stateRoot⟩,       unzenHeader := some h,legacySignals := w.legacySignals ++ [⟨h.height,h.elHash,h.stateRoot⟩] }
   else none
 
 def observe (_env : Environment) (w : World) (number : Nat) : Option World :=

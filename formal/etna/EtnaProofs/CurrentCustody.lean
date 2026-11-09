@@ -64,9 +64,10 @@ theorem pending_parent_fence {env : Environment} {initial w t : World} {a : Land
   have fence := (land_success ok).1.unzen
   have fenced : w.unzen.nextProposal = w.unzen.finalizedProposal+1 ∧
       w.unzen.finalizedHash = start.hash ∧ w.unzen.checkpointExists = true ∧
+      w.unzen.checkpointHeight = start.height ∧
       w.unzen.checkpointHash = start.hash ∧ w.unzen.checkpointRoot = start.stateRoot := by
     simpa [firstFence,written,Start.firstLanding,switching,height] using fence
-  obtain ⟨legacy,retained,auth,bound,finalized,checkpoint,root,preFork⟩ := inv.unzen fenced.2.2.1
+  obtain ⟨legacy,retained,auth,bound,finalized,_,checkpoint,root,preFork⟩ := inv.unzen fenced.2.2.1
   have parentEl : segment.parent.elHash = w.inbox.checkpoint.elHash := congrArg Cut.elHash segment.parentCut
   have el : segment.parent.elHash = legacy.elHash := parentEl.trans (hash.trans (fenced.2.1.symm.trans finalized))
   obtain ⟨h,r,tm,an⟩ := primitive.separation _ _ segment.parentHashBound bound el
@@ -100,9 +101,9 @@ theorem pending_parent_fence {env : Environment} {initial w t : World} {a : Land
     have checked := implemented switching (by simpa [written] using ps)
     simpa [same] using checked
   refine ⟨?_,legacy,retained,auth,⟨h,el,r,tm,an,pc,cur,pv⟩⟩
-  exact ⟨start,written,height,switching,fenced.1,fenced.2.1,fenced.2.2.1,fenced.2.2.2.1,
-      fenced.2.2.2.2,segment.parentHeight.trans height,el.trans (finalized.symm.trans fenced.2.1),
-      r.trans (root.symm.trans fenced.2.2.2.2),implementation,tm ▸ preFork⟩
+  exact ⟨start,written,height,switching,fenced.1,fenced.2.1,fenced.2.2.1,fenced.2.2.2.1,fenced.2.2.2.2.1,
+      fenced.2.2.2.2.2,segment.parentHeight.trans height,el.trans (finalized.symm.trans fenced.2.1),
+      r.trans (root.symm.trans fenced.2.2.2.2.2),implementation,tm ▸ preFork⟩
 
 theorem pending_parent {env : Environment} {initial w t : World} {a : Landing}
     (primitive : Primitives env) (reach : Trace env initial w) (ok : land env w a = some t)
@@ -229,7 +230,7 @@ theorem unzen_invariant {env : Environment} {initial w t : World} {proposal proo
     refine ⟨inv.records,inv.signals,?_⟩
     intro _
     exact ⟨h,rfl,(primitive.unzen proposal h proof guard.2.1).1,
-      (primitive.unzen proposal h proof guard.2.1).2.1,rfl,rfl,rfl,
+      (primitive.unzen proposal h proof guard.2.1).2.1,rfl,rfl,rfl,rfl,
       (primitive.unzen proposal h proof guard.2.1).2.2⟩
   next => simp at ok
 

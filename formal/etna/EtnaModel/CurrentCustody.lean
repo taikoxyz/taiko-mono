@@ -21,12 +21,14 @@ def StartsAt (h legacy : Header) : Prop :=
   h.timestamp = legacy.timestamp ∧ h.anchor = legacy.anchor ∧ h.cometHash = 0 ∧ h.cursor = 0 ∧
   h.valStateHash = 0
 
-/-- The actual contract fence at the accepting first landing. The timestamp is the
+/-- The actual contract fence at the accepting first landing (LAND-6.1-8a), including the
+SignalService checkpoint's height. The timestamp is the
 upstream Unzen/cutoff duty; implementation validation remains guest semantics. -/
 def FirstFence (env : Environment) (w : World) (h : Header) : Prop :=
   ∃ start, w.start = some start ∧ w.inbox.checkpoint.height = start.height ∧
     env.core.unzenInbox ≠ 0 ∧ w.unzen.nextProposal = w.unzen.finalizedProposal+1 ∧
     w.unzen.finalizedHash = start.hash ∧ w.unzen.checkpointExists = true ∧
+    w.unzen.checkpointHeight = start.height ∧
     w.unzen.checkpointHash = start.hash ∧ w.unzen.checkpointRoot = start.stateRoot ∧
     h.height = start.height ∧ h.elHash = start.hash ∧ h.stateRoot = start.stateRoot ∧
     env.startImplementation h.stateRoot = true ∧ h.timestamp < env.core.forkTime
@@ -78,7 +80,7 @@ structure Invariant (env : Environment) (initial w : World) : Prop where
   records : ∀ cp ∈ w.activeRecords, Certified env initial cp ∨ Pending env w cp
   signals : ∀ s ∈ w.inbox.signals, SignalSafe env initial s
   unzen : w.unzen.checkpointExists = true → ∃ h, w.unzenHeader = some h ∧ env.unzenRoot h ∧ HashBound env h ∧
-    w.unzen.finalizedHash = h.elHash ∧ w.unzen.checkpointHash = h.elHash ∧
+    w.unzen.finalizedHash = h.elHash ∧ w.unzen.checkpointHeight = h.height ∧ w.unzen.checkpointHash = h.elHash ∧
     w.unzen.checkpointRoot = h.stateRoot ∧ h.timestamp < env.core.forkTime
 
 /-- Raw reachability facts, proved by the current journal rather than presumed by H1. -/

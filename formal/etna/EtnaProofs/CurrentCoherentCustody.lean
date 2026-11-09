@@ -129,7 +129,7 @@ set_option linter.unusedSimpArgs false
           pending_parent_fence primitive reach ok old segment cursor record pending certificate
         have rootAuth : AuthenticRoot env (empty env registry) segment.parent :=
           Or.inr ⟨w,t,a,legacy,reach,ok,fence,retained,auth,starts⟩
-        obtain ⟨start,written,atStart,switching,complete,finalized,checkpoint,hash,root,
+        obtain ⟨start,written,atStart,switching,complete,finalized,checkpoint,_,hash,root,
           height,el,state,implementation,preFork⟩ := fence
         refine ⟨fun _ => segment.parent,by simp [single],?_,?_,?_,rfl⟩
         · intro cp mem
