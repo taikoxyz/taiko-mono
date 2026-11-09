@@ -4,12 +4,12 @@
 import and honest-agreement profiles are jointly satisfiable by concrete accepting runs, and
 (`NonVacuity/CurrentRecovery`) that one environment meets H1-H3's and H4's premises together,
 where H4's proof reaches an accepted landing;
-`EtnaWitnesses/Traps/RollbackGrid` reaches the rollback-across-K-change trap. Every
-module builds without warnings, and every public theorem in them has a `regression` manifest
-entry (so none backs a proof claim or changes a clause's status) that passes the proof audit's
-exact-type and transitive-axiom checks. The facts each witness exists to show are pinned by the
-kernel-replayed tests/Current*.lean files (for example CurrentPremises.lean and
-CurrentAgreement.lean).
+`EtnaWitnesses/Traps/RollbackGrid` reaches the rollback-across-K-change trap and leaves it by a
+structural recovery. Every module builds without warnings, and every public theorem in them has
+a `regression` manifest entry (so none backs a proof claim or changes a clause's status) that
+passes the proof audit's exact-type and transitive-axiom checks. The facts each witness exists
+to show are pinned by the kernel-replayed tests/Current*.lean files (for example
+CurrentPremises.lean and CurrentAgreement.lean).
 """
 import importlib.util
 import json

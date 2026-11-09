@@ -12,10 +12,6 @@ inductive CallTrace (env : Environment) (allowed : Call → Prop) : World → Wo
   | call {first w : World} (prior : CallTrace env allowed first w) (call : Call)
       (ok : allowed call) : CallTrace env allowed first (transact env w call)
 
-def NoRollback : Call → Prop
-  | .rollback .. => False
-  | _ => True
-
 /-- H4's path: no `rollback` (RECOV-8-28, RECOV-8-58) and only plain recoveries, with no
 exclusions, no forced-inclusion blanking (RECOV-8-45) and no structural upgrade. -/
 def RecoveryCall : Call → Prop
@@ -24,6 +20,13 @@ def RecoveryCall : Call → Prop
   | _ => True
 
 abbrev RecoveryTrace (env : Environment) : World → World → Prop := CallTrace env RecoveryCall
+
+/-- Calls with no `rollback` and no structural upgrade: every `recover` keeps the parameters,
+so K. The rollback grid trap (`Recovery.offgrid_no_landing`) is stated over these calls. -/
+def NoRollbackOrUpgrade : Call → Prop
+  | .rollback .. => False
+  | .recover request => request.upgrade = none
+  | _ => True
 
 /-- `h` is a child of `parent` for these producer inputs, witness bytes `raw` and transaction list
 `txs`. Its height, FI cursor, timestamp and anchor are the given ones; it is hash-bound and its EL

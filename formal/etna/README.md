@@ -120,11 +120,11 @@ claim that relies on them as "the claim holds, or a hash collision exists".
 ## Review surface and statement lock
 
 The **review surface** is what a reviewer must read to know what H1–H4, the seven
-joint-premise witnesses and the trap witness mean: their statements and every Etna definition
-they use, but no proof. `review-surface.lock.json` records a SHA-256 of the kernel terms of
-each of those constants (1,467 at this revision). `python3 scripts/review_surface.py --check`
-fails if the lock is stale; the `etna-formal` job runs it. Proof-only changes never touch the
-lock.
+joint-premise witnesses, the trap witness and its escape mean: their statements and every Etna
+definition they use, but no proof. `review-surface.lock.json` records a SHA-256 of the kernel
+terms of each of those constants (1,466 at this revision).
+`python3 scripts/review_surface.py --check` fails if the lock is stale; the `etna-formal` job
+runs it. Proof-only changes never touch the lock.
 
 The `etna-review-surface` job (`formal--etna-review-surface.yml`) runs on
 `pull_request_target`, so GitHub takes both the workflow file and the judge script from the
@@ -334,8 +334,8 @@ It decides certification of the statement, not a desired World.
 All positive accepted certificate fixtures use empty prebatch `prior` lists. None
 positively exercises a nonempty archive prefix or ordinary L+2 cutoff selection.
 The accepting, switching, equivocation, import, honest-agreement and joint H1–H4 contracts,
-and the rollback grid trap, are mandatory audit obligations. Finite ordinary fixtures using
-fewer premises are not substitutes.
+and the rollback grid trap and its escape, are mandatory audit obligations. Finite ordinary
+fixtures using fewer premises are not substitutes.
 
 ## Exact traceability and deferred scope
 

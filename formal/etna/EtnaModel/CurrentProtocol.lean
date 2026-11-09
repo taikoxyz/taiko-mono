@@ -283,9 +283,10 @@ def recover (env : Environment) (w : World) (a : RecoveryRequest) : Option World
         Start.onGrid start.height inbox.gridK w.inbox.checkpoint.height = true ∧
         a.exclusions.Pairwise (fun x y => x.1 < y.1) ∧ a.clear.Pairwise (· < ·) ∧
         (∀ i ∈ a.clear,w.inbox.head ≤ i ∧ i < w.inbox.tail) ∧
+        -- SPEC 8.3's only grid check is RECOV-8.3-3a, the `onGrid` check above with the K this
+        -- call installs. It has no planned-stop check: START-10.1-14e's stop is DAO procedure,
+        -- and vector 14e.k recovers from a settled c below a stop point that cannot settle.
         (a.upgrade.isSome = true → parameters.valid = true ∧ a.rules ≠ 0 ∧
-          w.schedule.stopTime ≠ 0 ∧ w.schedule.stopTime ≤ env.timestampOf w.inbox.checkpoint.elHash ∧ w.inbox.checkpoint.height ≥ start.height ∧
-          (w.inbox.checkpoint.height-start.height) % w.schedule.stopGrid = 0 ∧
           -- genesisCutoff (slot 279) is committee 0's snapshot (COMM-4.3-9) and part of
           -- generation 0's genesis. It is set once at Inbox initialization (PARAM-11-4), and only
           -- a migration to a new Inbox changes it (START-10.1-2a), never a structural upgrade.

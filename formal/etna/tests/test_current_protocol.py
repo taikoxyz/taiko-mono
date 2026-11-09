@@ -73,6 +73,26 @@ class CurrentProtocolTests(unittest.TestCase):
             'env.unzenRoot p ∧ env.startImplementation p.stateRoot = true',
             'True ∧ env.startImplementation p.stateRoot = true')
 
+    # SPEC 8.3 has no planned-stop check (START-10.1-14e, vector 14e.k): re-adding any part of
+    # the old stop check to `recover`'s upgrade branch must break the structural-recovery
+    # regression in tests/CurrentProtocol.lean.
+    def test_structural_recovery_needs_no_planned_stop(self):
+        self.assert_evidence_rejects(*node_sources(),
+            'parameters.valid = true ∧ a.rules ≠ 0 ∧',
+            'parameters.valid = true ∧ a.rules ≠ 0 ∧ w.schedule.stopTime ≠ 0 ∧')
+
+    def test_structural_recovery_needs_no_stop_in_effect(self):
+        self.assert_evidence_rejects(*node_sources(),
+            'parameters.valid = true ∧ a.rules ≠ 0 ∧',
+            'parameters.valid = true ∧ a.rules ≠ 0 ∧ '
+            'w.schedule.stopTime ≤ env.timestampOf w.inbox.checkpoint.elHash ∧')
+
+    def test_structural_recovery_needs_no_stop_grid(self):
+        self.assert_evidence_rejects(*node_sources(),
+            'parameters.valid = true ∧ a.rules ≠ 0 ∧',
+            'parameters.valid = true ∧ a.rules ≠ 0 ∧ '
+            '(w.inbox.checkpoint.height-start.height) % w.schedule.stopGrid = 0 ∧')
+
     def test_initial_token_funding_is_reachable(self):
         imports, protocol, model, proofs, fixture = finality_sources()
         evidence = '\n'.join((model, proofs, fixture))

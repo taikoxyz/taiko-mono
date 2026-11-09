@@ -2,22 +2,14 @@ import EtnaModel.CurrentRecovery
 import EtnaProofs.Current
 import EtnaProofs.CurrentCoherentCustody
 
-/-! The rollback-across-K-change trap of the model (reports/recoverability.md): once a landed,
-started state's frontier is off the current grid, no rollback-free sequence of calls lands
-again. `land` needs the frontier on the grid (6.1, BATCH-6.3-1); `recover` without an upgrade
-needs the same (RECOV-8.3-3a); the model's `recover` with an upgrade also needs the frontier on
-the scheduled stop grid, which is a multiple of the current K. That last check is stricter than
-SPEC 8.3, which checks only the new K (START-10.1-14e also recovers from a checkpoint below the
-stop point), so in the spec a structural recovery that installs a K whose grid holds the
-frontier exits. With plain recoveries only, H4's path class, the state is a dead end in the spec
-too. `LiveAt.grid` excludes this state; the reachable instance is
+/-! The rollback-across-K-change trap (reports/recoverability.md): once a landed, started
+state's frontier is off the current grid, nothing lands again until a structural recovery or a
+rollback. `land` needs the frontier on the grid (6.1, BATCH-6.3-1), and a plain `recover` keeps K
+and needs the same (RECOV-8.3-3a). A structural recovery that installs a K whose grid holds the
+frontier exits, as SPEC 8.3 allows (`RollbackGridTrap.rollback_grid_escape`); H4's path uses
+plain recoveries only, so `LiveAt.grid` excludes the state. The reachable instance is
 `RollbackGridTrap.rollback_grid_trap`. -/
 namespace Etna.Design.Current.Protocol.Recovery
-
-/-- A scheduled stop lies on a nonzero multiple of the current K (`scheduleStop` checks
-`grid % K = 0`; `recover`, the only call that changes K, also clears the stop). -/
-private def StopOnGrid (w : World) : Prop :=
-  w.schedule.stopTime ≠ 0 → w.schedule.stopGrid ≠ 0 ∧ w.schedule.stopGrid % w.inbox.gridK = 0
 
 /-- Calls that never change K, the checkpoint or the rule schedule. -/
 private def Plain : Call → Prop
@@ -102,114 +94,6 @@ private theorem execute_plain {env : Environment} {w t : World} {call : Call} (p
   | initializeInbox | setOrigin | correctStart | scheduleRules | scheduleStop | recover | rollback
   | land => exact (plain : False).elim
 
-private theorem execute_stop_on_grid {env : Environment} {w t : World} {call : Call}
-    (stop : StopOnGrid w) (ok : execute env w call = some t) : StopOnGrid t := by
-  cases call with
-  | initializeInbox caller =>
-    change initializeInbox env w caller = some t at ok
-    unfold initializeInbox at ok
-    split at ok
-    next =>
-      split at ok
-      next =>
-        split at ok
-        next => cases Option.some.inj ok; exact stop
-        next => simp at ok
-      next => cases Option.some.inj ok; exact stop
-    next => simp at ok
-  | setOrigin caller height hash root =>
-    change setOrigin env w caller height hash root = some t at ok
-    unfold setOrigin at ok
-    split at ok
-    next => cases Option.some.inj ok; exact stop
-    next => simp at ok
-  | correctStart caller height hash root =>
-    change correctStart env w caller height hash root = some t at ok
-    unfold correctStart at ok
-    obtain ⟨old,_,ok⟩ := Option.bind_eq_some_iff.mp ok
-    split at ok
-    next => cases Option.some.inj ok; exact stop
-    next => simp at ok
-  | scheduleRules caller rule time =>
-    change Protocol.scheduleRules env w caller rule time = some t at ok
-    obtain ⟨schedule,scheduled,rfl⟩ := Option.map_eq_some_iff.mp ok
-    have kept := Rules.schedule_rules_result scheduled
-    show schedule.stopTime ≠ 0 → schedule.stopGrid ≠ 0 ∧ schedule.stopGrid % w.inbox.gridK = 0
-    rw [kept.2.2.2.1,kept.2.2.2.2.1]
-    exact stop
-  | scheduleStop caller time grid =>
-    change Protocol.scheduleStop env w caller time grid = some t at ok
-    obtain ⟨schedule,scheduled,rfl⟩ := Option.map_eq_some_iff.mp ok
-    have written := Rules.schedule_stop_result scheduled
-    have checked := (Rules.stop_requires_owner scheduled).2.2
-    show schedule.stopTime ≠ 0 → schedule.stopGrid ≠ 0 ∧ schedule.stopGrid % w.inbox.gridK = 0
-    rw [written.2.2.2.1,written.2.2.2.2.1]
-    intro running
-    rcases checked with cleared | ⟨_,positive,_,multiple⟩
-    · exact (running cleared.1).elim
-    · exact ⟨Nat.pos_iff_ne_zero.mp positive,multiple⟩
-  | recover request =>
-    change Protocol.recover env w request = some t at ok
-    unfold Protocol.recover at ok
-    obtain ⟨start,_,ok⟩ := Option.bind_eq_some_iff.mp ok
-    dsimp only at ok
-    cases upgrade : request.upgrade <;> simp only [upgrade,Option.isSome_none,Option.isSome_some,
-      Option.getD_none,Option.getD_some,Bool.false_eq_true,↓reduceIte] at ok
-    all_goals
-      split at ok
-      next =>
-        obtain ⟨schedule,recovered,ok⟩ := Option.bind_eq_some_iff.mp ok
-        obtain ⟨registry,_,rfl⟩ := Option.map_eq_some_iff.mp ok
-        intro running
-        exact (running (Rules.recover_clears_stop recovered).1).elim
-      next => simp at ok
-  | rollback caller trusted restored =>
-    change Protocol.rollback env w caller trusted restored = some t at ok
-    unfold Protocol.rollback at ok
-    split at ok
-    next =>
-      obtain ⟨registry,_,rfl⟩ := Option.map_eq_some_iff.mp ok
-      exact stop
-    next => simp at ok
-  | land a =>
-    change Protocol.land env w a = some t at ok
-    unfold Protocol.land at ok
-    split at ok
-    next => cases Option.some.inj ok; exact stop
-    next => simp at ok
-  | _ =>
-    obtain ⟨grid,_,schedule⟩ := execute_plain (by exact trivial) ok
-    unfold StopOnGrid
-    rw [grid,schedule]
-    exact stop
-
-/-- Every reachable state keeps a scheduled stop on a nonzero multiple of its own K. -/
-private theorem trace_stop_on_grid {env : Environment} {registry : RegistryMachine.State} {w : World}
-    (trace : Trace env (empty env registry) w) : StopOnGrid w := by
-  induction trace with
-  | refl => intro running; exact (running rfl).elim
-  | @step before after prior change ih =>
-    cases change with
-    | call call =>
-      cases ok : execute env before call with
-      | none => simpa only [transact,ok,Option.getD_none] using ih
-      | some result => simpa only [transact,ok,Option.getD_some] using execute_stop_on_grid ih ok
-    | node after validated => exact ih
-
-/-- The frontier is on the stop grid and K divides the stop grid, so it is on the K grid. -/
-private theorem stop_grid_on_grid {start grid stopGrid height : Nat} (nonzero : stopGrid ≠ 0)
-    (multiple : stopGrid % grid = 0) (above : height ≥ start) (onStop : (height-start) % stopGrid = 0) :
-    Start.onGrid start grid height = true := by
-  have positive : 0 < grid := by
-    apply Nat.pos_of_ne_zero
-    intro zero
-    rw [zero,Nat.mod_zero] at multiple
-    exact nonzero multiple
-  have divides : grid ∣ height-start :=
-    Nat.dvd_trans (Nat.dvd_of_mod_eq_zero multiple) (Nat.dvd_of_mod_eq_zero onStop)
-  simp only [Start.onGrid,decide_eq_true_eq]
-  exact ⟨positive,above,Nat.mod_eq_zero_of_dvd divides⟩
-
 /-- `land` needs the frontier on the grid, so an off-grid frontier rejects every batch. -/
 private theorem land_off_grid {env : Environment} {u : World} {start : StartData}
     (started : u.start = some start)
@@ -225,13 +109,13 @@ private theorem land_off_grid {env : Environment} {u : World} {start : StartData
     cases frontier
   next => rfl
 
-/-- From a landed, started state whose frontier is off its grid, no call but `rollback`
-moves the frontier or changes K. -/
+/-- From a landed, started state whose frontier is off its grid, no call but `rollback` or a
+structural recovery moves the frontier or changes K. -/
 private theorem execute_trapped {env : Environment} {u t : World} {call : Call} {start : StartData}
     (initialized : u.initialized = true) (started : u.start = some start)
-    (landed : u.everLanded = true) (stop : StopOnGrid u)
+    (landed : u.everLanded = true)
     (offGrid : Start.onGrid start.height u.inbox.gridK u.inbox.checkpoint.height = false)
-    (allowed : NoRollback call) (ok : execute env u call = some t) :
+    (allowed : NoRollbackOrUpgrade call) (ok : execute env u call = some t) :
     t.inbox.checkpoint.height = u.inbox.checkpoint.height ∧ t.inbox.gridK = u.inbox.gridK := by
   cases call with
   | initializeInbox caller =>
@@ -259,27 +143,19 @@ private theorem execute_trapped {env : Environment} {u t : World} {call : Call} 
     exact ⟨rfl,rfl⟩
   | recover request =>
     change Protocol.recover env u request = some t at ok
+    have plain : request.upgrade = none := allowed
     unfold Protocol.recover at ok
     obtain ⟨current,same,ok⟩ := Option.bind_eq_some_iff.mp ok
     rw [started] at same
     cases Option.some.inj same
     dsimp only at ok
-    cases upgrade : request.upgrade <;> simp only [upgrade,Option.isSome_none,Option.isSome_some,
-      Option.getD_none,Option.getD_some,Bool.false_eq_true,↓reduceIte] at ok
-    · split at ok
-      next guard =>
-        obtain ⟨-,-,-,-,-,-,-,-,-,-,grid,-⟩ := guard
-        rw [offGrid] at grid
-        cases grid
-      next => simp at ok
-    · split at ok
-      next guard =>
-        obtain ⟨-,-,-,-,-,-,-,-,-,-,-,-,-,-,upgrade⟩ := guard
-        obtain ⟨-,-,running,-,above,onStop,-⟩ := upgrade trivial
-        obtain ⟨nonzero,multiple⟩ := stop running
-        rw [stop_grid_on_grid nonzero multiple above onStop] at offGrid
-        cases offGrid
-      next => simp at ok
+    simp only [plain,Option.isSome_none,Option.getD_none,Bool.false_eq_true,↓reduceIte] at ok
+    split at ok
+    next guard =>
+      obtain ⟨-,-,-,-,-,-,-,-,-,-,grid,-⟩ := guard
+      rw [offGrid] at grid
+      cases grid
+    next => simp at ok
   | rollback caller trusted restored => exact allowed.elim
   | land a =>
     change Protocol.land env u a = some t at ok
@@ -289,14 +165,15 @@ private theorem execute_trapped {env : Environment} {u t : World} {call : Call} 
     obtain ⟨grid,checkpoint,_⟩ := execute_plain (by exact trivial) ok
     exact ⟨congrArg Checkpoint.height checkpoint,grid⟩
 
-/-- In the model, an off-grid frontier never lands again without a rollback. The model's
-upgrade check is stricter than SPEC 8.3; in the spec a structural recovery with a compatible K
-exits, while plain recoveries (RECOV-8.3-3a) and `land` (6.1, BATCH-6.3-1) stay blocked. -/
+/-- From an off-grid frontier, nothing lands until a structural recovery or a rollback: along
+calls with neither, `land` (6.1, BATCH-6.3-1) and every plain recovery (RECOV-8.3-3a) stay
+blocked. A structural recovery that installs a K whose grid holds the frontier exits, as SPEC 8.3
+allows, so an off-grid state needs one. -/
 theorem offgrid_no_landing {env : Environment} {registry : RegistryMachine.State} {w : World}
     {start : StartData} (trace : Trace env (empty env registry) w) (started : w.start = some start)
     (landed : w.everLanded = true)
     (offGrid : Start.onGrid start.height w.inbox.gridK w.inbox.checkpoint.height = false) :
-    ∀ u, CallTrace env NoRollback w u → ∀ a, land env u a = none := by
+    ∀ u, CallTrace env NoRollbackOrUpgrade w u → ∀ a, land env u a = none := by
   intro u path
   have kept : Trace env w u ∧ u.inbox.checkpoint.height = w.inbox.checkpoint.height ∧
       u.inbox.gridK = w.inbox.gridK := by
@@ -324,8 +201,7 @@ theorem offgrid_no_landing {env : Environment} {registry : RegistryMachine.State
         exact ⟨height,grid⟩
       | some result =>
         simp only [transact,ok,Option.getD_some]
-        have step := execute_trapped initialized currentStart frozen.2 (trace_stop_on_grid reach)
-          currentOff allowed ok
+        have step := execute_trapped initialized currentStart frozen.2 currentOff allowed ok
         exact ⟨step.1.trans height,step.2.trans grid⟩
   intro a
   have frozen := Custody.trace_start_frozen trace landed kept.1

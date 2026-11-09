@@ -177,7 +177,7 @@ private theorem execute_settled {env : Environment} {w t : World} {call : Call} 
     · split at ok
       next guard =>
         obtain ⟨-,-,-,-,-,-,-,-,-,-,-,-,-,-,upgraded⟩ := guard
-        obtain ⟨-,-,-,-,-,-,keep⟩ := upgraded trivial
+        obtain ⟨-,-,keep⟩ := upgraded trivial
         obtain ⟨schedule,recovered,ok⟩ := Option.bind_eq_some_iff.mp ok
         obtain ⟨registry,_,rfl⟩ := Option.map_eq_some_iff.mp ok
         exact ⟨recover_fits held.fits recovered,keep.trans held.cutoff,held.past,

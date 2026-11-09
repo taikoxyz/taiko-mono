@@ -2,7 +2,7 @@
 """Lock the review surface: the headline/witness statements and every definition they mean.
 
 The review surface starts at the five headline theorems (the conjunction and H1-H4), the seven
-joint-premise witnesses and the trap witness (audit_proofs.CURRENT_*). From their kernel types it
+joint-premise witnesses and the trap witnesses (audit_proofs.CURRENT_*). From their kernel types it
 follows every Etna constant they use: definitions, inductives, constructors and recursors
 contribute their type and value; theorems contribute their type only, so proofs never enter the
 surface. Init/Std constants are recorded by name (the toolchain is pinned). Each constant's

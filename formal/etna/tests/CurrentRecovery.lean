@@ -20,7 +20,6 @@ example (r : RecoveryRequest) (p : Current.Protocol.Parameters) :
 example (r : RecoveryRequest) (h1 : r.exclusions = []) (h2 : r.clear = []) (h3 : r.upgrade = none) :
     RecoveryCall (.recover r) := ⟨h1,h2,h3⟩
 example (a : Landing) : RecoveryCall (.land a) := trivial
-example (n : Nat) : NoRollback (.advance n) := trivial
 
 -- Pin the trace class and the conclusion.
 example (env : Environment) : RecoveryTrace env = CallTrace env RecoveryCall := rfl

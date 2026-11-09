@@ -65,10 +65,12 @@ CURRENT_PROFILE_WITNESSES = (
     'Etna.Design.Current.Protocol.NonVacuity.windowed_import_satisfiable',
     'Etna.Design.Current.Protocol.RecoveryNonVacuity.all_premises_satisfiable',
 )
-# Mandatory trap witnesses: reachable states a hypothesis must exclude, in environments that
-# realize no premise record (so they are not premise profiles).
+# Mandatory trap witnesses: reachable states a hypothesis must exclude, and the way out of
+# them that the spec allows, in environments that realize no premise record (so they are not
+# premise profiles).
 CURRENT_TRAP_WITNESSES = (
     'Etna.Design.Current.Protocol.RollbackGridTrap.rollback_grid_trap',
+    'Etna.Design.Current.Protocol.RollbackGridTrap.rollback_grid_escape',
 )
 PREMISE_USE = re.compile(r'^premise use: (\S+) <- (.+)$', re.MULTILINE)
 NAME = re.compile(r'^[A-Za-z_][A-Za-z_0-9]*(\.[A-Za-z_][A-Za-z_0-9]*)*$')
