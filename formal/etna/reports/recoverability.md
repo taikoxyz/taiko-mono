@@ -34,15 +34,15 @@ Terms used below:
 
 ## Where it lives
 
-| What                       | Lean                                                                                                                                                                                                                             |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Claim                      | `Recoverability`, `RecoverableAt`, `RecoveryPremises`, `LiveAt` in `EtnaStatements/Current.lean`                                                                                                                                 |
-| Vocabulary                 | `CallTrace`, `RecoveryCall`, `RecoveryTrace`, `ExecutionLive`, `RulesetLive`, `CommitteeLive`, `WindowBound` in `EtnaModel/CurrentRecovery.lean`; `OnGrid`, `LiveRules` in `EtnaStatements/Current.lean`                         |
-| Proof                      | `Recovery.prepare` (L1 calls), `Recovery.segment` (L2 blocks), `Recovery.recoverable` (certificate and landing) in `EtnaProofs/CurrentRecovery*.lean`                                                                            |
-| Headlines                  | `Headlines.recoverability`, `Headlines.deployed_recoverability` and the four-part `Headlines.claims` in `EtnaProofs/Headline/Current.lean`                                                                                       |
-| Joint witness              | `RecoveryNonVacuity.all_premises_satisfiable` and `live_recovers` in `EtnaWitnesses/NonVacuity/CurrentRecovery.lean`                                                                                                             |
-| Trap                       | `Recovery.offgrid_no_landing` in `EtnaProofs/CurrentRecoveryTrap.lean`, over the calls `NoRollbackOrUpgrade` admits; `RollbackGridTrap.rollback_grid_trap` and `rollback_grid_escape` in `EtnaWitnesses/Traps/RollbackGrid.lean` |
-| Statement and audit checks | `tests/CurrentRecovery.lean`, `CurrentRecoveryProof.lean`, `CurrentRecoveryTrap.lean`, `CurrentRecoveryWitness.lean`, `tests/test_current_recovery.py`                                                                           |
+| What                       | Lean                                                                                                                                                                                                                                                                            |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Claim                      | `Recoverability`, `RecoverableAt`, `RecoveryPremises`, `LiveAt` in `EtnaStatements/Current.lean`                                                                                                                                                                                |
+| Vocabulary                 | `CallTrace`, `RecoveryCall`, `RecoveryTrace`, `ExecutionLive`, `RulesetLive`, `CommitteeLive`, `WindowBound` in `EtnaModel/CurrentRecovery.lean`; `OnGrid`, `LiveRules` in `EtnaStatements/Current.lean`                                                                        |
+| Proof                      | `Recovery.prepare` (L1 calls), `Recovery.segment` (L2 blocks), `Recovery.recoverable` (certificate and landing) in `EtnaProofs/CurrentRecovery*.lean`                                                                                                                           |
+| Headlines                  | `Headlines.recoverability`, `Headlines.deployed_recoverability` and the four-part `Headlines.claims` in `EtnaProofs/Headline/Current.lean`                                                                                                                                      |
+| Joint witness              | `RecoveryNonVacuity.all_premises_satisfiable` and `live_recovers` in `EtnaWitnesses/NonVacuity/CurrentRecovery.lean`; for a switching network, `RecoverySwitchNonVacuity.all_premises_satisfiable` and `live_recovers` in `EtnaWitnesses/NonVacuity/CurrentRecoverySwitch.lean` |
+| Trap                       | `Recovery.offgrid_no_landing` in `EtnaProofs/CurrentRecoveryTrap.lean`, over the calls `NoRollbackOrUpgrade` admits; `RollbackGridTrap.rollback_grid_trap` and `rollback_grid_escape` in `EtnaWitnesses/Traps/RollbackGrid.lean`                                                |
+| Statement and audit checks | `tests/CurrentRecovery.lean`, `CurrentRecoveryProof.lean`, `CurrentRecoveryTrap.lean`, `CurrentRecoveryWitness.lean`, `tests/test_current_recovery.py`                                                                                                                          |
 
 ## The claim
 
@@ -433,8 +433,30 @@ environment the path does reach an accepted landing. The witness is restricted:
 - nothing has landed in the reachable world `live`, so the second part of the conclusion (the
   new checkpoint is above the starting one when something had landed) is not exercised.
 
-There is no switching-network environment either. Mainnet takes over from the Unzen rollup, so
-it is a switching network, and a joint witness for one is a worthwhile follow-up.
+`RecoverySwitchNonVacuity.all_premises_satisfiable` (in
+`EtnaWitnesses/NonVacuity/CurrentRecoverySwitch.lean`) does the same for a switching network.
+Mainnet is one: it takes over from the Unzen rollup. The environment is the one above with the
+switching fields set: an Unzen Inbox, a fork time that L1 reaches at block 3, and one legacy
+header L at height 5. L is hash-bound, its timestamp is before the fork time, and a valid proof
+of the Unzen Inbox's final proposal authenticates it. In the reachable world `live`, the origin
+writer has set S = 5 from L and no Unzen proof has been accepted, so `LiveAt.unzen` holds
+because a valid proof of the final proposal exists. `live_recovers` applies H4's proof there.
+Nothing has landed and the Unzen lane has no checkpoint, so the landing the path reaches is the
+first one, at c = S. To get there the path proves the lane with `unzenProve`, and the landing
+passes the first-landing fence, including its check that the Unzen checkpoint is at S.
+`tests/CurrentRecoveryWitness.lean` pins that the fence refuses at `live`, passes after that
+proof, and refuses a start at height 6 that has L's hash and state root. This witness keeps the
+first one's restrictions, except those of a new network, and adds these:
+
+- one legacy header, and the Unzen guest accepts one proof, of the final proposal 1;
+- `unzenParent` returns 0, the empty lane's finalized hash, so that `unzenProve`'s link check
+  passes. `UnzenExtension` therefore holds vacuously: its only valid proof has boundary 0, and
+  no hash-bound header has EL hash 0. `NonVacuity.CurrentSwitch` has the same limit;
+- the written start equals the Unzen final header, so the path's `correctStart` branch is not
+  exercised;
+- c = S = 5 is on the K = 1 grid, so `LiveAt.ruleset` holds by `LiveRules`' first case and the
+  path runs a plain recovery;
+- no Unzen implementation runs: the legacy proof is one fixed value.
 
 No environment that meets the premises reaches an off-grid state yet: that needs several
 concrete landings, a structural recovery and a rollback. `tests/CurrentRecoveryProof.lean`
@@ -486,5 +508,6 @@ H4 adds no evidence for these:
 
 The review-surface lock grew from 1,433 to 1,464 constants when H4 was added: the H4 statement
 definitions, the new headline and witness roots and their model closure. `Claims` and `recover`
-changed. It has 1,467 at this revision. Letting H4 leave an off-grid state added `OnGrid` and
-changed `CallTrace`, `RecoveryCall`, `NoRollbackOrUpgrade`, `LiveRules` and `LiveAt`.
+changed. It has 1,468 at this revision. Letting H4 leave an off-grid state added `OnGrid` and
+changed `CallTrace`, `RecoveryCall`, `NoRollbackOrUpgrade`, `LiveRules` and `LiveAt`. The
+switching joint witness added only its own root, since its statement names no new definition.

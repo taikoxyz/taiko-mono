@@ -1,5 +1,6 @@
 """H4 (recoverability) in the headline audit: premise and hypothesis use, the consensus-honesty
-dependency contract, and the mandatory joint-premise witness, trap witness and trap escape.
+dependency contract, and the mandatory joint-premise witnesses (new network and switching), trap
+witness and trap escape.
 
 The statement pins live in tests/CurrentRecovery.lean, the proof pins in
 tests/CurrentRecoveryProof.lean, the trap pins in tests/CurrentRecoveryTrap.lean and the joint
@@ -32,6 +33,7 @@ H4 = 'Etna.Design.Current.Headlines.recoverability'
 RECOVERY_PREMISES = 'Etna.Statements.Current.RecoveryPremises'
 LIVE_AT = 'Etna.Statements.Current.LiveAt'
 JOINT = 'Etna.Design.Current.Protocol.RecoveryNonVacuity.all_premises_satisfiable'
+SWITCH_JOINT = 'Etna.Design.Current.Protocol.RecoverySwitchNonVacuity.all_premises_satisfiable'
 TRAP = 'Etna.Design.Current.Protocol.RollbackGridTrap.rollback_grid_trap'
 ESCAPE = 'Etna.Design.Current.Protocol.RollbackGridTrap.rollback_grid_escape'
 # Every field of H4's own premise record, then every conjunct of its per-state hypothesis.
@@ -93,9 +95,11 @@ class CurrentRecoveryAuditTests(unittest.TestCase):
         self.assertIn('H4 must not depend on', result.stdout + result.stderr)
 
     def test_trap_and_joint_witness_tuples(self):
-        # The joint realization is a premise profile; the trap and its escape realize no
+        # The joint realizations are premise profiles; the trap and its escape realize no
         # premise record.
-        self.assertIn(JOINT, AUDIT.CURRENT_PROFILE_WITNESSES)
+        for name in (JOINT, SWITCH_JOINT):
+            self.assertIn(name, AUDIT.CURRENT_PROFILE_WITNESSES)
+            self.assertNotIn(name, AUDIT.CURRENT_TRAP_WITNESSES)
         for name in (TRAP, ESCAPE):
             self.assertNotIn(name, AUDIT.CURRENT_PROFILE_WITNESSES)
             self.assertIn(name, AUDIT.CURRENT_TRAP_WITNESSES)
@@ -103,7 +107,7 @@ class CurrentRecoveryAuditTests(unittest.TestCase):
     def test_trap_and_joint_witness_are_mandatory(self):
         manifest = json.loads((ROOT/'manifests/design.json').read_text())
         AUDIT.validate_contract(manifest)
-        for name in (JOINT, TRAP, ESCAPE, H4):
+        for name in (JOINT, SWITCH_JOINT, TRAP, ESCAPE, H4):
             with self.subTest(name=name):
                 changed = deepcopy(manifest)
                 changed['theorems'] = [e for e in changed['theorems'] if e['declaration'] != name]
@@ -117,7 +121,7 @@ class CurrentRecoveryAuditTests(unittest.TestCase):
 
     def test_h4_and_the_witnesses_are_lock_roots(self):
         roots = SURFACE.roots()
-        for name in (H4, JOINT, TRAP, ESCAPE):
+        for name in (H4, JOINT, SWITCH_JOINT, TRAP, ESCAPE):
             self.assertIn(name, roots)
         self.assertEqual(len(roots), len(set(roots)))
         lock = json.loads((ROOT/'review-surface.lock.json').read_text())

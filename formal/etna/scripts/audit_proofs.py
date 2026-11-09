@@ -64,6 +64,7 @@ CURRENT_PROFILE_WITNESSES = (
     'Etna.Design.Current.Protocol.RiskNonVacuity.import_profile_satisfiable',
     'Etna.Design.Current.Protocol.NonVacuity.windowed_import_satisfiable',
     'Etna.Design.Current.Protocol.RecoveryNonVacuity.all_premises_satisfiable',
+    'Etna.Design.Current.Protocol.RecoverySwitchNonVacuity.all_premises_satisfiable',
 )
 # Mandatory trap witnesses: reachable states that only a particular recovery leaves (H4 covers
 # them through LiveRules' second case), and the way out of them that the spec allows, in

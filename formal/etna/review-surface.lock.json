@@ -15,10 +15,11 @@
     "Etna.Design.Current.Protocol.RiskNonVacuity.import_profile_satisfiable",
     "Etna.Design.Current.Protocol.NonVacuity.windowed_import_satisfiable",
     "Etna.Design.Current.Protocol.RecoveryNonVacuity.all_premises_satisfiable",
+    "Etna.Design.Current.Protocol.RecoverySwitchNonVacuity.all_premises_satisfiable",
     "Etna.Design.Current.Protocol.RollbackGridTrap.rollback_grid_trap",
     "Etna.Design.Current.Protocol.RollbackGridTrap.rollback_grid_escape"
   ],
-  "sha256": "e8667f0b1980c85214769d53e6c7fbd0173db7f08b2d26e315c8f0d94f5b38fe",
+  "sha256": "bf0e2ffbfcce1196e667f141f7b9b3659f5d4aa09b61210b3aaca376aad10d35",
   "constants": {
     "And": "external",
     "Array.size": "external",
@@ -659,6 +660,7 @@
     "Etna.Design.Current.Protocol.RecoveryRequest.rules": "def:a4cd8bad8f9b6ecc1289f5a76d8e7c2cdcb099ff5b6a3022b254f68502da7ef5",
     "Etna.Design.Current.Protocol.RecoveryRequest.upgrade": "def:a56089bfd52f7cfc9acb517a46e7e6bfb574f16e3bb1ef34639540358bef2ada",
     "Etna.Design.Current.Protocol.RecoveryRequest.validUntil": "def:43daff8faab4feeb209543e192bd78ea60c5b9b1f151cbde15ba336bda4e4ed4",
+    "Etna.Design.Current.Protocol.RecoverySwitchNonVacuity.all_premises_satisfiable": "theorem:5753b42fc0962aa7f77eac87973218a09257df4c4ac733b1d819aafbc041485e",
     "Etna.Design.Current.Protocol.RecoveryTrace": "def:d06ef816a82e9b986bbb6a5a07c4004977da130b93441475569efea771b1d818",
     "Etna.Design.Current.Protocol.ReferenceBinding": "def:aaf207aa3b34058c42e5d55340a72de947e269711383a864eb1229943348cf82",
     "Etna.Design.Current.Protocol.RiskNonVacuity.import_profile_satisfiable": "theorem:bc5e2bbfba1145afc74d9dceb5768cbb61410c6b3266ffa83e0eef9e0c286ba4",

@@ -8019,6 +8019,30 @@
       "scope": "Regression: H4 at the joint realization. That environment and registry meet RecoveryPremises, its world live is reachable, initialized and meets LiveAt (as in all_premises_satisfiable), and Recovery.recoverable gives RecoverableAt env live: a RecoveryTrace, with a plain recovery, from live to a state where land accepts a landing. So the recovery path, its certificate and its landing are reached in an environment that also satisfies H1-H3's Premises. live has not landed, so the above-the-checkpoint conjunct of RecoverableAt holds vacuously there; the restrictions of all_premises_satisfiable apply; no standalone rule credit."
     },
     {
+      "declaration": "Etna.Design.Current.Protocol.RecoverySwitchNonVacuity.all_premises_satisfiable",
+      "module": "EtnaWitnesses.NonVacuity.CurrentRecoverySwitch",
+      "role": "regression",
+      "type": "∃ e registry engine w,\n  Etna.Statements.Current.Premises e registry engine ∧\n    Etna.Statements.Current.RecoveryPremises e registry ∧\n      Etna.Design.Current.Protocol.Trace e (Etna.Design.Current.Protocol.empty e registry) w ∧\n        w.initialized = Bool.true ∧\n          Etna.Statements.Current.LiveAt e w ∧\n            e.core.unzenInbox ≠ 0 ∧\n              (∃ s, w.start = Option.some s ∧ 0 < s.height) ∧ w.unzen.checkpointExists = Bool.false",
+      "assumptions": [
+        "Concrete restricted switching interpreter with ideal unbounded Nat commitments, a classically decided ideal verifier, a classical physical-parent decoder and one fixed legacy proof; the standard-token deployment and signature adapters are constructed, not assumed. Not a production cryptographic, EL, guest or Unzen realization."
+      ],
+      "bridge_level": "spec-proved",
+      "sources": [],
+      "scope": "Joint switching realization (reports/recoverability.md, Joint witness): one environment with an Unzen Inbox, a registry and an engine satisfy H1-H3's fifteen Premises and H4's RecoveryPremises together, with a reachable initialized world satisfying LiveAt in which the origin writer has set S = 5 from the legacy header and no Unzen proof has been accepted, so the Unzen lane has no checkpoint. H4's path from there must prove the lane with unzenProve and pass the first-landing fence, including its check that the Unzen checkpoint is at S. Primitives.unzen and UnzenStartUsable hold of one real hash-bound legacy header (S = 5, timestamp before forkTime). Restrictions: the environment is RecoveryNonVacuity's with the switching fields set, so that witness's restrictions apply (one online key; a single catalogue definition that checks only the two header hashes and accepts every payload; the ideal classical verifier; an engine that attributes every precommit; a payload check that accepts any one to six blobs); one legacy header, accepted only for the final proposal 1 with one fixed proof; unzenParent returns 0, the empty lane's finalized hash, so UnzenExtension's antecedent is never true (no hash-bound header has EL hash 0), as in CurrentSwitch; the written start equals the Unzen final header, so the path's correctStart branch is not exercised; LiveAt holds by LiveRules' first case (c = S = 5 on the K = 1 grid), so the structural branch is not exercised. The world has not landed yet; no standalone rule credit."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.RecoverySwitchNonVacuity.live_recovers",
+      "module": "EtnaWitnesses.NonVacuity.CurrentRecoverySwitch",
+      "role": "regression",
+      "type": "Etna.Statements.Current.RecoveryPremises Etna.Design.Current.Protocol.RecoverySwitchNonVacuity.env\n    Etna.Design.Current.Protocol.RecoveryNonVacuity.registry ∧\n  Etna.Design.Current.Protocol.Trace Etna.Design.Current.Protocol.RecoverySwitchNonVacuity.env\n      (Etna.Design.Current.Protocol.empty Etna.Design.Current.Protocol.RecoverySwitchNonVacuity.env\n        Etna.Design.Current.Protocol.RecoveryNonVacuity.registry)\n      Etna.Design.Current.Protocol.RecoverySwitchNonVacuity.live ∧\n    Etna.Design.Current.Protocol.RecoverySwitchNonVacuity.live.initialized = Bool.true ∧\n      Etna.Statements.Current.LiveAt Etna.Design.Current.Protocol.RecoverySwitchNonVacuity.env\n          Etna.Design.Current.Protocol.RecoverySwitchNonVacuity.live ∧\n        Etna.Statements.Current.RecoverableAt Etna.Design.Current.Protocol.RecoverySwitchNonVacuity.env\n          Etna.Design.Current.Protocol.RecoverySwitchNonVacuity.live",
+      "assumptions": [
+        "Concrete restricted switching interpreter with ideal unbounded Nat commitments, a classically decided ideal verifier, a classical physical-parent decoder and one fixed legacy proof; the standard-token deployment and signature adapters are constructed, not assumed. Not a production cryptographic, EL, guest or Unzen realization."
+      ],
+      "bridge_level": "spec-proved",
+      "sources": [],
+      "scope": "Regression: H4 at the switching joint realization. That environment and registry meet RecoveryPremises, its world live is reachable, initialized and meets LiveAt (as in all_premises_satisfiable), and Recovery.recoverable gives RecoverableAt env live: a RecoveryTrace from live to a state where land accepts a landing. live has not landed and its Unzen lane has no checkpoint, so that landing is the first, at c = S = 5, and it passes the first-landing fence, which needs an accepted unzenProve of the final proposal and the Unzen checkpoint at S. The above-the-checkpoint conjunct of RecoverableAt holds vacuously there; the restrictions of all_premises_satisfiable apply; no standalone rule credit."
+    },
+    {
       "declaration": "Etna.Design.Current.Protocol.Recovery.prepare",
       "module": "EtnaProofs.CurrentRecoveryPath",
       "role": "property",
