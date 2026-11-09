@@ -116,6 +116,16 @@ pub(super) struct CommitteePrefetch {
     task: JoinHandle<()>,
 }
 
+impl CommitteePrefetch {
+    /// The cause of a finished discovery that ended in an own-L1 integrity failure.
+    fn contradiction(&self) -> Option<FetchError> {
+        match &*self.result.borrow() {
+            Some(Err(failed)) if failed.integrity() => Some(failed.cause.clone()),
+            _ => None,
+        }
+    }
+}
+
 /// What a background discovery publishes once it ends: the verified witness, or its failure.
 type Outcome = Option<Result<PrefetchedCommittee, FailedDiscovery>>;
 
@@ -236,12 +246,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// failure, for any context, is returned as a safety halt before anything could restart or
     /// drop it.
     fn refresh_committee_prefetch(&self, state: &AppState, start: bool) -> Result<(), AbciError> {
-        let contradiction = self.committee_prefetch().as_ref().and_then(|discovery| {
-            match &*discovery.result.borrow() {
-                Some(Err(failed)) if failed.integrity() => Some(failed.cause.clone()),
-                _ => None,
-            }
-        });
+        let contradiction =
+            self.committee_prefetch().as_ref().and_then(CommitteePrefetch::contradiction);
         if let Some(cause) = contradiction {
             return Err(AbciError::SafetyHalt(Rejection::from(cause).to_string()));
         }
@@ -255,7 +261,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         };
         let Some(target) = target else {
             *self.committee_cache() = None;
-            *self.committee_prefetch() = None;
+            self.retire_committee_prefetch();
             return Ok(());
         };
         let key = CacheKey::new(state, &self.params, target);
@@ -263,7 +269,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             let mut cache = self.committee_cache();
             if cache.as_ref().is_some_and(|cached| key.same_context(&cached.key)) {
                 drop(cache);
-                *self.committee_prefetch() = None;
+                self.retire_committee_prefetch();
                 return Ok(());
             }
             // Committed anchors and switches only move forward: no later state uses it.
@@ -285,6 +291,15 @@ impl<L: L1Source, E: Engine> App<L, E> {
         Ok(())
     }
 
+    /// Drops the held discovery, unless it ended in an own-L1 integrity failure, which the next
+    /// refresh halts on: the background task may have published it after this refresh checked.
+    fn retire_committee_prefetch(&self) {
+        let mut slot = self.committee_prefetch();
+        if slot.as_ref().is_none_or(|discovery| discovery.contradiction().is_none()) {
+            *slot = None;
+        }
+    }
+
     /// The outcome of the background discovery of `target`'s witness for `state` (`key` its
     /// context), if one is held. A discovery for another context, which the committed state
     /// left (another snapshot block or target), is dropped and so aborted first. When `start`, a
@@ -298,7 +313,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
         start: bool,
     ) -> Option<watch::Receiver<Outcome>> {
         let mut slot = self.committee_prefetch();
-        if slot.as_ref().is_some_and(|discovery| discovery.key != key) {
+        // A discovery that ended in an own-L1 integrity failure is kept for the next refresh to
+        // halt on, even for another context: it may have ended after this refresh checked.
+        if slot
+            .as_ref()
+            .is_some_and(|discovery| discovery.key != key && discovery.contradiction().is_none())
+        {
             *slot = None;
         }
         let restart = match slot.as_ref() {

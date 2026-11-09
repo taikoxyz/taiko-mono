@@ -381,6 +381,7 @@ async fn an_own_l1_reproof_failing_under_the_candidate_root_halts() {
             let witness = witness_at(&app, PARENT_ANCHOR).await;
             app.cache_committee_witness(&state, 2, &witness).unwrap();
         }
+        app.l1().state().calls.clear();
         app.l1().state().proof_tamper_at = Some((app.params.registry, NEW_ANCHOR));
         let req = prepare_req(next_height(&app), bft_time(&app));
         let result = app.handle(Request::PrepareProposal(req)).await;
@@ -390,6 +391,15 @@ async fn an_own_l1_reproof_failing_under_the_candidate_root_halts() {
             "retained {retained}: {result:?}"
         );
         assert!(app.store.fatal_evidence().unwrap().is_some(), "retained {retained}");
+        if retained {
+            // The retained witness's own re-proof halted, before any discovery read.
+            assert_eq!(
+                registry_calls(&app),
+                reproof_calls(&app, NEW_ANCHOR),
+                "{:?}",
+                app.l1().calls()
+            );
+        }
     }
 }
 
