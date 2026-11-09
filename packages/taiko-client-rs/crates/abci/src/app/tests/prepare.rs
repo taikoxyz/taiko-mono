@@ -827,6 +827,26 @@ async fn an_own_l1_proof_failure_below_its_finality_pauses_then_halts_once_final
     assert!(app.store.fatal_evidence().unwrap().is_some());
 }
 
+/// The discovery reads the own L1's finalized number before any proof. A proof read while the
+/// endpoint did not hold the anchor final, here a failover to one that was behind, that fails is
+/// missing data even if the endpoint holds the anchor final by the time the failure is
+/// classified, as after catching up or failing back: a pause, without fatal evidence.
+#[tokio::test(start_paused = true)]
+async fn an_own_l1_proof_read_before_its_anchor_was_final_pauses() {
+    let fx = Fixture::genesis(3);
+    let dir = tempfile::tempdir().unwrap();
+    let app = before_switch(&fx, dir.path()).await;
+    let anchor = app.state().unwrap().anchor.number;
+    app.l1().state().proof_tamper = true;
+    app.l1().state().finalized_script.push_back(Ok(anchor - 1));
+    let state = app.state().unwrap().clone();
+    app.prefetch_committee_witness(&state).unwrap();
+    assert!(app.prefetched_committee_witness(&state, 2).await.is_none(), "the proof failed");
+    assert!(app.l1().state().finalized_script.is_empty(), "the discovery read finality first");
+    app.prefetch_committee_witness(&state).expect("not final before the proof read: no halt");
+    assert!(app.store.fatal_evidence().unwrap().is_none());
+}
+
 /// A switch-witness discovery that fails on an unavailable own L1 (here a rate limit) leaves the
 /// witness unavailable: a liveness pause (RECOV-8-4, RECOV-8-5) labelled as the L1 error, never
 /// a halt. A round within its backoff proposes nothing at once and reads nothing; the first round

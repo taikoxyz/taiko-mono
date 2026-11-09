@@ -142,7 +142,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
         )?;
         let committee = match switch {
             Some(target) => {
-                let witness = self.committee_witness(state, &anchor_state, target).await?;
+                let witness =
+                    self.committee_witness(state, &anchor_state, target, finalized).await?;
                 Some((target, witness))
             }
             None => None,
@@ -402,6 +403,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         state: &AppState,
         anchor: &AnchorState,
         target: u64,
+        finalized: u64,
     ) -> Result<VerifiedWitness, Rejection> {
         if let Some(witness) = self.cached_candidate_committee_witness(state, anchor, target) {
             tracing::debug!(
@@ -428,9 +430,15 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 Err(error @ CommitteeError::Mpt(_)) => {
                     let timeout = self.opts.l1_timeout;
                     let anchor_id = (anchor.number, anchor.hash);
-                    return Err(own_l1_proof_failure(self.l1(), anchor_id, timeout, error)
-                        .await
-                        .into());
+                    return Err(own_l1_proof_failure(
+                        self.l1(),
+                        anchor_id,
+                        finalized,
+                        timeout,
+                        error,
+                    )
+                    .await
+                    .into());
                 }
                 Err(error) => {
                     tracing::warn!(
@@ -454,9 +462,15 @@ impl<L: L1Source, E: Engine> App<L, E> {
             Ok(verified) => Ok(verified),
             Err(error) => {
                 let anchor_id = (anchor.number, anchor.hash);
-                Err(own_l1_proof_failure(self.l1(), anchor_id, self.opts.l1_timeout, error)
-                    .await
-                    .into())
+                Err(own_l1_proof_failure(
+                    self.l1(),
+                    anchor_id,
+                    finalized,
+                    self.opts.l1_timeout,
+                    error,
+                )
+                .await
+                .into())
             }
         }
     }

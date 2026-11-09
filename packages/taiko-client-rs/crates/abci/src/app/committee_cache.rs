@@ -48,18 +48,28 @@ fn prefetch_backoff(failures: u32) -> Duration {
 /// and hash). The own L1 served the proofs, for the registry account and slots asked for (it
 /// already refuses another address or slot), read by number. The root is the own L1's too, but
 /// possibly from an earlier read: the committed anchor's stored root, or a header read before
-/// the proof. So the own L1 is asked whether `anchor` is final there first, as trust does. Final
-/// at that hash or at another, the failed proof is a malformed own-L1 reply, which halts
-/// (SYNC-9-7), unlike the same failure in a peer's proposal, which only rejects it. Not final, the
-/// endpoint is behind or on another branch, as after a failover: missing data, a pause. Every
-/// other failure keeps its committee reason.
+/// the proof. So, as trust reads finality before its proofs and reconfirms it after, the failure
+/// is a contradiction only if the own L1 held `anchor` final both before the proof was read
+/// (`finalized_before`, a finalized number read first) and after it, at that hash or at another:
+/// a malformed own-L1 reply, which halts (SYNC-9-7), unlike the same failure in a peer's
+/// proposal, which only rejects it. Not final either time, the endpoint was behind or on another
+/// branch, as after a failover: missing data, a pause. Every other failure keeps its committee
+/// reason.
 pub(super) async fn own_l1_proof_failure<L: L1Source + ?Sized>(
     l1: &L,
     anchor: (u64, B256),
+    finalized_before: u64,
     read_timeout: Duration,
     error: CommitteeError,
 ) -> FetchError {
     let CommitteeError::Mpt(proof) = error else { return error.into() };
+    if finalized_before < anchor.0 {
+        return FetchError::L1(L1Error::DataUnavailable(format!(
+            "own L1 finalized {finalized_before} before the proof read, below proof anchor {}, \
+             whose registry proof failed: {proof}",
+            anchor.0
+        )));
+    }
     match tokio::time::timeout(read_timeout, own_finality(l1, anchor.0, anchor.1)).await {
         Ok(Ok(OwnFinality::Canonical | OwnFinality::OffChain { .. })) => {
             FetchError::L1(L1Error::MalformedResponse(format!(
@@ -440,6 +450,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let (sender, result) = watch::channel(None);
         let task = tokio::spawn(async move {
             let discovery = async {
+                // Read before any proof, so a failed proof halts only if the own L1 held its
+                // anchor final before the proof read as well as after (own_l1_proof_failure).
+                let finalized = tokio::time::timeout(read_timeout, l1.finalized_number())
+                    .await
+                    .map_err(|_| FetchError::Timeout("registry finalized read"))??;
                 let proof_anchor = if block == anchor.number {
                     (anchor.number, anchor.hash, anchor.state_root)
                 } else {
@@ -461,7 +476,14 @@ impl<L: L1Source, E: Engine> App<L, E> {
                     Ok(witness) => witness,
                     Err(error) => {
                         let anchor = (proof_anchor.0, proof_anchor.1);
-                        return Err(own_l1_proof_failure(&*l1, anchor, read_timeout, error).await);
+                        return Err(own_l1_proof_failure(
+                            &*l1,
+                            anchor,
+                            finalized,
+                            read_timeout,
+                            error,
+                        )
+                        .await);
                     }
                 };
                 Ok::<_, FetchError>(PrefetchedCommittee { witness, proof_anchor })

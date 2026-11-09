@@ -403,6 +403,42 @@ async fn an_own_l1_reproof_failing_under_the_candidate_root_halts() {
     }
 }
 
+/// (d'') A re-proof at the candidate anchor that fails while the own L1 no longer holds that
+/// anchor final, as after a failover to an endpoint that is behind, is missing data: the round
+/// proposes nothing and writes no fatal evidence, for a retained witness and for the one just
+/// discovered alike (SYNC-9-7).
+#[tokio::test]
+async fn an_own_l1_reproof_whose_anchor_stopped_being_final_pauses() {
+    for retained in [true, false] {
+        let fx = Fixture::genesis(3);
+        let dir = tempfile::tempdir().unwrap();
+        let (mut app, _) = before_switch(&fx, dir.path()).await;
+        if retained {
+            let state = app.state().unwrap().clone();
+            let witness = witness_at(&app, PARENT_ANCHOR).await;
+            app.cache_committee_witness(&state, 2, &witness).unwrap();
+        }
+        app.l1().state().calls.clear();
+        app.l1().state().proof_tamper_at = Some((app.params.registry, NEW_ANCHOR));
+        // The proposal's finalized read (and the discovery's) still see NEW_ANCHOR; the read
+        // after the failed proof sees the own L1 behind it.
+        for _ in 0..if retained { 1 } else { 2 } {
+            app.l1().state().finalized_script.push_back(Ok(NEW_ANCHOR));
+        }
+        app.l1().set_finalized(NEW_ANCHOR - 1);
+        let req = prepare_req(next_height(&app), bft_time(&app));
+        let result = app.handle(Request::PrepareProposal(req)).await;
+        assert!(result.is_ok(), "retained {retained}: {result:?}");
+        assert!(app.store.fatal_evidence().unwrap().is_none(), "retained {retained}");
+        let reproved = reproof_calls(&app, NEW_ANCHOR);
+        assert!(
+            registry_calls(&app).ends_with(&reproved),
+            "retained {retained}: the candidate re-proof ran last: {:?}",
+            app.l1().calls()
+        );
+    }
+}
+
 /// (e) A later round at `switch 2`, after the own L1 finalized past the anchor an earlier
 /// round proved under, re-proves the witness that round retained: finality moving between
 /// rounds never restarts the registry discovery.
