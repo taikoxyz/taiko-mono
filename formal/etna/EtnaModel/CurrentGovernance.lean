@@ -59,14 +59,30 @@ inductive DeployedTrace (env : Environment) : World → World → Type
   | node {first w : World} (prior : DeployedTrace env first w) (after : Node)
       (event : NodeEvent env w after) : DeployedTrace env first { w with node := after }
 
+/-- RECOV-8-24 to 8-28 as an external duty of a verifier-failure rollback. A retained
+record is trusted when some admissible history from `initial` certifies it (`Custody.Certified`)
+or it is the current start record (`Custody.Pending`); otherwise it was written by a bad
+landing. The duty holds when `trusted` is a retained record with the snapshot written with
+it, every retained record at or below it is trusted, and the first retained record above it
+is bad. So a verifier failure happened (RECOV-8-24), and `trusted` is the last trusted
+landing, the last landing before the first bad one, or the start record if no landing is
+trusted (RECOV-8-28). It cannot be a guard of `rollback` itself: `Certified` quantifies over
+`Trace`, which `rollback` builds. -/
+def RollbackAuthorized (env : Environment) (initial w : World) (trusted : Checkpoint)
+    (snapshot : Nat) : Prop :=
+  trusted ∈ w.activeRecords ∧ (trusted,snapshot) ∈ w.activeSnapshots ∧
+  (∀ r ∈ w.activeRecords, r.height ≤ trusted.height →
+    Custody.Certified env initial r ∨ Custody.Pending env w r) ∧
+  ∃ bad ∈ w.activeRecords, trusted.height < bad.height ∧
+    ¬ Custody.Certified env initial bad ∧ ¬ Custody.Pending env w bad ∧
+    ∀ r ∈ w.activeRecords, r.height < bad.height → r.height ≤ trusted.height
+
 /-- These are external authorization duties over instrumented history, not runtime
-checks. A correction follows no successful landing; a rollback selects a retained
-checkpoint and restores the snapshot recorded with it. These duties do not establish
-the complete last-trusted-before-first-bad target policy or state a custody outcome. -/
-def UpgradeAuthorized (w : World) : Call → Prop
+checks. A correction follows no successful landing; a rollback meets `RollbackAuthorized`
+for the history's initial world. They state no custody outcome. -/
+def UpgradeAuthorized (env : Environment) (initial w : World) : Call → Prop
   | .correctStart _ _ _ _ => w.everLanded = false
-  | .rollback _ trusted snapshot =>
-      trusted ∈ w.activeRecords ∧ (trusted,snapshot) ∈ w.activeSnapshots
+  | .rollback _ trusted snapshot => RollbackAuthorized env initial w trusted snapshot
   | _ => True
 
 /-- Authorization is required only for successful raw upgrades in this actual history.
@@ -74,8 +90,8 @@ It does not quantify over all possible owner calls or all raw traces. -/
 def AuthorizedUpgrades {env : Environment} : {first last : World} →
     DeployedTrace env first last → Prop
   | _,_,.refl _ => True
-  | _,_,@DeployedTrace.call _ _ w prior call => AuthorizedUpgrades prior ∧
-      ∀ t, execute env w call = some t → UpgradeAuthorized w call
+  | first,_,@DeployedTrace.call _ _ w prior call => AuthorizedUpgrades prior ∧
+      ∀ t, execute env w call = some t → UpgradeAuthorized env first w call
   | _,_,.node prior _ _ => AuthorizedUpgrades prior
 
 end Etna.Design.Current.Protocol.Governance

@@ -25,10 +25,22 @@ theorem catalogue_bytes {env : Environment} {w : World} {archive : List Blocks.H
   rw [← same]
   rfl
 
+/-- While every retained record is certified or the pending start, no rollback meets its
+verifier-failure duty, which needs a bad retained record above its target. -/
+private theorem no_rollback_authorized {env : Environment} {initial w : World}
+    {trusted : Checkpoint} {snapshot : Nat}
+    (records : ∀ cp ∈ w.activeRecords, Custody.Certified env initial cp ∨ Custody.Pending env w cp) :
+    ¬ Governance.RollbackAuthorized env initial w trusted snapshot := by
+  intro authorized
+  obtain ⟨_,_,_,bad,retained,_,uncertified,unpending,_⟩ := authorized
+  rcases records bad retained with certified | pending
+  · exact uncertified certified
+  · exact unpending pending
+
 theorem fund_safety : FundSafety := by
   intro env registry premises w trace
   refine ⟨Custody.trace_coherent premises.currentRegistryGenesis premises.currentPrimitives premises.currentVerifierSound trace,
-    Custody.trace_legacy_authenticated premises.currentPrimitives trace,?_,?_,?_,?_,?_,?_⟩
+    Custody.trace_legacy_authenticated premises.currentPrimitives trace,?_,?_,?_,?_,?_,?_,?_,?_⟩
   · intro a t accepted
     exact Custody.landing_edge_authorized premises.currentRegistryGenesis premises.currentPrimitives premises.currentVerifierSound trace accepted
   · intro later future ever
@@ -44,6 +56,11 @@ theorem fund_safety : FundSafety := by
       premises.currentUnzenExtension premises.currentVerifierSound trace,
       Custody.trace_switching_fence premises.currentRegistryGenesis switching premises.currentPrimitives
         premises.currentUnzenExtension premises.currentVerifierSound trace⟩
+  · intro later run
+    exact run.retains premises.currentRegistryGenesis premises.currentPrimitives premises.currentVerifierSound trace
+  · intro trusted snapshot
+    exact no_rollback_authorized (Custody.trace_invariant premises.currentRegistryGenesis
+      premises.currentPrimitives premises.currentVerifierSound trace).records
 
 theorem accountable_finality : AccountableFinality := by
   intro env registry engine premises w trace initialized
@@ -116,6 +133,41 @@ theorem deployed_claims {env : Environment} {registry : RegistryMachine.State} {
   exact ⟨fund_safety env registry premises.toFundPremises w trace,
     accountable_finality env registry engine premises w trace initialized,
     forced_inclusion_integrity env registry engine premises w trace⟩
+
+/-- SPEC section 1, finality: under H1's premises an actual raw DAO history from a fresh
+deployment, with every successful upgrade authorized, never executes a rollback, because a
+rollback is authorized only after a verifier failure (`Governance.RollbackAuthorized`). -/
+theorem deployed_rollback_free {env : Environment} {registry : RegistryMachine.State} {w : World}
+    (premises : FundPremises env registry)
+    (history : Governance.DeployedTrace env (empty env registry) w)
+    (authorization : Governance.AuthorizedUpgrades history) :
+    CheckpointRisk.RollbackFreeRun env (empty env registry) w := by
+  induction history with
+  | refl => exact .refl _
+  | @call before prior call ih =>
+    have duties : Governance.AuthorizedUpgrades prior ∧ (∀ t, Governance.execute env before call = some t →
+        Governance.UpgradeAuthorized env (empty env registry) before call) := by
+      simpa only [Governance.AuthorizedUpgrades] using authorization
+    have run := ih duties.1
+    cases ok : Governance.execute env before call with
+    | none => simpa only [Governance.transact,ok,Option.getD_none] using run
+    | some t =>
+      have duty := duties.2 t ok
+      have ordinary : CheckpointRisk.OrdinaryCall call := by
+        cases call with
+        | rollback caller trusted snapshot =>
+          have invariant := Custody.trace_invariant premises.currentRegistryGenesis premises.currentPrimitives
+            premises.currentVerifierSound (Governance.authorized_trace_refines prior duties.1)
+          exact no_rollback_authorized invariant.records duty
+        | _ => trivial
+      have actual : Protocol.transact env before call = t := by
+        simp only [Protocol.transact,Governance.execute_refines duty ok,Option.getD_some]
+      have raw : Governance.transact env before call = t := by
+        simp only [Governance.transact,ok,Option.getD_some]
+      rw [raw,← actual]
+      exact .call run call ordinary
+  | node prior after event ih =>
+    exact .node (ih (by simpa only [Governance.AuthorizedUpgrades] using authorization)) after event
 
 /-- H4: from every reachable, initialized state satisfying `LiveAt`, under `RecoveryPremises`, a
 rollback-free path with one plain recovery reaches an accepted landing, above the starting

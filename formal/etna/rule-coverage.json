@@ -347,9 +347,14 @@
       "theorems": [
         "Etna.Design.Current.Protocol.Custody.coherent_signal_bounded",
         "Etna.Design.Current.Protocol.Custody.rollback_coherent",
-        "Etna.Design.Current.Protocol.Custody.rollback_snapshot_provenance"
+        "Etna.Design.Current.Protocol.Custody.rollback_snapshot_provenance",
+        "Etna.Design.Current.Protocol.Governance.authorized_rollback_restores"
       ],
-      "reason": "Rollback truncates retained signal/custody associations at the trusted checkpoint; no governance mechanism proof. Modelled signals are SignalService checkpoints only: the receive cache and Bridge RETRIABLE messages of RECOV-8-27a are not modelled."
+      "reason": "Rollback truncates retained signal/custody associations at the trusted checkpoint; a raw rollback that meets its duty restores the target's checkpoint and FI head and the snapshot saved with it and keeps only the records at or below it. No governance mechanism proof. Modelled signals are SignalService checkpoints only: the receive cache and Bridge RETRIABLE messages of RECOV-8-27a are not modelled."
+    },
+    "RECOV-8-28": {
+      "theorems": ["Etna.Design.Current.Protocol.Governance.rollback_target_unique"],
+      "reason": "The target rule is an external authorization duty of raw DAO rollbacks (Governance.RollbackAuthorized): every retained record at or below the target is trusted (Custody.Certified from the history's initial world, or the pending start record) and the first retained record above it is bad. The theorem shows only that the duty fixes one target height; existence of a target after a verifier failure, the start-rewrite clause and generation counting are not shown. Bad is judged on the record, not on the landing's signal; the DAO's choice is not a contract check."
     },
     "RECOV-8-38": {
       "theorems": [

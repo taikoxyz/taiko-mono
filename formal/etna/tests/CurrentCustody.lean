@@ -422,18 +422,59 @@ example : (correctStart switchEnv switchRestored 7 2 502 502).isNone = true ∧
 -- Ghost guards describe DAO upgrade admissibility, not storage checks. Erasing them
 -- accepts these raw owner actions, and external historical authorization rejects them.
 example : (Governance.rawCorrectStart switchEnv switchRestored 7 2 502 502).isSome = true ∧
-    ¬ Governance.UpgradeAuthorized switchRestored (.correctStart 7 2 502 502) := by
+    ¬ Governance.UpgradeAuthorized switchEnv switchInitial switchRestored (.correctStart 7 2 502 502) := by
   constructor
   · decide +kernel
   · change ¬ switchRestored.everLanded = false
     decide +kernel
 
 example : (Governance.rawRollback env afterFirst 7 source.inbox.checkpoint 999).isSome = true ∧
-    ¬ Governance.UpgradeAuthorized afterFirst (.rollback 7 source.inbox.checkpoint 999) := by
+    ¬ Governance.UpgradeAuthorized env initial afterFirst (.rollback 7 source.inbox.checkpoint 999) := by
   constructor
   · decide +kernel
-  · change ¬ (source.inbox.checkpoint ∈ afterFirst.activeRecords ∧
-      (source.inbox.checkpoint,999) ∈ afterFirst.activeSnapshots)
+  · intro authorized
+    change Governance.RollbackAuthorized env initial afterFirst source.inbox.checkpoint 999 at authorized
+    exact absurd authorized.2.1 (by decide +kernel)
+
+-- RECOV-8-28: the target is the last trusted landing. Height 1 is certified; a later landing
+-- that the always-accepting verifier takes writes height 2. Restoring the start record from
+-- there passes over the certified landing, so it is not authorized whether or not height 2 is
+-- bad, although the raw owner action succeeds and the old duties (a retained record and its
+-- saved snapshot) hold.
+def laterLanding : Landing := { landing with input := ⟨0,2,999,202,0,999,1,0,0⟩ }
+def afterLater := landed afterFirst laterLanding
+
+theorem later_checks : LandingChecks env afterFirst laterLanding := by decide +kernel
+theorem later_accepted : Protocol.land env afterFirst laterLanding = some afterLater := by
+  simp [Protocol.land,later_checks,afterLater]
+
+theorem first_certified : Custody.Certified env initial afterFirst.inbox.checkpoint := by
+  unfold Custody.Certified
+  refine ⟨h1,?_,rfl,first_path⟩
+  unfold Custody.HeaderOf
+  decide +kernel
+
+theorem rollback_over_certified_refused :
+    source.inbox.checkpoint ∈ afterLater.activeRecords ∧
+    (source.inbox.checkpoint,0) ∈ afterLater.activeSnapshots ∧
+    (Governance.rawRollback env afterLater 7 source.inbox.checkpoint 0).isSome = true ∧
+    ¬ Governance.RollbackAuthorized env initial afterLater source.inbox.checkpoint 0 := by
+  refine ⟨by decide +kernel,by decide +kernel,by decide +kernel,fun authorized => ?_⟩
+  obtain ⟨_,_,_,bad,retained,above,uncertified,_,between⟩ := authorized
+  have records : afterLater.activeRecords =
+      [afterLater.inbox.checkpoint,afterFirst.inbox.checkpoint,source.inbox.checkpoint] := by
     decide +kernel
+  have heights : afterLater.inbox.checkpoint.height = 2 ∧ afterFirst.inbox.checkpoint.height = 1 ∧
+      source.inbox.checkpoint.height = 0 := by decide +kernel
+  obtain ⟨two,one,zero⟩ := heights
+  rw [records] at retained between
+  rcases List.mem_cons.mp retained with rfl | retained
+  · have skipped := between afterFirst.inbox.checkpoint
+      (List.mem_cons_of_mem _ List.mem_cons_self) (by omega)
+    omega
+  rcases List.mem_cons.mp retained with rfl | retained
+  · exact uncertified first_certified
+  · rw [List.mem_singleton.mp retained] at above
+    omega
 
 end Etna.CurrentCustodyRegression

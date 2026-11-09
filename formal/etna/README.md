@@ -14,7 +14,7 @@ drift.
 ## What is proved, and what is not
 
 This package proves **conditional, design-level safety and recoverability** of the decoded
-Etna machine. Exact claims live in `EtnaStatements/Current.lean` (251 lines); composition is in
+Etna machine. Exact claims live in `EtnaStatements/Current.lean` (260 lines); composition is in
 `EtnaProofs/Headline/Current.lean`. Every claim holds for every reachable `Trace` from a
 fresh deployment under explicit premises: **H1 assumes the five fields of `FundPremises`;
 H2 and H3 assume all fifteen fields of `Premises`**, which extends `FundPremises`; **H4
@@ -26,7 +26,10 @@ eight per-state hypotheses of `LiveAt` (below).
   None of H1's five premises concerns consensus (signature soundness, codec, vote attribution
   or honesty), so H1 holds whatever the committee signs. This is the formal form of SPEC
   section 1's statement that even a committee acting maliciously as a whole cannot take funds
-  on L1.
+  on L1. H1 also states SPEC section 1's finality of checkpoints: every later run without a
+  `rollback` keeps each retained signal and, once something has landed, each retained landing
+  record and a checkpoint at least as high; and no rollback is authorized, because a rollback
+  needs a bad landing (a verifier failure) and under H1's premises there is none.
 - **H2, accountable finality.** Two conflicting commits at the same height and round imply an
   overlap of more than one third of the voting power with authentic evidence and an executable
   funded slash; with honest locking and a Byzantine minority, valid chains agree.
@@ -119,7 +122,7 @@ claim that relies on them as "the claim holds, or a hash collision exists".
 The **review surface** is what a reviewer must read to know what H1–H4, the seven
 joint-premise witnesses and the trap witness mean: their statements and every Etna definition
 they use, but no proof. `review-surface.lock.json` records a SHA-256 of the kernel terms of
-each of those constants (1,464 at this revision). `python3 scripts/review_surface.py --check`
+each of those constants (1,466 at this revision). `python3 scripts/review_surface.py --check`
 fails if the lock is stale; the `etna-formal` job runs it. Proof-only changes never touch the
 lock.
 
@@ -152,6 +155,10 @@ edges. It is a source index, not a compiler-resolved dependency graph or a proof
 
 H1 derives one retained header/parent chain for all Etna signals, reachable authenticated
 roots, actual execution-time landing suffixes, one-shot origin writing and start freezing.
+For SPEC section 1's finality it derives that a later run without `rollback`
+(`CheckpointRisk.RollbackFreeRun`) loses no retained signal and, after a landing, no retained
+record and no checkpoint height (`CheckpointRisk.RollbackFreeRun.retains`), and that no
+rollback meets `Governance.RollbackAuthorized`.
 Ordinary Unzen proofs must strictly advance proposals and match their decoded boundary
 parent to the stored finalized hash. The upstream header-extension primitive then derives
 a monotone legacy frontier and strict separation of the legacy and Etna signals emitted by this modeled execution.
@@ -182,8 +189,9 @@ The SignalService receive cache and Bridge messages left `RETRIABLE`, which RECO
 makes the rollback upgrade invalidate until they are proven again, are not modelled.
 A regression constructs that loss and rejects treating it as normal execution.
 There is no restart theorem after a rollback; the normal guarantee then remains
-inapplicable for that deployment. The normal result covers heights above the actual
-checkpoint only. Historical liability also does not assert that legitimately withdrawn old stake remains
+inapplicable for that deployment. Under H1's premises no rollback is authorized, so an
+authorized deployed history never contains one (`Headlines.deployed_rollback_free`). The
+normal result covers heights above the actual checkpoint only. Historical liability also does not assert that legitimately withdrawn old stake remains
 escrowed forever. Temporal agreement uses an actual closed common cutoff in one generation.
 
 H3 derives exact FIFO intervals from complete closed journals, due-only skipping, early
@@ -271,7 +279,22 @@ upgrade execution; a separate **per-history** `AuthorizedUpgrades` condition rec
 historical correction/restore duties. `Headlines.deployed_claims` derives initialized
 endpoint claims through that explicit refinement, and `Headlines.deployed_recoverability`
 derives H4 the same way. Owner identity alone is insufficient.
-It does not authenticate the complete last-trusted-before-first-bad target-selection policy.
+
+A rollback's duty is `Governance.RollbackAuthorized` (RECOV-8-24 to 8-28). A retained record
+is **trusted** when some admissible history certifies it (`Custody.Certified`) or it is the
+current start record (`Custody.Pending`); otherwise a **bad** landing wrote it. The duty
+requires the target to be a retained record restored with the snapshot saved with it, every
+retained record at or below it to be trusted, and the first retained record above it to be
+bad. So a verifier failure happened, and the target is the last trusted landing, or the start
+record if no landing is trusted (RECOV-8-28). It cannot be a guard of `rollback` itself,
+because `Certified` quantifies over `Trace`, which `rollback` builds.
+`Governance.rollback_target_unique` shows that the duty leaves no choice of target height,
+and `Governance.authorized_rollback_restores` shows the effect: the checkpoint, FI head and
+snapshot become the target's, and only trusted records stay. `Headlines.deployed_rollback_free`
+shows that under H1's premises an authorized deployed history from a fresh deployment never
+executes a rollback, so H2's rollback-free results apply to it. Judging a landing by the record
+it wrote is a model choice: a bad landing whose record happens to be certified (its signal's
+state root is not judged) counts as trusted unless a bad record lies below it.
 
 The main profile starts with raw empty `RegistryMachine.Genesis`. It does not cover the
 existing-registry retarget opening in START-10-16a. Seeded identity/funding preservation
@@ -318,7 +341,7 @@ the current proofs reuse, and fourteen semantic pins (`EtnaProofs/Contracts.lean
 is weakened without editing its pin.
 
 The inventory is **60 partial / 508 deferred clauses**, and **43 narrow partial /
-36 supporting / 529 deferred binding rules**, plus 32 deferred assumption/limitation rows.
+37 supporting / 528 deferred binding rules**, plus 32 deferred assumption/limitation rows.
 SWITCH has narrow first-fence/root evidence. All 93 ANCHORLESS and 47 ACCEPTANCE
 clauses remain deferred. Margin arithmetic, bridge resolver/EIP-4788/storage migration,
 production parsing/crypto/EL/guest/token/Solidity/Comet/store refinement, operational

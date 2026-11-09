@@ -1224,6 +1224,180 @@ theorem RollbackFreeRun.normal {env : Environment} {registry : RegistryMachine.S
       simpa only [Protocol.transact,ok,Option.getD_some] using ordinary_snapshot_order genesis ih primitive sound ordinary ok
   | node prior after valid ih => exact .node ih after valid
 
+/-- One successful ordinary call keeps every retained signal. Once something has landed it
+also keeps every retained record and never lowers the checkpoint: only `land` writes one,
+above the old checkpoint, and the calls that rewrite the start are refused after a landing. -/
+theorem execute_retains {env : Environment} {initial w t : World} {call : Call}
+    (shape : Journal.FrontierShape w) (held : Protocol.Custody.Coherent env initial w)
+    (ordinary : OrdinaryCall call) (ok : execute env w call = some t) :
+    (∀ s ∈ w.inbox.signals, s ∈ t.inbox.signals) ∧
+      (w.everLanded = true → w.inbox.checkpoint.height ≤ t.inbox.checkpoint.height ∧
+        ∀ cp ∈ w.activeRecords, cp ∈ t.activeRecords) := by
+  have keep : t.inbox.signals = w.inbox.signals → t.inbox.checkpoint = w.inbox.checkpoint →
+      t.activeRecords = w.activeRecords → (∀ s ∈ w.inbox.signals, s ∈ t.inbox.signals) ∧
+      (w.everLanded = true → w.inbox.checkpoint.height ≤ t.inbox.checkpoint.height ∧
+        ∀ cp ∈ w.activeRecords, cp ∈ t.activeRecords) := by
+    intro signals checkpoint records
+    rw [signals,checkpoint,records]
+    exact ⟨fun _ m => m,fun _ => ⟨Nat.le_refl _,fun _ m => m⟩⟩
+  cases call with
+  | advance number =>
+    change Protocol.advance env w number = some t at ok
+    unfold Protocol.advance at ok
+    split at ok
+    next => cases Option.some.inj ok; exact keep rfl rfl rfl
+    next => simp at ok
+  | initializeInbox caller =>
+    change Protocol.initializeInbox env w caller = some t at ok
+    unfold Protocol.initializeInbox at ok
+    split at ok
+    next guard =>
+      have unstarted := shape.uninitialized guard.2.1
+      have none := Protocol.Custody.unstarted_no_signals held unstarted
+      have unlanded := shape.unstarted unstarted
+      exact ⟨by simp [none],fun ever => by simp [ever] at unlanded⟩
+    next => simp at ok
+  | setOrigin caller height hash root =>
+    change Protocol.setOrigin env w caller height hash root = some t at ok
+    unfold Protocol.setOrigin at ok
+    split at ok
+    next guard =>
+      cases Option.some.inj ok
+      have unlanded := shape.unstarted guard.2.1
+      exact ⟨fun _ m => m,fun ever => by simp [ever] at unlanded⟩
+    next => simp at ok
+  | correctStart caller height hash root =>
+    change Protocol.correctStart env w caller height hash root = some t at ok
+    unfold Protocol.correctStart at ok
+    obtain ⟨old,_,ok⟩ := Option.bind_eq_some_iff.mp ok
+    split at ok
+    next guard =>
+      cases Option.some.inj ok
+      exact ⟨fun _ m => m,fun ever => by simp [ever] at guard⟩
+    next => simp at ok
+  | registry caller action =>
+    change Protocol.registryCall env w caller action = some t at ok
+    unfold Protocol.registryCall at ok
+    split at ok
+    next =>
+      obtain ⟨result,_,rfl⟩ := Option.map_eq_some_iff.mp ok
+      exact keep rfl rfl rfl
+    next => simp at ok
+  | enqueue raw paid refund =>
+    change Protocol.enqueue env w raw paid refund = some t at ok
+    unfold Protocol.enqueue at ok
+    split at ok
+    next =>
+      obtain ⟨inbox,inner,rfl⟩ := Option.map_eq_some_iff.mp ok
+      unfold Forced.enqueue at inner
+      dsimp only at inner
+      split at inner
+      next => cases Option.some.inj inner; exact keep rfl rfl rfl
+      next => simp at inner
+    next => simp at ok
+  | sweep transfer =>
+    change Protocol.sweep w transfer = some t at ok
+    obtain ⟨inbox,inner,rfl⟩ := Option.map_eq_some_iff.mp ok
+    unfold Forced.sweep at inner
+    split at inner
+    next => cases Option.some.inj inner; exact keep rfl rfl rfl
+    next => simp at inner
+  | forcedETH amount =>
+    cases Option.some.inj ok
+    exact keep rfl rfl rfl
+  | scheduleRules caller rule time =>
+    change Protocol.scheduleRules env w caller rule time = some t at ok
+    obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
+    exact keep rfl rfl rfl
+  | scheduleStop caller time grid =>
+    change Protocol.scheduleStop env w caller time grid = some t at ok
+    obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
+    exact keep rfl rfl rfl
+  | recover request =>
+    change Protocol.recover env w request = some t at ok
+    unfold Protocol.recover at ok
+    obtain ⟨start,_,ok⟩ := Option.bind_eq_some_iff.mp ok
+    dsimp only at ok
+    cases upgrade : request.upgrade <;> simp only [upgrade,Option.isSome_none,Option.isSome_some,
+      Option.getD_none,Option.getD_some,Bool.false_eq_true,↓reduceIte] at ok
+    all_goals
+      split at ok
+      next =>
+        obtain ⟨schedule,_,ok⟩ := Option.bind_eq_some_iff.mp ok
+        obtain ⟨registry,_,rfl⟩ := Option.map_eq_some_iff.mp ok
+        exact keep rfl rfl rfl
+      next => simp at ok
+  | invalidate caller nonce =>
+    change Protocol.invalidate env w caller nonce = some t at ok
+    unfold Protocol.invalidate at ok
+    split at ok
+    next => cases Option.some.inj ok; exact keep rfl rfl rfl
+    next => simp at ok
+  | rollback caller trusted restored => exact False.elim ordinary
+  | land a =>
+    obtain ⟨check,rfl⟩ := Protocol.land_success ok
+    exact ⟨fun _ m => List.mem_append_left _ m,
+      fun _ => ⟨Nat.le_of_lt check.progress,fun _ m => List.mem_cons_of_mem _ m⟩⟩
+  | unzenProve proposal header proof =>
+    change Protocol.unzenProve env w proposal header proof = some t at ok
+    unfold Protocol.unzenProve at ok
+    split at ok
+    next => cases Option.some.inj ok; exact keep rfl rfl rfl
+    next => simp at ok
+  | image caller image register | verifier caller version =>
+    simp only [Protocol.execute] at ok
+    split at ok
+    next => cases Option.some.inj ok; exact keep rfl rfl rfl
+    next => simp at ok
+  | observe number =>
+    change Protocol.observe env w number = some t at ok
+    obtain ⟨s,_,rfl⟩ := Option.map_eq_some_iff.mp ok
+    exact keep rfl rfl rfl
+  | importSnapshot candidate durable =>
+    change Protocol.nodeImport env w candidate durable = some t at ok
+    unfold Protocol.nodeImport at ok
+    split at ok
+    next => simp at ok
+    next =>
+      split at ok
+      next =>
+        obtain ⟨installed,_,rfl⟩ := Option.map_eq_some_iff.mp ok
+        exact keep rfl rfl rfl
+      next => simp at ok
+  | restart | openSigner _ | switchSigner _ =>
+    cases Option.some.inj ok
+    exact keep rfl rfl rfl
+  | sign message signature persisted =>
+    obtain ⟨result,_,rfl⟩ := Option.map_eq_some_iff.mp ok
+    exact keep rfl rfl rfl
+
+/-- SPEC section 1, finality of checkpoints: a later run without a rollback keeps every
+retained signal and, once something has landed, every retained record and a checkpoint at
+least as high. -/
+theorem RollbackFreeRun.retains {env : Environment} {registry : RegistryMachine.State}
+    {w later : World} (genesis : RegistryMachine.Genesis registry)
+    (primitive : Protocol.Custody.Primitives env) (sound : VerifierSound env (empty env registry))
+    (reach : Trace env (empty env registry) w) (run : RollbackFreeRun env w later) :
+    (∀ s ∈ w.inbox.signals, s ∈ later.inbox.signals) ∧
+      (w.everLanded = true → w.inbox.checkpoint.height ≤ later.inbox.checkpoint.height ∧
+        ∀ cp ∈ w.activeRecords, cp ∈ later.activeRecords) := by
+  induction run with
+  | refl => exact ⟨fun _ m => m,fun _ => ⟨Nat.le_refl _,fun _ m => m⟩⟩
+  | @call before prior call ordinary ih =>
+    cases ok : execute env before call with
+    | none => simpa only [Protocol.transact,ok,Option.getD_none] using ih
+    | some after =>
+      have current := Protocol.Custody.trace_append reach prior.project
+      have step := execute_retains (Journal.trace_frontier_shape current)
+        (Protocol.Custody.trace_coherent genesis primitive sound current) ordinary ok
+      simp only [Protocol.transact,ok,Option.getD_some]
+      refine ⟨fun s m => step.1 s (ih.1 s m),fun ever => ?_⟩
+      obtain ⟨height,records⟩ := ih.2 ever
+      obtain ⟨height',records'⟩ :=
+        step.2 (Protocol.Custody.trace_start_frozen reach ever prior.project).2
+      exact ⟨Nat.le_trans height height',fun cp m => records' cp (records cp m)⟩
+  | node prior after valid ih => exact ih
+
 /-- The complete normal-execution accountability result consumes the node's raw
 candidate ancestry/checkpoint hash check and derives the retention cutoff itself. -/
 theorem economically_at_risk_of_candidate {env : Environment} {registry : RegistryMachine.State}

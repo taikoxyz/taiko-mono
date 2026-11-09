@@ -166,11 +166,20 @@ class RuleCoverageTests(unittest.TestCase):
     def test_antecedents_and_unrelated_consequences_do_not_gain_rule_credit(self):
         rows = {r['rule']:r for r in self.rows()}
         for rule in ('COMM-4.3-14','PROOF-6.2-7','PROOF-6.2-17','PROOF-6.2-18',
-                     'PROOF-6.2-19','PROOF-6.2-40','FORF-4.4-8','RECOV-8-28',
+                     'PROOF-6.2-19','PROOF-6.2-40','FORF-4.4-8',
                      'RECOV-8-46','RECOV-8.3-11','RECOV-8.3-12','START-10-5d','PARAM-11-11'):
             with self.subTest(rule=rule):
                 self.assertEqual(rows[rule]['status'], 'deferred')
                 self.assertEqual(rows[rule]['theorems'], [])
+
+    def test_rollback_target_rule_credits_only_its_uniqueness(self):
+        # A theorem that assumes the rollback duty (authorized_rollback_restores) shows the
+        # RECOV-8-27 effect, not the RECOV-8-28 target; only the duty's uniqueness is credited.
+        rows = {r['rule']:r for r in self.rows()}
+        prefix = 'Etna.Design.Current.Protocol.Governance.'
+        self.assertEqual(rows['RECOV-8-28']['status'], 'supporting')
+        self.assertEqual(rows['RECOV-8-28']['theorems'], [prefix+'rollback_target_unique'])
+        self.assertIn(prefix+'authorized_rollback_restores', rows['RECOV-8-27']['theorems'])
 
     def test_switching_lane_fragment_requires_its_direct_trace_theorems(self):
         row = next(r for r in self.rows() if r['rule'] == 'START-10-5')

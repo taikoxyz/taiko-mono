@@ -82,7 +82,10 @@ The state after the landing is again reachable. Wherever `LiveAt` holds again, H
 again, so landings can resume again and again.
 
 `Headlines.deployed_recoverability` gives the same conclusion for an actual history of raw DAO
-upgrades, under the same per-upgrade authorization that `deployed_claims` uses for H1–H3.
+upgrades, under the same per-upgrade authorization that `deployed_claims` uses for H1–H3. In
+that authorization a rollback must restore the last trusted landing after a verifier failure
+(`Governance.RollbackAuthorized`, RECOV-8-28); under H1's premises no rollback qualifies, so
+such a history has none (`Headlines.deployed_rollback_free`).
 
 What the proof builds and what it takes from premises:
 
@@ -247,11 +250,14 @@ recovery keeps K, so RECOV-8.3-3a rejects it while c is off the current grid, in
 in the model. From the trapped state no path of H4's class lands in either. `LiveAt.grid`
 excludes the state; it is the narrowest condition that does.
 
-**The rollback target rule.** In the model, `rollback` accepts any retained landing record at
-or below c. A second rollback to the start record (c = 0, on every grid) escapes: the witness
-then runs a plain recovery at c = 0 and lands 0 → 3. The spec forbids that escape. RECOV-8-28
-fixes the target as the last trusted landing, here height 2, and RECOV-8-58 forbids rewinding
-the settled prefix. So the trap is stated over continuations without rollback.
+**The rollback target rule.** In the normative machine, `rollback` accepts any retained landing
+record at or below c. A second rollback to the start record (c = 0, on every grid) escapes: the
+witness then runs a plain recovery at c = 0 and lands 0 → 3. The spec forbids that escape.
+RECOV-8-28 fixes the target as the last trusted landing, here height 2, and RECOV-8-58 forbids
+rewinding the settled prefix. So the trap is stated over continuations without rollback. The
+target rule is an external duty of deployed histories (`Governance.RollbackAuthorized`), not a
+guard of `rollback`, because judging a record trusted quantifies over the traces that
+`rollback` builds; the witness runs the normative machine, which does not check it.
 
 **What the witness shows.** Its environment's verifier accepts every proof. That is the
 verifier-failure scenario that the rollback exists for, and that environment meets no premise

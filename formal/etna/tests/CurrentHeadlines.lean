@@ -85,7 +85,7 @@ example (env : Environment) (registry : RegistryMachine.State) (engine : Finalit
     (premises : Premises env registry engine) (w : World)
     (run : Trace env (empty env registry) w) (switching : env.core.unzenInbox ≠ 0) :
     Custody.LegacyEtnaDisjoint w :=
-  ((Headlines.fund_safety env registry premises.toFundPremises w run).2.2.2.2.2.2.2 switching).1
+  ((Headlines.fund_safety env registry premises.toFundPremises w run).2.2.2.2.2.2.2.1 switching).1
 
 example (env : Environment) (registry : RegistryMachine.State) (engine : Finality.Engine)
     (premises : Premises env registry engine) (w : World)
@@ -254,6 +254,40 @@ example (env : Environment) (registry : RegistryMachine.State) (engine : Finalit
     (premises : Premises env registry engine) (w : World)
     (run : Trace env (empty env registry) w) (switching : env.core.unzenInbox ≠ 0) :
     Custody.SwitchingFence env w :=
-  ((Headlines.fund_safety env registry premises.toFundPremises w run).2.2.2.2.2.2.2 switching).2
+  ((Headlines.fund_safety env registry premises.toFundPremises w run).2.2.2.2.2.2.2.1 switching).2
+
+-- SPEC section 1, finality: checkpoints survive every later run without a rollback, and no
+-- rollback meets its verifier-failure duty under H1's premises.
+example (env : Environment) (registry : RegistryMachine.State) (premises : FundPremises env registry)
+    (w : World) (run : Trace env (empty env registry) w) :
+    (∀ later, CheckpointRisk.RollbackFreeRun env w later →
+      (∀ s ∈ w.inbox.signals, s ∈ later.inbox.signals) ∧
+      (w.everLanded = true → w.inbox.checkpoint.height ≤ later.inbox.checkpoint.height ∧
+        ∀ cp ∈ w.activeRecords, cp ∈ later.activeRecords)) ∧
+    (∀ trusted snapshot, ¬ Governance.RollbackAuthorized env (empty env registry) w trusted snapshot) :=
+  (Headlines.fund_safety env registry premises w run).2.2.2.2.2.2.2.2
+
+-- An authorized raw DAO history from a fresh deployment never executes a rollback, so H2's
+-- rollback-free results apply to it.
+example (env : Environment) (registry : RegistryMachine.State) (premises : FundPremises env registry)
+    (w : World) (history : Governance.DeployedTrace env (empty env registry) w)
+    (authorization : Governance.AuthorizedUpgrades history) :
+    CheckpointRisk.RollbackFreeRun env (empty env registry) w :=
+  Headlines.deployed_rollback_free premises history authorization
+
+example (env : Environment) (registry : RegistryMachine.State) (engine : Finality.Engine)
+    (premises : Premises env registry engine) (w : World)
+    (history : Governance.DeployedTrace env (empty env registry) w)
+    (authorization : Governance.AuthorizedUpgrades history) (initialized : w.initialized = true)
+    (started : w.start.isSome = true) (h : Nat) (above : w.inbox.checkpoint.height < h)
+    (candidate : CheckpointRisk.Candidate env w h)
+    (elected : Consensus.ElectionValid (policy env w candidate.headers candidate.reference).consensus
+      (Consensus.activeAt (policy env w candidate.headers candidate.reference).consensus h)) :
+    ∀ entry ∈ (Consensus.activeAt (policy env w candidate.headers candidate.reference).consensus h).members,
+      ∃ id, StakeRisk.Retained w.registry.registry
+        (Finality.cutoff (config w) candidate.headers h) id entry.key :=
+  (Headlines.deployed_claims premises history authorization initialized).2.1.2.2.2.2.2.2
+    (Headlines.deployed_rollback_free premises.toFundPremises history authorization)
+    started h above candidate elected
 
 end Etna.CurrentHeadlineRegression

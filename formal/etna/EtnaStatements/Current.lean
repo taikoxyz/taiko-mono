@@ -50,7 +50,11 @@ def ReferenceAuthority (env : Environment) (w : World) : Prop :=
     referencePrefix other a.input.l1ReferenceBlockNumber = referencePrefix w a.input.l1ReferenceBlockNumber
 
 /-- All retained Etna signals share ONE retained checkpoint chain and header map.
-Legacy signals are authenticated separately by the existing Unzen proof boundary. -/
+Legacy signals are authenticated separately by the existing Unzen proof boundary.
+The last two conjuncts are SPEC section 1's finality of checkpoints: every later run without
+a rollback keeps each signal and, once something has landed, each retained record and a
+checkpoint at least as high; and no rollback meets its verifier-failure duty
+(`Governance.RollbackAuthorized`, RECOV-8-28), because no retained record is bad. -/
 def FundSafetyAt (env : Environment) (registry : RegistryMachine.State) (w : World) : Prop :=
     Custody.Coherent env (empty env registry) w ∧
     (∀ signal ∈ w.legacySignals, Custody.LegacySignalSafe env signal) ∧
@@ -62,7 +66,12 @@ def FundSafetyAt (env : Environment) (registry : RegistryMachine.State) (w : Wor
     (∀ cp snap, (cp,snap) ∈ w.activeSnapshots → Custody.SnapshotSource env (empty env registry) cp snap) ∧
     (∀ start, w.start = some start → ∀ caller height hash root,
       setOrigin env w caller height hash root = none) ∧
-    (env.core.unzenInbox ≠ 0 → Custody.LegacyEtnaDisjoint w ∧ Custody.SwitchingFence env w)
+    (env.core.unzenInbox ≠ 0 → Custody.LegacyEtnaDisjoint w ∧ Custody.SwitchingFence env w) ∧
+    (∀ later, CheckpointRisk.RollbackFreeRun env w later →
+      (∀ s ∈ w.inbox.signals, s ∈ later.inbox.signals) ∧
+      (w.everLanded = true → w.inbox.checkpoint.height ≤ later.inbox.checkpoint.height ∧
+        ∀ cp ∈ w.activeRecords, cp ∈ later.activeRecords)) ∧
+    (∀ trusted snapshot, ¬ Governance.RollbackAuthorized env (empty env registry) w trusted snapshot)
 
 /-- H1 needs only `FundPremises`, not the full `Premises` record. -/
 def FundSafety : Prop :=

@@ -10,7 +10,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 
 | Type       | Count | partial | partial-via | supporting | deferred | design-pending |
 | ---------- | ----: | ------: | ----------: | ---------: | -------: | -------------: |
-| rule       |   608 |      43 |           0 |         36 |      529 |              0 |
+| rule       |   608 |      43 |           0 |         37 |      528 |              0 |
 | limitation |    21 |       0 |           0 |          0 |       21 |              0 |
 | assumption |    11 |       0 |           0 |          0 |       11 |              0 |
 
@@ -18,7 +18,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 
 | Family | Rules | partial | partial-via | supporting | deferred | design-pending |
 | ------ | ----: | ------: | ----------: | ---------: | -------: | -------------: |
-| RECOV  |   114 |       3 |           0 |          8 |      103 |              0 |
+| RECOV  |   114 |       3 |           0 |          9 |      102 |              0 |
 | ENC    |    59 |       0 |           0 |          0 |       59 |              0 |
 | CONS   |    53 |       2 |           0 |          0 |       51 |              0 |
 | START  |    52 |       4 |           0 |          4 |       44 |              0 |
@@ -370,9 +370,9 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | RECOV-8-24     | rule       | deferred   | LIVE_EN-1079277c334a4883 |     14 |                                                                                                             |
 | RECOV-8-25     | rule       | deferred   | LIVE_EN-1079277c334a4883 |     14 |                                                                                                             |
 | RECOV-8-26     | rule       | deferred   | LIVE_EN-1079277c334a4883 |     14 |                                                                                                             |
-| RECOV-8-27     | rule       | partial    | LIVE_EN-1079277c334a4883 |     14 | `coherent_signal_bounded`, `rollback_coherent`, `rollback_snapshot_provenance`                              |
+| RECOV-8-27     | rule       | partial    | LIVE_EN-1079277c334a4883 |     14 | `coherent_signal_bounded`, `rollback_coherent`, `rollback_snapshot_provenance` +1                           |
 | RECOV-8-27a    | rule       | deferred   | LIVE_EN-1079277c334a4883 |     14 |                                                                                                             |
-| RECOV-8-28     | rule       | deferred   | LIVE_EN-1079277c334a4883 |     14 |                                                                                                             |
+| RECOV-8-28     | rule       | supporting | LIVE_EN-1079277c334a4883 |     14 | `rollback_target_unique`                                                                                    |
 | RECOV-8-29     | rule       | deferred   | LIVE_EN-1079277c334a4883 |     14 |                                                                                                             |
 | RECOV-8-30     | rule       | deferred   | LIVE_EN-1079277c334a4883 |     14 |                                                                                                             |
 | RECOV-8-31     | rule       | deferred   | LIVE_EN-1079277c334a4883 |     14 |                                                                                                             |
@@ -746,7 +746,8 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 - **FI-7.3-1**: Actual current due queue-head bytes are included or legally skipped under the selected interpreter.
 - **FI-7.3-2**: The inclusive block-time age bound implies due service under the selected interpreter.
 - **FI-7.3-4**: A valid decoded block/every actual consecutive cut edge of a valid chain consumes at most one queue entry. This is per-block cardinality only; aggregate endpoint bounds do not supply this pointwise conclusion, and linear fee growth/sender balances are separate.
-- **RECOV-8-27**: Rollback truncates retained signal/custody associations at the trusted checkpoint; no governance mechanism proof. Modelled signals are SignalService checkpoints only: the receive cache and Bridge RETRIABLE messages of RECOV-8-27a are not modelled.
+- **RECOV-8-27**: Rollback truncates retained signal/custody associations at the trusted checkpoint; a raw rollback that meets its duty restores the target's checkpoint and FI head and the snapshot saved with it and keeps only the records at or below it. No governance mechanism proof. Modelled signals are SignalService checkpoints only: the receive cache and Bridge RETRIABLE messages of RECOV-8-27a are not modelled.
+- **RECOV-8-28**: The target rule is an external authorization duty of raw DAO rollbacks (Governance.RollbackAuthorized): every retained record at or below the target is trusted (Custody.Certified from the history's initial world, or the pending start record) and the first retained record above it is bad. The theorem shows only that the duty fixes one target height; existence of a target after a verifier failure, the start-rewrite clause and generation counting are not shown. Bad is judged on the record, not on the landing's signal; the DAO's choice is not a contract check.
 - **RECOV-8-38**: Successful recovery has a strictly sorted FI clear list entirely within the pending execution-time queue interval; no nonce/generation conclusion.
 - **RECOV-8-43**: Successful recovery has a strictly sorted FI clear list entirely within the pending execution-time queue interval; no nonce/generation conclusion.
 - **RECOV-8-44**: Successful decoded recovery clears exactly listed transaction hashes via fixed hashBytes([]), retaining timestamps/enqueue blocks. This is the queue transformation only; keccak implementation and authorization are separate.

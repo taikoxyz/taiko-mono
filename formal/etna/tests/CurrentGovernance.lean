@@ -47,23 +47,46 @@ def advanced := Governance.transact env initial (.advance 2)
 def initialized := Governance.transact env advanced (.initializeInbox 7)
 def checkpoint := initialized.inbox.checkpoint
 
-def validHistory : Governance.DeployedTrace env initial
+-- The rollback duty (RECOV-8-24 to 8-28): trusted and every record below it are trusted, and
+-- the first retained record above it is bad.
+example (initial w : World) (trusted : Checkpoint) (snapshot : Nat) :
+    Governance.RollbackAuthorized env initial w trusted snapshot =
+      (trusted ∈ w.activeRecords ∧ (trusted,snapshot) ∈ w.activeSnapshots ∧
+        (∀ r ∈ w.activeRecords, r.height ≤ trusted.height →
+          Custody.Certified env initial r ∨ Custody.Pending env w r) ∧
+        ∃ bad ∈ w.activeRecords, trusted.height < bad.height ∧
+          ¬ Custody.Certified env initial bad ∧ ¬ Custody.Pending env w bad ∧
+          ∀ r ∈ w.activeRecords, r.height < bad.height → r.height ≤ trusted.height) := rfl
+
+example (initial w : World) (caller : Nat) (trusted : Checkpoint) (snapshot : Nat) :
+    Governance.UpgradeAuthorized env initial w (.rollback caller trusted snapshot) =
+      Governance.RollbackAuthorized env initial w trusted snapshot := rfl
+
+-- Restoring the retained start record with its own snapshot meets the two physical duties,
+-- and the raw owner action succeeds, but nothing above it is bad: no verifier failure
+-- happened, so the rollback is not authorized.
+def unfailedHistory : Governance.DeployedTrace env initial
     (Governance.transact env initialized (.rollback 7 checkpoint 1)) :=
   .call (.call (.call (.refl _) (.advance 2)) (.initializeInbox 7)) (.rollback 7 checkpoint 1)
 
-theorem valid_authorization : Governance.AuthorizedUpgrades validHistory := by
-  unfold validHistory initialized advanced
-  rw [Governance.AuthorizedUpgrades.eq_2,Governance.AuthorizedUpgrades.eq_2,
-    Governance.AuthorizedUpgrades.eq_2,Governance.AuthorizedUpgrades.eq_1]
-  refine ⟨⟨⟨True.intro,?_⟩,?_⟩,?_⟩
-  · intro t _; trivial
-  · intro t _; trivial
-  · intro t _
-    change checkpoint ∈ initialized.activeRecords ∧ (checkpoint,1) ∈ initialized.activeSnapshots
-    decide +kernel
+theorem no_bad_record_not_authorized :
+    checkpoint ∈ initialized.activeRecords ∧ (checkpoint,1) ∈ initialized.activeSnapshots ∧
+    (Governance.rawRollback env initialized 7 checkpoint 1).isSome = true ∧
+    ¬ Governance.UpgradeAuthorized env initial initialized (.rollback 7 checkpoint 1) := by
+  refine ⟨by decide +kernel,by decide +kernel,by decide +kernel,fun authorized => ?_⟩
+  change Governance.RollbackAuthorized env initial initialized checkpoint 1 at authorized
+  obtain ⟨_,_,_,bad,retained,above,_⟩ := authorized
+  have below : ∀ r ∈ initialized.activeRecords, r.height ≤ checkpoint.height := by decide +kernel
+  exact absurd (below bad retained) (Nat.not_le.mpr above)
 
-example : Trace env initial (Governance.transact env initialized (.rollback 7 checkpoint 1)) :=
-  Governance.authorized_trace_refines validHistory valid_authorization
+theorem unfailed_history_not_authorized : ¬ Governance.AuthorizedUpgrades unfailedHistory := by
+  intro authorization
+  unfold unfailedHistory initialized advanced at authorization
+  rw [Governance.AuthorizedUpgrades.eq_2] at authorization
+  have ok : Governance.execute env initialized (.rollback 7 checkpoint 1) =
+      some ((Governance.rawRollback env initialized 7 checkpoint 1).getD initialized) := by
+    rfl
+  exact no_bad_record_not_authorized.2.2.2 (authorization.2 _ ok)
 
 theorem authorized_raw_rollback_bridge :
     rollback env initialized 7 checkpoint 1 =
@@ -73,15 +96,13 @@ theorem authorized_raw_rollback_bridge :
   exact Governance.raw_rollback_refines authorized (show Governance.rawRollback env initialized
     7 checkpoint 1 = some ((Governance.rawRollback env initialized 7 checkpoint 1).getD initialized) by rfl)
 
-example : (Governance.rawRollback env initialized 7 checkpoint 999).isSome = true ∧
+theorem wrong_snapshot_not_authorized :
+    (Governance.rawRollback env initialized 7 checkpoint 999).isSome = true ∧
     (rollback env initialized 7 checkpoint 999).isNone = true ∧
-    ¬ Governance.UpgradeAuthorized initialized (.rollback 7 checkpoint 999) := by
-  constructor
-  · decide +kernel
-  constructor
-  · decide +kernel
-  · change ¬ (checkpoint ∈ initialized.activeRecords ∧ (checkpoint,999) ∈ initialized.activeSnapshots)
-    decide +kernel
+    ¬ Governance.UpgradeAuthorized env initial initialized (.rollback 7 checkpoint 999) := by
+  refine ⟨by decide +kernel,by decide +kernel,fun authorized => ?_⟩
+  change Governance.RollbackAuthorized env initial initialized checkpoint 999 at authorized
+  exact absurd authorized.2.1 (by decide +kernel)
 
 def invalidHistory : Governance.DeployedTrace env initial
     (Governance.transact env initialized (.rollback 7 checkpoint 999)) :=
@@ -91,14 +112,118 @@ example : ¬ Governance.AuthorizedUpgrades invalidHistory := by
   intro authorization
   unfold invalidHistory initialized advanced at authorization
   rw [Governance.AuthorizedUpgrades.eq_2] at authorization
-  have duty := authorization.2
   have ok : Governance.execute env initialized (.rollback 7 checkpoint 999) =
       some ((Governance.rawRollback env initialized 7 checkpoint 999).getD initialized) := by
     rfl
-  have impossible := duty _ ok
-  exact (show ¬ Governance.UpgradeAuthorized initialized (.rollback 7 checkpoint 999) from by
-    change ¬ (checkpoint ∈ initialized.activeRecords ∧ (checkpoint,999) ∈ initialized.activeSnapshots)
-    decide +kernel) impossible
+  exact wrong_snapshot_not_authorized.2.2 (authorization.2 _ ok)
+
+-- A verifier failure (RECOV-8-24): every proof is accepted, and no header with EL hash 999 is
+-- hash-bound, so the landing that writes 999 at height 1 is bad. No landing is trusted, so the
+-- last trusted landing is the start record (RECOV-8-28), and restoring it is authorized.
+def failEnv : Environment :=
+  { env with verify := fun _ _ _ _ _ => true,
+             headerHash := fun h => if h.elHash = 999 then 0 else headerCommitment h }
+def failInitial := empty failEnv registry
+def failAdvanced := Governance.transact failEnv failInitial (.advance 2)
+def failStarted := Governance.transact failEnv failAdvanced (.initializeInbox 7)
+def failImaged := Governance.transact failEnv failStarted (.image 7 11 true)
+def failSource := Governance.transact failEnv failImaged (.advance 3)
+def badLanding : Landing := ⟨⟨0,1,999,0,0,999,2,0,1⟩,[],[1],[⟨.sgx,11,1⟩,⟨.sp1,11,2⟩]⟩
+def failed := Governance.transact failEnv failSource (.land badLanding)
+def startRecord := failStarted.inbox.checkpoint
+def badRecord := failed.inbox.checkpoint
+
+theorem bad_landing_accepted : (land failEnv failSource badLanding).isSome = true ∧
+    failed.activeRecords = [badRecord,startRecord] ∧ (startRecord,1) ∈ failed.activeSnapshots ∧
+    startRecord.height = 0 ∧ badRecord.height = 1 ∧ badRecord.elHash = 999 := by
+  decide +kernel
+
+theorem start_certified : Custody.Certified failEnv failInitial startRecord := by
+  have reach : Trace failEnv failInitial failAdvanced := .step (.refl _) (.call _ (.advance 2))
+  have path : Custody.Path failEnv failInitial failEnv.genesisHeader :=
+    .genesis 7 reach (show initializeInbox failEnv failAdvanced 7 = some failStarted from rfl) rfl
+  unfold Custody.Certified
+  refine ⟨failEnv.genesisHeader,?_,?_,path⟩
+  · unfold Custody.HeaderOf
+    decide +kernel
+  · unfold HashBound
+    decide +kernel
+
+theorem bad_uncertified : ¬ Custody.Certified failEnv failInitial badRecord := by
+  intro certified
+  unfold Custody.Certified Custody.HeaderOf at certified
+  obtain ⟨h,⟨_,cut⟩,bound,_⟩ := certified
+  have hash : h.elHash = 999 := by
+    have same := congrArg Cut.elHash cut
+    simp only [BlockValidity.Header.cut] at same
+    rw [same]
+    exact bad_landing_accepted.2.2.2.2.2
+  have unbound : failEnv.headerHash h = if h.elHash = 999 then 0 else headerCommitment h := rfl
+  rw [HashBound,unbound,hash] at bound
+  simp at bound
+
+theorem bad_unpending : ¬ Custody.Pending failEnv failed badRecord := by
+  intro pending
+  unfold Custody.Pending at pending
+  exact pending.1 rfl
+
+theorem failure_rollback_authorized :
+    Governance.RollbackAuthorized failEnv failInitial failed startRecord 1 := by
+  obtain ⟨_,records,snapshot,low,high,_⟩ := bad_landing_accepted
+  refine ⟨by rw [records]; exact List.mem_cons_of_mem _ List.mem_cons_self,snapshot,?_,
+    badRecord,by rw [records]; exact List.mem_cons_self,by omega,bad_uncertified,bad_unpending,?_⟩
+  · intro r retained below
+    rw [records] at retained
+    rcases List.mem_cons.mp retained with rfl | retained
+    · omega
+    · rw [List.mem_singleton.mp retained]
+      exact Or.inl start_certified
+  · intro r _ lower
+    omega
+
+def failedHistory : Governance.DeployedTrace failEnv failInitial
+    (Governance.transact failEnv failed (.rollback 7 startRecord 1)) :=
+  .call (.call (.call (.call (.call (.call (.refl _) (.advance 2)) (.initializeInbox 7))
+    (.image 7 11 true)) (.advance 3)) (.land badLanding)) (.rollback 7 startRecord 1)
+
+theorem failed_history_authorized : Governance.AuthorizedUpgrades failedHistory := by
+  unfold failedHistory failed failSource failImaged failStarted failAdvanced
+  rw [Governance.AuthorizedUpgrades.eq_2,Governance.AuthorizedUpgrades.eq_2,
+    Governance.AuthorizedUpgrades.eq_2,Governance.AuthorizedUpgrades.eq_2,
+    Governance.AuthorizedUpgrades.eq_2,Governance.AuthorizedUpgrades.eq_2,
+    Governance.AuthorizedUpgrades.eq_1]
+  refine ⟨⟨⟨⟨⟨⟨True.intro,?_⟩,?_⟩,?_⟩,?_⟩,?_⟩,?_⟩
+  · intro t _; trivial
+  · intro t _; trivial
+  · intro t _; trivial
+  · intro t _; trivial
+  · intro t _; trivial
+  · intro t _
+    exact failure_rollback_authorized
+
+example : Trace failEnv failInitial (Governance.transact failEnv failed (.rollback 7 startRecord 1)) :=
+  Governance.authorized_trace_refines failedHistory failed_history_authorized
+
+-- The authorized rollback restores the start record and voids the bad record.
+example : ((Governance.rawRollback failEnv failed 7 startRecord 1).map fun t =>
+    (t.inbox.checkpoint,t.inbox.snapshot,t.activeRecords)) = some (startRecord,1,[startRecord]) := by
+  decide +kernel
+
+example (t : World) (ok : Governance.rawRollback failEnv failed 7 startRecord 1 = some t) :
+    ∀ cp ∈ t.activeRecords, Custody.Certified failEnv failInitial cp ∨ Custody.Pending failEnv t cp :=
+  (Governance.authorized_rollback_restores failure_rollback_authorized ok).2.2.2.2
+
+-- The duty leaves no choice: every authorized target here is at the start record's height.
+example (target : Checkpoint) (snapshot : Nat)
+    (authorized : Governance.RollbackAuthorized failEnv failInitial failed target snapshot) :
+    target.height = 0 :=
+  (Governance.rollback_target_unique authorized failure_rollback_authorized).trans
+    bad_landing_accepted.2.2.2.1
+
+-- The bad record itself is never a rollback target.
+example : ¬ Governance.RollbackAuthorized failEnv failInitial failed badRecord 1 := by
+  intro authorized
+  exact (authorized.2.2.1 badRecord authorized.1 (Nat.le_refl _)).elim bad_uncertified bad_unpending
 
 -- A corrected switching origin retains the old physical mapping entry while
 -- replacing its ghost retained lineage. Physical existence does not authorize it.
@@ -135,9 +260,11 @@ theorem archived_target_raw_success_normative_refusal :
     oldCheckpoint ∉ correctedOrigin.activeRecords ∧
     (Governance.rawRollback switchEnv correctedOrigin 7 oldCheckpoint 1).isSome = true ∧
     (rollback switchEnv correctedOrigin 7 oldCheckpoint 1).isNone = true ∧
-    ¬ Governance.UpgradeAuthorized correctedOrigin (.rollback 7 oldCheckpoint 1) := by
-  unfold Governance.UpgradeAuthorized
-  decide +kernel
+    ¬ Governance.UpgradeAuthorized switchEnv switchInitial correctedOrigin (.rollback 7 oldCheckpoint 1) := by
+  have archived : oldCheckpoint ∉ correctedOrigin.activeRecords := by decide +kernel
+  refine ⟨by decide +kernel,archived,by decide +kernel,by decide +kernel,fun authorized => ?_⟩
+  change Governance.RollbackAuthorized switchEnv switchInitial correctedOrigin oldCheckpoint 1 at authorized
+  exact archived authorized.1
 
 def archivedRollbackHistory : Governance.DeployedTrace switchEnv switchInitial
     (Governance.transact switchEnv correctedOrigin (.rollback 7 oldCheckpoint 1)) :=
@@ -148,7 +275,8 @@ theorem archived_history_not_authorized : ¬ Governance.AuthorizedUpgrades archi
   unfold archivedRollbackHistory at authorization
   rw [Governance.AuthorizedUpgrades.eq_2] at authorization
   have duty : ∀ t, Governance.execute switchEnv correctedOrigin (.rollback 7 oldCheckpoint 1) = some t →
-      Governance.UpgradeAuthorized correctedOrigin (.rollback 7 oldCheckpoint 1) := authorization.2
+      Governance.UpgradeAuthorized switchEnv switchInitial correctedOrigin (.rollback 7 oldCheckpoint 1) :=
+    authorization.2
   have ok : Governance.execute switchEnv correctedOrigin (.rollback 7 oldCheckpoint 1) =
       some ((Governance.rawRollback switchEnv correctedOrigin 7 oldCheckpoint 1).getD correctedOrigin) := by
     rfl

@@ -17,7 +17,7 @@
     "Etna.Design.Current.Protocol.RecoveryNonVacuity.all_premises_satisfiable",
     "Etna.Design.Current.Protocol.RollbackGridTrap.rollback_grid_trap"
   ],
-  "sha256": "bf7608de75222748b01d483801febfba15877a5c559e57828daa643779b9b9a3",
+  "sha256": "7743d5f45051c9c1605011eab5d16ca06cd43de18f0644f728557caa6933f0f5",
   "constants": {
     "And": "external",
     "Array.size": "external",
@@ -488,6 +488,7 @@
     "Etna.Design.Current.Protocol.CurrentSwitch.stateCommitment": "def:240574afc3862d6cf74e2c3076619f8fad4a6944f5fe49c05ad887086a66ebb6",
     "Etna.Design.Current.Protocol.CurrentSwitch.template": "def:a3731f5311f9a8da509912c375c044275a831b3fe1935a4e382933879d133b57",
     "Etna.Design.Current.Protocol.Custody.AuthenticRoot": "def:5e6f48ccd44f5cafded24ba1d23a6c4c033472821539c4f1f47f1832717a869f",
+    "Etna.Design.Current.Protocol.Custody.Certified": "def:af34215233db8ac11edc90a1ecdd073ef7c85de01695ac241b312bfceace7777",
     "Etna.Design.Current.Protocol.Custody.Coherent": "def:0cc918e1193603f018369e51dd4e5c603ebe4ebae67a7734b0c5f6afb738e624",
     "Etna.Design.Current.Protocol.Custody.Edge": "def:d363af00c02f137fe0a874713404c01b7a7e331114059bbbb7c0539b09bf32e0",
     "Etna.Design.Current.Protocol.Custody.FirstFence": "def:aa5232ae67b8fea40718f97983fdffada4f4bf2fec5031228a0f114e209e4860",
@@ -545,6 +546,7 @@
     "Etna.Design.Current.Protocol.Environment.verify": "def:e99fd00b892d3466b87f06fbee65a698a7fc1660d1fa690f35111b0c340ad4ff",
     "Etna.Design.Current.Protocol.Executes": "def:bf664c1472ec05f67c4465a4407d212815a16b01959e48bf7c958b74d0ef5863",
     "Etna.Design.Current.Protocol.ExecutionLive": "def:c2e08675d1eabfb7cfe969366014890344455de1b2f229ace0b44b9b52c70c70",
+    "Etna.Design.Current.Protocol.Governance.RollbackAuthorized": "def:913dee91b989d3600e7e44ee921b5f905e66fbfe70a86d9ca5648c8f85cbfed0",
     "Etna.Design.Current.Protocol.HashBound": "def:051a33715f44cfe94525586cf3c27a990eaa0d208595c26d5a894f87d67fe629",
     "Etna.Design.Current.Protocol.Header": "def:6764507bfaddb1142b1d2d751e42dc73fdb4ccd5c807a97677945e6a21652e54",
     "Etna.Design.Current.Protocol.HonestAgreement.action": "def:6e15f744580f614ff9b53ef082227640e921a9504bdd23a5f40822a3a3d37f9f",
@@ -1316,7 +1318,7 @@
     "Etna.Statements.Current.FundPremises": "inductive:3e17ff3343175e895a115aab7c109702379593a16121dc2be574ca41484aa6e3",
     "Etna.Statements.Current.FundPremises.mk": "constructor:5a72589b27bd6cd403e4e2b4bb932dd612abf270ffafcd77f672dec3bfd1f2b3",
     "Etna.Statements.Current.FundSafety": "def:b7f5966fced121694c74bbc60ba01184006bc1ad4ff9c11a47707b11bdbabf7e",
-    "Etna.Statements.Current.FundSafetyAt": "def:fdf12005e647b46b3c866e713bf9dafe8c181a3552b139e5d4f6a562f90e09f4",
+    "Etna.Statements.Current.FundSafetyAt": "def:e0fdacd4e2325a4c3f7b23b2326b34ff47a6c61f312442533b27aa634bfd6be3",
     "Etna.Statements.Current.LandingService": "def:144fc63af3c7d93f181da4e09420fd029d7efd8bb4ed5fb8885eda8a2ea3a6cb",
     "Etna.Statements.Current.LiveAt": "inductive:ea607e7940a3ffb6e580bac87b8723ac0b0e75b5dbb96cc91c152601b0cd83f3",
     "Etna.Statements.Current.LiveAt.mk": "constructor:c5c20ba94e3f29cb9f2539894fc24d199aca15400732a6fda0b2c785808f622f",

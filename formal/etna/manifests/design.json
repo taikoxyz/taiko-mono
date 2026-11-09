@@ -1244,7 +1244,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "scope": "Conditional decoded custody: retained checkpoint/signal headers have authenticated genesis/accepted-Unzen roots and actual accepted landing edges. It is not evidence for LAND-9 atomic multi-field update, bridge withdrawals or arbitrary untrusted DAO upgrades."
+      "scope": "Conditional decoded custody: retained checkpoint/signal headers have authenticated genesis/accepted-Unzen roots and actual accepted landing edges. SPEC section 1 checkpoint finality: every later run without rollback keeps each retained signal and, once something has landed, each retained record and a checkpoint at least as high; and no rollback meets its verifier-failure duty (Governance.RollbackAuthorized), since no retained record is bad. It is not evidence for LAND-9 atomic multi-field update, bridge withdrawals or arbitrary untrusted DAO upgrades."
     },
     {
       "declaration": "Etna.Design.Current.Protocol.Custody.unchanged_invariant",
@@ -2725,12 +2725,12 @@
       "module": "EtnaProofs.Headline.Current",
       "role": "property",
       "type": "Etna.Statements.Current.FundSafety",
-      "sources": ["LIVE_EN-806e818366c6b783"],
+      "sources": ["LIVE_EN-806e818366c6b783", "LIVE_EN-c36e4d0d76a728b6"],
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "scope": "Conditional decoded custody: retained checkpoint/signal headers have authenticated genesis/accepted-Unzen roots and actual accepted landing edges. It is not evidence for LAND-9 atomic multi-field update, bridge withdrawals or arbitrary untrusted DAO upgrades."
+      "scope": "Conditional decoded custody: retained checkpoint/signal headers have authenticated genesis/accepted-Unzen roots and actual accepted landing edges. SPEC section 1 checkpoint finality: every later run without rollback keeps each retained signal and, once something has landed, each retained record and a checkpoint at least as high; and no rollback meets its verifier-failure duty (Governance.RollbackAuthorized), since no retained record is bad. It is not evidence for LAND-9 atomic multi-field update, bridge withdrawals or arbitrary untrusted DAO upgrades."
     },
     {
       "declaration": "Etna.Design.Current.Blocks.opened_early_inclusion",
@@ -3030,7 +3030,7 @@
       ],
       "bridge_level": "spec-proved",
       "sources": ["LIVE_EN-806e818366c6b783"],
-      "scope": "Conditional decoded custody: retained checkpoint/signal headers have authenticated genesis/accepted-Unzen roots and actual accepted landing edges. It is not evidence for LAND-9 atomic multi-field update, bridge withdrawals or arbitrary untrusted DAO upgrades."
+      "scope": "Conditional decoded custody: retained checkpoint/signal headers have authenticated genesis/accepted-Unzen roots and actual accepted landing edges. SPEC section 1 checkpoint finality: every later run without rollback keeps each retained signal and, once something has landed, each retained record and a checkpoint at least as high; and no rollback meets its verifier-failure duty (Governance.RollbackAuthorized), since no retained record is bad. It is not evidence for LAND-9 atomic multi-field update, bridge withdrawals or arbitrary untrusted DAO upgrades."
     },
     {
       "declaration": "Etna.Design.Current.Protocol.Custody.trace_legacy_authenticated",
@@ -6081,13 +6081,37 @@
       "declaration": "Etna.Design.Current.Protocol.Governance.execute_refines",
       "module": "EtnaProofs.CurrentGovernance",
       "role": "supporting",
-      "type": "∀ {env : Etna.Design.Current.Protocol.Environment} {w t : Etna.Design.Current.Protocol.World}\n  {call : Etna.Design.Current.Protocol.Call},\n  Etna.Design.Current.Protocol.Governance.UpgradeAuthorized w call →\n    Etna.Design.Current.Protocol.Governance.execute env w call = Option.some t →\n      Etna.Design.Current.Protocol.execute env w call = Option.some t",
+      "type": "∀ {env : Etna.Design.Current.Protocol.Environment}\n  {initial w t : Etna.Design.Current.Protocol.World} {call : Etna.Design.Current.Protocol.Call},\n  Etna.Design.Current.Protocol.Governance.UpgradeAuthorized env initial w call →\n    Etna.Design.Current.Protocol.Governance.execute env w call = Option.some t →\n      Etna.Design.Current.Protocol.execute env w call = Option.some t",
       "assumptions": [
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],
       "bridge_level": "spec-proved",
       "sources": [],
       "scope": "Reviewed supporting model algebra, internal lifecycle invariant, projection or trace-composition lemma. Its stated conclusion supplies an ingredient of the sourced endpoint results but does not independently establish another protocol obligation; do not infer source credit from its module or dependencies."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.Governance.rollback_target_unique",
+      "module": "EtnaProofs.CurrentGovernance",
+      "role": "supporting",
+      "type": "∀ {env : Etna.Design.Current.Protocol.Environment}\n  {initial w : Etna.Design.Current.Protocol.World} {one other : Etna.Design.Checkpoint}\n  {oneSnapshot otherSnapshot : Nat},\n  Etna.Design.Current.Protocol.Governance.RollbackAuthorized env initial w one oneSnapshot →\n    Etna.Design.Current.Protocol.Governance.RollbackAuthorized env initial w other otherSnapshot →\n      one.height = other.height",
+      "assumptions": [
+        "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
+      ],
+      "bridge_level": "spec-proved",
+      "sources": ["LIVE_EN-1079277c334a4883"],
+      "scope": "Supporting RECOV-8-28 target rule as stated by the rollback duty Governance.RollbackAuthorized: two targets that both meet the duty in the same world are at the same height, so the duty leaves no choice of target. The duty itself (not this theorem) says the target is the last retained record below the first bad one, every record at or below it trusted (certified from the initial world or the pending start). Existence of a target after a verifier failure, the start-rewrite clause and generation counting are not shown."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.Governance.authorized_rollback_restores",
+      "module": "EtnaProofs.CurrentGovernance",
+      "role": "supporting",
+      "type": "∀\n  {env : Etna.Design.Current.Protocol.Environment} {initial w t : Etna.Design.Current.Protocol.World}\n  {caller snapshot : Nat} {trusted : Etna.Design.Checkpoint},\n  Etna.Design.Current.Protocol.Governance.RollbackAuthorized env initial w trusted snapshot →\n    Etna.Design.Current.Protocol.Governance.rawRollback env w caller trusted snapshot = Option.some t →\n      t.inbox.checkpoint = trusted ∧\n        t.inbox.head = trusted.cursor ∧\n          t.inbox.snapshot = snapshot ∧\n            t.activeRecords = List.filter (fun r => Decidable.decide (r.height ≤ trusted.height)) w.activeRecords ∧\n              ∀ (cp : Etna.Design.Checkpoint),\n                cp ∈ t.activeRecords →\n                  Etna.Design.Current.Protocol.Custody.Certified env initial cp ∨\n                    Etna.Design.Current.Protocol.Custody.Pending env t cp",
+      "assumptions": [
+        "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
+      ],
+      "bridge_level": "spec-proved",
+      "sources": ["LIVE_EN-1079277c334a4883"],
+      "scope": "Supporting RECOV-8-27 effect of a raw verifier-failure rollback that meets its external duty Governance.RollbackAuthorized: the checkpoint, FI head and snapshot become the target's and the ones saved with it, the retained records are exactly those at or below the target, and each is certified from the history's initial world or the pending start. The duty is an assumption here, so this is no evidence that the target is the last trusted landing (RECOV-8-28). It is an authorization obligation on the DAO, not a contract check; the SignalService cache, Bridge RETRIABLE messages (RECOV-8-27a), the registry recheck and the generation rule are not shown."
     },
     {
       "declaration": "Etna.Design.Current.Protocol.Governance.raw_correct_refines",
@@ -6490,6 +6514,30 @@
       "scope": "Every actual protocol history from empty deployment excluding exceptional rollback has nondecreasing stored activeCommitteeSnapshot. Each landing step derives its cutoff bound from its accepted certificate/frontier ancestry; no snapshot monotonicity or cutoff inequality is an input."
     },
     {
+      "declaration": "Etna.Design.Current.CheckpointRisk.execute_retains",
+      "module": "EtnaProofs.CurrentCheckpointRisk",
+      "role": "property",
+      "type": "∀ {env : Etna.Design.Current.Protocol.Environment}\n  {initial w t : Etna.Design.Current.Protocol.World} {call : Etna.Design.Current.Protocol.Call},\n  Etna.Design.Current.Journal.FrontierShape w →\n    Etna.Design.Current.Protocol.Custody.Coherent env initial w →\n      Etna.Design.Current.CheckpointRisk.OrdinaryCall call →\n        Etna.Design.Current.Protocol.execute env w call = Option.some t →\n          (∀ (s : Etna.Design.Signal), s ∈ w.inbox.signals → s ∈ t.inbox.signals) ∧\n            (w.everLanded = Bool.true →\n              w.inbox.checkpoint.height ≤ t.inbox.checkpoint.height ∧\n                ∀ (cp : Etna.Design.Checkpoint), cp ∈ w.activeRecords → cp ∈ t.activeRecords)",
+      "assumptions": [
+        "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
+      ],
+      "bridge_level": "spec-proved",
+      "sources": [],
+      "scope": "Reviewed supporting model algebra, internal lifecycle invariant, projection or trace-composition lemma. Its stated conclusion supplies an ingredient of the sourced endpoint results but does not independently establish another protocol obligation; do not infer source credit from its module or dependencies."
+    },
+    {
+      "declaration": "Etna.Design.Current.CheckpointRisk.RollbackFreeRun.retains",
+      "module": "EtnaProofs.CurrentCheckpointRisk",
+      "role": "property",
+      "type": "∀ {env : Etna.Design.Current.Protocol.Environment}\n  {registry : Etna.Design.Current.RegistryMachine.State} {w later : Etna.Design.Current.Protocol.World},\n  Etna.Design.Current.RegistryMachine.Genesis registry →\n    Etna.Design.Current.Protocol.Custody.Primitives env →\n      Etna.Design.Current.Protocol.VerifierSound env (Etna.Design.Current.Protocol.empty env registry) →\n        Etna.Design.Current.Protocol.Trace env (Etna.Design.Current.Protocol.empty env registry) w →\n          Etna.Design.Current.CheckpointRisk.RollbackFreeRun env w later →\n            (∀ (s : Etna.Design.Signal), s ∈ w.inbox.signals → s ∈ later.inbox.signals) ∧\n              (w.everLanded = Bool.true →\n                w.inbox.checkpoint.height ≤ later.inbox.checkpoint.height ∧\n                  ∀ (cp : Etna.Design.Checkpoint), cp ∈ w.activeRecords → cp ∈ later.activeRecords)",
+      "assumptions": [
+        "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
+      ],
+      "bridge_level": "spec-proved",
+      "sources": ["LIVE_EN-c36e4d0d76a728b6"],
+      "scope": "SPEC section 1 finality of checkpoints, for actual execution without rollback: from a reachable world under H1's three custody premises, every later run of calls and node events with no rollback keeps every retained SignalService signal, and once something has landed keeps every retained landing record and never lowers the checkpoint. The rollback exception itself is H1's separate no-authorized-rollback conjunct; consensus finality of CometBFT commits is H2's."
+    },
+    {
       "declaration": "Etna.Design.Current.Headlines.deployed_claims",
       "module": "EtnaProofs.Headline.Current",
       "role": "property",
@@ -6505,6 +6553,18 @@
         "LIVE_EN-9e8e4c90054257e9"
       ],
       "scope": "The actual chosen raw DAO history yields the current conditional H1/H2/H3 endpoint claims only with per-successful-upgrade historical authorization. Owner identity alone does not imply those duties; arbitrary implementation upgrades and recovery of bad-checkpoint payouts are not proved."
+    },
+    {
+      "declaration": "Etna.Design.Current.Headlines.deployed_rollback_free",
+      "module": "EtnaProofs.Headline.Current",
+      "role": "property",
+      "type": "∀ {env : Etna.Design.Current.Protocol.Environment}\n  {registry : Etna.Design.Current.RegistryMachine.State} {w : Etna.Design.Current.Protocol.World},\n  Etna.Statements.Current.FundPremises env registry →\n    ∀\n      (history :\n        Etna.Design.Current.Protocol.Governance.DeployedTrace env (Etna.Design.Current.Protocol.empty env registry) w),\n      Etna.Design.Current.Protocol.Governance.AuthorizedUpgrades history →\n        Etna.Design.Current.CheckpointRisk.RollbackFreeRun env (Etna.Design.Current.Protocol.empty env registry) w",
+      "assumptions": [
+        "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
+      ],
+      "bridge_level": "spec-proved",
+      "sources": ["LIVE_EN-c36e4d0d76a728b6"],
+      "scope": "SPEC section 1 finality, for actual raw DAO histories: under H1's FundPremises, a deployed history from a fresh deployment whose successful upgrades meet AuthorizedUpgrades never executes a rollback, so it is a RollbackFreeRun. A rollback is authorized only after a verifier failure (Governance.RollbackAuthorized needs a bad retained record), and under the premises no retained record is bad. It does not model the DAO transaction or prove what happens after a real verifier failure."
     },
     {
       "declaration": "Etna.Design.Current.Headlines.recoverability",
