@@ -365,6 +365,34 @@ async fn a_moved_anchor_reproves_the_parent_anchor_witness() {
     assert_eq!(env.committee, Some(expected));
 }
 
+/// (d') The own L1's registry proof at the candidate anchor not verifying under that anchor's
+/// root, which the own L1 also served, is an own-L1 contradiction: the proposer halts with durable
+/// fatal evidence (SYNC-9-7), whether it re-proves a retained witness or the one it just
+/// discovered at the parent anchor. A forged retained witness fails on its contents instead and
+/// gives way to discovery (f).
+#[tokio::test]
+async fn an_own_l1_reproof_failing_under_the_candidate_root_halts() {
+    for retained in [true, false] {
+        let fx = Fixture::genesis(3);
+        let dir = tempfile::tempdir().unwrap();
+        let (mut app, _) = before_switch(&fx, dir.path()).await;
+        if retained {
+            let state = app.state().unwrap().clone();
+            let witness = witness_at(&app, PARENT_ANCHOR).await;
+            app.cache_committee_witness(&state, 2, &witness).unwrap();
+        }
+        app.l1().state().proof_tamper_at = Some((app.params.registry, NEW_ANCHOR));
+        let req = prepare_req(next_height(&app), bft_time(&app));
+        let result = app.handle(Request::PrepareProposal(req)).await;
+        assert!(
+            matches!(&result, Err(AbciError::SafetyHalt(reason))
+                if reason.contains("does not verify under its own state root")),
+            "retained {retained}: {result:?}"
+        );
+        assert!(app.store.fatal_evidence().unwrap().is_some(), "retained {retained}");
+    }
+}
+
 /// (e) A later round at `switch 2`, after the own L1 finalized past the anchor an earlier
 /// round proved under, re-proves the witness that round retained: finality moving between
 /// rounds never restarts the registry discovery.

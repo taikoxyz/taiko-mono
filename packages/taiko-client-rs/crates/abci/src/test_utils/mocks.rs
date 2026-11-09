@@ -81,6 +81,8 @@ pub(crate) struct MockL1State {
     /// Answers every proof read for the requested account and slots, but with a balance its
     /// account proof does not commit to, as an L1 node whose proofs fail under its own headers.
     pub(crate) proof_tamper: bool,
+    /// Like `proof_tamper`, for proof reads of this one account at this one L1 block only.
+    pub(crate) proof_tamper_at: Option<(Address, u64)>,
     /// Every call, in order.
     pub(crate) calls: Vec<L1Call>,
     /// Calls currently in progress (started, not yet answered or dropped).
@@ -257,7 +259,7 @@ impl L1Source for MockL1 {
             return Ok(proof.clone());
         }
         let mut witness = Self::state_at(&state, address, block)?.witness(address, slots);
-        if state.proof_tamper {
+        if state.proof_tamper || state.proof_tamper_at == Some((address, block)) {
             witness.balance += U256::from(1);
         }
         Ok(witness)

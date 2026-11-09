@@ -40,12 +40,13 @@ fn prefetch_backoff(failures: u32) -> Duration {
         .min(COMMITTEE_PREFETCH_MAX_BACKOFF)
 }
 
-/// Classifies a discovered witness that fails verification. The own L1 served both the proofs,
-/// for the registry account and slots the discovery asked for (it already refuses another
-/// address or slot), and the state root they are checked against. So a proof that does not
-/// verify there is a malformed own-L1 reply, which halts (SYNC-9-7), unlike the same failure in
-/// a peer's proposal, which only rejects it. Every other failure keeps its committee reason.
-fn own_l1_proof_failure(error: CommitteeError) -> FetchError {
+/// Classifies a witness whose registry proof the own L1 served, by discovery or by a re-proof
+/// under a candidate anchor, that fails verification. The own L1 served both the proofs, for
+/// the registry account and slots asked for (it already refuses another address or slot), and
+/// the state root they are checked against. So a proof that does not verify there is a malformed
+/// own-L1 reply, which halts (SYNC-9-7), unlike the same failure in a peer's proposal, which only
+/// rejects it. Every other failure keeps its committee reason.
+pub(super) fn own_l1_proof_failure(error: CommitteeError) -> FetchError {
     match error {
         CommitteeError::Mpt(proof) => FetchError::L1(L1Error::MalformedResponse(format!(
             "own L1 registry proof does not verify under its own state root: {proof}"

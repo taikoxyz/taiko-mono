@@ -10,7 +10,7 @@ use alloy_primitives::Bytes;
 
 use super::{
     AbciError, App,
-    committee_cache::snapshot_block,
+    committee_cache::{own_l1_proof_failure, snapshot_block},
     deadline, unix_secs,
     validate::{
         Candidate, Rejection, check_candidate_anchor, check_execution_size, expected_header,
@@ -18,7 +18,7 @@ use super::{
     },
 };
 use crate::{
-    committee::VerifiedWitness,
+    committee::{CommitteeError, VerifiedWitness},
     engine::Engine,
     envelope::{AnchorWitness, CommitteeWitness, EtnaEnvelope, ForcedWitness},
     forced::{self, ForcedContext},
@@ -414,7 +414,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let snapshot = snapshot_block(state);
         if let Some(retained) = self.context_committee_witness(state, target) {
             let witness = self.reproved_under(&retained, anchor).await?;
-            // The retained witness may have verified only under a forged proposal's root.
+            // The retained witness may have verified only under a forged proposal's root: then
+            // its snapshot does not hold here. Its registry proof is the own L1's, though, so a
+            // proof that does not verify is an own-L1 contradiction.
             match VerifiedWitness::verify(
                 anchor.state_root,
                 snapshot,
@@ -423,6 +425,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 target,
             ) {
                 Ok(verified) => return Ok(verified),
+                Err(error @ CommitteeError::Mpt(_)) => {
+                    return Err(own_l1_proof_failure(error).into())
+                }
                 Err(error) => {
                     tracing::warn!(
                         snapshot,
@@ -441,7 +446,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
             return Ok(found.witness);
         }
         let witness = self.reproved_under(found.witness.witness(), anchor).await?;
-        Ok(VerifiedWitness::verify(anchor.state_root, snapshot, &self.params, witness, target)?)
+        VerifiedWitness::verify(anchor.state_root, snapshot, &self.params, witness, target)
+            .map_err(|error| own_l1_proof_failure(error).into())
     }
 
     /// `base` re-proved under `anchor`'s root ([`reprove_committee_witness`]), within the L1
