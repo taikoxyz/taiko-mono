@@ -564,6 +564,18 @@ impl<L: L1Source, E: Engine> App<L, E> {
         )
         .map_err(|e| AbciError::SafetyHalt(format!("invalid checkpoint proof: {e}")))?
         .inbox;
+        // The Inbox holds the genesis checkpoint from L1_0 on, so an empty one means the own L1
+        // has not finalized L1_0 yet: it is behind, as when it lags or after a failover to a
+        // node that is. That is missing data (SYNC-9-7). Before InitChain the app does not know
+        // L1_0 and waits on any empty Inbox; after it, an empty Inbox at or past L1_0 is a
+        // contradiction, below.
+        if facts.last_checkpoint_hash.is_zero() &&
+            self.state.as_ref().is_none_or(|state| number < state.genesis.l1_0)
+        {
+            return Err(AbciError::TrustControl(format!(
+                "own finalized L1 {number} precedes the Inbox's genesis checkpoint; waiting"
+            )));
+        }
         // A recovery keeps its origin's older landing record. Authenticate supersession from
         // the own-finalized Inbox before interpreting that record in the old generation.
         if let Some(state) = &self.state &&

@@ -532,6 +532,70 @@ async fn reconnect_never_forgets_an_authenticated_unreached_checkpoint() {
     );
 }
 
+/// An own L1 whose finalized block precedes L1_0, as when it lags or after a failover to a node
+/// that is behind, reads an Inbox that holds no checkpoint yet: every word is zero. That is
+/// missing data, not a contradiction (SYNC-9-7): trust stays closed with the reason, before
+/// InitChain and after it, and no fatal evidence is written. Once the own L1 finalizes past L1_0,
+/// trust becomes ready.
+#[tokio::test]
+async fn own_finality_before_the_inbox_genesis_waits_instead_of_halting() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = fx.app(dir.path());
+    let early = fx.genesis.l1_0 - 1;
+    let empty = InboxStorage {
+        status: 0,
+        recovery_generation: 0,
+        last_checkpoint_height: 0,
+        last_checkpoint_hash: B256::ZERO,
+        last_checkpoint_comet_hash: B256::ZERO,
+        last_checkpoint_val_state_hash: B256::ZERO,
+        forced_inclusion_head: 0,
+        forced_inclusion_tail: 0,
+        forced_inclusion_queue: vec![],
+        genesis: None,
+        genesis_committee_hash: None,
+    };
+    let behind = |app: &App<MockL1, MockEngine>| {
+        fx.plant_l1_block(app.l1(), early, &empty, &fx.registry);
+        app.l1().set_finalized(early);
+    };
+    let waits = |app: &App<MockL1, MockEngine>, when: &str| {
+        let snapshot = app.trust.snapshot();
+        assert!(!snapshot.is_ready(), "{when}");
+        assert!(
+            snapshot.reason.as_deref().is_some_and(|reason| reason.contains("precedes the Inbox")),
+            "{when}: {snapshot:?}"
+        );
+        assert!(app.store.fatal_evidence().unwrap().is_none(), "{when}");
+    };
+    behind(&app);
+    app.refresh_trust().await.unwrap();
+    waits(&app, "before InitChain");
+
+    target(&app, &fx, 0, fx.genesis_hash());
+    init_chain(&mut app, fx.request.clone()).await.unwrap();
+    behind(&app);
+    app.refresh_trust().await.unwrap();
+    waits(&app, "after InitChain");
+
+    target(&app, &fx, 0, fx.genesis_hash());
+    app.refresh_trust().await.unwrap();
+    assert!(app.trust.snapshot().is_ready(), "{:?}", app.trust.snapshot());
+
+    // An empty Inbox at or past L1_0, where it already held the genesis checkpoint, is a
+    // contradiction: it halts with fatal evidence.
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = fx.app(dir.path());
+    target(&app, &fx, 0, fx.genesis_hash());
+    init_chain(&mut app, fx.request.clone()).await.unwrap();
+    fx.plant_l1_block(app.l1(), 100, &empty, &fx.registry);
+    app.l1().set_finalized(100);
+    let result = app.refresh_trust().await;
+    assert!(matches!(&result, Err(AbciError::SafetyHalt(_))), "{result:?}");
+    assert!(app.store.fatal_evidence().unwrap().is_some());
+}
+
 #[tokio::test(start_paused = true)]
 async fn initial_l1_outage_does_not_permanently_poison_genesis_trust() {
     let fx = Fixture::genesis(1);
