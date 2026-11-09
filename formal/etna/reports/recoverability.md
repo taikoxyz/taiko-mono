@@ -10,9 +10,9 @@ from every reachable state, under named premises and hypotheses, there is a way 
 accepted landing. It is proved in Lean with no new axioms.
 
 This report says what H4 claims, how the proof reaches a landing, what each premise and
-hypothesis assumes and who must make it true, a trap, reachable in the model, that only a
-structural recovery leaves and that H4's path leaves the same way, two changes to `recover`, and
-what H4 does not say.
+hypothesis assumes and who must make it true, a trap that only a structural recovery leaves and
+that the model reaches only under a failed verifier, three changes to the machine, and what H4
+does not say.
 
 Terms used below:
 
@@ -147,15 +147,26 @@ From w, the proof builds these steps in order. The owner is the DAO.
    - When `LiveRules`' first case holds (c on the grid, the current rulesets live), it is a
      plain recovery that keeps the rule schedule (`rules` = 0).
    - Otherwise ruleset nextRules + 1 is live, and the recovery installs it (`rules` =
-     nextRules + 1). If c is on the grid, the recovery is plain.
+     nextRules + 1). If c is on the grid, the recovery is plain: it replaces the rules and
+     keeps K.
    - If c is off the grid, the recovery is structural: one DAO transaction installs the current
-     parameters with K = 1 and calls `recover`. K = 1 is valid whenever the current parameters
-     are: `Committee.configOK` needs only 1 ≤ K ≤ 6, K ≤ U and U a multiple of K, and
-     `Parameters.valid` needs K ≤ maxBatchBlocks. Its grid holds every c at or above S, so
-     RECOV-8.3-3a passes. A K change rides in a new ruleset (START-10.1-14e; vector 14e.g
-     rejects `rules` = 0), which is why this branch needs `LiveRules`' second case. The
-     recovery keeps the genesis cutoff and the committee configuration, and the rest of the
+     parameters with K = 1 and calls `recover`. Under the model's `Parameters.valid`, K = 1 is
+     valid whenever the current parameters are: `Committee.configOK` needs only 1 ≤ K ≤ 6,
+     K ≤ U and U a multiple of K, and `Parameters.valid` needs K ≤ maxBatchBlocks. PARAM-11-6
+     also requires the leaf calldata, (maxBatchBlocks/K − 1) × 32 bytes, to fit within the
+     per-transaction gas limit. With maxBatchBlocks unchanged, K = 1 makes that calldata
+     largest, and the model does not encode this bound. K = 1's grid holds every c at or above
+     S, so RECOV-8.3-3a passes.
+   - A K change must be part of the definition that the new `rules` names (START-10.1-3b,
+     START-10.1-14e; vector 14e.g rejects `rules` = 0), which is why the off-grid branch needs
+     `LiveRules`' second case. So that case plays two roles: on the grid, a rules replacement
+     that keeps K; off the grid, the K = 1 structural ruleset. Rulesets carry no K in the model
+     (`Blocks.Definition`, `RulesetLive` and `imageRules` have none), so off the grid the case
+     reads: ruleset nextRules + 1 is published as the current rules with K = 1, and an image
+     implements it. The model does not check that the definition includes K.
+   - The recovery keeps the genesis cutoff and the committee configuration, and the rest of the
      path reads K, the committee configuration and the parameters from the recovered state.
+
 5. **Close R.** Advance L1 to R + 2, so the model's L1 snapshots at R and R + 1 are closed.
 6. **Blocks.** Build K blocks at heights c + 1 to c + K on c's header, which H1 shows is
    retained and hash-bound (on a switching network at c = S, the Unzen final header with
@@ -218,9 +229,10 @@ limit. `WindowBound` takes all three bounds on every network, whichever case app
 
 Why `ruleset` mentions the grid: a plain recovery keeps K, and RECOV-8.3-3a then needs c on
 the grid. By their own checks, `land` and `recover` keep c on the grid, and the start writes
-set c = S, but the next section shows a reachable state where c is off it. From there only a
-structural recovery that installs a K whose grid holds c gets out, and a K change needs a new
-ruleset (START-10.1-14e, vector 14e.g). So the first case, which keeps the current rulesets,
+set c = S. Only `rollback` can leave c off it, and the next section shows such a state,
+reachable in the model under a failed verifier. From there only a structural recovery that
+installs a K whose grid holds c gets out, and a K change needs a new ruleset (START-10.1-14e,
+vector 14e.g). So the first case, which keeps the current rulesets,
 needs c on the grid, and the second, which installs ruleset nextRules + 1, does not. The
 statement names the grid condition `OnGrid`. Before this change, `LiveAt` had a separate
 `grid` field, which excluded every off-grid state.
@@ -229,9 +241,10 @@ statement names the grid condition `OnGrid`. Before this change, `LiveAt` had a 
 
 After a structural recovery changes K, a verifier-failure rollback can restore a checkpoint
 that is off the new grid. From there, nothing lands until a structural recovery installs a K
-whose grid holds c. Plain recoveries stay blocked, in the model as in the spec. H4's path
-leaves the state with a structural recovery that installs K = 1, so H4 covers it whenever
-ruleset nextRules + 1 is live and implemented by an image.
+whose grid holds c. Non-structural recoveries stay blocked, in the model as in the spec. H4's
+path leaves an off-grid state the same way, with a structural recovery that installs K = 1.
+H4 itself does not apply to this trap: the trap needs a verifier failure, and H4's premises
+assume a sound verifier (see How H4 relates to the trap, below).
 
 **The trace** (`RollbackGridTrap.rollback_grid_trap`, a new network with S = 0):
 
@@ -250,11 +263,11 @@ ruleset nextRules + 1 is live and implemented by an image.
 **Why nothing lands without a structural recovery** (`Recovery.offgrid_no_landing`). From a
 landed, started state whose c is off the current grid, no sequence of calls without `rollback`
 and without a structural recovery reaches a state where `land` accepts. That class of
-sequences allows every other call, including plain recoveries with exclusions or blanking,
-`scheduleStop` and `scheduleRules`, so it is wider than H4's.
+sequences allows every other call, including non-structural recoveries with exclusions or
+blanking, `scheduleStop` and `scheduleRules`, so it is wider than H4's.
 
 - `land` needs c on the current grid (6.1, BATCH-6.3-1).
-- A plain `recover` keeps K and needs c on its grid (RECOV-8.3-3a).
+- A non-structural `recover` keeps K and needs c on its grid (RECOV-8.3-3a).
 - Every other call in the class either fails or leaves c and K unchanged. The start is frozen
   once something has landed.
 
@@ -278,17 +291,40 @@ A regression in `tests/CurrentProtocol.lean` checks the same rule on a smaller r
 0 → 2 landing on K = 2, `recover` accepts a structural recovery that installs K = 1 both with
 no stop scheduled and from c = 2 below a scheduled stop point (14e.k). Three mutants in
 `tests/test_current_protocol.py` each put back one part of the old stop check, and the
-regression rejects each of them.
+regression rejects each of them. The same regression checks the three guards that remain on a
+structural recovery: from c = 2 it refuses K = 3 (2 − 0 is not a multiple of 3, as in vector
+14e.h), `rules` = 0 (vector 14e.g) and `rules` = nextRules + 2 (a skipped ruleset number). For
+each guard, a mutant that drops it fails that example.
 
-**How H4 covers the trap.** `RecoveryCall` admits a structural recovery whose only change is
-K, and off the grid H4's path uses one: it installs K = 1 with `rules` = nextRules + 1, which
-passes RECOV-8.3-3a for every c at or above S. So H4 applies to the trapped state, and to any
-other off-grid state, when `LiveRules`' second case holds: ruleset nextRules + 1 is live and an
-image implements it. When it does not, H4 says nothing about an off-grid state, because the
-first case needs c on the grid. The witness above installs K = 2 rather than K = 1; both pass
-RECOV-8.3-3a there. `tests/CurrentRecoveryTrap.lean` checks that `RecoveryCall` admits the
-witness's structural recovery in the trapped state, and that H4's conclusion, `RecoverableAt`,
-holds there through it. Only the conclusion: the trap environment meets no premise record.
+**How H4 relates to the trap.** `RecoveryCall` admits a structural recovery whose only change
+is K, and off the grid H4's path uses one: it installs K = 1 with `rules` = nextRules + 1,
+which passes RECOV-8.3-3a for every c at or above S. That does not make H4 cover the trap. H4
+assumes `RecoveryPremises`, which extends `FundPremises`, so `VerifierSound` is among its
+premises. Under them:
+
+- only `rollback` can leave c off the grid: `land` and `recover` check the grid, `recover` with
+  the K it installs, and the start writes set c = S;
+- no rollback is authorized: `Governance.RollbackAuthorized` needs a bad landing record, and
+  H1 shows that there is none.
+
+So in a deployment that meets H4's premises, an off-grid state arises only from an unauthorized
+rollback in the raw `Trace`. The authorized histories of `Headlines.deployed_recoverability`
+never reach one. After a real verifier failure, `VerifierSound` is false and H4 says nothing.
+
+What letting H4 leave an off-grid state buys is this:
+
+- `recover` matches SPEC 8.3.
+- `Recoverability` quantifies over every `Trace`-reachable state, and it no longer needs a grid
+  field. An off-grid state reached by an unauthorized rollback meets `LiveAt` when ruleset
+  nextRules + 1 is live and an image implements it (`LiveRules`' second case). When it does
+  not, H4 says nothing about an off-grid state, because the first case needs c on the grid.
+- The trap witness and `rollback_grid_escape` show that the model has the spec's way out, but
+  only in a verifier-failure environment that meets no premise record.
+
+The witness above installs K = 2 rather than K = 1; both pass RECOV-8.3-3a there.
+`tests/CurrentRecoveryTrap.lean` checks that `RecoveryCall` admits the witness's structural
+recovery in the trapped state, and that H4's conclusion, `RecoverableAt`, holds there through
+it. Only the conclusion: the trap environment meets no premise record, so H4 is not applied.
 
 **The rollback target rule.** In the normative machine, `rollback` accepts any retained landing
 record at or below c. A second rollback to the start record (c = 0, on every grid) escapes: the
@@ -313,8 +349,9 @@ is the only way out.
 
 ## Model changes
 
-Two changes to `recover`'s upgrade branch. `recover` is part of H1–H3's statements, so each
-changes the machine they describe; the review-surface lock records both.
+Three changes: two to `recover`'s upgrade branch and one to `land`'s first-landing fence.
+`recover` and `land` are part of H1–H3's statements, so each change alters the machine they
+describe; the review-surface lock records all three.
 
 **The genesis cutoff, which the proof forced.** The proof needs every certificate's readiness
 check to pass, and that check needs `genesisCutoff` to be at most the generation's origin L1
@@ -341,6 +378,17 @@ that the new parameters are valid, that `rules` is nonzero (vector 14e.g) and th
 cutoff is kept. `recover`'s only grid check is RECOV-8.3-3a, made with the K the call installs,
 for plain and structural recoveries alike. This widens the machine by behaviour the spec
 allows. No H1–H3 proof changed; one H4 proof step that read the guard by position did.
+
+**The first landing checks the Unzen checkpoint's height.** LAND-6.1-8a reads the Unzen
+checkpoint at S and requires its hash and state root to equal the start's (SWITCH.md
+section 5, condition 3). The model's Unzen record kept only the last proof's hash and state
+root, so a start S = 5 written with the hash and state root of the Unzen block at height 10
+passed `land`'s first-landing fence. The contract would revert, since no checkpoint at height 5 has
+that hash. `unzenProve` now records the proven header's height, and the fence requires it to
+equal S. This narrows the machine by behaviour the contract refuses. H1 did not need the
+check, since equal hashes of hash-bound headers mean equal heights, but `Custody.FirstFence`
+restates the fence and gained the same conjunct. `tests/CurrentGuards.lean` checks that the
+shifted start is refused.
 
 ## Deployment-shaped conditions and known limitations
 
@@ -392,6 +440,9 @@ They get no Lean counterexample. For each, here is who must make it true.
   DAO duties the model does not encode. H4 shows the recovery mechanism works from every
   state that meets `LiveAt`; it does not say the DAO should use it in that state. The path
   recovers even from healthy states, discarding any unsettled blocks above c (RECOV-8-56).
+- **Recovery after a verifier failure.** H4 assumes `VerifierSound`. After a real verifier
+  failure it is false, so H4 does not cover the rollback and the recovery that follow, even
+  once the DAO replaces the verifier.
 - **Recoveries that need exclusions or blanking.** The path uses no exclusions and no
   blanking. When the committee elected at R is not live without excluding members
   (LIMIT-12-2), `LiveAt` does not hold. When a queued transaction must be blanked, either the
@@ -458,10 +509,11 @@ first one's restrictions, except those of a new network, and adds these:
   path runs a plain recovery;
 - no Unzen implementation runs: the legacy proof is one fixed value.
 
-No environment that meets the premises reaches an off-grid state yet: that needs several
-concrete landings, a structural recovery and a rollback. `tests/CurrentRecoveryProof.lean`
-instead applies `Recovery.recoverable` under `LiveRules`' second case with no grid
-hypothesis, so H4's conclusion follows wherever c is.
+Neither witness reaches an off-grid state. In an environment that meets the premises, only a
+rollback that no authorized history runs leads to one, after several concrete landings and a
+structural recovery. `tests/CurrentRecoveryProof.lean` instead applies `Recovery.recoverable`
+under `LiveRules`' second case with no grid hypothesis, so H4's conclusion follows wherever c
+is.
 
 Commitments are ideal unbounded Nat codes, not Keccak.
 
@@ -482,10 +534,11 @@ Commitments are ideal unbounded Nat codes, not Keccak.
   check with K = 1. That is a fact about the path, not a statement of the rule for every
   recovery, so no statement credits it. `recover` makes the check: `Recovery.offgrid_no_landing`
   uses it to reject a plain recovery off the grid, and `tests/CurrentProtocol.lean` checks that
-  a structural recovery installing K = 1 passes it.
+  a structural recovery installing K = 1 passes it and one installing K = 3 at c = 2 fails it.
 - **Totals.** 60 partial / 508 deferred clauses (38 / 530 before H4), and 43 narrow partial /
-  36 supporting / 529 deferred binding rules (41 / 36 / 531 before), plus 32 deferred
-  assumption and limitation rows.
+  37 supporting / 528 deferred binding rules (41 / 36 / 531 before H4), plus 32 deferred
+  assumption and limitation rows. H4 itself added 2 narrow partial rules; the extra supporting
+  rule is RECOV-8-28, from H1's rollback-target duty (`Governance.rollback_target_unique`).
 
 H4 adds no evidence for these:
 

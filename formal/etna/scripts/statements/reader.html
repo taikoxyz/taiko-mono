@@ -160,17 +160,20 @@
               <h3>Recoverability</h3>
               <p>
                 From every reachable, initialized state that meets the per-state
-                hypotheses, a sequence of calls with no rollback and only plain
-                recoveries reaches an accepted landing, above the starting
-                checkpoint whenever something had landed. The K blocks and their
+                hypotheses, a sequence of calls with no rollback, no exclusions,
+                no forced-inclusion blanking and no structural change other than
+                K reaches an accepted landing, above the starting checkpoint
+                whenever something had landed. Off the grid, the recovery
+                installs K = 1 in a new ruleset. The K blocks and their
                 certificate are constructed; proof completeness is assumed.
               </p>
               <p class="caveat">
                 An existence result with every caller cooperating. It does not
                 show normal-operation liveness, resistance to adversarial
-                scheduling or when the DAO should recover. The grid hypothesis
-                excludes a trap, reachable in the model, after a
-                verifier-failure rollback across a K change.
+                scheduling or when the DAO should recover. Its premises assume a
+                sound verifier, so it says nothing after a verifier failure,
+                such as the trap that the model reaches after a rollback across
+                a K change.
               </p>
               <div class="actions">
                 <a href="#decl=Etna.Statements.Current.RecoverableAt"
@@ -307,9 +310,10 @@
               <p>
                 The joint-premise profiles use restricted interpreters. All
                 accepted certificate fixtures have empty prebatch prior lists;
-                agreement compares a chain with itself; the joint H1–H4 profile
-                uses an ideal, classically decided verifier. They are not
-                complete launch rehearsals.
+                agreement compares a chain with itself; the two joint H1–H4
+                profiles, for a new network and a switching network, use an
+                ideal, classically decided verifier. They are not complete
+                launch rehearsals.
               </p>
               <a href="reports/review-round-five.md"
                 >Read the round-five report ↗</a

@@ -54,7 +54,11 @@ Legacy signals are authenticated separately by the existing Unzen proof boundary
 The last two conjuncts are SPEC section 1's finality of checkpoints: every later run without
 a rollback keeps each signal and, once something has landed, each retained record and a
 checkpoint at least as high; and no rollback meets its verifier-failure duty
-(`Governance.RollbackAuthorized`, RECOV-8-28), because no retained record is bad. -/
+(`Governance.RollbackAuthorized`, RECOV-8-28), because no retained record is bad.
+The record and height parts wait for a landing because START-10-5c's start correction
+(`correctStart`) may lower the checkpoint, and replace the start record, before any landing.
+Unzen checkpoints at or below S (`legacySignals`) are not in the retention conjunct; the model
+only appends to them. -/
 def FundSafetyAt (env : Environment) (registry : RegistryMachine.State) (w : World) : Prop :=
     Custody.Coherent env (empty env registry) w ∧
     (∀ signal ∈ w.legacySignals, Custody.LegacySignalSafe env signal) ∧
@@ -223,9 +227,14 @@ def OnGrid (w : World) : Prop :=
 /-- START-10.1, LIMIT-12-21, RECOV-8.3-3a: a recovery from `w` can leave live rulesets.
 First case: c is on the grid, and the current rulesets are live with one image for both. A plain
 recovery keeps them and K, and RECOV-8.3-3a needs c on the grid of the K it keeps. Second case:
-ruleset nextRules + 1 is live with an image, and c may be off the grid. Off the grid only a
-structural recovery that installs a K whose grid holds c gets out, and a K change rides in a new
-ruleset (START-10.1-14e; vector 14e.g rejects `rules` = 0), so that recovery needs this case. -/
+ruleset nextRules + 1 is live with an image, and c may be off the grid. This case plays two
+roles. On the grid it is a rules replacement that keeps K (LIMIT-12-21). Off the grid only a
+structural recovery that installs a K whose grid holds c gets out, and a K change must be part
+of the definition that the new `rules` names (START-10.1-3b, START-10.1-14e; vector 14e.g
+rejects `rules` = 0), so that recovery needs this case. There it reads: ruleset nextRules + 1
+is published as the current rules with K = 1, and an image implements it. Rulesets carry no K
+in the model (`Blocks.Definition`, `RulesetLive`, `imageRules`), so the model does not check
+that the definition includes K. -/
 def LiveRules (env : Environment) (w : World) : Prop :=
   (OnGrid w ∧ RulesetLive env w.schedule.active ∧ RulesetLive env w.schedule.next ∧
     ∃ image, w.schedule.active ∈ env.imageRules image ∧ w.schedule.next ∈ env.imageRules image) ∨
@@ -248,7 +257,7 @@ structure LiveAt (env : Environment) (w : World) : Prop where
   height : w.inbox.checkpoint.height+w.inbox.gridK < limit48
   window : ∃ n keys, w.number < n ∧ n+4 < limit48 ∧ WindowBound env w ≤ env.time n ∧
     env.time n+8 < limit256 ∧ CommitteeLive env w n keys
-  /-- Covers an off-grid c (`RollbackGridTrap.rollback_grid_trap`) only in its second case. -/
+  /-- An off-grid c meets only its second case. -/
   ruleset : LiveRules env w
   unzen : UnzenLaneLive env w
 

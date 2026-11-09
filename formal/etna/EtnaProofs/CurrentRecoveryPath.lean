@@ -870,8 +870,11 @@ private def plainRequest (env : Environment) (w : World) (rules : Nat) : Recover
 /-- `w`'s parameters with K = 1, whose grid holds every c at or above S. -/
 private def unitGrid (w : World) : Parameters := { parametersOf w.inbox with gridK := 1 }
 
-/-- K = 1 is valid whenever the current parameters are: `Committee.configOK` needs only
-1 ≤ K ≤ 6, K ≤ U and U a multiple of K, and `Parameters.valid` K ≤ maxBatchBlocks. -/
+/-- K = 1 is valid under the model's `Parameters.valid` whenever the current parameters are:
+`Committee.configOK` needs only 1 ≤ K ≤ 6, K ≤ U and U a multiple of K, and `Parameters.valid`
+K ≤ maxBatchBlocks. PARAM-11-6's leaf calldata bound, (maxBatchBlocks/K − 1) × 32 bytes within
+the per-transaction gas limit, is not modelled; with maxBatchBlocks unchanged, K = 1 makes it
+largest. -/
 private theorem unit_valid {w : World} (valid : (parametersOf w.inbox).valid = true) : (unitGrid w).valid = true := by
   show ({ parametersOf w.inbox with gridK := 1 } : Parameters).valid = true
   simp only [Parameters.valid,Committee.configOK,Bool.and_eq_true,decide_eq_true_eq] at valid ⊢
@@ -918,9 +921,10 @@ private theorem recover_ok {env : Environment} {w : World} {start : StartData} {
     exact (refused ⟨rfl,initialized,entered,rfl,rfl,rfl,nonce,Nat.le_refl _,stamp,generation,grid,List.Pairwise.nil,
       List.Pairwise.nil,fun _ absent => absurd absent List.not_mem_nil,by intro absent; cases absent⟩).elim
 
-/-- Step 4 off the grid: `recover` accepts the structural request, because K = 1 is valid
-whenever `w`'s parameters are and its grid holds every c ≥ S (RECOV-8.3-3a), `rules` is nonzero
-(vector 14e.g) and the genesis cutoff is kept. -/
+/-- Step 4 off the grid: `recover` accepts the structural request, because K = 1 is valid under
+the model's `Parameters.valid` whenever `w`'s parameters are (PARAM-11-6's calldata bound is not
+modelled) and its grid holds every c ≥ S (RECOV-8.3-3a), `rules` is nonzero (vector 14e.g) and
+the genesis cutoff is kept. -/
 private theorem restructure_ok {env : Environment} {w : World} {start : StartData} {schedule : Rules.Schedule}
     (started : w.start = some start) (initialized : w.initialized = true)
     (entered : w.inbox.entered = false) (nonce : w.inbox.recoveryNonce+1 < limit256)

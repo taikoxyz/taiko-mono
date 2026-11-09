@@ -101,9 +101,10 @@ example : ∀ {env : Environment} {x : World} {p : Header} {R : Nat} {keys : Lis
 -- H4 itself: the certificate and the landing close the path (`Recovery.recoverable`).
 example : Recoverability := Etna.Design.Current.Protocol.Recovery.recoverable
 
--- H4 reaches off-grid states. With ruleset nextRules + 1 live and implemented (`LiveRules`'
--- second case), `LiveAt` holds with no grid condition, so it covers a c off the current grid,
--- such as the rollback grid trap's, and `Recovery.recoverable` gives an accepted landing there.
+-- H4 needs no grid condition. With ruleset nextRules + 1 live and implemented (`LiveRules`'
+-- second case), `LiveAt` holds wherever c is, and `Recovery.recoverable` gives an accepted
+-- landing. Under these premises only a rollback that no authorized history runs leaves c off the
+-- grid; the rollback grid trap's environment meets no premise record, so this does not apply there.
 example {env : Environment} {registry : RegistryMachine.State} {w : World}
     (premises : RecoveryPremises env registry) (trace : Trace env (empty env registry) w)
     (initialized : w.initialized = true) (generation : w.inbox.generation+2 < limit48)

@@ -169,6 +169,10 @@ class CurrentSwitchingProofMutationTests(unittest.TestCase):
     def test_missing_checkpoint_root_breaks_first_fence_derivation(self):
         self.reject('u.checkpointRoot = root)', 'root = root)', 'pending_parent_fence')
 
+    # This mutant fails only because `Custody.FirstFence` restates the height conjunct, so
+    # `pending_parent_fence` can no longer derive it. H1's other conclusions do not need the
+    # height check; the behavioural regression (a shifted start refused by `land`) is in
+    # tests/CurrentGuards.lean.
     def test_missing_checkpoint_height_breaks_first_fence_derivation(self):
         self.reject('u.checkpointHeight = start ∧', 'start = start ∧', 'pending_parent_fence')
 

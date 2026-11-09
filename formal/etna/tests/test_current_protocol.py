@@ -43,7 +43,7 @@ class CurrentProtocolTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(result.stdout + result.stderr, '')
 
-    def assert_evidence_rejects(self, model, evidence, old, new):
+    def assert_evidence_rejects(self, model, evidence, old, new, at=None):
         self.assertEqual(model.count(old), 1, old)
         changed = model.replace(old, new)
         self.assert_compiles(changed)
@@ -54,6 +54,15 @@ class CurrentProtocolTests(unittest.TestCase):
         for accidental in ('already been declared', 'unknown module prefix',
                            'unexpected token', 'Unknown identifier'):
             self.assertNotIn(accidental, errors[0])
+        if at is not None:
+            # Name each failing example by the comment line above it; the intended one must fail.
+            lines, rejected = (changed + '\n' + evidence).splitlines(), set()
+            for error in errors:
+                location = re.search(r'\.lean:(\d+):\d+: error:', error)
+                self.assertIsNotNone(location, error)
+                rejected.add(next(line for line in reversed(lines[:int(location.group(1))])
+                                  if line.startswith('-- ')))
+            self.assertIn(at, rejected, result.stdout + result.stderr)
 
     def test_renamed_node_fixture(self):
         self.assert_compiles('\n'.join(node_sources()))
@@ -92,6 +101,30 @@ class CurrentProtocolTests(unittest.TestCase):
             'parameters.valid = true ∧ a.rules ≠ 0 ∧',
             'parameters.valid = true ∧ a.rules ≠ 0 ∧ '
             '(w.inbox.checkpoint.height-start.height) % w.schedule.stopGrid = 0 ∧')
+
+    # The three guards left on a structural recovery each reject one variant in the
+    # structural-recovery regression; removing a guard must break that variant's example.
+    def test_structural_recovery_needs_nonzero_rules(self):
+        self.assert_evidence_rejects(*node_sources(),
+            'parameters.valid = true ∧ a.rules ≠ 0 ∧',
+            'parameters.valid = true ∧',
+            at='-- 14e.g: a structural recovery must name a new ruleset.')
+
+    def test_recovery_rules_must_be_next_ruleset(self):
+        # `Rules.recover` inlined without its `rules = s.next+1` check.
+        self.assert_evidence_rejects(*node_sources(),
+            '(Rules.recover w.schedule a.rules).bind fun schedule =>',
+            '(if a.rules = 0 then Rules.recover w.schedule 0 else if a.rules < limit48 then '
+            'some (Rules.Schedule.mk a.rules a.rules 0 0 0) else none).bind fun schedule =>',
+            at='-- `rules` must be nextRules + 1; nextRules + 2 skips a ruleset number.')
+
+    def test_structural_recovery_grid_uses_installed_k(self):
+        # Checking the grid with the K before the upgrade is the 14e.h bug; dropping the check
+        # entirely accepts a superset, so this fixture rejects that too.
+        self.assert_evidence_rejects(*node_sources(),
+            'Start.onGrid start.height inbox.gridK w.inbox.checkpoint.height = true ∧',
+            'Start.onGrid start.height w.inbox.gridK w.inbox.checkpoint.height = true ∧',
+            at='-- RECOV-8.3-3a with the installed K (14e.h): K = 3 is valid, but 2 − 0 is not a multiple of 3.')
 
     def test_initial_token_funding_is_reachable(self):
         imports, protocol, model, proofs, fixture = finality_sources()

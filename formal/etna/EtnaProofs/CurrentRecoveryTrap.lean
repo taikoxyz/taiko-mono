@@ -7,9 +7,11 @@ state's frontier is off the current grid, nothing lands again until a structural
 rollback. `land` needs the frontier on the grid (6.1, BATCH-6.3-1), and a plain `recover` keeps K
 and needs the same (RECOV-8.3-3a). A structural recovery that installs a K whose grid holds the
 frontier exits, as SPEC 8.3 allows (`RollbackGridTrap.rollback_grid_escape`). H4's path takes
-that exit off the grid: a structural recovery that installs K = 1, in a new ruleset, so H4 covers
-the state when ruleset nextRules + 1 is live (`LiveRules`' second case). The reachable instance
-is `RollbackGridTrap.rollback_grid_trap`. -/
+that exit off the grid: a structural recovery that installs K = 1, in a new ruleset, when ruleset
+nextRules + 1 is live (`LiveRules`' second case). The reachable instance is
+`RollbackGridTrap.rollback_grid_trap`, in a verifier-failure environment that meets no premise
+record. Under H4's premises no rollback is authorized, so only an unauthorized rollback in a raw
+`Trace` reaches an off-grid state. -/
 namespace Etna.Design.Current.Protocol.Recovery
 
 /-- Calls that never change K, the checkpoint or the rule schedule. -/

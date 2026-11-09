@@ -10,11 +10,14 @@ max(o, s − U + 1); its inspection handles the validator-state preimage
 and statement lock introduced before that.
 
 This revision also adds H4, recoverability ([report](recoverability.md)): from every
-reachable, initialized state that meets `LiveAt`, a path with no rollback and only plain
-recoveries reaches an accepted landing. `recover`'s structural upgrade now keeps the stored
-`genesisCutoff`, as the spec requires; this narrows the machine that H1–H3 describe. With H4,
-the evidence is 60 partial / 508 deferred clauses and 43 partial / 36 supporting / 529
-deferred binding rules. The counts below are those after #22338.
+reachable, initialized state that meets `LiveAt`, a path with no rollback, no exclusions, no
+forced-inclusion blanking and no structural change other than K reaches an accepted landing.
+H1 now also states SPEC section 1's finality of checkpoints. Three model changes alter the
+machine that H1–H3 describe: `recover`'s structural upgrade keeps the stored `genesisCutoff`,
+as the spec requires; `recover` no longer checks a planned stop, as in SPEC 8.3; and `land`'s
+first-landing fence checks the Unzen checkpoint's height. The evidence is now 60 partial / 508
+deferred clauses and 43 partial / 37 supporting / 528 deferred binding rules. The counts below
+are those after #22338.
 
 ## Current-only package
 

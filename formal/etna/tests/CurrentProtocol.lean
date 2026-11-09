@@ -115,7 +115,9 @@ planned-stop check, and vector 14e.k of START-10.1-14e recovers from a settled c
 point that cannot settle. A new network (S = 0, K = 2, a verifier that accepts every proof)
 lands 0 → 2. A structural recovery at c = 2 that installs K = 1 with `rules` = nextRules + 1 is
 then accepted with no stop scheduled, and also once a stop on grid 4 is scheduled whose time
-c's block has not reached: c = 2 is below the stop point 4. -/
+c's block has not reached: c = 2 is below the stop point 4. Three guards remain, and each rejects
+one variant from c = 2: K = 3, whose grid does not hold c (RECOV-8.3-3a, as in vector 14e.h);
+`rules` = 0 (vector 14e.g); and `rules` = nextRules + 2, a skipped ruleset number. -/
 namespace Etna.CurrentProtocolRegression.StructuralRecovery
 open Etna.Design Etna.Design.Current
 
@@ -177,5 +179,15 @@ example : (Protocol.recover env landed (structural landed)).isSome = true := by 
 -- 14e.k: accepted from c = 2 below the scheduled stop point.
 example : stopping.schedule.stopTime = 7296 ∧ stopping.schedule.stopGrid = 4 ∧
     (Protocol.recover env stopping (structural stopping)).isSome = true := by decide +kernel
+-- RECOV-8.3-3a with the installed K (14e.h): K = 3 is valid, but 2 − 0 is not a multiple of 3.
+example : ({ Protocol.parametersOf landed.inbox with gridK := 3 } : Protocol.Parameters).valid = true ∧
+    (Protocol.recover env landed
+      { structural landed with upgrade := some { Protocol.parametersOf landed.inbox with gridK := 3 } }).isNone = true := by
+  decide +kernel
+-- 14e.g: a structural recovery must name a new ruleset.
+example : (Protocol.recover env landed { structural landed with rules := 0 }).isNone = true := by decide +kernel
+-- `rules` must be nextRules + 1; nextRules + 2 skips a ruleset number.
+example : (Protocol.recover env landed
+    { structural landed with rules := landed.schedule.next+2 }).isNone = true := by decide +kernel
 
 end Etna.CurrentProtocolRegression.StructuralRecovery
