@@ -13,25 +13,27 @@ import (
 // durableFilePV completes stock FilePV's state persistence before publishing a
 // signature. FilePV writes its state through an O_SYNC temporary file and a rename,
 // but does not fsync the containing directory, and cached HRS retries do not write
-// at all. So every signing step, cached retries included, costs exactly two fsyncs:
-// the state file and its directory (SYNC-9-13).
+// at all. So every signing step, cached retries included, fsyncs the state file and its
+// directory (SYNC-9-13).
 //
-// A crash outside that synchronization needs no fence: no signature is released before
-// both fsyncs succeed, and the disk holds either the old or the new HRS, so a restart
-// that signs an unreleased step again cannot equivocate. A failed fsync makes the
-// latest state uncertain (RECOV-8.2-3): the first one refuses every later request,
-// cached HRS retries included, and writes the fence that makes a restart refuse. A
-// failed stock write panics before its rename, so the state on disk is unchanged.
+// A crash outside a signing step needs no fence: no signature is released before both
+// fsyncs succeed, and the disk holds either the old or the new HRS, so a restart that
+// signs an unreleased step again cannot equivocate. A failed fsync makes the latest state
+// uncertain (RECOV-8.2-3): the first one refuses every later request, cached HRS retries
+// included, and writes the fence that makes a restart refuse. A failed stock write panics
+// before its rename, so the state on disk is unchanged.
 //
-// A death after a failed fsync and before a durable fence would leave no fence, and
-// on the same boot the failed write-back's error is already cleared: a restart's
-// fsync then succeeds over pages that never reached disk. So each synchronization
-// runs under an inflight marker naming this boot, removed once both fsyncs succeed,
-// and a restart on the same boot refuses a marker it finds (refuseInflight).
+// A death after a failed fsync and before a durable fence would leave no fence, and on
+// the same boot the failed write-back's error is already cleared: a restart's fsync then
+// succeeds over pages that never reached disk. So each step first makes an inflight
+// marker naming this boot durable, with two more fsyncs before stock FilePV writes, and
+// removes it once the state is durable; a restart on the same boot refuses a marker it
+// finds (refuseInflight). A step costs four fsyncs.
 type durableFilePV struct {
 	*privval.FilePV
 	state string
-	// syncFile flushes the opened state file; tests replace it to fail as a disk does.
+	// syncFile flushes the opened state file or inflight marker; tests replace it to fail
+	// as a disk does.
 	syncFile func(*os.File) error
 	// syncDir flushes the state's directory; tests replace it to count or fail.
 	syncDir func(string) error
@@ -61,19 +63,25 @@ func (p *durableFilePV) syncState() error {
 }
 
 // signDurably runs one stock signing step and succeeds only once the state it
-// recorded is durable. A failed synchronization, or a failure to mark it inflight,
-// latches errSigningStateUnsafe and writes the fence; a failure to write the fence
-// never clears the latch, and the inflight marker stays as same-boot evidence.
+// recorded is durable. It runs the step only once the inflight marker is durable, so a
+// failure there leaves the state unchanged. A marker that cannot be created or written
+// panics like a failed stock write (exit 2, which the supervisor restarts). A failed
+// fsync of the marker, or of the state after the step, latches errSigningStateUnsafe
+// and writes the fence: the HRS volume is failing. A failure to write the fence never
+// clears the latch, and the inflight marker stays as same-boot evidence.
 func (p *durableFilePV) signDurably(sign func() error) error {
 	if p.uncertain != nil {
 		return fmt.Errorf("%w: %w", errSigningStateUnsafe, p.uncertain)
 	}
-	err := sign() // A stock persistence panic exits before any signature is released.
-	syncErr := markInflight(inflightPath(p.state))
-	if syncErr == nil {
-		syncErr = p.syncState()
+	if markErr := markInflight(inflightPath(p.state), p.syncFile, p.syncDir); markErr != nil {
+		if errors.Is(markErr, errInflightWrite) {
+			panic(markErr)
+		}
+		p.uncertain = markErr
+		return fmt.Errorf("%w: %w", errSigningStateUnsafe, errors.Join(markErr, writeFence(fencePath(p.state), markErr)))
 	}
-	if syncErr != nil {
+	err := sign() // A stock persistence panic exits before any signature is released.
+	if syncErr := p.syncState(); syncErr != nil {
 		p.uncertain = syncErr
 		return fmt.Errorf("%w: fsync of signing state: %w", errSigningStateUnsafe, errors.Join(syncErr, writeFence(fencePath(p.state), syncErr)))
 	}

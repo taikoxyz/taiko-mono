@@ -24,38 +24,53 @@ const inflightSuffix = ".inflight"
 // inflightPath is the inflight marker of the HRS state at state.
 func inflightPath(state string) string { return state + inflightSuffix }
 
-// markInflight records, before a signing step synchronizes its state, the boot it runs in. It
-// is not fsynced: it guards only a restart on this boot, where the page cache can still show a
-// state whose failed fsync was already reported and cleared, so a later fsync succeeds over
-// data that never reached disk. A reboot drops that cache, so a marker from another boot is
-// harmless and a restart ignores it (RECOV-8.2-3, SYNC-9-13). This holds only where the signer
-// shares the host kernel (runc): a sandboxed runtime has its own boot ID while the host keeps
-// the cache. The marker is created exclusively: startup removed any stale one, and each step
-// removes its own, so an existing inode here, a hard link included, is never truncated.
-func markInflight(path string) error {
+// markInflight durably records, before a signing step can change its state, the boot it runs
+// in: the marker and then its directory are fsynced before stock FilePV writes. That evidence
+// cannot be lost to a failed write-back of its own: an fsync that succeeds has put it on disk,
+// and one that fails refuses the step while the state is still unchanged. It guards a restart
+// on this boot, where the page cache can show a state whose failed fsync was already reported
+// and cleared, so a later fsync succeeds over data that never reached disk. A reboot drops that
+// cache, so a marker from another boot is harmless and a restart ignores it, and its removal
+// needs no fsync (RECOV-8.2-3, SYNC-9-13). This holds only where the signer shares the host
+// kernel (runc): a sandboxed runtime has its own boot ID while the host keeps the cache. The
+// marker is created exclusively: startup removed any stale one, and each step removes its own,
+// so an existing inode here, a hard link included, is never truncated. A marker that cannot be
+// created or written is errInflightWrite: nothing was fsynced and the HRS is unchanged, as when
+// a stock write fails. Any other error is a failed fsync.
+func markInflight(path string, syncFile func(*os.File) error, syncDir func(string) error) error {
 	boot := bootID()
 	if boot == "" {
-		return fmt.Errorf("inflight marker %s: the kernel boot ID is unreadable", path)
+		return fmt.Errorf("%w %s: the kernel boot ID is unreadable", errInflightWrite, path)
 	}
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW, 0600)
 	if err != nil {
-		return fmt.Errorf("inflight marker %s: %w", path, err)
+		return fmt.Errorf("%w %s: %w", errInflightWrite, path, err)
 	}
-	_, err = f.WriteString(boot + "\n")
-	if err = errors.Join(err, f.Close()); err != nil {
-		return fmt.Errorf("inflight marker %s: %w", path, err)
+	if _, err = f.WriteString(boot + "\n"); err != nil {
+		f.Close()
+		return fmt.Errorf("%w %s: %w", errInflightWrite, path, err)
+	}
+	err = syncFile(f)
+	if err = errors.Join(err, f.Close()); err == nil {
+		err = syncDir(filepath.Dir(path))
+	}
+	if err != nil {
+		return fmt.Errorf("inflight marker %s: fsync: %w", path, err)
 	}
 	return nil
 }
 
+// errInflightWrite is an inflight marker that could not be created or written.
+var errInflightWrite = errors.New("inflight marker not written")
+
 // refuseInflight refuses a marker that a signing step of this boot left behind: the signer
-// died between starting to synchronize its state and either finishing or writing the fence,
-// so the latest HRS is uncertain. On this boot the page cache holds exactly what markInflight
-// wrote: this boot's ID, or nothing if the signer died before writing it, which is before that
-// step's first fsync. So only this boot's ID refuses. Empty, zero-filled or any other content is
-// what a crash leaves on disk (the directory fsync commits the name before the data) or another
-// boot's marker; it is removed, and serving goes on. Any other inode, or more than 128 bytes,
-// refuses. An unreadable boot ID fails startup: the marker could not be checked or written.
+// died after the marker was durable and before the step finished or wrote the fence, so the
+// latest HRS is uncertain. Only this boot's ID refuses. Any other content means the step never
+// got that far: an empty or partial marker, or one whose own fsync failed and whose page the
+// kernel then dropped, is from a death or a refusal before stock FilePV wrote, with the state
+// unchanged; another boot's ID is stale, as a reboot dropped the page cache. Such a marker is
+// removed, and serving goes on. Any other inode, or more than 128 bytes, refuses. An unreadable
+// boot ID fails startup: the marker could not be checked or written.
 func refuseInflight(path string) error {
 	current := bootID()
 	if current == "" {

@@ -46,6 +46,10 @@ func TestSignerSignalDuringSyncHelper(t *testing.T) {
 	}
 	defer release()
 	signer.syncFile = func(file *os.File) error {
+		// Hold the state's fsync, after stock FilePV wrote; the marker's runs before that write.
+		if strings.HasSuffix(file.Name(), inflightSuffix) {
+			return file.Sync()
+		}
 		if err := os.WriteFile(fixture.Entered, nil, 0600); err != nil {
 			return err
 		}

@@ -315,15 +315,19 @@ A death between a failed fsync and a durable fence (a SIGKILL from the OOM kille
 `kill -9`, or a Go runtime fatal error) leaves no fence. On Linux the failed write-back's error
 is reported once, so on the same boot a restarted signer's fsync can succeed over state that
 never reached disk, and the HRS rolls back after a host crash or a page eviction (SYNC-9-13).
-So every state synchronization runs under `<state>.inflight`, which names the kernel boot
-(`/proc/sys/kernel/random/boot_id`) and is removed once both fsyncs succeed. It costs no fsync.
-A restart on the same boot that finds this boot's ID in it exits 3, and the supervisor latches.
-On that boot the page cache holds exactly what the signer wrote, so any other content is not
-evidence: an earlier boot's ID, or the empty or zero-filled file a host crash leaves when the
-directory fsync committed the name before the data. Startup removes such a marker and serves:
-the reboot dropped the page cache, and the disk holds the last durable HRS. A signer killed
-while synchronizing therefore needs an operator unless the host reboots; one killed between
-signatures restarts on its own. Remove a same-boot `<state>.inflight` only under the evidence
+So before stock FilePV writes, each signing step writes `<state>.inflight` with the kernel
+boot ID (`/proc/sys/kernel/random/boot_id`) and fsyncs it and then its directory; it removes
+the marker, without an fsync, once the state is durable. A step costs four fsyncs. The marker's
+evidence does not depend on an unsynced page cache: its fsync either put it on disk or failed,
+and a failed one refuses the step with the HRS unchanged and latches like any failed fsync. A
+marker that cannot be created or written panics before any fsync, like a failed stock write
+(exit 2), and the supervisor restarts the signer from the unchanged HRS. A
+restart on the same boot that finds this boot's ID in it exits 3, and the supervisor latches.
+Any other content is not evidence: an empty or partial marker is from a death or a refusal
+before stock FilePV wrote, and an earlier boot's ID is stale, since the reboot dropped the page
+cache and the disk holds the last durable HRS. Startup removes such a marker and serves. A
+signer killed during a signing step therefore needs an operator unless the host reboots; one
+killed between signatures restarts on its own. Remove a same-boot `<state>.inflight` only under the evidence
 rules above: no I/O error in the kernel log or the signer's stderr. Run the signer on the host
 kernel (runc): a sandboxed runtime such as gVisor or Kata has its own boot ID while the host
 may keep the page cache, so the marker could not tell a restarted sandbox from a reboot.
@@ -367,14 +371,15 @@ without the state, refuses with exit 3. An older state cannot be detected and do
 
 Stock FilePV owns HRS checks and signing, and writes each new HRS through an `O_SYNC`
 temporary file renamed over the state. Before the transport receives a signature, cached
-same-HRS retries included, the signer fsyncs the state file and then its directory: exactly two
-fsyncs for each request that reaches FilePV (SYNC-9-13). Both run under `<state>.inflight`
-(see Supervisor restarts and latches). A crash, SIGKILL or stock persistence panic (exit 2)
-writes no fence. Outside the two fsyncs it needs none: no signature is released before both
-fsyncs succeed, and the disk holds either the old or the new HRS, so a restart continues from
-it and may sign an unreleased step again without equivocating. Stock FilePV then returns the
-stored signature for the same step and refuses conflicting data or a lower step. A death during
-them leaves the inflight marker, which refuses a restart on the same boot.
+same-HRS retries included, the signer fsyncs the state file and then its directory (SYNC-9-13).
+Before FilePV writes, it makes `<state>.inflight` durable with two more fsyncs (see Supervisor
+restarts and latches), so a request that reaches FilePV costs four. A crash, SIGKILL or stock
+persistence panic (exit 2) writes no fence. Between signing steps it needs none: no signature is
+released before the state fsyncs succeed, and the disk holds either the old or the new HRS, so
+a restart continues from it and may sign an unreleased step again without equivocating. Stock
+FilePV then returns the stored signature for the same step and refuses conflicting data or a
+lower step. A death during a step leaves the inflight marker, which refuses a restart on the
+same boot.
 
 A failed state or directory fsync makes the latest state uncertain (RECOV-8.2-3). The signer
 withholds the signature and latches in memory, refusing every later request, cached retries

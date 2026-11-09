@@ -85,12 +85,12 @@ func readFence(t *testing.T, state string) fenceRecord {
 	return record
 }
 
-// A signature costs exactly two fsyncs, the state file's and its directory's, after stock
-// FilePV's synchronous write and rename, and no fence is written while signing (SYNC-9-13).
-// Both run under an inflight marker naming this boot, removed once they succeed. A cached
-// same-HRS retry is synchronized the same way, since an earlier synchronization may have failed
-// after FilePV updated its in-memory state.
-func TestSigningSyncsStateAndDirectoryOnceWithoutFence(t *testing.T) {
+// A signing step first makes an inflight marker naming this boot durable, its file and then
+// the directory, before stock FilePV writes; then it fsyncs the state file and its directory
+// after FilePV's synchronous write and rename, and removes the marker. That is four fsyncs, in
+// that order, and no fence (SYNC-9-13). A cached same-HRS retry is synchronized the same way,
+// since an earlier synchronization may have failed after FilePV updated its in-memory state.
+func TestSigningMakesTheMarkerDurableThenSyncsTheStateWithoutFence(t *testing.T) {
 	if bootID() == "" {
 		t.Fatal("no boot identity on this platform")
 	}
@@ -98,23 +98,29 @@ func TestSigningSyncsStateAndDirectoryOnceWithoutFence(t *testing.T) {
 		t.Run(family, func(t *testing.T) {
 			_, key, state := filePV(t)
 			signer := loadDurableFilePV(key, state)
-			var files, dirs int
-			unfenced := func() {
+			var order []string
+			marked := func(when string) {
 				if _, err := os.Lstat(fencePath(state)); !os.IsNotExist(err) {
 					t.Errorf("fence present while signing: %v", err)
 				}
 				if marker, err := os.ReadFile(inflightPath(state)); err != nil || string(marker) != bootID()+"\n" {
-					t.Errorf("synchronized without this boot's inflight marker: %q %v", marker, err)
+					t.Errorf("%s without this boot's inflight marker: %q %v", when, marker, err)
 				}
 			}
+			var before []byte
 			signer.syncFile = func(file *os.File) error {
-				files++
-				unfenced()
+				marked("file fsync")
+				if strings.HasSuffix(file.Name(), inflightSuffix) {
+					order = append(order, "marker")
+					before = readFile(t, state)
+				} else {
+					order = append(order, "state")
+				}
 				return file.Sync()
 			}
 			signer.syncDir = func(directory string) error {
-				dirs++
-				unfenced()
+				marked("directory fsync")
+				order = append(order, "directory")
 				if directory != filepath.Dir(state) {
 					t.Errorf("synchronized %s, not the state's directory", directory)
 				}
@@ -122,13 +128,17 @@ func TestSigningSyncsStateAndDirectoryOnceWithoutFence(t *testing.T) {
 			}
 			var first []byte
 			for attempt, step := range []string{"new", "cached"} {
-				files, dirs = 0, 0
+				order = nil
+				initial := readFile(t, state)
 				signature, err := signFamily(signer, familyRequest(family, false))
 				if err != nil || len(signature) < 65 {
 					t.Fatalf("%s signature: %v", step, err)
 				}
-				if files != 1 || dirs != 1 {
-					t.Fatalf("%s signature: %d state and %d directory fsyncs, want 1 and 1", step, files, dirs)
+				if want := []string{"marker", "directory", "state", "directory"}; strings.Join(order, ",") != strings.Join(want, ",") {
+					t.Fatalf("%s signature fsyncs %v, want %v", step, order, want)
+				}
+				if !bytes.Equal(before, initial) {
+					t.Fatalf("%s signature changed the HRS before its marker was durable", step)
 				}
 				if attempt == 0 {
 					first = signature
@@ -150,6 +160,37 @@ func TestSigningSyncsStateAndDirectoryOnceWithoutFence(t *testing.T) {
 	}
 }
 
+// A marker whose own fsync fails refuses the step before stock FilePV writes: the HRS is
+// unchanged and nothing is signed. The HRS volume is failing, so the signer latches and writes
+// the fence like any failed fsync (RECOV-8.2-3).
+func TestMarkerSyncFailureRefusesBeforeTheStateChanges(t *testing.T) {
+	for _, failing := range []string{"file", "directory"} {
+		t.Run(failing, func(t *testing.T) {
+			_, key, state := filePV(t)
+			signer := loadDurableFilePV(key, state)
+			if failing == "file" {
+				signer.syncFile = func(*os.File) error { return syscall.EIO }
+			} else {
+				signer.syncDir = func(string) error { return syscall.EIO }
+			}
+			before := readFile(t, state)
+			signature, err := signFamily(signer, familyRequest("prevote", false))
+			if !errors.Is(err, errSigningStateUnsafe) || !errors.Is(err, syscall.EIO) || len(signature) != 0 {
+				t.Fatalf("failed marker fsync signed: %v", err)
+			}
+			if !bytes.Equal(before, readFile(t, state)) {
+				t.Fatal("stock FilePV wrote before the marker was durable")
+			}
+			if record := readFence(t, state); !strings.Contains(record.Error, "inflight marker") {
+				t.Fatalf("fence %+v", record)
+			}
+			if err := signer.signDurably(func() error { t.Error("stock signing ran after the latch"); return nil }); !errors.Is(err, errSigningStateUnsafe) {
+				t.Fatalf("latch: %v", err)
+			}
+		})
+	}
+}
+
 // A failed state fsync makes the latest state uncertain (RECOV-8.2-3): the signature is
 // withheld, the fence records the cause, the in-memory latch refuses every later request
 // without reaching stock signing, and the gate reports the terminal error so the process
@@ -161,7 +202,13 @@ func TestStateSyncFailureWritesFenceLatchesAndStops(t *testing.T) {
 			_, key, state := filePV(t)
 			signer := loadDurableFilePV(key, state)
 			var files int
-			signer.syncFile = func(*os.File) error { files++; return syscall.EIO }
+			signer.syncFile = func(file *os.File) error {
+				if strings.HasSuffix(file.Name(), inflightSuffix) {
+					return file.Sync()
+				}
+				files++
+				return syscall.EIO
+			}
 			g := armed(control(t, func(map[string]any) any { return snapshot(true) }))
 			response, err := g.handle(signer, familyRequest(family, false), chain)
 			if !errors.Is(err, errSigningStateUnsafe) || !errors.Is(err, syscall.EIO) {
@@ -288,21 +335,31 @@ func TestInflightMarkerRefusesOnlyTheSameBoot(t *testing.T) {
 			}
 		})
 	}
-	t.Run("unwritable", func(t *testing.T) {
+	// A marker that cannot be created (here an existing inode) panics before any fsync or stock
+	// write, like a failed stock write: exit 2, which the supervisor restarts from the unchanged
+	// HRS, and no fence.
+	t.Run("uncreatable", func(t *testing.T) {
 		_, key, state := filePV(t)
 		signer := loadDurableFilePV(key, state)
 		if err := os.Mkdir(inflightPath(state), 0700); err != nil {
 			t.Fatal(err)
 		}
 		signer.syncFile = func(*os.File) error { t.Error("synchronized without a marker"); return nil }
-		if signature, err := signFamily(signer, familyRequest("prevote", false)); !errors.Is(err, errSigningStateUnsafe) || len(signature) != 0 {
-			t.Fatalf("unmarked synchronization released a signature: %v", err)
+		before := readFile(t, state)
+		var recovered any
+		func() {
+			defer func() { recovered = recover() }()
+			signFamily(signer, familyRequest("prevote", false))
+			t.Error("an uncreatable marker did not panic")
+		}()
+		if err, ok := recovered.(error); !ok || !errors.Is(err, errInflightWrite) {
+			t.Fatalf("panic %v", recovered)
 		}
-		if record := readFence(t, state); !strings.Contains(record.Error, "inflight marker") || !strings.Contains(record.Error, "exists") {
-			t.Fatalf("fence %+v", record)
+		if !bytes.Equal(before, readFile(t, state)) {
+			t.Fatal("stock FilePV wrote without a marker")
 		}
-		if err := signer.signDurably(func() error { t.Error("stock signing ran after the latch"); return nil }); !errors.Is(err, errSigningStateUnsafe) {
-			t.Fatalf("latch: %v", err)
+		if _, err := os.Lstat(fencePath(state)); !os.IsNotExist(err) {
+			t.Fatalf("an unwritten marker wrote a fence: %v", err)
 		}
 	})
 }

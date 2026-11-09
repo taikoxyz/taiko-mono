@@ -297,9 +297,9 @@ func heightVote(typ tm.SignedMsgType, height int64, block byte) pv.Message {
 // (RECOV-8.2-2), and stock FilePV continues from the HRS on disk (RECOV-8.2-1, SYNC-9-13):
 //   - sigkill: SIGKILL after a released prevote. The identical prevote returns the same
 //     signature; another block at that HRS is conflicting data; a lower height is refused.
-//   - write-panic (exit 2): the state directory loses write permission, so stock
-//     WriteFileAtomic cannot create its temporary file and FilePV panics inside the precommit,
-//     before any signature is released. The HRS on disk is unchanged; after the restart the
+//   - write-panic (exit 2): the state directory loses write permission, so the signer cannot
+//     create the precommit's inflight marker and panics, as a failed stock write does, before
+//     any fsync, stock write or signature. The HRS on disk is unchanged; after the restart the
 //     precommit signs once, and another block at that HRS is refused.
 func TestSupervisorRestartsCrashedSignerFromItsHRS(t *testing.T) {
 	python, err := exec.LookPath("python3")
@@ -413,7 +413,7 @@ func TestSupervisorRestartsCrashedSignerFromItsHRS(t *testing.T) {
 			waitFor("the supervisor did not restart the crashed signer", func() bool { return len(lines(pids)) == 2 })
 			if crash == "write-panic" {
 				if contents, _ := os.ReadFile(logs.Name()); !bytes.Contains(contents, []byte("panic")) || !bytes.Contains(contents, []byte("exit status 2")) {
-					t.Fatalf("the signer did not exit 2 from a stock write panic: %s", contents)
+					t.Fatalf("the signer did not exit 2 from a write panic: %s", contents)
 				}
 				if !bytes.Equal(readFile(t, state), signedA) {
 					t.Fatal("a failed stock state write changed the HRS on disk")
