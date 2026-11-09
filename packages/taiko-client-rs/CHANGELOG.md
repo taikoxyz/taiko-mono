@@ -121,6 +121,10 @@ older stores are refused, never migrated (START-10-24).
   whichever handler sees it first, not only a waiting proposer.
 - Treat an own-EL block that does not hash to the requested hash during startup and trust,
   such as in the recovery origin-state and import floor probes, as a contradiction that halts.
+- A failed own-L1 registry proof halts only when the own L1 holds its anchor final; an endpoint
+  that does not, as after a failover to one that is behind, pauses as missing data.
+- Trust waits, instead of halting, while the own L1's finalized block precedes the Inbox's genesis
+  L1_0 and the Inbox it reads is still empty, before InitChain and after it.
 - Delete committed Comet block IDs below the committed anchor's checkpoint, which trust never
   reads, so the app directory stays within `unsettled_limit + 1` of them instead of growing one
   file per height until the volume runs out of inodes; trust re-acquires a checkpoint below it.
