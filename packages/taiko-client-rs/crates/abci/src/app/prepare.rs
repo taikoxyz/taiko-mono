@@ -426,7 +426,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
             ) {
                 Ok(verified) => return Ok(verified),
                 Err(error @ CommitteeError::Mpt(_)) => {
-                    return Err(own_l1_proof_failure(error).into())
+                    let timeout = self.opts.l1_timeout;
+                    let anchor_id = (anchor.number, anchor.hash);
+                    return Err(own_l1_proof_failure(self.l1(), anchor_id, timeout, error)
+                        .await
+                        .into());
                 }
                 Err(error) => {
                     tracing::warn!(
@@ -446,8 +450,15 @@ impl<L: L1Source, E: Engine> App<L, E> {
             return Ok(found.witness);
         }
         let witness = self.reproved_under(found.witness.witness(), anchor).await?;
-        VerifiedWitness::verify(anchor.state_root, snapshot, &self.params, witness, target)
-            .map_err(|error| own_l1_proof_failure(error).into())
+        match VerifiedWitness::verify(anchor.state_root, snapshot, &self.params, witness, target) {
+            Ok(verified) => Ok(verified),
+            Err(error) => {
+                let anchor_id = (anchor.number, anchor.hash);
+                Err(own_l1_proof_failure(self.l1(), anchor_id, self.opts.l1_timeout, error)
+                    .await
+                    .into())
+            }
+        }
     }
 
     /// `base` re-proved under `anchor`'s root ([`reprove_committee_witness`]), within the L1

@@ -13,7 +13,10 @@ use crate::{
     config::ChainParams,
     engine::Engine,
     envelope::CommitteeWitness,
-    l1::{FetchError, L1Error, L1Source, build_committee_witness_within, header_at},
+    l1::{
+        FetchError, L1Error, L1Source, OwnFinality, build_committee_witness_within, header_at,
+        own_finality,
+    },
     rules,
     store::AppState,
     types::{AnchorState, GenesisRecord},
@@ -41,17 +44,37 @@ fn prefetch_backoff(failures: u32) -> Duration {
 }
 
 /// Classifies a witness whose registry proof the own L1 served, by discovery or by a re-proof
-/// under a candidate anchor, that fails verification. The own L1 served both the proofs, for
-/// the registry account and slots asked for (it already refuses another address or slot), and
-/// the state root they are checked against. So a proof that does not verify there is a malformed
-/// own-L1 reply, which halts (SYNC-9-7), unlike the same failure in a peer's proposal, which only
-/// rejects it. Every other failure keeps its committee reason.
-pub(super) fn own_l1_proof_failure(error: CommitteeError) -> FetchError {
-    match error {
-        CommitteeError::Mpt(proof) => FetchError::L1(L1Error::MalformedResponse(format!(
-            "own L1 registry proof does not verify under its own state root: {proof}"
-        ))),
-        other => other.into(),
+/// under a candidate anchor, that fails verification under the root of `anchor` (its number
+/// and hash). The own L1 served the proofs, for the registry account and slots asked for (it
+/// already refuses another address or slot), read by number. The root is the own L1's too, but
+/// possibly from an earlier read: the committed anchor's stored root, or a header read before
+/// the proof. So the own L1 is asked whether `anchor` is final there first, as trust does. Final
+/// at that hash or at another, the failed proof is a malformed own-L1 reply, which halts
+/// (SYNC-9-7), unlike the same failure in a peer's proposal, which only rejects it. Not final, the
+/// endpoint is behind or on another branch, as after a failover: missing data, a pause. Every
+/// other failure keeps its committee reason.
+pub(super) async fn own_l1_proof_failure<L: L1Source + ?Sized>(
+    l1: &L,
+    anchor: (u64, B256),
+    read_timeout: Duration,
+    error: CommitteeError,
+) -> FetchError {
+    let CommitteeError::Mpt(proof) = error else { return error.into() };
+    match tokio::time::timeout(read_timeout, own_finality(l1, anchor.0, anchor.1)).await {
+        Ok(Ok(OwnFinality::Canonical | OwnFinality::OffChain { .. })) => {
+            FetchError::L1(L1Error::MalformedResponse(format!(
+                "own L1 registry proof does not verify under its own state root: {proof}"
+            )))
+        }
+        Ok(Ok(OwnFinality::NotFinal { finalized })) => {
+            FetchError::L1(L1Error::DataUnavailable(format!(
+                "own L1 finalized {finalized}, below proof anchor {}, whose registry proof failed: \
+                 {proof}",
+                anchor.0
+            )))
+        }
+        Ok(Err(error)) => FetchError::L1(error),
+        Err(_) => FetchError::Timeout("proof anchor finality read"),
     }
 }
 
@@ -428,9 +451,19 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 let witness =
                     build_committee_witness_within(&*l1, &params, block, target, read_timeout)
                         .await?;
-                let witness =
-                    VerifiedWitness::verify(proof_anchor.2, block, &params, witness, target)
-                        .map_err(own_l1_proof_failure)?;
+                let witness = match VerifiedWitness::verify(
+                    proof_anchor.2,
+                    block,
+                    &params,
+                    witness,
+                    target,
+                ) {
+                    Ok(witness) => witness,
+                    Err(error) => {
+                        let anchor = (proof_anchor.0, proof_anchor.1);
+                        return Err(own_l1_proof_failure(&*l1, anchor, read_timeout, error).await);
+                    }
+                };
                 Ok::<_, FetchError>(PrefetchedCommittee { witness, proof_anchor })
             };
             let outcome = match tokio::time::timeout(COMMITTEE_PREFETCH_TIMEOUT, discovery).await {

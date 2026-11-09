@@ -793,6 +793,40 @@ async fn an_own_l1_proof_failing_under_its_own_root_during_switch_discovery_halt
     assert!(app.store.fatal_evidence().unwrap().is_some());
 }
 
+/// An own L1 that does not hold the proof anchor final, as after a failover to a node that is
+/// behind there or on another branch, may answer a registry proof that fails under the anchor's
+/// stored root. That is missing data: a pause without fatal evidence, as trust waits when own
+/// finality recedes (SYNC-9-7). Once the own L1 holds the anchor final again, the same failure
+/// is a contradiction and halts.
+#[tokio::test(start_paused = true)]
+async fn an_own_l1_proof_failure_below_its_finality_pauses_then_halts_once_final() {
+    let fx = Fixture::genesis(3);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = before_switch(&fx, dir.path()).await;
+    let anchor = app.state().unwrap().anchor.number;
+    app.l1().state().proof_tamper = true;
+    app.l1().set_finalized(anchor - 1);
+    let state = app.state().unwrap().clone();
+    app.prefetch_committee_witness(&state).unwrap();
+    assert!(app.prefetched_committee_witness(&state, 2).await.is_none(), "the proof failed");
+    app.prefetch_committee_witness(&state).expect("not final in the own L1: no halt");
+    let result =
+        app.handle(Request::PrepareProposal(prepare_req(next_height(&app), bft_time(&app)))).await;
+    assert!(result.is_ok(), "{result:?}");
+    assert!(app.store.fatal_evidence().unwrap().is_none());
+
+    app.l1().set_finalized(anchor);
+    tokio::time::advance(Duration::from_secs(120)).await;
+    let result =
+        app.handle(Request::PrepareProposal(prepare_req(next_height(&app), bft_time(&app)))).await;
+    assert!(
+        matches!(&result, Err(AbciError::SafetyHalt(reason))
+            if reason.contains("does not verify under its own state root")),
+        "{result:?}"
+    );
+    assert!(app.store.fatal_evidence().unwrap().is_some());
+}
+
 /// A switch-witness discovery that fails on an unavailable own L1 (here a rate limit) leaves the
 /// witness unavailable: a liveness pause (RECOV-8-4, RECOV-8-5) labelled as the L1 error, never
 /// a halt. A round within its backoff proposes nothing at once and reads nothing; the first round
