@@ -45,6 +45,37 @@ Review each sub-command's command line flags:
 bin/taiko-client <sub-command> --help
 ```
 
+### RISC0 proofs and SP1 fallback
+
+After the Shasta fork, the prover proves every proposal with SP1 by default:
+`--prover.maxRisc0ProofProposalDistance` defaults to `0`, so it never requests
+RISC0 proofs or calls the Raiko RISC0 backlog endpoints.
+
+To enable RISC0, set the distance to `N > 0`. The prover then requests RISC0
+proofs while `proposalID <= lastFinalizedProposalID + N`. Beyond that it falls
+back to SP1, clears the Raiko RISC0 backlog (`POST /v4/prover/clear`), and
+resumes RISC0 once finalization has caught up with the proposals it proved with
+SP1 and `GET /v4/prover/status?proof_type=risc0` reports clean (if that request
+fails, the finalization check alone decides). Set a distance only when the
+configured Raiko host serves `risc0` proofs.
+
+`--prover.sp1ProofPercentage X` proves the first `X` of every 100 proposals
+(`proposalID % 100 < X`) with SP1 and the rest through the RISC0 flow above, so
+it only matters with a positive distance. For `0 < X < 100`, both `X` and
+`100 - X` must be multiples of `--prover.zkvm.batchSize`.
+
+`--prover.forceSP1Proof` always requests SP1, ignoring the distance and the SP1
+share. `--prover.zkOnlyProofs` proves every proposal with both RISC0 and SP1 and
+submits `[RISC0, SP1]`; it needs a Raiko host that serves `risc0` proofs and
+`ZkRequiredVerifier` as the inbox's proof verifier.
+
+| Flag                                     | Environment variable                       | Default |
+| ---------------------------------------- | ------------------------------------------ | ------- |
+| `--prover.maxRisc0ProofProposalDistance` | `PROVER_MAX_RISC0_PROOF_PROPOSAL_DISTANCE` | `0`     |
+| `--prover.sp1ProofPercentage`            | `PROVER_SP1_PROOF_PERCENTAGE`              | `0`     |
+| `--prover.forceSP1Proof`                 | `PROVER_FORCE_SP1_PROOF`                   | `false` |
+| `--prover.zkOnlyProofs`                  | `PROVER_ZK_ONLY_PROOFS`                    | `false` |
+
 ### SGX_RETH companion proofs
 
 After the Shasta fork, enable `--prover.sgxRethCompanionProof` when the prover

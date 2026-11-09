@@ -100,6 +100,26 @@ func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeDistanceZeroUsesSP1() {
 	s.False(sub.inSP1Fallback())
 }
 
+func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeDefaultDistanceNeverTouchesBacklog() {
+	for _, sp1ProofPercentage := range []uint64{0, 50} {
+		fake := &fakeRisc0Backlog{clean: true}
+		sub := &ProofSubmitter{
+			maxRisc0ProofProposalDistance: big.NewInt(0), // what init passes for the flag default
+			sp1ProofPercentage:            sp1ProofPercentage,
+			risc0Backlog:                  fake,
+			proofPollingInterval:          time.Millisecond,
+			ctx:                           context.Background(),
+		}
+		for _, proposalID := range []int64{11, 60, 99, 1000} {
+			s.Equal(proofProducer.ProofTypeZKSP1,
+				sub.decideZKProofType(context.Background(), big.NewInt(proposalID), big.NewInt(10)))
+		}
+		s.False(sub.inSP1Fallback())
+		s.Zero(fake.clearCalls.Load())
+		s.Zero(fake.statusCalls.Load())
+	}
+}
+
 func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeForceSP1DoesNotClearBacklog() {
 	fake := &fakeRisc0Backlog{cleared: make(chan struct{}, 1)}
 	sub := &ProofSubmitter{

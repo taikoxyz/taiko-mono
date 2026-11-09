@@ -70,9 +70,10 @@ var (
 		Usage: "The maximum proposal distance counted from lastFinalizedProposalID for requesting RISC0 proofs. " +
 			"When proposalID exceeds lastFinalizedProposalID + maxRisc0ProofProposalDistance, the prover stops " +
 			"requesting RISC0 proofs, clears the RISC0 backlog, and falls back to SP1 until the backlog " +
-			"is cleared and the RISC0 endpoint reports clean, then resumes RISC0. Set to 0 to always use SP1. " +
-			"Post Shasta fork only.",
-		Value:    30,
+			"is cleared and the RISC0 endpoint reports clean, then resumes RISC0. " +
+			"Defaults to 0, so the prover uses SP1 only until a positive distance is set; set one only when " +
+			"the Raiko host serves RISC0 proofs. Post Shasta fork only.",
+		Value:    0,
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_MAX_RISC0_PROOF_PROPOSAL_DISTANCE"},
 	}

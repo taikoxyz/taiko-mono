@@ -53,6 +53,37 @@ func TestRequestProposalProofZkOnlyPinsSP1AndSkipsSelection(t *testing.T) {
 	require.Zero(t, backlog.statusCalls.Load())
 }
 
+func TestRequestProposalProofZkOnlyRequestsRisc0CompanionAtDefaultDistance(t *testing.T) {
+	zkvm := &recordingProofProducer{proofType: proofProducer.ProofTypeZKR0}
+	backlog := &fakeRisc0Backlog{cleared: make(chan struct{}, 1)}
+	submitter := &ProofSubmitter{
+		zkvmProofProducer:             zkvm,
+		maxRisc0ProofProposalDistance: big.NewInt(0),
+		zkOnlyProofs:                  true,
+		risc0Backlog:                  backlog,
+		ctx:                           context.Background(),
+	}
+
+	// The default distance of 0 never selects RISC0 as the primary proof, but ZK-only mode
+	// must still request RISC0 as the companion proof of every proposal.
+	opts := &proofProducer.ProposalProofRequestOptions{ProposalID: big.NewInt(11)}
+	resp, err := submitter.requestProposalProof(
+		context.Background(),
+		opts,
+		big.NewInt(11),
+		metadata.NewTaikoProposalMetadataShasta(&shastaBindings.ShastaInboxClientProposed{Id: big.NewInt(11)}, 0),
+		time.Now(),
+		big.NewInt(10),
+	)
+
+	require.NoError(t, err)
+	require.Equal(t, proofProducer.ProofTypeZKSP1, resp.ProofType)
+	require.Equal(t, []proofProducer.ProofType{proofProducer.ProofTypeZKSP1}, zkvm.requestedTypes)
+	require.Equal(t, proofProducer.ProofTypeZKR0, opts.CompanionProofType)
+	require.Zero(t, backlog.clearCalls.Load())
+	require.Zero(t, backlog.statusCalls.Load())
+}
+
 func TestNewProofSubmitterRequiresZKVMProducer(t *testing.T) {
 	_, err := NewProofSubmitter(
 		context.Background(),

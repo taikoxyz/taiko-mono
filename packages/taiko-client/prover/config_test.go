@@ -71,7 +71,7 @@ func TestNewConfigFromCliContextMaxRisc0ProofProposalDistance(t *testing.T) {
 	t.Run("uses default value", func(t *testing.T) {
 		cfg := newTestConfigFromCLI(t)
 
-		require.Equal(t, uint64(30), cfg.MaxRisc0ProofProposalDistance)
+		require.Equal(t, uint64(0), cfg.MaxRisc0ProofProposalDistance)
 	})
 
 	t.Run("uses flag value", func(t *testing.T) {
