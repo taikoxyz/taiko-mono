@@ -2,6 +2,7 @@
 use super::*;
 use crate::{
     AppStateJson, GenesisDoc,
+    engine::EngineError,
     genesis::{GenesisConsensusParams, GenesisValidator},
     recovery::{RecoveryWitness, verify_recovery_witness},
     rules::chain_id_for,
@@ -484,6 +485,28 @@ async fn recovery_init_waits_on_the_same_request_for_historical_evidence() {
     assert_eq!(result.app_hash.as_bytes(), w.el_header.hash_slow().as_slice());
     assert_eq!(store.load().unwrap().unwrap().last_height, 6);
     assert!(!trust.snapshot().is_ready());
+}
+
+/// An own EL that answers the origin-state probe with a block that does not hash to c's hash
+/// contradicts itself: recovery InitChain halts with durable fatal evidence (SYNC-9-7), instead
+/// of failing the request as an ordinary error.
+#[tokio::test]
+async fn recovery_init_halts_when_the_el_serves_another_block_for_the_origin() {
+    let (fx, l1, engine, w) = recovery_fixture(1, 6, 1);
+    let origin = w.el_header.hash_slow();
+    engine.state().historical_state_fail =
+        Some(EngineError::BlockHashMismatch { expected: origin, computed: B256::repeat_byte(9) });
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let result = tokio::time::timeout(
+        std::time::Duration::from_secs(3),
+        init_chain(&mut app, request(&document(&fx, &w))),
+    )
+    .await
+    .expect("a contradiction must not wait");
+    assert!(matches!(&result, Err(AbciError::SafetyHalt(_))), "{result:?}");
+    assert!(app.store.fatal_evidence().unwrap().is_some());
+    assert!(app.store.load().unwrap().is_none());
 }
 
 /// An EL that lost c's state after `prepare` (pruned, or replaced by another EL serving the same

@@ -322,6 +322,8 @@ pub(crate) struct MockEngineState {
     pub(crate) finalized: Option<Header>,
     /// Hashes for which the mock retains historical state, independent of headers.
     pub(crate) historical_state: std::collections::BTreeSet<B256>,
+    /// When set, every historical state probe fails with this error.
+    pub(crate) historical_state_fail: Option<EngineError>,
     /// The canonical chain served by `header_by_number`.
     pub(crate) chain: BTreeMap<u64, Header>,
     /// Every block the EL holds, canonical or not, by hash.
@@ -563,6 +565,9 @@ impl Engine for MockEngine {
         self.pause().await;
         let mut state = self.state();
         state.calls.push(EngineCall::HistoricalState(hash));
+        if let Some(error) = &state.historical_state_fail {
+            return Err(error.clone());
+        }
         Ok(state.historical_state.contains(&hash))
     }
 

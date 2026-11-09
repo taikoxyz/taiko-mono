@@ -392,7 +392,9 @@ pub(super) enum ErrorClass {
 /// validator updates record that disagrees with the recomputed one (SYNC-9-5c), a conflicting
 /// recovery bootstrap, recovery evidence that is invalid, superseded or opens another
 /// configuration, and an engine reply that is malformed, names another block or is
-/// `-38100`/`-38002`. Everything else is [`ErrorClass::Other`].
+/// `-38100`/`-38002`. Startup and trust read only the own EL, so a block it serves for a hash
+/// that it does not hash to ([`EngineError::BlockHashMismatch`]) is an own-EL contradiction here,
+/// not a peer's invalid payload. Everything else is [`ErrorClass::Other`].
 pub(super) fn classify(error: &AbciError) -> ErrorClass {
     use crate::recovery::RecoveryError;
     match error {
@@ -422,6 +424,7 @@ pub(super) fn classify(error: &AbciError) -> ErrorClass {
             } else if matches!(
                 error,
                 EngineError::ErrorReply { code: -38100 | -38002, .. } |
+                    EngineError::BlockHashMismatch { .. } |
                     EngineError::HeaderHashMismatch { .. } |
                     EngineError::HeaderNumberMismatch { .. } |
                     EngineError::BadReply(_)
@@ -1027,6 +1030,12 @@ mod classify_tests {
             (reply(-38100).into(), Contradiction),
             (reply(-38002).into(), Contradiction),
             (el_hash_mismatch().into(), Contradiction),
+            // The own EL's block for a requested hash, such as the origin-state and import-floor
+            // probes' (historical_state_available), hashes to something else.
+            (
+                EngineError::BlockHashMismatch { expected: hash, computed: other }.into(),
+                Contradiction,
+            ),
             (EngineError::HeaderNumberMismatch { requested: 1, got: 2 }.into(), Contradiction),
             (EngineError::BadReply("shape".into()).into(), Contradiction),
             (AbciError::ElSync(ElSyncError::Engine(reply(-38100))), Contradiction),
