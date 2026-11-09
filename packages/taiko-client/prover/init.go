@@ -88,11 +88,19 @@ func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.
 	}
 
 	if p.cfg.SP1ProofPercentage > 0 && !p.cfg.ForceSP1Proof && !p.cfg.ForceSGXProof && !p.cfg.ZkOnlyProofs {
-		log.Info(
-			"SP1 proof share enabled",
-			"sp1ProofPercentage", p.cfg.SP1ProofPercentage,
-			"cycle", proofSubmitter.SP1ProofShareCycle,
-		)
+		if p.cfg.MaxRisc0ProofProposalDistance > 0 {
+			log.Info(
+				"SP1 proof share enabled",
+				"sp1ProofPercentage", p.cfg.SP1ProofPercentage,
+				"cycle", proofSubmitter.SP1ProofShareCycle,
+			)
+		} else {
+			log.Warn(
+				"SP1 proof share has no effect because --prover.maxRisc0ProofProposalDistance is 0, "+
+					"so every proposal uses SP1",
+				"sp1ProofPercentage", p.cfg.SP1ProofPercentage,
+			)
+		}
 	}
 
 	// Initialize proof verifier IDs and the Raiko proof producer.

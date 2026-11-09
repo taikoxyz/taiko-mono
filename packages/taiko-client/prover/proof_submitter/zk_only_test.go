@@ -55,7 +55,7 @@ func TestRequestProposalProofZkOnlyPinsSP1AndSkipsSelection(t *testing.T) {
 
 func TestRequestProposalProofZkOnlyRequestsRisc0CompanionAtDefaultDistance(t *testing.T) {
 	zkvm := &recordingProofProducer{proofType: proofProducer.ProofTypeZKR0}
-	backlog := &fakeRisc0Backlog{cleared: make(chan struct{}, 1)}
+	backlog := &fakeRisc0Backlog{}
 	submitter := &ProofSubmitter{
 		zkvmProofProducer:             zkvm,
 		maxRisc0ProofProposalDistance: big.NewInt(0),
@@ -80,6 +80,7 @@ func TestRequestProposalProofZkOnlyRequestsRisc0CompanionAtDefaultDistance(t *te
 	require.Equal(t, proofProducer.ProofTypeZKSP1, resp.ProofType)
 	require.Equal(t, []proofProducer.ProofType{proofProducer.ProofTypeZKSP1}, zkvm.requestedTypes)
 	require.Equal(t, proofProducer.ProofTypeZKR0, opts.CompanionProofType)
+	require.False(t, submitter.inSP1Fallback())
 	require.Zero(t, backlog.clearCalls.Load())
 	require.Zero(t, backlog.statusCalls.Load())
 }

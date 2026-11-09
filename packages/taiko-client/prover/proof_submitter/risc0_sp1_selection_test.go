@@ -103,6 +103,44 @@ func TestRequestProposalProofUsesSameZKVMProducerForSP1Fallback(t *testing.T) {
 	require.Equal(t, []proofProducer.ProofType{proofProducer.ProofTypeZKSP1}, risc0.requestedTypes)
 }
 
+func TestRequestProposalProofDefaultDistanceUsesSP1WithSGXGethCompanion(t *testing.T) {
+	producer := &recordingProofProducer{proofType: proofProducer.ProofTypeZKR0}
+	submitter := &ProofSubmitter{
+		zkvmProofProducer:             producer,
+		maxRisc0ProofProposalDistance: big.NewInt(0),
+	}
+
+	// The default distance of 0 proves every proposal with SP1 and the SGX_GETH companion,
+	// both for the next proposal to finalize and for one far beyond it.
+	for _, proposalID := range []int64{11, 1000} {
+		resp, err := submitter.requestProposalProof(
+			context.Background(),
+			&proofProducer.ProposalProofRequestOptions{ProposalID: big.NewInt(proposalID)},
+			big.NewInt(proposalID),
+			metadata.NewTaikoProposalMetadataShasta(
+				&shastaBindings.ShastaInboxClientProposed{Id: big.NewInt(proposalID)},
+				0,
+			),
+			time.Now(),
+			big.NewInt(10),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, proofProducer.ProofTypeZKSP1, resp.ProofType)
+	}
+
+	require.Equal(
+		t,
+		[]proofProducer.ProofType{proofProducer.ProofTypeZKSP1, proofProducer.ProofTypeZKSP1},
+		producer.requestedTypes,
+	)
+	require.Equal(
+		t,
+		[]proofProducer.ProofType{proofProducer.ProofTypeSgxGeth, proofProducer.ProofTypeSgxGeth},
+		producer.requestedCompanionTypes,
+	)
+}
+
 func TestRequestProposalProofForceSP1UsesSP1WithinRisc0Distance(t *testing.T) {
 	risc0 := &recordingProofProducer{proofType: proofProducer.ProofTypeZKR0}
 	submitter := &ProofSubmitter{

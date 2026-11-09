@@ -13,7 +13,7 @@ import (
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
 
-// clearBackoffMaxRetries bounds the best-effort retries of POST /v3/prover/clear
+// clearBackoffMaxRetries bounds the best-effort retries of POST /v4/prover/clear
 // when entering SP1 fallback mode.
 const clearBackoffMaxRetries uint64 = 5
 

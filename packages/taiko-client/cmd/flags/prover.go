@@ -79,7 +79,8 @@ var (
 	}
 	ForceSP1Proof = &cli.BoolFlag{
 		Name: "prover.forceSP1Proof",
-		Usage: "Always request SP1 proofs from the ZKVM proof producer instead of trying RISC0 first. " +
+		Usage: "Always request SP1 proofs from the ZKVM proof producer, even when a positive " +
+			"--prover.maxRisc0ProofProposalDistance would select RISC0. " +
 			"Ignored when --prover.zkOnlyProofs is set. Post Shasta fork only.",
 		Value:    false,
 		Category: proverCategory,
@@ -87,9 +88,11 @@ var (
 	}
 	SP1ProofPercentage = &cli.Uint64Flag{
 		Name: "prover.sp1ProofPercentage",
-		Usage: "Prove the first X of every 100 proposals (proposalID % 100 < X) with SP1, and the rest via RISC0 " +
-			"with the SP1 fallback of --prover.maxRisc0ProofProposalDistance. For 0 < X < 100, both X and " +
-			"100 - X must be multiples of --prover.zkvm.batchSize. 0 disables it, 100 behaves like " +
+		Usage: "Prove the first X of every 100 proposals (proposalID % 100 < X) with SP1, and the rest through " +
+			"the RISC0 selection and SP1 fallback of --prover.maxRisc0ProofProposalDistance. The share only " +
+			"changes proof selection with a positive --prover.maxRisc0ProofProposalDistance; at the default 0 " +
+			"every proposal uses SP1. For 0 < X < 100, both X and 100 - X must be multiples of " +
+			"--prover.zkvm.batchSize. 0 disables it, 100 behaves like " +
 			"--prover.forceSP1Proof. Ignored (but still validated) when --prover.forceSP1Proof, " +
 			"--prover.forceSGXProof or --prover.zkOnlyProofs is set. Post Shasta fork only.",
 		Value:    0,

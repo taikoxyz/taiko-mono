@@ -49,7 +49,9 @@ bin/taiko-client <sub-command> --help
 
 After the Shasta fork, the prover proves every proposal with SP1 by default:
 `--prover.maxRisc0ProofProposalDistance` defaults to `0`, so it never requests
-RISC0 proofs or calls the Raiko RISC0 backlog endpoints.
+RISC0 proofs or calls the Raiko RISC0 backlog endpoints. By default it submits
+each SP1 proof with an SGX_GETH companion, so the inbox's proof verifier must
+accept `[SGX_GETH, SP1]` (and `[SGX_GETH, RISC0]` once RISC0 is enabled).
 
 To enable RISC0, set the distance to `N > 0`. The prover then requests RISC0
 proofs while `proposalID <= lastFinalizedProposalID + N`. Beyond that it falls
@@ -60,12 +62,15 @@ fails, the finalization check alone decides). Set a distance only when the
 configured Raiko host serves `risc0` proofs.
 
 `--prover.sp1ProofPercentage X` proves the first `X` of every 100 proposals
-(`proposalID % 100 < X`) with SP1 and the rest through the RISC0 flow above, so
-it only matters with a positive distance. For `0 < X < 100`, both `X` and
-`100 - X` must be multiples of `--prover.zkvm.batchSize`.
+(`proposalID % 100 < X`) with SP1 and the rest through the RISC0 flow above. At
+distance `0` it does not change which proof type is used (every proposal is
+SP1), but it is still validated against `--prover.zkvm.batchSize` at startup:
+for `0 < X < 100`, both `X` and `100 - X` must be multiples of
+`--prover.zkvm.batchSize`.
 
 `--prover.forceSP1Proof` always requests SP1, ignoring the distance and the SP1
-share. `--prover.zkOnlyProofs` proves every proposal with both RISC0 and SP1 and
+share, unless `--prover.forceSGXProof` or `--prover.zkOnlyProofs` is set.
+`--prover.zkOnlyProofs` proves every proposal with both RISC0 and SP1 and
 submits `[RISC0, SP1]`; it needs a Raiko host that serves `risc0` proofs and
 `ZkRequiredVerifier` as the inbox's proof verifier.
 
@@ -99,8 +104,9 @@ accept both `[SGX_RETH, RISC0]` and `[SGX_RETH, SP1]`; `MainnetVerifier` and
 verifier does not accept the selected pair.
 
 Do not combine this flag with `--prover.forceSGXProof`: startup rejects that
-combination. With `--prover.zkOnlyProofs`, the companion flag is ignored and the
-prover still submits `[RISC0, SP1]`.
+combination. Forced SGX proving submits `[SGX_GETH, SGX_RETH]`, which
+`ZkRequiredVerifier` does not accept. With `--prover.zkOnlyProofs`, the
+companion flag is ignored and the prover still submits `[RISC0, SP1]`.
 
 ## L1 beacon node requirements
 
