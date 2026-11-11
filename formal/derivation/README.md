@@ -30,6 +30,10 @@ and Go also for proposal 1 on any non-genesis parent.
 
 ## Claims to review
 
+For a browser-friendly reading, open [`STATEMENTS.html`](STATEMENTS.html) locally. It puts
+English explanations beside the exact Lean declarations, lists the supporting theorems, and
+makes the premises and scope limits explicit. It is self-contained and works offline.
+
 Start with [`DerivationStatements/Claims.lean`](DerivationStatements/Claims.lean), then
 [`DerivationProofs/Claims.lean`](DerivationProofs/Claims.lean). The four headline theorems have
 exactly the corresponding named proposition as their type; the audit rejects added premises
