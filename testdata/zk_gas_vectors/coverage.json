@@ -1789,6 +1789,18 @@
       "layers": ["block", "harness"],
       "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); alethia-reth crates/evm/src/evm.rs:169 (a failed precompile charge sets the zk gas limit error and the tx aborts)",
       "description": "A precompile charge that exceeds the block limit by 1 aborts the tx."
+    },
+    {
+      "id": "call.depth.deepest_frame_created",
+      "layers": ["harness"],
+      "source": "revm-handler 43.0.2 src/frame.rs:176 (only a child depth above CALL_STACK_LIMIT = 1024 fails); revm-interpreter src/instructions/contract.rs:166 (call), :227-246 (NewFrame installed once the body succeeds); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:33-37 (spawn estimates)",
+      "description": "A CALL in the frame at depth 1023 creates the frame at depth 1024, whose code runs and is metered."
+    },
+    {
+      "id": "call.depth.limit_short_circuit_spawn_estimate",
+      "layers": ["harness"],
+      "source": "revm-handler 43.0.2 src/frame.rs:176 (CallTooDeep before the transfer, precompile and code checks; the forwarded gas returns); revm-interpreter src/instructions/contract.rs:166 (call), :227-246 (NewFrame installed once the body succeeds); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:33-37 (spawn estimates)",
+      "description": "A CALL in the frame at depth 1024 installs NewFrame and is charged its spawn estimate, then short-circuits with CallTooDeep: no frame runs and the CALL pushes 0."
     }
   ]
 }
