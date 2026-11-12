@@ -1855,6 +1855,36 @@
       "layers": ["block", "harness"],
       "source": "revm-interpreter src/instructions/contract.rs:79-82 (one gas! on 32,000 + 6 per word after the memory charge: OutOfGas); revm-interpreter src/instructions.rs:477,482 (CREATE and CREATE2 static gas 0); revm-interpreter src/interpreter.rs:208-209 (halt spends all gas only for OutOfGas)",
       "description": "CREATE2 that pays its initcode and memory costs and the 32,000 base but not the 6-per-word hashing cost halts OutOfGas and spends all remaining gas."
+    },
+    {
+      "id": "create.family.offset_above_u64_preserve_after_initcode",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract.rs:61 (as_usize_or_fail on the offset after the initcode cost); revm-interpreter src/instructions/macros.rs:131-140 (InvalidOperandOOG); revm-interpreter src/interpreter.rs:208-209 (halt spends all gas only for OutOfGas)",
+      "description": "CREATE or CREATE2 with a non-zero length and an offset of 2^64 or more pays the initcode cost and halts on the offset keeping the remaining gas."
+    },
+    {
+      "id": "create.family.size_above_u64_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract.rs:40 (as_usize_or_fail on the length before any charge); revm-interpreter src/instructions/macros.rs:131-140 (InvalidOperandOOG); revm-interpreter src/instructions.rs:477,482 (CREATE and CREATE2 static gas 0); revm-interpreter src/interpreter.rs:208-209 (halt spends all gas only for OutOfGas)",
+      "description": "CREATE or CREATE2 with a length of 2^64 or more halts before any charge keeping its gas: 0 measured."
+    },
+    {
+      "id": "create.family.underflow_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract.rs:39 (three pops before any charge); revm-interpreter src/instructions.rs:477,482 (CREATE and CREATE2 static gas 0); revm-interpreter src/interpreter.rs:208-209 (halt spends all gas only for OutOfGas)",
+      "description": "CREATE or CREATE2 with fewer than three stack items halts StackUnderflow keeping its gas: 0 measured."
+    },
+    {
+      "id": "create.create2.salt_underflow_after_charges_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract.rs:39 (three pops), :55-64 (initcode cost and memory), :77 (the salt is popped last: StackUnderflow); revm-interpreter src/interpreter.rs:208-209 (halt spends all gas only for OutOfGas)",
+      "description": "CREATE2 with exactly three stack items pays the initcode cost and memory expansion, then halts on the missing salt keeping the remaining gas: those charges are measured (none for a zero length)."
+    },
+    {
+      "id": "create.family.static_frame_halt_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract.rs:32 (require_non_staticcall before any pop or charge); revm-interpreter src/instructions.rs:477,482 (CREATE and CREATE2 static gas 0); revm-interpreter src/interpreter.rs:208-209 (halt spends all gas only for OutOfGas)",
+      "description": "Inside a STATICCALL frame, CREATE and CREATE2 halt on the static check keeping their gas: 0 measured, whatever the gas left, the stack or the operands."
     }
   ]
 }

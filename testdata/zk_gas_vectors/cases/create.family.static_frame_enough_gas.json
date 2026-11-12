@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "id": "create.family.static_frame_enough_gas",
+  "layer": "harness",
+  "cells": ["create.family.static_frame_halt_preserve"],
+  "description": "STATICCALLs to a helper whose CREATE of 32 bytes has exactly 32,005 gas left, and to a helper whose CREATE2 of 32 bytes has 65,526: both halt on the static check, 0 measured.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000da71": {
+        "balance": "0x0",
+        "code": "0x60205f5ff000"
+      },
+      "0x000000000000000000000000000000000000da72": {
+        "balance": "0x0",
+        "code": "0x5f60205f5ff500"
+      },
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x5f5f5f5f61da71617d0cfa505f5f5f5f61da7261fffffa5000"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0xf4240",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x276f8",
+    "status": "success"
+  }
+}
