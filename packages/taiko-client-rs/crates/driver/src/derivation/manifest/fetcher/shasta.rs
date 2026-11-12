@@ -4,12 +4,12 @@ use alloy_consensus::BlobTransactionSidecar;
 use alloy_primitives::B256;
 use protocol::shasta::{BlobCoder, manifest::DerivationSourceManifest};
 use rpc::blob::BlobDataSource;
-use tracing::{debug, error, instrument};
+use tracing::{debug, error};
 
 use super::ManifestFetcherError;
 
 /// Decode a Shasta derivation-source manifest from blob sidecars.
-fn decode_manifest_from_sidecars(
+pub(crate) fn decode_manifest_from_sidecars(
     sidecars: &[BlobTransactionSidecar],
     offset: usize,
     max_blocks: usize,
@@ -51,7 +51,7 @@ impl ShastaSourceManifestFetcher {
     }
 
     /// Fetch blob sidecars for the given blob hashes.
-    async fn fetch_blobs(
+    pub(crate) async fn fetch_blobs(
         &self,
         timestamp: u64,
         blob_hashes: &[B256],
@@ -75,21 +75,6 @@ impl ShastaSourceManifestFetcher {
         }
 
         Ok(sidecars)
-    }
-
-    /// Fetch and decode the manifest for the given blob hashes.
-    #[instrument(skip(self, blob_hashes), fields(hash_count = blob_hashes.len(), offset))]
-    pub async fn fetch_and_decode_manifest(
-        &self,
-        timestamp: u64,
-        blob_hashes: &[B256],
-        offset: usize,
-        max_blocks: usize,
-    ) -> Result<DerivationSourceManifest, ManifestFetcherError> {
-        let sidecars = self.fetch_blobs(timestamp, blob_hashes).await?;
-        let manifest = decode_manifest_from_sidecars(&sidecars, offset, max_blocks)?;
-        debug!(offset, max_blocks, "decoded shasta manifest from blob sidecars");
-        Ok(manifest)
     }
 }
 

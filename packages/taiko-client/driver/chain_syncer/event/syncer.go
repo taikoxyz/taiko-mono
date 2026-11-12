@@ -285,84 +285,52 @@ func (s *Syncer) processProposal(
 		if sourcePayload == nil {
 			return fmt.Errorf("missing derivation payload for index %d", derivationIdx)
 		}
-		sourcePayload.ParentBlock = parent
 		isForcedInclusion := meta.GetEventData().Sources[derivationIdx].IsForcedInclusion
 
 		log.Info(
 			"Parent block info for derivation payload",
 			"proposalID", meta.GetEventData().Id,
 			"blocks", len(sourcePayload.BlockPayloads),
-			"parentBlockID", sourcePayload.ParentBlock.Number(),
-			"parentHash", sourcePayload.ParentBlock.Hash(),
-			"parentGasLimit", sourcePayload.ParentBlock.GasLimit(),
-			"parentTimestamp", sourcePayload.ParentBlock.Time(),
+			"parentBlockID", parent.Number(),
+			"parentHash", parent.Hash(),
+			"parentGasLimit", parent.GasLimit(),
+			"parentTimestamp", parent.Time(),
 		)
 
 		var lastAnchorBlockNumber uint64
 		if s.rpc.L2.ChainID.Cmp(params.TaikoMainnetNetworkID) == 0 &&
 			meta.GetEventData().Id.Uint64() <= manifest.MainnetAnchorCheckSkipProposalOffset {
 			if _, lastAnchorBlockNumber, _, err = s.rpc.GetSyncedL1SnippetFromAnchor(
-				sourcePayload.ParentBlock.Transactions()[0],
+				parent.Transactions()[0],
 			); err != nil {
 				return err
 			}
 		} else {
 			latestBlockState, err := s.rpc.GetAnchorState(
-				&bind.CallOpts{BlockHash: sourcePayload.ParentBlock.Hash(), Context: ctx},
+				&bind.CallOpts{BlockHash: parent.Hash(), Context: ctx},
 			)
 			if err != nil {
 				return err
 			}
 
 			lastAnchorBlockNumber = latestBlockState.AnchorBlockNumber.Uint64()
-			if meta.GetEventData().Id.Cmp(common.Big1) == 0 && sourcePayload.ParentBlock.Number().Cmp(common.Big0) != 0 {
+			if meta.GetEventData().Id.Cmp(common.Big1) == 0 && parent.Number().Cmp(common.Big0) != 0 {
 				if _, lastAnchorBlockNumber, _, err = s.rpc.GetSyncedL1SnippetFromAnchor(
-					sourcePayload.ParentBlock.Transactions()[0],
+					parent.Transactions()[0],
 				); err != nil {
 					return err
 				}
 			}
 		}
 
-		// If the derivation source is forced inclusion, we apply inherited metadata first.
-		if isForcedInclusion {
-			derivation.ApplyInheritedMetadata(
-				sourcePayload,
-				meta.GetEventData(),
-				meta.GetTimestamp(),
-				lastAnchorBlockNumber,
-				s.rpc.L2.ChainID,
-			)
-		}
-
-		// If the derivation source payload's metadata is invalid, we replace it with default metadata.
-		if !derivation.ValidateMetadata(
+		derivation.PrepareSourcePayload(
 			s.rpc,
 			sourcePayload,
-			meta.GetEventData(),
-			meta.GetTimestamp(),
-			meta.GetRawBlockHeight().Uint64()-1,
+			parent,
+			meta,
 			lastAnchorBlockNumber,
 			isForcedInclusion,
-		) {
-			sourcePayload.Default = true
-			sourcePayload.BlockPayloads = []*derivation.BlockPayload{
-				{BlockManifest: manifest.BlockManifest{Transactions: types.Transactions{}}},
-			}
-			derivation.ApplyInheritedMetadata(
-				sourcePayload,
-				meta.GetEventData(),
-				meta.GetTimestamp(),
-				lastAnchorBlockNumber,
-				s.rpc.L2.ChainID,
-			)
-			log.Info(
-				"Use default derivation payload",
-				"proposalID", meta.GetEventData().Id,
-				"proposer", meta.GetEventData().Proposer,
-				"anchorBlockNumber", lastAnchorBlockNumber,
-			)
-		}
+		)
 
 		// Insert new blocks to L2 EE's chain.
 		lastInsertedBlockID, err := s.blocksInserter.InsertBlocksWithManifest(

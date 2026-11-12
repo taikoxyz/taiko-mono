@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{future::Future, sync::Arc};
 
 use alethia_reth_consensus::anchor_constants::{anchorV3Call, anchorV4Call};
 use alloy::{
@@ -8,7 +8,7 @@ use alloy::{
     rpc::types::Log,
     sol_types::{SolCall, SolEvent},
 };
-use alloy_consensus::TxEnvelope;
+use alloy_consensus::{BlobTransactionSidecar, TxEnvelope};
 use alloy_provider::RootProvider;
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use anyhow::anyhow;
@@ -22,10 +22,13 @@ use protocol::shasta::{
     manifest::DerivationSourceManifest,
 };
 use rpc::{blob::BlobDataSource, client::Client};
-use tracing::{debug, info, instrument, warn};
+use tracing::{Instrument, debug, info, info_span, instrument, warn};
 
 use crate::{
-    derivation::manifest::{ManifestFetcherError, fetcher::shasta::ShastaSourceManifestFetcher},
+    derivation::manifest::{
+        ManifestFetcherError,
+        fetcher::shasta::{ShastaSourceManifestFetcher, decode_manifest_from_sidecars},
+    },
     metrics::DriverMetrics,
     sync::engine::{EngineBlockOutcome, PayloadApplier},
 };
@@ -205,6 +208,93 @@ fn resolve_source_manifest(
     }
 }
 
+/// Build ordered source segments and metadata with an injected blob-availability reader.
+///
+/// Source guards, proposal-time fork selection, content decoding, forced-count fallback, and
+/// segment ordering stay on this production path; only blob transport is supplied by the caller.
+async fn build_manifest_bundle<F, Fut>(
+    event: &ProposedEventContext,
+    last_finalized_proposal_id: Option<u64>,
+    chain_id: u64,
+    mut fetch_blobs: F,
+) -> Result<ShastaProposalBundle, DerivationError>
+where
+    F: FnMut(u64, Vec<B256>) -> Fut,
+    Fut: Future<Output = Result<Vec<BlobTransactionSidecar>, ManifestFetcherError>>,
+{
+    let sources = &event.event.sources;
+    let proposal_id = event.event.id.to::<u64>();
+    info!(proposal_id, source_count = sources.len(), "decoded proposal payload");
+
+    if sources.is_empty() {
+        warn!(proposal_id, "proposal contained no derivation sources");
+        return Err(DerivationError::EmptyDerivationSources(proposal_id));
+    }
+
+    // Fetch and validate all source manifests sequentially in order.
+    let mut manifest_segments = Vec::with_capacity(sources.len());
+    for (source_index, source) in sources.iter().enumerate() {
+        let offset = source.blobSlice.offset.to::<u64>() as usize;
+        let timestamp = source.blobSlice.timestamp.to::<u64>();
+        let proposal_timestamp = event.l1_timestamp;
+        let max_blocks =
+            derivation_source_max_blocks_for_chain_timestamp(chain_id, proposal_timestamp);
+        // Keep guards, fetching, decode warnings, and fallback resolution in the same source
+        // span. Instrument the future rather than holding an entered span across await points.
+        let manifest = async {
+            if !is_source_offset_valid(source) {
+                warn!(
+                    "source has no blob hashes or an invalid offset, using default payload instead"
+                );
+                return Ok(DerivationSourceManifest::default());
+            }
+            // An undecodable blob/manifest degrades to the default payload rather than
+            // stalling derivation; only transient errors propagate to be retried.
+            let hashes = derivation_source_to_blob_hashes(source);
+            debug!("fetching manifest sidecars");
+            let result = fetch_blobs(timestamp, hashes)
+                .await
+                .and_then(|sidecars| {
+                    let manifest = decode_manifest_from_sidecars(&sidecars, offset, max_blocks)?;
+                    debug!("decoded shasta manifest from blob sidecars");
+                    Ok(manifest)
+                })
+                .map_err(DerivationError::from);
+            resolve_source_manifest(proposal_id, source, result)
+        }
+        .instrument(info_span!(
+            "shasta_source_manifest",
+            proposal_id,
+            source_index,
+            is_forced_inclusion = source.isForcedInclusion,
+            offset,
+            hash_count = source.blobSlice.blobHashes.len(),
+            timestamp,
+            proposal_timestamp,
+            max_blocks,
+        ))
+        .await?;
+        manifest_segments.push(SourceManifestSegment {
+            manifest,
+            is_forced_inclusion: source.isForcedInclusion,
+        });
+    }
+
+    // Assemble the full Shasta protocol proposal bundle.
+    let bundle = ShastaProposalBundle {
+        meta: build_bundle_meta(event, last_finalized_proposal_id),
+        sources: manifest_segments,
+    };
+
+    if let Some(last_finalized_proposal_id) = bundle.meta.last_finalized_proposal_id {
+        DriverMetrics::derivation_last_finalized_proposal_id()
+            .set(last_finalized_proposal_id as f64);
+    }
+
+    info!(proposal_id, segment_count = bundle.sources.len(), "assembled proposal bundle");
+    Ok(bundle)
+}
+
 /// Shasta-specific derivation pipeline.
 ///
 /// The pipeline consumes proposal logs emitted by the Shasta inbox, resolves the
@@ -363,78 +453,21 @@ impl ShastaDerivationPipeline {
         Ok(ProposedEventContext { event, l1_block_number, l1_block_hash, l1_timestamp })
     }
 
-    /// Fetch and decode a single derivation-source manifest from the blob store.
-    async fn fetch_and_decode_manifest(
-        &self,
-        source: &DerivationSource,
-        proposal_timestamp: u64,
-    ) -> Result<DerivationSourceManifest, DerivationError> {
-        let hashes = derivation_source_to_blob_hashes(source);
-        let offset = source.blobSlice.offset.to::<u64>() as usize;
-        let timestamp = source.blobSlice.timestamp.to::<u64>();
-        let max_blocks =
-            derivation_source_max_blocks_for_chain_timestamp(self.chain_id, proposal_timestamp);
-        debug!(
-            hash_count = hashes.len(),
-            offset, timestamp, proposal_timestamp, max_blocks, "fetching manifest sidecars"
-        );
-        let manifest = self
-            .derivation_source_manifest_fetcher
-            .fetch_and_decode_manifest(timestamp, &hashes, offset, max_blocks)
-            .await?;
-        Ok(manifest)
-    }
-
-    /// Build a proposal bundle from a decoded event payload.
-    ///
-    /// Sources are processed sequentially in the order they appear, with the proposer's
-    /// source appended last per the protocol spec. Each source's `isForcedInclusion` flag
-    /// determines validation behavior.
+    /// Build a proposal bundle from a decoded event using the live blob source.
     async fn build_manifest_from_event(
         &self,
         event: &ProposedEventContext,
         last_finalized_proposal_id: Option<u64>,
     ) -> Result<ShastaProposalBundle, DerivationError> {
-        let sources = &event.event.sources;
-        let proposal_id = event.event.id.to::<u64>();
-        info!(proposal_id, source_count = sources.len(), "decoded proposal payload");
-
-        if sources.is_empty() {
-            warn!(proposal_id, "proposal contained no derivation sources");
-            return Err(DerivationError::EmptyDerivationSources(proposal_id));
-        }
-
-        // Fetch and validate all source manifests sequentially in order.
-        let mut manifest_segments = Vec::with_capacity(sources.len());
-        for source in sources {
-            // If source has no blob hashes or invalid offset, use default manifest.
-            let manifest = if !is_source_offset_valid(source) {
-                DerivationSourceManifest::default()
-            } else {
-                // An undecodable blob/manifest degrades to the default payload rather than
-                // stalling derivation; only transient errors propagate to be retried.
-                let result = self.fetch_and_decode_manifest(source, event.l1_timestamp).await;
-                resolve_source_manifest(proposal_id, source, result)?
-            };
-            manifest_segments.push(SourceManifestSegment {
-                manifest,
-                is_forced_inclusion: source.isForcedInclusion,
-            });
-        }
-
-        // Assemble the full Shasta protocol proposal bundle.
-        let bundle = ShastaProposalBundle {
-            meta: build_bundle_meta(event, last_finalized_proposal_id),
-            sources: manifest_segments,
-        };
-
-        if let Some(last_finalized_proposal_id) = bundle.meta.last_finalized_proposal_id {
-            DriverMetrics::derivation_last_finalized_proposal_id()
-                .set(last_finalized_proposal_id as f64);
-        }
-
-        info!(proposal_id, segment_count = bundle.sources.len(), "assembled proposal bundle");
-        Ok(bundle)
+        build_manifest_bundle(
+            event,
+            last_finalized_proposal_id,
+            self.chain_id,
+            |timestamp, hashes| async move {
+                self.derivation_source_manifest_fetcher.fetch_blobs(timestamp, &hashes).await
+            },
+        )
+        .await
     }
 
     /// Initialize the rolling parent state used while constructing payload attributes.
@@ -581,6 +614,8 @@ impl ShastaDerivationPipeline {
 
 #[cfg(test)]
 mod tests {
+    use std::io::Write;
+
     use super::*;
     use alloy::{
         consensus::{EthereumTypedTransaction, SignableTransaction, TxEip1559},
@@ -603,6 +638,7 @@ mod tests {
         },
     };
     use rpc::blob::{BlobDataError, BlobDataSource};
+    use tracing::instrument::WithSubscriber;
 
     use crate::test_support::{
         mock_client_with_asserters, mock_client_with_l1_asserter, sample_derivation_source,
@@ -621,6 +657,66 @@ mod tests {
             l1_block_number: 10,
             l1_block_hash: B256::from([6u8; 32]),
             l1_timestamp: 7,
+        }
+    }
+
+    #[derive(Clone, Default)]
+    struct CapturedLogs(Arc<std::sync::Mutex<Vec<u8>>>);
+
+    impl Write for CapturedLogs {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().expect("log buffer lock").write(bytes)
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn source_manifest_defaults_keep_source_tracing_context() {
+        let logs = CapturedLogs::default();
+        let writer = logs.clone();
+        let subscriber = tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::DEBUG)
+            .without_time()
+            .with_ansi(false)
+            .with_writer(move || writer.clone())
+            .finish();
+        let mut event = sample_event_context();
+        let mut source = sample_derivation_source(vec![B256::repeat_byte(1); 2], true);
+        source.blobSlice.offset = alloy::primitives::aliases::U24::from(12);
+        source.blobSlice.timestamp = U48::from(34);
+        event.event.sources.push(source);
+
+        let bundle = build_manifest_bundle(&event, None, TAIKO_MAINNET_CHAIN_ID, |_, _| async {
+            Ok(Vec::new())
+        })
+        .with_subscriber(subscriber)
+        .await
+        .expect("undecodable content should use the default source");
+
+        assert_eq!(
+            alloy_rlp::encode(&bundle.sources[1].manifest),
+            alloy_rlp::encode(DerivationSourceManifest::default())
+        );
+        let output = String::from_utf8(logs.0.lock().expect("log buffer lock").clone())
+            .expect("UTF-8 tracing output");
+        let fallback = output
+            .lines()
+            .find(|line| line.contains("undecodable blob/manifest"))
+            .expect("content-default warning");
+        for context in [
+            "shasta_source_manifest{",
+            "proposal_id=11",
+            "source_index=1",
+            "is_forced_inclusion=true",
+            "offset=12",
+            "hash_count=2",
+            "timestamp=34",
+            "proposal_timestamp=7",
+        ] {
+            assert!(fallback.contains(context), "missing {context} in default warning: {fallback}");
         }
     }
 
