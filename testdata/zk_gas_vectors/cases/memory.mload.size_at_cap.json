@@ -3,7 +3,7 @@
   "id": "memory.mload.size_at_cap",
   "layer": "harness",
   "cells": ["memory.mload.memory_oog_preserve"],
-  "description": "MLOAD at offset 0x1FFFFFFFC0, so the memory size is exactly 0x1FFFFFFFE0 bytes (the largest size taiko-geth prices), with frame gas 100,000.",
+  "description": "MLOAD at offset 0x1FFFFFFFC0, so the memory size is exactly 0x1FFFFFFFE0 bytes, the largest size not above the cap, with frame gas 100,000.",
   "input": {
     "alloc": {
       "0x000000000000000000000000000000000000c0de": {
