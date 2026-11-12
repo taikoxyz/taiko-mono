@@ -120,10 +120,21 @@ fail CI until the model, claims, exclusions and pins are reviewed together.
 ## Evidence and trust boundary
 
 The shared corpus in [`testdata/derivation_vectors`](../../testdata/derivation_vectors) contains
-136 unchanged manifest-decoding vectors, which the Go and Rust unit tests also read. The Lean
-runner checks all 136. This command does not run Go/Rust suites or establish whole-client
-equivalence. Header and validation cases are Lean regressions adapted from checked
-implementations; no client adapter runs them.
+136 unchanged manifest-decoding vectors and 151 shared Unzen boundary cases. All three adapters
+check the boundary inputs against independently authored expected extraction results, derived
+blocks, header plans and next parents. The
+[named coverage matrix](../../testdata/derivation_vectors/boundary_coverage.json) covers the
+reviewed extraction, metadata, inheritance, multi-source and header boundaries, including ±1
+cases and chain-specific fork selection. Each adapter rejects deliberate expected-output
+mutations, including candidate reordering. Coverage is not exhaustive over arbitrary inputs.
+
+Go calls production fetch/decode, metadata and shared header helpers; Rust uses production
+decoding, manifest preparation, payload/anchor construction and parent advancement. Their tests
+substitute external RPC/signing or execution boundaries; Anchor state is still trusted as the
+running maximum. See the [corpus README](../../testdata/derivation_vectors/README.md) for the
+exact comparison boundary and native test commands. The local formal gate runs Lean and fixture
+checks; CI additionally runs both client adapters on drafts. Neither establishes whole-client
+equivalence or transaction execution.
 
 The witness library keeps executable `#guard` regressions in exactly four files:
 `Tests/Derive.lean`, `Manifest.lean`, `Rlp.lean` and `Zlib.lean`. They run during compilation and
@@ -185,6 +196,8 @@ To inspect individual stages:
 ```bash
 python3 scripts/check.py
 python3 -m unittest discover -s scripts/tests -v
+python3 ../../testdata/derivation_vectors/generate_boundaries.py --check
+python3 -m unittest discover -s ../../testdata/derivation_vectors -p 'test_boundary_vectors.py' -v
 lake build
 mkdir -p .lake/audit
 lake env lean -o .lake/audit/Audit.olean scripts/Audit.lean
@@ -194,9 +207,11 @@ for library in DerivationModel DerivationStatements DerivationProofs DerivationW
   lake env leanchecker "$library"
 done
 lake exe vectors ../../testdata/derivation_vectors/manifest_cases.json
+lake exe vectors --boundaries ../../testdata/derivation_vectors/boundary_cases.json
 ```
 
 Python mutations exercise malformed manifests, proof escapes, imports/reachability and spec drift.
 Lean mutations exercise weakened/missing headlines, extra axioms, erased claim dependencies,
 trivial/changed premise shapes, and live/transitive/dead/unused premise reads. CI runs on drafts
-and watches the pinned specification, the package, shared corpus and workflow.
+and watches the pinned specification, the package, both clients, dependency inputs, the Anchor
+contract, shared corpora and workflow.

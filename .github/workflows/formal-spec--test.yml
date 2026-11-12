@@ -10,6 +10,11 @@ on:
       - "formal/derivation/**"
       - "testdata/derivation_vectors/**"
       - "packages/protocol/docs/Derivation.md"
+      - "packages/taiko-client/**"
+      - "packages/taiko-client-rs/**"
+      - "packages/protocol/contracts/layer2/core/Anchor.sol"
+      - "go.mod"
+      - "go.sum"
       - ".github/workflows/formal-spec--test.yml"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
@@ -17,6 +22,11 @@ on:
       - "formal/derivation/**"
       - "testdata/derivation_vectors/**"
       - "packages/protocol/docs/Derivation.md"
+      - "packages/taiko-client/**"
+      - "packages/taiko-client-rs/**"
+      - "packages/protocol/contracts/layer2/core/Anchor.sol"
+      - "go.mod"
+      - "go.sum"
       - ".github/workflows/formal-spec--test.yml"
 
 concurrency:
@@ -54,3 +64,50 @@ jobs:
 
       - name: Audit claims, premises and axioms, replay all libraries and run vectors
         run: bash scripts/gate.sh
+
+  go-conformance:
+    # No draft gate: conformance must also run while the formal model is under review.
+    name: Go shared derivation vectors
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Decode the original corpus and run full boundary conformance
+        run: |
+          go test ./packages/taiko-client/driver/chain_syncer/event/derivation -run '^TestManifestVectors' -count=1
+          go test ./packages/taiko-client/driver/chain_syncer/event/blocks_inserter -count=1
+          go test ./packages/taiko-client/driver/chain_syncer/event -run '^TestProcessProposalSkipsActivationProposal$' -count=1
+
+  rust-conformance:
+    name: Rust shared derivation vectors
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: packages/taiko-client-rs
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config clang libclang-dev llvm-dev
+          echo "LIBCLANG_PATH=$(llvm-config --libdir)" >> "$GITHUB_ENV"
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: 1.95.0
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          shared-key: derivation-conformance
+          workspaces: packages/taiko-client-rs -> target
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Decode the original corpus and derive boundary payloads
+        run: |
+          cargo test --locked -p protocol --lib manifest_vectors
+          cargo test --locked -p driver --lib unzen_boundary_vectors

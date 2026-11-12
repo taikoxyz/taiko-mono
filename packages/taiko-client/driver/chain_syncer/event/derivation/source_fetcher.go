@@ -26,9 +26,10 @@ type BlockPayload struct {
 
 // DerivationSourcePayload wraps L2 blocks alongside proposal metadata.
 type DerivationSourcePayload struct {
-	BlockPayloads []*BlockPayload
-	Default       bool
-	ParentBlock   *types.Block
+	BlockPayloads     []*BlockPayload
+	Default           bool
+	ParentBlock       *types.Block
+	IsForcedInclusion bool // Source classification used by metadata preparation, not an engine L1Origin flag.
 }
 
 // DerivationSourceFetcher is responsible for fetching the blob source from the L1 block sidecar.

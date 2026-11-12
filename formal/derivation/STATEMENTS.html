@@ -601,8 +601,17 @@ rules by each block&#x27;s own timestamp, so they apply Unzen rules to all of th
           <code>propext</code>, <code>Classical.choice</code>, and <code>Quot.sound</code>.</p>
         <p>The shared manifest corpus is executable conformance evidence. Compilation-time
           <code>#guard</code> checks and JSON vector runs are tests, not kernel proofs.
-          Client conformance also depends on source review. The gate does not run the
-          Go/Rust suites or prove that the clients implement the model.</p>
+          The original 136 decoding vectors are joined by 151 shared boundary cases for
+          extraction, metadata, source sequences, header plans and next parents. Each
+          adapter rejects deliberately corrupted expected outputs. The local formal gate
+          runs Lean and fixture checks; CI also runs Go and Rust adapters on drafts.
+          These comparisons do not prove that the clients implement the model.</p>
+        <p>The <a href="../../testdata/derivation_vectors/boundary_coverage.json">named boundary matrix</a>
+          records the covered cases. Go uses production decoding, metadata and shared
+          header helpers; Rust uses production decoding and payload/anchor construction.
+          External RPC/signing or execution boundaries are substituted in tests. Anchor
+          state is still trusted as a running maximum. See the
+          <a href="../../testdata/derivation_vectors/README.md">corpus README</a> for the comparison boundary.</p>
         <p>Run the complete package gate from <code>formal/derivation</code>:</p>
         <pre><code>bash scripts/gate.sh</code></pre>
         <p><a href="DerivationWitnesses/Examples.lean">Concrete witnesses</a> demonstrate

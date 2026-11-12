@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{future::Future, sync::Arc};
 
 use alethia_reth_consensus::anchor_constants::{anchorV3Call, anchorV4Call};
 use alloy::{
@@ -8,7 +8,7 @@ use alloy::{
     rpc::types::Log,
     sol_types::{SolCall, SolEvent},
 };
-use alloy_consensus::TxEnvelope;
+use alloy_consensus::{BlobTransactionSidecar, TxEnvelope};
 use alloy_provider::RootProvider;
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use anyhow::anyhow;
@@ -25,7 +25,10 @@ use rpc::{blob::BlobDataSource, client::Client};
 use tracing::{debug, info, instrument, warn};
 
 use crate::{
-    derivation::manifest::{ManifestFetcherError, fetcher::shasta::ShastaSourceManifestFetcher},
+    derivation::manifest::{
+        ManifestFetcherError,
+        fetcher::shasta::{ShastaSourceManifestFetcher, decode_manifest_from_sidecars},
+    },
     metrics::DriverMetrics,
     sync::engine::{EngineBlockOutcome, PayloadApplier},
 };
@@ -205,6 +208,79 @@ fn resolve_source_manifest(
     }
 }
 
+/// Build ordered source segments and metadata with an injected blob-availability reader.
+///
+/// Source guards, proposal-time fork selection, content decoding, forced-count fallback, and
+/// segment ordering stay on this production path; only blob transport is supplied by the caller.
+async fn build_manifest_bundle<F, Fut>(
+    event: &ProposedEventContext,
+    last_finalized_proposal_id: Option<u64>,
+    chain_id: u64,
+    mut fetch_blobs: F,
+) -> Result<ShastaProposalBundle, DerivationError>
+where
+    F: FnMut(u64, Vec<B256>) -> Fut,
+    Fut: Future<Output = Result<Vec<BlobTransactionSidecar>, ManifestFetcherError>>,
+{
+    let sources = &event.event.sources;
+    let proposal_id = event.event.id.to::<u64>();
+    info!(proposal_id, source_count = sources.len(), "decoded proposal payload");
+
+    if sources.is_empty() {
+        warn!(proposal_id, "proposal contained no derivation sources");
+        return Err(DerivationError::EmptyDerivationSources(proposal_id));
+    }
+
+    // Fetch and validate all source manifests sequentially in order.
+    let mut manifest_segments = Vec::with_capacity(sources.len());
+    for source in sources {
+        // If source has no blob hashes or invalid offset, use default manifest.
+        let manifest = if !is_source_offset_valid(source) {
+            DerivationSourceManifest::default()
+        } else {
+            // An undecodable blob/manifest degrades to the default payload rather than
+            // stalling derivation; only transient errors propagate to be retried.
+            let hashes = derivation_source_to_blob_hashes(source);
+            let offset = source.blobSlice.offset.to::<u64>() as usize;
+            let timestamp = source.blobSlice.timestamp.to::<u64>();
+            let proposal_timestamp = event.l1_timestamp;
+            let max_blocks =
+                derivation_source_max_blocks_for_chain_timestamp(chain_id, proposal_timestamp);
+            debug!(
+                hash_count = hashes.len(),
+                offset, timestamp, proposal_timestamp, max_blocks, "fetching manifest sidecars"
+            );
+            let result = fetch_blobs(timestamp, hashes)
+                .await
+                .and_then(|sidecars| {
+                    let manifest = decode_manifest_from_sidecars(&sidecars, offset, max_blocks)?;
+                    debug!(offset, max_blocks, "decoded shasta manifest from blob sidecars");
+                    Ok(manifest)
+                })
+                .map_err(DerivationError::from);
+            resolve_source_manifest(proposal_id, source, result)?
+        };
+        manifest_segments.push(SourceManifestSegment {
+            manifest,
+            is_forced_inclusion: source.isForcedInclusion,
+        });
+    }
+
+    // Assemble the full Shasta protocol proposal bundle.
+    let bundle = ShastaProposalBundle {
+        meta: build_bundle_meta(event, last_finalized_proposal_id),
+        sources: manifest_segments,
+    };
+
+    if let Some(last_finalized_proposal_id) = bundle.meta.last_finalized_proposal_id {
+        DriverMetrics::derivation_last_finalized_proposal_id()
+            .set(last_finalized_proposal_id as f64);
+    }
+
+    info!(proposal_id, segment_count = bundle.sources.len(), "assembled proposal bundle");
+    Ok(bundle)
+}
+
 /// Shasta-specific derivation pipeline.
 ///
 /// The pipeline consumes proposal logs emitted by the Shasta inbox, resolves the
@@ -363,78 +439,21 @@ impl ShastaDerivationPipeline {
         Ok(ProposedEventContext { event, l1_block_number, l1_block_hash, l1_timestamp })
     }
 
-    /// Fetch and decode a single derivation-source manifest from the blob store.
-    async fn fetch_and_decode_manifest(
-        &self,
-        source: &DerivationSource,
-        proposal_timestamp: u64,
-    ) -> Result<DerivationSourceManifest, DerivationError> {
-        let hashes = derivation_source_to_blob_hashes(source);
-        let offset = source.blobSlice.offset.to::<u64>() as usize;
-        let timestamp = source.blobSlice.timestamp.to::<u64>();
-        let max_blocks =
-            derivation_source_max_blocks_for_chain_timestamp(self.chain_id, proposal_timestamp);
-        debug!(
-            hash_count = hashes.len(),
-            offset, timestamp, proposal_timestamp, max_blocks, "fetching manifest sidecars"
-        );
-        let manifest = self
-            .derivation_source_manifest_fetcher
-            .fetch_and_decode_manifest(timestamp, &hashes, offset, max_blocks)
-            .await?;
-        Ok(manifest)
-    }
-
-    /// Build a proposal bundle from a decoded event payload.
-    ///
-    /// Sources are processed sequentially in the order they appear, with the proposer's
-    /// source appended last per the protocol spec. Each source's `isForcedInclusion` flag
-    /// determines validation behavior.
+    /// Build a proposal bundle from a decoded event using the live blob source.
     async fn build_manifest_from_event(
         &self,
         event: &ProposedEventContext,
         last_finalized_proposal_id: Option<u64>,
     ) -> Result<ShastaProposalBundle, DerivationError> {
-        let sources = &event.event.sources;
-        let proposal_id = event.event.id.to::<u64>();
-        info!(proposal_id, source_count = sources.len(), "decoded proposal payload");
-
-        if sources.is_empty() {
-            warn!(proposal_id, "proposal contained no derivation sources");
-            return Err(DerivationError::EmptyDerivationSources(proposal_id));
-        }
-
-        // Fetch and validate all source manifests sequentially in order.
-        let mut manifest_segments = Vec::with_capacity(sources.len());
-        for source in sources {
-            // If source has no blob hashes or invalid offset, use default manifest.
-            let manifest = if !is_source_offset_valid(source) {
-                DerivationSourceManifest::default()
-            } else {
-                // An undecodable blob/manifest degrades to the default payload rather than
-                // stalling derivation; only transient errors propagate to be retried.
-                let result = self.fetch_and_decode_manifest(source, event.l1_timestamp).await;
-                resolve_source_manifest(proposal_id, source, result)?
-            };
-            manifest_segments.push(SourceManifestSegment {
-                manifest,
-                is_forced_inclusion: source.isForcedInclusion,
-            });
-        }
-
-        // Assemble the full Shasta protocol proposal bundle.
-        let bundle = ShastaProposalBundle {
-            meta: build_bundle_meta(event, last_finalized_proposal_id),
-            sources: manifest_segments,
-        };
-
-        if let Some(last_finalized_proposal_id) = bundle.meta.last_finalized_proposal_id {
-            DriverMetrics::derivation_last_finalized_proposal_id()
-                .set(last_finalized_proposal_id as f64);
-        }
-
-        info!(proposal_id, segment_count = bundle.sources.len(), "assembled proposal bundle");
-        Ok(bundle)
+        build_manifest_bundle(
+            event,
+            last_finalized_proposal_id,
+            self.chain_id,
+            |timestamp, hashes| async move {
+                self.derivation_source_manifest_fetcher.fetch_blobs(timestamp, &hashes).await
+            },
+        )
+        .await
     }
 
     /// Initialize the rolling parent state used while constructing payload attributes.

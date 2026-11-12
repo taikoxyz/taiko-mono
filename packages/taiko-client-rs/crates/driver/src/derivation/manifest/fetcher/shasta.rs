@@ -9,7 +9,7 @@ use tracing::{debug, error, instrument};
 use super::ManifestFetcherError;
 
 /// Decode a Shasta derivation-source manifest from blob sidecars.
-fn decode_manifest_from_sidecars(
+pub(crate) fn decode_manifest_from_sidecars(
     sidecars: &[BlobTransactionSidecar],
     offset: usize,
     max_blocks: usize,
@@ -51,7 +51,7 @@ impl ShastaSourceManifestFetcher {
     }
 
     /// Fetch blob sidecars for the given blob hashes.
-    async fn fetch_blobs(
+    pub(crate) async fn fetch_blobs(
         &self,
         timestamp: u64,
         blob_hashes: &[B256],
