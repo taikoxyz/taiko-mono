@@ -65,10 +65,13 @@ function getL1StateRoot(uint64 blockId) external view returns (bytes32 stateRoot
         require(blockId <= type(uint48).max);
         stateRoot = checkpointStore.getCheckpoint(uint48(blockId)).stateRoot;
     } else {
-        // From the fork on: blockId is an L2 timestamp; read EIP-4788, which reverts
-        // for a missing or overwritten entry and returns nothing without code.
+        // From the fork on: blockId is an L2 timestamp; read EIP-4788. Its whole calldata is the
+        // 32-byte timestamp, with no selector. It reverts for a missing or overwritten entry,
+        // and a call to an address without code succeeds with no return data.
         require(blockId >= etnaTimestamp);
-        stateRoot = BEACON_ROOTS.get(blockId);
+        (bool ok, bytes memory ret) = BEACON_ROOTS.staticcall(abi.encode(uint256(blockId)));
+        require(ok && ret.length == 32);
+        stateRoot = abi.decode(ret, (bytes32));
     }
     require(stateRoot != 0);
 }
