@@ -709,6 +709,66 @@
       "layers": ["block", "harness"],
       "source": "revm-interpreter src/instructions/host.rs:90 (extcodecopy), :98 (copy cost before the memory offset check at :107); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
       "description": "EXTCODECOPY to memory offset 2^64 or more whose copy cost cannot be paid halts out of gas at the copy cost and spends all remaining gas."
+    },
+    {
+      "id": "return.return.expansion_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/control.rs:73 (return_inner), :79 (len), :82 (len 0 skips the offset), :84 (resize), :101 (return); alethia-reth crates/evm/src/zk_gas/unzen.rs:228 (multiplier 0); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG)",
+      "description": "RETURN with memory expansion succeeds; static gas and multiplier are both 0, so the step charges no zk gas."
+    },
+    {
+      "id": "return.return.memory_oog_halt",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/control.rs:73 (return_inner), :79 (len), :82 (len 0 skips the offset), :84 (resize), :101 (return); alethia-reth crates/evm/src/zk_gas/unzen.rs:228 (multiplier 0); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "RETURN 1 gas short of its expansion halts (status halt, not success) and charges no zk gas."
+    },
+    {
+      "id": "return.return.zero_size_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/control.rs:73 (return_inner), :79 (len), :82 (len 0 skips the offset), :84 (resize), :101 (return); alethia-reth crates/evm/src/zk_gas/unzen.rs:228 (multiplier 0)",
+      "description": "RETURN of length 0 at offset 2^256 - 1 succeeds without touching memory."
+    },
+    {
+      "id": "return.return.size_above_u64_halt",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/control.rs:73 (return_inner), :79 (len), :82 (len 0 skips the offset), :84 (resize), :101 (return); alethia-reth crates/evm/src/zk_gas/unzen.rs:228 (multiplier 0); revm-interpreter src/instructions/macros.rs:137 (as_usize_or_fail: InvalidOperandOOG)",
+      "description": "RETURN with a length of 2^64 or more halts with InvalidOperandOOG."
+    },
+    {
+      "id": "return.return.offset_above_u64_halt",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/control.rs:73 (return_inner), :79 (len), :82 (len 0 skips the offset), :84 (resize), :101 (return); alethia-reth crates/evm/src/zk_gas/unzen.rs:228 (multiplier 0); revm-interpreter src/instructions/macros.rs:137 (as_usize_or_fail: InvalidOperandOOG)",
+      "description": "RETURN at offset 2^64 or more with a non-zero length halts with InvalidOperandOOG."
+    },
+    {
+      "id": "return.revert.expansion_revert",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/control.rs:73 (return_inner), :79 (len), :82 (len 0 skips the offset), :84 (resize), :110 (revert); alethia-reth crates/evm/src/zk_gas/unzen.rs:232 (multiplier 0); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG)",
+      "description": "REVERT with memory expansion reverts; static gas and multiplier are both 0, so the step charges no zk gas."
+    },
+    {
+      "id": "return.revert.memory_oog_halt",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/control.rs:73 (return_inner), :79 (len), :82 (len 0 skips the offset), :84 (resize), :110 (revert); alethia-reth crates/evm/src/zk_gas/unzen.rs:232 (multiplier 0); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "REVERT 1 gas short of its expansion halts (status halt, not revert) and charges no zk gas."
+    },
+    {
+      "id": "return.revert.zero_size_revert",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/control.rs:73 (return_inner), :79 (len), :82 (len 0 skips the offset), :84 (resize), :110 (revert); alethia-reth crates/evm/src/zk_gas/unzen.rs:232 (multiplier 0)",
+      "description": "REVERT of length 0 at offset 2^256 - 1 reverts without touching memory."
+    },
+    {
+      "id": "return.revert.size_above_u64_halt",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/control.rs:73 (return_inner), :79 (len), :82 (len 0 skips the offset), :84 (resize), :110 (revert); alethia-reth crates/evm/src/zk_gas/unzen.rs:232 (multiplier 0); revm-interpreter src/instructions/macros.rs:137 (as_usize_or_fail: InvalidOperandOOG)",
+      "description": "REVERT with a length of 2^64 or more halts with InvalidOperandOOG."
+    },
+    {
+      "id": "return.revert.offset_above_u64_halt",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/control.rs:73 (return_inner), :79 (len), :82 (len 0 skips the offset), :84 (resize), :110 (revert); alethia-reth crates/evm/src/zk_gas/unzen.rs:232 (multiplier 0); revm-interpreter src/instructions/macros.rs:137 (as_usize_or_fail: InvalidOperandOOG)",
+      "description": "REVERT at offset 2^64 or more with a non-zero length halts with InvalidOperandOOG."
     }
   ]
 }
