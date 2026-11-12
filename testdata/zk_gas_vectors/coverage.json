@@ -913,6 +913,42 @@
       "layers": ["block", "harness"],
       "source": "revm-interpreter src/instructions/host.rs:344 (offset check), :348 (resize), both before the topic pop at :351; revm-interpreter src/instructions/macros.rs:131 (as_usize_or_fail: InvalidOperandOOG); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
       "description": "A LOG1-LOG4 whose stack holds the offset and length but too few topics, at offset 2^64 or more (InvalidOperandOOG) or with a memory range that rounds up to 2^64 or is above 0x1FFFFFFFE0 bytes (MemoryOOG), halts after the topic and data cost and before the topic pop, keeping the remaining gas."
+    },
+    {
+      "id": "log.static_frame.halt_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/interpreter.rs:312 (375 static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:333 (require_non_staticcall before every pop and charge in the body); revm-interpreter src/instructions/macros.rs:6 (require_non_staticcall: StateChangeDuringStaticCall); src/instructions/contract.rs:224 (STATICCALL frames are static); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "Inside a STATICCALL frame, a LOG0-LOG4 that could pay all its costs pays only its 375 static gas, then halts on the static-context check keeping the remaining gas."
+    },
+    {
+      "id": "log.static_frame.dynamic_oog_halt_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/interpreter.rs:312 (375 static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:333 (require_non_staticcall before every pop and charge in the body), before the log_cost charge at :337; revm-interpreter src/instructions/macros.rs:6 (require_non_staticcall: StateChangeDuringStaticCall); src/instructions/contract.rs:224 (STATICCALL frames are static); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "Inside a STATICCALL frame, a LOG0-LOG4 with at least 375 gas but less than its topic, data and expansion costs still pays only the 375 static gas and halts on the static-context check, keeping the remaining gas."
+    },
+    {
+      "id": "log.static_frame.static_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/interpreter.rs:312 (375 static gas charged in step before the instruction body): OutOfGas before the static-context check at revm-interpreter src/instructions/host.rs:333; revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "Inside a STATICCALL frame, a LOG0-LOG4 with less than 375 gas left halts out of gas in step() and spends all remaining gas."
+    },
+    {
+      "id": "log.static_frame.stack_underflow_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:333 (require_non_staticcall before every pop and charge in the body), before the pops at :335 and :351; revm-interpreter src/instructions/macros.rs:6 (require_non_staticcall: StateChangeDuringStaticCall); src/instructions/contract.rs:224 (STATICCALL frames are static); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "Inside a STATICCALL frame, a LOG0-LOG4 with too few stack items (fewer than two, or missing topics) halts on the static-context check after the 375 static gas, before any pop, topic and data cost or expansion."
+    },
+    {
+      "id": "log.static_frame.size_above_u64_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:333 (require_non_staticcall before every pop and charge in the body), before the length check at :336; revm-interpreter src/instructions/macros.rs:6 (require_non_staticcall: StateChangeDuringStaticCall); src/instructions/contract.rs:224 (STATICCALL frames are static); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "Inside a STATICCALL frame, a LOG0-LOG4 with a length of 2^64 or more halts on the static-context check after the 375 static gas."
+    },
+    {
+      "id": "log.static_frame.size_above_cap_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:333 (require_non_staticcall before every pop and charge in the body), before the log_cost charge at :337 and the resize at :348; revm-interpreter src/instructions/macros.rs:6 (require_non_staticcall: StateChangeDuringStaticCall); src/instructions/contract.rs:224 (STATICCALL frames are static); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "Inside a STATICCALL frame, a LOG0-LOG4 whose memory size is above 0x1FFFFFFFE0 bytes halts on the static-context check after the 375 static gas, before the topic and data cost and the expansion."
     }
   ]
 }
