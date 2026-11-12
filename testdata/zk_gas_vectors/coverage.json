@@ -1249,6 +1249,72 @@
       "layers": ["block", "harness"],
       "source": "revm-interpreter src/instructions.rs:368; revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:132 (popn_top after the static gas); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
       "description": "BLOCKHASH on an empty stack is charged its 20 static gas, then halts on the stack underflow keeping the remaining gas."
+    },
+    {
+      "id": "selfdestruct.selfdestruct.warm_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:105 (SELFDESTRUCT static 5,000); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:368 (selfdestruct), :369 (static-context check), :370 (pop), :376 (a cold beneficiary load is skipped when less than 2,600 gas remains), :377 (beneficiary load and balance move), :384 (new-account charge only when value moves to an empty account), :390 (the charge); revm-context-interface 43.0.1 src/cfg/gas_params.rs:464 (selfdestruct_cost: 25,000 new account, 2,600 cold), :458; alethia-reth crates/evm/src/zk_gas/unzen.rs:234 (selfdestruct multiplier 0)",
+      "description": "SELFDESTRUCT to a warm beneficiary that needs no new-account charge costs only its 5,000 static gas; its zk gas is 0."
+    },
+    {
+      "id": "selfdestruct.selfdestruct.cold_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:105 (SELFDESTRUCT static 5,000); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:368 (selfdestruct), :369 (static-context check), :370 (pop), :376 (a cold beneficiary load is skipped when less than 2,600 gas remains), :377 (beneficiary load and balance move), :384 (new-account charge only when value moves to an empty account), :390 (the charge); revm-context-interface 43.0.1 src/cfg/gas_params.rs:464 (selfdestruct_cost: 25,000 new account, 2,600 cold), :458; alethia-reth crates/evm/src/zk_gas/unzen.rs:234 (selfdestruct multiplier 0)",
+      "description": "SELFDESTRUCT to a cold beneficiary that needs no new-account charge (it is non-empty, or the contract holds no value) costs 5,000 + 2,600; its zk gas is 0."
+    },
+    {
+      "id": "selfdestruct.new_account.warm_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:105 (SELFDESTRUCT static 5,000); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:368 (selfdestruct), :369 (static-context check), :370 (pop), :376 (a cold beneficiary load is skipped when less than 2,600 gas remains), :377 (beneficiary load and balance move), :384 (new-account charge only when value moves to an empty account), :390 (the charge); revm-context-interface 43.0.1 src/cfg/gas_params.rs:464 (selfdestruct_cost: 25,000 new account, 2,600 cold), :458; alethia-reth crates/evm/src/zk_gas/unzen.rs:234 (selfdestruct multiplier 0)",
+      "description": "SELFDESTRUCT of a contract holding value to a warm, empty beneficiary costs 5,000 + 25,000; its zk gas is 0."
+    },
+    {
+      "id": "selfdestruct.new_account.cold_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:105 (SELFDESTRUCT static 5,000); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:368 (selfdestruct), :369 (static-context check), :370 (pop), :376 (a cold beneficiary load is skipped when less than 2,600 gas remains), :377 (beneficiary load and balance move), :384 (new-account charge only when value moves to an empty account), :390 (the charge); revm-context-interface 43.0.1 src/cfg/gas_params.rs:464 (selfdestruct_cost: 25,000 new account, 2,600 cold), :458; alethia-reth crates/evm/src/zk_gas/unzen.rs:234 (selfdestruct multiplier 0)",
+      "description": "SELFDESTRUCT of a contract holding value to a cold, empty beneficiary costs 5,000 + 2,600 + 25,000; its zk gas is 0."
+    },
+    {
+      "id": "selfdestruct.selfdestruct.static_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:105 (SELFDESTRUCT static 5,000); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas); alethia-reth crates/evm/src/zk_gas/unzen.rs:234 (selfdestruct multiplier 0)",
+      "description": "SELFDESTRUCT with less than its 5,000 static gas left halts out of gas in step() (spending all gas, but the multiplier is 0)."
+    },
+    {
+      "id": "selfdestruct.selfdestruct.cold_load_skipped_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:105 (SELFDESTRUCT static 5,000); revm-interpreter src/instructions/host.rs:376 (a cold beneficiary load is skipped when less than 2,600 gas remains), :377; revm-interpreter src/instruction_result.rs:154 (ColdLoadSkipped is OutOfGas); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas); alethia-reth crates/evm/src/zk_gas/unzen.rs:234 (selfdestruct multiplier 0)",
+      "description": "SELFDESTRUCT to a cold beneficiary with its static gas paid but less than 2,600 left halts out of gas before the beneficiary is loaded (zk gas 0)."
+    },
+    {
+      "id": "selfdestruct.new_account.charge_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:105 (SELFDESTRUCT static 5,000); revm-interpreter src/instructions/host.rs:377 (the beneficiary is loaded and the balance moved first), :390 (then the charge fails); revm-context-interface 43.0.1 src/cfg/gas_params.rs:464 (selfdestruct_cost: 25,000 new account, 2,600 cold), :458; revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas); alethia-reth crates/evm/src/zk_gas/unzen.rs:234 (selfdestruct multiplier 0)",
+      "description": "SELFDESTRUCT of a contract holding value to an empty beneficiary, with enough gas for the beneficiary load but not for the new-account charge, halts out of gas (zk gas 0)."
+    },
+    {
+      "id": "selfdestruct.static_frame.halt_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:105 (SELFDESTRUCT static 5,000); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:369 (require_non_staticcall before the pop and the beneficiary load); revm-interpreter src/instructions/macros.rs:6 (require_non_staticcall: StateChangeDuringStaticCall); src/instructions/contract.rs:224 (STATICCALL frames are static); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas); revm-context 43.0.2 src/journal/inner.rs:622 (checkpoint_revert when the child frame halts); revm-context-interface 43.0.1 src/journaled_state/entry.rs:331 and :405 (reverted AccountWarmed and StorageWarmed entries make the account or slot cold again)",
+      "description": "Inside a STATICCALL frame, SELFDESTRUCT halts on the static-context check after its static gas, without loading the beneficiary: the caller's later BALANCE of the beneficiary pays the cold surcharge."
+    },
+    {
+      "id": "selfdestruct.selfdestruct.underflow_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:105 (SELFDESTRUCT static 5,000); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:370 (popn after the static-context check); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas); alethia-reth crates/evm/src/zk_gas/unzen.rs:234 (selfdestruct multiplier 0)",
+      "description": "SELFDESTRUCT on an empty stack is charged its static gas, then halts on the stack underflow (zk gas 0)."
+    },
+    {
+      "id": "selfdestruct.selfdestruct.child_success_warms_beneficiary",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:377 (the beneficiary is loaded and warmed); revm-interpreter src/instruction_result.rs:167 (SelfDestruct is a successful result, the child keeps its journal)",
+      "description": "A child frame's successful SELFDESTRUCT to a cold beneficiary warms it: the caller's later BALANCE of the beneficiary charges only the 100 static gas."
+    },
+    {
+      "id": "selfdestruct.selfdestruct.failed_step_leaves_beneficiary_cold",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:376 (load skipped), :390 (charge after the load); revm-context 43.0.2 src/journal/inner.rs:622 (checkpoint_revert when the child frame halts); revm-context-interface 43.0.1 src/journaled_state/entry.rs:331 and :405 (reverted AccountWarmed and StorageWarmed entries make the account or slot cold again)",
+      "description": "A child frame's SELFDESTRUCT that runs out of gas, at the cold load or at the new-account charge after the load, leaves the beneficiary cold: the caller's later BALANCE of it pays the cold surcharge."
     }
   ]
 }

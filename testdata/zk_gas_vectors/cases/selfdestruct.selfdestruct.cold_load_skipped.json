@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "id": "selfdestruct.selfdestruct.cold_load_skipped",
+  "layer": "harness",
+  "cells": ["selfdestruct.selfdestruct.cold_load_skipped_spend_all"],
+  "description": "selfdestruct.selfdestruct.cold_exact_gas with 1 gas less: after the 5,000 static gas, 2,599 gas is left for the cold beneficiary and SELFDESTRUCT halts out of gas.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x1",
+        "code": "0x61beefff"
+      },
+      "0x000000000000000000000000000000000000beef": {
+        "balance": "0x1"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x1db2",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x18",
+    "status": "halt"
+  }
+}
