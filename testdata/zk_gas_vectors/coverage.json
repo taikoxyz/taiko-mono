@@ -1141,6 +1141,114 @@
       "layers": ["block", "harness"],
       "source": "revm-interpreter src/instructions.rs:396 (TSTORE static 100); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body): OutOfGas before the static-context check at revm-interpreter src/instructions/host.rs:308; revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
       "description": "Inside a STATICCALL frame, TSTORE with less than its 100 static gas left halts out of gas in step() and spends all remaining gas."
+    },
+    {
+      "id": "account.balance.warm_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:118 (BALANCE static 100); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:39 (balance); alethia-reth crates/evm/src/zk_gas/unzen.rs:114 (balance multiplier 4); revm-interpreter src/instructions/host.rs:21 (load_account charges nothing more for a warm account)",
+      "description": "BALANCE of an account accessed earlier in the tx charges only its 100 static gas."
+    },
+    {
+      "id": "account.balance.cold_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:118 (BALANCE static 100); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:39 (balance); alethia-reth crates/evm/src/zk_gas/unzen.rs:114 (balance multiplier 4); revm-interpreter src/instructions/host.rs:21 (load_account), :28 (a cold load is skipped when less than 2,500 gas remains), :31 (ColdLoadSkipped), :30 (cold surcharge 2,500)",
+      "description": "BALANCE of a cold account charges 100 static gas plus the 2,500 cold surcharge, and warms the account."
+    },
+    {
+      "id": "account.balance.cold_surcharge_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:118 (BALANCE static 100); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:39 (balance); alethia-reth crates/evm/src/zk_gas/unzen.rs:114 (balance multiplier 4); revm-interpreter src/instructions/host.rs:21 (load_account), :28 (a cold load is skipped when less than 2,500 gas remains), :31 (ColdLoadSkipped), :30 (cold surcharge 2,500); revm-interpreter src/instruction_result.rs:154 (ColdLoadSkipped is OutOfGas); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "BALANCE of a cold account that pays its 100 static gas but has less than the 2,500 cold surcharge left halts out of gas and spends all remaining gas."
+    },
+    {
+      "id": "account.extcodesize.warm_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:119 (EXTCODESIZE static 100); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:62 (extcodesize); alethia-reth crates/evm/src/zk_gas/unzen.rs:124 (extcodesize multiplier 4); revm-interpreter src/instructions/host.rs:21 (load_account charges nothing more for a warm account)",
+      "description": "EXTCODESIZE of an account accessed earlier in the tx charges only its 100 static gas."
+    },
+    {
+      "id": "account.extcodesize.cold_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:119 (EXTCODESIZE static 100); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:62 (extcodesize); alethia-reth crates/evm/src/zk_gas/unzen.rs:124 (extcodesize multiplier 4); revm-interpreter src/instructions/host.rs:21 (load_account), :28 (a cold load is skipped when less than 2,500 gas remains), :31 (ColdLoadSkipped), :30 (cold surcharge 2,500)",
+      "description": "EXTCODESIZE of a cold account charges 100 static gas plus the 2,500 cold surcharge, and warms the account."
+    },
+    {
+      "id": "account.extcodesize.cold_surcharge_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:119 (EXTCODESIZE static 100); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:62 (extcodesize); alethia-reth crates/evm/src/zk_gas/unzen.rs:124 (extcodesize multiplier 4); revm-interpreter src/instructions/host.rs:21 (load_account), :28 (a cold load is skipped when less than 2,500 gas remains), :31 (ColdLoadSkipped), :30 (cold surcharge 2,500); revm-interpreter src/instruction_result.rs:154 (ColdLoadSkipped is OutOfGas); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "EXTCODESIZE of a cold account that pays its 100 static gas but has less than the 2,500 cold surcharge left halts out of gas and spends all remaining gas."
+    },
+    {
+      "id": "account.extcodehash.warm_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:120 (EXTCODEHASH static 100); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:72 (extcodehash); alethia-reth crates/evm/src/zk_gas/unzen.rs:128 (extcodehash multiplier 7); revm-interpreter src/instructions/host.rs:21 (load_account charges nothing more for a warm account)",
+      "description": "EXTCODEHASH of an account accessed earlier in the tx charges only its 100 static gas."
+    },
+    {
+      "id": "account.extcodehash.cold_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:120 (EXTCODEHASH static 100); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:72 (extcodehash); alethia-reth crates/evm/src/zk_gas/unzen.rs:128 (extcodehash multiplier 7); revm-interpreter src/instructions/host.rs:21 (load_account), :28 (a cold load is skipped when less than 2,500 gas remains), :31 (ColdLoadSkipped), :30 (cold surcharge 2,500)",
+      "description": "EXTCODEHASH of a cold account charges 100 static gas plus the 2,500 cold surcharge, and warms the account."
+    },
+    {
+      "id": "account.extcodehash.cold_surcharge_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:120 (EXTCODEHASH static 100); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:72 (extcodehash); alethia-reth crates/evm/src/zk_gas/unzen.rs:128 (extcodehash multiplier 7); revm-interpreter src/instructions/host.rs:21 (load_account), :28 (a cold load is skipped when less than 2,500 gas remains), :31 (ColdLoadSkipped), :30 (cold surcharge 2,500); revm-interpreter src/instruction_result.rs:154 (ColdLoadSkipped is OutOfGas); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "EXTCODEHASH of a cold account that pays its 100 static gas but has less than the 2,500 cold surcharge left halts out of gas and spends all remaining gas."
+    },
+    {
+      "id": "account.access.static_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:118-120 (BALANCE, EXTCODESIZE, EXTCODEHASH static 100); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "BALANCE, EXTCODESIZE or EXTCODEHASH with less than its 100 static gas left halts out of gas in step() and spends all remaining gas."
+    },
+    {
+      "id": "account.access.underflow_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:118-120; revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:40, :63, :74 (popn_top after the static gas); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "BALANCE, EXTCODESIZE or EXTCODEHASH on an empty stack is charged its 100 static gas, then halts on the stack underflow keeping the remaining gas."
+    },
+    {
+      "id": "account.access.failed_cold_load_leaves_account_cold",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:21 (load_account), :28 (a cold load is skipped when less than 2,500 gas remains), :31 (ColdLoadSkipped), :30 (cold surcharge 2,500); revm-context 43.0.2 src/journal/inner.rs:622 (checkpoint_revert when the child frame halts); revm-context-interface 43.0.1 src/journaled_state/entry.rs:331 and :405 (reverted AccountWarmed and StorageWarmed entries make the account or slot cold again)",
+      "description": "A child frame whose BALANCE of a cold account runs out of gas at the cold surcharge does not warm the account: the caller's later BALANCE of it pays the cold surcharge."
+    },
+    {
+      "id": "static.env.selfbalance_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:375 (SELFBALANCE static 5); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:48 (selfbalance); alethia-reth crates/evm/src/zk_gas/unzen.rs:136 (selfbalance multiplier 52)",
+      "description": "SELFBALANCE charges only its 5 static gas."
+    },
+    {
+      "id": "static.env.selfbalance_static_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:375; revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "SELFBALANCE with less than its 5 static gas left halts out of gas in step() and spends all remaining gas."
+    },
+    {
+      "id": "static.env.selfbalance_overflow_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:375; revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:55 (push!); revm-interpreter src/instructions/macros.rs:101 (StackOverflow); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "SELFBALANCE on a full 1024-item stack is charged its 5 static gas, then halts on the stack overflow keeping the remaining gas."
+    },
+    {
+      "id": "static.env.blockhash_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:368 (BLOCKHASH static 20); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:131 (blockhash), :137 (future number), :146 (current number), :150 (history lookup); alethia-reth crates/evm/src/zk_gas/unzen.rs:129 (blockhash multiplier 6)",
+      "description": "BLOCKHASH of a past, the current or a future block number charges only its 20 static gas; the returned value is not used."
+    },
+    {
+      "id": "static.env.blockhash_static_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:368; revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "BLOCKHASH with less than its 20 static gas left halts out of gas in step() and spends all remaining gas."
+    },
+    {
+      "id": "static.env.blockhash_underflow_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:368; revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:132 (popn_top after the static gas); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "BLOCKHASH on an empty stack is charged its 20 static gas, then halts on the stack underflow keeping the remaining gas."
     }
   ]
 }
