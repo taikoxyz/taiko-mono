@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "id": "create.create.collision_nonce",
+  "layer": "harness",
+  "cells": ["create.family.collision_spawn_estimate"],
+  "description": "CREATE of zero length whose derived address holds an account with nonce 1, then a KECCAK256 of 4 GiB that spends all remaining gas: the spawn estimate is charged and the forwarded gas is consumed.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x5f5f5ff0506401000000005f20"
+      },
+      "0x8bbc3514477d75ec797bbe4e19d7961660bb849c": {
+        "balance": "0x0",
+        "nonce": "0x1"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x186a0",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x110e0",
+    "status": "halt"
+  }
+}
