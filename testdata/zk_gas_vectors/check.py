@@ -48,6 +48,9 @@ ANCHOR_FIELDS = (
 ANCHOR_DATA = "0x523e6854"  # anchorV4((uint48,bytes32,bytes32)) selector, no arguments
 ANCHOR_STUB_CODE = "0x00"
 
+# The EIP-2935 history contract stores the parent hash, which differs between the runners by design.
+HISTORY_CONTRACT = "0x0000f90827f1c53a10cb7a02335b175320002935"
+
 SIGNER_MAX = 2**32 - 1
 TX_FIELDS = ("signer", "nonce", "to", "gas", "max_fee", "max_priority_fee", "value", "data")
 TX_FORBIDDEN = ("type", "access_list", "blob_versioned_hashes")
@@ -141,20 +144,29 @@ def check_alloc(errors, where, alloc):
             errors.append(f"{at}: duplicate address (addresses are case-insensitive)")
             continue
         accounts[lower] = account
+        if lower == HISTORY_CONTRACT:
+            errors.append(
+                f"{at}: the EIP-2935 history contract must not be in alloc "
+                "(it stores the parent hash, which differs between the runners by design)"
+            )
         if not check_fields(errors, at, account, ("balance",), ("nonce", "code", "storage")):
             continue
-        check_int(errors, f"{at}.balance", account["balance"], U256_MAX)
-        if "nonce" in account:
-            check_int(errors, f"{at}.nonce", account["nonce"])
-        if "code" in account:
-            check_bytes(errors, f"{at}.code", account["code"])
+        balance = check_int(errors, f"{at}.balance", account["balance"], U256_MAX)
+        nonce = check_int(errors, f"{at}.nonce", account["nonce"]) if "nonce" in account else 0
+        code = check_bytes(errors, f"{at}.code", account["code"]) if "code" in account else "0x"
         storage = account.get("storage", {})
         if not isinstance(storage, dict):
             errors.append(f"{at}.storage: must be an object")
             continue
+        values = []
         for slot, value in storage.items():
             check_int(errors, f"{at}.storage key {slot!r}", slot, U256_MAX)
-            check_int(errors, f"{at}.storage.{slot}", value, U256_MAX)
+            values.append(check_int(errors, f"{at}.storage.{slot}", value, U256_MAX))
+        if balance == 0 and nonce == 0 and code == "0x" and all(value == 0 for value in values):
+            errors.append(
+                f"{at}: fully empty account (balance 0, nonce 0, no code, no non-zero storage) is not allowed "
+                "(clients may set up empty pre-state accounts differently)"
+            )
     return accounts
 
 

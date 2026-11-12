@@ -213,6 +213,33 @@ class CheckTests(unittest.TestCase):
         unknown = {"balance": "0x1", "code_hash": "0x"}
         self.assertRejected(BLOCK, set_at(*alloc, "0x" + "ab" * 20, unknown), "unknown field 'code_hash'")
 
+    def test_history_contract_rejected(self):
+        history = "0x0000F90827F1C53a10cb7A02335B175320002935"
+        for rel in (BLOCK, HARNESS):
+            for address in (history, history.lower(), history.upper().replace("0X", "0x")):
+                with self.subTest(rel=rel, address=address):
+                    account = {"balance": "0x1", "code": "0x00"}
+                    self.assertRejected(rel, set_at("input", "alloc", address, account), "EIP-2935 history contract")
+
+    def test_empty_account_rejected(self):
+        address = "0x" + "ab" * 20
+        for rel in (BLOCK, HARNESS):
+            for empty in [
+                {"balance": "0x0"},
+                {"balance": "0x0", "nonce": "0x0", "code": "0x", "storage": {}},
+                {"balance": "0x0", "storage": {"0x1": "0x0"}},
+            ]:
+                with self.subTest(rel=rel, account=empty):
+                    self.assertRejected(rel, set_at("input", "alloc", address, empty), "fully empty account")
+            for nonempty in [
+                {"balance": "0x1"},
+                {"balance": "0x0", "nonce": "0x1"},
+                {"balance": "0x0", "code": "0x00"},
+                {"balance": "0x0", "storage": {"0x1": "0x1"}},
+            ]:
+                with self.subTest(rel=rel, account=nonempty):
+                    self.assertAccepted(rel, set_at("input", "alloc", address, nonempty))
+
     def test_block_fixed_environment(self):
         env = ("input", "env")
         for field, bad in [

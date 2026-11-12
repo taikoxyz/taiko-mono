@@ -158,16 +158,19 @@ The run is equivalent to one tx from `caller` to `to` with empty calldata, value
 - Cover each cell with at least one vector, including the boundaries on both sides (gas exactly enough, and one short).
 - Use the block layer when a valid block can reach the cell, and the harness layer otherwise.
 - Vector code may execute `BLOCKHASH` (and, in the harness layer, `CHAINID`), but no state write or control flow may depend on the value it returns. The runners' environments legitimately differ in the parent hash, and in the harness chain id. Those values change results, not zk gas.
+- No alloc may hold the EIP-2935 history contract (`0x0000F90827F1C53a10cb7A02335B175320002935`, any letter case). It stores the parent hash, so the post-state would differ between the runners by design. `check.py` rejects it.
+- No alloc account may be fully empty: balance 0, nonce 0, no code and no non-zero storage. Clients may set up such pre-state accounts differently, and they play no part in zk gas. `check.py` rejects them.
+- A truncated block vector's sentinel must not depend on the dropped tx: sign it with a different, funded signer, not with the next nonce of the dropped tx's signer. Otherwise "building stopped" cannot be told apart from "skipped an invalid tx".
 
 ## Running the clients
 
 All runners find the corpus through `ZK_GAS_VECTORS_DIR`, set to the absolute path of this directory. With it unset, the corpus tests skip, except that the alethia-reth block runner fails in write mode. With it set, a runner that finds no vector of its layer fails.
 
-| Variable                         | Effect                                                                                                                         |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `ZK_GAS_VECTORS_DIR`             | Absolute path to this directory.                                                                                               |
-| `ZK_GAS_VECTORS_WRITE`           | alethia-reth only: `1` writes `expected` into the vector files instead of asserting. Refused when `CI` is set: the test fails. |
-| `ZK_GAS_VECTORS_KNOWN_DIVERGENT` | taiko-geth only: comma-separated vector ids to skip; the runner prints each skipped id. For local investigation only.          |
+| Variable                         | Effect                                                                                                                                                                                                                               |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ZK_GAS_VECTORS_DIR`             | Absolute path to this directory.                                                                                                                                                                                                     |
+| `ZK_GAS_VECTORS_WRITE`           | alethia-reth only: `1` writes `expected` into the vector files instead of asserting. Refused when `CI` is set: the test fails.                                                                                                       |
+| `ZK_GAS_VECTORS_KNOWN_DIVERGENT` | taiko-geth only, for local investigation: comma-separated vector ids that are known to diverge. The block runner skips each listed vector and prints its id; the harness runner still runs it and prints the result without failing. |
 
 Generate expected values in alethia-reth, then rerun without `ZK_GAS_VECTORS_WRITE` to assert them:
 
