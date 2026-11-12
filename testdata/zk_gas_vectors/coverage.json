@@ -11,8 +11,92 @@
     {
       "id": "static.arith.success",
       "layers": ["block", "harness"],
-      "source": "revm-interpreter src/instructions/arithmetic.rs:10 (add), src/instructions.rs:321 (ADD static gas 3)",
-      "description": "ADD with enough gas succeeds and is charged its static gas times the ADD multiplier."
+      "source": "revm-interpreter src/instructions/arithmetic.rs:10 (add; every arithmetic opcode up to signextend at :126), src/instructions.rs:321 (static gas table)",
+      "description": "Each static-only arithmetic opcode (ADD..SIGNEXTEND except EXP) with enough gas succeeds and is charged its static gas times its multiplier."
+    },
+    {
+      "id": "static.bitwise.success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/bitwise.rs:10 (lt; every bitwise opcode up to sar at :146, clz at :24), src/instructions.rs:333",
+      "description": "Each bitwise and comparison opcode (LT..SAR, CLZ) with enough gas succeeds and is charged its static gas times its multiplier."
+    },
+    {
+      "id": "static.stack.success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/stack.rs:10 (pop), :19 (push0), :28 (push), :41 (dup), :51 (swap); src/instructions.rs:381, :399",
+      "description": "POP, PUSH0..PUSH32, DUP1..DUP16 and SWAP1..SWAP16 with enough gas succeed and are charged their static gas times their multipliers."
+    },
+    {
+      "id": "static.env.success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/block_info.rs:10 (chainid..blob_basefee), instructions/tx_info.rs:9 (gasprice, origin, blob_hash), instructions/system.rs:45 (address..gas), instructions/control.rs:60 (pc), instructions/memory.rs:58 (msize)",
+      "description": "Each static-only environment opcode (block, tx and frame information, PC, MSIZE, GAS, CALLDATALOAD, BLOBHASH) succeeds and is charged its static gas times its multiplier."
+    },
+    {
+      "id": "static.arith.underflow_halt",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/interpreter.rs:312 (static gas charged in step before the body), instructions/arithmetic.rs:72 (addmod popn_top)",
+      "description": "An arithmetic opcode with too few stack items is charged its static gas, then halts on the stack underflow; the remaining gas is kept."
+    },
+    {
+      "id": "static.bitwise.underflow_halt",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/interpreter.rs:312, instructions/bitwise.rs:122 (shl popn_top)",
+      "description": "A bitwise opcode with too few stack items is charged its static gas, then halts on the stack underflow."
+    },
+    {
+      "id": "static.swap.underflow_halt",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/interpreter.rs:312, instructions/stack.rs:53 (swap: exchange fails)",
+      "description": "SWAPn with too few stack items is charged its static gas, then halts on the stack underflow."
+    },
+    {
+      "id": "static.dup.underflow_halt",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/interpreter.rs:312, instructions/stack.rs:42 (dup fails; reported as StackOverflow), src/interpreter/stack.rs:271",
+      "description": "DUPn with too few stack items is charged its static gas, then halts (revm reports a stack overflow for the missing item)."
+    },
+    {
+      "id": "static.blobhash.underflow_halt",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/interpreter.rs:312, instructions/tx_info.rs:30 (blob_hash popn_top)",
+      "description": "BLOBHASH on an empty stack is charged its static gas, then halts on the stack underflow."
+    },
+    {
+      "id": "static.push.overflow_halt",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/interpreter.rs:312, instructions/stack.rs:30 (push_slice fails on a full stack)",
+      "description": "PUSHn on a full 1024-item stack is charged its static gas, then halts on the stack overflow."
+    },
+    {
+      "id": "static.dup.overflow_halt",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/interpreter.rs:312, instructions/stack.rs:42, src/interpreter/stack.rs:271",
+      "description": "DUPn on a full 1024-item stack is charged its static gas, then halts on the stack overflow."
+    },
+    {
+      "id": "static.env.overflow_halt",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/interpreter.rs:312, instructions/block_info.rs:20 (coinbase push!), instructions/macros.rs:101",
+      "description": "An environment opcode on a full 1024-item stack is charged its static gas, then halts on the stack overflow."
+    },
+    {
+      "id": "static.step.static_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/interpreter.rs:312 (static gas OOG returns OutOfGas), interpreter.rs:208 (halt spends all gas on OutOfGas); alethia-reth crates/evm/src/zk_gas/runtime.rs:48 (the halt is materialized before the step charge)",
+      "description": "An opcode that cannot pay its static gas halts out of gas and the step is charged all remaining frame gas times its multiplier."
+    },
+    {
+      "id": "static.step.oog_before_underflow",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/interpreter.rs:312 (static gas is checked before the body pops the stack)",
+      "description": "An opcode that would underflow is charged its static gas when it can pay it exactly, and all remaining gas when it is one short: the static gas check comes first."
+    },
+    {
+      "id": "static.step.oog_before_overflow",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/interpreter.rs:312 (static gas is checked before the body pushes)",
+      "description": "An opcode that would overflow the stack is charged its static gas when it can pay it exactly, and all remaining gas when it is one short."
     }
   ]
 }
