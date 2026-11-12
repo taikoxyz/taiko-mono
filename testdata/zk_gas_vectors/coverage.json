@@ -1399,6 +1399,132 @@
       "layers": ["block", "harness"],
       "source": "alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:33-37 (spawn estimates); alethia-reth crates/evm/src/zk_gas/runtime.rs:60 (halt_for_zk_gas_limit takes the NewFrame action before the child runs)",
       "description": "A spawn estimate that exceeds the block limit by 1 aborts the tx before the child frame runs."
+    },
+    {
+      "id": "call.family.input_expansion_spawn",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract/call_helpers.rs:20 (pop 4), :22 (input range first), :29 (output range), :42 (as_usize len), :44 (as_usize offset when len is non-zero), :45 (resize); revm-interpreter src/instructions/contract.rs:166 (call), :227-246 (NewFrame installed once the body succeeds); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:33-37 (spawn estimates)",
+      "description": "A CALL-family opcode with exactly the 100 static gas plus its input-range expansion left creates the frame and is charged its spawn estimate."
+    },
+    {
+      "id": "call.family.input_memory_oog_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract/call_helpers.rs:20 (pop 4), :22 (input range first), :29 (output range), :42 (as_usize len), :44 (as_usize offset when len is non-zero), :45 (resize); revm-interpreter src/interpreter/shared_memory.rs:600 (MemoryOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "A CALL-family input range whose expansion cannot be paid halts MemoryOOG after the 100 static gas, keeping the remaining gas."
+    },
+    {
+      "id": "call.family.output_expansion_spawn",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract/call_helpers.rs:20 (pop 4), :22 (input range first), :29 (output range), :42 (as_usize len), :44 (as_usize offset when len is non-zero), :45 (resize); revm-interpreter src/instructions/contract.rs:166 (call), :227-246 (NewFrame installed once the body succeeds); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:33-37 (spawn estimates)",
+      "description": "A CALL-family opcode with exactly the static gas plus the input and then the output expansion left creates the frame and is charged its spawn estimate."
+    },
+    {
+      "id": "call.family.output_memory_oog_keeps_input_charge",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract/call_helpers.rs:20 (pop 4), :22 (input range first), :29 (output range), :42 (as_usize len), :44 (as_usize offset when len is non-zero), :45 (resize); revm-interpreter src/interpreter/shared_memory.rs:600 (MemoryOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "A CALL-family output range whose expansion cannot be paid halts MemoryOOG keeping the remaining gas; the input expansion charged before it stays in the measured step gas."
+    },
+    {
+      "id": "call.family.input_size_above_u64_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract/call_helpers.rs:20 (pop 4), :22 (input range first), :29 (output range), :42 (as_usize len), :44 (as_usize offset when len is non-zero), :45 (resize); revm-interpreter src/instructions/macros.rs:137 (InvalidOperandOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "A CALL-family input length above u64 halts after the 100 static gas, keeping the remaining gas."
+    },
+    {
+      "id": "call.family.input_offset_above_u64_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract/call_helpers.rs:20 (pop 4), :22 (input range first), :29 (output range), :42 (as_usize len), :44 (as_usize offset when len is non-zero), :45 (resize); revm-interpreter src/instructions/macros.rs:137 (InvalidOperandOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "A CALL-family input offset above u64 (with a non-zero length) halts after the 100 static gas, keeping the remaining gas."
+    },
+    {
+      "id": "call.family.output_size_above_u64_keeps_input_charge",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract/call_helpers.rs:20 (pop 4), :22 (input range first), :29 (output range), :42 (as_usize len), :44 (as_usize offset when len is non-zero), :45 (resize); revm-interpreter src/instructions/macros.rs:137 (InvalidOperandOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "A CALL-family output length above u64 halts keeping the remaining gas, after the input expansion was charged."
+    },
+    {
+      "id": "call.family.output_offset_above_u64_keeps_input_charge",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract/call_helpers.rs:20 (pop 4), :22 (input range first), :29 (output range), :42 (as_usize len), :44 (as_usize offset when len is non-zero), :45 (resize); revm-interpreter src/instructions/macros.rs:137 (InvalidOperandOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "A CALL-family output offset above u64 (with a non-zero length) halts keeping the remaining gas, after the input expansion was charged."
+    },
+    {
+      "id": "call.family.output_end_above_u64_keeps_input_charge",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract/call_helpers.rs:20 (pop 4), :22 (input range first), :29 (output range), :42 (as_usize len), :44 (as_usize offset when len is non-zero), :45 (resize); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end), :600 (MemoryOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "A CALL-family output range whose offset and length fit in u64 but whose end does not halts keeping the remaining gas, after the input expansion was charged."
+    },
+    {
+      "id": "call.family.output_word_rounding_overflow_keeps_input_charge",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract/call_helpers.rs:20 (pop 4), :22 (input range first), :29 (output range), :42 (as_usize len), :44 (as_usize offset when len is non-zero), :45 (resize); revm-interpreter src/interpreter/shared_memory.rs:572 (end rounded up to words), :600 (MemoryOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "A CALL-family output range whose end fits in u64 but overflows when rounded up to a word halts keeping the remaining gas, after the input expansion was charged."
+    },
+    {
+      "id": "call.family.output_size_above_cap_keeps_input_charge",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract/call_helpers.rs:20 (pop 4), :22 (input range first), :29 (output range), :42 (as_usize len), :44 (as_usize offset when len is non-zero), :45 (resize); revm-interpreter src/interpreter/shared_memory.rs:600 (MemoryOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "A CALL-family output range of 2^37 bytes (beyond any payable expansion) halts keeping the remaining gas, after the input expansion was charged."
+    },
+    {
+      "id": "call.family.zero_size_no_expansion",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract/call_helpers.rs:20 (pop 4), :22 (input range first), :29 (output range), :42 (as_usize len), :44 (as_usize offset when len is non-zero), :45 (resize) (len 0 skips the offset check and the resize); revm-interpreter src/instructions/contract.rs:166 (call), :227-246 (NewFrame installed once the body succeeds); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:33-37 (spawn estimates)",
+      "description": "Zero-length input and output ranges with offsets of 2^256-1 expand nothing: with exactly the 100 static gas the frame is created."
+    },
+    {
+      "id": "call.call.static_frame_value_halt_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:122-125 (CALL-family static 100); revm-interpreter src/interpreter.rs:312 (static gas charged in step before the body); revm-interpreter src/instructions/contract.rs:180 (three pops), :191-193 (a value-bearing CALL in a static frame halts before the memory operands, the account load and every charge); revm-interpreter src/instructions/contract.rs:224 (STATICCALL frames are static); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "Inside a STATICCALL frame, a CALL with a non-zero value is charged its 100 static gas, pops three operands and halts keeping the remaining gas, whatever its target's warmth, its memory operands or the gas left."
+    },
+    {
+      "id": "call.call.static_frame_zero_value_allowed",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract.rs:191 (only a value-bearing CALL is rejected); revm-interpreter src/instructions/contract.rs:166 (call), :227-246 (NewFrame installed once the body succeeds); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:33-37 (spawn estimates)",
+      "description": "Inside a STATICCALL frame, a CALL with zero value creates its frame and is charged the spawn estimate."
+    },
+    {
+      "id": "call.callcode.static_frame_value_allowed",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract.rs:191 (the static check covers CALL only); revm-interpreter src/instructions/contract.rs:166 (call), :227-246 (NewFrame installed once the body succeeds); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:33-37 (spawn estimates)",
+      "description": "Inside a STATICCALL frame, a CALLCODE with a non-zero value (a transfer to itself) creates its frame and is charged the spawn estimate."
+    },
+    {
+      "id": "call.value.transfer_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract/call_helpers.rs:69-73 (9,000 value transfer cost), :104-106 (2,300 stipend); revm-interpreter src/instructions/contract.rs:166 (call), :227-246 (NewFrame installed once the body succeeds); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:33-37 (spawn estimates)",
+      "description": "A value-bearing CALL to a warm existing contract with exactly 9,100 gas left creates the frame (stipend only) and is charged its spawn estimate."
+    },
+    {
+      "id": "call.value.transfer_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract/call_helpers.rs:69-73 (gas! on the transfer cost: OutOfGas); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "A value-bearing CALL-family opcode that cannot pay the 9,000 transfer cost halts OutOfGas and spends all remaining gas."
+    },
+    {
+      "id": "call.call.new_account_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract/call_helpers.rs:169-176 (25,000 new-account cost for a value-bearing CALL to an empty account); revm-interpreter src/instructions/contract.rs:166 (call), :227-246 (NewFrame installed once the body succeeds); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:33-37 (spawn estimates)",
+      "description": "A value-bearing CALL to a cold empty account with exactly 36,600 gas left (100 + 9,000 + 2,500 + 25,000) is charged its spawn estimate."
+    },
+    {
+      "id": "call.call.new_account_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract/call_helpers.rs:83 (gas! on cold + new-account cost: OutOfGas); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "A value-bearing CALL to an empty account that cannot pay the 25,000 new-account cost halts OutOfGas and spends all remaining gas."
+    },
+    {
+      "id": "call.callcode.value_no_new_account_charge",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract.rs:198-200 (create_empty_account only for CALL); revm-interpreter src/instructions/contract/call_helpers.rs:169; alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:33-37 (spawn estimates)",
+      "description": "A value-bearing CALLCODE to a cold empty account pays no new-account cost: 11,600 gas (100 + 9,000 + 2,500) is exactly enough to be charged the spawn estimate."
+    },
+    {
+      "id": "call.value.insufficient_balance_no_frame",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract.rs:166 (call), :227-246 (NewFrame installed once the body succeeds); revm-handler 43.0.2 src/frame.rs:184-194 (a failed value transfer returns OutOfFunds before the precompile and code checks); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:33-37 (spawn estimates)",
+      "description": "A value-bearing CALL or CALLCODE whose caller lacks the balance is still charged its spawn estimate, but no child frame runs and a precompile target is not run or charged."
     }
   ]
 }
