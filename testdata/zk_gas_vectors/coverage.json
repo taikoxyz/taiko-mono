@@ -1315,6 +1315,90 @@
       "layers": ["block", "harness"],
       "source": "revm-interpreter src/instructions/host.rs:376 (load skipped), :390 (charge after the load); revm-handler 43.0.2 src/frame.rs:428 (a call frame that does not end ok reverts its journal), revm-context 43.0.2 src/journal/inner.rs:622 (checkpoint_revert); revm-context-interface 43.0.1 src/journaled_state/entry.rs:331 and :405 (reverted AccountWarmed and StorageWarmed entries make the account or slot cold again)",
       "description": "A child frame's SELFDESTRUCT that runs out of gas, at the cold load or at the new-account charge after the load, leaves the beneficiary cold: the caller's later BALANCE of it pays the cold surcharge."
+    },
+    {
+      "id": "call.call.new_frame_spawn_estimate",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract.rs:166 (call), :227-246 (NewFrame installed once the body succeeds); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:33-37 (spawn estimates)",
+      "description": "A CALL whose body succeeds installs NewFrame and is charged its spawn estimate (12,500 x 20) instead of the measured step gas (which includes the forwarded gas); the child frame's opcodes are metered normally."
+    },
+    {
+      "id": "call.callcode.new_frame_spawn_estimate",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract.rs:166 (call), :227-246 (NewFrame installed once the body succeeds); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:33-37 (spawn estimates)",
+      "description": "A CALLCODE whose body succeeds installs NewFrame and is charged its spawn estimate (12,500 x 20) instead of the measured step gas (which includes the forwarded gas); the child frame's opcodes are metered normally."
+    },
+    {
+      "id": "call.delegatecall.new_frame_spawn_estimate",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract.rs:166 (call), :227-246 (NewFrame installed once the body succeeds); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:33-37 (spawn estimates)",
+      "description": "A DELEGATECALL whose body succeeds installs NewFrame and is charged its spawn estimate (3,500 x 17) instead of the measured step gas (which includes the forwarded gas); the child frame's opcodes are metered normally."
+    },
+    {
+      "id": "call.staticcall.new_frame_spawn_estimate",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract.rs:166 (call), :227-246 (NewFrame installed once the body succeeds); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:33-37 (spawn estimates)",
+      "description": "A STATICCALL whose body succeeds installs NewFrame and is charged its spawn estimate (3,500 x 23) instead of the measured step gas (which includes the forwarded gas); the child frame's opcodes are metered normally."
+    },
+    {
+      "id": "call.family.warm_target_spawn",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:122-125 (CALL-family static 100); revm-interpreter src/interpreter.rs:312 (static gas charged in step before the body); revm-interpreter src/instructions/contract.rs:166 (call), :227-246 (NewFrame installed once the body succeeds); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:33-37 (spawn estimates)",
+      "description": "A CALL-family opcode to a warm target with exactly its 100 static gas left creates the frame (forwarding 0 gas) and is charged its spawn estimate."
+    },
+    {
+      "id": "call.family.static_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:122-125 (CALL-family static 100); revm-interpreter src/interpreter.rs:312 (static gas charged in step before the body); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "A CALL-family opcode with less than its 100 static gas halts OutOfGas in step and spends all remaining gas, metered as the measured step gas."
+    },
+    {
+      "id": "call.family.cold_target_spawn",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract/call_helpers.rs:161-165 (cold target: 2,500 surcharge); revm-interpreter src/instructions/contract.rs:166 (call), :227-246 (NewFrame installed once the body succeeds); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:33-37 (spawn estimates)",
+      "description": "A CALL-family opcode to a cold target with exactly 2,600 gas left (100 static + 2,500 cold) creates the frame and is charged its spawn estimate."
+    },
+    {
+      "id": "call.family.cold_surcharge_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract/call_helpers.rs:161-162 (with less than 2,500 gas left the cold load is skipped and fails with ColdLoadSkipped), :135 (converted to an InstructionResult), revm-interpreter src/instruction_result.rs:154 (ColdLoadSkipped is OutOfGas); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "A CALL-family opcode to a cold target with less than the 2,500 cold surcharge left after its other charges halts OutOfGas and spends all remaining gas, metered as the measured step gas."
+    },
+    {
+      "id": "call.family.underflow_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:122-125 (CALL-family static 100); revm-interpreter src/interpreter.rs:312 (static gas charged in step before the body); revm-interpreter src/instructions/contract.rs:180 (pop gas, to, value), revm-interpreter src/instructions/contract/call_helpers.rs:20 (pop the four memory operands); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "A CALL-family opcode whose stack runs out while popping its operands halts after the 100 static gas, keeping the remaining gas."
+    },
+    {
+      "id": "call.family.empty_code_spawn_estimate",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract.rs:166 (call), :227-246 (NewFrame installed once the body succeeds); revm-handler 43.0.2 src/frame.rs:232-235 (a target without code returns Stop without a frame); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:33-37 (spawn estimates)",
+      "description": "A CALL-family opcode to an account without code (not in the state, or existing without code, including non-precompile addresses such as 0x12 and 0x0101) still installed NewFrame and is charged its spawn estimate; no frame runs and the forwarded gas returns."
+    },
+    {
+      "id": "call.family.precompile_spawn_estimate",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract.rs:166 (call), :227-246 (NewFrame installed once the body succeeds); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:33-37 (spawn estimates); alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas)",
+      "description": "A CALL-family opcode to a precompile is charged its spawn estimate, and the precompile call is charged separately (gas used x the precompile multiplier)."
+    },
+    {
+      "id": "call.family.delegated_to_precompile_empty_code",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract/call_helpers.rs:180-196 (the delegation target's code is loaded); revm-handler 43.0.2 src/frame.rs:207 (precompiles are looked up by the called address), :232-235 (empty code returns Stop); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:33-37 (spawn estimates)",
+      "description": "A CALL to an account whose EIP-7702 delegation points at a precompile runs the precompile account's (empty) code: the spawn estimate is charged and no precompile charge."
+    },
+    {
+      "id": "call.family.spawn_limit_exact_committed",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:33-37 (spawn estimates); alethia-reth crates/evm/src/zk_gas/meter.rs:167 (a charge fails only when greater than the remaining budget)",
+      "description": "A spawn estimate that brings the zk gas total exactly to the block limit is charged and the tx completes."
+    },
+    {
+      "id": "call.family.spawn_limit_exceeded_aborted",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:33-37 (spawn estimates); alethia-reth crates/evm/src/zk_gas/runtime.rs:60 (halt_for_zk_gas_limit takes the NewFrame action before the child runs)",
+      "description": "A spawn estimate that exceeds the block limit by 1 aborts the tx before the child frame runs."
     }
   ]
 }
