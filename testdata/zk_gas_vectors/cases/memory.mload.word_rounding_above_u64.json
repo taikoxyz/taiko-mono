@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "memory.mload.word_rounding_above_u64",
+  "layer": "harness",
+  "cells": ["memory.mload.word_rounding_overflow_preserve"],
+  "description": "MLOAD at offset 2^64 - 33: offset + 32 is 2^64 - 1, which rounds up to 2^59 words (2^64 bytes); frame gas 100,000.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x67ffffffffffffffdf5100"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x186a0",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x63",
+    "status": "halt"
+  }
+}

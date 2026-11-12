@@ -265,6 +265,168 @@
       "layers": ["block", "harness"],
       "source": "revm-interpreter src/instructions/control.rs:125 (invalid: InvalidFEOpcode); alethia-reth crates/evm/src/zk_gas/unzen.rs:233 (multiplier 0)",
       "description": "INVALID (0xfe) has no static gas and multiplier 0, so it charges nothing before the halt."
+    },
+    {
+      "id": "memory.mload.expansion_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/memory.rs:11 (mload), :14 (resize to offset+32); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-context-interface 43.0.1 src/cfg/gas_params.rs:648 (memory_cost)",
+      "description": "MLOAD charges its static 3 gas plus the expansion cost of the new words only (3 per word plus words squared / 512, as a difference of totals); an MLOAD inside current memory charges only the static gas."
+    },
+    {
+      "id": "memory.mload.memory_oog_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/memory.rs:11 (mload), :14 (resize to offset+32); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "MLOAD whose expansion cost is 1 gas short halts with MemoryOOG, which keeps the remaining gas: only the static gas is charged, not all remaining gas."
+    },
+    {
+      "id": "memory.mload.offset_above_u64_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/memory.rs:13 (as_usize_or_fail on the offset); revm-interpreter src/instructions/macros.rs:137 (as_usize_or_fail: InvalidOperandOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "MLOAD with an offset of 2^64 or more halts with InvalidOperandOOG and keeps the remaining gas: only the static gas is charged."
+    },
+    {
+      "id": "memory.mload.end_overflow_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/memory.rs:11 (mload), :14 (resize to offset+32); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "MLOAD with an offset below 2^64 whose offset + 32 passes 2^64: the saturated size is priced, cannot be paid, and the MemoryOOG halt keeps the remaining gas."
+    },
+    {
+      "id": "memory.mload.word_rounding_overflow_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/memory.rs:11 (mload), :14 (resize to offset+32); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "MLOAD whose offset + 32 fits in 64 bits but whose size rounded up to whole words does not: the MemoryOOG halt keeps the remaining gas."
+    },
+    {
+      "id": "memory.mload.size_above_cap_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/memory.rs:11 (mload), :14 (resize to offset+32); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-context-interface 43.0.1 src/cfg/gas_params.rs:648 (saturating memory_cost); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "MLOAD whose memory size fits in 64 bits but is above 0x1FFFFFFFE0 bytes: the priced expansion cannot be paid and the MemoryOOG halt keeps the remaining gas."
+    },
+    {
+      "id": "memory.mstore.expansion_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/memory.rs:29 (mstore), :34 (resize to offset+32); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-context-interface 43.0.1 src/cfg/gas_params.rs:648",
+      "description": "MSTORE charges its static 3 gas plus the expansion cost of the new words only; an MSTORE inside current memory charges only the static gas."
+    },
+    {
+      "id": "memory.mstore.memory_oog_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/memory.rs:29 (mstore), :34 (resize to offset+32); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "MSTORE whose expansion cost is 1 gas short halts with MemoryOOG and keeps the remaining gas: only the static gas is charged."
+    },
+    {
+      "id": "memory.mstore.offset_above_u64_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/memory.rs:31 (as_usize_or_fail on the offset); revm-interpreter src/instructions/macros.rs:137 (as_usize_or_fail: InvalidOperandOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "MSTORE with an offset of 2^64 or more halts with InvalidOperandOOG and keeps the remaining gas."
+    },
+    {
+      "id": "memory.mstore.size_above_cap_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/memory.rs:29 (mstore), :34 (resize to offset+32); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-context-interface 43.0.1 src/cfg/gas_params.rs:648; revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "MSTORE whose memory size fits in 64 bits but is above 0x1FFFFFFFE0 bytes: the MemoryOOG halt keeps the remaining gas."
+    },
+    {
+      "id": "memory.mstore8.expansion_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/memory.rs:45 (mstore8), :50 (resize to offset+1); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-context-interface 43.0.1 src/cfg/gas_params.rs:648",
+      "description": "MSTORE8 charges its static 3 gas plus the expansion cost of the words its single byte needs; inside current memory it charges only the static gas."
+    },
+    {
+      "id": "memory.mstore8.memory_oog_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/memory.rs:45 (mstore8), :50 (resize to offset+1); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "MSTORE8 whose expansion cost is 1 gas short halts with MemoryOOG and keeps the remaining gas."
+    },
+    {
+      "id": "memory.mstore8.offset_above_u64_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/memory.rs:47 (as_usize_or_fail on the offset); revm-interpreter src/instructions/macros.rs:137 (as_usize_or_fail: InvalidOperandOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "MSTORE8 with an offset of 2^64 or more halts with InvalidOperandOOG and keeps the remaining gas."
+    },
+    {
+      "id": "memory.mstore8.end_overflow_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/memory.rs:45 (mstore8), :50 (resize to offset+1); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "MSTORE8 at offset 2^64 - 1, whose 1-byte end passes 2^64: the MemoryOOG halt keeps the remaining gas."
+    },
+    {
+      "id": "memory.mstore8.size_above_cap_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/memory.rs:45 (mstore8), :50 (resize to offset+1); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-context-interface 43.0.1 src/cfg/gas_params.rs:648; revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "MSTORE8 whose memory size fits in 64 bits but is above 0x1FFFFFFFE0 bytes: the MemoryOOG halt keeps the remaining gas."
+    },
+    {
+      "id": "memory.mcopy.expansion_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/memory.rs:69 (mcopy), :76 (copy cost), :88 (resize from max(dst, src)); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-context-interface 43.0.1 src/cfg/gas_params.rs:492 (mcopy_cost)",
+      "description": "MCOPY charges static 3, then 3 gas per copied word, then the expansion for max(dst, src) + len; a copy inside current memory charges no expansion."
+    },
+    {
+      "id": "memory.mcopy.overlap_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/memory.rs:69 (mcopy), :92 (memory.copy moves overlapping ranges)",
+      "description": "MCOPY with overlapping source and destination, in both directions, copies as if through a buffer; the copied bytes then size later memory expansions, so a wrong copy changes zk gas."
+    },
+    {
+      "id": "memory.mcopy.zero_size_no_expansion",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/memory.rs:69 (mcopy), :81 (len 0 returns before dst and src are checked)",
+      "description": "MCOPY with length 0 charges only its static gas and succeeds, even with dst and src of 2^256 - 1."
+    },
+    {
+      "id": "memory.mcopy.size_above_u64_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/memory.rs:69 (mcopy), :74 (as_usize_or_fail on len); revm-interpreter src/instructions/macros.rs:137 (as_usize_or_fail: InvalidOperandOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "MCOPY with a length of 2^64 or more halts with InvalidOperandOOG before the copy cost: only the static gas is charged."
+    },
+    {
+      "id": "memory.mcopy.copy_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/memory.rs:69 (mcopy), :76 (gas! on the copy cost: OutOfGas); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "MCOPY that cannot pay its copy cost halts out of gas and spends all remaining gas."
+    },
+    {
+      "id": "memory.mcopy.memory_oog_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/memory.rs:69 (mcopy), :76 (copy cost first), :88 (then resize); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "MCOPY that pays its copy cost but is 1 gas short of the expansion halts with MemoryOOG keeping the remaining gas: static and copy cost are charged."
+    },
+    {
+      "id": "memory.mcopy.dst_above_u64_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/memory.rs:69 (mcopy), :85 (as_usize_or_fail on dst after the copy cost); revm-interpreter src/instructions/macros.rs:137 (as_usize_or_fail: InvalidOperandOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "MCOPY with dst of 2^64 or more and a non-zero length halts after the copy cost, keeping the remaining gas: static and copy cost are charged."
+    },
+    {
+      "id": "memory.mcopy.src_above_u64_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/memory.rs:69 (mcopy), :86 (as_usize_or_fail on src after the copy cost); revm-interpreter src/instructions/macros.rs:137 (as_usize_or_fail: InvalidOperandOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "MCOPY with src of 2^64 or more (dst small) and a non-zero length halts after the copy cost, keeping the remaining gas."
+    },
+    {
+      "id": "memory.mcopy.end_overflow_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/memory.rs:69 (mcopy), :88; revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "MCOPY whose src is below 2^64 but src + len passes 2^64: static and copy cost are charged, then the MemoryOOG halt keeps the remaining gas."
+    },
+    {
+      "id": "memory.mcopy.word_rounding_overflow_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/memory.rs:69 (mcopy), :88; revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "MCOPY whose src + len fits in 64 bits but rounds up to 2^64 bytes: static and copy cost are charged, then the MemoryOOG halt keeps the remaining gas."
+    },
+    {
+      "id": "memory.mcopy.size_above_cap_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/memory.rs:69 (mcopy), :88; revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-context-interface 43.0.1 src/cfg/gas_params.rs:648; revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "MCOPY whose memory size is above 0x1FFFFFFFE0 bytes but fits in 64 bits: static and copy cost are charged, then the MemoryOOG halt keeps the remaining gas."
+    },
+    {
+      "id": "memory.mcopy.copy_oog_before_memory_checks_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/memory.rs:69 (mcopy), :76 (copy cost before dst and src are checked at :85); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "MCOPY with dst of 2^64 or more and a copy cost it cannot pay halts out of gas at the copy cost and spends all remaining gas: the copy cost comes before the operand and memory checks."
     }
   ]
 }
