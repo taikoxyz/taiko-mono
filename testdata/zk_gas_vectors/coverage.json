@@ -1945,6 +1945,12 @@
       "layers": ["block", "harness"],
       "source": "revm-handler 43.0.2 src/frame.rs:684-697 (the 200-per-byte code deposit is charged in return_create, after the initcode frame's last step; if it cannot be paid the creation fails OutOfGas); revm-handler 43.0.2 src/frame.rs:595-614 (an exceptional halt consumes the child's gas; success and revert return it); revm-context-interface 43.0.1 src/cfg/gas_params.rs:755-758; alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:38-39 (spawn estimates 37,000 and 44,500), zk_gas/unzen.rs:225,230 (multiplier 1)",
       "description": "The code deposit (200 per byte) is charged when the initcode frame returns, outside every metered step: the CREATE stays at its spawn estimate. With exactly enough gas the contract is created; one gas short, the creation fails, the frame's gas is consumed and 0 is pushed."
+    },
+    {
+      "id": "create.tx.initcode_steps_metered",
+      "layers": ["block"],
+      "source": "revm-handler 43.0.2 src/frame.rs:259-345 (the first frame of a creation tx is a create frame); alethia-reth crates/evm/src/zk_gas/runtime.rs:30-70 (every step of every frame is metered); no spawn opcode runs, so no spawn estimate is charged",
+      "description": "A contract-creation tx is charged the intrinsic zk gas plus its initcode's opcodes, metered normally; the code deposit is not metered."
     }
   ]
 }
