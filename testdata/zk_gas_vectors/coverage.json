@@ -487,6 +487,228 @@
       "layers": ["block", "harness"],
       "source": "revm-interpreter src/instructions/system.rs:18 (keccak256), :21 (word cost before the offset check at :28 and the resize at :29); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
       "description": "KECCAK256 at offset 2^64 or more, or with a memory size above 0x1FFFFFFFE0 bytes, whose word cost cannot be paid halts out of gas at the word cost and spends all remaining gas."
+    },
+    {
+      "id": "copy.calldatacopy.expansion_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:156 (calldatacopy); revm-interpreter src/instructions/system.rs:247 (copy_cost_and_memory_resize), :254 (copy cost), :255 (len 0 returns), :258 (memory offset), :259 (resize); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-context-interface 43.0.1 src/cfg/gas_params.rs:742 (copy_cost)",
+      "description": "CALLDATACOPY charges static 3, then 3 gas per copied word, then the expansion for memory offset + len; a copy inside current memory charges no expansion."
+    },
+    {
+      "id": "copy.calldatacopy.zero_size_no_expansion",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:156 (calldatacopy); revm-interpreter src/instructions/system.rs:255 (len 0 returns before the memory offset is checked)",
+      "description": "CALLDATACOPY with length 0 charges only its static gas and succeeds, even at memory offset 2^256 - 1."
+    },
+    {
+      "id": "copy.calldatacopy.size_above_u64_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:156 (calldatacopy), :158 (as_usize_or_fail on len before the copy cost); revm-interpreter src/instructions/macros.rs:137 (as_usize_or_fail: InvalidOperandOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "CALLDATACOPY with a length of 2^64 or more halts with InvalidOperandOOG: only the static gas is charged."
+    },
+    {
+      "id": "copy.calldatacopy.copy_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:156 (calldatacopy); revm-interpreter src/instructions/system.rs:254 (gas! on the copy cost: OutOfGas); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "CALLDATACOPY that cannot pay its copy cost halts out of gas and spends all remaining gas."
+    },
+    {
+      "id": "copy.calldatacopy.memory_oog_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:156 (calldatacopy); revm-interpreter src/instructions/system.rs:247 (copy_cost_and_memory_resize), :254 (copy cost), :255 (len 0 returns), :258 (memory offset), :259 (resize); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "CALLDATACOPY that pays its copy cost but is 1 gas short of the expansion halts with MemoryOOG keeping the remaining gas: static and copy cost are charged."
+    },
+    {
+      "id": "copy.calldatacopy.offset_above_u64_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:156 (calldatacopy); revm-interpreter src/instructions/system.rs:258 (as_usize_or_fail on the memory offset after the copy cost); revm-interpreter src/instructions/macros.rs:137 (as_usize_or_fail: InvalidOperandOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "CALLDATACOPY at memory offset 2^64 or more with a non-zero length halts after the copy cost, keeping the remaining gas."
+    },
+    {
+      "id": "copy.calldatacopy.copy_oog_before_memory_checks_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:156 (calldatacopy); revm-interpreter src/instructions/system.rs:254 (copy cost before the memory offset check at :258 and the resize at :259); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "CALLDATACOPY to memory offset 2^64 or more whose copy cost cannot be paid halts out of gas at the copy cost and spends all remaining gas: the copy cost comes before the memory checks."
+    },
+    {
+      "id": "copy.codecopy.expansion_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:88 (codecopy); revm-interpreter src/instructions/system.rs:247 (copy_cost_and_memory_resize), :254 (copy cost), :255 (len 0 returns), :258 (memory offset), :259 (resize); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-context-interface 43.0.1 src/cfg/gas_params.rs:742 (copy_cost)",
+      "description": "CODECOPY charges static 3, then 3 gas per copied word, then the expansion for memory offset + len; a copy inside current memory charges no expansion."
+    },
+    {
+      "id": "copy.codecopy.zero_size_no_expansion",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:88 (codecopy); revm-interpreter src/instructions/system.rs:255 (len 0 returns before the memory offset is checked)",
+      "description": "CODECOPY with length 0 charges only its static gas and succeeds, even at memory offset 2^256 - 1."
+    },
+    {
+      "id": "copy.codecopy.size_above_u64_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:88 (codecopy), :90 (as_usize_or_fail on len before the copy cost); revm-interpreter src/instructions/macros.rs:137 (as_usize_or_fail: InvalidOperandOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "CODECOPY with a length of 2^64 or more halts with InvalidOperandOOG: only the static gas is charged."
+    },
+    {
+      "id": "copy.codecopy.copy_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:88 (codecopy); revm-interpreter src/instructions/system.rs:254 (gas! on the copy cost: OutOfGas); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "CODECOPY that cannot pay its copy cost halts out of gas and spends all remaining gas."
+    },
+    {
+      "id": "copy.codecopy.memory_oog_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:88 (codecopy); revm-interpreter src/instructions/system.rs:247 (copy_cost_and_memory_resize), :254 (copy cost), :255 (len 0 returns), :258 (memory offset), :259 (resize); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "CODECOPY that pays its copy cost but is 1 gas short of the expansion halts with MemoryOOG keeping the remaining gas: static and copy cost are charged."
+    },
+    {
+      "id": "copy.codecopy.offset_above_u64_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:88 (codecopy); revm-interpreter src/instructions/system.rs:258 (as_usize_or_fail on the memory offset after the copy cost); revm-interpreter src/instructions/macros.rs:137 (as_usize_or_fail: InvalidOperandOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "CODECOPY at memory offset 2^64 or more with a non-zero length halts after the copy cost, keeping the remaining gas."
+    },
+    {
+      "id": "copy.codecopy.copy_oog_before_memory_checks_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:88 (codecopy); revm-interpreter src/instructions/system.rs:254 (copy cost before the memory offset check at :258 and the resize at :259); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "CODECOPY with a memory size above 0x1FFFFFFFE0 bytes whose copy cost cannot be paid halts out of gas at the copy cost and spends all remaining gas: the copy cost comes before the memory checks."
+    },
+    {
+      "id": "copy.calldatacopy.shared_buffer_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:177 (calldata of a child call is a range of the parent's memory)",
+      "description": "In a child frame, CALLDATACOPY copies the caller-provided input; the copied first byte then sizes a memory expansion, so a wrong copy changes zk gas."
+    },
+    {
+      "id": "copy.source.offset_above_u64_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:169 (calldatacopy saturates the data offset), :100 (codecopy), instructions/host.rs:117 (extcodecopy clamps the code offset)",
+      "description": "CALLDATACOPY, CODECOPY and EXTCODECOPY with a source offset of 2^256 - 1 copy zeros and succeed, charging the normal copy and expansion costs."
+    },
+    {
+      "id": "copy.returndatacopy.expansion_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:200 (returndatacopy), :204 (len), :208 (source range check), :213 (then copy cost and resize); revm-interpreter src/instructions/system.rs:247 (copy_cost_and_memory_resize), :254 (copy cost), :255 (len 0 returns), :258 (memory offset), :259 (resize); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG)",
+      "description": "RETURNDATACOPY of a range ending exactly at the end of the return data charges static 3, 3 gas per word, and the expansion; inside current memory it charges no expansion."
+    },
+    {
+      "id": "copy.returndatacopy.zero_size_no_expansion",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:200 (returndatacopy), :208 (offset 64 + len 0 is not past a 64-byte buffer), :255 (len 0 returns)",
+      "description": "RETURNDATACOPY of length 0 at a source offset equal to the return data length succeeds with only the static gas, even at memory offset 2^256 - 1."
+    },
+    {
+      "id": "copy.returndatacopy.size_above_u64_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:200 (returndatacopy), :204 (as_usize_or_fail on len first); revm-interpreter src/instructions/macros.rs:137 (as_usize_or_fail: InvalidOperandOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "RETURNDATACOPY with a length of 2^64 or more halts with InvalidOperandOOG: only the static gas is charged."
+    },
+    {
+      "id": "copy.returndatacopy.copy_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:200 (returndatacopy), :204 (len), :208 (source range check), :213 (then copy cost and resize); revm-interpreter src/instructions/system.rs:254 (gas! on the copy cost); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "RETURNDATACOPY of an in-bounds range that cannot pay its copy cost halts out of gas and spends all remaining gas."
+    },
+    {
+      "id": "copy.returndatacopy.memory_oog_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:200 (returndatacopy), :204 (len), :208 (source range check), :213 (then copy cost and resize); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "RETURNDATACOPY of an in-bounds range that pays its copy cost but is 1 gas short of the expansion halts with MemoryOOG keeping the remaining gas."
+    },
+    {
+      "id": "copy.returndatacopy.offset_above_u64_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:200 (returndatacopy), :204 (len), :208 (source range check), :213 (then copy cost and resize); revm-interpreter src/instructions/system.rs:258; revm-interpreter src/instructions/macros.rs:137 (as_usize_or_fail: InvalidOperandOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "RETURNDATACOPY of an in-bounds range to memory offset 2^64 or more halts after the copy cost, keeping the remaining gas."
+    },
+    {
+      "id": "copy.returndatacopy.out_of_bounds_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:200 (returndatacopy), :205 (source offset saturates), :208 (OutOfOffset); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "RETURNDATACOPY whose source range passes the end of the return data (a zero-length copy one byte past the end, a 32-byte copy that ends one byte past it, or a source offset of 2^64) halts with OutOfOffset keeping the remaining gas: only the static gas is charged."
+    },
+    {
+      "id": "copy.returndatacopy.out_of_bounds_before_charges_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:200 (returndatacopy), :208 (the range check precedes the copy cost at :213 and every memory check); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "An out-of-bounds RETURNDATACOPY halts with only the static gas charged even when its copy cost could not be paid, its memory offset is 2^64 or more (with a source offset below or above 2^64), or its memory size is above 0x1FFFFFFFE0."
+    },
+    {
+      "id": "copy.returndatacopy.copy_oog_before_memory_checks_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:200 (returndatacopy), :204 (len), :208 (source range check), :213 (then copy cost and resize); revm-interpreter src/instructions/system.rs:254 (copy cost before the memory offset check at :258); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "RETURNDATACOPY of an in-bounds range to memory offset 2^64 or more that cannot pay its copy cost halts out of gas at the copy cost and spends all remaining gas."
+    },
+    {
+      "id": "copy.extcodecopy.cold_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:90 (extcodecopy), :97 (len), :98 (copy cost), :105 (memory offset and resize when len > 0), :114 (then the account load); revm-interpreter src/instructions/host.rs:30 (cold surcharge 2,500)",
+      "description": "EXTCODECOPY of a cold account charges static 100, 3 gas per word, the expansion, and last the 2,500 cold surcharge; the account is warm afterwards."
+    },
+    {
+      "id": "copy.extcodecopy.warm_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:90 (extcodecopy), :97 (len), :98 (copy cost), :105 (memory offset and resize when len > 0), :114 (then the account load)",
+      "description": "EXTCODECOPY of an account warmed earlier in the frame (by EXTCODESIZE or an earlier EXTCODECOPY) charges static 100, 3 gas per word and the expansion, with no cold surcharge."
+    },
+    {
+      "id": "copy.extcodecopy.cold_surcharge_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:90 (extcodecopy), :97 (len), :98 (copy cost), :105 (memory offset and resize when len > 0), :114 (then the account load); revm-interpreter src/instructions/host.rs:28 (a cold load is skipped when less than 2,500 gas remains), :31 (ColdLoadSkipped), src/instruction_result.rs:154 (ColdLoadSkipped is OutOfGas); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "EXTCODECOPY of a cold account that pays its copy cost and expansion (or has length 0) but is 1 gas short of the cold surcharge halts out of gas and spends all remaining gas."
+    },
+    {
+      "id": "copy.extcodecopy.zero_size_cold_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:90 (extcodecopy), :105 (len 0 skips the memory checks), :114 (the account load still runs)",
+      "description": "EXTCODECOPY of length 0 at memory offset 2^256 - 1 skips memory but still charges the cold surcharge: static 100 + 2,500."
+    },
+    {
+      "id": "copy.extcodecopy.size_above_u64_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:90 (extcodecopy), :97 (as_usize_or_fail on len); revm-interpreter src/instructions/macros.rs:137 (as_usize_or_fail: InvalidOperandOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "EXTCODECOPY with a length of 2^64 or more halts with InvalidOperandOOG: only the static gas is charged, and no cold surcharge."
+    },
+    {
+      "id": "copy.extcodecopy.copy_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:90 (extcodecopy), :98 (gas! on the copy cost); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "EXTCODECOPY that cannot pay its copy cost halts out of gas and spends all remaining gas."
+    },
+    {
+      "id": "copy.extcodecopy.memory_oog_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:90 (extcodecopy), :97 (len), :98 (copy cost), :105 (memory offset and resize when len > 0), :114 (then the account load); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "EXTCODECOPY that pays its copy cost but is 1 gas short of the expansion halts with MemoryOOG keeping the remaining gas, before any cold surcharge."
+    },
+    {
+      "id": "copy.extcodecopy.offset_above_u64_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:90 (extcodecopy), :107 (as_usize_or_fail on the memory offset); revm-interpreter src/instructions/macros.rs:137 (as_usize_or_fail: InvalidOperandOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "EXTCODECOPY to memory offset 2^64 or more with a non-zero length halts after the copy cost, keeping the remaining gas, before any cold surcharge."
+    },
+    {
+      "id": "copy.extcodecopy.end_overflow_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:90 (extcodecopy), :111; revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "EXTCODECOPY to a memory offset below 2^64 whose end passes 2^64: static and copy cost are charged, then the MemoryOOG halt keeps the remaining gas."
+    },
+    {
+      "id": "copy.extcodecopy.size_above_cap_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:90 (extcodecopy), :111; revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-context-interface 43.0.1 src/cfg/gas_params.rs:648; revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "EXTCODECOPY whose memory size is above 0x1FFFFFFFE0 bytes but fits in 64 bits: static and copy cost are charged, then the MemoryOOG halt keeps the remaining gas."
+    },
+    {
+      "id": "copy.extcodecopy.failed_copy_leaves_account_cold",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:90 (extcodecopy), :97 (len), :98 (copy cost), :105 (memory offset and resize when len > 0), :114 (then the account load); revm-interpreter src/instructions/host.rs:28 (the account is loaded only after memory is paid)",
+      "description": "An EXTCODECOPY of a cold account that halts on its memory expansion in a child frame does not warm the account: the caller's later EXTCODESIZE of it pays the cold surcharge."
+    },
+    {
+      "id": "copy.extcodecopy.copy_oog_before_memory_checks_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:90 (extcodecopy), :98 (copy cost before the memory offset check at :107); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "EXTCODECOPY to memory offset 2^64 or more whose copy cost cannot be paid halts out of gas at the copy cost and spends all remaining gas."
     }
   ]
 }

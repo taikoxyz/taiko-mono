@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "copy.codecopy.expand_exact_gas",
+  "layer": "harness",
+  "cells": ["copy.codecopy.expansion_success"],
+  "description": "CODECOPY of 0x40 bytes to 0x20 (memory grows to 3 words), of 0x20 bytes to 0 inside memory, then of 0x1400 bytes to 0x60 (grows to 163 words); frame gas is exactly enough.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x60405f60203960205f5f396114005f60603900"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x425",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x3194",
+    "status": "success"
+  }
+}
