@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "log.log2.one_topic_underflow",
+  "layer": "harness",
+  "cells": ["log.topics.underflow_preserve"],
+  "description": "MSTORE grows memory to 1 word, then LOG2 of 32 bytes at 0 with one topic on the stack, frame gas 100,000: it pays 375 + 2 * 375 + 8 * 32 with no expansion, then halts on the missing topic keeping the remaining gas.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x60ff5f5260b160205fa200"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x186a0",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0xbfd",
+    "status": "halt"
+  }
+}

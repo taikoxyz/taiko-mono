@@ -871,6 +871,48 @@
       "layers": ["block", "harness"],
       "source": "revm-interpreter src/instructions/host.rs:337 (log_cost before the offset check at :344 and the resize at :348); revm-context-interface 43.0.1 src/cfg/gas_params.rs:633 (log_cost: 8 per byte plus 375 per topic, saturating); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
       "description": "A LOG0-LOG4 at offset 2^64 or more, or whose memory range is above 0x1FFFFFFFE0 bytes or rounds up to 2^64, that cannot pay its topic and data cost (saturated at 2^64 - 1 when it passes 64 bits) halts out of gas at that charge and spends all remaining gas."
+    },
+    {
+      "id": "log.topics.underflow_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:337 (log_cost), :348 (resize), :351 (topics popped last: StackUnderflow); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "A LOG1-LOG4 whose stack holds the offset and length but too few topics pays the static gas, the topic and data cost and the expansion, then halts on the topic pop keeping the remaining gas."
+    },
+    {
+      "id": "log.topics.zero_size_underflow_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:337 (log_cost), :341 (len 0 skips memory), :351 (StackUnderflow); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "A LOG1-LOG4 whose stack holds the offset and length but too few topics, with length 0, pays 375 + 375 per topic, skips memory, then halts on the topic pop keeping the remaining gas."
+    },
+    {
+      "id": "log.topics.static_oog_before_underflow_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/interpreter.rs:312 (375 static gas charged in step before the instruction body): OutOfGas before the body; revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "A LOG1-LOG4 whose stack holds the offset and length but too few topics and less than 375 gas left halts out of gas in step() and spends all remaining gas."
+    },
+    {
+      "id": "log.topics.size_above_u64_before_underflow_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:336 (as_usize_or_fail on len before the log_cost charge at :337 and the topic pop at :351); revm-interpreter src/instructions/macros.rs:131 (as_usize_or_fail: InvalidOperandOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "A LOG1-LOG4 whose stack holds the offset and length but too few topics and a length of 2^64 or more halts with InvalidOperandOOG before the topic cost and the topic pop: only the 375 static gas is charged."
+    },
+    {
+      "id": "log.topics.data_oog_before_underflow_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:337 (gas! on log_cost before the topic pop at :351); revm-context-interface 43.0.1 src/cfg/gas_params.rs:633 (log_cost: 8 per byte plus 375 per topic, saturating); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "A LOG1-LOG4 whose stack holds the offset and length but too few topics that cannot pay its topic and data cost halts out of gas before the topic pop and spends all remaining gas."
+    },
+    {
+      "id": "log.topics.memory_oog_before_underflow_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:348 (resize before the topic pop at :351); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "A LOG1-LOG4 whose stack holds the offset and length but too few topics that pays its topic and data cost but is short of the expansion halts with MemoryOOG before the topic pop, keeping the remaining gas."
+    },
+    {
+      "id": "log.topics.memory_range_halt_before_underflow_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:344 (offset check), :348 (resize), both before the topic pop at :351; revm-interpreter src/instructions/macros.rs:131 (as_usize_or_fail: InvalidOperandOOG); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "A LOG1-LOG4 whose stack holds the offset and length but too few topics, at offset 2^64 or more (InvalidOperandOOG) or with a memory range that rounds up to 2^64 or is above 0x1FFFFFFFE0 bytes (MemoryOOG), halts after the topic and data cost and before the topic pop, keeping the remaining gas."
     }
   ]
 }
