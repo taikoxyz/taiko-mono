@@ -161,13 +161,13 @@ The run is equivalent to one tx from `caller` to `to` with empty calldata, value
 
 ## Running the clients
 
-All runners find the corpus through `ZK_GAS_VECTORS_DIR`, set to the absolute path of this directory. With it unset, the corpus tests skip. With it set, a runner that finds no vector of its layer fails.
+All runners find the corpus through `ZK_GAS_VECTORS_DIR`, set to the absolute path of this directory. With it unset, the corpus tests skip, except that the alethia-reth block runner fails in write mode. With it set, a runner that finds no vector of its layer fails.
 
-| Variable                         | Effect                                                                                                                |
-| -------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `ZK_GAS_VECTORS_DIR`             | Absolute path to this directory.                                                                                      |
-| `ZK_GAS_VECTORS_WRITE`           | alethia-reth only: `1` writes `expected` into the vector files instead of asserting. Ignored when `CI` is set.        |
-| `ZK_GAS_VECTORS_KNOWN_DIVERGENT` | taiko-geth only: comma-separated vector ids to skip; the runner prints each skipped id. For local investigation only. |
+| Variable                         | Effect                                                                                                                         |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `ZK_GAS_VECTORS_DIR`             | Absolute path to this directory.                                                                                               |
+| `ZK_GAS_VECTORS_WRITE`           | alethia-reth only: `1` writes `expected` into the vector files instead of asserting. Refused when `CI` is set: the test fails. |
+| `ZK_GAS_VECTORS_KNOWN_DIVERGENT` | taiko-geth only: comma-separated vector ids to skip; the runner prints each skipped id. For local investigation only.          |
 
 Generate expected values in alethia-reth, then rerun without `ZK_GAS_VECTORS_WRITE` to assert them:
 
@@ -179,6 +179,13 @@ cargo test -p alethia-reth-evm harness_vectors_match_expected
 cargo test -p alethia-reth-payload --features alethia-reth-block/prover block_vectors_match_expected
 ```
 
+After generating, format the vector files with prettier before committing (the writer's JSON layout differs from prettier's), then check them:
+
+```sh
+pnpm exec prettier --write testdata/zk_gas_vectors/cases
+python3 testdata/zk_gas_vectors/check.py --require-expected
+```
+
 The harness runner checks that the plain and inspector execution paths agree. The block runner also imports the built block and checks that the prover path selects the same txs with the same zk gas.
 
 Check taiko-geth against them:
@@ -188,5 +195,3 @@ export ZK_GAS_VECTORS_DIR=/path/to/taiko-mono/testdata/zk_gas_vectors
 go test ./core/vm -run '^TestZkGasHarnessVectors$' -count=1 -v
 go test ./miner -run '^TestZkGasBlockVectors$' -count=1 -v
 ```
-
-After generating, run `python3 testdata/zk_gas_vectors/check.py --require-expected`.
