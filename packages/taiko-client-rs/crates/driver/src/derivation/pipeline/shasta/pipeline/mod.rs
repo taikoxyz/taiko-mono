@@ -22,7 +22,7 @@ use protocol::shasta::{
     manifest::DerivationSourceManifest,
 };
 use rpc::{blob::BlobDataSource, client::Client};
-use tracing::{debug, info, instrument, warn};
+use tracing::{Instrument, debug, info, info_span, instrument, warn};
 
 use crate::{
     derivation::manifest::{
@@ -233,33 +233,47 @@ where
 
     // Fetch and validate all source manifests sequentially in order.
     let mut manifest_segments = Vec::with_capacity(sources.len());
-    for source in sources {
-        // If source has no blob hashes or invalid offset, use default manifest.
-        let manifest = if !is_source_offset_valid(source) {
-            DerivationSourceManifest::default()
-        } else {
+    for (source_index, source) in sources.iter().enumerate() {
+        let offset = source.blobSlice.offset.to::<u64>() as usize;
+        let timestamp = source.blobSlice.timestamp.to::<u64>();
+        let proposal_timestamp = event.l1_timestamp;
+        let max_blocks =
+            derivation_source_max_blocks_for_chain_timestamp(chain_id, proposal_timestamp);
+        // Keep guards, fetching, decode warnings, and fallback resolution in the same source
+        // span. Instrument the future rather than holding an entered span across await points.
+        let manifest = async {
+            if !is_source_offset_valid(source) {
+                warn!(
+                    "source has no blob hashes or an invalid offset, using default payload instead"
+                );
+                return Ok(DerivationSourceManifest::default());
+            }
             // An undecodable blob/manifest degrades to the default payload rather than
             // stalling derivation; only transient errors propagate to be retried.
             let hashes = derivation_source_to_blob_hashes(source);
-            let offset = source.blobSlice.offset.to::<u64>() as usize;
-            let timestamp = source.blobSlice.timestamp.to::<u64>();
-            let proposal_timestamp = event.l1_timestamp;
-            let max_blocks =
-                derivation_source_max_blocks_for_chain_timestamp(chain_id, proposal_timestamp);
-            debug!(
-                hash_count = hashes.len(),
-                offset, timestamp, proposal_timestamp, max_blocks, "fetching manifest sidecars"
-            );
+            debug!("fetching manifest sidecars");
             let result = fetch_blobs(timestamp, hashes)
                 .await
                 .and_then(|sidecars| {
                     let manifest = decode_manifest_from_sidecars(&sidecars, offset, max_blocks)?;
-                    debug!(offset, max_blocks, "decoded shasta manifest from blob sidecars");
+                    debug!("decoded shasta manifest from blob sidecars");
                     Ok(manifest)
                 })
                 .map_err(DerivationError::from);
-            resolve_source_manifest(proposal_id, source, result)?
-        };
+            resolve_source_manifest(proposal_id, source, result)
+        }
+        .instrument(info_span!(
+            "shasta_source_manifest",
+            proposal_id,
+            source_index,
+            is_forced_inclusion = source.isForcedInclusion,
+            offset,
+            hash_count = source.blobSlice.blobHashes.len(),
+            timestamp,
+            proposal_timestamp,
+            max_blocks,
+        ))
+        .await?;
         manifest_segments.push(SourceManifestSegment {
             manifest,
             is_forced_inclusion: source.isForcedInclusion,
@@ -600,6 +614,8 @@ impl ShastaDerivationPipeline {
 
 #[cfg(test)]
 mod tests {
+    use std::io::Write;
+
     use super::*;
     use alloy::{
         consensus::{EthereumTypedTransaction, SignableTransaction, TxEip1559},
@@ -622,6 +638,7 @@ mod tests {
         },
     };
     use rpc::blob::{BlobDataError, BlobDataSource};
+    use tracing::instrument::WithSubscriber;
 
     use crate::test_support::{
         mock_client_with_asserters, mock_client_with_l1_asserter, sample_derivation_source,
@@ -640,6 +657,66 @@ mod tests {
             l1_block_number: 10,
             l1_block_hash: B256::from([6u8; 32]),
             l1_timestamp: 7,
+        }
+    }
+
+    #[derive(Clone, Default)]
+    struct CapturedLogs(Arc<std::sync::Mutex<Vec<u8>>>);
+
+    impl Write for CapturedLogs {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().expect("log buffer lock").write(bytes)
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn source_manifest_defaults_keep_source_tracing_context() {
+        let logs = CapturedLogs::default();
+        let writer = logs.clone();
+        let subscriber = tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::DEBUG)
+            .without_time()
+            .with_ansi(false)
+            .with_writer(move || writer.clone())
+            .finish();
+        let mut event = sample_event_context();
+        let mut source = sample_derivation_source(vec![B256::repeat_byte(1); 2], true);
+        source.blobSlice.offset = alloy::primitives::aliases::U24::from(12);
+        source.blobSlice.timestamp = U48::from(34);
+        event.event.sources.push(source);
+
+        let bundle = build_manifest_bundle(&event, None, TAIKO_MAINNET_CHAIN_ID, |_, _| async {
+            Ok(Vec::new())
+        })
+        .with_subscriber(subscriber)
+        .await
+        .expect("undecodable content should use the default source");
+
+        assert_eq!(
+            alloy_rlp::encode(&bundle.sources[1].manifest),
+            alloy_rlp::encode(DerivationSourceManifest::default())
+        );
+        let output = String::from_utf8(logs.0.lock().expect("log buffer lock").clone())
+            .expect("UTF-8 tracing output");
+        let fallback = output
+            .lines()
+            .find(|line| line.contains("undecodable blob/manifest"))
+            .expect("content-default warning");
+        for context in [
+            "shasta_source_manifest{",
+            "proposal_id=11",
+            "source_index=1",
+            "is_forced_inclusion=true",
+            "offset=12",
+            "hash_count=2",
+            "timestamp=34",
+            "proposal_timestamp=7",
+        ] {
+            assert!(fallback.contains(context), "missing {context} in default warning: {fallback}");
         }
     }
 

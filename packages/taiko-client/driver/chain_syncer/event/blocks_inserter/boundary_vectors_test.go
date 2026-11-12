@@ -268,17 +268,7 @@ func deriveBoundaryVector(t *testing.T, c boundaryCase, blobs *boundaryBlobServe
 	for sourceIndex := range c.Sources {
 		payload, err := fetcher.Fetch(ctx, meta, sourceIndex)
 		require.NoError(t, err, c.Name)
-		extracted := &manifest.DerivationSourceManifest{}
-		if payload.Default {
-			extracted.Blocks = []*manifest.BlockManifest{{}}
-		} else {
-			for _, block := range payload.BlockPayloads {
-				extracted.Blocks = append(extracted.Blocks, &block.BlockManifest)
-			}
-		}
-		extractedRLP, err := rlp.EncodeToBytes(extracted)
-		require.NoError(t, err)
-		got.ExtractedManifests = append(got.ExtractedManifests, hex.EncodeToString(extractedRLP))
+		got.ExtractedManifests = append(got.ExtractedManifests, boundaryManifestRLP(t, payload))
 		derivation.PrepareSourcePayload(
 			cli, payload, parent, meta, anchorState, meta.GetEventData().Sources[sourceIndex].IsForcedInclusion,
 		)
@@ -291,7 +281,9 @@ func deriveBoundaryVector(t *testing.T, c boundaryCase, blobs *boundaryBlobServe
 			got.Blocks = append(got.Blocks, boundaryBlock{
 				Number: plan.payload.BlockID.Uint64(), Timestamp: plan.payload.Timestamp,
 				Coinbase: hex.EncodeToString(plan.payload.SuggestedFeeRecipient[:]), AnchorBlockNumber: plan.anchorBlockID.Uint64(),
-				GasLimit: plan.payload.GasLimit, TransactionsRLP: hex.EncodeToString(candidates), Forced: payload.IsForcedInclusion,
+				GasLimit: plan.payload.GasLimit, TransactionsRLP: hex.EncodeToString(candidates),
+				// This is event classification; forced behavior is checked through prepared fields/candidates.
+				Forced: meta.GetEventData().Sources[sourceIndex].IsForcedInclusion,
 			})
 			txListBytes, err := preparePayloadTransactions(plan.payload, anchorTx)
 			require.NoError(t, err)

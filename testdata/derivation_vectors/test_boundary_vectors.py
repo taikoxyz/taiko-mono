@@ -63,6 +63,22 @@ class BoundaryVectors(unittest.TestCase):
         self.assertEqual(self.cases['genesis_parent']['expected']['blocks'][0]['gas_limit'], 30000000)
         self.assertEqual(self.cases['non_genesis_parent_same_header_gas']['expected']['blocks'][0]['gas_limit'], 29000000)
 
+    def test_client_only_fork_selection_pairs(self):
+        data = json.loads((ROOT / 'fork_selection_cases.json').read_text())
+        self.assertEqual(data['schema_version'], 1)
+        cases = {case['name']: case for case in data['cases']}
+        self.assertEqual(len(cases), 12)
+        for chain, fork in [('mainnet', 1786021200), ('hoodi', 1781787600)]:
+            before = cases[chain + '_before_193']
+            at = cases[chain + '_at_193']
+            after = cases[chain + '_after_193']
+            self.assertEqual(before['proposal_timestamp'], fork - 1)
+            self.assertEqual(at['proposal_timestamp'], fork)
+            self.assertEqual(after['proposal_timestamp'], fork + 1)
+            self.assertNotEqual(before['expected_manifest_rlp_hex'], at['expected_manifest_rlp_hex'])
+            self.assertEqual(at['expected_manifest_rlp_hex'], after['expected_manifest_rlp_hex'])
+            self.assertEqual(before['expected_manifest_rlp_hex'], cases[chain + '_at_769']['expected_manifest_rlp_hex'])
+
 
 if __name__ == '__main__':
     unittest.main()

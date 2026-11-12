@@ -8,7 +8,7 @@ open Statements
 /-- The normalized derivation claims follow from the retained detailed properties. -/
 theorem derivation_safety : DerivationSafety := by
   intro c ctx p
-  refine ⟨source_block_count c ctx p, ?_, ?_, ?_⟩
+  refine ⟨source_block_count c ctx p, ?_, ?_, ?_, ?_⟩
   · intro xs ys
     exact ⟨derive_append c ctx p xs ys, earlier_sources_unaffected c ctx p xs ys⟩
   · intro sources
@@ -17,6 +17,8 @@ theorem derivation_safety : DerivationSafety := by
   · intro bounds sources b hb
     exact ⟨anchors_not_after_origin c ctx p sources bounds.anchorNotAfterOrigin b hb,
       gas_limits_in_range c ctx p sources bounds.gasMinimum bounds.gasMaximum b hb⟩
+  · intro src m bs hf
+    exact proposer_source_accepted_iff c ctx p src m bs hf
 
 /-- Header plans keep the derived sequence and the Unzen layout, the recorded anchor follows
 the derived anchors, and the parent rebuilt from the last header and that anchor continues
@@ -42,7 +44,9 @@ theorem forced_inclusion_safety : ForcedInclusionSafety := by
   intro c ctx p
   refine ⟨?_, ?_, earlier_sources_unaffected c ctx p⟩
   · intro src b forced
-    exact ⟨forced_inclusion_accepted_iff c ctx p src b forced, forced_default_iff b forced⟩
+    exact ⟨forced_inclusion_accepted_iff c ctx p src b forced,
+      forced_inclusion_preserves_transactions_iff c ctx p src b forced,
+      forced_default_iff b forced⟩
   · intro src
     rfl
 

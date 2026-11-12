@@ -20,9 +20,8 @@ func PrepareSourcePayload(
 	isForcedInclusion bool,
 ) {
 	sourcePayload.ParentBlock = parent
-	sourcePayload.IsForcedInclusion = isForcedInclusion
 	// Forced sources retain their candidates while inheriting metadata before validation.
-	if sourcePayload.IsForcedInclusion {
+	if isForcedInclusion {
 		ApplyInheritedMetadata(
 			sourcePayload,
 			meta.GetEventData(),
@@ -39,7 +38,7 @@ func PrepareSourcePayload(
 		meta.GetTimestamp(),
 		meta.GetRawBlockHeight().Uint64()-1,
 		parentAnchorBlockNumber,
-		sourcePayload.IsForcedInclusion,
+		isForcedInclusion,
 	) {
 		sourcePayload.Default = true
 		sourcePayload.BlockPayloads = []*BlockPayload{

@@ -22,7 +22,9 @@ structure InitialParentBounds (ctx : ProposalCtx) (p : Parent) : Prop where
 
 /-- Source bounds and isolation, consecutive numbers, increasing timestamps with bounded
 fallback drift, monotone anchors, and (under initial parent bounds) bounded anchors and gas.
-The cardinality clause includes the exact one-block bound for forced sources. -/
+The cardinality clause includes the exact one-block bound for forced sources. A non-forced
+source is accepted with precisely its input manifest when that manifest passes validation;
+this preserves every metadata field and transaction candidate in its original order. -/
 def DerivationSafety : Prop :=
   ∀ (c : ChainParams) (ctx : ProposalCtx) (p : Parent),
     (∀ src payload,
@@ -44,7 +46,11 @@ def DerivationSafety : Prop :=
         ((deriveSources c ctx p sources).map (·.anchorBlockNumber))) ∧
     (InitialParentBounds ctx p → ∀ sources, ∀ b ∈ deriveSources c ctx p sources,
       b.anchorBlockNumber ≤ ctx.originBlockNumber ∧
-      MIN_BLOCK_GAS_LIMIT ≤ b.gasLimit ∧ b.gasLimit ≤ MAX_BLOCK_GAS_LIMIT)
+      MIN_BLOCK_GAS_LIMIT ≤ b.gasLimit ∧ b.gasLimit ≤ MAX_BLOCK_GAS_LIMIT) ∧
+    (∀ (src : Source) (m : Option (List BlockManifest)) (bs : List BlockManifest),
+      src.isForcedInclusion = false →
+      (finalizeSource c ctx p src m = .accepted bs ↔
+        m = some bs ∧ validate c ctx p false bs = true))
 
 /-- The driver-derived fields of one Unzen header plan: the anchor gas reserve on top of the
 manifest gas, seven bytes of extra data holding the sharing percentage and the proposal's low six
@@ -84,14 +90,19 @@ def ForcedAcceptance (c : ChainParams) (ctx : ProposalCtx) (p : Parent) : Prop :
   (gasBounds (effectiveGasLimit p)).1 ≤ effectiveGasLimit p ∧
   effectiveGasLimit p ≤ (gasBounds (effectiveGasLimit p)).2
 
-/-- A one-block forced manifest is accepted exactly under `ForcedAcceptance`, and otherwise
-becomes the precise empty default block. Missing manifests also default. Later sources cannot
-alter the earlier prefix, including forced sources placed before the proposer by the inbox.
-No deadline or eventual inclusion conclusion is asserted. -/
+/-- A one-block forced manifest is accepted exactly under `ForcedAcceptance`, with inherited
+metadata and precisely its original transaction candidates in their original order; otherwise
+it becomes the precise empty default block. Missing manifests also default. Later sources
+cannot alter the earlier prefix, including forced sources placed before the proposer by the
+inbox. Candidate preservation is pre-execution; no execution, deadline, or eventual inclusion
+conclusion is asserted. -/
 def ForcedInclusionSafety : Prop :=
   ∀ (c : ChainParams) (ctx : ProposalCtx) (p : Parent),
     (∀ (src : Source) (b : BlockManifest), src.isForcedInclusion = true →
       ((finalizeSource c ctx p src (some [b])).isAccepted = true ↔ ForcedAcceptance c ctx p) ∧
+      (finalizeSource c ctx p src (some [b]) =
+          .accepted [{ defaultBlock c ctx p with transactions := b.transactions }] ↔
+        ForcedAcceptance c ctx p) ∧
       (finalizeSource c ctx p src (some [b]) = .defaulted (defaultBlock c ctx p) ↔
         ¬ ForcedAcceptance c ctx p)) ∧
     (∀ src, finalizeSource c ctx p src none = .defaulted (defaultBlock c ctx p)) ∧

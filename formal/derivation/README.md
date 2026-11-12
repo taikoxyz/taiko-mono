@@ -48,6 +48,10 @@ or a replacement conclusion at that boundary.
 
 Statement names are under `TaikoSpec.Derivation.Statements`. Detailed lemmas are in
 [`DerivationProofs/Properties.lean`](DerivationProofs/Properties.lean), including
+`proposer_source_accepted_iff` and `forced_inclusion_preserves_transactions_iff`: accepted
+proposer sources return precisely their input manifest, while accepted forced sources return
+the inherited block with the original ordered candidates. These are headline clauses, not
+claims about candidate execution. The detailed lemmas also include
 `rust_order_agrees` and `rust_failure_agrees`. The Rust driver also inherits metadata before
 validating a manifest that looks exactly like the default one, and it turns a failed extraction
 into one all-zero block that it then inherits. Both give the same blocks as the Go order.
@@ -100,6 +104,7 @@ transaction plan contains manifest candidates, not a proof of executed transacti
 The model follows checked client behavior where prose differs:
 
 - Version words below `2^64` are accepted when their low 32 bits equal 1, not only for `0x1`.
+- The size word uses only its low 64 bits; higher bits are discarded before the payload bounds check.
 - Proposer anchor 0 is validated normally; it does not request inheritance from the parent.
 - Forced sources can default when their inherited timestamp, anchor or gas fails validation.
   An exhausted timestamp window or a stale parent anchor can therefore discard candidates.
@@ -135,6 +140,11 @@ running maximum. See the [corpus README](../../testdata/derivation_vectors/READM
 exact comparison boundary and native test commands. The local formal gate runs Lean and fixture
 checks; CI additionally runs both client adapters on drafts. Neither establishes whole-client
 equivalence or transaction execution.
+
+Twelve additional client-only fork-selection vectors pair Mainnet/Hoodi proposals immediately
+before, at and after Unzen. They reject 193 blocks before activation and accept them at/after
+activation, preventing an always-768 selector from passing. These extraction-cap checks do not
+extend the Lean model to pre-Unzen derivation.
 
 The witness library keeps executable `#guard` regressions in exactly four files:
 `Tests/Derive.lean`, `Manifest.lean`, `Rlp.lean` and `Zlib.lean`. They run during compilation and
@@ -195,6 +205,7 @@ To inspect individual stages:
 
 ```bash
 python3 scripts/check.py
+python3 scripts/check_statements.py
 python3 -m unittest discover -s scripts/tests -v
 python3 ../../testdata/derivation_vectors/generate_boundaries.py --check
 python3 -m unittest discover -s ../../testdata/derivation_vectors -p 'test_boundary_vectors.py' -v
@@ -215,3 +226,8 @@ Lean mutations exercise weakened/missing headlines, extra axioms, erased claim d
 trivial/changed premise shapes, and live/transitive/dead/unused premise reads. CI runs on drafts
 and watches the pinned specification, the package, both clients, dependency inputs, the Anchor
 contract, shared corpora and workflow.
+
+The HTML gate verifies exact Lean excerpts, complete public-property entries and theorem line
+links. English explanations still require review. Rust conformance CI uses
+`bash script/test_derivation_vectors.sh` from `packages/taiko-client-rs`; its required-test list
+must match before Cargo runs, so a renamed or missing filtered test cannot silently pass.

@@ -110,4 +110,5 @@ jobs:
       - name: Decode the original corpus and derive boundary payloads
         run: |
           cargo test --locked -p protocol --lib manifest_vectors
-          cargo test --locked -p driver --lib unzen_boundary_vectors
+          bash script/test_derivation_vectors_guard.sh
+          bash script/test_derivation_vectors.sh

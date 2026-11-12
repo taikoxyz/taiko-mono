@@ -1,4 +1,5 @@
 import DerivationWitnesses.Tests.Helpers
+import DerivationWitnesses.Examples
 
 /-!
 # Manifest extraction tests
@@ -7,6 +8,9 @@ Ported from the Rust `protocol` crate's `manifest.rs` tests.
 -/
 
 open TaikoSpec TaikoSpec.Derivation Tests
+
+-- Candidate grammar uses executable byte-array operations; this guard is not a kernel proof.
+#guard Witness.candidateTransactions.all Tx.wellFormed
 
 /-- `extractManifest` for a payload, by default from a proposer source at offset 0. -/
 def extract (payload : ByteArray) (s : Source := src) : Option (List BlockManifest) :=

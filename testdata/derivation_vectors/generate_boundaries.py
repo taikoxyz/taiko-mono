@@ -256,18 +256,40 @@ def build_cases():
     return dict(schema_version=1,cases=cases)
 
 
+def build_fork_cases():
+    """Client-only extraction pairs; the Lean model intentionally stays Unzen-only."""
+    cases = []
+    default = manifest_raw([block(0, 0, 0, ZERO)]).hex()
+    for chain, label in [(167000, 'mainnet'), (167013, 'hoodi')]:
+        fork = FORKS[chain]
+        for name, delta, count, accepted in [
+            ('before_192', -1, 192, True), ('before_193', -1, 193, False),
+            ('at_193', 0, 193, True), ('after_193', 1, 193, True),
+            ('at_768', 0, 768, True), ('at_769', 0, 769, False),
+        ]:
+            # All candidate timestamps are pre-Unzen: the limit must use L1 proposal time.
+            blocks = [block(fork - 1000 + i) for i in range(count)]
+            payload = source(blocks)[0]['payload_hex']
+            cases.append(dict(name=label + '_' + name, chain_id=chain,
+                              proposal_timestamp=fork + delta, payload_hex=payload,
+                              expected_manifest_rlp_hex=manifest_raw(blocks).hex() if accepted else default))
+    return dict(schema_version=1, cases=cases)
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--check',action='store_true')
     args=parser.parse_args()
-    encoded=json.dumps(build_cases(),indent=2)+'\n'
-    path=ROOT/'boundary_cases.json'
-    if args.check:
-        if not path.exists() or path.read_text()!=encoded:
-            raise SystemExit('boundary corpus drift; run generate_boundaries.py and review the diff')
-    else:
-        path.write_text(encoded)
-    print(f'{len(json.loads(encoded)["cases"])} boundary vectors: '+('reproducible' if args.check else 'generated'))
+    for filename, data in [('boundary_cases.json', build_cases()),
+                           ('fork_selection_cases.json', build_fork_cases())]:
+        encoded=json.dumps(data,indent=2)+'\n'
+        path=ROOT/filename
+        if args.check:
+            if not path.exists() or path.read_text()!=encoded:
+                raise SystemExit(f'{filename} drift; run generate_boundaries.py and review the diff')
+        else:
+            path.write_text(encoded)
+        print(f'{filename}: {len(data["cases"])} vectors '+('reproducible' if args.check else 'generated'))
 
 
 if __name__=='__main__':

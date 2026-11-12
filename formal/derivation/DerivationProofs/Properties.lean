@@ -97,7 +97,15 @@ theorem gas_limits_in_range (srcs : List (Source × Option ByteArray))
       MIN_BLOCK_GAS_LIMIT ≤ b.gasLimit ∧ b.gasLimit ≤ MAX_BLOCK_GAS_LIMIT :=
   deriveSources_gas p srcs h₁ h₂
 
-/-! ## 8. Proposer progress -/
+/-! ## 8. Proposer preservation and progress -/
+
+/-- A non-forced source is accepted with exactly its original manifest, preserving every field
+and the full ordered transaction-candidate lists, precisely when that manifest validates. -/
+theorem proposer_source_accepted_iff (src : Source) (m : Option (List BlockManifest))
+    (bs : List BlockManifest) (hf : src.isForcedInclusion = false) :
+    finalizeSource c ctx p src m = .accepted bs ↔
+      m = some bs ∧ validate c ctx p false bs = true :=
+  finalizeSource_nonforced_accepted_iff m bs hf
 
 /-- A proposer's (non-forced) source that keeps its own blocks raises the anchor above the
 parent's. -/
@@ -109,11 +117,12 @@ theorem proposer_source_advances_anchor (src : Source) (m : Option (List BlockMa
 
 /-! ## 9. Forced inclusions -/
 
-/-- A forced inclusion whose manifest is one block keeps its transactions exactly when
+/-- A forced inclusion whose manifest is one block has an accepted outcome exactly when
 (a) the timestamp window is not used up, (b) the parent's anchor is at most `MAX_ANCHOR_OFFSET`
 behind the origin block and not past it, and (c) the parent's gas limit is within its own
-bounds. Otherwise it becomes the default block: forced inclusions *can* be dropped, unlike what
-`Derivation.md` states. -/
+bounds. Exact preservation of its transaction candidates is stated separately in
+`forced_inclusion_preserves_transactions_iff`. Otherwise it becomes the default block: forced
+inclusions *can* be dropped, unlike what `Derivation.md` states. -/
 theorem forced_inclusion_accepted_iff (src : Source) (b : BlockManifest)
     (hf : src.isForcedInclusion = true) :
     (finalizeSource c ctx p src (some [b])).isAccepted = true ↔
@@ -123,6 +132,18 @@ theorem forced_inclusion_accepted_iff (src : Source) (b : BlockManifest)
       (gasBounds (effectiveGasLimit p)).1 ≤ effectiveGasLimit p ∧
       effectiveGasLimit p ≤ (gasBounds (effectiveGasLimit p)).2 :=
   forced_accepted_iff b hf
+
+/-- Accepted one-block forced sources have exactly inherited metadata and retain the entire
+original ordered transaction-candidate list. This does not assert candidate execution. -/
+theorem forced_inclusion_preserves_transactions_iff (src : Source) (b : BlockManifest)
+    (hf : src.isForcedInclusion = true) :
+    finalizeSource c ctx p src (some [b]) =
+        .accepted [{ defaultBlock c ctx p with transactions := b.transactions }] ↔
+      Statements.ForcedAcceptance c ctx p := by
+  unfold Statements.ForcedAcceptance
+  rw [← forced_inclusion_accepted_iff c ctx p src b hf]
+  simp only [finalizeSource, hf, ite_true]
+  split <;> simp [SourceOutcome.isAccepted, inherit, defaultBlock]
 
 /-- When the parent's gas limit is in range (see theorem 7), condition (c) always holds: a
 one-block forced inclusion is dropped only when the timestamp window is used up or the parent's

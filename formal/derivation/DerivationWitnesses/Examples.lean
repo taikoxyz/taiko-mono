@@ -1,4 +1,5 @@
 import DerivationProofs
+import DerivationWitnesses.Tests.Derive
 
 namespace TaikoSpec.Derivation
 open TaikoSpec Proofs
@@ -39,6 +40,56 @@ example : (finalizeSource devnet proposal parent (source true) (some [block 0 0 
     true := by decide
 example : (finalizeSource devnet { proposal with originBlockNumber := 529 } parent (source true)
     (some [block 0 0 0])).isAccepted = false := by decide
+
+/-- Two distinct, structurally well-formed candidate transfers. Their order is observable;
+neither structural validity nor preservation asserts execution or successful signer recovery. -/
+def candidateTransactions : List Rlp.Item :=
+  [transfer,
+    .list [.bytes ⟨#[1]⟩, .bytes ⟨#[1]⟩, .bytes ⟨#[0x52, 0x08]⟩,
+      .bytes ⟨Array.replicate 20 0x43⟩, .bytes ⟨#[]⟩, .bytes ⟨#[]⟩,
+      .bytes ⟨#[27]⟩, .bytes ⟨#[1]⟩, .bytes ⟨#[1]⟩]]
+
+
+example : candidateTransactions.length = 2 := by rfl
+
+/-- A forced manifest whose original metadata will be replaced, retaining both candidates. -/
+def forcedCandidates : BlockManifest :=
+  { block 0 0 0 with transactions := candidateTransactions }
+
+/-- At the anchor-age boundary, acceptance preserves the complete candidate list and inherits
+all metadata. This is an instance of the exact-output clause of the forced headline. -/
+example : finalizeSource devnet { proposal with originBlockNumber := 528 } parent (source true)
+    (some [forcedCandidates]) =
+      .accepted [{ defaultBlock devnet { proposal with originBlockNumber := 528 } parent with
+        transactions := candidateTransactions }] := by
+  exact (forced_inclusion_preserves_transactions_iff devnet _ parent (source true)
+    forcedCandidates rfl).2 (by unfold Statements.ForcedAcceptance; decide)
+
+/-- One block beyond the anchor-age boundary, the same candidates are dropped by defaulting. -/
+example : finalizeSource devnet { proposal with originBlockNumber := 529 } parent (source true)
+    (some [forcedCandidates]) =
+      .defaulted (defaultBlock devnet { proposal with originBlockNumber := 529 } parent) := by
+  exact (forced_default_iff forcedCandidates (show (source true).isForcedInclusion = true by rfl)).2
+    (by unfold Statements.ForcedAcceptance; decide)
+
+example : ((finalizeSource devnet { proposal with originBlockNumber := 529 } parent (source true)
+    (some [forcedCandidates])).blocks.map (·.transactions)) = [[]] := by rfl
+
+/-- A valid proposer manifest with two blocks, distinct metadata, and opposite candidate order. -/
+def proposerCandidates : List BlockManifest :=
+  [{ block 1950 450 30_000_000 with transactions := candidateTransactions },
+    { block 1960 460 30_000_000 with transactions := candidateTransactions.reverse }]
+
+/-- The non-forced headline preserves both blocks, every metadata field, and candidate order. -/
+example : finalizeSource devnet proposal parent (source false) (some proposerCandidates) =
+    .accepted proposerCandidates := by
+  exact (proposer_source_accepted_iff devnet proposal parent (source false)
+    (some proposerCandidates) proposerCandidates rfl).2 ⟨rfl, by decide⟩
+
+/-- A non-forced source that fails to advance the anchor drops the same nonempty list. -/
+example : ((finalizeSource devnet proposal parent (source false)
+    (some [{ block 1950 400 30_000_000 with transactions := candidateTransactions }])).blocks.map
+      (·.transactions)) = [[]] := by rfl
 
 /-- Theorem 5: a default block can be later than the proposal timestamp. -/
 example : (defaultBlock devnet { proposal with timestamp := 1900 } parent).timestamp > 1900 := by

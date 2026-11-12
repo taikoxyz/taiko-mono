@@ -31,10 +31,6 @@
         },
         {
           "path": "packages/protocol/docs/Derivation.md",
-          "heading": "Fork-Dependent Header Fields"
-        },
-        {
-          "path": "packages/protocol/docs/Derivation.md",
           "heading": "Anchor Transaction"
         },
         {
@@ -90,6 +86,7 @@
   ],
   "drift": [
     "Version words below 2^64 with low 32 bits equal to 1 are accepted by the modeled clients.",
+    "The size word uses only its low 64 bits, matching Go big.Int.Uint64() and the Rust decoder.",
     "Proposer anchor 0 is validated normally; it does not request inherited metadata.",
     "Forced sources can default when inherited metadata fails validation; no inclusion deadline is proved.",
     "Zlib/RLP and transaction grammar use explicit checked decoder behavior beyond prose detail.",

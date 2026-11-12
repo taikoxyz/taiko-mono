@@ -3,6 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 python3 scripts/check.py
+python3 scripts/check_statements.py
 python3 -m unittest discover -s scripts/tests -v
 python3 ../../testdata/derivation_vectors/generate_boundaries.py --check
 python3 -m unittest discover -s ../../testdata/derivation_vectors -p 'test_boundary_vectors.py' -v

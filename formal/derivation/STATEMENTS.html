@@ -164,6 +164,9 @@
         </ol>
         <p>The initial bounds are needed only for the last clause. Cardinality, isolation,
           sequence, and drift do not require <code>InitialParentBounds</code>.</p>
+        <p>For an extracted proposer manifest, successful finalization returns exactly that
+          original block list. Metadata and ordered transaction candidates are preserved,
+          rather than only satisfying the bounds above.</p>
         <details>
           <summary>Initial parent bounds, in Lean</summary>
           <pre><code data-source="DerivationStatements/Claims.lean" data-declaration="InitialParentBounds">structure InitialParentBounds (ctx : ProposalCtx) (p : Parent) : Prop where
@@ -200,7 +203,11 @@
         ((deriveSources c ctx p sources).map (·.anchorBlockNumber))) ∧
     (InitialParentBounds ctx p → ∀ sources, ∀ b ∈ deriveSources c ctx p sources,
       b.anchorBlockNumber ≤ ctx.originBlockNumber ∧
-      MIN_BLOCK_GAS_LIMIT ≤ b.gasLimit ∧ b.gasLimit ≤ MAX_BLOCK_GAS_LIMIT)</code></pre>
+      MIN_BLOCK_GAS_LIMIT ≤ b.gasLimit ∧ b.gasLimit ≤ MAX_BLOCK_GAS_LIMIT) ∧
+    (∀ (src : Source) (m : Option (List BlockManifest)) (bs : List BlockManifest),
+      src.isForcedInclusion = false →
+      (finalizeSource c ctx p src m = .accepted bs ↔
+        m = some bs ∧ validate c ctx p false bs = true))</code></pre>
         <p class="source">Proved in <a href="DerivationProofs/Claims.lean">DerivationProofs/Claims.lean</a>,
           namespace <code>TaikoSpec.Derivation.Proofs</code>:</p>
         <pre><code data-source="DerivationProofs/Claims.lean" data-declaration="derivation_safety" data-signature="true">theorem derivation_safety : DerivationSafety</code></pre>
@@ -281,6 +288,9 @@
         <p>Otherwise it becomes exactly one default block: the computed minimum timestamp,
           the proposer as coinbase, the parent's anchor and effective gas, and no manifest
           transactions. A missing manifest also produces that default block.</p>
+        <p>On acceptance, the result is exactly the inherited block with the submitted
+          manifest's original ordered transaction-candidate list. This equality is part of
+          the headline claim; it does not assert that the execution engine includes those candidates.</p>
         <p>Later sources cannot change the earlier prefix. The Inbox's placement of forced
           sources before the proposer connects that prefix property to forced inclusions.</p>
         <p><strong>Forced inclusion can default.</strong> A stale inherited anchor or an
@@ -304,6 +314,9 @@
   ∀ (c : ChainParams) (ctx : ProposalCtx) (p : Parent),
     (∀ (src : Source) (b : BlockManifest), src.isForcedInclusion = true →
       ((finalizeSource c ctx p src (some [b])).isAccepted = true ↔ ForcedAcceptance c ctx p) ∧
+      (finalizeSource c ctx p src (some [b]) =
+          .accepted [{ defaultBlock c ctx p with transactions := b.transactions }] ↔
+        ForcedAcceptance c ctx p) ∧
       (finalizeSource c ctx p src (some [b]) = .defaulted (defaultBlock c ctx p) ↔
         ¬ ForcedAcceptance c ctx p)) ∧
     (∀ src, finalizeSource c ctx p src none = .defaulted (defaultBlock c ctx p)) ∧
@@ -452,12 +465,22 @@ every derived block&#x27;s gas limit is too.</p>
 </details>
 </div>
 <div class="lemma-group">
-<h3>8. Proposer progress</h3>
+<h3>8. Proposer preservation and progress</h3>
+<details id="lemma-proposer_source_accepted_iff">
+  <summary><code>proposer_source_accepted_iff</code></summary>
+  <p class="reading">A non-forced source is accepted with exactly its original manifest, preserving every field
+and the full ordered transaction-candidate lists, precisely when that manifest validates.</p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L104">DerivationProofs/Properties.lean:104</a></p>
+  <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="proposer_source_accepted_iff" data-signature="true">theorem proposer_source_accepted_iff (src : Source) (m : Option (List BlockManifest))
+    (bs : List BlockManifest) (hf : src.isForcedInclusion = false) :
+    finalizeSource c ctx p src m = .accepted bs ↔
+      m = some bs ∧ validate c ctx p false bs = true</code></pre>
+</details>
 <details id="lemma-proposer_source_advances_anchor">
   <summary><code>proposer_source_advances_anchor</code></summary>
   <p class="reading">A proposer&#x27;s (non-forced) source that keeps its own blocks raises the anchor above the
 parent&#x27;s.</p>
-  <p class="source"><a href="DerivationProofs/Properties.lean#L104">DerivationProofs/Properties.lean:104</a></p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L112">DerivationProofs/Properties.lean:112</a></p>
   <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="proposer_source_advances_anchor" data-signature="true">theorem proposer_source_advances_anchor (src : Source) (m : Option (List BlockManifest))
     (bs : List BlockManifest) (h : finalizeSource c ctx p src m = .accepted bs)
     (hf : src.isForcedInclusion = false) :
@@ -468,12 +491,13 @@ parent&#x27;s.</p>
 <h3>9. Forced inclusions</h3>
 <details id="lemma-forced_inclusion_accepted_iff">
   <summary><code>forced_inclusion_accepted_iff</code></summary>
-  <p class="reading">A forced inclusion whose manifest is one block keeps its transactions exactly when
+  <p class="reading">A forced inclusion whose manifest is one block has an accepted outcome exactly when
 (a) the timestamp window is not used up, (b) the parent&#x27;s anchor is at most <code>MAX_ANCHOR_OFFSET</code>
 behind the origin block and not past it, and (c) the parent&#x27;s gas limit is within its own
-bounds. Otherwise it becomes the default block: forced inclusions *can* be dropped, unlike what
-<code>Derivation.md</code> states.</p>
-  <p class="source"><a href="DerivationProofs/Properties.lean#L117">DerivationProofs/Properties.lean:117</a></p>
+bounds. Exact preservation of its transaction candidates is stated separately in
+<code>forced_inclusion_preserves_transactions_iff</code>. Otherwise it becomes the default block: forced
+inclusions *can* be dropped, unlike what <code>Derivation.md</code> states.</p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L126">DerivationProofs/Properties.lean:126</a></p>
   <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="forced_inclusion_accepted_iff" data-signature="true">theorem forced_inclusion_accepted_iff (src : Source) (b : BlockManifest)
     (hf : src.isForcedInclusion = true) :
     (finalizeSource c ctx p src (some [b])).isAccepted = true ↔
@@ -483,12 +507,23 @@ bounds. Otherwise it becomes the default block: forced inclusions *can* be dropp
       (gasBounds (effectiveGasLimit p)).1 ≤ effectiveGasLimit p ∧
       effectiveGasLimit p ≤ (gasBounds (effectiveGasLimit p)).2</code></pre>
 </details>
+<details id="lemma-forced_inclusion_preserves_transactions_iff">
+  <summary><code>forced_inclusion_preserves_transactions_iff</code></summary>
+  <p class="reading">Accepted one-block forced sources have exactly inherited metadata and retain the entire
+original ordered transaction-candidate list. This does not assert candidate execution.</p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L138">DerivationProofs/Properties.lean:138</a></p>
+  <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="forced_inclusion_preserves_transactions_iff" data-signature="true">theorem forced_inclusion_preserves_transactions_iff (src : Source) (b : BlockManifest)
+    (hf : src.isForcedInclusion = true) :
+    finalizeSource c ctx p src (some [b]) =
+        .accepted [{ defaultBlock c ctx p with transactions := b.transactions }] ↔
+      Statements.ForcedAcceptance c ctx p</code></pre>
+</details>
 <details id="lemma-forced_inclusion_accepted_iff_of_gas">
   <summary><code>forced_inclusion_accepted_iff_of_gas</code></summary>
   <p class="reading">When the parent&#x27;s gas limit is in range (see theorem 7), condition (c) always holds: a
 one-block forced inclusion is dropped only when the timestamp window is used up or the parent&#x27;s
 anchor is too far behind (or past) the origin block.</p>
-  <p class="source"><a href="DerivationProofs/Properties.lean#L130">DerivationProofs/Properties.lean:130</a></p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L151">DerivationProofs/Properties.lean:151</a></p>
   <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="forced_inclusion_accepted_iff_of_gas" data-signature="true">theorem forced_inclusion_accepted_iff_of_gas (src : Source) (b : BlockManifest)
     (hf : src.isForcedInclusion = true)
     (h₁ : MIN_BLOCK_GAS_LIMIT ≤ effectiveGasLimit p)
@@ -506,7 +541,7 @@ anchor is too far behind (or past) the origin block.</p>
   <p class="reading">The Rust driver inherits metadata before validation for manifests that look exactly like
 the default one; the Go driver (and this spec) validates them as they are. Both give the same
 result.</p>
-  <p class="source"><a href="DerivationProofs/Properties.lean#L147">DerivationProofs/Properties.lean:147</a></p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L168">DerivationProofs/Properties.lean:168</a></p>
   <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="rust_order_agrees" data-signature="true">theorem rust_order_agrees (src : Source) (m : Option (List BlockManifest)) :
     finalizeSourceRust c ctx p src m = finalizeSource c ctx p src m</code></pre>
 </details>
@@ -514,7 +549,7 @@ result.</p>
   <summary><code>rust_failure_agrees</code></summary>
   <p class="reading">The Rust driver turns a failed extraction into one all-zero block and then inherits it; the
 Go driver and this spec use the default block directly. Both give the same blocks.</p>
-  <p class="source"><a href="DerivationProofs/Properties.lean#L153">DerivationProofs/Properties.lean:153</a></p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L174">DerivationProofs/Properties.lean:174</a></p>
   <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="rust_failure_agrees" data-signature="true">theorem rust_failure_agrees (src : Source) :
     (finalizeSourceRust c ctx p src (some [emptyBlock])).blocks =
       (finalizeSource c ctx p src none).blocks</code></pre>
@@ -527,7 +562,7 @@ Go driver and this spec use the default block directly. Both give the same block
   <p class="reading">Every header plan reserves anchor gas on top of the manifest gas, carries seven bytes of extra
 data, and places the system anchor for the block&#x27;s own anchor number ahead of the manifest&#x27;s
 candidates in their original order.</p>
-  <p class="source"><a href="DerivationProofs/Properties.lean#L163">DerivationProofs/Properties.lean:163</a></p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L184">DerivationProofs/Properties.lean:184</a></p>
   <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="header_plan_layout" data-signature="true">theorem header_plan_layout (hc : HeaderContext) (b : DerivedBlock) :
     Statements.UnzenHeader hc (buildHeader hc b)</code></pre>
 </details>
@@ -535,7 +570,7 @@ candidates in their original order.</p>
   <summary><code>extra_data_proposal_roundtrip</code></summary>
   <p class="reading">The proposal field of the extra data keeps the proposal ID&#x27;s low six bytes, so it equals the
 proposal ID throughout the uint48 domain.</p>
-  <p class="source"><a href="DerivationProofs/Properties.lean#L169">DerivationProofs/Properties.lean:169</a></p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L190">DerivationProofs/Properties.lean:190</a></p>
   <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="extra_data_proposal_roundtrip" data-signature="true">theorem extra_data_proposal_roundtrip (sharing : UInt8) (proposal : Nat)
     (hp : proposal &lt; uint48Limit) :
     decodeExtraDataProposal (encodeExtraData sharing proposal) = some proposal</code></pre>
@@ -543,7 +578,7 @@ proposal ID throughout the uint48 domain.</p>
 <details id="lemma-proposal_headers_preserve_derivation">
   <summary><code>proposal_headers_preserve_derivation</code></summary>
   <p class="reading">Header plans keep the whole derived sequence, including transactions and forced flags.</p>
-  <p class="source"><a href="DerivationProofs/Properties.lean#L175">DerivationProofs/Properties.lean:175</a></p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L196">DerivationProofs/Properties.lean:196</a></p>
   <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="proposal_headers_preserve_derivation" data-signature="true">theorem proposal_headers_preserve_derivation (hc : HeaderContext)
     (sources : List (Source × Option ByteArray)) :
     (deriveHeaders c ctx hc p sources).map (·.block) = deriveSources c ctx p sources</code></pre>
@@ -553,7 +588,7 @@ proposal ID throughout the uint48 domain.</p>
   <p class="reading">After each block&#x27;s anchor transaction, the Anchor contract&#x27;s recorded anchor block number
 equals that block&#x27;s anchor number: <code>anchorV4</code> stores only greater numbers, and derived anchors
 never decrease from the parent&#x27;s recorded one.</p>
-  <p class="source"><a href="DerivationProofs/Properties.lean#L183">DerivationProofs/Properties.lean:183</a></p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L204">DerivationProofs/Properties.lean:204</a></p>
   <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="anchor_state_follows_derivation" data-signature="true">theorem anchor_state_follows_derivation (hc : HeaderContext)
     (sources : List (Source × Option ByteArray)) :
     recordedAnchors p.anchorBlockNumber
@@ -565,7 +600,7 @@ never decrease from the parent&#x27;s recorded one.</p>
   <p class="reading">The parent the drivers rebuild after a proposal, from the last header&#x27;s number, timestamp
 and gas limit and from the anchor the Anchor contract recorded, is the parent derivation
 continues from.</p>
-  <p class="source"><a href="DerivationProofs/Properties.lean#L193">DerivationProofs/Properties.lean:193</a></p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L214">DerivationProofs/Properties.lean:214</a></p>
   <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="next_parent_from_headers" data-signature="true">theorem next_parent_from_headers (hc : HeaderContext)
     (sources : List (Source × Option ByteArray)) :
     rebuiltParent p (deriveHeaders c ctx hc p sources) = parentAfter c ctx p sources</code></pre>
@@ -573,7 +608,7 @@ continues from.</p>
 <details id="lemma-header_gas_recovers_manifest_gas">
   <summary><code>header_gas_recovers_manifest_gas</code></summary>
   <p class="reading">The next proposal recovers each block&#x27;s manifest gas from its header gas limit.</p>
-  <p class="source"><a href="DerivationProofs/Properties.lean#L199">DerivationProofs/Properties.lean:199</a></p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L220">DerivationProofs/Properties.lean:220</a></p>
   <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="header_gas_recovers_manifest_gas" data-signature="true">theorem header_gas_recovers_manifest_gas (hc : HeaderContext) (b : DerivedBlock)
     (hn : b.number ≠ 0) :
     effectiveGasLimit (headerParent (buildHeader hc b)) = b.gasLimit</code></pre>
@@ -582,7 +617,7 @@ continues from.</p>
   <summary><code>blocks_after_unzen</code></summary>
   <p class="reading">On an Unzen parent every derived block is an Unzen block. The execution engines pick header
 rules by each block&#x27;s own timestamp, so they apply Unzen rules to all of them.</p>
-  <p class="source"><a href="DerivationProofs/Properties.lean#L206">DerivationProofs/Properties.lean:206</a></p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L227">DerivationProofs/Properties.lean:227</a></p>
   <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="blocks_after_unzen" data-signature="true">theorem blocks_after_unzen (hc : HeaderContext) (sources : List (Source × Option ByteArray))
     (hp : c.unzenForkTime ≤ p.timestamp) :
     ∀ h ∈ deriveHeaders c ctx hc p sources, c.unzenForkTime ≤ h.block.timestamp</code></pre>
@@ -620,6 +655,7 @@ rules by each block&#x27;s own timestamp, so they apply Unzen rules to all of th
         <h3>Differences from specification prose</h3>
         <ul>
           <li>A version word below 2<sup>64</sup> is accepted when its low 32 bits equal 1.</li>
+          <li>The size word uses only its low 64 bits before checking the payload bounds.</li>
           <li>Proposer anchor 0 is validated normally; it does not request parent inheritance.</li>
           <li>Forced sources can default after inheritance when validation fails.</li>
           <li>Zlib, canonical RLP, and transaction grammar add explicit decoding detail.</li>
@@ -660,8 +696,9 @@ rules by each block&#x27;s own timestamp, so they apply Unzen rules to all of th
       Its layout takes inspiration from
       <a href="https://github.com/anthropics/FlashProve/blob/main/lean/STATEMENTS.html">FlashProve's statements page</a>:
       explanations beside Lean, with premises and limits made explicit.
-      Source excerpts are snapshots; keep them and the English text in sync when the Lean
-      statements change. Use the linked Lean files for the authoritative declarations.</p>
+      The gate rejects stale source excerpts, missing public properties and changed theorem
+      line links. Keep the English explanations in sync when the Lean statements change;
+      those explanations still require review. Use the linked Lean files for the authoritative declarations.</p>
   </footer>
 </main>
 </body>

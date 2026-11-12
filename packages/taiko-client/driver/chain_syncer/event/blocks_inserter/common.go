@@ -85,7 +85,7 @@ func preparePayloadTransactions(
 ) ([]byte, error) {
 	// Insert a Anchor.anchorV4 transaction at transactions list head,
 	// then encode the transactions list.
-	txListBytes, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, meta.Txs...))
+	txListBytes, err := encodeAnchoredTransactions(anchorTx, meta.Txs)
 	if err != nil {
 		log.Error("Encode txList error", "blockID", meta.BlockID, "error", err)
 		return nil, fmt.Errorf("failed to encode transaction list for block %d: %w", meta.BlockID, err)
@@ -95,6 +95,11 @@ func preparePayloadTransactions(
 	meta.GasLimit += consensus.AnchorV3V4GasLimit
 
 	return txListBytes, nil
+}
+
+// encodeAnchoredTransactions encodes the anchor-first list without changing gas or candidates.
+func encodeAnchoredTransactions(anchorTx *types.Transaction, candidates types.Transactions) ([]byte, error) {
+	return rlp.EncodeToBytes(append(types.Transactions{anchorTx}, candidates...))
 }
 
 // createExecutionPayloadsAndSetHead creates a new execution payloads through Engine APIs,
@@ -266,7 +271,7 @@ func isKnownCanonicalProposal(
 				return fmt.Errorf("failed to assemble execution payload creation metadata: %w", err)
 			}
 
-			b, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, createExecutionPayloadsMetaData.Txs...))
+			b, err := encodeAnchoredTransactions(anchorTx, createExecutionPayloadsMetaData.Txs)
 			if err != nil {
 				return fmt.Errorf("failed to RLP encode tx list: %w", err)
 			}

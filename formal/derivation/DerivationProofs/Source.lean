@@ -188,6 +188,25 @@ theorem finalizeSource_progress {m : Option (List BlockManifest)} {bs : List Blo
     · exact hb
   · cases h
 
+/-- A non-forced source is accepted with exactly the supplied manifest, including all metadata
+and transaction candidates, if and only if that manifest exists and passes validation. -/
+theorem finalizeSource_nonforced_accepted_iff (m : Option (List BlockManifest))
+    (bs : List BlockManifest) (hf : src.isForcedInclusion = false) :
+    finalizeSource c ctx p src m = .accepted bs ↔
+      m = some bs ∧ validate c ctx p false bs = true := by
+  cases m with
+  | none => simp [finalizeSource]
+  | some original =>
+    simp only [finalizeSource, hf, Bool.false_eq_true, ite_false]
+    split
+    · rename_i hv
+      simp only [SourceOutcome.accepted.injEq, Option.some.injEq]
+      exact ⟨fun h => ⟨h, h ▸ hv⟩, fun h => h.1⟩
+    · rename_i hv
+      simp only [reduceCtorEq, false_iff, Option.some.injEq]
+      intro h
+      exact (h.1 ▸ hv) h.2
+
 theorem extractManifest_limits {payload : Option ByteArray} {bs : List BlockManifest}
     (h : extractManifest src payload = some bs) :
     bs.length ≤ UNZEN_DERIVATION_SOURCE_MAX_BLOCKS ∧

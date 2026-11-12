@@ -73,8 +73,9 @@ and the Anchor contract's execution are not compared. Header candidates preserve
 signed first anchor is represented by its target and position. Rebuilt Anchor state retains
 the model's trusted running-maximum assumption.
 
-The observed Go forced flag is the production source-preparation classification, not a claim
-about its persisted `L1Origin` flag. Rust additionally checks the constructed payload's forced
+The Go forced tag records the event's source classification; it is not an independently
+produced runtime field or a claim about persisted `L1Origin`. Forced behavior is tested through
+the actual prepared metadata and retained/defaulted candidates. Rust additionally checks the constructed payload's forced
 flag, timestamp, number and beneficiary. The adapters test pre-execution source/plan order;
 they project parent headers instead of executing the production engine-application loop.
 Runtime insertion scheduling, L1 origin writes and authenticated parent fetching require
@@ -109,13 +110,28 @@ Run Rust from `packages/taiko-client-rs`:
 
 ```bash
 cargo test --locked -p protocol --lib manifest_vectors
-cargo test --locked -p driver --lib unzen_boundary_vectors
+bash script/test_derivation_vectors_guard.sh
+bash script/test_derivation_vectors.sh
 ```
 
 Run Lean and fixture checks from `formal/derivation` with `bash scripts/gate.sh`.
 The formal workflow runs all three adapters on draft PRs and watches client code and dependency
 changes as well as the model, specification and corpora. These native conformance jobs need no
 Docker or live chains; the driver/engine verification below remains a separate execution test.
+
+### Both sides of the fork selector
+
+[`fork_selection_cases.json`](fork_selection_cases.json) supplies 12 additional **Go/Rust-only**
+extraction cases. Mainnet and Hoodi each have paired proposals at Unzen−1, Unzen and Unzen+1:
+192 blocks are accepted before activation, 193 are rejected before but accepted at/after it,
+and 768/769 exercise the new cap at activation. All candidate timestamps remain pre-Unzen,
+so selecting the cap from a candidate's timestamp instead of the L1 proposal timestamp fails.
+An always-768 selector also fails the pre-Unzen cases. The Lean model's 151-case corpus remains
+Unzen-only; these client extraction checks do not extend its theorem scope.
+
+`generate_boundaries.py --check` reproduces both generated corpora. The checked Rust entrypoint
+requires exactly the three named vector tests before execution and includes ignored tests;
+zero matches, a renamed/missing test, duplicates or an unexpected selection fail the gate.
 
 ## Metadata-stage conformance vectors
 

@@ -35,10 +35,15 @@ use super::super::{
 use crate::test_support::{mock_client_with_asserters, sample_derivation_source};
 
 fn boundary_corpus() -> Result<Vec<Value>> {
-    let path = std::env::var_os("TAIKO_BOUNDARY_CORPUS").map_or_else(
+    shared_corpus("TAIKO_BOUNDARY_CORPUS", "boundary_cases.json")
+}
+
+fn shared_corpus(env: &str, filename: &str) -> Result<Vec<Value>> {
+    let path = std::env::var_os(env).map_or_else(
         || {
             PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .join("../../../../testdata/derivation_vectors/boundary_cases.json")
+                .join("../../../../testdata/derivation_vectors")
+                .join(filename)
         },
         PathBuf::from,
     );
@@ -53,6 +58,54 @@ fn boundary_corpus() -> Result<Vec<Value>> {
         ensure!(names.insert(case["name"].as_str().context("case name")?), "duplicate case");
     }
     Ok(cases.clone())
+}
+
+#[tokio::test]
+async fn unzen_boundary_vectors_client_fork_selection() -> Result<()> {
+    let cases = shared_corpus("TAIKO_FORK_SELECTION_CORPUS", "fork_selection_cases.json")?;
+    ensure!(cases.len() == 12, "expected 12 client-only extraction-cap fixtures");
+    for case in cases {
+        let chain_id = number(&case, "chain_id");
+        let sidecars = source_sidecars(&case)?;
+        let hashes: Vec<B256> =
+            (0..sidecars.len()).map(|index| B256::repeat_byte((index + 1) as u8)).collect();
+        let mut source = sample_derivation_source(hashes.clone(), false);
+        // Blob time and candidate block timestamps predate Unzen. The extraction cap must
+        // come from the proposal timestamp, independently of these other clocks.
+        source.blobSlice.timestamp = U48::from(7);
+        let event = ProposedEventContext {
+            event: Proposed {
+                id: U48::from(8),
+                proposer: Address::ZERO,
+                parentProposalHash: B256::ZERO,
+                endOfSubmissionWindowTimestamp: U48::ZERO,
+                basefeeSharingPctg: 0,
+                sources: vec![source],
+            },
+            l1_block_number: 1,
+            l1_block_hash: B256::ZERO,
+            l1_timestamp: number(&case, "proposal_timestamp"),
+        };
+        let bundle = build_manifest_bundle(&event, None, chain_id, |timestamp, requested| {
+            assert_eq!(timestamp, 7, "blob lookup timestamp");
+            assert_eq!(requested, hashes, "blob lookup hashes");
+            let sidecars = sidecars.clone();
+            async move { Ok(sidecars) }
+        })
+        .await
+        .with_context(|| text(&case, "name").to_owned())?;
+        ensure!(bundle.sources.len() == 1, "one extraction source");
+        ensure!(!bundle.sources[0].is_forced_inclusion, "ordinary extraction source");
+        // Deliberately stop at extraction: pre-Unzen fixtures do not claim metadata,
+        // payload preparation, or execution-engine equivalence.
+        let actual = hex::encode(alloy_rlp::encode(&bundle.sources[0].manifest));
+        ensure!(
+            actual == text(&case, "expected_manifest_rlp_hex"),
+            "client fork-selection {} extraction mismatch",
+            text(&case, "name")
+        );
+    }
+    Ok(())
 }
 
 fn number(value: &Value, field: &str) -> u64 {
