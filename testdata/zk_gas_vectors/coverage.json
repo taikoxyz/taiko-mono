@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "reference": "revm-interpreter 43.0.1",
+  "cells": [
+    {
+      "id": "metering.intrinsic.charged",
+      "layers": ["block"],
+      "source": "alethia-reth crates/evm/src/zk_gas/meter.rs:161 (ZkGasMeter::charge_tx_intrinsic)",
+      "description": "A committed tx adds the fixed per-tx intrinsic zk gas (243,000) to the block total."
+    },
+    {
+      "id": "static.arith.success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/arithmetic.rs:10 (add), src/instructions.rs:321 (ADD static gas 3)",
+      "description": "ADD with enough gas succeeds and is charged its static gas times the ADD multiplier."
+    }
+  ]
+}
