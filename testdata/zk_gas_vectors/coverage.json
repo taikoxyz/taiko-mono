@@ -949,6 +949,198 @@
       "layers": ["block", "harness"],
       "source": "revm-interpreter src/instructions/host.rs:333 (require_non_staticcall before every pop and charge in the body), before the log_cost charge at :337 and the resize at :348; revm-interpreter src/instructions/macros.rs:6 (require_non_staticcall: StateChangeDuringStaticCall); src/instructions/contract.rs:224 (STATICCALL frames are static); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
       "description": "Inside a STATICCALL frame, a LOG0-LOG4 whose memory size is above 0x1FFFFFFFE0 bytes halts on the static-context check after the 375 static gas, before the topic and data cost and the expansion."
+    },
+    {
+      "id": "sload.sload.warm_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:117 (SLOAD static 100); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:165 (sload), :176 (no surcharge for a warm slot); alethia-reth crates/evm/src/zk_gas/unzen.rs:144 (sload multiplier 3)",
+      "description": "SLOAD of a slot accessed earlier in the tx charges only its 100 static gas."
+    },
+    {
+      "id": "sload.sload.cold_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:117 (SLOAD static 100); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:165 (sload), :172 (skip the cold load only when less than 2,000 remains), :177 (cold surcharge 2,000); alethia-reth crates/evm/src/zk_gas/unzen.rs:144 (sload multiplier 3)",
+      "description": "SLOAD of a cold slot charges 100 static gas plus the 2,000 cold surcharge, and warms the slot."
+    },
+    {
+      "id": "sload.sload.cold_surcharge_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:117 (SLOAD static 100); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:172 (a cold load is skipped when less than 2,000 gas remains), :175; revm-context-interface 43.0.1 src/journaled_state/account.rs:202 (ColdLoadSkipped before the slot is warmed); revm-interpreter src/instruction_result.rs:154 (ColdLoadSkipped is OutOfGas); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "SLOAD of a cold slot that pays its 100 static gas but has less than the 2,000 cold surcharge left halts out of gas and spends all remaining gas."
+    },
+    {
+      "id": "sload.sload.static_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:117 (SLOAD static 100); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "SLOAD with less than its 100 static gas left (warm slot, or an empty stack) halts out of gas in step() and spends all remaining gas."
+    },
+    {
+      "id": "sload.sload.underflow_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:117 (SLOAD static 100); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:166 (popn_top after the static gas); revm-interpreter src/instructions/macros.rs:90 (StackUnderflow); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "SLOAD on an empty stack is charged its 100 static gas, then halts on the stack underflow keeping the remaining gas."
+    },
+    {
+      "id": "sload.sload.failed_cold_load_leaves_slot_cold",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract.rs:166 (call), :202 (DELEGATECALL keeps the caller's storage context); revm-interpreter src/instructions/host.rs:172 (the cold load is skipped); revm-context 43.0.2 src/journal/inner.rs:622 (checkpoint_revert when the child frame halts); revm-context-interface 43.0.1 src/journaled_state/entry.rs:331 and :405 (reverted AccountWarmed and StorageWarmed entries make the account or slot cold again)",
+      "description": "A DELEGATECALL helper whose SLOAD of a cold slot of the caller's storage runs out of gas does not warm the slot: the caller's later SLOAD of it pays the cold surcharge."
+    },
+    {
+      "id": "sload.sload.child_cold_load_warms_slot",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract.rs:166 (call), :202 (DELEGATECALL keeps the caller's storage context); revm-interpreter src/instructions/host.rs:175 (the slot is warmed); revm-interpreter src/instructions/contract.rs:166 (a successful child keeps its journal)",
+      "description": "A DELEGATECALL helper that loads a cold slot of the caller's storage and returns warms the slot: the caller's later SLOAD of it charges only the 100 static gas."
+    },
+    {
+      "id": "sstore.noop.warm_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:388 (SSTORE static 0); revm-interpreter src/instructions/host.rs:216 (static-context check), :217 (pop), :224 (sentry), :230 (100 base), :236 (slot load), :265 (dynamic charge); revm-context-interface 43.0.1 src/cfg/gas_params.rs:545 (sstore_dynamic_gas: 2,100 when cold, plus 19,900 to set or 2,800 to reset a clean slot), :267-274 (Berlin values); alethia-reth crates/evm/src/zk_gas/unzen.rs:145 (sstore multiplier 5)",
+      "description": "SSTORE of a warm slot's current value charges only the 100 base gas."
+    },
+    {
+      "id": "sstore.noop.cold_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:388 (SSTORE static 0); revm-interpreter src/instructions/host.rs:216 (static-context check), :217 (pop), :224 (sentry), :230 (100 base), :236 (slot load), :265 (dynamic charge); revm-context-interface 43.0.1 src/cfg/gas_params.rs:545 (sstore_dynamic_gas: 2,100 when cold, plus 19,900 to set or 2,800 to reset a clean slot), :267-274 (Berlin values); alethia-reth crates/evm/src/zk_gas/unzen.rs:145 (sstore multiplier 5)",
+      "description": "SSTORE of a cold slot's current value charges the 100 base gas plus the 2,100 cold cost."
+    },
+    {
+      "id": "sstore.fresh.warm_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:388 (SSTORE static 0); revm-interpreter src/instructions/host.rs:216 (static-context check), :217 (pop), :224 (sentry), :230 (100 base), :236 (slot load), :265 (dynamic charge); revm-context-interface 43.0.1 src/cfg/gas_params.rs:545 (sstore_dynamic_gas: 2,100 when cold, plus 19,900 to set or 2,800 to reset a clean slot), :267-274 (Berlin values); alethia-reth crates/evm/src/zk_gas/unzen.rs:145 (sstore multiplier 5)",
+      "description": "SSTORE of a non-zero value into a warm, unwritten zero slot charges 100 + 19,900."
+    },
+    {
+      "id": "sstore.fresh.cold_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:388 (SSTORE static 0); revm-interpreter src/instructions/host.rs:216 (static-context check), :217 (pop), :224 (sentry), :230 (100 base), :236 (slot load), :265 (dynamic charge); revm-context-interface 43.0.1 src/cfg/gas_params.rs:545 (sstore_dynamic_gas: 2,100 when cold, plus 19,900 to set or 2,800 to reset a clean slot), :267-274 (Berlin values); alethia-reth crates/evm/src/zk_gas/unzen.rs:145 (sstore multiplier 5)",
+      "description": "SSTORE of a non-zero value into a cold zero slot charges 100 + 2,100 + 19,900."
+    },
+    {
+      "id": "sstore.modify.warm_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:388 (SSTORE static 0); revm-interpreter src/instructions/host.rs:216 (static-context check), :217 (pop), :224 (sentry), :230 (100 base), :236 (slot load), :265 (dynamic charge); revm-context-interface 43.0.1 src/cfg/gas_params.rs:545 (sstore_dynamic_gas: 2,100 when cold, plus 19,900 to set or 2,800 to reset a clean slot), :267-274 (Berlin values); alethia-reth crates/evm/src/zk_gas/unzen.rs:145 (sstore multiplier 5)",
+      "description": "SSTORE of a new non-zero value into a warm, unwritten non-zero slot charges 100 + 2,800."
+    },
+    {
+      "id": "sstore.modify.cold_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:388 (SSTORE static 0); revm-interpreter src/instructions/host.rs:216 (static-context check), :217 (pop), :224 (sentry), :230 (100 base), :236 (slot load), :265 (dynamic charge); revm-context-interface 43.0.1 src/cfg/gas_params.rs:545 (sstore_dynamic_gas: 2,100 when cold, plus 19,900 to set or 2,800 to reset a clean slot), :267-274 (Berlin values); alethia-reth crates/evm/src/zk_gas/unzen.rs:145 (sstore multiplier 5)",
+      "description": "SSTORE of a new non-zero value into a cold non-zero slot charges 100 + 2,100 + 2,800."
+    },
+    {
+      "id": "sstore.clear.warm_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:388 (SSTORE static 0); revm-interpreter src/instructions/host.rs:216 (static-context check), :217 (pop), :224 (sentry), :230 (100 base), :236 (slot load), :265 (dynamic charge); revm-context-interface 43.0.1 src/cfg/gas_params.rs:545 (sstore_dynamic_gas: 2,100 when cold, plus 19,900 to set or 2,800 to reset a clean slot), :267-274 (Berlin values); revm-context-interface 43.0.1 src/cfg/gas_params.rs:579 (sstore_refund), :291 (clearing refund 4,800); alethia-reth crates/evm/src/zk_gas/unzen.rs:145 (sstore multiplier 5)",
+      "description": "SSTORE of zero into a warm, unwritten non-zero slot charges 100 + 2,800 and records the 4,800 clearing refund."
+    },
+    {
+      "id": "sstore.clear.cold_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:388 (SSTORE static 0); revm-interpreter src/instructions/host.rs:216 (static-context check), :217 (pop), :224 (sentry), :230 (100 base), :236 (slot load), :265 (dynamic charge); revm-context-interface 43.0.1 src/cfg/gas_params.rs:545 (sstore_dynamic_gas: 2,100 when cold, plus 19,900 to set or 2,800 to reset a clean slot), :267-274 (Berlin values); revm-context-interface 43.0.1 src/cfg/gas_params.rs:579 (sstore_refund), :291 (clearing refund 4,800); alethia-reth crates/evm/src/zk_gas/unzen.rs:145 (sstore multiplier 5)",
+      "description": "SSTORE of zero into a cold non-zero slot charges 100 + 2,100 + 2,800 and records the 4,800 clearing refund."
+    },
+    {
+      "id": "sstore.restore.warm_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:388 (SSTORE static 0); revm-interpreter src/instructions/host.rs:216 (static-context check), :217 (pop), :224 (sentry), :230 (100 base), :236 (slot load), :265 (dynamic charge); revm-context-interface 43.0.1 src/cfg/gas_params.rs:545 (sstore_dynamic_gas: 2,100 when cold, plus 19,900 to set or 2,800 to reset a clean slot), :267-274 (Berlin values); revm-context-interface 43.0.1 src/cfg/gas_params.rs:579 (sstore_refund), :291 (clearing refund 4,800); alethia-reth crates/evm/src/zk_gas/unzen.rs:145 (sstore multiplier 5)",
+      "description": "SSTORE that sets a slot written earlier in the tx back to its original value (zero or non-zero) charges only the 100 base gas and records the restore refund. The slot is always warm: the earlier write warmed it."
+    },
+    {
+      "id": "sstore.dirty.warm_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:388 (SSTORE static 0); revm-interpreter src/instructions/host.rs:216 (static-context check), :217 (pop), :224 (sentry), :230 (100 base), :236 (slot load), :265 (dynamic charge); revm-context-interface 43.0.1 src/cfg/gas_params.rs:545 (sstore_dynamic_gas: 2,100 when cold, plus 19,900 to set or 2,800 to reset a clean slot), :267-274 (Berlin values); revm-context-interface 43.0.1 src/cfg/gas_params.rs:579 (sstore_refund), :291 (clearing refund 4,800); alethia-reth crates/evm/src/zk_gas/unzen.rs:145 (sstore multiplier 5)",
+      "description": "SSTORE that writes a third value into a slot written earlier in the tx, or rewrites a slot cleared earlier in the tx, charges only the 100 base gas."
+    },
+    {
+      "id": "sstore.dynamic.oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:388 (SSTORE static 0); revm-interpreter src/instructions/host.rs:216 (static-context check), :217 (pop), :224 (sentry), :230 (100 base), :236 (slot load), :265 (dynamic charge); revm-context-interface 43.0.1 src/cfg/gas_params.rs:545 (sstore_dynamic_gas: 2,100 when cold, plus 19,900 to set or 2,800 to reset a clean slot), :267-274 (Berlin values); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "SSTORE that passes the sentry but cannot pay its 100 base gas plus its cold and set or reset cost halts out of gas and spends all remaining gas."
+    },
+    {
+      "id": "sstore.sentry.halt_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:388 (SSTORE static 0); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:224 (gas left at most the 2,300 call stipend: ReentrancySentryOOG), revm-context-interface 43.0.1 src/cfg/gas_params.rs:226; revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "SSTORE with 2,300 gas or less left halts on the reentrancy sentry before any charge: no gas is spent (SSTORE's table static gas is 0) and the slot is not loaded."
+    },
+    {
+      "id": "sstore.sentry.min_gas_passes",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:388 (SSTORE static 0); revm-interpreter src/instructions/host.rs:224 (the sentry passes with more than 2,300 gas left), :230, :265",
+      "description": "SSTORE with exactly 2,301 gas left passes the sentry and charges its base, cold and set or reset cost as usual."
+    },
+    {
+      "id": "sstore.static_frame.halt_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:388 (SSTORE static 0); revm-interpreter src/instructions/host.rs:216 (require_non_staticcall before the pop, the sentry and every charge); revm-interpreter src/instructions/macros.rs:6 (require_non_staticcall: StateChangeDuringStaticCall); src/instructions/contract.rs:224 (STATICCALL frames are static); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "Inside a STATICCALL frame, SSTORE halts on the static-context check before any charge: no gas is spent."
+    },
+    {
+      "id": "sstore.sstore.underflow_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:388 (SSTORE static 0); revm-interpreter src/instructions/host.rs:217 (popn after the static-context check, before the sentry); revm-interpreter src/instructions/macros.rs:61 (StackUnderflow); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "SSTORE with fewer than two stack items halts on the stack underflow before any charge: no gas is spent."
+    },
+    {
+      "id": "sstore.dynamic.failed_store_leaves_slot_cold",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract.rs:166 (call), :202 (DELEGATECALL keeps the caller's storage context); revm-interpreter src/instructions/host.rs:236 (the slot is loaded and warmed before the dynamic charge at :265); revm-context 43.0.2 src/journal/inner.rs:622 (checkpoint_revert when the child frame halts); revm-context-interface 43.0.1 src/journaled_state/entry.rs:331 and :405 (reverted AccountWarmed and StorageWarmed entries make the account or slot cold again)",
+      "description": "A DELEGATECALL helper whose SSTORE to a cold slot of the caller's storage loads the slot but cannot pay the dynamic cost halts; the halt reverts the warming, so the caller's later SLOAD of the slot pays the cold surcharge."
+    },
+    {
+      "id": "sstore.refund.block_gas_only",
+      "layers": ["block"],
+      "source": "revm-context-interface 43.0.1 src/cfg/gas_params.rs:579 (sstore_refund), :291 (clearing refund 4,800); revm-handler 43.0.2 src/post_execution.rs:63 (refund capped at gas used / 5); alethia-reth crates/evm/src/zk_gas/runtime.rs:56 (the step charge uses only the gas taken in the step)",
+      "description": "SSTORE refunds from clearing, restoring and recreating slots lower the tx's gas used (capped at one fifth) inside a block, while each SSTORE's zk gas is its charged gas only."
+    },
+    {
+      "id": "transient.tload.success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:395 (TLOAD static 100); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:319 (tload); alethia-reth crates/evm/src/zk_gas/unzen.rs:152 (tload multiplier 1)",
+      "description": "TLOAD charges only its 100 static gas."
+    },
+    {
+      "id": "transient.tload.static_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:395 (TLOAD static 100); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "TLOAD with less than its 100 static gas left halts out of gas in step() and spends all remaining gas."
+    },
+    {
+      "id": "transient.tload.underflow_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:395 (TLOAD static 100); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:321 (popn_top after the static gas); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "TLOAD on an empty stack is charged its 100 static gas, then halts on the stack underflow keeping the remaining gas."
+    },
+    {
+      "id": "transient.tstore.success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:396 (TSTORE static 100); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:306 (tstore); alethia-reth crates/evm/src/zk_gas/unzen.rs:153 (tstore multiplier 5)",
+      "description": "TSTORE charges only its 100 static gas."
+    },
+    {
+      "id": "transient.tstore.static_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:396 (TSTORE static 100); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "TSTORE with less than its 100 static gas left halts out of gas in step() and spends all remaining gas."
+    },
+    {
+      "id": "transient.tstore.underflow_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:396 (TSTORE static 100); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:309 (popn after the static gas); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "TSTORE with fewer than two stack items is charged its 100 static gas, then halts on the stack underflow keeping the remaining gas."
+    },
+    {
+      "id": "transient.static_frame.tstore_halt_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:396 (TSTORE static 100); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:308 (require_non_staticcall after the static gas, before the pop); revm-interpreter src/instructions/macros.rs:6 (require_non_staticcall: StateChangeDuringStaticCall); src/instructions/contract.rs:224 (STATICCALL frames are static); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "Inside a STATICCALL frame, TSTORE is charged its 100 static gas, then halts on the static-context check keeping the remaining gas."
+    },
+    {
+      "id": "transient.static_frame.tstore_static_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:396 (TSTORE static 100); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body): OutOfGas before the static-context check at revm-interpreter src/instructions/host.rs:308; revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "Inside a STATICCALL frame, TSTORE with less than its 100 static gas left halts out of gas in step() and spends all remaining gas."
     }
   ]
 }
