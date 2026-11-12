@@ -427,6 +427,66 @@
       "layers": ["block", "harness"],
       "source": "revm-interpreter src/instructions/memory.rs:69 (mcopy), :76 (copy cost before dst and src are checked at :85); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
       "description": "MCOPY with dst of 2^64 or more and a copy cost it cannot pay halts out of gas at the copy cost and spends all remaining gas: the copy cost comes before the operand and memory checks."
+    },
+    {
+      "id": "keccak.keccak256.expansion_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:18 (keccak256), :21 (6 gas per word), :29 (then resize); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-context-interface 43.0.1 src/cfg/gas_params.rs:641 (keccak256_cost)",
+      "description": "KECCAK256 charges static 30, then 6 gas per hashed word, then the expansion for offset + len; a hash inside current memory charges no expansion."
+    },
+    {
+      "id": "keccak.keccak256.zero_size_no_expansion",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:18 (keccak256), :25 (len 0 hashes nothing and skips the offset)",
+      "description": "KECCAK256 with length 0 charges only its static gas and succeeds, even at offset 2^256 - 1."
+    },
+    {
+      "id": "keccak.keccak256.size_above_u64_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:18 (keccak256), :20 (as_usize_or_fail on len before the word cost); revm-interpreter src/instructions/macros.rs:137 (as_usize_or_fail: InvalidOperandOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "KECCAK256 with a length of 2^64 or more halts with InvalidOperandOOG: only the static gas is charged."
+    },
+    {
+      "id": "keccak.keccak256.word_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:18 (keccak256), :21 (gas! on the word cost: OutOfGas); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "KECCAK256 that cannot pay its word cost halts out of gas and spends all remaining gas."
+    },
+    {
+      "id": "keccak.keccak256.memory_oog_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:18 (keccak256), :21 (word cost first), :29 (then resize); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "KECCAK256 that pays its word cost but is 1 gas short of the expansion halts with MemoryOOG keeping the remaining gas: static and word cost are charged."
+    },
+    {
+      "id": "keccak.keccak256.offset_above_u64_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:18 (keccak256), :28 (as_usize_or_fail on the offset after the word cost); revm-interpreter src/instructions/macros.rs:137 (as_usize_or_fail: InvalidOperandOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "KECCAK256 at offset 2^64 or more with a non-zero length halts after the word cost, keeping the remaining gas."
+    },
+    {
+      "id": "keccak.keccak256.end_overflow_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:18 (keccak256), :29; revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "KECCAK256 at an offset below 2^64 whose offset + len passes 2^64: static and word cost are charged, then the MemoryOOG halt keeps the remaining gas."
+    },
+    {
+      "id": "keccak.keccak256.word_rounding_overflow_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:18 (keccak256), :29; revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "KECCAK256 whose offset + len fits in 64 bits but rounds up to 2^64 bytes: static and word cost are charged, then the MemoryOOG halt keeps the remaining gas."
+    },
+    {
+      "id": "keccak.keccak256.size_above_cap_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:18 (keccak256), :29; revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-context-interface 43.0.1 src/cfg/gas_params.rs:648; revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "KECCAK256 whose memory size is above 0x1FFFFFFFE0 bytes but fits in 64 bits: static and word cost are charged, then the MemoryOOG halt keeps the remaining gas."
+    },
+    {
+      "id": "keccak.keccak256.word_oog_before_memory_checks_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/system.rs:18 (keccak256), :21 (word cost before the offset check at :28 and the resize at :29); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "KECCAK256 at offset 2^64 or more, or with a memory size above 0x1FFFFFFFE0 bytes, whose word cost cannot be paid halts out of gas at the word cost and spends all remaining gas."
     }
   ]
 }
