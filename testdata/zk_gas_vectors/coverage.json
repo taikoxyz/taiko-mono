@@ -769,6 +769,108 @@
       "layers": ["block", "harness"],
       "source": "revm-interpreter src/instructions/control.rs:73 (return_inner), :79 (len), :82 (len 0 skips the offset), :84 (resize), :110 (revert); alethia-reth crates/evm/src/zk_gas/unzen.rs:232 (multiplier 0); revm-interpreter src/instructions/macros.rs:137 (as_usize_or_fail: InvalidOperandOOG)",
       "description": "REVERT at offset 2^64 or more with a non-zero length halts with InvalidOperandOOG."
+    },
+    {
+      "id": "log.log0.success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:471 (375 static gas for LOG0-LOG4); revm-interpreter src/interpreter.rs:312 (375 static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:332 (log), :337 (log_cost), :348 (resize after the charge); revm-context-interface 43.0.1 src/cfg/gas_params.rs:633 (log_cost: 8 per byte plus 375 per topic, saturating); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); alethia-reth crates/evm/src/zk_gas/unzen.rs:220 (log0 multiplier 3)",
+      "description": "LOG0 charges its 375 static gas, then 8 gas per data byte, then the expansion for offset + len; a LOG0 inside current memory charges no expansion."
+    },
+    {
+      "id": "log.log1.success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:471 (375 static gas for LOG0-LOG4); revm-interpreter src/interpreter.rs:312 (375 static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:332 (log), :337 (log_cost), :348 (resize after the charge); revm-context-interface 43.0.1 src/cfg/gas_params.rs:633 (log_cost: 8 per byte plus 375 per topic, saturating); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); alethia-reth crates/evm/src/zk_gas/unzen.rs:221 (log1 multiplier 3)",
+      "description": "LOG1 charges its 375 static gas, then 8 gas per data byte plus 375 for its topic, then the expansion for offset + len; a LOG1 inside current memory charges no expansion."
+    },
+    {
+      "id": "log.log2.success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:471 (375 static gas for LOG0-LOG4); revm-interpreter src/interpreter.rs:312 (375 static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:332 (log), :337 (log_cost), :348 (resize after the charge); revm-context-interface 43.0.1 src/cfg/gas_params.rs:633 (log_cost: 8 per byte plus 375 per topic, saturating); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); alethia-reth crates/evm/src/zk_gas/unzen.rs:222 (log2 multiplier 2)",
+      "description": "LOG2 charges its 375 static gas, then 8 gas per data byte plus 2 * 375 for its topics, then the expansion for offset + len; a LOG2 inside current memory charges no expansion."
+    },
+    {
+      "id": "log.log3.success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:471 (375 static gas for LOG0-LOG4); revm-interpreter src/interpreter.rs:312 (375 static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:332 (log), :337 (log_cost), :348 (resize after the charge); revm-context-interface 43.0.1 src/cfg/gas_params.rs:633 (log_cost: 8 per byte plus 375 per topic, saturating); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); alethia-reth crates/evm/src/zk_gas/unzen.rs:223 (log3 multiplier 2)",
+      "description": "LOG3 charges its 375 static gas, then 8 gas per data byte plus 3 * 375 for its topics, then the expansion for offset + len; a LOG3 inside current memory charges no expansion."
+    },
+    {
+      "id": "log.log4.success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions.rs:471 (375 static gas for LOG0-LOG4); revm-interpreter src/interpreter.rs:312 (375 static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:332 (log), :337 (log_cost), :348 (resize after the charge); revm-context-interface 43.0.1 src/cfg/gas_params.rs:633 (log_cost: 8 per byte plus 375 per topic, saturating); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); alethia-reth crates/evm/src/zk_gas/unzen.rs:224 (log4 multiplier 2)",
+      "description": "LOG4 charges its 375 static gas, then 8 gas per data byte plus 4 * 375 for its topics, then the expansion for offset + len; a LOG4 inside current memory charges no expansion."
+    },
+    {
+      "id": "log.logn.zero_size_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:337 (log_cost with len 0 is the topic cost only), :341 (len 0 skips the offset and memory)",
+      "description": "A LOG0-LOG4 of length 0 charges 375 + 375 per topic and succeeds without touching memory, even at offset 2^256 - 1."
+    },
+    {
+      "id": "log.logn.static_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/interpreter.rs:312 (375 static gas charged in step before the instruction body): OutOfGas before the body; revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "A LOG0-LOG4 with less than 375 gas left halts out of gas in step(), before any stack or operand check, and spends all remaining gas."
+    },
+    {
+      "id": "log.logn.stack_underflow_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:335 (popn! of offset and len: StackUnderflow); revm-interpreter src/instructions/macros.rs:59; revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "A LOG0-LOG4 with fewer than two stack items pays its 375 static gas, then halts on the offset and length pops keeping the remaining gas."
+    },
+    {
+      "id": "log.logn.size_above_u64_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:336 (as_usize_or_fail on len before the log_cost charge at :337); revm-interpreter src/instructions/macros.rs:131 (as_usize_or_fail: InvalidOperandOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "A LOG0-LOG4 with a length of 2^64 or more halts with InvalidOperandOOG before the topic and data cost: only the 375 static gas is charged."
+    },
+    {
+      "id": "log.logn.topic_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:337 (gas! on log_cost: OutOfGas); revm-context-interface 43.0.1 src/cfg/gas_params.rs:633 (log_cost: 8 per byte plus 375 per topic, saturating); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "A zero-length LOG1-LOG4 that cannot pay its 375-per-topic cost halts out of gas and spends all remaining gas."
+    },
+    {
+      "id": "log.logn.data_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:337 (gas! on log_cost: OutOfGas, before the resize at :348); revm-context-interface 43.0.1 src/cfg/gas_params.rs:633 (log_cost: 8 per byte plus 375 per topic, saturating); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "A LOG0-LOG4 with a non-zero length that cannot pay its topic and data cost halts out of gas and spends all remaining gas."
+    },
+    {
+      "id": "log.logn.memory_oog_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:337 (log_cost first), :348 (then resize); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "A LOG0-LOG4 that pays its topic and data cost but is short of the expansion halts with MemoryOOG keeping the remaining gas: static, topic and data costs are charged."
+    },
+    {
+      "id": "log.logn.offset_above_u64_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:344 (as_usize_or_fail on the offset after the log_cost charge at :337); revm-interpreter src/instructions/macros.rs:131 (as_usize_or_fail: InvalidOperandOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "A LOG0-LOG4 at offset 2^64 or more with a non-zero length halts with InvalidOperandOOG after the topic and data cost, keeping the remaining gas."
+    },
+    {
+      "id": "log.logn.end_overflow_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:337 (log_cost first), :348 (then resize); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "A LOG0-LOG4 at an offset below 2^64 whose offset + len passes 2^64: static, topic and data costs are charged, then the MemoryOOG halt keeps the remaining gas."
+    },
+    {
+      "id": "log.logn.word_rounding_overflow_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:337 (log_cost first), :348 (then resize); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "A LOG0-LOG4 whose offset + len fits in 64 bits but rounds up to 2^64 bytes: static, topic and data costs are charged, then the MemoryOOG halt keeps the remaining gas."
+    },
+    {
+      "id": "log.logn.size_above_cap_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:337 (log_cost first), :348 (then resize); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-context-interface 43.0.1 src/cfg/gas_params.rs:648 (memory_cost); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "A LOG0-LOG4 whose memory size is above 0x1FFFFFFFE0 bytes but fits in 64 bits: static, topic and data costs are charged, then the MemoryOOG halt keeps the remaining gas."
+    },
+    {
+      "id": "log.logn.data_oog_before_memory_checks_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/host.rs:337 (log_cost before the offset check at :344 and the resize at :348); revm-context-interface 43.0.1 src/cfg/gas_params.rs:633 (log_cost: 8 per byte plus 375 per topic, saturating); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas)",
+      "description": "A LOG0-LOG4 at offset 2^64 or more, or whose memory range is above 0x1FFFFFFFE0 bytes or rounds up to 2^64, that cannot pay its topic and data cost (saturated at 2^64 - 1 when it passes 64 bits) halts out of gas at that charge and spends all remaining gas."
     }
   ]
 }
