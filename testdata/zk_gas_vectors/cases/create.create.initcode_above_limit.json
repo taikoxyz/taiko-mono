@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "create.create.initcode_above_limit",
+  "layer": "harness",
+  "cells": ["create.family.initcode_above_limit_preserve"],
+  "description": "CREATE of 49,153 bytes with 99,993 gas left: the size check halts before any charge, 0 measured.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x61c0015f5ff000"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x186a0",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x4c",
+    "status": "halt"
+  }
+}

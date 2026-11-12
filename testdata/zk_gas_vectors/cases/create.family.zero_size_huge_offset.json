@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "create.family.zero_size_huge_offset",
+  "layer": "harness",
+  "cells": ["create.family.zero_size_no_initcode_charges"],
+  "description": "CREATE and then CREATE2 with a zero length and an offset of 2^256 - 1: the offset is ignored, no memory is touched and both are charged their spawn estimates.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x5f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff5ff0505f5f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff5ff55000"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x186a0",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x13f78",
+    "status": "success"
+  }
+}

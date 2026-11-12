@@ -1801,6 +1801,60 @@
       "layers": ["harness"],
       "source": "revm-handler 43.0.2 src/frame.rs:176 (CallTooDeep before the transfer, precompile and code checks; the forwarded gas returns); revm-interpreter src/instructions/contract.rs:166 (call), :227-246 (NewFrame installed once the body succeeds); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:33-37 (spawn estimates)",
       "description": "A CALL in the frame at depth 1024 installs NewFrame and is charged its spawn estimate, then short-circuits with CallTooDeep: no frame runs and the CALL pushes 0."
+    },
+    {
+      "id": "create.create.new_frame_spawn_estimate",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract.rs:85 (32,000 after the initcode and memory charges); revm-interpreter src/instructions/contract.rs:140-162 (63/64 of the remaining gas is forwarded and NewFrame is installed); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:38-39 (spawn estimates 37,000 and 44,500), zk_gas/unzen.rs:225,230 (multiplier 1)",
+      "description": "A CREATE whose body succeeds installs NewFrame and is charged its spawn estimate (37,000 x 1) instead of the measured step gas (which includes the forwarded gas); the initcode frame's opcodes are metered normally."
+    },
+    {
+      "id": "create.create2.new_frame_spawn_estimate",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract.rs:77 (salt popped after the initcode and memory charges), :79-82 (32,000 + 6 per initcode word); revm-interpreter src/instructions/contract.rs:140-162 (63/64 of the remaining gas is forwarded and NewFrame is installed); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:38-39 (spawn estimates 37,000 and 44,500), zk_gas/unzen.rs:225,230 (multiplier 1)",
+      "description": "A CREATE2 whose body succeeds installs NewFrame and is charged its spawn estimate (44,500 x 1) instead of the measured step gas; the initcode frame's opcodes are metered normally."
+    },
+    {
+      "id": "create.family.initcode_at_limit_spawn",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract.rs:52-54 (only a length above max_initcode_size halts); revm-context 43.0.2 src/cfg.rs:472-485 (49,152 bytes before Amsterdam); revm-context-interface 43.0.1 src/cfg/gas_params.rs:660-677 (2 per initcode word; 32,000; 6 per word for CREATE2); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:38-39 (spawn estimates 37,000 and 44,500), zk_gas/unzen.rs:225,230 (multiplier 1)",
+      "description": "CREATE and CREATE2 with an initcode of exactly 49,152 bytes pass the EIP-3860 size check, pay 2 gas per word, memory expansion and the base (+ hashing) cost, and are charged their spawn estimates."
+    },
+    {
+      "id": "create.family.initcode_above_limit_preserve",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract.rs:40 (length operand), :52-54 (a length above max_initcode_size halts with CreateInitCodeSizeLimit before the word cost, the offset operand and memory); revm-interpreter src/instructions.rs:477,482 (CREATE and CREATE2 static gas 0); revm-interpreter src/interpreter.rs:208-209 (halt spends all gas only for OutOfGas)",
+      "description": "CREATE or CREATE2 with an initcode of 49,153 bytes halts on the EIP-3860 size check keeping its gas: 0 measured, whatever the gas left or the offset operand."
+    },
+    {
+      "id": "create.family.initcode_word_cost_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract.rs:55-58 (gas! on the 2-per-word initcode cost: OutOfGas); revm-interpreter src/instructions.rs:477,482 (CREATE and CREATE2 static gas 0); revm-interpreter src/interpreter.rs:208-209 (halt spends all gas only for OutOfGas)",
+      "description": "CREATE or CREATE2 that cannot pay the 2-per-word initcode cost halts OutOfGas and spends all remaining gas."
+    },
+    {
+      "id": "create.family.memory_oog_preserve_after_initcode",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract.rs:61-64 (memory resized after the initcode cost); revm-interpreter src/interpreter/shared_memory.rs:565-601 (offset + len saturates; an unpayable expansion halts with MemoryOOG); revm-interpreter src/interpreter.rs:208-209 (halt spends all gas only for OutOfGas)",
+      "description": "CREATE or CREATE2 that pays the initcode cost but cannot pay its memory expansion halts keeping the remaining gas: the initcode cost is measured. This includes ranges whose end or word-rounded end exceeds 2^64 - 1 and expansions above any memory cap."
+    },
+    {
+      "id": "create.family.zero_size_no_initcode_charges",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract.rs:43 (a zero length skips the initcode cost, the offset operand and memory), :85 (32,000); revm-interpreter src/instructions/contract.rs:140-162 (63/64 of the remaining gas is forwarded and NewFrame is installed); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:38-39 (spawn estimates 37,000 and 44,500), zk_gas/unzen.rs:225,230 (multiplier 1)",
+      "description": "CREATE or CREATE2 with a zero length pays neither initcode cost nor memory and ignores its offset: 32,000 (+ 0 hashing) gas left is exactly enough to be charged the spawn estimate."
+    },
+    {
+      "id": "create.create.base_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract.rs:85 (gas! on the 32,000 base after the initcode and memory charges: OutOfGas); revm-interpreter src/instructions.rs:477,482 (CREATE and CREATE2 static gas 0); revm-interpreter src/interpreter.rs:208-209 (halt spends all gas only for OutOfGas)",
+      "description": "CREATE that pays its initcode and memory costs but not the 32,000 base halts OutOfGas and spends all remaining gas, whether or not 32,000 gas was left before the step."
+    },
+    {
+      "id": "create.create2.hash_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract.rs:79-82 (one gas! on 32,000 + 6 per word after the memory charge: OutOfGas); revm-interpreter src/instructions.rs:477,482 (CREATE and CREATE2 static gas 0); revm-interpreter src/interpreter.rs:208-209 (halt spends all gas only for OutOfGas)",
+      "description": "CREATE2 that pays its initcode and memory costs and the 32,000 base but not the 6-per-word hashing cost halts OutOfGas and spends all remaining gas."
     }
   ]
 }
