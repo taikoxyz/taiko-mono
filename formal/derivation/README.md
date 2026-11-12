@@ -106,8 +106,15 @@ The model follows checked client behavior where prose differs:
 - Version words below `2^64` are accepted when their low 32 bits equal 1, not only for `0x1`.
 - The size word uses only its low 64 bits; higher bits are discarded before the payload bounds check.
 - Proposer anchor 0 is validated normally; it does not request inheritance from the parent.
+- A proposer source defaults unless at least one of its blocks raises the anchor above the
+  parent's. The prose mentions this penalty for stagnant anchors only where it exempts forced
+  sources; it is not among the listed invalidation conditions.
 - Forced sources can default when their inherited timestamp, anchor or gas fails validation.
   An exhausted timestamp window or a stale parent anchor can therefore discard candidates.
+- A default block takes the timestamp lower bound without being validated. When that bound is
+  above the proposal timestamp, for example once the parent's timestamp has reached it, the
+  block is later than the proposal; the prose states the upper bound only for manifest
+  timestamps. `DerivationSafety` bounds this drift.
 - Zlib, exact canonical RLP and transaction grammar are explicit decoder behavior beyond the
   prose's “decompress” and “decode” instructions.
 
@@ -118,6 +125,9 @@ Where the two drivers differ only outside reachable inputs, the model follows on
   three agree on every real proposal.
 - The 1M parent reserve subtraction truncates at zero; Go's uint64 subtraction would wrap.
   Real non-genesis headers always carry the reserve.
+- A proposal with a nonzero ID and no sources derives no blocks, as in Go; Rust returns an
+  error instead. `Inbox.propose` always appends the proposer's source, and both drivers skip
+  the activation proposal 0 before they read its sources.
 
 These differences are documented, not resolved by a hash pin. Specification changes intentionally
 fail CI until the model, claims, exclusions and pins are reviewed together.

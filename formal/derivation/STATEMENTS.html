@@ -657,14 +657,18 @@ rules by each block&#x27;s own timestamp, so they apply Unzen rules to all of th
           <li>A version word below 2<sup>64</sup> is accepted when its low 32 bits equal 1.</li>
           <li>The size word uses only its low 64 bits before checking the payload bounds.</li>
           <li>Proposer anchor 0 is validated normally; it does not request parent inheritance.</li>
+          <li>A proposer source defaults unless one of its blocks raises the anchor above
+            the parent's; the prose names this penalty only where it exempts forced sources.</li>
           <li>Forced sources can default after inheritance when validation fails.</li>
+          <li>A default block takes the timestamp lower bound without validation, so it can
+            be later than the proposal timestamp; the drift bound above covers it.</li>
           <li>Zlib, canonical RLP, and transaction grammar add explicit decoding detail.</li>
         </ul>
         <p>The model follows the reviewed client behavior in these cases.
           <a href="spec-coverage.json">spec-coverage.json</a> pins the specification's
           revision and hash; that traceability is not a claim of complete coverage.
           The <a href="README.md">README</a> records the additional out-of-domain
-          proposal-ID and parent-gas arithmetic differences.</p>
+          proposal-ID, parent-gas arithmetic and empty-source-list differences.</p>
       </div>
       <div>
         <h3>Trusted or outside scope</h3>

@@ -88,8 +88,11 @@
     "Version words below 2^64 with low 32 bits equal to 1 are accepted by the modeled clients.",
     "The size word uses only its low 64 bits, matching Go big.Int.Uint64() and the Rust decoder.",
     "Proposer anchor 0 is validated normally; it does not request inherited metadata.",
+    "A proposer source defaults unless one of its blocks raises the anchor above the parent's; the prose names this penalty only where it exempts forced sources.",
     "Forced sources can default when inherited metadata fails validation; no inclusion deadline is proved.",
+    "A default block takes the timestamp lower bound without validation and can be later than the proposal timestamp; the proved drift bound covers it.",
     "Zlib/RLP and transaction grammar use explicit checked decoder behavior beyond prose detail.",
-    "Extra data keeps the proposal ID's low six bytes; Proposed.id is a uint48, so it always fits as Derivation.md requires."
+    "Extra data keeps the proposal ID's low six bytes; Proposed.id is a uint48, so it always fits as Derivation.md requires.",
+    "A nonzero-ID proposal without sources derives no blocks, as in Go, while Rust returns an error; Inbox.propose always appends the proposer's source."
   ]
 }
