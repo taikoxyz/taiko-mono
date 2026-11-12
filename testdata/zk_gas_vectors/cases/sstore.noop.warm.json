@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "sstore.noop.warm",
   "layer": "harness",
-  "cells": ["sstore.noop.warm_success", "sstore.noop.cold_success"],
+  "cells": ["sstore.noop.warm_success"],
   "description": "SLOAD warms slot 5 (holding 3), then two SSTOREs of 3 into it each charge only the 100 base gas.",
   "input": {
     "alloc": {

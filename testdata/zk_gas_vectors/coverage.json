@@ -983,13 +983,13 @@
     {
       "id": "sload.sload.failed_cold_load_leaves_slot_cold",
       "layers": ["block", "harness"],
-      "source": "revm-interpreter src/instructions/contract.rs:166 (call), :202 (DELEGATECALL keeps the caller's storage context); revm-interpreter src/instructions/host.rs:172 (the cold load is skipped); revm-context 43.0.2 src/journal/inner.rs:622 (checkpoint_revert when the child frame halts); revm-context-interface 43.0.1 src/journaled_state/entry.rs:331 and :405 (reverted AccountWarmed and StorageWarmed entries make the account or slot cold again)",
+      "source": "revm-interpreter src/instructions/contract.rs:166 (call), :202 (DELEGATECALL keeps the caller's storage context); revm-interpreter src/instructions/host.rs:172 (the cold load is skipped); revm-handler 43.0.2 src/frame.rs:428 (a call frame that does not end ok reverts its journal), revm-context 43.0.2 src/journal/inner.rs:622 (checkpoint_revert); revm-context-interface 43.0.1 src/journaled_state/entry.rs:331 and :405 (reverted AccountWarmed and StorageWarmed entries make the account or slot cold again)",
       "description": "A DELEGATECALL helper whose SLOAD of a cold slot of the caller's storage runs out of gas does not warm the slot: the caller's later SLOAD of it pays the cold surcharge."
     },
     {
       "id": "sload.sload.child_cold_load_warms_slot",
       "layers": ["block", "harness"],
-      "source": "revm-interpreter src/instructions/contract.rs:166 (call), :202 (DELEGATECALL keeps the caller's storage context); revm-interpreter src/instructions/host.rs:175 (the slot is warmed); revm-interpreter src/instructions/contract.rs:166 (a successful child keeps its journal)",
+      "source": "revm-interpreter src/instructions/contract.rs:166 (call), :202 (DELEGATECALL keeps the caller's storage context); revm-interpreter src/instructions/host.rs:175 (the slot is warmed); revm-handler 43.0.2 src/frame.rs:425 (a call frame that ends ok commits its journal)",
       "description": "A DELEGATECALL helper that loads a cold slot of the caller's storage and returns warms the slot: the caller's later SLOAD of it charges only the 100 static gas."
     },
     {
@@ -1068,7 +1068,7 @@
       "id": "sstore.sentry.min_gas_passes",
       "layers": ["block", "harness"],
       "source": "revm-interpreter src/instructions.rs:388 (SSTORE static 0); revm-interpreter src/instructions/host.rs:224 (the sentry passes with more than 2,300 gas left), :230, :265",
-      "description": "SSTORE with exactly 2,301 gas left passes the sentry and charges its base, cold and set or reset cost as usual."
+      "description": "SSTORE with exactly 2,301 gas left passes the sentry and goes on to its base, cold and set or reset charge, which succeeds or runs out of gas as usual."
     },
     {
       "id": "sstore.static_frame.halt_preserve",
@@ -1085,7 +1085,7 @@
     {
       "id": "sstore.dynamic.failed_store_leaves_slot_cold",
       "layers": ["block", "harness"],
-      "source": "revm-interpreter src/instructions/contract.rs:166 (call), :202 (DELEGATECALL keeps the caller's storage context); revm-interpreter src/instructions/host.rs:236 (the slot is loaded and warmed before the dynamic charge at :265); revm-context 43.0.2 src/journal/inner.rs:622 (checkpoint_revert when the child frame halts); revm-context-interface 43.0.1 src/journaled_state/entry.rs:331 and :405 (reverted AccountWarmed and StorageWarmed entries make the account or slot cold again)",
+      "source": "revm-interpreter src/instructions/contract.rs:166 (call), :202 (DELEGATECALL keeps the caller's storage context); revm-interpreter src/instructions/host.rs:236 (the slot is loaded and warmed before the dynamic charge at :265); revm-handler 43.0.2 src/frame.rs:428 (a call frame that does not end ok reverts its journal), revm-context 43.0.2 src/journal/inner.rs:622 (checkpoint_revert); revm-context-interface 43.0.1 src/journaled_state/entry.rs:331 and :405 (reverted AccountWarmed and StorageWarmed entries make the account or slot cold again)",
       "description": "A DELEGATECALL helper whose SSTORE to a cold slot of the caller's storage loads the slot but cannot pay the dynamic cost halts; the halt reverts the warming, so the caller's later SLOAD of the slot pays the cold surcharge."
     },
     {
@@ -1211,7 +1211,7 @@
     {
       "id": "account.access.failed_cold_load_leaves_account_cold",
       "layers": ["block", "harness"],
-      "source": "revm-interpreter src/instructions/host.rs:21 (load_account), :28 (a cold load is skipped when less than 2,500 gas remains), :31 (ColdLoadSkipped), :30 (cold surcharge 2,500); revm-context 43.0.2 src/journal/inner.rs:622 (checkpoint_revert when the child frame halts); revm-context-interface 43.0.1 src/journaled_state/entry.rs:331 and :405 (reverted AccountWarmed and StorageWarmed entries make the account or slot cold again)",
+      "source": "revm-interpreter src/instructions/host.rs:21 (load_account), :28 (a cold load is skipped when less than 2,500 gas remains), :31 (ColdLoadSkipped), :30 (cold surcharge 2,500); revm-handler 43.0.2 src/frame.rs:428 (a call frame that does not end ok reverts its journal), revm-context 43.0.2 src/journal/inner.rs:622 (checkpoint_revert); revm-context-interface 43.0.1 src/journaled_state/entry.rs:331 and :405 (reverted AccountWarmed and StorageWarmed entries make the account or slot cold again)",
       "description": "A child frame whose BALANCE of a cold account runs out of gas at the cold surcharge does not warm the account: the caller's later BALANCE of it pays the cold surcharge."
     },
     {
@@ -1295,7 +1295,7 @@
     {
       "id": "selfdestruct.static_frame.halt_preserve",
       "layers": ["block", "harness"],
-      "source": "revm-interpreter src/instructions.rs:105 (SELFDESTRUCT static 5,000); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:369 (require_non_staticcall before the pop and the beneficiary load); revm-interpreter src/instructions/macros.rs:6 (require_non_staticcall: StateChangeDuringStaticCall); src/instructions/contract.rs:224 (STATICCALL frames are static); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas); revm-context 43.0.2 src/journal/inner.rs:622 (checkpoint_revert when the child frame halts); revm-context-interface 43.0.1 src/journaled_state/entry.rs:331 and :405 (reverted AccountWarmed and StorageWarmed entries make the account or slot cold again)",
+      "source": "revm-interpreter src/instructions.rs:105 (SELFDESTRUCT static 5,000); revm-interpreter src/interpreter.rs:312 (table static gas charged in step before the instruction body); revm-interpreter src/instructions/host.rs:369 (require_non_staticcall before the pop and the beneficiary load); revm-interpreter src/instructions/macros.rs:6 (require_non_staticcall: StateChangeDuringStaticCall); src/instructions/contract.rs:224 (STATICCALL frames are static); revm-interpreter src/interpreter.rs:208 (halt spends all gas only for OutOfGas); revm-handler 43.0.2 src/frame.rs:428 (a call frame that does not end ok reverts its journal), revm-context 43.0.2 src/journal/inner.rs:622 (checkpoint_revert); revm-context-interface 43.0.1 src/journaled_state/entry.rs:331 and :405 (reverted AccountWarmed and StorageWarmed entries make the account or slot cold again)",
       "description": "Inside a STATICCALL frame, SELFDESTRUCT halts on the static-context check after its static gas, without loading the beneficiary: the caller's later BALANCE of the beneficiary pays the cold surcharge."
     },
     {
@@ -1307,13 +1307,13 @@
     {
       "id": "selfdestruct.selfdestruct.child_success_warms_beneficiary",
       "layers": ["block", "harness"],
-      "source": "revm-interpreter src/instructions/host.rs:377 (the beneficiary is loaded and warmed); revm-interpreter src/instruction_result.rs:167 (SelfDestruct is a successful result, the child keeps its journal)",
+      "source": "revm-interpreter src/instructions/host.rs:377 (the beneficiary is loaded and warmed); revm-interpreter src/instruction_result.rs:167 (SelfDestruct is a successful result); revm-handler 43.0.2 src/frame.rs:425 (a call frame that ends ok commits its journal)",
       "description": "A child frame's successful SELFDESTRUCT to a cold beneficiary warms it: the caller's later BALANCE of the beneficiary charges only the 100 static gas."
     },
     {
       "id": "selfdestruct.selfdestruct.failed_step_leaves_beneficiary_cold",
       "layers": ["block", "harness"],
-      "source": "revm-interpreter src/instructions/host.rs:376 (load skipped), :390 (charge after the load); revm-context 43.0.2 src/journal/inner.rs:622 (checkpoint_revert when the child frame halts); revm-context-interface 43.0.1 src/journaled_state/entry.rs:331 and :405 (reverted AccountWarmed and StorageWarmed entries make the account or slot cold again)",
+      "source": "revm-interpreter src/instructions/host.rs:376 (load skipped), :390 (charge after the load); revm-handler 43.0.2 src/frame.rs:428 (a call frame that does not end ok reverts its journal), revm-context 43.0.2 src/journal/inner.rs:622 (checkpoint_revert); revm-context-interface 43.0.1 src/journaled_state/entry.rs:331 and :405 (reverted AccountWarmed and StorageWarmed entries make the account or slot cold again)",
       "description": "A child frame's SELFDESTRUCT that runs out of gas, at the cold load or at the new-account charge after the load, leaves the beneficiary cold: the caller's later BALANCE of it pays the cold surcharge."
     }
   ]
