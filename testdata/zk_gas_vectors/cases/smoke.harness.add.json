@@ -18,5 +18,9 @@
     "number": "0x1",
     "timestamp": "0xc",
     "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x6f",
+    "status": "success"
   }
 }
