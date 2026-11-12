@@ -1525,6 +1525,270 @@
       "layers": ["block", "harness"],
       "source": "revm-interpreter src/instructions/contract.rs:166 (call), :227-246 (NewFrame installed once the body succeeds); revm-handler 43.0.2 src/frame.rs:184-194 (a failed value transfer returns OutOfFunds before the precompile and code checks); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:33-37 (spawn estimates)",
       "description": "A value-bearing CALL or CALLCODE whose caller lacks the balance is still charged its spawn estimate, but no child frame runs and a precompile target is not run or charged."
+    },
+    {
+      "id": "precompile.supplied.below_cost_all_supplied",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); taiko-mono packages/protocol/docs/zk_gas_spec.md Precompile Metering",
+      "description": "A precompile supplied less gas than its cost fails OutOfGas and is charged all the gas supplied; supplied exactly its cost, it succeeds and is charged its cost."
+    },
+    {
+      "id": "precompile.ecrecover.success_gas_used",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: taiko-geth core/vm/testdata/precompiles/ecRecover.json ValidKey (from ethereum/tests; revm-precompile 43.0.2 ships no ecrecover vector)",
+      "description": "A successful ecrecover call is charged its gas used (3,000) x 47, not the gas supplied."
+    },
+    {
+      "id": "precompile.ecrecover.failure_all_supplied",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: taiko-geth core/vm/testdata/precompiles/ecRecover.json ValidKey (from ethereum/tests; revm-precompile 43.0.2 ships no ecrecover vector)",
+      "description": "A ecrecover call supplied one gas below its cost fails OutOfGas and is charged all the gas supplied x 47."
+    },
+    {
+      "id": "precompile.sha256.success_gas_used",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: 32 zero bytes (every input is valid)",
+      "description": "A successful sha256 call is charged its gas used (72) x 10, not the gas supplied."
+    },
+    {
+      "id": "precompile.sha256.failure_all_supplied",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: 32 zero bytes (every input is valid)",
+      "description": "A sha256 call supplied one gas below its cost fails OutOfGas and is charged all the gas supplied x 10."
+    },
+    {
+      "id": "precompile.ripemd160.success_gas_used",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: 32 zero bytes (every input is valid)",
+      "description": "A successful ripemd160 call is charged its gas used (720) x 4, not the gas supplied."
+    },
+    {
+      "id": "precompile.ripemd160.failure_all_supplied",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: 32 zero bytes (every input is valid)",
+      "description": "A ripemd160 call supplied one gas below its cost fails OutOfGas and is charged all the gas supplied x 4."
+    },
+    {
+      "id": "precompile.identity.success_gas_used",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: 32 zero bytes (every input is valid)",
+      "description": "A successful identity call is charged its gas used (18) x 6, not the gas supplied."
+    },
+    {
+      "id": "precompile.identity.failure_all_supplied",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: 32 zero bytes (every input is valid)",
+      "description": "A identity call supplied one gas below its cost fails OutOfGas and is charged all the gas supplied x 6."
+    },
+    {
+      "id": "precompile.modexp.success_gas_used",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: success: EIP-198 example 1 (3^(p-2) mod p); failure: revm-precompile 43.0.2 src/modexp.rs test_modexp_osaka_size_limits input_fail (EIP-7823 1,025-byte base)",
+      "description": "A successful modexp call is charged its gas used (4,080) x 154, not the gas supplied."
+    },
+    {
+      "id": "precompile.modexp.failure_all_supplied",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: success: EIP-198 example 1 (3^(p-2) mod p); failure: revm-precompile 43.0.2 src/modexp.rs test_modexp_osaka_size_limits input_fail (EIP-7823 1,025-byte base)",
+      "description": "A modexp call with invalid input fails and is charged all the gas supplied x 154."
+    },
+    {
+      "id": "precompile.bn254_add.success_gas_used",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: revm-precompile 43.0.2 src/bn254.rs test_bn254_add (first input; 'Point not on curve fail')",
+      "description": "A successful bn254_add call is charged its gas used (150) x 19, not the gas supplied."
+    },
+    {
+      "id": "precompile.bn254_add.failure_all_supplied",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: revm-precompile 43.0.2 src/bn254.rs test_bn254_add (first input; 'Point not on curve fail')",
+      "description": "A bn254_add call with invalid input fails and is charged all the gas supplied x 19."
+    },
+    {
+      "id": "precompile.bn254_mul.success_gas_used",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: revm-precompile 43.0.2 src/bn254.rs test_bn254_mul (first input; 'Point not on curve fail')",
+      "description": "A successful bn254_mul call is charged its gas used (6,000) x 58, not the gas supplied."
+    },
+    {
+      "id": "precompile.bn254_mul.failure_all_supplied",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: revm-precompile 43.0.2 src/bn254.rs test_bn254_mul (first input; 'Point not on curve fail')",
+      "description": "A bn254_mul call with invalid input fails and is charged all the gas supplied x 58."
+    },
+    {
+      "id": "precompile.bn254_pairing.success_gas_used",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: revm-precompile 43.0.2 src/bn254.rs test_bn254_pair (first input; 'Point not on curve fail')",
+      "description": "A successful bn254_pairing call is charged its gas used (113,000) x 54, not the gas supplied."
+    },
+    {
+      "id": "precompile.bn254_pairing.failure_all_supplied",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: revm-precompile 43.0.2 src/bn254.rs test_bn254_pair (first input; 'Point not on curve fail')",
+      "description": "A bn254_pairing call with invalid input fails and is charged all the gas supplied x 54."
+    },
+    {
+      "id": "precompile.blake2f.success_gas_used",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: EIP-152 test vector 5 (12 rounds over \"abc\"); failure: EIP-152 test vector 3 (final block flag 2)",
+      "description": "A successful blake2f call is charged its gas used (12) x 166, not the gas supplied."
+    },
+    {
+      "id": "precompile.blake2f.failure_all_supplied",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: EIP-152 test vector 5 (12 rounds over \"abc\"); failure: EIP-152 test vector 3 (final block flag 2)",
+      "description": "A blake2f call with invalid input fails and is charged all the gas supplied x 166."
+    },
+    {
+      "id": "precompile.point_evaluation.success_gas_used",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: revm-precompile 43.0.2 src/kzg_point_evaluation.rs basic_test (c-kzg-4844 verify_kzg_proof_case_correct_proof_4_4); failure: the same input without its last byte (191 bytes)",
+      "description": "A successful point_evaluation call is charged its gas used (50,000) x 859, not the gas supplied."
+    },
+    {
+      "id": "precompile.point_evaluation.failure_all_supplied",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: revm-precompile 43.0.2 src/kzg_point_evaluation.rs basic_test (c-kzg-4844 verify_kzg_proof_case_correct_proof_4_4); failure: the same input without its last byte (191 bytes)",
+      "description": "A point_evaluation call with invalid input fails and is charged all the gas supplied x 859."
+    },
+    {
+      "id": "precompile.bls12_g1add.success_gas_used",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: revm-precompile 43.0.2 bench/eip2537.rs (EIP-2537 spec test points): G1 + P1; failure: the same input without its last byte",
+      "description": "A successful bls12_g1add call is charged its gas used (375) x 201, not the gas supplied."
+    },
+    {
+      "id": "precompile.bls12_g1add.failure_all_supplied",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: revm-precompile 43.0.2 bench/eip2537.rs (EIP-2537 spec test points): G1 + P1; failure: the same input without its last byte",
+      "description": "A bls12_g1add call with invalid input fails and is charged all the gas supplied x 201."
+    },
+    {
+      "id": "precompile.bls12_g1msm.success_gas_used",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: revm-precompile 43.0.2 bench/eip2537.rs (EIP-2537 spec test points): P1 x Q (k=1); failure: the same input without its last byte",
+      "description": "A successful bls12_g1msm call is charged its gas used (12,000) x 93, not the gas supplied."
+    },
+    {
+      "id": "precompile.bls12_g1msm.failure_all_supplied",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: revm-precompile 43.0.2 bench/eip2537.rs (EIP-2537 spec test points): P1 x Q (k=1); failure: the same input without its last byte",
+      "description": "A bls12_g1msm call with invalid input fails and is charged all the gas supplied x 93."
+    },
+    {
+      "id": "precompile.bls12_g2add.success_gas_used",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: revm-precompile 43.0.2 bench/eip2537.rs (EIP-2537 spec test points): G2 + P2; failure: the same input without its last byte",
+      "description": "A successful bls12_g2add call is charged its gas used (600) x 230, not the gas supplied."
+    },
+    {
+      "id": "precompile.bls12_g2add.failure_all_supplied",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: revm-precompile 43.0.2 bench/eip2537.rs (EIP-2537 spec test points): G2 + P2; failure: the same input without its last byte",
+      "description": "A bls12_g2add call with invalid input fails and is charged all the gas supplied x 230."
+    },
+    {
+      "id": "precompile.bls12_g2msm.success_gas_used",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: revm-precompile 43.0.2 bench/eip2537.rs (EIP-2537 spec test points): P2 x Q (k=1); failure: the same input without its last byte",
+      "description": "A successful bls12_g2msm call is charged its gas used (22,500) x 71, not the gas supplied."
+    },
+    {
+      "id": "precompile.bls12_g2msm.failure_all_supplied",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: revm-precompile 43.0.2 bench/eip2537.rs (EIP-2537 spec test points): P2 x Q (k=1); failure: the same input without its last byte",
+      "description": "A bls12_g2msm call with invalid input fails and is charged all the gas supplied x 71."
+    },
+    {
+      "id": "precompile.bls12_pairing.success_gas_used",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: revm-precompile 43.0.2 bench/eip2537.rs (EIP-2537 spec test points): one pair (G1, G2); failure: the same input without its last byte",
+      "description": "A successful bls12_pairing call is charged its gas used (70,300) x 365, not the gas supplied."
+    },
+    {
+      "id": "precompile.bls12_pairing.failure_all_supplied",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: revm-precompile 43.0.2 bench/eip2537.rs (EIP-2537 spec test points): one pair (G1, G2); failure: the same input without its last byte",
+      "description": "A bls12_pairing call with invalid input fails and is charged all the gas supplied x 365."
+    },
+    {
+      "id": "precompile.bls12_map_fp_to_g1.success_gas_used",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: revm-precompile 43.0.2 bench/eip2537.rs (EIP-2537 spec test points): p - 1; failure: revm-precompile 43.0.2 src/bls12_381/map_fp_to_g1.rs sanity_test (non-canonical field element)",
+      "description": "A successful bls12_map_fp_to_g1 call is charged its gas used (5,500) x 246, not the gas supplied."
+    },
+    {
+      "id": "precompile.bls12_map_fp_to_g1.failure_all_supplied",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: revm-precompile 43.0.2 bench/eip2537.rs (EIP-2537 spec test points): p - 1; failure: revm-precompile 43.0.2 src/bls12_381/map_fp_to_g1.rs sanity_test (non-canonical field element)",
+      "description": "A bls12_map_fp_to_g1 call with invalid input fails and is charged all the gas supplied x 246."
+    },
+    {
+      "id": "precompile.bls12_map_fp2_to_g2.success_gas_used",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: revm-precompile 43.0.2 bench/eip2537.rs (EIP-2537 spec test points): (p - 1, p - 1); failure: the same input without its last byte",
+      "description": "A successful bls12_map_fp2_to_g2 call is charged its gas used (23,800) x 208, not the gas supplied."
+    },
+    {
+      "id": "precompile.bls12_map_fp2_to_g2.failure_all_supplied",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: revm-precompile 43.0.2 bench/eip2537.rs (EIP-2537 spec test points): (p - 1, p - 1); failure: the same input without its last byte",
+      "description": "A bls12_map_fp2_to_g2 call with invalid input fails and is charged all the gas supplied x 208."
+    },
+    {
+      "id": "precompile.p256verify.success_gas_used",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: revm-precompile 43.0.2 src/secp256r1.rs test_sig_verify ok_1 (daimo-eth p256-verifier vectors)",
+      "description": "A successful p256verify call is charged its gas used (6,900) x 163, not the gas supplied."
+    },
+    {
+      "id": "precompile.p256verify.failure_all_supplied",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: revm-precompile 43.0.2 src/secp256r1.rs test_sig_verify ok_1 (daimo-eth p256-verifier vectors)",
+      "description": "A p256verify call supplied one gas below its cost fails OutOfGas and is charged all the gas supplied x 163."
+    },
+    {
+      "id": "precompile.ecrecover.invalid_signature_gas_used",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: taiko-geth core/vm/testdata/precompiles/ecRecover.json CallEcrecoverUnrecoverableKey",
+      "description": "A ecrecover call with a signature that does not verify succeeds with empty output and is charged its cost (3,000) x 47, not the gas supplied."
+    },
+    {
+      "id": "precompile.p256verify.invalid_signature_gas_used",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); inputs: revm-precompile 43.0.2 src/secp256r1.rs test_sig_verify fail_wrong_msg_1",
+      "description": "A p256verify call with a signature that does not verify succeeds with empty output and is charged its cost (6,900) x 163, not the gas supplied."
+    },
+    {
+      "id": "precompile.direct_tx.success_gas_used",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges the precompile for the first frame too); taiko-mono packages/protocol/docs/zk_gas_spec.md Precompile Metering (no spawn estimate for a tx to a precompile)",
+      "description": "A tx whose to is a precompile is charged the precompile's gas used x its multiplier, with no spawn estimate."
+    },
+    {
+      "id": "precompile.direct_tx.failure_all_supplied",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges the precompile for the first frame too); taiko-mono packages/protocol/docs/zk_gas_spec.md Precompile Metering (no spawn estimate for a tx to a precompile); revm-handler 43.0.2 src/precompile_provider.rs:118-121",
+      "description": "A tx whose to is a precompile that fails is charged all the gas left for the call after the intrinsic gas x the multiplier."
+    },
+    {
+      "id": "precompile.call_value.stipend_counts_as_supplied",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract/call_helpers.rs:104-106 (the 2,300 stipend is added to the forwarded gas); alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas)",
+      "description": "A value-bearing CALL to a precompile supplies the forwarded gas plus the 2,300 stipend; a failing precompile is charged all of it."
+    },
+    {
+      "id": "precompile.charge.limit_exact_committed",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); alethia-reth crates/evm/src/zk_gas/meter.rs:167",
+      "description": "A precompile charge that brings the zk gas total exactly to the block limit is charged and the tx completes."
+    },
+    {
+      "id": "precompile.charge.limit_exceeded_aborted",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/evm.rs:160-171 (frame_init charges a completed precompile call: gas limit minus gas left, times the multiplier keyed by the full address), zk_gas/meter.rs:146 (charge_precompile), zk_gas/unzen.rs:58-79 (multipliers); revm-handler 43.0.2 src/frame.rs:207 (precompile run in make_call_frame); revm-handler 43.0.2 src/precompile_provider.rs:118-121 (a halted precompile spends all its gas); alethia-reth crates/evm/src/evm.rs:169 (a failed precompile charge sets the zk gas limit error and the tx aborts)",
+      "description": "A precompile charge that exceeds the block limit by 1 aborts the tx."
     }
   ]
 }

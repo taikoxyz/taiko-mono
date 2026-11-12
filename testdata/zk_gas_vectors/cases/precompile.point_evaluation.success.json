@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "precompile.point_evaluation.success",
+  "layer": "harness",
+  "cells": ["precompile.point_evaluation.success_gas_used"],
+  "description": "STATICCALL to point_evaluation (0x0a) with a valid 192-byte input and 51,000 gas: it uses 50,000 gas, charged x 859, plus the STATICCALL spawn estimate.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x6100c06100155f395f5f60c05f600a61c738fa500001e798154708fe7789429634053cbf9f99b619f9f084048927333fce637f549b73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff000000001522a4a7f34e1ea350ae07c29c96c7e79655aa926122e95fe69fcbd932ca49e98f59a8d2a1a625a17f3fea0fe5eb8c896db3764f3185481bc22f91b4aaffcca25f26936857bc3a7c2539ea8ec3a952b7a62ad71d14c5719385c0686f1871430475bf3a00f0aa3f7b8dd99a9abc2160744faf0070725e00b60ad9a026a15b1a8c"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0xf4240",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x2909ab2",
+    "status": "success"
+  }
+}

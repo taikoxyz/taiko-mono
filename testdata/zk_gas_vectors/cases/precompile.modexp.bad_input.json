@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "precompile.modexp.bad_input",
+  "layer": "harness",
+  "cells": ["precompile.modexp.failure_all_supplied"],
+  "description": "STATICCALL to modexp with an invalid 99-byte input and 5,080 gas: it fails and all 5,080 gas is charged x 154.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x6100636100155f395f5f60635f60056113d8fa5000000000000000000000000000000000000000000000000000000000000000040100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000101"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0xf4240",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0xd2ca2",
+    "status": "success"
+  }
+}

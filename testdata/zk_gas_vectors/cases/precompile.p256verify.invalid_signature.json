@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "precompile.p256verify.invalid_signature",
+  "layer": "harness",
+  "cells": ["precompile.p256verify.invalid_signature_gas_used"],
+  "description": "STATICCALL to p256verify with a 160-byte input whose signature does not verify and 7,900 gas: it succeeds with empty output and 6,900 x 163 is charged.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x6100a06100165f395f5f60a05f610100611edcfa50003cee90eb86eaa050036147a12d49004b6b9c72bd725d39d4785011fe190f0b4da73bd4903f0ce3b639bbbf6e8e80d16931ff4bcf5993d58468e8fb19086e8cac36dbcd03009df8c59286b162af3bd7fcc0450c9aa81be5d10d312af6c66b1d604aebd3099c618202fcfe16ae7770b0c49ab5eadf74b754204a3bb6060e44eff37618b065f9832de4ca6ca971a7a1adc826d0f7c00181a5fb2ddf79ae00b4e10e"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0xf4240",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x126653",
+    "status": "success"
+  }
+}
