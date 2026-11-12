@@ -9,6 +9,54 @@
       "description": "A committed tx adds the fixed per-tx intrinsic zk gas (243,000) to the block total."
     },
     {
+      "id": "metering.anchor.intrinsic_charged",
+      "layers": ["block"],
+      "source": "alethia-reth crates/block/src/executor.rs:474 (every tx, the anchor included, is charged the intrinsic zk gas before it executes)",
+      "description": "The anchor is metered like any other tx: its 243,000 intrinsic zk gas is the first cumulative entry and counts toward the block limit."
+    },
+    {
+      "id": "metering.intrinsic.limit_exact_committed",
+      "layers": ["block"],
+      "source": "alethia-reth crates/evm/src/zk_gas/meter.rs:167 (charge_amount fails only when the charge is greater than the remaining budget), block/src/executor.rs:474",
+      "description": "A tx whose intrinsic zk gas exactly fills the remaining block budget executes and is included; the block total ends exactly at the limit."
+    },
+    {
+      "id": "metering.intrinsic.limit_exceeded_truncated",
+      "layers": ["block"],
+      "source": "alethia-reth crates/block/src/executor.rs:474 (a failed intrinsic charge exhausts the block), payload/src/builder/execution.rs:92 (building stops at the first zk gas limit error)",
+      "description": "A tx whose intrinsic zk gas does not fit in the remaining block budget does not execute; building stops there."
+    },
+    {
+      "id": "metering.opcode.limit_exact_committed",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/zk_gas/runtime.rs:56 (per-step charge), evm/src/zk_gas/meter.rs:167 (charge_amount)",
+      "description": "An opcode charge that brings the zk gas total exactly to the limit succeeds and the tx commits."
+    },
+    {
+      "id": "metering.opcode.limit_exceeded_aborted",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/zk_gas/runtime.rs:60 (halt_for_zk_gas_limit after a failed charge), block/src/executor.rs:482 (the tx aborts and exhausts the block)",
+      "description": "An opcode charge that exceeds the limit by 1 aborts the tx: its state changes and zk gas are discarded and it is not included (harness status zk_limit)."
+    },
+    {
+      "id": "metering.truncation.later_txs_skipped",
+      "layers": ["block"],
+      "source": "alethia-reth crates/block/src/executor.rs:448 (an exhausted block rejects every later tx), payload/src/builder/execution.rs:92",
+      "description": "After a tx exceeds the block zk gas limit no later tx is included, even a valid tx from another signer that would fit in the remaining budget."
+    },
+    {
+      "id": "metering.failing_step.limit_exact_halt",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/zk_gas/runtime.rs:48 (the halt is materialized before the step charge), evm/src/zk_gas/meter.rs:167",
+      "description": "A failing step (stack underflow, static gas OOG, not-activated opcode) whose charge lands exactly on the zk gas limit halts normally with that charge."
+    },
+    {
+      "id": "metering.failing_step.limit_exceeded_aborted",
+      "layers": ["block", "harness"],
+      "source": "alethia-reth crates/evm/src/zk_gas/runtime.rs:59 (a failed charge replaces the halt with the zk gas limit abort)",
+      "description": "A failing step (stack underflow, static gas OOG, not-activated opcode) whose charge exceeds the zk gas limit by 1 aborts the tx (harness status zk_limit) instead of halting."
+    },
+    {
       "id": "static.arith.success",
       "layers": ["block", "harness"],
       "source": "revm-interpreter src/instructions/arithmetic.rs:10 (add; every arithmetic opcode up to signextend at :126), src/instructions.rs:321 (static gas table)",
