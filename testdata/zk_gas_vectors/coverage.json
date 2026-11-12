@@ -83,13 +83,13 @@
     {
       "id": "static.arith.underflow_halt",
       "layers": ["block", "harness"],
-      "source": "revm-interpreter src/interpreter.rs:312 (static gas charged in step before the body), instructions/arithmetic.rs:72 (addmod popn_top)",
-      "description": "An arithmetic opcode with too few stack items is charged its static gas, then halts on the stack underflow; the remaining gas is kept."
+      "source": "revm-interpreter src/interpreter.rs:312 (static gas charged in step before the body), src/instructions.rs:322-331 (MUL, DIV, SDIV, MOD, SMOD, ADDMOD, MULMOD, SIGNEXTEND static gas), instructions/arithmetic.rs:18 (mul popn_top; div :32, sdiv :43, rem :52, smod :63, addmod :72, mulmod :81, signextend :127)",
+      "description": "An arithmetic opcode (ADD..SIGNEXTEND except EXP) with too few stack items is charged its static gas, then halts on the stack underflow; the remaining gas is kept."
     },
     {
       "id": "static.bitwise.underflow_halt",
       "layers": ["block", "harness"],
-      "source": "revm-interpreter src/interpreter.rs:312, instructions/bitwise.rs:122 (shl popn_top)",
+      "source": "revm-interpreter src/interpreter.rs:312, src/instructions.rs:347 (CLZ static 5), instructions/bitwise.rs:122 (shl popn_top), :26 (clz popn_top)",
       "description": "A bitwise opcode with too few stack items is charged its static gas, then halts on the stack underflow."
     },
     {
@@ -111,10 +111,28 @@
       "description": "BLOBHASH on an empty stack is charged its static gas, then halts on the stack underflow."
     },
     {
+      "id": "static.jump.underflow_halt",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/interpreter.rs:312, src/instructions.rs:389 (JUMP static 8), instructions/control.rs:17 (jump popn!)",
+      "description": "JUMP on an empty stack is charged its static 8 gas, then halts on the stack underflow keeping the remaining gas."
+    },
+    {
+      "id": "static.pop.underflow_halt",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/interpreter.rs:312, src/instructions.rs:381 (POP static 2), instructions/stack.rs:12 (pop popn!)",
+      "description": "POP on an empty stack is charged its static 2 gas, then halts on the stack underflow keeping the remaining gas."
+    },
+    {
+      "id": "static.calldataload.underflow_halt",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/interpreter.rs:312, src/instructions.rs:356 (CALLDATALOAD static 3), instructions/system.rs:116 (calldataload popn_top)",
+      "description": "CALLDATALOAD on an empty stack is charged its static 3 gas, then halts on the stack underflow keeping the remaining gas."
+    },
+    {
       "id": "static.push.overflow_halt",
       "layers": ["block", "harness"],
-      "source": "revm-interpreter src/interpreter.rs:312, instructions/stack.rs:30 (push_slice fails on a full stack)",
-      "description": "PUSHn on a full 1024-item stack is charged its static gas, then halts on the stack overflow."
+      "source": "revm-interpreter src/interpreter.rs:312, src/instructions.rs:399 (PUSH0 static 2), instructions/stack.rs:21 (push0 push!), :30 (push_slice fails on a full stack), instructions/macros.rs:101",
+      "description": "PUSH0..PUSH32 on a full 1024-item stack is charged its static gas, then halts on the stack overflow."
     },
     {
       "id": "static.dup.overflow_halt",
