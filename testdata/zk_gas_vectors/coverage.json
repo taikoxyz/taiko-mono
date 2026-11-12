@@ -1889,13 +1889,13 @@
     {
       "id": "create.family.spawn_limit_exact_committed",
       "layers": ["block", "harness"],
-      "source": "alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:38-39 (spawn estimates 37,000 and 44,500), zk_gas/unzen.rs:225,230 (multiplier 1); alethia-reth crates/evm/src/zk_gas/meter.rs:173-181 (charge_amount), runtime.rs:58-61 (a failed charge halts before the frame is created)",
+      "source": "alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:38-39 (spawn estimates 37,000 and 44,500), zk_gas/unzen.rs:225,230 (multiplier 1); alethia-reth crates/evm/src/zk_gas/meter.rs:167-175 (charge_amount), runtime.rs:58-61 (a failed charge halts before the frame is created)",
       "description": "A CREATE spawn estimate that lands exactly on the block zk gas limit is charged and the tx completes."
     },
     {
       "id": "create.family.spawn_limit_exceeded_aborted",
       "layers": ["block", "harness"],
-      "source": "alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:38-39 (spawn estimates 37,000 and 44,500), zk_gas/unzen.rs:225,230 (multiplier 1); alethia-reth crates/evm/src/zk_gas/meter.rs:173-181 (charge_amount), runtime.rs:58-61 (a failed charge halts before the frame is created)",
+      "source": "alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:38-39 (spawn estimates 37,000 and 44,500), zk_gas/unzen.rs:225,230 (multiplier 1); alethia-reth crates/evm/src/zk_gas/meter.rs:167-175 (charge_amount), runtime.rs:58-61 (a failed charge halts before the frame is created)",
       "description": "A CREATE spawn estimate that exceeds the block zk gas limit by 1 aborts the tx before the new frame is created."
     },
     {
@@ -1913,7 +1913,7 @@
     {
       "id": "create.family.collision_spawn_estimate",
       "layers": ["block", "harness"],
-      "source": "revm-handler 43.0.2 src/frame.rs:325-333 (create_account_checkpoint fails with CreateCollision); revm-context 43.0.2 src/journal/inner.rs:556-559 (an account with code or a non-zero nonce collides); revm-handler 43.0.2 src/frame.rs:595-614 (an exceptional halt consumes the child's gas; success and revert return it); revm-interpreter src/instructions/contract.rs:140-162 (63/64 of the remaining gas is forwarded and NewFrame is installed); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:38-39 (spawn estimates 37,000 and 44,500), zk_gas/unzen.rs:225,230 (multiplier 1)",
+      "source": "revm-handler 43.0.2 src/frame.rs:324-332 (create_account_checkpoint fails with CreateCollision); revm-context 43.0.2 src/journal/inner.rs:556-559 (an account with code or a non-zero nonce collides); revm-handler 43.0.2 src/frame.rs:595-614 (an exceptional halt consumes the child's gas; success and revert return it); revm-interpreter src/instructions/contract.rs:140-162 (63/64 of the remaining gas is forwarded and NewFrame is installed); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:38-39 (spawn estimates 37,000 and 44,500), zk_gas/unzen.rs:225,230 (multiplier 1)",
       "description": "CREATE or CREATE2 whose derived address holds code or a non-zero nonce installs NewFrame and is charged its spawn estimate; the collision consumes the forwarded gas and 0 is pushed."
     },
     {
@@ -1931,13 +1931,13 @@
     {
       "id": "create.family.initcode_revert_gas_returned",
       "layers": ["block", "harness"],
-      "source": "revm-handler 43.0.2 src/frame.rs:653-656 (a failed initcode frame rolls back), revm-handler 43.0.2 src/frame.rs:595-614 (an exceptional halt consumes the child's gas; success and revert return it); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:38-39 (spawn estimates 37,000 and 44,500), zk_gas/unzen.rs:225,230 (multiplier 1)",
+      "source": "revm-handler 43.0.2 src/frame.rs:655-658 (a failed initcode frame rolls back), revm-handler 43.0.2 src/frame.rs:595-614 (an exceptional halt consumes the child's gas; success and revert return it); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:38-39 (spawn estimates 37,000 and 44,500), zk_gas/unzen.rs:225,230 (multiplier 1)",
       "description": "An initcode frame that reverts has its opcodes metered normally; the CREATE stays at its spawn estimate, the unused gas returns to the creator and 0 is pushed."
     },
     {
       "id": "create.family.initcode_halt_gas_consumed",
       "layers": ["block", "harness"],
-      "source": "revm-handler 43.0.2 src/frame.rs:653-656 (a failed initcode frame rolls back), revm-handler 43.0.2 src/frame.rs:595-614 (an exceptional halt consumes the child's gas; success and revert return it); revm-interpreter src/interpreter.rs:208-209 (halt spends all gas only for OutOfGas); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:38-39 (spawn estimates 37,000 and 44,500), zk_gas/unzen.rs:225,230 (multiplier 1)",
+      "source": "revm-handler 43.0.2 src/frame.rs:655-658 (a failed initcode frame rolls back), revm-handler 43.0.2 src/frame.rs:595-614 (an exceptional halt consumes the child's gas; success and revert return it); revm-interpreter src/interpreter.rs:208-209 (halt spends all gas only for OutOfGas); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:38-39 (spawn estimates 37,000 and 44,500), zk_gas/unzen.rs:225,230 (multiplier 1)",
       "description": "An initcode frame that halts OutOfGas has its failing step metered as spend-all; the CREATE2 stays at its spawn estimate, the frame's gas is consumed and 0 is pushed."
     },
     {
