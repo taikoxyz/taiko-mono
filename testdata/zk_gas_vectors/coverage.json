@@ -97,6 +97,126 @@
       "layers": ["block", "harness"],
       "source": "revm-interpreter src/interpreter.rs:312 (static gas is checked before the body pushes)",
       "description": "An opcode that would overflow the stack is charged its static gas when it can pay it exactly, and all remaining gas when it is one short."
+    },
+    {
+      "id": "jump.jump.valid_target_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/control.rs:16 (jump), :36 (jump_inner), :53 (jumpdest)",
+      "description": "JUMP to a JUMPDEST succeeds; JUMP is charged its static 8 gas and the JUMPDEST its static 1 gas."
+    },
+    {
+      "id": "jump.jump.invalid_target_halt",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/control.rs:41 (is_valid_legacy_jump fails: InvalidJump)",
+      "description": "JUMP to a 0x5b byte inside PUSH data is charged its static gas, then halts on the invalid jump without spending the remaining gas."
+    },
+    {
+      "id": "jump.jump.oversized_target_halt",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/control.rs:40 (as_usize_saturated), :41",
+      "description": "JUMP to a target above 2^64 is invalid even when its low 64 bits point at a JUMPDEST."
+    },
+    {
+      "id": "jump.jump.dupn_immediate_target_success",
+      "layers": ["block", "harness"],
+      "source": "revm-bytecode 43.0.0 src/legacy/analysis.rs:19 (jump analysis skips only PUSH data); revm-interpreter src/instructions/control.rs:41",
+      "description": "A 0x5b right after a DUPN byte is a valid JUMPDEST: the not-activated opcode's immediate is not skipped by jump analysis."
+    },
+    {
+      "id": "jump.jumpi.taken_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/control.rs:24 (jumpi)",
+      "description": "JUMPI with a non-zero condition jumps to a JUMPDEST; JUMPI is charged its static 10 gas."
+    },
+    {
+      "id": "jump.jumpi.not_taken_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/control.rs:26 (the target is checked only when the condition is non-zero)",
+      "description": "JUMPI with a zero condition falls through without checking its (invalid) target."
+    },
+    {
+      "id": "jump.jumpi.invalid_target_halt",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/control.rs:27, :41",
+      "description": "JUMPI with a non-zero condition and an invalid target is charged its static gas, then halts on the invalid jump."
+    },
+    {
+      "id": "jump.jumpi.underflow_halt",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/interpreter.rs:312, instructions/control.rs:25 (popn of target and condition)",
+      "description": "JUMPI with one stack item is charged its static gas, then halts on the stack underflow."
+    },
+    {
+      "id": "exp.exp.zero_byte_exponent_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/arithmetic.rs:87 (exp); revm-context-interface 43.0.1 src/cfg/gas_params.rs:440 (exp_cost is 0 for exponent 0)",
+      "description": "EXP with exponent 0 costs only its static 10 gas."
+    },
+    {
+      "id": "exp.exp.one_byte_exponent_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/arithmetic.rs:89 (dynamic exp_cost); revm-context-interface 43.0.1 src/cfg/gas_params.rs:445 (50 per exponent byte)",
+      "description": "EXP with a one-byte exponent costs static 10 plus 50 dynamic gas, all charged at the EXP multiplier."
+    },
+    {
+      "id": "exp.exp.thirty_two_byte_exponent_success",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/arithmetic.rs:89; revm-context-interface 43.0.1 src/cfg/gas_params.rs:445",
+      "description": "EXP with a 32-byte exponent costs static 10 plus 1,600 dynamic gas."
+    },
+    {
+      "id": "exp.exp.dynamic_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/arithmetic.rs:89 (gas! fails: OutOfGas), interpreter.rs:208 (halt spends all gas)",
+      "description": "EXP that pays its static gas but not its exponent-byte gas halts out of gas and the step is charged all gas that was left before it."
+    },
+    {
+      "id": "exp.exp.underflow_halt",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/interpreter.rs:312, instructions/arithmetic.rs:88 (popn_top runs before the exponent cost)",
+      "description": "EXP with one stack item is charged its static 10 gas, then halts on the stack underflow before any exponent cost."
+    },
+    {
+      "id": "notactivated.slotnum.static_then_halt",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/block_info.rs:85 (check! AMSTERDAM), src/instructions.rs:379 (static 2); alethia-reth crates/evm/src/zk_gas/unzen.rs:84 (unlisted opcodes use the fail-safe multiplier 65535)",
+      "description": "SLOTNUM (0x4b), present in revm but gated on Amsterdam, is charged its static 2 gas at the fail-safe multiplier, then halts as not activated."
+    },
+    {
+      "id": "notactivated.dupn.static_then_halt",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/stack.rs:63 (check! AMSTERDAM), src/instructions.rs:467 (static 3); alethia-reth crates/evm/src/zk_gas/unzen.rs:84",
+      "description": "DUPN (0xe6), gated on Amsterdam, is charged its static 3 gas at the fail-safe multiplier, then halts as not activated; a halted tx in a block is included."
+    },
+    {
+      "id": "notactivated.swapn.static_then_halt",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/stack.rs:80 (check! AMSTERDAM), src/instructions.rs:468; alethia-reth crates/evm/src/zk_gas/unzen.rs:84",
+      "description": "SWAPN (0xe7), gated on Amsterdam, is charged its static 3 gas at the fail-safe multiplier, then halts as not activated."
+    },
+    {
+      "id": "notactivated.exchange.static_then_halt",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/stack.rs:97 (check! AMSTERDAM), src/instructions.rs:469; alethia-reth crates/evm/src/zk_gas/unzen.rs:84",
+      "description": "EXCHANGE (0xe8), gated on Amsterdam, is charged its static 3 gas at the fail-safe multiplier, then halts as not activated."
+    },
+    {
+      "id": "notactivated.dupn.static_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/interpreter.rs:312 (static gas checked before the fork gate), interpreter.rs:208",
+      "description": "DUPN with less than its static 3 gas left halts out of gas, and all remaining gas is charged at the fail-safe multiplier."
+    },
+    {
+      "id": "undefined.opcode.zero_gas_halt",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/control.rs:130 (unknown: OpcodeNotFound), src/instructions.rs:145 (unknown table entries, static gas 0); alethia-reth crates/evm/src/zk_gas/unzen.rs:84",
+      "description": "An undefined opcode (0x0c) has no static gas, so its fail-safe multiplier 65535 charges nothing before the halt."
+    },
+    {
+      "id": "undefined.invalid.zero_gas_halt",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/control.rs:125 (invalid: InvalidFEOpcode); alethia-reth crates/evm/src/zk_gas/unzen.rs:233 (multiplier 0)",
+      "description": "INVALID (0xfe) has no static gas and multiplier 0, so it charges nothing before the halt."
     }
   ]
 }

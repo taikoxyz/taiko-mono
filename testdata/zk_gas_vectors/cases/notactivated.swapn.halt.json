@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "notactivated.swapn.halt",
+  "layer": "harness",
+  "cells": ["notactivated.swapn.static_then_halt"],
+  "description": "Two PUSH0, then SWAPN (0xe7) with immediate 0x80, an Amsterdam opcode: its static 3 gas is charged at the fail-safe multiplier, then the not-activated halt.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x5f5fe78000"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x186a0",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x30031",
+    "status": "halt"
+  }
+}
