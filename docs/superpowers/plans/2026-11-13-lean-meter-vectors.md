@@ -69,5 +69,5 @@ the design's six actions and checked snapshots. Exporter writes or `--check`s th
 
 - [x] Verify deterministic regeneration and both clients using identical corpus bytes.
 - [x] Record corpus-pin publication ordering and actual validation evidence.
-- [ ] Request independent whole-change review; resolve actionable findings and rerun affected tests.
-- [ ] Deliver paths and changes; do not publish or merge.
+- [x] Request independent whole-change review; resolve actionable findings and rerun affected tests.
+- [x] Deliver paths and changes; do not publish or merge.
