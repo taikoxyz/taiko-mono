@@ -297,6 +297,12 @@
       "description": "INVALID (0xfe) has no static gas and multiplier 0, so it charges nothing before the halt."
     },
     {
+      "id": "memory.step.underflow_halt",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/macros.rs:59-63 (popn!: StackUnderflow), :80-92 (popn_top!); src/instructions/memory.rs:12 (mload), :30 (mstore), :46 (mstore8), :71 (mcopy); src/instructions/system.rs:19 (keccak256), :89 (codecopy), :157 (calldatacopy), :202 (returndatacopy); src/instructions/host.rs:91 (extcodecopy); src/instructions/control.rs:78 (return_inner); src/interpreter.rs:208 (halt keeps the gas except for OutOfGas)",
+      "description": "MLOAD, MSTORE, MSTORE8, MCOPY, KECCAK256, CALLDATACOPY, CODECOPY, RETURNDATACOPY, EXTCODECOPY, RETURN and REVERT on fewer stack items than they pop pay their static gas and halt with StackUnderflow before any dynamic charge, keeping the remaining gas."
+    },
+    {
       "id": "memory.mload.expansion_success",
       "layers": ["block", "harness"],
       "source": "revm-interpreter src/instructions/memory.rs:11 (mload), :14 (resize to offset+32); revm-interpreter src/interpreter/shared_memory.rs:572 (saturating end, words rounded up), :600 (MemoryOOG); revm-context-interface 43.0.1 src/cfg/gas_params.rs:648 (memory_cost)",
@@ -1417,6 +1423,60 @@
       "layers": ["block", "harness"],
       "source": "revm-interpreter src/instructions/contract/call_helpers.rs:180-196 (the delegation target's code is loaded); revm-handler 43.0.2 src/frame.rs:207 (precompiles are looked up by the called address), :232-235 (empty code returns Stop); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:33-37 (spawn estimates)",
       "description": "A CALL to an account whose EIP-7702 delegation points at a precompile runs the precompile account's (empty) code: the spawn estimate is charged and no precompile charge."
+    },
+    {
+      "id": "call.family.warm_target_warm_delegate_spawn",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract/call_helpers.rs:145 (load_account_delegated), :180-182 (100 to read the delegate); revm-interpreter src/instructions/contract.rs:166 (call), :227-246 (NewFrame installed once the body succeeds); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:33-37 (spawn estimates)",
+      "description": "A CALL-family opcode without a value transfer to a warm account whose EIP-7702 delegation points at a warm address (not the account itself) pays 100 to read the delegate on top of its 100 static gas, creates the frame and is charged its spawn estimate."
+    },
+    {
+      "id": "call.family.warm_target_cold_delegate_spawn",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract/call_helpers.rs:145 (load_account_delegated), :180-182 (100 to read the delegate), :188-194 (cold delegate: 2,500); revm-interpreter src/instructions/contract.rs:166 (call), :227-246 (NewFrame installed once the body succeeds); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:33-37 (spawn estimates)",
+      "description": "A CALL-family opcode without a value transfer to a warm account whose EIP-7702 delegation points at a cold address (not the account itself) pays 100 to read the delegate and 2,500 for the cold delegate on top of its 100 static gas, creates the frame and is charged its spawn estimate."
+    },
+    {
+      "id": "call.family.cold_target_cold_delegate_spawn",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract/call_helpers.rs:145 (load_account_delegated), :161-165 (cold target: 2,500), :180-182 (100 to read the delegate), :188-194 (cold delegate: 2,500); revm-interpreter src/instructions/contract.rs:166 (call), :227-246 (NewFrame installed once the body succeeds); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:33-37 (spawn estimates)",
+      "description": "A CALL-family opcode without a value transfer to a cold account whose EIP-7702 delegation points at a cold address (not the account itself) pays 2,500 for the cold target, 100 to read the delegate and 2,500 for the cold delegate on top of its 100 static gas, creates the frame and is charged its spawn estimate."
+    },
+    {
+      "id": "call.value.warm_target_warm_delegate_spawn",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract/call_helpers.rs:69-74 (9,000 value transfer cost); revm-interpreter src/instructions/contract/call_helpers.rs:145 (load_account_delegated), :180-182 (100 to read the delegate); revm-interpreter src/instructions/contract.rs:166 (call), :227-246 (NewFrame installed once the body succeeds); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:33-37 (spawn estimates)",
+      "description": "A value-bearing CALL or CALLCODE to a warm account whose EIP-7702 delegation points at a warm address (not the account itself) pays 9,000 for the value and 100 to read the delegate on top of its 100 static gas, creates the frame and is charged its spawn estimate."
+    },
+    {
+      "id": "call.value.warm_target_cold_delegate_spawn",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract/call_helpers.rs:69-74 (9,000 value transfer cost); revm-interpreter src/instructions/contract/call_helpers.rs:145 (load_account_delegated), :180-182 (100 to read the delegate), :188-194 (cold delegate: 2,500); revm-interpreter src/instructions/contract.rs:166 (call), :227-246 (NewFrame installed once the body succeeds); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:33-37 (spawn estimates)",
+      "description": "A value-bearing CALL or CALLCODE to a warm account whose EIP-7702 delegation points at a cold address (not the account itself) pays 9,000 for the value, 100 to read the delegate and 2,500 for the cold delegate on top of its 100 static gas, creates the frame and is charged its spawn estimate."
+    },
+    {
+      "id": "call.value.cold_target_warm_delegate_spawn",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract/call_helpers.rs:69-74 (9,000 value transfer cost); revm-interpreter src/instructions/contract/call_helpers.rs:145 (load_account_delegated), :161-165 (cold target: 2,500), :180-182 (100 to read the delegate); revm-interpreter src/instructions/contract.rs:166 (call), :227-246 (NewFrame installed once the body succeeds); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:33-37 (spawn estimates)",
+      "description": "A value-bearing CALL or CALLCODE to a cold account whose EIP-7702 delegation points at a warm address (not the account itself) pays 9,000 for the value, 2,500 for the cold target and 100 to read the delegate on top of its 100 static gas, creates the frame and is charged its spawn estimate."
+    },
+    {
+      "id": "call.value.cold_target_cold_delegate_spawn",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract/call_helpers.rs:69-74 (9,000 value transfer cost); revm-interpreter src/instructions/contract/call_helpers.rs:145 (load_account_delegated), :161-165 (cold target: 2,500), :180-182 (100 to read the delegate), :188-194 (cold delegate: 2,500); revm-interpreter src/instructions/contract.rs:166 (call), :227-246 (NewFrame installed once the body succeeds); alethia-reth crates/evm/src/zk_gas/runtime.rs:51 (a spawn opcode whose step installed InterpreterAction::NewFrame is charged its spawn estimate instead of the measured step gas), zk_gas/meter.rs:140 (charge_spawn_opcode), zk_gas/unzen.rs:33-37 (spawn estimates)",
+      "description": "A value-bearing CALL or CALLCODE to a cold account whose EIP-7702 delegation points at a cold address (not the account itself) pays 9,000 for the value, 2,500 for the cold target, 100 to read the delegate and 2,500 for the cold delegate on top of its 100 static gas, creates the frame and is charged its spawn estimate."
+    },
+    {
+      "id": "call.family.delegate_read_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract/call_helpers.rs:145 (load_account_delegated), :180-185 (the 100 delegate read passes the gas left: ColdLoadSkipped); revm-interpreter src/interpreter.rs:230 (halt_load_error), :208 (halt spends all gas only for OutOfGas)",
+      "description": "A CALL-family opcode to an EIP-7702 delegated account whose charges up to the 100 delegate read pass the gas left fails the delegate load (ColdLoadSkipped) and spends all remaining gas."
+    },
+    {
+      "id": "call.family.delegate_cold_surcharge_oog_spend_all",
+      "layers": ["block", "harness"],
+      "source": "revm-interpreter src/instructions/contract/call_helpers.rs:145 (load_account_delegated), :188-190 (a cold delegate is skipped when its 2,500 does not fit); revm-interpreter src/interpreter.rs:230 (halt_load_error), :208 (halt spends all gas only for OutOfGas)",
+      "description": "A CALL-family opcode to an EIP-7702 delegated account whose cold delegate's 2,500 surcharge does not fit after the delegate read skips the delegate load and spends all remaining gas."
     },
     {
       "id": "call.family.spawn_limit_exact_committed",
