@@ -353,7 +353,7 @@ A corpus change reaches a client's CI only when that client's `zk-gas-vectors.re
 
 ## Coverage statistics
 
-The matrix has 340 cells, covered by 438 vectors: 413 harness vectors and 25 block vectors. 122 cells are covered by both layers, 210 only by harness vectors and 8 only by block vectors. Update this section when the corpus changes.
+The matrix has 340 cells, covered by 439 vectors: 414 harness vectors and 25 block vectors. 122 cells are covered by both layers, 210 only by harness vectors and 8 only by block vectors. Update this section when the corpus changes.
 
 | Category       | Cells | Harness and block | Harness only | Block only | Harness vectors | Block vectors |
 | -------------- | ----: | ----------------: | -----------: | ---------: | --------------: | ------------: |
@@ -375,9 +375,9 @@ The matrix has 340 cells, covered by 438 vectors: 413 harness vectors and 25 blo
 | `selfdestruct` |    11 |                 3 |            8 |          0 |              14 |             0 |
 | `call`         |    46 |                 8 |           38 |          0 |              51 |             1 |
 | `precompile`   |    44 |                 6 |           38 |          0 |              44 |             1 |
-| `create`       |    25 |                 9 |           15 |          1 |              44 |             1 |
+| `create`       |    25 |                 9 |           15 |          1 |              45 |             1 |
 | `smoke`        |     0 |                 0 |            0 |          0 |               1 |             1 |
-| Total          |   340 |               122 |          210 |          8 |             413 |            25 |
+| Total          |   340 |               122 |          210 |          8 |             414 |            25 |
 
 Cells are grouped by the first word of their id, and vectors by the first word of the vector id (`smoke` holds the two format smoke vectors). A block vector may cover cells of several categories, so a category can have cells covered by block vectors without having a block vector of its own.
 
