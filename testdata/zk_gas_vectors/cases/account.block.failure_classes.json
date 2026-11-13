@@ -16,7 +16,7 @@
     "selfdestruct.new_account.charge_oog_spend_all",
     "account.access.underflow_preserve"
   ],
-  "description": "The anchor, then seven txs from signer 1: BALANCE (cold, then warm), EXTCODESIZE, EXTCODEHASH (warm, then of an account not in the state), SELFBALANCE and BLOCKHASH(0), every result discarded; BALANCE of every precompile address 0x01 to 0x11 and 0x100 (warm from the start of the tx) and of 0x12 (cold); a BALANCE 1 gas short of its cold surcharge; a contract holding value that SELFDESTRUCTs to an account not in the state; a STATICCALL into a SELFDESTRUCT, then BALANCE of its beneficiary; a SELFDESTRUCT 1 gas short of its new-account charge; and an EXTCODEHASH on an empty stack.",
+  "description": "The anchor, then seven txs from signer 1: BALANCE (cold, then warm), EXTCODESIZE, EXTCODEHASH (warm, then of an account not in the state), SELFBALANCE and BLOCKHASH of the current block (NUMBER, so no existing block), every result discarded; BALANCE of every precompile address 0x01 to 0x11 and 0x100 (warm from the start of the tx) and of 0x12 (cold); a BALANCE 1 gas short of its cold surcharge; a contract holding value that SELFDESTRUCTs to an account not in the state; a STATICCALL into a SELFDESTRUCT, then BALANCE of its beneficiary; a SELFDESTRUCT 1 gas short of its new-account charge; and an EXTCODEHASH on an empty stack.",
   "input": {
     "env": {
       "chain_id": "0x28c59",
@@ -48,7 +48,7 @@
       },
       "0x000000000000000000000000000000000000c0d5": {
         "balance": "0x0",
-        "code": "0x61beef315061beef315061da7a3b5061da7a3f5061dead3f5047505f405000"
+        "code": "0x61beef315061beef315061da7a3b5061da7a3f5061dead3f50475043405000"
       },
       "0x000000000000000000000000000000000000c0d6": {
         "balance": "0x0",
@@ -177,16 +177,16 @@
     "truncated_at": null,
     "cumulative_zk_gas": [
       "0x3b538",
-      "0x809ae",
-      "0xc0720",
-      "0xfe50c",
-      "0x139a5c",
-      "0x18b384",
-      "0x1c68d4",
-      "0x2020c8"
+      "0x809ac",
+      "0xc071e",
+      "0xfe50a",
+      "0x139a5a",
+      "0x18b382",
+      "0x1c68d2",
+      "0x2020c6"
     ],
-    "block_zk_gas": "0x2020c8",
-    "state_root": "0xcce13d8a9271e2623c75a019c64d1285a57419974890dbd5740300dd86477261",
+    "block_zk_gas": "0x2020c6",
+    "state_root": "0x43becde173dc99f9ce8b095b9ada679c42115feda074f3230193328725d91a43",
     "import_built": "accept",
     "import_extended": null,
     "import_wrong_difficulty": "reject"
