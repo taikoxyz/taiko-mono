@@ -4,7 +4,7 @@ This package is an executable Lean model of Unzen zk gas metering as alethia-ret
 the gas each interpreter step uses, and how a block's charges are accounted. It has proved claims
 about both, and a trace checker that replays the shared vector corpus through it. It pins the
 specification [`zk_gas_spec.md`](../../packages/protocol/docs/zk_gas_spec.md) at revision
-`aef6a3e4b954cc84cdff3d2434a1fe060a80bcd3` in [`spec-coverage.json`](spec-coverage.json);
+`b58088955b731e222949cbcb3d630aee19ed0129` in [`spec-coverage.json`](spec-coverage.json);
 the specification's `step_gas` definition refers to this model for the gas of a failing step.
 The theorems concern this model; they do not establish equivalence of production clients.
 
