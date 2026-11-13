@@ -194,7 +194,9 @@ whose header records each source file's SHA-256 hash:
   generator checks that alethia-reth's `Cargo.lock` selects these versions.
 
 The parsers accept only the statement shapes these sources use and fail on anything else. The
-sources are outside this repository, so CI cannot regenerate the file. Run the generator locally
+alethia-reth files must be those of the commit `testdata/zk_gas_vectors/reference.json` names as
+the one that wrote the vectors (the generator compares them with that commit through git) and the
+header names it. The sources are outside this repository, so CI cannot regenerate the file. Run the generator locally
 with `--check` to confirm the committed file still matches them:
 
 ```bash
