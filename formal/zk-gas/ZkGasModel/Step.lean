@@ -1,0 +1,151 @@
+import ZkGasModel.Tables
+import ZkGasModel.Step.Basic
+import ZkGasModel.Step.Static
+import ZkGasModel.Step.Jump
+import ZkGasModel.Step.Exp
+
+/-!
+# The step model
+
+`stepOutcome f pre` is the outcome of the one interpreter step that runs from `pre`: the
+frame's gas after it, how it ended and the model branch that decided it, or `none` for an opcode
+the model does not cover yet. It is an error when `pre` lacks a fact or stack item the model
+reads. The result types are in `ZkGasModel.Step.Basic`; each opcode category's instruction body
+is in its own file `ZkGasModel/Step/<Category>.lean`.
+
+The model follows alethia-reth's metered loop (`crates/evm/src/zk_gas/runtime.rs`,
+`run_metered_plain`, lines 48-62), which calls revm-interpreter 43.0.1's `Interpreter::step`
+(`src/interpreter.rs:295`) and materializes an exceptional halt before charging the step. Every
+step goes through the same stages:
+
+1. `classify` picks the opcode's category; `none` leaves the step unmodeled.
+2. `step` charges the opcode's static gas `staticGas op` with `record_cost_unsafe`
+   (`interpreter.rs:312`). When the frame cannot pay it, `step` returns `OutOfGas` before the
+   instruction runs (`interpreter.rs:314`), and `Interpreter::halt` spends all remaining gas
+   (`interpreter.rs:207-209`): gas after 0, branch `static_step_static_oog_spend_all`. Static
+   gas comes before any stack, fork or jump check.
+3. The instruction body runs with the gas left after the static charge (`body`). Its checks
+   return `StackUnderflow`, `StackOverflow`, `InvalidJump`, `NotActivated`, `InvalidFEOpcode`
+   or `OpcodeNotFound`, which halt keeping the gas; a `gas!` charge that cannot be paid returns
+   `OutOfGas`, which spends all of it.
+
+A later category adds a `Category` constructor, its `classify` case, a body file and a `body`
+case; the stages above stay as they are.
+-/
+namespace TaikoSpec.ZkGas
+
+/-- The opcode categories the step model covers. -/
+inductive Category
+  /-- STOP. -/
+  | stop
+  /-- ADD..SIGNEXTEND except EXP. -/
+  | arith
+  /-- EXP. -/
+  | exp
+  /-- LT..SAR and CLZ. -/
+  | bitwise
+  /-- POP. -/
+  | pop
+  /-- PUSH0..PUSH32. -/
+  | push
+  /-- DUPn. -/
+  | dup (n : Nat)
+  /-- SWAPn. -/
+  | swap (n : Nat)
+  /-- The push-only environment reads (`envReads`). -/
+  | env
+  /-- SELFBALANCE. -/
+  | selfbalance
+  /-- CALLDATALOAD. -/
+  | calldataload
+  /-- BLOBHASH. -/
+  | blobhash
+  /-- BLOCKHASH. -/
+  | blockhash
+  /-- JUMP. -/
+  | jump
+  /-- JUMPI. -/
+  | jumpi
+  /-- JUMPDEST. -/
+  | jumpdest
+  /-- An opcode that halts as soon as its body runs (not activated on Unzen, INVALID or
+  undefined), with the branch it reports. -/
+  | halt (branch : BranchId)
+  deriving Repr, DecidableEq
+
+/-- The environment reads whose body only pushes one item: ADDRESS, ORIGIN, CALLER, CALLVALUE,
+CALLDATASIZE, CODESIZE, GASPRICE, RETURNDATASIZE, COINBASE, TIMESTAMP, NUMBER, DIFFICULTY,
+GASLIMIT, CHAINID, BASEFEE, BLOBBASEFEE, PC, MSIZE and GAS. -/
+def envReads : List Nat :=
+  [0x30, 0x32, 0x33, 0x34, 0x36, 0x38, 0x3a, 0x3d, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x48,
+   0x4a, 0x58, 0x59, 0x5a]
+
+/-- The category of opcode `op`, or `none` when the model does not cover it yet. An opcode is
+undefined when revm-bytecode does not define it (`staticGasEntries` has no entry); revm's
+instruction table maps exactly those opcodes to `unknown` (`src/instructions.rs`). -/
+def classify (op : Nat) : Option Category :=
+  if op = 0x00 then some .stop
+  else if op = 0x0a then some .exp
+  else if 0x01 ≤ op ∧ op ≤ 0x0b then some .arith
+  else if 0x10 ≤ op ∧ op ≤ 0x1e then some .bitwise
+  else if op = 0x35 then some .calldataload
+  else if op = 0x40 then some .blockhash
+  else if op = 0x47 then some .selfbalance
+  else if op = 0x49 then some .blobhash
+  else if envReads.contains op then some .env
+  else if op = 0x50 then some .pop
+  else if op = 0x56 then some .jump
+  else if op = 0x57 then some .jumpi
+  else if op = 0x5b then some .jumpdest
+  else if 0x5f ≤ op ∧ op ≤ 0x7f then some .push
+  else if 0x80 ≤ op ∧ op ≤ 0x8f then some (.dup (op - 0x7f))
+  else if 0x90 ≤ op ∧ op ≤ 0x9f then some (.swap (op - 0x8f))
+  else if op = 0x4b then some (.halt .notactivated_slotnum_static_then_halt)
+  else if op = 0xe6 then some (.halt .notactivated_dupn_static_then_halt)
+  else if op = 0xe7 then some (.halt .notactivated_swapn_static_then_halt)
+  else if op = 0xe8 then some (.halt .notactivated_exchange_static_then_halt)
+  else if op = 0xfe then some (.halt .undefined_invalid_zero_gas_halt)
+  else if (staticGasEntries.lookup op).isNone then some (.halt .undefined_opcode_zero_gas_halt)
+  else none
+
+/-- Stage 3: the instruction body of category `c` on `pre`, with `gas` left after the static
+charge. The arithmetic and bitwise opcodes pop `inputs op` items, the number revm-bytecode
+gives them. -/
+def body (pre : Pre) (gas : Nat) : Category → Except String StepResult
+  | .stop => pure (stopStep gas)
+  | .arith =>
+    pure (popStep pre gas (inputs pre.op) .static_arith_underflow_halt .static_arith_success)
+  | .exp => expStep pre gas
+  | .bitwise =>
+    pure (popStep pre gas (inputs pre.op) .static_bitwise_underflow_halt .static_bitwise_success)
+  | .pop => pure (popStep pre gas 1 .static_pop_underflow_halt .static_stack_success)
+  | .push => pure (pushStep pre gas .static_push_overflow_halt .static_stack_success)
+  | .dup n => pure (dupStep pre gas n)
+  | .swap n => pure (swapStep pre gas n)
+  | .env => pure (pushStep pre gas .static_env_overflow_halt .static_env_success)
+  | .selfbalance =>
+    pure (pushStep pre gas .static_env_selfbalance_overflow_preserve
+      .static_env_selfbalance_success)
+  | .calldataload =>
+    pure (popStep pre gas 1 .static_calldataload_underflow_halt .static_env_success)
+  | .blobhash => pure (popStep pre gas 1 .static_blobhash_underflow_halt .static_env_success)
+  | .blockhash =>
+    pure (popStep pre gas 1 .static_env_blockhash_underflow_preserve
+      .static_env_blockhash_success)
+  | .jump => jumpStep pre gas
+  | .jumpi => jumpiStep pre gas
+  | .jumpdest => pure (jumpdestStep gas)
+  | .halt branch => pure (haltStep gas branch)
+
+/-- The outcome of the step that runs from `pre` on fork `f`; `none` when the model does not
+cover the opcode yet. Stage 2, the static gas charge, is the same for every opcode. -/
+def stepOutcome : Fork → Pre → Except String (Option StepResult)
+  | .unzen, pre =>
+    match classify pre.op with
+    | none => pure none
+    | some category =>
+      let staticCost := staticGas pre.op
+      if pre.gas < staticCost then pure (some (haltSpendingAll .static_step_static_oog_spend_all))
+      else some <$> body pre (pre.gas - staticCost) category
+
+end TaikoSpec.ZkGas

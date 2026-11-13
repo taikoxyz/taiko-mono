@@ -32,6 +32,11 @@ abbrev Model := Pre → Except String (Option (Nat × Bool × String))
 /-- The model that models no step. -/
 def unmodeled : Model := fun _ => .ok none
 
+/-- The Unzen step model `stepOutcome` (`ZkGasModel.Step`): a step spawns exactly when the
+model's outcome is a new frame. -/
+def stepModel : Model := fun pre =>
+  (stepOutcome .unzen pre).map (·.map fun r => (r.gasAfter, r.outcome == .newFrame, r.branch.name))
+
 /-- `model`, with every step it does not model an error. -/
 def requireModeled (model : Model) : Model := fun p => do
   match ← model p with

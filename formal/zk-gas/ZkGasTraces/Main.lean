@@ -4,10 +4,11 @@ import ZkGasTraces.Check
 # Trace checker entry point
 
 `lake exe check-traces <corpus-dir> [--allow-unmodeled]` checks every vector's trace,
-`traces/<id>.jsonl`, against the vector `cases/<id>.json` with `checkVectorText`. Every vector
-needs a trace, and every trace a vector. A step the model does not cover is an error unless
-`--allow-unmodeled` is given. It stops at the first failure, printing the vector id and the
-reason (with the event index, counted from 0, where one event is at fault), and exits 1.
+`traces/<id>.jsonl`, against the vector `cases/<id>.json` with `checkVectorText` and the Unzen
+step model `stepModel`. Every vector needs a trace, and every trace a vector. A step the model
+does not cover is an error unless `--allow-unmodeled` is given. It stops at the first failure,
+printing the vector id and the reason (with the event index, counted from 0, where one event is
+at fault), and exits 1.
 -/
 open TaikoSpec.ZkGas.Traces
 
@@ -39,7 +40,7 @@ def main (args : List String) : IO UInt32 := do
   if ids.isEmpty then return ← fail s!"no vectors in {cases}"
   for id in ← stems traces "jsonl" do
     unless ids.contains id do return ← fail s!"traces/{id}.jsonl has no vector cases/{id}.json"
-  let model := if allow then unmodeled else requireModeled unmodeled
+  let model := if allow then stepModel else requireModeled stepModel
   let mut events := 0
   let mut steps := 0
   let mut modeled := 0

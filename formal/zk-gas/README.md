@@ -8,7 +8,7 @@ The theorems concern this model; they do not establish equivalence of production
 
 ## Scope
 
-The model has two parts:
+The model has three parts:
 
 - **Tables.** [`ZkGasModel/Tables.lean`](ZkGasModel/Tables.lean) holds the Unzen block limit,
   intrinsic charge, fail-safe multiplier, opcode and precompile multipliers and spawn estimates,
@@ -22,11 +22,20 @@ The model has two parts:
   transaction's total, or `none` as soon as the total exceeds the block limit minus the block's
   committed zk gas. `meterBlock` stops at the first aborted transaction; the transactions after
   it get no result.
+- **Steps.** [`ZkGasModel/Step.lean`](ZkGasModel/Step.lean) defines `stepOutcome`, the gas
+  after one interpreter step, how it ended and the branch that decided it, from `Pre`
+  ([`ZkGasModel/Pre.lean`](ZkGasModel/Pre.lean)): the opcode, depth, gas, the top of the stack,
+  the memory size and the state facts the opcode's gas depends on. It transcribes alethia-reth's
+  metered step (revm's `Interpreter::step`, with the halt materialized before the charge): the
+  static gas first, whose shortfall spends all gas, then the instruction body. Each opcode
+  category's body is in [`ZkGasModel/Step/`](ZkGasModel/Step); the result types and branch
+  names are in [`Step/Basic.lean`](ZkGasModel/Step/Basic.lean). It covers STOP, the arithmetic,
+  bitwise and stack opcodes, the environment reads (SELFBALANCE and BLOCKHASH included), JUMP,
+  JUMPI, JUMPDEST, EXP, and the opcodes not activated on Unzen, INVALID and undefined ones; for
+  every other opcode it returns `none`.
 
-How a charge's amount is computed from an opcode's step gas, a spawn estimate or a precompile's
-gas use is not modeled yet. [`ZkGasModel/Pre.lean`](ZkGasModel/Pre.lean) defines `Pre`, the
-interpreter state a step model will read: the opcode, depth, gas, the top of the stack, the memory
-size and the state facts the opcode's gas depends on.
+How a precompile's gas use is computed is not modeled. The claims below take every charge
+amount as given; the step model is checked against the traces only.
 
 ## Trace checker
 
@@ -39,8 +48,10 @@ parses the events and rejects anything outside the schema;
 precompile's charge, each charge's meter verdict, and feeds every tx's charges to `meterBlock`
 (a harness frame's to `meterTx`) to reproduce the vector's expected values. It takes a step model
 `Pre → Except String (Option (gas_after × spawn × branch))`; the model checks `gas_after` and
-`spawn` of every step it covers. No step is modeled yet, so `--allow-unmodeled` lets the
-uncovered steps pass; without it, an uncovered step fails. The checker stops at the first
+`spawn` of every step it covers. `check-traces` runs `stepModel`, which is `stepOutcome` on Unzen
+(a step spawns when its outcome is a new frame). Some opcode categories are not modeled yet, so
+`--allow-unmodeled` lets their steps pass; without it, an uncovered step fails. The summary line
+counts the steps the model checked and the unmodeled ones. The checker stops at the first
 failure with the vector id, the event index and the reason, and exits 1. Every vector needs a
 trace and every trace a vector. The gate runs it with `--allow-unmodeled` once the corpus has a
 `traces/` directory and skips it before then. Trace checking is not part of the evidence below.
@@ -105,7 +116,8 @@ Links and hashes are traceability, not a percentage of the specification proved.
 [pseudocode](../../packages/protocol/docs/zk_gas_spec.md#pseudocode) and
 [core idea](../../packages/protocol/docs/zk_gas_spec.md#core-idea) alongside the statements.
 
-Outside scope: how each charge is computed; EVM execution and discarding an aborted
+Outside the claims' scope: how each charge is computed (the step model's results are
+checked against the traces, not proved); EVM execution and discarding an aborted
 transaction's state changes; which transactions are invalid for reasons other than zk gas; block
 builders' transaction selection, which may skip an overflowing candidate and continue (block
 execution and proving stop at the first one); publishing the block total in the header and
@@ -135,8 +147,11 @@ trace parser and checker on fixture traces: canonical hex up to 2^256 - 1, malfo
 `facts`, the two smoke vectors' traces, and each kind of failure (event order, step, precompile
 and intrinsic charges, meter verdicts, totals against the expected values, model disagreement),
 and the two shapes with no step: a tx skipped before its intrinsic charge (a lone skipped
-`tx_end`) and a harness call to an account without code (`frame_end` alone). They run during
-compilation and are **not kernel proofs**.
+`tx_end`) and a harness call to an account without code (`frame_end` alone). The step model has
+at least one guard per branch, each on a step line copied verbatim from a committed reth trace
+and expecting that line's `gas_after`, plus guards for a missing fact or stack item, an opcode
+not modeled yet, and the smoke harness trace fully modeled. They run during compilation and are
+**not kernel proofs**.
 
 The full gate combines independent checks:
 

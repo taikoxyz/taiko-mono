@@ -296,3 +296,277 @@ def skippedExpected : String :=
 -- A harness call to an account without code runs no step: the trace is its frame_end alone.
 #guard (run (harnessVector "0x5f5e100" "{\"frame_zk_gas\":\"0x0\",\"status\":\"success\"}")
   [frameEndLine "success" "\"0x0\""]) = .ok { events := 1, steps := 0, branches := [] }
+
+/-! ## Step model
+
+Each `stepAgrees` guard runs `stepOutcome` on one step line copied verbatim from a committed
+reth trace, `testdata/zk_gas_vectors/traces/<vector>.jsonl` (events counted from 0, as the
+checker counts them), and expects that line's `gas_after`, the given outcome and branch. Every
+branch has at least one guard. -/
+
+/-- Whether `stepOutcome` on the single step event `line` gives the line's `gas_after`, outcome
+`outcome` and branch `branch` and agrees with the line's `spawn`, and `branch.name` is the
+constructor's name. -/
+def stepAgrees (line : String) (outcome : Outcome) (branch : BranchId) : Bool :=
+  match parseTrace line with
+  | .ok [.step pre out] =>
+    stepOutcome .unzen pre == .ok (some { gasAfter := out.gasAfter, outcome, branch }) &&
+      (outcome == .newFrame) == out.spawn &&
+      some branch.name == ((reprStr branch).splitOn ".").getLast?
+  | _ => false
+
+-- static.arith.add_static_oog, event 2: ADD with 2 gas cannot pay its static 3: the halt spends all gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":4,\"op\":1,\"gas\":\"0x2\",\"static\":false,\"sl\":2,\"stack\":[\"0x2\",\"0x1\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x26\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .static_step_static_oog_spend_all
+-- static.arith.add_underflow_static_oog, event 1: ADD on one item with 2 gas: the static gas check comes before the underflow.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":2,\"op\":1,\"gas\":\"0x2\",\"static\":false,\"sl\":1,\"stack\":[\"0x1\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x26\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .static_step_static_oog_spend_all
+-- static.stack.push1_overflow_static_oog, event 1024: PUSH1 on a full stack with 2 gas: the static gas check comes before the overflow.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":1024,\"op\":96,\"gas\":\"0x2\",\"static\":false,\"sl\":1024,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x12\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .static_step_static_oog_spend_all
+-- static.env.selfbalance_static_oog, event 0: SELFBALANCE with 4 of its 5 static gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":0,\"op\":71,\"gas\":\"0x4\",\"static\":false,\"sl\":0,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0xd0\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .static_step_static_oog_spend_all
+-- static.env.blockhash_static_oog, event 8: BLOCKHASH with 19 of its 20 static gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":8,\"op\":64,\"gas\":\"0x13\",\"static\":false,\"sl\":1,\"stack\":[\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x72\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .static_step_static_oog_spend_all
+-- notactivated.dupn.static_oog, event 0: DUPN with 2 of its 3 static gas: the static gas check comes before the fork gate.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":0,\"op\":230,\"gas\":\"0x2\",\"static\":false,\"sl\":0,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x1fffe\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .static_step_static_oog_spend_all
+-- smoke.harness.add, event 3: STOP ends the frame keeping its gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":5,\"op\":0,\"gas\":\"0x18697\",\"static\":false,\"sl\":1,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18697\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .haltKeep .static_stop_halt
+-- static.arith.add_exact_gas, event 2: ADD with exactly its static 3 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":4,\"op\":1,\"gas\":\"0x3\",\"static\":false,\"sl\":2,\"stack\":[\"0x2\",\"0x1\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x39\",\"ok\":true,\"charged\":true}"
+  .continue .static_arith_success
+-- static.arith.every_opcode, event 35: ADDMOD pays its static 8 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":54,\"op\":8,\"gas\":\"0x18633\",\"static\":false,\"sl\":3,\"stack\":[\"0x9\",\"0x7\",\"0x5\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1862b\",\"spawn\":false,\"zk\":\"0x1a0\",\"ok\":true,\"charged\":true}"
+  .continue .static_arith_success
+-- static.arith.div_underflow, event 0: DIV on an empty stack pays its static 5 gas and keeps the rest.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":0,\"op\":4,\"gas\":\"0x186a0\",\"static\":false,\"sl\":0,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1869b\",\"spawn\":false,\"zk\":\"0x17c\",\"ok\":true,\"charged\":true}"
+  .haltKeep .static_arith_underflow_halt
+-- static.arith.add_underflow_exact_gas, event 1: ADD on one item with exactly 3 gas pays it, then halts on the underflow.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":2,\"op\":1,\"gas\":\"0x3\",\"static\":false,\"sl\":1,\"stack\":[\"0x1\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x39\",\"ok\":true,\"charged\":true}"
+  .haltKeep .static_arith_underflow_halt
+-- static.bitwise.every_opcode, event 2: LT pays its static 3 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":4,\"op\":16,\"gas\":\"0x1869a\",\"static\":false,\"sl\":2,\"stack\":[\"0x2\",\"0xf\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18697\",\"spawn\":false,\"zk\":\"0x39\",\"ok\":true,\"charged\":true}"
+  .continue .static_bitwise_success
+-- static.bitwise.every_opcode, event 55: CLZ (active on Osaka) pays its static 5 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":82,\"op\":30,\"gas\":\"0x18609\",\"static\":false,\"sl\":1,\"stack\":[\"0xf\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18604\",\"spawn\":false,\"zk\":\"0x46\",\"ok\":true,\"charged\":true}"
+  .continue .static_bitwise_success
+-- static.bitwise.clz_underflow, event 0: CLZ on an empty stack pays its static 5 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":0,\"op\":30,\"gas\":\"0x186a0\",\"static\":false,\"sl\":0,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1869b\",\"spawn\":false,\"zk\":\"0x46\",\"ok\":true,\"charged\":true}"
+  .haltKeep .static_bitwise_underflow_halt
+-- static.stack.every_opcode, event 0: PUSH0 pays its static 2 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":0,\"op\":95,\"gas\":\"0x186a0\",\"static\":false,\"sl\":0,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1869e\",\"spawn\":false,\"zk\":\"0x1a\",\"ok\":true,\"charged\":true}"
+  .continue .static_stack_success
+-- static.stack.every_opcode, event 32: PUSH32 pays its static 3 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":528,\"op\":127,\"gas\":\"0x18641\",\"static\":false,\"sl\":32,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1863e\",\"spawn\":false,\"zk\":\"0x39\",\"ok\":true,\"charged\":true}"
+  .continue .static_stack_success
+-- static.stack.every_opcode, event 33: DUP1 pays its static 3 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":561,\"op\":128,\"gas\":\"0x1863e\",\"static\":false,\"sl\":33,\"stack\":[\"0x102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1863b\",\"spawn\":false,\"zk\":\"0x1e\",\"ok\":true,\"charged\":true}"
+  .continue .static_stack_success
+-- static.stack.every_opcode, event 49: SWAP1 pays its static 3 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":577,\"op\":144,\"gas\":\"0x1860e\",\"static\":false,\"sl\":49,\"stack\":[\"0x102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20\",\"0x102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1860b\",\"spawn\":false,\"zk\":\"0x5d\",\"ok\":true,\"charged\":true}"
+  .continue .static_stack_success
+-- static.stack.every_opcode, event 65: POP pays its static 2 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":593,\"op\":80,\"gas\":\"0x185de\",\"static\":false,\"sl\":49,\"stack\":[\"0x102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x185dc\",\"spawn\":false,\"zk\":\"0x14\",\"ok\":true,\"charged\":true}"
+  .continue .static_stack_success
+-- static.stack.pop_underflow, event 0: POP on an empty stack.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":0,\"op\":80,\"gas\":\"0x186a0\",\"static\":false,\"sl\":0,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1869e\",\"spawn\":false,\"zk\":\"0x14\",\"ok\":true,\"charged\":true}"
+  .haltKeep .static_pop_underflow_halt
+-- static.stack.dup16_underflow, event 15: DUP16 on 15 items.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":15,\"op\":143,\"gas\":\"0x18682\",\"static\":false,\"sl\":15,\"stack\":[\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1867f\",\"spawn\":false,\"zk\":\"0x1e\",\"ok\":true,\"charged\":true}"
+  .haltKeep .static_dup_underflow_halt
+-- static.stack.dup1_overflow, event 1024: DUP1 on a full stack.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":1024,\"op\":128,\"gas\":\"0x17ea0\",\"static\":false,\"sl\":1024,\"stack\":[\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x17e9d\",\"spawn\":false,\"zk\":\"0x1e\",\"ok\":true,\"charged\":true}"
+  .haltKeep .static_dup_overflow_halt
+-- static.stack.swap16_underflow, event 16: SWAP16 on 16 items.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":16,\"op\":159,\"gas\":\"0x18680\",\"static\":false,\"sl\":16,\"stack\":[\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1867d\",\"spawn\":false,\"zk\":\"0x5d\",\"ok\":true,\"charged\":true}"
+  .haltKeep .static_swap_underflow_halt
+-- static.stack.push0_overflow, event 1024: PUSH0 on a full stack.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":1024,\"op\":95,\"gas\":\"0x17ea0\",\"static\":false,\"sl\":1024,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x17e9e\",\"spawn\":false,\"zk\":\"0x1a\",\"ok\":true,\"charged\":true}"
+  .haltKeep .static_push_overflow_halt
+-- static.stack.push1_overflow_exact_gas, event 1024: PUSH1 on a full stack with exactly 3 gas pays it, then halts on the overflow.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":1024,\"op\":96,\"gas\":\"0x3\",\"static\":false,\"sl\":1024,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x1b\",\"ok\":true,\"charged\":true}"
+  .haltKeep .static_push_overflow_halt
+-- static.env.every_opcode, event 0: ADDRESS pays its static 2 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":0,\"op\":48,\"gas\":\"0x186a0\",\"static\":false,\"sl\":0,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1869e\",\"spawn\":false,\"zk\":\"0x26\",\"ok\":true,\"charged\":true}"
+  .continue .static_env_success
+-- static.env.every_opcode, event 11: DIFFICULTY (PREVRANDAO) pays its static 2 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":11,\"op\":68,\"gas\":\"0x1868a\",\"static\":false,\"sl\":11,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18688\",\"spawn\":false,\"zk\":\"0x54\",\"ok\":true,\"charged\":true}"
+  .continue .static_env_success
+-- static.env.every_opcode, event 18: GAS pays its static 2 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":18,\"op\":90,\"gas\":\"0x1867c\",\"static\":false,\"sl\":18,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1867a\",\"spawn\":false,\"zk\":\"0x16\",\"ok\":true,\"charged\":true}"
+  .continue .static_env_success
+-- static.env.every_opcode, event 20: CALLDATALOAD with its input pays its static 3 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":20,\"op\":53,\"gas\":\"0x18678\",\"static\":false,\"sl\":20,\"stack\":[\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18675\",\"spawn\":false,\"zk\":\"0x42\",\"ok\":true,\"charged\":true}"
+  .continue .static_env_success
+-- static.env.every_opcode, event 22: BLOBHASH with its input pays its static 3 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":22,\"op\":73,\"gas\":\"0x18673\",\"static\":false,\"sl\":21,\"stack\":[\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18670\",\"spawn\":false,\"zk\":\"0x27\",\"ok\":true,\"charged\":true}"
+  .continue .static_env_success
+-- static.env.coinbase_overflow, event 1024: COINBASE on a full stack.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":1024,\"op\":65,\"gas\":\"0x17ea0\",\"static\":false,\"sl\":1024,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x17e9e\",\"spawn\":false,\"zk\":\"0x24\",\"ok\":true,\"charged\":true}"
+  .haltKeep .static_env_overflow_halt
+-- static.env.selfbalance_exact_gas, event 0: SELFBALANCE with exactly its static 5 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":0,\"op\":71,\"gas\":\"0x5\",\"static\":false,\"sl\":0,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x104\",\"ok\":true,\"charged\":true}"
+  .continue .static_env_selfbalance_success
+-- static.env.selfbalance_overflow, event 1024: SELFBALANCE on a full stack.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":1024,\"op\":71,\"gas\":\"0x17ea0\",\"static\":false,\"sl\":1024,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x17e9b\",\"spawn\":false,\"zk\":\"0x104\",\"ok\":true,\"charged\":true}"
+  .haltKeep .static_env_selfbalance_overflow_preserve
+-- static.env.blockhash_exact_gas, event 1: BLOCKHASH pays only its static 20 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":1,\"op\":64,\"gas\":\"0x47\",\"static\":false,\"sl\":1,\"stack\":[\"0x1\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x33\",\"spawn\":false,\"zk\":\"0x78\",\"ok\":true,\"charged\":true}"
+  .continue .static_env_blockhash_success
+-- static.env.blockhash_underflow, event 0: BLOCKHASH on an empty stack.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":0,\"op\":64,\"gas\":\"0x186a0\",\"static\":false,\"sl\":0,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1868c\",\"spawn\":false,\"zk\":\"0x78\",\"ok\":true,\"charged\":true}"
+  .haltKeep .static_env_blockhash_underflow_preserve
+-- static.env.calldataload_underflow, event 0: CALLDATALOAD on an empty stack.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":0,\"op\":53,\"gas\":\"0x186a0\",\"static\":false,\"sl\":0,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1869d\",\"spawn\":false,\"zk\":\"0x42\",\"ok\":true,\"charged\":true}"
+  .haltKeep .static_calldataload_underflow_halt
+-- static.env.blobhash_underflow, event 0: BLOBHASH on an empty stack.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":0,\"op\":73,\"gas\":\"0x186a0\",\"static\":false,\"sl\":0,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1869d\",\"spawn\":false,\"zk\":\"0x27\",\"ok\":true,\"charged\":true}"
+  .haltKeep .static_blobhash_underflow_halt
+-- static.control.jump_underflow, event 0: JUMP on an empty stack pays its static 8 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":0,\"op\":86,\"gas\":\"0x186a0\",\"static\":false,\"sl\":0,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18698\",\"spawn\":false,\"zk\":\"0x20\",\"ok\":true,\"charged\":true}"
+  .haltKeep .static_jump_underflow_halt
+-- jump.jump.valid_target, event 1: JUMP to a JUMPDEST.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":2,\"op\":86,\"gas\":\"0x1869d\",\"static\":false,\"sl\":1,\"stack\":[\"0x4\"],\"mem\":\"0x0\",\"facts\":{\"jumpdest_valid\":true},\"gas_after\":\"0x18695\",\"spawn\":false,\"zk\":\"0x20\",\"ok\":true,\"charged\":true}"
+  .continue .jump_jump_valid_target_success
+-- jump.jump.dupn_immediate_target, event 1: JUMP to a 0x5b right after a DUPN byte.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":2,\"op\":86,\"gas\":\"0x1869d\",\"static\":false,\"sl\":1,\"stack\":[\"0x4\"],\"mem\":\"0x0\",\"facts\":{\"jumpdest_valid\":true},\"gas_after\":\"0x18695\",\"spawn\":false,\"zk\":\"0x20\",\"ok\":true,\"charged\":true}"
+  .continue .jump_jump_valid_target_success
+-- jump.jump.push_data_target, event 1: JUMP to a 0x5b inside PUSH data.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":2,\"op\":86,\"gas\":\"0x1869d\",\"static\":false,\"sl\":1,\"stack\":[\"0x5\"],\"mem\":\"0x0\",\"facts\":{\"jumpdest_valid\":false},\"gas_after\":\"0x18695\",\"spawn\":false,\"zk\":\"0x20\",\"ok\":true,\"charged\":true}"
+  .haltKeep .jump_jump_invalid_target_halt
+-- jump.jump.target_above_u64, event 1: JUMP to a target above 2^64.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":10,\"op\":86,\"gas\":\"0x1869d\",\"static\":false,\"sl\":1,\"stack\":[\"0x1000000000000000c\"],\"mem\":\"0x0\",\"facts\":{\"jumpdest_valid\":false},\"gas_after\":\"0x18695\",\"spawn\":false,\"zk\":\"0x20\",\"ok\":true,\"charged\":true}"
+  .haltKeep .jump_jump_invalid_target_halt
+-- jump.jump.valid_target, event 2: The JUMPDEST pays its static 1 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":4,\"op\":91,\"gas\":\"0x18695\",\"static\":false,\"sl\":0,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18694\",\"spawn\":false,\"zk\":\"0x14\",\"ok\":true,\"charged\":true}"
+  .continue .jump_jumpdest_success
+-- jump.jumpi.underflow, event 1: JUMPI on one item pays its static 10 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":2,\"op\":87,\"gas\":\"0x1869d\",\"static\":false,\"sl\":1,\"stack\":[\"0x1\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18693\",\"spawn\":false,\"zk\":\"0x32\",\"ok\":true,\"charged\":true}"
+  .haltKeep .jump_jumpi_underflow_halt
+-- jump.jumpi.not_taken, event 2: JUMPI with condition 0 ignores its invalid target.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":4,\"op\":87,\"gas\":\"0x1869a\",\"static\":false,\"sl\":2,\"stack\":[\"0x2\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"jumpdest_valid\":false},\"gas_after\":\"0x18690\",\"spawn\":false,\"zk\":\"0x32\",\"ok\":true,\"charged\":true}"
+  .continue .jump_jumpi_not_taken_success
+-- jump.jumpi.taken, event 2: JUMPI with condition 1 to a JUMPDEST.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":4,\"op\":87,\"gas\":\"0x1869a\",\"static\":false,\"sl\":2,\"stack\":[\"0x7\",\"0x1\"],\"mem\":\"0x0\",\"facts\":{\"jumpdest_valid\":true},\"gas_after\":\"0x18690\",\"spawn\":false,\"zk\":\"0x32\",\"ok\":true,\"charged\":true}"
+  .continue .jump_jumpi_taken_success
+-- jump.jumpi.invalid_target, event 2: JUMPI with condition 1 to a non-JUMPDEST.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":4,\"op\":87,\"gas\":\"0x1869a\",\"static\":false,\"sl\":2,\"stack\":[\"0x2\",\"0x1\"],\"mem\":\"0x0\",\"facts\":{\"jumpdest_valid\":false},\"gas_after\":\"0x18690\",\"spawn\":false,\"zk\":\"0x32\",\"ok\":true,\"charged\":true}"
+  .haltKeep .jump_jumpi_invalid_target_halt
+-- exp.exp.underflow, event 1: EXP on one item pays its static 10 gas and no exponent cost.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":2,\"op\":10,\"gas\":\"0x1869d\",\"static\":false,\"sl\":1,\"stack\":[\"0x2\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18693\",\"spawn\":false,\"zk\":\"0xd2\",\"ok\":true,\"charged\":true}"
+  .haltKeep .exp_exp_underflow_halt
+-- exp.exp.zero_exponent, event 2: EXP with exponent 0 pays only its static 10 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":4,\"op\":10,\"gas\":\"0x1869a\",\"static\":false,\"sl\":2,\"stack\":[\"0x2\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18690\",\"spawn\":false,\"zk\":\"0xd2\",\"ok\":true,\"charged\":true}"
+  .continue .exp_exp_zero_byte_exponent_success
+-- exp.exp.one_byte_exponent_exact_gas, event 2: EXP with a one-byte exponent and exactly 10 + 50 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":4,\"op\":10,\"gas\":\"0x3c\",\"static\":false,\"sl\":2,\"stack\":[\"0x2\",\"0xff\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x4ec\",\"ok\":true,\"charged\":true}"
+  .continue .exp_exp_exponent_bytes_success
+-- exp.exp.full_exponent, event 2: EXP with a 32-byte exponent pays 10 + 1,600 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":35,\"op\":10,\"gas\":\"0x1869a\",\"static\":false,\"sl\":2,\"stack\":[\"0x3\",\"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18050\",\"spawn\":false,\"zk\":\"0x8412\",\"ok\":true,\"charged\":true}"
+  .continue .exp_exp_exponent_bytes_success
+-- exp.exp.one_byte_exponent_dynamic_oog, event 2: EXP with 59 gas pays its static 10 but not the 50 for its exponent byte.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":4,\"op\":10,\"gas\":\"0x3b\",\"static\":false,\"sl\":2,\"stack\":[\"0x2\",\"0xff\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x4d7\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .exp_exp_dynamic_oog_spend_all
+-- notactivated.slotnum.halt, event 0: SLOTNUM pays its static 2 gas, then is not activated.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":0,\"op\":75,\"gas\":\"0x186a0\",\"static\":false,\"sl\":0,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1869e\",\"spawn\":false,\"zk\":\"0x1fffe\",\"ok\":true,\"charged\":true}"
+  .haltKeep .notactivated_slotnum_static_then_halt
+-- notactivated.dupn.halt, event 1: DUPN pays its static 3 gas, then is not activated.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":1,\"op\":230,\"gas\":\"0x1869e\",\"static\":false,\"sl\":1,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1869b\",\"spawn\":false,\"zk\":\"0x2fffd\",\"ok\":true,\"charged\":true}"
+  .haltKeep .notactivated_dupn_static_then_halt
+-- notactivated.swapn.halt, event 2: SWAPN pays its static 3 gas, then is not activated.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":2,\"op\":231,\"gas\":\"0x1869c\",\"static\":false,\"sl\":2,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18699\",\"spawn\":false,\"zk\":\"0x2fffd\",\"ok\":true,\"charged\":true}"
+  .haltKeep .notactivated_swapn_static_then_halt
+-- notactivated.exchange.halt, event 3: EXCHANGE pays its static 3 gas, then is not activated.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":3,\"op\":232,\"gas\":\"0x1869a\",\"static\":false,\"sl\":3,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18697\",\"spawn\":false,\"zk\":\"0x2fffd\",\"ok\":true,\"charged\":true}"
+  .haltKeep .notactivated_exchange_static_then_halt
+-- undefined.opcode.0x0c, event 1: The undefined opcode 0x0c has no static gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":2,\"op\":12,\"gas\":\"0x1869d\",\"static\":false,\"sl\":1,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1869d\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .haltKeep .undefined_opcode_zero_gas_halt
+-- undefined.invalid.0xfe, event 1: INVALID has no static gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":2,\"op\":254,\"gas\":\"0x1869d\",\"static\":false,\"sl\":1,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1869d\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .haltKeep .undefined_invalid_zero_gas_halt
+
+/-- A JUMP pre-state with `sl` stack items (target 4) and facts `facts`. -/
+def jumpPre (sl : Nat) (facts : Facts) : Pre :=
+  { op := 0x56, depth := 1, pc := 0, gas := 100, static := false, stackLen := sl,
+    stack := (List.replicate (min sl 1) 4), mem := 0, facts }
+
+-- The model needs the facts it reads: a JUMP whose stack holds its target but that records no
+-- jumpdest_valid is an error, as is a recorded stack shorter than the model reads.
+#guard failsWith (stepOutcome .unzen (jumpPre 1 {})) "jumpdest_valid"
+#guard stepOutcome .unzen (jumpPre 1 { jumpdestValid := some true }) =
+  .ok (some { gasAfter := 92, outcome := .continue, branch := .jump_jump_valid_target_success })
+#guard failsWith (stepOutcome .unzen { jumpPre 2 {} with op := 0x57 }) "stack"
+-- An underflowing JUMP reads no fact.
+#guard stepOutcome .unzen (jumpPre 0 {}) =
+  .ok (some { gasAfter := 92, outcome := .haltKeep, branch := .static_jump_underflow_halt })
+-- Opcodes of the later categories are not modeled yet: SLOAD, MLOAD, CALL.
+#guard [0x54, 0x51, 0xf1].all fun op =>
+  stepOutcome .unzen { jumpPre 0 {} with op } == .ok none
+-- The smoke harness trace with the step model: every step is modeled.
+#guard run smokeHarnessVector smokeHarness (requireModeled stepModel) =
+  .ok { events := 5, steps := 4,
+        branches := ["static_stack_success", "static_stack_success", "static_arith_success",
+                     "static_stop_halt"] }
