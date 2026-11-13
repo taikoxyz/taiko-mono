@@ -518,14 +518,16 @@ _`abi.encode(left, right)` of two `bytes32` words equals their plain concatenati
 
 ## ENC-A-45
 
-| Vector      | Setup                                                                          | Expected          |
-| ----------- | ------------------------------------------------------------------------------ | ----------------- |
-| 45.a accept | fields shown in `[]` are omitted when zero or empty; `len` is a uvarint prefix | matches           |
-| 45.b reject | a zero field is written explicitly instead of omitted                          | violates ENC-A-45 |
-| 45.c reject | an empty blockId is written with length 0 instead of omitted                   | violates ENC-A-45 |
-| 45.d accept | timestamp is written even when zero                                            | "always written"  |
-| 45.e reject | timestamp is omitted when zero                                                 | violates ENC-A-45 |
-| 45.f reject | a length prefix is not a uvarint                                               | violates ENC-A-45 |
+| Vector      | Setup                                                                          | Expected                                                                                                                                      |
+| ----------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| 45.a accept | fields shown in `[]` are omitted when zero or empty; `len` is a uvarint prefix | matches                                                                                                                                       |
+| 45.b reject | a zero field is written explicitly instead of omitted                          | violates ENC-A-45                                                                                                                             |
+| 45.c reject | an empty blockId is written with length 0 instead of omitted                   | violates ENC-A-45                                                                                                                             |
+| 45.d accept | timestamp is written even when zero                                            | "always written"                                                                                                                              |
+| 45.e reject | timestamp is omitted when zero                                                 | violates ENC-A-45                                                                                                                             |
+| 45.f reject | a length prefix is not a uvarint                                               | violates ENC-A-45                                                                                                                             |
+| 45.g accept | a vote timestamp of seconds = −1 and nanos = 0                                 | the seconds field is `08 ff ff ff ff ff ff ff ff ff 01` (ten varint bytes), and the timestamp field is `2a 0b` followed by those eleven bytes |
+| 45.h reject | seconds = −1 is written as a varint shorter than ten bytes                     | violates ENC-A-45                                                                                                                             |
 
 ## ENC-A-46
 
