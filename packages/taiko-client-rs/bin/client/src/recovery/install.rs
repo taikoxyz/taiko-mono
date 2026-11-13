@@ -244,6 +244,23 @@ fn validator_template(table: &toml::Table) -> Result<bool, RecoveryCommandError>
         .is_empty())
 }
 
+/// Whether a template keeps the CometBFT v0.40.0 settings every validator leaves at their stock
+/// defaults (START-10-6): `adaptive_sync` off, `double_sign_check_height` 0 and
+/// `block_time_tolerance` 60 s. An absent setting is the default; a bare integer tolerance is
+/// nanoseconds to Comet, so only the duration strings count.
+fn stock_validator_settings(table: &toml::Table) -> bool {
+    let stock = |section: &str, key: &str, allowed: fn(&toml::Value) -> bool| {
+        table.get(section).is_none_or(|fields| {
+            fields.as_table().is_some_and(|fields| fields.get(key).is_none_or(allowed))
+        })
+    };
+    stock("blocksync", "adaptive_sync", |v| v.as_bool() == Some(false)) &&
+        stock("consensus", "double_sign_check_height", |v| v.as_integer() == Some(0)) &&
+        stock("consensus", "block_time_tolerance", |v| {
+            v.as_str().is_some_and(|s| matches!(s, "1m0s" | "60s" | "1m"))
+        })
+}
+
 /// Normalize all stock path-bearing fields to the new home, keeping the template's own
 /// listeners and peers. Never copy storage, registered key material or a signer state file.
 ///
@@ -252,7 +269,8 @@ fn validator_template(table: &toml::Table) -> Result<bool, RecoveryCommandError>
 /// A validator template (a non-empty `priv_validator_laddr`) gets the Unix placeholder
 /// `unix://run/signer.sock`: it only selects the Unix transport, and the supervisor gives each
 /// start its own socket in `run/`. Stock Comet then creates a disposable local FilePV in the
-/// fresh relative paths, which never holds the registered identity.
+/// fresh relative paths, which never holds the registered identity. A validator template must
+/// also keep the stock settings START-10-6 pins; the supervisor checks them again at every start.
 pub(crate) fn normalized_comet_config(
     mut table: toml::Table,
 ) -> Result<Vec<u8>, RecoveryCommandError> {
@@ -305,6 +323,9 @@ pub(crate) fn normalized_comet_config(
         }
     }
     let validator = validator_template(&table)?;
+    if validator && !stock_validator_settings(&table) {
+        return Err(RecoveryCommandError::Missing("stock CometBFT validator settings (START-10-6)"));
+    }
     for (name, value) in [
         ("genesis_file", "config/genesis.json"),
         ("db_dir", "data"),
@@ -390,5 +411,42 @@ mod effective_config_tests {
         }
         let ordinary=b"proxy_app='tcp://127.0.0.1:26658'\ndb_backend='goleveldb'\nconsensus.timeout_propose='3s'\n[mempool]\nkeep-invalid-txs-in-cache=false\n[p2p]\npex=false";
         assert!(parse_comet_template(ordinary).and_then(normalized_comet_config).is_ok());
+    }
+
+    #[test]
+    fn normalized_config_refuses_non_stock_validator_settings() {
+        let normalized = |signer: &str, settings: &str| {
+            let input = format!(
+                "proxy_app='tcp://127.0.0.1:26658'\npriv_validator_laddr='{signer}'\n{settings}\n[p2p]\npex=false"
+            );
+            parse_comet_template(input.as_bytes()).and_then(normalized_comet_config)
+        };
+        let validator = "tcp://127.0.0.1:26659";
+        for settings in [
+            "[blocksync]\nadaptive_sync=true",
+            "[consensus]\ndouble_sign_check_height=10",
+            "[consensus]\nblock_time_tolerance='2m0s'",
+            // Stock Comet reads a bare integer as nanoseconds.
+            "[consensus]\nblock_time_tolerance=60",
+        ] {
+            assert!(
+                matches!(
+                    normalized(validator, settings),
+                    Err(RecoveryCommandError::Missing(
+                        "stock CometBFT validator settings (START-10-6)"
+                    ))
+                ),
+                "accepted {settings}"
+            );
+        }
+        for tolerance in ["1m0s", "60s", "1m"] {
+            let stock = format!(
+                "[blocksync]\nadaptive_sync=false\n[consensus]\ndouble_sign_check_height=0\nblock_time_tolerance='{tolerance}'"
+            );
+            assert!(normalized(validator, &stock).is_ok(), "refused {stock}");
+        }
+        assert!(normalized(validator, "").is_ok(), "refused absent settings");
+        // The pins are for validators: a full-node template keeps its own.
+        assert!(normalized("", "[blocksync]\nadaptive_sync=true").is_ok());
     }
 }

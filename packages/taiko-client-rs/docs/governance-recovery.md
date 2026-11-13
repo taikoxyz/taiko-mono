@@ -88,7 +88,9 @@ FilePV or secp256k1 key is refused (RECOV-8.2-2). `install` keeps the template's
 peers and points every path at the new home. A validator template (non-empty
 `priv_validator_laddr`) gets the Unix placeholder `unix://run/signer.sock`; the supervisor gives
 each start its own socket in `run/`. Unix RPC/ABCI listeners, active state sync, custom TLS files
-and a custom `home` are refused.
+and a custom `home` are refused, as is a validator template that changes `adaptive_sync`,
+`double_sign_check_height` or `block_time_tolerance` from its stock default (START-10-6; see the
+[README](../README.md)).
 
 The new home and app directory must be absent or empty, except for files an interrupted
 `install` of the same plan wrote: rerun the same command and it completes, and a repeated

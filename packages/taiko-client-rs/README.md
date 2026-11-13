@@ -465,6 +465,30 @@ or config opening differs.
 
    Leave `create_empty_blocks = true` (the default).
 
+   Every validator also keeps three CometBFT v0.40.0 settings at their stock defaults (SPEC
+   START-10-6). Leave them out or set them to exactly these values; the supervisor refuses to
+   start, and `abci-recover install` refuses a validator template, when one differs:
+
+   ```toml
+   [blocksync]
+   adaptive_sync = false
+
+   [consensus]
+   double_sign_check_height = 0
+   block_time_tolerance = "1m0s"         # 60 s; "60s" and "1m" are accepted too
+   ```
+
+   Adaptive sync would run consensus while block sync catches up, and that can sign votes for
+   heights already decided, which signer state does not prevent. A nonzero double-sign check
+   height stops CometBFT on restart when the validator's key signed recent blocks, which would
+   defeat the supervisor's automatic restart. Keep the node's clock synchronized with NTP well
+   inside the 60 s tolerance (SPEC CONS-3.4-12): stock CometBFT judges a block invalid when its
+   time is not earlier than the node's clock plus the tolerance, so a node whose clock lags that
+   far prevotes nil, and once more than 2/3 of the voting power prevotes for or decides the block
+   anyway, its consensus stops, and its block sync stalls, until it is restarted after its clock is
+   corrected. The check reads only `config.toml`: do not override these settings with `CMT_*`
+   environment variables or `cometbft start` flags.
+
 4. **Start alethia-reth** with Etna active and the agreed L2 genesis allocation (devnet example):
 
    ```sh

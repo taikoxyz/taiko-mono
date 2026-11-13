@@ -82,6 +82,16 @@ SIGNER_UNSAFE_RECORD_LATCH = ("retained signer-unsafe record or marker; inspect 
 SIGNER_KILLED_LATCH = (f"signer did not stop within {SIGNER_STOP_GRACE}s of SIGTERM and was killed; "
                        "its signing state may be uncertain; inspect its stderr, the state volume, "
                        "`<state>.uncertain` and the domains log")
+# CometBFT v0.40.0 settings every validator keeps at their stock defaults (START-10-6), by Viper
+# path, with the values that keep them there; absent is the default. Adaptive sync runs consensus
+# while block sync catches up, which can sign votes for heights already decided; a nonzero
+# double-sign check height stops a restarted Comet whose key signed recent blocks; a node's clock
+# stays synchronized well inside the 60 s block time tolerance (CONS-3.4-12).
+STOCK_VALIDATOR_SETTINGS = {
+    "blocksync.adaptive_sync": lambda value: value is False,
+    "consensus.double_sign_check_height": lambda value: type(value) is int and value == 0,
+    "consensus.block_time_tolerance": lambda value: value in ("1m0s", "60s", "1m"),
+}
 
 
 class Supervisor:
@@ -95,6 +105,24 @@ class Supervisor:
         if not isinstance(prefix, list) or not prefix or not all(isinstance(arg, str) and "\0" not in arg for arg in prefix) or not Path(prefix[0]).is_absolute():
             raise ValueError("invalid explicit executable prefix")
         return prefix
+
+    @staticmethod
+    def check_stock_settings(config):
+        """Refuse a Comet config.toml that moves a pinned validator setting (START-10-6).
+
+        Viper folds key case and also reads a literal dotted key, so every spelling of a
+        setting is checked.
+        """
+        def settings(table, prefix=""):
+            for key, value in table.items():
+                path = prefix + key.lower()
+                yield path, value
+                if isinstance(value, dict):
+                    yield from settings(value, path + ".")
+        for path, value in settings(config):
+            stock = STOCK_VALIDATOR_SETTINGS.get(path)
+            if stock is not None and not stock(value):
+                raise ValueError(f"validator startup requires stock CometBFT {path} (START-10-6)")
 
     def __init__(self):
         self.home = Path(os.environ["ETNA_COMET_HOME"]).resolve()
@@ -118,6 +146,7 @@ class Supervisor:
         self.events = self.denial_route
         self.prior_observation = None
         config = tomllib.loads((self.home / "config/config.toml").read_text())
+        self.check_stock_settings(config)
         address = config.get("priv_validator_laddr", "")
         if json.loads((self.home / "config/genesis.json").read_text())["chain_id"] != self.chain:
             raise ValueError("signer chain ID differs from Comet genesis")

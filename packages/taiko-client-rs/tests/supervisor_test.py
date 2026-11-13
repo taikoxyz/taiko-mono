@@ -105,6 +105,7 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
         self.home = self.root / "comet"
         (self.home / "config").mkdir(parents=True)
         self.configure_transport()
+        self.base_config = (self.home / "config/config.toml").read_text()
         self.chain, self.generation, self.origin = "etna-test", 0, None
         self.identity_env = {}
         self.configure_identity()
@@ -930,6 +931,59 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
                 self.assertNotIn(b"Traceback", refused.stderr)
         self.assertEqual(self.starts(), 1)
         self.assertEqual(len(self.signers()), 1)
+
+    def restart_over_settings(self, settings, **streams):
+        """Stop the running supervisor and start one whose config.toml adds `settings`."""
+        if self.proc.poll() is None:
+            self.proc.terminate()
+            self.assertEqual(self.proc.wait(timeout=5), 0)
+        (self.home / "config/config.toml").write_text(self.base_config + settings + "\n")
+        self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")], env=self.env,
+                                     **(streams or dict(stdout=self.log, stderr=self.log)))
+
+    def assert_settings_refused(self, path, *variants):
+        """Each variant stops a starting supervisor, with no live owner, before any child starts."""
+        for settings in variants:
+            with self.subTest(settings=settings):
+                self.restart_over_settings(settings, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                try:
+                    _, error = self.proc.communicate(timeout=5)
+                except subprocess.TimeoutExpired:
+                    self.proc.terminate()
+                    _, error = self.proc.communicate(timeout=5)
+                self.assertEqual(self.proc.returncode, 1, error)
+                self.assertIn(f"stock CometBFT {path} (START-10-6)".encode(), error)
+                self.assertNotIn(b"Traceback", error)
+                self.assertEqual((self.starts(), len(self.signers())), (1, 1))
+
+    def test_refuses_adaptive_sync(self):
+        """Consensus running while block sync catches up can sign votes for heights already
+        decided, which signer state does not prevent (START-10-6). Viper folds key case and
+        reads a literal dotted key, so those spellings reach the same setting."""
+        self.assert_settings_refused("blocksync.adaptive_sync", "[blocksync]\nadaptive_sync = true",
+                                     "[BlockSync]\nAdaptive_Sync = true", '"blocksync.adaptive_sync" = true')
+
+    def test_refuses_double_sign_check_height(self):
+        """A nonzero height stops a restarted Comet whose key signed recent blocks, which would
+        defeat the automatic restart (START-10-6)."""
+        self.assert_settings_refused("consensus.double_sign_check_height",
+                                     "[consensus]\ndouble_sign_check_height = 10",
+                                     "[CONSENSUS]\nDOUBLE_SIGN_CHECK_HEIGHT = 10")
+
+    def test_refuses_non_default_block_time_tolerance(self):
+        """Only the stock 60 s tolerance (CONS-3.4-12); Comet reads a bare integer as nanoseconds."""
+        self.assert_settings_refused("consensus.block_time_tolerance",
+                                     '[consensus]\nblock_time_tolerance = "2m0s"',
+                                     "[consensus]\nblock_time_tolerance = 60")
+
+    def test_accepts_stock_defaults(self):
+        """setUp's config.toml leaves all three settings absent, and its pair started; spelled
+        out at their stock values, with each spelling of 60 s, they start the pair as well."""
+        for count, tolerance in enumerate(("1m0s", "60s", "1m"), start=2):
+            with self.subTest(tolerance=tolerance):
+                self.restart_over_settings("[blocksync]\nadaptive_sync = false\n[consensus]\n"
+                                           f'double_sign_check_height = 0\nblock_time_tolerance = "{tolerance}"')
+                self.wait(lambda: self.starts() == count and len(self.signers()) == count)
 
     def test_signer_crash_before_init_chain_starts_comet_with_the_signer(self):
         """Before InitChain the app reports no chain_id and is never Ready, since only Comet can
