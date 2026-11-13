@@ -50,6 +50,7 @@ mulmod (opcode)        113
 Definitions:
 
 - `step_gas`: the total gas charged by the EVM for executing one opcode, including both the static cost (from the opcode gas table) and any dynamic cost (memory expansion, storage access charges, etc.). Measured as `gas_spent_after - gas_spent_before` across a single opcode execution.
+  For a step that fails, this value depends on the order in which the EVM checks and charges the opcode; the per-step model in [`formal/zk-gas`](../../../formal/zk-gas/README.md) defines it for every opcode and failure.
 - `SPAWN_OPCODES`: `CALL`, `CALLCODE`, `DELEGATECALL`, `STATICCALL`, `CREATE`, `CREATE2`
 - `child_frame_created`: true only when a spawn opcode creates a child EVM execution frame.
 - `precompile_invoked`: true when a CALL-family opcode (`CALL`, `CALLCODE`, `DELEGATECALL`, `STATICCALL`) resolves to an active precompile and executes it.
