@@ -11,8 +11,8 @@ accepted landing. It is proved in Lean with no new axioms.
 
 This report says what H4 claims, how the proof reaches a landing, what each premise and
 hypothesis assumes and who must make it true, a trap that only a structural recovery leaves and
-that the model reaches only under a failed verifier, three changes to the machine, and what H4
-does not say.
+that an authorized history reaches only after a verifier failure, three changes to the machine,
+and what H4 does not say.
 
 Terms used below:
 
@@ -243,8 +243,10 @@ After a structural recovery changes K, a verifier-failure rollback can restore a
 that is off the new grid. From there, nothing lands until a structural recovery installs a K
 whose grid holds c. Non-structural recoveries stay blocked, in the model as in the spec. H4's
 path leaves an off-grid state the same way, with a structural recovery that installs K = 1.
-H4 itself does not apply to this trap: the trap needs a verifier failure, and H4's premises
-assume a sound verifier (see How H4 relates to the trap, below).
+H4 is not applied to the trap witness: the rollback it models is the authorized one, which
+needs a verifier failure, and H4's premises assume a sound verifier. The raw `Trace` can also
+reach such a state under a sound verifier, through an unauthorized rollback, and there H4
+applies when `LiveAt` holds (see How H4 relates to the trap, below).
 
 **The trace** (`RollbackGridTrap.rollback_grid_trap`, a new network with S = 0):
 
@@ -299,18 +301,21 @@ guard, a mutant that drops it fails that example.
 
 **How H4 relates to the trap.** `RecoveryCall` admits a structural recovery whose only change
 is K, and off the grid H4's path uses one: it installs K = 1 with `rules` = nextRules + 1,
-which passes RECOV-8.3-3a for every c at or above S. That does not make H4 cover the trap. H4
-assumes `RecoveryPremises`, which extends `FundPremises`, so `VerifierSound` is among its
-premises. Under them:
+which passes RECOV-8.3-3a for every c at or above S. H4 covers the trap state only where its
+premises hold, which is not the scenario the trap witness models. H4 assumes
+`RecoveryPremises`, which extends `FundPremises`, so `VerifierSound` is among its premises.
+Under them:
 
 - only `rollback` can leave c off the grid: `land` and `recover` check the grid, `recover` with
   the K it installs, and the start writes set c = S;
 - no rollback is authorized: `Governance.RollbackAuthorized` needs a bad landing record, and
   H1 shows that there is none.
 
-So in a deployment that meets H4's premises, an off-grid state arises only from an unauthorized
-rollback in the raw `Trace`. The authorized histories of `Headlines.deployed_recoverability`
-never reach one. After a real verifier failure, `VerifierSound` is false and H4 says nothing.
+So in a deployment that meets H4's premises, an off-grid state such as the trap arises only from
+an unauthorized rollback in the raw `Trace`, and H4 applies to it when `LiveAt` holds (below).
+The authorized histories of `Headlines.deployed_recoverability` never reach one. The rollback
+the spec authorizes follows a real verifier failure; there `VerifierSound` is false and H4 says
+nothing.
 
 What letting H4 leave an off-grid state buys is this:
 
