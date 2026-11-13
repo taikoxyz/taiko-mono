@@ -1378,8 +1378,9 @@ fn restart_as_imported(app: &mut App<MockL1, MockEngine>) -> crate::store::Execu
     floor
 }
 
-/// SYNC-9-7: an imported node stays untrusted until this process checked its execution floor,
-/// however well the checkpoint matches; the startup `Info` check then lets trust proceed.
+/// SYNC-9-7: an imported node stays untrusted until the app checked its execution floor at the
+/// current CometBFT handshake (on the current set of ABCI connections), however well the
+/// checkpoint matches; the handshake `Info` check then lets trust proceed.
 #[tokio::test]
 async fn trust_stays_closed_until_the_execution_floor_is_checked() {
     let fx = Fixture::genesis(1);

@@ -47,6 +47,14 @@ older stores are refused, never migrated (START-10-24).
   schema, whose replies always carry `recovery_origin` (null for generation zero), and the signer
   and the supervisor read readiness only from `phase`. In a mixed deployment the signer refuses
   to sign or trust control fails closed.
+- Two configurations that started before are now refused at start. `etna-signer` rejects a
+  `--trust-timeout` above 2 s with exit 1 (it accepted up to 10 s; SYNC-9-11), and the validator
+  supervisor and `abci-recover install` refuse a validator `config.toml` whose
+  `[blocksync] adaptive_sync`, `[consensus] double_sign_check_height` or
+  `[consensus] block_time_tolerance` differs from its stock default (`false`, `0`, 60 s), naming
+  the setting (START-10-6). An imported store also re-checks that the own EL serves the block and
+  state at `execution_floor` at every CometBFT handshake, not once per app process, so that state
+  must stay readable across Comet restarts.
 
 ### Features
 
@@ -101,9 +109,8 @@ older stores are refused, never migrated (START-10-24).
   connections, so a CometBFT restart under a running app never sees a height the EL does not
   hold (CONS-3.1-9). `etna-signer --trust-timeout` is at most 2 s, so a refusal is answered
   within 4 s, before CometBFT's fixed 5 s signer read timeout, and CometBFT gives up instead of
-  retrying it (SYNC-9-11). The validator supervisor and `abci-recover install` refuse a
-  validator `config.toml` whose `adaptive_sync`, `double_sign_check_height` or
-  `block_time_tolerance` differs from its stock default (START-10-6).
+  retrying it (SYNC-9-11). Non-stock CometBFT validator settings are refused (START-10-6); see
+  the breaking changes above.
 - Replace empty derivation sources with a single default block before and after Unzen,
   matching the clarified source validation rules in protocol #22335. Regenerate contract
   fixtures and shared vectors from the protocol revision enforcing the strict bounty bound.

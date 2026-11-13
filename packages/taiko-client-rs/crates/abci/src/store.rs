@@ -66,10 +66,11 @@ pub struct AppState {
     pub recovery: Option<RecoveryOrigin>,
     /// The EL block a checkpoint import installed this store at (DATA-5.4-4): the landed
     /// checkpoint s and ELHash(s), whose header and state the own EL keeps serving
-    /// (DATA-5.4-6); `None` for a store `InitChain` started at its generation's origin. The
-    /// first reconciliation of every process checks it ([`App::new`](crate::App::new) checks
-    /// only that it lies above the origin and at or below the committed head). Always written
-    /// and required, like `recovery`.
+    /// (DATA-5.4-6); `None` for a store `InitChain` started at its generation's origin. The EL
+    /// reconciliation at every CometBFT handshake, the first `Info` or `FinalizeBlock` on each
+    /// new set of ABCI connections, checks it ([`App::new`](crate::App::new) checks only that it
+    /// lies above the origin and at or below the committed head). Always written and required,
+    /// like `recovery`.
     #[serde(deserialize_with = "Option::deserialize")]
     pub execution_floor: Option<ExecutionFloor>,
     /// Inbox account authenticated at genesis. Required so a restart cannot switch contracts;
