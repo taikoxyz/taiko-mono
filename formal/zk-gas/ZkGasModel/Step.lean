@@ -9,14 +9,17 @@ import ZkGasModel.Step.Return
 import ZkGasModel.Step.Log
 import ZkGasModel.Step.Account
 import ZkGasModel.Step.Storage
+import ZkGasModel.Step.Call
+import ZkGasModel.Step.Create
 
 /-!
 # The step model
 
 `stepOutcome f pre` is the outcome of the one interpreter step that runs from `pre`: the
-frame's gas after it, how it ended and the model branch that decided it, or `none` for an opcode
-the model does not cover yet. It is an error when `pre` lacks a fact or stack item the model
-reads. The result types are in `ZkGasModel.Step.Basic`; each opcode category's instruction body
+frame's gas after it, how it ended and the model branch that decided it. Every opcode is
+modeled; the result keeps its `Option` (`none` for an opcode the model does not cover) until the
+coverage gate removes it. It is an error when `pre` lacks a fact or stack item the model reads.
+The result types are in `ZkGasModel.Step.Basic`; each opcode category's instruction body
 is in its own file `ZkGasModel/Step/<Category>.lean`.
 
 The model follows alethia-reth's metered loop (`crates/evm/src/zk_gas/runtime.rs`,
@@ -24,7 +27,7 @@ The model follows alethia-reth's metered loop (`crates/evm/src/zk_gas/runtime.rs
 (`src/interpreter.rs:295`) and materializes an exceptional halt before charging the step. Every
 step goes through the same stages:
 
-1. `classify` picks the opcode's category; `none` leaves the step unmodeled.
+1. `classify` picks the opcode's category; every opcode has one.
 2. `step` charges the opcode's static gas `staticGas op` with `record_cost_unsafe`
    (`interpreter.rs:312`). When the frame cannot pay it, `step` returns `OutOfGas` before the
    instruction runs (`interpreter.rs:314`), and `Interpreter::halt` spends all remaining gas
@@ -32,13 +35,16 @@ step goes through the same stages:
    gas comes before any stack, fork or jump check.
 3. The instruction body runs with the gas left after the static charge (`body`). Its checks
    return `StackUnderflow`, `StackOverflow`, `InvalidJump`, `NotActivated`, `InvalidFEOpcode`,
-   `OpcodeNotFound`, `InvalidOperandOOG`, `MemoryOOG`, `OutOfOffset`, `ReentrancySentryOOG` or
-   `StateChangeDuringStaticCall`, which halt keeping the gas; a `gas!` charge that cannot be
-   paid, and a cold account or slot load skipped for lack of gas, return `OutOfGas`, which
-   spends all of it. STOP, RETURN, REVERT and SELFDESTRUCT end the frame keeping the gas.
+   `OpcodeNotFound`, `InvalidOperandOOG`, `MemoryOOG`, `OutOfOffset`, `ReentrancySentryOOG`,
+   `StateChangeDuringStaticCall`, `CallNotAllowedInsideStatic` or `CreateInitCodeSizeLimit`,
+   which halt keeping the gas; a `gas!` charge that cannot be paid, and a cold account or slot
+   load skipped for lack of gas, return `OutOfGas`, which spends all of it. STOP, RETURN,
+   REVERT and SELFDESTRUCT end the frame keeping the gas. A CALL or CREATE family instruction
+   that passes its checks installs `NewFrame` and returns `Suspend`: the step opens a new
+   frame.
 
-A later category adds a `Category` constructor, its `classify` case, a body file and a `body`
-case; the stages above stay as they are.
+Each category has a `Category` constructor, its `classify` case, a body file and a `body` case;
+the stages above are the same for all of them.
 -/
 namespace TaikoSpec.ZkGas
 
@@ -104,6 +110,10 @@ inductive Category
   | tload
   /-- TSTORE. -/
   | tstore
+  /-- CALL, CALLCODE, DELEGATECALL and STATICCALL. -/
+  | call
+  /-- CREATE (`create2` false) and CREATE2 (`create2` true). -/
+  | create (create2 : Bool)
   /-- An opcode that halts as soon as its body runs (not activated on Unzen, INVALID or
   undefined), with the branch it reports. -/
   | halt (branch : BranchId)
@@ -116,7 +126,7 @@ def envReads : List Nat :=
   [0x30, 0x32, 0x33, 0x34, 0x36, 0x38, 0x3a, 0x3d, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x48,
    0x4a, 0x58, 0x59, 0x5a]
 
-/-- The category of opcode `op`, or `none` when the model does not cover it yet. An opcode is
+/-- The category of opcode `op`; every opcode has one, so `none` is never returned. An opcode is
 undefined when revm-bytecode does not define it (`staticGasEntries` has no entry); revm's
 instruction table maps exactly those opcodes to `unknown` (`src/instructions.rs`). -/
 def classify (op : Nat) : Option Category :=
@@ -149,6 +159,9 @@ def classify (op : Nat) : Option Category :=
   else if op = 0x55 then some .sstore
   else if op = 0x5c then some .tload
   else if op = 0x5d then some .tstore
+  else if op = 0xf1 ∨ op = 0xf2 ∨ op = 0xf4 ∨ op = 0xfa then some .call
+  else if op = 0xf0 then some (.create false)
+  else if op = 0xf5 then some (.create true)
   else if 0x5f ≤ op ∧ op ≤ 0x7f then some .push
   else if 0x80 ≤ op ∧ op ≤ 0x8f then some (.dup (op - 0x7f))
   else if 0x90 ≤ op ∧ op ≤ 0x9f then some (.swap (op - 0x8f))
@@ -201,10 +214,12 @@ def body (pre : Pre) (gas : Nat) : Category → Except String StepResult
   | .sstore => sstoreStep pre gas
   | .tload => pure (tloadStep pre gas)
   | .tstore => pure (tstoreStep pre gas)
+  | .call => callStep pre gas
+  | .create create2 => createStep pre gas create2
   | .halt branch => pure (haltStep gas branch)
 
-/-- The outcome of the step that runs from `pre` on fork `f`; `none` when the model does not
-cover the opcode yet. Stage 2, the static gas charge, is the same for every opcode. -/
+/-- The outcome of the step that runs from `pre` on fork `f`; never `none`, since every opcode
+has a category. Stage 2, the static gas charge, is the same for every opcode. -/
 def stepOutcome : Fork → Pre → Except String (Option StepResult)
   | .unzen, pre =>
     match classify pre.op with

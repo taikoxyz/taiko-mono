@@ -9,7 +9,8 @@ revm-interpreter 43.0.1 `src/instructions/memory.rs` (MLOAD, MSTORE, MSTORE8, MC
 `src/cfg/gas_params.rs` on Unzen (`SpecId::OSAKA`, mainnet gas params). Each body gets `gas`, the
 frame's gas after the static charge (3 for MLOAD, MSTORE, MSTORE8 and MCOPY, 30 for KECCAK256).
 
-The stages these bodies share, which the copy, RETURN/REVERT and LOG bodies reuse:
+The stages these bodies share, which the copy, RETURN/REVERT, LOG, CALL-family and CREATE
+bodies reuse:
 
 - **Operands.** `as_usize_or_fail!` (`instructions/macros.rs:131`) halts with
   `InvalidOperandOOG` on an operand of 2^64 or more (`usize` on alethia-reth's 64-bit hosts);
@@ -68,14 +69,21 @@ def memoryWords (pre : Pre) : Except String Nat :=
   if pre.mem % 32 = 0 then .ok (pre.mem / 32)
   else .error s!"mem: {pre.mem} bytes is not a whole number of 32-byte words"
 
-/-- `resize_memory` for `len` bytes at `offset`, both below 2^64, with `gas` left: the gas left
-after the expansion, or `none` when the frame cannot pay it (`MemoryOOG`, keeping `gas`). -/
-def expandMemory (pre : Pre) (gas offset len : Nat) : Except String (Option Nat) := do
-  let current ← memoryWords pre
+/-- `resize_memory` of a memory of `current` words for `len` bytes at `offset`, both below 2^64,
+with `gas` left: the gas left after the expansion and the memory size in words after it, or
+`none` when the frame cannot pay it (`MemoryOOG`, keeping `gas`). -/
+def resizeMemory (current gas offset len : Nat) : Option (Nat × Nat) :=
   let words := numWords (satU64 (offset + len))
-  if words ≤ current then return some gas
-  let cost := memoryCost words - memoryCost current
-  return if gas < cost then none else some (gas - cost)
+  if words ≤ current then some (gas, current)
+  else
+    let cost := memoryCost words - memoryCost current
+    if gas < cost then none else some (gas - cost, words)
+
+/-- `resize_memory` of the step's memory for `len` bytes at `offset`, both below 2^64, with `gas`
+left: the gas left after the expansion, or `none` when the frame cannot pay it (`MemoryOOG`,
+keeping `gas`). -/
+def expandMemory (pre : Pre) (gas offset len : Nat) : Except String (Option Nat) := do
+  return (resizeMemory (← memoryWords pre) gas offset len).map (·.1)
 
 /-- MLOAD (`memory.rs:11`), MSTORE (`:29`) and MSTORE8 (`:45`), which access `len` bytes (32,
 or 1 for MSTORE8) at their offset `stack[0]`: they pop their `inputs op` items (`popn_top!` or

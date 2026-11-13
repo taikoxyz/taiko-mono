@@ -34,10 +34,19 @@ The model has three parts:
   JUMPI, JUMPDEST, EXP, the opcodes not activated on Unzen, INVALID and undefined ones, the
   memory opcodes (MLOAD, MSTORE, MSTORE8, MCOPY) and KECCAK256 with their memory expansion,
   CALLDATACOPY, CODECOPY, RETURNDATACOPY, EXTCODECOPY (with its cold surcharge), RETURN, REVERT,
-  LOG0..LOG4, and the state access opcodes: SLOAD, SSTORE (with its reentrancy sentry and
-  EIP-2200/2929 costs), BALANCE, EXTCODESIZE, EXTCODEHASH, SELFDESTRUCT, TLOAD and TSTORE, whose
-  warm, cold and empty accounts and slots come from the step's facts. For every other opcode
-  (the CALL and CREATE families) it returns `none`.
+  LOG0..LOG4, the state access opcodes: SLOAD, SSTORE (with its reentrancy sentry and
+  EIP-2200/2929 costs), BALANCE, EXTCODESIZE, EXTCODEHASH, SELFDESTRUCT, TLOAD and TSTORE, and
+  the CALL family (CALL, CALLCODE, DELEGATECALL, STATICCALL: memory ranges, value transfer, cold
+  target, new account, EIP-7702 delegate) and CREATE and CREATE2 (initcode limit and word cost,
+  memory, base and hashing cost), whose warm, cold and empty accounts and slots come from the
+  step's facts. Every opcode is modeled. A CALL or CREATE that passes its checks opens a new
+  frame, which alethia-reth charges its spawn estimate; what the frame then does (depth,
+  balance, nonce, address collision, empty code, a precompile) does not change that step.
+
+  Facts are read before the step. For a CALL-family target whose EIP-7702 delegation points at
+  the target itself, revm warms the target before it loads the delegate, so the delegate is
+  warm for revm while the step's `delegate_warm` fact says cold when the target was cold: the
+  model charges that case 2,500 gas more than revm. No vector has such a target.
 
 How a precompile's gas use is computed is not modeled. The claims below take every charge
 amount as given; the step model is checked against the traces only.
@@ -53,15 +62,16 @@ parses the events and rejects anything outside the schema;
 precompile's charge, each charge's meter verdict, and feeds every tx's charges to `meterBlock`
 (a harness frame's to `meterTx`) to reproduce the vector's expected values. It takes a step model
 `Pre → Except String (Option (gas_after × outcome × branch))`. For every step the model covers,
-the checker compares `gas_after` and `spawn` (a step spawns exactly when its outcome is a new
-frame) and, unless the meter rejected the step's charge, checks the outcome against the event
+the checker compares `spawn` (a step spawns exactly when its outcome is a new frame), `gas_after`
+for a step that does not spawn (a spawn step is charged its estimate, not its gas) and, unless the meter rejected the step's charge, checks the outcome against the event
 after the step: a step that continues is followed by a step at its depth; a step that ends its
 frame by a step at a smaller depth or the end of the tx or frame, and a harness trace's top frame
 ends with the `frame_end` status of its outcome (`success` for STOP and RETURN, `revert` for
 REVERT, `halt` for the other halts); a step that opens a frame by a step one deeper, a
 precompile, a step at its depth (the new frame ran no step) or the end. `check-traces` runs
-`stepModel`, which is `stepOutcome` on Unzen. Some opcode categories are not modeled yet, so
-`--allow-unmodeled` lets their steps pass; without it, an uncovered step fails. The summary line
+`stepModel`, which is `stepOutcome` on Unzen. Every opcode is modeled, so the corpus has no
+unmodeled step; `--allow-unmodeled` still lets a step the model does not cover pass, and without
+it such a step fails. The summary line
 counts the steps the model checked and the unmodeled ones. The checker stops at the first
 failure with the vector id, the event index and the reason, and exits 1. Every vector needs a
 trace and every trace a vector. The gate runs it with `--allow-unmodeled` once the corpus has a
@@ -160,12 +170,15 @@ and intrinsic charges, meter verdicts, totals against the expected values, model
 and the two shapes with no step: a tx skipped before its intrinsic charge (a lone skipped
 `tx_end`) and a harness call to an account without code (`frame_end` alone). Guards that flip
 one modeled step's outcome check that the checker rejects an outcome the next event contradicts.
-The step model has at least one guard per branch, each on a step line copied verbatim from a
-committed reth trace and expecting that line's `gas_after`, plus guards for a missing fact or
-stack item, an opcode not modeled yet, checks whose order the traces cannot show (the static
-context before the pops, SSTORE's pops before its sentry), and the smoke harness trace fully
-modeled. One branch, `memory_step_underflow_halt`, has no corpus step; its guards run
-constructed pre-states. They run during compilation and are **not kernel proofs**.
+The step model has at least one guard per branch. Where the corpus has a step of the branch, the
+guard runs a step line copied verbatim from a committed reth trace and expects that line's
+`gas_after` (for a spawn step, the gas left after the gas it forwards). Further guards cover a
+missing fact or stack item, every opcode being modeled, checks whose order the traces cannot
+show (the static context before the pops, SSTORE's pops before its sentry, CALL's static-frame
+value check before its memory operands, the CALL family's input range before its output range
+and both before the transfer cost), and the smoke harness trace fully modeled. Ten branches
+have no corpus step, `memory_step_underflow_halt` and nine EIP-7702 delegate branches of the
+CALL family; their guards run constructed pre-states. They run during compilation and are **not kernel proofs**.
 
 The full gate combines independent checks:
 

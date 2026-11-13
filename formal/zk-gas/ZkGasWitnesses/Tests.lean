@@ -302,8 +302,10 @@ def skippedExpected : String :=
 
 Each `stepAgrees` guard runs `stepOutcome` on one step line copied verbatim from a committed
 reth trace, `testdata/zk_gas_vectors/traces/<vector>.jsonl` (events counted from 0, as the
-checker counts them), and expects that line's `gas_after`, the given outcome and branch. Every
-branch has at least one guard; `memory_step_underflow_halt`, which no corpus step reaches, has
+checker counts them), and expects that line's `gas_after`, the given outcome and branch. For a
+step that opens a frame, `gas_after` is the gas left after the gas it forwards. Every branch has
+at least one guard; the branches no corpus step reaches (`memory_step_underflow_halt`, and the
+CALL family's EIP-7702 delegate stages except a cold target delegated to a warm address) have
 guards on constructed pre-states after the trace lines. -/
 
 /-- Whether `stepOutcome` on the single step event `line` gives the line's `gas_after`, outcome
@@ -1055,6 +1057,287 @@ def stepAgrees (line : String) (outcome : Outcome) (branch : BranchId) : Bool :=
   "{\"e\":\"step\",\"d\":2,\"pc\":3,\"op\":93,\"gas\":\"0x3e3\",\"static\":true,\"sl\":2,\"stack\":[\"0x0\",\"0x1\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x37f\",\"spawn\":false,\"zk\":\"0x1f4\",\"ok\":true,\"charged\":true}"
   .haltKeep .transient_static_frame_tstore_halt_preserve
 
+-- call.staticcall.warm_static_oog, event 9: STATICCALL with 99 of its 100 static gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":13,\"op\":250,\"gas\":\"0x63\",\"static\":false,\"sl\":6,\"stack\":[\"0x0\",\"0xc0d2\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true,\"account_empty\":false,\"delegate_warm\":null},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x8e5\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .static_step_static_oog_spend_all
+-- call.call.underflow, event 6: CALL on six items pays its static 100 gas, pops the gas limit, target and value, then runs out at the memory operands.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":6,\"op\":241,\"gas\":\"0x18694\",\"static\":false,\"sl\":6,\"stack\":[\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18630\",\"spawn\":false,\"zk\":\"0x7d0\",\"ok\":true,\"charged\":true}"
+  .haltKeep .call_family_underflow_preserve
+-- call.call.static_frame_value_warm, event 17: CALL of value 1 in a static frame pays its static 100 gas and halts keeping the rest.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":2,\"pc\":10,\"op\":241,\"gas\":\"0x2700\",\"static\":true,\"sl\":7,\"stack\":[\"0x0\",\"0xc0d1\",\"0x1\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true,\"account_empty\":false,\"delegate_warm\":null},\"gas_after\":\"0x269c\",\"spawn\":false,\"zk\":\"0x7d0\",\"ok\":true,\"charged\":true}"
+  .haltKeep .call_call_static_frame_value_halt_preserve
+-- call.call.static_frame_value_size_above_u64, event 14: CALL of value 1 in a static frame with an input length of 2^64: the static check comes before the memory operands.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":2,\"pc\":19,\"op\":241,\"gas\":\"0x26ff\",\"static\":true,\"sl\":7,\"stack\":[\"0x0\",\"0xc0d1\",\"0x1\",\"0x0\",\"0x10000000000000000\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false,\"account_empty\":false,\"delegate_warm\":null},\"gas_after\":\"0x269b\",\"spawn\":false,\"zk\":\"0x7d0\",\"ok\":true,\"charged\":true}"
+  .haltKeep .call_call_static_frame_value_halt_preserve
+-- call.call.static_frame_value_cold_low_gas, event 14: CALL of value 1 in a static frame to a cold target with less than the 2,500 surcharge: the static check comes before the target load.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":2,\"pc\":10,\"op\":241,\"gas\":\"0x3d8\",\"static\":true,\"sl\":7,\"stack\":[\"0x0\",\"0xc0d1\",\"0x1\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false,\"account_empty\":false,\"delegate_warm\":null},\"gas_after\":\"0x374\",\"spawn\":false,\"zk\":\"0x7d0\",\"ok\":true,\"charged\":true}"
+  .haltKeep .call_call_static_frame_value_halt_preserve
+-- call.family.input_size_above_u64, event 6: STATICCALL with an input length of 2^64.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":18,\"op\":250,\"gas\":\"0x18692\",\"static\":false,\"sl\":6,\"stack\":[\"0x0\",\"0xc0ffee\",\"0x0\",\"0x10000000000000000\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true,\"account_empty\":true,\"delegate_warm\":null},\"gas_after\":\"0x1862e\",\"spawn\":false,\"zk\":\"0x8fc\",\"ok\":true,\"charged\":true}"
+  .haltKeep .call_family_input_size_above_u64_preserve
+-- call.family.input_offset_above_u64, event 7: CALLCODE with an input offset of 2^64 and length 1.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":20,\"op\":242,\"gas\":\"0x1868f\",\"static\":false,\"sl\":7,\"stack\":[\"0x0\",\"0xc0ffee\",\"0x0\",\"0x10000000000000000\",\"0x1\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true,\"account_empty\":true,\"delegate_warm\":null},\"gas_after\":\"0x1862b\",\"spawn\":false,\"zk\":\"0x7d0\",\"ok\":true,\"charged\":true}"
+  .haltKeep .call_family_input_offset_above_u64_preserve
+-- call.family.input_expand_memory_oog, event 7: CALL with 2 gas left after its static 100 cannot pay the 3-gas expansion of its 32-byte input.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":11,\"op\":241,\"gas\":\"0x66\",\"static\":false,\"sl\":7,\"stack\":[\"0x0\",\"0xc0ffee\",\"0x0\",\"0x0\",\"0x20\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true,\"account_empty\":true,\"delegate_warm\":null},\"gas_after\":\"0x2\",\"spawn\":false,\"zk\":\"0x7d0\",\"ok\":true,\"charged\":true}"
+  .haltKeep .call_family_input_memory_oog_preserve
+-- call.family.output_size_above_u64, event 7: CALL with an output length of 2^64 halts after paying its input expansion.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":20,\"op\":241,\"gas\":\"0x1868f\",\"static\":false,\"sl\":7,\"stack\":[\"0x0\",\"0xc0ffee\",\"0x0\",\"0x0\",\"0x20\",\"0x0\",\"0x10000000000000000\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true,\"account_empty\":true,\"delegate_warm\":null},\"gas_after\":\"0x18628\",\"spawn\":false,\"zk\":\"0x80c\",\"ok\":true,\"charged\":true}"
+  .haltKeep .call_family_output_size_above_u64_keeps_input_charge
+-- call.family.output_offset_above_u64, event 7: CALLCODE with an output offset of 2^64 and length 1 halts after paying its input expansion.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":21,\"op\":242,\"gas\":\"0x1868e\",\"static\":false,\"sl\":7,\"stack\":[\"0x0\",\"0xc0ffee\",\"0x0\",\"0x0\",\"0x20\",\"0x10000000000000000\",\"0x1\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true,\"account_empty\":true,\"delegate_warm\":null},\"gas_after\":\"0x18627\",\"spawn\":false,\"zk\":\"0x80c\",\"ok\":true,\"charged\":true}"
+  .haltKeep .call_family_output_offset_above_u64_keeps_input_charge
+-- call.family.output_expand_memory_oog, event 6: DELEGATECALL pays its input expansion to 64 bytes, then cannot pay the output expansion to 96.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":12,\"op\":244,\"gas\":\"0x69\",\"static\":false,\"sl\":6,\"stack\":[\"0x0\",\"0xc0ffee\",\"0x0\",\"0x20\",\"0x20\",\"0x20\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true,\"account_empty\":true,\"delegate_warm\":null},\"gas_after\":\"0x2\",\"spawn\":false,\"zk\":\"0x6d7\",\"ok\":true,\"charged\":true}"
+  .haltKeep .call_family_output_memory_oog_keeps_input_charge
+-- call.family.output_end_above_u64, event 6: STATICCALL with an output range ending past 2^64 halts after paying its input expansion.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":19,\"op\":250,\"gas\":\"0x18690\",\"static\":false,\"sl\":6,\"stack\":[\"0x0\",\"0xc0ffee\",\"0x0\",\"0x20\",\"0xffffffffffffffff\",\"0x1\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true,\"account_empty\":true,\"delegate_warm\":null},\"gas_after\":\"0x18629\",\"spawn\":false,\"zk\":\"0x941\",\"ok\":true,\"charged\":true}"
+  .haltKeep .call_family_output_memory_oog_keeps_input_charge
+-- call.family.output_word_rounding_above_u64, event 6: DELEGATECALL with an output range whose end rounds up past 2^64.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":19,\"op\":244,\"gas\":\"0x18690\",\"static\":false,\"sl\":6,\"stack\":[\"0x0\",\"0xc0ffee\",\"0x0\",\"0x20\",\"0xfffffffffffffffe\",\"0x1\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true,\"account_empty\":true,\"delegate_warm\":null},\"gas_after\":\"0x18629\",\"spawn\":false,\"zk\":\"0x6d7\",\"ok\":true,\"charged\":true}"
+  .haltKeep .call_family_output_memory_oog_keeps_input_charge
+-- call.family.output_size_above_cap, event 7: CALL with a 2^37-byte output range.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":16,\"op\":241,\"gas\":\"0x1868f\",\"static\":false,\"sl\":7,\"stack\":[\"0x0\",\"0xc0ffee\",\"0x0\",\"0x0\",\"0x20\",\"0x0\",\"0x2000000000\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true,\"account_empty\":true,\"delegate_warm\":null},\"gas_after\":\"0x18628\",\"spawn\":false,\"zk\":\"0x80c\",\"ok\":true,\"charged\":true}"
+  .haltKeep .call_family_output_memory_oog_keeps_input_charge
+-- call.value.transfer_oog, event 10: CALL of value 1 with 8,999 gas left after its static 100 cannot pay the 9,000 transfer cost.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":15,\"op\":241,\"gas\":\"0x238b\",\"static\":false,\"sl\":7,\"stack\":[\"0x0\",\"0xc0d2\",\"0x1\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true,\"account_empty\":false,\"delegate_warm\":null},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x2c6dc\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .call_value_transfer_oog_spend_all
+-- call.staticcall.cold_surcharge_oog, event 6: STATICCALL to a cold target with 2,499 gas left after its static 100.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":8,\"op\":250,\"gas\":\"0xa27\",\"static\":false,\"sl\":6,\"stack\":[\"0x0\",\"0xc0d2\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false,\"account_empty\":false,\"delegate_warm\":null},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0xe981\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .call_family_cold_surcharge_oog_spend_all
+-- call.callcode.value_to_empty_oog, event 7: CALLCODE of value 1 to a cold empty target with 11,599 gas: the transfer cost comes before the cold load, which is then skipped.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":10,\"op\":242,\"gas\":\"0x2d4f\",\"static\":false,\"sl\":7,\"stack\":[\"0x0\",\"0xdead\",\"0x1\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false,\"account_empty\":true,\"delegate_warm\":null},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x38a2c\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .call_family_cold_surcharge_oog_spend_all
+-- call.call.new_account_oog, event 7: CALL of value 1 to a cold empty target with 36,599 gas, one short of 100 + 9,000 + 2,500 + 25,000.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":10,\"op\":241,\"gas\":\"0x8ef7\",\"static\":false,\"sl\":7,\"stack\":[\"0x0\",\"0xdead\",\"0x1\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false,\"account_empty\":true,\"delegate_warm\":null},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0xb2b4c\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .call_call_new_account_oog_spend_all
+-- call.staticcall.warm_exact_gas, event 9: STATICCALL to a warm target with exactly its static 100 gas opens a frame with 0 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":13,\"op\":250,\"gas\":\"0x64\",\"static\":false,\"sl\":6,\"stack\":[\"0x0\",\"0xc0d2\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true,\"account_empty\":false,\"delegate_warm\":null},\"gas_after\":\"0x0\",\"spawn\":true,\"zk\":\"0x13a74\",\"ok\":true,\"charged\":true}"
+  .newFrame .call_family_warm_target_spawn
+-- call.family.zero_size_huge_offsets, event 6: STATICCALL with zero-length ranges at offsets 2^256 - 1 expands nothing.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":73,\"op\":250,\"gas\":\"0x64\",\"static\":false,\"sl\":6,\"stack\":[\"0x0\",\"0xc0ffee\",\"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"0x0\",\"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true,\"account_empty\":true,\"delegate_warm\":null},\"gas_after\":\"0x0\",\"spawn\":true,\"zk\":\"0x13a74\",\"ok\":true,\"charged\":true}"
+  .newFrame .call_family_warm_target_spawn
+-- call.family.input_expand_exact_gas, event 7: CALL with value 0 to a warm empty target with exactly 100 + 3 for its input expansion: no new-account cost.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":11,\"op\":241,\"gas\":\"0x67\",\"static\":false,\"sl\":7,\"stack\":[\"0x0\",\"0xc0ffee\",\"0x0\",\"0x0\",\"0x20\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true,\"account_empty\":true,\"delegate_warm\":null},\"gas_after\":\"0x0\",\"spawn\":true,\"zk\":\"0x3d090\",\"ok\":true,\"charged\":true}"
+  .newFrame .call_family_warm_target_spawn
+-- call.family.output_expand_exact_gas, event 6: DELEGATECALL with exactly 100 + 3 + 3 for its input and then its output expansion.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":12,\"op\":244,\"gas\":\"0x6a\",\"static\":false,\"sl\":6,\"stack\":[\"0x0\",\"0xc0ffee\",\"0x0\",\"0x20\",\"0x20\",\"0x20\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true,\"account_empty\":true,\"delegate_warm\":null},\"gas_after\":\"0x0\",\"spawn\":true,\"zk\":\"0xe86c\",\"ok\":true,\"charged\":true}"
+  .newFrame .call_family_warm_target_spawn
+-- call.family.empty_code, event 25: CALLCODE to a warm account without code forwards all but one 64th of what is left, up to its gas limit 0xffff.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":37,\"op\":242,\"gas\":\"0x1721c\",\"static\":false,\"sl\":7,\"stack\":[\"0xffff\",\"0xbeef\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true,\"account_empty\":false,\"delegate_warm\":null},\"gas_after\":\"0x71b9\",\"spawn\":true,\"zk\":\"0x3d090\",\"ok\":true,\"charged\":true}"
+  .newFrame .call_family_warm_target_spawn
+-- call.depth.limit_at_1024, event 8199: The CALL of the deepest frame installs its frame; the handler then refuses it for depth and the frame goes on at the same depth.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1025,\"pc\":7,\"op\":241,\"gas\":\"0x18dfe\",\"static\":false,\"sl\":7,\"stack\":[\"0x18dfe\",\"0xc0de\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true,\"account_empty\":false,\"delegate_warm\":null},\"gas_after\":\"0x636\",\"spawn\":true,\"zk\":\"0x3d090\",\"ok\":true,\"charged\":true}"
+  .newFrame .call_family_warm_target_spawn
+-- call.call.new_frame, event 7: CALL to a cold target pays its 2,500 surcharge.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":11,\"op\":241,\"gas\":\"0x18690\",\"static\":false,\"sl\":7,\"stack\":[\"0xffff\",\"0xc0d1\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false,\"account_empty\":false,\"delegate_warm\":null},\"gas_after\":\"0x7c69\",\"spawn\":true,\"zk\":\"0x3d090\",\"ok\":true,\"charged\":true}"
+  .newFrame .call_family_cold_target_spawn
+-- call.callcode.new_frame, event 7: CALLCODE to a cold target.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":11,\"op\":242,\"gas\":\"0x18690\",\"static\":false,\"sl\":7,\"stack\":[\"0xffff\",\"0xc0d1\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false,\"account_empty\":false,\"delegate_warm\":null},\"gas_after\":\"0x7c69\",\"spawn\":true,\"zk\":\"0x3d090\",\"ok\":true,\"charged\":true}"
+  .newFrame .call_family_cold_target_spawn
+-- call.delegatecall.new_frame, event 6: DELEGATECALL to a cold target.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":10,\"op\":244,\"gas\":\"0x18692\",\"static\":false,\"sl\":6,\"stack\":[\"0xffff\",\"0xc0d1\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false,\"account_empty\":false,\"delegate_warm\":null},\"gas_after\":\"0x7c6b\",\"spawn\":true,\"zk\":\"0xe86c\",\"ok\":true,\"charged\":true}"
+  .newFrame .call_family_cold_target_spawn
+-- call.staticcall.cold_exact_gas, event 6: STATICCALL to a cold target with exactly 100 + 2,500 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":8,\"op\":250,\"gas\":\"0xa28\",\"static\":false,\"sl\":6,\"stack\":[\"0x0\",\"0xc0d2\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false,\"account_empty\":false,\"delegate_warm\":null},\"gas_after\":\"0x0\",\"spawn\":true,\"zk\":\"0x13a74\",\"ok\":true,\"charged\":true}"
+  .newFrame .call_family_cold_target_spawn
+-- call.family.empty_code, event 7: CALL with value 0 to a cold account not in the state: no new-account cost.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":11,\"op\":241,\"gas\":\"0x18690\",\"static\":false,\"sl\":7,\"stack\":[\"0xffff\",\"0xdead\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false,\"account_empty\":true,\"delegate_warm\":null},\"gas_after\":\"0x7c69\",\"spawn\":true,\"zk\":\"0x3d090\",\"ok\":true,\"charged\":true}"
+  .newFrame .call_family_cold_target_spawn
+-- call.family.static_frame_allowed_calls, event 14: CALL with value 0 in a static frame opens its frame.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":2,\"pc\":10,\"op\":241,\"gas\":\"0xc340\",\"static\":true,\"sl\":7,\"stack\":[\"0xff\",\"0xc0d1\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false,\"account_empty\":false,\"delegate_warm\":null},\"gas_after\":\"0xb819\",\"spawn\":true,\"zk\":\"0x3d090\",\"ok\":true,\"charged\":true}"
+  .newFrame .call_family_cold_target_spawn
+-- call.family.spawn_exceeds_limit, event 6: STATICCALL to a cold target whose spawn estimate the meter rejects still installs its frame.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":10,\"op\":250,\"gas\":\"0x18692\",\"static\":false,\"sl\":6,\"stack\":[\"0xffff\",\"0xc0d2\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false,\"account_empty\":false,\"delegate_warm\":null},\"gas_after\":\"0x7c6b\",\"spawn\":true,\"zk\":\"0x13a74\",\"ok\":false,\"charged\":true}"
+  .newFrame .call_family_cold_target_spawn
+-- call.family.delegated_to_precompile, event 7: CALL to a cold target delegated to identity (warm): 2,500 + 100 for the delegate.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":12,\"op\":241,\"gas\":\"0x1868f\",\"static\":false,\"sl\":7,\"stack\":[\"0xffff\",\"0xe0a\",\"0x0\",\"0x0\",\"0x20\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false,\"account_empty\":false,\"delegate_warm\":true},\"gas_after\":\"0x7c01\",\"spawn\":true,\"zk\":\"0x3d090\",\"ok\":true,\"charged\":true}"
+  .newFrame .call_family_cold_target_warm_delegate_spawn
+-- call.value.transfer_exact_gas, event 10: CALL of value 1 to a warm contract with exactly 100 + 9,000 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":15,\"op\":241,\"gas\":\"0x238c\",\"static\":false,\"sl\":7,\"stack\":[\"0x0\",\"0xc0d2\",\"0x1\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true,\"account_empty\":false,\"delegate_warm\":null},\"gas_after\":\"0x0\",\"spawn\":true,\"zk\":\"0x3d090\",\"ok\":true,\"charged\":true}"
+  .newFrame .call_value_warm_target_spawn
+-- call.family.static_frame_allowed_calls, event 27: CALLCODE of value 1 in a static frame opens its frame.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":2,\"pc\":23,\"op\":242,\"gas\":\"0xb8fc\",\"static\":true,\"sl\":7,\"stack\":[\"0xff\",\"0xc0d1\",\"0x1\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true,\"account_empty\":false,\"delegate_warm\":null},\"gas_after\":\"0x9471\",\"spawn\":true,\"zk\":\"0x3d090\",\"ok\":true,\"charged\":true}"
+  .newFrame .call_value_warm_target_spawn
+-- call.callcode.value_to_empty_exact_gas, event 7: CALLCODE of value 1 to a cold empty target with exactly 100 + 9,000 + 2,500: no new-account cost.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":10,\"op\":242,\"gas\":\"0x2d50\",\"static\":false,\"sl\":7,\"stack\":[\"0x0\",\"0xdead\",\"0x1\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false,\"account_empty\":true,\"delegate_warm\":null},\"gas_after\":\"0x0\",\"spawn\":true,\"zk\":\"0x3d090\",\"ok\":true,\"charged\":true}"
+  .newFrame .call_value_cold_target_spawn
+-- call.value.insufficient_balance, event 7: CALL of value 1 to a cold contract the caller cannot pay: the balance check is the handler's.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":12,\"op\":241,\"gas\":\"0x1868f\",\"static\":false,\"sl\":7,\"stack\":[\"0xffff\",\"0xc0d1\",\"0x1\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false,\"account_empty\":false,\"delegate_warm\":null},\"gas_after\":\"0x5940\",\"spawn\":true,\"zk\":\"0x3d090\",\"ok\":true,\"charged\":true}"
+  .newFrame .call_value_cold_target_spawn
+-- call.value.insufficient_balance, event 25: CALL of value 1 to identity, warm and empty: 9,000 + 25,000.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":40,\"op\":241,\"gas\":\"0x14784\",\"static\":false,\"sl\":7,\"stack\":[\"0xffff\",\"0x4\",\"0x1\",\"0x0\",\"0x20\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true,\"account_empty\":true,\"delegate_warm\":null},\"gas_after\":\"0x309\",\"spawn\":true,\"zk\":\"0x3d090\",\"ok\":true,\"charged\":true}"
+  .newFrame .call_call_new_account_warm_target_spawn
+-- precompile.call_value.stipend, event 7: CALL of value 1 and gas limit 0 to ecrecover: 9,000 + 25,000, and nothing forwarded beyond the stipend.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":9,\"op\":241,\"gas\":\"0x18690\",\"static\":false,\"sl\":7,\"stack\":[\"0x0\",\"0x1\",\"0x1\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true,\"account_empty\":true,\"delegate_warm\":null},\"gas_after\":\"0x1015c\",\"spawn\":true,\"zk\":\"0x3d090\",\"ok\":true,\"charged\":true}"
+  .newFrame .call_call_new_account_warm_target_spawn
+-- call.call.new_account_exact_gas, event 7: CALL of value 1 to a cold empty target with exactly 100 + 9,000 + 2,500 + 25,000.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":10,\"op\":241,\"gas\":\"0x8ef8\",\"static\":false,\"sl\":7,\"stack\":[\"0x0\",\"0xdead\",\"0x1\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false,\"account_empty\":true,\"delegate_warm\":null},\"gas_after\":\"0x0\",\"spawn\":true,\"zk\":\"0x3d090\",\"ok\":true,\"charged\":true}"
+  .newFrame .call_call_new_account_cold_target_spawn
+-- create.family.static_frame_constant_shortfall, event 10: CREATE in a static frame with less than its 32,000 base halts keeping all its gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":2,\"pc\":4,\"op\":240,\"gas\":\"0x7cff\",\"static\":true,\"sl\":3,\"stack\":[\"0x0\",\"0x0\",\"0x20\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x7cff\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .haltKeep .create_family_static_frame_halt_preserve
+-- create.family.static_frame_enough_gas, event 23: CREATE2 in a static frame that could pay every charge halts keeping all its gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":2,\"pc\":5,\"op\":245,\"gas\":\"0xfff6\",\"static\":true,\"sl\":4,\"stack\":[\"0x0\",\"0x0\",\"0x20\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0xfff6\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .haltKeep .create_family_static_frame_halt_preserve
+-- create.family.static_frame_underflow, event 10: CREATE2 in a static frame on three items: the static check comes before the pops.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":2,\"pc\":4,\"op\":245,\"gas\":\"0xfff8\",\"static\":true,\"sl\":3,\"stack\":[\"0x0\",\"0x0\",\"0x20\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0xfff8\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .haltKeep .create_family_static_frame_halt_preserve
+-- create.create.underflow, event 2: CREATE on two items.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":2,\"op\":240,\"gas\":\"0x1869c\",\"static\":false,\"sl\":2,\"stack\":[\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1869c\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .haltKeep .create_family_underflow_preserve
+-- create.create2.underflow_two_operands, event 2: CREATE2 on two items.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":3,\"op\":245,\"gas\":\"0x1869b\",\"static\":false,\"sl\":2,\"stack\":[\"0x0\",\"0x20\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1869b\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .haltKeep .create_family_underflow_preserve
+-- create.create.size_above_u64, event 3: CREATE with a length of 2^64.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":12,\"op\":240,\"gas\":\"0x18699\",\"static\":false,\"sl\":3,\"stack\":[\"0x0\",\"0x0\",\"0x10000000000000000\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18699\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .haltKeep .create_family_size_above_u64_preserve
+-- create.create.initcode_above_limit, event 3: CREATE of 49,153 bytes halts on the initcode limit keeping all its gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":5,\"op\":240,\"gas\":\"0x18699\",\"static\":false,\"sl\":3,\"stack\":[\"0x0\",\"0x0\",\"0xc001\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18699\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .haltKeep .create_family_initcode_above_limit_preserve
+-- create.create.initcode_above_limit_offset_above_u64, event 3: CREATE of 49,153 bytes at an offset of 2^64: the limit comes before the offset.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":14,\"op\":240,\"gas\":\"0x18698\",\"static\":false,\"sl\":3,\"stack\":[\"0x0\",\"0x10000000000000000\",\"0xc001\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18698\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .haltKeep .create_family_initcode_above_limit_preserve
+-- create.create2.initcode_above_limit_low_gas, event 4: CREATE2 of 49,153 bytes with less than its base left: the limit comes before any charge.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":6,\"op\":245,\"gas\":\"0x4e17\",\"static\":false,\"sl\":4,\"stack\":[\"0x0\",\"0x0\",\"0xc001\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x4e17\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .haltKeep .create_family_initcode_above_limit_preserve
+-- create.create.initcode_word_cost_oog, event 3: CREATE of 49,152 bytes with 3,071 gas cannot pay 2 gas for each of its 1,536 words.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":5,\"op\":240,\"gas\":\"0xbff\",\"static\":false,\"sl\":3,\"stack\":[\"0x0\",\"0x0\",\"0xc000\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0xbff\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .create_family_initcode_word_cost_oog_spend_all
+-- create.create2.three_operands_word_cost_oog, event 3: CREATE2 on three items that cannot pay its initcode word cost: the charge comes before the salt.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":5,\"op\":245,\"gas\":\"0xbff\",\"static\":false,\"sl\":3,\"stack\":[\"0x0\",\"0x0\",\"0xc000\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0xbff\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .create_family_initcode_word_cost_oog_spend_all
+-- create.create2.offset_above_u64, event 4: CREATE2 of 49,152 bytes at an offset of 2^64 pays its initcode word cost, then halts.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":15,\"op\":245,\"gas\":\"0x18696\",\"static\":false,\"sl\":4,\"stack\":[\"0x0\",\"0x10000000000000000\",\"0xc000\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x17a96\",\"spawn\":false,\"zk\":\"0xc00\",\"ok\":true,\"charged\":true}"
+  .haltKeep .create_family_offset_above_u64_preserve_after_initcode
+-- create.create.memory_oog_dynamic, event 3: CREATE of 32 bytes at offset 1,000,000 pays its initcode word cost, then cannot pay the expansion.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":7,\"op\":240,\"gas\":\"0x18698\",\"static\":false,\"sl\":3,\"stack\":[\"0x0\",\"0xf4240\",\"0x20\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18696\",\"spawn\":false,\"zk\":\"0x2\",\"ok\":true,\"charged\":true}"
+  .haltKeep .create_family_memory_oog_preserve_after_initcode
+-- create.create.end_above_u64, event 3: CREATE whose range ends past 2^64.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":12,\"op\":240,\"gas\":\"0x18698\",\"static\":false,\"sl\":3,\"stack\":[\"0x0\",\"0xfffffffffffffff0\",\"0x20\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18696\",\"spawn\":false,\"zk\":\"0x2\",\"ok\":true,\"charged\":true}"
+  .haltKeep .create_family_memory_oog_preserve_after_initcode
+-- create.create.word_rounding_above_u64, event 3: CREATE whose range end rounds up past 2^64.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":12,\"op\":240,\"gas\":\"0x18698\",\"static\":false,\"sl\":3,\"stack\":[\"0x0\",\"0xffffffffffffffd8\",\"0x20\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18696\",\"spawn\":false,\"zk\":\"0x2\",\"ok\":true,\"charged\":true}"
+  .haltKeep .create_family_memory_oog_preserve_after_initcode
+-- create.create.memory_above_cap, event 3: CREATE whose range is above any payable memory size.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":10,\"op\":240,\"gas\":\"0x18698\",\"static\":false,\"sl\":3,\"stack\":[\"0x0\",\"0x10000000000\",\"0x20\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18696\",\"spawn\":false,\"zk\":\"0x2\",\"ok\":true,\"charged\":true}"
+  .haltKeep .create_family_memory_oog_preserve_after_initcode
+-- create.create.initcode_word_cost_paid_memory_oog, event 3: CREATE of 49,152 bytes with 3,073 gas pays its 3,072 initcode word cost and keeps 1.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":5,\"op\":240,\"gas\":\"0xc01\",\"static\":false,\"sl\":3,\"stack\":[\"0x0\",\"0x0\",\"0xc000\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1\",\"spawn\":false,\"zk\":\"0xc00\",\"ok\":true,\"charged\":true}"
+  .haltKeep .create_family_memory_oog_preserve_after_initcode
+-- create.create2.three_operands_memory_oog, event 3: CREATE2 on three items that cannot pay its expansion: the expansion comes before the salt.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":5,\"op\":245,\"gas\":\"0xc01\",\"static\":false,\"sl\":3,\"stack\":[\"0x0\",\"0x0\",\"0xc000\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1\",\"spawn\":false,\"zk\":\"0xc00\",\"ok\":true,\"charged\":true}"
+  .haltKeep .create_family_memory_oog_preserve_after_initcode
+-- create.create2.salt_underflow, event 3: CREATE2 of 1,024 bytes on three items pays 64 + 98 for its initcode words and expansion, then halts on the salt.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":5,\"op\":245,\"gas\":\"0x18699\",\"static\":false,\"sl\":3,\"stack\":[\"0x0\",\"0x0\",\"0x400\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x185f7\",\"spawn\":false,\"zk\":\"0xa2\",\"ok\":true,\"charged\":true}"
+  .haltKeep .create_create2_salt_underflow_after_charges_preserve
+-- create.create2.salt_underflow_zero_size, event 3: CREATE2 of 0 bytes on three items halts on the salt keeping all its gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":3,\"op\":245,\"gas\":\"0x1869a\",\"static\":false,\"sl\":3,\"stack\":[\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1869a\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .haltKeep .create_create2_salt_underflow_after_charges_preserve
+-- create.create.base_oog, event 3: CREATE of 32 bytes with 32,004 gas pays 2 + 3 for its initcode word and expansion, then cannot pay the 32,000 base.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":4,\"op\":240,\"gas\":\"0x7d04\",\"static\":false,\"sl\":3,\"stack\":[\"0x0\",\"0x0\",\"0x20\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x7d04\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .create_create_base_oog_spend_all
+-- create.create.base_oog_low_gas, event 3: CREATE of 32 bytes with 20,000 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":4,\"op\":240,\"gas\":\"0x4e20\",\"static\":false,\"sl\":3,\"stack\":[\"0x0\",\"0x0\",\"0x20\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x4e20\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .create_create_base_oog_spend_all
+-- create.create.zero_size_base_oog, event 3: CREATE of 0 bytes with 31,999 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":3,\"op\":240,\"gas\":\"0x7cff\",\"static\":false,\"sl\":3,\"stack\":[\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x7cff\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .create_create_base_oog_spend_all
+-- create.create2.hash_oog, event 4: CREATE2 of 1,024 bytes with 32,353 gas pays 64 + 98, then cannot pay 32,000 + 6 for each of its 32 words.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":6,\"op\":245,\"gas\":\"0x7e61\",\"static\":false,\"sl\":4,\"stack\":[\"0x0\",\"0x0\",\"0x400\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x7e61\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .create_create2_hash_oog_spend_all
+-- create.create.new_frame_exact_gas, event 3: CREATE of 32 bytes with exactly 2 + 3 + 32,000 opens a frame with 0 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":4,\"op\":240,\"gas\":\"0x7d05\",\"static\":false,\"sl\":3,\"stack\":[\"0x0\",\"0x0\",\"0x20\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":true,\"zk\":\"0x9088\",\"ok\":true,\"charged\":true}"
+  .newFrame .create_create_new_frame_spawn_estimate
+-- create.create.zero_size_exact_gas, event 3: CREATE of 0 bytes with exactly its 32,000 base.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":3,\"op\":240,\"gas\":\"0x7d00\",\"static\":false,\"sl\":3,\"stack\":[\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":true,\"zk\":\"0x9088\",\"ok\":true,\"charged\":true}"
+  .newFrame .create_create_new_frame_spawn_estimate
+-- create.family.initcode_at_limit, event 3: CREATE of exactly 49,152 bytes passes the limit and forwards all but one 64th of what is left.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":5,\"op\":240,\"gas\":\"0x30d39\",\"static\":false,\"sl\":3,\"stack\":[\"0x0\",\"0x0\",\"0xc000\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x980\",\"spawn\":true,\"zk\":\"0x9088\",\"ok\":true,\"charged\":true}"
+  .newFrame .create_create_new_frame_spawn_estimate
+-- create.family.depth_limit_at_1024, event 8199: The CREATE of the deepest frame installs its frame; the handler then refuses it for depth and the frame goes on at the same depth.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1025,\"pc\":7,\"op\":240,\"gas\":\"0x1676bf\",\"static\":false,\"sl\":3,\"stack\":[\"0x0\",\"0x0\",\"0x14\"],\"mem\":\"0x20\",\"facts\":{},\"gas_after\":\"0x57e6\",\"spawn\":true,\"zk\":\"0x9088\",\"ok\":true,\"charged\":true}"
+  .newFrame .create_create_new_frame_spawn_estimate
+-- create.create2.new_frame_exact_gas, event 4: CREATE2 of 1,024 bytes with exactly 64 + 98 + 32,000 + 192.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":6,\"op\":245,\"gas\":\"0x7e62\",\"static\":false,\"sl\":4,\"stack\":[\"0x0\",\"0x0\",\"0x400\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":true,\"zk\":\"0xadd4\",\"ok\":true,\"charged\":true}"
+  .newFrame .create_create2_new_frame_spawn_estimate
+-- create.family.initcode_at_limit, event 10: CREATE2 of exactly 49,152 bytes inside current memory: no expansion.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":13,\"op\":245,\"gas\":\"0x2602e\",\"static\":false,\"sl\":4,\"stack\":[\"0x0\",\"0x0\",\"0xc000\",\"0x0\"],\"mem\":\"0xc000\",\"facts\":{},\"gas_after\":\"0x6cc\",\"spawn\":true,\"zk\":\"0xadd4\",\"ok\":true,\"charged\":true}"
+  .newFrame .create_create2_new_frame_spawn_estimate
+-- create.family.zero_size_huge_offset, event 10: CREATE2 of 0 bytes at offset 2^256 - 1: no initcode charges and no offset check.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":73,\"op\":245,\"gas\":\"0x1098e\",\"static\":false,\"sl\":4,\"stack\":[\"0x0\",\"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x232\",\"spawn\":true,\"zk\":\"0xadd4\",\"ok\":true,\"charged\":true}"
+  .newFrame .create_create2_new_frame_spawn_estimate
+
 /-- A JUMP pre-state with `sl` stack items (target 4) and facts `facts`. -/
 def jumpPre (sl : Nat) (facts : Facts) : Pre :=
   { op := 0x56, depth := 1, pc := 0, gas := 100, static := false, stackLen := sl,
@@ -1069,9 +1352,13 @@ def jumpPre (sl : Nat) (facts : Facts) : Pre :=
 -- An underflowing JUMP reads no fact.
 #guard stepOutcome .unzen (jumpPre 0 {}) =
   .ok (some { gasAfter := 92, outcome := .haltKeep, branch := .static_jump_underflow_halt })
--- Opcodes of the later categories are not modeled yet: the CALL and CREATE families.
-#guard [0xf1, 0xf2, 0xf4, 0xfa, 0xf0, 0xf5].all fun op =>
-  stepOutcome .unzen { jumpPre 0 {} with op } == .ok none
+-- Every opcode is modeled: each has a category, and on an empty stack with 100 gas each one
+-- ends its step without needing a fact.
+#guard (List.range 256).all fun op => (classify op).isSome
+#guard (List.range 256).all fun op =>
+  match stepOutcome .unzen { jumpPre 0 {} with op } with
+  | .ok (some _) => true
+  | _ => false
 -- No corpus step pops too few items for MLOAD..RETURN and REVERT; on an empty stack each pays
 -- its static gas (100 for EXTCODECOPY, 30 for KECCAK256, 3 or 0 for the rest) and halts.
 #guard [(0x51, 97), (0x52, 97), (0x53, 97), (0x5e, 97), (0x20, 70), (0x37, 97), (0x39, 97),
@@ -1137,6 +1424,95 @@ def jumpPre (sl : Nat) (facts : Facts) : Pre :=
   { jumpPre 0 {} with op := 0xff, gas := 7600, stackLen := 1, stack := [0xdead],
                       facts := { accountWarm := some false, selfBalance := some 1 } })
   "account_empty"
+/-- A CALL-family pre-state of opcode `op` with `gas` and the stack `stack` (top first), whose
+target is warm or not, not empty, and delegated (EIP-7702) to an address of warmth `delegate`
+when that is given. -/
+def callPre (op gas : Nat) (stack : List Nat) (warm : Bool) (delegate : Option Bool := none) :
+    Pre :=
+  { op, depth := 1, pc := 0, gas, static := false, stackLen := stack.length, stack, mem := 0,
+    facts := { accountWarm := some warm, accountEmpty := some false,
+               delegateWarm := some delegate } }
+
+-- The only corpus CALL to a delegated target is a cold target delegated to a warm precompile,
+-- so the other delegate stages run on constructed pre-states: DELEGATECALL without and CALL
+-- with a value of 1, gas limit 0 (nothing forwarded), static 100 plus the listed charges. With
+-- 7 gas more the frame opens and keeps the 7; one gas short, a warm delegate fails its 100
+-- read and a cold one is skipped (both `ColdLoadSkipped`, spending all gas).
+def delegateCases : List (Bool × Bool × Bool × Nat × BranchId) :=
+  [(false, true, true, 100, .call_family_warm_target_warm_delegate_spawn),
+   (false, true, false, 2600, .call_family_warm_target_cold_delegate_spawn),
+   (false, false, true, 2600, .call_family_cold_target_warm_delegate_spawn),
+   (false, false, false, 5100, .call_family_cold_target_cold_delegate_spawn),
+   (true, true, true, 9100, .call_value_warm_target_warm_delegate_spawn),
+   (true, true, false, 11600, .call_value_warm_target_cold_delegate_spawn),
+   (true, false, true, 11600, .call_value_cold_target_warm_delegate_spawn),
+   (true, false, false, 14100, .call_value_cold_target_cold_delegate_spawn)]
+
+/-- The stack of a delegate case: CALL of value 1 or DELEGATECALL, both with zero-length
+ranges. -/
+def delegatePre (transfer warm delegate : Bool) (gas : Nat) : Pre :=
+  if transfer then callPre 0xf1 gas [0, 0xd, 1, 0, 0, 0, 0] warm (some delegate)
+  else callPre 0xf4 gas [0, 0xd, 0, 0, 0, 0] warm (some delegate)
+
+#guard delegateCases.all fun (transfer, warm, delegate, cost, branch) =>
+  stepOutcome .unzen (delegatePre transfer warm delegate (100 + cost + 7)) ==
+    .ok (some { gasAfter := 7, outcome := .newFrame, branch })
+#guard delegateCases.all fun (transfer, warm, delegate, cost, _) =>
+  stepOutcome .unzen (delegatePre transfer warm delegate (100 + cost - 1)) ==
+    .ok (some { gasAfter := 0, outcome := .haltSpendAll,
+                branch := if delegate then .call_family_delegate_read_oog_spend_all
+                  else .call_family_delegate_cold_surcharge_oog_spend_all })
+-- CALL checks a value in a static frame after its first pop and before the memory operands:
+-- on three items it halts on the value, on two on the stack, and with value 0 on the missing
+-- memory operands; all keep the gas left after the static 100.
+#guard [(2, 1, BranchId.call_family_underflow_preserve),
+    (3, 1, .call_call_static_frame_value_halt_preserve),
+    (3, 0, .call_family_underflow_preserve)].all fun (sl, value, branch) =>
+  stepOutcome .unzen
+      { jumpPre 0 {} with op := 0xf1, gas := 1000, static := true, stackLen := sl,
+                          stack := [0, 0xd, value].take sl } ==
+    .ok (some { gasAfter := 900, outcome := .haltKeep, branch })
+-- The input range is checked before the output range, and both before the transfer cost and
+-- the cold load: CALL of value 1 to a cold target with 1 gas left after its static gas and both
+-- lengths 2^64 halts on the input length; with a 32-byte input it halts on the expansion.
+#guard stepOutcome .unzen (callPre 0xf1 101 [0, 0xd, 1, 0, 2^64, 0, 2^64] false) =
+  .ok (some { gasAfter := 1, outcome := .haltKeep,
+              branch := .call_family_input_size_above_u64_preserve })
+#guard stepOutcome .unzen (callPre 0xf1 102 [0, 0xd, 1, 0, 32, 0, 0] false) =
+  .ok (some { gasAfter := 2, outcome := .haltKeep,
+              branch := .call_family_input_memory_oog_preserve })
+-- The output range expands from the memory the input range left: an output inside the
+-- 64-byte input costs nothing more.
+#guard stepOutcome .unzen (callPre 0xf4 106 [0, 0xd, 0, 64, 0, 32] true) =
+  .ok (some { gasAfter := 0, outcome := .newFrame, branch := .call_family_warm_target_spawn })
+-- The frame gets all but one 64th of the gas left, capped by the gas limit saturated to u64.
+#guard stepOutcome .unzen (callPre 0xfa 6500 [2^256 - 1, 0xd, 0, 0, 0, 0] true) =
+  .ok (some { gasAfter := 100, outcome := .newFrame, branch := .call_family_warm_target_spawn })
+-- The CALL family reads account_warm at the target load; only CALL reads account_empty, and
+-- a CALL to an empty target stops there, so only the other cases read delegate_warm.
+#guard failsWith (stepOutcome .unzen
+  { jumpPre 0 {} with op := 0xfa, gas := 3000, stackLen := 6, stack := [0, 0xd, 0, 0, 0, 0] })
+  "account_warm"
+#guard failsWith (stepOutcome .unzen
+  { jumpPre 0 {} with op := 0xf1, gas := 20000, stackLen := 7, stack := [0, 0xd, 1, 0, 0, 0, 0],
+                      facts := { accountWarm := some true } }) "account_empty"
+-- The transfer cost comes before the target load: CALL of value 1 with 2,900 gas left after its
+-- static gas halts on it without reading a fact.
+#guard stepOutcome .unzen
+    { jumpPre 0 {} with op := 0xf1, gas := 3000, stackLen := 7, stack := [0, 0xd, 1, 0, 0, 0, 0] } =
+  .ok (some { gasAfter := 0, outcome := .haltSpendAll,
+              branch := .call_value_transfer_oog_spend_all })
+#guard failsWith (stepOutcome .unzen
+  { jumpPre 0 {} with op := 0xfa, gas := 3000, stackLen := 6, stack := [0, 0xd, 0, 0, 0, 0],
+                      facts := { accountWarm := some true } }) "delegate_warm"
+#guard stepOutcome .unzen
+    { jumpPre 0 {} with op := 0xf1, gas := 3000, stackLen := 7, stack := [0, 0xd, 0, 0, 0, 0, 0],
+                        facts := { accountWarm := some true, accountEmpty := some true } } =
+  .ok (some { gasAfter := 2900, outcome := .newFrame, branch := .call_family_warm_target_spawn })
+-- The CALL fixture with the step model: its spawn step's gas_after (0x1) is not the model's (the
+-- gas left after forwarding), which the checker does not compare for a step that spawns.
+#guard run callVector callHarness (requireModeled stepModel) =
+  .ok { events := 4, steps := 2, branches := ["call_family_warm_target_spawn", "static_stop_halt"] }
 -- The smoke harness trace with the step model: every step is modeled.
 #guard run smokeHarnessVector smokeHarness (requireModeled stepModel) =
   .ok { events := 5, steps := 4,

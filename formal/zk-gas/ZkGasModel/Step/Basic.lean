@@ -36,15 +36,21 @@ inductive Outcome
   underflow or overflow, an invalid jump, an opcode not activated or not defined, an operand of
   2^64 or more (`InvalidOperandOOG`), a memory expansion the frame cannot pay (`MemoryOOG`), a
   return data range out of bounds (`OutOfOffset`), SSTORE's reentrancy sentry
-  (`ReentrancySentryOOG`), a LOG, SSTORE, TSTORE or SELFDESTRUCT in a static frame
-  (`StateChangeDuringStaticCall`)). `Interpreter::halt` spends the remaining gas only for
+  (`ReentrancySentryOOG`), a LOG, SSTORE, TSTORE, SELFDESTRUCT, CREATE or CREATE2 in a static
+  frame (`StateChangeDuringStaticCall`), a CALL with value in a static frame
+  (`CallNotAllowedInsideStatic`), an initcode above the EIP-3860 limit
+  (`CreateInitCodeSizeLimit`)). `Interpreter::halt` spends the remaining gas only for
   `OutOfGas`. Frame status `halt`. -/
   | haltKeep
   /-- The frame halts out of gas, which spends all its remaining gas (`Interpreter::halt` on
   `OutOfGas`, which a skipped cold account or slot load also is); the step's gas after is 0.
   Frame status `halt`. -/
   | haltSpendAll
-  /-- The step opens a new frame (CALL or CREATE family); it is charged its spawn estimate. -/
+  /-- The step opens a new frame: a CALL or CREATE family instruction pays its charges, takes
+  the gas it forwards and installs `InterpreterAction::NewFrame` (`Suspend`). alethia-reth
+  charges it its spawn estimate instead of the measured step gas. Whatever the frame then does
+  (it may run no code, or fail on the depth, balance, nonce or address checks of the handler)
+  does not change this outcome. -/
   | newFrame
   deriving Repr, DecidableEq
 
@@ -61,13 +67,21 @@ end; LOG0..LOG4; BALANCE, EXTCODESIZE and EXTCODEHASH). Cells that differ only i
 that make one check fail (a memory size that is one gas short, passes 2^64, rounds up to 2^64
 or is above 0x1FFFFFFFE0 bytes all fail the expansion charge) share that check's branch. A zero
 length that returns early is its own branch; one that only skips the memory checks before a
-later check (RETURN and REVERT, LOG, EXTCODECOPY) shares the branch of the check that ends the
-step.
+later check (RETURN and REVERT, LOG, EXTCODECOPY, the CALL family's ranges, CREATE and CREATE2)
+shares the branch of the check that ends the step.
 
 Where the state facts decide what a charge includes (a cold surcharge, SSTORE's set or reset
-cost, SELFDESTRUCT's new-account charge), each combination it can include is its own success
-branch, and the charge failing is one branch whatever it included. Cells about the accounts or
-slots a frame leaves warm span several steps; the comment of each step's branch names them. -/
+cost, SELFDESTRUCT's new-account charge, the CALL family's new-account and EIP-7702 delegate
+costs), each combination it can include is its own success branch, and the charge failing is one
+branch whatever it included; a cold load skipped for lack of gas before the charge is a branch of
+its own. A charge that only some steps pay (the CALL family's value transfer) splits the success
+branches the same way. A step that opens a new frame has its success branches too (`..._spawn`,
+`..._spawn_estimate`). Cells about the accounts or slots a frame leaves warm span several steps;
+the comment of each step's branch names them.
+
+The four CALL-family opcodes share their branches where they run the same checks: DELEGATECALL
+and STATICCALL pop no value and so never transfer one; only CALL checks a value in a static
+frame and charges a new account. CREATE and CREATE2 share their branches up to CREATE2's salt. -/
 inductive BranchId
   /-- Any modeled opcode that cannot pay its static gas: `Interpreter::step` returns `OutOfGas`
   before the instruction runs, and the halt spends all remaining gas. Cells
@@ -77,9 +91,9 @@ inductive BranchId
   `log.static_frame.static_oog_spend_all`, `sload.sload.static_oog_spend_all`,
   `account.access.static_oog_spend_all`, `selfdestruct.selfdestruct.static_oog_spend_all`,
   `transient.tload.static_oog_spend_all`, `transient.tstore.static_oog_spend_all`,
-  `transient.static_frame.tstore_static_oog_spend_all`, and the out-of-gas half of
-  `static.step.oog_before_underflow` and `static.step.oog_before_overflow`. SSTORE has no
-  static gas. -/
+  `transient.static_frame.tstore_static_oog_spend_all`, `call.family.static_oog_spend_all`, and
+  the out-of-gas half of `static.step.oog_before_underflow` and
+  `static.step.oog_before_overflow`. SSTORE, CREATE and CREATE2 have no static gas. -/
   | static_step_static_oog_spend_all
   /-- STOP ends the frame successfully keeping its gas (new name; no cell). -/
   | static_stop_halt
@@ -420,6 +434,145 @@ inductive BranchId
   /-- SELFDESTRUCT of a contract holding value to a cold, empty beneficiary:
   5,000 + 2,600 + 25,000. -/
   | selfdestruct_new_account_cold_success
+  /-- A CALL-family opcode whose stack runs out at either of its pops (the gas limit, the target
+  and, for CALL and CALLCODE, the value; then the four memory operands), after its 100 static
+  gas and before any charge. -/
+  | call_family_underflow_preserve
+  /-- CALL with a non-zero value in a static frame: `CallNotAllowedInsideStatic` after it pops
+  the gas limit, the target and the value and before it pops the memory operands, keeping the
+  gas left after its 100 static gas. -/
+  | call_call_static_frame_value_halt_preserve
+  /-- A CALL-family input length of 2^64 or more, before any charge. -/
+  | call_family_input_size_above_u64_preserve
+  /-- A CALL-family input offset of 2^64 or more with a non-zero length, before any charge. -/
+  | call_family_input_offset_above_u64_preserve
+  /-- A CALL-family input range whose expansion the frame cannot pay: `MemoryOOG`, keeping the
+  gas. -/
+  | call_family_input_memory_oog_preserve
+  /-- A CALL-family output length of 2^64 or more, after the input expansion. -/
+  | call_family_output_size_above_u64_keeps_input_charge
+  /-- A CALL-family output offset of 2^64 or more with a non-zero length, after the input
+  expansion. -/
+  | call_family_output_offset_above_u64_keeps_input_charge
+  /-- A CALL-family output range whose expansion, from the memory size after the input
+  expansion, the frame cannot pay: `MemoryOOG`, keeping the gas; also
+  `call.family.output_end_above_u64_keeps_input_charge`,
+  `call.family.output_word_rounding_overflow_keeps_input_charge` and
+  `call.family.output_size_above_cap_keeps_input_charge`. -/
+  | call_family_output_memory_oog_keeps_input_charge
+  /-- CALL or CALLCODE with a non-zero value that cannot pay the 9,000 transfer cost after its
+  memory: the halt spends all gas. -/
+  | call_value_transfer_oog_spend_all
+  /-- A CALL-family opcode to a cold target with less than the 2,500 surcharge left after its
+  memory and transfer cost: the skipped cold load spends all gas; also the CALLCODE step of
+  `call.callcode.value_no_new_account_charge` one gas short of 9,000 + 2,500. -/
+  | call_family_cold_surcharge_oog_spend_all
+  /-- CALL with a non-zero value to an empty target that cannot pay the 25,000 new-account cost
+  (plus 2,500 when the target was cold): the halt spends all gas. -/
+  | call_call_new_account_oog_spend_all
+  /-- A CALL-family opcode to an EIP-7702 delegated target with less than the 100 delegate read
+  (plus 2,500 when the target was cold) left: the delegate load fails with `ColdLoadSkipped`,
+  which spends all gas (new name; no cell, and no corpus step). -/
+  | call_family_delegate_read_oog_spend_all
+  /-- A CALL-family opcode to an EIP-7702 delegated target whose cold delegate's 2,500
+  surcharge does not fit after the delegate read: the skipped cold load spends all gas (new
+  name; no cell, and no corpus step). -/
+  | call_family_delegate_cold_surcharge_oog_spend_all
+  /-- A CALL-family opcode without a value transfer to a warm target without a delegation opens
+  its frame: no charge beyond its 100 static gas and its memory. Cell
+  `call.family.warm_target_spawn`; also the warm-target steps of the four
+  `call.*.new_frame_spawn_estimate` cells and of `call.family.empty_code_spawn_estimate`, and
+  `call.family.input_expansion_spawn`, `call.family.output_expansion_spawn`,
+  `call.family.zero_size_no_expansion`, `call.family.precompile_spawn_estimate`,
+  `call.depth.deepest_frame_created` and `call.depth.limit_short_circuit_spawn_estimate`. A CALL
+  with value 0 to an empty target pays no new-account cost. -/
+  | call_family_warm_target_spawn
+  /-- The same to a cold target: the 2,500 surcharge. Cell `call.family.cold_target_spawn`; also
+  the cold-target steps of the four `call.*.new_frame_spawn_estimate` cells and of
+  `call.family.empty_code_spawn_estimate`, and `call.call.static_frame_zero_value_allowed`,
+  `call.family.spawn_limit_exact_committed` and `call.family.spawn_limit_exceeded_aborted`. -/
+  | call_family_cold_target_spawn
+  /-- No value transfer, a warm target delegated to a warm address: the 100 delegate read (new
+  name; no cell, and no corpus step). -/
+  | call_family_warm_target_warm_delegate_spawn
+  /-- No value transfer, a warm target delegated to a cold address: 100 + 2,500 for the
+  delegate (new name; no cell, and no corpus step). -/
+  | call_family_warm_target_cold_delegate_spawn
+  /-- No value transfer, a cold target delegated to a warm address: 2,500 + 100 (new name; cell
+  `call.family.delegated_to_precompile_empty_code`). -/
+  | call_family_cold_target_warm_delegate_spawn
+  /-- No value transfer, a cold target delegated to a cold address: 2,500 + 100 + 2,500 (new
+  name; no cell, and no corpus step). -/
+  | call_family_cold_target_cold_delegate_spawn
+  /-- CALL or CALLCODE with a non-zero value to a warm target without a delegation, and no
+  new-account cost: 9,000 (new name; cells `call.value.transfer_success` and
+  `call.callcode.static_frame_value_allowed`, and warm steps of
+  `call.value.insufficient_balance_no_frame`). -/
+  | call_value_warm_target_spawn
+  /-- The same to a cold target: 9,000 + 2,500 (new name; cell
+  `call.callcode.value_no_new_account_charge`: CALLCODE to an empty target pays no new-account
+  cost; and cold steps of `call.value.insufficient_balance_no_frame`). -/
+  | call_value_cold_target_spawn
+  /-- CALL with a non-zero value to a warm empty target (a precompile included):
+  9,000 + 25,000 (new name; the CALL steps of `precompile.call_value.stipend_counts_as_supplied`
+  and one step of `call.value.insufficient_balance_no_frame`). -/
+  | call_call_new_account_warm_target_spawn
+  /-- CALL with a non-zero value to a cold empty target: 9,000 + 2,500 + 25,000 (new name; cell
+  `call.call.new_account_success`). -/
+  | call_call_new_account_cold_target_spawn
+  /-- A value transfer to a warm target delegated to a warm address: 9,000 + 100 (new name; no
+  cell, and no corpus step). -/
+  | call_value_warm_target_warm_delegate_spawn
+  /-- A value transfer to a warm target delegated to a cold address: 9,000 + 100 + 2,500 (new
+  name; no cell, and no corpus step). -/
+  | call_value_warm_target_cold_delegate_spawn
+  /-- A value transfer to a cold target delegated to a warm address: 9,000 + 2,500 + 100 (new
+  name; no cell, and no corpus step). -/
+  | call_value_cold_target_warm_delegate_spawn
+  /-- A value transfer to a cold target delegated to a cold address: 9,000 + 2,500 + 100 +
+  2,500 (new name; no cell, and no corpus step). -/
+  | call_value_cold_target_cold_delegate_spawn
+  /-- CREATE or CREATE2 in a static frame: `StateChangeDuringStaticCall` before any pop or
+  charge, keeping all the gas. -/
+  | create_family_static_frame_halt_preserve
+  /-- CREATE or CREATE2 with fewer than three stack items (value, offset, length). -/
+  | create_family_underflow_preserve
+  /-- CREATE or CREATE2 with a length of 2^64 or more, before any charge. -/
+  | create_family_size_above_u64_preserve
+  /-- CREATE or CREATE2 with an initcode longer than 49,152 bytes: `CreateInitCodeSizeLimit`
+  before any charge, keeping all the gas. -/
+  | create_family_initcode_above_limit_preserve
+  /-- CREATE or CREATE2 that cannot pay the 2 gas per initcode word: the halt spends all gas. -/
+  | create_family_initcode_word_cost_oog_spend_all
+  /-- CREATE or CREATE2 at an offset of 2^64 or more with a non-zero length, after the initcode
+  word cost. -/
+  | create_family_offset_above_u64_preserve_after_initcode
+  /-- CREATE or CREATE2 that pays the initcode word cost but not its expansion: `MemoryOOG`,
+  keeping the gas. -/
+  | create_family_memory_oog_preserve_after_initcode
+  /-- CREATE2 with exactly three stack items: the missing salt halts after the initcode word
+  cost and expansion (none for a zero length), keeping the gas. -/
+  | create_create2_salt_underflow_after_charges_preserve
+  /-- CREATE that cannot pay its 32,000 base after its initcode word cost and expansion (none
+  for a zero length): the halt spends all gas. -/
+  | create_create_base_oog_spend_all
+  /-- CREATE2 that cannot pay its one charge of the 32,000 base plus 6 gas per initcode word
+  after its initcode word cost and expansion: the halt spends all gas. -/
+  | create_create2_hash_oog_spend_all
+  /-- CREATE that pays its initcode word cost, expansion and base and opens its frame; also
+  `create.family.zero_size_no_initcode_charges` (a zero length skips the initcode charges and
+  the offset), `create.family.initcode_at_limit_spawn`,
+  `create.family.spawn_limit_exact_committed`, `create.family.spawn_limit_exceeded_aborted`, the
+  frame-level failures `create.family.insufficient_balance_spawn_estimate`,
+  `create.family.nonce_overflow_spawn_estimate`, `create.family.collision_spawn_estimate`,
+  `create.family.depth_deepest_frame_created` and `create.family.depth_limit_spawn_estimate`,
+  and the CREATE steps of `create.family.initcode_revert_gas_returned` and
+  `create.family.code_deposit_in_frame_return`. -/
+  | create_create_new_frame_spawn_estimate
+  /-- CREATE2 that pays its initcode word cost, expansion, base and hashing cost and opens its
+  frame; also the CREATE2 steps of the cells `create_create_new_frame_spawn_estimate` lists, and
+  `create.family.initcode_halt_gas_consumed`. -/
+  | create_create2_new_frame_spawn_estimate
   /-- An opcode revm does not define (no static gas): `OpcodeNotFound`. -/
   | undefined_opcode_zero_gas_halt
   /-- INVALID (0xfe, no static gas): `InvalidFEOpcode`. -/
@@ -549,11 +702,60 @@ def BranchId.name : BranchId → String
   | .selfdestruct_selfdestruct_cold_success => "selfdestruct_selfdestruct_cold_success"
   | .selfdestruct_new_account_warm_success => "selfdestruct_new_account_warm_success"
   | .selfdestruct_new_account_cold_success => "selfdestruct_new_account_cold_success"
+  | .call_family_underflow_preserve => "call_family_underflow_preserve"
+  | .call_call_static_frame_value_halt_preserve => "call_call_static_frame_value_halt_preserve"
+  | .call_family_input_size_above_u64_preserve => "call_family_input_size_above_u64_preserve"
+  | .call_family_input_offset_above_u64_preserve => "call_family_input_offset_above_u64_preserve"
+  | .call_family_input_memory_oog_preserve => "call_family_input_memory_oog_preserve"
+  | .call_family_output_size_above_u64_keeps_input_charge =>
+    "call_family_output_size_above_u64_keeps_input_charge"
+  | .call_family_output_offset_above_u64_keeps_input_charge =>
+    "call_family_output_offset_above_u64_keeps_input_charge"
+  | .call_family_output_memory_oog_keeps_input_charge =>
+    "call_family_output_memory_oog_keeps_input_charge"
+  | .call_value_transfer_oog_spend_all => "call_value_transfer_oog_spend_all"
+  | .call_family_cold_surcharge_oog_spend_all => "call_family_cold_surcharge_oog_spend_all"
+  | .call_call_new_account_oog_spend_all => "call_call_new_account_oog_spend_all"
+  | .call_family_delegate_read_oog_spend_all => "call_family_delegate_read_oog_spend_all"
+  | .call_family_delegate_cold_surcharge_oog_spend_all =>
+    "call_family_delegate_cold_surcharge_oog_spend_all"
+  | .call_family_warm_target_spawn => "call_family_warm_target_spawn"
+  | .call_family_cold_target_spawn => "call_family_cold_target_spawn"
+  | .call_family_warm_target_warm_delegate_spawn => "call_family_warm_target_warm_delegate_spawn"
+  | .call_family_warm_target_cold_delegate_spawn => "call_family_warm_target_cold_delegate_spawn"
+  | .call_family_cold_target_warm_delegate_spawn => "call_family_cold_target_warm_delegate_spawn"
+  | .call_family_cold_target_cold_delegate_spawn => "call_family_cold_target_cold_delegate_spawn"
+  | .call_value_warm_target_spawn => "call_value_warm_target_spawn"
+  | .call_value_cold_target_spawn => "call_value_cold_target_spawn"
+  | .call_call_new_account_warm_target_spawn => "call_call_new_account_warm_target_spawn"
+  | .call_call_new_account_cold_target_spawn => "call_call_new_account_cold_target_spawn"
+  | .call_value_warm_target_warm_delegate_spawn => "call_value_warm_target_warm_delegate_spawn"
+  | .call_value_warm_target_cold_delegate_spawn => "call_value_warm_target_cold_delegate_spawn"
+  | .call_value_cold_target_warm_delegate_spawn => "call_value_cold_target_warm_delegate_spawn"
+  | .call_value_cold_target_cold_delegate_spawn => "call_value_cold_target_cold_delegate_spawn"
+  | .create_family_static_frame_halt_preserve => "create_family_static_frame_halt_preserve"
+  | .create_family_underflow_preserve => "create_family_underflow_preserve"
+  | .create_family_size_above_u64_preserve => "create_family_size_above_u64_preserve"
+  | .create_family_initcode_above_limit_preserve => "create_family_initcode_above_limit_preserve"
+  | .create_family_initcode_word_cost_oog_spend_all =>
+    "create_family_initcode_word_cost_oog_spend_all"
+  | .create_family_offset_above_u64_preserve_after_initcode =>
+    "create_family_offset_above_u64_preserve_after_initcode"
+  | .create_family_memory_oog_preserve_after_initcode =>
+    "create_family_memory_oog_preserve_after_initcode"
+  | .create_create2_salt_underflow_after_charges_preserve =>
+    "create_create2_salt_underflow_after_charges_preserve"
+  | .create_create_base_oog_spend_all => "create_create_base_oog_spend_all"
+  | .create_create2_hash_oog_spend_all => "create_create2_hash_oog_spend_all"
+  | .create_create_new_frame_spawn_estimate => "create_create_new_frame_spawn_estimate"
+  | .create_create2_new_frame_spawn_estimate => "create_create2_new_frame_spawn_estimate"
   | .undefined_opcode_zero_gas_halt => "undefined_opcode_zero_gas_halt"
   | .undefined_invalid_zero_gas_halt => "undefined_invalid_zero_gas_halt"
 
 /-- A modeled step: the frame's gas after it, how it ended and the branch that decided it.
-`gasAfter` is only for reference when the step opens a new frame. -/
+When the step opens a new frame, `gasAfter` is the gas left after the gas it forwards; the
+meter does not use it (it charges the spawn estimate), so the trace checker does not compare
+it. -/
 structure StepResult where
   gasAfter : Nat
   outcome : Outcome
