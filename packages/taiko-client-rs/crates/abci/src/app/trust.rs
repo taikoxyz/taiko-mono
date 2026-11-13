@@ -496,9 +496,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
         };
         let Some(state) = &self.state else { return Ok(()) };
         check_identity(state, &target)?;
-        // An imported node is trusted only once this process checked its execution floor
-        // (SYNC-9-7); the startup reconciliation does that, never this worker.
-        if state.execution_floor.is_some() && !self.el_reconciled {
+        // An imported node is trusted only once the app checked its execution floor on the
+        // current ABCI connections (SYNC-9-7); the handshake reconciliation does that, never
+        // this worker.
+        if state.execution_floor.is_some() && !self.el_reconciled() {
             snapshot.reason = Some("waiting for the startup execution floor check".into());
             return Ok(());
         }

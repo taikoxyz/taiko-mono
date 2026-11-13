@@ -31,18 +31,22 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// generation origin B* or c (no new-generation block committed): CometBFT's store is empty and
     /// only accepts an app at height 0, to which it re-sends `InitChain`.
     ///
-    /// With a state, the first `Info` after the process started (CometBFT's handshake) first
-    /// reconciles the EL with it ([`App::reconcile_el_once`]), so the handshake replays on top
-    /// of an EL that holds the committed head; temporary failures leave the same request pending
-    /// until reconciliation succeeds. Once a reconcile (or `InitChain`) succeeded, `Info` answers
-    /// from the committed state alone: CometBFT also sends `Info` for every RPC `/abci_info`
-    /// call, on the same sequential worker as consensus, and an EL hiccup there must neither
-    /// delay consensus nor fail the connection.
+    /// With a state, the first `Info` on a new set of ABCI connections (CometBFT's handshake)
+    /// first reconciles the EL with it ([`App::reconcile_el_once`]), so the handshake replays on
+    /// top of an EL that holds the committed head and `Info` never reports a height the EL does
+    /// not hold (CONS-3.1-9); temporary failures leave the same request pending until
+    /// reconciliation succeeds. The EL is checked again once per connection set because
+    /// CometBFT handshakes after every start, including a restart under this running app: the
+    /// server bumps [`App::connections`] for every connection it accepts. Within one connection
+    /// set, once a reconcile (or `InitChain`) succeeded, `Info` answers from the committed state
+    /// alone: CometBFT also sends `Info` for every RPC `/abci_info` call, over its existing
+    /// connection and on the same sequential worker as consensus, and an EL hiccup there must
+    /// neither delay consensus nor fail the connection.
     ///
-    /// Independent Comet restarts rearm the private signer session. Its bounded background
-    /// trust check rechecks the durable EL head and checkpoint ancestry; ordinary Info calls
-    /// retain this fast once-per-process reconciliation behavior and never wait for a future
-    /// checkpoint height. Missing ancestry keeps signing closed while replay can continue.
+    /// Independent Comet restarts also rearm the private signer session. Its bounded background
+    /// trust check rechecks the durable EL head and checkpoint ancestry; `Info` never waits for
+    /// a future checkpoint height. Missing ancestry keeps signing closed while replay can
+    /// continue.
     pub(super) async fn info(&mut self, _req: request::Info) -> Result<response::Info, AbciError> {
         self.reconcile_el_once("startup Info").await?;
         let (last_block_height, last_block_app_hash) = match &self.state {
@@ -60,23 +64,28 @@ impl<L: L1Source, E: Engine> App<L, E> {
         })
     }
 
-    /// Reconciles the EL with the committed state ([`App::reconcile_el`]) once per process:
-    /// a no-op without a state or once a reconcile (or `InitChain`) succeeded. Each failed
-    /// attempt is handled by its class ([`App::await_startup_input`], SYNC-9-7): missing data
-    /// keeps trust closed and retries on the same request after a [`Backoff`] pause labelled
-    /// `what`, a contradiction halts, any other error fails the request.
+    /// Reconciles the EL with the committed state ([`App::reconcile_el`]) once per set of ABCI
+    /// connections: a no-op without a state or once a reconcile (or `InitChain`) succeeded since
+    /// the server accepted its latest connection ([`App::el_reconciled`]). Each failed attempt is
+    /// handled by its class ([`App::await_startup_input`], SYNC-9-7): missing data keeps trust
+    /// closed and retries on the same request after a [`Backoff`] pause labelled `what`, a
+    /// contradiction halts, any other error fails the request.
+    ///
+    /// Success records the connection count read before the reconcile started, so a connection
+    /// accepted meanwhile makes the next `Info` reconcile again.
     ///
     /// [`Backoff`]: super::finalize::Backoff
     pub(super) async fn reconcile_el_once(&mut self, what: &'static str) -> Result<(), AbciError> {
         let Some(state) = &self.state else { return Ok(()) };
-        if self.el_reconciled {
+        if self.el_reconciled() {
             return Ok(());
         }
+        let epoch = self.connections.current();
         let mut backoff = super::finalize::Backoff::startup(what, state.last_height);
         while let Err(error) = self.reconcile_el(state).await {
             self.await_startup_input(&mut backoff, "EL reconciliation", error).await?;
         }
-        self.el_reconciled = true;
+        self.el_reconciled_epoch = Some(epoch);
         Ok(())
     }
 

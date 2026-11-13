@@ -730,14 +730,17 @@ committing those values to the Inbox.
   the pair; allow the supervisor to send SIGKILL when its graceful stop expires. Preserve the
   CometBFT home, validator signing state and ABCI store so the normal handshake can recover.
   This is a CometBFT process-lifecycle limitation, not a request to edit or discard chain state.
-- The app checks alethia-reth against its committed head at CometBFT's first handshake `Info`
-  (once per process) and syncs alethia-reth to that head if it lacks it. A later CometBFT restart
-  under a running app does not repeat that `Info` check. On a validator it reconnects
-  `etna-signer`, and every new trust session re-checks the committed head before signing reopens.
-- If alethia-reth restarted or crashed while the app kept running, it may come back without its
-  last blocks: restart the app and CometBFT so the next handshake re-checks it. Until then
-  `FinalizeBlock` keeps retrying a block alethia-reth cannot execute, logging at ERROR after a
-  minute.
+- The app checks alethia-reth against its committed head at every CometBFT handshake `Info`
+  and syncs alethia-reth to that head if it lacks it; until then that `Info` stays pending, so
+  CometBFT never sees a height alethia-reth does not hold. The check runs once per set of ABCI
+  connections: a CometBFT restart under a running app opens new connections and is checked
+  again, while RPC `/abci_info` calls on the open connections answer from the committed state.
+  On a validator a CometBFT restart also reconnects `etna-signer`, and every new trust session
+  re-checks the committed head before signing reopens.
+- If alethia-reth restarted or crashed while the app and CometBFT kept running, it may come back
+  without its last blocks: restart CometBFT (or the pair) so the next handshake re-checks it.
+  Until then `FinalizeBlock` keeps retrying a block alethia-reth cannot execute, logging at ERROR
+  after a minute.
 - Replay and block sync need the own L1 node. For each block the node never judged whose
   envelope carries an anchor witness, `FinalizeBlock` requires the own L1 to have finalized that
   very header (plus the extra finality depth), as `ProcessProposal` does. So the L1 node must

@@ -198,6 +198,35 @@ async fn answers_echo_and_info_over_tcp() {
     assert!(halts.try_recv().is_err(), "no halt");
 }
 
+/// Every accepted ABCI connection bumps the app's connection count, so a CometBFT that
+/// reconnects under the running app handshakes on a new count (CONS-3.1-9); requests on an
+/// open connection, such as RPC `/abci_info` calls, leave it unchanged.
+#[tokio::test]
+async fn every_accepted_connection_bumps_the_app_connection_epoch() {
+    let dir = tempfile::tempdir().unwrap();
+    let (hook, _halts) = recording_hook();
+    let app = fixture_app(dir.path());
+    let connections = app.connections().clone();
+    assert_eq!(connections.current(), 0);
+    let (server, mut first) = start(app, hook).await;
+    let addr = first.peer_addr().unwrap();
+    let mut buf = Vec::new();
+    for _ in 0..3 {
+        send(&mut first, &[pb_info()]).await;
+        assert!(matches!(recv_value(&mut first, &mut buf).await, pb::response::Value::Info(_)));
+    }
+    assert_eq!(connections.current(), 1, "requests on one connection count it once");
+
+    for count in 2..=5 {
+        let mut stream = TcpStream::connect(addr).await.unwrap();
+        let mut buf = Vec::new();
+        send(&mut stream, &[pb_echo("again")]).await;
+        assert!(matches!(recv_value(&mut stream, &mut buf).await, pb::response::Value::Echo(_)));
+        assert_eq!(connections.current(), count);
+    }
+    assert!(!server.is_finished());
+}
+
 /// Connects to the unix socket at `path`, retrying until the server listens.
 async fn connect_unix(
     path: &Path,

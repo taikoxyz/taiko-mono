@@ -1374,7 +1374,7 @@ fn restart_as_imported(app: &mut App<MockL1, MockEngine>) -> crate::store::Execu
     let state = app.state.as_mut().expect("initialized");
     let floor = crate::store::ExecutionFloor { number: state.last_height, hash: state.parent.hash };
     state.execution_floor = Some(floor);
-    app.el_reconciled = false;
+    app.el_reconciled_epoch = None;
     floor
 }
 
@@ -1430,7 +1430,7 @@ async fn finalize_block_first_checks_the_execution_floor() {
         if matching {
             result.expect("the EL serves the floor and its state");
             assert!(app.pending.is_some());
-            assert!(app.el_reconciled);
+            assert!(app.el_reconciled());
         } else {
             let error = result.expect_err("the EL contradicts the import");
             assert!(matches!(error, AbciError::SafetyHalt(ref m) if m.contains("execution floor")));

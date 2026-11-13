@@ -5,7 +5,10 @@ use std::time::Duration;
 use alloy_primitives::{Address, B256};
 use tendermint::{Time, block::Height, vote};
 
-use super::*;
+use super::{
+    proposal::{bft_time, finalize, finalize_req, hand_envelope, next_height, process_req},
+    *,
+};
 use crate::{
     committee::{self, CommitteeError, VerifiedWitness},
     engine::PayloadVerdict,
@@ -189,6 +192,39 @@ async fn init_chain_is_idempotent_at_genesis() {
     reordered.validators.reverse();
     let resp = init_chain(&mut app, reordered.clone()).await.expect("same genesis");
     assert!(resp.validators.is_empty());
+}
+
+/// CONS-3.1-9, vectors 9.r and 9.s: with S = 0 the node crashed between `FinalizeBlock` and
+/// `Commit` of block 1. The restarted app still reports height 0 although the EL holds block 1,
+/// CometBFT re-sends `InitChain`, and it answers the same `app_hash` as the first time; CometBFT
+/// then finalizes block 1 again, with the same result.
+#[tokio::test]
+async fn re_sent_init_chain_after_a_crash_in_block_one_returns_the_same_app_hash() {
+    let fx = Fixture::genesis(2);
+    assert_eq!(fx.genesis.genesis_height, 0, "S = 0");
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = fx.app(dir.path());
+    let first = init_chain(&mut app, fx.request.clone()).await.expect("InitChain succeeds");
+
+    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), fx.genesis.l1_0)), None);
+    let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
+    let decided = finalize(&mut app, finalize_req(&req)).await.expect("FinalizeBlock of block 1");
+    let block_one = (fx.genesis.genesis_height + 1, env.block.header.clone());
+    assert_eq!(app.engine().state().chain.get(&block_one.0), Some(&block_one.1), "EL holds it");
+    let engine = app.engine().reopen();
+    drop(app); // Crash before Commit: the store still holds the origin state.
+
+    let mut app = app_with(fx.l1(), engine, fx.params.clone(), dir.path(), AppOptions::default());
+    assert_eq!(app.state(), Some(&fx.expected_state()));
+    let resp = info(&mut app).await.expect("Info succeeds");
+    assert_eq!(resp.last_block_height.value(), 0, "block 1 was never committed");
+    assert!(resp.last_block_app_hash.as_bytes().is_empty());
+    let again = init_chain(&mut app, fx.request.clone()).await.expect("re-sent InitChain");
+    assert_eq!(again.app_hash, first.app_hash);
+    assert_eq!(again, first);
+    assert_eq!(app.engine().state().chain.get(&block_one.0), Some(&block_one.1), "still held");
+    let replayed = finalize(&mut app, finalize_req(&req)).await.expect("FinalizeBlock again");
+    assert_eq!(replayed, decided);
 }
 
 /// InitChain records the generation's genesis validator state at its origin as an immutable

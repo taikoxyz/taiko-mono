@@ -5,6 +5,8 @@
 //! forwards them through clones of [`AppService`] into one sequential app worker. Each
 //! connection retains request/response order; the private trust socket remains independent.
 //! No two consensus handlers run concurrently, so the app needs no consensus-state locking.
+//! Every accepted connection bumps the app's [`ConnectionEpoch`], so that the handshake of a
+//! CometBFT that reconnects under the running app reconciles the EL again.
 //!
 //! An [`AbciError::SafetyHalt`] is logged at ERROR and answered as an error; then the
 //! [`HaltHook`] runs (in production [`ExitProcess`], which exits the process with
@@ -21,6 +23,10 @@ use std::{
     future::Future,
     path::{Path, PathBuf},
     pin::Pin,
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
     task::{Context, Poll},
 };
 
@@ -135,8 +141,37 @@ impl<F: Fn(&str) + Send + 'static> HaltHook for F {
     }
 }
 
+/// The number of ABCI connections the server accepted, shared between the server and the
+/// [`App`]: [`serve_with`] bumps it for every connection it accepts.
+///
+/// CometBFT opens a new set of connections every time it starts, and its handshake `Info` runs
+/// on that set. A count that changed since the app last reconciled the EL therefore tells the
+/// app that the next `Info` belongs to a new handshake, even when CometBFT restarted under a
+/// running app (CONS-3.1-9). RPC `/abci_info` calls travel over an existing connection and leave
+/// it unchanged.
+#[derive(Clone, Debug, Default)]
+pub struct ConnectionEpoch(Arc<AtomicU64>);
+
+impl ConnectionEpoch {
+    /// Counts one more accepted ABCI connection.
+    pub fn bump(&self) {
+        self.0.fetch_add(1, Ordering::SeqCst);
+    }
+
+    /// The number of ABCI connections accepted so far.
+    pub fn current(&self) -> u64 {
+        self.0.load(Ordering::SeqCst)
+    }
+}
+
 /// Something that answers ABCI requests one at a time: the [`App`], or a test double.
 pub trait AbciHandler: Send + 'static {
+    /// The connection count the server bumps for every accepted ABCI connection; test handlers
+    /// need not watch it.
+    fn connection_epoch(&self) -> Option<ConnectionEpoch> {
+        None
+    }
+
     /// Optional checkpoint control handle/path; test handlers need not expose trust.
     fn checkpoint_control(&self) -> Option<(crate::app::trust::TrustHandle, PathBuf)> {
         None
@@ -155,6 +190,11 @@ pub trait AbciHandler: Send + 'static {
 }
 
 impl<L: L1Source, E: Engine> AbciHandler for App<L, E> {
+    /// Shares the app's connection count, so that a new handshake reconciles the EL again.
+    fn connection_epoch(&self) -> Option<ConnectionEpoch> {
+        Some(self.connections().clone())
+    }
+
     /// Shares the private control capability without sharing mutable consensus state.
     fn checkpoint_control(&self) -> Option<(crate::app::trust::TrustHandle, PathBuf)> {
         Some((self.trust_handle(), self.trust_control_path()))
@@ -245,6 +285,7 @@ pub async fn serve_with<H: AbciHandler, K: HaltHook>(
         remove_stale_socket(addr, path).await?;
     }
     let control = handler.checkpoint_control();
+    let epoch = handler.connection_epoch().unwrap_or_default();
     let control_task = if let Some((trust, path)) = &control {
         let listener = trust_control::bind(path).await?;
         let trust = trust.clone();
@@ -262,7 +303,7 @@ pub async fn serve_with<H: AbciHandler, K: HaltHook>(
         tasks.push(task.abort_handle());
     }
     let _lifecycle = ServerTasks { tasks, trust: control.map(|(trust, _)| trust) };
-    let listen = listen_native(listen_addr, service);
+    let listen = listen_native(listen_addr, service, epoch);
     let control_watch = async move {
         match control_task {
             Some(task) => {
@@ -440,7 +481,12 @@ mod tests;
 const MAX_ABCI_MESSAGE_BYTES: usize = 100 * 1024 * 1024;
 
 /// Accepts independent Comet connections and cancels every connection on listener shutdown.
-async fn listen_native(addr: ListenAddr, service: AppService) -> Result<(), BoxError> {
+/// Each accepted connection bumps `epoch` before its first request can reach the worker.
+async fn listen_native(
+    addr: ListenAddr,
+    service: AppService,
+    epoch: ConnectionEpoch,
+) -> Result<(), BoxError> {
     let mut connections = tokio::task::JoinSet::new();
     match addr {
         ListenAddr::Tcp(addr) => {
@@ -449,6 +495,7 @@ async fn listen_native(addr: ListenAddr, service: AppService) -> Result<(), BoxE
                 tokio::select! {
                     accepted = listener.accept() => {
                         let (socket, _) = accepted?;
+                        epoch.bump();
                         connections.spawn(native_connection(socket, service.clone()));
                     }
                     _ = connections.join_next(), if !connections.is_empty() => {}
@@ -461,6 +508,7 @@ async fn listen_native(addr: ListenAddr, service: AppService) -> Result<(), BoxE
                 tokio::select! {
                     accepted = listener.accept() => {
                         let (socket, _) = accepted?;
+                        epoch.bump();
                         connections.spawn(native_connection(socket, service.clone()));
                     }
                     _ = connections.join_next(), if !connections.is_empty() => {}

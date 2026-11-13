@@ -38,8 +38,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// request pending; authenticated contradictions still fail for safety.
     ///
     /// See [`App::verify_genesis`] for the checks; as they make sure the EL serves `B*`, a
-    /// successful `InitChain` also counts as this process's EL reconcile (see [`App::info`]).
-    /// Answers with the authenticated origin EL hash: H* or ELHash(c).
+    /// successful `InitChain` also counts as the EL reconcile of the current set of ABCI
+    /// connections (see [`App::info`]). Answers with the authenticated origin EL hash: H* or
+    /// ELHash(c), the same on every re-sent `InitChain`, even when the EL already holds the
+    /// generation's first block after a crash before its `Commit` (CONS-3.1-9).
     pub(super) async fn init_chain(
         &mut self,
         req: request::InitChain,
@@ -49,6 +51,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             Some(state) if at_generation_origin(state) => true,
             Some(_) => return Err(AbciError::AlreadyInitialized),
         };
+        let epoch = self.connections.current();
         let origin = req.initial_height.value().saturating_sub(1);
         let mut backoff = Backoff::startup("InitChain", origin);
         let state = loop {
@@ -83,7 +86,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             self.state = Some(state);
             self.publish_state_metrics();
         }
-        self.el_reconciled = true;
+        self.el_reconciled_epoch = Some(epoch);
         self.trust.committed(self.state.as_ref().expect("initialized state"));
 
         Ok(response::InitChain {

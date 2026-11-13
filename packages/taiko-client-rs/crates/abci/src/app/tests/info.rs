@@ -34,7 +34,7 @@ async fn info_before_init_chain_reports_height_zero() {
 
 /// Before the first PoS block CometBFT's store is empty: it accepts only an app at height 0
 /// (and then re-sends InitChain). `InitChain` already made sure the EL holds `B*`, so a later
-/// `Info` of the same process does not ask the EL again.
+/// `Info` on the same ABCI connections does not ask the EL again.
 #[tokio::test]
 async fn info_at_genesis_reports_height_zero() {
     let fx = Fixture::genesis(2);
@@ -64,10 +64,13 @@ async fn info_retries_transient_engine_failure_on_the_same_abci_request() {
 }
 
 /// CometBFT also sends `Info` for every RPC `/abci_info` call, on the same sequential worker as
-/// consensus: only the first `Info` after a start (the handshake) reconciles the EL, later ones
-/// answer from the committed state without EL I/O.
+/// consensus: within one set of ABCI connections only the first `Info` (the handshake)
+/// reconciles the EL, later ones answer from the committed state without EL I/O. A CometBFT
+/// restart under the running app opens new connections and handshakes again: its `Info`
+/// reconciles the EL again and answers only once the EL holds the committed head
+/// (CONS-3.1-9, vector 9.o).
 #[tokio::test(start_paused = true)]
-async fn only_the_first_info_after_a_start_reconciles_the_el() {
+async fn info_reconciles_the_el_again_after_comet_reconnects() {
     let fx = Fixture::genesis(2);
     let dir = tempfile::tempdir().unwrap();
     let b_star = fx.el_chain.last().unwrap().clone();
@@ -93,10 +96,11 @@ async fn only_the_first_info_after_a_start_reconciles_the_el() {
     let engine = MockEngine::with_chain(chain);
     let mut app = app_with(fx.l1(), engine, fx.params.clone(), dir.path(), AppOptions::default());
 
+    app.connections().bump();
     let handshake = info(&mut app).await.expect("the handshake Info reconciles");
     assert_eq!(app.engine().calls(), [EngineCall::HeaderByNumber(first.number)]);
 
-    // Even an EL that went away is not asked again.
+    // Even an EL that went away is not asked again on the same connections.
     app.engine().state().calls.clear();
     app.engine().state().delay = Some(Duration::from_secs(3_600));
     for _ in 0..3 {
@@ -106,6 +110,42 @@ async fn only_the_first_info_after_a_start_reconciles_the_el() {
         assert_eq!(later.last_block_app_hash.as_bytes(), first.hash_slow().as_slice());
     }
     assert_eq!(app.engine().calls(), [], "later Info calls make no engine call");
+
+    // CometBFT restarts and connects again: its handshake Info asks the EL again.
+    app.engine().state().delay = None;
+    app.connections().bump();
+    let again = info(&mut app).await.expect("the new handshake Info reconciles");
+    assert_eq!(again, handshake);
+    assert_eq!(app.engine().calls(), [EngineCall::HeaderByNumber(first.number)]);
+    app.engine().state().calls.clear();
+    assert_eq!(info(&mut app).await.expect("a later Info"), handshake);
+    assert_eq!(app.engine().calls(), [], "the new connections reconciled already");
+
+    // The EL lost the committed head before the next reconnect: that handshake Info does not
+    // answer before the EL holds `first` again.
+    {
+        let mut engine = app.engine().state();
+        engine.chain.remove(&first.number);
+        engine.known.remove(&first.hash_slow());
+    }
+    app.connections().bump();
+    assert!(
+        tokio::time::timeout(Duration::from_secs(60), info(&mut app)).await.is_err(),
+        "Info reported {} while the EL lacks it",
+        first.number
+    );
+    assert!(
+        app.engine().calls().contains(&EngineCall::Forkchoice {
+            head: first.hash_slow(),
+            safe: B256::ZERO,
+            finalized: B256::ZERO
+        }),
+        "the EL is pointed at the committed head: {:?}",
+        app.engine().calls()
+    );
+    app.engine().state().backfill.insert(first.number, first.clone());
+    let synced = info(&mut app).await.expect("Info answers once the EL synced the head");
+    assert_eq!(synced, handshake);
 }
 
 /// Cancelling a pending reconcile cannot mark it successful; the next `Info` retries it.
@@ -314,7 +354,7 @@ async fn info_checks_the_execution_floor_header_and_state_once() {
     );
     app.engine().state().calls.clear();
     assert_eq!(info(&mut app).await.unwrap(), resp);
-    assert_eq!(app.engine().calls(), [], "the floor is checked once per process");
+    assert_eq!(app.engine().calls(), [], "the floor is checked once per connection set");
 }
 
 /// SYNC-9-7: an own EL serving another block at the execution floor contradicts the landed

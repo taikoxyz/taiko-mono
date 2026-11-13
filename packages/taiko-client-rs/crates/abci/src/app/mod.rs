@@ -32,6 +32,7 @@ use crate::{
     metrics::{AbciMetrics, set_u64},
     rules::{RuleViolation, check_chain_id},
     schedule::ScheduleError,
+    server::ConnectionEpoch,
     store::{AppState, STATE_SCHEMA_VERSION, Store, StoreError},
 };
 
@@ -332,13 +333,18 @@ pub struct App<L: L1Source, E: Engine> {
     halt: Option<String>,
     /// Whether L1 records a larger recovery generation than the running chain's.
     superseded: bool,
-    /// Whether this process already made sure the EL serves the committed head and any
-    /// execution floor ([`App::reconcile_el_once`]): set by the first successful reconcile
-    /// (the first `Info`, or for an imported store whichever of `Info` and `FinalizeBlock` comes
-    /// first) or a successful `InitChain`. Later ordinary Info calls answer without EL I/O, and
-    /// trust of an imported store waits for it. Independent signer sessions separately recheck
-    /// the durable head and ancestry through the checkpoint trust worker.
-    el_reconciled: bool,
+    /// The [`App::connections`] count at which the app last made sure the EL serves the
+    /// committed head and any execution floor ([`App::reconcile_el_once`]); `None` before the
+    /// first time. Set by a successful reconcile (the handshake `Info`, or for an imported store
+    /// whichever of `Info` and `FinalizeBlock` comes first) or a successful `InitChain`, it holds
+    /// the count read when that request started. While it equals the current count
+    /// ([`App::el_reconciled`]), ordinary Info calls answer without EL I/O; trust of an imported
+    /// store waits for it. Independent signer sessions separately recheck the durable head and
+    /// ancestry through the checkpoint trust worker.
+    el_reconciled_epoch: Option<u64>,
+    /// The ABCI connections the server accepted, which it bumps for every new connection
+    /// ([`ConnectionEpoch`]).
+    connections: ConnectionEpoch,
     /// Process-local trust and session state, never serialized into AppState.
     trust: trust::TrustHandle,
     /// Revokes shared authorization on worker destruction, including panic/cancellation.
@@ -528,7 +534,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
             decided_live: false,
             halt: None,
             superseded: false,
-            el_reconciled: false,
+            el_reconciled_epoch: None,
+            connections: ConnectionEpoch::default(),
             _trust_lifetime: trust::TrustLifetime(trust.clone()),
             trust,
         };
@@ -539,6 +546,19 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// The committed state; `None` before `InitChain`.
     pub fn state(&self) -> Option<&AppState> {
         self.state.as_ref()
+    }
+
+    /// The count of accepted ABCI connections this app shares with its server
+    /// ([`AbciHandler::connection_epoch`](crate::server::AbciHandler::connection_epoch)); it
+    /// starts at 0.
+    pub(crate) fn connections(&self) -> &ConnectionEpoch {
+        &self.connections
+    }
+
+    /// Whether the EL was reconciled with the committed state since the server accepted its
+    /// latest ABCI connection, i.e. during the current CometBFT handshake's connection set.
+    fn el_reconciled(&self) -> bool {
+        self.el_reconciled_epoch == Some(self.connections.current())
     }
 
     /// The node's own L1 source.

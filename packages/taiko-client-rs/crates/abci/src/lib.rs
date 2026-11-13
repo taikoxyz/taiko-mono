@@ -93,8 +93,8 @@ pub use recovery::{
 pub use rules::{ExpectedHeader, GenerationCheck, HeaderInputs, RuleViolation};
 pub use schedule::{Schedule, ScheduleError};
 pub use server::{
-    AbciHandler, AppService, ExitProcess, HaltHook, ListenAddr, SAFETY_HALT_EXIT_CODE, ServerError,
-    serve, serve_with,
+    AbciHandler, AppService, ConnectionEpoch, ExitProcess, HaltHook, ListenAddr,
+    SAFETY_HALT_EXIT_CODE, ServerError, serve, serve_with,
 };
 pub use store::{AppState, CommitteeState, ExecutionFloor, Store, StoreError};
 pub use types::{
