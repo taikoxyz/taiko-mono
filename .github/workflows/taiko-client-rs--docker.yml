@@ -3,14 +3,11 @@ permissions:
   contents: read
   id-token: write
 
+# CI wrapper for the internal Etna devnet (taikoxyz/k8s-configs#1663): builds exactly
+# taikoxyz/taiko-mono#22280 at the commit below, independent of this wrapper commit.
 on:
   push:
-    branches: [main]
-    tags:
-      - "taiko-alethia-client-rs-v*"
-    paths:
-      - "packages/taiko-client-rs/**"
-      - ".github/workflows/taiko-client-rs--docker.yml"
+    branches: [ci/etna-client-image-build]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -45,6 +42,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: df307bf411ef59b93fc7bdbee318df4f9d99e71d
 
       - name: Authenticate to Google Cloud (Workload Identity)
         id: auth
@@ -77,10 +75,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY_IMAGE }}
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=ref,event=tag
-            type=sha
+            type=raw,value=sha-df307bf
+          labels: |
+            org.opencontainers.image.revision=df307bf411ef59b93fc7bdbee318df4f9d99e71d
 
       - name: Build and push by digest
         id: build
@@ -149,10 +146,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY_IMAGE }}
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=ref,event=tag
-            type=sha
+            type=raw,value=sha-df307bf
+          labels: |
+            org.opencontainers.image.revision=df307bf411ef59b93fc7bdbee318df4f9d99e71d
 
       - name: Authenticate to Google Cloud (Workload Identity)
         id: auth
