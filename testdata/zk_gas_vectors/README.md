@@ -254,7 +254,7 @@ Only the opcodes below record facts. Each is read before the step runs and witho
 
 ### Trace checks
 
-`check.py` checks the files: once `traces/` exists, `--require-expected` requires a trace for every vector; a trace needs a vector; each line is one event with exactly its fields in order, and its integer fields are JSON integers; and the first event is `intrinsic` (block) or `step`, `precompile` or `frame_end` (harness). `check-traces` (run by `bash scripts/gate.sh` in `formal/zk-gas`) checks everything else and reports the first failure with the vector id and the event index (lines counted from 0):
+`check.py` checks the files: `--require-expected` requires `traces/` and a trace for every vector, and a missing `traces/` is an error; a trace needs a vector; each line is one event with exactly its fields in order, and its integer fields are JSON integers; and the first event is `intrinsic` (block) or `step`, `precompile` or `frame_end` (harness). `check-traces` (run by `bash scripts/gate.sh` in `formal/zk-gas`) checks everything else and reports the first failure with the vector id and the event index (lines counted from 0):
 
 - the scope and order rules above, and every field's encoding, `stack` length and `facts` keys;
 - each step's `zk`: the spawn estimate times the opcode multiplier for a spawn step, else `(gas - gas_after)` times the multiplier; each precompile's `zk`; and the intrinsic charge;

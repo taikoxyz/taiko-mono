@@ -340,6 +340,8 @@ class CheckTests(unittest.TestCase):
         self.assertRejected(HARNESS, set_at("input", "caller", "0x1234"), "input.caller")
 
     def test_require_expected_missing_rejected(self):
+        # With require_expected every vector also needs its trace: use the committed ones.
+        shutil.copytree(ROOT / "traces", self.root / "traces")
         for rel in (BLOCK, HARNESS):
             data = self.read(rel)
             data.pop("expected", None)
@@ -471,9 +473,13 @@ class CheckTests(unittest.TestCase):
         errors = self.trace_errors(vector_id, text)
         self.assertTrue(any(needle in e for e in errors), f"expected an error containing {needle!r}, got {errors}")
 
-    def test_traces_optional_until_the_directory_exists(self):
+    def test_missing_traces_directory_rejected(self):
+        # The fixture has no traces/. Without require_expected that is fine; with it, the missing
+        # directory is an error, and so is each vector without a trace once it exists.
         self.assertFalse((self.root / "traces").exists())
-        self.assertEqual(check.check(self.root, True), [])
+        self.assertEqual(check.check(self.root, False), [])
+        errors = check.check(self.root, True)
+        self.assertTrue(any(e.startswith("traces/: missing") for e in errors), errors)
         self.write_trace("smoke.block.transfer", jsonl(BLOCK_TRACE))
         self.write_trace("smoke.harness.add", jsonl(HARNESS_TRACE))
         self.assertEqual(check.check(self.root, False), [])

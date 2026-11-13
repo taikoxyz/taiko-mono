@@ -539,11 +539,16 @@ def check_trace(errors, root, rel, layer):
 
 
 def check_traces(errors, root, layers, require_expected):
-    """Checks traces/: one <id>.jsonl per vector once the directory exists (required with
-    require_expected), and none without a vector. layers maps each vector id to its layer, or
-    None when the vector is invalid."""
+    """Checks traces/: each <id>.jsonl names a vector and has the schema's line format, and with
+    require_expected traces/ must exist and hold one trace per vector. layers maps each vector id
+    to its layer, or None when the vector is invalid."""
     traces = root / "traces"
     if not traces.is_dir():
+        if require_expected:
+            errors.append(
+                "traces/: missing; every vector needs a trace "
+                "(generate them with the alethia-reth runner's write mode)"
+            )
         return
     for path in sorted(traces.iterdir()):
         if path.name.startswith("."):
@@ -604,7 +609,7 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--require-expected",
         action="store_true",
-        help="also require every vector to carry generated expected values, and a trace once traces/ exists",
+        help="also require every vector to carry generated expected values and a trace in traces/",
     )
     args = parser.parse_args(argv)
     errors = check(ROOT, args.require_expected)
