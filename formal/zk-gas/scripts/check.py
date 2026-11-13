@@ -16,7 +16,7 @@ LIBRARIES = {
     'ZkGasWitnesses': {'ZkGasWitnesses', 'ZkGasProofs', 'ZkGasStatements', 'ZkGasModel', 'ZkGasTraces'},
     'ZkGasTraces': {'ZkGasTraces', 'ZkGasModel'},
 }
-REVISION = 'b58088955b731e222949cbcb3d630aee19ed0129'
+REVISION = '10a2a54a10af6f4e703ca583bf34a2db7ae531d5'
 SPEC_PATHS = ['packages/protocol/docs/zk_gas_spec.md']
 CLAIMS = {'BlockWithinLimit': 'block_within_limit', 'AbortContributesNothing': 'abort_contributes_nothing',
           'TotalIsSum': 'total_is_sum', 'FitCommits': 'fit_commits',
