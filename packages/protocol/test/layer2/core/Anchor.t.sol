@@ -18,23 +18,66 @@ contract MockCheckpointStore is ICheckpointStore {
     }
 }
 
-contract AnchorTest is Test {
+abstract contract AnchorTestBase is Test {
+    uint64 internal constant L1_CHAIN_ID = 1;
+    uint64 internal constant ETNA_TIMESTAMP = 1_800_000_000;
+    address internal constant GOLDEN_TOUCH = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
+
+    address internal constant BEACON_ROOTS = 0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02;
+    address internal constant SYSTEM_ADDRESS = 0xffffFFFfFFffffffffffffffFfFFFfffFFFfFFfE;
+    /// @dev Runtime code of the canonical EIP-4788 contract, as deployed on Ethereum mainnet.
+    bytes internal constant BEACON_ROOTS_CODE =
+        hex"3373fffffffffffffffffffffffffffffffffffffffe14604d57602036146024575f5ffd5b5f35801560495762001fff810690815414603c575f5ffd5b62001fff01545f5260205ff35b5f5ffd5b62001fff42064281555f359062001fff015500";
+
+    function _deployAnchor(
+        ICheckpointStore _checkpointStore,
+        uint64 _etnaTimestamp
+    )
+        internal
+        returns (Anchor)
+    {
+        Anchor anchorImpl = new Anchor(_checkpointStore, L1_CHAIN_ID, _etnaTimestamp);
+        return Anchor(
+            address(
+                new ERC1967Proxy(address(anchorImpl), abi.encodeCall(Anchor.init, (address(this))))
+            )
+        );
+    }
+
+    function _checkpoint(
+        uint48 _blockNumber,
+        uint256 _blockHash,
+        uint256 _stateRoot
+    )
+        internal
+        pure
+        returns (ICheckpointStore.Checkpoint memory)
+    {
+        return ICheckpointStore.Checkpoint({
+            blockNumber: _blockNumber,
+            blockHash: bytes32(_blockHash),
+            stateRoot: bytes32(_stateRoot)
+        });
+    }
+
+    /// @dev Records `_root` for `_timestamp` the way the EIP-4788 system call does.
+    function _recordBeaconRoot(uint64 _timestamp, bytes32 _root) internal {
+        vm.warp(_timestamp);
+        vm.prank(SYSTEM_ADDRESS);
+        (bool ok,) = BEACON_ROOTS.call(abi.encode(_root));
+        assertTrue(ok, "beacon root not recorded");
+    }
+}
+
+contract AnchorTest is AnchorTestBase {
     uint64 private constant SHASTA_FORK_HEIGHT = 100;
-    uint64 private constant L1_CHAIN_ID = 1;
-    address private constant GOLDEN_TOUCH = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
 
     Anchor internal anchor;
     MockCheckpointStore internal checkpointStore;
 
     function setUp() external {
         checkpointStore = new MockCheckpointStore();
-
-        Anchor anchorImpl = new Anchor(checkpointStore, L1_CHAIN_ID);
-        anchor = Anchor(
-            address(
-                new ERC1967Proxy(address(anchorImpl), abi.encodeCall(Anchor.init, (address(this))))
-            )
-        );
+        anchor = _deployAnchor(checkpointStore, type(uint64).max);
     }
 
     function test_anchorV4_savesCheckpointAndUpdatesState() external {
@@ -97,23 +140,81 @@ contract AnchorTest is Test {
         assertEq(checkpointStore.getCheckpoint(staleCheckpoint.blockNumber).blockNumber, 0);
     }
 
-    // ---------------------------------------------------------------
-    // Helpers
-    // ---------------------------------------------------------------
+    function test_anchorV4_succeedsBeforeEtna() external {
+        Anchor etnaAnchor = _deployAnchor(checkpointStore, ETNA_TIMESTAMP);
+        ICheckpointStore.Checkpoint memory checkpoint = _checkpoint(1000, 0x1234, 0x5678);
 
-    function _checkpoint(
-        uint48 _blockNumber,
-        uint256 _blockHash,
-        uint256 _stateRoot
-    )
-        internal
-        pure
-        returns (ICheckpointStore.Checkpoint memory)
-    {
-        return ICheckpointStore.Checkpoint({
-            blockNumber: _blockNumber,
-            blockHash: bytes32(_blockHash),
-            stateRoot: bytes32(_stateRoot)
-        });
+        vm.roll(SHASTA_FORK_HEIGHT);
+        vm.warp(ETNA_TIMESTAMP - 1);
+        vm.prank(GOLDEN_TOUCH);
+        etnaAnchor.anchorV4(checkpoint);
+
+        assertEq(etnaAnchor.getBlockState().anchorBlockNumber, checkpoint.blockNumber);
+        assertEq(etnaAnchor.etnaTimestamp(), ETNA_TIMESTAMP);
+    }
+
+    function test_anchorV4_RevertWhen_AtOrAfterEtna() external {
+        Anchor etnaAnchor = _deployAnchor(checkpointStore, ETNA_TIMESTAMP);
+        ICheckpointStore.Checkpoint memory checkpoint = _checkpoint(1000, 0x1234, 0x5678);
+        vm.roll(SHASTA_FORK_HEIGHT);
+
+        vm.warp(ETNA_TIMESTAMP);
+        vm.prank(GOLDEN_TOUCH);
+        vm.expectRevert(Anchor.AnchorDisabled.selector);
+        etnaAnchor.anchorV4(checkpoint);
+
+        vm.warp(ETNA_TIMESTAMP + 1);
+        vm.prank(GOLDEN_TOUCH);
+        vm.expectRevert(Anchor.AnchorDisabled.selector);
+        etnaAnchor.anchorV4(checkpoint);
+    }
+
+    function test_anchorV4_RevertWhen_EtnaActiveFromGenesis() external {
+        Anchor etnaAnchor = _deployAnchor(checkpointStore, 0);
+
+        vm.roll(SHASTA_FORK_HEIGHT);
+        vm.warp(0);
+        vm.prank(GOLDEN_TOUCH);
+        vm.expectRevert(Anchor.AnchorDisabled.selector);
+        etnaAnchor.anchorV4(_checkpoint(1000, 0x1234, 0x5678));
+    }
+
+    function test_anchorV4_succeedsWhenEtnaNeverActivates() external {
+        ICheckpointStore.Checkpoint memory checkpoint = _checkpoint(1000, 0x1234, 0x5678);
+
+        vm.roll(SHASTA_FORK_HEIGHT);
+        vm.warp(type(uint64).max - 1);
+        vm.prank(GOLDEN_TOUCH);
+        anchor.anchorV4(checkpoint);
+
+        assertEq(anchor.getBlockState().anchorBlockNumber, checkpoint.blockNumber);
+    }
+
+    /// @dev Rehearses the fork-time forgery: in the first anchorless block, the public golden-touch
+    /// key must not be able to anchor a forged checkpoint.
+    function test_anchorV4_RevertWhen_ForgedInFirstEtnaBlock() external {
+        Anchor etnaAnchor = _deployAnchor(checkpointStore, ETNA_TIMESTAMP);
+        ICheckpointStore.Checkpoint memory lastCheckpoint = _checkpoint(1000, 0x1234, 0x5678);
+
+        // The last pre-Etna block anchors normally.
+        vm.roll(SHASTA_FORK_HEIGHT);
+        vm.warp(ETNA_TIMESTAMP - 1);
+        vm.prank(GOLDEN_TOUCH);
+        etnaAnchor.anchorV4(lastCheckpoint);
+        Anchor.BlockState memory stateBefore = etnaAnchor.getBlockState();
+
+        // The first Etna block has no anchor transaction; a funded golden-touch call is rejected.
+        ICheckpointStore.Checkpoint memory forged = _checkpoint(2000, 0xBAD, 0xBAD);
+        vm.roll(SHASTA_FORK_HEIGHT + 1);
+        vm.warp(ETNA_TIMESTAMP);
+        vm.deal(GOLDEN_TOUCH, 1 ether);
+        vm.prank(GOLDEN_TOUCH);
+        vm.expectRevert(Anchor.AnchorDisabled.selector);
+        etnaAnchor.anchorV4(forged);
+
+        assertEq(checkpointStore.getCheckpoint(forged.blockNumber).blockHash, bytes32(0));
+        Anchor.BlockState memory stateAfter = etnaAnchor.getBlockState();
+        assertEq(stateAfter.anchorBlockNumber, stateBefore.anchorBlockNumber);
+        assertEq(stateAfter.ancestorsHash, stateBefore.ancestorsHash);
     }
 }

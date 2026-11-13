@@ -4,7 +4,10 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
+      - ".github/workflows/protocol.yml"
       - "packages/protocol/**"
+      # The Etna vectors the protocol tests read (shared with taiko-client-rs).
+      - "testdata/etna_vectors/**"
       - "!packages/protocol/contract_layout_*"
       - "!packages/protocol/audit/**"
       - "!packages/protocol/docs/**"
@@ -85,6 +88,26 @@ jobs:
       - name: Test L2 contracts
         working-directory: ./packages/protocol
         run: pnpm test:l2 && pnpm layout:l2
+
+      - name: Test Etna genesis builder
+        working-directory: ./packages/protocol
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: python3 -m unittest discover -s test/layer2/core -p 'test_etna_genesis.py' -v
+
+      - name: Test Etna vectors
+        working-directory: ./packages/protocol
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: python3 -m unittest discover -s ../../testdata/etna_vectors -p 'test_vectors.py' -v
+
+      # Full invariant campaigns in their own step. The gas snapshot below keeps the 64-run
+      # default from foundry.toml, so its invariant lines match a local snapshot.
+      - name: Run Etna invariant campaigns at 256 runs
+        working-directory: ./packages/protocol
+        env:
+          FOUNDRY_INVARIANT_RUNS: 256
+        run: pnpm test:l1 --match-contract 'Etna.*Invariant'
 
       - name: Test L1 contracts
         working-directory: ./packages/protocol
