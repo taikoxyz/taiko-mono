@@ -1,0 +1,74 @@
+{
+  "sources": [
+    {
+      "path": "packages/protocol/docs/zk_gas_spec.md",
+      "revision": "aef6a3e4b954cc84cdff3d2434a1fe060a80bcd3",
+      "sha256": "e2fc392ce25462d1ef908249280de873deb6820bd6106bdba838c15461b5983c"
+    }
+  ],
+  "claims": {
+    "BlockWithinLimit": {
+      "statement": "TaikoSpec.ZkGas.Statements.BlockWithinLimit",
+      "theorem": "TaikoSpec.ZkGas.Proofs.block_within_limit",
+      "sections": [
+        {
+          "path": "packages/protocol/docs/zk_gas_spec.md",
+          "heading": "Pseudocode"
+        },
+        {
+          "path": "packages/protocol/docs/zk_gas_spec.md",
+          "heading": "Objective"
+        },
+        {
+          "path": "packages/protocol/docs/zk_gas_spec.md",
+          "heading": "Protocol Constants"
+        }
+      ]
+    },
+    "AbortContributesNothing": {
+      "statement": "TaikoSpec.ZkGas.Statements.AbortContributesNothing",
+      "theorem": "TaikoSpec.ZkGas.Proofs.abort_contributes_nothing",
+      "sections": [
+        {
+          "path": "packages/protocol/docs/zk_gas_spec.md",
+          "heading": "Pseudocode"
+        },
+        {
+          "path": "packages/protocol/docs/zk_gas_spec.md",
+          "heading": "Core Idea"
+        }
+      ]
+    },
+    "TotalIsSum": {
+      "statement": "TaikoSpec.ZkGas.Statements.TotalIsSum",
+      "theorem": "TaikoSpec.ZkGas.Proofs.total_is_sum",
+      "sections": [
+        {
+          "path": "packages/protocol/docs/zk_gas_spec.md",
+          "heading": "Pseudocode"
+        },
+        {
+          "path": "packages/protocol/docs/zk_gas_spec.md",
+          "heading": "Core Idea"
+        },
+        {
+          "path": "packages/protocol/docs/zk_gas_spec.md",
+          "heading": "Protocol Constants"
+        }
+      ]
+    }
+  },
+  "exclusions": [
+    "How each charge is computed from an opcode's step gas, a spawn estimate or a precompile's gas use; the meter takes the charge amounts as given.",
+    "EVM execution, state changes and discarding them on abort; the model accounts zk gas only.",
+    "Which transactions are invalid for reasons other than zk gas; they are never metered.",
+    "Transaction selection by block builders, which may skip an overflowing candidate and continue; block execution and proving stop at the first one.",
+    "Publishing the block total in the header and checking it on import.",
+    "Equivalence with production clients: the tables are generated from alethia-reth and revm sources, and the clients are compared with the model only on the shared vectors."
+  ],
+  "drift": [
+    "The pseudocode computes in uint64 and treats an overflow as exceeding the limit; the model uses unbounded natural numbers. An overflowing sum or product already exceeds BLOCK_ZK_GAS_LIMIT, so both abort the transaction.",
+    "The pseudocode adds each charge and then compares block plus transaction zk gas with BLOCK_ZK_GAS_LIMIT; the model, like alethia-reth, rejects a charge once the transaction total would exceed the limit minus the block's committed zk gas. The conditions agree because the running total never exceeds the limit.",
+    "The intrinsic charge is the first entry of a transaction's charge list rather than a separate step, as in alethia-reth, which charges it through the same meter."
+  ]
+}

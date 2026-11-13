@@ -1,0 +1,35 @@
+import ZkGasModel
+
+/-!
+# Reviewable zk gas metering claims
+
+These propositions describe how one block's zk gas charges are accounted: the block limit, the
+abort of the transaction that exceeds it and the block total. Each transaction is the list of its
+charges in metering order, starting with its intrinsic charge; how an opcode or precompile
+charge is computed is not part of these claims. They range over every schedule, so they hold
+for `unzen` in particular.
+-/
+namespace TaikoSpec.ZkGas.Statements
+
+/-- A block never uses more zk gas than its limit, whatever its transactions charge. -/
+def BlockWithinLimit : Prop :=
+  ∀ (s : Schedule) (txs : List (List Nat)), (meterBlock s txs).2 ≤ s.blockLimit
+
+/-- Take a block whose transactions `pre` all committed, followed by a transaction `tx` whose
+charges exceed what the block has left. Then `tx` aborts: it contributes nothing to the block
+total, which stays `pre`'s, and the transactions `rest` after it are not executed, so they get
+no result and change nothing. -/
+def AbortContributesNothing : Prop :=
+  ∀ (s : Schedule) (pre : List (List Nat)) (tx : List Nat) (rest : List (List Nat)),
+    none ∉ (meterBlock s pre).1 →
+    meterTx s (meterBlock s pre).2 tx = none →
+    meterBlock s (pre ++ tx :: rest) = ((meterBlock s pre).1 ++ [none], (meterBlock s pre).2)
+
+/-- Every committed transaction's total is the sum of its charges, intrinsic charge included,
+and the block total is the sum of the committed transactions' totals. -/
+def TotalIsSum : Prop :=
+  ∀ (s : Schedule) (txs : List (List Nat)),
+    (∀ (i n : Nat), (meterBlock s txs).1[i]? = some (some n) → txs[i]?.map List.sum = some n) ∧
+      (meterBlock s txs).2 = ((meterBlock s txs).1.filterMap id).sum
+
+end TaikoSpec.ZkGas.Statements
