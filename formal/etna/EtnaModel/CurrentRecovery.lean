@@ -1,0 +1,82 @@
+import EtnaModel.CurrentProtocol
+import EtnaModel.CurrentFinality
+
+/-! Vocabulary of the recoverability claim (H4): call-restricted traces, the recovery path's
+calls, live ruleset definitions, a live committee and the L1 time a recovery block must reach.
+Definitions only; the claim itself is in `EtnaStatements.Current`. -/
+namespace Etna.Design.Current.Protocol
+
+/-- Traces whose every call satisfies `allowed` in the state it applies to; no node events. -/
+inductive CallTrace (env : Environment) (allowed : World → Call → Prop) : World → World → Prop
+  | refl (w : World) : CallTrace env allowed w w
+  | call {first w : World} (prior : CallTrace env allowed first w) (call : Call)
+      (ok : allowed w call) : CallTrace env allowed first (transact env w call)
+
+/-- H4's path calls in state `w`: no `rollback` (RECOV-8-28, RECOV-8-58), and every `recover`
+has no exclusions and no forced-inclusion blanking (RECOV-8-45). A `recover` is plain (no
+upgrade) or structural with one change only: it installs `w`'s parameters with a new K. -/
+def RecoveryCall (w : World) : Call → Prop
+  | .rollback .. => False
+  | .recover request => request.exclusions = [] ∧ request.clear = [] ∧
+      (request.upgrade = none ∨ ∃ k, request.upgrade = some { parametersOf w.inbox with gridK := k })
+  | _ => True
+
+abbrev RecoveryTrace (env : Environment) : World → World → Prop := CallTrace env RecoveryCall
+
+/-- Calls with no `rollback` and no structural upgrade, whatever the state: every `recover`
+keeps the parameters, so K. The rollback grid trap (`Recovery.offgrid_no_landing`) is stated
+over these calls. -/
+def NoRollbackOrUpgrade (_ : World) : Call → Prop
+  | .rollback .. => False
+  | .recover request => request.upgrade = none
+  | _ => True
+
+/-- `h` is a child of `parent` for these producer inputs, witness bytes `raw` and transaction list
+`txs`. Its height, FI cursor, timestamp and anchor are the given ones; it is hash-bound and its EL
+hash names `parent`'s as the physical parent. Both checks accept it: `executionValid` and
+`payloadValid` at exactly `raw` and `txs` hold for every body that carries `h`, names `parent`'s EL
+hash as its parent hash, pays a fee share of 100 and carries the anchor's state root as its parent
+beacon root (the body fields the EL reads, 3.2). The other body fields (consensus votes, round,
+committee and forced witnesses, singleton trial, block size and so on) are left free. -/
+def Executes (env : Environment) (d : Blocks.Definition) (parent : Header) (cursor timestamp : Nat)
+    (anchor : BlockValidity.Anchor) (raw : Blocks.Bytes) (txs : List Blocks.Bytes) (h : Header) : Prop :=
+  h.height = parent.height+1 ∧ h.cursor = cursor ∧ h.timestamp = timestamp ∧ h.anchor = anchor ∧
+  HashBound env h ∧ env.headerParent h.elHash = parent.elHash ∧
+  ∀ body : BlockValidity.Block, body.header = h → body.parentHash = parent.elHash →
+    body.feeShare = 100 → body.parentBeaconRoot = anchor.stateRoot →
+    d.executionValid parent body = true ∧ d.payloadValid body raw txs = true
+
+/-- A live ruleset definition (MODEL-1-1 on the EL side, 7.2 single-transaction trial). For
+every parent, FI cursor, timestamp above the parent's, anchor and witness bytes `raw` a block
+producer picks, some quiet child executes the empty transaction list with `raw`. When `raw` is a
+canonical forced transaction of at most 8,192 bytes, either some child executes `[raw]` with `raw`
+or `raw`'s single-transaction trial on the quiet child completes empty. A block producer passes a
+forced transaction's bytes as `raw`, and `[]` for a block without a forced witness. -/
+def ExecutionLive (env : Environment) (d : Blocks.Definition) : Prop :=
+  ∀ (parent : Header) (cursor timestamp : Nat) (anchor : BlockValidity.Anchor) (raw : Blocks.Bytes),
+    parent.timestamp < timestamp →
+    ∃ quiet, Executes env d parent cursor timestamp anchor raw [] quiet ∧
+      (d.bytes.canonical raw = true → raw.length ≤ 8192 →
+        (∃ h, Executes env d parent cursor timestamp anchor raw [raw] h) ∨
+        d.bytes.buildSingleton parent quiet raw = .completedEmpty)
+
+def RulesetLive (env : Environment) (m : Nat) : Prop :=
+  ∃ d, env.catalogue m = some d ∧ ExecutionLive env d
+
+/-- LIMIT-12-6, RECOV-8-17..21: `keys` sign every vote and hold more than 2/3 of the
+power elected at `cutoff` from `w`'s registry under `w`'s committee configuration. -/
+def CommitteeLive (env : Environment) (w : World) (cutoff : Nat) (keys : List Hash) : Prop :=
+  (∀ v : Consensus.Vote, v.key ∈ keys → env.signature v) ∧
+  ∃ members, Committee.election w.inbox.configuration.unit w.inbox.configuration.minimum cutoff
+      w.inbox.configuration.nMax (Finality.registryAt w.registry.registry cutoff) = some members ∧
+    2*Committee.totalPower w.inbox.configuration.unit members <
+      3*Committee.totalPower w.inbox.configuration.unit (members.filter fun e => keys.contains e.key)
+
+def maxAges (w : World) : Nat := (w.configurations.map fun x => x.2.maxAnchorAge).foldr max 0
+
+/-- L1 time the recovery block must reach: past every bound on the batch parent's timestamp
+(a landed checkpoint's anchor age, `forkTime`, the genesis timestamp) by more than K. -/
+def WindowBound (env : Environment) (w : World) : Nat :=
+  max (env.time w.number+maxAges w) (max env.core.forkTime env.genesisHeader.timestamp)+w.inbox.gridK+1
+
+end Etna.Design.Current.Protocol

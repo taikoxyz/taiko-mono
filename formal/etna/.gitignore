@@ -1,0 +1,7 @@
+.lake/
+.scratch/
+__pycache__/
+
+*.olean
+*.ilean
+/STATEMENTS.html

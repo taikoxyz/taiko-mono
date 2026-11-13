@@ -1,0 +1,427 @@
+{
+  "schema": "etna-current-registry-admission-1",
+  "authorityCommit": "d18357214fab30ea512ae9858a11699806d72ba1",
+  "model": "Etna.Design.Current.RegistryPayments.executeTransaction",
+  "keyMeaning": "Distinct valid test keys with valid PoP; numbers are fixture identities, not raw public-key bytes.",
+  "vectors": [
+    {
+      "id": "last-slot-minimum-displacement",
+      "rules": ["STAKE-4.1-13a", "STAKE-4.1-14a"],
+      "setup": {
+        "slotCount": 4096,
+        "defaultStake": 20,
+        "lowIndex": 4095,
+        "lowStake": 10,
+        "lowPending": 0,
+        "secondLowIndex": null,
+        "vacantLow": false,
+        "landedSnapshot": 0,
+        "vacancyLifecycle": null
+      },
+      "call": {
+        "fn": "register",
+        "block": 10,
+        "caller": 8,
+        "key": 9000,
+        "amount": 11
+      },
+      "expect": {
+        "revert": false,
+        "selectedSlot": 4095,
+        "bondId": 4096,
+        "oldBondId": 4095,
+        "oldBond": {
+          "key": 4096,
+          "owner": 7,
+          "stake": 10,
+          "pending": 0,
+          "balance": 10,
+          "activeFrom": 1,
+          "exitAt": 10,
+          "released": false,
+          "confirmedAt": null,
+          "readyAt": 0,
+          "slot": null
+        },
+        "newBond": {
+          "key": 9000,
+          "owner": 8,
+          "stake": 11,
+          "pending": 0,
+          "balance": 11,
+          "activeFrom": 11,
+          "exitAt": 281474976710655,
+          "released": false,
+          "confirmedAt": null,
+          "readyAt": 0,
+          "slot": 4095
+        },
+        "nextId": 4097,
+        "slot4096": null,
+        "callerBalance": 89,
+        "registryBalance": 81921,
+        "receiptCount": 1,
+        "latestCheckpointBlock": 10
+      }
+    },
+    {
+      "id": "strict-equal-minimum-rejected",
+      "rules": ["STAKE-4.1-13a", "STAKE-4.1-14a"],
+      "setup": {
+        "slotCount": 4096,
+        "defaultStake": 20,
+        "lowIndex": 4095,
+        "lowStake": 10,
+        "lowPending": 0,
+        "secondLowIndex": null,
+        "vacantLow": false,
+        "landedSnapshot": 0,
+        "vacancyLifecycle": null
+      },
+      "call": {
+        "fn": "register",
+        "block": 10,
+        "caller": 8,
+        "key": 9000,
+        "amount": 10
+      },
+      "expect": {
+        "revert": true,
+        "stateUnchanged": true
+      }
+    },
+    {
+      "id": "below-minimum-rejected",
+      "rules": ["STAKE-4.1-13a", "STAKE-4.1-14a"],
+      "setup": {
+        "slotCount": 4096,
+        "defaultStake": 20,
+        "lowIndex": 4095,
+        "lowStake": 10,
+        "lowPending": 0,
+        "secondLowIndex": null,
+        "vacantLow": false,
+        "landedSnapshot": 0,
+        "vacancyLifecycle": null
+      },
+      "call": {
+        "fn": "register",
+        "block": 10,
+        "caller": 8,
+        "key": 9000,
+        "amount": 9
+      },
+      "expect": {
+        "revert": true,
+        "stateUnchanged": true
+      }
+    },
+    {
+      "id": "nonzero-tied-minimum-lowest-index",
+      "rules": ["STAKE-4.1-13a", "STAKE-4.1-14a"],
+      "setup": {
+        "slotCount": 4096,
+        "defaultStake": 20,
+        "lowIndex": 17,
+        "lowStake": 10,
+        "lowPending": 0,
+        "secondLowIndex": 4095,
+        "vacantLow": false,
+        "landedSnapshot": 0,
+        "vacancyLifecycle": null
+      },
+      "call": {
+        "fn": "register",
+        "block": 10,
+        "caller": 8,
+        "key": 9000,
+        "amount": 11
+      },
+      "expect": {
+        "revert": false,
+        "selectedSlot": 17,
+        "bondId": 4096,
+        "oldBondId": 17,
+        "oldBond": {
+          "key": 18,
+          "owner": 7,
+          "stake": 10,
+          "pending": 0,
+          "balance": 10,
+          "activeFrom": 1,
+          "exitAt": 10,
+          "released": false,
+          "confirmedAt": null,
+          "readyAt": 0,
+          "slot": null
+        },
+        "newBond": {
+          "key": 9000,
+          "owner": 8,
+          "stake": 11,
+          "pending": 0,
+          "balance": 11,
+          "activeFrom": 11,
+          "exitAt": 281474976710655,
+          "released": false,
+          "confirmedAt": null,
+          "readyAt": 0,
+          "slot": 17
+        },
+        "nextId": 4097,
+        "slot4096": null,
+        "callerBalance": 89,
+        "registryBalance": 81911,
+        "receiptCount": 1,
+        "latestCheckpointBlock": 10
+      }
+    },
+    {
+      "id": "pending-principal-changes-minimum",
+      "rules": ["STAKE-4.1-13a", "STAKE-4.1-14a"],
+      "setup": {
+        "slotCount": 4096,
+        "defaultStake": 20,
+        "lowIndex": 17,
+        "lowStake": 10,
+        "lowPending": 1,
+        "secondLowIndex": 4095,
+        "vacantLow": false,
+        "landedSnapshot": 0,
+        "vacancyLifecycle": null
+      },
+      "call": {
+        "fn": "register",
+        "block": 10,
+        "caller": 8,
+        "key": 9000,
+        "amount": 11
+      },
+      "expect": {
+        "revert": false,
+        "selectedSlot": 4095,
+        "bondId": 4096,
+        "oldBondId": 4095,
+        "oldBond": {
+          "key": 4096,
+          "owner": 7,
+          "stake": 10,
+          "pending": 0,
+          "balance": 10,
+          "activeFrom": 1,
+          "exitAt": 10,
+          "released": false,
+          "confirmedAt": null,
+          "readyAt": 0,
+          "slot": null
+        },
+        "newBond": {
+          "key": 9000,
+          "owner": 8,
+          "stake": 11,
+          "pending": 0,
+          "balance": 11,
+          "activeFrom": 11,
+          "exitAt": 281474976710655,
+          "released": false,
+          "confirmedAt": null,
+          "readyAt": 0,
+          "slot": 4095
+        },
+        "nextId": 4097,
+        "slot4096": null,
+        "callerBalance": 89,
+        "registryBalance": 81912,
+        "receiptCount": 1,
+        "latestCheckpointBlock": 10
+      }
+    },
+    {
+      "id": "all-positive-tie-slot-zero",
+      "rules": ["STAKE-4.1-13a", "STAKE-4.1-14a"],
+      "setup": {
+        "slotCount": 4096,
+        "defaultStake": 20,
+        "lowIndex": 4095,
+        "lowStake": 20,
+        "lowPending": 0,
+        "secondLowIndex": null,
+        "vacantLow": false,
+        "landedSnapshot": 0,
+        "vacancyLifecycle": null
+      },
+      "call": {
+        "fn": "register",
+        "block": 10,
+        "caller": 8,
+        "key": 9000,
+        "amount": 21
+      },
+      "expect": {
+        "revert": false,
+        "selectedSlot": 0,
+        "bondId": 4096,
+        "oldBondId": 0,
+        "oldBond": {
+          "key": 1,
+          "owner": 7,
+          "stake": 20,
+          "pending": 0,
+          "balance": 20,
+          "activeFrom": 1,
+          "exitAt": 10,
+          "released": false,
+          "confirmedAt": null,
+          "readyAt": 0,
+          "slot": null
+        },
+        "newBond": {
+          "key": 9000,
+          "owner": 8,
+          "stake": 21,
+          "pending": 0,
+          "balance": 21,
+          "activeFrom": 11,
+          "exitAt": 281474976710655,
+          "released": false,
+          "confirmedAt": null,
+          "readyAt": 0,
+          "slot": 0
+        },
+        "nextId": 4097,
+        "slot4096": null,
+        "callerBalance": 79,
+        "registryBalance": 81941,
+        "receiptCount": 1,
+        "latestCheckpointBlock": 10
+      }
+    },
+    {
+      "id": "empty-last-slot",
+      "rules": ["STAKE-4.1-13a", "STAKE-4.1-14a"],
+      "setup": {
+        "slotCount": 4096,
+        "defaultStake": 20,
+        "lowIndex": 4095,
+        "lowStake": 10,
+        "lowPending": 0,
+        "secondLowIndex": null,
+        "vacantLow": true,
+        "landedSnapshot": 2,
+        "vacancyLifecycle": {
+          "requestBlock": 1,
+          "exitAt": 2,
+          "confirmBlock": 2,
+          "withdrawBlock": 5,
+          "recipient": 7,
+          "withdrawnBond": {
+            "key": 4096,
+            "owner": 0,
+            "stake": 0,
+            "pending": 0,
+            "balance": 0,
+            "activeFrom": 1,
+            "exitAt": 2,
+            "released": true,
+            "confirmedAt": null,
+            "readyAt": 0,
+            "slot": null
+          }
+        }
+      },
+      "call": {
+        "fn": "register",
+        "block": 10,
+        "caller": 8,
+        "key": 9000,
+        "amount": 1
+      },
+      "expect": {
+        "revert": false,
+        "selectedSlot": 4095,
+        "bondId": 4096,
+        "oldBondId": null,
+        "oldBond": null,
+        "newBond": {
+          "key": 9000,
+          "owner": 8,
+          "stake": 1,
+          "pending": 0,
+          "balance": 1,
+          "activeFrom": 11,
+          "exitAt": 281474976710655,
+          "released": false,
+          "confirmedAt": null,
+          "readyAt": 0,
+          "slot": 4095
+        },
+        "nextId": 4097,
+        "slot4096": null,
+        "callerBalance": 99,
+        "registryBalance": 81901,
+        "receiptCount": 1,
+        "latestCheckpointBlock": 10
+      }
+    },
+    {
+      "id": "displaced-pending-principal-retained",
+      "rules": ["STAKE-4.1-13a", "STAKE-4.1-14a"],
+      "setup": {
+        "slotCount": 4096,
+        "defaultStake": 20,
+        "lowIndex": 4095,
+        "lowStake": 7,
+        "lowPending": 3,
+        "secondLowIndex": null,
+        "vacantLow": false,
+        "landedSnapshot": 0,
+        "vacancyLifecycle": null
+      },
+      "call": {
+        "fn": "register",
+        "block": 10,
+        "caller": 8,
+        "key": 9000,
+        "amount": 11
+      },
+      "expect": {
+        "revert": false,
+        "selectedSlot": 4095,
+        "bondId": 4096,
+        "oldBondId": 4095,
+        "oldBond": {
+          "key": 4096,
+          "owner": 7,
+          "stake": 7,
+          "pending": 3,
+          "balance": 10,
+          "activeFrom": 1,
+          "exitAt": 10,
+          "released": false,
+          "confirmedAt": null,
+          "readyAt": 2,
+          "slot": null
+        },
+        "newBond": {
+          "key": 9000,
+          "owner": 8,
+          "stake": 11,
+          "pending": 0,
+          "balance": 11,
+          "activeFrom": 11,
+          "exitAt": 281474976710655,
+          "released": false,
+          "confirmedAt": null,
+          "readyAt": 0,
+          "slot": 4095
+        },
+        "nextId": 4097,
+        "slot4096": null,
+        "callerBalance": 89,
+        "registryBalance": 81921,
+        "receiptCount": 1,
+        "latestCheckpointBlock": 10
+      }
+    }
+  ]
+}
