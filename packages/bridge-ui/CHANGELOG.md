@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.19.2](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.19.1...bridge-ui-v2.19.2) (2026-11-13)
+
+
+### Chores
+
+* **bridge-ui:** bump @sveltejs/kit to 2.70.4 ([#22350](https://github.com/taikoxyz/taiko-mono/issues/22350)) ([cc7e417](https://github.com/taikoxyz/taiko-mono/commit/cc7e41705d21d289efc7e90ae2b63fbb8aa0132a))
+
 ## [2.19.1](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.19.0...bridge-ui-v2.19.1) (2026-10-08)
 
 
