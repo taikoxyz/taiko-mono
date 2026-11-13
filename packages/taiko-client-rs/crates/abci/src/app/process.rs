@@ -1,0 +1,217 @@
+//! `ProcessProposal`: the deterministic checks of [`validate_proposal`], then the
+//! node-local ¹ checks (anchor finality in the own L1 view, checkpoint ancestry against the local
+//! chain, EL execution), with the EL rebuild of canonical forced skips before normal execution.
+
+use crate::wire::{request, response};
+use alloy_primitives::Bytes;
+
+use super::{
+    AbciError, App, deadline, unix_secs,
+    validate::{Rejection, Validated, validate_proposal},
+};
+use crate::{
+    engine::{Engine, PayloadVerdict},
+    envelope::{AnchorWitness, single_envelope},
+    l1::{L1Source, OwnFinality, own_finality},
+    metrics::AbciMetrics,
+    store::AppState,
+};
+
+impl<L: L1Source, E: Engine> App<L, E> {
+    /// Handles `ProcessProposal`: `ACCEPT` iff the proposal is valid in this node's view.
+    ///
+    /// An accepted block's [`Validated`] (with `executed = true`) is cached by the CometBFT block
+    /// hash for `FinalizeBlock`. A rejection is recorded as the halt reason and logged; it is
+    /// never an error. A proven later recovery generation sets the `superseded` status, after
+    /// which every proposal is rejected. Missing initialization and own-node integrity failures
+    /// return errors; temporary dependencies wait without a false rejection. Hash-canonical
+    /// unsupported L1 header formats reject without a fatal latch; FinalizeBlock waits instead.
+    pub(super) async fn process_proposal(
+        &mut self,
+        req: request::ProcessProposal,
+    ) -> Result<response::ProcessProposal, AbciError> {
+        let _timer = AbciMetrics::process_seconds().start_timer();
+        let height = req.height.value();
+        let verdict = match &self.state {
+            None => return Err(AbciError::Uninitialized("ProcessProposal")),
+            Some(state) => {
+                self.prefetch_committee_witness(state)?;
+                loop {
+                    let result = self.judge(state, &req).await;
+                    if result.as_ref().err().is_some_and(Rejection::retryable_dependency) {
+                        tokio::time::sleep(super::FINALIZE_RETRY_INITIAL).await;
+                        continue;
+                    }
+                    break result;
+                }
+            }
+        };
+        match verdict {
+            Ok(validated) => {
+                tracing::debug!(height, hash = %req.hash, "proposal accepted");
+                AbciMetrics::process_accepted().inc();
+                self.clear_halt();
+                self.verdicts.insert(req.hash, validated);
+                Ok(response::ProcessProposal::Accept)
+            }
+            Err(rejection) => {
+                if rejection.requires_dependency_repair() {
+                    return Err(AbciError::SafetyHalt(rejection.to_string()));
+                }
+                AbciMetrics::process_rejected().with_label_values(&[rejection.label()]).inc();
+                self.note_rejection("ProcessProposal", height, &rejection);
+                Ok(response::ProcessProposal::Reject)
+            }
+        }
+    }
+
+    /// Judges one proposal on top of `state`.
+    ///
+    /// In order: a superseded chain rejects everything; no transaction at all is an
+    /// [`Rejection::EmptyProposal`]; the transactions must be exactly one envelope;
+    /// [`validate_proposal`] with the request's BFT time, whose first check is the block size bound
+    /// ([`check_execution_size`](super::validate::check_execution_size)); a present
+    /// anchor witness must be final and canonical in the own L1 view (L1 is not called when it is
+    /// absent), and its proven `lastCheckpoint` must name a block of the local chain
+    /// ([`App::check_anchor_checkpoint`]); the shared checker must complete the authenticated
+    /// forced decision within the engine deadline; finally the EL must execute the ordinary
+    /// candidate payload as `VALID`.
+    ///
+    /// Supersession is reported only after the supplied anchor is independently confirmed final
+    /// and canonical, since a forged header could claim a later generation. Verified committee
+    /// witness retention, in memory only, happens at its switch height only after own-L1
+    /// finality and checkpoint ancestry pass, even if a later execution check refuses the block;
+    /// the proofs bind the candidate root and the committed parent cutoff. The witness is verified
+    /// once, in [`validate_proposal`]; a peer witness that fails there rejects the block.
+    ///
+    /// Anchor age is measured against the fixed derived block timestamp in [`validate_proposal`],
+    /// never against a moving local finalized head. Once final and canonical, an anchor does not
+    /// expire merely because more L1 blocks finalize, including on a node without a cached verdict.
+    async fn judge(
+        &self,
+        state: &AppState,
+        req: &request::ProcessProposal,
+    ) -> Result<Validated, Rejection> {
+        if self.superseded {
+            return Err(Rejection::ChainSuperseded);
+        }
+        if req.txs.is_empty() {
+            return Err(Rejection::EmptyProposal);
+        }
+        let txs: Vec<Bytes> = req.txs.iter().cloned().map(Bytes::from).collect();
+        let env = match single_envelope(&txs) {
+            Ok(env) => env,
+            Err(error) => {
+                // Every outcome rejects (RECOV-8-6); the own L1 only names the reason, so a
+                // temporary answer about a number the proposer chose never keeps this pending.
+                return Err(match self.check_header_format(&txs).await {
+                    Err(reason) if !reason.retryable_dependency() => reason,
+                    _ => error.into(),
+                });
+            }
+        };
+        let (height, bft_secs) = (req.height.value(), unix_secs(req.time));
+        let (mut validated, verified) = match validate_proposal(
+            &state.chain_context(),
+            &self.params,
+            &env,
+            height,
+            bft_secs,
+            req.proposer_address,
+        ) {
+            Err(l1_fact @ Rejection::Superseded { .. }) => {
+                // Without a witness the facts are the committed parent's, already trusted.
+                if let Some(w) = &env.anchor {
+                    self.check_anchor_final(w).await?;
+                }
+                return Err(l1_fact);
+            }
+            other => other?,
+        };
+        if let Some(w) = &env.anchor {
+            self.check_anchor_final(w).await?;
+            self.check_anchor_checkpoint(state, &validated.anchor).await?;
+        }
+        if let (Some((target_epoch, _)), Some(witness)) = (&validated.derived, &verified) {
+            // Validation verified this witness under the same root, cutoff and target, so the
+            // in-memory retention only matches that context and cannot refuse the block.
+            self.cache_candidate_committee_witness(
+                state,
+                &validated.anchor,
+                *target_epoch,
+                witness,
+            )?;
+        }
+        validated.forced = deadline(
+            "forced singleton check",
+            self.opts.engine_timeout,
+            crate::engine::forced::verify_forced(
+                self.engine(),
+                crate::engine::forced::ForcedBuildContext {
+                    expected: &validated.expected,
+                    anchor_hash: validated.anchor.hash,
+                },
+                &validated.decision,
+            ),
+        )
+        .await?;
+        let verdict = deadline(
+            "engine_newPayload",
+            self.opts.engine_timeout,
+            self.engine.new_payload(&validated.block),
+        )
+        .await?;
+        match verdict {
+            PayloadVerdict::Valid => Ok(Validated { executed: true, ..validated }),
+            PayloadVerdict::Invalid(reason) => Err(Rejection::PayloadInvalid(reason)),
+            PayloadVerdict::Syncing => Err(Rejection::PayloadSyncing),
+        }
+    }
+
+    /// Distinguishes a canonical unsupported L1 header from a forged malformed witness.
+    ///
+    /// The proposer chooses the `extraData` anchor number, so one above the own finalized head is
+    /// [`Rejection::AnchorNotFinal`] before any header lookup (CONS-3.3-5); FinalizeBlock then
+    /// waits for L1 finality instead of comparing against a non-final hash. ProcessProposal never
+    /// waits on this check, since it rejects whatever the own L1 answers.
+    pub(super) async fn check_header_format(&self, txs: &[Bytes]) -> Result<(), Rejection> {
+        if let Some((number, raw)) = crate::envelope::undecodable_anchor(txs) {
+            let hash = alloy_primitives::keccak256(&raw);
+            match deadline(
+                "L1 anchor header finality",
+                self.opts.l1_timeout,
+                own_finality(self.l1(), number, hash),
+            )
+            .await?
+            {
+                OwnFinality::NotFinal { .. } => return Err(Rejection::AnchorNotFinal { number }),
+                OwnFinality::Canonical => {
+                    let error = crate::l1::RawL1Header::from_raw(raw)
+                        .expect_err("unrecognized header shape");
+                    return Err(crate::l1::L1Error::UnsupportedHeaderFormat { number, error }.into());
+                }
+                // Not the own block: the caller's envelope decode error stands.
+                OwnFinality::OffChain { .. } => {}
+            }
+        }
+        Ok(())
+    }
+
+    /// ¹ Requires the anchor header of `w` to be final and canonical in the own L1 view, within
+    /// the L1 deadline.
+    async fn check_anchor_final(&self, w: &AnchorWitness) -> Result<(), Rejection> {
+        let number = w.l1_header.number();
+        match deadline(
+            "L1 finality check",
+            self.opts.l1_timeout,
+            own_finality(self.l1(), number, w.l1_header.hash()),
+        )
+        .await?
+        {
+            OwnFinality::Canonical => Ok(()),
+            OwnFinality::NotFinal { .. } | OwnFinality::OffChain { .. } => {
+                Err(Rejection::AnchorNotFinal { number })
+            }
+        }
+    }
+}

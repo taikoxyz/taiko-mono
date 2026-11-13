@@ -1,0 +1,103 @@
+name: Setup taiko-client-rs checks
+description: Native Rust tooling and isolated target cache for this package's CI jobs.
+inputs:
+  cache-key:
+    description: Rust target cache shared key
+    required: true
+  save-cache:
+    description: Whether this main-branch job owns cache writes
+    default: "false"
+  nextest:
+    description: Install the pinned test runner
+    default: "false"
+  nightly:
+    description: Install the isolated helper's pinned formatter
+    default: "false"
+  go:
+    description: Install the pinned guarded-signer toolchain
+    default: "false"
+runs:
+  using: composite
+  steps:
+    - name: Ensure native build tools
+      shell: bash
+      run: |
+        set -euxo pipefail
+
+        if command -v cc > /dev/null 2>&1 && command -v llvm-config > /dev/null 2>&1; then
+          cc --version
+          echo "LIBCLANG_PATH=$(llvm-config --libdir)" >> "$GITHUB_ENV"
+          exit 0
+        fi
+
+        if [ "$(whoami)" = root ]; then
+          SUDO=""
+        else
+          SUDO="sudo"
+        fi
+
+        if command -v apt-get > /dev/null 2>&1; then
+          $SUDO apt-get update
+          $SUDO apt-get install -y build-essential pkg-config clang libclang-dev llvm-dev
+        else
+          echo "ERROR: apt-get is required to install build tools on this runner"
+          exit 1
+        fi
+
+        cc --version
+        echo "LIBCLANG_PATH=$(llvm-config --libdir)" >> "$GITHUB_ENV"
+
+    - name: Install mold
+      shell: bash
+      run: |
+        set -euxo pipefail
+        MOLD_VERSION=2.40.4
+        ARCH="$(uname -m)"
+
+        if [ "$(whoami)" = root ]; then
+          SUDO=""
+        else
+          SUDO="sudo"
+        fi
+
+        curl -fsSL "https://github.com/rui314/mold/releases/download/v${MOLD_VERSION}/mold-${MOLD_VERSION}-${ARCH}-linux.tar.gz" \
+          | $SUDO tar -C /usr/local --strip-components=1 --no-overwrite-dir -xzf -
+
+        if [ "$(readlink -f /usr/bin/ld)" != /usr/local/bin/mold ]; then
+          $SUDO ln -sf /usr/local/bin/mold /usr/bin/ld
+        fi
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+      with:
+        toolchain: 1.99.0
+        components: clippy
+
+    - name: Setup Rust cache
+      uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      with:
+        cache-on-failure: true
+        shared-key: ${{ inputs.cache-key }}
+        save-if: ${{ inputs.save-cache }}
+        workspaces: |
+          packages/taiko-client-rs -> target
+
+    - name: Setup just
+      uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+      with:
+        just-version: 1.5.0
+
+    - if: inputs.nextest == 'true'
+      uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+      with:
+        tool: cargo-nextest@0.9.145
+    - name: Install helper formatter
+      if: inputs.nightly == 'true'
+      shell: bash
+      run: rustup toolchain install nightly-2025-09-27 --profile minimal --component rustfmt
+    - name: Install guarded signer Go toolchain
+      if: inputs.go == 'true'
+      uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      with:
+        go-version: "1.27.2"
+        cache-dependency-path: packages/taiko-client-rs/tools/etna-signer/go.sum

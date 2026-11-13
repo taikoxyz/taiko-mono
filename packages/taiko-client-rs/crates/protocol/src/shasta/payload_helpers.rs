@@ -1,8 +1,8 @@
 //! Shasta payload helper utilities.
 
-use alethia_reth_primitives::payload::{
-    attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes},
-    builder::payload_id_taiko,
+use alethia_reth_primitives::{
+    ETNA_EXTRA_DATA_LEN, SHASTA_EXTRA_DATA_LEN,
+    payload::attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes},
 };
 use alloy::{
     primitives::{Address, B256, Bytes, U256, keccak256},
@@ -10,12 +10,12 @@ use alloy::{
 };
 use alloy_consensus::TxEnvelope;
 use alloy_rlp::{BytesMut, encode_list};
-use alloy_rpc_types_engine_2::{PayloadAttributes as EthPayloadAttributes, PayloadId};
+use alloy_rpc_types_engine::PayloadAttributes as EthPayloadAttributes;
 
-/// Engine API `engine_getPayloadV2` discriminator.
-///
-/// The 8-byte payload identifier prepends this version byte to match the Execution API spec.
-const PAYLOAD_ID_VERSION_V2: u8 = 2;
+use crate::shasta::error::{ProtocolError, Result};
+
+/// Largest value a 6-byte big-endian `uint48` `extraData` field can carry.
+const UINT48_MAX: u64 = (1 << 48) - 1;
 
 alloy::sol! {
     struct ShastaMixHashInput {
@@ -34,16 +34,35 @@ pub fn calculate_shasta_mix_hash(parent_mix_hash: B256, block_number: u64) -> B2
     B256::from(keccak256(params.abi_encode()))
 }
 
-/// Encode the extra data field for a Shasta block header.
+/// Encode the 13-byte `extraData` of a non-genesis Etna block header:
+/// `[basefeeSharingPctg | generation(6) | anchorBlockNumber(6)]`, both numbers big-endian
+/// `uint48` (Etna spec 3.2).
 ///
-/// The first byte contains the basefee sharing percentage, followed by a 6-byte
-/// big-endian proposal id.
-pub fn encode_extra_data(basefee_sharing_pctg: u8, proposal_id: u64) -> Bytes {
-    let mut data = [0u8; 7];
+/// The first 7 bytes keep the pre-Etna `[basefeeSharingPctg | proposalId]` layout: the 6-byte
+/// slot that holds the proposal id before Etna holds the recovery generation from Etna on. A
+/// `generation` or `anchor_block_number` above `uint48` is an error.
+pub fn encode_etna_extra_data(
+    basefee_sharing_pctg: u8,
+    generation: u64,
+    anchor_block_number: u64,
+) -> Result<Bytes> {
+    let mut data = [0u8; ETNA_EXTRA_DATA_LEN];
     data[0] = basefee_sharing_pctg;
-    let proposal_bytes = proposal_id.to_be_bytes();
-    data[1..7].copy_from_slice(&proposal_bytes[2..8]);
-    Bytes::from(data.to_vec())
+    data[1..SHASTA_EXTRA_DATA_LEN].copy_from_slice(&uint48_be_bytes("generation", generation)?);
+    data[SHASTA_EXTRA_DATA_LEN..]
+        .copy_from_slice(&uint48_be_bytes("anchor_block_number", anchor_block_number)?);
+    Ok(Bytes::from(data.to_vec()))
+}
+
+/// Encode `value` as a 6-byte big-endian `uint48`, naming `field` when it does not fit.
+fn uint48_be_bytes(field: &'static str, value: u64) -> Result<[u8; 6]> {
+    if value > UINT48_MAX {
+        return Err(ProtocolError::EtnaExtraDataFieldOverflow { field, value });
+    }
+
+    let mut bytes = [0u8; 6];
+    bytes.copy_from_slice(&value.to_be_bytes()[2..]);
+    Ok(bytes)
 }
 
 /// Encode a list of transactions into the format expected by the execution engine.
@@ -51,11 +70,6 @@ pub fn encode_transactions(transactions: &[TxEnvelope]) -> Bytes {
     let mut buf = BytesMut::new();
     encode_list(transactions, &mut buf);
     Bytes::from(buf.freeze())
-}
-
-/// Convert a `PayloadId` into an array of bytes.
-fn payload_id_to_bytes(payload_id: PayloadId) -> [u8; 8] {
-    payload_id.0.0
 }
 
 /// Per-block fields for assembling [`TaikoPayloadAttributes`] for a Shasta block.
@@ -76,7 +90,7 @@ pub struct PayloadAttributesInput {
     pub gas_limit: u64,
     /// Encoded transaction list, or `None` to let the engine build from its mempool.
     pub tx_list: Option<Bytes>,
-    /// Encoded extra data carrying the basefee sharing percentage and proposal id.
+    /// Header `extraData`: the 13-byte Etna layout ([`encode_etna_extra_data`]).
     pub extra_data: Bytes,
     /// Base fee per gas for the block.
     pub base_fee_per_gas: U256,
@@ -145,16 +159,48 @@ pub fn build_payload_attributes(input: PayloadAttributesInput) -> TaikoPayloadAt
             signature,
         },
         anchor_transaction,
+        max_block_bytes: None,
     }
 }
 
-/// Assemble [`TaikoPayloadAttributes`] and stamp `build_payload_args_id` from the parent hash.
-pub fn build_payload_attributes_with_id(
-    input: PayloadAttributesInput,
-    parent_hash: &B256,
-) -> TaikoPayloadAttributes {
-    let mut payload = build_payload_attributes(input);
-    let payload_id = payload_id_taiko(parent_hash, &payload, PAYLOAD_ID_VERSION_V2);
-    payload.l1_origin.build_payload_args_id = payload_id_to_bytes(payload_id);
-    payload
+#[cfg(test)]
+mod tests {
+    use super::{UINT48_MAX, encode_etna_extra_data};
+    use crate::shasta::ProtocolError;
+    use alethia_reth_primitives::decode_shasta_proposal_id;
+    use alloy::primitives::hex;
+
+    /// `[pctg | generation(6) | anchorBlockNumber(6)]`, both numbers big-endian `uint48`.
+    #[test]
+    fn etna_extra_data_encodes_the_13_byte_layout() {
+        let extra_data = encode_etna_extra_data(50, 7, 123_456).expect("fields fit uint48");
+
+        assert_eq!(extra_data.as_ref(), hex!("3200000000000700000001e240"));
+        assert_eq!(extra_data.len(), 13);
+        assert_eq!(decode_shasta_proposal_id(&extra_data), Some(7));
+        assert_eq!(&extra_data[7..13], hex!("00000001e240"));
+    }
+
+    #[test]
+    fn etna_extra_data_round_trips_the_largest_uint48_values() {
+        let extra_data =
+            encode_etna_extra_data(u8::MAX, UINT48_MAX, UINT48_MAX).expect("max uint48 fits");
+
+        assert_eq!(extra_data.as_ref(), hex!("ffffffffffffffffffffffffff"));
+        assert_eq!(decode_shasta_proposal_id(&extra_data), Some(UINT48_MAX));
+    }
+
+    #[test]
+    fn etna_extra_data_rejects_fields_beyond_uint48() {
+        assert!(matches!(
+            encode_etna_extra_data(50, UINT48_MAX + 1, 1),
+            Err(ProtocolError::EtnaExtraDataFieldOverflow { field: "generation", value })
+                if value == UINT48_MAX + 1
+        ));
+        assert!(matches!(
+            encode_etna_extra_data(50, 1, UINT48_MAX + 1),
+            Err(ProtocolError::EtnaExtraDataFieldOverflow { field: "anchor_block_number", value })
+                if value == UINT48_MAX + 1
+        ));
+    }
 }

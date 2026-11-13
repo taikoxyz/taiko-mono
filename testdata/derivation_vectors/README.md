@@ -14,16 +14,15 @@ can decode its grammar. Signer recovery and execution validity are separate:
 a decodable transaction may still be skipped by the execution engine.
 
 All integers in hex fields are encoded in canonical RLP; hex strings omit 0x.
-Both client adapters consume this same file. Framing cases build malformed RLP directly
-and use Go source decoding as the reference; the reth engine oracle applies only
-to F9 transaction-field cases, not malformed network framing. Only F9 cases record
-`engine_decodable`; other families make no engine-decoding claim. Tests exercise forced-source cardinality
-separately because it is proposal metadata, not part of the manifest payload.
+Framing cases build malformed RLP directly and use Go source decoding as the reference.
+Only F9 cases record `engine_decodable`; other families make no engine-decoding claim.
+Tests exercise forced-source cardinality separately because it is proposal metadata, not
+part of the manifest payload.
 
 ## Shared Unzen boundary conformance
 
-[`boundary_cases.json`](boundary_cases.json) adds 151 independently authored cases that Lean,
-Go and Rust all consume. The original 136 decoding cases remain unchanged. The named matrix
+[`boundary_cases.json`](boundary_cases.json) adds 151 independently authored cases that Lean
+and Go consume. The original 136 decoding cases remain unchanged. The named matrix
 in [`boundary_coverage.json`](boundary_coverage.json) is checked against the corpus, so dropping
 a named boundary or adding an unlisted case fails the fixture checks.
 
@@ -32,8 +31,7 @@ payload bytes. Outputs include **extracted manifests before metadata validation*
 block counts, ordered derived blocks and candidates, header plans, and the next parent.
 Checking extraction separately prevents a later metadata fallback from hiding decoder drift.
 Failed extraction normalizes to a one-zero-block manifest; an ordinary empty manifest remains
-empty at extraction and defaults during metadata validation. Internal Go/Rust default flags
-are not required to match.
+empty at extraction and defaults during metadata validation.
 
 | Category               | Cases | Boundaries                                                                                                      |
 | ---------------------- | ----: | --------------------------------------------------------------------------------------------------------------- |
@@ -65,9 +63,7 @@ abstract model inputs (such as multiple proposer sources or no final proposer) t
 model's general append/isolation claims; they do not assert that the Inbox emits those shapes.
 
 The Go adapter calls the actual blob fetch/decode and metadata functions plus header helpers
-also used in production. Its anchor input is substituted at the RPC/signing boundary. The
-Rust adapter uses production sidecar decoding, source validation, manifest preparation,
-payload/anchor construction and parent advancement, with in-process RPC responses. Lean calls
+also used in production. Its anchor input is substituted at the RPC/signing boundary. Lean calls
 the executable model. Signed-anchor equality, engine execution, authenticated parent reads,
 and the Anchor contract's execution are not compared. Header candidates preserve order; the
 signed first anchor is represented by its target and position. Rebuilt Anchor state retains
@@ -75,9 +71,9 @@ the model's trusted running-maximum assumption.
 
 The Go forced tag records the event's source classification; it is not an independently
 produced runtime field or a claim about persisted `L1Origin`. Forced behavior is tested through
-the actual prepared metadata and retained/defaulted candidates. Rust additionally checks the constructed payload's forced
-flag, timestamp, number and beneficiary. The adapters test pre-execution source/plan order;
-they project parent headers instead of executing the production engine-application loop.
+the actual prepared metadata and retained/defaulted candidates. The Go adapter tests
+pre-execution source/plan order; it projects parent headers instead of executing the production
+engine-application loop.
 Runtime insertion scheduling, L1 origin writes and authenticated parent fetching require
 separate integration evidence.
 
@@ -106,22 +102,14 @@ go test ./packages/taiko-client/driver/chain_syncer/event/blocks_inserter -count
 go test ./packages/taiko-client/driver/chain_syncer/event -run '^TestProcessProposalSkipsActivationProposal$' -count=1
 ```
 
-Run Rust from `packages/taiko-client-rs`:
-
-```bash
-cargo test --locked -p protocol --lib manifest_vectors
-bash script/test_derivation_vectors_guard.sh
-bash script/test_derivation_vectors.sh
-```
-
 Run Lean and fixture checks from `formal/derivation` with `bash scripts/gate.sh`.
-The formal workflow runs all three adapters on draft PRs and watches client code and dependency
-changes as well as the model, specification and corpora. These native conformance jobs need no
-Docker or live chains; the driver/engine verification below remains a separate execution test.
+The formal workflow runs the Lean and Go adapters on draft PRs and watches Go client code and
+dependency changes as well as the model, specification and corpora. These native conformance
+jobs need no Docker or live chains.
 
 ### Both sides of the fork selector
 
-[`fork_selection_cases.json`](fork_selection_cases.json) supplies 12 additional **Go/Rust-only**
+[`fork_selection_cases.json`](fork_selection_cases.json) supplies 12 additional **Go-only**
 extraction cases. Mainnet and Hoodi each have paired proposals at Unzen−1, Unzen and Unzen+1:
 192 blocks are accepted before activation, 193 are rejected before but accepted at/after it,
 and 768/769 exercise the new cap at activation. All candidate timestamps remain pre-Unzen,
@@ -129,9 +117,7 @@ so selecting the cap from a candidate's timestamp instead of the L1 proposal tim
 An always-768 selector also fails the pre-Unzen cases. The Lean model's 151-case corpus remains
 Unzen-only; these client extraction checks do not extend its theorem scope.
 
-`generate_boundaries.py --check` reproduces both generated corpora. The checked Rust entrypoint
-requires exactly the three named vector tests before execution and includes ignored tests;
-zero matches, a renamed/missing test, duplicates or an unexpected selection fail the gate.
+`generate_boundaries.py --check` reproduces both generated corpora.
 
 ## Metadata-stage conformance vectors
 
@@ -143,23 +129,17 @@ These written vectors cover the [block-count and default-source rules](../../pac
 | Empty forced-inclusion source | A forced-inclusion source decodes to `blocks = []`                                           | Replace that source with one default block and apply inherited metadata                                                 |
 | Source isolation              | One valid single-block forced-inclusion source followed by an empty proposer-supplied source | Preserve the forced-inclusion source and replace only the proposer-supplied source; derive two blocks                   |
 
-## Local driver/engine verification
+## Consumers
 
-From packages/taiko-client-rs, run:
+The Go unit-test suite and the Lean `vectors` runner read `manifest_cases.json`; neither needs
+Docker nor a running node. The Go suite is
+`packages/taiko-client/driver/chain_syncer/event/derivation/source_manifest_vectors_test.go`.
+From `packages/taiko-client`, run
+`go test ./driver/chain_syncer/event/derivation -run TestManifestVectors`.
 
-    bash script/test_derivation_parity.sh
-
-This builds the Go driver and uses the existing Docker harness's two reth nodes.
-Both drivers consume the same L1 proposals and sidecars. The test compares pinned
-block hashes, ordered transaction bytes and successful anchor receipts, then submits
-a subsequent normal proposal. Proposal metadata is generated from the current test
-chain before inserting malformed encodings so metadata fallback cannot mask the bug.
-
-The explicitly selected test fails if its Go binary is unavailable. Ordinary Rust
-test runs leave it ignored because it additionally needs Go. The script refuses to
-reuse running harness containers. TAIKO_GO_DRIVER_BIN and DERIVATION_PARITY_CASES
-can select an existing binary and a comma-separated case sequence for failure controls.
-The signed control and forced-source counterexample share a nonce-zero transaction.
-Run `signed_control` at most once and after every `forced_type2_parity_2` case;
-invalid custom ordering is rejected before either driver starts.
-Use only local disposable test chains.
+The Rust client no longer reads any of these corpora. Its Shasta manifest decoder was removed
+together with `f9_engine_encoding_oracle`, the only check of the F9 `engine_decodable` claims
+against alethia-reth's transaction-list decoder, and its boundary and fork-selection adapter
+went with the Unzen driver. No end-to-end driver/engine parity run remains either: the script
+that compared the Go and Rust drivers over the Docker harness was removed together with the
+Rust client's Shasta paths.
