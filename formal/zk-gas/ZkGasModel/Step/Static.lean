@@ -7,7 +7,8 @@ The bodies of the opcodes whose only cost is the static gas `Interpreter::step` 
 them: STOP, the arithmetic and bitwise opcodes except EXP, POP, PUSH0..PUSH32, DUP, SWAP, the
 environment reads, and the opcodes that halt as soon as they run (not activated on Unzen, INVALID
 and undefined). Each body gets `gas`, the frame's gas after the static charge. A body can only
-continue or halt keeping `gas`: none of these instructions charges more gas. Paths are
+continue, end the frame (STOP) or halt keeping `gas`: none of these instructions charges more
+gas. Paths are
 revm-interpreter 43.0.1 `src/`.
 
 The fork gates these bodies check (`check!`: SHANGHAI for PUSH0, ISTANBUL for CHAINID and
@@ -17,8 +18,8 @@ AMSTERDAM gates of SLOTNUM, DUPN, SWAPN and EXCHANGE fail.
 -/
 namespace TaikoSpec.ZkGas
 
-/-- STOP (`instructions/control.rs` `stop`): ends the frame keeping its gas. -/
-def stopStep (gas : Nat) : StepResult := haltKeeping gas .static_stop_halt
+/-- STOP (`instructions/control.rs` `stop`): ends the frame successfully keeping its gas. -/
+def stopStep (gas : Nat) : StepResult := succeedWith gas .static_stop_halt
 
 /-- A body whose only check is popping `n` stack items (`popn!` or `popn_top!`, which fail with
 `StackUnderflow` when the stack has fewer than `n`): ADD..SIGNEXTEND except EXP

@@ -47,9 +47,15 @@ parses the events and rejects anything outside the schema;
 [`ZkGasTraces/Check.lean`](ZkGasTraces/Check.lean) checks the event order, each step's and
 precompile's charge, each charge's meter verdict, and feeds every tx's charges to `meterBlock`
 (a harness frame's to `meterTx`) to reproduce the vector's expected values. It takes a step model
-`Pre → Except String (Option (gas_after × spawn × branch))`; the model checks `gas_after` and
-`spawn` of every step it covers. `check-traces` runs `stepModel`, which is `stepOutcome` on Unzen
-(a step spawns when its outcome is a new frame). Some opcode categories are not modeled yet, so
+`Pre → Except String (Option (gas_after × outcome × branch))`. For every step the model covers,
+the checker compares `gas_after` and `spawn` (a step spawns exactly when its outcome is a new
+frame) and, unless the meter rejected the step's charge, checks the outcome against the event
+after the step: a step that continues is followed by a step at its depth; a step that ends its
+frame by a step at a smaller depth or the end of the tx or frame, and a harness trace's top frame
+ends with the `frame_end` status of its outcome (`success` for STOP and RETURN, `revert` for
+REVERT, `halt` for the other halts); a step that opens a frame by a step one deeper, a
+precompile, a step at its depth (the new frame ran no step) or the end. `check-traces` runs
+`stepModel`, which is `stepOutcome` on Unzen. Some opcode categories are not modeled yet, so
 `--allow-unmodeled` lets their steps pass; without it, an uncovered step fails. The summary line
 counts the steps the model checked and the unmodeled ones. The checker stops at the first
 failure with the vector id, the event index and the reason, and exits 1. Every vector needs a
@@ -147,11 +153,12 @@ trace parser and checker on fixture traces: canonical hex up to 2^256 - 1, malfo
 `facts`, the two smoke vectors' traces, and each kind of failure (event order, step, precompile
 and intrinsic charges, meter verdicts, totals against the expected values, model disagreement),
 and the two shapes with no step: a tx skipped before its intrinsic charge (a lone skipped
-`tx_end`) and a harness call to an account without code (`frame_end` alone). The step model has
-at least one guard per branch, each on a step line copied verbatim from a committed reth trace
-and expecting that line's `gas_after`, plus guards for a missing fact or stack item, an opcode
-not modeled yet, and the smoke harness trace fully modeled. They run during compilation and are
-**not kernel proofs**.
+`tx_end`) and a harness call to an account without code (`frame_end` alone). Guards that flip
+one modeled step's outcome check that the checker rejects an outcome the next event contradicts.
+The step model has at least one guard per branch, each on a step line copied verbatim from a
+committed reth trace and expecting that line's `gas_after`, plus guards for a missing fact or
+stack item, an opcode not modeled yet, and the smoke harness trace fully modeled. They run
+during compilation and are **not kernel proofs**.
 
 The full gate combines independent checks:
 

@@ -116,10 +116,11 @@ def smokeHarness : List String :=
 def smokeHarnessVector : String :=
   harnessVector "0x5f5e100" "{\"frame_zk_gas\":\"0x6f\",\"status\":\"success\"}"
 
-/-- A model that charges exactly each opcode's static gas (plus `extra`), right for the smoke
-harness trace when `extra` is 0. -/
+/-- A model that charges exactly each opcode's static gas (plus `extra`) and ends the frame
+successfully at STOP, right for the smoke harness trace when `extra` is 0. -/
 def staticModel (extra : Nat := 0) : Model :=
-  fun p => .ok (some (p.gas - staticGas p.op - extra, false, "static"))
+  fun p => .ok (some (p.gas - staticGas p.op - extra, if p.op = 0 then .success else .continue,
+    "static"))
 
 -- Canonical hex: zero is `0x0`; leading zeros, uppercase and a bare `0x` are rejected;
 -- 2^256 - 1 parses.
@@ -339,10 +340,10 @@ def stepAgrees (line : String) (outcome : Outcome) (branch : BranchId) : Bool :=
 #guard stepAgrees
   "{\"e\":\"step\",\"d\":1,\"pc\":0,\"op\":230,\"gas\":\"0x2\",\"static\":false,\"sl\":0,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x1fffe\",\"ok\":true,\"charged\":true}"
   .haltSpendAll .static_step_static_oog_spend_all
--- smoke.harness.add, event 3: STOP ends the frame keeping its gas.
+-- smoke.harness.add, event 3: STOP ends the frame successfully keeping its gas.
 #guard stepAgrees
   "{\"e\":\"step\",\"d\":1,\"pc\":5,\"op\":0,\"gas\":\"0x18697\",\"static\":false,\"sl\":1,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18697\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
-  .haltKeep .static_stop_halt
+  .success .static_stop_halt
 -- static.arith.add_exact_gas, event 2: ADD with exactly its static 3 gas.
 #guard stepAgrees
   "{\"e\":\"step\",\"d\":1,\"pc\":4,\"op\":1,\"gas\":\"0x3\",\"static\":false,\"sl\":2,\"stack\":[\"0x2\",\"0x1\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x39\",\"ok\":true,\"charged\":true}"
@@ -570,3 +571,54 @@ def jumpPre (sl : Nat) (facts : Facts) : Pre :=
   .ok { events := 5, steps := 4,
         branches := ["static_stack_success", "static_stack_success", "static_arith_success",
                      "static_stop_halt"] }
+
+/-! ### Outcomes against the trace
+
+The checker holds each modeled step's outcome to the event after it: a step that continues is
+followed by a step at its depth; a step that ends its frame by a step at a smaller depth or the
+end of the tx or frame, and in a harness trace a top frame's end has the `frame_end` status of
+its outcome; a step that opens a frame by a step one deeper, a precompile, a step at its depth or
+the end. A step whose charge the meter rejects ends the tx and is not checked. Each guard flips
+one modeled step's outcome in a trace the step model passes. -/
+
+/-- `model` with the outcome of the step at depth `d` and pc `pc` replaced by `o`. -/
+def flipAt (d pc : Nat) (o : Outcome) (model : Model := stepModel) : Model := fun p => do
+  match ← model p with
+  | some (gasAfter, outcome, branch) =>
+    pure (some (gasAfter, if p.depth = d ∧ p.pc = pc then o else outcome, branch))
+  | none => pure none
+
+-- PUSH1 that ends its frame, though the frame goes on at its depth.
+#guard failsWith (run smokeHarnessVector smokeHarness (flipAt 1 0 .haltKeep))
+  "event 0: model branch static_stack_success: outcome haltKeep ends the frame, but the next event is a step at depth 1"
+-- STOP that continues, though frame_end follows; STOP that ends with another status.
+#guard failsWith (run smokeHarnessVector smokeHarness (flipAt 1 5 .continue))
+  "event 3: model branch static_stop_halt: outcome continue, but the next event is frame_end"
+#guard failsWith (run smokeHarnessVector smokeHarness (flipAt 1 5 .revert))
+  "event 3: model branch static_stop_halt: outcome revert ends the top frame with status revert, but frame_end has status success"
+#guard failsWith (run smokeHarnessVector smokeHarness (flipAt 1 5 .haltSpendAll))
+  "event 3: model branch static_stop_halt: outcome haltSpendAll ends the top frame with status halt, but frame_end has status success"
+-- The anchor's STOP in a block trace: tx_end follows it, so it cannot continue.
+#guard (run (blockVector smokeBlockExpected) smokeBlock (requireModeled stepModel)).isOk
+#guard failsWith (run (blockVector smokeBlockExpected) smokeBlock (flipAt 1 0 .continue))
+  "event 1: model branch static_stop_halt: outcome continue, but the next event is tx_end"
+-- A rejected charge ends the frame whatever the step's outcome: ADD continues, frame_end follows.
+#guard (run zkLimitVector zkLimitHarness (requireModeled stepModel)).isOk
+
+/-- A model of the CALL family as opening a frame, `stepModel` for the rest. -/
+def spawnModel : Model := fun p =>
+  if callFamily p.op then .ok (some (0, .newFrame, "spawn")) else stepModel p
+
+/-- A CALL step at depth `d` and pc `pc` that spawns. -/
+def callAt (d pc : Nat) : String :=
+  stepLine d pc 0xf1 "0x186a0" 7 "\"0xffff\",\"0x2\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\""
+    "0x1" "0x3d090" "\"account_warm\":true,\"account_empty\":false,\"delegate_warm\":null"
+    (spawn := true)
+
+-- A spawn step followed by its precompile passes; one followed by a step at a smaller depth
+-- fails.
+#guard (run callVector callHarness spawnModel).isOk
+#guard failsWith (run (harnessVector "0x5f5e100" "{\"frame_zk_gas\":\"0x7a120\",\"status\":\"success\"}")
+  [callAt 1 0, callAt 2 0, stepLine 1 1 0x00 "0x186a0" 1 "" "0x186a0" "0x0",
+   frameEndLine "success" "\"0x7a120\""] spawnModel)
+  "event 1: model branch spawn: outcome newFrame, but the next event is a step at depth 1"

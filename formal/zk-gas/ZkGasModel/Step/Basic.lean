@@ -20,16 +20,24 @@ inductive Fork
   | unzen
   deriving Repr, DecidableEq
 
-/-- How a step ends. -/
+/-- How a step ends. A frame that ends keeps its remaining gas unless it halts out of gas; the
+frame-ending outcomes differ in the status the frame ends with (a harness trace's `frame_end`
+status: `success`, `revert` or `halt`). -/
 inductive Outcome
   /-- The frame goes on to its next opcode. -/
   | continue
-  /-- The frame ends and keeps its remaining gas: STOP, or a halt other than out of gas (stack
+  /-- The frame ends successfully and keeps its remaining gas: STOP (revm `Stop`) or RETURN
+  (`Return`). Frame status `success`. -/
+  | success
+  /-- REVERT ends the frame and keeps its remaining gas (revm `Revert`). Frame status
+  `revert`. -/
+  | revert
+  /-- The frame halts and keeps its remaining gas: a halt other than out of gas (stack
   underflow or overflow, an invalid jump, an opcode not activated or not defined).
-  `Interpreter::halt` spends the remaining gas only for `OutOfGas`. -/
+  `Interpreter::halt` spends the remaining gas only for `OutOfGas`. Frame status `halt`. -/
   | haltKeep
   /-- The frame halts out of gas, which spends all its remaining gas (`Interpreter::halt` on
-  `OutOfGas`); the step's gas after is 0. -/
+  `OutOfGas`); the step's gas after is 0. Frame status `halt`. -/
   | haltSpendAll
   /-- The step opens a new frame (CALL or CREATE family); it is charged its spawn estimate. -/
   | newFrame
@@ -49,7 +57,7 @@ inductive BranchId
   the out-of-gas half of `static.step.oog_before_underflow` and
   `static.step.oog_before_overflow`. -/
   | static_step_static_oog_spend_all
-  /-- STOP ends the frame keeping its gas (new name; no cell). -/
+  /-- STOP ends the frame successfully keeping its gas (new name; no cell). -/
   | static_stop_halt
   /-- ADD..SIGNEXTEND except EXP with their stack inputs. -/
   | static_arith_success
@@ -187,6 +195,10 @@ def stackLimit : Nat := 1024
 /-- The frame goes on with `gas` left. -/
 def continueWith (gas : Nat) (branch : BranchId) : StepResult :=
   { gasAfter := gas, outcome := .continue, branch }
+
+/-- The frame ends successfully keeping `gas`. -/
+def succeedWith (gas : Nat) (branch : BranchId) : StepResult :=
+  { gasAfter := gas, outcome := .success, branch }
 
 /-- The frame halts keeping `gas`. -/
 def haltKeeping (gas : Nat) (branch : BranchId) : StepResult :=

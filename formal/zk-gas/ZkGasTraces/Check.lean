@@ -21,21 +21,26 @@ values:
   `included`, `truncated_at`, `cumulative_zk_gas` and `block_zk_gas`; a harness frame's
   `meterTx` total and status match `frame_zk_gas` and `status`.
 - (e) a step model, where it returns an outcome, agrees with the trace's `spawn` and, for a step
-  that does not spawn, `gas_after`.
+  that does not spawn, `gas_after`; and, unless the meter rejected the step's charge, the event
+  after the step is one its outcome allows (`checkNext`): a step at the same depth after
+  `continue`; a step at a smaller depth or the tx's or frame's end after an outcome that ends the
+  frame, with the harness `frame_end` status of the outcome when the top frame (depth 1) ends;
+  and a step one deeper, a precompile, a step at the same depth (the new frame ran no step) or the
+  end after `newFrame`.
 -/
 namespace TaikoSpec.ZkGas.Traces
 
-/-- A step model: the step's `gas_after`, whether it spawns, and the name of the branch that
-decided it; `none` for a step it does not model yet. -/
-abbrev Model := Pre → Except String (Option (Nat × Bool × String))
+/-- A step model: the step's `gas_after`, its outcome, and the name of the branch that decided
+it; `none` for a step it does not model yet. A step spawns exactly when its outcome is
+`newFrame`. -/
+abbrev Model := Pre → Except String (Option (Nat × Outcome × String))
 
 /-- The model that models no step. -/
 def unmodeled : Model := fun _ => .ok none
 
-/-- The Unzen step model `stepOutcome` (`ZkGasModel.Step`): a step spawns exactly when the
-model's outcome is a new frame. -/
+/-- The Unzen step model `stepOutcome` (`ZkGasModel.Step`). -/
 def stepModel : Model := fun pre =>
-  (stepOutcome .unzen pre).map (·.map fun r => (r.gasAfter, r.outcome == .newFrame, r.branch.name))
+  (stepOutcome .unzen pre).map (·.map fun r => (r.gasAfter, r.outcome, r.branch.name))
 
 /-- `model`, with every step it does not model an error. -/
 def requireModeled (model : Model) : Model := fun p => do
@@ -83,16 +88,70 @@ def checkAmount (s : Schedule) : Event → Except String Unit
       throw s!"zk {hexString zk}, want (supplied - left) * multiplier {mult} = {hexString ((supplied - left) * mult)}"
   | _ => pure ()
 
-/-- (e): the model's outcome for one step, if it models the step; returns its branch. -/
-def checkModel (model : Model) (pre : Pre) (out : StepOut) : Except String (Option String) := do
+/-- (e): the model's result for one step, if it models the step; returns its outcome and
+branch. -/
+def checkModel (model : Model) (pre : Pre) (out : StepOut) :
+    Except String (Option (Outcome × String)) := do
   match ← model pre with
   | none => pure none
-  | some (gasAfter, spawn, branch) =>
+  | some (gasAfter, outcome, branch) =>
+    let spawn := outcome == .newFrame
     unless spawn == out.spawn do
       throw s!"model branch {branch}: spawn {spawn}, trace spawn {out.spawn}"
     unless spawn || gasAfter == out.gasAfter do
       throw s!"model branch {branch}: gas_after {hexString gasAfter}, trace gas_after {hexString out.gasAfter}"
-    pure (some branch)
+    pure (some (outcome, branch))
+
+def outcomeName : Outcome → String
+  | .continue => "continue"
+  | .success => "success"
+  | .revert => "revert"
+  | .haltKeep => "haltKeep"
+  | .haltSpendAll => "haltSpendAll"
+  | .newFrame => "newFrame"
+
+/-- The harness `frame_end` status of a frame that ends with outcome `o`, or `none` when `o`
+does not end the frame. -/
+def frameStatus : Outcome → Option String
+  | .success => some "success"
+  | .revert => some "revert"
+  | .haltKeep | .haltSpendAll => some "halt"
+  | .continue | .newFrame => none
+
+/-- A modeled step whose charge the meter accepted, waiting for the event after it. -/
+structure Pending where
+  /-- The step's event index. -/
+  event : Nat
+  depth : Nat
+  outcome : Outcome
+  branch : String
+
+/-- Event `e`, for messages. -/
+def describe : Event → String
+  | .intrinsic .. => "intrinsic"
+  | .step pre _ => s!"a step at depth {pre.depth}"
+  | .precompile .. => "a precompile"
+  | .txEnd .. => "tx_end"
+  | .frameEnd .. => "frame_end"
+
+/-- (e): event `e`, which follows the modeled step `p`, is one `p`'s outcome allows. -/
+def checkNext (p : Pending) (e : Event) : Except String Unit := do
+  let at_ := s!"event {p.event}: model branch {p.branch}: outcome {outcomeName p.outcome}"
+  let fail (what : String) : Except String Unit :=
+    throw s!"{at_}{what}, but the next event is {describe e}"
+  match p.outcome, e with
+  | .continue, .step pre _ => unless pre.depth = p.depth do fail ""
+  | .continue, _ => fail ""
+  | .newFrame, .step pre _ => unless pre.depth = p.depth + 1 ∨ pre.depth = p.depth do fail ""
+  | .newFrame, .intrinsic .. => fail ""
+  | .newFrame, _ => pure ()
+  | _, .step pre _ => unless pre.depth < p.depth do fail " ends the frame"
+  | o, .frameEnd status _ =>
+    if let some want := frameStatus o then
+      if p.depth = 1 ∧ want ≠ status then
+        throw s!"{at_} ends the top frame with status {want}, but frame_end has status {status}"
+  | _, .txEnd .. => pure ()
+  | _, _ => fail " ends the frame"
 
 inductive Layer
   | block
@@ -143,6 +202,8 @@ structure Walk where
   frame : Option (String × Nat) := none
   /-- The model branches of the modeled steps, newest first. -/
   branches : List String := []
+  /-- The last event was a modeled step whose charge the meter accepted. -/
+  pending : Option Pending := none
 
 /-- Applies charge `amount` of event `i`; its `ok` must be the meter's verdict: the charge fits
 when the tx's total stays within what the block has left. -/
@@ -192,15 +253,20 @@ def Walk.event (s : Schedule) (model : Model) (layer : Layer) (w : Walk) (i : Na
       if pre.depth = 0 ∨ pre.depth > d + 1 ∨ (pre.depth = d + 1 ∧ !w.spawned) then
         throw s!"event {i}: depth {pre.depth} after depth {d} (depth rises by one, only after a spawn step)"
     (checkAmount s (.step pre out)).mapError (s!"event {i}: " ++ ·)
-    let branch ← (checkModel model pre out).mapError (s!"event {i}: " ++ ·)
-    let branches := match branch with
-      | some b => b :: w.branches
+    let modeled ← (checkModel model pre out).mapError (s!"event {i}: " ++ ·)
+    let branches := match modeled with
+      | some (_, b) => b :: w.branches
       | none => w.branches
+    let pending := match modeled with
+      | some (outcome, branch) =>
+        if out.ok then some { event := i, depth := pre.depth, outcome, branch } else none
+      | none => none
     let w := { w with
       depth := some pre.depth
       spawned := out.spawn
       callSpawned := out.spawn && callFamily pre.op
-      branches }
+      branches
+      pending }
     if out.charged then w.charge s i out.zk out.ok else pure w
   | .precompile addr supplied left success zk ok => do
     w.inside layer i "precompile"
@@ -248,14 +314,18 @@ def Walk.event (s : Schedule) (model : Model) (layer : Layer) (w : Walk) (i : Na
       throw s!"event {i}: frame_zk {hexString frameZk}, but the frame's charges total {hexString w.total}"
     return { w with inTx := false, frame := some (status, frameZk) }
 
-/-- Walks the events from index `i` on. -/
+/-- Walks the events from index `i` on. Each event is checked on its own first, then against
+the outcome of the modeled step before it. -/
 def walkFrom (s : Schedule) (model : Model) (layer : Layer) : Nat → Walk → List Event →
     Except String Walk
   | _, w, [] => .ok w
   | i, w, e :: es =>
-    match w.event s model layer i e with
+    match { w with pending := none }.event s model layer i e with
     | .error err => .error err
-    | .ok w => walkFrom s model layer (i + 1) w es
+    | .ok w' =>
+      match w.pending.map (checkNext · e) with
+      | some (.error err) => .error err
+      | _ => walkFrom s model layer (i + 1) w' es
 
 def hexList (expected : Lean.Json) (k : String) : Except String (List Nat) := do
   match ← field expected k with
