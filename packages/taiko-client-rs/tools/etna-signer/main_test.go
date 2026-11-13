@@ -314,3 +314,30 @@ func TestHardlinkedStateCannotSplitSigningHistory(t *testing.T) {
 		t.Fatal("hardlink rejection modified signing state")
 	}
 }
+
+// A refusal makes at most two trust queries, so a timeout above 2 s could leave a refused
+// request unanswered past CometBFT's fixed 5 s signer read timeout, and Comet retries an
+// unanswered request instead of giving up on it (SYNC-9-11). The binary refuses to start.
+func TestTrustTimeoutAbove2sIsRejected(t *testing.T) {
+	for _, c := range []struct {
+		timeout time.Duration
+		valid   bool
+	}{
+		{-time.Second, false},
+		{0, false},
+		{time.Nanosecond, true},
+		{time.Second, true},
+		{2 * time.Second, true},
+		{2001 * time.Millisecond, false},
+		{10 * time.Second, false},
+	} {
+		if got := validTrustTimeout(c.timeout); got != c.valid {
+			t.Errorf("validTrustTimeout(%v) = %v, want %v", c.timeout, got, c.valid)
+		}
+	}
+	dir := t.TempDir()
+	args := append(serveArgs(filepath.Join(dir, "key.json"), filepath.Join(dir, chain+".json"), filepath.Join(dir, "domains.log")), "--trust-timeout", "2001ms")
+	if code, stderr := runSigner(t, args...); code != 1 || !strings.Contains(stderr, "timeout must be in (0,2s]") {
+		t.Fatalf("exit %d, stderr %q", code, stderr)
+	}
+}

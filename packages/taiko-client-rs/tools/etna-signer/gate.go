@@ -284,8 +284,11 @@ func (g *gate) dialer(base privval.SocketDialer) privval.SocketDialer {
 }
 
 // trustedDialer serves --await-trust, which the supervisor uses only for its restart after
-// a refused or timed-out signing request, once trust has returned. Stock Comet never
-// retries a refused request; only a restarted Comet's WAL replay asks for that step again,
+// a refused signing request, once trust has returned. Every refusal, a timed-out trust query
+// included, is an explicit error answered before Comet's fixed 5 s signer read timeout: stock
+// Comet gives up at once on a request answered with an error and never retries it, whereas it
+// retries any other failure (no answer within that timeout, a dropped connection, a malformed
+// answer). Only a restarted Comet's WAL replay asks for the refused step again,
 // and that request must not race the app's asynchronous check of the fresh session. So the
 // first transport begins its session but is exposed to Comet only after that session
 // passes trusted; until then dialing fails and SignerDialerEndpoint retries. One pending

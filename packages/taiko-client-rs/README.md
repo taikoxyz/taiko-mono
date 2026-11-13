@@ -561,10 +561,14 @@ committing those values to the Inbox.
    process. No local signing fallback exists in the validator startup recipe.
 
    The helper atomically publishes private `signer-denial.json` observations: sequence zero
-   establishes the current session; a positive sequence records a refused or timed-out
-   signing request. The supervisor's private `observe` request neither rearms the session
-   nor authorizes signing. Stock Comet never retries a refused or timed-out signing request;
-   only a restarted Comet's WAL replay asks for that step again. So once exact deployment
+   establishes the current session; a positive sequence records a refused signing request,
+   including one whose trust query timed out. The supervisor's private `observe` request
+   neither rearms the session nor authorizes signing. Stock Comet gives up at once only on a
+   request the helper answered with an error and retries any other failure (no answer within
+   its fixed 5 s signer read timeout, a dropped connection, a malformed answer), so the helper
+   always refuses explicitly and in time: `--trust-timeout` is at most 2 s and a refusal makes
+   at most two trust queries. Comet never retries such a refusal; only a restarted Comet's WAL
+   replay asks for that step again. So once exact deployment
    identity and private trust return Ready, a denial triggers a bounded stop/reap of both
    children and a restart in this order: the signer alone with `--await-trust`, which begins
    a fresh closed session and connects to `priv_validator_laddr` only after the app has

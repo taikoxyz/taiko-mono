@@ -219,8 +219,12 @@ It is a private atomic observation, not signing state or authorization: sequence
 publishes a fresh session ID, and positive sequence increments capture every signing
 refusal, including a local-control timeout while the app remains Ready. The supervisor
 uses nonmutating `observe`, waits for exact private Ready, then reaps Comet and
-the signer with unchanged HRS/WAL/history. Stock Comet never retries a refused request;
-only a restarted Comet's WAL replay asks for that step again. So the supervisor first
+the signer with unchanged HRS/WAL/history. Stock Comet never retries a refused request: it
+gives up at once on a request the signer answered with an error. It retries any other
+failure: no answer within its fixed 5 s signer read timeout, a dropped connection or a
+malformed answer. So the signer always refuses explicitly and in time: `--trust-timeout` is
+at most 2 s, and a refusal, which makes at most two trust queries, is answered within 4 s.
+Only a restarted Comet's WAL replay asks for the refused step again, so the supervisor first
 restarts the signer alone with `--await-trust`: it begins the fresh closed session for its
 first transport and dials Comet only after that session passes the same check as every
 signature. Until then each dial attempt fails and is retried on the same session; it begins

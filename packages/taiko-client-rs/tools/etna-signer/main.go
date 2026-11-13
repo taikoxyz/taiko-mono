@@ -56,6 +56,16 @@ func singleLinkState(path string) error {
 	}
 	return nil
 }
+
+// validTrustTimeout bounds each private trust-control query. A refusal makes at most two
+// queries (check_session, then begin_session after a session change), so with at most 2 s
+// each it is answered within 4 s, before CometBFT's fixed 5 s signer read timeout. Comet gives
+// up at once only on a request answered with an error and retries an unanswered one
+// (SYNC-9-11).
+func validTrustTimeout(d time.Duration) bool {
+	return d > 0 && d <= 2*time.Second
+}
+
 func run() error {
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
@@ -76,11 +86,11 @@ func run() error {
 	state := flag.String("priv-state", "", "existing <state-dir>/<chain-id>.json HRS that init-state created (never reset)")
 	domains := flag.String("domains-log", "", "existing domains log listing every initialized chain ID, outside the state directory")
 	denial := flag.String("denial-file", "", "private atomic refusal event file for the local supervisor")
-	timeout := flag.Duration("trust-timeout", time.Second, "per-request private control deadline (0 < timeout <= 10s)")
+	timeout := flag.Duration("trust-timeout", time.Second, "per-request private control deadline (0 < timeout <= 2s; a refusal makes at most two queries and must be answered before CometBFT's fixed 5 s signer read timeout)")
 	await := flag.Bool("await-trust", false, "recovery restart after a refused signing request, once trust has returned: connect to Comet only after the first transport's fresh trust session is Ready, so WAL replay's re-request of the refused step is authorized; later reconnects dial at once; never for a first start, where trust may return only after Comet syncs")
 	flag.Parse()
-	if flag.NArg() != 0 || *addr == "" || *control == "" || *chain == "" || *key == "" || *state == "" || *domains == "" || *timeout <= 0 || *timeout > 10*time.Second {
-		return errors.New("all addresses, chain ID, existing key/state paths and the domains log are required; timeout must be in (0,10s]")
+	if flag.NArg() != 0 || *addr == "" || *control == "" || *chain == "" || *key == "" || *state == "" || *domains == "" || !validTrustTimeout(*timeout) {
+		return errors.New("all addresses, chain ID, existing key/state paths and the domains log are required; timeout must be in (0,2s]")
 	}
 	signer, release, err := openSigningState(*chain, *key, *state, *domains)
 	if err != nil {

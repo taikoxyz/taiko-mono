@@ -5,8 +5,13 @@ Only private observation and signer refusal events trigger recovery. Neither is
 signing authorization: every new transport still obtains a fresh closed session.
 A durable terminal latch keeps restartAlways containers quiescent until repair.
 
-Stock Comet never retries a refused or timed-out signing request; only the WAL
-replay of a restarted Comet asks for that step again. Recovery therefore runs in
+Stock Comet gives up at once only on a signing request the signer answered with
+an error, a refusal after a timed-out trust query included, and retries any
+other failure (no answer within its fixed 5 s signer read timeout, a dropped
+connection, a malformed answer). So the signer always refuses explicitly and in
+time: --trust-timeout is at most 2 s and a refusal makes at most two trust
+queries. Comet never retries such a refusal; only the WAL replay of a restarted
+Comet asks for that step again. Recovery therefore runs in
 this order: a refusal, then waiting for Ready trust, then a stop of both children
 and a restart of only the signer with --await-trust. That signer begins a fresh
 session and connects to Comet's priv_validator_laddr only once the app has
