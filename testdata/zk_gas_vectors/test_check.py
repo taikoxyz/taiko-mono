@@ -521,6 +521,16 @@ class CheckTests(unittest.TestCase):
         swapped = {"e": "frame_end", "frame_zk": "0x0", "status": "success"}
         self.assertTraceRejected(harness, jsonl([STEP, swapped]), "line 2: fields must be e, status, frame_zk")
 
+    def test_trace_integer_fields_are_json_integers(self):
+        # Lean's JSON reader would read 1e2 as 100; the schema's integers are plain JSON integers.
+        block = "smoke.block.transfer"
+        for spelling in ["1e2", "1.0", "true", '"0x1"']:
+            with self.subTest(spelling=spelling):
+                text = jsonl(BLOCK_TRACE).replace('"pc":0', f'"pc":{spelling}')
+                self.assertTraceRejected(block, text, "line 2: pc must be a JSON integer")
+        text = jsonl(BLOCK_TRACE).replace('"index":0', '"index":0.0')
+        self.assertTraceRejected(block, text, "line 3: index must be a JSON integer")
+
     def test_trace_first_event_matches_layer(self):
         block, harness = "smoke.block.transfer", "smoke.harness.add"
         self.assertTraceRejected(block, jsonl([STEP, TX_END]), "first event must be intrinsic (block layer)")

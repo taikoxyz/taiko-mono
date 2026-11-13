@@ -123,7 +123,7 @@ def asWord (k : String) (v : Lean.Json) : Except String Nat := do
   if n < 2 ^ 256 then pure n else throw s!"{k}: {hexString n} exceeds 2^256 - 1"
 
 /-- A JSON integer (`pc`, `d`, `op`, `sl`, `index`). Lean's reader also turns `1e2` into 100;
-`check.py` rejects that spelling. -/
+the corpus `check.py` rejects every spelling but a plain integer. -/
 def asIndex (k : String) (v : Lean.Json) : Except String Nat :=
   match v with
   | .num n =>

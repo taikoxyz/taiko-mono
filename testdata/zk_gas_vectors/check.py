@@ -82,6 +82,8 @@ TRACE_FIELDS = {
     "tx_end": ("e", "index", "status", "tx_zk"),
     "frame_end": ("e", "status", "frame_zk"),
 }
+# Trace fields that are JSON integers; every other quantity is canonical 0x hex.
+TRACE_INTEGERS = ("d", "pc", "op", "sl", "index")
 # A block trace starts with a tx's intrinsic charge; a harness trace with the top frame's first
 # step, or with the precompile run when the harness calls a precompile directly.
 TRACE_FIRST = {"block": ("intrinsic",), "harness": ("step", "precompile")}
@@ -491,7 +493,8 @@ def load_object(errors, root, rel):
 
 
 def check_trace(errors, root, rel, layer):
-    """Checks that each line of the trace file root/rel is one schema event, and its first event."""
+    """Checks that each line of the trace file root/rel is one schema event with its fields in order
+    and its integer fields as JSON integers, and that the first event fits the layer."""
     try:
         text = (root / rel).read_text(encoding="utf-8")
     except (OSError, ValueError) as error:
@@ -525,6 +528,9 @@ def check_trace(errors, root, rel, layer):
             continue
         if tuple(event) != fields:
             errors.append(f"{where}: fields must be {', '.join(fields)} in this order, got {', '.join(event)}")
+        for key in TRACE_INTEGERS:
+            if key in event and not is_index(event[key]):
+                errors.append(f"{where}: {key} must be a JSON integer, got {json.dumps(event[key])}")
         if number == 1 and layer in TRACE_FIRST and kind not in TRACE_FIRST[layer]:
             errors.append(f"{where}: first event must be {' or '.join(TRACE_FIRST[layer])} ({layer} layer), got {kind}")
 
