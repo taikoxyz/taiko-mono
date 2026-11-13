@@ -261,6 +261,12 @@ Only the opcodes below record facts. Each is read before the step runs and witho
 - each `ok` against the meter, and the model's block or frame metering against `tx_end`, `frame_end` and the vector's expected values: per-tx status and `tx_zk`, `included`, `truncated_at`, `cumulative_zk_gas`, `block_zk_gas`, or `frame_zk_gas` and `status`;
 - where the step model covers a step, its `gas_after` (unless the step spawns) and `spawn`.
 
+### Comparing client traces
+
+taiko-geth exports the same trace when built with the `zkgastrace` tag and compares it with the committed trace event by event (see [Running the clients](#running-the-clients)). Every field of every event must be equal, except a step's `gas_after` when the step spawns on both sides. A difference in a step's state before it runs (`d`, `pc`, `op`, `gas`, `static`, `sl`, `stack`, `mem` or `facts`) is reported as a setup divergence. Any other difference is a zk gas mismatch: a step's `gas_after`, `spawn`, `zk`, `ok` or `charged`, any field of another event, or an event that one trace has and the other lacks. Each report names the vector id and the event index (lines counted from 0).
+
+One normalization is applied to both traces before comparing. A skipped tx carries no zk gas, and a client may reject it either before or after charging its intrinsic zk gas, which is then discarded. So a tx whose `tx_end` is `skipped` and whose only other event is an accepted `intrinsic` charge (`ok` true) is reduced to its lone `tx_end`. Nothing else is normalized: a refused charge or a step inside a skipped tx is still compared.
+
 ## Authoring rules
 
 - Expected values and traces come only from alethia-reth. Never edit them by hand, and never change a vector, its expected values or its trace to make a client or the model pass.
@@ -286,6 +292,7 @@ All runners find the corpus through `ZK_GAS_VECTORS_DIR`, set to the absolute pa
 | `ZK_GAS_VECTORS_REQUIRED`        | `1` makes each corpus test fail instead of skip when `ZK_GAS_VECTORS_DIR` is unset. The client CI workflows set it.                                                                                                                                                            |
 | `ZK_GAS_VECTORS_WRITE`           | alethia-reth only: `1` makes the expected-value tests write `expected` into the vector files, and the trace tests write `traces/<id>.jsonl`, instead of asserting. Refused when `CI` is set: the test fails.                                                                   |
 | `ZK_GAS_VECTORS_KNOWN_DIVERGENT` | taiko-geth only, for local investigation: comma-separated vector ids that are known to diverge. The block runner skips each listed vector and prints its id; the harness runner still runs it and prints the result without failing. Refused when `CI` is set: the test fails. |
+| `ZK_GAS_TRACE_DUMP_DIR`          | taiko-geth only, with the `zkgastrace` tag: the trace tests also write each geth trace to `<dir>/<id>.jsonl`, for diffing against the committed trace by hand.                                                                                                                 |
 
 Generate expected values and traces in alethia-reth, then rerun without `ZK_GAS_VECTORS_WRITE` to assert them:
 
@@ -322,10 +329,17 @@ go test ./core/vm -run '^TestZkGasHarnessVectors$' -count=1 -v
 go test ./miner -run '^TestZkGasBlockVectors$' -count=1 -v
 ```
 
+Built with the `zkgastrace` tag, taiko-geth also traces every vector and compares the trace with the committed one ([Comparing client traces](#comparing-client-traces)). The trace exporter is test tooling: without the tag its hooks sit behind a false constant and compile out. `TestZkGasHarnessTraces` and `TestZkGasBlockTraces` run each vector traced (for a block vector, its block build) and require both the expected values and the trace. The untraced result comparison runs in that build too, so a fact read that changed what is metered would fail one of them.
+
+```sh
+go test -tags zkgastrace ./core/vm -run '^TestZkGasHarness(Vectors|Traces)$' -count=1 -v
+go test -tags zkgastrace ./miner -run '^TestZkGasBlock(Vectors|Traces)$' -count=1 -v
+```
+
 ## Continuous integration
 
 - taiko-mono: `.github/workflows/repo--zk-gas-vectors.yml` runs `test_check.py` and `check.py --require-expected` on pull requests and pushes to `main` that change this directory or the workflow.
-- alethia-reth and taiko-geth: each repository has `.github/workflows/zk-gas-vectors.yml` and a `zk-gas-vectors.ref` file at its root. The ref file holds one full 40-hex taiko-mono commit. The workflow checks out only this directory of taiko-mono at that commit, sets `ZK_GAS_VECTORS_DIR` to it and `ZK_GAS_VECTORS_REQUIRED=1`, and runs the client's corpus tests in assert mode. Each step selects one test by its exact name and fails unless that test ran and passed: `harness_vectors_match_expected`, `block_vectors_match_expected`, `harness_trace_matches_committed` and `block_trace_matches_committed` through `cargo nextest run --no-tests=fail` in alethia-reth, and `TestZkGasHarnessVectors` and `TestZkGasBlockVectors` in taiko-geth, whose workflow also runs the other `TestZkGas` tests of `core/vm` and `miner`.
+- alethia-reth and taiko-geth: each repository has `.github/workflows/zk-gas-vectors.yml` and a `zk-gas-vectors.ref` file at its root. The ref file holds one full 40-hex taiko-mono commit. The workflow checks out only this directory of taiko-mono at that commit, sets `ZK_GAS_VECTORS_DIR` to it and `ZK_GAS_VECTORS_REQUIRED=1`, and runs the client's corpus tests in assert mode. Each step selects one test by its exact name and fails unless that test ran and passed: `harness_vectors_match_expected`, `block_vectors_match_expected`, `harness_trace_matches_committed` and `block_trace_matches_committed` through `cargo nextest run --no-tests=fail` in alethia-reth, and `TestZkGasHarnessVectors` and `TestZkGasBlockVectors` in taiko-geth, whose workflow also runs the other `TestZkGas` tests of `core/vm` and `miner`. taiko-geth runs all of them twice: once in the default build, and once with the `zkgastrace` tag, where its steps also require `TestZkGasHarnessTraces` and `TestZkGasBlockTraces`.
 - alethia-reth runs the workflow on pull requests, and on pushes to `main`, that change `crates/evm`, `crates/block`, `crates/payload`, `crates/consensus`, `crates/chainspec`, `crates/primitives`, `Cargo.toml`, `Cargo.lock`, the ref file or the workflow. taiko-geth runs it on pull requests to `taiko`, and on pushes to `taiko`, that change `core`, `miner`, `params`, `consensus`, `go.mod`, `go.sum`, the ref file or the workflow.
 
 A corpus change reaches a client's CI only when that client's `zk-gas-vectors.ref` moves. At publish time each ref is replaced with the taiko-mono commit that merged the corpus, and after each later corpus change it is moved to the commit that merged that change.
