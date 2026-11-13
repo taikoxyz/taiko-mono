@@ -516,6 +516,20 @@ def checkTrace (s : Schedule) (expected : Lean.Json) (events : List Event) (mode
     checkHarness s expected w.charges.reverse status frameZk
   return w.branches.reverse
 
+/-- The coverage gate over `hits`, the number of steps of each branch name: every branch of
+`allBranches` that `unreachableBranches` does not list has a step, no listed one has, and no step
+reports a branch outside `allBranches`. One message per failure. -/
+def coverageErrors (hits : List (String × Nat)) : List String :=
+  let count (name : String) : Nat := (hits.lookup name).getD 0
+  let unreachable (b : BranchId) : Bool := unreachableBranches.any (·.1 == b)
+  let missing := allBranches.filter fun b => !unreachable b && count b.name = 0
+  let reached := unreachableBranches.filter fun (b, _) => count b.name > 0
+  let unknown := hits.filter fun (name, n) => n > 0 && !allBranches.any (·.name == name)
+  (if missing.isEmpty then [] else
+    [s!"{missing.length} branches have no step: {", ".intercalate (missing.map (·.name))}"]) ++
+  reached.map (fun (b, why) => s!"branch {b.name} is listed as unreachable ({why}), but {count b.name} steps reach it") ++
+  unknown.map fun (name, n) => s!"{n} steps report branch {name}, which allBranches does not list"
+
 /-- What one vector's check covered. -/
 structure Report where
   events : Nat

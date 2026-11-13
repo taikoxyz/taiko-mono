@@ -3,8 +3,8 @@ import ZkGasStatements
 /-!
 # Metering proofs
 
-Lemmas about `meterCharges`, `meterTx` and `meterBlockFrom`, and the three headline theorems,
-whose types are exactly the statements in `ZkGasStatements/Claims.lean`.
+Lemmas about `meterCharges`, `meterTx` and `meterBlockFrom`, and the four metering headline
+theorems, whose types are exactly the statements in `ZkGasStatements/Claims.lean`.
 -/
 namespace TaikoSpec.ZkGas.Proofs
 
@@ -127,6 +127,53 @@ theorem meterBlockFrom_abort (s : Schedule) (tx : List Nat) (rest : List (List N
       rw [ih (used + n) hpre h]
       simp
 
+/-- Charges whose sum fits the budget after the starting total are all accepted. -/
+theorem meterCharges_fits (budget : Nat) :
+    ∀ (total : Nat) (cs : List Nat), total + cs.sum ≤ budget →
+      meterCharges budget total cs = some (total + cs.sum) := by
+  intro total cs
+  induction cs generalizing total with
+  | nil => intro _; simp [meterCharges]
+  | cons c cs ih =>
+    intro h
+    simp only [List.sum_cons] at h
+    have fits : ¬total + c > budget := by omega
+    simp only [meterCharges, List.sum_cons, fits, ↓reduceIte]
+    rw [ih (total + c) (by omega)]
+    congr 1
+    omega
+
+/-- A transaction whose charges fit what the block has left commits with their sum. -/
+theorem meterTx_fits (s : Schedule) (used : Nat) (cs : List Nat)
+    (h : cs.sum ≤ s.blockLimit - used) : meterTx s used cs = some cs.sum := by
+  unfold meterTx
+  have := meterCharges_fits (s.blockLimit - used) 0 cs (by omega)
+  simpa using this
+
+/-- After committed transactions, a transaction that fits commits with the sum of its charges,
+which the block total gains. -/
+theorem meterBlockFrom_fit (s : Schedule) (tx : List Nat) (rest : List (List Nat)) :
+    ∀ (used : Nat) (pre : List (List Nat)),
+      none ∉ (meterBlockFrom s used pre).1 →
+      tx.sum ≤ s.blockLimit - (meterBlockFrom s used pre).2 →
+      (meterBlockFrom s used (pre ++ tx :: rest)).1[pre.length]? = some (some tx.sum) ∧
+        (meterBlockFrom s used (pre ++ [tx])).2 = (meterBlockFrom s used pre).2 + tx.sum := by
+  intro used pre
+  induction pre generalizing used with
+  | nil =>
+    intro _ h
+    simp only [meterBlockFrom, List.nil_append] at h ⊢
+    rw [meterTx_fits s used tx h]
+    simp
+  | cons p pre ih =>
+    intro hpre h
+    cases hp : meterTx s used p with
+    | none => simp [meterBlockFrom, hp] at hpre
+    | some n =>
+      simp only [meterBlockFrom, hp, List.mem_cons, reduceCtorEq, false_or] at hpre h
+      have := ih (used + n) hpre h
+      simpa [meterBlockFrom, hp] using this
+
 /-- A block never uses more zk gas than its limit. -/
 theorem block_within_limit : BlockWithinLimit := fun s txs =>
   meterBlockFrom_le s 0 txs (Nat.zero_le _)
@@ -142,5 +189,9 @@ theorem total_is_sum : TotalIsSum := fun s txs =>
     have := meterBlockFrom_total s 0 txs
     unfold meterBlock
     omega⟩
+
+/-- A transaction that fits what the block has left commits with the sum of its charges. -/
+theorem fit_commits : FitCommits := fun s pre tx rest =>
+  meterBlockFrom_fit s tx rest 0 pre
 
 end TaikoSpec.ZkGas.Proofs

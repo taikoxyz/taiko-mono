@@ -1797,3 +1797,14 @@ def depositReturnVector : String :=
   returnedGas true .success 7000 32 = [600, 0] ∧ returnedGas true .success 10 0 = [10] ∧
   returnedGas true .success (2^30) 24577 = [0]
 
+/-! ### The coverage gate -/
+
+-- Every branch is listed once, and none is unreachable.
+#guard allBranches.length = 158 ∧ allBranches.eraseDups.length = 158 ∧ unreachableBranches = []
+-- A corpus that reaches every branch passes; a branch without a step and a branch name outside
+-- `allBranches` fail.
+#guard coverageErrors (allBranches.map fun b => (b.name, 1)) = []
+#guard coverageErrors ((allBranches.drop 1).map fun b => (b.name, 1)) =
+  ["1 branches have no step: static_step_static_oog_spend_all"]
+#guard coverageErrors (("bogus", 2) :: allBranches.map fun b => (b.name, 1)) =
+  ["2 steps report branch bogus, which allBranches does not list"]

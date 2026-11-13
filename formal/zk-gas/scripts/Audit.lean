@@ -69,6 +69,14 @@ def checkDefinitionLayers (n : Name) : MetaM Unit := do
     | _ => pure false
   if proof then throwError "proof declaration in definitions layer: {n}"
 
+/-- Each headline theorem under `TaikoSpec.ZkGas.Proofs` and the statement under
+`TaikoSpec.ZkGas.Statements` that must be exactly its type. -/
+def headlines : List (Name × Name) :=
+  [(`block_within_limit, `BlockWithinLimit),
+   (`abort_contributes_nothing, `AbortContributesNothing), (`total_is_sum, `TotalIsSum),
+   (`fit_commits, `FitCommits), (`branches_complete, `BranchesComplete),
+   (`step_gas_monotone, `StepGasMonotone), (`spawn_only_for_spawn_ops, `SpawnOnlyForSpawnOps)]
+
 def checkAll : CoreM Unit := do
   let env ← getEnv
   let decls := env.constants.map₁.fold (fun acc n _ => if owned env n then acc.push n else acc) #[]
@@ -76,8 +84,7 @@ def checkAll : CoreM Unit := do
   for n in decls do
     checkAxiomsOf n
     (checkDefinitionLayers n).run'
-  for (thm, claim) in [(`block_within_limit, `BlockWithinLimit),
-      (`abort_contributes_nothing, `AbortContributesNothing), (`total_is_sum, `TotalIsSum)] do
+  for (thm, claim) in headlines do
     checkHeadline (`TaikoSpec.ZkGas.Proofs ++ thm) (`TaikoSpec.ZkGas.Statements ++ claim)
   checkAnchors `TaikoSpec.ZkGas.Statements.BlockWithinLimit
     [`TaikoSpec.ZkGas.meterBlock, `TaikoSpec.ZkGas.meterTx, `TaikoSpec.ZkGas.meterCharges,
@@ -86,5 +93,17 @@ def checkAll : CoreM Unit := do
     [`TaikoSpec.ZkGas.meterBlock, `TaikoSpec.ZkGas.meterBlockFrom, `TaikoSpec.ZkGas.meterTx]
   checkAnchors `TaikoSpec.ZkGas.Statements.TotalIsSum
     [`TaikoSpec.ZkGas.meterBlock, `TaikoSpec.ZkGas.meterTx, `List.sum, `List.filterMap]
-  logInfo m!"audit: {decls.size} package declarations, three exact headlines and claim anchors OK"
+  checkAnchors `TaikoSpec.ZkGas.Statements.FitCommits
+    [`TaikoSpec.ZkGas.meterBlock, `TaikoSpec.ZkGas.meterBlockFrom, `TaikoSpec.ZkGas.meterTx,
+     `TaikoSpec.ZkGas.meterCharges, `List.sum]
+  checkAnchors `TaikoSpec.ZkGas.Statements.BranchesComplete
+    [`TaikoSpec.ZkGas.allBranches, `TaikoSpec.ZkGas.BranchId]
+  checkAnchors `TaikoSpec.ZkGas.Statements.StepGasMonotone
+    [`TaikoSpec.ZkGas.stepOutcome, `TaikoSpec.ZkGas.classify, `TaikoSpec.ZkGas.body,
+     `TaikoSpec.ZkGas.staticGas, `TaikoSpec.ZkGas.StepResult.gasAfter, `TaikoSpec.ZkGas.Pre.gas]
+  checkAnchors `TaikoSpec.ZkGas.Statements.SpawnOnlyForSpawnOps
+    [`TaikoSpec.ZkGas.stepOutcome, `TaikoSpec.ZkGas.callStep, `TaikoSpec.ZkGas.createStep,
+     `TaikoSpec.ZkGas.StepResult.outcome, `TaikoSpec.ZkGas.Outcome.newFrame,
+     `TaikoSpec.ZkGas.Schedule.spawnEstimate, `TaikoSpec.ZkGas.unzen]
+  logInfo m!"audit: {decls.size} package declarations, {headlines.length} exact headlines and claim anchors OK"
 end ZkGasAudit

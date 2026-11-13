@@ -12,8 +12,8 @@ LEAN_PATH="$(pwd)/.lake/audit${LEAN_PATH:+:$LEAN_PATH}" lake env lean --run scri
 for library in ZkGasModel ZkGasStatements ZkGasProofs ZkGasWitnesses ZkGasTraces; do
   lake env leanchecker "$library"
 done
-# alethia-reth writes the traces; until it has, there is nothing to check. Every step must be
-# modeled.
+# alethia-reth writes the traces; until it has, there is nothing to check. check-traces also runs
+# the branch coverage gate.
 if [ -d ../../testdata/zk_gas_vectors/traces ]; then
   lake exe check-traces ../../testdata/zk_gas_vectors
 else

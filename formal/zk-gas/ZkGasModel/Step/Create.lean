@@ -30,18 +30,48 @@ def initcodeWordGas : Nat := 2
 /-- `create` (`gas::CREATE`): the base of CREATE and CREATE2. -/
 def createGas : Nat := 32000
 
+/-- Step 3 of `createStep` for a length `len` below 2^64 at `offset`, with `gas` left: a zero
+length charges nothing and checks no offset. Otherwise a length above `maxInitcodeSize` halts
+with `CreateInitCodeSizeLimit` (`:52`), keeping the gas; then 2 gas per initcode word
+(`initcode_cost`, `gas_params.rs:660`, `:55`), whose shortfall spends all gas; then the offset
+check (`:61`) and the resize to offset + length (`:62-64`), which keep the gas. The step's halt,
+or the gas left. -/
+def createInitcode (pre : Pre) (gas offset len : Nat) : Except String (StepResult ⊕ Nat) := do
+  if len = 0 then return .inr gas
+  if len > maxInitcodeSize then
+    return .inl (haltKeeping gas .create_family_initcode_above_limit_preserve)
+  let cost := wordCost initcodeWordGas len
+  if gas < cost then return .inl (haltSpendingAll .create_family_initcode_word_cost_oog_spend_all)
+  let gas := gas - cost
+  if offset ≥ usizeBound then
+    return .inl (haltKeeping gas .create_family_offset_above_u64_preserve_after_initcode)
+  match ← expandMemory pre gas offset len with
+  | none => return .inl (haltKeeping gas .create_family_memory_oog_preserve_after_initcode)
+  | some left => return .inr left
+
+/-- Step 4 of `createStep` with `gas` left: CREATE2 pops its salt (`:77`), which halts after the
+initcode charges on three items, and pays one charge of 32,000 plus 6 gas per initcode word
+(`create2_cost`, `gas_params.rs:673`, `:79`); CREATE pays the 32,000 base (`create_cost`, `:85`).
+A shortfall spends all gas. The step's halt, or the gas left. -/
+def createBase (pre : Pre) (gas len : Nat) (create2 : Bool) : StepResult ⊕ Nat :=
+  if create2 then
+    if pre.stackLen < 4 then
+      .inl (haltKeeping gas .create_create2_salt_underflow_after_charges_preserve)
+    else
+      let cost := satU64 (createGas + wordCost keccakWordGas len)
+      if gas < cost then .inl (haltSpendingAll .create_create2_hash_oog_spend_all)
+      else .inr (gas - cost)
+  else if gas < createGas then .inl (haltSpendingAll .create_create_base_oog_spend_all)
+  else .inr (gas - createGas)
+
 /-- CREATE (`create2` false) and CREATE2 (`create2` true; its PETERSBURG gate passes on Unzen):
 
 1. `require_non_staticcall!` halts a static frame with `StateChangeDuringStaticCall` before
    anything else (`:32`), keeping the gas.
 2. It pops the value, the offset and the length (`:39`) and checks the length (`:40`).
-3. Only for a non-zero length (`:43`): a length above `maxInitcodeSize` halts with
-   `CreateInitCodeSizeLimit` (`:52`), keeping the gas; then 2 gas per initcode word
-   (`initcode_cost`, `gas_params.rs:660`, `:55`), whose shortfall spends all gas; then the offset
-   check (`:61`) and the resize to offset + length (`:62-64`), which keep the gas.
-4. CREATE2 pops its salt (`:77`), which halts after those charges on three items, and pays one
-   charge of 32,000 plus 6 gas per initcode word (`create2_cost`, `gas_params.rs:673`, `:79`);
-   CREATE pays the 32,000 base (`create_cost`, `:85`). A shortfall spends all gas.
+3. Only for a non-zero length (`:43`), the initcode limit, word cost and memory
+   (`createInitcode`).
+4. The salt of CREATE2 and the base and hashing cost (`createBase`).
 5. The step opens its frame, forwarding all but one 64th of the gas left (`:150-152`). -/
 def createStep (pre : Pre) (gas : Nat) (create2 : Bool) : Except String StepResult := do
   if pre.static then return haltKeeping gas .create_family_static_frame_halt_preserve
@@ -49,29 +79,14 @@ def createStep (pre : Pre) (gas : Nat) (create2 : Bool) : Except String StepResu
   let offset ← stackItem pre 1
   let len ← stackItem pre 2
   if len ≥ usizeBound then return haltKeeping gas .create_family_size_above_u64_preserve
-  let mut gas := gas
-  if len ≠ 0 then
-    if len > maxInitcodeSize then
-      return haltKeeping gas .create_family_initcode_above_limit_preserve
-    let cost := wordCost initcodeWordGas len
-    if gas < cost then return haltSpendingAll .create_family_initcode_word_cost_oog_spend_all
-    gas := gas - cost
-    if offset ≥ usizeBound then
-      return haltKeeping gas .create_family_offset_above_u64_preserve_after_initcode
-    match ← expandMemory pre gas offset len with
-    | none => return haltKeeping gas .create_family_memory_oog_preserve_after_initcode
-    | some left => gas := left
-  if create2 then
-    if pre.stackLen < 4 then
-      return haltKeeping gas .create_create2_salt_underflow_after_charges_preserve
-    let cost := satU64 (createGas + wordCost keccakWordGas len)
-    if gas < cost then return haltSpendingAll .create_create2_hash_oog_spend_all
-    gas := gas - cost
-  else
-    if gas < createGas then return haltSpendingAll .create_create_base_oog_spend_all
-    gas := gas - createGas
-  return { gasAfter := gas - allButOne64th gas, outcome := .newFrame,
-           branch := if create2 then .create_create2_new_frame_spawn_estimate
-             else .create_create_new_frame_spawn_estimate }
+  match ← createInitcode pre gas offset len with
+  | .inl r => return r
+  | .inr gas =>
+    match createBase pre gas len create2 with
+    | .inl r => return r
+    | .inr gas =>
+      return { gasAfter := gas - allButOne64th gas, outcome := .newFrame,
+               branch := if create2 then .create_create2_new_frame_spawn_estimate
+                 else .create_create_new_frame_spawn_estimate }
 
 end TaikoSpec.ZkGas

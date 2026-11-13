@@ -19,7 +19,9 @@ LIBRARIES = {
 REVISION = 'aef6a3e4b954cc84cdff3d2434a1fe060a80bcd3'
 SPEC_PATHS = ['packages/protocol/docs/zk_gas_spec.md']
 CLAIMS = {'BlockWithinLimit': 'block_within_limit', 'AbortContributesNothing': 'abort_contributes_nothing',
-          'TotalIsSum': 'total_is_sum'}
+          'TotalIsSum': 'total_is_sum', 'FitCommits': 'fit_commits',
+          'BranchesComplete': 'branches_complete', 'StepGasMonotone': 'step_gas_monotone',
+          'SpawnOnlyForSpawnOps': 'spawn_only_for_spawn_ops'}
 GUARDS = {'ZkGasWitnesses.Tests'}
 # The only explicit Lean import is Lean.Data.Json, and only the trace parser and checker may
 # import it and name its types (Lean.Json, Lean.JsonNumber and their members). No Model,
@@ -139,7 +141,7 @@ def spec_errors(root, data):
                 errors.append(f"spec drift: {s['path']}; review claims and explicitly repin")
             headings[s['path']] = set(re.findall(r'^#+ (.+)$', contents.decode(), re.M))
         if not isinstance(data['claims'], dict) or set(data['claims']) != set(CLAIMS):
-            raise ValueError('all three headline claim links are required')
+            raise ValueError('every headline claim link is required')
         for name, link in data['claims'].items():
             if set(link) != {'statement', 'theorem', 'sections'}:
                 raise ValueError(f'invalid claim fields: {name}')

@@ -261,6 +261,7 @@ Only the opcodes below record facts. Each is read before the step runs and witho
 - each `ok` against the meter, and the model's block or frame metering against `tx_end`, `frame_end` and the vector's expected values: per-tx status and `tx_zk`, `included`, `truncated_at`, `cumulative_zk_gas`, `block_zk_gas`, or `frame_zk_gas` and `status`;
 - every step's `gas_after` and `spawn` against the step model, and the event after the step against the step's outcome: the next step at the same depth, one deeper or one depth up, or the end of the tx or frame, with the harness `frame_end` status;
 - the gas a frame resumes with after a child frame that ran steps: its spawn step's `gas_after` plus the child's gas left when the child's last step succeeds or reverts (less a CREATE child's code deposit), and nothing when it halts; after a precompile run, its spawn step's `gas_after` plus the precompile's `left`;
+- branch coverage: every branch of the step model must decide at least one step of the corpus.
 
 ### Comparing client traces
 

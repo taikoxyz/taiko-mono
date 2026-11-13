@@ -49,6 +49,10 @@ The model has three parts:
   model charges that case 2,500 gas more than revm. The corpus authoring rules forbid such a
   target.
 
+  `allBranches` lists every branch, and `unreachableBranches` the ones no execution reaches on
+  Unzen, each with its reason. Every branch is reachable and has corpus steps, so the list is
+  empty.
+
 How a precompile's gas use is computed is not modeled. The claims below take every charge
 amount as given; the step model is checked against the traces only.
 
@@ -88,26 +92,34 @@ with the spawn step's `gas_after` plus the precompile's `left`. A spawn step who
 runs no step (an account without code, or a frame the handler refuses) is not checked this way.
 
 The checker stops at the first failure with the vector id, the event index and the reason, and
-exits 1. Every vector needs a trace and every trace a vector. The gate runs `check-traces` once
-the corpus has a `traces/` directory and skips it before then. Trace checking is not part of the
-evidence below.
+exits 1. Every vector needs a trace and every trace a vector. Then the coverage gate prints how
+many steps each branch of `allBranches` decided, and fails, listing them, when a branch that
+`unreachableBranches` does not list decided no step, when a listed one decided some, or when a
+step reports a branch outside `allBranches`. The gate runs `check-traces` once the corpus has a
+`traces/` directory and skips it before then. Trace checking is not part of the evidence below.
 
 ## Claims to review
 
 Start with [`ZkGasStatements/Claims.lean`](ZkGasStatements/Claims.lean), then
-[`ZkGasProofs/Claims.lean`](ZkGasProofs/Claims.lean). The three headline theorems have exactly
-the corresponding named proposition as their type; the audit rejects added premises or a
-replacement conclusion at that boundary.
+[`ZkGasProofs/Claims.lean`](ZkGasProofs/Claims.lean) (metering) and
+[`ZkGasProofs/Step.lean`](ZkGasProofs/Step.lean) (the step model). The seven headline theorems
+have exactly the corresponding named proposition as their type; the audit rejects added premises
+or a replacement conclusion at that boundary.
 
 | Statement                 | Theorem in `TaikoSpec.ZkGas.Proofs` | Content                                                                                                                                                                 |
 | ------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `BlockWithinLimit`        | `block_within_limit`                | A block's total never exceeds the schedule's block limit, whatever its transactions charge.                                                                             |
 | `AbortContributesNothing` | `abort_contributes_nothing`         | After committed transactions, a transaction whose charges exceed what the block has left ends the block: the total stays the same and later transactions get no result. |
 | `TotalIsSum`              | `total_is_sum`                      | A committed transaction's total is the sum of its charges, intrinsic charge included, and the block total is the sum of the committed totals.                           |
+| `FitCommits`              | `fit_commits`                       | After committed transactions, a transaction whose charges fit what the block has left commits with their sum, which the block total gains.                              |
+| `BranchesComplete`        | `branches_complete`                 | `allBranches` lists every branch of the step model, so the coverage gate leaves none out.                                                                               |
+| `StepGasMonotone`         | `step_gas_monotone`                 | On Unzen, no step leaves its frame more gas than it had: a step's gas is never negative.                                                                                |
+| `SpawnOnlyForSpawnOps`    | `spawn_only_for_spawn_ops`          | On Unzen, only an opcode with a spawn estimate opens a new frame.                                                                                                       |
 
-Statement names are under `TaikoSpec.ZkGas.Statements`. The claims range over every schedule, so
-they hold for `unzen` in particular. Together they do not force a transaction that fits to be
-committed; the witnesses below check that behavior on examples.
+Statement names are under `TaikoSpec.ZkGas.Statements`. The metering claims range over every
+schedule, so they hold for `unzen` in particular; `FitCommits` rules out a meter that would
+satisfy the other three by aborting transactions that fit. The step claims are about
+`stepOutcome` on Unzen, which the traces check against alethia-reth.
 
 ## Tables
 
@@ -152,8 +164,8 @@ Links and hashes are traceability, not a percentage of the specification proved.
 [pseudocode](../../packages/protocol/docs/zk_gas_spec.md#pseudocode) and
 [core idea](../../packages/protocol/docs/zk_gas_spec.md#core-idea) alongside the statements.
 
-Outside the claims' scope: how each charge is computed (the step model's results are
-checked against the traces, not proved); EVM execution and discarding an aborted
+Outside the claims' scope: how each charge is computed (the step model's results are checked
+against the traces, not proved equal to a client's); EVM execution and discarding an aborted
 transaction's state changes; which transactions are invalid for reasons other than zk gas; block
 builders' transaction selection, which may skip an overflowing candidate and continue (block
 execution and proving stop at the first one); publishing the block total in the header and
@@ -195,8 +207,8 @@ cover a missing fact or stack item, every opcode being modeled and the undefined
 exactly those revm does not define, checks whose order the traces cannot show (the static
 context before the pops, SSTORE's pops before its sentry, CALL's static-frame value check before
 its memory operands, the CALL family's input range before its output range and both before the
-transfer cost) and each EIP-7702 delegate stage at its gas boundaries. They run during
-compilation and are **not kernel proofs**.
+transfer cost), each EIP-7702 delegate stage at its gas boundaries, and the coverage gate. They
+run during compilation and are **not kernel proofs**.
 
 The full gate combines independent checks:
 
@@ -211,7 +223,7 @@ The full gate combines independent checks:
    existing section headings and nonempty drift/exclusion explanations.
 4. The separately compiled [`scripts/Audit.lean`](scripts/Audit.lean) inspects all five
    libraries. Every owned declaration may depend only on `propext`, `Classical.choice` and
-   `Quot.sound`. It checks three exact headline types and named claim dependencies, and rejects
+   `Quot.sound`. It checks seven exact headline types and named claim dependencies, and rejects
    proof-valued declarations in Model and Statements. [`scripts/AuditTests.lean`](scripts/AuditTests.lean)
    checks that it rejects weakened or missing headlines, extra axioms and erased dependencies.
 5. `leanchecker` replays all five libraries in Lean's kernel.

@@ -1,3 +1,4 @@
+import Std.Data.HashMap
 import ZkGasTraces.Check
 
 /-!
@@ -8,8 +9,13 @@ the vector `cases/<id>.json` with `checkVectorText` and the Unzen step model `st
 vector needs a trace, and every trace a vector. It stops at the first failure, printing the
 vector id and the reason (with the event index, counted from 0, where one event is at fault), and
 exits 1.
+
+Then the coverage gate: it prints how many steps of the corpus each branch of `allBranches`
+decided, and fails, listing them, when a branch that `unreachableBranches` does not list has no
+step, when a listed one has, or when a step reports a branch outside `allBranches`
+(`coverageErrors`).
 -/
-open TaikoSpec.ZkGas.Traces
+open TaikoSpec.ZkGas TaikoSpec.ZkGas.Traces
 
 def usage : String := "usage: check-traces <corpus-dir>"
 
@@ -40,6 +46,7 @@ def main (args : List String) : IO UInt32 := do
     unless ids.contains id do return ← fail s!"traces/{id}.jsonl has no vector cases/{id}.json"
   let mut events := 0
   let mut steps := 0
+  let mut hits : Std.HashMap String Nat := {}
   for id in ids do
     let tracePath := traces / s!"{id}.jsonl"
     unless ← tracePath.pathExists do return ← fail s!"{id}: missing trace traces/{id}.jsonl"
@@ -50,5 +57,13 @@ def main (args : List String) : IO UInt32 := do
     | .ok report =>
       events := events + report.events
       steps := steps + report.steps
-  IO.println s!"check-traces: {ids.length} vectors, {events} events, {steps} steps checked by the model"
+      for branch in report.branches do
+        hits := hits.insert branch (hits.getD branch 0 + 1)
+  for b in allBranches do
+    IO.println s!"check-traces: branch {b.name}: {hits.getD b.name 0} steps"
+  let hit := (allBranches.filter fun b => hits.getD b.name 0 > 0).length
+  IO.println s!"check-traces: {ids.length} vectors, {events} events, {steps} steps checked by the model; {hit} of {allBranches.length} branches hit, {unreachableBranches.length} unreachable"
+  let errors := coverageErrors hits.toList
+  unless errors.isEmpty do
+    return ← fail s!"coverage gate: {"; ".intercalate errors}"
   return 0

@@ -70,63 +70,46 @@ def callSpawn (pre : Pre) (gas : Nat) (branch : BranchId) : Except String StepRe
   let gasLimit := min (← stackItem pre 0) u64Max
   return { gasAfter := gas - min (allButOne64th gas) gasLimit, outcome := .newFrame, branch }
 
-/-- The CALL family (`contract.rs:166`; the HOMESTEAD gate of DELEGATECALL and the BYZANTIUM
-gate of STATICCALL pass on Unzen):
+/-- One memory range of `get_memory_input_and_out_ranges` (`call_helpers.rs:42-45`), `len`
+bytes at `offset` of a memory of `words` words with `gas` left: a length of 2^64 or more halts
+(branch `size`); only a non-zero length checks its offset (`offset`) and expansion (`oog`). These
+halts keep the gas. Otherwise the gas and the memory size in words after the range. -/
+def callRange (gas words offset len : Nat) (size offsetAbove oog : BranchId) :
+    StepResult ⊕ (Nat × Nat) :=
+  if len ≥ usizeBound then .inl (haltKeeping gas size)
+  else if len = 0 then .inr (gas, words)
+  else if offset ≥ usizeBound then .inl (haltKeeping gas offsetAbove)
+  else match resizeMemory words gas offset len with
+    | none => .inl (haltKeeping gas oog)
+    | some left => .inr left
 
-1. CALL and CALLCODE pop the gas limit, the target and the value; DELEGATECALL and STATICCALL
-   the gas limit and the target, with value 0 (`:179-185`).
-2. CALL with a non-zero value in a static frame halts with `CallNotAllowedInsideStatic`
-   (`:191`), keeping the gas.
-3. `get_memory_input_and_out_ranges` (`call_helpers.rs:16`) pops the input offset and length
-   and the output offset and length (`:20`), then resizes memory for the input range (`:22`)
-   and then, from the memory size that leaves, for the output range (`:29`). Each range checks
-   its length (`:42`) and, only for a non-zero length, its offset (`:44`) and expansion
-   (`:45`); these halts keep the gas.
-4. `load_acc_and_calc_gas` (`call_helpers.rs:61`): a non-zero value pays the 9,000 transfer
-   cost (`:69-74`), a `gas!` whose shortfall spends all gas. Then `load_account_delegated`
-   (`:145`), with the gas left: a cold target is skipped with less than 2,500 left (`:161`),
-   which spends all gas, and otherwise costs 2,500 (`:163-165`). For CALL (`create_empty_account`)
-   to an empty target, the cost adds the new-account cost, 25,000 with a value transfer and 0
-   without, and stops there (`:169-177`): an empty account has no code. Otherwise a target
-   whose code is an EIP-7702 delegation adds the 100 delegate read (`:180-182`) and fails with
-   `ColdLoadSkipped` when the cost passes the gas left (`:183-185`); a cold delegate is skipped
-   when the cost plus 2,500 passes the gas left (`:188-190`) and otherwise adds 2,500
-   (`:192-194`). Both failures spend all gas. Last, one `gas!` of the cost (`:83`): only a cost
-   with the new-account charge can fail it, since every other part was checked against the gas
-   left; its shortfall spends all gas.
-5. The step opens its frame (`callSpawn`). -/
-def callStep (pre : Pre) (gas : Nat) : Except String StepResult := do
-  let pops := if pre.op = 0xf1 ∨ pre.op = 0xf2 then 3 else 2
-  if pre.stackLen < pops then return haltKeeping gas .call_family_underflow_preserve
-  let value ← if pops = 3 then stackItem pre 2 else pure 0
-  let transfer := value != 0
-  if pre.op == 0xf1 && pre.static && transfer then
-    return haltKeeping gas .call_call_static_frame_value_halt_preserve
-  if pre.stackLen < pops + 4 then return haltKeeping gas .call_family_underflow_preserve
-  let inOffset ← stackItem pre pops
-  let inLen ← stackItem pre (pops + 1)
-  let outOffset ← stackItem pre (pops + 2)
-  let outLen ← stackItem pre (pops + 3)
-  let mut gas := gas
-  let mut words ← memoryWords pre
-  if inLen ≥ usizeBound then return haltKeeping gas .call_family_input_size_above_u64_preserve
-  if inLen ≠ 0 then
-    if inOffset ≥ usizeBound then
-      return haltKeeping gas .call_family_input_offset_above_u64_preserve
-    match resizeMemory words gas inOffset inLen with
-    | none => return haltKeeping gas .call_family_input_memory_oog_preserve
-    | some (left, size) => gas := left; words := size
-  if outLen ≥ usizeBound then
-    return haltKeeping gas .call_family_output_size_above_u64_keeps_input_charge
-  if outLen ≠ 0 then
-    if outOffset ≥ usizeBound then
-      return haltKeeping gas .call_family_output_offset_above_u64_keeps_input_charge
-    match resizeMemory words gas outOffset outLen with
-    | none => return haltKeeping gas .call_family_output_memory_oog_keeps_input_charge
-    | some (left, _) => gas := left
-  if transfer then
-    if gas < callValueGas then return haltSpendingAll .call_value_transfer_oog_spend_all
-    gas := gas - callValueGas
+/-- `get_memory_input_and_out_ranges` (`call_helpers.rs:16`) on a memory of `words` words with
+`gas` left: the input range (`:22`), then the output range from the memory size the input range
+leaves (`:29`). The step's halt, or the gas left after both. -/
+def callRanges (gas words inOffset inLen outOffset outLen : Nat) : StepResult ⊕ Nat :=
+  match callRange gas words inOffset inLen .call_family_input_size_above_u64_preserve
+      .call_family_input_offset_above_u64_preserve .call_family_input_memory_oog_preserve with
+  | .inl r => .inl r
+  | .inr (gas, words) =>
+    match callRange gas words outOffset outLen
+        .call_family_output_size_above_u64_keeps_input_charge
+        .call_family_output_offset_above_u64_keeps_input_charge
+        .call_family_output_memory_oog_keeps_input_charge with
+    | .inl r => .inl r
+    | .inr (gas, _) => .inr gas
+
+/-- `load_account_delegated` (`call_helpers.rs:145`) and the cost's `gas!` (`:83`) with `gas`
+left after the transfer cost, then the frame (`callSpawn`). A cold target is skipped with less
+than 2,500 left (`:161`), which spends all gas, and otherwise costs 2,500 (`:163-165`). For CALL
+(`create_empty_account`) to an empty target, the cost adds the new-account cost, 25,000 with a
+value transfer and 0 without, and stops there (`:169-177`): an empty account has no code.
+Otherwise a target whose code is an EIP-7702 delegation adds the 100 delegate read (`:180-182`)
+and fails with `ColdLoadSkipped` when the cost passes the gas left (`:183-185`); a cold delegate
+is skipped when the cost plus 2,500 passes the gas left (`:188-190`) and otherwise adds 2,500
+(`:192-194`). Both failures spend all gas. Last, one `gas!` of the cost: only a cost with the
+new-account charge can fail it, since every other part was checked against the gas left; its
+shortfall spends all gas. -/
+def callTarget (pre : Pre) (gas : Nat) (transfer : Bool) : Except String StepResult := do
   let warm ← requireFact "account_warm" pre.facts.accountWarm
   if !warm && gas < coldAccountGas then
     return haltSpendingAll .call_family_cold_surcharge_oog_spend_all
@@ -148,5 +131,37 @@ def callStep (pre : Pre) (gas : Nat) : Except String StepResult := do
       return haltSpendingAll .call_family_delegate_cold_surcharge_oog_spend_all
     let cost := if delegateWarm then cost else cost + coldAccountGas
     callSpawn pre (gas - cost) (callDelegateSpawnBranch transfer warm delegateWarm)
+
+/-- The CALL family (`contract.rs:166`; the HOMESTEAD gate of DELEGATECALL and the BYZANTIUM
+gate of STATICCALL pass on Unzen):
+
+1. CALL and CALLCODE pop the gas limit, the target and the value; DELEGATECALL and STATICCALL
+   the gas limit and the target, with value 0 (`:179-185`).
+2. CALL with a non-zero value in a static frame halts with `CallNotAllowedInsideStatic`
+   (`:191`), keeping the gas.
+3. `get_memory_input_and_out_ranges` (`callRanges`) pops the input offset and length and the
+   output offset and length (`call_helpers.rs:20`), then resizes memory for the input range and
+   then for the output range; its halts keep the gas.
+4. `load_acc_and_calc_gas` (`call_helpers.rs:61`): a non-zero value pays the 9,000 transfer
+   cost (`:69-74`), a `gas!` whose shortfall spends all gas; then the target (`callTarget`).
+5. The step opens its frame (`callSpawn`). -/
+def callStep (pre : Pre) (gas : Nat) : Except String StepResult := do
+  let pops := if pre.op = 0xf1 ∨ pre.op = 0xf2 then 3 else 2
+  if pre.stackLen < pops then return haltKeeping gas .call_family_underflow_preserve
+  let value ← if pops = 3 then stackItem pre 2 else pure 0
+  let transfer := value != 0
+  if pre.op == 0xf1 && pre.static && transfer then
+    return haltKeeping gas .call_call_static_frame_value_halt_preserve
+  if pre.stackLen < pops + 4 then return haltKeeping gas .call_family_underflow_preserve
+  let inOffset ← stackItem pre pops
+  let inLen ← stackItem pre (pops + 1)
+  let outOffset ← stackItem pre (pops + 2)
+  let outLen ← stackItem pre (pops + 3)
+  match callRanges gas (← memoryWords pre) inOffset inLen outOffset outLen with
+  | .inl r => return r
+  | .inr gas =>
+    if !transfer then return ← callTarget pre gas false
+    if gas < callValueGas then return haltSpendingAll .call_value_transfer_oog_spend_all
+    callTarget pre (gas - callValueGas) true
 
 end TaikoSpec.ZkGas

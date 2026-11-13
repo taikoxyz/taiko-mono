@@ -56,10 +56,66 @@
           "heading": "Protocol Constants"
         }
       ]
+    },
+    "FitCommits": {
+      "statement": "TaikoSpec.ZkGas.Statements.FitCommits",
+      "theorem": "TaikoSpec.ZkGas.Proofs.fit_commits",
+      "sections": [
+        {
+          "path": "packages/protocol/docs/zk_gas_spec.md",
+          "heading": "Pseudocode"
+        },
+        {
+          "path": "packages/protocol/docs/zk_gas_spec.md",
+          "heading": "Core Idea"
+        }
+      ]
+    },
+    "BranchesComplete": {
+      "statement": "TaikoSpec.ZkGas.Statements.BranchesComplete",
+      "theorem": "TaikoSpec.ZkGas.Proofs.branches_complete",
+      "sections": [
+        {
+          "path": "packages/protocol/docs/zk_gas_spec.md",
+          "heading": "Pseudocode"
+        }
+      ]
+    },
+    "StepGasMonotone": {
+      "statement": "TaikoSpec.ZkGas.Statements.StepGasMonotone",
+      "theorem": "TaikoSpec.ZkGas.Proofs.step_gas_monotone",
+      "sections": [
+        {
+          "path": "packages/protocol/docs/zk_gas_spec.md",
+          "heading": "Pseudocode"
+        },
+        {
+          "path": "packages/protocol/docs/zk_gas_spec.md",
+          "heading": "Core Idea"
+        }
+      ]
+    },
+    "SpawnOnlyForSpawnOps": {
+      "statement": "TaikoSpec.ZkGas.Statements.SpawnOnlyForSpawnOps",
+      "theorem": "TaikoSpec.ZkGas.Proofs.spawn_only_for_spawn_ops",
+      "sections": [
+        {
+          "path": "packages/protocol/docs/zk_gas_spec.md",
+          "heading": "Problem with Spawn Opcodes"
+        },
+        {
+          "path": "packages/protocol/docs/zk_gas_spec.md",
+          "heading": "Chosen Solution"
+        },
+        {
+          "path": "packages/protocol/docs/zk_gas_spec.md",
+          "heading": "Appendix A: Spawn Estimation Details"
+        }
+      ]
     }
   },
   "exclusions": [
-    "How each charge is computed from an opcode's step gas, a spawn estimate or a precompile's gas use; the meter takes the charge amounts as given.",
+    "How each charge is computed from an opcode's step gas, a spawn estimate or a precompile's gas use: the metering claims take the charge amounts as given, and the step claims are about the step model, whose results are checked against the traces, not proved equal to a client's.",
     "EVM execution, state changes and discarding them on abort; the model accounts zk gas only.",
     "Which transactions are invalid for reasons other than zk gas; they are never metered.",
     "Transaction selection by block builders, which may skip an overflowing candidate and continue; block execution and proving stop at the first one.",

@@ -225,4 +225,10 @@ def stepOutcome : Fork → Pre → Except String StepResult
     if pre.gas < staticCost then pure (haltSpendingAll .static_step_static_oog_spend_all)
     else body pre (pre.gas - staticCost) (classify pre.op)
 
+/-- The branches no execution reaches on Unzen, each with the reason. The coverage gate
+(`lake exe check-traces`) requires the corpus to reach every other branch of `allBranches`, and
+fails when it reaches one of these. Every branch is reachable, so the list is empty: each has a
+vector in `testdata/zk_gas_vectors`. -/
+def unreachableBranches : List (BranchId × String) := []
+
 end TaikoSpec.ZkGas
