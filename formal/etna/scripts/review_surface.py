@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Lock the review surface: the headline/witness statements and every definition they mean.
 
-The review surface starts at the five headline theorems (the conjunction and H1-H4), the eight
-joint-premise witnesses and the trap witnesses (audit_proofs.CURRENT_*). From their kernel types it
+The review surface starts at the five headline theorems (the conjunction and H1-H4), their three
+deployed-history forms (DEPLOYED_HEADLINES), the eight joint-premise witnesses and the trap
+witnesses (audit_proofs.CURRENT_*). From their kernel types it
 follows every Etna constant they use: definitions, inductives, constructors and recursors
 contribute their type and value; theorems contribute their type only, so proofs never enter the
 surface. Init/Std constants are recorded by name (the toolchain is pinned). Each constant's
@@ -34,10 +35,17 @@ REPO = ROOT.parents[1]
 LOCK = ROOT/'review-surface.lock.json'
 LOCK_PATH = 'formal/etna/review-surface.lock.json'
 # Files that define how evidence is judged. Changing one needs the same review as a statement.
-GATE_PATHS = ('formal/etna/scripts', ':(glob)formal/etna/tests/*.py', ':(glob)formal/etna/*.py',
-              'formal/etna/manifests/shadowing-allowlist.json', 'formal/etna/lakefile.toml',
+GATE_PATHS = ('formal/etna/scripts', ':(glob)formal/etna/tests/*.py', ':(glob)formal/etna/tests/*.lean',
+              ':(glob)formal/etna/*.py', 'formal/etna/manifests/design.json',
+              'formal/etna/manifests/shadowing-allowlist.json', 'formal/etna/spec-coverage.json',
+              'formal/etna/rule-coverage.json', 'formal/etna/lakefile.toml',
               'formal/etna/lean-toolchain', 'formal/etna/lake-manifest.json',
               ':(glob).github/workflows/formal--etna*.yml')
+# H1-H4 carried to raw DAO upgrade histories under AuthorizedUpgrades. The README relies on them
+# (section 1 finality for deployments), so their statements are part of what the claims mean.
+DEPLOYED_HEADLINES = ('Etna.Design.Current.Headlines.deployed_claims',
+                      'Etna.Design.Current.Headlines.deployed_rollback_free',
+                      'Etna.Design.Current.Headlines.deployed_recoverability')
 SCOPE = ('Kernel terms of the headline/witness statements and of every Etna definition they use; '
          'theorem proofs are excluded. A change here changes what H1-H4 or the witnesses mean.')
 
@@ -95,8 +103,8 @@ def _audit():
 
 def roots():
     audit = _audit()
-    return [audit.CURRENT_CLAIMS[0], *audit.CURRENT_HEADLINES, audit.CURRENT_ACCEPTING_WITNESS,
-            *audit.CURRENT_PROFILE_WITNESSES, *audit.CURRENT_TRAP_WITNESSES]
+    return [audit.CURRENT_CLAIMS[0], *audit.CURRENT_HEADLINES, *DEPLOYED_HEADLINES,
+            audit.CURRENT_ACCEPTING_WITNESS, *audit.CURRENT_PROFILE_WITNESSES, *audit.CURRENT_TRAP_WITNESSES]
 
 
 def lean_string(text):

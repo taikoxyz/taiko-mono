@@ -88,11 +88,16 @@ class ReviewSurfaceJudgeTests(unittest.TestCase):
         self.git('checkout', '-q', '-b', 'pr')
         self.write('.github/workflows/formal--etna-full.yml', 'changed\n')
         self.write('formal/etna/manifests/shadowing-allowlist.json', '{}\n')
+        # Evidence inputs: the theorem manifest, both coverage maps and a Lean regression fixture.
+        for path in ('manifests/design.json', 'spec-coverage.json', 'rule-coverage.json', 'tests/CurrentGuards.lean'):
+            self.write('formal/etna/'+path, 'weakened\n')
         head = self.commit('weaken a gate')
         status, text = JUDGE.against('main', self.repo, head)
         self.assertEqual(status, 3)
         self.assertIn('formal--etna-full.yml', text)
         self.assertIn('shadowing-allowlist.json', text)
+        for path in ('manifests/design.json', 'spec-coverage.json', 'rule-coverage.json', 'tests/CurrentGuards.lean'):
+            self.assertIn('formal/etna/'+path, text)
 
 
 if __name__ == '__main__':

@@ -127,10 +127,12 @@ claim that relies on them as "the claim holds, or a hash collision exists".
 
 ## Review surface and statement lock
 
-The **review surface** is what a reviewer must read to know what H1–H4, the eight
-joint-premise witnesses, the trap witness and its escape mean: their statements and every Etna
-definition they use, but no proof. `review-surface.lock.json` records a SHA-256 of the kernel
-terms of each of those constants (1,468 at this revision).
+The **review surface** is what a reviewer must read to know what H1–H4, their deployed-history
+forms (`Headlines.deployed_claims`, `deployed_rollback_free` and `deployed_recoverability`), the
+eight joint-premise witness theorems (from the six profiles under Joint-premise realizations),
+the trap witness and its escape mean: their statements and every Etna definition they use, but
+no proof. `review-surface.lock.json` records a SHA-256 of the kernel terms of each of those
+constants (1,617 at this revision).
 `python3 scripts/review_surface.py --check` fails if the lock is stale; the `etna-formal` job
 runs it. Proof-only changes never touch the lock.
 
@@ -138,8 +140,9 @@ The `etna-review-surface` job (`formal--etna-review-surface.yml`) runs on
 `pull_request_target`, so GitHub takes both the workflow file and the judge script from the
 base branch. The pull request's commits are read as git objects only; nothing from them is
 checked out or executed. The judge compares the lock and the gate files (`scripts/`, the
-Python tests, the shadowing allowlist, the lakefile, the toolchain pin and the formal
-workflows) between the merge base and the pull request head, and lists the changed constants
+Python tests, the Lean regression files, the theorem manifest, both coverage maps, the
+shadowing allowlist, the lakefile, the toolchain pin and the formal workflows) between the
+merge base and the pull request head, and lists the changed constants
 in the job summary. Any difference fails the job until a reviewer applies the
 `formal-statement-change` label.
 

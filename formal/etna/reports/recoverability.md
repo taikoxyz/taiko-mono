@@ -562,6 +562,9 @@ H4 adds no evidence for these:
 
 The review-surface lock grew from 1,433 to 1,464 constants when H4 was added: the H4 statement
 definitions, the new headline and witness roots and their model closure. `Claims` and `recover`
-changed. It has 1,468 at this revision. Letting H4 leave an off-grid state added `OnGrid` and
-changed `CallTrace`, `RecoveryCall`, `NoRollbackOrUpgrade`, `LiveRules` and `LiveAt`. The
-switching joint witness added only its own root, since its statement names no new definition.
+changed. Letting H4 leave an off-grid state added `OnGrid` and changed `CallTrace`,
+`RecoveryCall`, `NoRollbackOrUpgrade`, `LiveRules` and `LiveAt`. The switching joint witness
+added only its own root, since its statement names no new definition. Making the
+deployed-history headlines (`Headlines.deployed_claims`, `deployed_rollback_free` and
+`deployed_recoverability`) roots added the raw DAO upgrade machine and its authorization
+duties, for 1,617 constants at this revision.
