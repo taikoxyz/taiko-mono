@@ -34,3 +34,10 @@ extend-exclude = [
   "packages/taiko-client/bindings/pacaya/**",
   "packages/taiko-client/bindings/shasta/**",
 ]
+
+[type.lean]
+extend-glob = ["*.lean"]
+
+[type.lean.extend-words]
+# Standard theorem abbreviation, including Lean's Declaration.thmInfo constructor.
+thm = "thm"
