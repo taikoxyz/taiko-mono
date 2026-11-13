@@ -1,9 +1,11 @@
 # Unzen zk gas metering model
 
-This package is an executable Lean model of Unzen zk gas metering as alethia-reth implements it,
-with proved claims about how one block's charges are accounted. It pins the specification
-[`zk_gas_spec.md`](../../packages/protocol/docs/zk_gas_spec.md) at revision
-`aef6a3e4b954cc84cdff3d2434a1fe060a80bcd3` in [`spec-coverage.json`](spec-coverage.json).
+This package is an executable Lean model of Unzen zk gas metering as alethia-reth implements it:
+the gas each interpreter step uses, and how a block's charges are accounted. It has proved claims
+about both, and a trace checker that replays the shared vector corpus through it. It pins the
+specification [`zk_gas_spec.md`](../../packages/protocol/docs/zk_gas_spec.md) at revision
+`aef6a3e4b954cc84cdff3d2434a1fe060a80bcd3` in [`spec-coverage.json`](spec-coverage.json);
+the specification's `step_gas` definition refers to this model for the gas of a failing step.
 The theorems concern this model; they do not establish equivalence of production clients.
 
 ## Scope
@@ -49,9 +51,8 @@ The model has three parts:
   model charges that case 2,500 gas more than revm. The corpus authoring rules forbid such a
   target.
 
-  `allBranches` lists every branch, and `unreachableBranches` the ones no execution reaches on
-  Unzen, each with its reason. Every branch is reachable and has corpus steps, so the list is
-  empty.
+  Each step result names the branch that decided it: one per distinct sequence of revm checks
+  and charges and its outcome. `allBranches` lists them all (see [Coverage gate](#coverage-gate)).
 
 How a precompile's gas use is computed is not modeled. The claims below take every charge
 amount as given; the step model is checked against the traces only.
@@ -92,11 +93,47 @@ with the spawn step's `gas_after` plus the precompile's `left`. A spawn step who
 runs no step (an account without code, or a frame the handler refuses) is not checked this way.
 
 The checker stops at the first failure with the vector id, the event index and the reason, and
-exits 1. Every vector needs a trace and every trace a vector. Then the coverage gate prints how
-many steps each branch of `allBranches` decided, and fails, listing them, when a branch that
-`unreachableBranches` does not list decided no step, when a listed one decided some, or when a
-step reports a branch outside `allBranches`. The gate runs `check-traces` once the corpus has a
-`traces/` directory and skips it before then. Trace checking is not part of the evidence below.
+exits 1. Every vector needs a trace and every trace a vector. Then it runs the coverage gate. The
+gate script runs `check-traces` once the corpus has a `traces/` directory and skips it before
+then. Trace checking is not part of the evidence below.
+
+### Pre-state trust boundary
+
+The checker trusts each step's pre-state as the trace records it: the opcode, depth, gas, static
+flag, stack length, the top of the stack, the memory size and the `facts` (whether an account or
+slot is warm, whether an account is empty, an SSTORE's original and current values, whether a
+JUMP target is valid, the return data size, a SELFDESTRUCT's own balance). The client's trace
+exporter reports them; the model computes the step's gas and outcome from them and cannot tell
+whether they are true. Two checks outside this package guard them:
+
+- taiko-geth exports its own trace of every vector and compares it with the committed
+  alethia-reth trace event by event, pre-state included; a difference in a step's pre-state is
+  reported as a setup divergence. Two independently written exporters must therefore report the
+  same pre-state for every step of the corpus.
+- Reading the facts must not change what is metered. In each client, a traced run of a vector
+  must give the vector's expected values, as an untraced run does. alethia-reth takes the charges
+  from its production execution path and the facts from a second run on its inspector path, and
+  requires both runs to report exactly the same charges.
+
+A fact that both exporters report wrongly in the same way would pass both checks. The corpus
+README gives the rules for reading [facts](../../testdata/zk_gas_vectors/README.md#facts) and
+for [comparing client traces](../../testdata/zk_gas_vectors/README.md#comparing-client-traces).
+
+### Coverage gate
+
+`allBranches` (`ZkGasModel/Step/Basic.lean`) lists every branch of the step model, which the
+headline `BranchesComplete` proves. `check-traces` prints how many corpus steps each branch
+decided (`check-traces: branch <name>: <n> steps`) and a summary such as
+`438 vectors, 40279 events, 39557 steps checked by the model; 158 of 158 branches hit, 0 unreachable`.
+It fails, listing them, when a branch decided no step and `unreachableBranches` does not list
+it, when a listed branch decided a step, or when a step reports a branch outside `allBranches`.
+
+`unreachableBranches` (`ZkGasModel/Step.lean`) lists the branches no Unzen execution can reach,
+each with the reason, for example a branch whose condition an earlier check always rules out. The
+gate exempts them from the coverage requirement and fails if a corpus step does reach one, so a
+wrong reason shows up. The list is empty: every branch is reachable and reached by corpus steps.
+A reachable branch with no corpus step needs a new vector written by alethia-reth, not an entry
+in the list.
 
 ## Claims to review
 
@@ -106,15 +143,15 @@ Start with [`ZkGasStatements/Claims.lean`](ZkGasStatements/Claims.lean), then
 have exactly the corresponding named proposition as their type; the audit rejects added premises
 or a replacement conclusion at that boundary.
 
-| Statement                 | Theorem in `TaikoSpec.ZkGas.Proofs` | Content                                                                                                                                                                 |
-| ------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `BlockWithinLimit`        | `block_within_limit`                | A block's total never exceeds the schedule's block limit, whatever its transactions charge.                                                                             |
-| `AbortContributesNothing` | `abort_contributes_nothing`         | After committed transactions, a transaction whose charges exceed what the block has left ends the block: the total stays the same and later transactions get no result. |
-| `TotalIsSum`              | `total_is_sum`                      | A committed transaction's total is the sum of its charges, intrinsic charge included, and the block total is the sum of the committed totals.                           |
-| `FitCommits`              | `fit_commits`                       | After committed transactions, a transaction whose charges fit what the block has left commits with their sum, which the block total gains.                              |
-| `BranchesComplete`        | `branches_complete`                 | `allBranches` lists every branch of the step model, so the coverage gate leaves none out.                                                                               |
-| `StepGasMonotone`         | `step_gas_monotone`                 | On Unzen, no step leaves its frame more gas than it had: a step's gas is never negative.                                                                                |
-| `SpawnOnlyForSpawnOps`    | `spawn_only_for_spawn_ops`          | On Unzen, only an opcode with a spawn estimate opens a new frame.                                                                                                       |
+| Statement                 | Theorem in `TaikoSpec.ZkGas.Proofs` | Proof                                                | What it says                                                                                                                                                            |
+| ------------------------- | ----------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BlockWithinLimit`        | `block_within_limit`                | [`ZkGasProofs/Claims.lean`](ZkGasProofs/Claims.lean) | A block's total never exceeds the schedule's block limit, whatever its transactions charge.                                                                             |
+| `AbortContributesNothing` | `abort_contributes_nothing`         | [`ZkGasProofs/Claims.lean`](ZkGasProofs/Claims.lean) | After committed transactions, a transaction whose charges exceed what the block has left ends the block: the total stays the same and later transactions get no result. |
+| `TotalIsSum`              | `total_is_sum`                      | [`ZkGasProofs/Claims.lean`](ZkGasProofs/Claims.lean) | A committed transaction's total is the sum of its charges, intrinsic charge included, and the block total is the sum of the committed totals.                           |
+| `FitCommits`              | `fit_commits`                       | [`ZkGasProofs/Claims.lean`](ZkGasProofs/Claims.lean) | After committed transactions, a transaction whose charges fit what the block has left commits with their sum, which the block total gains.                              |
+| `BranchesComplete`        | `branches_complete`                 | [`ZkGasProofs/Step.lean`](ZkGasProofs/Step.lean)     | `allBranches` lists every branch of the step model, so the coverage gate leaves none out.                                                                               |
+| `StepGasMonotone`         | `step_gas_monotone`                 | [`ZkGasProofs/Step.lean`](ZkGasProofs/Step.lean)     | In the step model on Unzen, no step leaves its frame more gas than it had, so the gas a step uses is never negative.                                                    |
+| `SpawnOnlyForSpawnOps`    | `spawn_only_for_spawn_ops`          | [`ZkGasProofs/Step.lean`](ZkGasProofs/Step.lean)     | In the step model on Unzen, only an opcode with a spawn estimate (the CALL and CREATE families) opens a new frame.                                                      |
 
 Statement names are under `TaikoSpec.ZkGas.Statements`. The metering claims range over every
 schedule, so they hold for `unzen` in particular; `FitCommits` rules out a meter that would
@@ -186,7 +223,7 @@ The model follows alethia-reth where the pseudocode is phrased differently:
 Specification changes intentionally fail CI until the model, claims, exclusions and pins are
 reviewed together.
 
-## Witnesses and trust boundary
+## Witnesses and the Lean trust boundary
 
 [`ZkGasWitnesses/Tests.lean`](ZkGasWitnesses/Tests.lean) holds executable `#guard` regressions:
 table spot checks against the specification and revm (ADD, PUSH1, point_evaluation, an unlisted
@@ -266,8 +303,13 @@ LEAN_PATH="$PWD/.lake/audit" lake env lean --run scripts/RunAudit.lean
 for library in ZkGasModel ZkGasStatements ZkGasProofs ZkGasWitnesses ZkGasTraces; do
   lake env leanchecker "$library"
 done
-lake exe check-traces ../../testdata/zk_gas_vectors  # once traces/ exists
+lake exe check-traces ../../testdata/zk_gas_vectors  # traces, then the coverage gate
 ```
 
-CI runs on drafts and watches the pinned specification, the package, the shared vector corpus
-and the workflow.
+In CI, [`.github/workflows/formal-zk-gas--test.yml`](../../.github/workflows/formal-zk-gas--test.yml)
+runs `python3 scripts/check.py` before building, then `bash scripts/gate.sh`. It runs on pull
+requests, drafts included, and on pushes to `main` that change this package, the shared vector
+corpus, the pinned specification or the workflow. The corpus's own format checks
+(`testdata/zk_gas_vectors/check.py`) run in `.github/workflows/repo--zk-gas-vectors.yml`, and the
+clients run the vectors in their own CI against a pinned taiko-mono commit (see the
+[corpus README](../../testdata/zk_gas_vectors/README.md#continuous-integration)).
