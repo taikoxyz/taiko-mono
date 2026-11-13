@@ -7,6 +7,8 @@ import ZkGasModel.Step.Memory
 import ZkGasModel.Step.Copy
 import ZkGasModel.Step.Return
 import ZkGasModel.Step.Log
+import ZkGasModel.Step.Account
+import ZkGasModel.Step.Storage
 
 /-!
 # The step model
@@ -30,10 +32,10 @@ step goes through the same stages:
    gas comes before any stack, fork or jump check.
 3. The instruction body runs with the gas left after the static charge (`body`). Its checks
    return `StackUnderflow`, `StackOverflow`, `InvalidJump`, `NotActivated`, `InvalidFEOpcode`,
-   `OpcodeNotFound`, `InvalidOperandOOG`, `MemoryOOG`, `OutOfOffset` or
+   `OpcodeNotFound`, `InvalidOperandOOG`, `MemoryOOG`, `OutOfOffset`, `ReentrancySentryOOG` or
    `StateChangeDuringStaticCall`, which halt keeping the gas; a `gas!` charge that cannot be
-   paid, and a cold account load skipped for lack of gas, return `OutOfGas`, which spends all
-   of it. STOP, RETURN and REVERT end the frame keeping the gas.
+   paid, and a cold account or slot load skipped for lack of gas, return `OutOfGas`, which
+   spends all of it. STOP, RETURN, REVERT and SELFDESTRUCT end the frame keeping the gas.
 
 A later category adds a `Category` constructor, its `classify` case, a body file and a `body`
 case; the stages above stay as they are.
@@ -90,6 +92,18 @@ inductive Category
   | ret (revert : Bool)
   /-- LOG0..LOG4 with `n` topics. -/
   | log (n : Nat)
+  /-- BALANCE, EXTCODESIZE and EXTCODEHASH. -/
+  | accountAccess
+  /-- SELFDESTRUCT. -/
+  | selfdestruct
+  /-- SLOAD. -/
+  | sload
+  /-- SSTORE. -/
+  | sstore
+  /-- TLOAD. -/
+  | tload
+  /-- TSTORE. -/
+  | tstore
   /-- An opcode that halts as soon as its body runs (not activated on Unzen, INVALID or
   undefined), with the branch it reports. -/
   | halt (branch : BranchId)
@@ -129,6 +143,12 @@ def classify (op : Nat) : Option Category :=
   else if op = 0xf3 then some (.ret false)
   else if op = 0xfd then some (.ret true)
   else if 0xa0 ≤ op ∧ op ≤ 0xa4 then some (.log (op - 0xa0))
+  else if op = 0x31 ∨ op = 0x3b ∨ op = 0x3f then some .accountAccess
+  else if op = 0xff then some .selfdestruct
+  else if op = 0x54 then some .sload
+  else if op = 0x55 then some .sstore
+  else if op = 0x5c then some .tload
+  else if op = 0x5d then some .tstore
   else if 0x5f ≤ op ∧ op ≤ 0x7f then some .push
   else if 0x80 ≤ op ∧ op ≤ 0x8f then some (.dup (op - 0x7f))
   else if 0x90 ≤ op ∧ op ≤ 0x9f then some (.swap (op - 0x8f))
@@ -175,6 +195,12 @@ def body (pre : Pre) (gas : Nat) : Category → Except String StepResult
   | .extcodecopy => extcodecopyStep pre gas
   | .ret revert => returnStep pre gas revert
   | .log n => logStep pre gas n
+  | .accountAccess => accountAccessStep pre gas
+  | .selfdestruct => selfdestructStep pre gas
+  | .sload => sloadStep pre gas
+  | .sstore => sstoreStep pre gas
+  | .tload => pure (tloadStep pre gas)
+  | .tstore => pure (tstoreStep pre gas)
   | .halt branch => pure (haltStep gas branch)
 
 /-- The outcome of the step that runs from `pre` on fork `f`; `none` when the model does not

@@ -26,8 +26,8 @@ status: `success`, `revert` or `halt`). -/
 inductive Outcome
   /-- The frame goes on to its next opcode. -/
   | continue
-  /-- The frame ends successfully and keeps its remaining gas: STOP (revm `Stop`) or RETURN
-  (`Return`). Frame status `success`. -/
+  /-- The frame ends successfully and keeps its remaining gas: STOP (revm `Stop`), RETURN
+  (`Return`) or SELFDESTRUCT (`SelfDestruct`). Frame status `success`. -/
   | success
   /-- REVERT ends the frame and keeps its remaining gas (revm `Revert`). Frame status
   `revert`. -/
@@ -35,11 +35,14 @@ inductive Outcome
   /-- The frame halts and keeps its remaining gas: a halt other than out of gas (stack
   underflow or overflow, an invalid jump, an opcode not activated or not defined, an operand of
   2^64 or more (`InvalidOperandOOG`), a memory expansion the frame cannot pay (`MemoryOOG`), a
-  return data range out of bounds (`OutOfOffset`), a LOG in a static frame).
-  `Interpreter::halt` spends the remaining gas only for `OutOfGas`. Frame status `halt`. -/
+  return data range out of bounds (`OutOfOffset`), SSTORE's reentrancy sentry
+  (`ReentrancySentryOOG`), a LOG, SSTORE, TSTORE or SELFDESTRUCT in a static frame
+  (`StateChangeDuringStaticCall`)). `Interpreter::halt` spends the remaining gas only for
+  `OutOfGas`. Frame status `halt`. -/
   | haltKeep
   /-- The frame halts out of gas, which spends all its remaining gas (`Interpreter::halt` on
-  `OutOfGas`); the step's gas after is 0. Frame status `halt`. -/
+  `OutOfGas`, which a skipped cold account or slot load also is); the step's gas after is 0.
+  Frame status `halt`. -/
   | haltSpendAll
   /-- The step opens a new frame (CALL or CREATE family); it is charged its spawn estimate. -/
   | newFrame
@@ -54,19 +57,29 @@ cells' `group_opcode_outcome` shape.
 
 Opcodes that run the same sequence of checks share a branch per check that ends the step and
 outcome (MLOAD, MSTORE and MSTORE8; CALLDATACOPY and CODECOPY; RETURN and REVERT until they
-end; LOG0..LOG4). Cells that differ only in the operands that make one check fail (a memory
-size that is one gas short, passes 2^64, rounds up to 2^64 or is above 0x1FFFFFFFE0 bytes all
-fail the expansion charge) share that check's branch. A zero length that returns early is its
-own branch; one that only skips the memory checks before a later check (RETURN and REVERT, LOG,
-EXTCODECOPY) shares the branch of the check that ends the step. -/
+end; LOG0..LOG4; BALANCE, EXTCODESIZE and EXTCODEHASH). Cells that differ only in the operands
+that make one check fail (a memory size that is one gas short, passes 2^64, rounds up to 2^64
+or is above 0x1FFFFFFFE0 bytes all fail the expansion charge) share that check's branch. A zero
+length that returns early is its own branch; one that only skips the memory checks before a
+later check (RETURN and REVERT, LOG, EXTCODECOPY) shares the branch of the check that ends the
+step.
+
+Where the state facts decide what a charge includes (a cold surcharge, SSTORE's set or reset
+cost, SELFDESTRUCT's new-account charge), each combination it can include is its own success
+branch, and the charge failing is one branch whatever it included. Cells about the accounts or
+slots a frame leaves warm span several steps; the comment of each step's branch names them. -/
 inductive BranchId
   /-- Any modeled opcode that cannot pay its static gas: `Interpreter::step` returns `OutOfGas`
   before the instruction runs, and the halt spends all remaining gas. Cells
   `static.step.static_oog_spend_all`, `static.env.selfbalance_static_oog_spend_all`,
   `static.env.blockhash_static_oog_spend_all`, `notactivated.dupn.static_oog_spend_all`,
   `log.logn.static_oog_spend_all`, `log.topics.static_oog_before_underflow_spend_all`,
-  `log.static_frame.static_oog_spend_all`, and the out-of-gas half of
-  `static.step.oog_before_underflow` and `static.step.oog_before_overflow`. -/
+  `log.static_frame.static_oog_spend_all`, `sload.sload.static_oog_spend_all`,
+  `account.access.static_oog_spend_all`, `selfdestruct.selfdestruct.static_oog_spend_all`,
+  `transient.tload.static_oog_spend_all`, `transient.tstore.static_oog_spend_all`,
+  `transient.static_frame.tstore_static_oog_spend_all`, and the out-of-gas half of
+  `static.step.oog_before_underflow` and `static.step.oog_before_overflow`. SSTORE has no
+  static gas. -/
   | static_step_static_oog_spend_all
   /-- STOP ends the frame successfully keeping its gas (new name; no cell). -/
   | static_stop_halt
@@ -304,6 +317,109 @@ inductive BranchId
   `log.log0.success`, `log.log1.success`, `log.log2.success`, `log.log3.success`,
   `log.log4.success` and `log.logn.zero_size_success`). -/
   | log_logn_success
+  /-- SLOAD on an empty stack, after its 100 static gas. -/
+  | sload_sload_underflow_preserve
+  /-- SLOAD of a warm slot: only its 100 static gas; also the caller's later SLOAD in
+  `sload.sload.child_cold_load_warms_slot`. -/
+  | sload_sload_warm_success
+  /-- SLOAD of a cold slot with less than the 2,000 surcharge left after its static gas: the
+  skipped cold load spends all gas; also the helper's SLOAD in
+  `sload.sload.failed_cold_load_leaves_slot_cold`. -/
+  | sload_sload_cold_surcharge_oog_spend_all
+  /-- SLOAD of a cold slot that pays the 2,000 surcharge; also the helper's SLOAD in
+  `sload.sload.child_cold_load_warms_slot`, and the caller's later SLOAD in
+  `sload.sload.failed_cold_load_leaves_slot_cold` and
+  `sstore.dynamic.failed_store_leaves_slot_cold`. -/
+  | sload_sload_cold_success
+  /-- SSTORE in a static frame: `StateChangeDuringStaticCall` before any pop or charge, keeping
+  all the gas. -/
+  | sstore_static_frame_halt_preserve
+  /-- SSTORE on fewer than two stack items, before the sentry and any charge. -/
+  | sstore_sstore_underflow_preserve
+  /-- SSTORE with 2,300 gas or less: the reentrancy sentry halts before any charge, keeping all
+  the gas. With more, the sentry passes (`sstore.sentry.min_gas_passes`) and the step ends in
+  one of the branches below. -/
+  | sstore_sentry_halt_preserve
+  /-- SSTORE of a warm slot that pays no write cost, only the 100 base: the new value is the
+  current one, or the slot was already written in the tx (current ≠ original) (new name; cells
+  `sstore.noop.warm_success`, `sstore.restore.warm_success` and `sstore.dirty.warm_success`).
+  The refund of a restore is not part of the step's gas (`sstore.refund.block_gas_only`). -/
+  | sstore_nowrite_warm_success
+  /-- SSTORE of a cold slot that pays no write cost: 100 + 2,100 (new name; cell
+  `sstore.noop.cold_success` and the cold step of `sstore.sentry.min_gas_passes`). -/
+  | sstore_nowrite_cold_success
+  /-- SSTORE of a non-zero value into a warm zero slot not written yet in the tx: 100 + 19,900. -/
+  | sstore_fresh_warm_success
+  /-- SSTORE of a non-zero value into a cold zero slot: 100 + 2,100 + 19,900. -/
+  | sstore_fresh_cold_success
+  /-- SSTORE of a new value into a warm non-zero slot not written yet in the tx: 100 + 2,800;
+  also `sstore.clear.warm_success` (the new value is 0). -/
+  | sstore_modify_warm_success
+  /-- SSTORE of a new value into a cold non-zero slot: 100 + 2,100 + 2,800; also
+  `sstore.clear.cold_success`, whose clearing refund is not part of the step's gas
+  (`sstore.refund.block_gas_only`). -/
+  | sstore_modify_cold_success
+  /-- SSTORE past the sentry that cannot pay its 100 base plus its cold and set or reset cost:
+  the halt spends all gas; also the warm step of `sstore.sentry.min_gas_passes` and the helper's
+  SSTORE in `sstore.dynamic.failed_store_leaves_slot_cold`. -/
+  | sstore_dynamic_oog_spend_all
+  /-- TLOAD on an empty stack, after its 100 static gas. -/
+  | transient_tload_underflow_preserve
+  /-- TLOAD: only its 100 static gas. -/
+  | transient_tload_success
+  /-- TSTORE in a static frame: `StateChangeDuringStaticCall` after its 100 static gas, before
+  the pops. -/
+  | transient_static_frame_tstore_halt_preserve
+  /-- TSTORE on fewer than two stack items, after its 100 static gas. -/
+  | transient_tstore_underflow_preserve
+  /-- TSTORE: only its 100 static gas. -/
+  | transient_tstore_success
+  /-- BALANCE, EXTCODESIZE or EXTCODEHASH on an empty stack, after its 100 static gas. -/
+  | account_access_underflow_preserve
+  /-- BALANCE, EXTCODESIZE or EXTCODEHASH of a warm account: only its 100 static gas (new name;
+  cells `account.balance.warm_success`, `account.extcodesize.warm_success` and
+  `account.extcodehash.warm_success`, and the caller's later BALANCE in
+  `selfdestruct.selfdestruct.child_success_warms_beneficiary`). -/
+  | account_access_warm_success
+  /-- BALANCE, EXTCODESIZE or EXTCODEHASH of a cold account with less than the 2,500 surcharge
+  left after its static gas: the skipped cold load spends all gas (new name; cells
+  `account.balance.cold_surcharge_oog_spend_all`,
+  `account.extcodesize.cold_surcharge_oog_spend_all` and
+  `account.extcodehash.cold_surcharge_oog_spend_all`, and the child's BALANCE in
+  `account.access.failed_cold_load_leaves_account_cold`). -/
+  | account_access_cold_surcharge_oog_spend_all
+  /-- BALANCE, EXTCODESIZE or EXTCODEHASH of a cold account that pays the 2,500 surcharge (new
+  name; cells `account.balance.cold_success`, `account.extcodesize.cold_success` and
+  `account.extcodehash.cold_success`, and the caller's later BALANCE in
+  `account.access.failed_cold_load_leaves_account_cold`, `selfdestruct.static_frame.halt_preserve`
+  and `selfdestruct.selfdestruct.failed_step_leaves_beneficiary_cold`). -/
+  | account_access_cold_success
+  /-- SELFDESTRUCT in a static frame: `StateChangeDuringStaticCall` after its 5,000 static gas,
+  before the pop and the beneficiary load. -/
+  | selfdestruct_static_frame_halt_preserve
+  /-- SELFDESTRUCT on an empty stack, after its 5,000 static gas. -/
+  | selfdestruct_selfdestruct_underflow_preserve
+  /-- SELFDESTRUCT to a cold beneficiary with less than 2,600 gas left after its static gas: the
+  skipped load spends all gas; also the child's SELFDESTRUCT in one case of
+  `selfdestruct.selfdestruct.failed_step_leaves_beneficiary_cold`. -/
+  | selfdestruct_selfdestruct_cold_load_skipped_spend_all
+  /-- SELFDESTRUCT of a contract holding value to an empty beneficiary that cannot pay the 25,000
+  new-account charge (plus 2,600 when the beneficiary was cold) after the load: the halt spends
+  all gas; also the child's SELFDESTRUCT in the other case of
+  `selfdestruct.selfdestruct.failed_step_leaves_beneficiary_cold`. -/
+  | selfdestruct_new_account_charge_oog_spend_all
+  /-- SELFDESTRUCT to a warm beneficiary with no new-account charge: only its 5,000 static gas;
+  the frame ends successfully. -/
+  | selfdestruct_selfdestruct_warm_success
+  /-- SELFDESTRUCT to a cold beneficiary with no new-account charge (the beneficiary is not
+  empty, or the contract holds no value): 5,000 + 2,600; also the child's SELFDESTRUCT in
+  `selfdestruct.selfdestruct.child_success_warms_beneficiary`. -/
+  | selfdestruct_selfdestruct_cold_success
+  /-- SELFDESTRUCT of a contract holding value to a warm, empty beneficiary: 5,000 + 25,000. -/
+  | selfdestruct_new_account_warm_success
+  /-- SELFDESTRUCT of a contract holding value to a cold, empty beneficiary:
+  5,000 + 2,600 + 25,000. -/
+  | selfdestruct_new_account_cold_success
   /-- An opcode revm does not define (no static gas): `OpcodeNotFound`. -/
   | undefined_opcode_zero_gas_halt
   /-- INVALID (0xfe, no static gas): `InvalidFEOpcode`. -/
@@ -400,6 +516,39 @@ def BranchId.name : BranchId → String
   | .log_logn_memory_oog_preserve => "log_logn_memory_oog_preserve"
   | .log_topics_underflow_preserve => "log_topics_underflow_preserve"
   | .log_logn_success => "log_logn_success"
+  | .sload_sload_underflow_preserve => "sload_sload_underflow_preserve"
+  | .sload_sload_warm_success => "sload_sload_warm_success"
+  | .sload_sload_cold_surcharge_oog_spend_all => "sload_sload_cold_surcharge_oog_spend_all"
+  | .sload_sload_cold_success => "sload_sload_cold_success"
+  | .sstore_static_frame_halt_preserve => "sstore_static_frame_halt_preserve"
+  | .sstore_sstore_underflow_preserve => "sstore_sstore_underflow_preserve"
+  | .sstore_sentry_halt_preserve => "sstore_sentry_halt_preserve"
+  | .sstore_nowrite_warm_success => "sstore_nowrite_warm_success"
+  | .sstore_nowrite_cold_success => "sstore_nowrite_cold_success"
+  | .sstore_fresh_warm_success => "sstore_fresh_warm_success"
+  | .sstore_fresh_cold_success => "sstore_fresh_cold_success"
+  | .sstore_modify_warm_success => "sstore_modify_warm_success"
+  | .sstore_modify_cold_success => "sstore_modify_cold_success"
+  | .sstore_dynamic_oog_spend_all => "sstore_dynamic_oog_spend_all"
+  | .transient_tload_underflow_preserve => "transient_tload_underflow_preserve"
+  | .transient_tload_success => "transient_tload_success"
+  | .transient_static_frame_tstore_halt_preserve => "transient_static_frame_tstore_halt_preserve"
+  | .transient_tstore_underflow_preserve => "transient_tstore_underflow_preserve"
+  | .transient_tstore_success => "transient_tstore_success"
+  | .account_access_underflow_preserve => "account_access_underflow_preserve"
+  | .account_access_warm_success => "account_access_warm_success"
+  | .account_access_cold_surcharge_oog_spend_all => "account_access_cold_surcharge_oog_spend_all"
+  | .account_access_cold_success => "account_access_cold_success"
+  | .selfdestruct_static_frame_halt_preserve => "selfdestruct_static_frame_halt_preserve"
+  | .selfdestruct_selfdestruct_underflow_preserve => "selfdestruct_selfdestruct_underflow_preserve"
+  | .selfdestruct_selfdestruct_cold_load_skipped_spend_all =>
+    "selfdestruct_selfdestruct_cold_load_skipped_spend_all"
+  | .selfdestruct_new_account_charge_oog_spend_all =>
+    "selfdestruct_new_account_charge_oog_spend_all"
+  | .selfdestruct_selfdestruct_warm_success => "selfdestruct_selfdestruct_warm_success"
+  | .selfdestruct_selfdestruct_cold_success => "selfdestruct_selfdestruct_cold_success"
+  | .selfdestruct_new_account_warm_success => "selfdestruct_new_account_warm_success"
+  | .selfdestruct_new_account_cold_success => "selfdestruct_new_account_cold_success"
   | .undefined_opcode_zero_gas_halt => "undefined_opcode_zero_gas_halt"
   | .undefined_invalid_zero_gas_halt => "undefined_invalid_zero_gas_halt"
 

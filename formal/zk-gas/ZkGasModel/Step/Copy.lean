@@ -1,14 +1,15 @@
 import ZkGasModel.Step.Memory
+import ZkGasModel.Step.Account
 
 /-!
 # CALLDATACOPY, CODECOPY, RETURNDATACOPY and EXTCODECOPY
 
 revm-interpreter 43.0.1 `src/instructions/system.rs` (`calldatacopy`, `codecopy`,
 `returndatacopy` and their shared `copy_cost_and_memory_resize`) and `src/instructions/host.rs`
-(`extcodecopy`, `load_account`). Each body gets `gas`, the frame's gas after the static charge
-(3, or 100 for EXTCODECOPY). The operand, word cost and memory stages are those of
-`ZkGasModel.Step.Memory`. The source offset is saturated (`as_usize_saturated!`) and charges
-nothing; copying past the end of calldata or code fills zeros.
+(`extcodecopy`). Each body gets `gas`, the frame's gas after the static charge (3, or 100 for
+EXTCODECOPY). The operand, word cost and memory stages are those of `ZkGasModel.Step.Memory`.
+The source offset is saturated (`as_usize_saturated!`) and charges nothing; copying past the end
+of calldata or code fills zeros.
 -/
 namespace TaikoSpec.ZkGas
 
@@ -71,18 +72,12 @@ def returndatacopyStep (pre : Pre) (gas : Nat) : Except String StepResult := do
       memoryOog := .copy_returndatacopy_memory_oog_preserve
       success := .copy_returndatacopy_expansion_success }
 
-/-- `cold_account_additional_cost` from Berlin on (`gas::COLD_ACCOUNT_ACCESS_COST_ADDITIONAL`):
-`COLD_ACCOUNT_ACCESS_COST` 2,600 minus the 100 already in EXTCODECOPY's static gas. -/
-def coldAccountGas : Nat := 2500
-
 /-- EXTCODECOPY (`host.rs:90`): pops the address, the memory offset, the code offset and the
 length (`:91`), checks the length (`:97`) and charges 3 gas per word (`:98`); only for a
 non-zero length does it check the memory offset (`:107`) and resize memory (`:111`). Then
-`load_account` (`:114`, `:21`) loads the target: a warm one costs nothing more, a cold one the
-2,500 surcharge (`:30`). With less than 2,500 gas left a cold load is skipped (`:28`) and fails
-with `ColdLoadSkipped`, which is `OutOfGas` (`instruction_result.rs:154`) and spends all gas.
-Whether the target is warm before the step is the `account_warm` fact; nothing before the load
-changes it. -/
+`load_account` (`:114`; `loadAccount` in `ZkGasModel.Step.Account`) loads the target: a warm
+one costs nothing more, a cold one the 2,500 surcharge, and a cold load with less than 2,500 gas
+left is skipped, which spends all gas. -/
 def extcodecopyStep (pre : Pre) (gas : Nat) : Except String StepResult := do
   if pre.stackLen < 4 then return haltKeeping gas .memory_step_underflow_halt
   let memOffset ← stackItem pre 1
@@ -97,10 +92,9 @@ def extcodecopyStep (pre : Pre) (gas : Nat) : Except String StepResult := do
     match ← expandMemory pre gas memOffset len with
     | none => return haltKeeping gas .copy_extcodecopy_memory_oog_preserve
     | some left => gas := left
-  if ← requireFact "account_warm" pre.facts.accountWarm then
-    return continueWith gas .copy_extcodecopy_warm_success
-  if gas < coldAccountGas then
-    return haltSpendingAll .copy_extcodecopy_cold_surcharge_oog_spend_all
-  return continueWith (gas - coldAccountGas) .copy_extcodecopy_cold_success
+  loadAccount pre gas
+    { warm := .copy_extcodecopy_warm_success
+      coldOog := .copy_extcodecopy_cold_surcharge_oog_spend_all
+      cold := .copy_extcodecopy_cold_success }
 
 end TaikoSpec.ZkGas

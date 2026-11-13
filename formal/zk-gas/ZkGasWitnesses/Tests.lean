@@ -822,6 +822,238 @@ def stepAgrees (line : String) (outcome : Outcome) (branch : BranchId) : Bool :=
 #guard stepAgrees
   "{\"e\":\"step\",\"d\":1,\"pc\":3,\"op\":160,\"gas\":\"0x177\",\"static\":false,\"sl\":2,\"stack\":[\"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x465\",\"ok\":true,\"charged\":true}"
   .continue .log_logn_success
+-- sload.sload.warm_static_oog, event 4: SLOAD of a warm slot with 99 of its 100 static gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":6,\"op\":84,\"gas\":\"0x63\",\"static\":false,\"sl\":1,\"stack\":[\"0x1\"],\"mem\":\"0x0\",\"facts\":{\"slot_warm\":true},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x129\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .static_step_static_oog_spend_all
+-- sload.sload.underflow_static_oog, event 0: SLOAD on an empty stack with 99 gas: the static gas check comes before the underflow.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":0,\"op\":84,\"gas\":\"0x63\",\"static\":false,\"sl\":0,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x129\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .static_step_static_oog_spend_all
+-- sload.sload.underflow, event 0: SLOAD on an empty stack pays its static 100 gas and keeps the rest.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":0,\"op\":84,\"gas\":\"0x186a0\",\"static\":false,\"sl\":0,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1863c\",\"spawn\":false,\"zk\":\"0x12c\",\"ok\":true,\"charged\":true}"
+  .haltKeep .sload_sload_underflow_preserve
+-- sload.sload.warm_exact_gas, event 4: SLOAD of a warm slot with exactly its static 100 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":6,\"op\":84,\"gas\":\"0x64\",\"static\":false,\"sl\":1,\"stack\":[\"0x1\"],\"mem\":\"0x0\",\"facts\":{\"slot_warm\":true},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x12c\",\"ok\":true,\"charged\":true}"
+  .continue .sload_sload_warm_success
+-- sload.sload.child_cold_load_warms_slot, event 12: The caller's SLOAD of the slot its DELEGATECALL helper loaded pays no surcharge.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":13,\"op\":84,\"gas\":\"0x17430\",\"static\":false,\"sl\":1,\"stack\":[\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"slot_warm\":true},\"gas_after\":\"0x173cc\",\"spawn\":false,\"zk\":\"0x12c\",\"ok\":true,\"charged\":true}"
+  .continue .sload_sload_warm_success
+-- sload.sload.cold_surcharge_oog, event 1: SLOAD of a cold slot 1 gas short of 100 + 2,000: the skipped cold load spends all gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":1,\"op\":84,\"gas\":\"0x833\",\"static\":false,\"sl\":1,\"stack\":[\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"slot_warm\":false},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x1899\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .sload_sload_cold_surcharge_oog_spend_all
+-- sload.sload.cold_exact_gas, event 1: SLOAD of a cold slot with exactly 100 + 2,000 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":1,\"op\":84,\"gas\":\"0x834\",\"static\":false,\"sl\":1,\"stack\":[\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"slot_warm\":false},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x189c\",\"ok\":true,\"charged\":true}"
+  .continue .sload_sload_cold_success
+-- sload.sload.child_cold_oog_leaves_slot_cold, event 11: The caller's SLOAD of the slot whose cold load failed in its DELEGATECALL helper pays the surcharge.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":13,\"op\":84,\"gas\":\"0x17431\",\"static\":false,\"sl\":1,\"stack\":[\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"slot_warm\":false},\"gas_after\":\"0x16bfd\",\"spawn\":false,\"zk\":\"0x189c\",\"ok\":true,\"charged\":true}"
+  .continue .sload_sload_cold_success
+-- account.extcodesize.warm_static_oog, event 4: EXTCODESIZE of a warm account with 99 of its 100 static gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":8,\"op\":59,\"gas\":\"0x63\",\"static\":false,\"sl\":1,\"stack\":[\"0xda7a\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x18c\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .static_step_static_oog_spend_all
+-- account.balance.underflow, event 0: BALANCE on an empty stack pays its static 100 gas and keeps the rest.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":0,\"op\":49,\"gas\":\"0x186a0\",\"static\":false,\"sl\":0,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1863c\",\"spawn\":false,\"zk\":\"0x190\",\"ok\":true,\"charged\":true}"
+  .haltKeep .account_access_underflow_preserve
+-- account.extcodehash.underflow, event 0: EXTCODEHASH on an empty stack: its fork gate passes, then the pop fails.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":0,\"op\":63,\"gas\":\"0x186a0\",\"static\":false,\"sl\":0,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1863c\",\"spawn\":false,\"zk\":\"0x2bc\",\"ok\":true,\"charged\":true}"
+  .haltKeep .account_access_underflow_preserve
+-- account.balance.warm_exact_gas, event 4: BALANCE of a warm account with exactly its static 100 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":8,\"op\":49,\"gas\":\"0x64\",\"static\":false,\"sl\":1,\"stack\":[\"0xbeef\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x190\",\"ok\":true,\"charged\":true}"
+  .continue .account_access_warm_success
+-- account.extcodesize.warm_exact_gas, event 4: EXTCODESIZE of a warm account with exactly its static 100 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":8,\"op\":59,\"gas\":\"0x64\",\"static\":false,\"sl\":1,\"stack\":[\"0xda7a\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x190\",\"ok\":true,\"charged\":true}"
+  .continue .account_access_warm_success
+-- account.extcodehash.warm_exact_gas, event 4: EXTCODEHASH of a warm account with exactly its static 100 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":8,\"op\":63,\"gas\":\"0x64\",\"static\":false,\"sl\":1,\"stack\":[\"0xdead\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x2bc\",\"ok\":true,\"charged\":true}"
+  .continue .account_access_warm_success
+-- account.balance.cold_surcharge_oog, event 1: BALANCE of a cold account 1 gas short of 100 + 2,500: the skipped cold load spends all gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":3,\"op\":49,\"gas\":\"0xa27\",\"static\":false,\"sl\":1,\"stack\":[\"0xbeef\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x289c\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .account_access_cold_surcharge_oog_spend_all
+-- account.extcodehash.cold_surcharge_oog, event 1: EXTCODEHASH of a cold account 1 gas short of 100 + 2,500.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":3,\"op\":63,\"gas\":\"0xa27\",\"static\":false,\"sl\":1,\"stack\":[\"0xdead\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x4711\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .account_access_cold_surcharge_oog_spend_all
+-- account.balance.cold_exact_gas, event 1: BALANCE of a cold account with exactly 100 + 2,500 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":3,\"op\":49,\"gas\":\"0xa28\",\"static\":false,\"sl\":1,\"stack\":[\"0xbeef\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x28a0\",\"ok\":true,\"charged\":true}"
+  .continue .account_access_cold_success
+-- account.extcodesize.cold_exact_gas, event 1: EXTCODESIZE of a cold account with exactly 100 + 2,500 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":3,\"op\":59,\"gas\":\"0xa28\",\"static\":false,\"sl\":1,\"stack\":[\"0xda7a\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x28a0\",\"ok\":true,\"charged\":true}"
+  .continue .account_access_cold_success
+-- account.extcodehash.cold_exact_gas, event 1: EXTCODEHASH of a cold account with exactly 100 + 2,500 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":3,\"op\":63,\"gas\":\"0xa28\",\"static\":false,\"sl\":1,\"stack\":[\"0xdead\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x4718\",\"ok\":true,\"charged\":true}"
+  .continue .account_access_cold_success
+-- sstore.static_frame.halt, event 9: SSTORE in a static frame halts before any charge.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":2,\"pc\":3,\"op\":85,\"gas\":\"0x752b\",\"static\":true,\"sl\":2,\"stack\":[\"0x0\",\"0x1\"],\"mem\":\"0x0\",\"facts\":{\"slot_warm\":false,\"original\":\"0x0\",\"current\":\"0x0\"},\"gas_after\":\"0x752b\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .haltKeep .sstore_static_frame_halt_preserve
+-- sstore.sstore.underflow, event 1: SSTORE on one item halts before any charge.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":1,\"op\":85,\"gas\":\"0x1869e\",\"static\":false,\"sl\":1,\"stack\":[\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1869e\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .haltKeep .sstore_sstore_underflow_preserve
+-- sstore.sentry.cold_noop_at_2300, event 2: SSTORE with exactly 2,300 gas halts on the sentry, keeping it all.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":4,\"op\":85,\"gas\":\"0x8fc\",\"static\":false,\"sl\":2,\"stack\":[\"0x5\",\"0x3\"],\"mem\":\"0x0\",\"facts\":{\"slot_warm\":false,\"original\":\"0x3\",\"current\":\"0x3\"},\"gas_after\":\"0x8fc\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .haltKeep .sstore_sentry_halt_preserve
+-- sstore.sentry.warm_modify_at_2300, event 5: SSTORE of a warm slot with exactly 2,300 gas halts on the sentry.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":8,\"op\":85,\"gas\":\"0x8fc\",\"static\":false,\"sl\":2,\"stack\":[\"0x1\",\"0x6\"],\"mem\":\"0x0\",\"facts\":{\"slot_warm\":true,\"original\":\"0x5\",\"current\":\"0x5\"},\"gas_after\":\"0x8fc\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .haltKeep .sstore_sentry_halt_preserve
+-- sstore.noop.warm, event 5: SSTORE of a warm slot's current value pays only the 100 base gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":8,\"op\":85,\"gas\":\"0x17e61\",\"static\":false,\"sl\":2,\"stack\":[\"0x5\",\"0x3\"],\"mem\":\"0x0\",\"facts\":{\"slot_warm\":true,\"original\":\"0x3\",\"current\":\"0x3\"},\"gas_after\":\"0x17dfd\",\"spawn\":false,\"zk\":\"0x1f4\",\"ok\":true,\"charged\":true}"
+  .continue .sstore_nowrite_warm_success
+-- sstore.restore.original_values, event 5: SSTORE that sets a slot written earlier in the tx back to its zero original pays only the 100 base gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":8,\"op\":85,\"gas\":\"0x13041\",\"static\":false,\"sl\":2,\"stack\":[\"0x3\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"slot_warm\":true,\"original\":\"0x0\",\"current\":\"0x1\"},\"gas_after\":\"0x12fdd\",\"spawn\":false,\"zk\":\"0x1f4\",\"ok\":true,\"charged\":true}"
+  .continue .sstore_nowrite_warm_success
+-- sstore.restore.original_values, event 11: SSTORE that sets a slot written earlier in the tx back to its non-zero original pays only the 100 base gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":18,\"op\":85,\"gas\":\"0x11c49\",\"static\":false,\"sl\":2,\"stack\":[\"0x4\",\"0x8\"],\"mem\":\"0x0\",\"facts\":{\"slot_warm\":true,\"original\":\"0x8\",\"current\":\"0x9\"},\"gas_after\":\"0x11be5\",\"spawn\":false,\"zk\":\"0x1f4\",\"ok\":true,\"charged\":true}"
+  .continue .sstore_nowrite_warm_success
+-- sstore.dirty.third_value, event 5: SSTORE of a third value into a slot written earlier in the tx pays only the 100 base gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":7,\"op\":85,\"gas\":\"0x13042\",\"static\":false,\"sl\":2,\"stack\":[\"0x0\",\"0x2\"],\"mem\":\"0x0\",\"facts\":{\"slot_warm\":true,\"original\":\"0x0\",\"current\":\"0x1\"},\"gas_after\":\"0x12fde\",\"spawn\":false,\"zk\":\"0x1f4\",\"ok\":true,\"charged\":true}"
+  .continue .sstore_nowrite_warm_success
+-- sstore.dirty.third_value, event 11: SSTORE that rewrites a slot cleared earlier in the tx pays only the 100 base gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":16,\"op\":85,\"gas\":\"0x11c4b\",\"static\":false,\"sl\":2,\"stack\":[\"0x2\",\"0x9\"],\"mem\":\"0x0\",\"facts\":{\"slot_warm\":true,\"original\":\"0x7\",\"current\":\"0x0\"},\"gas_after\":\"0x11be7\",\"spawn\":false,\"zk\":\"0x1f4\",\"ok\":true,\"charged\":true}"
+  .continue .sstore_nowrite_warm_success
+-- sstore.sentry.cold_noop_at_2301, event 2: SSTORE of a cold slot's current value with 2,301 gas passes the sentry and pays 100 + 2,100.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":4,\"op\":85,\"gas\":\"0x8fd\",\"static\":false,\"sl\":2,\"stack\":[\"0x5\",\"0x3\"],\"mem\":\"0x0\",\"facts\":{\"slot_warm\":false,\"original\":\"0x3\",\"current\":\"0x3\"},\"gas_after\":\"0x65\",\"spawn\":false,\"zk\":\"0x2af8\",\"ok\":true,\"charged\":true}"
+  .continue .sstore_nowrite_cold_success
+-- sstore.fresh.warm_exact_gas, event 5: SSTORE of a non-zero value into a warm zero slot with exactly 100 + 19,900 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":6,\"op\":85,\"gas\":\"0x4e20\",\"static\":false,\"sl\":2,\"stack\":[\"0x0\",\"0x1\"],\"mem\":\"0x0\",\"facts\":{\"slot_warm\":true,\"original\":\"0x0\",\"current\":\"0x0\"},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x186a0\",\"ok\":true,\"charged\":true}"
+  .continue .sstore_fresh_warm_success
+-- sstore.fresh.cold_exact_gas, event 2: SSTORE of a non-zero value into a cold zero slot with exactly 100 + 2,100 + 19,900 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":3,\"op\":85,\"gas\":\"0x5654\",\"static\":false,\"sl\":2,\"stack\":[\"0x0\",\"0x1\"],\"mem\":\"0x0\",\"facts\":{\"slot_warm\":false,\"original\":\"0x0\",\"current\":\"0x0\"},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x1afa4\",\"ok\":true,\"charged\":true}"
+  .continue .sstore_fresh_cold_success
+-- sstore.modify.warm_exact_gas, event 5: SSTORE of a new non-zero value into a warm non-zero slot with exactly 100 + 2,800 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":8,\"op\":85,\"gas\":\"0xb54\",\"static\":false,\"sl\":2,\"stack\":[\"0x1\",\"0x6\"],\"mem\":\"0x0\",\"facts\":{\"slot_warm\":true,\"original\":\"0x5\",\"current\":\"0x5\"},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x38a4\",\"ok\":true,\"charged\":true}"
+  .continue .sstore_modify_warm_success
+-- sstore.clear.warm_exact_gas, event 5: SSTORE of zero into a warm non-zero slot pays the same 100 + 2,800 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":7,\"op\":85,\"gas\":\"0xb54\",\"static\":false,\"sl\":2,\"stack\":[\"0x2\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"slot_warm\":true,\"original\":\"0x7\",\"current\":\"0x7\"},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x38a4\",\"ok\":true,\"charged\":true}"
+  .continue .sstore_modify_warm_success
+-- sstore.modify.cold_exact_gas, event 2: SSTORE of a new non-zero value into a cold non-zero slot with exactly 100 + 2,100 + 2,800 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":4,\"op\":85,\"gas\":\"0x1388\",\"static\":false,\"sl\":2,\"stack\":[\"0x1\",\"0x6\"],\"mem\":\"0x0\",\"facts\":{\"slot_warm\":false,\"original\":\"0x5\",\"current\":\"0x5\"},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x61a8\",\"ok\":true,\"charged\":true}"
+  .continue .sstore_modify_cold_success
+-- sstore.clear.cold_exact_gas, event 2: SSTORE of zero into a cold non-zero slot with exactly 100 + 2,100 + 2,800 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":3,\"op\":85,\"gas\":\"0x1388\",\"static\":false,\"sl\":2,\"stack\":[\"0x2\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"slot_warm\":false,\"original\":\"0x7\",\"current\":\"0x7\"},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x61a8\",\"ok\":true,\"charged\":true}"
+  .continue .sstore_modify_cold_success
+-- sstore.fresh.cold_dynamic_oog, event 2: SSTORE into a cold zero slot 1 gas short of 100 + 2,100 + 19,900.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":3,\"op\":85,\"gas\":\"0x5653\",\"static\":false,\"sl\":2,\"stack\":[\"0x0\",\"0x1\"],\"mem\":\"0x0\",\"facts\":{\"slot_warm\":false,\"original\":\"0x0\",\"current\":\"0x0\"},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x1af9f\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .sstore_dynamic_oog_spend_all
+-- sstore.fresh.warm_dynamic_oog, event 5: SSTORE into a warm zero slot 1 gas short of 100 + 19,900.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":6,\"op\":85,\"gas\":\"0x4e1f\",\"static\":false,\"sl\":2,\"stack\":[\"0x0\",\"0x1\"],\"mem\":\"0x0\",\"facts\":{\"slot_warm\":true,\"original\":\"0x0\",\"current\":\"0x0\"},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x1869b\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .sstore_dynamic_oog_spend_all
+-- sstore.sentry.warm_modify_at_2301, event 5: SSTORE of a warm slot with 2,301 gas passes the sentry but cannot pay 100 + 2,800.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":8,\"op\":85,\"gas\":\"0x8fd\",\"static\":false,\"sl\":2,\"stack\":[\"0x1\",\"0x6\"],\"mem\":\"0x0\",\"facts\":{\"slot_warm\":true,\"original\":\"0x5\",\"current\":\"0x5\"},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x2cf1\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .sstore_dynamic_oog_spend_all
+-- selfdestruct.selfdestruct.warm_static_oog, event 4: SELFDESTRUCT with 4,999 of its 5,000 static gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":8,\"op\":255,\"gas\":\"0x1387\",\"static\":false,\"sl\":1,\"stack\":[\"0xbeef\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true,\"account_empty\":false,\"self_balance\":\"0x1\"},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .static_step_static_oog_spend_all
+-- selfdestruct.static_frame.halt, event 8: SELFDESTRUCT in a static frame halts after its static gas, before loading the beneficiary.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":2,\"pc\":3,\"op\":255,\"gas\":\"0x752d\",\"static\":true,\"sl\":1,\"stack\":[\"0xbeef\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false,\"account_empty\":false,\"self_balance\":\"0x1\"},\"gas_after\":\"0x61a5\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .haltKeep .selfdestruct_static_frame_halt_preserve
+-- selfdestruct.selfdestruct.underflow, event 0: SELFDESTRUCT on an empty stack pays its static 5,000 gas and keeps the rest.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":0,\"op\":255,\"gas\":\"0x186a0\",\"static\":false,\"sl\":0,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x17318\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .haltKeep .selfdestruct_selfdestruct_underflow_preserve
+-- selfdestruct.selfdestruct.cold_load_skipped, event 1: SELFDESTRUCT to a cold beneficiary 1 gas short of 5,000 + 2,600: the skipped load spends all gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":3,\"op\":255,\"gas\":\"0x1daf\",\"static\":false,\"sl\":1,\"stack\":[\"0xbeef\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false,\"account_empty\":false,\"self_balance\":\"0x1\"},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .selfdestruct_selfdestruct_cold_load_skipped_spend_all
+-- selfdestruct.new_account.cold_charge_oog, event 1: SELFDESTRUCT with value to a cold empty beneficiary 1 gas short of 5,000 + 2,600 + 25,000.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":3,\"op\":255,\"gas\":\"0x7f57\",\"static\":false,\"sl\":1,\"stack\":[\"0xdead\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false,\"account_empty\":true,\"self_balance\":\"0x1\"},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .selfdestruct_new_account_charge_oog_spend_all
+-- selfdestruct.new_account.warm_charge_oog, event 1: SELFDESTRUCT with value to a warm empty beneficiary 1 gas short of 5,000 + 25,000.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":1,\"op\":255,\"gas\":\"0x752f\",\"static\":false,\"sl\":1,\"stack\":[\"0xc0ffee\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true,\"account_empty\":true,\"self_balance\":\"0x1\"},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .selfdestruct_new_account_charge_oog_spend_all
+-- selfdestruct.selfdestruct.warm_exact_gas, event 4: SELFDESTRUCT to a warm beneficiary with exactly its static 5,000 gas ends the frame successfully.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":8,\"op\":255,\"gas\":\"0x1388\",\"static\":false,\"sl\":1,\"stack\":[\"0xbeef\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true,\"account_empty\":false,\"self_balance\":\"0x1\"},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .success .selfdestruct_selfdestruct_warm_success
+-- selfdestruct.selfdestruct.cold_exact_gas, event 1: SELFDESTRUCT to a cold beneficiary with exactly 5,000 + 2,600 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":3,\"op\":255,\"gas\":\"0x1db0\",\"static\":false,\"sl\":1,\"stack\":[\"0xbeef\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false,\"account_empty\":false,\"self_balance\":\"0x1\"},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .success .selfdestruct_selfdestruct_cold_success
+-- selfdestruct.selfdestruct.cold_empty_zero_value, event 1: SELFDESTRUCT of a contract holding no value to a cold empty beneficiary pays no new-account charge.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":3,\"op\":255,\"gas\":\"0x1db0\",\"static\":false,\"sl\":1,\"stack\":[\"0xdead\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false,\"account_empty\":true,\"self_balance\":\"0x0\"},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .success .selfdestruct_selfdestruct_cold_success
+-- selfdestruct.new_account.warm_exact_gas, event 1: SELFDESTRUCT with value to a warm empty beneficiary with exactly 5,000 + 25,000 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":1,\"op\":255,\"gas\":\"0x7530\",\"static\":false,\"sl\":1,\"stack\":[\"0xc0ffee\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true,\"account_empty\":true,\"self_balance\":\"0x1\"},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .success .selfdestruct_new_account_warm_success
+-- selfdestruct.new_account.cold_exact_gas, event 1: SELFDESTRUCT with value to a cold empty beneficiary with exactly 5,000 + 2,600 + 25,000 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":3,\"op\":255,\"gas\":\"0x7f58\",\"static\":false,\"sl\":1,\"stack\":[\"0xdead\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false,\"account_empty\":true,\"self_balance\":\"0x1\"},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .success .selfdestruct_new_account_cold_success
+-- transient.tload.static_oog, event 1: TLOAD with 99 of its 100 static gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":1,\"op\":92,\"gas\":\"0x63\",\"static\":false,\"sl\":1,\"stack\":[\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x63\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .static_step_static_oog_spend_all
+-- transient.tstore.static_oog, event 5: TSTORE with 99 of its 100 static gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":6,\"op\":93,\"gas\":\"0x63\",\"static\":false,\"sl\":2,\"stack\":[\"0x0\",\"0x1\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x1ef\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .static_step_static_oog_spend_all
+-- transient.static_frame.tstore_static_oog, event 9: TSTORE in a static frame with 99 gas: the static gas check comes before the static-context check.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":2,\"pc\":3,\"op\":93,\"gas\":\"0x63\",\"static\":true,\"sl\":2,\"stack\":[\"0x0\",\"0x1\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x1ef\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .static_step_static_oog_spend_all
+-- transient.tload.underflow, event 0: TLOAD on an empty stack pays its static 100 gas and keeps the rest.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":0,\"op\":92,\"gas\":\"0x186a0\",\"static\":false,\"sl\":0,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1863c\",\"spawn\":false,\"zk\":\"0x64\",\"ok\":true,\"charged\":true}"
+  .haltKeep .transient_tload_underflow_preserve
+-- transient.tload.exact_gas, event 1: TLOAD with exactly its static 100 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":1,\"op\":92,\"gas\":\"0x64\",\"static\":false,\"sl\":1,\"stack\":[\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x64\",\"ok\":true,\"charged\":true}"
+  .continue .transient_tload_success
+-- transient.tstore.underflow, event 1: TSTORE on one item pays its static 100 gas and keeps the rest.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":1,\"op\":93,\"gas\":\"0x1869e\",\"static\":false,\"sl\":1,\"stack\":[\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1863a\",\"spawn\":false,\"zk\":\"0x1f4\",\"ok\":true,\"charged\":true}"
+  .haltKeep .transient_tstore_underflow_preserve
+-- transient.tstore.exact_gas, event 5: TSTORE with exactly its static 100 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":6,\"op\":93,\"gas\":\"0x64\",\"static\":false,\"sl\":2,\"stack\":[\"0x0\",\"0x1\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x1f4\",\"ok\":true,\"charged\":true}"
+  .continue .transient_tstore_success
+-- transient.static_frame.tstore_gas_100, event 9: TSTORE in a static frame with exactly 100 gas pays it, then halts on the static-context check.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":2,\"pc\":3,\"op\":93,\"gas\":\"0x64\",\"static\":true,\"sl\":2,\"stack\":[\"0x0\",\"0x1\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x1f4\",\"ok\":true,\"charged\":true}"
+  .haltKeep .transient_static_frame_tstore_halt_preserve
+-- transient.static_frame.tstore_surplus_gas, event 9: TSTORE in a static frame keeps the gas left after its static 100.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":2,\"pc\":3,\"op\":93,\"gas\":\"0x3e3\",\"static\":true,\"sl\":2,\"stack\":[\"0x0\",\"0x1\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x37f\",\"spawn\":false,\"zk\":\"0x1f4\",\"ok\":true,\"charged\":true}"
+  .haltKeep .transient_static_frame_tstore_halt_preserve
 
 /-- A JUMP pre-state with `sl` stack items (target 4) and facts `facts`. -/
 def jumpPre (sl : Nat) (facts : Facts) : Pre :=
@@ -837,8 +1069,8 @@ def jumpPre (sl : Nat) (facts : Facts) : Pre :=
 -- An underflowing JUMP reads no fact.
 #guard stepOutcome .unzen (jumpPre 0 {}) =
   .ok (some { gasAfter := 92, outcome := .haltKeep, branch := .static_jump_underflow_halt })
--- Opcodes of the later categories are not modeled yet: SLOAD, BALANCE, CALL.
-#guard [0x54, 0x31, 0xf1].all fun op =>
+-- Opcodes of the later categories are not modeled yet: the CALL and CREATE families.
+#guard [0xf1, 0xf2, 0xf4, 0xfa, 0xf0, 0xf5].all fun op =>
   stepOutcome .unzen { jumpPre 0 {} with op } == .ok none
 -- No corpus step pops too few items for MLOAD..RETURN and REVERT; on an empty stack each pays
 -- its static gas (100 for EXTCODECOPY, 30 for KECCAK256, 3 or 0 for the rest) and halts.
@@ -858,6 +1090,53 @@ def jumpPre (sl : Nat) (facts : Facts) : Pre :=
   "account_warm"
 #guard failsWith (stepOutcome .unzen
   { jumpPre 0 {} with op := 0x51, stackLen := 1, stack := [0], mem := 33 }) "mem"
+-- The state-access opcodes read their facts only once their operands are on the stack: SLOAD
+-- needs slot_warm, BALANCE, EXTCODESIZE and EXTCODEHASH need account_warm.
+#guard failsWith (stepOutcome .unzen
+  { jumpPre 0 {} with op := 0x54, gas := 3000, stackLen := 1, stack := [0] }) "slot_warm"
+#guard [0x31, 0x3b, 0x3f].all fun op => failsWith (stepOutcome .unzen
+  { jumpPre 0 {} with op, gas := 3000, stackLen := 1, stack := [0] }) "account_warm"
+-- SSTORE reads no fact before the sentry: with 2,300 gas it halts keeping all of it; with
+-- 2,301 it needs slot_warm, original and current.
+#guard stepOutcome .unzen
+    { jumpPre 0 {} with op := 0x55, gas := 2300, stackLen := 2, stack := [0, 1] } =
+  .ok (some { gasAfter := 2300, outcome := .haltKeep, branch := .sstore_sentry_halt_preserve })
+#guard failsWith (stepOutcome .unzen
+  { jumpPre 0 {} with op := 0x55, gas := 2301, stackLen := 2, stack := [0, 1] }) "slot_warm"
+#guard failsWith (stepOutcome .unzen
+  { jumpPre 0 {} with op := 0x55, gas := 2301, stackLen := 2, stack := [0, 1],
+                      facts := { slotWarm := some true } }) "original"
+#guard failsWith (stepOutcome .unzen
+  { jumpPre 0 {} with op := 0x55, gas := 2301, stackLen := 2, stack := [0, 1],
+                      facts := { slotWarm := some true, original := some 0 } }) "current"
+-- SSTORE pops before the sentry: on one item with 2,300 gas it halts on the underflow.
+#guard stepOutcome .unzen
+    { jumpPre 0 {} with op := 0x55, gas := 2300, stackLen := 1, stack := [0] } =
+  .ok (some { gasAfter := 2300, outcome := .haltKeep, branch := .sstore_sstore_underflow_preserve })
+-- SSTORE, TSTORE and SELFDESTRUCT check the static context before popping: in a static frame
+-- on an empty stack each halts on it, keeping the gas left after its static gas.
+#guard [(0x55, 6000), (0x5d, 5900), (0xff, 1000)].all fun (op, gasAfter) =>
+  stepOutcome .unzen { jumpPre 0 {} with op, gas := 6000, static := true } ==
+    .ok (some { gasAfter, outcome := .haltKeep,
+                branch := if op = 0x55 then .sstore_static_frame_halt_preserve
+                  else if op = 0x5d then .transient_static_frame_tstore_halt_preserve
+                  else .selfdestruct_static_frame_halt_preserve })
+-- SELFDESTRUCT reads account_warm at the beneficiary load; a skipped cold load reads nothing
+-- more, a load that goes on needs self_balance and account_empty for the new-account charge.
+#guard failsWith (stepOutcome .unzen
+  { jumpPre 0 {} with op := 0xff, gas := 7600, stackLen := 1, stack := [0xdead] }) "account_warm"
+#guard stepOutcome .unzen
+    { jumpPre 0 {} with op := 0xff, gas := 7599, stackLen := 1, stack := [0xdead],
+                        facts := { accountWarm := some false } } =
+  .ok (some { gasAfter := 0, outcome := .haltSpendAll,
+              branch := .selfdestruct_selfdestruct_cold_load_skipped_spend_all })
+#guard failsWith (stepOutcome .unzen
+  { jumpPre 0 {} with op := 0xff, gas := 7600, stackLen := 1, stack := [0xdead],
+                      facts := { accountWarm := some false } }) "self_balance"
+#guard failsWith (stepOutcome .unzen
+  { jumpPre 0 {} with op := 0xff, gas := 7600, stackLen := 1, stack := [0xdead],
+                      facts := { accountWarm := some false, selfBalance := some 1 } })
+  "account_empty"
 -- The smoke harness trace with the step model: every step is modeled.
 #guard run smokeHarnessVector smokeHarness (requireModeled stepModel) =
   .ok { events := 5, steps := 4,
