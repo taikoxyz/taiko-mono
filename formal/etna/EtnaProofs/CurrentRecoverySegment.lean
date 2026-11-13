@@ -155,6 +155,9 @@ private def segmentBody (env : Environment) (x : World) (R : Nat) (keys : List H
   lastBlockId := if q.height = (policy env x [] (R+1)).consensus.originHeight then none else some q.cometHash
   domain := (policy env x [] (R+1)).consensus.domain
   generation := (policy env x [] (R+1)).consensus.generation
+  -- The model leaves BFT time free: `HeaderValid` reads it only inside the timestamp's `max`.
+  -- RECOV-8.4-10 fixes the first block's BFT time to R.timestamp; that block's header timestamp
+  -- here already equals R's, and any BFT time up to R's gives the same headers.
   bftTime := 0
   feeShare := 100
   blockBytes := 0

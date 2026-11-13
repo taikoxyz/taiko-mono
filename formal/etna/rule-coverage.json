@@ -2,15 +2,15 @@
   "schema_version": 2,
   "spec": {
     "path": "packages/protocol/docs/etna/SPEC.md",
-    "revision": "2026-11-07",
-    "commit": "49df560256c3f20f0868f6c6e555443c2b1fd669",
-    "sha256": "8417d29f4fb0c740bcc5f29c51abfe62b8542f5f7d3165bb2ce782d20cb4367d"
+    "revision": "2026-11-13",
+    "commit": "d18357214fab30ea512ae9858a11699806d72ba1",
+    "sha256": "4d81d5dadcee3eb94ff554ec5a8144a47888dd5a8263ac5852422a0f1d1dd71b"
   },
   "index": {
     "path": "packages/protocol/docs/etna/rules/INDEX.md",
-    "revision": "2026-11-07",
-    "commit": "49df560256c3f20f0868f6c6e555443c2b1fd669",
-    "sha256": "6b64400fde065038f64e2af378788214698c7bf07d4432ddacbf1be4380127c5"
+    "revision": "2026-11-13",
+    "commit": "d18357214fab30ea512ae9858a11699806d72ba1",
+    "sha256": "721b38677b0901be29c934404d4dcdd344995217f49dbfbd3c5c9fc84bd40105"
   },
   "evidence": {
     "CONS-3.2-2": {
@@ -350,7 +350,7 @@
         "Etna.Design.Current.Protocol.Custody.rollback_snapshot_provenance",
         "Etna.Design.Current.Protocol.Governance.authorized_rollback_restores"
       ],
-      "reason": "Rollback truncates retained signal/custody associations at the trusted checkpoint; a raw rollback that meets its duty restores the target's checkpoint and FI head and the snapshot saved with it and keeps only the records at or below it. No governance mechanism proof. Modelled signals are SignalService checkpoints only: the receive cache and Bridge RETRIABLE messages of RECOV-8-27a are not modelled."
+      "reason": "After the rollback no voided checkpoint is readable; every other checkpoint stays usable, including the Unzen ones at or below S and block 0; and a re-landing at a voided height is usable. The model realizes this by keeping the checkpoints at or below the trusted one and appending fresh ones. Rollback truncates retained signal/custody associations at the trusted checkpoint; a raw rollback that meets its duty restores the target's checkpoint and FI head and the snapshot saved with it and keeps only the records at or below it. No governance mechanism proof. Modelled signals are SignalService checkpoints only: the receive cache and Bridge RETRIABLE messages of RECOV-8-27a are not modelled."
     },
     "RECOV-8-28": {
       "theorems": ["Etna.Design.Current.Protocol.Governance.rollback_target_unique"],
@@ -541,7 +541,7 @@
       "reason": "Stored activeCommitteeSnapshot never decreases in actual rollback-free protocol histories, using each accepted certificate/frontier ancestry. Candidate ancestry derives cutoff >= the actual snapshot before economic retention is concluded; no monotonicity/cutoff/window outcome premise is supplied. Exceptional verifier-failure rollback and irrecoverable paid withdrawals remain excluded. The whole valid candidate committee, independent of overlap/round, is retained under rollback-free fresh-deployment execution; no post-rollback restart or original-amount guarantee is asserted."
     },
     "STAKE-4.1-31": {
-      "clause": "LIVE_EN-405f21d19d6bc681",
+      "clause": "LIVE_EN-356addd3f6ed91f2",
       "theorems": [
         "Etna.Design.Current.RegistryPayments.evidence_stays_transaction_slashable"
       ],

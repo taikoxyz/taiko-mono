@@ -1,6 +1,6 @@
 # Etna recoverability (H4)
 
-Authorities: main `49df560256c3f20f0868f6c6e555443c2b1fd669` (2026-11-07) for SPEC,
+Authorities: main `d18357214fab30ea512ae9858a11699806d72ba1` (2026-11-13) for SPEC,
 ACCEPTANCE, ANCHORLESS and SWITCH, as for the rest of this package.
 
 H1–H3 are safety claims: they say that nothing bad happens. Most Etna design bugs found so far

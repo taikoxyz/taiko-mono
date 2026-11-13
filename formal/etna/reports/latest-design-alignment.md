@@ -1,10 +1,12 @@
 # Latest Etna design alignment
 
-Authorities: main `49df560256c3f20f0868f6c6e555443c2b1fd669` (2026-11-07) for SPEC,
-ACCEPTANCE, ANCHORLESS and SWITCH. This revision re-pins to #22341 and restates H1 over its
-own five premises (`FundPremises`); [the #22341 alignment](alignment-22341.md) has the details.
-The previous revision aligned the model with #22338: checkpoint records, cuts, `LandInput` and
-the statement carry the validator-state hash; app import retains EL headers from
+Authorities: main `d18357214fab30ea512ae9858a11699806d72ba1` (2026-11-13) for SPEC,
+ACCEPTANCE, ANCHORLESS and SWITCH. This revision re-pins to #22348 and changes no definition or
+theorem statement, only comments and evidence wording; [the #22348 alignment](alignment-22348.md)
+has the details. The revision before re-pinned to #22341 and restated H1 over its own five
+premises (`FundPremises`) ([#22341 alignment](alignment-22341.md)). Before that, a revision
+aligned the model with #22338: checkpoint records, cuts, `LandInput` and the statement carry
+the validator-state hash; app import retains EL headers from
 max(o, s − U + 1); its inspection handles the validator-state preimage
 ([#22338 alignment](alignment-22338.md)). The sections below describe the current-only package
 and statement lock introduced before that.

@@ -1,8 +1,8 @@
 # Etna design verification
 
 The authorities are `SPEC.md`, `ACCEPTANCE.md`, `ANCHORLESS.md` and `SWITCH.md` under
-`packages/protocol/docs/etna`, pinned to main `49df560256c3f20f0868f6c6e555443c2b1fd669`
-(2026-11-07, after #22341). This package contains only the current design; the archived 2026-10-30 model,
+`packages/protocol/docs/etna`, pinned to main `d18357214fab30ea512ae9858a11699806d72ba1`
+(2026-11-13, after #22348). This package contains only the current design; the archived 2026-10-30 model,
 its vectors and reports were removed and remain readable at formal revision
 [`583bc2620`](https://github.com/taikoxyz/taiko-mono/tree/583bc2620258838e75ce353c11f9344616ac1020/formal/etna).
 
@@ -251,7 +251,8 @@ it committed that height in the current generation, never stock CometBFT's histo
 (SYNC-9-5c). The model reads the node's own header value, so where that value comes from is a
 fourth implementation obligation.
 
-The [PR #22341 alignment](reports/alignment-22341.md) records the latest re-pin and the H1
+The [PR #22348 alignment](reports/alignment-22348.md) records the latest re-pin. The
+[PR #22341 alignment](reports/alignment-22341.md) records the previous re-pin and the H1
 restatement. The [PR #22338 alignment](reports/alignment-22338.md) records the changed clauses, evidence
 and boundaries.
 

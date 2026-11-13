@@ -32,6 +32,9 @@ structure Parameters where
 
 def Parameters.valid (p : Parameters) : Bool :=
   Committee.configOK p.gridK p.epochLen p.committee.unsettled &&
+  -- 1152 is START-10-9's contract floor. It is not a value that satisfies PARAM-11-5 on Ethereum,
+  -- whose L1 finality delay is 1152 s plus an allowance the spec leaves unstated (Q10-8); the
+  -- witnesses use it only as the floor.
   decide (0 < p.forcedDelay ∧ 1152 ≤ p.maxAnchorAge ∧ p.gridK ≤ p.maxBatchBlocks ∧
     0 < p.forcedFee ∧ 0 < p.forcedThreshold ∧ p.treasury ≠ 0 ∧ Committee.minUnit ≤ p.committee.unit ∧
     p.committee.unit ≤ p.committee.minimum ∧ 1 ≤ p.committee.nMax ∧ p.committee.nMax ≤ 4096)

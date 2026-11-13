@@ -63,13 +63,13 @@ class EvidencePackageTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             hashes = json.loads((Path(tmp)/'coverage.json').read_text())['source_sha256']
             self.assertEqual(hashes['packages/protocol/docs/etna/SPEC.md'],
-                             '8417d29f4fb0c740bcc5f29c51abfe62b8542f5f7d3165bb2ce782d20cb4367d')
+                             '4d81d5dadcee3eb94ff554ec5a8144a47888dd5a8263ac5852422a0f1d1dd71b')
             self.assertEqual(hashes['packages/protocol/docs/etna/ACCEPTANCE.md'],
-                             'b2376faf766cf937966c6965c34c861431e0346a320bd3f9652c72b1a5907ad8')
+                             '643bb32b82a25186f9006bfa7c5b4f503212bde235a5bf061a79a1cca4df3c69')
             self.assertEqual(hashes['packages/protocol/docs/etna/ANCHORLESS.md'],
-                             '08f6c75a3fb8183ff986a22f56c14379990bb4a527e42d1be12387195152c717')
+                             '6f2227f42d966f134099af6a8b6eba8c6c0db0ac717a857a298e3131b841482b')
             self.assertEqual(hashes['packages/protocol/docs/etna/SWITCH.md'],
-                             'd3ac501093465320105523f1b71337c315148df66a7a1b9b99f8f875d3fdf502')
+                             '933eb39ed5b8290265fdf638d4f12aab64da1b85d7ce1b92cbeb0e258ca9a387')
             self.assertNotIn('packages/protocol/docs/etna/sources/manifest.json', hashes)
 
     def test_generator_detects_stale_outputs(self):

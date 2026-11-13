@@ -844,7 +844,7 @@
       "module": "EtnaProofs.CurrentBlocks",
       "role": "supporting",
       "type": "∀ {r : Etna.Design.Current.Blocks.GenerationPolicy} {p : Etna.Design.Current.Blocks.Header}\n  {b : Etna.Design.Current.Blocks.Block},\n  p.height = r.consensus.originHeight → Etna.Design.Current.Blocks.AnchorValid r p b → b.body.anchorWitness = Bool.true",
-      "sources": ["LIVE_EN-d8189cd72ebd5832"],
+      "sources": ["LIVE_EN-8da31506138f2a44"],
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
@@ -2481,7 +2481,7 @@
       "module": "EtnaProofs.CurrentRegistryPayments",
       "role": "property",
       "type": "∀ {env : Etna.Design.Current.RegistryPayments.PaymentEnvironment}\n  {first later : Etna.Design.Current.RegistryMachine.World},\n  Etna.Design.Current.RegistryMachine.Trace first later →\n    ∀ {id : Nat} {original current : Etna.Design.Current.Registry.Bond},\n      id < first.registry.ledger.nextId →\n        first.registry.ledger.bonds id = Option.some original →\n          first.inbox.initialized = Bool.true →\n            ∀ {a b : Etna.Design.Staking.Vote} {sa sb : Etna.Design.Hash},\n              Etna.Design.Current.RegistryMachine.Evidence first.registry first.inbox original.value.key a b sa sb →\n                later.registry.ledger.bonds id = Option.some current →\n                  current.value.released = Bool.false →\n                    0 < current.value.balance →\n                      later.inbox.entered = Bool.false →\n                        first.registry.config.slashBountyBps < 10000 →\n                          ∀ (token : Etna.Design.Current.RegistryPayments.TokenState) (caller : Nat),\n                            (∃ token',\n                                Etna.Design.Current.RegistryPayments.runTransfers env token\n                                    (Etna.Design.Current.RegistryPayments.paymentIntents env later.registry caller\n                                      (Etna.Design.Current.RegistryMachine.Action.slash id a b sa sb)) =\n                                  Option.some token') →\n                              ∃ result,\n                                Etna.Design.Current.RegistryPayments.executeTransaction env\n                                    { registry := later.registry, token := token } later.inbox later.now caller\n                                    (Etna.Design.Current.RegistryMachine.Action.slash id a b sa sb) =\n                                  Option.some result",
-      "sources": ["LIVE_EN-fb39b71e9b4c760c", "LIVE_EN-405f21d19d6bc681"],
+      "sources": ["LIVE_EN-fb39b71e9b4c760c", "LIVE_EN-356addd3f6ed91f2"],
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
@@ -2777,8 +2777,8 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-1079277c334a4883"],
-      "scope": "Derived conditional decoded property. Rollback truncates retained signal/custody associations at the trusted checkpoint; no governance mechanism proof. Signals are SignalService checkpoints only; RECOV-8-27a derived authorizations are not modelled."
+      "sources": ["LIVE_EN-4a56676c3ce76122"],
+      "scope": "Derived conditional decoded property. Rollback truncates retained signal/custody associations at the trusted checkpoint, so no voided checkpoint is readable. Every other checkpoint, including the Unzen ones at or below S and block 0, stays usable, and a re-landing at a voided height is usable: the model keeps the checkpoints at or below the trusted one and appends fresh ones. No governance mechanism proof. Signals are SignalService checkpoints only; RECOV-8-27a derived authorizations are not modelled."
     },
     {
       "declaration": "Etna.Design.Current.Protocol.Custody.correction_before_any_landing",
@@ -2957,8 +2957,8 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-1079277c334a4883"],
-      "scope": "Derived conditional decoded property. Rollback truncates retained signal/custody associations at the trusted checkpoint; no governance mechanism proof. Signals are SignalService checkpoints only; RECOV-8-27a derived authorizations are not modelled."
+      "sources": ["LIVE_EN-4a56676c3ce76122"],
+      "scope": "Derived conditional decoded property. Rollback truncates retained signal/custody associations at the trusted checkpoint, so no voided checkpoint is readable. Every other checkpoint, including the Unzen ones at or below S and block 0, stays usable, and a re-landing at a voided height is usable: the model keeps the checkpoints at or below the trusted one and appends fresh ones. No governance mechanism proof. Signals are SignalService checkpoints only; RECOV-8-27a derived authorizations are not modelled."
     },
     {
       "declaration": "Etna.Design.Current.Protocol.Custody.rollback_snapshot_exact",
@@ -2981,7 +2981,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-1079277c334a4883"],
+      "sources": ["LIVE_EN-4a56676c3ce76122"],
       "scope": "Derived conditional decoded property. Rollback restores the exact snapshot associated with its retained trusted checkpoint and recheck source."
     },
     {
@@ -6098,7 +6098,7 @@
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-1079277c334a4883"],
+      "sources": ["LIVE_EN-4a56676c3ce76122"],
       "scope": "Supporting RECOV-8-28 target rule as stated by the rollback duty Governance.RollbackAuthorized: two targets that both meet the duty in the same world are at the same height, so the duty leaves no choice of target. The duty itself (not this theorem) says the target is the last retained record below the first bad one, every record at or below it trusted (certified from the initial world or the pending start). Existence of a target after a verifier failure, the start-rewrite clause and generation counting are not shown."
     },
     {
@@ -6110,7 +6110,7 @@
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-1079277c334a4883"],
+      "sources": ["LIVE_EN-4a56676c3ce76122"],
       "scope": "Supporting RECOV-8-27 effect of a raw verifier-failure rollback that meets its external duty Governance.RollbackAuthorized: the checkpoint, FI head and snapshot become the target's and the ones saved with it, the retained records are exactly those at or below the target, and each is certified from the history's initial world or the pending start. The duty is an assumption here, so this is no evidence that the target is the last trusted landing (RECOV-8-28). It is an authorization obligation on the DAO, not a contract check; the SignalService cache, Bridge RETRIABLE messages (RECOV-8-27a), the registry recheck and the generation rule are not shown."
     },
     {
@@ -8087,7 +8087,7 @@
         "LIVE_EN-29468a34f68ca4c6",
         "LIVE_EN-af33164a1858c781",
         "LIVE_EN-b8d78ca3f1f77e84",
-        "LIVE_EN-d8189cd72ebd5832",
+        "LIVE_EN-8da31506138f2a44",
         "LIVE_EN-2e7fa6e510a4d3cb",
         "LIVE_EN-136c3f345da4a399",
         "LIVE_EN-6f5b8a710969bc1c",
