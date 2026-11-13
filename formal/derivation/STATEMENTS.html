@@ -64,7 +64,8 @@
       and where to read their definitions. The English explanation sits beside the exact Lean
       declaration; the Lean source is authoritative.</p>
     <p>The subject is an executable model of the Unzen derivation rules implemented by
-      <code>taiko-client</code> and <code>taiko-client-rs</code>.
+      <code>taiko-client</code> and, at the pinned specification revision, by the Rust driver
+      that <code>taiko-client-rs</code> no longer contains.
       <strong>The theorems prove properties of that model, not equivalence of the production clients.</strong></p>
     <p><a href="README.md">Package README</a> ·
       <a href="DerivationStatements/Claims.lean">Statement source</a> ·
@@ -639,11 +640,12 @@ rules by each block&#x27;s own timestamp, so they apply Unzen rules to all of th
           The original 136 decoding vectors are joined by 151 shared boundary cases for
           extraction, metadata, source sequences, header plans and next parents. Each
           adapter rejects deliberately corrupted expected outputs. The local formal gate
-          runs Lean and fixture checks; CI also runs Go and Rust adapters on drafts.
+          runs Lean and fixture checks; CI also runs the Go adapter on drafts.
           These comparisons do not prove that the clients implement the model.</p>
         <p>The <a href="../../testdata/derivation_vectors/boundary_coverage.json">named boundary matrix</a>
           records the covered cases. Go uses production decoding, metadata and shared
-          header helpers; Rust uses production decoding and payload/anchor construction.
+          header helpers. No Rust implementation is compared; its adapter was removed with the
+          Rust driver.
           External RPC/signing or execution boundaries are substituted in tests. Anchor
           state is still trusted as a running maximum. See the
           <a href="../../testdata/derivation_vectors/README.md">corpus README</a> for the comparison boundary.</p>
