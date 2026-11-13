@@ -71,6 +71,12 @@ class CurrentGuardTests(unittest.TestCase):
     def test_once_only_origin_guard(self):
         self.reject('w.start = none ∧ w.inbox.generation = 0', 'w.inbox.generation = 0')
 
+    def test_origin_waits_for_fork_time(self):
+        self.reject('env.core.forkTime ≤ env.time w.number', 'True')
+
+    def test_correction_opens_new_generation(self):
+        self.reject('(env.time w.number) (w.inbox.generation+1))', '(env.time w.number) w.inbox.generation)')
+
     def test_correction_stays_closed_after_rollback(self):
         self.reject('w.everLanded = false ∧', 'True ∧')
 

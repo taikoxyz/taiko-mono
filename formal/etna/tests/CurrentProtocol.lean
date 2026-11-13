@@ -115,9 +115,10 @@ planned-stop check, and vector 14e.k of START-10.1-14e recovers from a settled c
 point that cannot settle. A new network (S = 0, K = 2, a verifier that accepts every proof)
 lands 0 → 2. A structural recovery at c = 2 that installs K = 1 with `rules` = nextRules + 1 is
 then accepted with no stop scheduled, and also once a stop on grid 4 is scheduled whose time
-c's block has not reached: c = 2 is below the stop point 4. Three guards remain, and each rejects
+c's block has not reached: c = 2 is below the stop point 4. Five guards remain, and each rejects
 one variant from c = 2: K = 3, whose grid does not hold c (RECOV-8.3-3a, as in vector 14e.h);
-`rules` = 0 (vector 14e.g); and `rules` = nextRules + 2, a skipped ruleset number. -/
+`rules` = 0 (vector 14e.g); `rules` = nextRules + 2, a skipped ruleset number; parameters that
+fail `Parameters.valid`; and a changed genesisCutoff. -/
 namespace Etna.CurrentProtocolRegression.StructuralRecovery
 open Etna.Design Etna.Design.Current
 
@@ -189,5 +190,15 @@ example : (Protocol.recover env landed { structural landed with rules := 0 }).is
 -- `rules` must be nextRules + 1; nextRules + 2 skips a ruleset number.
 example : (Protocol.recover env landed
     { structural landed with rules := landed.schedule.next+2 }).isNone = true := by decide +kernel
+-- A structural recovery installs only valid parameters: K = 1 with forcedDelay = 0 is refused.
+example : ({ Protocol.parametersOf landed.inbox with gridK := 1, forcedDelay := 0 } : Protocol.Parameters).valid = false ∧
+    (Protocol.recover env landed
+      { structural landed with upgrade := some { Protocol.parametersOf landed.inbox with gridK := 1, forcedDelay := 0 } }).isNone = true := by
+  decide +kernel
+-- genesisCutoff is fixed at initialization (PARAM-11-4): valid parameters that change it are refused.
+example : ({ Protocol.parametersOf landed.inbox with gridK := 1, genesisCutoff := 0 } : Protocol.Parameters).valid = true ∧
+    (Protocol.recover env landed
+      { structural landed with upgrade := some { Protocol.parametersOf landed.inbox with gridK := 1, genesisCutoff := 0 } }).isNone = true := by
+  decide +kernel
 
 end Etna.CurrentProtocolRegression.StructuralRecovery

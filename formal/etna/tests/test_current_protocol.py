@@ -102,8 +102,20 @@ class CurrentProtocolTests(unittest.TestCase):
             'parameters.valid = true ∧ a.rules ≠ 0 ∧ '
             '(w.inbox.checkpoint.height-start.height) % w.schedule.stopGrid = 0 ∧')
 
-    # The three guards left on a structural recovery each reject one variant in the
+    # The five guards left on a structural recovery each reject one variant in the
     # structural-recovery regression; removing a guard must break that variant's example.
+    def test_structural_recovery_needs_valid_parameters(self):
+        self.assert_evidence_rejects(*node_sources(),
+            'parameters.valid = true ∧ a.rules ≠ 0 ∧',
+            'a.rules ≠ 0 ∧',
+            at='-- A structural recovery installs only valid parameters: K = 1 with forcedDelay = 0 is refused.')
+
+    def test_structural_recovery_keeps_genesis_cutoff(self):
+        self.assert_evidence_rejects(*node_sources(),
+            'parameters.genesisCutoff = w.inbox.genesisCutoff) then',
+            'True) then',
+            at='-- genesisCutoff is fixed at initialization (PARAM-11-4): valid parameters that change it are refused.')
+
     def test_structural_recovery_needs_nonzero_rules(self):
         self.assert_evidence_rejects(*node_sources(),
             'parameters.valid = true ∧ a.rules ≠ 0 ∧',

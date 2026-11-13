@@ -410,27 +410,24 @@
       "theorems": [
         "Etna.Design.Current.Protocol.closed_started_metadata",
         "Etna.Design.Current.Protocol.trace_started_metadata",
-        "Etna.Design.Current.Start.trace_origins_retained",
+        "Etna.Design.Current.Protocol.Governance.correct_start_origin_exact",
         "Etna.Design.Current.Protocol.Governance.recover_origin_exact"
       ],
-      "reason": "Each successful ordinary recovery preserves the existing decoded origin list verbatim and appends one new-generation origin. Actual reached same-generation traces/closed snapshots preserve the active origin, and the separate Start correction trace preserves older origin-map values. This is call-specific append and partial immutability evidence; global uniqueness and permanence of every Protocol mapping entry over all future calls remain separate."
+      "reason": "Each successful ordinary recovery preserves the existing decoded origin list verbatim and appends one new-generation origin. Actual reached same-generation traces/closed snapshots preserve the active origin, and a start correction likewise keeps the existing list as a prefix and appends one new-generation origin. This is call-specific append and partial immutability evidence; global uniqueness and permanence of every Protocol mapping entry over all future calls remain separate."
     },
     "STAKE-4.1-13a": {
       "theorems": [
         "Etna.Design.Current.Economics.committee_issued",
         "Etna.Design.Current.Economics.historical_stake_funded",
         "Etna.Design.Current.Registry.displacement_keeps_old_bond",
-        "Etna.Design.Current.Registry.modify_preserves_identity_counter",
         "Etna.Design.Current.Registry.registration_issues_fresh",
         "Etna.Design.Current.Registry.registration_retains_keys",
-        "Etna.Design.Current.Registry.trace_issuance_monotone",
-        "Etna.Design.Current.Registry.trace_keys_permanent",
-        "Etna.Design.Current.Registry.unissued_modify_rejected",
         "Etna.Design.Current.Registry.unissued_withdraw_rejected",
         "Etna.Design.Current.Registry.withdrawal_preserves_counter",
         "Etna.Design.Current.RegistryMachine.execute_history_issued",
         "Etna.Design.Current.RegistryMachine.trace_history_issued",
         "Etna.Design.Current.RegistryMachine.trace_stable",
+        "Etna.Design.Current.RegistryMachine.unissued_edit_rejected",
         "Etna.Design.Current.RegistryMachine.used_key_rejected"
       ],
       "reason": "Permanent issued bond/key identity and displacement preservation only; no 4096-slot admission algorithm verification."
@@ -591,22 +588,17 @@
       "reason": "Retained legacy signals form a prefix below every retained Etna signal on actual switching traces. This is compatibility of decoded lanes only, not SignalService storage/version, initialization, all treasury/configuration fields or arbitrary upgrade safety."
     },
     "START-10-5a": {
-      "theorems": [
-        "Etna.Design.Current.Protocol.Custody.set_origin_once",
-        "Etna.Design.Current.Start.origin_written_once"
-      ],
-      "reason": "Switching-network origin write is one-shot in the decoded start model."
+      "theorems": ["Etna.Design.Current.Protocol.Custody.set_origin_once"],
+      "reason": "The executed switching-network origin write (Protocol.setOrigin) refuses once a start is written."
     },
     "START-10-5c": {
       "theorems": [
         "Etna.Design.Current.Protocol.Custody.correction_before_any_landing",
         "Etna.Design.Current.Protocol.Custody.start_snapshot_saved",
         "Etna.Design.Current.Protocol.Custody.trace_start_frozen",
-        "Etna.Design.Current.Start.correction_new_generation",
-        "Etna.Design.Current.Start.trace_generations_monotone",
-        "Etna.Design.Current.Start.trace_origins_retained"
+        "Etna.Design.Current.Protocol.Governance.correct_start_origin_exact"
       ],
-      "reason": "Decoded start correction increments generations and preserves prior origin data; no broad SignalService implementation claim."
+      "reason": "Decoded start correction (Protocol.correctStart) follows no landing, opens the next generation and appends its origin after the retained earlier ones; the start freezes once something lands. No slot 272-274 storage, R-snapshot committee or broad SignalService implementation claim."
     },
     "START-10.1-3d": {
       "clause": "LIVE_EN-95576d90354f3a45",

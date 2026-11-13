@@ -1004,4 +1004,10 @@ theorem used_key_rejected {s : State} (v : InboxView) (now key caller amount pop
     execute s v now (.register key caller amount pop) = none := by
   simp [execute,Registry.register,used]
 
+/-- STAKE-4.1-13a: every bond edit (exit request, top-up, activation, confirmation, slash and
+forfeit) taking an unissued id reverts, whatever default storage holds at that id. -/
+theorem unissued_edit_rejected (s : State) (id : Nat) (f : Staking.Bond → Option Staking.Bond)
+    (unissued : s.ledger.nextId ≤ id) : editValue s id f = none := by
+  simp [editValue,Nat.not_lt.mpr unissued]
+
 end Etna.Design.Current.RegistryMachine

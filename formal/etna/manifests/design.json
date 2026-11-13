@@ -384,8 +384,8 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-4eeb66cec75465ce"],
-      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Permanent issued bond/key identity and displacement preservation only; no 4096-slot admission algorithm verification."
+      "sources": [],
+      "scope": "Model algebra over a decoded sketch in EtnaModel/Current.lean that Protocol.execute never runs (Start.State/setOrigin/correct/Trace, or Registry.Trace through Registry.modify); no clause credit. The executed rules are Protocol.setOrigin, Protocol.correctStart and RegistryMachine."
     },
     {
       "module": "EtnaProofs.Current",
@@ -396,8 +396,8 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-4eeb66cec75465ce"],
-      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Permanent issued bond/key identity and displacement preservation only; no 4096-slot admission algorithm verification."
+      "sources": [],
+      "scope": "Model algebra over a decoded sketch in EtnaModel/Current.lean that Protocol.execute never runs (Start.State/setOrigin/correct/Trace, or Registry.Trace through Registry.modify); no clause credit. The executed rules are Protocol.setOrigin, Protocol.correctStart and RegistryMachine."
     },
     {
       "module": "EtnaProofs.Current",
@@ -444,8 +444,8 @@
       ],
       "bridge_level": "spec-proved",
       "role": "property",
-      "sources": ["LIVE_EN-4eeb66cec75465ce"],
-      "scope": "Derived conditional decoded property. Permanent issued bond/key identity and displacement preservation only; no 4096-slot admission algorithm verification."
+      "sources": [],
+      "scope": "Model algebra over a decoded sketch in EtnaModel/Current.lean that Protocol.execute never runs (Start.State/setOrigin/correct/Trace, or Registry.Trace through Registry.modify); no clause credit. The executed rules are Protocol.setOrigin, Protocol.correctStart and RegistryMachine."
     },
     {
       "module": "EtnaProofs.Current",
@@ -480,8 +480,8 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-418f79028f11c3d9"],
-      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Switching-network origin write is one-shot in the decoded start model."
+      "sources": [],
+      "scope": "Model algebra over a decoded sketch in EtnaModel/Current.lean that Protocol.execute never runs (Start.State/setOrigin/correct/Trace, or Registry.Trace through Registry.modify); no clause credit. The executed rules are Protocol.setOrigin, Protocol.correctStart and RegistryMachine."
     },
     {
       "module": "EtnaProofs.Current",
@@ -492,8 +492,8 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-a0a126e4b8ea2b61"],
-      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Decoded start correction increments generations and preserves prior origin data; no broad SignalService implementation claim."
+      "sources": [],
+      "scope": "Model algebra over a decoded sketch in EtnaModel/Current.lean that Protocol.execute never runs (Start.State/setOrigin/correct/Trace, or Registry.Trace through Registry.modify); no clause credit. The executed rules are Protocol.setOrigin, Protocol.correctStart and RegistryMachine."
     },
     {
       "module": "EtnaProofs.Current",
@@ -612,8 +612,8 @@
       ],
       "bridge_level": "spec-proved",
       "role": "property",
-      "sources": ["LIVE_EN-4eeb66cec75465ce"],
-      "scope": "Derived conditional decoded property. Permanent issued bond/key identity and displacement preservation only; no 4096-slot admission algorithm verification."
+      "sources": [],
+      "scope": "Model algebra over a decoded sketch in EtnaModel/Current.lean that Protocol.execute never runs (Start.State/setOrigin/correct/Trace, or Registry.Trace through Registry.modify); no clause credit. The executed rules are Protocol.setOrigin, Protocol.correctStart and RegistryMachine."
     },
     {
       "module": "EtnaProofs.Current",
@@ -636,8 +636,8 @@
       ],
       "bridge_level": "spec-proved",
       "role": "property",
-      "sources": ["LIVE_EN-a0a126e4b8ea2b61"],
-      "scope": "Derived conditional decoded property. Decoded start correction increments generations and preserves prior origin data; no broad SignalService implementation claim."
+      "sources": [],
+      "scope": "Model algebra over a decoded sketch in EtnaModel/Current.lean that Protocol.execute never runs (Start.State/setOrigin/correct/Trace, or Registry.Trace through Registry.modify); no clause credit. The executed rules are Protocol.setOrigin, Protocol.correctStart and RegistryMachine."
     },
     {
       "module": "EtnaProofs.Current",
@@ -648,8 +648,8 @@
       ],
       "bridge_level": "spec-proved",
       "role": "property",
-      "sources": ["LIVE_EN-a0a126e4b8ea2b61", "LIVE_EN-1d7a0cb1eb3d5efb"],
-      "scope": "In the separate decoded Start correction trace, every origin-map value for a generation already present at the trace start is unchanged. This is correction-only historical-map retention; it does not construct the c/R/timestamp triple or prove all mappings over the full Protocol trace."
+      "sources": [],
+      "scope": "Model algebra over a decoded sketch in EtnaModel/Current.lean that Protocol.execute never runs (Start.State/setOrigin/correct/Trace, or Registry.Trace through Registry.modify); no clause credit. The executed rules are Protocol.setOrigin, Protocol.correctStart and RegistryMachine."
     },
     {
       "module": "EtnaProofs.Current",
@@ -2439,6 +2439,18 @@
       ],
       "bridge_level": "spec-proved",
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Permanent issued bond/key identity survives all closed lifecycle actions; no top-up or withdrawal guard coverage implied."
+    },
+    {
+      "declaration": "Etna.Design.Current.RegistryMachine.unissued_edit_rejected",
+      "module": "EtnaProofs.CurrentRegistry",
+      "role": "supporting",
+      "type": "∀ (s : Etna.Design.Current.RegistryMachine.State) (id : Nat)\n  (f : Etna.Design.Staking.Bond → Option Etna.Design.Staking.Bond),\n  s.ledger.nextId ≤ id → Etna.Design.Current.RegistryMachine.editValue s id f = Option.none",
+      "sources": ["LIVE_EN-4eeb66cec75465ce"],
+      "assumptions": [
+        "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
+      ],
+      "bridge_level": "spec-proved",
+      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Every RegistryMachine bond edit (requestExit, topUp, activateTopUp, confirm, slash, forfeit) taking an unissued id reverts, whatever default storage holds; withdrawal and recovery exclusion check issuance separately."
     },
     {
       "declaration": "Etna.Design.Current.RegistryMachine.withdrawal_stable",
@@ -6136,6 +6148,18 @@
       "bridge_level": "spec-proved",
       "sources": ["LIVE_EN-1d7a0cb1eb3d5efb", "LIVE_EN-e4d5ea9bf749c3f7"],
       "scope": "Supporting exact successful ordinary-recovery result: the new generation is old+1 and its origin is (old checkpoint height, execution L1 block, execution timestamp); the prior decoded origin list is retained verbatim as a prefix and one new record is appended. Checkpoint, every existing Inbox record and the FI head are preserved together in that result. This proves only construction/preservation by this call: no generation-0 initialization/start-correction case, unique-key invariant, all-future mapping permanence, raw storage packing or production DAO transaction refinement."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.Governance.correct_start_origin_exact",
+      "module": "EtnaProofs.CurrentGovernance",
+      "role": "supporting",
+      "type": "∀ {env : Etna.Design.Current.Protocol.Environment} {w t : Etna.Design.Current.Protocol.World}\n  {caller height hash root : Nat},\n  Etna.Design.Current.Protocol.correctStart env w caller height hash root = Option.some t →\n    t.inbox.generation = w.inbox.generation + 1 ∧\n      t.inbox.origin = { height := height, l1Block := w.number, timestamp := env.time w.number } ∧\n        t.inbox.origins =\n            w.inbox.origins ++\n              [(w.inbox.generation + 1, { height := height, l1Block := w.number, timestamp := env.time w.number })] ∧\n          t.start = Option.some { height := height, hash := hash, stateRoot := root }",
+      "assumptions": [
+        "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
+      ],
+      "bridge_level": "spec-proved",
+      "sources": ["LIVE_EN-a0a126e4b8ea2b61", "LIVE_EN-1d7a0cb1eb3d5efb"],
+      "scope": "Supporting exact successful start-correction result (START-10-5c): the corrected start opens generation old+1 with origin (corrected S, execution L1 block, execution timestamp); the prior decoded origin list is retained verbatim as a prefix and one record is appended; the start becomes the corrected (S, hash, stateRoot). The no-prior-landing duty is separate (Custody.correction_before_any_landing, Governance.UpgradeAuthorized). No slot 272-274 storage, R-snapshot committee, SignalService or production DAO transaction refinement."
     },
     {
       "declaration": "Etna.Design.Current.Protocol.Governance.authorized_trace_refines",

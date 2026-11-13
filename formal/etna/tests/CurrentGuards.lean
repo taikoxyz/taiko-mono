@@ -61,6 +61,17 @@ example : (recordAt source.inbox 1).map Checkpoint.valStateHash = some 0 ∧
 -- Repeating the origin write must be rejected even before a first landing.
 example : (setOrigin env source 8 1 101 11).isNone = true := by decide +kernel
 
+-- START-10-5a: the origin write waits for the fork time. At L1 block 1 (time 1, before
+-- forkTime 2) it is refused; the same initialized world one block later accepts it.
+def early := transact env (transact env initial (.advance 1)) (.initializeInbox 7)
+example : early.initialized = true ∧ (setOrigin env early 8 1 101 11).isNone = true ∧
+    (setOrigin env (transact env early (.advance 2)) 8 1 101 11).isSome = true := by decide +kernel
+
+-- START-10-5c: a start correction before any landing opens generation 1 and appends its
+-- origin after generation 0's.
+example : ((correctStart env source 7 1 102 12).map fun w =>
+    (w.inbox.generation,w.inbox.origins.map Prod.fst)) = some (1,[0,1]) := by decide +kernel
+
 -- Rollback removes newer signals but must not reopen the pre-landing correction gate.
 example : restored.inbox.checkpoint.height = 1 ∧ restored.inbox.signals = [] ∧
     restored.everLanded = true := by decide +kernel

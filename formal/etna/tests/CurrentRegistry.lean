@@ -116,6 +116,11 @@ example : resultStake (execute topped {view with initialized := false} 11 (.acti
 example : (execute topped view 10 (.activateTopUp 0)).isNone = true := by decide
 example : (execute displaced view 12 (.topUp 0 4 5)).isNone = true := by decide
 example : (execute active {view with entered := true} 12 (.requestExit 0 4)).isNone = true := by decide
+-- STAKE-4.1-13a: an unissued id denotes no bond, even where default storage would pass every
+-- check of the action; the same bond under an issued id can request its exit.
+def phantomActive : RegistryMachine.State := { active with ledger := { active.ledger with nextId := 0 } }
+example : (execute phantomActive view 12 (.requestExit 0 4)).isNone = true ∧
+    (execute active view 12 (.requestExit 0 4)).isSome = true := by decide
 -- Metadata-only confirmations must not add an election checkpoint.
 example : confirmed.history = displaced.history := by decide
 -- Generic checkpoint replacement holds with slot-projected current entries as payloads.

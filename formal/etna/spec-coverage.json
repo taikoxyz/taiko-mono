@@ -31,13 +31,13 @@
       "id": "CURRENT-02",
       "status": "proved",
       "scope": "conditional decoded specification property only",
-      "description": "The lifetime issuance counter never decreases across current registration, bond modifications and withdrawals. This is not a proof of token custody.",
+      "description": "The lifetime issuance counter never decreases along registry-machine traces: registration, every bond edit, withdrawal, recovery exclusion, Inbox frames and rollback rechecks. This is not a proof of token custody.",
       "assumptions": [
         "current"
       ],
       "evidence": {
         "LIVE_EN-4eeb66cec75465ce": [
-          "Etna.Design.Current.Registry.trace_issuance_monotone"
+          "Etna.Design.Current.RegistryMachine.trace_stable"
         ]
       }
     },
@@ -45,13 +45,13 @@
       "id": "CURRENT-03",
       "status": "proved",
       "scope": "conditional decoded specification property only",
-      "description": "Every existing key-to-bond-id lookup survives current registration, bond modifications and withdrawals; numeric zero is a valid present id.",
+      "description": "Every existing key-to-bond-id lookup survives registry-machine traces (the same steps); numeric zero is a valid present id.",
       "assumptions": [
         "current"
       ],
       "evidence": {
         "LIVE_EN-4eeb66cec75465ce": [
-          "Etna.Design.Current.Registry.trace_keys_permanent"
+          "Etna.Design.Current.RegistryMachine.trace_stable"
         ]
       }
     },

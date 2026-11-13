@@ -36,8 +36,8 @@ class RuleCoverageTests(unittest.TestCase):
         config.pop('via', None)
         config.pop('narrow', None)
         config['evidence'] = {'STAKE-4.1-13a': {
-            'theorems': ['Etna.Design.Current.Registry.trace_keys_permanent'],
-            'reason': 'Issued key identities remain registered along the decoded registry trace.'}}
+            'theorems': ['Etna.Design.Current.RegistryMachine.trace_stable'],
+            'reason': 'Issued key identities remain registered along the registry-machine trace.'}}
 
     def test_shared_clause_does_not_cover_unlisted_neighbor(self):
         rows = {r['rule']:r for r in self.rows(edit_config=self.exact)}

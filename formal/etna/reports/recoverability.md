@@ -291,10 +291,11 @@ A regression in `tests/CurrentProtocol.lean` checks the same rule on a smaller r
 0 → 2 landing on K = 2, `recover` accepts a structural recovery that installs K = 1 both with
 no stop scheduled and from c = 2 below a scheduled stop point (14e.k). Three mutants in
 `tests/test_current_protocol.py` each put back one part of the old stop check, and the
-regression rejects each of them. The same regression checks the three guards that remain on a
+regression rejects each of them. The same regression checks the five guards that remain on a
 structural recovery: from c = 2 it refuses K = 3 (2 − 0 is not a multiple of 3, as in vector
-14e.h), `rules` = 0 (vector 14e.g) and `rules` = nextRules + 2 (a skipped ruleset number). For
-each guard, a mutant that drops it fails that example.
+14e.h), `rules` = 0 (vector 14e.g), `rules` = nextRules + 2 (a skipped ruleset number),
+parameters that fail `Parameters.valid` and parameters that change genesisCutoff. For each
+guard, a mutant that drops it fails that example.
 
 **How H4 relates to the trap.** `RecoveryCall` admits a structural recovery whose only change
 is K, and off the grid H4's path uses one: it installs K = 1 with `rules` = nextRules + 1,
