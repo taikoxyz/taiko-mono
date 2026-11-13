@@ -51,6 +51,17 @@ The model has three parts:
   model charges that case 2,500 gas more than revm. The corpus authoring rules forbid such a
   target.
 
+  The model takes `usize` to be 64 bits, as on the hosts alethia-reth runs on, so
+  `as_usize_or_fail!` rejects an offset or length of 2^64 or more and keeps the frame's gas
+  (`usizeBound` in [`Step/Memory.lean`](ZkGasModel/Step/Memory.lean)); the specification states
+  the same bound. A 32-bit build of revm, such as a riscv32 zkVM guest, rejects every value of
+  2^32 or more there instead, so a step with a length in [2^32, 2^64) halts keeping its gas.
+  Where the opcode next charges a word or data cost for that length, as KECCAK256 and LOG do, a
+  64-bit build cannot pay it and spends all its gas. The corpus has 13 such steps: KECCAK256
+  with length 2^32 (in `create.create.collision_nonce`, for example) and LOG0 to LOG3 with a
+  larger data length (in `log.log0.size_above_cap_data_oog`, for example). Their zk gas differs
+  on a 32-bit build, and neither the model nor the corpus is checked on one.
+
   Each step result names the branch that decided it: one per distinct sequence of revm checks
   and charges and its outcome. `allBranches` lists them all (see [Coverage gate](#coverage-gate)).
 

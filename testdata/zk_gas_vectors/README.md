@@ -290,6 +290,8 @@ Two differences that cannot change zk gas are normalized, and nothing else is:
 
 - A block whose anchor alone exceeds the block zk gas limit. The anchor's gas limit is fixed at 1,000,000 and `anchorV4` runs a fixed code path (a bounded ancestor-hash loop, two hashes over a fixed buffer and at most one checkpoint write), so its zk gas stays far below the limit: sampled anchor-only blocks on Taiko mainnet and Hoodi carry 1,160,742 to 1,750,342 zk gas, under 2% of 100,000,000.
 - The fail-safe multiplier of a precompile missing from the multiplier table. Every precompile active in Unzen (0x01 to 0x11 and 0x0100) has a multiplier, so no call reaches it; the opcode fail-safe multiplier is covered by the `notactivated` and `undefined` cells.
+- A CREATE or CREATE2 whose new address holds only storage (nonce 0, no code). taiko-geth treats it as an address collision, as EIP-7610 requires, but revm 43 checks only the code and the nonce (`create_account_checkpoint` in revm-context `src/journal/inner.rs`) and runs the frame, so the clients' zk gas differs. Execution cannot produce such an account at a derived address, since a created contract starts with nonce 1 and EIP-6780 deletes a destroyed contract's storage, and none of taiko-geth's genesis allocs (`core/taiko_genesis`: internal, mainnet and taiko_hoodi) holds one. So it cannot occur on Taiko chains unless a new genesis adds one.
+- A 32-bit build of a client, where revm's offset and length bound is 2^32 instead of 2^64. The 13 KECCAK256 and LOG steps with a length in [2^32, 2^64) would then be charged differently; see [the model's scope](../../formal/zk-gas/README.md#scope).
 
 ## Running the clients
 
