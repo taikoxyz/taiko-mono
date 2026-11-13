@@ -42,7 +42,8 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
     bytes32 private constant _BLOCK_B = keccak256("block b");
 
     /// @dev 0001-01-01T00:00:00Z and 10000-01-01T00:00:00Z: CometBFT's Timestamp range is
-    /// [_MIN_SECONDS, _END_SECONDS), negative seconds included.
+    /// [_MIN_SECONDS, _END_SECONDS), negative seconds included. The registry accepts seconds
+    /// outside it too.
     int64 private constant _MIN_SECONDS = -62_135_596_800;
     int64 private constant _END_SECONDS = 253_402_300_800;
 
@@ -183,6 +184,36 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
         b.partsHash = keccak256("other parts");
         _slash(0, a, _signed(_CK_A, b));
         assertEq(registry.entryAt(0).effStake, 0, "other part set hash");
+    }
+
+    /// @dev Vote timestamps are not range-checked (ENC-A-45): a double sign whose two votes carry
+    /// seconds 2^63 - 1, long past CometBFT's year 9999, and nanos 2^32 - 1, the int32 -1, which
+    /// stock CometBFT would not sign, slashes the whole stake like any other, since only the key
+    /// holder can have signed it.
+    function test_slashDoubleSign_AcceptsTimestampsOutsideCometBftRange() external {
+        IEtnaStakingRegistry.Vote memory a = _vote(_BLOCK_A, 0);
+        IEtnaStakingRegistry.Vote memory b = _vote(_BLOCK_B, 0);
+        a.timestampSeconds = uint64(type(int64).max);
+        b.timestampSeconds = uint64(type(int64).max);
+        a.timestampNanos = type(uint32).max;
+        b.timestampNanos = type(uint32).max;
+        a = _signed(_CK_A, a);
+        b = _signed(_CK_A, b);
+
+        vm.expectEmit(address(token));
+        emit IERC20.Transfer(address(registry), Bob, _BOUNTY);
+        vm.expectEmit(address(token));
+        emit IERC20.Transfer(address(registry), SLASH_SINK, _TO_SINK);
+        vm.expectEmit(address(registry));
+        emit IEtnaStakingRegistry.DoubleSignSlashed(
+            0, Bob, MIN_STAKE, _BOUNTY, 0, _HEIGHT, _ROUND, 2
+        );
+        _slash(0, a, b);
+
+        assertEq(registry.entryAt(0).effStake, 0, "stake slashed");
+        assertEq(token.balanceOf(Bob), _BOUNTY, "bounty to the reporter");
+        assertEq(token.balanceOf(SLASH_SINK), _TO_SINK, "rest to the sink");
+        assertEq(token.balanceOf(address(registry)), 0, "registry empty");
     }
 
     /// @dev After recoveries to generation 2, evidence from generations 0 and 1, each signed
@@ -620,9 +651,10 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
 
     /// @dev Each vote field bound, applied to both votes of a signed conflicting pair: an accepted
     /// value slashes and a rejected one reverts `InvalidVote` when either vote carries it, before
-    /// the pair checks. Timestamp seconds are the int64 two's-complement pattern, accepted in
-    /// [-62,135,596,800, 253,402,300,800). The signature must be exactly 65 bytes; its V and S are
-    /// left to recovery (`test_slashDoubleSign_RevertWhen_SignatureHasBadVOrHighS`).
+    /// the pair checks. Timestamps have no bound: seconds (an int64 two's-complement pattern) and
+    /// nanos slash on either side of CometBFT's Timestamp range (ENC-A-45). The signature must be
+    /// exactly 65 bytes; its V and S are left to recovery
+    /// (`test_slashDoubleSign_RevertWhen_SignatureHasBadVOrHighS`).
     function test_slashDoubleSign_RevertWhen_VoteOutOfRange() external {
         _assertBound(_FIELD_TYPE, 0, false, "type 0");
         _assertBound(_FIELD_TYPE, 1, true, "prevote");
@@ -638,16 +670,16 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
         _assertBound(_FIELD_ROUND, 2 ** 31 - 1, true, "round 2^31 - 1");
         _assertBound(_FIELD_ROUND, 2 ** 31, false, "round 2^31");
 
-        _assertBound(_FIELD_SECONDS, uint64(_MIN_SECONDS - 1), false, "seconds min - 1");
+        _assertBound(_FIELD_SECONDS, uint64(_MIN_SECONDS - 1), true, "seconds min - 1");
         _assertBound(_FIELD_SECONDS, uint64(_MIN_SECONDS), true, "seconds min");
         _assertBound(_FIELD_SECONDS, type(uint64).max, true, "seconds -1");
         _assertBound(_FIELD_SECONDS, uint64(_END_SECONDS - 1), true, "seconds max - 1");
-        _assertBound(_FIELD_SECONDS, uint64(_END_SECONDS), false, "seconds max");
-        _assertBound(_FIELD_SECONDS, uint64(type(int64).max), false, "seconds int64 max");
-        _assertBound(_FIELD_SECONDS, uint64(type(int64).min), false, "seconds int64 min");
+        _assertBound(_FIELD_SECONDS, uint64(_END_SECONDS), true, "seconds max");
+        _assertBound(_FIELD_SECONDS, uint64(type(int64).max), true, "seconds int64 max");
+        _assertBound(_FIELD_SECONDS, uint64(type(int64).min), true, "seconds int64 min");
 
         _assertBound(_FIELD_NANOS, 1e9 - 1, true, "nanos 10^9 - 1");
-        _assertBound(_FIELD_NANOS, 1e9, false, "nanos 10^9");
+        _assertBound(_FIELD_NANOS, 1e9, true, "nanos 10^9");
 
         bytes4 invalidVote = IEtnaStakingRegistry.InvalidVote.selector;
         (IEtnaStakingRegistry.Vote memory a, IEtnaStakingRegistry.Vote memory b) = _conflict(_CK_A);

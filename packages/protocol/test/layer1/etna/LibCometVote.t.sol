@@ -61,9 +61,8 @@ contract LibCometVoteTest is CommonTest, EtnaVectorReader {
     /// @dev The number of `votes.cases` items.
     uint256 private constant _VOTE_CASES = 23;
 
-    /// @dev 2^63: heights are below it. Timestamp seconds follow CometBFT's Timestamp range
-    /// instead: the uint64 field holds an int64 in two's complement, accepted in
-    /// [-62,135,596,800, 253,402,300,800).
+    /// @dev 2^63: heights are below it. Timestamp seconds have no bound: the uint64 field holds
+    /// an int64 in two's complement, and every value is accepted (ENC-A-45).
     uint64 private constant _TWO_POW_63 = uint64(1) << 63;
 
     /// @dev 2^31: rounds are below it.
@@ -287,8 +286,39 @@ contract LibCometVoteTest is CommonTest, EtnaVectorReader {
         );
     }
 
-    /// @dev Any in-range vote under any chain id decodes back to its fields, with zero fields
-    /// omitted, fields in order and a nil block id never written.
+    /// @dev Timestamp nanos are an int32 carried as its 32-bit two's-complement pattern and
+    /// written as protobuf's int32 varint, the uvarint of the value sign-extended to 64 bits: a
+    /// pattern of 2^31 or more is negative and takes ten bytes, while 10^9 and 2^31 - 1, past
+    /// CometBFT's nanos range but positive, take five (ENC-A-45). Each decodes back.
+    function test_signBytes_SignExtendsNegativeNanos() external view {
+        bytes memory id = comet.chainId(bytes32(0));
+        IEtnaStakingRegistry.Vote memory vote = _baseVote();
+        vote.timestampSeconds = 0;
+
+        uint32[4] memory nanos = [type(uint32).max, 2 ** 31, 1e9, 2 ** 31 - 1];
+        bytes[4] memory fields = [
+            bytes(hex"2a0b10ffffffffffffffffff01"),
+            hex"2a0b1080808080f8ffffffff01",
+            hex"2a06108094ebdc03",
+            hex"2a0610ffffffff07"
+        ];
+        for (uint256 i; i < 4; ++i) {
+            vote.timestampNanos = nanos[i];
+            bytes memory sb = comet.signBytes(vote, id);
+            // Every payload here is below 128 bytes, so its length prefix is one byte.
+            bytes memory payload = _fieldPayload(sb, 0x2a);
+            assertEq(
+                bytes.concat(hex"2a", bytes1(uint8(payload.length)), payload),
+                fields[i],
+                vm.toString(nanos[i])
+            );
+            _assertDecodesTo(sb, vote, id);
+        }
+    }
+
+    /// @dev Any vote with an in-range type, height and round, whatever its timestamp, under any
+    /// chain id decodes back to its fields, with zero fields omitted, fields in order and a nil
+    /// block id never written.
     function testFuzz_signBytes_DecodesBackToTheVote(
         IEtnaStakingRegistry.Vote memory _vote,
         bytes memory _chainId,
@@ -300,10 +330,6 @@ contract LibCometVoteTest is CommonTest, EtnaVectorReader {
         _vote.voteType = uint8(bound(_vote.voteType, 1, 2));
         _vote.height = uint64(bound(_vote.height, 1, _TWO_POW_63 - 1));
         _vote.round = uint32(bound(_vote.round, 0, _TWO_POW_31 - 1));
-        _vote.timestampSeconds = uint64(
-            int64(bound(int256(int64(_vote.timestampSeconds)), _MIN_SECONDS, _MAX_SECONDS))
-        );
-        _vote.timestampNanos = uint32(bound(_vote.timestampNanos, 0, 1e9 - 1));
         if (_zeroMask & 1 != 0) _vote.round = 0;
         if (_zeroMask & 2 != 0) _vote.blockHash = 0;
         if (_zeroMask & 4 != 0) _vote.partsTotal = 0;
@@ -345,23 +371,6 @@ contract LibCometVoteTest is CommonTest, EtnaVectorReader {
         v.round = type(uint32).max;
         _assertInvalidVote(v, "round 2^32 - 1");
 
-        // Seconds carry an int64 that must lie in [0001-01-01, 10000-01-01).
-        v = _baseVote();
-        v.timestampSeconds = uint64(_MIN_SECONDS - 1);
-        _assertInvalidVote(v, "seconds -62,135,596,801");
-        v.timestampSeconds = uint64(_MAX_SECONDS + 1);
-        _assertInvalidVote(v, "seconds 253,402,300,800");
-        v.timestampSeconds = uint64(type(int64).min);
-        _assertInvalidVote(v, "seconds -2^63 (pattern 2^63)");
-        v.timestampSeconds = uint64(type(int64).max);
-        _assertInvalidVote(v, "seconds 2^63 - 1");
-
-        v = _baseVote();
-        v.timestampNanos = 1e9;
-        _assertInvalidVote(v, "nanos 10^9");
-        v.timestampNanos = type(uint32).max;
-        _assertInvalidVote(v, "nanos 2^32 - 1");
-
         v = _baseVote();
         v.signature = new bytes(64);
         _assertInvalidVote(v, "signature 64 bytes");
@@ -372,8 +381,9 @@ contract LibCometVoteTest is CommonTest, EtnaVectorReader {
     }
 
     /// @dev Every vector vote is in range, and so is each bound on its own and all of them at
-    /// once: both vote types, height 1 and 2^63 - 1, round 2^31 - 1, seconds -62,135,596,800,
-    /// -1 (pattern 2^64 - 1), 0 and 253,402,300,799, nanos 999,999,999 and a nil block id.
+    /// once: both vote types, height 1 and 2^63 - 1, round 2^31 - 1 and a nil block id. The
+    /// timestamps here, seconds -62,135,596,800 and 253,402,300,799 (the ends of CometBFT's
+    /// range), -1 (pattern 2^64 - 1) and 0, and nanos 999,999,999, pass like any other.
     function test_checkRanges_AcceptsEveryVectorVoteAndTheBounds() external view {
         string memory j = LibEtnaVectors.load();
         uint256 n = LibEtnaVectors.lengthAt(j, ".votes.cases");
@@ -411,6 +421,29 @@ contract LibCometVoteTest is CommonTest, EtnaVectorReader {
         v.generation = type(uint48).max;
         comet.checkRanges(v);
         comet.checkRanges(_maxVote());
+    }
+
+    /// @dev The timestamp is not range-checked (ENC-A-45): seconds at the int64 maximum and
+    /// minimum and just outside CometBFT's Timestamp range, and nanos of 10^9, 2^31 (the int32
+    /// minimum) and 2^32 - 1 (-1), all pass.
+    function test_checkRanges_AcceptsAnyTimestamp() external view {
+        IEtnaStakingRegistry.Vote memory v = _baseVote();
+        v.timestampSeconds = uint64(uint256(int256(type(int64).max)));
+        comet.checkRanges(v);
+        v.timestampSeconds = uint64(1) << 63;
+        comet.checkRanges(v);
+        v.timestampSeconds = uint64(_MIN_SECONDS - 1);
+        comet.checkRanges(v);
+        v.timestampSeconds = uint64(_MAX_SECONDS + 1);
+        comet.checkRanges(v);
+
+        v = _baseVote();
+        v.timestampNanos = 1e9;
+        comet.checkRanges(v);
+        v.timestampNanos = 2 ** 31;
+        comet.checkRanges(v);
+        v.timestampNanos = type(uint32).max;
+        comet.checkRanges(v);
     }
 
     // ---------------------------------------------------------------
@@ -581,7 +614,8 @@ contract LibCometVoteTest is CommonTest, EtnaVectorReader {
         v_.signature = new bytes(65);
     }
 
-    /// @dev The vote with every field at its accepted upper bound.
+    /// @dev The vote with its height, round, total and generation at their upper bounds and its
+    /// timestamp at the last nanosecond of CometBFT's range.
     function _maxVote() private pure returns (IEtnaStakingRegistry.Vote memory v_) {
         v_ = _baseVote();
         v_.height = _TWO_POW_63 - 1;
@@ -793,6 +827,8 @@ contract LibCometVoteTest is CommonTest, EtnaVectorReader {
     }
 
     /// @dev Decodes a `Timestamp`: an optional seconds varint, then an optional nanos varint.
+    /// The nanos varint holds the int32 sign-extended to 64 bits; it is truncated back to its
+    /// 32-bit pattern after checking that it is that sign extension.
     function _decodeTime(bytes memory _b) private pure returns (uint64 seconds_, uint32 nanos_) {
         uint256 o;
         uint256 x;
@@ -806,6 +842,7 @@ contract LibCometVoteTest is CommonTest, EtnaVectorReader {
             (x, o) = _readUvarint(_b, o + 1);
             assertNotEq(x, 0, "written nanos are nonzero");
             nanos_ = uint32(x);
+            assertEq(x, uint64(int64(int32(nanos_))), "nanos are a sign-extended int32");
         }
         assertEq(o, _b.length, "timestamp ends");
     }

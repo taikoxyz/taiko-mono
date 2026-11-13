@@ -22,17 +22,8 @@ library LibCometVote {
     /// @dev 2^63: heights are positive int64 values below it.
     uint64 private constant _TWO_POW_63 = uint64(1) << 63;
 
-    /// @dev 0001-01-01T00:00:00Z, the first second of CometBFT's (protobuf's) Timestamp range.
-    int64 private constant _MIN_TIMESTAMP_SECONDS = -62_135_596_800;
-
-    /// @dev 10000-01-01T00:00:00Z, the first second past that range.
-    int64 private constant _END_TIMESTAMP_SECONDS = 253_402_300_800;
-
     /// @dev 2^31: rounds are positive int32 values below it.
     uint32 private constant _TWO_POW_31 = uint32(1) << 31;
-
-    /// @dev Timestamp nanoseconds are below 10^9.
-    uint32 private constant _NANOS_PER_SECOND = 1e9;
 
     /// @dev The length of a signature `R ‖ S ‖ V`.
     uint256 private constant _SIGNATURE_LENGTH = 65;
@@ -71,19 +62,16 @@ library LibCometVote {
     }
 
     /// @dev Reverts with `InvalidVote` unless the vote type is 1 or 2, 1 <= height < 2^63,
-    /// round < 2^31, the timestamp seconds, read as an int64, lie in CometBFT's Timestamp range
-    /// [-62,135,596,800, 253,402,300,800) (0001-01-01T00:00:00Z up to 10000-01-01T00:00:00Z),
-    /// timestamp nanos < 10^9 and the signature is 65 bytes. CometBFT signs and accepts votes
-    /// with any timestamp in that range, negative ones included. The signature's V and S ranges
-    /// are left to `LibEtnaKeys.recoverSigner`.
+    /// round < 2^31 and the signature is 65 bytes. The timestamp is not checked: its seconds (an
+    /// int64) and nanos (an int32) may hold any value, including a timestamp stock CometBFT would
+    /// not sign, such as one outside 0001-01-01T00:00:00Z up to 10000-01-01T00:00:00Z or with
+    /// nanos outside [0, 10^9), since only the key holder can have signed it (appendix A). The
+    /// signature's V and S ranges are left to `LibEtnaKeys.recoverSigner`.
     /// @param _vote The vote.
     function checkRanges(IEtnaStakingRegistry.Vote memory _vote) internal pure {
-        int64 seconds_ = int64(_vote.timestampSeconds);
         if (
             (_vote.voteType != 1 && _vote.voteType != 2) || _vote.height == 0
                 || _vote.height >= _TWO_POW_63 || _vote.round >= _TWO_POW_31
-                || seconds_ < _MIN_TIMESTAMP_SECONDS || seconds_ >= _END_TIMESTAMP_SECONDS
-                || _vote.timestampNanos >= _NANOS_PER_SECOND
                 || _vote.signature.length != _SIGNATURE_LENGTH
         ) {
             revert IEtnaStakingRegistry.InvalidVote();
@@ -123,11 +111,13 @@ library LibCometVote {
     /// A bracketed field is omitted when zero, and the block id when the vote is nil; a non-nil
     /// block id always carries its part set header, possibly empty (`12 00`), and the timestamp
     /// is always written, possibly empty (`2a 00`). Type, total, seconds, nanos and every `len`
-    /// are uvarints; the seconds' uvarint is that of their 64-bit two's-complement pattern, which
-    /// is protobuf's int64 varint (ten bytes for a negative second). A zero hash or parts hash is
-    /// absent (appendix A), so a vote whose hash is genuinely 32 zero bytes encodes with that
-    /// field omitted. For a vote `checkRanges` accepts this is CometBFT's protobuf encoding;
-    /// outside those ranges (e.g. nanos >= 2^31, an int32 CometBFT sign-extends) it may differ.
+    /// are uvarints. The seconds are an int64 and the nanos an int32, each carried as its
+    /// two's-complement pattern; as protobuf does, each is written as the uvarint of its 64-bit
+    /// two's complement, so a negative value takes ten bytes. Every int64 and int32 value is
+    /// encoded this way, with no range check, including timestamps stock CometBFT itself would
+    /// not sign (appendix A, ENC-A-45). A zero hash or parts hash is absent (appendix A), so a
+    /// vote whose hash is genuinely 32 zero bytes encodes with that field omitted. For a vote
+    /// `checkRanges` accepts this is CometBFT's protobuf encoding.
     /// @param _vote The vote; its generation and signature are not encoded.
     /// @param _chainId The chain id the vote is signed under, as returned by `chainId`; never
     /// empty, so it is always written.
@@ -149,7 +139,7 @@ library LibCometVote {
                 0x2a,
                 bytes.concat(
                     _varintField(0x08, _vote.timestampSeconds),
-                    _varintField(0x10, _vote.timestampNanos)
+                    _varintField(0x10, _signExtend32(_vote.timestampNanos))
                 )
             ),
             _bytesField(0x32, _chainId)
@@ -183,6 +173,15 @@ library LibCometVote {
     /// @return The encoded field.
     function _varintField(uint8 _tag, uint256 _value) private pure returns (bytes memory) {
         return _value == 0 ? bytes("") : bytes.concat(bytes1(_tag), _uvarint(_value));
+    }
+
+    /// @dev The 64-bit two's-complement pattern of the int32 whose 32-bit pattern is `_value`:
+    /// `_value` itself below 2^31, and `_value + 2^64 - 2^32` from 2^31 up. Protobuf writes an
+    /// int32 as the uvarint of this pattern, so a negative one takes ten bytes.
+    /// @param _value The int32's 32-bit two's-complement pattern.
+    /// @return The sign-extended 64-bit pattern.
+    function _signExtend32(uint32 _value) private pure returns (uint64) {
+        return uint64(int64(int32(_value)));
     }
 
     /// @dev `_tag ‖ int64_le(_value)`, or nothing when `_value` is zero.

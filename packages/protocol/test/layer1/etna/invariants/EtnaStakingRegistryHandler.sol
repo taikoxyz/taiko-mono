@@ -123,9 +123,8 @@ contract EtnaStakingRegistryHandler is CommonBase {
     uint256 internal constant MAX_JUMP = 2000;
     uint256 internal constant BPS = 10_000;
 
-    /// @dev CometBFT's Timestamp range [MIN_SECONDS, END_SECONDS) and the vote field bounds.
-    int64 internal constant MIN_SECONDS = -62_135_596_800;
-    int64 internal constant END_SECONDS = 253_402_300_800;
+    /// @dev The vote field bounds; timestamps have none (ENC-A-45). Drawn votes keep their nanos
+    /// below NANOS_LIMIT, as stock CometBFT does.
     uint64 internal constant HEIGHT_LIMIT = uint64(1) << 63;
     uint32 internal constant ROUND_LIMIT = uint32(1) << 31;
     uint32 internal constant NANOS_LIMIT = 1e9;
@@ -1254,7 +1253,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
         bytes memory chainId = _cometChainId(block.chainid, l2ChainId, address(inbox), generation);
         _a.voteA = EtnaTestKeys.signVote(_a.signerPk, _a.voteA, chainId);
         _a.voteB = EtnaTestKeys.signVote(_a.signerPk, _a.voteB, chainId);
-        if (_a.defect == SLASH_INVALID_VOTE && seed % 7 == 6) {
+        if (_a.defect == SLASH_INVALID_VOTE && seed % 4 == 3) {
             // A signature of another length is a range error, before any recovery.
             IEtnaStakingRegistry.Vote memory v = (seed >> 8) % 2 == 0 ? _a.voteA : _a.voteB;
             v.signature = (seed >> 9) % 2 == 0 ? new bytes(64) : new bytes(66);
@@ -1298,11 +1297,11 @@ contract EtnaStakingRegistryHandler is CommonBase {
         }
     }
 
-    /// @dev Puts one field of one vote out of range: the type, the height, the round, the
-    /// timestamp seconds or nanos; the seventh case (a signature length) is set after signing.
+    /// @dev Puts one field of one vote out of range: the type, the height or the round; the
+    /// fourth case (a signature length) is set after signing. Timestamps have no range to break.
     function _breakRange(SlashAttempt memory _a, uint256 _seed) internal pure {
         IEtnaStakingRegistry.Vote memory v = (_seed >> 8) % 2 == 0 ? _a.voteA : _a.voteB;
-        uint256 kind = _seed % 7;
+        uint256 kind = _seed % 4;
         uint256 pick = _seed >> 16;
         if (kind == 0) {
             v.voteType = pick % 2 == 0 ? 0 : uint8(3 + pick % 253);
@@ -1310,12 +1309,6 @@ contract EtnaStakingRegistryHandler is CommonBase {
             v.height = pick % 2 == 0 ? 0 : HEIGHT_LIMIT + uint64(pick % HEIGHT_LIMIT);
         } else if (kind == 2) {
             v.round = ROUND_LIMIT + uint32(pick % ROUND_LIMIT);
-        } else if (kind == 3) {
-            v.timestampSeconds = uint64(END_SECONDS + int64(uint64(pick % 1e9)));
-        } else if (kind == 4) {
-            v.timestampSeconds = uint64(MIN_SECONDS - 1 - int64(uint64(pick % 1e9)));
-        } else if (kind == 5) {
-            v.timestampNanos = NANOS_LIMIT + uint32(pick % 1e9);
         }
     }
 
@@ -1479,12 +1472,11 @@ contract EtnaStakingRegistryHandler is CommonBase {
         }
     }
 
-    /// @dev Whether a vote's fields are in range, written out from appendix A's bounds.
+    /// @dev Whether a vote's fields are in range, written out from appendix A's bounds; any
+    /// timestamp is.
     function _inRange(IEtnaStakingRegistry.Vote memory _v) internal pure returns (bool) {
-        int64 seconds_ = int64(_v.timestampSeconds);
         return (_v.voteType == 1 || _v.voteType == 2) && _v.height != 0 && _v.height < HEIGHT_LIMIT
-            && _v.round < ROUND_LIMIT && seconds_ >= MIN_SECONDS && seconds_ < END_SECONDS
-            && _v.timestampNanos < NANOS_LIMIT && _v.signature.length == 65;
+            && _v.round < ROUND_LIMIT && _v.signature.length == 65;
     }
 
     // ---------------------------------------------------------------
