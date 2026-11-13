@@ -74,10 +74,11 @@ def frameEndLine (status : String := "success") (frameZk : String := "\"0x6f\"")
   "{\"e\":\"frame_end\",\"status\":\"" ++ status ++ "\",\"frame_zk\":" ++ frameZk ++ "}"
 
 /-- A precompile event of sha256 (0x02, multiplier 10). -/
-def sha256Line (supplied left : String) (success : Bool) (zk : String) : String :=
+def sha256Line (supplied left : String) (success : Bool) (zk : String) (ok : Bool := true) :
+    String :=
   "{\"e\":\"precompile\",\"addr\":\"0x0000000000000000000000000000000000000002\",\"supplied\":\"" ++
     supplied ++ "\",\"left\":\"" ++ left ++ "\",\"success\":" ++ toString success ++
-    ",\"zk\":\"" ++ zk ++ "\",\"ok\":true}"
+    ",\"zk\":\"" ++ zk ++ "\",\"ok\":" ++ toString ok ++ "}"
 
 /-- A JSON Lines file: one line per event, each ending in a newline. -/
 def lines (ls : List String) : String := String.join (ls.map (· ++ "\n"))
@@ -202,6 +203,11 @@ def staticModel (extra : Nat := 0) : Model :=
   "event 0: spawn"
 #guard failsWith (run smokeHarnessVector
   (smokeHarness.set 0 (stepLine 1 0 0x60 "0x186a0" 0 "" "0x186a1" "0x0"))) "event 0: gas_after"
+-- Every step of a committed trace is metered: a step with charged false would leave its charge
+-- out of both the formula and the frame total (here ADD's 0x39 of the smoke frame's 0x6f).
+#guard failsWith (run (harnessVector "0x5f5e100" "{\"frame_zk_gas\":\"0x36\",\"status\":\"success\"}")
+  ((smokeHarness.set 2 (stepLine 1 4 0x01 "0x1869a" 2 "\"0x2\",\"0x1\"" "0x18697" "0x0"
+    (charged := false))).set 4 (frameEndLine "success" "\"0x36\""))) "event 2: charged false"
 
 -- A CALL spawn step charges its estimate (12500 * 20) and keeps 99,900 - 65,535 = 0x863d gas
 -- after its static 100 and the 0xffff it forwards; the precompile it runs follows it, and the
@@ -230,6 +236,20 @@ def callVector : String :=
   "event 1: a failed precompile"
 #guard failsWith (run callVector (callHarness.set 1 (sha256Line "0xffff" "0x10000" true "0x0")))
   "event 1: left 0x10000 exceeds supplied 0xffff"
+-- A direct call ends the frame as its precompile run ended, unless the meter rejected the
+-- charge: a run that halts (all 0x186a0 gas spent, 0xf4240 zk gas) halts the frame, and a run
+-- that returns does not.
+def directVector (status : String) : String :=
+  harnessVector "0x5f5e100" ("{\"frame_zk_gas\":\"0xf4240\",\"status\":\"" ++ status ++ "\"}")
+
+#guard (run (directVector "halt")
+  [sha256Line "0x186a0" "0x0" false "0xf4240", frameEndLine "halt" "\"0xf4240\""]).isOk
+#guard failsWith (run (directVector "success")
+  [sha256Line "0x186a0" "0x0" false "0xf4240", frameEndLine "success" "\"0xf4240\""])
+  "event 1: status success, but the direct precompile call halted"
+#guard failsWith (run (harnessVector "0x5f5e100" "{\"frame_zk_gas\":\"0x258\",\"status\":\"halt\"}")
+  [sha256Line "0x186a0" "0x18664" true "0x258", frameEndLine "halt" "\"0x258\""])
+  "event 1: status halt, but the direct precompile call returned"
 -- Order: a precompile follows a CALL-family spawn step, depth rises only after a spawn step,
 -- and a harness trace ends with frame_end.
 -- A CALL with 99 gas cannot pay its static 100 (20 * 99 zk gas) and opens no frame.
@@ -258,6 +278,29 @@ def zkLimitHarness : List String :=
 #guard failsWith (run zkLimitVector
   (zkLimitHarness.take 3 ++ [stepLine 1 5 0x00 "0x18697" 1 "" "0x18697" "0x0",
     frameEndLine "zk_limit" "null"])) "event 3"
+
+-- A refused charge whose product overflows a u64 is recorded as 2^64 - 1, as alethia-reth and
+-- taiko-geth saturate it, and the meter rejects it even under the largest limit a vector can
+-- set. KECCAK256 of 2^64 - 1 bytes cannot pay its word cost and spends all 2^60 gas, at 31 zk
+-- gas each; a halted sha256 run spends all 2^61 gas, at 10 each.
+def overflowVector : String :=
+  harnessVector "0xffffffffffffffff" "{\"frame_zk_gas\":null,\"status\":\"zk_limit\"}"
+
+def overflowStep (zk : String := "0xffffffffffffffff") (ok : Bool := false) : String :=
+  stepLine 1 0 0x20 "0x1000000000000000" 2 "\"0x0\",\"0xffffffffffffffff\"" "0x0" zk (ok := ok)
+
+def overflowRun (zk : String := "0xffffffffffffffff") : String :=
+  sha256Line "0x2000000000000000" "0x0" false zk (ok := false)
+
+#guard (run overflowVector [overflowStep, frameEndLine "zk_limit" "null"]).isOk
+#guard (run overflowVector [overflowRun, frameEndLine "zk_limit" "null"]).isOk
+-- The unsaturated product is not the schema's encoding, and an overflowing charge never fits.
+#guard failsWith (run overflowVector
+  [overflowStep "0x1f000000000000000", frameEndLine "zk_limit" "null"]) "event 0: zk"
+#guard failsWith (run overflowVector
+  [overflowRun "0x14000000000000000", frameEndLine "zk_limit" "null"]) "event 0: zk"
+#guard failsWith (run overflowVector [overflowStep (ok := true), frameEndLine "zk_limit" "null"])
+  "event 0: ok true, but the meter rejects"
 
 -- Block abort: the second tx's step exceeds what the block has left. The block keeps the
 -- anchor's zk gas and ends at the aborted tx.

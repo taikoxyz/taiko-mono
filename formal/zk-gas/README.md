@@ -83,6 +83,12 @@ it forwards to it, and runs `stepModel`, which is `stepOutcome` on Unzen. Every 
 decided by the model: a step it cannot decide, such as one whose pre-state lacks a fact the model
 reads, fails the check.
 
+Every step must be metered (`charged` true). A charge's `zk` is its amount saturated at
+2^64 - 1, as the clients record a refused charge whose product overflows a u64; the meter is
+charged the full amount, which exceeds every limit a vector can set, so the charge is rejected
+as the clients' checked multiplication rejects it. A harness run that calls a precompile
+directly ends with `halt` exactly when the run failed, unless the meter rejected its charge.
+
 For every step, the checker compares `spawn` (a step spawns exactly when its outcome is a new
 frame) and `gas_after` with the model's; for a spawn step, `gas_after` is the gas left after the
 gas it forwards, which alethia-reth records exactly. Unless the meter rejected the step's charge,

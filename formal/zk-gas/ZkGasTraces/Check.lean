@@ -12,10 +12,13 @@ values:
   with `frame_end`; depth starts at 1 and rises by one only after a spawn step; a precompile
   event follows a CALL-family spawn step, or is a tx's or frame's only event; nothing follows a
   rejected charge but the end event.
-- (b) each step's `zk` is `spawnEstimate(op) * mult(op)` for a spawn step and
-  `(gas - gas_after) * mult(op)` otherwise; only spawn opcodes spawn.
-- (c) each precompile's `zk` is `(supplied - left) * precompileMult(addr)`, and a failed
-  precompile has `left = 0`. The intrinsic charge is the schedule's.
+- (b) every step is metered (`charged`), and its `zk` is `spawnEstimate(op) * mult(op)` for a
+  spawn step and `(gas - gas_after) * mult(op)` otherwise, saturated at 2^64 - 1 (the meter is
+  charged the unsaturated amount); only spawn opcodes spawn.
+- (c) each precompile's `zk` is `(supplied - left) * precompileMult(addr)`, saturated likewise,
+  and a failed precompile has `left = 0`; after a direct call, a harness `frame_end` is `halt`
+  exactly when the run failed, unless the meter rejected its charge. The intrinsic charge is the
+  schedule's.
 - (d) each charge's `ok` is the meter's verdict; `meterBlock` over the committed and aborted txs'
   charges (a skipped tx's are discarded) reproduces each tx's status and total and the vector's
   `included`, `truncated_at`, `cumulative_zk_gas` and `block_zk_gas`; a harness frame's
@@ -71,35 +74,43 @@ def statusName : TxStatus → String
   | .aborted => "aborted"
   | .skipped => "skipped"
 
-/-- (b), (c): the amount a step, precompile or intrinsic event charges. -/
-def checkAmount (s : Schedule) : Event → Except String Unit
-  | .intrinsic zk _ =>
+/-- (b), (c): the amount a step, precompile or intrinsic event charges the meter. The event's
+`zk` is that amount saturated at `u64::MAX`: alethia-reth and taiko-geth record a refused
+charge whose product overflows a u64 as 2^64 - 1. The meter is charged the unsaturated amount,
+which then exceeds every limit a vector can set (`check.py` caps `zk_block_limit` at 2^64 - 1),
+so an overflowing charge is rejected, as the clients' checked multiplication rejects it. Every step must be metered
+(`charged`): alethia-reth records each step it charges and no other. -/
+def checkAmount (s : Schedule) : Event → Except String Nat
+  | .intrinsic zk _ => do
     unless zk = s.txIntrinsic do
       throw s!"intrinsic zk {hexString zk}, but the schedule charges {hexString s.txIntrinsic}"
+    pure zk
   | .step pre out => do
+    unless out.charged do
+      throw "charged false, but every step of a trace is metered"
     let mult := opcodeMult s pre.op
     if out.gasAfter > pre.gas then
       throw s!"gas_after {hexString out.gasAfter} exceeds gas {hexString pre.gas}"
-    if out.spawn then
-      match s.spawnEstimate pre.op with
-      | none => throw s!"spawn step of opcode {opName pre.op}, which has no spawn estimate"
-      | some estimate =>
-        if out.charged && out.zk != estimate * mult then
-          throw s!"zk {hexString out.zk}, but a spawn step charges its estimate {estimate} * multiplier {mult} = {hexString (estimate * mult)}"
-    else
-      if out.charged && out.zk != (pre.gas - out.gasAfter) * mult then
-        throw s!"zk {hexString out.zk}, want (gas - gas_after) * multiplier {mult} = {hexString ((pre.gas - out.gasAfter) * mult)}"
-    unless out.charged || (out.zk == 0 && out.ok) do
-      throw "a step the client did not meter (charged false) has zk 0x0 and ok true"
+    let (amount, rule) ← if out.spawn then
+        match s.spawnEstimate pre.op with
+        | none => throw s!"spawn step of opcode {opName pre.op}, which has no spawn estimate"
+        | some estimate =>
+          pure (estimate * mult, s!"a spawn step charges its estimate {estimate} * multiplier {mult}")
+      else pure ((pre.gas - out.gasAfter) * mult, s!"a step charges (gas - gas_after) * multiplier {mult}")
+    unless out.zk = satU64 amount do
+      throw s!"zk {hexString out.zk}, but {rule} = {hexString amount}, recorded as {hexString (satU64 amount)}"
+    pure amount
   | .precompile addr supplied left success zk _ => do
     if left > supplied then
       throw s!"left {hexString left} exceeds supplied {hexString supplied}"
     if !success && left != 0 then
       throw s!"a failed precompile leaves no gas, but left is {hexString left}"
     let mult := precompileMult s addr
-    unless zk = (supplied - left) * mult do
-      throw s!"zk {hexString zk}, want (supplied - left) * multiplier {mult} = {hexString ((supplied - left) * mult)}"
-  | _ => pure ()
+    let amount := (supplied - left) * mult
+    unless zk = satU64 amount do
+      throw s!"zk {hexString zk}, want (supplied - left) * multiplier {mult} = {hexString amount}, recorded as {hexString (satU64 amount)}"
+    pure amount
+  | _ => pure 0
 
 /-- (e): the model's result for one step: its `spawn` and `gas_after` must be the trace's.
 Returns the model's result. -/
@@ -307,8 +318,8 @@ structure Walk where
   /-- After a precompile run a spawn step opened: the depth and gas its caller resumes with, and
   where they come from. -/
   resume : Option (Nat × Nat × String) := none
-  /-- The current tx or frame went straight to a precompile. -/
-  direct : Bool := false
+  /-- The current tx or frame went straight to a precompile, with the run's `success`. -/
+  direct : Option Bool := none
   /-- The meter rejected a charge of the current tx or frame. -/
   rejected : Bool := false
   /-- The accepted charges of the current tx or frame. -/
@@ -348,7 +359,7 @@ def Walk.inside (w : Walk) (layer : Layer) (i : Nat) (kind : String) : Except St
     | .harness => throw s!"event {i}: {kind} after frame_end"
   if w.rejected then
     throw s!"event {i}: {kind} after a rejected charge (only the end event may follow it)"
-  if w.direct then
+  if w.direct.isSome then
     throw s!"event {i}: {kind} after a direct precompile call (only the end event may follow it)"
 
 /-- Checks event `i` and adds it to the walk. -/
@@ -360,11 +371,11 @@ def Walk.event (s : Schedule) (model : Model) (layer : Layer) (w : Walk) (i : Na
     if let some tx := w.txs.head? then
       if tx.status = .aborted then
         throw s!"event {i}: a tx after aborted tx {tx.index} (the block ends at it)"
-    (checkAmount s (.intrinsic zk ok)).mapError (s!"event {i}: " ++ ·)
+    let amount ← (checkAmount s (.intrinsic zk ok)).mapError (s!"event {i}: " ++ ·)
     let w := { w with inTx := true, depth := none, spawned := false, callSpawned := false,
-                      lastStep := none, frames := [], direct := false, rejected := false,
+                      lastStep := none, frames := [], direct := none, rejected := false,
                       total := 0, charges := [] }
-    w.charge s i zk ok
+    w.charge s i amount ok
   | .step pre out => do
     w.inside layer i "step"
     match w.depth with
@@ -374,7 +385,7 @@ def Walk.event (s : Schedule) (model : Model) (layer : Layer) (w : Walk) (i : Na
     | some d =>
       if pre.depth = 0 ∨ pre.depth > d + 1 ∨ (pre.depth = d + 1 ∧ !w.spawned) then
         throw s!"event {i}: depth {pre.depth} after depth {d} (depth rises by one, only after a spawn step)"
-    (checkAmount s (.step pre out)).mapError (s!"event {i}: " ++ ·)
+    let amount ← (checkAmount s (.step pre out)).mapError (s!"event {i}: " ++ ·)
     let m ← (checkModel model pre out).mapError (s!"event {i}: " ++ ·)
     let transfer := (pre.op == 0xf1 || pre.op == 0xf2) && pre.stack.getD 2 0 != 0
     let frameGas := m.forwarded + if transfer then callStipend else 0
@@ -395,13 +406,13 @@ def Walk.event (s : Schedule) (model : Model) (layer : Layer) (w : Walk) (i : Na
       lastStep := some (pre.depth, out.gasAfter)
       branches := m.branch :: w.branches
       pending }
-    if out.charged then w.charge s i out.zk out.ok else pure w
+    w.charge s i amount out.ok
   | .precompile addr supplied left success zk ok => do
     w.inside layer i "precompile"
     let direct := w.depth.isNone
     unless w.callSpawned || direct do
       throw s!"event {i}: precompile event must follow a CALL-family spawn step, or be a tx's or frame's only event"
-    (checkAmount s (.precompile addr supplied left success zk ok)).mapError (s!"event {i}: " ++ ·)
+    let amount ← (checkAmount s (.precompile addr supplied left success zk ok)).mapError (s!"event {i}: " ++ ·)
     let resume := match w.lastStep with
       | some (d, gasAfter) =>
         if !direct && ok then
@@ -409,8 +420,9 @@ def Walk.event (s : Schedule) (model : Model) (layer : Layer) (w : Walk) (i : Na
             s!"the precompile run of event {i} leaves {hexString left} to the spawn step of gas_after {hexString gasAfter}")
         else none
       | none => none
-    let w := { w with spawned := false, callSpawned := false, direct, resume }
-    w.charge s i zk ok
+    let w := { w with spawned := false, callSpawned := false, resume
+                      direct := if direct then some success else none }
+    w.charge s i amount ok
   | .txEnd index status txZk => do
     unless layer = .block do throw s!"event {i}: tx_end in a harness trace"
     -- A tx the client rejects before charging its intrinsic zk gas (its gas limit exceeds the
@@ -447,6 +459,11 @@ def Walk.event (s : Schedule) (model : Model) (layer : Layer) (w : Walk) (i : Na
       throw s!"event {i}: status {status}, but the meter {verdict} (the status is zk_limit exactly when a charge is rejected)"
     if status ≠ "zk_limit" ∧ frameZk ≠ w.total then
       throw s!"event {i}: frame_zk {hexString frameZk}, but the frame's charges total {hexString w.total}"
+    -- A direct call ends the frame as its precompile run ended: revm halts the frame when the
+    -- run halts, and otherwise returns or reverts with it.
+    if let some success := w.direct then
+      unless w.rejected || (status == "halt") == !success do
+        throw s!"event {i}: status {status}, but the direct precompile call {if success then "returned" else "halted"}"
     return { w with inTx := false, frame := some (status, frameZk) }
 
 /-- (f): event `e`, number `i`, after the walk `prev`, with `w` the walk after `e`'s own
