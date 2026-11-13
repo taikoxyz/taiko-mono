@@ -23,12 +23,15 @@ CLAIMS = {'BlockWithinLimit': 'block_within_limit', 'AbortContributesNothing': '
           'BranchesComplete': 'branches_complete', 'StepGasMonotone': 'step_gas_monotone',
           'SpawnOnlyForSpawnOps': 'spawn_only_for_spawn_ops'}
 GUARDS = {'ZkGasWitnesses.Tests'}
-# The only explicit Lean import is Lean.Data.Json, and only the trace parser and checker may
+# The only explicit Lean import is Lean.Data.Json; the trace parser/checker and meter exporter may
 # import it and name its types (Lean.Json, Lean.JsonNumber and their members). No Model,
 # Statements or Proofs module may; the entry point uses the checker's string interface.
-JSON_MODULES = {'ZkGasTraces.Json', 'ZkGasTraces.Check'}
+JSON_MODULES = {'ZkGasTraces.Json', 'ZkGasTraces.Check', 'ZkGasTraces.MeterVectors'}
 JSON_NAME = re.compile(r"Lean\.Json(?:Number)?(?:\.[A-Za-z_][A-Za-z_0-9']*)*")
-EXECUTABLE = {'name': 'check-traces', 'root': 'ZkGasTraces.Main'}
+EXECUTABLES = [
+    {'name': 'check-traces', 'root': 'ZkGasTraces.Main'},
+    {'name': 'generate-meter-vectors', 'root': 'ZkGasTraces.GenerateMeter'},
+]
 FORBIDDEN = set('sorry admit native_decide axiom unsafe partial implemented_by extern opaque '
                 'run_elab elab elab_rules macro macro_rules syntax initialize builtin_initialize '
                 'declare_syntax_cat register_option set_option attribute by_elab run_tac '
@@ -193,10 +196,10 @@ def check(root):
             errors.append('lakefile: unreviewed configuration or compiler options')
         if [x['name'] for x in config['lean_lib']] != list(LIBRARIES):
             errors.append('lakefile: expected exactly the five ordered libraries')
-        if config.get('lean_exe') != [EXECUTABLE]:
-            errors.append('lakefile: expected the check-traces executable only')
-        if set(config.get('defaultTargets', [])) != set(LIBRARIES) | {EXECUTABLE['name']}:
-            errors.append('lakefile: all five libraries and check-traces must be default targets')
+        if config.get('lean_exe') != EXECUTABLES:
+            errors.append('lakefile: expected the trace checker and meter generator executables')
+        if set(config.get('defaultTargets', [])) != set(LIBRARIES) | {x['name'] for x in EXECUTABLES}:
+            errors.append('lakefile: all libraries and both executables must be default targets')
         if (root / 'lean-toolchain').read_text().strip() != 'leanprover/lean4:v4.34.1':
             errors.append('Lean toolchain must remain 4.34.1')
         modules = {}
@@ -231,7 +234,10 @@ def check(root):
                 reached.add(module)
                 todo.extend(d for d in modules.get(module, []) if d in modules)
             for module in modules:
-                if module.split('.')[0] == lib and module not in reached:
+                # Executables have separate global main declarations and cannot both be imported
+                # by one library root. They still receive every source/import check above.
+                if (module.split('.')[0] == lib and module not in reached and
+                        module not in {x['root'] for x in EXECUTABLES}):
                     errors.append(f'{module}: unreachable from library root')
         errors.extend(statement_errors(root))
         errors.extend(spec_errors(root, read_manifest(root)))

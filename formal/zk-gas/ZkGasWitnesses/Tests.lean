@@ -26,6 +26,27 @@ open TaikoSpec.ZkGas
 -- The aborted second transaction adds nothing to the block total.
 #guard (meterBlock unzen [[243000], [243000, 99757001]]).2 = 243000
 
+-- Meter-vector expectations are independent literals, including u64 overflow and API recovery.
+#guard MeterVectors.runActions unzen [.opcode 0x01 3] =
+  [{ ok := true, txZk := 57, blockZk := 0 }]
+#guard MeterVectors.runActions { unzen with blockLimit := 56 } [.opcode 0x01 3] =
+  [{ ok := false, txZk := 0, blockZk := 0 }]
+#guard MeterVectors.runActions { unzen with blockLimit := 57 }
+    [.opcode 0x01 3, .commit, .opcode 0x01 1, .reset] =
+  [{ ok := true, txZk := 57, blockZk := 0 }, { ok := true, txZk := 0, blockZk := 57 },
+   { ok := false, txZk := 0, blockZk := 57 }, { ok := true, txZk := 0, blockZk := 57 }]
+#guard MeterVectors.runActions { unzen with blockLimit := 18446744073709551615 }
+    [.opcode 0x01 970881267037344822] =
+  [{ ok := false, txZk := 0, blockZk := 0 }]
+#guard MeterVectors.runActions { unzen with blockLimit := 18446744073709551615 }
+    [.opcode 0x01 1, .commit, .opcode 0x01 1, .opcode 0x01 970881267037344820] =
+  [{ ok := true, txZk := 19, blockZk := 0 }, { ok := true, txZk := 0, blockZk := 19 },
+   { ok := true, txZk := 19, blockZk := 19 }, { ok := false, txZk := 19, blockZk := 19 }]
+#guard MeterVectors.runActions { unzen with blockLimit := 57 }
+    [.opcode 0x01 3, .opcode 0x01 1, .reset, .opcode 0x01 3] =
+  [{ ok := true, txZk := 57, blockZk := 0 }, { ok := false, txZk := 57, blockZk := 0 },
+   { ok := true, txZk := 0, blockZk := 0 }, { ok := true, txZk := 57, blockZk := 0 }]
+
 -- Boundaries: a total exactly at the block limit fits; the results end at the abort, so a
 -- third transaction is not executed.
 #guard meterTx unzen 99757000 [243000] = some 243000

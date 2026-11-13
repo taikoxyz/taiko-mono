@@ -31,6 +31,21 @@ class GateTests(unittest.TestCase):
     def test_current_package(self):
         self.assertEqual(gate.check(self.root), [])
 
+    def test_meter_generator_target(self):
+        config = self.root / 'lakefile.toml'
+        if 'name = "generate-meter-vectors"' not in config.read_text():
+            config.write_text(config.read_text().replace('"check-traces"]',
+                              '"check-traces", "generate-meter-vectors"]') +
+                              '\n[[lean_exe]]\nname = "generate-meter-vectors"\n'
+                              'root = "ZkGasTraces.GenerateMeter"\n')
+        (self.root / 'ZkGasTraces/GenerateMeter.lean').write_text(
+            'import ZkGasTraces.MeterVectors\ndef main : IO UInt32 := pure 0\n')
+        (self.root / 'ZkGasTraces/MeterVectors.lean').write_text(
+            'import Lean.Data.Json\nimport ZkGasModel\n'
+            'def meterJson : Lean.Json := Lean.Json.null\n')
+        self.mutate('ZkGasTraces.lean', 'import ZkGasTraces.MeterVectors')
+        self.assertEqual(gate.check(self.root), [])
+
     def test_escape_mutations(self):
         for token in ['sorry', 'admit', 'native_decide', 'axiom', 'unsafe', 'partial',
                       'implemented_by', 'extern', 'debug.skipKernelTC', 'run_elab',
@@ -148,7 +163,8 @@ class GateTests(unittest.TestCase):
 
     def test_json_only_in_trace_parser_and_checker(self):
         allowed = 'import Lean.Data.Json\ndef f (j : Lean.Json) (n : Lean.JsonNumber) := Lean.Json.parse'
-        self.assertEqual(gate.JSON_MODULES, {'ZkGasTraces.Json', 'ZkGasTraces.Check'})
+        self.assertEqual(gate.JSON_MODULES,
+                         {'ZkGasTraces.Json', 'ZkGasTraces.Check', 'ZkGasTraces.MeterVectors'})
         for module in sorted(gate.JSON_MODULES):
             with self.subTest(module=module):
                 self.assertEqual(gate.source_errors(module, allowed), [])
