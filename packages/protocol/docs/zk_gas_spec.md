@@ -50,7 +50,11 @@ mulmod (opcode)        113
 Definitions:
 
 - `step_gas`: the total gas charged by the EVM for executing one opcode, including both the static cost (from the opcode gas table) and any dynamic cost (memory expansion, storage access charges, etc.). Measured as `gas_spent_after - gas_spent_before` across a single opcode execution.
-  For a step that fails, this value depends on the order in which the EVM checks and charges the opcode; the per-step model in [`formal/zk-gas`](../../../formal/zk-gas/README.md) defines it for every opcode and failure.
+  For a step that fails, this value depends on the order in which the EVM checks and charges the opcode; the per-step model in [`formal/zk-gas`](../../../formal/zk-gas/README.md) defines it for every opcode and failure, except in the pre-state cases its README lists, which a step's recorded facts cannot express. In brief:
+  - A step that fails out of gas spends all of the frame's remaining gas, so `step_gas` is the gas the frame had before the step. It fails out of gas when the frame cannot pay the opcode's static gas or one of its dynamic charges (for example an exponent, copy, hashing or log data cost, a cold account or storage access, an `SSTORE` cost, a value transfer, a new account, an EIP-7702 delegate's access, or `CREATE`'s initcode, base and hashing cost), and when a cold account or storage load is skipped for lack of gas.
+  - Any other failure halts the frame keeping the gas left before the failing check, so `step_gas` is only the charges made before it. This covers stack underflow and overflow, an invalid jump target, an undefined or not activated opcode, a state change or a `CALL` with value in a static frame, an offset or length of 2^64 or more, a memory expansion the frame cannot pay or that exceeds the memory limit, a return data range out of bounds, the `SSTORE` reentrancy sentry and initcode above the size limit.
+  - A spawn opcode that fails one of its checks opens no frame and is charged by its `step_gas` like any other opcode; one that passes them follows the spawn rule below.
+  - A precompile run that halts uses all the gas it was supplied.
 - `SPAWN_OPCODES`: `CALL`, `CALLCODE`, `DELEGATECALL`, `STATICCALL`, `CREATE`, `CREATE2`
 - `child_frame_created`: true only when a spawn opcode creates a child EVM execution frame.
 - `precompile_invoked`: true when a CALL-family opcode (`CALL`, `CALLCODE`, `DELEGATECALL`, `STATICCALL`) resolves to an active precompile and executes it.
