@@ -117,7 +117,10 @@ library LibCometVote {
     /// encoded this way, with no range check, including timestamps stock CometBFT itself would
     /// not sign (appendix A, ENC-A-45). A zero hash or parts hash is absent (appendix A), so a
     /// vote whose hash is genuinely 32 zero bytes encodes with that field omitted. For a vote
-    /// `checkRanges` accepts this is CometBFT's protobuf encoding.
+    /// `checkRanges` accepts whose timestamp is inside CometBFT's range (seconds from
+    /// 0001-01-01T00:00:00Z up to 10000-01-01T00:00:00Z, nanos in [0, 10^9)), this is CometBFT's
+    /// protobuf encoding; outside that range it is protobuf's encoding of the same
+    /// `CanonicalVote`, which stock CometBFT never produces.
     /// @param _vote The vote; its generation and signature are not encoded.
     /// @param _chainId The chain id the vote is signed under, as returned by `chainId`; never
     /// empty, so it is always written.

@@ -7,8 +7,8 @@ checkpoints. These are its L1 contracts; the L2 changes are listed under
 [Etna PoS + ZK design specification](../../../docs/etna/SPEC.md); appendix A is its
 encodings and appendix B its L1 storage layout.
 
-The current specification baseline is main at `589b542de790861efd8b4d9bb0a4b1d066c2685f`
-([#22338](https://github.com/taikoxyz/taiko-mono/pull/22338)).
+The current specification baseline is main at `d18357214fab30ea512ae9858a11699806d72ba1`
+([#22348](https://github.com/taikoxyz/taiko-mono/pull/22348)).
 
 ## Contracts
 
@@ -162,9 +162,10 @@ Pause affects none of these entry points, nor the registry's (spec 1 requires th
 - `Landed` carries `VERSION = 1`; `Recovered` carries the new generation, c, R's number and
   timestamp, and both lists.
 - Each field of a slot 290 origin is below 2^48.
-- Evidence votes have type 1 or 2, a height in [1, 2^63), a round below 2^31, timestamp seconds
-  read as an int64 within CometBFT's Timestamp range (negative values included), nanoseconds
-  below 10^9 and a 65-byte low-s signature with V in {0, 1}.
+- Evidence votes have type 1 or 2, a height in [1, 2^63), a round below 2^31 and a 65-byte low-s
+  signature with V in {0, 1}. Their timestamp seconds are an int64 and their nanoseconds an int32,
+  each with any value and no range check (ENC-A-45), so double-sign evidence is accepted even at
+  a timestamp stock CometBFT would not sign.
 - Registry storage that appendix B does not name (tree nodes, the admission index, the key and
   slot lookups, the bond records and the bond count) lives in the `taiko.etna.registry`
   namespace after `entries`, so nodes read only the two named slots.
@@ -278,7 +279,11 @@ cast call --rpc-url "$L2_RPC" --block 0 "$TAIKO_ANCHOR" 'etnaTimestamp()(uint64)
 initializes the proxy if the deployer owns it, or logs that call for the owner. No contract
 checks two spec 11 bounds, so the operator must: `REGISTRY_WITHDRAWAL_DELAY` no shorter than the
 double-sign evidence window (suggested at least 50,400 L1 blocks, about 7 days) and
-`MAX_ANCHOR_AGE` above the L1 finality delay.
+`MAX_ANCHOR_AGE` above the L1 finality delay (PARAM-11-5). That delay is the age the newest
+finalized L1 block reaches just before the next finalization while L1 finalizes on schedule
+(three epochs, 1152 s, on Ethereum), plus the deployment's allowance for slots missed at an epoch
+boundary and for nodes' delay in importing that finalization. `init` checks only the 1152 s floor
+(START-10-9), and on Ethereum 1152 s itself does not satisfy PARAM-11-5 (Q10-8).
 `REGISTRY_FORFEIT_BPS` is an explicit deployment input in [1, 10,000], with no production default.
 The launch manifest must also pin independent `C_CAP_MIN`, conservative per-TAIKO `P_REF` in the
 same currency, its source/haircut/expiry/review frequency and responsible owner. Require positive,
@@ -304,7 +309,10 @@ These implement [ANCHORLESS.md](../../../docs/etna/ANCHORLESS.md) sections 4 and
   new one.
 - `shared/signal/SignalServiceL2.sol`: the L2 SignalService; it resolves proof roots through the
   Anchor and adds no storage. Both SignalServices keep checkpoints and cached signals under
-  `VERSION`; `_authorizeCheckpoint` is the hook the L1 two-syncer upgrade overrides.
+  `VERSION`; `_authorizeCheckpoint` is the hook the L1 two-syncer upgrade overrides. Bumping
+  `VERSION` hides every checkpoint and cached signal at once, including the checkpoints a
+  verifier-failure rollback must keep usable, so RECOV-8-27 rules out a rollback that only moves
+  the whole checkpoint mapping to a new version.
 - `script/layer2/DeployShastaL2Contracts.s.sol` deploys both implementations for a switching
   network from ETNA_TIMESTAMP without upgrading the proxies; the DAO proposal's single L2 batch
   upgrades them (SWITCH.md section 3).
@@ -326,7 +334,13 @@ python3 -m unittest discover -s ../../testdata/etna_vectors -p 'test_vectors.py'
 
 ## Out of scope
 
-- The verifier-failure rollback (spec 8); it comes with the Inbox upgrade replacing the verifier.
+- The verifier-failure rollback (spec 8); it comes with the Inbox upgrade replacing the verifier,
+  in one DAO upgrade that also upgrades the registry, the L1 SignalService and the L1 Bridge
+  (RECOV-8-26). After it no voided checkpoint can be read through the SignalService or proven
+  against, while every other checkpoint stays usable (RECOV-8-27), and every signal the
+  SignalService cached, and every Bridge message left `RETRIABLE`, at or after the L1 block of the
+  first bad landing is unusable until it is proven again against a checkpoint the SignalService
+  holds after the rollback (RECOV-8-27a).
 - The rest of the switch from Unzen: the start rewrite of spec 10 step 5c, which ships with the
   correcting Inbox upgrade, the L1 SignalService upgrade that accepts both Inboxes and rejects
   Unzen Inbox checkpoints above S (an override of `_authorizeCheckpoint`), and the Unzen Inbox
@@ -337,5 +351,5 @@ python3 -m unittest discover -s ../../testdata/etna_vectors -p 'test_vectors.py'
 - Real proving guests. Tests use mock verifiers, so they show contract behaviour, not proof
   soundness; production needs a verifier that requires two proofs, at least one ZK (6.2).
 
-The Inbox, the registry and the SignalService are upgradeable proxies whose owner should be the
-DAO behind a timelock; an upgrade can bypass any rule here (spec 1).
+The Inbox, the registry, the L1 SignalService and the L1 Bridge are upgradeable proxies whose
+owner should be the DAO behind a timelock; an upgrade can bypass any rule here (spec 1).

@@ -47,8 +47,10 @@ contract SignalService is EssentialContract, ISignalService {
     // ---------------------------------------------------------------
 
     /// @notice Version of the received-signal cache and checkpoint mappings.
-    /// @dev Bumping this value in a future implementation invalidates old cached signals and
-    /// checkpoints without touching the old storage slots.
+    /// @dev Bumping this value in a future implementation hides every old cached signal and
+    /// checkpoint at once without touching the old storage slots, including the checkpoints an
+    /// Etna verifier-failure rollback must keep usable; that rollback therefore cannot be only a
+    /// bump (Etna spec RECOV-8-27).
     uint256 public constant VERSION = 1;
 
     // ---------------------------------------------------------------

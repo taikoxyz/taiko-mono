@@ -54,16 +54,18 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// COMMITTEE_RECORD_HASH; ETNA_VP_UNIT (at least 867,361,738), ETNA_S_MIN (at least
 /// ETNA_VP_UNIT), ETNA_N_MAX (in [1, 4096]) and ETNA_UNSETTLED_LIMIT (U, a multiple of 6 in
 /// [6, 65,532]); FORCED_INCLUSION_DELAY (seconds, non-zero); MAX_ANCHOR_AGE (seconds, at least
-/// 1152).
+/// 1152, START-10-9).
 /// The script checks only SIGNAL_SERVICE's and ETNA_PROOF_VERIFIER's code, L1_CHAIN_ID and
 /// REMOTE_SIGNAL_SERVICE itself;
 /// the constructors and `init` check the other bounds listed above, so a logged owner call is
 /// validated when the owner sends it. Nothing on chain checks the rest, which the operator must ensure:
-/// MAX_ANCHOR_AGE above the L1 finality delay (spec 11), REGISTRY_WITHDRAWAL_DELAY no shorter
-/// than the double-sign evidence window (spec 11 suggests at least 50,400 L1 blocks, about 7 days;
-/// a shorter delay lets a double signer withdraw before the evidence reaches L1), genesis values
-/// that match the L2 genesis, and nodes and guests using the same configuration. A verifier that
-/// accepts every proof is for ephemeral devnets only.
+/// MAX_ANCHOR_AGE above the L1 finality delay (spec 11, PARAM-11-5), which is three epochs (1152 s
+/// on Ethereum) plus the deployment's allowance for slots missed at an epoch boundary and for
+/// nodes' delay in importing the finalization, so on Ethereum 1152 s itself is too low (Q10-8);
+/// REGISTRY_WITHDRAWAL_DELAY no shorter than the double-sign evidence window (spec 11 suggests
+/// at least 50,400 L1 blocks, about 7 days; a shorter delay lets a double signer withdraw before
+/// the evidence reaches L1), genesis values that match the L2 genesis, and nodes and guests using
+/// the same configuration. A verifier that accepts every proof is for ephemeral devnets only.
 /// @custom:security-contact security@taiko.xyz
 contract DeployEtnaDevnet is Script {
     // ---------------------------------------------------------------
