@@ -1,8 +1,8 @@
 {
   "alethia_reth": {
-    "commit": "6e86a39bd962c9935babb965f27611fe947bd5cb",
+    "commit": "a8cafc90af83d459f9f192bedbefc8341d95b4ad",
     "revm": "43.0.2",
     "revm_interpreter": "43.0.1"
   },
-  "taiko_geth_checked": "6cfe6e01062a1dfc00650bc6fe51ff3a0e30f6e4"
+  "taiko_geth_checked": "5f82a123d1fad44e98127e4217fddeebd03560f1"
 }
