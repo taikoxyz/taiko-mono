@@ -3,6 +3,10 @@ import ZkGasModel.Step.Basic
 import ZkGasModel.Step.Static
 import ZkGasModel.Step.Jump
 import ZkGasModel.Step.Exp
+import ZkGasModel.Step.Memory
+import ZkGasModel.Step.Copy
+import ZkGasModel.Step.Return
+import ZkGasModel.Step.Log
 
 /-!
 # The step model
@@ -25,9 +29,11 @@ step goes through the same stages:
    (`interpreter.rs:207-209`): gas after 0, branch `static_step_static_oog_spend_all`. Static
    gas comes before any stack, fork or jump check.
 3. The instruction body runs with the gas left after the static charge (`body`). Its checks
-   return `StackUnderflow`, `StackOverflow`, `InvalidJump`, `NotActivated`, `InvalidFEOpcode`
-   or `OpcodeNotFound`, which halt keeping the gas; a `gas!` charge that cannot be paid returns
-   `OutOfGas`, which spends all of it.
+   return `StackUnderflow`, `StackOverflow`, `InvalidJump`, `NotActivated`, `InvalidFEOpcode`,
+   `OpcodeNotFound`, `InvalidOperandOOG`, `MemoryOOG`, `OutOfOffset` or
+   `StateChangeDuringStaticCall`, which halt keeping the gas; a `gas!` charge that cannot be
+   paid, and a cold account load skipped for lack of gas, return `OutOfGas`, which spends all
+   of it. STOP, RETURN and REVERT end the frame keeping the gas.
 
 A later category adds a `Category` constructor, its `classify` case, a body file and a `body`
 case; the stages above stay as they are.
@@ -68,6 +74,22 @@ inductive Category
   | jumpi
   /-- JUMPDEST. -/
   | jumpdest
+  /-- MLOAD and MSTORE (`len` 32) and MSTORE8 (`len` 1). -/
+  | memoryAccess (len : Nat)
+  /-- MCOPY. -/
+  | mcopy
+  /-- KECCAK256. -/
+  | keccak
+  /-- CALLDATACOPY and CODECOPY. -/
+  | dataCopy
+  /-- RETURNDATACOPY. -/
+  | returndatacopy
+  /-- EXTCODECOPY. -/
+  | extcodecopy
+  /-- RETURN (`revert` false) and REVERT (`revert` true). -/
+  | ret (revert : Bool)
+  /-- LOG0..LOG4 with `n` topics. -/
+  | log (n : Nat)
   /-- An opcode that halts as soon as its body runs (not activated on Unzen, INVALID or
   undefined), with the branch it reports. -/
   | halt (branch : BranchId)
@@ -97,6 +119,16 @@ def classify (op : Nat) : Option Category :=
   else if op = 0x56 then some .jump
   else if op = 0x57 then some .jumpi
   else if op = 0x5b then some .jumpdest
+  else if op = 0x51 ∨ op = 0x52 then some (.memoryAccess 32)
+  else if op = 0x53 then some (.memoryAccess 1)
+  else if op = 0x5e then some .mcopy
+  else if op = 0x20 then some .keccak
+  else if op = 0x37 ∨ op = 0x39 then some .dataCopy
+  else if op = 0x3e then some .returndatacopy
+  else if op = 0x3c then some .extcodecopy
+  else if op = 0xf3 then some (.ret false)
+  else if op = 0xfd then some (.ret true)
+  else if 0xa0 ≤ op ∧ op ≤ 0xa4 then some (.log (op - 0xa0))
   else if 0x5f ≤ op ∧ op ≤ 0x7f then some .push
   else if 0x80 ≤ op ∧ op ≤ 0x8f then some (.dup (op - 0x7f))
   else if 0x90 ≤ op ∧ op ≤ 0x9f then some (.swap (op - 0x8f))
@@ -135,6 +167,14 @@ def body (pre : Pre) (gas : Nat) : Category → Except String StepResult
   | .jump => jumpStep pre gas
   | .jumpi => jumpiStep pre gas
   | .jumpdest => pure (jumpdestStep gas)
+  | .memoryAccess len => memoryAccessStep pre gas len
+  | .mcopy => mcopyStep pre gas
+  | .keccak => keccakStep pre gas
+  | .dataCopy => dataCopyStep pre gas
+  | .returndatacopy => returndatacopyStep pre gas
+  | .extcodecopy => extcodecopyStep pre gas
+  | .ret revert => returnStep pre gas revert
+  | .log n => logStep pre gas n
   | .halt branch => pure (haltStep gas branch)
 
 /-- The outcome of the step that runs from `pre` on fork `f`; `none` when the model does not

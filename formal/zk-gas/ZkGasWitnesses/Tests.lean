@@ -303,7 +303,8 @@ def skippedExpected : String :=
 Each `stepAgrees` guard runs `stepOutcome` on one step line copied verbatim from a committed
 reth trace, `testdata/zk_gas_vectors/traces/<vector>.jsonl` (events counted from 0, as the
 checker counts them), and expects that line's `gas_after`, the given outcome and branch. Every
-branch has at least one guard. -/
+branch has at least one guard; `memory_step_underflow_halt`, which no corpus step reaches, has
+guards on constructed pre-states after the trace lines. -/
 
 /-- Whether `stepOutcome` on the single step event `line` gives the line's `gas_after`, outcome
 `outcome` and branch `branch` and agrees with the line's `spawn`, and `branch.name` is the
@@ -549,6 +550,279 @@ def stepAgrees (line : String) (outcome : Outcome) (branch : BranchId) : Bool :=
   "{\"e\":\"step\",\"d\":1,\"pc\":2,\"op\":254,\"gas\":\"0x1869d\",\"static\":false,\"sl\":1,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1869d\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
   .haltKeep .undefined_invalid_zero_gas_halt
 
+-- log.log0.static_oog, event 3: LOG0 with 374 of its 375 static gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":3,\"op\":160,\"gas\":\"0x176\",\"static\":false,\"sl\":2,\"stack\":[\"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x462\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .static_step_static_oog_spend_all
+-- log.static_frame.log0_static_oog, event 9: LOG0 in a static frame with 374 gas: the static gas comes before the static-context check.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":2,\"pc\":2,\"op\":160,\"gas\":\"0x176\",\"static\":true,\"sl\":2,\"stack\":[\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x462\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .static_step_static_oog_spend_all
+-- memory.mload.expand_exact_gas, event 7: MLOAD at 0xfc00 with exactly its static 3 gas and the expansion from 0x8020 to 0xfc20 bytes.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":11,\"op\":81,\"gas\":\"0x22a8\",\"static\":false,\"sl\":1,\"stack\":[\"0xfc00\"],\"mem\":\"0x8020\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x26fd0\",\"ok\":true,\"charged\":true}"
+  .continue .memory_access_expansion_success
+-- memory.mload.expand_exact_gas, event 4: MLOAD inside current memory pays only its static 3 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":6,\"op\":81,\"gas\":\"0x22b0\",\"static\":false,\"sl\":1,\"stack\":[\"0x0\"],\"mem\":\"0x8020\",\"facts\":{},\"gas_after\":\"0x22ad\",\"spawn\":false,\"zk\":\"0x36\",\"ok\":true,\"charged\":true}"
+  .continue .memory_access_expansion_success
+-- memory.mstore8.expand_exact_gas, event 8: MSTORE8 with exactly its static 3 gas and the expansion of the one word its byte needs.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":14,\"op\":83,\"gas\":\"0x51c\",\"static\":false,\"sl\":2,\"stack\":[\"0x2c40\",\"0xef\"],\"mem\":\"0x40\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x3318\",\"ok\":true,\"charged\":true}"
+  .continue .memory_access_expansion_success
+-- memory.mstore.expand_memory_oog, event 8: MSTORE 1 gas short of its expansion keeps the gas after its static 3.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":14,\"op\":82,\"gas\":\"0xc63\",\"static\":false,\"sl\":2,\"stack\":[\"0x5a00\",\"0xef\"],\"mem\":\"0x60\",\"facts\":{},\"gas_after\":\"0xc60\",\"spawn\":false,\"zk\":\"0x57\",\"ok\":true,\"charged\":true}"
+  .haltKeep .memory_access_memory_oog_preserve
+-- memory.mload.size_above_cap, event 1: MLOAD whose memory size is above 0x1FFFFFFFE0 bytes: the saturated cost cannot be paid.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":6,\"op\":81,\"gas\":\"0x1869d\",\"static\":false,\"sl\":1,\"stack\":[\"0x2000000000\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1869a\",\"spawn\":false,\"zk\":\"0x36\",\"ok\":true,\"charged\":true}"
+  .haltKeep .memory_access_memory_oog_preserve
+-- memory.mload.word_rounding_above_u64, event 1: MLOAD whose size rounds up to 2^64 bytes.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":9,\"op\":81,\"gas\":\"0x1869d\",\"static\":false,\"sl\":1,\"stack\":[\"0xffffffffffffffdf\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1869a\",\"spawn\":false,\"zk\":\"0x36\",\"ok\":true,\"charged\":true}"
+  .haltKeep .memory_access_memory_oog_preserve
+-- memory.mstore8.offset_above_u64, event 2: MSTORE8 at offset 2^64.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":12,\"op\":83,\"gas\":\"0x1869a\",\"static\":false,\"sl\":2,\"stack\":[\"0x10000000000000000\",\"0x1\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18697\",\"spawn\":false,\"zk\":\"0x1e\",\"ok\":true,\"charged\":true}"
+  .haltKeep .memory_access_offset_above_u64_preserve
+-- memory.mcopy.size_above_u64, event 3: MCOPY of 2^64 bytes halts before its copy cost.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":12,\"op\":94,\"gas\":\"0x18699\",\"static\":false,\"sl\":3,\"stack\":[\"0x0\",\"0x0\",\"0x10000000000000000\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18696\",\"spawn\":false,\"zk\":\"0xc\",\"ok\":true,\"charged\":true}"
+  .haltKeep .memory_mcopy_size_above_u64_preserve
+-- memory.mcopy.copy_oog, event 11: MCOPY that cannot pay 3 gas per word spends all gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":20,\"op\":94,\"gas\":\"0x4a\",\"static\":false,\"sl\":3,\"stack\":[\"0x60\",\"0x1000\",\"0x300\"],\"mem\":\"0x60\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x128\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .memory_mcopy_copy_oog_spend_all
+-- memory.mcopy.dst_above_u64_copy_oog, event 3: MCOPY to dst 2^64 that cannot pay its copy cost: the copy cost comes first.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":16,\"op\":94,\"gas\":\"0x18698\",\"static\":false,\"sl\":3,\"stack\":[\"0x10000000000000000\",\"0x0\",\"0x1000000\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x61a60\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .memory_mcopy_copy_oog_spend_all
+-- memory.mcopy.zero_size_huge_operands, event 3: MCOPY of length 0 with dst and src 2^256 - 1.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":67,\"op\":94,\"gas\":\"0x18698\",\"static\":false,\"sl\":3,\"stack\":[\"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18695\",\"spawn\":false,\"zk\":\"0xc\",\"ok\":true,\"charged\":true}"
+  .continue .memory_mcopy_zero_size_no_expansion
+-- memory.mcopy.dst_above_u64, event 3: MCOPY to dst 2^64 halts after its copy cost.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":13,\"op\":94,\"gas\":\"0x18698\",\"static\":false,\"sl\":3,\"stack\":[\"0x10000000000000000\",\"0x0\",\"0x1\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18692\",\"spawn\":false,\"zk\":\"0x18\",\"ok\":true,\"charged\":true}"
+  .haltKeep .memory_mcopy_dst_above_u64_preserve
+-- memory.mcopy.src_above_u64, event 3: MCOPY from src 2^64 halts after its copy cost.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":13,\"op\":94,\"gas\":\"0x18698\",\"static\":false,\"sl\":3,\"stack\":[\"0x0\",\"0x10000000000000000\",\"0x1\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18692\",\"spawn\":false,\"zk\":\"0x18\",\"ok\":true,\"charged\":true}"
+  .haltKeep .memory_mcopy_src_above_u64_preserve
+-- memory.mcopy.expand_memory_oog, event 11: MCOPY that pays its copy cost but not its expansion.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":20,\"op\":94,\"gas\":\"0x236\",\"static\":false,\"sl\":3,\"stack\":[\"0x60\",\"0x1000\",\"0x300\"],\"mem\":\"0x60\",\"facts\":{},\"gas_after\":\"0x1eb\",\"spawn\":false,\"zk\":\"0x12c\",\"ok\":true,\"charged\":true}"
+  .haltKeep .memory_mcopy_memory_oog_preserve
+-- memory.mcopy.expand_exact_gas, event 11: MCOPY with exactly its static, copy and expansion gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":20,\"op\":94,\"gas\":\"0x237\",\"static\":false,\"sl\":3,\"stack\":[\"0x60\",\"0x1000\",\"0x300\"],\"mem\":\"0x60\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x8dc\",\"ok\":true,\"charged\":true}"
+  .continue .memory_mcopy_expansion_success
+-- memory.mcopy.overlap, event 6: MCOPY of 32 bytes from offset 0 to offset 1 pays one word of copy cost and one word of expansion.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":40,\"op\":94,\"gas\":\"0x1868d\",\"static\":false,\"sl\":3,\"stack\":[\"0x1\",\"0x0\",\"0x20\"],\"mem\":\"0x20\",\"facts\":{},\"gas_after\":\"0x18684\",\"spawn\":false,\"zk\":\"0x24\",\"ok\":true,\"charged\":true}"
+  .continue .memory_mcopy_expansion_success
+-- keccak.keccak256.size_above_u64, event 2: KECCAK256 of 2^64 bytes halts before its word cost.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":11,\"op\":32,\"gas\":\"0x1869b\",\"static\":false,\"sl\":2,\"stack\":[\"0x0\",\"0x10000000000000000\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1867d\",\"spawn\":false,\"zk\":\"0x3a2\",\"ok\":true,\"charged\":true}"
+  .haltKeep .keccak_keccak256_size_above_u64_preserve
+-- keccak.keccak256.word_oog, event 10: KECCAK256 that cannot pay 6 gas per word spends all gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":16,\"op\":32,\"gas\":\"0x31d\",\"static\":false,\"sl\":2,\"stack\":[\"0x40\",\"0x1000\"],\"mem\":\"0x40\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x6083\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .keccak_keccak256_word_oog_spend_all
+-- keccak.keccak256.offset_above_u64_word_oog, event 2: KECCAK256 at offset 2^64 that cannot pay its word cost: the word cost comes first.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":16,\"op\":32,\"gas\":\"0x1869a\",\"static\":false,\"sl\":2,\"stack\":[\"0x10000000000000000\",\"0x100000000\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x2f4ca6\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .keccak_keccak256_word_oog_spend_all
+-- keccak.keccak256.zero_size_huge_offset, event 2: KECCAK256 of length 0 at offset 2^256 - 1.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":34,\"op\":32,\"gas\":\"0x1869b\",\"static\":false,\"sl\":2,\"stack\":[\"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1867d\",\"spawn\":false,\"zk\":\"0x3a2\",\"ok\":true,\"charged\":true}"
+  .continue .keccak_keccak256_zero_size_no_expansion
+-- keccak.keccak256.offset_above_u64, event 2: KECCAK256 at offset 2^64 halts after its word cost.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":12,\"op\":32,\"gas\":\"0x1869a\",\"static\":false,\"sl\":2,\"stack\":[\"0x10000000000000000\",\"0x1\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18676\",\"spawn\":false,\"zk\":\"0x45c\",\"ok\":true,\"charged\":true}"
+  .haltKeep .keccak_keccak256_offset_above_u64_preserve
+-- keccak.keccak256.expand_memory_oog, event 10: KECCAK256 that pays its word cost but not its expansion.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":16,\"op\":32,\"gas\":\"0x4be\",\"static\":false,\"sl\":2,\"stack\":[\"0x40\",\"0x1000\"],\"mem\":\"0x40\",\"facts\":{},\"gas_after\":\"0x1a0\",\"spawn\":false,\"zk\":\"0x60a2\",\"ok\":true,\"charged\":true}"
+  .haltKeep .keccak_keccak256_memory_oog_preserve
+-- keccak.keccak256.end_above_u64, event 2: KECCAK256 whose offset + len passes 2^64.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":11,\"op\":32,\"gas\":\"0x1869a\",\"static\":false,\"sl\":2,\"stack\":[\"0xffffffffffffffff\",\"0x1\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18676\",\"spawn\":false,\"zk\":\"0x45c\",\"ok\":true,\"charged\":true}"
+  .haltKeep .keccak_keccak256_memory_oog_preserve
+-- keccak.keccak256.expand_exact_gas, event 10: KECCAK256 with exactly its static, word and expansion gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":16,\"op\":32,\"gas\":\"0x4bf\",\"static\":false,\"sl\":2,\"stack\":[\"0x40\",\"0x1000\"],\"mem\":\"0x40\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x9321\",\"ok\":true,\"charged\":true}"
+  .continue .keccak_keccak256_expansion_success
+-- copy.codecopy.size_above_u64, event 3: CODECOPY of 2^64 bytes halts before its copy cost.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":12,\"op\":57,\"gas\":\"0x18699\",\"static\":false,\"sl\":3,\"stack\":[\"0x0\",\"0x0\",\"0x10000000000000000\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18696\",\"spawn\":false,\"zk\":\"0x24\",\"ok\":true,\"charged\":true}"
+  .haltKeep .copy_datacopy_size_above_u64_preserve
+-- copy.calldatacopy.copy_oog, event 11: CALLDATACOPY that cannot pay 3 gas per word spends all gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":17,\"op\":55,\"gas\":\"0x1e2\",\"static\":false,\"sl\":3,\"stack\":[\"0x60\",\"0x0\",\"0x1400\"],\"mem\":\"0x60\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x187a\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .copy_datacopy_copy_oog_spend_all
+-- copy.codecopy.size_above_cap_copy_oog, event 3: CODECOPY above the memory cap that cannot pay its copy cost: the copy cost comes first.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":12,\"op\":57,\"gas\":\"0x18698\",\"static\":false,\"sl\":3,\"stack\":[\"0x2000000000\",\"0x0\",\"0x1000000\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x124f20\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .copy_datacopy_copy_oog_spend_all
+-- copy.codecopy.zero_size_huge_offset, event 3: CODECOPY of length 0 at memory offset 2^256 - 1.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":67,\"op\":57,\"gas\":\"0x18698\",\"static\":false,\"sl\":3,\"stack\":[\"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18695\",\"spawn\":false,\"zk\":\"0x24\",\"ok\":true,\"charged\":true}"
+  .continue .copy_datacopy_zero_size_no_expansion
+-- copy.calldatacopy.offset_above_u64, event 3: CALLDATACOPY to memory offset 2^64 halts after its copy cost.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":13,\"op\":55,\"gas\":\"0x18698\",\"static\":false,\"sl\":3,\"stack\":[\"0x10000000000000000\",\"0x0\",\"0x1\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18692\",\"spawn\":false,\"zk\":\"0x4e\",\"ok\":true,\"charged\":true}"
+  .haltKeep .copy_datacopy_offset_above_u64_preserve
+-- copy.codecopy.expand_memory_oog, event 11: CODECOPY that pays its copy cost but not its expansion.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":17,\"op\":57,\"gas\":\"0x3f5\",\"static\":false,\"sl\":3,\"stack\":[\"0x60\",\"0x0\",\"0x1400\"],\"mem\":\"0x60\",\"facts\":{},\"gas_after\":\"0x212\",\"spawn\":false,\"zk\":\"0x16a4\",\"ok\":true,\"charged\":true}"
+  .haltKeep .copy_datacopy_memory_oog_preserve
+-- copy.calldatacopy.expand_exact_gas, event 11: CALLDATACOPY with exactly its static, copy and expansion gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":17,\"op\":55,\"gas\":\"0x3f6\",\"static\":false,\"sl\":3,\"stack\":[\"0x60\",\"0x0\",\"0x1400\"],\"mem\":\"0x60\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x337e\",\"ok\":true,\"charged\":true}"
+  .continue .copy_datacopy_expansion_success
+-- copy.codecopy.expand_exact_gas, event 11: CODECOPY with exactly its static, copy and expansion gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":17,\"op\":57,\"gas\":\"0x3f6\",\"static\":false,\"sl\":3,\"stack\":[\"0x60\",\"0x0\",\"0x1400\"],\"mem\":\"0x60\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x2f88\",\"ok\":true,\"charged\":true}"
+  .continue .copy_datacopy_expansion_success
+-- copy.returndatacopy.size_above_u64, event 17: RETURNDATACOPY of 2^64 bytes halts before the range check.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":22,\"op\":62,\"gas\":\"0x17c4f\",\"static\":false,\"sl\":3,\"stack\":[\"0x0\",\"0x0\",\"0x10000000000000000\"],\"mem\":\"0x0\",\"facts\":{\"returndata_size\":\"0x40\"},\"gas_after\":\"0x17c4c\",\"spawn\":false,\"zk\":\"0x1e\",\"ok\":true,\"charged\":true}"
+  .haltKeep .copy_returndatacopy_size_above_u64_preserve
+-- copy.returndatacopy.range_past_end, event 17: RETURNDATACOPY of a range ending one byte past the return data.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":15,\"op\":62,\"gas\":\"0x17c4e\",\"static\":false,\"sl\":3,\"stack\":[\"0x0\",\"0x21\",\"0x20\"],\"mem\":\"0x0\",\"facts\":{\"returndata_size\":\"0x40\"},\"gas_after\":\"0x17c4b\",\"spawn\":false,\"zk\":\"0x1e\",\"ok\":true,\"charged\":true}"
+  .haltKeep .copy_returndatacopy_out_of_bounds_preserve
+-- copy.returndatacopy.out_of_bounds_copy_unpayable, event 17: An out-of-bounds RETURNDATACOPY whose copy cost could not be paid: the range check comes first.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":15,\"op\":62,\"gas\":\"0x4\",\"static\":false,\"sl\":3,\"stack\":[\"0x0\",\"0x21\",\"0x20\"],\"mem\":\"0x0\",\"facts\":{\"returndata_size\":\"0x40\"},\"gas_after\":\"0x1\",\"spawn\":false,\"zk\":\"0x1e\",\"ok\":true,\"charged\":true}"
+  .haltKeep .copy_returndatacopy_out_of_bounds_preserve
+-- copy.returndatacopy.copy_oog, event 25: RETURNDATACOPY of an in-bounds range that cannot pay its copy cost.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":27,\"op\":62,\"gas\":\"0x8\",\"static\":false,\"sl\":3,\"stack\":[\"0x60\",\"0x0\",\"0x40\"],\"mem\":\"0x60\",\"facts\":{\"returndata_size\":\"0x40\"},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x50\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .copy_returndatacopy_copy_oog_spend_all
+-- copy.returndatacopy.zero_size_at_end, event 17: RETURNDATACOPY of length 0 at the end of the return data.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":46,\"op\":62,\"gas\":\"0x17c4e\",\"static\":false,\"sl\":3,\"stack\":[\"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"0x40\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"returndata_size\":\"0x40\"},\"gas_after\":\"0x17c4b\",\"spawn\":false,\"zk\":\"0x1e\",\"ok\":true,\"charged\":true}"
+  .continue .copy_returndatacopy_zero_size_no_expansion
+-- copy.returndatacopy.offset_above_u64, event 17: RETURNDATACOPY to memory offset 2^64 halts after its copy cost.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":23,\"op\":62,\"gas\":\"0x17c4e\",\"static\":false,\"sl\":3,\"stack\":[\"0x10000000000000000\",\"0x0\",\"0x1\"],\"mem\":\"0x0\",\"facts\":{\"returndata_size\":\"0x40\"},\"gas_after\":\"0x17c48\",\"spawn\":false,\"zk\":\"0x3c\",\"ok\":true,\"charged\":true}"
+  .haltKeep .copy_returndatacopy_offset_above_u64_preserve
+-- copy.returndatacopy.expand_memory_oog, event 25: RETURNDATACOPY that pays its copy cost but not its expansion.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":27,\"op\":62,\"gas\":\"0xe\",\"static\":false,\"sl\":3,\"stack\":[\"0x60\",\"0x0\",\"0x40\"],\"mem\":\"0x60\",\"facts\":{\"returndata_size\":\"0x40\"},\"gas_after\":\"0x5\",\"spawn\":false,\"zk\":\"0x5a\",\"ok\":true,\"charged\":true}"
+  .haltKeep .copy_returndatacopy_memory_oog_preserve
+-- copy.returndatacopy.expand_exact_gas, event 25: RETURNDATACOPY with exactly its static, copy and expansion gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":27,\"op\":62,\"gas\":\"0xf\",\"static\":false,\"sl\":3,\"stack\":[\"0x60\",\"0x0\",\"0x40\"],\"mem\":\"0x60\",\"facts\":{\"returndata_size\":\"0x40\"},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x96\",\"ok\":true,\"charged\":true}"
+  .continue .copy_returndatacopy_expansion_success
+-- copy.extcodecopy.size_above_u64, event 4: EXTCODECOPY of 2^64 bytes halts before its copy cost and the cold surcharge.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":15,\"op\":60,\"gas\":\"0x18696\",\"static\":false,\"sl\":4,\"stack\":[\"0xda7a\",\"0x0\",\"0x0\",\"0x10000000000000000\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false},\"gas_after\":\"0x18632\",\"spawn\":false,\"zk\":\"0x190\",\"ok\":true,\"charged\":true}"
+  .haltKeep .copy_extcodecopy_size_above_u64_preserve
+-- copy.extcodecopy.copy_oog, event 4: EXTCODECOPY that cannot pay 3 gas per word spends all gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":8,\"op\":60,\"gas\":\"0x69\",\"static\":false,\"sl\":4,\"stack\":[\"0xda7a\",\"0x20\",\"0x0\",\"0x40\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x1a4\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .copy_extcodecopy_copy_oog_spend_all
+-- copy.extcodecopy.offset_above_u64, event 4: EXTCODECOPY to memory offset 2^64 halts after its copy cost, before the cold surcharge.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":16,\"op\":60,\"gas\":\"0x18695\",\"static\":false,\"sl\":4,\"stack\":[\"0xda7a\",\"0x10000000000000000\",\"0x0\",\"0x1\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false},\"gas_after\":\"0x1862e\",\"spawn\":false,\"zk\":\"0x19c\",\"ok\":true,\"charged\":true}"
+  .haltKeep .copy_extcodecopy_offset_above_u64_preserve
+-- copy.extcodecopy.cold_memory_oog, event 4: EXTCODECOPY of a cold account that cannot pay its expansion halts before the cold surcharge.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":8,\"op\":60,\"gas\":\"0x72\",\"static\":false,\"sl\":4,\"stack\":[\"0xda7a\",\"0x20\",\"0x0\",\"0x40\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false},\"gas_after\":\"0x8\",\"spawn\":false,\"zk\":\"0x1a8\",\"ok\":true,\"charged\":true}"
+  .haltKeep .copy_extcodecopy_memory_oog_preserve
+-- copy.extcodecopy.cold_surcharge_oog, event 4: EXTCODECOPY 1 gas short of the cold surcharge after its copy and expansion.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":8,\"op\":60,\"gas\":\"0xa36\",\"static\":false,\"sl\":4,\"stack\":[\"0xda7a\",\"0x20\",\"0x0\",\"0x40\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x28d8\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .copy_extcodecopy_cold_surcharge_oog_spend_all
+-- copy.extcodecopy.zero_size_cold_surcharge_oog, event 4: EXTCODECOPY of length 0 short of the cold surcharge.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":38,\"op\":60,\"gas\":\"0xa27\",\"static\":false,\"sl\":4,\"stack\":[\"0xda7a\",\"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x289c\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .copy_extcodecopy_cold_surcharge_oog_spend_all
+-- copy.extcodecopy.cold_exact_gas, event 4: EXTCODECOPY of a cold account with exactly 100 + copy + expansion + 2,500 gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":8,\"op\":60,\"gas\":\"0xa37\",\"static\":false,\"sl\":4,\"stack\":[\"0xda7a\",\"0x20\",\"0x0\",\"0x40\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x28dc\",\"ok\":true,\"charged\":true}"
+  .continue .copy_extcodecopy_cold_success
+-- copy.extcodecopy.zero_size_cold, event 4: EXTCODECOPY of length 0 at memory offset 2^256 - 1 still pays the cold surcharge.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":38,\"op\":60,\"gas\":\"0x18696\",\"static\":false,\"sl\":4,\"stack\":[\"0xda7a\",\"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false},\"gas_after\":\"0x17c6e\",\"spawn\":false,\"zk\":\"0x28a0\",\"ok\":true,\"charged\":true}"
+  .continue .copy_extcodecopy_cold_success
+-- copy.extcodecopy.warm_exact_gas, event 7: EXTCODECOPY of a warm account pays no surcharge.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":13,\"op\":60,\"gas\":\"0x73\",\"static\":false,\"sl\":4,\"stack\":[\"0xda7a\",\"0x20\",\"0x0\",\"0x40\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x1cc\",\"ok\":true,\"charged\":true}"
+  .continue .copy_extcodecopy_warm_success
+-- return.revert.size_above_u64, event 2: REVERT of 2^64 bytes.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":11,\"op\":253,\"gas\":\"0x1869b\",\"static\":false,\"sl\":2,\"stack\":[\"0x0\",\"0x10000000000000000\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1869b\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .haltKeep .return_inner_size_above_u64_halt
+-- return.return.offset_above_u64, event 2: RETURN at offset 2^64 with a non-zero length.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":12,\"op\":243,\"gas\":\"0x1869a\",\"static\":false,\"sl\":2,\"stack\":[\"0x10000000000000000\",\"0x1\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1869a\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .haltKeep .return_inner_offset_above_u64_halt
+-- return.revert.expand_memory_oog, event 5: REVERT 1 gas short of its expansion halts.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":11,\"op\":253,\"gas\":\"0x17\",\"static\":false,\"sl\":2,\"stack\":[\"0x10\",\"0x200\"],\"mem\":\"0x120\",\"facts\":{},\"gas_after\":\"0x17\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .haltKeep .return_inner_memory_oog_halt
+-- return.return.expand_exact_gas, event 5: RETURN with exactly its expansion gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":11,\"op\":243,\"gas\":\"0x18\",\"static\":false,\"sl\":2,\"stack\":[\"0x10\",\"0x200\"],\"mem\":\"0x120\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .success .return_return_expansion_success
+-- return.return.zero_size_huge_offset, event 2: RETURN of length 0 at offset 2^256 - 1.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":34,\"op\":243,\"gas\":\"0x1869b\",\"static\":false,\"sl\":2,\"stack\":[\"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1869b\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .success .return_return_expansion_success
+-- return.revert.expand_exact_gas, event 5: REVERT with exactly its expansion gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":11,\"op\":253,\"gas\":\"0x18\",\"static\":false,\"sl\":2,\"stack\":[\"0x10\",\"0x200\"],\"mem\":\"0x120\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .revert .return_revert_expansion_revert
+-- log.static_frame.log2_dynamic_oog, event 11: LOG2 in a static frame short of its dynamic costs pays only its 375 static gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":2,\"pc\":7,\"op\":162,\"gas\":\"0x66a\",\"static\":true,\"sl\":4,\"stack\":[\"0x0\",\"0x40\",\"0xa0\",\"0xa1\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x4f3\",\"spawn\":false,\"zk\":\"0x2ee\",\"ok\":true,\"charged\":true}"
+  .haltKeep .log_static_frame_halt_preserve
+-- log.static_frame.log0_underflow, event 8: LOG0 in a static frame on one item: the static-context check comes before the pops.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":2,\"pc\":2,\"op\":160,\"gas\":\"0x270d\",\"static\":true,\"sl\":1,\"stack\":[\"0x20\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x2596\",\"spawn\":false,\"zk\":\"0x465\",\"ok\":true,\"charged\":true}"
+  .haltKeep .log_static_frame_halt_preserve
+-- log.log0.underflow, event 1: LOG0 on one item pays its static gas, then halts on the offset and length pops.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":2,\"op\":160,\"gas\":\"0x1869d\",\"static\":false,\"sl\":1,\"stack\":[\"0x20\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18526\",\"spawn\":false,\"zk\":\"0x465\",\"ok\":true,\"charged\":true}"
+  .haltKeep .log_logn_stack_underflow_preserve
+-- log.log2.size_above_u64, event 4: LOG2 of 2^64 bytes halts before its topic and data cost.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":15,\"op\":162,\"gas\":\"0x18695\",\"static\":false,\"sl\":4,\"stack\":[\"0x0\",\"0x10000000000000000\",\"0xa0\",\"0xa1\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1851e\",\"spawn\":false,\"zk\":\"0x2ee\",\"ok\":true,\"charged\":true}"
+  .haltKeep .log_logn_size_above_u64_preserve
+-- log.log2.zero_size_topic_oog, event 10: LOG2 of length 0 that cannot pay 2 * 375 for its topics.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":15,\"op\":162,\"gas\":\"0x464\",\"static\":false,\"sl\":4,\"stack\":[\"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"0x0\",\"0xa0\",\"0xa1\"],\"mem\":\"0x40\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x8c8\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .log_logn_cost_oog_spend_all
+-- log.log1.inside_memory_data_oog, event 7: LOG1 inside current memory that cannot pay its topic and data cost.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":12,\"op\":161,\"gas\":\"0x475\",\"static\":false,\"sl\":3,\"stack\":[\"0x8\",\"0x31\",\"0xa0\"],\"mem\":\"0x40\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0xd5f\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .log_logn_cost_oog_spend_all
+-- log.log1.offset_above_u64, event 3: LOG1 at offset 2^64 halts after its topic and data cost.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":14,\"op\":161,\"gas\":\"0x18697\",\"static\":false,\"sl\":3,\"stack\":[\"0x10000000000000000\",\"0x20\",\"0xa0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x182a9\",\"spawn\":false,\"zk\":\"0xbca\",\"ok\":true,\"charged\":true}"
+  .haltKeep .log_logn_offset_above_u64_preserve
+-- log.log3.expand_memory_oog, event 11: LOG3 that pays its topic and data cost but not its expansion.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":20,\"op\":163,\"gas\":\"0x5f1\",\"static\":false,\"sl\":5,\"stack\":[\"0x3f\",\"0x2\",\"0xa0\",\"0xa1\",\"0xa2\"],\"mem\":\"0x20\",\"facts\":{},\"gas_after\":\"0x5\",\"spawn\":false,\"zk\":\"0xbd8\",\"ok\":true,\"charged\":true}"
+  .haltKeep .log_logn_memory_oog_preserve
+-- log.log4.topics_underflow, event 2: LOG4 with its offset and length but too few topics pays every cost, then halts on the topic pop.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":3,\"op\":164,\"gas\":\"0x1869b\",\"static\":false,\"sl\":2,\"stack\":[\"0x0\",\"0x40\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x17d42\",\"spawn\":false,\"zk\":\"0x12b2\",\"ok\":true,\"charged\":true}"
+  .haltKeep .log_topics_underflow_preserve
+-- log.log4.expand_exact_gas, event 13: LOG4 with exactly 375 + 4 * 375 + 8 per byte + expansion gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":25,\"op\":164,\"gas\":\"0xb53\",\"static\":false,\"sl\":6,\"stack\":[\"0x80\",\"0x80\",\"0xa0\",\"0xa1\",\"0xa2\",\"0xa3\"],\"mem\":\"0x100\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x16a6\",\"ok\":true,\"charged\":true}"
+  .continue .log_logn_success
+-- log.log0.zero_size_exact_gas, event 3: LOG0 of length 0 pays only its static gas.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":3,\"op\":160,\"gas\":\"0x177\",\"static\":false,\"sl\":2,\"stack\":[\"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x465\",\"ok\":true,\"charged\":true}"
+  .continue .log_logn_success
+
 /-- A JUMP pre-state with `sl` stack items (target 4) and facts `facts`. -/
 def jumpPre (sl : Nat) (facts : Facts) : Pre :=
   { op := 0x56, depth := 1, pc := 0, gas := 100, static := false, stackLen := sl,
@@ -563,9 +837,27 @@ def jumpPre (sl : Nat) (facts : Facts) : Pre :=
 -- An underflowing JUMP reads no fact.
 #guard stepOutcome .unzen (jumpPre 0 {}) =
   .ok (some { gasAfter := 92, outcome := .haltKeep, branch := .static_jump_underflow_halt })
--- Opcodes of the later categories are not modeled yet: SLOAD, MLOAD, CALL.
-#guard [0x54, 0x51, 0xf1].all fun op =>
+-- Opcodes of the later categories are not modeled yet: SLOAD, BALANCE, CALL.
+#guard [0x54, 0x31, 0xf1].all fun op =>
   stepOutcome .unzen { jumpPre 0 {} with op } == .ok none
+-- No corpus step pops too few items for MLOAD..RETURN and REVERT; on an empty stack each pays
+-- its static gas (100 for EXTCODECOPY, 30 for KECCAK256, 3 or 0 for the rest) and halts.
+#guard [(0x51, 97), (0x52, 97), (0x53, 97), (0x5e, 97), (0x20, 70), (0x37, 97), (0x39, 97),
+    (0x3e, 97), (0x3c, 0), (0xf3, 100), (0xfd, 100)].all fun (op, gasAfter) =>
+  stepOutcome .unzen { jumpPre 0 {} with op } ==
+    .ok (some { gasAfter, outcome := .haltKeep, branch := .memory_step_underflow_halt })
+-- RETURN with one of its two items.
+#guard stepOutcome .unzen { jumpPre 1 {} with op := 0xf3 } =
+  .ok (some { gasAfter := 100, outcome := .haltKeep, branch := .memory_step_underflow_halt })
+-- RETURNDATACOPY needs returndata_size and EXTCODECOPY account_warm once their operands are on
+-- the stack; a memory size that is not whole words is an error.
+#guard failsWith (stepOutcome .unzen
+  { jumpPre 0 {} with op := 0x3e, stackLen := 3, stack := [0, 0, 1] }) "returndata_size"
+#guard failsWith (stepOutcome .unzen
+  { jumpPre 0 {} with op := 0x3c, gas := 3000, stackLen := 4, stack := [1, 0, 0, 1] })
+  "account_warm"
+#guard failsWith (stepOutcome .unzen
+  { jumpPre 0 {} with op := 0x51, stackLen := 1, stack := [0], mem := 33 }) "mem"
 -- The smoke harness trace with the step model: every step is modeled.
 #guard run smokeHarnessVector smokeHarness (requireModeled stepModel) =
   .ok { events := 5, steps := 4,

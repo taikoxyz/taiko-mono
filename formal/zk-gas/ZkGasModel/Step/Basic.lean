@@ -33,7 +33,9 @@ inductive Outcome
   `revert`. -/
   | revert
   /-- The frame halts and keeps its remaining gas: a halt other than out of gas (stack
-  underflow or overflow, an invalid jump, an opcode not activated or not defined).
+  underflow or overflow, an invalid jump, an opcode not activated or not defined, an operand of
+  2^64 or more (`InvalidOperandOOG`), a memory expansion the frame cannot pay (`MemoryOOG`), a
+  return data range out of bounds (`OutOfOffset`), a LOG in a static frame).
   `Interpreter::halt` spends the remaining gas only for `OutOfGas`. Frame status `halt`. -/
   | haltKeep
   /-- The frame halts out of gas, which spends all its remaining gas (`Interpreter::halt` on
@@ -48,14 +50,23 @@ inductive Outcome
 A branch is named after the phase-1 coverage cell (`testdata/zk_gas_vectors/coverage.json`) it
 models, with the dots replaced by underscores. Where one branch models several cells, or no cell
 names the branch, the constructor's comment lists the cells it covers; new names keep the
-cells' `group_opcode_outcome` shape. -/
+cells' `group_opcode_outcome` shape.
+
+Opcodes that run the same sequence of checks share a branch per check that ends the step and
+outcome (MLOAD, MSTORE and MSTORE8; CALLDATACOPY and CODECOPY; RETURN and REVERT until they
+end; LOG0..LOG4). Cells that differ only in the operands that make one check fail (a memory
+size that is one gas short, passes 2^64, rounds up to 2^64 or is above 0x1FFFFFFFE0 bytes all
+fail the expansion charge) share that check's branch. A zero length that returns early is its
+own branch; one that only skips the memory checks before a later check (RETURN and REVERT, LOG,
+EXTCODECOPY) shares the branch of the check that ends the step. -/
 inductive BranchId
   /-- Any modeled opcode that cannot pay its static gas: `Interpreter::step` returns `OutOfGas`
   before the instruction runs, and the halt spends all remaining gas. Cells
   `static.step.static_oog_spend_all`, `static.env.selfbalance_static_oog_spend_all`,
-  `static.env.blockhash_static_oog_spend_all`, `notactivated.dupn.static_oog_spend_all`, and
-  the out-of-gas half of `static.step.oog_before_underflow` and
-  `static.step.oog_before_overflow`. -/
+  `static.env.blockhash_static_oog_spend_all`, `notactivated.dupn.static_oog_spend_all`,
+  `log.logn.static_oog_spend_all`, `log.topics.static_oog_before_underflow_spend_all`,
+  `log.static_frame.static_oog_spend_all`, and the out-of-gas half of
+  `static.step.oog_before_underflow` and `static.step.oog_before_overflow`. -/
   | static_step_static_oog_spend_all
   /-- STOP ends the frame successfully keeping its gas (new name; no cell). -/
   | static_stop_halt
@@ -134,6 +145,165 @@ inductive BranchId
   | notactivated_swapn_static_then_halt
   /-- EXCHANGE (0xe8): static gas, then not activated before Amsterdam. -/
   | notactivated_exchange_static_then_halt
+  /-- MLOAD, MSTORE, MSTORE8, MCOPY, KECCAK256, CALLDATACOPY, CODECOPY, RETURNDATACOPY,
+  EXTCODECOPY, RETURN or REVERT on fewer stack items than it pops (`popn!` or `popn_top!`:
+  `StackUnderflow`, before any dynamic charge), keeping the gas left after the static charge
+  (new name; no cell, and no corpus step). -/
+  | memory_step_underflow_halt
+  /-- MLOAD, MSTORE or MSTORE8 that pays the expansion to its offset + 32 (offset + 1 for
+  MSTORE8), or needs none inside current memory (new name; cells `memory.mload.expansion_success`,
+  `memory.mstore.expansion_success` and `memory.mstore8.expansion_success`). -/
+  | memory_access_expansion_success
+  /-- MLOAD, MSTORE or MSTORE8 at an offset of 2^64 or more: `InvalidOperandOOG`, keeping the
+  gas (new name; cells `memory.mload.offset_above_u64_preserve`,
+  `memory.mstore.offset_above_u64_preserve` and `memory.mstore8.offset_above_u64_preserve`). -/
+  | memory_access_offset_above_u64_preserve
+  /-- MLOAD, MSTORE or MSTORE8 that cannot pay its expansion: `MemoryOOG`, keeping the gas (new
+  name; cells `memory.mload.memory_oog_preserve`, `memory.mload.end_overflow_preserve`,
+  `memory.mload.word_rounding_overflow_preserve`, `memory.mload.size_above_cap_preserve`,
+  `memory.mstore.memory_oog_preserve`, `memory.mstore.size_above_cap_preserve`,
+  `memory.mstore8.memory_oog_preserve`, `memory.mstore8.end_overflow_preserve` and
+  `memory.mstore8.size_above_cap_preserve`). -/
+  | memory_access_memory_oog_preserve
+  /-- MCOPY of 2^64 bytes or more, before its copy cost. -/
+  | memory_mcopy_size_above_u64_preserve
+  /-- MCOPY that cannot pay its copy cost; also
+  `memory.mcopy.copy_oog_before_memory_checks_spend_all`. -/
+  | memory_mcopy_copy_oog_spend_all
+  /-- MCOPY of length 0: its copy cost is 0 and it checks neither offset. -/
+  | memory_mcopy_zero_size_no_expansion
+  /-- MCOPY with dst of 2^64 or more, after its copy cost. -/
+  | memory_mcopy_dst_above_u64_preserve
+  /-- MCOPY with src of 2^64 or more, after its copy cost. -/
+  | memory_mcopy_src_above_u64_preserve
+  /-- MCOPY that pays its copy cost but not its expansion; also
+  `memory.mcopy.end_overflow_preserve`, `memory.mcopy.word_rounding_overflow_preserve` and
+  `memory.mcopy.size_above_cap_preserve`. -/
+  | memory_mcopy_memory_oog_preserve
+  /-- MCOPY that pays its copy cost and expansion; also `memory.mcopy.overlap_success`. -/
+  | memory_mcopy_expansion_success
+  /-- KECCAK256 of 2^64 bytes or more, before its word cost. -/
+  | keccak_keccak256_size_above_u64_preserve
+  /-- KECCAK256 that cannot pay its word cost; also
+  `keccak.keccak256.word_oog_before_memory_checks_spend_all`. -/
+  | keccak_keccak256_word_oog_spend_all
+  /-- KECCAK256 of length 0: no word cost and no offset check. -/
+  | keccak_keccak256_zero_size_no_expansion
+  /-- KECCAK256 at an offset of 2^64 or more, after its word cost. -/
+  | keccak_keccak256_offset_above_u64_preserve
+  /-- KECCAK256 that pays its word cost but not its expansion; also
+  `keccak.keccak256.end_overflow_preserve`, `keccak.keccak256.word_rounding_overflow_preserve`
+  and `keccak.keccak256.size_above_cap_preserve`. -/
+  | keccak_keccak256_memory_oog_preserve
+  /-- KECCAK256 that pays its word cost and expansion. -/
+  | keccak_keccak256_expansion_success
+  /-- CALLDATACOPY or CODECOPY of 2^64 bytes or more, before its copy cost (new name; cells
+  `copy.calldatacopy.size_above_u64_preserve` and `copy.codecopy.size_above_u64_preserve`). -/
+  | copy_datacopy_size_above_u64_preserve
+  /-- CALLDATACOPY or CODECOPY that cannot pay its copy cost (new name; cells
+  `copy.calldatacopy.copy_oog_spend_all`,
+  `copy.calldatacopy.copy_oog_before_memory_checks_spend_all`, `copy.codecopy.copy_oog_spend_all`
+  and `copy.codecopy.copy_oog_before_memory_checks_spend_all`). -/
+  | copy_datacopy_copy_oog_spend_all
+  /-- CALLDATACOPY or CODECOPY of length 0 (new name; cells
+  `copy.calldatacopy.zero_size_no_expansion` and `copy.codecopy.zero_size_no_expansion`). -/
+  | copy_datacopy_zero_size_no_expansion
+  /-- CALLDATACOPY or CODECOPY to a memory offset of 2^64 or more, after its copy cost (new name;
+  cells `copy.calldatacopy.offset_above_u64_preserve` and
+  `copy.codecopy.offset_above_u64_preserve`). -/
+  | copy_datacopy_offset_above_u64_preserve
+  /-- CALLDATACOPY or CODECOPY that pays its copy cost but not its expansion (new name; cells
+  `copy.calldatacopy.memory_oog_preserve` and `copy.codecopy.memory_oog_preserve`). -/
+  | copy_datacopy_memory_oog_preserve
+  /-- CALLDATACOPY or CODECOPY that pays its copy cost and expansion; the source offset,
+  saturated, charges nothing (new name; cells `copy.calldatacopy.expansion_success`,
+  `copy.codecopy.expansion_success`, `copy.calldatacopy.shared_buffer_success` and the
+  CALLDATACOPY and CODECOPY steps of `copy.source.offset_above_u64_success`). -/
+  | copy_datacopy_expansion_success
+  /-- RETURNDATACOPY of 2^64 bytes or more, before the range check. -/
+  | copy_returndatacopy_size_above_u64_preserve
+  /-- RETURNDATACOPY whose source range passes the end of the return data: `OutOfOffset`,
+  before its copy cost; also `copy.returndatacopy.out_of_bounds_before_charges_preserve`. -/
+  | copy_returndatacopy_out_of_bounds_preserve
+  /-- RETURNDATACOPY of an in-bounds range that cannot pay its copy cost; also
+  `copy.returndatacopy.copy_oog_before_memory_checks_spend_all`. -/
+  | copy_returndatacopy_copy_oog_spend_all
+  /-- RETURNDATACOPY of length 0 inside the return data. -/
+  | copy_returndatacopy_zero_size_no_expansion
+  /-- RETURNDATACOPY of an in-bounds range to a memory offset of 2^64 or more, after its copy
+  cost. -/
+  | copy_returndatacopy_offset_above_u64_preserve
+  /-- RETURNDATACOPY of an in-bounds range that pays its copy cost but not its expansion. -/
+  | copy_returndatacopy_memory_oog_preserve
+  /-- RETURNDATACOPY of an in-bounds range that pays its copy cost and expansion. -/
+  | copy_returndatacopy_expansion_success
+  /-- EXTCODECOPY of 2^64 bytes or more, before its copy cost. -/
+  | copy_extcodecopy_size_above_u64_preserve
+  /-- EXTCODECOPY that cannot pay its copy cost; also
+  `copy.extcodecopy.copy_oog_before_memory_checks_spend_all`. -/
+  | copy_extcodecopy_copy_oog_spend_all
+  /-- EXTCODECOPY to a memory offset of 2^64 or more with a non-zero length, after its copy cost
+  and before the account load. -/
+  | copy_extcodecopy_offset_above_u64_preserve
+  /-- EXTCODECOPY that pays its copy cost but not its expansion, before the account load (which
+  leaves the account cold); also `copy.extcodecopy.end_overflow_preserve`,
+  `copy.extcodecopy.size_above_cap_preserve` and
+  `copy.extcodecopy.failed_copy_leaves_account_cold`. -/
+  | copy_extcodecopy_memory_oog_preserve
+  /-- EXTCODECOPY of a cold account, of any length, that pays its copy cost and expansion but
+  not the 2,500 cold surcharge: the skipped cold load is `OutOfGas`. -/
+  | copy_extcodecopy_cold_surcharge_oog_spend_all
+  /-- EXTCODECOPY of a cold account that pays its copy cost, expansion and cold surcharge; also
+  `copy.extcodecopy.zero_size_cold_success` (length 0 skips the memory checks, not the account
+  load) and the EXTCODECOPY step of `copy.source.offset_above_u64_success`. -/
+  | copy_extcodecopy_cold_success
+  /-- EXTCODECOPY of a warm account: its copy cost and expansion, no surcharge. -/
+  | copy_extcodecopy_warm_success
+  /-- RETURN or REVERT of 2^64 bytes or more (`return_inner`; new name; cells
+  `return.return.size_above_u64_halt` and `return.revert.size_above_u64_halt`). -/
+  | return_inner_size_above_u64_halt
+  /-- RETURN or REVERT at an offset of 2^64 or more with a non-zero length (new name; cells
+  `return.return.offset_above_u64_halt` and `return.revert.offset_above_u64_halt`). -/
+  | return_inner_offset_above_u64_halt
+  /-- RETURN or REVERT that cannot pay its expansion: `MemoryOOG`, status halt (new name; cells
+  `return.return.memory_oog_halt` and `return.revert.memory_oog_halt`). -/
+  | return_inner_memory_oog_halt
+  /-- RETURN that pays its expansion; also `return.return.zero_size_success` (length 0 skips the
+  offset and memory, then returns). -/
+  | return_return_expansion_success
+  /-- REVERT that pays its expansion; also `return.revert.zero_size_revert`. -/
+  | return_revert_expansion_revert
+  /-- LOG0..LOG4 in a static frame: `StateChangeDuringStaticCall` before any pop or dynamic
+  charge, keeping the gas after the 375 static gas; also
+  `log.static_frame.dynamic_oog_halt_preserve`,
+  `log.static_frame.stack_underflow_preserve`, `log.static_frame.size_above_u64_preserve` and
+  `log.static_frame.size_above_cap_preserve`. -/
+  | log_static_frame_halt_preserve
+  /-- LOG0..LOG4 on fewer than two stack items (offset and length). -/
+  | log_logn_stack_underflow_preserve
+  /-- LOG0..LOG4 of 2^64 bytes or more, before its topic and data cost; also
+  `log.topics.size_above_u64_before_underflow_preserve`. -/
+  | log_logn_size_above_u64_preserve
+  /-- LOG0..LOG4 that cannot pay its topic and data cost, one saturating charge (new name; cells
+  `log.logn.topic_oog_spend_all`, `log.logn.data_oog_spend_all`,
+  `log.logn.data_oog_before_memory_checks_spend_all` and
+  `log.topics.data_oog_before_underflow_spend_all`). -/
+  | log_logn_cost_oog_spend_all
+  /-- LOG0..LOG4 at an offset of 2^64 or more with a non-zero length, after its topic and data
+  cost; also the offset half of `log.topics.memory_range_halt_before_underflow_preserve`. -/
+  | log_logn_offset_above_u64_preserve
+  /-- LOG0..LOG4 that pays its topic and data cost but not its expansion; also
+  `log.logn.end_overflow_preserve`, `log.logn.word_rounding_overflow_preserve`,
+  `log.logn.size_above_cap_preserve`, `log.topics.memory_oog_before_underflow_preserve` and the
+  memory half of `log.topics.memory_range_halt_before_underflow_preserve`. -/
+  | log_logn_memory_oog_preserve
+  /-- LOG1..LOG4 with its offset and length but too few topics, popped last after every charge;
+  also `log.topics.zero_size_underflow_preserve`. -/
+  | log_topics_underflow_preserve
+  /-- LOG0..LOG4 that pays its topic and data cost and expansion (new name; cells
+  `log.log0.success`, `log.log1.success`, `log.log2.success`, `log.log3.success`,
+  `log.log4.success` and `log.logn.zero_size_success`). -/
+  | log_logn_success
   /-- An opcode revm does not define (no static gas): `OpcodeNotFound`. -/
   | undefined_opcode_zero_gas_halt
   /-- INVALID (0xfe, no static gas): `InvalidFEOpcode`. -/
@@ -178,6 +348,58 @@ def BranchId.name : BranchId → String
   | .notactivated_dupn_static_then_halt => "notactivated_dupn_static_then_halt"
   | .notactivated_swapn_static_then_halt => "notactivated_swapn_static_then_halt"
   | .notactivated_exchange_static_then_halt => "notactivated_exchange_static_then_halt"
+  | .memory_step_underflow_halt => "memory_step_underflow_halt"
+  | .memory_access_expansion_success => "memory_access_expansion_success"
+  | .memory_access_offset_above_u64_preserve => "memory_access_offset_above_u64_preserve"
+  | .memory_access_memory_oog_preserve => "memory_access_memory_oog_preserve"
+  | .memory_mcopy_size_above_u64_preserve => "memory_mcopy_size_above_u64_preserve"
+  | .memory_mcopy_copy_oog_spend_all => "memory_mcopy_copy_oog_spend_all"
+  | .memory_mcopy_zero_size_no_expansion => "memory_mcopy_zero_size_no_expansion"
+  | .memory_mcopy_dst_above_u64_preserve => "memory_mcopy_dst_above_u64_preserve"
+  | .memory_mcopy_src_above_u64_preserve => "memory_mcopy_src_above_u64_preserve"
+  | .memory_mcopy_memory_oog_preserve => "memory_mcopy_memory_oog_preserve"
+  | .memory_mcopy_expansion_success => "memory_mcopy_expansion_success"
+  | .keccak_keccak256_size_above_u64_preserve => "keccak_keccak256_size_above_u64_preserve"
+  | .keccak_keccak256_word_oog_spend_all => "keccak_keccak256_word_oog_spend_all"
+  | .keccak_keccak256_zero_size_no_expansion => "keccak_keccak256_zero_size_no_expansion"
+  | .keccak_keccak256_offset_above_u64_preserve => "keccak_keccak256_offset_above_u64_preserve"
+  | .keccak_keccak256_memory_oog_preserve => "keccak_keccak256_memory_oog_preserve"
+  | .keccak_keccak256_expansion_success => "keccak_keccak256_expansion_success"
+  | .copy_datacopy_size_above_u64_preserve => "copy_datacopy_size_above_u64_preserve"
+  | .copy_datacopy_copy_oog_spend_all => "copy_datacopy_copy_oog_spend_all"
+  | .copy_datacopy_zero_size_no_expansion => "copy_datacopy_zero_size_no_expansion"
+  | .copy_datacopy_offset_above_u64_preserve => "copy_datacopy_offset_above_u64_preserve"
+  | .copy_datacopy_memory_oog_preserve => "copy_datacopy_memory_oog_preserve"
+  | .copy_datacopy_expansion_success => "copy_datacopy_expansion_success"
+  | .copy_returndatacopy_size_above_u64_preserve => "copy_returndatacopy_size_above_u64_preserve"
+  | .copy_returndatacopy_out_of_bounds_preserve => "copy_returndatacopy_out_of_bounds_preserve"
+  | .copy_returndatacopy_copy_oog_spend_all => "copy_returndatacopy_copy_oog_spend_all"
+  | .copy_returndatacopy_zero_size_no_expansion => "copy_returndatacopy_zero_size_no_expansion"
+  | .copy_returndatacopy_offset_above_u64_preserve =>
+    "copy_returndatacopy_offset_above_u64_preserve"
+  | .copy_returndatacopy_memory_oog_preserve => "copy_returndatacopy_memory_oog_preserve"
+  | .copy_returndatacopy_expansion_success => "copy_returndatacopy_expansion_success"
+  | .copy_extcodecopy_size_above_u64_preserve => "copy_extcodecopy_size_above_u64_preserve"
+  | .copy_extcodecopy_copy_oog_spend_all => "copy_extcodecopy_copy_oog_spend_all"
+  | .copy_extcodecopy_offset_above_u64_preserve => "copy_extcodecopy_offset_above_u64_preserve"
+  | .copy_extcodecopy_memory_oog_preserve => "copy_extcodecopy_memory_oog_preserve"
+  | .copy_extcodecopy_cold_surcharge_oog_spend_all =>
+    "copy_extcodecopy_cold_surcharge_oog_spend_all"
+  | .copy_extcodecopy_cold_success => "copy_extcodecopy_cold_success"
+  | .copy_extcodecopy_warm_success => "copy_extcodecopy_warm_success"
+  | .return_inner_size_above_u64_halt => "return_inner_size_above_u64_halt"
+  | .return_inner_offset_above_u64_halt => "return_inner_offset_above_u64_halt"
+  | .return_inner_memory_oog_halt => "return_inner_memory_oog_halt"
+  | .return_return_expansion_success => "return_return_expansion_success"
+  | .return_revert_expansion_revert => "return_revert_expansion_revert"
+  | .log_static_frame_halt_preserve => "log_static_frame_halt_preserve"
+  | .log_logn_stack_underflow_preserve => "log_logn_stack_underflow_preserve"
+  | .log_logn_size_above_u64_preserve => "log_logn_size_above_u64_preserve"
+  | .log_logn_cost_oog_spend_all => "log_logn_cost_oog_spend_all"
+  | .log_logn_offset_above_u64_preserve => "log_logn_offset_above_u64_preserve"
+  | .log_logn_memory_oog_preserve => "log_logn_memory_oog_preserve"
+  | .log_topics_underflow_preserve => "log_topics_underflow_preserve"
+  | .log_logn_success => "log_logn_success"
   | .undefined_opcode_zero_gas_halt => "undefined_opcode_zero_gas_halt"
   | .undefined_invalid_zero_gas_halt => "undefined_invalid_zero_gas_halt"
 
@@ -199,6 +421,10 @@ def continueWith (gas : Nat) (branch : BranchId) : StepResult :=
 /-- The frame ends successfully keeping `gas`. -/
 def succeedWith (gas : Nat) (branch : BranchId) : StepResult :=
   { gasAfter := gas, outcome := .success, branch }
+
+/-- The frame ends reverting, keeping `gas`. -/
+def revertWith (gas : Nat) (branch : BranchId) : StepResult :=
+  { gasAfter := gas, outcome := .revert, branch }
 
 /-- The frame halts keeping `gas`. -/
 def haltKeeping (gas : Nat) (branch : BranchId) : StepResult :=

@@ -31,8 +31,10 @@ The model has three parts:
   category's body is in [`ZkGasModel/Step/`](ZkGasModel/Step); the result types and branch
   names are in [`Step/Basic.lean`](ZkGasModel/Step/Basic.lean). It covers STOP, the arithmetic,
   bitwise and stack opcodes, the environment reads (SELFBALANCE and BLOCKHASH included), JUMP,
-  JUMPI, JUMPDEST, EXP, and the opcodes not activated on Unzen, INVALID and undefined ones; for
-  every other opcode it returns `none`.
+  JUMPI, JUMPDEST, EXP, the opcodes not activated on Unzen, INVALID and undefined ones, the
+  memory opcodes (MLOAD, MSTORE, MSTORE8, MCOPY) and KECCAK256 with their memory expansion,
+  CALLDATACOPY, CODECOPY, RETURNDATACOPY, EXTCODECOPY (with its cold surcharge), RETURN, REVERT
+  and LOG0..LOG4; for every other opcode it returns `none`.
 
 How a precompile's gas use is computed is not modeled. The claims below take every charge
 amount as given; the step model is checked against the traces only.
@@ -157,7 +159,8 @@ and the two shapes with no step: a tx skipped before its intrinsic charge (a lon
 one modeled step's outcome check that the checker rejects an outcome the next event contradicts.
 The step model has at least one guard per branch, each on a step line copied verbatim from a
 committed reth trace and expecting that line's `gas_after`, plus guards for a missing fact or
-stack item, an opcode not modeled yet, and the smoke harness trace fully modeled. They run
+stack item, an opcode not modeled yet, and the smoke harness trace fully modeled. One branch,
+`memory_step_underflow_halt`, has no corpus step; its guards run constructed pre-states. They run
 during compilation and are **not kernel proofs**.
 
 The full gate combines independent checks:
