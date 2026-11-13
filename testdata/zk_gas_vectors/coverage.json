@@ -57,6 +57,18 @@
       "description": "A failing step (stack underflow, static gas OOG, not-activated opcode) whose charge exceeds the zk gas limit by 1 aborts the tx (harness status zk_limit) instead of halting."
     },
     {
+      "id": "metering.intrinsic.block_gas_exceeded_not_charged",
+      "layers": ["block"],
+      "source": "alethia-reth crates/block/src/executor.rs:459 (a tx whose gas limit exceeds the block's remaining gas is rejected before the intrinsic zk gas charge at :474)",
+      "description": "A tx whose gas limit is more than the gas the block has left is skipped before its intrinsic zk gas is charged: it adds no zk gas, and the next valid tx is included."
+    },
+    {
+      "id": "metering.frame.empty_code_no_steps",
+      "layers": ["block", "harness"],
+      "source": "revm-handler 43.0.2 src/frame.rs:232 (a call to empty bytecode returns Stop without running the interpreter)",
+      "description": "A top frame whose target has no code runs no step and charges no zk gas."
+    },
+    {
       "id": "static.arith.success",
       "layers": ["block", "harness"],
       "source": "revm-interpreter src/instructions/arithmetic.rs:10 (add; every arithmetic opcode up to signextend at :126), src/instructions.rs:321 (static gas table)",

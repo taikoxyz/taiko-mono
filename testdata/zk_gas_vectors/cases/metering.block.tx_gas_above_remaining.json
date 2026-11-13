@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "id": "metering.block.tx_gas_above_remaining",
+  "layer": "block",
+  "cells": ["metering.intrinsic.block_gas_exceeded_not_charged"],
+  "description": "The anchor in a 3,000,000-gas block; signer 1 sends a transfer whose gas limit is the whole block gas limit, more than the block has left after the anchor, so it is skipped without zk gas; a transfer from signer 2 is then included.",
+  "input": {
+    "env": {
+      "chain_id": "0x28c59",
+      "number": "0x1",
+      "timestamp": "0xc",
+      "base_fee": "0x17d7840",
+      "coinbase": "0x0000000000000000000000000000000000c0ffee",
+      "gas_limit": "0x2dc6c0",
+      "prev_randao": "0x2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a",
+      "extra_data": "0x4b000000000001"
+    },
+    "alloc": {
+      "0x1670010000000000000000000000000000010001": {
+        "balance": "0x0",
+        "code": "0x00"
+      },
+      "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf": {
+        "balance": "0xde0b6b3a7640000"
+      },
+      "0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF": {
+        "balance": "0xde0b6b3a7640000"
+      },
+      "0x0000000000000000000000000000000000c0ffee": {
+        "balance": "0x1"
+      }
+    },
+    "txs": [
+      {
+        "signer": "golden_touch",
+        "nonce": "0x0",
+        "to": "0x1670010000000000000000000000000000010001",
+        "gas": "0xf4240",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x523e6854"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x0",
+        "to": "0x000000000000000000000000000000000000beef",
+        "gas": "0x2dc6c0",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x1",
+        "data": "0x"
+      },
+      {
+        "signer": 2,
+        "nonce": "0x0",
+        "to": "0x000000000000000000000000000000000000beef",
+        "gas": "0x5208",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x1",
+        "data": "0x"
+      }
+    ]
+  },
+  "expected": {
+    "raw_txs": [
+      "0x02f86e83028c59808084017d7840830f42409416700100000000000000000000000000000100018084523e6854c001a077c9819ad91bc8c341abbd41d41d41b851bf4cade2dd943fdf421e796b952ce3a0653034f4ffd280ca8ca71f966f2ee2e7a2f59e6ee0ba1be905805cc46c399718",
+      "0x02f86a83028c59808084017d7840832dc6c094000000000000000000000000000000000000beef0180c001a09b6f7911274947b23218f9d02c9336f922ae4a0c5ade8762a01380d62bd98200a016603cbb720f84143335cfd2f76b82616888700111ef22e7fcf08b05e97dfc47",
+      "0x02f86983028c59808084017d784082520894000000000000000000000000000000000000beef0180c001a0ef9e7fb1ea12c23417b885a0c35d508b050b1469eb30f604c2160c4e0d7bac71a0717e42f11f336ff871a7d8aea8139173a7fe4f070870963a842750772fdc8eb0"
+    ],
+    "included": [0, 2],
+    "truncated_at": null,
+    "cumulative_zk_gas": ["0x3b538", "0x76a70"],
+    "block_zk_gas": "0x76a70",
+    "state_root": "0xb5ae2bd33183af80f5304d6305945b30609df1a9b866251c94c7d83a2f7b8b42",
+    "import_built": "accept",
+    "import_extended": null,
+    "import_wrong_difficulty": "reject"
+  }
+}

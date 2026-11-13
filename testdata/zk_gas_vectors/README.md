@@ -207,8 +207,8 @@ Each event has exactly these fields, in this order, so that traces diff line by 
 
 ### Scope and order
 
-- A block trace records only the events inside txs, from each tx's `intrinsic` to its `tx_end` (or the lone `tx_end` of a tx skipped before its intrinsic charge). The system calls before the first tx (EIP-4788 and EIP-2935) are not recorded. Every input tx appears in order from the anchor, up to the aborted tx (`truncated_at`) or the last one.
-- A harness trace runs from the top frame's first step to `frame_end`, with no `intrinsic`. A call to an account without code runs no step, so its trace is the `frame_end` alone.
+- A block trace records only the events inside txs, from each tx's `intrinsic` to its `tx_end` (or the lone `tx_end` of a tx skipped before its intrinsic charge). The system calls before the first tx (EIP-4788 and EIP-2935) are not recorded. Every input tx appears in order from the anchor, up to the aborted tx (`truncated_at`) or the last one. `traces/metering.block.tx_gas_above_remaining.jsonl` holds a lone skipped `tx_end`.
+- A harness trace runs from the top frame's first step to `frame_end`, with no `intrinsic`. A call to an account without code runs no step, so its trace is the `frame_end` alone, as in `traces/metering.harness.empty_code_target.jsonl`.
 - A step that opens a frame comes first, then the precompile event or the child frame's steps, one depth deeper. A tx or harness run whose `to` is a precompile has one `precompile` event and no step.
 - A tx's or harness run's first step has depth 1, and the depth rises by one only right after a step with `spawn` true.
 - After a charge with `ok` false, only the `tx_end` (status `aborted`) or `frame_end` (status `zk_limit`) follows.
@@ -332,11 +332,11 @@ A corpus change reaches a client's CI only when that client's `zk-gas-vectors.re
 
 ## Coverage statistics
 
-The matrix has 328 cells, covered by 421 vectors: 397 harness vectors and 24 block vectors. 122 cells are covered by both layers, 199 only by harness vectors and 7 only by block vectors. Update this section when the corpus changes.
+The matrix has 330 cells, covered by 423 vectors: 398 harness vectors and 25 block vectors. 122 cells are covered by both layers, 200 only by harness vectors and 8 only by block vectors. Update this section when the corpus changes.
 
 | Category       | Cells | Harness and block | Harness only | Block only | Harness vectors | Block vectors |
 | -------------- | ----: | ----------------: | -----------: | ---------: | --------------: | ------------: |
-| `metering`     |     9 |                 2 |            2 |          5 |               8 |             4 |
+| `metering`     |    11 |                 2 |            3 |          6 |               9 |             5 |
 | `static`       |    24 |                11 |           13 |          0 |              36 |             2 |
 | `jump`         |     8 |                 5 |            3 |          0 |               8 |             1 |
 | `exp`          |     5 |                 4 |            1 |          0 |               5 |             1 |
@@ -356,7 +356,7 @@ The matrix has 328 cells, covered by 421 vectors: 397 harness vectors and 24 blo
 | `precompile`   |    44 |                 6 |           38 |          0 |              44 |             1 |
 | `create`       |    25 |                 9 |           15 |          1 |              44 |             1 |
 | `smoke`        |     0 |                 0 |            0 |          0 |               1 |             1 |
-| Total          |   328 |               122 |          199 |          7 |             397 |            24 |
+| Total          |   330 |               122 |          200 |          8 |             398 |            25 |
 
 Cells are grouped by the first word of their id, and vectors by the first word of the vector id (`smoke` holds the two format smoke vectors). A block vector may cover cells of several categories, so a category can have cells covered by block vectors without having a block vector of its own.
 
@@ -364,7 +364,7 @@ Cells are grouped by the first word of their id, and vectors by the first word o
 
 These cells follow the layer rule in [Authoring rules](#authoring-rules). `coverage.json` allows only the harness layer for `call.depth.deepest_frame_created`, `call.depth.limit_short_circuit_spawn_estimate`, `create.family.depth_deepest_frame_created`, `create.family.depth_limit_spawn_estimate`: reaching call depth 1024 under the 63/64 gas rule needs far more gas than a block gas limit allows. Every other cell below may also take a block vector.
 
-- `metering` (2): `metering.failing_step.limit_exact_halt`, `metering.failing_step.limit_exceeded_aborted`
+- `metering` (3): `metering.failing_step.limit_exact_halt`, `metering.failing_step.limit_exceeded_aborted`, `metering.frame.empty_code_no_steps`
 - `static` (13): `static.bitwise.underflow_halt`, `static.swap.underflow_halt`, `static.dup.underflow_halt`, `static.blobhash.underflow_halt`, `static.jump.underflow_halt`, `static.pop.underflow_halt`, `static.calldataload.underflow_halt`, `static.dup.overflow_halt`, `static.env.overflow_halt`, `static.env.selfbalance_static_oog_spend_all`, `static.env.selfbalance_overflow_preserve`, `static.env.blockhash_static_oog_spend_all`, `static.env.blockhash_underflow_preserve`
 - `jump` (3): `jump.jump.dupn_immediate_target_success`, `jump.jumpi.taken_success`, `jump.jumpi.not_taken_success`
 - `exp` (1): `exp.exp.zero_byte_exponent_success`
