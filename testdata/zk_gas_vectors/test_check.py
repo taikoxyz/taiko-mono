@@ -140,7 +140,9 @@ class CheckTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name) / "zk_gas_vectors"
-        shutil.copytree(ROOT, self.root, ignore=shutil.ignore_patterns("__pycache__"))
+        # The fixture is the corpus without its traces; the trace tests write the traces they need,
+        # and test_committed_corpus_passes checks the committed traces in place.
+        shutil.copytree(ROOT, self.root, ignore=shutil.ignore_patterns("__pycache__", "traces"))
 
     def read(self, rel):
         return json.loads((self.root / rel).read_text())
@@ -171,6 +173,10 @@ class CheckTests(unittest.TestCase):
 
     def test_current_corpus_passes(self):
         self.assertEqual(check.check(self.root, False), [])
+
+    def test_committed_corpus_passes(self):
+        # The corpus as committed, traces included, with every expected value and trace required.
+        self.assertEqual(check.check(ROOT, True), [])
 
     def test_unknown_cell_rejected(self):
         self.assertRejected(BLOCK, set_at("cells", ["no.such.cell"]), "unknown cell 'no.such.cell'")
@@ -534,10 +540,13 @@ class CheckTests(unittest.TestCase):
     def test_trace_first_event_matches_layer(self):
         block, harness = "smoke.block.transfer", "smoke.harness.add"
         self.assertTraceRejected(block, jsonl([STEP, TX_END]), "first event must be intrinsic (block layer)")
-        self.assertTraceRejected(harness, jsonl([INTRINSIC] + HARNESS_TRACE), "first event must be step or precompile")
-        self.assertTraceRejected(harness, jsonl([FRAME_END]), "first event must be step or precompile")
+        harness_first = "first event must be step, precompile or frame_end (harness layer)"
+        self.assertTraceRejected(harness, jsonl([INTRINSIC] + HARNESS_TRACE), harness_first)
+        self.assertTraceRejected(harness, jsonl([TX_END, FRAME_END]), harness_first)
         # A harness call straight to a precompile has no step.
         self.assertEqual(self.trace_errors(harness, jsonl([PRECOMPILE, FRAME_END])), [])
+        # A harness call to an account without code runs nothing: frame_end is the whole trace.
+        self.assertEqual(self.trace_errors(harness, jsonl([FRAME_END])), [])
 
     def test_cli_exit_codes(self):
         command = [sys.executable, str(self.root / "check.py")]

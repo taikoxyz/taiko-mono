@@ -1,0 +1,13 @@
+{"e":"step","d":1,"pc":0,"op":96,"gas":"0x211","static":false,"sl":0,"stack":[],"mem":"0x0","facts":{},"gas_after":"0x20e","spawn":false,"zk":"0x1b","ok":true,"charged":true}
+{"e":"step","d":1,"pc":2,"op":95,"gas":"0x20e","static":false,"sl":1,"stack":[],"mem":"0x0","facts":{},"gas_after":"0x20c","spawn":false,"zk":"0x1a","ok":true,"charged":true}
+{"e":"step","d":1,"pc":3,"op":96,"gas":"0x20c","static":false,"sl":2,"stack":[],"mem":"0x0","facts":{},"gas_after":"0x209","spawn":false,"zk":"0x1b","ok":true,"charged":true}
+{"e":"step","d":1,"pc":5,"op":55,"gas":"0x209","static":false,"sl":3,"stack":["0x20","0x0","0x40"],"mem":"0x0","facts":{},"gas_after":"0x1f7","spawn":false,"zk":"0xea","ok":true,"charged":true}
+{"e":"step","d":1,"pc":6,"op":96,"gas":"0x1f7","static":false,"sl":0,"stack":[],"mem":"0x60","facts":{},"gas_after":"0x1f4","spawn":false,"zk":"0x1b","ok":true,"charged":true}
+{"e":"step","d":1,"pc":8,"op":95,"gas":"0x1f4","static":false,"sl":1,"stack":[],"mem":"0x60","facts":{},"gas_after":"0x1f2","spawn":false,"zk":"0x1a","ok":true,"charged":true}
+{"e":"step","d":1,"pc":9,"op":95,"gas":"0x1f2","static":false,"sl":2,"stack":[],"mem":"0x60","facts":{},"gas_after":"0x1f0","spawn":false,"zk":"0x1a","ok":true,"charged":true}
+{"e":"step","d":1,"pc":10,"op":55,"gas":"0x1f0","static":false,"sl":3,"stack":["0x0","0x0","0x20"],"mem":"0x60","facts":{},"gas_after":"0x1ea","spawn":false,"zk":"0x4e","ok":true,"charged":true}
+{"e":"step","d":1,"pc":11,"op":97,"gas":"0x1ea","static":false,"sl":0,"stack":[],"mem":"0x60","facts":{},"gas_after":"0x1e7","spawn":false,"zk":"0x18","ok":true,"charged":true}
+{"e":"step","d":1,"pc":14,"op":95,"gas":"0x1e7","static":false,"sl":1,"stack":[],"mem":"0x60","facts":{},"gas_after":"0x1e5","spawn":false,"zk":"0x1a","ok":true,"charged":true}
+{"e":"step","d":1,"pc":15,"op":96,"gas":"0x1e5","static":false,"sl":2,"stack":[],"mem":"0x60","facts":{},"gas_after":"0x1e2","spawn":false,"zk":"0x1b","ok":true,"charged":true}
+{"e":"step","d":1,"pc":17,"op":55,"gas":"0x1e2","static":false,"sl":3,"stack":["0x60","0x0","0x1400"],"mem":"0x60","facts":{},"gas_after":"0x0","spawn":false,"zk":"0x187a","ok":true,"charged":true}
+{"e":"frame_end","status":"halt","frame_zk":"0x1a9e"}

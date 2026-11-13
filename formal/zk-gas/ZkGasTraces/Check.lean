@@ -7,10 +7,11 @@ import ZkGasTraces.Json
 values:
 
 - (a) the events follow the schema's scope and order rules: every block tx runs from
-  `intrinsic` to its `tx_end`, in block order, and the block ends at an aborted tx; a harness
-  trace ends with `frame_end`; depth starts at 1 and rises by one only after a spawn step; a
-  precompile event follows a CALL-family spawn step, or is a tx's or frame's only event; nothing
-  follows a rejected charge but the end event.
+  `intrinsic` to its `tx_end`, in block order, except that a tx rejected before its intrinsic
+  charge is a lone skipped `tx_end`, and the block ends at an aborted tx; a harness trace ends
+  with `frame_end`; depth starts at 1 and rises by one only after a spawn step; a precompile
+  event follows a CALL-family spawn step, or is a tx's or frame's only event; nothing follows a
+  rejected charge but the end event.
 - (b) each step's `zk` is `spawnEstimate(op) * mult(op)` for a spawn step and
   `(gas - gas_after) * mult(op)` otherwise; only spawn opcodes spawn.
 - (c) each precompile's `zk` is `(supplied - left) * precompileMult(addr)`, and a failed
@@ -206,7 +207,16 @@ def Walk.event (s : Schedule) (model : Model) (layer : Layer) (w : Walk) (i : Na
     w.charge s i zk ok
   | .txEnd index status txZk => do
     unless layer = .block do throw s!"event {i}: tx_end in a harness trace"
-    unless w.inTx do throw s!"event {i}: a block tx starts with intrinsic, got tx_end"
+    -- A tx the client rejects before charging its intrinsic zk gas (its gas limit exceeds the
+    -- gas the block has left) has a lone skipped tx_end and no other event.
+    let lone := !w.inTx
+    if lone then
+      unless status = .skipped do
+        throw s!"event {i}: a block tx starts with intrinsic, got tx_end with status {statusName status} (only a skipped tx may have no intrinsic)"
+      if let some tx := w.txs.head? then
+        if tx.status = .aborted then
+          throw s!"event {i}: a tx after aborted tx {tx.index} (the block ends at it)"
+    let w := if lone then { w with rejected := false, total := 0, charges := [] } else w
     unless index = w.txs.length do
       throw s!"event {i}: index {index}, want {w.txs.length} (every tx in block order from the anchor)"
     match status with

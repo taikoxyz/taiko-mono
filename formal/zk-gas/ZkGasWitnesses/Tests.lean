@@ -273,8 +273,26 @@ def abortExpected : String :=
 #guard failsWith (run (blockVector abortExpected) (abortBlock ++ [intrinsicLine, txEndLine 2]))
   "event 6"
 -- A tx skipped as invalid adds nothing and does not end the block.
-#guard (run (blockVector ("{\"raw_txs\":[\"0x02\",\"0x02\",\"0x02\"],\"included\":[0,2]," ++
-    "\"truncated_at\":null,\"cumulative_zk_gas\":[\"0x3b538\",\"0x76a70\"]," ++
-    "\"block_zk_gas\":\"0x76a70\"}"))
+def skippedExpected : String :=
+  "{\"raw_txs\":[\"0x02\",\"0x02\",\"0x02\"],\"included\":[0,2],\"truncated_at\":null," ++
+    "\"cumulative_zk_gas\":[\"0x3b538\",\"0x76a70\"],\"block_zk_gas\":\"0x76a70\"}"
+
+#guard (run (blockVector skippedExpected)
   (smokeBlock.take 3 ++ [intrinsicLine, txEndLine 1 "skipped" "null", intrinsicLine,
    txEndLine 2])).isOk
+-- A tx rejected before its intrinsic charge (its gas limit exceeds the gas the block has left)
+-- is a lone skipped tx_end. A committed or aborted tx still needs its intrinsic, and no tx, not
+-- even a lone skipped one, follows the aborted tx.
+#guard (run (blockVector skippedExpected)
+  (smokeBlock.take 3 ++ [txEndLine 1 "skipped" "null", intrinsicLine, txEndLine 2])) =
+  .ok { events := 6, steps := 1, branches := [] }
+#guard failsWith (run (blockVector skippedExpected)
+  (smokeBlock.take 3 ++ [txEndLine 1 "committed" "\"0x0\"", intrinsicLine, txEndLine 2]))
+  "event 3: a block tx starts with intrinsic, got tx_end with status committed"
+#guard failsWith (run (blockVector abortExpected) (smokeBlock.take 3 ++ [txEndLine 1 "aborted" "null"]))
+  "event 3: a block tx starts with intrinsic, got tx_end with status aborted"
+#guard failsWith (run (blockVector abortExpected) (abortBlock ++ [txEndLine 2 "skipped" "null"]))
+  "event 6: a tx after aborted tx 1"
+-- A harness call to an account without code runs no step: the trace is its frame_end alone.
+#guard (run (harnessVector "0x5f5e100" "{\"frame_zk_gas\":\"0x0\",\"status\":\"success\"}")
+  [frameEndLine "success" "\"0x0\""]) = .ok { events := 1, steps := 0, branches := [] }

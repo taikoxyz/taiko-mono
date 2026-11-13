@@ -84,9 +84,10 @@ TRACE_FIELDS = {
 }
 # Trace fields that are JSON integers; every other quantity is canonical 0x hex.
 TRACE_INTEGERS = ("d", "pc", "op", "sl", "index")
-# A block trace starts with a tx's intrinsic charge; a harness trace with the top frame's first
-# step, or with the precompile run when the harness calls a precompile directly.
-TRACE_FIRST = {"block": ("intrinsic",), "harness": ("step", "precompile")}
+# A block trace starts with the anchor's intrinsic charge; a harness trace with the top frame's
+# first step, with the precompile run when the harness calls a precompile directly, or with
+# frame_end when the called account has no code (nothing runs).
+TRACE_FIRST = {"block": ("intrinsic",), "harness": ("step", "precompile", "frame_end")}
 
 
 def check_fields(errors, where, obj, required, optional=()):
@@ -532,7 +533,9 @@ def check_trace(errors, root, rel, layer):
             if key in event and not is_index(event[key]):
                 errors.append(f"{where}: {key} must be a JSON integer, got {json.dumps(event[key])}")
         if number == 1 and layer in TRACE_FIRST and kind not in TRACE_FIRST[layer]:
-            errors.append(f"{where}: first event must be {' or '.join(TRACE_FIRST[layer])} ({layer} layer), got {kind}")
+            first = TRACE_FIRST[layer]
+            names = first[0] if len(first) == 1 else ", ".join(first[:-1]) + " or " + first[-1]
+            errors.append(f"{where}: first event must be {names} ({layer} layer), got {kind}")
 
 
 def check_traces(errors, root, layers, require_expected):

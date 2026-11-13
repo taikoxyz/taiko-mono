@@ -1,0 +1,3 @@
+{"e":"step","d":1,"pc":0,"op":97,"gas":"0xa2a","static":false,"sl":0,"stack":[],"mem":"0x0","facts":{},"gas_after":"0xa27","spawn":false,"zk":"0x18","ok":true,"charged":true}
+{"e":"step","d":1,"pc":3,"op":59,"gas":"0xa27","static":false,"sl":1,"stack":["0xda7a"],"mem":"0x0","facts":{"account_warm":false},"gas_after":"0x0","spawn":false,"zk":"0x289c","ok":true,"charged":true}
+{"e":"frame_end","status":"halt","frame_zk":"0x28b4"}

@@ -133,8 +133,10 @@ table spot checks against the specification and revm (ADD, PUSH1, point_evaluati
 precompile, ADD and CREATE static gas), meter cases at and just past the block limit, and the
 trace parser and checker on fixture traces: canonical hex up to 2^256 - 1, malformed records and
 `facts`, the two smoke vectors' traces, and each kind of failure (event order, step, precompile
-and intrinsic charges, meter verdicts, totals against the expected values, model disagreement).
-They run during compilation and are **not kernel proofs**.
+and intrinsic charges, meter verdicts, totals against the expected values, model disagreement),
+and the two shapes with no step: a tx skipped before its intrinsic charge (a lone skipped
+`tx_end`) and a harness call to an account without code (`frame_end` alone). They run during
+compilation and are **not kernel proofs**.
 
 The full gate combines independent checks:
 
