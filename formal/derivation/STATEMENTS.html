@@ -1,0 +1,709 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Taiko's Unzen derivation safety claims, explained in words beside their exact Lean statements.">
+  <title>Unzen derivation: statements in words and Lean</title>
+  <style>
+    :root { color-scheme: light; --ink: #202124; --muted: #595959; --line: #d8d8d8; --link: #74385f; --code: #f6f6f6; }
+    * { box-sizing: border-box; }
+    html { scroll-padding-top: 24px; }
+    body { margin: 0; background: #fff; color: var(--ink); font: 16px/1.7 "Helvetica Neue", Helvetica, sans-serif; }
+    main { max-width: 1440px; margin: auto; padding: 40px 40px 72px; }
+    header, .reading { max-width: 80ch; }
+    h1, h2, h3 { line-height: 1.3; font-weight: 600; }
+    h1 { margin: 0 0 16px; font-size: 30px; }
+    h2 { margin: 0 0 20px; font-size: 24px; }
+    h3 { margin: 24px 0 12px; font-size: 18px; }
+    p { margin: 0 0 16px; }
+    a { color: var(--link); text-underline-offset: 3px; }
+    a:hover { text-decoration-thickness: 2px; }
+    a:focus-visible, summary:focus-visible { outline: 2px solid var(--link); outline-offset: 4px; }
+    .skip { position: absolute; top: -80px; left: 16px; background: #fff; padding: 8px; }
+    .skip:focus { top: 8px; }
+    nav { border-block: 1px solid var(--line); padding: 16px 0; margin: 28px 0 36px; }
+    nav ol { display: flex; flex-wrap: wrap; gap: 8px 28px; list-style: none; padding: 0; margin: 0; }
+    section { margin: 0 0 40px; padding-top: 32px; border-top: 1px solid var(--line); }
+    #scope { border-top: 0; padding-top: 0; }
+    .columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 32px; align-items: start; }
+    .columns > * { min-width: 0; }
+    .column-title { margin: 0 0 12px; font-size: 15px; font-weight: 600; }
+    .source { margin-bottom: 12px; color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+    code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
+    code { font-size: .88em; overflow-wrap: anywhere; }
+    p code, li code, td code, summary code { background: var(--code); padding: 2px 4px; }
+    pre { margin: 0 0 16px; padding: 16px; background: var(--code); border: 1px solid var(--line); overflow-x: auto; font-size: 12px; line-height: 1.65; tab-size: 2; }
+    pre code { font-size: inherit; overflow-wrap: normal; }
+    ul, ol { padding-left: 24px; margin: 0 0 20px; }
+    li { margin-bottom: 8px; }
+    dt { font-weight: 600; }
+    dd { margin: 0 0 16px; }
+    .formula { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    table { border-collapse: collapse; width: 100%; font-size: 14px; margin: 0 0 20px; }
+    caption { text-align: left; font-weight: 600; margin-bottom: 8px; }
+    th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+    th { font-weight: 600; }
+    .table-scroll { overflow-x: auto; }
+    details { border-top: 1px solid var(--line); padding: 16px 0; }
+    summary { cursor: pointer; font-weight: 500; overflow-wrap: anywhere; }
+    details[open] summary { margin-bottom: 16px; }
+    .lemma-group h3 { margin-top: 32px; }
+    footer { padding-top: 24px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+    @media (max-width: 1000px) { .columns { grid-template-columns: 1fr; gap: 16px; } }
+    @media (max-width: 600px) { main { padding: 24px 20px 48px; } h1 { font-size: 26px; } h2 { font-size: 22px; } nav ol { gap: 8px 20px; } pre { padding: 12px; } }
+    @media print { main { padding: 0; } nav, .skip { display: none; } .columns { display: block; } pre { white-space: pre-wrap; overflow-wrap: anywhere; } details { break-inside: avoid; } a { color: inherit; } }
+  </style>
+</head>
+<body>
+<a class="skip" href="#statements">Skip to the statements</a>
+<main>
+  <header>
+    <h1>Unzen derivation: statements in words and Lean</h1>
+    <p>This page explains what the four headline theorems establish, which premises they use,
+      and where to read their definitions. The English explanation sits beside the exact Lean
+      declaration; the Lean source is authoritative.</p>
+    <p>The subject is an executable model of the Unzen derivation rules implemented by
+      <code>taiko-client</code> and <code>taiko-client-rs</code>.
+      <strong>The theorems prove properties of that model, not equivalence of the production clients.</strong></p>
+    <p><a href="README.md">Package README</a> ·
+      <a href="DerivationStatements/Claims.lean">Statement source</a> ·
+      <a href="DerivationProofs/Claims.lean">Headline proofs</a> ·
+      <a href="../../packages/protocol/docs/Derivation.md">Derivation specification</a></p>
+  </header>
+
+  <nav aria-label="Contents">
+    <ol>
+      <li><a href="#scope">Scope and notation</a></li>
+      <li><a href="#derivation">1. Derivation</a></li>
+      <li><a href="#headers">2. Headers</a></li>
+      <li><a href="#forced">3. Forced inclusion</a></li>
+      <li><a href="#combined">4. Combined claim</a></li>
+      <li><a href="#lemmas">Supporting theorems</a></li>
+      <li><a href="#limits">Evidence and limits</a></li>
+    </ol>
+  </nav>
+
+  <section id="scope">
+    <h2>Scope and notation</h2>
+    <div class="columns">
+      <div>
+        <p>The intended setting is one proposal that lands on L1 at or after
+          <code>UNZEN_FORK_TIME</code>, on top of an Unzen parent block. The model uses the
+          768-block limit for every source. On a Shasta parent at the activation boundary,
+          all claims still describe the modeled fields except the conclusion that every
+          derived block is Unzen. The pre-Unzen 192-block branch, early parent-anchor calldata
+          recovery, and Etna are outside scope.</p>
+        <p>The propositions quantify over model inputs. They do not authenticate those inputs,
+          enforce a real chain configuration, or establish machine-integer equivalence.</p>
+        <dl>
+          <dt><code>c</code> — chain parameters</dt>
+          <dd>Fork times and the allowed timestamp and anchor offsets.</dd>
+          <dt><code>ctx</code> — proposal context</dt>
+          <dd>The proposer, landed L1 timestamp, and origin block number (the L1 block before the proposal).</dd>
+          <dt><code>p</code> — initial parent</dt>
+          <dd>The L2 parent number, timestamp, header gas limit, and recorded anchor number.</dd>
+          <dt><code>sources</code> — ordered derivation inputs</dt>
+          <dd>Each source has a forced-inclusion flag, blob presence, offset, and optional decoded-blob bytes.
+            <code>deriveSources</code> extracts, validates, defaults when needed, and numbers their blocks.</dd>
+        </dl>
+      </div>
+      <div>
+        <div class="table-scroll">
+          <table>
+            <caption>Constants used in the statements</caption>
+            <thead><tr><th scope="col">Quantity</th><th scope="col">Value</th></tr></thead>
+            <tbody>
+              <tr><td>Blocks per source</td><td>1–768 after fallback; exactly 1 for a forced source</td></tr>
+              <tr><td>Manifest gas range</td><td>10,000,000–45,000,000, under the initial gas bounds</td></tr>
+              <tr><td>Header anchor reserve</td><td>1,000,000 gas on top of manifest gas</td></tr>
+              <tr><td>Maximum per-block gas change</td><td>200 parts per million (0.02%), subject to the absolute bounds</td></tr>
+              <tr><td>Mainnet timestamp / anchor offsets</td><td>6,144 seconds / 512 L1 blocks</td></tr>
+              <tr><td>Hoodi and devnet offsets</td><td>1,536 seconds / 128 L1 blocks</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="source">Definitions: <a href="DerivationModel/Derivation/Params.lean">Params.lean</a>,
+          <a href="DerivationModel/Derivation/Types.lean">Types.lean</a>,
+          <a href="DerivationModel/Derivation/Validate.lean">Validate.lean</a>.</p>
+        <p><code>effectiveGasLimit p</code> is the parent's header gas limit, less the 1M
+          anchor reserve for a non-genesis parent. Model subtraction truncates at zero.
+          <code>Chain R start values</code> applies relation <code>R</code> to every
+          consecutive pair, starting with <code>start</code>.</p>
+        <p>The computed minimum timestamp is:</p>
+        <div class="formula">lowerBound = max(previous timestamp + 1,
+                 proposal timestamp − timestampMaxOffset,
+                 Shasta fork time)</div>
+      </div>
+    </div>
+  </section>
+
+  <div id="statements"></div>
+  <section id="derivation" aria-labelledby="derivation-title">
+    <h2 id="derivation-title">1. Derivation safety</h2>
+    <div class="columns">
+      <div>
+        <h3 class="column-title">In words</h3>
+        <p>For any model chain parameters, proposal context, and parent:</p>
+        <ol>
+          <li><strong>Source cardinality.</strong> Each source contributes 1–768 blocks.
+            A forced-inclusion source contributes exactly one, including when it defaults.</li>
+          <li><strong>Source isolation.</strong> Deriving a prefix and then the rest gives the
+            same result as deriving their concatenation. Appending later sources cannot
+            change any block already derived from the prefix.</li>
+          <li><strong>Sequence.</strong> Block numbers advance by one from the parent;
+            timestamps strictly increase; anchor numbers never decrease.</li>
+          <li><strong>Timestamp drift.</strong> For zero-based block index <code>i</code>:
+            <div class="formula">timestamp[i] ≤ max(proposal timestamp, parent timestamp, Shasta fork time) + i + 1</div>
+            Accepted sources stay at or before the proposal timestamp. Default blocks may
+            pass it when the timestamp window is exhausted.</li>
+          <li><strong>Conditional bounds.</strong> If the initial parent's anchor is not
+            after the proposal origin, derived anchors stay at or below that origin. If
+            its effective gas is in the protocol range, derived manifest gas stays in
+            the same 10M–45M range.</li>
+        </ol>
+        <p>The initial bounds are needed only for the last clause. Cardinality, isolation,
+          sequence, and drift do not require <code>InitialParentBounds</code>.</p>
+        <p>For an extracted proposer manifest, successful finalization returns exactly that
+          original block list. Metadata and ordered transaction candidates are preserved,
+          rather than only satisfying the bounds above.</p>
+        <details>
+          <summary>Initial parent bounds, in Lean</summary>
+          <pre><code data-source="DerivationStatements/Claims.lean" data-declaration="InitialParentBounds">structure InitialParentBounds (ctx : ProposalCtx) (p : Parent) : Prop where
+  /-- The parent&#x27;s anchor does not lie beyond this proposal&#x27;s L1 origin. -/
+  anchorNotAfterOrigin : p.anchorBlockNumber ≤ ctx.originBlockNumber
+  /-- The parent&#x27;s effective (manifest) gas is at least the protocol minimum. -/
+  gasMinimum : MIN_BLOCK_GAS_LIMIT ≤ effectiveGasLimit p
+  /-- The parent&#x27;s effective (manifest) gas is at most the protocol maximum. -/
+  gasMaximum : effectiveGasLimit p ≤ MAX_BLOCK_GAS_LIMIT</code></pre>
+        </details>
+      </div>
+      <div>
+        <h3 class="column-title">In Lean</h3>
+        <p class="source"><a href="DerivationStatements/Claims.lean">DerivationStatements/Claims.lean</a> ·
+          namespace <code>TaikoSpec.Derivation.Statements</code></p>
+        <pre><code data-source="DerivationStatements/Claims.lean" data-declaration="DerivationSafety">def DerivationSafety : Prop :=
+  ∀ (c : ChainParams) (ctx : ProposalCtx) (p : Parent),
+    (∀ src payload,
+      1 ≤ (sourceBlocks c ctx p src payload).length ∧
+      (sourceBlocks c ctx p src payload).length ≤ UNZEN_DERIVATION_SOURCE_MAX_BLOCKS ∧
+      (src.isForcedInclusion = true → (sourceBlocks c ctx p src payload).length = 1)) ∧
+    (∀ xs ys,
+      deriveSources c ctx p (xs ++ ys) =
+        deriveSources c ctx p xs ++ deriveSources c ctx (parentAfter c ctx p xs) ys ∧
+      (deriveSources c ctx p (xs ++ ys)).take (deriveSources c ctx p xs).length =
+        deriveSources c ctx p xs) ∧
+    (∀ sources,
+      Chain (fun a b =&gt; b = a + 1) p.number ((deriveSources c ctx p sources).map (·.number)) ∧
+      Chain (· &lt; ·) p.timestamp ((deriveSources c ctx p sources).map (·.timestamp)) ∧
+      (∀ i (hi : i &lt; (deriveSources c ctx p sources).length),
+        (deriveSources c ctx p sources)[i].timestamp ≤
+          max ctx.timestamp (max p.timestamp c.shastaForkTime) + i + 1) ∧
+      Chain (· ≤ ·) p.anchorBlockNumber
+        ((deriveSources c ctx p sources).map (·.anchorBlockNumber))) ∧
+    (InitialParentBounds ctx p → ∀ sources, ∀ b ∈ deriveSources c ctx p sources,
+      b.anchorBlockNumber ≤ ctx.originBlockNumber ∧
+      MIN_BLOCK_GAS_LIMIT ≤ b.gasLimit ∧ b.gasLimit ≤ MAX_BLOCK_GAS_LIMIT) ∧
+    (∀ (src : Source) (m : Option (List BlockManifest)) (bs : List BlockManifest),
+      src.isForcedInclusion = false →
+      (finalizeSource c ctx p src m = .accepted bs ↔
+        m = some bs ∧ validate c ctx p false bs = true))</code></pre>
+        <p class="source">Proved in <a href="DerivationProofs/Claims.lean">DerivationProofs/Claims.lean</a>,
+          namespace <code>TaikoSpec.Derivation.Proofs</code>:</p>
+        <pre><code data-source="DerivationProofs/Claims.lean" data-declaration="derivation_safety" data-signature="true">theorem derivation_safety : DerivationSafety</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <section id="headers" aria-labelledby="headers-title">
+    <h2 id="headers-title">2. Header safety and the next parent</h2>
+    <div class="columns">
+      <div>
+        <h3 class="column-title">In words</h3>
+        <p>For any header context (base-fee sharing percentage and proposal ID), building
+          header plans preserves exactly the derived block sequence. Every plan has:</p>
+        <ul>
+          <li>Header gas equal to manifest gas plus the 1M anchor reserve.</li>
+          <li>Exactly seven bytes of <code>extraData</code>: one sharing-percentage byte,
+            followed by the low six bytes of the proposal ID, big-endian.
+            Real <code>Proposed.id</code> values are uint48, so they fit without truncation.</li>
+          <li>A system anchor for that block's own anchor number first, followed by the
+            manifest's candidate transactions in their original order.</li>
+        </ul>
+        <p>The Anchor contract is trusted to execute successfully and record the running
+          maximum of checkpoint numbers. Since derived anchors never decrease, its recorded
+          anchor after each block equals that block's anchor. Rebuilding the next parent
+          from the last header and that recorded anchor gives exactly the parent that
+          derivation continues from.</p>
+        <p>If the initial parent timestamp is at or after Unzen, every derived block is
+          also at or after Unzen. These are header <em>plans</em>; preserving candidate
+          transactions is not a claim that execution includes them all.</p>
+        <details>
+          <summary>The Unzen header layout, in Lean</summary>
+          <pre><code data-source="DerivationStatements/Claims.lean" data-declaration="UnzenHeader">def UnzenHeader (hc : HeaderContext) (h : HeaderPlan) : Prop :=
+  h.gasLimit = h.block.gasLimit + ANCHOR_GAS_LIMIT ∧
+  h.extraData.length = 7 ∧
+  h.extraData.head? = some hc.baseFeeSharing ∧
+  decodeExtraDataProposal h.extraData = some (hc.proposalId % uint48Limit) ∧
+  h.transactions =
+    .anchor h.block.anchorBlockNumber :: h.block.transactions.map TransactionPlanEntry.manifest</code></pre>
+        </details>
+      </div>
+      <div>
+        <h3 class="column-title">In Lean</h3>
+        <p class="source"><a href="DerivationStatements/Claims.lean">DerivationStatements/Claims.lean</a> ·
+          namespace <code>TaikoSpec.Derivation.Statements</code></p>
+        <pre><code data-source="DerivationStatements/Claims.lean" data-declaration="HeaderSafety">def HeaderSafety : Prop :=
+  ∀ (c : ChainParams) (ctx : ProposalCtx) (hc : HeaderContext) (p : Parent)
+    (sources : List (Source × Option ByteArray)),
+    (deriveHeaders c ctx hc p sources).map (·.block) = deriveSources c ctx p sources ∧
+    (∀ h ∈ deriveHeaders c ctx hc p sources, UnzenHeader hc h) ∧
+    recordedAnchors p.anchorBlockNumber
+        ((deriveHeaders c ctx hc p sources).map (·.block.anchorBlockNumber)) =
+      (deriveHeaders c ctx hc p sources).map (·.block.anchorBlockNumber) ∧
+    rebuiltParent p (deriveHeaders c ctx hc p sources) = parentAfter c ctx p sources ∧
+    (c.unzenForkTime ≤ p.timestamp →
+      ∀ h ∈ deriveHeaders c ctx hc p sources, c.unzenForkTime ≤ h.block.timestamp)</code></pre>
+        <p class="source">Proved in <a href="DerivationProofs/Claims.lean">DerivationProofs/Claims.lean</a>:</p>
+        <pre><code data-source="DerivationProofs/Claims.lean" data-declaration="header_safety" data-signature="true">theorem header_safety : HeaderSafety</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <section id="forced" aria-labelledby="forced-title">
+    <h2 id="forced-title">3. Forced-inclusion acceptance and fallback</h2>
+    <div class="columns">
+      <div>
+        <h3 class="column-title">In words</h3>
+        <p>Given an extracted, one-block manifest for a forced-inclusion source, the model
+          overwrites its metadata with inherited values before validation. It accepts that
+          source if and only if <em>all</em> of these conditions hold:</p>
+        <ol>
+          <li>The computed minimum timestamp is no later than the proposal timestamp.</li>
+          <li>The inherited parent anchor is at least <code>origin − maxAnchorOffset</code>
+            (subtraction truncates at zero), and no later than the origin.</li>
+          <li>The parent's effective gas is within its own <code>gasBounds</code>.
+            This condition always holds when that gas is in the 10M–45M range.</li>
+        </ol>
+        <p>Otherwise it becomes exactly one default block: the computed minimum timestamp,
+          the proposer as coinbase, the parent's anchor and effective gas, and no manifest
+          transactions. A missing manifest also produces that default block.</p>
+        <p>On acceptance, the result is exactly the inherited block with the submitted
+          manifest's original ordered transaction-candidate list. This equality is part of
+          the headline claim; it does not assert that the execution engine includes those candidates.</p>
+        <p>Later sources cannot change the earlier prefix. The Inbox's placement of forced
+          sources before the proposer connects that prefix property to forced inclusions.</p>
+        <p><strong>Forced inclusion can default.</strong> A stale inherited anchor or an
+          exhausted timestamp window can discard its candidates. No inclusion deadline,
+          eventual-inclusion guarantee, or transaction-execution result is proved.</p>
+        <details>
+          <summary>The acceptance condition, in Lean</summary>
+          <pre><code data-source="DerivationStatements/Claims.lean" data-declaration="ForcedAcceptance">def ForcedAcceptance (c : ChainParams) (ctx : ProposalCtx) (p : Parent) : Prop :=
+  lowerBound c ctx p.timestamp ≤ ctx.timestamp ∧
+  ctx.originBlockNumber - c.maxAnchorOffset ≤ p.anchorBlockNumber ∧
+  p.anchorBlockNumber ≤ ctx.originBlockNumber ∧
+  (gasBounds (effectiveGasLimit p)).1 ≤ effectiveGasLimit p ∧
+  effectiveGasLimit p ≤ (gasBounds (effectiveGasLimit p)).2</code></pre>
+        </details>
+      </div>
+      <div>
+        <h3 class="column-title">In Lean</h3>
+        <p class="source"><a href="DerivationStatements/Claims.lean">DerivationStatements/Claims.lean</a> ·
+          namespace <code>TaikoSpec.Derivation.Statements</code></p>
+        <pre><code data-source="DerivationStatements/Claims.lean" data-declaration="ForcedInclusionSafety">def ForcedInclusionSafety : Prop :=
+  ∀ (c : ChainParams) (ctx : ProposalCtx) (p : Parent),
+    (∀ (src : Source) (b : BlockManifest), src.isForcedInclusion = true →
+      ((finalizeSource c ctx p src (some [b])).isAccepted = true ↔ ForcedAcceptance c ctx p) ∧
+      (finalizeSource c ctx p src (some [b]) =
+          .accepted [{ defaultBlock c ctx p with transactions := b.transactions }] ↔
+        ForcedAcceptance c ctx p) ∧
+      (finalizeSource c ctx p src (some [b]) = .defaulted (defaultBlock c ctx p) ↔
+        ¬ ForcedAcceptance c ctx p)) ∧
+    (∀ src, finalizeSource c ctx p src none = .defaulted (defaultBlock c ctx p)) ∧
+    (∀ xs ys,
+      (deriveSources c ctx p (xs ++ ys)).take (deriveSources c ctx p xs).length =
+        deriveSources c ctx p xs)</code></pre>
+        <p class="source">Proved in <a href="DerivationProofs/Claims.lean">DerivationProofs/Claims.lean</a>:</p>
+        <pre><code data-source="DerivationProofs/Claims.lean" data-declaration="forced_inclusion_safety" data-signature="true">theorem forced_inclusion_safety : ForcedInclusionSafety</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <section id="combined" aria-labelledby="combined-title">
+    <h2 id="combined-title">4. The combined claim</h2>
+    <div class="columns">
+      <div>
+        <h3 class="column-title">In words</h3>
+        <p>All three preceding safety propositions hold together. The theorem has exactly
+          <code>Claims</code> as its type; it adds no premise outside those already visible
+          inside the propositions. This conjunction does not enlarge their scope.</p>
+      </div>
+      <div>
+        <h3 class="column-title">In Lean</h3>
+        <p class="source"><a href="DerivationStatements/Claims.lean">DerivationStatements/Claims.lean</a>:</p>
+        <pre><code data-source="DerivationStatements/Claims.lean" data-declaration="Claims">def Claims : Prop := DerivationSafety ∧ HeaderSafety ∧ ForcedInclusionSafety</code></pre>
+        <p class="source"><a href="DerivationProofs/Claims.lean">DerivationProofs/Claims.lean</a>:</p>
+        <pre><code data-source="DerivationProofs/Claims.lean" data-declaration="claims" data-signature="true">theorem claims : Claims</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <section id="lemmas">
+    <h2>Supporting theorems</h2>
+    <p class="reading">These are the public properties in
+      <a href="DerivationProofs/Properties.lean">DerivationProofs/Properties.lean</a>, in
+      namespace <code>TaikoSpec.Derivation</code>. Expand a theorem to read its explanation
+      and exact signature. They share the model parameters <code>c</code>, <code>ctx</code>,
+      and <code>p</code> shown below; additional hypotheses remain visible in each signature.</p>
+    <pre><code>variable (c : ChainParams) (ctx : ProposalCtx) (p : Parent)</code></pre>
+    <div class="lemma-group">
+<h3>1. Cardinality</h3>
+<details id="lemma-source_block_count">
+  <summary><code>source_block_count</code></summary>
+  <p class="reading">Every source contributes at least one block and at most
+<code>UNZEN_DERIVATION_SOURCE_MAX_BLOCKS</code>; a forced inclusion contributes exactly one.</p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L21">DerivationProofs/Properties.lean:21</a></p>
+  <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="source_block_count" data-signature="true">theorem source_block_count (src : Source) (payload : Option ByteArray) :
+    1 ≤ (sourceBlocks c ctx p src payload).length ∧
+      (sourceBlocks c ctx p src payload).length ≤ UNZEN_DERIVATION_SOURCE_MAX_BLOCKS ∧
+      (src.isForcedInclusion = true → (sourceBlocks c ctx p src payload).length = 1)</code></pre>
+</details>
+</div>
+<div class="lemma-group">
+<h3>2. Source isolation</h3>
+<details id="lemma-derive_append">
+  <summary><code>derive_append</code></summary>
+  <p class="reading">Deriving <code>xs ++ ys</code> derives <code>xs</code>, then derives <code>ys</code> on top of the last block of <code>xs</code>.</p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L30">DerivationProofs/Properties.lean:30</a></p>
+  <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="derive_append" data-signature="true">theorem derive_append (xs ys : List (Source × Option ByteArray)) :
+    deriveSources c ctx p (xs ++ ys) =
+      deriveSources c ctx p xs ++ deriveSources c ctx (parentAfter c ctx p xs) ys</code></pre>
+</details>
+<details id="lemma-earlier_sources_unaffected">
+  <summary><code>earlier_sources_unaffected</code></summary>
+  <p class="reading">Later sources cannot change the blocks of earlier ones. <code>Inbox.sol</code> places every forced
+inclusion before the proposer&#x27;s source, so nothing in the proposer&#x27;s source affects them.</p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L37">DerivationProofs/Properties.lean:37</a></p>
+  <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="earlier_sources_unaffected" data-signature="true">theorem earlier_sources_unaffected (xs ys : List (Source × Option ByteArray)) :
+    (deriveSources c ctx p (xs ++ ys)).take (deriveSources c ctx p xs).length =
+      deriveSources c ctx p xs</code></pre>
+</details>
+</div>
+<div class="lemma-group">
+<h3>3. Block numbers</h3>
+<details id="lemma-numbers_consecutive">
+  <summary><code>numbers_consecutive</code></summary>
+  <p class="reading">Block numbers continue from the parent&#x27;s, one at a time.</p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L46">DerivationProofs/Properties.lean:46</a></p>
+  <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="numbers_consecutive" data-signature="true">theorem numbers_consecutive (srcs : List (Source × Option ByteArray)) :
+    Chain (fun a b =&gt; b = a + 1) p.number ((deriveSources c ctx p srcs).map (·.number))</code></pre>
+</details>
+</div>
+<div class="lemma-group">
+<h3>4. Timestamps</h3>
+<details id="lemma-timestamps_increasing">
+  <summary><code>timestamps_increasing</code></summary>
+  <p class="reading">Timestamps strictly increase: each block is at least one second after the one before it,
+and the first is after the parent.</p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L54">DerivationProofs/Properties.lean:54</a></p>
+  <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="timestamps_increasing" data-signature="true">theorem timestamps_increasing (srcs : List (Source × Option ByteArray)) :
+    Chain (· &lt; ·) p.timestamp ((deriveSources c ctx p srcs).map (·.timestamp))</code></pre>
+</details>
+</div>
+<div class="lemma-group">
+<h3>5. Timestamp drift</h3>
+<details id="lemma-timestamp_drift">
+  <summary><code>timestamp_drift</code></summary>
+  <p class="reading">Block <code>i</code> of a proposal (counting from 0) is at most <code>i + 1</code> seconds after the latest of the
+proposal timestamp, the parent&#x27;s timestamp and the fork time.</p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L62">DerivationProofs/Properties.lean:62</a></p>
+  <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="timestamp_drift" data-signature="true">theorem timestamp_drift (srcs : List (Source × Option ByteArray)) (i : Nat)
+    (h : i &lt; (deriveSources c ctx p srcs).length) :
+    (deriveSources c ctx p srcs)[i].timestamp ≤
+      max ctx.timestamp (max p.timestamp c.shastaForkTime) + i + 1</code></pre>
+</details>
+<details id="lemma-accepted_not_after_proposal">
+  <summary><code>accepted_not_after_proposal</code></summary>
+  <p class="reading">A source that keeps its own blocks never places them after the proposal timestamp; only a
+default block can be later.</p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L71">DerivationProofs/Properties.lean:71</a></p>
+  <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="accepted_not_after_proposal" data-signature="true">theorem accepted_not_after_proposal (src : Source) (m : Option (List BlockManifest))
+    (bs : List BlockManifest) (h : finalizeSource c ctx p src m = .accepted bs) :
+    ∀ b ∈ bs, b.timestamp ≤ ctx.timestamp</code></pre>
+</details>
+</div>
+<div class="lemma-group">
+<h3>6. Anchors</h3>
+<details id="lemma-anchors_nondecreasing">
+  <summary><code>anchors_nondecreasing</code></summary>
+  <p class="reading">Anchors never decrease, starting from the parent&#x27;s anchor.</p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L79">DerivationProofs/Properties.lean:79</a></p>
+  <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="anchors_nondecreasing" data-signature="true">theorem anchors_nondecreasing (srcs : List (Source × Option ByteArray)) :
+    Chain (· ≤ ·) p.anchorBlockNumber ((deriveSources c ctx p srcs).map (·.anchorBlockNumber))</code></pre>
+</details>
+<details id="lemma-anchors_not_after_origin">
+  <summary><code>anchors_not_after_origin</code></summary>
+  <p class="reading">If the parent&#x27;s anchor is not past the origin block, no derived anchor is.</p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L84">DerivationProofs/Properties.lean:84</a></p>
+  <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="anchors_not_after_origin" data-signature="true">theorem anchors_not_after_origin (srcs : List (Source × Option ByteArray))
+    (hp : p.anchorBlockNumber ≤ ctx.originBlockNumber) :
+    ∀ b ∈ deriveSources c ctx p srcs, b.anchorBlockNumber ≤ ctx.originBlockNumber</code></pre>
+</details>
+</div>
+<div class="lemma-group">
+<h3>7. Gas limits</h3>
+<details id="lemma-gas_limits_in_range">
+  <summary><code>gas_limits_in_range</code></summary>
+  <p class="reading">If the parent&#x27;s effective gas limit is within <code>[MIN_BLOCK_GAS_LIMIT, MAX_BLOCK_GAS_LIMIT]</code>,
+every derived block&#x27;s gas limit is too.</p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L93">DerivationProofs/Properties.lean:93</a></p>
+  <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="gas_limits_in_range" data-signature="true">theorem gas_limits_in_range (srcs : List (Source × Option ByteArray))
+    (h₁ : MIN_BLOCK_GAS_LIMIT ≤ effectiveGasLimit p)
+    (h₂ : effectiveGasLimit p ≤ MAX_BLOCK_GAS_LIMIT) :
+    ∀ b ∈ deriveSources c ctx p srcs,
+      MIN_BLOCK_GAS_LIMIT ≤ b.gasLimit ∧ b.gasLimit ≤ MAX_BLOCK_GAS_LIMIT</code></pre>
+</details>
+</div>
+<div class="lemma-group">
+<h3>8. Proposer preservation and progress</h3>
+<details id="lemma-proposer_source_accepted_iff">
+  <summary><code>proposer_source_accepted_iff</code></summary>
+  <p class="reading">A non-forced source is accepted with exactly its original manifest, preserving every field
+and the full ordered transaction-candidate lists, precisely when that manifest validates.</p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L104">DerivationProofs/Properties.lean:104</a></p>
+  <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="proposer_source_accepted_iff" data-signature="true">theorem proposer_source_accepted_iff (src : Source) (m : Option (List BlockManifest))
+    (bs : List BlockManifest) (hf : src.isForcedInclusion = false) :
+    finalizeSource c ctx p src m = .accepted bs ↔
+      m = some bs ∧ validate c ctx p false bs = true</code></pre>
+</details>
+<details id="lemma-proposer_source_advances_anchor">
+  <summary><code>proposer_source_advances_anchor</code></summary>
+  <p class="reading">A proposer&#x27;s (non-forced) source that keeps its own blocks raises the anchor above the
+parent&#x27;s.</p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L112">DerivationProofs/Properties.lean:112</a></p>
+  <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="proposer_source_advances_anchor" data-signature="true">theorem proposer_source_advances_anchor (src : Source) (m : Option (List BlockManifest))
+    (bs : List BlockManifest) (h : finalizeSource c ctx p src m = .accepted bs)
+    (hf : src.isForcedInclusion = false) :
+    ∃ b ∈ bs, p.anchorBlockNumber &lt; b.anchorBlockNumber</code></pre>
+</details>
+</div>
+<div class="lemma-group">
+<h3>9. Forced inclusions</h3>
+<details id="lemma-forced_inclusion_accepted_iff">
+  <summary><code>forced_inclusion_accepted_iff</code></summary>
+  <p class="reading">A forced inclusion whose manifest is one block has an accepted outcome exactly when
+(a) the timestamp window is not used up, (b) the parent&#x27;s anchor is at most <code>MAX_ANCHOR_OFFSET</code>
+behind the origin block and not past it, and (c) the parent&#x27;s gas limit is within its own
+bounds. Exact preservation of its transaction candidates is stated separately in
+<code>forced_inclusion_preserves_transactions_iff</code>. Otherwise it becomes the default block: forced
+inclusions *can* be dropped, unlike what <code>Derivation.md</code> states.</p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L126">DerivationProofs/Properties.lean:126</a></p>
+  <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="forced_inclusion_accepted_iff" data-signature="true">theorem forced_inclusion_accepted_iff (src : Source) (b : BlockManifest)
+    (hf : src.isForcedInclusion = true) :
+    (finalizeSource c ctx p src (some [b])).isAccepted = true ↔
+      lowerBound c ctx p.timestamp ≤ ctx.timestamp ∧
+      ctx.originBlockNumber - c.maxAnchorOffset ≤ p.anchorBlockNumber ∧
+      p.anchorBlockNumber ≤ ctx.originBlockNumber ∧
+      (gasBounds (effectiveGasLimit p)).1 ≤ effectiveGasLimit p ∧
+      effectiveGasLimit p ≤ (gasBounds (effectiveGasLimit p)).2</code></pre>
+</details>
+<details id="lemma-forced_inclusion_preserves_transactions_iff">
+  <summary><code>forced_inclusion_preserves_transactions_iff</code></summary>
+  <p class="reading">Accepted one-block forced sources have exactly inherited metadata and retain the entire
+original ordered transaction-candidate list. This does not assert candidate execution.</p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L138">DerivationProofs/Properties.lean:138</a></p>
+  <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="forced_inclusion_preserves_transactions_iff" data-signature="true">theorem forced_inclusion_preserves_transactions_iff (src : Source) (b : BlockManifest)
+    (hf : src.isForcedInclusion = true) :
+    finalizeSource c ctx p src (some [b]) =
+        .accepted [{ defaultBlock c ctx p with transactions := b.transactions }] ↔
+      Statements.ForcedAcceptance c ctx p</code></pre>
+</details>
+<details id="lemma-forced_inclusion_accepted_iff_of_gas">
+  <summary><code>forced_inclusion_accepted_iff_of_gas</code></summary>
+  <p class="reading">When the parent&#x27;s gas limit is in range (see theorem 7), condition (c) always holds: a
+one-block forced inclusion is dropped only when the timestamp window is used up or the parent&#x27;s
+anchor is too far behind (or past) the origin block.</p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L151">DerivationProofs/Properties.lean:151</a></p>
+  <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="forced_inclusion_accepted_iff_of_gas" data-signature="true">theorem forced_inclusion_accepted_iff_of_gas (src : Source) (b : BlockManifest)
+    (hf : src.isForcedInclusion = true)
+    (h₁ : MIN_BLOCK_GAS_LIMIT ≤ effectiveGasLimit p)
+    (h₂ : effectiveGasLimit p ≤ MAX_BLOCK_GAS_LIMIT) :
+    (finalizeSource c ctx p src (some [b])).isAccepted = true ↔
+      lowerBound c ctx p.timestamp ≤ ctx.timestamp ∧
+      ctx.originBlockNumber - c.maxAnchorOffset ≤ p.anchorBlockNumber ∧
+      p.anchorBlockNumber ≤ ctx.originBlockNumber</code></pre>
+</details>
+</div>
+<div class="lemma-group">
+<h3>10. The Rust driver&#x27;s order</h3>
+<details id="lemma-rust_order_agrees">
+  <summary><code>rust_order_agrees</code></summary>
+  <p class="reading">The Rust driver inherits metadata before validation for manifests that look exactly like
+the default one; the Go driver (and this spec) validates them as they are. Both give the same
+result.</p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L168">DerivationProofs/Properties.lean:168</a></p>
+  <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="rust_order_agrees" data-signature="true">theorem rust_order_agrees (src : Source) (m : Option (List BlockManifest)) :
+    finalizeSourceRust c ctx p src m = finalizeSource c ctx p src m</code></pre>
+</details>
+<details id="lemma-rust_failure_agrees">
+  <summary><code>rust_failure_agrees</code></summary>
+  <p class="reading">The Rust driver turns a failed extraction into one all-zero block and then inherits it; the
+Go driver and this spec use the default block directly. Both give the same blocks.</p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L174">DerivationProofs/Properties.lean:174</a></p>
+  <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="rust_failure_agrees" data-signature="true">theorem rust_failure_agrees (src : Source) :
+    (finalizeSourceRust c ctx p src (some [emptyBlock])).blocks =
+      (finalizeSource c ctx p src none).blocks</code></pre>
+</details>
+</div>
+<div class="lemma-group">
+<h3>11. Unzen header plans</h3>
+<details id="lemma-header_plan_layout">
+  <summary><code>header_plan_layout</code></summary>
+  <p class="reading">Every header plan reserves anchor gas on top of the manifest gas, carries seven bytes of extra
+data, and places the system anchor for the block&#x27;s own anchor number ahead of the manifest&#x27;s
+candidates in their original order.</p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L184">DerivationProofs/Properties.lean:184</a></p>
+  <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="header_plan_layout" data-signature="true">theorem header_plan_layout (hc : HeaderContext) (b : DerivedBlock) :
+    Statements.UnzenHeader hc (buildHeader hc b)</code></pre>
+</details>
+<details id="lemma-extra_data_proposal_roundtrip">
+  <summary><code>extra_data_proposal_roundtrip</code></summary>
+  <p class="reading">The proposal field of the extra data keeps the proposal ID&#x27;s low six bytes, so it equals the
+proposal ID throughout the uint48 domain.</p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L190">DerivationProofs/Properties.lean:190</a></p>
+  <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="extra_data_proposal_roundtrip" data-signature="true">theorem extra_data_proposal_roundtrip (sharing : UInt8) (proposal : Nat)
+    (hp : proposal &lt; uint48Limit) :
+    decodeExtraDataProposal (encodeExtraData sharing proposal) = some proposal</code></pre>
+</details>
+<details id="lemma-proposal_headers_preserve_derivation">
+  <summary><code>proposal_headers_preserve_derivation</code></summary>
+  <p class="reading">Header plans keep the whole derived sequence, including transactions and forced flags.</p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L196">DerivationProofs/Properties.lean:196</a></p>
+  <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="proposal_headers_preserve_derivation" data-signature="true">theorem proposal_headers_preserve_derivation (hc : HeaderContext)
+    (sources : List (Source × Option ByteArray)) :
+    (deriveHeaders c ctx hc p sources).map (·.block) = deriveSources c ctx p sources</code></pre>
+</details>
+<details id="lemma-anchor_state_follows_derivation">
+  <summary><code>anchor_state_follows_derivation</code></summary>
+  <p class="reading">After each block&#x27;s anchor transaction, the Anchor contract&#x27;s recorded anchor block number
+equals that block&#x27;s anchor number: <code>anchorV4</code> stores only greater numbers, and derived anchors
+never decrease from the parent&#x27;s recorded one.</p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L204">DerivationProofs/Properties.lean:204</a></p>
+  <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="anchor_state_follows_derivation" data-signature="true">theorem anchor_state_follows_derivation (hc : HeaderContext)
+    (sources : List (Source × Option ByteArray)) :
+    recordedAnchors p.anchorBlockNumber
+        ((deriveHeaders c ctx hc p sources).map (·.block.anchorBlockNumber)) =
+      (deriveHeaders c ctx hc p sources).map (·.block.anchorBlockNumber)</code></pre>
+</details>
+<details id="lemma-next_parent_from_headers">
+  <summary><code>next_parent_from_headers</code></summary>
+  <p class="reading">The parent the drivers rebuild after a proposal, from the last header&#x27;s number, timestamp
+and gas limit and from the anchor the Anchor contract recorded, is the parent derivation
+continues from.</p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L214">DerivationProofs/Properties.lean:214</a></p>
+  <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="next_parent_from_headers" data-signature="true">theorem next_parent_from_headers (hc : HeaderContext)
+    (sources : List (Source × Option ByteArray)) :
+    rebuiltParent p (deriveHeaders c ctx hc p sources) = parentAfter c ctx p sources</code></pre>
+</details>
+<details id="lemma-header_gas_recovers_manifest_gas">
+  <summary><code>header_gas_recovers_manifest_gas</code></summary>
+  <p class="reading">The next proposal recovers each block&#x27;s manifest gas from its header gas limit.</p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L220">DerivationProofs/Properties.lean:220</a></p>
+  <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="header_gas_recovers_manifest_gas" data-signature="true">theorem header_gas_recovers_manifest_gas (hc : HeaderContext) (b : DerivedBlock)
+    (hn : b.number ≠ 0) :
+    effectiveGasLimit (headerParent (buildHeader hc b)) = b.gasLimit</code></pre>
+</details>
+<details id="lemma-blocks_after_unzen">
+  <summary><code>blocks_after_unzen</code></summary>
+  <p class="reading">On an Unzen parent every derived block is an Unzen block. The execution engines pick header
+rules by each block&#x27;s own timestamp, so they apply Unzen rules to all of them.</p>
+  <p class="source"><a href="DerivationProofs/Properties.lean#L227">DerivationProofs/Properties.lean:227</a></p>
+  <pre><code data-source="DerivationProofs/Properties.lean" data-declaration="blocks_after_unzen" data-signature="true">theorem blocks_after_unzen (hc : HeaderContext) (sources : List (Source × Option ByteArray))
+    (hp : c.unzenForkTime ≤ p.timestamp) :
+    ∀ h ∈ deriveHeaders c ctx hc p sources, c.unzenForkTime ≤ h.block.timestamp</code></pre>
+</details>
+</div>
+  </section>
+
+  <section id="limits">
+    <h2>Evidence and limits</h2>
+    <div class="columns">
+      <div>
+        <h3>What is checked</h3>
+        <p>The package gate builds the libraries, audits the exact headline types and their
+          dependencies, checks the initial-premise fields, and replays all five library
+          roots with <code>leanchecker</code>. Owned declarations may depend only on
+          <code>propext</code>, <code>Classical.choice</code>, and <code>Quot.sound</code>.</p>
+        <p>The shared manifest corpus is executable conformance evidence. Compilation-time
+          <code>#guard</code> checks and JSON vector runs are tests, not kernel proofs.
+          The original 136 decoding vectors are joined by 151 shared boundary cases for
+          extraction, metadata, source sequences, header plans and next parents. Each
+          adapter rejects deliberately corrupted expected outputs. The local formal gate
+          runs Lean and fixture checks; CI also runs Go and Rust adapters on drafts.
+          These comparisons do not prove that the clients implement the model.</p>
+        <p>The <a href="../../testdata/derivation_vectors/boundary_coverage.json">named boundary matrix</a>
+          records the covered cases. Go uses production decoding, metadata and shared
+          header helpers; Rust uses production decoding and payload/anchor construction.
+          External RPC/signing or execution boundaries are substituted in tests. Anchor
+          state is still trusted as a running maximum. See the
+          <a href="../../testdata/derivation_vectors/README.md">corpus README</a> for the comparison boundary.</p>
+        <p>Run the complete package gate from <code>formal/derivation</code>:</p>
+        <pre><code>bash scripts/gate.sh</code></pre>
+        <p><a href="DerivationWitnesses/Examples.lean">Concrete witnesses</a> demonstrate
+          satisfiable bounds, accepted sources, stale-anchor fallback, and a two-source
+          proposal with header plans. They do not prove completeness of the assumptions.</p>
+        <h3>Differences from specification prose</h3>
+        <ul>
+          <li>A version word below 2<sup>64</sup> is accepted when its low 32 bits equal 1.</li>
+          <li>The size word uses only its low 64 bits before checking the payload bounds.</li>
+          <li>Proposer anchor 0 is validated normally; it does not request parent inheritance.</li>
+          <li>A proposer source defaults unless one of its blocks raises the anchor above
+            the parent's; the prose names this penalty only where it exempts forced sources.</li>
+          <li>Forced sources can default after inheritance when validation fails.</li>
+          <li>A default block takes the timestamp lower bound without validation, so it can
+            be later than the proposal timestamp; the drift bound above covers it.</li>
+          <li>Zlib, canonical RLP, and transaction grammar add explicit decoding detail.</li>
+        </ul>
+        <p>The model follows the reviewed client behavior in these cases.
+          <a href="spec-coverage.json">spec-coverage.json</a> pins the specification's
+          revision and hash; that traceability is not a claim of complete coverage.
+          The <a href="README.md">README</a> records the additional out-of-domain
+          proposal-ID, parent-gas arithmetic and empty-source-list differences.</p>
+      </div>
+      <div>
+        <h3>Trusted or outside scope</h3>
+        <ul>
+          <li><strong>Anchor execution.</strong> Every anchor transaction is assumed to
+            succeed and record the running maximum of checkpoint numbers.</li>
+          <li><strong>Input authenticity and availability.</strong> L1 events, parent reads,
+            chain configuration, blob field-element decoding, data availability, and the
+            split between retried fetch failures and defaulted sources.</li>
+          <li><strong>Execution.</strong> Sender authentication, execution filtering, zk gas,
+            base fee, <code>mixHash</code>, and execution results.</li>
+          <li><strong>Unmodeled header and transaction details.</strong> Anchor L1 hash and
+            state root, signed anchor encoding, Engine API serialization, and engine-set
+            fields such as <code>parentBeaconBlockRoot</code>, blob gas,
+            <code>requestsHash</code>, and <code>difficulty</code>.</li>
+          <li><strong>Other guarantees.</strong> Decoder resource bounds, bridge verification,
+            proof/bond settlement, consensus security, eventual inclusion, and whole-client
+            equivalence.</li>
+        </ul>
+        <p>The source and audit gates have bounded mechanical checks. They cannot decide
+          whether an English explanation is faithful, whether a premise is logically
+          necessary, or whether a model matches production. Those remain review questions.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p>This standalone page needs no network, JavaScript, external assets, or build step to read.
+      Its layout takes inspiration from
+      <a href="https://github.com/anthropics/FlashProve/blob/main/lean/STATEMENTS.html">FlashProve's statements page</a>:
+      explanations beside Lean, with premises and limits made explicit.
+      The gate rejects stale source excerpts, missing public properties and changed theorem
+      line links. Keep the English explanations in sync when the Lean statements change;
+      those explanations still require review. Use the linked Lean files for the authoritative declarations.</p>
+  </footer>
+</main>
+</body>
+</html>

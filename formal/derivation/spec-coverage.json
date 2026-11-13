@@ -1,0 +1,98 @@
+{
+  "sources": [
+    {
+      "path": "packages/protocol/docs/Derivation.md",
+      "revision": "5a987fe921743af9fdfe33de7aba6671b18c8a69",
+      "sha256": "461761a1118493c2b138e8868c2ce3b85dcd75b26518f1099d062bb5cbf7c562"
+    }
+  ],
+  "claims": {
+    "DerivationSafety": {
+      "statement": "TaikoSpec.Derivation.Statements.DerivationSafety",
+      "theorem": "TaikoSpec.Derivation.Proofs.derivation_safety",
+      "sections": [
+        {
+          "path": "packages/protocol/docs/Derivation.md",
+          "heading": "Metadata Validation and Computation"
+        },
+        {
+          "path": "packages/protocol/docs/Derivation.md",
+          "heading": "Per-Source Manifest Extraction"
+        }
+      ]
+    },
+    "HeaderSafety": {
+      "statement": "TaikoSpec.Derivation.Statements.HeaderSafety",
+      "theorem": "TaikoSpec.Derivation.Proofs.header_safety",
+      "sections": [
+        {
+          "path": "packages/protocol/docs/Derivation.md",
+          "heading": "Pre-Execution Block Header"
+        },
+        {
+          "path": "packages/protocol/docs/Derivation.md",
+          "heading": "Anchor Transaction"
+        },
+        {
+          "path": "packages/protocol/docs/Derivation.md",
+          "heading": "`anchorBlockNumber` Validation"
+        }
+      ]
+    },
+    "ForcedInclusionSafety": {
+      "statement": "TaikoSpec.Derivation.Statements.ForcedInclusionSafety",
+      "theorem": "TaikoSpec.Derivation.Proofs.forced_inclusion_safety",
+      "sections": [
+        {
+          "path": "packages/protocol/docs/Derivation.md",
+          "heading": "Default Source Manifest"
+        },
+        {
+          "path": "packages/protocol/docs/Derivation.md",
+          "heading": "Forced Inclusion Submission Requirements"
+        },
+        {
+          "path": "packages/protocol/docs/Derivation.md",
+          "heading": "ProposalManifest Construction"
+        }
+      ]
+    },
+    "Claims": {
+      "statement": "TaikoSpec.Derivation.Statements.Claims",
+      "theorem": "TaikoSpec.Derivation.Proofs.claims",
+      "sections": [
+        {
+          "path": "packages/protocol/docs/Derivation.md",
+          "heading": "Forks"
+        },
+        {
+          "path": "packages/protocol/docs/Derivation.md",
+          "heading": "Metadata Preparation"
+        },
+        {
+          "path": "packages/protocol/docs/Derivation.md",
+          "heading": "Metadata Application"
+        }
+      ]
+    }
+  },
+  "exclusions": [
+    "Shasta-era client branches (the 192-block source limit and parent-anchor calldata decoding) and everything Etna.",
+    "Authenticated L1 inputs, parent inputs read from L2, blob field-element decoding and data availability.",
+    "The Anchor contract: anchorV4 is trusted to succeed and to record the running maximum of checkpoint block numbers.",
+    "Execution, sender filtering, zk gas, base fee, mixHash, the anchor's L1 hash and state root, Engine API and signed anchor encoding.",
+    "Bridge verification, proof/bond settlement, consensus security and guaranteed eventual inclusion.",
+    "Whole-client equivalence and decoder resource bounds."
+  ],
+  "drift": [
+    "Version words below 2^64 with low 32 bits equal to 1 are accepted by the modeled clients.",
+    "The size word uses only its low 64 bits, matching Go big.Int.Uint64() and the Rust decoder.",
+    "Proposer anchor 0 is validated normally; it does not request inherited metadata.",
+    "A proposer source defaults unless one of its blocks raises the anchor above the parent's; the prose names this penalty only where it exempts forced sources.",
+    "Forced sources can default when inherited metadata fails validation; no inclusion deadline is proved.",
+    "A default block takes the timestamp lower bound without validation and can be later than the proposal timestamp; the proved drift bound covers it.",
+    "Zlib/RLP and transaction grammar use explicit checked decoder behavior beyond prose detail.",
+    "Extra data keeps the proposal ID's low six bytes; Proposed.id is a uint48, so it always fits as Derivation.md requires.",
+    "A nonzero-ID proposal without sources derives no blocks, as in Go, while Rust returns an error; Inbox.propose always appends the proposer's source."
+  ]
+}
