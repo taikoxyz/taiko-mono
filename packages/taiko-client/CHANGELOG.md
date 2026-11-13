@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.9.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.8.0...taiko-alethia-client-v2.9.0) (2026-11-13)
+
+
+### Features
+
+* **repo:** prove Unzen derivation safety in Lean ([#22345](https://github.com/taikoxyz/taiko-mono/issues/22345)) ([cdede2e](https://github.com/taikoxyz/taiko-mono/commit/cdede2e87239ebdb833f056e14368b001c8bb48e))
+* **taiko-client:** add a prover flag to pair ZK proofs with SGX_RETH instead of SGX_GETH ([#22279](https://github.com/taikoxyz/taiko-mono/issues/22279)) ([9a87427](https://github.com/taikoxyz/taiko-mono/commit/9a87427c77d0729abdf8982103ca4117cc8b94ab))
+* **taiko-client:** restore RISC0 proving with SP1 fallback and proof share ([#22346](https://github.com/taikoxyz/taiko-mono/issues/22346)) ([f36ab55](https://github.com/taikoxyz/taiko-mono/commit/f36ab55e39e82f3597e4ed62a2b35c26364c1449))
+
+
+### Bug Fixes
+
+* **taiko-client:** skip rate limit wait after retries are exhausted ([#22344](https://github.com/taikoxyz/taiko-mono/issues/22344)) ([5a987fe](https://github.com/taikoxyz/taiko-mono/commit/5a987fe921743af9fdfe33de7aba6671b18c8a69))
+* **taiko-client:** stop on the first shutdown signal when metrics are enabled ([#22334](https://github.com/taikoxyz/taiko-mono/issues/22334)) ([4bcd0b4](https://github.com/taikoxyz/taiko-mono/commit/4bcd0b45a46f6bcfcfd7de2c888033b0c80b9e3f))
+
+
+### Code Refactoring
+
+* **taiko-client:** use SP1 for ZK proving ([#22297](https://github.com/taikoxyz/taiko-mono/issues/22297)) ([7471d53](https://github.com/taikoxyz/taiko-mono/commit/7471d53d7ac15e76eb7eb353e4c155e2d1410261))
+
 ## [2.8.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.7.0...taiko-alethia-client-v2.8.0) (2026-10-09)
 
 
