@@ -51,9 +51,10 @@ def FitCommits : Prop :=
 corpus to reach each branch it lists apart from `unreachableBranches`, leaves no branch out. -/
 def BranchesComplete : Prop := ∀ b : BranchId, b ∈ allBranches
 
-/-- On Unzen, no step leaves its frame more gas than the frame had before it. So the gas a step
-uses, the gas before minus the gas after, is never negative: alethia-reth's saturating
-subtraction and taiko-geth's error for a rise in gas never take effect. -/
+/-- On Unzen, no step of the step model leaves its frame more gas than the frame had before it.
+So the gas a step uses in the model, the gas before minus the gas after, is never negative:
+where a client agrees with the model, the saturating subtraction or the error a client may have
+for a rise in gas never takes effect. -/
 def StepGasMonotone : Prop :=
   ∀ (pre : Pre) (r : StepResult), stepOutcome .unzen pre = .ok r → r.gasAfter ≤ pre.gas
 

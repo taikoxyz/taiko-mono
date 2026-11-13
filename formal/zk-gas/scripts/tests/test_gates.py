@@ -39,6 +39,26 @@ class GateTests(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertTrue(gate.source_errors('ZkGasProofs.X', token))
 
+    def test_notation_commands(self):
+        # A local notation could make a statement read differently from what it says.
+        for text in ['notation "x" => 1', 'local notation "x" => 1', 'infix:50 " ~ " => f',
+                     'infixl:65 " +* " => f', 'infixr:67 " :: " => f', 'prefix:max "!" => f',
+                     'postfix:max "!" => f']:
+            with self.subTest(text=text):
+                self.assertTrue(gate.source_errors('ZkGasStatements.Claims', text))
+        self.assertEqual(gate.source_errors('ZkGasStatements.Claims', 'def prefixSums := 1'), [])
+
+    def test_statement_drift(self):
+        self.assertEqual(gate.statement_errors(self.root), [])
+        self.mutate('ZkGasStatements/Claims.lean', '-- a changed comment')
+        errors = gate.check(self.root)
+        self.assertTrue(any('statement drift: ZkGasStatements/Claims.lean' in e for e in errors), errors)
+
+    def test_unpinned_statement_module(self):
+        (self.root / 'ZkGasStatements/More.lean').write_text('def more := 1')
+        errors = gate.statement_errors(self.root)
+        self.assertTrue(any('ZkGasStatements/More.lean is not pinned' in e for e in errors), errors)
+
     def test_nested_comments_and_strings(self):
         self.assertEqual(gate.source_errors('ZkGasProofs.X',
                          '/- sorry /- unsafe -/ axiom -/\ndef x := "admit" -- native_decide\n'), [])

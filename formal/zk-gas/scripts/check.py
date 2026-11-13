@@ -31,7 +31,16 @@ JSON_NAME = re.compile(r"Lean\.Json(?:Number)?(?:\.[A-Za-z_][A-Za-z_0-9']*)*")
 EXECUTABLE = {'name': 'check-traces', 'root': 'ZkGasTraces.Main'}
 FORBIDDEN = set('sorry admit native_decide axiom unsafe partial implemented_by extern opaque '
                 'run_elab elab elab_rules macro macro_rules syntax initialize builtin_initialize '
-                'declare_syntax_cat register_option set_option attribute by_elab run_tac'.split())
+                'declare_syntax_cat register_option set_option attribute by_elab run_tac '
+                'notation infix infixl infixr prefix postfix'.split())
+# The headline statements are reviewed by reading them, so every module of the statements library
+# is pinned by its SHA-256 hash: an edit to a statement fails the gate until it is reviewed and
+# repinned here. The audit pins each headline theorem's type to its statement's name, not the
+# statement's body.
+STATEMENTS = {
+    'ZkGasStatements.lean': '0ddf721b25e18b76f509f12e713b87ffe6bc1ee5fdf4af733c39fc92372e12e4',
+    'ZkGasStatements/Claims.lean': '42d815a355fa5f2f41d9a01c96210613f3841a3b82f9cd071a4ccf5a9b0c0108',
+}
 IDENT = re.compile(r'[A-Za-z_][A-Za-z_0-9\'.]*(?:%\b)?')
 
 
@@ -160,6 +169,22 @@ def spec_errors(root, data):
     return errors
 
 
+def statement_errors(root):
+    """The statements library holds exactly the pinned files, each with its pinned hash."""
+    files = {'ZkGasStatements.lean', *(p.relative_to(root).as_posix()
+                                       for p in (root / 'ZkGasStatements').rglob('*.lean'))}
+    errors = [f'statement drift: {name} is not pinned; review it and add its hash to STATEMENTS'
+              for name in sorted(files - set(STATEMENTS))]
+    for name, digest in STATEMENTS.items():
+        path = root / name
+        if not path.is_file():
+            errors.append(f'statement drift: {name} is missing')
+        elif hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+            errors.append(f'statement drift: {name}; review the headline statements and explicitly '
+                          'repin its hash in STATEMENTS')
+    return errors
+
+
 def check(root):
     errors = []
     try:
@@ -208,6 +233,7 @@ def check(root):
             for module in modules:
                 if module.split('.')[0] == lib and module not in reached:
                     errors.append(f'{module}: unreachable from library root')
+        errors.extend(statement_errors(root))
         errors.extend(spec_errors(root, read_manifest(root)))
     except (OSError, ValueError, KeyError, TypeError) as exc:
         errors.append(f'check failed: {exc}')

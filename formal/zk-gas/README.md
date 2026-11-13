@@ -107,9 +107,9 @@ with the spawn step's `gas_after` plus the precompile's `left`. So every step's 
 except the first step of a tx or harness frame.
 
 The checker stops at the first failure with the vector id, the event index and the reason, and
-exits 1. Every vector needs a trace and every trace a vector. Then it runs the coverage gate. The
-gate script runs `check-traces` once the corpus has a `traces/` directory and skips it before
-then. Trace checking is not part of the evidence below.
+exits 1. Every vector needs a trace and every trace a vector, and a corpus without a `traces/`
+directory fails. Then it runs the coverage gate. The gate script always runs `check-traces`.
+Trace checking is executable checking, not part of the proved claims below.
 
 ### Pre-state trust boundary
 
@@ -278,8 +278,13 @@ The full gate combines independent checks:
 1. Python lexes the accepted source subset, ignoring nested comments and escaped strings, and
    rejects proof escapes, metaprogramming commands and unreviewed compiler options. `#guard` is
    allowed only in `ZkGasWitnesses/Tests.lean`. Model and Statements forbid source
-   theorem/example commands. The only explicit `Lean` import allowed is `Lean.Data.Json`, and
-   only `ZkGasTraces.Json` and `ZkGasTraces.Check` may import it and name its types.
+   theorem/example commands, and no library may declare a `notation`, `infix`, `infixl`,
+   `infixr`, `prefix` or `postfix`. Every library may import Lean core's `Init` and `Std`
+   modules; the only other `Lean` import allowed is `Lean.Data.Json`, and only `ZkGasTraces.Json`
+   and `ZkGasTraces.Check` may import it and name its types. The statement files
+   (`ZkGasStatements.lean` and `ZkGasStatements/Claims.lean`) are pinned by their SHA-256 hashes
+   in `scripts/check.py`, so editing a statement fails the gate until it is reviewed and
+   repinned.
 2. The import graph enforces downward library dependencies, existing modules and reachability
    from every library root.
 3. The specification gate checks the exact source path, revision, hash, headline mappings,
@@ -293,7 +298,8 @@ The full gate combines independent checks:
 
 Mechanical limits: the source gate is a bounded lexer, not a complete Lean parser or adversarial
 sandbox. Named dependency anchors catch accidental erasure but not arbitrary weakening of
-statement bodies; review proposition meanings directly. Neither these checks nor kernel replay
+statement bodies; review proposition meanings directly (the statement hash pin makes every such
+edit visible as a repin). Neither these checks nor kernel replay
 prove that the model matches the prose, the clients or the generated tables' sources. Executable
 tests also trust Lean's compiler and runtime; theorem checking trusts the Lean kernel and the
 three standard axioms.
@@ -334,7 +340,7 @@ lake exe check-traces ../../testdata/zk_gas_vectors  # traces, then the coverage
 
 In CI, [`.github/workflows/formal-zk-gas--test.yml`](../../.github/workflows/formal-zk-gas--test.yml)
 runs `python3 scripts/check.py` before building, then `bash scripts/gate.sh`. It runs on pull
-requests, drafts included, and on pushes to `main` that change this package, the shared vector
+requests (drafts included) and pushes to `main` that change this package, the shared vector
 corpus, the pinned specification or the workflow. The corpus's own format checks
 (`testdata/zk_gas_vectors/check.py`) run in `.github/workflows/repo--zk-gas-vectors.yml`, and the
 clients run the vectors in their own CI against a pinned taiko-mono commit (see the

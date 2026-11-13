@@ -12,10 +12,5 @@ LEAN_PATH="$(pwd)/.lake/audit${LEAN_PATH:+:$LEAN_PATH}" lake env lean --run scri
 for library in ZkGasModel ZkGasStatements ZkGasProofs ZkGasWitnesses ZkGasTraces; do
   lake env leanchecker "$library"
 done
-# alethia-reth writes the traces; until it has, there is nothing to check. check-traces also runs
-# the branch coverage gate.
-if [ -d ../../testdata/zk_gas_vectors/traces ]; then
-  lake exe check-traces ../../testdata/zk_gas_vectors
-else
-  echo "check-traces: skipped: ../../testdata/zk_gas_vectors/traces does not exist yet"
-fi
+# Every vector's trace, then the branch coverage gate. check-traces fails when traces/ is missing.
+lake exe check-traces ../../testdata/zk_gas_vectors
