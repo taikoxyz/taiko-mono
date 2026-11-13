@@ -16,6 +16,7 @@ const (
 	ProofTypeOp      ProofType = "op"
 	ProofTypeSgx     ProofType = "sgx"
 	ProofTypeSgxCPU  ProofType = "native"
+	ProofTypeZKR0    ProofType = "risc0"
 	ProofTypeZKSP1   ProofType = "sp1"
 )
 
@@ -47,7 +48,8 @@ type ProposalProofRequestOptions struct {
 	ProverAddress common.Address
 	EventL1Hash   common.Hash
 	// CompanionProofGenerated and CompanionProofAggregationGenerated record whether the
-	// mode-specific companion proof has been generated: SGX_GETH by default or SGX_RETH when selected.
+	// mode-specific companion proof has been generated: SGX_GETH in the default mode or
+	// RISC0 in ZK-only mode.
 	CompanionProofGenerated            bool
 	CompanionProofAggregationGenerated bool
 	RethProofGenerated                 bool

@@ -76,6 +76,68 @@ func TestRateLimitedTransport_MaxRetriesExceeded(t *testing.T) {
 	require.ErrorAs(t, err, &rateLimitErr)
 }
 
+// TestRateLimitedTransport_NoWaitOnLastRetry verifies that when MaxRetries=1
+// and the server responds with 429, the transport returns immediately without
+// waiting for the rate limit reset duration, since there is no next attempt.
+func TestRateLimitedTransport_NoWaitOnLastRetry(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set(RateLimitResetHeader, "30")
+		w.WriteHeader(http.StatusTooManyRequests)
+	}))
+	defer server.Close()
+
+	client := &http.Client{Transport: &RateLimitedTransport{MaxRetries: 1}}
+
+	start := time.Now()
+	resp, err := client.Get(server.URL)
+	elapsed := time.Since(start)
+
+	if resp != nil {
+		resp.Body.Close()
+	}
+
+	require.Error(t, err)
+	var rateLimitErr *RateLimitError
+	require.ErrorAs(t, err, &rateLimitErr)
+
+	// Should return near-instantly, not wait 30 seconds.
+	require.Less(t, elapsed, 1*time.Second, "should not wait when no retries remain")
+}
+
+// TestRateLimitedTransport_WaitsOnIntermediateRetry verifies that when
+// MaxRetries=2, the transport still waits after the first (non-final) 429
+// before making its second attempt.
+func TestRateLimitedTransport_WaitsOnIntermediateRetry(t *testing.T) {
+	var attempts atomic.Int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		count := attempts.Add(1)
+		if count < 2 {
+			w.Header().Set(RateLimitResetHeader, "1")
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := &http.Client{Transport: &RateLimitedTransport{MaxRetries: 2}}
+
+	start := time.Now()
+	resp, err := client.Get(server.URL)
+	elapsed := time.Since(start)
+
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, int32(2), attempts.Load())
+
+	// The first attempt was non-final (attempt 0 of maxRetries 2), so the
+	// transport should have waited ~1 second before retrying.
+	require.GreaterOrEqual(t, elapsed, 900*time.Millisecond, "should wait on intermediate retry")
+}
+
 func TestRateLimitedTransport_ContextCancellation(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set(RateLimitResetHeader, "60")

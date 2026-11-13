@@ -1065,3 +1065,6 @@ mod tests {
 
 #[cfg(test)]
 mod finality_tests;
+
+#[cfg(test)]
+mod boundary_vectors;

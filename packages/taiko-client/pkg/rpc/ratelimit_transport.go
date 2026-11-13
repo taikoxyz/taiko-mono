@@ -90,6 +90,11 @@ func (t *RateLimitedTransport) RoundTrip(req *http.Request) (*http.Response, err
 		_, _ = io.Copy(io.Discard, resp.Body)
 		resp.Body.Close()
 
+		// No more attempts left — skip the pointless wait and return immediately.
+		if attempt+1 >= t.maxRetries() {
+			break
+		}
+
 		select {
 		case <-req.Context().Done():
 			return nil, req.Context().Err()

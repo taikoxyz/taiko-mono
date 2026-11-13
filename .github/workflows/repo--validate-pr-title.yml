@@ -39,8 +39,8 @@ jobs:
             bridge-ui
             ejector
             eventindexer
-            formal
             fork-diff
+            formal
             geth-rpc-gateway
             protocol
             relayer

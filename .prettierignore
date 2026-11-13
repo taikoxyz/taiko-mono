@@ -17,3 +17,7 @@ yarn.lock
 
 # ignore changelog because release-please-action manages it
 CHANGELOG.md
+
+# Byte-for-byte output of generate_boundaries.py, checked by the formal gate.
+testdata/derivation_vectors/boundary_cases.json
+testdata/derivation_vectors/fork_selection_cases.json

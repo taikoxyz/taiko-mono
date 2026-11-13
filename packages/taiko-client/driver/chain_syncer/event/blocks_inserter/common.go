@@ -47,16 +47,10 @@ func createPayloadAndSetHead(
 		"parentHash", meta.Parent.Hash(),
 		"l1Origin", meta.L1Origin,
 	)
-	// Insert a Anchor.anchorV4 transaction at transactions list head,
-	// then encode the transactions list.
-	txListBytes, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, meta.Txs...))
+	txListBytes, err := preparePayloadTransactions(meta.createExecutionPayloadsMetaData, anchorTx)
 	if err != nil {
-		log.Error("Encode txList error", "blockID", meta.BlockID, "error", err)
-		return nil, fmt.Errorf("failed to encode transaction list for block %d: %w", meta.BlockID, err)
+		return nil, err
 	}
-
-	// Increase the gas limit for the anchor block.
-	meta.GasLimit += consensus.AnchorV3V4GasLimit
 
 	// Update execution payload id for the L1 origin.
 	var (
@@ -82,6 +76,30 @@ func createPayloadAndSetHead(
 		txListBytes,
 		meta.VerifiedCheckpoint,
 	)
+}
+
+// preparePayloadTransactions prepends the anchor transaction and reserves its header gas.
+func preparePayloadTransactions(
+	meta *createExecutionPayloadsMetaData,
+	anchorTx *types.Transaction,
+) ([]byte, error) {
+	// Insert a Anchor.anchorV4 transaction at transactions list head,
+	// then encode the transactions list.
+	txListBytes, err := encodeAnchoredTransactions(anchorTx, meta.Txs)
+	if err != nil {
+		log.Error("Encode txList error", "blockID", meta.BlockID, "error", err)
+		return nil, fmt.Errorf("failed to encode transaction list for block %d: %w", meta.BlockID, err)
+	}
+
+	// Increase the gas limit for the anchor block.
+	meta.GasLimit += consensus.AnchorV3V4GasLimit
+
+	return txListBytes, nil
+}
+
+// encodeAnchoredTransactions encodes the anchor-first list without changing gas or candidates.
+func encodeAnchoredTransactions(anchorTx *types.Transaction, candidates types.Transactions) ([]byte, error) {
+	return rlp.EncodeToBytes(append(types.Transactions{anchorTx}, candidates...))
 }
 
 // createExecutionPayloadsAndSetHead creates a new execution payloads through Engine APIs,
@@ -253,7 +271,7 @@ func isKnownCanonicalProposal(
 				return fmt.Errorf("failed to assemble execution payload creation metadata: %w", err)
 			}
 
-			b, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, createExecutionPayloadsMetaData.Txs...))
+			b, err := encodeAnchoredTransactions(anchorTx, createExecutionPayloadsMetaData.Txs)
 			if err != nil {
 				return fmt.Errorf("failed to RLP encode tx list: %w", err)
 			}
@@ -464,23 +482,15 @@ func assembleCreateExecutionPayloadMeta(
 	parent *types.Header,
 	blockIndex int,
 ) (*createExecutionPayloadsMetaData, *types.Transaction, error) {
-	if !metadata.IsShasta() {
-		return nil, nil, fmt.Errorf("metadata is not for post-Shasta fork blocks")
+	plan, err := assembleShastaBlockPlan(metadata, sourcePayload, parent, blockIndex)
+	if err != nil {
+		return nil, nil, err
 	}
-	if blockIndex >= len(sourcePayload.BlockPayloads) {
-		return nil, nil, fmt.Errorf("block index %d out of bounds (%d)", blockIndex, len(sourcePayload.BlockPayloads))
-	}
-
 	var (
 		meta          = metadata.Shasta()
-		blockID       = new(big.Int).Add(parent.Number, common.Big1)
-		blockInfo     = sourcePayload.BlockPayloads[blockIndex]
-		anchorBlockID = new(big.Int).SetUint64(blockInfo.AnchorBlockNumber)
+		blockID       = plan.payload.BlockID
+		anchorBlockID = plan.anchorBlockID
 	)
-	mixHash, err := encoding.CalculateShastaMixHash(parent.Difficulty, blockID)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to calculate mix hash: %w", err)
-	}
 
 	baseFee, err := cli.CalculateBaseFee(ctx, parent)
 	if err != nil {
@@ -519,10 +529,44 @@ func assembleCreateExecutionPayloadMeta(
 		return nil, nil, fmt.Errorf("failed to create ShastaAnchor.anchorV4 transaction: %w", err)
 	}
 
+	plan.payload.BaseFee = baseFee
+	return plan.payload, anchorTx, nil
+}
+
+// shastaBlockPlan contains the pure metadata and L1 anchor target used by payload assembly.
+type shastaBlockPlan struct {
+	payload       *createExecutionPayloadsMetaData
+	anchorBlockID *big.Int
+}
+
+// assembleShastaBlockPlan selects block fields before the RPC and anchor-signing boundary.
+func assembleShastaBlockPlan(
+	metadata metadata.TaikoProposalMetaData,
+	sourcePayload *derivation.DerivationSourcePayload,
+	parent *types.Header,
+	blockIndex int,
+) (*shastaBlockPlan, error) {
+	if !metadata.IsShasta() {
+		return nil, fmt.Errorf("metadata is not for post-Shasta fork blocks")
+	}
+	if blockIndex >= len(sourcePayload.BlockPayloads) {
+		return nil, fmt.Errorf("block index %d out of bounds (%d)", blockIndex, len(sourcePayload.BlockPayloads))
+	}
+	var (
+		meta          = metadata.Shasta()
+		blockID       = new(big.Int).Add(parent.Number, common.Big1)
+		blockInfo     = sourcePayload.BlockPayloads[blockIndex]
+		anchorBlockID = new(big.Int).SetUint64(blockInfo.AnchorBlockNumber)
+	)
+	mixHash, err := encoding.CalculateShastaMixHash(parent.Difficulty, blockID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate mix hash: %w", err)
+	}
+
 	// Encode extraData with basefeeSharingPctg and proposal ID.
 	extraData, err := encoding.EncodeShastaExtraData(meta.GetEventData().BasefeeSharingPctg, meta.GetEventData().Id)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to encode extraData: %w", err)
+		return nil, fmt.Errorf("failed to encode extraData: %w", err)
 	}
 
 	// Set proposalID only for the last block in the proposal.
@@ -531,7 +575,7 @@ func assembleCreateExecutionPayloadMeta(
 		proposalID = meta.GetEventData().Id
 	}
 
-	return &createExecutionPayloadsMetaData{
+	payload := &createExecutionPayloadsMetaData{
 		BlockID:               blockID,
 		ProposalID:            proposalID,
 		ExtraData:             extraData,
@@ -548,8 +592,8 @@ func assembleCreateExecutionPayloadMeta(
 		},
 		Txs:         blockInfo.Transactions,
 		Withdrawals: make([]*types.Withdrawal, 0),
-		BaseFee:     baseFee,
-	}, anchorTx, nil
+	}
+	return &shastaBlockPlan{payload: payload, anchorBlockID: anchorBlockID}, nil
 }
 
 // updateL1OriginForBlocks updates L1 origin for a proposal's blocks with the given parameters.
