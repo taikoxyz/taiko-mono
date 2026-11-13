@@ -87,6 +87,7 @@ def createStep (pre : Pre) (gas : Nat) (create2 : Bool) : Except String StepResu
     | .inr gas =>
       return { gasAfter := gas - allButOne64th gas, outcome := .newFrame,
                branch := if create2 then .create_create2_new_frame_spawn_estimate
-                 else .create_create_new_frame_spawn_estimate }
+                 else .create_create_new_frame_spawn_estimate,
+               forwarded := allButOne64th gas }
 
 end TaikoSpec.ZkGas

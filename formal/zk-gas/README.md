@@ -66,20 +66,34 @@ against the model and the vector's expected values. [`ZkGasTraces/Json.lean`](Zk
 parses the events and rejects anything outside the schema;
 [`ZkGasTraces/Check.lean`](ZkGasTraces/Check.lean) checks the event order, each step's and
 precompile's charge, each charge's meter verdict, and feeds every tx's charges to `meterBlock`
-(a harness frame's to `meterTx`) to reproduce the vector's expected values. It takes a step model
-`Pre → Except String (gas_after × outcome × branch)` and runs `stepModel`, which is
-`stepOutcome` on Unzen. Every step must be decided by the model: a step it cannot decide, such
-as one whose pre-state lacks a fact the model reads, fails the check.
+(a harness frame's to `meterTx`) to reproduce the vector's expected values. It takes a step model,
+which gives each step's `gas_after`, outcome, branch and, for a step that opens a frame, the gas
+it forwards to it, and runs `stepModel`, which is `stepOutcome` on Unzen. Every step must be
+decided by the model: a step it cannot decide, such as one whose pre-state lacks a fact the model
+reads, fails the check.
 
 For every step, the checker compares `spawn` (a step spawns exactly when its outcome is a new
 frame) and `gas_after` with the model's; for a spawn step, `gas_after` is the gas left after the
 gas it forwards, which alethia-reth records exactly. Unless the meter rejected the step's charge,
-it checks the outcome against the event after the step: a step that continues is followed by a
-step at its depth; a step that ends a child frame by a step exactly one depth up, and a step that
-ends the top frame by the end of the tx or frame, where a harness trace's `frame_end` has the
-status of its outcome (`success` for STOP, RETURN and SELFDESTRUCT, `revert` for REVERT, `halt`
-for the other halts); a step that opens a frame by a step one deeper, a precompile, a step at its
-depth (the new frame ran no step) or the end.
+it checks the outcome against the event after the step, and the gas that event starts from:
+
+- A step that continues is followed by a step at its depth whose `gas` is the step's
+  `gas_after`.
+- A step that ends a child frame is followed by a step exactly one depth up, and a step that ends
+  the top frame by the end of the tx or frame, where a harness trace's `frame_end` has the status
+  of its outcome (`success` for STOP, RETURN and SELFDESTRUCT, `revert` for REVERT, `halt` for
+  the other halts).
+- A step that opens a frame is followed by a step one deeper, a precompile run or a step at its
+  depth, never by the end. The new frame's gas is the gas the model says the step forwards plus
+  the 2,300 stipend of a CALL or CALLCODE with a non-zero value: the child's first step starts
+  with it, and the precompile run is supplied it, at the address `stack[1]` names (revm runs a
+  precompile by the call's target address, also when the target has an EIP-7702 delegation).
+  When the new frame runs no step (an account without code, or a frame the handler refuses), the
+  next step at its depth resumes with the spawn step's `gas_after` plus the new frame's gas. revm
+  loses that gas only when the handler halts: for a CREATE or CREATE2 whose address collides or
+  whose new account's balance would overflow, and for a CALL with a value that would overflow the
+  target's balance. The trace does not show which case ran, so for those opcodes the checker
+  also accepts the `gas_after` alone.
 
 It also checks the gas each frame gets back, following revm-handler 43.0.2 `src/frame.rs`. When
 a child frame that ran steps ends, the frame that opened it resumes with its spawn step's
@@ -89,8 +103,8 @@ halts. A CREATE child that returns code first pays a code deposit of 200 gas per
 above 24,576 bytes, a deposit it cannot pay or code starting with 0xEF makes it a halt. The trace
 does not record the code's first byte, so a CREATE child that can pay its deposit may return
 either the rest or nothing. After a precompile run that a spawn step opened, the caller resumes
-with the spawn step's `gas_after` plus the precompile's `left`. A spawn step whose new frame
-runs no step (an account without code, or a frame the handler refuses) is not checked this way.
+with the spawn step's `gas_after` plus the precompile's `left`. So every step's `gas` is checked
+except the first step of a tx or harness frame.
 
 The checker stops at the first failure with the vector id, the event index and the reason, and
 exits 1. Every vector needs a trace and every trace a vector. Then it runs the coverage gate. The
@@ -99,17 +113,23 @@ then. Trace checking is not part of the evidence below.
 
 ### Pre-state trust boundary
 
-The checker trusts each step's pre-state as the trace records it: the opcode, depth, gas, static
-flag, stack length, the top of the stack, the memory size and the `facts` (whether an account or
-slot is warm, whether an account is empty, an SSTORE's original and current values, whether a
-JUMP target is valid, the return data size, a SELFDESTRUCT's own balance). The client's trace
-exporter reports them; the model computes the step's gas and outcome from them and cannot tell
-whether they are true. Two checks outside this package guard them:
+The checker trusts each step's pre-state as the trace records it: the opcode, program counter,
+depth, static flag, stack length, the top of the stack, the memory size, the gas of a tx's or
+harness frame's first step and the `supplied` gas of a precompile run that is its tx's or frame's
+only event (every other step's gas and run's `supplied` are checked, see above), and the `facts`
+(whether an account or slot is warm, whether an account is empty, whether a CALL target's
+EIP-7702 delegate is warm or the target has no delegation (`delegate_warm` null), an SSTORE's
+original and current values, whether a JUMP target is valid, the return data size, a
+SELFDESTRUCT's own balance). The client's trace exporter reports them; the model computes the
+step's gas and outcome from them and cannot tell whether they are true. Two checks outside this
+package guard them:
 
 - taiko-geth exports its own trace of every vector and compares it with the committed
   alethia-reth trace event by event, pre-state included; a difference in a step's pre-state is
   reported as a setup divergence. Two independently written exporters must therefore report the
-  same pre-state for every step of the corpus.
+  same pre-state for every step of the corpus, apart from the normalized steps described there
+  (an empty-initcode frame's implicit STOP, which only the committed trace has and which carries
+  no zk gas).
 - Reading the facts must not change what is metered. In each client, a traced run of a vector
   must give the vector's expected values, as an untraced run does. alethia-reth takes the charges
   from its production execution path and the facts from a second run on its inspector path, and
@@ -123,9 +143,10 @@ for [comparing client traces](../../testdata/zk_gas_vectors/README.md#comparing-
 
 `allBranches` (`ZkGasModel/Step/Basic.lean`) lists every branch of the step model, which the
 headline `BranchesComplete` proves. `check-traces` prints how many corpus steps each branch
-decided (`check-traces: branch <name>: <n> steps`) and a summary such as
-`438 vectors, 40279 events, 39557 steps checked by the model; 158 of 158 branches hit, 0 unreachable`.
-It fails, listing them, when a branch decided no step and `unreachableBranches` does not list
+decided (`check-traces: branch <name>: <n> steps`) and a summary of the form
+`<n> vectors, <n> events, <n> steps checked by the model; <n> of <n> branches hit, <n> unreachable`
+(the corpus README's [coverage statistics](../../testdata/zk_gas_vectors/README.md#coverage-statistics)
+give the current corpus size). It fails, listing them, when a branch decided no step and `unreachableBranches` does not list
 it, when a listed branch decided a step, or when a step reports a branch outside `allBranches`.
 
 `unreachableBranches` (`ZkGasModel/Step.lean`) lists the branches no Unzen execution can reach,
@@ -230,22 +251,27 @@ table spot checks against the specification and revm (ADD, PUSH1, point_evaluati
 precompile, ADD and CREATE static gas), meter cases at and just past the block limit, and the
 trace parser and checker on fixture traces: canonical hex up to 2^256 - 1, malformed records and
 `facts`, the two smoke vectors' traces, and each kind of failure (event order, step, precompile
-and intrinsic charges, meter verdicts, totals against the expected values, model disagreement,
-a spawn step's `gas_after`), the two shapes with no step: a tx skipped before its intrinsic
+and intrinsic charges, meter verdicts, an aborted tx without a rejected charge, totals against
+the expected values, model disagreement, a spawn step's `gas_after`, a precompile that leaves
+more than it was supplied), the two shapes with no step: a tx skipped before its intrinsic
 charge (a lone skipped `tx_end`) and a harness call to an account without code (`frame_end`
 alone), and a hand-made step whose pre-state lacks the fact the model reads, which fails the
 check. Guards that flip one modeled step's outcome check that the checker rejects an outcome the
 next event contradicts, including a child frame's last step that ends at the wrong depth or
 returns the wrong gas (committed traces of a returned stipend, a halt, a CREATE's implicit STOP
-and a code deposit) and a precompile that leaves the wrong gas. The step model has at least one
+and a code deposit) and a precompile that leaves the wrong gas, and guards that change one gas
+value a step hands on (a continuing step's next step, a child frame's first step, a precompile
+run's `supplied` and address, the resume after a frame that runs no step) check that the checker
+rejects a broken hand-off. The step model has at least one
 guard per branch: a step line copied verbatim from a committed reth trace, which expects that
 line's `gas_after` (for a spawn step, the gas left after the gas it forwards). Further guards
 cover a missing fact or stack item, every opcode being modeled and the undefined ones being
 exactly those revm does not define, checks whose order the traces cannot show (the static
 context before the pops, SSTORE's pops before its sentry, CALL's static-frame value check before
 its memory operands, the CALL family's input range before its output range and both before the
-transfer cost), each EIP-7702 delegate stage at its gas boundaries, and the coverage gate. They
-run during compilation and are **not kernel proofs**.
+transfer cost), each EIP-7702 delegate stage at its gas boundaries, and the coverage gate,
+including that every branch name is its constructor's and no two branches share one. They run
+during compilation and are **not kernel proofs**.
 
 The full gate combines independent checks:
 

@@ -841,6 +841,11 @@ structure StepResult where
   gasAfter : Nat
   outcome : Outcome
   branch : BranchId
+  /-- When the step opens a new frame, the gas it forwards to that frame: the gas the step takes
+  from its frame for the new one, before the 2,300 stipend a value transfer adds to the new
+  frame's gas (revm-interpreter 43.0.1 `call_helpers.rs:92-106`, `contract.rs:140-152`). 0 for
+  every other step. -/
+  forwarded : Nat := 0
   deriving Repr, DecidableEq
 
 /-- revm's `STACK_LIMIT` (`src/interpreter/stack.rs`). -/

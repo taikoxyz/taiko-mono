@@ -22,27 +22,44 @@ values:
   `meterTx` total and status match `frame_zk_gas` and `status`.
 - (e) the step model agrees with every step's `spawn` and `gas_after` (for a spawn step, the gas
   left after the gas it forwards); and, unless the meter rejected the step's charge, the event
-  after the step is one its outcome allows (`checkNext`): a step at the same depth after
-  `continue`; a step one depth up after an outcome that ends a child frame, and the tx's or
-  frame's end after one that ends the top frame (depth 1), with the harness `frame_end` status of
-  the outcome; and a step one deeper, a precompile, a step at the same depth (the new frame ran
-  no step) or the end after `newFrame`.
+  after the step is one its outcome allows and starts from the gas the step hands it
+  (`checkNext`): after `continue`, a step at the same depth whose `gas` is the step's
+  `gas_after`; after an outcome that ends a child frame, a step one depth up, and after one that
+  ends the top frame (depth 1), the tx's or frame's end, with the harness `frame_end` status of
+  the outcome; after `newFrame`, the new frame's first step one deeper, whose `gas` is the gas
+  the step forwards plus a value transfer's 2,300 stipend, the precompile run it opened, supplied
+  that gas at the step's target address, or, when the new frame runs no step, a step at the same
+  depth resuming with the `gas_after` plus that gas (or, where revm can also lose it, the
+  `gas_after` alone: `noChildResume`).
 - (f) the gas a frame gets back (`Walk.frameReturn`, revm-handler 43.0.2 `src/frame.rs`): when a
   child frame that ran steps ends, the frame that opened it resumes with the `gas_after` of its
   spawn step plus what the child returns (`returnedGas`): the child's gas left when its last
   step's outcome is `success` or `revert`, less a CREATE's code deposit, and 0 when it halts; and
   after a precompile run that a spawn step opened, the caller resumes with that step's
   `gas_after` plus the precompile's `left`.
+
+So every step's `gas` is checked except the first step of a tx or harness frame.
 -/
 namespace TaikoSpec.ZkGas.Traces
 
-/-- A step model: the step's `gas_after`, its outcome, and the name of the branch that decided
-it. A step spawns exactly when its outcome is `newFrame`. -/
-abbrev Model := Pre → Except String (Nat × Outcome × String)
+/-- What a step model gives for one step: its `gas_after`, its outcome, the name of the branch
+that decided it and, for a step that opens a frame, the gas it forwards to the new frame before a
+value transfer's stipend (`StepResult.forwarded`; 0 for every other step). A step spawns exactly
+when its outcome is `newFrame`. -/
+structure Modeled where
+  gasAfter : Nat
+  outcome : Outcome
+  branch : String
+  forwarded : Nat := 0
+
+/-- A step model. -/
+abbrev Model := Pre → Except String Modeled
 
 /-- The Unzen step model `stepOutcome` (`ZkGasModel.Step`). -/
 def stepModel : Model := fun pre =>
-  (stepOutcome .unzen pre).map fun r => (r.gasAfter, r.outcome, r.branch.name)
+  (stepOutcome .unzen pre).map fun r =>
+    { gasAfter := r.gasAfter, outcome := r.outcome, branch := r.branch.name,
+      forwarded := r.forwarded }
 
 /-- The multiplier of opcode `op` (the fail-safe outside the table). -/
 def opcodeMult (s : Schedule) (op : Nat) : Nat := s.opcodeMult.getD op failsafeMultiplier
@@ -85,16 +102,17 @@ def checkAmount (s : Schedule) : Event → Except String Unit
   | _ => pure ()
 
 /-- (e): the model's result for one step: its `spawn` and `gas_after` must be the trace's.
-Returns its outcome and branch. -/
-def checkModel (model : Model) (pre : Pre) (out : StepOut) : Except String (Outcome × String) := do
-  let (gasAfter, outcome, branch) ← model pre
-  let spawn := outcome == .newFrame
+Returns the model's result. -/
+def checkModel (model : Model) (pre : Pre) (out : StepOut) : Except String Modeled := do
+  let m ← model pre
+  let spawn := m.outcome == .newFrame
   unless spawn == out.spawn do
-    throw s!"model branch {branch}: spawn {spawn}, trace spawn {out.spawn}"
-  unless gasAfter == out.gasAfter do
-    throw s!"model branch {branch}: gas_after {hexString gasAfter}, trace gas_after {hexString out.gasAfter}"
-  pure (outcome, branch)
+    throw s!"model branch {m.branch}: spawn {spawn}, trace spawn {out.spawn}"
+  unless m.gasAfter == out.gasAfter do
+    throw s!"model branch {m.branch}: gas_after {hexString m.gasAfter}, trace gas_after {hexString out.gasAfter}"
+  pure m
 
+/-- Outcome `o`'s constructor name, for messages. -/
 def outcomeName : Outcome → String
   | .continue => "continue"
   | .success => "success"
@@ -124,6 +142,41 @@ structure Pending where
   create : Bool
   /-- For RETURN, the length of the data it returns (`stack[1]`); 0 otherwise. -/
   returnLen : Nat
+  /-- For a step that opens a frame, the gas the new frame starts with: the gas the step forwards
+  (`Modeled.forwarded`) plus the 2,300 stipend of a CALL or CALLCODE with a non-zero value
+  (revm-interpreter 43.0.1 `call_helpers.rs:104-106`). 0 otherwise. -/
+  frameGas : Nat
+  /-- For a CALL-family step, its target `stack[1]` as an address (the low 160 bits), which is
+  the code address revm runs a precompile by (revm-interpreter 43.0.1 `contract.rs:236`,
+  `bytecode_address: to`; revm-handler 43.0.2 `precompile_provider.rs:146`), also for a target
+  with an EIP-7702 delegation;
+  `none` otherwise. -/
+  target : Option Nat
+  /-- For a step that opens a frame, the gas its frame may resume with when the new frame runs no
+  step (`noChildResume`). -/
+  resumeAlone : List Nat
+
+/-- The gas a frame resumes with after a spawn step of opcode `op` (`transfer`: a CALL or CALLCODE
+with a non-zero value) whose new frame runs no step, from the spawn step's `gasAfter` and the new
+frame's gas `frameGas` (revm-handler 43.0.2 `src/frame.rs`). The handler ends such a frame at
+once, and `handle_reservoir_remaining_gas` (`:595`) hands its gas back unless the result is a halt
+(revm-interpreter 43.0.1 `instruction_result.rs:163-215`):
+
+- CALL family (`make_call_frame`): the depth limit (`:176-178`, `CallTooDeep`) and a value the
+  caller cannot pay (`:184-192`, `OutOfFunds`) are revert-class, and an account without code
+  (`:232-235`, `Stop`) succeeds, so the whole frame gas comes back. A CALL with a non-zero value
+  can also halt there, losing it: a transfer that overflows the target's balance
+  (`OverflowPayment`, revm-context 43.0.2 `journal/inner.rs:492-495`). CALLCODE moves its value
+  to its own account and cannot overflow (`:465-472`).
+- CREATE family (`make_create_frame`): the depth limit (`:292-294`), the creator's balance
+  (`:302-304`) and a nonce overflow (`:308-310`, `Return`) give the frame gas back; an address
+  collision and a balance overflow of the new account (`:324-331`, `CreateCollision` and
+  `OverflowPayment`) are halts and lose it.
+
+The trace does not show which case ran, so where both are possible either amount passes. -/
+def noChildResume (op : Nat) (transfer : Bool) (gasAfter frameGas : Nat) : List Nat :=
+  if op = 0xf0 ∨ op = 0xf5 ∨ (op = 0xf1 ∧ transfer) then [gasAfter + frameGas, gasAfter]
+  else [gasAfter + frameGas]
 
 /-- A child frame that runs steps, opened by a spawn step. -/
 structure Frame where
@@ -144,17 +197,42 @@ def describe : Event → String
   | .txEnd .. => "tx_end"
   | .frameEnd .. => "frame_end"
 
-/-- (e): event `e`, which follows the modeled step `p`, is one `p`'s outcome allows. -/
+/-- `xs` as a list of canonical 0x hex, for messages. -/
+def showHexList (xs : List Nat) : String := toString (xs.map hexString)
+
+/-- (e): event `e`, which follows the modeled step `p`, is one `p`'s outcome allows, and starts
+from the gas `p` hands it. A step that continues is followed by a step at its depth whose gas is
+`p`'s `gas_after`. A step that opens a frame is followed by the new frame's first step, one deeper,
+with the frame's gas; by the precompile run it opened, supplied that gas and at its target; or,
+when the new frame ran no step, by a step at its depth that resumes with `noChildResume`. A step
+that ends a child frame is followed by a step one depth up (its gas is checked by
+`Walk.frameReturn`), and one that ends the top frame by the end of the tx or frame, where a
+harness `frame_end` has the status of the outcome. -/
 def checkNext (p : Pending) (e : Event) : Except String Unit := do
   let at_ := s!"event {p.event}: model branch {p.branch}: outcome {outcomeName p.outcome}"
   let fail (what : String) : Except String Unit :=
     throw s!"{at_}{what}, but the next event is {describe e}"
   match p.outcome, e with
-  | .continue, .step pre _ => unless pre.depth = p.depth do fail ""
+  | .continue, .step pre _ =>
+    unless pre.depth = p.depth do fail ""
+    unless pre.gas = p.gasAfter do
+      throw s!"{at_} with gas_after {hexString p.gasAfter}, but the next step at its depth has gas {hexString pre.gas}"
   | .continue, _ => fail ""
-  | .newFrame, .step pre _ => unless pre.depth = p.depth + 1 ∨ pre.depth = p.depth do fail ""
-  | .newFrame, .intrinsic .. => fail ""
-  | .newFrame, _ => pure ()
+  | .newFrame, .step pre _ =>
+    if pre.depth = p.depth + 1 then
+      unless pre.gas = p.frameGas do
+        throw s!"{at_} opens a frame with {hexString p.frameGas} gas (forwarded, plus a value transfer's stipend), but its first step has gas {hexString pre.gas}"
+    else if pre.depth = p.depth then
+      unless p.resumeAlone.contains pre.gas do
+        throw s!"{at_} with gas_after {hexString p.gasAfter} opens a frame of {hexString p.frameGas} gas that runs no step, so its frame resumes with one of {showHexList p.resumeAlone}, but the next step at its depth has gas {hexString pre.gas}"
+    else fail ""
+  | .newFrame, .precompile addr supplied .. =>
+    unless supplied = p.frameGas do
+      throw s!"{at_} opens a frame with {hexString p.frameGas} gas (forwarded, plus a value transfer's stipend), but the precompile run is supplied {hexString supplied}"
+    if let some target := p.target then
+      unless addr = target do
+        throw s!"{at_} calls {hexString target}, but the precompile run is at {hexString addr}"
+  | .newFrame, _ => fail ""
   | _, .step pre _ => unless pre.depth + 1 = p.depth do fail s!" ends a frame at depth {p.depth}"
   | o, .frameEnd status _ =>
     unless p.depth = 1 do fail s!" ends a frame at depth {p.depth}"
@@ -163,8 +241,6 @@ def checkNext (p : Pending) (e : Event) : Except String Unit := do
         throw s!"{at_} ends the top frame with status {want}, but frame_end has status {status}"
   | _, .txEnd .. => unless p.depth = 1 do fail s!" ends a frame at depth {p.depth}"
   | _, _ => fail s!" ends a frame at depth {p.depth}"
-
-def showHexList (xs : List Nat) : String := toString (xs.map hexString)
 
 /-- EIP-170's `MAX_CODE_SIZE` (revm-primitives 43.0.0 `eip170.rs`), the code size limit before
 Amsterdam: alethia-reth sets no `limit_contract_code_size` (revm-context 43.0.2 `cfg.rs:462`). -/
@@ -299,19 +375,25 @@ def Walk.event (s : Schedule) (model : Model) (layer : Layer) (w : Walk) (i : Na
       if pre.depth = 0 ∨ pre.depth > d + 1 ∨ (pre.depth = d + 1 ∧ !w.spawned) then
         throw s!"event {i}: depth {pre.depth} after depth {d} (depth rises by one, only after a spawn step)"
     (checkAmount s (.step pre out)).mapError (s!"event {i}: " ++ ·)
-    let (outcome, branch) ← (checkModel model pre out).mapError (s!"event {i}: " ++ ·)
+    let m ← (checkModel model pre out).mapError (s!"event {i}: " ++ ·)
+    let transfer := (pre.op == 0xf1 || pre.op == 0xf2) && pre.stack.getD 2 0 != 0
+    let frameGas := m.forwarded + if transfer then callStipend else 0
     let pending : Option Pending :=
       if out.ok then
-        some { event := i, depth := pre.depth, outcome, branch, gasAfter := out.gasAfter
+        some { event := i, depth := pre.depth, outcome := m.outcome, branch := m.branch
+               gasAfter := out.gasAfter
                create := pre.op = 0xf0 ∨ pre.op = 0xf5
-               returnLen := if pre.op = 0xf3 then pre.stack.getD 1 0 else 0 }
+               returnLen := if pre.op = 0xf3 then pre.stack.getD 1 0 else 0
+               frameGas
+               target := if callFamily pre.op then some (pre.stack.getD 1 0 % 2 ^ 160) else none
+               resumeAlone := noChildResume pre.op transfer out.gasAfter frameGas }
       else none
     let w := { w with
       depth := some pre.depth
       spawned := out.spawn
       callSpawned := out.spawn && callFamily pre.op
       lastStep := some (pre.depth, out.gasAfter)
-      branches := branch :: w.branches
+      branches := m.branch :: w.branches
       pending }
     if out.charged then w.charge s i out.zk out.ok else pure w
   | .precompile addr supplied left success zk ok => do
@@ -525,8 +607,9 @@ def coverageErrors (hits : List (String × Nat)) : List String :=
   let missing := allBranches.filter fun b => !unreachable b && count b.name = 0
   let reached := unreachableBranches.filter fun (b, _) => count b.name > 0
   let unknown := hits.filter fun (name, n) => n > 0 && !allBranches.any (·.name == name)
+  let noStep := if missing.length = 1 then "branch has no step" else "branches have no step"
   (if missing.isEmpty then [] else
-    [s!"{missing.length} branches have no step: {", ".intercalate (missing.map (·.name))}"]) ++
+    [s!"{missing.length} {noStep}: {", ".intercalate (missing.map (·.name))}"]) ++
   reached.map (fun (b, why) => s!"branch {b.name} is listed as unreachable ({why}), but {count b.name} steps reach it") ++
   unknown.map fun (name, n) => s!"{n} steps report branch {name}, which allBranches does not list"
 

@@ -68,7 +68,8 @@ of `gas` up to its gas limit, `stack[0]` saturated to `u64` (`contract.rs:188`;
 after this charge (`:104-106`), so the frame keeps what is left. -/
 def callSpawn (pre : Pre) (gas : Nat) (branch : BranchId) : Except String StepResult := do
   let gasLimit := min (← stackItem pre 0) u64Max
-  return { gasAfter := gas - min (allButOne64th gas) gasLimit, outcome := .newFrame, branch }
+  let forwarded := min (allButOne64th gas) gasLimit
+  return { gasAfter := gas - forwarded, outcome := .newFrame, branch, forwarded }
 
 /-- One memory range of `get_memory_input_and_out_ranges` (`call_helpers.rs:42-45`), `len`
 bytes at `offset` of a memory of `words` words with `gas` left: a length of 2^64 or more halts
