@@ -694,9 +694,13 @@ committing those values to the Inbox.
   L1 block and the current generation's L1 origin (`L1_0`, or R after a recovery), and its
   proofs verify under `S(t)`'s own anchor state root (spec section 4.3); `S(t)` keeps its
   parent's anchor unless it carries a newer one. An L1 finality stall keeps that anchor for up to
-  `maxAnchorAge`, a per-deployment value of at least 1152 s (spec START-10-9); at 12 s per L1
-  block, a 2 h value is 600 blocks, beyond a geth full node's 128-block state window. So nodes
-  discover the witness as soon as they commit the anchor (see below). That needs the
+  `maxAnchorAge`, a per-deployment value above the L1 finality delay (spec PARAM-11-5): the age
+  the newest finalized L1 block reaches just before the next finalization (1152 s on Ethereum)
+  plus the deployment's allowance for slots missed at an epoch boundary and for import delay.
+  1152 s itself is therefore too low on Ethereum, although the app refuses only values below it
+  (spec START-10-9). At 12 s per L1 block, a 2 h value is 600 blocks, beyond a geth full node's
+  128-block state window. So nodes discover the witness as soon as they commit the anchor (see
+  below). That needs the
   L1 proof window to cover the finality lag plus one discovery and its retries; a node that was
   not live when the anchor was adopted, or restarted since, still needs historical state. The own
   L1 node behind `--l1.http` is the only source of these reads (spec SYNC-9-16), so configure its
@@ -758,6 +762,12 @@ committing those values to the Inbox.
   the pair; allow the supervisor to send SIGKILL when its graceful stop expires. Preserve the
   CometBFT home, validator signing state and ABCI store so the normal handshake can recover.
   This is a CometBFT process-lifecycle limitation, not a request to edit or discard chain state.
+- The normal handshake cannot resume one case (spec CONS-3.1-9): a crash inside a generation's
+  first block, between CometBFT saving that block and saving its state, when the generation's
+  `initial_height` is above 1. Stock CometBFT v0.40.0 then stops at its handshake whatever the
+  app reports, and the spec leaves the repair open (review question Q3.1-8). Generation 0 here
+  always has `initial_height` 1; a recovery generation starts at c + 1, so one whose origin c is
+  above 0 is exposed.
 - The app checks alethia-reth against its committed head at every CometBFT handshake `Info`
   and syncs alethia-reth to that head if it lacks it; until then that `Info` stays pending, so
   CometBFT never sees a height alethia-reth does not hold. The check runs once per set of ABCI

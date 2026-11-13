@@ -95,6 +95,15 @@ older stores are refused, never migrated (START-10-24).
 
 ### Bug Fixes
 
+- Re-pin the [conformance record](docs/etna-conformance.md) to the Etna specification at
+  `d18357214fab30ea512ae9858a11699806d72ba1` (protocol #22348) and align with it. `Info`
+  re-checks the EL at every CometBFT handshake, the first `Info` on each new set of ABCI
+  connections, so a CometBFT restart under a running app never sees a height the EL does not
+  hold (CONS-3.1-9). `etna-signer --trust-timeout` is at most 2 s, so a refusal is answered
+  within 4 s, before CometBFT's fixed 5 s signer read timeout, and CometBFT gives up instead of
+  retrying it (SYNC-9-11). The validator supervisor and `abci-recover install` refuse a
+  validator `config.toml` whose `adaptive_sync`, `double_sign_check_height` or
+  `block_time_tolerance` differs from its stock default (START-10-6).
 - Replace empty derivation sources with a single default block before and after Unzen,
   matching the clarified source validation rules in protocol #22335. Regenerate contract
   fixtures and shared vectors from the protocol revision enforcing the strict bounty bound.

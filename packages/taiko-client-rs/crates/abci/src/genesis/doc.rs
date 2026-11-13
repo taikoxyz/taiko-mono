@@ -121,8 +121,9 @@ impl GenesisConsensusParams {
         alloy_primitives::B256::from_slice(&Sha256::digest(bytes))
     }
 
-    /// Canonical parameters representable by the ABCI request type. CometBFT v0.40's
-    /// authority field is not exposed by tendermint-rs and cannot be compared here.
+    /// Canonical parameters representable by the ABCI request type. CometBFT v0.40.0 also passes
+    /// the parameter-update authority to InitChain, which tendermint-rs does not decode; it need
+    /// not be compared, as the app never changes consensus params (START-10-23).
     pub(crate) fn abci() -> tendermint_proto::v0_38::types::ConsensusParams {
         use tendermint_proto::{google::protobuf::Duration, v0_38::types};
         types::ConsensusParams {
