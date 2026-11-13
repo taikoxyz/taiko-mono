@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>What Etna PoS + ZK is — engineer&rsquo;s course</title>
+<link rel="stylesheet" href="course.css"></head><body>
+<div class="layout">
+<aside class="side">
+<span class="brand">Etna PoS + ZK</span>
+<span class="sub">engineer&rsquo;s course</span>
+<div class="grp">Lessons</div>
+<ol>
+<li><a href="index.html">Contents</a></li>
+<li><a href="01-what-is-etna.html" class="active">1. What Etna PoS + ZK is</a></li>
+<li><a href="02-life-of-a-transaction.html">2. Life of a transaction</a></li>
+<li><a href="03-consensus.html">3. How the chain agrees</a></li>
+<li><a href="04-staking-and-epochs.html">4. Stake, validators, epochs</a></li>
+<li><a href="05-the-proof.html">5. What the proof proves</a></li>
+<li><a href="06-data-and-proof-together.html">6. Data first, proof binds</a></li>
+<li><a href="07-timing.html">7. Two seconds, thirty minutes</a></li>
+<li><a href="08-when-things-go-wrong.html">8. When things go wrong</a></li>
+<li><a href="09-censorship-and-the-bridge.html">9. Censorship and the bridge</a></li>
+<li><a href="10-economics.html">10. Who pays, who earns</a></li>
+<li><a href="11-forced-inclusion.html">11. Forced inclusion</a></li>
+</ol>
+<div class="grp">Reference</div>
+<ol>
+<li><a href="glossary.html">Glossary</a></li>
+<li><a href="limitations.html">Limitations</a></li>
+</ol>
+<div class="grp">Authoritative</div>
+<ol>
+<li><a class="ext" href="../spec/index.html">Specification &rarr;</a></li>
+</ol>
+</aside>
+<div class="content">
+<main>
+
+<h1>What Etna PoS + ZK is</h1>
+<p class="muted">This page establishes the shape of the system: who orders and certifies L2 blocks, who proves and settles them, what Ethereum still provides, and the five different questions that get collapsed into the word &ldquo;confirmed&rdquo;.</p>
+
+<div class="note assume">
+<p><strong>This is a design, not a running system.</strong> Nothing described here is implemented, deployed, audited or
+measured. Numbers are tagged <span class="tag">derived</span> (arithmetic on the design's fixed inputs),
+<span class="tag">sourced</span> (an external standard or constant) or
+<span class="tag">unmeasured</span> (a placeholder with no measurement behind it). The authoritative
+rules are in the <a href="../spec/index.html">specification</a>.</p>
+</div>
+
+<h2>The idea</h2>
+<p>Etna PoS + ZK is a layer-2 chain that keeps its own consensus. Its blocks are ordered by validators who bond the
+TAIKO token on Ethereum and whose voting power is the stake they bonded. Ethereum does not choose the order of L2
+transactions, and no Ethereum proposer sits in the L2 block path. The honest name for the architecture is a
+<strong>PoS-sequenced validity rollup</strong>.</p>
+<p>Blocks are produced on a fixed cadence: one L2 block every <strong>two seconds</strong> under the design's
+operating assumptions <span class="tag">derived</span>, not measured. A block becomes
+<strong>PoS-certified</strong> when more than two thirds of the epoch's voting power has signed a precommit for it.
+Certification is a consensus fact, established by validators alone in a few message round trips — it is not an Ethereum
+confirmation and it is not a proof. Above the latest checkpoint accepted on Ethereum it is <strong>provisional</strong>: the
+certificate is valid as evidence, but the confirmation is not settled, and the one rule-bound action on that range is the
+stall resolution. After a settlement stall passes its trigger the DAO may queue a single entry; once the entry's stored
+deadline passes, anyone may execute it — once — and settlement resumes above the checkpoint without erasing anything above
+it. The checkpoint and everything at or below it are untouched; a certificate from the superseded generation can no longer
+serve as a batch's head evidence but remains admissible as evidence, and the range above the checkpoint stays valid history
+that a later batch can extend under the new generation. Transactions above the checkpoint are not carried into the resumed
+settlement, so they must be resubmitted, with no compensation. Nothing obliges governance to act, so a stall it does not
+act on leaves the chain halted safely.</p>
+<p>Ethereum's job is different. Batches of L2 blocks are settled on Ethereum by a zero-knowledge proof
+that the batch's blocks were certified by the validator set <em>and</em> executed correctly. One Ethereum
+transaction carries the proof and the checkpoint write, and it carries the batch data or a reference to a
+publication that already holds it; without a valid proof the batch is not accepted at all. There is no state on that
+path between "transaction exists" and "batch accepted": the contract derives what the proof is checked against, the
+proof verifies, and only then is a checkpoint written. A batch whose data is missing — neither carried nor
+retrievable from the publication it references — cannot be accepted, and a batch is never recorded before its
+proof verifies.</p>
+<p>Data may be published to Ethereum before its proof, and the failure mode that used to forbid it is controlled
+rather than denied: publication writes no batch state, a later proof can reference the published record, and a record
+that is not proven before its deadline is dead and can be re-published. The canonical copy of a batch's data is
+the accepting L1 transaction — its calldata or its blob sidecars — or the live publication record that transaction
+references, so acceptance is what advances the checkpoint and publication on its own advances nothing.</p>
+<p>Finally, safety beats progress. When the information or participation needed to continue safely is missing, the
+protocol stops producing and keeps serving what it has. History at or below the latest checkpoint accepted on
+Ethereum is never rewritten, and there is no operator key, pause button or emergency path that can rewrite it. History above that
+checkpoint is provisional. If settlement stalls, the chain halts, and one timelocked governance action can clear it: the DAO may queue a stall-resolution entry once the stall passes its trigger, and after the entry's stored deadline anyone may execute it — once — and settlement resumes above the checkpoint. The range above the checkpoint is not erased; a superseded certificate can no longer serve as a batch's head evidence but stays admissible as evidence, and the range's transactions are not carried into the resumed settlement, so they are not replayed and must be resubmitted. There is no permissionless recovery, no bond and no reward, and nothing obliges governance to queue or execute an entry. Value at or below the last checkpoint stays withdrawable on L1 through a withdrawal root that <code>k</code> distinct backend families attest (subject to the funded proving market and to the data still being retrievable).</p>
+
+<h2>The picture</h2>
+<figure>
+<svg viewBox="0 0 960 430" role="img" aria-label="Users submit transactions to L2 validators, who order and certify blocks; a prover proves each certified batch; one Ethereum transaction carries the proof and the batch data or a reference to a publication that holds it, advancing a checkpoint that the bridge reads.">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0969da"></path>
+</marker>
+    <marker id="arrg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1a7f37"></path>
+</marker>
+</defs>
+  <rect x="20" y="24" width="200" height="70" rx="9" fill="#ffffff" stroke="#d8dee4"></rect>
+  <text x="120" y="52" fill="#24292f" font-size="14" text-anchor="middle">Users</text>
+  <text x="120" y="72" fill="#59636e" font-size="11" text-anchor="middle">L2 transactions, bridge calls</text>
+  <rect x="330" y="24" width="290" height="70" rx="9" fill="#ffffff" stroke="#8250df"></rect>
+  <text x="475" y="50" fill="#24292f" font-size="14" text-anchor="middle">L2 validators (TAIKO-bonded)</text>
+  <text x="475" y="70" fill="#59636e" font-size="11" text-anchor="middle">propose · execute · prevote · precommit</text>
+  <rect x="700" y="24" width="230" height="70" rx="9" fill="#ffffff" stroke="#1a7f37"></rect>
+  <text x="815" y="50" fill="#24292f" font-size="14" text-anchor="middle">Provers</text>
+  <text x="815" y="70" fill="#59636e" font-size="11" text-anchor="middle">witness + ZK proof per batch</text>
+  <rect x="330" y="170" width="290" height="70" rx="9" fill="#ffffff" stroke="#d8dee4"></rect>
+  <text x="475" y="196" fill="#24292f" font-size="14" text-anchor="middle">Full nodes · archive nodes</text>
+  <text x="475" y="216" fill="#59636e" font-size="11" text-anchor="middle">execute · serve bodies and state · retain</text>
+  <rect x="700" y="170" width="230" height="70" rx="9" fill="#ffffff" stroke="#0969da"></rect>
+  <text x="815" y="196" fill="#24292f" font-size="14" text-anchor="middle">Ethereum (L1)</text>
+  <text x="815" y="216" fill="#59636e" font-size="11" text-anchor="middle">data · proof check · settlement · bridge</text>
+  <rect x="20" y="320" width="200" height="70" rx="9" fill="#ffffff" stroke="#d8dee4"></rect>
+  <text x="120" y="348" fill="#24292f" font-size="14" text-anchor="middle">TAIKO staking</text>
+  <text x="120" y="368" fill="#59636e" font-size="11" text-anchor="middle">bond, exit, slash (on L1)</text>
+  <rect x="700" y="320" width="230" height="70" rx="9" fill="#ffffff" stroke="#d8dee4"></rect>
+  <text x="815" y="348" fill="#24292f" font-size="14" text-anchor="middle">DAO</text>
+  <text x="815" y="368" fill="#59636e" font-size="11" text-anchor="middle">upgrades only · no runtime role</text>
+  <line x1="220" y1="59" x2="326" y2="59" stroke="#0969da" marker-end="url(#arr)"></line>
+  <text x="273" y="50" fill="#59636e" font-size="10" text-anchor="middle">submit</text>
+  <line x1="620" y1="59" x2="696" y2="59" stroke="#0969da" marker-end="url(#arr)"></line>
+  <text x="658" y="50" fill="#59636e" font-size="10" text-anchor="middle">certified batch</text>
+  <line x1="700" y1="205" x2="624" y2="205" stroke="#1a7f37" marker-end="url(#arrg)"></line>
+  <text x="662" y="196" fill="#59636e" font-size="10" text-anchor="middle">state sync</text>
+  <line x1="475" y1="94" x2="475" y2="166" stroke="#0969da" marker-end="url(#arr)"></line>
+  <text x="505" y="134" fill="#59636e" font-size="10">blocks · votes · data</text>
+  <line x1="120" y1="320" x2="120" y2="98" stroke="#0969da" stroke-dasharray="4 3" marker-end="url(#arr)"></line>
+  <text x="132" y="230" fill="#59636e" font-size="10">validator set per epoch (L1 fact)</text>
+  <line x1="700" y1="355" x2="620" y2="355" stroke="#0969da" marker-end="url(#arr)"></line>
+  <text x="660" y="346" fill="#59636e" font-size="10" text-anchor="middle">upgrade tx</text>
+  <line x1="815" y1="170" x2="815" y2="98" stroke="#1a7f37" stroke-dasharray="4 3" marker-end="url(#arrg)"></line>
+  <text x="825" y="140" fill="#59636e" font-size="10">proof verified</text>
+  <text x="30" y="415" fill="#59636e" font-size="11">Solid arrows: messages and transactions. Dashed arrows: L1 facts read by L2 and upgrades.</text>
+</svg>
+<figcaption>Figure 1 — Ethereum provides data availability, proof verification, settlement and bridge anchoring.
+It does not sequence L2 blocks. Validators certify order; provers show that the certified order and its execution
+are correct.</figcaption>
+</figure>
+
+<h2>How it works</h2>
+
+<h3>The cast</h3>
+<table>
+<thead><tr><th>Participant</th><th>How it enters</th><th>What it does</th><th>What it never does</th></tr></thead>
+<tbody>
+<tr><td><strong>Validators</strong></td><td>Permissionless: bond TAIKO on Ethereum, register a consensus key and a heartbeat key, join a first-come activation queue</td><td>Propose blocks when selected, execute and check every block they vote for, prevote and precommit, hold and serve the data they voted for, and post the periodic L1 heartbeat that keeps them selectable for future set versions</td><td>They do not get to choose the validator set, and holding TAIKO gives no protocol right other than this role</td></tr>
+<tr><td><strong>Provers</strong></td><td>Permissionless: no registration, no bond, no allowlist</td><td>Prove a certified batch and land it in one L1 transaction that carries the proof and the data or a reference to a publication holding it; the first valid landing wins and is paid</td><td>They do not choose the validator set, the predecessor, the data commitment or the threshold — all are derived from L1 state</td></tr>
+<tr><td><strong>Full nodes</strong></td><td>Permissionless</td><td>Execute the chain, check validity, serve blocks, state and witnesses</td><td>They have no vote and no role in certification</td></tr>
+<tr><td><strong>Archive nodes</strong></td><td>Permissionless</td><td>Retain the full accepting-transaction calldata and blob sidecars — and, for data published earlier, the publication transaction's blob sidecars — and L2 history, past the window in which Ethereum serves them</td><td>Retention is an assumption the design relies on, not a duty the protocol can enforce today</td></tr>
+<tr><td><strong>Users</strong></td><td>No registration, no TAIKO</td><td>Submit L2 transactions and bridge messages, and may publish a transaction's data to L1</td><td>They have no L1 path that forces an <em>unpublished</em> transaction into L2; publishing a transaction's data starts an inclusion obligation over that record, enforced in the proof</td></tr>
+<tr><td><strong>Ethereum</strong></td><td>External</td><td>Stores the batch data, verifies proofs, settles checkpoints, anchors the bridge</td><td>It does not order L2 transactions and does not see them before they are certified</td></tr>
+<tr><td><strong>The DAO</strong></td><td>Existing L1 governance</td><td>Upgrades contracts under the published upgrade rules</td><td>It has no role in ordinary block production, voting, proving or withdrawal</td></tr>
+</tbody>
+</table>
+
+<h3>What Ethereum provides, and what it does not</h3>
+<div class="grid">
+<div class="card">
+<h4>Still provided by Ethereum</h4>
+<ul>
+<li><strong>Data availability.</strong> The canonical copy of a batch's data is the accepting L1 transaction — its calldata and/or its blob sidecars — or the live publication record that transaction references. A batch is never accepted without data that is retrievable.</li>
+<li><strong>Proof verification.</strong> An L1 contract checks the proof and writes the checkpoint only if verification succeeds, in the same transaction.</li>
+<li><strong>Settlement.</strong> A monotone checkpoint chain records, per landed height, the L2 block hash, state root, epoch, validator-set root, data commitment and the L1 block that accepted it.</li>
+<li><strong>Bridge anchoring.</strong> Cross-chain messages authenticate against a checkpoint that the Inbox wrote; value leaves only on the strength of an L1-accepted checkpoint, a withdrawal root at or above that height, and the delay measured from the root&rsquo;s record.</li>
+</ul>
+</div>
+<div class="card">
+<h4>No longer provided by Ethereum</h4>
+<ul>
+<li><strong>Ordering.</strong> The order of L2 transactions is decided by L2 PoS. No Ethereum proposer, builder or slot timing enters a validity rule.</li>
+<li><strong>Per-transaction inclusion.</strong> Published data carries a narrow inclusion obligation, enforced in the proof: once a record is due, a landing batch must advance the settlement frontier past it by resolving it &mdash; dead first and unconditionally, when the record&rsquo;s own deadline has
+passed at the anchored view, decided from its own stored block number; otherwise, while the record
+is live, the walk reads its transactions in the record&rsquo;s own order, each one either runs or is
+set aside at its turn, and a live record all of whose transactions are set aside is void. A block that presents a record&rsquo;s transactions out of that order is invalid, not merely unresolved. Every position settles in a bounded number of batches, so no published record can pin the frontier, and a producer cannot manufacture the set-aside ground: it cannot change the record&rsquo;s own bytes or the order in which its transactions are walked, and only the sender&rsquo;s own signed transactions move its nonce, while its balance can be moved by anyone. The pre-state each turn is judged against is the batch&rsquo;s own executed state, which the producer does set, so where a third-party credit lands relative to the turn decides whether an unaffordable transaction runs or is set aside &mdash; a credit can only ever enable a transaction, never set one aside &mdash; and the remedy is re-publication. That is not a latency guarantee, and there is no general inclusion list or L1 path that forces an <em>unpublished</em> transaction in. For unpublished data, resistance to censorship is a conditional statistical property of proposer rotation, not a guarantee.</li>
+<li><strong>Instant settlement.</strong> L2 certification (a few round trips) is a different event from L1 acceptance (proof + inclusion) and from Ethereum finality (a further L1 finality lag).</li>
+<li><strong>Rollback of unsettled L2 history.</strong> The one rule that acts on history above the latest accepted checkpoint is the stall resolution: after a settlement stall passes its trigger the DAO may queue a single entry, and once its stored deadline passes anyone may execute it — once — to resume settlement above the checkpoint without erasing the provisional range. A superseded certificate can no longer serve as a batch's head evidence &mdash; though it remains admissible as evidence &mdash; the range stays valid history that a later batch can extend under the new generation, and its transactions are not carried into the resumed settlement: nothing is replayed, value above the checkpoint is not compensated, and no rule obliges governance to act, so a stall it does not act on halts the chain.</li>
+</ul>
+</div>
+</div>
+
+<h3>The five words people mix up</h3>
+<p>Each of these is a different question with a different answer, a different source of evidence, and a different failure
+mode. A tool that shows "confirmed" must say which one it means.</p>
+<table>
+<thead><tr><th>Word</th><th>The question it answers</th><th>Where the answer comes from</th><th>What it does not tell you</th></tr></thead>
+<tbody>
+<tr><td><strong>Execution validity</strong></td><td>Does this block follow from its parent under the execution rules?</td><td>This node's own re-execution of the block against a known parent state</td><td>Nothing about what other nodes did or agreed to.</td></tr>
+<tr><td><strong>Consensus agreement</strong></td><td>Did more than two thirds of the epoch's voting power sign for this block at this height?</td><td>A published commit certificate: signed precommits from distinct validators, weighted by bonded stake</td><td>Nothing about whether the data is retrievable, and nothing about Ethereum.</td></tr>
+<tr><td><strong>Data availability</strong></td><td>Can someone other than the current holder actually retrieve the block body or the batch data?</td><td>Your own retrieval, and later the accepting L1 transaction or the live publication record it references. A certificate commits to a block hash, not to bytes.</td><td>A holder's local possession is not evidence that others can get the data.</td></tr>
+<tr><td><strong>Economic accountability</strong></td><td>If a validator broke a consensus rule, is there objective evidence that anyone can submit, and stake that can be taken?</td><td>The offence catalogue and the slashing rules, which act on signed objects and L1-committed stake</td><td>It does not prevent a break. Safety still assumes fewer than one third of the voting power is malicious.</td></tr>
+<tr><td><strong>Ethereum settlement</strong></td><td>Is the transition committed on Ethereum by a valid proof, with its data carried or published and still retrievable?</td><td>The Inbox checkpoint record, the accepting L1 transaction, and the live publication record it references when the data was published earlier</td><td>It does not decide the ordering or the contents, and it can be reorganised until Ethereum finalizes it.</td></tr>
+</tbody>
+</table>
+
+<h2>Worked example: one epoch, in numbers</h2>
+<p>Suppose the chain is at epoch 0, covering L2 heights 0–899. The table shows where each number comes from.</p>
+<table>
+<thead><tr><th>Quantity</th><th>Value</th><th>Where it comes from</th><th>Tag</th></tr></thead>
+<tbody>
+<tr><td>L2 block cadence</td><td>2 s</td><td>the design's fixed production cadence — a cadence, not a finality or settlement latency</td><td><span class="tag">derived</span></td></tr>
+<tr><td>Epoch length <code>L</code></td><td>900 heights</td><td>900 × 2 s = 1,800 s = 30 min; suitability at the target validator count is not measured</td><td><span class="tag">derived</span> / suitability <span class="tag">unmeasured</span></td></tr>
+<tr><td>Block at 824 s after height 0</td><td>height 412</td><td>412 × 2 s</td><td><span class="tag">derived</span></td></tr>
+<tr><td>Batch length bound <code>K</code></td><td>at most 6 blocks ≈ 12 s at the target rate; 9 blocks is the hard ceiling — <strong>the submitter chooses the length within this bound</strong>, so batches close when the data is worth publishing rather than on a fixed clock. The bound is on <em>bytes</em>, not on blocks: 6 is the count when every block carries the full target data budget, so lighter blocks mean proportionally more blocks per batch</td><td>one 2 s block is one 131,072-byte blob at the target rate, EIP-7691 allows 6 target / 9 maximum blobs per L1 block, and a batch's data must fit in one L1 transaction — the accepting one, or the one that publishes it earlier</td><td><span class="tag">derived</span> from <span class="tag">sourced</span> constants</td></tr>
+<tr><td>Data per 12 s L1 slot at target blob capacity</td><td>786,432 bytes = 6 × 131,072</td><td>EIP-7691 target blob count</td><td><span class="tag">sourced</span></td></tr>
+<tr><td>Data budget per 2 s L2 block</td><td>≈ 131,072 bytes</td><td>six 2 s blocks per 12 s L1 slot at target capacity</td><td><span class="tag">derived</span></td></tr>
+<tr><td>Data published per epoch envelope</td><td>≈ 118 MB</td><td>900 × 131,072 bytes — the volume that must stay retrievable while a batch is unsettled</td><td><span class="tag">derived</span></td></tr>
+<tr><td>Quorum for a certificate</td><td><code>3·s &gt; 2·W</code></td><td>with epoch total voting power <code>W = 900,000</code> TAIKO base units, <code>s = 600,000</code> does <em>not</em> reach quorum and <code>s = 600,001</code> does; the same strict comparison is evaluated by the L2 client, the proof's guest program and the L1 contract</td><td><span class="tag">derived</span></td></tr>
+<tr><td>Proof envelope</td><td>30 min</td><td>a planning assumption for normal operation; not a worst-case bound and not measured</td><td><span class="tag">unmeasured</span></td></tr>
+<tr><td>EIP-4844 point-evaluation precompile cost</td><td>50,000 gas per blob</td><td>EIP-4844 constant, used on the blob data path</td><td><span class="tag">sourced</span></td></tr>
+</tbody>
+</table>
+<p>Read the table as a warning about wording: "2 s" is a production cadence, "30 min" is a proof envelope, "900" is an
+epoch length, and "more than two thirds" is a signing threshold. None of them is a settlement time. A batch of six
+blocks spanning 12 s of history can be certified by validators within seconds and still take minutes to be proven
+and land on Ethereum; the interface must name which stage it is showing.</p>
+
+<h2>What this gives you</h2>
+<ul>
+<li>A clear split of responsibilities: validators order and certify; provers and Ethereum settle; the bridge authenticates against settled checkpoints.</li>
+<li>Permissionless roles with objective entry conditions — bond TAIKO to validate, produce a proof to land a batch — and no allowlists in ordinary operation.</li>
+<li>An architecture whose failure mode for missing information is a halt: history at or below the accepted checkpoint is never rewritten, no rule of v1 rewrites it above either, and the exit from the last settled checkpoint keeps working through a withdrawal root of <code>k</code> distinct-family attestations, subject to the funded proving market and to the data still being retrievable.</li>
+<li>A vocabulary of eight named statuses that lets a tool say exactly which guarantee it is showing.</li>
+</ul>
+
+<h2>What it does not give you</h2>
+<ul>
+<li><strong>No implementation.</strong> There is no compiled client, contract deployment, audit, benchmark or testnet result behind any of this.</li>
+<li><strong>No measured performance.</strong> The 2 s cadence, the 30-minute proving envelope, the round budget and the fleet sizing are all unmeasured; the arithmetic in this lesson is arithmetic, not evidence.</li>
+<li><strong>No permissionless recovery, and no promise of one.</strong> If settlement stalls, the chain halts. One rule can clear it — the timelocked stall resolution: the DAO queues a single entry while the stall lasts, and after its stored deadline anyone may execute it once, resuming settlement above the checkpoint without erasing the provisional range above it. There is no permissionless recovery, no bond and no reward; nothing obliges governance to queue or execute an entry, so a stall may persist indefinitely, and value above the checkpoint is not carried into the resumed settlement: it is not replayed and not compensated. Value at or below the last accepted checkpoint can still leave on L1 through a withdrawal root, but only if a funded proving market produces the <code>k&minus;1</code> further attestations from data that is still retrievable.</li>
+<li><strong>No safety beyond the stake assumption.</strong> If one third or more of an epoch's voting power is malicious or compromised, two conflicting certificates can both be valid, and the proof verifies both.</li>
+<li><strong>No latency guarantee, and no path for unpublished data.</strong> A published record starts an inclusion obligation that a landing batch must satisfy in its proof, but a record can be discharged without being executed &mdash; as dead once its own deadline passes, decided from its own stored block number, or, while it is
+live, as void when every one of its transactions is set aside at its turn &mdash; and a transaction set aside may become runnable later through the sender&rsquo;s own further signed transactions or through a credit from any account (a credit can only ever enable a transaction, never set one aside), with re-publication as the remedy. Arrivals beyond the drain leave waits unbounded. No L1 path forces an <em>unpublished</em> transaction into L2, and proposer selection is public and predictable, so resistance for unpublished data rests only on the selection share.</li>
+<li><strong>No fully trustless L2 checkpoint write yet.</strong> The design retains one reserved system sender for the L2-side checkpoint write; its only permitted action is to publish the Ethereum-final L1 fact that the rule already constrains.</li>
+<li><strong>No unconditional blob-path binding.</strong> Batch data can travel as calldata or as blobs. The calldata commitment is the unconditional path; the blob path's fixed-point argument must be independently checked and its in-guest evaluation cost measured before it is relied on.</li>
+</ul>
+
+<h2>Check yourself</h2>
+<details><summary>A tool tells you a transaction is "confirmed". What should you ask?</summary>
+<p>Which of the eight statuses it means. A 2 s PoS confirmation says a validator set agreed on ordering; it does not
+say the batch data and proof are on Ethereum. Until the accepting L1 transaction exists and is final, a settlement
+or bridge action cannot safely rely on it.</p></details>
+<details><summary>Can a batch's data be published to Ethereum before its proof?</summary>
+<p>Yes. Publication is permissionless, writes no batch state and accepts nothing on its own; a later proof can
+reference the published record, and the checkpoint still advances only when a valid proof lands. The publication
+deadline keeps the window bounded: a record that is not proven in time is dead at any later view and can be
+re-published, and publication also starts the inclusion obligation &mdash; once the record is due, a
+landing batch must advance the settlement frontier past it by resolving it &mdash; dead first and unconditionally, when the record&rsquo;s own deadline has
+passed at the anchored view, decided from its own stored block number; otherwise, while the record
+is live, the walk runs or sets aside each transaction at its turn, and a live record all of whose
+transactions are set aside is void.</p></details>
+<details><summary>Ethereum verifies the proof. Does that mean the L2 history is safe even if one third of validators misbehave?</summary>
+<p>No. The proof attests that the presented certificate is internally consistent with the authenticated validator
+set and the quorum rule. It cannot attest that no competing certificate exists. If the stake assumption fails, two
+conflicting certificates can both be cryptographically valid and both can produce accepting proofs.</p></details>
+
+<div class="card" id="assumptions">
+<h3>Assumptions</h3>
+<ul>
+<li>Fewer than one third of each epoch's voting power is malicious or compromised.</li>
+<li>More than two thirds of each epoch's voting power is online and messages arrive within the round-timeout bound often enough to complete rounds.</li>
+<li>Validators and full nodes hold and serve the data of blocks they voted for, at least until settlement; somebody keeps the data until the proof lands.</li>
+<li>Somebody publishes a transaction's data to L1 while the blobs are retrievable, and L1 includes that publication; publication is permissionless and advances no protocol state, and it starts an inclusion obligation over the record that binds a producer landing batches but is not a latency guarantee and cannot reach data that never reaches L1.</li>
+<li>At least one adequately-resourced prover completes each committed batch.</li>
+<li>Ethereum includes valid transactions within a bounded delay and does not reorganise below the finality depth it reports.</li>
+<li>TAIKO has a market, and the stake bonded is worth enough that slashing matters.</li>
+<li>The DAO executes upgrades honestly and never uses an upgrade to invalidate history at or below the latest accepted checkpoint.</li>
+</ul>
+</div>
+
+<p class="small"><a href="02-life-of-a-transaction.html">Next: the life of a transaction &rarr;</a></p>
+
+</main>
+<footer class="site"><p>Etna PoS + ZK engineer&rsquo;s course · the authoritative rules are in the <a href="../spec/index.html">specification</a>.</p></footer>
+</div><!-- /content -->
+</div><!-- /layout -->
+</body></html>

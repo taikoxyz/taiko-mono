@@ -1,0 +1,939 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Etna PoS + ZK — Specification 08: migration, upgrades and governance</title>
+<link rel="stylesheet" href="spec.css">
+</head><body>
+<header class="site">
+  <span class="brand">Etna&nbsp;PoS&nbsp;+&nbsp;ZK</span>
+  <span class="tag">reference specification</span>
+  <span class="tag">rev 2026-10-05</span>
+  <nav>
+    <a href="index.html">Index</a>
+    <a href="01-system-model.html">Model &amp; roles</a>
+    <a href="02-consensus.html">Consensus</a>
+    <a href="03-membership-staking.html">Staking</a>
+    <a href="04-l1-integration.html">L1 integration</a>
+    <a href="05-proof-statement.html">Proof statement</a>
+    <a href="06-recovery-exceptions.html">Recovery</a>
+    <a href="07-economics-slashing.html">Economics</a>
+    <a href="08-migration-upgrades.html">Migration</a>
+    <a href="09-parameters.html">Parameters</a>
+    <a href="10-assurance.html">Assurance</a>
+    <a href="../learn/index.html">Learn</a>
+  </nav>
+</header>
+<main>
+
+<h1>08 — Migration, upgrades and governance</h1>
+
+<div class="verdict">
+<p><strong>What this page owns.</strong> The migration boundary from the Shasta deployment at
+revision <code>7718753c1</code> (<a href="#MIG-01">MIG-01</a>), the per-contract upgrade list and
+storage-layout constraints (<a href="#MIG-02">MIG-02</a>), the disposition of everything in flight
+across the boundary (<a href="#MIG-03">MIG-03</a>), removal of operational privileges
+(<a href="#MIG-04">MIG-04</a>), program-image, verifier and mixed-client rules
+(<a href="#MIG-05">MIG-05</a>), the no-replacement-deployment rule
+(<a href="#MIG-06">MIG-06</a>), and governance (<a href="#GOV-01">GOV-01</a>–<a href="#GOV-04">GOV-04</a>), where <a href="#GOV-04">GOV-04</a> is <strong>live again</strong>: increment 05 revives the timelocked, resume-only governance stall resolution as the one named runtime governance action, with a consumed entry, a stored deadline and a signed generation increment, while the permissionless recovery stays withdrawn (D-15), aggregation stays deferred (D-16) and the rotation that would consume heartbeat eligibility stays a gated tombstone; heartbeat eligibility has since been revived as a live rule by <a href="../increments/02-heartbeat-design.md">increment 02</a>, and narrow forced inclusion by <a href="../increments/04-forced-inclusion-design.md">increment 04</a> <em>(D-16 answers to increment 05; increment 02; increment 04)</em>.
+Status labels are those of <a href="index.html#STATUS-01">STATUS-01</a>–<a href="index.html#STATUS-11">STATUS-11</a>;
+this page introduces no new label and no new status word.</p>
+<p class="small">Evidence base: <a href="../research/taiko-baseline-contracts.md">taiko-baseline-contracts.md</a>
+(the 800-line baseline, cited as <code>path:line</code>),
+<a href="../research/prior-etna-digest.md">prior-etna-digest.md</a>,
+<a href="../04-architecture-decision.md">04-architecture-decision.md</a> and
+<a href="../01-requirements-and-threat-model.md">01-requirements-and-threat-model.md</a> §4–§5.
+Nothing on this page is implemented, deployed or measured (<a href="index.html#GEN-01">GEN-01</a>).</p>
+<p class="small">The atomic settlement entry point is named <code>land(data, proof)</code> by <a href="04-l1-integration.html#L1-01">L1-01</a>; that name is fixed, and clients, parameters and migration scripts MUST use it.</p>
+</div>
+
+<div class="warnbox small">
+<strong>This page is a plan, not a deployment.</strong> Every address below is as <em>recorded</em> in
+the repository's address libraries and hand-maintained deployment logs; no on-chain read was
+performed (<a href="../research/taiko-baseline-contracts.md">baseline</a> §10 gap 8). The
+preconditions in <a href="#preconditions">§ Preconditions</a> must be executed against the live chain
+before a migration bundle is built, and the bundle itself is gas-<span class="pill unmeasured">unmeasured</span>.
+</div>
+
+<h2 id="boundary-shape">The boundary in one picture</h2>
+<p>The migration is a single, irreversible switch from the Shasta rule set to the Etna PoS&nbsp;+&nbsp;ZK
+rule set over the <em>same</em> preserved contract addresses. It is not a chain restart: the new
+consensus begins at the last Shasta state that Ethereum already accepted, and every later rule must
+accept that state as its own past (<a href="#GOV-03">GOV-03</a>). History at or below the latest
+L1-accepted checkpoint — the checkpoint record written by the most recently accepted batch — is
+untouchable by any protocol path, and history above it is provisional. v1 has <strong>no permissionless recovery of any kind</strong> (D-15), and the one path that may
+act on the provisional range above it is the rule-bound, timelocked, resume-only stall resolution of
+<a href="#GOV-04">GOV-04</a>, which is <strong>live again</strong> under increment 05: it resumes settlement on the same chain, leaves the checkpoint record and everything at or below it untouched, invalidates a superseded certificate only as a batch's head evidence, and is never an
+upgrade and never a substitute for one (<a href="06-recovery-exceptions.html#REC-01">REC-01</a>; note, however,
+that clearing a stall still depends on governance liveness, disclosed as F-GOV-1/A-GOV-2, so an absent or
+captured governance can leave the stall in place).
+<em>(increment 05: the boundary of REC-01 is unchanged; the permissionless recovery stays withdrawn and the
+governance stall resolution is revived as the one named runtime action, with its trigger, stored timelock,
+consumed entry and resume-only effect. R5R2-C-01: the range above the checkpoint is not discarded or made unlandable — the resolution resumes settlement on the same chain, and only a superseded certificate's use as a batch's head evidence is invalidated.)</em></p>
+
+<h2 id="state-machine">Migration state machine</h2>
+<figure>
+<svg viewBox="0 0 880 190" role="img" aria-label="Migration states: shasta-active, frozen, drained, etna-active">
+<defs><marker id="arw" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+<path d="M0,0 L9,4.5 L0,9 z" fill="#7aa2f7"/></marker></defs>
+<g font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="12" fill="#e6edf3">
+<rect x="8" y="46" width="188" height="58" rx="9" fill="#161b22" stroke="#2d3743"/>
+<text x="26" y="70">SHASTA_ACTIVE</text><text x="26" y="88" fill="#9aa7b4" font-size="10">migrationState = 0</text>
+<rect x="236" y="46" width="150" height="58" rx="9" fill="#161b22" stroke="#2d3743"/>
+<text x="254" y="70">FROZEN</text><text x="254" y="88" fill="#9aa7b4" font-size="10">= 1</text>
+<rect x="426" y="46" width="150" height="58" rx="9" fill="#161b22" stroke="#2d3743"/>
+<text x="444" y="70">DRAINED</text><text x="444" y="88" fill="#9aa7b4" font-size="10">= 2</text>
+<rect x="616" y="46" width="246" height="58" rx="9" fill="#0f2418" stroke="#2c5a3a"/>
+<text x="634" y="70" fill="#9ece6a">ETNA_ACTIVE</text><text x="634" y="88" fill="#9aa7b4" font-size="10">= 3 · land(data, proof) only</text>
+<line x1="196" y1="75" x2="232" y2="75" stroke="#7aa2f7" stroke-width="1.5" marker-end="url(#arw)"/>
+<line x1="386" y1="75" x2="422" y2="75" stroke="#7aa2f7" stroke-width="1.5" marker-end="url(#arw)"/>
+<line x1="576" y1="75" x2="612" y2="75" stroke="#7aa2f7" stroke-width="1.5" marker-end="url(#arw)"/>
+<text x="150" y="36" fill="#9aa7b4" font-size="10">T1 DAO bundle</text>
+<text x="330" y="36" fill="#9aa7b4" font-size="10">T2 anyone</text>
+<text x="522" y="36" fill="#9aa7b4" font-size="10">T3 DAO bundle</text>
+<path d="M500,104 C500,150 300,150 200,116" fill="none" stroke="#e0af68" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#arw)"/>
+<text x="250" y="166" fill="#e0af68" font-size="10">T2b unfreezeToFrozen() — only from DRAINED, migration-only selector</text>
+<text x="8" y="24" fill="#9aa7b4" font-size="10">prove() callable in states 0–1 (SHASTA_ACTIVE, FROZEN) and disabled from DRAINED (T2); land(data, proof) callable in state 3 only — never both.</text>
+</g>
+</svg>
+<figcaption>Normative transitions, guards and effects are the table below; the diagram is a reading aid.</figcaption>
+</figure>
+
+<table>
+<thead><tr><th>#</th><th>Transition</th><th>Who may trigger</th><th>Exact guard (all conditions must hold)</th><th>Effect</th></tr></thead>
+<tbody>
+<tr><td>T1</td><td><code>SHASTA_ACTIVE</code> (0) → <code>FROZEN</code> (1)</td><td>DAO bundle:
+<code>MainnetDAOController.execute</code> (<code>MainnetDAOController.sol:24-31</code>) calling
+<code>upgradeToAndCall</code> on the preserved Inbox proxy</td>
+<td>The bundle installs the migration implementation and calls <code>freeze()</code> in the same
+transaction; <code>_coreState.nextProposalId &gt; 0</code>; sets <code>frozenAtL1Block = uint48(block.number)</code>. No pre-existing slot is written.</td>
+<td><code>propose()</code> reverts <code>MigrationFrozen()</code>;
+<code>prove()</code> is unchanged but remains callable only in <code>SHASTA_ACTIVE</code> and this state:
+T2 disables it (MIG-03(1)).</td></tr>
+<tr><td>T2</td><td><code>FROZEN</code> (1) → <code>DRAINED</code> (2)</td><td>anyone,
+permissionlessly, via <code>finishDrain()</code></td>
+<td><code>migrationState == FROZEN</code> <strong>and</strong>
+(<code>_coreState.lastFinalizedProposalId == _coreState.nextProposalId - 1</code>
+<strong>or</strong> <code>block.number &gt;= frozenAtL1Block + DRAIN_DEADLINE</code>)</td>
+<td><code>drainedAtL1Block = uint48(block.number)</code> is recorded; <code>prove()</code> reverts
+<code>MigrationDrained()</code> permanently (unless T2b), so the legacy path is disabled from this
+transition and no legacy checkpoint can be written in <code>DRAINED</code>; legacy bond withdrawal stays callable.</td></tr>
+<tr><td>T2b</td><td><code>DRAINED</code> (2) → <code>FROZEN</code> (1)</td><td>DAO bundle only</td>
+<td><code>migrationState == DRAINED</code>; re-entry of <code>freeze()</code> sets a new
+<code>frozenAtL1Block</code> and clears <code>drainedAtL1Block</code>. Legal because no rule accepts new
+history in <code>DRAINED</code>: <code>prove()</code> reverts there (T2, MIG-03(1)).</td>
+<td><code>prove()</code> becomes callable again; no checkpoint, signal, message status or balance is
+touched. The selector is absent once <code>ETNA_ACTIVE</code> is reached.</td></tr>
+<tr><td>T3</td><td><code>DRAINED</code> (2) → <code>ETNA_ACTIVE</code> (3)</td><td>DAO bundle:
+<code>activateEtna(B*, S*)</code> in the same transaction that installs the settlement
+implementation</td>
+<td><code>migrationState == DRAINED</code>; <code>block.number &ge; drainedAtL1Block + L1_FINALITY_DEPTH</code>
+(the boundary is an Ethereum-final L1 fact: <code>prove()</code> is disabled in <code>DRAINED</code>, so
+the last legacy checkpoint write is at least that deep — MIG-01, MIG-03(1)(b));
+<code>_coreState.lastFinalizedProposalId &gt; 0</code>;
+<code>signalService.getCheckpoint(B*).blockHash == _coreState.lastFinalizedBlockHash</code>;
+<code>signalService.getCheckpoint(B*).stateRoot == S*</code>; the staking contract reports a non-zero
+epoch-0 set root</td>
+<td><code>land(data, proof)</code> becomes callable; <code>prove()</code> is disabled forever: from this
+transition the legacy selector MUST be absent or MUST revert unconditionally, and no function may import
+a legacy checkpoint, proposal or proof into the Inbox or the SignalService. The boundary object is
+written as the <em>first legal L1-07 checkpoint record</em> with <code>lastLandedHeight = B*</code>
+(<a href="#genesis-record">&sect;genesis record</a>); <code>(B*, S*, H*)</code> occupy the
+migration/genesis slots 258–260. <code>B*</code> is <em>derived</em> by the equality above, never chosen
+by the bundle. <strong>Transitional cost of the launch gate:</strong> the launch transition holds the appends for <code>e_0 + 1</code> and <code>e_0 + 2</code> until the shifted instant of <a href="03-membership-staking.html#MEM-13">MEM-13</a>(3), so the first two filtered appends are delayed by up to two <code>HEARTBEAT_WINDOW</code>s. Because that instant lies strictly after the first L1-side epoch boundary (<code>EPOCH_LEN_L1 &lt; HEARTBEAT_WINDOW</code>), the append for epoch 1 can never be made before its epoch is entered: when the L2 keeps pace, the missing-entry halt of <a href="02-consensus.html#CONS-13">CONS-13</a>(5) <strong>always occurs</strong>, runs <code>2 &middot; HEARTBEAT_WINDOW &minus; (L1_0 mod HEARTBEAT_WINDOW) &minus; EPOCH_LEN_L1</code> blocks before the append — between <code>HEARTBEAT_WINDOW &minus; EPOCH_LEN_L1 + 1</code> and <code>2 &middot; HEARTBEAT_WINDOW &minus; EPOCH_LEN_L1</code> blocks — plus Ethereum finality, and clears on the permissionless lowest-missing append (<a href="03-membership-staking.html#MEM-09">MEM-09</a>(1)). The gate can pass the second boundary as well, whenever <code>2 &middot; (HEARTBEAT_WINDOW &minus; EPOCH_LEN_L1) &gt; (L1_0 mod HEARTBEAT_WINDOW)</code>, and the finality lag can make the entry for epoch 2 late in most alignments, so the launch may need two recovery cycles rather than one; the disclosed upper bound stays up to two windows in L1 blocks and unbounded in wall clock, because the register bounds <code>HEARTBEAT_WINDOW</code> only from below (<a href="09-parameters.html#PARAM-01">PARAM-01</a>). <em>(INC2R2 F1: the migration timeline discloses the launch gate's transitional cost — the heartbeat window of append delay for the first two filtered appends, and the first-boundary halt that the permissionless lowest-missing append clears. R3-LT-01: the shift is two windows, so this announcement states the two-window append delay and that the register's one-sided bound leaves the wall-clock length unbounded. R4-LT-01: the halt is announced as unavoidable when the L2 keeps pace, sized in blocks plus Ethereum finality, with the possible second recovery cycle named.)</em></td></tr>
+</tbody></table>
+<p class="small"><em>(D-6 removed forced inclusion from this specification, and D-16 deferred even the narrow
+rule over published data that D-12 proposed — <a href="../increments/04-forced-inclusion-design.md">increment 04</a> revives that narrow rule over the new register only: the migration transitions neither name nor wait on the legacy
+inclusion queue, its
+refund path or its fee state; the queue state present at the pin stays where it is, below the first free slot (258), and is
+frozen under <a href="#MIG-02">MIG-02</a>'s append-only rule — no new selector reads or writes it, and the live obligation reads only publication records created from <code>ETNA_ACTIVE</code>. The June 2026 blob-expiry incident is retained on this page only as historical evidence of
+the data-first failure class.)</em></p>
+<div class="card small">
+<p><strong>If a transition stalls, the honest behaviour.</strong></p>
+<table>
+<thead><tr><th>Stall</th><th>What is true</th><th>Release</th></tr></thead>
+<tbody>
+<tr><td>stuck in <code>FROZEN</code> (prover outage, blob expiry, L1 censorship of a proof —
+A-DA-2/A-DA-3)</td><td>nothing new settles; no finalized state is at risk; withdrawals already
+<a href="index.html#STATUS-08">withdrawal-eligible</a> remain eligible because their checkpoint and
+signal are untouched</td><td>the T2 deadline completes the drain unconditionally; no rule needs the stalled work</td></tr>
+<tr><td>stuck in <code>DRAINED</code> (no epoch-0 stake set, or the state at <code>S*</code> cannot be
+served)</td><td>a settlement <em>and</em> production halt, not a safety loss; no half-applied state exists; and the stall resolution of <a href="#GOV-04">GOV-04</a> cannot reach this window either — its trigger reads <code>lastAcceptedBatchTime</code> from the current L1-accepted checkpoint record, which does not exist before activation — so nothing in this window can bound the stall (<a href="../DEFERRED.md">DEFERRED.md</a> §3) <em>(increment 05: the live stall resolution reads the settlement checkpoint clock and therefore cannot bound the migration window.)</em></td><td>complete T3, or <code>unfreezeToFrozen()</code> and continue draining. Both are DAO bundles: this window is DAO-dependent and must be published with a bounded deadline in the migration announcement; the specification cannot bound it for you</td></tr>
+<tr><td>stuck after <code>ETNA_ACTIVE</code></td><td>the migration is complete; ordinary consensus
+liveness rules apply, and above the last accepted checkpoint a confirmation is provisional</td><td><a href="06-recovery-exceptions.html#HALT-01">HALT-01</a>/<a href="06-recovery-exceptions.html#HALT-02">HALT-02</a> for the halt itself; no DAO action is required for progress under the liveness assumptions; and a settlement stall is cleared only by the rule-bound action of <a href="#GOV-04">GOV-04</a> — one DAO-queued entry, a stored timelock, and a permissionless <code>execute()</code> that consumes the entry and resumes settlement on the same chain — it leaves everything at or below the checkpoint untouched and invalidates a superseded certificate only as a batch's head evidence — with clearing still dependent on governance liveness (F-GOV-1/A-GOV-2). Nothing at or below the latest L1-accepted checkpoint is touched, no accepted batch is ever revoked, and the exit guarantee of <a href="03-membership-staking.html#MEM-15">MEM-15</a> still works (<a href="06-recovery-exceptions.html#REC-01">REC-01</a>, <a href="index.html#STATUS-06">STATUS-06</a>). <em>(increment 05: the revived action is the one named runtime path that may act on the range above the checkpoint; R5R2-C-01: it resumes settlement there and never erases the range or makes it unlandable — nothing else, and no upgrade, may act.)</em></td></tr>
+</tbody></table>
+<p class="small">A stalled <code>ETNA_ACTIVE</code> chain is never rolled back below the
+boundary: history at or below the latest L1-accepted checkpoint is untouchable by any protocol path
+(<a href="06-recovery-exceptions.html#REC-01">REC-01</a>). History above it is valid but provisional, and the
+executed action of <a href="#GOV-04">GOV-04</a> is the only protocol path that may resume settlement over it: no upgrade may discard that history or be presented as a
+stall resolution, because the upgrade is never the action — <strong>an upgrade cannot clear a stall</strong>
+(<a href="#GOV-03">GOV-03</a>(e)). HALT-01/HALT-02 still govern the halt itself, funds remain
+safe, the boundary holds and the exit works. <em>(increment 05: the permissionless recovery is withdrawn and
+the stall resolution is live as the one rule-bound action on the range above the checkpoint; R5R2-C-01: it resumes settlement on the same chain and invalidates a superseded certificate only as a batch's head evidence — an upgrade is not it.)</em></p>
+<p class="small"><strong>Queued-entry machinery (live, and surviving).</strong> The queued, timelocked
+stall-resolution entry that D-15 specified is <strong>live again</strong> as <a href="#GOV-04">GOV-04</a>
+(increment 05). A <strong>queued</strong> entry MUST survive the migration and every upgrade unchanged — the
+upgrade may not cancel it, execute it early, alter the checkpoint it resumes from, move its stored deadline
+or replace it with any other action — and an <strong>executed</strong> entry MUST also survive unchanged: no
+upgrade may re-open it, set it back to <code>queued</code> or <code>none</code>, or reset, lower or skip the
+counter (<a href="#GOV-03">GOV-03</a>(e), <a href="#GOV-04">GOV-04</a>(j)). The <strong>signed recovery
+generation</strong> is incremented by exactly one on a successful <code>execute()</code> and nowhere else; it
+scopes certificates, locks and uniqueness, and an upgrade MUST carry it unchanged
+(<a href="#GOV-03">GOV-03</a>(c), <a href="#MIG-05">MIG-05</a>). <em>(increment 05: the entry and the
+generation are L1 state that survives migration and upgrades; the queued-entry machinery is no longer
+withdrawn.)</em></p>
+</div>
+
+<h2 id="rules">Normative rules</h2>
+<div class="rule" id="MIG-01"><span class="rid">MIG-01 — migration boundary and preserved addresses</span>
+<span class="norm">The migration boundary is the last Shasta state accepted on L1 that is Ethereum-final at activation —
+the 4-tuple <code>(C*, B*, H*, S*)</code> where <code>C*</code> is the L2 chain id, <code>B*</code> the L2 block number of the last checkpoint written into the preserved L1 SignalService by a successful
+<code>Inbox.prove()</code> (<code>Inbox.sol:364-370</code>) before T3, <code>H*</code> the L2 block hash recorded
+for <code>B*</code>, and <code>S*</code> its L2 state root. "Last" is bounded by time, not chosen: T3
+additionally requires the write to be at least <code>L1_FINALITY_DEPTH</code> L1 blocks old because
+<code>prove()</code> is disabled in <code>DRAINED</code> (MIG-03(1)(b)), so the boundary is an
+Ethereum-final L1 fact rather than a tip the bundle can pick. <code>B*</code> is identified on-chain by the equality <code>_checkpoints[VERSION][B*].blockHash == IInbox.CoreState.lastFinalizedBlockHash</code> and <code>S*</code> by <code>_checkpoints[VERSION][B*].stateRoot</code>; the bundle supplies
+<code>(B*, S*)</code> and T3 reverts unless both equalities hold, so the boundary is derived from the
+finalized tip and never chosen. Uniqueness of <code>B*</code> rests on keccak-256 collision resistance (A-CRYPTO-3) and on the monotonicity of <a href="04-l1-integration.html#L1-06">L1-06</a>. The starting point is the deployed system at revision <code>7718753c1</code>: an Inbox with two separate entry points, <code>propose()</code> (<code>Inbox.sol:270-290</code>) and <code>prove()</code> (<code>Inbox.sol:321-400</code>), i.e. the data-first path D5 forbids; a disabled bond mechanism (<code>minBond = 0</code>, <code>livenessBond = 0</code>, <code>MainnetInbox.sol:37-38</code>) whose liveness settlement is additionally suppressed while a prover whitelist is enabled (<code>Inbox.sol:356-359</code>); a <code>ProverWhitelist</code> gating <code>prove()</code> (<code>Inbox.sol:337,771-779</code>; mainnet <code>0xEa798547d97e345395dA071a0D7ED8144CD612Ae</code>); a <code>PreconfWhitelist</code> as <code>IProposerChecker</code> selecting one operator per epoch (<code>PreconfWhitelist.sol:136-140</code>; mainnet <code>0xFD019460881e6EeC632258222393d5821029b2ac</code>); and the June 2026 blob-expiry incident, in which queued blob references outlived Ethereum's retention
+window and the owner-only <code>init3()</code> voided them with fees retained
+(<code>Inbox.sol:246-258</code>, called on mainnet in the Proposal0019 bundle,
+<code>deployments/mainnet-contract-logs-L1.md:222-223</code>) — the recorded instance of the <em>unbounded</em> data-first
+failure class. The new design has no inclusion queue and no owner-voidable data reference; it has instead
+D-11's permissionless publication record, whose outstanding entries are bounded by the proving deadline and
+discarded and re-published if unproven (MIG-02 slots 275–277). D-12's narrow forced inclusion — enforced at
+the proof over the published due set rather than by an admission gate or a privileged queue — is
+<strong>live again</strong> (<a href="../increments/04-forced-inclusion-design.md">increment 04</a>): the obligation is on the batch, the per-block duty is order and non-omission only, and no admission rule or operator action can suppress a record. For unpublished
+transactions, and for the residual censorship gap the obligation does not close, the honest statement of what inclusion resistance
+remains is <a href="10-assurance.html#LIVE-04">LIVE-04</a>. <em>(D-11: data may be published before the
+proof; decision D-16 deferred the narrow rule and <a href="../increments/04-forced-inclusion-design.md">increment 04</a> revives it; the general inclusion list stays deferred at <a href="04-l1-integration.html#FI-PLANNED-01">FI-PLANNED-01</a>.)</em>
+<strong>State that migrates</strong> (read once at T3, written to the migration/genesis slots 258–260 and
+— as the genesis checkpoint record — into the L1-07 checkpoint map of slot 264 (<a href="#genesis-record">&sect;genesis record</a>, MIG-02), then frozen and
+never re-interpreted): <code>H*</code>; the L1 SignalService checkpoint record for <code>B*</code>; the existing TAIKO ERC-20 balances at the preserved token address
+<code>0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800</code>, which are neither moved nor rewritten (new
+stake custody is a new L1 staking contract holding TAIKO via <code>transferFrom</code>,
+<a href="03-membership-staking.html#MEM-01">MEM-01</a>, D7); the Bridge state <code>nextMessageId</code>
+(Bridge slot 251) and <code>messageStatus</code> (slot 252); and the vault deposit maps
+<code>bridgedToCanonical</code>, <code>canonicalToBridged</code>, <code>btokenDenylist</code>,
+<code>lastMigrationStart</code> (ERC20Vault slots 301–304) and the two NFT vault maps (slots 301–302).
+<strong>State that does not migrate</strong>: Shasta proposals that were proposed and never proven —
+they are not part of any finalized prefix, they wrote no checkpoint and have no bridge effect; pending bond balances in the Inbox ledger (slot 257), which are not carried into the new stake ledger and never count as voting power, but stay claimable (MIG-03); and blob references whose blobs have left Ethereum's retention window (A-DA-3), which cannot be proven and must not be promised. <em>(D-6 removed the legacy inclusion path, and D-16 deferred the narrow rule over published data that D-12 proposed; <a href="../increments/04-forced-inclusion-design.md">increment 04</a> revives that narrow rule over the new register: no legacy inclusion queue, refund path, fee, escrow or request format migrates, the live obligation reads only the new design's publication record, a D-11 object created only from <code>ETNA_ACTIVE</code> (MIG-02 slots 275–277); the June 2026 blob-expiry incident is kept only as historical evidence of the unbounded data-first failure class, and what does migrate is enumerated above.)</em></span>
+<span class="why">Failure mode: a migration whose bundle can pick the history splits the chain or
+anchors a non-finalized height; treating an unproven proposal, a legacy bond or an expired blob as migrated state strands user funds or manufactures voting power that no L1 stake backs.</span>
+<span class="pill proven">Proven</span> <span class="small">(premises: A-CRYPTO-3 for the uniqueness of
+<code>B*</code>, and A-CONS-1 — &lt; 1/3 Byzantine stake — for the uniqueness of the finalized prefix that the boundary inherits, A-GOV-1 for an honestly executed bundle)</span> <span class="pill sourced">sourced</span></div>
+<p class="small">The preserved surfaces named in MIG-01 are the D3 set —
+<strong>SignalService, Bridge, ERC20Vault, ERC721Vault, ERC1155Vault</strong> — plus the settlement
+Inbox and the L2 Anchor, whose exact addresses and in-place-upgrade rule are stated once in
+<a href="#MIG-06">MIG-06</a>.</p>
+<div class="rule" id="MIG-02"><span class="rid">MIG-02 — per-contract upgrade list and storage-layout constraints</span>
+<span class="norm">Each upgraded or preserved proxy's storage is partitioned into (a) a frozen
+inherited prefix occupying slots 0–250, in which slot 0 holds <code>_initialized</code>/
+<code>_initializing</code>, slot 51 <code>_owner</code>, slot 101 <code>_pendingOwner</code> and slot
+201 <code>__reentry</code>/<code>__paused</code>, with the ranges 1–50, 52–100, 102–150, 151–200 and 202–250 byte-identical to the generated layouts at the pin; (b) the contract's own region, whose last used slot and trailing gap are fixed by the table below; and (c) nothing else. New state may be declared only after the last used slot of the contract's own region, and it consumes exactly one gap slot per 32 bytes declared (packed variables may share a slot; a declaration crossing a slot boundary consumes two); the trailing gap must shrink by exactly the number of slots consumed and keep the same final slot index (300 for the L1 contracts, 350/400/450/500 for the vaults). Deprecated slots are frozen, not free: they include <code>Anchor._pacayaSlots</code> (252–254),
+<code>Anchor._lastProposalId</code> (255), <code>SignalService._slotsUsedByPacaya</code> (251–252),
+<code>Bridge.__reserved1</code>/<code>__ctx</code>/<code>__reserved2</code>/<code>__reserved3</code>
+(251, 253, 255, 256), <code>PreconfWhitelist</code>'s three deprecated variables,
+<code>EssentialContract.__reentry</code> (201), and the Shasta <code>_proposalHashes</code> (Inbox 254)
+and <code>_bondStorage</code> (Inbox 257); a zeroed deprecated slot must not be reused, and
+<code>Bridge.init2()</code>'s recorded intent to reuse <code>__reserved1/2/3</code>
+(<code>Bridge.sol:197-202</code>) is superseded by this rule. If a deployed proxy routes through a
+<code>ForkRouter</code>, slots 0–150 must remain byte-identical (<code>ForkRouter.sol:18-20</code>) in
+the router, in the old fork and in the new fork; whether the deployed proxies route through a router must be established on-chain before the bundle (<a href="#preconditions">§ Preconditions</a>). The complete change list is the table below; any change not in it requires a new decision recorded in the decision log, and every upgraded contract's layout must be regenerated and diffed (<code>pnpm layout</code>) before and after. <em>(A1, re-derived again by increment 05: the change list's stall-resolution state is the entry of <a href="#GOV-04">GOV-04</a>(b) — <code>recoveryGeneration</code>, <code>govResumeQueuedAt</code>, <code>govResumeQueuedHeight</code>, <code>govResumeExecutableAt</code> and <code>govResumeState</code> — grouped with <code>paramVersion</code> at slot 268. <strong>The layout is an explicit open obligation of the migration audit:</strong> the preserved word held 27 of 32 bytes for the generation and the three D-15 fields, and the entry now carries one additional <code>uint64</code> (<code>govResumeExecutableAt</code>, written once when the entry is queued and read by <code>execute()</code>), so whether the group repacks into the same 32-byte word or consumes an additional slot MUST be re-derived from the generated layout; it MUST NOT be assumed to fit, and the field MUST NOT be carved out of a deprecated slot. The declaration count shown below (15 consumed, 28 free) is the pre-increment figure and is <strong>not</strong> asserted for the increment until that audit runs. The generation remains a packed field of this group and is <strong>not</strong> added to the checkpoint record. PARAM-04's registry stays at 269; the previously withdrawn recovery record, bond, attempt history and retirement record leave slots 270–274 free; and D-11's publication register remains at 275–277 (the identity map, the append-only order map and the packed clock).)</em></span>
+<span class="why">Failure mode: a reordered, retyped or reused slot silently corrupts the checkpoint
+map, the message-status map, the received-signal cache or the vault maps, which is unrecoverable without rewriting user-visible history; carving new state out of the wrong range collides with a previously deployed fork.</span>
+<span class="pill proven">Proven</span> <span class="pill sourced">sourced</span>
+<span class="pill unmeasured">router presence unmeasured</span></div>
+<h3>Frozen prefix and per-contract free space (as recorded at the pin)</h3>
+<table>
+<thead><tr><th>Contract</th><th>Own region starts</th><th>Last used slot</th><th>First free slot</th><th>Trailing gap (slots)</th><th>Layout file</th></tr></thead>
+<tbody>
+<tr><td>Inbox / MainnetInbox</td><td>251</td><td>257 <code>_bondStorage</code></td><td>258</td><td>258–300 = <strong>43</strong></td><td><code>MainnetInbox_Layout.sol:21-26</code></td></tr>
+<tr><td>SignalService</td><td>251</td><td>254 <code>_checkpoints</code></td><td>255</td><td>255–300 = <strong>46</strong></td><td><code>SignalService_Layout.sol:21-24</code></td></tr>
+<tr><td>Bridge</td><td>251</td><td>256 <code>__reserved3</code></td><td>257</td><td>257–300 = <strong>44</strong></td><td><code>Bridge_Layout.sol:21-27</code></td></tr>
+<tr><td>ERC20Vault</td><td>301 (251–300 is a BaseVault gap)</td><td>304 <code>lastMigrationStart</code></td><td>305</td><td>305–350 = <strong>46</strong></td><td><code>ERC20Vault_Layout.sol:21-26</code></td></tr>
+<tr><td>ERC721Vault</td><td>301</td><td>302 <code>canonicalToBridged</code></td><td>303</td><td>303–350 (48) + 351–400 (50) = <strong>98</strong></td><td><code>ERC721Vault_Layout.sol:21-25</code></td></tr>
+<tr><td>ERC1155Vault</td><td>301</td><td>302 <code>canonicalToBridged</code></td><td>303</td><td>303–350 (48) + 351–500 (150) = <strong>198</strong></td><td><code>ERC1155Vault_Layout.sol:21-27</code></td></tr>
+<tr><td>Anchor (L2)</td><td>251</td><td>256 <code>_blockState</code> (spans 256–257)</td><td>258</td><td>258–300 = <strong>43</strong></td><td><code>Anchor_Layout.sol:21-25</code></td></tr>
+<tr><td>ProverWhitelist (inert after MIG-04)</td><td>251</td><td>252 <code>proverCount</code></td><td>253</td><td>253–300 = <strong>48</strong></td><td><code>ProverWhitelist_Layout.sol:21-23</code></td></tr>
+<tr><td>PreconfWhitelist (inert after MIG-04)</td><td>251</td><td>254 <code>ejecters</code></td><td>255</td><td>255–299 = <strong>45</strong></td><td><code>PreconfWhitelist_Layout.sol:21-29</code></td></tr>
+</tbody></table>
+<p class="small">All slot numbers above are <span class="pill sourced">sourced</span> from the
+auto-generated layout files at <code>7718753c1</code>.</p>
+<h3>Required changes and their exact slot budget</h3>
+<table>
+<thead><tr><th>Contract</th><th>Required change</th><th>New state (slot)</th><th>Slots consumed</th><th>Gap after</th></tr></thead>
+<tbody>
+<tr><td>Inbox (L1)</td><td>Replace <code>propose()</code>/<code>prove()</code> with one atomic
+<code>land(data, proof)</code> (<a href="04-l1-integration.html#L1-01">L1-01</a>); add
+<code>freeze()</code>/<code>finishDrain()</code>/<code>activateEtna()</code> and the state gate of
+T1–T3; write the genesis record of T3 (<a href="#genesis-record">&sect;genesis record</a>); add the legacy <code>withdrawLegacyBond</code> selector that reads slot 257 in place; add the GOV-04 stall-resolution state — the recovery generation plus the entry fields (<code>govResumeQueuedAt</code>, <code>govResumeQueuedHeight</code>, <code>govResumeExecutableAt</code>, <code>govResumeState</code>) grouped with <code>paramVersion</code> at slot 268, whose packing the migration audit MUST re-derive (an <strong>explicit open obligation</strong>: the added <code>uint64</code> may or may not fit the preserved 32-byte word, and no deprecated slot may be reused) — and the PARAM-04 per-epoch configuration registry (slot 269), and D-11's publication register with its order map and clock (slots 275–277), which the revived <a href="04-l1-integration.html#FI-10">FI-10</a>–<a href="04-l1-integration.html#FI-14">FI-14</a> obligation reads (<em><a href="../increments/04-forced-inclusion-design.md">increment 04</a></em>) and whose deletion-only prune (<code>prunePublications(uint32)</code>, L1-08) is permissionless and can never advance a frontier; drop the ProverWhitelist and IProposerChecker calls</td>
+<td><strong>15 declaration slots, 258–269 and 275–277</strong> (each numbered line consumes one gap slot unless it is a packed group):<br>
+(258) <code>migrationState</code>+<code>frozenAtL1Block</code>+<code>drainedAtL1Block</code>+<code>genesisL2BlockNumber</code>+<code>genesisTimestamp</code> (packed);<br>
+(259) <code>genesisL2BlockHash</code>;<br>
+(260) <code>genesisL2StateRoot</code>;<br>
+(261) <code>acceptedProgramImage</code> map (<code>imageId =&gt; acceptedFromEpoch</code>; MIG-05);<br>
+(262) <code>retiredAtEpoch</code> map (<code>imageId =&gt; epoch</code>; MIG-05);<br>
+(263) <code>lastLandedHeight</code>+<code>lastAcceptedEpoch</code>+<code>activeRouteVersion</code>+<code>routeCount</code> (packed; <code>lastLandedHeight</code> is L1-06's pointer, not a renamed deleted slot);<br>
+(264) <code>checkpoints</code> map (<code>uint64 height =&gt; Checkpoint</code>, the ten L1-07 fields, including <code>lastAcceptedBatchTime</code> and the settlement pair <code>(settledCount, anchoredL1Block)</code>; the map base is one slot, each record's 4–7 storage slots are entry slots and not gap slots, and the four packed <code>uint64</code> fields — <code>l1BlockNumber</code>, <code>lastAcceptedBatchTime</code>, <code>settledCount</code> and <code>anchoredL1Block</code> — complete one 32-byte word, so the pair consumes no gap slot and no per-height mapping is added);<br>
+(265) <code>checkpointRouteVersion</code> map (L1-09: every landed checkpoint MUST record the routeVersion used; if the implementer records it in the <code>BatchLanded</code> event instead, this slot is freed and 27 gap slots remain) <em>(user decision D-6: re-derived after the five forced-inclusion slots were removed)</em>;<br>
+(266) <code>proverReward</code> (L1-11);<br>
+(267) <code>verifierRoutes</code> map (<code>routeVersion =&gt; (programImageId, verifier)</code>, L1-09);<br>
+(268) stall-resolution state, packed — <code>recoveryGeneration</code> (uint64; the counter incremented exactly once by a successful <code>execute()</code> of <a href="#GOV-04">GOV-04</a>(c), carried as a signed field of the vote and header, <a href="04-l1-integration.html#L1-05">L1-05</a> row 31 and <a href="05-proof-statement.html#PRF-02">PRF-02</a>) + <code>govResumeQueuedAt</code> (uint64; the L1 timestamp at which the current entry was queued) + <code>govResumeQueuedHeight</code> (uint64; the <code>lastLandedHeight</code> the entry was queued against, whose advance voids it) + <code>govResumeExecutableAt</code> (uint64; <strong>required by increment 05</strong> — the stored deadline, written once at queue time and read by <code>execute()</code>, which no upgrade, initialiser or parameter change may move or recompute) + <code>govResumeState</code> (uint8; <code>none</code>/<code>queued</code>/<code>executed</code>) + <code>paramVersion</code> (uint16; <a href="09-parameters.html#PARAM-04">PARAM-04</a>). <strong>The layout is an explicit open obligation of the migration audit</strong> (increment 05, owner decision): the added <code>govResumeExecutableAt</code> MUST NOT be assumed to fit the preserved 32-byte word; the packing and the declaration count MUST be re-derived from the generated layout (<code>pnpm layout</code>), and the field MUST NOT be carved out of a deprecated slot. The generation is <strong>not</strong> stored in the checkpoint record and no checkpoint-record field is added for it. No bond, invoker or attempt ring exists; this slot is the whole of the stall-resolution state;<br>
+(269) <code>configRegistry</code> map (<code>epoch =&gt; configHash</code>; PARAM-04's append-only per-epoch registry — the map base is one gap slot and each epoch's entry is an entry slot, not a gap slot);<br>
+(275) <code>publications</code> map (<code>bytes32 publicationId =&gt; Publication</code>; D-11's publication record, keyed by the <em>content-derived identity</em> the Inbox recomputes from the stored entry before accepting a reference (<a href="04-l1-integration.html#L1-05">L1-05</a> row 35). The entry holds the DA-07(2)/(3) field set — the ordered versioned hashes' commitment <code>blobHashesHash</code>, the claimed range, <code>daMode</code>, <code>dataCommitment</code>, <code>l1BlockNumber</code> and the monotone <code>sequence</code>; the per-record deadline is <strong>derived</strong> as <code>l1BlockNumber + T_PROVE_DEADLINE</code> and never stored, and the record carries no status flag (<a href="04-l1-integration.html#FI-10">FI-10</a>(2); <a href="../increments/04-forced-inclusion-design.md">increment 04</a>) — and is <strong>immutable</strong> once written: whether it was consumed is recorded in <a href="04-l1-integration.html#L1-09">L1-09</a>'s side mapping with the accepted statement, never by mutating the record. Entries are entry slots, not gap slots, exactly like the <code>checkpoints</code> map's records);<br>
+(276) <code>publicationOrder</code> map (<code>uint64 seq =&gt; bytes32 publicationId</code>; the append-only register order the <strong>live</strong> capped FIFO prefix drains (<a href="04-l1-integration.html#FI-11">FI-11</a>; <a href="../increments/04-forced-inclusion-design.md">increment 04</a>), so the due set is a prefix of one sequence rather than a scan of the identity map — entries are entry slots);<br>
+(277) publication clock, packed — <code>nextSeq</code> (uint64; the next register position, exposed as <code>nextSeq(A)</code>) + <code>pruneCursor</code> (uint64; the deletion-only prune's cursor) = 16 of 32 bytes; the former <code>dueHead</code>, <code>dueTail</code> and <code>dueCount</code> fields are <strong>deleted</strong>: the settlement frontier is the predecessor checkpoint's recorded <code>settledCount</code> and the due frontier is recomputed, not stored (<a href="04-l1-integration.html#FI-10">FI-10</a>(5), <a href="04-l1-integration.html#FI-12">FI-12</a>(2)). <em>(<a href="../increments/04-forced-inclusion-design.md">increment 04</a>: the register is append-with-a-prune-cursor; the settlement record's <code>(settledCount, anchoredL1Block)</code> pair is carried inside the per-height checkpoint record's entry slots, where two <code>uint64</code> fields complete the 32-byte word already holding <code>l1BlockNumber + lastAcceptedBatchTime</code>, so it consumes no additional gap slot, and no per-height mapping is introduced for it.)</em>
+</td><td><strong>15</strong></td><td><strong>28</strong> (270–274, 278–300)</td></tr>
+<tr><td>SignalService (L1 and L2)</td><td>No state change. The implementation is re-deployed with the
+<em>same</em> immutable values (<code>_authorizedSyncer</code>, <code>_remoteSignalService</code>,
+<code>VERSION = 1</code>) and the same checkpoint semantics; adding a monotone high-water mark is a
+permitted optional defence-in-depth change but is <em>not</em> required, because monotonicity is enforced by <a href="04-l1-integration.html#L1-06">L1-06</a></td><td>none</td><td>0</td><td>46</td></tr>
+<tr><td>Bridge (L1 and L2)</td><td>Remove the <code>quotaManager</code> dependency
+(<code>Bridge.sol:652-653</code>) and the pause/pauser runtime levers; bake peer addresses as immutables instead of resolving them at runtime</td><td>none</td><td>0</td><td>44</td></tr>
+<tr><td>ERC20Vault</td><td>Remove <code>changeBridgedToken</code> from the runtime ABI (MIG-04); remove
+the quota dependency; keep all four mappings and <code>lastMigrationStart</code> untouched</td>
+<td>none</td><td>0</td><td>46</td></tr>
+<tr><td>ERC721Vault</td><td>Remove the pause lever; keep both mappings untouched</td><td>none</td><td>0</td><td>98</td></tr>
+<tr><td>ERC1155Vault</td><td>Remove the pause lever; keep both mappings untouched</td><td>none</td><td>0</td><td>198</td></tr>
+<tr><td>Anchor (L2)</td><td>Remove the owner <code>withdraw</code> and pause levers; keep
+<code>blockHashes</code> (251), <code>_pacayaSlots</code> (252–254, frozen),
+<code>_lastProposalId</code> (255, frozen) and <code>_blockState</code> (256–257) exactly as they are;
+the anchor payload becomes a block-validity rule rather than an operator action</td><td>none</td>
+<td>0</td><td>43</td></tr>
+</tbody></table>
+<p class="small">The 15 Inbox slots are <span class="pill derived">derived</span> from the change list:
+every object the Etna rules require is enumerated above with the contract that holds it, and
+15 &le; 43 at the sourced gap arithmetic (258–300): 28 slots remain (270–274, 278–300). Every object of
+slots 258–269 and 275–277 is Inbox state, and each is placed there by a rule that names the Inbox:
+<a href="09-parameters.html#PARAM-04">PARAM-04</a> requires <em>the Inbox</em> to keep the append-only
+per-epoch configuration registry (269), with <code>paramVersion</code> packed at 268; the
+<strong>recovery generation</strong> — a signed field of the vote and header, kept as the record
+that scopes certificates, locks and uniqueness and incremented exactly once per executed entry
+(<a href="#GOV-04">GOV-04</a>(c)) — is L1 state held with the accepted predecessor
+checkpoint, which <a href="04-l1-integration.html#L1-05">L1-05</a> row 31 places in the Inbox's own
+storage, and <a href="#GOV-03">GOV-03</a>(c) requires an upgrade to carry the generation unchanged (268);
+and <a href="04-l1-integration.html#L1-06">L1-06</a>'s contiguity rule reads its pointer
+<code>lastLandedHeight</code> (263) from the same checkpoint record.
+<code>lastAcceptedBatchTime</code> (L1-07) is a field of that same checkpoint record, so it is carried in
+the <code>checkpoints</code> map's entry slots and packs with <code>l1BlockNumber</code> into one 32-byte
+word: the record's storage footprint is unchanged, the declaration count is <strong>15</strong> slots
+(258–269, 275–277), and <strong>28</strong> gap slots (270–274, 278–300) remain. <strong>The arithmetic, and the increment-05 open obligation, shown honestly:</strong> 43 sourced gap slots (258–300) &minus;
+15 declaration slots = 28 remaining, which is the pre-increment figure. Slot 268 stays a declaration because the generation,
+the entry fields and <code>paramVersion</code> live in it; the entry now carries <strong>four</strong>
+<code>uint64</code>-scale fields plus the state and <code>paramVersion</code> in the preserved group, so
+<strong>whether the group still fits 32 bytes is not asserted here</strong>: the migration audit MUST re-derive
+the packing and the declaration count from the generated layout, and the added <code>govResumeExecutableAt</code>
+MUST NOT be assumed to fit or be carved out of a deprecated slot. The earlier D-15 withdrawal of the bond
+ledger, the attempt ring and the invoker record is what leaves whole slots (270–274) free, and that part is
+unchanged. No unmeasured input enters the audit. <em>(increment 05: the stall-resolution entry is live again
+with a fourth stored field, so the slot-268 packing and the declaration count are re-derived by the migration
+audit as an explicit open obligation; the generation stays a packed field of this group and is not added to
+the checkpoint record.)</em></p>
+<p><strong>D-11's publication record, budgeted (slots 275–277).</strong> Data may be published before the proof,
+so the Inbox must hold the record the later proof references and the register state the <strong>live</strong> due-set rule of
+<a href="04-l1-integration.html">04</a> reads (<a href="../increments/04-forced-inclusion-design.md">increment 04</a>): (275) is the <code>publications</code> map base — <code>bytes32
+publicationId =&gt; Publication</code>, keyed by the content-derived identity the contract recomputes from the
+entry (<a href="04-l1-integration.html#L1-05">L1-05</a> row 35), whose <em>entry</em> slots hold the DA-07(2)/(3) field
+set (the ordered versioned hashes' commitment <code>blobHashesHash</code>, the claimed range, <code>daMode</code>,
+<code>dataCommitment</code>, <code>l1BlockNumber</code> and the monotone <code>sequence</code>; the deadline is derived, never stored, and there is no status flag) and are immutable once written;
+whether a record was consumed is recorded in <a href="04-l1-integration.html#L1-09">L1-09</a>'s side mapping with the
+accepted statement, never by mutating it; (276) is the append-only <code>publicationOrder</code> map
+(<code>uint64 seq =&gt; bytes32 publicationId</code>) that fixes the register order the live capped FIFO prefix
+drains, so the due set is a prefix of one sequence and not a scan of the identity map; and (277) is one packed
+clock: <code>nextSeq</code> (uint64) + <code>pruneCursor</code> (uint64) = 16 of 32 bytes. The clock's
+<code>nextSeq</code> and <code>pruneCursor</code> are the register's whole mutable state: <code>nextSeq</code> is the register bound the proof reads, and <code>pruneCursor</code> is advanced only by the permissionless, <strong>deletion-only</strong> <code>prunePublications(uint32)</code> of <a href="04-l1-integration.html#L1-08">L1-08</a>, which may delete only positions <code>j &lt; pruneCursor</code> with <code>pruneCursor &le; settledCount</code> of the latest accepted checkpoint's settlement record and returns no frontier; a pruned position is already settled and is never a position the proof must still resolve (<a href="04-l1-integration.html#FI-11">FI-11</a>(3)(d); <a href="../increments/04-forced-inclusion-design.md">increment 04</a> §4.2). Three declaration slots are
+sufficient and the arithmetic is exact: the identity map needs a keyed store and the FIFO needs an order store,
+and neither is derivable from the other without a scan; the deadline is <strong>derived</strong> (<code>l1BlockNumber + T_PROVE_DEADLINE</code>) and never stored, so a later change to <code>T_PROVE_DEADLINE</code> cannot move the
+deadline of an outstanding record (<a href="04-l1-integration.html#DA-09">DA-09</a>(2): re-publication starts a new clock, it never revives the old one), and the record's own <code>l1BlockNumber</code> keeps the derived value stable; the capped rule needs only the next position and the prune cursor;
+and pruning after <code>PUB_RECORD_RETENTION</code> is the permissionless, deletion-only advance of <code>pruneCursor</code> behind the settlement frontier (<a href="04-l1-integration.html#L1-08">L1-08</a>; <a href="../increments/04-forced-inclusion-design.md">increment 04</a>): <strong>the register appends</strong> and only that prune reclaims, so the register grows by one entry per publication until the prune runs. <code>PUB_RECORD_RETENTION</code> is the live readability floor (<a href="04-l1-integration.html#DA-09">DA-09</a>(1)) that bounds how far the prune may run. The slot arithmetic is unchanged: the clock is one packed 32-byte word (<code>nextSeq</code> + <code>pruneCursor</code> = 16 of 32 bytes used), so the declaration count remains <strong>15 consumed and 28 free (270–274, 278–300)</strong>. <em>(<a href="../increments/04-forced-inclusion-design.md">increment 04</a>: the register is append-with-a-prune-cursor; the settlement record's <code>(settledCount, anchoredL1Block)</code> pair rides the per-height checkpoint record's entry slots, where two <code>uint64</code> fields complete the word already holding <code>l1BlockNumber + lastAcceptedBatchTime</code>, so no gap slot is added and no per-height mapping is introduced.)</em> The maps' entries are entry slots, exactly like the
+<code>checkpoints</code> map's records, so the declaration count includes exactly three: <strong>15 of the 43
+sourced gap slots (258–300) are consumed and 28 remain (270–274, 278–300)</strong>. The record is written only from
+(<a href="#genesis-record">&sect;genesis record</a>). <em>(D-11: publication is new stored state; it is
+budgeted here with two map bases and one packed clock, and the entry slots are costed separately.)</em>
+The withdrawn recovery objects (the bond ledger, the invoker record and the <code>REC_WINDOW</code>
+attempt ring) freed slots 270–274 in this budget (D-15); the stall-resolution entry fields are live again in
+slot 268's packed group, whose re-derived layout is the migration audit's explicit open obligation above. One quantity in
+the remaining state is an <em>entry</em> slot and not a gap slot, exactly as the <code>checkpoints</code>
+map's records are entry slots: the configuration registry (one entry slot per epoch, append-only
+forever). It is real storage cost — the registry adds one slot per epoch — and it does not change the
+15-slot declaration count, which has no unmeasured input.
+<strong>The per-epoch set root and total are not Inbox state:</strong> the per-epoch entry lives in the L1 staking contract's mapping as the exhaustive
+four-field tuple <code>epoch &rarr; (setRoot, totalVotingPower, rootCommittedAt, setVersionBlock)</code> of
+<a href="03-membership-staking.html#MEM-09">MEM-09</a>(2) — <code>rootCommittedAt</code> is the commit
+timestamp that <a href="07-economics-slashing.html#ECON-07">ECON-07</a>(1) reads as the evidence anchor and
+<code>setVersionBlock</code> is the commit block number of
+<a href="04-l1-integration.html#L1-05">L1-05</a> row 28 — and the Inbox reads the root and total from it, so a second copy would
+be a second source of truth. The slot arithmetic is unchanged: the fourth field is a <code>uint64</code> packed with
+<code>rootCommittedAt</code> in the entry's third slot, so the entry still consumes three slots (two
+single-slot fields plus the packed third) and this table's budget is unaffected. <em>This closes the reported mid-sentence defect in this paragraph: its missing subject is restored from the paragraph's own context — the per-epoch set root and total, which MEM-09(2) holds in the staking contract and the Inbox only reads — so the entry is deliberately not Inbox state and the 15-slot declaration count is unchanged.</em> The staking contract is a <em>new deployment</em>, not a preserved proxy: its
+per-epoch mapping, its participation accumulator, its retained <code>(epoch, SlashBase(v,e))</code> pairs
+and its segregated ETH reward pool (ECON-02 clause 5) are new-contract state, unconstrained by the preserved
+prefixes and therefore outside this slot budget. The revived heartbeat eligibility of <a href="03-membership-staking.html#MEM-13">MEM-13</a> adds, per entry, <code>heartbeatKey(v)</code> with its rotation block and <code>lastHeartbeatAt(v)</code>, <code>lastHeartbeatWindow(v)</code> and <code>lastHeartbeatSeq(v)</code> (packable into one slot; <code>lastHeartbeatAt(v)</code> is an L1 block number, not a timestamp, and the derived evaluation instant is computed from the activation record rather than stored) — <strong>new staking-contract per-entry state only</strong>, outside the frozen Inbox budget: no new global state is needed for the anchor check (<code>blockhash</code> is read at submission), no Inbox, SignalService, Bridge or vault slot is touched, and no proof public input, journal field or config-hash preimage element is added. <em>(F1 realisation: the stored record is an L1 block number, not a timestamp; the per-entry state shape is unchanged and the realisation adds no per-epoch record and no global state.)</em> The bonding interface (<a href="03-membership-staking.html#MEM-03">MEM-03</a>(1)) gains the heartbeat key (or a <code>setHeartbeatKey</code> call before activation), so the interface and churn tables that enumerate what a bonding call carries must include it. <em>(increment 02: the migration budget change is new staking-contract per-entry state only; the boundary-record and pending-rotation state a closed CONS-16 gate would need is not budgeted here.)</em> Protocol parameters (<code>MAX_BATCH_BLOCKS</code>,
+<code>D_MAX</code>, <code>REWARD_QUOTE</code>, <code>WITHDRAWAL_DELAY</code> and the publication parameters
+<code>T_PROVE_DEADLINE</code> and <code>PUB_RECORD_RETENTION</code>) are constructor immutables of
+the settlement implementation, not storage; the forced-inclusion parameters (<code>FI_MAX_PER_BATCH</code> in positions per batch, <code>FI_MIN_DRAIN</code>,
+<code>FI_ITEM_MAX_BYTES</code> and the rest of the live <code>FI_*</code> set) are <strong>live again</strong> with the obligation of <a href="04-l1-integration.html#FI-12">FI-12</a>–<a href="04-l1-integration.html#FI-14">FI-14</a> (<a href="../increments/04-forced-inclusion-design.md">increment 04</a>), and the stall-resolution
+parameters (<code>T_STALL_GOV</code>, <code>T_GOV_RESUME</code>) are <strong>live again</strong> as constructor
+immutables of <a href="#GOV-04">GOV-04</a>: they change only by upgrade, consume no gap slot, and the
+constructor MUST refuse to initialise unless the registered relations hold (<a href="#GOV-04">GOV-04</a>(g));
+both values and the window relation's terms remain unmeasured (<a href="09-parameters.html">09</a>). The Shasta fee-config names <code>BASE_FEE</code>, <code>FEE_DOUBLE_THRESHOLD</code>, <code>MAX_FEE</code>
+and <code>CANCELLATION_COST</code> are baseline configuration carried by the wind-down, not parameters of this
+specification, and <a href="09-parameters.html">09</a> registers none of them. If an
+implementer needs more Inbox state than the 28 remaining slots, the answer is a decision-log entry or a new
+contract, not a reused deprecated slot. <em>(review round 2, finding E-R2-03: the budget now enumerates every
+required object — the L1-07 checkpoint map, the L1-11 ledgers, the L1-09 route registry, the MIG-05 image
+registry, the recovery generation and the PARAM-04 configuration registry — with its holder
+and slot cost, and the trailing gap suffices.)</em> <em>(user decision D-6: the five forced-inclusion slots
+of the previous revision (266–270) are removed with forced inclusion, and the arithmetic is re-derived — 15 of
+the 43 sourced gap slots (258–300) are consumed and 28 remain (270–274, 278–300), including the D-11 publication register's three slots (275–277), the generation and stall-resolution entry state (268, layout to be re-derived by the migration audit — increment 05) and the PARAM-04 registry (269), with the withdrawn recovery records freeing 270–274; the declaration count's only inputs are the sourced pin layouts
+and this change list, and no unmeasured input enters it; the registry's entry slots are costed
+separately above and are not gap slots. <a href="04-l1-integration.html#L1-11">L1-11</a>'s remaining ledger
+is the prover reward.)</em> <em>(A1, re-derived by D-15, again by D-16 and again by increment 05: the budget enumerates and prices the recovery generation, the stall-resolution entry and
+PARAM-04's per-epoch configuration registry, all on the contract each rule names; the entry fields are live
+again in slot 268's packed group, whose layout — including whether the added <code>govResumeExecutableAt</code>
+fits the preserved word or consumes a slot — is the migration audit's explicit open obligation; the withdrawn recovery record, bond, attempt history and retirement record are removed from the
+budget, freeing slots 270–274, and the free-slot figures and the completeness claim are re-derived. <a href="../increments/04-forced-inclusion-design.md">Increment 04</a>, recorded as decision <strong>D-18</strong>, leaves this arithmetic unchanged: the revived register's clock is still one packed word at slot 277 (<code>nextSeq</code> + <code>pruneCursor</code>), the order map (276) becomes live rather than merely budgeted, and the settlement record's <code>(settledCount, anchoredL1Block)</code> pair rides the per-height checkpoint record's entry slots — the migration audit must still derive the append-with-a-prune-cursor shape the increment's owner decision fixed.)</em></p>
+
+<h3 id="genesis-record">The genesis checkpoint record written at activation</h3>
+<p><strong>Normative.</strong> In the same transaction as T3 (MIG-03), <code>activateEtna(B*, S*)</code> MUST write the boundary object as the
+<em>first</em> L1-07 checkpoint record, and that write MUST satisfy every L1-07 MUST. The only fields the
+bundle may not derive are read from the equalities T3 already checks:</p>
+<pre><code>Checkpoint genesis = Checkpoint({
+    height:         B*,                 // uint64; the boundary height of MIG-01
+    blockHash:      H*,                 // bytes32; non-zero (T3's SignalService equality)
+    stateRoot:      S*,                 // bytes32; non-zero (T3's second equality)
+    epoch:          epoch_of(B*),       // uint64; recomputed by the contract from the activation
+                                        // record (CONS-13); 0 at activation
+    setRoot:        staking.epochSetRoot(0),  // bytes32; non-zero — T3 requires the epoch-0 set root
+    dataCommitment: keccak256(abi.encode(bytes32("TAIKO_ETNA_GENESIS"), uint256(block.chainid),
+                                         uint64(B*), H*, S*)),   // non-zero by construction
+    l1BlockNumber:  uint64(block.number),     // the activation block, written once, never edited
+    lastAcceptedBatchTime: uint64(block.timestamp),  // the activation timestamp, written once, never edited
+    settledCount:   0,                        // uint64; 0 at genesis — nothing is settled before the first checkpoint
+    anchoredL1Block: uint64(block.number)     // uint64; L1_0, the activation block above — the genesis checkpoint's anchor by definition
+});
+lastLandedHeight = B*;                  // in the same write
+</code></pre>
+<p><em>(increment 04 migration reconciliation, closing the MIG-02 (264) checkpoint-entry row's leftover: the row attributes the settlement pair <code>(settledCount, anchoredL1Block)</code> to every per-height checkpoint record, and this genesis literal now carries the same pair as every later record — <code>settledCount = 0</code>, because nothing is settled before the first checkpoint, and <code>anchoredL1Block = L1_0</code>, the L1 block this activation transaction is included in, because the genesis checkpoint's anchor is that block by definition. Both are initialisation values written once with the record, and neither is an input to L1-07's canonical record hash.)</em></p>
+<p><strong>Defined predecessor.</strong> The first <code>land(data, proof)</code> after activation MUST compute
+<a href="04-l1-integration.html#L1-05">L1-05</a> row 2's <code>previousCheckpointHash</code> from this record
+with L1-07's canonical encoding. It is non-zero by construction and a <strong>zero or undefined
+predecessor value is forbidden</strong>: an implementation that leaves <code>previousCheckpointHash</code> at
+<code>bytes32(0)</code>, or that computes it from an unset record, is non-conforming. Because the record's
+<code>height</code>, <code>blockHash</code> and <code>stateRoot</code> are exactly <code>(B*, H*, S*)</code>
+and its epoch and set root are L1-derived, the genesis record and the preserved L1 SignalService
+checkpoint for <code>B*</code> cannot diverge (<a href="04-l1-integration.html#MSG-01">MSG-01</a>). The
+record MUST NOT be used to restart a withdrawal delay: eligibility already stored in the SignalService
+and in <code>_receivedSignals</code> is unchanged (MIG-03(6)).</p>
+<p><strong>The publication record at activation (D-11).</strong> The publication record and its clock
+(MIG-02 slots 275–277) are new state written only by the Etna path: at T3 the contract MUST initialise
+<code>nextSeq = 0</code> and <code>pruneCursor = 0</code> — the register's whole mutable clock; no deleted due-queue field is initialised (<em>finding F3: the deleted <code>dueHead</code>/<code>dueTail</code>/<code>dueCount</code> fields are not initialised and are free bytes, not slots (MIG-02's (277) row); the due set is derived from the register, not stored, and the settlement frontier is the predecessor checkpoint's recorded <code>settledCount</code> (<a href="04-l1-integration.html#FI-10">FI-10</a>(5)).</em>) — with empty
+<code>publications</code> and <code>publicationOrder</code> maps, so the
+first post-activation batch faces an <strong>empty register</strong> (the due set is recomputed from the register, not carried or stored) and no publication can be retroactively
+burdened: a record's proving deadline is fixed at publication from the
+record's own L1 block, so neither a later anchor, a later re-publication nor a delay in detection can move
+it or extend a record's deadline obligation. <em>This closes the breach-clock wording: the guarantee is that the
+deadline is fixed at publication from the record's own L1 block, not that no publication
+can miss its deadline. The due-set half is live again with this register as <a href="04-l1-integration.html#FI-10">FI-10</a>–<a href="04-l1-integration.html#FI-14">FI-14</a> (D-18, <a href="../increments/04-forced-inclusion-design.md">increment 04</a>), enforced in the proof and never as an admission gate, and the deletion-only <code>prunePublications(uint32)</code> of <a href="04-l1-integration.html#L1-08">L1-08</a> is the entry point R7-RB-08 found missing (finding F3).</em> The genesis record is <strong>not</strong> a publication: its tagged
+<code>dataCommitment</code> commits to the boundary object only, and the first genuine batch's
+<code>dataCommitment</code> comes only from a successful <code>land(data, proof)</code> that references a
+recorded publication (or carries its data in the accepting transaction)
+(<a href="04-l1-integration.html#DA-01">DA-01</a>–<a href="04-l1-integration.html#DA-03">DA-03</a>). A
+publication is admissible only from <code>ETNA_ACTIVE</code>: before T3 the selector does not exist, and the
+legacy path's blob references are not publication records and confer no due-set position. <em>(D-11:
+publication is recorded on L1 while the blobs are retrievable, and the record begins at activation.)</em></p>
+<p><strong>What the genesis <code>dataCommitment</code> is, and is not.</strong> It is the tagged commitment
+to the boundary object itself, and it is the only record in this specification whose commitment is not a
+batch data commitment. It MUST NOT be presented as, or used as, evidence that any batch's data was
+published in the activation transaction or in any earlier transaction; it MUST NOT be spliced into a proof's
+public inputs; and the first genuine batch's <code>dataCommitment</code> MUST come only from a successful
+<code>land(data, proof)</code>, whose data MAY have been published and recorded in an earlier transaction
+under D-11 (<a href="04-l1-integration.html#DA-01">DA-01</a>–<a href="04-l1-integration.html#DA-03">DA-03</a>).
+Inventing a batch-shaped non-zero commitment for the boundary, or treating the boundary record as a batch
+acceptance, is exactly what D5/DA-01 forbid. <em>(review round 2, findings E-R2-01 and E-R2-03: the
+genesis is now a legal L1-07 record with a defined, non-zero predecessor, written in the transaction that
+disables the legacy path, and the old rule left <code>dataCommitment</code> and
+<code>previousCheckpointHash</code> undefined.)</em></p>
+<div class="rule" id="MIG-03"><span class="rid">MIG-03 — treatment of pending proposals, unproven batches, legacy bonds, bridge messages and withdrawals</span>
+<span class="norm">(1) <strong>One settlement path at a time, and what D5 does and does not cover.</strong>
+<code>land(data, proof)</code>
+reverts unless <code>migrationState == ETNA_ACTIVE</code>; <code>prove()</code> reverts unless
+<code>migrationState</code> is <code>SHASTA_ACTIVE</code> or <code>FROZEN</code> — it reverts
+<code>MigrationDrained()</code> from T2 onward and is absent or unconditionally reverting in
+<code>ETNA_ACTIVE</code>.
+No state exists in which both are callable, so at most one path can advance the checkpoint.
+<code>FROZEN</code> is entered by the migration bundle, which in the same transaction disables
+<code>propose()</code>; states advance only in the order of T1–T3
+and no transition is skippable.
+<br><strong>D5's scope, stated honestly.</strong> D5, as relaxed by D-11 — <strong>no checkpoint advances
+except on a valid proof</strong>, while a batch's data MAY have been published and recorded in an earlier L1
+transaction and be referenced by that proof — governs every batch accepted by the <em>Etna path</em>,
+i.e. every call to <code>land(data, proof)</code>. The Shasta wind-down is a <strong>different
+protocol</strong> whose rule set is <code>propose()</code> + <code>prove()</code>: its batches are never
+Etna batches, can never be accepted by <code>land(data, proof)</code> (the gate above makes that call
+revert outside <code>ETNA_ACTIVE</code>), and can never advance an Etna checkpoint, because the Etna
+checkpoint chain begins at the genesis record T3 writes (<a href="#genesis-record">&sect;genesis record</a>)
+and every later record is written only by <code>land(data, proof)</code>. What the legacy path <em>can</em>
+do during the wind-down — and this is the exception, named rather than denied — is advance the preserved
+L1 SignalService checkpoint from a proposal whose data was published in an earlier <code>propose()</code>
+transaction (<code>Inbox.sol:270-290,321-400</code>). That is the <strong>unbounded</strong> form of
+data-before-proof, and it is why the legacy reference is not carried over: it has no proving deadline, no
+permissionless expiration and no recorded publication — it can outlive Ethereum's retention window, and the
+only remedy in the baseline was the owner-only <code>init3()</code> — whereas the Etna path's publication
+record is bounded by <code>T_PROVE_DEADLINE</code> and is read by the <strong>live</strong> due-set rule of
+<a href="04-l1-integration.html">04</a> (D-11, MIG-02 slots 275–277; <em><a href="../increments/04-forced-inclusion-design.md">increment 04</a></em>). The exception is bounded four ways: The exception is bounded four ways:
+(i) <strong>the legacy entry points MUST be disabled no later than the activation transition T3</strong> —
+a named transition, not "eventually": <code>prove()</code> reverts <code>MigrationDrained()</code> from the
+moment the machine enters <code>DRAINED</code> (T2) and is absent or unconditionally reverting in
+<code>ETNA_ACTIVE</code>, so after T3 no legacy batch, proposal or proof can advance any checkpoint and no
+function may import one;
+(ii) <strong>the genesis checkpoint MUST be taken at a defined, Ethereum-final L1 boundary</strong>: T3's
+guard requires <code>block.number &ge; drainedAtL1Block + L1_FINALITY_DEPTH</code>, and because
+<code>prove()</code> cannot run in <code>DRAINED</code>, the checkpoint T3 adopts was written at least
+<code>L1_FINALITY_DEPTH</code> L1 blocks earlier, so it is an Ethereum-final L1 fact and not a tip the
+bundle can choose (MIG-01, T3);
+(iii) <strong>no legacy batch may become the genesis checkpoint after Etna activation</strong>: the genesis
+record is written exactly once, inside T3, from the boundary object fixed by T3's two equalities, and after
+T3 there is no mode in which a legacy entry point exists;
+(iv) the honest claim is therefore "<strong>no exception within the Etna protocol, and the legacy path is
+disabled at a named transition (T3)</strong>". The stronger claim "no exception anywhere, in any state,
+ever" is <em>not</em> made on this page, and <a href="10-assurance.html#INV-02">INV-02</a>'s invariant is to
+be read with this named carve-out: it holds for every batch the Etna protocol accepts.
+<em>(review round 2, finding E-R2-01: the migration exception is named and bounded, the legacy path is
+disabled at T2/T3 rather than "in DRAINED or later", and the genesis is taken at an Ethereum-final
+boundary.)</em> (2) <strong>Proposed but never proven.</strong> A proposal with no accepted <code>prove()</code> at the end of the drain window is void: it contributes no checkpoint, no state root and no bridge effect, and its proof path closes permanently at <code>DRAINED</code>. Because <code>propose()</code> is disabled at
+<code>FROZEN</code>, the proposal-hash ring buffer cannot be overwritten during the window (the
+overwrite at <code>Inbox.sol:626</code> happens only inside <code>propose()</code>), so every unproven proposal stays provable until the deadline subject only to data availability (A-DA-2, A-DA-3). The migration announcement must state the drain deadline in L1 block numbers and that L2 transactions inside unproven proposals are not carried over. It must also state that validators have an L1 signing duty from T3 onward: the bonding interface carries the heartbeat key of the revived <a href="03-membership-staking.html#MEM-13">MEM-13</a>; keep signing one heartbeat per <code>HEARTBEAT_WINDOW</code> L1 blocks, because an entry whose last accepted heartbeat is more than one window behind the instant a set version is evaluated at is not selected into that version. The instant is derived from the L1 block at which the epoch's coverable start falls — a window start fixed by the activation record's L1-side schedule (<a href="03-membership-staking.html#MEM-13">MEM-13</a>(3)) — not from the version's commit point, so pace attestations to the cadence, not to a commit point: when inside its window a heartbeat is sent cannot change who is selected. Every entry that is to be selectable for the first filtered set version MUST have an accepted heartbeat naming the heartbeat window immediately after the one containing <code>L1_0</code> — the counting window the launch transition admits, which begins at or after <code>L1_0</code> and has full length <code>HEARTBEAT_WINDOW</code> wherever in its window the activation block falls — before the first <code>commitSet()</code> that appends a filtered version, because the launch transition opens the appends for <code>e_0 + 1</code> and <code>e_0 + 2</code> only after that window closes (<a href="03-membership-staking.html#MEM-13">MEM-13</a>(3)); the announcement must also carry the cost — the first two filtered appends are delayed by up to two <code>HEARTBEAT_WINDOW</code>s; the append for epoch 1 can never be made before its epoch is entered, so the first-boundary halt always occurs when the L2 keeps pace and runs <code>2 &middot; HEARTBEAT_WINDOW &minus; (L1_0 mod HEARTBEAT_WINDOW) &minus; EPOCH_LEN_L1</code> blocks plus Ethereum finality (between <code>HEARTBEAT_WINDOW &minus; EPOCH_LEN_L1 + 1</code> and <code>2 &middot; HEARTBEAT_WINDOW &minus; EPOCH_LEN_L1</code> blocks); the second boundary can be passed as well, so the launch may need two recovery cycles; and because <code>HEARTBEAT_WINDOW</code> is registered with a lower bound only (<a href="09-parameters.html#PARAM-01">PARAM-01</a>), the wall-clock length is bounded by no rule. No filtered roster can be composed by being first to attest or first to append; and an entry with no accepted heartbeat in that window is not selected for the first two post-activation versions (<a href="02-consensus.html#CONS-14">CONS-14</a>(1)). The heartbeat acceptance path is not disabled before T3: the activation entry is exempt from the eligibility predicate as a deliberate policy choice, not because its records are unset (<a href="02-consensus.html#CONS-14">CONS-14</a>(1)), so pre-activation acceptance is neither required nor relied upon. <em>(increment 02: T3 runbook item — the L1 signing duty starts with activation.)</em> <em>(INC2R2-UD-01: the announcement states the derived instant and the per-window cadence, so an operator does not pace attestations against a commit point's window.)</em> <em>(INC2R2 F1: the announcement carries the launch-transition duty — an accepted heartbeat naming the counting window the launch transition admits, the window immediately after the one containing <code>L1_0</code>, before the first filtered append — so the rule the launch transition enforces is stated where the validator duty is set out. R3-LT-01: the duty window is the counting window the shift admits, and the two-window append delay is announced here rather than inferred. R4-LT-01: the guaranteed first-boundary halt and its absolute length are announced here rather than left as a relative comparison.)</em> <em>(INC2R2 F3: the announcement states that the heartbeat acceptance path is not disabled before T3 and that the activation entry's exemption is the policy choice of <a href="02-consensus.html#CONS-14">CONS-14</a>(1), not unset records.)</em> (3) <strong>Bonds.</strong> Legacy bond balances (Inbox slot 257) are not converted into stake and confer no voting power. The post-migration implementation retains exactly one legacy selector,
+<code>withdrawLegacyBond(address _to, uint64 _amount)</code>, which debits that ledger under the
+<em>legacy</em> floor and delay baked at deployment from the pre-migration <code>getConfig()</code>
+(mainnet <code>minBond = 0</code>, <code>withdrawalDelay = 1 weeks</code>,
+<code>MainnetInbox.sol:37,39</code>), and it remains callable in every state. No new bond may be
+created after the freeze and no legacy balance may be slashed. <em>(D-6 removed forced inclusion and D-16 deferred the narrow rule over published data that D-12 proposed, which <a href="../increments/04-forced-inclusion-design.md">increment 04</a> revives over the new register only:
+clause (4) of the previous revision, forced inclusions, stays deleted — there is no legacy request format,
+queue, fee, escrow or refund path to carry across the boundary, and no legacy inclusion selector survives;
+the new design's publication record is a D-11 object created
+only from <code>ETNA_ACTIVE</code>, and the live obligation reads it and nothing older. The remaining clauses keep their numbers: nothing is renumbered, so
+existing cross-references stay valid.)</em>
+(5) <strong>Bridge messages.</strong> The migration upgrade must not reset
+<code>nextMessageId</code>, <code>messageStatus</code>, <code>_receivedSignals</code> or
+<code>_checkpoints</code>; must not change the <code>SIGNAL</code> slot derivation
+(<code>SignalService.sol:160-171,232-235</code>); and must not change
+<code>SignalService.VERSION</code>, because one version bump invalidates the received-signal cache and
+hides every checkpoint simultaneously (<code>SignalService.sol:52,63,179</code>). An L2→L1 message sent at height ≤ <code>B*</code> stays provable after activation because every post-activation checkpoint is a record of a state that contains its signal; an L1→L2 message stays provable while the Anchor keeps writing L1 checkpoints with <code>blockNumber</code> = L1 block number and monotone
+<code>_blockState.anchorBlockNumber</code> (<code>Anchor.sol:173-186</code>). A message is processed at
+most once because its status is set by <code>processMessage</code>, and MIG-01's boundary rule prevents a second history from producing a second proof of receipt. (6) <strong>Withdrawals.</strong> A withdrawal that was
+<a href="index.html#STATUS-08">withdrawal-eligible</a> at the freeze remains eligible during and after
+the migration: eligibility depends on a stored signal and a stored checkpoint, both preserved unchanged, and no delay is extended, restarted or re-based by any transition.</span>
+<span class="why">Failure modes: two live settlement paths produce two histories; a data reference that
+outlives its retention window is unprovable — the June 2026 blob-expiry incident at the baseline is the
+recorded instance of that unbounded data-first class, and this specification declares such proposals void in advance
+instead of voiding anything silently; a VERSION bump makes every in-flight message unprovable; counting a
+legacy bond as stake manufactures voting power no L1 stake backs.</span>
+<span class="pill proven">Proven</span> <span class="pill sourced">sourced</span>
+<span class="small">(the message-continuity claim also depends on A-CONS-5/A-DA-2 for the availability
+of the data behind the boundary state)</span></div>
+<h3>Disposition of every in-flight object</h3>
+<table>
+<thead><tr><th>Object</th><th>Where it lives at the pin</th><th>Disposition across the boundary</th></tr></thead>
+<tbody>
+<tr><td>Finalized tip <code>(B*, H*, S*)</code></td><td>Inbox slots 252–253 + L1 SignalService
+<code>_checkpoints[1][B*]</code></td><td>read once at T3, written to Inbox slots 259–260 and, as the L1-07 genesis record, to the checkpoint
+map (slot 264), then frozen; never lowered (<a href="#GOV-03">GOV-03</a>(c))</td></tr>
+<tr><td>Proposed, unproven proposal</td><td><code>_proposalHashes</code> ring (slot 254), plus
+<code>Proposed</code> logs and blobs</td><td>void at <code>DRAINED</code>; no checkpoint, no bridge
+effect; announced in advance</td></tr>
+<tr><td>Legacy bond balances</td><td>Inbox slot 257</td><td>not stake, no voting power; claimable
+through <code>withdrawLegacyBond</code> under the legacy floor and delay; no new bonds, no liveness settlement</td></tr>
+<tr><td>TAIKO balances</td><td>token <code>0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800</code></td>
+<td>untouched; the new staking custody is a new contract (<a href="03-membership-staking.html#MEM-01">MEM-01</a>, D7)</td></tr>
+<tr><td>Bridge messages</td><td>Bridge slots 251–252; SignalService signal slots</td><td>untouched and
+monotone; each processed at most once; provable across the boundary because the new chain extends
+<code>(B*, H*, S*)</code></td></tr>
+<tr><td>Checkpoint namespace</td><td><code>VERSION = 1</code>, <code>_checkpoints</code> (slot 254),
+<code>_receivedSignals</code> (slot 253)</td><td>unchanged; the version must not be bumped</td></tr>
+<tr><td>Withdrawal eligibility</td><td>stored signals + stored checkpoints</td><td>unchanged; nothing
+already eligible is delayed or restarted</td></tr>
+<tr><td>Vault deposits and bridged-token maps</td><td>ERC20Vault 301–304; NFT vaults 301–302</td>
+<td>untouched; no runtime <code>changeBridgedToken</code> after the upgrade (MIG-04)</td></tr>
+</tbody></table>
+<div class="rule" id="MIG-04"><span class="rid">MIG-04 — removal of operational privileges</span>
+<span class="norm">Every lever in the table below is removed from the runtime ABI of the contract that
+holds it. Removal is a deliberate behaviour change of the preserved surfaces: D3 preserves addresses, not powers. After the removals, ordinary operation reads no owner, no whitelist, no resolver entry and no pause flag: block production, voting, proving, settlement and exit complete with no privileged transaction. The only authority that remains is DAO upgrade authority —
+<code>MainnetDAOController.execute</code> (<code>MainnetDAOController.sol:24-31</code>, itself owned by
+the TaikoDAO) calling <code>upgradeToAndCall</code> through <code>_authorizeUpgrade</code> (<code>EssentialContract.sol:207</code>) — and it is never a runtime dependency (<a href="#GOV-01">GOV-01</a>). No runtime authority is created by the migration: the new staking contract and the new verifier route are permissionless (<a href="03-membership-staking.html#MEM-03">MEM-03</a>,
+<a href="04-l1-integration.html#L1-04">L1-04</a>), and any owner those new contracts have is upgrade
+authority only. Where a removal changes incident response (no runtime pause, no runtime image rotation, no runtime token remapping), the consequence is disclosed in the table and the remedy is a DAO upgrade, not a hidden key. <em>(user decision D-6: forced inclusion is removed, so no inclusion path or inclusion lever exists in the post-migration ABI and none appears in the ordinary-operation enumeration above.)</em></span>
+<span class="why">Failure mode: a surviving owner function is a capture target and a liveness
+dependency (R2), and makes the "no privilege or discretion in ordinary operation" invariant (<a href="10-assurance.html#INV-04">INV-04</a>) false; <code>init2()</code> in particular can rewrite
+<code>lastFinalizedBlockHash</code>, which the boundary of <a href="06-recovery-exceptions.html#REC-01">REC-01</a> forbids: no path may change history at
+or below the latest L1-accepted checkpoint, and above it the only path that may act is the executed stall-resolution action of
+<a href="#GOV-04">GOV-04</a>, which writes no checkpoint, touches nothing at or below the boundary and invalidates a superseded certificate only as a batch's head evidence
+(<a href="06-recovery-exceptions.html#REC-01">REC-01</a>). <em>(increment 05: the prohibition is the
+boundary of REC-01, and the one sanctioned path above it is that action — clearing a stall is the executed <a href="#GOV-04">GOV-04</a> action's to clear, under governance liveness (F-GOV-1), not a future protocol update. R5R2-C-01: the range above the checkpoint is not erased; a superseded certificate is invalid only as a batch's head evidence.)</em></span>
+<span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span>
+<span class="small">(the completeness of this table is a review obligation; the residual trust is
+A-GOV-1, and a DAO that does not execute the removals leaves the levers live)</span></div>
+<table>
+<thead><tr><th>Lever as found</th><th>Holder at the pin</th><th>Exercised at</th><th>What it becomes</th></tr></thead>
+<tbody>
+<tr><td><code>Inbox.activate(bytes32)</code></td><td>Inbox owner</td><td><code>Inbox.sol:188-201</code></td>
+<td>removed; replaced by the verified <code>activateEtna(B*, S*)</code> of T3, executable once</td></tr>
+<tr><td><code>Inbox.init2(uint48, bytes32)</code></td><td>Inbox owner</td><td><code>Inbox.sol:217-244</code></td>
+<td>removed; this lever rewrites the finalized tip and must not survive (D2, REC-01)</td></tr>
+<tr><td><code>Inbox.init3()</code></td><td>Inbox owner</td><td><code>Inbox.sol:253-258</code></td>
+<td>removed; the June 2026 blob-expiry class it patched is <strong>bounded</strong> within the Etna path
+by D-11's proving deadline — data may be published before the proof, but the publication record carries a
+deadline well inside Ethereum's blob retention and published-but-unproven data is discarded and re-published —
+so no queued reference can outlive retention by construction of the deadline and no owner-only void selector
+exists or is needed. The legacy path's own unbounded data-before-proof flow is the named exception of
+MIG-03(1), bounded there and disabled at T2/T3; no <code>init3()</code>-style selector survives it <em>(D-6
+removed the legacy inclusion path, and D-16 deferred the narrow rule over published data that D-12 proposed — revived by <a href="../increments/04-forced-inclusion-design.md">increment 04</a> over the new register only; the incident
+is kept as historical evidence of the unbounded data-first failure class, and no
+owner-voidable inclusion queue exists.)</em></td></tr>
+<tr><td><code>IProposerChecker</code> / <code>PreconfWhitelist</code> owner, ejecter,
+<code>_ejectorManager</code></td><td>preconf operators</td><td><code>PreconfWhitelist.sol:94-124,136-140</code></td>
+<td>removed; proposer selection is leader selection over the L1-committed set
+(<a href="02-consensus.html#CONS-06">CONS-06</a>, <a href="03-membership-staking.html#MEM-08">MEM-08</a>) with no admission gate; the whitelist contract is left inert</td></tr>
+<tr><td><code>ProverWhitelist.whitelistProver</code></td><td>owner <em>or</em>
+<code>_proverManager</code></td><td><code>ProverWhitelist.sol:74-80</code>; gate at
+<code>Inbox.sol:337,771-779</code></td><td>removed; <code>land(data, proof)</code> admits any valid
+(data, proof) pair from any sender (<a href="04-l1-integration.html#L1-04">L1-04</a>)</td></tr>
+<tr><td><code>Anchor.withdraw(address,address)</code></td><td>Anchor owner</td>
+<td><code>Anchor.sol:145-156</code></td><td>removed; the L2 base-fee recipient is moved off the Anchor
+at activation, and any residual balance becomes stranded and must be published — its amount is
+<span class="pill unmeasured">unmeasured</span> here and is measured by reading the Anchor balance at
+activation</td></tr>
+<tr><td><code>GOLDEN_TOUCH_ADDRESS</code> gate</td><td>hardcoded constant</td>
+<td><code>Anchor.sol:37,86-89,124-127</code></td><td>retained as the reserved system sender, with no
+discretion: the anchor payload is part of block validity (<a href="01-system-model.html#SYS-02">SYS-02</a>, <a href="02-consensus.html#CONS-01">CONS-01</a>) and monotone (<a href="04-l1-integration.html#L1-06">L1-06</a>), so a wrong or stale payload invalidates the block instead of being an operator choice. That the address is not key-controlled by any single party is a migration precondition, not a property proven here</td></tr>
+<tr><td><code>Anchor</code> pause / unpause</td><td>owner + pause authority</td>
+<td><code>EssentialContract.sol:150,159</code></td><td>removed</td></tr>
+<tr><td><code>SP1Verifier.setProgramTrusted</code></td><td>verifier owner</td>
+<td><code>SP1Verifier.sol:44-47</code></td><td>removed from runtime; the accepted program-image set is
+Inbox slot 261 and changes only by upgrade (MIG-05). Cost: an emergency image rotation needs a DAO upgrade</td></tr>
+<tr><td><code>Risc0Verifier.setImageIdTrusted</code></td><td>verifier owner</td>
+<td><code>Risc0Verifier.sol:43-46</code></td><td>as above</td></tr>
+<tr><td><code>QuotaManager.updateQuota</code> / <code>setQuotaPeriod</code></td>
+<td>QuotaManager owner (<code>admin.taiko.eth</code>)</td><td><code>QuotaManager.sol:70,81</code>;
+consumer at <code>Bridge.sol:652-653</code></td><td>dependency removed: the preserved Bridge and vaults must not call <code>consumeQuota</code>; any retained rate limit is an upgrade-set constant with no runtime setter</td></tr>
+<tr><td>Resolver address registration</td><td>resolver owner</td>
+<td><code>DefaultResolver.sol:37-44</code>; consumers at <code>Bridge.sol:517-524</code>,
+<code>BaseVault.sol:60,69</code></td><td>dependency removed: new implementations carry peer addresses
+as constructor immutables read from the resolver <em>before</em> the upgrade; the resolver keeps no runtime influence on the preserved surfaces</td></tr>
+<tr><td><code>ERC20Vault.changeBridgedToken</code></td><td>ERC20Vault owner</td>
+<td><code>ERC20Vault.sol:200-207</code></td><td>removed from runtime; a canonical-token change requires
+an upgrade that preserves slots 301–304 and every already-bridged balance</td></tr>
+<tr><td>Bridge / SignalService / vault <code>pause</code> / <code>unpause</code>; Bridge
+<code>pauser</code> <code>receive()</code> monopoly</td><td>owner + <code>pauser</code> immutables</td>
+<td><code>Bridge.sol:186-188,556</code>; <code>SignalService.sol:201</code>;
+<code>EssentialContract.sol:150,159</code></td><td>removed from the runtime ABI of the preserved
+surfaces; a suspected contract bug is handled by a DAO upgrade instead of a key</td></tr>
+</tbody></table>
+<p class="small">Not in the table on purpose: <code>TaikoToken</code>. The token is neither migrated nor
+replaced (D7); its balances are untouched by every transition, and no migration step calls a token owner function.</p>
+<div class="rule" id="MIG-05"><span class="rid">MIG-05 — program-image and verifier upgrades; mixed-version clients and in-flight proofs</span>
+<span class="norm">The set of program images accepted for an epoch <code>e</code> is the value of the
+registry (Inbox slot 261, <code>acceptedProgramImage[imageId] = acceptedFromEpoch</code>) at the same L1-committed boundary that fixes the validator-set root for <code>e</code> (<a href="03-membership-staking.html#MEM-09">MEM-09</a>), so an image change takes effect for epochs that start after the L1 transaction that recorded it. Registry entries are never deleted: an image that was accepted for an epoch remains accepted for that epoch forever (<a href="02-consensus.html#CONS-08">CONS-08</a>). Adding an accepted image or a verifier route is an
+<strong>upgrade, never a runtime call</strong>: the accepted-image set is Inbox slot 261, the route
+registry is slot 267, and both are written only by the Inbox implementation installed by an upgrade
+(<a href="04-l1-integration.html#L1-09">L1-09</a>, <a href="#GOV-02">GOV-02</a>); a permissionless or
+owner-only registration entry point MUST NOT exist, and a route whose verifier is not a deployed, audited
+contract MUST NOT be registered. <em>(review round 2, finding E-R2-04)</em> <em>(user decision D-6: the route registry is renumbered to slot 267 after the five forced-inclusion slots were removed from the Inbox budget; MIG-02 owns the re-derived arithmetic.)</em> An image may be given a
+<code>retiredAtEpoch</code> marker, after which it may not be used for batches whose epoch is at or
+after the marker, but retirement must not invalidate a certificate, a checkpoint or a settled batch. Consequently: a proof generated before an upgrade for a batch in an epoch whose accepted set contains its image remains acceptable after the upgrade and needs no re-proving; a proof whose image is not in the accepted set of the batch's epoch is rejected by the verifier route (<a href="04-l1-integration.html#L1-09">L1-09</a>); and <code>land(data, proof)</code> must never reject a valid (data, proof) pair merely because the proof's image was superseded for <em>later</em> epochs. There is no mixed-version consensus window: because the accepted set is a deterministic function of L1-committed state and the upgrade is epoch-gated, all clients that have processed the boundary L1 block derive the same set, and a client that disagrees is producing invalid blocks rather than a second rule set. Both backends must implement the same statement and the same acceptance policy (<a href="05-proof-statement.html#PRF-09">PRF-09</a>); the guest/verifier version registry itself is defined by <a href="05-proof-statement.html#PRF-10">PRF-10</a>, which this rule uses and does not restate.</span>
+<span class="norm"><strong>Aggregation: DEFERRED by D-16 (tombstone).</strong> The
+<code>n</code>-of-<code>m</code> aggregation of D-13 is <strong>deferred</strong> and MUST NOT be
+implemented: v1 accepts <strong>one proof from one registered backend</strong> per purpose, so settlement
+soundness is that of the weakest approved backend, and no aggregation-program image, family bitmap or
+aggregation route exists. The withdrawal-root count <code>K_PROOF_BACKENDS</code> is kept and is enforced
+directly — without aggregation, a root is <code>k</code> attestations from <code>k</code> distinct
+registered backend families verified on L1 (<a href="04-l1-integration.html#L1-13">L1-13</a>). The deferred
+rule ids are <a href="05-proof-statement.html#PRF-15">PRF-15</a> and
+<a href="04-l1-integration.html#L1-14">L1-14</a>; the register entry is
+<a href="../DEFERRED.md">DEFERRED.md</a> §4. <em>(decision D-16: aggregation is deferred, settlement
+accepts one proof from one backend, and the withdrawal roots keep the k-family requirement; the aggregation
+program whose rotation path would have had to be bounded rather than DAO-cycle-slow does not exist in v1.)</em> <em>This closes review round 7 finding R7-RB-06: stranded aggregation text left by the deferral sweep no longer breaks the rule span.</em></span>
+<span class="why">Failure modes: a mid-epoch image switch splits which proofs are acceptable and lets
+an unsettled batch become unprovable; deleting an old image strands already-finalized history; a "mixed-version" leniency silently accepts two rule sets.</span>
+<span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span>
+<span class="small">(premises: A-CRYPTO-1 soundness applies per image, and the epoch boundary is the
+L1-committed one of MEM-09; if the registry boundary and the set boundary ever diverge, the split risk in the failure mode above returns)</span></div>
+<table>
+<thead><tr><th>Scenario</th><th>Accepted after the upgrade?</th><th>Basis</th></tr></thead>
+<tbody>
+<tr><td>Proof generated before the upgrade for a batch in epoch <code>e &lt; E_activation</code>,
+under image <code>I_old</code> accepted for <code>e</code></td><td><strong>yes</strong></td>
+<td>accepted set is per-epoch and entries are never deleted</td></tr>
+<tr><td>Proof under <code>I_old</code> for a batch in an epoch at or after
+<code>I_old.retiredAtEpoch</code></td><td>no</td><td>verifier routing rejects a retired image for those
+epochs</td></tr>
+<tr><td>Proof under <code>I_new</code> for a batch whose epoch predates the activation of
+<code>I_new</code></td><td>no</td><td>the epoch's accepted set does not contain it</td></tr>
+<tr><td>Batch already accepted on L1 (<a href="index.html#STATUS-06">STATUS-06</a>)</td>
+<td>unaffected; never re-proved</td><td><a href="#GOV-03">GOV-03</a>(b)(c); <a href="index.html#STATUS-06">STATUS-06</a> — no path revokes an accepted batch: the stall resolution of <a href="#GOV-04">GOV-04</a> resumes settlement on the same chain above the latest L1-accepted checkpoint, writes no checkpoint, touches nothing at or below it and invalidates a superseded certificate only as a batch's head evidence <em>(increment 05: the first irreversible status is unchanged; the live action touches nothing at or below the checkpoint. R5R2-C-01: the range above the checkpoint remains valid history that a later batch may extend under the new generation)</em></td></tr>
+<tr><td>Client that has not implemented <code>retiredAtEpoch</code></td><td>cannot follow the chain</td>
+<td>no mixed-version window exists; such a client must be upgraded or halt</td></tr>
+</tbody></table>
+<div class="rule" id="MIG-06"><span class="rid">MIG-06 — no replacement deployments for the preserved surfaces</span>
+<span class="norm">The migration is an in-place implementation upgrade of every proxy in the table
+below, at the address recorded there. No new contract is deployed to a new address to replace any of them, and no new address is introduced into any interface that a user or a peer contract resolves: the
+<code>SIGNAL</code> slot derivation, the resolver results for the Bridge and vault peers, and the L1/L2
+address libraries are unchanged. The settlement Inbox and the L2 Anchor are upgraded in place too, because the two immutable checkpoint-writer links are wired to those exact addresses — L1
+<code>SignalService._authorizedSyncer</code> is the Shasta Inbox
+(<code>SignalService.sol:35-37,174-175</code>; <code>DeployShastaContracts.s.sol:130</code>) and L2
+<code>SignalService._authorizedSyncer</code> is the Anchor proxy
+(<code>DeployShastaL2Contracts.s.sol:46-53</code>) — and because <code>Anchor.blockHashes</code> (slot 251) is a permanent L2 map that must keep answering <code>getBlockHash</code>. An implementer must know that these immutables are properties of the implementation code, not of proxy storage, so an implementation upgrade <em>can</em> change them; this rule therefore forbids changing them rather than relying on immutability to enforce it. A re-deployed SignalService implementation must be constructed with the same <code>_authorizedSyncer</code>, <code>_remoteSignalService</code> and
+<code>VERSION</code> values as the implementation it replaces.
+<strong>L2 SignalService checkpoint writer, reconciled.</strong> This is the operative instruction for the
+L2 SignalService: the migration bundle and the re-deployed implementation MUST keep
+<code>_authorizedSyncer</code> = the Anchor proxy on L2 (and = the Inbox on L1, <a href="04-l1-integration.html#MSG-01">MSG-01</a>).
+The aspiration recorded elsewhere in this specification — that the preserved L2 address be repointed to a
+write path that is not a single privileged address — is <strong>not</strong> achieved by this migration and
+cannot be achieved by it without a different <code>_authorizedSyncer</code>, which this rule forbids. It
+therefore requires a separate, recorded decision and a later upgrade, and is carried as
+<span class="pill open">Open</span> in MIG-04's golden-touch row. Until that decision exists, the L2
+checkpoint writer remains the reserved system sender of SYS-02(g) and the claim that no single privileged
+writer remains is <em>not</em> made. <em>(review round 2, finding E-R2-09: MIG-06's same-immutables rule is
+the one the migration follows; the removal is Open with its consequence — the L2 checkpoint writer keeps a
+reserved-sender privilege that R1/R2 do not yet exclude.)</em> Verifiers, the L1 staking contract and
+the prover-reward path are <em>not</em> preserved surfaces: they are new deployments referenced by address from the upgraded Inbox (<a href="04-l1-integration.html#L1-09">L1-09</a>). TaikoToken is not deployed, moved or migrated.</span>
+<span class="why">Failure mode: a replacement deployment changes every address users and peer
+contracts have integrated, breaks the checkpoint-writer link (after which the preserved SignalService can never be checkpointed again and every cross-chain message stops verifying) and duplicates bridge state across two Bridges.</span>
+<span class="pill proven">Proven</span> <span class="pill sourced">sourced</span>
+<span class="pill unmeasured">router presence unmeasured</span></div>
+<table>
+<thead><tr><th>Chain</th><th>Contract</th><th>Proxy address (preserved)</th><th>Current implementation (recorded)</th><th>Source</th></tr></thead>
+<tbody>
+<tr><td>L1 mainnet</td><td>SignalService</td><td><code>0x9e0a24964e5397B566c1ed39258e21aB5E35C77C</code></td><td><code>0x1A06832992785766a105838C95c1E13a0045AC85</code></td><td>baseline §6.1; <code>LibL1Addrs.sol:45</code></td></tr>
+<tr><td>L1 mainnet</td><td>Bridge</td><td><code>0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC</code></td><td><code>0x1c94D798CFA08F396E5BA9F81697289c53273381</code></td><td>baseline §6.1; <code>LibL1Addrs.sol:43</code></td></tr>
+<tr><td>L1 mainnet</td><td>ERC20Vault</td><td><code>0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab</code></td><td><code>0x024253C6FDC27d3161aFd43fb0241411A28dDc3c</code></td><td>baseline §6.1; <code>LibL1Addrs.sol:46</code></td></tr>
+<tr><td>L1 mainnet</td><td>ERC721Vault</td><td><code>0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa</code></td><td><code>0xA4C5c20aB33C96B1c281Dca37D03E23609274C49</code></td><td>baseline §6.1; <code>LibL1Addrs.sol:47</code></td></tr>
+<tr><td>L1 mainnet</td><td>ERC1155Vault</td><td><code>0xaf145913EA4a56BE22E120ED9C24589659881702</code></td><td><code>0x838ed469db456b67EB3b0B74D759Be4DA999b9c8</code></td><td>baseline §6.1; <code>LibL1Addrs.sol:48</code></td></tr>
+<tr><td>L1 mainnet</td><td>Inbox (settlement, upgraded in place)</td><td><code>0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f</code></td><td><code>0x5253D4C91e80b880DdB54B78E74082Abe066F6b9</code></td><td>baseline §6.1; <code>mainnet-contract-logs-L1.md:215-216</code></td></tr>
+<tr><td>L2 mainnet (1670…)</td><td>Anchor</td><td><code>0x1670000000000000000000000000000000010001</code></td><td><code>0x7e83Af941FDcf90EB44ED7dc8754a201B156E0BA</code></td><td>baseline §6.2; <code>LibL2Addrs.sol:9</code></td></tr>
+<tr><td>L2 mainnet (1670…)</td><td>Bridge</td><td><code>0x1670000000000000000000000000000000000001</code></td><td><code>0x95ae2918dcbc6aFF8B4c1F1BCC1bf819b6e08B83</code></td><td>baseline §6.2; <code>LibL2Addrs.sol:11</code></td></tr>
+<tr><td>L2 mainnet (1670…)</td><td>ERC20Vault</td><td><code>0x1670000000000000000000000000000000000002</code></td><td><code>0xb96AbB41b01E3ad519D00E80355a1c3801910F62</code></td><td>baseline §6.2; <code>LibL2Addrs.sol:15</code></td></tr>
+<tr><td>L2 mainnet (1670…)</td><td>ERC721Vault</td><td><code>0x1670000000000000000000000000000000000003</code></td><td><code>0xd532f20a4751156C566Da7745db95E7f80145B36</code></td><td>baseline §6.2; <code>LibL2Addrs.sol:16</code></td></tr>
+<tr><td>L2 mainnet (1670…)</td><td>ERC1155Vault</td><td><code>0x1670000000000000000000000000000000000004</code></td><td><code>0xBBBC4ad39488b990E095042fa6c59A90d3817846</code></td><td>baseline §6.2; <code>LibL2Addrs.sol:17</code></td></tr>
+<tr><td>L2 mainnet (1670…)</td><td>SignalService</td><td><code>0x1670000000000000000000000000000000000005</code></td><td><code>0x18B27428cce679DFf84D09D6b07DF1E9EBb6fE28</code></td><td>baseline §6.2; <code>LibL2Addrs.sol:14</code></td></tr>
+</tbody></table>
+<p class="small">Hoodi rehearses the same pattern at chain id <code>167013</code>, where the L2 addresses
+are <code>0x167013…000N</code> (Anchor <code>…010001</code>, Bridge <code>…0001</code>, ERC20Vault
+<code>…0002</code>, ERC721Vault <code>…0003</code>, ERC1155Vault <code>…0004</code>, SignalService
+<code>…0005</code>; baseline §6.4). The rehearsal is a procedural mitigation, not a guarantee: its cost
+and duration are <span class="pill unmeasured">unmeasured</span>.</p>
+<h2 id="governance">Governance</h2>
+<div class="rule" id="GOV-01"><span class="rid">GOV-01 — DAO governs upgrades only; the trust assumption is stated</span>
+<span class="norm">The DAO's only authorities over this protocol are (i) the ability to execute an upgrade:
+<code>MainnetDAOController.execute(bytes)</code> (<code>onlyOwner</code>, owned by the TaikoDAO;
+<code>MainnetDAOController.sol:24-31</code>) calling <code>upgradeToAndCall</code> /
+<code>upgradeTo</code> on the proxies it owns (<code>EssentialContract.sol:207</code>), including the
+migration transitions T1–T3; and (ii) the queueing of a stall-resolution entry under
+<a href="#GOV-04">GOV-04</a> — a rule-bound, resume-only runtime action whose trigger, stored timelock and
+effect are fixed by rule, and the only runtime governance entry point this protocol has. Nothing else is
+admitted: no other runtime governance action exists. After
+<code>ETNA_ACTIVE</code> no other DAO-dependent runtime state may exist: no consensus rule, admission rule,
+proof-acceptance rule, exit rule or bridge rule may read a value the DAO can change without an upgrade, and no
+DAO transaction may be required for ordinary liveness — block production, voting, proving, settlement and
+exit must all complete without one. <strong>There is exactly one named exception:</strong> the rule-bound,
+timelocked, <strong>resume-only</strong> stall resolution of <a href="#GOV-04">GOV-04</a> — a DAO-queued
+entry that any account may execute once its stored deadline passes, whose effect is fixed by L1 state alone.
+It is not a DAO rescue: governance chooses <strong>nothing at execution</strong>, and the discretion it
+retains over the values future entries will use is named F-GOV-4 rather than denied. A settlement stall is
+cleared only by that action: funds are safe, the boundary holds, and the exit guarantee of
+<a href="03-membership-staking.html#MEM-15">MEM-15</a> is independent of any DAO action, but <strong>clearing
+the stall still depends on governance liveness with no protocol bound</strong> (F-GOV-1, A-GOV-2), and that
+dependency is disclosed as an assumption. <em>(increment 05: the D-15 stall-resolution authority is live
+again as GOV-04, with its entry consumed by execution; the governance-liveness assumption A-GOV-2 is kept
+and F-GOV-1/F-GOV-3/F-GOV-4 are carried with it. D-6 removed the legacy inclusion path, and the narrow rule over published data that D-12 proposed is live again (<em><a href="../increments/04-forced-inclusion-design.md">increment 04</a></em>) but adds no privileged action to this enumeration: its enforcement is in the proof and its prune is permissionless and deletion-only; inclusion resistance remains the conditional property of
+<a href="10-assurance.html#LIVE-04">LIVE-04</a>.)</em> The trust assumption on the DAO's
+conduct is explicit and is not repairable by the protocol: A-GOV-1
+(<a href="../01-requirements-and-threat-model.md">01-requirements-and-threat-model.md</a> §4.4) states
+that the DAO does not execute a malicious upgrade; if it does, the safety claims of this specification do
+not apply to the resulting rule set (failure class F2). For contrast, the prior Etna design recorded
+<em>exactly two</em> DAO-dependent states — CONFLICT after a provisional landing, and a certificate-free
+landing during a one-leaf outage (<code>prior-etna-digest.md:113,119</code>); this design has exactly one runtime DAO-dependent
+state — the queued stall-resolution entry of <a href="#GOV-04">GOV-04</a>, under its rule-bound trigger,
+stored timelock and resume-only effect — and no other (increment 05).</span>
+<span class="why">Failure modes: any runtime DAO lever is a capture target and a liveness dependency
+(R2); a hidden owner flag makes the no-privilege invariant (<a href="10-assurance.html#INV-04">INV-04</a>) false; describing A-GOV-1 as a guarantee is exactly the non-argument "the DAO would fix it"; and a chain whose stall remedy is a DAO-queued action is only as live as
+governance, with no protocol bound (F-GOV-1; increment 05).</span>
+<span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span>
+<span class="small">(proven relative to the MIG-04 removal table being complete; the residual trust is
+A-GOV-1 for the DAO's conduct and A-GOV-2 for its liveness, whose failure is GOV-02)</span></div>
+<div class="rule" id="GOV-02"><span class="rid">GOV-02 — malicious governance is a separate failure class</span>
+<span class="norm">A malicious or compromised DAO is failure class F2, not a protocol failure: no rule,
+contract, monitor or evidence object in this design detects, prevents or repairs it, and one upgrade can rewrite any rule — including this one — reassign any storage slot, or remove the staking requirement. The honest responses are exactly three: (i) before-the-fact disclosure, (ii) comparability, i.e. every upgrade bundle is published with the target implementation addresses, the storage-layout diff and the expected post-upgrade boundary object, so any deviation is publicly detectable, and (iii) the ability of users to exit before an announced upgrade takes effect, subject to the delays of <a href="04-l1-integration.html#MSG-03">MSG-03</a> and
+<a href="07-economics-slashing.html#ECON-03">ECON-03</a>. This design does not claim that a DAO upgrade
+cannot invalidate finalized history; it claims that no rule of this protocol can, and that a governance rewrite is reported as a rules change rather than as a stall resolution. <strong>A captured or coerced governance can rewrite the rules by upgrade and can also act opportunistically within the live stall-resolution rule:</strong> the action of <a href="#GOV-04">GOV-04</a> is rule-bound and resume-only, but a governance that waits for a genuine stall can have an unfavourable provisional range's in-flight certificates superseded, so that its signals are not carried into the settlement the resumed chain produces and must be resubmitted, and repetition is paced only by a DAO transaction plus a stored window (F-GOV-1, F-GOV-3; R5R2-C-01). Nothing in this protocol detects, prevents or repairs the capture. It is named A-GOV-2 and recorded in <a href="10-assurance.html#LIM-01">LIM-01</a>. The status guarantee (<a href="index.html#STATUS-04">STATUS-04</a>, <a href="index.html#STATUS-06">STATUS-06</a>) is made relative to the rules in force — history at or below the latest L1-accepted checkpoint is untouchable by any protocol path (Ethereum finality is the separate, stronger property of <a href="index.html#STATUS-07">STATUS-07</a>), and history above it is valid but provisional, and the only path that acts on it is the executed stall-resolution action of <a href="#GOV-04">GOV-04</a>, which resumes settlement on the same chain and invalidates a superseded certificate only as a batch's head evidence (R5R2-C-01); the permissionless recovery stays withdrawn (D-15) and MUST NOT be implemented, and a rules change by upgrade is never presented as the stall resolution, never as an ad-hoc governance transaction, and never by an ordinary upgrade (<a href="06-recovery-exceptions.html#REC-01">REC-01</a>) — and after a governance rewrite it must be re-established by the new rules. <em>(increment 05: the rule-bound stall resolution of GOV-04 is live and is the one sanctioned action on the range above the checkpoint; R5R2-C-01: it resumes settlement on the same chain, so the range is not erased and remains extendable under the new generation; a governance rewrite is reported as a rules change, never as the stall resolution, and it is never an ordinary upgrade.)</em> <em>This closes review round 7 finding R7-RB-06: the italic no longer presents a deferred action as the sanctioned action on the range above the checkpoint (R5R2-C-01: the action resumes the range; it does not replace history).</em></span>
+<span class="why">Failure mode: reading A-GOV-1 as a guarantee, or claiming that ZK verification,
+bonds or a timelock make governance capture safe, or that the stall-resolution surface a captured
+governance can use is bounded by anything but the rule itself — the consumed entry, the stored timelock and
+the resume-only effect (F-GOV-1, F-GOV-3); the prior Etna digest records the same conclusion ("the DAO is assumed honest; capture is out of scope", <code>prior-etna-digest.md:113</code>).</span>
+<span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span></div>
+<div class="rule" id="GOV-03"><span class="rid">GOV-03 — upgrades must not invalidate finalized history and are never a substitute for the stall resolution</span>
+<span class="norm">Every upgrade, including the migration of MIG-01–MIG-06, must accept all history
+finalized under the rules in force before it: (a) a certificate valid under the epoch and validator-set rules of its own epoch remains valid forever (<a href="02-consensus.html#CONS-08">CONS-08</a>) and no post-upgrade rule may require it to be re-derived; (b) the post-upgrade verifier route must still accept a proof of any not-yet-settled batch under the program image that was in force for that batch's epoch (MIG-05), so no batch becomes unprovable because of an upgrade; (c) checkpoint advancement stays monotone (<a href="04-l1-integration.html#L1-06">L1-06</a>): an upgrade may not lower the finalized tip or rewrite the checkpoint record for any height at or below the boundary with different contents; and (d) at migration the accepted history is the boundary of MIG-01, and no alternative history at or below <code>B*</code> may ever be adopted afterwards (<a href="06-recovery-exceptions.html#HALT-02">HALT-02</a>); and (e) <strong>no upgrade may be used as a substitute for the stall resolution</strong>: an upgrade MUST accept every
+history at or below the latest L1-accepted checkpoint, and it may not discard history above that checkpoint
+either — history above the checkpoint is valid but provisional, and the only path that may act on it is the executed stall-resolution action
+of <a href="#GOV-04">GOV-04</a>, a rule-bound action whose trigger, <strong>stored</strong> timelock and
+resume-only effect are fixed, which resumes settlement on the same chain and never erases the range or makes it unlandable (R5R2-C-01), and the upgrade may neither perform it nor imitate it nor be presented as one.
+A <strong>queued</strong> entry MUST survive the upgrade unchanged: the upgrade may not cancel it, execute it
+early, alter the checkpoint it resumes from, move its stored deadline, or replace it with any other action. An
+<strong>executed</strong> entry MUST also survive unchanged: no upgrade may set its state back to
+<code>queued</code> or <code>none</code>, re-open it or make it executable again, and no upgrade may reset,
+lower or skip the signed <code>recoveryGeneration</code> or relax the acceptance rule that voids a certificate
+carrying a superseded generation. The generation and the entry state carry with the L1 reorganisation
+(<a href="#GOV-04">GOV-04</a>(j)). Compliance is checked by the published target/layout diff required by GOV-02
+and, for (b), by an acceptance test that lands one already-generated pre-upgrade proof after the upgrade, on
+both backends (<a href="05-proof-statement.html#PRF-10">PRF-10</a>). <em>(increment 05: the queued-entry
+protection D-15 wrote is kept and extended to the executed entry and to the stored deadline; an upgrade still
+cannot clear a stall, but the rule now specifies the action that can — and the upgrade is never it.)</em> <strong>(f) A publication record and its deadline survive an
+upgrade unchanged:</strong> no upgrade may delete, rewrite, re-order or re-clock a publication, or change the derived deadline of an outstanding record (the deadline is <code>l1BlockNumber + T_PROVE_DEADLINE</code>, never stored, and a change to
+<code>T_PROVE_DEADLINE</code> applies only to publications recorded after the upgrade). <em>(D-11: the publication record is D-11 state;
+the live forced-inclusion rule reads it as a due set (<a href="04-l1-integration.html#FI-10">FI-10</a>–<a href="04-l1-integration.html#FI-14">FI-14</a>; <a href="../increments/04-forced-inclusion-design.md">increment 04</a>), and an upgrade may not
+use the record to suppress, re-order or accelerate anything, may not lower the frontier and may not re-clock a record (<a href="04-l1-integration.html#FI-14">FI-14</a>(1)–(2)).)</em></span>
+<span class="why">Failure mode: a "normal upgrade" silently strands a proven-but-unsettled batch, rolls the checkpoint back, or is presented as a stall resolution — the boundary violation <a href="06-recovery-exceptions.html#REC-01">REC-01</a> forbids and the substitution <a href="#GOV-04">GOV-04</a>(j) forbids, and the class recorded as the prior Etna design's XS-FIN-01 finding (<code>prior-etna-digest.md:142</code>). <em>(increment 05: the only action on the range above the checkpoint is the executed <a href="#GOV-04">GOV-04</a> action, which resumes settlement on the same chain and leaves that range valid history extendable under the new generation; an upgrade is never it. R5R2-C-01: the range is not erased and is not made unlandable.)</em></span>
+<span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span>
+<span class="small">(premises: CONS-08, L1-06, A-CRYPTO-3, and A-CONS-1 — &lt; 1/3 Byzantine stake — for the uniqueness of the finalized prefix that (a) presupposes; a DAO that ignores this rule is handled by
+GOV-02, not by this rule)</span></div>
+<div class="rule" id="GOV-04"><span class="rid">GOV-04 — stall resolution: a timelocked, resume-only governance action whose entry is consumed exactly once (revived by increment 05)</span>
+<span class="norm"><strong>The action, and what it does.</strong> A settlement stall is cleared only by the action this rule defines: <strong>one</strong> governance-queued entry, a <strong>stored</strong> timelock, a permissionless <code>execute()</code> that <strong>consumes the entry</strong>, and a signed generation increment. The action <strong>resumes settlement on the same chain</strong>: it leaves the checkpoint and everything at or below it untouched; it invalidates a superseded certificate <strong>only as a batch's head evidence</strong> — a superseded certificate cannot serve as the head certificate of an extending batch, which is exactly what the enforced checks say, since the head certificate, its contributing votes and the head header must carry the current generation (<a href="02-consensus.html#CONS-05">CONS-05</a>(2)(a), <a href="05-proof-statement.html#PRF-04">PRF-04</a>(i)); the range above the latest L1-accepted checkpoint remains <strong>valid history that can be extended under the new generation</strong>, and nothing in this rule invalidates or forbids a block on account of the generation in its own header (<a href="02-consensus.html#CONS-10">CONS-10</a>(7): the generation is part of the header bytes, so every other header legitimately carries the generation it was produced under); and the class above the checkpoint is unprotected for a different and narrower reason than erasure: the user's signals are not carried into the settlement the resumed chain produces, so they must be resubmitted, with no compensation (<a href="07-economics-slashing.html#ECON-11">ECON-11</a>). <em>(R5R2-C-01: the preserved preamble claimed a "full-range discard" and an "unlandable" branch; the operative checks constrain only the head evidence, so the effect is stated in the enforced form and the stronger wording MUST NOT be restored.)</em> The former permissionless bonded recovery stays withdrawn (D-15) and MUST NOT be reintroduced under any name: there is no invoker, no bond, no escalation, no certificate bundle, no completion record and no reward. The action adds <strong>no new entry point on the exit, inclusion, staking or proof paths</strong>, and <code>CONS-16</code>'s rotation stays deferred (D-16) and MUST NOT be implemented. <em>(increment 05: the timelocked, resume-only stall resolution is revived in the corrected form — the consumed entry, the stored deadline, the scoped window and the two-case generation rule; D-15's withdrawn recovery machinery stays withdrawn, and the round-6 findings G-1, G-2 and G-3 are disposed of here as the state machine, the scoped window and the historical-certificate rule.)</em>
+<br>(a) <strong>Trigger, read from L1 state alone.</strong> An entry may be queued only while <code>block.timestamp &minus; lastAcceptedBatchTime &ge; T_STALL_GOV</code>, where <code>lastAcceptedBatchTime</code> is the L1 timestamp stored in the current checkpoint record (<a href="04-l1-integration.html#L1-07">L1-07</a>). No invoker claim, evidence object, certificate or bundle enters the predicate, and only the acceptance of an extending batch — which advances <code>lastAcceptedBatchTime</code> — can clear it. A queue attempt while the predicate is false MUST revert. No other trigger and no early declaration exists: a participant's local view, a halt, a missing certificate, a slow proof and an over-depth cap are not triggers.
+<br>(b) <strong>The entry, and the state machine.</strong> <code>govResumeState</code> takes exactly three values: <code>none</code>, <code>queued</code>, <code>executed</code>. There is <strong>no distinct <code>cancelled</code> value</strong>: a cancelled entry is behaviourally <code>none</code>, its cancellation is recorded by the event, and adding a state would add surface without adding a property. An <strong>entry</strong> is the tuple <code>(govResumeQueuedAt:u64, govResumeQueuedHeight:u64, govResumeExecutableAt:u64, govResumeState:u8)</code>. Queueing is a DAO transaction through the authority of <a href="#GOV-01">GOV-01</a> and is the <strong>only</strong> runtime governance entry point this protocol has. It MUST be allowed only while (i) the trigger of (a) holds and (ii) the state is <code>none</code>, is <code>executed</code>, or is <code>queued</code> <strong>and the entry is void</strong> under (e); a second queue attempt while a <strong>live</strong> entry is <code>queued</code> MUST revert. Queueing records <code>govResumeQueuedAt = block.timestamp</code>, <code>govResumeQueuedHeight = lastLandedHeight</code>, <code>govResumeExecutableAt = block.timestamp + T_GOV_RESUME</code> and <code>govResumeState = queued</code>. It names no height, state root, checkpoint, range, subset, beneficiary, generation or any other value, and no other value may be attached to it. Replacing a void entry under (e) is a new entry with fresh fields, not a revival of the void one.
+<br>(c) <strong>Execution consumes the entry, and the effect is resume-only.</strong> <code>execute()</code> is permissionless and takes no argument that influences the outcome. It MUST revert unless the state is exactly <code>queued</code>; it MUST revert before the stored <code>govResumeExecutableAt</code> with the error <code>TimelockNotElapsed</code>; it MUST revert if the entry is void under (e). On success it MUST, in <strong>one transaction</strong>: (1) increment <code>recoveryGeneration</code> by exactly one; (2) set <code>govResumeState := executed</code>; and (3) emit the resolution event, carrying at least the restored height and the new generation. <strong>It writes nothing else.</strong> <code>resumeHeight = lastLandedHeight + 1</code> is derived from the current L1-accepted checkpoint, never chosen and never stored; the checkpoint record itself is left untouched; nothing at or below the checkpoint is read, written, re-judged or discarded; no retirement record and no resume record exists; the range above the checkpoint is not rewritten, re-judged or erased — it remains valid history that a later batch may settle by extending it under the new generation, and nothing in this rule invalidates or forbids a block on account of the generation in its own header (<a href="02-consensus.html#CONS-10">CONS-10</a>(7)). <em>(R5R2-C-01: the effect is resume on the same chain; the generation rule constrains only the batch's head evidence.)</em> The generation is incremented <strong>nowhere else</strong>: no other function, initialiser, upgrade, governance call, cancellation, queue or client path may increment it in any other state or a second time. Once the state is <code>executed</code>, every later <code>execute()</code> reverts for every caller, in every block, with every calldata, and the state can only be left by a fresh DAO queue that creates a new entry with a fresh stored deadline. <em>(R5R1-G-03(b): the pre-deadline revert is named <code>TimelockNotElapsed</code> here and in the (d) table, so the rule, the delta and off-chain tooling all use one name for it.)</em>
+<br>(d) <strong>The states, and what a caller can and cannot do.</strong>
+<table>
+<thead><tr><th>State</th><th><code>queue()</code> — DAO only</th><th><code>execute()</code> — any account</th><th><code>cancel()</code> — any account</th><th>Generation</th></tr></thead>
+<tbody>
+<tr><td><code>none</code></td><td>allowed iff the trigger holds</td><td>reverts <code>NoQueuedEntry</code></td><td>reverts <code>NothingToCancel</code></td><td>unchanged</td></tr>
+<tr><td><code>queued</code>, live</td><td>reverts <code>EntryPending</code></td><td>reverts <code>TimelockNotElapsed</code> before the stored deadline; allowed iff <code>block.timestamp &ge; govResumeExecutableAt</code>; consumes the entry, sets <code>executed</code></td><td>reverts <code>EntryNotVoid</code></td><td><strong>+1 exactly once</strong>, only on a successful <code>execute()</code></td></tr>
+<tr><td><code>queued</code>, void</td><td>allowed iff the trigger holds; <strong>replaces</strong> the void entry</td><td>reverts <code>EntryVoid</code></td><td>allowed; sets <code>none</code></td><td>unchanged</td></tr>
+<tr><td><code>executed</code></td><td>allowed iff the trigger holds; starts a <strong>fresh</strong> entry with fresh fields and a fresh stored deadline</td><td><strong>reverts <code>EntryAlreadyExecuted</code> for every caller, in every block, with every calldata</strong></td><td>reverts <code>NothingToCancel</code></td><td>unchanged</td></tr>
+</tbody></table>
+No other transition exists, and no path writes the generation outside the successful <code>execute()</code> row. No account may cancel a <strong>live</strong> <code>queued</code> entry: the only cancellation is of a void entry, and it costs only gas and transfers no value.
+<br>(e) <strong>Void on progress, with permissionless cancellation and queue-over-void.</strong> If the checkpoint advances at any time before execution — <code>lastLandedHeight &gt; govResumeQueuedHeight</code> — the entry is <strong>void</strong>: execution MUST revert, and any account may cancel it, which sets <code>none</code> and clears the entry fields. A void entry cannot be revived and a cancelled entry's fields are not reusable; a new entry requires a fresh trigger and a fresh stored deadline. <strong>A new queue while the trigger holds MUST be permitted to replace a void entry</strong>, because a void entry is not pending and never blocks the mechanism. No account may cancel an entry whose trigger still holds and whose checkpoint has not advanced.
+<br>(f) <strong>Timelock: the notice window, and what it is not.</strong> A queued entry becomes executable no earlier than its stored <code>govResumeExecutableAt</code>. <strong>The window the rule can guarantee.</strong> For a user whose L2&rarr;L1 signal is included in the L2 state <strong>at or below the last accepted checkpoint at queue time</strong>, the window is a real exit window: execution leaves the checkpoint record untouched, nothing at or below it is rewritten (<a href="06-recovery-exceptions.html#REC-01">REC-01</a>), and the exit of <a href="03-membership-staking.html#MEM-15">MEM-15</a> from that checkpoint — including the withdrawal root of <a href="04-l1-integration.html#L1-13">L1-13</a>, which <code>L1-13(1)</code>/<code>(3)</code> make attestable for <strong>any already-accepted checkpoint, in particular the latest one</strong>, with no new L2 block and no settlement progress, its delay measured on the L1 clock from the root's own record — remains available before, during and after execution. The required length is the registered relation <code>T_GOV_RESUME &ge; W_root + WITHDRAWAL_DELAY + T_VETO + MARGIN</code>, where <code>W_root</code> is the worst-case time to produce and record the checkpoint's <code>k</code> attestations; every term is <strong>unmeasured</strong> and <code>MARGIN</code> is a stated, unmeasured margin whose contents — including any term for the user's own L1 submission and observation latency — are left to Phase B. The relation is a constructor-time assertion under (g) and is <strong>conditional</strong> on the funded proving market and retained inputs of <code>MEM-15(2b)</code>. <strong>What the window is not.</strong> It is <strong>not</strong> an exit window for value above the last accepted checkpoint: such value has no L1-provable claim and cannot create one (<code>MEM-15(4)</code>), and the execution does not carry its signals into the settlement the resumed chain produces, so they must be resubmitted; the range itself is not erased — it remains valid history that a later batch may settle by extending it under the new generation. No value of <code>T_GOV_RESUME</code> changes that. <em>(R5R2-C-01: the class is unprotected because the resumed settlement does not carry its signals, not because the range is discarded.)</em> What a holder above the checkpoint has is the boundary's prior statement that the range was provisional (<a href="06-recovery-exceptions.html#REC-01">REC-01</a>), the notice the queued entry gives, and the remedy of resubmitting their transactions after the resolution; protocol penalties compensate nothing (<a href="07-economics-slashing.html#ECON-11">ECON-11</a>). <strong>Execution removes no claim at or below the checkpoint</strong>: a user who does not complete the exit inside the window can still complete it afterwards from the same checkpoint, because the root remains attestable and the delay keeps running. The window is therefore a notice-and-opportunity window; what protects that class's value is the boundary, not the window. The sentence "the timelock gives <strong>every</strong> user the exit window of <code>MEM-15</code>" is <strong>withdrawn</strong> wherever it appears.
+<br>(g) <strong>The window is bound to the entry, and the relations are enforced where a value is set.</strong> <code>govResumeExecutableAt</code> is recorded at queue time and is part of the entry: no upgrade, initialiser, parameter change, governance call or client path may move it, shorten it, extend it or recompute it, and a change to <code>T_GOV_RESUME</code> applies only to entries queued after it (<a href="#GOV-03">GOV-03</a>(e)). An implementation MUST refuse to initialise unless the registered relations hold — <code>T_STALL_GOV &gt; T_PROOF_ENVELOPE + T_SETTLE_PIPELINE</code> (strictly larger than the D6 envelope, so a normal slow proof or one prover failure cannot make the trigger true) and <code>T_GOV_RESUME &ge; W_root + WITHDRAWAL_DELAY + T_VETO + MARGIN</code> (the relation of (f), whose terms are unmeasured). A change to either value is a <strong>rules change</strong> and MUST be published as one under <a href="#GOV-02">GOV-02</a>; it is not a silent parameter move, and the <em>Resume-only</em> description MUST NOT claim that governance chooses no configuration value. What governance chooses at <strong>execution</strong> is nothing; the discretion over the values future entries will use is named as F-GOV-4 rather than denied.
+<br>(h) <strong>The generation is a signed field, not a retirement record.</strong> <code>recoveryGeneration</code> is a field of the signed vote and block-header bytes, so validators sign the generation they are certifying under; the action of (c) increments it; validators sign the new generation. A batch extending the checkpoint MUST carry the current generation <strong>in its head certificate</strong>, in every contributing vote and in the head header — <strong>that is the whole of the requirement</strong>: it is not a range-wide generation rule, every other header legitimately carries the generation it was produced under (<a href="02-consensus.html#CONS-10">CONS-10</a>(7)), and a batch whose intermediate headers were produced under an earlier generation and whose head is produced under the current one is provable and MUST NOT be rejected on that ground (<a href="02-consensus.html#CONS-05">CONS-05</a>(2)(a)); a certificate for a block <strong>at or below</strong> the last accepted checkpoint MUST carry the generation of that block's own header and MUST NOT be compared with the current generation (<code>CONS-05(2)(b)</code>, <a href="05-proof-statement.html#PRF-05">PRF-05</a>(ii)(a)); this is what makes the first post-resolution epoch-opening batch provable, because the anchor certificate is judged under <code>B_anchor</code>'s own (pre-resolution) generation while the batch's head is judged under the new one. <strong>The generation is not stored in the checkpoint record</strong> and no checkpoint-record field is added for it: the historical case reads the generation from the block's own header bytes, which the checkpoint record's <code>blockHash</code> already pins (<a href="04-l1-integration.html#L1-05">L1-05</a> rows 4 and 31, <a href="04-l1-integration.html#L1-07">L1-07</a>). No height is retired, no retirement record exists, and no <code>max(lastLandedHeight + 1, resumeHeight)</code> form survives. A certificate or vote whose signed generation does not satisfy its case under <a href="02-consensus.html#CONS-05">CONS-05</a>(2) is <strong>void</strong> and is rejected: a superseded certificate cannot serve as a batch's head evidence, and a superseded vote is not counted. A block is <strong>not</strong> invalid because its own header carries an earlier generation, and a batch is not rejected for carrying such a block (<a href="02-consensus.html#CONS-10">CONS-10</a>(7)); this creates <strong>no new slashable offence and revives none</strong> — the rejected proof or the reverted call is the whole enforcement.
+<br>(i) <strong>Disclosed assumptions, and the churn residue.</strong> Clearing a settlement stall depends on governance liveness with no protocol bound (F-GOV-1, A-GOV-2): the trigger fixes when an entry <em>may</em> be queued, not that it will be. A captured or coerced governance can act opportunistically within this rule, waiting for a genuine stall and having an unfavourable provisional range's in-flight certificates superseded, so that its signals are not carried into the settlement the resumed chain produces and must be resubmitted (R5R2-C-01). Consumption bounds repetition to <strong>one generation increment per DAO transaction plus one full stored window</strong>: after an execution the trigger still holds, because execution does not advance the checkpoint, so a live governance can queue a fresh entry and increment again at that pace, voiding the in-flight certificates and proofs of the then-current provisional range each time. This residue is <strong>F-GOV-3</strong>, disclosed rather than constrained: the churn rule is <strong>consumption-only</strong>, and the "progress-earned" candidate — no new entry until the checkpoint advances past the previous execution's restore point — is <strong>not adopted</strong>, because it deadlocks the certified-but-unprovable case and L1 cannot decide whether such a range exists (the <code>h_close</code> referent class that gates <code>CONS-16</code>). None of the residue is permissionless. The assumption is recorded in <a href="10-assurance.html#LIM-01">LIM-01</a>.
+<br>(j) <strong>Upgrade survival.</strong> A <strong>queued</strong> entry MUST survive an upgrade unchanged: the upgrade may not cancel it, execute it early, alter the checkpoint it resumes from, move its stored deadline, or replace it with any other action. An <strong>executed</strong> entry MUST survive an upgrade unchanged: no upgrade may set its state back to <code>queued</code> or <code>none</code>, re-open it, or make it executable again, and no upgrade may reset, lower or skip <code>recoveryGeneration</code>. The generation and the entry state are L1 state that carries with the L1 reorganisation (<a href="04-l1-integration.html#L1-12">L1-12</a>, <a href="01-system-model.html#SYS-02">SYS-02</a>): an execution reorganised out never took effect, so the entry returns to <code>queued</code> with its stored deadline and the generation returns to its previous value; an acceptance reorganised out un-voids a live entry in the same way.
+<br><strong>What the action does not do.</strong> It gives no account a recovery entry point (queueing is a DAO transaction; execution is permissionless only over an entry that already exists and is live and past its stored deadline); it lets no caller choose anything (<code>execute()</code> takes no outcome-affecting argument and the entry names no height, state, checkpoint, range, subset, set, beneficiary or generation); it does not rewrite, re-judge or delay history at or below the checkpoint; it creates no bond, reward, escrow, fee, treasury transfer or slashable offence; it reduces no validator's weight and rotates no set; it does not gate, delay or accelerate the exit, the withdrawal root, the veto, forced inclusion, settlement, staking exits or <code>land</code>; it does not retire a height, keep a record of any block, or erase the range above the checkpoint — it invalidates a superseded certificate only as a batch's head evidence (R5R2-C-01); and it does not bound the number of resolutions by protocol rule — the pacing is the DAO transaction plus the stored window (F-GOV-3).
+<em>(increment 05: this rule is the revived D-15 action, re-derived against the current draft; the three round-6 blockers are disposed of by consumption (G-1), the scoped window (G-2) and the historical-certificate rule of (h) (G-3), and the owner decisions record that the churn rule is consumption-only, that slot 268's layout is a migration-audit obligation, that a superseded-generation proposal is no new offence, and that the trigger floor, the window relation and <code>MARGIN</code> stay symbolic and unmeasured, and that the effect is resume rather than erasure with the generation rule head-only (R5R2-C-01).)</em></span>
+<span class="why">Failure modes: an unbounded stall that no permissionless path can clear (the reason this rule exists); a repeated execution of one entry that churns the generation permissionlessly (forbidden by (c) and the state machine — execution consumes the entry and the generation has one writer); a governance action that picks which provisional transactions survive (forbidden by (b)–(c) — the entry names nothing, <code>resumeHeight</code> is derived, the action selects nothing and erases nothing: it resumes the same chain and invalidates a superseded certificate only as a batch's head evidence — R5R2-C-01); a stale entry executed after progress (forbidden by (e)); a timelock shortened after queueing so the window disappears (forbidden by (g) — the deadline is stored and no upgrade may move it); a superseded certificate presented as the head certificate of an extending batch (forbidden by (h) and <code>CONS-05(2)(a)</code>; R5R2-C-01: the range itself remains landable as ancestors under a head produced under the new generation); an upgrade used as a substitute for the action (forbidden by (j)); and a forced-inclusion or exit path gated by the resolution (forbidden by <a href="04-l1-integration.html#FI-14">FI-14</a>(2) and <code>MEM-15(5)</code>).</span>
+<span class="pill proven">Proven</span> <span class="pill assumed">Assumed</span> <span class="pill unmeasured">unmeasured</span> <span class="pill open">Open</span> <span class="small">(proven relative to A-GOV-1 for honest queueing and A-GOV-2 for governance liveness; every timing term is unmeasured and F-GOV-1–F-GOV-4 are carried in <a href="10-assurance.html#LIM-01">LIM-01</a>; the register rows are in <a href="09-parameters.html">09</a>)</span></div>
+
+<h2 id="risks">What could go wrong during migration</h2>
+<table>
+<thead><tr><th>Severity</th><th>Failure</th><th>Why it is possible</th><th>Mitigation</th></tr></thead>
+<tbody>
+<tr><td><span class="lvl crit">crit</span></td><td>Both settlement paths live at once; two histories
+are checkpointed into the same preserved SignalService</td><td>the old <code>prove()</code> and the new
+<code>land(data, proof)</code> would both be selectors on the same proxy if the state gate is missing or the
+upgrade is not atomic</td><td>MIG-03(1) gate; upgrade of implementation and state in one
+<code>execute</code> bundle; an assertion test that <code>prove()</code> reverts in
+<code>ETNA_ACTIVE</code> and <code>land(data, proof)</code> reverts in states 0–2</td></tr>
+<tr><td><span class="lvl crit">crit</span></td><td>The boundary object is wrong or chosen, so the new
+chain forks off a non-finalized height</td><td>a bundle can pass any <code>(B*, S*)</code> it likes unless the values are checked against stored state</td><td>T3's two equalities against
+<code>_checkpoints[VERSION][B*]</code> and <code>lastFinalizedBlockHash</code>; publish the expected
+<code>(B*, H*, S*)</code> before the bundle so any deviation is visible (GOV-02)</td></tr>
+<tr><td><span class="lvl high">high</span></td><td>No node can serve the L2 state at
+<code>S*</code>, so no prover can build the first post-migration batch</td><td>state availability is an
+assumption (A-CONS-5), not a protocol guarantee; the boundary state is only reconstructible from L1 data plus archive nodes</td><td>pre-activation availability gate: publish an attestation that at least one archive serves the full state at <code>B*</code>, and rehearse a proof from <code>S*</code> on a testnet before T3; if it fails, halt in <code>DRAINED</code> — no rule may synthesize the state</td></tr>
+<tr><td><span class="lvl high">high</span></td><td>The legacy path's data-first flow strands a
+proposal: a referenced blob leaves Ethereum's retention window and the data can no longer be derived —
+the June 2026 blob-expiry class (<code>init3()</code>, <code>Inbox.sol:246-258</code>)</td><td>the legacy
+path publishes data before the proof and keeps only a reference, so derivability depends on Ethereum's
+retention window (A-DA-3) and on a holder still serving the data (A-DA-2) — neither is a protocol duty,
+<code>RETENTION_WINDOW</code> is <span class="pill unmeasured">unmeasured</span>
+(<a href="09-parameters.html">09</a>), and the baseline records the incident's cause as unverified
+(<a href="../00-baseline-and-lessons.md">00-baseline-and-lessons.md</a> §3.5)</td><td>MIG-01/MIG-03(2):
+the drain deadline is published in L1 block numbers before T1, unproven proposals are declared void in
+advance rather than voided silently, and the Etna path's own publication record carries a per-publication
+deadline <code>T_PROVE_DEADLINE</code> well inside blob retention, with published-but-unproven data discarded
+and re-published rather than voided by an owner (D-11, MIG-02 slots 275–277), so no pending data reference can
+outlive retention by construction of the deadline <em>(D-6 removed the legacy inclusion path, and the narrow
+rule over published data that D-12 proposed is live again by <a href="../increments/04-forced-inclusion-design.md">increment 04</a> over the new publication record; the historical incident is described without a legacy
+forced-inclusion queue, and the live obligation reads only records created from <code>ETNA_ACTIVE</code>.)</em></td></tr>
+<tr><td><span class="lvl high">high</span></td><td>In-flight Bridge messages become unprovable or are
+processed twice</td><td>a VERSION bump hides all checkpoints at once; a reset or re-index of
+<code>messageStatus</code> forgets which messages were done</td><td>MIG-03(5): no reset, no VERSION
+change, no slot reuse; a migration test replays one message in each status (NEW / RETRIABLE / DONE / FAILED / RECALLED) across the upgrade</td></tr>
+<tr><td><span class="lvl high">high</span></td><td>Storage collision: a new variable lands in a slot a
+previously deployed fork already uses, or a deprecated slot is reused</td><td>the gaps are the only free space and a router's 0–150 footprint is invisible from the implementation's own layout</td>
+<td>MIG-02: append-only after the last used slot, gap shrinks by exactly the slots consumed, 0–150
+frozen for routed contracts, deprecated slots frozen; <code>pnpm layout</code> diff before and after, and an on-chain check of whether a router is present</td></tr>
+<tr><td><span class="lvl med">med</span></td><td>Image/verifier mismatch: the upgraded Inbox accepts a
+retired image, or the wrong image for the newest epoch</td><td>the image set and the verifier route are two places that must agree</td><td>MIG-05's per-epoch registry; publish the image inventory and the epoch boundary in the bundle; acceptance test on both backends (<a href="05-proof-statement.html#PRF-09">PRF-09</a>)</td></tr>
+<tr><td><span class="lvl med">med</span></td><td>Old Shasta clients keep producing a chain that cannot
+settle</td><td>an L2 client that does not implement the new genesis keeps running</td><td>the new chain has a different genesis object and the old <code>prove()</code> path is closed, so the old chain can neither activate the Bridge nor be accepted on L1; publish the new genesis hash and the L1 block at which it binds; cross-chain replay is excluded by chain-id domain separation (<a href="index.html#GEN-05">GEN-05</a>, <a href="04-l1-integration.html#MSG-02">MSG-02</a>)</td></tr>
+<tr><td><span class="lvl med">med</span></td><td>A long stall in <code>FROZEN</code>/<code>DRAINED</code>
+halts settlement for an unbounded time</td><td>the release of a failed T3 is a DAO bundle, i.e. a trust assumption, and the stall resolution of
+<a href="#GOV-04">GOV-04</a> cannot reach the pre-activation window because its trigger reads the current
+L1-accepted checkpoint record, which does not exist yet — so nothing can bound that window; once the chain
+is <code>ETNA_ACTIVE</code>, a settlement stall is cleared only by the rule-bound GOV-04 action, whose
+availability depends on governance liveness (F-GOV-1/A-GOV-2), so its duration remains unbounded by the
+protocol alone (<a href="index.html#STATUS-06">STATUS-06</a> still protects every accepted batch); heartbeat eligibility is live (<a href="../increments/02-heartbeat-design.md">increment 02</a>) but filters only future set versions and the rotation that would consume a restart set stays gated, so it cannot bound a stall inside a committed epoch <em>(increment 02: the heartbeat filters future versions; the rotation stays gated)</em></td><td>bound the window in the migration announcement; disclose that already-eligible withdrawals still work; measure the actual halt length and publish it —
+<span class="pill unmeasured">unmeasured</span> <em>(increment 05: the pre-activation window is out of
+GOV-04's reach and the post-activation window depends on governance liveness; the measurement remains owed.)</em></td></tr>
+<tr><td><span class="lvl high">high</span></td><td>An upgrade lands and is presented as a stall resolution, or discards history above the latest L1-accepted checkpoint</td><td>an upgrade executes in one transaction and can rewrite storage, and governance capture is failure class F2 (<a href="#GOV-02">GOV-02</a>); the only rule that specifies a stall-clearing action is <a href="#GOV-04">GOV-04</a>, so a bundle that claims to be one is acting outside the rules</td><td><a href="#GOV-03">GOV-03</a>(e): no upgrade may be a substitute for the stall resolution, must accept every history at or below the latest L1-accepted checkpoint, may not discard history above it, and must carry the queued and executed entry state and the signed generation unchanged; <strong>an upgrade cannot clear a stall</strong> — only the executed GOV-04 action can — and a bundle that discards history is a rules change reported as such (<a href="#GOV-02">GOV-02</a>) <em>(increment 05: the action is live and the upgrade is never it.)</em></td></tr>
+</tbody></table>
+<h2 id="preconditions">Preconditions to establish on-chain before the bundle</h2>
+<table>
+<thead><tr><th>#</th><th>Question</th><th>How to answer it</th><th>Tag</th></tr></thead>
+<tbody>
+<tr><td>P1</td><td>Do the deployed proxies route through a <code>ForkRouter</code>?</td><td>No concrete
+router subclass exists in the pin checkout, but the generated layouts exist; verify the proxy's implementation target and runtime code on-chain</td><td><span class="pill unmeasured">unmeasured</span> (baseline §10 gap 3)</td></tr>
+<tr><td>P2</td><td>Which verifier does the live Inbox point at?</td><td>read
+<code>Inbox.getConfig().proofVerifier</code> (<code>Inbox.sol:530</code>)</td>
+<td><span class="pill unmeasured">unmeasured</span> (baseline §10 gap 9)</td></tr>
+<tr><td>P3</td><td>Does the deployed Bridge reference a non-zero QuotaManager?</td><td>read
+<code>Bridge.quotaManager</code> (<code>Bridge.sol:106</code>)</td>
+<td><span class="pill unmeasured">unmeasured</span></td></tr>
+<tr><td>P4</td><td>Is the golden-touch address key-controlled by any party?</td><td>published key-custody
+statement plus a check for outbound transactions from it</td>
+<td><span class="pill assumed">Assumed</span> (MIG-04)</td></tr>
+<tr><td>P5</td><td>What exactly is <code>(B*, H*, S*)</code>?</td><td>the last
+<code>CheckpointSaved(uint48 indexed blockNumber, bytes32 blockHash, bytes32 stateRoot)</code> log of
+the L1 SignalService, cross-checked against
+<code>Inbox.getCoreState().lastFinalizedBlockHash</code></td>
+<td><span class="pill sourced">sourced</span></td></tr>
+<tr><td>P6</td><td>Can an archive serve the full L2 state at <code>S*</code>?</td><td>availability
+attestation from at least one archive node plus a rehearsal proof on Hoodi</td>
+<td><span class="pill unmeasured">unmeasured</span></td></tr>
+<tr><td>P7</td><td>For every legacy proposal still provable at the freeze, is its data still inside
+Ethereum's retention window and served by at least one holder?</td>
+<td>per proposal, compare the referenced blob's age against the retention window and confirm a holder or
+archive can serve the data</td>
+<td><span class="pill unmeasured">unmeasured</span> (A-DA-2, A-DA-3; <code>RETENTION_WINDOW</code> is
+unset, and the June 2026 blob-expiry incident is the recorded failure of this check) <em>(user decision
+D-6: the precondition is re-based on the legacy proposals' data, not on a forced-inclusion queue)</em></td></tr>
+<tr><td>P8</td><td>Does the migration bundle fit an L1 block?</td><td>gas measurement of the bundle
+against the L1 block gas limit</td><td><span class="pill unmeasured">unmeasured</span></td></tr>
+</tbody></table>
+<h2 id="numbers">Numbers on this page, and their tags</h2>
+<table>
+<thead><tr><th>Number</th><th>Value</th><th>Tag</th><th>Basis</th></tr></thead>
+<tbody>
+<tr><td>Baseline revision</td><td><code>7718753c1</code></td><td><span class="pill sourced">sourced</span></td><td><a href="index.html#provenance">index §Provenance</a></td></tr>
+<tr><td>Inbox gap</td><td>43 slots (258–300)</td><td><span class="pill sourced">sourced</span></td><td><code>MainnetInbox_Layout.sol:26</code></td></tr>
+<tr><td>Inbox new state planned</td><td>15 slots (258–269, 275–277); 28 gap slots remain (270–274, 278–300)</td><td><span class="pill derived">derived</span></td><td>MIG-02 change table; every required object enumerated with its holder and slot cost, including the recovery generation, the live stall-resolution entry fields and <code>paramVersion</code> at slot 268, the PARAM-04 per-epoch configuration registry (269) and D-11's publication record and clock (275–277). <strong>The declaration count is the pre-increment figure and is an explicit open obligation of the migration audit:</strong> increment 05 adds the stored <code>govResumeExecutableAt</code> to slot 268's packed group, so whether the group still fits the preserved 32-byte word or consumes an additional slot MUST be re-derived from the generated layout and MUST NOT be assumed (<a href="#MIG-02">MIG-02</a>). The withdrawn recovery record, bond, attempt history and retirement record keep slots 270–274 free. Value re-derived after the D-6 removal of the five forced-inclusion slots (266–270), the D-11 publication budget and the D-15 withdrawal of the permissionless recovery; the only inputs are the sourced pin layouts and the change list, so no unmeasured input enters the audit, and the maps' entry slots (checkpoints, publications, configuration registry) are not gap slots <em>(increment 05: the 15-slot/28-free figures are re-derived by the migration audit for the added entry field, not asserted here. Increment 02: the heartbeat adds no Inbox slot either — its per-entry state is new staking-contract state outside this budget, and no proof input or config-hash element changes. <a href="../increments/04-forced-inclusion-design.md">Increment 04</a>: the revived FI register needs <code>nextSeq</code> and <code>pruneCursor</code> in the one packed clock at slot 277 (<code>dueHead</code>/<code>dueTail</code>/<code>dueCount</code> are deleted and free bytes, not slots), the order map (276) is live state, and the settlement record's <code>(settledCount, anchoredL1Block)</code> pair is carried in the per-height checkpoint record's entry slots, with no per-height mapping introduced — so the declaration count is unchanged at 15, with 28 free.)</em></td></tr>
+<tr><td><code>minBond</code>, <code>livenessBond</code></td><td>0, 0</td><td><span class="pill sourced">sourced</span></td><td><code>MainnetInbox.sol:37-38</code></td></tr>
+<tr><td><code>withdrawalDelay</code></td><td>1 week</td><td><span class="pill sourced">sourced</span></td><td><code>MainnetInbox.sol:39</code></td></tr>
+<tr><td>Proposal ring buffer</td><td>21 600</td><td><span class="pill sourced">sourced</span></td><td><code>MainnetInbox.sol:18</code></td></tr>
+<tr><td><code>DRAIN_DEADLINE</code></td><td>21 600 L1 blocks</td><td><span class="pill derived">derived</span></td><td>ring-buffer capacity under the one-proposal-per-L1-block pacing (<code>Inbox.sol:590</code>); the wall-clock equivalent is illustrative, not a protocol constant (<a href="index.html#GEN-06">GEN-06</a>)</td></tr>
+<tr><td><code>SignalService.VERSION</code></td><td>1</td><td><span class="pill sourced">sourced</span></td><td><code>SignalService.sol:52</code></td></tr>
+<tr><td>Migration bundle gas; stranded Anchor balance; halt duration; rehearsal cost</td><td>UNMEASURED</td><td><span class="pill unmeasured">unmeasured</span></td><td>what would measure them: a gas measurement of the bundle against the L1 block gas limit; a balance read at activation; a published timeline of the halt; a testnet rehearsal record</td></tr>
+</tbody></table>
+<h2 id="provenance">Provenance</h2>
+<table><thead><tr><th>Source</th><th>Revision / version</th><th>Use on this page</th></tr></thead><tbody>
+<tr><td><a href="../research/taiko-baseline-contracts.md">taiko-baseline-contracts.md</a></td><td><code>7718753c1</code></td><td>every address, slot, line citation and privileged lever</td></tr>
+<tr><td><a href="../research/prior-etna-digest.md">prior-etna-digest.md</a></td><td><code>a829f79723de9a09205660d9895418577cfe9aa9</code></td><td>DAO-dependent-state contrast; migration lessons (L17, L41, L42, XS-FIN-01)</td></tr>
+<tr><td><a href="../04-architecture-decision.md">04-architecture-decision.md</a></td><td>2026-10-05</td><td>UPG-PRESERVE obligation; atomic data+proof boundary</td></tr>
+<tr><td><a href="../01-requirements-and-threat-model.md">01-requirements-and-threat-model.md</a></td><td>2026-10-05</td><td>A-GOV-1, A-CONS-1, A-DA-2/A-DA-3, A-CONS-5, F2</td></tr>
+</tbody></table>
+</main>
+<footer class="site">
+<p>Etna PoS + ZK reference specification · static, offline, no build step · normative rules are
+stated once and referenced by identifier.</p>
+</footer>
+</body></html>
