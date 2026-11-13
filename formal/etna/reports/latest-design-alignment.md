@@ -3,7 +3,7 @@
 Authorities: main `d18357214fab30ea512ae9858a11699806d72ba1` (2026-11-13) for SPEC,
 ACCEPTANCE, ANCHORLESS and SWITCH. This revision re-pins to #22348 and changes no definition or
 theorem statement, only comments and evidence wording; [the #22348 alignment](alignment-22348.md)
-has the details. The revision before re-pinned to #22341 and restated H1 over its own five
+has the details. An earlier revision re-pinned to #22341 and restated H1 over its own five
 premises (`FundPremises`) ([#22341 alignment](alignment-22341.md)). Before that, a revision
 aligned the model with #22338: checkpoint records, cuts, `LandInput` and the statement carry
 the validator-state hash; app import retains EL headers from
@@ -11,15 +11,16 @@ max(o, s − U + 1); its inspection handles the validator-state preimage
 ([#22338 alignment](alignment-22338.md)). The sections below describe the current-only package
 and statement lock introduced before that.
 
-This revision also adds H4, recoverability ([report](recoverability.md)): from every
-reachable, initialized state that meets `LiveAt`, a path with no rollback, no exclusions, no
-forced-inclusion blanking and no structural change other than K reaches an accepted landing.
-H1 now also states SPEC section 1's finality of checkpoints. Three model changes alter the
-machine that H1–H3 describe: `recover`'s structural upgrade keeps the stored `genesisCutoff`,
-as the spec requires; `recover` no longer checks a planned stop, as in SPEC 8.3; and `land`'s
-first-landing fence checks the Unzen checkpoint's height. The evidence is now 60 partial / 508
-deferred clauses and 43 partial / 37 supporting / 528 deferred binding rules. The counts below
-are those after #22338.
+The revisions between the #22341 re-pin and this one added H4, recoverability
+([report](recoverability.md)): from every reachable, initialized state that meets `LiveAt`, a
+path with no rollback, no exclusions, no forced-inclusion blanking and no structural change
+other than K reaches an accepted landing. They also made H1 state SPEC section 1's finality of
+checkpoints, and made three model changes that altered the machine H1–H3 describe: `recover`'s
+structural upgrade keeps the stored `genesisCutoff`, as the spec requires; `recover` no longer
+checks a planned stop, as in SPEC 8.3; and `land`'s first-landing fence checks the Unzen
+checkpoint's height. Since those revisions the evidence has been 60 partial / 508 deferred
+clauses and 43 partial / 37 supporting / 528 deferred binding rules, and the #22348 re-pin leaves
+it unchanged. The counts below are those after #22338.
 
 ## Current-only package
 
