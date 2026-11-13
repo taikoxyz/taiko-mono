@@ -17,7 +17,8 @@ namespace TaikoSpec.ZkGas.Traces
 
 /-- What one step did, as the client recorded it. -/
 structure StepOut where
-  /-- The frame's gas after the step, as fed to the meter. Only for reference when `spawn`. -/
+  /-- The frame's gas after the step, as fed to the meter; for a spawn step, the gas left after
+  the gas it forwards. -/
   gasAfter : Nat
   /-- Whether the step opened a new frame (CALL or CREATE family). -/
   spawn : Bool

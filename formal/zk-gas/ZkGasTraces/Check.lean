@@ -20,33 +20,29 @@ values:
   charges (a skipped tx's are discarded) reproduces each tx's status and total and the vector's
   `included`, `truncated_at`, `cumulative_zk_gas` and `block_zk_gas`; a harness frame's
   `meterTx` total and status match `frame_zk_gas` and `status`.
-- (e) a step model, where it returns an outcome, agrees with the trace's `spawn` and, for a step
-  that does not spawn, `gas_after`; and, unless the meter rejected the step's charge, the event
+- (e) the step model agrees with every step's `spawn` and `gas_after` (for a spawn step, the gas
+  left after the gas it forwards); and, unless the meter rejected the step's charge, the event
   after the step is one its outcome allows (`checkNext`): a step at the same depth after
-  `continue`; a step at a smaller depth or the tx's or frame's end after an outcome that ends the
-  frame, with the harness `frame_end` status of the outcome when the top frame (depth 1) ends;
-  and a step one deeper, a precompile, a step at the same depth (the new frame ran no step) or the
-  end after `newFrame`.
+  `continue`; a step one depth up after an outcome that ends a child frame, and the tx's or
+  frame's end after one that ends the top frame (depth 1), with the harness `frame_end` status of
+  the outcome; and a step one deeper, a precompile, a step at the same depth (the new frame ran
+  no step) or the end after `newFrame`.
+- (f) the gas a frame gets back (`Walk.frameReturn`, revm-handler 43.0.2 `src/frame.rs`): when a
+  child frame that ran steps ends, the frame that opened it resumes with the `gas_after` of its
+  spawn step plus what the child returns (`returnedGas`): the child's gas left when its last
+  step's outcome is `success` or `revert`, less a CREATE's code deposit, and 0 when it halts; and
+  after a precompile run that a spawn step opened, the caller resumes with that step's
+  `gas_after` plus the precompile's `left`.
 -/
 namespace TaikoSpec.ZkGas.Traces
 
 /-- A step model: the step's `gas_after`, its outcome, and the name of the branch that decided
-it; `none` for a step it does not model yet. A step spawns exactly when its outcome is
-`newFrame`. -/
-abbrev Model := Pre → Except String (Option (Nat × Outcome × String))
-
-/-- The model that models no step. -/
-def unmodeled : Model := fun _ => .ok none
+it. A step spawns exactly when its outcome is `newFrame`. -/
+abbrev Model := Pre → Except String (Nat × Outcome × String)
 
 /-- The Unzen step model `stepOutcome` (`ZkGasModel.Step`). -/
 def stepModel : Model := fun pre =>
-  (stepOutcome .unzen pre).map (·.map fun r => (r.gasAfter, r.outcome, r.branch.name))
-
-/-- `model`, with every step it does not model an error. -/
-def requireModeled (model : Model) : Model := fun p => do
-  match ← model p with
-  | none => throw s!"opcode {opName p.op} is not modeled"
-  | some r => pure (some r)
+  (stepOutcome .unzen pre).map fun r => (r.gasAfter, r.outcome, r.branch.name)
 
 /-- The multiplier of opcode `op` (the fail-safe outside the table). -/
 def opcodeMult (s : Schedule) (op : Nat) : Nat := s.opcodeMult.getD op failsafeMultiplier
@@ -65,6 +61,8 @@ def checkAmount (s : Schedule) : Event → Except String Unit
       throw s!"intrinsic zk {hexString zk}, but the schedule charges {hexString s.txIntrinsic}"
   | .step pre out => do
     let mult := opcodeMult s pre.op
+    if out.gasAfter > pre.gas then
+      throw s!"gas_after {hexString out.gasAfter} exceeds gas {hexString pre.gas}"
     if out.spawn then
       match s.spawnEstimate pre.op with
       | none => throw s!"spawn step of opcode {opName pre.op}, which has no spawn estimate"
@@ -72,8 +70,6 @@ def checkAmount (s : Schedule) : Event → Except String Unit
         if out.charged && out.zk != estimate * mult then
           throw s!"zk {hexString out.zk}, but a spawn step charges its estimate {estimate} * multiplier {mult} = {hexString (estimate * mult)}"
     else
-      if out.gasAfter > pre.gas then
-        throw s!"gas_after {hexString out.gasAfter} exceeds gas {hexString pre.gas}"
       if out.charged && out.zk != (pre.gas - out.gasAfter) * mult then
         throw s!"zk {hexString out.zk}, want (gas - gas_after) * multiplier {mult} = {hexString ((pre.gas - out.gasAfter) * mult)}"
     unless out.charged || (out.zk == 0 && out.ok) do
@@ -88,19 +84,16 @@ def checkAmount (s : Schedule) : Event → Except String Unit
       throw s!"zk {hexString zk}, want (supplied - left) * multiplier {mult} = {hexString ((supplied - left) * mult)}"
   | _ => pure ()
 
-/-- (e): the model's result for one step, if it models the step; returns its outcome and
-branch. -/
-def checkModel (model : Model) (pre : Pre) (out : StepOut) :
-    Except String (Option (Outcome × String)) := do
-  match ← model pre with
-  | none => pure none
-  | some (gasAfter, outcome, branch) =>
-    let spawn := outcome == .newFrame
-    unless spawn == out.spawn do
-      throw s!"model branch {branch}: spawn {spawn}, trace spawn {out.spawn}"
-    unless spawn || gasAfter == out.gasAfter do
-      throw s!"model branch {branch}: gas_after {hexString gasAfter}, trace gas_after {hexString out.gasAfter}"
-    pure (some (outcome, branch))
+/-- (e): the model's result for one step: its `spawn` and `gas_after` must be the trace's.
+Returns its outcome and branch. -/
+def checkModel (model : Model) (pre : Pre) (out : StepOut) : Except String (Outcome × String) := do
+  let (gasAfter, outcome, branch) ← model pre
+  let spawn := outcome == .newFrame
+  unless spawn == out.spawn do
+    throw s!"model branch {branch}: spawn {spawn}, trace spawn {out.spawn}"
+  unless gasAfter == out.gasAfter do
+    throw s!"model branch {branch}: gas_after {hexString gasAfter}, trace gas_after {hexString out.gasAfter}"
+  pure (outcome, branch)
 
 def outcomeName : Outcome → String
   | .continue => "continue"
@@ -125,6 +118,23 @@ structure Pending where
   depth : Nat
   outcome : Outcome
   branch : String
+  /-- The step's `gas_after`. -/
+  gasAfter : Nat
+  /-- The step is CREATE or CREATE2. -/
+  create : Bool
+  /-- For RETURN, the length of the data it returns (`stack[1]`); 0 otherwise. -/
+  returnLen : Nat
+
+/-- A child frame that runs steps, opened by a spawn step. -/
+structure Frame where
+  /-- The spawn step's event index. -/
+  event : Nat
+  /-- The spawn step's depth; the child runs one deeper. -/
+  depth : Nat
+  /-- The spawn step's `gas_after`: the opening frame's gas while the child runs. -/
+  gasAfter : Nat
+  /-- The spawn step is CREATE or CREATE2. -/
+  create : Bool
 
 /-- Event `e`, for messages. -/
 def describe : Event → String
@@ -145,13 +155,41 @@ def checkNext (p : Pending) (e : Event) : Except String Unit := do
   | .newFrame, .step pre _ => unless pre.depth = p.depth + 1 ∨ pre.depth = p.depth do fail ""
   | .newFrame, .intrinsic .. => fail ""
   | .newFrame, _ => pure ()
-  | _, .step pre _ => unless pre.depth < p.depth do fail " ends the frame"
+  | _, .step pre _ => unless pre.depth + 1 = p.depth do fail s!" ends a frame at depth {p.depth}"
   | o, .frameEnd status _ =>
+    unless p.depth = 1 do fail s!" ends a frame at depth {p.depth}"
     if let some want := frameStatus o then
-      if p.depth = 1 ∧ want ≠ status then
+      if want ≠ status then
         throw s!"{at_} ends the top frame with status {want}, but frame_end has status {status}"
-  | _, .txEnd .. => pure ()
-  | _, _ => fail " ends the frame"
+  | _, .txEnd .. => unless p.depth = 1 do fail s!" ends a frame at depth {p.depth}"
+  | _, _ => fail s!" ends a frame at depth {p.depth}"
+
+def showHexList (xs : List Nat) : String := toString (xs.map hexString)
+
+/-- EIP-170's `MAX_CODE_SIZE` (revm-primitives 43.0.0 `eip170.rs`), the code size limit before
+Amsterdam: alethia-reth sets no `limit_contract_code_size` (revm-context 43.0.2 `cfg.rs:462`). -/
+def maxCodeSize : Nat := 24576
+
+/-- `code_deposit_cost` per byte (revm-context-interface 43.0.1 `gas.rs`, `CODEDEPOSIT`). -/
+def codeDepositGas : Nat := 200
+
+/-- The gas a child frame whose last step's outcome is `o`, with `left` gas after it, gives back
+to the frame that opened it (revm-handler 43.0.2 `src/frame.rs`): `handle_reservoir_remaining_gas`
+(`:595`) returns the child's remaining gas for a successful or reverted result (`:613-614`) and
+nothing for a halt, which spends it (`:604-611`). A CREATE child that returns code goes through
+`return_create` (`:640`) first: code above `maxCodeSize` bytes (`:664`), code starting with 0xEF
+(`:674`, EIP-3541) and a code deposit of 200 gas per byte the child cannot pay (`:684-693`) make
+the result a halt, and otherwise the deposit is spent. A trace does not record the code's first
+byte, so a CREATE child that can pay its deposit may give back either the rest or nothing. A CALL
+child's gas includes the 2,300 stipend of a value transfer, which it gives back like the rest. -/
+def returnedGas (create : Bool) (o : Outcome) (left len : Nat) : List Nat :=
+  match o with
+  | .success =>
+    if !create || len = 0 then [left]
+    else if len > maxCodeSize ∨ left < codeDepositGas * len then [0]
+    else [left - codeDepositGas * len, 0]
+  | .revert => [left]
+  | _ => [0]
 
 inductive Layer
   | block
@@ -186,6 +224,13 @@ structure Walk where
   spawned : Bool := false
   /-- The last event was a spawn step of the CALL family. -/
   callSpawned : Bool := false
+  /-- The depth and `gas_after` of the current tx's or frame's last step. -/
+  lastStep : Option (Nat × Nat) := none
+  /-- The child frames that are running, innermost first. -/
+  frames : List Frame := []
+  /-- After a precompile run a spawn step opened: the depth and gas its caller resumes with, and
+  where they come from. -/
+  resume : Option (Nat × Nat × String) := none
   /-- The current tx or frame went straight to a precompile. -/
   direct : Bool := false
   /-- The meter rejected a charge of the current tx or frame. -/
@@ -241,7 +286,8 @@ def Walk.event (s : Schedule) (model : Model) (layer : Layer) (w : Walk) (i : Na
         throw s!"event {i}: a tx after aborted tx {tx.index} (the block ends at it)"
     (checkAmount s (.intrinsic zk ok)).mapError (s!"event {i}: " ++ ·)
     let w := { w with inTx := true, depth := none, spawned := false, callSpawned := false,
-                      direct := false, rejected := false, total := 0, charges := [] }
+                      lastStep := none, frames := [], direct := false, rejected := false,
+                      total := 0, charges := [] }
     w.charge s i zk ok
   | .step pre out => do
     w.inside layer i "step"
@@ -253,19 +299,19 @@ def Walk.event (s : Schedule) (model : Model) (layer : Layer) (w : Walk) (i : Na
       if pre.depth = 0 ∨ pre.depth > d + 1 ∨ (pre.depth = d + 1 ∧ !w.spawned) then
         throw s!"event {i}: depth {pre.depth} after depth {d} (depth rises by one, only after a spawn step)"
     (checkAmount s (.step pre out)).mapError (s!"event {i}: " ++ ·)
-    let modeled ← (checkModel model pre out).mapError (s!"event {i}: " ++ ·)
-    let branches := match modeled with
-      | some (_, b) => b :: w.branches
-      | none => w.branches
-    let pending := match modeled with
-      | some (outcome, branch) =>
-        if out.ok then some { event := i, depth := pre.depth, outcome, branch } else none
-      | none => none
+    let (outcome, branch) ← (checkModel model pre out).mapError (s!"event {i}: " ++ ·)
+    let pending : Option Pending :=
+      if out.ok then
+        some { event := i, depth := pre.depth, outcome, branch, gasAfter := out.gasAfter
+               create := pre.op = 0xf0 ∨ pre.op = 0xf5
+               returnLen := if pre.op = 0xf3 then pre.stack.getD 1 0 else 0 }
+      else none
     let w := { w with
       depth := some pre.depth
       spawned := out.spawn
       callSpawned := out.spawn && callFamily pre.op
-      branches
+      lastStep := some (pre.depth, out.gasAfter)
+      branches := branch :: w.branches
       pending }
     if out.charged then w.charge s i out.zk out.ok else pure w
   | .precompile addr supplied left success zk ok => do
@@ -274,7 +320,14 @@ def Walk.event (s : Schedule) (model : Model) (layer : Layer) (w : Walk) (i : Na
     unless w.callSpawned || direct do
       throw s!"event {i}: precompile event must follow a CALL-family spawn step, or be a tx's or frame's only event"
     (checkAmount s (.precompile addr supplied left success zk ok)).mapError (s!"event {i}: " ++ ·)
-    let w := { w with spawned := false, callSpawned := false, direct }
+    let resume := match w.lastStep with
+      | some (d, gasAfter) =>
+        if !direct && ok then
+          some (d, gasAfter + left,
+            s!"the precompile run of event {i} leaves {hexString left} to the spawn step of gas_after {hexString gasAfter}")
+        else none
+      | none => none
+    let w := { w with spawned := false, callSpawned := false, direct, resume }
     w.charge s i zk ok
   | .txEnd index status txZk => do
     unless layer = .block do throw s!"event {i}: tx_end in a harness trace"
@@ -314,18 +367,51 @@ def Walk.event (s : Schedule) (model : Model) (layer : Layer) (w : Walk) (i : Na
       throw s!"event {i}: frame_zk {hexString frameZk}, but the frame's charges total {hexString w.total}"
     return { w with inTx := false, frame := some (status, frameZk) }
 
+/-- (f): event `e`, number `i`, after the walk `prev`, with `w` the walk after `e`'s own
+checks. A step one deeper than the modeled spawn step before it enters that step's child frame.
+A step after a modeled step that ends a child frame resumes the frame that opened it, whose gas
+must be the spawn step's `gas_after` plus what the child gives back (`returnedGas`). The event
+after a precompile run that a spawn step opened is its caller's step, with the spawn step's
+`gas_after` plus the gas the precompile left. -/
+def Walk.frameReturn (w prev : Walk) (i : Nat) : Event → Except String Walk
+  | .step pre _ => do
+    if let some (d, want, what) := prev.resume then
+      unless pre.depth = d ∧ pre.gas = want do
+        throw s!"event {i}: a step at depth {pre.depth} with gas {hexString pre.gas}, but {what}, so its caller resumes at depth {d} with {hexString want}"
+    let some p := prev.pending | return w
+    if p.outcome = .newFrame ∧ pre.depth = p.depth + 1 then
+      let f : Frame := { event := p.event, depth := p.depth, gasAfter := p.gasAfter, create := p.create }
+      return { w with frames := f :: w.frames }
+    if (frameStatus p.outcome).isNone ∨ p.depth ≤ 1 then return w
+    match w.frames with
+    | f :: rest =>
+      unless f.depth + 1 = p.depth do
+        throw s!"event {i}: the child frame that ends at event {p.event} runs at depth {p.depth}, but the innermost open frame was opened at depth {f.depth}"
+      let returned := returnedGas f.create p.outcome p.gasAfter p.returnLen
+      unless returned.any (pre.gas = f.gasAfter + ·) do
+        throw s!"event {i}: gas {hexString pre.gas}, but the frame resumes with gas_after {hexString f.gasAfter} of its spawn step (event {f.event}) plus {showHexList returned}, what its child gives back after outcome {outcomeName p.outcome} with {hexString p.gasAfter} left (event {p.event}, model branch {p.branch})"
+      return { w with frames := rest }
+    | [] => throw s!"event {i}: the child frame that ends at event {p.event} has no open frame"
+  | e => do
+    if let some (_, _, what) := prev.resume then
+      throw s!"event {i}: {describe e}, but {what}, so its caller resumes with a step"
+    return w
+
 /-- Walks the events from index `i` on. Each event is checked on its own first, then against
-the outcome of the modeled step before it. -/
+the outcome of the modeled step before it, then for the gas a frame gets back. -/
 def walkFrom (s : Schedule) (model : Model) (layer : Layer) : Nat → Walk → List Event →
     Except String Walk
   | _, w, [] => .ok w
   | i, w, e :: es =>
-    match { w with pending := none }.event s model layer i e with
+    match { w with pending := none, resume := none }.event s model layer i e with
     | .error err => .error err
     | .ok w' =>
       match w.pending.map (checkNext · e) with
       | some (.error err) => .error err
-      | _ => walkFrom s model layer (i + 1) w' es
+      | _ =>
+        match w'.frameReturn w i e with
+        | .error err => .error err
+        | .ok w'' => walkFrom s model layer (i + 1) w'' es
 
 def hexList (expected : Lean.Json) (k : String) : Except String (List Nat) := do
   match ← field expected k with
@@ -341,8 +427,6 @@ def indexList (expected : Lean.Json) (k : String) : Except String (List Nat) := 
 def prefixSums : Nat → List Nat → List Nat
   | _, [] => []
   | acc, x :: xs => (acc + x) :: prefixSums (acc + x) xs
-
-def showHexList (xs : List Nat) : String := toString (xs.map hexString)
 
 /-- A tx index, or `null` for none. -/
 def showIndex : Option Nat → String
@@ -440,9 +524,10 @@ structure Report where
   branches : List String
   deriving Repr, DecidableEq
 
-/-- Checks the trace text `trace` of the vector whose case file text is `vector`. A block
-vector runs the Unzen schedule; a harness vector runs it with the vector's `zk_block_limit`. -/
-def checkVectorText (vector trace : String) (model : Model) : Except String Report := do
+/-- Checks the trace `events` of the vector whose case file text is `vector`. A block vector
+runs the Unzen schedule; a harness vector runs it with the vector's `zk_block_limit`. -/
+def checkVectorEvents (vector : String) (events : List Event) (model : Model) :
+    Except String Report := do
   let v ← (Lean.Json.parse vector).mapError ("vector: invalid JSON: " ++ ·)
   let expected ← (field v "expected").mapError fun _ => "the vector has no expected values"
   let s ← match ← stringField v "layer" with
@@ -451,9 +536,13 @@ def checkVectorText (vector trace : String) (model : Model) : Except String Repo
       let limit ← asHex "input.zk_block_limit" (← field (← field v "input") "zk_block_limit")
       pure { unzen with blockLimit := limit }
     | other => throw s!"layer: {other.quote} is not block or harness"
-  let events ← parseTrace trace
   let branches ← checkTrace s expected events model
   let steps := events.countP fun | .step .. => true | _ => false
   return { events := events.length, steps, branches }
+
+/-- Checks the trace text `trace` of the vector whose case file text is `vector`
+(`checkVectorEvents` on the parsed events). -/
+def checkVectorText (vector trace : String) (model : Model) : Except String Report := do
+  checkVectorEvents vector (← parseTrace trace) model
 
 end TaikoSpec.ZkGas.Traces

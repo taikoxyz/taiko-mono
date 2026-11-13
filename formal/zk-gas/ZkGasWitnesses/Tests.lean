@@ -89,8 +89,8 @@ def harnessVector (limit expected : String) : String :=
   "{\"layer\":\"harness\",\"input\":{\"zk_block_limit\":\"" ++ limit ++ "\"},\"expected\":" ++
     expected ++ "}"
 
-/-- Checks the fixture trace `events` against `vector`, by default with every step unmodeled. -/
-def run (vector : String) (events : List String) (model : Model := unmodeled) :
+/-- Checks the fixture trace `events` against `vector`, by default with the Unzen step model. -/
+def run (vector : String) (events : List String) (model : Model := stepModel) :
     Except String Report :=
   checkVectorText vector (lines events) model
 
@@ -119,8 +119,8 @@ def smokeHarnessVector : String :=
 /-- A model that charges exactly each opcode's static gas (plus `extra`) and ends the frame
 successfully at STOP, right for the smoke harness trace when `extra` is 0. -/
 def staticModel (extra : Nat := 0) : Model :=
-  fun p => .ok (some (p.gas - staticGas p.op - extra, if p.op = 0 then .success else .continue,
-    "static"))
+  fun p => .ok (p.gas - staticGas p.op - extra, if p.op = 0 then .success else .continue,
+    "static")
 
 -- Canonical hex: zero is `0x0`; leading zeros, uppercase and a bare `0x` are rejected;
 -- 2^256 - 1 parses.
@@ -168,13 +168,11 @@ def staticModel (extra : Nat := 0) : Model :=
   fun es => es.map fun | .step p _ => some p.facts | _ => none) =
   .ok [some { accountWarm := some true, accountEmpty := some false, delegateWarm := some none }]
 
--- The smoke traces pass with every step unmodeled, and fail without that allowance.
-#guard run (blockVector smokeBlockExpected) smokeBlock = .ok { events := 5, steps := 1, branches := [] }
-#guard run smokeHarnessVector smokeHarness = .ok { events := 5, steps := 4, branches := [] }
-#guard failsWith (run smokeHarnessVector smokeHarness (requireModeled unmodeled))
-  "event 0: opcode 0x60 is not modeled"
+-- The smoke traces pass with the step model, which decides every step.
+#guard run (blockVector smokeBlockExpected) smokeBlock =
+  .ok { events := 5, steps := 1, branches := ["static_stop_halt"] }
 -- A model is consulted on every step; its gas_after must match the trace.
-#guard run smokeHarnessVector smokeHarness (requireModeled (staticModel 0)) =
+#guard run smokeHarnessVector smokeHarness (staticModel 0) =
   .ok { events := 5, steps := 4, branches := ["static", "static", "static", "static"] }
 #guard failsWith (run smokeHarnessVector smokeHarness (staticModel 1)) "event 0: model branch static"
 
@@ -205,16 +203,18 @@ def staticModel (extra : Nat := 0) : Model :=
 #guard failsWith (run smokeHarnessVector
   (smokeHarness.set 0 (stepLine 1 0 0x60 "0x186a0" 0 "" "0x186a1" "0x0"))) "event 0: gas_after"
 
--- A CALL spawn step charges its estimate (12500 * 20), the precompile it runs follows it, and
--- the frame continues at the same depth.
-def callStep (spawn : Bool := true) (gasAfter : String := "0x1") : String :=
-  stepLine 1 0 0xf1 "0x186a0" 7 "\"0xffff\",\"0x2\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\""
-    gasAfter "0x3d090" "\"account_warm\":true,\"account_empty\":false,\"delegate_warm\":null"
+-- A CALL spawn step charges its estimate (12500 * 20) and keeps 99,900 - 65,535 = 0x863d gas
+-- after its static 100 and the 0xffff it forwards; the precompile it runs follows it, and the
+-- frame continues at the same depth with the 0xffc3 the precompile left: 0x863d + 0xffc3.
+def callStep (gas : String := "0x186a0") (gasAfter : String := "0x863d") (zk : String := "0x3d090")
+    (spawn : Bool := true) : String :=
+  stepLine 1 0 0xf1 gas 7 "\"0xffff\",\"0x2\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\""
+    gasAfter zk "\"account_warm\":true,\"account_empty\":false,\"delegate_warm\":null"
     (spawn := spawn)
 
 def callHarness : List String :=
   [callStep, sha256Line "0xffff" "0xffc3" true "0x258",
-   stepLine 1 1 0x00 "0x186a0" 1 "" "0x186a0" "0x0", frameEndLine "success" "\"0x3d2e8\""]
+   stepLine 1 1 0x00 "0x18600" 1 "" "0x18600" "0x0", frameEndLine "success" "\"0x3d2e8\""]
 
 def callVector : String :=
   harnessVector "0x5f5e100" "{\"frame_zk_gas\":\"0x3d2e8\",\"status\":\"success\"}"
@@ -230,7 +230,9 @@ def callVector : String :=
   "event 1: a failed precompile"
 -- Order: a precompile follows a CALL-family spawn step, depth rises only after a spawn step,
 -- and a harness trace ends with frame_end.
-#guard failsWith (run callVector (callHarness.set 0 (callStep false "0x155cc"))) "event 1: precompile"
+-- A CALL with 99 gas cannot pay its static 100 (20 * 99 zk gas) and opens no frame.
+#guard failsWith (run callVector (callHarness.set 0 (callStep "0x63" "0x0" "0x7bc" false)))
+  "event 1: precompile"
 #guard failsWith (run smokeHarnessVector
   (smokeHarness.set 1 (stepLine 2 2 0x60 "0x1869d" 1 "" "0x1869a" "0x1b"))) "event 1: depth"
 #guard failsWith (run smokeHarnessVector (smokeHarness.take 4)) "frame_end"
@@ -259,7 +261,9 @@ def zkLimitHarness : List String :=
 -- anchor's zk gas and ends at the aborted tx.
 def abortBlock : List String :=
   [intrinsicLine, anchorStop, txEndLine 0, intrinsicLine,
-   stepLine 1 0 0x01 "0x989680" 2 "\"0x1\",\"0x2\"" "0x0" "0xb532b80" (ok := false),
+   -- KECCAK256 of 2^64 - 1 bytes cannot pay its word cost and spends all 10,000,000 gas: 31 zk
+   -- gas each.
+   stepLine 1 0 0x20 "0x989680" 2 "\"0x0\",\"0xffffffffffffffff\"" "0x0" "0x127a3980" (ok := false),
    txEndLine 1 "aborted" "null"]
 
 def abortExpected : String :=
@@ -286,7 +290,7 @@ def skippedExpected : String :=
 -- even a lone skipped one, follows the aborted tx.
 #guard (run (blockVector skippedExpected)
   (smokeBlock.take 3 ++ [txEndLine 1 "skipped" "null", intrinsicLine, txEndLine 2])) =
-  .ok { events := 6, steps := 1, branches := [] }
+  .ok { events := 6, steps := 1, branches := ["static_stop_halt"] }
 #guard failsWith (run (blockVector skippedExpected)
   (smokeBlock.take 3 ++ [txEndLine 1 "committed" "\"0x0\"", intrinsicLine, txEndLine 2]))
   "event 3: a block tx starts with intrinsic, got tx_end with status committed"
@@ -304,9 +308,8 @@ Each `stepAgrees` guard runs `stepOutcome` on one step line copied verbatim from
 reth trace, `testdata/zk_gas_vectors/traces/<vector>.jsonl` (events counted from 0, as the
 checker counts them), and expects that line's `gas_after`, the given outcome and branch. For a
 step that opens a frame, `gas_after` is the gas left after the gas it forwards. Every branch has
-at least one guard; the branches no corpus step reaches (`memory_step_underflow_halt`, and the
-CALL family's EIP-7702 delegate stages except a cold target delegated to a warm address) have
-guards on constructed pre-states after the trace lines. -/
+at least one guard. Constructed pre-states after the trace lines pin checks whose order the traces
+cannot show and each EIP-7702 delegate stage at its boundaries. -/
 
 /-- Whether `stepOutcome` on the single step event `line` gives the line's `gas_after`, outcome
 `outcome` and branch `branch` and agrees with the line's `spawn`, and `branch.name` is the
@@ -314,7 +317,7 @@ constructor's name. -/
 def stepAgrees (line : String) (outcome : Outcome) (branch : BranchId) : Bool :=
   match parseTrace line with
   | .ok [.step pre out] =>
-    stepOutcome .unzen pre == .ok (some { gasAfter := out.gasAfter, outcome, branch }) &&
+    stepOutcome .unzen pre == .ok { gasAfter := out.gasAfter, outcome, branch } &&
       (outcome == .newFrame) == out.spawn &&
       some branch.name == ((reprStr branch).splitOn ".").getLast?
   | _ => false
@@ -1338,6 +1341,95 @@ def stepAgrees (line : String) (outcome : Outcome) (branch : BranchId) : Bool :=
   "{\"e\":\"step\",\"d\":1,\"pc\":73,\"op\":245,\"gas\":\"0x1098e\",\"static\":false,\"sl\":4,\"stack\":[\"0x0\",\"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x232\",\"spawn\":true,\"zk\":\"0xadd4\",\"ok\":true,\"charged\":true}"
   .newFrame .create_create2_new_frame_spawn_estimate
 
+-- memory.step.underflow_halt, event 7: MLOAD on an empty stack pays its static 3 gas and halts on the underflow.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":2,\"pc\":0,\"op\":81,\"gas\":\"0x3e8\",\"static\":true,\"sl\":0,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x3e5\",\"spawn\":false,\"zk\":\"0x36\",\"ok\":true,\"charged\":true}"
+  .haltKeep .memory_step_underflow_halt
+-- memory.step.underflow_halt, event 17: MSTORE on 1 item pays its static 3 gas and halts on the underflow.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":2,\"pc\":1,\"op\":82,\"gas\":\"0x3e6\",\"static\":true,\"sl\":1,\"stack\":[\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x3e3\",\"spawn\":false,\"zk\":\"0x57\",\"ok\":true,\"charged\":true}"
+  .haltKeep .memory_step_underflow_halt
+-- memory.step.underflow_halt, event 27: MSTORE8 on 1 item pays its static 3 gas and halts on the underflow.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":2,\"pc\":1,\"op\":83,\"gas\":\"0x3e6\",\"static\":true,\"sl\":1,\"stack\":[\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x3e3\",\"spawn\":false,\"zk\":\"0x1e\",\"ok\":true,\"charged\":true}"
+  .haltKeep .memory_step_underflow_halt
+-- memory.step.underflow_halt, event 38: MCOPY on 2 items pays its static 3 gas and halts on the underflow.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":2,\"pc\":2,\"op\":94,\"gas\":\"0x3e4\",\"static\":true,\"sl\":2,\"stack\":[\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x3e1\",\"spawn\":false,\"zk\":\"0xc\",\"ok\":true,\"charged\":true}"
+  .haltKeep .memory_step_underflow_halt
+-- memory.step.underflow_halt, event 48: KECCAK256 on 1 item pays its static 30 gas and halts on the underflow.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":2,\"pc\":1,\"op\":32,\"gas\":\"0x3e6\",\"static\":true,\"sl\":1,\"stack\":[\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x3c8\",\"spawn\":false,\"zk\":\"0x3a2\",\"ok\":true,\"charged\":true}"
+  .haltKeep .memory_step_underflow_halt
+-- memory.step.underflow_halt, event 59: CALLDATACOPY on 2 items pays its static 3 gas and halts on the underflow.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":2,\"pc\":2,\"op\":55,\"gas\":\"0x3e4\",\"static\":true,\"sl\":2,\"stack\":[\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x3e1\",\"spawn\":false,\"zk\":\"0x27\",\"ok\":true,\"charged\":true}"
+  .haltKeep .memory_step_underflow_halt
+-- memory.step.underflow_halt, event 70: CODECOPY on 2 items pays its static 3 gas and halts on the underflow.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":2,\"pc\":2,\"op\":57,\"gas\":\"0x3e4\",\"static\":true,\"sl\":2,\"stack\":[\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x3e1\",\"spawn\":false,\"zk\":\"0x24\",\"ok\":true,\"charged\":true}"
+  .haltKeep .memory_step_underflow_halt
+-- memory.step.underflow_halt, event 81: RETURNDATACOPY on 2 items pays its static 3 gas and halts on the underflow.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":2,\"pc\":2,\"op\":62,\"gas\":\"0x3e4\",\"static\":true,\"sl\":2,\"stack\":[\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x3e1\",\"spawn\":false,\"zk\":\"0x1e\",\"ok\":true,\"charged\":true}"
+  .haltKeep .memory_step_underflow_halt
+-- memory.step.underflow_halt, event 93: EXTCODECOPY on 3 items pays its static 100 gas and halts on the underflow.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":2,\"pc\":3,\"op\":60,\"gas\":\"0x3e2\",\"static\":true,\"sl\":3,\"stack\":[\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x37e\",\"spawn\":false,\"zk\":\"0x190\",\"ok\":true,\"charged\":true}"
+  .haltKeep .memory_step_underflow_halt
+-- memory.step.underflow_halt, event 103: RETURN on 1 item pays its static 0 gas and halts on the underflow.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":2,\"pc\":1,\"op\":243,\"gas\":\"0x3e6\",\"static\":true,\"sl\":1,\"stack\":[\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x3e6\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .haltKeep .memory_step_underflow_halt
+-- memory.step.underflow_halt, event 113: REVERT on 1 item pays its static 0 gas and halts on the underflow.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":2,\"pc\":1,\"op\":253,\"gas\":\"0x3e6\",\"static\":true,\"sl\":1,\"stack\":[\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x3e6\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  .haltKeep .memory_step_underflow_halt
+-- call.delegate.warm_target_warm_delegate_exact_gas, event 12: DELEGATECALL to a warm target delegated to a warm address with exactly 100 + 100.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":18,\"op\":244,\"gas\":\"0xc8\",\"static\":false,\"sl\":6,\"stack\":[\"0x0\",\"0xde1e\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true,\"account_empty\":false,\"delegate_warm\":true},\"gas_after\":\"0x0\",\"spawn\":true,\"zk\":\"0xe86c\",\"ok\":true,\"charged\":true}"
+  .newFrame .call_family_warm_target_warm_delegate_spawn
+-- call.delegate.warm_target_warm_delegate_read_oog, event 12: DELEGATECALL one gas short of 100 + 100: the delegate read fails.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":18,\"op\":244,\"gas\":\"0xc7\",\"static\":false,\"sl\":6,\"stack\":[\"0x0\",\"0xde1e\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true,\"account_empty\":false,\"delegate_warm\":true},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0xd37\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .call_family_delegate_read_oog_spend_all
+-- call.delegate.warm_target_cold_delegate_exact_gas, event 9: STATICCALL to a warm target delegated to a cold address with exactly 100 + 2,600.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":13,\"op\":250,\"gas\":\"0xa8c\",\"static\":false,\"sl\":6,\"stack\":[\"0x0\",\"0xde1e\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true,\"account_empty\":false,\"delegate_warm\":false},\"gas_after\":\"0x0\",\"spawn\":true,\"zk\":\"0x13a74\",\"ok\":true,\"charged\":true}"
+  .newFrame .call_family_warm_target_cold_delegate_spawn
+-- call.delegate.warm_target_cold_delegate_cold_surcharge_oog, event 9: STATICCALL one gas short of 100 + 2,600: the cold delegate is skipped.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":13,\"op\":250,\"gas\":\"0xa8b\",\"static\":false,\"sl\":6,\"stack\":[\"0x0\",\"0xde1e\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true,\"account_empty\":false,\"delegate_warm\":false},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0xf27d\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .call_family_delegate_cold_surcharge_oog_spend_all
+-- call.delegate.cold_target_cold_delegate_exact_gas, event 7: CALL of value 0 to a cold target delegated to a cold address with exactly 100 + 5,100.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":9,\"op\":241,\"gas\":\"0x1450\",\"static\":false,\"sl\":7,\"stack\":[\"0x0\",\"0xde1e\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false,\"account_empty\":false,\"delegate_warm\":false},\"gas_after\":\"0x0\",\"spawn\":true,\"zk\":\"0x3d090\",\"ok\":true,\"charged\":true}"
+  .newFrame .call_family_cold_target_cold_delegate_spawn
+-- call.delegate.value_warm_target_warm_delegate_exact_gas, event 13: CALL of value 1 to a warm target delegated to a warm address with exactly 100 + 9,100.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":20,\"op\":241,\"gas\":\"0x23f0\",\"static\":false,\"sl\":7,\"stack\":[\"0x0\",\"0xde1e\",\"0x1\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true,\"account_empty\":false,\"delegate_warm\":true},\"gas_after\":\"0x0\",\"spawn\":true,\"zk\":\"0x3d090\",\"ok\":true,\"charged\":true}"
+  .newFrame .call_value_warm_target_warm_delegate_spawn
+-- call.delegate.value_warm_target_cold_delegate_exact_gas, event 10: CALLCODE of value 1 to a warm target delegated to a cold address with exactly 100 + 11,600.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":15,\"op\":242,\"gas\":\"0x2db4\",\"static\":false,\"sl\":7,\"stack\":[\"0x0\",\"0xde1e\",\"0x1\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":true,\"account_empty\":false,\"delegate_warm\":false},\"gas_after\":\"0x0\",\"spawn\":true,\"zk\":\"0x3d090\",\"ok\":true,\"charged\":true}"
+  .newFrame .call_value_warm_target_cold_delegate_spawn
+-- call.delegate.value_cold_target_warm_delegate_exact_gas, event 10: CALLCODE of value 1 to a cold target delegated to a warm address with exactly 100 + 11,600.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":15,\"op\":242,\"gas\":\"0x2db4\",\"static\":false,\"sl\":7,\"stack\":[\"0x0\",\"0xde1e\",\"0x1\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false,\"account_empty\":false,\"delegate_warm\":true},\"gas_after\":\"0x0\",\"spawn\":true,\"zk\":\"0x3d090\",\"ok\":true,\"charged\":true}"
+  .newFrame .call_value_cold_target_warm_delegate_spawn
+-- call.delegate.value_cold_target_warm_delegate_read_oog, event 10: CALLCODE of value 1 one gas short of 100 + 11,600: the delegate read fails after the transfer and cold target costs.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":15,\"op\":242,\"gas\":\"0x2db3\",\"static\":false,\"sl\":7,\"stack\":[\"0x0\",\"0xde1e\",\"0x1\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false,\"account_empty\":false,\"delegate_warm\":true},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x391fc\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .call_family_delegate_read_oog_spend_all
+-- call.delegate.value_cold_target_cold_delegate_exact_gas, event 7: CALL of value 1 to a cold target delegated to a cold address with exactly 100 + 14,100.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":10,\"op\":241,\"gas\":\"0x3778\",\"static\":false,\"sl\":7,\"stack\":[\"0x0\",\"0xde1e\",\"0x1\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false,\"account_empty\":false,\"delegate_warm\":false},\"gas_after\":\"0x0\",\"spawn\":true,\"zk\":\"0x3d090\",\"ok\":true,\"charged\":true}"
+  .newFrame .call_value_cold_target_cold_delegate_spawn
+-- call.delegate.value_cold_target_cold_delegate_cold_surcharge_oog, event 7: CALL of value 1 one gas short of 100 + 14,100: the cold delegate is skipped.
+#guard stepAgrees
+  "{\"e\":\"step\",\"d\":1,\"pc\":10,\"op\":241,\"gas\":\"0x3777\",\"static\":false,\"sl\":7,\"stack\":[\"0x0\",\"0xde1e\",\"0x1\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false,\"account_empty\":false,\"delegate_warm\":false},\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x4554c\",\"ok\":true,\"charged\":true}"
+  .haltSpendAll .call_family_delegate_cold_surcharge_oog_spend_all
+
 /-- A JUMP pre-state with `sl` stack items (target 4) and facts `facts`. -/
 def jumpPre (sl : Nat) (facts : Facts) : Pre :=
   { op := 0x56, depth := 1, pc := 0, gas := 100, static := false, stackLen := sl,
@@ -1347,27 +1439,29 @@ def jumpPre (sl : Nat) (facts : Facts) : Pre :=
 -- jumpdest_valid is an error, as is a recorded stack shorter than the model reads.
 #guard failsWith (stepOutcome .unzen (jumpPre 1 {})) "jumpdest_valid"
 #guard stepOutcome .unzen (jumpPre 1 { jumpdestValid := some true }) =
-  .ok (some { gasAfter := 92, outcome := .continue, branch := .jump_jump_valid_target_success })
+  .ok { gasAfter := 92, outcome := .continue, branch := .jump_jump_valid_target_success }
 #guard failsWith (stepOutcome .unzen { jumpPre 2 {} with op := 0x57 }) "stack"
 -- An underflowing JUMP reads no fact.
 #guard stepOutcome .unzen (jumpPre 0 {}) =
-  .ok (some { gasAfter := 92, outcome := .haltKeep, branch := .static_jump_underflow_halt })
--- Every opcode is modeled: each has a category, and on an empty stack with 100 gas each one
+  .ok { gasAfter := 92, outcome := .haltKeep, branch := .static_jump_underflow_halt }
+-- Every opcode is modeled: the opcodes `classify` maps to `undefined_opcode_zero_gas_halt` are
+-- exactly those revm-bytecode does not define, and on an empty stack with 100 gas each opcode
 -- ends its step without needing a fact.
-#guard (List.range 256).all fun op => (classify op).isSome
+#guard (List.range 256).all fun op =>
+  (classify op == .halt .undefined_opcode_zero_gas_halt) == (staticGasEntries.lookup op).isNone
 #guard (List.range 256).all fun op =>
   match stepOutcome .unzen { jumpPre 0 {} with op } with
-  | .ok (some _) => true
+  | .ok _ => true
   | _ => false
--- No corpus step pops too few items for MLOAD..RETURN and REVERT; on an empty stack each pays
--- its static gas (100 for EXTCODECOPY, 30 for KECCAK256, 3 or 0 for the rest) and halts.
+-- MLOAD..RETURN and REVERT on an empty stack each pay their static gas (100 for EXTCODECOPY, 30
+-- for KECCAK256, 3 or 0 for the rest) and halt.
 #guard [(0x51, 97), (0x52, 97), (0x53, 97), (0x5e, 97), (0x20, 70), (0x37, 97), (0x39, 97),
     (0x3e, 97), (0x3c, 0), (0xf3, 100), (0xfd, 100)].all fun (op, gasAfter) =>
   stepOutcome .unzen { jumpPre 0 {} with op } ==
-    .ok (some { gasAfter, outcome := .haltKeep, branch := .memory_step_underflow_halt })
+    .ok { gasAfter, outcome := .haltKeep, branch := .memory_step_underflow_halt }
 -- RETURN with one of its two items.
 #guard stepOutcome .unzen { jumpPre 1 {} with op := 0xf3 } =
-  .ok (some { gasAfter := 100, outcome := .haltKeep, branch := .memory_step_underflow_halt })
+  .ok { gasAfter := 100, outcome := .haltKeep, branch := .memory_step_underflow_halt }
 -- RETURNDATACOPY needs returndata_size and EXTCODECOPY account_warm once their operands are on
 -- the stack; a memory size that is not whole words is an error.
 #guard failsWith (stepOutcome .unzen
@@ -1387,7 +1481,7 @@ def jumpPre (sl : Nat) (facts : Facts) : Pre :=
 -- 2,301 it needs slot_warm, original and current.
 #guard stepOutcome .unzen
     { jumpPre 0 {} with op := 0x55, gas := 2300, stackLen := 2, stack := [0, 1] } =
-  .ok (some { gasAfter := 2300, outcome := .haltKeep, branch := .sstore_sentry_halt_preserve })
+  .ok { gasAfter := 2300, outcome := .haltKeep, branch := .sstore_sentry_halt_preserve }
 #guard failsWith (stepOutcome .unzen
   { jumpPre 0 {} with op := 0x55, gas := 2301, stackLen := 2, stack := [0, 1] }) "slot_warm"
 #guard failsWith (stepOutcome .unzen
@@ -1399,15 +1493,15 @@ def jumpPre (sl : Nat) (facts : Facts) : Pre :=
 -- SSTORE pops before the sentry: on one item with 2,300 gas it halts on the underflow.
 #guard stepOutcome .unzen
     { jumpPre 0 {} with op := 0x55, gas := 2300, stackLen := 1, stack := [0] } =
-  .ok (some { gasAfter := 2300, outcome := .haltKeep, branch := .sstore_sstore_underflow_preserve })
+  .ok { gasAfter := 2300, outcome := .haltKeep, branch := .sstore_sstore_underflow_preserve }
 -- SSTORE, TSTORE and SELFDESTRUCT check the static context before popping: in a static frame
 -- on an empty stack each halts on it, keeping the gas left after its static gas.
 #guard [(0x55, 6000), (0x5d, 5900), (0xff, 1000)].all fun (op, gasAfter) =>
   stepOutcome .unzen { jumpPre 0 {} with op, gas := 6000, static := true } ==
-    .ok (some { gasAfter, outcome := .haltKeep,
+    .ok { gasAfter, outcome := .haltKeep,
                 branch := if op = 0x55 then .sstore_static_frame_halt_preserve
                   else if op = 0x5d then .transient_static_frame_tstore_halt_preserve
-                  else .selfdestruct_static_frame_halt_preserve })
+                  else .selfdestruct_static_frame_halt_preserve }
 -- SELFDESTRUCT reads account_warm at the beneficiary load; a skipped cold load reads nothing
 -- more, a load that goes on needs self_balance and account_empty for the new-account charge.
 #guard failsWith (stepOutcome .unzen
@@ -1415,8 +1509,8 @@ def jumpPre (sl : Nat) (facts : Facts) : Pre :=
 #guard stepOutcome .unzen
     { jumpPre 0 {} with op := 0xff, gas := 7599, stackLen := 1, stack := [0xdead],
                         facts := { accountWarm := some false } } =
-  .ok (some { gasAfter := 0, outcome := .haltSpendAll,
-              branch := .selfdestruct_selfdestruct_cold_load_skipped_spend_all })
+  .ok { gasAfter := 0, outcome := .haltSpendAll,
+              branch := .selfdestruct_selfdestruct_cold_load_skipped_spend_all }
 #guard failsWith (stepOutcome .unzen
   { jumpPre 0 {} with op := 0xff, gas := 7600, stackLen := 1, stack := [0xdead],
                       facts := { accountWarm := some false } }) "self_balance"
@@ -1433,11 +1527,10 @@ def callPre (op gas : Nat) (stack : List Nat) (warm : Bool) (delegate : Option B
     facts := { accountWarm := some warm, accountEmpty := some false,
                delegateWarm := some delegate } }
 
--- The only corpus CALL to a delegated target is a cold target delegated to a warm precompile,
--- so the other delegate stages run on constructed pre-states: DELEGATECALL without and CALL
--- with a value of 1, gas limit 0 (nothing forwarded), static 100 plus the listed charges. With
--- 7 gas more the frame opens and keeps the 7; one gas short, a warm delegate fails its 100
--- read and a cold one is skipped (both `ColdLoadSkipped`, spending all gas).
+-- Every delegate stage on constructed pre-states: DELEGATECALL without and CALL with a value of
+-- 1, gas limit 0 (nothing forwarded), static 100 plus the listed charges. With exactly that gas
+-- the frame opens with 0 left, and with 7 gas more it keeps the 7; one gas short, a warm delegate
+-- fails its 100 read and a cold one is skipped (both `ColdLoadSkipped`, spending all gas).
 def delegateCases : List (Bool × Bool × Bool × Nat × BranchId) :=
   [(false, true, true, 100, .call_family_warm_target_warm_delegate_spawn),
    (false, true, false, 2600, .call_family_warm_target_cold_delegate_spawn),
@@ -1455,13 +1548,14 @@ def delegatePre (transfer warm delegate : Bool) (gas : Nat) : Pre :=
   else callPre 0xf4 gas [0, 0xd, 0, 0, 0, 0] warm (some delegate)
 
 #guard delegateCases.all fun (transfer, warm, delegate, cost, branch) =>
-  stepOutcome .unzen (delegatePre transfer warm delegate (100 + cost + 7)) ==
-    .ok (some { gasAfter := 7, outcome := .newFrame, branch })
+  [0, 7].all fun extra =>
+    stepOutcome .unzen (delegatePre transfer warm delegate (100 + cost + extra)) ==
+      .ok { gasAfter := extra, outcome := .newFrame, branch }
 #guard delegateCases.all fun (transfer, warm, delegate, cost, _) =>
   stepOutcome .unzen (delegatePre transfer warm delegate (100 + cost - 1)) ==
-    .ok (some { gasAfter := 0, outcome := .haltSpendAll,
+    .ok { gasAfter := 0, outcome := .haltSpendAll,
                 branch := if delegate then .call_family_delegate_read_oog_spend_all
-                  else .call_family_delegate_cold_surcharge_oog_spend_all })
+                  else .call_family_delegate_cold_surcharge_oog_spend_all }
 -- CALL checks a value in a static frame after its first pop and before the memory operands:
 -- on three items it halts on the value, on two on the stack, and with value 0 on the missing
 -- memory operands; all keep the gas left after the static 100.
@@ -1471,23 +1565,23 @@ def delegatePre (transfer warm delegate : Bool) (gas : Nat) : Pre :=
   stepOutcome .unzen
       { jumpPre 0 {} with op := 0xf1, gas := 1000, static := true, stackLen := sl,
                           stack := [0, 0xd, value].take sl } ==
-    .ok (some { gasAfter := 900, outcome := .haltKeep, branch })
+    .ok { gasAfter := 900, outcome := .haltKeep, branch }
 -- The input range is checked before the output range, and both before the transfer cost and
 -- the cold load: CALL of value 1 to a cold target with 1 gas left after its static gas and both
 -- lengths 2^64 halts on the input length; with a 32-byte input it halts on the expansion.
 #guard stepOutcome .unzen (callPre 0xf1 101 [0, 0xd, 1, 0, 2^64, 0, 2^64] false) =
-  .ok (some { gasAfter := 1, outcome := .haltKeep,
-              branch := .call_family_input_size_above_u64_preserve })
+  .ok { gasAfter := 1, outcome := .haltKeep,
+              branch := .call_family_input_size_above_u64_preserve }
 #guard stepOutcome .unzen (callPre 0xf1 102 [0, 0xd, 1, 0, 32, 0, 0] false) =
-  .ok (some { gasAfter := 2, outcome := .haltKeep,
-              branch := .call_family_input_memory_oog_preserve })
+  .ok { gasAfter := 2, outcome := .haltKeep,
+              branch := .call_family_input_memory_oog_preserve }
 -- The output range expands from the memory the input range left: an output inside the
 -- 64-byte input costs nothing more.
 #guard stepOutcome .unzen (callPre 0xf4 106 [0, 0xd, 0, 64, 0, 32] true) =
-  .ok (some { gasAfter := 0, outcome := .newFrame, branch := .call_family_warm_target_spawn })
+  .ok { gasAfter := 0, outcome := .newFrame, branch := .call_family_warm_target_spawn }
 -- The frame gets all but one 64th of the gas left, capped by the gas limit saturated to u64.
 #guard stepOutcome .unzen (callPre 0xfa 6500 [2^256 - 1, 0xd, 0, 0, 0, 0] true) =
-  .ok (some { gasAfter := 100, outcome := .newFrame, branch := .call_family_warm_target_spawn })
+  .ok { gasAfter := 100, outcome := .newFrame, branch := .call_family_warm_target_spawn }
 -- The CALL family reads account_warm at the target load; only CALL reads account_empty, and
 -- a CALL to an empty target stops there, so only the other cases read delegate_warm.
 #guard failsWith (stepOutcome .unzen
@@ -1500,44 +1594,58 @@ def delegatePre (transfer warm delegate : Bool) (gas : Nat) : Pre :=
 -- static gas halts on it without reading a fact.
 #guard stepOutcome .unzen
     { jumpPre 0 {} with op := 0xf1, gas := 3000, stackLen := 7, stack := [0, 0xd, 1, 0, 0, 0, 0] } =
-  .ok (some { gasAfter := 0, outcome := .haltSpendAll,
-              branch := .call_value_transfer_oog_spend_all })
+  .ok { gasAfter := 0, outcome := .haltSpendAll,
+              branch := .call_value_transfer_oog_spend_all }
 #guard failsWith (stepOutcome .unzen
   { jumpPre 0 {} with op := 0xfa, gas := 3000, stackLen := 6, stack := [0, 0xd, 0, 0, 0, 0],
                       facts := { accountWarm := some true } }) "delegate_warm"
 #guard stepOutcome .unzen
     { jumpPre 0 {} with op := 0xf1, gas := 3000, stackLen := 7, stack := [0, 0xd, 0, 0, 0, 0, 0],
                         facts := { accountWarm := some true, accountEmpty := some true } } =
-  .ok (some { gasAfter := 2900, outcome := .newFrame, branch := .call_family_warm_target_spawn })
--- The CALL fixture with the step model: its spawn step's gas_after (0x1) is not the model's (the
--- gas left after forwarding), which the checker does not compare for a step that spawns.
-#guard run callVector callHarness (requireModeled stepModel) =
+  .ok { gasAfter := 2900, outcome := .newFrame, branch := .call_family_warm_target_spawn }
+-- The CALL fixture with the step model: its spawn step keeps 0x863d after forwarding 0xffff,
+-- and the frame resumes with that plus the 0xffc3 the precompile left.
+#guard run callVector callHarness =
   .ok { events := 4, steps := 2, branches := ["call_family_warm_target_spawn", "static_stop_halt"] }
+-- The checker compares a spawn step's gas_after with the model's too.
+#guard failsWith (run callVector (callHarness.set 0 (callStep (gasAfter := "0x863e"))))
+  "event 0: model branch call_family_warm_target_spawn: gas_after 0x863d, trace gas_after 0x863e"
 -- The smoke harness trace with the step model: every step is modeled.
-#guard run smokeHarnessVector smokeHarness (requireModeled stepModel) =
+#guard run smokeHarnessVector smokeHarness =
   .ok { events := 5, steps := 4,
         branches := ["static_stack_success", "static_stack_success", "static_arith_success",
                      "static_stop_halt"] }
 
+/-- A JUMP step event with gas 100 that pays its static 8 (4 zk gas each) and whose pre-state
+has the facts `facts`. -/
+def jumpEvent (facts : Facts) : Event :=
+  .step (jumpPre 1 facts) { gasAfter := 92, spawn := false, zk := 32, ok := true, charged := true }
+
+-- No step may go unchecked: a hand-made JUMP whose pre-state lacks the jumpdest_valid fact the
+-- model reads (a step the parser rejects) fails the check; with the fact it passes.
+#guard failsWith (checkVectorEvents smokeHarnessVector [jumpEvent {}, .frameEnd "halt" 32] stepModel)
+  "event 0: facts: the step records no jumpdest_valid, which the model needs"
+#guard checkVectorEvents (harnessVector "0x5f5e100" "{\"frame_zk_gas\":\"0x20\",\"status\":\"halt\"}")
+    [jumpEvent { jumpdestValid := some false }, .frameEnd "halt" 32] stepModel =
+  .ok { events := 2, steps := 1, branches := ["jump_jump_invalid_target_halt"] }
+
 /-! ### Outcomes against the trace
 
 The checker holds each modeled step's outcome to the event after it: a step that continues is
-followed by a step at its depth; a step that ends its frame by a step at a smaller depth or the
-end of the tx or frame, and in a harness trace a top frame's end has the `frame_end` status of
-its outcome; a step that opens a frame by a step one deeper, a precompile, a step at its depth or
-the end. A step whose charge the meter rejects ends the tx and is not checked. Each guard flips
-one modeled step's outcome in a trace the step model passes. -/
+followed by a step at its depth; a step that ends a child frame by a step one depth up, and one
+that ends the top frame by the end of the tx or frame, where a harness trace's `frame_end` has
+the status of its outcome; a step that opens a frame by a step one deeper, a precompile, a step
+at its depth or the end. A step whose charge the meter rejects ends the tx and is not checked.
+Each guard flips one modeled step's outcome in a trace the step model passes. -/
 
 /-- `model` with the outcome of the step at depth `d` and pc `pc` replaced by `o`. -/
 def flipAt (d pc : Nat) (o : Outcome) (model : Model := stepModel) : Model := fun p => do
-  match ← model p with
-  | some (gasAfter, outcome, branch) =>
-    pure (some (gasAfter, if p.depth = d ∧ p.pc = pc then o else outcome, branch))
-  | none => pure none
+  let (gasAfter, outcome, branch) ← model p
+  pure (gasAfter, if p.depth = d ∧ p.pc = pc then o else outcome, branch)
 
 -- PUSH1 that ends its frame, though the frame goes on at its depth.
 #guard failsWith (run smokeHarnessVector smokeHarness (flipAt 1 0 .haltKeep))
-  "event 0: model branch static_stack_success: outcome haltKeep ends the frame, but the next event is a step at depth 1"
+  "event 0: model branch static_stack_success: outcome haltKeep ends a frame at depth 1, but the next event is a step at depth 1"
 -- STOP that continues, though frame_end follows; STOP that ends with another status.
 #guard failsWith (run smokeHarnessVector smokeHarness (flipAt 1 5 .continue))
   "event 3: model branch static_stop_halt: outcome continue, but the next event is frame_end"
@@ -1546,26 +1654,146 @@ def flipAt (d pc : Nat) (o : Outcome) (model : Model := stepModel) : Model := fu
 #guard failsWith (run smokeHarnessVector smokeHarness (flipAt 1 5 .haltSpendAll))
   "event 3: model branch static_stop_halt: outcome haltSpendAll ends the top frame with status halt, but frame_end has status success"
 -- The anchor's STOP in a block trace: tx_end follows it, so it cannot continue.
-#guard (run (blockVector smokeBlockExpected) smokeBlock (requireModeled stepModel)).isOk
+#guard (run (blockVector smokeBlockExpected) smokeBlock).isOk
 #guard failsWith (run (blockVector smokeBlockExpected) smokeBlock (flipAt 1 0 .continue))
   "event 1: model branch static_stop_halt: outcome continue, but the next event is tx_end"
 -- A rejected charge ends the frame whatever the step's outcome: ADD continues, frame_end follows.
-#guard (run zkLimitVector zkLimitHarness (requireModeled stepModel)).isOk
+#guard (run zkLimitVector zkLimitHarness).isOk
 
-/-- A model of the CALL family as opening a frame, `stepModel` for the rest. -/
-def spawnModel : Model := fun p =>
-  if callFamily p.op then .ok (some (0, .newFrame, "spawn")) else stepModel p
-
-/-- A CALL step at depth `d` and pc `pc` that spawns. -/
+/-- The CALL of `callStep` at depth `d` and pc `pc`, which opens a frame. -/
 def callAt (d pc : Nat) : String :=
   stepLine d pc 0xf1 "0x186a0" 7 "\"0xffff\",\"0x2\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\""
-    "0x1" "0x3d090" "\"account_warm\":true,\"account_empty\":false,\"delegate_warm\":null"
+    "0x863d" "0x3d090" "\"account_warm\":true,\"account_empty\":false,\"delegate_warm\":null"
     (spawn := true)
 
--- A spawn step followed by its precompile passes; one followed by a step at a smaller depth
--- fails.
-#guard (run callVector callHarness spawnModel).isOk
-#guard failsWith (run (harnessVector "0x5f5e100" "{\"frame_zk_gas\":\"0x7a120\",\"status\":\"success\"}")
-  [callAt 1 0, callAt 2 0, stepLine 1 1 0x00 "0x186a0" 1 "" "0x186a0" "0x0",
-   frameEndLine "success" "\"0x7a120\""] spawnModel)
-  "event 1: model branch spawn: outcome newFrame, but the next event is a step at depth 1"
+/-- A harness vector whose expected values the guards below never reach. -/
+def anyHarness : String :=
+  harnessVector "0x5f5e100" "{\"frame_zk_gas\":\"0x0\",\"status\":\"success\"}"
+
+-- A spawn step followed by a step at a smaller depth fails.
+#guard failsWith (run anyHarness
+  [callAt 1 0, callAt 2 0, stepLine 1 1 0x00 "0x186a0" 1 "" "0x186a0" "0x0"])
+  "event 1: model branch call_family_warm_target_spawn: outcome newFrame, but the next event is a step at depth 1"
+-- A step that ends a child frame resumes exactly the frame one depth up: a STOP at depth 3
+-- followed by a step at depth 1, and a STOP at depth 2 followed by frame_end, fail.
+#guard failsWith (run anyHarness
+  [callAt 1 0, callAt 2 0, stepLine 3 0 0x00 "0xffff" 0 "" "0xffff" "0x0",
+   stepLine 1 1 0x00 "0x186a0" 1 "" "0x186a0" "0x0"])
+  "event 2: model branch static_stop_halt: outcome success ends a frame at depth 3, but the next event is a step at depth 1"
+#guard failsWith (run anyHarness
+  [callAt 1 0, stepLine 2 0 0x00 "0xffff" 0 "" "0xffff" "0x0", frameEndLine "success" "\"0x3d090\""])
+  "event 1: model branch static_stop_halt: outcome success ends a frame at depth 2, but the next event is frame_end"
+
+/-! ### The gas a frame gets back
+
+A frame that opened a child resumes with its spawn step's `gas_after` plus what the child gives
+back: the child's gas left when its last step's outcome is `success` or `revert` (less a
+CREATE's code deposit), and nothing when it halts; after a precompile, the gas the precompile
+left. The traces below are committed reth traces, copied verbatim; each guard flips the outcome
+of a child's last step, or changes what a precompile left, and the checker rejects it. -/
+
+/-- The committed trace of `call.delegate.value_cold_target_cold_delegate_exact_gas`. -/
+def stipendReturnTrace : List String :=
+  ["{\"e\":\"step\",\"d\":1,\"pc\":0,\"op\":95,\"gas\":\"0x3788\",\"static\":false,\"sl\":0,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x3786\",\"spawn\":false,\"zk\":\"0x1a\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":1,\"pc\":1,\"op\":95,\"gas\":\"0x3786\",\"static\":false,\"sl\":1,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x3784\",\"spawn\":false,\"zk\":\"0x1a\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":1,\"pc\":2,\"op\":95,\"gas\":\"0x3784\",\"static\":false,\"sl\":2,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x3782\",\"spawn\":false,\"zk\":\"0x1a\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":1,\"pc\":3,\"op\":95,\"gas\":\"0x3782\",\"static\":false,\"sl\":3,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x3780\",\"spawn\":false,\"zk\":\"0x1a\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":1,\"pc\":4,\"op\":96,\"gas\":\"0x3780\",\"static\":false,\"sl\":4,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x377d\",\"spawn\":false,\"zk\":\"0x1b\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":1,\"pc\":6,\"op\":97,\"gas\":\"0x377d\",\"static\":false,\"sl\":5,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x377a\",\"spawn\":false,\"zk\":\"0x18\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":1,\"pc\":9,\"op\":95,\"gas\":\"0x377a\",\"static\":false,\"sl\":6,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x3778\",\"spawn\":false,\"zk\":\"0x1a\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":1,\"pc\":10,\"op\":241,\"gas\":\"0x3778\",\"static\":false,\"sl\":7,\"stack\":[\"0x0\",\"0xde1e\",\"0x1\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false,\"account_empty\":false,\"delegate_warm\":false},\"gas_after\":\"0x0\",\"spawn\":true,\"zk\":\"0x3d090\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":2,\"pc\":0,\"op\":0,\"gas\":\"0x8fc\",\"static\":false,\"sl\":0,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x8fc\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":1,\"pc\":11,\"op\":0,\"gas\":\"0x8fc\",\"static\":false,\"sl\":1,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x8fc\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"frame_end\",\"status\":\"success\",\"frame_zk\":\"0x3d145\"}"]
+
+/-- The vector `call.delegate.value_cold_target_cold_delegate_exact_gas`'s zk block limit and expected values. -/
+def stipendReturnVector : String :=
+  harnessVector "0x5f5e100" "{\"frame_zk_gas\":\"0x3d145\",\"status\":\"success\"}"
+
+/-- The committed trace of `log.static_frame.log0_underflow`. -/
+def haltReturnTrace : List String :=
+  ["{\"e\":\"step\",\"d\":1,\"pc\":0,\"op\":95,\"gas\":\"0x186a0\",\"static\":false,\"sl\":0,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1869e\",\"spawn\":false,\"zk\":\"0x1a\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":1,\"pc\":1,\"op\":95,\"gas\":\"0x1869e\",\"static\":false,\"sl\":1,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1869c\",\"spawn\":false,\"zk\":\"0x1a\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":1,\"pc\":2,\"op\":95,\"gas\":\"0x1869c\",\"static\":false,\"sl\":2,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1869a\",\"spawn\":false,\"zk\":\"0x1a\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":1,\"pc\":3,\"op\":95,\"gas\":\"0x1869a\",\"static\":false,\"sl\":3,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18698\",\"spawn\":false,\"zk\":\"0x1a\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":1,\"pc\":4,\"op\":97,\"gas\":\"0x18698\",\"static\":false,\"sl\":4,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18695\",\"spawn\":false,\"zk\":\"0x18\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":1,\"pc\":7,\"op\":97,\"gas\":\"0x18695\",\"static\":false,\"sl\":5,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x18692\",\"spawn\":false,\"zk\":\"0x18\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":1,\"pc\":10,\"op\":250,\"gas\":\"0x18692\",\"static\":false,\"sl\":6,\"stack\":[\"0x2710\",\"0xda7a\",\"0x0\",\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{\"account_warm\":false,\"account_empty\":false,\"delegate_warm\":null},\"gas_after\":\"0x1555a\",\"spawn\":true,\"zk\":\"0x13a74\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":2,\"pc\":0,\"op\":96,\"gas\":\"0x2710\",\"static\":true,\"sl\":0,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x270d\",\"spawn\":false,\"zk\":\"0x1b\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":2,\"pc\":2,\"op\":160,\"gas\":\"0x270d\",\"static\":true,\"sl\":1,\"stack\":[\"0x20\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x2596\",\"spawn\":false,\"zk\":\"0x465\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":1,\"pc\":11,\"op\":0,\"gas\":\"0x1555a\",\"static\":false,\"sl\":1,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1555a\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"frame_end\",\"status\":\"success\",\"frame_zk\":\"0x13f8c\"}"]
+
+/-- The vector `log.static_frame.log0_underflow`'s zk block limit and expected values. -/
+def haltReturnVector : String :=
+  harnessVector "0x5f5e100" "{\"frame_zk_gas\":\"0x13f8c\",\"status\":\"success\"}"
+
+/-- The committed trace of `create.family.spawn_reaches_limit`. -/
+def createReturnTrace : List String :=
+  ["{\"e\":\"step\",\"d\":1,\"pc\":0,\"op\":95,\"gas\":\"0x186a0\",\"static\":false,\"sl\":0,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1869e\",\"spawn\":false,\"zk\":\"0x1a\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":1,\"pc\":1,\"op\":95,\"gas\":\"0x1869e\",\"static\":false,\"sl\":1,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1869c\",\"spawn\":false,\"zk\":\"0x1a\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":1,\"pc\":2,\"op\":95,\"gas\":\"0x1869c\",\"static\":false,\"sl\":2,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1869a\",\"spawn\":false,\"zk\":\"0x1a\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":1,\"pc\":3,\"op\":240,\"gas\":\"0x1869a\",\"static\":false,\"sl\":3,\"stack\":[\"0x0\",\"0x0\",\"0x0\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x426\",\"spawn\":true,\"zk\":\"0x9088\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":2,\"pc\":0,\"op\":0,\"gas\":\"0x10574\",\"static\":false,\"sl\":0,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x10574\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":1,\"pc\":4,\"op\":0,\"gas\":\"0x1099a\",\"static\":false,\"sl\":1,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1099a\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"frame_end\",\"status\":\"success\",\"frame_zk\":\"0x90d6\"}"]
+
+/-- The vector `create.family.spawn_reaches_limit`'s zk block limit and expected values. -/
+def createReturnVector : String :=
+  harnessVector "0x90d6" "{\"frame_zk_gas\":\"0x90d6\",\"status\":\"success\"}"
+
+/-- The committed trace of `create.create.code_deposit_exact_gas`. -/
+def depositReturnTrace : List String :=
+  ["{\"e\":\"step\",\"d\":1,\"pc\":0,\"op\":99,\"gas\":\"0x9682\",\"static\":false,\"sl\":0,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x967f\",\"spawn\":false,\"zk\":\"0x1e\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":1,\"pc\":5,\"op\":95,\"gas\":\"0x967f\",\"static\":false,\"sl\":1,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x967d\",\"spawn\":false,\"zk\":\"0x1a\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":1,\"pc\":6,\"op\":82,\"gas\":\"0x967d\",\"static\":false,\"sl\":2,\"stack\":[\"0x0\",\"0x60205ff3\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x9677\",\"spawn\":false,\"zk\":\"0xae\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":1,\"pc\":7,\"op\":96,\"gas\":\"0x9677\",\"static\":false,\"sl\":0,\"stack\":[],\"mem\":\"0x20\",\"facts\":{},\"gas_after\":\"0x9674\",\"spawn\":false,\"zk\":\"0x1b\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":1,\"pc\":9,\"op\":96,\"gas\":\"0x9674\",\"static\":false,\"sl\":1,\"stack\":[],\"mem\":\"0x20\",\"facts\":{},\"gas_after\":\"0x9671\",\"spawn\":false,\"zk\":\"0x1b\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":1,\"pc\":11,\"op\":95,\"gas\":\"0x9671\",\"static\":false,\"sl\":2,\"stack\":[],\"mem\":\"0x20\",\"facts\":{},\"gas_after\":\"0x966f\",\"spawn\":false,\"zk\":\"0x1a\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":1,\"pc\":12,\"op\":240,\"gas\":\"0x966f\",\"static\":false,\"sl\":3,\"stack\":[\"0x0\",\"0x1c\",\"0x4\"],\"mem\":\"0x20\",\"facts\":{},\"gas_after\":\"0x65\",\"spawn\":true,\"zk\":\"0x9088\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":2,\"pc\":0,\"op\":96,\"gas\":\"0x1908\",\"static\":false,\"sl\":0,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1905\",\"spawn\":false,\"zk\":\"0x1b\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":2,\"pc\":2,\"op\":95,\"gas\":\"0x1905\",\"static\":false,\"sl\":1,\"stack\":[],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1903\",\"spawn\":false,\"zk\":\"0x1a\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":2,\"pc\":3,\"op\":243,\"gas\":\"0x1903\",\"static\":false,\"sl\":2,\"stack\":[\"0x0\",\"0x20\"],\"mem\":\"0x0\",\"facts\":{},\"gas_after\":\"0x1900\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":1,\"pc\":13,\"op\":96,\"gas\":\"0x65\",\"static\":false,\"sl\":1,\"stack\":[],\"mem\":\"0x20\",\"facts\":{},\"gas_after\":\"0x62\",\"spawn\":false,\"zk\":\"0x1b\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":1,\"pc\":15,\"op\":87,\"gas\":\"0x62\",\"static\":false,\"sl\":2,\"stack\":[\"0x17\",\"0x8bbc3514477d75ec797bbe4e19d7961660bb849c\"],\"mem\":\"0x20\",\"facts\":{\"jumpdest_valid\":true},\"gas_after\":\"0x58\",\"spawn\":false,\"zk\":\"0x32\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":1,\"pc\":23,\"op\":91,\"gas\":\"0x58\",\"static\":false,\"sl\":0,\"stack\":[],\"mem\":\"0x20\",\"facts\":{},\"gas_after\":\"0x57\",\"spawn\":false,\"zk\":\"0x14\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"step\",\"d\":1,\"pc\":24,\"op\":0,\"gas\":\"0x57\",\"static\":false,\"sl\":0,\"stack\":[],\"mem\":\"0x20\",\"facts\":{},\"gas_after\":\"0x57\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}",
+   "{\"e\":\"frame_end\",\"status\":\"success\",\"frame_zk\":\"0x9254\"}"]
+
+/-- The vector `create.create.code_deposit_exact_gas`'s zk block limit and expected values. -/
+def depositReturnVector : String :=
+  harnessVector "0x5f5e100" "{\"frame_zk_gas\":\"0x9254\",\"status\":\"success\"}"
+
+-- A CALL of value 1 whose child (a STOP) gives back its 2,300 stipend: a halt would give back
+-- nothing.
+#guard (run stipendReturnVector stipendReturnTrace).isOk
+#guard failsWith (run stipendReturnVector stipendReturnTrace (flipAt 2 0 .haltKeep))
+  "event 9: gas 0x8fc, but the frame resumes with gas_after 0x0 of its spawn step (event 7) plus [0x0], what its child gives back after outcome haltKeep with 0x8fc left (event 8, model branch static_stop_halt)"
+#guard failsWith (run stipendReturnVector stipendReturnTrace (flipAt 2 0 .haltSpendAll)) "event 9: gas 0x8fc"
+-- A LOG0 in a static frame halts keeping 0x2596 gas, which its caller does not get back: as a
+-- success or revert it would.
+#guard (run haltReturnVector haltReturnTrace).isOk
+#guard failsWith (run haltReturnVector haltReturnTrace (flipAt 2 2 .success))
+  "event 9: gas 0x1555a, but the frame resumes with gas_after 0x1555a of its spawn step (event 6) plus [0x2596], what its child gives back after outcome success with 0x2596 left (event 8, model branch log_static_frame_halt_preserve)"
+#guard failsWith (run haltReturnVector haltReturnTrace (flipAt 2 2 .revert)) "event 9: gas 0x1555a"
+-- A CREATE of empty initcode, whose implicit STOP gives back all the gas it forwarded.
+#guard (run createReturnVector createReturnTrace).isOk
+#guard failsWith (run createReturnVector createReturnTrace (flipAt 2 0 .haltKeep)) "event 5: gas 0x1099a"
+-- A CREATE whose initcode RETURNs 32 bytes with exactly the 6,400 gas of their code deposit,
+-- which it spends: the caller gets nothing back, as it would for a halt; a revert would give
+-- back the 6,400.
+#guard (run depositReturnVector depositReturnTrace).isOk
+#guard (run depositReturnVector depositReturnTrace (flipAt 2 3 .haltKeep)).isOk
+#guard failsWith (run depositReturnVector depositReturnTrace (flipAt 2 3 .revert))
+  "event 10: gas 0x65, but the frame resumes with gas_after 0x65 of its spawn step (event 6) plus [0x1900]"
+-- The CALL fixture's sha256 run with one gas more left (the zk gas to match): its caller would
+-- resume with 0x863d + 0xffc4.
+#guard failsWith (run callVector (callHarness.set 1 (sha256Line "0xffff" "0xffc4" true "0x24e")))
+  "event 2: a step at depth 1 with gas 0x18600, but the precompile run of event 1 leaves 0xffc4 to the spawn step of gas_after 0x863d, so its caller resumes at depth 1 with 0x18601"
+-- The returned gas of each outcome.
+#guard returnedGas false .success 5 7 = [5] ∧ returnedGas false .revert 5 0 = [5] ∧
+  returnedGas false .haltKeep 5 0 = [0] ∧ returnedGas false .haltSpendAll 0 0 = [0]
+#guard returnedGas true .success 6400 32 = [0, 0] ∧ returnedGas true .success 6399 32 = [0] ∧
+  returnedGas true .success 7000 32 = [600, 0] ∧ returnedGas true .success 10 0 = [10] ∧
+  returnedGas true .success (2^30) 24577 = [0]
+

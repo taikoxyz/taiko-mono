@@ -17,8 +17,7 @@ import ZkGasModel.Step.Create
 
 `stepOutcome f pre` is the outcome of the one interpreter step that runs from `pre`: the
 frame's gas after it, how it ended and the model branch that decided it. Every opcode is
-modeled; the result keeps its `Option` (`none` for an opcode the model does not cover) until the
-coverage gate removes it. It is an error when `pre` lacks a fact or stack item the model reads.
+modeled. It is an error when `pre` lacks a fact or stack item the model reads.
 The result types are in `ZkGasModel.Step.Basic`; each opcode category's instruction body
 is in its own file `ZkGasModel/Step/<Category>.lean`.
 
@@ -126,52 +125,52 @@ def envReads : List Nat :=
   [0x30, 0x32, 0x33, 0x34, 0x36, 0x38, 0x3a, 0x3d, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x48,
    0x4a, 0x58, 0x59, 0x5a]
 
-/-- The category of opcode `op`; every opcode has one, so `none` is never returned. An opcode is
-undefined when revm-bytecode does not define it (`staticGasEntries` has no entry); revm's
-instruction table maps exactly those opcodes to `unknown` (`src/instructions.rs`). -/
-def classify (op : Nat) : Option Category :=
-  if op = 0x00 then some .stop
-  else if op = 0x0a then some .exp
-  else if 0x01 ≤ op ∧ op ≤ 0x0b then some .arith
-  else if 0x10 ≤ op ∧ op ≤ 0x1e then some .bitwise
-  else if op = 0x35 then some .calldataload
-  else if op = 0x40 then some .blockhash
-  else if op = 0x47 then some .selfbalance
-  else if op = 0x49 then some .blobhash
-  else if envReads.contains op then some .env
-  else if op = 0x50 then some .pop
-  else if op = 0x56 then some .jump
-  else if op = 0x57 then some .jumpi
-  else if op = 0x5b then some .jumpdest
-  else if op = 0x51 ∨ op = 0x52 then some (.memoryAccess 32)
-  else if op = 0x53 then some (.memoryAccess 1)
-  else if op = 0x5e then some .mcopy
-  else if op = 0x20 then some .keccak
-  else if op = 0x37 ∨ op = 0x39 then some .dataCopy
-  else if op = 0x3e then some .returndatacopy
-  else if op = 0x3c then some .extcodecopy
-  else if op = 0xf3 then some (.ret false)
-  else if op = 0xfd then some (.ret true)
-  else if 0xa0 ≤ op ∧ op ≤ 0xa4 then some (.log (op - 0xa0))
-  else if op = 0x31 ∨ op = 0x3b ∨ op = 0x3f then some .accountAccess
-  else if op = 0xff then some .selfdestruct
-  else if op = 0x54 then some .sload
-  else if op = 0x55 then some .sstore
-  else if op = 0x5c then some .tload
-  else if op = 0x5d then some .tstore
-  else if op = 0xf1 ∨ op = 0xf2 ∨ op = 0xf4 ∨ op = 0xfa then some .call
-  else if op = 0xf0 then some (.create false)
-  else if op = 0xf5 then some (.create true)
-  else if 0x5f ≤ op ∧ op ≤ 0x7f then some .push
-  else if 0x80 ≤ op ∧ op ≤ 0x8f then some (.dup (op - 0x7f))
-  else if 0x90 ≤ op ∧ op ≤ 0x9f then some (.swap (op - 0x8f))
-  else if op = 0x4b then some (.halt .notactivated_slotnum_static_then_halt)
-  else if op = 0xe6 then some (.halt .notactivated_dupn_static_then_halt)
-  else if op = 0xe7 then some (.halt .notactivated_swapn_static_then_halt)
-  else if op = 0xe8 then some (.halt .notactivated_exchange_static_then_halt)
-  else if op = 0xfe then some (.halt .undefined_invalid_zero_gas_halt)
-  else if (staticGasEntries.lookup op).isNone then some (.halt .undefined_opcode_zero_gas_halt)
-  else none
+/-- The category of opcode `op`. The opcodes no case names are those revm-bytecode does not
+define (`staticGasEntries` has no entry, as a guard in `ZkGasWitnesses` checks for every opcode
+byte); revm's instruction table maps exactly those opcodes to `unknown`
+(`src/instructions.rs`). -/
+def classify (op : Nat) : Category :=
+  if op = 0x00 then .stop
+  else if op = 0x0a then .exp
+  else if 0x01 ≤ op ∧ op ≤ 0x0b then .arith
+  else if 0x10 ≤ op ∧ op ≤ 0x1e then .bitwise
+  else if op = 0x35 then .calldataload
+  else if op = 0x40 then .blockhash
+  else if op = 0x47 then .selfbalance
+  else if op = 0x49 then .blobhash
+  else if envReads.contains op then .env
+  else if op = 0x50 then .pop
+  else if op = 0x56 then .jump
+  else if op = 0x57 then .jumpi
+  else if op = 0x5b then .jumpdest
+  else if op = 0x51 ∨ op = 0x52 then .memoryAccess 32
+  else if op = 0x53 then .memoryAccess 1
+  else if op = 0x5e then .mcopy
+  else if op = 0x20 then .keccak
+  else if op = 0x37 ∨ op = 0x39 then .dataCopy
+  else if op = 0x3e then .returndatacopy
+  else if op = 0x3c then .extcodecopy
+  else if op = 0xf3 then .ret false
+  else if op = 0xfd then .ret true
+  else if 0xa0 ≤ op ∧ op ≤ 0xa4 then .log (op - 0xa0)
+  else if op = 0x31 ∨ op = 0x3b ∨ op = 0x3f then .accountAccess
+  else if op = 0xff then .selfdestruct
+  else if op = 0x54 then .sload
+  else if op = 0x55 then .sstore
+  else if op = 0x5c then .tload
+  else if op = 0x5d then .tstore
+  else if op = 0xf1 ∨ op = 0xf2 ∨ op = 0xf4 ∨ op = 0xfa then .call
+  else if op = 0xf0 then .create false
+  else if op = 0xf5 then .create true
+  else if 0x5f ≤ op ∧ op ≤ 0x7f then .push
+  else if 0x80 ≤ op ∧ op ≤ 0x8f then .dup (op - 0x7f)
+  else if 0x90 ≤ op ∧ op ≤ 0x9f then .swap (op - 0x8f)
+  else if op = 0x4b then .halt .notactivated_slotnum_static_then_halt
+  else if op = 0xe6 then .halt .notactivated_dupn_static_then_halt
+  else if op = 0xe7 then .halt .notactivated_swapn_static_then_halt
+  else if op = 0xe8 then .halt .notactivated_exchange_static_then_halt
+  else if op = 0xfe then .halt .undefined_invalid_zero_gas_halt
+  else .halt .undefined_opcode_zero_gas_halt
 
 /-- Stage 3: the instruction body of category `c` on `pre`, with `gas` left after the static
 charge. The arithmetic and bitwise opcodes pop `inputs op` items, the number revm-bytecode
@@ -218,15 +217,12 @@ def body (pre : Pre) (gas : Nat) : Category → Except String StepResult
   | .create create2 => createStep pre gas create2
   | .halt branch => pure (haltStep gas branch)
 
-/-- The outcome of the step that runs from `pre` on fork `f`; never `none`, since every opcode
-has a category. Stage 2, the static gas charge, is the same for every opcode. -/
-def stepOutcome : Fork → Pre → Except String (Option StepResult)
+/-- The outcome of the step that runs from `pre` on fork `f`. Stage 2, the static gas charge, is
+the same for every opcode. -/
+def stepOutcome : Fork → Pre → Except String StepResult
   | .unzen, pre =>
-    match classify pre.op with
-    | none => pure none
-    | some category =>
-      let staticCost := staticGas pre.op
-      if pre.gas < staticCost then pure (some (haltSpendingAll .static_step_static_oog_spend_all))
-      else some <$> body pre (pre.gas - staticCost) category
+    let staticCost := staticGas pre.op
+    if pre.gas < staticCost then pure (haltSpendingAll .static_step_static_oog_spend_all)
+    else body pre (pre.gas - staticCost) (classify pre.op)
 
 end TaikoSpec.ZkGas

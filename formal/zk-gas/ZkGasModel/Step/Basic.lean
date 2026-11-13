@@ -174,8 +174,8 @@ inductive BranchId
   | notactivated_exchange_static_then_halt
   /-- MLOAD, MSTORE, MSTORE8, MCOPY, KECCAK256, CALLDATACOPY, CODECOPY, RETURNDATACOPY,
   EXTCODECOPY, RETURN or REVERT on fewer stack items than it pops (`popn!` or `popn_top!`:
-  `StackUnderflow`, before any dynamic charge), keeping the gas left after the static charge
-  (new name; no cell, and no corpus step). -/
+  `StackUnderflow`, before any dynamic charge), keeping the gas left after the static charge. Cell
+  `memory.step.underflow_halt`. -/
   | memory_step_underflow_halt
   /-- MLOAD, MSTORE or MSTORE8 that pays the expansion to its offset + 32 (offset + 1 for
   MSTORE8), or needs none inside current memory (new name; cells `memory.mload.expansion_success`,
@@ -472,11 +472,11 @@ inductive BranchId
   | call_call_new_account_oog_spend_all
   /-- A CALL-family opcode to an EIP-7702 delegated target with less than the 100 delegate read
   (plus 2,500 when the target was cold) left: the delegate load fails with `ColdLoadSkipped`,
-  which spends all gas (new name; no cell, and no corpus step). -/
+  which spends all gas. Cell `call.family.delegate_read_oog_spend_all`. -/
   | call_family_delegate_read_oog_spend_all
   /-- A CALL-family opcode to an EIP-7702 delegated target whose cold delegate's 2,500
-  surcharge does not fit after the delegate read: the skipped cold load spends all gas (new
-  name; no cell, and no corpus step). -/
+  surcharge does not fit after the delegate read: the skipped cold load spends all gas. Cell
+  `call.family.delegate_cold_surcharge_oog_spend_all`. -/
   | call_family_delegate_cold_surcharge_oog_spend_all
   /-- A CALL-family opcode without a value transfer to a warm target without a delegation opens
   its frame: no charge beyond its 100 static gas and its memory. Cell
@@ -492,17 +492,17 @@ inductive BranchId
   `call.family.empty_code_spawn_estimate`, and `call.call.static_frame_zero_value_allowed`,
   `call.family.spawn_limit_exact_committed` and `call.family.spawn_limit_exceeded_aborted`. -/
   | call_family_cold_target_spawn
-  /-- No value transfer, a warm target delegated to a warm address: the 100 delegate read (new
-  name; no cell, and no corpus step). -/
+  /-- No value transfer, a warm target delegated to a warm address: the 100 delegate read. Cell
+  `call.family.warm_target_warm_delegate_spawn`. -/
   | call_family_warm_target_warm_delegate_spawn
   /-- No value transfer, a warm target delegated to a cold address: 100 + 2,500 for the
-  delegate (new name; no cell, and no corpus step). -/
+  delegate. Cell `call.family.warm_target_cold_delegate_spawn`. -/
   | call_family_warm_target_cold_delegate_spawn
   /-- No value transfer, a cold target delegated to a warm address: 2,500 + 100 (new name; cell
   `call.family.delegated_to_precompile_empty_code`). -/
   | call_family_cold_target_warm_delegate_spawn
-  /-- No value transfer, a cold target delegated to a cold address: 2,500 + 100 + 2,500 (new
-  name; no cell, and no corpus step). -/
+  /-- No value transfer, a cold target delegated to a cold address: 2,500 + 100 + 2,500. Cell
+  `call.family.cold_target_cold_delegate_spawn`. -/
   | call_family_cold_target_cold_delegate_spawn
   /-- CALL or CALLCODE with a non-zero value to a warm target without a delegation, and no
   new-account cost: 9,000 (new name; cells `call.value.transfer_success` and
@@ -520,17 +520,17 @@ inductive BranchId
   /-- CALL with a non-zero value to a cold empty target: 9,000 + 2,500 + 25,000 (new name; cell
   `call.call.new_account_success`). -/
   | call_call_new_account_cold_target_spawn
-  /-- A value transfer to a warm target delegated to a warm address: 9,000 + 100 (new name; no
-  cell, and no corpus step). -/
+  /-- A value transfer to a warm target delegated to a warm address: 9,000 + 100. Cell
+  `call.value.warm_target_warm_delegate_spawn`. -/
   | call_value_warm_target_warm_delegate_spawn
-  /-- A value transfer to a warm target delegated to a cold address: 9,000 + 100 + 2,500 (new
-  name; no cell, and no corpus step). -/
+  /-- A value transfer to a warm target delegated to a cold address: 9,000 + 100 + 2,500. Cell
+  `call.value.warm_target_cold_delegate_spawn`. -/
   | call_value_warm_target_cold_delegate_spawn
-  /-- A value transfer to a cold target delegated to a warm address: 9,000 + 2,500 + 100 (new
-  name; no cell, and no corpus step). -/
+  /-- A value transfer to a cold target delegated to a warm address: 9,000 + 2,500 + 100. Cell
+  `call.value.cold_target_warm_delegate_spawn`. -/
   | call_value_cold_target_warm_delegate_spawn
   /-- A value transfer to a cold target delegated to a cold address: 9,000 + 2,500 + 100 +
-  2,500 (new name; no cell, and no corpus step). -/
+  2,500. Cell `call.value.cold_target_cold_delegate_spawn`. -/
   | call_value_cold_target_cold_delegate_spawn
   /-- CREATE or CREATE2 in a static frame: `StateChangeDuringStaticCall` before any pop or
   charge, keeping all the gas. -/
@@ -753,9 +753,9 @@ def BranchId.name : BranchId → String
   | .undefined_invalid_zero_gas_halt => "undefined_invalid_zero_gas_halt"
 
 /-- A modeled step: the frame's gas after it, how it ended and the branch that decided it.
-When the step opens a new frame, `gasAfter` is the gas left after the gas it forwards; the
-meter does not use it (it charges the spawn estimate), so the trace checker does not compare
-it. -/
+When the step opens a new frame, `gasAfter` is the gas left after the gas it forwards. The meter
+does not use it (it charges the spawn estimate); the trace checker compares it with the trace's
+`gas_after`, which alethia-reth records exactly for a spawn step too. -/
 structure StepResult where
   gasAfter : Nat
   outcome : Outcome
