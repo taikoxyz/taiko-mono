@@ -2,8 +2,8 @@
   "sources": [
     {
       "path": "packages/protocol/docs/zk_gas_spec.md",
-      "revision": "10a2a54a10af6f4e703ca583bf34a2db7ae531d5",
-      "sha256": "7ff76aa1b652826728681399c9582369bfdba4f536ded059f1a07d4fce5a9112"
+      "revision": "43839f0c823e962fcba140085bcf593937339ce8",
+      "sha256": "ef5927ddd0ef0099b30e0bedcdcfe8527bb83116dab907a375455e536156d87e"
     }
   ],
   "claims": {
