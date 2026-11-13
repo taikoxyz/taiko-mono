@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Checks the zk gas vector corpus: file format, the fixed block environment and coverage.
+"""Checks the zk gas vector corpus: file format, the fixed block environment, coverage and traces.
 
 Usage: python3 testdata/zk_gas_vectors/check.py [--require-expected]
 
@@ -71,6 +71,20 @@ HARNESS_INPUT_FIELDS = ("alloc", "caller", "to", "frame_gas", "zk_block_limit", 
 # The harness tx gas limit is frame_gas plus the 21,000 base cost of an empty-calldata call.
 HARNESS_FRAME_GAS_MAX = U64_MAX - 21_000
 HARNESS_STATUSES = ("success", "revert", "halt", "zk_limit")
+
+# Trace schema v1: the fields of each event, in the order they are written. The Lean checker
+# (formal/zk-gas, `lake exe check-traces`) checks the values and the event order.
+TRACE_FIELDS = {
+    "intrinsic": ("e", "zk", "ok"),
+    "step": ("e", "d", "pc", "op", "gas", "static", "sl", "stack", "mem", "facts", "gas_after", "spawn", "zk",
+             "ok", "charged"),
+    "precompile": ("e", "addr", "supplied", "left", "success", "zk", "ok"),
+    "tx_end": ("e", "index", "status", "tx_zk"),
+    "frame_end": ("e", "status", "frame_zk"),
+}
+# A block trace starts with a tx's intrinsic charge; a harness trace with the top frame's first
+# step, or with the precompile run when the harness calls a precompile directly.
+TRACE_FIRST = {"block": ("intrinsic",), "harness": ("step", "precompile")}
 
 
 def check_fields(errors, where, obj, required, optional=()):
@@ -476,6 +490,71 @@ def load_object(errors, root, rel):
     return data
 
 
+def check_trace(errors, root, rel, layer):
+    """Checks that each line of the trace file root/rel is one schema event, and its first event."""
+    try:
+        text = (root / rel).read_text(encoding="utf-8")
+    except (OSError, ValueError) as error:
+        errors.append(f"{rel}: cannot read: {error}")
+        return
+    if not text:
+        errors.append(f"{rel}: empty trace")
+        return
+    if not text.endswith("\n"):
+        errors.append(f"{rel}: must end with a newline")
+    lines = text.split("\n")
+    if lines[-1] == "":
+        lines.pop()
+    for number, line in enumerate(lines, 1):
+        where = f"{rel}: line {number}"
+        if not line:
+            errors.append(f"{where}: empty line")
+            continue
+        try:
+            event = json.loads(line, object_pairs_hook=_reject_duplicate_keys, parse_constant=_reject_constant)
+        except ValueError as error:
+            errors.append(f"{where}: cannot parse: {error}")
+            continue
+        if not isinstance(event, dict):
+            errors.append(f"{where}: must be a JSON object")
+            continue
+        kind = event.get("e")
+        fields = TRACE_FIELDS.get(kind) if isinstance(kind, str) else None
+        if fields is None:
+            errors.append(f"{where}: unknown event {kind!r} (events: {', '.join(TRACE_FIELDS)})")
+            continue
+        if tuple(event) != fields:
+            errors.append(f"{where}: fields must be {', '.join(fields)} in this order, got {', '.join(event)}")
+        if number == 1 and layer in TRACE_FIRST and kind not in TRACE_FIRST[layer]:
+            errors.append(f"{where}: first event must be {' or '.join(TRACE_FIRST[layer])} ({layer} layer), got {kind}")
+
+
+def check_traces(errors, root, layers, require_expected):
+    """Checks traces/: one <id>.jsonl per vector once the directory exists (required with
+    require_expected), and none without a vector. layers maps each vector id to its layer, or
+    None when the vector is invalid."""
+    traces = root / "traces"
+    if not traces.is_dir():
+        return
+    for path in sorted(traces.iterdir()):
+        if path.name.startswith("."):
+            continue
+        rel = f"traces/{path.name}"
+        if path.suffix != ".jsonl" or not path.is_file():
+            errors.append(f"{rel}: not a trace file (traces/ holds only <id>.jsonl files)")
+        elif path.stem not in layers:
+            errors.append(f"{rel}: no vector cases/{path.stem}.json")
+        else:
+            check_trace(errors, root, rel, layers[path.stem])
+    if require_expected:
+        for vector_id in layers:
+            if not (traces / f"{vector_id}.jsonl").is_file():
+                errors.append(
+                    f"cases/{vector_id}.json: missing trace traces/{vector_id}.jsonl "
+                    "(generate it with the alethia-reth runner's write mode)"
+                )
+
+
 def check(root: Path, require_expected: bool) -> list[str]:
     """Returns every format and coverage error in the corpus at root; an empty list means it passes."""
     root = Path(root)
@@ -488,6 +567,7 @@ def check(root: Path, require_expected: bool) -> list[str]:
     covered = set()
     cases = root / "cases"
     vectors = 0
+    layers = {}
     for path in sorted(cases.iterdir()) if cases.is_dir() else []:
         if path.name.startswith("."):
             continue
@@ -497,10 +577,13 @@ def check(root: Path, require_expected: bool) -> list[str]:
             continue
         vectors += 1
         vector = load_object(errors, root, rel)
+        layers[path.stem] = None
         if vector is not None:
             check_vector(errors, rel, path.stem, vector, cells, covered, require_expected)
+            layers[path.stem] = vector.get("layer")
     if vectors == 0:
         errors.append("cases: no vectors")
+    check_traces(errors, root, layers, require_expected)
     for cell_id in cells:
         if cell_id not in covered:
             errors.append(f"coverage.json: cell {cell_id!r} has no vector")
@@ -512,7 +595,7 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--require-expected",
         action="store_true",
-        help="also require every vector to carry generated expected values",
+        help="also require every vector to carry generated expected values, and a trace once traces/ exists",
     )
     args = parser.parse_args(argv)
     errors = check(ROOT, args.require_expected)

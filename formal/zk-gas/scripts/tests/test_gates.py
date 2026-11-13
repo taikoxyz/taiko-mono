@@ -126,9 +126,32 @@ class GateTests(unittest.TestCase):
         path.write_text(path.read_text().replace('root = "ZkGasTraces.Main"', 'root = "ZkGasModel.Meter"'))
         self.assertTrue(gate.check(self.root))
 
-    def test_json_import_only_in_trace_checker(self):
-        self.assertEqual(gate.source_errors(gate.JSON_IMPORTER, 'import Lean.Data.Json'), [])
-        self.assertTrue(gate.source_errors('ZkGasTraces.Check', 'import Lean.Data.Json'))
+    def test_json_only_in_trace_parser_and_checker(self):
+        allowed = 'import Lean.Data.Json\ndef f (j : Lean.Json) (n : Lean.JsonNumber) := Lean.Json.parse'
+        self.assertEqual(gate.JSON_MODULES, {'ZkGasTraces.Json', 'ZkGasTraces.Check'})
+        for module in sorted(gate.JSON_MODULES):
+            with self.subTest(module=module):
+                self.assertEqual(gate.source_errors(module, allowed), [])
+                # Only the JSON names; no other Lean name and no proof escape behind one.
+                for text in ['def f := Lean.Elab.Command', 'def f := Lean.ofReduceBool',
+                             'def f := Lean.Json.partial', 'def f := Lean.Data.Json']:
+                    self.assertTrue(gate.source_errors(module, text), text)
+        for module in ['ZkGasModel.Pre', 'ZkGasStatements.Claims', 'ZkGasProofs.Claims',
+                       'ZkGasWitnesses.Tests', 'ZkGasTraces.Main']:
+            with self.subTest(module=module):
+                self.assertTrue(gate.source_errors(module, 'import Lean.Data.Json'))
+                self.assertTrue(gate.source_errors(module, 'def f := Lean.Json.parse'))
+
+    def test_json_import_graph(self):
+        for path, line in [('ZkGasTraces/Main.lean', 'import Lean.Data.Json'),
+                           ('ZkGasModel/Pre.lean', 'import Lean.Data.Json'),
+                           ('ZkGasTraces/Json.lean', 'import Lean.Elab'),
+                           ('ZkGasTraces/Check.lean', 'import Lean')]:
+            with self.subTest(path=path, line=line):
+                original = (self.root / path).read_text()
+                (self.root / path).write_text(line + '\n' + original)
+                self.assertTrue(gate.check(self.root))
+                (self.root / path).write_text(original)
 
 
 class TableTests(unittest.TestCase):
@@ -168,6 +191,18 @@ class TableTests(unittest.TestCase):
             value = re.search(rf'\| `{constant}` \| ([\d,]+) \|', self.spec).group(1).replace(',', '')
             self.assertIn(f'def {lean} : Nat := {value}\n', self.tables)
         self.assertIn('def failsafeMultiplier : Nat := 65535\n', self.tables)
+
+    def test_corpus_readme_lists_the_stack_inputs(self):
+        readme = (ROOT.parents[1] / 'testdata/zk_gas_vectors/README.md').read_text()
+        section = readme.split('### Stack inputs', 1)[1].split('\n### ', 1)[0]
+        rows = re.findall(r'(?m)^\| `([0-9a-f])_` \|(.*)\|$', section)
+        self.assertEqual([hi for hi, _ in rows], list('0123456789abcdef'))
+        listed = {}
+        for hi, cells in rows:
+            values = [cell.strip() for cell in cells.split('|')]
+            self.assertEqual(len(values), 16)
+            listed.update({int(hi, 16) * 16 + lo: int(v) for lo, v in enumerate(values) if v != '–'})
+        self.assertEqual(listed, self.entries(self.tables, 'inputsEntries'))
 
 if __name__ == '__main__':
     unittest.main()

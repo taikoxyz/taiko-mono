@@ -13,7 +13,7 @@ LIBRARIES = {
     'ZkGasModel': {'ZkGasModel'},
     'ZkGasStatements': {'ZkGasStatements', 'ZkGasModel'},
     'ZkGasProofs': {'ZkGasProofs', 'ZkGasStatements', 'ZkGasModel'},
-    'ZkGasWitnesses': {'ZkGasWitnesses', 'ZkGasProofs', 'ZkGasStatements', 'ZkGasModel'},
+    'ZkGasWitnesses': {'ZkGasWitnesses', 'ZkGasProofs', 'ZkGasStatements', 'ZkGasModel', 'ZkGasTraces'},
     'ZkGasTraces': {'ZkGasTraces', 'ZkGasModel'},
 }
 REVISION = 'aef6a3e4b954cc84cdff3d2434a1fe060a80bcd3'
@@ -21,8 +21,11 @@ SPEC_PATHS = ['packages/protocol/docs/zk_gas_spec.md']
 CLAIMS = {'BlockWithinLimit': 'block_within_limit', 'AbortContributesNothing': 'abort_contributes_nothing',
           'TotalIsSum': 'total_is_sum'}
 GUARDS = {'ZkGasWitnesses.Tests'}
-# The only explicit Lean import: JSON IO in the trace checker's entry point.
-JSON_IMPORTER = 'ZkGasTraces.Main'
+# The only explicit Lean import is Lean.Data.Json, and only the trace parser and checker may
+# import it and name its types (Lean.Json, Lean.JsonNumber and their members). No Model,
+# Statements or Proofs module may; the entry point uses the checker's string interface.
+JSON_MODULES = {'ZkGasTraces.Json', 'ZkGasTraces.Check'}
+JSON_NAME = re.compile(r"Lean\.Json(?:Number)?(?:\.[A-Za-z_][A-Za-z_0-9']*)*")
 EXECUTABLE = {'name': 'check-traces', 'root': 'ZkGasTraces.Main'}
 FORBIDDEN = set('sorry admit native_decide axiom unsafe partial implemented_by extern opaque '
                 'run_elab elab elab_rules macro macro_rules syntax initialize builtin_initialize '
@@ -86,11 +89,11 @@ def source_errors(module, text):
         return [f'{module}: {exc}']
     errors = []
     for i, token in enumerate(ts):
+        # The trace parser and checker may import Lean.Data.Json and name the JSON types.
+        json_name = module in JSON_MODULES and (
+            JSON_NAME.fullmatch(token) or (token == 'Lean.Data.Json' and i and ts[i - 1] == 'import'))
         if (token in FORBIDDEN or token.split('.')[-1] in FORBIDDEN or
-                token.startswith(('Lean.', 'debug.'))):
-            # The sole explicit Lean import is JSON IO in the trace checker.
-            if token == 'Lean.Data.Json' and module == JSON_IMPORTER and i and ts[i - 1] == 'import':
-                continue
+                (token.startswith(('Lean.', 'debug.')) and not json_name)):
             errors.append(f'{module}: forbidden token {token}')
         if token == '#' and not (i + 1 < len(ts) and (ts[i + 1] == '[' or (ts[i + 1] == 'guard' and module in GUARDS))):
             errors.append(f'{module}: forbidden command after #')
@@ -185,7 +188,7 @@ def check(root):
                 errors.append(f'unclassified root module: {path.name}')
         for module, deps in modules.items():
             for dep in deps:
-                if dep == 'Lean.Data.Json' and module == JSON_IMPORTER:
+                if dep == 'Lean.Data.Json' and module in JSON_MODULES:
                     continue
                 if dep.split('.')[0] in {'Init', 'Std'}:
                     continue

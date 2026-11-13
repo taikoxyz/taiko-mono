@@ -88,6 +88,44 @@ TRUNCATED = chain(
 )
 
 
+# Fixture trace lines in schema field order (trace schema v1 in README.md).
+INTRINSIC = {"e": "intrinsic", "zk": "0x3b538", "ok": True}
+TX_END = {"e": "tx_end", "index": 0, "status": "committed", "tx_zk": "0x3b538"}
+STEP = {
+    "e": "step",
+    "d": 1,
+    "pc": 0,
+    "op": 0,
+    "gas": "0x186a0",
+    "static": False,
+    "sl": 0,
+    "stack": [],
+    "mem": "0x0",
+    "facts": {},
+    "gas_after": "0x186a0",
+    "spawn": False,
+    "zk": "0x0",
+    "ok": True,
+    "charged": True,
+}
+PRECOMPILE = {
+    "e": "precompile",
+    "addr": "0x0000000000000000000000000000000000000002",
+    "supplied": "0x186a0",
+    "left": "0x18664",
+    "success": True,
+    "zk": "0x258",
+    "ok": True,
+}
+FRAME_END = {"e": "frame_end", "status": "success", "frame_zk": "0x0"}
+BLOCK_TRACE = [INTRINSIC, STEP, TX_END]
+HARNESS_TRACE = [STEP, FRAME_END]
+
+
+def jsonl(events):
+    return "".join(json.dumps(event, separators=(",", ":")) + "\n" for event in events)
+
+
 def cell(cell_id, mutation):
     """Applies mutation to one coverage.json cell."""
 
@@ -413,6 +451,83 @@ class CheckTests(unittest.TestCase):
         shutil.rmtree(self.root / "cases")
         errors = check.check(self.root, False)
         self.assertTrue(any("no vectors" in e for e in errors), errors)
+
+    def write_trace(self, vector_id, text):
+        (self.root / "traces").mkdir(exist_ok=True)
+        (self.root / "traces" / f"{vector_id}.jsonl").write_text(text)
+
+    def trace_errors(self, vector_id, text, require_expected=False):
+        self.write_trace(vector_id, text)
+        rel = f"traces/{vector_id}.jsonl"
+        return [e for e in check.check(self.root, require_expected) if e.startswith(rel)]
+
+    def assertTraceRejected(self, vector_id, text, needle):
+        errors = self.trace_errors(vector_id, text)
+        self.assertTrue(any(needle in e for e in errors), f"expected an error containing {needle!r}, got {errors}")
+
+    def test_traces_optional_until_the_directory_exists(self):
+        self.assertFalse((self.root / "traces").exists())
+        self.assertEqual(check.check(self.root, True), [])
+        self.write_trace("smoke.block.transfer", jsonl(BLOCK_TRACE))
+        self.write_trace("smoke.harness.add", jsonl(HARNESS_TRACE))
+        self.assertEqual(check.check(self.root, False), [])
+        errors = check.check(self.root, True)
+        self.assertTrue(any(e.startswith("cases/account.balance.underflow.json: missing trace") for e in errors), errors)
+        self.assertFalse(any("smoke." in e for e in errors), errors)
+        for path in sorted((self.root / "cases").glob("*.json")):
+            layer = json.loads(path.read_text())["layer"]
+            self.write_trace(path.stem, jsonl(BLOCK_TRACE if layer == "block" else HARNESS_TRACE))
+        self.assertEqual(check.check(self.root, True), [])
+
+    def test_trace_without_vector_rejected(self):
+        self.assertTraceRejected("no.such.vector", jsonl(HARNESS_TRACE), "no vector cases/no.such.vector.json")
+        (self.root / "traces/notes.txt").write_text("x")
+        errors = check.check(self.root, False)
+        self.assertTrue(any("traces/notes.txt: not a trace file" in e for e in errors), errors)
+        (self.root / "traces/notes.txt").unlink()
+        (self.root / "traces/no.such.vector.jsonl").unlink()
+        (self.root / "traces/.DS_Store").write_text("x")
+        self.assertEqual(check.check(self.root, False), [])
+
+    def test_trace_lines_are_json_objects(self):
+        block = "smoke.block.transfer"
+        self.assertEqual(self.trace_errors(block, jsonl(BLOCK_TRACE)), [])
+        for name, text, needle in [
+            ("empty", "", "empty"),
+            ("no final newline", jsonl(BLOCK_TRACE)[:-1], "newline"),
+            ("blank line", jsonl([INTRINSIC]) + "\n" + jsonl([TX_END]), "line 2: empty line"),
+            ("array", jsonl([INTRINSIC]) + "[1]\n", "line 2: must be a JSON object"),
+            ("not json", jsonl([INTRINSIC]) + "{x}\n", "line 2: cannot parse"),
+            ("duplicate key", '{"e":"intrinsic","zk":"0x0","zk":"0x1","ok":true}\n', "duplicate key"),
+            ("nan", jsonl([INTRINSIC]).replace('"0x3b538"', "NaN"), "NaN"),
+            ("unknown event", jsonl([INTRINSIC, {"e": "bogus"}]), "line 2: unknown event 'bogus'"),
+            ("missing e", jsonl([INTRINSIC, {"zk": "0x0"}]), "line 2: unknown event"),
+        ]:
+            with self.subTest(name=name):
+                self.assertTraceRejected(block, text, needle)
+
+    def test_trace_fields_in_schema_order(self):
+        block = "smoke.block.transfer"
+        reordered = {"e": "intrinsic", "ok": True, "zk": "0x3b538"}
+        extra = dict(INTRINSIC, note="x")
+        missing = {"e": "intrinsic", "zk": "0x3b538"}
+        for name, events in [("reordered", [reordered]), ("extra", [extra]), ("missing", [missing])]:
+            with self.subTest(name=name):
+                self.assertTraceRejected(block, jsonl(events + BLOCK_TRACE[1:]), "line 1: fields must be e, zk, ok")
+        step = {key: STEP[key] for key in reversed(STEP)}
+        self.assertTraceRejected(block, jsonl([INTRINSIC, step, TX_END]), "line 2: fields must be e, d, pc, op")
+        harness = "smoke.harness.add"
+        self.assertEqual(self.trace_errors(harness, jsonl([STEP, PRECOMPILE, STEP, FRAME_END])), [])
+        swapped = {"e": "frame_end", "frame_zk": "0x0", "status": "success"}
+        self.assertTraceRejected(harness, jsonl([STEP, swapped]), "line 2: fields must be e, status, frame_zk")
+
+    def test_trace_first_event_matches_layer(self):
+        block, harness = "smoke.block.transfer", "smoke.harness.add"
+        self.assertTraceRejected(block, jsonl([STEP, TX_END]), "first event must be intrinsic (block layer)")
+        self.assertTraceRejected(harness, jsonl([INTRINSIC] + HARNESS_TRACE), "first event must be step or precompile")
+        self.assertTraceRejected(harness, jsonl([FRAME_END]), "first event must be step or precompile")
+        # A harness call straight to a precompile has no step.
+        self.assertEqual(self.trace_errors(harness, jsonl([PRECOMPILE, FRAME_END])), [])
 
     def test_cli_exit_codes(self):
         command = [sys.executable, str(self.root / "check.py")]

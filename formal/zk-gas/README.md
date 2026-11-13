@@ -24,8 +24,26 @@ The model has two parts:
   it get no result.
 
 How a charge's amount is computed from an opcode's step gas, a spawn estimate or a precompile's
-gas use is not modeled yet. `lake exe check-traces` is a placeholder that reports it is not
-implemented; trace checking is not part of the evidence below.
+gas use is not modeled yet. [`ZkGasModel/Pre.lean`](ZkGasModel/Pre.lean) defines `Pre`, the
+interpreter state a step model will read: the opcode, depth, gas, the top of the stack, the memory
+size and the state facts the opcode's gas depends on.
+
+## Trace checker
+
+`lake exe check-traces <corpus-dir> [--allow-unmodeled]` checks every vector's trace,
+`traces/<id>.jsonl` in the corpus (format: "Trace schema v1" in
+[`testdata/zk_gas_vectors/README.md`](../../testdata/zk_gas_vectors/README.md#trace-schema-v1)),
+against the model and the vector's expected values. [`ZkGasTraces/Json.lean`](ZkGasTraces/Json.lean)
+parses the events and rejects anything outside the schema;
+[`ZkGasTraces/Check.lean`](ZkGasTraces/Check.lean) checks the event order, each step's and
+precompile's charge, each charge's meter verdict, and feeds every tx's charges to `meterBlock`
+(a harness frame's to `meterTx`) to reproduce the vector's expected values. It takes a step model
+`Pre → Except String (Option (gas_after × spawn × branch))`; the model checks `gas_after` and
+`spawn` of every step it covers. No step is modeled yet, so `--allow-unmodeled` lets the
+uncovered steps pass; without it, an uncovered step fails. The checker stops at the first
+failure with the vector id, the event index and the reason, and exits 1. Every vector needs a
+trace and every trace a vector. The gate runs it with `--allow-unmodeled` once the corpus has a
+`traces/` directory and skips it before then. Trace checking is not part of the evidence below.
 
 ## Claims to review
 
@@ -112,16 +130,19 @@ reviewed together.
 
 [`ZkGasWitnesses/Tests.lean`](ZkGasWitnesses/Tests.lean) holds executable `#guard` regressions:
 table spot checks against the specification and revm (ADD, PUSH1, point_evaluation, an unlisted
-precompile, ADD and CREATE static gas) and meter cases at and just past the block limit. They run
-during compilation and are **not kernel proofs**.
+precompile, ADD and CREATE static gas), meter cases at and just past the block limit, and the
+trace parser and checker on fixture traces: canonical hex up to 2^256 - 1, malformed records and
+`facts`, the two smoke vectors' traces, and each kind of failure (event order, step, precompile
+and intrinsic charges, meter verdicts, totals against the expected values, model disagreement).
+They run during compilation and are **not kernel proofs**.
 
 The full gate combines independent checks:
 
 1. Python lexes the accepted source subset, ignoring nested comments and escaped strings, and
    rejects proof escapes, metaprogramming commands and unreviewed compiler options. `#guard` is
    allowed only in `ZkGasWitnesses/Tests.lean`. Model and Statements forbid source
-   theorem/example commands. The only explicit `Lean` import allowed is `Lean.Data.Json` in
-   `ZkGasTraces.Main`.
+   theorem/example commands. The only explicit `Lean` import allowed is `Lean.Data.Json`, and
+   only `ZkGasTraces.Json` and `ZkGasTraces.Check` may import it and name its types.
 2. The import graph enforces downward library dependencies, existing modules and reachability
    from every library root.
 3. The specification gate checks the exact source path, revision, hash, headline mappings,
@@ -142,13 +163,13 @@ three standard axioms.
 
 ## Layout and validation
 
-| Library           | Responsibility                    | Allowed package imports              |
-| ----------------- | --------------------------------- | ------------------------------------ |
-| `ZkGasModel`      | Tables and executable definitions | Model                                |
-| `ZkGasStatements` | Propositions                      | Statements, Model                    |
-| `ZkGasProofs`     | Lemmas and headline proofs        | Proofs, Statements, Model            |
-| `ZkGasWitnesses`  | Regressions                       | Witnesses, Proofs, Statements, Model |
-| `ZkGasTraces`     | Trace checker (placeholder)       | Traces, Model                        |
+| Library           | Responsibility                    | Allowed package imports                      |
+| ----------------- | --------------------------------- | -------------------------------------------- |
+| `ZkGasModel`      | Tables and executable definitions | Model                                        |
+| `ZkGasStatements` | Propositions                      | Statements, Model                            |
+| `ZkGasProofs`     | Lemmas and headline proofs        | Proofs, Statements, Model                    |
+| `ZkGasWitnesses`  | Regressions                       | Witnesses, Proofs, Statements, Model, Traces |
+| `ZkGasTraces`     | Trace parser and checker          | Traces, Model                                |
 
 Audit tooling is outside these libraries in `scripts/`. Lean is pinned to 4.34.1, with no
 third-party Lean packages. Install that toolchain through elan and use Python 3.11 or later.
@@ -171,7 +192,7 @@ LEAN_PATH="$PWD/.lake/audit" lake env lean --run scripts/RunAudit.lean
 for library in ZkGasModel ZkGasStatements ZkGasProofs ZkGasWitnesses ZkGasTraces; do
   lake env leanchecker "$library"
 done
-lake exe check-traces ../../testdata/zk_gas_vectors
+lake exe check-traces ../../testdata/zk_gas_vectors --allow-unmodeled  # once traces/ exists
 ```
 
 CI runs on drafts and watches the pinned specification, the package, the shared vector corpus
