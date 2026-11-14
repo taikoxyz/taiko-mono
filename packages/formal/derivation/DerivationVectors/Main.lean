@@ -246,8 +246,8 @@ end Boundary
 
 def main (args : List String) : IO UInt32 := do
   if args.head? == some "--boundaries" then
-    return ← Boundary.run (args[1]?.getD "../../testdata/derivation_vectors/boundary_cases.json")
-  let path := args.headD "../../testdata/derivation_vectors/manifest_cases.json"
+    return ← Boundary.run (args[1]?.getD "../../../testdata/derivation_vectors/boundary_cases.json")
+  let path := args.headD "../../../testdata/derivation_vectors/manifest_cases.json"
   let json ← IO.ofExcept (Json.parse (← IO.FS.readFile path))
   let version ← IO.ofExcept (json.getObjValAs? Nat "schema_version")
   unless version == 1 do

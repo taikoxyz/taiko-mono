@@ -7,7 +7,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 BINARY = ROOT / '.lake/build/bin/generate-meter-vectors'
-CORPUS = ROOT.parents[1] / 'testdata/zk_gas_vectors/meter-vectors.json'
+CORPUS = ROOT.parents[2] / 'testdata/zk_gas_vectors/meter-vectors.json'
 
 
 class MeterGeneratorTests(unittest.TestCase):

@@ -83,11 +83,11 @@ The manifest links every headline to actual headings in the pinned file and veri
 hash. Links and hashes are traceability, not a percentage of specification proved. Review these
 sections alongside the statements:
 
-- [Manifest extraction and fallback](../../packages/protocol/docs/Derivation.md#manifest-extraction),
-  [metadata validation](../../packages/protocol/docs/Derivation.md#metadata-validation-and-computation),
-  and [forced inclusion submission requirements](../../packages/protocol/docs/Derivation.md#forced-inclusion-submission-requirements).
-- [Pre-execution block header](../../packages/protocol/docs/Derivation.md#pre-execution-block-header)
-  and [the anchor transaction](../../packages/protocol/docs/Derivation.md#anchor-transaction).
+- [Manifest extraction and fallback](../../protocol/docs/Derivation.md#manifest-extraction),
+  [metadata validation](../../protocol/docs/Derivation.md#metadata-validation-and-computation),
+  and [forced inclusion submission requirements](../../protocol/docs/Derivation.md#forced-inclusion-submission-requirements).
+- [Pre-execution block header](../../protocol/docs/Derivation.md#pre-execution-block-header)
+  and [the anchor transaction](../../protocol/docs/Derivation.md#anchor-transaction).
 
 The Anchor contract is trusted: `recordedAnchors` models `anchorV4`'s running maximum
 (`Anchor.sol`, `_validateBlock`), and every anchor transaction is assumed to succeed.
@@ -134,11 +134,11 @@ fail CI until the model, claims, exclusions and pins are reviewed together.
 
 ## Evidence and trust boundary
 
-The shared corpus in [`testdata/derivation_vectors`](../../testdata/derivation_vectors) contains
+The shared corpus in [`testdata/derivation_vectors`](../../../testdata/derivation_vectors) contains
 136 unchanged manifest-decoding vectors and 151 shared Unzen boundary cases. All three adapters
 check the boundary inputs against independently authored expected extraction results, derived
 blocks, header plans and next parents. The
-[named coverage matrix](../../testdata/derivation_vectors/boundary_coverage.json) covers the
+[named coverage matrix](../../../testdata/derivation_vectors/boundary_coverage.json) covers the
 reviewed extraction, metadata, inheritance, multi-source and header boundaries, including ±1
 cases and chain-specific fork selection. Each adapter rejects deliberate expected-output
 mutations, including candidate reordering. Coverage is not exhaustive over arbitrary inputs.
@@ -146,7 +146,7 @@ mutations, including candidate reordering. Coverage is not exhaustive over arbit
 Go calls production fetch/decode, metadata and shared header helpers; Rust uses production
 decoding, manifest preparation, payload/anchor construction and parent advancement. Their tests
 substitute external RPC/signing or execution boundaries; Anchor state is still trusted as the
-running maximum. See the [corpus README](../../testdata/derivation_vectors/README.md) for the
+running maximum. See the [corpus README](../../../testdata/derivation_vectors/README.md) for the
 exact comparison boundary and native test commands. The local formal gate runs Lean and fixture
 checks; CI additionally runs both client adapters on drafts. Neither establishes whole-client
 equivalence or transaction execution.
@@ -205,7 +205,7 @@ and the three standard axioms.
 
 Audit tooling is outside these libraries in `scripts/`. Lean is pinned to 4.34.1, with no
 third-party Lean packages. Install that toolchain through elan and use Python 3.11 or later.
-From `formal/derivation`, the complete local and CI validation command is:
+From `packages/formal/derivation`, the complete local and CI validation command is:
 
 ```bash
 bash scripts/gate.sh
@@ -217,8 +217,8 @@ To inspect individual stages:
 python3 scripts/check.py
 python3 scripts/check_statements.py
 python3 -m unittest discover -s scripts/tests -v
-python3 ../../testdata/derivation_vectors/generate_boundaries.py --check
-python3 -m unittest discover -s ../../testdata/derivation_vectors -p 'test_boundary_vectors.py' -v
+python3 ../../../testdata/derivation_vectors/generate_boundaries.py --check
+python3 -m unittest discover -s ../../../testdata/derivation_vectors -p 'test_boundary_vectors.py' -v
 lake build
 mkdir -p .lake/audit
 lake env lean -o .lake/audit/Audit.olean scripts/Audit.lean
@@ -227,8 +227,8 @@ LEAN_PATH="$PWD/.lake/audit" lake env lean --run scripts/RunAudit.lean
 for library in DerivationModel DerivationStatements DerivationProofs DerivationWitnesses DerivationVectors; do
   lake env leanchecker "$library"
 done
-lake exe vectors ../../testdata/derivation_vectors/manifest_cases.json
-lake exe vectors --boundaries ../../testdata/derivation_vectors/boundary_cases.json
+lake exe vectors ../../../testdata/derivation_vectors/manifest_cases.json
+lake exe vectors --boundaries ../../../testdata/derivation_vectors/boundary_cases.json
 ```
 
 Python mutations exercise malformed manifests, proof escapes, imports/reachability and spec drift.

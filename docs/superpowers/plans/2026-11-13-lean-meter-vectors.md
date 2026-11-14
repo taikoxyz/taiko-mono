@@ -30,7 +30,7 @@ exporter emits deterministic JSON. Rust and Go runners parse the same file and c
 ### Task 1: Lean model, generator and corpus
 
 **Files:** Add `ZkGasModel/MeterVectors.lean`, `ZkGasTraces/MeterVectors.lean`,
-`ZkGasTraces/GenerateMeter.lean` under `formal/zk-gas`; modify library roots, witnesses, lakefile,
+`ZkGasTraces/GenerateMeter.lean` under `packages/formal/zk-gas`; modify library roots, witnesses, lakefile,
 source gate/tests and gate.sh; add `testdata/zk_gas_vectors/meter-vectors.json` and schema docs.
 
 **Interfaces:** `MeterVectors.Action`, `State`, `Snapshot`, `applyAction` and `runActions` implement

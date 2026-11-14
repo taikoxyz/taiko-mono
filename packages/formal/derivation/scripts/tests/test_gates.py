@@ -16,12 +16,12 @@ class GateTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name) / 'formal/derivation'
+        self.root = Path(self.temp.name) / 'packages/formal/derivation'
         shutil.copytree(ROOT, self.root, ignore=shutil.ignore_patterns('.lake', '__pycache__'))
         for item in gate.SPEC_PATHS:
-            target = self.root.parents[1] / item
+            target = self.root.parents[2] / item
             target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(ROOT.parents[1] / item, target)
+            shutil.copyfile(ROOT.parents[2] / item, target)
 
     def mutate(self, path, suffix):
         with (self.root / path).open('a') as f:
@@ -82,7 +82,7 @@ class GateTests(unittest.TestCase):
             self.assertTrue(gate.source_errors(lib, 'example : True := by trivial'))
 
     def test_spec_drift(self):
-        path = self.root.parents[1] / gate.SPEC_PATHS[0]
+        path = self.root.parents[2] / gate.SPEC_PATHS[0]
         path.write_text(path.read_text() + '\nChanged\n')
         self.assertTrue(gate.check(self.root))
 

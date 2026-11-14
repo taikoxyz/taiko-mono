@@ -10,40 +10,20 @@ import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
 LIBRARIES = {
-    'ZkGasModel': {'ZkGasModel'},
-    'ZkGasStatements': {'ZkGasStatements', 'ZkGasModel'},
-    'ZkGasProofs': {'ZkGasProofs', 'ZkGasStatements', 'ZkGasModel'},
-    'ZkGasWitnesses': {'ZkGasWitnesses', 'ZkGasProofs', 'ZkGasStatements', 'ZkGasModel', 'ZkGasTraces'},
-    'ZkGasTraces': {'ZkGasTraces', 'ZkGasModel'},
+    'DerivationModel': {'DerivationModel'},
+    'DerivationStatements': {'DerivationStatements', 'DerivationModel'},
+    'DerivationProofs': {'DerivationProofs', 'DerivationStatements', 'DerivationModel'},
+    'DerivationWitnesses': {'DerivationWitnesses', 'DerivationProofs', 'DerivationStatements', 'DerivationModel'},
+    'DerivationVectors': {'DerivationVectors', 'DerivationModel'},
 }
-REVISION = '43839f0c823e962fcba140085bcf593937339ce8'
-SPEC_PATHS = ['packages/protocol/docs/zk_gas_spec.md']
-CLAIMS = {'BlockWithinLimit': 'block_within_limit', 'AbortContributesNothing': 'abort_contributes_nothing',
-          'TotalIsSum': 'total_is_sum', 'FitCommits': 'fit_commits',
-          'BranchesComplete': 'branches_complete', 'StepGasMonotone': 'step_gas_monotone',
-          'SpawnOnlyForSpawnOps': 'spawn_only_for_spawn_ops'}
-GUARDS = {'ZkGasWitnesses.Tests'}
-# The only explicit Lean import is Lean.Data.Json; the trace parser/checker and meter exporter may
-# import it and name its types (Lean.Json, Lean.JsonNumber and their members). No Model,
-# Statements or Proofs module may; the entry point uses the checker's string interface.
-JSON_MODULES = {'ZkGasTraces.Json', 'ZkGasTraces.Check', 'ZkGasTraces.MeterVectors'}
-JSON_NAME = re.compile(r"Lean\.Json(?:Number)?(?:\.[A-Za-z_][A-Za-z_0-9']*)*")
-EXECUTABLES = [
-    {'name': 'check-traces', 'root': 'ZkGasTraces.Main'},
-    {'name': 'generate-meter-vectors', 'root': 'ZkGasTraces.GenerateMeter'},
-]
+REVISION = '5a987fe921743af9fdfe33de7aba6671b18c8a69'
+SPEC_PATHS = ['packages/protocol/docs/Derivation.md']
+CLAIMS = {'DerivationSafety': 'derivation_safety', 'HeaderSafety': 'header_safety',
+          'ForcedInclusionSafety': 'forced_inclusion_safety', 'Claims': 'claims'}
+GUARDS = {'DerivationWitnesses.Tests.' + name for name in ['Derive', 'Manifest', 'Rlp', 'Zlib']}
 FORBIDDEN = set('sorry admit native_decide axiom unsafe partial implemented_by extern opaque '
                 'run_elab elab elab_rules macro macro_rules syntax initialize builtin_initialize '
-                'declare_syntax_cat register_option set_option attribute by_elab run_tac '
-                'notation infix infixl infixr prefix postfix'.split())
-# The headline statements are reviewed by reading them, so every module of the statements library
-# is pinned by its SHA-256 hash: an edit to a statement fails the gate until it is reviewed and
-# repinned here. The audit pins each headline theorem's type to its statement's name, not the
-# statement's body.
-STATEMENTS = {
-    'ZkGasStatements.lean': '0ddf721b25e18b76f509f12e713b87ffe6bc1ee5fdf4af733c39fc92372e12e4',
-    'ZkGasStatements/Claims.lean': '42d815a355fa5f2f41d9a01c96210613f3841a3b82f9cd071a4ccf5a9b0c0108',
-}
+                'declare_syntax_cat register_option set_option attribute by_elab run_tac'.split())
 IDENT = re.compile(r'[A-Za-z_][A-Za-z_0-9\'.]*(?:%\b)?')
 
 
@@ -103,15 +83,15 @@ def source_errors(module, text):
         return [f'{module}: {exc}']
     errors = []
     for i, token in enumerate(ts):
-        # The trace parser and checker may import Lean.Data.Json and name the JSON types.
-        json_name = module in JSON_MODULES and (
-            JSON_NAME.fullmatch(token) or (token == 'Lean.Data.Json' and i and ts[i - 1] == 'import'))
         if (token in FORBIDDEN or token.split('.')[-1] in FORBIDDEN or
-                (token.startswith(('Lean.', 'debug.')) and not json_name)):
+                token.startswith(('Lean.', 'debug.'))):
+            # The sole explicit Lean import is JSON IO in the vector runner.
+            if token == 'Lean.Data.Json' and module == 'DerivationVectors.Main' and i and ts[i - 1] == 'import':
+                continue
             errors.append(f'{module}: forbidden token {token}')
         if token == '#' and not (i + 1 < len(ts) and (ts[i + 1] == '[' or (ts[i + 1] == 'guard' and module in GUARDS))):
             errors.append(f'{module}: forbidden command after #')
-        if token in {'theorem', 'example'} and module.split('.')[0] in {'ZkGasModel', 'ZkGasStatements'}:
+        if token in {'theorem', 'example'} and module.split('.')[0] in {'DerivationModel', 'DerivationStatements'}:
             errors.append(f'{module}: proof command in definition layer')
     return errors
 
@@ -148,16 +128,16 @@ def spec_errors(root, data):
         for s in sources:
             if set(s) != {'path', 'revision', 'sha256'} or s['revision'] != REVISION:
                 raise ValueError('wrong pinned revision or source fields')
-            contents = (root.parents[1] / s['path']).read_bytes()
+            contents = (root.parents[2] / s['path']).read_bytes()
             if hashlib.sha256(contents).hexdigest() != s['sha256']:
                 errors.append(f"spec drift: {s['path']}; review claims and explicitly repin")
             headings[s['path']] = set(re.findall(r'^#+ (.+)$', contents.decode(), re.M))
         if not isinstance(data['claims'], dict) or set(data['claims']) != set(CLAIMS):
-            raise ValueError('every headline claim link is required')
+            raise ValueError('all four headline claim links are required')
         for name, link in data['claims'].items():
             if set(link) != {'statement', 'theorem', 'sections'}:
                 raise ValueError(f'invalid claim fields: {name}')
-            if link['statement'] != f'TaikoSpec.ZkGas.Statements.{name}' or link['theorem'] != f'TaikoSpec.ZkGas.Proofs.{CLAIMS[name]}':
+            if link['statement'] != f'TaikoSpec.Derivation.Statements.{name}' or link['theorem'] != f'TaikoSpec.Derivation.Proofs.{CLAIMS[name]}':
                 raise ValueError(f'incorrect statement/theorem link: {name}')
             if not isinstance(link['sections'], list) or not link['sections']:
                 raise ValueError(f'missing spec sections: {name}')
@@ -172,22 +152,6 @@ def spec_errors(root, data):
     return errors
 
 
-def statement_errors(root):
-    """The statements library holds exactly the pinned files, each with its pinned hash."""
-    files = {'ZkGasStatements.lean', *(p.relative_to(root).as_posix()
-                                       for p in (root / 'ZkGasStatements').rglob('*.lean'))}
-    errors = [f'statement drift: {name} is not pinned; review it and add its hash to STATEMENTS'
-              for name in sorted(files - set(STATEMENTS))]
-    for name, digest in STATEMENTS.items():
-        path = root / name
-        if not path.is_file():
-            errors.append(f'statement drift: {name} is missing')
-        elif hashlib.sha256(path.read_bytes()).hexdigest() != digest:
-            errors.append(f'statement drift: {name}; review the headline statements and explicitly '
-                          'repin its hash in STATEMENTS')
-    return errors
-
-
 def check(root):
     errors = []
     try:
@@ -196,10 +160,10 @@ def check(root):
             errors.append('lakefile: unreviewed configuration or compiler options')
         if [x['name'] for x in config['lean_lib']] != list(LIBRARIES):
             errors.append('lakefile: expected exactly the five ordered libraries')
-        if config.get('lean_exe') != EXECUTABLES:
-            errors.append('lakefile: expected the trace checker and meter generator executables')
-        if set(config.get('defaultTargets', [])) != set(LIBRARIES) | {x['name'] for x in EXECUTABLES}:
-            errors.append('lakefile: all libraries and both executables must be default targets')
+        if config.get('lean_exe') != [{'name': 'vectors', 'root': 'DerivationVectors.Main'}]:
+            errors.append('lakefile: expected the vectors executable only')
+        if set(config.get('defaultTargets', [])) != set(LIBRARIES) | {'vectors'}:
+            errors.append('lakefile: all five libraries and vectors must be default targets')
         if (root / 'lean-toolchain').read_text().strip() != 'leanprover/lean4:v4.34.1':
             errors.append('Lean toolchain must remain 4.34.1')
         modules = {}
@@ -218,7 +182,7 @@ def check(root):
                 errors.append(f'unclassified root module: {path.name}')
         for module, deps in modules.items():
             for dep in deps:
-                if dep == 'Lean.Data.Json' and module in JSON_MODULES:
+                if dep == 'Lean.Data.Json' and module == 'DerivationVectors.Main':
                     continue
                 if dep.split('.')[0] in {'Init', 'Std'}:
                     continue
@@ -234,12 +198,8 @@ def check(root):
                 reached.add(module)
                 todo.extend(d for d in modules.get(module, []) if d in modules)
             for module in modules:
-                # Executables have separate global main declarations and cannot both be imported
-                # by one library root. They still receive every source/import check above.
-                if (module.split('.')[0] == lib and module not in reached and
-                        module not in {x['root'] for x in EXECUTABLES}):
+                if module.split('.')[0] == lib and module not in reached:
                     errors.append(f'{module}: unreachable from library root')
-        errors.extend(statement_errors(root))
         errors.extend(spec_errors(root, read_manifest(root)))
     except (OSError, ValueError, KeyError, TypeError) as exc:
         errors.append(f'check failed: {exc}')

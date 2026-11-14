@@ -7,7 +7,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "formal/derivation/**"
+      - "packages/formal/derivation/**"
       - "testdata/derivation_vectors/**"
       - "packages/protocol/docs/Derivation.md"
       - "packages/taiko-client/**"
@@ -19,7 +19,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
-      - "formal/derivation/**"
+      - "packages/formal/derivation/**"
       - "testdata/derivation_vectors/**"
       - "packages/protocol/docs/Derivation.md"
       - "packages/taiko-client/**"
@@ -41,7 +41,7 @@ jobs:
     timeout-minutes: 20
     defaults:
       run:
-        working-directory: formal/derivation
+        working-directory: packages/formal/derivation
     steps:
       - name: Checkout the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -59,7 +59,7 @@ jobs:
       - name: Set up Lean and build the five libraries
         uses: leanprover/lean-action@ba3fdfe5c4476c925da13bf11a005ddb47e47aee # v1.7.1
         with:
-          lake-package-directory: formal/derivation
+          lake-package-directory: packages/formal/derivation
           use-mathlib-cache: false
 
       - name: Audit claims, premises and axioms, replay all libraries and run vectors

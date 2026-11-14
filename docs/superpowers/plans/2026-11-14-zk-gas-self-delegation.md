@@ -27,7 +27,7 @@
 
 ### Task 1: Lean model and parser
 
-**Files:** `formal/zk-gas/ZkGasModel/{Pre,Step/Call}.lean`, `ZkGasTraces/Json.lean`, `ZkGasWitnesses/Tests.lean`.
+**Files:** `packages/formal/zk-gas/ZkGasModel/{Pre,Step/Call}.lean`, `ZkGasTraces/Json.lean`, `ZkGasWitnesses/Tests.lean`.
 
 **Interface:** Optional JSON `delegate_is_target`; `Facts.delegateIsTarget : Bool := false`.
 

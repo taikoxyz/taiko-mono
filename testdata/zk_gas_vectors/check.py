@@ -73,7 +73,7 @@ HARNESS_FRAME_GAS_MAX = U64_MAX - 21_000
 HARNESS_STATUSES = ("success", "revert", "halt", "zk_limit")
 
 # Trace schema v1: the fields of each event, in the order they are written. The Lean checker
-# (formal/zk-gas, `lake exe check-traces`) checks the values and the event order.
+# (packages/formal/zk-gas, `lake exe check-traces`) checks the values and the event order.
 TRACE_FIELDS = {
     "intrinsic": ("e", "zk", "ok"),
     "step": ("e", "d", "pc", "op", "gas", "static", "sl", "stack", "mem", "facts", "gas_after", "spawn", "zk",
