@@ -82,7 +82,7 @@ structure Proposal where
   proposer : String
   proposal_id : Nat
   basefee_sharing_pctg : Nat
-  deriving FromJson, Inhabited
+  deriving FromJson, ToJson, Inhabited
 
 /-- One source after blob field-element decoding, which remains outside the model. -/
 structure SourceInput where
@@ -90,7 +90,7 @@ structure SourceInput where
   has_blobs : Bool
   offset : Nat
   payload_hex : Option String
-  deriving FromJson, Inhabited
+  deriving FromJson, ToJson, Inhabited
 
 /-- Observable metadata and ordered manifest candidates for one derived block. -/
 structure BlockView where
@@ -121,6 +121,16 @@ structure Output where
   next_parent : ParentView
   deriving FromJson, ToJson, BEq, Inhabited
 
+/-- Inputs to the executable model, without any supplied expected output. -/
+structure Input where
+  name : String
+  category : String
+  chain_id : Nat
+  proposal : Proposal
+  parent : ParentView
+  sources : List SourceInput
+  deriving FromJson, ToJson, Inhabited
+
 /-- An independently authored boundary case, not an output blessed by a client. -/
 structure Vector where
   name : String
@@ -131,6 +141,10 @@ structure Vector where
   sources : List SourceInput
   expected : Output
   deriving FromJson, Inhabited
+
+/-- Project a golden vector to its inputs so evaluation cannot inspect its expected output. -/
+def Vector.input (v : Vector) : Input :=
+  ⟨v.name, v.category, v.chain_id, v.proposal, v.parent, v.sources⟩
 
 def parentView (p : Parent) : ParentView :=
   ⟨p.number, p.timestamp, p.gasLimit, p.anchorBlockNumber⟩
@@ -155,8 +169,8 @@ def headerView (h : HeaderPlan) : Except String HeaderView := do
   return ⟨h.gasLimit, toHex ⟨h.extraData.toArray⟩, target,
     toHex (Rlp.encode (.list candidates)), true⟩
 
-/-- Run the executable model, including extraction before metadata can mask a decode failure. -/
-def evaluate (v : Vector) : Except String Output := do
+/-- Evaluate only inputs, using the same model functions as the independent vector checks. -/
+def evaluateInput (v : Input) : Except String Output := do
   let c ← match v.chain_id with
     | 167001 => pure devnet
     | 167000 => pure mainnet
@@ -185,6 +199,37 @@ def evaluate (v : Vector) : Except String Output := do
   let plans := deriveHeaders c ctx hc p sources
   let headers ← plans.mapM headerView
   return ⟨counts, extracted, blocks, headers, parentView (rebuiltParent p plans)⟩
+
+/-- Run the executable model, including extraction before metadata can mask a decode failure. -/
+def evaluate (v : Vector) : Except String Output := evaluateInput v.input
+
+/-- Emit a client-compatible corpus whose expected outputs come exclusively from the model.
+Inputs with expected outputs, empty or duplicate names, and existing output files are rejected.
+All cases are evaluated before publishing a file, so a failed case never yields a partial corpus. -/
+def emit (inputPath outputPath : System.FilePath) : IO UInt32 := do
+  if ← outputPath.pathExists then
+    throw (IO.userError "output already exists; refusing to overwrite a fixture")
+  let json ← IO.ofExcept (Json.parse (← IO.FS.readFile inputPath))
+  unless (← IO.ofExcept (json.getObjValAs? Nat "schema_version")) == 1 do
+    throw (IO.userError "unsupported boundary schema")
+  let cases ← IO.ofExcept (json.getObjValAs? (List Json) "cases")
+  unless !cases.isEmpty do throw (IO.userError "empty boundary inputs")
+  let mut names : List String := []
+  let mut outputs : Array Json := #[]
+  for j in cases do
+    if (j.getObjVal? "expected").isOk then
+      throw (IO.userError "model inputs must not contain expected outputs")
+    let v ← IO.ofExcept (fromJson? j : Except String Input)
+    unless !v.name.isEmpty && !v.category.isEmpty do
+      throw (IO.userError "case name and category must not be empty")
+    if names.contains v.name then throw (IO.userError s!"duplicate case: {v.name}")
+    names := v.name :: names
+    let expected ← IO.ofExcept ((evaluateInput v).mapError fun e => s!"{v.name}: {e}")
+    outputs := outputs.push ((toJson v).mergeObj (Json.mkObj [("expected", toJson expected)]))
+  let corpus := Json.mkObj [("schema_version", toJson (1 : Nat)), ("cases", toJson outputs)]
+  IO.FS.writeFile outputPath (corpus.compress ++ "\n")
+  IO.println s!"{outputs.size} model-generated boundary vectors written to {outputPath}"
+  return 0
 
 def errors (v : Vector) : Except String (List String) := do
   let actual ← evaluate v
@@ -245,6 +290,10 @@ def run (path : String) : IO UInt32 := do
 end Boundary
 
 def main (args : List String) : IO UInt32 := do
+  if args.head? == some "--emit-boundaries" then
+    match args with
+    | [_, inputPath, outputPath] => return ← Boundary.emit inputPath outputPath
+    | _ => throw (IO.userError "usage: vectors --emit-boundaries INPUT.json OUTPUT.json")
   if args.head? == some "--boundaries" then
     return ← Boundary.run (args[1]?.getD "../../testdata/derivation_vectors/boundary_cases.json")
   let path := args.headD "../../testdata/derivation_vectors/manifest_cases.json"

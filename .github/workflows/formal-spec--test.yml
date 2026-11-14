@@ -65,9 +65,18 @@ jobs:
       - name: Audit claims, premises and axioms, replay all libraries and run vectors
         run: bash scripts/gate.sh
 
+      - name: Share the Lean-generated expected outputs with both clients
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: lean-derivation-vectors
+          path: formal/derivation/.lake/model_vectors/expected.json
+          include-hidden-files: true
+          if-no-files-found: error
+
   go-conformance:
     # No draft gate: conformance must also run while the formal model is under review.
     name: Go shared derivation vectors
+    needs: check
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -82,9 +91,19 @@ jobs:
           go test ./packages/taiko-client/driver/chain_syncer/event/derivation -run '^TestManifestVectors' -count=1
           go test ./packages/taiko-client/driver/chain_syncer/event/blocks_inserter -count=1
           go test ./packages/taiko-client/driver/chain_syncer/event -run '^TestProcessProposalSkipsActivationProposal$' -count=1
+      - name: Download the shared Lean-generated corpus
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: lean-derivation-vectors
+          path: ${{ runner.temp }}/lean-derivation-vectors
+      - name: Compare production Go derivation with the Lean model
+        env:
+          TAIKO_DERIVATION_BOUNDARY_VECTORS: ${{ runner.temp }}/lean-derivation-vectors/expected.json
+        run: go test ./packages/taiko-client/driver/chain_syncer/event/blocks_inserter -run '^TestDerivationBoundary' -count=1
 
   rust-conformance:
     name: Rust shared derivation vectors
+    needs: check
     runs-on: ubuntu-latest
     timeout-minutes: 45
     defaults:
@@ -112,3 +131,12 @@ jobs:
           cargo test --locked -p protocol --lib manifest_vectors
           bash script/test_derivation_vectors_guard.sh
           bash script/test_derivation_vectors.sh
+      - name: Download the shared Lean-generated corpus
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: lean-derivation-vectors
+          path: ${{ runner.temp }}/lean-derivation-vectors
+      - name: Compare production Rust derivation with the Lean model
+        env:
+          TAIKO_BOUNDARY_CORPUS: ${{ runner.temp }}/lean-derivation-vectors/expected.json
+        run: bash script/test_derivation_vectors.sh
