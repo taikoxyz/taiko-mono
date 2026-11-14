@@ -42,10 +42,10 @@ Create `formal/etna/EtnaSignerCrash.tla`, `EtnaAppCrash.tla`,
 
 Create `formal/etna/EtnaCommittee.tla`, `configs/committee-*.cfg`, `COMMITTEE.md`.
 
-- [ ] Refresh source and refine the bounded selection/activation/recovery brief.
-- [ ] Add H+2 schedule, snapshot/pending state and independent effective-set observer.
-- [ ] Run positive/negative cases and independent review/behavior verification.
-- [ ] Record results, commit, update worklist and apply stopping rule.
+- [x] Refresh source and refine the bounded selection/activation/recovery brief.
+- [x] Add H+2 schedule, snapshot/pending state and independent effective-set observer.
+- [x] Run positive/negative cases and independent review/behavior verification.
+- [x] Record results, commit, update worklist and apply stopping rule.
 
 ## Task 3: M05 registry lifecycle
 

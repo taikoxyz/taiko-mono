@@ -325,3 +325,13 @@ under `experiments/` and explicitly labeled inconclusive in the M03 report.
 They are not silently included among the default suite's successful outcomes.
 The five-task continuation plan covers M03–M07; it stops on a credible protocol
 counterexample and records model errors separately.
+
+## Committee selection and activation increment
+
+[`COMMITTEE.md`](COMMITTEE.md) maps a fixed-registry M04 model to selection,
+historical D(t) snapshot versus S(t) authentication root, H+2 current/next sets,
+recovery clearing pending updates, and actual terminal/L1 active snapshots.
+Literal selection tables and a fixed switch calendar are independent of the
+operational selector; immutable generation-keyed input history constrains every
+captured derivation. This is a membership/power/snapshot schedule projection,
+not full committee-record/hash/targetEpoch encoding or proposer-priority arithmetic.

@@ -430,3 +430,59 @@ authentication interface, aggregate app/EL/Comet volatile crash abstraction and
 missing full composition/refinement. The already documented first-block-above-1
 Comet handshake stop is reachable and remains a known limitation. No unmutated
 new protocol counterexample was established in this bounded M03 scope.
+
+## M04 committee increment (2026-11-14)
+
+The frozen actual-worktree focused suite completed **20/20 expected outcomes**:
+2 complete normal searches, 13 negative controls, 5 existential witnesses.
+Earlier models, 88 default configurations, runner and incomplete signer
+experiments remain unchanged. The full accumulated suite is deferred to the
+five-task/discovered-problem boundary. Source remains Etna SPEC `d18357214`.
+
+| Normal profile                 | Generated | Distinct | Queue |
+| ------------------------------ | --------: | -------: | ----: |
+| committee-baseline-members     |    41,272 |   12,917 |     0 |
+| committee-baseline-replacement |    41,272 |   12,917 |     0 |
+
+Module SHA-256:
+`d34ffcc6cbdab5d3a2804556419243e894699eaf1beb9a8c7606dbb02d023467`.
+
+Independent verification also exhausted the two-member/VPUnit2 cross-profile:
+41,272 generated / 12,917 distinct / queue0, depth20. Targeted tests checked
+snapshot/header writes, stale-pending effects without the local generation
+audit, the fixed recovery-floor boundary and actual authentication-root provenance.
+
+### Model-oracle findings and repairs
+
+A narrow mutation skipped pending update and derivation only for generation0,
+switch height2, candidate anchor2. **All18 original configurations still produced
+their exact expected outcomes**, including the existential positive witnesses.
+Because the oracle followed only the logged switches, it could agree with the
+wrong implementation. An independent literal calendar assertion rejected the
+mutant at depth6/29 distinct states. The repair adds complete/exclusive switch
+calendar correspondence for every committed generation/height pair and a
+permanent narrow omission control. This was a real verification-model gap, not
+a source-permitted protocol bug.
+
+A separate mutation changed both proofRoot and its self-described switchAnchor
+to the selection snapshot. A normal profile stayed green and the old wrong-root
+control still failed as expected. Its entire original matrix was not rerun, so
+no full-suite escape is claimed for that mutation. The repair binds captured
+D/switch/origin inputs to immutable generation-keyed actual committed anchors,
+canonical parent identity and origin history. The first recovered switch links
+to the retained old-generation parent at c, not an uninitialized new-domain record.
+
+The repaired positive witness lands c1 under generation0 anchor0, recovers at R2
+without changing L1 active snapshot0, then commits the first generation1 block2
+with anchor2. Its raw parent is generation0/height1, D anchor0 is below origin2,
+selection is floored to2, and the update becomes effective at height4. Other
+witnesses cover recovery at/after a switch, complete replacement and unchanged
+members with changed power. Header current/next sets are checked separately.
+
+[Source mapping and reproduction](COMMITTEE.md) defines the finite fixture and
+scope: three keys, immutable snapshots0..2, L3/heights0..7, at most one recovery.
+Committee identity is projected to snapshot/members/powers, not full targetEpoch,
+record/hash encoding, MPT/secp or proposer-priority arithmetic. L1 slot284 changes
+only on an actual landing, not merely on recovery or pending selection. There
+is no registry-transition product, client refinement or availability/liveness
+proof. No new unmutated protocol counterexample was established.
