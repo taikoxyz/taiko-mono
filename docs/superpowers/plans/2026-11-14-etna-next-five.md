@@ -51,10 +51,10 @@ Create `formal/etna/EtnaCommittee.tla`, `configs/committee-*.cfg`, `COMMITTEE.md
 
 Create `formal/etna/EtnaRegistry.tla`, `configs/registry-*.cfg`, `REGISTRY.md`.
 
-- [ ] Refresh source and define bounded identity, slots, stake and confirmation state.
-- [ ] Model delayed changes, displacement, exit/confirmation/withdrawal interleavings.
-- [ ] Check fund/membership/confirmation properties with independent challenges.
-- [ ] Record results, commit, update worklist and apply stopping rule.
+- [x] Refresh source and define bounded identity, slots, stake and confirmation state.
+- [x] Model delayed changes, displacement, exit/confirmation/withdrawal interleavings.
+- [x] Check fund/membership/confirmation properties with independent challenges.
+- [x] Record results, commit, update worklist and apply stopping rule.
 
 ## Task 4: M06 forced-inclusion queue
 

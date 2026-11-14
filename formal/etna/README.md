@@ -335,3 +335,13 @@ Literal selection tables and a fixed switch calendar are independent of the
 operational selector; immutable generation-keyed input history constrains every
 captured derivation. This is a membership/power/snapshot schedule projection,
 not full committee-record/hash/targetEpoch encoding or proposer-priority arithmetic.
+
+## Registry lifecycle increment
+
+[`REGISTRY.md`](REGISTRY.md) describes M05's separate issued identities/slots,
+input-bound principal/cash histories, actual historical member sets, confirmation
+clock and withdrawal preservation. Checked source-valid workload prefixes include
+a genuinely active member's later pending-funded displacement and retirement.
+Other small profiles cover repeated top-ups, numeric forfeiture branches and
+multi-slot admission. Arbitrary-timing products that exceeded the checking budget
+are preserved as exact source/config experiments and remain inconclusive.

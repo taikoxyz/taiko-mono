@@ -486,3 +486,75 @@ record/hash encoding, MPT/secp or proposer-priority arithmetic. L1 slot284 chang
 only on an actual landing, not merely on recovery or pending selection. There
 is no registry-transition product, client refinement or availability/liveness
 proof. No new unmutated protocol counterexample was established.
+
+## M05 registry increment (2026-11-14)
+
+The frozen actual-worktree focused suite completed **26/26 expected outcomes**:
+5 complete normal searches, 15 negative controls and 6 existential witnesses.
+Earlier models, 108 default configurations, runner and incomplete experiments
+remain unchanged. Source remains Etna SPEC `d18357214`; the full accumulated
+suite is deferred to the five-task/discovered-problem boundary.
+
+| Normal profile         | Generated | Distinct | Queue |
+| ---------------------- | --------: | -------: | ----: |
+| registry-workflow      |   236,666 |   44,110 |     0 |
+| registry-two-slot      |   934,608 |   82,391 |     0 |
+| registry-repeat-topup  |     3,534 |    1,084 |     0 |
+| registry-split-pending |     2,554 |      788 |     0 |
+| registry-all-forfeit   |     1,955 |      595 |     0 |
+
+Module SHA-256:
+`0a659bb1deafa2dff19bbde70dfa057dd650daa36328871ef0084a3080cc3b44`.
+
+### Model gaps repaired
+
+Independent review and behavioral challenges exposed shared snapshot/member
+oracles, missing independent forfeiture rounding/allocation checks, insufficient
+admission/displacement receipts, and a withdrawal receipt that described the
+computed slot write rather than actual primed storage. Repairs use literal raw
+snapshot observations, separate expected eligibility/powers, actual pre/post
+registration/withdrawal receipts, independent ceiling inequalities and per-bond
+principal conservation. Numeric profiles make effective-first pending deduction,
+full pending cleanup and repeated activation reachable. The lifecycle witness
+now withdraws a bond that really belonged to the initialized active set, after
+replacement, new landed selection and the full confirmation delay.
+
+A second narrow challenge marked a funded displaced nonmember as withdrawn
+only during a rejected registration, without paying it or changing balances.
+The prior normal workflow still exhausted 48,394 distinct states. An independent
+actual pre/post rejection observer failed at depth11/328 distinct states. This
+was a genuine assertion gap, not a protocol source defect; the entire prior
+25-case matrix was not tested against that mutation. The repair observes
+actual rejected-call `r' != r` and independently requires withdrawn records to be
+issued, hold no slot, and have zero principal/owner/confirmation/readiness. A
+permanent shadow-write control detects the rejected mutation. Correct-source
+registry operations are unchanged by this observation-only repair.
+
+### Checked workloads and limits
+
+[REGISTRY.md](REGISTRY.md) records the exact executed setup prefixes and finite
+external-call budgets. The one-slot workflow reaches genuine active-member
+retirement with pending principal and preserves its replacement's slot. The
+two-slot/three-id profile checks admission, minimum-slot tie breaking and
+accounting; it cannot finish a fresh withdrawal after its prepared prefix.
+Small raw-storage profiles cover two top-up cycles and normalized 50%/100%
+forfeiture. They do not replace arbitrary workload timing or full production
+integer arithmetic. Valid cryptographic/DAO inputs, atomic token effects and
+normal landed selection are premises; nonzero slash-bounty routing, M04 product
+composition and actual contract refinement remain outside this scope.
+
+Four larger registry experiments exceeded the 45-second case limit. Their
+exact old sources/configurations and progress remain under `experiments/` as
+**INCONCLUSIVE**, alongside the earlier signer experiments. No complete
+queue-zero claim is made for these wider products. No new unmutated protocol
+counterexample was established in the exhausted M05 scopes.
+
+Independent source/diff review and behavioral verification completed on this
+frozen source. The verifier reproduced the original shadow mutation with and
+without the new latch assertion: the structural withdrawn-state assertion still
+rejected it; with both new assertions omitted, a separate actual pre/post
+rejection observer rejected it. The correct workflow with that external observer
+exhausted 44,110 distinct states, queue0, depth22. The original rejected-key
+control retained its exact earlier violation. Root and implementer each ran all
+26 exact outcomes against unchanged inputs; the complete project gate remains
+scheduled for the end of this five-task batch.
