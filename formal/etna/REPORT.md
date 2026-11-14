@@ -558,3 +558,96 @@ exhausted 44,110 distinct states, queue0, depth22. The original rejected-key
 control retained its exact earlier violation. Root and implementer each ran all
 26 exact outcomes against unchanged inputs; the complete project gate remains
 scheduled for the end of this five-task batch.
+
+## M06 forced-inclusion increment (2026-11-14)
+
+The focused final suite has **20 expected outcomes**: three exhaustive normal
+workloads, eleven negative controls and six existential witnesses. The model
+extends the actual `EtnaSettlement` actions with FI-aware wrappers; it does not
+copy or bypass their generation, authorization, nonce, expiry and checkpoint
+guards. Source remains Etna SPEC `d18357214`.
+
+| Normal profile  | Generated | Distinct | Queue |
+| --------------- | --------: | -------: | ----: |
+| fi-empty-revert |    18,054 |    5,395 |     0 |
+| fi-fee-lag      |   184,181 |   58,270 |     0 |
+| fi-mixed        |     2,928 |    1,151 |     0 |
+
+Module SHA-256:
+`5f3e91f14e137449d04333174c1bf684001650273f5b41baa9f47aac629a8718`.
+
+### Independent challenges and model repairs
+
+A real-action five-state scenario first enqueued Empty then B and closed the
+anchor. A narrow model mutation chose index 1 for the first produced block,
+consuming B with locally consistent before=1/after=2 and cuts. All prior normal
+assertions passed on that scenario. An independent predecessor/origin cursor
+observer failed on the same five states. The repair binds actual pre-action
+cursor, stored block and predecessor/origin cursor; a permanent shifted-before
+control now fails the exact production-rule invariant. No full prior matrix
+escape is claimed.
+
+A separate five-state scenario forged only the closed anchor's transaction A
+hash into Bad. The live queue remained intact, but the former oracle followed
+the same forged anchor and accepted its skip. An independent pre-Tick queue
+observer failed at closure, after three states. The repair independently captures
+literal queue/head/tail before closing each L1 block and compares historical
+anchors exactly. A permanent forged-anchor control detects this gap.
+
+The unmutated earlier abstraction also cleared a pruned-parent halt during
+recovery at unchanged c/frontier. A six-state real-action model scenario passed
+its previous assertions but failed an independent availability observer. Recovery
+now preserves the halt, actual pre/post halt is observed, and produced blocks
+must not start halted. Explicit restoration/manual restart is a separate resource
+interface. This is a conservative projection across recovery, not a proof of
+historical-state availability.
+
+Blanked entries always supply the known empty raw bytes, regardless of an
+internal candidate-mode label. Their old transaction may still appear as ordinary
+body content alongside a legal due skip. The stale-hash negative control uses a
+raw workload and actually advances before due: entry timestamp 10, anchor time 10,
+due time 12, blank hash and empty raw, body A. It does not reject a legal due blank
+skip on a diagnostic reason label. The wrong-parent control uses a uniform tuple
+identity and must reach its named invariant; its earlier heterogeneous-type
+runtime error was rejected as failed verification and corrected.
+
+### Bounded workload and incomplete products
+
+All normal profiles use two entries, height 2, time 0..2, one recovery, nonce 0..2
+and an explicit external budget of two total production calls across generations.
+Each executed setup state is checked. MixedReady and EmptyReady enqueue twice at0,
+close blocks0/1, and perform a real first block at time 2. The latter first observes
+Transient then Complete and legally skips the eligible empty singleton. All
+selected actions remain exposed afterward, but time is exhausted: a later recovery
+cannot obtain a new closed root within these two workloads. FeeLag instead
+includes A early, then admits B while L2 cursor 1 and L1 head 0. It checks the higher
+second admission charge and permits earlier recovery/new-generation interleavings.
+These are distinct finite workloads, not an arbitrary transaction workload.
+
+For state-space control, operational build cache/acceptance remains intact while
+unused per-block build observations become EmptyBuild. The capture criterion is
+literal visibility/due/eligibility/body0 matching, independent of optional decision
+switches; eligible singleton-skip decisions retain their actual context. The
+transient observer keeps the latest context only, used for an existential retry
+witness and never to enable protocol actions. Wider earlier candidate products
+that exceeded 45 seconds remain **INCONCLUSIVE**, with exact source/config/base
+inputs retained under `experiments/`; narrowed workloads do not establish their
+completion.
+
+[FORCED_INCLUSION.md](FORCED_INCLUSION.md) records exact source mapping, fixture
+execution table, prefixes and reproduction. Cryptographic storage proofs,
+canonical transaction decoding, actual EL/zk execution, full checkpoint identity,
+L1 finality and client refinement are interfaces/exclusions. No unconditional
+FI service deadline or throughput result follows. Earlier 134 default inputs remain
+regressions; the complete accumulated suite is still reserved for the batch end.
+No new source-permitted protocol counterexample was established.
+
+Independent source/diff review and behavioral verification completed on the frozen
+source. Sixteen final independent checks include all three original gap probes,
+missing pre-due witness, proper typed wrong-parent violation and both internal
+body modes producing the same legal due-blank progress. An advancing overlapping
+landing was inspected: delayed proof 0..2 lands after c=1/head=1, advances to head=2,
+and applies each queue index exactly once. Independent normal searches exhausted
+58,270 and 5,395 distinct states, both queue 0. Root and implementer each completed
+all 20 exact outcomes with stable current inputs; all 153 prior tracked formal
+source/config/runner files remain byte-identical to the previous commit.

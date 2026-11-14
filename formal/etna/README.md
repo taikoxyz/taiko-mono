@@ -345,3 +345,16 @@ a genuinely active member's later pending-funded displacement and retirement.
 Other small profiles cover repeated top-ups, numeric forfeiture branches and
 multi-slot admission. Arbitrary-timing products that exceeded the checking budget
 are preserved as exact source/config experiments and remain inconclusive.
+
+## Forced-inclusion increment
+
+[`FORCED_INCLUSION.md`](FORCED_INCLUSION.md) maps a bounded FI queue model to
+historical anchored entries, per-block cursor processing, admission fees and
+ordinary recovery blanking. `EtnaForcedInclusion.tla` extends the existing
+settlement model through FI-aware wrappers rather than copying its transaction
+guards. L1 queue head/tail, L2 processing cursor and retained checkpoint cursor
+are separate. An independent ledger observes every produced block, including
+zero-delta blocks. Normal workloads, incomplete wider products, symbolic
+transaction/execution premises and actual measured outcomes are recorded in the
+module document and [REPORT.md](REPORT.md). Reachability does not guarantee
+eventual service, and this is not a client or cryptographic refinement proof.

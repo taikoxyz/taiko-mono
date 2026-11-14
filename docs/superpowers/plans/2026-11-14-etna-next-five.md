@@ -60,10 +60,10 @@ Create `formal/etna/EtnaRegistry.tla`, `configs/registry-*.cfg`, `REGISTRY.md`.
 
 Create `formal/etna/EtnaForcedInclusion.tla`, `configs/fi-*.cfg`, `FORCED_INCLUSION.md`.
 
-- [ ] Refresh source and define queue, anchors, actual consumption and blanking interfaces.
-- [ ] Model due-head processing, FIFO cursors, landing and recovery interaction.
-- [ ] Check safety plus explicit reachability/progress premises independently.
-- [ ] Record results, commit, update worklist and apply stopping rule.
+- [x] Refresh source and define queue, anchors, actual consumption and blanking interfaces.
+- [x] Model due-head processing, FIFO cursors, landing and recovery interaction.
+- [x] Check safety plus explicit reachability/progress premises independently.
+- [x] Record results, commit, update worklist and apply stopping rule.
 
 ## Task 5: M07 proving/DA progress
 
