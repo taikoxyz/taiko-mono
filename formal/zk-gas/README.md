@@ -51,11 +51,11 @@ The model has four parts:
   frame, which alethia-reth charges its spawn estimate; what the frame then does (depth,
   balance, nonce, address collision, empty code, a precompile) does not change that step.
 
-  Facts are read before the step. For a CALL-family target whose EIP-7702 delegation points at
-  the target itself, revm warms the target before it loads the delegate, so the delegate is
-  warm for revm while the step's `delegate_warm` fact says cold when the target was cold: the
-  model charges that case 2,500 gas more than revm. The corpus authoring rules forbid such a
-  target.
+  Facts are read before the step. A CALL-family target whose EIP-7702 delegation points at
+  itself records `delegate_is_target: true`. After successfully loading the target, the model
+  treats its delegate as warm even when both initial warmth facts were false, matching revm's
+  target-before-delegate load order. A failed target load still spends all gas. The optional
+  alias fact defaults to false for older traces, whose corpus contains no self-delegation.
 
   The model takes `usize` to be 64 bits, as on the hosts alethia-reth runs on, so
   `as_usize_or_fail!` rejects an offset or length of 2^64 or more and keeps the frame's gas
@@ -160,8 +160,9 @@ depth, static flag, stack length, the top of the stack, the memory size, the gas
 harness frame's first step and the `supplied` gas of a precompile run that is its tx's or frame's
 only event (every other step's gas and run's `supplied` are checked, see above), and the `facts`
 (whether an account or slot is warm, whether an account is empty, whether a CALL target's
-EIP-7702 delegate is warm or the target has no delegation (`delegate_warm` null), an SSTORE's
-original and current values, whether a JUMP target is valid, the return data size, a
+EIP-7702 delegate is warm or the target has no delegation (`delegate_warm` null), whether that
+delegate equals the target (`delegate_is_target`, false when absent), an SSTORE's original and
+current values, whether a JUMP target is valid, the return data size, a
 SELFDESTRUCT's own balance). The client's trace exporter reports them; the model computes the
 step's gas and outcome from them and cannot tell whether they are true. Two checks outside this
 package guard them:
@@ -220,6 +221,28 @@ Statement names are under `TaikoSpec.ZkGas.Statements`. The metering claims rang
 schedule, so they hold for `unzen` in particular; `FitCommits` rules out a meter that would
 satisfy the other three by aborting transactions that fit. The step claims are about
 `stepOutcome` on Unzen, which the traces check against alethia-reth.
+
+## Remaining obligations for implementation verification
+
+The seven headline theorems are properties of the handwritten Lean model. Trace replay and the
+Lean-generated meter vectors check finite executions; neither is a refinement proof for Rust.
+Completing implementation verification requires the following source-backed obligations:
+
+| Obligation                                       | Required result                                                                                                                                                                                                                                                                                                                                                                                           | Current boundary                                                                                                                                               |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Production source semantics                      | Pin the Rust/revm source, features and supported targets; give it a formal semantics or a verified translation, and prove the implementation/model relation.                                                                                                                                                                                                                                              | Tables are generated from source; opcode bodies and meter transitions are transcribed manually. Tests compare selected executions.                             |
+| Pre-state initialization and preservation        | Relate a reachable interpreter/journal state to `Pre`; prove that opcode, PC, stack, memory, gas, static context, warmth, delegation aliases and storage facts are correct at initialization and after every step/revert. Prove `stepOutcome` succeeds on every reachable input.                                                                                                                          | All pre-state facts and the first frame's gas are supplied by the exporter. Equal client traces do not prove either exporter correct.                          |
+| Single-step refinement and source completeness   | For every supported opcode and reachable state, prove equal gas consumption, failure ordering, halt classification, dispatch decision and forwarded gas between the Rust step (including pre-charge halt materialization) and `stepOutcome`.                                                                                                                                                              | `StepGasMonotone`, `SpawnOnlyForSpawnOps` and enumeration of `BranchId` do not imply this relation or completeness of the source paths.                        |
+| Word size and configuration                      | Resolve the known 32/64-bit operand-bound difference; prove architecture-independent consensus results, or explicitly bound the verified deployment targets and configurations. Include gas/fork tables and memory/code limits.                                                                                                                                                                           | `usizeBound` is fixed at 2^64. No riscv32 execution equivalence is established.                                                                                |
+| Charge construction and checked meter refinement | Prove opcode delta versus spawn-estimate selection, full-address precompile lookup, intrinsic placement, checked u64 multiplication/addition, rejection atomicity, commit and reset. Relate `MeterVectors.applyAction` to `meterTx`/`meterBlock` through a reachable-state invariant such as `remaining = limit - block - tx`. Include reservation/query APIs if claiming the whole production meter API. | The four metering theorems accept charge amounts as inputs; 1,940 generated API cases provide conformance evidence rather than a universal refinement theorem. |
+| Frame dispatch, return and precompiles           | Prove CALL/CREATE dispatch, depth/balance/nonce/collision handling, EIP-150/stipend return, CREATE output/deposit validation and all active precompile gas/success/failure rules. Connect these transitions to the charge stream.                                                                                                                                                                         | Precompile gas use is supplied as input. The trace checker accepts alternative frame-return amounts where code bytes or handler facts are missing.             |
+| Transaction and block integration                | Compose step, frame and meter refinement into execution; prove ordinary EVM failure keeps its charges, zk-limit failure unwinds every state effect and charge, later derived transactions stop, invalid transactions are skipped correctly, and anchor/intrinsic charging is correct. Distinguish builder candidate selection from derived-block execution.                                               | `AbortContributesNothing` describes accounting over charge lists; it does not prove production journal rollback or transaction scheduling.                     |
+| Consensus outputs and end-to-end theorem         | Prove cumulative receipt zk gas, block/header difficulty, canonical truncated body, import/prover validation and post-state roots agree with the refined execution. State the theorem and its environment assumptions explicitly.                                                                                                                                                                         | These outputs have block-vector tests but are excluded from the current theorem statements.                                                                    |
+
+An end-to-end result must compose these obligations over all reachable executions. More vectors,
+including the self-delegation boundaries, strengthen regression protection but cannot replace
+that composition or remove its assumptions. Tests on a native prover code path also do not
+establish correctness of a different zkVM target or of the proof system itself.
 
 ## Tables
 

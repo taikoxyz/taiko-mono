@@ -9,7 +9,7 @@ python3 scripts/gen_tables.py --reth <alethia-reth checkout> --registry <crates.
 ```
 
 Sources and their SHA-256 hashes (alethia-reth's `Cargo.lock` selects these crate versions; the
-alethia-reth files are those of commit `a8cafc90af83d459f9f192bedbefc8341d95b4ad`, which
+alethia-reth files are those of commit `f5f9905d3273b8078f76276d25d32b0bd439c89e`, which
 `testdata/zk_gas_vectors/reference.json` names as the commit that wrote the vectors):
 - alethia-reth `crates/evm/src/zk_gas/unzen.rs`: `3a36c07dafe43fff1f6b1ee797c966ac472b2b21ab212c023c3173ce80182cc1`
 - alethia-reth `crates/evm/src/zk_gas/schedule.rs`: `ed7859354682758c255f2507c747438181e2ded0ebab696d97e20a6104423d0a`

@@ -182,17 +182,27 @@ def parseFacts (op stackLen : Nat) (j : Lean.Json) : Except String Facts := do
   for k in want do
     unless present.contains k do throw s!"facts: missing fact {k} for opcode {opName op}"
   for k in present do
-    unless want.contains k do
+    unless want.contains k || (k = "delegate_is_target" && want.contains "delegate_warm") do
       throw s!"facts: fact {k} not allowed for opcode {opName op} with {stackLen} of its {inputs op} stack inputs"
+  let delegateIsTarget ← if present.contains "delegate_is_target" then
+      boolField j "delegate_is_target" else pure false
+  let accountWarm ← optFact want j "account_warm" asBool
+  let delegateWarm ← optFact want j "delegate_warm" asDelegateWarm
+  if delegateIsTarget then
+    match accountWarm, delegateWarm with
+    | some warm, some (some delegate) =>
+      unless warm = delegate do
+        throw "facts: a self-delegate must have the target's initial warmth"
+    | _, _ => throw "facts: delegate_is_target requires an EIP-7702 delegation"
   return {
     jumpdestValid := ← optFact want j "jumpdest_valid" asBool
     returndataSize := ← optFact want j "returndata_size" asHex
     slotWarm := ← optFact want j "slot_warm" asBool
     original := ← optFact want j "original" asWord
     current := ← optFact want j "current" asWord
-    accountWarm := ← optFact want j "account_warm" asBool
+    accountWarm
     accountEmpty := ← optFact want j "account_empty" asBool
-    delegateWarm := ← optFact want j "delegate_warm" asDelegateWarm
+    delegateWarm, delegateIsTarget
     selfBalance := ← optFact want j "self_balance" asWord }
 
 /-! ## Events -/

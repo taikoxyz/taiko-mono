@@ -28,9 +28,12 @@ structure Facts where
   /-- The CALL family and SELFDESTRUCT: whether the target account is empty. -/
   accountEmpty : Option Bool := none
   /-- The CALL family: whether the target's EIP-7702 delegate is warm before the step (`some
-  none` when the target has no delegation). revm loads the target first, so for a target
-  delegated to itself this is not the warmth revm charges (`ZkGasModel.Step.Call`). -/
+  none` when the target has no delegation). `delegateIsTarget` tells the model whether the
+  target load warms this address before the delegate access. -/
   delegateWarm : Option (Option Bool) := none
+  /-- The CALL family: the EIP-7702 delegate is the target itself. The target load warms the
+  delegate before its access. Absent in older traces, which contain no self-delegation. -/
+  delegateIsTarget : Bool := false
   /-- SELFDESTRUCT: the executing account's balance. -/
   selfBalance : Option Nat := none
   deriving Repr, DecidableEq

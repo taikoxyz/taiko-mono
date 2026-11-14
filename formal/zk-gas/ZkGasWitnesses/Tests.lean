@@ -2042,3 +2042,80 @@ def collisionVector : String :=
   ["1 branch has no step: static_step_static_oog_spend_all"]
 #guard coverageErrors (("bogus", 2) :: allBranches.map fun b => (b.name, 1)) =
   ["2 steps report branch bogus, which allBranches does not list"]
+
+/-! Self-delegating EIP-7702 targets: initial delegate warmth remains a pre-step fact.
+The target load warms the same address before the delegate read. -/
+
+/-- Parse a step through the public text interface and run its real step model. -/
+def parsedCallStep (op gas : Nat) (stack : List Nat) (facts : String) :
+    Except String StepResult := do
+  let words := ",".intercalate (stack.map fun n => "\"" ++ Traces.hexString n ++ "\"")
+  let trace := "{\"e\":\"step\",\"d\":1,\"pc\":0," ++
+    s!"\"op\":{op},\"gas\":\"{Traces.hexString gas}\",\"static\":false," ++
+    s!"\"sl\":{stack.length},\"stack\":[{words}],\"mem\":\"0x0\",\"facts\":{facts}," ++
+    "\"gas_after\":\"0x0\",\"spawn\":false,\"zk\":\"0x0\",\"ok\":true,\"charged\":true}"
+  let [.step pre _] ← Traces.parseTrace trace | throw "expected one step"
+  stepOutcome .unzen pre
+
+/-- Run a self-delegation through the trace parser, keeping both initial warmth facts. -/
+def selfDelegateResult (op gas : Nat) (warm : Bool) (value : Nat := 0)
+    (requested : Nat := 0) : Except String StepResult := do
+  let stack := if op = 0xf1 ∨ op = 0xf2 then [requested, 0x42, value, 0, 0, 0, 0]
+    else [requested, 0x42, 0, 0, 0, 0]
+  let facts := s!"\{\"account_warm\":{warm},\"account_empty\":false," ++
+    s!"\"delegate_warm\":{warm},\"delegate_is_target\":true}"
+  parsedCallStep op gas stack facts
+
+-- Exact cost and one gas short, for every CALL-family opcode; a cold self-delegate pays
+-- 100 static + 2,500 cold target + 100 warm delegate, rather than a second cold load.
+#guard [0xf1, 0xf2, 0xf4, 0xfa].all fun op =>
+  selfDelegateResult op 2700 false ==
+    .ok { gasAfter := 0, outcome := .newFrame,
+          branch := .call_family_cold_target_warm_delegate_spawn }
+#guard [0xf1, 0xf2, 0xf4, 0xfa].all fun op =>
+  selfDelegateResult op 2699 false ==
+    .ok { gasAfter := 0, outcome := .haltSpendAll,
+          branch := .call_family_delegate_read_oog_spend_all }
+#guard selfDelegateResult 0xfa 3000 false ==
+  .ok { gasAfter := 300, outcome := .newFrame,
+        branch := .call_family_cold_target_warm_delegate_spawn }
+-- The target load itself must still fail before alias warming can help.
+#guard selfDelegateResult 0xfa 2599 false ==
+  .ok { gasAfter := 0, outcome := .haltSpendAll,
+        branch := .call_family_cold_surcharge_oog_spend_all }
+#guard [0xf1, 0xf2].all fun op =>
+  selfDelegateResult op 11700 false 1 ==
+    .ok { gasAfter := 0, outcome := .newFrame,
+          branch := .call_value_cold_target_warm_delegate_spawn }
+#guard [0xf1, 0xf2].all fun op =>
+  selfDelegateResult op 11699 false 1 ==
+    .ok { gasAfter := 0, outcome := .haltSpendAll,
+          branch := .call_family_delegate_read_oog_spend_all }
+#guard selfDelegateResult 0xfa 200 true ==
+  .ok { gasAfter := 0, outcome := .newFrame,
+        branch := .call_family_warm_target_warm_delegate_spawn }
+#guard selfDelegateResult 0xfa 199 true ==
+  .ok { gasAfter := 0, outcome := .haltSpendAll,
+        branch := .call_family_delegate_read_oog_spend_all }
+-- EIP-150 uses the gas left after the single cold target surcharge.
+#guard selfDelegateResult 0xfa 9100 false (requested := 2^256 - 1) ==
+  .ok { gasAfter := 100, outcome := .newFrame, forwarded := 6300,
+        branch := .call_family_cold_target_warm_delegate_spawn }
+
+-- Alias metadata is restricted to a real delegation and must preserve initial warmth.
+#guard failsWith (parsedCallStep 0xfa 3000 [0, 0x42, 0, 0, 0, 0]
+  ("{\"account_warm\":false,\"account_empty\":false," ++
+    "\"delegate_warm\":null,\"delegate_is_target\":true}"))
+  "requires an EIP-7702 delegation"
+#guard failsWith (parsedCallStep 0xfa 3000 [0, 0x42, 0, 0, 0, 0]
+  ("{\"account_warm\":false,\"account_empty\":false," ++
+    "\"delegate_warm\":true,\"delegate_is_target\":true}"))
+  "initial warmth"
+#guard failsWith (parsedCallStep 0xfa 3000 [0, 0x42, 0, 0, 0, 0]
+  ("{\"account_warm\":false,\"account_empty\":false," ++
+    "\"delegate_warm\":false,\"delegate_is_target\":1}"))
+  "must be true or false"
+#guard failsWith (parsedCallStep 0x31 3000 [0x42]
+  "{\"account_warm\":false,\"delegate_is_target\":true}") "not allowed"
+#guard failsWith (parsedCallStep 0xfa 3000 [0, 0x42, 0, 0, 0]
+  "{\"delegate_is_target\":true}") "not allowed"

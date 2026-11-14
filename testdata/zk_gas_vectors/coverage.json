@@ -2041,6 +2041,48 @@
       "layers": ["block"],
       "source": "revm-handler 43.0.2 src/frame.rs:259-345 (the first frame of a creation tx is a create frame); alethia-reth crates/evm/src/zk_gas/runtime.rs:30-70 (every step of every frame is metered); no spawn opcode runs, so no spawn estimate is charged",
       "description": "A contract-creation tx is charged the intrinsic zk gas plus its initcode's opcodes, metered normally; the code deposit is not metered."
+    },
+    {
+      "id": "call.self_delegate.cold_exact_spawn",
+      "layers": ["harness"],
+      "source": "revm-interpreter 43.0.1 src/instructions/contract/call_helpers.rs:162-194 (target load precedes delegate load)",
+      "description": "A cold self-delegating target pays one cold target surcharge and a warm delegate read; exactly 2,700 gas spawns."
+    },
+    {
+      "id": "call.self_delegate.read_oog_spend_all",
+      "layers": ["harness"],
+      "source": "revm-interpreter 43.0.1 src/instructions/contract/call_helpers.rs:162-194 (target load precedes delegate load)",
+      "description": "One gas short of a self-delegate read spends all gas after the target has been loaded."
+    },
+    {
+      "id": "call.self_delegate.warm_exact_spawn",
+      "layers": ["harness"],
+      "source": "revm-interpreter 43.0.1 src/instructions/contract/call_helpers.rs:162-194 (target load precedes delegate load)",
+      "description": "A warm self-delegating target pays 100 static gas and a 100-gas delegate read."
+    },
+    {
+      "id": "call.self_delegate.value_exact_spawn",
+      "layers": ["harness"],
+      "source": "revm-interpreter 43.0.1 src/instructions/contract/call_helpers.rs:162-194 (target load precedes delegate load)",
+      "description": "CALL and CALLCODE pay 9,000 value gas before the cold self-delegating target and warm delegate read."
+    },
+    {
+      "id": "call.self_delegate.value_read_oog_spend_all",
+      "layers": ["harness"],
+      "source": "revm-interpreter 43.0.1 src/instructions/contract/call_helpers.rs:162-194 (target load precedes delegate load)",
+      "description": "One gas short after value transfer and cold target loading fails the self-delegate read."
+    },
+    {
+      "id": "call.self_delegate.forwarded_eip150",
+      "layers": ["harness"],
+      "source": "revm-interpreter 43.0.1 src/instructions/contract/call_helpers.rs:162-194 (target load precedes delegate load)",
+      "description": "Forwarding uses EIP-150 after charging the cold target once and reading the same address warm."
+    },
+    {
+      "id": "call.self_delegate.target_load_oog_spend_all",
+      "layers": ["harness"],
+      "source": "revm-interpreter 43.0.1 src/instructions/contract/call_helpers.rs:162-194 (target load precedes delegate load)",
+      "description": "A self-delegate does not avoid a cold target load the frame cannot pay."
     }
   ]
 }

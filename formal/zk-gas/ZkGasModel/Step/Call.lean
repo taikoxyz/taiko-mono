@@ -21,10 +21,9 @@ precompile target are checked there). The EIP-8037 state gas of `load_acc_and_ca
 
 Whether the target `stack[1]` is warm and empty and whether its EIP-7702 delegate is warm are
 the step's facts `account_warm`, `account_empty` and `delegate_warm`, read before the step.
-revm loads the target, which warms it, before the delegate (`call_helpers.rs:162`, `:189`), so
-for a target delegated to itself `delegate_warm` (false when the target was cold) is not the
-warmth revm charges (warm): the model charges that case 2,500 more than revm. No corpus vector
-has such a target.
+revm loads the target, which warms it, before the delegate (`call_helpers.rs:162`, `:189`).
+The optional `delegate_is_target` fact records when these addresses alias: after a successful
+target load the delegate is warm even when its initial `delegate_warm` was false.
 -/
 namespace TaikoSpec.ZkGas
 
@@ -126,6 +125,7 @@ def callTarget (pre : Pre) (gas : Nat) (transfer : Bool) : Except String StepRes
   match ← requireFact "delegate_warm" pre.facts.delegateWarm with
   | none => callSpawn pre (gas - cost) (callSpawnBranch transfer warm)
   | some delegateWarm =>
+    let delegateWarm := delegateWarm || pre.facts.delegateIsTarget
     let cost := cost + delegateReadGas
     if cost > gas then return haltSpendingAll .call_family_delegate_read_oog_spend_all
     if !delegateWarm && gas < cost + coldAccountGas then
