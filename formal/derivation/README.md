@@ -134,6 +134,15 @@ fail CI until the model, claims, exclusions and pins are reviewed together.
 
 ## Evidence and trust boundary
 
+The formal gate additionally generates 223 model-based vectors from input-only cases: the
+151 independent boundary inputs plus 72 source/state combinations. The executable Lean model
+computes the expected extraction results, derived blocks, header plans and next parents. CI
+shares one generated artifact with both production client adapters, after their independent
+corpus checks. The independent fixtures remain unchanged and still check the model. See the
+[corpus README](../../testdata/derivation_vectors/README.md#lean-generated-expected-outputs)
+for generation and native comparison commands. This is additional differential testing, not a
+proof of client/model equivalence; the existing model claims and trust boundary are unchanged.
+
 The shared corpus in [`testdata/derivation_vectors`](../../testdata/derivation_vectors) contains
 136 unchanged manifest-decoding vectors and 151 shared Unzen boundary cases. All three adapters
 check the boundary inputs against independently authored expected extraction results, derived

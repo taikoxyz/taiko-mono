@@ -20,6 +20,61 @@ to F9 transaction-field cases, not malformed network framing. Only F9 cases reco
 `engine_decodable`; other families make no engine-decoding claim. Tests exercise forced-source cardinality
 separately because it is proposal metadata, not part of the manifest payload.
 
+## Lean-generated expected outputs
+
+The formal gate also produces `.lake/model_vectors/expected.json` under `formal/derivation`.
+`generate_model_inputs.py` retains the 151 independent boundary inputs and adds 72 deterministic
+source/state combinations across Devnet, Mainnet and Hoodi, the minimum/middle/maximum parent
+gas limits, and sequences of 1, 2, 4 or 8 sources. The combinations include ordinary sources and
+forced-source prefixes, with distinct transaction candidates. It builds candidate inputs only;
+it neither decides acceptance/default nor computes expected blocks, headers or next parents.
+Some sequences are abstract model inputs, as in the independent corpus, rather than a claim
+that every shape is emitted by Inbox.
+
+`vectors --emit-boundaries` accepts this input-only schema and computes all `expected` fields
+through `Boundary.evaluateInput`, the same executable model used to check the independent
+vectors. It rejects supplied expectations, empty corpora, duplicate/empty names, unsupported
+schemas and invalid model inputs. Generation evaluates every case before writing a corpus and
+refuses to overwrite existing files. The new CLI regression tests compare its output for all
+151 golden inputs with the independently authored expected outputs.
+
+The formal workflow uploads the generated corpus once. Both client jobs download that exact
+artifact and run their existing production adapters against it. Their original independent
+136 decoding cases, 151 boundary cases, 12 client-only fork-selection cases and negative
+controls still run separately. Neither independent JSON fixtures nor their generator are
+rewritten by Lean generation.
+
+To generate a fresh corpus locally, from `formal/derivation`:
+
+```bash
+lake build vectors
+mkdir -p .lake/model_vectors
+python3 ../../testdata/derivation_vectors/generate_model_inputs.py --output .lake/model_vectors/inputs.json
+lake exe vectors --emit-boundaries .lake/model_vectors/inputs.json .lake/model_vectors/expected.json
+python3 scripts/test_model_vectors.py -v
+```
+
+Use new output paths or remove these two generated files before regenerating. `scripts/gate.sh`
+does this for its own `.lake/model_vectors` outputs. Run the Go adapter from the repository root:
+
+```bash
+TAIKO_DERIVATION_BOUNDARY_VECTORS="$PWD/formal/derivation/.lake/model_vectors/expected.json" \
+  go test ./packages/taiko-client/driver/chain_syncer/event/blocks_inserter -run '^TestDerivationBoundary' -count=1
+```
+
+Run the Rust adapter from `packages/taiko-client-rs`:
+
+```bash
+TAIKO_BOUNDARY_CORPUS="$PWD/../../formal/derivation/.lake/model_vectors/expected.json" \
+  bash script/test_derivation_vectors.sh
+```
+
+This adds model-based differential testing over the shared normalized outputs. Expected-output
+generation trusts Lean's compiler/runtime and the JSON adapters; it is not a kernel proof of
+client/model equivalence. The model's input domain and pre-execution comparison boundary below
+remain unchanged. Independent expectations continue to check the model rather than being
+replaced with its own answers.
+
 ## Shared Unzen boundary conformance
 
 [`boundary_cases.json`](boundary_cases.json) adds 151 independently authored cases that Lean,
