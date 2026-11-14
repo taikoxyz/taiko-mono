@@ -262,3 +262,45 @@ useful. Define ownership of shared variables and `UNCHANGED` obligations, then
 review source mapping, assumptions and properties again. Combining modules does
 not automatically preserve their individual guarantees. New observations may
 also require revisiting which information the present abstraction discards.
+
+## Incremental method and implementation correspondence
+
+[Worklist #22355](https://github.com/taikoxyz/taiko-mono/issues/22355) tracks
+larger modules. Continue this directory and runner; add one reviewable boundary
+at a time. A checked finite model is evidence about its explicit transitions,
+not evidence that client/contract code implements them.
+
+The next increment is [per-node L1 trust](L1_TRUST.md). Keep separate:
+canonical L1 state, a node's available view, the snapshot it authenticated, and
+its permission to sign/serve. The new snapshot trace is an interface abstraction
+of settlement/recovery; it is not a full Cartesian composition with the earlier
+transaction-ordering model.
+
+The method borrows three concrete ideas from upstream sources, checked and pinned
+on 2026-11-14; their tools/test suites were not run for this project:
+
+- [CometBFT's accountability model](https://github.com/cometbft/cometbft/blob/5df2ff93bdce11cfb4d59ee59a992363a9ce1d27/spec/light-client/accountability/Synopsis.md)
+  makes simplifications explicit. Its one-height, equal-power model and
+  nondeterministic timeouts/proposers do not establish Etna's full consensus.
+- [Malachite's specification layers](https://github.com/circlefin/malachite/blob/a453b32155f4ba9f959724279b52f601bae92e09/specs/consensus/quint/README.md)
+  separate functional logic, distributed state machine, and scenarios. Keep
+  module-local rules separate from observations and scheduling in Etna too.
+- [Cosmos Interchain Security's MBT driver](https://github.com/cosmos/interchain-security/blob/ea200443e95f7f56b9fd5fd6854f357da6c281ac/tests/mbt/driver/README.md)
+  replays generated traces against an in-memory application. Its application
+  harness deliberately excludes consensus and relayers. A future Etna adapter
+  must likewise state which real components and states it compares.
+
+For each increment, pin rules and exclusions; write named properties and
+positive reachability witnesses; remove guards and independently mutate writes
+or assertions; freeze input hashes; then review complete traces and bounded
+results. If a counterexample appears, classify it as a model error, a missing
+premise, a specification ambiguity, a protocol-rule error, or an implementation
+mismatch before proposing changes.
+
+Implementation replay is **pending**. A future trace adapter should map model
+inputs to the actual app/signer/L1 test interfaces and compare, after each step,
+the authenticated generation/checkpoint, app trust, halt/refusal reason, and
+actual sign/serve result. It must preserve asynchronous observation boundaries;
+an adapter which reads the latest global state for every node would erase the
+very lag being tested. Skipped replay must fail its validation gate, and passing
+selected traces must not be reported as an unbounded refinement proof.

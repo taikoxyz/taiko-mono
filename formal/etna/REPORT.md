@@ -270,3 +270,110 @@ The next boundary remains outside these results: per-node L1 observations,
 signer persistence/trust, committee transitions, actual cryptography and real
 client/contract equivalence. Concrete trace replay against implementations or a
 refinement proof is still needed to connect this formal model to running code.
+
+## Per-node L1 trust increment (2026-11-14)
+
+Source remains Etna SPEC at `d18357214fab30ea512ae9858a11699806d72ba1`.
+The source pin was rechecked against GitHub main. The new model investigates
+M02 startup/session trust and sign/serve gates using a finite L1 snapshot trace:
+initial generation 0, its first landing, recovery at that checkpoint, and a
+new-generation landing. Inclusion, finality, provider visibility and authenticated
+targets are distinct. This snapshot trace is an interface abstraction of
+settlement/recovery, not a formal product with the earlier modules.
+
+[Model mapping and reproduction](L1_TRUST.md) records exact source obligations,
+bounds and assumptions. Original TLA+ modules, all 31 older configurations and
+the outcome-checking runner remain unchanged.
+
+### Specification question kept distinct from a protocol finding
+
+RECOV-8-16 says startup/session generation mismatch safety-halts, while
+RECOV-8-5/SYNC-9-2 classify own-L1 lag as a retry. RECOV-8.2-4 does not explicitly
+order the checks for a node configured in a new generation whose own L1 view
+still predates recovery R. Existing review question Q8.2-3 also identifies this
+ordering. The new-generation profiles start at or after R and therefore do not
+resolve this case. Checking the authenticated origin floor first is a possible
+interpretation, not a rule adopted by this model. This is a source ambiguity,
+not a demonstrated protocol defect.
+
+No unconditional progress, L1 finality-failure, full anchor processing,
+crash/HRS durability, cryptographic correctness or client refinement claim is
+made. Own-L1 RPC timeout and app-trust-confirmation timeout are separate;
+previously legitimate signatures are judged using their event-time evidence,
+not a generation observed later.
+
+### Frozen results
+
+The complete actual-worktree suite produced **63/63 expected outcomes**: 31
+unchanged regressions and 32 L1-trust cases (4 complete normal searches, 20
+negative controls and 8 existential witnesses). All recorded input hashes stayed
+unchanged. Every normal run exhausted its queue; a witness/control passed only
+when TLC reported the exact declared invariant violation.
+
+L1-trust module SHA-256:
+`b27df113c00068ededba461b3063a960f75b9c60c77dc7e1523fa9b24ce653cc`.
+
+Tools and reproduction command are unchanged: official TLA+ tools 1.7.4
+(TLC 2.19), Temurin 17.0.21+9, one worker, seed 1, 512 MiB heap, 45 seconds per
+configuration. Run the README command without `--case` to reproduce all cases.
+
+| New normal profile             | Generated | Distinct | Queue |
+| ------------------------------ | --------: | -------: | ----: |
+| l1-trust-baseline-recovery     |   122,820 |    6,165 |     0 |
+| l1-trust-baseline-startup      |   112,212 |    5,701 |     0 |
+| l1-trust-baseline-supersession |   143,580 |   10,166 |     0 |
+| l1-trust-baseline-two-nodes    | 1,992,073 |  106,608 |     0 |
+
+Positive witnesses include two trusted nodes with different authenticated
+checkpoints, signing while global recovery is not yet locally known, signing
+after an unrelated own-L1 timeout, missing-then-retry trust, and the retained
+origin validator-state exception. These are existence traces, not liveness.
+
+The finality control exposes a genuine included-but-unfinalized input: include
+snapshot 1 while finalized remains 0; expose it through the provider; load local
+evidence; authenticate with the finality guard removed; grant trust. The stored
+certificate records that finality was not authenticated, and
+`TrustedTargetFinalized` fails. No L1 finality violation is assumed.
+
+### Independent assertion challenges
+
+An isolated write-only mutation replaced the actual certificate with an internally
+valid canonical certificate for another snapshot. Earlier normal invariants still
+passed (5,701 distinct states); adding an independent target relation caught it
+at depth 7. The repair adds `TrustedCertificateFromTarget` and
+`TrustedCertificateFromLocal`, with separate wrong-target and expected-instead-
+of-observed write controls.
+
+A separate mutation let logical `BeginSession` clear a safety halt. Earlier normal
+invariants still passed; an independent temporal absorption check rejected it
+at depth 5. The repair adds an observation-only `haltHistory` and
+`SafetyHaltSticky`; the permanent unsafe-session control now fails that property.
+
+Certificate assertions also evaluate the fixed-origin validator exception
+independently of the acceptance helper. Importantly, selected existing negative
+controls rejected broad certificate rewrites, broad origin-helper changes
+and a contradiction-classification mutation through unexpected PASS outcomes.
+The baseline-only experiments show weak direct assertions, not demonstrated
+whole-suite escapes. The old full control matrix was not rerun for the halt
+mutation, so no whole-suite-escape claim is made for it either. These are model
+assertion improvements, not discovered runtime protocol defects.
+
+### Independent verification and next scope
+
+An independent stronger single-node profile crossed recovery with all eight
+local evidence kinds and all selected read-error actions enabled:
+`SessionGeneration=0`, `MaxSnapshot=2`, `NodeCount=1`, all normative guards on.
+It completed 1,702,918 generated states, **61,824 distinct**, queue 0, depth 21,
+using the final module hash. The tester also independently reran all 28 new
+negative controls/reachability cases with exact expected outcomes. Extra isolated
+witnesses confirmed that a later-generation non-origin wrong validator value
+halts, a wrong Comet hash still halts at the recovery origin, and missing
+validator material at a non-origin checkpoint pauses without halting.
+Independent source review rechecked the actual complete increment and repaired assertions; source claims remain bounded as
+listed above. The unchanged runner's 20 tests passed, and the Etna rule-reference
+checker passed its 640 live references (migration-purity check not requested).
+
+The next increment is M03: signer and ABCI/EL crash recovery. It must introduce
+physical persistence and process boundaries rather than infer crash safety from
+the continuous-process session latch. Implementation trace replay remains
+pending; none of these results establishes real-client conformance.
