@@ -377,3 +377,56 @@ The next increment is M03: signer and ABCI/EL crash recovery. It must introduce
 physical persistence and process boundaries rather than infer crash safety from
 the continuous-process session latch. Implementation trace replay remains
 pending; none of these results establishes real-client conformance.
+
+## M03 crash recovery increment (2026-11-14)
+
+The actual frozen-worktree focused suite completed **25/25 expected outcomes**:
+4 normal exhaustive searches, 12 negative controls and 9 existential witnesses.
+Prior models, 63 configurations and the shared runner remain byte-identical.
+Full accumulated regression is scheduled at the five-task/discovered-problem
+stopping boundary. Source remains Etna SPEC `d18357214`; upstream CometBFT
+v0.40.0 resolves to `0880b4d378f347ab16e54ec677ff50d803f37d62`.
+
+| New normal profile                 | Generated | Distinct | Queue |
+| ---------------------------------- | --------: | -------: | ----: |
+| app-crash-baseline-height-one      |     2,789 |      680 |     0 |
+| app-crash-baseline-recovery-height |     2,538 |      636 |     0 |
+| signer-crash-baseline-domains      | 1,497,462 |  218,335 |     0 |
+| signer-crash-baseline-small        |   140,014 |   23,817 |     0 |
+
+Final signer SHA-256:
+`c948786960d3dd5af381c653f3c0c28795291b19d3b96e660efa8825f6d93c4a`.
+Final app SHA-256:
+`f54c6458954b8ee33f6a0765eab766ffd45c59f027704c0c0dc3c8a0798aafa0`.
+
+An independent verifier performed 18 checks, including both signer profiles,
+both app profiles, actual pre-return crash/replay, request substitution and
+the derived real-Commit/mock-replay boundary. With the local Info bound removed,
+wrong Info still made `CometNeverAheadOfApp` fail: EL and saved response reached
+block 1, the app had not committed, but mock replay advanced Comet to 1. An
+additional temporary history observer independently required actual commit
+receipts for Comet/Ready and caught the same error at depth 12.
+
+Independent review exposed three model issues: a replay witness could use an
+unrelated earlier crash; an observational generation variable enabled an action;
+and computed signatures were not linked to actual caller requests. These were
+repaired with a captured pre-crash record, operational floor gating and independent
+request identity. Before repair, a write-only A-to-B request substitution passed
+the normal small baseline and all five existing negative controls; an independent
+request observer caught it at depth 4. This is a model-assertion finding, not a
+source-permitted protocol defect. No entire old positive-witness matrix escape
+is claimed beyond the controls actually rerun.
+
+**Incomplete coverage retained:** two slots with two signature variants, for
+both two and three payloads, did not complete in 45 seconds. Last printed progress
+was about 3 seconds into each run, not final counts. The exact parameters and
+progress evidence remain in `experiments/`; both wider products are explicitly
+INCONCLUSIVE. The successful profiles separate HRS-depth from payload/signature
+breadth and do not prove that wider product.
+
+[Crash mapping and reproduction](CRASH_RECOVERY.md) records process-only durable
+storage, serialized signer ownership, the explicit durable completed-recovery
+authentication interface, aggregate app/EL/Comet volatile crash abstraction and
+missing full composition/refinement. The already documented first-block-above-1
+Comet handshake stop is reachable and remains a known limitation. No unmutated
+new protocol counterexample was established in this bounded M03 scope.

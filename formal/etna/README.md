@@ -270,7 +270,7 @@ larger modules. Continue this directory and runner; add one reviewable boundary
 at a time. A checked finite model is evidence about its explicit transitions,
 not evidence that client/contract code implements them.
 
-The next increment is [per-node L1 trust](L1_TRUST.md). Keep separate:
+The first per-node increment is [L1 trust](L1_TRUST.md). Keep separate:
 canonical L1 state, a node's available view, the snapshot it authenticated, and
 its permission to sign/serve. The new snapshot trace is an interface abstraction
 of settlement/recovery; it is not a full Cartesian composition with the earlier
@@ -304,3 +304,24 @@ actual sign/serve result. It must preserve asynchronous observation boundaries;
 an adapter which reads the latest global state for every node would erase the
 very lag being tested. Skipped replay must fail its validation gate, and passing
 selected traces must not be reported as an unbounded refinement proof.
+
+## Crash recovery increment
+
+[`CRASH_RECOVERY.md`](CRASH_RECOVERY.md) maps the M03 signer and application
+models to the pinned Etna rules and CometBFT v0.40.0 source. Signer request,
+computation, durable record, external exposure and delayed delivery are separate
+steps. The app model separates EL effects/flush, saved responses, completed
+application Commit, acknowledgment and Comet state.
+
+These are two focused projections, not a formal product with each other or M02.
+The app's crash is an aggregate crash of the modeled volatile execution; it is
+not every independently scheduled app/EL/Comet process-failure interleaving.
+Successful storage writes surviving process failure, serialized key ownership,
+completed generation authentication and actual engine idempotence are explicit
+interface obligations, not evidence of host-power or production-client safety.
+
+Wider signer configurations which did not complete their bounded run are retained
+under `experiments/` and explicitly labeled inconclusive in the M03 report.
+They are not silently included among the default suite's successful outcomes.
+The five-task continuation plan covers M03–M07; it stops on a credible protocol
+counterexample and records model errors separately.
