@@ -66,6 +66,69 @@ class ConfigurationTests(unittest.TestCase):
             with self.subTest(text=text), self.assertRaises(ValueError):
                 CHECK.parse_expectation(text)
 
+class ModuleSelectionTests(unittest.TestCase):
+    def test_legacy_configuration_selects_original_module(self):
+        self.assertEqual(CHECK.parse_module("\\* EXPECT: PASS\n"), "EtnaSettlement")
+
+    def test_explicit_configuration_selects_composed_module(self):
+        self.assertEqual(
+            CHECK.parse_module("\\* MODULE: EtnaCheckpointIdentity\n"),
+            "EtnaCheckpointIdentity",
+        )
+
+    def test_invalid_module_never_falls_back_to_original_model(self):
+        for name in ("../EtnaSettlement", "/etc/passwd", "Model.tla", "", "A B"):
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                CHECK.parse_module("\\* MODULE: " + name + "\n")
+
+    def test_duplicate_module_is_rejected(self):
+        with self.assertRaises(ValueError):
+            CHECK.parse_module("\\* MODULE: First\n\\* MODULE: Second\n")
+
+    def test_missing_module_is_rejected_before_execution(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaises(ValueError):
+                CHECK.resolve_module("\\* MODULE: Missing\n", Path(directory))
+
+    def test_selected_module_must_be_a_local_file(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            module = root / "EtnaCheckpointIdentity.tla"
+            module.write_text("---- MODULE EtnaCheckpointIdentity ----\n====\n")
+            self.assertEqual(
+                CHECK.resolve_module("\\* MODULE: EtnaCheckpointIdentity\n", root),
+                module,
+            )
+
+
+class InputSnapshotTests(unittest.TestCase):
+    def test_unchanged_inputs_keep_run_valid(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "Model.tla"
+            source.write_text("original model")
+            self.assertTrue(CHECK.inputs_unchanged(CHECK.snapshot_inputs([source])))
+
+    def test_edited_input_invalidates_run(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "Model.tla"
+            source.write_text("original model")
+            snapshot = CHECK.snapshot_inputs([source])
+            source.write_text("different model")
+            self.assertFalse(CHECK.inputs_unchanged(snapshot))
+
+    def test_removed_input_invalidates_run(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "Model.tla"
+            source.write_text("original model")
+            snapshot = CHECK.snapshot_inputs([source])
+            source.unlink()
+            self.assertFalse(CHECK.inputs_unchanged(snapshot))
+
 
 if __name__ == "__main__":
     unittest.main()

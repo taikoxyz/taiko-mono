@@ -6,6 +6,7 @@ and logs go only under the explicitly selected output directory.
 """
 
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -70,6 +71,39 @@ def positive_int(value):
     return number
 
 
+def parse_module(text):
+    declarations = [
+        line.strip() for line in text.splitlines()
+        if re.match(r"^\s*\\\*\s*MODULE\b", line)
+    ]
+    if not declarations:
+        return "EtnaSettlement"
+    if len(declarations) != 1:
+        raise ValueError("configuration permits only one MODULE comment")
+    match = re.fullmatch(r"\\\* MODULE: ([A-Za-z_][A-Za-z_0-9]*)", declarations[0])
+    if match is None:
+        raise ValueError("MODULE must be a local TLA+ module identifier")
+    return match.group(1)
+
+
+def resolve_module(text, root):
+    module = root / (parse_module(text) + ".tla")
+    if not module.is_file() or module.resolve().parent != root.resolve():
+        raise ValueError("selected MODULE must exist as a local TLA+ file")
+    return module
+
+
+def snapshot_inputs(paths):
+    return {path: hashlib.sha256(path.read_bytes()).hexdigest() for path in paths}
+
+
+def inputs_unchanged(snapshot):
+    try:
+        return snapshot_inputs(snapshot) == snapshot
+    except OSError:
+        return False
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--java", default="java", help="Java 17+ executable")
@@ -92,7 +126,14 @@ def main(argv=None):
         configs = [path for path in configs if path.stem in selected]
     if not configs:
         parser.error("no configurations found")
-    expected = {path.stem: parse_expectation(path.read_text()) for path in configs}
+    try:
+        snapshot = snapshot_inputs([*configs, *root.glob("*.tla"), jar])
+        expected = {path.stem: parse_expectation(path.read_text()) for path in configs}
+        modules = {path.stem: resolve_module(path.read_text(), root) for path in configs}
+    except (ValueError, OSError) as error:
+        parser.error(str(error))
+    if not inputs_unchanged(snapshot):
+        parser.error("model/configuration changed while preparing the run")
     args.output_dir.mkdir(parents=True, exist_ok=True)
     run_dir = Path(tempfile.mkdtemp(prefix="etna-tlc-", dir=args.output_dir))
     results = []
@@ -103,7 +144,7 @@ def main(argv=None):
             args.java, f"-Xmx{args.heap_mb}m", "-XX:+UseParallelGC", "-cp", str(jar),
             "tlc2.TLC", "-workers", "1", "-seed", "1", "-deadlock",
             "-metadir", str(case_dir / "states"), "-config", str(config),
-            str(root / "EtnaSettlement.tla"),
+            str(modules[config.stem]),
         ]
         start = time.monotonic()
         try:
@@ -120,10 +161,19 @@ def main(argv=None):
         except OSError as error:
             output = str(error)
             returncode = None
+        unchanged = inputs_unchanged(snapshot)
+        if not unchanged:
+            output += "\nCHECKER INPUT CHANGED: discard this run and retry a stable candidate.\n"
         (case_dir / "tlc.log").write_text(output)
-        ok = classify_output(returncode, output, expected[config.stem])
+        ok = unchanged and classify_output(returncode, output, expected[config.stem])
         result = {
             "case": config.stem, "expected": expected[config.stem], "ok": ok,
+            "module": modules[config.stem].stem,
+            "module_sha256": snapshot[modules[config.stem]],
+            "config_sha256": snapshot[config],
+            "inputs_unchanged": unchanged,
+            "source_sha256": {path.name: digest for path, digest in snapshot.items()
+                              if path.suffix == ".tla"},
             "returncode": returncode, "seconds": round(time.monotonic() - start, 3),
             "states": state_counts(output), "log": f"{config.stem}/tlc.log",
         }
@@ -133,6 +183,8 @@ def main(argv=None):
             print(output[-4000:], flush=True)
         # Counterexample text remains in tlc.log; generated state databases are disposable.
         shutil.rmtree(case_dir / "states", ignore_errors=True)
+        if not unchanged:
+            break
     (run_dir / "results.json").write_text(json.dumps(results, indent=2) + "\n")
     print(f"Results: {run_dir / 'results.json'}")
     return 0 if all(result["ok"] for result in results) else 1

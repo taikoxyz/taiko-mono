@@ -1,10 +1,11 @@
 # Etna TLA+/TLC models
 
-This directory is the home for incremental Etna models. The first model checks
+This directory is the home for incremental Etna models. The base model checks
 **ordering between L1 landing, recovery authorization and recovery execution**.
-It does not verify CometBFT, the implementation of a contract, or deployment
-readiness. The normative source is
-[`SPEC.md`](../../packages/protocol/docs/etna/SPEC.md), pinned for this model at
+The composed identity model additionally checks checkpoint/cut binding across
+two symbolic histories. Neither model verifies CometBFT, contract implementation
+or deployment readiness. The normative source is
+[`SPEC.md`](../../packages/protocol/docs/etna/SPEC.md), pinned for both models at
 [`d18357214fab30ea512ae9858a11699806d72ba1`](https://github.com/taikoxyz/taiko-mono/blob/d18357214fab30ea512ae9858a11699806d72ba1/packages/protocol/docs/etna/SPEC.md).
 Later specification changes require a correspondence review before reusing the
 results.
@@ -31,7 +32,7 @@ actual commands, tool hashes, bounds and results. On a sandboxed host TLC's
 local management socket may need permission even though the model makes no
 external network requests.
 
-## What the model contains
+## First model: transaction ordering
 
 [`EtnaSettlement.tla`](EtnaSettlement.tla) has a single canonical L1 contract
 state, one authorized recovery request and one delayed valid proof. TLC chooses
@@ -56,7 +57,7 @@ then exercises delayed submission, including valid overlap `p < c < h`.
 `Recover`, `InvalidateNonce` and `Tick` represent recovery execution, explicit
 authorization invalidation and elapsed time.
 
-## Source-to-model correspondence
+### Source-to-model correspondence
 
 | Model behavior                                                                                                                                           | Normative source                                                                                                    |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
@@ -75,7 +76,7 @@ proof authenticates. The Solidity interface has no caller-supplied generation
 field whose value the contract merely trusts. Turning off
 `CheckProofGeneration` deliberately models loss of that verifier/input binding.
 
-## Checks and negative controls
+### Checks and negative controls
 
 Every normal configuration checks types, no successful stale-generation,
 stale-checkpoint, stale-nonce or expired recovery, no old-generation landing,
@@ -111,7 +112,7 @@ bound. Heights count normalized grid points, with `S=0`, `K=1`; these are not
 production deployment parameters. No state constraint silently discards states;
 finite bounds appear in the state domains and action enabling conditions.
 
-## Assumptions and exclusions
+### Assumptions and exclusions
 
 - A transaction is one atomic action. Reentrancy, partial writes, contract code
   and failure/revert implementations are not verified.
@@ -121,7 +122,7 @@ finite bounds appear in the state domains and action enabling conditions.
   Invalid authorizations are created by delay or invalidation, not by forgery.
 - Fresh proofs are available as abstract valid inputs. All proof origins are
   captured from checkpoints; retained origin records are checked at execution.
-- Proofs share one abstract block history, authenticate their complete range,
+- In the first model, proofs share one abstract block history, authenticate their complete range,
   and have cuts matching the current checkpoint. EL/Comet/validator-state hashes,
   FI cursors, blobs, cryptography, proof completeness and proving latency are
   outside this model. In particular, this does not establish fork-safe overlap
@@ -131,6 +132,126 @@ finite bounds appear in the state domains and action enabling conditions.
   preservation/invalidation and derived authorizations explicitly.
 - These runs explore particular finite configurations using TLC fingerprints;
   they are not unbounded machine-checked theorems or proof of client conformance.
+
+## Checkpoint identity extension
+
+[`EtnaCheckpointIdentity.tla`](EtnaCheckpointIdentity.tla) uses
+`EXTENDS EtnaSettlement` and calls the original actions from identity-aware
+wrappers. It does not copy their implementations. The original module and its
+12 configurations stay unchanged. `IdentitySpec` also includes all original
+choices of authorization deadline, elapsed time and nonce invalidation; they
+are not silently removed from the larger state graph.
+
+New configurations declare `\* MODULE: EtnaCheckpointIdentity`; the same runner
+uses that local module. Legacy configurations without a module declaration still
+select `EtnaSettlement`. The runner snapshots the selected configurations, all
+local TLA+ modules and the TLC jar. Any input drift invalidates the run instead
+of attributing mixed-candidate results to the final files. Results record the
+module and source/configuration hashes. For a single quick check, add
+`--case identity-baseline-el` to the command above.
+
+### Identity representation and source mapping
+
+A symbolic cut has exactly the boundary fields relevant here:
+`height`, `el`, `comet`, `fi`, `val`. Distinct tuple tokens stand for collision-free
+hashes; actual hashing, ABI/RLP encoding, state execution and certificate validity
+are not implemented. The `FI` variation uses integer cursor 0 or 1, with the
+landing step-4 non-regression and suffix-consumption bound checked separately.
+The current FI head is identified with `recordCuts[c].fi`; consistency with
+a separate FI-head storage variable and queue-tail checks are not modeled.
+
+| New state                        | Meaning                                                                                                                           |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `recordCuts`                     | Symbolic identity of each retained slot-285 landing record                                                                        |
+| `prefixCuts`, `prefixGeneration` | Independent observation of the settled prefix, retaining the generation that settled each height                                  |
+| `queuedIdentity`                 | Execution-history label, separately supplied leaf-history label, public-input origin and execution-start origin of a queued proof |
+| `identityAudit`                  | Observation-only safety and reachability evidence; never enables an action                                                        |
+
+Two histories, A and B, share all metadata before `ForkHeight` and differ in one
+selected component at and after it. Four normal configurations separately vary
+EL hash, Comet hash, FI cursor and validator-state hash. Identity tokens include
+the generation: ordinary recovery may extend the retained prefix with a new
+generation's history, without recomputing the older settled identities.
+`SettledHistoryCompatible` checks that within each generation the settled cuts
+fit one of the modeled histories. `RetainedRecordsMatchSettledPrefix` independently
+relates the actual landing records to those observed settled cuts.
+
+These histories **overapproximate boundary metadata**. In particular, isolated
+Comet/FI/validator-state changes with an unchanged EL hash are interface checks,
+not evidence of two physically realizable EVM histories or two honest-quorum
+CometBFT certificates. No Byzantine-consensus conclusion follows from them.
+
+| Composed behavior                                                                   | Normative source                                    |
+| ----------------------------------------------------------------------------------- | --------------------------------------------------- |
+| Public-input origin equals the complete retained record                             | Normative land steps 2/6; ENC-A-35; PROOF-6.2-40/46 |
+| At `p<c`, supplied cut at actual checkpoint `c` equals its full retained cut        | Normative land step 3; ENC-A-29/33/34               |
+| Every supplied interior leaf equals the execution-authenticated cut at its height   | PROOF-6.2-39/41/43/44; ENC-A-30/31                  |
+| FI cursor does not regress or advance by more than the new suffix length            | Normative land step 4                               |
+| Only `(c,h]` is appended to the settled prefix; terminal record matches that suffix | LAND-6.1-3/9; normative land step 7; PROOF-6.2-42   |
+| Ordinary recovery preserves all retained identities and the settled prefix          | RECOV-8-48/56/58; RECOV-8.4-2/8                     |
+
+The model keeps the supplied leaves separate from executed cuts. An input may
+have an origin from another history or supplied leaves differing from execution;
+preparing such an input does not assert that the production verifier accepts it.
+The origin and cut-binding guards model the corresponding proof/public-input
+checks, not new Solidity arguments.
+
+### Recovery-origin exception
+
+`queuedIdentity.publicOrigin` must match the complete retained record even when
+`p=startHeight`, including its stored `parentValStateHash` (ENC-A-35). The
+execution-start origin is separate: only its validator state then comes from
+`GenesisVal(generation)` instead of the retained validator-state hash, following
+PROOF-6.2-41a. Its height, EL hash, Comet hash and FI head still match the public
+origin. Every interior checkpoint comparison uses the complete cut, without this
+exception. The genesis token is an explicit assumption standing for authenticated
+reconstruction, not a proof of CometBFT genesis arithmetic.
+
+The positive recovery-origin witness requires a nonzero retained checkpoint,
+an older-generation origin record, a successful landing in the new generation,
+and an execution-start genesis validator state different from that retained
+record's value. This checks that the origin exception has not accidentally been
+removed by an overrestrictive equality.
+
+### Identity checks
+
+All identity cases inherit the first model's safety checks and add origin,
+cut-binding, checkpoint-boundary, prefix/record and recovery-identity checks.
+The ordinary bound is height 2, generation 1, nonce 2 and time 1. Shared-prefix
+cases use height 3 and `ForkHeight=2`; ordinary cases use `ForkHeight=1`.
+All guards are enabled unless the configuration explicitly names a negative
+control. No configuration silently applies a state constraint.
+
+| Configuration                                 | Expected result                                                                                   |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `identity-baseline-{el,comet,fi,val}.cfg`     | Complete exploration for each isolated cut component                                              |
+| `identity-baseline-shared-prefix.cfg`         | Complete exploration with histories sharing height 1                                              |
+| `identity-missing-origin.cfg`                 | `OriginIdentityBound` violation, including `p=c` with no interior cut                             |
+| `identity-missing-boundary.cfg`               | `OverlapCheckpointBound` violation                                                                |
+| `identity-missing-cut-binding.cfg`            | `ExecutionCutsBound` violation                                                                    |
+| `identity-el-only-{comet,fi,val}.cfg`         | `OverlapCheckpointBound` violation when EL equality hides another component's difference          |
+| `identity-landing-record-rewrite.cfg`         | `RetainedRecordsMatchSettledPrefix` violation when only the terminal stored record is changed     |
+| `identity-recovery-rewrite.cfg`               | `RecoveryIdentityPreserved` violation                                                             |
+| `identity-reach-same-history-overlap.cfg`     | `CompatibleOverlapNotReached` violation: a bound overlapping proof succeeds                       |
+| `identity-reach-conflicting-overlap.cfg`      | `ConflictingOverlapNotReached` violation: a queued conflicting proof has `p<c<h`                  |
+| `identity-reach-substituted-leaves.cfg`       | `SubstitutedLeavesNotReached` violation: supplied leaves can differ from execution                |
+| `identity-reach-recovery.cfg`                 | `IdentityRecoveryNotReached` violation: recovery after settling a nonzero checkpoint exists       |
+| `identity-reach-recovery-origin.cfg`          | `RecoveryOriginReuseNotReached` violation: new-generation landing reuses an older retained origin |
+| `identity-reach-shared-prefix-divergence.cfg` | `DivergentSuffixNotReached` violation: a queued history can share `c` and diverge only after it   |
+
+For example, a proof from B covering `(0,2]` can be queued, then A lands height 1.
+With `ForkHeight=1`, B's cut at 1 conflicts with that checkpoint and its submission
+must fail. Supplying A's leaf instead does not repair B's execution: cut binding
+must reject that substitution. With `ForkHeight=2`, both histories agree at 1,
+and B can legitimately settle the new suffix to height 2. TLC explores these
+orders rather than relying on a manually scripted happy path.
+
+The base module assumes compatible cuts; this extension checks those symbolic
+identity bindings within its stated two-history abstraction. It still assumes
+proof/cryptographic soundness and genesis reconstruction and does not prove
+actual client/guest equivalence, real block ancestry, QC validity, L1 fork
+handling, FI queue eligibility/tail/service, availability, liveness or an
+unbounded protocol theorem.
 
 ## Extending this directory
 
