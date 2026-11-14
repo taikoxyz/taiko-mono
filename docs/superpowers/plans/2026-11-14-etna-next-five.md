@@ -69,8 +69,8 @@ Create `formal/etna/EtnaForcedInclusion.tla`, `configs/fi-*.cfg`, `FORCED_INCLUS
 
 Create `formal/etna/EtnaProvingProgress.tla`, `configs/progress-*.cfg`, `PROVING_PROGRESS.md`.
 
-- [ ] Refresh source and define produced/anchored/landed heads, jobs and DA lifetime.
-- [ ] Model delays/failures, expiry, back-pressure and candidate resumption paths.
-- [ ] Check bounded safety and conditional progress/circular waits independently.
-- [ ] Run complete accumulated suite, record full coverage/assumptions and limitations.
-- [ ] Commit locally, update worklist and report the five-task result for later retrospective.
+- [x] Refresh source and define produced/anchored/landed heads, jobs and DA lifetime.
+- [x] Model delays/failures, expiry, back-pressure and candidate resumption paths.
+- [x] Check bounded safety and conditional progress/circular waits independently.
+- [x] Run complete accumulated suite, record full coverage/assumptions and limitations.
+- [x] Commit locally, update worklist and report the five-task result for later retrospective.

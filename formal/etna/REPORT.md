@@ -651,3 +651,173 @@ and applies each queue index exactly once. Independent normal searches exhausted
 58,270 and 5,395 distinct states, both queue 0. Root and implementer each completed
 all 20 exact outcomes with stable current inputs; all 153 prior tracked formal
 source/config/runner files remain byte-identical to the previous commit.
+
+## M07 proving and DA progress increment (2026-11-14)
+
+The frozen actual-worktree focused suite completed **21/21 expected outcomes**:
+three exhaustive normal workloads, twelve negative controls and six existential
+witnesses. This is a separate bounded pipeline interface, not a formal product
+with the earlier settlement/trust/FI models. Source remains SPEC `d18357214`.
+
+| Normal profile          | Generated | Distinct | Queue |
+| ----------------------- | --------: | -------: | ----: |
+| progress-pipeline       |   172,176 |   10,381 |     0 |
+| progress-small-capacity |    87,088 |    5,261 |     0 |
+| progress-ancestry       |     1,133 |      133 |     0 |
+
+Module SHA-256:
+`4a102d5e465b7c943b8564994a320fb4b2af13fbe5348c=0f095aa75016fa0105`.
+
+### Pipeline and progress boundary
+
+Produced head, selected parent/candidate anchor, L1-included checkpoint,
+finalized source block/checkpoint and actual candidate adoption remain separate.
+Private history, each backend's availability/result and complete original-range
+payloads are separate resources. Captured jobs and requests bind the original
+generation, retained origin/terminal, reference, dependency, data, cuts and
+statement. An overlapping old-p job can settle only the suffix after actual c;
+its full original-range publication and both statements remain unchanged.
+A cached proof or mere inclusion cannot give a candidate production credit.
+
+Conditional assertions use independent captured originals/events to determine
+ready prerequisites, then evaluate `ENABLED Land` or `ENABLED Produce`. A valid
+landing does not require another L2 block while production is at U. The next
+candidate can itself adopt an actually finalized anchor; it need not first
+produce a block under its old paused parent anchor. The source timestamp rule
+`max(parent+1, BFT time, anchor timestamp)` permits this adoption. Existence and
+enabledness establish neither eventual resource arrival nor sustained throughput.
+
+### Clock-model findings and repairs
+
+Three actual small scenarios exposed weaknesses in the first prototype:
+
+- A same-block reference landing passed its previous normal assertions across
+  ten states. An independent literal `inclusion > captured reference` observer
+  rejected that trace. Current-reference lookup is not source-permitted.
+- Removing only the ordinary finalizer's past-inclusion guard passed the old
+  assertions across eleven states. A separate actual inclusion/finalization
+  chronology observer rejected it. A self-written finalization event alone was
+  not an independent finality oracle.
+- Two jobs landed checkpoints 1/2 in the same block; the prototype then finalized
+  intermediate checkpoint 1. All former assertions passed on that eighteen-state
+  scenario, while an independent block-end checkpoint observer rejected it.
+  A finalized L1 root exposes the block's final state.
+
+These are scenario-level model/oracle findings, not full-matrix escape claims or
+protocol defects. The repair uses strict past references in both guard and
+independent receipt/oracle. Ordinary finalization chooses a source block strictly
+before observation, derives that block's last included checkpoint, and is checked
+against raw actual landing events. Anchor identity uses that finalized source
+block, not the later observation time. Genesis and trusted completed recovery
+have distinct provenance. Three permanent negative controls independently detect
+current references, current-block finalization and a lower positive intermediate
+checkpoint when two checkpoints really share the finalized block.
+
+The recovery interface explicitly executes at R=old time+1 and is observed after
+finalization/bootstrap at old time+2. It preserves missing history/backend
+resources. This is not a transaction-level recovery/finality product. With default
+time bound 2 it can run only at old time 0; strict-past normal landing cannot yet
+have happened there, so default M07 recovery covers c=0 only. Earlier modules
+cover nonzero recovery origins separately. The old-generation negative uses a
+reference window of 2 so its old reference remains live across the macro, making
+the intended generation-binding violation observable.
+
+### Finite resources and limitations
+
+Bounds are K=1/U=2, head at most 3, three total production calls across generations,
+two immutable job ids and clock 0..2. The pipeline and smaller-capacity profiles
+execute real productions, capture jobs (0,1] and (0,2], then actual history/backend
+availability, completion and payload-preparation events before exploring all
+selected remaining actions. This is a declared ready-resource workload, not an
+assumption that every execution eventually becomes ready. The separate OneJob
+absent-resource workload forbids history/backend availability and can stay paused;
+it leaves a job id for the fresh-reference/old-dependency case. Job/head/workload
+exhaustion is a finite scope limit, not a protocol deadlock.
+
+Payload capacity 1/2 is a symbolic resource fixture. It checks that a smaller
+prefix may fit while a larger job does not; it is not a production Ethereum
+six-blob, encoding, compression or byte-capacity proof. Reference and ancestry
+budgets are symbolic. Refreshing a reference does not erase the old dependency;
+long-pause recovery needs are known source limits, not new protocol findings.
+
+All three broader first-prototype resource/timing products exceeded 45 seconds.
+Exact historical inputs remain **INCONCLUSIVE**, with their earlier clock-model
+limitations intact; they are not substituted for current source or counted as
+passing default cases. [PROVING_PROGRESS.md](PROVING_PROGRESS.md) records the
+source mapping, workload/provenance interfaces and reproduction. Cryptography,
+actual EL/STF, consensus, blobs, L1 finality mechanics, detailed governance
+recovery and implementation refinement remain premises/exclusions. No new
+source-permitted protocol counterexample was established.
+
+Independent source/diff review and behavioral verification checked the frozen
+source. Seventeen final independent checks include the original clock repairs,
+an independent candidate-enabledness assertion with the built-in property
+omitted, actual pause/landing/finalized adoption, and unchanged old-p advancing
+overlap. The concrete path lands prefix 1 at block 1 with head 2 still paused,
+observes block 1 finality at 2, then produces block 3 using checkpoint 1/block 1 in
+that same candidate. Two same-block landings instead finalize checkpoint 2 with
+both application counts exactly once. A separate `MaxTime=3` scenario starts
+`head=c=2`, produces the next block, captures fresh reference 2, and at 3 still cannot
+complete with dependency 0 despite available history/backend/data. This is an
+additional declared scenario beyond the default time 2 scope, not a complete
+larger search. Independent ready and permanently-absent normal searches exhausted
+10,381 and 133 distinct states, both queue 0.
+
+## Five-task batch stopping boundary (2026-11-14)
+
+All five authorized increments M03 through M07 are checked and locally saved in
+the same project. No new independently supported, source-permitted protocol
+counterexample was established. Stop after this batch for retrospective; model
+repairs and wider incomplete searches are not evidence of protocol perfection.
+
+| Increment                          | Focused cases | Normal searches | Negative controls | Existential witnesses |
+| ---------------------------------- | ------------: | --------------: | ----------------: | --------------------: |
+| M03 signer/application crash       |            25 |               4 |                12 |                     9 |
+| M04 committee selection/activation |            20 |               2 |                13 |                     5 |
+| M05 registry lifecycle             |            26 |               5 |                15 |                     6 |
+| M06 forced inclusion/settlement    |            20 |               3 |                11 |                     6 |
+| M07 proving/DA/back-pressure       |            21 |               3 |                12 |                     6 |
+| New batch total                    |           112 |              17 |                63 |                    32 |
+
+The final **single accumulated run completed 175/175 exact expected outcomes**
+against frozen inputs: 28 normal configurations exhausted with queue 0; 147
+negative-control or negated-witness configurations produced their exact declared
+invariant violation. None passed because of a parse/runtime error, timeout or
+changed input. Earlier 63 cases and the 112 new cases are all included.
+
+Using caller-supplied existing Java 17/TLC release 1.7.4 and the shared runner:
+
+```sh
+python3 formal/etna/check.py \
+  --java "$JAVA" --tlc-jar "$TLA2TOOLS_JAR" \
+  --output-dir "$TLC_OUTPUT_DIR"
+```
+
+The actual run used 45 seconds per case, 512 MiB heap, one worker, seed 1 and explicit
+deadlock disablement for finite workload terminal states. Jar SHA-256 remains
+`936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88`.
+The manifest was independently compared to every current module/configuration;
+all 175 inputs stayed unchanged throughout. All 188 previously tracked formal
+source/config/runner files remained byte-identical before M07 integration.
+
+| Checked command                                            | Observed result                                                                                                |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `formal/etna/check.py` without case selection              | 175/175 exact outcomes; 28 exhaustive normal searches                                                          |
+| `python3 -m unittest discover -s formal/etna/tests -q`     | 20 tests passed during the batch; runner/tests remained unchanged afterward                                    |
+| `python3 packages/protocol/docs/etna/rules/tools/check.py` | 640 live rule references/index/assets/links passed; migration-purity check explicitly skipped without `--base` |
+
+Independent adversarial source review and independent behavioral verification
+completed for every increment, with original findings rechecked after repair.
+No production target was compiled. Normative SPEC and production code were not
+changed. This establishes bounded symbolic-model evidence, not implementation
+refinement or a full product of all nine top-level models.
+
+Eighteen larger historical experiment configurations remain **INCONCLUSIVE**:
+two signer, four registry, nine FI and three pipeline prototypes. Their exact
+inputs/progress and known earlier-model limitations are retained under
+`experiments/`, outside the passing default suite. Smaller executed workloads
+are not claimed equivalent to those products. Data/proofs/resources can remain
+missing; conditional enabledness and existential witnesses imply no unconditional
+liveness, proving throughput or settlement-latency guarantee. Actual-code replay,
+full interface composition, publication/CI and broader coverage remain separate
+worklist items.

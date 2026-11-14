@@ -1,14 +1,19 @@
 # Etna TLA+/TLC models
 
-This directory is the home for incremental Etna models. The base model checks
-**ordering between L1 landing, recovery authorization and recovery execution**.
-The composed identity model additionally checks checkpoint/cut binding across
-two symbolic histories. Neither model verifies CometBFT, contract implementation
-or deployment readiness. The normative source is
-[`SPEC.md`](../../packages/protocol/docs/etna/SPEC.md), pinned for both models at
+This directory contains incremental bounded Etna models for settlement and
+checkpoint binding, per-node L1 trust, signer/application crash recovery,
+committee activation, registry lifetime, forced inclusion and proving progress.
+Specific wrappers compose selected interfaces; passing separate models does not
+establish their whole-protocol composition or implementation conformance.
+Actual measured outcomes and incomplete products are recorded in
+[REPORT.md](REPORT.md) and each module's source-mapping document below.
+
+The normative source is
+[`SPEC.md`](../../packages/protocol/docs/etna/SPEC.md), pinned at
 [`d18357214fab30ea512ae9858a11699806d72ba1`](https://github.com/taikoxyz/taiko-mono/blob/d18357214fab30ea512ae9858a11699806d72ba1/packages/protocol/docs/etna/SPEC.md).
 Later specification changes require a correspondence review before reusing the
-results.
+results. These checks do not establish CometBFT, cryptographic or deployment
+correctness.
 
 ## Run
 
@@ -358,3 +363,15 @@ zero-delta blocks. Normal workloads, incomplete wider products, symbolic
 transaction/execution premises and actual measured outcomes are recorded in the
 module document and [REPORT.md](REPORT.md). Reachability does not guarantee
 eventual service, and this is not a client or cryptographic refinement proof.
+
+## Proving and DA progress increment
+
+[`PROVING_PROGRESS.md`](PROVING_PROGRESS.md) maps a separate bounded pipeline
+interface to produced, L1-included, finalized and adopted checkpoint frontiers.
+`EtnaProvingProgress.tla` tracks immutable jobs, both backend statements, complete
+original-range payloads, reference/ancestry limits and production back-pressure.
+It checks real action enabledness when the stated prerequisites hold, including
+landing while paused and adopting a new finalized anchor in the next candidate.
+Ready-resource and missing-resource workloads are distinct; neither guarantees
+that data or proofs arrive. This model is not a formal product with the earlier
+modules and establishes no sustained throughput or settlement latency.
