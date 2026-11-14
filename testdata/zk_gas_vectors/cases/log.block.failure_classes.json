@@ -1,0 +1,161 @@
+{
+  "schema_version": 1,
+  "id": "log.block.failure_classes",
+  "layer": "block",
+  "cells": [
+    "log.log0.success",
+    "log.log1.success",
+    "log.log2.success",
+    "log.log3.success",
+    "log.log4.success",
+    "log.logn.memory_oog_preserve",
+    "log.logn.data_oog_spend_all",
+    "log.static_frame.halt_preserve",
+    "log.topics.underflow_preserve",
+    "log.logn.size_above_u64_preserve"
+  ],
+  "description": "The anchor, then six txs from signer 1: LOG0 to LOG4 each growing memory with ample gas; the same code with 1 gas short of its last expansion, and with 1 gas short of its last topic and data cost; a STATICCALL into a LOG2; a LOG4 missing its topics; and a LOG2 with a length of 2^64.",
+  "input": {
+    "env": {
+      "chain_id": "0x28c59",
+      "number": "0x1",
+      "timestamp": "0xc",
+      "base_fee": "0x17d7840",
+      "coinbase": "0x0000000000000000000000000000000000c0ffee",
+      "gas_limit": "0x2faf080",
+      "prev_randao": "0x2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a",
+      "extra_data": "0x4b000000000001"
+    },
+    "alloc": {
+      "0x1670010000000000000000000000000000010001": {
+        "balance": "0x0",
+        "code": "0x00"
+      },
+      "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf": {
+        "balance": "0xde0b6b3a7640000"
+      },
+      "0x0000000000000000000000000000000000c0ffee": {
+        "balance": "0x1"
+      },
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x60205fa060a060206020a160a160a060206040a260a260a160a060206060a360a360a260a160a060806080a400"
+      },
+      "0x000000000000000000000000000000000000c0d1": {
+        "balance": "0x0",
+        "code": "0x5f5f5f5f61da7a610676fa00"
+      },
+      "0x000000000000000000000000000000000000da7a": {
+        "balance": "0x0",
+        "code": "0x60a160a060405fa200"
+      },
+      "0x000000000000000000000000000000000000c0d2": {
+        "balance": "0x0",
+        "code": "0x60405fa400"
+      },
+      "0x000000000000000000000000000000000000c0d3": {
+        "balance": "0x0",
+        "code": "0x60a160a0680100000000000000005fa200"
+      }
+    },
+    "txs": [
+      {
+        "signer": "golden_touch",
+        "nonce": "0x0",
+        "to": "0x1670010000000000000000000000000000010001",
+        "gas": "0xf4240",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x523e6854"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x0",
+        "to": "0x000000000000000000000000000000000000c0de",
+        "gas": "0x1d8a8",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x1",
+        "to": "0x000000000000000000000000000000000000c0de",
+        "gas": "0x7053",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x2",
+        "to": "0x000000000000000000000000000000000000c0de",
+        "gas": "0x7047",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x3",
+        "to": "0x000000000000000000000000000000000000c0d1",
+        "gas": "0x1d8a8",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x4",
+        "to": "0x000000000000000000000000000000000000c0d2",
+        "gas": "0x1d8a8",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x5",
+        "to": "0x000000000000000000000000000000000000c0d3",
+        "gas": "0x1d8a8",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x"
+      }
+    ]
+  },
+  "expected": {
+    "raw_txs": [
+      "0x02f86e83028c59808084017d7840830f42409416700100000000000000000000000000000100018084523e6854c001a077c9819ad91bc8c341abbd41d41d41b851bf4cade2dd943fdf421e796b952ce3a0653034f4ffd280ca8ca71f966f2ee2e7a2f59e6ee0ba1be905805cc46c399718",
+      "0x02f86a83028c59808084017d78408301d8a894000000000000000000000000000000000000c0de8080c001a0e5eea1ae2edf5992c34a76d3f6854b367b003e97a7532e999b5a1a5b69e0c921a0140ee5a7417cbac8abb920376f6bff7e151d3ca6d77ab590ffb522fa31b18206",
+      "0x02f86983028c59018084017d784082705394000000000000000000000000000000000000c0de8080c001a0fe7de787cd344d04d613e5736874364ba279006b480f645f45d408dbc21c72fea04a4ca0447d3d89a1e5c167a03320b9a9fc752b92de96c6a7bfc6502bf545b085",
+      "0x02f86983028c59028084017d784082704794000000000000000000000000000000000000c0de8080c001a0766ebca57134214f66a0f0a84ada429d8c02a564d74f9d994f1a0e1cc771ca89a035a6a1b0a0cd0ab9764844e8a38e8701afe0452edd90f5f1b239d9c1c24c57c6",
+      "0x02f86a83028c59038084017d78408301d8a894000000000000000000000000000000000000c0d18080c001a078124fe7c548f274fb6a216fc655d44a345a8d00a5ec43e93ab76594496bb406a03fa9e75eb2cd36c771312a1d1399cf445a150b8e2753fbbf329992b059ff6635",
+      "0x02f86a83028c59048084017d78408301d8a894000000000000000000000000000000000000c0d28080c001a0d5db4a3051ae61eb1b28ea351641be1cd0ddd5d4d4cc1325dc7f37f23ba1a684a07fa4e33c4d6c0f53064b3858c3439d2e995482717b30f191d1b6ef24c87ddcc1",
+      "0x02f86a83028c59058084017d78408301d8a894000000000000000000000000000000000000c0d38080c001a00e12807447dc1905be8308aa541f05da05c2a9dfd435453b334bb0d7c6d15dd1a0352bbc5da738d43dbaa563ab0bdb243c84922d37ab71778fb3e74db4f87cd07b"
+    ],
+    "included": [0, 1, 2, 3, 4, 5, 6],
+    "truncated_at": null,
+    "cumulative_zk_gas": [
+      "0x3b538",
+      "0x7af18",
+      "0xba8e0",
+      "0xfa2a6",
+      "0x149643",
+      "0x185e62",
+      "0x1c16ff"
+    ],
+    "block_zk_gas": "0x1c16ff",
+    "state_root": "0x1f06a6392109ada05b255d4c408549799383d698a3a3ed5d8910d7b89d3eefc6",
+    "import_built": "accept",
+    "import_extended": null,
+    "import_wrong_difficulty": "reject"
+  }
+}

@@ -1,0 +1,56 @@
+name: "ZK Gas Formal Verification"
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/formal/zk-gas/**"
+      - "testdata/zk_gas_vectors/**"
+      - "packages/protocol/docs/zk_gas_spec.md"
+      - ".github/workflows/formal-zk-gas--test.yml"
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "packages/formal/zk-gas/**"
+      - "testdata/zk_gas_vectors/**"
+      - "packages/protocol/docs/zk_gas_spec.md"
+      - ".github/workflows/formal-zk-gas--test.yml"
+
+concurrency:
+  group: formal-zk-gas-test-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  check:
+    # Also runs on draft PRs: the job is short and uses a GitHub-hosted runner.
+    name: Build, prove and check traces
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: packages/formal/zk-gas
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Reject source, import and specification drift before building
+        run: python3 scripts/check.py
+
+      - name: Set up Lean and build the five libraries
+        uses: leanprover/lean-action@ba3fdfe5c4476c925da13bf11a005ddb47e47aee # v1.7.1
+        with:
+          lake-package-directory: packages/formal/zk-gas
+          use-mathlib-cache: false
+
+      - name: Audit claims and axioms, replay all libraries and check traces
+        run: bash scripts/gate.sh

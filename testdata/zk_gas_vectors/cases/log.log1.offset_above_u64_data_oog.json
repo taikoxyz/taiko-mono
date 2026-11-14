@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "log.log1.offset_above_u64_data_oog",
+  "layer": "harness",
+  "cells": ["log.logn.data_oog_before_memory_checks_spend_all"],
+  "description": "LOG1 of 32 bytes at offset 2^64 with 1,005 gas left, 1 short of 375 + 375 + 8 * 32: the topic and data cost comes before the offset check and spends all remaining gas.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x60a0602068010000000000000000a100"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x3f6",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0xc24",
+    "status": "halt"
+  }
+}

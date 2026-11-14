@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "create.create2.three_operands_memory_oog",
+  "layer": "harness",
+  "cells": ["create.family.memory_oog_preserve_after_initcode"],
+  "description": "CREATE2 with three stack items (length 49,152) and 3,073 gas left: the 3,072 initcode gas is paid, the memory expansion is not, and the step halts before the salt pop keeping 1 gas: 3,072 measured.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x61c0005f5ff500"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0xc08",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0xc4c",
+    "status": "halt"
+  }
+}

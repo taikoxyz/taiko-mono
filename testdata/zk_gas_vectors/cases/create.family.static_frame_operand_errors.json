@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "id": "create.family.static_frame_operand_errors",
+  "layer": "harness",
+  "cells": ["create.family.static_frame_halt_preserve"],
+  "description": "STATICCALLs to helpers running CREATE of 32 bytes at offset 2^64, CREATE2 of 49,153 bytes and CREATE of 32 bytes at offset 2^40: the static check comes before every operand check, 0 measured.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000da75": {
+        "balance": "0x0",
+        "code": "0x6020680100000000000000005ff000"
+      },
+      "0x000000000000000000000000000000000000da76": {
+        "balance": "0x0",
+        "code": "0x5f61c0015f5ff500"
+      },
+      "0x000000000000000000000000000000000000da77": {
+        "balance": "0x0",
+        "code": "0x6020650100000000005ff000"
+      },
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x5f5f5f5f61da7561fffffa505f5f5f5f61da7661fffffa505f5f5f5f61da7761fffffa5000"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0xf4240",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x3b27b",
+    "status": "success"
+  }
+}

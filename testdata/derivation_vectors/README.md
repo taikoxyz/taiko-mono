@@ -114,7 +114,7 @@ bash script/test_derivation_vectors_guard.sh
 bash script/test_derivation_vectors.sh
 ```
 
-Run Lean and fixture checks from `formal/derivation` with `bash scripts/gate.sh`.
+Run Lean and fixture checks from `packages/formal/derivation` with `bash scripts/gate.sh`.
 The formal workflow runs all three adapters on draft PRs and watches client code and dependency
 changes as well as the model, specification and corpora. These native conformance jobs need no
 Docker or live chains; the driver/engine verification below remains a separate execution test.

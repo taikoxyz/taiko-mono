@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "log.log1.topics_underflow_data_cost_above_u64",
+  "layer": "harness",
+  "cells": ["log.topics.data_oog_before_underflow_spend_all"],
+  "description": "LOG1 of 2^61 bytes at 0 with no topic on the stack, frame gas 100,000: the saturated topic and data cost cannot be paid and spends all remaining gas.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x6720000000000000005fa100"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x186a0",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x49418",
+    "status": "halt"
+  }
+}

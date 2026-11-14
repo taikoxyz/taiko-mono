@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "memory.mstore8.expand_memory_oog",
+  "layer": "harness",
+  "cells": ["memory.mstore8.memory_oog_preserve"],
+  "description": "memory.mstore8.expand_exact_gas with 1 gas less: the last MSTORE8 cannot pay its expansion and halts keeping the remaining gas.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x60ab603f5360cd5f5360ef612c405300"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x538",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x134",
+    "status": "halt"
+  }
+}

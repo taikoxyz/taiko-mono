@@ -1,0 +1,43 @@
+name: "ZK Gas Vectors"
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "testdata/zk_gas_vectors/**"
+      - ".github/workflows/repo--zk-gas-vectors.yml"
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "testdata/zk_gas_vectors/**"
+      - ".github/workflows/repo--zk-gas-vectors.yml"
+
+concurrency:
+  group: zk-gas-vectors-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  check:
+    # Also runs on draft PRs: the job is short and uses a GitHub-hosted runner.
+    name: Check the corpus format and coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.11"
+
+      - name: Test the checker
+        run: python3 -m unittest testdata/zk_gas_vectors/test_check.py
+
+      - name: Check every vector, including its expected values
+        run: python3 testdata/zk_gas_vectors/check.py --require-expected

@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "metering.harness.opcode_reaches_limit",
+  "layer": "harness",
+  "cells": ["metering.opcode.limit_exact_committed"],
+  "description": "PUSH1 1, PUSH1 2, ADD, STOP under a block zk gas limit equal to the frame's 111 zk gas: the last charge lands exactly on the limit.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x600160020100"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x186a0",
+    "zk_block_limit": "0x6f",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x6f",
+    "status": "success"
+  }
+}

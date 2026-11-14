@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "id": "log.static_frame.size_above_u64",
+  "layer": "harness",
+  "cells": ["log.static_frame.size_above_u64_preserve"],
+  "description": "STATICCALL with 10,000 gas into LOG1 with a length of 2^64: only the 375 static gas is charged.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x5f5f5f5f61da7a612710fa00"
+      },
+      "0x000000000000000000000000000000000000da7a": {
+        "balance": "0x0",
+        "code": "0x60a0680100000000000000005fa100"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x186a0",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x13fcd",
+    "status": "success"
+  }
+}

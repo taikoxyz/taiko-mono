@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "jump.jump.push_data_target",
+  "layer": "harness",
+  "cells": ["jump.jump.invalid_target_halt"],
+  "description": "JUMP to a 0x5b byte inside PUSH2 data: JUMP pays its static 8 gas, then the invalid jump halts.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x600556615b5b5b00"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x186a0",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x3b",
+    "status": "halt"
+  }
+}

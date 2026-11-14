@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "create.create.initcode_revert",
+  "layer": "harness",
+  "cells": ["create.family.initcode_revert_gas_returned"],
+  "description": "CREATE of an initcode running PUSH1 1, PUSH1 2, ADD, POP and REVERT, then a KECCAK256 of 4 GiB that spends all remaining gas: the initcode steps are metered, the CREATE stays at its spawn estimate and the unused gas returns.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x686001600201505f5ffd5f52600960175ff0506401000000005f20"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x186a0",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x20b7f2",
+    "status": "halt"
+  }
+}

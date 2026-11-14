@@ -8,7 +8,9 @@
 /packages/protocol/contracts/layer1/preconf/** @dantaik @davidtaikocha @smtmfft
 
 # Formal specification
-/formal/derivation/**           @dantaik @davidtaikocha @smtmfft
+/packages/formal/derivation/**           @dantaik @davidtaikocha @smtmfft
+/packages/formal/zk-gas/**               @dantaik @davidtaikocha @smtmfft
+/testdata/zk_gas_vectors/**     @dantaik @davidtaikocha @smtmfft
 
 # Client services
 /packages/taiko-client/**       @davidtaikocha @smtmfft

@@ -1,0 +1,144 @@
+{
+  "schema_version": 1,
+  "id": "jump.block.failure_classes",
+  "layer": "block",
+  "cells": [
+    "jump.jump.valid_target_success",
+    "jump.jump.invalid_target_halt",
+    "jump.jump.oversized_target_halt",
+    "jump.jumpi.invalid_target_halt",
+    "jump.jumpi.underflow_halt"
+  ],
+  "description": "The anchor, then 5 txs from signer 1, each calling its own contract with tx gas 21,000 plus the frame gas of the named harness vector: a JUMP to a JUMPDEST (jump.jump.valid_target); a JUMP into PUSH data (jump.jump.push_data_target); a JUMP to 2^64 + 12 (jump.jump.target_above_u64); a taken JUMPI to a PUSH1 opcode byte (jump.jumpi.invalid_target); and a JUMPI with one stack item (jump.jumpi.underflow).",
+  "input": {
+    "env": {
+      "chain_id": "0x28c59",
+      "number": "0x1",
+      "timestamp": "0xc",
+      "base_fee": "0x17d7840",
+      "coinbase": "0x0000000000000000000000000000000000c0ffee",
+      "gas_limit": "0x2faf080",
+      "prev_randao": "0x2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a",
+      "extra_data": "0x4b000000000001"
+    },
+    "alloc": {
+      "0x1670010000000000000000000000000000010001": {
+        "balance": "0x0",
+        "code": "0x00"
+      },
+      "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf": {
+        "balance": "0xde0b6b3a7640000"
+      },
+      "0x0000000000000000000000000000000000c0ffee": {
+        "balance": "0x1"
+      },
+      "0x000000000000000000000000000000000000c0d1": {
+        "balance": "0x0",
+        "code": "0x600456fe5b00"
+      },
+      "0x000000000000000000000000000000000000c0d2": {
+        "balance": "0x0",
+        "code": "0x600556615b5b5b00"
+      },
+      "0x000000000000000000000000000000000000c0d3": {
+        "balance": "0x0",
+        "code": "0x6801000000000000000c56fe5b00"
+      },
+      "0x000000000000000000000000000000000000c0d4": {
+        "balance": "0x0",
+        "code": "0x600160025700"
+      },
+      "0x000000000000000000000000000000000000c0d5": {
+        "balance": "0x0",
+        "code": "0x600157"
+      }
+    },
+    "txs": [
+      {
+        "signer": "golden_touch",
+        "nonce": "0x0",
+        "to": "0x1670010000000000000000000000000000010001",
+        "gas": "0xf4240",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x523e6854"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x0",
+        "to": "0x000000000000000000000000000000000000c0d1",
+        "gas": "0x1d8a8",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x1",
+        "to": "0x000000000000000000000000000000000000c0d2",
+        "gas": "0x1d8a8",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x2",
+        "to": "0x000000000000000000000000000000000000c0d3",
+        "gas": "0x1d8a8",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x3",
+        "to": "0x000000000000000000000000000000000000c0d4",
+        "gas": "0x1d8a8",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x4",
+        "to": "0x000000000000000000000000000000000000c0d5",
+        "gas": "0x1d8a8",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x"
+      }
+    ]
+  },
+  "expected": {
+    "raw_txs": [
+      "0x02f86e83028c59808084017d7840830f42409416700100000000000000000000000000000100018084523e6854c001a077c9819ad91bc8c341abbd41d41d41b851bf4cade2dd943fdf421e796b952ce3a0653034f4ffd280ca8ca71f966f2ee2e7a2f59e6ee0ba1be905805cc46c399718",
+      "0x02f86a83028c59808084017d78408301d8a894000000000000000000000000000000000000c0d18080c080a00b57fa0c336f5d4a521182a7c37c7735fac82fdb4177d2770405bdbb35043a6ba04ec0cb9e50ab6f7554830f26ec67ba543b1be6fd7ac6a51e1976c94a753b5fa6",
+      "0x02f86a83028c59018084017d78408301d8a894000000000000000000000000000000000000c0d28080c001a0e7b919f8f5db1c039c9ac7c5ab07eed22f9f9a8d9fa172815805e4ab81d057aba04ebb2d2836780db79301d4efc65288bdb4a6b1d213324101ddbeef83d4ea4a8b",
+      "0x02f86a83028c59028084017d78408301d8a894000000000000000000000000000000000000c0d38080c080a0a89c27688f1f5a61bc8e00dca309fb4591cfa25b0e721eb7e048682228dbf26ca007a0cd9049c7b58fd3f6b8b2f9bc24db7202dfab362aa42aa519c5f0de4e4d93",
+      "0x02f86a83028c59038084017d78408301d8a894000000000000000000000000000000000000c0d48080c080a0cbf2168c9d5b6c341cbdd15b0e5a77e69a9bb234b7cfb59a29026a1688677700a044767fa127343b9e66d5b51a25f57709d06cc6cef813dbe89a44c96f7601db9e",
+      "0x02f86a83028c59048084017d78408301d8a894000000000000000000000000000000000000c0d58080c001a001aa2eb4a71fdcb1eb35bf297c1512614629c2ce59fd34e4f9125f818aa0d38da07cddaec5249fe0587ee59a5cd73245fae4055aedaafb762a1363ba9f02a0082b"
+    ],
+    "included": [0, 1, 2, 3, 4, 5],
+    "truncated_at": null,
+    "cumulative_zk_gas": [
+      "0x3b538",
+      "0x76abf",
+      "0xb2032",
+      "0xed5b1",
+      "0x128b51",
+      "0x1640d6"
+    ],
+    "block_zk_gas": "0x1640d6",
+    "state_root": "0x797a3c5cfde2598353c306fb97c55df80f56896443eb67542c732887c65bdea9",
+    "import_built": "accept",
+    "import_extended": null,
+    "import_wrong_difficulty": "reject"
+  }
+}

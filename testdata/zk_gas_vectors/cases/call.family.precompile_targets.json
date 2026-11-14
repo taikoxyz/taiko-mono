@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "call.family.precompile_targets",
+  "layer": "harness",
+  "cells": ["call.family.precompile_spawn_estimate"],
+  "description": "CALL, CALLCODE, DELEGATECALL and STATICCALL each call identity (0x04) with 32 bytes of input: every step is charged its spawn estimate plus 18 x 6 zk gas for the identity call.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x5f5f60205f5f600461fffff1505f5f60205f5f600461fffff2505f5f60205f600461fffff4505f5f60205f600461fffffa5000"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x186a0",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x9c8a4",
+    "status": "success"
+  }
+}

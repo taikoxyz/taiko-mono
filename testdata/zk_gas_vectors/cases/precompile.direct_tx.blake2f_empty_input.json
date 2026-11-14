@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "precompile.direct_tx.blake2f_empty_input",
+  "layer": "harness",
+  "cells": ["precompile.direct_tx.failure_all_supplied"],
+  "description": "The harness tx calls blake2f (0x09) directly with empty input and 1,000 gas: the input is invalid, all 1,000 gas is charged x 166.",
+  "input": {
+    "alloc": {},
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x0000000000000000000000000000000000000009",
+    "frame_gas": "0x3e8",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x28870",
+    "status": "halt"
+  }
+}

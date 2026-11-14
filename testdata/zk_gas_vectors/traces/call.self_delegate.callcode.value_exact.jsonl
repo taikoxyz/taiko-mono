@@ -1,0 +1,11 @@
+{"e":"step","d":1,"pc":0,"op":95,"gas":"0x2dc4","static":false,"sl":0,"stack":[],"mem":"0x0","facts":{},"gas_after":"0x2dc2","spawn":false,"zk":"0x1a","ok":true,"charged":true}
+{"e":"step","d":1,"pc":1,"op":95,"gas":"0x2dc2","static":false,"sl":1,"stack":[],"mem":"0x0","facts":{},"gas_after":"0x2dc0","spawn":false,"zk":"0x1a","ok":true,"charged":true}
+{"e":"step","d":1,"pc":2,"op":95,"gas":"0x2dc0","static":false,"sl":2,"stack":[],"mem":"0x0","facts":{},"gas_after":"0x2dbe","spawn":false,"zk":"0x1a","ok":true,"charged":true}
+{"e":"step","d":1,"pc":3,"op":95,"gas":"0x2dbe","static":false,"sl":3,"stack":[],"mem":"0x0","facts":{},"gas_after":"0x2dbc","spawn":false,"zk":"0x1a","ok":true,"charged":true}
+{"e":"step","d":1,"pc":4,"op":96,"gas":"0x2dbc","static":false,"sl":4,"stack":[],"mem":"0x0","facts":{},"gas_after":"0x2db9","spawn":false,"zk":"0x1b","ok":true,"charged":true}
+{"e":"step","d":1,"pc":6,"op":96,"gas":"0x2db9","static":false,"sl":5,"stack":[],"mem":"0x0","facts":{},"gas_after":"0x2db6","spawn":false,"zk":"0x1b","ok":true,"charged":true}
+{"e":"step","d":1,"pc":8,"op":95,"gas":"0x2db6","static":false,"sl":6,"stack":[],"mem":"0x0","facts":{},"gas_after":"0x2db4","spawn":false,"zk":"0x1a","ok":true,"charged":true}
+{"e":"step","d":1,"pc":9,"op":242,"gas":"0x2db4","static":false,"sl":7,"stack":["0x0","0x42","0x1","0x0","0x0","0x0","0x0"],"mem":"0x0","facts":{"account_warm":false,"account_empty":false,"delegate_warm":false,"delegate_is_target":true},"gas_after":"0x0","spawn":true,"zk":"0x3d090","ok":true,"charged":true}
+{"e":"step","d":2,"pc":0,"op":239,"gas":"0x8fc","static":false,"sl":0,"stack":[],"mem":"0x0","facts":{},"gas_after":"0x8fc","spawn":false,"zk":"0x0","ok":true,"charged":true}
+{"e":"step","d":1,"pc":10,"op":0,"gas":"0x0","static":false,"sl":1,"stack":[],"mem":"0x0","facts":{},"gas_after":"0x0","spawn":false,"zk":"0x0","ok":true,"charged":true}
+{"e":"frame_end","status":"success","frame_zk":"0x3d148"}

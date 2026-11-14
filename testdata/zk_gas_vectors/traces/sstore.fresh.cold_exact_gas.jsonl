@@ -1,0 +1,5 @@
+{"e":"step","d":1,"pc":0,"op":96,"gas":"0x5659","static":false,"sl":0,"stack":[],"mem":"0x0","facts":{},"gas_after":"0x5656","spawn":false,"zk":"0x1b","ok":true,"charged":true}
+{"e":"step","d":1,"pc":2,"op":95,"gas":"0x5656","static":false,"sl":1,"stack":[],"mem":"0x0","facts":{},"gas_after":"0x5654","spawn":false,"zk":"0x1a","ok":true,"charged":true}
+{"e":"step","d":1,"pc":3,"op":85,"gas":"0x5654","static":false,"sl":2,"stack":["0x0","0x1"],"mem":"0x0","facts":{"slot_warm":false,"original":"0x0","current":"0x0"},"gas_after":"0x0","spawn":false,"zk":"0x1afa4","ok":true,"charged":true}
+{"e":"step","d":1,"pc":4,"op":0,"gas":"0x0","static":false,"sl":0,"stack":[],"mem":"0x0","facts":{},"gas_after":"0x0","spawn":false,"zk":"0x0","ok":true,"charged":true}
+{"e":"frame_end","status":"success","frame_zk":"0x1afd9"}

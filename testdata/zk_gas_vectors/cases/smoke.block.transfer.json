@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "id": "smoke.block.transfer",
+  "layer": "block",
+  "cells": ["metering.intrinsic.charged"],
+  "description": "The anchor plus one 1-wei transfer from signer 1 to an empty account; no truncation.",
+  "input": {
+    "env": {
+      "chain_id": "0x28c59",
+      "number": "0x1",
+      "timestamp": "0xc",
+      "base_fee": "0x17d7840",
+      "coinbase": "0x0000000000000000000000000000000000c0ffee",
+      "gas_limit": "0x2faf080",
+      "prev_randao": "0x2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a",
+      "extra_data": "0x4b000000000001"
+    },
+    "alloc": {
+      "0x1670010000000000000000000000000000010001": {
+        "balance": "0x0",
+        "code": "0x00"
+      },
+      "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf": {
+        "balance": "0xde0b6b3a7640000"
+      },
+      "0x0000000000000000000000000000000000c0ffee": {
+        "balance": "0x1"
+      }
+    },
+    "txs": [
+      {
+        "signer": "golden_touch",
+        "nonce": "0x0",
+        "to": "0x1670010000000000000000000000000000010001",
+        "gas": "0xf4240",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x523e6854"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x0",
+        "to": "0x000000000000000000000000000000000000beef",
+        "gas": "0x5208",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x1",
+        "data": "0x"
+      }
+    ]
+  },
+  "expected": {
+    "raw_txs": [
+      "0x02f86e83028c59808084017d7840830f42409416700100000000000000000000000000000100018084523e6854c001a077c9819ad91bc8c341abbd41d41d41b851bf4cade2dd943fdf421e796b952ce3a0653034f4ffd280ca8ca71f966f2ee2e7a2f59e6ee0ba1be905805cc46c399718",
+      "0x02f86983028c59808084017d784082520894000000000000000000000000000000000000beef0180c080a08215553c15862fb5d468969b52bf648c27a7d1b83a8ad368541ba1865d8cb211a024c3837ff81fbb7646900ddd9621a9d715a14954dfed5164f791284f1e2cc8a5"
+    ],
+    "included": [0, 1],
+    "truncated_at": null,
+    "cumulative_zk_gas": ["0x3b538", "0x76a70"],
+    "block_zk_gas": "0x76a70",
+    "state_root": "0x02d7f4efb7994364f961ebfdf30518d077eb38b6ad3f90e1ca6c663ec3b54b0b",
+    "import_built": "accept",
+    "import_extended": null,
+    "import_wrong_difficulty": "reject"
+  }
+}

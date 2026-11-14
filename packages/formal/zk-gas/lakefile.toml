@@ -1,0 +1,26 @@
+name = "zk_gas"
+version = "0.1.0"
+defaultTargets = ["ZkGasModel", "ZkGasStatements", "ZkGasProofs", "ZkGasWitnesses", "ZkGasTraces", "check-traces", "generate-meter-vectors"]
+
+[[lean_lib]]
+name = "ZkGasModel"
+
+[[lean_lib]]
+name = "ZkGasStatements"
+
+[[lean_lib]]
+name = "ZkGasProofs"
+
+[[lean_lib]]
+name = "ZkGasWitnesses"
+
+[[lean_lib]]
+name = "ZkGasTraces"
+
+[[lean_exe]]
+name = "check-traces"
+root = "ZkGasTraces.Main"
+
+[[lean_exe]]
+name = "generate-meter-vectors"
+root = "ZkGasTraces.GenerateMeter"

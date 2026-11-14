@@ -1,0 +1,2 @@
+{"e":"step","d":1,"pc":0,"op":75,"gas":"0x186a0","static":false,"sl":0,"stack":[],"mem":"0x0","facts":{},"gas_after":"0x1869e","spawn":false,"zk":"0x1fffe","ok":true,"charged":true}
+{"e":"frame_end","status":"halt","frame_zk":"0x1fffe"}
