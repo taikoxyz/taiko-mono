@@ -31,8 +31,9 @@ structure Header where
   /-- Validator-state hash after committing this height (appendix A valStateHash), an opaque
   atom. At a generation's origin the model reads it as the origin record's stored value: the
   record there need not hold this generation's validator state (PROOF-6.2-40, SYNC-9-5), and
-  without CometBFT's state-update arithmetic (PROOF-6.2-41a, deferred) the origin's own
-  validator state is never an input to a later block. -/
+  the base H1–H4 model keeps that atom independent. The additional
+  CurrentValidatorState.Batch/Certificate refinement computes concrete per-height state
+  and applies the genesis-origin exception (PROOF-6.2-41a). -/
   valStateHash : Hash
   deriving DecidableEq, Repr
 

@@ -1,0 +1,49 @@
+{
+  "after_change_next": {
+    "members": [
+      [3, 2, 0],
+      [1, 1, 0]
+    ],
+    "proposer": 1
+  },
+  "genesis_current": {
+    "members": [
+      [2, 3, -1],
+      [1, 1, 1]
+    ],
+    "proposer": 2
+  },
+  "genesis_next": {
+    "members": [
+      [2, 3, 2],
+      [1, 1, -2]
+    ],
+    "proposer": 1
+  },
+  "per_height_witness": {
+    "batch": {
+      "members": [
+        [3, 3, 4],
+        [2, 2, 3],
+        [1, 1, -5]
+      ],
+      "proposer": 3
+    },
+    "each": {
+      "members": [
+        [3, 3, 0],
+        [2, 2, 2],
+        [1, 1, -2]
+      ],
+      "proposer": 3
+    },
+    "input": {
+      "members": [
+        [3, 3, 5],
+        [2, 2, 6],
+        [1, 1, -6]
+      ],
+      "proposer": 3
+    }
+  }
+}

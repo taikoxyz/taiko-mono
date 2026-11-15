@@ -1,4 +1,5 @@
 import EtnaProofs.CurrentCandidate
+import EtnaProofs.CurrentValidatorState
 import EtnaProofs.CurrentAdmission
 import EtnaProofs.CurrentArchive
 import EtnaProofs.CurrentLookback

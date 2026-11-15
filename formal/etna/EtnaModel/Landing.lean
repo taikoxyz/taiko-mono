@@ -4,7 +4,8 @@ namespace Etna.Design
 
 /-- The cut at one height x: EL block hash, CometBFT block hash, FI cursor and validator-state
 hash (the fields of cutLeaf(x) after the height). `valStateHash` is an opaque atom for
-appendix A's valStateHash(x); CometBFT's state-update arithmetic behind it is not modelled. -/
+appendix A's valStateHash(x) in the base H1–H4 model. The additional
+CurrentValidatorState refinement checks it against concrete per-height state. -/
 structure Cut where
   elHash : Hash
   cometHash : Hash

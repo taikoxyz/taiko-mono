@@ -77,6 +77,16 @@ class CurrentProtocolTests(unittest.TestCase):
             'env.headerHash p = p.elHash ∧',
             'env.headerHash p = env.headerHash p ∧')
 
+    def test_node_archive_uses_current_generation_origin_state(self):
+        self.assert_evidence_rejects(*node_sources(),
+            '⟨origin.elHash,origin.cometHash,origin.cursor,p.valStateHash⟩ w.number archive p blocks',
+            '⟨origin.elHash,origin.cometHash,origin.cursor,origin.valStateHash⟩ w.number archive p blocks')
+
+    def test_validator_state_trust_exception_is_origin_only(self):
+        self.assert_evidence_rejects(*node_sources(),
+            '(h.height ≠ origin → h.valStateHash = cp.valStateHash)',
+            'h.valStateHash = cp.valStateHash ∧ origin = origin')
+
     def test_switching_trust_requires_unzen_origin(self):
         self.assert_evidence_rejects(*node_sources(),
             'env.unzenRoot p ∧ env.startImplementation p.stateRoot = true',

@@ -10,6 +10,20 @@ example (env : Protocol.Environment) (registry : RegistryMachine.State)
 
 end Etna.CurrentProtocolRegression
 
+namespace Etna.CurrentProtocolRegression.ValidatorTrust
+open Etna.Design Etna.Design.Current
+
+-- Only the validator-state comparison is exempted at the generation's start.
+def old : Checkpoint := ⟨40,100,200,3,0,30,999⟩
+def ownHeader : Blocks.Header := ⟨40,100,50,200,3,0,⟨0,0,0,0,0,0,0⟩,17⟩
+example : Protocol.trustCut 40 ownHeader old := by simp [Protocol.trustCut,ownHeader,old]
+example : ¬ Protocol.trustCut 39 ownHeader old := by simp [Protocol.trustCut,ownHeader,old]
+example : ¬ Protocol.trustCut 40 {ownHeader with elHash := 101} old := by simp [Protocol.trustCut,ownHeader,old]
+example : ¬ Protocol.trustCut 40 {ownHeader with cometHash := 201} old := by simp [Protocol.trustCut,ownHeader,old]
+example : ¬ Protocol.trustCut 40 {ownHeader with cursor := 4} old := by simp [Protocol.trustCut,ownHeader,old]
+
+end Etna.CurrentProtocolRegression.ValidatorTrust
+
 namespace Etna.CurrentProtocolRegression
 open Etna.Design Etna.Design.Current
 
@@ -73,8 +87,21 @@ theorem authenticated_start_trust : Protocol.nodeTrust env observed [] [] := by
   all_goals solve
     | exact True.intro
     | decide
-    | simp [env]
+    | simp [Protocol.trustCut,env,Blocks.terminal]
     | (refine ⟨env.genesisHeader,[],rfl,rfl,rfl,rfl,rfl,True.intro,?_,?_,by decide,?_⟩ <;> simp)
+
+-- The full trust predicate, including its archive, admits a fresh generation's
+-- own state hash 17 even though the retained origin record still contains zero.
+def ownGenesis : Blocks.Header := {env.genesisHeader with valStateHash := 17}
+theorem authenticated_origin_state_exception : Protocol.nodeTrust env observed [] [] := by
+  refine ⟨rfl,⟨0,100,100⟩,rfl,0,⟨0,100,0,0,0,0,0⟩,?_,?_,?_,?_,?_,ownGenesis,
+    ⟨0,100,0,0,0,0,0⟩,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_⟩
+  all_goals solve
+    | exact True.intro
+    | decide
+    | simp [Protocol.trustCut,env,Blocks.terminal,ownGenesis]
+    | (unfold Protocol.trustCut; decide)
+    | (refine ⟨ownGenesis,[],rfl,rfl,rfl,rfl,rfl,True.intro,?_,?_,by decide,?_⟩ <;> simp)
 
 -- Ordinary startup may trust the authenticated genesis after observing its completed block.
 example : observed.initialized = true := by decide

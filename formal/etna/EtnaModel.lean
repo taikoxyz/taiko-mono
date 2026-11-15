@@ -1,4 +1,5 @@
 import EtnaModel.CurrentRecovery
+import EtnaModel.CurrentValidatorState
 import EtnaModel.CurrentRecoveryInterface
 import EtnaModel.CurrentArchive
 import EtnaModel.CurrentUnzen

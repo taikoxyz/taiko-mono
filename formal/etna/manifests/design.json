@@ -8152,6 +8152,214 @@
       "bridge_level": "spec-proved",
       "sources": [],
       "scope": "Actual retained landing provenance and complete-statement certification under sound verifiers; used by H1 to reject all verifier-failure rollbacks. No standalone protocol clause credit or post-failure recovery theorem."
+    },
+    {
+      "module": "EtnaProofs.CurrentValidatorState",
+      "declaration": "Etna.Design.Current.ValidatorState.commit_pipeline",
+      "type": "∀ {s t : CommitState} {changes : List Change}\n    (ok : commit s changes = some t), t.height = s.height+1 ∧ t.current = s.next ∧ t.last = s.current ∧\n      ∃ updated, update s.next changes = some updated ∧ increment updated 1 = some t.next",
+      "assumptions": [
+        "Decoded authenticated key identities and secp256k1eth addresses; canonical snapshot hash/ABI binding remains external.",
+        "Concrete Batch/Certificate is an additional refinement obligation; H1–H4 retain their original abstract statements."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-9dabf1462e3643ef", "LIVE_EN-1e8d3744485e2a29"],
+      "scope": "Concrete CometBFT v0.40.0 decoded validator-state arithmetic and per-height replay. Exact result: commit_pipeline. No Go implementation refinement, raw ABI/Keccak proof, durable store proof or automatic strengthening of H1–H4."
+    },
+    {
+      "module": "EtnaProofs.CurrentValidatorState",
+      "declaration": "Etna.Design.Current.ValidatorState.hplus2",
+      "type": "∀ {s t u : CommitState} {atH atNext : List Change}\n    (first : commit s atH = some t) (second : commit t atNext = some u), t.current = s.next ∧ u.current = t.next ∧\n      ∃ updated, update s.next atH = some updated ∧ increment updated 1 = some u.current",
+      "assumptions": [
+        "Decoded authenticated key identities and secp256k1eth addresses; canonical snapshot hash/ABI binding remains external.",
+        "Concrete Batch/Certificate is an additional refinement obligation; H1–H4 retain their original abstract statements."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-9dabf1462e3643ef", "LIVE_EN-1e8d3744485e2a29"],
+      "scope": "Concrete CometBFT v0.40.0 decoded validator-state arithmetic and per-height replay. Exact result: hplus2. No Go implementation refinement, raw ABI/Keccak proof, durable store proof or automatic strengthening of H1–H4."
+    },
+    {
+      "module": "EtnaProofs.CurrentValidatorState",
+      "declaration": "Etna.Design.Current.ValidatorState.replay_append",
+      "type": "∀ (s : CommitState) (as bs : List (List Change)), replay s (as ++ bs) = (replay s as).bind (fun t => replay t bs)",
+      "assumptions": [
+        "Decoded authenticated key identities and secp256k1eth addresses; canonical snapshot hash/ABI binding remains external.",
+        "Concrete Batch/Certificate is an additional refinement obligation; H1–H4 retain their original abstract statements."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["LIVE_EN-9dabf1462e3643ef"],
+      "scope": "Concrete CometBFT v0.40.0 decoded validator-state arithmetic and per-height replay. Exact result: replay_append. No Go implementation refinement, raw ABI/Keccak proof, durable store proof or automatic strengthening of H1–H4."
+    },
+    {
+      "module": "EtnaProofs.CurrentValidatorState",
+      "declaration": "Etna.Design.Current.ValidatorState.replay_height",
+      "type": "∀ {s t : CommitState} {steps : List (List Change)}\n    (ok : replay s steps = some t), t.height = s.height+steps.length",
+      "assumptions": [
+        "Decoded authenticated key identities and secp256k1eth addresses; canonical snapshot hash/ABI binding remains external.",
+        "Concrete Batch/Certificate is an additional refinement obligation; H1–H4 retain their original abstract statements."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["LIVE_EN-9dabf1462e3643ef"],
+      "scope": "Concrete CometBFT v0.40.0 decoded validator-state arithmetic and per-height replay. Exact result: replay_height. No Go implementation refinement, raw ABI/Keccak proof, durable store proof or automatic strengthening of H1–H4."
+    },
+    {
+      "module": "EtnaProofs.CurrentValidatorState",
+      "declaration": "Etna.Design.Current.ValidatorState.origin_uses_genesis",
+      "type": "∀ (hash : Snapshot → Hash) (origin stored : Nat)\n    (fresh supplied : CommitState) (height : fresh.height = origin) (valid : validState fresh = true), openOrigin hash origin origin stored fresh supplied = some fresh",
+      "assumptions": [
+        "Decoded authenticated key identities and secp256k1eth addresses; canonical snapshot hash/ABI binding remains external.",
+        "Concrete Batch/Certificate is an additional refinement obligation; H1–H4 retain their original abstract statements."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-9dabf1462e3643ef"],
+      "scope": "Concrete CometBFT v0.40.0 decoded validator-state arithmetic and per-height replay. Exact result: origin_uses_genesis. No Go implementation refinement, raw ABI/Keccak proof, durable store proof or automatic strengthening of H1–H4."
+    },
+    {
+      "module": "EtnaProofs.CurrentValidatorState",
+      "declaration": "Etna.Design.Current.ValidatorState.later_origin_authenticates",
+      "type": "∀ {hash : Snapshot → Hash} {origin height stored : Nat}\n    {fresh supplied initial : CommitState} (later : origin < height)\n    (ok : openOrigin hash origin height stored fresh supplied = some initial), initial = supplied ∧ supplied.height = height ∧ hash (snapshot supplied) = stored",
+      "assumptions": [
+        "Decoded authenticated key identities and secp256k1eth addresses; canonical snapshot hash/ABI binding remains external.",
+        "Concrete Batch/Certificate is an additional refinement obligation; H1–H4 retain their original abstract statements."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-9dabf1462e3643ef"],
+      "scope": "Concrete CometBFT v0.40.0 decoded validator-state arithmetic and per-height replay. Exact result: later_origin_authenticates. No Go implementation refinement, raw ABI/Keccak proof, durable store proof or automatic strengthening of H1–H4."
+    },
+    {
+      "module": "EtnaProofs.CurrentValidatorState",
+      "declaration": "Etna.Design.Current.ValidatorState.checked_block",
+      "type": "∀ {r : Blocks.Policy} {addressOf : Hash → Nat} {hash : Snapshot → Hash}\n    {s t : CommitState} {b : Blocks.Block} (ok : checkBlock r addressOf hash s b = some t), commit s (scheduled r.consensus addressOf s) = some t ∧\n      b.header.height = s.height+1 ∧ hash (snapshot t) = b.header.valStateHash",
+      "assumptions": [
+        "Decoded authenticated key identities and secp256k1eth addresses; canonical snapshot hash/ABI binding remains external.",
+        "Concrete Batch/Certificate is an additional refinement obligation; H1–H4 retain their original abstract statements."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-9dabf1462e3643ef"],
+      "scope": "Concrete CometBFT v0.40.0 decoded validator-state arithmetic and per-height replay. Exact result: checked_block. No Go implementation refinement, raw ABI/Keccak proof, durable store proof or automatic strengthening of H1–H4."
+    },
+    {
+      "module": "EtnaProofs.CurrentValidatorState",
+      "declaration": "Etna.Design.Current.ValidatorState.checked_run_append",
+      "type": "∀ (r : Blocks.Policy) (addressOf : Hash → Nat)\n    (hash : Snapshot → Hash) (s : CommitState) (as bs : List Blocks.Block), checkRun r addressOf hash s (as ++ bs) =\n      (checkRun r addressOf hash s as).bind (fun t => checkRun r addressOf hash t bs)",
+      "assumptions": [
+        "Decoded authenticated key identities and secp256k1eth addresses; canonical snapshot hash/ABI binding remains external.",
+        "Concrete Batch/Certificate is an additional refinement obligation; H1–H4 retain their original abstract statements."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["LIVE_EN-9dabf1462e3643ef"],
+      "scope": "Concrete CometBFT v0.40.0 decoded validator-state arithmetic and per-height replay. Exact result: checked_run_append. No Go implementation refinement, raw ABI/Keccak proof, durable store proof or automatic strengthening of H1–H4."
+    },
+    {
+      "module": "EtnaProofs.CurrentValidatorState",
+      "declaration": "Etna.Design.Current.ValidatorState.checked_run_height",
+      "type": "∀ {r : Blocks.Policy} {addressOf : Hash → Nat}\n    {hash : Snapshot → Hash} {s final : CommitState} {bs : List Blocks.Block}\n    (ok : checkRun r addressOf hash s bs = some final), final.height = s.height+bs.length",
+      "assumptions": [
+        "Decoded authenticated key identities and secp256k1eth addresses; canonical snapshot hash/ABI binding remains external.",
+        "Concrete Batch/Certificate is an additional refinement obligation; H1–H4 retain their original abstract statements."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["LIVE_EN-9dabf1462e3643ef"],
+      "scope": "Concrete CometBFT v0.40.0 decoded validator-state arithmetic and per-height replay. Exact result: checked_run_height. No Go implementation refinement, raw ABI/Keccak proof, durable store proof or automatic strengthening of H1–H4."
+    },
+    {
+      "module": "EtnaProofs.CurrentValidatorState",
+      "declaration": "Etna.Design.Current.ValidatorState.checked_run_prefix",
+      "type": "∀ {r : Blocks.Policy} {addressOf : Hash → Nat}\n    {hash : Snapshot → Hash} {s final : CommitState} {before after : List Blocks.Block}\n    {b : Blocks.Block}\n    (ok : checkRun r addressOf hash s (before ++ b :: after) = some final), ∃ prior next,\n      checkRun r addressOf hash s before = some prior ∧\n      checkBlock r addressOf hash prior b = some next ∧\n      checkRun r addressOf hash next after = some final ∧\n      next.height = s.height+before.length+1 ∧ hash (snapshot next) = b.header.valStateHash",
+      "assumptions": [
+        "Decoded authenticated key identities and secp256k1eth addresses; canonical snapshot hash/ABI binding remains external.",
+        "Concrete Batch/Certificate is an additional refinement obligation; H1–H4 retain their original abstract statements."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["LIVE_EN-9dabf1462e3643ef", "LIVE_EN-926574b7e8b2e1e6"],
+      "scope": "Concrete CometBFT v0.40.0 decoded validator-state arithmetic and per-height replay. Exact result: checked_run_prefix. No Go implementation refinement, raw ABI/Keccak proof, durable store proof or automatic strengthening of H1–H4."
+    },
+    {
+      "module": "EtnaProofs.CurrentValidatorState",
+      "declaration": "Etna.Design.Current.ValidatorState.checked_run_records",
+      "type": "∀ {r : Blocks.Policy} {addressOf : Hash → Nat}\n    {hash : Snapshot → Hash} {s final : CommitState} {bs : List Blocks.Block}\n    (ok : checkRun r addressOf hash s bs = some final), ∀ b ∈ bs, ∃ before after,\n      checkBlock r addressOf hash before b = some after ∧\n      after.height = b.header.height ∧ hash (snapshot after) = b.header.valStateHash",
+      "assumptions": [
+        "Decoded authenticated key identities and secp256k1eth addresses; canonical snapshot hash/ABI binding remains external.",
+        "Concrete Batch/Certificate is an additional refinement obligation; H1–H4 retain their original abstract statements."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["LIVE_EN-9dabf1462e3643ef", "LIVE_EN-926574b7e8b2e1e6"],
+      "scope": "Concrete CometBFT v0.40.0 decoded validator-state arithmetic and per-height replay. Exact result: checked_run_records. No Go implementation refinement, raw ABI/Keccak proof, durable store proof or automatic strengthening of H1–H4."
+    },
+    {
+      "module": "EtnaProofs.CurrentValidatorState",
+      "declaration": "Etna.Design.Current.ValidatorState.batch_refines",
+      "type": "∀ {r : Blocks.Policy} {addressOf : Hash → Nat} {hash : Snapshot → Hash}\n    {p : Blocks.Header} {bs : List Blocks.Block} {blobs : List Hash} {supplied final : CommitState}\n    (ok : Batch r addressOf hash p bs blobs supplied final), Blocks.BatchValid r p bs blobs",
+      "assumptions": [
+        "Decoded authenticated key identities and secp256k1eth addresses; canonical snapshot hash/ABI binding remains external.",
+        "Concrete Batch/Certificate is an additional refinement obligation; H1–H4 retain their original abstract statements."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-9dabf1462e3643ef"],
+      "scope": "Concrete CometBFT v0.40.0 decoded validator-state arithmetic and per-height replay. Exact result: batch_refines. No Go implementation refinement, raw ABI/Keccak proof, durable store proof or automatic strengthening of H1–H4."
+    },
+    {
+      "module": "EtnaProofs.CurrentValidatorState",
+      "declaration": "Etna.Design.Current.ValidatorState.batch_records",
+      "type": "∀ {r : Blocks.Policy} {addressOf : Hash → Nat} {hash : Snapshot → Hash}\n    {p : Blocks.Header} {bs : List Blocks.Block} {blobs : List Hash} {supplied final : CommitState}\n    (ok : Batch r addressOf hash p bs blobs supplied final), ∀ b ∈ bs, ∃ before after,\n      checkBlock r addressOf hash before b = some after ∧\n      after.height = b.header.height ∧ hash (snapshot after) = b.header.valStateHash",
+      "assumptions": [
+        "Decoded authenticated key identities and secp256k1eth addresses; canonical snapshot hash/ABI binding remains external.",
+        "Concrete Batch/Certificate is an additional refinement obligation; H1–H4 retain their original abstract statements."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["LIVE_EN-9dabf1462e3643ef"],
+      "scope": "Concrete CometBFT v0.40.0 decoded validator-state arithmetic and per-height replay. Exact result: batch_records. No Go implementation refinement, raw ABI/Keccak proof, durable store proof or automatic strengthening of H1–H4."
+    },
+    {
+      "module": "EtnaProofs.CurrentValidatorState",
+      "declaration": "Etna.Design.Current.ValidatorState.certificate_refines",
+      "type": "∀ {env : Protocol.Environment} {w : Protocol.World} {d : StatementData}\n    {archive : List Blocks.Header} {p : Blocks.Header} {bs : List Blocks.Block}\n    {addressOf : Hash → Nat} {hash : Snapshot → Hash} {supplied final : CommitState}\n    (ok : Certificate env w d archive p bs addressOf hash supplied final), Protocol.Certifies env w d",
+      "assumptions": [
+        "Decoded authenticated key identities and secp256k1eth addresses; canonical snapshot hash/ABI binding remains external.",
+        "Concrete Batch/Certificate is an additional refinement obligation; H1–H4 retain their original abstract statements."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-9dabf1462e3643ef"],
+      "scope": "Concrete CometBFT v0.40.0 decoded validator-state arithmetic and per-height replay. Exact result: certificate_refines. No Go implementation refinement, raw ABI/Keccak proof, durable store proof or automatic strengthening of H1–H4."
+    },
+    {
+      "module": "EtnaProofs.CurrentValidatorState",
+      "declaration": "Etna.Design.Current.ValidatorState.trust_cut_at_origin",
+      "type": "∀ (origin : Nat) (h : Blocks.Header) (cp : Checkpoint)\n    (height : h.height = origin), Protocol.trustCut origin h cp ↔\n      h.elHash = cp.elHash ∧ h.cometHash = cp.cometHash ∧ h.cursor = cp.cursor",
+      "assumptions": [
+        "Decoded authenticated key identities and secp256k1eth addresses; canonical snapshot hash/ABI binding remains external.",
+        "Concrete Batch/Certificate is an additional refinement obligation; H1–H4 retain their original abstract statements."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-926574b7e8b2e1e6"],
+      "scope": "Concrete CometBFT v0.40.0 decoded validator-state arithmetic and per-height replay. Exact result: trust_cut_at_origin. No Go implementation refinement, raw ABI/Keccak proof, durable store proof or automatic strengthening of H1–H4."
+    },
+    {
+      "module": "EtnaProofs.CurrentValidatorState",
+      "declaration": "Etna.Design.Current.ValidatorState.trust_cut_after_origin",
+      "type": "∀ (origin : Nat) (h : Blocks.Header) (cp : Checkpoint)\n    (height : h.height ≠ origin), Protocol.trustCut origin h cp ↔\n      h.elHash = cp.elHash ∧ h.cometHash = cp.cometHash ∧ h.cursor = cp.cursor ∧\n        h.valStateHash = cp.valStateHash",
+      "assumptions": [
+        "Decoded authenticated key identities and secp256k1eth addresses; canonical snapshot hash/ABI binding remains external.",
+        "Concrete Batch/Certificate is an additional refinement obligation; H1–H4 retain their original abstract statements."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-926574b7e8b2e1e6"],
+      "scope": "Concrete CometBFT v0.40.0 decoded validator-state arithmetic and per-height replay. Exact result: trust_cut_after_origin. No Go implementation refinement, raw ABI/Keccak proof, durable store proof or automatic strengthening of H1–H4."
     }
   ]
 }

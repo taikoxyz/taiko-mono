@@ -10,7 +10,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 
 | Type       | Count | partial | partial-via | supporting | deferred | design-pending |
 | ---------- | ----: | ------: | ----------: | ---------: | -------: | -------------: |
-| rule       |   608 |      43 |           0 |         37 |      528 |              0 |
+| rule       |   608 |      45 |           0 |         39 |      524 |              0 |
 | limitation |    21 |       0 |           0 |          0 |       21 |              0 |
 | assumption |    11 |       0 |           0 |          0 |       11 |              0 |
 
@@ -22,14 +22,14 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | ENC    |    59 |       0 |           0 |          0 |       59 |              0 |
 | CONS   |    53 |       2 |           0 |          0 |       51 |              0 |
 | START  |    52 |       4 |           0 |          4 |       44 |              0 |
-| PROOF  |    50 |       7 |           0 |          7 |       36 |              0 |
+| PROOF  |    50 |       8 |           0 |          7 |       35 |              0 |
 | STAKE  |    43 |      13 |           0 |          3 |       27 |              0 |
 | STOR   |    35 |       0 |           0 |          0 |       35 |              0 |
 | FI     |    31 |      11 |           0 |          6 |       14 |              0 |
 | DATA   |    30 |       0 |           0 |          4 |       26 |              0 |
-| SYNC   |    28 |       0 |           0 |          0 |       28 |              0 |
+| SYNC   |    28 |       1 |           0 |          1 |       26 |              0 |
 | FORF   |    20 |       0 |           0 |          1 |       19 |              0 |
-| COMM   |    18 |       0 |           0 |          0 |       18 |              0 |
+| COMM   |    18 |       0 |           0 |          1 |       17 |              0 |
 | PARAM  |    18 |       0 |           0 |          0 |       18 |              0 |
 | BACKP  |    16 |       0 |           0 |          0 |       16 |              0 |
 | BATCH  |    14 |       0 |           0 |          0 |       14 |              0 |
@@ -163,7 +163,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | COMM-4.3-10    | rule       | deferred   | LIVE_EN-1e8d3744485e2a29 |      4 |                                                                                                             |
 | COMM-4.3-11    | rule       | deferred   | LIVE_EN-1e8d3744485e2a29 |      4 |                                                                                                             |
 | COMM-4.3-12    | rule       | deferred   | LIVE_EN-1e8d3744485e2a29 |      4 |                                                                                                             |
-| COMM-4.3-13    | rule       | deferred   | LIVE_EN-1e8d3744485e2a29 |      4 |                                                                                                             |
+| COMM-4.3-13    | rule       | supporting | LIVE_EN-1e8d3744485e2a29 |      4 | `hplus2`                                                                                                    |
 | COMM-4.3-14    | rule       | deferred   | LIVE_EN-29468a34f68ca4c6 |      2 |                                                                                                             |
 | COMM-4.3-15    | rule       | deferred   | LIVE_EN-29468a34f68ca4c6 |      2 |                                                                                                             |
 | COMM-4.3-16    | rule       | deferred   | LIVE_EN-5ec8aa5350d72d04 |      2 |                                                                                                             |
@@ -273,7 +273,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | PROOF-6.2-39   | rule       | partial    | LIVE_EN-9dabf1462e3643ef |     12 | `chain_height`                                                                                              |
 | PROOF-6.2-40   | rule       | deferred   | LIVE_EN-9dabf1462e3643ef |     12 |                                                                                                             |
 | PROOF-6.2-41   | rule       | partial    | LIVE_EN-9dabf1462e3643ef |     12 | `chain_cursor_steps`, `chain_cursor_walk`, `valid_cursor_step`                                              |
-| PROOF-6.2-41a  | rule       | deferred   | LIVE_EN-9dabf1462e3643ef |     12 |                                                                                                             |
+| PROOF-6.2-41a  | rule       | partial    | LIVE_EN-9dabf1462e3643ef |     12 | `batch_records`, `checked_run_prefix`, `later_origin_authenticates` +1                                      |
 | PROOF-6.2-42   | rule       | supporting | LIVE_EN-9dabf1462e3643ef |     12 | `statement_endpoints`                                                                                       |
 | PROOF-6.2-43   | rule       | deferred   | LIVE_EN-9dabf1462e3643ef |     12 |                                                                                                             |
 | PROOF-6.2-44   | rule       | deferred   | LIVE_EN-9dabf1462e3643ef |     12 |                                                                                                             |
@@ -461,10 +461,10 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | SYNC-9-2       | rule       | deferred   | LIVE_EN-9a03b957332fc15a |      2 |                                                                                                             |
 | SYNC-9-3       | rule       | deferred   | LIVE_EN-5e38116b9d70c82a |      1 |                                                                                                             |
 | SYNC-9-4       | rule       | deferred   | LIVE_EN-926574b7e8b2e1e6 |      9 |                                                                                                             |
-| SYNC-9-5       | rule       | deferred   | LIVE_EN-926574b7e8b2e1e6 |      9 |                                                                                                             |
+| SYNC-9-5       | rule       | supporting | LIVE_EN-926574b7e8b2e1e6 |      9 | `trust_cut_after_origin`, `trust_cut_at_origin`                                                             |
 | SYNC-9-5a      | rule       | deferred   | LIVE_EN-926574b7e8b2e1e6 |      9 |                                                                                                             |
 | SYNC-9-5b      | rule       | deferred   | LIVE_EN-926574b7e8b2e1e6 |      9 |                                                                                                             |
-| SYNC-9-5c      | rule       | deferred   | LIVE_EN-926574b7e8b2e1e6 |      9 |                                                                                                             |
+| SYNC-9-5c      | rule       | partial    | LIVE_EN-926574b7e8b2e1e6 |      9 | `checked_run_prefix`                                                                                        |
 | SYNC-9-6       | rule       | deferred   | LIVE_EN-926574b7e8b2e1e6 |      9 |                                                                                                             |
 | SYNC-9-7       | rule       | deferred   | LIVE_EN-926574b7e8b2e1e6 |      9 |                                                                                                             |
 | SYNC-9-8       | rule       | deferred   | LIVE_EN-926574b7e8b2e1e6 |      9 |                                                                                                             |
@@ -704,6 +704,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 - **STAKE-4.1-33**: Every actual successful public slash authenticates both bond-key signatures and the double-sign predicate under reverse signature soundness.
 - **STAKE-4.1-34**: Supporting exact slash principal zeroing/readiness/earlier-exit effects and bounty/sink payment intents, with conditional standard-token transfer availability. Live/positive/evidence guard facts are hypotheses of slash_exact, and generic reserve conservation gives no additional exact slash-rule credit.
 - **STAKE-4.1-36**: Every retained checkpoint after a successful decoded registry call is either an existing checkpoint or has the current L1 block and the exact resulting slot-entry list. This is the new-checkpoint fidelity component only.
+- **COMM-4.3-13**: Concrete two-set commit pipeline: H changes leave H+1 unchanged and become H+2 current state. This does not prove stock CometBFT implements the decoded machine.
 - **FORF-4.4-9**: The decoded forfeiture intent sends the entire penalty to slashSink with no bounty; principal deduction order is not this conclusion.
 - **DATA-5.4-1**: At s = o the import takes the 8.4 genesis path, so decoded inspection does not read the three validator-state results; the genesis path itself, the s > o chain_id/Comet-hash check and own-L1 authentication remain external.
 - **DATA-5.4-4**: Numeric original-header interval includes every height from max(origin, checkpoint - U + 1) through checkpoint exactly once; actual EL header contents, indexes and stock stores are deferred.
@@ -725,6 +726,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 - **PROOF-6.2-33**: Numeric closure only: the authenticated batch governing cutoff is at/before reference, and the certificate prefix covers each closed snapshot number through reference. Raw canonical L1-header ancestry, byte decoding and cryptographic parent links remain external and are not proved by these conclusions.
 - **PROOF-6.2-39**: Valid decoded chains have exactly consecutive heights from the parent through the terminal height; this is the height-continuity fragment of cut coverage, not full cuts authentication.
 - **PROOF-6.2-41**: The cursor component only: every valid decoded block/cut edge advances its FI cursor by zero or one. These theorems do not independently authenticate raw headers, prove the full execution result, or establish all real-cut/hash fields in the shared clause.
+- **PROOF-6.2-41a**: Concrete Batch/Certificate refinements compute genesis or authenticate a later preimage, then check each block against separately normalized per-height updates. Existing H1–H4 certificates do not yet require this refinement; hash/ABI/key bindings remain external.
 - **PROOF-6.2-42**: Exact decoded terminal EL hash, CometBFT hash, validator-state hash and FI cursor equal statement fields; no authenticated-origin hashes or first-cut cursor conclusion.
 - **PROOF-6.2-45a**: A missing selected interpreter cannot authorize a valid decoded block.
 - **PROOF-6.2-46a**: Paths start at accepted genesis or the exact Unzen first fence; guest implementation-check adapter is distinct from off-chain origin duties.
@@ -758,6 +760,8 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 - **RECOV-8.4-4**: Each successful ordinary recovery preserves the existing decoded origin list verbatim and appends one new-generation origin. Actual reached same-generation traces/closed snapshots preserve the active origin, and a start correction likewise keeps the existing list as a prefix and appends one new-generation origin. This is call-specific append and partial immutability evidence; global uniqueness and permanence of every Protocol mapping entry over all future calls remain separate.
 - **RECOV-8.4-12**: The generation first block carries its own anchor witness; freshness/authentication remain the other validity fields.
 - **RECOV-8.4-13**: Every block of the K-block segment the recovery path builds anchors at the recovery block R exactly, so none uses an anchor earlier than R; shown for that segment, not required of every block of the new generation.
+- **SYNC-9-5**: The actual nodeTrust predicate uses trustCut: only the validator-state field is exempted at the current-generation origin. This is a guard theorem, not a complete node/store refinement.
+- **SYNC-9-5c**: Every concrete checked prefix identifies the exact per-height state whose hash matches that block. Durable record storage, historical lookup implementation and node/guest adoption remain external.
 - **START-10-5**: Retained legacy signals form a prefix below every retained Etna signal on actual switching traces. This is compatibility of decoded lanes only, not SignalService storage/version, initialization, all treasury/configuration fields or arbitrary upgrade safety.
 - **START-10-5a**: The executed switching-network origin write (Protocol.setOrigin) refuses once a start is written.
 - **START-10-5c**: Decoded start correction (Protocol.correctStart) follows no landing, opens the next generation and appends its origin after the retained earlier ones; the start freezes once something lands. No slot 272-274 storage, R-snapshot committee or broad SignalService implementation claim.

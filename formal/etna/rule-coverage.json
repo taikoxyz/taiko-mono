@@ -639,6 +639,34 @@
     "START-10.1-6a": {
       "theorems": ["Etna.Design.Current.Journal.accepted_image_certificate"],
       "reason": "An accepted landing has an actually submitted proof whose declared image certifies the complete decoded batch under each selected ruleset and stop. This uses the primitive backend/image soundness contract; it establishes neither image-combination availability nor guest implementation refinement."
+    },
+    "COMM-4.3-13": {
+      "clause": "LIVE_EN-1e8d3744485e2a29",
+      "theorems": ["Etna.Design.Current.ValidatorState.hplus2"],
+      "reason": "Concrete two-set commit pipeline: H changes leave H+1 unchanged and become H+2 current state. This does not prove stock CometBFT implements the decoded machine."
+    },
+    "PROOF-6.2-41a": {
+      "clause": "LIVE_EN-9dabf1462e3643ef",
+      "theorems": [
+        "Etna.Design.Current.ValidatorState.origin_uses_genesis",
+        "Etna.Design.Current.ValidatorState.later_origin_authenticates",
+        "Etna.Design.Current.ValidatorState.checked_run_prefix",
+        "Etna.Design.Current.ValidatorState.batch_records"
+      ],
+      "reason": "Concrete Batch/Certificate refinements compute genesis or authenticate a later preimage, then check each block against separately normalized per-height updates. Existing H1–H4 certificates do not yet require this refinement; hash/ABI/key bindings remain external."
+    },
+    "SYNC-9-5": {
+      "clause": "LIVE_EN-926574b7e8b2e1e6",
+      "theorems": [
+        "Etna.Design.Current.ValidatorState.trust_cut_at_origin",
+        "Etna.Design.Current.ValidatorState.trust_cut_after_origin"
+      ],
+      "reason": "The actual nodeTrust predicate uses trustCut: only the validator-state field is exempted at the current-generation origin. This is a guard theorem, not a complete node/store refinement."
+    },
+    "SYNC-9-5c": {
+      "clause": "LIVE_EN-926574b7e8b2e1e6",
+      "theorems": ["Etna.Design.Current.ValidatorState.checked_run_prefix"],
+      "reason": "Every concrete checked prefix identifies the exact per-height state whose hash matches that block. Durable record storage, historical lookup implementation and node/guest adoption remain external."
     }
   }
 }

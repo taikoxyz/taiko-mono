@@ -48,8 +48,12 @@ SURFACE_PATHS = (LOCK_PATH, ':(glob)formal/etna/*.lean', ':(glob)formal/etna/Etn
 DEPLOYED_HEADLINES = ('Etna.Design.Current.Headlines.deployed_claims',
                       'Etna.Design.Current.Headlines.deployed_rollback_free',
                       'Etna.Design.Current.Headlines.deployed_recoverability')
+VALIDATOR_STATE_ROOTS = ('Etna.Design.Current.ValidatorState.hplus2',
+                         'Etna.Design.Current.ValidatorState.checked_run_prefix',
+                         'Etna.Design.Current.ValidatorState.certificate_refines')
 SCOPE = ('Kernel terms of the headline/witness statements and of every Etna definition they use; '
-         'theorem proofs are excluded. A change here changes what H1-H4 or the witnesses mean.')
+         'also the concrete validator-state refinement; theorem proofs are excluded. A change '
+         'here changes what H1-H4, the witnesses or the validator-state refinement mean.')
 
 PROGRAM = r'''import Lean
 import EtnaModel
@@ -106,7 +110,8 @@ def _audit():
 def roots():
     audit = _audit()
     return [audit.CURRENT_CLAIMS[0], *audit.CURRENT_HEADLINES, *DEPLOYED_HEADLINES,
-            audit.CURRENT_ACCEPTING_WITNESS, *audit.CURRENT_PROFILE_WITNESSES, *audit.CURRENT_TRAP_WITNESSES]
+            audit.CURRENT_ACCEPTING_WITNESS, *audit.CURRENT_PROFILE_WITNESSES,
+            *audit.CURRENT_TRAP_WITNESSES, *VALIDATOR_STATE_ROOTS]
 
 
 def lean_string(text):

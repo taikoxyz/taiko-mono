@@ -529,6 +529,12 @@ def nodeImport (env : Environment) (w : World) (candidate : Import.Candidate) (d
 def nodeRestart (w : World) : World :=
   { w with node := { w.node with target := none,trusted := false,restartNeeded := false,     signer := { w.node.signer with ready := false } } }
 
+/-- SYNC-9-5: an origin's retained validator-state hash belongs to the previous
+generation (or is zero at S). Its EL/Comet/FI fields still authenticate the origin. -/
+def trustCut (origin : Nat) (h : Header) (cp : Checkpoint) : Prop :=
+  h.elHash = cp.elHash ∧ h.cometHash = cp.cometHash ∧ h.cursor = cp.cursor ∧
+    (h.height ≠ origin → h.valStateHash = cp.valStateHash)
+
 /-- Abstract validated replay, separate from snapshot publication. The fixed deployment
 adapters authenticate the full origin; this is not a stock-store implementation. -/
 def nodeTrust (env : Environment) (w : World) (archive : List Header) (blocks : List Block) : Prop :=
@@ -537,16 +543,18 @@ def nodeTrust (env : Environment) (w : World) (archive : List Header) (blocks : 
     cp = w.inbox.checkpoint ∧ w.node.signer.activeGeneration = generation ∧
     w.node.generationWatermark ≤ generation ∧
     ∃ p origin, recordAt w.inbox w.inbox.origin.height = some origin ∧
-      p.height = w.inbox.origin.height ∧ p.cut = ⟨origin.elHash,origin.cometHash,origin.cursor,origin.valStateHash⟩ ∧
+      p.height = w.inbox.origin.height ∧ trustCut w.inbox.origin.height p origin ∧
       env.headerHash p = p.elHash ∧
       (p.height = start.height → p.stateRoot = start.stateRoot) ∧
       (env.core.unzenInbox ≠ 0 → cp.height = start.height →
         env.unzenRoot p ∧ env.startImplementation p.stateRoot = true ∧ p.timestamp < env.core.forkTime) ∧
       Blocks.Chain (policy env w archive w.number) p blocks ∧
-      (Blocks.terminal p blocks).height = cp.height ∧ (Blocks.terminal p blocks).cut =
-        ⟨cp.elHash,cp.cometHash,cp.cursor,cp.valStateHash⟩ ∧
+      (Blocks.terminal p blocks).height = cp.height ∧
+      trustCut w.inbox.origin.height (Blocks.terminal p blocks) cp ∧
       Archive.Authenticated env.headerHash env.headerParent (config w)
-        ⟨origin.elHash,origin.cometHash,origin.cursor,origin.valStateHash⟩ w.number archive p blocks
+        -- Node replay starts with this generation's genesis state. Its hash is not
+        -- the retained origin record's old-generation validator-state hash.
+        ⟨origin.elHash,origin.cometHash,origin.cursor,p.valStateHash⟩ w.number archive p blocks
 
 /-- This is an explicit app validation event, not a caller-supplied trusted Boolean. -/
 inductive NodeEvent (env : Environment) (w : World) : Node → Prop

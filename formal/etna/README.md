@@ -132,9 +132,12 @@ forms (`Headlines.deployed_claims`, `deployed_rollback_free` and `deployed_recov
 eight joint-premise witness theorems (from the six profiles under Joint-premise realizations),
 the trap witness and its escape mean: their statements and every Etna definition they use, but
 no proof. `review-surface.lock.json` records a SHA-256 of the kernel terms of each of those
-constants (1,632 at this revision).
+constants (1,745 at this revision).
 `python3 scripts/review_surface.py --check` fails if the lock is stale; the `etna-formal` job
 runs it. Proof-only changes never touch the lock.
+The concrete validator-state H+2, checked-prefix and certificate-refinement theorems
+are additional roots, so their transition definitions are locked even though H1–H4
+do not yet require the concrete certificate.
 
 The `etna-review-surface` job (`formal--etna-review-surface.yml`) runs on
 `pull_request_target`, so GitHub takes both the workflow file and the judge script from the
@@ -228,33 +231,35 @@ checks do not apply. Actual EL header
 contents/indexes, earlier ancestor context, the window's Comet history and stock stores
 required by SPEC 5.4 remain an explicit abstraction gap.
 
-Checkpoint records, cuts, `LandInput` and the statement carry appendix A's validator-state
-hash as an opaque atom. The frontier leaf, the landed record, the statement endpoints and the
-node trust check compare it. Unlike the EL hash (bound by the header hash) and the Comet hash
-(bound by signed commits), nothing in `Blocks.Valid` constrains its value: H2's "valid chains
-agree" covers it only through `currentCodec`, and a landing's value is certified only through
-`currentVerifierSound`. CometBFT's state-update arithmetic behind it (PROOF-6.2-41a) and the
-preimage encoding (ENC-A-29a) are not modelled.
+Checkpoint records, cuts, `LandInput` and the H1–H4 statements still carry
+validator-state hashes as opaque atoms. The additional concrete layer in
+`EtnaModel/CurrentValidatorState.lean` now computes CometBFT v0.40.0 validator-set
+updates, signed proposer priorities, stored proposers, genesis initialization and
+one priority increment per committed height. Its two-set pipeline implements H+2.
+`genesisFor` derives the recovery initial committee from that generation's R snapshot;
+old pending updates and old-generation priorities are not inputs.
 
-The spec's start-height exception (PROOF-6.2-40, SYNC-9-5) is not modelled; in the model it
-is unobservable. At a generation's origin the model labels the origin header with the
-record's stored value, so the origin always compares equal to itself. In the real system the
-start-height state is the one CometBFT builds from the generation's genesis, which differs from
-the record: the record holds 0 at S and the old generation's value at a recovery origin. Three
-implementation obligations therefore stay outside these proofs:
+`ValidatorState.Batch` combines the existing `Blocks.BatchValid` with concrete origin
+admission and an executable hash check at every block. `ValidatorState.Certificate`
+adds that obligation to the existing closed-prefix guest certificate. The proofs in
+`EtnaProofs/CurrentValidatorState.lean` establish H+2, replay decomposition, exact
+prefix-height records and genesis/preimage admission. A source mapping, stock-Go
+reference vectors and scope details are in [the validator-state report](reports/validator-state.md).
 
-1. The guest builds the start-height validator state from the generation's genesis, not from
-   the origin record's preimage (PROOF-6.2-41a).
-2. The node does not compare the validator-state hash at the current generation's start
-   height (SYNC-9-5). A client that transcribed `nodeTrust` literally would halt after every
-   recovery, until the new generation's first landing moves its trust target.
-3. An import at s = o takes the 8.4 genesis path (DATA-5.4-1). The model only skips the three
-   validator-state checks there; it does not model the genesis path.
+At a generation's start height the concrete replay uses newly derived genesis,
+regardless of the retained record's zero/old-generation validator-state hash. Above
+that origin, the supplied preimage must match the stored hash. The actual `nodeTrust`
+predicate now uses `trustCut`: EL/Comet/FI comparisons always remain, and only the
+validator-state comparison is exempted at the current generation's start height.
+The archive's old origin record remains storage/cut metadata, separate from the
+concrete new-generation genesis state.
 
-At other heights the node compares the landed value with the validator state it recorded when
-it committed that height in the current generation, never stock CometBFT's historical lookup
-(SYNC-9-5c). The model reads the node's own header value, so where that value comes from is a
-fourth implementation obligation.
+This is an additional refinement layer, not a restatement of H1–H4. Their
+`currentVerifierSound` and `currentCodec` premises remain unchanged and do not yet
+require `ValidatorState.Certificate`. Adoption by a guest/client, raw key/address
+binding, the precise ENC-A-29a ABI/Keccak encoder, durable SYNC-9-5c records and stock
+CometBFT store/Go implementation refinement remain separate obligations. Hashing a
+concrete snapshot does not by itself prove those implementations.
 
 The [PR #22348 alignment](reports/alignment-22348.md) records the latest re-pin. The
 [PR #22341 alignment](reports/alignment-22341.md) records the previous re-pin and the H1
@@ -369,8 +374,8 @@ the current proofs reuse, and fourteen semantic pins (`EtnaProofs/Contracts.lean
 `Consensus.election_valid_iff`) that fail the build if a shared definition the statements use
 is weakened without editing its pin.
 
-The inventory is **60 partial / 508 deferred clauses**, and **43 narrow partial /
-37 supporting / 528 deferred binding rules**, plus 32 deferred assumption/limitation rows.
+The inventory is **61 partial / 507 deferred clauses**, and **45 narrow partial /
+39 supporting / 524 deferred binding rules**, plus 32 deferred assumption/limitation rows.
 SWITCH has narrow first-fence/root evidence. All 93 ANCHORLESS and 47 ACCEPTANCE
 clauses remain deferred. Margin arithmetic, bridge resolver/EIP-4788/storage migration,
 production parsing/crypto/EL/guest/token/Solidity/Comet/store refinement, operational
