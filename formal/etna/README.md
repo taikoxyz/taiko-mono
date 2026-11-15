@@ -389,3 +389,9 @@ and exact public commit effects. It extends actual settlement actions, with
 single-attempt workload and explicitly different private validation order from
 the real contracts. Its versioned public-attempt interface feeds C03; internal
 microsteps must not be interpreted as public intermediate Solidity states.
+
+[`conformance/README.md`](conformance/README.md) documents the separate Lean/TLA
+to real-code lane. C01 locally builds the current Lean package, regenerates its
+Registry8 vectors twice and replays the unchanged original Solidity fixture.
+Pins, actual command outcomes, metadata bridge and scope limits are recorded
+there; model checks and selected implementation traces remain separate evidence.

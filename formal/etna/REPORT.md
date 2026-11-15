@@ -851,3 +851,22 @@ proof. Actual-code correspondence is deferred to C03, separately reported.
 Earlier175 cases remain unchanged. This increment brings the default selection
 to193; its final accumulated run is pending M09 freeze, so18 focused passes are
 not presented as an already completed193-case run.
+
+## C01 — local Lean and real Registry8 (2026-11-15)
+
+[Conformance evidence](conformance/REPORT.md) records a successful local
+Lean4.35.0 build of the pinned current model/proof targets, two actual fresh
+vector generations with exact golden hashes, and the original real Solidity
+Registry8 consumer: one selected method/eight cases. No production source,
+fixture expectation or authority metadata was patched. The vector bridge permits
+only the two explicitly pinned authority metadata values; every other field is
+identical. This is selected real-code correspondence, not full refinement.
+
+Independent adversarial source/argv/artifact review passed after one helper
+false-positive fix (duplicate output paths). Root separately verified both exact
+source manifests and actual logs/outputs; dedicated tester executed the real
+contract. Sixteen recorder/vector tests and five namespace-launcher tests passed.
+Cold Lean build332.919s, actual two-directory generator3.646s and final recorded
+real-contract run20.084s. Full independent Lean kernel replay, cryptography,
+whole-registry reachability, deployment behavior and further replay scopes remain
+separate obligations. No actual protocol/implementation issue was established.

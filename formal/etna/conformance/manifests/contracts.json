@@ -1,0 +1,2824 @@
+{
+  "commit": "89f419915de4b73bb57c53bf970f6dea9e8e8c8c",
+  "files": {
+    "package.json": {
+      "bytes": 348,
+      "gitBlob": "ea5e72fc4e4640c8767fb62ccf300d90661dd44a",
+      "sha256": "95e57566e562b3efb1f951162c29b12057493ee51ad7b405c4942b3420d3fe79"
+    },
+    "packages/protocol/.claude/agents/protocol-test-runner.md": {
+      "bytes": 5849,
+      "gitBlob": "2aa3a6cdba184e6941db35e7fdff35525578d8db",
+      "sha256": "5556540f9c4e247b1831cdbea38d339d1ee3f1d71875d15ec24e41fd641e00ab"
+    },
+    "packages/protocol/.claude/commands/test.md": {
+      "bytes": 327,
+      "gitBlob": "3a9e0d95adde14bd76fdbf4708ef9752953cfcf8",
+      "sha256": "9ffbd404da90804174e21d5993039d3446bb0cfafeb73931489b558d169afd66"
+    },
+    "packages/protocol/.env.example": {
+      "bytes": 164,
+      "gitBlob": "fa0fd36a446b05b6a596598eccba8cc865d83015",
+      "sha256": "e9c3324e4ba7e98c0130b98663da5c6bfd978bf355d10d219408dff202f24fa4"
+    },
+    "packages/protocol/.eslintignore": {
+      "bytes": 105,
+      "gitBlob": "4b2accef8c78a53056aaf27257721d139d817ec2",
+      "sha256": "1742eb36900909e3e488b72d3f29628ab153f6291b991862f3c49076ec483f32"
+    },
+    "packages/protocol/.eslintrc.js": {
+      "bytes": 669,
+      "gitBlob": "4c6326c83b55af93eab1eaed3467f91f164bd41c",
+      "sha256": "da72bc1763d48cc905902b28644581c53237acbe2c1a9d3f746f04a21070d69f"
+    },
+    "packages/protocol/.gas-snapshot": {
+      "bytes": 864,
+      "gitBlob": "3d7dee8c87467bb1ab7786b62ffb4c2f42565ded",
+      "sha256": "8dcf78ccb56beccdc1f105d8b0eb5f8ff3bf0d75dd83077e5a9bfa26ba5875fc"
+    },
+    "packages/protocol/.gitignore": {
+      "bytes": 586,
+      "gitBlob": "29da43ed1629c5e70a99b1e4de2707dfa8e9a83b",
+      "sha256": "64abf5f6510b807e74ef0e7660c584fc75299b4c335fb7d2ed699739ac68ebd3"
+    },
+    "packages/protocol/.npmignore": {
+      "bytes": 13,
+      "gitBlob": "fcebd3acdfb8dae438654636795c3faf1d3f21b5",
+      "sha256": "0833d7aa99fa343a5616e1b4155719627cbe2c792b3527d636c51cfd4f5d6c40"
+    },
+    "packages/protocol/.prettierignore": {
+      "bytes": 66,
+      "gitBlob": "3fadde88a77afc99fae66a2324823c14cda4c901",
+      "sha256": "a845ead4bbb8aa4732c3d35cae5669bc839234a3f147b7998d874c0c7b7b8786"
+    },
+    "packages/protocol/.prettierrc.json": {
+      "bytes": 111,
+      "gitBlob": "c9b8e0fb7723dae42b2eb5a39400bfaf6894bbd0",
+      "sha256": "f1e6faf7569a770113d44dd88376f5bf0971d53579b7b8f341ff0f31b5228201"
+    },
+    "packages/protocol/.solhint.json": {
+      "bytes": 901,
+      "gitBlob": "a71bb91a154ad22025f717325e80b5906ae5f6fa",
+      "sha256": "995c7b46f4377d4df2278a65f44704d28a85ddf63b4e0e8a9c36333efd434440"
+    },
+    "packages/protocol/.solhintignore": {
+      "bytes": 116,
+      "gitBlob": "26efedfd0830fb3eb213907ef8a7abbb6b7cee1e",
+      "sha256": "7420d7c1a700a8dba113e4344d2a8a88698a9e1d36d59374c179745fda382340"
+    },
+    "packages/protocol/.tool-versions": {
+      "bytes": 14,
+      "gitBlob": "89f813f8d1a9ca7d73c99598e07b853945baa32c",
+      "sha256": "d4176316ca9903ffcc33c489b99eddf476ba1a35cf905cb9b8c384565cd15ff1"
+    },
+    "packages/protocol/AGENTS.md": {
+      "kind": "symlink",
+      "target": "CLAUDE.md"
+    },
+    "packages/protocol/CHANGELOG.md": {
+      "bytes": 244759,
+      "gitBlob": "3c471f004619f7ba0bdfc5bd6005abe190c7e7c2",
+      "sha256": "1d6aa33e1967b09ec447000e7947f708961ae7f2f18883a20cdc41e4922c0b90"
+    },
+    "packages/protocol/CLAUDE.md": {
+      "bytes": 8430,
+      "gitBlob": "7b6ea417bc92105aa87d48fa772ca4daed6d6889",
+      "sha256": "f187d15e245191b8a525d69ce480e4f2eca2f7a8733e3ba956fc4eb945fbb65b"
+    },
+    "packages/protocol/README.md": {
+      "bytes": 3908,
+      "gitBlob": "b7dbba8d81b2620fb36b3b9ecda0620eca9eadda",
+      "sha256": "d88cde7bd0391cc6a82ceb6f4800d0147a800aafd928da0b25488ace4c88a7f6"
+    },
+    "packages/protocol/audit/code4rena-2024-03-taiko-final-report.md": {
+      "bytes": 765963,
+      "gitBlob": "5075cecb3c2ac0264c2ea9eae1f0867b9fe10598",
+      "sha256": "d7915bed45a32cfa643b02ecefa5d25c35362ff65fb6afcec3f608b086a290a3"
+    },
+    "packages/protocol/audit/halborn-taiko-alethia-protocol-audit-for-pacaya-upgrade.pdf": {
+      "bytes": 11294955,
+      "gitBlob": "ff72e2f84cbde7f2306ccf99e1911562d6da7bda",
+      "sha256": "8ed10ed0fc1bdb31f21e3234d293e9d4a6b41f2ea08439a15ff2af37fd7ea933"
+    },
+    "packages/protocol/audit/halborn-taiko-dao-contract-audit.pdf": {
+      "bytes": 8418873,
+      "gitBlob": "42d96ef0dacaa008832f974f1ba6193fa79aeb30",
+      "sha256": "cbbae4a0fedadc0474b2fd46815bb16d160e1d91d765803b820f941ba0ea3a83"
+    },
+    "packages/protocol/audit/kimi-k3-audit.md": {
+      "bytes": 8075,
+      "gitBlob": "b7b5b7bbf0ce8d6be88130178768db7b4db7fbca",
+      "sha256": "15853a977ea740ead4fcab3b7619d8d0b1b9fa0346fb9e3e2e4ff71a117db455"
+    },
+    "packages/protocol/audit/open_zeppelin_taiko_protocol_audit_june_2024.pdf": {
+      "bytes": 610624,
+      "gitBlob": "47a48d4791dc020f04aa4c34b85de282aac33109",
+      "sha256": "e80af9439f11efee37eb209dff4a10c299daae55c09cb86818c3849af4b94648"
+    },
+    "packages/protocol/audit/open_zeppelin_taiko_protocol_ontake_audit_nov_2024.pdf.pdf": {
+      "bytes": 165663,
+      "gitBlob": "ffa07e75c8724ea74f02bda2d871e4649c2a7ec2",
+      "sha256": "2b776145f0b78910fa39ee204a3a541e9ffcb1d4a49012ab761c305ff7e03e3f"
+    },
+    "packages/protocol/audit/open_zeppelin_taiko_protocol_shasta_audit_jan_2026.pdf": {
+      "bytes": 160782,
+      "gitBlob": "8b9f3cf06d668924f496d4e041873c84697961bc",
+      "sha256": "11153c7c469b01da363abb9715e6db4deaadaa16c179096b5ffd75bae1a2de0a"
+    },
+    "packages/protocol/audit/quill_audits_taiko_smart_contract_audit_report.pdf": {
+      "bytes": 3529595,
+      "gitBlob": "e2f2bff20a7b0babc38c06f1e78a32ee40aa066d",
+      "sha256": "f6b5ab3ddb1eab91c7cd5b33fba6a4bccb996f2560d26a726b5fa83e631b91f9"
+    },
+    "packages/protocol/audit/sigma_prime_taiko_smart_contract_security_assessment_report_v2_0.pdf": {
+      "bytes": 532505,
+      "gitBlob": "ec6382909aa4aed4a8dea0facd81d9632947471b",
+      "sha256": "b9cb5dca10a4f75ce76deb55bf0c053c108ff1287da270d00fe3fb97cd53a4ae"
+    },
+    "packages/protocol/contracts/layer1/core/iface/IBondManager.sol": {
+      "bytes": 4549,
+      "gitBlob": "51492c7963e940176162927ab1e607d087120087",
+      "sha256": "d413b57c2dd2e7bdd0112e5a6a7dff0bb1a86a695883194c2ee42e9fee5ddd8f"
+    },
+    "packages/protocol/contracts/layer1/core/iface/ICodec.sol": {
+      "bytes": 2999,
+      "gitBlob": "163cb51bf1993144fe441f0c4904c4aefb882194",
+      "sha256": "5435a9ef0a94156d42f9f537d9fb0f02ef64406c43528a005d7eee8cfc209a07"
+    },
+    "packages/protocol/contracts/layer1/core/iface/IForcedInclusionStore.sol": {
+      "bytes": 2950,
+      "gitBlob": "6729f0c74c21598fdb05710bbff69fc858f111d3",
+      "sha256": "36a0667c6bfd8fc0e2f49afb75b6edf649254d5f843876a0b9c9559e8539a440"
+    },
+    "packages/protocol/contracts/layer1/core/iface/IInbox.sol": {
+      "bytes": 10881,
+      "gitBlob": "70e5fcbb52315615fcb3ce1f526396cc1b0c18d9",
+      "sha256": "b499ff07a5d518424c3eabda35f073794e8d493dba4f0fbe3a6fc3cec0f86b0c"
+    },
+    "packages/protocol/contracts/layer1/core/iface/IProposerChecker.sol": {
+      "bytes": 857,
+      "gitBlob": "ee15039f7e2ea8cf876d060ab30cfff5cc5be5dd",
+      "sha256": "525c60ea795611c3b6a5689d9a6bb4283c74cf3370e0dcf2aca3c3c9fd9ec80b"
+    },
+    "packages/protocol/contracts/layer1/core/iface/IProverWhitelist.sol": {
+      "bytes": 642,
+      "gitBlob": "a941592715dc584f98211eb698e51dcedf1bf1a4",
+      "sha256": "e837f5fa88b30e246fdcafa463859cb5b3d6a184028568e71386f59fa72c444c"
+    },
+    "packages/protocol/contracts/layer1/core/impl/Inbox.sol": {
+      "bytes": 36931,
+      "gitBlob": "0814406e93e16899b56afd7702c6dd49aa6fe860",
+      "sha256": "53cc519e95aa0b0d307cc1d6c1c9bed34832bcc466394e595d2f0e5d266cf90b"
+    },
+    "packages/protocol/contracts/layer1/core/impl/ProverWhitelist.sol": {
+      "bytes": 4403,
+      "gitBlob": "8eb8a0987c1beee951778937b67c29c2ebb93fb7",
+      "sha256": "ce726d24914af8488b70e2ebfc42dec2ab3bce01e198c2bbe84540551591f31e"
+    },
+    "packages/protocol/contracts/layer1/core/impl/ProverWhitelist_Layout.sol": {
+      "bytes": 2148,
+      "gitBlob": "20e59909705667354756ce73f4c9788d96fd00a6",
+      "sha256": "53bb13862e0533187736d0081b00618410a2404091fe34672af6fc0e7d04a1e6"
+    },
+    "packages/protocol/contracts/layer1/core/libs/LibBlobs.sol": {
+      "bytes": 2236,
+      "gitBlob": "7370442a39cb22ae8f6735437a7597513da4b875",
+      "sha256": "f824d7bb2e221920ae308757382f5451266ac48239fd20e3f7b92f5b289bcad9"
+    },
+    "packages/protocol/contracts/layer1/core/libs/LibBonds.sol": {
+      "bytes": 7287,
+      "gitBlob": "5c1f9a94909f51d5a5d379e74872f73d8f2090bb",
+      "sha256": "86a1ddef86dd37b7afff84c45d7309bcec490b86b1dbb69060c0eff8a8e38911"
+    },
+    "packages/protocol/contracts/layer1/core/libs/LibCodec.sol": {
+      "bytes": 4920,
+      "gitBlob": "8e14fc44c2c184e311e48c178fd1952016a59919",
+      "sha256": "d5054fbd57290c62d27938340caf3f0661a59597efbad21019ceeda1c72d5add"
+    },
+    "packages/protocol/contracts/layer1/core/libs/LibForcedInclusion.sol": {
+      "bytes": 6952,
+      "gitBlob": "96a466373beb1c75b335caa4bdc25334e5a50a6d",
+      "sha256": "e9a89b12352760c369916db88005bfb01916beba84370457134c1d4b66d8d3f1"
+    },
+    "packages/protocol/contracts/layer1/core/libs/LibHashOptimized.sol": {
+      "bytes": 4026,
+      "gitBlob": "09265dbcbad497e7a2162ad34f3707839abef509",
+      "sha256": "f1ec4dfc61a973473d281d8877875cd097fb1fd9f6521363cc99d2639f25c9eb"
+    },
+    "packages/protocol/contracts/layer1/core/libs/LibInboxSetup.sol": {
+      "bytes": 4904,
+      "gitBlob": "a6b317550c6ad6aa27b0a131fc7eca40d258b28d",
+      "sha256": "d83ec1d58b046981823541a590166301d5672d68bcffd0acc01ef47acf51b33e"
+    },
+    "packages/protocol/contracts/layer1/core/libs/LibPackUnpack.sol": {
+      "bytes": 13755,
+      "gitBlob": "8336a794ab7f5cf1af8a4f1f89899303bc20a317",
+      "sha256": "35738fc618b052cf97c562bf556ffd6c452b91a3a5daa603d73fa236ffa0f82e"
+    },
+    "packages/protocol/contracts/layer1/core/libs/LibTransitionCodec.sol": {
+      "bytes": 1144,
+      "gitBlob": "a94ed6692eed745401f06fa15d659a0ad1388765",
+      "sha256": "0d34e8cc53033178cbdc2562c814e6c7185851e91ce642fc37c719ed508b8b03"
+    },
+    "packages/protocol/contracts/layer1/devnet/DevnetInbox.sol": {
+      "bytes": 1933,
+      "gitBlob": "94f610bbd92830403b0f25082330871c820473af",
+      "sha256": "2eb9498ae1d929e7417bbaf76bfebf7110887ea80147ce8cc7cc1d60ca6ec692"
+    },
+    "packages/protocol/contracts/layer1/devnet/DevnetInbox_Layout.sol": {
+      "bytes": 2533,
+      "gitBlob": "db7e6fef3ceb62f827cd43876fc3fcbfc5632147",
+      "sha256": "016f7c68f7ad0b6ef05944200ddaea6ebdb89d93493a4ddda6cf459766bced5f"
+    },
+    "packages/protocol/contracts/layer1/devnet/DevnetVerifier.sol": {
+      "bytes": 1733,
+      "gitBlob": "ada49a5c8427e48d36766a7b903d7d8f7c5ef1f6",
+      "sha256": "67e885b3acd00465a723768650d90d91467c854c1227c7db987b635e66e3b401"
+    },
+    "packages/protocol/contracts/layer1/devnet/OpVerifier.sol": {
+      "bytes": 962,
+      "gitBlob": "e1fb95a23ecdd0274e4e951fab0e864a0ab8ced2",
+      "sha256": "815087d9cc4f7670df890e193427f430fddd8d775d9b9a539935c9ad3eb0f7a9"
+    },
+    "packages/protocol/contracts/layer1/etna/README.md": {
+      "bytes": 25864,
+      "gitBlob": "b53d9a986311209db528512ab361dfdd32334e51",
+      "sha256": "35eec63109ec930c7f47bb0ac92c3bcad6888073dc47ca4244806090e2ff08e5"
+    },
+    "packages/protocol/contracts/layer1/etna/iface/IEtnaInbox.sol": {
+      "bytes": 37895,
+      "gitBlob": "e35ce59bad929ee9636b560a768011f886abb4f6",
+      "sha256": "058f523fc4a1dec1b65d411ad7be26cf2333e0508ff7e9873907b01c5fc35aec"
+    },
+    "packages/protocol/contracts/layer1/etna/iface/IEtnaStakingRegistry.sol": {
+      "bytes": 27151,
+      "gitBlob": "da10d245dcd0e4917ee365efb941edd60fa35e6f",
+      "sha256": "61e742e694ff385d6e8612de4bd854efab8d83ccd7e26d0fed057ae70576e72d"
+    },
+    "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol": {
+      "bytes": 47601,
+      "gitBlob": "99ad3d4506c1beefe9ed04dee3dd08ffef8ef69b",
+      "sha256": "4519771b90eb4f2e8aa272b1de4fbfdbb4c7289e7998ed3bdd0ec931ee607a42"
+    },
+    "packages/protocol/contracts/layer1/etna/impl/EtnaInboxBootstrap.sol": {
+      "bytes": 1427,
+      "gitBlob": "44c291baa27be23979e9f2b585f56dff7df51a78",
+      "sha256": "adc097054da37bfdfda5f2ba059eb87b17fe88e1951e0cec95ee92ddae6fd30e"
+    },
+    "packages/protocol/contracts/layer1/etna/impl/EtnaInbox_Layout.sol": {
+      "bytes": 4494,
+      "gitBlob": "2b58b7684055dd12530eb1e833d210ad871827f8",
+      "sha256": "650d049efe65c7ca9fbde176dfe9dad14ec790f9adc4a0a287ad6844d43cfc18"
+    },
+    "packages/protocol/contracts/layer1/etna/impl/EtnaStakingRegistry.sol": {
+      "bytes": 36570,
+      "gitBlob": "71afa512145d95b368f167b47d029e34ba89d95d",
+      "sha256": "25b114975525269ee3f0bd3dfcc40d8480faa0df125c3b39da3ec27ca3dec8f1"
+    },
+    "packages/protocol/contracts/layer1/etna/impl/EtnaStakingRegistry_Layout.sol": {
+      "bytes": 1763,
+      "gitBlob": "c672e06e4e1fd727e3b7f58484b7f24baacefda7",
+      "sha256": "20b1b52aac251ab9019da4050fd2cad6594bde068b87232515d4a2a81d47529d"
+    },
+    "packages/protocol/contracts/layer1/etna/libs/LibCometVote.sol": {
+      "bytes": 11100,
+      "gitBlob": "bac0265ffba58ec46e32b7fe36002b2b36fb77de",
+      "sha256": "c4320d86beb632d4c1c549f5b28e06f796f667ce3eef71d8c176bcb616271458"
+    },
+    "packages/protocol/contracts/layer1/etna/libs/LibEntriesTree.sol": {
+      "bytes": 9448,
+      "gitBlob": "eee301cbfe086d24ca5204fe7eb2bec78ab90318",
+      "sha256": "54835affed496bb627bebb01926205cbf3183f721c59ae250c0cc8a8c3ef0d27"
+    },
+    "packages/protocol/contracts/layer1/etna/libs/LibEtnaForcedInclusion.sol": {
+      "bytes": 3152,
+      "gitBlob": "b793d7ab660e65ce7fb882c4af10dc16355ad32e",
+      "sha256": "b16921b0cf10dfd8df7733148f44eed9c4cae27b050fec3de68173a9654bcb0e"
+    },
+    "packages/protocol/contracts/layer1/etna/libs/LibEtnaKeys.sol": {
+      "bytes": 6607,
+      "gitBlob": "40db7cc74409d5c5714bdd6b4608178be78ffb32",
+      "sha256": "c5ada1c38c909d3628014a400b1651386315c5d29d7612797c8e9aeba03ffe12"
+    },
+    "packages/protocol/contracts/layer1/hoodi/LibL1HoodiAddrs.sol": {
+      "bytes": 805,
+      "gitBlob": "09ddbe2e03f4f2ecafd6b31f0f19cca8170be4b3",
+      "sha256": "fb2eaac4d8fc61561e01363aace8672a40c01de76ac6a9f1051271bca9e2a2e0"
+    },
+    "packages/protocol/contracts/layer1/mainnet/LibL1Addrs.sol": {
+      "bytes": 5202,
+      "gitBlob": "b3c837e030b04971f3efacf56829735dbedd8582",
+      "sha256": "619cfbe76b16e594e5ddf6eca3bf26de06e1561f8e9321b869896f658287cdb7"
+    },
+    "packages/protocol/contracts/layer1/mainnet/MainnetDAOController.sol": {
+      "bytes": 1113,
+      "gitBlob": "f127886f87253fb1418c0f4ba915638b7c09332a",
+      "sha256": "093edde114daef791cf5153ac4348af5e6a158143d5900097d11c1c794f3372b"
+    },
+    "packages/protocol/contracts/layer1/mainnet/MainnetDAOController_Layout.sol": {
+      "bytes": 2420,
+      "gitBlob": "73f3ba6cfc8aaa76b32a2918b83eb1ea366c4863",
+      "sha256": "ba1e51c2dca3ad09f4cb460ab0e9bca180d5b1c7c6a8280cfd376ab14ae7ed04"
+    },
+    "packages/protocol/contracts/layer1/mainnet/MainnetInbox.sol": {
+      "bytes": 2554,
+      "gitBlob": "1db37346a0435db74ee961022eb9accba2478050",
+      "sha256": "1d40d7242078aef7be2a267973135f7b7f5a470430bde818f2fb9e61cc6a5c2a"
+    },
+    "packages/protocol/contracts/layer1/mainnet/MainnetInbox_Layout.sol": {
+      "bytes": 2535,
+      "gitBlob": "78daa49cca4120ff1e3e0c4f6f61ea538fab9f4f",
+      "sha256": "ab2f980a8b7ef8a666060a168a94b44e15589174a0757e823ec17c54f4bab3b6"
+    },
+    "packages/protocol/contracts/layer1/mainnet/MainnetVerifier.sol": {
+      "bytes": 2401,
+      "gitBlob": "e215aab337ff9fc9306787dde14ec0f8a0cbddcd",
+      "sha256": "e83b01f430f7980620daa296b3db54a32b545a3de96841d95b23ca27e20f2991"
+    },
+    "packages/protocol/contracts/layer1/mainnet/TaikoToken.sol": {
+      "bytes": 6108,
+      "gitBlob": "054b9766744491569a56a112b0792437cff43735",
+      "sha256": "c4edfb97a1a508af47cd5b2788a1ebe5b7652097a62bb4612b199a94307bad91"
+    },
+    "packages/protocol/contracts/layer1/mainnet/TaikoToken_Layout.sol": {
+      "bytes": 4534,
+      "gitBlob": "c69ad46e7078e123d634cf688c65b3133cafd07f",
+      "sha256": "99422137090932abaeeb433f25b484aa12024225950a10095b15842f0e2ed709"
+    },
+    "packages/protocol/contracts/layer1/preconf/iface/IPreconfWhitelist.sol": {
+      "bytes": 2507,
+      "gitBlob": "13afd81b4df1f7fc833b3c11fd73264d78c08d8b",
+      "sha256": "28b8c6b14c047581bd63e12fa1b9bba4d74d9052a8234bc264d074c16a2e2cc3"
+    },
+    "packages/protocol/contracts/layer1/preconf/impl/PreconfWhitelist.sol": {
+      "bytes": 13580,
+      "gitBlob": "d2c4a97f7a1f2d0c15a5a7d40fe046e18c35d96c",
+      "sha256": "b90bd73686cede135b7278fa0cab364c33119d9d7fad9789d5dbd7f437768575"
+    },
+    "packages/protocol/contracts/layer1/preconf/impl/PreconfWhitelist_Layout.sol": {
+      "bytes": 2945,
+      "gitBlob": "21f974ba240f24c464d59bdb2d8219a402af8dc3",
+      "sha256": "535d275124cd3c29307303fb7ba3570513a9302c703495a9d2d4263f98b89f8c"
+    },
+    "packages/protocol/contracts/layer1/preconf/libs/LibPreconfConstants.sol": {
+      "bytes": 1737,
+      "gitBlob": "64eaf472d1fb7d13a55f7ab1ead396da2fadae69",
+      "sha256": "404f024d2465befa90b91cc09ba1cb8da81607642b001338139f6cbe0b4e6e33"
+    },
+    "packages/protocol/contracts/layer1/preconf/libs/LibPreconfUtils.sol": {
+      "bytes": 4331,
+      "gitBlob": "98422d0d11381e84d909eee9138b10fab3c95b47",
+      "sha256": "081a2bf117a60c6b001e67b1b0c86b74bcfceba7c3766917ffa4bb4ab79e08cf"
+    },
+    "packages/protocol/contracts/layer1/verifiers/IDcapAttestation.sol": {
+      "bytes": 1483,
+      "gitBlob": "e05de8ad6c57db906adf771bcf7ecd2e2ac632a7",
+      "sha256": "39d50c21ccb3be29346cbd04a04244eb86e20980a30530f879cee491fe2fc4f2"
+    },
+    "packages/protocol/contracts/layer1/verifiers/IProofVerifier.sol": {
+      "bytes": 1167,
+      "gitBlob": "46c29740c384e3aefa582bc6fae34fb096667d43",
+      "sha256": "57e6c47171f9148e34b576418540232db48343d562d1878a120c3e5d7d53620b"
+    },
+    "packages/protocol/contracts/layer1/verifiers/InsecureSgxVerifier.sol": {
+      "bytes": 2116,
+      "gitBlob": "7eb69aeed65852610aa21adb1562c4e2e1247bee",
+      "sha256": "94a7a5eefdca00edef1776e7fd7f6adfd850b1cf9ff711254306cd564c7ab075"
+    },
+    "packages/protocol/contracts/layer1/verifiers/LibPublicInput.sol": {
+      "bytes": 2272,
+      "gitBlob": "e57405dd2a82ab0d604da9c74e55d2a0f8a8576b",
+      "sha256": "c2fc3fe8c60e846efae2ae6f5083eea62903caf907c49f27764dea02ccc4fe44"
+    },
+    "packages/protocol/contracts/layer1/verifiers/LibRisc0Constants.sol": {
+      "bytes": 982,
+      "gitBlob": "a8e7549eaeab66b86b6b826421a86a26d48b0bdf",
+      "sha256": "3b1484983a1425e3ba11e357d2f0c685faa02fc14ad52a2fe02bd46f0020f332"
+    },
+    "packages/protocol/contracts/layer1/verifiers/LibSGXConstants.sol": {
+      "bytes": 1006,
+      "gitBlob": "4d4edf07218f92d4c43513cf0fc748dd440f0270",
+      "sha256": "9470f9633220dbde385e8ff5c8fdd1cd3e808c0cb503b12419768d7230488fa3"
+    },
+    "packages/protocol/contracts/layer1/verifiers/LibSP1Constants.sol": {
+      "bytes": 1943,
+      "gitBlob": "f505564be3f2e61c1eda9654bec935bbbd727670",
+      "sha256": "a5178df2b7efa18c484cd86c6aa216e571d23fbcaee0a3a01467e529f5a01f88"
+    },
+    "packages/protocol/contracts/layer1/verifiers/Risc0Verifier.sol": {
+      "bytes": 3271,
+      "gitBlob": "d18800908b72906ad3cfe792be66a831fd88b087",
+      "sha256": "6f5e4331bd3b1eeae967454c7fbbbe97bb6aa2289a1bcdb0ab59f46982e32801"
+    },
+    "packages/protocol/contracts/layer1/verifiers/SP1Verifier.sol": {
+      "bytes": 3273,
+      "gitBlob": "b0ce9088630cce3f0d5333efc5de51356beb8703",
+      "sha256": "c55b674102be39ce5f3646c2a8610a6182e49d0a42910f92e8ca80a149ca7d3c"
+    },
+    "packages/protocol/contracts/layer1/verifiers/SecureSgxVerifier.sol": {
+      "bytes": 11728,
+      "gitBlob": "78ea53741c7d093e853662d64cc9d20362f1e45d",
+      "sha256": "07072bb1bfa3ad50e44fa3c4b78657837f5b64a7d8c8ff2abb0bb8ef275730dd"
+    },
+    "packages/protocol/contracts/layer1/verifiers/SgxVerifier.sol": {
+      "bytes": 34356,
+      "gitBlob": "fcdb500e345ce2158e5d33c0dcc40c486c217cef",
+      "sha256": "5212e58539fb3cb445d388ca781aa76413a0b0b77ca74e682e6618cd742f6516"
+    },
+    "packages/protocol/contracts/layer1/verifiers/compose/AnyVerifier.sol": {
+      "bytes": 913,
+      "gitBlob": "6e93146cc3925485342558a500c736b539b05508",
+      "sha256": "7c57015c735aec5cdabfa4cd25bf15c2dc055f049b7ada7eaa44534923d9886b"
+    },
+    "packages/protocol/contracts/layer1/verifiers/compose/ComposeVerifier.sol": {
+      "bytes": 4067,
+      "gitBlob": "ecf26ab0f384caaa57a100af22293a9d161dcfaf",
+      "sha256": "237ffff3ff6891427d86e4a4caa3619e14c0ccd33b863fd7ef21c1dba66e745f"
+    },
+    "packages/protocol/contracts/layer1/verifiers/compose/SgxAndZkVerifier.sol": {
+      "bytes": 926,
+      "gitBlob": "420e2e6edd7e28a3caadaee40a14ee509ef2c83b",
+      "sha256": "598df0eaf73b14467935e843c6b94be6c5834fa46be6d4631c9e08a2e023a087"
+    },
+    "packages/protocol/contracts/layer1/verifiers/compose/ZkRequiredVerifier.sol": {
+      "bytes": 1846,
+      "gitBlob": "471cd97e29eef67f28741bc6fd5afcc531e86ab8",
+      "sha256": "90bb2e35eae6932bd295ad26af402d929d396cffd5fccecf9cad7db1d5e524d4"
+    },
+    "packages/protocol/contracts/layer1/verifiers/sgx-verifier-daybreak-audit.md": {
+      "bytes": 29407,
+      "gitBlob": "f7965f6ba47bdd596becd5482b6a2399b60c29d9",
+      "sha256": "39736652856ba34c1bad165236fde7a2e46d2d245b86b2b899f4f7bd6ecb9c86"
+    },
+    "packages/protocol/contracts/layer2/core/Anchor.sol": {
+      "bytes": 11523,
+      "gitBlob": "867d8fcf0a218f19a16bed3bb4b82fb98865a2a2",
+      "sha256": "d86983df46a9079262f3349cb173862b229d9d092ceb85919349bf61f4a4fad0"
+    },
+    "packages/protocol/contracts/layer2/core/AnchorForkRouter_Layout.sol": {
+      "bytes": 1223,
+      "gitBlob": "ab56cfbdecbc78658c3024086f2ac0306e128087",
+      "sha256": "089c390ed4208bd10ffb04d9958a578d933129f23d37b4642bd6dc562ef47389"
+    },
+    "packages/protocol/contracts/layer2/core/Anchor_Layout.sol": {
+      "bytes": 2392,
+      "gitBlob": "ea5ab7edc05b20f3ca5d6f09d29961d6d1785df3",
+      "sha256": "f7f678200e8bd7ba8fabd1b93e4a58997f7f2a23346eda21c12f32a53fc390b2"
+    },
+    "packages/protocol/contracts/layer2/core/BondManager_Layout.sol": {
+      "bytes": 2120,
+      "gitBlob": "fd418722e12953411fc6d767fc07ba12c1ec4c69",
+      "sha256": "8608af8c28ab7d01fedc7766f3cc75dee4307583c7c25ca6f0ee99c11d356999"
+    },
+    "packages/protocol/contracts/layer2/governance/DelegateController.sol": {
+      "bytes": 1892,
+      "gitBlob": "3d5713cd1d330744026781545862802904ebdf80",
+      "sha256": "56deff5a6c79538bc1ff0cf8b4015c50ef3c84e360040703fc858367a2416bb8"
+    },
+    "packages/protocol/contracts/layer2/governance/DelegateController_Layout.sol": {
+      "bytes": 2416,
+      "gitBlob": "8cb455dca0a5310810f5b812c6c58a4da0ae203c",
+      "sha256": "6437a704355835ad1f7f524324458a5be13bb94264986b5716ea1000e1399cc9"
+    },
+    "packages/protocol/contracts/layer2/hoodi/LibL2HoodiAddrs.sol": {
+      "bytes": 598,
+      "gitBlob": "45895851ef506fcb8e0f5cb9146a6f6beb20c9c3",
+      "sha256": "be23820c0b82946dec34619e0401acf79a8ff392141f8adca7c19332077455cb"
+    },
+    "packages/protocol/contracts/layer2/mainnet/BridgedTaikoToken.sol": {
+      "bytes": 1858,
+      "gitBlob": "0d5e7b27ffea5a5e20096a65beac7fa48793572d",
+      "sha256": "0892d123b70b51b79b09e03a0e6092ee589af9d6f646144eb8ce614ddaf855fb"
+    },
+    "packages/protocol/contracts/layer2/mainnet/BridgedTaikoToken_Layout.sol": {
+      "bytes": 4417,
+      "gitBlob": "d9f2be5afe85522abe66c4742293b956b3c83d13",
+      "sha256": "2eb69f5e860b9a0b1a3b7068b59a3460eb6b53d6a68895572455da7a642fe161"
+    },
+    "packages/protocol/contracts/layer2/mainnet/LibL2Addrs.sol": {
+      "bytes": 1594,
+      "gitBlob": "56cb4b9e2cfaed2ff86e777b23194b9b304dacaa",
+      "sha256": "208cf3d8066db3d20188d1d23a1d9afd6f0637f888ea8a97d697376a05c463ce"
+    },
+    "packages/protocol/contracts/shared/bridge/Bridge.sol": {
+      "bytes": 35309,
+      "gitBlob": "1eeb32b9600ef5a2b2d7f5466a76cb2d6da8bcef",
+      "sha256": "16169c25067fa5bd097bd485d4bc341e5457c9162817787a19cdbec5c94b6a3f"
+    },
+    "packages/protocol/contracts/shared/bridge/Bridge_Layout.sol": {
+      "bytes": 2654,
+      "gitBlob": "9b3f30bd60b78119ea18690897080119f87aeb44",
+      "sha256": "fdb6f75fa15889c79d77d3d4a5f5b8fa0d13442f7e23e8bf197538bb1619bca9"
+    },
+    "packages/protocol/contracts/shared/bridge/IBridge.sol": {
+      "bytes": 6738,
+      "gitBlob": "1b66f718fff08f915df56526a25d4843004516ab",
+      "sha256": "4d21b4c3bc6659c8432546e6ccde3ff6fcc79f35b57fbf90da5340b0ba2b5b60"
+    },
+    "packages/protocol/contracts/shared/bridge/IQuotaManager.sol": {
+      "bytes": 1169,
+      "gitBlob": "56ed7bc3051f44c5fa1ffb05c7635334f8815ac5",
+      "sha256": "1bac0b74520b686463ed75bcd66cf93bb90746025f5d7d2d2eba4f001591a38b"
+    },
+    "packages/protocol/contracts/shared/bridge/QuotaManager.sol": {
+      "bytes": 5745,
+      "gitBlob": "ae13355b3e85fbe705f6eaf48a70ba50960f5c4f",
+      "sha256": "9f2ae45cfd66bd4e9e544e068df6b711d92e1f40bc27177600a264f262ddb48f"
+    },
+    "packages/protocol/contracts/shared/bridge/README.md": {
+      "bytes": 6426,
+      "gitBlob": "60ffbeb035fe86708e6ede3b385a218bae9c7086",
+      "sha256": "ae100e9e0ef3a2f99fc99b6479fe68374b1dedc2deb673e9fc05e37d6d3ca4c0"
+    },
+    "packages/protocol/contracts/shared/common/DefaultResolver.sol": {
+      "bytes": 2258,
+      "gitBlob": "e55c84b83a20a70501df0b201c2e60c7d1a0ed8a",
+      "sha256": "8edb468bfd27618b93028737ebfb40783e68b356afde79d9dcd1a7fdf6bf5f8a"
+    },
+    "packages/protocol/contracts/shared/common/DefaultResolver_Layout.sol": {
+      "bytes": 2017,
+      "gitBlob": "f5a8773cd2b3b5bd9fa7891417d34dccbf135433",
+      "sha256": "45bd2717fc002e792828596526f7ed07f9ec05a5f35856243963042fce0007e1"
+    },
+    "packages/protocol/contracts/shared/common/EssentialContract.sol": {
+      "bytes": 9120,
+      "gitBlob": "80b5415a1cf30b86ade5bea49d7e049a41d994a8",
+      "sha256": "7f727d9b16b1580f444c76de785c678953751209fbc26dbeec24fd552df92561"
+    },
+    "packages/protocol/contracts/shared/common/EssentialResolverContract.sol": {
+      "bytes": 3941,
+      "gitBlob": "fbf76e210e244b4398b73984e1a49e611c85f773",
+      "sha256": "9aab150267e3314292893757759ec9ebc572341b0ea519209a47e098169e524b"
+    },
+    "packages/protocol/contracts/shared/common/IResolver.sol": {
+      "bytes": 816,
+      "gitBlob": "56691e31e059d362cfd413e4bbee57948ff83b5a",
+      "sha256": "fa56bf3205f0f8a1f777452b3110fc6a92b3adb3aef365d56bbeaede731c6104"
+    },
+    "packages/protocol/contracts/shared/common/ResolverBase.sol": {
+      "bytes": 618,
+      "gitBlob": "f775cbfd4d54b634c0a8a279b0c607c72c006b77",
+      "sha256": "671a5a4de22a2cf9de348a1e8ff8e3710cb07ee89756db7b3bb30a31d23e8c82"
+    },
+    "packages/protocol/contracts/shared/fork-router/ForkRouter.sol": {
+      "bytes": 2296,
+      "gitBlob": "1be5ef55b232e9767189e4cd6c6609220f32a484",
+      "sha256": "40c3866239c1db6744ecbc93bdda546a8bab37e894788ea2efa15e16c5ec57ed"
+    },
+    "packages/protocol/contracts/shared/fork-router/ForkRouter_Layout.sol": {
+      "bytes": 1221,
+      "gitBlob": "02d901eec75645f410ec5f573a2d4c5e7eae7558",
+      "sha256": "2398b83094674746b169d862ed84076acee836fe187f993d86510ff245763a64"
+    },
+    "packages/protocol/contracts/shared/governance/Controller.sol": {
+      "bytes": 2658,
+      "gitBlob": "9c42da106d433db09ddf09e8b95b951434f899da",
+      "sha256": "0cc4144f0ad151aabc9a9a2da2f8746fe6a359a6985cff20f5f963b06de5bd16"
+    },
+    "packages/protocol/contracts/shared/governance/TaikoTokenBase.sol": {
+      "bytes": 1339,
+      "gitBlob": "2919a6bfa58efb227c7249faf118bfae2c780f52",
+      "sha256": "1963f91e192099106107492d40ae2f8d9ef6735e6dffedbbd986712e4e607bbf"
+    },
+    "packages/protocol/contracts/shared/libs/LibAddress.sol": {
+      "bytes": 2880,
+      "gitBlob": "dd15761696d5ef4fe8a7f90cfc088462c21da5c4",
+      "sha256": "be9603f82e79228affdac1660353e1ff99f08c9c8b28db0ab55e7c7981a0b39c"
+    },
+    "packages/protocol/contracts/shared/libs/LibBytes.sol": {
+      "bytes": 1729,
+      "gitBlob": "dcfaffac72346114ca08609e8fd2ed5c110b78d9",
+      "sha256": "eb1c53ffe21756a5fa86e3be851c98eef6bdd0507cb9902a9d1b1436910c17cf"
+    },
+    "packages/protocol/contracts/shared/libs/LibMath.sol": {
+      "bytes": 979,
+      "gitBlob": "14ae1a5e14d637d878a537e0840e931d786dc468",
+      "sha256": "984aa96de7b2345c65a51e3134d1fe9aec247ac7052b027a666b699d6026bac9"
+    },
+    "packages/protocol/contracts/shared/libs/LibNames.sol": {
+      "bytes": 863,
+      "gitBlob": "84cd0161710be0ddef5bea6abb64d75e730ec7e5",
+      "sha256": "94d769446bec30b2b5b22dac21ee71e63668e451dab90818d0ac10d4b615f829"
+    },
+    "packages/protocol/contracts/shared/libs/LibNetwork.sol": {
+      "bytes": 3302,
+      "gitBlob": "a7932b51e1bdc539e53851ed9512824f29a0101f",
+      "sha256": "5ada2a19fba1ab56c32283a656bbda4b0a47d0ae560ee1f203f2067874af02a5"
+    },
+    "packages/protocol/contracts/shared/libs/LibTrieProof.sol": {
+      "bytes": 2948,
+      "gitBlob": "4c21c35d4da50e409cc4f704deb16dd4b04e2970",
+      "sha256": "45b4e8ee0d0bec7ef33ee6f59a568a3a5f44bc9c780e66ea0e6f767ccf7a250e"
+    },
+    "packages/protocol/contracts/shared/signal/ICheckpointStore.sol": {
+      "bytes": 1749,
+      "gitBlob": "c7365530594bd4fe1fbc4aced01f2edfc7b85bec",
+      "sha256": "cdc68b035819049e3f6bfd3d9a9f371f74e629e4585c339ed2a12c9625db30e3"
+    },
+    "packages/protocol/contracts/shared/signal/IL1StateRootProvider.sol": {
+      "bytes": 757,
+      "gitBlob": "19bdde1ce4a1e023d577582d335cf219af00dc68",
+      "sha256": "5d600ec6ef66c79160e97016dce8efc3fd3b83ae8dbdaabd3d5b18a9969af3be"
+    },
+    "packages/protocol/contracts/shared/signal/ISignalService.sol": {
+      "bytes": 4788,
+      "gitBlob": "6da631e1a1b1de742c34b0b3340b36831e48536c",
+      "sha256": "69e30e32e4df5b19ee108d34575222095eb9b69a43bc389cc789d22999f37e27"
+    },
+    "packages/protocol/contracts/shared/signal/SignalService.sol": {
+      "bytes": 12384,
+      "gitBlob": "584192bea19fc60b57518f399875e2f29b56d4e0",
+      "sha256": "15a793e6bae155907c3f4d98e34cadb00b406f51fb5c7e7c746b0de620f53f14"
+    },
+    "packages/protocol/contracts/shared/signal/SignalServiceForkRouter_Layout.sol": {
+      "bytes": 1237,
+      "gitBlob": "9620c5d36f828a35fa561ad968c872f349566454",
+      "sha256": "09893c6f9bedac034bc1714597dab60c2329f5be6cd661a326d9e36f414b16b3"
+    },
+    "packages/protocol/contracts/shared/signal/SignalServiceL2.sol": {
+      "bytes": 1427,
+      "gitBlob": "ee7b84fe4638ef26494ec069f1494070d251db94",
+      "sha256": "48e4987f9551dbbae9bc53f8903ad4e5789fe15eb1021240743d8e6694e0c7e3"
+    },
+    "packages/protocol/contracts/shared/signal/SignalServiceL2_Layout.sol": {
+      "bytes": 2305,
+      "gitBlob": "140ff63ec7e577b965480a021d671822bb1965fb",
+      "sha256": "2541482432ac1794acde1785f57df58de32bf2d3ca140b7d076f0b2f80691977"
+    },
+    "packages/protocol/contracts/shared/signal/SignalService_Layout.sol": {
+      "bytes": 2301,
+      "gitBlob": "99d3ec972fc970cc021a4d2439bd2b66d14ccf50",
+      "sha256": "880345245d6e8a343eb4f5109ae1bdbdc826bbfe92f7344ae70c942df1ffdbec"
+    },
+    "packages/protocol/contracts/shared/vault/BaseNFTVault.sol": {
+      "bytes": 5912,
+      "gitBlob": "2c2dcdfaf457e9952808cb7625f4c3f7938cd43b",
+      "sha256": "f97eadb1f9241bb377a49a4fa1e4879bc27199207926bdb192fb47043b8cfd7d"
+    },
+    "packages/protocol/contracts/shared/vault/BaseVault.sol": {
+      "bytes": 3267,
+      "gitBlob": "7d83e6b38b77c0b757a24a21fee770dd7dcc9f6f",
+      "sha256": "1df5028e754acac630486842f1f9e7e49bf2f92a4db14d955ce4ad7baa7634a9"
+    },
+    "packages/protocol/contracts/shared/vault/BridgedERC1155.sol": {
+      "bytes": 3591,
+      "gitBlob": "da94013c64587cc793414854e11c7c2c26439ca5",
+      "sha256": "ba91f62f2f7e7ab41f49ee968c1329029ef6c948568817cd1ea6c1f10aec69e5"
+    },
+    "packages/protocol/contracts/shared/vault/BridgedERC1155_Layout.sol": {
+      "bytes": 3063,
+      "gitBlob": "803eb293f01974d13b91a113ff48f87aff217915",
+      "sha256": "231e93f43d24e349dec459056a9e2994d5c600ad44e34b3dff11a79d0734b2cb"
+    },
+    "packages/protocol/contracts/shared/vault/BridgedERC20.sol": {
+      "bytes": 6321,
+      "gitBlob": "06076679f03fa3e2a1e16bdfe3cd12b322d88ba6",
+      "sha256": "f4e2f0a2c64e4903b03675396efd7eeb120e6463897da7040480c45d74b9fe0a"
+    },
+    "packages/protocol/contracts/shared/vault/BridgedERC20V2.sol": {
+      "bytes": 4303,
+      "gitBlob": "00afa6abd7b4cd64ff6fc354ea2b82215b625310",
+      "sha256": "82c66b3dc92ea4f4f3d6c98fe376ef66a932d48e725cd7980464e1b0c74c6e75"
+    },
+    "packages/protocol/contracts/shared/vault/BridgedERC20V2_Layout.sol": {
+      "bytes": 4246,
+      "gitBlob": "64dd36cb8066de6677076e55d8972a53160f0b70",
+      "sha256": "76fc4070056e72d09253219017932d30fb8328965d03331312332501a9b09d06"
+    },
+    "packages/protocol/contracts/shared/vault/BridgedERC20_Layout.sol": {
+      "bytes": 3321,
+      "gitBlob": "9716939a7be59a30bd0929317740d0155d630000",
+      "sha256": "7814f3895992150d5a24323c847efe3c84650895419d8253a9d588540844d62d"
+    },
+    "packages/protocol/contracts/shared/vault/BridgedERC721.sol": {
+      "bytes": 3504,
+      "gitBlob": "e3d75b98695acaff76ca028e684eee991ce8dd01",
+      "sha256": "61a81bc6385bbcf6d506cd8aa6dc4236b01541539db3b12b8502202755688a79"
+    },
+    "packages/protocol/contracts/shared/vault/BridgedERC721_Layout.sol": {
+      "bytes": 3192,
+      "gitBlob": "15b847e36254e0f9eb5d4d06556477e63f927ad1",
+      "sha256": "1fa13c507df871f1ea051739aa4f35a50b1dd524a5ca63422eacf5632db97f11"
+    },
+    "packages/protocol/contracts/shared/vault/ERC1155Vault.sol": {
+      "bytes": 11091,
+      "gitBlob": "f67417ad2825077c8a1e679ae8af4e546a866188",
+      "sha256": "f36e9bf47fa05e30eeb79f4a99f8747089fd4fde1b2059870685d6fc94a85a52"
+    },
+    "packages/protocol/contracts/shared/vault/ERC1155Vault_Layout.sol": {
+      "bytes": 2668,
+      "gitBlob": "82dbded5a9c04633b707af8fe8fd5756c43323cd",
+      "sha256": "94cd2a5f9984243f3096144bd6f7463d9d3e39999c40fa6be2ff5245755bfa01"
+    },
+    "packages/protocol/contracts/shared/vault/ERC20Vault.sol": {
+      "bytes": 28261,
+      "gitBlob": "06dd55bc96faf4fde9abce8932d2238d37725fe7",
+      "sha256": "43f29f645e390b98bdf55b8d72808dfe94d49b529e07d0387c1437f69211e37d"
+    },
+    "packages/protocol/contracts/shared/vault/ERC20Vault_Layout.sol": {
+      "bytes": 2533,
+      "gitBlob": "ded8d2ee7374b88938f96b19a7716370391536f7",
+      "sha256": "6061784512fd894db67f73c4e1af370b4eec0373684ffb1fe153d1e31da19f93"
+    },
+    "packages/protocol/contracts/shared/vault/ERC721Vault.sol": {
+      "bytes": 9263,
+      "gitBlob": "f4c28738f99d69441349fd9f51dca6ef08703ef8",
+      "sha256": "0e19d2538984419557b87fe354fa7b84343ac78829658b895f0da4cb114f38a6"
+    },
+    "packages/protocol/contracts/shared/vault/ERC721Vault_Layout.sol": {
+      "bytes": 2404,
+      "gitBlob": "289020c0c499938e65d268764b8610afd5519ca0",
+      "sha256": "cb3c59928341a665b391a9f60bdcf2bb1bb5aa0d7826cc31a45d5269524769b7"
+    },
+    "packages/protocol/contracts/shared/vault/IBridgedERC1155.sol": {
+      "bytes": 1638,
+      "gitBlob": "377281617091c8eec8c891683eee152a5b37b323",
+      "sha256": "ebfeee25c089d102e564b7c7f943bddd356265cad5be9f958e2de849ed11e289"
+    },
+    "packages/protocol/contracts/shared/vault/IBridgedERC20.sol": {
+      "bytes": 3368,
+      "gitBlob": "46e83492f7ce5b64f9d121f4971c8fb0d5782aea",
+      "sha256": "c025ba9cc97ab218cd18ac4d8084c062c489a5602004601c565b07e9ca27f99a"
+    },
+    "packages/protocol/contracts/shared/vault/IBridgedERC721.sol": {
+      "bytes": 1439,
+      "gitBlob": "feca3cb969c2b4e890a72faa3c4cc7cc5c256871",
+      "sha256": "797dc5d781c7def267e9bd18804df87f227cbff288df9353d5152f09ac4f27fb"
+    },
+    "packages/protocol/contracts/shared/vault/IPermit2.sol": {
+      "bytes": 1691,
+      "gitBlob": "3c5001cdd5d990ef14e31b0c9c4ffebb0f7d4071",
+      "sha256": "c020df00bc85b37c81bd683356e2cff52d1792013d1b737632722eac065b49af"
+    },
+    "packages/protocol/contracts/shared/vault/LibBridgedToken.sol": {
+      "bytes": 1266,
+      "gitBlob": "bf6b8125b8acd238f328ca058b8a2ef8fd0b2c83",
+      "sha256": "d081f05a773d086ab06c64e917de89ec3cb7a3a386b8af1f8f7c3d19a8c26356"
+    },
+    "packages/protocol/cross-repo-taiko-audit-report.html": {
+      "bytes": 94667,
+      "gitBlob": "2b2e5997284d673f6f24558e4d6fa61f71ecad4e",
+      "sha256": "45104ae6926cf486f508690842679cc286feb8d55580fe72acc964736fd4ae15"
+    },
+    "packages/protocol/deno.lock": {
+      "bytes": 1008,
+      "gitBlob": "e4408b235f548bebd56cbfcab3a367a82f7f8685",
+      "sha256": "a8d5335d3667a1ae09dfce6f29e8e8a5fb2db8e6d5ac70dfeb33bbfe4a506bf4"
+    },
+    "packages/protocol/deployments/.gitkeep": {
+      "bytes": 0,
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "packages/protocol/deployments/mainnet-contract-logs-L1.md": {
+      "bytes": 36956,
+      "gitBlob": "8636de7ad388739f4a937ffb990c537fa0bd6212",
+      "sha256": "5555074c5f7994a2e7928f705b2113d2f94e78537745cd2e736c890c714e45b0"
+    },
+    "packages/protocol/deployments/mainnet-contract-logs-L2.md": {
+      "bytes": 16455,
+      "gitBlob": "a99f8f69ac901773cb943d2111d1afeb73f12723",
+      "sha256": "09ce17da982fd0c0656fc244ebe8863872174ef2bfa2c3260681ce1a9102c17c"
+    },
+    "packages/protocol/deployments/mainnet-transfer-logs-L1.md": {
+      "bytes": 2019,
+      "gitBlob": "41222580562d8c984c7acbd00d8d22347e6da2fa",
+      "sha256": "99a1b12a73002605dbaeef5a6c6552fdf1deef9e6a3d4fd711287721a80bcad4"
+    },
+    "packages/protocol/deployments/taiko-hoodi-contract-logs.md": {
+      "bytes": 6544,
+      "gitBlob": "6954ef5d5bf5079286a510568c49cebdee361e24",
+      "sha256": "80f1a3759bd73a45493f5bcf3ff2eacf071bd1bf9571d7a59c51ae0cbceceed5"
+    },
+    "packages/protocol/docs/Derivation.md": {
+      "bytes": 34493,
+      "gitBlob": "c1797eb4f18bbfc040956aa11ef719210ac4661d",
+      "sha256": "461761a1118493c2b138e8868c2ce3b85dcd75b26518f1099d062bb5cbf7c562"
+    },
+    "packages/protocol/docs/README.md": {
+      "bytes": 74,
+      "gitBlob": "ece0467a6d1bad4b0fb0f3f5cb656aefc5091efc",
+      "sha256": "66117baceda18e30339df3da9ad5daabf1c51f44d3f1ea17ade7a6479e8c7d46"
+    },
+    "packages/protocol/docs/actors_privileges_deployments.md": {
+      "bytes": 3954,
+      "gitBlob": "d5eae05377dbff67cb0b28cd7310f67b56d23c36",
+      "sha256": "341f199f97427e20e16d997a401b0adca099fd429a4bb3d512baa70a42ae5d05"
+    },
+    "packages/protocol/docs/analysis/InboxOptimized1-bytes26-Analysis.md": {
+      "bytes": 2706,
+      "gitBlob": "c00222be901538a09864768a7ec3456e609c5965",
+      "sha256": "4caf98e419215068c391cb45c9de823e1d32db8291d05cca7a8fa497cec015b9"
+    },
+    "packages/protocol/docs/analysis/MrPotatoMagic-Analysis.md": {
+      "bytes": 8977,
+      "gitBlob": "46ed5b9fd4e6993a35ffa7d8823e0da39f6bfe0f",
+      "sha256": "130124d8b8c9952371c1d6d7aafe2316a7c1e4cce85dc358c17562bbde05d5b9"
+    },
+    "packages/protocol/docs/analysis/Myd-Analysis.md": {
+      "bytes": 37854,
+      "gitBlob": "0bde2d017335a81316d01e453af58d0270b008df",
+      "sha256": "d409942c9f09ab41b258570678b72443988505bfffa4633133f401bfe1456c0b"
+    },
+    "packages/protocol/docs/analysis/Sathish9098-Analysis.md": {
+      "bytes": 61202,
+      "gitBlob": "64f022ad978f0ba6ee4e2fd77cb0e4505ea9fdae",
+      "sha256": "69eac4a8bfb6f9164064ac19ea53414fa4eb4e92a599ba06f3822da0f51662ea"
+    },
+    "packages/protocol/docs/analysis/kaveyjoe-Analysis.md": {
+      "bytes": 100463,
+      "gitBlob": "7faafadcfdc0069a035a216b44dd43d78189647f",
+      "sha256": "2e4a9eefd5767b625b8a3b1e6a1dc63d37e795cbc0af84e7633a671abf15275d"
+    },
+    "packages/protocol/docs/contestable_validity_rollup.md": {
+      "bytes": 6886,
+      "gitBlob": "11355ff6440e454e47e1dee8a0c8f97d1b578856",
+      "sha256": "3ce4a80a6954a887d9ceadc4b21aab4072a168f45c3f4f09c31e609aeb454e79"
+    },
+    "packages/protocol/docs/etna/ACCEPTANCE.md": {
+      "bytes": 35784,
+      "gitBlob": "a1beeac8fe8665615cbec138f8b65c0091bac6d9",
+      "sha256": "643bb32b82a25186f9006bfa7c5b4f503212bde235a5bf061a79a1cca4df3c69"
+    },
+    "packages/protocol/docs/etna/AGENTS.md": {
+      "kind": "symlink",
+      "target": "CLAUDE.md"
+    },
+    "packages/protocol/docs/etna/ANCHORLESS.md": {
+      "bytes": 26153,
+      "gitBlob": "a818b3fb8af35c39f40d544d5eb7b72a3204a318",
+      "sha256": "6f2227f42d966f134099af6a8b6eba8c6c0db0ac717a857a298e3131b841482b"
+    },
+    "packages/protocol/docs/etna/CLAUDE.md": {
+      "bytes": 5345,
+      "gitBlob": "cafe37d2f9c93cda4fc93e139a525a55b715e17c",
+      "sha256": "c78057f440323e6dc444c5780e4dc5dbbe89032469dba11c96f9c282e53c88ca"
+    },
+    "packages/protocol/docs/etna/README.md": {
+      "bytes": 12871,
+      "gitBlob": "f239276c068bcddb604eae1b6e45d79815998dc3",
+      "sha256": "82abc17a1fb771b4ae9b4b4b536dabfddcb167eff81cbf06ee79404f3a693bae"
+    },
+    "packages/protocol/docs/etna/SPEC.md": {
+      "bytes": 232076,
+      "gitBlob": "649548c58d6629dd85143b33efd3644a3bb71509",
+      "sha256": "4d81d5dadcee3eb94ff554ec5a8144a47888dd5a8263ac5852422a0f1d1dd71b"
+    },
+    "packages/protocol/docs/etna/SWITCH.md": {
+      "bytes": 38322,
+      "gitBlob": "ae5c1dd77851cabe090b24272f7f865b30fac697",
+      "sha256": "933eb39ed5b8290265fdf638d4f12aab64da1b85d7ce1b92cbeb0e258ca9a387"
+    },
+    "packages/protocol/docs/etna/rules/INDEX.md": {
+      "bytes": 154291,
+      "gitBlob": "03c7ac8d10f320ae3791f040b216b25def26e837",
+      "sha256": "721b38677b0901be29c934404d4dcdd344995217f49dbfbd3c5c9fc84bd40105"
+    },
+    "packages/protocol/docs/etna/rules/README.md": {
+      "bytes": 18753,
+      "gitBlob": "4e60c4833ebc2fd6de1ac8b5e759352433e38989",
+      "sha256": "5baca593ec59d604fadf759fc5d8d22f373ffe40f01fea9cc3a325015f0832f9"
+    },
+    "packages/protocol/docs/etna/rules/review/1.md": {
+      "bytes": 9354,
+      "gitBlob": "d6ffbe97dc9b145e706e4254bcdfbc4ee16a20e3",
+      "sha256": "828a9f7a20ae95f2b07ae79f6ac156463578d70fa9e74d20a478686929a68652"
+    },
+    "packages/protocol/docs/etna/rules/review/10.1.md": {
+      "bytes": 2912,
+      "gitBlob": "e06a56506eebdaf9477474ee731d7cb71988cfa4",
+      "sha256": "8aca93274cf0b1d4dc6479bfb325cf60e867e732ad92940c98060c7b61e991fc"
+    },
+    "packages/protocol/docs/etna/rules/review/10.md": {
+      "bytes": 10337,
+      "gitBlob": "540c270bbd4a8ec446670cd8253062c54b6e4cfa",
+      "sha256": "db6333658ff9a6bac837ce77bcecb33fb108e0c2ac3de753add8a2752a26300b"
+    },
+    "packages/protocol/docs/etna/rules/review/11.md": {
+      "bytes": 9244,
+      "gitBlob": "1f34681a8dee2d69ba8c459274de779c7d6f6058",
+      "sha256": "24c99bebc06d89ec85ce3eebd31ca0216f2d51c6ebd110883fc4ac731d75b5b7"
+    },
+    "packages/protocol/docs/etna/rules/review/12.md": {
+      "bytes": 4941,
+      "gitBlob": "ebb4bbc3a1b17906adae053548341e277b64355a",
+      "sha256": "d9dc842ea3b54a92db4f0d0777f73643e1d5329af120628ddbb7974950fe4fb0"
+    },
+    "packages/protocol/docs/etna/rules/review/2.md": {
+      "bytes": 3703,
+      "gitBlob": "6a0bf17a8bcefa80b5c18c1f922d0ad03cc5b44f",
+      "sha256": "74204fd02d72d1723bb55f256965abf638357e4ec65117d342af863471745d56"
+    },
+    "packages/protocol/docs/etna/rules/review/3.1.md": {
+      "bytes": 8866,
+      "gitBlob": "ffe546fa8090a201f96f2158eecfa4cf65a6bc2f",
+      "sha256": "4d5d675ba084bccb52e58d498fee94f3bb0fd5ee309eaa83b896c8c7578fed08"
+    },
+    "packages/protocol/docs/etna/rules/review/3.2.md": {
+      "bytes": 6713,
+      "gitBlob": "c84bcbc7477d8f479a0805be8f444658cc68070b",
+      "sha256": "a26f60f017ad68a0096c654d6b808b4943d12d168c764d758f51df0870ffc0f0"
+    },
+    "packages/protocol/docs/etna/rules/review/3.3.md": {
+      "bytes": 5061,
+      "gitBlob": "a802b0ce7f1c86cf63485fac365f8263f8c37ffd",
+      "sha256": "4f747b1e94294ca8d4bd735a9b7e5e0d74dbbb3f2bebdf38ba182eec10c5af3c"
+    },
+    "packages/protocol/docs/etna/rules/review/3.4.md": {
+      "bytes": 7997,
+      "gitBlob": "3f32a809cd77f750b3fff34bb69189d73ec9a366",
+      "sha256": "02e63b064c120b0290f66161cd5b1d17ee5323e73f87dbea120e9dc735a47baa"
+    },
+    "packages/protocol/docs/etna/rules/review/4.1.md": {
+      "bytes": 6183,
+      "gitBlob": "40135b70eeeed084bf1924adb1c4cf0d23f9132c",
+      "sha256": "16d7b7fe39087411cbdc701330cda71a91bddfa4df2652f7efb110457d7a6716"
+    },
+    "packages/protocol/docs/etna/rules/review/4.2.md": {
+      "bytes": 2568,
+      "gitBlob": "ba941287f50fd4a787a268ee0a72b86c3ba48daf",
+      "sha256": "d44d6b8f9c29c74ff899a59d086e7df2535d7c414907f039d071b1090c01b781"
+    },
+    "packages/protocol/docs/etna/rules/review/4.3.md": {
+      "bytes": 6788,
+      "gitBlob": "2ece5ee0d427f108cc0297011c8e0c4f377e89aa",
+      "sha256": "3a4acc3d5cdcaaf33890049c03132a5c02f510759ed1678f20652c6aee077b99"
+    },
+    "packages/protocol/docs/etna/rules/review/4.4.md": {
+      "bytes": 4368,
+      "gitBlob": "9408272f410927442c74510b13f0cd97a88da3f8",
+      "sha256": "ff63631160ab688d4c631a77c5dd1b016ad2a61ddb29fc87bf767295e9f62579"
+    },
+    "packages/protocol/docs/etna/rules/review/5.1.md": {
+      "bytes": 2318,
+      "gitBlob": "e865eba4355a275de3543a2075df82f9f8f58d77",
+      "sha256": "370521c4b41fa20dad7b600be4f149b2d1dd3e296116b44364b8489b7626a3b5"
+    },
+    "packages/protocol/docs/etna/rules/review/5.2.md": {
+      "bytes": 4913,
+      "gitBlob": "c39972b76c4116a7261d3a27c70deab996b4986c",
+      "sha256": "0b4c3c74331a5785bbd34b12ddb18975bff05d79b8e03dd41564671a131546c8"
+    },
+    "packages/protocol/docs/etna/rules/review/5.3.md": {
+      "bytes": 4044,
+      "gitBlob": "7d302847e5bf917f51b48376f8774d0c9bf0611b",
+      "sha256": "133d8df10aadafe76f118a90ba6ecfe89a43866c019d55b8d408932d35057d1f"
+    },
+    "packages/protocol/docs/etna/rules/review/5.4.md": {
+      "bytes": 2224,
+      "gitBlob": "8d6ba329c9103f2cfa138eae7684386d4e96c5e1",
+      "sha256": "546c2cfbfb390e17dc11388339660c75b702f9c94ce1b32ba541e8ee23e82361"
+    },
+    "packages/protocol/docs/etna/rules/review/6.1.md": {
+      "bytes": 5563,
+      "gitBlob": "1509f3b5ce32f507bfdf9c630fcf47daf3ec04e0",
+      "sha256": "7457a66d7a017c9c92d51ffa0aa075d7235dee2dd6c6cd9499396de8fab7db0e"
+    },
+    "packages/protocol/docs/etna/rules/review/6.2.md": {
+      "bytes": 15228,
+      "gitBlob": "15a4baaccefaf8497f139d30dbf28be110805725",
+      "sha256": "c0ffad1c75061f1eeeade0551a5ffcac01e441084be315c87c5c5037b5f06dc8"
+    },
+    "packages/protocol/docs/etna/rules/review/6.3.md": {
+      "bytes": 5518,
+      "gitBlob": "3b1a58c93d23c6f38fc23a1b8210ab78e2171d07",
+      "sha256": "038bb7b454f84463098e59665ccd026e462f2c6442265779e70c3cef4d3ef08e"
+    },
+    "packages/protocol/docs/etna/rules/review/6.4.md": {
+      "bytes": 7656,
+      "gitBlob": "93fe14f7699f259e6f6b53381b7a3168ac858dc0",
+      "sha256": "245edddc5705dbbc214ff9451d178ffae34ca1ae13e60a54c12620b229580b89"
+    },
+    "packages/protocol/docs/etna/rules/review/7.1.md": {
+      "bytes": 5346,
+      "gitBlob": "7575201b990deba91812b7af24459143b804aa9b",
+      "sha256": "4a4ed49e3e5d039a2806db838cac308eca0adf5ac987984960bb63c95bd42bc2"
+    },
+    "packages/protocol/docs/etna/rules/review/7.2.md": {
+      "bytes": 8609,
+      "gitBlob": "1bbaa1d80c300483b7e1f939ba2753562b32d9bb",
+      "sha256": "3184e358a5440b993780866c96e25f1afddb4b48040aa1d45f98c2a39b9152aa"
+    },
+    "packages/protocol/docs/etna/rules/review/7.3.md": {
+      "bytes": 5267,
+      "gitBlob": "b237de6af71db6af0fc94f167f5d0c3e32391351",
+      "sha256": "64ff8a13e077aa467813d022e52f434b29f4d01792d50b396ee64446d9dac625"
+    },
+    "packages/protocol/docs/etna/rules/review/8.1.md": {
+      "bytes": 9350,
+      "gitBlob": "0b3cd97316c349b71c9479c94b2be864057e4f53",
+      "sha256": "4562b79967fba058f19a1a9fdecd073bc03f5322252a63645e2ec07650bb9e04"
+    },
+    "packages/protocol/docs/etna/rules/review/8.2.md": {
+      "bytes": 4915,
+      "gitBlob": "f931df58e9897bc527d33fcaaec62314435f4ecf",
+      "sha256": "d03f4c4f95600161089b7355433ce36188d8203e9a7b523ba70e020f67c6eafe"
+    },
+    "packages/protocol/docs/etna/rules/review/8.3.md": {
+      "bytes": 7609,
+      "gitBlob": "93f13115cbb6c4a744e04f4e405bb4cd82bdee1e",
+      "sha256": "111fcbbc75ca10101d038e54176b185d0cd774da3ce46f9f8a95705953afd442"
+    },
+    "packages/protocol/docs/etna/rules/review/8.4.md": {
+      "bytes": 6242,
+      "gitBlob": "b79af48cf20ecaa0008c22008a303e874c3883c2",
+      "sha256": "ba5bc2b0320173bfc5b5a4e081cd7df81e6dfc4a712f4f434497f96571a98c86"
+    },
+    "packages/protocol/docs/etna/rules/review/8.md": {
+      "bytes": 15111,
+      "gitBlob": "ec0093d6d9d7b4713300d628c7160c10434cdcd5",
+      "sha256": "d718054bc32f44a92da27350be5358ca906b491d8cb757d870b7f31e87c4a3f9"
+    },
+    "packages/protocol/docs/etna/rules/review/9.1.md": {
+      "bytes": 5038,
+      "gitBlob": "07708d43a61b67154dd0c705ef2570e96e07fea5",
+      "sha256": "377ca2f83f3cb8433a2c42bf5f3d16d3a4dfabd0969fef71272ea1130020b98c"
+    },
+    "packages/protocol/docs/etna/rules/review/9.md": {
+      "bytes": 9839,
+      "gitBlob": "45d37e1cb0f44dc88949097786c495af00b4817f",
+      "sha256": "1430320398d30a2a3c9dc913dcb61122055b5f7182a30e60baf8b0ed98e2aef5"
+    },
+    "packages/protocol/docs/etna/rules/review/A.md": {
+      "bytes": 11376,
+      "gitBlob": "a47243a2c53573a213fa911702500122a2a84323",
+      "sha256": "639b976bcc72881c3b8a6a562e6b0132cf7bc8f0d75770e65dd80e5e7a8effc0"
+    },
+    "packages/protocol/docs/etna/rules/review/B.md": {
+      "bytes": 6289,
+      "gitBlob": "262e51a52efc36415a1c0023b34f26e60eafeccd",
+      "sha256": "ca32bae50f10da7a06b11b0f2ffd7157519efc081f883432119a73dc0b9c122f"
+    },
+    "packages/protocol/docs/etna/rules/review/C.md": {
+      "bytes": 6033,
+      "gitBlob": "9fcc4ee31162432cadfe891bd43e65f05043aec0",
+      "sha256": "9d9ad6a5ddc32e0f49ec689d61dafe5fd40c1096761d3d44dd3f5755f2887ede"
+    },
+    "packages/protocol/docs/etna/rules/tools/check.py": {
+      "bytes": 11920,
+      "gitBlob": "0bf13cd85426fe82b89150784cfb123ef2c04423",
+      "sha256": "7ed83ec766e1c4292aa950771b51df08c2d2f90eeb6b7c05ec47aca750d18e1d"
+    },
+    "packages/protocol/docs/etna/rules/vectors/1.md": {
+      "bytes": 6669,
+      "gitBlob": "eba106a0ab920f8efff55e8f1056529fa5e38b64",
+      "sha256": "4304ab0f62958911471645e65cf4cd438b4639e42d3c0004b8f35a9039607c3c"
+    },
+    "packages/protocol/docs/etna/rules/vectors/10.1.md": {
+      "bytes": 33246,
+      "gitBlob": "c588412499eee4f9042e336e30bb48b7b8d97e23",
+      "sha256": "02d1d11783c3a44a431d907ddc9faa485f1e7d2c2f4fceb6a3bc302fe4cea28c"
+    },
+    "packages/protocol/docs/etna/rules/vectors/10.md": {
+      "bytes": 48344,
+      "gitBlob": "eab20892e71325d396c003adfbc10ce124b3a5b6",
+      "sha256": "694408fd1b668e5db6fe80fe1efc6834efc896166b9e4d118720c5f6438e4d9a"
+    },
+    "packages/protocol/docs/etna/rules/vectors/11.md": {
+      "bytes": 27866,
+      "gitBlob": "ba900d44a8e796786e4912e5b67f1dbdbd62e532",
+      "sha256": "b58efdf6920fecd595099624ea3e1263e9430a3ed604bf67e85b5ad1bdafcd80"
+    },
+    "packages/protocol/docs/etna/rules/vectors/12.md": {
+      "bytes": 17891,
+      "gitBlob": "b87a7065c39bcdf91e88ef36b5a4af4e370483ae",
+      "sha256": "40b31bbd3f60b11be622ac4b94f2650580084667cc2c570ea3dd3405ed1ffc6c"
+    },
+    "packages/protocol/docs/etna/rules/vectors/2.md": {
+      "bytes": 13055,
+      "gitBlob": "0fe4d0ab97edf5724a0e3a59899a059a9198cdcf",
+      "sha256": "0fac4d0b79c1ecf0d13866d59d343ed3e57eb5ca8df51230898fd5cce4aa48b8"
+    },
+    "packages/protocol/docs/etna/rules/vectors/3.1.md": {
+      "bytes": 37858,
+      "gitBlob": "dae726ab19356d9568074f01265360372e03f785",
+      "sha256": "530d0edb311a38e099eb8b7d2956cfe65d9df8407efdf946152832f25c572ee2"
+    },
+    "packages/protocol/docs/etna/rules/vectors/3.2.md": {
+      "bytes": 17083,
+      "gitBlob": "9c30ce5b651b942b3fedf2a2ec50358c7b54ee89",
+      "sha256": "efcd7b626652726e7b800ff7e1f07792a3d39922b5e70406cd714088a468c8a1"
+    },
+    "packages/protocol/docs/etna/rules/vectors/3.3.md": {
+      "bytes": 14238,
+      "gitBlob": "d3545206d327b67b5816e3828f734626f5ed818d",
+      "sha256": "581133eeaf436c9fc5f8654b8e9a2138a416b4d754c6424f3bede855ec43398b"
+    },
+    "packages/protocol/docs/etna/rules/vectors/3.4.md": {
+      "bytes": 27748,
+      "gitBlob": "67e681ef9e69df364d2c3ec18965a744c851ec1a",
+      "sha256": "dd26de76689f7867a18ded13d99d56c73d34f1d62d7e9f28762fb4455dbeb4e0"
+    },
+    "packages/protocol/docs/etna/rules/vectors/4.1.md": {
+      "bytes": 68799,
+      "gitBlob": "28d25682563487cec4dbdf48505106c04ae71632",
+      "sha256": "e1c07b1939f2d0e9e8f0b19cc1f18898c106408c8a736f96bf61a19f8182d98b"
+    },
+    "packages/protocol/docs/etna/rules/vectors/4.2.md": {
+      "bytes": 4758,
+      "gitBlob": "9955ec50aed02cb67d0e60fe83f85a300de72bca",
+      "sha256": "7d64374426dfcd92ac6578bd6b09539953e6ccebfc07e9f85cf0f67897f2575c"
+    },
+    "packages/protocol/docs/etna/rules/vectors/4.3.md": {
+      "bytes": 23030,
+      "gitBlob": "0e0f2a8ca230d9b2fe861a23a0d55bef820ea2c3",
+      "sha256": "28801b5cb439331dd0be9e6060a2dfcccd39cdf1c7b310290202e51f5c1f2008"
+    },
+    "packages/protocol/docs/etna/rules/vectors/4.4.md": {
+      "bytes": 22438,
+      "gitBlob": "78ac4b82491d01c79ecb98947f12bc77d037c298",
+      "sha256": "a0fca209940e00381712e340bba716c1ce2e275e738cfbdb94ae34e63f360ce4"
+    },
+    "packages/protocol/docs/etna/rules/vectors/5.1.md": {
+      "bytes": 4717,
+      "gitBlob": "29f88a5032fdd1f31ab7d9557944316bd24ee986",
+      "sha256": "034ddcae72b30e3cc3f8179cf03b4e13f661bee55d74e60cf634af0d019523ef"
+    },
+    "packages/protocol/docs/etna/rules/vectors/5.2.md": {
+      "bytes": 11459,
+      "gitBlob": "8753a421259b18c97f0befdddb24b9560002ccf9",
+      "sha256": "59a0ce76ef3d83cef3036f981bbf3c58dfd3d8c616f4a742490b09d70b481c6e"
+    },
+    "packages/protocol/docs/etna/rules/vectors/5.3.md": {
+      "bytes": 27507,
+      "gitBlob": "677b644d2df84719ec3d1b024fd2001c3f545a19",
+      "sha256": "f0b93ae2ab2916bc055da2abf119780a7036d4c85ffa05aa9c8b431d7f7c9ba0"
+    },
+    "packages/protocol/docs/etna/rules/vectors/5.4.md": {
+      "bytes": 27676,
+      "gitBlob": "418f743dab34dd884b735f3428f3b4cb5a09590b",
+      "sha256": "e7aefa3558e24a8fbdd89e39989cd2bcf61a6901fc266a1b9491ba23f9d97c22"
+    },
+    "packages/protocol/docs/etna/rules/vectors/6.1.md": {
+      "bytes": 27239,
+      "gitBlob": "3e43c7387195131fe320374360c5a9f5381591ca",
+      "sha256": "b44d95a73d94f8e7d4c55f9c3e748074fd1cfeb2a19e403d1e76b4853da68e38"
+    },
+    "packages/protocol/docs/etna/rules/vectors/6.2.md": {
+      "bytes": 60473,
+      "gitBlob": "6d05039fff11c2edbc9178c4ab107f696196f91b",
+      "sha256": "04b3eabe8c9de7a8361be0569e71c8fecf40c4aff0e7487edfb3315c91621bb3"
+    },
+    "packages/protocol/docs/etna/rules/vectors/6.3.md": {
+      "bytes": 16768,
+      "gitBlob": "cb47d1566923b868f50555991c7af7b14fd43d94",
+      "sha256": "a423db33f61a4c0e34f1a1f7799c4ab8e610dcc0cb79e3c77b512ab5275eddae"
+    },
+    "packages/protocol/docs/etna/rules/vectors/6.4.md": {
+      "bytes": 18678,
+      "gitBlob": "1886feae0a5bf7ce77eae4c227ecf1062e9cb46f",
+      "sha256": "dd7b08ab9c78d789935d07405215768e0a9226922acb6420d3b3b3467a11ed67"
+    },
+    "packages/protocol/docs/etna/rules/vectors/7.1.md": {
+      "bytes": 13539,
+      "gitBlob": "a67588657285d415bf0ce459290938d65d55554a",
+      "sha256": "b28e260772cc50fdd2fbc7b1d2222a76064883c7cd5ebfbab2ffa6d25322ccb1"
+    },
+    "packages/protocol/docs/etna/rules/vectors/7.2.md": {
+      "bytes": 21630,
+      "gitBlob": "d437354f942af2d7a5fa0183e281ad41bb959944",
+      "sha256": "d15aef32dc6c0f4ddee215e15f64cf20e90719610a435248f81e4372ca3e2688"
+    },
+    "packages/protocol/docs/etna/rules/vectors/7.3.md": {
+      "bytes": 7854,
+      "gitBlob": "b7347176e26fa7a59a3137100e1f0fed901f133f",
+      "sha256": "8b0c75c1e9cb3106427999a18d0b762e0175782e19b4c6cb4a21cf3914b7346f"
+    },
+    "packages/protocol/docs/etna/rules/vectors/8.1.md": {
+      "bytes": 14814,
+      "gitBlob": "c090daab25298b590f1d0e8d8d642cf1608b15d7",
+      "sha256": "b2417b277a03762cb6aef61887a76f11416775d0e6d75c4f4c0a68ec2775b230"
+    },
+    "packages/protocol/docs/etna/rules/vectors/8.2.md": {
+      "bytes": 6306,
+      "gitBlob": "11f5e81966c3e1ac7f3719a9340015535822648c",
+      "sha256": "723d085ee2326d46794569a98351cbe76c2637682e6091cf576c19f93d5372be"
+    },
+    "packages/protocol/docs/etna/rules/vectors/8.3.md": {
+      "bytes": 16260,
+      "gitBlob": "fbd71205fcc861860760a898bd6a789d51034bcc",
+      "sha256": "91889a98ad837629677befee6aa0698ba40ed2938b727f63f03d78cc457cd3b9"
+    },
+    "packages/protocol/docs/etna/rules/vectors/8.4.md": {
+      "bytes": 12593,
+      "gitBlob": "af696ffe94a88794c41af96aff1d7c91e10029f7",
+      "sha256": "1c0cefeace0aba4706ed4bcdcdbe3c2c6c188548d82df88cb0dcb89b9c99283a"
+    },
+    "packages/protocol/docs/etna/rules/vectors/8.md": {
+      "bytes": 56233,
+      "gitBlob": "d53edc2910116e5a7272f006328a875b004513d4",
+      "sha256": "f29def073da1c16fb707409f61129725defdd7ed4915fae6466db62d7338e65e"
+    },
+    "packages/protocol/docs/etna/rules/vectors/9.1.md": {
+      "bytes": 11961,
+      "gitBlob": "77cacf4a3dd871a7b43c6920d7ec6f8d13f1ba7c",
+      "sha256": "216d4098b8cb0940257f6ee88655ec83f5c8e54fb8771acc6d89d1cb497381cd"
+    },
+    "packages/protocol/docs/etna/rules/vectors/9.md": {
+      "bytes": 37221,
+      "gitBlob": "ee88d376b2a9797516eed4abf4314bd1efa976da",
+      "sha256": "fdcfda9d9165288c7e9df277f31dbf0105c423fae9c8155d2ad471d86d22f408"
+    },
+    "packages/protocol/docs/etna/rules/vectors/A.md": {
+      "bytes": 88322,
+      "gitBlob": "a03e4c79b7b2424a38947f8b0a6741c55e8d1e47",
+      "sha256": "ac1b17101580cf3b833c46659cd29e849f5cfa475138122e4680b0229e4ee60b"
+    },
+    "packages/protocol/docs/etna/rules/vectors/B.md": {
+      "bytes": 33488,
+      "gitBlob": "f4c2432ae285ec616e8d5e23f8c18b8722fe21b4",
+      "sha256": "ef16451bb953e3704b88613512896ae0f3e99b999a1242ff1c446bf94fb5e071"
+    },
+    "packages/protocol/docs/etna/rules/vectors/C.md": {
+      "bytes": 13019,
+      "gitBlob": "47aeb7f9aaac9046050c6f3e3a9cdcad4ffbe2a6",
+      "sha256": "7c7d22b79a1b8d3d2f94328631f8888f473c5a046611523d07c9981173a815ec"
+    },
+    "packages/protocol/docs/how_taiko_is_deployed.md": {
+      "bytes": 821,
+      "gitBlob": "32aab49941ee48c4f72fdc570d709db4656964e9",
+      "sha256": "b063eb2b66e9dc4a368d66d66a36056ea3a8fb0b92b421957de2676a190563c2"
+    },
+    "packages/protocol/docs/how_taiko_proves_blocks.md": {
+      "bytes": 14975,
+      "gitBlob": "45269e44cc3b4651ce4dd2fcfaf665c72e677f64",
+      "sha256": "70edc0580fa3dd0bbcdd615fbb3684be2a86c1db1356bebb6f80fbbf6892bf84"
+    },
+    "packages/protocol/docs/images/bridge_1hop.png": {
+      "bytes": 216015,
+      "gitBlob": "473d12e85e30efdb9d0c4c1e8ed3be3e5bd0bb76",
+      "sha256": "9fe03a9d952967d2243f5916f3ff088ef2673db3fd9e6c9f53583cdb4e75bd22"
+    },
+    "packages/protocol/docs/images/bridge_2hop.png": {
+      "bytes": 326150,
+      "gitBlob": "c904229d1d783a34121f715586d833bef9b9a2e5",
+      "sha256": "64ba4143406ff6e7f55b22d82514a311f72bb63bf60f3a2e25bacbf8ba044e9b"
+    },
+    "packages/protocol/docs/images/cache_1.png": {
+      "bytes": 279687,
+      "gitBlob": "ef4890cffc7b9cb2714997fde81c7495dcfc6c8d",
+      "sha256": "b3d617bb7759a1d0edde2da7e257308f6953a3a1828172fbaa26cddb41e40318"
+    },
+    "packages/protocol/docs/images/cache_1_done.png": {
+      "bytes": 312088,
+      "gitBlob": "2b977b9b9a5d48b68be8d53d8f215c182a7108af",
+      "sha256": "0af421dd3a15d6319e78f85b086fe662c4ecd32c2baa9aa905c20a33f2ba974d"
+    },
+    "packages/protocol/docs/images/cache_1_use_1.png": {
+      "bytes": 235982,
+      "gitBlob": "01686def484659d7449f52c276756f560c01f12a",
+      "sha256": "29322316620a6326c39b4ba58dc8c88b4be7aecc73b6bfc2e903ebea9984adbd"
+    },
+    "packages/protocol/docs/images/cache_1_use_2.png": {
+      "bytes": 232129,
+      "gitBlob": "50cb9421354e95bb9488eb40c603515cc132fb21",
+      "sha256": "fa64a09f0c11d4b3e3204811daab0e24b65cd6070df513f01c96457d1070b39d"
+    },
+    "packages/protocol/docs/images/l1_l2_sync.png": {
+      "bytes": 115199,
+      "gitBlob": "980411653e9f1abc291bfb76f9285f152e5621a0",
+      "sha256": "d3292547a022c6f0880c3eee94f3ad5d5f4dcce81f5aafed7cca9575b431b4b9"
+    },
+    "packages/protocol/docs/images/merkle_proof.png": {
+      "bytes": 36276,
+      "gitBlob": "ab1637891f5de2d732e9c9e77fb9a55201022075",
+      "sha256": "36e1128d8135fa80daf5965be2cddc0d1c9b4b04e5f63e77ce488682e8b820d9"
+    },
+    "packages/protocol/docs/images/state.png": {
+      "bytes": 42239,
+      "gitBlob": "b7e7f694d2b5bc49ad332bba06b7369382013e0a",
+      "sha256": "6bfdd9185fc039c99822a9171f72d6918260088f516dec2d862f7c55625dc704"
+    },
+    "packages/protocol/docs/images/three_chains.png": {
+      "bytes": 243104,
+      "gitBlob": "c2aa5a6ec83233664eed280d2c943c8f744bb29e",
+      "sha256": "0ce949a7ae7e65dd7c6a6422705306f0599459f56f8f38f70977ef2269b95e0a"
+    },
+    "packages/protocol/docs/multihop_bridging_deployment.md": {
+      "bytes": 4569,
+      "gitBlob": "ca96b55aa1092a4f5dd4f736c6b9985cc65451b5",
+      "sha256": "0c765bf64c9c0221dfbb2ef67f30191ec6c3e7ebff29d7afa09bebae77b969ab"
+    },
+    "packages/protocol/docs/tokenomics-whitepaper.pdf": {
+      "bytes": 81072,
+      "gitBlob": "74b1a79453b57b3ec975b8ce82bf5e453201167b",
+      "sha256": "08251d66dba96c7f736daf0e8aea63f72a3d2ddc1714ec62a7c057bfb28a4a04"
+    },
+    "packages/protocol/docs/tokenomics-whitepaper.tex": {
+      "bytes": 4897,
+      "gitBlob": "70ded47c4973410af37c733b1f0cc50532bedc8f",
+      "sha256": "5ff512ce8aa1792c4bcd1d6b65470fb5f90b792de33275ca3583cb5b5c68daf9"
+    },
+    "packages/protocol/docs/tokenomics_objective_metrics.md": {
+      "bytes": 3725,
+      "gitBlob": "202bf7d2e0242582ca459e46088c33de6c33c937",
+      "sha256": "3bb2d04b73dc7b7f7dcef5b7c42a8d5ad7671da2d55e1b2b2658382294cdded6"
+    },
+    "packages/protocol/docs/zk_gas_spec.md": {
+      "bytes": 20660,
+      "gitBlob": "8dac2e6ac752df4cca2d70cdbc63823fd144eff0",
+      "sha256": "e2fc392ce25462d1ef908249280de873deb6820bd6106bdba838c15461b5983c"
+    },
+    "packages/protocol/foundry.toml": {
+      "bytes": 6896,
+      "gitBlob": "3dc91f2738376e77f961c063891fd70f6321cb2a",
+      "sha256": "272b2f1e32b573ed77993320670d87fe8290317412610b2146b44ef42279edcb"
+    },
+    "packages/protocol/gas-reports/LibProposeInputCodec.md": {
+      "bytes": 714,
+      "gitBlob": "9c5dec02f5e8aa67c7e1b0d567fe82440257275f",
+      "sha256": "c248d552f8e7cef0fbecc6446ae644e287fc7824db91d0bec1f08c6584936c21"
+    },
+    "packages/protocol/gas-reports/LibProveInputCodec.md": {
+      "bytes": 688,
+      "gitBlob": "b6478ecff10b14ce2d8e4ee35b46eb27ecdef769",
+      "sha256": "fe6a04ec53fad9b8d444a84f6903cdc93079684fb22063b9d8cc7c0d4841db40"
+    },
+    "packages/protocol/gas-reports/LibProvedEventCodec.md": {
+      "bytes": 451,
+      "gitBlob": "f046a83d0daf01a40d928b65fe9371e4127c60de",
+      "sha256": "34f8ecb078863515c437029907449c29674d95f865ffd2d07571043238b8d982"
+    },
+    "packages/protocol/gas-reports/layer1-contracts.txt": {
+      "bytes": 70821,
+      "gitBlob": "6422e1fb6a5a2cc84ad619d3c94b867de1ffa559",
+      "sha256": "d58a98bf96110db02600c2a8b98f495a0a095a80629635ce50678ffc966ae830"
+    },
+    "packages/protocol/incident_response_plan.md": {
+      "bytes": 3249,
+      "gitBlob": "7a5a742fc6cd43fdd2849f34f24a940c0f867e25",
+      "sha256": "cb68be9e6ae86cf1b9a76b090758135db674ccdd318452211ccb9f6b999fa0e8"
+    },
+    "packages/protocol/package.json": {
+      "bytes": 4439,
+      "gitBlob": "f4384f74e5d9661146c8f067b6fc0a140b80dd9b",
+      "sha256": "085777852405bb14b6d983ffd62694d347cacb7ae6d4423d6ac5a9936d292973"
+    },
+    "packages/protocol/script/BaseScript.sol": {
+      "bytes": 2788,
+      "gitBlob": "e41f156303db7989c58cb84a402d3fe8e427be24",
+      "sha256": "32550ba9042f015c52952b6fece26ed1d28b6e76385e7cbe59c2ddb301f371bd"
+    },
+    "packages/protocol/script/gen-layouts.sh": {
+      "bytes": 4898,
+      "gitBlob": "f22709e18b6b00e033faa9ca18aa58f7608c0af3",
+      "sha256": "f887609999b19c91e8223fc447ac862f62c9baa132219f9cbe67811091afd1aa"
+    },
+    "packages/protocol/script/layer1/core/DeployProtocolOnL1.s.sol": {
+      "bytes": 18900,
+      "gitBlob": "b1796f73dc72f236940eb6eef425377fed7405a3",
+      "sha256": "580af62ec6beeef14696971bcce37e70be5cfa7ebf28fe7bd7108eb07ef9bbc7"
+    },
+    "packages/protocol/script/layer1/core/DeployShastaContracts.s.sol": {
+      "bytes": 9611,
+      "gitBlob": "bd46ebd1c6738e4788e027a7674d276ab5e43411",
+      "sha256": "6af1d163a51b6329d954ce263e32ed38416d197d96ed0c28fa7b937b3754e0f2"
+    },
+    "packages/protocol/script/layer1/core/DeployShastaHoodi.s.sol": {
+      "bytes": 2343,
+      "gitBlob": "42f16fd661e537fae0b3713ce430658f0a27497c",
+      "sha256": "69f74a8490f9495c063423f60fabde5cf6998ff4663a362c54e0109e9742c7b8"
+    },
+    "packages/protocol/script/layer1/core/DeployShastaMainnet.s.sol": {
+      "bytes": 1998,
+      "gitBlob": "5c7f10d9e5e535c33d58ef32ba31fc2caa50fe5f",
+      "sha256": "d7c56a57bb8284e528b68bd0a94b598328840d84cf337def101055fd5d5805f3"
+    },
+    "packages/protocol/script/layer1/core/DeployTaikoToken.s.sol": {
+      "bytes": 1009,
+      "gitBlob": "561e4f282f871fb7aff6629ab849599e29a3116f",
+      "sha256": "6fa079a6a2b97bb67531bd4add22066e857483bec3f7736a34ec04ce02175c43"
+    },
+    "packages/protocol/script/layer1/core/UpgradeShastaContracts.s.sol": {
+      "bytes": 2910,
+      "gitBlob": "3864bf5ade192b7435f403a19dee5109bfa3218d",
+      "sha256": "93b1911a8606e5d7d7ff993d3cc4945141bca09cd243dea1e38cbef1ae9893b2"
+    },
+    "packages/protocol/script/layer1/core/UpgradeShastaL2Contracts.s.sol": {
+      "bytes": 4333,
+      "gitBlob": "48a1cf72d546bf941ea0fc835b436ade23bf6a68",
+      "sha256": "3306d65ccee6ebf4c64ebc434e53dda610beffdb85a79438841d672645bbca0a"
+    },
+    "packages/protocol/script/layer1/core/deploy_protocol_on_l1.sh": {
+      "bytes": 1973,
+      "gitBlob": "fb6ce526ff75fbf75f4dd850d08ace0466315d39",
+      "sha256": "9a6ff450d9285f5996ccf52245f415ad4a9d173d24b82c4e514eb26d760a614d"
+    },
+    "packages/protocol/script/layer1/etna/DeployEtnaDevnet.s.sol": {
+      "bytes": 16895,
+      "gitBlob": "91de8e234c25ffaab60a26007fb92b0a6ab89990",
+      "sha256": "aa3dab5990eacbfbf9a298d3440f6ac7f15a29fbe9df35b4c5fab6c7b1b64a10"
+    },
+    "packages/protocol/script/layer1/governance/BuildDirectProposal.sol": {
+      "bytes": 9605,
+      "gitBlob": "7829446858f20ff65ee5133e652a0f032ab54cd2",
+      "sha256": "a1d6859f2ee020068ef10ebb0268bcdb6f7e5a2ca0425ce9245930e1308479ae"
+    },
+    "packages/protocol/script/layer1/governance/BuildProposal.sol": {
+      "bytes": 6391,
+      "gitBlob": "30e9a9304eb98c857fb7666affc9016def3afa55",
+      "sha256": "56b4932baab885b515b651aa26e36d1ddf0c43bc14c91d59d7431d5be2c3c66a"
+    },
+    "packages/protocol/script/layer1/governance/IAragonGovernance.sol": {
+      "bytes": 6375,
+      "gitBlob": "1f90ebcd3296fdd9ae4d356da86d6a2877b1cd58",
+      "sha256": "f9c8811c0752bf9b3d66b6a27596b7e16f30e70d7ff4aa6807291171a13e09e0"
+    },
+    "packages/protocol/script/layer1/mainnet/DeployBridgeUpgradeL1.s.sol": {
+      "bytes": 2649,
+      "gitBlob": "37752e13e30cbeb8479d664c90e6eddae81f3e08",
+      "sha256": "1417e372052a5d51e186e142c3f959ce8a2470b70c57b101698d04b4479b2f89"
+    },
+    "packages/protocol/script/layer1/mainnet/DeployBridgedERC20V2L1.s.sol": {
+      "bytes": 1971,
+      "gitBlob": "010adaf1beb1522c1438ff22aa6f8bae420944c3",
+      "sha256": "0554c0c7a8eb8884ca9268e1468b0c5a7b9e645380bfc913758132cda3e5f7d5"
+    },
+    "packages/protocol/script/layer1/mainnet/DeployERC20VaultUpgradeL1.s.sol": {
+      "bytes": 3207,
+      "gitBlob": "98eadb5c37d6b02a9d7eb424d538d6905a8b9dd7",
+      "sha256": "b3716a81c2b1a3335e318e1a0c0b7d39ca8ab6cd13d6ed35870129643e1abfd5"
+    },
+    "packages/protocol/script/layer1/mainnet/DeployHackRecoveryContracts.s.sol": {
+      "bytes": 6260,
+      "gitBlob": "70efc1d518a997c6738c0fe2d865502235c3af48",
+      "sha256": "fca3ffdd40e659673963bb099f2ce4accb9e90f69f647549f4e6305607679e3b"
+    },
+    "packages/protocol/script/layer1/mainnet/DeployInboxUpgradeL1.s.sol": {
+      "bytes": 5689,
+      "gitBlob": "ede436feb8078b6e6a42c8ad5fce7573b70fee7e",
+      "sha256": "9dd17d6e719119bfb57102f64858b2bbaa41471017edabff8c5957efe2cef621"
+    },
+    "packages/protocol/script/layer1/mainnet/DeployProposal0025L1.s.sol": {
+      "bytes": 7343,
+      "gitBlob": "e269e24c3047b7da53f49a6bd5be3be222395314",
+      "sha256": "743ff0f07f36aaecfa0ee1660bcd62f0bdd5f1ab5b426130eabaf83239925efe"
+    },
+    "packages/protocol/script/layer1/mainnet/DeployQuotaManager.s.sol": {
+      "bytes": 2158,
+      "gitBlob": "0040269cab516fd5227357c8bceb6f1a843dfe64",
+      "sha256": "d611187927141340a1a215bc8867c66d6b3c78deb03bebba610606649e8e47fb"
+    },
+    "packages/protocol/script/layer1/mainnet/DeployTaikoDAOController.s.sol": {
+      "bytes": 405,
+      "gitBlob": "ee465c9980ac2d072861093bbf25e34dcf75e59d",
+      "sha256": "bc076d16e8c5b9197d8b271cc62d4d7ba44136a55376bffd7f3955b30924c219"
+    },
+    "packages/protocol/script/layer1/mainnet/DeployUnzenContracts.s.sol": {
+      "bytes": 4103,
+      "gitBlob": "c4f1e4aa51cdf15efcb688d96483a8d879e8aecc",
+      "sha256": "f33fee3eefe3090388df6e28051d989ff541c78825380c867c18a3083f4f3377"
+    },
+    "packages/protocol/script/layer1/proposals/PROPOSAL-0007.md": {
+      "bytes": 1560,
+      "gitBlob": "95b30d0504332d236475399f9fc40d8e91fb7699",
+      "sha256": "0e0dce7bdb4628612a78eed20d00c936f2eae6c4b708121df5f56351ed7b0f3d"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0004.action.md": {
+      "bytes": 5768,
+      "gitBlob": "ac48deda619b127692ba958cb34d9460ed67de09",
+      "sha256": "c58b96a27366c1eb65f719c233e6599f69a731671fb00d038103b0b38547f32d"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0004.md": {
+      "bytes": 7971,
+      "gitBlob": "96ce2e764d4425c1955f86bac4a0f02f9649e73d",
+      "sha256": "a392199ac9670c81d0f7a664cc9cdef0152d4a43c6443af9b35a76c3f3c6d342"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0004.s.sol": {
+      "bytes": 4423,
+      "gitBlob": "4704da03e3cd9c970348f97c4944c1fd56104518",
+      "sha256": "9b8f97862745af26ddbafbfaa9ca9bdd0badf44bce3909f1061e731ee7c0da70"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0005.action.md": {
+      "bytes": 776,
+      "gitBlob": "c92079704dfab39c010f5c1bd508052ff2f83ab4",
+      "sha256": "9bfef6be9d893532987d74d950cffb4474aa6b51bf0844f9505ed18dc2746ae0"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0005.md": {
+      "bytes": 2295,
+      "gitBlob": "22995223e17325135a4a1f1e19fd8bf4866c1a24",
+      "sha256": "29a567f18376b7ce81b130cbdfb310185d6a42645ed2c94620bdf40bc0af0e30"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0005.s.sol": {
+      "bytes": 778,
+      "gitBlob": "36636b9b41a0d0757cf9a1317d00403cecca9959",
+      "sha256": "9218ef8be5ac79928aebb8772b9937981af5f41551d95431e21fb13322856725"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0007.action.md": {
+      "bytes": 2312,
+      "gitBlob": "728ea8e786f4721f390d909f975a20a7af901a3d",
+      "sha256": "d1b98bf7d72159d28d41e5642f3f14f489316734408f4ffc93bda28d0037f989"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0007.s.sol": {
+      "bytes": 1147,
+      "gitBlob": "169fcc467e899e3f75b7bca44491a85a785bc9d5",
+      "sha256": "b58617e33cb6d6577fd54b15f5d6b1dbb9790d6a2a9c345be7c9a8a2c3526237"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0008.action.md": {
+      "bytes": 968,
+      "gitBlob": "a12e6c2d34860094c5fbda874e849fdb60cc8191",
+      "sha256": "68a9e9970e7b3f3a29bc7766859e28e0d1d10b0a8d9b7af3ba6d03b1e299109d"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0008.md": {
+      "bytes": 2482,
+      "gitBlob": "b84dc0897d4209ac125e7b26b785b81396d55297",
+      "sha256": "b564bdf311ac95b6ac8e8d9d66b612f844452fcda6ca9d41fd7da24456c1cf67"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0008.s.sol": {
+      "bytes": 1361,
+      "gitBlob": "fe906339f7da4120534dc5dc1bf71fd94825188f",
+      "sha256": "e83f06317a210bfec91438f98738125b1a52d07f4eb3396962e664aeddee0e7d"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0009.action.md": {
+      "bytes": 9095,
+      "gitBlob": "f3493de8f71d701fcfbc0b1cb413a80ee1ee43ab",
+      "sha256": "1f6d689e98fa6cab82c62eed963721db354a2ba9af9483e93fe4c7fef15eecc9"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0009.md": {
+      "bytes": 4519,
+      "gitBlob": "fb7989605c0424dc55294641272eaa6913453f57",
+      "sha256": "f68d524bed79daae57bbc757fa1da8dea41c753ae98739c59ae2eab52f691717"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0009.s.sol": {
+      "bytes": 7996,
+      "gitBlob": "affd653b437ad3fa311a48194fddd97b10897e2a",
+      "sha256": "87a7fca45ec98dcfe1daa3437e097a62793e4e3926e4bcf3e13920674fb59e3f"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0010.action.md": {
+      "bytes": 4872,
+      "gitBlob": "24cd7e4ccd4b36f1608b4451127ad017a8305159",
+      "sha256": "a0ddc1db6617478e8808b79aab96c21b2ca3167c93f63573ee4a40da12857cca"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0010.md": {
+      "bytes": 5766,
+      "gitBlob": "c1285c151a14f89a8928b585a88e98a921cdb3ff",
+      "sha256": "548dac2331e9737d4d9707c03b8f3c40a4dfd192082d08262b7f1f4f1030f68e"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0010.s.sol": {
+      "bytes": 4881,
+      "gitBlob": "a09fb1cc7a9327690d7e2bd6601f4adc9c4025c4",
+      "sha256": "bbaeaa1a00150a433d93cbe3b70778c8dce71fd17565717f9c3000fd37f58b4a"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0011.action.md": {
+      "bytes": 3592,
+      "gitBlob": "3ba23dcf26eca8e93641bbd9a487f1c759da9654",
+      "sha256": "f285dc78c696b8c66ed3232fe8ec3ade1afe5ba8c9152dd19727330d47ed0129"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0011.md": {
+      "bytes": 1737,
+      "gitBlob": "f616ce889fec63d58a265a95b8d66517b934052b",
+      "sha256": "9a98a9fb15d7f62f66279c8bf118d33b4b969e3fb393c2168dc2311263693e28"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0011.s.sol": {
+      "bytes": 2216,
+      "gitBlob": "87054435a831c807d1deaad1d93217f601e96d98",
+      "sha256": "b472da1558192bd138192a3a16fae355151f1e171cdd9069f6a095eb2e983cf3"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0012.action.md": {
+      "bytes": 712,
+      "gitBlob": "fbb490125c284680caeaf43e970221010e0bd8ca",
+      "sha256": "1157b956785a0e371a592cc937cdc115ab08f8441547b4a88d77cfd6b6d59223"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0012.md": {
+      "bytes": 3583,
+      "gitBlob": "46fd7639fd543a71521fad37f1c2e6cb30e58c88",
+      "sha256": "dc98895f3bd3fc0969d4eb482399e0566336fee576b7933a1b038dea2546a6d6"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0012.s.sol": {
+      "bytes": 915,
+      "gitBlob": "ae7b21d2fe8e4cffd417b0d3e80a30669c6259c4",
+      "sha256": "e846c5e4f17a08127861f9dfcce55a93bc26375be95fc3dccf87e8bf37ba604d"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0013.action.md": {
+      "bytes": 3336,
+      "gitBlob": "e851deaeb73dac7d96bd3460d35e66328fcd32e9",
+      "sha256": "f93c135522cf9fa3eb860f289077b4d8240fa47a47179e6082d95ae4af375cb6"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0013.md": {
+      "bytes": 5196,
+      "gitBlob": "170f4107f7c0f7ebe13349023600f6804f214b6f",
+      "sha256": "01d030da4a8c199fec5c69c41aa76855cb5b6c3f8c04f166138c95e37250c1d6"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0013.s.sol": {
+      "bytes": 3470,
+      "gitBlob": "de9b9ad592e72551677f37905c81017d49c3b002",
+      "sha256": "1ee5320e351e2e33c696349f832874571d8a41361e81636ce096b06ff1e43e08"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0014.action.md": {
+      "bytes": 6408,
+      "gitBlob": "e9314be803912f76d501273a75996ef36d71293b",
+      "sha256": "485a46b69680434603f8f85b86ceca04e26b519ca2d2a6d03708f150d57729c6"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0014.md": {
+      "bytes": 12291,
+      "gitBlob": "67fa56504f7c535cd94429965043dcc5a4f80cde",
+      "sha256": "3d19feec9e366d2dcc864ae257d4275ad4f780e03a185f0e6b9f5e0c98d0d7d7"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0014.s.sol": {
+      "bytes": 5842,
+      "gitBlob": "baf7bfaa1fc6a68625d7e495b3db7eec1d375838",
+      "sha256": "48f4aee2a88d0203657f1493787cb7363061854ec9142024386868af42209468"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0016.action.md": {
+      "bytes": 712,
+      "gitBlob": "2e72086e2e238ddcd1163c0083178eb601a64fed",
+      "sha256": "8e80f4f8d1f29fbbcac2149cc28a96f741b9429179a69f7f11315f378adedd4d"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0016.md": {
+      "bytes": 2103,
+      "gitBlob": "62591fcea29a5250f868d6d3198a4915e9897b81",
+      "sha256": "2a2c281da85a0aa8846b4d67d5b7ce4b4a12c2c9f67ab98cfde1afd77def0ea3"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0016.s.sol": {
+      "bytes": 653,
+      "gitBlob": "a73fd5a8351594a0ee7aed7c8e5116eb460a0b0f",
+      "sha256": "ec1ad5398abe2ad71ea52b3f979a3e940f306836f49ef3ab892f93acf4b0cc97"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0017.action.md": {
+      "bytes": 28871,
+      "gitBlob": "4b67f1c2780ad6968996ca1c7d3a4475493c2dc2",
+      "sha256": "f1e27962ae66121648806c5cd32bb3ae1e5dd1057c5895e5eaa8eb99895c7581"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0017.md": {
+      "bytes": 25167,
+      "gitBlob": "2d84c1b632f8eb82288dbbc551839d038c703bb6",
+      "sha256": "6f4cf24c7ebbf7be41b31cdc16b379e9a87999bcd4c297b3734cc57aae45902f"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0017.s.sol": {
+      "bytes": 15955,
+      "gitBlob": "c48a99184e0a52149bb88847d09d735ab816946a",
+      "sha256": "55c5f1c5efd9b75a2c8bd481d3d3d6516cc18053b6f54759f1c879c4ddd5419d"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0018.action.md": {
+      "bytes": 1031,
+      "gitBlob": "158bae530ea8c5da9e6a1fceed207203a6422f84",
+      "sha256": "8207d88ccd70caf2845109203b58445920717c0dcb02fc44dadc75dab141adbb"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0018.md": {
+      "bytes": 976,
+      "gitBlob": "8de60cdc4a1107f986189725490db9273a8dd503",
+      "sha256": "e5ed7577fe10301992abc169df7957252fd3862db071dd33c4156568a475fc8f"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0018.s.sol": {
+      "bytes": 824,
+      "gitBlob": "564fbbffdda558fe255f2893dc862f02cd9e5e9f",
+      "sha256": "b4a55292af16142a58c3379dd0dfa177db9dac14af13f5c220903230353574c8"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0019.action.md": {
+      "bytes": 11463,
+      "gitBlob": "5e96c6b145e6852e87866aa0d79d42b59a4870ff",
+      "sha256": "fddcbe843f8210aeed5e4d280df091f5a1ca29784e97dc2b38e40ca81f8a85f5"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0019.md": {
+      "bytes": 29419,
+      "gitBlob": "d40e47db58c2cba4ce2cb386cbda147c63cb4d04",
+      "sha256": "14983d4d05f4ea2d527adfb851f48c9dc2a770e69163c324915b677817e48afc"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0019.s.sol": {
+      "bytes": 13171,
+      "gitBlob": "a573b1e1c563b9f7251cfa789e06145ba13b0060",
+      "sha256": "e113dcf81d7bf89d89e30525724a9b4ba6b72bcb7054aec71dcd9ace44c60e38"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0020.action.md": {
+      "bytes": 2638,
+      "gitBlob": "47e32a950fc8e5d432291b89a7b434b0967a1ca2",
+      "sha256": "b177ff89ed54b6dc470da67b9730eaf01895c90c4bc59a5c583d155e7cac2489"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0020.md": {
+      "bytes": 12926,
+      "gitBlob": "fe215be8cef91a412ef6f554c46726ebe455b228",
+      "sha256": "f3d334900cbd9a12c863087f5617151797a17cc4592d31eeacefa6873fce7246"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0020.s.sol": {
+      "bytes": 13701,
+      "gitBlob": "60f07e2c992c8f18ad8006f9d28a7e2303d4c50a",
+      "sha256": "0ba633dde50dd64764aa0800d33c1e2ab1323ab5da12c59da1d3bbba159707dc"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0021.action.md": {
+      "bytes": 10632,
+      "gitBlob": "2ee10ef008b2128ffb7fdabd21b46dc3e62379bf",
+      "sha256": "01c378e88bbf6b054de593a3407fcf2dc81404878dc930863edc4476ee99abcb"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0021.md": {
+      "bytes": 18311,
+      "gitBlob": "17d26f344a42887a99af8ffbfa4c7de4f7b043ca",
+      "sha256": "fdc1ba6916b10a115f85e05058d40e94d0c287604f1c0258e1d073f423528bbb"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0021.s.sol": {
+      "bytes": 11993,
+      "gitBlob": "0e674cb717132bca1532ee47c6f3eab437d1dfb4",
+      "sha256": "bd7f814f7d302c10249c22b70437231c907166920d0655a9f93387faa3b9b45f"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0024.action.md": {
+      "bytes": 7112,
+      "gitBlob": "79b160f38af88d172fbdffe7a3d66a6b44106ec2",
+      "sha256": "e5920602db5da2fff68c85281f0b4da2119e21032e0928c4e99ae84cd434a8ca"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0024.md": {
+      "bytes": 50430,
+      "gitBlob": "e88a0a28eac260b8bf75c91cba050e178b3c9ce9",
+      "sha256": "9febcf4b06cc24312276111ee3a9b9d2e8cbdef67d9ddb4a549fb3d8133d89a6"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0024.s.sol": {
+      "bytes": 12251,
+      "gitBlob": "7360f5d6dca4668ac99d4cfc8ddc6b546644e3cb",
+      "sha256": "ae67fe6f47edafd5747d23e3514ad12161795b72a9b597bdfb512b8d708230db"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0025.action.md": {
+      "bytes": 10632,
+      "gitBlob": "bdd41355dd7c4317642eccc0de699a5b275ceb62",
+      "sha256": "731a8c158d28bfef2040c2a74e9af417bdd01f3d522ff8f329489ee9140f5dde"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0025.md": {
+      "bytes": 49903,
+      "gitBlob": "ebab91643fa9d63391040c1be71f00f68eab02f8",
+      "sha256": "33f18e38c7f690df6495b72b7a9f78152905a3dbf22180ac3badb42f95874b17"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0025.s.sol": {
+      "bytes": 17159,
+      "gitBlob": "e06d88c380deb64c863bf8d0db53308c06d7e21b",
+      "sha256": "f26c643e4636043117aa9774cb1c2ea6ac1d5581e2edf6d9a5423b8e95e70651"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0026.action.md": {
+      "bytes": 11079,
+      "gitBlob": "e7945cc64815b84ce61b7b71085e5477885970e8",
+      "sha256": "21a0a07b5cad8600a4e1870b5ab170812ab0f6952cb16903eb409b312d3ecac1"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0026.md": {
+      "bytes": 42059,
+      "gitBlob": "3dd488e5bac5408a17333521a3375d04a79cbf47",
+      "sha256": "ea78ec8724dd29739bdd5ba7e22ed951deddf2bea677a9812042f77b6512a31b"
+    },
+    "packages/protocol/script/layer1/proposals/Proposal0026.s.sol": {
+      "bytes": 13130,
+      "gitBlob": "d275bcb39da1553c7e1857410ffdf498655eca62",
+      "sha256": "67496c0e9090e523e88abc2dfa83af88f062c86780f5b0a78f2f25290803aecc"
+    },
+    "packages/protocol/script/layer1/verifiers/ConfigureSgxVerifier.s.sol": {
+      "bytes": 2504,
+      "gitBlob": "1b4901d46e5e9925b003588d98495c0bd056bc39",
+      "sha256": "4d3302caa4a86b6bc20a926236eacdc23add407ded9d7cb273326baea2927b9b"
+    },
+    "packages/protocol/script/layer1/verifiers/DeployAutomataDcapAttestation.s.sol": {
+      "bytes": 3311,
+      "gitBlob": "cccf67caa53bb50e824afd83c82dd4b5fdb3fee1",
+      "sha256": "e986fb7cd6d9d4c7a01f858e6b4e9c45bccd5a3795b6a5bc1f6f9f454218d7b0"
+    },
+    "packages/protocol/script/layer1/verifiers/README.md": {
+      "bytes": 6586,
+      "gitBlob": "c815d8c03e6efeac81e00849409940da622ae417",
+      "sha256": "3c142ea66ea05b66057d6a644743e2811cee35aa128007d42e4d2343dc90ce8d"
+    },
+    "packages/protocol/script/layer1/verifiers/configure_sgx_verifier.sh": {
+      "bytes": 6949,
+      "gitBlob": "ee575aebbd710712ddd13069e2fab02970bcb0c3",
+      "sha256": "8fd0424d626de7ad859e5357dda3045731ae496c1c5759c0849832ae5fbb06de"
+    },
+    "packages/protocol/script/layer1/verifiers/enclave-attribute-policies.md": {
+      "bytes": 18979,
+      "gitBlob": "8ab3e7b38bfbb5acd42f074b41b6b0a4daa140bd",
+      "sha256": "1d6ce24caf413064dea341dace7d68783588e26c6fdd977f5d523a90d733836f"
+    },
+    "packages/protocol/script/layer2/DeployShastaL2Contracts.s.sol": {
+      "bytes": 6119,
+      "gitBlob": "654251649b3e8bbafaa5be3b80aafea4bb4939eb",
+      "sha256": "76ae8a752895b9319b75ba127b0de398700841369c679a832ed2736208e8719d"
+    },
+    "packages/protocol/script/layer2/DeployShastaL2Hoodi.s.sol": {
+      "bytes": 1331,
+      "gitBlob": "14d18f1e909297ab5c4cab7c1dbc8ea99c443465",
+      "sha256": "91c2090e953e7d54c1456ecc0b5580d2a86a122aab1ac4e823bf002c0bfc7d50"
+    },
+    "packages/protocol/script/layer2/DeployShastaL2Mainnet.s.sol": {
+      "bytes": 1284,
+      "gitBlob": "3ac8878c638e8baba068a176708b29ff6c967c6f",
+      "sha256": "74da0685e4c88128760f7875c61755fc224cf83cd6b647ef8748961ce4e95dfc"
+    },
+    "packages/protocol/script/layer2/PostGenesisConfig.s.sol": {
+      "bytes": 4062,
+      "gitBlob": "86d676fc95d747f44f8bf39d25503a351ad2b5b3",
+      "sha256": "8049a835e370ff48fc48a297e2e62bbb6178b23dc05223961bba6e140be4c15d"
+    },
+    "packages/protocol/script/layer2/PostGenesisQuery.s.sol": {
+      "bytes": 3906,
+      "gitBlob": "5104eeaeab208f70b6a7b36b625508daf8b7e7b8",
+      "sha256": "b0b99a2bc0103d58c03ab1ad7ebea669f8c0d14a4dba8bcb4033bec872b6864f"
+    },
+    "packages/protocol/script/layer2/build_etna_genesis.py": {
+      "bytes": 21439,
+      "gitBlob": "45987e9cd60006f6abd0454cf40a8a679ae45523",
+      "sha256": "0867d0344dc3d962e1652f9263d38088179032cc5c952782441302f7a599c2d2"
+    },
+    "packages/protocol/script/layer2/mainnet/DeployBridgeUpgradeL2.s.sol": {
+      "bytes": 4260,
+      "gitBlob": "0785ddd59011b755cf0933bf2158e46ff81c20c3",
+      "sha256": "6f26b9db47284e717b4d96768c02f80dde2185f74bfff54b9f6ee6c7910e2073"
+    },
+    "packages/protocol/script/layer2/mainnet/DeployBridgedERC20V2L2.s.sol": {
+      "bytes": 1757,
+      "gitBlob": "d63f4b584aaf234b9c02031504f3b087b1deec31",
+      "sha256": "b70414ba47f3372c911f8f6013947419c930d3992611ac370c893d145c610728"
+    },
+    "packages/protocol/script/layer2/mainnet/DeployDelegateController.s.sol": {
+      "bytes": 972,
+      "gitBlob": "02d243e054e20ab6c43933e8db6bfdea16d48f96",
+      "sha256": "1107647442ecd14319c42b2b5ebf7ec0a77a5b94fe1efc943a8abcf32d106885"
+    },
+    "packages/protocol/script/layer2/mainnet/DeployERC20VaultUpgradeL2.s.sol": {
+      "bytes": 4588,
+      "gitBlob": "09fc2051fdb7011cf52652067abf6c5d03d506ef",
+      "sha256": "6eeba7cd00e4dab9a743bfd8107e1cde656f7563d6ae2b3f1860e652b35df70e"
+    },
+    "packages/protocol/script/layer2/mainnet/DeployProposal0025L2.s.sol": {
+      "bytes": 6285,
+      "gitBlob": "6bf6aa511a037335614e49f6b9e0dea5d3bf14f9",
+      "sha256": "85fa71d39db57c1ab67024b5f716885c50c1f0b7b0f6f2cfe60b01a05b240775"
+    },
+    "packages/protocol/script/setup-local-ignores.sh": {
+      "bytes": 1547,
+      "gitBlob": "a50e79c482a2367a662de224164f9b904ed7b4c6",
+      "sha256": "027a37f91a199ae366d703f545d69d7e4cb167c530dd3f53e67d324efe07e211"
+    },
+    "packages/protocol/script/shared/SetAddress.s.sol": {
+      "bytes": 1040,
+      "gitBlob": "5ed33f22712845f22d4ca7b253773dced51b6883",
+      "sha256": "33b984106f16017e6a0417beb02125e1a031e6b5959e95ae0bb95db7ca69ff22"
+    },
+    "packages/protocol/script/shared/SetRemoteBridgeSuites.s.sol": {
+      "bytes": 2311,
+      "gitBlob": "91734516a9da2126ff81a348e2e3473abd65a896",
+      "sha256": "4e590f3186fb5f2ba5e977bafa80c62c51cee94dc5b1c3483007bcf57528c84a"
+    },
+    "packages/protocol/slither.config.json": {
+      "bytes": 298,
+      "gitBlob": "f4ab115533ce1809260379283fee7a7f2ffb2009",
+      "sha256": "c6cb0dcb428b7eee5350fd57a03e120507aaed8e0f5367acfc745d0e93fdc89c"
+    },
+    "packages/protocol/snapshots/EtnaInboxForcedInclusionGasTest.json": {
+      "bytes": 59,
+      "gitBlob": "4976bac6302d816385963ea2ae0a0911e90fee16",
+      "sha256": "63d53bb23b722a8052c8d4842a9d1f0a2f8f7c2b93ae144c8caf8586ac32b1b3"
+    },
+    "packages/protocol/snapshots/EtnaInboxLand300BlocksGasTest.json": {
+      "bytes": 44,
+      "gitBlob": "081f474c7ad200d40ac98ff4d1aa7beb696440e0",
+      "sha256": "92e3fd25dba0b18ba20a750d7b4aa55db49c5f7b217cf033a4c6babe051bd049"
+    },
+    "packages/protocol/snapshots/EtnaInboxLand300FrontierGasTest.json": {
+      "bytes": 50,
+      "gitBlob": "f4f5cbe19f8b8a14c92de011ef21641666435be9",
+      "sha256": "b0e50252009c024bf040623e06a15a4275bdec70e8f7d3762604cfd00e635c5f"
+    },
+    "packages/protocol/snapshots/EtnaInboxLand3600BlocksGasTest.json": {
+      "bytes": 46,
+      "gitBlob": "1f392295d96d1296506ac5802d915b84e7b24554",
+      "sha256": "d80f890db3ac8c0141a04860189c7e66804d5c1db2727c176fb208f89470a8d3"
+    },
+    "packages/protocol/snapshots/EtnaInboxLand6BlocksGasTest.json": {
+      "bytes": 32,
+      "gitBlob": "b24342a75068127c936fa438ff225f3ad189b799",
+      "sha256": "869275ee1cdff23bb3512c918e3d565866d30f083e58ab2ac7b7ec45c7231a76"
+    },
+    "packages/protocol/snapshots/EtnaInboxLandFromStartGasTest.json": {
+      "bytes": 43,
+      "gitBlob": "976a6b6300bf502b41081106de745cea065e3394",
+      "sha256": "b20d8cbd32fc3ece32dd236ba19c618727edae0b9a1fc92964d97a304ece124f"
+    },
+    "packages/protocol/snapshots/EtnaInboxLandFromUnzenStartGasTest.json": {
+      "bytes": 49,
+      "gitBlob": "f5fcc5f50448a893e1ef47514c4afa91bed6238d",
+      "sha256": "84ad2a1ca019362cc4ed4dd8dd7252875be515d7d42e099727b324e594861d23"
+    },
+    "packages/protocol/snapshots/EtnaInboxRecoverFullRegistryGasTest.json": {
+      "bytes": 92,
+      "gitBlob": "8163458dc8072c0ff9a861c252f504648ea869f0",
+      "sha256": "3dd45df06e40ed2bf7a79c3fda42431bc2a87d00e4fae8da1ec78954c59cdc26"
+    },
+    "packages/protocol/snapshots/EtnaInboxRecoverGasTest.json": {
+      "bytes": 45,
+      "gitBlob": "d678b3fe463ed9e3a13ecac561a11b42bb06e23e",
+      "sha256": "2e57efbdb89ece5abdd600b3294e41b0238bd150dd16f88f6966e4ecd7678afa"
+    },
+    "packages/protocol/snapshots/EtnaInboxScheduleRulesGasTest.json": {
+      "bytes": 31,
+      "gitBlob": "4e2411e4745ec0f3dd419dd4644d6a303b1deef2",
+      "sha256": "bff46ea38f1eb2822afbdfc1d280cc8892a071eede27b711195662ae7862da69"
+    },
+    "packages/protocol/snapshots/EtnaInboxSetOriginGasTest.json": {
+      "bytes": 29,
+      "gitBlob": "82e8a7582be6b1b6fafa220917c75e1d598f68ef",
+      "sha256": "96a1b7131ec49db79ee2ecc74eda384ff1b6888cacd42521ee2c9f2747807898"
+    },
+    "packages/protocol/snapshots/EtnaRecoveryNonceGasTest.json": {
+      "bytes": 42,
+      "gitBlob": "c1446851f9d62d374c20f251c03bd15f6cf04dd4",
+      "sha256": "055f182ce013393e66bda298ade23b7fe47f6bdd859b49438543e2c3aebe9233"
+    },
+    "packages/protocol/snapshots/EtnaRegistryActivateTopUpGasTest.json": {
+      "bytes": 33,
+      "gitBlob": "4d1c8df818b34c851bbc31613087a13593eb9242",
+      "sha256": "2fa2cefb229b167d526b81d49feb5eea6d7b82e12945b9431179e5c4c8b8cc6a"
+    },
+    "packages/protocol/snapshots/EtnaRegistryForfeitGasTest.json": {
+      "bytes": 47,
+      "gitBlob": "9d5ac1ab2c6f4cc4b56d04dbe8af9e29f9354e77",
+      "sha256": "043725193800cf1955b09999d412b1d073b64bf9c71f1ea0dcf3ce52d88caf07"
+    },
+    "packages/protocol/snapshots/EtnaRegistryTopUpGasTest.json": {
+      "bytes": 24,
+      "gitBlob": "e036dc3498bab0af3b4e5861434195d2c5b5092c",
+      "sha256": "d364f01b1ca542bb7f5efcbda9c1af9057a9eee1c3ecd7436a9bbf3abe113f19"
+    },
+    "packages/protocol/snapshots/EtnaStakingRegistryConfirmExitGasTest.json": {
+      "bytes": 29,
+      "gitBlob": "eaab0ed494d80e4564979afdf2a603c4a74945e7",
+      "sha256": "b74797a93475b591b64c23fac6414bbf4fcbcf174213a543853fe47aac27665c"
+    },
+    "packages/protocol/snapshots/EtnaStakingRegistryDisplacedGasTest.json": {
+      "bytes": 138,
+      "gitBlob": "f5158783c4e54fc5c1cfdab951829ed99d6fab71",
+      "sha256": "adfd3ad17f29a0babac6a1fd86a7a58a942c2f433854e9662a6c26f8d3bedb20"
+    },
+    "packages/protocol/snapshots/EtnaStakingRegistryFullCapActivateGasTest.json": {
+      "bytes": 42,
+      "gitBlob": "6211185967f7a7402a6e1a8d48b63650f1cbf708",
+      "sha256": "40016dd892f100c76d0f6cd0910653880b85e349cc96f0498cc09855d3a95e82"
+    },
+    "packages/protocol/snapshots/EtnaStakingRegistryFullCapGasTest.json": {
+      "bytes": 155,
+      "gitBlob": "4281d9800e35721d0700f3d3d387617edad39f76",
+      "sha256": "1afd242b4572207222924e66fb18fa1bc96c260ec5d2134b889e75a0165919b6"
+    },
+    "packages/protocol/snapshots/EtnaStakingRegistryInitialGasTest.json": {
+      "bytes": 34,
+      "gitBlob": "1a2052072e8f7d766748128f2d242025484ec65d",
+      "sha256": "07bd7c036988db3533ae6c0a5a48a31c40fdabee9f2dba80cd4c18001a401d18"
+    },
+    "packages/protocol/snapshots/EtnaStakingRegistryNearCapGasTest.json": {
+      "bytes": 34,
+      "gitBlob": "8ee75157fe22045842fe2b48c879996a2b121573",
+      "sha256": "c448415ed2cc41ff85dee26521668209db10adab3c6b0782bf9244242047e820"
+    },
+    "packages/protocol/snapshots/EtnaStakingRegistrySecondEntryGasTest.json": {
+      "bytes": 53,
+      "gitBlob": "708142747746860c43c650c5edbf91462861f9ba",
+      "sha256": "9a4704f04a2c547c3972ec737d723d2662c309199c9e0143de37b25051c59e01"
+    },
+    "packages/protocol/snapshots/EtnaStakingRegistrySlashGasTest.json": {
+      "bytes": 35,
+      "gitBlob": "c2fd760648ee4e1a6c10b5b6d22d85ae1e876bc2",
+      "sha256": "a2c7eceba2b281940e2b7d1de8f5c76e501da24ac02f65ee0c6052235333d1c0"
+    },
+    "packages/protocol/snapshots/EtnaStakingRegistryWithdrawalGasTest.json": {
+      "bytes": 28,
+      "gitBlob": "638c27506d03d714d500153a22eaa1843cd8dd6f",
+      "sha256": "2dc5d4efb173da1979af95f725d1a74e48f1a12faf19a56967476a0f6ee51f3e"
+    },
+    "packages/protocol/snapshots/shasta-propose.json": {
+      "bytes": 115,
+      "gitBlob": "d2bd4e38541216036c1fe9f4daeca0691d06e35b",
+      "sha256": "667603dfcf64cea068b3301063ff225b610c742a1653c025ab8df51d1f25caee"
+    },
+    "packages/protocol/snapshots/shasta-prove.json": {
+      "bytes": 142,
+      "gitBlob": "2ad349f64a2078fd175a36dd2c12ccd37b8f7013",
+      "sha256": "d3bb20fa6938e83670b28e52dfbcdeef9db9d04773b45eed8ae58a2661bc80af"
+    },
+    "packages/protocol/test/genesis/GenerateGenesis.g.sol": {
+      "bytes": 13758,
+      "gitBlob": "462e2639c11c610b97129103d6184f359e7afc63",
+      "sha256": "3701b9ce847cc1c82ede5ec29b2d1b26010625f9ee4faa1d95f0370cc0383972"
+    },
+    "packages/protocol/test/genesis/data/genesis_config.js": {
+      "bytes": 2911,
+      "gitBlob": "b69255116fa8b6159d7cfb9c34f11df1f5311ca4",
+      "sha256": "9b79707b6a5e7ceebb393146a7984154e04a65f466fa36d2c37b5dee5dcc7807"
+    },
+    "packages/protocol/test/genesis/data/genesis_config.json": {
+      "bytes": 1958,
+      "gitBlob": "b06eb085213e0717d76a99df209b90ca17952295",
+      "sha256": "00a81aa00aeba6a14acbfba5d8c08f30b944f1d4023c9e229f88a2e2a354ec2c"
+    },
+    "packages/protocol/test/genesis/data/preconf_genesis_config.js": {
+      "bytes": 2465,
+      "gitBlob": "60786c5cf61f5b6920942884aadedbe513caf72c",
+      "sha256": "1e4f3283d60360e7ab5181a8620978f3dc9c3811571e280e691d7d514e86d225"
+    },
+    "packages/protocol/test/genesis/generate/erc20.ts": {
+      "bytes": 2442,
+      "gitBlob": "d6facfff855c6a5533857e56fb09ccbb1f85b657",
+      "sha256": "ee65c84d2913d6c4aa2fee6c84dbed209880a9491de58be3ca0c89b1a07c5b00"
+    },
+    "packages/protocol/test/genesis/generate/generate.ts": {
+      "bytes": 2751,
+      "gitBlob": "088a0b3bc9505062f949816db065801e04856213",
+      "sha256": "f31f7cb6d9a75139a5bac23cca34f86f370e3f7bf164a3fd7768a09bbd6f8348"
+    },
+    "packages/protocol/test/genesis/generate/interface.ts": {
+      "bytes": 472,
+      "gitBlob": "471b42d52cb7fc17faf88d62a890106d66936090",
+      "sha256": "6053f8f3dbb4b28626151bbfaacf576ac51a0c74487c91867d45d8c0ee3700f9"
+    },
+    "packages/protocol/test/genesis/generate/taikoAnchor.ts": {
+      "bytes": 33623,
+      "gitBlob": "e1f6706acb64690a785ca120423c1b404bc5568a",
+      "sha256": "a27d558c9dff82302f0a073283e6770995c2c8a49aef19ddda46f6bb542b0996"
+    },
+    "packages/protocol/test/genesis/generate/utils.ts": {
+      "bytes": 22597,
+      "gitBlob": "7f94f0737785611f973c5ac1a594a68a6e995589",
+      "sha256": "ef3279820bf509c9d686ad9872ec281e7146374ac3d912a785b3857ae1967de3"
+    },
+    "packages/protocol/test/genesis/genesis.test.sh": {
+      "bytes": 6582,
+      "gitBlob": "60e8d3ced62a62d2d5c06c17c27088301a6456cd",
+      "sha256": "32e995a52c95173767d01ac3243c67cfc38e23b39caf069fb67d3f01d45d9d87"
+    },
+    "packages/protocol/test/genesis/mainnet.js": {
+      "bytes": 2011,
+      "gitBlob": "c6ba4c36db07873a66b54c75166070ca9cab4838",
+      "sha256": "baf08c3acc8dc9865e41ae9f7581fe4c7b6b654f84c1c5520d5b40bab304c0e8"
+    },
+    "packages/protocol/test/genesis/test_config.js": {
+      "bytes": 3717,
+      "gitBlob": "2f3acfe1174981ccec3ef4e50e837de772087a12",
+      "sha256": "4c0a33cd883c75a85e8c1e98d674743f2e4932429c63babb321d19dd3a9aa887"
+    },
+    "packages/protocol/test/genesis/testnet/docker-compose.yml": {
+      "bytes": 202,
+      "gitBlob": "73f22e1d6b83e9e2e9320428cd3e8732d41973fa",
+      "sha256": "75a40045977b80a35e0aa6fe5e1bc188b67069afdcc321090758189cced749c2"
+    },
+    "packages/protocol/test/genesis/testnet/init_geth.sh": {
+      "bytes": 216,
+      "gitBlob": "40b8944c0ca0783e9ad312b0badd50b422d892be",
+      "sha256": "5428a017b3a7f656b130a8305bff0c53e8d3af975e211595e1541e3662a3e90b"
+    },
+    "packages/protocol/test/genesis/tsconfig.json": {
+      "bytes": 342,
+      "gitBlob": "7af34006ed24baa1a3c41bc691a77bedd7e0d130",
+      "sha256": "e969e9781c95293cacbfece6d6c2e5051d514490ccb7de50932ca189aad9f4cf"
+    },
+    "packages/protocol/test/layer1/core/ProverWhitelist.t.sol": {
+      "bytes": 6059,
+      "gitBlob": "91276581ad4c069e91122397b9b57db33c578d3e",
+      "sha256": "30b574babda632cae08e7789089acd2eb84d95f7fd31819b23413e95367c24d5"
+    },
+    "packages/protocol/test/layer1/core/inbox/InboxActivation.t.sol": {
+      "bytes": 8288,
+      "gitBlob": "d427edb2353a0bb95e4a7cc3a8747d42dedb3ec5",
+      "sha256": "3b338a6bed65259b86c8ef7a914bc64fe0b7c3755cc7a2099bd9d78841bc6521"
+    },
+    "packages/protocol/test/layer1/core/inbox/InboxBondManager.t.sol": {
+      "bytes": 6448,
+      "gitBlob": "a98bb083fea7cc6c7cbe66785ab58cceeae37907",
+      "sha256": "a594038ba761242ba31ed05c27c55ed72f0fcb67e4717c2bb4cbaa8144af72fb"
+    },
+    "packages/protocol/test/layer1/core/inbox/InboxCapacity.t.sol": {
+      "bytes": 4908,
+      "gitBlob": "6e67b77a1cc0372a21c46aefc19256d5d5cc657c",
+      "sha256": "9311c7f702bf1531440f34ea701992874407b6ed0e420abd8c757e3f29ceace1"
+    },
+    "packages/protocol/test/layer1/core/inbox/InboxForcedInclusion.t.sol": {
+      "bytes": 13641,
+      "gitBlob": "152b682f4fa1517faaf9c243abd79cd070ad9e35",
+      "sha256": "1fdf27cf9f89264eaba4fb30ab1415a1a452f82355010a66b36b0c39b260f9e7"
+    },
+    "packages/protocol/test/layer1/core/inbox/InboxInit2.t.sol": {
+      "bytes": 5662,
+      "gitBlob": "9e734b83897f40aedba218f3e84aa1e0f5ad60ee",
+      "sha256": "ba705e5230c23bca188ef985021bfc99ad0de0b18d3a2575a0f983551d54ebcc"
+    },
+    "packages/protocol/test/layer1/core/inbox/InboxInit3.t.sol": {
+      "bytes": 4301,
+      "gitBlob": "4ec468df457a889f48620ec46911e7c48eb5418e",
+      "sha256": "5f57863a8a7df8f58a58bad650bca982ed29dc350c31937cc35b8482a27adfc0"
+    },
+    "packages/protocol/test/layer1/core/inbox/InboxPropose.t.sol": {
+      "bytes": 19848,
+      "gitBlob": "363d2d565c2dc523bddb7c6a41d892853138eeb5",
+      "sha256": "872a7f82940d6114b59e1684443131066619a73c74b1b662835ec56b2ca407ca"
+    },
+    "packages/protocol/test/layer1/core/inbox/InboxProve.t.sol": {
+      "bytes": 29075,
+      "gitBlob": "05840db0e2cb7902123839e64eaf0756ad60d0c5",
+      "sha256": "b12c0e09f65281ca8e69a2be5c913e87b5a47ba5a8bfab709f3c4092d2b463ef"
+    },
+    "packages/protocol/test/layer1/core/inbox/InboxTestBase.sol": {
+      "bytes": 14922,
+      "gitBlob": "10d5dd12a2ef6369026e91a7e9e3e15e7be7188c",
+      "sha256": "31aedf03727abd12bb032bae926c8727170c2a74099ec631f63abdab5b8ac0f5"
+    },
+    "packages/protocol/test/layer1/core/inbox/InboxWhitelistProver.t.sol": {
+      "bytes": 9465,
+      "gitBlob": "09293d72c623b84eefa569a0e902f25fddc3a2a6",
+      "sha256": "7cfaab0ed2732a2dd0504d456c552d313b91a4562cf84e5e9824f77f10d6c1e9"
+    },
+    "packages/protocol/test/layer1/core/inbox/mocks/MockContracts.sol": {
+      "bytes": 3056,
+      "gitBlob": "9c66a6996f9b8f40788616aece5db82a59aebd65",
+      "sha256": "6cffe832d23a8d317589866cec3aeb53c912d3f5530e6713a8eb57e0c368e241"
+    },
+    "packages/protocol/test/layer1/core/inbox/mocks/MockProposerChecker.sol": {
+      "bytes": 300,
+      "gitBlob": "2901d4ee81fca9b38c6cf4d3d0e7d9127ad94d5c",
+      "sha256": "d1e90cdcb64582e265d6f9777c6d441dc792c29629f1a9e552bf44d7f589eaa9"
+    },
+    "packages/protocol/test/layer1/core/libs/LibCodec.t.sol": {
+      "bytes": 12998,
+      "gitBlob": "8dd8b94cf9845b720635750515d6f8709714fa20",
+      "sha256": "00740460933bbf4dac63031c390f104682795f0db6e94fb501996542ea2118f4"
+    },
+    "packages/protocol/test/layer1/core/libs/LibHashOptimized.t.sol": {
+      "bytes": 1992,
+      "gitBlob": "a1f7ac583d1688c97cb9b38cb9b5f078adea23ec",
+      "sha256": "6fe306e2ea665bb7634fd4f6964a7925075e5d8a9ab94c47f62ad23ef1f8d251"
+    },
+    "packages/protocol/test/layer1/etna/DeployEtnaDevnet.t.sol": {
+      "bytes": 29744,
+      "gitBlob": "8f22b8abfa2815cb2c69a31b4caffac6fc0805ce",
+      "sha256": "8f5301f85e893de8fb3edb20a333e0ba96da898534eb3ab210e8be4088653366"
+    },
+    "packages/protocol/test/layer1/etna/EtnaGovernanceGas.t.sol": {
+      "bytes": 3214,
+      "gitBlob": "7c6523e44c989984b9cbb47a1826205958c63e11",
+      "sha256": "2e8f7d74dadf241d9967ea5f405fee017e5a77f397131eace0e743dd998d4a81"
+    },
+    "packages/protocol/test/layer1/etna/EtnaGovernanceVectors.t.sol": {
+      "bytes": 11876,
+      "gitBlob": "378b32d519a9ba4d0265d8d1e3da53a524efd778",
+      "sha256": "6d3179edab37d99e826ba9d7ded39ba85c240395597837ccc701b4eb618a03ab"
+    },
+    "packages/protocol/test/layer1/etna/EtnaInboxForcedInclusion.t.sol": {
+      "bytes": 28080,
+      "gitBlob": "6c083f61210f7874faebceada3f479efd492251e",
+      "sha256": "cf6f9a678b2df85f2ece8c61105c38c40a27c775c4551ccc8d9bea9b6888c42a"
+    },
+    "packages/protocol/test/layer1/etna/EtnaInboxGas.t.sol": {
+      "bytes": 17855,
+      "gitBlob": "21a630e2605481806b173dbb99fa3757577addc7",
+      "sha256": "7015bd3e4d1497361b56840c42c9d8c5943888b51c1e05a2bf6ddc91fcc0b432"
+    },
+    "packages/protocol/test/layer1/etna/EtnaInboxGenesis.t.sol": {
+      "bytes": 28068,
+      "gitBlob": "f356ccb19aa7adbe01266280b643a9c46d160b1a",
+      "sha256": "10dafc714123ebfca3a8111038a793cb3df91dd91e30595f89268bdd83b7cff5"
+    },
+    "packages/protocol/test/layer1/etna/EtnaInboxGridExamples.t.sol": {
+      "bytes": 14768,
+      "gitBlob": "58f8ad9d923983a53ea98e16afc73c75cacf9ac5",
+      "sha256": "4ef4178650a845b75fb14c26fd6d4556fbceba04d176bd5483f64e2c123acdbf"
+    },
+    "packages/protocol/test/layer1/etna/EtnaInboxLand.t.sol": {
+      "bytes": 33557,
+      "gitBlob": "3443e17762dd1e18f8e167ecb7b77e1c2763adb6",
+      "sha256": "c9906b9df3ced20860b099410edc7a0f0508e7e2ae716ce8537454a4528f3f34"
+    },
+    "packages/protocol/test/layer1/etna/EtnaInboxLockHarness.sol": {
+      "bytes": 1041,
+      "gitBlob": "11785736a66fa2015dd3821e5363a2a4a4b83981",
+      "sha256": "a3208d16398b28fbade029d92a22b56f736de69cb15736d52989b9e0a258833f"
+    },
+    "packages/protocol/test/layer1/etna/EtnaInboxRecover.t.sol": {
+      "bytes": 47589,
+      "gitBlob": "6ca6c20f66d334e8b70aef80cb24d3e42aaec27d",
+      "sha256": "7c57c5c9ef340754fbf607d07ccb13ecbbd6087bf5755ee0b382a496a3b32687"
+    },
+    "packages/protocol/test/layer1/etna/EtnaInboxRulesSchedule.t.sol": {
+      "bytes": 10890,
+      "gitBlob": "3d930bfbc04128658fad100d2fbb25bc7d061120",
+      "sha256": "a05582d9af8eb764a1582cf39825cf9a42ffacd6f690b0915db777d79bd8cf9d"
+    },
+    "packages/protocol/test/layer1/etna/EtnaInboxSwitch.t.sol": {
+      "bytes": 15587,
+      "gitBlob": "cf2c1355aeba63c60cd493d5953694b6afbb538b",
+      "sha256": "e3da8c75cef4e1c11ae310acb9269270304e28f5d8463978dec06947a808b055"
+    },
+    "packages/protocol/test/layer1/etna/EtnaInboxSwitchTestBase.sol": {
+      "bytes": 4051,
+      "gitBlob": "eec2792d9f25742551eb1c191fca5f892c363909",
+      "sha256": "81f190d5b1938d744fa549d0987edfbbf8af370af6a93a2de0eece542b1c0527"
+    },
+    "packages/protocol/test/layer1/etna/EtnaInboxTestBase.sol": {
+      "bytes": 12990,
+      "gitBlob": "c54a005a815b53c588d0e5259af889c8613ba7b4",
+      "sha256": "de53ae0626592aa2ac1fce4cc82fcc2be1782fb1cadf6ade63b88e13cdc613b7"
+    },
+    "packages/protocol/test/layer1/etna/EtnaIntegration.t.sol": {
+      "bytes": 29403,
+      "gitBlob": "8523464dc1c04798e46cd28b42321faacd57b28a",
+      "sha256": "c1c8664ec65a88508ecf3d55c1fe33885dce0a603b5c33dd7f9f3596686eb73d"
+    },
+    "packages/protocol/test/layer1/etna/EtnaLandTestBase.sol": {
+      "bytes": 18683,
+      "gitBlob": "50e96d4a5213f4b6d0202ae06996fbfb2dccf85b",
+      "sha256": "25af20865218bc05754da0fc45cb6fdce1fa87e3615d149f9c739ab6381cad0c"
+    },
+    "packages/protocol/test/layer1/etna/EtnaRecoveryAuthorization.t.sol": {
+      "bytes": 11055,
+      "gitBlob": "e5e12917e639dc0a80130fa4b95dea4acda52c0f",
+      "sha256": "ca3c584fbbcbaec7ff45381209aff6b26bb35801b3636dbe3b6a8ff59a68ff63"
+    },
+    "packages/protocol/test/layer1/etna/EtnaStakingRegistry.t.sol": {
+      "bytes": 41473,
+      "gitBlob": "134a4d1856fa5ce9ae4d866e6de42930035b3f08",
+      "sha256": "6bfe493c4039b0a6fd6ec54a6d881007c840175ca7cacbf6448fc9ee600dd32a"
+    },
+    "packages/protocol/test/layer1/etna/EtnaStakingRegistryExit.t.sol": {
+      "bytes": 49498,
+      "gitBlob": "a7cf08d462753ffd0e610c090e79cc17bbe5c137",
+      "sha256": "2e10e52ee989f60a4e23a55e2a6fae09e144949ca8ea61d6eaf03a97031b4041"
+    },
+    "packages/protocol/test/layer1/etna/EtnaStakingRegistryGas.t.sol": {
+      "bytes": 16657,
+      "gitBlob": "4514736438ef813eba7933f9ab9f477ca058af23",
+      "sha256": "9cbdf4ed73f154546f7c05b50cc91e702efa5f2e01a0577c98e75bce58d4041d"
+    },
+    "packages/protocol/test/layer1/etna/EtnaStakingRegistrySlash.t.sol": {
+      "bytes": 51960,
+      "gitBlob": "cb2ed55a745e213998dbbdf31f3dfdbbda52d721",
+      "sha256": "17bdf75aa2bb77583f12263467b834a980aeff59a6fef88eccb7cf064c412196"
+    },
+    "packages/protocol/test/layer1/etna/EtnaStakingRegistryTestBase.sol": {
+      "bytes": 8386,
+      "gitBlob": "df1d2006d6186f67f23d18f319a9a2176051a423",
+      "sha256": "052cd76600433265c121240cf0bba3530b31c515a88497cb74091318cd9273f6"
+    },
+    "packages/protocol/test/layer1/etna/EtnaStakingRegistryTopUpForfeit.t.sol": {
+      "bytes": 26136,
+      "gitBlob": "9a1d77c008691ea690d98abb9c0fc3f66c641377",
+      "sha256": "5e34527a960c477f2a5180dd77410c270f49a73ed4bf1092371b7811d455b824"
+    },
+    "packages/protocol/test/layer1/etna/EtnaTestConstants.sol": {
+      "bytes": 2358,
+      "gitBlob": "0072cad3ddc2ef9b849c8e6b801466e3d0cfcbb2",
+      "sha256": "e17f34facaf0a5fd0b7f70fb0b9dbcacbbce8a86ff9105099435c5b4085ca49a"
+    },
+    "packages/protocol/test/layer1/etna/EtnaTestKeys.sol": {
+      "bytes": 3229,
+      "gitBlob": "cee6f35f1b809d4a20d138711eab624a4870d07e",
+      "sha256": "6a03ffb57459e72477377662a9a36824b98b265a9d2eaf839cb09a56fd4bef26"
+    },
+    "packages/protocol/test/layer1/etna/EtnaVectors.t.sol": {
+      "bytes": 73694,
+      "gitBlob": "7b1d4a265e00c23f93eef42c8353b862f1c5bf03",
+      "sha256": "c8e0c33f3904bed1c39d051217f58e9305b794cc395406d75435b92eeeeaf642"
+    },
+    "packages/protocol/test/layer1/etna/LibCometVote.t.sol": {
+      "bytes": 37761,
+      "gitBlob": "b32459c38ca83f9cc50898c12d2b8c5792a26e5e",
+      "sha256": "75c17f7aa761caafbf3f864fb1a9b6d75f7438d9c60448d4093ef1ea001435f6"
+    },
+    "packages/protocol/test/layer1/etna/LibEntriesTree.t.sol": {
+      "bytes": 18775,
+      "gitBlob": "f19123778919dd0ee7df183412d202cd9ec4951a",
+      "sha256": "fb3d2d50a8d92e7cbc47c876e408febccd7759ffcdd517fc5d5b01a8faa44e51"
+    },
+    "packages/protocol/test/layer1/etna/LibEtnaKeys.t.sol": {
+      "bytes": 26270,
+      "gitBlob": "77b2d090ecc8a6a7b2dfaf19f77ff6d36540fe6c",
+      "sha256": "501e82f87549d85c68569a2acab40b7a003f16b1611f23fa0a0e7a3fc01465db"
+    },
+    "packages/protocol/test/layer1/etna/LibEtnaLandStatement.sol": {
+      "bytes": 4592,
+      "gitBlob": "8251f6d752a6bc84a1a41971bc6923bd363bd26b",
+      "sha256": "8b8da188c8bc15ad63fdf9baadf93323970727551c8adeef227767185e233f1a"
+    },
+    "packages/protocol/test/layer1/etna/LibEtnaVectors.sol": {
+      "bytes": 5934,
+      "gitBlob": "5a1de76a1ecd5bbe613dee62b462749ff2985ad4",
+      "sha256": "06164cfbd01372c50b133dc32d3e356042c17ee9be5a0faa39782ff7b579d5d6"
+    },
+    "packages/protocol/test/layer1/etna/MockEtnaInbox.sol": {
+      "bytes": 1250,
+      "gitBlob": "db8540a8cf4fea675cabcb3b97008b7da17ecf09",
+      "sha256": "5003563b37c4554942d45856c5a6bd45c7bbbe649be2ad42ae25f55c85b5856f"
+    },
+    "packages/protocol/test/layer1/etna/MockUnzenInbox.sol": {
+      "bytes": 764,
+      "gitBlob": "20b3043e44353d8d930fdcd3f0605de8d472432f",
+      "sha256": "4a68e7e37e530607a13bcc223a0328b6f594d4da8dd5dceeb47b1de86d0cbafb"
+    },
+    "packages/protocol/test/layer1/etna/ReentrantERC20.sol": {
+      "bytes": 1563,
+      "gitBlob": "97111f3cad85ea15ac800a88427cd3862fda66f3",
+      "sha256": "b5db620c76c5bec0b39802ef700f688a8701abe9e91f60ed396eb09799dec958"
+    },
+    "packages/protocol/test/layer1/etna/conformance/EtnaConformance.t.sol": {
+      "bytes": 36029,
+      "gitBlob": "f8da8ed567c5fdd495ca2beee7257de9fd8bfc6c",
+      "sha256": "838e165f94a942309553e5fb051985c975d7551c37a6ec67c9a9436876d0d02d"
+    },
+    "packages/protocol/test/layer1/etna/conformance/EtnaCurrentRegistryConformance.t.sol": {
+      "bytes": 22728,
+      "gitBlob": "f9e0f758d2144a852d6bdc1a8f15da3e7c118f9f",
+      "sha256": "d603c2d3ee67e3857356810f12b6d704c20da2aa042209805867104566ee444e"
+    },
+    "packages/protocol/test/layer1/etna/conformance/README.md": {
+      "bytes": 4368,
+      "gitBlob": "e99fdded1118d4f41a0fdb4573abf3d9441ae2b0",
+      "sha256": "f495851682879f55d4fa89f5a6f34df3d7edd6b1cbd1727463b5cda71bd433b9"
+    },
+    "packages/protocol/test/layer1/etna/conformance/vectors/forced.json": {
+      "bytes": 226060,
+      "gitBlob": "719629823ab0b5e27d38628e688961704e4a9593",
+      "sha256": "cbebb92bec9aa6097f8b51d6d38ee425fe0f05e415e0c6e1f1a621c31cbfdd71"
+    },
+    "packages/protocol/test/layer1/etna/conformance/vectors/land.json": {
+      "bytes": 491032,
+      "gitBlob": "2effb97f1e0c4e038f0baec5a8124506eb31c760",
+      "sha256": "f1b7f8b743ee3c6d3199ea1ba056c544443a815253632aa075d0b4096cdff253"
+    },
+    "packages/protocol/test/layer1/etna/conformance/vectors/registry_admission.json": {
+      "bytes": 10435,
+      "gitBlob": "256880f83e22cc9991d00c345405f925679698f4",
+      "sha256": "df9c4e93f136c6f3b06a42dced5fd676da9fae7e9406d30685fd0d412c2ea704"
+    },
+    "packages/protocol/test/layer1/etna/invariants/EtnaInboxHandler.sol": {
+      "bytes": 51967,
+      "gitBlob": "8ad165ea4799b55ddf0c7b24f22ec7676ff2fea3",
+      "sha256": "16df8836ea9f3dc8b46361c94ef7a426473193271f69ffd95e7af215d54a2d91"
+    },
+    "packages/protocol/test/layer1/etna/invariants/EtnaInboxInvariant.t.sol": {
+      "bytes": 16192,
+      "gitBlob": "693f3565a4836664cad3467deb8c7efaaaaa30b2",
+      "sha256": "120f0453f780a484a8ec27cfd4cf5b807acce3987eb15a82f03a12ea4415808a"
+    },
+    "packages/protocol/test/layer1/etna/invariants/EtnaStakingRegistryHandler.sol": {
+      "bytes": 88177,
+      "gitBlob": "d952e321c10f40abca9034d0a3b34e9502bc1118",
+      "sha256": "f07112564705fc7ae570b26582ea9a2ca8616332e719568fd5403a1a9fd629d6"
+    },
+    "packages/protocol/test/layer1/etna/invariants/EtnaStakingRegistryInvariant.t.sol": {
+      "bytes": 32238,
+      "gitBlob": "df208c3502bd3a9bb9c4e99c10cb698c5175803d",
+      "sha256": "417c6ece7dc26620b5b525d3a41327767b5404f45111c86e3cd14bb01a8e3dc5"
+    },
+    "packages/protocol/test/layer1/etna/invariants/EtnaStakingRegistryNearCapInvariant.t.sol": {
+      "bytes": 9298,
+      "gitBlob": "e2dccbea55f2a96b7bd6a6033dd4e091e84161ec",
+      "sha256": "e18846331cfecafeec4868d2374bbbd5934a892ae1d1af20e20016e17f680fe1"
+    },
+    "packages/protocol/test/layer1/governance/TaikoDAOController.t.sol": {
+      "bytes": 4682,
+      "gitBlob": "2e6198d87ddf81a6ec320ed8c712ac70a190c60a",
+      "sha256": "4742f168772a1c23499845261cf9908a4b2ed2589cffd7553453eb6287b1b5fd"
+    },
+    "packages/protocol/test/layer1/governance/TaikoToken.t.sol": {
+      "bytes": 5025,
+      "gitBlob": "fb7330606b5de9ed2117b607c6c29637a93a2fe7",
+      "sha256": "e92aa9f3f42e29c5dc6a2d45884faf998f6e6e92116e4e51cd12424bd731d5a8"
+    },
+    "packages/protocol/test/layer1/preconf/libs/LibPreconfUtils.t.sol": {
+      "bytes": 1330,
+      "gitBlob": "0ce11a5a8a0131b6cf2af6a4007015c49e960f8a",
+      "sha256": "9427d3fb15b4ade0dc1f12afda6ffbe12908015101fa8acbe1fd6cfa908ac9dd"
+    },
+    "packages/protocol/test/layer1/preconf/mocks/MockBeaconBlockRoot.sol": {
+      "bytes": 826,
+      "gitBlob": "ceeda74a6f24af274aebab73d51c56261bef8a6c",
+      "sha256": "a9b72ca49eb6f68b6981ecaaa609f7315f43c9d4e7d51826db8ac27ba9637d8f"
+    },
+    "packages/protocol/test/layer1/preconf/mocks/MockPreconfWhitelist.sol": {
+      "bytes": 338,
+      "gitBlob": "228de762363e5099fbe89778065038b343769933",
+      "sha256": "0e12e478186d0866511c6214d8ec4f762a8dc8da9d6629eeb7ef5db7e7fefda2"
+    },
+    "packages/protocol/test/layer1/preconf/whitelist/PreconfWhitelist.t.sol": {
+      "bytes": 13465,
+      "gitBlob": "a9c73226652f4550d5dffa28020783ff6df3a4f4",
+      "sha256": "a43524e19cd534c589f74682120a8f925b5488c1a57c873741a7fd7128d98e46"
+    },
+    "packages/protocol/test/layer1/proposals/Proposal0017.t.sol": {
+      "bytes": 16836,
+      "gitBlob": "2cf19372b75f3e7149ee1543f423093ff4b48600",
+      "sha256": "1740b45ab4be7877f1b7f543613f86fde255dad3d5544fd2666f7c5ad56c21f7"
+    },
+    "packages/protocol/test/layer1/proposals/Proposal0018.t.sol": {
+      "bytes": 1288,
+      "gitBlob": "f35bb2d8b1ac0fa15f6ca008612233e1e6c691d3",
+      "sha256": "e5e9d0304563a77d69c3b758946e4ff63cda62ac25a61a5a51d161286751e337"
+    },
+    "packages/protocol/test/layer1/proposals/Proposal0024.t.sol": {
+      "bytes": 13150,
+      "gitBlob": "5bc78298896fc89108f81c536b0a5121117ede87",
+      "sha256": "9cf25f9b4c9d5f8446f1b17c05de134a55ec7428d86201bc76e434cdec99cfa1"
+    },
+    "packages/protocol/test/layer1/proposals/Proposal0024Fork.t.sol": {
+      "bytes": 39725,
+      "gitBlob": "0b19d5305e17af5485d26151da959dd41e0b73ca",
+      "sha256": "7dee77ab7bf32cce9b9f5de923786b095fc560bd2e07799fe3a7a8e13243b7d8"
+    },
+    "packages/protocol/test/layer1/proposals/Proposal0024Harness.sol": {
+      "bytes": 4172,
+      "gitBlob": "5094a9d44259857593e059903f7114b83ecad74e",
+      "sha256": "918a8c48756b5c6cbadc65ca188f862b7f916e8bc7bb040763dfccfec62e6ab7"
+    },
+    "packages/protocol/test/layer1/proposals/Proposal0025.t.sol": {
+      "bytes": 18206,
+      "gitBlob": "2885831dba271f626c5844463390023cc23a98d7",
+      "sha256": "84b50b87394597161df57b5ff3617d5f9d16f7f7356521cd4683871cd87952d1"
+    },
+    "packages/protocol/test/layer1/proposals/Proposal0025Fork.t.sol": {
+      "bytes": 59929,
+      "gitBlob": "c8dd95677fd39eb843e680c0ee6dbeec9e7feedf",
+      "sha256": "91259745e12ea5d57e2d44032b67292269091e7f01399b1afbeb9b4f2020014e"
+    },
+    "packages/protocol/test/layer1/proposals/Proposal0025Harness.sol": {
+      "bytes": 5475,
+      "gitBlob": "9888f9cbc1946cf726ee0109c6fc9f2ba5f5951f",
+      "sha256": "f989e1f95e28b412b648f819d71a931beea9ca3dff6216dad20bb38d326fc28f"
+    },
+    "packages/protocol/test/layer1/proposals/Proposal0026.t.sol": {
+      "bytes": 13453,
+      "gitBlob": "73bda2ebcf567d1893a5898044da5d5ed0333dd0",
+      "sha256": "96a60a577ff4bdfab4737348c92b4113c4969565dd13fe8d66eb346f6b9df6ff"
+    },
+    "packages/protocol/test/layer1/proposals/Proposal0026Fork.t.sol": {
+      "bytes": 17771,
+      "gitBlob": "d230460a83fe05ddc1d31dd8d84e460a2fd7fabc",
+      "sha256": "f5d3aefca6dd3baadec3e91a4c72bc9d9f0466db2694867957331015d01208d5"
+    },
+    "packages/protocol/test/layer1/proposals/Proposal0026Harness.sol": {
+      "bytes": 2173,
+      "gitBlob": "25f7c7750b708c148eb58e26144ce8006f48bb1e",
+      "sha256": "45743dc66428cfef67b02cdd0b18bf2c07c5c935ca4c69043fa7ef12ab9a952a"
+    },
+    "packages/protocol/test/layer1/verifiers/ComposeVerifier.t.sol": {
+      "bytes": 12023,
+      "gitBlob": "86114beab3362d7c91bc60ce4c379a1213c40f7b",
+      "sha256": "9da1c3645ed55a6ae2bf406d840f86799b5fd495b13dbc9182c2b25abe65d240"
+    },
+    "packages/protocol/test/layer1/verifiers/InsecureSgxVerifier.t.sol": {
+      "bytes": 9206,
+      "gitBlob": "0ece6d47ccb13549907c53856b91c29adb467a09",
+      "sha256": "c5a55d7a76cc46f3ee6af4d5ffbdee9dffcd40f5f6ee0e28e4aa14512e382fbe"
+    },
+    "packages/protocol/test/layer1/verifiers/LibPublicInput.t.sol": {
+      "bytes": 1528,
+      "gitBlob": "5b417d21b49ff01437a5bbdba65e8c89b901a207",
+      "sha256": "95a9555327205df15b3967c4ea04b750d33163d82c342bfc5b4e36288796b055"
+    },
+    "packages/protocol/test/layer1/verifiers/Risc0Verifier.t.sol": {
+      "bytes": 4286,
+      "gitBlob": "5623fd3a7c3f3610657aa718e8a1d9be27ca934b",
+      "sha256": "28853617052c5be574480100bb499008381421d5e690553cb5016cde6c552b8f"
+    },
+    "packages/protocol/test/layer1/verifiers/SP1Verifier.t.sol": {
+      "bytes": 3936,
+      "gitBlob": "919c64f5bba079efcf1fe8644278bf795a91a12e",
+      "sha256": "725e610b6a3f253b167fc565c92e37c05a3464c1da005b6153de11167f861f6f"
+    },
+    "packages/protocol/test/layer1/verifiers/SgxVerifier.t.sol": {
+      "bytes": 74778,
+      "gitBlob": "79ab91d26b6c9586741c93199b2e930def821e68",
+      "sha256": "78cec5c3b65301516d2361c438747e09ce6c1523f77cccf5dad04d679a97e204"
+    },
+    "packages/protocol/test/layer2/Layer2Test.sol": {
+      "bytes": 742,
+      "gitBlob": "da49fdfbdaec5bd784e5ed3896c70eed71f3da75",
+      "sha256": "9c73044fae2851b24260aba73cf7678f313bdab17aed41fce3a2db9515c5da12"
+    },
+    "packages/protocol/test/layer2/LibAnchorSigner.sol": {
+      "bytes": 4332,
+      "gitBlob": "19faaa4765e5110a2df86fd62234a20a7f4f2189",
+      "sha256": "7fceb35667840c6c391327274384f2f45a4b75b5423a316ed554e16ba4a66674"
+    },
+    "packages/protocol/test/layer2/core/Anchor.t.sol": {
+      "bytes": 8744,
+      "gitBlob": "e790ca6ab9208bb94b2cfdf70e37872d02214736",
+      "sha256": "52b66511d36996c767f56db328bfd6b718fde80d09af664e82fbe8094b8ae5e7"
+    },
+    "packages/protocol/test/layer2/core/AnchorStateRoot.t.sol": {
+      "bytes": 8026,
+      "gitBlob": "11828a66fb40c01107d5c122a026a30d4957228b",
+      "sha256": "fba2103bd6448c7907a4ed147b27e168ec76c063dc9b21e0452aea0bf9644dea"
+    },
+    "packages/protocol/test/layer2/core/DeployShastaL2Config.t.sol": {
+      "bytes": 12404,
+      "gitBlob": "2de3ac8a9b640f1ef10c53a641374ec8d8aea6ce",
+      "sha256": "2f765b4be34ef8e6bfc657e566c80212a514c7c40a68c7a7dab3e4ee209d25c5"
+    },
+    "packages/protocol/test/layer2/core/EtnaGenesis.t.sol": {
+      "bytes": 4712,
+      "gitBlob": "373bca93accc345bd6c0fcbe1f323fbeae6d4622",
+      "sha256": "eb6520f48f07a75ee3da8d93e49688834625a71dfad50e839f3ed6e6e9eb5df7"
+    },
+    "packages/protocol/test/layer2/core/etna_genesis_fixture.py": {
+      "bytes": 8795,
+      "gitBlob": "3895b16eafd68e6e9a273d82c243d4d7e1dd2082",
+      "sha256": "f5808bb2e33ced08ffb53b345cb29c5a6e281e3e9747aa4c9c07d8cce3560993"
+    },
+    "packages/protocol/test/layer2/core/test_etna_genesis.py": {
+      "bytes": 25963,
+      "gitBlob": "de19a6bbef0199ed4e451b03073708ed346517a8",
+      "sha256": "75af19b0c44b16a0985088d0958df5db01de00f689a6322d454d9076d9461e3e"
+    },
+    "packages/protocol/test/layer2/governance/BridgedTaikoToken.t.sol": {
+      "bytes": 2124,
+      "gitBlob": "7226da79d172ec70c4cbac290d1ed361d365cb46",
+      "sha256": "09c66576a43906b087ac1bacb50d8767804c4b9260d18856a00fc57c88774c77"
+    },
+    "packages/protocol/test/layer2/governance/DelegateController.t.sol": {
+      "bytes": 5578,
+      "gitBlob": "3af14e32ac031714170c32cf08aaff194b2474e3",
+      "sha256": "1494c4f94115b0bca9149ed80d3d39098e5b540dea13b46373cadabc3439f241"
+    },
+    "packages/protocol/test/mocks/TestERC20.sol": {
+      "bytes": 320,
+      "gitBlob": "e08a1e1f211fc76d7e228eee1df909566e359259",
+      "sha256": "1de919ae572b3c55d91fed0f8b77fcab425901c4e44e7bcdcb1400273f9d8164"
+    },
+    "packages/protocol/test/shared/CommonTest.sol": {
+      "bytes": 9100,
+      "gitBlob": "1843028e807a0ef0a8ef0f585f846f990b8a6705",
+      "sha256": "baad681618d654eb69126548169e381065a99c5e90f1b8aee8669465c1e6af92"
+    },
+    "packages/protocol/test/shared/DeployCapability.sol": {
+      "bytes": 2980,
+      "gitBlob": "a14f12326d851dda295868bf6825f8ab9a532950",
+      "sha256": "c8e08d7ecb1a044f180a7d9aabd61aa51ac85ee31c3ce1601816f256f067dcc2"
+    },
+    "packages/protocol/test/shared/bridge/Bridge1.t.sol": {
+      "bytes": 14170,
+      "gitBlob": "16eab190ccad71d647a8a57384c440711ae4c95d",
+      "sha256": "dbeb25dae5696001c03ebdac2ae7c88e951ab9f375da2fc9753c2eae6e9f205d"
+    },
+    "packages/protocol/test/shared/bridge/Bridge1_init3.t.sol": {
+      "bytes": 3577,
+      "gitBlob": "a24fa4c012baa37575e4c7cd060f4e3699371e5b",
+      "sha256": "8b05698f6aea975bd2e65e596253b9fdff8e41f4c8c79cffbe7d139fa1051f8d"
+    },
+    "packages/protocol/test/shared/bridge/Bridge2_failMessage.t.sol": {
+      "bytes": 2541,
+      "gitBlob": "a1d563c038d8fcd777c054065fcd2c6a8fb7d9b2",
+      "sha256": "b9d7363f3a5378b1dc01e6dc87c300085256ef3cf5abefce87c3b4f54a7738a3"
+    },
+    "packages/protocol/test/shared/bridge/Bridge2_pauser.t.sol": {
+      "bytes": 3003,
+      "gitBlob": "6b6d20168a633297a7fb28eb681a4345ce57a585",
+      "sha256": "385f872e382b6fe78d003fdc31571bffa97b3747f2f42a2306ccc13d8f668efa"
+    },
+    "packages/protocol/test/shared/bridge/Bridge2_processMessage.t.sol": {
+      "bytes": 27797,
+      "gitBlob": "07a77579d073c778a8d8676d47244a52f7574a1b",
+      "sha256": "6a6019f56a8aa7a605dc01b48a475556f22f97edddef96aeec3d04092e22d82f"
+    },
+    "packages/protocol/test/shared/bridge/Bridge2_quota.t.sol": {
+      "bytes": 2769,
+      "gitBlob": "f5385ef23efbb3481aed345d9e7b6a137d0d171d",
+      "sha256": "67a169a5a6f83b33321868fac50d16be68e89c750f0b8a88805d24e5f09964a7"
+    },
+    "packages/protocol/test/shared/bridge/Bridge2_quotaAccounting.t.sol": {
+      "bytes": 10371,
+      "gitBlob": "7ef8bd191c680340963360cbafcea92e43144dcb",
+      "sha256": "4e994307e63ced3a4df19581f901672934d41520ab37454cbe38f1105c0d6b10"
+    },
+    "packages/protocol/test/shared/bridge/Bridge2_quotaRecall.t.sol": {
+      "bytes": 10098,
+      "gitBlob": "e33a315ee0235fe5da5406a9b863f0d2b42a3fc1",
+      "sha256": "0517a5486da7a25c0439c8f001e819a1dab0559e0133f5002a344e6231efd58d"
+    },
+    "packages/protocol/test/shared/bridge/Bridge2_recallDisabled.t.sol": {
+      "bytes": 9217,
+      "gitBlob": "c61e45af44c2459716aee9ee755a14c5279025c6",
+      "sha256": "88edce089b0d163832ada1b44ae118cc56f2bca3783ecd263630164141d27f0f"
+    },
+    "packages/protocol/test/shared/bridge/Bridge2_recallMessage.t.sol": {
+      "bytes": 4953,
+      "gitBlob": "67c5b28e7fa61dbd11e5dc57b69a2f3122c59f84",
+      "sha256": "0652daa143f8257651d8f51c40e401b4f082c80986aa7bea443f194b3a3538fc"
+    },
+    "packages/protocol/test/shared/bridge/Bridge2_receive.t.sol": {
+      "bytes": 1812,
+      "gitBlob": "a65febcd78def8c12770c46787551110f9b94ce8",
+      "sha256": "a915f919a58e327e615dbb93c9462147a85f58138e2e91c76d5919991b3ce952"
+    },
+    "packages/protocol/test/shared/bridge/Bridge2_retryMessage.t.sol": {
+      "bytes": 2983,
+      "gitBlob": "c05ae9629ae237ad3e9c9bc4b71ba3cef1c3828a",
+      "sha256": "ed008abb8ac81fcaee98119509637debbcd041374831f51520c124123a4fa53b"
+    },
+    "packages/protocol/test/shared/bridge/Bridge2_sendMessage.t.sol": {
+      "bytes": 3312,
+      "gitBlob": "c538500a2e692a735e847cd26a6b8357ade4d0ef",
+      "sha256": "ec275008bafe1b651a091ef95d379df4d03576467c4bf055cd0d33aadfb15211"
+    },
+    "packages/protocol/test/shared/bridge/QuotaManager.t.sol": {
+      "bytes": 6721,
+      "gitBlob": "3b8abc0c2b820dc19d08f017e2a6acfb9b6872be",
+      "sha256": "d85dc2ec8016ad1a467abb46bace3299159a33ca7ca45aaec21dee38db078269"
+    },
+    "packages/protocol/test/shared/bridge/TestBridge2Base.sol": {
+      "bytes": 3469,
+      "gitBlob": "56fffe616e05678921402947941b39257a3d8aee",
+      "sha256": "5cddcc52173d8641ff81a16267e9d82e12925e1b99db1bd584a0dbd87f5cec5e"
+    },
+    "packages/protocol/test/shared/bridge/helpers/MessageReceiver_CreatingFreshStorageSlots.sol": {
+      "bytes": 2679,
+      "gitBlob": "f05fffd730c0e4d0db98737b8dd31bf83ad03716",
+      "sha256": "7107c6c2a2ab646c30571fd32560d7054a064544668a598a230a5712877641dd"
+    },
+    "packages/protocol/test/shared/bridge/helpers/MessageReceiver_RecordingGasBudget.sol": {
+      "bytes": 1437,
+      "gitBlob": "4a32a4ebe27d3d80cd836dc9284e1c3cdaf8df9e",
+      "sha256": "50b550273429f36cffdd1d4919a75f3ea42133044530c0533fb3e110b33a095d"
+    },
+    "packages/protocol/test/shared/bridge/helpers/MessageReceiver_SendingHalfEtherBalance.sol": {
+      "bytes": 442,
+      "gitBlob": "3e39d19bb4bd9f537ad3f93645f3cb4096a20f49",
+      "sha256": "e10fa512a39435b81d05bef1278fc138ccc63aab7f165d28115c2c38f512792c"
+    },
+    "packages/protocol/test/shared/common/DefaultResolver.t.sol": {
+      "bytes": 1643,
+      "gitBlob": "9f02a6af57440d99cf51af265aaed368d1a61267",
+      "sha256": "a6335c2b12c55d809d131bc88bc83330d6829c5701fd16244f7ff8d5fa564759"
+    },
+    "packages/protocol/test/shared/common/EssentialContract.t.sol": {
+      "bytes": 1658,
+      "gitBlob": "0af31d2b664612ea62d83cddbb139777ae9328d8",
+      "sha256": "f488fc6c37245c09182859cb7f2cc979c440784ee773bceb011a854036c1f5c0"
+    },
+    "packages/protocol/test/shared/helpers/CanSayHelloWorld.sol": {
+      "bytes": 197,
+      "gitBlob": "fc74c02146f85dcd232d8d6f82c8bedba227948e",
+      "sha256": "07d296f81273e67ecea479c7edfde473d2f53e7fca30ff7c288e4b01fddc6b07"
+    },
+    "packages/protocol/test/shared/helpers/CountingQuotaManager.sol": {
+      "bytes": 988,
+      "gitBlob": "d7cbdde6612a737e67563a3e859f7b50e4d0fcfd",
+      "sha256": "d1ff76dc806c9f7a7e12d17bf3baa43646a28d50f761cd8d0d64fa1c55cae1e6"
+    },
+    "packages/protocol/test/shared/helpers/EssentialContract_EmptyStub.sol": {
+      "bytes": 291,
+      "gitBlob": "5e9519b11c6bbe61f7e071534f89388ad3430107",
+      "sha256": "bdde3fa5c481ca7c09c969924bddd2155b7092219603d23f447e7544c543a396"
+    },
+    "packages/protocol/test/shared/helpers/FreeMintERC20Token.sol": {
+      "bytes": 559,
+      "gitBlob": "18d1f8e60d1c24773fedb915bd9bf43820320a38",
+      "sha256": "fb645362c92289e3089e90626aa257ee9609579767b8a10ef4415c68111f8a6f"
+    },
+    "packages/protocol/test/shared/helpers/FreeMintERC20TokenWithPermit.sol": {
+      "bytes": 791,
+      "gitBlob": "de3447b7c42b9b778b5bd9db7eeb75a640edb69b",
+      "sha256": "d1f457cdd68df23811a0bd1b70d555282adcf7f565e07ab3940935e5e3fde039"
+    },
+    "packages/protocol/test/shared/helpers/FreeMintERC20Token_With50PctgMintAndTransferFailure.sol": {
+      "bytes": 906,
+      "gitBlob": "455cc056567b41939926bff0eecf98f294e46387",
+      "sha256": "17b25798b9f150390c4ee1589a30b4a1780d02f54f257982e135eb7cabb6b9ea"
+    },
+    "packages/protocol/test/shared/helpers/FreeMintERC721Token.sol": {
+      "bytes": 600,
+      "gitBlob": "b7a499ac5df5d27da55a6e184a3c559ff4bf0974",
+      "sha256": "450e37f818d0527670876a28325fed839b38e29b9449b86aeacc806f1a9dd056"
+    },
+    "packages/protocol/test/shared/helpers/Permit2Mock.sol": {
+      "bytes": 5039,
+      "gitBlob": "2664b5714542acd51afecc1fcc136e6d0f02bb20",
+      "sha256": "437bf201b590377ce873d9e56529329416b382ffa136e4b00b59970edf7d42f3"
+    },
+    "packages/protocol/test/shared/helpers/RegularERC20.sol": {
+      "bytes": 269,
+      "gitBlob": "5216f9077afe36e8aa76893beb9703a3f9d9f32d",
+      "sha256": "665ce5916187ba5878b51fbe77f42fb78c067603b88248970028f36ad0f72e80"
+    },
+    "packages/protocol/test/shared/helpers/SignalService_WithoutProofVerification.sol": {
+      "bytes": 1296,
+      "gitBlob": "a4aa45e6fab32a7815bad0832c0529fc7f4b309e",
+      "sha256": "eb13351c5340d8668450e44c6c9ab16b7d27cab43247be66e96bfb9b67de30ff"
+    },
+    "packages/protocol/test/shared/libs/LibAddress.h.sol": {
+      "bytes": 1757,
+      "gitBlob": "eac3a5b2297bf97e361c59efea5e6c7fd685bb53",
+      "sha256": "a416a20c38fdc8bd066e8f518492ae6bff1682b5e36683b4817b6c9c279a1a77"
+    },
+    "packages/protocol/test/shared/libs/LibAddress.t.sol": {
+      "bytes": 2483,
+      "gitBlob": "c4f7b35308997a125c0d6ab206f718ddd1ce7f26",
+      "sha256": "3e4cb2012db0266a042ee130a3ea959907f1e1064b99ed02b7da62d8e4df77bd"
+    },
+    "packages/protocol/test/shared/libs/LibBytes.t.sol": {
+      "bytes": 2186,
+      "gitBlob": "4b30b7d73a761c882700f213c244ed9518981b2c",
+      "sha256": "070a835f71ed8a03079e4575b5e18a8ec0530dc99491ec145391de41d124e2f7"
+    },
+    "packages/protocol/test/shared/libs/LibNetwork.t.sol": {
+      "bytes": 2850,
+      "gitBlob": "588751b160c4a3b1601892657ed4154ccee43109",
+      "sha256": "fc561a3743496df8395acb2d62802b02c34334a1ed937d06422daeda354eb96d"
+    },
+    "packages/protocol/test/shared/libs/LibTrieProof.t.sol": {
+      "bytes": 25799,
+      "gitBlob": "aee3bfe3384e09fd3984d5164af14f965c2eb1a4",
+      "sha256": "8791a14248f4c8cc4249fe6049581a53bdca60b3caa13d6a017c48003ba9be40"
+    },
+    "packages/protocol/test/shared/signal/LegacySignalService.sol": {
+      "bytes": 10003,
+      "gitBlob": "2a83ff71816ef53c95fa043999963b936496e15b",
+      "sha256": "65b9a8302c548a20f03ea501ad5894d3e6b04bfbb11f77ae6224716c7cf63e63"
+    },
+    "packages/protocol/test/shared/signal/SignalService.t.sol": {
+      "bytes": 14399,
+      "gitBlob": "1f48f03847dcd239a59955b983caa4fed334f2ce",
+      "sha256": "c9bc0a5a9b1512cf54fb49d530a8c0116d57f4ad22ddb11ec133f05cad7d14a6"
+    },
+    "packages/protocol/test/shared/signal/SignalServiceL2.t.sol": {
+      "bytes": 14198,
+      "gitBlob": "6fa4f2e0a388a180aeb38fdf834c2fa125445bce",
+      "sha256": "cf150fca4c0e4e5bc7f9f493b15f518b635f9f05f04832b24e876e1a1ec588ce"
+    },
+    "packages/protocol/test/shared/signal/SignalServiceProofFixture.sol": {
+      "bytes": 7839,
+      "gitBlob": "d1ccf6ab57bd4412dd8f9f9aba2a0b3fe64ba274",
+      "sha256": "0c0e84a0d484819538191f4107d18c95b7c327a76f6901dd663fc69f038d5e86"
+    },
+    "packages/protocol/test/shared/thirdparty/FreeMintUSDMock.sol": {
+      "bytes": 695,
+      "gitBlob": "992e56ce5fb14a7c5fd88759c52c60b49ee115c9",
+      "sha256": "e6453ee4451a357e8a8ea197a7008dfa0e4158ae88f7207818c049ff5b81a3ee"
+    },
+    "packages/protocol/test/shared/thirdparty/LibUint512Math.sol": {
+      "bytes": 3163,
+      "gitBlob": "ae732cf8eba62d7379daeb32b7a46cea783afcf3",
+      "sha256": "100edef1bd3386e51d1178019e57faf1d211ec66feeb8fc722375ffe027d1707"
+    },
+    "packages/protocol/test/shared/thirdparty/Multicall3.sol": {
+      "bytes": 9965,
+      "gitBlob": "38b96a3e872028b670532af0d8c06ea894e58e74",
+      "sha256": "6158cfc5fe95f3e3a56fbda059ca3127bbb8e84547cd87c61654bbbc970895e7"
+    },
+    "packages/protocol/test/shared/thirdparty/WETH9.sol": {
+      "bytes": 37852,
+      "gitBlob": "3c04edc50f5dfc1ae4a3f9af372f815241403fc4",
+      "sha256": "a15f3c82fe0816d86327a5b0392405144540374377e7013b9e1816df3ee6b49c"
+    },
+    "packages/protocol/test/shared/vault/BridgedERC20V2.t.sol": {
+      "bytes": 4204,
+      "gitBlob": "dd8aecadb4c12651efc4b4c4ec81d4560ad15c9a",
+      "sha256": "fcaf1f201f52c9b6bf13ab92e15f5f440873cec97432b41e650e48b7ec3cf0ed"
+    },
+    "packages/protocol/test/shared/vault/ERC1155Vault.h.sol": {
+      "bytes": 2637,
+      "gitBlob": "6e90f9cc673a56c5eea36b2378ec7b38cc3cd516",
+      "sha256": "c8f38cfa9319a1fded9ea19411a5b9cacb0ec110f103af427782eae3986fe3c8"
+    },
+    "packages/protocol/test/shared/vault/ERC1155Vault.t.sol": {
+      "bytes": 24522,
+      "gitBlob": "f142ff89a348f0d0a90b267f8f22682c356b664c",
+      "sha256": "053114d7a6bd55d3e0e2ebacf5636e3d423f4a59b17da8f40e2439c17099fdd3"
+    },
+    "packages/protocol/test/shared/vault/ERC20Vault.h.sol": {
+      "bytes": 3010,
+      "gitBlob": "16a3b08cff1e59ffa6c239f73717ebd51be53349",
+      "sha256": "90e1860d2098d384d3bfdcc1678db07f301eb99a0de54e1fb87c5e03b68821d8"
+    },
+    "packages/protocol/test/shared/vault/ERC20Vault.t.sol": {
+      "bytes": 20520,
+      "gitBlob": "e861aee6317936f1e09d698eec9e2da7f09b5894",
+      "sha256": "0672dd292ba8f9d2dfb02e33fcb3b694edb3c94b4891476c4846163eb3dfa80f"
+    },
+    "packages/protocol/test/shared/vault/ERC20Vault_permit.t.sol": {
+      "bytes": 39635,
+      "gitBlob": "6cd4fe39ac3b9f83af0bf84fedf69d23b4073154",
+      "sha256": "2bb68d569eca3a0e5510dd8a9ca4e69dc050bbc0a7f03497ef23f64c15c59fa5"
+    },
+    "packages/protocol/test/shared/vault/ERC20Vault_quota.t.sol": {
+      "bytes": 10512,
+      "gitBlob": "33d4ebb5ad8197e8dad4910e2ebe0a1805273fcb",
+      "sha256": "b6a37a91a87bb56516386fd313b9f505c44c72792235652af7c0bc733d1fefcd"
+    },
+    "packages/protocol/test/shared/vault/ERC20Vault_quotaRecall.t.sol": {
+      "bytes": 11227,
+      "gitBlob": "18d4a00f2ba6cd378fdcf1621fb93292bfaadaba",
+      "sha256": "41f44b715b3e8e4179c72b1dab07f2ded1b006f98f75f3dc2cc8bc22b3315a7e"
+    },
+    "packages/protocol/test/shared/vault/ERC721Vault.h.sol": {
+      "bytes": 2233,
+      "gitBlob": "85537f05b23094ac1ef5feef194b45fd75548ab2",
+      "sha256": "aa2c154e6d58b810016647e86ff4ed0afc0e1f0ab55544bdfb5351df41aa01e5"
+    },
+    "packages/protocol/test/shared/vault/ERC721Vault.t.sol": {
+      "bytes": 23669,
+      "gitBlob": "f9c7863e751ef0d4c19345fe73942a535cbb10b4",
+      "sha256": "9361c7f5774e08cd49df4a0f4a33bf0ac007deed23cc9886890d61f953823271"
+    },
+    "packages/protocol/test/shared/vault/Permit2Fork.t.sol": {
+      "bytes": 9155,
+      "gitBlob": "981998b6409164f782b22bb4f863183d9431dfbc",
+      "sha256": "f49ec521cc6c42627ec2e254fce68830d608d04d283b56ff86aa0a5426f00512"
+    },
+    "pnpm-lock.yaml": {
+      "bytes": 863440,
+      "gitBlob": "75b2767464af1f7b09b2a0f1ac2b7b5a1b1b2917",
+      "sha256": "fc63361789595791c199485e0ec71a8078ba0c59030570352c9497502762cebd"
+    },
+    "pnpm-workspace.yaml": {
+      "bytes": 214,
+      "gitBlob": "23648adb17c21071c17340a5d12ba886d0617c4d",
+      "sha256": "cb586f4af2f178cd12428a27e626fc85b53a84e71802c3fe8a918b7cd53b2616"
+    }
+  },
+  "schema": "etna-source-snapshot-1"
+}
